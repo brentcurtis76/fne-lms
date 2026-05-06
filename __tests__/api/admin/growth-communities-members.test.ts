@@ -817,6 +817,114 @@ describe('admin/growth-communities/[id]/members — GET response shape', () => {
       },
     });
   });
+
+  it('prefers lider_comunidad row over docente when both rows match this community (older docente, newer leader)', async () => {
+    setupAdmin();
+
+    const userRoles = [
+      {
+        id: 'r-docente-old',
+        user_id: USER_ID,
+        role_type: 'docente',
+        school_id: 1,
+        generation_id: GENERATION_ID,
+        community_id: COMMUNITY_ID,
+        is_active: true,
+      },
+      {
+        id: 'r-lider-new',
+        user_id: USER_ID,
+        role_type: 'lider_comunidad',
+        school_id: 1,
+        generation_id: GENERATION_ID,
+        community_id: COMMUNITY_ID,
+        is_active: true,
+      },
+    ];
+
+    const profiles = [
+      { id: USER_ID, first_name: 'Promo', last_name: 'Lider', email: 'p@x', avatar_url: null },
+    ];
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient({
+        growth_communities: [{ data: COMMUNITY_ROW }],
+        user_roles: [{ data: userRoles }],
+        profiles: [{ data: profiles }],
+      })
+    );
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { id: COMMUNITY_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const body = JSON.parse(res._getData());
+    expect(body.currentMembers).toHaveLength(1);
+    expect(body.currentMembers[0]).toMatchObject({
+      user_id: USER_ID,
+      role_type: 'lider_comunidad',
+      user_roles_id: 'r-lider-new',
+    });
+  });
+
+  it('prefers lider_comunidad row over docente when the docente row sorts first by id', async () => {
+    setupAdmin();
+
+    // The GET handler orders user_roles by id ascending. With UUID-style ids
+    // 'r-docente-new' < 'r-lider-old' lexicographically, so the docente row
+    // arrives first. The old first-match logic would have selected docente —
+    // the new logic must still pick lider_comunidad.
+    const userRoles = [
+      {
+        id: 'r-docente-new',
+        user_id: USER_ID,
+        role_type: 'docente',
+        school_id: 1,
+        generation_id: GENERATION_ID,
+        community_id: COMMUNITY_ID,
+        is_active: true,
+      },
+      {
+        id: 'r-lider-old',
+        user_id: USER_ID,
+        role_type: 'lider_comunidad',
+        school_id: 1,
+        generation_id: GENERATION_ID,
+        community_id: COMMUNITY_ID,
+        is_active: true,
+      },
+    ];
+
+    const profiles = [
+      { id: USER_ID, first_name: 'Promo', last_name: 'Lider', email: 'p@x', avatar_url: null },
+    ];
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient({
+        growth_communities: [{ data: COMMUNITY_ROW }],
+        user_roles: [{ data: userRoles }],
+        profiles: [{ data: profiles }],
+      })
+    );
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { id: COMMUNITY_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const body = JSON.parse(res._getData());
+    expect(body.currentMembers).toHaveLength(1);
+    expect(body.currentMembers[0]).toMatchObject({
+      user_id: USER_ID,
+      role_type: 'lider_comunidad',
+      user_roles_id: 'r-lider-old',
+    });
+  });
 });
 
 describe('admin/growth-communities/[id]/members — equipo_directivo', () => {

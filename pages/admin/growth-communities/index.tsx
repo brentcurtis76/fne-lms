@@ -168,63 +168,34 @@ const GrowthCommunitiesIndexPage: React.FC<PageProps> = ({ role, schoolId }) => 
       }
       setLoading(true);
       try {
-        const { data: comms, error } = await supabase
-          .from('growth_communities')
-          .select('id, name, generation_id, max_teachers, description')
-          .eq('school_id', schoolId)
-          .order('name');
-
-        if (error) {
+        const res = await fetch(
+          `/api/admin/growth-communities?school_id=${encodeURIComponent(schoolId)}`,
+        );
+        if (!res.ok) {
           toast.error('Error al cargar comunidades');
           setCommunities([]);
           return;
         }
-
-        type RawCommunity = {
-          id: string;
-          name: string;
-          generation_id: string | null;
-          max_teachers: number | null;
-          description: string | null;
+        const json = (await res.json()) as {
+          communities?: Array<{
+            id: string;
+            name: string;
+            generation_id: string | null;
+            max_teachers: number | null;
+            member_count: number;
+          }>;
         };
-        const raw = (comms ?? []) as RawCommunity[];
-
-        // One grouped query instead of N per-community count queries.
-        const countByCommunity = new Map<string, number>();
-        if (raw.length > 0) {
-          const { data: memberRows, error: countError } = await supabase
-            .from('user_roles')
-            .select('community_id')
-            .in(
-              'community_id',
-              raw.map((c) => c.id)
-            )
-            .eq('is_active', true);
-          if (countError) {
-            toast.error('Error al cargar miembros');
-          } else {
-            for (const row of (memberRows ?? []) as Array<{
-              community_id: string | null;
-            }>) {
-              if (row.community_id) {
-                countByCommunity.set(
-                  row.community_id,
-                  (countByCommunity.get(row.community_id) ?? 0) + 1
-                );
-              }
-            }
-          }
-        }
-
-        const enriched: CommunityRow[] = raw.map((c) => ({
-          id: c.id,
-          name: c.name,
-          generation_id: c.generation_id,
-          max_teachers: c.max_teachers,
-          description: c.description,
-          member_count: countByCommunity.get(c.id) ?? 0,
-        }));
-        setCommunities(enriched);
+        const list = json.communities ?? [];
+        setCommunities(
+          list.map((c) => ({
+            id: c.id,
+            name: c.name,
+            generation_id: c.generation_id,
+            max_teachers: c.max_teachers,
+            description: null,
+            member_count: c.member_count,
+          })),
+        );
       } catch {
         toast.error('Error de red al cargar comunidades');
         setCommunities([]);
@@ -232,7 +203,7 @@ const GrowthCommunitiesIndexPage: React.FC<PageProps> = ({ role, schoolId }) => 
         setLoading(false);
       }
     },
-    [supabase]
+    []
   );
 
   useEffect(() => {

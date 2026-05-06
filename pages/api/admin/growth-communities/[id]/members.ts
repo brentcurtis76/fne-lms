@@ -221,7 +221,10 @@ async function handleGet(
   for (const [userId, userRows] of rowsByUser) {
     const profile = profileById.get(userId) ?? null;
 
-    const memberRow = userRows.find((r) => r.community_id === community.id);
+    const memberRow =
+      userRows.find(
+        (r) => r.community_id === community.id && r.role_type === 'lider_comunidad'
+      ) ?? userRows.find((r) => r.community_id === community.id);
     if (memberRow) {
       currentMembers.push({
         user_id: userId,

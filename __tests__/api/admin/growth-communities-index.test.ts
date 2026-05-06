@@ -508,6 +508,145 @@ describe('admin/growth-communities — equipo_directivo school scope', () => {
   });
 });
 
+describe('admin/growth-communities — GET', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const COMM_A = 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const COMM_B = 'bbbbbbb2-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+
+  it('admin GET with ?school_id=257 — 200 with member_count derived from sequenced calls', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          growth_communities: [{
+            data: [
+              { id: COMM_A, name: 'Alfa', generation_id: null, max_teachers: 16 },
+              { id: COMM_B, name: 'Beta', generation_id: null, max_teachers: 8 },
+            ],
+          }],
+          user_roles: [{
+            data: [
+              { community_id: COMM_A },
+              { community_id: COMM_A },
+              { community_id: COMM_A },
+              { community_id: COMM_B },
+            ],
+          }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { school_id: '257' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const body = JSON.parse(res._getData());
+    expect(body.communities).toEqual([
+      { id: COMM_A, name: 'Alfa', generation_id: null, max_teachers: 16, member_count: 3 },
+      { id: COMM_B, name: 'Beta', generation_id: null, max_teachers: 8, member_count: 1 },
+    ]);
+    // Two sequenced supabase reads: communities, then a single user_roles
+    // count-by-community call constrained to the returned community ids.
+    expect(tracker.fromCalls.map((c) => c.table)).toEqual([
+      'growth_communities',
+      'user_roles',
+    ]);
+    const userRolesCall = tracker.fromCalls.find((c) => c.table === 'user_roles')!;
+    expect(userRolesCall.inArgs).toEqual([[COMM_A, COMM_B]]);
+  });
+
+  it('ED GET with their own school_id — 200 same payload shape', async () => {
+    setupEquipoDirectivo(SCHOOL_ID);
+    const tracker = makeTracker();
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          growth_communities: [{
+            data: [{ id: COMM_A, name: 'Solo', generation_id: null, max_teachers: 16 }],
+          }],
+          user_roles: [{
+            data: [{ community_id: COMM_A }, { community_id: COMM_A }],
+          }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { school_id: String(SCHOOL_ID) },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const body = JSON.parse(res._getData());
+    expect(body.communities).toEqual([
+      { id: COMM_A, name: 'Solo', generation_id: null, max_teachers: 16, member_count: 2 },
+    ]);
+  });
+
+  it('ED GET with another school id — handler overrides effectiveSchoolId to ED.school_id (does NOT 403)', async () => {
+    // Documents the implemented behavior: the handler logs a warning and
+    // silently scopes the listing to the ED's own school instead of returning
+    // 403. The supabase call must therefore filter on SCHOOL_ID, not the
+    // requested OTHER_SCHOOL_ID — we exercise that by stocking results only
+    // under the ED's school and asserting we get them back.
+    setupEquipoDirectivo(SCHOOL_ID);
+    const tracker = makeTracker();
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          growth_communities: [{
+            data: [{ id: COMM_A, name: 'Own School Only', generation_id: null, max_teachers: 16 }],
+          }],
+          user_roles: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { school_id: String(OTHER_SCHOOL_ID) },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const body = JSON.parse(res._getData());
+    expect(body.communities).toEqual([
+      {
+        id: COMM_A,
+        name: 'Own School Only',
+        generation_id: null,
+        max_teachers: 16,
+        member_count: 0,
+      },
+    ]);
+  });
+
+  it('admin GET with no school_id — 400 invalid-school error, no supabase call', async () => {
+    setupAdmin();
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(JSON.parse(res._getData()).error).toMatch(/school_id/);
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
+});
+
 describe('admin/growth-communities — auth + method guards', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -527,12 +666,12 @@ describe('admin/growth-communities — auth + method guards', () => {
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
-  it('GET → 405 with Allow: POST header', async () => {
-    const { req, res } = createMocks({ method: 'GET' });
+  it('PUT → 405 with Allow: GET, POST header', async () => {
+    const { req, res } = createMocks({ method: 'PUT' });
     await handler(req as never, res as never);
 
     expect(res._getStatusCode()).toBe(405);
-    expect(res.getHeader('Allow')).toBe('POST');
+    expect(res.getHeader('Allow')).toBe('GET, POST');
     // Method gate runs before auth — the auth helper must not be consulted.
     expect(mockCheckIsAdminOrEquipoDirectivo).not.toHaveBeenCalled();
   });

@@ -25,8 +25,8 @@ interface SchoolRow {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'admin/growth-communities');
 
-  if (req.method !== 'POST') {
-    return handleMethodNotAllowed(res, ['POST']);
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return handleMethodNotAllowed(res, ['GET', 'POST']);
   }
 
   const { isAuthorized, role, schoolId: edSchoolId, user, error: authError } =
@@ -36,6 +36,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   if (!isAuthorized || !user) {
     return res.status(403).json({ error: FORBIDDEN_MESSAGE });
+  }
+
+  if (req.method === 'GET') {
+    return handleGet(req, res, role, edSchoolId);
   }
 
   const body = (req.body ?? {}) as {
@@ -178,4 +182,99 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   return res.status(201).json({ community });
+}
+
+async function handleGet(
+  req: NextApiRequest,
+  res: NextApiResponse,
+  role: 'admin' | 'equipo_directivo' | null,
+  edSchoolId: number | null,
+) {
+  let effectiveSchoolId: number;
+
+  const rawQuerySchoolId = req.query.school_id;
+  const querySchoolIdStr = Array.isArray(rawQuerySchoolId)
+    ? rawQuerySchoolId[0]
+    : rawQuerySchoolId;
+
+  if (role === 'equipo_directivo') {
+    if (typeof edSchoolId !== 'number') {
+      return res.status(403).json({ error: FORBIDDEN_MESSAGE });
+    }
+    if (
+      typeof querySchoolIdStr === 'string' &&
+      querySchoolIdStr !== '' &&
+      Number(querySchoolIdStr) !== edSchoolId
+    ) {
+      console.warn(
+        '[admin/growth-communities GET] equipo_directivo provided different school_id; overriding',
+        { providedSchoolId: querySchoolIdStr, edSchoolId },
+      );
+    }
+    effectiveSchoolId = edSchoolId;
+  } else {
+    if (typeof querySchoolIdStr !== 'string' || querySchoolIdStr.trim() === '') {
+      return sendApiError(res, 'school_id is required', 400);
+    }
+    const parsed = Number(querySchoolIdStr);
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
+      return sendApiError(res, 'school_id must be a positive integer', 400);
+    }
+    effectiveSchoolId = parsed;
+  }
+
+  const supabase = createServiceRoleClient();
+
+  const { data: communityRows, error: communityError } = await supabase
+    .from('growth_communities')
+    .select('id, name, generation_id, max_teachers')
+    .eq('school_id', effectiveSchoolId)
+    .order('name');
+
+  if (communityError) {
+    return sendApiError(res, 'fetch_failed', 500, communityError.message);
+  }
+
+  type CommunityRow = {
+    id: string;
+    name: string;
+    generation_id: string | null;
+    max_teachers: number | null;
+  };
+  const communities = (communityRows ?? []) as CommunityRow[];
+
+  if (communities.length === 0) {
+    return res.status(200).json({ communities: [] });
+  }
+
+  const communityIds = communities.map((c) => c.id);
+  const { data: memberRows, error: memberError } = await supabase
+    .from('user_roles')
+    .select('community_id')
+    .in('community_id', communityIds)
+    .eq('is_active', true);
+
+  if (memberError) {
+    return sendApiError(res, 'fetch_failed', 500, memberError.message);
+  }
+
+  const countByCommunity = new Map<string, number>();
+  for (const row of (memberRows ?? []) as Array<{ community_id: string | null }>) {
+    if (row.community_id) {
+      countByCommunity.set(
+        row.community_id,
+        (countByCommunity.get(row.community_id) ?? 0) + 1,
+      );
+    }
+  }
+
+  const enriched = communities.map((c) => ({
+    id: c.id,
+    name: c.name,
+    generation_id: c.generation_id,
+    max_teachers: c.max_teachers,
+    member_count: countByCommunity.get(c.id) ?? 0,
+  }));
+
+  return res.status(200).json({ communities: enriched });
 }

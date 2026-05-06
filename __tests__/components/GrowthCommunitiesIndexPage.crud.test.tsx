@@ -131,7 +131,10 @@ function defaultFixtures(
   };
 }
 
+const fixturesHolder: { current: SupabaseFixtures | null } = { current: null };
+
 function makeSupabaseMock(fx: SupabaseFixtures) {
+  fixturesHolder.current = fx;
   const client = {
     auth: {
       getSession: vi
@@ -232,6 +235,34 @@ function installFetch(handler: FetchHandler) {
     }
     const call: FetchCall = { url: u, method, body: parsedBody };
     calls.push(call);
+    if (
+      method === 'GET' &&
+      u.startsWith('/api/admin/growth-communities?') &&
+      fixturesHolder.current
+    ) {
+      const fx = fixturesHolder.current;
+      const sid =
+        new URL(u, 'http://x').searchParams.get('school_id') ?? '';
+      const list = fx.communities.filter(
+        (c) => String(c.school_id) === sid
+      );
+      const memberCount = new Map<string, number>();
+      for (const r of fx.memberRows) {
+        memberCount.set(
+          r.community_id,
+          (memberCount.get(r.community_id) ?? 0) + 1
+        );
+      }
+      return jsonResponse({
+        communities: list.map((c) => ({
+          id: c.id,
+          name: c.name,
+          generation_id: c.generation_id,
+          max_teachers: c.max_teachers,
+          member_count: memberCount.get(c.id) ?? 0,
+        })),
+      });
+    }
     return handler(call);
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -744,6 +775,61 @@ describe('GrowthCommunitiesIndexPage — CRUD', () => {
     // No "Eliminar" button — only "Cerrar".
     expect(findButtonByText(/^Eliminar$/)).toBeUndefined();
     expect(findButtonByText(/^Cerrar$/)).toBeTruthy();
+  });
+
+  it('(j) renders member_count from the API in the Miembros column for each community', async () => {
+    // Supabase client is still mocked (the page does an unrelated school-meta
+    // + generations lookup on selection), but the Miembros column is sourced
+    // entirely from the GET /api/admin/growth-communities response.
+    supabaseHolder.current = makeSupabaseMock(defaultFixtures({ communities: [] }));
+
+    const fetchMock = vi.fn(async (url: any) => {
+      const u = String(url);
+      if (
+        u.startsWith('/api/admin/growth-communities?') &&
+        u.includes(`school_id=${SCHOOL_ID}`)
+      ) {
+        return jsonResponse({
+          communities: [
+            {
+              id: 'comm-a',
+              name: 'Comunidad Alfa',
+              generation_id: null,
+              max_teachers: 16,
+              member_count: 8,
+            },
+            {
+              id: 'comm-b',
+              name: 'Comunidad Beta',
+              generation_id: null,
+              max_teachers: 16,
+              member_count: 0,
+            },
+          ],
+        });
+      }
+      return jsonResponse({ error: 'unhandled' }, 500);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<GrowthCommunitiesIndexPage role="admin" schoolId={null as any} />);
+
+    await selectSchoolViaDropdown(String(SCHOOL_ID));
+
+    await waitFor(() => {
+      expect(document.body.textContent ?? '').toMatch(/Comunidad Alfa/);
+      expect(document.body.textContent ?? '').toMatch(/Comunidad Beta/);
+    });
+
+    const rows = Array.from(document.body.querySelectorAll('tbody tr'));
+    const alfaRow = rows.find((r) => r.textContent?.includes('Comunidad Alfa'));
+    const betaRow = rows.find((r) => r.textContent?.includes('Comunidad Beta'));
+    expect(alfaRow).toBeTruthy();
+    expect(betaRow).toBeTruthy();
+
+    // Miembros column renders `<member_count> / <max_teachers>`.
+    expect(alfaRow!.textContent).toMatch(/8 \/ 16/);
+    expect(betaRow!.textContent).toMatch(/0 \/ 16/);
   });
 
   it('(i) Equipo Directivo view hides the school selector but CRUD targets their own school correctly', async () => {

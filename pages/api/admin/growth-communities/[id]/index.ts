@@ -34,7 +34,126 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (method === 'PATCH') return handlePatch(req, res);
-  return res.status(501).json({ error: 'not_implemented' });
+  return handleDelete(req, res);
+}
+
+async function handleDelete(req: NextApiRequest, res: NextApiResponse) {
+  const { isAuthorized, role, schoolId: edSchoolId, user, error: authError } =
+    await checkIsAdminOrEquipoDirectivo(req, res);
+  if (authError) {
+    return sendApiError(res, 'Unauthorized', 401, authError.message);
+  }
+  if (!isAuthorized || !user) {
+    return res.status(403).json({ error: COMMUNITY_FORBIDDEN });
+  }
+
+  const rawId = req.query.id;
+  const communityId = Array.isArray(rawId) ? rawId[0] : rawId;
+  if (!communityId || typeof communityId !== 'string' || !UUID_REGEX.test(communityId)) {
+    return sendApiError(res, 'Invalid community id', 400);
+  }
+
+  const supabase = createServiceRoleClient();
+
+  const { data: community, error: communityError } = await supabase
+    .from('growth_communities')
+    .select('id, school_id, generation_id, name, max_teachers, description')
+    .eq('id', communityId)
+    .single<CommunityRow>();
+
+  if (communityError || !community) {
+    return sendApiError(res, 'Community not found', 404, communityError?.message);
+  }
+
+  if (role === 'equipo_directivo') {
+    const communitySchoolId =
+      typeof community.school_id === 'number'
+        ? community.school_id
+        : Number(community.school_id);
+    if (!Number.isFinite(communitySchoolId) || communitySchoolId !== edSchoolId) {
+      return res.status(403).json({ error: COMMUNITY_FORBIDDEN });
+    }
+  }
+
+  const body = (req.body ?? {}) as { confirm?: unknown };
+  const confirm = body.confirm === true;
+
+  const [
+    membersOrLeaders,
+    sessions,
+    consultantAssignments,
+    workspaces,
+    groupAssignments,
+    assignmentInstances,
+    submissionShares,
+    legacyProfileRefs,
+  ] = await Promise.all([
+    supabase
+      .from('user_roles')
+      .select('*', { count: 'exact', head: true })
+      .eq('community_id', community.id)
+      .eq('is_active', true),
+    supabase
+      .from('consultor_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('growth_community_id', community.id),
+    supabase
+      .from('consultant_assignments')
+      .select('*', { count: 'exact', head: true })
+      .eq('community_id', community.id),
+    supabase
+      .from('community_workspaces')
+      .select('*', { count: 'exact', head: true })
+      .eq('community_id', community.id),
+    supabase
+      .from('group_assignment_groups')
+      .select('*', { count: 'exact', head: true })
+      .eq('community_id', community.id),
+    supabase
+      .from('assignment_instances')
+      .select('*', { count: 'exact', head: true })
+      .eq('community_id', community.id),
+    supabase
+      .from('assignment_submission_shares')
+      .select('*', { count: 'exact', head: true })
+      .eq('community_id', community.id),
+    supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .eq('community_id', community.id),
+  ]);
+
+  const blockerCounts: Array<{ kind: string; count: number }> = [
+    { kind: 'members_or_leaders', count: membersOrLeaders.count ?? 0 },
+    { kind: 'sessions', count: sessions.count ?? 0 },
+    { kind: 'consultant_assignments', count: consultantAssignments.count ?? 0 },
+    { kind: 'workspaces', count: workspaces.count ?? 0 },
+    { kind: 'group_assignments', count: groupAssignments.count ?? 0 },
+    { kind: 'assignment_instances', count: assignmentInstances.count ?? 0 },
+    { kind: 'submission_shares', count: submissionShares.count ?? 0 },
+    { kind: 'legacy_profile_refs', count: legacyProfileRefs.count ?? 0 },
+  ];
+
+  const blockers = blockerCounts.filter((b) => b.count > 0);
+
+  if (blockers.length > 0) {
+    return res.status(409).json({ error: 'has_dependencies', blockers });
+  }
+
+  if (!confirm) {
+    return res.status(200).json({ deletable: true, blockers: [] });
+  }
+
+  const { error: deleteError } = await supabase
+    .from('growth_communities')
+    .delete()
+    .eq('id', community.id);
+
+  if (deleteError) {
+    return res.status(500).json({ error: 'delete_failed', message: deleteError.message });
+  }
+
+  return res.status(200).json({ deleted: true, id: community.id });
 }
 
 async function handlePatch(req: NextApiRequest, res: NextApiResponse) {

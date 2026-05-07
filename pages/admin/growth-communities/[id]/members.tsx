@@ -15,6 +15,7 @@ import {
   Info,
   UserPlus,
   X,
+  ArrowLeft,
 } from 'lucide-react';
 import MainLayout from '../../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../../components/layout/FunctionalPageHeader';
@@ -505,6 +506,17 @@ const GrowthCommunityMembersPage: React.FC<PageProps> = ({ role, community }) =>
         icon={<Users />}
         title="Miembros de la comunidad"
         subtitle={`${community.name} — ${schoolName}`}
+        leftAddon={
+          <button
+            type="button"
+            onClick={() => router.push('/admin/growth-communities')}
+            aria-label="Volver a Comunidades"
+            className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Volver a Comunidades</span>
+          </button>
+        }
       />
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-32">

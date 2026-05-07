@@ -8,7 +8,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { User } from '@supabase/supabase-js';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
-import { BarChart3, Scale, DollarSign, TrendingUp, Clock, Tag } from 'lucide-react';
+import { BarChart3, DollarSign, TrendingUp, Clock, Tag } from 'lucide-react';
 import {
   HomeIcon,
   BookOpenIcon,
@@ -131,56 +131,84 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/mi-aprendizaje/tareas',
         icon: ClipboardDocumentCheckIcon,
         description: 'Tareas de todas mis comunidades'
+      },
+      {
+        id: 'docente-assessments',
+        label: 'Feedback',
+        href: '/docente/assessments',
+        icon: AcademicCapIcon,
+        description: 'Evaluaciones de tareas asignadas',
+        restrictedRoles: ['admin', 'consultor', 'community_manager']
       }
     ]
   },
   {
-    id: 'docente-assessments',
-    label: 'Feedback',
-    icon: AcademicCapIcon,
-    href: '/docente/assessments',
-    description: 'Evaluaciones de tareas asignadas',
-    restrictedRoles: ['admin', 'consultor', 'community_manager']
+    id: 'mi-trabajo',
+    label: 'Mi Trabajo',
+    icon: BriefcaseIcon,
+    description: 'Sesiones, reportes y horas',
+    consultantOnly: true,
+    children: [
+      {
+        id: 'mis-sesiones',
+        label: 'Mis Sesiones',
+        href: '/consultor/sessions',
+        icon: CalendarIcon,
+        description: 'Sesiones de consultoría asignadas',
+        consultantOnly: true
+      },
+      {
+        id: 'mis-reportes-sesiones',
+        label: 'Mis Reportes',
+        href: '/consultor/sessions/reports',
+        icon: BarChart3,
+        description: 'Estadísticas de mis sesiones',
+        consultantOnly: true
+      },
+      {
+        id: 'mis-horas',
+        label: 'Mis Horas',
+        href: '/mis-horas',
+        icon: Clock,
+        description: 'Ver mis ganancias y horas',
+        consultantOnly: true
+      },
+      {
+        id: 'quiz-reviews',
+        label: 'Revisión de Quizzes',
+        href: '/quiz-reviews',
+        icon: PencilAltIcon,
+        description: 'Calificar preguntas abiertas',
+        consultantOnly: true
+      }
+    ]
   },
   {
-    id: 'quiz-reviews',
-    label: 'Revisión de Quizzes',
-    icon: PencilAltIcon,
-    href: '/quiz-reviews',
-    description: 'Calificar preguntas abiertas',
-    consultantOnly: true
-  },
-  {
-    id: 'mis-sesiones',
-    label: 'Mis Sesiones',
-    icon: CalendarIcon,
-    href: '/consultor/sessions',
-    description: 'Sesiones de consultoría asignadas',
-    consultantOnly: true
-  },
-  {
-    id: 'mis-reportes-sesiones',
-    label: 'Mis Reportes',
-    icon: BarChart3,
-    href: '/consultor/sessions/reports',
-    description: 'Estadísticas de mis sesiones',
-    consultantOnly: true
-  },
-  {
-    id: 'mis-horas',
-    label: 'Mis Horas',
-    icon: Clock,
-    href: '/mis-horas',
-    description: 'Ver mis ganancias y horas',
-    consultantOnly: true
-  },
-  {
-    id: 'reporte-horas',
-    label: 'Reporte de Horas',
-    icon: BarChart3,
-    href: '/reporte-horas',
-    description: 'Reporte de horas de la escuela',
-    restrictedRoles: ['admin', 'equipo_directivo'],
+    id: 'workspace',
+    label: 'Espacio Colaborativo',
+    icon: UserGroupIcon,
+    description: 'Comunidades de crecimiento',
+    requiresCommunity: true, // Only show for users with community_id or admins
+    children: [
+      {
+        id: 'workspace-overview',
+        label: 'Vista General',
+        href: '/community/workspace?section=overview',
+        description: 'Resumen del espacio'
+      },
+      {
+        id: 'workspace-sessions',
+        label: 'Sesiones',
+        href: '/community/workspace?section=sessions'
+      },
+      {
+        id: 'workspace-communities',
+        label: 'Gestión Comunidades',
+        href: '/community/workspace?section=communities',
+        description: 'Administrar comunidades',
+        permission: 'manage_communities_all'
+      }
+    ]
   },
   {
     id: 'courses',
@@ -202,6 +230,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/admin/upcoming-courses',
         description: 'Cursos próximamente disponibles',
         adminOnly: true
+      },
+      {
+        id: 'learning-paths',
+        label: 'Rutas de Aprendizaje',
+        href: '/admin/learning-paths',
+        description: 'Gestión de rutas de aprendizaje',
+        icon: MapIcon,
+        adminOnly: true
       }
     ]
   },
@@ -210,7 +246,6 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Procesos de Cambio',
     icon: ClipboardDocumentListIcon,
     description: 'Constructor de evaluaciones y rúbricas',
-    restrictedRoles: ['admin', 'consultor', 'equipo_directivo'],
     children: [
       {
         id: 'assessment-builder-main',
@@ -225,7 +260,8 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         label: 'Contexto Transversal',
         href: '/school/transversal-context',
         description: 'Configuración de contexto por escuela',
-        icon: OfficeBuildingIcon
+        icon: OfficeBuildingIcon,
+        restrictedRoles: ['admin', 'consultor', 'equipo_directivo']
       },
       {
         id: 'context-questions-manage',
@@ -248,74 +284,81 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         label: 'Plan de Migración',
         href: '/school/migration-plan',
         description: 'Definir generaciones GT/GI por año',
-        icon: MapIcon
+        icon: MapIcon,
+        restrictedRoles: ['admin', 'consultor', 'equipo_directivo']
+      },
+      {
+        id: 'docente-mis-evaluaciones',
+        label: 'Mis Evaluaciones',
+        href: '/docente/assessments',
+        description: 'Evaluaciones que tengo asignadas',
+        icon: AcademicCapIcon,
+        restrictedRoles: ['docente'],
+        requiresAssessments: true
       }
     ]
   },
   {
-    id: 'docente-procesos-cambio',
-    label: 'Procesos de Cambio',
-    icon: ClipboardDocumentListIcon,
-    href: '/docente/assessments',
-    description: 'Evaluaciones de transformación asignadas',
-    restrictedRoles: ['docente'],
-    requiresAssessments: true,
+    id: 'vias-transformacion',
+    label: 'Vías de Transformación',
+    icon: LightningBoltIcon,
+    href: '/vias-transformacion',
+    description: 'Evaluaciones de transformación escolar',
+    adminOnly: true,
+    // Note: Visible to all users with a school - access checked on the page
+    children: [
+      {
+        id: 'vias-mis-evaluaciones',
+        label: 'Mis Evaluaciones',
+        href: '/vias-transformacion',
+        description: 'Ver mis evaluaciones'
+      },
+      {
+        id: 'vias-contexto-transversal',
+        label: 'Contexto Transversal',
+        href: '/school/transversal-context',
+        description: 'Configuración de contexto escolar',
+        icon: OfficeBuildingIcon
+      },
+      {
+        id: 'vias-resultados-escuela',
+        label: 'Panel de Resultados',
+        href: '/directivo/assessments/dashboard',
+        description: 'Resultados de evaluaciones de la escuela',
+        icon: ChartBarIcon
+      },
+      {
+        id: 'vias-admin-todas',
+        label: 'Todas las Evaluaciones',
+        href: '/admin/transformation/assessments',
+        description: 'Ver evaluaciones por escuela',
+        adminOnly: true
+      }
+    ]
   },
   {
-    id: 'news',
-    label: 'Noticias',
+    id: 'comunicacion',
+    label: 'Comunicación',
     icon: NewspaperIcon,
-    href: '/admin/news',
-    description: 'Gestión de noticias y artículos',
-    restrictedRoles: ['admin', 'community_manager']
-  },
-  {
-    id: 'events',
-    label: 'Eventos',
-    icon: CalendarIcon,
-    href: '/admin/events',
-    description: 'Gestión de eventos y línea de tiempo',
-    restrictedRoles: ['admin', 'community_manager']
-  },
-  {
-    id: 'learning-paths',
-    label: 'Rutas de Aprendizaje',
-    icon: MapIcon,
-    href: '/admin/learning-paths',
-    description: 'Gestión de rutas de aprendizaje',
-    adminOnly: true
-  },
-  {
-    id: 'assignment-matrix',
-    label: 'Matriz de Asignaciones',
-    icon: ViewGridIcon,
-    href: '/admin/assignment-matrix',
-    description: 'Asignaciones por usuario',
-    adminOnly: true
-  },
-  {
-    id: 'roadmap',
-    label: 'Roadmap MVP',
-    icon: ChartBarIcon,
-    href: '/admin/roadmap',
-    description: 'Progreso del desarrollo GENERA',
-    adminOnly: true
-  },
-  {
-    id: 'users',
-    label: 'Usuarios',
-    icon: UsersIcon,
-    href: '/admin/user-management',
-    description: 'Administrar usuarios',
-    adminOnly: true
-  },
-  {
-    id: 'schools',
-    label: 'Escuelas',
-    icon: OfficeBuildingIcon,
-    href: '/admin/schools',
-    description: 'Gestión de escuelas y generaciones',
-    adminOnly: true
+    description: 'Noticias y eventos',
+    children: [
+      {
+        id: 'news',
+        label: 'Noticias',
+        href: '/admin/news',
+        icon: NewspaperIcon,
+        description: 'Gestión de noticias y artículos',
+        restrictedRoles: ['admin', 'community_manager']
+      },
+      {
+        id: 'events',
+        label: 'Eventos',
+        href: '/admin/events',
+        icon: CalendarIcon,
+        description: 'Gestión de eventos y línea de tiempo',
+        restrictedRoles: ['admin', 'community_manager']
+      }
+    ]
   },
   {
     id: 'growth-communities',
@@ -326,12 +369,45 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     restrictedRoles: ['admin', 'equipo_directivo']
   },
   {
-    id: 'networks',
-    label: 'Redes de Colegios',
-    icon: NetworkIcon,
-    href: '/admin/network-management',
-    description: 'Gestión de redes y supervisores',
-    adminOnly: true
+    id: 'personas',
+    label: 'Personas',
+    icon: UsersIcon,
+    description: 'Usuarios, escuelas y redes',
+    adminOnly: true,
+    children: [
+      {
+        id: 'users',
+        label: 'Usuarios',
+        href: '/admin/user-management',
+        icon: UsersIcon,
+        description: 'Administrar usuarios',
+        adminOnly: true
+      },
+      {
+        id: 'schools',
+        label: 'Escuelas',
+        href: '/admin/schools',
+        icon: OfficeBuildingIcon,
+        description: 'Gestión de escuelas y generaciones',
+        adminOnly: true
+      },
+      {
+        id: 'networks',
+        label: 'Redes de Colegios',
+        href: '/admin/network-management',
+        icon: NetworkIcon,
+        description: 'Gestión de redes y supervisores',
+        adminOnly: true
+      },
+      {
+        id: 'assignment-matrix',
+        label: 'Matriz de Asignaciones',
+        href: '/admin/assignment-matrix',
+        icon: ViewGridIcon,
+        description: 'Asignaciones por usuario',
+        adminOnly: true
+      }
+    ]
   },
   {
     id: 'consultants',
@@ -410,7 +486,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Gestión',
     icon: BriefcaseIcon,
     description: 'Gestión empresarial',
-    restrictedRoles: ['admin', 'community_manager'],
+    restrictedRoles: ['admin', 'community_manager', 'encargado_licitacion'],
     children: [
       {
         id: 'clients',
@@ -459,22 +535,13 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         description: 'Gestión de errores y solicitudes',
         icon: BugIcon,
         permission: 'manage_system_settings'
-      }
-    ]
-  },
-  {
-    id: 'licitaciones',
-    label: 'Licitaciones',
-    icon: Scale,
-    description: 'Procesos de licitacion',
-    restrictedRoles: ['admin', 'encargado_licitacion'],
-    children: [
+      },
       {
         id: 'licitaciones-procesos',
         label: 'Procesos',
         href: '/licitaciones',
         description: 'Listado de licitaciones',
-        icon: DocumentTextIcon,
+        icon: DocumentTextIcon
       },
       {
         id: 'licitaciones-templates',
@@ -482,7 +549,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/admin/licitaciones/templates',
         description: 'Gestion de plantillas de Bases',
         icon: DocumentTextIcon,
-        adminOnly: true,
+        adminOnly: true
       },
       {
         id: 'licitaciones-feriados',
@@ -490,17 +557,33 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/admin/licitaciones/feriados',
         description: 'Gestion de feriados nacionales',
         icon: CalendarIcon,
-        adminOnly: true,
-      },
-    ],
+        adminOnly: true
+      }
+    ]
   },
   {
-    id: 'reports',
+    id: 'reportes',
     label: 'Reportes',
     icon: ChartBarIcon,
-    href: '/detailed-reports',
     description: 'Análisis y reportes',
-    restrictedRoles: ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red']
+    children: [
+      {
+        id: 'reports',
+        label: 'Reportes',
+        href: '/detailed-reports',
+        icon: ChartBarIcon,
+        description: 'Análisis y reportes',
+        restrictedRoles: ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red']
+      },
+      {
+        id: 'reporte-horas',
+        label: 'Reporte de Horas',
+        href: '/reporte-horas',
+        icon: BarChart3,
+        description: 'Reporte de horas de la escuela',
+        restrictedRoles: ['admin', 'equipo_directivo']
+      }
+    ]
   },
   {
     id: 'qa-testing',
@@ -554,86 +637,37 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     ]
   },
   {
-    id: 'vias-transformacion',
-    label: 'Vías de Transformación',
-    icon: LightningBoltIcon,
-    href: '/vias-transformacion',
-    description: 'Evaluaciones de transformación escolar',
-    adminOnly: true,
-    // Note: Visible to all users with a school - access checked on the page
-    children: [
-      {
-        id: 'vias-mis-evaluaciones',
-        label: 'Mis Evaluaciones',
-        href: '/vias-transformacion',
-        description: 'Ver mis evaluaciones'
-      },
-      {
-        id: 'vias-contexto-transversal',
-        label: 'Contexto Transversal',
-        href: '/school/transversal-context',
-        description: 'Configuración de contexto escolar',
-        icon: OfficeBuildingIcon
-      },
-      {
-        id: 'vias-resultados-escuela',
-        label: 'Panel de Resultados',
-        href: '/directivo/assessments/dashboard',
-        description: 'Resultados de evaluaciones de la escuela',
-        icon: ChartBarIcon
-      },
-      {
-        id: 'vias-admin-todas',
-        label: 'Todas las Evaluaciones',
-        href: '/admin/transformation/assessments',
-        description: 'Ver evaluaciones por escuela',
-        adminOnly: true
-      }
-    ]
-  },
-  {
-    id: 'workspace',
-    label: 'Espacio Colaborativo',
-    icon: UserGroupIcon,
-    description: 'Comunidades de crecimiento',
-    requiresCommunity: true, // Only show for users with community_id or admins
-    children: [
-      {
-        id: 'workspace-overview',
-        label: 'Vista General',
-        href: '/community/workspace?section=overview',
-        description: 'Resumen del espacio'
-      },
-      {
-        id: 'workspace-sessions',
-        label: 'Sesiones',
-        href: '/community/workspace?section=sessions'
-      },
-      {
-        id: 'workspace-communities',
-        label: 'Gestión Comunidades',
-        href: '/community/workspace?section=communities',
-        description: 'Administrar comunidades',
-        permission: 'manage_communities_all'
-      }
-    ]
-  },
-  {
-    id: 'admin',
-    label: 'Configuración',
+    id: 'sistema',
+    label: 'Sistema',
     icon: CogIcon,
-    href: '/admin/configuration',
     description: 'Configuración del sistema',
-    permission: 'manage_system_settings'
-  },
-  {
-    id: 'rbac',
-    label: 'Roles y Permisos',
-    icon: UserGroupIcon,
-    href: '/admin/role-management',
-    description: 'Gestión de roles y permisos',
-    superadminOnly: true,
-    permission: 'manage_permissions'
+    children: [
+      {
+        id: 'admin-config',
+        label: 'Configuración',
+        href: '/admin/configuration',
+        icon: CogIcon,
+        description: 'Configuración del sistema',
+        permission: 'manage_system_settings'
+      },
+      {
+        id: 'roadmap',
+        label: 'Roadmap MVP',
+        href: '/admin/roadmap',
+        icon: ChartBarIcon,
+        description: 'Progreso del desarrollo GENERA',
+        adminOnly: true
+      },
+      {
+        id: 'rbac',
+        label: 'Roles y Permisos',
+        href: '/admin/role-management',
+        icon: UserGroupIcon,
+        description: 'Gestión de roles y permisos',
+        superadminOnly: true,
+        permission: 'manage_permissions'
+      }
+    ]
   }
 ];
 
@@ -725,6 +759,7 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
       qaCheckDone,
       hasAssessments,
       assessmentsCheckDone,
+      // Resolves to process.env.NEXT_PUBLIC_FEATURE_SUPERADMIN_RBAC via lib/featureFlags.ts; stable per session, intentionally omitted from the memo deps below.
       featureSuperadminRbac: isFeatureEnabled('FEATURE_SUPERADMIN_RBAC'),
       hasPermission,
       hasAnyPermission,
@@ -802,15 +837,8 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
 
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <div className="text-sm font-medium truncate">
-                  {item.label}
-                </div>
-                {item.id === 'feedback' && newFeedbackCount > 0 && (
-                  <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
-                    {newFeedbackCount}
-                  </span>
-                )}
+              <div className="text-sm font-medium truncate">
+                {item.label}
               </div>
               {item.description && (
                 <div className={`text-xs truncate mt-0.5 ${isActive && !hasChildren ? 'text-blue-100' : 'text-gray-500'

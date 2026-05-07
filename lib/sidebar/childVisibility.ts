@@ -51,6 +51,7 @@ export function isChildVisible(child: NavigationChildLike, ctx: ChildVisibilityC
   if (child.consultantOnly && !ctx.isAdmin && !['admin', 'consultor'].includes(ctx.userRole || '')) {
     return false;
   }
+  // Short-circuits: when both restrictedRoles and permission are set, restrictedRoles wins and permission is intentionally not composed — matches the parent filter in Sidebar.tsx for backward compatibility.
   if (child.restrictedRoles && child.restrictedRoles.length > 0) {
     return child.restrictedRoles.includes(ctx.userRole || '') || (ctx.isAdmin && child.restrictedRoles.includes('admin'));
   }

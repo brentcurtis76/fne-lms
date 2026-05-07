@@ -45,6 +45,10 @@ import { isFeatureEnabled } from '../../lib/featureFlags';
 import { isChildVisible } from '../../lib/sidebar/childVisibility';
 import { usePermissions } from '../../contexts/PermissionContext';
 
+// Backed by a stable NEXT_PUBLIC_* env var; read once at module scope rather
+// than as a reactive dependency since its value cannot change at runtime.
+const FEATURE_SUPERADMIN_RBAC_ENABLED = isFeatureEnabled('FEATURE_SUPERADMIN_RBAC');
+
 interface SidebarProps {
   user: User | null;
   currentPage: string;
@@ -188,7 +192,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Espacio Colaborativo',
     icon: UserGroupIcon,
     description: 'Comunidades de crecimiento',
-    requiresCommunity: true, // Only show for users with community_id or admins
+    requiresCommunity: true, // Predicate gates on community_id; admins bypass via the communityCheck useEffect, which sets hasCommunity=true for admins
     children: [
       {
         id: 'workspace-overview',
@@ -761,8 +765,7 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
       qaCheckDone,
       hasAssessments,
       assessmentsCheckDone,
-      // Resolves to process.env.NEXT_PUBLIC_FEATURE_SUPERADMIN_RBAC via lib/featureFlags.ts; stable per session, intentionally omitted from the memo deps below.
-      featureSuperadminRbac: isFeatureEnabled('FEATURE_SUPERADMIN_RBAC'),
+      featureSuperadminRbac: FEATURE_SUPERADMIN_RBAC_ENABLED,
       permissionsLoading,
       hasPermission,
       hasAnyPermission,
@@ -1255,7 +1258,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   const filteredNavigationItems = useMemo(() => {
     return NAVIGATION_ITEMS.filter(item => {
       if (item.superadminOnly) {
-        if (!isFeatureEnabled('FEATURE_SUPERADMIN_RBAC')) return false;
+        if (!FEATURE_SUPERADMIN_RBAC_ENABLED) return false;
         if (!superadminCheckDone) return false;
         if (!isSuperadmin) return false;
       }

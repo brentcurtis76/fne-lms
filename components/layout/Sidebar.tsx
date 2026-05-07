@@ -56,7 +56,19 @@ interface SidebarProps {
   isDesktopCollapsed: boolean;
   isMobileOpen: boolean;
   isAdmin: boolean;
+  /**
+   * Legacy primary-role prop. Still accepted so callers that have not migrated
+   * to `userRoles` keep working unchanged — when only `userRole` is supplied,
+   * gating evaluates against `[userRole]`.
+   */
   userRole?: string;
+  /**
+   * Full set of the user's active role types. When provided, role-based gates
+   * (`consultantOnly`, `restrictedRoles`, `requiresCommunity` consultor
+   * exception, consultor permission bypass) admit an item if ANY of the
+   * user's active roles satisfies the gate.
+   */
+  userRoles?: string[];
   avatarUrl?: string;
   onDesktopToggle: () => void;
   onMobileClose: () => void;
@@ -681,6 +693,7 @@ interface SidebarItemProps {
   expandedItems: Set<string>;
   isAdmin: boolean;
   userRole?: string;
+  userRoles: string[];
   hasPermission: (permission: string) => boolean;
   hasAnyPermission: (permissions: string[]) => boolean;
   hasAllPermissions: (permissions: string[]) => boolean;
@@ -705,6 +718,7 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
   expandedItems,
   isAdmin,
   userRole,
+  userRoles,
   hasPermission,
   hasAnyPermission,
   hasAllPermissions,
@@ -757,6 +771,7 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
     const ctx = {
       isAdmin,
       userRole,
+      userRoles,
       isSuperadmin,
       superadminCheckDone,
       hasCommunity,
@@ -772,7 +787,7 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
       hasAllPermissions,
     };
     return item.children?.filter(child => isChildVisible(child, ctx)) || [];
-  }, [item.children, isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasAssessments, assessmentsCheckDone]);
+  }, [item.children, isAdmin, userRole, userRoles, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasAssessments, assessmentsCheckDone]);
 
   const hasChildren = filteredChildren.length > 0;
   const isActive = item.href ? isItemActive(item.href, routerAsPath) : false;
@@ -1000,12 +1015,19 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   isMobileOpen,
   isAdmin,
   userRole,
+  userRoles: userRolesProp,
   avatarUrl,
   onDesktopToggle,
   onMobileClose,
   onLogout,
   className = ''
 }) => {
+  // Resolve the effective role set: prefer the explicit `userRoles` prop, fall
+  // back to the legacy single `userRole` so unmigrated callers keep working.
+  const userRoles = useMemo<string[]>(
+    () => (userRolesProp && userRolesProp.length > 0 ? userRolesProp : userRole ? [userRole] : []),
+    [userRolesProp, userRole]
+  );
   const supabase = useSupabaseClient();
   const router = useRouter();
   const { hasPermission, hasAnyPermission, hasAllPermissions, loading: permissionsLoading } = usePermissions();
@@ -1275,23 +1297,31 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 
       if (item.adminOnly && !isAdmin) return false;
 
-      if (item.consultantOnly && !isAdmin && !['admin', 'consultor'].includes(userRole || '')) {
+      if (
+        item.consultantOnly &&
+        !isAdmin &&
+        !userRoles.some(role => role === 'admin' || role === 'consultor')
+      ) {
         return false;
       }
 
       if (item.requiresCommunity) {
         if (!communityCheckDone) return false;
-        if (!hasCommunity && userRole !== 'consultor') return false;
+        if (!hasCommunity && !userRoles.includes('consultor')) return false;
       }
 
       if (item.restrictedRoles && item.restrictedRoles.length > 0) {
-        // restrictedRoles is the definitive access list — if your role is in
-        // the list you see the item, if not you don't.  No further permission
-        // check needed (children still have their own permission gates).
-        return item.restrictedRoles.includes(userRole || '') || (isAdmin && item.restrictedRoles.includes('admin'));
+        // restrictedRoles is the definitive access list — if any of the user's
+        // active roles is in the list they see the item, otherwise they don't.
+        // No further permission check needed (children still have their own
+        // permission gates).
+        return (
+          userRoles.some(role => item.restrictedRoles!.includes(role)) ||
+          (isAdmin && item.restrictedRoles.includes('admin'))
+        );
       }
 
-      const isConsultor = userRole === 'consultor';
+      const isConsultor = userRoles.includes('consultor');
       const consultorBypassesPermission = item.consultantOnly && isConsultor;
 
       if (item.permission && !isAdmin && !consultorBypassesPermission) {
@@ -1310,7 +1340,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 
       return true;
     });
-  }, [isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasAssessments, assessmentsCheckDone]);
+  }, [isAdmin, userRoles, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasAssessments, assessmentsCheckDone]);
 
   return (
     <>
@@ -1397,6 +1427,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
               expandedItems={expandedItems}
               isAdmin={isAdmin}
               userRole={userRole}
+              userRoles={userRoles}
               hasPermission={hasPermission}
               hasAnyPermission={hasAnyPermission}
               hasAllPermissions={hasAllPermissions}

@@ -1,6 +1,18 @@
 export interface ChildVisibilityContext {
   isAdmin: boolean;
+  /**
+   * Legacy primary-role field. Kept for backward compatibility with callers
+   * that have not migrated to `userRoles`. When `userRoles` is omitted, the
+   * predicate falls back to evaluating `[userRole]`.
+   */
   userRole?: string;
+  /**
+   * Full set of the user's active role types. When provided, role-based gates
+   * (`consultantOnly`, `restrictedRoles`, `requiresCommunity` consultor
+   * exception, consultor permission bypass) admit the child if ANY of the
+   * user's roles satisfies the gate.
+   */
+  userRoles?: string[];
   isSuperadmin: boolean;
   superadminCheckDone: boolean;
   hasCommunity: boolean;
@@ -28,7 +40,13 @@ export interface NavigationChildLike {
   requiresAssessments?: boolean;
 }
 
+function resolveRoles(ctx: ChildVisibilityContext): string[] {
+  if (ctx.userRoles && ctx.userRoles.length > 0) return ctx.userRoles;
+  return ctx.userRole ? [ctx.userRole] : [];
+}
+
 export function isChildVisible(child: NavigationChildLike, ctx: ChildVisibilityContext): boolean {
+  const roles = resolveRoles(ctx);
   if (child.superadminOnly) {
     if (!ctx.featureSuperadminRbac) return false;
     if (!ctx.superadminCheckDone) return false;
@@ -44,23 +62,32 @@ export function isChildVisible(child: NavigationChildLike, ctx: ChildVisibilityC
   }
   if (child.requiresCommunity) {
     if (!ctx.communityCheckDone) return false;
-    if (!ctx.hasCommunity && ctx.userRole !== 'consultor') return false;
+    if (!ctx.hasCommunity && !roles.includes('consultor')) return false;
   }
   if (child.adminOnly && !ctx.isAdmin) {
     return false;
   }
-  if (child.consultantOnly && !ctx.isAdmin && !['admin', 'consultor'].includes(ctx.userRole || '')) {
+  if (
+    child.consultantOnly &&
+    !ctx.isAdmin &&
+    !roles.some(role => role === 'admin' || role === 'consultor')
+  ) {
     return false;
   }
   // Short-circuits: when both restrictedRoles and permission are set, restrictedRoles wins and permission is intentionally not composed — matches the parent filter in Sidebar.tsx for backward compatibility.
   if (child.restrictedRoles && child.restrictedRoles.length > 0) {
-    return child.restrictedRoles.includes(ctx.userRole || '') || (ctx.isAdmin && child.restrictedRoles.includes('admin'));
+    return (
+      roles.some(role => child.restrictedRoles!.includes(role)) ||
+      (ctx.isAdmin && child.restrictedRoles.includes('admin'))
+    );
   }
   if (child.permission && !ctx.isAdmin) {
-    // consultorBypassesPermission: a consultantOnly child grants access to consultors
-    // even when they lack the listed permission, because consultantOnly is treated as
-    // an explicit role grant that supersedes the permission gate (admins also bypass).
-    const consultorBypassesPermission = child.consultantOnly && ctx.userRole === 'consultor';
+    // consultorBypassesPermission: a consultantOnly child grants access to
+    // consultors even when they lack the listed permission, because
+    // consultantOnly is treated as an explicit role grant that supersedes the
+    // permission gate (admins also bypass). Multi-role users still bypass as
+    // long as `consultor` is one of their active roles.
+    const consultorBypassesPermission = child.consultantOnly && roles.includes('consultor');
     if (!consultorBypassesPermission) {
       if (ctx.permissionsLoading) return false;
       if (Array.isArray(child.permission)) {

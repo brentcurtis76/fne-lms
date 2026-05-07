@@ -340,3 +340,106 @@ describe('Sidebar child gating: no gates', () => {
     ).toBe(true);
   });
 });
+
+describe('Sidebar child gating: multi-role users (userRoles)', () => {
+  it('shows a restrictedRoles child when a secondary active role unlocks it (equipo_directivo + encargado_licitacion against [admin, encargado_licitacion])', () => {
+    const child = { restrictedRoles: ['admin', 'encargado_licitacion'] };
+    expect(
+      isChildVisible(child, {
+        ...baseCtx,
+        userRoles: ['equipo_directivo', 'encargado_licitacion'],
+        isAdmin: false,
+      })
+    ).toBe(true);
+  });
+
+  it('shows a consultantOnly child when consultor is one of multiple active roles', () => {
+    const child = { consultantOnly: true };
+    expect(
+      isChildVisible(child, {
+        ...baseCtx,
+        userRoles: ['equipo_directivo', 'consultor'],
+        isAdmin: false,
+      })
+    ).toBe(true);
+  });
+
+  it('applies the consultor permission bypass for consultantOnly + permission children when userRoles contains consultor regardless of other roles', () => {
+    const child = { consultantOnly: true, permission: 'assign_consultants_all' };
+    expect(
+      isChildVisible(child, {
+        ...baseCtx,
+        userRoles: ['equipo_directivo', 'consultor'],
+        isAdmin: false,
+        permissionsLoading: false,
+        hasPermission: () => false,
+        hasAnyPermission: () => false,
+        hasAllPermissions: () => false,
+      })
+    ).toBe(true);
+    // Bypass also holds while permissions are still loading.
+    expect(
+      isChildVisible(child, {
+        ...baseCtx,
+        userRoles: ['docente', 'consultor', 'lider_comunidad'],
+        isAdmin: false,
+        permissionsLoading: true,
+        hasPermission: () => false,
+        hasAnyPermission: () => false,
+        hasAllPermissions: () => false,
+      })
+    ).toBe(true);
+  });
+
+  it('hides a restrictedRoles: [admin] child from a multi-role user with no admin role (equipo_directivo + encargado_licitacion)', () => {
+    const child = { restrictedRoles: ['admin'] };
+    expect(
+      isChildVisible(child, {
+        ...baseCtx,
+        userRoles: ['equipo_directivo', 'encargado_licitacion'],
+        isAdmin: false,
+      })
+    ).toBe(false);
+  });
+
+  it('admits requiresCommunity for a multi-role consultor without a community (consultor exception holds in userRoles list)', () => {
+    const child = { requiresCommunity: true };
+    expect(
+      isChildVisible(child, {
+        ...baseCtx,
+        userRoles: ['consultor', 'equipo_directivo'],
+        hasCommunity: false,
+        communityCheckDone: true,
+      })
+    ).toBe(true);
+  });
+
+  it('falls back to the legacy userRole prop when userRoles is omitted (backward compatibility)', () => {
+    // restrictedRoles: a single legacy role still gates correctly.
+    expect(
+      isChildVisible(
+        { restrictedRoles: ['encargado_licitacion'] },
+        { ...baseCtx, userRole: 'encargado_licitacion' }
+      )
+    ).toBe(true);
+    expect(
+      isChildVisible(
+        { restrictedRoles: ['encargado_licitacion'] },
+        { ...baseCtx, userRole: 'equipo_directivo' }
+      )
+    ).toBe(false);
+    // consultor permission bypass: works via legacy userRole alone.
+    expect(
+      isChildVisible(
+        { consultantOnly: true, permission: 'assign_consultants_all' },
+        {
+          ...baseCtx,
+          userRole: 'consultor',
+          hasPermission: () => false,
+          hasAnyPermission: () => false,
+          hasAllPermissions: () => false,
+        }
+      )
+    ).toBe(true);
+  });
+});

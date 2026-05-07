@@ -142,7 +142,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/docente/assessments',
         icon: AcademicCapIcon,
         description: 'Evaluaciones de tareas asignadas',
-        restrictedRoles: ['admin', 'consultor', 'community_manager']
+        restrictedRoles: ['admin', 'consultor']
       }
     ]
   },

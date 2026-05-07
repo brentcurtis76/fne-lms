@@ -85,9 +85,13 @@ interface NavigationChild {
   description?: string;
   adminOnly?: boolean;
   consultantOnly?: boolean;
+  superadminOnly?: boolean;
   restrictedRoles?: string[];
   permission?: string | string[]; // Required permission(s)
   requireAllPermissions?: boolean;
+  requiresCommunity?: boolean;
+  requiresQAAccess?: boolean;
+  requiresAssessments?: boolean;
   icon?: React.ComponentType<any>;
 }
 
@@ -641,6 +645,14 @@ interface SidebarItemProps {
   hasPermission: (permission: string) => boolean;
   hasAnyPermission: (permissions: string[]) => boolean;
   hasAllPermissions: (permissions: string[]) => boolean;
+  isSuperadmin: boolean;
+  superadminCheckDone: boolean;
+  hasCommunity: boolean;
+  communityCheckDone: boolean;
+  canRunQATests: boolean;
+  qaCheckDone: boolean;
+  hasAssessments: boolean;
+  assessmentsCheckDone: boolean;
   newFeedbackCount: number;
   isItemActive: (href: string, currentPath: string) => boolean;
   toggleExpanded: (itemId: string) => void;
@@ -656,6 +668,14 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
   hasPermission,
   hasAnyPermission,
   hasAllPermissions,
+  isSuperadmin,
+  superadminCheckDone,
+  hasCommunity,
+  communityCheckDone,
+  canRunQATests,
+  qaCheckDone,
+  hasAssessments,
+  assessmentsCheckDone,
   newFeedbackCount,
   isItemActive,
   toggleExpanded,
@@ -693,6 +713,23 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
 
   // Filter children based on admin status and permissions
   const filteredChildren = useMemo(() => item.children?.filter(child => {
+    if (child.superadminOnly) {
+      if (!isFeatureEnabled('FEATURE_SUPERADMIN_RBAC')) return false;
+      if (!superadminCheckDone) return false;
+      if (!isSuperadmin) return false;
+    }
+    if (child.requiresQAAccess) {
+      if (!qaCheckDone) return false;
+      if (!canRunQATests && !isAdmin) return false;
+    }
+    if (child.requiresAssessments) {
+      if (!assessmentsCheckDone) return false;
+      if (!hasAssessments) return false;
+    }
+    if (child.requiresCommunity) {
+      if (!communityCheckDone) return false;
+      if (!hasCommunity && userRole !== 'consultor') return false;
+    }
     if (child.adminOnly && !isAdmin) {
       return false;
     }
@@ -714,7 +751,7 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
       }
     }
     return true;
-  }) || [], [item.children, isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions]);
+  }) || [], [item.children, isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasAssessments, assessmentsCheckDone]);
 
   const hasChildren = filteredChildren.length > 0;
   const isActive = item.href ? isItemActive(item.href, routerAsPath) : false;
@@ -1342,6 +1379,14 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
               hasPermission={hasPermission}
               hasAnyPermission={hasAnyPermission}
               hasAllPermissions={hasAllPermissions}
+              isSuperadmin={isSuperadmin}
+              superadminCheckDone={superadminCheckDone}
+              hasCommunity={hasCommunity}
+              communityCheckDone={communityCheckDone}
+              canRunQATests={canRunQATests}
+              qaCheckDone={qaCheckDone}
+              hasAssessments={hasAssessments}
+              assessmentsCheckDone={assessmentsCheckDone}
               newFeedbackCount={newFeedbackCount}
               isItemActive={isItemActive}
               toggleExpanded={toggleExpanded}

@@ -28,6 +28,7 @@ const baseCtx: ChildVisibilityContext = {
   hasAssessments: false,
   assessmentsCheckDone: true,
   featureSuperadminRbac: true,
+  permissionsLoading: false,
   hasPermission: () => false,
   hasAnyPermission: () => false,
   hasAllPermissions: () => false,
@@ -233,6 +234,91 @@ describe('Sidebar child gating: requiresCommunity', () => {
         communityCheckDone: true,
       })
     ).toBe(false);
+  });
+});
+
+describe('Sidebar child gating: permissionsLoading + consultor bypass', () => {
+  it('hides a permission-gated child while permissionsLoading=true for a non-admin, non-consultor user, even if hasPermission stubs to true', () => {
+    const child = { permission: 'view_contracts_all' };
+    expect(
+      isChildVisible(child, {
+        ...baseCtx,
+        userRole: 'docente',
+        isAdmin: false,
+        permissionsLoading: true,
+        hasPermission: () => true,
+        hasAnyPermission: () => true,
+        hasAllPermissions: () => true,
+      })
+    ).toBe(false);
+  });
+
+  it('shows a permission-gated child to admins even when permissionsLoading=true (admin bypasses permission gate)', () => {
+    const child = { permission: 'view_contracts_all' };
+    expect(
+      isChildVisible(child, {
+        ...baseCtx,
+        userRole: 'admin',
+        isAdmin: true,
+        permissionsLoading: true,
+        hasPermission: () => false,
+        hasAnyPermission: () => false,
+        hasAllPermissions: () => false,
+      })
+    ).toBe(true);
+  });
+
+  it('shows a consultantOnly + permission child to consultor regardless of hasPermission (consultor bypass)', () => {
+    const child = { consultantOnly: true, permission: 'assign_consultants_all' };
+    expect(
+      isChildVisible(child, {
+        ...baseCtx,
+        userRole: 'consultor',
+        isAdmin: false,
+        permissionsLoading: false,
+        hasPermission: () => false,
+        hasAnyPermission: () => false,
+        hasAllPermissions: () => false,
+      })
+    ).toBe(true);
+    // Bypass also holds while permissions are still loading.
+    expect(
+      isChildVisible(child, {
+        ...baseCtx,
+        userRole: 'consultor',
+        isAdmin: false,
+        permissionsLoading: true,
+        hasPermission: () => false,
+        hasAnyPermission: () => false,
+        hasAllPermissions: () => false,
+      })
+    ).toBe(true);
+  });
+
+  it('still filters a permission-only child (no consultantOnly) by hasPermission for consultor', () => {
+    const child = { permission: 'manage_system_settings' };
+    expect(
+      isChildVisible(child, {
+        ...baseCtx,
+        userRole: 'consultor',
+        isAdmin: false,
+        permissionsLoading: false,
+        hasPermission: () => false,
+        hasAnyPermission: () => false,
+        hasAllPermissions: () => false,
+      })
+    ).toBe(false);
+    expect(
+      isChildVisible(child, {
+        ...baseCtx,
+        userRole: 'consultor',
+        isAdmin: false,
+        permissionsLoading: false,
+        hasPermission: (p) => p === 'manage_system_settings',
+        hasAnyPermission: () => true,
+        hasAllPermissions: () => true,
+      })
+    ).toBe(true);
   });
 });
 

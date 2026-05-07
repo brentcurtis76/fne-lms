@@ -680,6 +680,7 @@ interface SidebarItemProps {
   hasPermission: (permission: string) => boolean;
   hasAnyPermission: (permissions: string[]) => boolean;
   hasAllPermissions: (permissions: string[]) => boolean;
+  permissionsLoading: boolean;
   isSuperadmin: boolean;
   superadminCheckDone: boolean;
   hasCommunity: boolean;
@@ -703,6 +704,7 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
   hasPermission,
   hasAnyPermission,
   hasAllPermissions,
+  permissionsLoading,
   isSuperadmin,
   superadminCheckDone,
   hasCommunity,
@@ -761,12 +763,13 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
       assessmentsCheckDone,
       // Resolves to process.env.NEXT_PUBLIC_FEATURE_SUPERADMIN_RBAC via lib/featureFlags.ts; stable per session, intentionally omitted from the memo deps below.
       featureSuperadminRbac: isFeatureEnabled('FEATURE_SUPERADMIN_RBAC'),
+      permissionsLoading,
       hasPermission,
       hasAnyPermission,
       hasAllPermissions,
     };
     return item.children?.filter(child => isChildVisible(child, ctx)) || [];
-  }, [item.children, isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasAssessments, assessmentsCheckDone]);
+  }, [item.children, isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasAssessments, assessmentsCheckDone]);
 
   const hasChildren = filteredChildren.length > 0;
   const isActive = item.href ? isItemActive(item.href, routerAsPath) : false;
@@ -837,8 +840,15 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
 
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">
-                {item.label}
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-medium truncate">
+                  {item.label}
+                </div>
+                {filteredChildren.some(c => c.id === 'feedback') && newFeedbackCount > 0 && (
+                  <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                    {newFeedbackCount}
+                  </span>
+                )}
               </div>
               {item.description && (
                 <div className={`text-xs truncate mt-0.5 ${isActive && !hasChildren ? 'text-blue-100' : 'text-gray-500'
@@ -1387,6 +1397,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
               hasPermission={hasPermission}
               hasAnyPermission={hasAnyPermission}
               hasAllPermissions={hasAllPermissions}
+              permissionsLoading={permissionsLoading}
               isSuperadmin={isSuperadmin}
               superadminCheckDone={superadminCheckDone}
               hasCommunity={hasCommunity}

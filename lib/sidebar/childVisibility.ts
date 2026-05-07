@@ -10,6 +10,7 @@ export interface ChildVisibilityContext {
   hasAssessments: boolean;
   assessmentsCheckDone: boolean;
   featureSuperadminRbac: boolean;
+  permissionsLoading: boolean;
   hasPermission: (permission: string) => boolean;
   hasAnyPermission: (permissions: string[]) => boolean;
   hasAllPermissions: (permissions: string[]) => boolean;
@@ -56,14 +57,18 @@ export function isChildVisible(child: NavigationChildLike, ctx: ChildVisibilityC
     return child.restrictedRoles.includes(ctx.userRole || '') || (ctx.isAdmin && child.restrictedRoles.includes('admin'));
   }
   if (child.permission && !ctx.isAdmin) {
-    if (Array.isArray(child.permission)) {
-      if (child.requireAllPermissions) {
-        return ctx.hasAllPermissions(child.permission);
+    const consultorBypassesPermission = child.consultantOnly && ctx.userRole === 'consultor';
+    if (!consultorBypassesPermission) {
+      if (ctx.permissionsLoading) return false;
+      if (Array.isArray(child.permission)) {
+        if (child.requireAllPermissions) {
+          return ctx.hasAllPermissions(child.permission);
+        } else {
+          return ctx.hasAnyPermission(child.permission);
+        }
       } else {
-        return ctx.hasAnyPermission(child.permission);
+        return ctx.hasPermission(child.permission);
       }
-    } else {
-      return ctx.hasPermission(child.permission);
     }
   }
   return true;

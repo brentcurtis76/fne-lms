@@ -1,11 +1,10 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
+import {
+  isChildVisible,
+  type ChildVisibilityContext,
+} from '../../../lib/sidebar/childVisibility';
 
-// Mirrors the child-item gate predicates used in
-// `components/layout/Sidebar.tsx` (filteredChildren). The Sidebar change
-// must keep that predicate untouched, so we re-implement it inline here
-// rather than exporting a helper from production code.
-//
 // Gates covered: superadminOnly, requiresQAAccess, requiresAssessments,
 // requiresCommunity. Parent semantics are mirrored exactly:
 //  - superadminOnly additionally requires the FEATURE_SUPERADMIN_RBAC flag
@@ -17,49 +16,7 @@ import { describe, it, expect } from 'vitest';
 //  - requiresCommunity waits for `communityCheckDone`, then admits if
 //    `hasCommunity` OR the user's role is `consultor` (consultor exception).
 
-interface ChildItem {
-  superadminOnly?: boolean;
-  requiresQAAccess?: boolean;
-  requiresAssessments?: boolean;
-  requiresCommunity?: boolean;
-}
-
-interface ChildContext {
-  userRole?: string;
-  isAdmin: boolean;
-  isSuperadmin: boolean;
-  superadminCheckDone: boolean;
-  hasCommunity: boolean;
-  communityCheckDone: boolean;
-  canRunQATests: boolean;
-  qaCheckDone: boolean;
-  hasAssessments: boolean;
-  assessmentsCheckDone: boolean;
-  featureSuperadminRbac: boolean;
-}
-
-function isChildVisible(child: ChildItem, ctx: ChildContext): boolean {
-  if (child.superadminOnly) {
-    if (!ctx.featureSuperadminRbac) return false;
-    if (!ctx.superadminCheckDone) return false;
-    if (!ctx.isSuperadmin) return false;
-  }
-  if (child.requiresQAAccess) {
-    if (!ctx.qaCheckDone) return false;
-    if (!ctx.canRunQATests && !ctx.isAdmin) return false;
-  }
-  if (child.requiresAssessments) {
-    if (!ctx.assessmentsCheckDone) return false;
-    if (!ctx.hasAssessments) return false;
-  }
-  if (child.requiresCommunity) {
-    if (!ctx.communityCheckDone) return false;
-    if (!ctx.hasCommunity && ctx.userRole !== 'consultor') return false;
-  }
-  return true;
-}
-
-const baseCtx: ChildContext = {
+const baseCtx: ChildVisibilityContext = {
   userRole: '',
   isAdmin: false,
   isSuperadmin: false,
@@ -71,6 +28,9 @@ const baseCtx: ChildContext = {
   hasAssessments: false,
   assessmentsCheckDone: true,
   featureSuperadminRbac: true,
+  hasPermission: () => false,
+  hasAnyPermission: () => false,
+  hasAllPermissions: () => false,
 };
 
 describe('Sidebar child gating: superadminOnly', () => {

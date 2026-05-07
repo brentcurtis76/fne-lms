@@ -42,6 +42,7 @@ import { CalendarIcon } from '@heroicons/react/solid';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
 import { navigationManager } from '../../utils/navigationManager';
 import { isFeatureEnabled } from '../../lib/featureFlags';
+import { isChildVisible } from '../../lib/sidebar/childVisibility';
 import { usePermissions } from '../../contexts/PermissionContext';
 
 interface SidebarProps {
@@ -712,46 +713,25 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
   }, []);
 
   // Filter children based on admin status and permissions
-  const filteredChildren = useMemo(() => item.children?.filter(child => {
-    if (child.superadminOnly) {
-      if (!isFeatureEnabled('FEATURE_SUPERADMIN_RBAC')) return false;
-      if (!superadminCheckDone) return false;
-      if (!isSuperadmin) return false;
-    }
-    if (child.requiresQAAccess) {
-      if (!qaCheckDone) return false;
-      if (!canRunQATests && !isAdmin) return false;
-    }
-    if (child.requiresAssessments) {
-      if (!assessmentsCheckDone) return false;
-      if (!hasAssessments) return false;
-    }
-    if (child.requiresCommunity) {
-      if (!communityCheckDone) return false;
-      if (!hasCommunity && userRole !== 'consultor') return false;
-    }
-    if (child.adminOnly && !isAdmin) {
-      return false;
-    }
-    if (child.consultantOnly && !isAdmin && !['admin', 'consultor'].includes(userRole || '')) {
-      return false;
-    }
-    if (child.restrictedRoles && child.restrictedRoles.length > 0) {
-      return child.restrictedRoles.includes(userRole || '') || (isAdmin && child.restrictedRoles.includes('admin'));
-    }
-    if (child.permission && !isAdmin) {
-      if (Array.isArray(child.permission)) {
-        if (child.requireAllPermissions) {
-          return hasAllPermissions(child.permission);
-        } else {
-          return hasAnyPermission(child.permission);
-        }
-      } else {
-        return hasPermission(child.permission);
-      }
-    }
-    return true;
-  }) || [], [item.children, isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasAssessments, assessmentsCheckDone]);
+  const filteredChildren = useMemo(() => {
+    const ctx = {
+      isAdmin,
+      userRole,
+      isSuperadmin,
+      superadminCheckDone,
+      hasCommunity,
+      communityCheckDone,
+      canRunQATests,
+      qaCheckDone,
+      hasAssessments,
+      assessmentsCheckDone,
+      featureSuperadminRbac: isFeatureEnabled('FEATURE_SUPERADMIN_RBAC'),
+      hasPermission,
+      hasAnyPermission,
+      hasAllPermissions,
+    };
+    return item.children?.filter(child => isChildVisible(child, ctx)) || [];
+  }, [item.children, isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasAssessments, assessmentsCheckDone]);
 
   const hasChildren = filteredChildren.length > 0;
   const isActive = item.href ? isItemActive(item.href, routerAsPath) : false;

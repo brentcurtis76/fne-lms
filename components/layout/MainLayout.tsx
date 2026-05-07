@@ -62,6 +62,20 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const rawIsAdmin = isAdminProp !== undefined ? isAdminProp : auth.isAdmin;
   const highestRole = getHighestRole(auth.userRoles);
   const userRole = useMemo(() => userRoleProp || highestRole || '', [userRoleProp, highestRole]);
+  // Aggregate every active role the user holds so the sidebar can evaluate
+  // gates against ANY matching role rather than just the primary one. Falls
+  // back to `[userRole]` when `auth.userRoles` is unavailable so single-role
+  // callers keep working unchanged.
+  const userRoles = useMemo<string[]>(() => {
+    const collected = new Set<string>();
+    if (Array.isArray(auth.userRoles)) {
+      auth.userRoles
+        .filter(r => r && r.is_active !== false && r.role_type)
+        .forEach(r => collected.add(r.role_type));
+    }
+    if (userRole) collected.add(userRole);
+    return Array.from(collected);
+  }, [auth.userRoles, userRole]);
   const avatarUrl = avatarUrlProp || auth.avatarUrl;
   const onLogout = onLogoutProp || auth.logout;
 
@@ -295,6 +309,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           isMobileOpen={mobileSidebarOpen}
           isAdmin={effectiveIsAdmin}
           userRole={userRole}
+          userRoles={userRoles}
           avatarUrl={avatarUrl || cachedAvatarUrl || fetchedAvatarUrl}
           onDesktopToggle={handleDesktopSidebarToggle}
           onMobileClose={handleMobileSidebarClose}

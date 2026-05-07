@@ -8,7 +8,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { User } from '@supabase/supabase-js';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
-import { BarChart3, Scale, DollarSign, TrendingUp, Clock, Tag } from 'lucide-react';
+import { BarChart3, DollarSign, TrendingUp, Clock, Tag } from 'lucide-react';
 import {
   HomeIcon,
   BookOpenIcon,
@@ -42,7 +42,12 @@ import { CalendarIcon } from '@heroicons/react/solid';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
 import { navigationManager } from '../../utils/navigationManager';
 import { isFeatureEnabled } from '../../lib/featureFlags';
+import { isChildVisible } from '../../lib/sidebar/childVisibility';
 import { usePermissions } from '../../contexts/PermissionContext';
+
+// Backed by a stable NEXT_PUBLIC_* env var; read once at module scope rather
+// than as a reactive dependency since its value cannot change at runtime.
+const FEATURE_SUPERADMIN_RBAC_ENABLED = isFeatureEnabled('FEATURE_SUPERADMIN_RBAC');
 
 interface SidebarProps {
   user: User | null;
@@ -51,7 +56,19 @@ interface SidebarProps {
   isDesktopCollapsed: boolean;
   isMobileOpen: boolean;
   isAdmin: boolean;
+  /**
+   * Legacy primary-role prop. Still accepted so callers that have not migrated
+   * to `userRoles` keep working unchanged — when only `userRole` is supplied,
+   * gating evaluates against `[userRole]`.
+   */
   userRole?: string;
+  /**
+   * Full set of the user's active role types. When provided, role-based gates
+   * (`consultantOnly`, `restrictedRoles`, `requiresCommunity` consultor
+   * exception, consultor permission bypass) admit an item if ANY of the
+   * user's active roles satisfies the gate.
+   */
+  userRoles?: string[];
   avatarUrl?: string;
   onDesktopToggle: () => void;
   onMobileClose: () => void;
@@ -85,9 +102,13 @@ interface NavigationChild {
   description?: string;
   adminOnly?: boolean;
   consultantOnly?: boolean;
+  superadminOnly?: boolean;
   restrictedRoles?: string[];
   permission?: string | string[]; // Required permission(s)
   requireAllPermissions?: boolean;
+  requiresCommunity?: boolean;
+  requiresQAAccess?: boolean;
+  requiresAssessments?: boolean;
   icon?: React.ComponentType<any>;
 }
 
@@ -126,56 +147,84 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/mi-aprendizaje/tareas',
         icon: ClipboardDocumentCheckIcon,
         description: 'Tareas de todas mis comunidades'
+      },
+      {
+        id: 'docente-assessments',
+        label: 'Feedback',
+        href: '/docente/assessments',
+        icon: AcademicCapIcon,
+        description: 'Evaluaciones de tareas asignadas',
+        restrictedRoles: ['admin', 'consultor']
       }
     ]
   },
   {
-    id: 'docente-assessments',
-    label: 'Feedback',
-    icon: AcademicCapIcon,
-    href: '/docente/assessments',
-    description: 'Evaluaciones de tareas asignadas',
-    restrictedRoles: ['admin', 'consultor', 'community_manager']
+    id: 'mi-trabajo',
+    label: 'Mi Trabajo',
+    icon: BriefcaseIcon,
+    description: 'Sesiones, reportes y horas',
+    consultantOnly: true,
+    children: [
+      {
+        id: 'mis-sesiones',
+        label: 'Mis Sesiones',
+        href: '/consultor/sessions',
+        icon: CalendarIcon,
+        description: 'Sesiones de consultoría asignadas',
+        consultantOnly: true
+      },
+      {
+        id: 'mis-reportes-sesiones',
+        label: 'Mis Reportes',
+        href: '/consultor/sessions/reports',
+        icon: BarChart3,
+        description: 'Estadísticas de mis sesiones',
+        consultantOnly: true
+      },
+      {
+        id: 'mis-horas',
+        label: 'Mis Horas',
+        href: '/mis-horas',
+        icon: Clock,
+        description: 'Ver mis ganancias y horas',
+        consultantOnly: true
+      },
+      {
+        id: 'quiz-reviews',
+        label: 'Revisión de Quizzes',
+        href: '/quiz-reviews',
+        icon: PencilAltIcon,
+        description: 'Calificar preguntas abiertas',
+        consultantOnly: true
+      }
+    ]
   },
   {
-    id: 'quiz-reviews',
-    label: 'Revisión de Quizzes',
-    icon: PencilAltIcon,
-    href: '/quiz-reviews',
-    description: 'Calificar preguntas abiertas',
-    consultantOnly: true
-  },
-  {
-    id: 'mis-sesiones',
-    label: 'Mis Sesiones',
-    icon: CalendarIcon,
-    href: '/consultor/sessions',
-    description: 'Sesiones de consultoría asignadas',
-    consultantOnly: true
-  },
-  {
-    id: 'mis-reportes-sesiones',
-    label: 'Mis Reportes',
-    icon: BarChart3,
-    href: '/consultor/sessions/reports',
-    description: 'Estadísticas de mis sesiones',
-    consultantOnly: true
-  },
-  {
-    id: 'mis-horas',
-    label: 'Mis Horas',
-    icon: Clock,
-    href: '/mis-horas',
-    description: 'Ver mis ganancias y horas',
-    consultantOnly: true
-  },
-  {
-    id: 'reporte-horas',
-    label: 'Reporte de Horas',
-    icon: BarChart3,
-    href: '/reporte-horas',
-    description: 'Reporte de horas de la escuela',
-    restrictedRoles: ['admin', 'equipo_directivo'],
+    id: 'workspace',
+    label: 'Espacio Colaborativo',
+    icon: UserGroupIcon,
+    description: 'Comunidades de crecimiento',
+    requiresCommunity: true, // Predicate gates on community_id; admins bypass via the communityCheck useEffect, which sets hasCommunity=true for admins
+    children: [
+      {
+        id: 'workspace-overview',
+        label: 'Vista General',
+        href: '/community/workspace?section=overview',
+        description: 'Resumen del espacio'
+      },
+      {
+        id: 'workspace-sessions',
+        label: 'Sesiones',
+        href: '/community/workspace?section=sessions'
+      },
+      {
+        id: 'workspace-communities',
+        label: 'Gestión Comunidades',
+        href: '/community/workspace?section=communities',
+        description: 'Administrar comunidades',
+        permission: 'manage_communities_all'
+      }
+    ]
   },
   {
     id: 'courses',
@@ -197,6 +246,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/admin/upcoming-courses',
         description: 'Cursos próximamente disponibles',
         adminOnly: true
+      },
+      {
+        id: 'learning-paths',
+        label: 'Rutas de Aprendizaje',
+        href: '/admin/learning-paths',
+        description: 'Gestión de rutas de aprendizaje',
+        icon: MapIcon,
+        adminOnly: true
       }
     ]
   },
@@ -205,7 +262,6 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Procesos de Cambio',
     icon: ClipboardDocumentListIcon,
     description: 'Constructor de evaluaciones y rúbricas',
-    restrictedRoles: ['admin', 'consultor', 'equipo_directivo'],
     children: [
       {
         id: 'assessment-builder-main',
@@ -220,7 +276,8 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         label: 'Contexto Transversal',
         href: '/school/transversal-context',
         description: 'Configuración de contexto por escuela',
-        icon: OfficeBuildingIcon
+        icon: OfficeBuildingIcon,
+        restrictedRoles: ['admin', 'consultor', 'equipo_directivo']
       },
       {
         id: 'context-questions-manage',
@@ -243,74 +300,80 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         label: 'Plan de Migración',
         href: '/school/migration-plan',
         description: 'Definir generaciones GT/GI por año',
-        icon: MapIcon
+        icon: MapIcon,
+        restrictedRoles: ['admin', 'consultor', 'equipo_directivo']
+      },
+      {
+        id: 'docente-mis-evaluaciones',
+        label: 'Mis Evaluaciones',
+        href: '/docente/assessments',
+        description: 'Evaluaciones que tengo asignadas',
+        icon: AcademicCapIcon,
+        restrictedRoles: ['docente'],
+        requiresAssessments: true
       }
     ]
   },
   {
-    id: 'docente-procesos-cambio',
-    label: 'Procesos de Cambio',
-    icon: ClipboardDocumentListIcon,
-    href: '/docente/assessments',
-    description: 'Evaluaciones de transformación asignadas',
-    restrictedRoles: ['docente'],
-    requiresAssessments: true,
+    id: 'vias-transformacion',
+    label: 'Vías de Transformación',
+    icon: LightningBoltIcon,
+    href: '/vias-transformacion',
+    description: 'Evaluaciones de transformación escolar',
+    adminOnly: true,
+    children: [
+      {
+        id: 'vias-mis-evaluaciones',
+        label: 'Mis Evaluaciones',
+        href: '/vias-transformacion',
+        description: 'Ver mis evaluaciones'
+      },
+      {
+        id: 'vias-contexto-transversal',
+        label: 'Contexto Transversal',
+        href: '/school/transversal-context',
+        description: 'Configuración de contexto escolar',
+        icon: OfficeBuildingIcon
+      },
+      {
+        id: 'vias-resultados-escuela',
+        label: 'Panel de Resultados',
+        href: '/directivo/assessments/dashboard',
+        description: 'Resultados de evaluaciones de la escuela',
+        icon: ChartBarIcon
+      },
+      {
+        id: 'vias-admin-todas',
+        label: 'Todas las Evaluaciones',
+        href: '/admin/transformation/assessments',
+        description: 'Ver evaluaciones por escuela',
+        adminOnly: true
+      }
+    ]
   },
   {
-    id: 'news',
-    label: 'Noticias',
+    id: 'comunicacion',
+    label: 'Comunicación',
     icon: NewspaperIcon,
-    href: '/admin/news',
-    description: 'Gestión de noticias y artículos',
-    restrictedRoles: ['admin', 'community_manager']
-  },
-  {
-    id: 'events',
-    label: 'Eventos',
-    icon: CalendarIcon,
-    href: '/admin/events',
-    description: 'Gestión de eventos y línea de tiempo',
-    restrictedRoles: ['admin', 'community_manager']
-  },
-  {
-    id: 'learning-paths',
-    label: 'Rutas de Aprendizaje',
-    icon: MapIcon,
-    href: '/admin/learning-paths',
-    description: 'Gestión de rutas de aprendizaje',
-    adminOnly: true
-  },
-  {
-    id: 'assignment-matrix',
-    label: 'Matriz de Asignaciones',
-    icon: ViewGridIcon,
-    href: '/admin/assignment-matrix',
-    description: 'Asignaciones por usuario',
-    adminOnly: true
-  },
-  {
-    id: 'roadmap',
-    label: 'Roadmap MVP',
-    icon: ChartBarIcon,
-    href: '/admin/roadmap',
-    description: 'Progreso del desarrollo GENERA',
-    adminOnly: true
-  },
-  {
-    id: 'users',
-    label: 'Usuarios',
-    icon: UsersIcon,
-    href: '/admin/user-management',
-    description: 'Administrar usuarios',
-    adminOnly: true
-  },
-  {
-    id: 'schools',
-    label: 'Escuelas',
-    icon: OfficeBuildingIcon,
-    href: '/admin/schools',
-    description: 'Gestión de escuelas y generaciones',
-    adminOnly: true
+    description: 'Noticias y eventos',
+    children: [
+      {
+        id: 'news',
+        label: 'Noticias',
+        href: '/admin/news',
+        icon: NewspaperIcon,
+        description: 'Gestión de noticias y artículos',
+        restrictedRoles: ['admin', 'community_manager']
+      },
+      {
+        id: 'events',
+        label: 'Eventos',
+        href: '/admin/events',
+        icon: CalendarIcon,
+        description: 'Gestión de eventos y línea de tiempo',
+        restrictedRoles: ['admin', 'community_manager']
+      }
+    ]
   },
   {
     id: 'growth-communities',
@@ -321,12 +384,45 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     restrictedRoles: ['admin', 'equipo_directivo']
   },
   {
-    id: 'networks',
-    label: 'Redes de Colegios',
-    icon: NetworkIcon,
-    href: '/admin/network-management',
-    description: 'Gestión de redes y supervisores',
-    adminOnly: true
+    id: 'personas',
+    label: 'Personas',
+    icon: UsersIcon,
+    description: 'Usuarios, escuelas y redes',
+    adminOnly: true,
+    children: [
+      {
+        id: 'users',
+        label: 'Usuarios',
+        href: '/admin/user-management',
+        icon: UsersIcon,
+        description: 'Administrar usuarios',
+        adminOnly: true
+      },
+      {
+        id: 'schools',
+        label: 'Escuelas',
+        href: '/admin/schools',
+        icon: OfficeBuildingIcon,
+        description: 'Gestión de escuelas y generaciones',
+        adminOnly: true
+      },
+      {
+        id: 'networks',
+        label: 'Redes de Colegios',
+        href: '/admin/network-management',
+        icon: NetworkIcon,
+        description: 'Gestión de redes y supervisores',
+        adminOnly: true
+      },
+      {
+        id: 'assignment-matrix',
+        label: 'Matriz de Asignaciones',
+        href: '/admin/assignment-matrix',
+        icon: ViewGridIcon,
+        description: 'Asignaciones por usuario',
+        adminOnly: true
+      }
+    ]
   },
   {
     id: 'consultants',
@@ -405,7 +501,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Gestión',
     icon: BriefcaseIcon,
     description: 'Gestión empresarial',
-    restrictedRoles: ['admin', 'community_manager'],
+    restrictedRoles: ['admin', 'community_manager', 'encargado_licitacion'],
     children: [
       {
         id: 'clients',
@@ -454,22 +550,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         description: 'Gestión de errores y solicitudes',
         icon: BugIcon,
         permission: 'manage_system_settings'
-      }
-    ]
-  },
-  {
-    id: 'licitaciones',
-    label: 'Licitaciones',
-    icon: Scale,
-    description: 'Procesos de licitacion',
-    restrictedRoles: ['admin', 'encargado_licitacion'],
-    children: [
+      },
       {
         id: 'licitaciones-procesos',
         label: 'Procesos',
         href: '/licitaciones',
         description: 'Listado de licitaciones',
         icon: DocumentTextIcon,
+        restrictedRoles: ['admin', 'encargado_licitacion']
       },
       {
         id: 'licitaciones-templates',
@@ -477,7 +565,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/admin/licitaciones/templates',
         description: 'Gestion de plantillas de Bases',
         icon: DocumentTextIcon,
-        adminOnly: true,
+        adminOnly: true
       },
       {
         id: 'licitaciones-feriados',
@@ -485,17 +573,33 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/admin/licitaciones/feriados',
         description: 'Gestion de feriados nacionales',
         icon: CalendarIcon,
-        adminOnly: true,
-      },
-    ],
+        adminOnly: true
+      }
+    ]
   },
   {
-    id: 'reports',
+    id: 'reportes',
     label: 'Reportes',
     icon: ChartBarIcon,
-    href: '/detailed-reports',
     description: 'Análisis y reportes',
-    restrictedRoles: ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red']
+    children: [
+      {
+        id: 'reports',
+        label: 'Reportes',
+        href: '/detailed-reports',
+        icon: ChartBarIcon,
+        description: 'Análisis y reportes',
+        restrictedRoles: ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red']
+      },
+      {
+        id: 'reporte-horas',
+        label: 'Reporte de Horas',
+        href: '/reporte-horas',
+        icon: BarChart3,
+        description: 'Reporte de horas de la escuela',
+        restrictedRoles: ['admin', 'equipo_directivo']
+      }
+    ]
   },
   {
     id: 'qa-testing',
@@ -549,86 +653,37 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     ]
   },
   {
-    id: 'vias-transformacion',
-    label: 'Vías de Transformación',
-    icon: LightningBoltIcon,
-    href: '/vias-transformacion',
-    description: 'Evaluaciones de transformación escolar',
-    adminOnly: true,
-    // Note: Visible to all users with a school - access checked on the page
-    children: [
-      {
-        id: 'vias-mis-evaluaciones',
-        label: 'Mis Evaluaciones',
-        href: '/vias-transformacion',
-        description: 'Ver mis evaluaciones'
-      },
-      {
-        id: 'vias-contexto-transversal',
-        label: 'Contexto Transversal',
-        href: '/school/transversal-context',
-        description: 'Configuración de contexto escolar',
-        icon: OfficeBuildingIcon
-      },
-      {
-        id: 'vias-resultados-escuela',
-        label: 'Panel de Resultados',
-        href: '/directivo/assessments/dashboard',
-        description: 'Resultados de evaluaciones de la escuela',
-        icon: ChartBarIcon
-      },
-      {
-        id: 'vias-admin-todas',
-        label: 'Todas las Evaluaciones',
-        href: '/admin/transformation/assessments',
-        description: 'Ver evaluaciones por escuela',
-        adminOnly: true
-      }
-    ]
-  },
-  {
-    id: 'workspace',
-    label: 'Espacio Colaborativo',
-    icon: UserGroupIcon,
-    description: 'Comunidades de crecimiento',
-    requiresCommunity: true, // Only show for users with community_id or admins
-    children: [
-      {
-        id: 'workspace-overview',
-        label: 'Vista General',
-        href: '/community/workspace?section=overview',
-        description: 'Resumen del espacio'
-      },
-      {
-        id: 'workspace-sessions',
-        label: 'Sesiones',
-        href: '/community/workspace?section=sessions'
-      },
-      {
-        id: 'workspace-communities',
-        label: 'Gestión Comunidades',
-        href: '/community/workspace?section=communities',
-        description: 'Administrar comunidades',
-        permission: 'manage_communities_all'
-      }
-    ]
-  },
-  {
-    id: 'admin',
-    label: 'Configuración',
+    id: 'sistema',
+    label: 'Sistema',
     icon: CogIcon,
-    href: '/admin/configuration',
     description: 'Configuración del sistema',
-    permission: 'manage_system_settings'
-  },
-  {
-    id: 'rbac',
-    label: 'Roles y Permisos',
-    icon: UserGroupIcon,
-    href: '/admin/role-management',
-    description: 'Gestión de roles y permisos',
-    superadminOnly: true,
-    permission: 'manage_permissions'
+    children: [
+      {
+        id: 'admin-config',
+        label: 'Configuración',
+        href: '/admin/configuration',
+        icon: CogIcon,
+        description: 'Configuración del sistema',
+        permission: 'manage_system_settings'
+      },
+      {
+        id: 'roadmap',
+        label: 'Roadmap MVP',
+        href: '/admin/roadmap',
+        icon: ChartBarIcon,
+        description: 'Progreso del desarrollo GENERA',
+        adminOnly: true
+      },
+      {
+        id: 'rbac',
+        label: 'Roles y Permisos',
+        href: '/admin/role-management',
+        icon: UserGroupIcon,
+        description: 'Gestión de roles y permisos',
+        superadminOnly: true,
+        permission: 'manage_permissions'
+      }
+    ]
   }
 ];
 
@@ -638,9 +693,19 @@ interface SidebarItemProps {
   expandedItems: Set<string>;
   isAdmin: boolean;
   userRole?: string;
+  userRoles: string[];
   hasPermission: (permission: string) => boolean;
   hasAnyPermission: (permissions: string[]) => boolean;
   hasAllPermissions: (permissions: string[]) => boolean;
+  permissionsLoading: boolean;
+  isSuperadmin: boolean;
+  superadminCheckDone: boolean;
+  hasCommunity: boolean;
+  communityCheckDone: boolean;
+  canRunQATests: boolean;
+  qaCheckDone: boolean;
+  hasAssessments: boolean;
+  assessmentsCheckDone: boolean;
   newFeedbackCount: number;
   isItemActive: (href: string, currentPath: string) => boolean;
   toggleExpanded: (itemId: string) => void;
@@ -653,9 +718,19 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
   expandedItems,
   isAdmin,
   userRole,
+  userRoles,
   hasPermission,
   hasAnyPermission,
   hasAllPermissions,
+  permissionsLoading,
+  isSuperadmin,
+  superadminCheckDone,
+  hasCommunity,
+  communityCheckDone,
+  canRunQATests,
+  qaCheckDone,
+  hasAssessments,
+  assessmentsCheckDone,
   newFeedbackCount,
   isItemActive,
   toggleExpanded,
@@ -692,29 +767,27 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
   }, []);
 
   // Filter children based on admin status and permissions
-  const filteredChildren = useMemo(() => item.children?.filter(child => {
-    if (child.adminOnly && !isAdmin) {
-      return false;
-    }
-    if (child.consultantOnly && !isAdmin && !['admin', 'consultor'].includes(userRole || '')) {
-      return false;
-    }
-    if (child.restrictedRoles && child.restrictedRoles.length > 0) {
-      return child.restrictedRoles.includes(userRole || '') || (isAdmin && child.restrictedRoles.includes('admin'));
-    }
-    if (child.permission && !isAdmin) {
-      if (Array.isArray(child.permission)) {
-        if (child.requireAllPermissions) {
-          return hasAllPermissions(child.permission);
-        } else {
-          return hasAnyPermission(child.permission);
-        }
-      } else {
-        return hasPermission(child.permission);
-      }
-    }
-    return true;
-  }) || [], [item.children, isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions]);
+  const filteredChildren = useMemo(() => {
+    const ctx = {
+      isAdmin,
+      userRole,
+      userRoles,
+      isSuperadmin,
+      superadminCheckDone,
+      hasCommunity,
+      communityCheckDone,
+      canRunQATests,
+      qaCheckDone,
+      hasAssessments,
+      assessmentsCheckDone,
+      featureSuperadminRbac: FEATURE_SUPERADMIN_RBAC_ENABLED,
+      permissionsLoading,
+      hasPermission,
+      hasAnyPermission,
+      hasAllPermissions,
+    };
+    return item.children?.filter(child => isChildVisible(child, ctx)) || [];
+  }, [item.children, isAdmin, userRole, userRoles, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasAssessments, assessmentsCheckDone]);
 
   const hasChildren = filteredChildren.length > 0;
   const isActive = item.href ? isItemActive(item.href, routerAsPath) : false;
@@ -789,7 +862,7 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
                 <div className="text-sm font-medium truncate">
                   {item.label}
                 </div>
-                {item.id === 'feedback' && newFeedbackCount > 0 && (
+                {filteredChildren.some(c => c.id === 'feedback') && newFeedbackCount > 0 && (
                   <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
                     {newFeedbackCount}
                   </span>
@@ -942,12 +1015,19 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   isMobileOpen,
   isAdmin,
   userRole,
+  userRoles: userRolesProp,
   avatarUrl,
   onDesktopToggle,
   onMobileClose,
   onLogout,
   className = ''
 }) => {
+  // Resolve the effective role set: prefer the explicit `userRoles` prop, fall
+  // back to the legacy single `userRole` so unmigrated callers keep working.
+  const userRoles = useMemo<string[]>(
+    () => (userRolesProp && userRolesProp.length > 0 ? userRolesProp : userRole ? [userRole] : []),
+    [userRolesProp, userRole]
+  );
   const supabase = useSupabaseClient();
   const router = useRouter();
   const { hasPermission, hasAnyPermission, hasAllPermissions, loading: permissionsLoading } = usePermissions();
@@ -1200,7 +1280,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   const filteredNavigationItems = useMemo(() => {
     return NAVIGATION_ITEMS.filter(item => {
       if (item.superadminOnly) {
-        if (!isFeatureEnabled('FEATURE_SUPERADMIN_RBAC')) return false;
+        if (!FEATURE_SUPERADMIN_RBAC_ENABLED) return false;
         if (!superadminCheckDone) return false;
         if (!isSuperadmin) return false;
       }
@@ -1217,23 +1297,31 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 
       if (item.adminOnly && !isAdmin) return false;
 
-      if (item.consultantOnly && !isAdmin && !['admin', 'consultor'].includes(userRole || '')) {
+      if (
+        item.consultantOnly &&
+        !isAdmin &&
+        !userRoles.some(role => role === 'admin' || role === 'consultor')
+      ) {
         return false;
       }
 
       if (item.requiresCommunity) {
         if (!communityCheckDone) return false;
-        if (!hasCommunity && userRole !== 'consultor') return false;
+        if (!hasCommunity && !userRoles.includes('consultor')) return false;
       }
 
       if (item.restrictedRoles && item.restrictedRoles.length > 0) {
-        // restrictedRoles is the definitive access list — if your role is in
-        // the list you see the item, if not you don't.  No further permission
-        // check needed (children still have their own permission gates).
-        return item.restrictedRoles.includes(userRole || '') || (isAdmin && item.restrictedRoles.includes('admin'));
+        // restrictedRoles is the definitive access list — if any of the user's
+        // active roles is in the list they see the item, otherwise they don't.
+        // No further permission check needed (children still have their own
+        // permission gates).
+        return (
+          userRoles.some(role => item.restrictedRoles!.includes(role)) ||
+          (isAdmin && item.restrictedRoles.includes('admin'))
+        );
       }
 
-      const isConsultor = userRole === 'consultor';
+      const isConsultor = userRoles.includes('consultor');
       const consultorBypassesPermission = item.consultantOnly && isConsultor;
 
       if (item.permission && !isAdmin && !consultorBypassesPermission) {
@@ -1252,7 +1340,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 
       return true;
     });
-  }, [isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasAssessments, assessmentsCheckDone]);
+  }, [isAdmin, userRoles, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasAssessments, assessmentsCheckDone]);
 
   return (
     <>
@@ -1339,9 +1427,19 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
               expandedItems={expandedItems}
               isAdmin={isAdmin}
               userRole={userRole}
+              userRoles={userRoles}
               hasPermission={hasPermission}
               hasAnyPermission={hasAnyPermission}
               hasAllPermissions={hasAllPermissions}
+              permissionsLoading={permissionsLoading}
+              isSuperadmin={isSuperadmin}
+              superadminCheckDone={superadminCheckDone}
+              hasCommunity={hasCommunity}
+              communityCheckDone={communityCheckDone}
+              canRunQATests={canRunQATests}
+              qaCheckDone={qaCheckDone}
+              hasAssessments={hasAssessments}
+              assessmentsCheckDone={assessmentsCheckDone}
               newFeedbackCount={newFeedbackCount}
               isItemActive={isItemActive}
               toggleExpanded={toggleExpanded}

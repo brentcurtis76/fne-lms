@@ -57,6 +57,9 @@ export function isChildVisible(child: NavigationChildLike, ctx: ChildVisibilityC
     return child.restrictedRoles.includes(ctx.userRole || '') || (ctx.isAdmin && child.restrictedRoles.includes('admin'));
   }
   if (child.permission && !ctx.isAdmin) {
+    // consultorBypassesPermission: a consultantOnly child grants access to consultors
+    // even when they lack the listed permission, because consultantOnly is treated as
+    // an explicit role grant that supersedes the permission gate (admins also bypass).
     const consultorBypassesPermission = child.consultantOnly && ctx.userRole === 'consultor';
     if (!consultorBypassesPermission) {
       if (ctx.permissionsLoading) return false;

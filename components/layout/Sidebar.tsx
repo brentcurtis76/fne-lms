@@ -309,7 +309,6 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     href: '/vias-transformacion',
     description: 'Evaluaciones de transformación escolar',
     adminOnly: true,
-    // Note: Visible to all users with a school - access checked on the page
     children: [
       {
         id: 'vias-mis-evaluaciones',
@@ -545,7 +544,8 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         label: 'Procesos',
         href: '/licitaciones',
         description: 'Listado de licitaciones',
-        icon: DocumentTextIcon
+        icon: DocumentTextIcon,
+        restrictedRoles: ['admin', 'encargado_licitacion']
       },
       {
         id: 'licitaciones-templates',

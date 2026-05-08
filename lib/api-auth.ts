@@ -273,11 +273,12 @@ export function handleMethodNotAllowed(
 // malformed values. Returned as `number | string` so callers can coerce with
 // `Number(v)` after the guard succeeds.
 export function isValidSchoolIdInput(v: unknown): v is number | string {
-  if (typeof v === 'number') return Number.isInteger(v) && v > 0;
+  if (typeof v === 'number') return Number.isSafeInteger(v) && v > 0;
   if (typeof v === 'string') {
     const trimmed = v.trim();
     if (!/^\d+$/.test(trimmed)) return false;
-    return Number(trimmed) > 0;
+    const n = Number(trimmed);
+    return Number.isSafeInteger(n) && n > 0;
   }
   return false;
 }

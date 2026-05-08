@@ -191,6 +191,46 @@ describe('UnifiedUserManagement — ED-scoped props', () => {
     expect(document.body.textContent).not.toContain('Reportes de gastos');
   });
 
+  it('hideCommunityFilter: removes the community filter UI and drops a stale selectedCommunityId', () => {
+    const onCommunityChange = vi.fn();
+
+    render(
+      <UnifiedUserManagement
+        {...baseProps}
+        // Stale prior selection — should not surface anywhere when hidden.
+        selectedCommunityId={COMMUNITY_42}
+        onCommunityChange={onCommunityChange}
+        hideCommunityFilter
+      />,
+    );
+
+    // (a) Filter UI is absent — no label, no select.
+    expect(findCommunitySelect()).toBeNull();
+    expect(
+      Array.from(document.body.querySelectorAll('label')).find((l) =>
+        /Filtrar por Comunidad/i.test(l.textContent ?? ''),
+      ),
+    ).toBeUndefined();
+
+    // (b) Nothing the component renders carries the stale community id —
+    // any read of the rendered DOM cannot leak `communityId` back into a
+    // request/export payload built by callers.
+    const inputsAndSelects = Array.from(
+      document.body.querySelectorAll('input,select'),
+    ) as Array<HTMLInputElement | HTMLSelectElement>;
+    for (const el of inputsAndSelects) {
+      expect(el.value).not.toBe(COMMUNITY_42);
+    }
+    const allOptions = Array.from(document.body.querySelectorAll('option'));
+    expect(
+      allOptions.find((o) => (o as HTMLOptionElement).value === COMMUNITY_42),
+    ).toBeUndefined();
+
+    // (c) The component never invokes onCommunityChange on its own when the
+    // filter is hidden, so the parent's communityId state cannot drift.
+    expect(onCommunityChange).not.toHaveBeenCalled();
+  });
+
   it('lockedSchoolId=42: school filter is disabled at value="42" and community options only include school-42 communities', () => {
     // Parent passes a different selectedSchoolId on purpose; lockedSchoolId
     // must override it for both the select value and the community derivation.

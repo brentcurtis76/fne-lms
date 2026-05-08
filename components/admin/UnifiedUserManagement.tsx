@@ -80,6 +80,7 @@ interface UnifiedUserManagementProps {
   hideBulkImport?: boolean;
   hideExpenseAccess?: boolean;
   lockedSchoolId?: number | null;
+  hideCommunityFilter?: boolean;
 }
 
 export const resolvePrimaryRole = (user: UserType): string | null => {
@@ -122,9 +123,11 @@ export default function UnifiedUserManagement({
   hideBulkImport = false,
   hideExpenseAccess = false,
   lockedSchoolId = null,
+  hideCommunityFilter = false,
 }: UnifiedUserManagementProps) {
   const effectiveSelectedSchoolId =
     lockedSchoolId != null ? String(lockedSchoolId) : selectedSchoolId;
+  const effectiveSelectedCommunityId = hideCommunityFilter ? '' : selectedCommunityId;
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; user: UserType | null }>({
     isOpen: false,
@@ -401,14 +404,14 @@ export default function UnifiedUserManagement({
           )}
 
           {/* Community Filter */}
-          {uniqueCommunities.length > 0 && (
+          {!hideCommunityFilter && uniqueCommunities.length > 0 && (
             <div>
               <label htmlFor="community-filter" className="block text-sm font-medium text-gray-700 mb-1">
                 Filtrar por Comunidad
               </label>
               <select
                 id="community-filter"
-                value={selectedCommunityId || ''}
+                value={effectiveSelectedCommunityId || ''}
                 onChange={(e) => onCommunityChange(e.target.value)}
                 className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] focus:border-[#0a0a0a]"
               >

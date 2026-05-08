@@ -15,9 +15,7 @@ import { createServiceRoleClient } from '../../lib/api-auth';
 import { ED_ASSIGNABLE_ROLES } from '../../utils/roleUtils';
 import { ROLE_NAMES, type UserRoleType } from '../../types/roles';
 
-type PageProps =
-  | { role: 'admin'; schoolId: null }
-  | { role: 'equipo_directivo'; schoolId: number };
+type PageProps = { schoolId: number };
 
 type ListUser = {
   id: string;
@@ -64,7 +62,7 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (ctx) => 
 
   const isAdmin = rows.some((r) => r.role_type === 'admin');
   if (isAdmin) {
-    return { props: { role: 'admin' as const, schoolId: null } };
+    return { redirect: { destination: '/admin/user-management', permanent: true } };
   }
 
   const edRow = rows.find((r) => r.role_type === 'equipo_directivo');
@@ -79,7 +77,7 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (ctx) => 
     return { redirect: { destination: '/dashboard', permanent: false } };
   }
 
-  return { props: { role: 'equipo_directivo' as const, schoolId } };
+  return { props: { schoolId } };
 };
 
 const SchoolUsersPage: React.FC<PageProps> = (props) => {
@@ -99,9 +97,7 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'approved'>('all');
-  const [selectedSchoolId, setSelectedSchoolId] = useState<string>(
-    props.role === 'equipo_directivo' ? String(props.schoolId) : ''
-  );
+  const [selectedSchoolId, setSelectedSchoolId] = useState<string>(String(props.schoolId));
   const [selectedCommunityId, setSelectedCommunityId] = useState<string>('');
 
   const [showAddForm, setShowAddForm] = useState(false);
@@ -290,13 +286,8 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
     fetchUsers(1, { status: value });
   };
 
-  const handleSchoolFilterChange = (value: string) => {
-    if (props.role === 'equipo_directivo') return;
-    if (selectedSchoolId === value) return;
-    setSelectedSchoolId(value);
-    setSelectedCommunityId('');
-    setCurrentPage(1);
-    fetchUsers(1, { schoolId: value, communityId: '' });
+  const handleSchoolFilterChange = (_value: string) => {
+    // School is locked to the ED user's school; ignore changes.
   };
 
   const handleCommunityFilterChange = (value: string) => {
@@ -528,9 +519,7 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
   };
 
   const schoolName =
-    props.role === 'equipo_directivo'
-      ? schools.find((s) => String(s.id) === String(props.schoolId))?.name ?? null
-      : null;
+    schools.find((s) => String(s.id) === String(props.schoolId))?.name ?? null;
 
   return (
     <>
@@ -539,17 +528,15 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
       currentPage="school-users"
       pageTitle=""
       breadcrumbs={[]}
-      isAdmin={props.role === 'admin'}
+      isAdmin={false}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
-      {props.role === 'equipo_directivo' && (
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-          <h1 className="text-2xl font-semibold text-gray-900">
-            Usuarios del colegio{schoolName ? ` — ${schoolName}` : ''}
-          </h1>
-        </div>
-      )}
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <h1 className="text-2xl font-semibold text-gray-900">
+          Usuarios del colegio{schoolName ? ` — ${schoolName}` : ''}
+        </h1>
+      </div>
 
       <UnifiedUserManagement
         users={users}
@@ -586,9 +573,10 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
         onAddUser={() => setShowAddForm(true)}
         onBulkImport={notImplemented}
         onEditUser={handleEditUser}
-        hideBulkImport={props.role === 'equipo_directivo' ? true : undefined}
-        hideExpenseAccess={props.role === 'equipo_directivo' ? true : undefined}
-        lockedSchoolId={props.role === 'equipo_directivo' ? props.schoolId : undefined}
+        hideBulkImport
+        hideExpenseAccess
+        lockedSchoolId={props.schoolId}
+        hideCommunityFilter
       />
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -743,7 +731,7 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
           userEmail={selectedUser.email}
           currentUserId={user?.id || ''}
           onRoleUpdate={handleRoleUpdate}
-          allowedRoles={props.role === 'equipo_directivo' ? ED_ASSIGNABLE_ROLES : undefined}
+          allowedRoles={ED_ASSIGNABLE_ROLES}
         />
       )}
     </MainLayout>
@@ -809,7 +797,7 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
       onClose={handleEditModalClose}
       user={userToEdit}
       onUserUpdated={handleUserUpdated}
-      disableSchoolEdit={props.role === 'equipo_directivo'}
+      disableSchoolEdit
     />
     </>
   );

@@ -27,6 +27,7 @@ interface RoleAssignmentModalProps {
   userEmail: string;
   currentUserId: string;
   onRoleUpdate: () => void;
+  allowedRoles?: readonly string[];
 }
 
 export default function RoleAssignmentModal({
@@ -36,7 +37,8 @@ export default function RoleAssignmentModal({
   userName,
   userEmail,
   currentUserId,
-  onRoleUpdate
+  onRoleUpdate,
+  allowedRoles
 }: RoleAssignmentModalProps) {
   const supabase = useSupabaseClient();
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
@@ -651,11 +653,13 @@ export default function RoleAssignmentModal({
                               onChange={(e) => setSelectedRole(e.target.value as UserRoleType)}
                               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                             >
-                              {availableRoles.map((roleType) => (
-                                <option key={roleType} value={roleType}>
-                                  {ROLE_NAMES[roleType]}
-                                </option>
-                              ))}
+                              {availableRoles
+                                .filter((roleType) => !allowedRoles || allowedRoles.includes(roleType))
+                                .map((roleType) => (
+                                  <option key={roleType} value={roleType}>
+                                    {ROLE_NAMES[roleType]}
+                                  </option>
+                                ))}
                             </select>
                             <p className="text-sm text-gray-600 mt-1">
                               {ROLE_DESCRIPTIONS[selectedRole]}

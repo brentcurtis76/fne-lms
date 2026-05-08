@@ -18,9 +18,10 @@ interface UserEditModalProps {
     can_run_qa_tests?: boolean;
   } | null;
   onUserUpdated: () => void;
+  disableSchoolEdit?: boolean;
 }
 
-export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: UserEditModalProps) {
+export default function UserEditModal({ isOpen, onClose, user, onUserUpdated, disableSchoolEdit = false }: UserEditModalProps) {
   const supabase = useSupabaseClient();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -78,7 +79,7 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: 
           email: formData.email.trim(),
           first_name: formData.first_name.trim(),
           last_name: formData.last_name.trim(),
-          school: formData.school.trim(),
+          ...(disableSchoolEdit ? {} : { school: formData.school.trim() }),
           external_school_affiliation: formData.external_school_affiliation || null,
           originalEmail: originalEmail
         })
@@ -218,7 +219,9 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: 
               id="school"
               value={formData.school}
               onChange={(e) => setFormData({ ...formData, school: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
+              disabled={disableSchoolEdit}
+              title={disableSchoolEdit ? 'Tu colegio no puede modificarse desde aquí' : undefined}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
               placeholder="Opcional"
             />
           </div>

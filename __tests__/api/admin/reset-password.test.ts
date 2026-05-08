@@ -369,6 +369,59 @@ describe('admin/reset-password — POST (ED auth + scoping)', () => {
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
+  it('admin: 400 when admin tries to reset their own password — updateUserById not called', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    const client = buildAdminClient(
+      successTables({ includeProfileLookup: false }),
+      tracker,
+    );
+    mockCreateServiceRoleClient.mockReturnValueOnce(client);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: ADMIN_ID, temporaryPassword: TEMP_PASSWORD },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toMatchObject({
+      error: 'No puedes restablecer tu propia contraseña — usa el flujo normal de recuperación',
+    });
+    expect(tracker.updateUserCalls).toHaveLength(0);
+    const profileCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profileCalls).toHaveLength(0);
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    expect(auditCalls).toHaveLength(0);
+  });
+
+  it('ED: 400 when ED tries to reset their own password — updateUserById not called, school lookup skipped', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        successTables({ includeProfileLookup: true, lookupSchoolId: ED_SCHOOL_ID }),
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: ED_ID, temporaryPassword: TEMP_PASSWORD },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toMatchObject({
+      error: 'No puedes restablecer tu propia contraseña — usa el flujo normal de recuperación',
+    });
+    expect(tracker.updateUserCalls).toHaveLength(0);
+    const profileCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profileCalls).toHaveLength(0);
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    expect(auditCalls).toHaveLength(0);
+  });
+
   it('unauthenticated: 401 (service client never built)', async () => {
     setupUnauthenticated();
 

@@ -85,6 +85,14 @@ export default async function handler(
       );
     }
 
+    if (userId === user.id) {
+      return sendAuthError(
+        res,
+        'No puedes restablecer tu propia contraseña — usa el flujo normal de recuperación',
+        400,
+      );
+    }
+
     // For equipo_directivo, verify the target user belongs to the same school
     // before performing any password reset work.
     if (requesterRole === 'equipo_directivo') {

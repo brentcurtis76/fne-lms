@@ -160,7 +160,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('is_active', true);
 
     if (isEdScope) {
-      rolesQuery = rolesQuery.or(`school_id.is.null,school_id.eq.${edSchoolId}`);
+      rolesQuery = rolesQuery
+        .or(`school_id.is.null,school_id.eq.${edSchoolId}`)
+        .in('role_type', ED_ASSIGNABLE_ROLES as readonly string[]);
     }
 
     const { data: rawRolesData, error: rolesError } = await rolesQuery;
@@ -170,16 +172,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al obtener roles de usuarios' });
     }
 
-    // ED scope: drop null-school rows for global roles (admin, consultor,
-    // supervisor_de_red, community_manager). Only school-scoped roles
-    // (ED_ASSIGNABLE_ROLES) are exposed to ED when school_id is null.
+    // Defense-in-depth: even though the ED query restricts role_type to
+    // ED_ASSIGNABLE_ROLES, drop any row whose role_type is not school-scoped.
+    // This guards against anomalous data (e.g. a global role row stored with
+    // school_id=edSchoolId) leaking into ED responses.
     const rolesData = isEdScope
-      ? (rawRolesData || []).filter((row: any) => {
-          if (row.school_id === null || row.school_id === undefined) {
-            return ED_SCHOOL_SCOPED_ROLE_SET.has(row.role_type);
-          }
-          return true;
-        })
+      ? (rawRolesData || []).filter((row: any) =>
+          ED_SCHOOL_SCOPED_ROLE_SET.has(row.role_type),
+        )
       : rawRolesData;
 
     const { data: consultantData, error: consultantError } = await supabaseService

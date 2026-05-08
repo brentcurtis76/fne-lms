@@ -47,7 +47,8 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (ctx) => 
     .from('user_roles')
     .select('id, role_type, school_id')
     .eq('user_id', session.user.id)
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .order('id', { ascending: true });
 
   const rows = (roleRows ?? []) as Array<{
     id: number;
@@ -60,9 +61,7 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (ctx) => 
     return { props: { role: 'admin' as const, schoolId: null } };
   }
 
-  const edRow = rows
-    .filter((r) => r.role_type === 'equipo_directivo')
-    .sort((a, b) => a.id - b.id)[0];
+  const edRow = rows.find((r) => r.role_type === 'equipo_directivo');
 
   if (!edRow || edRow.school_id === null || edRow.school_id === undefined) {
     return { redirect: { destination: '/dashboard', permanent: false } };

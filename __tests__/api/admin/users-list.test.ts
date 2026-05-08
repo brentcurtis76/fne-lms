@@ -327,6 +327,25 @@ describe('admin/users — GET (school scoping)', () => {
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
+  it('defensive guard — ED with helper returning schoolId: null gets 403', async () => {
+    mockCheckIsAdminOrEquipoDirectivo.mockResolvedValueOnce({
+      isAuthorized: true,
+      role: 'equipo_directivo',
+      schoolId: null,
+      user: { id: ED_ID } as any,
+      error: null,
+    });
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(JSON.parse(res._getData())).toEqual({
+      error: 'School context missing for equipo_directivo',
+    });
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
+
   it('ED: user_roles rows for in-school users with school_id=NULL are still returned', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();

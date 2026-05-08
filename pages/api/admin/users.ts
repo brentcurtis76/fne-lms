@@ -31,17 +31,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'Solo administradores pueden ver usuarios' });
     }
 
+    if (role === 'equipo_directivo' && typeof edSchoolId !== 'number') {
+      return res.status(403).json({ error: 'School context missing for equipo_directivo' });
+    }
+
     const isEdScope = role === 'equipo_directivo' && typeof edSchoolId === 'number';
     const selectedSchoolId = isEdScope ? String(edSchoolId) : querySchoolId;
 
     const supabaseService = createServiceRoleClient();
 
+    // ED is already restricted to a single school, so the communityId filter
+    // (an admin-tooling parameter) is ignored for ED requests.
+    const effectiveCommunityId = isEdScope ? '' : communityId;
+
     let allowedUserIds: string[] | null = null;
-    if (communityId) {
+    if (effectiveCommunityId) {
       const { data: communityUsers, error: communityError } = await supabaseService
         .from('user_roles')
         .select('user_id')
-        .eq('community_id', communityId)
+        .eq('community_id', effectiveCommunityId)
         .eq('is_active', true);
 
       if (communityError) {

@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import {
-  checkIsAdmin,
+  checkIsAdminOrEquipoDirectivo,
   createServiceRoleClient,
   sendAuthError,
   sendApiResponse,
@@ -29,23 +29,34 @@ export default async function handler(
   if (!allowed) return;
 
   try {
-    // Verify admin access using the centralized auth utility
-    const { isAdmin, user, error } = await checkIsAdmin(req, res);
-    
+    // Verify admin or equipo_directivo access using the centralized auth utility
+    const {
+      isAuthorized,
+      role: requesterRole,
+      schoolId: edSchoolId,
+      user,
+      error,
+    } = await checkIsAdminOrEquipoDirectivo(req, res);
+
     console.log('[Reset Password API] Auth check result:', {
-      isAdmin,
+      isAuthorized,
+      role: requesterRole,
       userId: user?.id,
-      error: error?.message
+      error: error?.message,
     });
-    
+
     if (error || !user) {
       console.error('[Reset Password API] Authentication failed:', error);
       return sendAuthError(res, 'Authentication required', 401);
     }
-    
-    if (!isAdmin) {
-      console.error('[Reset Password API] User is not admin:', user.id);
+
+    if (!isAuthorized) {
+      console.error('[Reset Password API] User not authorized to reset passwords:', user.id);
       return sendAuthError(res, 'Only admins can reset passwords', 403);
+    }
+
+    if (requesterRole === 'equipo_directivo' && typeof edSchoolId !== 'number') {
+      return sendAuthError(res, 'School context missing for equipo_directivo', 403);
     }
 
     // Create service role client for admin operations
@@ -61,15 +72,39 @@ export default async function handler(
 
     if (!validation.valid) {
       return sendAuthError(
-        res, 
+        res,
         `Missing required fields: ${validation.missing.join(', ')}`,
         400
       );
     }
 
+    // For equipo_directivo, verify the target user belongs to the same school
+    // before performing any password reset work.
+    if (requesterRole === 'equipo_directivo') {
+      const { data: targetProfile, error: profileLookupError } = await supabaseAdmin
+        .from('profiles')
+        .select('school_id')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (profileLookupError) {
+        return sendAuthError(res, 'Error verificando usuario', 500);
+      }
+      if (!targetProfile) {
+        return sendAuthError(res, 'Usuario no encontrado', 404);
+      }
+      if (targetProfile.school_id !== edSchoolId) {
+        return sendAuthError(
+          res,
+          'No autorizado para restablecer la contraseña de este usuario',
+          403,
+        );
+      }
+    }
+
     // Log the userId we're trying to update
     console.log('[Reset Password API] Attempting to reset password for userId:', userId);
-    
+
     // Update the user's password
     const { data: updateData, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       userId,

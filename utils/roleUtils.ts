@@ -292,6 +292,12 @@ export const ED_ASSIGNABLE_ROLES = ['docente', 'lider_comunidad', 'lider_generac
 export type EdAssignableRole = (typeof ED_ASSIGNABLE_ROLES)[number];
 
 /**
+ * Set form of ED_ASSIGNABLE_ROLES for O(1) school-scoped role membership
+ * checks in admin handlers (users / delete-user / reset-password / update-user).
+ */
+export const ED_SCHOOL_SCOPED_ROLES: ReadonlySet<string> = new Set(ED_ASSIGNABLE_ROLES);
+
+/**
  * Check if user has a specific permission
  */
 export function hasPermission(

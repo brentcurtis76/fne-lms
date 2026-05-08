@@ -9,9 +9,7 @@ import {
 } from '../../../lib/api-auth';
 import { ApiError, ApiSuccess } from '../../../lib/types/api-auth.types';
 import { rateLimit, RATE_LIMITS } from '../../../lib/rateLimit';
-import { ED_ASSIGNABLE_ROLES, type EdAssignableRole } from '../../../utils/roleUtils';
-
-const ED_SCHOOL_SCOPED_ROLES = new Set<string>(ED_ASSIGNABLE_ROLES as readonly EdAssignableRole[]);
+import { ED_SCHOOL_SCOPED_ROLES } from '../../../utils/roleUtils';
 
 // Rate limiter for password reset (auth-level: 10 req/min)
 const rateLimitCheck = rateLimit(RATE_LIMITS.auth, 'admin-reset-password');

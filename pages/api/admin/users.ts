@@ -3,11 +3,9 @@ import {
   checkIsAdminOrEquipoDirectivo,
   createServiceRoleClient,
 } from '../../../lib/api-auth';
-import { ED_ASSIGNABLE_ROLES } from '../../../utils/roleUtils';
+import { ED_ASSIGNABLE_ROLES, ED_SCHOOL_SCOPED_ROLES } from '../../../utils/roleUtils';
 
 const ROLE_PRIORITY = ['admin','consultor','equipo_directivo','supervisor_de_red','community_manager','lider_generacion','lider_comunidad','docente','encargado_licitacion'];
-
-const ED_SCHOOL_SCOPED_ROLE_SET: ReadonlySet<string> = new Set(ED_ASSIGNABLE_ROLES);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -182,7 +180,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // school_id=edSchoolId) leaking into ED responses.
     const rolesData = isEdScope
       ? (rawRolesData || []).filter((row: any) =>
-          ED_SCHOOL_SCOPED_ROLE_SET.has(row.role_type),
+          ED_SCHOOL_SCOPED_ROLES.has(row.role_type),
         )
       : rawRolesData;
 

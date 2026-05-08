@@ -1,8 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient } from '../../../lib/api-auth';
-import { ED_ASSIGNABLE_ROLES, type EdAssignableRole } from '../../../utils/roleUtils';
-
-const ED_SCHOOL_SCOPED_ROLES = new Set<string>(ED_ASSIGNABLE_ROLES as readonly EdAssignableRole[]);
+import { ED_SCHOOL_SCOPED_ROLES } from '../../../utils/roleUtils';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {

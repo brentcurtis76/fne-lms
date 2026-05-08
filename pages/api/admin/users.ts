@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
-import { createClient } from '@supabase/supabase-js';
+import {
+  checkIsAdminOrEquipoDirectivo,
+  createServiceRoleClient,
+} from '../../../lib/api-auth';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const ROLE_PRIORITY = ['admin','consultor','equipo_directivo','supervisor_de_red','community_manager','lider_generacion','lider_comunidad','docente','encargado_licitacion'];
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -16,29 +16,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const pageSize = Math.min(Math.max(parseInt((req.query.pageSize as string) || '25', 10), 1), 100);
     const search = (req.query.search as string)?.trim() || '';
     const status = (req.query.status as string) || 'all';
-    const schoolId = (req.query.schoolId as string) || '';
+    const querySchoolId = (req.query.schoolId as string) || '';
     const communityId = (req.query.communityId as string) || '';
     const offset = (page - 1) * pageSize;
 
-    const supabaseClient = createServerSupabaseClient({ req, res });
-    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
-    if (sessionError || !session) {
+    const { isAuthorized, role, schoolId: edSchoolId, error: authError } =
+      await checkIsAdminOrEquipoDirectivo(req, res);
+
+    if (authError) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
-
-    const { data: adminCheck } = await supabaseService
-      .from('user_roles')
-      .select('id')
-      .eq('user_id', session.user.id)
-      .eq('role_type', 'admin')
-      .eq('is_active', true)
-      .limit(1);
-
-    if (!adminCheck || adminCheck.length === 0) {
+    if (!isAuthorized) {
       return res.status(403).json({ error: 'Solo administradores pueden ver usuarios' });
     }
+
+    const isEdScope = role === 'equipo_directivo' && typeof edSchoolId === 'number';
+    const selectedSchoolId = isEdScope ? String(edSchoolId) : querySchoolId;
+
+    const supabaseService = createServiceRoleClient();
 
     let allowedUserIds: string[] | null = null;
     if (communityId) {
@@ -77,8 +73,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       profileQuery = profileQuery.eq('approval_status', status);
     }
 
-    if (schoolId) {
-      profileQuery = profileQuery.eq('school_id', parseInt(schoolId, 10));
+    if (selectedSchoolId) {
+      profileQuery = profileQuery.eq('school_id', parseInt(selectedSchoolId, 10));
     }
 
     if (allowedUserIds) {
@@ -92,26 +88,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al obtener usuarios' });
     }
 
-    const summaryPromises = [
-      supabaseService
-        .from('profiles')
-        .select('id', { head: true, count: 'exact' }),
-      supabaseService
-        .from('profiles')
-        .select('id', { head: true, count: 'exact' })
-        .eq('approval_status', 'pending'),
-      supabaseService
-        .from('profiles')
-        .select('id', { head: true, count: 'exact' })
-        .eq('approval_status', 'approved'),
-      // Fetch all schools for filter dropdown
-      supabaseService
-        .from('schools')
-        .select('id, name')
-        .order('name', { ascending: true })
-    ];
+    let totalCountQuery = supabaseService
+      .from('profiles')
+      .select('id', { head: true, count: 'exact' });
+    let pendingCountQuery = supabaseService
+      .from('profiles')
+      .select('id', { head: true, count: 'exact' })
+      .eq('approval_status', 'pending');
+    let approvedCountQuery = supabaseService
+      .from('profiles')
+      .select('id', { head: true, count: 'exact' })
+      .eq('approval_status', 'approved');
+    let schoolsQuery = supabaseService
+      .from('schools')
+      .select('id, name')
+      .order('name', { ascending: true });
 
-    const [totalCountRes, pendingCountRes, approvedCountRes, schoolsRes] = await Promise.all(summaryPromises);
+    if (isEdScope) {
+      const edSchoolNum = edSchoolId as number;
+      totalCountQuery = totalCountQuery.eq('school_id', edSchoolNum);
+      pendingCountQuery = pendingCountQuery.eq('school_id', edSchoolNum);
+      approvedCountQuery = approvedCountQuery.eq('school_id', edSchoolNum);
+      schoolsQuery = schoolsQuery.eq('id', edSchoolNum);
+    }
+
+    const [totalCountRes, pendingCountRes, approvedCountRes, schoolsRes] = await Promise.all([
+      totalCountQuery,
+      pendingCountQuery,
+      approvedCountQuery,
+      schoolsQuery,
+    ]);
 
     const summary = {
       total: totalCountRes.count || 0,
@@ -131,7 +137,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const userIds = users.map(user => user.id);
 
-    const { data: rolesData, error: rolesError } = await supabaseService
+    let rolesQuery = supabaseService
       .from('user_roles')
       .select(`
         *,
@@ -141,6 +147,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       `)
       .in('user_id', userIds)
       .eq('is_active', true);
+
+    if (isEdScope) {
+      rolesQuery = rolesQuery.eq('school_id', edSchoolId as number);
+    }
+
+    const { data: rolesData, error: rolesError } = await rolesQuery;
 
     if (rolesError) {
       console.error('[users API] Error fetching roles:', rolesError);

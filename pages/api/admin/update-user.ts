@@ -1,17 +1,5 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
-import { hasAdminPrivileges } from '../../../utils/roleUtils';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient } from '../../../lib/api-auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -19,23 +7,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Get user token from authorization header
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
+    const {
+      isAuthorized,
+      role: requesterRole,
+      schoolId: edSchoolId,
+      user: requestingUser,
+      error: authError,
+    } = await checkIsAdminOrEquipoDirectivo(req, res);
+
+    if (authError || !requestingUser) {
       return res.status(401).json({ error: 'No autorizado' });
     }
 
-    // Verify the user making the request
-    const { data: { user: requestingUser }, error: userError } = await supabaseAdmin.auth.getUser(token);
-    if (userError || !requestingUser) {
-      return res.status(401).json({ error: 'Token inválido' });
+    if (!isAuthorized) {
+      return res.status(403).json({ error: 'Solo los administradores pueden editar usuarios' });
     }
 
-    // Check if requesting user is admin
-    // Pass the service role client to bypass RLS
-    const isAdmin = await hasAdminPrivileges(supabaseAdmin, requestingUser.id);
-    if (!isAdmin) {
-      return res.status(403).json({ error: 'Solo los administradores pueden editar usuarios' });
+    if (requesterRole === 'equipo_directivo' && typeof edSchoolId !== 'number') {
+      return res.status(403).json({ error: 'School context missing for equipo_directivo' });
     }
 
     const { userId, email, first_name, last_name, school, external_school_affiliation } = req.body;
@@ -44,16 +33,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'ID de usuario requerido' });
     }
 
-    // Update profile data
+    const supabaseAdmin = createServiceRoleClient();
+
+    if (requesterRole === 'equipo_directivo') {
+      if (req.body.school !== undefined || req.body.school_id !== undefined) {
+        return res.status(400).json({ error: 'No se puede modificar el colegio' });
+      }
+
+      const { data: targetProfile, error: profileLookupError } = await supabaseAdmin
+        .from('profiles')
+        .select('school_id')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (profileLookupError || !targetProfile) {
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+      }
+
+      if (targetProfile.school_id !== edSchoolId) {
+        return res.status(403).json({ error: 'No autorizado para editar este usuario' });
+      }
+    }
+
+    const updateData: Record<string, unknown> = {
+      first_name: first_name?.trim() || null,
+      last_name: last_name?.trim() || null,
+      email: email?.trim(),
+      external_school_affiliation: external_school_affiliation || null,
+    };
+    if (requesterRole === 'admin') {
+      updateData.school = school?.trim() || null;
+    }
+
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
-      .update({
-        first_name: first_name?.trim() || null,
-        last_name: last_name?.trim() || null,
-        school: school?.trim() || null,
-        email: email?.trim(), // Update email in profiles as well
-        external_school_affiliation: external_school_affiliation || null
-      })
+      .update(updateData)
       .eq('id', userId);
 
     if (profileError) {
@@ -63,20 +77,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // If email is being changed, update auth email
     if (email) {
-      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+      const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
         userId,
         { email: email.trim() }
       );
 
-      if (authError) {
-        console.error('Error updating auth email:', authError);
+      if (authUpdateError) {
+        console.error('Error updating auth email:', authUpdateError);
         // Try to rollback profile email change
         await supabaseAdmin
           .from('profiles')
           .update({ email: req.body.originalEmail })
           .eq('id', userId);
-        
-        return res.status(500).json({ error: 'Error al actualizar el email: ' + authError.message });
+
+        return res.status(500).json({ error: 'Error al actualizar el email: ' + authUpdateError.message });
       }
     }
 
@@ -93,10 +107,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             email: email !== req.body.originalEmail ? { from: req.body.originalEmail, to: email } : undefined,
             first_name,
             last_name,
-            school,
-            external_school_affiliation
-          }
-        }
+            school: requesterRole === 'admin' ? school : undefined,
+            external_school_affiliation,
+          },
+        },
       });
 
     return res.status(200).json({ success: true, message: 'Usuario actualizado exitosamente' });

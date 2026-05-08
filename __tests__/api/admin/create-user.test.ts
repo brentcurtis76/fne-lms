@@ -206,6 +206,49 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
     )!;
     const inserted = roleInsert.inserts[0] as any;
     expect(inserted.role_type).toBe('docente');
+    expect(inserted.school_id).toBe(OTHER_SCHOOL_ID);
+  });
+
+  it('admin: school-scoped role insert includes user_roles.school_id', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: bodyFor('lider_comunidad', OTHER_SCHOOL_ID),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const roleInsert = tracker.fromCalls.find(
+      (c) => c.table === 'user_roles' && c.inserts.length > 0,
+    )!;
+    const inserted = roleInsert.inserts[0] as any;
+    expect(inserted.role_type).toBe('lider_comunidad');
+    expect(inserted.school_id).toBe(OTHER_SCHOOL_ID);
+    expect(typeof inserted.school_id).toBe('number');
+  });
+
+  it('admin: GLOBAL role insert does NOT include user_roles.school_id', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: bodyFor('consultor', OTHER_SCHOOL_ID),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const roleInsert = tracker.fromCalls.find(
+      (c) => c.table === 'user_roles' && c.inserts.length > 0,
+    )!;
+    const inserted = roleInsert.inserts[0] as any;
+    expect(inserted.role_type).toBe('consultor');
     expect(inserted.school_id).toBeUndefined();
   });
 
@@ -402,8 +445,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
 
   it('admin with schoolId=0: preserves numeric 0 (no explicit > 0 rule in route)', async () => {
     // The route has no "schoolId must be > 0" validation, so 0 is preserved
-    // as a finite number and written to both profile and (admin path) skipped
-    // for user_roles.school_id since user_roles only gets school_id for ED.
+    // as a finite number and written to the profile.
     setupAdmin();
     const tracker = makeTracker();
     stockHappyPath(tracker);

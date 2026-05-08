@@ -113,7 +113,7 @@ export default async function handler(
           role_type: resolvedRole
         };
         if (
-          requesterRole === 'equipo_directivo' &&
+          (ED_ASSIGNABLE_ROLES as readonly string[]).includes(resolvedRole) &&
           sid !== null &&
           Number.isFinite(sid)
         ) {

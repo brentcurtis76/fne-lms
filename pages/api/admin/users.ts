@@ -145,7 +145,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const userIds = users.map(user => user.id);
 
-    const rolesQuery = supabaseService
+    let rolesQuery = supabaseService
       .from('user_roles')
       .select(`
         *,
@@ -155,6 +155,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       `)
       .in('user_id', userIds)
       .eq('is_active', true);
+
+    if (isEdScope) {
+      rolesQuery = rolesQuery.or(`school_id.is.null,school_id.eq.${edSchoolId}`);
+    }
 
     const { data: rolesData, error: rolesError } = await rolesQuery;
 

@@ -34,6 +34,7 @@ interface FromCall {
   index: number;
   eqs: Array<{ col: string; val: unknown }>;
   ins: Array<{ col: string; vals: unknown }>;
+  ors: string[];
 }
 
 interface Tracker {
@@ -60,7 +61,7 @@ function buildSequencedClient(
       indices[table] = idx + 1;
       const result = resultsByTable[table]?.[idx] ?? { data: null };
 
-      const fromCall: FromCall = { table, index: idx, eqs: [], ins: [] };
+      const fromCall: FromCall = { table, index: idx, eqs: [], ins: [], ors: [] };
       tracker?.fromCalls.push(fromCall);
 
       const resolved = {
@@ -83,6 +84,19 @@ function buildSequencedClient(
           if (prop === 'in') {
             return vi.fn((col: string, vals: unknown) => {
               fromCall.ins.push({ col, vals });
+              return new Proxy({}, proxyHandler);
+            });
+          }
+          if (prop === 'or') {
+            return vi.fn((expr: string) => {
+              fromCall.ors.push(expr);
+              const match = /^school_id\.is\.null,school_id\.eq\.(\d+)$/.exec(expr);
+              if (match && Array.isArray(resolved.data)) {
+                const schoolId = parseInt(match[1], 10);
+                resolved.data = (resolved.data as Array<Record<string, unknown>>).filter(
+                  (row) => row.school_id === null || row.school_id === schoolId,
+                );
+              }
               return new Proxy({}, proxyHandler);
             });
           }
@@ -479,5 +493,85 @@ describe('admin/users — GET (school scoping)', () => {
       (u.user_roles || []).map((r: any) => r.user_id),
     );
     expect(allRoleUserIds.every((id: string) => id === 'user-in-school')).toBe(true);
+  });
+
+  it('ED: out-of-school user_roles rows for in-school users are filtered out', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    const inSchoolProfile = {
+      id: 'user-in-school',
+      email: 'in@example.com',
+      first_name: 'In',
+      last_name: 'School',
+      school_id: ED_SCHOOL_ID,
+      approval_status: 'approved',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+    };
+
+    const sameSchoolRole = {
+      id: 'role-same',
+      user_id: 'user-in-school',
+      role_type: 'docente',
+      school_id: ED_SCHOOL_ID,
+      community_id: null,
+      is_active: true,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+      generation: null,
+      community: null,
+    };
+
+    const foreignSchoolRole = {
+      id: 'role-foreign',
+      user_id: 'user-in-school',
+      role_type: 'docente',
+      school_id: OTHER_SCHOOL_ID,
+      community_id: null,
+      is_active: true,
+      school: { id: OTHER_SCHOOL_ID, name: `School ${OTHER_SCHOOL_ID}` },
+      generation: null,
+      community: null,
+    };
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            { data: [inSchoolProfile], count: 1 },
+            { count: 1 },
+            { count: 0 },
+            { count: 1 },
+          ],
+          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+          user_roles: [{ data: [sameSchoolRole, foreignSchoolRole] }],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const rolesCall = tracker.fromCalls.find((c) => c.table === 'user_roles')!;
+    expect(rolesCall.ins.find((i) => i.col === 'user_id')).toBeDefined();
+    expect(rolesCall.ors).toContain(
+      `school_id.is.null,school_id.eq.${ED_SCHOOL_ID}`,
+    );
+
+    const body = JSON.parse(res._getData());
+    expect(body.users).toHaveLength(1);
+    const returnedRoles = body.users[0].user_roles;
+    expect(returnedRoles).toHaveLength(1);
+    expect(returnedRoles[0].id).toBe('role-same');
+    expect(returnedRoles[0].school_id).toBe(ED_SCHOOL_ID);
+    expect(returnedRoles.find((r: any) => r.school_id === OTHER_SCHOOL_ID)).toBeUndefined();
   });
 });

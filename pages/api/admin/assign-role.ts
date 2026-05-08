@@ -1,10 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
-import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient } from '../../../lib/api-auth';
+import { ED_ASSIGNABLE_ROLES, ED_SCHOOL_SCOPED_ROLES } from '../../../utils/roleUtils';
 import { UserRoleType, validateRoleAssignment } from '../../../types/roles';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -19,53 +16,94 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       timestamp: new Date().toISOString()
     });
 
-    // Get the user's session using the auth helper
-    const supabaseClient = createServerSupabaseClient({ req, res });
-    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+    const {
+      isAuthorized,
+      role: requesterRole,
+      schoolId: edSchoolId,
+      user: requestingUser,
+      error: authError,
+    } = await checkIsAdminOrEquipoDirectivo(req, res);
 
-    if (sessionError || !session) {
-      console.error('[assign-role API] Session error:', sessionError);
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!isAuthorized || !requestingUser) {
+      console.error('[assign-role API] Auth failed:', { authError, requesterRole });
+      return res.status(401).json({ error: 'No autorizado' });
     }
 
-    const currentUserId = session.user.id;
-
-    // Create service role client to bypass RLS
-    const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Check if the current user is an admin using service role
-    // SECURITY: Only check user_roles table, do NOT use legacy metadata fallback
-    const { data: adminCheck, error: adminError } = await supabaseService
-      .from('user_roles')
-      .select('id')
-      .eq('user_id', currentUserId)
-      .eq('role_type', 'admin')
-      .eq('is_active', true)
-      .limit(1);
-
-    if (adminError || !adminCheck || adminCheck.length === 0) {
-      console.error('[assign-role API] Admin check failed:', { adminError, adminCheck, currentUserId });
-      return res.status(403).json({ error: 'Solo administradores pueden asignar roles' });
+    if (requesterRole === 'equipo_directivo' && typeof edSchoolId !== 'number') {
+      return res.status(403).json({ error: 'School context missing for equipo_directivo' });
     }
+
+    const supabaseService = createServiceRoleClient();
 
     // Extract parameters from request body
     const {
       targetUserId,
       roleType,
-      schoolId,
       generationId,
       communityId
     } = req.body;
+    let { schoolId } = req.body;
 
     // Validate required fields
     if (!targetUserId || !roleType) {
       return res.status(400).json({ error: 'targetUserId and roleType are required' });
     }
 
-    // Validate role type
+    // Validate role type (admin valid role set, unchanged)
     const validRoles: UserRoleType[] = ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'community_manager', 'docente', 'supervisor_de_red', 'encargado_licitacion'];
     if (!validRoles.includes(roleType)) {
       return res.status(400).json({ error: 'Invalid role type' });
+    }
+
+    if (requesterRole === 'equipo_directivo') {
+      if (!(ED_ASSIGNABLE_ROLES as readonly string[]).includes(roleType)) {
+        return res.status(403).json({ error: 'Role not assignable by equipo_directivo' });
+      }
+
+      const { data: targetProfile, error: profileLookupError } = await supabaseService
+        .from('profiles')
+        .select('school_id')
+        .eq('id', targetUserId)
+        .maybeSingle();
+
+      if (profileLookupError) {
+        return res.status(500).json({ error: 'Error verificando usuario' });
+      }
+      if (!targetProfile) {
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+      }
+      if (targetProfile.school_id !== edSchoolId) {
+        return res.status(403).json({ error: 'No autorizado para asignar roles a este usuario' });
+      }
+
+      if (schoolId !== undefined && schoolId !== null && schoolId !== '') {
+        if (Number(schoolId) !== edSchoolId) {
+          return res.status(403).json({ error: 'No se puede asignar rol en otro colegio' });
+        }
+      }
+      schoolId = edSchoolId;
+
+      // TOCTOU: this user_roles read is a point-in-time check. A concurrent
+      // role grant landing between this gate and the role write below could
+      // allow a global-role escalation to slip through. The practical
+      // mitigation is that role assignment is restricted to admin tooling.
+      // Defense-in-depth: reject if the target holds any active role outside
+      // ED_ASSIGNABLE_ROLES (admin/consultor/supervisor_de_red/community_manager).
+      const { data: targetRoles, error: rolesLookupError } = await supabaseService
+        .from('user_roles')
+        .select('role_type')
+        .eq('user_id', targetUserId)
+        .eq('is_active', true);
+
+      if (rolesLookupError) {
+        return res.status(500).json({ error: 'Error verificando roles del usuario' });
+      }
+      const hasGlobalRole = (targetRoles ?? []).some(
+        (r: { role_type: string }) => !ED_SCHOOL_SCOPED_ROLES.has(r.role_type),
+      );
+      if (hasGlobalRole) {
+        return res.status(403).json({ error: 'No autorizado para asignar roles a este usuario' });
+      }
     }
 
     // Application-level validation for role organizational requirements
@@ -244,7 +282,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       generation_id: generationId || null,
       community_id: finalCommunityId || null,
       is_active: true,
-      assigned_by: currentUserId,
+      assigned_by: requestingUser.id,
       assigned_at: new Date().toISOString()
     };
 

@@ -315,6 +315,43 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
     expect(inserted.school_id).toBe(ED_SCHOOL_ID);
   });
 
+  it('ED can create another equipo_directivo in their own school (intentional policy per plan)', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: bodyFor('equipo_directivo', ED_SCHOOL_ID),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const roleInsert = tracker.fromCalls.find(
+      (c) => c.table === 'user_roles' && c.inserts.length > 0,
+    )!;
+    const inserted = roleInsert.inserts[0] as any;
+    expect(inserted.role_type).toBe('equipo_directivo');
+    expect(inserted.school_id).toBe(ED_SCHOOL_ID);
+  });
+
+  it('ED cannot create equipo_directivo in another school', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: bodyFor('equipo_directivo', OTHER_SCHOOL_ID),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toEqual({
+      error: 'Cannot create user in another school',
+    });
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
+
   it('ED with schoolId=null from auth helper: 403 defensive guard', async () => {
     setupEquipoDirectivo(null);
 

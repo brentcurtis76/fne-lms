@@ -5,9 +5,15 @@ import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
+import { AlertTriangle, Plus, Trash2, X } from 'lucide-react';
 import MainLayout from '../../components/layout/MainLayout';
 import UnifiedUserManagement from '../../components/admin/UnifiedUserManagement';
+import RoleAssignmentModal from '../../components/RoleAssignmentModal';
+import PasswordResetModal from '../../components/PasswordResetModal';
+import UserEditModal from '../../components/admin/UserEditModal';
 import { createServiceRoleClient } from '../../lib/api-auth';
+import { ED_ASSIGNABLE_ROLES } from '../../utils/roleUtils';
+import { ROLE_NAMES, type UserRoleType } from '../../types/roles';
 
 type PageProps =
   | { role: 'admin'; schoolId: null }
@@ -97,6 +103,26 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
     props.role === 'equipo_directivo' ? String(props.schoolId) : ''
   );
   const [selectedCommunityId, setSelectedCommunityId] = useState<string>('');
+
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserFirstName, setNewUserFirstName] = useState('');
+  const [newUserLastName, setNewUserLastName] = useState('');
+  const [newUserRole, setNewUserRole] = useState<string>('docente');
+  const [isCreating, setIsCreating] = useState(false);
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [userToEdit, setUserToEdit] = useState<ListUser | null>(null);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<{ id: string; email: string } | null>(null);
+
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; email: string } | null>(null);
+
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
+  const [userToReset, setUserToReset] = useState<{ id: string; email: string; name: string } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -288,12 +314,226 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
   const notImplemented = () =>
     toast('Esta acción se habilita en la Fase 13', { icon: 'ℹ️' });
 
+  const handleOpenRoleModal = (target: ListUser) => {
+    const userName =
+      target.first_name && target.last_name
+        ? `${target.first_name} ${target.last_name}`
+        : 'Sin nombre';
+    setSelectedUser({ id: target.id, name: userName, email: target.email });
+    setShowRoleModal(true);
+  };
+
+  const handleCloseRoleModal = () => {
+    setShowRoleModal(false);
+    setSelectedUser(null);
+  };
+
+  const handleRoleUpdate = () => {
+    fetchUsers(currentPage);
+  };
+
+  const handleEditUser = (target: ListUser) => {
+    setUserToEdit(target);
+    setShowEditModal(true);
+  };
+
+  const handleEditModalClose = () => {
+    setShowEditModal(false);
+    setUserToEdit(null);
+  };
+
+  const handleUserUpdated = () => {
+    fetchUsers(currentPage);
+    setShowEditModal(false);
+    setUserToEdit(null);
+  };
+
+  const handleDeleteClick = (userId: string, userEmail: string) => {
+    setUserToDelete({ id: userId, email: userEmail });
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No authentication token available');
+      }
+
+      const response = await fetch('/api/admin/delete-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ userId: userToDelete.id }),
+      });
+
+      const responseText = await response.text();
+      let result: any;
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        throw new Error(`Invalid response from server: ${responseText.substring(0, 100)}`);
+      }
+
+      if (!response.ok) {
+        throw new Error(result.error || `Server error: ${response.status}`);
+      }
+
+      setUsers((prev) => prev.filter((u) => u.id !== userToDelete.id));
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+
+      toast.success('Usuario eliminado correctamente', {
+        duration: 4000,
+        position: 'top-right',
+        style: { background: '#10B981', color: 'white' },
+        icon: '🗑️',
+      });
+
+      if (users.length <= 1 && currentPage > 1) {
+        handlePageChange(currentPage - 1);
+      } else {
+        fetchUsers(currentPage);
+      }
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast.error(`Error al eliminar usuario: ${error.message}`, {
+        duration: 5000,
+        position: 'top-right',
+        style: { background: '#EF4444', color: 'white' },
+        icon: '❌',
+      });
+    }
+  };
+
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (isCreating) return;
+
+    if (!newUserEmail.trim() || !newUserPassword.trim()) {
+      toast.error('Email y contraseña son obligatorios', {
+        duration: 4000,
+        position: 'top-right',
+        style: { background: '#EF4444', color: 'white' },
+        icon: '⚠️',
+      });
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session');
+      }
+
+      const response = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          email: newUserEmail,
+          password: newUserPassword,
+          firstName: newUserFirstName,
+          lastName: newUserLastName,
+          role: newUserRole,
+          schoolId: props.schoolId,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create user');
+      }
+
+      if (result.success && result.user) {
+        setNewUserEmail('');
+        setNewUserPassword('');
+        setNewUserFirstName('');
+        setNewUserLastName('');
+        setNewUserRole('docente');
+        setShowAddForm(false);
+        setCurrentPage(1);
+        fetchUsers(1);
+
+        toast.success(
+          'Usuario creado correctamente. El usuario deberá cambiar su contraseña en el primer inicio de sesión.',
+          {
+            duration: 5000,
+            position: 'top-right',
+            style: { background: '#10B981', color: 'white' },
+            icon: '👤',
+          }
+        );
+      }
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+
+      let errorMessage = error.message;
+      if (
+        error.message?.includes('duplicate key') ||
+        error.message?.includes('already registered')
+      ) {
+        errorMessage = 'Este email ya está registrado en el sistema';
+      } else if (error.code === '23505') {
+        errorMessage = 'El usuario ya existe';
+      }
+
+      toast.error(`Error al crear usuario: ${errorMessage}`, {
+        duration: 5000,
+        position: 'top-right',
+        style: { background: '#EF4444', color: 'white' },
+        icon: '❌',
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handlePasswordReset = async (userId: string, temporaryPassword: string) => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error('No session found');
+    }
+
+    const response = await fetch('/api/admin/reset-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ userId, temporaryPassword }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to reset password');
+    }
+
+    return response.json();
+  };
+
   const schoolName =
     props.role === 'equipo_directivo'
       ? schools.find((s) => String(s.id) === String(props.schoolId))?.name ?? null
       : null;
 
   return (
+    <>
     <MainLayout
       user={user}
       currentPage="school-users"
@@ -328,14 +568,24 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
         isLoading={loading}
         onApprove={notImplemented}
         onReject={notImplemented}
-        onDelete={notImplemented}
-        onRoleChange={notImplemented}
+        onDelete={(target) => handleDeleteClick(target.id, target.email)}
+        onRoleChange={(target) => handleOpenRoleModal(target)}
         onAssign={notImplemented}
-        onPasswordReset={notImplemented}
+        onPasswordReset={(target) => {
+          setUserToReset({
+            id: target.id,
+            email: target.email,
+            name:
+              target.first_name && target.last_name
+                ? `${target.first_name} ${target.last_name}`
+                : 'Sin nombre',
+          });
+          setShowPasswordResetModal(true);
+        }}
         onExpenseAccessToggle={notImplemented}
-        onAddUser={notImplemented}
+        onAddUser={() => setShowAddForm(true)}
         onBulkImport={notImplemented}
-        onEditUser={notImplemented}
+        onEditUser={handleEditUser}
         hideBulkImport={props.role === 'equipo_directivo' ? true : undefined}
         hideExpenseAccess={props.role === 'equipo_directivo' ? true : undefined}
         lockedSchoolId={props.role === 'equipo_directivo' ? props.schoolId : undefined}
@@ -369,7 +619,199 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
           </div>
         </div>
       </div>
+
+      {showAddForm && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold text-[#0a0a0a]">Crear Nuevo Usuario</h3>
+              <button
+                onClick={() => setShowAddForm(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <form onSubmit={handleAddUser} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    value={newUserEmail}
+                    onChange={(e) => setNewUserEmail(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
+                    placeholder="usuario@ejemplo.com"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Contraseña *
+                  </label>
+                  <input
+                    type="password"
+                    value={newUserPassword}
+                    onChange={(e) => setNewUserPassword(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
+                    placeholder="Mínimo 6 caracteres"
+                    minLength={6}
+                    autoComplete="new-password"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre
+                  </label>
+                  <input
+                    type="text"
+                    value={newUserFirstName}
+                    onChange={(e) => setNewUserFirstName(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
+                    placeholder="Nombre"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Apellido
+                  </label>
+                  <input
+                    type="text"
+                    value={newUserLastName}
+                    onChange={(e) => setNewUserLastName(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
+                    placeholder="Apellido"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Rol
+                  </label>
+                  <select
+                    value={newUserRole}
+                    onChange={(e) => setNewUserRole(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
+                  >
+                    {ED_ASSIGNABLE_ROLES.map((roleType) => (
+                      <option key={roleType} value={roleType}>
+                        {ROLE_NAMES[roleType as UserRoleType]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowAddForm(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreating}
+                  className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#1f1f1f] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isCreating ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Creando...
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={16} />
+                      Crear Usuario
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showRoleModal && selectedUser && (
+        <RoleAssignmentModal
+          isOpen={showRoleModal}
+          onClose={handleCloseRoleModal}
+          userId={selectedUser.id}
+          userName={selectedUser.name}
+          userEmail={selectedUser.email}
+          currentUserId={user?.id || ''}
+          onRoleUpdate={handleRoleUpdate}
+          allowedRoles={props.role === 'equipo_directivo' ? ED_ASSIGNABLE_ROLES : undefined}
+        />
+      )}
     </MainLayout>
+
+    {showDeleteModal && userToDelete && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex-shrink-0">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Confirmar Eliminación
+              </h3>
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <p className="text-gray-600">
+              ¿Estás seguro de que quieres eliminar al usuario{' '}
+              <span className="font-semibold text-gray-900">{userToDelete.email}</span>?
+            </p>
+            <p className="text-sm text-red-600 mt-2">
+              Esta acción no se puede deshacer.
+            </p>
+          </div>
+
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={() => {
+                setShowDeleteModal(false);
+                setUserToDelete(null);
+              }}
+              className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50 transition"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleConfirmDelete}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition flex items-center gap-2"
+            >
+              <Trash2 size={16} />
+              Eliminar Usuario
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    <PasswordResetModal
+      isOpen={showPasswordResetModal}
+      onClose={() => {
+        setShowPasswordResetModal(false);
+        setUserToReset(null);
+      }}
+      user={userToReset}
+      onPasswordReset={handlePasswordReset}
+    />
+
+    <UserEditModal
+      isOpen={showEditModal}
+      onClose={handleEditModalClose}
+      user={userToEdit}
+      onUserUpdated={handleUserUpdated}
+      disableSchoolEdit={props.role === 'equipo_directivo'}
+    />
+    </>
   );
 };
 

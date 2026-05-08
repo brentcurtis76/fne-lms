@@ -24,9 +24,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       error: authError,
     } = await checkIsAdminOrEquipoDirectivo(req, res);
 
-    if (!isAuthorized || !requestingUser) {
+    if (!requestingUser) {
       console.error('[assign-role API] Auth failed:', { authError, requesterRole });
       return res.status(401).json({ error: 'No autorizado' });
+    }
+
+    if (!isAuthorized) {
+      console.error('[assign-role API] Insufficient role:', { requesterRole, userId: requestingUser.id });
+      return res.status(403).json({ error: 'Solo administradores o equipo directivo pueden asignar roles' });
     }
 
     if (requesterRole === 'equipo_directivo' && typeof edSchoolId !== 'number') {
@@ -77,7 +82,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (schoolId !== undefined && schoolId !== null && schoolId !== '') {
-        if (Number(schoolId) !== edSchoolId) {
+        const parsedSchoolId = Number(schoolId);
+        if (!Number.isInteger(parsedSchoolId)) {
+          return res.status(400).json({ error: 'schoolId inválido' });
+        }
+        if (parsedSchoolId !== edSchoolId) {
           return res.status(403).json({ error: 'No se puede asignar rol en otro colegio' });
         }
       }
@@ -103,6 +112,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
       if (hasGlobalRole) {
         return res.status(403).json({ error: 'No autorizado para asignar roles a este usuario' });
+      }
+
+      if (communityId !== undefined && communityId !== null && communityId !== '') {
+        const { data: communityRow, error: communityLookupError } = await supabaseService
+          .from('growth_communities')
+          .select('school_id')
+          .eq('id', communityId)
+          .maybeSingle();
+
+        if (communityLookupError) {
+          return res.status(500).json({ error: 'Error verificando comunidad' });
+        }
+        if (!communityRow) {
+          return res.status(404).json({ error: 'Comunidad no encontrada' });
+        }
+        if (communityRow.school_id !== edSchoolId) {
+          return res.status(403).json({ error: 'Comunidad no pertenece a tu colegio' });
+        }
+      }
+
+      if (generationId !== undefined && generationId !== null && generationId !== '') {
+        const { data: generationRow, error: generationLookupError } = await supabaseService
+          .from('generations')
+          .select('school_id')
+          .eq('id', generationId)
+          .maybeSingle();
+
+        if (generationLookupError) {
+          return res.status(500).json({ error: 'Error verificando generación' });
+        }
+        if (!generationRow) {
+          return res.status(404).json({ error: 'Generación no encontrada' });
+        }
+        if (generationRow.school_id !== edSchoolId) {
+          return res.status(403).json({ error: 'Generación no pertenece a tu colegio' });
+        }
       }
     }
 

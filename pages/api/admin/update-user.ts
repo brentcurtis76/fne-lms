@@ -118,7 +118,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al actualizar el perfil' });
     }
 
-    // If email is being changed, update auth email
+    // ED is intentionally allowed to update a target user's email/name per the
+    // user-management plan; school and role changes are gated separately above.
     if (email) {
       const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
         userId,

@@ -717,7 +717,7 @@ describe('admin/assign-role — auth guards', () => {
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
-  it('wrong-role auth → 401, service client never built', async () => {
+  it('wrong-role auth (authenticated user without admin/ED) → 403, service client never built', async () => {
     setupUnauthorizedRole();
 
     const { req, res } = createMocks({
@@ -726,8 +726,221 @@ describe('admin/assign-role — auth guards', () => {
     });
     await handler(req as never, res as never);
 
-    expect(res._getStatusCode()).toBe(401);
-    expect(res._getJSONData()).toEqual({ error: 'No autorizado' });
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toEqual({
+      error: 'Solo administradores o equipo directivo pueden asignar roles',
+    });
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
+});
+
+describe('admin/assign-role — ED explicit FK scoping', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('ED with malformed body schoolId → 400 "schoolId inválido", no inserts', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        { profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }] },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { targetUserId: TARGET_USER_ID, roleType: 'docente', schoolId: 'abc' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({ error: 'schoolId inválido' });
+    expect(countInserts(tracker, 'user_roles')).toBe(0);
+    expect(countInserts(tracker, 'growth_communities')).toBe(0);
+  });
+
+  it('ED with explicit communityId from another school → 403, no inserts', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
+          user_roles: [{ data: [], error: null }],
+          growth_communities: [{ data: { school_id: OTHER_SCHOOL_ID }, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: {
+        targetUserId: TARGET_USER_ID,
+        roleType: 'lider_comunidad',
+        schoolId: ED_SCHOOL_ID,
+        communityId: COMMUNITY_ID,
+      },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toEqual({ error: 'Comunidad no pertenece a tu colegio' });
+    expect(countInserts(tracker, 'user_roles')).toBe(0);
+    expect(countInserts(tracker, 'growth_communities')).toBe(0);
+  });
+
+  it('ED with explicit communityId not found → 404, no inserts', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
+          user_roles: [{ data: [], error: null }],
+          growth_communities: [{ data: null, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: {
+        targetUserId: TARGET_USER_ID,
+        roleType: 'lider_comunidad',
+        schoolId: ED_SCHOOL_ID,
+        communityId: COMMUNITY_ID,
+      },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(404);
+    expect(res._getJSONData()).toEqual({ error: 'Comunidad no encontrada' });
+    expect(countInserts(tracker, 'user_roles')).toBe(0);
+    expect(countInserts(tracker, 'growth_communities')).toBe(0);
+  });
+
+  it('ED with explicit communityId lookup error → 500, no inserts', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
+          user_roles: [{ data: [], error: null }],
+          growth_communities: [{ data: null, error: { message: 'community lookup failed' } }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: {
+        targetUserId: TARGET_USER_ID,
+        roleType: 'lider_comunidad',
+        schoolId: ED_SCHOOL_ID,
+        communityId: COMMUNITY_ID,
+      },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(res._getJSONData()).toEqual({ error: 'Error verificando comunidad' });
+    expect(countInserts(tracker, 'user_roles')).toBe(0);
+    expect(countInserts(tracker, 'growth_communities')).toBe(0);
+  });
+
+  it('ED with explicit generationId from another school → 403, no inserts', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
+          user_roles: [{ data: [], error: null }],
+          generations: [{ data: { school_id: OTHER_SCHOOL_ID }, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: {
+        targetUserId: TARGET_USER_ID,
+        roleType: 'lider_generacion',
+        schoolId: ED_SCHOOL_ID,
+        generationId: 'gen-xyz',
+      },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toEqual({ error: 'Generación no pertenece a tu colegio' });
+    expect(countInserts(tracker, 'user_roles')).toBe(0);
+  });
+
+  it('ED with explicit generationId not found → 404, no inserts', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
+          user_roles: [{ data: [], error: null }],
+          generations: [{ data: null, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: {
+        targetUserId: TARGET_USER_ID,
+        roleType: 'lider_generacion',
+        schoolId: ED_SCHOOL_ID,
+        generationId: 'gen-xyz',
+      },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(404);
+    expect(res._getJSONData()).toEqual({ error: 'Generación no encontrada' });
+    expect(countInserts(tracker, 'user_roles')).toBe(0);
+  });
+
+  it('ED with explicit generationId lookup error → 500, no inserts', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
+          user_roles: [{ data: [], error: null }],
+          generations: [{ data: null, error: { message: 'generation lookup failed' } }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: {
+        targetUserId: TARGET_USER_ID,
+        roleType: 'lider_generacion',
+        schoolId: ED_SCHOOL_ID,
+        generationId: 'gen-xyz',
+      },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(res._getJSONData()).toEqual({ error: 'Error verificando generación' });
+    expect(countInserts(tracker, 'user_roles')).toBe(0);
   });
 });

@@ -226,6 +226,45 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect((profileCalls[1].updates[0] as any).school).toBeUndefined();
   });
 
+  it('ED: can update email of a same-school target with no global roles', async () => {
+    // Documents the approved policy: email/name edits are intentional, not a
+    // security gap. School and role changes remain gated separately.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    const adminClient = buildAdminClient(
+      {
+        profiles: [
+          { data: { school_id: ED_SCHOOL_ID }, error: null },
+          { data: null, error: null },
+        ],
+        user_roles: [{ data: [], error: null }],
+        audit_logs: [{ data: null, error: null }],
+      },
+      tracker,
+    );
+    mockCreateServiceRoleClient.mockReturnValueOnce(adminClient);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: baseBody({ email: 'new@example.com' }),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const profileCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profileCalls).toHaveLength(2);
+    expect(profileCalls[1].updates).toHaveLength(1);
+    expect((profileCalls[1].updates[0] as any).email).toBe('new@example.com');
+    expect((profileCalls[1].updates[0] as any).school).toBeUndefined();
+
+    expect(tracker.authUpdates).toHaveLength(1);
+    expect(tracker.authUpdates[0]).toEqual({
+      userId: TARGET_USER_ID,
+      payload: { email: 'new@example.com' },
+    });
+  });
+
   it('ED: 403 when target user is in another school', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();

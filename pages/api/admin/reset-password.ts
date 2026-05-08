@@ -117,6 +117,10 @@ export default async function handler(
         );
       }
 
+      // TOCTOU: this user_roles read is a point-in-time check. A concurrent
+      // role grant landing between this gate and the password write below
+      // could allow a global-role escalation to slip through. The practical
+      // mitigation is that role assignment is restricted to admin tooling.
       // Defense-in-depth: reject if the target holds any active role outside
       // ED_ASSIGNABLE_ROLES (admin/consultor/supervisor_de_red/community_manager).
       const { data: targetRoles, error: rolesLookupError } = await supabaseAdmin

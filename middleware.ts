@@ -43,10 +43,11 @@ export async function middleware(req: NextRequest) {
     }
 
     // Equipo directivo: growth communities + school users management
+    const onSchoolUsers =
+      pathname === '/admin/school-users' || pathname.startsWith('/admin/school-users/');
     if (
       roles.includes('equipo_directivo') &&
-      (pathname.startsWith('/admin/growth-communities') ||
-        pathname.startsWith('/admin/school-users'))
+      (pathname.startsWith('/admin/growth-communities') || onSchoolUsers)
     ) {
       return res;
     }

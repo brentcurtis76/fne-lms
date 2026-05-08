@@ -272,6 +272,15 @@ export function getHighestRole(roles: UserRole[]): UserRoleType | null {
   return null;
 }
 
+export const ED_ASSIGNABLE_ROLES = [
+  'docente',
+  'lider_comunidad',
+  'lider_generacion',
+  'equipo_directivo',
+  'encargado_licitacion'
+] as const;
+export type EdAssignableRole = (typeof ED_ASSIGNABLE_ROLES)[number];
+
 /**
  * Check if user has a specific permission
  */

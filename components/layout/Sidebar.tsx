@@ -384,6 +384,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     restrictedRoles: ['admin', 'equipo_directivo']
   },
   {
+    id: 'school-users',
+    label: 'Usuarios del Colegio',
+    icon: UsersIcon,
+    href: '/admin/school-users',
+    description: 'Gestionar usuarios de su colegio',
+    restrictedRoles: ['equipo_directivo']
+  },
+  {
     id: 'personas',
     label: 'Personas',
     icon: UsersIcon,

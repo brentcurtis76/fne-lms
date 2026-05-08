@@ -42,8 +42,12 @@ export async function middleware(req: NextRequest) {
       return res;
     }
 
-    // Equipo directivo: only growth communities management
-    if (roles.includes('equipo_directivo') && pathname.startsWith('/admin/growth-communities')) {
+    // Equipo directivo: growth communities + school users management
+    if (
+      roles.includes('equipo_directivo') &&
+      (pathname.startsWith('/admin/growth-communities') ||
+        pathname.startsWith('/admin/school-users'))
+    ) {
       return res;
     }
 

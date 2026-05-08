@@ -424,10 +424,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
-  it('ED with schoolId=0 in body: 403 (caught by cross-school gate, since 0 !== edSchoolId)', async () => {
-    // The repo has no explicit "schoolId must be > 0" rule. The cross-school
-    // gate (effectiveSchoolId !== edSchoolId) is what rejects 0 here, since
-    // edSchoolId is 42. Asserting the actual behavior the handler enforces.
+  it('ED with schoolId=0 in body: 400 with schoolId inválido (positive-integer semantics)', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
 
     const { req, res } = createMocks({
@@ -436,19 +433,13 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
     });
     await handler(req as never, res as never);
 
-    expect(res._getStatusCode()).toBe(403);
-    expect(res._getJSONData()).toEqual({
-      error: 'Cannot create user in another school',
-    });
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({ error: 'schoolId inválido' });
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
-  it('admin with schoolId=0: preserves numeric 0 (no explicit > 0 rule in route)', async () => {
-    // The route has no "schoolId must be > 0" validation, so 0 is preserved
-    // as a finite number and written to the profile.
+  it('admin with schoolId=0: 400 with schoolId inválido (positive-integer semantics)', async () => {
     setupAdmin();
-    const tracker = makeTracker();
-    stockHappyPath(tracker);
 
     const { req, res } = createMocks({
       method: 'POST',
@@ -456,13 +447,9 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
     });
     await handler(req as never, res as never);
 
-    expect(res._getStatusCode()).toBe(200);
-
-    const profileUpdate = tracker.fromCalls.find(
-      (c) => c.table === 'profiles' && c.updates.length > 0,
-    )!;
-    expect((profileUpdate.updates[0] as any).school_id).toBe(0);
-    expect(typeof (profileUpdate.updates[0] as any).school_id).toBe('number');
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({ error: 'schoolId inválido' });
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
   it('ED with schoolId=true (boolean): 400 with schoolId inválido', async () => {

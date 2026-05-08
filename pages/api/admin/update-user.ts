@@ -1,14 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient } from '../../../lib/api-auth';
+import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient, isValidSchoolIdInput } from '../../../lib/api-auth';
 import { ED_SCHOOL_SCOPED_ROLES } from '../../../utils/roleUtils';
-
-// School ids are non-negative in the schema. Reject negatives in both
-// number and string forms — JS-coerced edge values like -1, '-1' should 400.
-function isValidSchoolIdInput(v: unknown): v is number | string {
-  if (typeof v === 'number') return Number.isFinite(v) && v >= 0;
-  if (typeof v === 'string') return /^\d+$/.test(v.trim());
-  return false;
-}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {

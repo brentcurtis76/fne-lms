@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient } from '../../../lib/api-auth';
+import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient, isValidSchoolIdInput } from '../../../lib/api-auth';
 import { ED_ASSIGNABLE_ROLES, ED_SCHOOL_SCOPED_ROLES } from '../../../utils/roleUtils';
 import { UserRoleType, validateRoleAssignment } from '../../../types/roles';
 
@@ -65,6 +65,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(403).json({ error: 'Role not assignable by equipo_directivo' });
       }
 
+      // Validate body schoolId before any cross-school comparison so that
+      // malformed/negative inputs return 400 instead of being mis-routed
+      // through the 403 cross-school gates below.
+      if (schoolId !== undefined && schoolId !== null && schoolId !== '') {
+        if (!isValidSchoolIdInput(schoolId)) {
+          return res.status(400).json({ error: 'schoolId inválido' });
+        }
+        if (Number(schoolId) !== edSchoolId) {
+          return res.status(403).json({ error: 'No se puede asignar rol en otro colegio' });
+        }
+      }
+
       const { data: targetProfile, error: profileLookupError } = await supabaseService
         .from('profiles')
         .select('school_id')
@@ -81,15 +93,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(403).json({ error: 'No autorizado para asignar roles a este usuario' });
       }
 
-      if (schoolId !== undefined && schoolId !== null && schoolId !== '') {
-        const parsedSchoolId = Number(schoolId);
-        if (!Number.isInteger(parsedSchoolId)) {
-          return res.status(400).json({ error: 'schoolId inválido' });
-        }
-        if (parsedSchoolId !== edSchoolId) {
-          return res.status(403).json({ error: 'No se puede asignar rol en otro colegio' });
-        }
-      }
       schoolId = edSchoolId;
 
       // TOCTOU: this user_roles read is a point-in-time check. A concurrent

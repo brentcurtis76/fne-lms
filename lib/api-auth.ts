@@ -268,6 +268,20 @@ export function handleMethodNotAllowed(
   );
 }
 
+// Validate a school id input from request bodies. Accepts positive integers
+// only — rejects 0/'0', negatives, booleans, arrays, empty strings, and other
+// malformed values. Returned as `number | string` so callers can coerce with
+// `Number(v)` after the guard succeeds.
+export function isValidSchoolIdInput(v: unknown): v is number | string {
+  if (typeof v === 'number') return Number.isInteger(v) && v > 0;
+  if (typeof v === 'string') {
+    const trimmed = v.trim();
+    if (!/^\d+$/.test(trimmed)) return false;
+    return Number(trimmed) > 0;
+  }
+  return false;
+}
+
 // Helper to validate request body
 export function validateRequestBody<T>(
   body: any,

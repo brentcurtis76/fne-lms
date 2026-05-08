@@ -587,8 +587,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect(tracker.fromCalls).toHaveLength(0);
   });
 
-  it('ED: school_id="0" (string zero) — coerces to 0; rejected by cross-school gate', async () => {
-    // '0' is a valid numeric input shape; it just won't match edSchoolId=42.
+  it('ED: school_id="0" (string zero) — 400 with school_id inválido (positive-integer semantics)', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
     mockCreateServiceRoleClient.mockReturnValueOnce(
@@ -602,7 +601,8 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     await handler(req as never, res as never);
 
     expect(res._getStatusCode()).toBe(400);
-    expect(res._getJSONData()).toEqual({ error: 'No se puede modificar el colegio' });
+    expect(res._getJSONData()).toEqual({ error: 'school_id inválido' });
+    expect(tracker.fromCalls).toHaveLength(0);
   });
 
   it('ED: school_id="abc" (non-numeric) — 400 with school_id inválido', async () => {

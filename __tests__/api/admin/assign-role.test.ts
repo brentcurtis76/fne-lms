@@ -761,6 +761,54 @@ describe('admin/assign-role — ED explicit FK scoping', () => {
     expect(countInserts(tracker, 'growth_communities')).toBe(0);
   });
 
+  it('ED with schoolId=-1 (negative integer) → 400 "schoolId inválido", no inserts', async () => {
+    // Validation must run before the cross-school comparison: negatives are
+    // not valid school ids, so they 400 rather than falling through to the
+    // 403 cross-school gate (where Number(-1) !== edSchoolId would have
+    // previously returned "No se puede asignar rol en otro colegio").
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        { profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }] },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { targetUserId: TARGET_USER_ID, roleType: 'docente', schoolId: -1 },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({ error: 'schoolId inválido' });
+    expect(countInserts(tracker, 'user_roles')).toBe(0);
+    expect(countInserts(tracker, 'growth_communities')).toBe(0);
+  });
+
+  it("ED with schoolId='-1' (negative string) → 400 \"schoolId inválido\", no inserts", async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        { profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }] },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { targetUserId: TARGET_USER_ID, roleType: 'docente', schoolId: '-1' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({ error: 'schoolId inválido' });
+    expect(countInserts(tracker, 'user_roles')).toBe(0);
+    expect(countInserts(tracker, 'growth_communities')).toBe(0);
+  });
+
   it('ED with explicit communityId from another school → 403, no inserts', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();

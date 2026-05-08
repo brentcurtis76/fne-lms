@@ -272,6 +272,22 @@ export function getHighestRole(roles: UserRole[]): UserRoleType | null {
   return null;
 }
 
+/**
+ * Roles an equipo_directivo (ED) may assign within their own school.
+ *
+ * Intentional product policy (Phase 8 ed-users plan): this list includes
+ * `equipo_directivo` itself — ED users CAN create peer ED users in the same
+ * school. This is not an oversight. The codified test for that policy is
+ * "ED can create another equipo_directivo in their own school (intentional
+ * policy per plan)" in `__tests__/api/admin/create-user.test.ts`.
+ *
+ * This list doubles as the set of "school-scoped" roles for read paths:
+ * downstream queries (e.g. the admin users list) use it to decide which
+ * null-school `user_roles` rows are safe to expose to an ED. Global roles
+ * (admin, consultor, supervisor_de_red, community_manager) are deliberately
+ * absent and must not be surfaced to ED scope even when their row's
+ * school_id is null.
+ */
 export const ED_ASSIGNABLE_ROLES = ['docente', 'lider_comunidad', 'lider_generacion', 'equipo_directivo', 'encargado_licitacion'] as const satisfies readonly UserRoleType[];
 export type EdAssignableRole = (typeof ED_ASSIGNABLE_ROLES)[number];
 

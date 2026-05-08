@@ -277,7 +277,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect(res._getJSONData()).toEqual({ error: 'Usuario no encontrado' });
   });
 
-  it('ED: 404 when profile lookup errors', async () => {
+  it('ED: 500 when profile lookup errors (distinct from not-found)', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
     mockCreateServiceRoleClient.mockReturnValueOnce(
@@ -295,8 +295,8 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     });
     await handler(req as never, res as never);
 
-    expect(res._getStatusCode()).toBe(404);
-    expect(res._getJSONData()).toEqual({ error: 'Usuario no encontrado' });
+    expect(res._getStatusCode()).toBe(500);
+    expect(res._getJSONData()).toEqual({ error: 'Error verificando usuario' });
   });
 
   it('ED: 400 when body contains legacy `school` field', async () => {
@@ -421,6 +421,42 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     const profileCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
     expect(profileCalls).toHaveLength(2);
     expect(profileCalls[1].updates).toHaveLength(1);
+  });
+
+  it('ED: school_id=true (boolean) — 400 with school_id inválido', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient({ profiles: [] }, tracker),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: baseBody({ school_id: true }),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({ error: 'school_id inválido' });
+    expect(tracker.fromCalls).toHaveLength(0);
+  });
+
+  it('ED: school_id="0" (string zero) — coerces to 0; rejected by cross-school gate', async () => {
+    // '0' is a valid numeric input shape; it just won't match edSchoolId=42.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient({ profiles: [] }, tracker),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: baseBody({ school_id: '0' }),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({ error: 'No se puede modificar el colegio' });
   });
 
   it('ED: school_id="abc" (non-numeric) — 400 with school_id inválido', async () => {

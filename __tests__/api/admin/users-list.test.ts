@@ -495,6 +495,155 @@ describe('admin/users — GET (school scoping)', () => {
     expect(allRoleUserIds.every((id: string) => id === 'user-in-school')).toBe(true);
   });
 
+  it('ED: null-school user_roles rows for global roles (admin/consultor/supervisor_de_red/community_manager) are filtered out', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    const inSchoolProfile = {
+      id: 'user-in-school',
+      email: 'in@example.com',
+      first_name: 'In',
+      last_name: 'School',
+      school_id: ED_SCHOOL_ID,
+      approval_status: 'approved',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+    };
+
+    const baseRoleRow = {
+      user_id: 'user-in-school',
+      school_id: null,
+      community_id: null,
+      is_active: true,
+      school: null,
+      generation: null,
+      community: null,
+    };
+
+    const docenteRow = { ...baseRoleRow, id: 'role-docente', role_type: 'docente' };
+    const adminRow = { ...baseRoleRow, id: 'role-admin', role_type: 'admin' };
+    const consultorRow = { ...baseRoleRow, id: 'role-consultor', role_type: 'consultor' };
+    const supervisorRow = {
+      ...baseRoleRow,
+      id: 'role-supervisor',
+      role_type: 'supervisor_de_red',
+    };
+    const communityManagerRow = {
+      ...baseRoleRow,
+      id: 'role-cm',
+      role_type: 'community_manager',
+    };
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            { data: [inSchoolProfile], count: 1 },
+            { count: 1 },
+            { count: 0 },
+            { count: 1 },
+          ],
+          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+          user_roles: [
+            {
+              data: [
+                docenteRow,
+                adminRow,
+                consultorRow,
+                supervisorRow,
+                communityManagerRow,
+              ],
+            },
+          ],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const body = JSON.parse(res._getData());
+    expect(body.users).toHaveLength(1);
+    const returnedRoles = body.users[0].user_roles;
+    const returnedRoleTypes = returnedRoles.map((r: any) => r.role_type);
+
+    expect(returnedRoleTypes).toContain('docente');
+    expect(returnedRoleTypes).not.toContain('admin');
+    expect(returnedRoleTypes).not.toContain('consultor');
+    expect(returnedRoleTypes).not.toContain('supervisor_de_red');
+    expect(returnedRoleTypes).not.toContain('community_manager');
+  });
+
+  it('admin: null-school user_roles rows for global roles are NOT filtered out', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+
+    const profile = {
+      id: 'user-1',
+      email: 'u1@example.com',
+      first_name: 'Foo',
+      last_name: 'Bar',
+      school_id: 7,
+      approval_status: 'approved',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: 7, name: 'School 7' },
+    };
+
+    const baseRoleRow = {
+      user_id: 'user-1',
+      school_id: null,
+      community_id: null,
+      is_active: true,
+      school: null,
+      generation: null,
+      community: null,
+    };
+    const adminRow = { ...baseRoleRow, id: 'role-admin', role_type: 'admin' };
+    const consultorRow = { ...baseRoleRow, id: 'role-consultor', role_type: 'consultor' };
+    const docenteRow = { ...baseRoleRow, id: 'role-docente', role_type: 'docente' };
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            { data: [profile], count: 1 },
+            { count: 1 },
+            { count: 0 },
+            { count: 1 },
+          ],
+          schools: [{ data: [{ id: 7, name: 'School 7' }] }],
+          user_roles: [{ data: [adminRow, consultorRow, docenteRow] }],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const body = JSON.parse(res._getData());
+    const returnedRoleTypes = body.users[0].user_roles.map((r: any) => r.role_type);
+    expect(returnedRoleTypes).toEqual(
+      expect.arrayContaining(['admin', 'consultor', 'docente']),
+    );
+    expect(returnedRoleTypes).toHaveLength(3);
+  });
+
   it('ED: out-of-school user_roles rows for in-school users are filtered out', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();

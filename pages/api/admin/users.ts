@@ -3,8 +3,11 @@ import {
   checkIsAdminOrEquipoDirectivo,
   createServiceRoleClient,
 } from '../../../lib/api-auth';
+import { ED_ASSIGNABLE_ROLES } from '../../../utils/roleUtils';
 
 const ROLE_PRIORITY = ['admin','consultor','equipo_directivo','supervisor_de_red','community_manager','lider_generacion','lider_comunidad','docente','encargado_licitacion'];
+
+const ED_SCHOOL_SCOPED_ROLE_SET: ReadonlySet<string> = new Set(ED_ASSIGNABLE_ROLES);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -160,12 +163,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       rolesQuery = rolesQuery.or(`school_id.is.null,school_id.eq.${edSchoolId}`);
     }
 
-    const { data: rolesData, error: rolesError } = await rolesQuery;
+    const { data: rawRolesData, error: rolesError } = await rolesQuery;
 
     if (rolesError) {
       console.error('[users API] Error fetching roles:', rolesError);
       return res.status(500).json({ error: 'Error al obtener roles de usuarios' });
     }
+
+    // ED scope: drop null-school rows for global roles (admin, consultor,
+    // supervisor_de_red, community_manager). Only school-scoped roles
+    // (ED_ASSIGNABLE_ROLES) are exposed to ED when school_id is null.
+    const rolesData = isEdScope
+      ? (rawRolesData || []).filter((row: any) => {
+          if (row.school_id === null || row.school_id === undefined) {
+            return ED_SCHOOL_SCOPED_ROLE_SET.has(row.role_type);
+          }
+          return true;
+        })
+      : rawRolesData;
 
     const { data: consultantData, error: consultantError } = await supabaseService
       .from('consultant_assignments')

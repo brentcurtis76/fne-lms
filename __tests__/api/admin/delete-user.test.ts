@@ -424,4 +424,54 @@ describe('admin/delete-user — POST (ED auth + scoping)', () => {
     expect([401, 403]).toContain(res._getStatusCode());
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
+
+  it('admin: cannot delete own account (no cascade runs)', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(buildAdminClient({}, tracker));
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: ADMIN_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({
+      error: 'No puedes eliminar tu propia cuenta',
+    });
+
+    const counts = countCascade(tracker);
+    expect(counts).toEqual({
+      feedbackDeletes: 0,
+      userRoleDeletes: 0,
+      profileDeletes: 0,
+      authDeletes: 0,
+    });
+  });
+
+  it('ED: cannot delete own account (no cascade runs)', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(buildAdminClient({}, tracker));
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: ED_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({
+      error: 'No puedes eliminar tu propia cuenta',
+    });
+
+    const counts = countCascade(tracker);
+    expect(counts).toEqual({
+      feedbackDeletes: 0,
+      userRoleDeletes: 0,
+      profileDeletes: 0,
+      authDeletes: 0,
+    });
+  });
 });

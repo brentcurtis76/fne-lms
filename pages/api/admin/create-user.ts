@@ -2,6 +2,12 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient } from '../../../lib/api-auth';
 import { ED_ASSIGNABLE_ROLES } from '../../../utils/roleUtils';
 
+function isValidSchoolIdInput(v: unknown): v is number | string {
+  if (typeof v === 'number') return Number.isFinite(v);
+  if (typeof v === 'string') return /^-?\d+$/.test(v.trim());
+  return false;
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -38,11 +44,10 @@ export default async function handler(
     if (bodySchoolId === undefined || bodySchoolId === null) {
       effectiveSchoolId = null;
     } else {
-      const coerced = Number(bodySchoolId);
-      if (!Number.isFinite(coerced)) {
+      if (!isValidSchoolIdInput(bodySchoolId)) {
         return res.status(400).json({ error: 'schoolId inválido' });
       }
-      effectiveSchoolId = coerced;
+      effectiveSchoolId = Number(bodySchoolId);
     }
 
     if (requesterRole === 'equipo_directivo') {

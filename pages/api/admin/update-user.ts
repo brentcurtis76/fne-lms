@@ -1,6 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient } from '../../../lib/api-auth';
 
+function isValidSchoolIdInput(v: unknown): v is number | string {
+  if (typeof v === 'number') return Number.isFinite(v);
+  if (typeof v === 'string') return /^-?\d+$/.test(v.trim());
+  return false;
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -40,10 +46,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'No se puede modificar el colegio' });
       }
       if (req.body.school_id !== undefined && req.body.school_id !== null) {
-        const coercedSchoolId = Number(req.body.school_id);
-        if (!Number.isFinite(coercedSchoolId)) {
+        if (!isValidSchoolIdInput(req.body.school_id)) {
           return res.status(400).json({ error: 'school_id inválido' });
         }
+        const coercedSchoolId = Number(req.body.school_id);
         if (coercedSchoolId !== edSchoolId) {
           return res.status(400).json({ error: 'No se puede modificar el colegio' });
         }
@@ -55,7 +61,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .eq('id', userId)
         .maybeSingle();
 
-      if (profileLookupError || !targetProfile) {
+      if (profileLookupError) {
+        return res.status(500).json({ error: 'Error verificando usuario' });
+      }
+      if (!targetProfile) {
         return res.status(404).json({ error: 'Usuario no encontrado' });
       }
 

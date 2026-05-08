@@ -162,6 +162,16 @@ function setupUnauthenticated() {
   });
 }
 
+function setupWrongRole() {
+  mockCheckIsAdminOrEquipoDirectivo.mockResolvedValueOnce({
+    isAuthorized: false,
+    role: 'docente',
+    schoolId: null,
+    user: { id: ED_ID } as any,
+    error: null,
+  });
+}
+
 // Builds result tables for a successful password reset.
 // `includeProfileLookup` adds the ED-only pre-check select result at profiles[0];
 // the actual profile update (password_change_required flag) then sits at
@@ -339,6 +349,22 @@ describe('admin/reset-password — POST (ED auth + scoping)', () => {
     expect(res._getStatusCode()).toBe(403);
     expect(res._getJSONData()).toMatchObject({
       error: 'School context missing for equipo_directivo',
+    });
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
+
+  it('wrong role: 403 with role-aware message (service client never built)', async () => {
+    setupWrongRole();
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: TARGET_USER_ID, temporaryPassword: TEMP_PASSWORD },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toMatchObject({
+      error: 'Solo administradores o equipo directivo pueden restablecer contraseñas',
     });
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });

@@ -39,7 +39,10 @@ export default async function handler(
       effectiveSchoolId = null;
     } else {
       const coerced = Number(bodySchoolId);
-      effectiveSchoolId = Number.isFinite(coerced) ? coerced : null;
+      if (!Number.isFinite(coerced)) {
+        return res.status(400).json({ error: 'schoolId inválido' });
+      }
+      effectiveSchoolId = coerced;
     }
 
     if (requesterRole === 'equipo_directivo') {

@@ -51,8 +51,15 @@ export default async function handler(
     }
 
     if (!isAuthorized) {
-      console.error('[Reset Password API] User not authorized to reset passwords:', user.id);
-      return sendAuthError(res, 'Only admins can reset passwords', 403);
+      console.error(
+        '[Reset Password API] Solo administradores o equipo directivo pueden restablecer contraseñas:',
+        user.id,
+      );
+      return sendAuthError(
+        res,
+        'Solo administradores o equipo directivo pueden restablecer contraseñas',
+        403,
+      );
     }
 
     if (requesterRole === 'equipo_directivo' && typeof edSchoolId !== 'number') {

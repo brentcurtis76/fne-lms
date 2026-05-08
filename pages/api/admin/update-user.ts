@@ -39,8 +39,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (req.body.school !== undefined) {
         return res.status(400).json({ error: 'No se puede modificar el colegio' });
       }
-      if (req.body.school_id !== undefined && Number(req.body.school_id) !== edSchoolId) {
-        return res.status(400).json({ error: 'No se puede modificar el colegio' });
+      if (req.body.school_id !== undefined && req.body.school_id !== null) {
+        const coercedSchoolId = Number(req.body.school_id);
+        if (!Number.isFinite(coercedSchoolId)) {
+          return res.status(400).json({ error: 'school_id inválido' });
+        }
+        if (coercedSchoolId !== edSchoolId) {
+          return res.status(400).json({ error: 'No se puede modificar el colegio' });
+        }
       }
 
       const { data: targetProfile, error: profileLookupError } = await supabaseAdmin

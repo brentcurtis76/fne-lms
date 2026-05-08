@@ -74,6 +74,8 @@ export default async function handler(
       let profileCreated = false;
       let roleCreated = false;
 
+      const sid = effectiveSchoolId == null ? null : Number(effectiveSchoolId);
+
       try {
         const updateData: any = {
           email: email,
@@ -84,8 +86,8 @@ export default async function handler(
         if (firstName) updateData.first_name = firstName;
         if (lastName) updateData.last_name = lastName;
         if (firstName && lastName) updateData.name = `${firstName} ${lastName}`;
-        if (effectiveSchoolId !== null && Number.isFinite(effectiveSchoolId)) {
-          updateData.school_id = effectiveSchoolId;
+        if (sid !== null && Number.isFinite(sid)) {
+          updateData.school_id = sid;
         }
 
         const { error: updateError } = await supabaseAdmin
@@ -104,10 +106,10 @@ export default async function handler(
         };
         if (
           requesterRole === 'equipo_directivo' &&
-          effectiveSchoolId !== null &&
-          Number.isFinite(effectiveSchoolId)
+          sid !== null &&
+          Number.isFinite(sid)
         ) {
-          roleInsertData.school_id = effectiveSchoolId;
+          roleInsertData.school_id = sid;
         }
 
         const { error: roleError } = await supabaseAdmin

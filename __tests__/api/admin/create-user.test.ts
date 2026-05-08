@@ -363,6 +363,29 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
+  it('admin with schoolId=0: preserves numeric 0 (no explicit > 0 rule in route)', async () => {
+    // The route has no "schoolId must be > 0" validation, so 0 is preserved
+    // as a finite number and written to both profile and (admin path) skipped
+    // for user_roles.school_id since user_roles only gets school_id for ED.
+    setupAdmin();
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: bodyFor('docente', 0),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const profileUpdate = tracker.fromCalls.find(
+      (c) => c.table === 'profiles' && c.updates.length > 0,
+    )!;
+    expect((profileUpdate.updates[0] as any).school_id).toBe(0);
+    expect(typeof (profileUpdate.updates[0] as any).school_id).toBe('number');
+  });
+
   it("ED with schoolId='42' (string): coerces to numeric 42 and writes number to DB", async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();

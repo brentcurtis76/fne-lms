@@ -31,7 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (!isAuthorized) {
-      return res.status(403).json({ error: 'Solo administradores pueden ver usuarios' });
+      return res.status(403).json({ error: 'Solo administradores o equipo directivo pueden ver usuarios' });
     }
 
     if (role === 'equipo_directivo' && typeof edSchoolId !== 'number') {
@@ -41,10 +41,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const isEdScope = role === 'equipo_directivo' && typeof edSchoolId === 'number';
     const selectedSchoolId = isEdScope ? String(edSchoolId) : querySchoolId;
 
+    // ED is already scoped to a single school. communityId is admin-only tooling;
+    // reject loudly so misuse surfaces instead of silently dropping the filter.
+    if (isEdScope && communityId) {
+      return res.status(400).json({ error: 'communityId no está disponible para equipo_directivo' });
+    }
+
     const supabaseService = createServiceRoleClient();
 
-    // ED is already restricted to a single school, so the communityId filter
-    // (an admin-tooling parameter) is ignored for ED requests.
     const effectiveCommunityId = isEdScope ? '' : communityId;
 
     let allowedUserIds: string[] | null = null;

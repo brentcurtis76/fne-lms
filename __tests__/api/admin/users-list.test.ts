@@ -341,6 +341,25 @@ describe('admin/users — GET (school scoping)', () => {
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
+  it('ED with ?communityId=<id>: 400 explicit reject (admin-only filter)', async () => {
+    // F4: ED is already scoped to a single school. communityId is admin-only
+    // tooling — rejecting loudly surfaces misuse, instead of silently dropping
+    // the filter and returning unfiltered school-wide results.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { communityId: 'some-community-id' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(JSON.parse(res._getData())).toEqual({
+      error: 'communityId no está disponible para equipo_directivo',
+    });
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
+
   it('defensive guard — ED with helper returning schoolId: null gets 403', async () => {
     mockCheckIsAdminOrEquipoDirectivo.mockResolvedValueOnce({
       isAuthorized: true,

@@ -1,5 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient } from '../../../lib/api-auth';
+import { ED_ASSIGNABLE_ROLES, type EdAssignableRole } from '../../../utils/roleUtils';
+
+const ED_SCHOOL_SCOPED_ROLES = new Set<string>(ED_ASSIGNABLE_ROLES as readonly EdAssignableRole[]);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -20,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (!isAuthorized) {
-      return res.status(403).json({ error: 'Unauthorized. Only admins can delete users.' });
+      return res.status(403).json({ error: 'Solo administradores o equipo directivo pueden eliminar usuarios' });
     }
 
     if (requesterRole === 'equipo_directivo' && typeof edSchoolId !== 'number') {
@@ -53,6 +56,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ error: 'Usuario no encontrado' });
       }
       if (targetProfile.school_id !== edSchoolId) {
+        return res.status(403).json({ error: 'No autorizado para eliminar este usuario' });
+      }
+
+      // Defense-in-depth: reject if the target holds ANY active role outside
+      // ED_ASSIGNABLE_ROLES (admin/consultor/supervisor_de_red/community_manager).
+      // The read-path filter already hides such users; this prevents an ED
+      // from mutating a global-role user even if they appear in their school.
+      const { data: targetRoles, error: rolesLookupError } = await supabaseAdmin
+        .from('user_roles')
+        .select('role_type')
+        .eq('user_id', userId)
+        .eq('is_active', true);
+
+      if (rolesLookupError) {
+        return res.status(500).json({ error: 'Error verificando roles del usuario' });
+      }
+      const hasGlobalRole = (targetRoles ?? []).some(
+        (r: { role_type: string }) => !ED_SCHOOL_SCOPED_ROLES.has(r.role_type),
+      );
+      if (hasGlobalRole) {
         return res.status(403).json({ error: 'No autorizado para eliminar este usuario' });
       }
     }

@@ -9,6 +9,9 @@ import {
 } from '../../../lib/api-auth';
 import { ApiError, ApiSuccess } from '../../../lib/types/api-auth.types';
 import { rateLimit, RATE_LIMITS } from '../../../lib/rateLimit';
+import { ED_ASSIGNABLE_ROLES, type EdAssignableRole } from '../../../utils/roleUtils';
+
+const ED_SCHOOL_SCOPED_ROLES = new Set<string>(ED_ASSIGNABLE_ROLES as readonly EdAssignableRole[]);
 
 // Rate limiter for password reset (auth-level: 10 req/min)
 const rateLimitCheck = rateLimit(RATE_LIMITS.auth, 'admin-reset-password');
@@ -109,6 +112,28 @@ export default async function handler(
         return sendAuthError(res, 'Usuario no encontrado', 404);
       }
       if (targetProfile.school_id !== edSchoolId) {
+        return sendAuthError(
+          res,
+          'No autorizado para restablecer la contraseña de este usuario',
+          403,
+        );
+      }
+
+      // Defense-in-depth: reject if the target holds any active role outside
+      // ED_ASSIGNABLE_ROLES (admin/consultor/supervisor_de_red/community_manager).
+      const { data: targetRoles, error: rolesLookupError } = await supabaseAdmin
+        .from('user_roles')
+        .select('role_type')
+        .eq('user_id', userId)
+        .eq('is_active', true);
+
+      if (rolesLookupError) {
+        return sendAuthError(res, 'Error verificando roles del usuario', 500);
+      }
+      const hasGlobalRole = (targetRoles ?? []).some(
+        (r: { role_type: string }) => !ED_SCHOOL_SCOPED_ROLES.has(r.role_type),
+      );
+      if (hasGlobalRole) {
         return sendAuthError(
           res,
           'No autorizado para restablecer la contraseña de este usuario',

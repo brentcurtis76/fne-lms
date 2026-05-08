@@ -16,6 +16,17 @@ vi.mock('../../../lib/api-auth', async (importOriginal) => {
   };
 });
 
+// Bypass the auth-tier rate limiter (10 req/min) — without this, adding new
+// test cases tips the bucket over and later tests start receiving 429 instead
+// of the status they expect. The rate limit itself is not under test here.
+vi.mock('../../../lib/rateLimit', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    rateLimit: () => async () => true,
+  };
+});
+
 import handler from '../../../pages/api/admin/reset-password';
 
 const ADMIN_ID = '11111111-1111-4111-8111-111111111111';
@@ -176,17 +187,30 @@ function setupWrongRole() {
 // `includeProfileLookup` adds the ED-only pre-check select result at profiles[0];
 // the actual profile update (password_change_required flag) then sits at
 // profiles[1].
-function successTables(opts: { includeProfileLookup: boolean; lookupSchoolId?: number | null }) {
+//
+// For ED scope, the handler also fetches active user_roles for the
+// target-role gate (defense-in-depth — reject targets that hold any role
+// outside ED_ASSIGNABLE_ROLES). Pass `targetRoles` to override the default
+// (empty array → no global role → passes the gate).
+function successTables(opts: {
+  includeProfileLookup: boolean;
+  lookupSchoolId?: number | null;
+  targetRoles?: Array<{ role_type: string }>;
+}) {
   const profiles: TableResult[] = [];
   if (opts.includeProfileLookup) {
     profiles.push({ data: { school_id: opts.lookupSchoolId ?? ED_SCHOOL_ID }, error: null });
   }
   profiles.push({ data: null, error: null });
 
-  return {
+  const tables: Record<string, TableResult[]> = {
     profiles,
     audit_logs: [{ data: null, error: null }],
   };
+  if (opts.includeProfileLookup) {
+    tables.user_roles = [{ data: opts.targetRoles ?? [], error: null }];
+  }
+  return tables;
 }
 
 // Asserts the temporary password never escaped the auth.admin.updateUserById
@@ -334,6 +358,73 @@ describe('admin/reset-password — POST (ED auth + scoping)', () => {
     expect(tracker.updateUserCalls).toHaveLength(0);
     const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
     expect(auditCalls).toHaveLength(0);
+    assertTempPasswordNotLeaked(tracker);
+  });
+
+  it('ED: 403 when target holds a global role (admin) — updateUserById not called', async () => {
+    // F1 defense-in-depth: profile.school_id matches but the target also holds
+    // a global role. The read path filters such users out of listings; this
+    // guards the write path so password reset is blocked too.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [
+            { data: { school_id: ED_SCHOOL_ID }, error: null },
+            { data: null, error: null },
+          ],
+          user_roles: [{ data: [{ role_type: 'admin' }], error: null }],
+          audit_logs: [{ data: null, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: TARGET_USER_ID, temporaryPassword: TEMP_PASSWORD },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toMatchObject({
+      error: 'No autorizado para restablecer la contraseña de este usuario',
+    });
+    expect(tracker.updateUserCalls).toHaveLength(0);
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    expect(auditCalls).toHaveLength(0);
+    assertTempPasswordNotLeaked(tracker);
+  });
+
+  it('ED: 500 when user_roles lookup errors — updateUserById not called', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [
+            { data: { school_id: ED_SCHOOL_ID }, error: null },
+            { data: null, error: null },
+          ],
+          user_roles: [{ data: null, error: { message: 'role lookup failed' } }],
+          audit_logs: [{ data: null, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: TARGET_USER_ID, temporaryPassword: TEMP_PASSWORD },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(res._getJSONData()).toMatchObject({
+      error: 'Error verificando roles del usuario',
+    });
+    expect(tracker.updateUserCalls).toHaveLength(0);
     assertTempPasswordNotLeaked(tracker);
   });
 

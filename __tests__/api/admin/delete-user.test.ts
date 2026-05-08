@@ -157,16 +157,32 @@ function setupUnauthorizedRole() {
 // Builds result tables for a successful cascade-delete (admin or ED success).
 // `includeProfileLookup` adds the ED-only pre-check select result at profiles[0];
 // the actual deletion result then sits at profiles[1].
-function successTables(opts: { includeProfileLookup: boolean; lookupSchoolId?: number | null }) {
+//
+// For ED scope, the handler also fetches active user_roles[0] for the
+// target-role gate (defense-in-depth — reject targets that hold any role
+// outside ED_ASSIGNABLE_ROLES). Pass `targetRoles` to override the default
+// (empty array → no global role → passes the gate). user_roles[1] is then
+// consumed by the cascade DELETE (data not read).
+function successTables(opts: {
+  includeProfileLookup: boolean;
+  lookupSchoolId?: number | null;
+  targetRoles?: Array<{ role_type: string }>;
+}) {
   const profiles: TableResult[] = [];
   if (opts.includeProfileLookup) {
     profiles.push({ data: { school_id: opts.lookupSchoolId ?? ED_SCHOOL_ID }, error: null });
   }
   profiles.push({ data: [{ id: TARGET_USER_ID }], error: null });
 
+  const user_roles: TableResult[] = [];
+  if (opts.includeProfileLookup) {
+    user_roles.push({ data: opts.targetRoles ?? [], error: null });
+  }
+  user_roles.push({ data: null, error: null }); // cascade delete slot
+
   return {
     platform_feedback: [{ data: null, error: null }],
-    user_roles: [{ data: null, error: null }],
+    user_roles,
     profiles,
   };
 }
@@ -354,14 +370,18 @@ describe('admin/delete-user — POST (ED auth + scoping)', () => {
   });
 
   it('ED: can delete another equipo_directivo in the same school', async () => {
-    // The handler does not inspect target role — only target school. An ED
-    // peer in the same school is therefore deletable. This guards against any
-    // future "no peers" rule slipping in unannounced.
+    // ED→ED is intentional product policy. The target holds the
+    // `equipo_directivo` role which is school-scoped (in ED_ASSIGNABLE_ROLES),
+    // so the F1 target-role gate passes.
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
     mockCreateServiceRoleClient.mockReturnValueOnce(
       buildAdminClient(
-        successTables({ includeProfileLookup: true, lookupSchoolId: ED_SCHOOL_ID }),
+        successTables({
+          includeProfileLookup: true,
+          lookupSchoolId: ED_SCHOOL_ID,
+          targetRoles: [{ role_type: 'equipo_directivo' }],
+        }),
         tracker,
       ),
     );
@@ -380,6 +400,107 @@ describe('admin/delete-user — POST (ED auth + scoping)', () => {
       userRoleDeletes: 1,
       profileDeletes: 1,
       authDeletes: 1,
+    });
+  });
+
+  it('ED: 403 when target holds a global role (admin) — no cascade runs', async () => {
+    // F1 defense-in-depth: even if profile.school_id matches edSchoolId, an ED
+    // must not be able to mutate a target with a global role. The read path
+    // already filters such users out of listings; this guards the write path.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
+          user_roles: [{ data: [{ role_type: 'admin' }], error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: TARGET_USER_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toEqual({
+      error: 'No autorizado para eliminar este usuario',
+    });
+
+    const counts = countCascade(tracker);
+    expect(counts).toEqual({
+      feedbackDeletes: 0,
+      userRoleDeletes: 0,
+      profileDeletes: 0,
+      authDeletes: 0,
+    });
+  });
+
+  it('ED: 403 when target holds mixed roles (school-scoped + consultor) — no cascade', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
+          user_roles: [
+            {
+              data: [{ role_type: 'docente' }, { role_type: 'consultor' }],
+              error: null,
+            },
+          ],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: TARGET_USER_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    const counts = countCascade(tracker);
+    expect(counts).toEqual({
+      feedbackDeletes: 0,
+      userRoleDeletes: 0,
+      profileDeletes: 0,
+      authDeletes: 0,
+    });
+  });
+
+  it('ED: 500 when user_roles lookup errors — no cascade runs', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
+          user_roles: [{ data: null, error: { message: 'role lookup failed' } }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: TARGET_USER_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(res._getJSONData()).toEqual({ error: 'Error verificando roles del usuario' });
+
+    const counts = countCascade(tracker);
+    expect(counts).toEqual({
+      feedbackDeletes: 0,
+      userRoleDeletes: 0,
+      profileDeletes: 0,
+      authDeletes: 0,
     });
   });
 

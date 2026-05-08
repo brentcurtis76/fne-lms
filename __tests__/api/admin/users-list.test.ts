@@ -241,9 +241,14 @@ describe('admin/users — GET (school scoping)', () => {
       schoolsCall.eqs.find((e) => e.col === 'id' && e.val === ED_SCHOOL_ID),
     ).toBeDefined();
 
+    // user_roles scoping is enforced via .in('user_id', userIds) — not
+    // .eq('school_id', ...), so rows with school_id=NULL are still returned.
     const rolesCall = tracker.fromCalls.find((c) => c.table === 'user_roles')!;
     expect(
-      rolesCall.eqs.find((e) => e.col === 'school_id' && e.val === ED_SCHOOL_ID),
+      rolesCall.eqs.find((e) => e.col === 'school_id'),
+    ).toBeUndefined();
+    expect(
+      rolesCall.ins.find((i) => i.col === 'user_id'),
     ).toBeDefined();
   });
 
@@ -298,8 +303,8 @@ describe('admin/users — GET (school scoping)', () => {
 
     const rolesCall = tracker.fromCalls.find((c) => c.table === 'user_roles')!;
     expect(
-      rolesCall.eqs.find((e) => e.col === 'school_id' && e.val === ED_SCHOOL_ID),
-    ).toBeDefined();
+      rolesCall.eqs.find((e) => e.col === 'school_id'),
+    ).toBeUndefined();
   });
 
   it('unauthenticated: 401, no supabase call', async () => {
@@ -320,5 +325,140 @@ describe('admin/users — GET (school scoping)', () => {
 
     expect([401, 403]).toContain(res._getStatusCode());
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
+
+  it('ED: user_roles rows for in-school users with school_id=NULL are still returned', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    const inSchoolProfile = {
+      id: 'user-in-school',
+      email: 'in@example.com',
+      first_name: 'In',
+      last_name: 'School',
+      school_id: ED_SCHOOL_ID,
+      approval_status: 'approved',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+    };
+
+    const roleRowWithNullSchool = {
+      id: 'role-1',
+      user_id: 'user-in-school',
+      role_type: 'docente',
+      school_id: null,
+      community_id: null,
+      is_active: true,
+      school: null,
+      generation: null,
+      community: null,
+    };
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            { data: [inSchoolProfile], count: 1 },
+            { count: 1 },
+            { count: 0 },
+            { count: 1 },
+          ],
+          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+          user_roles: [{ data: [roleRowWithNullSchool] }],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const rolesCall = tracker.fromCalls.find((c) => c.table === 'user_roles')!;
+    expect(rolesCall.eqs.find((e) => e.col === 'school_id')).toBeUndefined();
+    expect(rolesCall.ins.find((i) => i.col === 'user_id')).toBeDefined();
+
+    const body = JSON.parse(res._getData());
+    expect(body.users).toHaveLength(1);
+    expect(body.users[0].id).toBe('user-in-school');
+    expect(body.users[0].user_roles).toHaveLength(1);
+    expect(body.users[0].user_roles[0].school_id).toBeNull();
+    expect(body.users[0].user_roles[0].role_type).toBe('docente');
+  });
+
+  it('ED: user_roles query is scoped to in-school user_ids so out-of-school role rows cannot leak', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    const inSchoolProfile = {
+      id: 'user-in-school',
+      email: 'in@example.com',
+      first_name: 'In',
+      last_name: 'School',
+      school_id: ED_SCHOOL_ID,
+      approval_status: 'approved',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+    };
+
+    // Even if the upstream DB were to return rows for an outside user, the
+    // .in('user_id', [in-school ids]) filter on the user_roles query prevents
+    // them from being included. We assert the filter is in place and that the
+    // payload contains no role data for outside users.
+    const inSchoolRoleRow = {
+      id: 'role-in',
+      user_id: 'user-in-school',
+      role_type: 'docente',
+      school_id: ED_SCHOOL_ID,
+      community_id: null,
+      is_active: true,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+      generation: null,
+      community: null,
+    };
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            { data: [inSchoolProfile], count: 1 },
+            { count: 1 },
+            { count: 0 },
+            { count: 1 },
+          ],
+          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+          user_roles: [{ data: [inSchoolRoleRow] }],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const rolesCall = tracker.fromCalls.find((c) => c.table === 'user_roles')!;
+    const userIdIn = rolesCall.ins.find((i) => i.col === 'user_id');
+    expect(userIdIn).toBeDefined();
+    expect(userIdIn!.vals).toEqual(['user-in-school']);
+    expect((userIdIn!.vals as string[])).not.toContain('user-outside-school');
+
+    const body = JSON.parse(res._getData());
+    const allRoleUserIds = body.users.flatMap((u: any) =>
+      (u.user_roles || []).map((r: any) => r.user_id),
+    );
+    expect(allRoleUserIds.every((id: string) => id === 'user-in-school')).toBe(true);
   });
 });

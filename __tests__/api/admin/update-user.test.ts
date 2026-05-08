@@ -320,7 +320,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect(tracker.fromCalls).toHaveLength(0);
   });
 
-  it('ED: 400 when body contains `school_id` field', async () => {
+  it('ED: 400 when body `school_id` differs from ED school', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
     mockCreateServiceRoleClient.mockReturnValueOnce(
@@ -329,13 +329,69 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
 
     const { req, res } = createMocks({
       method: 'POST',
-      body: baseBody({ school_id: ED_SCHOOL_ID }),
+      body: baseBody({ school_id: OTHER_SCHOOL_ID }),
     });
     await handler(req as never, res as never);
 
     expect(res._getStatusCode()).toBe(400);
     expect(res._getJSONData()).toEqual({ error: 'No se puede modificar el colegio' });
     expect(tracker.fromCalls).toHaveLength(0);
+  });
+
+  it('ED: succeeds when body `school_id` equals ED school (benign echo)', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [
+            { data: { school_id: ED_SCHOOL_ID }, error: null },
+            { data: null, error: null },
+          ],
+          audit_logs: [{ data: null, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: baseBody({ school_id: ED_SCHOOL_ID }),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const profileCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profileCalls).toHaveLength(2);
+    expect(profileCalls[1].updates).toHaveLength(1);
+    // ED still must not mutate the `school` text field
+    expect((profileCalls[1].updates[0] as any).school).toBeUndefined();
+  });
+
+  it('ED: succeeds when body `school_id` is a string that coerces to ED school', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [
+            { data: { school_id: ED_SCHOOL_ID }, error: null },
+            { data: null, error: null },
+          ],
+          audit_logs: [{ data: null, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: baseBody({ school_id: String(ED_SCHOOL_ID) }),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
   });
 
   it('ED with schoolId=null from auth helper: 403 defensive guard', async () => {

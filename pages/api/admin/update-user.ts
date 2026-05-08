@@ -36,7 +36,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const supabaseAdmin = createServiceRoleClient();
 
     if (requesterRole === 'equipo_directivo') {
-      if (req.body.school !== undefined || req.body.school_id !== undefined) {
+      if (req.body.school !== undefined) {
+        return res.status(400).json({ error: 'No se puede modificar el colegio' });
+      }
+      if (req.body.school_id !== undefined && Number(req.body.school_id) !== edSchoolId) {
         return res.status(400).json({ error: 'No se puede modificar el colegio' });
       }
 

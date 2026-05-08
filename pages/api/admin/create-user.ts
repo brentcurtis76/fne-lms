@@ -26,23 +26,32 @@ export default async function handler(
       return res.status(403).json({ error: 'School context missing for equipo_directivo' });
     }
 
-    const { email, password, firstName, lastName, role, schoolId } = req.body;
+    const { email, password, firstName, lastName, role: bodyRole, schoolId: bodySchoolId } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    let effectiveSchoolId = schoolId;
+    const resolvedRole: string = bodyRole || 'docente';
+
+    let effectiveSchoolId: number | null;
+    if (bodySchoolId === undefined || bodySchoolId === null) {
+      effectiveSchoolId = null;
+    } else {
+      const coerced = Number(bodySchoolId);
+      effectiveSchoolId = Number.isFinite(coerced) ? coerced : null;
+    }
+
     if (requesterRole === 'equipo_directivo') {
-      if (schoolId !== undefined && schoolId !== null && Number(schoolId) !== edSchoolId) {
-        return res.status(403).json({ error: 'Cannot create user in another school' });
-      }
-      if (schoolId === undefined || schoolId === null) {
-        effectiveSchoolId = edSchoolId;
+      if (!(ED_ASSIGNABLE_ROLES as readonly string[]).includes(resolvedRole)) {
+        return res.status(403).json({ error: 'Role not assignable by equipo_directivo' });
       }
 
-      if (role !== undefined && role !== null && !(ED_ASSIGNABLE_ROLES as readonly string[]).includes(role)) {
-        return res.status(403).json({ error: 'Role not assignable by equipo_directivo' });
+      if (effectiveSchoolId !== null && effectiveSchoolId !== edSchoolId) {
+        return res.status(403).json({ error: 'Cannot create user in another school' });
+      }
+      if (effectiveSchoolId === null) {
+        effectiveSchoolId = edSchoolId as number;
       }
     }
 
@@ -53,7 +62,7 @@ export default async function handler(
       password,
       email_confirm: true,
       user_metadata: {
-        role: role || 'docente'
+        role: resolvedRole
       }
     });
 
@@ -75,7 +84,9 @@ export default async function handler(
         if (firstName) updateData.first_name = firstName;
         if (lastName) updateData.last_name = lastName;
         if (firstName && lastName) updateData.name = `${firstName} ${lastName}`;
-        if (effectiveSchoolId) updateData.school_id = effectiveSchoolId;
+        if (effectiveSchoolId !== null && Number.isFinite(effectiveSchoolId)) {
+          updateData.school_id = effectiveSchoolId;
+        }
 
         const { error: updateError } = await supabaseAdmin
           .from('profiles')
@@ -89,10 +100,14 @@ export default async function handler(
 
         const roleInsertData: Record<string, unknown> = {
           user_id: newUser.user.id,
-          role_type: role || 'docente'
+          role_type: resolvedRole
         };
-        if (requesterRole === 'equipo_directivo') {
-          roleInsertData.school_id = edSchoolId;
+        if (
+          requesterRole === 'equipo_directivo' &&
+          effectiveSchoolId !== null &&
+          Number.isFinite(effectiveSchoolId)
+        ) {
+          roleInsertData.school_id = effectiveSchoolId;
         }
 
         const { error: roleError } = await supabaseAdmin
@@ -112,7 +127,7 @@ export default async function handler(
             email: newUser.user.email,
             firstName,
             lastName,
-            role: role || 'docente'
+            role: resolvedRole
           }
         });
 

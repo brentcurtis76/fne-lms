@@ -343,4 +343,92 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
     expect(res._getStatusCode()).toBe(401);
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
+
+  it('ED with schoolId=0 in body: 403 (caught by cross-school gate, since 0 !== edSchoolId)', async () => {
+    // The repo has no explicit "schoolId must be > 0" rule. The cross-school
+    // gate (effectiveSchoolId !== edSchoolId) is what rejects 0 here, since
+    // edSchoolId is 42. Asserting the actual behavior the handler enforces.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: bodyFor('docente', 0),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toEqual({
+      error: 'Cannot create user in another school',
+    });
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
+
+  it("ED with schoolId='42' (string): coerces to numeric 42 and writes number to DB", async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: {
+        email: 'new@example.com',
+        password: 'pw-12345',
+        firstName: 'New',
+        lastName: 'User',
+        role: 'docente',
+        schoolId: '42',
+      },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const profileUpdate = tracker.fromCalls.find(
+      (c) => c.table === 'profiles' && c.updates.length > 0,
+    )!;
+    expect((profileUpdate.updates[0] as any).school_id).toBe(42);
+    expect(typeof (profileUpdate.updates[0] as any).school_id).toBe('number');
+
+    const roleInsert = tracker.fromCalls.find(
+      (c) => c.table === 'user_roles' && c.inserts.length > 0,
+    )!;
+    expect((roleInsert.inserts[0] as any).school_id).toBe(42);
+    expect(typeof (roleInsert.inserts[0] as any).school_id).toBe('number');
+  });
+
+  it('ED with no role field: defaults to docente and ED gate validates the resolved role', async () => {
+    // This also covers the invariant that the ED gate validates resolvedRole
+    // rather than the raw body field. With the prior implementation, an
+    // undefined body role was skipped by the validator entirely; now the
+    // resolved default ('docente') is itself checked against ED_ASSIGNABLE_ROLES.
+    // 'docente' is assignable, so the request succeeds and writes role_type='docente'.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: {
+        email: 'new@example.com',
+        password: 'pw-12345',
+        firstName: 'New',
+        lastName: 'User',
+        // role intentionally omitted
+      },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(tracker.createUserPayload?.user_metadata?.role).toBe('docente');
+
+    const roleInsert = tracker.fromCalls.find(
+      (c) => c.table === 'user_roles' && c.inserts.length > 0,
+    )!;
+    const inserted = roleInsert.inserts[0] as any;
+    expect(inserted.role_type).toBe('docente');
+    expect(inserted.school_id).toBe(ED_SCHOOL_ID);
+
+    const body = res._getJSONData();
+    expect(body.user.role).toBe('docente');
+  });
 });

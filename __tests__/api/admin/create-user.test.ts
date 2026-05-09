@@ -537,6 +537,27 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
+  it("admin with schoolId='01' (leading-zero string): 400 with schoolId inválido", async () => {
+    setupAdmin();
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: {
+        email: 'new@example.com',
+        password: 'pw-12345',
+        firstName: 'New',
+        lastName: 'User',
+        role: 'docente',
+        schoolId: '01',
+      },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({ error: 'schoolId inválido' });
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
+
   it("admin with schoolId='99999999999999999999' (overflowing string): 400 with schoolId inválido", async () => {
     setupAdmin();
 

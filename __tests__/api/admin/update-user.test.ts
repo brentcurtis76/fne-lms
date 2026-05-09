@@ -429,6 +429,69 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect(tracker.fromCalls).toHaveLength(0);
   });
 
+  it('ED: school: null in body - succeeds (treated as no-op)', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [
+            { data: { school_id: ED_SCHOOL_ID }, error: null },
+            { data: null, error: null },
+          ],
+          user_roles: [{ data: [], error: null }],
+          audit_logs: [{ data: null, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: baseBody({ school: null }),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const profileCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profileCalls).toHaveLength(2);
+    expect(profileCalls[1].updates).toHaveLength(1);
+    // ED still must not mutate the `school` text field
+    expect((profileCalls[1].updates[0] as any).school).toBeUndefined();
+  });
+
+  it("ED: school: '' in body - succeeds (treated as no-op)", async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [
+            { data: { school_id: ED_SCHOOL_ID }, error: null },
+            { data: null, error: null },
+          ],
+          user_roles: [{ data: [], error: null }],
+          audit_logs: [{ data: null, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: baseBody({ school: '' }),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const profileCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profileCalls).toHaveLength(2);
+    expect(profileCalls[1].updates).toHaveLength(1);
+    expect((profileCalls[1].updates[0] as any).school).toBeUndefined();
+  });
+
   it('ED: 400 when body `school_id` differs from ED school', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();

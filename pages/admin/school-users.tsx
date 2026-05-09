@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
@@ -62,7 +62,7 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (ctx) => 
 
   const isAdmin = rows.some((r) => r.role_type === 'admin');
   if (isAdmin) {
-    return { redirect: { destination: '/admin/user-management', permanent: true } };
+    return { redirect: { destination: '/admin/user-management', permanent: false } };
   }
 
   const edRow = rows.find((r) => r.role_type === 'equipo_directivo');
@@ -107,6 +107,7 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
   const [newUserLastName, setNewUserLastName] = useState('');
   const [newUserRole, setNewUserRole] = useState<string>('docente');
   const [isCreating, setIsCreating] = useState(false);
+  const emailInputRef = useRef<HTMLInputElement | null>(null);
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [userToEdit, setUserToEdit] = useState<ListUser | null>(null);
@@ -403,9 +404,7 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
     }
   };
 
-  const handleAddUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleSubmitNewUser = async (addAnother: boolean) => {
     if (isCreating) return;
 
     if (!newUserEmail.trim() || !newUserPassword.trim()) {
@@ -455,19 +454,29 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
         setNewUserFirstName('');
         setNewUserLastName('');
         setNewUserRole('docente');
-        setShowAddForm(false);
         setCurrentPage(1);
         fetchUsers(1);
 
-        toast.success(
-          'Usuario creado correctamente. El usuario deberá cambiar su contraseña en el primer inicio de sesión.',
-          {
-            duration: 5000,
+        if (addAnother) {
+          toast.success('Usuario creado. Puedes agregar otro.', {
+            duration: 3000,
             position: 'top-right',
             style: { background: '#10B981', color: 'white' },
             icon: '👤',
-          }
-        );
+          });
+          emailInputRef.current?.focus();
+        } else {
+          setShowAddForm(false);
+          toast.success(
+            'Usuario creado correctamente. El usuario deberá cambiar su contraseña en el primer inicio de sesión.',
+            {
+              duration: 5000,
+              position: 'top-right',
+              style: { background: '#10B981', color: 'white' },
+              icon: '👤',
+            }
+          );
+        }
       }
     } catch (error: any) {
       console.error('Error creating user:', error);
@@ -620,18 +629,26 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
                 <X size={24} />
               </button>
             </div>
-            <form onSubmit={handleAddUser} className="space-y-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSubmitNewUser(false);
+              }}
+              className="space-y-4"
+            >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Email *
                   </label>
                   <input
+                    ref={emailInputRef}
                     type="email"
                     value={newUserEmail}
                     onChange={(e) => setNewUserEmail(e.target.value)}
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                     placeholder="usuario@ejemplo.com"
+                    autoFocus
                     required
                   />
                 </div>
@@ -700,6 +717,15 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
                   Cancelar
                 </button>
                 <button
+                  type="button"
+                  onClick={() => handleSubmitNewUser(true)}
+                  disabled={isCreating}
+                  className="px-4 py-2 border border-[#0a0a0a] text-[#0a0a0a] rounded-md hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <Plus size={16} />
+                  Guardar y agregar otro
+                </button>
+                <button
                   type="submit"
                   disabled={isCreating}
                   className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#1f1f1f] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
@@ -712,7 +738,7 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
                   ) : (
                     <>
                       <Plus size={16} />
-                      Crear Usuario
+                      Guardar
                     </>
                   )}
                 </button>

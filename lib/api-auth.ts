@@ -276,7 +276,7 @@ export function isValidSchoolIdInput(v: unknown): v is number | string {
   if (typeof v === 'number') return Number.isSafeInteger(v) && v > 0;
   if (typeof v === 'string') {
     const trimmed = v.trim();
-    if (!/^\d+$/.test(trimmed)) return false;
+    if (!/^[1-9]\d*$/.test(trimmed)) return false;
     const n = Number(trimmed);
     return Number.isSafeInteger(n) && n > 0;
   }

@@ -689,4 +689,42 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
     const body = res._getJSONData();
     expect(body.user.role).toBe('docente');
   });
+
+  describe('rollback', () => {
+    it('profile update fails: deletes auth user and does NOT call profiles.delete (FK cascade handles it)', async () => {
+      setupAdmin();
+      const tracker = makeTracker();
+      mockCreateServiceRoleClient.mockReturnValueOnce(
+        buildAdminClient(
+          {
+            profiles: [{ data: null, error: new Error('profile update failed') }],
+          },
+          tracker,
+        ),
+      );
+
+      const { req, res } = createMocks({
+        method: 'POST',
+        body: bodyFor('docente', OTHER_SCHOOL_ID),
+      });
+      await handler(req as never, res as never);
+
+      expect(res._getStatusCode()).toBe(500);
+
+      const adminClient = mockCreateServiceRoleClient.mock.results[0].value;
+      expect(adminClient.auth.admin.deleteUser).toHaveBeenCalledTimes(1);
+      expect(adminClient.auth.admin.deleteUser).toHaveBeenCalledWith(NEW_USER_ID);
+
+      const profileDeletes = tracker.fromCalls.filter(
+        (c) => c.table === 'profiles' && c.deletes > 0,
+      );
+      expect(profileDeletes).toHaveLength(0);
+
+      // user_roles wasn't reached, so no rollback delete on that table either
+      const roleDeletes = tracker.fromCalls.filter(
+        (c) => c.table === 'user_roles' && c.deletes > 0,
+      );
+      expect(roleDeletes).toHaveLength(0);
+    });
+  });
 });

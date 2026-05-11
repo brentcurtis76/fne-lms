@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient } from '../../../lib/api-auth';
-import { ED_SCHOOL_SCOPED_ROLES } from '../../../utils/roleUtils';
+import { SCHOOL_SCOPED_ROLES_SET } from '../../../utils/roleUtils';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -62,7 +62,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // allow a global-role escalation to slip through. The practical
       // mitigation is that role assignment is restricted to admin tooling.
       // Defense-in-depth: reject if the target holds ANY active role outside
-      // ED_ASSIGNABLE_ROLES (admin/consultor/supervisor_de_red/community_manager).
+      // SCHOOL_SCOPED_ROLES (admin/consultor/supervisor_de_red/community_manager).
       // The read-path filter already hides such users; this prevents an ED
       // from mutating a global-role user even if they appear in their school.
       const { data: targetRoles, error: rolesLookupError } = await supabaseAdmin
@@ -75,7 +75,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Error verificando roles del usuario' });
       }
       const hasGlobalRole = (targetRoles ?? []).some(
-        (r: { role_type: string }) => !ED_SCHOOL_SCOPED_ROLES.has(r.role_type),
+        (r: { role_type: string }) => !SCHOOL_SCOPED_ROLES_SET.has(r.role_type),
       );
       if (hasGlobalRole) {
         return res.status(403).json({ error: 'No autorizado para eliminar este usuario' });

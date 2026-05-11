@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 
 const { mockCheckIsAdminOrEquipoDirectivo, mockCreateServiceRoleClient } = vi.hoisted(() => ({
@@ -990,5 +990,93 @@ describe('admin/assign-role — ED explicit FK scoping', () => {
     expect(res._getStatusCode()).toBe(500);
     expect(res._getJSONData()).toEqual({ error: 'Error verificando generación' });
     expect(countInserts(tracker, 'user_roles')).toBe(0);
+  });
+});
+
+// Regression guard for the school_id override gate. Today ED_ASSIGNABLE_ROLES
+// is identical to SCHOOL_SCOPED_ROLES, so there is no real role exercising the
+// "ED-assignable AND non-school-scoped" branch. We simulate that hypothetical
+// expansion by re-importing the handler with a doMock'd roleUtils that adds
+// 'community_manager' to ED_ASSIGNABLE_ROLES, and assert the handler does NOT
+// stamp edSchoolId onto the user_roles row.
+describe('admin/assign-role — hypothetical non-school-scoped ED-assignable role', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.doUnmock('../../../utils/roleUtils');
+    vi.doUnmock('../../../lib/api-auth');
+    vi.resetModules();
+  });
+
+  it('ED assigning a hypothetical non-school-scoped role does NOT overwrite schoolId with edSchoolId', async () => {
+    vi.doMock('../../../utils/roleUtils', async () => {
+      const actual = await vi.importActual<typeof import('../../../utils/roleUtils')>(
+        '../../../utils/roleUtils',
+      );
+      return {
+        ...actual,
+        // Hypothetical product expansion: ED may assign a global
+        // (non-school-scoped) role. The fix under test must NOT
+        // stamp edSchoolId onto its user_roles row.
+        ED_ASSIGNABLE_ROLES: [...actual.SCHOOL_SCOPED_ROLES, 'community_manager'],
+      };
+    });
+
+    // The top-level vi.mock for lib/api-auth applies to the statically
+    // imported handler. After resetModules() the dynamic import below
+    // re-resolves the module, so we re-register the api-auth mock too.
+    vi.doMock('../../../lib/api-auth', async () => {
+      const actual = await vi.importActual<typeof import('../../../lib/api-auth')>(
+        '../../../lib/api-auth',
+      );
+      return {
+        ...actual,
+        checkIsAdminOrEquipoDirectivo: mockCheckIsAdminOrEquipoDirectivo,
+        createServiceRoleClient: mockCreateServiceRoleClient,
+      };
+    });
+
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
+          user_roles: [
+            { data: [], error: null }, // ED target-role gate: no global role on target
+            { data: { id: ROLE_ROW_ID }, error: null }, // role insert
+          ],
+        },
+        tracker,
+      ),
+    );
+
+    const { default: dynHandler } = await import('../../../pages/api/admin/assign-role');
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      // No schoolId in body — handler must not synthesize one for a
+      // non-school-scoped role.
+      body: { targetUserId: TARGET_USER_ID, roleType: 'community_manager' },
+    });
+    await dynHandler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(countInserts(tracker, 'user_roles')).toBe(1);
+
+    const payload = findInsertPayload(tracker, 'user_roles') as Record<string, unknown>;
+    expect(payload.role_type).toBe('community_manager');
+    // The override gate is the regression target: school_id must remain null.
+    expect(payload.school_id).toBeNull();
+
+    // And the school-level profile update branch must not fire for a
+    // non-school-scoped role with no schoolId.
+    expect(tracker.fromCalls.filter((c) => c.table === 'profiles')).toHaveLength(1);
+    expect(
+      tracker.fromCalls.filter((c) => c.table === 'profiles')[0].updates,
+    ).toHaveLength(0);
   });
 });

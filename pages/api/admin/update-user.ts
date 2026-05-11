@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient, isValidSchoolIdInput } from '../../../lib/api-auth';
-import { ED_SCHOOL_SCOPED_ROLES } from '../../../utils/roleUtils';
+import { SCHOOL_SCOPED_ROLES_SET } from '../../../utils/roleUtils';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -36,6 +36,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const supabaseAdmin = createServiceRoleClient();
 
+    // Server-fetched prior email — the only safe source for rollback/audit.
+    // Never trust req.body.originalEmail: a client could omit it or send junk
+    // and corrupt profiles.email if the auth-side update fails.
+    let currentEmail: string | null | undefined;
+
     if (requesterRole === 'equipo_directivo') {
       if (req.body.school !== undefined && req.body.school !== null && req.body.school !== '') {
         return res.status(400).json({ error: 'No se puede modificar el colegio' });
@@ -52,7 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const { data: targetProfile, error: profileLookupError } = await supabaseAdmin
         .from('profiles')
-        .select('school_id')
+        .select('school_id, email')
         .eq('id', userId)
         .maybeSingle();
 
@@ -67,12 +72,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(403).json({ error: 'No autorizado para editar este usuario' });
       }
 
+      currentEmail = targetProfile.email;
+
       // TOCTOU: this user_roles read is a point-in-time check. A concurrent
       // role grant landing between this gate and the update write below could
       // allow a global-role escalation to slip through. The practical
       // mitigation is that role assignment is restricted to admin tooling.
       // Defense-in-depth: reject if the target holds any active role outside
-      // ED_ASSIGNABLE_ROLES (admin/consultor/supervisor_de_red/community_manager).
+      // SCHOOL_SCOPED_ROLES (admin/consultor/supervisor_de_red/community_manager).
       const { data: targetRoles, error: rolesLookupError } = await supabaseAdmin
         .from('user_roles')
         .select('role_type')
@@ -83,11 +90,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Error verificando roles del usuario' });
       }
       const hasGlobalRole = (targetRoles ?? []).some(
-        (r: { role_type: string }) => !ED_SCHOOL_SCOPED_ROLES.has(r.role_type),
+        (r: { role_type: string }) => !SCHOOL_SCOPED_ROLES_SET.has(r.role_type),
       );
       if (hasGlobalRole) {
         return res.status(403).json({ error: 'No autorizado para editar este usuario' });
       }
+    }
+
+    if (requesterRole === 'admin' && email) {
+      const { data: targetProfile, error: profileLookupError } = await supabaseAdmin
+        .from('profiles')
+        .select('email')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (profileLookupError) {
+        return res.status(500).json({ error: 'Error verificando usuario' });
+      }
+      if (!targetProfile) {
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+      }
+
+      currentEmail = targetProfile.email;
     }
 
     const updateData: Record<string, unknown> = {
@@ -120,10 +144,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (authUpdateError) {
         console.error('Error updating auth email:', authUpdateError);
-        // Try to rollback profile email change
+        // Rollback to the server-fetched prior email, never to client input.
         await supabaseAdmin
           .from('profiles')
-          .update({ email: req.body.originalEmail })
+          .update({ email: currentEmail })
           .eq('id', userId);
 
         return res.status(500).json({ error: 'Error al actualizar el email: ' + authUpdateError.message });
@@ -140,7 +164,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         record_id: userId,
         details: {
           updated_fields: {
-            email: email !== req.body.originalEmail ? { from: req.body.originalEmail, to: email } : undefined,
+            email: email && email !== currentEmail ? { from: currentEmail, to: email } : undefined,
             first_name,
             last_name,
             school: requesterRole === 'admin' ? school : undefined,

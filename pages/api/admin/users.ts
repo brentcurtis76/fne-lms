@@ -3,7 +3,7 @@ import {
   checkIsAdminOrEquipoDirectivo,
   createServiceRoleClient,
 } from '../../../lib/api-auth';
-import { ED_ASSIGNABLE_ROLES, ED_SCHOOL_SCOPED_ROLES } from '../../../utils/roleUtils';
+import { SCHOOL_SCOPED_ROLES } from '../../../utils/roleUtils';
 
 const ROLE_PRIORITY = ['admin','consultor','equipo_directivo','supervisor_de_red','community_manager','lider_generacion','lider_comunidad','docente','encargado_licitacion'];
 
@@ -162,27 +162,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('is_active', true);
 
     if (isEdScope) {
+      // Sole read-path role-type filter for ED scope: restrict the user_roles
+      // query to school-scoped role types via SQL. There is no in-memory
+      // re-check — defense-in-depth against bad/global rows is enforced on
+      // the write paths (assign-role, create-user, update-user, etc.).
       rolesQuery = rolesQuery
         .or(`school_id.is.null,school_id.eq.${edSchoolId}`)
-        .in('role_type', ED_ASSIGNABLE_ROLES as readonly string[]);
+        .in('role_type', SCHOOL_SCOPED_ROLES as readonly string[]);
     }
 
-    const { data: rawRolesData, error: rolesError } = await rolesQuery;
+    const { data: rolesData, error: rolesError } = await rolesQuery;
 
     if (rolesError) {
       console.error('[users API] Error fetching roles:', rolesError);
       return res.status(500).json({ error: 'Error al obtener roles de usuarios' });
     }
-
-    // Defense-in-depth: even though the ED query restricts role_type to
-    // ED_ASSIGNABLE_ROLES, drop any row whose role_type is not school-scoped.
-    // This guards against anomalous data (e.g. a global role row stored with
-    // school_id=edSchoolId) leaking into ED responses.
-    const rolesData = isEdScope
-      ? (rawRolesData || []).filter((row: any) =>
-          ED_SCHOOL_SCOPED_ROLES.has(row.role_type),
-        )
-      : rawRolesData;
 
     const { data: consultantData, error: consultantError } = await supabaseService
       .from('consultant_assignments')

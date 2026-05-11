@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient, isValidSchoolIdInput } from '../../../lib/api-auth';
-import { ED_ASSIGNABLE_ROLES, ED_SCHOOL_SCOPED_ROLES } from '../../../utils/roleUtils';
+import { ED_ASSIGNABLE_ROLES, SCHOOL_SCOPED_ROLES_SET } from '../../../utils/roleUtils';
 import { UserRoleType, validateRoleAssignment } from '../../../types/roles';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -93,14 +93,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(403).json({ error: 'No autorizado para asignar roles a este usuario' });
       }
 
-      schoolId = edSchoolId;
+      // Defense-in-depth: only stamp the ED's schoolId onto the new role row
+      // for role types that are actually school-scoped. Today ED_ASSIGNABLE_ROLES
+      // equals SCHOOL_SCOPED_ROLES, but if a future global role (e.g.
+      // community_manager, supervisor_de_red) is ever added to
+      // ED_ASSIGNABLE_ROLES, its user_roles row must remain school_id=null —
+      // overwriting it with edSchoolId would mis-scope a global grant.
+      if (SCHOOL_SCOPED_ROLES_SET.has(roleType)) {
+        schoolId = edSchoolId;
+      }
 
       // TOCTOU: this user_roles read is a point-in-time check. A concurrent
       // role grant landing between this gate and the role write below could
       // allow a global-role escalation to slip through. The practical
       // mitigation is that role assignment is restricted to admin tooling.
       // Defense-in-depth: reject if the target holds any active role outside
-      // ED_ASSIGNABLE_ROLES (admin/consultor/supervisor_de_red/community_manager).
+      // SCHOOL_SCOPED_ROLES (admin/consultor/supervisor_de_red/community_manager).
       const { data: targetRoles, error: rolesLookupError } = await supabaseService
         .from('user_roles')
         .select('role_type')
@@ -111,7 +119,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Error verificando roles del usuario' });
       }
       const hasGlobalRole = (targetRoles ?? []).some(
-        (r: { role_type: string }) => !ED_SCHOOL_SCOPED_ROLES.has(r.role_type),
+        (r: { role_type: string }) => !SCHOOL_SCOPED_ROLES_SET.has(r.role_type),
       );
       if (hasGlobalRole) {
         return res.status(403).json({ error: 'No autorizado para asignar roles a este usuario' });

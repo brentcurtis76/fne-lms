@@ -273,6 +273,37 @@ export function getHighestRole(roles: UserRole[]): UserRoleType | null {
 }
 
 /**
+ * Roles whose `user_roles` rows are scoped to a single school. These role
+ * types carry a meaningful `school_id`, and (per ED scope rules) only rows
+ * of these types are safe to expose to an equipo_directivo for the school
+ * they administer. Global roles (admin, consultor, supervisor_de_red,
+ * community_manager) are deliberately absent and must not be surfaced to
+ * ED scope even when their row's `school_id` happens to be null.
+ *
+ * Used by:
+ *   - Read-path filtering: `pages/api/admin/users.ts` restricts the ED
+ *     view of `user_roles` to these role types.
+ *   - `school_id` propagation: `pages/api/admin/create-user.ts` only sets
+ *     `user_roles.school_id` when the new row is school-scoped.
+ *   - Defense-in-depth target-role gates: admin handlers (assign-role,
+ *     delete-user, reset-password, update-user) reject ED operations on
+ *     a target user who holds any active non-school-scoped role.
+ */
+export const SCHOOL_SCOPED_ROLES = [
+  'docente',
+  'lider_comunidad',
+  'lider_generacion',
+  'equipo_directivo',
+  'encargado_licitacion',
+] as const satisfies readonly UserRoleType[];
+export type SchoolScopedRole = (typeof SCHOOL_SCOPED_ROLES)[number];
+
+/**
+ * Set form of SCHOOL_SCOPED_ROLES for O(1) membership checks.
+ */
+export const SCHOOL_SCOPED_ROLES_SET: ReadonlySet<string> = new Set(SCHOOL_SCOPED_ROLES);
+
+/**
  * Roles an equipo_directivo (ED) may assign within their own school.
  *
  * Intentional product policy (Phase 8 ed-users plan): this list includes
@@ -281,21 +312,14 @@ export function getHighestRole(roles: UserRole[]): UserRoleType | null {
  * "ED can create another equipo_directivo in their own school (intentional
  * policy per plan)" in `__tests__/api/admin/create-user.test.ts`.
  *
- * This list doubles as the set of "school-scoped" roles for read paths:
- * downstream queries (e.g. the admin users list) use it to decide which
- * null-school `user_roles` rows are safe to expose to an ED. Global roles
- * (admin, consultor, supervisor_de_red, community_manager) are deliberately
- * absent and must not be surfaced to ED scope even when their row's
- * school_id is null.
+ * Today this is identical to SCHOOL_SCOPED_ROLES, but the two are
+ * semantically distinct: "what ED may assign" can diverge from "which
+ * role types are school-scoped" without those policies leaking into
+ * read-path filtering or `school_id` propagation. Use this constant only
+ * for ED assignment gates.
  */
-export const ED_ASSIGNABLE_ROLES = ['docente', 'lider_comunidad', 'lider_generacion', 'equipo_directivo', 'encargado_licitacion'] as const satisfies readonly UserRoleType[];
+export const ED_ASSIGNABLE_ROLES = SCHOOL_SCOPED_ROLES;
 export type EdAssignableRole = (typeof ED_ASSIGNABLE_ROLES)[number];
-
-/**
- * Set form of ED_ASSIGNABLE_ROLES for O(1) school-scoped role membership
- * checks in admin handlers (users / delete-user / reset-password / update-user).
- */
-export const ED_SCHOOL_SCOPED_ROLES: ReadonlySet<string> = new Set(ED_ASSIGNABLE_ROLES);
 
 /**
  * Check if user has a specific permission

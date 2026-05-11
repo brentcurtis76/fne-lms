@@ -514,91 +514,37 @@ describe('admin/users — GET (school scoping)', () => {
     expect(allRoleUserIds.every((id: string) => id === 'user-in-school')).toBe(true);
   });
 
-  it('ED: null-school user_roles rows for global roles (admin/consultor/supervisor_de_red/community_manager) are filtered out', async () => {
+  it('ED: user_roles query restricts role_type to SCHOOL_SCOPED_ROLES via SQL', async () => {
+    // Contract-level assertion: the ED read path must push role-type filtering
+    // down to Postgres via .in('role_type', SCHOOL_SCOPED_ROLES). We do not
+    // assert on in-memory filtering of returned rows — there is no in-memory
+    // re-check in production, and the local mock does not enforce .in() so
+    // any such assertion would be misleading.
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
-
-    const inSchoolProfile = {
-      id: 'user-in-school',
-      email: 'in@example.com',
-      first_name: 'In',
-      last_name: 'School',
-      school_id: ED_SCHOOL_ID,
-      approval_status: 'approved',
-      created_at: '2026-01-01T00:00:00Z',
-      external_school_affiliation: null,
-      can_run_qa_tests: false,
-      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
-    };
-
-    const baseRoleRow = {
-      user_id: 'user-in-school',
-      school_id: null,
-      community_id: null,
-      is_active: true,
-      school: null,
-      generation: null,
-      community: null,
-    };
-
-    const docenteRow = { ...baseRoleRow, id: 'role-docente', role_type: 'docente' };
-    const adminRow = { ...baseRoleRow, id: 'role-admin', role_type: 'admin' };
-    const consultorRow = { ...baseRoleRow, id: 'role-consultor', role_type: 'consultor' };
-    const supervisorRow = {
-      ...baseRoleRow,
-      id: 'role-supervisor',
-      role_type: 'supervisor_de_red',
-    };
-    const communityManagerRow = {
-      ...baseRoleRow,
-      id: 'role-cm',
-      role_type: 'community_manager',
-    };
-
-    mockCreateServiceRoleClient.mockReturnValueOnce(
-      buildSequencedClient(
-        {
-          profiles: [
-            { data: [inSchoolProfile], count: 1 },
-            { count: 1 },
-            { count: 0 },
-            { count: 1 },
-          ],
-          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
-          user_roles: [
-            {
-              data: [
-                docenteRow,
-                adminRow,
-                consultorRow,
-                supervisorRow,
-                communityManagerRow,
-              ],
-            },
-          ],
-          consultant_assignments: [{ data: [] }, { data: [] }],
-          course_assignments: [{ data: [] }],
-          learning_path_assignments: [{ data: [] }],
-        },
-        tracker,
-      ),
-    );
+    stockHappyPath(ED_SCHOOL_ID, tracker);
 
     const { req, res } = createMocks({ method: 'GET' });
     await handler(req as never, res as never);
 
     expect(res._getStatusCode()).toBe(200);
 
-    const body = JSON.parse(res._getData());
-    expect(body.users).toHaveLength(1);
-    const returnedRoles = body.users[0].user_roles;
-    const returnedRoleTypes = returnedRoles.map((r: any) => r.role_type);
-
-    expect(returnedRoleTypes).toContain('docente');
-    expect(returnedRoleTypes).not.toContain('admin');
-    expect(returnedRoleTypes).not.toContain('consultor');
-    expect(returnedRoleTypes).not.toContain('supervisor_de_red');
-    expect(returnedRoleTypes).not.toContain('community_manager');
+    const rolesCall = tracker.fromCalls.find((c) => c.table === 'user_roles')!;
+    const roleTypeIn = rolesCall.ins.find((i) => i.col === 'role_type');
+    expect(roleTypeIn).toBeDefined();
+    expect(roleTypeIn!.vals as string[]).toEqual(
+      expect.arrayContaining([
+        'docente',
+        'lider_comunidad',
+        'lider_generacion',
+        'equipo_directivo',
+        'encargado_licitacion',
+      ]),
+    );
+    expect(roleTypeIn!.vals as string[]).not.toContain('admin');
+    expect(roleTypeIn!.vals as string[]).not.toContain('consultor');
+    expect(roleTypeIn!.vals as string[]).not.toContain('supervisor_de_red');
+    expect(roleTypeIn!.vals as string[]).not.toContain('community_manager');
   });
 
   it('admin: null-school user_roles rows for global roles are NOT filtered out', async () => {
@@ -743,88 +689,4 @@ describe('admin/users — GET (school scoping)', () => {
     expect(returnedRoles.find((r: any) => r.school_id === OTHER_SCHOOL_ID)).toBeUndefined();
   });
 
-  it('ED: GLOBAL role row stored with school_id=edSchoolId is filtered out', async () => {
-    setupEquipoDirectivo(ED_SCHOOL_ID);
-    const tracker = makeTracker();
-
-    const inSchoolProfile = {
-      id: 'user-in-school',
-      email: 'in@example.com',
-      first_name: 'In',
-      last_name: 'School',
-      school_id: ED_SCHOOL_ID,
-      approval_status: 'approved',
-      created_at: '2026-01-01T00:00:00Z',
-      external_school_affiliation: null,
-      can_run_qa_tests: false,
-      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
-    };
-
-    // Anomalous data: a row with a GLOBAL role_type (admin) stored with
-    // school_id=edSchoolId. The .or() mock would let it through (school_id
-    // matches), so the API must additionally restrict role_type to
-    // ED_ASSIGNABLE_ROLES.
-    const anomalousAdminRow = {
-      id: 'role-admin-anomaly',
-      user_id: 'user-in-school',
-      role_type: 'admin',
-      school_id: ED_SCHOOL_ID,
-      community_id: null,
-      is_active: true,
-      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
-      generation: null,
-      community: null,
-    };
-
-    const docenteRow = {
-      id: 'role-docente',
-      user_id: 'user-in-school',
-      role_type: 'docente',
-      school_id: ED_SCHOOL_ID,
-      community_id: null,
-      is_active: true,
-      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
-      generation: null,
-      community: null,
-    };
-
-    mockCreateServiceRoleClient.mockReturnValueOnce(
-      buildSequencedClient(
-        {
-          profiles: [
-            { data: [inSchoolProfile], count: 1 },
-            { count: 1 },
-            { count: 0 },
-            { count: 1 },
-          ],
-          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
-          user_roles: [{ data: [anomalousAdminRow, docenteRow] }],
-          consultant_assignments: [{ data: [] }, { data: [] }],
-          course_assignments: [{ data: [] }],
-          learning_path_assignments: [{ data: [] }],
-        },
-        tracker,
-      ),
-    );
-
-    const { req, res } = createMocks({ method: 'GET' });
-    await handler(req as never, res as never);
-
-    expect(res._getStatusCode()).toBe(200);
-
-    // Query must restrict role_type to the ED-assignable whitelist.
-    const rolesCall = tracker.fromCalls.find((c) => c.table === 'user_roles')!;
-    const roleTypeIn = rolesCall.ins.find((i) => i.col === 'role_type');
-    expect(roleTypeIn).toBeDefined();
-    expect(roleTypeIn!.vals as string[]).toEqual(
-      expect.arrayContaining(['docente', 'lider_comunidad', 'lider_generacion', 'equipo_directivo', 'encargado_licitacion']),
-    );
-    expect(roleTypeIn!.vals as string[]).not.toContain('admin');
-
-    const body = JSON.parse(res._getData());
-    expect(body.users).toHaveLength(1);
-    const returnedRoleTypes = body.users[0].user_roles.map((r: any) => r.role_type);
-    expect(returnedRoleTypes).toContain('docente');
-    expect(returnedRoleTypes).not.toContain('admin');
-  });
 });

@@ -715,6 +715,86 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
+  it('ED: rollback on auth-update failure uses server-fetched email, not req.body.originalEmail', async () => {
+    // F3: client must not be trusted to supply the rollback target. Even when
+    // `originalEmail` is omitted from the body, rollback must restore the
+    // pre-mutation profile email fetched server-side during the ED lookup.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    const adminClient = buildAdminClient(
+      {
+        profiles: [
+          { data: { school_id: ED_SCHOOL_ID, email: 'server@example.com' }, error: null },
+          { data: null, error: null }, // forward profile update
+          { data: null, error: null }, // rollback profile update
+        ],
+        user_roles: [{ data: [], error: null }],
+      },
+      tracker,
+    );
+    adminClient.auth.admin.updateUserById = vi.fn(
+      async (userId: string, payload: unknown) => {
+        tracker.authUpdates.push({ userId, payload });
+        return { data: null, error: { message: 'auth failed' } };
+      },
+    );
+    mockCreateServiceRoleClient.mockReturnValueOnce(adminClient);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      // No originalEmail in body — proves rollback does not depend on it.
+      body: baseBody({ email: 'new@example.com' }),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(500);
+
+    const profileCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    // lookup → forward update → rollback update
+    expect(profileCalls).toHaveLength(3);
+    expect(profileCalls[2].updates).toHaveLength(1);
+    expect((profileCalls[2].updates[0] as any).email).toBe('server@example.com');
+    expect(profileCalls[2].eqs).toEqual([{ col: 'id', val: TARGET_USER_ID }]);
+  });
+
+  it('admin: rollback on auth-update failure uses server-fetched email, not req.body.originalEmail', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    const adminClient = buildAdminClient(
+      {
+        profiles: [
+          { data: { email: 'server@example.com' }, error: null }, // admin pre-fetch
+          { data: null, error: null }, // forward profile update
+          { data: null, error: null }, // rollback profile update
+        ],
+      },
+      tracker,
+    );
+    adminClient.auth.admin.updateUserById = vi.fn(
+      async (userId: string, payload: unknown) => {
+        tracker.authUpdates.push({ userId, payload });
+        return { data: null, error: { message: 'auth failed' } };
+      },
+    );
+    mockCreateServiceRoleClient.mockReturnValueOnce(adminClient);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: baseBody({ email: 'new@example.com', school: 'Some School' }),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(500);
+
+    const profileCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    // pre-fetch → forward update → rollback update
+    expect(profileCalls).toHaveLength(3);
+    expect(profileCalls[0].selects).toHaveLength(1);
+    expect(profileCalls[0].eqs).toEqual([{ col: 'id', val: TARGET_USER_ID }]);
+    expect(profileCalls[2].updates).toHaveLength(1);
+    expect((profileCalls[2].updates[0] as any).email).toBe('server@example.com');
+  });
+
   it('missing userId: 400', async () => {
     setupAdmin();
 

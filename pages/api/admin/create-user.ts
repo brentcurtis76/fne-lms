@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient, isValidSchoolIdInput } from '../../../lib/api-auth';
-import { ED_ASSIGNABLE_ROLES } from '../../../utils/roleUtils';
+import { ED_ASSIGNABLE_ROLES, SCHOOL_SCOPED_ROLES_SET } from '../../../utils/roleUtils';
 
 export default async function handler(
   req: NextApiRequest,
@@ -73,7 +73,6 @@ export default async function handler(
     }
 
     if (newUser.user) {
-      let profileCreated = false;
       let roleCreated = false;
 
       const sid = effectiveSchoolId == null ? null : Number(effectiveSchoolId);
@@ -100,14 +99,13 @@ export default async function handler(
         if (updateError) {
           throw updateError;
         }
-        profileCreated = true;
 
         const roleInsertData: Record<string, unknown> = {
           user_id: newUser.user.id,
           role_type: resolvedRole
         };
         if (
-          (ED_ASSIGNABLE_ROLES as readonly string[]).includes(resolvedRole) &&
+          SCHOOL_SCOPED_ROLES_SET.has(resolvedRole) &&
           sid !== null &&
           Number.isFinite(sid)
         ) {
@@ -139,16 +137,9 @@ export default async function handler(
         console.error('Error during user creation, rolling back:', error);
 
         try {
+          // profiles row is cleaned up by FK cascade from auth.users
           await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
           console.log('Rolled back auth user creation');
-
-          if (profileCreated) {
-            await supabaseAdmin
-              .from('profiles')
-              .delete()
-              .eq('id', newUser.user.id);
-            console.log('Rolled back profile creation');
-          }
 
           if (roleCreated) {
             await supabaseAdmin

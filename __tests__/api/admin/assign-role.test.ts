@@ -1058,9 +1058,10 @@ describe('admin/assign-role — hypothetical non-school-scoped ED-assignable rol
 
     const { req, res } = createMocks({
       method: 'POST',
-      // No schoolId in body — handler must not synthesize one for a
-      // non-school-scoped role.
-      body: { targetUserId: TARGET_USER_ID, roleType: 'community_manager' },
+      // Empty-string schoolId exercises the defensive normalization branch:
+      // the handler must collapse '' to an explicit null on the insert payload
+      // rather than letting '' flow through ambiguously.
+      body: { targetUserId: TARGET_USER_ID, roleType: 'community_manager', schoolId: '' },
     });
     await dynHandler(req as never, res as never);
 
@@ -1069,7 +1070,8 @@ describe('admin/assign-role — hypothetical non-school-scoped ED-assignable rol
 
     const payload = findInsertPayload(tracker, 'user_roles') as Record<string, unknown>;
     expect(payload.role_type).toBe('community_manager');
-    // The override gate is the regression target: school_id must remain null.
+    // The override gate is the regression target: school_id must be normalized
+    // to null (not '') for non-school-scoped ED-assignable roles.
     expect(payload.school_id).toBeNull();
 
     // And the school-level profile update branch must not fire for a

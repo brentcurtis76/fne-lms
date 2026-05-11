@@ -101,6 +101,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // overwriting it with edSchoolId would mis-scope a global grant.
       if (SCHOOL_SCOPED_ROLES_SET.has(roleType)) {
         schoolId = edSchoolId;
+      } else {
+        // Defensive normalization: if a future ED-assignable role is non-school-scoped,
+        // collapse '', undefined, or null body inputs to an unambiguous null before insert.
+        schoolId = null;
       }
 
       // TOCTOU: this user_roles read is a point-in-time check. A concurrent

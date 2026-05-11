@@ -1039,7 +1039,7 @@ describe('admin/assign-role — ED explicit FK scoping', () => {
   // F2 fix: FK lookups must be gated by roleType. Stray communityId /
   // generationId on a docente assignment should be ignored, not validated
   // against growth_communities / generations.
-  it('ED assigning "docente" with stray communityId → 200; growth_communities never queried', async () => {
+  it('ED assigning "docente" with stray communityId → 200; growth_communities never queried; payload community_id null', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
     mockCreateServiceRoleClient.mockReturnValueOnce(
@@ -1075,9 +1075,14 @@ describe('admin/assign-role — ED explicit FK scoping', () => {
     expect(
       tracker.fromCalls.filter((c) => c.table === 'growth_communities'),
     ).toHaveLength(0);
+
+    const rolePayload = findInsertPayload(tracker, 'user_roles') as Record<string, unknown>;
+    expect(rolePayload.role_type).toBe('docente');
+    expect(rolePayload.community_id).toBeNull();
+    expect(rolePayload.generation_id).toBeNull();
   });
 
-  it('ED assigning "docente" with stray generationId → 200; generations never queried', async () => {
+  it('ED assigning "docente" with stray generationId → 200; generations never queried; payload generation_id null', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
     mockCreateServiceRoleClient.mockReturnValueOnce(
@@ -1113,6 +1118,82 @@ describe('admin/assign-role — ED explicit FK scoping', () => {
     expect(
       tracker.fromCalls.filter((c) => c.table === 'generations'),
     ).toHaveLength(0);
+
+    const rolePayload = findInsertPayload(tracker, 'user_roles') as Record<string, unknown>;
+    expect(rolePayload.role_type).toBe('docente');
+    expect(rolePayload.generation_id).toBeNull();
+    expect(rolePayload.community_id).toBeNull();
+  });
+});
+
+// F2 regression: FK sanitization applies on the admin path too — stray
+// communityId/generationId on a docente assignment must be nulled on the
+// inserted user_roles row and must never trigger growth_communities /
+// generations lookups (admin path skips ED's FK gates, so the test simply
+// asserts the persisted payload nulls the unused FKs).
+describe('admin/assign-role — admin stray-FK regression', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('admin assigning "docente" with stray communityId → 200; payload community_id null; growth_communities never queried', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(schoolScopedTables('Colegio Alfa'), tracker),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: {
+        targetUserId: TARGET_USER_ID,
+        roleType: 'docente',
+        schoolId: ED_SCHOOL_ID,
+        communityId: COMMUNITY_ID,
+      },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(countInserts(tracker, 'user_roles')).toBe(1);
+    expect(
+      tracker.fromCalls.filter((c) => c.table === 'growth_communities'),
+    ).toHaveLength(0);
+
+    const rolePayload = findInsertPayload(tracker, 'user_roles') as Record<string, unknown>;
+    expect(rolePayload.role_type).toBe('docente');
+    expect(rolePayload.community_id).toBeNull();
+    expect(rolePayload.generation_id).toBeNull();
+  });
+
+  it('admin assigning "docente" with stray generationId → 200; payload generation_id null; generations never queried', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(schoolScopedTables('Colegio Alfa'), tracker),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: {
+        targetUserId: TARGET_USER_ID,
+        roleType: 'docente',
+        schoolId: ED_SCHOOL_ID,
+        generationId: 'gen-xyz',
+      },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(countInserts(tracker, 'user_roles')).toBe(1);
+    expect(
+      tracker.fromCalls.filter((c) => c.table === 'generations'),
+    ).toHaveLength(0);
+
+    const rolePayload = findInsertPayload(tracker, 'user_roles') as Record<string, unknown>;
+    expect(rolePayload.role_type).toBe('docente');
+    expect(rolePayload.generation_id).toBeNull();
+    expect(rolePayload.community_id).toBeNull();
   });
 });
 

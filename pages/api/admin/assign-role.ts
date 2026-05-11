@@ -60,6 +60,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Invalid role type' });
     }
 
+    // FK sanitization (applies to both admin and ED paths): only the matching
+    // role type can carry these FK fields downstream. Stray IDs on unrelated
+    // roles (e.g. docente) are nulled here so they cannot leak into
+    // user_roles or any other downstream FK-aware code path. The ED branch
+    // below still gates FK lookups by roleType, so stray IDs on docente
+    // continue to skip growth_communities / generations lookups as well.
+    const sanitizedCommunityId: string | null =
+      roleType === 'lider_comunidad' && communityId ? String(communityId) : null;
+    const sanitizedGenerationId: string | null =
+      roleType === 'lider_generacion' && generationId ? String(generationId) : null;
+
     if (requesterRole === 'equipo_directivo') {
       if (!(ED_ASSIGNABLE_ROLES as readonly string[]).includes(roleType)) {
         return res.status(403).json({ error: 'Role not assignable by equipo_directivo' });
@@ -184,11 +195,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Application-level validation for role organizational requirements
+    // Application-level validation for role organizational requirements.
+    // Uses sanitized FK values so validation cannot be misled by stray IDs
+    // that won't actually persist on the user_roles row.
     const organizationalScope = {
       schoolId: schoolId || null,
-      generationId: generationId || null,
-      communityId: communityId || null
+      generationId: sanitizedGenerationId,
+      communityId: sanitizedCommunityId
     };
 
     const validation = validateRoleAssignment(roleType, organizationalScope);
@@ -208,14 +221,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       organizationalScope
     });
 
-    let finalCommunityId = communityId;
+    let finalCommunityId: string | null = sanitizedCommunityId;
 
-    // Handle community leader role - auto-create community if needed
-    if (roleType === 'lider_comunidad' && schoolId && !communityId) {
+    // Handle community leader role - auto-create community if needed.
+    // Uses sanitized FK values so non-lider_comunidad roles can never enter
+    // this branch even with a stray communityId in the body.
+    if (roleType === 'lider_comunidad' && schoolId && !sanitizedCommunityId) {
       console.log('[assign-role API] Creating community for leader role:', {
         targetUserId,
         schoolId,
-        generationId
+        generationId: sanitizedGenerationId
       });
 
       // Get user info for community name
@@ -262,19 +277,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const schoolHasGenerations = schoolData.has_generations === true;
 
-      // Validate generation requirement
-      if (schoolHasGenerations && !generationId) {
+      // Validate generation requirement. Uses sanitized FK value: a
+      // lider_comunidad assignment can never carry a generationId through
+      // sanitization, so on schools that require generations the caller must
+      // either pre-create the community or assign through the lider_generacion
+      // flow first.
+      if (schoolHasGenerations && !sanitizedGenerationId) {
         return res.status(400).json({
           error: `La escuela "${schoolData.name}" utiliza generaciones. Debe seleccionar una generación para crear la comunidad.`
         });
       }
 
       // Validate generation_id exists if provided
-      if (generationId) {
+      if (sanitizedGenerationId) {
         const { data: generationData, error: generationError } = await supabaseService
           .from('generations')
           .select('id, name')
-          .eq('id', generationId)
+          .eq('id', sanitizedGenerationId)
           .eq('school_id', schoolId)
           .single();
 
@@ -291,7 +310,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const communityData = {
         name: communityName,
         school_id: schoolId,
-        generation_id: generationId || null
+        generation_id: sanitizedGenerationId
       };
 
       console.log('[assign-role API] Community insert data:', communityData);
@@ -362,12 +381,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       schoolId = null;
     }
 
-    // Insert the role assignment
+    // Insert the role assignment. FK fields use sanitized values so stray
+    // IDs on roles that don't own them (e.g. docente with a body communityId)
+    // are written as null rather than leaking onto the user_roles row.
     const roleInsertData = {
       user_id: targetUserId,
       role_type: roleType,
       school_id: schoolId || null,
-      generation_id: generationId || null,
+      generation_id: sanitizedGenerationId,
       community_id: finalCommunityId || null,
       is_active: true,
       assigned_by: requestingUser.id,

@@ -238,11 +238,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // school_id=null. See test "ED: user_roles rows for in-school users
       // with school_id=NULL are still returned" in users-list.test.ts.
       //
-      // TODO(ed-users-followup): remove the school_id.is.null branch once
+      // TODO(PR #19 follow-up: backfill user_roles.school_id + NOT NULL
+      // migration): remove the school_id.is.null branch once
       // user_roles.school_id is backfilled for school-scoped role rows AND
-      // enforced NOT NULL via a CHECK constraint or migration. Tracked as
-      // PR #19 follow-up. The null branch surfaces legacy data; outer
-      // user_ids.in(...) prevents cross-school leakage in the interim.
+      // enforced NOT NULL via a CHECK constraint or migration. The null
+      // branch surfaces legacy data; outer user_ids.in(...) prevents
+      // cross-school leakage in the interim.
       rolesQuery = rolesQuery
         .or(`school_id.is.null,school_id.eq.${edSchoolId}`)
         .in('role_type', SCHOOL_SCOPED_ROLES as readonly string[]);

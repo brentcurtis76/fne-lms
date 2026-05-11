@@ -70,7 +70,8 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (ctx) => 
   // Fail-closed: if the invariant is violated (manual SQL, role-assignment
   // race), refuse to render rather than silently scope the page to whichever
   // row happens to come first. A DB-level partial unique index is the proper
-  // long-term guard but is owned by the DB agent — tracked as a PR follow-up.
+  // long-term guard but is owned by the DB agent — tracked in PR #19
+  // follow-ups as "Partial unique index on user_roles for ED uniqueness".
   const edRows = rows.filter((r) => r.role_type === 'equipo_directivo');
   if (edRows.length > 1) {
     console.error(
@@ -301,8 +302,7 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
     router.push('/login');
   };
 
-  const notImplemented = () =>
-    toast('Esta acción se habilita en la Fase 13', { icon: 'ℹ️' });
+  const noop = () => {};
 
   const handleOpenRoleModal = (target: ListUser) => {
     const userName =
@@ -560,11 +560,11 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
         onSchoolChange={handleSchoolFilterChange}
         onCommunityChange={handleCommunityFilterChange}
         isLoading={loading}
-        onApprove={notImplemented}
-        onReject={notImplemented}
+        onApprove={noop}
+        onReject={noop}
         onDelete={(target) => handleDeleteClick(target.id, target.email)}
         onRoleChange={(target) => handleOpenRoleModal(target)}
-        onAssign={notImplemented}
+        onAssign={noop}
         onPasswordReset={(target) => {
           setUserToReset({
             id: target.id,
@@ -576,12 +576,15 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
           });
           setShowPasswordResetModal(true);
         }}
-        onExpenseAccessToggle={notImplemented}
+        onExpenseAccessToggle={noop}
         onAddUser={() => setShowAddForm(true)}
-        onBulkImport={notImplemented}
+        onBulkImport={noop}
         onEditUser={handleEditUser}
         hideBulkImport
         hideExpenseAccess
+        hideApprove
+        hideReject
+        hideAssign
         lockedSchoolId={props.schoolId}
         hideCommunityFilter
       />

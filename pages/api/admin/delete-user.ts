@@ -60,10 +60,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Note: this is a TOCTOU read. Concurrent role grants between this
       // check and the cascade/write below could let a global-role escalation
       // slip through. Both admin and equipo_directivo can reach this code
-      // path, widening the exposure beyond admin-only tooling. A future
-      // hardening (DB-level partial unique index on user_roles or a Postgres
-      // function that combines the check + write atomically) is tracked as a
-      // PR follow-up.
+      // path, widening the exposure beyond admin-only tooling. Tracked in
+      // PR #19 follow-ups as "TOCTOU residual risk hardening (Postgres
+      // function or partial unique index)".
       // Defense-in-depth: reject if the target holds ANY active role outside
       // SCHOOL_SCOPED_ROLES (admin/consultor/supervisor_de_red/community_manager).
       // The read-path filter already hides such users; this prevents an ED

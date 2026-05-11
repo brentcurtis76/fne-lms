@@ -81,6 +81,9 @@ interface UnifiedUserManagementProps {
   hideExpenseAccess?: boolean;
   lockedSchoolId?: number | null;
   hideCommunityFilter?: boolean;
+  hideApprove?: boolean;
+  hideReject?: boolean;
+  hideAssign?: boolean;
 }
 
 export const resolvePrimaryRole = (user: UserType): string | null => {
@@ -124,6 +127,9 @@ export default function UnifiedUserManagement({
   hideExpenseAccess = false,
   lockedSchoolId = null,
   hideCommunityFilter = false,
+  hideApprove = false,
+  hideReject = false,
+  hideAssign = false,
 }: UnifiedUserManagementProps) {
   const effectiveSelectedSchoolId =
     lockedSchoolId != null ? String(lockedSchoolId) : selectedSchoolId;
@@ -568,26 +574,30 @@ export default function UnifiedUserManagement({
                       <div className="space-y-2">
                         {user.approval_status === 'pending' && (
                           <>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onApprove(user.id);
-                              }}
-                              className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand_accent hover:bg-amber-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_accent"
-                            >
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              Aprobar Usuario
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onReject(user.id);
-                              }}
-                              className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                            >
-                              <XCircle className="w-4 h-4 mr-2" />
-                              Rechazar Usuario
-                            </button>
+                            {!hideApprove && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onApprove(user.id);
+                                }}
+                                className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand_accent hover:bg-amber-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_accent"
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Aprobar Usuario
+                              </button>
+                            )}
+                            {!hideReject && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onReject(user.id);
+                                }}
+                                className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                              >
+                                <XCircle className="w-4 h-4 mr-2" />
+                                Rechazar Usuario
+                              </button>
+                            )}
                           </>
                         )}
                         
@@ -646,7 +656,7 @@ export default function UnifiedUserManagement({
                               Gestionar Roles
                             </button>
                             
-                            {getUserPrimaryRole(user) === 'consultor' && (
+                            {getUserPrimaryRole(user) === 'consultor' && !hideAssign && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();

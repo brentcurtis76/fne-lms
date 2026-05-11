@@ -256,4 +256,89 @@ describe('UnifiedUserManagement — ED-scoped props', () => {
     expect(optionValues).toContain(COMMUNITY_42);
     expect(optionValues).not.toContain(COMMUNITY_99);
   });
+
+  // -------------------------------------------------------------------------
+  // ED-scoped action-hiding props: hideApprove / hideReject / hideAssign.
+  // ED users must not see admin-only action controls (Phase 13 stubs).
+  // -------------------------------------------------------------------------
+  const pendingUser = {
+    id: 'user-pending',
+    email: 'pending@example.com',
+    first_name: 'Pendiente',
+    last_name: 'Usuario',
+    approval_status: 'pending' as const,
+    user_roles: [
+      {
+        role_type: 'docente',
+        school: { id: SCHOOL_42_ID, name: 'Colegio 42' },
+      },
+    ],
+  };
+
+  const consultorUser = {
+    id: 'user-consultor',
+    email: 'consultor@example.com',
+    first_name: 'Consultor',
+    last_name: 'Externo',
+    approval_status: 'approved' as const,
+    user_roles: [
+      {
+        role_type: 'consultor',
+        school: { id: SCHOOL_42_ID, name: 'Colegio 42' },
+      },
+    ],
+  };
+
+  const expandRowByHeading = async (re: RegExp) => {
+    const heading = Array.from(document.body.querySelectorAll('h3')).find((h) =>
+      re.test(h.textContent ?? ''),
+    );
+    if (!heading) throw new Error(`row matching ${re} not found`);
+    await act(async () => {
+      fireEvent.click(heading);
+    });
+  };
+
+  it('default (no hide props): pending user shows Aprobar and Rechazar buttons', async () => {
+    render(<UnifiedUserManagement {...baseProps} users={[pendingUser]} selectedStatus={'all' as const} />);
+    await expandRowByHeading(/Pendiente Usuario/);
+
+    expect(findButtonByText(/Aprobar Usuario/i)).toBeDefined();
+    expect(findButtonByText(/Rechazar Usuario/i)).toBeDefined();
+  });
+
+  it('hideApprove + hideReject: pending user actions omit Aprobar and Rechazar buttons', async () => {
+    render(
+      <UnifiedUserManagement
+        {...baseProps}
+        users={[pendingUser]}
+        selectedStatus={'all' as const}
+        hideApprove
+        hideReject
+      />,
+    );
+    await expandRowByHeading(/Pendiente Usuario/);
+
+    expect(findButtonByText(/Aprobar Usuario/i)).toBeUndefined();
+    expect(findButtonByText(/Rechazar Usuario/i)).toBeUndefined();
+    // Sanity: the delete action (available for all statuses) still renders.
+    expect(findButtonByText(/Eliminar Usuario/i)).toBeDefined();
+  });
+
+  it('default (no hide props): consultor user shows Asignar Estudiantes', async () => {
+    render(<UnifiedUserManagement {...baseProps} users={[consultorUser]} />);
+    await expandRowByHeading(/Consultor Externo/);
+
+    expect(findButtonByText(/Asignar Estudiantes/i)).toBeDefined();
+  });
+
+  it('hideAssign: consultor user actions omit Asignar Estudiantes', async () => {
+    render(<UnifiedUserManagement {...baseProps} users={[consultorUser]} hideAssign />);
+    await expandRowByHeading(/Consultor Externo/);
+
+    expect(findButtonByText(/Asignar Estudiantes/i)).toBeUndefined();
+    // Sanity: other approved-user actions still render.
+    expect(findButtonByText(/Editar Usuario/i)).toBeDefined();
+    expect(findButtonByText(/Gestionar Roles/i)).toBeDefined();
+  });
 });

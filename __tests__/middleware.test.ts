@@ -78,6 +78,46 @@ describe('middleware admin route gating', () => {
     expect(isRedirect(res)).toBe(false);
   });
 
+  it('allows equipo_directivo to access exact /admin/school-users', async () => {
+    createMiddlewareClient.mockReturnValue(
+      buildSupabase({ session: SESSION, roles: [{ role_type: 'equipo_directivo' }] })
+    );
+    const { middleware } = await import('../middleware');
+    const res = await middleware(new NextRequest('http://localhost/admin/school-users'));
+    expect(isRedirect(res)).toBe(false);
+  });
+
+  it('redirects equipo_directivo away from nested /admin/school-users/foo', async () => {
+    createMiddlewareClient.mockReturnValue(
+      buildSupabase({ session: SESSION, roles: [{ role_type: 'equipo_directivo' }] })
+    );
+    const { middleware } = await import('../middleware');
+    const res = await middleware(new NextRequest('http://localhost/admin/school-users/foo'));
+    expect(isRedirect(res)).toBe(true);
+    expect(res.headers.get('location')).toBe('http://localhost/dashboard');
+  });
+
+  it('redirects equipo_directivo away from deeper nested /admin/school-users/123/edit', async () => {
+    createMiddlewareClient.mockReturnValue(
+      buildSupabase({ session: SESSION, roles: [{ role_type: 'equipo_directivo' }] })
+    );
+    const { middleware } = await import('../middleware');
+    const res = await middleware(
+      new NextRequest('http://localhost/admin/school-users/123/edit')
+    );
+    expect(isRedirect(res)).toBe(true);
+    expect(res.headers.get('location')).toBe('http://localhost/dashboard');
+  });
+
+  it('still allows admin to access nested /admin/school-users/foo', async () => {
+    createMiddlewareClient.mockReturnValue(
+      buildSupabase({ session: SESSION, roles: [{ role_type: 'admin' }] })
+    );
+    const { middleware } = await import('../middleware');
+    const res = await middleware(new NextRequest('http://localhost/admin/school-users/foo'));
+    expect(isRedirect(res)).toBe(false);
+  });
+
   it('redirects to /login when there is no session', async () => {
     createMiddlewareClient.mockReturnValue(buildSupabase({ session: null, roles: null }));
     const { middleware } = await import('../middleware');

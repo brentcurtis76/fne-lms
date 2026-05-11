@@ -991,6 +991,85 @@ describe('admin/assign-role — ED explicit FK scoping', () => {
     expect(res._getJSONData()).toEqual({ error: 'Error verificando generación' });
     expect(countInserts(tracker, 'user_roles')).toBe(0);
   });
+
+  // F2 fix: FK lookups must be gated by roleType. Stray communityId /
+  // generationId on a docente assignment should be ignored, not validated
+  // against growth_communities / generations.
+  it('ED assigning "docente" with stray communityId → 200; growth_communities never queried', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          profiles: [
+            { data: { school_id: ED_SCHOOL_ID }, error: null }, // ED scope lookup
+            { data: null, error: null }, // profile update
+          ],
+          user_roles: [
+            { data: [], error: null }, // ED target-role gate
+            { data: { id: ROLE_ROW_ID }, error: null }, // role insert
+          ],
+          schools: [{ data: { name: 'Esc' }, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: {
+        targetUserId: TARGET_USER_ID,
+        roleType: 'docente',
+        schoolId: ED_SCHOOL_ID,
+        communityId: COMMUNITY_ID,
+      },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(countInserts(tracker, 'user_roles')).toBe(1);
+    expect(
+      tracker.fromCalls.filter((c) => c.table === 'growth_communities'),
+    ).toHaveLength(0);
+  });
+
+  it('ED assigning "docente" with stray generationId → 200; generations never queried', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          profiles: [
+            { data: { school_id: ED_SCHOOL_ID }, error: null },
+            { data: null, error: null },
+          ],
+          user_roles: [
+            { data: [], error: null },
+            { data: { id: ROLE_ROW_ID }, error: null },
+          ],
+          schools: [{ data: { name: 'Esc' }, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: {
+        targetUserId: TARGET_USER_ID,
+        roleType: 'docente',
+        schoolId: ED_SCHOOL_ID,
+        generationId: 'gen-xyz',
+      },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(countInserts(tracker, 'user_roles')).toBe(1);
+    expect(
+      tracker.fromCalls.filter((c) => c.table === 'generations'),
+    ).toHaveLength(0);
+  });
 });
 
 // Regression guard for the school_id override gate. Today ED_ASSIGNABLE_ROLES

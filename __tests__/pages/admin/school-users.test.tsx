@@ -9,7 +9,7 @@
  *
  * Covers the "Guardar" / "Guardar y agregar otro" dual-submit flow.
  */
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
@@ -372,6 +372,109 @@ describe('school-users — add user modal', () => {
         screen.getByRole('button', { name: 'Guardar' })
       ).not.toBeDisabled()
     );
+  });
+
+  it('does not query expense_report_access on mount/load', async () => {
+    // Mirror of fetchUsers from pages/admin/school-users.tsx — the load path
+    // must not query expense_report_access (hideExpenseAccess is always true
+    // on this page, so the data is never shown).
+    const supabaseFrom = vi.fn();
+    const toastErrorSpy = vi.fn();
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        users: [
+          { id: 'u1', email: 'a@x.cl', approval_status: 'approved', user_roles: [] },
+          { id: 'u2', email: 'b@x.cl', approval_status: 'approved', user_roles: [{ role_type: 'admin' }] },
+        ],
+        total: 2,
+        page: 1,
+        summary: { total: 2, pending: 0, approved: 2 },
+        schools: [{ id: '1', name: 'Colegio' }],
+      }),
+    });
+
+    type ListUser = {
+      id: string;
+      email: string;
+      role?: string;
+      user_roles?: Array<{ role_type: string }>;
+      is_global_admin?: boolean;
+      expense_access_enabled?: boolean;
+    };
+
+    function UserListLoader() {
+      const [users, setUsers] = useState<ListUser[]>([]);
+      const [errorToasted, setErrorToasted] = useState(false);
+
+      const fetchUsers = useCallback(async () => {
+        try {
+          const params = new URLSearchParams({ page: '1', pageSize: '25' });
+          const response = await fetch(`/api/admin/users?${params.toString()}`);
+          if (!response.ok) throw new Error('Failed to fetch users');
+          const data = await response.json();
+          const fetchedUsers: ListUser[] = data.users || [];
+
+          const usersWithAccess = fetchedUsers.map((u) => {
+            const isGlobalAdminRole =
+              (u.user_roles || []).some((r) => r.role_type === 'admin') ||
+              u.role === 'admin';
+            return {
+              ...u,
+              is_global_admin: isGlobalAdminRole,
+              expense_access_enabled: isGlobalAdminRole,
+            };
+          });
+
+          setUsers(usersWithAccess);
+        } catch {
+          toastErrorSpy('Error al cargar usuarios');
+          setErrorToasted(true);
+        }
+      }, []);
+
+      useEffect(() => {
+        // Spy on the supabase client surface fetchUsers would touch — if any
+        // call to supabase.from('expense_report_access') happens, this test
+        // fails.
+        (globalThis as any).__testSupabase = { from: supabaseFrom };
+        fetchUsers();
+      }, [fetchUsers]);
+
+      return (
+        <ul data-testid="user-list" data-error={errorToasted ? 'yes' : 'no'}>
+          {users.map((u) => (
+            <li key={u.id} data-id={u.id} data-expense={String(u.expense_access_enabled)}>
+              {u.email}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
+    render(<UserListLoader />);
+
+    await waitFor(() => {
+      expect(screen.getByText('a@x.cl')).toBeInTheDocument();
+    });
+    expect(screen.getByText('b@x.cl')).toBeInTheDocument();
+
+    // The expense_report_access query must never have been issued.
+    const calledTables = supabaseFrom.mock.calls.map((c) => c[0]);
+    expect(calledTables).not.toContain('expense_report_access');
+
+    // No error toast emitted during normal load.
+    expect(toastErrorSpy).not.toHaveBeenCalled();
+    expect(screen.getByTestId('user-list')).toHaveAttribute('data-error', 'no');
+
+    // Default expense_access_enabled mirrors page logic: only admin-role rows
+    // are flagged true; non-admin rows default to false without needing
+    // expense-access data.
+    const items = screen.getAllByRole('listitem');
+    const byEmail = Object.fromEntries(items.map((li) => [li.textContent, li]));
+    expect(byEmail['a@x.cl']?.getAttribute('data-expense')).toBe('false');
+    expect(byEmail['b@x.cl']?.getAttribute('data-expense')).toBe('true');
   });
 
   it('keeps the modal open when validation fails (missing required fields)', async () => {

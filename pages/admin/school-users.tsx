@@ -193,24 +193,6 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
         const data = await response.json();
 
         const fetchedUsers: ListUser[] = data.users || [];
-        let expenseAccessMap: Record<string, boolean> = {};
-
-        const { data: expenseAccessData, error: expenseAccessError } = await supabase
-          .from('expense_report_access')
-          .select('user_id, can_submit');
-
-        if (expenseAccessError) {
-          console.error('Error fetching expense report access:', expenseAccessError);
-          toast.error('No se pudo cargar el acceso a reportes de gastos');
-        } else {
-          expenseAccessMap = (expenseAccessData || []).reduce<Record<string, boolean>>(
-            (acc, record) => {
-              acc[record.user_id] = record.can_submit;
-              return acc;
-            },
-            {}
-          );
-        }
 
         const usersWithAccess = fetchedUsers.map((u) => {
           const isGlobalAdminRole =
@@ -219,7 +201,7 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
           return {
             ...u,
             is_global_admin: isGlobalAdminRole,
-            expense_access_enabled: isGlobalAdminRole ? true : !!expenseAccessMap[u.id],
+            expense_access_enabled: isGlobalAdminRole,
           };
         });
 

@@ -43,8 +43,11 @@ export async function middleware(req: NextRequest) {
     }
 
     // Equipo directivo: growth communities + school users management
-    const onSchoolUsers =
-      pathname === '/admin/school-users' || pathname.startsWith('/admin/school-users/');
+    // Defense-in-depth: school-users is allow-listed as an EXACT match only.
+    // Any future nested route under /admin/school-users/* must be explicitly
+    // allow-listed here AND must implement its own ED scope check in
+    // getServerSideProps (verify the requested school belongs to the ED user).
+    const onSchoolUsers = pathname === '/admin/school-users';
     if (
       roles.includes('equipo_directivo') &&
       (pathname.startsWith('/admin/growth-communities') || onSchoolUsers)

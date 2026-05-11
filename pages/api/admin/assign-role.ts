@@ -131,7 +131,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(403).json({ error: 'No autorizado para asignar roles a este usuario' });
       }
 
-      if (communityId !== undefined && communityId !== null && communityId !== '') {
+      // Gate FK validation by roleType: only roles that actually consume
+      // these fields downstream should pay the lookup. For unrelated roles
+      // (e.g. docente), stray communityId/generationId in the body are
+      // ignored — matching how the role-insert path treats them.
+      if (
+        roleType === 'lider_comunidad' &&
+        communityId !== undefined &&
+        communityId !== null &&
+        communityId !== ''
+      ) {
         const { data: communityRow, error: communityLookupError } = await supabaseService
           .from('growth_communities')
           .select('school_id')
@@ -149,7 +158,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
-      if (generationId !== undefined && generationId !== null && generationId !== '') {
+      if (
+        roleType === 'lider_generacion' &&
+        generationId !== undefined &&
+        generationId !== null &&
+        generationId !== ''
+      ) {
         const { data: generationRow, error: generationLookupError } = await supabaseService
           .from('generations')
           .select('school_id')

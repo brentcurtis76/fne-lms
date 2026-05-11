@@ -73,8 +73,6 @@ export default async function handler(
     }
 
     if (newUser.user) {
-      let roleCreated = false;
-
       const sid = effectiveSchoolId == null ? null : Number(effectiveSchoolId);
 
       try {
@@ -117,9 +115,7 @@ export default async function handler(
           .insert(roleInsertData);
 
         if (roleError) {
-          console.error('Error creating user role:', roleError);
-        } else {
-          roleCreated = true;
+          throw roleError;
         }
 
         return res.status(200).json({
@@ -137,17 +133,25 @@ export default async function handler(
         console.error('Error during user creation, rolling back:', error);
 
         try {
-          // profiles row is cleaned up by FK cascade from auth.users
+          // profiles.id has no FK to auth.users(id) in this schema (verified
+          // 2026-05-11: the only profiles FKs are school_id/community_id/
+          // generation_id), so auth.admin.deleteUser does NOT cascade.
+          // Mirror delete-user.ts's forward-path cleanup: explicitly remove
+          // user_roles and profiles before the auth user. Role-insert is the
+          // only throwing step after profile update, so user_roles delete is
+          // a no-op when role-insert is the failure point — kept for
+          // defense-in-depth if future steps land between role-insert and
+          // success.
+          await supabaseAdmin
+            .from('user_roles')
+            .delete()
+            .eq('user_id', newUser.user.id);
+          await supabaseAdmin
+            .from('profiles')
+            .delete()
+            .eq('id', newUser.user.id);
           await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
-          console.log('Rolled back auth user creation');
-
-          if (roleCreated) {
-            await supabaseAdmin
-              .from('user_roles')
-              .delete()
-              .eq('user_id', newUser.user.id);
-            console.log('Rolled back role creation');
-          }
+          console.log('Rolled back user creation');
         } catch (rollbackError) {
           console.error('Error during rollback:', rollbackError);
         }

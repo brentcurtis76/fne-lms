@@ -166,6 +166,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // query to school-scoped role types via SQL. There is no in-memory
       // re-check — defense-in-depth against bad/global rows is enforced on
       // the write paths (assign-role, create-user, update-user, etc.).
+      //
+      // Intentional contract: the `school_id.is.null` branch surfaces legacy
+      // rows where school-scoped role types were inserted before per-row
+      // school_id was consistently populated. The outer `userIds` `.in(...)`
+      // already restricts these rows to in-school users (profile.school_id
+      // = edSchoolId), so a null school_id on the role row cannot leak a
+      // cross-school user — only the role row itself may report
+      // school_id=null. See test "ED: user_roles rows for in-school users
+      // with school_id=NULL are still returned" in users-list.test.ts.
       rolesQuery = rolesQuery
         .or(`school_id.is.null,school_id.eq.${edSchoolId}`)
         .in('role_type', SCHOOL_SCOPED_ROLES as readonly string[]);

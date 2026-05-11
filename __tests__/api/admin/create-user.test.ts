@@ -691,13 +691,17 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
   });
 
   describe('rollback', () => {
-    it('profile update fails: deletes auth user and does NOT call profiles.delete (FK cascade handles it)', async () => {
+    it('profile update fails: explicitly deletes profiles + user_roles + auth user (no FK cascade exists)', async () => {
       setupAdmin();
       const tracker = makeTracker();
       mockCreateServiceRoleClient.mockReturnValueOnce(
         buildAdminClient(
           {
-            profiles: [{ data: null, error: new Error('profile update failed') }],
+            profiles: [
+              { data: null, error: new Error('profile update failed') },
+              { data: null, error: null }, // rollback delete
+            ],
+            user_roles: [{ data: null, error: null }], // rollback delete
           },
           tracker,
         ),
@@ -715,16 +719,66 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       expect(adminClient.auth.admin.deleteUser).toHaveBeenCalledTimes(1);
       expect(adminClient.auth.admin.deleteUser).toHaveBeenCalledWith(NEW_USER_ID);
 
+      // profiles.id has no FK cascade to auth.users — rollback must delete
+      // the profile row explicitly (mirroring delete-user.ts).
       const profileDeletes = tracker.fromCalls.filter(
         (c) => c.table === 'profiles' && c.deletes > 0,
       );
-      expect(profileDeletes).toHaveLength(0);
+      expect(profileDeletes).toHaveLength(1);
+      expect(profileDeletes[0].eqs).toContainEqual({ col: 'id', val: NEW_USER_ID });
 
-      // user_roles wasn't reached, so no rollback delete on that table either
+      // user_roles rollback delete is a defense-in-depth no-op when role-insert
+      // never ran, but the handler issues it unconditionally.
       const roleDeletes = tracker.fromCalls.filter(
         (c) => c.table === 'user_roles' && c.deletes > 0,
       );
-      expect(roleDeletes).toHaveLength(0);
+      expect(roleDeletes).toHaveLength(1);
+      expect(roleDeletes[0].eqs).toContainEqual({ col: 'user_id', val: NEW_USER_ID });
+    });
+
+    it('user_roles insert fails: rolls back auth user + profile + user_roles and returns 500', async () => {
+      setupAdmin();
+      const tracker = makeTracker();
+      mockCreateServiceRoleClient.mockReturnValueOnce(
+        buildAdminClient(
+          {
+            profiles: [
+              { data: null, error: null }, // forward-path update succeeds
+              { data: null, error: null }, // rollback delete
+            ],
+            user_roles: [
+              { data: null, error: new Error('role insert failed') }, // forward-path insert fails
+              { data: null, error: null }, // rollback delete (no-op since insert errored)
+            ],
+          },
+          tracker,
+        ),
+      );
+
+      const { req, res } = createMocks({
+        method: 'POST',
+        body: bodyFor('docente', OTHER_SCHOOL_ID),
+      });
+      await handler(req as never, res as never);
+
+      expect(res._getStatusCode()).toBe(500);
+      expect(res._getJSONData().error).toMatch(/role insert failed|Internal server error/i);
+
+      const adminClient = mockCreateServiceRoleClient.mock.results[0].value;
+      expect(adminClient.auth.admin.deleteUser).toHaveBeenCalledTimes(1);
+      expect(adminClient.auth.admin.deleteUser).toHaveBeenCalledWith(NEW_USER_ID);
+
+      const profileDeletes = tracker.fromCalls.filter(
+        (c) => c.table === 'profiles' && c.deletes > 0,
+      );
+      expect(profileDeletes).toHaveLength(1);
+      expect(profileDeletes[0].eqs).toContainEqual({ col: 'id', val: NEW_USER_ID });
+
+      const roleDeletes = tracker.fromCalls.filter(
+        (c) => c.table === 'user_roles' && c.deletes > 0,
+      );
+      expect(roleDeletes).toHaveLength(1);
+      expect(roleDeletes[0].eqs).toContainEqual({ col: 'user_id', val: NEW_USER_ID });
     });
   });
 });

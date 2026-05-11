@@ -134,8 +134,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al actualizar el perfil' });
     }
 
-    // ED is intentionally allowed to update a target user's email/name per the
-    // user-management plan; school and role changes are gated separately above.
+    // Intentional policy: ED is permitted to update a target user's email
+    // (both profiles.email and auth.users.email) for same-school targets
+    // that have only school-scoped roles. The school + target-role gates
+    // above (school_id match, no global roles) enforce that scope. See
+    // `__tests__/api/admin/update-user.test.ts` — test "ED: can update
+    // email of a same-school target with no global roles" — and the
+    // user-management plan at
+    // `.claude/plans/i-want-you-to-precious-riddle.md`. Be aware this is
+    // an account-takeover capability inside the school scope (combined
+    // with reset-password). Tightening requires product approval.
     if (email) {
       const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
         userId,

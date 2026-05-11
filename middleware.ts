@@ -43,11 +43,12 @@ export async function middleware(req: NextRequest) {
     }
 
     // Equipo directivo: growth communities + school users management
-    // Defense-in-depth: school-users is allow-listed as an EXACT match only.
-    // Any future nested route under /admin/school-users/* must be explicitly
-    // allow-listed here AND must implement its own ED scope check in
-    // getServerSideProps (verify the requested school belongs to the ED user).
-    const onSchoolUsers = pathname === '/admin/school-users';
+    // Accept both trailing-slash forms. Next.js's default trailingSlash is false,
+    // but we don't want this gate to silently break if that config flips.
+    // Nested routes (/admin/school-users/...) are intentionally NOT matched —
+    // they would need explicit allow-listing here AND their own ED scope check.
+    const onSchoolUsers =
+      pathname === '/admin/school-users' || pathname === '/admin/school-users/';
     if (
       roles.includes('equipo_directivo') &&
       (pathname.startsWith('/admin/growth-communities') || onSchoolUsers)

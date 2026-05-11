@@ -2,10 +2,29 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 
-const { mockCheckIsAdminOrEquipoDirectivo, mockCreateServiceRoleClient } = vi.hoisted(() => ({
-  mockCheckIsAdminOrEquipoDirectivo: vi.fn(),
-  mockCreateServiceRoleClient: vi.fn(),
-}));
+const {
+  mockCheckIsAdminOrEquipoDirectivo,
+  mockCreateServiceRoleClient,
+  mockRateLimit,
+  mockRateLimitCheck,
+  rateLimitState,
+} = vi.hoisted(() => {
+  // Tracking object survives `vi.clearAllMocks()` so the module-load-time
+  // `rateLimit(...)` call args can still be asserted by later tests.
+  const state = { configCalls: [] as unknown[][] };
+  const check = vi.fn(async () => true);
+  const factory = vi.fn((...args: unknown[]) => {
+    state.configCalls.push(args);
+    return check;
+  });
+  return {
+    mockCheckIsAdminOrEquipoDirectivo: vi.fn(),
+    mockCreateServiceRoleClient: vi.fn(),
+    mockRateLimit: factory,
+    mockRateLimitCheck: check,
+    rateLimitState: state,
+  };
+});
 
 vi.mock('../../../lib/api-auth', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -16,7 +35,20 @@ vi.mock('../../../lib/api-auth', async (importOriginal) => {
   };
 });
 
+// Bypass the auth-tier rate limiter (10 req/min) — without this the bucket
+// fills up across the suite and later tests start receiving 429 instead of
+// the status they actually exercise. The factory is also a spy so tests can
+// prove the middleware is wired up.
+vi.mock('../../../lib/rateLimit', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    rateLimit: mockRateLimit,
+  };
+});
+
 import handler from '../../../pages/api/admin/update-user';
+import { RATE_LIMITS } from '../../../lib/rateLimit';
 
 const ADMIN_ID = '11111111-1111-4111-8111-111111111111';
 const ED_ID = '99999999-9999-4999-8999-999999999999';
@@ -161,6 +193,13 @@ function baseBody(overrides: Record<string, unknown> = {}) {
 describe('admin/update-user — POST (ED auth + scoping)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Some tests queue `mockReturnValueOnce` returns that the handler short-
+    // circuits past (e.g., email-validation 400s). `clearAllMocks` resets call
+    // history but does NOT drain the return-value queue, so without an explicit
+    // reset those unconsumed returns leak into later tests and produce wrong
+    // service-role clients.
+    mockCheckIsAdminOrEquipoDirectivo.mockReset();
+    mockCreateServiceRoleClient.mockReset();
   });
 
   it('admin: can update any user (no profile lookup performed)', async () => {
@@ -1099,5 +1138,186 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
 
     expect(res._getStatusCode()).toBe(400);
     expect(res._getJSONData()).toEqual({ error: 'ID de usuario requerido' });
+  });
+
+  it('rate limiter: factory wired with auth tier + named key, middleware invoked per request', async () => {
+    // Module-load-time wiring: the handler must construct its limiter with
+    // RATE_LIMITS.auth and a distinct name so admin-update-user shares no
+    // bucket with admin-reset-password.
+    expect(rateLimitState.configCalls.length).toBeGreaterThan(0);
+    expect(rateLimitState.configCalls[0]).toEqual([
+      RATE_LIMITS.auth,
+      'admin-update-user',
+    ]);
+
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [{ data: null, error: null }],
+          audit_logs: [{ data: null, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: baseBody(),
+    });
+    await handler(req as never, res as never);
+
+    expect(mockRateLimitCheck).toHaveBeenCalled();
+    expect(res._getStatusCode()).toBe(200);
+  });
+
+  it('admin: email change writes both update_user and email_change audit rows with from/to', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [
+            {
+              data: {
+                email: 'old@example.com',
+                first_name: 'Old',
+                last_name: 'User',
+                school: null,
+                external_school_affiliation: null,
+              },
+              error: null,
+            },
+            { data: null, error: null },
+          ],
+          audit_logs: [
+            { data: null, error: null },
+            { data: null, error: null },
+          ],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: TARGET_USER_ID, email: '  new@example.com  ' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    expect(auditCalls).toHaveLength(2);
+
+    const first = auditCalls[0].inserts[0] as any;
+    expect(first.action).toBe('update_user');
+    expect(first.record_id).toBe(TARGET_USER_ID);
+
+    const second = auditCalls[1].inserts[0] as any;
+    expect(second.action).toBe('email_change');
+    expect(second.table_name).toBe('profiles');
+    expect(second.record_id).toBe(TARGET_USER_ID);
+    expect(second.user_id).toBe(ADMIN_ID);
+    expect(second.details).toMatchObject({
+      requester_role: 'admin',
+      requester_user_id: ADMIN_ID,
+      from: 'old@example.com',
+      to: 'new@example.com',
+    });
+    expect(typeof second.details.timestamp).toBe('string');
+  });
+
+  it('admin: unchanged email (post-normalization) writes only update_user, no email_change', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [
+            {
+              data: {
+                email: 'same@example.com',
+                first_name: 'Same',
+                last_name: 'User',
+                school: null,
+                external_school_affiliation: null,
+              },
+              error: null,
+            },
+            { data: null, error: null },
+          ],
+          audit_logs: [{ data: null, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      // Whitespace around an otherwise identical address must still count as
+      // unchanged once trimmed — proves normalization runs before the diff.
+      body: { userId: TARGET_USER_ID, email: '  same@example.com  ' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    expect(auditCalls).toHaveLength(1);
+    expect((auditCalls[0].inserts[0] as any).action).toBe('update_user');
+  });
+
+  it('ED: email change writes update_user + email_change audit rows', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [
+            {
+              data: {
+                school_id: ED_SCHOOL_ID,
+                email: 'ed-old@example.com',
+                first_name: 'F',
+                last_name: 'L',
+                school: null,
+                external_school_affiliation: null,
+              },
+              error: null,
+            },
+            { data: null, error: null },
+          ],
+          user_roles: [{ data: [], error: null }],
+          audit_logs: [
+            { data: null, error: null },
+            { data: null, error: null },
+          ],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: baseBody({ email: 'ed-new@example.com' }),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    expect(auditCalls).toHaveLength(2);
+    const second = auditCalls[1].inserts[0] as any;
+    expect(second.action).toBe('email_change');
+    expect(second.record_id).toBe(TARGET_USER_ID);
+    expect(second.user_id).toBe(ED_ID);
+    expect(second.details).toMatchObject({
+      requester_role: 'equipo_directivo',
+      requester_user_id: ED_ID,
+      from: 'ed-old@example.com',
+      to: 'ed-new@example.com',
+    });
   });
 });

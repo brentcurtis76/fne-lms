@@ -1,12 +1,21 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient, isValidSchoolIdInput } from '../../../lib/api-auth';
 import { Validators } from '../../../lib/types/api-auth.types';
+import { rateLimit, RATE_LIMITS } from '../../../lib/rateLimit';
 import { SCHOOL_SCOPED_ROLES_SET } from '../../../utils/roleUtils';
+
+// Auth-tier limiter (10 req/min) — mirrors reset-password. ED can change a
+// target user's email, half of an account-takeover primitive, so brute/abuse
+// protection here is on the same footing as password reset.
+const rateLimitCheck = rateLimit(RATE_LIMITS.auth, 'admin-update-user');
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  const allowed = await rateLimitCheck(req, res);
+  if (!allowed) return;
 
   try {
     const {
@@ -264,6 +273,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           updated_fields: updatedFields,
         },
       });
+
+    // Dedicated audit row for email transitions — pairs with the
+    // `password_reset` row in reset-password.ts so account-takeover events
+    // are surfaceable in queries without parsing `updated_fields` blobs.
+    if (hasEmail && trimmedEmail !== currentEmail) {
+      await supabaseAdmin
+        .from('audit_logs')
+        .insert({
+          user_id: requestingUser.id,
+          action: 'email_change',
+          table_name: 'profiles',
+          record_id: userId,
+          details: {
+            requester_role: requesterRole,
+            requester_user_id: requestingUser.id,
+            from: currentEmail ?? null,
+            to: trimmedEmail,
+            timestamp: new Date().toISOString(),
+          },
+        });
+    }
 
     return res.status(200).json({ success: true, message: 'Usuario actualizado exitosamente' });
 

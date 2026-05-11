@@ -36,6 +36,7 @@ interface FromCall {
   ins: Array<{ col: string; vals: unknown }>;
   ors: string[];
   nots: Array<{ col: string; op: string; val: unknown }>;
+  ranges: Array<{ from: number; to: number }>;
 }
 
 interface Tracker {
@@ -62,7 +63,7 @@ function buildSequencedClient(
       indices[table] = idx + 1;
       const result = resultsByTable[table]?.[idx] ?? { data: null };
 
-      const fromCall: FromCall = { table, index: idx, eqs: [], ins: [], ors: [], nots: [] };
+      const fromCall: FromCall = { table, index: idx, eqs: [], ins: [], ors: [], nots: [], ranges: [] };
       tracker?.fromCalls.push(fromCall);
 
       const resolved = {
@@ -104,6 +105,12 @@ function buildSequencedClient(
           if (prop === 'not') {
             return vi.fn((col: string, op: string, val: unknown) => {
               fromCall.nots.push({ col, op, val });
+              return new Proxy({}, proxyHandler);
+            });
+          }
+          if (prop === 'range') {
+            return vi.fn((from: number, to: number) => {
+              fromCall.ranges.push({ from, to });
               return new Proxy({}, proxyHandler);
             });
           }
@@ -849,6 +856,104 @@ describe('admin/users — GET (school scoping)', () => {
     const body = JSON.parse(res._getData());
     const returnedIds = (body.users as Array<{ id: string }>).map((u) => u.id);
     expect(returnedIds).not.toContain(EXCLUDED_USER_ID);
+  });
+
+  it('ED (F2): in-school user-id prefetch paginates past the 1000-row PostgREST cap, so users beyond page 1 are still excluded from results and counts', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    // 1000 first-page ids forces a second prefetch round-trip; the row that
+    // matters (the global-role holder we need to exclude) lands on page 2.
+    const PAGE1_IDS = Array.from({ length: 1000 }, (_, i) =>
+      `aaaaaaaa-aaaa-4aaa-8aaa-${String(i).padStart(12, '0')}`,
+    );
+    const PAGE2_EXCLUDED = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    const PAGE2_VISIBLE = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+
+    const visibleProfile = {
+      id: PAGE2_VISIBLE,
+      email: 'visible@example.com',
+      first_name: 'Visible',
+      last_name: 'User',
+      school_id: ED_SCHOOL_ID,
+      approval_status: 'approved',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+    };
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            // Prefetch page 1 — full BATCH=1000, so pagination must continue.
+            { data: PAGE1_IDS.map((id) => ({ id })) },
+            // Prefetch page 2 — partial batch, loop breaks.
+            { data: [{ id: PAGE2_EXCLUDED }, { id: PAGE2_VISIBLE }] },
+            // Main paginated query — only the visible user (the excluded user
+            // is filtered out by .not('id', 'in', ...)).
+            { data: [visibleProfile], count: 1 },
+            // Summary counts.
+            { count: 1 },
+            { count: 0 },
+            { count: 1 },
+          ],
+          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+          // [0] global-role pre-fetch flags the page-2 user. [1] main roles.
+          user_roles: [
+            { data: [{ user_id: PAGE2_EXCLUDED }] },
+            { data: [] },
+          ],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    // Pagination: two profiles prefetch calls with successive ranges.
+    const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profilesCalls[0].ranges).toEqual([{ from: 0, to: 999 }]);
+    expect(profilesCalls[1].ranges).toEqual([{ from: 1000, to: 1999 }]);
+
+    // Global-role pre-fetch must use the *full* collected id list (both pages).
+    const userRolesCalls = tracker.fromCalls.filter((c) => c.table === 'user_roles');
+    const preFetch = userRolesCalls[0];
+    const userIdIn = preFetch.ins.find((i) => i.col === 'user_id');
+    expect(userIdIn).toBeDefined();
+    const idsPassed = userIdIn!.vals as string[];
+    expect(idsPassed).toContain(PAGE2_EXCLUDED);
+    expect(idsPassed).toContain(PAGE2_VISIBLE);
+    expect(idsPassed.length).toBe(PAGE1_IDS.length + 2);
+
+    // Main profiles query (index 2 in ED+paginated scope) excludes the
+    // page-2 global-role holder via .not('id', 'in', ...).
+    const profilesMain = profilesCalls[2];
+    const notId = profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in');
+    expect(notId).toBeDefined();
+    expect(String(notId!.val)).toContain(PAGE2_EXCLUDED);
+
+    // Summary counts (indices 3..5) apply the same exclusion so totals match
+    // the visible list.
+    for (const idx of [3, 4, 5]) {
+      const summary = profilesCalls[idx];
+      const summaryNotId = summary.nots.find((n) => n.col === 'id' && n.op === 'in');
+      expect(summaryNotId).toBeDefined();
+      expect(String(summaryNotId!.val)).toContain(PAGE2_EXCLUDED);
+    }
+
+    // Response payload omits the excluded user and includes the visible one.
+    const body = JSON.parse(res._getData());
+    const returnedIds = (body.users as Array<{ id: string }>).map((u) => u.id);
+    expect(returnedIds).not.toContain(PAGE2_EXCLUDED);
+    expect(returnedIds).toContain(PAGE2_VISIBLE);
   });
 
   it('admin: profiles query is NOT filtered against the global-role pre-fetch', async () => {

@@ -68,19 +68,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // active user_roles in the tenant on every ED list load.
     let edExcludedUserIds: string[] = [];
     if (isEdScope) {
-      const { data: inSchoolUsers, error: inSchoolErr } = await supabaseService
-        .from('profiles')
-        .select('id')
-        .eq('school_id', edSchoolId);
+      // PostgREST caps a single SELECT at 1000 rows by default. Schools larger
+      // than that would otherwise have their tail-end users silently skip the
+      // global-role exclusion check below and "ghost" into the ED list (F2),
+      // since the write-path target-role gate would still reject every edit.
+      // Page through .range() until a partial batch lands.
+      const PROFILE_PREFETCH_BATCH = 1000;
+      const collectedIds: string[] = [];
+      let prefetchFrom = 0;
+      while (true) {
+        const { data: pageRows, error: inSchoolErr } = await supabaseService
+          .from('profiles')
+          .select('id')
+          .eq('school_id', edSchoolId)
+          .range(prefetchFrom, prefetchFrom + PROFILE_PREFETCH_BATCH - 1);
 
-      if (inSchoolErr) {
-        console.error('[users API] Error fetching in-school user ids:', inSchoolErr);
-        return res.status(500).json({ error: 'Error al filtrar usuarios' });
+        if (inSchoolErr) {
+          console.error('[users API] Error fetching in-school user ids:', inSchoolErr);
+          return res.status(500).json({ error: 'Error al filtrar usuarios' });
+        }
+
+        const rows = (pageRows ?? []) as Array<{ id?: string | null }>;
+        for (const row of rows) {
+          if (row.id) collectedIds.push(row.id);
+        }
+        if (rows.length < PROFILE_PREFETCH_BATCH) break;
+        prefetchFrom += PROFILE_PREFETCH_BATCH;
       }
 
-      const inSchoolUserIds = Array.from(
-        new Set((inSchoolUsers ?? []).map((u: any) => u.id).filter(Boolean)),
-      );
+      const inSchoolUserIds = Array.from(new Set(collectedIds));
 
       if (inSchoolUserIds.length > 0) {
         const { data: globalRoleHolders, error: globalRoleErr } = await supabaseService

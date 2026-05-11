@@ -1216,14 +1216,16 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect(res._getJSONData()).toEqual({ error: 'ID de usuario requerido' });
   });
 
-  it('rate limiter: factory wired with auth tier + named key, middleware invoked per request', async () => {
-    // Module-load-time wiring: the handler must construct its limiter with
-    // RATE_LIMITS.auth and a distinct name so admin-update-user shares no
-    // bucket with admin-reset-password.
-    expect(rateLimitState.configCalls.length).toBeGreaterThan(0);
-    expect(rateLimitState.configCalls[0]).toEqual([
-      RATE_LIMITS.auth,
-      'admin-update-user',
+  it('rate limiter: two-stage (pre-auth global + post-auth per-role) wired, both invoked per admin request', async () => {
+    // Module-load-time wiring: three independent limiters to avoid bucket
+    // contention between admin and ED traffic on shared source IPs.
+    //   1) pre-auth global @ api-tier (30/min) — runs before auth resolves
+    //   2) post-auth admin bucket @ auth-tier (10/min)
+    //   3) post-auth ED bucket @ auth-tier (10/min) — separate from admin
+    expect(rateLimitState.configCalls).toEqual([
+      [RATE_LIMITS.api, 'admin-update-user'],
+      [RATE_LIMITS.auth, 'admin-update-user:admin'],
+      [RATE_LIMITS.auth, 'admin-update-user:equipo_directivo'],
     ]);
 
     setupAdmin();
@@ -1244,8 +1246,40 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     });
     await handler(req as never, res as never);
 
-    expect(mockRateLimitCheck).toHaveBeenCalled();
+    // Both stages must execute for an authorized admin request: pre-auth gate
+    // first, then the admin-scoped post-auth bucket.
+    expect(mockRateLimitCheck).toHaveBeenCalledTimes(2);
     expect(res._getStatusCode()).toBe(200);
+  });
+
+  it('rate limiter: ED request runs pre-auth + ED post-auth bucket (admin bucket untouched)', async () => {
+    // The role chooses which post-auth bucket charges. Wiring is asserted in
+    // the test above; this one proves the per-role dispatch at request time.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [
+            { data: { school_id: ED_SCHOOL_ID }, error: null },
+            { data: null, error: null },
+          ],
+          user_roles: [{ data: [], error: null }],
+          audit_logs: [{ data: null, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: baseBody(),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    // Pre-auth + post-auth ED limiter — exactly two checks.
+    expect(mockRateLimitCheck).toHaveBeenCalledTimes(2);
   });
 
   it('admin: email change writes both update_user and email_change audit rows with from/to', async () => {

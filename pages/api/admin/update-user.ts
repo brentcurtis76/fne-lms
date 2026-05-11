@@ -4,18 +4,31 @@ import { Validators } from '../../../lib/types/api-auth.types';
 import { rateLimit, RATE_LIMITS } from '../../../lib/rateLimit';
 import { SCHOOL_SCOPED_ROLES_SET } from '../../../utils/roleUtils';
 
-// Auth-tier limiter (10 req/min) — mirrors reset-password. ED can change a
-// target user's email, half of an account-takeover primitive, so brute/abuse
-// protection here is on the same footing as password reset.
-const rateLimitCheck = rateLimit(RATE_LIMITS.auth, 'admin-update-user');
+// Two-stage rate limiting to avoid contention between admin and ED traffic on
+// the same source IP (shared NAT / office network). The helper buckets are
+// keyed `IP:identifier`, so different identifiers create independent buckets
+// without changing `lib/rateLimit.ts`.
+//
+// Stage 1 (pre-auth, api-tier 30/min): a relaxed global gate at this endpoint
+// to absorb unauthenticated abuse before we know the requester's role. Higher
+// than the auth tier because legitimate authenticated traffic from a shared
+// IP also passes through here.
+//
+// Stage 2 (post-auth, auth-tier 10/min, per-role identifier): the actual
+// strict bucket, scoped by role so admin and ED do not consume each other's
+// budget. Email change is an account-takeover primitive (mirrors
+// reset-password.ts), hence the auth-tier cap per role.
+const preAuthRateLimit = rateLimit(RATE_LIMITS.api, 'admin-update-user');
+const adminPostAuthRateLimit = rateLimit(RATE_LIMITS.auth, 'admin-update-user:admin');
+const edPostAuthRateLimit = rateLimit(RATE_LIMITS.auth, 'admin-update-user:equipo_directivo');
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const allowed = await rateLimitCheck(req, res);
-  if (!allowed) return;
+  const preAuthAllowed = await preAuthRateLimit(req, res);
+  if (!preAuthAllowed) return;
 
   try {
     const {
@@ -37,6 +50,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (requesterRole === 'equipo_directivo' && typeof edSchoolId !== 'number') {
       return res.status(403).json({ error: 'School context missing for equipo_directivo' });
     }
+
+    // Stage 2 rate limit: per-role bucket so admin and ED traffic share neither
+    // bucket nor 429 fate on the same source IP. See module-load comment above.
+    const postAuthRateLimit =
+      requesterRole === 'admin' ? adminPostAuthRateLimit : edPostAuthRateLimit;
+    const postAuthAllowed = await postAuthRateLimit(req, res);
+    if (!postAuthAllowed) return;
 
     const { userId, email, first_name, last_name, school, external_school_affiliation } = req.body;
 
@@ -215,6 +235,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (authUpdateError) {
         console.error('Error updating auth email:', authUpdateError);
+
+        // Invariant: whenever `hasEmail` is true, `previousProfile` MUST be
+        // populated — admin and ED branches both snapshot it before this
+        // point. If it is missing, the snapshot path is broken; rolling back
+        // with whatever happens to be in scope would write `email: undefined`
+        // (treated as null by PostgREST) and silently null the profile. Fail
+        // loudly and refuse to write the rollback instead.
+        if (!previousProfile) {
+          console.error('[update-user] CRITICAL: rollback_invariant_violated_missing_previous_profile', {
+            userId,
+            requester_user_id: requestingUser.id,
+            requester_role: requesterRole,
+            auth_update_error: authUpdateError,
+            timestamp: new Date().toISOString(),
+          });
+          return res.status(500).json({ error: 'Error interno del servidor' });
+        }
+
         // Rollback only the fields the forward path actually mutated, to the
         // server-fetched prior values. Mirrors the conditional updateData
         // shape so an unchanged column is never touched.
@@ -222,26 +260,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // (profile email mutated, auth email unchanged). Surface it loudly via
         // console.error with enough structured context to reconcile manually.
         let rollbackError: unknown = null;
-        if (previousProfile) {
-          const rollbackUpdate: Record<string, unknown> = {};
-          if ('email' in updateData) rollbackUpdate.email = previousProfile.email;
-          if ('first_name' in updateData) rollbackUpdate.first_name = previousProfile.first_name;
-          if ('last_name' in updateData) rollbackUpdate.last_name = previousProfile.last_name;
-          if ('external_school_affiliation' in updateData) {
-            rollbackUpdate.external_school_affiliation = previousProfile.external_school_affiliation;
-          }
-          if ('school' in updateData) rollbackUpdate.school = previousProfile.school;
-          if (Object.keys(rollbackUpdate).length > 0) {
-            const { error } = await supabaseAdmin
-              .from('profiles')
-              .update(rollbackUpdate)
-              .eq('id', userId);
-            rollbackError = error ?? null;
-          }
-        } else {
+        const rollbackUpdate: Record<string, unknown> = {};
+        if ('email' in updateData) rollbackUpdate.email = previousProfile.email;
+        if ('first_name' in updateData) rollbackUpdate.first_name = previousProfile.first_name;
+        if ('last_name' in updateData) rollbackUpdate.last_name = previousProfile.last_name;
+        if ('external_school_affiliation' in updateData) {
+          rollbackUpdate.external_school_affiliation = previousProfile.external_school_affiliation;
+        }
+        if ('school' in updateData) rollbackUpdate.school = previousProfile.school;
+        if (Object.keys(rollbackUpdate).length > 0) {
           const { error } = await supabaseAdmin
             .from('profiles')
-            .update({ email: currentEmail })
+            .update(rollbackUpdate)
             .eq('id', userId);
           rollbackError = error ?? null;
         }

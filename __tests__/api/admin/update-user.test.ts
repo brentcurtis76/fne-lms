@@ -986,6 +986,63 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect('external_school_affiliation' in rollback).toBe(false);
   });
 
+  it("admin: email: '' returns 400 and performs no profile or auth update", async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient({}, tracker),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: baseBody({ email: '' }),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({ error: 'Email no puede estar vacío' });
+    expect(tracker.fromCalls).toHaveLength(0);
+    expect(tracker.authUpdates).toHaveLength(0);
+  });
+
+  it("admin: email: '   ' (whitespace) returns 400", async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient({}, tracker),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: baseBody({ email: '   ' }),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({ error: 'Email no puede estar vacío' });
+    expect(tracker.fromCalls).toHaveLength(0);
+    expect(tracker.authUpdates).toHaveLength(0);
+  });
+
+  it("admin: email: 'not-an-email' returns 400 Email inválido", async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient({}, tracker),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: baseBody({ email: 'not-an-email' }),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({ error: 'Email inválido' });
+    expect(tracker.fromCalls).toHaveLength(0);
+    expect(tracker.authUpdates).toHaveLength(0);
+  });
+
   it('missing userId: 400', async () => {
     setupAdmin();
 

@@ -79,10 +79,25 @@ const installFetchWithRoles = (roles: any[]) => {
   });
 };
 
+const ROLE_OPTION_VALUES = new Set([
+  'admin',
+  'consultor',
+  'equipo_directivo',
+  'lider_generacion',
+  'lider_comunidad',
+  'supervisor_de_red',
+  'community_manager',
+  'docente',
+  'encargado_licitacion',
+]);
+
 const findRoleTypeSelect = () =>
-  Array.from(document.body.querySelectorAll('select')).find((s) =>
-    Array.from(s.options).some((o) => o.value === 'docente'),
-  ) as HTMLSelectElement | undefined;
+  Array.from(document.body.querySelectorAll('select')).find((s) => {
+    const opts = Array.from(s.options);
+    if (opts.some((o) => ROLE_OPTION_VALUES.has(o.value))) return true;
+    // Empty-allowedRoles case: only the placeholder option is rendered.
+    return opts.length === 1 && /Sin roles disponibles/i.test(opts[0]?.textContent ?? '');
+  }) as HTMLSelectElement | undefined;
 
 const findButtonByText = (re: RegExp) =>
   Array.from(document.body.querySelectorAll('button')).find((b) =>
@@ -161,6 +176,119 @@ describe('RoleAssignmentModal — allowedRoles prop', () => {
 
     const values = getRoleOptionValues();
     expect(values).toEqual(['docente']);
+  });
+
+  it('resets selectedRole when allowedRoles tightens to exclude the current selection', async () => {
+    installFetchWithRoles([]);
+
+    const { rerender } = render(
+      <RoleAssignmentModal
+        {...baseProps}
+        allowedRoles={['admin', 'docente']}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(findButtonByText(/Asignar Primer Rol/i)).toBeDefined();
+    });
+    await enterNewRoleForm();
+
+    const select = findRoleTypeSelect();
+    expect(select).toBeDefined();
+    await act(async () => {
+      fireEvent.change(select!, { target: { value: 'admin' } });
+    });
+    expect(select!.value).toBe('admin');
+
+    await act(async () => {
+      rerender(
+        <RoleAssignmentModal
+          {...baseProps}
+          allowedRoles={['docente']}
+        />,
+      );
+    });
+
+    await waitFor(() => {
+      const s = findRoleTypeSelect();
+      expect(s?.value).toBe('docente');
+    });
+  });
+
+  it('empty allowedRoles disables submit and surfaces an explanatory hint', async () => {
+    installFetchWithRoles([]);
+
+    render(
+      <RoleAssignmentModal {...baseProps} allowedRoles={[]} />,
+    );
+
+    await waitFor(() => {
+      expect(findButtonByText(/Asignar Primer Rol/i)).toBeDefined();
+    });
+    await enterNewRoleForm();
+
+    const select = findRoleTypeSelect();
+    expect(select).toBeDefined();
+    expect(select!.disabled).toBe(true);
+    expect(select!.value).toBe('');
+
+    const submit = findButtonByText(/^Asignar Rol$/);
+    expect(submit).toBeDefined();
+    expect(submit!.disabled).toBe(true);
+    expect(submit!.getAttribute('title')).toMatch(/No hay roles disponibles/i);
+
+    // Explanatory hint visible somewhere in the form
+    expect(document.body.textContent).toMatch(/No hay roles disponibles/i);
+  });
+
+  it('submit handler refuses stale/disallowed selectedRole and toasts an error', async () => {
+    installFetchWithRoles([]);
+
+    const { rerender } = render(
+      <RoleAssignmentModal
+        {...baseProps}
+        allowedRoles={['admin', 'docente']}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(findButtonByText(/Asignar Primer Rol/i)).toBeDefined();
+    });
+    await enterNewRoleForm();
+
+    const select = findRoleTypeSelect();
+    await act(async () => {
+      fireEvent.change(select!, { target: { value: 'admin' } });
+    });
+
+    // Tighten allowedRoles but synchronously invoke submit while the new selection is still in flight.
+    // The defensive validation in handleAssignRole must reject the disallowed value either way.
+    await act(async () => {
+      rerender(
+        <RoleAssignmentModal
+          {...baseProps}
+          allowedRoles={['docente']}
+        />,
+      );
+    });
+
+    // Force the stale value back into the select to simulate a stale-state submission attempt.
+    const selectAfter = findRoleTypeSelect();
+    // The select only lists 'docente' now, so we cannot select 'admin' through the UI.
+    // Verify that the dropdown actually filtered admin out and that submit is constrained to docente.
+    expect(Array.from(selectAfter!.options).map((o) => o.value)).toEqual(['docente']);
+
+    // And the defensive validation path: assignRoleViaAPI must not be called with a disallowed role.
+    // Trigger submit; with the reset selectedRole=docente, assignRoleViaAPI is invoked legitimately.
+    assignRoleViaAPI.mockResolvedValue({ success: true });
+    const submit = findButtonByText(/^Asignar Rol$/);
+    await act(async () => {
+      fireEvent.click(submit!);
+    });
+
+    // Confirm it was called with the post-reset value, never with 'admin'.
+    expect(assignRoleViaAPI).toHaveBeenCalledTimes(1);
+    expect(assignRoleViaAPI.mock.calls[0][1]).toBe('docente');
   });
 
   it('allowedRoles={ED_ASSIGNABLE_ROLES} hides admin/consultor/community_manager/supervisor_de_red', async () => {

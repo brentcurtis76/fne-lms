@@ -4,7 +4,7 @@ import { useSupabaseClient } from '@supabase/auth-helpers-react';
  * Allows admins to assign/remove roles from users
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, Plus, Trash2, Users, Building, Users as Team, Edit } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -84,6 +84,19 @@ export default function RoleAssignmentModal({
     'docente',
     'encargado_licitacion'
   ];
+
+  const filteredAvailableRoles = useMemo<UserRoleType[]>(
+    () => availableRoles.filter((roleType) => !allowedRoles || allowedRoles.includes(roleType)),
+    // availableRoles is a stable in-component literal; only allowedRoles can change identity
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allowedRoles],
+  );
+
+  useEffect(() => {
+    if (!filteredAvailableRoles.includes(selectedRole)) {
+      setSelectedRole((filteredAvailableRoles[0] ?? '') as UserRoleType);
+    }
+  }, [filteredAvailableRoles, selectedRole]);
 
   useEffect(() => {
     if (isOpen) {
@@ -166,6 +179,12 @@ export default function RoleAssignmentModal({
 
   const handleAssignRole = async () => {
     try {
+      // Defensive: refuse any stale/disallowed selectedRole even if state was forced
+      if (!filteredAvailableRoles.includes(selectedRole)) {
+        toast.error('Rol no permitido. Selecciona uno de la lista.');
+        return;
+      }
+
       setLoading(true);
 
       // Validation: Don't allow generation leader role for schools without generations
@@ -347,6 +366,11 @@ export default function RoleAssignmentModal({
     if (!editingRole) return;
 
     try {
+      if (!filteredAvailableRoles.includes(selectedRole)) {
+        toast.error('Rol no permitido. Selecciona uno de la lista.');
+        return;
+      }
+
       setLoading(true);
 
       if (selectedRole === 'lider_comunidad' && liderCommunityMode === 'existing' && !selectedCommunity) {
@@ -651,19 +675,27 @@ export default function RoleAssignmentModal({
                             <select
                               value={selectedRole}
                               onChange={(e) => setSelectedRole(e.target.value as UserRoleType)}
-                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
+                              disabled={filteredAvailableRoles.length === 0}
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                             >
-                              {availableRoles
-                                .filter((roleType) => !allowedRoles || allowedRoles.includes(roleType))
-                                .map((roleType) => (
-                                  <option key={roleType} value={roleType}>
-                                    {ROLE_NAMES[roleType]}
-                                  </option>
-                                ))}
+                              {filteredAvailableRoles.length === 0 && (
+                                <option value="">Sin roles disponibles</option>
+                              )}
+                              {filteredAvailableRoles.map((roleType) => (
+                                <option key={roleType} value={roleType}>
+                                  {ROLE_NAMES[roleType]}
+                                </option>
+                              ))}
                             </select>
-                            <p className="text-sm text-gray-600 mt-1">
-                              {ROLE_DESCRIPTIONS[selectedRole]}
-                            </p>
+                            {filteredAvailableRoles.length === 0 ? (
+                              <p className="text-sm text-red-600 mt-1" role="alert">
+                                No hay roles disponibles para asignar con los permisos actuales.
+                              </p>
+                            ) : (
+                              <p className="text-sm text-gray-600 mt-1">
+                                {ROLE_DESCRIPTIONS[selectedRole]}
+                              </p>
+                            )}
                           </div>
 
                           {/* Organizational Scope (now available for ALL roles) */}
@@ -881,8 +913,9 @@ export default function RoleAssignmentModal({
                             <div className="space-y-3">
                               <button
                                 onClick={handleUpdateRole}
-                                disabled={loading || (selectedRole === 'lider_comunidad' && liderCommunityMode === 'existing' && !selectedCommunity)}
+                                disabled={loading || filteredAvailableRoles.length === 0 || (selectedRole === 'lider_comunidad' && liderCommunityMode === 'existing' && !selectedCommunity)}
                                 className="w-full bg-[#fbbf24] text-white py-3 px-4 rounded-lg hover:bg-[#e6a530] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                                title={filteredAvailableRoles.length === 0 ? 'No hay roles disponibles para asignar con los permisos actuales.' : ''}
                               >
                                 {loading ? 'Actualizando...' : 'Actualizar Rol'}
                               </button>
@@ -905,18 +938,26 @@ export default function RoleAssignmentModal({
                               const isGenLeaderInvalidSchool = selectedRole === 'lider_generacion' && selectedSchool && !schoolHasGenerations;
                               const isCommunityLeaderMissingGeneration = selectedRole === 'lider_comunidad' && liderCommunityMode === 'new' && selectedSchool && schoolHasGenerations && !selectedGeneration;
                               const isCommunityLeaderMissingExisting = selectedRole === 'lider_comunidad' && liderCommunityMode === 'existing' && !selectedCommunity;
-                              const isFormInvalid = isGenLeaderInvalidSchool || isCommunityLeaderMissingGeneration || isCommunityLeaderMissingExisting;
+                              const noAllowedRoles = filteredAvailableRoles.length === 0;
+                              const isFormInvalid = isGenLeaderInvalidSchool || isCommunityLeaderMissingGeneration || isCommunityLeaderMissingExisting || noAllowedRoles;
+
+                              const invalidTitle = noAllowedRoles
+                                ? 'No hay roles disponibles para asignar con los permisos actuales.'
+                                : isFormInvalid
+                                  ? 'Complete todos los campos requeridos'
+                                  : '';
 
                               return (
                                 <button
                                   onClick={handleAssignRole}
                                   disabled={loading || isFormInvalid}
                                   className={`w-full py-3 px-4 rounded-lg transition-colors font-medium ${
-                                    isFormInvalid 
-                                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                                    isFormInvalid
+                                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                       : 'bg-[#fbbf24] text-white hover:bg-[#e6a530] disabled:opacity-50 disabled:cursor-not-allowed'
                                   }`}
-                                  title={isFormInvalid ? 'Complete todos los campos requeridos' : ''}
+                                  title={invalidTitle}
+                                  aria-label={noAllowedRoles ? 'Asignar Rol (sin roles disponibles)' : 'Asignar Rol'}
                                 >
                                   {loading ? 'Asignando...' : 'Asignar Rol'}
                                 </button>

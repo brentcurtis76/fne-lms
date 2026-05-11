@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient, isValidSchoolIdInput } from '../../../lib/api-auth';
+import { Validators } from '../../../lib/types/api-auth.types';
 import { SCHOOL_SCOPED_ROLES_SET } from '../../../utils/roleUtils';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -32,6 +33,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (!userId) {
       return res.status(400).json({ error: 'ID de usuario requerido' });
+    }
+
+    // Normalize email up front so every downstream branch sees the same value.
+    // Presence is keyed off `req.body.email !== undefined` so null and empty
+    // string are treated as intent-to-set (and then rejected), not omission.
+    const hasEmail = req.body.email !== undefined;
+    let trimmedEmail = '';
+    if (hasEmail) {
+      trimmedEmail = typeof email === 'string' ? email.trim() : '';
+      if (trimmedEmail === '') {
+        return res.status(400).json({ error: 'Email no puede estar vacío' });
+      }
+      if (!Validators.isEmail(trimmedEmail)) {
+        return res.status(400).json({ error: 'Email inválido' });
+      }
     }
 
     const supabaseAdmin = createServiceRoleClient();
@@ -115,7 +131,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    if (requesterRole === 'admin' && email) {
+    if (requesterRole === 'admin' && hasEmail) {
       const { data: targetProfile, error: profileLookupError } = await supabaseAdmin
         .from('profiles')
         .select('email, first_name, last_name, school, external_school_affiliation')
@@ -141,12 +157,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Build conditionally so callers can update a subset of fields without
     // accidentally nulling the others. A field is only written when its key
-    // is present in the body — explicit `''` still nulls (intentional clear),
-    // but omission preserves the existing value.
+    // is present in the body — for name/school fields explicit `''` still
+    // nulls (intentional clear), but omission preserves the existing value.
+    // Email is the exception: presence is validated above, so by here
+    // `trimmedEmail` is always a non-empty, well-formed address.
     const updateData: Record<string, unknown> = {};
     if (first_name !== undefined) updateData.first_name = first_name?.trim() || null;
     if (last_name !== undefined) updateData.last_name = last_name?.trim() || null;
-    if (email !== undefined) updateData.email = email?.trim();
+    if (hasEmail) updateData.email = trimmedEmail;
     if (external_school_affiliation !== undefined) {
       updateData.external_school_affiliation = external_school_affiliation || null;
     }
@@ -174,10 +192,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // `.claude/plans/i-want-you-to-precious-riddle.md`. Be aware this is
     // an account-takeover capability inside the school scope (combined
     // with reset-password). Tightening requires product approval.
-    if (email) {
+    if (hasEmail) {
       const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
         userId,
-        { email: email.trim() }
+        { email: trimmedEmail }
       );
 
       if (authUpdateError) {
@@ -217,8 +235,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // within their school scope. Only fields actually mutated by this
     // request are recorded; omitted body keys do not appear in the audit.
     const updatedFields: Record<string, unknown> = {};
-    if ('email' in updateData && email && email !== currentEmail) {
-      updatedFields.email = { from: currentEmail, to: email };
+    if ('email' in updateData && trimmedEmail !== currentEmail) {
+      updatedFields.email = { from: currentEmail, to: trimmedEmail };
     }
     if ('first_name' in updateData) updatedFields.first_name = first_name;
     if ('last_name' in updateData) updatedFields.last_name = last_name;

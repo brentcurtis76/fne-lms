@@ -57,10 +57,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(403).json({ error: 'No autorizado para eliminar este usuario' });
       }
 
-      // TOCTOU: this user_roles read is a point-in-time check. A concurrent
-      // role grant landing between this gate and the cascade/write below could
-      // allow a global-role escalation to slip through. The practical
-      // mitigation is that role assignment is restricted to admin tooling.
+      // Note: this is a TOCTOU read. Concurrent role grants between this
+      // check and the cascade/write below could let a global-role escalation
+      // slip through. Both admin and equipo_directivo can reach this code
+      // path, widening the exposure beyond admin-only tooling. A future
+      // hardening (DB-level partial unique index on user_roles or a Postgres
+      // function that combines the check + write atomically) is tracked as a
+      // PR follow-up.
       // Defense-in-depth: reject if the target holds ANY active role outside
       // SCHOOL_SCOPED_ROLES (admin/consultor/supervisor_de_red/community_manager).
       // The read-path filter already hides such users; this prevents an ED

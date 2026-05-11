@@ -253,6 +253,50 @@ describe('admin/assign-role — admin path', () => {
     expect(tracker.fromCalls.filter((c) => c.table === 'schools')).toHaveLength(0);
   });
 
+  it('admin: assigning "consultor" with body.schoolId=42 → user_roles.school_id is null (global role normalization)', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        { user_roles: [{ data: { id: ROLE_ROW_ID }, error: null }] },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { targetUserId: TARGET_USER_ID, roleType: 'consultor', schoolId: ED_SCHOOL_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const payload = findInsertPayload(tracker, 'user_roles') as Record<string, unknown>;
+    expect(payload.role_type).toBe('consultor');
+    expect(payload.school_id).toBeNull();
+  });
+
+  it('admin: assigning "admin" with body.schoolId=42 → user_roles.school_id is null', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        { user_roles: [{ data: { id: ROLE_ROW_ID }, error: null }] },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { targetUserId: TARGET_USER_ID, roleType: 'admin', schoolId: ED_SCHOOL_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const payload = findInsertPayload(tracker, 'user_roles') as Record<string, unknown>;
+    expect(payload.role_type).toBe('admin');
+    expect(payload.school_id).toBeNull();
+  });
+
   it('admin can assign "docente" — inserts role and updates profile school_id', async () => {
     setupAdmin();
     const tracker = makeTracker();

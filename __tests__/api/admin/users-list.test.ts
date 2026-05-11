@@ -161,8 +161,12 @@ function setupWrongRole() {
  * Covers: profiles main query, 3 summary counts, schools list, user_roles,
  * consultant_assignments (consultant + student), course_assignments,
  * learning_path_assignments. With empty rolesData no community paths run.
+ *
+ * For ED scope, pass `isEd = true` so an extra profiles slot is prepended for
+ * the in-school user_ids pre-fetch (Phase 15.7 perf: global-role check scoped
+ * to in-school users instead of scanning the whole tenant).
  */
-function stockHappyPath(schoolId: number, tracker: Tracker) {
+function stockHappyPath(schoolId: number, tracker: Tracker, isEd = false) {
   const profile = {
     id: 'user-1',
     email: 'u1@example.com',
@@ -176,15 +180,25 @@ function stockHappyPath(schoolId: number, tracker: Tracker) {
     school: { id: schoolId, name: `School ${schoolId}` },
   };
 
+  const profileSlots = isEd
+    ? [
+        { data: [{ id: profile.id }] }, // in-school user_ids pre-fetch
+        { data: [profile], count: 1 },
+        { count: 1 },
+        { count: 0 },
+        { count: 1 },
+      ]
+    : [
+        { data: [profile], count: 1 },
+        { count: 1 },
+        { count: 0 },
+        { count: 1 },
+      ];
+
   mockCreateServiceRoleClient.mockReturnValueOnce(
     buildSequencedClient(
       {
-        profiles: [
-          { data: [profile], count: 1 },
-          { count: 1 },
-          { count: 0 },
-          { count: 1 },
-        ],
+        profiles: profileSlots,
         schools: [{ data: [{ id: schoolId, name: `School ${schoolId}` }] }],
         // For ED scope the handler issues two user_roles SELECTs:
         //   [0] pre-fetch of users with active global (non-school-scoped) roles
@@ -241,21 +255,24 @@ describe('admin/users — GET (school scoping)', () => {
   it('ED with no schoolId param: profiles, summaries, schools, and user_roles are scoped to edSchoolId', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
-    stockHappyPath(ED_SCHOOL_ID, tracker);
+    stockHappyPath(ED_SCHOOL_ID, tracker, true);
 
     const { req, res } = createMocks({ method: 'GET' });
     await handler(req as never, res as never);
 
     expect(res._getStatusCode()).toBe(200);
 
+    // ED scope: profiles index 0 is the in-school user_ids pre-fetch
+    // (Phase 15.7 perf). The main paginated query is index 1; summary
+    // counts are indices 2, 3, 4.
     const profilesMain = tracker.fromCalls.find(
-      (c) => c.table === 'profiles' && c.index === 0,
+      (c) => c.table === 'profiles' && c.index === 1,
     )!;
     expect(
       profilesMain.eqs.find((e) => e.col === 'school_id' && e.val === ED_SCHOOL_ID),
     ).toBeDefined();
 
-    for (const idx of [1, 2, 3]) {
+    for (const idx of [2, 3, 4]) {
       const summary = tracker.fromCalls.find(
         (c) => c.table === 'profiles' && c.index === idx,
       )!;
@@ -285,7 +302,7 @@ describe('admin/users — GET (school scoping)', () => {
   it('ED with ?schoolId=<other>: param is ignored, scope is still edSchoolId', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
-    stockHappyPath(ED_SCHOOL_ID, tracker);
+    stockHappyPath(ED_SCHOOL_ID, tracker, true);
 
     const { req, res } = createMocks({
       method: 'GET',
@@ -295,8 +312,10 @@ describe('admin/users — GET (school scoping)', () => {
 
     expect(res._getStatusCode()).toBe(200);
 
+    // ED scope: main paginated query is profiles index 1 (index 0 is the
+    // in-school user_ids pre-fetch).
     const profilesMain = tracker.fromCalls.find(
-      (c) => c.table === 'profiles' && c.index === 0,
+      (c) => c.table === 'profiles' && c.index === 1,
     )!;
     const profileSchoolEqs = profilesMain.eqs.filter((e) => e.col === 'school_id');
     expect(profileSchoolEqs).toHaveLength(1);
@@ -314,7 +333,7 @@ describe('admin/users — GET (school scoping)', () => {
   it('ED with ?schoolId=<own>: same scoping as no param', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
-    stockHappyPath(ED_SCHOOL_ID, tracker);
+    stockHappyPath(ED_SCHOOL_ID, tracker, true);
 
     const { req, res } = createMocks({
       method: 'GET',
@@ -324,8 +343,10 @@ describe('admin/users — GET (school scoping)', () => {
 
     expect(res._getStatusCode()).toBe(200);
 
+    // ED scope: main paginated query is profiles index 1 (index 0 is the
+    // in-school user_ids pre-fetch).
     const profilesMain = tracker.fromCalls.find(
-      (c) => c.table === 'profiles' && c.index === 0,
+      (c) => c.table === 'profiles' && c.index === 1,
     )!;
     expect(
       profilesMain.eqs.find((e) => e.col === 'school_id' && e.val === ED_SCHOOL_ID),
@@ -430,6 +451,9 @@ describe('admin/users — GET (school scoping)', () => {
       buildSequencedClient(
         {
           profiles: [
+            // ED scope (Phase 15.7): [0] = in-school user_ids pre-fetch,
+            // [1] = main paginated query, [2..4] = summary counts.
+            { data: [{ id: 'user-in-school' }] },
             { data: [inSchoolProfile], count: 1 },
             { count: 1 },
             { count: 0 },
@@ -502,6 +526,8 @@ describe('admin/users — GET (school scoping)', () => {
       buildSequencedClient(
         {
           profiles: [
+            // ED scope (Phase 15.7): [0] = in-school user_ids pre-fetch.
+            { data: [{ id: 'user-in-school' }] },
             { data: [inSchoolProfile], count: 1 },
             { count: 1 },
             { count: 0 },
@@ -546,7 +572,7 @@ describe('admin/users — GET (school scoping)', () => {
     // any such assertion would be misleading.
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
-    stockHappyPath(ED_SCHOOL_ID, tracker);
+    stockHappyPath(ED_SCHOOL_ID, tracker, true);
 
     const { req, res } = createMocks({ method: 'GET' });
     await handler(req as never, res as never);
@@ -680,6 +706,8 @@ describe('admin/users — GET (school scoping)', () => {
       buildSequencedClient(
         {
           profiles: [
+            // ED scope (Phase 15.7): [0] = in-school user_ids pre-fetch.
+            { data: [{ id: 'user-in-school' }] },
             { data: [inSchoolProfile], count: 1 },
             { count: 1 },
             { count: 0 },
@@ -745,6 +773,9 @@ describe('admin/users — GET (school scoping)', () => {
       buildSequencedClient(
         {
           profiles: [
+            // ED scope (Phase 15.7): [0] = in-school user_ids pre-fetch,
+            // returning both the visible user and the to-be-excluded user.
+            { data: [{ id: 'user-visible' }, { id: EXCLUDED_USER_ID }] },
             { data: [visibleProfile], count: 1 },
             { count: 1 },
             { count: 0 },
@@ -785,17 +816,27 @@ describe('admin/users — GET (school scoping)', () => {
     expect(clause).toContain('lider_generacion');
     expect(clause).toContain('encargado_licitacion');
 
+    // Phase 15.7 perf: pre-fetch is scoped to in-school user_ids so the
+    // user_roles scan is bounded to O(school) instead of O(tenant).
+    const preFetchUserIdIn = preFetch.ins.find((i) => i.col === 'user_id');
+    expect(preFetchUserIdIn).toBeDefined();
+    expect(preFetchUserIdIn!.vals as string[]).toEqual(
+      expect.arrayContaining(['user-visible', EXCLUDED_USER_ID]),
+    );
+
     // Profiles main query must exclude the global-role holder via .not('id', 'in', ...).
+    // ED scope: main paginated query is profiles index 1 (index 0 is the
+    // in-school user_ids pre-fetch).
     const profilesMain = tracker.fromCalls.find(
-      (c) => c.table === 'profiles' && c.index === 0,
+      (c) => c.table === 'profiles' && c.index === 1,
     )!;
     const notId = profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in');
     expect(notId).toBeDefined();
     expect(String(notId!.val)).toContain(EXCLUDED_USER_ID);
 
     // Summary counts must apply the same exclusion so the displayed totals
-    // line up with the visible list.
-    for (const idx of [1, 2, 3]) {
+    // line up with the visible list. Indices 2, 3, 4 for ED scope.
+    for (const idx of [2, 3, 4]) {
       const summary = tracker.fromCalls.find(
         (c) => c.table === 'profiles' && c.index === idx,
       )!;

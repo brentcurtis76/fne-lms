@@ -54,21 +54,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // must not appear in the ED's list — every write attempt against them
     // would be rejected by the target-role gate (yielding "ghost rows").
     // Pre-fetch their ids so we can exclude them from the profiles query.
+    //
+    // Phase 15.7 perf: scope the global-role check to in-school user_ids
+    // (one extra roundtrip, bounded to O(school)) instead of scanning all
+    // active user_roles in the tenant on every ED list load.
     let edExcludedUserIds: string[] = [];
     if (isEdScope) {
-      const { data: globalRoleHolders, error: globalRoleErr } = await supabaseService
-        .from('user_roles')
-        .select('user_id')
-        .eq('is_active', true)
-        .not('role_type', 'in', `(${SCHOOL_SCOPED_ROLES.join(',')})`);
+      const { data: inSchoolUsers, error: inSchoolErr } = await supabaseService
+        .from('profiles')
+        .select('id')
+        .eq('school_id', edSchoolId);
 
-      if (globalRoleErr) {
-        console.error('[users API] Error fetching global-role holders:', globalRoleErr);
+      if (inSchoolErr) {
+        console.error('[users API] Error fetching in-school user ids:', inSchoolErr);
         return res.status(500).json({ error: 'Error al filtrar usuarios' });
       }
-      edExcludedUserIds = Array.from(
-        new Set((globalRoleHolders ?? []).map((r: any) => r.user_id).filter(Boolean)),
+
+      const inSchoolUserIds = Array.from(
+        new Set((inSchoolUsers ?? []).map((u: any) => u.id).filter(Boolean)),
       );
+
+      if (inSchoolUserIds.length > 0) {
+        const { data: globalRoleHolders, error: globalRoleErr } = await supabaseService
+          .from('user_roles')
+          .select('user_id')
+          .eq('is_active', true)
+          .in('user_id', inSchoolUserIds)
+          .not('role_type', 'in', `(${SCHOOL_SCOPED_ROLES.join(',')})`);
+
+        if (globalRoleErr) {
+          console.error('[users API] Error fetching global-role holders:', globalRoleErr);
+          return res.status(500).json({ error: 'Error al filtrar usuarios' });
+        }
+        edExcludedUserIds = Array.from(
+          new Set((globalRoleHolders ?? []).map((r: any) => r.user_id).filter(Boolean)),
+        );
+      }
     }
 
     let allowedUserIds: string[] | null = null;

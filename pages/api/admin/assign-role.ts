@@ -109,10 +109,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         schoolId = null;
       }
 
-      // TOCTOU: this user_roles read is a point-in-time check. A concurrent
-      // role grant landing between this gate and the role write below could
-      // allow a global-role escalation to slip through. The practical
-      // mitigation is that role assignment is restricted to admin tooling.
+      // Note: this is a TOCTOU read. Concurrent role grants between this
+      // check and the role write below could let a global-role escalation
+      // slip through. Both admin and equipo_directivo can reach this code
+      // path, widening the exposure beyond admin-only tooling. A future
+      // hardening (DB-level partial unique index on user_roles or a Postgres
+      // function that combines the check + write atomically) is tracked as a
+      // PR follow-up.
       // Defense-in-depth: reject if the target holds any active role outside
       // SCHOOL_SCOPED_ROLES (admin/consultor/supervisor_de_red/community_manager).
       const { data: targetRoles, error: rolesLookupError } = await supabaseService
@@ -348,6 +351,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       finalCommunityId = newCommunity.id;
       console.log('[assign-role API] Community created successfully:', { communityId: finalCommunityId });
+    }
+
+    // Mirror the ED-branch normalization at the data layer: roles outside
+    // SCHOOL_SCOPED_ROLES (admin/consultor/community_manager/supervisor_de_red)
+    // must not carry a school_id in the user_roles row, regardless of what
+    // the caller passed. Placed after validateRoleAssignment so that role
+    // requirements (e.g. consultor.requiresSchool) still gate the request,
+    // but the persisted row stays a clean global grant.
+    if (!SCHOOL_SCOPED_ROLES_SET.has(roleType)) {
+      schoolId = null;
     }
 
     // Insert the role assignment

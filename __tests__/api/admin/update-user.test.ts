@@ -858,6 +858,134 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect(rollback.external_school_affiliation).toBe('OldExternal');
   });
 
+  it('admin: omitted fields are preserved — update payload only contains provided keys', async () => {
+    // F1: body with only email; first_name/last_name/external_school_affiliation/school
+    // must NOT appear in the profiles update payload (so they cannot be nulled).
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [
+            {
+              data: {
+                email: 'server@example.com',
+                first_name: 'KeepFirst',
+                last_name: 'KeepLast',
+                school: 'KeepSchool',
+                external_school_affiliation: 'KeepExternal',
+              },
+              error: null,
+            },
+            { data: null, error: null },
+          ],
+          audit_logs: [{ data: null, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: TARGET_USER_ID, email: 'new@example.com' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const profileCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profileCalls).toHaveLength(2);
+    const payload = profileCalls[1].updates[0] as any;
+    expect(payload.email).toBe('new@example.com');
+    expect('first_name' in payload).toBe(false);
+    expect('last_name' in payload).toBe(false);
+    expect('school' in payload).toBe(false);
+    expect('external_school_affiliation' in payload).toBe(false);
+  });
+
+  it("admin: explicit '' nulls the field (and only that field)", async () => {
+    // F1: explicit empty string is an intentional clear, distinct from omission.
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [{ data: null, error: null }],
+          audit_logs: [{ data: null, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: TARGET_USER_ID, first_name: '' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const profileCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profileCalls).toHaveLength(1);
+    const payload = profileCalls[0].updates[0] as any;
+    expect(payload.first_name).toBeNull();
+    expect('last_name' in payload).toBe(false);
+    expect('email' in payload).toBe(false);
+    expect('external_school_affiliation' in payload).toBe(false);
+    expect('school' in payload).toBe(false);
+  });
+
+  it('admin: rollback on auth-update failure restores ONLY fields the forward path mutated', async () => {
+    // F1 follow-up: rollback must mirror updateData. If the body only set email,
+    // first_name/last_name/school/external_school_affiliation must not appear in
+    // the rollback payload — even though previousProfile captured them.
+    setupAdmin();
+    const tracker = makeTracker();
+    const adminClient = buildAdminClient(
+      {
+        profiles: [
+          {
+            data: {
+              email: 'server@example.com',
+              first_name: 'OldFirst',
+              last_name: 'OldLast',
+              school: 'OldSchool',
+              external_school_affiliation: 'OldExternal',
+            },
+            error: null,
+          },
+          { data: null, error: null }, // forward update
+          { data: null, error: null }, // rollback update
+        ],
+      },
+      tracker,
+    );
+    adminClient.auth.admin.updateUserById = vi.fn(
+      async (userId: string, payload: unknown) => {
+        tracker.authUpdates.push({ userId, payload });
+        return { data: null, error: { message: 'auth failed' } };
+      },
+    );
+    mockCreateServiceRoleClient.mockReturnValueOnce(adminClient);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: TARGET_USER_ID, email: 'new@example.com' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(500);
+
+    const profileCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profileCalls).toHaveLength(3);
+    const rollback = profileCalls[2].updates[0] as any;
+    expect(rollback.email).toBe('server@example.com');
+    expect('first_name' in rollback).toBe(false);
+    expect('last_name' in rollback).toBe(false);
+    expect('school' in rollback).toBe(false);
+    expect('external_school_affiliation' in rollback).toBe(false);
+  });
+
   it('missing userId: 400', async () => {
     setupAdmin();
 

@@ -140,13 +140,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
     }
 
-    const updateData: Record<string, unknown> = {
-      first_name: first_name?.trim() || null,
-      last_name: last_name?.trim() || null,
-      email: email?.trim(),
-      external_school_affiliation: external_school_affiliation || null,
-    };
-    if (requesterRole === 'admin') {
+    // Build conditionally so callers can update a subset of fields without
+    // accidentally nulling the others. A field is only written when its key
+    // is present in the body — explicit `''` still nulls (intentional clear),
+    // but omission preserves the existing value.
+    const updateData: Record<string, unknown> = {};
+    if (first_name !== undefined) updateData.first_name = first_name?.trim() || null;
+    if (last_name !== undefined) updateData.last_name = last_name?.trim() || null;
+    if (email !== undefined) updateData.email = email?.trim();
+    if (external_school_affiliation !== undefined) {
+      updateData.external_school_affiliation = external_school_affiliation || null;
+    }
+    if (requesterRole === 'admin' && school !== undefined) {
       updateData.school = school?.trim() || null;
     }
 
@@ -178,24 +183,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (authUpdateError) {
         console.error('Error updating auth email:', authUpdateError);
-        // Rollback ALL mutated fields to the server-fetched prior profile, not
-        // just email. The forward update already wrote first_name/last_name/
-        // external_school_affiliation (and school for admin) with the new
-        // payload; leaving them in place would produce a half-applied edit.
+        // Rollback only the fields the forward path actually mutated, to the
+        // server-fetched prior values. Mirrors the conditional updateData
+        // shape so an unchanged column is never touched.
         if (previousProfile) {
-          const rollbackUpdate: Record<string, unknown> = {
-            email: previousProfile.email,
-            first_name: previousProfile.first_name,
-            last_name: previousProfile.last_name,
-            external_school_affiliation: previousProfile.external_school_affiliation,
-          };
-          if (requesterRole === 'admin') {
-            rollbackUpdate.school = previousProfile.school;
+          const rollbackUpdate: Record<string, unknown> = {};
+          if ('email' in updateData) rollbackUpdate.email = previousProfile.email;
+          if ('first_name' in updateData) rollbackUpdate.first_name = previousProfile.first_name;
+          if ('last_name' in updateData) rollbackUpdate.last_name = previousProfile.last_name;
+          if ('external_school_affiliation' in updateData) {
+            rollbackUpdate.external_school_affiliation = previousProfile.external_school_affiliation;
           }
-          await supabaseAdmin
-            .from('profiles')
-            .update(rollbackUpdate)
-            .eq('id', userId);
+          if ('school' in updateData) rollbackUpdate.school = previousProfile.school;
+          if (Object.keys(rollbackUpdate).length > 0) {
+            await supabaseAdmin
+              .from('profiles')
+              .update(rollbackUpdate)
+              .eq('id', userId);
+          }
         } else {
           await supabaseAdmin
             .from('profiles')
@@ -210,7 +215,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Log the update in audit_logs. `requester_role` distinguishes
     // admin-initiated changes from ED-initiated changes — important because
     // ED can perform account-takeover operations (email + password reset)
-    // within their school scope.
+    // within their school scope. Only fields actually mutated by this
+    // request are recorded; omitted body keys do not appear in the audit.
+    const updatedFields: Record<string, unknown> = {};
+    if ('email' in updateData && email && email !== currentEmail) {
+      updatedFields.email = { from: currentEmail, to: email };
+    }
+    if ('first_name' in updateData) updatedFields.first_name = first_name;
+    if ('last_name' in updateData) updatedFields.last_name = last_name;
+    if ('school' in updateData) updatedFields.school = school;
+    if ('external_school_affiliation' in updateData) {
+      updatedFields.external_school_affiliation = external_school_affiliation;
+    }
+
     await supabaseAdmin
       .from('audit_logs')
       .insert({
@@ -221,13 +238,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         details: {
           requester_role: requesterRole,
           requester_user_id: requestingUser.id,
-          updated_fields: {
-            email: email && email !== currentEmail ? { from: currentEmail, to: email } : undefined,
-            first_name,
-            last_name,
-            school: requesterRole === 'admin' ? school : undefined,
-            external_school_affiliation,
-          },
+          updated_fields: updatedFields,
         },
       });
 

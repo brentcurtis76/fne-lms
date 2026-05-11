@@ -7,6 +7,14 @@ import { SCHOOL_SCOPED_ROLES } from '../../../utils/roleUtils';
 
 const ROLE_PRIORITY = ['admin','consultor','equipo_directivo','supervisor_de_red','community_manager','lider_generacion','lider_comunidad','docente','encargado_licitacion'];
 
+// PostgREST `in`/`not.in` filters expect a parenthesized list. Quoting each
+// value is the documented-safe form: it survives values that contain commas,
+// parens, or quotes — even though the values we currently pass (UUIDs, role
+// type identifiers) never do. supabase-js's `.not()` is pure string interp,
+// so the typed array form is not available here.
+const toQuotedInList = (values: readonly string[]): string =>
+  `(${values.map((v) => `"${v}"`).join(',')})`;
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -80,7 +88,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .select('user_id')
           .eq('is_active', true)
           .in('user_id', inSchoolUserIds)
-          .not('role_type', 'in', `(${SCHOOL_SCOPED_ROLES.join(',')})`);
+          .not('role_type', 'in', toQuotedInList(SCHOOL_SCOPED_ROLES));
 
         if (globalRoleErr) {
           console.error('[users API] Error fetching global-role holders:', globalRoleErr);
@@ -138,11 +146,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (isEdScope && edExcludedUserIds.length > 0) {
-      profileQuery = profileQuery.not(
-        'id',
-        'in',
-        `(${edExcludedUserIds.join(',')})`,
-      );
+      profileQuery = profileQuery.not('id', 'in', toQuotedInList(edExcludedUserIds));
     }
 
     const { data: profiles, count, error: profilesError } = await profileQuery;
@@ -176,7 +180,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       schoolsQuery = schoolsQuery.eq('id', edSchoolNum);
 
       if (edExcludedUserIds.length > 0) {
-        const excludedClause = `(${edExcludedUserIds.join(',')})`;
+        const excludedClause = toQuotedInList(edExcludedUserIds);
         totalCountQuery = totalCountQuery.not('id', 'in', excludedClause);
         pendingCountQuery = pendingCountQuery.not('id', 'in', excludedClause);
         approvedCountQuery = approvedCountQuery.not('id', 'in', excludedClause);

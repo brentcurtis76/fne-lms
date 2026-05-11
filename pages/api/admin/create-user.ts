@@ -1,6 +1,22 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient, isValidSchoolIdInput } from '../../../lib/api-auth';
 import { ED_ASSIGNABLE_ROLES, SCHOOL_SCOPED_ROLES_SET } from '../../../utils/roleUtils';
+import type { UserRoleType } from '../../../types/roles';
+
+// Mirrors assign-role.ts's canonical role list. Any role outside this set is
+// rejected at the API boundary regardless of requester, so junk role strings
+// can never reach user_metadata.role or user_roles.role_type.
+const VALID_ROLES: readonly UserRoleType[] = [
+  'admin',
+  'consultor',
+  'equipo_directivo',
+  'lider_generacion',
+  'lider_comunidad',
+  'community_manager',
+  'docente',
+  'supervisor_de_red',
+  'encargado_licitacion',
+];
 
 export default async function handler(
   req: NextApiRequest,
@@ -33,6 +49,13 @@ export default async function handler(
     }
 
     const resolvedRole: string = bodyRole || 'docente';
+
+    // Canonical role allow-list — mirrors assign-role.ts. Runs before
+    // requester-specific checks so a junk role like 'superman' is rejected
+    // for both admin and ED with a single, actionable 400.
+    if (!(VALID_ROLES as readonly string[]).includes(resolvedRole)) {
+      return res.status(400).json({ error: 'Rol inválido' });
+    }
 
     // ED role-assignability is checked BEFORE schoolId shape validation so a
     // misdirected request (e.g. role='admin' + schoolId='abc') returns the

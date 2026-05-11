@@ -437,6 +437,22 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
+  it("admin with role='superman' (invalid): 400 with 'Rol inválido'", async () => {
+    // F3: canonical role allow-list. Junk roles must never reach
+    // user_metadata.role or user_roles.role_type, regardless of requester.
+    setupAdmin();
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: bodyFor('superman', OTHER_SCHOOL_ID),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({ error: 'Rol inválido' });
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
+
   it('unauthenticated: 401', async () => {
     setupUnauthenticated();
 

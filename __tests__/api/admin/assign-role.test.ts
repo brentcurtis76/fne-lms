@@ -344,6 +344,32 @@ describe('admin/assign-role — admin path', () => {
     });
   });
 
+  // F2: shared schoolId shape validation applies to the admin path too —
+  // malformed/non-numeric/zero/negative inputs must 400 before any DB write.
+  it.each([
+    ['string non-numeric', 'abc'],
+    ['negative integer', -1],
+    ['zero integer', 0],
+  ] as const)(
+    'admin with invalid schoolId (%s) → 400 "schoolId inválido", no inserts',
+    async (_label, badSchoolId) => {
+      setupAdmin();
+      const tracker = makeTracker();
+      mockCreateServiceRoleClient.mockReturnValueOnce(buildClient({}, tracker));
+
+      const { req, res } = createMocks({
+        method: 'POST',
+        body: { targetUserId: TARGET_USER_ID, roleType: 'docente', schoolId: badSchoolId },
+      });
+      await handler(req as never, res as never);
+
+      expect(res._getStatusCode()).toBe(400);
+      expect(res._getJSONData()).toEqual({ error: 'schoolId inválido' });
+      expect(countInserts(tracker, 'user_roles')).toBe(0);
+      expect(countInserts(tracker, 'growth_communities')).toBe(0);
+    },
+  );
+
   it('admin assigning "lider_comunidad" auto-creates a community with school_id', async () => {
     setupAdmin();
     const tracker = makeTracker();

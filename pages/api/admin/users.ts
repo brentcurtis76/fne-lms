@@ -7,6 +7,21 @@ import { SCHOOL_SCOPED_ROLES } from '../../../utils/roleUtils';
 
 const ROLE_PRIORITY = ['admin','consultor','equipo_directivo','supervisor_de_red','community_manager','lider_generacion','lider_comunidad','docente','encargado_licitacion'];
 
+// Cap on how many user_ids we send in a single `.in()` or `.not('id', 'in', ...)`
+// call. PostgREST encodes these as URL filters; large schools (250+ in-school
+// users) can otherwise push the request URL past common proxy / load-balancer
+// limits (~8KB) and trigger 414s or truncated filters. Chunking keeps every
+// outbound request bounded.
+const USER_ID_BATCH = 100;
+
+const chunkIds = <T>(values: readonly T[], size: number): T[][] => {
+  const out: T[][] = [];
+  for (let i = 0; i < values.length; i += size) {
+    out.push(values.slice(i, i + size));
+  }
+  return out;
+};
+
 // PostgREST `in`/`not.in` filters expect a parenthesized list. Quoting each
 // value is the documented-safe form: it survives values that contain commas,
 // parens, or quotes — even though the values we currently pass (UUIDs, role
@@ -107,16 +122,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const inSchoolUserIds = Array.from(new Set(collectedIds));
 
       if (inSchoolUserIds.length > 0) {
-        const { data: globalRoleHolders, error: globalRoleErr } = await supabaseService
-          .from('user_roles')
-          .select('user_id')
-          .eq('is_active', true)
-          .in('user_id', inSchoolUserIds)
-          .not('role_type', 'in', toQuotedInList(SCHOOL_SCOPED_ROLES));
+        // F1 URL-length scalability: chunk `.in('user_id', ...)` so the encoded
+        // filter never exceeds USER_ID_BATCH ids per request. A school with
+        // 250 users issues 3 batches per leg (100/100/50). Results from each
+        // batch fold into a single excluded-user Set.
+        const excludedSet = new Set<string>();
+        const inSchoolIdBatches = chunkIds(inSchoolUserIds, USER_ID_BATCH);
 
-        if (globalRoleErr) {
-          console.error('[users API] Error fetching global-role holders:', globalRoleErr);
-          return res.status(500).json({ error: 'Error al filtrar usuarios' });
+        for (const idBatch of inSchoolIdBatches) {
+          const { data: globalRoleHolders, error: globalRoleErr } = await supabaseService
+            .from('user_roles')
+            .select('user_id')
+            .eq('is_active', true)
+            .in('user_id', idBatch)
+            .not('role_type', 'in', toQuotedInList(SCHOOL_SCOPED_ROLES));
+
+          if (globalRoleErr) {
+            console.error('[users API] Error fetching global-role holders:', globalRoleErr);
+            return res.status(500).json({ error: 'Error al filtrar usuarios' });
+          }
+
+          for (const row of globalRoleHolders ?? []) {
+            if ((row as any).user_id) excludedSet.add((row as any).user_id);
+          }
         }
 
         // F1 second leg: a user with profile.school_id = edSchoolId may still
@@ -126,26 +154,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // target gate, so the row would be a ghost. `not.eq` already excludes
         // NULL school_id rows (NULL <> x is NULL in SQL → not selected), so
         // null-school rows are not mistakenly flagged here.
-        const { data: crossSchoolRoleHolders, error: crossSchoolErr } = await supabaseService
-          .from('user_roles')
-          .select('user_id')
-          .eq('is_active', true)
-          .in('user_id', inSchoolUserIds)
-          .in('role_type', SCHOOL_SCOPED_ROLES as readonly string[])
-          .not('school_id', 'eq', edSchoolId);
+        for (const idBatch of inSchoolIdBatches) {
+          const { data: crossSchoolRoleHolders, error: crossSchoolErr } = await supabaseService
+            .from('user_roles')
+            .select('user_id')
+            .eq('is_active', true)
+            .in('user_id', idBatch)
+            .in('role_type', SCHOOL_SCOPED_ROLES as readonly string[])
+            .not('school_id', 'eq', edSchoolId);
 
-        if (crossSchoolErr) {
-          console.error('[users API] Error fetching cross-school role holders:', crossSchoolErr);
-          return res.status(500).json({ error: 'Error al filtrar usuarios' });
+          if (crossSchoolErr) {
+            console.error('[users API] Error fetching cross-school role holders:', crossSchoolErr);
+            return res.status(500).json({ error: 'Error al filtrar usuarios' });
+          }
+
+          for (const row of crossSchoolRoleHolders ?? []) {
+            if ((row as any).user_id) excludedSet.add((row as any).user_id);
+          }
         }
 
-        const excludedSet = new Set<string>();
-        for (const row of globalRoleHolders ?? []) {
-          if ((row as any).user_id) excludedSet.add((row as any).user_id);
-        }
-        for (const row of crossSchoolRoleHolders ?? []) {
-          if ((row as any).user_id) excludedSet.add((row as any).user_id);
-        }
         edExcludedUserIds = Array.from(excludedSet);
       }
     }
@@ -195,8 +222,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       profileQuery = profileQuery.in('id', allowedUserIds);
     }
 
-    if (isEdScope && edExcludedUserIds.length > 0) {
-      profileQuery = profileQuery.not('id', 'in', toQuotedInList(edExcludedUserIds));
+    // Chunk the exclusion the same way as the prefetch legs: chained `.not()`
+    // filters AND together (NOT IN A AND NOT IN B === NOT IN A∪B), so a large
+    // excluded set still fits well under URL limits while preserving semantics.
+    const excludedClauseChunks = isEdScope
+      ? chunkIds(edExcludedUserIds, USER_ID_BATCH).map(toQuotedInList)
+      : [];
+
+    if (isEdScope && excludedClauseChunks.length > 0) {
+      for (const clause of excludedClauseChunks) {
+        profileQuery = profileQuery.not('id', 'in', clause);
+      }
     }
 
     const { data: profiles, count, error: profilesError } = await profileQuery;
@@ -229,11 +265,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       approvedCountQuery = approvedCountQuery.eq('school_id', edSchoolNum);
       schoolsQuery = schoolsQuery.eq('id', edSchoolNum);
 
-      if (edExcludedUserIds.length > 0) {
-        const excludedClause = toQuotedInList(edExcludedUserIds);
-        totalCountQuery = totalCountQuery.not('id', 'in', excludedClause);
-        pendingCountQuery = pendingCountQuery.not('id', 'in', excludedClause);
-        approvedCountQuery = approvedCountQuery.not('id', 'in', excludedClause);
+      for (const clause of excludedClauseChunks) {
+        totalCountQuery = totalCountQuery.not('id', 'in', clause);
+        pendingCountQuery = pendingCountQuery.not('id', 'in', clause);
+        approvedCountQuery = approvedCountQuery.not('id', 'in', clause);
       }
     }
 

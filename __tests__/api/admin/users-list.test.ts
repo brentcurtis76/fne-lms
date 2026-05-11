@@ -931,11 +931,14 @@ describe('admin/users — GET (school scoping)', () => {
             { count: 1 },
           ],
           schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
-          // [0] global-role pre-fetch flags the page-2 user.
-          // [1] cross-school pre-fetch (empty). [2] main roles.
+          // After F1 URL-length chunking, 1002 in-school ids → 11 global-role
+          // batches (100*10 + 2) + 11 cross-school batches + 1 main roles.
+          // The page-2 excluded user lands on the 11th global batch (the
+          // partial batch holding both PAGE2 ids).
           user_roles: [
+            ...Array.from({ length: 10 }, () => ({ data: [] as unknown[] })),
             { data: [{ user_id: PAGE2_EXCLUDED }] },
-            { data: [] },
+            ...Array.from({ length: 11 }, () => ({ data: [] as unknown[] })),
             { data: [] },
           ],
           consultant_assignments: [{ data: [] }, { data: [] }],
@@ -956,15 +959,20 @@ describe('admin/users — GET (school scoping)', () => {
     expect(profilesCalls[0].ranges).toEqual([{ from: 0, to: 999 }]);
     expect(profilesCalls[1].ranges).toEqual([{ from: 1000, to: 1999 }]);
 
-    // Global-role pre-fetch must use the *full* collected id list (both pages).
+    // Global-role pre-fetch must cover the *full* collected id list across all
+    // chunked batches (both pages × USER_ID_BATCH=100 → 11 batches).
     const userRolesCalls = tracker.fromCalls.filter((c) => c.table === 'user_roles');
-    const preFetch = userRolesCalls[0];
-    const userIdIn = preFetch.ins.find((i) => i.col === 'user_id');
-    expect(userIdIn).toBeDefined();
-    const idsPassed = userIdIn!.vals as string[];
+    const globalBatches = userRolesCalls.slice(0, 11);
+    const idsPassed = globalBatches.flatMap(
+      (c) => (c.ins.find((i) => i.col === 'user_id')?.vals as string[]) ?? [],
+    );
     expect(idsPassed).toContain(PAGE2_EXCLUDED);
     expect(idsPassed).toContain(PAGE2_VISIBLE);
     expect(idsPassed.length).toBe(PAGE1_IDS.length + 2);
+    for (const batch of globalBatches) {
+      const batchIds = batch.ins.find((i) => i.col === 'user_id')!.vals as string[];
+      expect(batchIds.length).toBeLessThanOrEqual(100);
+    }
 
     // Main profiles query (index 2 in ED+paginated scope) excludes the
     // page-2 global-role holder via .not('id', 'in', ...).
@@ -1248,6 +1256,117 @@ describe('admin/users — GET (school scoping)', () => {
     // Ranges remain contiguous and non-overlapping across pages.
     expect(profilesCalls[0].ranges).toEqual([{ from: 0, to: 999 }]);
     expect(profilesCalls[1].ranges).toEqual([{ from: 1000, to: 1999 }]);
+  });
+
+  it('ED (F1 URL-length): both ED-only user_roles prefetch legs are chunked at 100 ids/call, so 250 in-school users yield 3 global + 3 cross-school batches with slices 100/100/50', async () => {
+    // PostgREST encodes `.in()` filters as URL query params. Large schools
+    // would otherwise push request URLs past proxy/load-balancer limits and
+    // trigger 414s or truncated filters. The handler must chunk both ED-only
+    // legs (global-role and cross-school) at USER_ID_BATCH=100.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    const IN_SCHOOL_IDS = Array.from({ length: 250 }, (_, i) =>
+      `eeeeeeee-eeee-4eee-8eee-${String(i).padStart(12, '0')}`,
+    );
+
+    const visibleProfile = {
+      id: IN_SCHOOL_IDS[0],
+      email: 'visible@example.com',
+      first_name: 'Visible',
+      last_name: 'User',
+      school_id: ED_SCHOOL_ID,
+      approval_status: 'approved',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+    };
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            // [0] in-school user_ids pre-fetch — 250 ids fit in one PostgREST
+            // page (cap is 1000), so the prefetch loop runs once.
+            { data: IN_SCHOOL_IDS.map((id) => ({ id })) },
+            // [1] main paginated query.
+            { data: [visibleProfile], count: 1 },
+            // [2..4] summary counts.
+            { count: 1 },
+            { count: 0 },
+            { count: 1 },
+          ],
+          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+          // 3 global batches + 3 cross-school batches + 1 main roles query.
+          user_roles: [
+            { data: [] }, { data: [] }, { data: [] },
+            { data: [] }, { data: [] }, { data: [] },
+            { data: [] },
+          ],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const userRolesCalls = tracker.fromCalls.filter((c) => c.table === 'user_roles');
+    // 3 global + 3 cross-school + 1 main = 7 user_roles calls.
+    expect(userRolesCalls).toHaveLength(7);
+
+    // Verify the global-role prefetch leg (first 3 calls).
+    const globalBatches = userRolesCalls.slice(0, 3);
+    for (const call of globalBatches) {
+      expect(call.eqs).toContainEqual({ col: 'is_active', val: true });
+      expect(
+        call.nots.find((n) => n.col === 'role_type' && n.op === 'in'),
+      ).toBeDefined();
+      const userIdIn = call.ins.find((i) => i.col === 'user_id');
+      expect(userIdIn).toBeDefined();
+      expect((userIdIn!.vals as string[]).length).toBeLessThanOrEqual(100);
+    }
+    const globalSlices = globalBatches.map(
+      (c) => (c.ins.find((i) => i.col === 'user_id')!.vals as string[]).length,
+    );
+    expect(globalSlices).toEqual([100, 100, 50]);
+
+    // Verify the cross-school prefetch leg (next 3 calls).
+    const crossBatches = userRolesCalls.slice(3, 6);
+    for (const call of crossBatches) {
+      expect(call.eqs).toContainEqual({ col: 'is_active', val: true });
+      const roleTypeIn = call.ins.find((i) => i.col === 'role_type');
+      expect(roleTypeIn).toBeDefined();
+      expect(roleTypeIn!.vals as string[]).toEqual(
+        expect.arrayContaining(['docente']),
+      );
+      expect(
+        call.nots.find((n) => n.col === 'school_id' && n.op === 'eq'),
+      ).toBeDefined();
+      const userIdIn = call.ins.find((i) => i.col === 'user_id');
+      expect(userIdIn).toBeDefined();
+      expect((userIdIn!.vals as string[]).length).toBeLessThanOrEqual(100);
+    }
+    const crossSlices = crossBatches.map(
+      (c) => (c.ins.find((i) => i.col === 'user_id')!.vals as string[]).length,
+    );
+    expect(crossSlices).toEqual([100, 100, 50]);
+
+    // Slices in order cover the full id list exactly once per leg.
+    const globalCovered = globalBatches.flatMap(
+      (c) => c.ins.find((i) => i.col === 'user_id')!.vals as string[],
+    );
+    expect(globalCovered).toEqual(IN_SCHOOL_IDS);
+    const crossCovered = crossBatches.flatMap(
+      (c) => c.ins.find((i) => i.col === 'user_id')!.vals as string[],
+    );
+    expect(crossCovered).toEqual(IN_SCHOOL_IDS);
   });
 
 });

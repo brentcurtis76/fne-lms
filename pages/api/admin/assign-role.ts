@@ -60,6 +60,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Invalid role type' });
     }
 
+    // Shared schoolId shape validation: applies to BOTH admin and ED paths so
+    // malformed/non-numeric/zero/negative values are rejected uniformly with
+    // 400 before any downstream logic. ED branch still enforces the
+    // cross-school comparison after this guard.
+    if (schoolId !== undefined && schoolId !== null && schoolId !== '') {
+      if (!isValidSchoolIdInput(schoolId)) {
+        return res.status(400).json({ error: 'schoolId inválido' });
+      }
+    }
+
     // FK sanitization (applies to both admin and ED paths): only the matching
     // role type can carry these FK fields downstream. Stray IDs on unrelated
     // roles (e.g. docente) are nulled here so they cannot leak into
@@ -84,13 +94,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(403).json({ error: 'Role not assignable by equipo_directivo' });
       }
 
-      // Validate body schoolId before any cross-school comparison so that
-      // malformed/negative inputs return 400 instead of being mis-routed
-      // through the 403 cross-school gates below.
+      // Cross-school check (shape validation is enforced earlier for both
+      // admin and ED paths). Body schoolId, when present and valid, must
+      // match the ED's own schoolId.
       if (schoolId !== undefined && schoolId !== null && schoolId !== '') {
-        if (!isValidSchoolIdInput(schoolId)) {
-          return res.status(400).json({ error: 'schoolId inválido' });
-        }
         if (Number(schoolId) !== edSchoolId) {
           return res.status(403).json({ error: 'No se puede asignar rol en otro colegio' });
         }

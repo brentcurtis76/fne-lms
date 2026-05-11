@@ -1019,6 +1019,163 @@ describe('admin/users — GET (school scoping)', () => {
     expect(body.summary.total).toBe(123);
   });
 
+  it('ED (0-excluded path) with status=pending: `total` equals filtered DB count, not unfiltered summary.total', async () => {
+    // Phase 15.23 regression: with zero ghost users, `useSqlExclusion` and
+    // `useClientFallback` are both false, so the response `total` must come
+    // from the filtered DB `count` (which already reflects ?status=pending),
+    // not from `summary.total` (the in-memory in-school count that ignores
+    // the status filter). Previously the handler returned `summary.total`
+    // here, inflating pagination when filters were active.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    // 10 in-school users: 3 pending, 7 approved. None are ghosts.
+    const IN_SCHOOL = [
+      ...Array.from({ length: 3 }, (_, i) => ({
+        id: `pppppppp-pppp-4ppp-8ppp-${String(i).padStart(12, '0')}`,
+        approval_status: 'pending',
+      })),
+      ...Array.from({ length: 7 }, (_, i) => ({
+        id: `aaaaaaaa-aaaa-4aaa-8aaa-${String(i).padStart(12, '0')}`,
+        approval_status: 'approved',
+      })),
+    ];
+
+    const pendingProfiles = IN_SCHOOL.filter((u) => u.approval_status === 'pending').map(
+      (u) => ({
+        id: u.id,
+        email: `${u.id}@example.com`,
+        first_name: 'Pending',
+        last_name: u.id.slice(-4),
+        school_id: ED_SCHOOL_ID,
+        approval_status: 'pending',
+        created_at: '2026-01-01T00:00:00Z',
+        external_school_affiliation: null,
+        can_run_qa_tests: false,
+        school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+      }),
+    );
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            // [0] in-school prefetch — 10 users with approval_status.
+            { data: IN_SCHOOL },
+            // [1] main paginated query — server-side ?status=pending filter
+            // applied, so PostgREST returns the 3 pending rows and count=3.
+            { data: pendingProfiles, count: 3 },
+          ],
+          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+          // [0] global-role prefetch (empty — no ghosts).
+          // [1] cross-school prefetch (empty — no ghosts).
+          // [2] main user_roles for returned profiles.
+          user_roles: [{ data: [] }, { data: [] }, { data: [] }],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'GET', query: { status: 'pending' } });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    // 0-excluded path: no scoped count queries are issued — prefetch + main = 2.
+    const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profilesCalls).toHaveLength(2);
+
+    // Main profiles query applied the status filter and was NOT decorated
+    // with any `.not('id', 'in', ...)` exclusion clause.
+    const profilesMain = profilesCalls[1];
+    expect(
+      profilesMain.eqs.find((e) => e.col === 'approval_status' && e.val === 'pending'),
+    ).toBeDefined();
+    expect(profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in')).toBeUndefined();
+
+    const body = JSON.parse(res._getData());
+    // `total` must equal the filtered DB `count` (3 pending), not the
+    // unfiltered in-school summary total (10).
+    expect(body.total).toBe(3);
+    expect(body.summary.total).toBe(10);
+    expect(body.total).not.toBe(body.summary.total);
+    expect(body.users).toHaveLength(3);
+  });
+
+  it('ED (0-excluded path) with search filter: `total` equals filtered DB count, not unfiltered summary.total', async () => {
+    // Phase 15.23: same guarantee as the status-filter case but driven by a
+    // ?search= query parameter. The filtered DB `count` reflects the
+    // ilike-matched row count and is the correct pagination total; the
+    // unfiltered in-memory summary must not leak through.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    // 8 in-school users, none ghosts. Only 2 match the search term in the
+    // simulated DB response.
+    const IN_SCHOOL = Array.from({ length: 8 }, (_, i) => ({
+      id: `ssssssss-ssss-4sss-8sss-${String(i).padStart(12, '0')}`,
+      approval_status: i < 5 ? 'approved' : 'pending',
+    }));
+
+    const matchedProfiles = IN_SCHOOL.slice(0, 2).map((u) => ({
+      id: u.id,
+      email: `alice-${u.id.slice(-4)}@example.com`,
+      first_name: 'Alice',
+      last_name: u.id.slice(-4),
+      school_id: ED_SCHOOL_ID,
+      approval_status: u.approval_status,
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+    }));
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            // [0] in-school prefetch — 8 users with approval_status.
+            { data: IN_SCHOOL },
+            // [1] main paginated query — server-side ilike search applied,
+            // PostgREST returns 2 matching rows and count=2.
+            { data: matchedProfiles, count: 2 },
+          ],
+          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+          user_roles: [{ data: [] }, { data: [] }, { data: [] }],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'GET', query: { search: 'alice' } });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    // 0-excluded path: prefetch + main = 2 profiles calls; no scoped counts.
+    const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profilesCalls).toHaveLength(2);
+
+    // Main query recorded the search `.or(...)` and NO id-exclusion clause.
+    const profilesMain = profilesCalls[1];
+    expect(profilesMain.ors.some((expr) => expr.includes('alice'))).toBe(true);
+    expect(profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in')).toBeUndefined();
+
+    const body = JSON.parse(res._getData());
+    // `total` must equal the filtered DB `count` (2 matches), not the
+    // unfiltered in-school summary total (8).
+    expect(body.total).toBe(2);
+    expect(body.summary.total).toBe(8);
+    expect(body.total).not.toBe(body.summary.total);
+    expect(body.users).toHaveLength(2);
+  });
+
   it('ED (F1 SQL path): multi-page prefetch still collects all in-school ids and SQL exclusion is applied on the main query', async () => {
     // Forces multi-page prefetch (1002 in-school users) with one ghost. The
     // collected exclusion list (size 1) is well under MAX_EXCLUDED_FOR_SQL=100,

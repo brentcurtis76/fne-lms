@@ -222,13 +222,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // pagination offsets aligned with the visible result set and lets
     // `count: 'exact'` return the post-exclusion total. Above the threshold,
     // encoded URL filters risk 414s, so fall back to fetching the page
-    // unfiltered and dropping ghosts in memory.
-    const useSqlExclusion =
-      isEdScope &&
-      edExcludedUserIds.length >= 1 &&
-      edExcludedUserIds.length <= MAX_EXCLUDED_FOR_SQL;
+    // unfiltered and dropping ghosts in memory. `useClientFallback` is the
+    // single boolean that drives BOTH the exclusion strategy AND the response
+    // `total` source — keeping them derived from one place ensures they stay
+    // in sync (Phase 15.23: a stale ternary previously used `summary.total`
+    // for the ED 0-excluded path, which ignored search/status filters and
+    // inflated pagination).
     const useClientFallback =
       isEdScope && edExcludedUserIds.length > MAX_EXCLUDED_FOR_SQL;
+    const useSqlExclusion =
+      isEdScope && edExcludedUserIds.length >= 1 && !useClientFallback;
 
     if (useClientFallback) {
       console.warn(
@@ -397,9 +400,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (users.length === 0) {
-      const emptyTotal = isEdScope
-        ? (useSqlExclusion ? (count || 0) : summary.total)
-        : (count || 0);
+      // Mirrors the final response total selection below: only the ED
+      // client-side fallback uses `summary.total`; every other path (admin,
+      // ED SQL exclusion, ED 0-excluded) uses the filtered DB `count` so
+      // `total` reflects active search/status filters.
+      const emptyTotal = useClientFallback ? summary.total : (count || 0);
       return res.status(200).json({ page, pageSize, total: emptyTotal, users: [], summary, schools });
     }
 
@@ -658,12 +663,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       pageSize,
       // ED SQL path: `count` comes from PostgREST with the same exclusion
       // applied, so it's already post-exclusion and matches the visible page.
+      // ED 0-excluded path: `count` reflects active search/status filters, so
+      // it's the correct source for `total` (using `summary.total` here would
+      // ignore those filters and inflate pagination — Phase 15.23 fix).
       // ED fallback (>MAX_EXCLUDED_FOR_SQL): the raw `count` over-counts
-      // ghosts, so report `summary.total` (in-memory post-exclusion) instead.
+      // ghosts, so report `summary.total` (in-memory post-exclusion) instead;
+      // pagination is intentionally inexact in this path.
       // Admin path keeps raw `count` (no exclusion is applied).
-      total: isEdScope
-        ? (useSqlExclusion ? (count || 0) : summary.total)
-        : (count || 0),
+      total: useClientFallback ? summary.total : (count || 0),
       users: payload,
       summary,
       schools,

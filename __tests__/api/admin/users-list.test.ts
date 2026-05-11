@@ -1645,7 +1645,8 @@ describe('admin/users — GET (school scoping)', () => {
     // Each page's main profiles query carries the SQL exclusion AND the
     // correct .range offset (page 1: 0-24; page 2: 25-49).
     const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
-    // 2 prefetch + 1 main + 3 counts per request × 2 requests = 12.
+    // Two requests, each producing 5 profile calls
+    // (1 prefetch + 1 main + 3 count queries) = 10 total.
     expect(profilesCalls).toHaveLength(10);
     const page1Main = profilesCalls[1];
     const page2Main = profilesCalls[6];

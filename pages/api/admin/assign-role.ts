@@ -70,6 +70,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       roleType === 'lider_comunidad' && communityId ? String(communityId) : null;
     const sanitizedGenerationId: string | null =
       roleType === 'lider_generacion' && generationId ? String(generationId) : null;
+    // lider_comunidad may consume a generationId in the auto-create branch
+    // (generation-based schools link the new growth_community to a generation),
+    // but the user_roles row for lider_comunidad must keep generation_id null —
+    // that column is reserved for lider_generacion. Kept as a separate variable
+    // so the insert payload uses sanitizedGenerationId while community
+    // auto-create uses this value.
+    const communityAutoCreateGenerationId: string | null =
+      roleType === 'lider_comunidad' && generationId ? String(generationId) : null;
 
     if (requesterRole === 'equipo_directivo') {
       if (!(ED_ASSIGNABLE_ROLES as readonly string[]).includes(roleType)) {
@@ -127,20 +135,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // PR #19 follow-ups as "TOCTOU residual risk hardening (Postgres
       // function or partial unique index)".
       // Defense-in-depth: reject if the target holds any active role outside
-      // SCHOOL_SCOPED_ROLES (admin/consultor/supervisor_de_red/community_manager).
+      // SCHOOL_SCOPED_ROLES (admin/consultor/supervisor_de_red/community_manager),
+      // or any school-scoped active role tied to a different school. The
+      // ED-scope profile check above only covers profiles.school_id; a target
+      // may still hold a stale or cross-school role row whose school_id does
+      // not match the ED's school, so we gate on both shapes here.
       const { data: targetRoles, error: rolesLookupError } = await supabaseService
         .from('user_roles')
-        .select('role_type')
+        .select('role_type, school_id')
         .eq('user_id', targetUserId)
         .eq('is_active', true);
 
       if (rolesLookupError) {
         return res.status(500).json({ error: 'Error verificando roles del usuario' });
       }
-      const hasGlobalRole = (targetRoles ?? []).some(
-        (r: { role_type: string }) => !SCHOOL_SCOPED_ROLES_SET.has(r.role_type),
+      const hasForbiddenRole = (targetRoles ?? []).some(
+        (r: { role_type: string; school_id: number | null }) => {
+          if (!SCHOOL_SCOPED_ROLES_SET.has(r.role_type)) return true;
+          return r.school_id !== null && r.school_id !== edSchoolId;
+        },
       );
-      if (hasGlobalRole) {
+      if (hasForbiddenRole) {
         return res.status(403).json({ error: 'No autorizado para asignar roles a este usuario' });
       }
 
@@ -171,8 +186,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
+      // lider_comunidad also consumes generationId when the school is
+      // generation-based (community auto-create links the new growth_community
+      // to a generation), so the FK gate runs for both roles. The user_roles
+      // row for lider_comunidad still leaves generation_id null further down.
       if (
-        roleType === 'lider_generacion' &&
+        (roleType === 'lider_generacion' || roleType === 'lider_comunidad') &&
         generationId !== undefined &&
         generationId !== null &&
         generationId !== ''
@@ -230,7 +249,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('[assign-role API] Creating community for leader role:', {
         targetUserId,
         schoolId,
-        generationId: sanitizedGenerationId
+        generationId: communityAutoCreateGenerationId
       });
 
       // Get user info for community name
@@ -277,23 +296,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const schoolHasGenerations = schoolData.has_generations === true;
 
-      // Validate generation requirement. Uses sanitized FK value: a
-      // lider_comunidad assignment can never carry a generationId through
-      // sanitization, so on schools that require generations the caller must
-      // either pre-create the community or assign through the lider_generacion
-      // flow first.
-      if (schoolHasGenerations && !sanitizedGenerationId) {
+      // Validate generation requirement. lider_comunidad keeps
+      // user_roles.generation_id null (only lider_generacion owns that column),
+      // so this branch reads communityAutoCreateGenerationId instead — that
+      // variable carries the request generationId for the auto-create flow
+      // when the school is generation-based.
+      if (schoolHasGenerations && !communityAutoCreateGenerationId) {
         return res.status(400).json({
           error: `La escuela "${schoolData.name}" utiliza generaciones. Debe seleccionar una generación para crear la comunidad.`
         });
       }
 
       // Validate generation_id exists if provided
-      if (sanitizedGenerationId) {
+      if (communityAutoCreateGenerationId) {
         const { data: generationData, error: generationError } = await supabaseService
           .from('generations')
           .select('id, name')
-          .eq('id', sanitizedGenerationId)
+          .eq('id', communityAutoCreateGenerationId)
           .eq('school_id', schoolId)
           .single();
 
@@ -310,7 +329,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const communityData = {
         name: communityName,
         school_id: schoolId,
-        generation_id: sanitizedGenerationId
+        generation_id: communityAutoCreateGenerationId
       };
 
       console.log('[assign-role API] Community insert data:', communityData);

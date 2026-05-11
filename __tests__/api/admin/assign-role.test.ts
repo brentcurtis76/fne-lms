@@ -635,7 +635,7 @@ describe('admin/assign-role — equipo_directivo path', () => {
         buildClient(
           {
             profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
-            user_roles: [{ data: [{ role_type: globalRole }], error: null }],
+            user_roles: [{ data: [{ role_type: globalRole, school_id: null }], error: null }],
           },
           tracker,
         ),
@@ -655,6 +655,75 @@ describe('admin/assign-role — equipo_directivo path', () => {
       expect(countInserts(tracker, 'growth_communities')).toBe(0);
     },
   );
+
+  // F1: even if the target's profiles.school_id matches ED's school, an
+  // active school-scoped role row tied to a different school must reject
+  // the write. Profile and user_roles can diverge (stale or cross-school
+  // role assignment), so this gate is enforced independently.
+  it('ED targeting user with school-scoped role in another school → 403, no inserts', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
+          user_roles: [
+            {
+              data: [{ role_type: 'docente', school_id: OTHER_SCHOOL_ID }],
+              error: null,
+            },
+          ],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { targetUserId: TARGET_USER_ID, roleType: 'docente', schoolId: ED_SCHOOL_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toEqual({
+      error: 'No autorizado para asignar roles a este usuario',
+    });
+    expect(countInserts(tracker, 'user_roles')).toBe(0);
+    expect(countInserts(tracker, 'growth_communities')).toBe(0);
+  });
+
+  // F1 negative: a school-scoped role with a NULL school_id (legacy or
+  // global-stamp row) must NOT trip the cross-school gate; only the
+  // explicit-mismatch case rejects.
+  it('ED targeting user with school-scoped role and null school_id → 200', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          profiles: [
+            { data: { school_id: ED_SCHOOL_ID }, error: null },
+            { data: null, error: null },
+          ],
+          user_roles: [
+            { data: [{ role_type: 'docente', school_id: null }], error: null },
+            { data: { id: ROLE_ROW_ID }, error: null },
+          ],
+          schools: [{ data: { name: 'Esc' }, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { targetUserId: TARGET_USER_ID, roleType: 'docente', schoolId: ED_SCHOOL_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(countInserts(tracker, 'user_roles')).toBe(1);
+  });
 
   it('ED profile lookup error → 500 "Error verificando usuario", no inserts', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
@@ -1123,6 +1192,142 @@ describe('admin/assign-role — ED explicit FK scoping', () => {
     expect(rolePayload.role_type).toBe('docente');
     expect(rolePayload.generation_id).toBeNull();
     expect(rolePayload.community_id).toBeNull();
+  });
+});
+
+// F2 regression: lider_comunidad auto-create must still consume request
+// generationId for generation-based schools while keeping user_roles.generation_id
+// null (that column belongs to lider_generacion). The community row links to
+// the generation; the user_roles row does not.
+describe('admin/assign-role — lider_comunidad generation-based regression', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('ED lider_comunidad in generation-based school with valid generationId → 200; community linked to generation; user_roles.generation_id null', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    const GENERATION_ID = 'gen-2027';
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          profiles: [
+            { data: { school_id: ED_SCHOOL_ID }, error: null }, // ED scope lookup
+            { data: { first_name: 'Inés', last_name: 'Lara' }, error: null }, // user info
+            { data: null, error: null }, // profile update
+          ],
+          user_roles: [
+            { data: [], error: null }, // target-role gate
+            { data: { id: ROLE_ROW_ID }, error: null }, // role insert
+          ],
+          generations: [
+            { data: { school_id: ED_SCHOOL_ID }, error: null }, // ED FK gate
+            { data: [{ id: GENERATION_ID }], error: null }, // existing-generations check
+            { data: { id: GENERATION_ID, name: '2027' }, error: null }, // validate in-school
+          ],
+          schools: [
+            { data: { id: ED_SCHOOL_ID, name: 'Esc', has_generations: true }, error: null },
+            { data: { name: 'Esc' }, error: null }, // profile update name lookup
+          ],
+          growth_communities: [{ data: { id: COMMUNITY_ID }, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: {
+        targetUserId: TARGET_USER_ID,
+        roleType: 'lider_comunidad',
+        schoolId: ED_SCHOOL_ID,
+        generationId: GENERATION_ID,
+      },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const communityPayload = findInsertPayload(tracker, 'growth_communities') as Record<string, unknown>;
+    expect(communityPayload.school_id).toBe(ED_SCHOOL_ID);
+    expect(communityPayload.generation_id).toBe(GENERATION_ID);
+    expect(communityPayload.name).toBe('Comunidad Inés Lara');
+
+    const rolePayload = findInsertPayload(tracker, 'user_roles') as Record<string, unknown>;
+    expect(rolePayload.role_type).toBe('lider_comunidad');
+    expect(rolePayload.community_id).toBe(COMMUNITY_ID);
+    // generation_id on user_roles must stay null — that column is reserved
+    // for lider_generacion, even though the community itself is linked.
+    expect(rolePayload.generation_id).toBeNull();
+  });
+
+  it('ED lider_comunidad with generationId from another school → 403, no inserts', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
+          user_roles: [{ data: [], error: null }],
+          generations: [{ data: { school_id: OTHER_SCHOOL_ID }, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: {
+        targetUserId: TARGET_USER_ID,
+        roleType: 'lider_comunidad',
+        schoolId: ED_SCHOOL_ID,
+        generationId: 'gen-foreign',
+      },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toEqual({ error: 'Generación no pertenece a tu colegio' });
+    expect(countInserts(tracker, 'user_roles')).toBe(0);
+    expect(countInserts(tracker, 'growth_communities')).toBe(0);
+  });
+
+  it('admin lider_comunidad in school without generations (no generationId) → 200; community generation_id null', async () => {
+    // Regression guard: schools where has_generations=false must keep working
+    // without a generationId, both before and after the F2 split.
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          profiles: [
+            { data: { first_name: 'Ana', last_name: 'Soto' }, error: null },
+            { data: null, error: null },
+          ],
+          schools: [
+            { data: { id: ED_SCHOOL_ID, name: 'Esc', has_generations: false }, error: null },
+            { data: { name: 'Esc' }, error: null },
+          ],
+          generations: [{ data: [], error: null }],
+          growth_communities: [{ data: { id: COMMUNITY_ID }, error: null }],
+          user_roles: [{ data: { id: ROLE_ROW_ID }, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { targetUserId: TARGET_USER_ID, roleType: 'lider_comunidad', schoolId: ED_SCHOOL_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const communityPayload = findInsertPayload(tracker, 'growth_communities') as Record<string, unknown>;
+    expect(communityPayload.generation_id).toBeNull();
+    const rolePayload = findInsertPayload(tracker, 'user_roles') as Record<string, unknown>;
+    expect(rolePayload.role_type).toBe('lider_comunidad');
+    expect(rolePayload.generation_id).toBeNull();
+    expect(rolePayload.community_id).toBe(COMMUNITY_ID);
   });
 });
 

@@ -77,10 +77,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const collectedIds: string[] = [];
       let prefetchFrom = 0;
       while (true) {
+        // Stable ordering before .range(...) is required: PostgREST does not
+        // guarantee row order without an explicit ORDER BY, so paginated
+        // prefetch could otherwise duplicate or skip ids on retries / heap
+        // reordering. `id` is the natural primary key and is monotonic enough
+        // for deterministic batching.
         const { data: pageRows, error: inSchoolErr } = await supabaseService
           .from('profiles')
           .select('id')
           .eq('school_id', edSchoolId)
+          .order('id', { ascending: true })
           .range(prefetchFrom, prefetchFrom + PROFILE_PREFETCH_BATCH - 1);
 
         if (inSchoolErr) {
@@ -110,9 +116,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           console.error('[users API] Error fetching global-role holders:', globalRoleErr);
           return res.status(500).json({ error: 'Error al filtrar usuarios' });
         }
-        edExcludedUserIds = Array.from(
-          new Set((globalRoleHolders ?? []).map((r: any) => r.user_id).filter(Boolean)),
-        );
+
+        // F1 second leg: a user with profile.school_id = edSchoolId may still
+        // hold an active school-scoped role attached to a DIFFERENT school
+        // (e.g. docente at school 99 while the profile lives at school 42).
+        // Every ED write against them would be rejected by the cross-school
+        // target gate, so the row would be a ghost. `not.eq` already excludes
+        // NULL school_id rows (NULL <> x is NULL in SQL → not selected), so
+        // null-school rows are not mistakenly flagged here.
+        const { data: crossSchoolRoleHolders, error: crossSchoolErr } = await supabaseService
+          .from('user_roles')
+          .select('user_id')
+          .eq('is_active', true)
+          .in('user_id', inSchoolUserIds)
+          .in('role_type', SCHOOL_SCOPED_ROLES as readonly string[])
+          .not('school_id', 'eq', edSchoolId);
+
+        if (crossSchoolErr) {
+          console.error('[users API] Error fetching cross-school role holders:', crossSchoolErr);
+          return res.status(500).json({ error: 'Error al filtrar usuarios' });
+        }
+
+        const excludedSet = new Set<string>();
+        for (const row of globalRoleHolders ?? []) {
+          if ((row as any).user_id) excludedSet.add((row as any).user_id);
+        }
+        for (const row of crossSchoolRoleHolders ?? []) {
+          if ((row as any).user_id) excludedSet.add((row as any).user_id);
+        }
+        edExcludedUserIds = Array.from(excludedSet);
       }
     }
 

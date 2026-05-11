@@ -37,6 +37,10 @@ interface FromCall {
   ors: string[];
   nots: Array<{ col: string; op: string; val: unknown }>;
   ranges: Array<{ from: number; to: number }>;
+  orders: Array<{ col: string; opts: unknown }>;
+  /** Records the sequence of chainable filter methods on this query so tests
+   *  can assert one runs before another (e.g. .order before .range). */
+  callSequence: string[];
 }
 
 interface Tracker {
@@ -63,7 +67,17 @@ function buildSequencedClient(
       indices[table] = idx + 1;
       const result = resultsByTable[table]?.[idx] ?? { data: null };
 
-      const fromCall: FromCall = { table, index: idx, eqs: [], ins: [], ors: [], nots: [], ranges: [] };
+      const fromCall: FromCall = {
+        table,
+        index: idx,
+        eqs: [],
+        ins: [],
+        ors: [],
+        nots: [],
+        ranges: [],
+        orders: [],
+        callSequence: [],
+      };
       tracker?.fromCalls.push(fromCall);
 
       const resolved = {
@@ -80,12 +94,21 @@ function buildSequencedClient(
           if (prop === 'eq') {
             return vi.fn((col: string, val: unknown) => {
               fromCall.eqs.push({ col, val });
+              fromCall.callSequence.push('eq');
               return new Proxy({}, proxyHandler);
             });
           }
           if (prop === 'in') {
             return vi.fn((col: string, vals: unknown) => {
               fromCall.ins.push({ col, vals });
+              fromCall.callSequence.push('in');
+              return new Proxy({}, proxyHandler);
+            });
+          }
+          if (prop === 'order') {
+            return vi.fn((col: string, opts: unknown) => {
+              fromCall.orders.push({ col, opts });
+              fromCall.callSequence.push('order');
               return new Proxy({}, proxyHandler);
             });
           }
@@ -105,12 +128,14 @@ function buildSequencedClient(
           if (prop === 'not') {
             return vi.fn((col: string, op: string, val: unknown) => {
               fromCall.nots.push({ col, op, val });
+              fromCall.callSequence.push('not');
               return new Proxy({}, proxyHandler);
             });
           }
           if (prop === 'range') {
             return vi.fn((from: number, to: number) => {
               fromCall.ranges.push({ from, to });
+              fromCall.callSequence.push('range');
               return new Proxy({}, proxyHandler);
             });
           }
@@ -207,12 +232,13 @@ function stockHappyPath(schoolId: number, tracker: Tracker, isEd = false) {
       {
         profiles: profileSlots,
         schools: [{ data: [{ id: schoolId, name: `School ${schoolId}` }] }],
-        // For ED scope the handler issues two user_roles SELECTs:
+        // For ED scope the handler issues three user_roles SELECTs:
         //   [0] pre-fetch of users with active global (non-school-scoped) roles
-        //   [1] main roles query for the returned profile ids
-        // Admin scope only consumes [0] (the main roles query) — leaving [1]
-        // configured is harmless.
-        user_roles: [{ data: [] }, { data: [] }],
+        //   [1] pre-fetch of users with school-scoped roles attached to ANOTHER school
+        //   [2] main roles query for the returned profile ids
+        // Admin scope only consumes [0] (the main roles query) — leaving the
+        // remaining slots configured is harmless.
+        user_roles: [{ data: [] }, { data: [] }, { data: [] }],
         consultant_assignments: [{ data: [] }, { data: [] }],
         course_assignments: [{ data: [] }],
         learning_path_assignments: [{ data: [] }],
@@ -467,8 +493,9 @@ describe('admin/users — GET (school scoping)', () => {
             { count: 1 },
           ],
           schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
-          // ED scope: [0] = global-role pre-fetch (empty), [1] = main roles
-          user_roles: [{ data: [] }, { data: [roleRowWithNullSchool] }],
+          // ED scope: [0] = global-role pre-fetch (empty), [1] = cross-school
+          // pre-fetch (empty), [2] = main roles
+          user_roles: [{ data: [] }, { data: [] }, { data: [roleRowWithNullSchool] }],
           consultant_assignments: [{ data: [] }, { data: [] }],
           course_assignments: [{ data: [] }],
           learning_path_assignments: [{ data: [] }],
@@ -541,8 +568,9 @@ describe('admin/users — GET (school scoping)', () => {
             { count: 1 },
           ],
           schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
-          // ED scope: [0] = global-role pre-fetch (empty), [1] = main roles
-          user_roles: [{ data: [] }, { data: [inSchoolRoleRow] }],
+          // ED scope: [0] = global-role pre-fetch (empty), [1] = cross-school
+          // pre-fetch (empty), [2] = main roles
+          user_roles: [{ data: [] }, { data: [] }, { data: [inSchoolRoleRow] }],
           consultant_assignments: [{ data: [] }, { data: [] }],
           course_assignments: [{ data: [] }],
           learning_path_assignments: [{ data: [] }],
@@ -721,8 +749,9 @@ describe('admin/users — GET (school scoping)', () => {
             { count: 1 },
           ],
           schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
-          // ED scope: [0] = global-role pre-fetch (empty), [1] = main roles
-          user_roles: [{ data: [] }, { data: [sameSchoolRole, foreignSchoolRole] }],
+          // ED scope: [0] = global-role pre-fetch (empty), [1] = cross-school
+          // pre-fetch (empty), [2] = main roles
+          user_roles: [{ data: [] }, { data: [] }, { data: [sameSchoolRole, foreignSchoolRole] }],
           consultant_assignments: [{ data: [] }, { data: [] }],
           course_assignments: [{ data: [] }],
           learning_path_assignments: [{ data: [] }],
@@ -789,10 +818,12 @@ describe('admin/users — GET (school scoping)', () => {
             { count: 1 },
           ],
           schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
-          // [0] pre-fetch: one user holds a global (non-school-scoped) role.
-          // [1] main user_roles for the returned profiles.
+          // [0] global pre-fetch: one user holds a global (non-school-scoped) role.
+          // [1] cross-school pre-fetch: no cross-school role holders.
+          // [2] main user_roles for the returned profiles.
           user_roles: [
             { data: [{ user_id: EXCLUDED_USER_ID }] },
+            { data: [] },
             { data: [] },
           ],
           consultant_assignments: [{ data: [] }, { data: [] }],
@@ -900,9 +931,11 @@ describe('admin/users — GET (school scoping)', () => {
             { count: 1 },
           ],
           schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
-          // [0] global-role pre-fetch flags the page-2 user. [1] main roles.
+          // [0] global-role pre-fetch flags the page-2 user.
+          // [1] cross-school pre-fetch (empty). [2] main roles.
           user_roles: [
             { data: [{ user_id: PAGE2_EXCLUDED }] },
+            { data: [] },
             { data: [] },
           ],
           consultant_assignments: [{ data: [] }, { data: [] }],
@@ -977,6 +1010,244 @@ describe('admin/users — GET (school scoping)', () => {
       (c) => c.table === 'profiles' && c.index === 0,
     )!;
     expect(profilesMain.nots.find((n) => n.col === 'id')).toBeUndefined();
+  });
+
+  it('ED (F1 cross-school): in-school users who hold an active school-scoped role at ANOTHER school are excluded', async () => {
+    // A user whose profile.school_id = edSchoolId may still hold a docente
+    // role attached to a different school. Every ED write against them would
+    // hit the cross-school target gate (403), so the row would be a ghost.
+    // The prefetch must surface them and the main profiles + summary queries
+    // must exclude them via .not('id', 'in', ...).
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    const CROSS_SCHOOL_USER_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+
+    const visibleProfile = {
+      id: 'user-visible',
+      email: 'visible@example.com',
+      first_name: 'Visible',
+      last_name: 'User',
+      school_id: ED_SCHOOL_ID,
+      approval_status: 'approved',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+    };
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            // [0] in-school prefetch — visible user + the cross-school user
+            // (their profile lives at ED_SCHOOL_ID even though they also hold
+            // a docente role attached to OTHER_SCHOOL_ID).
+            { data: [{ id: 'user-visible' }, { id: CROSS_SCHOOL_USER_ID }] },
+            // [1] main paginated query — only the visible user comes back.
+            { data: [visibleProfile], count: 1 },
+            // [2..4] summary counts.
+            { count: 1 },
+            { count: 0 },
+            { count: 1 },
+          ],
+          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+          // [0] global-role pre-fetch (empty).
+          // [1] cross-school pre-fetch flags the user with a docente role at
+          // another school.
+          // [2] main user_roles query.
+          user_roles: [
+            { data: [] },
+            { data: [{ user_id: CROSS_SCHOOL_USER_ID }] },
+            { data: [] },
+          ],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const userRolesCalls = tracker.fromCalls.filter((c) => c.table === 'user_roles');
+    expect(userRolesCalls.length).toBeGreaterThanOrEqual(3);
+
+    // Cross-school pre-fetch is the SECOND user_roles call. It must:
+    //  - filter active rows: .eq('is_active', true)
+    //  - scope to in-school user ids: .in('user_id', [...])
+    //  - restrict to school-scoped role types: .in('role_type', [...])
+    //  - exclude rows tied to edSchoolId: .not('school_id', 'eq', edSchoolId)
+    const crossFetch = userRolesCalls[1];
+    expect(crossFetch.eqs).toContainEqual({ col: 'is_active', val: true });
+
+    const crossUserIdIn = crossFetch.ins.find((i) => i.col === 'user_id');
+    expect(crossUserIdIn).toBeDefined();
+    expect(crossUserIdIn!.vals as string[]).toEqual(
+      expect.arrayContaining(['user-visible', CROSS_SCHOOL_USER_ID]),
+    );
+
+    const crossRoleTypeIn = crossFetch.ins.find((i) => i.col === 'role_type');
+    expect(crossRoleTypeIn).toBeDefined();
+    expect(crossRoleTypeIn!.vals as string[]).toEqual(
+      expect.arrayContaining(['docente', 'lider_comunidad', 'equipo_directivo']),
+    );
+
+    const crossNotSchool = crossFetch.nots.find(
+      (n) => n.col === 'school_id' && n.op === 'eq',
+    );
+    expect(crossNotSchool).toBeDefined();
+    expect(crossNotSchool!.val).toBe(ED_SCHOOL_ID);
+
+    // Main profiles query (index 1 for ED scope) excludes the cross-school
+    // user via .not('id', 'in', ...).
+    const profilesMain = tracker.fromCalls.find(
+      (c) => c.table === 'profiles' && c.index === 1,
+    )!;
+    const notId = profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in');
+    expect(notId).toBeDefined();
+    expect(String(notId!.val)).toContain(CROSS_SCHOOL_USER_ID);
+
+    // Summary counts apply the same exclusion.
+    for (const idx of [2, 3, 4]) {
+      const summary = tracker.fromCalls.find(
+        (c) => c.table === 'profiles' && c.index === idx,
+      )!;
+      const summaryNotId = summary.nots.find((n) => n.col === 'id' && n.op === 'in');
+      expect(summaryNotId).toBeDefined();
+      expect(String(summaryNotId!.val)).toContain(CROSS_SCHOOL_USER_ID);
+    }
+
+    const body = JSON.parse(res._getData());
+    const returnedIds = (body.users as Array<{ id: string }>).map((u) => u.id);
+    expect(returnedIds).not.toContain(CROSS_SCHOOL_USER_ID);
+    expect(returnedIds).toContain('user-visible');
+  });
+
+  it('ED (F1): a user holding both a same-school AND a cross-school school-scoped role is still excluded', async () => {
+    // Double-binding edge case. The cross-school pre-fetch is based on the
+    // existence of ANY active school-scoped role at a different school, even
+    // if the same user also has a same-school role. Such users would still
+    // fail the write-path target gate, so they remain ghosts and must be
+    // hidden from the ED list.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    const DOUBLE_BOUND_ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            { data: [{ id: DOUBLE_BOUND_ID }] },
+            { data: [], count: 0 },
+            { count: 0 },
+            { count: 0 },
+            { count: 0 },
+          ],
+          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+          user_roles: [
+            { data: [] },
+            { data: [{ user_id: DOUBLE_BOUND_ID }] },
+            { data: [] },
+          ],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const profilesMain = tracker.fromCalls.find(
+      (c) => c.table === 'profiles' && c.index === 1,
+    )!;
+    const notId = profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in');
+    expect(notId).toBeDefined();
+    expect(String(notId!.val)).toContain(DOUBLE_BOUND_ID);
+  });
+
+  it('ED (F3 stable pagination): in-school user-id prefetch issues .order(id, asc) before .range(...) on every page', async () => {
+    // PostgREST does not guarantee deterministic row order without an explicit
+    // ORDER BY. Without stable ordering, paginated prefetch could duplicate or
+    // skip ids across calls (and on retries), corrupting the F1 exclusion set.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    // Force a multi-page prefetch so we can assert ordering on every page.
+    const PAGE1_IDS = Array.from({ length: 1000 }, (_, i) =>
+      `aaaaaaaa-aaaa-4aaa-8aaa-${String(i).padStart(12, '0')}`,
+    );
+    const PAGE2_ID = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+
+    const visibleProfile = {
+      id: PAGE2_ID,
+      email: 'p2@example.com',
+      first_name: 'Page',
+      last_name: 'Two',
+      school_id: ED_SCHOOL_ID,
+      approval_status: 'approved',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+    };
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            { data: PAGE1_IDS.map((id) => ({ id })) },
+            { data: [{ id: PAGE2_ID }] },
+            { data: [visibleProfile], count: 1 },
+            { count: 1 },
+            { count: 0 },
+            { count: 1 },
+          ],
+          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+          user_roles: [{ data: [] }, { data: [] }, { data: [] }],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+
+    // Both prefetch calls must include .order('id', { ascending: true })
+    // strictly BEFORE .range(...). Use callSequence to verify ordering.
+    for (const prefetchIdx of [0, 1]) {
+      const call = profilesCalls[prefetchIdx];
+      const idOrder = call.orders.find((o) => o.col === 'id');
+      expect(idOrder).toBeDefined();
+      expect(idOrder!.opts).toEqual({ ascending: true });
+
+      const orderPos = call.callSequence.indexOf('order');
+      const rangePos = call.callSequence.indexOf('range');
+      expect(orderPos).toBeGreaterThanOrEqual(0);
+      expect(rangePos).toBeGreaterThanOrEqual(0);
+      expect(orderPos).toBeLessThan(rangePos);
+    }
+
+    // Ranges remain contiguous and non-overlapping across pages.
+    expect(profilesCalls[0].ranges).toEqual([{ from: 0, to: 999 }]);
+    expect(profilesCalls[1].ranges).toEqual([{ from: 1000, to: 1999 }]);
   });
 
 });

@@ -113,20 +113,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // PR #19 follow-ups as "TOCTOU residual risk hardening (Postgres
       // function or partial unique index)".
       // Defense-in-depth: reject if the target holds any active role outside
-      // SCHOOL_SCOPED_ROLES (admin/consultor/supervisor_de_red/community_manager).
+      // SCHOOL_SCOPED_ROLES (admin/consultor/supervisor_de_red/community_manager),
+      // or any school-scoped active role tied to a different school. Profile
+      // and user_roles can diverge (stale or cross-school role rows), so this
+      // gate is enforced independently.
       const { data: targetRoles, error: rolesLookupError } = await supabaseAdmin
         .from('user_roles')
-        .select('role_type')
+        .select('role_type, school_id')
         .eq('user_id', userId)
         .eq('is_active', true);
 
       if (rolesLookupError) {
         return res.status(500).json({ error: 'Error verificando roles del usuario' });
       }
-      const hasGlobalRole = (targetRoles ?? []).some(
-        (r: { role_type: string }) => !SCHOOL_SCOPED_ROLES_SET.has(r.role_type),
+      const hasForbiddenRole = (targetRoles ?? []).some(
+        (r: { role_type: string; school_id: number | null }) => {
+          if (!SCHOOL_SCOPED_ROLES_SET.has(r.role_type)) return true;
+          return r.school_id !== null && r.school_id !== edSchoolId;
+        },
       );
-      if (hasGlobalRole) {
+      if (hasForbiddenRole) {
         return res.status(403).json({ error: 'No autorizado para editar este usuario' });
       }
     }

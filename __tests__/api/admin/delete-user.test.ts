@@ -166,7 +166,7 @@ function setupUnauthorizedRole() {
 function successTables(opts: {
   includeProfileLookup: boolean;
   lookupSchoolId?: number | null;
-  targetRoles?: Array<{ role_type: string }>;
+  targetRoles?: Array<{ role_type: string; school_id?: number | null }>;
 }) {
   const profiles: TableResult[] = [];
   if (opts.includeProfileLookup) {
@@ -380,7 +380,7 @@ describe('admin/delete-user — POST (ED auth + scoping)', () => {
         successTables({
           includeProfileLookup: true,
           lookupSchoolId: ED_SCHOOL_ID,
-          targetRoles: [{ role_type: 'equipo_directivo' }],
+          targetRoles: [{ role_type: 'equipo_directivo', school_id: ED_SCHOOL_ID }],
         }),
         tracker,
       ),
@@ -439,6 +439,48 @@ describe('admin/delete-user — POST (ED auth + scoping)', () => {
     });
   });
 
+  it('ED: 403 when target holds a school-scoped role in another school — no cascade', async () => {
+    // F1 extension: even if profile.school_id matches edSchoolId, an active
+    // school-scoped role row tied to a different school must reject the write.
+    // Profile and user_roles can diverge (stale or cross-school role row), so
+    // this gate is enforced independently of the profile check above.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
+          user_roles: [
+            {
+              data: [{ role_type: 'docente', school_id: OTHER_SCHOOL_ID }],
+              error: null,
+            },
+          ],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: TARGET_USER_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toEqual({
+      error: 'No autorizado para eliminar este usuario',
+    });
+
+    const counts = countCascade(tracker);
+    expect(counts).toEqual({
+      feedbackDeletes: 0,
+      userRoleDeletes: 0,
+      profileDeletes: 0,
+      authDeletes: 0,
+    });
+  });
+
   it('ED: 403 when target holds mixed roles (school-scoped + consultor) — no cascade', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
@@ -448,7 +490,10 @@ describe('admin/delete-user — POST (ED auth + scoping)', () => {
           profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
           user_roles: [
             {
-              data: [{ role_type: 'docente' }, { role_type: 'consultor' }],
+              data: [
+                { role_type: 'docente', school_id: ED_SCHOOL_ID },
+                { role_type: 'consultor', school_id: null },
+              ],
               error: null,
             },
           ],

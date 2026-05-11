@@ -195,7 +195,7 @@ function setupWrongRole() {
 function successTables(opts: {
   includeProfileLookup: boolean;
   lookupSchoolId?: number | null;
-  targetRoles?: Array<{ role_type: string }>;
+  targetRoles?: Array<{ role_type: string; school_id?: number | null }>;
 }) {
   const profiles: TableResult[] = [];
   if (opts.includeProfileLookup) {
@@ -392,6 +392,46 @@ describe('admin/reset-password — POST (ED auth + scoping)', () => {
             { data: null, error: null },
           ],
           user_roles: [{ data: [{ role_type: 'admin' }], error: null }],
+          audit_logs: [{ data: null, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: TARGET_USER_ID, temporaryPassword: TEMP_PASSWORD },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toMatchObject({
+      error: 'No autorizado para restablecer la contraseña de este usuario',
+    });
+    expect(tracker.updateUserCalls).toHaveLength(0);
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    expect(auditCalls).toHaveLength(0);
+    assertTempPasswordNotLeaked(tracker);
+  });
+
+  it('ED: 403 when target holds a school-scoped role in another school — updateUserById not called', async () => {
+    // F1 extension: even if profile.school_id matches edSchoolId, an active
+    // school-scoped role row tied to a different school must reject the write.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [
+            { data: { school_id: ED_SCHOOL_ID }, error: null },
+            { data: null, error: null },
+          ],
+          user_roles: [
+            {
+              data: [{ role_type: 'docente', school_id: OTHER_SCHOOL_ID }],
+              error: null,
+            },
+          ],
           audit_logs: [{ data: null, error: null }],
         },
         tracker,

@@ -397,6 +397,51 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect(auditCalls).toHaveLength(0);
   });
 
+  it('ED: 403 when target holds a school-scoped role in another school — no profile update', async () => {
+    // F1 extension: even if profile.school_id matches edSchoolId, an active
+    // school-scoped role row tied to a different school must reject the write.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [
+            { data: { school_id: ED_SCHOOL_ID }, error: null },
+            { data: null, error: null },
+          ],
+          user_roles: [
+            {
+              data: [{ role_type: 'docente', school_id: OTHER_SCHOOL_ID }],
+              error: null,
+            },
+          ],
+          audit_logs: [{ data: null, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: baseBody(),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toEqual({
+      error: 'No autorizado para editar este usuario',
+    });
+
+    // Only the lookup happened; no profile update, no audit log, no auth update.
+    const profileCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profileCalls).toHaveLength(1);
+    expect(profileCalls[0].updates).toHaveLength(0);
+    expect(profileCalls[0].selects).toHaveLength(1);
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    expect(auditCalls).toHaveLength(0);
+    expect(tracker.authUpdates).toHaveLength(0);
+  });
+
   it('ED: 500 when user_roles lookup errors — no profile update', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();

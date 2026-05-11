@@ -63,23 +63,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // path, widening the exposure beyond admin-only tooling. Tracked in
       // PR #19 follow-ups as "TOCTOU residual risk hardening (Postgres
       // function or partial unique index)".
-      // Defense-in-depth: reject if the target holds ANY active role outside
-      // SCHOOL_SCOPED_ROLES (admin/consultor/supervisor_de_red/community_manager).
-      // The read-path filter already hides such users; this prevents an ED
-      // from mutating a global-role user even if they appear in their school.
+      // Defense-in-depth: reject if the target holds any active role outside
+      // SCHOOL_SCOPED_ROLES (admin/consultor/supervisor_de_red/community_manager),
+      // or any school-scoped active role tied to a different school. The
+      // profile check above only covers profiles.school_id; a target may still
+      // hold a stale or cross-school role row whose school_id does not match
+      // the ED's school, so we gate on both shapes here.
       const { data: targetRoles, error: rolesLookupError } = await supabaseAdmin
         .from('user_roles')
-        .select('role_type')
+        .select('role_type, school_id')
         .eq('user_id', userId)
         .eq('is_active', true);
 
       if (rolesLookupError) {
         return res.status(500).json({ error: 'Error verificando roles del usuario' });
       }
-      const hasGlobalRole = (targetRoles ?? []).some(
-        (r: { role_type: string }) => !SCHOOL_SCOPED_ROLES_SET.has(r.role_type),
+      const hasForbiddenRole = (targetRoles ?? []).some(
+        (r: { role_type: string; school_id: number | null }) => {
+          if (!SCHOOL_SCOPED_ROLES_SET.has(r.role_type)) return true;
+          return r.school_id !== null && r.school_id !== edSchoolId;
+        },
       );
-      if (hasGlobalRole) {
+      if (hasForbiddenRole) {
         return res.status(403).json({ error: 'No autorizado para eliminar este usuario' });
       }
     }

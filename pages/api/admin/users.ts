@@ -7,11 +7,12 @@ import { SCHOOL_SCOPED_ROLES } from '../../../utils/roleUtils';
 
 const ROLE_PRIORITY = ['admin','consultor','equipo_directivo','supervisor_de_red','community_manager','lider_generacion','lider_comunidad','docente','encargado_licitacion'];
 
-// Cap on how many user_ids we send in a single `.in()` or `.not('id', 'in', ...)`
-// call. PostgREST encodes these as URL filters; large schools (250+ in-school
-// users) can otherwise push the request URL past common proxy / load-balancer
-// limits (~8KB) and trigger 414s or truncated filters. Chunking keeps every
-// outbound request bounded.
+// Cap on how many user_ids we send in a single `.in()` call (currently only
+// the global-role and cross-school prefetch legs). PostgREST encodes these
+// as URL filters; large schools (250+ in-school users) can otherwise push
+// the request URL past common proxy / load-balancer limits (~8KB) and
+// trigger 414s or truncated filters. Chunking keeps every outbound request
+// bounded.
 const USER_ID_BATCH = 100;
 
 const chunkIds = <T>(values: readonly T[], size: number): T[][] => {
@@ -75,23 +76,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const effectiveCommunityId = isEdScope ? '' : communityId;
 
     // ED scope: a user may have profile.school_id = edSchoolId yet hold an
-    // active global (non-school-scoped) role like admin/consultor. Such users
+    // active global (non-school-scoped) role like admin/consultor, OR an
+    // active school-scoped role attached to a DIFFERENT school. Such users
     // must not appear in the ED's list — every write attempt against them
     // would be rejected by the target-role gate (yielding "ghost rows").
-    // Pre-fetch their ids so we can exclude them from the profiles query.
-    //
-    // Phase 15.7 perf: scope the global-role check to in-school user_ids
-    // (one extra roundtrip, bounded to O(school)) instead of scanning all
-    // active user_roles in the tenant on every ED list load.
+    // Pre-fetch in-school users (with approval_status, F2: widened so we can
+    // compute exact summary counts in memory) so we can derive the excluded
+    // set and apply client-side filtering after the main page is fetched.
     let edExcludedUserIds: string[] = [];
+    let edInSchoolUsers: Array<{ id: string; approval_status: string | null }> = [];
     if (isEdScope) {
       // PostgREST caps a single SELECT at 1000 rows by default. Schools larger
       // than that would otherwise have their tail-end users silently skip the
-      // global-role exclusion check below and "ghost" into the ED list (F2),
+      // global-role exclusion check below and "ghost" into the ED list,
       // since the write-path target-role gate would still reject every edit.
       // Page through .range() until a partial batch lands.
       const PROFILE_PREFETCH_BATCH = 1000;
-      const collectedIds: string[] = [];
+      const collected: Array<{ id: string; approval_status: string | null }> = [];
       let prefetchFrom = 0;
       while (true) {
         // Stable ordering before .range(...) is required: PostgREST does not
@@ -101,7 +102,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // for deterministic batching.
         const { data: pageRows, error: inSchoolErr } = await supabaseService
           .from('profiles')
-          .select('id')
+          .select('id, approval_status')
           .eq('school_id', edSchoolId)
           .order('id', { ascending: true })
           .range(prefetchFrom, prefetchFrom + PROFILE_PREFETCH_BATCH - 1);
@@ -111,15 +112,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return res.status(500).json({ error: 'Error al filtrar usuarios' });
         }
 
-        const rows = (pageRows ?? []) as Array<{ id?: string | null }>;
+        const rows = (pageRows ?? []) as Array<{ id?: string | null; approval_status?: string | null }>;
         for (const row of rows) {
-          if (row.id) collectedIds.push(row.id);
+          if (row.id) collected.push({ id: row.id, approval_status: row.approval_status ?? null });
         }
         if (rows.length < PROFILE_PREFETCH_BATCH) break;
         prefetchFrom += PROFILE_PREFETCH_BATCH;
       }
 
-      const inSchoolUserIds = Array.from(new Set(collectedIds));
+      const seenIds = new Set<string>();
+      edInSchoolUsers = collected.filter((u) => {
+        if (seenIds.has(u.id)) return false;
+        seenIds.add(u.id);
+        return true;
+      });
+
+      const inSchoolUserIds = edInSchoolUsers.map((u) => u.id);
 
       if (inSchoolUserIds.length > 0) {
         // F1 URL-length scalability: chunk `.in('user_id', ...)` so the encoded
@@ -222,18 +230,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       profileQuery = profileQuery.in('id', allowedUserIds);
     }
 
-    // Chunk the exclusion the same way as the prefetch legs: chained `.not()`
-    // filters AND together (NOT IN A AND NOT IN B === NOT IN A∪B), so a large
-    // excluded set still fits well under URL limits while preserving semantics.
-    const excludedClauseChunks = isEdScope
-      ? chunkIds(edExcludedUserIds, USER_ID_BATCH).map(toQuotedInList)
-      : [];
-
-    if (isEdScope && excludedClauseChunks.length > 0) {
-      for (const clause of excludedClauseChunks) {
-        profileQuery = profileQuery.not('id', 'in', clause);
-      }
-    }
+    // F2: the main paginated query no longer carries a `.not('id', 'in', ...)`
+    // exclusion clause. The chunked `.not()` strategy doesn't scale — for
+    // schools with hundreds of ghost rows, the chained filters approached the
+    // ~8KB URL-length limit and forced multiple round-trips just to read one
+    // page. Instead, fetch the full page, then drop excludedSet members in
+    // memory below. Exact summary counts come from the prefetched in-school
+    // users (which already carry approval_status) — see the summary block.
+    const excludedSet = new Set<string>(edExcludedUserIds);
 
     const { data: profiles, count, error: profilesError } = await profileQuery;
 
@@ -242,55 +246,72 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al obtener usuarios' });
     }
 
-    let totalCountQuery = supabaseService
-      .from('profiles')
-      .select('id', { head: true, count: 'exact' });
-    let pendingCountQuery = supabaseService
-      .from('profiles')
-      .select('id', { head: true, count: 'exact' })
-      .eq('approval_status', 'pending');
-    let approvedCountQuery = supabaseService
-      .from('profiles')
-      .select('id', { head: true, count: 'exact' })
-      .eq('approval_status', 'approved');
-    let schoolsQuery = supabaseService
-      .from('schools')
-      .select('id, name')
-      .order('name', { ascending: true });
+    let summary: { total: number; pending: number; approved: number };
+    let schools: Array<{ id: string; name: string }>;
 
     if (isEdScope) {
-      const edSchoolNum = edSchoolId as number;
-      totalCountQuery = totalCountQuery.eq('school_id', edSchoolNum);
-      pendingCountQuery = pendingCountQuery.eq('school_id', edSchoolNum);
-      approvedCountQuery = approvedCountQuery.eq('school_id', edSchoolNum);
-      schoolsQuery = schoolsQuery.eq('id', edSchoolNum);
+      // F2 exact-count strategy (a): compute counts in memory from the
+      // widened prefetch (now includes approval_status), removing excludedSet
+      // members. No separate count round-trips needed for ED scope.
+      const visibleInSchool = edInSchoolUsers.filter((u) => !excludedSet.has(u.id));
+      summary = {
+        total: visibleInSchool.length,
+        pending: visibleInSchool.filter((u) => u.approval_status === 'pending').length,
+        approved: visibleInSchool.filter((u) => u.approval_status === 'approved').length,
+      };
 
-      for (const clause of excludedClauseChunks) {
-        totalCountQuery = totalCountQuery.not('id', 'in', clause);
-        pendingCountQuery = pendingCountQuery.not('id', 'in', clause);
-        approvedCountQuery = approvedCountQuery.not('id', 'in', clause);
-      }
+      const schoolsRes = await supabaseService
+        .from('schools')
+        .select('id, name')
+        .eq('id', edSchoolId as number)
+        .order('name', { ascending: true });
+      schools = (schoolsRes.data || []).map((s: any) => ({
+        id: s.id.toString(),
+        name: s.name,
+      }));
+    } else {
+      const totalCountQuery = supabaseService
+        .from('profiles')
+        .select('id', { head: true, count: 'exact' });
+      const pendingCountQuery = supabaseService
+        .from('profiles')
+        .select('id', { head: true, count: 'exact' })
+        .eq('approval_status', 'pending');
+      const approvedCountQuery = supabaseService
+        .from('profiles')
+        .select('id', { head: true, count: 'exact' })
+        .eq('approval_status', 'approved');
+      const schoolsQuery = supabaseService
+        .from('schools')
+        .select('id, name')
+        .order('name', { ascending: true });
+
+      const [totalCountRes, pendingCountRes, approvedCountRes, schoolsRes] = await Promise.all([
+        totalCountQuery,
+        pendingCountQuery,
+        approvedCountQuery,
+        schoolsQuery,
+      ]);
+
+      summary = {
+        total: totalCountRes.count || 0,
+        pending: pendingCountRes.count || 0,
+        approved: approvedCountRes.count || 0,
+      };
+      schools = (schoolsRes.data || []).map((s: any) => ({
+        id: s.id.toString(),
+        name: s.name,
+      }));
     }
 
-    const [totalCountRes, pendingCountRes, approvedCountRes, schoolsRes] = await Promise.all([
-      totalCountQuery,
-      pendingCountQuery,
-      approvedCountQuery,
-      schoolsQuery,
-    ]);
+    // F2 client-side exclusion: drop excludedSet members from the page before
+    // building the response. Page may end up shorter than pageSize — that's
+    // an accepted trade-off (avoids large `.not('id', 'in', ...)` filters).
+    const profileRows = profiles || [];
+    const users = isEdScope
+      ? profileRows.filter((u: any) => !excludedSet.has(u.id))
+      : profileRows;
 
-    const summary = {
-      total: totalCountRes.count || 0,
-      pending: pendingCountRes.count || 0,
-      approved: approvedCountRes.count || 0
-    };
-
-    const schools = (schoolsRes.data || []).map((s: any) => ({
-      id: s.id.toString(),
-      name: s.name
-    }));
-
-    const users = profiles || [];
     if (users.length === 0) {
       return res.status(200).json({ page, pageSize, total: count || 0, users: [], summary, schools });
     }

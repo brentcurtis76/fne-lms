@@ -363,10 +363,8 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
     });
   });
 
-  it("ED with role='lider_comunidad': succeeds and inserts school_id", async () => {
+  it("ED with role='lider_comunidad': 400 — quick-create flow excludes FK-required roles", async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
-    const tracker = makeTracker();
-    stockHappyPath(tracker);
 
     const { req, res } = createMocks({
       method: 'POST',
@@ -374,14 +372,45 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
     });
     await handler(req as never, res as never);
 
-    expect(res._getStatusCode()).toBe(200);
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({
+      error: 'Este rol requiere la asignación completa, no la creación rápida',
+    });
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
 
+  it("ED with role='lider_generacion': 400 — quick-create flow excludes FK-required roles", async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: bodyFor('lider_generacion'),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({
+      error: 'Este rol requiere la asignación completa, no la creación rápida',
+    });
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
+
+  it("admin can still create role='lider_comunidad' via quick-create (gate is ED-only)", async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: bodyFor('lider_comunidad', OTHER_SCHOOL_ID),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
     const roleInsert = tracker.fromCalls.find(
       (c) => c.table === 'user_roles' && c.inserts.length > 0,
     )!;
-    const inserted = roleInsert.inserts[0] as any;
-    expect(inserted.role_type).toBe('lider_comunidad');
-    expect(inserted.school_id).toBe(ED_SCHOOL_ID);
+    expect((roleInsert.inserts[0] as any).role_type).toBe('lider_comunidad');
   });
 
   it('ED can create another equipo_directivo in their own school (intentional policy per plan)', async () => {

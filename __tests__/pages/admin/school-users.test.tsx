@@ -13,6 +13,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { ED_CREATE_USER_ROLES } from '../../../utils/roleUtils';
+import { ROLE_NAMES, type UserRoleType } from '../../../types/roles';
 
 // ---------------------------------------------------------------------------
 // Mirror of the create-user form + submit logic from
@@ -141,8 +143,11 @@ function AddUserForm({
         value={newUserRole}
         onChange={(e) => setNewUserRole(e.target.value)}
       >
-        <option value="docente">Docente</option>
-        <option value="estudiante">Estudiante</option>
+        {ED_CREATE_USER_ROLES.map((roleType) => (
+          <option key={roleType} value={roleType}>
+            {ROLE_NAMES[roleType as UserRoleType]}
+          </option>
+        ))}
       </select>
       <button type="button" onClick={onClose}>
         Cancelar
@@ -194,6 +199,31 @@ function mockCreateUserSuccess() {
 }
 
 describe('school-users — add user modal', () => {
+  it('role dropdown shows only the 3 ED_CREATE_USER_ROLES options', () => {
+    render(
+      <AddUserForm
+        schoolId={1}
+        accessToken="token"
+        onClose={vi.fn()}
+        onCreated={vi.fn()}
+        toastSuccess={vi.fn()}
+        toastError={vi.fn()}
+      />
+    );
+
+    const select = screen.getByLabelText('Rol') as HTMLSelectElement;
+    const optionValues = Array.from(select.options).map((o) => o.value);
+
+    expect(optionValues).toHaveLength(3);
+    expect(optionValues).toEqual([
+      'docente',
+      'equipo_directivo',
+      'encargado_licitacion',
+    ]);
+    expect(optionValues).not.toContain('lider_comunidad');
+    expect(optionValues).not.toContain('lider_generacion');
+  });
+
   it('renders both submit buttons', () => {
     render(
       <AddUserForm
@@ -256,7 +286,7 @@ describe('school-users — add user modal', () => {
 
     fillRequiredFields();
     fireEvent.change(screen.getByLabelText('Rol'), {
-      target: { value: 'estudiante' },
+      target: { value: 'equipo_directivo' },
     });
 
     fireEvent.click(

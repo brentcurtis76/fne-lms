@@ -322,6 +322,25 @@ export const ED_ASSIGNABLE_ROLES = SCHOOL_SCOPED_ROLES;
 export type EdAssignableRole = (typeof ED_ASSIGNABLE_ROLES)[number];
 
 /**
+ * Roles an ED may create through the simple quick-create flow (Add User
+ * modal on `/admin/school-users`). Narrow subset of ED_ASSIGNABLE_ROLES.
+ *
+ * Excludes `lider_comunidad` and `lider_generacion` because those roles
+ * require additional foreign keys (`community_id` / `generation_id`) that
+ * the quick-create form does not collect. Assigning either of those roles
+ * must go through the full role-assignment flow (`RoleAssignmentModal`),
+ * which gathers the required references. This constant must only be used
+ * by the quick-create surface — read-path filtering and assign-role gates
+ * still use the full ED_ASSIGNABLE_ROLES list.
+ */
+export const ED_CREATE_USER_ROLES = [
+  'docente',
+  'equipo_directivo',
+  'encargado_licitacion',
+] as const satisfies readonly EdAssignableRole[];
+export type EdCreateUserRole = (typeof ED_CREATE_USER_ROLES)[number];
+
+/**
  * Check if user has a specific permission
  */
 export function hasPermission(

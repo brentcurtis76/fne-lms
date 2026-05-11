@@ -295,24 +295,17 @@ describe('admin/users — GET (school scoping)', () => {
 
     expect(res._getStatusCode()).toBe(200);
 
-    // ED scope: profiles index 0 is the in-school user_ids pre-fetch
-    // (Phase 15.7 perf). The main paginated query is index 1; summary
-    // counts are indices 2, 3, 4.
-    const profilesMain = tracker.fromCalls.find(
-      (c) => c.table === 'profiles' && c.index === 1,
-    )!;
+    // ED scope (post-F2): profiles index 0 is the in-school user_ids
+    // pre-fetch (widened to include approval_status). The main paginated
+    // query is index 1. Summary counts are computed in memory — there are
+    // no longer separate count round-trips against profiles.
+    const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profilesCalls).toHaveLength(2);
+
+    const profilesMain = profilesCalls[1];
     expect(
       profilesMain.eqs.find((e) => e.col === 'school_id' && e.val === ED_SCHOOL_ID),
     ).toBeDefined();
-
-    for (const idx of [2, 3, 4]) {
-      const summary = tracker.fromCalls.find(
-        (c) => c.table === 'profiles' && c.index === idx,
-      )!;
-      expect(
-        summary.eqs.find((e) => e.col === 'school_id' && e.val === ED_SCHOOL_ID),
-      ).toBeDefined();
-    }
 
     const schoolsCall = tracker.fromCalls.find((c) => c.table === 'schools')!;
     expect(
@@ -782,11 +775,13 @@ describe('admin/users — GET (school scoping)', () => {
     expect(returnedRoles.find((r: any) => r.school_id === OTHER_SCHOOL_ID)).toBeUndefined();
   });
 
-  it('ED: profiles query excludes in-school users who hold any active global role', async () => {
-    // F1: a user with profile.school_id = edSchoolId but also an active
+  it('ED: ghost in-school users (global-role holders) are filtered out client-side after the unfiltered main query', async () => {
+    // F2: a user with profile.school_id = edSchoolId but also an active
     // admin/consultor/community_manager/supervisor_de_red role must NOT appear
     // in the ED's list — otherwise the row is a "ghost" the ED can see but
-    // cannot edit (write-path target-role gate rejects with 403).
+    // cannot edit (write-path target-role gate rejects with 403). Phase 15.16's
+    // chunked `.not('id', 'in', ...)` strategy is gone; the main query now
+    // returns the row and the handler drops it in memory.
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
 
@@ -805,17 +800,33 @@ describe('admin/users — GET (school scoping)', () => {
       school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
     };
 
+    const excludedProfile = {
+      id: EXCLUDED_USER_ID,
+      email: 'ghost@example.com',
+      first_name: 'Ghost',
+      last_name: 'User',
+      school_id: ED_SCHOOL_ID,
+      approval_status: 'pending',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+    };
+
     mockCreateServiceRoleClient.mockReturnValueOnce(
       buildSequencedClient(
         {
           profiles: [
-            // ED scope (Phase 15.7): [0] = in-school user_ids pre-fetch,
-            // returning both the visible user and the to-be-excluded user.
-            { data: [{ id: 'user-visible' }, { id: EXCLUDED_USER_ID }] },
-            { data: [visibleProfile], count: 1 },
-            { count: 1 },
-            { count: 0 },
-            { count: 1 },
+            // [0] prefetch widened to id + approval_status; returns both users.
+            {
+              data: [
+                { id: 'user-visible', approval_status: 'approved' },
+                { id: EXCLUDED_USER_ID, approval_status: 'pending' },
+              ],
+            },
+            // [1] main paginated query — returns BOTH including the ghost; the
+            // handler must filter it out client-side.
+            { data: [visibleProfile, excludedProfile], count: 2 },
           ],
           schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
           // [0] global pre-fetch: one user holds a global (non-school-scoped) role.
@@ -854,47 +865,43 @@ describe('admin/users — GET (school scoping)', () => {
     expect(clause).toContain('lider_generacion');
     expect(clause).toContain('encargado_licitacion');
 
-    // Phase 15.7 perf: pre-fetch is scoped to in-school user_ids so the
-    // user_roles scan is bounded to O(school) instead of O(tenant).
+    // Pre-fetch is scoped to in-school user_ids so the user_roles scan is
+    // bounded to O(school) instead of O(tenant).
     const preFetchUserIdIn = preFetch.ins.find((i) => i.col === 'user_id');
     expect(preFetchUserIdIn).toBeDefined();
     expect(preFetchUserIdIn!.vals as string[]).toEqual(
       expect.arrayContaining(['user-visible', EXCLUDED_USER_ID]),
     );
 
-    // Profiles main query must exclude the global-role holder via .not('id', 'in', ...).
-    // ED scope: main paginated query is profiles index 1 (index 0 is the
-    // in-school user_ids pre-fetch).
-    const profilesMain = tracker.fromCalls.find(
-      (c) => c.table === 'profiles' && c.index === 1,
-    )!;
-    const notId = profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in');
-    expect(notId).toBeDefined();
-    expect(String(notId!.val)).toContain(EXCLUDED_USER_ID);
+    // F2 contract: the main profiles query carries NO `.not('id', 'in', ...)`
+    // exclusion clause. Exclusion is applied in memory after the fetch.
+    const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profilesCalls).toHaveLength(2);
+    const profilesMain = profilesCalls[1];
+    expect(profilesMain.nots.find((n) => n.col === 'id')).toBeUndefined();
 
-    // Summary counts must apply the same exclusion so the displayed totals
-    // line up with the visible list. Indices 2, 3, 4 for ED scope.
-    for (const idx of [2, 3, 4]) {
-      const summary = tracker.fromCalls.find(
-        (c) => c.table === 'profiles' && c.index === idx,
-      )!;
-      const summaryNotId = summary.nots.find((n) => n.col === 'id' && n.op === 'in');
-      expect(summaryNotId).toBeDefined();
-      expect(String(summaryNotId!.val)).toContain(EXCLUDED_USER_ID);
-    }
-
-    // Response payload does not contain the excluded user.
+    // Response payload does not contain the excluded user, even though the
+    // main query returned it.
     const body = JSON.parse(res._getData());
     const returnedIds = (body.users as Array<{ id: string }>).map((u) => u.id);
+    expect(returnedIds).toContain('user-visible');
     expect(returnedIds).not.toContain(EXCLUDED_USER_ID);
+
+    // F2 summary counts are computed in memory from the prefetched in-school
+    // users with excludedSet removed. Visible user is `approved`; the
+    // excluded user (pending) is dropped from every bucket.
+    expect(body.summary).toEqual({ total: 1, pending: 0, approved: 1 });
   });
 
-  it('ED (F2): in-school user-id prefetch paginates past the 1000-row PostgREST cap, so users beyond page 1 are still excluded from results and counts', async () => {
+  it('ED (F2): main profiles query carries no `.not(id, in, ...)` exclusion clause regardless of prefetch size', async () => {
+    // Phase 15.16 chunked the main query's exclusion `.not('id', 'in', ...)`
+    // across USER_ID_BATCH-sized clauses. Phase F2 removes that strategy
+    // entirely — the main query has no exclusion, and rows are dropped in
+    // memory afterwards. This test forces a multi-page prefetch with a
+    // global-role holder on page 2 and asserts the main query is unfiltered.
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
 
-    // 1000 first-page ids forces a second prefetch round-trip; the row that
-    // matters (the global-role holder we need to exclude) lands on page 2.
     const PAGE1_IDS = Array.from({ length: 1000 }, (_, i) =>
       `aaaaaaaa-aaaa-4aaa-8aaa-${String(i).padStart(12, '0')}`,
     );
@@ -914,21 +921,30 @@ describe('admin/users — GET (school scoping)', () => {
       school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
     };
 
+    const excludedProfile = {
+      ...visibleProfile,
+      id: PAGE2_EXCLUDED,
+      email: 'ghost@example.com',
+      first_name: 'Ghost',
+      approval_status: 'pending',
+    };
+
     mockCreateServiceRoleClient.mockReturnValueOnce(
       buildSequencedClient(
         {
           profiles: [
             // Prefetch page 1 — full BATCH=1000, so pagination must continue.
-            { data: PAGE1_IDS.map((id) => ({ id })) },
+            { data: PAGE1_IDS.map((id) => ({ id, approval_status: 'approved' })) },
             // Prefetch page 2 — partial batch, loop breaks.
-            { data: [{ id: PAGE2_EXCLUDED }, { id: PAGE2_VISIBLE }] },
-            // Main paginated query — only the visible user (the excluded user
-            // is filtered out by .not('id', 'in', ...)).
-            { data: [visibleProfile], count: 1 },
-            // Summary counts.
-            { count: 1 },
-            { count: 0 },
-            { count: 1 },
+            {
+              data: [
+                { id: PAGE2_EXCLUDED, approval_status: 'pending' },
+                { id: PAGE2_VISIBLE, approval_status: 'approved' },
+              ],
+            },
+            // Main paginated query — returns BOTH; handler drops the ghost
+            // client-side. No `.not('id', 'in', ...)` clause is added.
+            { data: [visibleProfile, excludedProfile], count: 2 },
           ],
           schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
           // After F1 URL-length chunking, 1002 in-school ids → 11 global-role
@@ -954,8 +970,9 @@ describe('admin/users — GET (school scoping)', () => {
 
     expect(res._getStatusCode()).toBe(200);
 
-    // Pagination: two profiles prefetch calls with successive ranges.
     const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    // Two prefetch pages + one main query — no summary count queries for ED.
+    expect(profilesCalls).toHaveLength(3);
     expect(profilesCalls[0].ranges).toEqual([{ from: 0, to: 999 }]);
     expect(profilesCalls[1].ranges).toEqual([{ from: 1000, to: 1999 }]);
 
@@ -974,21 +991,9 @@ describe('admin/users — GET (school scoping)', () => {
       expect(batchIds.length).toBeLessThanOrEqual(100);
     }
 
-    // Main profiles query (index 2 in ED+paginated scope) excludes the
-    // page-2 global-role holder via .not('id', 'in', ...).
+    // F2 contract: main profiles query has NO `.not('id', 'in', ...)` clause.
     const profilesMain = profilesCalls[2];
-    const notId = profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in');
-    expect(notId).toBeDefined();
-    expect(String(notId!.val)).toContain(PAGE2_EXCLUDED);
-
-    // Summary counts (indices 3..5) apply the same exclusion so totals match
-    // the visible list.
-    for (const idx of [3, 4, 5]) {
-      const summary = profilesCalls[idx];
-      const summaryNotId = summary.nots.find((n) => n.col === 'id' && n.op === 'in');
-      expect(summaryNotId).toBeDefined();
-      expect(String(summaryNotId!.val)).toContain(PAGE2_EXCLUDED);
-    }
+    expect(profilesMain.nots.find((n) => n.col === 'id')).toBeUndefined();
 
     // Response payload omits the excluded user and includes the visible one.
     const body = JSON.parse(res._getData());
@@ -1044,6 +1049,14 @@ describe('admin/users — GET (school scoping)', () => {
       school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
     };
 
+    const crossSchoolProfile = {
+      ...visibleProfile,
+      id: CROSS_SCHOOL_USER_ID,
+      email: 'cross@example.com',
+      first_name: 'Cross',
+      approval_status: 'pending',
+    };
+
     mockCreateServiceRoleClient.mockReturnValueOnce(
       buildSequencedClient(
         {
@@ -1051,13 +1064,15 @@ describe('admin/users — GET (school scoping)', () => {
             // [0] in-school prefetch — visible user + the cross-school user
             // (their profile lives at ED_SCHOOL_ID even though they also hold
             // a docente role attached to OTHER_SCHOOL_ID).
-            { data: [{ id: 'user-visible' }, { id: CROSS_SCHOOL_USER_ID }] },
-            // [1] main paginated query — only the visible user comes back.
-            { data: [visibleProfile], count: 1 },
-            // [2..4] summary counts.
-            { count: 1 },
-            { count: 0 },
-            { count: 1 },
+            {
+              data: [
+                { id: 'user-visible', approval_status: 'approved' },
+                { id: CROSS_SCHOOL_USER_ID, approval_status: 'pending' },
+              ],
+            },
+            // [1] main paginated query — returns BOTH; handler drops the
+            // cross-school user client-side.
+            { data: [visibleProfile, crossSchoolProfile], count: 2 },
           ],
           schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
           // [0] global-role pre-fetch (empty).
@@ -1111,29 +1126,20 @@ describe('admin/users — GET (school scoping)', () => {
     expect(crossNotSchool).toBeDefined();
     expect(crossNotSchool!.val).toBe(ED_SCHOOL_ID);
 
-    // Main profiles query (index 1 for ED scope) excludes the cross-school
-    // user via .not('id', 'in', ...).
+    // F2 contract: main profiles query has NO `.not('id', 'in', ...)` clause.
     const profilesMain = tracker.fromCalls.find(
       (c) => c.table === 'profiles' && c.index === 1,
     )!;
-    const notId = profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in');
-    expect(notId).toBeDefined();
-    expect(String(notId!.val)).toContain(CROSS_SCHOOL_USER_ID);
-
-    // Summary counts apply the same exclusion.
-    for (const idx of [2, 3, 4]) {
-      const summary = tracker.fromCalls.find(
-        (c) => c.table === 'profiles' && c.index === idx,
-      )!;
-      const summaryNotId = summary.nots.find((n) => n.col === 'id' && n.op === 'in');
-      expect(summaryNotId).toBeDefined();
-      expect(String(summaryNotId!.val)).toContain(CROSS_SCHOOL_USER_ID);
-    }
+    expect(profilesMain.nots.find((n) => n.col === 'id')).toBeUndefined();
 
     const body = JSON.parse(res._getData());
     const returnedIds = (body.users as Array<{ id: string }>).map((u) => u.id);
     expect(returnedIds).not.toContain(CROSS_SCHOOL_USER_ID);
     expect(returnedIds).toContain('user-visible');
+
+    // Summary counts computed in memory: visible user is `approved`; the
+    // cross-school user (pending) is removed from the excluded set.
+    expect(body.summary).toEqual({ total: 1, pending: 0, approved: 1 });
   });
 
   it('ED (F1): a user holding both a same-school AND a cross-school school-scoped role is still excluded', async () => {
@@ -1147,15 +1153,26 @@ describe('admin/users — GET (school scoping)', () => {
 
     const DOUBLE_BOUND_ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 
+    const doubleBoundProfile = {
+      id: DOUBLE_BOUND_ID,
+      email: 'double@example.com',
+      first_name: 'Double',
+      last_name: 'Bound',
+      school_id: ED_SCHOOL_ID,
+      approval_status: 'approved',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+    };
+
     mockCreateServiceRoleClient.mockReturnValueOnce(
       buildSequencedClient(
         {
           profiles: [
-            { data: [{ id: DOUBLE_BOUND_ID }] },
-            { data: [], count: 0 },
-            { count: 0 },
-            { count: 0 },
-            { count: 0 },
+            { data: [{ id: DOUBLE_BOUND_ID, approval_status: 'approved' }] },
+            // Main query still returns the row; it's filtered out in memory.
+            { data: [doubleBoundProfile], count: 1 },
           ],
           schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
           user_roles: [
@@ -1176,12 +1193,16 @@ describe('admin/users — GET (school scoping)', () => {
 
     expect(res._getStatusCode()).toBe(200);
 
+    // F2 contract: main profiles query has no `.not(id, in, ...)` clause.
     const profilesMain = tracker.fromCalls.find(
       (c) => c.table === 'profiles' && c.index === 1,
     )!;
-    const notId = profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in');
-    expect(notId).toBeDefined();
-    expect(String(notId!.val)).toContain(DOUBLE_BOUND_ID);
+    expect(profilesMain.nots.find((n) => n.col === 'id')).toBeUndefined();
+
+    const body = JSON.parse(res._getData());
+    const returnedIds = (body.users as Array<{ id: string }>).map((u) => u.id);
+    expect(returnedIds).not.toContain(DOUBLE_BOUND_ID);
+    expect(body.summary).toEqual({ total: 0, pending: 0, approved: 0 });
   });
 
   it('ED (F3 stable pagination): in-school user-id prefetch issues .order(id, asc) before .range(...) on every page', async () => {

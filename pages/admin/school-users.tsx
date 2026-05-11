@@ -12,7 +12,7 @@ import RoleAssignmentModal from '../../components/RoleAssignmentModal';
 import PasswordResetModal from '../../components/PasswordResetModal';
 import UserEditModal from '../../components/admin/UserEditModal';
 import { createServiceRoleClient } from '../../lib/api-auth';
-import { ED_ASSIGNABLE_ROLES } from '../../utils/roleUtils';
+import { ED_ASSIGNABLE_ROLES, ED_CREATE_USER_ROLES } from '../../utils/roleUtils';
 import { ROLE_NAMES, type UserRoleType } from '../../types/roles';
 
 type PageProps = { schoolId: number };
@@ -701,12 +701,17 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
                     onChange={(e) => setNewUserRole(e.target.value)}
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                   >
-                    {ED_ASSIGNABLE_ROLES.map((roleType) => (
+                    {ED_CREATE_USER_ROLES.map((roleType) => (
                       <option key={roleType} value={roleType}>
                         {ROLE_NAMES[roleType as UserRoleType]}
                       </option>
                     ))}
                   </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Los roles de Líder de Comunidad y Líder de Generación
+                    requieren información adicional y deben asignarse desde la
+                    opción &quot;Cambiar Rol&quot; del usuario una vez creado.
+                  </p>
                 </div>
               </div>
               <div className="flex justify-end gap-3 mt-6">

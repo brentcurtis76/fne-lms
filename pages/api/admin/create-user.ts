@@ -1,6 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient, isValidSchoolIdInput } from '../../../lib/api-auth';
-import { ED_ASSIGNABLE_ROLES, SCHOOL_SCOPED_ROLES_SET } from '../../../utils/roleUtils';
+import {
+  ED_ASSIGNABLE_ROLES,
+  ED_CREATE_USER_ROLES,
+  SCHOOL_SCOPED_ROLES_SET,
+} from '../../../utils/roleUtils';
 import type { UserRoleType } from '../../../types/roles';
 
 // Mirrors assign-role.ts's canonical role list. Any role outside this set is
@@ -60,9 +64,22 @@ export default async function handler(
     // ED role-assignability is checked BEFORE schoolId shape validation so a
     // misdirected request (e.g. role='admin' + schoolId='abc') returns the
     // 403 role error instead of a 400 schoolId error. Mirrors assign-role.ts.
+    //
+    // Two-tier gate for ED requesters:
+    //   1. Role outside ED_ASSIGNABLE_ROLES (admin/consultor/...) → 403.
+    //   2. Role in ED_ASSIGNABLE_ROLES but not in ED_CREATE_USER_ROLES
+    //      (i.e. `lider_comunidad` / `lider_generacion`) → 400. Those roles
+    //      need `community_id` / `generation_id` foreign keys that the
+    //      quick-create form does not collect, so they must be assigned
+    //      through the full assign-role flow (`RoleAssignmentModal`).
     if (requesterRole === 'equipo_directivo') {
       if (!(ED_ASSIGNABLE_ROLES as readonly string[]).includes(resolvedRole)) {
         return res.status(403).json({ error: 'Role not assignable by equipo_directivo' });
+      }
+      if (!(ED_CREATE_USER_ROLES as readonly string[]).includes(resolvedRole)) {
+        return res.status(400).json({
+          error: 'Este rol requiere la asignación completa, no la creación rápida',
+        });
       }
     }
 

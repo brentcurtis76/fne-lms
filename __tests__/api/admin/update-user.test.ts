@@ -1070,6 +1070,82 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect('external_school_affiliation' in rollback).toBe(false);
   });
 
+  it('admin: rollback failure on auth-update path is logged loudly and still returns 500', async () => {
+    // Rollback failure leaves the row torn (profile email mutated, auth email
+    // unchanged). Silent failure breaks reconciliation, so the rollback error
+    // MUST surface via console.error with structured context. Response shape
+    // is unchanged — still 500 for the auth-update failure.
+    setupAdmin();
+    const tracker = makeTracker();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const adminClient = buildAdminClient(
+      {
+        profiles: [
+          {
+            data: {
+              email: 'server@example.com',
+              first_name: 'OldFirst',
+              last_name: 'OldLast',
+              school: 'OldSchool',
+              external_school_affiliation: 'OldExternal',
+            },
+            error: null,
+          },
+          { data: null, error: null }, // forward profile update succeeds
+          { data: null, error: { message: 'rollback failed' } }, // rollback fails
+        ],
+      },
+      tracker,
+    );
+    adminClient.auth.admin.updateUserById = vi.fn(
+      async (userId: string, payload: unknown) => {
+        tracker.authUpdates.push({ userId, payload });
+        return { data: null, error: { message: 'auth failed' } };
+      },
+    );
+    mockCreateServiceRoleClient.mockReturnValueOnce(adminClient);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: TARGET_USER_ID, email: 'new@example.com' },
+    });
+    await handler(req as never, res as never);
+
+    // Response shape unchanged: still 500 for the auth-update failure.
+    expect(res._getStatusCode()).toBe(500);
+    expect(res._getJSONData()).toEqual({
+      error: 'Error al actualizar el email: auth failed',
+    });
+
+    // Rollback was still attempted.
+    const profileCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profileCalls).toHaveLength(3);
+    expect(profileCalls[2].updates).toHaveLength(1);
+
+    // The rollback failure was logged loudly with the expected label and
+    // reconciliation context.
+    const matching = consoleError.mock.calls.find(
+      ([label]) =>
+        typeof label === 'string' &&
+        label.includes('profile_rollback_failed'),
+    );
+    expect(matching).toBeDefined();
+    const ctx = matching![1] as any;
+    expect(ctx).toMatchObject({
+      userId: TARGET_USER_ID,
+      requester_user_id: ADMIN_ID,
+      requester_role: 'admin',
+      auth_update_error: { message: 'auth failed' },
+      rollback_error: { message: 'rollback failed' },
+    });
+    expect(ctx.previous_profile).toMatchObject({
+      email: 'server@example.com',
+    });
+    expect(typeof ctx.timestamp).toBe('string');
+
+    consoleError.mockRestore();
+  });
+
   it("admin: email: '' returns 400 and performs no profile or auth update", async () => {
     setupAdmin();
     const tracker = makeTracker();

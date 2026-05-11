@@ -438,6 +438,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // branch surfaces legacy data; outer user_ids.in(...) prevents
       // cross-school leakage in the interim.
       rolesQuery = rolesQuery
+        // Phase 15.21 safety: the `school_id.is.null` branch is only safe
+        // because `userIds` was pre-restricted to in-school profile ids via
+        // the paginated profiles prefetch above. That outer `.in('user_id',
+        // userIds)` is what prevents a null `school_id` on a legacy role row
+        // from leaking a cross-school user. Widening or removing the
+        // prefetch (e.g. fetching role rows independently of the profile
+        // page) would re-expose legacy `null`-school role rows belonging to
+        // users from other schools — do not do this without first
+        // backfilling `user_roles.school_id` and enforcing NOT NULL.
         .or(`school_id.is.null,school_id.eq.${edSchoolId}`)
         .in('role_type', SCHOOL_SCOPED_ROLES as readonly string[]);
     }

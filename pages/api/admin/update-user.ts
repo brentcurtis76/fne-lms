@@ -218,6 +218,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Rollback only the fields the forward path actually mutated, to the
         // server-fetched prior values. Mirrors the conditional updateData
         // shape so an unchanged column is never touched.
+        // Rollback failure is critical: the row is now in a torn state
+        // (profile email mutated, auth email unchanged). Surface it loudly via
+        // console.error with enough structured context to reconcile manually.
+        let rollbackError: unknown = null;
         if (previousProfile) {
           const rollbackUpdate: Record<string, unknown> = {};
           if ('email' in updateData) rollbackUpdate.email = previousProfile.email;
@@ -228,16 +232,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
           if ('school' in updateData) rollbackUpdate.school = previousProfile.school;
           if (Object.keys(rollbackUpdate).length > 0) {
-            await supabaseAdmin
+            const { error } = await supabaseAdmin
               .from('profiles')
               .update(rollbackUpdate)
               .eq('id', userId);
+            rollbackError = error ?? null;
           }
         } else {
-          await supabaseAdmin
+          const { error } = await supabaseAdmin
             .from('profiles')
             .update({ email: currentEmail })
             .eq('id', userId);
+          rollbackError = error ?? null;
+        }
+
+        if (rollbackError) {
+          console.error('[update-user] CRITICAL: profile_rollback_failed', {
+            userId,
+            requester_user_id: requestingUser.id,
+            requester_role: requesterRole,
+            previous_profile: previousProfile,
+            auth_update_error: authUpdateError,
+            rollback_error: rollbackError,
+            timestamp: new Date().toISOString(),
+          });
         }
 
         return res.status(500).json({ error: 'Error al actualizar el email: ' + authUpdateError.message });

@@ -239,6 +239,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       communityId: sanitizedCommunityId
     };
 
+    // Phase 15.21 invariant: `schoolId` here is `number | null`. Upstream
+    // `isValidSchoolIdInput` rejects `0` and negative values, so by the time
+    // we reach this call the field is either a positive integer or `null`.
+    // This means truthiness checks inside `validateRoleAssignment` (e.g.
+    // `if (scope.schoolId)`) are safe — there is no `0` that would be
+    // silently treated as "missing" and no negative ID that would slip past
+    // a truthy guard.
     const validation = validateRoleAssignment(roleType, organizationalScope);
     if (!validation.isValid) {
       console.log('[assign-role API] Role validation failed:', {

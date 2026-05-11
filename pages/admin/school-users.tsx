@@ -67,16 +67,19 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (ctx) => 
 
   // Invariant: a user holds at most one active equipo_directivo row.
   // Verified via prod data audit on 2026-05-11 (no user had >1 active ED row).
-  // If this ever changes, this page needs a school switcher — picking the
-  // lowest-id row would silently hide the other schools from the user.
+  // Fail-closed: if the invariant is violated (manual SQL, role-assignment
+  // race), refuse to render rather than silently scope the page to whichever
+  // row happens to come first. A DB-level partial unique index is the proper
+  // long-term guard but is owned by the DB agent — tracked as a PR follow-up.
   const edRows = rows.filter((r) => r.role_type === 'equipo_directivo');
   if (edRows.length > 1) {
-    console.warn(
-      '[school-users] multi-ED detected for user',
+    console.error(
+      '[school-users] multi-ED invariant violated for user',
       session.user.id,
-      '— invariant broken, falling back to first row. School ids:',
-      edRows.map((r) => r.school_id),
+      'rows:',
+      edRows.map((r) => ({ id: r.id, school_id: r.school_id })),
     );
+    return { redirect: { destination: '/dashboard', permanent: false } };
   }
   const edRow = edRows[0];
 

@@ -322,6 +322,32 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
+  it("ED with role='admin' AND invalid schoolId='abc': 403 role error fires before schoolId validation", async () => {
+    // F4: error-precedence. The ED role-assignability gate runs BEFORE schoolId
+    // shape validation, so a misdirected request returns the actionable 403
+    // ("role not assignable") instead of a 400 schoolId error.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: {
+        email: 'new@example.com',
+        password: 'pw-12345',
+        firstName: 'New',
+        lastName: 'User',
+        role: 'admin',
+        schoolId: 'abc',
+      },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toEqual({
+      error: 'Role not assignable by equipo_directivo',
+    });
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
+
   it("ED with role='consultor': 403", async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
 

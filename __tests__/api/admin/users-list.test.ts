@@ -35,6 +35,7 @@ interface FromCall {
   eqs: Array<{ col: string; val: unknown }>;
   ins: Array<{ col: string; vals: unknown }>;
   ors: string[];
+  nots: Array<{ col: string; op: string; val: unknown }>;
 }
 
 interface Tracker {
@@ -61,7 +62,7 @@ function buildSequencedClient(
       indices[table] = idx + 1;
       const result = resultsByTable[table]?.[idx] ?? { data: null };
 
-      const fromCall: FromCall = { table, index: idx, eqs: [], ins: [], ors: [] };
+      const fromCall: FromCall = { table, index: idx, eqs: [], ins: [], ors: [], nots: [] };
       tracker?.fromCalls.push(fromCall);
 
       const resolved = {
@@ -97,6 +98,12 @@ function buildSequencedClient(
                   (row) => row.school_id === null || row.school_id === schoolId,
                 );
               }
+              return new Proxy({}, proxyHandler);
+            });
+          }
+          if (prop === 'not') {
+            return vi.fn((col: string, op: string, val: unknown) => {
+              fromCall.nots.push({ col, op, val });
               return new Proxy({}, proxyHandler);
             });
           }
@@ -179,7 +186,12 @@ function stockHappyPath(schoolId: number, tracker: Tracker) {
           { count: 1 },
         ],
         schools: [{ data: [{ id: schoolId, name: `School ${schoolId}` }] }],
-        user_roles: [{ data: [] }],
+        // For ED scope the handler issues two user_roles SELECTs:
+        //   [0] pre-fetch of users with active global (non-school-scoped) roles
+        //   [1] main roles query for the returned profile ids
+        // Admin scope only consumes [0] (the main roles query) — leaving [1]
+        // configured is harmless.
+        user_roles: [{ data: [] }, { data: [] }],
         consultant_assignments: [{ data: [] }, { data: [] }],
         course_assignments: [{ data: [] }],
         learning_path_assignments: [{ data: [] }],
@@ -220,7 +232,9 @@ describe('admin/users — GET (school scoping)', () => {
     const schoolsCall = tracker.fromCalls.find((c) => c.table === 'schools')!;
     expect(schoolsCall.eqs.find((e) => e.col === 'id')).toBeUndefined();
 
-    const rolesCall = tracker.fromCalls.find((c) => c.table === 'user_roles')!;
+    // Main user_roles query is the LAST call against the table — for ED scope
+    // there's also a pre-fetch of global-role holders ahead of it.
+    const rolesCall = tracker.fromCalls.filter((c) => c.table === 'user_roles').at(-1)!;
     expect(rolesCall.eqs.find((e) => e.col === 'school_id')).toBeUndefined();
   });
 
@@ -257,7 +271,9 @@ describe('admin/users — GET (school scoping)', () => {
 
     // user_roles scoping is enforced via .in('user_id', userIds) — not
     // .eq('school_id', ...), so rows with school_id=NULL are still returned.
-    const rolesCall = tracker.fromCalls.find((c) => c.table === 'user_roles')!;
+    // Main user_roles query is the LAST call against the table — for ED scope
+    // there's also a pre-fetch of global-role holders ahead of it.
+    const rolesCall = tracker.fromCalls.filter((c) => c.table === 'user_roles').at(-1)!;
     expect(
       rolesCall.eqs.find((e) => e.col === 'school_id'),
     ).toBeUndefined();
@@ -315,7 +331,9 @@ describe('admin/users — GET (school scoping)', () => {
       profilesMain.eqs.find((e) => e.col === 'school_id' && e.val === ED_SCHOOL_ID),
     ).toBeDefined();
 
-    const rolesCall = tracker.fromCalls.find((c) => c.table === 'user_roles')!;
+    // Main user_roles query is the LAST call against the table — for ED scope
+    // there's also a pre-fetch of global-role holders ahead of it.
+    const rolesCall = tracker.fromCalls.filter((c) => c.table === 'user_roles').at(-1)!;
     expect(
       rolesCall.eqs.find((e) => e.col === 'school_id'),
     ).toBeUndefined();
@@ -418,7 +436,8 @@ describe('admin/users — GET (school scoping)', () => {
             { count: 1 },
           ],
           schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
-          user_roles: [{ data: [roleRowWithNullSchool] }],
+          // ED scope: [0] = global-role pre-fetch (empty), [1] = main roles
+          user_roles: [{ data: [] }, { data: [roleRowWithNullSchool] }],
           consultant_assignments: [{ data: [] }, { data: [] }],
           course_assignments: [{ data: [] }],
           learning_path_assignments: [{ data: [] }],
@@ -432,7 +451,9 @@ describe('admin/users — GET (school scoping)', () => {
 
     expect(res._getStatusCode()).toBe(200);
 
-    const rolesCall = tracker.fromCalls.find((c) => c.table === 'user_roles')!;
+    // Main user_roles query is the LAST call against the table — for ED scope
+    // there's also a pre-fetch of global-role holders ahead of it.
+    const rolesCall = tracker.fromCalls.filter((c) => c.table === 'user_roles').at(-1)!;
     expect(rolesCall.eqs.find((e) => e.col === 'school_id')).toBeUndefined();
     expect(rolesCall.ins.find((i) => i.col === 'user_id')).toBeDefined();
 
@@ -487,7 +508,8 @@ describe('admin/users — GET (school scoping)', () => {
             { count: 1 },
           ],
           schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
-          user_roles: [{ data: [inSchoolRoleRow] }],
+          // ED scope: [0] = global-role pre-fetch (empty), [1] = main roles
+          user_roles: [{ data: [] }, { data: [inSchoolRoleRow] }],
           consultant_assignments: [{ data: [] }, { data: [] }],
           course_assignments: [{ data: [] }],
           learning_path_assignments: [{ data: [] }],
@@ -501,7 +523,9 @@ describe('admin/users — GET (school scoping)', () => {
 
     expect(res._getStatusCode()).toBe(200);
 
-    const rolesCall = tracker.fromCalls.find((c) => c.table === 'user_roles')!;
+    // Main user_roles query is the LAST call against the table — for ED scope
+    // there's also a pre-fetch of global-role holders ahead of it.
+    const rolesCall = tracker.fromCalls.filter((c) => c.table === 'user_roles').at(-1)!;
     const userIdIn = rolesCall.ins.find((i) => i.col === 'user_id');
     expect(userIdIn).toBeDefined();
     expect(userIdIn!.vals).toEqual(['user-in-school']);
@@ -529,7 +553,9 @@ describe('admin/users — GET (school scoping)', () => {
 
     expect(res._getStatusCode()).toBe(200);
 
-    const rolesCall = tracker.fromCalls.find((c) => c.table === 'user_roles')!;
+    // Main user_roles query is the LAST call against the table — for ED scope
+    // there's also a pre-fetch of global-role holders ahead of it.
+    const rolesCall = tracker.fromCalls.filter((c) => c.table === 'user_roles').at(-1)!;
     const roleTypeIn = rolesCall.ins.find((i) => i.col === 'role_type');
     expect(roleTypeIn).toBeDefined();
     expect(roleTypeIn!.vals as string[]).toEqual(
@@ -660,7 +686,8 @@ describe('admin/users — GET (school scoping)', () => {
             { count: 1 },
           ],
           schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
-          user_roles: [{ data: [sameSchoolRole, foreignSchoolRole] }],
+          // ED scope: [0] = global-role pre-fetch (empty), [1] = main roles
+          user_roles: [{ data: [] }, { data: [sameSchoolRole, foreignSchoolRole] }],
           consultant_assignments: [{ data: [] }, { data: [] }],
           course_assignments: [{ data: [] }],
           learning_path_assignments: [{ data: [] }],
@@ -674,7 +701,9 @@ describe('admin/users — GET (school scoping)', () => {
 
     expect(res._getStatusCode()).toBe(200);
 
-    const rolesCall = tracker.fromCalls.find((c) => c.table === 'user_roles')!;
+    // Main user_roles query is the LAST call against the table — for ED scope
+    // there's also a pre-fetch of global-role holders ahead of it.
+    const rolesCall = tracker.fromCalls.filter((c) => c.table === 'user_roles').at(-1)!;
     expect(rolesCall.ins.find((i) => i.col === 'user_id')).toBeDefined();
     expect(rolesCall.ors).toContain(
       `school_id.is.null,school_id.eq.${ED_SCHOOL_ID}`,
@@ -687,6 +716,121 @@ describe('admin/users — GET (school scoping)', () => {
     expect(returnedRoles[0].id).toBe('role-same');
     expect(returnedRoles[0].school_id).toBe(ED_SCHOOL_ID);
     expect(returnedRoles.find((r: any) => r.school_id === OTHER_SCHOOL_ID)).toBeUndefined();
+  });
+
+  it('ED: profiles query excludes in-school users who hold any active global role', async () => {
+    // F1: a user with profile.school_id = edSchoolId but also an active
+    // admin/consultor/community_manager/supervisor_de_red role must NOT appear
+    // in the ED's list — otherwise the row is a "ghost" the ED can see but
+    // cannot edit (write-path target-role gate rejects with 403).
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    const EXCLUDED_USER_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+
+    const visibleProfile = {
+      id: 'user-visible',
+      email: 'visible@example.com',
+      first_name: 'Visible',
+      last_name: 'User',
+      school_id: ED_SCHOOL_ID,
+      approval_status: 'approved',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+    };
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            { data: [visibleProfile], count: 1 },
+            { count: 1 },
+            { count: 0 },
+            { count: 1 },
+          ],
+          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+          // [0] pre-fetch: one user holds a global (non-school-scoped) role.
+          // [1] main user_roles for the returned profiles.
+          user_roles: [
+            { data: [{ user_id: EXCLUDED_USER_ID }] },
+            { data: [] },
+          ],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    // Pre-fetch (first user_roles call) must filter active rows whose
+    // role_type is NOT in SCHOOL_SCOPED_ROLES.
+    const userRolesCalls = tracker.fromCalls.filter((c) => c.table === 'user_roles');
+    expect(userRolesCalls.length).toBeGreaterThanOrEqual(2);
+    const preFetch = userRolesCalls[0];
+    expect(preFetch.eqs).toContainEqual({ col: 'is_active', val: true });
+    const notRoleType = preFetch.nots.find((n) => n.col === 'role_type' && n.op === 'in');
+    expect(notRoleType).toBeDefined();
+    const clause = notRoleType!.val as string;
+    expect(clause).toContain('docente');
+    expect(clause).toContain('equipo_directivo');
+    expect(clause).toContain('lider_comunidad');
+    expect(clause).toContain('lider_generacion');
+    expect(clause).toContain('encargado_licitacion');
+
+    // Profiles main query must exclude the global-role holder via .not('id', 'in', ...).
+    const profilesMain = tracker.fromCalls.find(
+      (c) => c.table === 'profiles' && c.index === 0,
+    )!;
+    const notId = profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in');
+    expect(notId).toBeDefined();
+    expect(String(notId!.val)).toContain(EXCLUDED_USER_ID);
+
+    // Summary counts must apply the same exclusion so the displayed totals
+    // line up with the visible list.
+    for (const idx of [1, 2, 3]) {
+      const summary = tracker.fromCalls.find(
+        (c) => c.table === 'profiles' && c.index === idx,
+      )!;
+      const summaryNotId = summary.nots.find((n) => n.col === 'id' && n.op === 'in');
+      expect(summaryNotId).toBeDefined();
+      expect(String(summaryNotId!.val)).toContain(EXCLUDED_USER_ID);
+    }
+
+    // Response payload does not contain the excluded user.
+    const body = JSON.parse(res._getData());
+    const returnedIds = (body.users as Array<{ id: string }>).map((u) => u.id);
+    expect(returnedIds).not.toContain(EXCLUDED_USER_ID);
+  });
+
+  it('admin: profiles query is NOT filtered against the global-role pre-fetch', async () => {
+    // F1 contract: the global-role exclusion is ED-scope only. Admin sees all
+    // users and the pre-fetch is not issued.
+    setupAdmin();
+    const tracker = makeTracker();
+    stockHappyPath(7, tracker);
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    // Admin issues exactly one user_roles call — the main roles query — and
+    // the profiles query has no .not('id', 'in', ...) exclusion.
+    const userRolesCalls = tracker.fromCalls.filter((c) => c.table === 'user_roles');
+    expect(userRolesCalls).toHaveLength(1);
+
+    const profilesMain = tracker.fromCalls.find(
+      (c) => c.table === 'profiles' && c.index === 0,
+    )!;
+    expect(profilesMain.nots.find((n) => n.col === 'id')).toBeUndefined();
   });
 
 });

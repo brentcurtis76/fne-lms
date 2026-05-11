@@ -49,6 +49,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const effectiveCommunityId = isEdScope ? '' : communityId;
 
+    // ED scope: a user may have profile.school_id = edSchoolId yet hold an
+    // active global (non-school-scoped) role like admin/consultor. Such users
+    // must not appear in the ED's list — every write attempt against them
+    // would be rejected by the target-role gate (yielding "ghost rows").
+    // Pre-fetch their ids so we can exclude them from the profiles query.
+    let edExcludedUserIds: string[] = [];
+    if (isEdScope) {
+      const { data: globalRoleHolders, error: globalRoleErr } = await supabaseService
+        .from('user_roles')
+        .select('user_id')
+        .eq('is_active', true)
+        .not('role_type', 'in', `(${SCHOOL_SCOPED_ROLES.join(',')})`);
+
+      if (globalRoleErr) {
+        console.error('[users API] Error fetching global-role holders:', globalRoleErr);
+        return res.status(500).json({ error: 'Error al filtrar usuarios' });
+      }
+      edExcludedUserIds = Array.from(
+        new Set((globalRoleHolders ?? []).map((r: any) => r.user_id).filter(Boolean)),
+      );
+    }
+
     let allowedUserIds: string[] | null = null;
     if (effectiveCommunityId) {
       const { data: communityUsers, error: communityError } = await supabaseService
@@ -94,6 +116,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       profileQuery = profileQuery.in('id', allowedUserIds);
     }
 
+    if (isEdScope && edExcludedUserIds.length > 0) {
+      profileQuery = profileQuery.not(
+        'id',
+        'in',
+        `(${edExcludedUserIds.join(',')})`,
+      );
+    }
+
     const { data: profiles, count, error: profilesError } = await profileQuery;
 
     if (profilesError) {
@@ -123,6 +153,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       pendingCountQuery = pendingCountQuery.eq('school_id', edSchoolNum);
       approvedCountQuery = approvedCountQuery.eq('school_id', edSchoolNum);
       schoolsQuery = schoolsQuery.eq('id', edSchoolNum);
+
+      if (edExcludedUserIds.length > 0) {
+        const excludedClause = `(${edExcludedUserIds.join(',')})`;
+        totalCountQuery = totalCountQuery.not('id', 'in', excludedClause);
+        pendingCountQuery = pendingCountQuery.not('id', 'in', excludedClause);
+        approvedCountQuery = approvedCountQuery.not('id', 'in', excludedClause);
+      }
     }
 
     const [totalCountRes, pendingCountRes, approvedCountRes, schoolsRes] = await Promise.all([

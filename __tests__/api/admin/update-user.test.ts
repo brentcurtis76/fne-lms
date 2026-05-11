@@ -735,16 +735,28 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
-  it('ED: rollback on auth-update failure uses server-fetched email, not req.body.originalEmail', async () => {
-    // F3: client must not be trusted to supply the rollback target. Even when
-    // `originalEmail` is omitted from the body, rollback must restore the
-    // pre-mutation profile email fetched server-side during the ED lookup.
+  it('ED: rollback on auth-update failure restores ALL server-fetched fields, not just email', async () => {
+    // F2: client must not be trusted to supply the rollback target. The
+    // forward profile update writes first_name/last_name/external_school_affiliation
+    // alongside email — if the subsequent auth.admin.updateUserById fails, ALL
+    // fields must roll back to the server-fetched prior values, not stay at the
+    // newly written payload values.
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
     const adminClient = buildAdminClient(
       {
         profiles: [
-          { data: { school_id: ED_SCHOOL_ID, email: 'server@example.com' }, error: null },
+          {
+            data: {
+              school_id: ED_SCHOOL_ID,
+              email: 'server@example.com',
+              first_name: 'OldFirst',
+              last_name: 'OldLast',
+              school: null,
+              external_school_affiliation: 'OldExternal',
+            },
+            error: null,
+          },
           { data: null, error: null }, // forward profile update
           { data: null, error: null }, // rollback profile update
         ],
@@ -763,7 +775,12 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     const { req, res } = createMocks({
       method: 'POST',
       // No originalEmail in body — proves rollback does not depend on it.
-      body: baseBody({ email: 'new@example.com' }),
+      body: baseBody({
+        email: 'new@example.com',
+        first_name: 'NewFirst',
+        last_name: 'NewLast',
+        external_school_affiliation: 'NewExternal',
+      }),
     });
     await handler(req as never, res as never);
 
@@ -772,18 +789,33 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     const profileCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
     // lookup → forward update → rollback update
     expect(profileCalls).toHaveLength(3);
-    expect(profileCalls[2].updates).toHaveLength(1);
-    expect((profileCalls[2].updates[0] as any).email).toBe('server@example.com');
+    const rollback = profileCalls[2].updates[0] as any;
+    expect(rollback.email).toBe('server@example.com');
+    expect(rollback.first_name).toBe('OldFirst');
+    expect(rollback.last_name).toBe('OldLast');
+    expect(rollback.external_school_affiliation).toBe('OldExternal');
+    // ED rollback never restores the legacy `school` text field — that field
+    // is admin-only on the forward path too.
+    expect(rollback.school).toBeUndefined();
     expect(profileCalls[2].eqs).toEqual([{ col: 'id', val: TARGET_USER_ID }]);
   });
 
-  it('admin: rollback on auth-update failure uses server-fetched email, not req.body.originalEmail', async () => {
+  it('admin: rollback on auth-update failure restores ALL server-fetched fields, including school', async () => {
     setupAdmin();
     const tracker = makeTracker();
     const adminClient = buildAdminClient(
       {
         profiles: [
-          { data: { email: 'server@example.com' }, error: null }, // admin pre-fetch
+          {
+            data: {
+              email: 'server@example.com',
+              first_name: 'OldFirst',
+              last_name: 'OldLast',
+              school: 'OldSchool',
+              external_school_affiliation: 'OldExternal',
+            },
+            error: null,
+          },
           { data: null, error: null }, // forward profile update
           { data: null, error: null }, // rollback profile update
         ],
@@ -800,7 +832,13 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
 
     const { req, res } = createMocks({
       method: 'POST',
-      body: baseBody({ email: 'new@example.com', school: 'Some School' }),
+      body: baseBody({
+        email: 'new@example.com',
+        first_name: 'NewFirst',
+        last_name: 'NewLast',
+        school: 'NewSchool',
+        external_school_affiliation: 'NewExternal',
+      }),
     });
     await handler(req as never, res as never);
 
@@ -811,8 +849,13 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect(profileCalls).toHaveLength(3);
     expect(profileCalls[0].selects).toHaveLength(1);
     expect(profileCalls[0].eqs).toEqual([{ col: 'id', val: TARGET_USER_ID }]);
-    expect(profileCalls[2].updates).toHaveLength(1);
-    expect((profileCalls[2].updates[0] as any).email).toBe('server@example.com');
+
+    const rollback = profileCalls[2].updates[0] as any;
+    expect(rollback.email).toBe('server@example.com');
+    expect(rollback.first_name).toBe('OldFirst');
+    expect(rollback.last_name).toBe('OldLast');
+    expect(rollback.school).toBe('OldSchool');
+    expect(rollback.external_school_affiliation).toBe('OldExternal');
   });
 
   it('missing userId: 400', async () => {

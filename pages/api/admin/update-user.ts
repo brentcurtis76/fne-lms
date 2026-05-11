@@ -36,10 +36,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const supabaseAdmin = createServiceRoleClient();
 
-    // Server-fetched prior email — the only safe source for rollback/audit.
-    // Never trust req.body.originalEmail: a client could omit it or send junk
-    // and corrupt profiles.email if the auth-side update fails.
+    // Server-fetched prior profile — the only safe source for rollback/audit.
+    // Never trust req.body.* echoes: a client could omit them or send junk
+    // and corrupt profile fields if the auth-side update fails. We need ALL
+    // mutable fields (not just email) so the rollback on auth-email failure
+    // fully restores the row to its pre-update state.
     let currentEmail: string | null | undefined;
+    let previousProfile: {
+      email: string | null;
+      first_name: string | null;
+      last_name: string | null;
+      school: string | null;
+      external_school_affiliation: string | null;
+    } | null = null;
 
     if (requesterRole === 'equipo_directivo') {
       if (req.body.school !== undefined && req.body.school !== null && req.body.school !== '') {
@@ -57,7 +66,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const { data: targetProfile, error: profileLookupError } = await supabaseAdmin
         .from('profiles')
-        .select('school_id, email')
+        .select('school_id, email, first_name, last_name, school, external_school_affiliation')
         .eq('id', userId)
         .maybeSingle();
 
@@ -73,6 +82,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       currentEmail = targetProfile.email;
+      previousProfile = {
+        email: targetProfile.email ?? null,
+        first_name: targetProfile.first_name ?? null,
+        last_name: targetProfile.last_name ?? null,
+        school: targetProfile.school ?? null,
+        external_school_affiliation: targetProfile.external_school_affiliation ?? null,
+      };
 
       // TOCTOU: this user_roles read is a point-in-time check. A concurrent
       // role grant landing between this gate and the update write below could
@@ -100,7 +116,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (requesterRole === 'admin' && email) {
       const { data: targetProfile, error: profileLookupError } = await supabaseAdmin
         .from('profiles')
-        .select('email')
+        .select('email, first_name, last_name, school, external_school_affiliation')
         .eq('id', userId)
         .maybeSingle();
 
@@ -112,6 +128,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       currentEmail = targetProfile.email;
+      previousProfile = {
+        email: targetProfile.email ?? null,
+        first_name: targetProfile.first_name ?? null,
+        last_name: targetProfile.last_name ?? null,
+        school: targetProfile.school ?? null,
+        external_school_affiliation: targetProfile.external_school_affiliation ?? null,
+      };
     }
 
     const updateData: Record<string, unknown> = {
@@ -152,11 +175,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (authUpdateError) {
         console.error('Error updating auth email:', authUpdateError);
-        // Rollback to the server-fetched prior email, never to client input.
-        await supabaseAdmin
-          .from('profiles')
-          .update({ email: currentEmail })
-          .eq('id', userId);
+        // Rollback ALL mutated fields to the server-fetched prior profile, not
+        // just email. The forward update already wrote first_name/last_name/
+        // external_school_affiliation (and school for admin) with the new
+        // payload; leaving them in place would produce a half-applied edit.
+        if (previousProfile) {
+          const rollbackUpdate: Record<string, unknown> = {
+            email: previousProfile.email,
+            first_name: previousProfile.first_name,
+            last_name: previousProfile.last_name,
+            external_school_affiliation: previousProfile.external_school_affiliation,
+          };
+          if (requesterRole === 'admin') {
+            rollbackUpdate.school = previousProfile.school;
+          }
+          await supabaseAdmin
+            .from('profiles')
+            .update(rollbackUpdate)
+            .eq('id', userId);
+        } else {
+          await supabaseAdmin
+            .from('profiles')
+            .update({ email: currentEmail })
+            .eq('id', userId);
+        }
 
         return res.status(500).json({ error: 'Error al actualizar el email: ' + authUpdateError.message });
       }

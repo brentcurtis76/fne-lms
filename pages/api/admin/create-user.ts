@@ -34,6 +34,15 @@ export default async function handler(
 
     const resolvedRole: string = bodyRole || 'docente';
 
+    // ED role-assignability is checked BEFORE schoolId shape validation so a
+    // misdirected request (e.g. role='admin' + schoolId='abc') returns the
+    // 403 role error instead of a 400 schoolId error. Mirrors assign-role.ts.
+    if (requesterRole === 'equipo_directivo') {
+      if (!(ED_ASSIGNABLE_ROLES as readonly string[]).includes(resolvedRole)) {
+        return res.status(403).json({ error: 'Role not assignable by equipo_directivo' });
+      }
+    }
+
     let effectiveSchoolId: number | null;
     if (bodySchoolId === undefined || bodySchoolId === null) {
       effectiveSchoolId = null;
@@ -45,10 +54,6 @@ export default async function handler(
     }
 
     if (requesterRole === 'equipo_directivo') {
-      if (!(ED_ASSIGNABLE_ROLES as readonly string[]).includes(resolvedRole)) {
-        return res.status(403).json({ error: 'Role not assignable by equipo_directivo' });
-      }
-
       if (effectiveSchoolId !== null && effectiveSchoolId !== edSchoolId) {
         return res.status(403).json({ error: 'Cannot create user in another school' });
       }

@@ -234,7 +234,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Uses sanitized FK values so validation cannot be misled by stray IDs
     // that won't actually persist on the user_roles row.
     const organizationalScope = {
-      schoolId: schoolId || null,
+      schoolId: schoolId ?? null,
       generationId: sanitizedGenerationId,
       communityId: sanitizedCommunityId
     };
@@ -429,7 +429,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const roleInsertData = {
       user_id: targetUserId,
       role_type: roleType,
-      school_id: schoolId || null,
+      school_id: schoolId ?? null,
       generation_id: sanitizedGenerationId,
       community_id: finalCommunityId || null,
       is_active: true,

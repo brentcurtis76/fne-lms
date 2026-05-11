@@ -19,6 +19,18 @@ import {
 } from '../types/roles';
 import { getAvailableCommunitiesForAssignment, assignRoleViaAPI, removeRoleViaAPI } from '../utils/roleUtils';
 
+const AVAILABLE_ROLES: UserRoleType[] = [
+  'admin',
+  'consultor',
+  'equipo_directivo',
+  'lider_generacion',
+  'lider_comunidad',
+  'supervisor_de_red',
+  'community_manager',
+  'docente',
+  'encargado_licitacion'
+];
+
 interface RoleAssignmentModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -72,23 +84,8 @@ export default function RoleAssignmentModal({
   const getGenerationsForSchool = (id: string) =>
     id ? generations.filter((generation) => idsEqual(generation.school_id, id)) : [];
 
-  // Available role types
-  const availableRoles: UserRoleType[] = [
-    'admin',
-    'consultor',
-    'equipo_directivo',
-    'lider_generacion',
-    'lider_comunidad',
-    'supervisor_de_red',
-    'community_manager',
-    'docente',
-    'encargado_licitacion'
-  ];
-
   const filteredAvailableRoles = useMemo<UserRoleType[]>(
-    () => availableRoles.filter((roleType) => !allowedRoles || allowedRoles.includes(roleType)),
-    // availableRoles is a stable in-component literal; only allowedRoles can change identity
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    () => AVAILABLE_ROLES.filter((roleType) => !allowedRoles || allowedRoles.includes(roleType)),
     [allowedRoles],
   );
 

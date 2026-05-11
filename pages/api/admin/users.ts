@@ -15,6 +15,18 @@ const ROLE_PRIORITY = ['admin','consultor','equipo_directivo','supervisor_de_red
 // bounded.
 const USER_ID_BATCH = 100;
 
+// Threshold for the ED ghost-exclusion strategy. At or below this size, the
+// excluded id list is small enough to encode safely as a single
+// `.not('id', 'in', ...)` filter on the paginated profiles query plus the
+// three scoped count queries — so pagination is exact (offset applies to
+// already-filtered rows) and the response `total` comes straight from
+// PostgREST's `count: 'exact'`. Above this size, the encoded URL would risk
+// hitting proxy/load-balancer limits (~8KB) and 414 errors, so the handler
+// falls back to fetching the page unfiltered and dropping ghost rows in
+// memory. In that fallback mode pagination may be inexact because the
+// offset is computed before the in-memory drop — see the warning log below.
+const MAX_EXCLUDED_FOR_SQL = 100;
+
 const chunkIds = <T>(values: readonly T[], size: number): T[][] => {
   const out: T[][] = [];
   for (let i = 0; i < values.length; i += size) {
@@ -204,6 +216,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    // F1 hybrid exclusion: when ED scope has a small number of ghost users
+    // (1..MAX_EXCLUDED_FOR_SQL), apply `.not('id', 'in', ...)` directly to
+    // the main paginated query AND the scoped count queries. That keeps
+    // pagination offsets aligned with the visible result set and lets
+    // `count: 'exact'` return the post-exclusion total. Above the threshold,
+    // encoded URL filters risk 414s, so fall back to fetching the page
+    // unfiltered and dropping ghosts in memory.
+    const useSqlExclusion =
+      isEdScope &&
+      edExcludedUserIds.length >= 1 &&
+      edExcludedUserIds.length <= MAX_EXCLUDED_FOR_SQL;
+    const useClientFallback =
+      isEdScope && edExcludedUserIds.length > MAX_EXCLUDED_FOR_SQL;
+
+    if (useClientFallback) {
+      console.warn(
+        `[users API] ED exclusion list size ${edExcludedUserIds.length} exceeds MAX_EXCLUDED_FOR_SQL=${MAX_EXCLUDED_FOR_SQL}; falling back to client-side filtering — pagination may be inexact (page offset is applied before in-memory exclusion)`,
+      );
+    }
+
     let profileQuery = supabaseService
       .from('profiles')
       .select(
@@ -230,14 +262,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       profileQuery = profileQuery.in('id', allowedUserIds);
     }
 
-    // F2: the main paginated query no longer carries a `.not('id', 'in', ...)`
-    // exclusion clause. The chunked `.not()` strategy doesn't scale — for
-    // schools with hundreds of ghost rows, the chained filters approached the
-    // ~8KB URL-length limit and forced multiple round-trips just to read one
-    // page. Instead, fetch the full page, then drop excludedSet members in
-    // memory below. Exact summary counts come from the prefetched in-school
-    // users (which already carry approval_status) — see the summary block.
-    const excludedSet = new Set<string>(edExcludedUserIds);
+    if (useSqlExclusion) {
+      profileQuery = profileQuery.not(
+        'id',
+        'in',
+        toQuotedInList(edExcludedUserIds),
+      );
+    }
 
     const { data: profiles, count, error: profilesError } = await profileQuery;
 
@@ -250,25 +281,74 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let schools: Array<{ id: string; name: string }>;
 
     if (isEdScope) {
-      // F2 exact-count strategy (a): compute counts in memory from the
-      // widened prefetch (now includes approval_status), removing excludedSet
-      // members. No separate count round-trips needed for ED scope.
-      const visibleInSchool = edInSchoolUsers.filter((u) => !excludedSet.has(u.id));
-      summary = {
-        total: visibleInSchool.length,
-        pending: visibleInSchool.filter((u) => u.approval_status === 'pending').length,
-        approved: visibleInSchool.filter((u) => u.approval_status === 'approved').length,
-      };
+      if (useSqlExclusion) {
+        // SQL path: issue scoped count queries that mirror the same
+        // `.not('id', 'in', ...)` exclusion plus the ED school filter. The
+        // resulting `count` values reflect the post-exclusion totals and
+        // become the source of truth for `summary` AND the response `total`.
+        const exclusionList = toQuotedInList(edExcludedUserIds);
+        const totalCountQuery = supabaseService
+          .from('profiles')
+          .select('id', { head: true, count: 'exact' })
+          .eq('school_id', edSchoolId as number)
+          .not('id', 'in', exclusionList);
+        const pendingCountQuery = supabaseService
+          .from('profiles')
+          .select('id', { head: true, count: 'exact' })
+          .eq('school_id', edSchoolId as number)
+          .eq('approval_status', 'pending')
+          .not('id', 'in', exclusionList);
+        const approvedCountQuery = supabaseService
+          .from('profiles')
+          .select('id', { head: true, count: 'exact' })
+          .eq('school_id', edSchoolId as number)
+          .eq('approval_status', 'approved')
+          .not('id', 'in', exclusionList);
+        const schoolsQuery = supabaseService
+          .from('schools')
+          .select('id, name')
+          .eq('id', edSchoolId as number)
+          .order('name', { ascending: true });
 
-      const schoolsRes = await supabaseService
-        .from('schools')
-        .select('id, name')
-        .eq('id', edSchoolId as number)
-        .order('name', { ascending: true });
-      schools = (schoolsRes.data || []).map((s: any) => ({
-        id: s.id.toString(),
-        name: s.name,
-      }));
+        const [totalCountRes, pendingCountRes, approvedCountRes, schoolsRes] = await Promise.all([
+          totalCountQuery,
+          pendingCountQuery,
+          approvedCountQuery,
+          schoolsQuery,
+        ]);
+
+        summary = {
+          total: totalCountRes.count || 0,
+          pending: pendingCountRes.count || 0,
+          approved: approvedCountRes.count || 0,
+        };
+        schools = (schoolsRes.data || []).map((s: any) => ({
+          id: s.id.toString(),
+          name: s.name,
+        }));
+      } else {
+        // Zero excluded OR client-side fallback (>MAX_EXCLUDED_FOR_SQL):
+        // compute counts in memory from the prefetched in-school users
+        // (which carry approval_status), removing the excluded set. No
+        // extra count round-trips are required.
+        const excludedSet = new Set<string>(edExcludedUserIds);
+        const visibleInSchool = edInSchoolUsers.filter((u) => !excludedSet.has(u.id));
+        summary = {
+          total: visibleInSchool.length,
+          pending: visibleInSchool.filter((u) => u.approval_status === 'pending').length,
+          approved: visibleInSchool.filter((u) => u.approval_status === 'approved').length,
+        };
+
+        const schoolsRes = await supabaseService
+          .from('schools')
+          .select('id, name')
+          .eq('id', edSchoolId as number)
+          .order('name', { ascending: true });
+        schools = (schoolsRes.data || []).map((s: any) => ({
+          id: s.id.toString(),
+          name: s.name,
+        }));
+      }
     } else {
       const totalCountQuery = supabaseService
         .from('profiles')
@@ -304,16 +384,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }));
     }
 
-    // F2 client-side exclusion: drop excludedSet members from the page before
-    // building the response. Page may end up shorter than pageSize — that's
-    // an accepted trade-off (avoids large `.not('id', 'in', ...)` filters).
+    // Client-side exclusion is only applied in the fallback path (excluded
+    // count exceeds MAX_EXCLUDED_FOR_SQL). In the SQL path, the main query
+    // already filtered out ghosts via `.not('id', 'in', ...)` so re-filtering
+    // would be a no-op. In ED scope with zero excluded ids there is also
+    // nothing to drop.
     const profileRows = profiles || [];
-    const users = isEdScope
-      ? profileRows.filter((u: any) => !excludedSet.has(u.id))
-      : profileRows;
+    let users: any[] = profileRows;
+    if (useClientFallback) {
+      const excludedSet = new Set<string>(edExcludedUserIds);
+      users = profileRows.filter((u: any) => !excludedSet.has(u.id));
+    }
 
     if (users.length === 0) {
-      return res.status(200).json({ page, pageSize, total: count || 0, users: [], summary, schools });
+      const emptyTotal = isEdScope
+        ? (useSqlExclusion ? (count || 0) : summary.total)
+        : (count || 0);
+      return res.status(200).json({ page, pageSize, total: emptyTotal, users: [], summary, schools });
     }
 
     const userIds = users.map(user => user.id);
@@ -560,10 +647,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({
       page,
       pageSize,
-      // ED scope: `total` reflects the post-exclusion visible-user count so
-      // the UI's "Mostrando X-Y de Z" label and page math agree with the
-      // filtered list. Admin path keeps raw `count` (no exclusion is applied).
-      total: isEdScope ? summary.total : (count || 0),
+      // ED SQL path: `count` comes from PostgREST with the same exclusion
+      // applied, so it's already post-exclusion and matches the visible page.
+      // ED fallback (>MAX_EXCLUDED_FOR_SQL): the raw `count` over-counts
+      // ghosts, so report `summary.total` (in-memory post-exclusion) instead.
+      // Admin path keeps raw `count` (no exclusion is applied).
+      total: isEdScope
+        ? (useSqlExclusion ? (count || 0) : summary.total)
+        : (count || 0),
       users: payload,
       summary,
       schools,

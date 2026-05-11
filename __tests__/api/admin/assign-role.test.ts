@@ -322,6 +322,37 @@ describe('admin/assign-role — admin path', () => {
     });
   });
 
+  // F3: schoolId arriving as a digit-string from the client (e.g. selects that
+  // post string values) must be coerced to a number before the insert payload
+  // is built. user_roles.school_id is an integer column; persisting '42'
+  // instead of 42 would silently corrupt downstream joins and integer
+  // comparisons (FK gates, profile.school_id ===).
+  it("admin: assigning a school-scoped role with schoolId='42' inserts school_id: 42 (number)", async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(schoolScopedTables('Colegio Alfa'), tracker),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { targetUserId: TARGET_USER_ID, roleType: 'docente', schoolId: '42' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const rolePayload = findInsertPayload(tracker, 'user_roles') as Record<string, unknown>;
+    expect(rolePayload.school_id).toBe(42);
+    expect(typeof rolePayload.school_id).toBe('number');
+
+    // The profile update path must also see the coerced numeric value, not '42'.
+    const profileCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profileCalls[0].updates[0]).toEqual({
+      school_id: 42,
+      school: 'Colegio Alfa',
+    });
+  });
+
   it('admin can assign "equipo_directivo" — inserts role and updates profile school', async () => {
     setupAdmin();
     const tracker = makeTracker();

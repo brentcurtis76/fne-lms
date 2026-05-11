@@ -260,39 +260,89 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       updatedFields.external_school_affiliation = external_school_affiliation;
     }
 
-    await supabaseAdmin
-      .from('audit_logs')
-      .insert({
-        user_id: requestingUser.id,
-        action: 'update_user',
-        table_name: 'profiles',
-        record_id: userId,
-        details: {
-          requester_role: requesterRole,
-          requester_user_id: requestingUser.id,
-          updated_fields: updatedFields,
-        },
-      });
-
-    // Dedicated audit row for email transitions — pairs with the
-    // `password_reset` row in reset-password.ts so account-takeover events
-    // are surfaceable in queries without parsing `updated_fields` blobs.
-    if (hasEmail && trimmedEmail !== currentEmail) {
-      await supabaseAdmin
+    // Audit inserts are best-effort: the user mutation already committed, so a
+    // failed audit row must not roll the request back to 500. But silent
+    // failures break reconciliation, so both thrown exceptions and returned
+    // `{ error }` results are surfaced via console.error with enough context
+    // (action, target, requester, fields touched) to reconstruct the event
+    // from logs. Passwords and raw request bodies are not logged.
+    try {
+      const { error: updateAuditError } = await supabaseAdmin
         .from('audit_logs')
         .insert({
           user_id: requestingUser.id,
-          action: 'email_change',
+          action: 'update_user',
           table_name: 'profiles',
           record_id: userId,
           details: {
             requester_role: requesterRole,
             requester_user_id: requestingUser.id,
-            from: currentEmail ?? null,
-            to: trimmedEmail,
-            timestamp: new Date().toISOString(),
+            updated_fields: updatedFields,
           },
         });
+      if (updateAuditError) {
+        console.error('audit_log_insert_failed', {
+          action: 'update_user',
+          record_id: userId,
+          requester_user_id: requestingUser.id,
+          requester_role: requesterRole,
+          updated_field_keys: Object.keys(updatedFields),
+          error: updateAuditError,
+        });
+      }
+    } catch (err) {
+      console.error('audit_log_insert_failed', {
+        action: 'update_user',
+        record_id: userId,
+        requester_user_id: requestingUser.id,
+        requester_role: requesterRole,
+        updated_field_keys: Object.keys(updatedFields),
+        error: err,
+      });
+    }
+
+    // Dedicated audit row for email transitions — pairs with the
+    // `password_reset` row in reset-password.ts so account-takeover events
+    // are surfaceable in queries without parsing `updated_fields` blobs.
+    if (hasEmail && trimmedEmail !== currentEmail) {
+      try {
+        const { error: emailAuditError } = await supabaseAdmin
+          .from('audit_logs')
+          .insert({
+            user_id: requestingUser.id,
+            action: 'email_change',
+            table_name: 'profiles',
+            record_id: userId,
+            details: {
+              requester_role: requesterRole,
+              requester_user_id: requestingUser.id,
+              from: currentEmail ?? null,
+              to: trimmedEmail,
+              timestamp: new Date().toISOString(),
+            },
+          });
+        if (emailAuditError) {
+          console.error('audit_log_insert_failed', {
+            action: 'email_change',
+            record_id: userId,
+            requester_user_id: requestingUser.id,
+            requester_role: requesterRole,
+            from: currentEmail ?? null,
+            to: trimmedEmail,
+            error: emailAuditError,
+          });
+        }
+      } catch (err) {
+        console.error('audit_log_insert_failed', {
+          action: 'email_change',
+          record_id: userId,
+          requester_user_id: requestingUser.id,
+          requester_role: requesterRole,
+          from: currentEmail ?? null,
+          to: trimmedEmail,
+          error: err,
+        });
+      }
     }
 
     return res.status(200).json({ success: true, message: 'Usuario actualizado exitosamente' });

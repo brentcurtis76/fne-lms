@@ -1269,6 +1269,78 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect((auditCalls[0].inserts[0] as any).action).toBe('update_user');
   });
 
+  it('update-user: email_change audit insert failure is logged but does not fail the request', async () => {
+    // F2: audit_logs insert failures must not roll back a committed user
+    // update, but they MUST be surfaced via console.error so an operator can
+    // reconcile manually. Supabase inserts may return `{ error }` instead of
+    // throwing — this covers the returned-error path for the email_change row.
+    setupAdmin();
+    const tracker = makeTracker();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [
+            {
+              data: {
+                email: 'old@example.com',
+                first_name: 'Old',
+                last_name: 'User',
+                school: null,
+                external_school_affiliation: null,
+              },
+              error: null,
+            },
+            { data: null, error: null }, // forward profile update
+          ],
+          audit_logs: [
+            { data: null, error: null }, // update_user audit succeeds
+            { data: null, error: { message: 'audit insert failed' } }, // email_change audit fails
+          ],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: TARGET_USER_ID, email: 'new@example.com' },
+    });
+    await handler(req as never, res as never);
+
+    // Request still succeeds — user update already committed upstream.
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData()).toEqual({
+      success: true,
+      message: 'Usuario actualizado exitosamente',
+    });
+
+    // Both audit attempts happened.
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    expect(auditCalls).toHaveLength(2);
+
+    // The email_change failure was logged with the expected label and
+    // reconciliation context (action, record_id, requester, from/to, error).
+    const matching = consoleError.mock.calls.find(
+      ([label, ctx]) =>
+        label === 'audit_log_insert_failed' &&
+        (ctx as any)?.action === 'email_change',
+    );
+    expect(matching).toBeDefined();
+    const ctx = matching![1] as any;
+    expect(ctx).toMatchObject({
+      action: 'email_change',
+      record_id: TARGET_USER_ID,
+      requester_user_id: ADMIN_ID,
+      requester_role: 'admin',
+      from: 'old@example.com',
+      to: 'new@example.com',
+      error: { message: 'audit insert failed' },
+    });
+
+    consoleError.mockRestore();
+  });
+
   it('ED: email change writes update_user + email_change audit rows', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();

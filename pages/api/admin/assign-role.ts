@@ -47,7 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       generationId,
       communityId
     } = req.body;
-    let { schoolId } = req.body;
+    const rawSchoolId = req.body.schoolId;
 
     // Validate required fields
     if (!targetUserId || !roleType) {
@@ -64,11 +64,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // malformed/non-numeric/zero/negative values are rejected uniformly with
     // 400 before any downstream logic. ED branch still enforces the
     // cross-school comparison after this guard.
-    if (schoolId !== undefined && schoolId !== null && schoolId !== '') {
-      if (!isValidSchoolIdInput(schoolId)) {
+    if (rawSchoolId !== undefined && rawSchoolId !== null && rawSchoolId !== '') {
+      if (!isValidSchoolIdInput(rawSchoolId)) {
         return res.status(400).json({ error: 'schoolId inválido' });
       }
     }
+
+    // Coerce to a numeric (or null) value once, immediately after the shared
+    // shape check passes. Every downstream consumer — insert/update payloads,
+    // FK lookups, cross-school comparisons — reads this variable, so the
+    // user_roles.school_id column can never receive a raw request-body string
+    // like '42'.
+    let schoolId: number | null =
+      rawSchoolId !== undefined && rawSchoolId !== null && rawSchoolId !== ''
+        ? Number(rawSchoolId)
+        : null;
 
     // FK sanitization (applies to both admin and ED paths): only the matching
     // role type can carry these FK fields downstream. Stray IDs on unrelated
@@ -96,11 +106,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Cross-school check (shape validation is enforced earlier for both
       // admin and ED paths). Body schoolId, when present and valid, must
-      // match the ED's own schoolId.
-      if (schoolId !== undefined && schoolId !== null && schoolId !== '') {
-        if (Number(schoolId) !== edSchoolId) {
-          return res.status(403).json({ error: 'No se puede asignar rol en otro colegio' });
-        }
+      // match the ED's own schoolId. schoolId is already coerced to
+      // number | null above, so this is a direct numeric comparison.
+      if (schoolId !== null && schoolId !== edSchoolId) {
+        return res.status(403).json({ error: 'No se puede asignar rol en otro colegio' });
       }
 
       const { data: targetProfile, error: profileLookupError } = await supabaseService

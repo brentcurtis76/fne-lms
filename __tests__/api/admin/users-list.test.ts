@@ -775,13 +775,12 @@ describe('admin/users — GET (school scoping)', () => {
     expect(returnedRoles.find((r: any) => r.school_id === OTHER_SCHOOL_ID)).toBeUndefined();
   });
 
-  it('ED: ghost in-school users (global-role holders) are filtered out client-side after the unfiltered main query', async () => {
-    // F2: a user with profile.school_id = edSchoolId but also an active
-    // admin/consultor/community_manager/supervisor_de_red role must NOT appear
-    // in the ED's list — otherwise the row is a "ghost" the ED can see but
-    // cannot edit (write-path target-role gate rejects with 403). Phase 15.16's
-    // chunked `.not('id', 'in', ...)` strategy is gone; the main query now
-    // returns the row and the handler drops it in memory.
+  it('ED (F1 SQL path): a small ghost set (<=MAX_EXCLUDED_FOR_SQL) is excluded via .not(id, in, ...) on main + count queries', async () => {
+    // Phase 15.19 hybrid exclusion: with 1 ghost user the excluded set is
+    // well below MAX_EXCLUDED_FOR_SQL=100, so the handler applies
+    // `.not('id', 'in', ...)` directly to the paginated profiles query AND
+    // to the three scoped count queries. PostgREST returns the
+    // post-exclusion rows + count, and `total` is sourced from that count.
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
 
@@ -800,38 +799,31 @@ describe('admin/users — GET (school scoping)', () => {
       school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
     };
 
-    const excludedProfile = {
-      id: EXCLUDED_USER_ID,
-      email: 'ghost@example.com',
-      first_name: 'Ghost',
-      last_name: 'User',
-      school_id: ED_SCHOOL_ID,
-      approval_status: 'pending',
-      created_at: '2026-01-01T00:00:00Z',
-      external_school_affiliation: null,
-      can_run_qa_tests: false,
-      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
-    };
-
     mockCreateServiceRoleClient.mockReturnValueOnce(
       buildSequencedClient(
         {
           profiles: [
-            // [0] prefetch widened to id + approval_status; returns both users.
+            // [0] in-school prefetch (id + approval_status).
             {
               data: [
                 { id: 'user-visible', approval_status: 'approved' },
                 { id: EXCLUDED_USER_ID, approval_status: 'pending' },
               ],
             },
-            // [1] main paginated query — returns BOTH including the ghost; the
-            // handler must filter it out client-side.
-            { data: [visibleProfile, excludedProfile], count: 2 },
+            // [1] main paginated query — PostgREST would have applied
+            // `.not('id', 'in', ...)` server-side, so the simulated result
+            // contains only the visible row with count=1.
+            { data: [visibleProfile], count: 1 },
+            // [2..4] scoped count queries (total / pending / approved) with
+            // the same exclusion applied.
+            { count: 1 },
+            { count: 0 },
+            { count: 1 },
           ],
           schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
-          // [0] global pre-fetch: one user holds a global (non-school-scoped) role.
-          // [1] cross-school pre-fetch: no cross-school role holders.
-          // [2] main user_roles for the returned profiles.
+          // [0] global pre-fetch flags one user.
+          // [1] cross-school pre-fetch (empty).
+          // [2] main user_roles for returned profiles.
           user_roles: [
             { data: [{ user_id: EXCLUDED_USER_ID }] },
             { data: [] },
@@ -850,7 +842,7 @@ describe('admin/users — GET (school scoping)', () => {
 
     expect(res._getStatusCode()).toBe(200);
 
-    // Pre-fetch (first user_roles call) must filter active rows whose
+    // Pre-fetch (first user_roles call) still filters active rows whose
     // role_type is NOT in SCHOOL_SCOPED_ROLES.
     const userRolesCalls = tracker.fromCalls.filter((c) => c.table === 'user_roles');
     expect(userRolesCalls.length).toBeGreaterThanOrEqual(2);
@@ -858,51 +850,45 @@ describe('admin/users — GET (school scoping)', () => {
     expect(preFetch.eqs).toContainEqual({ col: 'is_active', val: true });
     const notRoleType = preFetch.nots.find((n) => n.col === 'role_type' && n.op === 'in');
     expect(notRoleType).toBeDefined();
-    const clause = notRoleType!.val as string;
-    expect(clause).toContain('docente');
-    expect(clause).toContain('equipo_directivo');
-    expect(clause).toContain('lider_comunidad');
-    expect(clause).toContain('lider_generacion');
-    expect(clause).toContain('encargado_licitacion');
 
-    // Pre-fetch is scoped to in-school user_ids so the user_roles scan is
-    // bounded to O(school) instead of O(tenant).
-    const preFetchUserIdIn = preFetch.ins.find((i) => i.col === 'user_id');
-    expect(preFetchUserIdIn).toBeDefined();
-    expect(preFetchUserIdIn!.vals as string[]).toEqual(
-      expect.arrayContaining(['user-visible', EXCLUDED_USER_ID]),
-    );
-
-    // F2 contract: the main profiles query carries NO `.not('id', 'in', ...)`
-    // exclusion clause. Exclusion is applied in memory after the fetch.
+    // SQL path: prefetch + main + 3 count queries = 5 profiles calls.
     const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
-    expect(profilesCalls).toHaveLength(2);
-    const profilesMain = profilesCalls[1];
-    expect(profilesMain.nots.find((n) => n.col === 'id')).toBeUndefined();
+    expect(profilesCalls).toHaveLength(5);
 
-    // Response payload does not contain the excluded user, even though the
-    // main query returned it.
+    // Main profiles query carries `.not('id', 'in', toQuotedInList([excluded]))`.
+    const profilesMain = profilesCalls[1];
+    const mainNotId = profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in');
+    expect(mainNotId).toBeDefined();
+    expect(mainNotId!.val as string).toContain(EXCLUDED_USER_ID);
+
+    // All three scoped count queries also carry the same `.not(id, in, ...)`.
+    for (const idx of [2, 3, 4]) {
+      const countCall = profilesCalls[idx];
+      const notId = countCall.nots.find((n) => n.col === 'id' && n.op === 'in');
+      expect(notId).toBeDefined();
+      expect(notId!.val as string).toContain(EXCLUDED_USER_ID);
+      // Count queries are school-scoped (eq school_id = edSchoolId).
+      expect(countCall.eqs).toContainEqual({ col: 'school_id', val: ED_SCHOOL_ID });
+    }
+
+    // Response payload reflects the SQL-filtered main query — visible only.
     const body = JSON.parse(res._getData());
     const returnedIds = (body.users as Array<{ id: string }>).map((u) => u.id);
-    expect(returnedIds).toContain('user-visible');
+    expect(returnedIds).toEqual(['user-visible']);
     expect(returnedIds).not.toContain(EXCLUDED_USER_ID);
 
-    // F2 summary counts are computed in memory from the prefetched in-school
-    // users with excludedSet removed. Visible user is `approved`; the
-    // excluded user (pending) is dropped from every bucket.
+    // Summary comes from the SQL-applied count queries.
     expect(body.summary).toEqual({ total: 1, pending: 0, approved: 1 });
 
-    // F1 contract: response `total` mirrors `summary.total` (post-exclusion),
-    // not the raw `count` returned by the main paginated query (which still
-    // counts the ghost row before in-memory filtering).
+    // `total` is sourced from the SQL-applied count on the main query.
     expect(body.total).toBe(1);
-    expect(body.total).toBe(body.summary.total);
   });
 
-  it('ED: response `total` equals post-exclusion summary total, not raw profiles count (50 raw, 3 excluded → 47)', async () => {
+  it('ED (F1 SQL path): response `total` equals SQL-applied count (50 raw, 3 ghosts → 47)', async () => {
     // F1 acceptance scenario: with 50 in-school profiles and 3 ghost users
-    // (global-role holders), the API must report total=47 so the UI's
-    // "Mostrando X-Y de Z" label and page math agree with the filtered list.
+    // (global-role holders), the SQL path applies `.not('id', 'in', ...)` so
+    // PostgREST returns count=47 directly. `total` reflects that, and pagination
+    // offsets apply to the already-filtered row set.
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
 
@@ -910,6 +896,7 @@ describe('admin/users — GET (school scoping)', () => {
       `aaaaaaaa-aaaa-4aaa-8aaa-${String(i).padStart(12, '0')}`,
     );
     const EXCLUDED_IDS = IN_SCHOOL_IDS.slice(0, 3);
+    const VISIBLE_IDS = IN_SCHOOL_IDS.slice(3);
 
     const buildProfile = (id: string, approval_status: string) => ({
       id,
@@ -924,12 +911,10 @@ describe('admin/users — GET (school scoping)', () => {
       school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
     });
 
-    // Main paginated query returns all 50 rows; handler drops the 3 ghosts in
-    // memory. The raw `count` on this query is 50 (matches the unfiltered
-    // result set); the API must NOT surface it as `total` for ED scope.
-    const mainPageProfiles = IN_SCHOOL_IDS.map((id) =>
-      buildProfile(id, 'approved'),
-    );
+    // SQL path mock: main query is server-side filtered, returns 47 rows
+    // and count=47. Page size defaults to 25 in the handler, but the mock
+    // doesn't enforce `.range()`, so returning the full visible set works.
+    const visibleProfiles = VISIBLE_IDS.map((id) => buildProfile(id, 'approved'));
 
     mockCreateServiceRoleClient.mockReturnValueOnce(
       buildSequencedClient(
@@ -942,8 +927,12 @@ describe('admin/users — GET (school scoping)', () => {
                 approval_status: 'approved',
               })),
             },
-            // [1] main paginated query — raw count is 50, including ghosts.
-            { data: mainPageProfiles, count: 50 },
+            // [1] main paginated query — SQL exclusion applied → 47 / count=47.
+            { data: visibleProfiles, count: 47 },
+            // [2..4] scoped count queries: total=47, pending=0, approved=47.
+            { count: 47 },
+            { count: 0 },
+            { count: 47 },
           ],
           schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
           // [0] global-role pre-fetch flags 3 ghosts.
@@ -966,6 +955,15 @@ describe('admin/users — GET (school scoping)', () => {
     await handler(req as never, res as never);
 
     expect(res._getStatusCode()).toBe(200);
+
+    // Main profiles query carries `.not('id', 'in', toQuotedInList([excluded ids]))`.
+    const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    const profilesMain = profilesCalls[1];
+    const mainNotId = profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in');
+    expect(mainNotId).toBeDefined();
+    for (const excludedId of EXCLUDED_IDS) {
+      expect(mainNotId!.val as string).toContain(excludedId);
+    }
 
     const body = JSON.parse(res._getData());
     expect(body.summary.total).toBe(47);
@@ -1021,12 +1019,10 @@ describe('admin/users — GET (school scoping)', () => {
     expect(body.summary.total).toBe(123);
   });
 
-  it('ED (F2): main profiles query carries no `.not(id, in, ...)` exclusion clause regardless of prefetch size', async () => {
-    // Phase 15.16 chunked the main query's exclusion `.not('id', 'in', ...)`
-    // across USER_ID_BATCH-sized clauses. Phase F2 removes that strategy
-    // entirely — the main query has no exclusion, and rows are dropped in
-    // memory afterwards. This test forces a multi-page prefetch with a
-    // global-role holder on page 2 and asserts the main query is unfiltered.
+  it('ED (F1 SQL path): multi-page prefetch still collects all in-school ids and SQL exclusion is applied on the main query', async () => {
+    // Forces multi-page prefetch (1002 in-school users) with one ghost. The
+    // collected exclusion list (size 1) is well under MAX_EXCLUDED_FOR_SQL=100,
+    // so the SQL path applies `.not('id', 'in', ...)` to the main query.
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
 
@@ -1049,14 +1045,6 @@ describe('admin/users — GET (school scoping)', () => {
       school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
     };
 
-    const excludedProfile = {
-      ...visibleProfile,
-      id: PAGE2_EXCLUDED,
-      email: 'ghost@example.com',
-      first_name: 'Ghost',
-      approval_status: 'pending',
-    };
-
     mockCreateServiceRoleClient.mockReturnValueOnce(
       buildSequencedClient(
         {
@@ -1070,15 +1058,16 @@ describe('admin/users — GET (school scoping)', () => {
                 { id: PAGE2_VISIBLE, approval_status: 'approved' },
               ],
             },
-            // Main paginated query — returns BOTH; handler drops the ghost
-            // client-side. No `.not('id', 'in', ...)` clause is added.
-            { data: [visibleProfile, excludedProfile], count: 2 },
+            // Main paginated query — SQL exclusion applied → only visible row.
+            { data: [visibleProfile], count: 1001 },
+            // [3..5] scoped count queries with the exclusion applied.
+            { count: 1001 },
+            { count: 0 },
+            { count: 1001 },
           ],
           schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
           // After F1 URL-length chunking, 1002 in-school ids → 11 global-role
           // batches (100*10 + 2) + 11 cross-school batches + 1 main roles.
-          // The page-2 excluded user lands on the 11th global batch (the
-          // partial batch holding both PAGE2 ids).
           user_roles: [
             ...Array.from({ length: 10 }, () => ({ data: [] as unknown[] })),
             { data: [{ user_id: PAGE2_EXCLUDED }] },
@@ -1099,8 +1088,8 @@ describe('admin/users — GET (school scoping)', () => {
     expect(res._getStatusCode()).toBe(200);
 
     const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
-    // Two prefetch pages + one main query — no summary count queries for ED.
-    expect(profilesCalls).toHaveLength(3);
+    // Two prefetch pages + main + 3 scoped count queries = 6 profiles calls.
+    expect(profilesCalls).toHaveLength(6);
     expect(profilesCalls[0].ranges).toEqual([{ from: 0, to: 999 }]);
     expect(profilesCalls[1].ranges).toEqual([{ from: 1000, to: 1999 }]);
 
@@ -1119,11 +1108,14 @@ describe('admin/users — GET (school scoping)', () => {
       expect(batchIds.length).toBeLessThanOrEqual(100);
     }
 
-    // F2 contract: main profiles query has NO `.not('id', 'in', ...)` clause.
+    // SQL path contract: main profiles query carries `.not('id', 'in', ...)`
+    // referencing the (single) excluded user.
     const profilesMain = profilesCalls[2];
-    expect(profilesMain.nots.find((n) => n.col === 'id')).toBeUndefined();
+    const mainNotId = profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in');
+    expect(mainNotId).toBeDefined();
+    expect(mainNotId!.val as string).toContain(PAGE2_EXCLUDED);
 
-    // Response payload omits the excluded user and includes the visible one.
+    // Response payload reflects the SQL-filtered main query.
     const body = JSON.parse(res._getData());
     const returnedIds = (body.users as Array<{ id: string }>).map((u) => u.id);
     expect(returnedIds).not.toContain(PAGE2_EXCLUDED);
@@ -1198,9 +1190,13 @@ describe('admin/users — GET (school scoping)', () => {
                 { id: CROSS_SCHOOL_USER_ID, approval_status: 'pending' },
               ],
             },
-            // [1] main paginated query — returns BOTH; handler drops the
-            // cross-school user client-side.
-            { data: [visibleProfile, crossSchoolProfile], count: 2 },
+            // [1] main paginated query — SQL exclusion applied server-side,
+            // so the simulated result contains only the visible row.
+            { data: [visibleProfile], count: 1 },
+            // [2..4] scoped count queries (total / pending / approved).
+            { count: 1 },
+            { count: 0 },
+            { count: 1 },
           ],
           schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
           // [0] global-role pre-fetch (empty).
@@ -1254,20 +1250,22 @@ describe('admin/users — GET (school scoping)', () => {
     expect(crossNotSchool).toBeDefined();
     expect(crossNotSchool!.val).toBe(ED_SCHOOL_ID);
 
-    // F2 contract: main profiles query has NO `.not('id', 'in', ...)` clause.
+    // SQL path contract: main profiles query carries `.not('id', 'in', ...)`
+    // referencing the cross-school ghost user.
     const profilesMain = tracker.fromCalls.find(
       (c) => c.table === 'profiles' && c.index === 1,
     )!;
-    expect(profilesMain.nots.find((n) => n.col === 'id')).toBeUndefined();
+    const mainNotId = profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in');
+    expect(mainNotId).toBeDefined();
+    expect(mainNotId!.val as string).toContain(CROSS_SCHOOL_USER_ID);
 
     const body = JSON.parse(res._getData());
     const returnedIds = (body.users as Array<{ id: string }>).map((u) => u.id);
     expect(returnedIds).not.toContain(CROSS_SCHOOL_USER_ID);
     expect(returnedIds).toContain('user-visible');
 
-    // Summary counts computed in memory: visible user is `approved`; the
-    // cross-school user (pending) is removed from the excluded set.
     expect(body.summary).toEqual({ total: 1, pending: 0, approved: 1 });
+    expect(body.total).toBe(1);
   });
 
   it('ED (F1): a user holding both a same-school AND a cross-school school-scoped role is still excluded', async () => {
@@ -1299,8 +1297,12 @@ describe('admin/users — GET (school scoping)', () => {
         {
           profiles: [
             { data: [{ id: DOUBLE_BOUND_ID, approval_status: 'approved' }] },
-            // Main query still returns the row; it's filtered out in memory.
-            { data: [doubleBoundProfile], count: 1 },
+            // Main query: SQL exclusion drops the double-bound user → empty.
+            { data: [], count: 0 },
+            // Scoped count queries — also zero post-exclusion.
+            { count: 0 },
+            { count: 0 },
+            { count: 0 },
           ],
           schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
           user_roles: [
@@ -1321,16 +1323,19 @@ describe('admin/users — GET (school scoping)', () => {
 
     expect(res._getStatusCode()).toBe(200);
 
-    // F2 contract: main profiles query has no `.not(id, in, ...)` clause.
+    // SQL path contract: main profiles query carries `.not('id', 'in', ...)`.
     const profilesMain = tracker.fromCalls.find(
       (c) => c.table === 'profiles' && c.index === 1,
     )!;
-    expect(profilesMain.nots.find((n) => n.col === 'id')).toBeUndefined();
+    const mainNotId = profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in');
+    expect(mainNotId).toBeDefined();
+    expect(mainNotId!.val as string).toContain(DOUBLE_BOUND_ID);
 
     const body = JSON.parse(res._getData());
     const returnedIds = (body.users as Array<{ id: string }>).map((u) => u.id);
     expect(returnedIds).not.toContain(DOUBLE_BOUND_ID);
     expect(body.summary).toEqual({ total: 0, pending: 0, approved: 0 });
+    expect(body.total).toBe(0);
   });
 
   it('ED (F3 stable pagination): in-school user-id prefetch issues .order(id, asc) before .range(...) on every page', async () => {
@@ -1516,6 +1521,264 @@ describe('admin/users — GET (school scoping)', () => {
       (c) => c.ins.find((i) => i.col === 'user_id')!.vals as string[],
     );
     expect(crossCovered).toEqual(IN_SCHOOL_IDS);
+  });
+
+  it('ED (F1 SQL path, pagination): page 2 does not overlap page 1 visible users when ghosts exist', async () => {
+    // Phase 15.19 hybrid exclusion: in the SQL path, `.not('id', 'in', ...)`
+    // is applied to the main query, so the paginated offset (.range) is over
+    // the already-filtered row set. This guarantees that page 2 returns rows
+    // strictly after page 1's visible window — never the same user twice.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    // 30 in-school users, 2 ghosts. Visible set = 28 users. Page 1 (size 25)
+    // returns rows 1-25; page 2 returns rows 26-28.
+    const IN_SCHOOL_IDS = Array.from({ length: 30 }, (_, i) =>
+      `aaaaaaaa-aaaa-4aaa-8aaa-${String(i).padStart(12, '0')}`,
+    );
+    const EXCLUDED_IDS = [IN_SCHOOL_IDS[0], IN_SCHOOL_IDS[1]];
+    const VISIBLE_IDS = IN_SCHOOL_IDS.slice(2);
+    const PAGE1_IDS = VISIBLE_IDS.slice(0, 25);
+    const PAGE2_IDS = VISIBLE_IDS.slice(25);
+
+    const buildProfile = (id: string) => ({
+      id,
+      email: `${id}@example.com`,
+      first_name: 'User',
+      last_name: id.slice(-4),
+      school_id: ED_SCHOOL_ID,
+      approval_status: 'approved',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+    });
+
+    // Build a single shared mock for the two-request scenario by attaching
+    // distinct slot arrays per request.
+    mockCreateServiceRoleClient
+      .mockReturnValueOnce(
+        buildSequencedClient(
+          {
+            profiles: [
+              { data: IN_SCHOOL_IDS.map((id) => ({ id, approval_status: 'approved' })) },
+              { data: PAGE1_IDS.map(buildProfile), count: 28 },
+              { count: 28 },
+              { count: 0 },
+              { count: 28 },
+            ],
+            schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+            user_roles: [
+              { data: EXCLUDED_IDS.map((user_id) => ({ user_id })) },
+              { data: [] },
+              { data: [] },
+            ],
+            consultant_assignments: [{ data: [] }, { data: [] }],
+            course_assignments: [{ data: [] }],
+            learning_path_assignments: [{ data: [] }],
+          },
+          tracker,
+        ),
+      )
+      .mockReturnValueOnce(
+        buildSequencedClient(
+          {
+            profiles: [
+              { data: IN_SCHOOL_IDS.map((id) => ({ id, approval_status: 'approved' })) },
+              { data: PAGE2_IDS.map(buildProfile), count: 28 },
+              { count: 28 },
+              { count: 0 },
+              { count: 28 },
+            ],
+            schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+            user_roles: [
+              { data: EXCLUDED_IDS.map((user_id) => ({ user_id })) },
+              { data: [] },
+              { data: [] },
+            ],
+            consultant_assignments: [{ data: [] }, { data: [] }],
+            course_assignments: [{ data: [] }],
+            learning_path_assignments: [{ data: [] }],
+          },
+          tracker,
+        ),
+      );
+
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+
+    // Request page 1.
+    const { req: req1, res: res1 } = createMocks({
+      method: 'GET',
+      query: { page: '1', pageSize: '25' },
+    });
+    await handler(req1 as never, res1 as never);
+    expect(res1._getStatusCode()).toBe(200);
+
+    // Request page 2.
+    const { req: req2, res: res2 } = createMocks({
+      method: 'GET',
+      query: { page: '2', pageSize: '25' },
+    });
+    await handler(req2 as never, res2 as never);
+    expect(res2._getStatusCode()).toBe(200);
+
+    const page1Body = JSON.parse(res1._getData());
+    const page2Body = JSON.parse(res2._getData());
+
+    const page1Ids = (page1Body.users as Array<{ id: string }>).map((u) => u.id);
+    const page2Ids = (page2Body.users as Array<{ id: string }>).map((u) => u.id);
+
+    // No overlap between page 1 and page 2.
+    const overlap = page1Ids.filter((id) => page2Ids.includes(id));
+    expect(overlap).toEqual([]);
+
+    // Neither page exposes a ghost row.
+    for (const ghost of EXCLUDED_IDS) {
+      expect(page1Ids).not.toContain(ghost);
+      expect(page2Ids).not.toContain(ghost);
+    }
+
+    // Both pages share the same SQL-applied `total` = 28.
+    expect(page1Body.total).toBe(28);
+    expect(page2Body.total).toBe(28);
+
+    // Each page's main profiles query carries the SQL exclusion AND the
+    // correct .range offset (page 1: 0-24; page 2: 25-49).
+    const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    // 2 prefetch + 1 main + 3 counts per request × 2 requests = 12.
+    expect(profilesCalls).toHaveLength(10);
+    const page1Main = profilesCalls[1];
+    const page2Main = profilesCalls[6];
+    expect(page1Main.ranges).toEqual([{ from: 0, to: 24 }]);
+    expect(page2Main.ranges).toEqual([{ from: 25, to: 49 }]);
+    for (const main of [page1Main, page2Main]) {
+      const notId = main.nots.find((n) => n.col === 'id' && n.op === 'in');
+      expect(notId).toBeDefined();
+      for (const ghost of EXCLUDED_IDS) {
+        expect(notId!.val as string).toContain(ghost);
+      }
+    }
+  });
+
+  it('ED (F1 fallback): exclusion set above MAX_EXCLUDED_FOR_SQL=100 logs a warning and stays on the client-side path', async () => {
+    // When the ghost list grows past the SQL threshold, encoded `.not(id, in,
+    // ...)` filters risk exceeding URL-length limits. The handler must:
+    //  - emit a warning that pagination may be inexact,
+    //  - skip `.not('id', 'in', ...)` on the main profiles query,
+    //  - skip the scoped count queries (no SQL counts in fallback),
+    //  - drop ghost rows from the main page in memory,
+    //  - source `total` from the in-memory summary, not the raw `count`.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    // 101 ghost users (> MAX_EXCLUDED_FOR_SQL=100). To exercise the fallback
+    // path purely, the prefetched in-school set IS the 101 ghosts plus one
+    // visible user. The global-role pre-fetch flags all 101 ghosts.
+    const GHOST_IDS = Array.from({ length: 101 }, (_, i) =>
+      `ggggggg0-gggg-4ggg-8ggg-${String(i).padStart(12, '0')}`,
+    );
+    const VISIBLE_ID = 'vvvvvvvv-vvvv-4vvv-8vvv-vvvvvvvvvvvv';
+
+    const visibleProfile = {
+      id: VISIBLE_ID,
+      email: 'visible@example.com',
+      first_name: 'Visible',
+      last_name: 'User',
+      school_id: ED_SCHOOL_ID,
+      approval_status: 'approved',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+    };
+
+    const ghostProfileSubset = GHOST_IDS.slice(0, 5).map((id) => ({
+      id,
+      email: `${id}@example.com`,
+      first_name: 'Ghost',
+      last_name: id.slice(-4),
+      school_id: ED_SCHOOL_ID,
+      approval_status: 'pending',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+    }));
+
+    const allInSchool = [
+      { id: VISIBLE_ID, approval_status: 'approved' },
+      ...GHOST_IDS.map((id) => ({ id, approval_status: 'pending' })),
+    ];
+
+    // After F1 URL-length chunking, 102 in-school ids → 2 global-role batches
+    // (100 + 2) + 2 cross-school batches + 1 main roles = 5 user_roles calls.
+    const globalBatch1Ghosts = GHOST_IDS.slice(0, 100).map((user_id) => ({ user_id }));
+    const globalBatch2Ghosts = GHOST_IDS.slice(100).map((user_id) => ({ user_id }));
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            // [0] in-school prefetch — 102 users.
+            { data: allInSchool },
+            // [1] main paginated query — unfiltered; returns visible + a
+            // partial slice of ghost rows that the handler drops in memory.
+            { data: [visibleProfile, ...ghostProfileSubset], count: 102 },
+          ],
+          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+          user_roles: [
+            { data: globalBatch1Ghosts },
+            { data: globalBatch2Ghosts },
+            { data: [] },
+            { data: [] },
+            { data: [] },
+          ],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { req, res } = createMocks({ method: 'GET' });
+    try {
+      await handler(req as never, res as never);
+
+      expect(res._getStatusCode()).toBe(200);
+
+      // Fallback warning was emitted with the actual exclusion size.
+      expect(warnSpy).toHaveBeenCalled();
+      const warned = warnSpy.mock.calls.map((args) => args.join(' ')).join('\n');
+      expect(warned).toContain('exceeds MAX_EXCLUDED_FOR_SQL=100');
+      expect(warned).toContain('pagination may be inexact');
+      expect(warned).toContain('101');
+    } finally {
+      warnSpy.mockRestore();
+    }
+
+    // No scoped count queries are issued in fallback mode — prefetch + main = 2.
+    const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profilesCalls).toHaveLength(2);
+
+    // Main profiles query carries NO `.not('id', 'in', ...)` clause.
+    const profilesMain = profilesCalls[1];
+    expect(profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in')).toBeUndefined();
+
+    // Client-side filter removes the 5 ghost rows from the page; only the
+    // visible user survives. Summary counts come from the in-memory prefetch
+    // (1 visible / 102 in-school - 101 ghosts), and `total` mirrors summary.
+    const body = JSON.parse(res._getData());
+    const returnedIds = (body.users as Array<{ id: string }>).map((u) => u.id);
+    expect(returnedIds).toEqual([VISIBLE_ID]);
+    for (const ghost of GHOST_IDS) {
+      expect(returnedIds).not.toContain(ghost);
+    }
+    expect(body.summary).toEqual({ total: 1, pending: 0, approved: 1 });
+    expect(body.total).toBe(1);
+    expect(body.total).toBe(body.summary.total);
+    expect(body.total).not.toBe(102);
   });
 
 });

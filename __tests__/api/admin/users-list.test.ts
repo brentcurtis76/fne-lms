@@ -16,7 +16,7 @@ vi.mock('../../../lib/api-auth', async (importOriginal) => {
   };
 });
 
-import handler from '../../../pages/api/admin/users';
+import handler, { toQuotedInList } from '../../../pages/api/admin/users';
 
 const ADMIN_ID = '11111111-1111-4111-8111-111111111111';
 const ED_ID = '99999999-9999-4999-8999-999999999999';
@@ -1250,4 +1250,16 @@ describe('admin/users — GET (school scoping)', () => {
     expect(profilesCalls[1].ranges).toEqual([{ from: 1000, to: 1999 }]);
   });
 
+});
+
+describe('toQuotedInList — PostgREST quoting & escaping', () => {
+  it('escapes embedded backslashes and double quotes inside values', () => {
+    expect(toQuotedInList(['foo"bar', 'baz\\qux'])).toBe('("foo\\"bar","baz\\\\qux")');
+  });
+
+  it('passes through plain UUID / role-identifier inputs with only normal quoting', () => {
+    expect(toQuotedInList(['plain-uuid-here', 'another_role_name'])).toBe(
+      '("plain-uuid-here","another_role_name")',
+    );
+  });
 });

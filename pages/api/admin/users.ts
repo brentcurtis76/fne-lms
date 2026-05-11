@@ -11,9 +11,11 @@ const ROLE_PRIORITY = ['admin','consultor','equipo_directivo','supervisor_de_red
 // value is the documented-safe form: it survives values that contain commas,
 // parens, or quotes — even though the values we currently pass (UUIDs, role
 // type identifiers) never do. supabase-js's `.not()` is pure string interp,
-// so the typed array form is not available here.
-const toQuotedInList = (values: readonly string[]): string =>
-  `(${values.map((v) => `"${v}"`).join(',')})`;
+// so the typed array form is not available here. Embedded `\` and `"` are
+// escaped defensively so a future caller passing arbitrary strings can't
+// break out of the quoted value.
+export const toQuotedInList = (values: readonly string[]): string =>
+  `(${values.map((v) => `"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`).join(',')})`;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {

@@ -891,6 +891,134 @@ describe('admin/users — GET (school scoping)', () => {
     // users with excludedSet removed. Visible user is `approved`; the
     // excluded user (pending) is dropped from every bucket.
     expect(body.summary).toEqual({ total: 1, pending: 0, approved: 1 });
+
+    // F1 contract: response `total` mirrors `summary.total` (post-exclusion),
+    // not the raw `count` returned by the main paginated query (which still
+    // counts the ghost row before in-memory filtering).
+    expect(body.total).toBe(1);
+    expect(body.total).toBe(body.summary.total);
+  });
+
+  it('ED: response `total` equals post-exclusion summary total, not raw profiles count (50 raw, 3 excluded → 47)', async () => {
+    // F1 acceptance scenario: with 50 in-school profiles and 3 ghost users
+    // (global-role holders), the API must report total=47 so the UI's
+    // "Mostrando X-Y de Z" label and page math agree with the filtered list.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    const IN_SCHOOL_IDS = Array.from({ length: 50 }, (_, i) =>
+      `aaaaaaaa-aaaa-4aaa-8aaa-${String(i).padStart(12, '0')}`,
+    );
+    const EXCLUDED_IDS = IN_SCHOOL_IDS.slice(0, 3);
+
+    const buildProfile = (id: string, approval_status: string) => ({
+      id,
+      email: `${id}@example.com`,
+      first_name: 'User',
+      last_name: id.slice(-4),
+      school_id: ED_SCHOOL_ID,
+      approval_status,
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+    });
+
+    // Main paginated query returns all 50 rows; handler drops the 3 ghosts in
+    // memory. The raw `count` on this query is 50 (matches the unfiltered
+    // result set); the API must NOT surface it as `total` for ED scope.
+    const mainPageProfiles = IN_SCHOOL_IDS.map((id) =>
+      buildProfile(id, 'approved'),
+    );
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            // [0] in-school prefetch — all 50 users with approval_status.
+            {
+              data: IN_SCHOOL_IDS.map((id) => ({
+                id,
+                approval_status: 'approved',
+              })),
+            },
+            // [1] main paginated query — raw count is 50, including ghosts.
+            { data: mainPageProfiles, count: 50 },
+          ],
+          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+          // [0] global-role pre-fetch flags 3 ghosts.
+          // [1] cross-school pre-fetch (empty).
+          // [2] main user_roles for returned profiles.
+          user_roles: [
+            { data: EXCLUDED_IDS.map((user_id) => ({ user_id })) },
+            { data: [] },
+            { data: [] },
+          ],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const body = JSON.parse(res._getData());
+    expect(body.summary.total).toBe(47);
+    expect(body.total).toBe(47);
+    expect(body.total).not.toBe(50);
+    expect(body.users).toHaveLength(47);
+  });
+
+  it('admin: response `total` uses raw profiles count (no exclusion applied)', async () => {
+    // Admin path is unchanged by the F1 ED-total fix: `total` continues to
+    // reflect the raw `count` returned by the main paginated query.
+    setupAdmin();
+    const tracker = makeTracker();
+
+    const profile = {
+      id: 'user-1',
+      email: 'u1@example.com',
+      first_name: 'Foo',
+      last_name: 'Bar',
+      school_id: 7,
+      approval_status: 'approved',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: 7, name: 'School 7' },
+    };
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            { data: [profile], count: 123 },
+            { count: 123 },
+            { count: 0 },
+            { count: 123 },
+          ],
+          schools: [{ data: [{ id: 7, name: 'School 7' }] }],
+          user_roles: [{ data: [] }],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const body = JSON.parse(res._getData());
+    expect(body.total).toBe(123);
+    expect(body.summary.total).toBe(123);
   });
 
   it('ED (F2): main profiles query carries no `.not(id, in, ...)` exclusion clause regardless of prefetch size', async () => {

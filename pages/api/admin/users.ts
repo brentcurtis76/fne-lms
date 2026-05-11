@@ -560,7 +560,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({
       page,
       pageSize,
-      total: count || 0,
+      // ED scope: `total` reflects the post-exclusion visible-user count so
+      // the UI's "Mostrando X-Y de Z" label and page math agree with the
+      // filtered list. Admin path keeps raw `count` (no exclusion is applied).
+      total: isEdScope ? summary.total : (count || 0),
       users: payload,
       summary,
       schools,

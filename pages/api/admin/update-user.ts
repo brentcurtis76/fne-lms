@@ -162,7 +162,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Log the update in audit_logs
+    // Log the update in audit_logs. `requester_role` distinguishes
+    // admin-initiated changes from ED-initiated changes — important because
+    // ED can perform account-takeover operations (email + password reset)
+    // within their school scope.
     await supabaseAdmin
       .from('audit_logs')
       .insert({
@@ -171,6 +174,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         table_name: 'profiles',
         record_id: userId,
         details: {
+          requester_role: requesterRole,
+          requester_user_id: requestingUser.id,
           updated_fields: {
             email: email && email !== currentEmail ? { from: currentEmail, to: email } : undefined,
             first_name,

@@ -190,6 +190,16 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect(profileCalls[0].updates).toHaveLength(1);
     expect((profileCalls[0].updates[0] as any).school).toBe('Some School');
     expect((profileCalls[0].updates[0] as any).first_name).toBe('Updated');
+
+    // Audit log records requester_role for admin-initiated edits.
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    expect(auditCalls).toHaveLength(1);
+    expect(auditCalls[0].inserts).toHaveLength(1);
+    expect((auditCalls[0].inserts[0] as any).details).toMatchObject({
+      requester_role: 'admin',
+      requester_user_id: ADMIN_ID,
+    });
+    expect((auditCalls[0].inserts[0] as any).user_id).toBe(ADMIN_ID);
   });
 
   it('ED: can update a user in their own school', async () => {
@@ -224,6 +234,16 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     // Second call: the update — must NOT mutate `school` for ED
     expect(profileCalls[1].updates).toHaveLength(1);
     expect((profileCalls[1].updates[0] as any).school).toBeUndefined();
+
+    // Audit log records requester_role for ED-initiated edits.
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    expect(auditCalls).toHaveLength(1);
+    expect(auditCalls[0].inserts).toHaveLength(1);
+    expect((auditCalls[0].inserts[0] as any).details).toMatchObject({
+      requester_role: 'equipo_directivo',
+      requester_user_id: ED_ID,
+    });
+    expect((auditCalls[0].inserts[0] as any).user_id).toBe(ED_ID);
   });
 
   it('ED: can update email of a same-school target with no global roles', async () => {

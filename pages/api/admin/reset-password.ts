@@ -179,7 +179,11 @@ export default async function handler(
       // Continue anyway as the password was already reset
     }
 
-    // Log the password reset action
+    // Log the password reset action. `requester_role` distinguishes
+    // admin-initiated resets from ED-initiated resets — important because
+    // password reset is one half of ED's account-takeover capability inside
+    // their school scope (the other half is the email-change path in
+    // update-user.ts).
     const { error: logError } = await supabaseAdmin
       .from('audit_logs')
       .insert({
@@ -187,7 +191,8 @@ export default async function handler(
         action: 'password_reset',
         details: {
           target_user_id: userId,
-          reset_by: 'admin',
+          requester_role: requesterRole,
+          requester_user_id: user.id,
           timestamp: new Date().toISOString()
         }
       });

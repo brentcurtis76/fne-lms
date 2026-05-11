@@ -65,7 +65,20 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (ctx) => 
     return { redirect: { destination: '/admin/user-management', permanent: false } };
   }
 
-  const edRow = rows.find((r) => r.role_type === 'equipo_directivo');
+  // Invariant: a user holds at most one active equipo_directivo row.
+  // Verified via prod data audit on 2026-05-11 (no user had >1 active ED row).
+  // If this ever changes, this page needs a school switcher — picking the
+  // lowest-id row would silently hide the other schools from the user.
+  const edRows = rows.filter((r) => r.role_type === 'equipo_directivo');
+  if (edRows.length > 1) {
+    console.warn(
+      '[school-users] multi-ED detected for user',
+      session.user.id,
+      '— invariant broken, falling back to first row. School ids:',
+      edRows.map((r) => r.school_id),
+    );
+  }
+  const edRow = edRows[0];
 
   if (!edRow || edRow.school_id === null || edRow.school_id === undefined) {
     return { redirect: { destination: '/dashboard', permanent: false } };

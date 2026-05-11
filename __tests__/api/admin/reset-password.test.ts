@@ -264,6 +264,12 @@ describe('admin/reset-password — POST (ED auth + scoping)', () => {
     const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
     expect(auditCalls).toHaveLength(1);
     expect(auditCalls[0].inserts).toHaveLength(1);
+    expect((auditCalls[0].inserts[0] as any).details).toMatchObject({
+      target_user_id: TARGET_USER_ID,
+      requester_role: 'admin',
+      requester_user_id: ADMIN_ID,
+    });
+    expect((auditCalls[0].inserts[0] as any).user_id).toBe(ADMIN_ID);
     assertTempPasswordNotLeaked(tracker);
   });
 
@@ -298,6 +304,17 @@ describe('admin/reset-password — POST (ED auth + scoping)', () => {
     expect(tracker.updateUserCalls).toHaveLength(1);
     expect(tracker.updateUserCalls[0].userId).toBe(TARGET_USER_ID);
     expect(tracker.updateUserCalls[0].payload).toMatchObject({ password: TEMP_PASSWORD });
+
+    // Audit log records requester_role for ED-initiated resets.
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    expect(auditCalls).toHaveLength(1);
+    expect(auditCalls[0].inserts).toHaveLength(1);
+    expect((auditCalls[0].inserts[0] as any).details).toMatchObject({
+      target_user_id: TARGET_USER_ID,
+      requester_role: 'equipo_directivo',
+      requester_user_id: ED_ID,
+    });
+    expect((auditCalls[0].inserts[0] as any).user_id).toBe(ED_ID);
     assertTempPasswordNotLeaked(tracker);
   });
 

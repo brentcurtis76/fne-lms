@@ -102,8 +102,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (SCHOOL_SCOPED_ROLES_SET.has(roleType)) {
         schoolId = edSchoolId;
       } else {
-        // Defensive normalization: if a future ED-assignable role is non-school-scoped,
-        // collapse '', undefined, or null body inputs to an unambiguous null before insert.
+        // Intentional: non-school-scoped roles must never carry a school_id,
+        // so any incoming value is unconditionally nulled here to produce an
+        // unambiguous insert payload (defensive normalization regardless of
+        // whether the body supplied '', undefined, or a stray school id).
         schoolId = null;
       }
 

@@ -79,6 +79,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(403).json({ error: 'No autorizado para remover roles de este usuario' });
       }
 
+      // The role row being removed must itself be scoped to ED's school when
+      // it's a school-scoped role type. Profile-level school match is not
+      // sufficient: a user's profile may belong to ED's school while still
+      // holding a school-scoped role row tied to another school (orphan or
+      // legacy data). null school_id on a school-scoped row is also rejected
+      // since equality with a numeric edSchoolId fails.
+      if (
+        SCHOOL_SCOPED_ROLES_SET.has(roleRow.role_type) &&
+        roleRow.school_id !== edSchoolId
+      ) {
+        return res.status(403).json({ error: 'No autorizado para remover este rol' });
+      }
+
       // Defense-in-depth: reject if the target holds any OTHER active role
       // either (a) in ED_FORBIDDEN_TARGET_ROLES (admin/consultor/community_
       // manager/supervisor_de_red) or (b) school-scoped but tied to a

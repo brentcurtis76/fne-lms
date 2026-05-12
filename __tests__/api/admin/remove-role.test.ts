@@ -402,6 +402,112 @@ describe('admin/remove-role — POST (ED auth + scoping)', () => {
     expect(countUpdates(tracker)).toBe(0);
   });
 
+  it('ED: 403 when roleRow.school_id is another school (privilege bypass regression)', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          user_roles: [
+            {
+              data: {
+                id: ROLE_ID,
+                user_id: TARGET_USER_ID,
+                role_type: 'docente',
+                school_id: OTHER_SCHOOL_ID,
+                is_active: true,
+              },
+              error: null,
+            },
+          ],
+          profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { roleId: ROLE_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toEqual({ error: 'No autorizado para remover este rol' });
+    expect(countUpdates(tracker)).toBe(0);
+  });
+
+  it('ED: 403 when roleRow.school_id is null on a school-scoped role (orphan row)', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          user_roles: [
+            {
+              data: {
+                id: ROLE_ID,
+                user_id: TARGET_USER_ID,
+                role_type: 'docente',
+                school_id: null,
+                is_active: true,
+              },
+              error: null,
+            },
+          ],
+          profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { roleId: ROLE_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toEqual({ error: 'No autorizado para remover este rol' });
+    expect(countUpdates(tracker)).toBe(0);
+  });
+
+  it('ED: 200 when roleRow.school_id matches edSchoolId (positive control)', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          user_roles: [
+            {
+              data: {
+                id: ROLE_ID,
+                user_id: TARGET_USER_ID,
+                role_type: 'docente',
+                school_id: ED_SCHOOL_ID,
+                is_active: true,
+              },
+              error: null,
+            },
+            { data: [{ id: ROLE_ID, role_type: 'docente', school_id: ED_SCHOOL_ID }], error: null },
+            { data: { id: ROLE_ID, is_active: false }, error: null },
+          ],
+          profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { roleId: ROLE_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(countUpdates(tracker)).toBe(1);
+  });
+
   it('ED: 404 when role not found', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();

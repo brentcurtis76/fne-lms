@@ -157,11 +157,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         }
         if (rows.length < PROFILE_PREFETCH_BATCH) break;
-        // Early-break at the ceiling: skip the otherwise-empty round-trip
-        // when school size lands exactly at MAX_ED_PREFETCH_USERS. The
-        // post-loop guard below still fires when an oversized first batch
-        // pushes `collected` strictly past the ceiling.
-        if (collected.length >= MAX_ED_PREFETCH_USERS) break;
         prefetchFrom += PROFILE_PREFETCH_BATCH;
       }
 

@@ -2258,22 +2258,37 @@ describe('ED prefetch ceiling (MAX_ED_PREFETCH_USERS)', () => {
     vi.clearAllMocks();
   });
 
-  it('ED: school size exceeding MAX_ED_PREFETCH_USERS returns 500 with structured log', async () => {
-    setupEquipoDirectivo(ED_SCHOOL_ID);
-    const tracker = makeTracker();
-
-    // Mock the in-school prefetch to return >5000 rows in the first batch.
-    // The loop continues to a second batch (range(1000, 1999)) which returns
-    // 0 rows so the loop terminates; the ceiling check then fires.
-    const OVERSIZED = Array.from({ length: 5001 }, (_, i) => ({
-      id: `eeeeeeee-eeee-4eee-8eee-${String(i).padStart(12, '0')}`,
+  // Helper: produce a deterministic batch of {id, approval_status} rows for
+  // the in-school prefetch mock, starting at an offset within a uuid-shaped
+  // namespace so different batches yield distinct ids.
+  const makePrefetchBatch = (prefix: string, offset: number, size: number) =>
+    Array.from({ length: size }, (_, i) => ({
+      id: `${prefix}-${String(offset + i).padStart(12, '0')}`,
       approval_status: 'approved',
     }));
+
+  it('ED: 5500 in-school users across 6 batches of 1000/1000/1000/1000/1000/500 returns 500 with structured log', async () => {
+    // Phase 16.5 regression guard: with the broken Phase 16.4 early-break
+    // removed, the loop must complete all 6 round-trips for a 5500-user
+    // school. After the partial 500-row 6th batch, collected.length = 5500
+    // strictly exceeds MAX_ED_PREFETCH_USERS, so the post-loop ceiling
+    // guard fires and returns 500. Under the broken early-break, the loop
+    // would have stopped at collected=5000 and the strict `> 5000` post-loop
+    // guard would not have fired, silently truncating the visible set.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
 
     mockCreateServiceRoleClient.mockReturnValueOnce(
       buildSequencedClient(
         {
-          profiles: [{ data: OVERSIZED }, { data: [] }],
+          profiles: [
+            { data: makePrefetchBatch('aaaaaaaa-aaaa-4aaa-8aaa', 0, 1000) },
+            { data: makePrefetchBatch('aaaaaaaa-aaaa-4aaa-8aaa', 1000, 1000) },
+            { data: makePrefetchBatch('aaaaaaaa-aaaa-4aaa-8aaa', 2000, 1000) },
+            { data: makePrefetchBatch('aaaaaaaa-aaaa-4aaa-8aaa', 3000, 1000) },
+            { data: makePrefetchBatch('aaaaaaaa-aaaa-4aaa-8aaa', 4000, 1000) },
+            { data: makePrefetchBatch('aaaaaaaa-aaaa-4aaa-8aaa', 5000, 500) },
+          ],
         },
         tracker,
       ),
@@ -2299,16 +2314,202 @@ describe('ED prefetch ceiling (MAX_ED_PREFETCH_USERS)', () => {
         limit: number;
       };
       expect(ctx.edSchoolId).toBe(ED_SCHOOL_ID);
-      expect(ctx.actualCount).toBe(5001);
+      expect(ctx.actualCount).toBe(5500);
       expect(ctx.limit).toBe(5000);
     } finally {
       errSpy.mockRestore();
     }
 
-    // No downstream user_roles / main paginated query should have run.
+    // All 6 prefetch round-trips ran, with the partial 6th batch triggering
+    // the in-loop break before the post-loop ceiling guard fires.
     const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
-    expect(profilesCalls.length).toBeLessThanOrEqual(2);
+    expect(profilesCalls).toHaveLength(6);
+    expect(profilesCalls[0].ranges).toEqual([{ from: 0, to: 999 }]);
+    expect(profilesCalls[1].ranges).toEqual([{ from: 1000, to: 1999 }]);
+    expect(profilesCalls[2].ranges).toEqual([{ from: 2000, to: 2999 }]);
+    expect(profilesCalls[3].ranges).toEqual([{ from: 3000, to: 3999 }]);
+    expect(profilesCalls[4].ranges).toEqual([{ from: 4000, to: 4999 }]);
+    expect(profilesCalls[5].ranges).toEqual([{ from: 5000, to: 5999 }]);
+
+    // The ceiling fires before any downstream user_roles or main paginated
+    // query is issued.
     expect(tracker.fromCalls.find((c) => c.table === 'user_roles')).toBeUndefined();
+  });
+
+  it('ED: 5000 in-school users across 5 exact 1000-row batches returns 200, total reflects 5000 - excludedSet (exact-multiple boundary)', async () => {
+    // Phase 16.5 exact-multiple boundary: when in-school population is
+    // exactly MAX_ED_PREFETCH_USERS, the loop runs 5 full 1000-row batches
+    // plus a 6th empty round-trip that confirms the tail. collected.length
+    // = 5000 is NOT strictly > 5000, so the ceiling guard does not fire and
+    // the handler proceeds normally. Under the broken Phase 16.4 early-break
+    // the 6th confirmation round-trip would have been skipped — correctness
+    // by accident at this exact boundary, but the early-break was the wrong
+    // termination signal (see the 5500 case above).
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    const GHOST_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000000';
+    const visibleProfile = {
+      id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      email: 'visible@example.com',
+      first_name: 'Visible',
+      last_name: 'User',
+      school_id: ED_SCHOOL_ID,
+      approval_status: 'approved',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+    };
+
+    // 5000 in-school ids → 50 chunks per leg at USER_ID_BATCH=100. First
+    // global batch surfaces the single ghost; all other batches are empty.
+    const globalSlots = [
+      { data: [{ user_id: GHOST_ID }] },
+      ...Array.from({ length: 49 }, () => ({ data: [] as unknown[] })),
+    ];
+    const crossSchoolSlots = Array.from({ length: 50 }, () => ({
+      data: [] as unknown[],
+    }));
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            // [0..4] five exact 1000-row batches — every batch is full, so
+            // the partial-batch break never triggers.
+            { data: makePrefetchBatch('bbbbbbbb-bbbb-4bbb-8bbb', 0, 1000) },
+            { data: makePrefetchBatch('bbbbbbbb-bbbb-4bbb-8bbb', 1000, 1000) },
+            { data: makePrefetchBatch('bbbbbbbb-bbbb-4bbb-8bbb', 2000, 1000) },
+            { data: makePrefetchBatch('bbbbbbbb-bbbb-4bbb-8bbb', 3000, 1000) },
+            { data: makePrefetchBatch('bbbbbbbb-bbbb-4bbb-8bbb', 4000, 1000) },
+            // [5] sixth round-trip confirms the tail is empty. Without the
+            // Phase 16.5 fix this call would never have been issued.
+            { data: [] },
+            // [6] main paginated query — SQL exclusion path returns the
+            // single visible row with post-exclusion count.
+            { data: [visibleProfile], count: 4999 },
+            // [7..9] scoped count queries (SQL path).
+            { count: 4999 },
+            { count: 0 },
+            { count: 4999 },
+          ],
+          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+          user_roles: [
+            ...globalSlots,
+            ...crossSchoolSlots,
+            { data: [] },
+          ],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    // Six prefetch round-trips ran (5 full + 1 empty terminator), plus the
+    // main paginated query and three scoped count queries.
+    const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profilesCalls).toHaveLength(10);
+    expect(profilesCalls[0].ranges).toEqual([{ from: 0, to: 999 }]);
+    expect(profilesCalls[4].ranges).toEqual([{ from: 4000, to: 4999 }]);
+    // The exact-multiple terminator round-trip — present only with the
+    // Phase 16.5 fix in place.
+    expect(profilesCalls[5].ranges).toEqual([{ from: 5000, to: 5999 }]);
+
+    // Ceiling guard must NOT fire when collected.length === 5000.
+    expect(res._getStatusCode()).not.toBe(500);
+
+    const body = JSON.parse(res._getData());
+    // total = 5000 in-school - 1 ghost = 4999. SQL path: sourced from the
+    // main query's `count`, which already has `.not('id', 'in', exclusion)`
+    // applied so it matches the visible page.
+    expect(body.total).toBe(4999);
+    expect(body.summary.total).toBe(4999);
+  });
+
+  it('ED: 4999 in-school users across 1000/1000/1000/1000/999 returns 200 via partial-batch termination', async () => {
+    // Phase 16.5: the surviving termination signal is the partial-batch
+    // break (`rows.length < PROFILE_PREFETCH_BATCH`). 999 < 1000 so the
+    // loop ends after the 5th round-trip; no trailing 6th call is issued.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    const visibleProfile = {
+      id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      email: 'visible@example.com',
+      first_name: 'Visible',
+      last_name: 'User',
+      school_id: ED_SCHOOL_ID,
+      approval_status: 'approved',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+    };
+
+    // 4999 in-school ids → 50 chunks per leg (49 full + 1 partial 99 ids).
+    const globalSlots = Array.from({ length: 50 }, () => ({ data: [] as unknown[] }));
+    const crossSchoolSlots = Array.from({ length: 50 }, () => ({ data: [] as unknown[] }));
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            { data: makePrefetchBatch('dddddddd-dddd-4ddd-8ddd', 0, 1000) },
+            { data: makePrefetchBatch('dddddddd-dddd-4ddd-8ddd', 1000, 1000) },
+            { data: makePrefetchBatch('dddddddd-dddd-4ddd-8ddd', 2000, 1000) },
+            { data: makePrefetchBatch('dddddddd-dddd-4ddd-8ddd', 3000, 1000) },
+            // 5th batch is partial (999 rows) — loop must terminate here
+            // and the 6th round-trip must NOT be issued.
+            { data: makePrefetchBatch('dddddddd-dddd-4ddd-8ddd', 4000, 999) },
+            // 0-excluded path: main paginated query; no scoped count queries.
+            { data: [visibleProfile], count: 4999 },
+          ],
+          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+          user_roles: [
+            ...globalSlots,
+            ...crossSchoolSlots,
+            { data: [] },
+          ],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    // Partial-batch termination: 5 prefetch round-trips + 1 main paginated
+    // query = 6 profiles calls. No scoped count queries (0-excluded path).
+    const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profilesCalls).toHaveLength(6);
+    expect(profilesCalls[0].ranges).toEqual([{ from: 0, to: 999 }]);
+    expect(profilesCalls[3].ranges).toEqual([{ from: 3000, to: 3999 }]);
+    expect(profilesCalls[4].ranges).toEqual([{ from: 4000, to: 4999 }]);
+
+    // The 6th profiles call must be the main paginated query (ordered by
+    // created_at), not a 6th prefetch round-trip (which would be ordered
+    // by id and call .range(5000, 5999)).
+    const sixthCall = profilesCalls[5];
+    expect(sixthCall.orders.some((o) => o.col === 'created_at')).toBe(true);
+    expect(sixthCall.ranges.some((r) => r.from === 5000)).toBe(false);
+
+    const body = JSON.parse(res._getData());
+    // 0-excluded path: total comes from the main query's filtered DB count.
+    expect(body.total).toBe(4999);
+    expect(body.summary.total).toBe(4999);
   });
 });
 

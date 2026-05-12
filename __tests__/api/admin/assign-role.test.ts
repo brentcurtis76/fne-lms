@@ -694,6 +694,29 @@ describe('admin/assign-role — equipo_directivo path', () => {
     },
   );
 
+  it("ED: forbidden role + invalid schoolId returns 403 'Role not assignable by equipo_directivo' (not 400 schoolId)", async () => {
+    // Error precedence: the ED role-assignability gate is hoisted above the
+    // shared schoolId shape check, mirroring create-user.ts. A misdirected
+    // request like roleType='admin' (forbidden) + schoolId='abc' (malformed)
+    // surfaces the actionable 403 rather than the incidental 400.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(buildClient({}, tracker));
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { targetUserId: TARGET_USER_ID, roleType: 'admin', schoolId: 'abc' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toEqual({
+      error: 'Role not assignable by equipo_directivo',
+    });
+    expect(countInserts(tracker, 'user_roles')).toBe(0);
+    expect(countInserts(tracker, 'growth_communities')).toBe(0);
+  });
+
   it('ED targeting a user in another school → 403, no inserts', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();

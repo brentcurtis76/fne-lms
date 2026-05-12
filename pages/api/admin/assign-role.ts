@@ -64,6 +64,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Invalid role type' });
     }
 
+    // ED role-assignability gate: hoisted above the shared shape check so a
+    // misdirected ED request like `roleType='admin' + schoolId='abc'` returns
+    // the actionable 403 ("role not assignable") instead of a 400 about the
+    // incidental schoolId shape. Mirrors create-user.ts's error precedence.
+    if (requesterRole === 'equipo_directivo' && !(ED_ASSIGNABLE_ROLES as readonly string[]).includes(roleType)) {
+      return res.status(403).json({ error: 'Role not assignable by equipo_directivo' });
+    }
+
     // Shared schoolId shape validation: applies to BOTH admin and ED paths so
     // malformed/non-numeric/zero/negative values are rejected uniformly with
     // 400 before any downstream logic. ED branch still enforces the
@@ -104,9 +112,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       roleType === 'lider_comunidad' && generationId ? String(generationId) : null;
 
     if (requesterRole === 'equipo_directivo') {
-      if (!(ED_ASSIGNABLE_ROLES as readonly string[]).includes(roleType)) {
-        return res.status(403).json({ error: 'Role not assignable by equipo_directivo' });
-      }
+      // ED role-assignability already enforced above (hoisted ahead of the
+      // shared schoolId shape check so the actionable 403 wins over the
+      // incidental 400).
 
       // Cross-school check (shape validation is enforced earlier for both
       // admin and ED paths). Body schoolId, when present and valid, must

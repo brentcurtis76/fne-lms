@@ -3,6 +3,7 @@ import {
   checkIsAdminOrEquipoDirectivo,
   createServiceRoleClient,
 } from '../../../lib/api-auth';
+import { toQuotedInList } from '../../../lib/admin/users-query';
 import { SCHOOL_SCOPED_ROLES } from '../../../utils/roleUtils';
 
 const ROLE_PRIORITY = ['admin','consultor','equipo_directivo','supervisor_de_red','community_manager','lider_generacion','lider_comunidad','docente','encargado_licitacion'];
@@ -14,6 +15,15 @@ const ROLE_PRIORITY = ['admin','consultor','equipo_directivo','supervisor_de_red
 // trigger 414s or truncated filters. Chunking keeps every outbound request
 // bounded.
 const USER_ID_BATCH = 100;
+
+// Hard ceiling on the ED prefetch. The prefetch issues ⌈N/1000⌉ paginated
+// profile requests plus 2·⌈N/100⌉ batched user_roles requests, all to compute
+// the ghost-exclusion set — O(N) round-trips per ED list request. For very
+// large schools that latency cliff is real. Until the prefetch is replaced
+// with a server-side view/RPC (tracked as a PR #19 follow-up), abort with a
+// 500 + structured log when N exceeds this ceiling so the symptom is visible
+// to ops instead of degrading silently.
+const MAX_ED_PREFETCH_USERS = 5000;
 
 // Threshold for the ED ghost-exclusion strategy. At or below this size, the
 // excluded id list is small enough to encode safely as a single
@@ -34,16 +44,6 @@ const chunkIds = <T>(values: readonly T[], size: number): T[][] => {
   }
   return out;
 };
-
-// PostgREST `in`/`not.in` filters expect a parenthesized list. Quoting each
-// value is the documented-safe form: it survives values that contain commas,
-// parens, or quotes — even though the values we currently pass (UUIDs, role
-// type identifiers) never do. supabase-js's `.not()` is pure string interp,
-// so the typed array form is not available here. Embedded `\` and `"` are
-// escaped defensively so a future caller passing arbitrary strings can't
-// break out of the quoted value.
-export const toQuotedInList = (values: readonly string[]): string =>
-  `(${values.map((v) => `"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`).join(',')})`;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -138,6 +138,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         seenIds.add(u.id);
         return true;
       });
+
+      // Fail-safe: abort if the in-school population exceeds the ceiling.
+      // Track as PR #19 follow-up: replace this pre-fetch + chunked downstream
+      // queries with a server-side view/RPC that returns the excluded user_id
+      // set in a single round-trip. The current scheme is correct but linear
+      // in school size; this ceiling is a fail-safe until the RPC lands.
+      if (edInSchoolUsers.length > MAX_ED_PREFETCH_USERS) {
+        console.error('[users API] ED prefetch exceeded MAX_ED_PREFETCH_USERS', {
+          edSchoolId,
+          actualCount: edInSchoolUsers.length,
+          limit: MAX_ED_PREFETCH_USERS,
+        });
+        return res.status(500).json({
+          error: 'Lista de usuarios temporalmente no disponible para esta escuela. Contacta soporte.',
+        });
+      }
 
       const inSchoolUserIds = edInSchoolUsers.map((u) => u.id);
 

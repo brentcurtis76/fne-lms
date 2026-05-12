@@ -16,7 +16,8 @@ vi.mock('../../../lib/api-auth', async (importOriginal) => {
   };
 });
 
-import handler, { toQuotedInList } from '../../../pages/api/admin/users';
+import handler from '../../../pages/api/admin/users';
+import { toQuotedInList } from '../../../lib/admin/users-query';
 
 const ADMIN_ID = '11111111-1111-4111-8111-111111111111';
 const ED_ID = '99999999-9999-4999-8999-999999999999';
@@ -1939,6 +1940,65 @@ describe('admin/users — GET (school scoping)', () => {
     expect(body.total).not.toBe(102);
   });
 
+});
+
+describe('ED prefetch ceiling (MAX_ED_PREFETCH_USERS)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('ED: school size exceeding MAX_ED_PREFETCH_USERS returns 500 with structured log', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    // Mock the in-school prefetch to return >5000 rows in the first batch.
+    // The loop continues to a second batch (range(1000, 1999)) which returns
+    // 0 rows so the loop terminates; the ceiling check then fires.
+    const OVERSIZED = Array.from({ length: 5001 }, (_, i) => ({
+      id: `eeeeeeee-eeee-4eee-8eee-${String(i).padStart(12, '0')}`,
+      approval_status: 'approved',
+    }));
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [{ data: OVERSIZED }, { data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { req, res } = createMocks({ method: 'GET' });
+    try {
+      await handler(req as never, res as never);
+
+      expect(res._getStatusCode()).toBe(500);
+      const body = JSON.parse(res._getData());
+      expect(body.error).toContain('Lista de usuarios temporalmente no disponible');
+
+      expect(errSpy).toHaveBeenCalled();
+      const errorCall = errSpy.mock.calls.find((args) =>
+        String(args[0]).includes('ED prefetch exceeded MAX_ED_PREFETCH_USERS'),
+      );
+      expect(errorCall).toBeDefined();
+      const ctx = errorCall![1] as {
+        edSchoolId: number;
+        actualCount: number;
+        limit: number;
+      };
+      expect(ctx.edSchoolId).toBe(ED_SCHOOL_ID);
+      expect(ctx.actualCount).toBe(5001);
+      expect(ctx.limit).toBe(5000);
+    } finally {
+      errSpy.mockRestore();
+    }
+
+    // No downstream user_roles / main paginated query should have run.
+    const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profilesCalls.length).toBeLessThanOrEqual(2);
+    expect(tracker.fromCalls.find((c) => c.table === 'user_roles')).toBeUndefined();
+  });
 });
 
 describe('toQuotedInList — PostgREST quoting & escaping', () => {

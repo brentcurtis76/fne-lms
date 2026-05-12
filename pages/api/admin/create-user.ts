@@ -31,7 +31,7 @@ export default async function handler(
   }
 
   try {
-    const { isAuthorized, role: requesterRole, schoolId: edSchoolId, error: authError } =
+    const { isAuthorized, role: requesterRole, schoolId: edSchoolId, user: requestingUser, error: authError } =
       await checkIsAdminOrEquipoDirectivo(req, res);
 
     if (authError) {
@@ -143,15 +143,18 @@ export default async function handler(
           throw updateError;
         }
 
+        // Preserve the caller's school_id verbatim for ALL roles when a valid
+        // sid was supplied. Don't gate on SCHOOL_SCOPED_ROLES — nulling
+        // school_id for a non-school-scoped role like consultor silently
+        // converts admin's intent of "scoped consultor at school 42" into
+        // GLOBAL consultor access per lib/utils/session-policy.ts:31. See
+        // assign-role.ts F2 (Phase 16) for the canonical fix; this is the
+        // equivalent in the create-user code path.
         const roleInsertData: Record<string, unknown> = {
           user_id: newUser.user.id,
           role_type: resolvedRole
         };
-        if (
-          SCHOOL_SCOPED_ROLES_SET.has(resolvedRole) &&
-          sid !== null &&
-          Number.isFinite(sid)
-        ) {
+        if (sid !== null && Number.isFinite(sid)) {
           roleInsertData.school_id = sid;
         }
 
@@ -161,6 +164,25 @@ export default async function handler(
 
         if (roleError) {
           throw roleError;
+        }
+
+        // Phase 16.7 F1: structured visibility warn — mirrors assign-role.ts
+        // F3 (Phase 16.4). Surfaces the unusual shape of an admin creating a
+        // user with a non-school-scoped role + non-null schoolId so operators
+        // can investigate whether the scoping was intentional. Persistence
+        // semantics above are unchanged (school_id preserved verbatim).
+        if (
+          requesterRole === 'admin' &&
+          !SCHOOL_SCOPED_ROLES_SET.has(resolvedRole) &&
+          sid !== null
+        ) {
+          console.warn('[create-user] admin scoped a non-school-scoped role', {
+            target_user_id: newUser.user.id,
+            role_type: resolvedRole,
+            school_id: sid,
+            requester_user_id: requestingUser?.id ?? null,
+            timestamp: new Date().toISOString(),
+          });
         }
 
         return res.status(200).json({

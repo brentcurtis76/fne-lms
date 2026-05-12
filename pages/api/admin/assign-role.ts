@@ -281,6 +281,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     let finalCommunityId: string | null = sanitizedCommunityId;
+    // Phase 16.7 F3: track whether finalCommunityId came from the auto-create
+    // branch (vs caller-supplied). On user_roles insert failure below, we
+    // issue a compensating delete only for auto-created communities so the
+    // request never leaves behind an orphan growth_communities row. Caller-
+    // supplied communityIds are never deleted — they predate this request.
+    let autoCreatedCommunity = false;
 
     // Handle community leader role - auto-create community if needed.
     // Uses sanitized FK values so non-lider_comunidad roles can never enter
@@ -427,6 +433,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       finalCommunityId = newCommunity.id;
+      autoCreatedCommunity = true;
       console.log('[assign-role API] Community created successfully:', { communityId: finalCommunityId });
     }
 
@@ -472,6 +479,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     if (roleError) {
+      // Phase 16.7 F3: compensating delete for auto-created communities so
+      // a failed user_roles insert never leaves an orphan growth_communities
+      // row. Mirrors the hard-delete pattern in
+      // pages/api/admin/growth-communities/[id]/index.ts (the canonical
+      // community deletion path). Caller-supplied communityIds are NOT
+      // rolled back — they predate this request and belong to other state.
+      if (autoCreatedCommunity && finalCommunityId) {
+        const { error: rollbackErr } = await supabaseService
+          .from('growth_communities')
+          .delete()
+          .eq('id', finalCommunityId);
+        if (rollbackErr) {
+          console.error('[assign-role] CRITICAL: auto-created community rollback failed', {
+            community_id: finalCommunityId,
+            target_user_id: targetUserId,
+            role_type: roleType,
+            role_insert_error: roleError.message,
+            rollback_error: rollbackErr.message,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+
       console.error('[assign-role API] Error assigning role:', {
         error: roleError,
         roleInsertData

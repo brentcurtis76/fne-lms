@@ -37,6 +37,7 @@ interface FromCall {
   inserts: unknown[];
   updates: unknown[];
   selects: unknown[];
+  deletes: number;
   eqs: Array<{ col: string; val: unknown }>;
 }
 
@@ -74,6 +75,7 @@ function buildClient(
         inserts: [],
         updates: [],
         selects: [],
+        deletes: 0,
         eqs: [],
       };
       tracker.fromCalls.push(fromCall);
@@ -109,6 +111,12 @@ function buildClient(
           if (prop === 'eq') {
             return vi.fn((col: string, val: unknown) => {
               fromCall.eqs.push({ col, val });
+              return new Proxy({}, proxyHandler);
+            });
+          }
+          if (prop === 'delete') {
+            return vi.fn(() => {
+              fromCall.deletes += 1;
               return new Proxy({}, proxyHandler);
             });
           }
@@ -1866,5 +1874,93 @@ describe('admin/assign-role — hypothetical non-school-scoped ED-assignable rol
     expect(
       tracker.fromCalls.filter((c) => c.table === 'profiles')[0].updates,
     ).toHaveLength(0);
+  });
+});
+
+// Phase 16.7 F3: when lider_comunidad auto-creates a growth_communities row
+// and the follow-up user_roles insert fails, the handler must roll back
+// (hard delete) the auto-created community so the request never leaves an
+// orphan row. Mirrors the canonical deletion path in
+// pages/api/admin/growth-communities/[id]/index.ts:149. Caller-supplied
+// communityIds are NOT rolled back — they predate this request.
+describe('admin/assign-role — auto-created community rollback on role-insert failure (F3)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('admin lider_comunidad auto-create succeeds + user_roles insert fails → community is rolled back via hard delete', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          profiles: [
+            { data: { first_name: 'Ana', last_name: 'Soto' }, error: null }, // user info lookup
+          ],
+          schools: [
+            { data: { id: ED_SCHOOL_ID, name: 'Colegio Gamma', has_generations: false }, error: null },
+          ],
+          generations: [{ data: [], error: null }],
+          growth_communities: [
+            { data: { id: COMMUNITY_ID }, error: null }, // auto-create succeeds
+            { data: null, error: null }, // rollback delete
+          ],
+          user_roles: [
+            { data: null, error: { message: 'fk_violation' } }, // role insert FAILS
+          ],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { targetUserId: TARGET_USER_ID, roleType: 'lider_comunidad', schoolId: ED_SCHOOL_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(res._getJSONData()).toEqual({ error: 'Error al asignar rol' });
+
+    // Two from('growth_communities') calls: one insert + one rollback delete.
+    const communityCalls = tracker.fromCalls.filter((c) => c.table === 'growth_communities');
+    expect(communityCalls).toHaveLength(2);
+    expect(communityCalls[0].inserts).toHaveLength(1); // auto-create
+    expect(communityCalls[1].deletes).toBe(1); // rollback
+    // Delete targets the auto-created community id.
+    expect(communityCalls[1].eqs).toContainEqual({ col: 'id', val: COMMUNITY_ID });
+  });
+
+  it('admin lider_comunidad with caller-supplied communityId + user_roles fails → community is NOT rolled back', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          user_roles: [
+            { data: null, error: { message: 'fk_violation' } }, // role insert FAILS
+          ],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: {
+        targetUserId: TARGET_USER_ID,
+        roleType: 'lider_comunidad',
+        schoolId: ED_SCHOOL_ID,
+        communityId: COMMUNITY_ID,
+      },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(500);
+    // Caller-supplied communityId means no auto-create branch ran.
+    // No from('growth_communities') call should occur at all — no insert,
+    // no rollback delete. Caller-supplied rows are never touched on failure.
+    const communityCalls = tracker.fromCalls.filter((c) => c.table === 'growth_communities');
+    expect(communityCalls).toHaveLength(0);
   });
 });

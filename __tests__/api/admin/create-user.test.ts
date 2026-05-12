@@ -231,7 +231,15 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
     expect(typeof inserted.school_id).toBe('number');
   });
 
-  it('admin: GLOBAL role insert does NOT include user_roles.school_id', async () => {
+  // Phase 16.7 F1 — Inverted from the previous "school_id undefined for global
+  // role" assertion, which codified a privilege-escalation bug. Per
+  // lib/utils/session-policy.ts:31, `consultor.school_id IS NULL` is the
+  // signal for GLOBAL consultor access. When admin creates a user with
+  // `role=consultor, schoolId=42`, the old behavior dropped school_id and
+  // silently granted global access. Mirrors assign-role.ts F2 (Phase 16):
+  // the create-user path must preserve the caller's schoolId verbatim for
+  // non-school-scoped roles, not normalize to null.
+  it('admin: assigning consultor with schoolId=42 preserves user_roles.school_id=42 (matches assign-role.ts F2)', async () => {
     setupAdmin();
     const tracker = makeTracker();
     stockHappyPath(tracker);
@@ -249,7 +257,105 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
     )!;
     const inserted = roleInsert.inserts[0] as any;
     expect(inserted.role_type).toBe('consultor');
-    expect(inserted.school_id).toBeUndefined();
+    expect(inserted.school_id).toBe(OTHER_SCHOOL_ID);
+    expect(typeof inserted.school_id).toBe('number');
+  });
+
+  // Phase 16.7 F1 follow-up: community_manager and supervisor_de_red also do
+  // not use the null-vs-non-null school_id scope signal (verified in
+  // assign-role.ts Phase 16 F2). Preserving the caller's schoolId verbatim
+  // is safe and mirrors the assign-role.ts behavior.
+  it('admin: assigning community_manager with schoolId=42 preserves user_roles.school_id=42', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: bodyFor('community_manager', OTHER_SCHOOL_ID),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const roleInsert = tracker.fromCalls.find(
+      (c) => c.table === 'user_roles' && c.inserts.length > 0,
+    )!;
+    const inserted = roleInsert.inserts[0] as any;
+    expect(inserted.role_type).toBe('community_manager');
+    expect(inserted.school_id).toBe(OTHER_SCHOOL_ID);
+  });
+
+  it('admin: assigning supervisor_de_red with schoolId=42 preserves user_roles.school_id=42', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: bodyFor('supervisor_de_red', OTHER_SCHOOL_ID),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const roleInsert = tracker.fromCalls.find(
+      (c) => c.table === 'user_roles' && c.inserts.length > 0,
+    )!;
+    const inserted = roleInsert.inserts[0] as any;
+    expect(inserted.role_type).toBe('supervisor_de_red');
+    expect(inserted.school_id).toBe(OTHER_SCHOOL_ID);
+  });
+
+  // Phase 16.7 F1: structured visibility warn (mirrors assign-role.ts F3).
+  // When admin creates a user with a non-school-scoped role + non-null
+  // schoolId, the handler logs a scope-mismatch warn so operators can
+  // investigate whether the scoping was intentional. Persistence is
+  // unchanged: school_id preserved verbatim per F1 above.
+  it('admin: creating consultor with schoolId emits scope-mismatch warn', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: bodyFor('consultor', OTHER_SCHOOL_ID),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[create-user] admin scoped a non-school-scoped role',
+      expect.objectContaining({
+        target_user_id: NEW_USER_ID,
+        role_type: 'consultor',
+        school_id: OTHER_SCHOOL_ID,
+        requester_user_id: ADMIN_ID,
+        timestamp: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+      }),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('admin: creating docente with schoolId does NOT emit scope-mismatch warn (school-scoped role)', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: bodyFor('docente', OTHER_SCHOOL_ID),
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      '[create-user] admin scoped a non-school-scoped role',
+      expect.anything(),
+    );
+    warnSpy.mockRestore();
   });
 
   it('ED with no schoolId in body: handler auto-binds to edSchoolId', async () => {

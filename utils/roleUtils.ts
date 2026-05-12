@@ -91,8 +91,11 @@ export async function isGlobalAdmin(supabase: SupabaseClient, userId: string): P
 
 /**
  * Resolve the school_id for a user's active equipo_directivo role.
- * Returns null if the user has no active equipo_directivo row, or on any error.
- * When multiple active rows exist, deterministically returns the lowest-id row.
+ * Returns null if the user has no active equipo_directivo row, on any error,
+ * or when multiple active rows exist (invariant violation: fail closed so
+ * direct API calls cannot be silently mis-scoped to whichever row sorts
+ * first). The page layer enforces the same fail-closed; this enforces it
+ * at the auth helper level too.
  */
 export async function getEquipoDirectivoSchoolId(
   supabase: SupabaseClient,
@@ -106,19 +109,27 @@ export async function getEquipoDirectivoSchoolId(
       .eq('role_type', 'equipo_directivo')
       .eq('is_active', true)
       .order('id', { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .limit(2);
 
     if (error) {
       console.error('[roleUtils.getEquipoDirectivoSchoolId]', error);
       return null;
     }
 
-    if (!data || data.school_id === null || data.school_id === undefined) {
+    if (!data || data.length === 0) return null;
+
+    if (data.length > 1) {
+      console.error('[roleUtils.getEquipoDirectivoSchoolId] multi-ED invariant violated', {
+        userId,
+        rows: data.map((r) => ({ id: r.id, school_id: r.school_id })),
+      });
       return null;
     }
 
-    const schoolId = typeof data.school_id === 'string' ? Number(data.school_id) : data.school_id;
+    const row = data[0];
+    if (row.school_id === null || row.school_id === undefined) return null;
+
+    const schoolId = typeof row.school_id === 'string' ? Number(row.school_id) : row.school_id;
     return Number.isFinite(schoolId) ? schoolId : null;
   } catch (err) {
     console.error('[roleUtils.getEquipoDirectivoSchoolId]', err);

@@ -413,15 +413,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('[assign-role API] Community created successfully:', { communityId: finalCommunityId });
     }
 
-    // Mirror the ED-branch normalization at the data layer: roles outside
-    // SCHOOL_SCOPED_ROLES (admin/consultor/community_manager/supervisor_de_red)
-    // must not carry a school_id in the user_roles row, regardless of what
-    // the caller passed. Placed after validateRoleAssignment so that role
-    // requirements (e.g. consultor.requiresSchool) still gate the request,
-    // but the persisted row stays a clean global grant.
-    if (!SCHOOL_SCOPED_ROLES_SET.has(roleType)) {
-      schoolId = null;
-    }
+    // NOTE: Do not null schoolId for non-school-scoped roles here. The
+    // codebase semantics (see lib/utils/session-policy.ts:31) treat
+    // `consultor.school_id IS NULL` as GLOBAL consultor access. Nulling
+    // schoolId for a scoped consultor assignment would silently grant
+    // global access — a privilege escalation. The admin path must preserve
+    // the caller's schoolId verbatim. The ED branch above already enforces
+    // its own normalization for non-school-scoped roles (defense-in-depth)
+    // and the ED_ASSIGNABLE_ROLES gate prevents ED from ever reaching this
+    // point with a non-school-scoped role anyway.
 
     // Insert the role assignment. FK fields use sanitized values so stray
     // IDs on roles that don't own them (e.g. docente with a body communityId)
@@ -478,6 +478,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } else {
         console.log('[assign-role API] Profile school_id updated successfully');
       }
+    }
+
+    // Mirror the audit-logging pattern used by delete-user.ts /
+    // reset-password.ts / update-user.ts. Role grants are sensitive policy
+    // events — they need an audit trail for forensic investigation,
+    // especially of ED-initiated assignments.
+    try {
+      const auditInsertResult = await supabaseService
+        .from('audit_logs')
+        .insert({
+          user_id: requestingUser.id,
+          action: 'role_assigned',
+          table_name: 'user_roles',
+          record_id: targetUserId,
+          details: {
+            role_type: roleType,
+            school_id: roleInsertData.school_id,
+            community_id: roleInsertData.community_id,
+            generation_id: roleInsertData.generation_id,
+            requester_role: requesterRole,
+            requester_user_id: requestingUser.id,
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+      if (auditInsertResult.error) {
+        console.error('[assign-role] audit_logs insert failed', {
+          target_user_id: targetUserId,
+          role_type: roleType,
+          requester_user_id: requestingUser.id,
+          requester_role: requesterRole,
+          error: auditInsertResult.error.message,
+        });
+      }
+    } catch (auditErr) {
+      // Don't fail the request — the role assignment is already committed.
+      console.error('[assign-role] audit_logs insert threw', {
+        target_user_id: targetUserId,
+        requester_user_id: requestingUser.id,
+        requester_role: requesterRole,
+        error: auditErr instanceof Error ? auditErr.message : String(auditErr),
+      });
     }
 
     // Ensure caches refresh so client queries see the new role immediately

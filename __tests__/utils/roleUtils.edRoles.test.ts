@@ -1,6 +1,6 @@
 // @vitest-environment node
-import { describe, it, expect } from 'vitest';
-import { ED_ASSIGNABLE_ROLES } from '../../utils/roleUtils';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { ED_ASSIGNABLE_ROLES, getEquipoDirectivoSchoolId } from '../../utils/roleUtils';
 
 describe('ED_ASSIGNABLE_ROLES', () => {
   it('includes the five ED-assignable role types', () => {
@@ -16,5 +16,76 @@ describe('ED_ASSIGNABLE_ROLES', () => {
     expect(ED_ASSIGNABLE_ROLES).not.toContain('consultor');
     expect(ED_ASSIGNABLE_ROLES).not.toContain('community_manager');
     expect(ED_ASSIGNABLE_ROLES).not.toContain('supervisor_de_red');
+  });
+});
+
+function buildSupabaseFor(rows: unknown[] | null, error: unknown = null) {
+  const resolved = { data: rows, error };
+  const handler: ProxyHandler<Record<string, unknown>> = {
+    get(_t, prop) {
+      if (prop === 'then') {
+        return (resolve: (v: unknown) => void) => resolve(resolved);
+      }
+      return vi.fn(() => new Proxy({}, handler));
+    },
+  };
+  return { from: vi.fn(() => new Proxy({}, handler)) } as any;
+}
+
+describe('getEquipoDirectivoSchoolId — multi-ED invariant', () => {
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    errorSpy.mockRestore();
+  });
+
+  it('returns the school_id when the user has exactly one active ED row', async () => {
+    const supabase = buildSupabaseFor([{ id: 1, school_id: 42 }]);
+    const result = await getEquipoDirectivoSchoolId(supabase, 'user-1');
+    expect(result).toBe(42);
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns null and logs error when the user has multiple active ED rows', async () => {
+    const supabase = buildSupabaseFor([
+      { id: 1, school_id: 42 },
+      { id: 2, school_id: 99 },
+    ]);
+    const result = await getEquipoDirectivoSchoolId(supabase, 'user-1');
+    expect(result).toBeNull();
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[roleUtils.getEquipoDirectivoSchoolId] multi-ED invariant violated',
+      expect.objectContaining({
+        userId: 'user-1',
+        rows: [
+          { id: 1, school_id: 42 },
+          { id: 2, school_id: 99 },
+        ],
+      }),
+    );
+  });
+
+  it('returns null when the user has no active ED row', async () => {
+    const supabase = buildSupabaseFor([]);
+    const result = await getEquipoDirectivoSchoolId(supabase, 'user-1');
+    expect(result).toBeNull();
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns null when the single ED row has null school_id', async () => {
+    const supabase = buildSupabaseFor([{ id: 1, school_id: null }]);
+    const result = await getEquipoDirectivoSchoolId(supabase, 'user-1');
+    expect(result).toBeNull();
+  });
+
+  it('returns null and logs error when the query errors', async () => {
+    const supabase = buildSupabaseFor(null, { message: 'db error' });
+    const result = await getEquipoDirectivoSchoolId(supabase, 'user-1');
+    expect(result).toBeNull();
+    expect(errorSpy).toHaveBeenCalled();
   });
 });

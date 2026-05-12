@@ -11,6 +11,14 @@ interface StubOptions {
 
 const USER_ID = 'user-1';
 
+// The handler calls:
+//   .from('user_roles').select('id, school_id')
+//     .eq('user_id', userId)
+//     .eq('role_type', 'equipo_directivo')
+//     .eq('is_active', true)
+//     .order('id', { ascending: true })
+//     .limit(2)
+// then awaits — so the `.limit(2)` return value must be thenable.
 function makeSupabaseStub(options: StubOptions): {
   client: SupabaseClient;
   spies: {
@@ -18,7 +26,6 @@ function makeSupabaseStub(options: StubOptions): {
     select: ReturnType<typeof vi.fn>;
     order: ReturnType<typeof vi.fn>;
     limit: ReturnType<typeof vi.fn>;
-    maybeSingle: ReturnType<typeof vi.fn>;
     eqs: Array<[string, unknown]>;
   };
 } {
@@ -26,15 +33,14 @@ function makeSupabaseStub(options: StubOptions): {
   const rows = options.rows ?? [];
   const error = options.error ?? null;
 
-  // Sort by id ascending and take the first row, mimicking .order().limit(1).maybeSingle()
-  const ordered = [...rows].sort((a, b) => a.id - b.id);
-  const first = ordered[0] ?? null;
-
-  const maybeSingle = vi.fn().mockResolvedValue({
-    data: error ? null : first,
-    error,
-  });
-  const limit = vi.fn().mockReturnValue({ maybeSingle });
+  // .limit(2) returns a thenable that resolves to { data, error }
+  const limit = vi.fn().mockImplementation((n: number) => ({
+    then: (resolve: (v: unknown) => void) =>
+      resolve({
+        data: error ? null : rows.slice(0, n),
+        error,
+      }),
+  }));
   const order = vi.fn().mockReturnValue({ limit });
   const builder: any = {
     eq: vi.fn((column: string, value: unknown) => {
@@ -43,14 +49,13 @@ function makeSupabaseStub(options: StubOptions): {
     }),
     order,
     limit,
-    maybeSingle,
   };
   const select = vi.fn().mockReturnValue(builder);
   const from = vi.fn().mockReturnValue({ select });
 
   return {
     client: { from } as unknown as SupabaseClient,
-    spies: { from, select, order, limit, maybeSingle, eqs },
+    spies: { from, select, order, limit, eqs },
   };
 }
 
@@ -65,7 +70,7 @@ describe('getEquipoDirectivoSchoolId', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('returns the school_id for an active equipo_directivo row', async () => {
+  it('returns the school_id for the single active equipo_directivo row', async () => {
     const { client, spies } = makeSupabaseStub({
       rows: [{ id: 10, school_id: 42 }],
     });
@@ -81,7 +86,7 @@ describe('getEquipoDirectivoSchoolId', () => {
       ['is_active', true],
     ]);
     expect(spies.order).toHaveBeenCalledWith('id', { ascending: true });
-    expect(spies.limit).toHaveBeenCalledWith(1);
+    expect(spies.limit).toHaveBeenCalledWith(2);
   });
 
   it('returns null when no equipo_directivo row exists', async () => {
@@ -91,8 +96,6 @@ describe('getEquipoDirectivoSchoolId', () => {
   });
 
   it('returns null for an admin-only user (no equipo_directivo row)', async () => {
-    // The query filters by role_type=equipo_directivo, so an admin-only user
-    // simply has no matching row — the stub returns null data.
     const { client } = makeSupabaseStub({ rows: [] });
     const result = await getEquipoDirectivoSchoolId(client, USER_ID);
     expect(result).toBeNull();
@@ -133,10 +136,12 @@ describe('getEquipoDirectivoSchoolId', () => {
     expect(result).toBeNull();
   });
 
-  it('deterministically picks the lowest-id row when multiple active rows exist', async () => {
+  it('returns null and logs error when multiple active ED rows exist (multi-ED invariant)', async () => {
+    // F3 fail-closed: the page-layer enforcement of a single ED can be bypassed
+    // via direct API calls if the helper silently picks one row. Multiple rows
+    // must return null and surface a console.error.
     const { client } = makeSupabaseStub({
       rows: [
-        { id: 99, school_id: 200 },
         { id: 5, school_id: 100 },
         { id: 50, school_id: 150 },
       ],
@@ -144,6 +149,16 @@ describe('getEquipoDirectivoSchoolId', () => {
 
     const result = await getEquipoDirectivoSchoolId(client, USER_ID);
 
-    expect(result).toBe(100);
+    expect(result).toBeNull();
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[roleUtils.getEquipoDirectivoSchoolId] multi-ED invariant violated',
+      expect.objectContaining({
+        userId: USER_ID,
+        rows: [
+          { id: 5, school_id: 100 },
+          { id: 50, school_id: 150 },
+        ],
+      })
+    );
   });
 });

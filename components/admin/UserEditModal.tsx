@@ -19,9 +19,10 @@ interface UserEditModalProps {
   } | null;
   onUserUpdated: () => void;
   disableSchoolEdit?: boolean;
+  hideQaTesterToggle?: boolean;
 }
 
-export default function UserEditModal({ isOpen, onClose, user, onUserUpdated, disableSchoolEdit = false }: UserEditModalProps) {
+export default function UserEditModal({ isOpen, onClose, user, onUserUpdated, disableSchoolEdit = false, hideQaTesterToggle = false }: UserEditModalProps) {
   const supabase = useSupabaseClient();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -254,41 +255,43 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated, di
             </div>
           )}
 
-          {/* QA Tester Toggle */}
-          <div className="border-t pt-4 mt-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FlaskConical className="w-4 h-4 text-purple-600" />
-                <div>
-                  <label htmlFor="qa_tester" className="text-sm font-medium text-gray-700">
-                    Tester QA
-                  </label>
-                  <p className="text-xs text-gray-500">
-                    Puede acceder a /qa y ejecutar pruebas
-                  </p>
+          {/* QA Tester Toggle (admin-only endpoint — hidden for ED scope) */}
+          {!hideQaTesterToggle && (
+            <div className="border-t pt-4 mt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FlaskConical className="w-4 h-4 text-purple-600" />
+                  <div>
+                    <label htmlFor="qa_tester" className="text-sm font-medium text-gray-700">
+                      Tester QA
+                    </label>
+                    <p className="text-xs text-gray-500">
+                      Puede acceder a /qa y ejecutar pruebas
+                    </p>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => handleQATesterToggle(!formData.can_run_qa_tests)}
+                  disabled={updatingQATester}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                    formData.can_run_qa_tests ? 'bg-purple-600' : 'bg-gray-200'
+                  } ${updatingQATester ? 'opacity-50 cursor-wait' : ''}`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      formData.can_run_qa_tests ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => handleQATesterToggle(!formData.can_run_qa_tests)}
-                disabled={updatingQATester}
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
-                  formData.can_run_qa_tests ? 'bg-purple-600' : 'bg-gray-200'
-                } ${updatingQATester ? 'opacity-50 cursor-wait' : ''}`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    formData.can_run_qa_tests ? 'translate-x-5' : 'translate-x-0'
-                  }`}
-                />
-              </button>
+              {formData.can_run_qa_tests && (
+                <div className="mt-2 text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded">
+                  ✓ Este usuario puede ejecutar pruebas QA
+                </div>
+              )}
             </div>
-            {formData.can_run_qa_tests && (
-              <div className="mt-2 text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded">
-                ✓ Este usuario puede ejecutar pruebas QA
-              </div>
-            )}
-          </div>
+          )}
 
           <div className="flex gap-3 mt-6">
             <button

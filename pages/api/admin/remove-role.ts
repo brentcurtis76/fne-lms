@@ -1,9 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
-import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient } from '../../../lib/api-auth';
+import { ED_ASSIGNABLE_ROLES, SCHOOL_SCOPED_ROLES_SET } from '../../../utils/roleUtils';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -11,43 +8,96 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Get the user's session using the auth helper
-    const supabaseClient = createServerSupabaseClient({ req, res });
-    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+    const {
+      isAuthorized,
+      role: requesterRole,
+      schoolId: edSchoolId,
+      user: requestingUser,
+      error: authError,
+    } = await checkIsAdminOrEquipoDirectivo(req, res);
 
-    if (sessionError || !session) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (authError || !requestingUser) {
+      return res.status(401).json({ error: 'No autorizado' });
     }
 
-    const currentUserId = session.user.id;
-
-    // Create service role client to bypass RLS
-    const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Check if the current user is an admin using service role
-    const { data: adminCheck, error: adminError } = await supabaseService
-      .from('user_roles')
-      .select('id')
-      .eq('user_id', currentUserId)
-      .eq('role_type', 'admin')
-      .eq('is_active', true)
-      .limit(1);
-
-    // Check legacy admin role in metadata as fallback
-    const isLegacyAdmin =
-      session.user.user_metadata?.role === 'admin' ||
-      (Array.isArray(session.user.user_metadata?.roles) && session.user.user_metadata.roles.includes('admin'));
-
-    if ((adminError || !adminCheck || adminCheck.length === 0) && !isLegacyAdmin) {
-      return res.status(403).json({ error: 'Solo administradores pueden remover roles' });
+    if (!isAuthorized) {
+      return res.status(403).json({ error: 'Solo administradores o equipo directivo pueden remover roles' });
     }
 
-    // Extract role ID from request body
+    if (requesterRole === 'equipo_directivo' && typeof edSchoolId !== 'number') {
+      return res.status(403).json({ error: 'School context missing for equipo_directivo' });
+    }
+
     const { roleId } = req.body;
 
-    // Validate required fields
     if (!roleId) {
       return res.status(400).json({ error: 'roleId is required' });
+    }
+
+    const supabaseService = createServiceRoleClient();
+
+    if (requesterRole === 'equipo_directivo') {
+      // Fetch the role row to verify scope, role type, and target user.
+      const { data: roleRow, error: roleLookupError } = await supabaseService
+        .from('user_roles')
+        .select('id, user_id, role_type, school_id, is_active')
+        .eq('id', roleId)
+        .maybeSingle();
+
+      if (roleLookupError) {
+        return res.status(500).json({ error: 'Error verificando rol' });
+      }
+      if (!roleRow) {
+        return res.status(404).json({ error: 'Rol no encontrado' });
+      }
+
+      // ED can only remove roles in ED_ASSIGNABLE_ROLES — never strip a
+      // global/admin/consultor role from a user, even if that user happens
+      // to be in their school.
+      if (!(ED_ASSIGNABLE_ROLES as readonly string[]).includes(roleRow.role_type)) {
+        return res.status(403).json({ error: 'No autorizado para remover este rol' });
+      }
+
+      // Target user must belong to ED's school.
+      const { data: targetProfile, error: profileLookupError } = await supabaseService
+        .from('profiles')
+        .select('school_id')
+        .eq('id', roleRow.user_id)
+        .maybeSingle();
+
+      if (profileLookupError) {
+        return res.status(500).json({ error: 'Error verificando usuario' });
+      }
+      if (!targetProfile) {
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+      }
+      if (targetProfile.school_id !== edSchoolId) {
+        return res.status(403).json({ error: 'No autorizado para remover roles de este usuario' });
+      }
+
+      // Defense-in-depth: reject if the target holds any OTHER active role
+      // outside SCHOOL_SCOPED_ROLES, or any school-scoped active role tied
+      // to a different school. Mirrors the gate used by delete-user/
+      // assign-role/update-user.
+      const { data: targetRoles, error: rolesLookupError } = await supabaseService
+        .from('user_roles')
+        .select('id, role_type, school_id')
+        .eq('user_id', roleRow.user_id)
+        .eq('is_active', true);
+
+      if (rolesLookupError) {
+        return res.status(500).json({ error: 'Error verificando roles del usuario' });
+      }
+      const hasForbiddenRole = (targetRoles ?? []).some(
+        (r: { id: string; role_type: string; school_id: number | null }) => {
+          if (r.id === roleRow.id) return false;
+          if (!SCHOOL_SCOPED_ROLES_SET.has(r.role_type)) return true;
+          return r.school_id !== null && r.school_id !== edSchoolId;
+        },
+      );
+      if (hasForbiddenRole) {
+        return res.status(403).json({ error: 'No autorizado para remover roles de este usuario' });
+      }
     }
 
     // Deactivate the role (soft delete)
@@ -63,7 +113,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al remover rol' });
     }
 
-    // Return success
     return res.status(200).json({
       success: true,
       role: roleData

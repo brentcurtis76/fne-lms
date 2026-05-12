@@ -830,6 +830,7 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
       user={userToEdit}
       onUserUpdated={handleUserUpdated}
       disableSchoolEdit
+      hideQaTesterToggle
     />
     </>
   );

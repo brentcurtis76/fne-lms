@@ -253,7 +253,14 @@ describe('admin/assign-role — admin path', () => {
     expect(tracker.fromCalls.filter((c) => c.table === 'schools')).toHaveLength(0);
   });
 
-  it('admin: assigning "consultor" with body.schoolId=42 → user_roles.school_id is null (global role normalization)', async () => {
+  // F2 fix: the admin path must preserve the caller's schoolId verbatim for
+  // a scoped consultor assignment. The previous behavior nulled school_id,
+  // which lib/utils/session-policy.ts:31 treats as GLOBAL consultor access
+  // — i.e. the normalization silently granted global access (privilege
+  // escalation). Admin path now preserves what the caller passed; the ED
+  // path is unaffected (ED_ASSIGNABLE_ROLES blocks ED from reaching here
+  // with a non-school-scoped role).
+  it('admin: assigning "consultor" with body.schoolId=42 → user_roles.school_id is 42 (scoped, NOT null/global)', async () => {
     setupAdmin();
     const tracker = makeTracker();
     mockCreateServiceRoleClient.mockReturnValueOnce(
@@ -272,10 +279,15 @@ describe('admin/assign-role — admin path', () => {
     expect(res._getStatusCode()).toBe(200);
     const payload = findInsertPayload(tracker, 'user_roles') as Record<string, unknown>;
     expect(payload.role_type).toBe('consultor');
-    expect(payload.school_id).toBeNull();
+    expect(payload.school_id).toBe(ED_SCHOOL_ID);
   });
 
-  it('admin: assigning "admin" with body.schoolId=42 → user_roles.school_id is null', async () => {
+  // F2 follow-up: admin assigning a truly global role (admin) with a stray
+  // schoolId — the handler preserves the value the caller passed. The admin
+  // role does not have the global-vs-scoped semantic that consultor has
+  // (admin is always global regardless of school_id), so preserving is safe
+  // and avoids hidden normalization on the admin path.
+  it('admin: assigning "admin" with body.schoolId=42 → user_roles.school_id preserved as 42', async () => {
     setupAdmin();
     const tracker = makeTracker();
     mockCreateServiceRoleClient.mockReturnValueOnce(
@@ -294,7 +306,7 @@ describe('admin/assign-role — admin path', () => {
     expect(res._getStatusCode()).toBe(200);
     const payload = findInsertPayload(tracker, 'user_roles') as Record<string, unknown>;
     expect(payload.role_type).toBe('admin');
-    expect(payload.school_id).toBeNull();
+    expect(payload.school_id).toBe(ED_SCHOOL_ID);
   });
 
   it('admin can assign "docente" — inserts role and updates profile school_id', async () => {
@@ -1249,6 +1261,113 @@ describe('admin/assign-role — ED explicit FK scoping', () => {
     expect(rolePayload.role_type).toBe('docente');
     expect(rolePayload.generation_id).toBeNull();
     expect(rolePayload.community_id).toBeNull();
+  });
+});
+
+// F5: assign-role writes an audit_logs row on success — sensitive policy
+// event, mirrors delete-user/reset-password/update-user. Captures
+// requester_role so forensic investigations can distinguish ED vs admin
+// initiated role grants.
+describe('admin/assign-role — audit logging', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('admin: successful role assignment writes audit_logs with requester_role=admin', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(schoolScopedTables('Colegio Alfa'), tracker),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { targetUserId: TARGET_USER_ID, roleType: 'docente', schoolId: ED_SCHOOL_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const auditInsert = findInsertPayload(tracker, 'audit_logs') as Record<string, any> | undefined;
+    expect(auditInsert).toBeDefined();
+    expect(auditInsert!.action).toBe('role_assigned');
+    expect(auditInsert!.table_name).toBe('user_roles');
+    expect(auditInsert!.record_id).toBe(TARGET_USER_ID);
+    expect(auditInsert!.user_id).toBe(ADMIN_ID);
+    expect(auditInsert!.details.role_type).toBe('docente');
+    expect(auditInsert!.details.school_id).toBe(ED_SCHOOL_ID);
+    expect(auditInsert!.details.requester_role).toBe('admin');
+    expect(auditInsert!.details.requester_user_id).toBe(ADMIN_ID);
+  });
+
+  it('ED: successful role assignment writes audit_logs with requester_role=equipo_directivo', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          profiles: [
+            { data: { school_id: ED_SCHOOL_ID }, error: null },
+            { data: null, error: null },
+          ],
+          user_roles: [
+            { data: [], error: null },
+            { data: { id: ROLE_ROW_ID }, error: null },
+          ],
+          schools: [{ data: { name: 'Esc' }, error: null }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { targetUserId: TARGET_USER_ID, roleType: 'docente', schoolId: ED_SCHOOL_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const auditInsert = findInsertPayload(tracker, 'audit_logs') as Record<string, any> | undefined;
+    expect(auditInsert).toBeDefined();
+    expect(auditInsert!.action).toBe('role_assigned');
+    expect(auditInsert!.user_id).toBe(ED_ID);
+    expect(auditInsert!.details.requester_role).toBe('equipo_directivo');
+    expect(auditInsert!.details.requester_user_id).toBe(ED_ID);
+    expect(auditInsert!.details.role_type).toBe('docente');
+  });
+
+  it('audit_logs insert failure is logged but request still returns 200', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          ...schoolScopedTables('Colegio Alfa'),
+          audit_logs: [{ data: null, error: { message: 'audit insert failed' } }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { targetUserId: TARGET_USER_ID, roleType: 'docente', schoolId: ED_SCHOOL_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(countInserts(tracker, 'audit_logs')).toBe(1);
+    expect(errSpy).toHaveBeenCalledWith(
+      '[assign-role] audit_logs insert failed',
+      expect.objectContaining({
+        target_user_id: TARGET_USER_ID,
+        role_type: 'docente',
+        requester_role: 'admin',
+      }),
+    );
+    errSpy.mockRestore();
   });
 });
 

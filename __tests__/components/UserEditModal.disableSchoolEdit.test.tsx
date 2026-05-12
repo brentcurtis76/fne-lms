@@ -95,6 +95,38 @@ describe('UserEditModal — disableSchoolEdit prop', () => {
     expect(body).toHaveProperty('school', 'Colegio Editado');
   });
 
+  it('default renders the QA tester toggle', () => {
+    render(<UserEditModal {...baseProps} user={baseUser} />);
+    expect(
+      document.body.querySelector('label[for="qa_tester"]'),
+    ).toBeTruthy();
+  });
+
+  it('hideQaTesterToggle=true removes the QA toggle from the DOM and from the submit body', async () => {
+    render(
+      <UserEditModal {...baseProps} user={baseUser} hideQaTesterToggle />,
+    );
+
+    // QA toggle is not rendered.
+    expect(
+      document.body.querySelector('label[for="qa_tester"]'),
+    ).toBeNull();
+
+    const submit = findSubmitButton()!;
+    await act(async () => {
+      fireEvent.click(submit);
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    // update-user payload should not include can_run_qa_tests.
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse((init as any).body);
+    expect(body).not.toHaveProperty('can_run_qa_tests');
+  });
+
   it('disableSchoolEdit=true disables the input with tooltip and omits school from submit body', async () => {
     render(
       <UserEditModal {...baseProps} user={baseUser} disableSchoolEdit />,

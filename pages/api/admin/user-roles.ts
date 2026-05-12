@@ -1,9 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
-import { createClient } from '@supabase/supabase-js';
+import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient } from '../../../lib/api-auth';
+import { SCHOOL_SCOPED_ROLES_SET } from '../../../utils/roleUtils';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const ROLE_PRIORITY = ['admin','consultor','equipo_directivo','supervisor_de_red','community_manager','lider_generacion','lider_comunidad','docente','encargado_licitacion'];
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -17,24 +15,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'userId is required' });
     }
 
-    const supabaseClient = createServerSupabaseClient({ req, res });
-    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
-    if (sessionError || !session) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    const {
+      isAuthorized,
+      role: requesterRole,
+      schoolId: edSchoolId,
+      user: requestingUser,
+      error: authError,
+    } = await checkIsAdminOrEquipoDirectivo(req, res);
+
+    if (authError || !requestingUser) {
+      return res.status(401).json({ error: 'No autorizado' });
     }
 
-    const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
+    if (!isAuthorized) {
+      return res.status(403).json({ error: 'Solo administradores o equipo directivo pueden ver roles' });
+    }
 
-    const { data: adminCheck } = await supabaseService
-      .from('user_roles')
-      .select('id')
-      .eq('user_id', session.user.id)
-      .eq('role_type', 'admin')
-      .eq('is_active', true)
-      .limit(1);
+    if (requesterRole === 'equipo_directivo' && typeof edSchoolId !== 'number') {
+      return res.status(403).json({ error: 'School context missing for equipo_directivo' });
+    }
 
-    if (!adminCheck || adminCheck.length === 0) {
-      return res.status(403).json({ error: 'Solo administradores pueden ver roles' });
+    const supabaseService = createServiceRoleClient();
+
+    if (requesterRole === 'equipo_directivo') {
+      // Target must be a user in ED's school. Mirrors delete-user.ts pattern.
+      const { data: targetProfile, error: profileLookupError } = await supabaseService
+        .from('profiles')
+        .select('school_id')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (profileLookupError) {
+        return res.status(500).json({ error: 'Error verificando usuario' });
+      }
+      if (!targetProfile) {
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+      }
+      if (targetProfile.school_id !== edSchoolId) {
+        return res.status(403).json({ error: 'No autorizado para ver roles de este usuario' });
+      }
     }
 
     const { data: rolesData, error } = await supabaseService
@@ -55,7 +74,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al obtener roles' });
     }
 
-    const sortedRoles = (rolesData || []).sort((a, b) => {
+    // Defense-in-depth: ED users only see school-scoped roles within their
+    // school. The read-path filter at users.ts already excludes targets with
+    // global/cross-school roles, but this protects direct URL access too.
+    const filteredRoles =
+      requesterRole === 'equipo_directivo'
+        ? (rolesData || []).filter((r: { role_type: string; school_id: number | null }) => {
+            if (!SCHOOL_SCOPED_ROLES_SET.has(r.role_type)) return false;
+            return r.school_id === null || r.school_id === edSchoolId;
+          })
+        : rolesData || [];
+
+    const sortedRoles = filteredRoles.sort((a: any, b: any) => {
       const aIndex = ROLE_PRIORITY.indexOf(a.role_type);
       const bIndex = ROLE_PRIORITY.indexOf(b.role_type);
       return (aIndex === -1 ? 99 : aIndex) - (bIndex === -1 ? 99 : bIndex);

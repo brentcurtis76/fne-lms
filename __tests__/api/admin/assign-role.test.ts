@@ -1469,6 +1469,109 @@ describe('admin/assign-role — audit logging', () => {
   });
 });
 
+// F3 (phase 16.4): structured visibility warning when an admin scopes a
+// non-school-scoped role to a school. Persistence semantics are unchanged
+// (admin still preserves caller schoolId verbatim per F2); the warn only
+// surfaces the unusual shape so operators can investigate.
+describe('admin/assign-role — admin scope-mismatch warn (F3)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('admin assigning consultor with schoolId=42 emits scope-mismatch warn', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        { user_roles: [{ data: { id: ROLE_ROW_ID }, error: null }] },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { targetUserId: TARGET_USER_ID, roleType: 'consultor', schoolId: ED_SCHOOL_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[assign-role] admin scoped a non-school-scoped role',
+      expect.objectContaining({
+        target_user_id: TARGET_USER_ID,
+        role_type: 'consultor',
+        school_id: ED_SCHOOL_ID,
+        requester_user_id: ADMIN_ID,
+        timestamp: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+      }),
+    );
+
+    // Persistence semantics unchanged (F2): school_id preserved verbatim.
+    const payload = findInsertPayload(tracker, 'user_roles') as Record<string, unknown>;
+    expect(payload.school_id).toBe(ED_SCHOOL_ID);
+
+    // Audit log still written.
+    expect(countInserts(tracker, 'audit_logs')).toBe(1);
+
+    warnSpy.mockRestore();
+  });
+
+  // Uses community_manager (also non-school-scoped) because consultor
+  // requires a school per ROLE_ORGANIZATIONAL_REQUIREMENTS and would 400
+  // before reaching the warn. The F3 gate is purely about
+  // (non-school-scoped role + non-null schoolId), so any non-school-scoped
+  // role with schoolId=null exercises the same branch.
+  it('admin assigning non-school-scoped role with schoolId=null does NOT emit scope-mismatch warn', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        { user_roles: [{ data: { id: ROLE_ROW_ID }, error: null }] },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { targetUserId: TARGET_USER_ID, roleType: 'community_manager' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      '[assign-role] admin scoped a non-school-scoped role',
+      expect.anything(),
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('admin assigning school-scoped docente with schoolId=42 does NOT emit scope-mismatch warn', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(schoolScopedTables('Colegio Alfa'), tracker),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { targetUserId: TARGET_USER_ID, roleType: 'docente', schoolId: ED_SCHOOL_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      '[assign-role] admin scoped a non-school-scoped role',
+      expect.anything(),
+    );
+
+    warnSpy.mockRestore();
+  });
+});
+
 // F2 regression: lider_comunidad auto-create must still consume request
 // generationId for generation-based schools while keeping user_roles.generation_id
 // null (that column belongs to lider_generacion). The community row links to

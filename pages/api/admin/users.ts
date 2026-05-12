@@ -23,6 +23,10 @@ const USER_ID_BATCH = 100;
 // with a server-side view/RPC (tracked as a PR #19 follow-up), abort with a
 // 500 + structured log when N exceeds this ceiling so the symptom is visible
 // to ops instead of degrading silently.
+// TODO(PR #19 follow-up #9): replace this prefetch + chunked downstream
+// queries with a server-side view/RPC that returns the visible-user set and
+// ghost-exclusion set in a single round-trip, eliminating both the ceiling
+// and the O(N) request fan-out.
 const MAX_ED_PREFETCH_USERS = 5000;
 
 // Threshold for the ED ghost-exclusion strategy. At or below this size, the
@@ -93,10 +97,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // must not appear in the ED's list — every write attempt against them
     // would be rejected by the target-role gate (yielding "ghost rows").
     // Pre-fetch in-school users (with approval_status, F2: widened so we can
-    // compute exact summary counts in memory) so we can derive the excluded
-    // set and apply client-side filtering after the main page is fetched.
+    // compute exact summary counts in memory; F4 option (a): also widened
+    // with email/first_name/last_name so the client-side fallback path can
+    // compute an exact post-search/status `total` in memory) so we can
+    // derive the excluded set and apply client-side filtering after the
+    // main page is fetched.
+    type EdInSchoolUser = {
+      id: string;
+      email: string | null;
+      first_name: string | null;
+      last_name: string | null;
+      approval_status: string | null;
+    };
     let edExcludedUserIds: string[] = [];
-    let edInSchoolUsers: Array<{ id: string; approval_status: string | null }> = [];
+    let edInSchoolUsers: EdInSchoolUser[] = [];
     if (isEdScope) {
       // PostgREST caps a single SELECT at 1000 rows by default. Schools larger
       // than that would otherwise have their tail-end users silently skip the
@@ -104,7 +118,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // since the write-path target-role gate would still reject every edit.
       // Page through .range() until a partial batch lands.
       const PROFILE_PREFETCH_BATCH = 1000;
-      const collected: Array<{ id: string; approval_status: string | null }> = [];
+      const collected: EdInSchoolUser[] = [];
       let prefetchFrom = 0;
       while (true) {
         // Stable ordering before .range(...) is required: PostgREST does not
@@ -114,7 +128,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // for deterministic batching.
         const { data: pageRows, error: inSchoolErr } = await supabaseService
           .from('profiles')
-          .select('id, approval_status')
+          .select('id, email, first_name, last_name, approval_status')
           .eq('school_id', edSchoolId)
           .order('id', { ascending: true })
           .range(prefetchFrom, prefetchFrom + PROFILE_PREFETCH_BATCH - 1);
@@ -124,11 +138,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return res.status(500).json({ error: 'Error al filtrar usuarios' });
         }
 
-        const rows = (pageRows ?? []) as Array<{ id?: string | null; approval_status?: string | null }>;
+        const rows = (pageRows ?? []) as Array<{
+          id?: string | null;
+          email?: string | null;
+          first_name?: string | null;
+          last_name?: string | null;
+          approval_status?: string | null;
+        }>;
         for (const row of rows) {
-          if (row.id) collected.push({ id: row.id, approval_status: row.approval_status ?? null });
+          if (row.id) {
+            collected.push({
+              id: row.id,
+              email: row.email ?? null,
+              first_name: row.first_name ?? null,
+              last_name: row.last_name ?? null,
+              approval_status: row.approval_status ?? null,
+            });
+          }
         }
         if (rows.length < PROFILE_PREFETCH_BATCH) break;
+        // Early-break at the ceiling: skip the otherwise-empty round-trip
+        // when school size lands exactly at MAX_ED_PREFETCH_USERS. The
+        // post-loop guard below still fires when an oversized first batch
+        // pushes `collected` strictly past the ceiling.
+        if (collected.length >= MAX_ED_PREFETCH_USERS) break;
         prefetchFrom += PROFILE_PREFETCH_BATCH;
       }
 
@@ -298,6 +331,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let summary: { total: number; pending: number; approved: number };
     let schools: Array<{ id: string; name: string }>;
+    // F1: in the ED client-side fallback path, the response `total` cannot
+    // rely on PostgREST's `count` (raw, over-counts ghosts) or `summary.total`
+    // (in-memory ghost-exclusion only, ignores active search/status filters).
+    // Compute the post-exclusion + post-filter total against the prefetched
+    // (widened) in-school rows, so pagination matches the visible page even
+    // when ED has >MAX_EXCLUDED_FOR_SQL ghosts AND filters are active.
+    let fallbackFilteredTotal = 0;
 
     if (isEdScope) {
       if (useSqlExclusion) {
@@ -358,6 +398,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           approved: visibleInSchool.filter((u) => u.approval_status === 'approved').length,
         };
 
+        // F1 fallback total: when useClientFallback is true, the response
+        // `total` must reflect any active search/status filter on top of the
+        // post-exclusion population. Mirror the main paginated query's
+        // server-side filters (ilike on email/first_name/last_name; equality
+        // on approval_status) against the prefetched in-school rows.
+        if (useClientFallback) {
+          const searchLower = search.toLowerCase();
+          fallbackFilteredTotal = visibleInSchool.reduce((acc, u) => {
+            if (status !== 'all' && u.approval_status !== status) return acc;
+            if (search) {
+              const matches =
+                (u.email?.toLowerCase().includes(searchLower) ?? false) ||
+                (u.first_name?.toLowerCase().includes(searchLower) ?? false) ||
+                (u.last_name?.toLowerCase().includes(searchLower) ?? false);
+              if (!matches) return acc;
+            }
+            return acc + 1;
+          }, 0);
+        }
+
         const schoolsRes = await supabaseService
           .from('schools')
           .select('id, name')
@@ -417,10 +477,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (users.length === 0) {
       // Mirrors the final response total selection below: only the ED
-      // client-side fallback uses `summary.total`; every other path (admin,
-      // ED SQL exclusion, ED 0-excluded) uses the filtered DB `count` so
+      // client-side fallback uses `fallbackFilteredTotal` (in-memory
+      // post-exclusion + post-search/status); every other path (admin, ED
+      // SQL exclusion, ED 0-excluded) uses the filtered DB `count` so
       // `total` reflects active search/status filters.
-      const emptyTotal = useClientFallback ? summary.total : (count || 0);
+      const emptyTotal = useClientFallback ? fallbackFilteredTotal : (count || 0);
       return res.status(200).json({ page, pageSize, total: emptyTotal, users: [], summary, schools });
     }
 
@@ -683,10 +744,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // it's the correct source for `total` (using `summary.total` here would
       // ignore those filters and inflate pagination — Phase 15.23 fix).
       // ED fallback (>MAX_EXCLUDED_FOR_SQL): the raw `count` over-counts
-      // ghosts, so report `summary.total` (in-memory post-exclusion) instead;
-      // pagination is intentionally inexact in this path.
+      // ghosts and `summary.total` ignores active search/status filters;
+      // `fallbackFilteredTotal` applies both ghost-exclusion AND the active
+      // search/status filters in memory against the widened prefetch (F1).
+      // Pagination may still be inexact in this path because the .range()
+      // offset is computed before in-memory exclusion of ghost rows on the
+      // page, but `total` itself is exact.
       // Admin path keeps raw `count` (no exclusion is applied).
-      total: useClientFallback ? summary.total : (count || 0),
+      total: useClientFallback ? fallbackFilteredTotal : (count || 0),
       users: payload,
       summary,
       schools,

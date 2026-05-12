@@ -506,6 +506,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    // Phase 16.4 F3: structured visibility warning when an admin scopes a
+    // non-school-scoped role to a school. Persistence semantics from Phase 16
+    // F2 are unchanged — admin still preserves the caller's schoolId verbatim
+    // (nulling it would silently grant global consultor access; see the
+    // session-policy note above). This warn surfaces the unusual shape in
+    // logs so operators can investigate whether the scoping was intentional.
+    if (
+      requesterRole === 'admin' &&
+      !SCHOOL_SCOPED_ROLES_SET.has(roleType) &&
+      schoolId !== null
+    ) {
+      console.warn('[assign-role] admin scoped a non-school-scoped role', {
+        target_user_id: targetUserId,
+        role_type: roleType,
+        school_id: schoolId,
+        requester_user_id: requestingUser.id,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     // Mirror the audit-logging pattern used by delete-user.ts /
     // reset-password.ts / update-user.ts. Role grants are sensitive policy
     // events — they need an audit trail for forensic investigation,

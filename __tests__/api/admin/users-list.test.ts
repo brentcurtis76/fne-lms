@@ -1819,6 +1819,317 @@ describe('admin/users — GET (school scoping)', () => {
     }
   });
 
+  it('ED (F1 fallback) with status=pending: response `total` reflects post-exclusion + post-status filter, not the raw in-school total', async () => {
+    // F1: when the fallback path is in use (>MAX_EXCLUDED_FOR_SQL ghosts),
+    // the previous implementation returned `summary.total` as the response
+    // `total`. That value only respected ghost-exclusion — active search /
+    // status filters on the main query were ignored, inflating pagination.
+    // The widened prefetch now carries approval_status (already) plus email /
+    // first_name / last_name (F4 option (a)) so the handler can compute an
+    // exact post-filter total in memory against the prefetched rows.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    // 101 ghost users (> MAX_EXCLUDED_FOR_SQL=100). In-school population:
+    //   - 4 pending visible
+    //   - 6 approved visible
+    //   - 50 pending ghosts
+    //   - 51 approved ghosts
+    // Visible-after-exclusion: 10 (4 pending + 6 approved).
+    // With ?status=pending, the expected `total` is 4 — NOT 10 (summary) and
+    // NOT 111 (raw count over the prefetched set including ghosts).
+    const VISIBLE_PENDING_IDS = Array.from({ length: 4 }, (_, i) =>
+      `pppppppp-pppp-4ppp-8ppp-${String(i).padStart(12, '0')}`,
+    );
+    const VISIBLE_APPROVED_IDS = Array.from({ length: 6 }, (_, i) =>
+      `vvvvvvvv-vvvv-4vvv-8vvv-${String(i).padStart(12, '0')}`,
+    );
+    const GHOST_PENDING_IDS = Array.from({ length: 50 }, (_, i) =>
+      `ggggggg1-gggg-4ggg-8ggg-${String(i).padStart(12, '0')}`,
+    );
+    const GHOST_APPROVED_IDS = Array.from({ length: 51 }, (_, i) =>
+      `ggggggg2-gggg-4ggg-8ggg-${String(i).padStart(12, '0')}`,
+    );
+    const ALL_GHOST_IDS = [...GHOST_PENDING_IDS, ...GHOST_APPROVED_IDS];
+
+    const allInSchool = [
+      ...VISIBLE_PENDING_IDS.map((id) => ({
+        id,
+        email: `${id}@example.com`,
+        first_name: 'Visible',
+        last_name: 'Pending',
+        approval_status: 'pending',
+      })),
+      ...VISIBLE_APPROVED_IDS.map((id) => ({
+        id,
+        email: `${id}@example.com`,
+        first_name: 'Visible',
+        last_name: 'Approved',
+        approval_status: 'approved',
+      })),
+      ...GHOST_PENDING_IDS.map((id) => ({
+        id,
+        email: `${id}@example.com`,
+        first_name: 'Ghost',
+        last_name: 'Pending',
+        approval_status: 'pending',
+      })),
+      ...GHOST_APPROVED_IDS.map((id) => ({
+        id,
+        email: `${id}@example.com`,
+        first_name: 'Ghost',
+        last_name: 'Approved',
+        approval_status: 'approved',
+      })),
+    ];
+
+    // Main paginated query is server-side filtered by ?status=pending, so the
+    // simulated PostgREST response contains visible-pending + ghost-pending
+    // rows. The handler drops ghosts from the page in memory and computes
+    // total from the prefetched widened set.
+    const pendingPageRows = [...VISIBLE_PENDING_IDS, ...GHOST_PENDING_IDS].map(
+      (id) => ({
+        id,
+        email: `${id}@example.com`,
+        first_name: id.startsWith('p') ? 'Visible' : 'Ghost',
+        last_name: 'Pending',
+        school_id: ED_SCHOOL_ID,
+        approval_status: 'pending',
+        created_at: '2026-01-01T00:00:00Z',
+        external_school_affiliation: null,
+        can_run_qa_tests: false,
+        school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+      }),
+    );
+
+    // After F1 URL-length chunking, 111 in-school ids → 2 global-role batches
+    // (100 + 11) + 2 cross-school batches + 1 main roles = 5 user_roles calls.
+    const globalBatch1Ghosts = ALL_GHOST_IDS.slice(0, 100).map((user_id) => ({ user_id }));
+    const globalBatch2Ghosts = ALL_GHOST_IDS.slice(100).map((user_id) => ({ user_id }));
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            // [0] in-school prefetch (widened) — 111 rows.
+            { data: allInSchool },
+            // [1] main paginated query — server-side ?status=pending applied,
+            // ghost rows still mixed in; the handler drops them post-fetch.
+            { data: pendingPageRows, count: pendingPageRows.length },
+          ],
+          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+          user_roles: [
+            { data: globalBatch1Ghosts },
+            { data: globalBatch2Ghosts },
+            { data: [] },
+            { data: [] },
+            { data: [] },
+          ],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { status: 'pending' },
+    });
+    try {
+      await handler(req as never, res as never);
+      expect(res._getStatusCode()).toBe(200);
+      expect(warnSpy).toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
+
+    // Fallback path: no scoped count queries — prefetch + main = 2.
+    const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profilesCalls).toHaveLength(2);
+
+    // Main query carries the status filter and NO .not('id', 'in', ...) clause.
+    const profilesMain = profilesCalls[1];
+    expect(
+      profilesMain.eqs.find((e) => e.col === 'approval_status' && e.val === 'pending'),
+    ).toBeDefined();
+    expect(profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in')).toBeUndefined();
+
+    const body = JSON.parse(res._getData());
+
+    // Visible-page rows: ghosts dropped, only the 4 visible-pending users.
+    const returnedIds = (body.users as Array<{ id: string }>).map((u) => u.id);
+    expect(returnedIds.sort()).toEqual([...VISIBLE_PENDING_IDS].sort());
+    for (const ghost of ALL_GHOST_IDS) {
+      expect(returnedIds).not.toContain(ghost);
+    }
+
+    // F1 ACCEPTANCE: response `total` is the post-exclusion, post-status
+    // count (4) — not the unfiltered visible summary (10), not the raw
+    // PostgREST count over the leaky page (54).
+    expect(body.total).toBe(4);
+    expect(body.summary.total).toBe(10);
+    expect(body.total).not.toBe(body.summary.total);
+    expect(body.total).not.toBe(54);
+  });
+
+  it('ED (F1 fallback) with search filter: response `total` reflects post-exclusion + post-search filter (matched against widened prefetch)', async () => {
+    // F1 + F4(a): the prefetch is widened to include email/first_name/
+    // last_name so the fallback path can replicate the main query's
+    // server-side ilike search in memory. The response `total` must equal
+    // the count of visible (ghost-excluded) rows whose
+    // email/first_name/last_name match the search term — not the raw
+    // visible-summary count.
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+
+    // 101 ghost users (> MAX_EXCLUDED_FOR_SQL=100). In-school population:
+    //   - 3 visible users whose first_name = 'Alice' (match)
+    //   - 7 visible users whose first_name = 'Bob' (no match)
+    //   - 91 ghost users with mixed names — some "Alice"
+    // Visible-after-exclusion: 10. Visible+matching: 3.
+    const VISIBLE_ALICE_IDS = Array.from({ length: 3 }, (_, i) =>
+      `aaaaaaaa-aaaa-4aaa-8aaa-${String(i).padStart(12, '0')}`,
+    );
+    const VISIBLE_BOB_IDS = Array.from({ length: 7 }, (_, i) =>
+      `bbbbbbbb-bbbb-4bbb-8bbb-${String(i).padStart(12, '0')}`,
+    );
+    const GHOST_ALICE_IDS = Array.from({ length: 40 }, (_, i) =>
+      `ggggggg3-gggg-4ggg-8ggg-${String(i).padStart(12, '0')}`,
+    );
+    const GHOST_OTHER_IDS = Array.from({ length: 61 }, (_, i) =>
+      `ggggggg4-gggg-4ggg-8ggg-${String(i).padStart(12, '0')}`,
+    );
+    const ALL_GHOST_IDS = [...GHOST_ALICE_IDS, ...GHOST_OTHER_IDS];
+
+    const allInSchool = [
+      ...VISIBLE_ALICE_IDS.map((id) => ({
+        id,
+        email: `alice-${id.slice(-4)}@example.com`,
+        first_name: 'Alice',
+        last_name: 'Visible',
+        approval_status: 'approved',
+      })),
+      ...VISIBLE_BOB_IDS.map((id) => ({
+        id,
+        email: `bob-${id.slice(-4)}@example.com`,
+        first_name: 'Bob',
+        last_name: 'Visible',
+        approval_status: 'approved',
+      })),
+      ...GHOST_ALICE_IDS.map((id) => ({
+        id,
+        email: `alice-${id.slice(-4)}@example.com`,
+        first_name: 'Alice',
+        last_name: 'Ghost',
+        approval_status: 'approved',
+      })),
+      ...GHOST_OTHER_IDS.map((id) => ({
+        id,
+        email: `other-${id.slice(-4)}@example.com`,
+        first_name: 'Carol',
+        last_name: 'Ghost',
+        approval_status: 'pending',
+      })),
+    ];
+
+    // Main paginated query simulates PostgREST applying the .or(ilike) search;
+    // returned rows include visible-alice + ghost-alice (both match the
+    // search). The handler drops ghosts in memory.
+    const aliceMatchedPageRows = [...VISIBLE_ALICE_IDS, ...GHOST_ALICE_IDS].map(
+      (id) => {
+        const isVisible = VISIBLE_ALICE_IDS.includes(id);
+        return {
+          id,
+          email: `alice-${id.slice(-4)}@example.com`,
+          first_name: 'Alice',
+          last_name: isVisible ? 'Visible' : 'Ghost',
+          school_id: ED_SCHOOL_ID,
+          approval_status: 'approved',
+          created_at: '2026-01-01T00:00:00Z',
+          external_school_affiliation: null,
+          can_run_qa_tests: false,
+          school: { id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` },
+        };
+      },
+    );
+
+    // After F1 URL-length chunking, 111 in-school ids → 2 global-role batches
+    // (100 + 11) + 2 cross-school batches + 1 main roles = 5 user_roles calls.
+    const globalBatch1Ghosts = ALL_GHOST_IDS.slice(0, 100).map((user_id) => ({ user_id }));
+    const globalBatch2Ghosts = ALL_GHOST_IDS.slice(100).map((user_id) => ({ user_id }));
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            // [0] in-school prefetch (widened: email/first_name/last_name).
+            { data: allInSchool },
+            // [1] main paginated query — server-side .or(ilike) applied,
+            // ghosts still mixed in; handler drops them in memory.
+            {
+              data: aliceMatchedPageRows,
+              count: aliceMatchedPageRows.length,
+            },
+          ],
+          schools: [{ data: [{ id: ED_SCHOOL_ID, name: `School ${ED_SCHOOL_ID}` }] }],
+          user_roles: [
+            { data: globalBatch1Ghosts },
+            { data: globalBatch2Ghosts },
+            { data: [] },
+            { data: [] },
+            { data: [] },
+          ],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { search: 'alice' },
+    });
+    try {
+      await handler(req as never, res as never);
+      expect(res._getStatusCode()).toBe(200);
+      expect(warnSpy).toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
+
+    // Fallback path: prefetch + main = 2 profile calls; no scoped counts.
+    const profilesCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profilesCalls).toHaveLength(2);
+
+    // Main query carries the search .or(...) clause and NO id-exclusion clause.
+    const profilesMain = profilesCalls[1];
+    expect(profilesMain.ors.some((expr) => expr.includes('alice'))).toBe(true);
+    expect(profilesMain.nots.find((n) => n.col === 'id' && n.op === 'in')).toBeUndefined();
+
+    const body = JSON.parse(res._getData());
+
+    // Visible page: ghosts dropped, only the 3 visible-alice users remain.
+    const returnedIds = (body.users as Array<{ id: string }>).map((u) => u.id);
+    expect(returnedIds.sort()).toEqual([...VISIBLE_ALICE_IDS].sort());
+    for (const ghost of ALL_GHOST_IDS) {
+      expect(returnedIds).not.toContain(ghost);
+    }
+
+    // F1 ACCEPTANCE: response `total` reflects the search filter applied to
+    // the prefetched widened in-school rows minus ghosts (3) — not the
+    // unfiltered visible summary (10), not the leaky raw count (43).
+    expect(body.total).toBe(3);
+    expect(body.summary.total).toBe(10);
+    expect(body.total).not.toBe(body.summary.total);
+    expect(body.total).not.toBe(43);
+  });
+
   it('ED (F1 fallback): exclusion set above MAX_EXCLUDED_FOR_SQL=100 logs a warning and stays on the client-side path', async () => {
     // When the ghost list grows past the SQL threshold, encoded `.not(id, in,
     // ...)` filters risk exceeding URL-length limits. The handler must:

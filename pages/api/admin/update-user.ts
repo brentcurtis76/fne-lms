@@ -257,6 +257,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             auth_update_error: authUpdateError,
             timestamp: new Date().toISOString(),
           });
+
+          // Best-effort audit row so the skipped-rollback event is recoverable
+          // from `audit_logs` (the CRITICAL log line alone is easy to miss).
+          // Failure here must NOT change the 500 response shape — the user
+          // mutation is already torn and that is the signal the caller acts on.
+          try {
+            const { error: skippedAuditError } = await supabaseAdmin
+              .from('audit_logs')
+              .insert({
+                user_id: requestingUser.id,
+                action: 'profile_rollback_skipped',
+                table_name: 'profiles',
+                record_id: userId,
+                details: {
+                  userId,
+                  requester_user_id: requestingUser.id,
+                  requester_role: requesterRole,
+                  attempted_update_keys: Object.keys(updateData),
+                  timestamp: new Date().toISOString(),
+                },
+              });
+            if (skippedAuditError) {
+              console.error('audit_log_insert_failed', {
+                action: 'profile_rollback_skipped',
+                record_id: userId,
+                requester_user_id: requestingUser.id,
+                requester_role: requesterRole,
+                error: skippedAuditError,
+              });
+            }
+          } catch (err) {
+            console.error('audit_log_insert_failed', {
+              action: 'profile_rollback_skipped',
+              record_id: userId,
+              requester_user_id: requestingUser.id,
+              requester_role: requesterRole,
+              error: err,
+            });
+          }
+
           return res.status(500).json({ error: 'Error interno del servidor' });
         }
 

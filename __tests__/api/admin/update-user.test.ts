@@ -1518,4 +1518,140 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
       to: 'ed-new@example.com',
     });
   });
+
+  it('invariant guard: missing previousProfile on auth-update failure writes profile_rollback_skipped audit row before 500', async () => {
+    // F5: contract test for the defensive invariant. Both admin and ED branches
+    // populate `previousProfile` before reaching the auth-update block, so this
+    // path is unreachable in production — but the guard exists so a future
+    // refactor that breaks the snapshot path fails loudly. Simulate the broken
+    // state by mocking the auth helper to return `isAuthorized: true` with a
+    // role neither branch matches, so `previousProfile` stays null while
+    // `hasEmail` is true.
+    mockCheckIsAdminOrEquipoDirectivo.mockResolvedValueOnce({
+      isAuthorized: true,
+      role: 'unknown_for_invariant_test',
+      schoolId: null,
+      user: { id: ADMIN_ID } as any,
+      error: null,
+    });
+    const tracker = makeTracker();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const adminClient = buildAdminClient(
+      {
+        profiles: [
+          { data: null, error: null }, // forward profile update
+        ],
+        audit_logs: [{ data: null, error: null }],
+      },
+      tracker,
+    );
+    adminClient.auth.admin.updateUserById = vi.fn(
+      async (userId: string, payload: unknown) => {
+        tracker.authUpdates.push({ userId, payload });
+        return { data: null, error: { message: 'auth failed' } };
+      },
+    );
+    mockCreateServiceRoleClient.mockReturnValueOnce(adminClient);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: TARGET_USER_ID, email: 'new@example.com' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(res._getJSONData()).toEqual({ error: 'Error interno del servidor' });
+
+    // No rollback attempted (only forward update before auth failure).
+    const profileCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    expect(profileCalls).toHaveLength(1);
+    expect(profileCalls[0].updates).toHaveLength(1);
+
+    // Audit row recording the skipped rollback was written before the 500.
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    expect(auditCalls).toHaveLength(1);
+    const row = auditCalls[0].inserts[0] as any;
+    expect(row.action).toBe('profile_rollback_skipped');
+    expect(row.table_name).toBe('profiles');
+    expect(row.record_id).toBe(TARGET_USER_ID);
+    expect(row.user_id).toBe(ADMIN_ID);
+    expect(row.details).toMatchObject({
+      userId: TARGET_USER_ID,
+      requester_user_id: ADMIN_ID,
+      requester_role: 'unknown_for_invariant_test',
+      attempted_update_keys: ['email'],
+    });
+    expect(typeof row.details.timestamp).toBe('string');
+
+    // Existing CRITICAL log line is preserved.
+    const critical = consoleError.mock.calls.find(
+      ([label]) =>
+        typeof label === 'string' &&
+        label.includes('rollback_invariant_violated_missing_previous_profile'),
+    );
+    expect(critical).toBeDefined();
+
+    consoleError.mockRestore();
+  });
+
+  it('invariant guard: profile_rollback_skipped audit insert failure is logged but response stays 500 with same error body', async () => {
+    // F5: audit insert is best-effort. A returned `{ error }` from the audit
+    // insert must surface via console.error with the action label, but the
+    // 500/'Error interno del servidor' response shape must not change.
+    mockCheckIsAdminOrEquipoDirectivo.mockResolvedValueOnce({
+      isAuthorized: true,
+      role: 'unknown_for_invariant_test',
+      schoolId: null,
+      user: { id: ADMIN_ID } as any,
+      error: null,
+    });
+    const tracker = makeTracker();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const adminClient = buildAdminClient(
+      {
+        profiles: [{ data: null, error: null }],
+        audit_logs: [
+          { data: null, error: { message: 'audit insert failed' } },
+        ],
+      },
+      tracker,
+    );
+    adminClient.auth.admin.updateUserById = vi.fn(
+      async (userId: string, payload: unknown) => {
+        tracker.authUpdates.push({ userId, payload });
+        return { data: null, error: { message: 'auth failed' } };
+      },
+    );
+    mockCreateServiceRoleClient.mockReturnValueOnce(adminClient);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { userId: TARGET_USER_ID, email: 'new@example.com' },
+    });
+    await handler(req as never, res as never);
+
+    // Response unchanged — invariant 500 takes precedence over audit failure.
+    expect(res._getStatusCode()).toBe(500);
+    expect(res._getJSONData()).toEqual({ error: 'Error interno del servidor' });
+
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    expect(auditCalls).toHaveLength(1);
+
+    const matching = consoleError.mock.calls.find(
+      ([label, ctx]) =>
+        label === 'audit_log_insert_failed' &&
+        (ctx as any)?.action === 'profile_rollback_skipped',
+    );
+    expect(matching).toBeDefined();
+    const ctx = matching![1] as any;
+    expect(ctx).toMatchObject({
+      action: 'profile_rollback_skipped',
+      record_id: TARGET_USER_ID,
+      requester_user_id: ADMIN_ID,
+      requester_role: 'unknown_for_invariant_test',
+      error: { message: 'audit insert failed' },
+    });
+
+    consoleError.mockRestore();
+  });
 });

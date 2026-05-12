@@ -6,22 +6,26 @@ const {
   mockCheckIsAdminOrEquipoDirectivo,
   mockCreateServiceRoleClient,
   mockRateLimit,
-  mockRateLimitCheck,
+  rateLimitChecks,
   rateLimitState,
 } = vi.hoisted(() => {
   // Tracking object survives `vi.clearAllMocks()` so the module-load-time
   // `rateLimit(...)` call args can still be asserted by later tests.
   const state = { configCalls: [] as unknown[][] };
-  const check = vi.fn(async () => true);
+  // Per-identifier check fns so tests can assert which bucket charged.
+  const checks = new Map<string, ReturnType<typeof vi.fn>>();
   const factory = vi.fn((...args: unknown[]) => {
     state.configCalls.push(args);
+    const identifier = args[1] as string;
+    const check = vi.fn(async () => true);
+    checks.set(identifier, check);
     return check;
   });
   return {
     mockCheckIsAdminOrEquipoDirectivo: vi.fn(),
     mockCreateServiceRoleClient: vi.fn(),
     mockRateLimit: factory,
-    mockRateLimitCheck: check,
+    rateLimitChecks: checks,
     rateLimitState: state,
   };
 });
@@ -200,6 +204,8 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     // service-role clients.
     mockCheckIsAdminOrEquipoDirectivo.mockReset();
     mockCreateServiceRoleClient.mockReset();
+    // Reset per-identifier rate-limit check call history between tests.
+    rateLimitChecks.forEach((fn) => fn.mockClear());
   });
 
   it('admin: can update any user (no profile lookup performed)', async () => {
@@ -1247,9 +1253,13 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     await handler(req as never, res as never);
 
     // Both stages must execute for an authorized admin request: pre-auth gate
-    // first, then the admin-scoped post-auth bucket.
-    expect(mockRateLimitCheck).toHaveBeenCalledTimes(2);
+    // first, then the admin-scoped post-auth bucket. ED bucket stays untouched.
     expect(res._getStatusCode()).toBe(200);
+    expect(rateLimitChecks.get('admin-update-user')).toHaveBeenCalledTimes(1);
+    expect(rateLimitChecks.get('admin-update-user:admin')).toHaveBeenCalledTimes(1);
+    expect(
+      rateLimitChecks.get('admin-update-user:equipo_directivo'),
+    ).not.toHaveBeenCalled();
   });
 
   it('rate limiter: ED request runs pre-auth + ED post-auth bucket (admin bucket untouched)', async () => {
@@ -1278,8 +1288,14 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     await handler(req as never, res as never);
 
     expect(res._getStatusCode()).toBe(200);
-    // Pre-auth + post-auth ED limiter — exactly two checks.
-    expect(mockRateLimitCheck).toHaveBeenCalledTimes(2);
+    // Pre-auth global + ED post-auth bucket charged; admin bucket untouched.
+    expect(rateLimitChecks.get('admin-update-user')).toHaveBeenCalledTimes(1);
+    expect(
+      rateLimitChecks.get('admin-update-user:equipo_directivo'),
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      rateLimitChecks.get('admin-update-user:admin'),
+    ).not.toHaveBeenCalled();
   });
 
   it('admin: email change writes both update_user and email_change audit rows with from/to', async () => {

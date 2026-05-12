@@ -12,7 +12,12 @@ import RoleAssignmentModal from '../../components/RoleAssignmentModal';
 import PasswordResetModal from '../../components/PasswordResetModal';
 import UserEditModal from '../../components/admin/UserEditModal';
 import { createServiceRoleClient } from '../../lib/api-auth';
-import { ED_ASSIGNABLE_ROLES, ED_CREATE_USER_ROLES } from '../../utils/roleUtils';
+import {
+  ED_ASSIGNABLE_ROLES,
+  ED_CREATE_USER_ROLES,
+  getEquipoDirectivoSchoolId,
+  isGlobalAdmin,
+} from '../../utils/roleUtils';
 import { ROLE_NAMES, type UserRoleType } from '../../types/roles';
 
 type PageProps = { schoolId: number };
@@ -47,50 +52,13 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (ctx) => 
   }
 
   const service = createServiceRoleClient();
-  const { data: roleRows } = await service
-    .from('user_roles')
-    .select('id, role_type, school_id')
-    .eq('user_id', session.user.id)
-    .eq('is_active', true)
-    .order('id', { ascending: true });
 
-  const rows = (roleRows ?? []) as Array<{
-    id: number;
-    role_type: string;
-    school_id: number | string | null;
-  }>;
-
-  const isAdmin = rows.some((r) => r.role_type === 'admin');
-  if (isAdmin) {
+  if (await isGlobalAdmin(service, session.user.id)) {
     return { redirect: { destination: '/admin/user-management', permanent: false } };
   }
 
-  // Invariant: a user holds at most one active equipo_directivo row.
-  // Verified via prod data audit on 2026-05-11 (no user had >1 active ED row).
-  // Fail-closed: if the invariant is violated (manual SQL, role-assignment
-  // race), refuse to render rather than silently scope the page to whichever
-  // row happens to come first. A DB-level partial unique index is the proper
-  // long-term guard but is owned by the DB agent — tracked in PR #19
-  // follow-ups as "Partial unique index on user_roles for ED uniqueness".
-  const edRows = rows.filter((r) => r.role_type === 'equipo_directivo');
-  if (edRows.length > 1) {
-    console.error(
-      '[school-users] multi-ED invariant violated for user',
-      session.user.id,
-      'rows:',
-      edRows.map((r) => ({ id: r.id, school_id: r.school_id })),
-    );
-    return { redirect: { destination: '/dashboard', permanent: false } };
-  }
-  const edRow = edRows[0];
-
-  if (!edRow || edRow.school_id === null || edRow.school_id === undefined) {
-    return { redirect: { destination: '/dashboard', permanent: false } };
-  }
-
-  const schoolId =
-    typeof edRow.school_id === 'string' ? Number(edRow.school_id) : edRow.school_id;
-  if (!Number.isFinite(schoolId)) {
+  const schoolId = await getEquipoDirectivoSchoolId(service, session.user.id);
+  if (schoolId === null) {
     return { redirect: { destination: '/dashboard', permanent: false } };
   }
 

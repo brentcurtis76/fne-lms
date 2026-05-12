@@ -77,6 +77,13 @@ interface UnifiedUserManagementProps {
   onEditUser: (user: UserType) => void;
   isLoading?: boolean;
   expenseAccessUpdating?: Record<string, boolean>;
+  hideBulkImport?: boolean;
+  hideExpenseAccess?: boolean;
+  lockedSchoolId?: number | null;
+  hideCommunityFilter?: boolean;
+  hideApprove?: boolean;
+  hideReject?: boolean;
+  hideAssign?: boolean;
 }
 
 export const resolvePrimaryRole = (user: UserType): string | null => {
@@ -115,8 +122,18 @@ export default function UnifiedUserManagement({
   onBulkImport,
   onEditUser,
   isLoading,
-  expenseAccessUpdating = {}
+  expenseAccessUpdating = {},
+  hideBulkImport = false,
+  hideExpenseAccess = false,
+  lockedSchoolId = null,
+  hideCommunityFilter = false,
+  hideApprove = false,
+  hideReject = false,
+  hideAssign = false,
 }: UnifiedUserManagementProps) {
+  const effectiveSelectedSchoolId =
+    lockedSchoolId != null ? String(lockedSchoolId) : selectedSchoolId;
+  const effectiveSelectedCommunityId = hideCommunityFilter ? '' : selectedCommunityId;
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; user: UserType | null }>({
     isOpen: false,
@@ -195,10 +212,10 @@ export default function UnifiedUserManagement({
       if (user.user_roles && user.user_roles.length > 0) {
         user.user_roles.forEach((role: any) => {
           if (role.community?.id && role.community?.name) {
-            // If a school is selected, only include communities from that school
-            if (selectedSchoolId) {
+            // If a school is selected (or locked), only include communities from that school
+            if (effectiveSelectedSchoolId) {
               const communitySchoolId = role.community?.school?.id?.toString() || role.school?.id?.toString();
-              if (communitySchoolId === selectedSchoolId) {
+              if (communitySchoolId === effectiveSelectedSchoolId) {
                 communitiesMap.set(role.community.id, role.community.name);
               }
             } else {
@@ -235,14 +252,16 @@ export default function UnifiedUserManagement({
             </p>
           </div>
           <div className="mt-4 sm:mt-0 flex gap-3">
-            <button 
-              onClick={onBulkImport}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a] transition-colors"
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Importar Usuarios
-            </button>
-            <button 
+            {!hideBulkImport && (
+              <button
+                onClick={onBulkImport}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a] transition-colors"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Importar Usuarios
+              </button>
+            )}
+            <button
               onClick={onAddUser}
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-[#0a0a0a] hover:bg-[#002844] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a] transition-colors"
             >
@@ -370,9 +389,15 @@ export default function UnifiedUserManagement({
               </label>
               <select
                 id="school-filter"
-                value={selectedSchoolId || ''}
+                value={effectiveSelectedSchoolId || ''}
                 onChange={(e) => onSchoolChange(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] focus:border-[#0a0a0a]"
+                disabled={lockedSchoolId != null}
+                aria-disabled={lockedSchoolId != null}
+                className={`block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] focus:border-[#0a0a0a] ${
+                  lockedSchoolId != null
+                    ? 'bg-gray-100 text-gray-600 cursor-not-allowed'
+                    : 'bg-white'
+                }`}
               >
                 <option value="">Todos los colegios</option>
                 {schools.map(school => (
@@ -385,14 +410,14 @@ export default function UnifiedUserManagement({
           )}
 
           {/* Community Filter */}
-          {uniqueCommunities.length > 0 && (
+          {!hideCommunityFilter && uniqueCommunities.length > 0 && (
             <div>
               <label htmlFor="community-filter" className="block text-sm font-medium text-gray-700 mb-1">
                 Filtrar por Comunidad
               </label>
               <select
                 id="community-filter"
-                value={selectedCommunityId || ''}
+                value={effectiveSelectedCommunityId || ''}
                 onChange={(e) => onCommunityChange(e.target.value)}
                 className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] focus:border-[#0a0a0a]"
               >
@@ -549,60 +574,66 @@ export default function UnifiedUserManagement({
                       <div className="space-y-2">
                         {user.approval_status === 'pending' && (
                           <>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onApprove(user.id);
-                              }}
-                              className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand_accent hover:bg-amber-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_accent"
-                            >
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              Aprobar Usuario
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onReject(user.id);
-                              }}
-                              className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                            >
-                              <XCircle className="w-4 h-4 mr-2" />
-                              Rechazar Usuario
-                            </button>
+                            {!hideApprove && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onApprove(user.id);
+                                }}
+                                className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand_accent hover:bg-amber-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_accent"
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Aprobar Usuario
+                              </button>
+                            )}
+                            {!hideReject && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onReject(user.id);
+                                }}
+                                className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                              >
+                                <XCircle className="w-4 h-4 mr-2" />
+                                Rechazar Usuario
+                              </button>
+                            )}
                           </>
                         )}
                         
                         {user.approval_status === 'approved' && (
                           <>
-                            <div className="border border-gray-200 rounded-md p-3">
-                              <div className="text-xs font-medium text-gray-600 mb-2">Reportes de gastos</div>
-                              {isAdminRole ? (
-                                <span className="text-sm text-brand_accent">Admin - acceso total</span>
-                              ) : (
-                                <div className="flex items-center justify-between gap-3">
-                                  <span className="text-sm text-gray-700">
-                                    {expenseEnabled ? 'Habilitado' : 'Bloqueado'}
-                                  </span>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onExpenseAccessToggle(user, !expenseEnabled);
-                                    }}
-                                    disabled={isUpdatingExpense}
-                                    className={`flex items-center px-3 py-1.5 rounded-full text-xs font-medium transition ${
-                                      expenseEnabled
-                                        ? 'bg-brand_beige text-brand_accent hover:bg-amber-100'
-                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                    } ${isUpdatingExpense ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
-                                  >
-                                    {isUpdatingExpense && (
-                                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                                    )}
-                                    {expenseEnabled ? 'Deshabilitar' : 'Habilitar'}
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                            {!hideExpenseAccess && (
+                              <div className="border border-gray-200 rounded-md p-3">
+                                <div className="text-xs font-medium text-gray-600 mb-2">Reportes de gastos</div>
+                                {isAdminRole ? (
+                                  <span className="text-sm text-brand_accent">Admin - acceso total</span>
+                                ) : (
+                                  <div className="flex items-center justify-between gap-3">
+                                    <span className="text-sm text-gray-700">
+                                      {expenseEnabled ? 'Habilitado' : 'Bloqueado'}
+                                    </span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onExpenseAccessToggle(user, !expenseEnabled);
+                                      }}
+                                      disabled={isUpdatingExpense}
+                                      className={`flex items-center px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                                        expenseEnabled
+                                          ? 'bg-brand_beige text-brand_accent hover:bg-amber-100'
+                                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                      } ${isUpdatingExpense ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                                    >
+                                      {isUpdatingExpense && (
+                                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                      )}
+                                      {expenseEnabled ? 'Deshabilitar' : 'Habilitar'}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -625,7 +656,7 @@ export default function UnifiedUserManagement({
                               Gestionar Roles
                             </button>
                             
-                            {getUserPrimaryRole(user) === 'consultor' && (
+                            {getUserPrimaryRole(user) === 'consultor' && !hideAssign && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();

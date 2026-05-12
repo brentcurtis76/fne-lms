@@ -1,68 +1,115 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
+import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient, isValidSchoolIdInput } from '../../../lib/api-auth';
+import {
+  ED_ASSIGNABLE_ROLES,
+  ED_CREATE_USER_ROLES,
+  SCHOOL_SCOPED_ROLES_SET,
+} from '../../../utils/roleUtils';
+import type { UserRoleType } from '../../../types/roles';
 
-// Create a Supabase client with the service role key for admin operations
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
+// Mirrors assign-role.ts's canonical role list. Any role outside this set is
+// rejected at the API boundary regardless of requester, so junk role strings
+// can never reach user_metadata.role or user_roles.role_type.
+const VALID_ROLES: readonly UserRoleType[] = [
+  'admin',
+  'consultor',
+  'equipo_directivo',
+  'lider_generacion',
+  'lider_comunidad',
+  'community_manager',
+  'docente',
+  'supervisor_de_red',
+  'encargado_licitacion',
+];
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    // Get the authorization header
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: 'No authorization token provided' });
+    const { isAuthorized, role: requesterRole, schoolId: edSchoolId, user: requestingUser, error: authError } =
+      await checkIsAdminOrEquipoDirectivo(req, res);
+
+    if (authError) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Verify the user making the request is an admin
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    
-    if (authError || !user) {
-      return res.status(401).json({ error: 'Invalid authorization token' });
+    if (!isAuthorized) {
+      return res.status(403).json({ error: 'Solo administradores o equipo directivo pueden crear usuarios' });
     }
 
-    // Check if the user is an admin
-    const { data: userRoles, error: roleError } = await supabaseAdmin
-      .from('user_roles')
-      .select('role_type')
-      .eq('user_id', user.id)
-      .eq('role_type', 'admin');
-
-    if (roleError || !userRoles || userRoles.length === 0) {
-      return res.status(403).json({ error: 'Unauthorized. Only admins can create users.' });
+    if (requesterRole === 'equipo_directivo' && typeof edSchoolId !== 'number') {
+      return res.status(403).json({ error: 'School context missing for equipo_directivo' });
     }
 
-    // Get user data from request body
-    const { email, password, firstName, lastName, role, schoolId } = req.body;
+    const { email, password, firstName, lastName, role: bodyRole, schoolId: bodySchoolId } = req.body;
 
-    // Validate required fields
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    // Create the user with admin privileges (auto-confirms email)
+    const resolvedRole: string = bodyRole || 'docente';
+
+    // Canonical role allow-list — mirrors assign-role.ts. Runs before
+    // requester-specific checks so a junk role like 'superman' is rejected
+    // for both admin and ED with a single, actionable 400.
+    if (!(VALID_ROLES as readonly string[]).includes(resolvedRole)) {
+      return res.status(400).json({ error: 'Rol inválido' });
+    }
+
+    // ED role-assignability is checked BEFORE schoolId shape validation so a
+    // misdirected request (e.g. role='admin' + schoolId='abc') returns the
+    // 403 role error instead of a 400 schoolId error. Mirrors assign-role.ts.
+    //
+    // Two-tier gate for ED requesters:
+    //   1. Role outside ED_ASSIGNABLE_ROLES (admin/consultor/...) → 403.
+    //   2. Role in ED_ASSIGNABLE_ROLES but not in ED_CREATE_USER_ROLES
+    //      (i.e. `lider_comunidad` / `lider_generacion`) → 400. Those roles
+    //      need `community_id` / `generation_id` foreign keys that the
+    //      quick-create form does not collect, so they must be assigned
+    //      through the full assign-role flow (`RoleAssignmentModal`).
+    if (requesterRole === 'equipo_directivo') {
+      if (!(ED_ASSIGNABLE_ROLES as readonly string[]).includes(resolvedRole)) {
+        return res.status(403).json({ error: 'Role not assignable by equipo_directivo' });
+      }
+      if (!(ED_CREATE_USER_ROLES as readonly string[]).includes(resolvedRole)) {
+        return res.status(400).json({
+          error: 'Este rol requiere la asignación completa, no la creación rápida',
+        });
+      }
+    }
+
+    let effectiveSchoolId: number | null;
+    if (bodySchoolId === undefined || bodySchoolId === null) {
+      effectiveSchoolId = null;
+    } else {
+      if (!isValidSchoolIdInput(bodySchoolId)) {
+        return res.status(400).json({ error: 'schoolId inválido' });
+      }
+      effectiveSchoolId = Number(bodySchoolId);
+    }
+
+    if (requesterRole === 'equipo_directivo') {
+      if (effectiveSchoolId !== null && effectiveSchoolId !== edSchoolId) {
+        return res.status(403).json({ error: 'Cannot create user in another school' });
+      }
+      if (effectiveSchoolId === null) {
+        effectiveSchoolId = edSchoolId as number;
+      }
+    }
+
+    const supabaseAdmin = createServiceRoleClient();
+
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true, // This confirms the email immediately
+      email_confirm: true,
       user_metadata: {
-        role: role || 'docente'
+        role: resolvedRole
       }
     });
 
@@ -71,26 +118,22 @@ export default async function handler(
     }
 
     if (newUser.user) {
-      // CRITICAL: Ensure data integrity between auth.users and profiles
-      // If ANY step fails, we must roll back to prevent orphaned records
-      
-      let profileCreated = false;
-      let roleCreated = false;
-      
+      const sid = effectiveSchoolId == null ? null : Number(effectiveSchoolId);
+
       try {
-        // Profile is auto-created by trigger, so we always UPDATE (never INSERT)
-        // Update the auto-created profile with additional information
         const updateData: any = {
-          email: email, // Ensure email is set
-          approval_status: 'approved', // Admin-created users are auto-approved
-          must_change_password: false // Don't force password change
+          email: email,
+          approval_status: 'approved',
+          must_change_password: false
         };
-        
+
         if (firstName) updateData.first_name = firstName;
         if (lastName) updateData.last_name = lastName;
         if (firstName && lastName) updateData.name = `${firstName} ${lastName}`;
-        if (schoolId) updateData.school_id = schoolId;
-        
+        if (sid !== null && Number.isFinite(sid)) {
+          updateData.school_id = sid;
+        }
+
         const { error: updateError } = await supabaseAdmin
           .from('profiles')
           .update(updateData)
@@ -99,22 +142,47 @@ export default async function handler(
         if (updateError) {
           throw updateError;
         }
-        profileCreated = true;
 
-        // Now create the user role in the user_roles table
+        // Preserve the caller's school_id verbatim for ALL roles when a valid
+        // sid was supplied. Don't gate on SCHOOL_SCOPED_ROLES — nulling
+        // school_id for a non-school-scoped role like consultor silently
+        // converts admin's intent of "scoped consultor at school 42" into
+        // GLOBAL consultor access per lib/utils/session-policy.ts:31. See
+        // assign-role.ts F2 (Phase 16) for the canonical fix; this is the
+        // equivalent in the create-user code path.
+        const roleInsertData: Record<string, unknown> = {
+          user_id: newUser.user.id,
+          role_type: resolvedRole
+        };
+        if (sid !== null && Number.isFinite(sid)) {
+          roleInsertData.school_id = sid;
+        }
+
         const { error: roleError } = await supabaseAdmin
           .from('user_roles')
-          .insert({
-            user_id: newUser.user.id,
-            role_type: role || 'docente'
-          });
+          .insert(roleInsertData);
 
         if (roleError) {
-          console.error('Error creating user role:', roleError);
-          // Don't fail the whole operation if role creation fails
-          // The user can be assigned a role later
-        } else {
-          roleCreated = true;
+          throw roleError;
+        }
+
+        // Phase 16.7 F1: structured visibility warn — mirrors assign-role.ts
+        // F3 (Phase 16.4). Surfaces the unusual shape of an admin creating a
+        // user with a non-school-scoped role + non-null schoolId so operators
+        // can investigate whether the scoping was intentional. Persistence
+        // semantics above are unchanged (school_id preserved verbatim).
+        if (
+          requesterRole === 'admin' &&
+          !SCHOOL_SCOPED_ROLES_SET.has(resolvedRole) &&
+          sid !== null
+        ) {
+          console.warn('[create-user] admin scoped a non-school-scoped role', {
+            target_user_id: newUser.user.id,
+            role_type: resolvedRole,
+            school_id: sid,
+            requester_user_id: requestingUser?.id ?? null,
+            timestamp: new Date().toISOString(),
+          });
         }
 
         return res.status(200).json({
@@ -124,41 +192,37 @@ export default async function handler(
             email: newUser.user.email,
             firstName,
             lastName,
-            role: role || 'docente'
+            role: resolvedRole
           }
         });
-        
+
       } catch (error: any) {
-        // ROLLBACK: Clean up any partial data to maintain integrity
         console.error('Error during user creation, rolling back:', error);
-        
+
         try {
-          // Always try to delete the auth user if something went wrong
+          // profiles.id has no FK to auth.users(id) in this schema (verified
+          // 2026-05-11: the only profiles FKs are school_id/community_id/
+          // generation_id), so auth.admin.deleteUser does NOT cascade.
+          // Mirror delete-user.ts's forward-path cleanup: explicitly remove
+          // user_roles and profiles before the auth user. Role-insert is the
+          // only throwing step after profile update, so user_roles delete is
+          // a no-op when role-insert is the failure point — kept for
+          // defense-in-depth if future steps land between role-insert and
+          // success.
+          await supabaseAdmin
+            .from('user_roles')
+            .delete()
+            .eq('user_id', newUser.user.id);
+          await supabaseAdmin
+            .from('profiles')
+            .delete()
+            .eq('id', newUser.user.id);
           await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
-          console.log('Rolled back auth user creation');
-          
-          // If we created a profile, try to delete it too (belt and suspenders)
-          if (profileCreated) {
-            await supabaseAdmin
-              .from('profiles')
-              .delete()
-              .eq('id', newUser.user.id);
-            console.log('Rolled back profile creation');
-          }
-          
-          // If we created a role, delete it
-          if (roleCreated) {
-            await supabaseAdmin
-              .from('user_roles')
-              .delete()
-              .eq('user_id', newUser.user.id);
-            console.log('Rolled back role creation');
-          }
+          console.log('Rolled back user creation');
         } catch (rollbackError) {
           console.error('Error during rollback:', rollbackError);
-          // Log but don't throw - we want to return the original error
         }
-        
+
         throw error;
       }
     }
@@ -166,14 +230,13 @@ export default async function handler(
     return res.status(500).json({ error: 'Failed to create user' });
   } catch (error: any) {
     console.error('Error creating user:', error);
-    
-    // Handle specific error cases
+
     if (error.message?.includes('duplicate key') || error.message?.includes('already exists')) {
       return res.status(409).json({ error: 'A user with this email already exists' });
     }
-    
-    return res.status(500).json({ 
-      error: error.message || 'Internal server error' 
+
+    return res.status(500).json({
+      error: error.message || 'Internal server error'
     });
   }
 }

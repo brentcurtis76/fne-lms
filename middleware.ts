@@ -42,8 +42,17 @@ export async function middleware(req: NextRequest) {
       return res;
     }
 
-    // Equipo directivo: only growth communities management
-    if (roles.includes('equipo_directivo') && pathname.startsWith('/admin/growth-communities')) {
+    // Equipo directivo: growth communities + school users management
+    // Accept both trailing-slash forms. Next.js's default trailingSlash is false,
+    // but we don't want this gate to silently break if that config flips.
+    // Nested routes (/admin/school-users/...) are intentionally NOT matched —
+    // they would need explicit allow-listing here AND their own ED scope check.
+    const onSchoolUsers =
+      pathname === '/admin/school-users' || pathname === '/admin/school-users/';
+    if (
+      roles.includes('equipo_directivo') &&
+      (pathname.startsWith('/admin/growth-communities') || onSchoolUsers)
+    ) {
       return res;
     }
 

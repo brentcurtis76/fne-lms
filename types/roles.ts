@@ -381,7 +381,7 @@ export const ROLE_ORGANIZATIONAL_REQUIREMENTS: Record<UserRoleType, RoleOrganiza
 export function validateRoleAssignment(
   roleType: UserRoleType,
   organizationalScope: {
-    schoolId?: string | null;
+    schoolId?: string | number | null;
     generationId?: string | null;
     communityId?: string | null;
   }

@@ -91,11 +91,24 @@ export async function isGlobalAdmin(supabase: SupabaseClient, userId: string): P
 
 /**
  * Resolve the school_id for a user's active equipo_directivo role.
- * Returns null if the user has no active equipo_directivo row, on any error,
- * or when multiple active rows exist (invariant violation: fail closed so
- * direct API calls cannot be silently mis-scoped to whichever row sorts
- * first). The page layer enforces the same fail-closed; this enforces it
- * at the auth helper level too.
+ * Returns null if:
+ *   - the user has no active equipo_directivo row
+ *   - the user has MULTIPLE active equipo_directivo rows (fail-closed —
+ *     multi-ED is an invariant violation, see PR #19 follow-up for a
+ *     partial unique index that enforces this at the DB layer)
+ *   - the row exists but school_id is null / undefined / non-finite
+ *   - any DB error occurs
+ *
+ * The page layer enforces the same fail-closed; this enforces it at the
+ * auth helper level too.
+ *
+ * IMPORTANT for callers: a `null` return MUST be treated as "not
+ * authorized for ED scope", not as "user is not ED". Treating null as
+ * "fall through to a less-restrictive admin or generic branch"
+ * reintroduces the multi-ED mis-scoping bug this fail-closed return was
+ * added to prevent. The sole caller today is
+ * `lib/api-auth.ts::checkIsAdminOrEquipoDirectivo`, which returns
+ * `isAuthorized: false` on null — that behavior is the contract.
  */
 export async function getEquipoDirectivoSchoolId(
   supabase: SupabaseClient,
@@ -331,6 +344,34 @@ export const SCHOOL_SCOPED_ROLES_SET: ReadonlySet<string> = new Set(SCHOOL_SCOPE
  */
 export const ED_ASSIGNABLE_ROLES = SCHOOL_SCOPED_ROLES;
 export type EdAssignableRole = (typeof ED_ASSIGNABLE_ROLES)[number];
+
+/**
+ * Roles whose presence on a target user blocks ED from mutating that user.
+ * Disjoint from ED_ASSIGNABLE_ROLES — these are the global/cross-cutting
+ * roles that should never be reachable through ED's school scope, regardless
+ * of what other roles the target also holds.
+ *
+ * Currently identical to (UserRoleType \ SCHOOL_SCOPED_ROLES), but maintained
+ * as a separate constant so the policy doesn't drift if a new non-school-
+ * scoped role is added that ED IS allowed to manage. Callers (delete-user,
+ * reset-password, update-user, assign-role, remove-role, user-roles) should
+ * use this constant rather than `!SCHOOL_SCOPED_ROLES_SET.has(...)` so the
+ * "ED-forbidden target" policy is explicit at every gate.
+ */
+export const ED_FORBIDDEN_TARGET_ROLES = [
+  'admin',
+  'consultor',
+  'community_manager',
+  'supervisor_de_red',
+] as const satisfies readonly UserRoleType[];
+export type EdForbiddenTargetRole = (typeof ED_FORBIDDEN_TARGET_ROLES)[number];
+
+/**
+ * Set form of ED_FORBIDDEN_TARGET_ROLES for O(1) membership checks.
+ */
+export const ED_FORBIDDEN_TARGET_ROLES_SET: ReadonlySet<string> = new Set(
+  ED_FORBIDDEN_TARGET_ROLES,
+);
 
 /**
  * Roles an ED may create through the simple quick-create flow (Add User

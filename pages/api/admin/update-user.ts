@@ -2,7 +2,10 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient, isValidSchoolIdInput } from '../../../lib/api-auth';
 import { Validators } from '../../../lib/types/api-auth.types';
 import { rateLimit, RATE_LIMITS } from '../../../lib/rateLimit';
-import { SCHOOL_SCOPED_ROLES_SET } from '../../../utils/roleUtils';
+import {
+  ED_FORBIDDEN_TARGET_ROLES_SET,
+  SCHOOL_SCOPED_ROLES_SET,
+} from '../../../utils/roleUtils';
 
 // Two-stage rate limiting to avoid contention between admin and ED traffic on
 // the same source IP (shared NAT / office network). The helper buckets are
@@ -141,11 +144,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // path, widening the exposure beyond admin-only tooling. Tracked in
       // PR #19 follow-ups as "TOCTOU residual risk hardening (Postgres
       // function or partial unique index)".
-      // Defense-in-depth: reject if the target holds any active role outside
-      // SCHOOL_SCOPED_ROLES (admin/consultor/supervisor_de_red/community_manager),
-      // or any school-scoped active role tied to a different school. Profile
-      // and user_roles can diverge (stale or cross-school role rows), so this
-      // gate is enforced independently.
+      // Defense-in-depth: reject if the target holds any active role either
+      // (a) in ED_FORBIDDEN_TARGET_ROLES (admin/consultor/community_manager/
+      // supervisor_de_red) or (b) school-scoped but tied to a different
+      // school. Two conceptually distinct gates: forbidden-role membership
+      // vs. cross-school scope. Profile and user_roles can diverge (stale
+      // or cross-school role rows), so this gate is enforced independently.
       const { data: targetRoles, error: rolesLookupError } = await supabaseAdmin
         .from('user_roles')
         .select('role_type, school_id')
@@ -156,12 +160,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Error verificando roles del usuario' });
       }
       const hasForbiddenRole = (targetRoles ?? []).some(
-        (r: { role_type: string; school_id: number | null }) => {
-          if (!SCHOOL_SCOPED_ROLES_SET.has(r.role_type)) return true;
-          return r.school_id !== null && r.school_id !== edSchoolId;
-        },
+        (r: { role_type: string }) => ED_FORBIDDEN_TARGET_ROLES_SET.has(r.role_type),
       );
-      if (hasForbiddenRole) {
+      const hasCrossSchoolRole = (targetRoles ?? []).some(
+        (r: { role_type: string; school_id: number | null }) =>
+          SCHOOL_SCOPED_ROLES_SET.has(r.role_type) &&
+          r.school_id !== null &&
+          r.school_id !== edSchoolId,
+      );
+      if (hasForbiddenRole || hasCrossSchoolRole) {
         return res.status(403).json({ error: 'No autorizado para editar este usuario' });
       }
     }

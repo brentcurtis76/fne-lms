@@ -1,6 +1,10 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient } from '../../../lib/api-auth';
-import { ED_ASSIGNABLE_ROLES, SCHOOL_SCOPED_ROLES_SET } from '../../../utils/roleUtils';
+import {
+  ED_ASSIGNABLE_ROLES,
+  ED_FORBIDDEN_TARGET_ROLES_SET,
+  SCHOOL_SCOPED_ROLES_SET,
+} from '../../../utils/roleUtils';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -76,9 +80,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Defense-in-depth: reject if the target holds any OTHER active role
-      // outside SCHOOL_SCOPED_ROLES, or any school-scoped active role tied
-      // to a different school. Mirrors the gate used by delete-user/
-      // assign-role/update-user.
+      // either (a) in ED_FORBIDDEN_TARGET_ROLES (admin/consultor/community_
+      // manager/supervisor_de_red) or (b) school-scoped but tied to a
+      // different school. These are two conceptually distinct gates kept
+      // explicit so a future non-school-scoped-but-ED-safe role doesn't
+      // silently re-enable ED access via the global-vs-school proxy.
       const { data: targetRoles, error: rolesLookupError } = await supabaseService
         .from('user_roles')
         .select('id, role_type, school_id')
@@ -88,14 +94,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (rolesLookupError) {
         return res.status(500).json({ error: 'Error verificando roles del usuario' });
       }
-      const hasForbiddenRole = (targetRoles ?? []).some(
-        (r: { id: string; role_type: string; school_id: number | null }) => {
-          if (r.id === roleRow.id) return false;
-          if (!SCHOOL_SCOPED_ROLES_SET.has(r.role_type)) return true;
-          return r.school_id !== null && r.school_id !== edSchoolId;
-        },
+      const otherRoles = (targetRoles ?? []).filter(
+        (r: { id: string }) => r.id !== roleRow.id,
       );
-      if (hasForbiddenRole) {
+      const hasForbiddenRole = otherRoles.some(
+        (r: { role_type: string }) => ED_FORBIDDEN_TARGET_ROLES_SET.has(r.role_type),
+      );
+      const hasCrossSchoolRole = otherRoles.some(
+        (r: { role_type: string; school_id: number | null }) =>
+          SCHOOL_SCOPED_ROLES_SET.has(r.role_type) &&
+          r.school_id !== null &&
+          r.school_id !== edSchoolId,
+      );
+      if (hasForbiddenRole || hasCrossSchoolRole) {
         return res.status(403).json({ error: 'No autorizado para remover roles de este usuario' });
       }
     }

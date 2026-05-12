@@ -209,6 +209,44 @@ describe('admin/user-roles — GET (ED auth + scoping)', () => {
     expect(body.roles.every((r: any) => r.school_id === ED_SCHOOL_ID)).toBe(true);
   });
 
+  // F3 regression: the ED filter must be strict equality on school_id —
+  // orphan rows (school-scoped role_type with school_id IS NULL) are NOT
+  // real role grants and should not be surfaced through the single-user
+  // roles view. The list-page filter at users.ts handles legacy-null
+  // surfacing for backfill; this view is intentionally stricter.
+  it('ED: orphan school-scoped role with school_id=null is filtered out', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          profiles: [{ data: { school_id: ED_SCHOOL_ID }, error: null }],
+          user_roles: [
+            {
+              data: [
+                { role_type: 'docente', school_id: ED_SCHOOL_ID },
+                { role_type: 'docente', school_id: null }, // orphan — must NOT appear
+              ],
+              error: null,
+            },
+          ],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { userId: TARGET_USER_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const body = res._getJSONData();
+    expect(body.roles).toHaveLength(1);
+    expect(body.roles[0]).toMatchObject({ role_type: 'docente', school_id: ED_SCHOOL_ID });
+  });
+
   it('ED: 403 when target user is in another school', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();

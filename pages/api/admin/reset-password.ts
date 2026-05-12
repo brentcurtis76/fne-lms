@@ -9,7 +9,10 @@ import {
 } from '../../../lib/api-auth';
 import { ApiError, ApiSuccess } from '../../../lib/types/api-auth.types';
 import { rateLimit, RATE_LIMITS } from '../../../lib/rateLimit';
-import { SCHOOL_SCOPED_ROLES_SET } from '../../../utils/roleUtils';
+import {
+  ED_FORBIDDEN_TARGET_ROLES_SET,
+  SCHOOL_SCOPED_ROLES_SET,
+} from '../../../utils/roleUtils';
 
 // Rate limiter for password reset (auth-level: 10 req/min)
 const rateLimitCheck = rateLimit(RATE_LIMITS.auth, 'admin-reset-password');
@@ -123,11 +126,12 @@ export default async function handler(
       // path, widening the exposure beyond admin-only tooling. Tracked in
       // PR #19 follow-ups as "TOCTOU residual risk hardening (Postgres
       // function or partial unique index)".
-      // Defense-in-depth: reject if the target holds any active role outside
-      // SCHOOL_SCOPED_ROLES (admin/consultor/supervisor_de_red/community_manager),
-      // or any school-scoped active role tied to a different school. Profile
-      // and user_roles can diverge (stale or cross-school role rows), so this
-      // gate is enforced independently.
+      // Defense-in-depth: reject if the target holds any active role either
+      // (a) in ED_FORBIDDEN_TARGET_ROLES (admin/consultor/community_manager/
+      // supervisor_de_red) or (b) school-scoped but tied to a different
+      // school. Two conceptually distinct gates: forbidden-role membership
+      // vs. cross-school scope. Profile and user_roles can diverge (stale
+      // or cross-school role rows), so this gate is enforced independently.
       const { data: targetRoles, error: rolesLookupError } = await supabaseAdmin
         .from('user_roles')
         .select('role_type, school_id')
@@ -138,12 +142,15 @@ export default async function handler(
         return sendAuthError(res, 'Error verificando roles del usuario', 500);
       }
       const hasForbiddenRole = (targetRoles ?? []).some(
-        (r: { role_type: string; school_id: number | null }) => {
-          if (!SCHOOL_SCOPED_ROLES_SET.has(r.role_type)) return true;
-          return r.school_id !== null && r.school_id !== edSchoolId;
-        },
+        (r: { role_type: string }) => ED_FORBIDDEN_TARGET_ROLES_SET.has(r.role_type),
       );
-      if (hasForbiddenRole) {
+      const hasCrossSchoolRole = (targetRoles ?? []).some(
+        (r: { role_type: string; school_id: number | null }) =>
+          SCHOOL_SCOPED_ROLES_SET.has(r.role_type) &&
+          r.school_id !== null &&
+          r.school_id !== edSchoolId,
+      );
+      if (hasForbiddenRole || hasCrossSchoolRole) {
         return sendAuthError(
           res,
           'No autorizado para restablecer la contraseña de este usuario',

@@ -1,6 +1,10 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient, isValidSchoolIdInput } from '../../../lib/api-auth';
-import { ED_ASSIGNABLE_ROLES, SCHOOL_SCOPED_ROLES_SET } from '../../../utils/roleUtils';
+import {
+  ED_ASSIGNABLE_ROLES,
+  ED_FORBIDDEN_TARGET_ROLES_SET,
+  SCHOOL_SCOPED_ROLES_SET,
+} from '../../../utils/roleUtils';
 import { UserRoleType, validateRoleAssignment } from '../../../types/roles';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -150,12 +154,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // path, widening the exposure beyond admin-only tooling. Tracked in
       // PR #19 follow-ups as "TOCTOU residual risk hardening (Postgres
       // function or partial unique index)".
-      // Defense-in-depth: reject if the target holds any active role outside
-      // SCHOOL_SCOPED_ROLES (admin/consultor/supervisor_de_red/community_manager),
-      // or any school-scoped active role tied to a different school. The
-      // ED-scope profile check above only covers profiles.school_id; a target
-      // may still hold a stale or cross-school role row whose school_id does
-      // not match the ED's school, so we gate on both shapes here.
+      // Defense-in-depth: reject if the target holds any active role either
+      // (a) in ED_FORBIDDEN_TARGET_ROLES (admin/consultor/community_manager/
+      // supervisor_de_red) or (b) school-scoped but tied to a different
+      // school. Two conceptually distinct gates: forbidden-role membership
+      // vs. cross-school scope. The ED-scope profile check above only
+      // covers profiles.school_id; a target may still hold a stale or
+      // cross-school role row whose school_id does not match the ED's
+      // school.
       const { data: targetRoles, error: rolesLookupError } = await supabaseService
         .from('user_roles')
         .select('role_type, school_id')
@@ -166,12 +172,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Error verificando roles del usuario' });
       }
       const hasForbiddenRole = (targetRoles ?? []).some(
-        (r: { role_type: string; school_id: number | null }) => {
-          if (!SCHOOL_SCOPED_ROLES_SET.has(r.role_type)) return true;
-          return r.school_id !== null && r.school_id !== edSchoolId;
-        },
+        (r: { role_type: string }) => ED_FORBIDDEN_TARGET_ROLES_SET.has(r.role_type),
       );
-      if (hasForbiddenRole) {
+      const hasCrossSchoolRole = (targetRoles ?? []).some(
+        (r: { role_type: string; school_id: number | null }) =>
+          SCHOOL_SCOPED_ROLES_SET.has(r.role_type) &&
+          r.school_id !== null &&
+          r.school_id !== edSchoolId,
+      );
+      if (hasForbiddenRole || hasCrossSchoolRole) {
         return res.status(403).json({ error: 'No autorizado para asignar roles a este usuario' });
       }
 
@@ -422,6 +431,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // its own normalization for non-school-scoped roles (defense-in-depth)
     // and the ED_ASSIGNABLE_ROLES gate prevents ED from ever reaching this
     // point with a non-school-scoped role anyway.
+    //
+    // Verified `community_manager` and `supervisor_de_red` do NOT use
+    // null-vs-non-null school_id as a scope signal (per grep on
+    // 2026-05-12): community_manager scopes via `community_id`
+    // (utils/workspaceUtils.ts:114) and supervisor_de_red scopes via
+    // `red_id` / `network_id` (utils/roleUtils.ts:1037, 1063;
+    // utils/reportFilters.ts:44, 144). Only `consultor` uses the
+    // null-vs-non-null school_id distinction, so preserving the caller's
+    // schoolId is safe for all non-school-scoped roles on the admin path.
 
     // Insert the role assignment. FK fields use sanitized values so stray
     // IDs on roles that don't own them (e.g. docente with a body communityId)
@@ -484,6 +502,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // reset-password.ts / update-user.ts. Role grants are sensitive policy
     // events — they need an audit trail for forensic investigation,
     // especially of ED-initiated assignments.
+    // Audit details should not depend on the user_roles insert's `.select()`
+    // projection — that's a fragile coupling. If a future refactor narrows
+    // the projection (or a test mock returns just `{ id }`), the audit row
+    // would silently store `undefined` for these fields, defeating the
+    // forensic-visibility goal. Source from the request-derived variables
+    // already in scope at this point: schoolId (post-coercion + ED
+    // normalization), finalCommunityId (after auto-create resolution),
+    // sanitizedGenerationId (from the FK sanitization block).
+    const auditDetails = {
+      role_type: roleType,
+      school_id: schoolId,
+      community_id: finalCommunityId || null,
+      generation_id: sanitizedGenerationId,
+      requester_role: requesterRole,
+      requester_user_id: requestingUser.id,
+      timestamp: new Date().toISOString(),
+    };
+
     try {
       const auditInsertResult = await supabaseService
         .from('audit_logs')
@@ -492,15 +528,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           action: 'role_assigned',
           table_name: 'user_roles',
           record_id: targetUserId,
-          details: {
-            role_type: roleType,
-            school_id: roleInsertData.school_id,
-            community_id: roleInsertData.community_id,
-            generation_id: roleInsertData.generation_id,
-            requester_role: requesterRole,
-            requester_user_id: requestingUser.id,
-            timestamp: new Date().toISOString(),
-          },
+          details: auditDetails,
         });
 
       if (auditInsertResult.error) {

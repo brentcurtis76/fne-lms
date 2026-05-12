@@ -74,14 +74,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al obtener roles' });
     }
 
-    // Defense-in-depth: ED users only see school-scoped roles within their
-    // school. The read-path filter at users.ts already excludes targets with
-    // global/cross-school roles, but this protects direct URL access too.
+    // Defense-in-depth: ED users only see school-scoped roles tied to their
+    // own school. The read-path filter at users.ts already excludes targets
+    // with global/cross-school roles, but this protects direct URL access too.
+    //
+    // Strict equality on school_id: orphan rows (a school-scoped role_type
+    // with school_id IS NULL) are filtered out here. A docente with no
+    // school_id isn't actually scoped to any school, so no ED should see
+    // it through the single-user roles view. The legacy null-row case is
+    // handled by the list-page filter in users.ts (which surfaces them
+    // during backfill) — the single-user roles view is intentionally
+    // stricter.
     const filteredRoles =
       requesterRole === 'equipo_directivo'
         ? (rolesData || []).filter((r: { role_type: string; school_id: number | null }) => {
-            if (!SCHOOL_SCOPED_ROLES_SET.has(r.role_type)) return false;
-            return r.school_id === null || r.school_id === edSchoolId;
+            return SCHOOL_SCOPED_ROLES_SET.has(r.role_type) && r.school_id === edSchoolId;
           })
         : rolesData || [];
 

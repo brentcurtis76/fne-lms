@@ -1,10 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import 'dotenv/config';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, anonKey);
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 
 interface Instructor {
   id: string;
@@ -22,6 +17,7 @@ const CourseBuilderForm: React.FC<CourseBuilderFormProps> = ({
   createdBy,
   onSuccess,
 }) => {
+  const supabase = useSupabaseClient();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedInstructorId, setSelectedInstructorId] = useState(instructorId || '');

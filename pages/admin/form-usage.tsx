@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import MainLayout from '../../components/layout/MainLayout';
 import { getUserPrimaryRole } from '../../utils/roleUtils';
-import { getMonthlyFormStats } from '../../lib/formSubmissionTracker';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 
 interface FormStats {
@@ -44,10 +43,17 @@ export default function FormUsage() {
       }
       setIsAdmin(true);
 
-      // Load stats
-      const formStats = await getMonthlyFormStats();
-      if (formStats) {
-        setStats(formStats);
+      // Load stats via admin API (service role stays server-side)
+      const response = await fetch('/api/admin/form-usage-stats', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (response.ok) {
+        const json = await response.json();
+        if (json?.data) {
+          setStats(json.data);
+        }
+      } else {
+        console.error('Error loading form stats:', response.status);
       }
     } catch (error) {
       console.error('Error loading form stats:', error);

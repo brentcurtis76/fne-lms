@@ -1,10 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase client for tracking
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface FormSubmissionData {
   id?: string;
@@ -16,11 +10,14 @@ export interface FormSubmissionData {
   created_at?: string;
 }
 
-export async function trackFormSubmission(data: {
-  senderEmail: string;
-  senderName: string;
-  formType?: string;
-}): Promise<{ count: number; warning: boolean; message?: string }> {
+export async function trackFormSubmission(
+  supabase: SupabaseClient,
+  data: {
+    senderEmail: string;
+    senderName: string;
+    formType?: string;
+  }
+): Promise<{ count: number; warning: boolean; message?: string }> {
   try {
     // Record the submission
     const { error: insertError } = await supabase
@@ -54,7 +51,7 @@ export async function trackFormSubmission(data: {
     }
 
     const count = submissions?.length || 0;
-    
+
     // Check if we need to send a warning
     let warning = false;
     let message = undefined;
@@ -127,8 +124,22 @@ Este es un mensaje automático del sistema de monitoreo.
   }
 }
 
+export interface MonthlyFormStats {
+  total: number;
+  remaining: number;
+  percentage: number;
+  submissions: FormSubmissionData[];
+  resetDate: string;
+}
+
+export type MonthlyFormStatsResult =
+  | { data: MonthlyFormStats; error: null }
+  | { data: null; error: string };
+
 // Get monthly statistics
-export async function getMonthlyFormStats() {
+export async function getMonthlyFormStats(
+  supabase: SupabaseClient
+): Promise<MonthlyFormStatsResult> {
   try {
     const now = new Date();
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -143,18 +154,25 @@ export async function getMonthlyFormStats() {
 
     if (error) {
       console.error('Error getting form stats:', error);
-      return null;
+      return { data: null, error: error.message };
     }
 
+    const rows = submissions ?? [];
     return {
-      total: submissions?.length || 0,
-      remaining: 50 - (submissions?.length || 0),
-      percentage: ((submissions?.length || 0) / 50) * 100,
-      submissions: submissions || [],
-      resetDate: new Date(now.getFullYear(), now.getMonth() + 1, 1).toLocaleDateString('es-CL')
+      data: {
+        total: rows.length,
+        remaining: 50 - rows.length,
+        percentage: (rows.length / 50) * 100,
+        submissions: rows as FormSubmissionData[],
+        resetDate: new Date(now.getFullYear(), now.getMonth() + 1, 1).toLocaleDateString('es-CL'),
+      },
+      error: null,
     };
-  } catch (error) {
-    console.error('Error getting monthly stats:', error);
-    return null;
+  } catch (err) {
+    console.error('Error getting monthly stats:', err);
+    return {
+      data: null,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    };
   }
 }

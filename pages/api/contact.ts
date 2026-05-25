@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { trackFormSubmission } from '../../lib/formSubmissionTracker';
+import { createServiceRoleClient } from '../../lib/api-auth';
 
 interface ContactFormData {
   nombre: string;
@@ -122,7 +123,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     `;
 
     // Track form submission for limit monitoring
-    const trackingResult = await trackFormSubmission({
+    const trackingResult = await trackFormSubmission(createServiceRoleClient(), {
       senderEmail: email,
       senderName: nombre,
       formType: 'contact'

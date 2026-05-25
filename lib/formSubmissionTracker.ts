@@ -1,10 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase client for tracking
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface FormSubmissionData {
   id?: string;
@@ -16,11 +10,14 @@ export interface FormSubmissionData {
   created_at?: string;
 }
 
-export async function trackFormSubmission(data: {
-  senderEmail: string;
-  senderName: string;
-  formType?: string;
-}): Promise<{ count: number; warning: boolean; message?: string }> {
+export async function trackFormSubmission(
+  supabase: SupabaseClient,
+  data: {
+    senderEmail: string;
+    senderName: string;
+    formType?: string;
+  }
+): Promise<{ count: number; warning: boolean; message?: string }> {
   try {
     // Record the submission
     const { error: insertError } = await supabase
@@ -54,7 +51,7 @@ export async function trackFormSubmission(data: {
     }
 
     const count = submissions?.length || 0;
-    
+
     // Check if we need to send a warning
     let warning = false;
     let message = undefined;
@@ -128,7 +125,7 @@ Este es un mensaje automático del sistema de monitoreo.
 }
 
 // Get monthly statistics
-export async function getMonthlyFormStats() {
+export async function getMonthlyFormStats(supabase: SupabaseClient) {
   try {
     const now = new Date();
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();

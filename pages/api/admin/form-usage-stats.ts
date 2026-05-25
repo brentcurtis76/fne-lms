@@ -17,10 +17,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return sendAuthError(res, 'Admin access required', 403);
   }
 
-  const stats = await getMonthlyFormStats(createServiceRoleClient());
-  if (!stats) {
-    return sendAuthError(res, 'Failed to load form stats', 500);
+  const { data, error: statsError } = await getMonthlyFormStats(createServiceRoleClient());
+  if (statsError) {
+    return res.status(500).json({ error: 'Failed to load form stats' });
   }
 
-  return res.status(200).json({ data: stats });
+  return res.status(200).json({ data });
 }

@@ -467,15 +467,18 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
         <div className="mb-6 p-4 bg-gray-50 rounded-lg">
           <h3 className="text-sm font-medium text-gray-700 mb-3">Agregar Bloque</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {Object.entries(BLOCK_TYPES).map(([key, config]) => (
-              <button
-                key={key}
-                onClick={() => addBlock(key as BlockType)}
-                className="px-3 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
-              >
-                {config.icon} {config.label}
-              </button>
-            ))}
+            {Object.entries(BLOCK_TYPES).map(([key, config]) => {
+              const Icon = config.icon;
+              return (
+                <button
+                  key={key}
+                  onClick={() => addBlock(key as BlockType)}
+                  className="px-3 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
+                >
+                  <Icon className="w-4 h-4 inline mr-1" /> {config.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 

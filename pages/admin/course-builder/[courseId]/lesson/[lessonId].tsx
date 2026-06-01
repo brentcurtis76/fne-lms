@@ -61,7 +61,11 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
   const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(() => {
     if (initialLessonData.blocks && Array.isArray(initialLessonData.blocks)) {
       return new Set(initialLessonData.blocks
-        .filter(block => block.id && block.is_visible === false)
+        // group-assignment & bibliography always render in edit mode and expose
+        // no working collapse toggle, so never seed them as collapsed —
+        // otherwise save would persist is_visible:false with no UI to restore it.
+        .filter(block => block.id && block.is_visible === false
+          && block.type !== 'group-assignment' && block.type !== 'bibliography')
         .map(block => block.id));
     }
     return new Set();

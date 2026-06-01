@@ -2,25 +2,15 @@
 @import './tiptap.css';
 @import './tour.css';
 
-/* Add @font-face rules here if you have local font files for Mont and Eames Century Modern */
-/* Example for Mont (replace with actual paths and font weights/styles):
-@font-face {
-  font-family: 'Mont';
-  src: url('/fonts/Mont-Regular.woff2') format('woff2'),
-       url('/fonts/Mont-Bold.woff2') format('woff2');
-  font-weight: normal; // or specify weight
-  font-style: normal;
-}
-*/
-/* Example for Eames Century Modern (replace with actual paths and font weights/styles):
-@font-face {
-  font-family: 'Eames Century Modern';
-  src: url('/fonts/EamesCenturyModern-Regular.woff2') format('woff2'),
-       url('/fonts/EamesCenturyModern-Italic.woff2') format('woff2');
-  font-weight: normal; // or specify weight
-  font-style: normal;
-}
-*/
+/* Mont (Fontfabric) — the Genera brand typeface. Full weight range used across the
+   brand surfaces (e.g. the Líderes Generación Tractor registration page). */
+@font-face { font-family: 'Mont'; font-weight: 300; font-style: normal; src: url('/fonts/Mont-Light.otf') format('opentype'); font-display: swap; }
+@font-face { font-family: 'Mont'; font-weight: 400; font-style: normal; src: url('/fonts/Mont-Book.otf') format('opentype'); font-display: swap; }
+@font-face { font-family: 'Mont'; font-weight: 500; font-style: normal; src: url('/fonts/Mont-Regular.otf') format('opentype'); font-display: swap; }
+@font-face { font-family: 'Mont'; font-weight: 600; font-style: normal; src: url('/fonts/Mont-SemiBold.otf') format('opentype'); font-display: swap; }
+@font-face { font-family: 'Mont'; font-weight: 700; font-style: normal; src: url('/fonts/Mont-Bold.otf') format('opentype'); font-display: swap; }
+@font-face { font-family: 'Mont'; font-weight: 800; font-style: normal; src: url('/fonts/Mont-Heavy.otf') format('opentype'); font-display: swap; }
+@font-face { font-family: 'Mont'; font-weight: 900; font-style: normal; src: url('/fonts/Mont-Black.otf') format('opentype'); font-display: swap; }
 
 @tailwind base;
 @tailwind components;

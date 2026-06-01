@@ -1,9 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import type { GetServerSideProps } from 'next';
 import Head from 'next/head';
-import Image from 'next/image';
 import { toast } from 'react-hot-toast';
-import { ArrowRight, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Check, Loader2, ShieldCheck } from 'lucide-react';
 import { createServiceRoleClient } from '../lib/api-auth';
 import {
   SantaMartaSchool,
@@ -33,6 +32,16 @@ interface FormState {
   website: string;
 }
 
+type FieldError =
+  | 'firstName'
+  | 'lastName'
+  | 'schoolId'
+  | 'email'
+  | 'birthDate'
+  | 'profession'
+  | 'role'
+  | 'consent';
+
 const initialForm: FormState = {
   firstName: '',
   lastName: '',
@@ -45,6 +54,27 @@ const initialForm: FormState = {
   website: '',
 };
 
+const ERROR_MESSAGES: Record<Exclude<FieldError, 'consent'>, string> = {
+  firstName: 'Ingresa tu nombre.',
+  lastName: 'Ingresa tu apellido.',
+  schoolId: 'Selecciona tu colegio.',
+  email: 'Ingresa un correo válido.',
+  birthDate: 'Ingresa tu fecha de nacimiento.',
+  profession: 'Ingresa tu profesión.',
+  role: 'Selecciona tu rol.',
+};
+
+// Focus order for the first invalid control on a failed submit.
+const FOCUS_ORDER: Exclude<FieldError, 'consent'>[] = [
+  'firstName',
+  'lastName',
+  'schoolId',
+  'email',
+  'birthDate',
+  'profession',
+  'role',
+];
+
 export const getServerSideProps: GetServerSideProps<RegistroTractorProps> = async () => {
   try {
     const schools = await getSantaMartaSchools(createServiceRoleClient());
@@ -55,8 +85,21 @@ export const getServerSideProps: GetServerSideProps<RegistroTractorProps> = asyn
   }
 };
 
+// Shared control styling. Genera tokens: focus ring is always yellow (never blue);
+// invalid turns the border + ring red. Tailwind's default gray scale matches the
+// Genera grays exactly (gray-300 #d1d5db, gray-400 #9ca3af, …).
+const CONTROL_BASE =
+  'w-full rounded-lg border bg-white px-[14px] py-3 text-[15px] font-medium leading-[1.2] transition duration-[180ms] focus:outline-none focus:ring-[3px]';
+
+function borderClasses(invalid: boolean): string {
+  return invalid
+    ? 'border-red-500 focus:border-red-500 focus:ring-red-500/[0.22]'
+    : 'border-gray-300 focus:border-brand_accent focus:ring-brand_accent/[0.28]';
+}
+
 export default function RegistroTractorPage({ schools, schoolLoadError }: RegistroTractorProps) {
   const [form, setForm] = useState<FormState>(initialForm);
+  const [errors, setErrors] = useState<Partial<Record<FieldError, boolean>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -65,40 +108,39 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
 
   const updateField = <K extends keyof FormState>(field: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [field]: value }));
+    // Clear the matching field error as soon as the user corrects it.
+    const key: FieldError | null =
+      field === 'consentAccepted' ? 'consent' : field === 'website' ? null : (field as FieldError);
+    if (key) {
+      setErrors((prev) => (prev[key] ? { ...prev, [key]: false } : prev));
+    }
   };
 
-  const validateClient = () => {
-    const firstName = normalizeText(form.firstName);
-    const lastName = normalizeText(form.lastName);
-    const email = normalizeEmail(form.email);
-    const profession = normalizeText(form.profession);
-
-    if (!firstName || !lastName || !form.schoolId || !email || !form.birthDate || !profession || !form.role) {
-      toast.error('Completa todos los campos obligatorios');
-      return false;
-    }
-
-    if (!isValidEmail(email)) {
-      toast.error('Ingresa un correo válido');
-      return false;
-    }
-
-    if (!isValidBirthDate(form.birthDate)) {
-      toast.error('Ingresa una fecha de nacimiento válida');
-      return false;
-    }
-
-    if (!form.consentAccepted) {
-      toast.error('Debes aceptar el tratamiento de tus datos personales');
-      return false;
-    }
-
-    return true;
+  const validate = (): Partial<Record<FieldError, boolean>> => {
+    const next: Partial<Record<FieldError, boolean>> = {};
+    if (!normalizeText(form.firstName)) next.firstName = true;
+    if (!normalizeText(form.lastName)) next.lastName = true;
+    if (!form.schoolId) next.schoolId = true;
+    if (!isValidEmail(normalizeEmail(form.email))) next.email = true;
+    if (!isValidBirthDate(form.birthDate)) next.birthDate = true;
+    if (!normalizeText(form.profession)) next.profession = true;
+    if (!form.role) next.role = true;
+    if (!form.consentAccepted) next.consent = true;
+    return next;
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!validateClient()) return;
+
+    const nextErrors = validate();
+    setErrors(nextErrors);
+    if (Object.values(nextErrors).some(Boolean)) {
+      const firstInvalid = FOCUS_ORDER.find((id) => nextErrors[id]) ?? (nextErrors.consent ? 'acepto' : null);
+      if (firstInvalid) {
+        document.getElementById(firstInvalid)?.focus();
+      }
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -110,298 +152,382 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
 
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(result.error || 'No se pudo enviar el registro');
+        throw new Error(result.error || 'No pudimos enviar tu registro. Intenta nuevamente.');
       }
 
       setSubmitted(true);
-      toast.success('Registro recibido');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Error al enviar el registro');
+      toast.error(
+        error instanceof Error ? error.message : 'No pudimos enviar tu registro. Intenta nuevamente.'
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const successName = normalizeText(form.firstName) || 'colega';
+  const successEmail = form.email.trim() || 'tu correo';
+
   return (
     <>
       <Head>
-        <title>Líderes de la Generación Tractor | Genera</title>
+        <title>Líderes de la Generación Tractor · Registro | Genera</title>
         <meta
           name="description"
           content="Registro para participantes del retiro docente Líderes de la Generación Tractor."
         />
+        <meta name="theme-color" content="#0a0a0a" />
       </Head>
 
-      <main className="min-h-screen bg-[#f5f5f2] text-gray-900">
-        <div className="grid min-h-screen lg:grid-cols-[0.92fr_1.08fr]">
-          <section className="relative hidden overflow-hidden bg-[#0a0a0a] lg:block">
-            <Image
-              src="/images/tractor-photo.png"
-              alt="Participantes de Generación Tractor"
-              fill
-              sizes="42vw"
-              className="object-cover opacity-70"
-              priority
-            />
-            <div className="absolute inset-0 bg-[#0a0a0a]/58" />
-            <div className="relative z-10 flex h-full flex-col justify-between px-12 py-10 text-white">
-              <Image
-                src="/images/logo.png"
-                alt="Fundación Nueva Educación"
-                width={172}
-                height={74}
-                className="h-auto w-40"
-                priority
-              />
-              <div className="max-w-xl pb-12">
-                <p className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-[#fbbf24]">
-                  Red Santa Marta
-                </p>
-                <h1 className="text-5xl font-semibold leading-tight">
-                  Líderes de la Generación Tractor
-                </h1>
-                <p className="mt-5 max-w-lg text-lg leading-8 text-gray-100">
-                  Registro de información personal para activar tu acceso a la plataforma Genera.
-                </p>
-              </div>
-            </div>
-          </section>
+      <main className="grid min-h-screen grid-cols-1 font-mont text-brand_primary min-[901px]:grid-cols-[1fr_1.08fr]">
+        {/* ============ Brand panel (left) ============ */}
+        <aside className="relative flex flex-col justify-start gap-[26px] overflow-hidden bg-brand_primary px-7 pb-[38px] pt-[34px] text-white min-[901px]:justify-between min-[901px]:gap-0 min-[901px]:px-[52px] min-[901px]:py-12">
+          <div className="rt-pattern pointer-events-none absolute inset-0 opacity-5" aria-hidden="true" />
 
-          <section className="flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 lg:px-10">
-            <div className="w-full max-w-3xl">
-              <div className="mb-7 flex items-center justify-between gap-4 lg:hidden">
-                <Image
-                  src="/images/logo.png"
-                  alt="Fundación Nueva Educación"
-                  width={144}
-                  height={62}
-                  className="h-auto w-32"
-                  priority
-                />
-                <div className="rounded-md bg-[#0a0a0a] px-3 py-2 text-sm font-semibold text-[#fbbf24]">
-                  Genera
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/genera/logo-horizontal-on-dark.svg"
+            alt="Genera · Hub de Transformación"
+            className="relative z-[1] h-[34px] w-auto"
+          />
+
+          <div className="relative z-[1] max-w-[460px]">
+            <p className="mb-5 text-[12px] font-semibold uppercase tracking-[.14em] text-brand_accent">
+              Red Santa Marta · Retiro docente
+            </p>
+            <h1 className="m-0 font-black uppercase leading-[.98] tracking-[-.015em] text-white text-[clamp(34px,9vw,46px)] min-[901px]:text-[clamp(40px,4.4vw,56px)]">
+              Líderes de la
+              <br />
+              Generación
+              <br />
+              <span className="text-brand_accent">Tractor</span>
+            </h1>
+            <p className="mt-[26px] max-w-[380px] text-[16px] font-normal leading-[1.6] text-white/[0.62]">
+              Tu registro abre el acceso a la comunidad de líderes que está transformando la educación.
+            </p>
+          </div>
+
+          <p className="relative z-[1] hidden text-[12px] font-medium text-white/40 min-[901px]:block">
+            © 2026 Fundación Nueva Educación · Santiago, Chile
+          </p>
+        </aside>
+
+        {/* ============ Form panel (right) ============ */}
+        <section className="flex flex-col justify-center bg-white px-7 pb-12 pt-9 min-[901px]:px-[60px] min-[901px]:py-14">
+          <div className="mx-auto w-full max-w-[560px]">
+            {submitted ? (
+              <div className="rt-rise flex flex-col items-start" role="status" aria-live="polite">
+                <div className="mb-[22px] grid h-14 w-14 place-items-center rounded-full bg-brand_accent">
+                  <Check className="text-brand_primary" width={26} height={26} strokeWidth={2.4} aria-hidden="true" />
                 </div>
+                <h2 className="mb-[10px] text-[26px] font-bold tracking-[-.01em] text-brand_primary">
+                  Registro enviado
+                </h2>
+                <p className="m-0 max-w-[420px] text-[15px] leading-[1.6] text-gray-500">
+                  Gracias, <strong className="font-semibold text-brand_primary">{successName}</strong>. Tu registro
+                  quedó en revisión. Te escribiremos a{' '}
+                  <strong className="font-semibold text-brand_primary">{successEmail}</strong> en cuanto tu acceso a
+                  Genera esté habilitado.
+                </p>
               </div>
-
-              <div className="mb-7">
-                <p className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-[#9a6a00]">
+            ) : (
+              <form onSubmit={handleSubmit} noValidate>
+                <p className="mb-[10px] text-[12px] font-semibold uppercase tracking-[.14em] text-gray-400">
                   Registro privado
                 </p>
-                <h2 className="text-3xl font-semibold text-[#0a0a0a] sm:text-4xl">
-                  Líderes de la Generación Tractor
+                <h2 className="mb-2 text-[27px] font-bold tracking-[-.01em] text-brand_primary">
+                  Completa tu registro
                 </h2>
-                <p className="mt-3 max-w-2xl text-base leading-7 text-gray-700">
-                  Completa tus datos para que el equipo administrativo pueda revisar tu registro y habilitar tu acceso.
+                <p className="mb-[30px] text-[15px] leading-[1.55] text-gray-500">
+                  Estos datos permiten al equipo administrativo revisar y habilitar tu acceso.
                 </p>
-              </div>
 
-              <div className="border border-gray-200 bg-white shadow-sm">
-                {submitted ? (
-                  <div className="px-6 py-12 text-center sm:px-10">
-                    <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-[#fbbf24]/18 text-[#8a6100]">
-                      <CheckCircle2 className="h-8 w-8" aria-hidden="true" />
-                    </div>
-                    <h3 className="text-2xl font-semibold text-[#0a0a0a]">Registro recibido</h3>
-                    <p className="mx-auto mt-3 max-w-lg text-gray-700">
-                      Gracias. El equipo revisará tu información desde el panel de administración.
-                    </p>
+                {!schoolsAvailable && (
+                  <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+                    No se pudo cargar la lista de colegios. Intenta nuevamente más tarde.
                   </div>
-                ) : (
-                  <form onSubmit={handleSubmit} className="space-y-6 px-5 py-6 sm:px-8 sm:py-8">
-                    {!schoolsAvailable && (
-                      <div className="border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                        No se pudo cargar la lista de colegios. Intenta nuevamente más tarde.
-                      </div>
-                    )}
-
-                    <div className="hidden">
-                      <label htmlFor="website">Sitio web</label>
-                      <input
-                        id="website"
-                        type="text"
-                        tabIndex={-1}
-                        autoComplete="off"
-                        value={form.website}
-                        onChange={(event) => updateField('website', event.target.value)}
-                      />
-                    </div>
-
-                    <div className="grid gap-5 sm:grid-cols-2">
-                      <Field label="Nombre" htmlFor="firstName">
-                        <input
-                          id="firstName"
-                          name="firstName"
-                          type="text"
-                          maxLength={80}
-                          autoComplete="given-name"
-                          value={form.firstName}
-                          onChange={(event) => updateField('firstName', event.target.value)}
-                          className={inputClassName}
-                          required
-                        />
-                      </Field>
-
-                      <Field label="Apellido" htmlFor="lastName">
-                        <input
-                          id="lastName"
-                          name="lastName"
-                          type="text"
-                          maxLength={80}
-                          autoComplete="family-name"
-                          value={form.lastName}
-                          onChange={(event) => updateField('lastName', event.target.value)}
-                          className={inputClassName}
-                          required
-                        />
-                      </Field>
-                    </div>
-
-                    <Field label="Colegio" htmlFor="schoolId">
-                      <select
-                        id="schoolId"
-                        name="schoolId"
-                        value={form.schoolId}
-                        onChange={(event) => updateField('schoolId', event.target.value)}
-                        className={inputClassName}
-                        required
-                        disabled={!schoolsAvailable}
-                      >
-                        <option value="">Selecciona tu colegio</option>
-                        {schools.map((school) => (
-                          <option key={school.id} value={school.id}>
-                            {school.name}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-
-                    <div className="grid gap-5 sm:grid-cols-2">
-                      <Field label="Correo electrónico" htmlFor="email">
-                        <input
-                          id="email"
-                          name="email"
-                          type="email"
-                          autoComplete="email"
-                          value={form.email}
-                          onChange={(event) => updateField('email', event.target.value)}
-                          className={inputClassName}
-                          required
-                        />
-                      </Field>
-
-                      <Field label="Fecha de nacimiento" htmlFor="birthDate">
-                        <input
-                          id="birthDate"
-                          name="birthDate"
-                          type="date"
-                          min="1900-01-01"
-                          max={today}
-                          value={form.birthDate}
-                          onChange={(event) => updateField('birthDate', event.target.value)}
-                          className={inputClassName}
-                          required
-                        />
-                      </Field>
-                    </div>
-
-                    <div className="grid gap-5 sm:grid-cols-2">
-                      <Field label="Profesión" htmlFor="profession">
-                        <input
-                          id="profession"
-                          name="profession"
-                          type="text"
-                          maxLength={140}
-                          value={form.profession}
-                          onChange={(event) => updateField('profession', event.target.value)}
-                          className={inputClassName}
-                          required
-                        />
-                      </Field>
-
-                      <Field label="Rol" htmlFor="role">
-                        <select
-                          id="role"
-                          name="role"
-                          value={form.role}
-                          onChange={(event) => updateField('role', event.target.value as TractorSignupRole)}
-                          className={inputClassName}
-                          required
-                        >
-                          <option value="">Selecciona tu rol</option>
-                          {(Object.keys(TRACTOR_ROLE_LABELS) as TractorSignupRole[]).map((role) => (
-                            <option key={role} value={role}>
-                              {TRACTOR_ROLE_LABELS[role]}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-                    </div>
-
-                    <label className="flex items-start gap-3 border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-6 text-gray-700">
-                      <input
-                        type="checkbox"
-                        checked={form.consentAccepted}
-                        onChange={(event) => updateField('consentAccepted', event.target.checked)}
-                        className="mt-1 h-4 w-4 rounded border-gray-300 text-[#0a0a0a] focus:ring-[#fbbf24]"
-                        required
-                      />
-                      <span>
-                        Acepto el tratamiento de mis datos personales conforme a la Ley 21.719.
-                      </span>
-                    </label>
-
-                    <div className="flex flex-col gap-3 border-t border-gray-100 pt-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <ShieldCheck className="h-4 w-4 text-[#9a6a00]" aria-hidden="true" />
-                        <span>Tu información será revisada por administradores globales.</span>
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={isSubmitting || !schoolsAvailable}
-                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md bg-[#0a0a0a] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#242424] disabled:cursor-not-allowed disabled:bg-gray-400"
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                            Enviando
-                          </>
-                        ) : (
-                          <>
-                            Enviar registro
-                            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </form>
                 )}
-              </div>
-            </div>
-          </section>
-        </div>
+
+                {/* Honeypot — kept hidden, must stay empty for the server to accept the submission. */}
+                <div className="hidden" aria-hidden="true">
+                  <label htmlFor="website">Sitio web</label>
+                  <input
+                    id="website"
+                    type="text"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={form.website}
+                    onChange={(event) => updateField('website', event.target.value)}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-x-5 gap-y-[18px] min-[541px]:grid-cols-2">
+                  <Field id="firstName" label="Nombre" required error={errors.firstName && ERROR_MESSAGES.firstName}>
+                    <input
+                      id="firstName"
+                      name="firstName"
+                      type="text"
+                      maxLength={80}
+                      placeholder="Tu nombre"
+                      autoComplete="given-name"
+                      value={form.firstName}
+                      onChange={(event) => updateField('firstName', event.target.value)}
+                      className={`${CONTROL_BASE} ${borderClasses(Boolean(errors.firstName))} text-brand_primary placeholder:text-gray-400`}
+                      required
+                    />
+                  </Field>
+
+                  <Field id="lastName" label="Apellido" required error={errors.lastName && ERROR_MESSAGES.lastName}>
+                    <input
+                      id="lastName"
+                      name="lastName"
+                      type="text"
+                      maxLength={80}
+                      placeholder="Tu apellido"
+                      autoComplete="family-name"
+                      value={form.lastName}
+                      onChange={(event) => updateField('lastName', event.target.value)}
+                      className={`${CONTROL_BASE} ${borderClasses(Boolean(errors.lastName))} text-brand_primary placeholder:text-gray-400`}
+                      required
+                    />
+                  </Field>
+
+                  <Field id="schoolId" label="Colegio" required full error={errors.schoolId && ERROR_MESSAGES.schoolId}>
+                    <select
+                      id="schoolId"
+                      name="schoolId"
+                      value={form.schoolId}
+                      onChange={(event) => updateField('schoolId', event.target.value)}
+                      className={`${CONTROL_BASE} ${borderClasses(Boolean(errors.schoolId))} rt-select cursor-pointer pr-[42px] ${form.schoolId ? 'text-brand_primary' : 'text-gray-500'}`}
+                      required
+                      disabled={!schoolsAvailable}
+                    >
+                      <option value="">Selecciona tu colegio</option>
+                      {schools.map((school) => (
+                        <option key={school.id} value={school.id}>
+                          {school.name}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+
+                  <Field id="email" label="Correo electrónico" required error={errors.email && ERROR_MESSAGES.email}>
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      placeholder="nombre@colegio.cl"
+                      autoComplete="email"
+                      value={form.email}
+                      onChange={(event) => updateField('email', event.target.value)}
+                      className={`${CONTROL_BASE} ${borderClasses(Boolean(errors.email))} text-brand_primary placeholder:text-gray-400`}
+                      required
+                    />
+                  </Field>
+
+                  <Field
+                    id="birthDate"
+                    label="Fecha de nacimiento"
+                    required
+                    error={errors.birthDate && ERROR_MESSAGES.birthDate}
+                  >
+                    <input
+                      id="birthDate"
+                      name="birthDate"
+                      type="date"
+                      min="1900-01-01"
+                      max={today}
+                      value={form.birthDate}
+                      onChange={(event) => updateField('birthDate', event.target.value)}
+                      className={`${CONTROL_BASE} ${borderClasses(Boolean(errors.birthDate))} rt-date ${form.birthDate ? 'text-brand_primary' : 'text-gray-500'}`}
+                      required
+                    />
+                  </Field>
+
+                  <Field
+                    id="profession"
+                    label="Profesión"
+                    required
+                    error={errors.profession && ERROR_MESSAGES.profession}
+                  >
+                    <input
+                      id="profession"
+                      name="profession"
+                      type="text"
+                      maxLength={140}
+                      placeholder="Ej. Profesora de Historia"
+                      value={form.profession}
+                      onChange={(event) => updateField('profession', event.target.value)}
+                      className={`${CONTROL_BASE} ${borderClasses(Boolean(errors.profession))} text-brand_primary placeholder:text-gray-400`}
+                      required
+                    />
+                  </Field>
+
+                  <Field id="role" label="Rol" required error={errors.role && ERROR_MESSAGES.role}>
+                    <select
+                      id="role"
+                      name="role"
+                      value={form.role}
+                      onChange={(event) => updateField('role', event.target.value as TractorSignupRole)}
+                      className={`${CONTROL_BASE} ${borderClasses(Boolean(errors.role))} rt-select cursor-pointer pr-[42px] ${form.role ? 'text-brand_primary' : 'text-gray-500'}`}
+                      required
+                    >
+                      <option value="">Selecciona tu rol</option>
+                      {(Object.keys(TRACTOR_ROLE_LABELS) as TractorSignupRole[]).map((role) => (
+                        <option key={role} value={role}>
+                          {TRACTOR_ROLE_LABELS[role]}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+
+                <label
+                  className={`rt-consent mt-[18px] flex cursor-pointer items-start gap-3 rounded-[10px] border bg-gray-50 px-4 py-[14px] transition-colors duration-[180ms] ${
+                    errors.consent ? 'border-red-500' : 'border-gray-200'
+                  }`}
+                >
+                  <input
+                    id="acepto"
+                    type="checkbox"
+                    checked={form.consentAccepted}
+                    onChange={(event) => updateField('consentAccepted', event.target.checked)}
+                    className="rt-check relative mt-px h-5 w-5 shrink-0 cursor-pointer appearance-none rounded-[5px] border-[1.5px] border-gray-400 bg-white transition-[background,border-color] duration-[150ms] checked:border-brand_primary checked:bg-brand_primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand_accent/[0.35]"
+                    required
+                  />
+                  <span className="text-[13.5px] leading-[1.5] text-gray-600">
+                    Acepto el tratamiento de mis datos personales conforme a la{' '}
+                    <a
+                      href="#"
+                      target="_blank"
+                      rel="noopener"
+                      className="text-brand_primary underline underline-offset-2"
+                    >
+                      Ley 21.719
+                    </a>
+                    .
+                  </span>
+                </label>
+
+                <div className="mt-[22px] flex flex-col-reverse items-stretch gap-4 min-[541px]:flex-row min-[541px]:items-center min-[541px]:justify-between min-[541px]:gap-[18px]">
+                  <p className="flex items-center gap-[9px] text-[12.5px] leading-[1.4] text-gray-500 min-[541px]:max-w-[260px]">
+                    <ShieldCheck
+                      width={16}
+                      height={16}
+                      strokeWidth={1.75}
+                      className="shrink-0 text-brand_accent_hover"
+                      aria-hidden="true"
+                    />
+                    <span>Revisamos cada registro y te avisamos por correo al activar tu acceso.</span>
+                  </p>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || !schoolsAvailable}
+                    className="rt-submit inline-flex w-full shrink-0 items-center justify-center gap-[10px] rounded-lg bg-brand_primary px-[22px] py-[13px] text-[15px] font-semibold text-white transition-colors duration-[180ms] hover:bg-brand_gray_dark disabled:cursor-not-allowed disabled:opacity-[.55] min-[541px]:w-auto"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 width={17} height={17} className="animate-spin" aria-hidden="true" />
+                        Enviando…
+                      </>
+                    ) : (
+                      <>
+                        Enviar registro
+                        <span className="rt-arrow inline-flex">
+                          <ArrowRight width={17} height={17} strokeWidth={2} aria-hidden="true" />
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </section>
       </main>
+
+      <style jsx>{`
+        /* The single approved Genera decorative background: a tiled G-hub mark. */
+        .rt-pattern {
+          background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 34 34'><circle cx='17' cy='17' r='12' fill='none' stroke='%23fbbf24' stroke-width='1'/><line x1='17' y1='17' x2='29' y2='17' stroke='%23fbbf24' stroke-width='1'/><circle cx='17' cy='17' r='2.2' fill='%23fbbf24'/></svg>");
+          background-size: 34px 34px;
+        }
+        /* Custom select chevron (no native arrow). */
+        .rt-select {
+          background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+          background-repeat: no-repeat;
+          background-position: right 12px center;
+        }
+        .rt-date::-webkit-calendar-picker-indicator {
+          opacity: 0.55;
+          cursor: pointer;
+        }
+        /* Custom consent checkbox: black box, yellow check drawn with a rotated border. */
+        .rt-check::after {
+          content: '';
+          position: absolute;
+          left: 6px;
+          top: 2px;
+          width: 5px;
+          height: 10px;
+          border: solid #fbbf24;
+          border-width: 0 2px 2px 0;
+          transform: rotate(45deg);
+          opacity: 0;
+        }
+        .rt-check:checked::after {
+          opacity: 1;
+        }
+        /* Submit arrow nudge on hover. */
+        .rt-arrow {
+          transition: transform 0.2s ease;
+        }
+        .rt-submit:hover:not(:disabled) .rt-arrow {
+          transform: translateX(3px);
+        }
+        /* Success entrance. */
+        .rt-rise {
+          animation: rt-rise 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes rt-rise {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: none;
+          }
+        }
+      `}</style>
     </>
   );
 }
 
-const inputClassName =
-  'block min-h-[44px] w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-base text-gray-900 shadow-sm outline-none transition focus:border-[#0a0a0a] focus:ring-2 focus:ring-[#fbbf24]/70 disabled:cursor-not-allowed disabled:bg-gray-100 sm:text-sm';
-
 function Field({
+  id,
   label,
-  htmlFor,
+  required,
+  full,
+  error,
   children,
 }: {
+  id: string;
   label: string;
-  htmlFor: string;
+  required?: boolean;
+  full?: boolean;
+  error?: string | false;
   children: React.ReactNode;
 }) {
   return (
-    <div>
-      <label htmlFor={htmlFor} className="mb-2 block text-sm font-semibold text-gray-800">
+    <div className={`flex flex-col gap-[7px] ${full ? 'min-[541px]:col-span-2' : ''}`}>
+      <label htmlFor={id} className="text-[13px] font-semibold text-brand_gray_dark">
         {label}
+        {required && <span className="font-bold text-brand_accent_hover">{' *'}</span>}
       </label>
       {children}
+      {error && <span className="text-[12px] font-medium text-red-500">{error}</span>}
     </div>
   );
 }

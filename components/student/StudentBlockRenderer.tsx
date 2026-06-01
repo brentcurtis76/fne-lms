@@ -526,6 +526,34 @@ export default function StudentBlockRenderer({
       );
     }
 
+    // Guard against an empty quiz. LearningQuizTaker reads questions[0] on mount,
+    // so rendering one with no questions would crash the whole lesson page. No such
+    // rows exist today (save-time validation in both editors blocks them), but if
+    // one ever reaches a student we must let them continue: progression is gated on
+    // block completion, so a dead-end message here would soft-lock the lesson.
+    const quizQuestions = (block.payload as any)?.questions;
+    if (!Array.isArray(quizQuestions) || quizQuestions.length === 0) {
+      return (
+        <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <h3 className="text-lg font-semibold mb-2 text-yellow-900">
+            {block.payload?.title || 'Quiz Interactivo'}
+          </h3>
+          <p className="text-yellow-800">
+            Este quiz aún no tiene preguntas. Por favor, contacta a tu profesor.
+          </p>
+          {!isCompleted && (
+            <button
+              type="button"
+              onClick={() => onComplete()}
+              className="mt-4 px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 text-sm font-medium"
+            >
+              Continuar
+            </button>
+          )}
+        </div>
+      );
+    }
+
     // Check if quiz is already completed
     if (isCompleted) {
       return (

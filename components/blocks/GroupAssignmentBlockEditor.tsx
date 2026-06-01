@@ -24,12 +24,26 @@ export default function GroupAssignmentBlockEditor({
   const supabase = useSupabaseClient<Database>();
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
   const [uploadingFile, setUploadingFile] = React.useState(false);
-  
+
+  // A file upload awaits the network for several seconds. If the user edits other
+  // fields meanwhile, the prop `block.payload` captured by the handler's closure
+  // goes stale. This ref always holds the freshest payload so the upload's
+  // completion merges into current state instead of overwriting those edits.
+  const latestPayloadRef = React.useRef(block.payload);
+  React.useEffect(() => {
+    latestPayloadRef.current = block.payload;
+  }, [block.payload]);
+
   const handleChange = (field: keyof GroupAssignmentBlock['payload'], value: any) => {
-    onChange({
+    const nextPayload = {
       ...block.payload,
       [field]: value
-    });
+    };
+    // Keep the ref in sync synchronously (not just via the post-commit effect) so
+    // an in-flight upload that resolves before the effect re-runs still merges into
+    // the latest payload instead of an older snapshot.
+    latestPayloadRef.current = nextPayload;
+    onChange(nextPayload);
     setHasUnsavedChanges(true);
   };
 
@@ -121,8 +135,17 @@ export default function GroupAssignmentBlockEditor({
         .from('course-materials')
         .getPublicUrl(fileName);
 
-      updateResource(resourceId, 'url', publicUrl);
-      updateResource(resourceId, 'title', file.name);
+      // Merge into the latest payload (via ref), not the closure's stale copy, so
+      // any fields the user edited during the upload are preserved. Setting url and
+      // title in one update also avoids a second derive-from-stale clobber.
+      const currentPayload = latestPayloadRef.current;
+      const updatedResources = (currentPayload.resources || []).map(resource =>
+        resource.id === resourceId
+          ? { ...resource, url: publicUrl, title: file.name }
+          : resource
+      );
+      onChange({ ...currentPayload, resources: updatedResources });
+      setHasUnsavedChanges(true);
       toast.success('Archivo subido exitosamente');
     } catch (error: any) {
       console.error('Error uploading file:', error);

@@ -24,9 +24,9 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Block, BlockType, TextBlockPayload, VideoBlockPayload, ImageBlockPayload, QuizBlockPayload, DownloadBlockPayload, ExternalLinksBlockPayload, GroupAssignmentBlockPayload, GroupAssignmentBlock, BibliographyBlockPayload, BibliographyBlock } from '@/types/blocks';
+import { Block, BlockType, GroupAssignmentBlock, BibliographyBlock } from '@/types/blocks';
 import { Database } from '@/types/supabase';
-import { BLOCK_TYPES, getBlockConfig, getBlockSubtitle } from '@/config/blockTypes';
+import { BLOCK_TYPES } from '@/config/blockTypes';
 import MainLayout from '@/components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '@/components/layout/FunctionalPageHeader';
 import { Pencil, Save, Eye, ChevronLeft } from 'lucide-react';
@@ -61,7 +61,11 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
   const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(() => {
     if (initialLessonData.blocks && Array.isArray(initialLessonData.blocks)) {
       return new Set(initialLessonData.blocks
-        .filter(block => block.id && block.is_visible === false)
+        // group-assignment & bibliography always render in edit mode and expose
+        // no working collapse toggle, so never seed them as collapsed —
+        // otherwise save would persist is_visible:false with no UI to restore it.
+        .filter(block => block.id && block.is_visible === false
+          && block.type !== 'group-assignment' && block.type !== 'bibliography')
         .map(block => block.id));
     }
     return new Set();
@@ -136,44 +140,126 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
     fetchCourseTitle();
   }, [courseId]);
 
-  // Save handler
+  // Save handler.
+  // Preserves block ids across saves: existing blocks (real uuids) are updated in
+  // place, only brand-new blocks ("block-" temp ids) are inserted, and only blocks
+  // the user removed are deleted. The old delete-all/insert-all approach rekeyed
+  // every block on each save, orphaning student progress (lesson_progress.block_id)
+  // and group-assignment membership, which are keyed by block id.
   const handleSave = async () => {
     setIsLoading(true);
-    
+
     try {
+      // Validate quiz blocks before saving (mirrors the module editor). An empty
+      // or malformed quiz would soft-lock students: they can't advance past a quiz
+      // block they're unable to complete, so reject it at save time rather than
+      // letting it reach the lesson player.
+      for (const block of blocks) {
+        if (block.type === 'quiz') {
+          const quizPayload = block.payload as any;
+          if (!quizPayload.questions || quizPayload.questions.length === 0) {
+            toast.error('Los bloques de quiz deben tener al menos una pregunta');
+            setIsLoading(false);
+            return;
+          }
+
+          for (const question of quizPayload.questions) {
+            if (!question.question || question.question.trim() === '') {
+              toast.error('Todas las preguntas del quiz deben tener texto');
+              setIsLoading(false);
+              return;
+            }
+
+            // For non-open-ended questions, ensure at least one correct answer
+            if (question.type !== 'open-ended' && question.options) {
+              const hasCorrectAnswer = question.options.some((opt: any) => opt.isCorrect);
+              if (!hasCorrectAnswer) {
+                toast.error(`La pregunta "${question.question}" debe tener al menos una respuesta correcta`);
+                setIsLoading(false);
+                return;
+              }
+            }
+          }
+        }
+      }
+
       // Update lesson title
       const { error: titleError } = await supabase
         .from('lessons')
         .update({ title: lessonTitle })
         .eq('id', lessonIdString);
-      
+
       if (titleError) throw titleError;
-      
-      // Delete existing blocks
-      const { error: deleteError } = await supabase
+
+      // Delete only blocks the user removed. The DB is the source of truth for
+      // what's persisted: any stored id no longer present locally (and not a
+      // yet-to-be-inserted "block-" temp id) gets removed.
+      const persistedIds = new Set(
+        blocks.filter(block => !block.id.startsWith('block-')).map(block => block.id)
+      );
+      const { data: existingRows, error: fetchError } = await supabase
         .from('blocks')
-        .delete()
+        .select('id')
         .eq('lesson_id', lessonIdString);
-      
-      if (deleteError) throw deleteError;
-      
-      // Insert new blocks
-      if (blocks.length > 0) {
-        const blocksToInsert = blocks.map((block, index) => ({
-          lesson_id: lessonIdString,
-          type: block.type,
-          content: block.payload,
-          position: index,
-          is_visible: !collapsedBlocks.has(block.id)
-        }));
-        
-        const { error: insertError } = await supabase
+
+      if (fetchError) throw fetchError;
+
+      const idsToDelete = (existingRows || [])
+        .map(row => row.id)
+        .filter(id => !persistedIds.has(id));
+
+      if (idsToDelete.length > 0) {
+        const { error: deleteError } = await supabase
           .from('blocks')
-          .insert(blocksToInsert);
-        
-        if (insertError) throw insertError;
+          .delete()
+          .in('id', idsToDelete);
+
+        if (deleteError) throw deleteError;
       }
-      
+
+      // Update existing blocks in place; insert only new ones.
+      const results = await Promise.all(
+        blocks.map((block, index) => {
+          const row = {
+            course_id: courseId,
+            lesson_id: lessonIdString,
+            type: block.type,
+            payload: block.payload,
+            position: index,
+            is_visible: !collapsedBlocks.has(block.id),
+          };
+          if (block.id.startsWith('block-')) {
+            return supabase.from('blocks').insert(row).select('id').single();
+          }
+          return supabase.from('blocks').update(row).eq('id', block.id).select('id').single();
+        })
+      );
+
+      const failed = results.find(result => result.error);
+      if (failed?.error) throw failed.error;
+
+      // Adopt DB-generated ids for newly inserted blocks so the next save updates
+      // them in place instead of inserting duplicates. Remap collapsed-state keys
+      // too, so visibility stays attached to the right block.
+      const idRemap = new Map<string, string>();
+      const savedBlocks = blocks.map((block, index) => {
+        const newId = results[index].data?.id;
+        if (newId && newId !== block.id) {
+          idRemap.set(block.id, newId);
+          return { ...block, id: newId };
+        }
+        return block;
+      });
+
+      if (idRemap.size > 0) {
+        setBlocks(savedBlocks);
+        setCollapsedBlocks(prev => {
+          const next = new Set<string>();
+          prev.forEach(id => next.add(idRemap.get(id) ?? id));
+          return next;
+        });
+      }
+
       toast.success('Lección guardada exitosamente');
       setHasUnsavedChanges(false);
     } catch (error: any) {
@@ -221,11 +307,28 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
       case 'image':
         return { images: [] };
       case 'quiz':
-        return { questions: [] };
+        return {
+          title: '',
+          description: '',
+          instructions: '',
+          questions: [],
+          totalPoints: 0,
+          allowRetries: true,
+          showResults: true,
+          randomizeQuestions: false,
+          randomizeAnswers: false,
+        };
       case 'download':
         return { files: [], title: '', allowBulkDownload: false, requireAuth: false };
       case 'external-links':
-        return { links: [] };
+        return {
+          title: '',
+          description: '',
+          links: [],
+          groupByCategory: false,
+          showThumbnails: true,
+          showDescriptions: true,
+        };
       case 'group-assignment':
         return { title: '', description: '' };
       case 'bibliography':
@@ -236,8 +339,19 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
   };
 
   const updateBlock = (id: string, payload: any) => {
-    setBlocks(blocks.map(block => 
+    setBlocks(prev => prev.map(block =>
       block.id === id ? { ...block, payload } : block
+    ));
+    setHasUnsavedChanges(true);
+  };
+
+  // Merge a single field into a block's payload. Uses functional setState so
+  // rapid successive field updates don't clobber each other.
+  const updateBlockField = (id: string, field: string, value: any) => {
+    setBlocks(prev => prev.map(block =>
+      block.id === id
+        ? { ...block, payload: { ...(block.payload as any), [field]: value } }
+        : block
     ));
     setHasUnsavedChanges(true);
   };
@@ -268,8 +382,8 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
 
   const handleDragEnd = (event: any) => {
     const { active, over } = event;
-    
-    if (active.id !== over.id) {
+
+    if (over && active.id !== over.id) {
       const oldIndex = blocks.findIndex((block) => block.id === active.id);
       const newIndex = blocks.findIndex((block) => block.id === over.id);
       
@@ -278,8 +392,10 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
     }
   };
 
-  // Block renderer component
-  const SortableBlock = ({ block }: { block: Block }) => {
+  // Block renderer component. Each block editor owns its own header/collapse/
+  // delete/save chrome via BlockEditorWrapper, so SortableBlock only provides
+  // the drag handle for reordering.
+  const SortableBlock = ({ block, index }: { block: Block; index: number }) => {
     const {
       attributes,
       listeners,
@@ -294,104 +410,111 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
     };
 
     const isCollapsed = collapsedBlocks.has(block.id);
-    const blockConfig = getBlockConfig(block.type);
 
     return (
       <div
         ref={setNodeRef}
         style={style}
         {...attributes}
-        className={`mb-4 border rounded-lg ${
-          activeBlockId === block.id ? 'ring-2 ring-brand_accent' : ''
-        }`}
+        className={`mb-2 ${activeBlockId === block.id ? 'ring-2 ring-brand_accent rounded-lg' : ''}`}
       >
-        <div className="flex items-center justify-between p-3 bg-gray-50 border-b">
-          <div className="flex items-center space-x-2">
-            <div {...listeners} className="cursor-move">
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </div>
-            <span className="font-medium">{blockConfig.label}</span>
-            {getBlockSubtitle(block) && (
-              <span className="text-sm text-gray-500">- {getBlockSubtitle(block)}</span>
-            )}
-          </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => toggleBlockCollapse(block.id)}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              {isCollapsed ? '▶' : '▼'}
-            </button>
-            <button
-              onClick={() => deleteBlock(block.id)}
-              className="text-red-500 hover:text-red-700"
-            >
-              ✕
-            </button>
-          </div>
+        {/* Drag handle (reorder) */}
+        <div
+          {...listeners}
+          className="flex items-center justify-center py-1 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
+          title="Arrastrar para reordenar"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+          </svg>
         </div>
-        
-        {!isCollapsed && (
-          <div className="p-4">
-            {block.type === 'text' && (
-              <TextBlockEditor
-                // @ts-ignore - Editor component API mismatch, will be refactored
-                value={block.payload as TextBlockPayload}
-                onChange={(payload) => updateBlock(block.id, payload)}
-              />
-            )}
-            {block.type === 'video' && (
-              <VideoBlockEditor
-                // @ts-ignore - Editor component API mismatch, will be refactored
-                value={block.payload as VideoBlockPayload}
-                onChange={(payload) => updateBlock(block.id, payload)}
-              />
-            )}
-            {block.type === 'image' && (
-              <ImageBlockEditor
-                // @ts-ignore - Editor component API mismatch, will be refactored
-                value={block.payload as ImageBlockPayload}
-                onChange={(payload) => updateBlock(block.id, payload)}
-              />
-            )}
-            {block.type === 'quiz' && (
-              <QuizBlockEditor
-                // @ts-ignore - Editor component API mismatch, will be refactored
-                value={block.payload as QuizBlockPayload}
-                onChange={(payload) => updateBlock(block.id, payload)}
-              />
-            )}
-            {block.type === 'download' && (
-              <FileDownloadBlockEditor
-                // @ts-ignore - Editor component API mismatch, will be refactored
-                value={block.payload as DownloadBlockPayload}
-                onChange={(payload) => updateBlock(block.id, payload)}
-              />
-            )}
-            {block.type === 'external-links' && (
-              <ExternalLinkBlockEditor
-                // @ts-ignore - Editor component API mismatch, will be refactored
-                value={block.payload as ExternalLinksBlockPayload}
-                onChange={(payload) => updateBlock(block.id, payload)}
-              />
-            )}
-            {block.type === 'group-assignment' && (
-              <GroupAssignmentBlockEditor
-                // @ts-ignore - Editor component API mismatch, will be refactored
-                value={block.payload as GroupAssignmentBlockPayload}
-                onChange={(payload) => updateBlock(block.id, payload)}
-              />
-            )}
-            {block.type === 'bibliography' && (
-              <BibliographyBlockEditor
-                // @ts-ignore - Editor component API mismatch, will be refactored
-                value={block.payload as BibliographyBlockPayload}
-                onChange={(payload) => updateBlock(block.id, payload)}
-              />
-            )}
-          </div>
+
+        {block.type === 'text' && (
+          <TextBlockEditor
+            block={block as any}
+            index={index}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleBlockCollapse(block.id)}
+            onTitleChange={(newTitle) => updateBlockField(block.id, 'title', newTitle)}
+            onContentChange={(newContent) => updateBlockField(block.id, 'content', newContent)}
+            onSave={() => handleSave()}
+            onDelete={() => deleteBlock(block.id)}
+          />
+        )}
+        {block.type === 'video' && (
+          <VideoBlockEditor
+            block={block as any}
+            onUpdate={(blockId, field, value) => updateBlockField(block.id, field, value)}
+            onDelete={() => deleteBlock(block.id)}
+            onSave={() => handleSave()}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleBlockCollapse(block.id)}
+          />
+        )}
+        {block.type === 'image' && (
+          <ImageBlockEditor
+            block={block as any}
+            onSave={() => handleSave()}
+            onDelete={() => deleteBlock(block.id)}
+            onUpdate={(blockId, field, value) => updateBlockField(block.id, field as string, value)}
+            onUpload={(blockId, file) => { console.log('File upload not implemented yet:', file); }}
+            onTitleChange={(blockId, title) => updateBlockField(block.id, 'title', title)}
+            isCollapsed={isCollapsed}
+            toggleCollapse={() => toggleBlockCollapse(block.id)}
+          />
+        )}
+        {block.type === 'quiz' && (
+          <QuizBlockEditor
+            block={block as any}
+            onUpdate={(blockId, field, value) => updateBlockField(block.id, field as string, value)}
+            onTitleChange={(blockId, title) => updateBlockField(block.id, 'title', title)}
+            onSave={() => handleSave()}
+            onDelete={() => deleteBlock(block.id)}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleBlockCollapse(block.id)}
+          />
+        )}
+        {block.type === 'download' && (
+          <FileDownloadBlockEditor
+            block={block as any}
+            onUpdate={(blockId, field, value) => updateBlockField(block.id, field as string, value)}
+            onTitleChange={(blockId, title) => updateBlockField(block.id, 'title', title)}
+            onSave={() => handleSave()}
+            onDelete={() => deleteBlock(block.id)}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleBlockCollapse(block.id)}
+            courseId={courseId}
+          />
+        )}
+        {block.type === 'external-links' && (
+          <ExternalLinkBlockEditor
+            block={block as any}
+            onUpdate={(blockId, field, value) => updateBlockField(block.id, field as string, value)}
+            onTitleChange={(blockId, title) => updateBlockField(block.id, 'title', title)}
+            onSave={() => handleSave()}
+            onDelete={() => deleteBlock(block.id)}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleBlockCollapse(block.id)}
+          />
+        )}
+        {block.type === 'group-assignment' && (
+          <GroupAssignmentBlockEditor
+            block={block as GroupAssignmentBlock}
+            onChange={(payload) => updateBlock(block.id, payload)}
+            onDelete={() => deleteBlock(block.id)}
+            mode="edit"
+            courseId={courseId}
+          />
+        )}
+        {block.type === 'bibliography' && (
+          <BibliographyBlockEditor
+            block={block as BibliographyBlock}
+            onChange={(payload) => updateBlock(block.id, payload)}
+            onDelete={() => deleteBlock(block.id)}
+            mode="edit"
+            courseId={courseId}
+            onSave={() => handleSave()}
+          />
         )}
       </div>
     );
@@ -493,8 +616,8 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
             strategy={verticalListSortingStrategy}
           >
             {blocks.length > 0 ? (
-              blocks.map((block) => (
-                <SortableBlock key={block.id} block={block} />
+              blocks.map((block, index) => (
+                <SortableBlock key={block.id} block={block} index={index} />
               ))
             ) : (
               <div className="text-center py-12 bg-gray-50 rounded-lg">
@@ -545,7 +668,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const blocks = blocksData?.map(block => ({
     id: block.id,
     type: block.type,
-    payload: block.content,
+    payload: block.payload,
     position: block.position,
     is_visible: block.is_visible
   })) || [];

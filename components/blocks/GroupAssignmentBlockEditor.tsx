@@ -121,8 +121,15 @@ export default function GroupAssignmentBlockEditor({
         .from('course-materials')
         .getPublicUrl(fileName);
 
-      updateResource(resourceId, 'url', publicUrl);
-      updateResource(resourceId, 'title', file.name);
+      // Set url and title in a single update. Two back-to-back updateResource
+      // calls would each derive from the same stale block.payload, so the second
+      // would overwrite the first and drop the uploaded url.
+      const updatedResources = (block.payload.resources || []).map(resource =>
+        resource.id === resourceId
+          ? { ...resource, url: publicUrl, title: file.name }
+          : resource
+      );
+      handleChange('resources', updatedResources);
       toast.success('Archivo subido exitosamente');
     } catch (error: any) {
       console.error('Error uploading file:', error);

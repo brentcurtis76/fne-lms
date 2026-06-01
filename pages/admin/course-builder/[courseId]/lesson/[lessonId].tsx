@@ -162,7 +162,7 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
         const blocksToInsert = blocks.map((block, index) => ({
           lesson_id: lessonIdString,
           type: block.type,
-          content: block.payload,
+          payload: block.payload,
           position: index,
           is_visible: !collapsedBlocks.has(block.id)
         }));
@@ -221,11 +221,28 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
       case 'image':
         return { images: [] };
       case 'quiz':
-        return { questions: [] };
+        return {
+          title: '',
+          description: '',
+          instructions: '',
+          questions: [],
+          totalPoints: 0,
+          allowRetries: true,
+          showResults: true,
+          randomizeQuestions: false,
+          randomizeAnswers: false,
+        };
       case 'download':
         return { files: [], title: '', allowBulkDownload: false, requireAuth: false };
       case 'external-links':
-        return { links: [] };
+        return {
+          title: '',
+          description: '',
+          links: [],
+          groupByCategory: false,
+          showThumbnails: true,
+          showDescriptions: true,
+        };
       case 'group-assignment':
         return { title: '', description: '' };
       case 'bibliography':
@@ -236,7 +253,7 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
   };
 
   const updateBlock = (id: string, payload: any) => {
-    setBlocks(blocks.map(block =>
+    setBlocks(prev => prev.map(block =>
       block.id === id ? { ...block, payload } : block
     ));
     setHasUnsavedChanges(true);
@@ -279,8 +296,8 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
 
   const handleDragEnd = (event: any) => {
     const { active, over } = event;
-    
-    if (active.id !== over.id) {
+
+    if (over && active.id !== over.id) {
       const oldIndex = blocks.findIndex((block) => block.id === active.id);
       const newIndex = blocks.findIndex((block) => block.id === over.id);
       
@@ -399,7 +416,7 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
             block={block as GroupAssignmentBlock}
             onChange={(payload) => updateBlock(block.id, payload)}
             onDelete={() => deleteBlock(block.id)}
-            mode={isCollapsed ? 'preview' : 'edit'}
+            mode="edit"
             courseId={courseId}
           />
         )}
@@ -408,7 +425,7 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
             block={block as BibliographyBlock}
             onChange={(payload) => updateBlock(block.id, payload)}
             onDelete={() => deleteBlock(block.id)}
-            mode={isCollapsed ? 'preview' : 'edit'}
+            mode="edit"
             courseId={courseId}
             onSave={() => handleSave()}
           />
@@ -565,7 +582,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const blocks = blocksData?.map(block => ({
     id: block.id,
     type: block.type,
-    payload: block.content,
+    payload: block.payload,
     position: block.position,
     is_visible: block.is_visible
   })) || [];

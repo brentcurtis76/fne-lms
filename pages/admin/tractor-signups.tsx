@@ -187,8 +187,8 @@ export default function TractorSignupsAdminPage() {
         throw new Error(json.error || 'No se pudo otorgar acceso');
       }
 
-      if (json.email?.error) {
-        toast.success('Acceso otorgado. Revisa el envío de correo.');
+      if (json.email?.sent === false || json.email?.fallback || json.email?.error) {
+        toast('Acceso otorgado, pero no se envió el correo de invitación');
       } else {
         toast.success('Acceso otorgado');
       }

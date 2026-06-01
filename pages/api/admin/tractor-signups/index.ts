@@ -112,6 +112,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const profilesByEmail = new Map<string, ProfileRow>();
     const allProfiles: ProfileRow[] = [];
 
+    const addProfile = (profile: ProfileRow) => {
+      const normalized = normalizeEmail(profile.email);
+      if (normalized && !profilesByEmail.has(normalized)) {
+        profilesByEmail.set(normalized, profile);
+        allProfiles.push(profile);
+      }
+    };
+
     for (const emailBatch of chunk(emails, BATCH_SIZE)) {
       const { data: profiles, error: profileError } = await supabase
         .from('profiles')
@@ -124,10 +132,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       for (const profile of (profiles ?? []) as ProfileRow[]) {
-        const normalized = normalizeEmail(profile.email);
-        if (normalized && !profilesByEmail.has(normalized)) {
-          profilesByEmail.set(normalized, profile);
-          allProfiles.push(profile);
+        addProfile(profile);
+      }
+
+      const missingEmails = emailBatch.filter((email) => !profilesByEmail.has(email));
+      for (const email of missingEmails) {
+        const { data: caseInsensitiveProfiles, error: caseInsensitiveError } = await supabase
+          .from('profiles')
+          .select('id, email, first_name, last_name, name, approval_status, school_id')
+          .ilike('email', email)
+          .limit(1);
+
+        if (caseInsensitiveError) {
+          console.error('[tractor-signups API] profile case-insensitive fetch failed:', caseInsensitiveError);
+          return res.status(500).json({ error: 'Error al reconciliar usuarios' });
+        }
+
+        if (caseInsensitiveProfiles?.[0]) {
+          addProfile(caseInsensitiveProfiles[0] as ProfileRow);
         }
       }
     }

@@ -1,10 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createServiceRoleClient, isValidSchoolIdInput } from '../../lib/api-auth';
-import { trackFormSubmission } from '../../lib/formSubmissionTracker';
 import { rateLimit } from '../../lib/rateLimit';
 import {
   TRACTOR_SIGNUP_SOURCE,
-  getFullName,
   isSantaMartaSchoolId,
   isTractorSignupRole,
   isValidBirthDate,
@@ -120,12 +118,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al procesar el registro' });
     }
 
-    if (existing?.status === 'granted') {
-      return res.status(200).json({
-        success: true,
-        alreadyGranted: true,
-        message: 'Tu acceso ya fue gestionado.',
-      });
+    if (existing?.id) {
+      return res.status(200).json({ success: true });
     }
 
     const signupPayload = {
@@ -145,30 +139,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       granted_at: null,
     };
 
-    if (existing?.id) {
-      const { error: updateError } = await supabase
-        .from('tractor_signups')
-        .update(signupPayload)
-        .eq('id', existing.id);
+    const { error: insertError } = await supabase.from('tractor_signups').insert(signupPayload);
 
-      if (updateError) {
-        console.error('[tractor-signup] update failed:', updateError);
-        return res.status(500).json({ error: 'Error al actualizar el registro' });
+    if (insertError) {
+      if (insertError.code === '23505') {
+        return res.status(200).json({ success: true });
       }
-    } else {
-      const { error: insertError } = await supabase.from('tractor_signups').insert(signupPayload);
-
-      if (insertError) {
-        console.error('[tractor-signup] insert failed:', insertError);
-        return res.status(500).json({ error: 'Error al guardar el registro' });
-      }
+      console.error('[tractor-signup] insert failed:', insertError);
+      return res.status(500).json({ error: 'Error al guardar el registro' });
     }
-
-    await trackFormSubmission(supabase, {
-      senderEmail: email,
-      senderName: getFullName(firstName, lastName),
-      formType: 'tractor_signup',
-    });
 
     return res.status(200).json({ success: true });
   } catch (error) {

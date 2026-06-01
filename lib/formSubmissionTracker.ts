@@ -19,12 +19,14 @@ export async function trackFormSubmission(
   }
 ): Promise<{ count: number; warning: boolean; message?: string }> {
   try {
+    const formType = data.formType || 'contact';
+
     // Record the submission
     const { error: insertError } = await supabase
       .from('form_submissions')
       .insert({
         submission_date: new Date().toISOString(),
-        form_type: data.formType || 'contact',
+        form_type: formType,
         recipient_email: 'info@nuevaeducacion.org',
         sender_email: data.senderEmail,
         sender_name: data.senderName
@@ -42,6 +44,7 @@ export async function trackFormSubmission(
     const { data: submissions, error: countError } = await supabase
       .from('form_submissions')
       .select('id')
+      .eq('form_type', formType)
       .gte('submission_date', firstDayOfMonth)
       .lte('submission_date', lastDayOfMonth);
 
@@ -67,7 +70,7 @@ export async function trackFormSubmission(
     }
 
     // If warning triggered, send admin notification
-    if (warning && count === 45) {
+    if (formType === 'contact' && warning && count === 45) {
       // Only send notification when EXACTLY hitting 45 to avoid spam
       await sendAdminNotification(count);
     }
@@ -148,6 +151,7 @@ export async function getMonthlyFormStats(
     const { data: submissions, error } = await supabase
       .from('form_submissions')
       .select('*')
+      .eq('form_type', 'contact')
       .gte('submission_date', firstDayOfMonth)
       .lte('submission_date', lastDayOfMonth)
       .order('submission_date', { ascending: false });

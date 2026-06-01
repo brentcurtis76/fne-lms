@@ -83,28 +83,27 @@ async function findProfileByEmail(supabase: any, email: string): Promise<Profile
     .from('profiles')
     .select('id, email, first_name, last_name, name, school_id, approval_status')
     .eq('email', email)
-    .maybeSingle();
+    .limit(1);
 
   if (error) {
     throw error;
   }
 
-  if (data) {
-    return data as ProfileRow;
+  if (data?.[0]) {
+    return data[0] as ProfileRow;
   }
 
   const { data: caseInsensitiveData, error: caseInsensitiveError } = await supabase
     .from('profiles')
     .select('id, email, first_name, last_name, name, school_id, approval_status')
     .ilike('email', email)
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
 
   if (caseInsensitiveError) {
     throw caseInsensitiveError;
   }
 
-  return (caseInsensitiveData as ProfileRow | null) ?? null;
+  return (caseInsensitiveData?.[0] as ProfileRow | undefined) ?? null;
 }
 
 async function ensureRole(
@@ -121,13 +120,13 @@ async function ensureRole(
     .eq('role_type', role)
     .eq('school_id', schoolId)
     .eq('is_active', true)
-    .maybeSingle();
+    .limit(1);
 
   if (existingRoleError) {
     throw existingRoleError;
   }
 
-  if (existingRole) {
+  if (existingRole?.[0]) {
     return 'existing';
   }
 
@@ -177,7 +176,7 @@ async function sendInviteEmail(params: {
     console.log('[tractor-signups grant] RESEND_API_KEY missing; invitation email not sent', {
       toDomain: params.to.split('@')[1] ?? 'unknown',
     });
-    return { sent: false, fallback: true };
+    return { sent: false, fallback: true, error: 'RESEND_API_KEY no configurado' };
   }
 
   const resend = new Resend(process.env.RESEND_API_KEY);
@@ -372,7 +371,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           first_name: signupRow.first_name,
           last_name: signupRow.last_name,
           name: fullName,
-          role,
           school_id: schoolId,
           school: schoolName,
           approval_status: 'approved',

@@ -59,7 +59,6 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
   const [form, setForm] = useState<FormState>(initialForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [alreadyGranted, setAlreadyGranted] = useState(false);
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const schoolsAvailable = schools.length > 0 && !schoolLoadError;
@@ -114,7 +113,6 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
         throw new Error(result.error || 'No se pudo enviar el registro');
       }
 
-      setAlreadyGranted(Boolean(result.alreadyGranted));
       setSubmitted(true);
       toast.success('Registro recibido');
     } catch (error) {
@@ -203,13 +201,9 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
                     <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-[#fbbf24]/18 text-[#8a6100]">
                       <CheckCircle2 className="h-8 w-8" aria-hidden="true" />
                     </div>
-                    <h3 className="text-2xl font-semibold text-[#0a0a0a]">
-                      {alreadyGranted ? 'Tu acceso ya fue gestionado' : 'Registro recibido'}
-                    </h3>
+                    <h3 className="text-2xl font-semibold text-[#0a0a0a]">Registro recibido</h3>
                     <p className="mx-auto mt-3 max-w-lg text-gray-700">
-                      {alreadyGranted
-                        ? 'Ya tenemos tu registro vinculado a un usuario de la plataforma.'
-                        : 'Gracias. El equipo revisará tu información desde el panel de administración.'}
+                      Gracias. El equipo revisará tu información desde el panel de administración.
                     </p>
                   </div>
                 ) : (

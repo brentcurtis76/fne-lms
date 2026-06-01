@@ -33,7 +33,20 @@ export function csvEscape(val: string): string {
 }
 
 export function neutralizeSpreadsheetFormula(val: string): string {
+  if (isPlainSpreadsheetNumber(val)) {
+    return val;
+  }
+
   return /(?:^[\s]*[=+\-@]|[\t\r])/.test(val) ? `'${val}` : val;
+}
+
+function isPlainSpreadsheetNumber(val: string): boolean {
+  if (/[\t\r]/.test(val)) {
+    return false;
+  }
+
+  const trimmed = val.trim();
+  return /^[+-]?(?=.*\d)[\d .,]+$/.test(trimmed);
 }
 
 export class ReportExporter {

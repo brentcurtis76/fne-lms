@@ -141,15 +141,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .from('profiles')
           .select('id, email, first_name, last_name, name, approval_status, school_id')
           .ilike('email', email)
-          .limit(1);
+          .limit(20);
 
         if (caseInsensitiveError) {
           console.error('[tractor-signups API] profile case-insensitive fetch failed:', caseInsensitiveError);
           return res.status(500).json({ error: 'Error al reconciliar usuarios' });
         }
 
-        if (caseInsensitiveProfiles?.[0]) {
-          addProfile(caseInsensitiveProfiles[0] as ProfileRow);
+        const matchingProfile = ((caseInsensitiveProfiles ?? []) as ProfileRow[]).find(
+          (profile) => normalizeEmail(profile.email) === email
+        );
+
+        if (matchingProfile) {
+          addProfile(matchingProfile);
         }
       }
     }

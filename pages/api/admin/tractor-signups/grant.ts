@@ -97,13 +97,17 @@ async function findProfileByEmail(supabase: any, email: string): Promise<Profile
     .from('profiles')
     .select('id, email, first_name, last_name, name, school_id, approval_status')
     .ilike('email', email)
-    .limit(1);
+    .limit(20);
 
   if (caseInsensitiveError) {
     throw caseInsensitiveError;
   }
 
-  return (caseInsensitiveData?.[0] as ProfileRow | undefined) ?? null;
+  const matchingProfile = ((caseInsensitiveData ?? []) as ProfileRow[]).find(
+    (profile) => normalizeEmail(profile.email) === email
+  );
+
+  return matchingProfile ?? null;
 }
 
 async function ensureRole(

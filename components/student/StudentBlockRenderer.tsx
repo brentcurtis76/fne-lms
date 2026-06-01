@@ -526,6 +526,22 @@ export default function StudentBlockRenderer({
       );
     }
 
+    // Guard against an empty quiz: LearningQuizTaker reads questions[0] on mount,
+    // so a quiz saved with no questions would crash the whole lesson page.
+    const quizQuestions = (block.payload as any)?.questions;
+    if (!Array.isArray(quizQuestions) || quizQuestions.length === 0) {
+      return (
+        <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <h3 className="text-lg font-semibold mb-2 text-yellow-900">
+            {block.payload?.title || 'Quiz Interactivo'}
+          </h3>
+          <p className="text-yellow-800">
+            Este quiz aún no tiene preguntas. Por favor, contacta a tu profesor.
+          </p>
+        </div>
+      );
+    }
+
     // Check if quiz is already completed
     if (isCompleted) {
       return (

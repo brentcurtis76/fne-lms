@@ -24,7 +24,16 @@ export default function GroupAssignmentBlockEditor({
   const supabase = useSupabaseClient<Database>();
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
   const [uploadingFile, setUploadingFile] = React.useState(false);
-  
+
+  // A file upload awaits the network for several seconds. If the user edits other
+  // fields meanwhile, the prop `block.payload` captured by the handler's closure
+  // goes stale. This ref always holds the freshest payload so the upload's
+  // completion merges into current state instead of overwriting those edits.
+  const latestPayloadRef = React.useRef(block.payload);
+  React.useEffect(() => {
+    latestPayloadRef.current = block.payload;
+  }, [block.payload]);
+
   const handleChange = (field: keyof GroupAssignmentBlock['payload'], value: any) => {
     onChange({
       ...block.payload,
@@ -121,15 +130,17 @@ export default function GroupAssignmentBlockEditor({
         .from('course-materials')
         .getPublicUrl(fileName);
 
-      // Set url and title in a single update. Two back-to-back updateResource
-      // calls would each derive from the same stale block.payload, so the second
-      // would overwrite the first and drop the uploaded url.
-      const updatedResources = (block.payload.resources || []).map(resource =>
+      // Merge into the latest payload (via ref), not the closure's stale copy, so
+      // any fields the user edited during the upload are preserved. Setting url and
+      // title in one update also avoids a second derive-from-stale clobber.
+      const currentPayload = latestPayloadRef.current;
+      const updatedResources = (currentPayload.resources || []).map(resource =>
         resource.id === resourceId
           ? { ...resource, url: publicUrl, title: file.name }
           : resource
       );
-      handleChange('resources', updatedResources);
+      onChange({ ...currentPayload, resources: updatedResources });
+      setHasUnsavedChanges(true);
       toast.success('Archivo subido exitosamente');
     } catch (error: any) {
       console.error('Error uploading file:', error);

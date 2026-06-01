@@ -3,6 +3,7 @@ import type { GetServerSideProps } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { toast } from 'react-hot-toast';
 import {
+  AlertTriangle,
   CheckCircle2,
   Download,
   FileSpreadsheet,
@@ -10,12 +11,21 @@ import {
   Loader2,
   RefreshCw,
   Search,
+  Settings2,
+  Trash2,
   Users,
   XCircle,
 } from 'lucide-react';
 import MainLayout from '../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
 import EnhancedTable from '../../components/reports/EnhancedTable';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
 import { createServiceRoleClient } from '../../lib/api-auth';
 import { ReportExporter } from '../../lib/exportUtils';
 import {
@@ -23,57 +33,26 @@ import {
   TRACTOR_STATUS_LABELS,
   TractorSignupRole,
   TractorSignupStatus,
+  formatDate,
+  formatDateTime,
+  formatExistingRoles,
 } from '../../lib/tractorSignups';
 import { isGlobalAdmin } from '../../utils/roleUtils';
+import {
+  ExistingUserBadge,
+  RoleBadge,
+  StatusBadge,
+  TractorSignup,
+  TractorSignupCard,
+} from '../../components/admin/TractorSignupCard';
 
 interface SchoolOption {
   id: number;
   name: string;
 }
 
-interface ExistingRole {
-  role_type: string;
-  school_id: number | null;
-}
-
-interface TractorSignup {
-  id: string;
-  first_name: string;
-  last_name: string;
-  full_name: string;
-  email: string;
-  school_id: number;
-  school_name: string;
-  birth_date: string;
-  profession: string;
-  role: TractorSignupRole;
-  role_label: string;
-  status: TractorSignupStatus;
-  status_label: string;
-  created_at: string;
-  updated_at: string | null;
-  granted_at: string | null;
-  is_existing_user: boolean;
-  existing_user_id: string | null;
-  existing_name: string | null;
-  existing_email: string | null;
-  existing_status: string | null;
-  existing_roles: ExistingRole[];
-}
-
 type ExistingFilter = 'all' | 'existing' | 'new';
-
-const ROLE_LABEL_BY_TYPE: Record<string, string> = {
-  admin: 'Admin',
-  consultor: 'Consultor',
-  equipo_directivo: 'Equipo Directivo',
-  lider_generacion: 'Líder Generación',
-  lider_comunidad: 'Líder Comunidad',
-  community_manager: 'Community Manager',
-  docente: 'Docente',
-  supervisor_de_red: 'Supervisor de Red',
-  encargado_licitacion: 'Encargado Licitación',
-};
+type SignupAction = 'grant' | 'dismiss' | 'delete';
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const supabase = createPagesServerClient(ctx);
@@ -99,13 +78,21 @@ export default function TractorSignupsAdminPage() {
   const [schools, setSchools] = useState<SchoolOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [actioningId, setActioningId] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
   const [schoolId, setSchoolId] = useState('all');
   const [role, setRole] = useState<'all' | TractorSignupRole>('all');
   const [status, setStatus] = useState<'all' | TractorSignupStatus>('all');
   const [existingFilter, setExistingFilter] = useState<ExistingFilter>('all');
+
+  // Manage dialog (detail + actions). `confirmDelete` flips the dialog into its
+  // delete-confirmation state; `deleteAccount` toggles tearing down the linked
+  // platform account. `pendingAction` drives the per-button spinner.
+  const [manageRow, setManageRow] = useState<TractorSignup | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteAccount, setDeleteAccount] = useState(false);
+  const [pendingAction, setPendingAction] = useState<SignupAction | null>(null);
+  const busy = pendingAction !== null;
 
   const fetchRows = useCallback(async () => {
     setLoading(true);
@@ -168,61 +155,59 @@ export default function TractorSignupsAdminPage() {
     };
   }, [rows]);
 
-  const handleGrant = async (row: TractorSignup) => {
-    const confirmed = window.confirm(
-      `Otorgar acceso a ${row.full_name || row.email} como ${row.role_label}?`
-    );
-    if (!confirmed) return;
-
-    setActioningId(row.id);
-    try {
-      const response = await fetch('/api/admin/tractor-signups/grant', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signupId: row.id, action: 'grant' }),
-      });
-
-      const json = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(json.error || 'No se pudo otorgar acceso');
-      }
-
-      if (json.email?.sent === false || json.email?.fallback || json.email?.error) {
-        toast('Acceso otorgado, pero no se envió el correo de invitación');
-      } else {
-        toast.success('Acceso otorgado');
-      }
-      await fetchRows();
-    } catch (grantError) {
-      toast.error(grantError instanceof Error ? grantError.message : 'Error al otorgar acceso');
-    } finally {
-      setActioningId(null);
-    }
+  const openManage = (row: TractorSignup) => {
+    setManageRow(row);
+    setConfirmDelete(false);
+    setDeleteAccount(false);
   };
 
-  const handleDismiss = async (row: TractorSignup) => {
-    const confirmed = window.confirm(`Descartar el registro de ${row.full_name || row.email}?`);
-    if (!confirmed) return;
+  const closeManage = () => {
+    if (busy) return;
+    setManageRow(null);
+    setConfirmDelete(false);
+    setDeleteAccount(false);
+  };
 
-    setActioningId(row.id);
+  const runAction = async (action: SignupAction) => {
+    if (!manageRow) return;
+    setPendingAction(action);
     try {
+      const body =
+        action === 'delete'
+          ? { signupId: manageRow.id, action, deleteAccount }
+          : { signupId: manageRow.id, action };
+
       const response = await fetch('/api/admin/tractor-signups/grant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signupId: row.id, action: 'dismiss' }),
+        body: JSON.stringify(body),
       });
 
       const json = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(json.error || 'No se pudo descartar el registro');
+        throw new Error(json.error || 'No se pudo completar la acción');
       }
 
-      toast.success('Registro descartado');
+      if (action === 'grant') {
+        if (json.email?.sent === false || json.email?.fallback || json.email?.error) {
+          toast('Acceso otorgado, pero no se envió el correo de invitación');
+        } else {
+          toast.success('Acceso otorgado');
+        }
+      } else if (action === 'dismiss') {
+        toast.success('Registro descartado');
+      } else {
+        toast.success(json.deletedAccount ? 'Usuario y registro eliminados' : 'Registro eliminado');
+      }
+
+      setManageRow(null);
+      setConfirmDelete(false);
+      setDeleteAccount(false);
       await fetchRows();
-    } catch (dismissError) {
-      toast.error(dismissError instanceof Error ? dismissError.message : 'Error al descartar registro');
+    } catch (actionError) {
+      toast.error(actionError instanceof Error ? actionError.message : 'Error al procesar la acción');
     } finally {
-      setActioningId(null);
+      setPendingAction(null);
     }
   };
 
@@ -244,19 +229,21 @@ export default function TractorSignupsAdminPage() {
 
   const handleExport = (type: 'csv' | 'excel') => {
     const data = exportRows();
-    const headers = Object.keys(data[0] ?? {
-      Nombre: '',
-      Email: '',
-      Colegio: '',
-      Rol: '',
-      'Fecha nacimiento': '',
-      Profesión: '',
-      Estado: '',
-      'Ya es usuario': '',
-      'Roles existentes': '',
-      'Fecha registro': '',
-      'Fecha otorgado': '',
-    });
+    const headers = Object.keys(
+      data[0] ?? {
+        Nombre: '',
+        Email: '',
+        Colegio: '',
+        Rol: '',
+        'Fecha nacimiento': '',
+        Profesión: '',
+        Estado: '',
+        'Ya es usuario': '',
+        'Roles existentes': '',
+        'Fecha registro': '',
+        'Fecha otorgado': '',
+      }
+    );
 
     const exportData = {
       filename: `lideres-tractor-${new Date().toISOString().slice(0, 10)}`,
@@ -292,37 +279,12 @@ export default function TractorSignupsAdminPage() {
     {
       key: 'role_label',
       label: 'Rol',
-      render: (value: string) => <Badge tone="blue">{value}</Badge>,
-    },
-    {
-      key: 'birth_date',
-      label: 'Nacimiento',
-      render: (value: string) => <span className="text-sm text-gray-700">{formatDate(value)}</span>,
-    },
-    {
-      key: 'profession',
-      label: 'Profesión',
-      render: (value: string) => <span className="text-sm text-gray-700">{value}</span>,
-    },
-    {
-      key: 'created_at',
-      label: 'Registro',
-      render: (value: string) => <span className="text-sm text-gray-700">{formatDateTime(value)}</span>,
+      render: (value: string) => <RoleBadge>{value}</RoleBadge>,
     },
     {
       key: 'is_existing_user',
       label: '¿Ya es usuario?',
-      render: (_: unknown, row: TractorSignup) =>
-        row.is_existing_user ? (
-          <div className="space-y-1">
-            <Badge tone="green">Sí</Badge>
-            <div className="max-w-[180px] text-xs text-gray-500">
-              {formatExistingRoles(row.existing_roles) || 'Sin roles activos'}
-            </div>
-          </div>
-        ) : (
-          <Badge tone="gray">No</Badge>
-        ),
+      render: (_: unknown, row: TractorSignup) => <ExistingUserBadge row={row} />,
     },
     {
       key: 'status_label',
@@ -331,31 +293,17 @@ export default function TractorSignupsAdminPage() {
     },
     {
       key: 'actions',
-      label: 'Acciones',
+      label: '',
       sortable: false,
       render: (_: unknown, row: TractorSignup) => (
-        <div className="flex min-w-[154px] items-center gap-2">
+        <div className="flex justify-end">
           <button
             type="button"
-            onClick={() => handleGrant(row)}
-            disabled={row.status === 'granted' || actioningId === row.id}
-            title="Otorgar acceso"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-green-200 bg-green-50 text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
+            onClick={() => openManage(row)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-800 transition hover:bg-gray-50"
           >
-            {actioningId === row.id ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleDismiss(row)}
-            disabled={row.status !== 'pending' || actioningId === row.id}
-            title="Descartar"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
-          >
-            <XCircle className="h-4 w-4" aria-hidden="true" />
+            <Settings2 className="h-4 w-4" aria-hidden="true" />
+            Gestionar
           </button>
         </div>
       ),
@@ -400,7 +348,7 @@ export default function TractorSignupsAdminPage() {
         </ResponsiveFunctionalPageHeader>
 
         <div className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard label="Total" value={stats.total} />
             <StatCard label="Pendientes" value={stats.pending} />
             <StatCard label="Accesos otorgados" value={stats.granted} />
@@ -412,7 +360,7 @@ export default function TractorSignupsAdminPage() {
               <Filter className="h-4 w-4" aria-hidden="true" />
               Filtros
             </div>
-            <div className="grid gap-3 md:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <input
@@ -433,7 +381,11 @@ export default function TractorSignupsAdminPage() {
                 ))}
               </select>
 
-              <select value={role} onChange={(event) => setRole(event.target.value as 'all' | TractorSignupRole)} className={filterClassName}>
+              <select
+                value={role}
+                onChange={(event) => setRole(event.target.value as 'all' | TractorSignupRole)}
+                className={filterClassName}
+              >
                 <option value="all">Todos los roles</option>
                 {(Object.keys(TRACTOR_ROLE_LABELS) as TractorSignupRole[]).map((roleKey) => (
                   <option key={roleKey} value={roleKey}>
@@ -442,7 +394,11 @@ export default function TractorSignupsAdminPage() {
                 ))}
               </select>
 
-              <select value={status} onChange={(event) => setStatus(event.target.value as 'all' | TractorSignupStatus)} className={filterClassName}>
+              <select
+                value={status}
+                onChange={(event) => setStatus(event.target.value as 'all' | TractorSignupStatus)}
+                className={filterClassName}
+              >
                 <option value="all">Todos los estados</option>
                 {(Object.keys(TRACTOR_STATUS_LABELS) as TractorSignupStatus[]).map((statusKey) => (
                   <option key={statusKey} value={statusKey}>
@@ -451,7 +407,11 @@ export default function TractorSignupsAdminPage() {
                 ))}
               </select>
 
-              <select value={existingFilter} onChange={(event) => setExistingFilter(event.target.value as ExistingFilter)} className={filterClassName}>
+              <select
+                value={existingFilter}
+                onChange={(event) => setExistingFilter(event.target.value as ExistingFilter)}
+                className={filterClassName}
+              >
                 <option value="all">Todos</option>
                 <option value="existing">Ya es usuario</option>
                 <option value="new">Nuevo usuario</option>
@@ -460,9 +420,7 @@ export default function TractorSignupsAdminPage() {
           </div>
 
           {error && (
-            <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
+            <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
           )}
 
           {loading ? (
@@ -472,17 +430,176 @@ export default function TractorSignupsAdminPage() {
                 Cargando registros
               </div>
             </div>
+          ) : filteredRows.length === 0 ? (
+            <div className="flex min-h-[240px] flex-col items-center justify-center gap-2 border border-dashed border-gray-300 bg-white px-4 text-center">
+              <Users className="h-6 w-6 text-gray-400" aria-hidden="true" />
+              <p className="text-sm text-gray-600">No hay registros que coincidan con los filtros.</p>
+            </div>
           ) : (
-            <EnhancedTable
-              data={filteredRows}
-              columns={columns}
-              searchable={false}
-              pageSize={25}
-              className="shadow-sm"
-            />
+            <>
+              {/* Desktop: compact table */}
+              <div className="hidden md:block">
+                <EnhancedTable
+                  data={filteredRows}
+                  columns={columns}
+                  searchable={false}
+                  pageSize={25}
+                  className="shadow-sm"
+                />
+              </div>
+
+              {/* Mobile: cards (no side-scrolling table on small/older hardware) */}
+              <div className="space-y-3 md:hidden">
+                {filteredRows.map((row) => (
+                  <TractorSignupCard key={row.id} row={row} onManage={openManage} busy={busy} />
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>
+
+      <Dialog
+        open={manageRow !== null}
+        onOpenChange={(open) => {
+          if (!open) closeManage();
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+          {manageRow && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{manageRow.full_name || manageRow.email}</DialogTitle>
+                <DialogDescription>{manageRow.email}</DialogDescription>
+              </DialogHeader>
+
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                <Detail label="Colegio" value={manageRow.school_name} />
+                <Detail label="Rol">
+                  <RoleBadge>{manageRow.role_label}</RoleBadge>
+                </Detail>
+                <Detail label="Nacimiento" value={formatDate(manageRow.birth_date)} />
+                <Detail label="Profesión" value={manageRow.profession} />
+                <Detail label="Registro" value={formatDateTime(manageRow.created_at)} />
+                <Detail label="Estado">
+                  <StatusBadge status={manageRow.status} />
+                </Detail>
+                <div className="col-span-2">
+                  <Detail label="¿Ya es usuario?">
+                    {manageRow.is_existing_user ? (
+                      <span className="text-gray-800">
+                        Sí — {formatExistingRoles(manageRow.existing_roles) || 'sin roles activos'}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">No</span>
+                    )}
+                  </Detail>
+                </div>
+                {manageRow.granted_at && (
+                  <Detail label="Otorgado" value={formatDateTime(manageRow.granted_at)} />
+                )}
+              </div>
+
+              {!confirmDelete ? (
+                <div className="mt-2 flex flex-col gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => runAction('grant')}
+                    disabled={busy || manageRow.status === 'granted'}
+                    className="inline-flex items-center justify-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
+                  >
+                    {pendingAction === 'grant' ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                    )}
+                    Otorgar acceso
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => runAction('dismiss')}
+                    disabled={busy || manageRow.status !== 'pending'}
+                    className="inline-flex items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                  >
+                    {pendingAction === 'dismiss' ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <XCircle className="h-4 w-4" aria-hidden="true" />
+                    )}
+                    Descartar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(true)}
+                    disabled={busy}
+                    className="inline-flex items-center justify-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    Eliminar
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-2 border-t border-gray-100 pt-4">
+                  <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                    <div>
+                      Se eliminará este registro de forma permanente.
+                      {manageRow.linked_user_id
+                        ? ' Marca la casilla para eliminar también la cuenta de la plataforma.'
+                        : ''}
+                    </div>
+                  </div>
+
+                  {manageRow.linked_user_id && (
+                    <label className="mt-3 flex items-start gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={deleteAccount}
+                        onChange={(event) => setDeleteAccount(event.target.checked)}
+                        className="mt-1 h-4 w-4 rounded border-gray-300 text-[#0a0a0a] focus:ring-[#fbbf24]"
+                      />
+                      <span>
+                        También eliminar la cuenta de la plataforma (inicio de sesión, perfil y roles).
+                        {manageRow.is_existing_user && (
+                          <span className="mt-1 block font-medium text-red-700">
+                            Esta persona ya tenía una cuenta antes de este registro; se eliminará por completo.
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  )}
+
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(false)}
+                      disabled={busy}
+                      className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => runAction('delete')}
+                      disabled={busy}
+                      className="inline-flex items-center justify-center gap-2 rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {pendingAction === 'delete' ? (
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      )}
+                      {deleteAccount && manageRow.linked_user_id
+                        ? 'Eliminar usuario y registro'
+                        : 'Eliminar registro'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }
@@ -499,54 +616,19 @@ function StatCard({ label, value }: { label: string; value: number }) {
   );
 }
 
-function Badge({ tone, children }: { tone: 'green' | 'gray' | 'blue'; children: React.ReactNode }) {
-  const classes = {
-    green: 'bg-green-50 text-green-700 border-green-200',
-    gray: 'bg-gray-50 text-gray-700 border-gray-200',
-    blue: 'bg-sky-50 text-sky-700 border-sky-200',
-  };
-
+function Detail({
+  label,
+  value,
+  children,
+}: {
+  label: string;
+  value?: string;
+  children?: React.ReactNode;
+}) {
   return (
-    <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${classes[tone]}`}>
-      {children}
-    </span>
+    <div>
+      <div className="text-xs uppercase tracking-wide text-gray-500">{label}</div>
+      <div className="mt-1 text-gray-800">{children ?? (value || '—')}</div>
+    </div>
   );
-}
-
-function StatusBadge({ status }: { status: TractorSignupStatus }) {
-  const classes: Record<TractorSignupStatus, string> = {
-    pending: 'border-amber-200 bg-amber-50 text-amber-800',
-    granted: 'border-green-200 bg-green-50 text-green-700',
-    dismissed: 'border-gray-200 bg-gray-50 text-gray-700',
-  };
-
-  return (
-    <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${classes[status]}`}>
-      {TRACTOR_STATUS_LABELS[status]}
-    </span>
-  );
-}
-
-function formatDate(value: string | null | undefined): string {
-  if (!value) return '';
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('es-CL');
-}
-
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleString('es-CL', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-}
-
-function formatExistingRoles(roles: ExistingRole[]): string {
-  return roles
-    .map((role) => ROLE_LABEL_BY_TYPE[role.role_type] ?? role.role_type)
-    .filter(Boolean)
-    .join(', ');
 }

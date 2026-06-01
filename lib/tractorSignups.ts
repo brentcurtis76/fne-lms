@@ -137,3 +137,41 @@ export async function isSantaMartaSchoolId(
   const schools = await getSantaMartaSchools(supabase);
   return schools.some((school) => school.id === schoolId);
 }
+
+export interface ExistingRole {
+  role_type: string;
+  school_id: number | null;
+}
+
+export const ROLE_LABEL_BY_TYPE: Record<string, string> = {
+  admin: 'Admin',
+  consultor: 'Consultor',
+  equipo_directivo: 'Equipo Directivo',
+  lider_generacion: 'Líder Generación',
+  lider_comunidad: 'Líder Comunidad',
+  community_manager: 'Community Manager',
+  docente: 'Docente',
+  supervisor_de_red: 'Supervisor de Red',
+  encargado_licitacion: 'Encargado Licitación',
+};
+
+export function formatDate(value: string | null | undefined): string {
+  if (!value) return '';
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('es-CL');
+}
+
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+export function formatExistingRoles(roles: ExistingRole[]): string {
+  return roles
+    .map((role) => ROLE_LABEL_BY_TYPE[role.role_type] ?? role.role_type)
+    .filter(Boolean)
+    .join(', ');
+}

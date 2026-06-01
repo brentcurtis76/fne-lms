@@ -4,6 +4,8 @@ import {
   ED_FORBIDDEN_TARGET_ROLES_SET,
   SCHOOL_SCOPED_ROLES_SET,
 } from '../../../utils/roleUtils';
+import { teardownPlatformUser } from '../../../lib/userTeardown';
+import { logDataAccessEvent } from '../../../lib/securityAuditLog';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -96,63 +98,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    console.log('Authorization verified. Attempting to delete user:', userId);
+    console.log('Authorization verified. Deleting user:', userId);
 
-    // First, handle foreign key constraints by deleting or reassigning related data
-    console.log('Handling foreign key constraints for user:', userId);
-
-    // Delete user's feedback entries
-    const { error: feedbackError } = await supabaseAdmin
-      .from('platform_feedback')
-      .delete()
-      .eq('created_by', userId);
-
-    if (feedbackError) {
-      console.error('Error deleting feedback:', feedbackError);
+    // Shared teardown: platform_feedback -> user_roles -> profiles -> auth.users.
+    // Throws only if the profile delete fails (mirrors prior behavior).
+    let teardown;
+    try {
+      teardown = await teardownPlatformUser(supabaseAdmin, userId);
+    } catch (teardownError: any) {
+      console.error('Error deleting profile:', teardownError);
+      return res.status(500).json({ error: teardownError?.message || 'Failed to delete user profile' });
     }
 
-    // Delete user's roles
-    const { error: rolesError } = await supabaseAdmin
-      .from('user_roles')
-      .delete()
-      .eq('user_id', userId);
-
-    if (rolesError) {
-      console.error('Error deleting user roles:', rolesError);
-    }
-
-    // Now delete the user's profile
-    console.log('Deleting profile for user:', userId);
-    const { data: deleteData, error: deleteProfileError } = await supabaseAdmin
-      .from('profiles')
-      .delete()
-      .eq('id', userId)
-      .select();
-
-    console.log('Profile deletion result:', { deleteData, deleteProfileError });
-
-    if (deleteProfileError) {
-      console.error('Error deleting profile:', deleteProfileError);
-      return res.status(500).json({ error: `Failed to delete user profile: ${deleteProfileError.message}` });
-    }
-
-    // Delete from auth.users table (requires service role)
-    console.log('Deleting auth user:', userId);
-    const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-
-    if (deleteAuthError) {
-      console.error('Error deleting auth user:', deleteAuthError);
-      // Profile is already deleted, so we can still return partial success
-    } else {
-      console.log('Auth user deleted successfully');
-    }
+    logDataAccessEvent('USER_DELETED', {
+      userId: requestingUser.id,
+      targetUserId: userId,
+      req,
+      details: {
+        rolesDeleted: teardown.rolesDeleted,
+        authUserDeleted: teardown.authUserDeleted,
+        via: 'admin/delete-user',
+      },
+    });
 
     return res.status(200).json({
       success: true,
       message: 'User deleted successfully',
-      profileDeleted: true,
-      authUserDeleted: !deleteAuthError,
-      deletedRecords: deleteData?.length || 0,
+      profileDeleted: teardown.profileDeleted,
+      authUserDeleted: teardown.authUserDeleted,
+      deletedRecords: teardown.profileRowsDeleted,
     });
 
   } catch (error: any) {

@@ -2,6 +2,9 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { Resend } from 'resend';
 import { checkIsAdmin, createServiceRoleClient } from '../../../../lib/api-auth';
 import { generatePassword } from '../../../../utils/passwordGenerator';
+import { isGlobalAdmin } from '../../../../utils/roleUtils';
+import { teardownPlatformUser } from '../../../../lib/userTeardown';
+import { logDataAccessEvent } from '../../../../lib/securityAuditLog';
 import {
   TRACTOR_ROLE_LABELS,
   TRACTOR_SIGNUP_SOURCE,
@@ -24,6 +27,7 @@ type SignupRow = {
   profession: string;
   role: string;
   status: string;
+  linked_user_id: string | null;
 };
 
 type ProfileRow = {
@@ -56,9 +60,8 @@ function escapeHtml(value: string): string {
 
 async function rollbackCreatedUser(supabase: any, userId: string) {
   try {
-    await supabase.from('user_roles').delete().eq('user_id', userId);
-    await supabase.from('profiles').delete().eq('id', userId);
-    await supabase.auth.admin.deleteUser(userId);
+    // Reuse the shared teardown so this stays in sync with delete-user.ts.
+    await teardownPlatformUser(supabase, userId);
   } catch (rollbackError) {
     console.error('[tractor-signups grant] rollback failed:', rollbackError);
   }
@@ -250,7 +253,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const signupId = typeof req.body?.signupId === 'string' ? req.body.signupId : '';
-  const action = req.body?.action === 'dismiss' ? 'dismiss' : 'grant';
+  const requestedAction = req.body?.action;
+  const action =
+    requestedAction === 'dismiss' || requestedAction === 'delete' ? requestedAction : 'grant';
+  const deleteAccount = req.body?.deleteAccount === true;
 
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(signupId)) {
     return res.status(400).json({ error: 'signupId inválido' });
@@ -277,6 +283,55 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const signupRow = signup as SignupRow;
+
+    if (action === 'delete') {
+      // Optionally tear down the provisioned platform account. Only possible
+      // when the signup is linked to a real user (linked_user_id is set at grant).
+      if (deleteAccount && signupRow.linked_user_id) {
+        // Never let this panel delete an admin account.
+        const targetIsAdmin = await isGlobalAdmin(supabase, signupRow.linked_user_id);
+        if (targetIsAdmin) {
+          return res.status(403).json({
+            error: 'No se puede eliminar una cuenta de administrador desde este panel.',
+          });
+        }
+
+        try {
+          const teardown = await teardownPlatformUser(supabase, signupRow.linked_user_id);
+          logDataAccessEvent('USER_DELETED', {
+            userId: adminUser.id,
+            targetUserId: signupRow.linked_user_id,
+            req,
+            details: {
+              linkedSignupId: signupId,
+              rolesDeleted: teardown.rolesDeleted,
+              authUserDeleted: teardown.authUserDeleted,
+              via: 'tractor-signups',
+            },
+          });
+        } catch (teardownError: any) {
+          console.error('[tractor-signups grant] account teardown failed:', teardownError);
+          return res
+            .status(500)
+            .json({ error: teardownError?.message || 'No se pudo eliminar la cuenta del usuario' });
+        }
+      }
+
+      const { error: deleteError } = await supabase
+        .from('tractor_signups')
+        .delete()
+        .eq('id', signupId);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      return res.status(200).json({
+        success: true,
+        status: 'deleted',
+        deletedAccount: Boolean(deleteAccount && signupRow.linked_user_id),
+      });
+    }
 
     if (action === 'dismiss') {
       if (signupRow.status === 'granted') {

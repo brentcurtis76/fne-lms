@@ -407,6 +407,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         adminOnly: true
       },
       {
+        id: 'tractor-signups',
+        label: 'Líderes Tractor',
+        href: '/admin/tractor-signups',
+        icon: AcademicCapIcon,
+        description: 'Registros de la Generación Tractor',
+        adminOnly: true
+      },
+      {
         id: 'schools',
         label: 'Escuelas',
         href: '/admin/schools',

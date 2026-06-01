@@ -256,6 +256,15 @@ export default function ResetPasswordPage() {
         console.error('[ResetPassword] Update error:', error);
         setMessage('Error al actualizar contraseña: ' + error.message);
       } else {
+        const { error: profileFlagError } = await supabase
+          .from('profiles')
+          .update({ must_change_password: false })
+          .eq('id', session.user.id);
+
+        if (profileFlagError) {
+          console.error('[ResetPassword] Could not clear password-change flag:', profileFlagError);
+        }
+
         setMessage('Contraseña actualizada exitosamente');
         // Redirect to dashboard after successful password reset
         setTimeout(() => {

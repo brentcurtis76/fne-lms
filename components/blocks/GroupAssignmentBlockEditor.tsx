@@ -35,10 +35,15 @@ export default function GroupAssignmentBlockEditor({
   }, [block.payload]);
 
   const handleChange = (field: keyof GroupAssignmentBlock['payload'], value: any) => {
-    onChange({
+    const nextPayload = {
       ...block.payload,
       [field]: value
-    });
+    };
+    // Keep the ref in sync synchronously (not just via the post-commit effect) so
+    // an in-flight upload that resolves before the effect re-runs still merges into
+    // the latest payload instead of an older snapshot.
+    latestPayloadRef.current = nextPayload;
+    onChange(nextPayload);
     setHasUnsavedChanges(true);
   };
 

@@ -140,44 +140,93 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
     fetchCourseTitle();
   }, [courseId]);
 
-  // Save handler
+  // Save handler.
+  // Preserves block ids across saves: existing blocks (real uuids) are updated in
+  // place, only brand-new blocks ("block-" temp ids) are inserted, and only blocks
+  // the user removed are deleted. The old delete-all/insert-all approach rekeyed
+  // every block on each save, orphaning student progress (lesson_progress.block_id)
+  // and group-assignment membership, which are keyed by block id.
   const handleSave = async () => {
     setIsLoading(true);
-    
+
     try {
       // Update lesson title
       const { error: titleError } = await supabase
         .from('lessons')
         .update({ title: lessonTitle })
         .eq('id', lessonIdString);
-      
+
       if (titleError) throw titleError;
-      
-      // Delete existing blocks
-      const { error: deleteError } = await supabase
+
+      // Delete only blocks the user removed. The DB is the source of truth for
+      // what's persisted: any stored id no longer present locally (and not a
+      // yet-to-be-inserted "block-" temp id) gets removed.
+      const persistedIds = new Set(
+        blocks.filter(block => !block.id.startsWith('block-')).map(block => block.id)
+      );
+      const { data: existingRows, error: fetchError } = await supabase
         .from('blocks')
-        .delete()
+        .select('id')
         .eq('lesson_id', lessonIdString);
-      
-      if (deleteError) throw deleteError;
-      
-      // Insert new blocks
-      if (blocks.length > 0) {
-        const blocksToInsert = blocks.map((block, index) => ({
-          lesson_id: lessonIdString,
-          type: block.type,
-          payload: block.payload,
-          position: index,
-          is_visible: !collapsedBlocks.has(block.id)
-        }));
-        
-        const { error: insertError } = await supabase
+
+      if (fetchError) throw fetchError;
+
+      const idsToDelete = (existingRows || [])
+        .map(row => row.id)
+        .filter(id => !persistedIds.has(id));
+
+      if (idsToDelete.length > 0) {
+        const { error: deleteError } = await supabase
           .from('blocks')
-          .insert(blocksToInsert);
-        
-        if (insertError) throw insertError;
+          .delete()
+          .in('id', idsToDelete);
+
+        if (deleteError) throw deleteError;
       }
-      
+
+      // Update existing blocks in place; insert only new ones.
+      const results = await Promise.all(
+        blocks.map((block, index) => {
+          const row = {
+            course_id: courseId,
+            lesson_id: lessonIdString,
+            type: block.type,
+            payload: block.payload,
+            position: index,
+            is_visible: !collapsedBlocks.has(block.id),
+          };
+          if (block.id.startsWith('block-')) {
+            return supabase.from('blocks').insert(row).select('id').single();
+          }
+          return supabase.from('blocks').update(row).eq('id', block.id).select('id').single();
+        })
+      );
+
+      const failed = results.find(result => result.error);
+      if (failed?.error) throw failed.error;
+
+      // Adopt DB-generated ids for newly inserted blocks so the next save updates
+      // them in place instead of inserting duplicates. Remap collapsed-state keys
+      // too, so visibility stays attached to the right block.
+      const idRemap = new Map<string, string>();
+      const savedBlocks = blocks.map((block, index) => {
+        const newId = results[index].data?.id;
+        if (newId && newId !== block.id) {
+          idRemap.set(block.id, newId);
+          return { ...block, id: newId };
+        }
+        return block;
+      });
+
+      if (idRemap.size > 0) {
+        setBlocks(savedBlocks);
+        setCollapsedBlocks(prev => {
+          const next = new Set<string>();
+          prev.forEach(id => next.add(idRemap.get(id) ?? id));
+          return next;
+        });
+      }
+
       toast.success('Lección guardada exitosamente');
       setHasUnsavedChanges(false);
     } catch (error: any) {

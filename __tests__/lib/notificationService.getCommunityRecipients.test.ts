@@ -1,11 +1,15 @@
 // @vitest-environment node
 import { beforeAll, describe, expect, it } from 'vitest';
 
-// notificationService.ts throws at import time if these are missing.
-process.env.NEXT_PUBLIC_SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
-process.env.SUPABASE_SERVICE_ROLE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY || 'test-service-role-key';
+// notificationService.ts builds a Supabase client at import time and throws if
+// the URL is missing OR invalid. Set known-good values UNCONDITIONALLY: a `||`
+// fallback only triggers on a falsy value, so a truthy-but-invalid value left
+// behind by a sibling suite (e.g. the string "undefined") would survive and
+// make createClient throw. vitest runs with threads:false, so process.env is
+// shared across files. getCommunityRecipients takes a fake client, so the
+// module-level client these vars feed is never actually used here.
+process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://localhost:54321';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 
 type TableResponse = {
   // For tables whose chain ends in `.single()`.
@@ -59,6 +63,10 @@ function createFakeSupabase(responses: Record<string, TableResponse | undefined>
 let getCommunityRecipients: typeof import('../../lib/notificationService').getCommunityRecipients;
 
 beforeAll(async () => {
+  // Re-assert valid env right before the import, in case a sibling suite
+  // mutated process.env after this file's top-level ran (threads:false shares it).
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://localhost:54321';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
   ({ getCommunityRecipients } = await import('../../lib/notificationService'));
 });
 

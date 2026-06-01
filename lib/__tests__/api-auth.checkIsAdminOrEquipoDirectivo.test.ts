@@ -43,6 +43,19 @@ const res = {} as NextApiResponse;
 
 const fakeServiceClient = { __service: true } as any;
 
+// Restore an env var to its captured original. Assigning `undefined` to a
+// process.env key coerces it to the string "undefined" (truthy + invalid),
+// which would leak into sibling suites that build a Supabase client at import
+// time (vitest runs with threads:false, so process.env is shared). Delete the
+// key instead when the original was unset.
+function restoreEnv(key: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
+}
+
 function setSession(user: any | null, error: any = null) {
   const supabase = {
     auth: {
@@ -70,8 +83,8 @@ describe('checkIsAdminOrEquipoDirectivo', () => {
   });
 
   afterEach(() => {
-    process.env.NEXT_PUBLIC_SUPABASE_URL = origUrl;
-    process.env.SUPABASE_SERVICE_ROLE_KEY = origKey;
+    restoreEnv('NEXT_PUBLIC_SUPABASE_URL', origUrl);
+    restoreEnv('SUPABASE_SERVICE_ROLE_KEY', origKey);
     vi.restoreAllMocks();
   });
 

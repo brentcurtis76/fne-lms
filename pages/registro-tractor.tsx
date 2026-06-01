@@ -188,7 +188,7 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
           <img
             src="/genera/logo-horizontal-on-dark.svg"
             alt="Genera · Hub de Transformación"
-            className="relative z-[1] h-[34px] w-auto"
+            className="relative z-[1] h-[48px] w-auto self-start"
           />
 
           <div className="relative z-[1] max-w-[460px]">

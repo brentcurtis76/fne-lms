@@ -916,7 +916,7 @@ export default function StudentLessonViewer() {
                   }}
                   isAdmin={isAdmin}
                   lessonId={lessonId as string}
-                  courseId={lesson?.module?.course_id}
+                  courseId={lesson?.module?.course_id || lesson?.course_id || ''}
                   studentId={user?.id}
                 />
               </div>

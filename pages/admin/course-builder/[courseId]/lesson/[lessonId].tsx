@@ -150,6 +150,39 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
     setIsLoading(true);
 
     try {
+      // Validate quiz blocks before saving (mirrors the module editor). An empty
+      // or malformed quiz would soft-lock students: they can't advance past a quiz
+      // block they're unable to complete, so reject it at save time rather than
+      // letting it reach the lesson player.
+      for (const block of blocks) {
+        if (block.type === 'quiz') {
+          const quizPayload = block.payload as any;
+          if (!quizPayload.questions || quizPayload.questions.length === 0) {
+            toast.error('Los bloques de quiz deben tener al menos una pregunta');
+            setIsLoading(false);
+            return;
+          }
+
+          for (const question of quizPayload.questions) {
+            if (!question.question || question.question.trim() === '') {
+              toast.error('Todas las preguntas del quiz deben tener texto');
+              setIsLoading(false);
+              return;
+            }
+
+            // For non-open-ended questions, ensure at least one correct answer
+            if (question.type !== 'open-ended' && question.options) {
+              const hasCorrectAnswer = question.options.some((opt: any) => opt.isCorrect);
+              if (!hasCorrectAnswer) {
+                toast.error(`La pregunta "${question.question}" debe tener al menos una respuesta correcta`);
+                setIsLoading(false);
+                return;
+              }
+            }
+          }
+        }
+      }
+
       // Update lesson title
       const { error: titleError } = await supabase
         .from('lessons')

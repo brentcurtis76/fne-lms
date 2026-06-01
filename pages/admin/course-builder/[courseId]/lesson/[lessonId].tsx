@@ -50,6 +50,160 @@ interface SimpleLessonEditorProps {
   lessonIdString: string;
 }
 
+// SortableBlock is declared at module scope on purpose. A component declared
+// INSIDE another component gets a fresh identity on every render, so React
+// unmounts and remounts it (and its inputs) on each keystroke — which was
+// stealing focus from the block's text fields. Hoisting keeps its identity stable
+// so React updates in place and focus is retained while typing. Each block editor
+// owns its own header/collapse/delete/save chrome; SortableBlock just adds the
+// drag handle for reordering.
+interface SortableBlockProps {
+  block: Block;
+  index: number;
+  isCollapsed: boolean;
+  isActive: boolean;
+  courseId: string;
+  toggleBlockCollapse: (id: string) => void;
+  updateBlockField: (id: string, field: string, value: any) => void;
+  updateBlock: (id: string, payload: any) => void;
+  deleteBlock: (id: string) => void;
+  handleSave: () => void;
+}
+
+const SortableBlock = ({
+  block,
+  index,
+  isCollapsed,
+  isActive,
+  courseId,
+  toggleBlockCollapse,
+  updateBlockField,
+  updateBlock,
+  deleteBlock,
+  handleSave,
+}: SortableBlockProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: block.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      className={`mb-2 ${isActive ? 'ring-2 ring-brand_accent rounded-lg' : ''}`}
+    >
+      {/* Drag handle (reorder) */}
+      <div
+        {...listeners}
+        className="flex items-center justify-center py-1 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
+        title="Arrastrar para reordenar"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+        </svg>
+      </div>
+
+      {block.type === 'text' && (
+        <TextBlockEditor
+          block={block as any}
+          index={index}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={() => toggleBlockCollapse(block.id)}
+          onTitleChange={(newTitle) => updateBlockField(block.id, 'title', newTitle)}
+          onContentChange={(newContent) => updateBlockField(block.id, 'content', newContent)}
+          onSave={() => handleSave()}
+          onDelete={() => deleteBlock(block.id)}
+        />
+      )}
+      {block.type === 'video' && (
+        <VideoBlockEditor
+          block={block as any}
+          onUpdate={(blockId, field, value) => updateBlockField(block.id, field, value)}
+          onDelete={() => deleteBlock(block.id)}
+          onSave={() => handleSave()}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={() => toggleBlockCollapse(block.id)}
+        />
+      )}
+      {block.type === 'image' && (
+        <ImageBlockEditor
+          block={block as any}
+          onSave={() => handleSave()}
+          onDelete={() => deleteBlock(block.id)}
+          onUpdate={(blockId, field, value) => updateBlockField(block.id, field as string, value)}
+          onUpload={(blockId, file) => { console.log('File upload not implemented yet:', file); }}
+          onTitleChange={(blockId, title) => updateBlockField(block.id, 'title', title)}
+          isCollapsed={isCollapsed}
+          toggleCollapse={() => toggleBlockCollapse(block.id)}
+        />
+      )}
+      {block.type === 'quiz' && (
+        <QuizBlockEditor
+          block={block as any}
+          onUpdate={(blockId, field, value) => updateBlockField(block.id, field as string, value)}
+          onTitleChange={(blockId, title) => updateBlockField(block.id, 'title', title)}
+          onSave={() => handleSave()}
+          onDelete={() => deleteBlock(block.id)}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={() => toggleBlockCollapse(block.id)}
+        />
+      )}
+      {block.type === 'download' && (
+        <FileDownloadBlockEditor
+          block={block as any}
+          onUpdate={(blockId, field, value) => updateBlockField(block.id, field as string, value)}
+          onTitleChange={(blockId, title) => updateBlockField(block.id, 'title', title)}
+          onSave={() => handleSave()}
+          onDelete={() => deleteBlock(block.id)}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={() => toggleBlockCollapse(block.id)}
+          courseId={courseId}
+        />
+      )}
+      {block.type === 'external-links' && (
+        <ExternalLinkBlockEditor
+          block={block as any}
+          onUpdate={(blockId, field, value) => updateBlockField(block.id, field as string, value)}
+          onTitleChange={(blockId, title) => updateBlockField(block.id, 'title', title)}
+          onSave={() => handleSave()}
+          onDelete={() => deleteBlock(block.id)}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={() => toggleBlockCollapse(block.id)}
+        />
+      )}
+      {block.type === 'group-assignment' && (
+        <GroupAssignmentBlockEditor
+          block={block as GroupAssignmentBlock}
+          onChange={(payload) => updateBlock(block.id, payload)}
+          onDelete={() => deleteBlock(block.id)}
+          mode="edit"
+          courseId={courseId}
+        />
+      )}
+      {block.type === 'bibliography' && (
+        <BibliographyBlockEditor
+          block={block as BibliographyBlock}
+          onChange={(payload) => updateBlock(block.id, payload)}
+          onDelete={() => deleteBlock(block.id)}
+          mode="edit"
+          courseId={courseId}
+          onSave={() => handleSave()}
+        />
+      )}
+    </div>
+  );
+};
+
 const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLessonData, courseId, lessonIdString }) => {
   const router = useRouter();
   
@@ -392,133 +546,8 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
     }
   };
 
-  // Block renderer component. Each block editor owns its own header/collapse/
-  // delete/save chrome via BlockEditorWrapper, so SortableBlock only provides
-  // the drag handle for reordering.
-  const SortableBlock = ({ block, index }: { block: Block; index: number }) => {
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
-      transition,
-    } = useSortable({ id: block.id });
-
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-    };
-
-    const isCollapsed = collapsedBlocks.has(block.id);
-
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        {...attributes}
-        className={`mb-2 ${activeBlockId === block.id ? 'ring-2 ring-brand_accent rounded-lg' : ''}`}
-      >
-        {/* Drag handle (reorder) */}
-        <div
-          {...listeners}
-          className="flex items-center justify-center py-1 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
-          title="Arrastrar para reordenar"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-          </svg>
-        </div>
-
-        {block.type === 'text' && (
-          <TextBlockEditor
-            block={block as any}
-            index={index}
-            isCollapsed={isCollapsed}
-            onToggleCollapse={() => toggleBlockCollapse(block.id)}
-            onTitleChange={(newTitle) => updateBlockField(block.id, 'title', newTitle)}
-            onContentChange={(newContent) => updateBlockField(block.id, 'content', newContent)}
-            onSave={() => handleSave()}
-            onDelete={() => deleteBlock(block.id)}
-          />
-        )}
-        {block.type === 'video' && (
-          <VideoBlockEditor
-            block={block as any}
-            onUpdate={(blockId, field, value) => updateBlockField(block.id, field, value)}
-            onDelete={() => deleteBlock(block.id)}
-            onSave={() => handleSave()}
-            isCollapsed={isCollapsed}
-            onToggleCollapse={() => toggleBlockCollapse(block.id)}
-          />
-        )}
-        {block.type === 'image' && (
-          <ImageBlockEditor
-            block={block as any}
-            onSave={() => handleSave()}
-            onDelete={() => deleteBlock(block.id)}
-            onUpdate={(blockId, field, value) => updateBlockField(block.id, field as string, value)}
-            onUpload={(blockId, file) => { console.log('File upload not implemented yet:', file); }}
-            onTitleChange={(blockId, title) => updateBlockField(block.id, 'title', title)}
-            isCollapsed={isCollapsed}
-            toggleCollapse={() => toggleBlockCollapse(block.id)}
-          />
-        )}
-        {block.type === 'quiz' && (
-          <QuizBlockEditor
-            block={block as any}
-            onUpdate={(blockId, field, value) => updateBlockField(block.id, field as string, value)}
-            onTitleChange={(blockId, title) => updateBlockField(block.id, 'title', title)}
-            onSave={() => handleSave()}
-            onDelete={() => deleteBlock(block.id)}
-            isCollapsed={isCollapsed}
-            onToggleCollapse={() => toggleBlockCollapse(block.id)}
-          />
-        )}
-        {block.type === 'download' && (
-          <FileDownloadBlockEditor
-            block={block as any}
-            onUpdate={(blockId, field, value) => updateBlockField(block.id, field as string, value)}
-            onTitleChange={(blockId, title) => updateBlockField(block.id, 'title', title)}
-            onSave={() => handleSave()}
-            onDelete={() => deleteBlock(block.id)}
-            isCollapsed={isCollapsed}
-            onToggleCollapse={() => toggleBlockCollapse(block.id)}
-            courseId={courseId}
-          />
-        )}
-        {block.type === 'external-links' && (
-          <ExternalLinkBlockEditor
-            block={block as any}
-            onUpdate={(blockId, field, value) => updateBlockField(block.id, field as string, value)}
-            onTitleChange={(blockId, title) => updateBlockField(block.id, 'title', title)}
-            onSave={() => handleSave()}
-            onDelete={() => deleteBlock(block.id)}
-            isCollapsed={isCollapsed}
-            onToggleCollapse={() => toggleBlockCollapse(block.id)}
-          />
-        )}
-        {block.type === 'group-assignment' && (
-          <GroupAssignmentBlockEditor
-            block={block as GroupAssignmentBlock}
-            onChange={(payload) => updateBlock(block.id, payload)}
-            onDelete={() => deleteBlock(block.id)}
-            mode="edit"
-            courseId={courseId}
-          />
-        )}
-        {block.type === 'bibliography' && (
-          <BibliographyBlockEditor
-            block={block as BibliographyBlock}
-            onChange={(payload) => updateBlock(block.id, payload)}
-            onDelete={() => deleteBlock(block.id)}
-            mode="edit"
-            courseId={courseId}
-            onSave={() => handleSave()}
-          />
-        )}
-      </div>
-    );
-  };
+  // Blocks are rendered via the module-scope <SortableBlock> component (defined
+  // above this page component, on purpose — see the comment there).
 
   if (!user) {
     return (
@@ -617,7 +646,19 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
           >
             {blocks.length > 0 ? (
               blocks.map((block, index) => (
-                <SortableBlock key={block.id} block={block} index={index} />
+                <SortableBlock
+                  key={block.id}
+                  block={block}
+                  index={index}
+                  isCollapsed={collapsedBlocks.has(block.id)}
+                  isActive={activeBlockId === block.id}
+                  courseId={courseId}
+                  toggleBlockCollapse={toggleBlockCollapse}
+                  updateBlockField={updateBlockField}
+                  updateBlock={updateBlock}
+                  deleteBlock={deleteBlock}
+                  handleSave={handleSave}
+                />
               ))
             ) : (
               <div className="text-center py-12 bg-gray-50 rounded-lg">

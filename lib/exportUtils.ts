@@ -25,10 +25,28 @@ declare module 'jspdf' {
  * Doubles any embedded double-quotes per RFC 4180.
  */
 export function csvEscape(val: string): string {
-  if (val.includes(',') || val.includes('"') || val.includes('\n')) {
-    return `"${val.replace(/"/g, '""')}"`;
+  const safeValue = neutralizeSpreadsheetFormula(val);
+  if (safeValue.includes(',') || safeValue.includes('"') || safeValue.includes('\n')) {
+    return `"${safeValue.replace(/"/g, '""')}"`;
   }
-  return val;
+  return safeValue;
+}
+
+export function neutralizeSpreadsheetFormula(val: string): string {
+  if (isPlainSpreadsheetNumber(val)) {
+    return val;
+  }
+
+  return /(?:^[\s]*[=+\-@]|[\t\r])/.test(val) ? `'${val}` : val;
+}
+
+function isPlainSpreadsheetNumber(val: string): boolean {
+  if (/[\t\r]/.test(val)) {
+    return false;
+  }
+
+  const trimmed = val.trim();
+  return /^[+-]?(?=.*\d)[\d .,]+$/.test(trimmed);
 }
 
 export class ReportExporter {
@@ -41,11 +59,8 @@ export class ReportExporter {
       ...data.map(row => 
         headers.map(header => {
           const value = this.getNestedValue(row, header);
-          // Escape quotes and wrap in quotes if contains comma
           const stringValue = String(value || '');
-          return stringValue.includes(',') || stringValue.includes('"') 
-            ? `"${stringValue.replace(/"/g, '""')}"` 
-            : stringValue;
+          return csvEscape(stringValue);
         }).join(',')
       )
     ].join('\n');
@@ -74,7 +89,9 @@ export class ReportExporter {
         ...data.map(row => 
           headers.map(header => {
             const value = this.getNestedValue(row, header);
-            return String(value || '');
+            return neutralizeSpreadsheetFormula(String(value || ''))
+              .replace(/\t/g, ' ')
+              .replace(/\r?\n/g, ' ');
           }).join('\t')
         )
       ].join('\n');

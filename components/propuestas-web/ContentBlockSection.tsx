@@ -4,17 +4,19 @@ import { normalizeText, significantWords } from '@/lib/propuestas-web/text-utils
 
 /* ──────────────────────────── image mapping ──────────────────────────── */
 
-const TITLE_IMAGE_MAP: Array<{ match: string; src: string }> = [
-  { match: 'Estadías INSPIRA', src: '/images/barcelona-skyline-photo.png' },
-  { match: 'Barcelona', src: '/images/barcelona-skyline-photo.png' },
-  { match: 'Sagrada Familia', src: '/images/sagrada-familia-photo.png' },
+const TITLE_IMAGE_MAP: Array<{ match: string; src: string; width: number; height: number }> = [
+  { match: 'Estadías INSPIRA', src: '/images/barcelona-skyline-line.png', width: 1200, height: 319 },
+  { match: 'Barcelona', src: '/images/barcelona-skyline-line.png', width: 1200, height: 319 },
+  { match: 'Sagrada Familia', src: '/images/sagrada-familia-line.png', width: 818, height: 739 },
 ];
 
-function getImageForBlock(title: string): string | null {
+function getImageForBlock(
+  title: string
+): { src: string; width: number; height: number } | null {
   const entry = TITLE_IMAGE_MAP.find((e) =>
     title.toLowerCase().includes(e.match.toLowerCase())
   );
-  return entry?.src ?? null;
+  return entry ? { src: entry.src, width: entry.width, height: entry.height } : null;
 }
 
 /* ──────────────────────── pull-quote extraction ──────────────────────── */
@@ -315,7 +317,14 @@ export default function ContentBlockSection({ block, variant, index, sectionId }
 
             {editorialPlate && (
               <figure className="pw-article__plate">
-                <Image src={editorialPlate} alt="" fill sizes="(min-width: 880px) 820px, 100vw" />
+                <Image
+                  src={editorialPlate.src}
+                  alt=""
+                  width={editorialPlate.width}
+                  height={editorialPlate.height}
+                  sizes="(min-width: 880px) 760px, 100vw"
+                  className="pw-plate-img"
+                />
               </figure>
             )}
 

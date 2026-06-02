@@ -689,18 +689,22 @@
 }
 
 .pw-article__plate {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  margin: 4px 0 30px;
-  overflow: hidden;
-  background: var(--pw-ink);
-  border: 1px solid rgba(251, 191, 36, 0.18);
+  margin: 10px 0 32px;
 }
 
-.pw-article__plate img {
-  object-fit: contain;
-  padding: 26px;
+/* Line-art illustration that blends into the page (ink on paper), no box. */
+.pw-plate-img {
+  display: block;
+  margin: 0 auto;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 440px;
+}
+
+.pw-section--dark .pw-plate-img {
+  /* black strokes -> render white on dark sections */
+  filter: invert(1);
 }
 
 .pw-article__body {

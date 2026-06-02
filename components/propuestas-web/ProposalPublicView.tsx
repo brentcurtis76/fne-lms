@@ -179,11 +179,12 @@ export default function ProposalPublicView({
         <header className="pw-topbar">
           <div className="pw-wrap pw-topbar__inner">
             <Image
-              src="/logos/fne-logo-gold.png"
+              src="/logos/fne-logo-bw.png"
               alt="Fundación Nueva Educación"
-              width={132}
-              height={44}
+              width={169}
+              height={60}
               priority
+              className="pw-topbar__logo"
             />
             <div className="pw-topbar__meta">
               <span>{snapshot.schoolName}</span>

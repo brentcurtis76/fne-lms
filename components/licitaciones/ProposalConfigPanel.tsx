@@ -43,6 +43,7 @@ import {
 } from '@/lib/propuestas/validation';
 import { ProposalPreview } from './ProposalPreview';
 import type { ProposalConfig } from '@/lib/propuestas/generator';
+import { buildProposalSnapshot, type ProposalSnapshot } from '@/lib/propuestas-web/snapshot';
 import type { HourBucket } from '@/lib/propuestas/types/hours';
 import BucketConfigSection from './BucketConfigSection';
 
@@ -373,6 +374,50 @@ export default function ProposalConfigPanel({
     bloques,
     licitacion,
   ]);
+
+  const previewSnapshot: ProposalSnapshot | null = useMemo(() => {
+    if (!previewConfig || !selectedFicha) return null;
+
+    return buildProposalSnapshot({
+      config: previewConfig,
+      version: 0,
+      consultantRecords: selectedConsultores.map((c) => ({
+        nombre: c.nombre,
+        categoria: c.categoria,
+        foto_path: c.foto_path,
+        formacion_academica: c.formacion_academica,
+        experiencia_profesional: c.experiencia_profesional,
+        especialidades: c.especialidades,
+      })),
+      selectedDocuments: [],
+      licitacion: {
+        id: licitacion.id,
+        numero_licitacion: licitacion.numero_licitacion,
+        nombre_licitacion: licitacion.nombre_licitacion,
+        year: licitacion.year,
+      },
+      ficha: {
+        id: selectedFicha.id,
+        folio: selectedFicha.folio,
+        nombre_servicio: selectedFicha.nombre_servicio,
+        dimension: selectedFicha.dimension,
+        categoria: selectedFicha.categoria,
+        total_horas: selectedFicha.total_horas,
+        destinatarios: selectedFicha.destinatarios,
+        objetivo_general: selectedFicha.objetivo_general,
+      },
+      cliente: licitacion.cliente
+        ? {
+            nombre_legal: licitacion.cliente.nombre_legal,
+            nombre_fantasia: licitacion.cliente.nombre_fantasia,
+            comuna: licitacion.cliente.comuna ?? null,
+            ciudad: licitacion.cliente.ciudad ?? null,
+            nombre_representante: licitacion.cliente.nombre_representante,
+          }
+        : null,
+      schoolCode: licitacion.school?.code ?? null,
+    });
+  }, [previewConfig, selectedFicha, selectedConsultores, licitacion]);
 
   // ============================================================
   // MINEDUC live validation
@@ -1518,8 +1563,8 @@ export default function ProposalConfigPanel({
                 </p>
 
                 {/* ── PDF PREVIEW (body only) ── */}
-                {showPreview && previewConfig && (
-                  <ProposalPreview config={previewConfig} />
+                {showPreview && previewSnapshot && (
+                  <ProposalPreview snapshot={previewSnapshot} />
                 )}
               </div>
 

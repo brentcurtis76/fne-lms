@@ -944,6 +944,8 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   pdf.save(proposalPdfFileName(snapshot));
 }
 
+export function generateProposalPDFBlob(snapshot: ProposalSnapshot): Blob { const pdf = buildProposalPdf(snapshot); return pdf.output('blob'); }
+
 /**
  * Server entry point — generates the SAME proposal PDF as the page button and
  * returns it as a Buffer. This is the canonical proposal PDF used everywhere:

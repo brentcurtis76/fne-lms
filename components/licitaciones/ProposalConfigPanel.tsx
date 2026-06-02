@@ -42,7 +42,6 @@ import {
   type ValidationConfig,
 } from '@/lib/propuestas/validation';
 import { ProposalPreview } from './ProposalPreview';
-import type { ProposalConfig } from '@/lib/propuestas/generator';
 import { buildProposalSnapshot, type ProposalSnapshot } from '@/lib/propuestas-web/snapshot';
 import type { HourBucket } from '@/lib/propuestas/types/hours';
 import BucketConfigSection from './BucketConfigSection';
@@ -315,10 +314,10 @@ export default function ProposalConfigPanel({
     precioModelo === 'per_hour' ? precioUfNum * totalHoras : fixedUfNum;
 
   // ============================================================
-  // Preview config — passed to ProposalPreview (body-only, no school logo / photos)
+  // Preview snapshot — passed to ProposalPreview (matches generated PDF)
   // ============================================================
 
-  const previewConfig: ProposalConfig | null = useMemo(() => {
+  const previewSnapshot: ProposalSnapshot | null = useMemo(() => {
     if (!selectedPlantilla || !selectedFicha) return null;
 
     const schoolName =
@@ -328,59 +327,64 @@ export default function ProposalConfigPanel({
       .map((key) => bloques.find((b) => b.id === key || b.clave === key))
       .filter((b): b is PropuestaContenidoBloque => b !== undefined);
 
-    return {
-      type: selectedPlantilla.tipo_servicio === 'preparacion' ? 'preparacion' : 'evoluciona',
-      schoolName,
-      // schoolLogoPath omitted — Supabase path not accessible as a browser URL
-      programYear: licitacion.year,
-      serviceName: selectedFicha.nombre_servicio,
-      consultants: selectedConsultores.map((c) => ({
-        nombre: c.nombre,
-        titulo: c.titulo,
-        bio: c.perfil_profesional || '',
-        // fotoPath omitted — Supabase path not accessible as a browser URL
-      })),
-      modules: modulos,
-      horasPresenciales,
-      horasSincronicas,
-      horasAsincronicas,
-      pricing: {
-        mode: precioModelo,
-        precioUf: precioUfNum,
-        totalHours: totalHoras,
-        formaPago: formaPago || '3 cuotas iguales',
-        fixedUf: precioModelo === 'fixed' ? fixedUfNum : undefined,
-      },
-      contentBlocks: plantillaBloques.map((b) => ({
-        key: b.clave,
-        titulo: b.titulo,
-        contenido: b.contenido as { sections: import('@/lib/propuestas/generator').ContentSectionData[] },
-        imagenes: b.imagenes || null,
-      })),
-    };
-  }, [
-    selectedPlantilla,
-    selectedFicha,
-    selectedConsultores,
-    modulos,
-    horasPresenciales,
-    horasSincronicas,
-    horasAsincronicas,
-    precioModelo,
-    precioUfNum,
-    totalHoras,
-    formaPago,
-    fixedUfNum,
-    bloques,
-    licitacion,
-  ]);
+    const nextVersion =
+      propuestas.reduce((max, p) => (p.version > max ? p.version : max), 0) + 1;
 
-  const previewSnapshot: ProposalSnapshot | null = useMemo(() => {
-    if (!previewConfig || !selectedFicha) return null;
+    const selectedDocuments = documentos
+      .filter((d) => documentosIds.includes(d.id))
+      .map((d) => ({
+        id: d.id,
+        nombre: d.nombre,
+        tipo: d.tipo,
+        archivo_path: d.archivo_path,
+        descripcion: d.descripcion,
+      }));
 
     return buildProposalSnapshot({
-      config: previewConfig,
-      version: 0,
+      config: {
+        type: selectedPlantilla.tipo_servicio === 'preparacion' ? 'preparacion' : 'evoluciona',
+        schoolName,
+        programYear: licitacion.year,
+        serviceName: selectedFicha.nombre_servicio,
+        consultants: selectedConsultores.map((c) => ({
+          nombre: c.nombre,
+          titulo: c.titulo,
+          bio: c.perfil_profesional || '',
+          fotoPath: c.foto_path || undefined,
+        })),
+        modules: modulos,
+        horasPresenciales,
+        horasSincronicas,
+        horasAsincronicas,
+        buckets: activeBuckets
+          .filter((b) => b.hours > 0)
+          .map((b) => ({
+            id: b.id,
+            label: b.label,
+            hours: b.hours,
+            distributionType: b.distributionType,
+            modalidad: b.modalidad,
+            isCustom: b.id.startsWith('custom-') || undefined,
+            mes: b.mes || undefined,
+            notes: b.notes || undefined,
+          })),
+        pricing: {
+          mode: precioModelo,
+          precioUf: precioUfNum,
+          totalHours: totalHoras,
+          formaPago: formaPago || '3 cuotas iguales',
+          formaPagoDetalle: formaPagoDetalle || undefined,
+          fixedUf: precioModelo === 'fixed' ? fixedUfNum : undefined,
+        },
+        contentBlocks: plantillaBloques.map((b) => ({
+          key: b.clave,
+          titulo: b.titulo,
+          contenido: b.contenido,
+          imagenes: b.imagenes || null,
+        })),
+        destinatarios: selectedFicha.destinatarios,
+      },
+      version: nextVersion,
       consultantRecords: selectedConsultores.map((c) => ({
         nombre: c.nombre,
         categoria: c.categoria,
@@ -389,7 +393,7 @@ export default function ProposalConfigPanel({
         experiencia_profesional: c.experiencia_profesional,
         especialidades: c.especialidades,
       })),
-      selectedDocuments: [],
+      selectedDocuments,
       licitacion: {
         id: licitacion.id,
         numero_licitacion: licitacion.numero_licitacion,
@@ -417,7 +421,27 @@ export default function ProposalConfigPanel({
         : null,
       schoolCode: licitacion.school?.code ?? null,
     });
-  }, [previewConfig, selectedFicha, selectedConsultores, licitacion]);
+  }, [
+    selectedPlantilla,
+    selectedFicha,
+    selectedConsultores,
+    modulos,
+    horasPresenciales,
+    horasSincronicas,
+    horasAsincronicas,
+    activeBuckets,
+    precioModelo,
+    precioUfNum,
+    totalHoras,
+    formaPago,
+    formaPagoDetalle,
+    fixedUfNum,
+    bloques,
+    licitacion,
+    documentos,
+    documentosIds,
+    propuestas,
+  ]);
 
   // ============================================================
   // MINEDUC live validation
@@ -1539,11 +1563,11 @@ export default function ProposalConfigPanel({
                   <button
                     type="button"
                     onClick={() => setShowPreview((v) => !v)}
-                    disabled={!previewConfig}
+                    disabled={!previewSnapshot}
                     className="flex items-center gap-2 px-5 py-3 border border-yellow-400 text-yellow-700 rounded-lg font-medium hover:bg-yellow-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                    title="Muestra el cuerpo de la propuesta en el navegador (sin documentos adjuntos)"
+                    title="Muestra el PDF tal como se generará y descargará"
                   >
-                    {showPreview ? 'Ocultar Vista Previa' : 'Vista Previa (solo cuerpo)'}
+                    {showPreview ? 'Ocultar Vista Previa' : 'Vista Previa'}
                   </button>
                   {!plantillaId && (
                     <p className="text-xs text-gray-500">Seleccione una plantilla para continuar</p>

@@ -64,7 +64,7 @@ const nextConfig = {
 
   webpack: (config, { dev, isServer }) => {
     // Client bundle: stub out Node.js-only modules used by PDF components
-    // (fs is used server-side only; PDFViewer/PreviewDocument are dynamic ssr:false)
+    // (fs is used server-side only)
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,

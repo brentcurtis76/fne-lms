@@ -62,10 +62,10 @@ const PHASES = [
 const REFERENCE_SCHOOLS = [
   { src: '/images/schools/virolai.png', name: 'Escola Virolai', leader: 'Coral Regí · Sandra Entrena' },
   { src: '/images/schools/sadako.png', name: 'Escola Sadako', leader: 'Jordi Mussons' },
-  { src: '/images/schools/les-vinyes.png', name: 'IE Les Vinyes', leader: 'Boris Mir' },
-  { src: '/images/schools/el-puig.png', name: 'Escola El Puig', leader: '' },
-  { src: '/images/schools/octavio-paz.png', name: 'Escola Octavio Paz', leader: '' },
-  { src: '/images/schools/angeleta-ferrer.png', name: 'Institut Angeleta Ferrer', leader: 'Boris Mir' },
+  { src: '/images/schools/les-vinyes.png', name: 'IE Les Vinyes', leader: 'Sergi Del Moral · Betlem Cuesta' },
+  { src: '/images/schools/el-puig.png', name: 'Escola El Puig', leader: 'Carol Giralt' },
+  { src: '/images/schools/octavio-paz.png', name: 'Escola Octavio Paz', leader: 'Ana Vicálvaro' },
+  { src: '/images/schools/angeleta-ferrer.png', name: 'Institut Angeleta Ferrer', leader: 'Boris Mir · Abraham De La Fuente' },
 ];
 
 function findConsultantPhoto(name: string): string | null {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText } from 'lucide-react';
+import { Download, FileText, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import type { SnapshotDocument } from '@/lib/propuestas-web/snapshot';
 import DocumentCard from './DocumentCard';
@@ -13,8 +13,9 @@ interface DownloadablesSectionProps {
 const TIPO_ORDER: Record<string, number> = {
   certificado_pertenencia: 1,
   carta_recomendacion: 2,
-  cv_pdf: 3,
-  otro: 4,
+  evaluaciones_clientes: 3,
+  ficha_servicio: 4,
+  otro: 99,
 };
 
 export default function DownloadablesSection({
@@ -23,6 +24,7 @@ export default function DownloadablesSection({
   accessCode,
 }: DownloadablesSectionProps) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadingZip, setDownloadingZip] = useState(false);
 
   if (documents.length === 0) return null;
 
@@ -55,17 +57,72 @@ export default function DownloadablesSection({
     }
   };
 
+  const handleDownloadZip = async () => {
+    setDownloadingZip(true);
+    try {
+      const res = await fetch(`/api/propuestas/web/${slug}/download-zip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionCode: accessCode }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || 'Error al descargar ZIP');
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const disposition = res.headers.get('Content-Disposition');
+      const filenameMatch = disposition?.match(/filename="([^"]+)"/);
+      const filename = filenameMatch?.[1] || `${slug}.zip`;
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('ZIP descargado');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al descargar ZIP');
+    } finally {
+      setDownloadingZip(false);
+    }
+  };
+
   return (
-    <section className="bg-white py-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex items-center gap-3 mb-8">
-          <FileText size={28} className="text-[#fbbf24]" />
-          <h2 className="text-3xl sm:text-4xl font-bold text-[#0a0a0a]">
-            Documentos de Respaldo
-          </h2>
+    <section id="documentos" className="pw-section">
+      <div className="pw-wrap">
+        <div className="flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between mb-12">
+          <div>
+            <p className="pw-kicker mb-4">Anexos</p>
+            <h2 className="pw-h2 flex items-center gap-3">
+              <FileText size={30} className="text-[#fbbf24]" />
+              <span>Documentos de Respaldo</span>
+            </h2>
+          </div>
+          <button
+            onClick={handleDownloadZip}
+            disabled={downloadingZip}
+            className="pw-btn pw-btn--accent w-full sm:w-auto"
+          >
+            {downloadingZip ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Generando ZIP...
+              </>
+            ) : (
+              <>
+                <Download size={16} />
+                Descargar propuesta y documentos (.zip)
+              </>
+            )}
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="pw-docs-grid">
           {sorted.map((doc) => (
             <DocumentCard
               key={doc.id}

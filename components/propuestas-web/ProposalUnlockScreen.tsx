@@ -57,7 +57,8 @@ export default function ProposalUnlockScreen({
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4">
+    <div className="propuesta-web">
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4">
       <div className="w-full max-w-md text-center">
         {/* Logo */}
         <div className="mb-10">
@@ -127,6 +128,7 @@ export default function ProposalUnlockScreen({
         <p className="text-white/30 text-xs mt-10">
           Ingresa el código que te fue enviado por tu consultor FNE
         </p>
+      </div>
       </div>
     </div>
   );

@@ -11,9 +11,9 @@ const DIST_STYLE: Record<string, { bar: string; label: string }> = {
 
 const MOD_BADGE: Record<string, string> = {
   presencial: 'text-[#fbbf24]',
-  online: 'text-white/60',
-  asincronico: 'text-white/40',
-  hibrido: 'text-purple-300',
+  online: 'text-gray-500',
+  asincronico: 'text-gray-400',
+  hibrido: 'text-gray-500',
 };
 
 interface BucketTimelineProps {
@@ -26,21 +26,19 @@ export default function BucketTimeline({ buckets }: BucketTimelineProps) {
   const months = Array.from({ length: PROGRAM_MONTHS }, (_, i) => i + 1);
 
   return (
-    <div>
+    <div className="pw-timeline">
       <div className="flex items-center gap-2 mb-8">
         <Calendar size={20} className="text-[#fbbf24]" />
-        <h3 className="text-lg font-bold text-[#0a0a0a]">Línea de Tiempo del Programa</h3>
+        <h3 className="pw-h3">Línea de Tiempo del Programa</h3>
       </div>
 
-      {/* Timeline grid */}
-      <div className="overflow-x-auto">
-        <div className="min-w-[600px]">
+      <div className="pw-timeline__inner">
           {/* Month headers */}
           <div className="grid gap-1 mb-3" style={{ gridTemplateColumns: `220px repeat(${PROGRAM_MONTHS}, 1fr)` }}>
             <div />
             {months.map((m) => (
               <div key={m} className="text-center">
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <span className="text-xs font-black text-gray-400 uppercase tracking-[0.16em]">
                   Mes {m}
                 </span>
               </div>
@@ -61,7 +59,7 @@ export default function BucketTimeline({ buckets }: BucketTimelineProps) {
                 >
                   {/* Label */}
                   <div className="pr-3">
-                    <p className="text-sm font-medium text-[#0a0a0a] leading-tight">
+                    <p className="text-sm font-black text-[#0a0a0a] leading-tight">
                       {bucket.label}
                     </p>
                     <p className={`text-[10px] ${modBadge}`}>
@@ -117,7 +115,6 @@ export default function BucketTimeline({ buckets }: BucketTimelineProps) {
               <span className="text-xs text-gray-500">Disponible todo el programa</span>
             </div>
           </div>
-        </div>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { z } from 'zod';
 import { createServiceRoleClient } from '@/lib/api-auth';
-import { verifyAccessCode } from '@/lib/propuestas-web/access-code';
+import { authorizeProposalDownload } from '@/lib/propuestas-web/download-access';
 import { getSignedUrl } from '@/lib/propuestas/storage';
 
 /**
@@ -13,7 +13,7 @@ import { getSignedUrl } from '@/lib/propuestas/storage';
 
 const DownloadSchema = z.object({
   documentId: z.string().min(1, 'ID de documento requerido'),
-  sessionCode: z.string().min(1, 'Código de sesión requerido').max(10),
+  sessionCode: z.string().max(10).optional().default(''),
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -53,14 +53,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(410).json({ error: 'Esta propuesta ha expirado' });
     }
 
-    if (!propuesta.access_code) {
-      return res.status(500).json({ error: 'Propuesta sin código de acceso configurado' });
-    }
-
-    // Validate session by re-verifying the access code
-    const valid = await verifyAccessCode(sessionCode.toUpperCase(), propuesta.access_code);
-    if (!valid) {
-      return res.status(401).json({ error: 'Código de sesión inválido' });
+    const access = await authorizeProposalDownload(
+      req,
+      res,
+      serviceClient,
+      slug,
+      propuesta.access_code,
+      sessionCode
+    );
+    if (access.ok === false) {
+      return res.status(access.status).json({
+        error: access.error,
+        ...(access.remaining != null ? { remaining: access.remaining } : {}),
+      });
     }
 
     // Look up the document in the snapshot

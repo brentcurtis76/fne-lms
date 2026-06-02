@@ -5,10 +5,15 @@
 /* Mont (Fontfabric) — the Genera brand typeface. Full weight range used across the
    brand surfaces (e.g. the Líderes Generación Tractor registration page). */
 @font-face { font-family: 'Mont'; font-weight: 300; font-style: normal; src: url('/fonts/Mont-Light.otf') format('opentype'); font-display: swap; }
+@font-face { font-family: 'Mont'; font-weight: 300; font-style: italic; src: url('/fonts/Mont-Light-Italic.otf') format('opentype'); font-display: swap; }
 @font-face { font-family: 'Mont'; font-weight: 400; font-style: normal; src: url('/fonts/Mont-Book.otf') format('opentype'); font-display: swap; }
+@font-face { font-family: 'Mont'; font-weight: 400; font-style: italic; src: url('/fonts/Mont-Book-Italic.otf') format('opentype'); font-display: swap; }
 @font-face { font-family: 'Mont'; font-weight: 500; font-style: normal; src: url('/fonts/Mont-Regular.otf') format('opentype'); font-display: swap; }
+@font-face { font-family: 'Mont'; font-weight: 500; font-style: italic; src: url('/fonts/Mont-Regular-Italic.otf') format('opentype'); font-display: swap; }
 @font-face { font-family: 'Mont'; font-weight: 600; font-style: normal; src: url('/fonts/Mont-SemiBold.otf') format('opentype'); font-display: swap; }
+@font-face { font-family: 'Mont'; font-weight: 600; font-style: italic; src: url('/fonts/Mont-SemiBold-Italic.otf') format('opentype'); font-display: swap; }
 @font-face { font-family: 'Mont'; font-weight: 700; font-style: normal; src: url('/fonts/Mont-Bold.otf') format('opentype'); font-display: swap; }
+@font-face { font-family: 'Mont'; font-weight: 700; font-style: italic; src: url('/fonts/Mont-Bold-Italic.otf') format('opentype'); font-display: swap; }
 @font-face { font-family: 'Mont'; font-weight: 800; font-style: normal; src: url('/fonts/Mont-Heavy.otf') format('opentype'); font-display: swap; }
 @font-face { font-family: 'Mont'; font-weight: 900; font-style: normal; src: url('/fonts/Mont-Black.otf') format('opentype'); font-display: swap; }
 

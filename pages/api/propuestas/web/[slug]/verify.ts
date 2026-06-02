@@ -1,8 +1,12 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { z } from 'zod';
-import { SupabaseClient } from '@supabase/supabase-js';
 import { createServiceRoleClient } from '@/lib/api-auth';
 import { verifyAccessCode } from '@/lib/propuestas-web/access-code';
+import {
+  getProposalRateLimitCount,
+  getProposalRequestIp,
+  recordProposalFailedAttempt,
+} from '@/lib/propuestas-web/access-rate-limit';
 import { resolveSnapshotUrls } from '@/lib/propuestas-web/resolve-urls';
 import type { ProposalSnapshot } from '@/lib/propuestas-web/snapshot';
 
@@ -12,46 +16,6 @@ import type { ProposalSnapshot } from '@/lib/propuestas-web/snapshot';
  * Validates the access code and returns the full snapshot on success.
  * Rate limited: 5 attempts per IP per slug per hour (Supabase-backed).
  */
-
-const MAX_ATTEMPTS = 5;
-
-async function getRateLimitCount(
-  client: SupabaseClient,
-  ip: string,
-  slug: string
-): Promise<{ allowed: boolean; remaining: number }> {
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-
-  const { count, error } = await client
-    .from('propuesta_rate_limits')
-    .select('*', { count: 'exact', head: true })
-    .eq('ip_address', ip)
-    .eq('slug', slug)
-    .gte('attempted_at', oneHourAgo);
-
-  if (error) {
-    console.error('[rate-limit] count error:', error);
-    // Fail open on DB error — don't block legitimate users
-    return { allowed: true, remaining: MAX_ATTEMPTS };
-  }
-
-  const attempts = count ?? 0;
-  if (attempts >= MAX_ATTEMPTS) {
-    return { allowed: false, remaining: 0 };
-  }
-
-  return { allowed: true, remaining: MAX_ATTEMPTS - attempts };
-}
-
-async function recordFailedAttempt(
-  client: SupabaseClient,
-  ip: string,
-  slug: string
-): Promise<void> {
-  await client
-    .from('propuesta_rate_limits')
-    .insert({ ip_address: ip, slug });
-}
 
 const VerifySchema = z.object({
   code: z.string().min(1, 'Código requerido').max(10),
@@ -69,12 +33,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Rate limiting by IP + slug
-  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
-    || req.socket.remoteAddress
-    || 'unknown';
+  const ip = getProposalRequestIp(req);
 
   const serviceClient = createServiceRoleClient();
-  const { allowed, remaining } = await getRateLimitCount(serviceClient, ip, slug);
+  const { allowed, remaining } = await getProposalRateLimitCount(serviceClient, ip, slug);
 
   if (!allowed) {
     return res.status(429).json({
@@ -127,7 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
     if (!valid) {
-      await recordFailedAttempt(serviceClient, ip, slug);
+      await recordProposalFailedAttempt(serviceClient, ip, slug);
       return res.status(401).json({
         error: 'Código de acceso incorrecto',
         remaining: remaining - 1,

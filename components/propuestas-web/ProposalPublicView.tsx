@@ -1,26 +1,23 @@
-import { Fragment, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
 import {
-  Mail,
-  Phone,
-  Download,
-  MessageSquare,
-  Globe,
-  Users,
   Award,
-  Target,
+  Download,
+  Globe,
   Loader2,
-  ArrowRight,
+  Mail,
+  MessageSquare,
+  Phone,
+  Target,
 } from 'lucide-react';
 import type { ProposalSnapshot } from '@/lib/propuestas-web/snapshot';
 import { generateProposalPDF } from '@/lib/propuestas-web/pdf-generator';
-import { INTERNATIONAL_ADVISORS, FNE_CONTACT_EMAIL } from '@/lib/propuestas-web/constants';
+import { FNE_CONTACT_EMAIL, INTERNATIONAL_ADVISORS } from '@/lib/propuestas-web/constants';
 import ConsultantCard from './ConsultantCard';
 import ContentBlockSection from './ContentBlockSection';
 import BucketDistribution from './BucketDistribution';
 import BucketTimeline from './BucketTimeline';
-
 import PricingSection from './PricingSection';
 import DownloadablesSection from './DownloadablesSection';
 
@@ -30,12 +27,62 @@ interface ProposalPublicViewProps {
   accessCode: string;
 }
 
+interface IndexSection {
+  id: string;
+  label: string;
+}
+
+const CONSULTANT_PHOTOS: Array<{ match: string; src: string }> = [
+  { match: 'Arnoldo Cisternas', src: '/images/consultants/arnoldo-cisternas.png' },
+  { match: 'Gabriela Naranjo', src: '/images/consultants/gabriela-naranjo.jpg' },
+  { match: 'Ignacio', src: '/images/consultants/ignacio-pavez.jpg' },
+];
+
+const PHASES = [
+  {
+    title: 'Inicia',
+    number: '01',
+    description:
+      'Diagnóstico y levantamiento de necesidades. Identificamos las áreas de mejora y establecemos la línea base.',
+  },
+  {
+    title: 'Inspira',
+    number: '02',
+    description:
+      'Formación y acompañamiento. Implementamos programas de desarrollo profesional contextualizados.',
+  },
+  {
+    title: 'Evoluciona',
+    number: '03',
+    description:
+      'Consolidación y autonomía. Aseguramos la sostenibilidad de los cambios y la transferencia de capacidades.',
+  },
+];
+
+const REFERENCE_SCHOOLS = [
+  { src: '/images/schools/virolai.png', name: 'Escola Virolai', leader: 'Coral Regí · Sandra Entrena' },
+  { src: '/images/schools/sadako.png', name: 'Escola Sadako', leader: 'Jordi Mussons' },
+  { src: '/images/schools/les-vinyes.png', name: 'IE Les Vinyes', leader: 'Boris Mir' },
+  { src: '/images/schools/el-puig.png', name: 'Escola El Puig', leader: '' },
+  { src: '/images/schools/octavio-paz.png', name: 'Escola Octavio Paz', leader: '' },
+  { src: '/images/schools/angeleta-ferrer.png', name: 'Institut Angeleta Ferrer', leader: 'Boris Mir' },
+];
+
+function findConsultantPhoto(name: string): string | null {
+  const entry = CONSULTANT_PHOTOS.find((photo) =>
+    name.toLowerCase().includes(photo.match.toLowerCase())
+  );
+  return entry?.src ?? null;
+}
+
 export default function ProposalPublicView({
   snapshot,
   slug,
   accessCode,
 }: ProposalPublicViewProps) {
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [activeSection, setActiveSection] = useState('about');
+  const [scrollProgress, setScrollProgress] = useState(0);
 
   const handleDownloadPDF = async () => {
     setGeneratingPdf(true);
@@ -53,550 +100,395 @@ export default function ProposalPublicView({
   const programLabel =
     snapshot.type === 'evoluciona' ? 'Programa Evoluciona' : 'Programa Preparación';
 
-  // Fallback photo map for FNE consultants whose DB foto_path may be null
-  // Uses partial matching (first + last name substring) so "Arnoldo Cisternas Chávez" matches "Arnoldo Cisternas"
-  const CONSULTANT_PHOTOS: Array<{ match: string; src: string }> = [
-    { match: 'Arnoldo Cisternas', src: '/images/consultants/arnoldo-cisternas.png' },
-    { match: 'Gabriela Naranjo', src: '/images/consultants/gabriela-naranjo.jpg' },
-    { match: 'Ignacio', src: '/images/consultants/ignacio-pavez.jpg' },
-  ];
-
-  function findConsultantPhoto(name: string): string | null {
-    const entry = CONSULTANT_PHOTOS.find((p) =>
-      name.toLowerCase().includes(p.match.toLowerCase())
-    );
-    return entry?.src ?? null;
-  }
-
-  // Exclude international advisors from the FNE grid.
-  // Check both categoria (new snapshots) and name match against the fixed advisor list
-  // (old snapshots where categoria was not populated).
-  const advisorNames = new Set(INTERNATIONAL_ADVISORS.map((a) => a.nombre.toLowerCase()));
+  const advisorNames = new Set(INTERNATIONAL_ADVISORS.map((advisor) => advisor.nombre.toLowerCase()));
   const fneConsultants = snapshot.consultants
     .filter(
-      (c) =>
-        c.categoria !== 'asesor_internacional' &&
-        !advisorNames.has(c.nombre.toLowerCase())
+      (consultant) =>
+        consultant.categoria !== 'asesor_internacional' &&
+        !advisorNames.has(consultant.nombre.toLowerCase())
     )
-    .map((c) => ({
-      ...c,
-      fotoPath: c.fotoPath || findConsultantPhoto(c.nombre),
+    .map((consultant) => ({
+      ...consultant,
+      fotoPath: consultant.fotoPath || findConsultantPhoto(consultant.nombre),
     }));
 
+  const hasBuckets = Boolean(snapshot.buckets && snapshot.buckets.length > 0);
+  const hasDocuments = snapshot.documents.length > 0;
+
+  const indexSections = useMemo<IndexSection[]>(() => {
+    const sections: IndexSection[] = [
+      { id: 'about', label: 'Fundación Nueva Educación' },
+      { id: 'model', label: 'Modelo de Consultoría' },
+    ];
+
+    if (fneConsultants.length > 0) {
+      sections.push({ id: 'team', label: 'Equipo de Consultoría' });
+    }
+
+    sections.push({ id: 'advisors', label: 'Asesores Internacionales' });
+
+    snapshot.contentBlocks.forEach((block, index) => {
+      sections.push({ id: `contenido-${index + 1}`, label: block.titulo });
+    });
+
+    if (hasBuckets) {
+      sections.push({ id: 'actividades', label: 'Distribución de Actividades' });
+      sections.push({ id: 'timeline', label: 'Línea de Tiempo del Programa' });
+    }
+
+    sections.push({ id: 'propuesta-economica', label: 'Propuesta Económica' });
+
+    if (hasDocuments) {
+      sections.push({ id: 'documentos', label: 'Documentos de Respaldo' });
+    }
+
+    sections.push({ id: 'contacto', label: '¿Tienes preguntas?' });
+    return sections;
+  }, [fneConsultants.length, hasBuckets, hasDocuments, snapshot.contentBlocks]);
+
+  useEffect(() => {
+    const updateScrollState = () => {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = scrollable > 0 ? Math.min(100, Math.max(0, (window.scrollY / scrollable) * 100)) : 0;
+      setScrollProgress(progress);
+
+      const offset = window.innerHeight * 0.35;
+      let current = indexSections[0]?.id || 'about';
+      for (const section of indexSections) {
+        const element = document.getElementById(section.id);
+        if (element && element.getBoundingClientRect().top <= offset) {
+          current = section.id;
+        }
+      }
+      setActiveSection(current);
+    };
+
+    updateScrollState();
+    window.addEventListener('scroll', updateScrollState, { passive: true });
+    window.addEventListener('resize', updateScrollState);
+
+    return () => {
+      window.removeEventListener('scroll', updateScrollState);
+      window.removeEventListener('resize', updateScrollState);
+    };
+  }, [indexSections]);
+
   return (
-    <div className="min-h-screen" style={{ fontFamily: "'Inter', 'Helvetica Neue', Arial, system-ui, sans-serif" }}>
-      {/* ============================== */}
-      {/* 1. HERO / COVER              */}
-      {/* ============================== */}
-      <section className="relative bg-[#0a0a0a] text-white overflow-hidden min-h-[90vh] flex items-end">
-        {/* Solid black background — no image */}
-
-        {/* Decorative geometric elements */}
-        <div className="absolute top-20 right-12 sm:right-20 w-48 h-48 border border-[#fbbf24]/15 rounded-full pointer-events-none" />
-        <div className="absolute top-28 right-20 sm:right-28 w-32 h-32 border border-[#fbbf24]/10 rounded-full pointer-events-none" />
-        <div className="absolute bottom-40 right-8 w-px h-32 bg-gradient-to-b from-[#fbbf24]/30 to-transparent pointer-events-none" />
-        <div className="absolute top-1/3 left-0 w-24 h-px bg-gradient-to-r from-[#fbbf24]/20 to-transparent pointer-events-none" />
-
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 sm:pb-24 pt-32 sm:pt-40 w-full">
-          <div className="mb-12">
+    <div className="propuesta-web">
+      <div className="pw-shell">
+        <header className="pw-topbar">
+          <div className="pw-wrap pw-topbar__inner">
             <Image
               src="/logos/fne-logo-gold.png"
               alt="Fundación Nueva Educación"
-              width={180}
-              height={60}
+              width={132}
+              height={44}
+              priority
             />
+            <div className="pw-topbar__meta">
+              <span>{snapshot.schoolName}</span>
+              <span className="pw-dot" />
+              <span>{snapshot.programYear}</span>
+            </div>
           </div>
+        </header>
+        <div
+          className="pw-progress"
+          style={{ '--progress': `${scrollProgress}%` } as CSSProperties}
+        />
 
-          {/* Gold accent bar */}
-          <div className="w-16 h-1 bg-[#fbbf24] mb-6 rounded-full" />
+        <aside className="pw-side-index" aria-label="Índice de secciones">
+          <p className="pw-side-index__label">Índice</p>
+          <nav className="pw-side-index__nav">
+            {indexSections.map((section, index) => (
+              <a
+                key={section.id}
+                href={`#${section.id}`}
+                className={`pw-side-index__link ${activeSection === section.id ? 'is-active' : ''}`}
+              >
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <span>{section.label}</span>
+              </a>
+            ))}
+          </nav>
+        </aside>
 
-          <p className="text-[#fbbf24] text-sm font-semibold uppercase tracking-[0.3em] mb-6">
-            {programLabel}
-          </p>
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-[1.05] mb-8 max-w-4xl">
-            {snapshot.serviceName}
-          </h1>
+        <section className="pw-section pw-hero" id="hero">
+          <span className="pw-watermark">{snapshot.type === 'evoluciona' ? 'Evoluciona' : 'Preparación'}</span>
+          <div className="pw-wrap">
+            <div className="pw-hero__content">
+              <p className="pw-kicker">{programLabel}</p>
+              <h1 className="pw-display pw-hero__title">{snapshot.serviceName}</h1>
 
-          {/* Metadata strip */}
-          <div className="flex flex-wrap items-center gap-4 text-white/60 mt-10 pt-8 border-t border-white/10">
-            <span className="text-lg font-light">{snapshot.schoolName}</span>
-            <span className="w-1 h-1 bg-[#fbbf24] rounded-full" />
-            <span className="text-lg font-light">{snapshot.programYear}</span>
-            {snapshot.cliente?.ciudad && (
-              <>
-                <span className="w-1 h-1 bg-[#fbbf24] rounded-full" />
-                <span className="text-lg font-light">{snapshot.cliente.ciudad}</span>
-              </>
-            )}
-            {snapshot.destinatarios && snapshot.destinatarios.length > 0 && (
-              <>
-                <span className="w-1 h-1 bg-[#fbbf24] rounded-full" />
-                <span className="text-lg font-light">{snapshot.destinatarios.join(', ')}</span>
-              </>
-            )}
+              <div className="pw-hero__meta">
+                <span>{snapshot.schoolName}</span>
+                <span className="pw-dot" />
+                <span>{snapshot.programYear}</span>
+                {snapshot.cliente?.ciudad && (
+                  <>
+                    <span className="pw-dot" />
+                    <span>{snapshot.cliente.ciudad}</span>
+                  </>
+                )}
+                {snapshot.destinatarios && snapshot.destinatarios.length > 0 && (
+                  <>
+                    <span className="pw-dot" />
+                    <span>{snapshot.destinatarios.join(', ')}</span>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ============================== */}
-      {/* 2. ABOUT FNE                 */}
-      {/* ============================== */}
-      <section className="relative bg-[#111111] text-white py-20 sm:py-28 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        {/* Background illustration */}
-        <div className="absolute inset-0 pointer-events-none">
-          <Image src="/images/castellier-photo.png" alt="" fill className="object-cover opacity-[0.08]" />
-          <div className="absolute inset-0 bg-gradient-to-l from-[#111111] via-[#111111]/90 to-[#111111]/80" />
-        </div>
-
-        {/* Decorative elements */}
-        <div className="absolute top-0 right-12 w-px h-24 bg-gradient-to-b from-[#fbbf24]/30 to-transparent pointer-events-none" />
-        <div className="absolute bottom-0 left-8 w-px h-24 bg-gradient-to-t from-[#fbbf24]/20 to-transparent pointer-events-none" />
-
-        <div className="relative z-10 max-w-5xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+        <section className="pw-section pw-index" id="indice">
+          <div className="pw-wrap pw-index__grid">
             <div>
-              <div className="w-12 h-1 bg-[#fbbf24] mb-6 rounded-full" />
-              <p className="text-[#fbbf24] text-sm font-semibold uppercase tracking-[0.2em] mb-4">
-                Quiénes Somos
-              </p>
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-8 leading-tight">
-                Fundación Nueva Educación
-              </h2>
+              <p className="pw-kicker mb-5">Contenido</p>
+              <h2 className="pw-h2">Índice</h2>
+            </div>
+            <div className="pw-index__list">
+              {indexSections.map((section, index) => (
+                <a key={section.id} href={`#${section.id}`} className="pw-index__item">
+                  <span className="pw-index__number">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  <span className="pw-index__title">{section.label}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </section>
 
-              {/* Lead paragraph — pull-quote style */}
-              <div className="border-l-4 border-[#fbbf24] pl-6 mb-8">
-                <p className="text-xl text-white/80 leading-relaxed font-light">
+        <section className="pw-section pw-section--dark" id="about">
+          <div className="pw-wrap pw-section__grid pw-section__grid--two">
+            <div>
+              <p className="pw-kicker mb-5">Quiénes Somos</p>
+              <h2 className="pw-h2">Fundación Nueva Educación</h2>
+            </div>
+            <div>
+              <div className="pw-quote-panel mb-8">
+                <p className="pw-lede">
                   Desde 2018, la Fundación Nueva Educación trabaja por la transformación
                   de comunidades educativas a través de la formación docente, el liderazgo
                   escolar y la innovación pedagógica.
                 </p>
               </div>
-
-              <p className="text-white/60 leading-relaxed mb-10">
+              <p className="pw-body">
                 Nuestro equipo de consultores expertos diseña programas a medida que
                 responden a las necesidades específicas de cada comunidad educativa,
                 combinando metodologías probadas con enfoques innovadores.
               </p>
 
-              {/* Stats — visual with proportional bars */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="pw-stats-row">
                 {[
-                  { icon: Award, value: '6+', label: 'Años de experiencia', width: '75%' },
-                  { icon: Globe, value: '3', label: 'Países', width: '38%' },
-                  { icon: Target, value: '100+', label: 'Colegios acompañados', width: '100%' },
+                  { icon: Award, value: '6+', label: 'Años de experiencia' },
+                  { icon: Globe, value: '3', label: 'Países' },
+                  { icon: Target, value: '100+', label: 'Colegios acompañados' },
                 ].map((stat) => (
-                  <div key={stat.label} className="text-center">
-                    <stat.icon size={22} className="text-[#fbbf24] mx-auto mb-3" />
-                    <p className="text-3xl font-bold text-white mb-1">{stat.value}</p>
-                    <p className="text-xs text-white/50 mb-3">{stat.label}</p>
-                    <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-[#fbbf24] to-[#f59e0b] rounded-full"
-                        style={{ width: stat.width }}
-                      />
-                    </div>
+                  <div key={stat.label} className="pw-stat">
+                    <stat.icon size={22} className="text-[#fbbf24] mb-4" />
+                    <span className="pw-stat__value">{stat.value}</span>
+                    <span className="pw-stat__label">{stat.label}</span>
                   </div>
                 ))}
               </div>
             </div>
-
-            {/* Team photo — enhanced frame */}
-            <div className="relative">
-              <div className="absolute -inset-4 border border-[#fbbf24]/10 rounded-3xl pointer-events-none" />
-              <div className="relative h-80 lg:h-[480px] rounded-2xl overflow-hidden shadow-2xl bg-[#111111]">
-                <Image
-                  src="/images/castellier-photo.png"
-                  alt="Equipo FNE"
-                  fill
-                  className="object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a]/50 to-transparent" />
-              </div>
-            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ============================== */}
-      {/* 3. CONSULTING MODEL           */}
-      {/* ============================== */}
-      <section className="relative bg-[#fafaf9] py-20 sm:py-28 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        {/* Background illustration */}
-        <div className="absolute inset-0 pointer-events-none">
-          <Image src="/images/growth.png" alt="" fill className="object-cover opacity-[0.04]" />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#fafaf9] via-[#fafaf9]/95 to-[#fafaf9]" />
-        </div>
-
-        {/* Decorative circle */}
-        <div className="absolute -bottom-20 -left-20 w-72 h-72 border border-[#fbbf24]/8 rounded-full pointer-events-none" />
-
-        <div className="relative z-10 max-w-5xl mx-auto">
-          <div className="w-12 h-1 bg-[#fbbf24] mb-6 rounded-full" />
-          <p className="text-[#fbbf24] text-sm font-semibold uppercase tracking-[0.2em] mb-4">
-            Nuestro Enfoque
-          </p>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#0a0a0a] mb-14 leading-tight">
-            Modelo de Consultoría
-          </h2>
-
-          {/* Phase cards — connected flow with arrows */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-16">
-            {[
-              {
-                icon: '/images/icon-inicia.png',
-                title: 'Inicia',
-                number: '01',
-                description:
-                  'Diagnóstico y levantamiento de necesidades. Identificamos las áreas de mejora y establecemos la línea base.',
-              },
-              {
-                icon: '/images/icon-inspira.png',
-                title: 'Inspira',
-                number: '02',
-                description:
-                  'Formación y acompañamiento. Implementamos programas de desarrollo profesional contextualizados.',
-              },
-              {
-                icon: '/images/icon-evoluciona.png',
-                title: 'Evoluciona',
-                number: '03',
-                description:
-                  'Consolidación y autonomía. Aseguramos la sostenibilidad de los cambios y la transferencia de capacidades.',
-              },
-            ].map((phase, idx) => (
-              <div key={phase.title} className="relative group">
-                {/* Connecting arrow (not on last card) */}
-                {idx < 2 && (
-                  <div className="hidden sm:flex absolute top-1/2 -right-3 z-20 -translate-y-1/2">
-                    <ArrowRight size={20} className="text-[#fbbf24]/40" />
-                  </div>
-                )}
-
-                <div className="relative bg-white border-2 border-[#0a0a0a] rounded-2xl p-8 text-center hover:shadow-xl transition-all duration-300 group-hover:-translate-y-1 h-full">
-                  {/* Phase number */}
-                  <span className="absolute top-4 right-4 text-5xl font-bold text-[#fbbf24]/10">
-                    {phase.number}
-                  </span>
-
-                  <div className="relative w-16 h-16 mx-auto mb-5">
-                    <Image src={phase.icon} alt={phase.title} fill className="object-contain" />
-                  </div>
-                  <h3 className="text-xl font-bold text-[#0a0a0a] mb-3">{phase.title}</h3>
-                  <p className="text-gray-600 text-sm leading-relaxed">{phase.description}</p>
+        <section className="pw-section pw-section--cream" id="model">
+          <div className="pw-wrap">
+            <div className="pw-section__grid pw-section__grid--two">
+              <div>
+                <p className="pw-kicker mb-5">Nuestro Enfoque</p>
+                <h2 className="pw-h2">Modelo de Consultoría</h2>
+              </div>
+              <div>
+                <div className="pw-phases">
+                  {PHASES.map((phase) => (
+                    <article key={phase.title} className="pw-phase">
+                      <span className="pw-phase__number">{phase.number}</span>
+                      <h3 className="pw-phase__title">{phase.title}</h3>
+                      <p className="pw-phase__text">{phase.description}</p>
+                    </article>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Model diagram — no frame */}
-          <div className="relative w-full h-64 sm:h-80 lg:h-96">
-            <Image
-              src="/images/modelo-consultoria.png"
-              alt="Modelo de Consultoría FNE"
-              fill
-              className="object-contain"
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* ============================== */}
-      {/* 4. CONSULTING TEAM            */}
-      {/* ============================== */}
-      {fneConsultants.length > 0 && (
-        <section className="relative bg-white py-20 sm:py-28 px-4 sm:px-6 lg:px-8 overflow-hidden">
-          {/* Background illustration */}
-          <div className="absolute inset-0 pointer-events-none">
-            <Image src="/images/castellier.png" alt="" fill className="object-cover opacity-[0.04]" />
-            <div className="absolute inset-0 bg-gradient-to-t from-white via-white/95 to-white/90" />
-          </div>
-
-          {/* Decorative elements */}
-          <div className="absolute top-0 left-8 w-px h-20 bg-gradient-to-b from-[#fbbf24]/30 to-transparent pointer-events-none" />
-          <div className="absolute -top-16 right-20 w-48 h-48 border border-[#fbbf24]/8 rounded-full pointer-events-none" />
-
-          <div className="relative z-10 max-w-5xl mx-auto">
-            <div className="w-12 h-1 bg-[#fbbf24] mb-6 rounded-full" />
-            <div className="flex items-center gap-3 mb-2">
-              <Users size={24} className="text-[#fbbf24]" />
-              <p className="text-[#fbbf24] text-sm font-semibold uppercase tracking-[0.2em]">
-                Equipo Asignado
-              </p>
-            </div>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#0a0a0a] mb-12 leading-tight">
-              Equipo de Consultoría
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {fneConsultants.map((consultant, idx) => (
-                <ConsultantCard key={idx} consultant={consultant} variant="fne" />
-              ))}
             </div>
           </div>
         </section>
-      )}
 
-      {/* ============================== */}
-      {/* 5. INTERNATIONAL ADVISORS     */}
-      {/* ============================== */}
-      <section className="relative bg-[#0a0a0a] py-20 sm:py-28 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        {/* Solid black background — no illustration */}
-
-        {/* Decorative */}
-        <div className="absolute top-0 right-16 w-px h-28 bg-gradient-to-b from-[#fbbf24]/30 to-transparent pointer-events-none" />
-        <div className="absolute bottom-0 left-12 w-px h-20 bg-gradient-to-t from-[#fbbf24]/20 to-transparent pointer-events-none" />
-
-        <div className="relative z-10 max-w-5xl mx-auto">
-          <div className="w-12 h-1 bg-[#fbbf24] mb-6 rounded-full" />
-          <p className="text-[#fbbf24] text-sm font-semibold uppercase tracking-[0.2em] mb-4">
-            Red Internacional
-          </p>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-12 leading-tight">
-            Asesores Internacionales
-          </h2>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-            {INTERNATIONAL_ADVISORS.slice(0, -1).map((advisor, idx) => (
-              <ConsultantCard key={idx} consultant={advisor} variant="advisor" />
-            ))}
-          </div>
-          {/* Last advisor centered */}
-          <div className="flex justify-center mt-8">
-            <div className="w-full sm:w-1/2 sm:max-w-md">
-              <ConsultantCard
-                consultant={INTERNATIONAL_ADVISORS[INTERNATIONAL_ADVISORS.length - 1]}
-                variant="advisor"
-              />
+        {fneConsultants.length > 0 && (
+          <section className="pw-section" id="team">
+            <div className="pw-wrap">
+              <div className="mb-12">
+                <p className="pw-kicker mb-5">Equipo Asignado</p>
+                <h2 className="pw-h2">Equipo de Consultoría</h2>
+              </div>
+              <div className="pw-team-grid">
+                {fneConsultants.map((consultant, index) => (
+                  <ConsultantCard key={`${consultant.nombre}-${index}`} consultant={consultant} variant="fne" />
+                ))}
+              </div>
             </div>
-          </div>
+          </section>
+        )}
 
-          {/* Reference schools — credibility strip */}
-          <div className="mt-20 pt-12 border-t border-white/10">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-8 h-px bg-[#fbbf24]" />
-              <p className="text-white/50 text-xs font-semibold uppercase tracking-[0.3em]">
+        <section className="pw-section pw-section--dark" id="advisors">
+          <div className="pw-wrap">
+            <div className="mb-12">
+              <p className="pw-kicker mb-5">Red Internacional</p>
+              <h2 className="pw-h2">Asesores Internacionales</h2>
+            </div>
+
+            <div className="pw-team-grid">
+              {INTERNATIONAL_ADVISORS.map((advisor, index) => (
+                <ConsultantCard key={`${advisor.nombre}-${index}`} consultant={advisor} variant="advisor" />
+              ))}
+            </div>
+
+            <div className="mt-20 pt-12 border-t border-white/10">
+              <p className="text-white/50 text-xs font-black uppercase tracking-[0.3em] mb-8">
                 Centros de Referencia en Barcelona
               </p>
-              <div className="flex-1 h-px bg-white/5" />
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {[
-                { src: '/images/schools/virolai.png', name: 'Escola Virolai', leader: 'Coral Regí · Sandra Entrena' },
-                { src: '/images/schools/sadako.png', name: 'Escola Sadako', leader: 'Jordi Mussons' },
-                { src: '/images/schools/les-vinyes.png', name: 'IE Les Vinyes', leader: 'Boris Mir' },
-                { src: '/images/schools/el-puig.png', name: 'Escola El Puig', leader: '' },
-                { src: '/images/schools/octavio-paz.png', name: 'Escola Octavio Paz', leader: '' },
-                { src: '/images/schools/angeleta-ferrer.png', name: 'Institut Angeleta Ferrer', leader: 'Boris Mir' },
-              ].map((school) => (
-                <div
-                  key={school.name}
-                  className="bg-white/[0.06] border border-white/10 rounded-xl p-4 flex items-center gap-4 hover:border-[#fbbf24]/20 transition-colors group"
-                >
-                  <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-white flex-shrink-0">
-                    <Image
-                      src={school.src}
-                      alt={school.name}
-                      fill
-                      className="object-contain p-1.5"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-white/80 text-sm font-medium leading-tight group-hover:text-[#fbbf24] transition-colors">
-                      {school.name}
-                    </p>
-                    {school.leader && (
-                      <p className="text-white/30 text-[11px] mt-0.5">
-                        {school.leader}
+              <div className="pw-schools-grid">
+                {REFERENCE_SCHOOLS.map((school) => (
+                  <article key={school.name} className="pw-school">
+                    <div className="pw-school__logo">
+                      <Image
+                        src={school.src}
+                        alt={school.name}
+                        fill
+                        className="object-contain p-2"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-white/80 text-sm font-black leading-tight">
+                        {school.name}
                       </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ============================== */}
-      {/* 6. CONTENT BLOCKS             */}
-      {/* ============================== */}
-      {snapshot.contentBlocks.map((block, idx) => (
-        <Fragment key={block.key}>
-          <ContentBlockSection
-            block={block}
-            variant={idx % 2 === 0 ? 'light' : 'dark'}
-            index={idx}
-          />
-          {/* Clean decorative divider between blocks */}
-          {idx < snapshot.contentBlocks.length - 1 && (
-            <div className={`${idx % 2 === 0 ? 'bg-[#0a0a0a]' : 'bg-[#fafaf9]'}`}>
-              <div className="max-w-5xl mx-auto flex items-center gap-4 px-4 sm:px-6 lg:px-8">
-                <div className={`flex-1 h-px ${idx % 2 === 0 ? 'bg-white/10' : 'bg-[#0a0a0a]/8'}`} />
-                <div className="w-2 h-2 bg-[#fbbf24] rounded-full" />
-                <div className={`flex-1 h-px ${idx % 2 === 0 ? 'bg-white/10' : 'bg-[#0a0a0a]/8'}`} />
+                      {school.leader && (
+                        <p className="text-white/30 text-[11px] mt-1">{school.leader}</p>
+                      )}
+                    </div>
+                  </article>
+                ))}
               </div>
             </div>
-          )}
-        </Fragment>
-      ))}
-
-      {/* ============================== */}
-      {/* 6b. ACTIVITY BUCKETS          */}
-      {/* ============================== */}
-      {snapshot.buckets && snapshot.buckets.length > 0 && (
-        <BucketDistribution buckets={snapshot.buckets} />
-      )}
-
-      {/* ============================== */}
-      {/* 7. BUCKET TIMELINE            */}
-      {/* ============================== */}
-      {snapshot.buckets && snapshot.buckets.length > 0 && (
-        <section className="bg-[#fafaf9] py-16 sm:py-20 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-5xl mx-auto">
-            <BucketTimeline buckets={snapshot.buckets} />
           </div>
         </section>
-      )}
 
-      {/* ============================== */}
-      {/* 8. ECONOMIC PROPOSAL          */}
-      {/* ============================== */}
-      <PricingSection pricing={snapshot.pricing} />
-
-      {/* ============================== */}
-      {/* 9. DOWNLOADABLES              */}
-      {/* ============================== */}
-      <DownloadablesSection documents={snapshot.documents} slug={slug} accessCode={accessCode} />
-
-      {/* ============================== */}
-      {/* 10. CONTACT INFO              */}
-      {/* ============================== */}
-      <section className="relative bg-[#fafaf9] py-20 sm:py-28 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        {/* Background illustration */}
-        <div className="absolute inset-0 pointer-events-none">
-          <Image src="/images/barcelona-skyline.png" alt="" fill className="object-cover opacity-[0.04]" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#fafaf9] via-[#fafaf9]/95 to-[#fafaf9]/90" />
-        </div>
-
-        {/* Decorative */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-16 bg-gradient-to-b from-[#fbbf24]/30 to-transparent pointer-events-none" />
-
-        <div className="relative z-10 max-w-5xl mx-auto text-center">
-          <div className="w-12 h-1 bg-[#fbbf24] mb-6 rounded-full mx-auto" />
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#0a0a0a] mb-4 leading-tight">
-            ¿Tienes preguntas?
-          </h2>
-          <p className="text-gray-500 text-lg mb-12 max-w-2xl mx-auto leading-relaxed">
-            Nuestro equipo está disponible para resolver tus dudas y acompañarte en el
-            proceso de toma de decisiones.
-          </p>
-
-          {/* Contact cards — enhanced */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-xl mx-auto mb-12">
-            <a
-              href={`mailto:${FNE_CONTACT_EMAIL}`}
-              className="relative bg-white border-2 border-[#0a0a0a] rounded-2xl p-8 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group overflow-hidden"
-            >
-              <div className="absolute top-0 left-0 w-full h-1 bg-[#fbbf24] scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
-              <Mail size={28} className="text-[#fbbf24] mx-auto mb-4" />
-              <p className="font-bold text-[#0a0a0a] group-hover:text-[#fbbf24] transition-colors mb-2">
-                Email
-              </p>
-              <p className="text-gray-400 text-sm">{FNE_CONTACT_EMAIL}</p>
-            </a>
-            <a
-              href="tel:+56941623577"
-              className="relative bg-white border-2 border-[#0a0a0a] rounded-2xl p-8 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group overflow-hidden"
-            >
-              <div className="absolute top-0 left-0 w-full h-1 bg-[#fbbf24] scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
-              <Phone size={28} className="text-[#fbbf24] mx-auto mb-4" />
-              <p className="font-bold text-[#0a0a0a] group-hover:text-[#fbbf24] transition-colors mb-2">
-                Teléfono
-              </p>
-              <p className="text-gray-400 text-sm">+56 9 4162 3577</p>
-            </a>
-          </div>
-
-          {/* CTA buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              onClick={handleDownloadPDF}
-              disabled={generatingPdf}
-              className="inline-flex items-center justify-center gap-2 bg-[#fbbf24] text-[#0a0a0a] rounded-full px-10 py-4 font-bold hover:bg-[#f59e0b] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
-            >
-              {generatingPdf ? <Loader2 size={20} className="animate-spin" /> : <Download size={20} />}
-              {generatingPdf ? 'Generando...' : 'Descargar PDF'}
-            </button>
-            <a
-              href={`mailto:${FNE_CONTACT_EMAIL}`}
-              className="inline-flex items-center justify-center gap-2 bg-[#0a0a0a] text-white rounded-full px-10 py-4 font-bold hover:bg-[#1f1f1f] transition-all duration-200 shadow-lg hover:shadow-xl"
-            >
-              <MessageSquare size={20} />
-              Contactar
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* ============================== */}
-      {/* 11. FOOTER                    */}
-      {/* ============================== */}
-      <footer className="bg-[#0a0a0a] text-white py-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-5xl mx-auto text-center">
-          {/* Decorative divider */}
-          <div className="flex justify-center mb-10">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-px bg-white/10" />
-              <div className="w-2 h-2 bg-[#fbbf24] rounded-full" />
-              <div className="w-12 h-px bg-white/10" />
-            </div>
-          </div>
-
-          <Image
-            src="/logos/fne-logo-gold.png"
-            alt="Fundación Nueva Educación"
-            width={140}
-            height={47}
-            className="mx-auto mb-5"
+        {snapshot.contentBlocks.map((block, index) => (
+          <ContentBlockSection
+            key={block.key}
+            block={block}
+            variant={index % 2 === 0 ? 'light' : 'dark'}
+            index={index}
+            sectionId={`contenido-${index + 1}`}
           />
-          <p className="text-white/50 text-sm mb-3">
-            Transformando comunidades educativas
-          </p>
+        ))}
 
-          {/* Ficha objetivo */}
-          {snapshot.fichaObjetivo && (
-            <div className="mt-6 mb-4 max-w-2xl mx-auto">
-              <p className="text-white/25 text-xs italic leading-relaxed border-l-2 border-[#fbbf24]/20 pl-4">
-                {snapshot.fichaObjetivo}
-              </p>
+        {hasBuckets && <BucketDistribution buckets={snapshot.buckets!} />}
+
+        {hasBuckets && (
+          <section id="timeline" className="pw-section pw-section--cream">
+            <div className="pw-wrap">
+              <BucketTimeline buckets={snapshot.buckets!} />
             </div>
-          )}
+          </section>
+        )}
 
-          {/* Ficha & Licitación metadata */}
-          {(snapshot.ficha || snapshot.licitacion) && (
-            <div className="mt-6 mb-6 text-white/30 text-xs space-y-1">
-              {snapshot.ficha && (
-                <p>
-                  {snapshot.ficha.nombre_servicio} — {snapshot.ficha.dimension}
-                  {snapshot.ficha.categoria ? ` · ${snapshot.ficha.categoria}` : ''}
-                  {snapshot.ficha.folio ? ` · Folio ${snapshot.ficha.folio}` : ''}
-                </p>
-              )}
-              {snapshot.licitacion && (
-                <p>
-                  Licitación {snapshot.licitacion.numero} — {snapshot.licitacion.nombre} ({snapshot.licitacion.year})
-                </p>
-              )}
+        <PricingSection pricing={snapshot.pricing} />
+
+        {hasDocuments && (
+          <DownloadablesSection documents={snapshot.documents} slug={slug} accessCode={accessCode} />
+        )}
+
+        <section className="pw-section pw-section--yellow pw-cta" id="contacto">
+          <div className="pw-narrow text-center">
+            <p className="pw-kicker mb-5 justify-center">Contacto</p>
+            <h2 className="pw-h2 mb-5">¿Tienes preguntas?</h2>
+            <p className="pw-lede mx-auto mb-12">
+              Nuestro equipo está disponible para resolver tus dudas y acompañarte en el
+              proceso de toma de decisiones.
+            </p>
+
+            <div className="pw-contact-grid mb-10">
+              <a href={`mailto:${FNE_CONTACT_EMAIL}`} className="pw-contact-card">
+                <Mail size={26} className="mx-auto mb-4" />
+                <p className="font-black mb-1">Email</p>
+                <p className="text-sm text-[#0a0a0a]/60">{FNE_CONTACT_EMAIL}</p>
+              </a>
+              <a href="tel:+56941623577" className="pw-contact-card">
+                <Phone size={26} className="mx-auto mb-4" />
+                <p className="font-black mb-1">Teléfono</p>
+                <p className="text-sm text-[#0a0a0a]/60">+56 9 4162 3577</p>
+              </a>
             </div>
-          )}
 
-          <p className="text-white/30 text-xs">
-            &copy; {new Date().getFullYear()} Fundación Nueva Educación. Todos los derechos
-            reservados.
-          </p>
-        </div>
-      </footer>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                type="button"
+                onClick={handleDownloadPDF}
+                disabled={generatingPdf}
+                className="pw-btn pw-btn--ink"
+              >
+                {generatingPdf ? <Loader2 size={20} className="animate-spin" /> : <Download size={20} />}
+                {generatingPdf ? 'Generando...' : 'Descargar PDF'}
+              </button>
+              <a href={`mailto:${FNE_CONTACT_EMAIL}`} className="pw-btn pw-btn--outline">
+                <MessageSquare size={20} />
+                Contactar
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <footer className="pw-colophon">
+          <div className="pw-narrow text-center">
+            <Image
+              src="/logos/fne-logo-gold.png"
+              alt="Fundación Nueva Educación"
+              width={140}
+              height={47}
+              className="mx-auto mb-5"
+            />
+            <p className="text-white/50 text-sm mb-3">
+              Transformando comunidades educativas
+            </p>
+
+            {snapshot.fichaObjetivo && (
+              <div className="mt-6 mb-4 max-w-2xl mx-auto">
+                <p className="text-white/25 text-xs italic leading-relaxed border-l-2 border-[#fbbf24]/20 pl-4">
+                  {snapshot.fichaObjetivo}
+                </p>
+              </div>
+            )}
+
+            {(snapshot.ficha || snapshot.licitacion) && (
+              <div className="mt-6 mb-6 text-white/30 text-xs space-y-1">
+                {snapshot.ficha && (
+                  <p>
+                    {snapshot.ficha.nombre_servicio} — {snapshot.ficha.dimension}
+                    {snapshot.ficha.categoria ? ` · ${snapshot.ficha.categoria}` : ''}
+                    {snapshot.ficha.folio ? ` · Folio ${snapshot.ficha.folio}` : ''}
+                  </p>
+                )}
+                {snapshot.licitacion && (
+                  <p>
+                    Licitación {snapshot.licitacion.numero} — {snapshot.licitacion.nombre} ({snapshot.licitacion.year})
+                  </p>
+                )}
+              </div>
+            )}
+
+            <p className="text-white/30 text-xs">
+              &copy; {new Date().getFullYear()} Fundación Nueva Educación. Todos los derechos
+              reservados.
+            </p>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }

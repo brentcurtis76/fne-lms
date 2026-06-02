@@ -84,7 +84,21 @@ export default function DownloadablesSection({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+
       toast.success('ZIP descargado');
+
+      // The endpoint reports any documents it could not include via headers so
+      // the user isn't handed a silently-short ZIP.
+      const skippedCount = Number(res.headers.get('X-Skipped-Count') || '0');
+      if (skippedCount > 0) {
+        const rawNames = res.headers.get('X-Skipped-Files');
+        const names = rawNames ? decodeURIComponent(rawNames).split(' | ') : [];
+        const detail = names.length > 0 ? `: ${names.join(', ')}` : '';
+        toast(
+          `No se pudieron incluir ${skippedCount} documento${skippedCount === 1 ? '' : 's'}${detail}`,
+          { icon: '⚠️', duration: 8000 }
+        );
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al descargar ZIP');
     } finally {

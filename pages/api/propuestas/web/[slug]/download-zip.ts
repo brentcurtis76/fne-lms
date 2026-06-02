@@ -4,6 +4,8 @@ import JSZip from 'jszip';
 import { z } from 'zod';
 import { createServiceRoleClient } from '@/lib/api-auth';
 import { authorizeProposalDownload } from '@/lib/propuestas-web/download-access';
+import { generateProposalPDFBuffer } from '@/lib/propuestas-web/pdf-generator';
+import type { ProposalSnapshot } from '@/lib/propuestas-web/snapshot';
 
 /**
  * ZIP download API for propuesta web view.
@@ -31,12 +33,18 @@ type SnapshotDocumentForZip = {
   archivoPath?: string;
 };
 
+type SnapshotConsultantForZip = {
+  nombre?: string;
+  cvPath?: string | null;
+};
+
 type ProposalSnapshotForZip = {
   serviceName?: string;
   licitacion?: {
     numero?: string;
   } | null;
   documents?: SnapshotDocumentForZip[];
+  consultants?: SnapshotConsultantForZip[];
 };
 
 const DOCUMENT_TYPE_FOLDER: Record<string, string> = {
@@ -142,7 +150,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: propuesta, error } = await serviceClient
       .from('propuesta_generadas')
-      .select('id, access_code, web_status, snapshot_json, archivo_path, version')
+      .select('id, access_code, web_status, snapshot_json, version')
       .eq('web_slug', slug)
       .eq('estado', 'completada')
       .single();
@@ -170,17 +178,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    if (!isSafeStoragePath(propuesta.archivo_path)) {
-      return res.status(422).json({ error: 'La propuesta PDF no esta disponible' });
+    const snapshot = propuesta.snapshot_json as ProposalSnapshotForZip | null;
+    if (!snapshot) {
+      return res.status(422).json({ error: 'La propuesta no esta disponible' });
     }
 
-    const snapshot = propuesta.snapshot_json as ProposalSnapshotForZip | null;
-    const supportingDocuments = Array.isArray(snapshot?.documents)
+    const supportingDocuments = Array.isArray(snapshot.documents)
       ? snapshot.documents
+      : [];
+    const consultants = Array.isArray(snapshot.consultants)
+      ? snapshot.consultants
       : [];
 
     const rootFolder = sanitizeName(
-      snapshot?.licitacion?.numero || slug,
+      snapshot.licitacion?.numero || slug,
       'propuesta',
       100
     );
@@ -190,9 +201,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const skippedFiles: string[] = [];
     let totalBytesProcessed = 0;
 
-    const proposalPdf = await downloadFromPropuestasBucket(serviceClient, propuesta.archivo_path);
-    if (!proposalPdf) {
-      return res.status(422).json({ error: 'No se pudo descargar el PDF de la propuesta' });
+    // Render the proposal PDF fresh from the snapshot using the SAME generator
+    // as the public page's "Descargar PDF" button, so the ZIP's PDF always
+    // matches the page — including historical proposals whose stored PDF
+    // predates the unified design.
+    let proposalPdf: Buffer;
+    try {
+      proposalPdf = generateProposalPDFBuffer(snapshot as unknown as ProposalSnapshot);
+    } catch (err) {
+      console.error('[propuesta-web/download-zip] PDF generation failed', err);
+      return res.status(422).json({ error: 'No se pudo generar el PDF de la propuesta' });
     }
 
     totalBytesProcessed += proposalPdf.byteLength;
@@ -242,6 +260,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       zip.file(documentZipPath, fileBuffer);
     }
 
+    // Consultant CVs — included as separate files. Not every consultant has a
+    // CV (cvPath is optional), so a missing path is skipped silently; only a
+    // present-but-unfetchable CV is reported as a skipped file.
+    for (const consultant of consultants) {
+      if (!isSafeStoragePath(consultant.cvPath)) {
+        continue;
+      }
+
+      const cvBuffer = await downloadFromPropuestasBucket(serviceClient, consultant.cvPath);
+      if (!cvBuffer) {
+        skippedFiles.push(consultant.nombre ? `CV — ${consultant.nombre}` : 'CV de consultor');
+        continue;
+      }
+
+      totalBytesProcessed += cvBuffer.byteLength;
+      if (totalBytesProcessed > MAX_TOTAL_SIZE_BYTES) {
+        return res.status(413).json({
+          error: 'Los archivos superan el limite de descarga durante la generacion. Descargue los archivos individualmente.',
+        });
+      }
+
+      const cvBaseName = sanitizeName(
+        consultant.nombre ? `CV ${consultant.nombre}` : 'CV',
+        'cv',
+        180
+      );
+      const cvExtension = path.posix.extname(path.posix.basename(consultant.cvPath));
+      const cvFileName = path.posix.extname(cvBaseName)
+        ? cvBaseName
+        : `${cvBaseName}${cvExtension || '.pdf'}`;
+      const cvZipPath = uniquifyZipPath(
+        `${rootFolder}/02-cv-consultores/${cvFileName}`,
+        usedPaths
+      );
+
+      zip.file(cvZipPath, cvBuffer);
+    }
+
     if (skippedFiles.length > 0) {
       const manifestPath = uniquifyZipPath(`${rootFolder}/_archivos_faltantes.txt`, usedPaths);
       zip.file(
@@ -261,6 +317,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${safeZipName}"`);
     res.setHeader('Content-Length', zipBuffer.length);
+    // Surface skipped files to the client so the UI can warn the user instead
+    // of handing them a silently-short ZIP. Header values must be ASCII, so the
+    // (possibly accented) names are URL-encoded; the client decodes them.
+    if (skippedFiles.length > 0) {
+      res.setHeader('X-Skipped-Count', String(skippedFiles.length));
+      res.setHeader('X-Skipped-Files', encodeURIComponent(skippedFiles.join(' | ')));
+    }
     return res.status(200).end(zipBuffer);
   } catch (err) {
     console.error('[propuesta-web/download-zip]', err);

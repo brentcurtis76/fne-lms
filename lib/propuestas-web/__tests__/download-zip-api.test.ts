@@ -16,9 +16,14 @@ vi.mock('@/lib/propuestas/storage', () => ({
   getSignedUrl: vi.fn(),
 }));
 
+vi.mock('@/lib/propuestas-web/pdf-generator', () => ({
+  generateProposalPDFBuffer: vi.fn(),
+}));
+
 import { checkIsAdmin, createServiceRoleClient } from '@/lib/api-auth';
 import { verifyAccessCode } from '@/lib/propuestas-web/access-code';
 import { getSignedUrl } from '@/lib/propuestas/storage';
+import { generateProposalPDFBuffer } from '@/lib/propuestas-web/pdf-generator';
 import zipHandler from '../../../pages/api/propuestas/web/[slug]/download-zip';
 import docHandler from '../../../pages/api/propuestas/web/[slug]/download-doc';
 
@@ -26,6 +31,7 @@ const mockCreateServiceRoleClient = vi.mocked(createServiceRoleClient);
 const mockCheckIsAdmin = vi.mocked(checkIsAdmin);
 const mockVerifyAccessCode = vi.mocked(verifyAccessCode);
 const mockGetSignedUrl = vi.mocked(getSignedUrl);
+const mockGenerateProposalPDFBuffer = vi.mocked(generateProposalPDFBuffer);
 
 type MockResponse = NextApiResponse & {
   _status: number;
@@ -157,6 +163,9 @@ function makeCompletedProposal(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   mockCheckIsAdmin.mockResolvedValue({ isAdmin: false, user: null, error: null });
+  // The ZIP now renders the proposal PDF from the snapshot via this generator
+  // (instead of downloading a stored file), so stub it to deterministic bytes.
+  mockGenerateProposalPDFBuffer.mockReturnValue(Buffer.from('proposal pdf'));
 });
 
 describe('POST /api/propuestas/web/[slug]/download-zip', () => {
@@ -252,12 +261,12 @@ describe('POST /api/propuestas/web/[slug]/download-zip', () => {
       .resolves.toContain('Certificado FNE');
   });
 
-  it('fails when the required generated proposal PDF is missing from storage', async () => {
+  it('returns 422 when the proposal has no snapshot to render', async () => {
     mockVerifyAccessCode.mockResolvedValue(true);
-    const serviceClient = makeMockServiceClient(makeCompletedProposal(), {
-      'documentos/certificado.pdf': Buffer.from('certificado'),
-      'documentos/carta.pdf': Buffer.from('carta'),
-    });
+    const serviceClient = makeMockServiceClient(
+      makeCompletedProposal({ snapshot_json: null }),
+      {}
+    );
     mockCreateServiceRoleClient.mockReturnValue(serviceClient as never);
 
     const req = mockReq('POST', { sessionCode: 'ABC123' });
@@ -266,7 +275,8 @@ describe('POST /api/propuestas/web/[slug]/download-zip', () => {
     await zipHandler(req, res);
 
     expect(res._status).toBe(422);
-    expect(res._body).toEqual({ error: 'No se pudo descargar el PDF de la propuesta' });
+    expect(res._body).toEqual({ error: 'La propuesta no esta disponible' });
+    expect(mockGenerateProposalPDFBuffer).not.toHaveBeenCalled();
   });
 
   it('allows authenticated admin preview downloads when no session code is present', async () => {
@@ -306,11 +316,20 @@ describe('POST /api/propuestas/web/[slug]/download-zip', () => {
     expect(mockVerifyAccessCode).not.toHaveBeenCalled();
   });
 
-  it('returns 422 and skips storage when the generated PDF path is unsafe', async () => {
+  it('includes consultant CVs as separate files', async () => {
     mockVerifyAccessCode.mockResolvedValue(true);
     const serviceClient = makeMockServiceClient(
-      makeCompletedProposal({ archivo_path: '../bad.pdf' }),
-      { '../bad.pdf': Buffer.from('proposal pdf') }
+      makeCompletedProposal({
+        snapshot_json: {
+          licitacion: { numero: 'LIC 2026/1' },
+          documents: [],
+          consultants: [
+            { nombre: 'Ana García', cvPath: 'consultores/ana-cv.pdf' },
+            { nombre: 'Sin CV' },
+          ],
+        },
+      }),
+      { 'consultores/ana-cv.pdf': Buffer.from('cv-ana') }
     );
     mockCreateServiceRoleClient.mockReturnValue(serviceClient as never);
 
@@ -319,9 +338,29 @@ describe('POST /api/propuestas/web/[slug]/download-zip', () => {
 
     await zipHandler(req, res);
 
-    expect(res._status).toBe(422);
-    expect(res._body).toEqual({ error: 'La propuesta PDF no esta disponible' });
-    expect(serviceClient._download).not.toHaveBeenCalled();
+    expect(res._status).toBe(200);
+    const zip = await JSZip.loadAsync(res._body as Buffer);
+    await expect(zip.file('LIC_2026_1/02-cv-consultores/CV_Ana_Garcia.pdf')!.async('string'))
+      .resolves.toBe('cv-ana');
+  });
+
+  it('reports skipped documents via X-Skipped response headers', async () => {
+    mockVerifyAccessCode.mockResolvedValue(true);
+    // certificado.pdf is intentionally absent from storage → skipped
+    const serviceClient = makeMockServiceClient(makeCompletedProposal(), {
+      'documentos/carta.pdf': Buffer.from('carta'),
+    });
+    mockCreateServiceRoleClient.mockReturnValue(serviceClient as never);
+
+    const req = mockReq('POST', { sessionCode: 'ABC123' });
+    const res = mockRes();
+
+    await zipHandler(req, res);
+
+    expect(res._status).toBe(200);
+    expect(res._headers.get('X-Skipped-Count')).toBe('1');
+    const decoded = decodeURIComponent(String(res._headers.get('X-Skipped-Files')));
+    expect(decoded).toContain('Certificado FNE');
   });
 
   it('uniquifies duplicate supporting document filenames', async () => {

@@ -11,8 +11,8 @@ import {
 } from '@/lib/api-auth';
 import { getUserRoles } from '@/utils/roleUtils';
 import { uuidSchema } from '@/lib/validation/schemas';
-import { generateProposal } from '@/lib/propuestas/generator';
-import { uploadFile } from '@/lib/propuestas/storage';
+import { uploadFile, fileExists } from '@/lib/propuestas/storage';
+import { generateProposalPDFBuffer } from '@/lib/propuestas-web/pdf-generator';
 import { validateProposalConfig, type ValidationConfig } from '@/lib/propuestas/validation';
 import { generateAccessCode, hashAccessCode } from '@/lib/propuestas-web/access-code';
 import { generateSlug } from '@/lib/propuestas-web/access-code';
@@ -190,22 +190,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     );
   }
 
-  // Step 4a: Build supporting document paths from selected docs + consultant CVs
-  const supportingDocPaths: string[] = [];
-  for (const doc of selectedDocuments) {
-    if (doc.archivo_path) supportingDocPaths.push(doc.archivo_path);
-  }
-  if (proposalConfig.consultants && proposalConfig.consultants.length > 0) {
-    const consultantNames = proposalConfig.consultants.map((c: { nombre: string }) => c.nombre);
-    const { data: consultantDocs } = await serviceClient
-      .from('propuesta_consultores')
-      .select('cv_pdf_path')
-      .in('nombre', consultantNames)
-      .eq('activo', true);
-    if (consultantDocs) {
-      for (const c of consultantDocs) {
-        if (c.cv_pdf_path) supportingDocPaths.push(c.cv_pdf_path);
+  // Step 4a: Verify every selected document's file actually exists in storage.
+  // The snapshot freezes these paths, so a missing file would otherwise be
+  // captured as a dead path and silently dropped from the proposal and ZIP.
+  // Fail loudly here instead, naming the offending documents so the admin can
+  // fix the library before generating.
+  if (selectedDocuments.length > 0) {
+    const missingDocs: string[] = [];
+    for (const doc of selectedDocuments) {
+      if (!(await fileExists(doc.archivo_path))) {
+        missingDocs.push(doc.nombre);
       }
+    }
+    if (missingDocs.length > 0) {
+      return sendAuthError(
+        res,
+        `Los siguientes documentos seleccionados no tienen un archivo disponible en el almacenamiento y deben corregirse antes de generar la propuesta: ${missingDocs.join(', ')}. Vuelva a subirlos en la biblioteca de documentos.`,
+        422
+      );
     }
   }
 
@@ -278,22 +280,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const propuestaId = propuesta.id;
 
-  // Steps 7-10: Generate PDF, hash, upload, update record
+  // Steps 7-11: Build snapshot, render PDF from it, hash, upload, finalize.
   try {
-    // Step 7: Generate PDF
-    const pdfBuffer = await generateProposal({
-      ...proposalConfig,
-      supportingDocuments: supportingDocPaths,
-    } as Parameters<typeof generateProposal>[0]);
-
-    // Step 8: Compute SHA-256
-    const sha256 = createHash('sha256').update(pdfBuffer).digest('hex');
-
-    // Step 9: Upload to storage
-    const storagePath = `generadas/${licitacionId}/${propuestaId}.pdf`;
-    await uploadFile(storagePath, pdfBuffer, 'application/pdf');
-
-    // Step 10: Generate web view data
+    // Step 7: Generate web view access data
     const accessCodePlain = generateAccessCode();
     const accessCodeHash = await hashAccessCode(accessCodePlain);
     const webSlug = generateSlug(
@@ -303,12 +292,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       version
     );
 
-    // Fetch consultant DB records for snapshot enrichment
+    // Step 8: Fetch enrichment records and build the snapshot. The snapshot is
+    // the single source of truth for the proposal PDF (rendered in Step 9).
     const consultantNames = proposalConfig.consultants.map((c: { nombre: string }) => c.nombre);
     const [{ data: consultantRecords }, { data: clienteData }, { data: schoolData }] = await Promise.all([
       serviceClient
         .from('propuesta_consultores')
-        .select('nombre, categoria, foto_path, formacion_academica, experiencia_profesional, especialidades')
+        .select('nombre, categoria, foto_path, cv_pdf_path, formacion_academica, experiencia_profesional, especialidades')
         .in('nombre', consultantNames)
         .eq('activo', true),
       licitacion.cliente_id
@@ -348,6 +338,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       cliente: clienteData as BuildSnapshotInput['cliente'],
       schoolCode: (schoolData as { code?: string } | null)?.code ?? null,
     });
+
+    // Step 9: Render the canonical PDF from the snapshot — the SAME generator
+    // the public page's "Descargar PDF" button uses — so the stored PDF, the
+    // page download and the ZIP bundle all produce an identical document.
+    const pdfBuffer = generateProposalPDFBuffer(snapshotJson);
+
+    // Step 10: Compute SHA-256 and upload to storage
+    const sha256 = createHash('sha256').update(pdfBuffer).digest('hex');
+    const storagePath = `generadas/${licitacionId}/${propuestaId}.pdf`;
+    await uploadFile(storagePath, pdfBuffer, 'application/pdf');
 
     // Step 11: Update record to completada with web data
     const { error: updateError } = await serviceClient

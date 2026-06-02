@@ -88,7 +88,13 @@ declare module 'jspdf' {
   }
 }
 
-export function generateProposalPDF(snapshot: ProposalSnapshot): void {
+/**
+ * Build the proposal PDF document from a snapshot. Pure and isomorphic —
+ * runs identically in the browser and in Node (no DOM, standard helvetica
+ * fonts). Returns the jsPDF instance WITHOUT saving; callers decide how to
+ * emit it (browser `save()` vs server `Buffer`).
+ */
+function buildProposalPdf(snapshot: ProposalSnapshot): jsPDF {
   const pdf = new jsPDF({ unit: 'pt', format: 'letter' });
   const W = pdf.internal.pageSize.getWidth();   // 612
   const H = pdf.internal.pageSize.getHeight();  // 792
@@ -917,13 +923,34 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
     pdf.text(String(entry.page), W - M, yy, { align: 'right' });
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // SAVE
-  // ═══════════════════════════════════════════════════════════════════
+  return pdf;
+}
 
+/** Build the canonical download filename for a proposal PDF. */
+function proposalPdfFileName(snapshot: ProposalSnapshot): string {
   const safeName = snapshot.schoolName
     .replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ\s]/g, '')
     .replace(/\s+/g, '_');
   const date = new Date().toISOString().slice(0, 10);
-  pdf.save(`Propuesta_${safeName}_${snapshot.type}_v${snapshot.version}_${date}.pdf`);
+  return `Propuesta_${safeName}_${snapshot.type}_v${snapshot.version}_${date}.pdf`;
+}
+
+/**
+ * Browser entry point — generates the proposal PDF and triggers a download.
+ * Used by the public proposal page's "Descargar PDF" button.
+ */
+export function generateProposalPDF(snapshot: ProposalSnapshot): void {
+  const pdf = buildProposalPdf(snapshot);
+  pdf.save(proposalPdfFileName(snapshot));
+}
+
+/**
+ * Server entry point — generates the SAME proposal PDF as the page button and
+ * returns it as a Buffer. This is the canonical proposal PDF used everywhere:
+ * stored at generation time and bundled into the ZIP download, so the ZIP's
+ * PDF always matches what the page produces.
+ */
+export function generateProposalPDFBuffer(snapshot: ProposalSnapshot): Buffer {
+  const pdf = buildProposalPdf(snapshot);
+  return Buffer.from(pdf.output('arraybuffer'));
 }

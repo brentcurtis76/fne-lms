@@ -44,3 +44,26 @@ export async function downloadFile(path: string): Promise<Buffer> {
   if (error) throw new Error(`Failed to download ${path}: ${error.message}`);
   return Buffer.from(await data.arrayBuffer());
 }
+
+/**
+ * Check whether an object actually exists in the bucket at `path`.
+ * Uses a metadata-only `list()` on the parent prefix (does NOT download the
+ * file). Returns false for falsy paths or on any list error.
+ *
+ * Note: `createSignedUrl` is NOT a valid existence check — it returns a URL
+ * for non-existent objects and only 404s when fetched. This is the correct
+ * way to confirm a file is present before freezing its path into a snapshot.
+ */
+export async function fileExists(path: string | null | undefined): Promise<boolean> {
+  if (!path) return false;
+  const slashIndex = path.lastIndexOf('/');
+  const dir = slashIndex >= 0 ? path.slice(0, slashIndex) : '';
+  const name = slashIndex >= 0 ? path.slice(slashIndex + 1) : path;
+  if (!name) return false;
+
+  const { data, error } = await supabaseAdmin.storage
+    .from(BUCKET)
+    .list(dir, { search: name, limit: 100 });
+  if (error || !data) return false;
+  return data.some((obj) => obj.name === name);
+}

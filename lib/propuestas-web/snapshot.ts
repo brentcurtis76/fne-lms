@@ -16,6 +16,8 @@ export interface SnapshotConsultant {
   bio: string;
   categoria?: string;
   fotoPath: string | null;
+  /** Storage path of the consultant CV PDF, included as a separate file in the ZIP. */
+  cvPath?: string | null;
   formacion: { year: number; institution: string; degree: string }[] | null;
   experiencia: { empresa: string; cargo: string; funcion: string }[] | null;
   especialidades: string[] | null;
@@ -211,6 +213,7 @@ export interface BuildSnapshotInput {
     nombre: string;
     categoria?: string;
     foto_path: string | null;
+    cv_pdf_path?: string | null;
     formacion_academica: { year: number; institution: string; degree: string }[] | null;
     experiencia_profesional: { empresa: string; cargo: string; funcion: string }[] | null;
     especialidades: string[] | null;
@@ -260,6 +263,7 @@ export function buildProposalSnapshot(input: BuildSnapshotInput): ProposalSnapsh
       bio: c.bio,
       categoria: dbRecord?.categoria ?? undefined,
       fotoPath: c.fotoPath ?? dbRecord?.foto_path ?? null,
+      cvPath: dbRecord?.cv_pdf_path ?? null,
       formacion: dbRecord?.formacion_academica ?? null,
       experiencia: dbRecord?.experiencia_profesional ?? null,
       especialidades: dbRecord?.especialidades ?? null,

@@ -29,26 +29,28 @@ vi.mock('@/utils/roleUtils', () => ({
   getUserRoles: vi.fn(),
 }));
 
-vi.mock('@/lib/propuestas/generator', () => ({
-  generateProposal: vi.fn(),
-}));
-
 vi.mock('@/lib/propuestas/storage', () => ({
   getSignedUrl: vi.fn(),
   uploadFile: vi.fn(),
+  fileExists: vi.fn(),
+}));
+
+vi.mock('@/lib/propuestas-web/pdf-generator', () => ({
+  generateProposalPDFBuffer: vi.fn(),
 }));
 
 import { getApiUser, createServiceRoleClient, sendAuthError, sendApiResponse } from '@/lib/api-auth';
 import { getUserRoles } from '@/utils/roleUtils';
-import { generateProposal } from '@/lib/propuestas/generator';
-import { getSignedUrl, uploadFile } from '@/lib/propuestas/storage';
+import { getSignedUrl, uploadFile, fileExists } from '@/lib/propuestas/storage';
+import { generateProposalPDFBuffer } from '@/lib/propuestas-web/pdf-generator';
 
 const mockGetApiUser = vi.mocked(getApiUser);
 const mockCreateServiceRoleClient = vi.mocked(createServiceRoleClient);
 const mockGetUserRoles = vi.mocked(getUserRoles);
-const mockGenerateProposal = vi.mocked(generateProposal);
 const mockGetSignedUrl = vi.mocked(getSignedUrl);
 const mockUploadFile = vi.mocked(uploadFile);
+const mockFileExists = vi.mocked(fileExists);
+const mockGenerateProposalPDFBuffer = vi.mocked(generateProposalPDFBuffer);
 const mockSendAuthError = vi.mocked(sendAuthError);
 const mockSendApiResponse = vi.mocked(sendApiResponse);
 
@@ -589,7 +591,7 @@ describe('POST /api/licitaciones/[id]/generate-propuesta', () => {
     setupGenerateHappyPath(mockClient);
 
     const pdfBuffer = Buffer.from('%PDF-1.4 test');
-    mockGenerateProposal.mockResolvedValue(pdfBuffer);
+    mockGenerateProposalPDFBuffer.mockReturnValue(pdfBuffer);
     mockUploadFile.mockResolvedValue('generadas/lic-uuid/prop-uuid.pdf');
 
     // Final update
@@ -604,7 +606,7 @@ describe('POST /api/licitaciones/[id]/generate-propuesta', () => {
     const res = mockRes();
     await handler(req, res);
 
-    expect(mockGenerateProposal).toHaveBeenCalled();
+    expect(mockGenerateProposalPDFBuffer).toHaveBeenCalled();
     expect(mockUploadFile).toHaveBeenCalled();
     expect(mockSendApiResponse).toHaveBeenCalledWith(
       expect.anything(),

@@ -204,6 +204,7 @@ export default function ProposalPublicView({
               <a
                 key={section.id}
                 href={`#${section.id}`}
+                title={section.label}
                 className={`pw-side-index__link ${activeSection === section.id ? 'is-active' : ''}`}
               >
                 <span>{String(index + 1).padStart(2, '0')}</span>
@@ -299,22 +300,18 @@ export default function ProposalPublicView({
 
         <section className="pw-section pw-section--cream" id="model">
           <div className="pw-wrap">
-            <div className="pw-section__grid pw-section__grid--two">
-              <div>
-                <p className="pw-kicker mb-5">Nuestro Enfoque</p>
-                <h2 className="pw-h2">Modelo de Consultoría</h2>
-              </div>
-              <div>
-                <div className="pw-phases">
-                  {PHASES.map((phase) => (
-                    <article key={phase.title} className="pw-phase">
-                      <span className="pw-phase__number">{phase.number}</span>
-                      <h3 className="pw-phase__title">{phase.title}</h3>
-                      <p className="pw-phase__text">{phase.description}</p>
-                    </article>
-                  ))}
-                </div>
-              </div>
+            <div className="mb-12">
+              <p className="pw-kicker mb-5">Nuestro Enfoque</p>
+              <h2 className="pw-h2">Modelo de Consultoría</h2>
+            </div>
+            <div className="pw-phases">
+              {PHASES.map((phase) => (
+                <article key={phase.title} className="pw-phase">
+                  <span className="pw-phase__number">{phase.number}</span>
+                  <h3 className="pw-phase__title">{phase.title}</h3>
+                  <p className="pw-phase__text">{phase.description}</p>
+                </article>
+              ))}
             </div>
           </div>
         </section>

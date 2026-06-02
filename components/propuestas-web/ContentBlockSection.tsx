@@ -305,23 +305,19 @@ export default function ContentBlockSection({ block, variant, index, sectionId }
     >
       <div className="pw-wrap">
         <div className="pw-article">
-          <aside>
+          <div className="pw-article__content">
             <p className="pw-kicker mb-6">
               {String(index + 1).padStart(2, '0')}
             </p>
-            {editorialPlate && (
-              <div className="pw-article__plate">
-                <Image src={editorialPlate} alt="" fill sizes="(min-width: 760px) 38vw, 100vw" />
-              </div>
-            )}
-          </aside>
+            <h2 className="pw-h2 mb-8">
+              {block.titulo}
+            </h2>
 
-          <div className="pw-article__content">
-            <div className="mb-10">
-              <h2 className="pw-h2">
-                {block.titulo}
-              </h2>
-            </div>
+            {editorialPlate && (
+              <figure className="pw-article__plate">
+                <Image src={editorialPlate} alt="" fill sizes="(min-width: 880px) 820px, 100vw" />
+              </figure>
+            )}
 
             <div className="pw-article__body">
               {sections.map((section, idx) =>

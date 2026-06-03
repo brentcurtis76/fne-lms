@@ -691,10 +691,13 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         // so they update in place. Edit mode already carries ids and is left as-is.
         let cuotasToSave = cuotas;
         if (cuotas.every(c => !c.id)) {
-          const { data: existingCuotas } = await supabase
+          const { data: existingCuotas, error: existingCuotasError } = await supabase
             .from('cuotas')
             .select('id, numero_cuota')
             .eq('contrato_id', contractId);
+          // Must not silently continue: a failed lookup would leave the schedule
+          // id-less and let reconcileCuotas delete the draft's cuotas, orphaning facturas.
+          if (existingCuotasError) throw existingCuotasError;
           if (existingCuotas && existingCuotas.length > 0) {
             cuotasToSave = attachExistingCuotaIds(cuotas, existingCuotas);
           }

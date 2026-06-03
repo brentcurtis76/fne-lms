@@ -13,6 +13,10 @@ interface Contrato {
   fecha_fin?: string;
   precio_total_uf: number;
   tipo_moneda?: 'UF' | 'CLP';
+  es_manual?: boolean;
+  descripcion_manual?: string;
+  programa_id?: string | null;
+  contrato_url?: string;
   is_anexo?: boolean;
   parent_contrato_id?: string;
   anexo_numero?: number;
@@ -34,12 +38,12 @@ interface Contrato {
     nombre_notario?: string;
     comuna_notaria?: string;
   };
-  programas: {
+  programas?: {
     nombre: string;
     descripcion: string;
     horas_totales: number;
     modalidad: string;
-  };
+  } | null;
   cuotas: Array<{
     numero_cuota: number;
     fecha_vencimiento: string;
@@ -125,6 +129,41 @@ export default function ContractPrintPage() {
           >
             Volver
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Contracts imported from an external PDF (es_manual / no program) are not
+  // regenerated from the FNE template — surface the original document instead.
+  const isImportedSource = !contrato.is_anexo && (contrato.es_manual || !contrato.programas);
+  if (isImportedSource) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+        <div className="text-center max-w-md bg-white rounded-lg shadow p-8">
+          <p className="text-gray-900 text-lg font-semibold mb-2">Contrato importado</p>
+          <p className="text-gray-600 mb-6">
+            Este contrato fue importado desde un documento externo, por lo que no se genera una versión desde plantilla.
+          </p>
+          {contrato.contrato_url ? (
+            <a
+              href={contrato.contrato_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Descargar documento original
+            </a>
+          ) : (
+            <p className="text-sm text-gray-500">
+              No hay un documento original cargado. Use &quot;Subir contrato&quot; para adjuntarlo.
+            </p>
+          )}
+          <div className="mt-6">
+            <button onClick={() => router.back()} className="text-sm text-blue-600 hover:underline">
+              Volver
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -694,10 +733,10 @@ export default function ContractPrintPage() {
                       comuna_notaria: contrato.parent_contract.clientes.comuna_notaria,
                     },
                     programa: {
-                      nombre: contrato.parent_contract.programas.nombre,
-                      descripcion: contrato.parent_contract.programas.descripcion,
-                      horas_totales: contrato.parent_contract.programas.horas_totales,
-                      modalidad: contrato.parent_contract.programas.modalidad,
+                      nombre: contrato.parent_contract.programas?.nombre,
+                      descripcion: contrato.parent_contract.programas?.descripcion,
+                      horas_totales: contrato.parent_contract.programas?.horas_totales,
+                      modalidad: contrato.parent_contract.programas?.modalidad,
                     }
                   } : undefined
                 })
@@ -721,10 +760,10 @@ export default function ContractPrintPage() {
                     comuna_notaria: contrato.clientes.comuna_notaria,
                   },
                   programa: {
-                    nombre: contrato.programas.nombre,
-                    descripcion: contrato.programas.descripcion,
-                    horas_totales: contrato.programas.horas_totales,
-                    modalidad: contrato.programas.modalidad,
+                    nombre: contrato.programas?.nombre,
+                    descripcion: contrato.programas?.descripcion,
+                    horas_totales: contrato.programas?.horas_totales,
+                    modalidad: contrato.programas?.modalidad,
                   },
                   cuotas: contrato.cuotas
                 })

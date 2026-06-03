@@ -47,7 +47,7 @@ interface ValidationError {
 }
 
 interface ContractPDFImporterProps {
-  onExtract: (data: ExtractedData) => void;
+  onExtract: (data: ExtractedData, sourceFile?: File) => void;
   onCancel: () => void;
   existingClientId?: string;
 }
@@ -272,7 +272,7 @@ export default function ContractPDFImporter({
       }
     };
 
-    onExtract(processedData);
+    onExtract(processedData, pdfFile ?? undefined);
     toast.success('Datos importados exitosamente');
   };
 

@@ -84,6 +84,7 @@ interface ContractFormState {
   tipo_moneda: 'UF' | 'CLP';
   descripcion_manual?: string;
   cliente_id?: string;
+  contrato_url?: string;
 }
 
 interface LicitacionFormData {
@@ -159,7 +160,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     precio_total_uf: 0,
     tipo_moneda: 'UF',
     descripcion_manual: '',
-    cliente_id: ''
+    cliente_id: '',
+    contrato_url: ''
   });
   
   // Installments form
@@ -230,7 +232,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         programa_id: '', // Will be selected manually or kept empty for manual contracts
         precio_total_uf: extractedData.financial?.precio_total || 0,
         tipo_moneda: extractedData.financial?.moneda || 'UF',
-        descripcion_manual: `Contrato importado desde PDF - ${extractedData.contract?.numero_contrato || 'Sin número'}`
+        descripcion_manual: `Contrato importado desde PDF - ${extractedData.contract?.numero_contrato || 'Sin número'}`,
+        contrato_url: extractedData.contrato_url || ''
       });
       
       // Populate client form
@@ -328,7 +331,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         precio_total_uf: editingContract.precio_total_uf || 0,
         tipo_moneda: editingContract.tipo_moneda || 'UF',
         descripcion_manual: editingContract.descripcion_manual || '',
-        cliente_id: editingContract.cliente_id || ''
+        cliente_id: editingContract.cliente_id || '',
+        contrato_url: editingContract.contrato_url || ''
       });
       
       // Set selected client
@@ -628,6 +632,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       if (contractForm.precio_total_uf) contractData.precio_total_uf = contractForm.precio_total_uf;
       if (contractForm.tipo_moneda) contractData.tipo_moneda = contractForm.tipo_moneda;
       if (esManual && contractForm.descripcion_manual) contractData.descripcion_manual = contractForm.descripcion_manual;
+      if (contractForm.contrato_url) contractData.contrato_url = contractForm.contrato_url;
       
       let contractId;
       

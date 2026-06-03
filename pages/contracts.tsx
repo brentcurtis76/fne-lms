@@ -1024,7 +1024,16 @@ export default function ContractsPage() {
               }}
               onToggleCashFlow={handleToggleCashFlow}
               onUploadContract={handleUploadContract}
-              onGeneratePDF={(contrato) => window.open(`/contract-print/${contrato.id}`, '_blank')}
+              onGeneratePDF={(contrato) => {
+                if (contrato.contrato_url) {
+                  // Imported / manually-uploaded contract: serve the original document.
+                  window.open(contrato.contrato_url, '_blank');
+                } else if (contrato.es_manual || !contrato.programa_id) {
+                  toast.error('Este contrato fue importado y no tiene el documento original cargado. Use "Subir contrato" para adjuntarlo.');
+                } else {
+                  window.open(`/contract-print/${contrato.id}`, '_blank');
+                }
+              }}
               onUploadInvoice={handleInvoiceUpload}
               onTogglePaymentStatus={handleTogglePaymentStatus}
               onDeleteInvoice={handleInvoiceDelete}
@@ -1034,8 +1043,29 @@ export default function ContractsPage() {
             {/* PDF Importer Modal */}
             {showPDFImporter && (
               <ContractPDFImporter
-                onExtract={(data) => {
-                  setExtractedContractData(data);
+                onExtract={async (data, sourceFile) => {
+                  // Persist the uploaded source PDF so the contract can later be
+                  // downloaded as its original document (reuses handleUploadContract's
+                  // bucket + public-URL pattern). Failure here is non-fatal.
+                  let dataWithUrl: any = data;
+                  if (sourceFile) {
+                    try {
+                      const fileExt = sourceFile.name.split('.').pop();
+                      const fileName = `${data.contract?.numero_contrato || 'import'}_${Date.now()}.${fileExt}`;
+                      const { error: uploadError } = await supabase.storage
+                        .from('contracts')
+                        .upload(fileName, sourceFile);
+                      if (uploadError) throw uploadError;
+                      const { data: { publicUrl } } = supabase.storage
+                        .from('contracts')
+                        .getPublicUrl(fileName);
+                      dataWithUrl = { ...data, contrato_url: publicUrl };
+                    } catch (uploadErr) {
+                      console.error('Error uploading source PDF:', uploadErr);
+                      toast('No se pudo guardar el PDF original; podrá adjuntarlo luego con "Subir contrato".', { icon: '⚠️' });
+                    }
+                  }
+                  setExtractedContractData(dataWithUrl);
                   setShowPDFImporter(false);
                   setActiveTab('nuevo');
                   toast.success('Datos extraídos del PDF. Complete la información faltante.');

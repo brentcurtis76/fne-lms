@@ -275,10 +275,10 @@ export function generateContractFromTemplate(contractData: any): string {
     '{{CLIENTE_NOMBRE_NOTARIO}}': contractData.cliente.nombre_notario || '',
     '{{CLIENTE_COMUNA_NOTARIA}}': contractData.cliente.comuna_notaria || '',
     
-    '{{PROGRAMA_NOMBRE}}': contractData.programa.nombre || '',
-    '{{PROGRAMA_DESCRIPCION}}': contractData.programa.descripcion || '',
-    '{{PROGRAMA_HORAS}}': contractData.programa.horas_totales?.toString() || '',
-    '{{PROGRAMA_MODALIDAD}}': contractData.programa.modalidad || '',
+    '{{PROGRAMA_NOMBRE}}': contractData.programa?.nombre || '',
+    '{{PROGRAMA_DESCRIPCION}}': contractData.programa?.descripcion || '',
+    '{{PROGRAMA_HORAS}}': contractData.programa?.horas_totales?.toString() || '',
+    '{{PROGRAMA_MODALIDAD}}': contractData.programa?.modalidad || '',
     
     '{{CONTRATO_NUMERO}}': contractData.numero_contrato || '',
     '{{CONTRATO_VALOR_UF}}': formatCurrencyUF(contractData.precio_total_uf || 0),

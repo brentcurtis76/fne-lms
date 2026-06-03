@@ -5,6 +5,7 @@ import { Plus, Trash2, Save, FileText, Calendar, DollarSign, Download, Users } f
 import jsPDF from 'jspdf';
 import { toast } from 'react-hot-toast';
 import { generateAnnexFromTemplate } from '../../lib/annex-template';
+import { reconcileCuotas } from '../../lib/utils/reconcileCuotas';
 
 interface Programa {
   id: string;
@@ -48,6 +49,7 @@ interface Contrato {
 }
 
 interface CuotaForm {
+  id?: string;
   numero_cuota: number;
   fecha_vencimiento: string;
   monto: number;
@@ -131,6 +133,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
       // Populate installments
       if (editingAnnex.cuotas && editingAnnex.cuotas.length > 0) {
         const cuotasData = editingAnnex.cuotas.map((cuota: any) => ({
+          id: cuota.id,
           numero_cuota: cuota.numero_cuota,
           fecha_vencimiento: cuota.fecha_vencimiento,
           monto: cuota.monto_uf || 0
@@ -302,28 +305,16 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
 
         if (annexError) throw annexError;
 
-        // Delete existing installments and create new ones
-        const { error: deleteError } = await supabase
-          .from('cuotas')
-          .delete()
-          .eq('contrato_id', editingAnnex.id);
-          
-        if (deleteError) throw deleteError;
-
-        // Create new installments
-        const cuotasData = validCuotas.map(cuota => ({
-          contrato_id: editingAnnex.id,
-          numero_cuota: cuota.numero_cuota,
-          fecha_vencimiento: cuota.fecha_vencimiento,
-          monto_uf: cuota.monto,
-          pagada: false
-        }));
-
-        const { error: cuotasError } = await supabase
-          .from('cuotas')
-          .insert(cuotasData);
-
-        if (cuotasError) throw cuotasError;
+        await reconcileCuotas(
+          supabase,
+          editingAnnex.id,
+          validCuotas.map(({ id, numero_cuota, fecha_vencimiento, monto }) => ({
+            id,
+            numero_cuota,
+            fecha_vencimiento,
+            monto_uf: monto,
+          }))
+        );
 
         toast.success('Anexo actualizado exitosamente');
         

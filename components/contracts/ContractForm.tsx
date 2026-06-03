@@ -5,6 +5,7 @@ import { Plus, Trash2, Save, FileText, Calendar, DollarSign, Download, Building,
 import jsPDF from 'jspdf';
 import { toast } from 'react-hot-toast';
 import { generateContractFromTemplate } from '@/lib/contract-template';
+import { reconcileCuotas } from '@/lib/utils/reconcileCuotas';
 
 interface Programa {
   id: string;
@@ -47,6 +48,7 @@ interface School {
 }
 
 interface CuotaForm {
+  id?: string; // Present when editing an existing cuota row
   numero_cuota: number;
   fecha_vencimiento: string;
   monto: number; // Keep as monto in form, but save as monto_uf to database
@@ -335,6 +337,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       // Populate installments
       if (editingContract.cuotas && editingContract.cuotas.length > 0) {
         const cuotasData = editingContract.cuotas.map((cuota: any) => ({
+          id: cuota.id,
           numero_cuota: cuota.numero_cuota,
           fecha_vencimiento: cuota.fecha_vencimiento,
           monto: cuota.monto_uf || 0
@@ -680,26 +683,18 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       
       // Save payment schedule if exists
       if (cuotas.length > 0 && contractId) {
-        // Delete existing cuotas for this contract
-        await supabase
-          .from('cuotas')
-          .delete()
-          .eq('contrato_id', contractId);
-          
-        // Insert new cuotas
-        const cuotasData = cuotas.map(c => ({
-          contrato_id: contractId,
-          numero_cuota: c.numero_cuota,
-          fecha_vencimiento: c.fecha_vencimiento,
-          monto_uf: c.monto,
-          pagada: false
-        }));
-        
-        const { error: cuotasError } = await supabase
-          .from('cuotas')
-          .insert(cuotasData);
-          
-        if (cuotasError) {
+        try {
+          await reconcileCuotas(
+            supabase,
+            contractId,
+            cuotas.map(c => ({
+              id: c.id,
+              numero_cuota: c.numero_cuota,
+              fecha_vencimiento: c.fecha_vencimiento,
+              monto_uf: c.monto,
+            }))
+          );
+        } catch (cuotasError) {
           console.error('Error saving payment schedule:', cuotasError);
         }
       }
@@ -766,28 +761,16 @@ export default function ContractForm({ programas, clientes, editingContract, pre
 
         if (contratoError) throw contratoError;
 
-        // Delete existing installments and create new ones
-        const { error: deleteError } = await supabase
-          .from('cuotas')
-          .delete()
-          .eq('contrato_id', editingContract.id);
-          
-        if (deleteError) throw deleteError;
-
-        // Create new installments
-        const cuotasData = cuotas.map(cuota => ({
-          contrato_id: editingContract.id,
-          numero_cuota: cuota.numero_cuota,
-          fecha_vencimiento: cuota.fecha_vencimiento,
-          monto_uf: cuota.monto,
-          pagada: false
-        }));
-
-        const { error: cuotasError } = await supabase
-          .from('cuotas')
-          .insert(cuotasData);
-
-        if (cuotasError) throw cuotasError;
+        await reconcileCuotas(
+          supabase,
+          editingContract.id,
+          cuotas.map(cuota => ({
+            id: cuota.id,
+            numero_cuota: cuota.numero_cuota,
+            fecha_vencimiento: cuota.fecha_vencimiento,
+            monto_uf: cuota.monto,
+          }))
+        );
         
       } else {
         // CREATE MODE

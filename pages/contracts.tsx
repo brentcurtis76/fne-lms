@@ -395,7 +395,26 @@ export default function ContractsPage() {
 
       // Refresh the contracts list
       await loadContratos();
-      
+
+      // Force refresh the modal if it's open by re-fetching the specific contract,
+      // so its PDF button immediately sees the new contrato_url (no close/reopen).
+      if (selectedContrato) {
+        const { data: refreshedContract, error: refreshError } = await supabase
+          .from('contratos')
+          .select(`
+            *,
+            clientes(*),
+            programas(*),
+            cuotas(*)
+          `)
+          .eq('id', selectedContrato.id)
+          .single();
+
+        if (!refreshError && refreshedContract) {
+          setSelectedContrato(refreshedContract);
+        }
+      }
+
     } catch (error) {
       console.error('Error uploading contract:', error);
       toast.error('Error al subir el contrato: ' + (error as Error).message);

@@ -497,7 +497,7 @@ export async function getLicitacionDetail(
   if (licitacion.school_id) {
     const { data: schoolData } = await supabase
       .from('schools')
-      .select('id, name, cliente_id')
+      .select('id, name, code, cliente_id')
       .eq('id', licitacion.school_id)
       .single();
     school = schoolData;

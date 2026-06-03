@@ -287,7 +287,11 @@ export function buildProposalSnapshot(input: BuildSnapshotInput): ProposalSnapsh
       tipo: d.tipo,
       archivoPath: d.archivo_path!,
       descripcion: d.descripcion,
-    }));
+    }))
+    // Deterministic, name-sorted order so the live preview (admin list order)
+    // and the generated PDF (server `.in()` query order) always match — and so
+    // the generated PDF itself is stable run-to-run.
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
   const totalHours = config.horasPresenciales + config.horasSincronicas + config.horasAsincronicas;
 

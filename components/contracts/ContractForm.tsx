@@ -5,6 +5,7 @@ import { Plus, Trash2, Save, FileText, Calendar, DollarSign, Download, Building,
 import jsPDF from 'jspdf';
 import { toast } from 'react-hot-toast';
 import { generateContractFromTemplate } from '@/lib/contract-template';
+import { reconcileCuotas, attachExistingCuotaIds } from '@/lib/utils/reconcileCuotas';
 
 interface Programa {
   id: string;
@@ -47,6 +48,7 @@ interface School {
 }
 
 interface CuotaForm {
+  id?: string; // Present when editing an existing cuota row
   numero_cuota: number;
   fecha_vencimiento: string;
   monto: number; // Keep as monto in form, but save as monto_uf to database
@@ -335,6 +337,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       // Populate installments
       if (editingContract.cuotas && editingContract.cuotas.length > 0) {
         const cuotasData = editingContract.cuotas.map((cuota: any) => ({
+          id: cuota.id,
           numero_cuota: cuota.numero_cuota,
           fecha_vencimiento: cuota.fecha_vencimiento,
           monto: cuota.monto_uf || 0
@@ -680,28 +683,38 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       
       // Save payment schedule if exists
       if (cuotas.length > 0 && contractId) {
-        // Delete existing cuotas for this contract
-        await supabase
-          .from('cuotas')
-          .delete()
-          .eq('contrato_id', contractId);
-          
-        // Insert new cuotas
-        const cuotasData = cuotas.map(c => ({
-          contrato_id: contractId,
-          numero_cuota: c.numero_cuota,
-          fecha_vencimiento: c.fecha_vencimiento,
-          monto_uf: c.monto,
-          pagada: false
-        }));
-        
-        const { error: cuotasError } = await supabase
-          .from('cuotas')
-          .insert(cuotasData);
-          
-        if (cuotasError) {
-          console.error('Error saving payment schedule:', cuotasError);
+        // A brand-new form can be saved over a pre-existing draft (matched by
+        // numero_contrato above); in that case every form row lacks a cuota id, so
+        // without hydration reconcileCuotas would delete the draft's cuotas and
+        // re-insert — wiping any uploaded facturas/pagada (#3B1191D3). When the whole
+        // schedule is id-less, pull the existing rows and match ids by numero_cuota
+        // so they update in place. Edit mode already carries ids and is left as-is.
+        let cuotasToSave = cuotas;
+        if (cuotas.every(c => !c.id)) {
+          const { data: existingCuotas, error: existingCuotasError } = await supabase
+            .from('cuotas')
+            .select('id, numero_cuota')
+            .eq('contrato_id', contractId);
+          // Must not silently continue: a failed lookup would leave the schedule
+          // id-less and let reconcileCuotas delete the draft's cuotas, orphaning facturas.
+          if (existingCuotasError) throw existingCuotasError;
+          if (existingCuotas && existingCuotas.length > 0) {
+            cuotasToSave = attachExistingCuotaIds(cuotas, existingCuotas);
+          }
         }
+
+        // Let failures propagate to the outer catch: a partial schedule write must
+        // surface an error and skip the success path, not be silently swallowed.
+        await reconcileCuotas(
+          supabase,
+          contractId,
+          cuotasToSave.map(c => ({
+            id: c.id,
+            numero_cuota: c.numero_cuota,
+            fecha_vencimiento: c.fecha_vencimiento,
+            monto_uf: c.monto,
+          }))
+        );
       }
       
       alert('✅ Contrato guardado como borrador. Puede continuar editándolo más tarde desde la lista de contratos.');
@@ -766,28 +779,16 @@ export default function ContractForm({ programas, clientes, editingContract, pre
 
         if (contratoError) throw contratoError;
 
-        // Delete existing installments and create new ones
-        const { error: deleteError } = await supabase
-          .from('cuotas')
-          .delete()
-          .eq('contrato_id', editingContract.id);
-          
-        if (deleteError) throw deleteError;
-
-        // Create new installments
-        const cuotasData = cuotas.map(cuota => ({
-          contrato_id: editingContract.id,
-          numero_cuota: cuota.numero_cuota,
-          fecha_vencimiento: cuota.fecha_vencimiento,
-          monto_uf: cuota.monto,
-          pagada: false
-        }));
-
-        const { error: cuotasError } = await supabase
-          .from('cuotas')
-          .insert(cuotasData);
-
-        if (cuotasError) throw cuotasError;
+        await reconcileCuotas(
+          supabase,
+          editingContract.id,
+          cuotas.map(cuota => ({
+            id: cuota.id,
+            numero_cuota: cuota.numero_cuota,
+            fecha_vencimiento: cuota.fecha_vencimiento,
+            monto_uf: cuota.monto,
+          }))
+        );
         
       } else {
         // CREATE MODE

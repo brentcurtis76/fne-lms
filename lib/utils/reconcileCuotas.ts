@@ -1,3 +1,19 @@
+/**
+ * Cuota reconciliation helper.
+ *
+ * Error report #3B1191D3: edit-mode schedule saves were deleting all `cuotas`
+ * rows for a contract and re-inserting them, wiping `factura_url`,
+ * `factura_filename`, `factura_size`, `factura_type`, `factura_uploaded_at`,
+ * `factura_pagada`, and `pagada` state in the process.
+ *
+ * This helper reconciles by primary key: surviving rows are updated in place
+ * (touching only schedule fields), removed rows are deleted, and new rows are
+ * inserted. Factura fields and `pagada` are never written by updates, so
+ * invoice metadata and payment state are preserved across schedule edits.
+ *
+ * Out of scope: storage cleanup for cuotas that are explicitly deleted here.
+ * Orphaned factura files in storage are handled elsewhere.
+ */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface ReconcileCuota {

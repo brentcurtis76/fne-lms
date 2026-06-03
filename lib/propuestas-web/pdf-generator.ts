@@ -944,7 +944,16 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   pdf.save(proposalPdfFileName(snapshot));
 }
 
-export function generateProposalPDFBlob(snapshot: ProposalSnapshot): Blob { const pdf = buildProposalPdf(snapshot); return pdf.output('blob'); }
+/**
+ * Browser preview entry point — builds the proposal PDF and returns it as a
+ * Blob suitable for rendering inside an `<iframe>` via `URL.createObjectURL`.
+ * Used by the proposal preview UI to display the exact PDF the download
+ * button produces, without triggering a file save.
+ */
+export function generateProposalPDFBlob(snapshot: ProposalSnapshot): Blob {
+  const pdf = buildProposalPdf(snapshot);
+  return pdf.output('blob');
+}
 
 /**
  * Server entry point — generates the SAME proposal PDF as the page button and

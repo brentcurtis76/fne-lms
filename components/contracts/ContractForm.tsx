@@ -5,7 +5,7 @@ import { Plus, Trash2, Save, FileText, Calendar, DollarSign, Download, Building,
 import jsPDF from 'jspdf';
 import { toast } from 'react-hot-toast';
 import { generateContractFromTemplate } from '@/lib/contract-template';
-import { reconcileCuotas } from '@/lib/utils/reconcileCuotas';
+import { reconcileCuotas, attachExistingCuotaIds } from '@/lib/utils/reconcileCuotas';
 
 interface Programa {
   id: string;
@@ -683,20 +683,35 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       
       // Save payment schedule if exists
       if (cuotas.length > 0 && contractId) {
-        try {
-          await reconcileCuotas(
-            supabase,
-            contractId,
-            cuotas.map(c => ({
-              id: c.id,
-              numero_cuota: c.numero_cuota,
-              fecha_vencimiento: c.fecha_vencimiento,
-              monto_uf: c.monto,
-            }))
-          );
-        } catch (cuotasError) {
-          console.error('Error saving payment schedule:', cuotasError);
+        // A brand-new form can be saved over a pre-existing draft (matched by
+        // numero_contrato above); in that case every form row lacks a cuota id, so
+        // without hydration reconcileCuotas would delete the draft's cuotas and
+        // re-insert — wiping any uploaded facturas/pagada (#3B1191D3). When the whole
+        // schedule is id-less, pull the existing rows and match ids by numero_cuota
+        // so they update in place. Edit mode already carries ids and is left as-is.
+        let cuotasToSave = cuotas;
+        if (cuotas.every(c => !c.id)) {
+          const { data: existingCuotas } = await supabase
+            .from('cuotas')
+            .select('id, numero_cuota')
+            .eq('contrato_id', contractId);
+          if (existingCuotas && existingCuotas.length > 0) {
+            cuotasToSave = attachExistingCuotaIds(cuotas, existingCuotas);
+          }
         }
+
+        // Let failures propagate to the outer catch: a partial schedule write must
+        // surface an error and skip the success path, not be silently swallowed.
+        await reconcileCuotas(
+          supabase,
+          contractId,
+          cuotasToSave.map(c => ({
+            id: c.id,
+            numero_cuota: c.numero_cuota,
+            fecha_vencimiento: c.fecha_vencimiento,
+            monto_uf: c.monto,
+          }))
+        );
       }
       
       alert('✅ Contrato guardado como borrador. Puede continuar editándolo más tarde desde la lista de contratos.');

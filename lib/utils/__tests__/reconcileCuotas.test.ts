@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from 'vitest';
-import { reconcileCuotas, type ReconcileCuota } from '../reconcileCuotas';
+import { reconcileCuotas, attachExistingCuotaIds, type ReconcileCuota } from '../reconcileCuotas';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type Call =
@@ -147,5 +147,76 @@ describe('reconcileCuotas', () => {
       pagada: false,
     });
     expect(inserts[0].rows[0]).not.toHaveProperty('id');
+  });
+
+  it('runs the delete only after updates and inserts (delete is the last op)', async () => {
+    const { supabase, calls } = makeSupabaseMock(['a', 'b']);
+
+    // 'a' survives (update), 'b' is removed (delete), one new row is inserted
+    await reconcileCuotas(supabase, 'contract-1', [
+      { id: 'a', numero_cuota: 1, fecha_vencimiento: '2026-07-01', monto_uf: 10 },
+      { numero_cuota: 2, fecha_vencimiento: '2026-08-01', monto_uf: 20 },
+    ]);
+
+    const order = calls.map((c) => c.kind);
+    const lastDelete = order.lastIndexOf('delete');
+    expect(lastDelete).toBeGreaterThan(-1);
+    expect(lastDelete).toBeGreaterThan(order.lastIndexOf('update'));
+    expect(lastDelete).toBeGreaterThan(order.lastIndexOf('insert'));
+  });
+});
+
+describe('attachExistingCuotaIds', () => {
+  it('hydrates a fully id-less schedule by numero_cuota', () => {
+    const form = [
+      { numero_cuota: 1, monto: 10 },
+      { numero_cuota: 2, monto: 20 },
+    ];
+    const out = attachExistingCuotaIds(form, [
+      { id: 'a', numero_cuota: 1 },
+      { id: 'b', numero_cuota: 2 },
+    ]);
+    expect(out.map((c) => c.id)).toEqual(['a', 'b']);
+  });
+
+  it('returns the input unchanged when any row already has an id', () => {
+    const form = [
+      { id: 'x', numero_cuota: 1 },
+      { numero_cuota: 2 },
+    ];
+    const out = attachExistingCuotaIds(form, [
+      { id: 'a', numero_cuota: 1 },
+      { id: 'b', numero_cuota: 2 },
+    ]);
+    expect(out).toBe(form);
+    expect(out.map((c) => c.id)).toEqual(['x', undefined]);
+  });
+
+  it('leaves a numero_cuota with no existing match unbound', () => {
+    const out = attachExistingCuotaIds([{ numero_cuota: 5, monto: 50 }], [
+      { id: 'a', numero_cuota: 1 },
+    ]);
+    expect(out[0].id).toBeUndefined();
+  });
+
+  it('dup-draft path: hydrate id-less schedule, then reconcile updates in place (no delete)', async () => {
+    const { supabase, calls } = makeSupabaseMock(['a', 'b']);
+
+    const hydrated = attachExistingCuotaIds(
+      [
+        { numero_cuota: 1, fecha_vencimiento: '2026-07-01', monto_uf: 10 },
+        { numero_cuota: 2, fecha_vencimiento: '2026-08-01', monto_uf: 20 },
+      ],
+      [
+        { id: 'a', numero_cuota: 1 },
+        { id: 'b', numero_cuota: 2 },
+      ]
+    );
+
+    await reconcileCuotas(supabase, 'contract-1', hydrated);
+
+    expect(calls.filter((c) => c.kind === 'update')).toHaveLength(2);
+    expect(calls.filter((c) => c.kind === 'delete')).toHaveLength(0);
+    expect(calls.filter((c) => c.kind === 'insert')).toHaveLength(0);
   });
 });

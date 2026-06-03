@@ -11,6 +11,13 @@
  * inserted. Factura fields and `pagada` are never written by updates, so
  * invoice metadata and payment state are preserved across schedule edits.
  *
+ * Ordering: updates and inserts run BEFORE deletes. The delete is the only
+ * destructive operation, so doing it last means a failure partway through the
+ * reconcile can never orphan a factura — nothing is removed until the rest has
+ * succeeded. This is safe because there is no `(contrato_id, numero_cuota)` unique
+ * constraint, so transient duplicate numbers during the update/insert phase are
+ * harmless. (Full atomicity would require a DB transaction/RPC.)
+ *
  * Out of scope: storage cleanup for cuotas that are explicitly deleted here.
  * Orphaned factura files in storage are handled elsewhere.
  */
@@ -72,14 +79,7 @@ export async function reconcileCuotas(
     if (!survivingIds.has(id)) idsToDelete.push(id);
   }
 
-  if (idsToDelete.length > 0) {
-    const { error: deleteError } = await supabase
-      .from('cuotas')
-      .delete()
-      .in('id', idsToDelete);
-    if (deleteError) throw deleteError;
-  }
-
+  // Apply non-destructive operations first: updates, then inserts.
   for (const update of updates) {
     const { id, ...patch } = update;
     const { error: updateError } = await supabase
@@ -93,4 +93,38 @@ export async function reconcileCuotas(
     const { error: insertError } = await supabase.from('cuotas').insert(inserts);
     if (insertError) throw insertError;
   }
+
+  // Delete removed rows LAST. The delete is the only destructive step, so running
+  // it after updates/inserts means a failure earlier in the reconcile can never
+  // orphan a factura before the rest of the schedule has been persisted.
+  if (idsToDelete.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('cuotas')
+      .delete()
+      .in('id', idsToDelete);
+    if (deleteError) throw deleteError;
+  }
+}
+
+/**
+ * Attach existing cuota ids to an entirely id-less schedule, matched by
+ * `numero_cuota`.
+ *
+ * Used when a brand-new contract form is saved over a pre-existing draft (matched
+ * by `numero_contrato`): the form rows carry no cuota ids, so without this every
+ * row would look new to {@link reconcileCuotas} and the draft's existing cuotas
+ * would be deleted then re-inserted — wiping any uploaded facturas/`pagada`
+ * (#3B1191D3). Hydrating the ids lets those rows update in place instead.
+ *
+ * Only acts on a fully id-less input; if any row already carries an id (a normal
+ * edit with a freshly added row) the input is returned unchanged, so a new row is
+ * never accidentally bound to an existing cuota.
+ */
+export function attachExistingCuotaIds<T extends { id?: string; numero_cuota: number }>(
+  cuotas: T[],
+  existing: { id: string; numero_cuota: number }[]
+): T[] {
+  if (cuotas.length === 0 || !cuotas.every((c) => !c.id)) return cuotas;
+  const idByNumero = new Map<number, string>(existing.map((row) => [row.numero_cuota, row.id]));
+  return cuotas.map((c) => ({ ...c, id: idByNumero.get(c.numero_cuota) }));
 }

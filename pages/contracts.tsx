@@ -16,6 +16,8 @@ import ContractPDFImporter from '../components/contracts/ContractPDFImporter';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 
 import { getUserPrimaryRole } from '../utils/roleUtils';
+import { contractMatchesSearch } from '../lib/utils/contract-search';
+
 interface Programa {
   id: string;
   nombre: string;
@@ -632,35 +634,11 @@ export default function ContractsPage() {
     }
   };
 
-  const prepareContractForPDF = (contrato: Contrato) => {
-    return {
-      numero_contrato: contrato.numero_contrato,
-      fecha_contrato: contrato.fecha_contrato,
-      fecha_fin: contrato.fecha_fin,
-      precio_total_uf: contrato.precio_total_uf,
-      tipo_moneda: contrato.tipo_moneda || 'UF',
-      cliente: {
-        nombre_legal: contrato.clientes.nombre_legal,
-        nombre_fantasia: contrato.clientes.nombre_fantasia,
-        rut: contrato.clientes.rut,
-        direccion: contrato.clientes.direccion,
-        comuna: contrato.clientes.comuna,
-        ciudad: contrato.clientes.ciudad,
-        nombre_representante: contrato.clientes.nombre_representante,
-        rut_representante: contrato.clientes.rut_representante,
-        fecha_escritura: contrato.clientes.fecha_escritura,
-        nombre_notario: contrato.clientes.nombre_notario,
-        comuna_notaria: contrato.clientes.comuna_notaria,
-      },
-      programa: {
-        nombre: contrato.programas.nombre,
-        descripcion: contrato.programas.descripcion,
-        horas_totales: contrato.programas.horas_totales,
-        modalidad: contrato.programas.modalidad,
-      },
-      cuotas: contrato.cuotas || []
-    };
-  };
+  // Rows shown in the list, filtered by the search box. Null-safe so manual
+  // contracts (programa_id = null, programas = null) don't blank the table.
+  const filteredContratos = contratos.filter((contrato) =>
+    contractMatchesSearch(contrato, searchQuery),
+  );
 
   if (loading) {
     return (
@@ -775,18 +753,8 @@ export default function ContractsPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {contratos
-                          .filter(contrato => {
-                            if (!searchQuery.trim()) return true;
-                            const query = searchQuery.toLowerCase();
-                            return (
-                              contrato.numero_contrato.toLowerCase().includes(query) ||
-                              contrato.clientes.nombre_legal.toLowerCase().includes(query) ||
-                              contrato.clientes.nombre_fantasia?.toLowerCase().includes(query) ||
-                              contrato.programas.nombre.toLowerCase().includes(query)
-                            );
-                          })
-                          .map((contrato) => (
+                        {filteredContratos.length > 0 ? (
+                          filteredContratos.map((contrato) => (
                           <tr key={contrato.id} className="border-b border-gray-100 hover:bg-brand_beige transition-colors">
                             <td className="py-4 px-4">
                               <button
@@ -873,7 +841,14 @@ export default function ContractsPage() {
                               </div>
                             </td>
                           </tr>
-                        ))}
+                        ))
+                        ) : (
+                          <tr>
+                            <td colSpan={6} className="text-center py-12 px-4 text-gray-500">
+                              No se encontraron contratos para &quot;{searchQuery}&quot;. Prueba con otro número de contrato, cliente o programa.
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>

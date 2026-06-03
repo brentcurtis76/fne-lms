@@ -17,6 +17,7 @@ import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalP
 
 import { getUserPrimaryRole } from '../utils/roleUtils';
 import { contractMatchesSearch } from '../lib/utils/contract-search';
+import { resolveContractPdfTarget } from '../lib/utils/contract-pdf-target';
 
 interface Programa {
   id: string;
@@ -1025,12 +1026,14 @@ export default function ContractsPage() {
               onToggleCashFlow={handleToggleCashFlow}
               onUploadContract={handleUploadContract}
               onGeneratePDF={(contrato) => {
-                if (contrato.contrato_url) {
+                const target = resolveContractPdfTarget(contrato);
+                if (target.kind === 'original') {
                   // Imported / manually-uploaded contract: serve the original document.
-                  window.open(contrato.contrato_url, '_blank');
-                } else if (contrato.es_manual || !contrato.programa_id) {
+                  window.open(target.url, '_blank');
+                } else if (target.kind === 'missing') {
                   toast.error('Este contrato fue importado y no tiene el documento original cargado. Use "Subir contrato" para adjuntarlo.');
                 } else {
+                  // Program-based contracts and all annexes render from the template.
                   window.open(`/contract-print/${contrato.id}`, '_blank');
                 }
               }}

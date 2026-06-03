@@ -778,7 +778,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
             precio_total_uf: contractForm.precio_total_uf,
             tipo_moneda: contractForm.tipo_moneda,
             es_manual: esManual,
-            descripcion_manual: esManual ? contractForm.descripcion_manual : null
+            descripcion_manual: esManual ? contractForm.descripcion_manual : null,
+            // Preserve/refresh the imported source PDF URL without nulling it on edit.
+            ...(contractForm.contrato_url ? { contrato_url: contractForm.contrato_url } : {})
           })
           .eq('id', editingContract.id);
 
@@ -910,6 +912,10 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         // Phase 5: include licitacion_id if creating from licitacion
         if (licitacionId) {
           newContratoPayload.licitacion_id = licitacionId;
+        }
+        // Persist the imported source PDF URL (set by the "Importar PDF" flow).
+        if (contractForm.contrato_url) {
+          newContratoPayload.contrato_url = contractForm.contrato_url;
         }
         const { data: newContrato, error: contratoError } = await supabase
           .from('contratos')

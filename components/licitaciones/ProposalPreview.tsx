@@ -52,6 +52,13 @@ export function ProposalPreview({ snapshot }: ProposalPreviewProps) {
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
+        // Drop any previously-rendered preview so we don't leak its object URL
+        // (and don't keep showing a stale PDF) once generation fails.
+        if (currentUrlRef.current) {
+          URL.revokeObjectURL(currentUrlRef.current);
+          currentUrlRef.current = null;
+        }
+        setPdfUrl(null);
         setError(err instanceof Error ? err.message : 'Error al generar la vista previa');
         setLoading(false);
       }

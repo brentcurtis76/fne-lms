@@ -270,18 +270,27 @@ export async function getUserRoles(supabase: SupabaseClient, userId: string): Pr
 }
 
 /**
- * Role precedence (highest privilege first). Used by getHighestRole() for
- * primary-role selection and by the community-members API (via
- * rolePriorityIndex) to order each member's roles deterministically.
+ * Role precedence (highest privilege first) — the shared, canonical ordering for
+ * "highest role" / primary-role selection. Consumed by getHighestRole() and, via
+ * rolePriorityIndex(), by the auth my-roles endpoint (pages/api/auth/my-roles.ts),
+ * the community-members API (pages/api/community/members.ts), and the admin
+ * role/user listing endpoints (pages/api/admin/user-roles.ts, pages/api/admin/users.ts).
  *
- * NOT yet the only role-priority list in the codebase. `pages/api/auth/my-roles.ts`
- * shares this constant, but two admin endpoints keep their own local arrays that
- * order supervisor_de_red / community_manager BEFORE lider_generacion /
- * lider_comunidad (the reverse of here), which changes the "highest role" for
- * some multi-role users:
- *   - pages/api/admin/user-roles.ts
- *   - pages/api/admin/users.ts
- * Reconciling those is a deliberate behavior change, left as a follow-up.
+ * Those two admin endpoints previously kept local arrays that ranked
+ * supervisor_de_red / community_manager ABOVE lider_generacion / lider_comunidad;
+ * that divergence was reconciled in favor of this order (leaders rank higher).
+ *
+ * Do NOT confuse this with the ROLE_PRIORITY in
+ * pages/api/admin/growth-communities/[id]/members.ts: that is a deliberately
+ * different ordering used to choose WHICH user_roles row to bind to a community
+ * (row selection), not for primary/highest-role selection — it is intentionally
+ * not unified with this list.
+ *
+ * A few endpoints still hardcode an equivalent inline copy of this list
+ * (quiz-reviews, dashboard/stats, reports/overview, reports/school) and two helpers
+ * keep narrower/older orders (utils/profileUtils.ts getUserPrimaryRole;
+ * pages/api/reports/user-details.ts roleHierarchy). Prefer importing ROLE_PRIORITY /
+ * rolePriorityIndex from here over adding new local copies.
  */
 export const ROLE_PRIORITY: UserRoleType[] = [
   'admin',

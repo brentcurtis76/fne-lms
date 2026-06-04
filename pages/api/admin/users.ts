@@ -4,9 +4,7 @@ import {
   createServiceRoleClient,
 } from '../../../lib/api-auth';
 import { toQuotedInList } from '../../../lib/admin/users-query';
-import { SCHOOL_SCOPED_ROLES } from '../../../utils/roleUtils';
-
-const ROLE_PRIORITY = ['admin','consultor','equipo_directivo','supervisor_de_red','community_manager','lider_generacion','lider_comunidad','docente','encargado_licitacion'];
+import { SCHOOL_SCOPED_ROLES, rolePriorityIndex } from '../../../utils/roleUtils';
 
 // Cap on how many user_ids we send in a single `.in()` call (currently only
 // the global-role and cross-school prefetch legs). PostgREST encodes these
@@ -642,11 +640,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       rolesMap.set(role.user_id, arr);
     });
 
-    const sortRoles = (roles: any[]) => roles.sort((a, b) => {
-      const aIndex = ROLE_PRIORITY.indexOf(a.role_type);
-      const bIndex = ROLE_PRIORITY.indexOf(b.role_type);
-      return (aIndex === -1 ? 99 : aIndex) - (bIndex === -1 ? 99 : bIndex);
-    });
+    const sortRoles = (roles: any[]) =>
+      roles.sort((a, b) => rolePriorityIndex(a.role_type) - rolePriorityIndex(b.role_type));
 
     const consultantMap = new Map<string, any[]>();
     (consultantData || []).forEach(entry => {

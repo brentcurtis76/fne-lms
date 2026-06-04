@@ -173,6 +173,44 @@ describe('admin/user-roles — GET (ED auth + scoping)', () => {
     expect(profileCalls).toHaveLength(0);
   });
 
+  it('admin: ranks lider_generacion above supervisor_de_red (canonical precedence)', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          user_roles: [
+            {
+              // DB row order deliberately puts the network role first; the
+              // handler must re-sort by the canonical ROLE_PRIORITY so the
+              // generation leader outranks supervisor_de_red.
+              data: [
+                { role_type: 'supervisor_de_red', school_id: null },
+                { role_type: 'lider_generacion', school_id: ED_SCHOOL_ID },
+              ],
+              error: null,
+            },
+          ],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { userId: TARGET_USER_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const body = res._getJSONData();
+    expect(body.highestRole).toBe('lider_generacion');
+    expect(body.roles.map((r: any) => r.role_type)).toEqual([
+      'lider_generacion',
+      'supervisor_de_red',
+    ]);
+  });
+
   it('ED: returns only school-scoped roles in own school', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();

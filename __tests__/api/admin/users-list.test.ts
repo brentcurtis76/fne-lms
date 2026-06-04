@@ -690,6 +690,79 @@ describe('admin/users — GET (school scoping)', () => {
     expect(returnedRoleTypes).toHaveLength(3);
   });
 
+  it('admin: highest role respects canonical precedence (lider_generacion over supervisor_de_red)', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+
+    const profile = {
+      id: 'user-1',
+      email: 'u1@example.com',
+      first_name: 'Foo',
+      last_name: 'Bar',
+      school_id: 7,
+      approval_status: 'approved',
+      created_at: '2026-01-01T00:00:00Z',
+      external_school_affiliation: null,
+      can_run_qa_tests: false,
+      school: { id: 7, name: 'School 7' },
+    };
+
+    const baseRoleRow = {
+      user_id: 'user-1',
+      community_id: null,
+      is_active: true,
+      school: null,
+      generation: null,
+      community: null,
+    };
+    // DB row order deliberately puts the network role first; sortRoles must
+    // re-sort by the canonical ROLE_PRIORITY so the generation leader wins.
+    const supervisorRow = {
+      ...baseRoleRow,
+      id: 'role-sup',
+      role_type: 'supervisor_de_red',
+      school_id: null,
+    };
+    const liderGenRow = {
+      ...baseRoleRow,
+      id: 'role-lg',
+      role_type: 'lider_generacion',
+      school_id: 7,
+    };
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          profiles: [
+            { data: [profile], count: 1 },
+            { count: 1 },
+            { count: 0 },
+            { count: 1 },
+          ],
+          schools: [{ data: [{ id: 7, name: 'School 7' }] }],
+          user_roles: [{ data: [supervisorRow, liderGenRow] }],
+          consultant_assignments: [{ data: [] }, { data: [] }],
+          course_assignments: [{ data: [] }],
+          learning_path_assignments: [{ data: [] }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const body = JSON.parse(res._getData());
+    // users.ts serializes the computed highest role as `role`.
+    expect(body.users[0].role).toBe('lider_generacion');
+    expect(body.users[0].user_roles.map((r: any) => r.role_type)).toEqual([
+      'lider_generacion',
+      'supervisor_de_red',
+    ]);
+  });
+
   it('ED: out-of-school user_roles rows for in-school users are filtered out', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();

@@ -1,8 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient } from '../../../lib/api-auth';
-import { SCHOOL_SCOPED_ROLES_SET } from '../../../utils/roleUtils';
-
-const ROLE_PRIORITY = ['admin','consultor','equipo_directivo','supervisor_de_red','community_manager','lider_generacion','lider_comunidad','docente','encargado_licitacion'];
+import { SCHOOL_SCOPED_ROLES_SET, rolePriorityIndex } from '../../../utils/roleUtils';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -92,11 +90,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           })
         : rolesData || [];
 
-    const sortedRoles = filteredRoles.sort((a: any, b: any) => {
-      const aIndex = ROLE_PRIORITY.indexOf(a.role_type);
-      const bIndex = ROLE_PRIORITY.indexOf(b.role_type);
-      return (aIndex === -1 ? 99 : aIndex) - (bIndex === -1 ? 99 : bIndex);
-    });
+    const sortedRoles = filteredRoles.sort(
+      (a: any, b: any) => rolePriorityIndex(a.role_type) - rolePriorityIndex(b.role_type)
+    );
 
     const highestRole = sortedRoles[0]?.role_type || null;
 

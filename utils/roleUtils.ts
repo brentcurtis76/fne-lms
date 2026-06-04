@@ -270,24 +270,47 @@ export async function getUserRoles(supabase: SupabaseClient, userId: string): Pr
 }
 
 /**
+ * Role precedence (highest privilege first). Used by getHighestRole() for
+ * primary-role selection and by the community-members API (via
+ * rolePriorityIndex) to order each member's roles deterministically.
+ *
+ * NOT yet the only role-priority list in the codebase. `pages/api/auth/my-roles.ts`
+ * shares this constant, but two admin endpoints keep their own local arrays that
+ * order supervisor_de_red / community_manager BEFORE lider_generacion /
+ * lider_comunidad (the reverse of here), which changes the "highest role" for
+ * some multi-role users:
+ *   - pages/api/admin/user-roles.ts
+ *   - pages/api/admin/users.ts
+ * Reconciling those is a deliberate behavior change, left as a follow-up.
+ */
+export const ROLE_PRIORITY: UserRoleType[] = [
+  'admin',
+  'consultor',
+  'equipo_directivo',
+  'lider_generacion',
+  'lider_comunidad',
+  'supervisor_de_red',
+  'community_manager',
+  'docente',
+  'encargado_licitacion'
+];
+
+/**
+ * Index of a role within ROLE_PRIORITY; unknown roles sort last. Use to order
+ * a user's roles most-significant-first.
+ */
+export function rolePriorityIndex(roleType: string): number {
+  const i = ROLE_PRIORITY.indexOf(roleType as UserRoleType);
+  return i === -1 ? ROLE_PRIORITY.length : i;
+}
+
+/**
  * Get user's highest privilege role
  */
 export function getHighestRole(roles: UserRole[]): UserRoleType | null {
   if (!roles || roles.length === 0) return null;
 
-  const roleOrder: UserRoleType[] = [
-    'admin',
-    'consultor',
-    'equipo_directivo',
-    'lider_generacion',
-    'lider_comunidad',
-    'supervisor_de_red',
-    'community_manager',
-    'docente',
-    'encargado_licitacion'
-  ];
-
-  for (const roleType of roleOrder) {
+  for (const roleType of ROLE_PRIORITY) {
     if (roles.some(role => role.role_type === roleType)) {
       return roleType;
     }

@@ -36,23 +36,16 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   const loadAvailableMembers = async () => {
     try {
       setLoadingMembers(true);
-      
-      // Get community members who don't have a group for this assignment
-      const { data: communityMembers, error: membersError } = await supabase
-        .from('user_roles')
-        .select(`
-          user_id,
-          user:profiles!user_id (
-            id,
-            name,
-            email,
-            avatar_url
-          )
-        `)
-        .eq('community_id', communityId)
-        .not('user_id', 'eq', currentUserId);
 
-      if (membersError) throw membersError;
+      // Get community members via the access-controlled API (service-role on the
+      // server) so co-members are not hidden by the per-user `profiles` RLS that
+      // a direct `user_roles -> profiles` join runs into. Fail visibly on non-200.
+      const resp = await fetch(`/api/community/members?community_id=${encodeURIComponent(communityId)}`);
+      if (!resp.ok) {
+        throw new Error(`community members API returned ${resp.status}`);
+      }
+      const json = await resp.json();
+      const communityMembers = (json.members ?? []) as any[];
 
       // Get existing group members for this assignment
       const { data: existingMembers, error: existingError } = await supabase
@@ -63,14 +56,18 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
       if (existingError) throw existingError;
 
       const existingUserIds = new Set(existingMembers?.map(m => m.user_id) || []);
-      
-      // Filter out users who already have groups
+
+      // Exclude the current user and anyone already in a group for this assignment.
       const available = communityMembers
-        ?.filter(member => !existingUserIds.has(member.user_id) && member.user)
+        .filter(member => member.id !== currentUserId && !existingUserIds.has(member.id))
         .map(member => ({
-          id: member.user_id,
-          ...member.user
-        })) || [];
+          id: member.id,
+          name: (member.first_name || member.last_name)
+            ? `${member.first_name ?? ''} ${member.last_name ?? ''}`.trim()
+            : (member.name ?? member.email ?? ''),
+          email: member.email ?? '',
+          avatar_url: member.avatar_url ?? null,
+        }));
 
       setAvailableMembers(available);
     } catch (error) {

@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
  * Collaborative workspace for growth communities with role-based access
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
@@ -150,6 +150,8 @@ const CommunityWorkspacePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [communityMembers, setCommunityMembers] = useState<any[]>([]);
+  const [membersError, setMembersError] = useState(false);
+  const membersErrorToastRef = useRef<string | null>(null);
   const [showMembers, setShowMembers] = useState(false);
 
   // Search state
@@ -158,72 +160,53 @@ const CommunityWorkspacePage: React.FC = () => {
   // Load community members when workspace changes
   useEffect(() => {
     const loadCommunityMembersForWorkspace = async () => {
-      if (!currentWorkspace || !currentWorkspace.community_id) {
+      const communityId = currentWorkspace?.community_id;
+      if (!currentWorkspace || !communityId) {
         setCommunityMembers([]);
+        setMembersError(false);
+        membersErrorToastRef.current = null;
         return;
       }
 
-      try {
-        // Load members of the current community
-        const { data: members, error } = await supabase
-          .from('growth_communities')
-          .select(`
-            id,
-            name,
-            members:user_roles!user_roles_community_id_fkey(
-              user_id,
-              role_type,
-              user:profiles!user_roles_user_id_fkey(
-                id,
-                first_name,
-                last_name,
-                email,
-                avatar_url
-              )
-            )
-          `)
-          .eq('id', currentWorkspace.community_id)
-          .single();
+      // Surface a load failure as an error state (not an empty list), but show
+      // the toast at most once per community until a load succeeds, so a
+      // frequently re-triggering effect can't spam identical error toasts.
+      const notifyError = () => {
+        setCommunityMembers([]);
+        setMembersError(true);
+        if (membersErrorToastRef.current !== communityId) {
+          membersErrorToastRef.current = communityId;
+          toast.error('No se pudieron cargar los miembros de la comunidad. Intenta nuevamente.', {
+            id: 'community-members-load-error',
+          });
+        }
+      };
 
-        if (error) {
-          console.error('Error loading community members:', error);
-          setCommunityMembers([]);
+      try {
+        // Load members via the access-controlled API. It authorizes the caller
+        // on the server, then uses the service role to read member profiles —
+        // bypassing the per-user `profiles` RLS that previously hid co-members
+        // when this panel queried `growth_communities -> user_roles -> profiles`
+        // directly under the user's session. Fail visibly on a non-200; do NOT
+        // silently fall back to an RLS-limited direct query, which would
+        // reintroduce the empty-list bug.
+        const resp = await fetch(
+          `/api/community/members?community_id=${encodeURIComponent(communityId)}`
+        );
+
+        if (!resp.ok) {
+          console.error('Error loading community members: API returned', resp.status);
+          notifyError();
           return;
         }
 
-        // Transform members for display and deduplicate by user ID
-        const membersList = (members?.members || []).reduce((acc: any[], member: any) => {
-          const userId = member.user?.id;
-          if (!userId) return acc;
-
-          // Check if user is already in the list
-          const existingMember = acc.find(m => m.id === userId);
-          
-          if (!existingMember) {
-            // Add new member
-            acc.push({
-              id: userId,
-              first_name: member.user?.first_name || '',
-              last_name: member.user?.last_name || '',
-              email: member.user?.email || '',
-              avatar_url: member.user?.avatar_url || null,
-              user_roles: [{ role_type: member.role_type }]
-            });
-          } else {
-            // Add role to existing member if not already present
-            const roleExists = existingMember.user_roles.some((role: any) => role.role_type === member.role_type);
-            if (!roleExists) {
-              existingMember.user_roles.push({ role_type: member.role_type });
-            }
-          }
-          
-          return acc;
-        }, []);
-
-        setCommunityMembers(membersList);
+        const json = await resp.json();
+        setCommunityMembers(json.members ?? []);
+        setMembersError(false);
+        membersErrorToastRef.current = null;
       } catch (error) {
         console.error('Error loading community members:', error);
-        setCommunityMembers([]);
+        notifyError();
       }
     };
 
@@ -586,8 +569,17 @@ const CommunityWorkspacePage: React.FC = () => {
                       Miembros de la Comunidad
                     </h2>
                     <div className="text-sm text-gray-500">
-                      ({communityMembers.length})
+                      ({membersError ? '—' : communityMembers.length})
                     </div>
+                    {membersError && (
+                      <span
+                        className="inline-flex items-center gap-1 text-xs font-medium text-red-600"
+                        title="No se pudieron cargar los miembros de la comunidad"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-600" aria-hidden="true" />
+                        Error al cargar
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center space-x-2">
                     <button className="text-gray-400 hover:text-[#0a0a0a] transition-colors">
@@ -598,7 +590,14 @@ const CommunityWorkspacePage: React.FC = () => {
                 
                 {showMembers && (
                   <div className="mt-4">
-                    {communityMembers.length > 0 ? (
+                    {membersError ? (
+                      <div className="text-center py-8 text-red-600">
+                        <p>No se pudieron cargar los miembros de la comunidad.</p>
+                        <p className="text-sm text-red-500 mt-1">
+                          Revisa tu conexión e inténtalo nuevamente.
+                        </p>
+                      </div>
+                    ) : communityMembers.length > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {communityMembers.map(member => (
                           <Link
@@ -1843,32 +1842,26 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     }
 
     try {
-      // Load members of the current community using direct user_roles query
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select(`
-          user_id,
-          role_type,
-          profiles:user_id (
-            id,
-            first_name,
-            last_name,
-            email,
-            avatar_url
-          )
-        `)
-        .eq('community_id', workspace.community_id)
-        .eq('is_active', true);
+      // Load community members via the access-controlled API (service-role on the
+      // server) so co-members are not hidden by the per-user `profiles` RLS that a
+      // direct `user_roles -> profiles` join hits (which left @mentions showing
+      // nameless "Usuario" entries). Fail visibly on a non-200.
+      const resp = await fetch(
+        `/api/community/members?community_id=${encodeURIComponent(workspace.community_id)}`
+      );
 
-      if (roleError) {
-        console.error('[Mentions] Error loading community members:', roleError);
+      if (!resp.ok) {
+        console.error('[Mentions] Error loading community members: API returned', resp.status);
         return;
       }
+
+      const json = await resp.json();
+      const memberData = (json.members ?? []) as any[];
 
       // If no community members found and user is admin, fall back to loading all profiles
       // This ensures @mentions work for admins even in communities without assigned members
       // Regular users will see no suggestions if their community has no members
-      if (!roleData || roleData.length === 0) {
+      if (memberData.length === 0) {
         const userRoles = user?.user_metadata?.roles || [];
         const isUserAdmin = userRoles.includes('admin');
         if (isUserAdmin) {
@@ -1902,19 +1895,16 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
       }
 
       // Transform members into mention suggestions format
-      const suggestions = (roleData || []).map((member: any) => {
-        const profile = member.profiles;
-        return {
-          id: member.user_id,
-          type: 'user' as const,
-          display_name: profile?.first_name && profile?.last_name
-            ? `${profile.first_name} ${profile.last_name}`
-            : profile?.email?.split('@')[0] || 'Usuario',
-          email: profile?.email || '',
-          role: member.role_type,
-          avatar: profile?.avatar_url || null
-        };
-      });
+      const suggestions = memberData.map((member: any) => ({
+        id: member.id,
+        type: 'user' as const,
+        display_name: member.first_name && member.last_name
+          ? `${member.first_name} ${member.last_name}`
+          : member.email?.split('@')[0] || 'Usuario',
+        email: member.email || '',
+        role: member.user_roles?.[0]?.role_type || 'usuario',
+        avatar: member.avatar_url || null
+      }));
 
       setCommunityMembers(suggestions);
     } catch (error) {

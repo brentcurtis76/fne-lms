@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
+import { rolePriorityIndex } from '../../../utils/roleUtils';
 
 // Service-role client to bypass RLS safely on the server
 const serviceClient = createClient(
@@ -102,9 +103,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Failed to fetch profiles' });
     }
 
-    const members: MemberProfile[] = roleRows.map(rr => {
+    // Group by user so a user with multiple active roles in the community
+    // appears once with all roles merged. Returning one object per role row
+    // would create duplicate cards / duplicate React keys in the UI.
+    const byUser = new Map<string, MemberProfile>();
+    for (const rr of roleRows) {
+      const roleEntry = {
+        id: rr.id,
+        user_id: rr.user_id,
+        role_type: rr.role_type,
+        school_id: rr.school_id ?? null,
+        generation_id: rr.generation_id ?? null,
+        community_id: rr.community_id ?? null,
+        is_active: rr.is_active,
+        assigned_at: rr.assigned_at,
+        created_at: rr.created_at,
+        reporting_scope: {},
+        feedback_scope: {},
+      };
+
+      const existing = byUser.get(rr.user_id);
+      if (existing) {
+        existing.user_roles.push(roleEntry);
+        continue;
+      }
+
       const p = profiles?.find(pr => pr.id === rr.user_id);
-      return {
+      byUser.set(rr.user_id, {
         id: rr.user_id,
         email: p?.email,
         first_name: p?.first_name,
@@ -115,22 +140,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         community_id: p?.community_id ?? null,
         created_at: p?.created_at,
         external_school_affiliation: p?.external_school_affiliation ?? null,
-        user_roles: [
-          {
-            id: rr.id,
-            user_id: rr.user_id,
-            role_type: rr.role_type,
-            school_id: rr.school_id ?? null,
-            generation_id: rr.generation_id ?? null,
-            community_id: rr.community_id ?? null,
-            is_active: rr.is_active,
-            assigned_at: rr.assigned_at,
-            created_at: rr.created_at,
-            reporting_scope: {},
-            feedback_scope: {},
-          },
-        ],
-      };
+        user_roles: [roleEntry],
+      });
+    }
+
+    // Within each member, order roles by the canonical role precedence so that
+    // callers that read user_roles[0] (e.g. the @mention role label) get the
+    // most significant role deterministically rather than DB row order.
+    for (const member of byUser.values()) {
+      member.user_roles.sort((a, b) => {
+        const pa = rolePriorityIndex(a.role_type);
+        const pb = rolePriorityIndex(b.role_type);
+        if (pa !== pb) return pa - pb;
+        return a.id.localeCompare(b.id);
+      });
+    }
+
+    // Deterministic ordering: by full name, then email (blank names sort last).
+    const members: MemberProfile[] = Array.from(byUser.values()).sort((a, b) => {
+      const an = `${a.first_name ?? ''} ${a.last_name ?? ''}`.trim().toLowerCase();
+      const bn = `${b.first_name ?? ''} ${b.last_name ?? ''}`.trim().toLowerCase();
+      if (an !== bn) {
+        if (!an) return 1;
+        if (!bn) return -1;
+        return an.localeCompare(bn);
+      }
+      return (a.email ?? '').toLowerCase().localeCompare((b.email ?? '').toLowerCase());
     });
 
     return res.status(200).json({ members });

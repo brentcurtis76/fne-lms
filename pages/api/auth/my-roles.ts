@@ -1,21 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
+import { rolePriorityIndex } from '../../../utils/roleUtils';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const ROLE_PRIORITY = [
-  'admin',
-  'consultor',
-  'equipo_directivo',
-  'lider_generacion',
-  'lider_comunidad',
-  'supervisor_de_red',
-  'community_manager',
-  'docente',
-  'encargado_licitacion'
-];
 
 /**
  * API endpoint for authenticated users to fetch their own roles
@@ -80,12 +69,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al obtener roles' });
     }
 
-    // Sort by role priority
-    const sortedRoles = (rolesData || []).sort((a, b) => {
-      const aIndex = ROLE_PRIORITY.indexOf(a.role_type);
-      const bIndex = ROLE_PRIORITY.indexOf(b.role_type);
-      return (aIndex === -1 ? 99 : aIndex) - (bIndex === -1 ? 99 : bIndex);
-    });
+    // Sort by role priority (shared canonical precedence from roleUtils)
+    const sortedRoles = (rolesData || []).sort(
+      (a, b) => rolePriorityIndex(a.role_type) - rolePriorityIndex(b.role_type)
+    );
 
     const highestRole = sortedRoles[0]?.role_type || null;
 

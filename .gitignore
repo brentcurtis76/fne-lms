@@ -125,6 +125,7 @@ run-*.mjs
 !package.json
 !package-lock.json
 !tsconfig.json
+!vercel.json
 
 # Backups
 /backups/

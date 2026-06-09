@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "pages/api/bots/telegram.ts": {
+      "maxDuration": 60
+    }
+  }
+}

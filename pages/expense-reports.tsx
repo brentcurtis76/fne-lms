@@ -78,6 +78,29 @@ export default function ExpenseReportsPage() {
   const [selectedReport, setSelectedReport] = useState<ExpenseReport | null>(null);
   const [editingReport, setEditingReport] = useState<ExpenseReport | null>(null);
   const [deleteModalReport, setDeleteModalReport] = useState<ExpenseReport | null>(null);
+  const [telegramLink, setTelegramLink] = useState<{ code: string; deepLink: string | null } | null>(null);
+  const [generatingTelegramCode, setGeneratingTelegramCode] = useState(false);
+
+  const handleConnectTelegram = async () => {
+    setGeneratingTelegramCode(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch('/api/bots/link-code', {
+        method: 'POST',
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+      });
+      if (!response.ok) {
+        throw new Error(`link-code request failed: ${response.status}`);
+      }
+      const data = await response.json();
+      setTelegramLink({ code: data.code, deepLink: data.deepLink });
+    } catch (error) {
+      console.error('Error generating Telegram link code:', error);
+      toast.error('No se pudo generar el código. Inténtalo de nuevo.');
+    } finally {
+      setGeneratingTelegramCode(false);
+    }
+  };
 
   useEffect(() => {
     const checkSession = async () => {
@@ -445,6 +468,15 @@ export default function ExpenseReportsPage() {
             icon: <Plus size={20} />
           }}
         >
+          <button
+            onClick={handleConnectTelegram}
+            disabled={generatingTelegramCode}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+            title="Vincular tu Telegram para enviar boletas desde el celular"
+          >
+            <Send size={16} className="mr-2" />
+            {generatingTelegramCode ? 'Generando…' : 'Conectar Telegram'}
+          </button>
           {/* Export buttons - only show when there are reports */}
           {expenseReports.length > 0 && (
             <>
@@ -720,6 +752,58 @@ export default function ExpenseReportsPage() {
                         className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                       >
                         Eliminar Reporte
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Telegram Link Modal */}
+            {telegramLink && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+                  <div className="p-6">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                        <Send className="text-blue-600" size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Conectar Telegram</h3>
+                        <p className="text-sm text-gray-500">Envía boletas desde tu celular</p>
+                      </div>
+                    </div>
+
+                    <div className="mb-6 space-y-3">
+                      <p className="text-gray-700 text-sm">
+                        Abre Telegram y envíale este código al bot, o toca el enlace directo:
+                      </p>
+                      <div className="bg-gray-100 rounded-lg py-3 text-center">
+                        <span className="text-2xl font-mono font-bold tracking-widest text-brand_primary">
+                          {telegramLink.code}
+                        </span>
+                      </div>
+                      {telegramLink.deepLink && (
+                        <a
+                          href={telegramLink.deepLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Abrir Telegram
+                        </a>
+                      )}
+                      <p className="text-xs text-gray-500">
+                        El código vence en 15 minutos. Luego solo envía una foto de tu boleta al bot.
+                      </p>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => setTelegramLink(null)}
+                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        Cerrar
                       </button>
                     </div>
                   </div>

@@ -2,8 +2,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 
-const { mockClaimUpdate, mockHandleInbound, mockCreateServiceRoleClient } = vi.hoisted(() => ({
+const { mockClaimUpdate, mockMarkCompleted, mockHandleInbound, mockCreateServiceRoleClient } = vi.hoisted(() => ({
   mockClaimUpdate: vi.fn(),
+  mockMarkCompleted: vi.fn(),
   mockHandleInbound: vi.fn(),
   mockCreateServiceRoleClient: vi.fn()
 }));
@@ -17,7 +18,10 @@ vi.mock('../../../lib/bots/store', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,
-    BotStore: vi.fn().mockImplementation(() => ({ claimUpdate: mockClaimUpdate }))
+    BotStore: vi.fn().mockImplementation(() => ({
+      claimUpdate: mockClaimUpdate,
+      markUpdateCompleted: mockMarkCompleted
+    }))
   };
 });
 
@@ -38,6 +42,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.env.TELEGRAM_WEBHOOK_SECRET = SECRET;
   mockClaimUpdate.mockResolvedValue(true);
+  mockMarkCompleted.mockResolvedValue(undefined);
   mockHandleInbound.mockResolvedValue(undefined);
   mockCreateServiceRoleClient.mockReturnValue({});
 });
@@ -97,6 +102,7 @@ describe('POST /api/bots/telegram', () => {
     expect(mockClaimUpdate.mock.invocationCallOrder[0]).toBeLessThan(
       mockHandleInbound.mock.invocationCallOrder[0]
     );
+    expect(mockMarkCompleted).toHaveBeenCalledWith('telegram', 4242);
   });
 
   it('short-circuits duplicate update_ids before any side effect', async () => {
@@ -108,10 +114,11 @@ describe('POST /api/bots/telegram', () => {
     expect(mockHandleInbound).not.toHaveBeenCalled();
   });
 
-  it('returns 200 even when the engine throws (no poison redelivery)', async () => {
+  it('returns 200 even when the engine throws, without marking completed', async () => {
     mockHandleInbound.mockRejectedValue(new Error('engine exploded'));
     const { req, res } = post(makeTextUpdate('hola'), SECRET);
     await handler(req as never, res as never);
     expect(res._getStatusCode()).toBe(200);
+    expect(mockMarkCompleted).not.toHaveBeenCalled();
   });
 });

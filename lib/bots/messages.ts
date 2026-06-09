@@ -84,6 +84,14 @@ export const queued = (queueCount: number) =>
 
 export const QUEUE_CLEARED = '🗑 Listo, descarté todas las fotos pendientes.';
 
+export const QUEUE_BUSY = 'Ya hay una boleta en proceso — termina esa primero.';
+
+export const QUEUE_RESUME = '▶️ Continuando con la siguiente boleta…';
+
+export const NEED_AMOUNT = '💵 No pude leer el monto de la boleta. Usa ✏️ Editar → 💵 Monto antes de confirmar.';
+
+export const NEED_DATE = '📅 No pude leer la fecha de la boleta. Usa ✏️ Editar → 📅 Fecha antes de confirmar.';
+
 export const queuePrompt = (queueCount: number) =>
   `Tienes ${queueCount} ${queueCount === 1 ? 'foto pendiente' : 'fotos pendientes'} en cola.`;
 

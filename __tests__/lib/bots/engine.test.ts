@@ -337,6 +337,22 @@ describe('receipt capture', () => {
     expect(env.store.items.size).toBe(0);
   });
 
+  it('fails closed for revoked users on status, callbacks, and stray text', async () => {
+    const env = makeDeps({ actor: makeActor({ canSubmit: false }) });
+
+    await handleInbound(env.deps, text('/reportes'));
+    expect(env.adapter.lastSent().text).toContain('no tiene habilitada');
+    expect(env.expenses.listReportsByStatus).not.toHaveBeenCalled();
+
+    await handleInbound(env.deps, callback(`rg:${encodeId(randomUUID())}`));
+    expect(env.adapter.lastSent().text).toContain('no tiene habilitada');
+    expect(env.expenses.listDraftReports).not.toHaveBeenCalled();
+
+    // Informational commands still work.
+    await handleInbound(env.deps, text('/ayuda'));
+    expect(env.adapter.lastSent().text).toContain('Cómo funciona');
+  });
+
   it('rejects unsupported file types', async () => {
     const env = makeDeps();
     await handleInbound(env.deps, photo({ file: { fileRef: 'x', mime: 'audio/ogg' } }));
@@ -386,6 +402,17 @@ describe('confirm flow', () => {
     await handleInbound(env.deps, callback(`ok:${encodeId(item.id)}:n`));
     const call = (env.expenses.saveExpenseItem as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(call.reportId).toBeNull();
+  });
+
+  it('blocks confirm when the extracted date is missing instead of defaulting to today', async () => {
+    const env = makeDeps({
+      extraction: { ok: true, receipt: makeReceipt({ expenseDate: null }) }
+    });
+    const item = await startCard(env);
+    await handleInbound(env.deps, callback(`ok:${encodeId(item.id)}`));
+    expect(env.expenses.saveExpenseItem).not.toHaveBeenCalled();
+    expect(item.status).toBe('active');
+    expect(env.adapter.sent.some((m) => m.text.includes('No pude leer la fecha'))).toBe(true);
   });
 
   it('refuses to save when the chosen category is no longer active', async () => {
@@ -514,6 +541,30 @@ describe('expiry and stale buttons', () => {
     await handleInbound(env.deps, text('/ayuda'));
     expect(item.status).toBe('expired');
     expect(env.adapter.edits.some((e) => e.text.includes('más de 3 días'))).toBe(true);
+  });
+
+  it('ignores a stale "Continuar" tap while another card is live', async () => {
+    const env = makeDeps();
+    await startCard(env);
+    await handleInbound(env.deps, photo({ file: { fileRef: 'file-2', mime: 'image/jpeg' } }));
+
+    await handleInbound(env.deps, callback('qn'));
+    const active = [...env.store.items.values()].filter((i) => i.status === 'active');
+    expect(active).toHaveLength(1); // no second activation
+    expect(env.extract).toHaveBeenCalledTimes(1);
+    expect(env.adapter.lastEdit().text).toContain('en proceso');
+  });
+
+  it('clears only the queue on a stale "Descartar todas" tap, keeping the live card', async () => {
+    const env = makeDeps();
+    const item = await startCard(env);
+    await handleInbound(env.deps, photo({ file: { fileRef: 'file-2', mime: 'image/jpeg' } }));
+
+    await handleInbound(env.deps, callback('qx'));
+    expect(item.status).toBe('active'); // live card untouched
+    const session = [...env.store.sessions.values()][0];
+    expect(session.active_item_id).toBe(item.id);
+    expect(await env.store.countQueued(session.id)).toBe(0);
   });
 
   it('acks stale callbacks for unknown items without crashing', async () => {

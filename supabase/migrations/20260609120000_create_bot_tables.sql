@@ -10,6 +10,9 @@ CREATE TABLE public.bot_processed_updates (
   platform text NOT NULL,
   update_id bigint NOT NULL,
   processed_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz,  -- null = claimed but not finished; stale claims
+                             -- (>90s, uncompleted) are taken over on retry so
+                             -- a function timeout cannot permanently drop an update
   PRIMARY KEY (platform, update_id)
 );
 
@@ -146,3 +149,10 @@ REVOKE EXECUTE ON FUNCTION public.bot_save_expense_item(
   uuid, uuid, text, date, date, uuid, text, numeric, text, numeric,
   numeric, date, date, text, text, text, text, text
 ) FROM PUBLIC, anon, authenticated;
+
+-- Revoking PUBLIC also strips service_role's inherited privilege; the bot's
+-- service-role client must be granted execute explicitly.
+GRANT EXECUTE ON FUNCTION public.bot_save_expense_item(
+  uuid, uuid, text, date, date, uuid, text, numeric, text, numeric,
+  numeric, date, date, text, text, text, text, text
+) TO service_role;

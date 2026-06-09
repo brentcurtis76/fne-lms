@@ -331,7 +331,10 @@ export class ExpenseService {
         : 0
     };
 
-    // Approver notification — same template as the web flow, fire-and-forget.
+    // Approver notification — same template as the web flow. Awaited (with a
+    // short timeout): a serverless runtime may freeze after the response, so
+    // fire-and-forget could silently drop the email. Failure never rolls back
+    // the submit — it is already committed; we only log.
     try {
       const emailData = generateExpenseReportSubmissionEmail(
         result.reportName,
@@ -341,11 +344,18 @@ export class ExpenseService {
         row.start_date as string,
         row.end_date as string
       );
-      void fetch(`${this.appUrl}/api/send-email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(emailData)
-      }).catch((emailError) => console.error('[Bot] submit notification email failed:', emailError));
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      try {
+        await fetch(`${this.appUrl}/api/send-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(emailData),
+          signal: controller.signal
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
     } catch (emailError) {
       console.error('[Bot] submit notification email failed:', emailError);
     }

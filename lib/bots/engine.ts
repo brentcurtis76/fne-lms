@@ -64,6 +64,23 @@ export async function handleInbound(deps: EngineDeps, msg: InboundMessage): Prom
     }
   }
 
+  // Fail closed on revoked access: a linked user without can_submit keeps
+  // only the informational commands — no expense data, no callbacks, no files.
+  if (!actor.canSubmit) {
+    if (msg.kind === 'text') {
+      const command = msg.text.trim().split(/[\s@]/)[0].toLowerCase();
+      if (command === '/start' || command === '/ayuda' || command === '/vincular') {
+        await handleText(deps, session, actor, msg);
+        return;
+      }
+    }
+    if (msg.kind === 'callback') {
+      await adapter.ackCallback(msg.callbackId);
+    }
+    await adapter.sendMessage(msg.chatId, M.NO_PERMISSION);
+    return;
+  }
+
   switch (msg.kind) {
     case 'text':
       await handleText(deps, session, actor, msg);
@@ -575,16 +592,31 @@ async function handleCallback(
   const verb = parts[0];
 
   // --- verbs without an item id ---------------------------------------------
+  // qn/qx are unscoped (no item id), so an old queue-prompt message can still
+  // carry them: never let them disturb a live card or double-activate items.
+  const hasActiveCard = !!session.active_item_id && CARD_STATES.has(session.state);
   if (verb === 'qn') {
     await adapter.ackCallback(msg.callbackId);
+    if (hasActiveCard) {
+      if (msg.messageRef) await adapter.editMessage(msg.chatId, msg.messageRef, M.QUEUE_BUSY);
+      return;
+    }
+    if ((await store.countQueued(session.id)) === 0) {
+      if (msg.messageRef) await adapter.editMessage(msg.chatId, msg.messageRef, M.NOTHING_PENDING);
+      return;
+    }
+    if (msg.messageRef) await adapter.editMessage(msg.chatId, msg.messageRef, M.QUEUE_RESUME);
     await advanceQueueOrIdle(deps, session, actor);
     return;
   }
   if (verb === 'qx') {
     await adapter.ackCallback(msg.callbackId);
     await store.discardQueued(session.id);
-    await store.resetSession(session.id);
-    await adapter.sendMessage(msg.chatId, M.QUEUE_CLEARED);
+    if (!hasActiveCard) {
+      await store.resetSession(session.id);
+    }
+    if (msg.messageRef) await adapter.editMessage(msg.chatId, msg.messageRef, M.QUEUE_CLEARED);
+    else await adapter.sendMessage(msg.chatId, M.QUEUE_CLEARED);
     return;
   }
   if (verb === 'sx') {
@@ -790,7 +822,19 @@ async function confirmSave(
   const payload = item.extraction;
   const receipt = payload?.receipt;
 
-  if (!receipt || receipt.amount === null || !item.category_id) {
+  if (!receipt || !item.category_id) {
+    await renderCard(deps, session, actor, item, 'main');
+    return;
+  }
+  // Never invent data on save: an unread amount or date must be typed in
+  // via ✏️ Editar before the expense can be confirmed.
+  if (receipt.amount === null) {
+    await adapter.sendMessage(session.chat_id, M.NEED_AMOUNT);
+    await renderCard(deps, session, actor, item, 'main');
+    return;
+  }
+  if (!receipt.expenseDate) {
+    await adapter.sendMessage(session.chat_id, M.NEED_DATE);
     await renderCard(deps, session, actor, item, 'main');
     return;
   }
@@ -812,7 +856,7 @@ async function confirmSave(
   const claimed = await store.claimPendingItem(item.id, 'active', 'saving');
   if (!claimed) return; // double-tap or redelivery — first claim wins
 
-  const expenseDate = receipt.expenseDate ?? new Date().toISOString().slice(0, 10);
+  const expenseDate = receipt.expenseDate;
 
   try {
     const downloaded = await adapter.downloadFile(item.file_ref);

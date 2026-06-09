@@ -55,6 +55,11 @@ export class BotStore {
   /**
    * Atomic inbound-update claim. Returns false when this update_id was
    * already claimed (platform redelivery) and the webhook must no-op.
+   *
+   * A claim whose handler died mid-processing (e.g. function timeout after
+   * claiming, before completion) is taken over once it is >90s old and still
+   * uncompleted, so the platform's retry reprocesses instead of dropping
+   * the update forever.
    */
   async claimUpdate(platform: Platform, updateId: number): Promise<boolean> {
     const { data, error } = await this.supabase
@@ -65,7 +70,21 @@ export class BotStore {
       )
       .select('update_id');
     if (error) throw error;
-    const claimed = Array.isArray(data) && data.length > 0;
+    let claimed = Array.isArray(data) && data.length > 0;
+
+    if (!claimed) {
+      const staleCutoff = new Date(Date.now() - 90_000).toISOString();
+      const { data: takeover, error: takeoverError } = await this.supabase
+        .from('bot_processed_updates')
+        .update({ processed_at: new Date().toISOString() })
+        .eq('platform', platform)
+        .eq('update_id', updateId)
+        .is('completed_at', null)
+        .lt('processed_at', staleCutoff)
+        .select('update_id');
+      if (takeoverError) throw takeoverError;
+      claimed = Array.isArray(takeover) && takeover.length > 0;
+    }
 
     // Opportunistic retention sweep (~4% of claims) — no cron needed.
     if (claimed && updateId % 25 === 0) {
@@ -79,6 +98,16 @@ export class BotStore {
         });
     }
     return claimed;
+  }
+
+  /** Marks an update fully processed; only uncompleted claims can be taken over. */
+  async markUpdateCompleted(platform: Platform, updateId: number): Promise<void> {
+    const { error } = await this.supabase
+      .from('bot_processed_updates')
+      .update({ completed_at: new Date().toISOString() })
+      .eq('platform', platform)
+      .eq('update_id', updateId);
+    if (error) console.error('[Bot] markUpdateCompleted failed:', error);
   }
 
   async getOrCreateSession(platform: Platform, chatId: string): Promise<BotSessionRow> {

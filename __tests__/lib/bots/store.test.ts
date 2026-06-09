@@ -134,27 +134,55 @@ describe('BotStore.createLinkCode', () => {
 });
 
 describe('BotStore.claimUpdate', () => {
-  function makeStoreWithUpsert(rows: unknown[]) {
+  function makeStoreWithUpsert(rows: unknown[], takeoverRows: unknown[] = []) {
     const upsertArgs: unknown[] = [];
+    let takeoverQueried = false;
+    const takeoverChain = (resolved: unknown): unknown =>
+      new Proxy(
+        {},
+        {
+          get(_t, prop) {
+            if (prop === 'then') {
+              return (resolve: (v: unknown) => void) => resolve(resolved);
+            }
+            return () => takeoverChain(resolved);
+          }
+        }
+      );
     const supabase = {
       from: vi.fn(() => ({
         upsert: vi.fn((row: unknown, opts: unknown) => {
           upsertArgs.push({ row, opts });
           return { select: vi.fn(() => Promise.resolve({ data: rows, error: null })) };
+        }),
+        update: vi.fn(() => {
+          takeoverQueried = true;
+          return takeoverChain({ data: takeoverRows, error: null });
         })
       }))
     };
-    return { store: new BotStore(supabase as never), upsertArgs };
+    return {
+      store: new BotStore(supabase as never),
+      upsertArgs,
+      wasTakeoverQueried: () => takeoverQueried
+    };
   }
 
   it('returns true when the insert claimed the update', async () => {
-    const { store, upsertArgs } = makeStoreWithUpsert([{ update_id: 7 }]);
+    const { store, upsertArgs, wasTakeoverQueried } = makeStoreWithUpsert([{ update_id: 7 }]);
     await expect(store.claimUpdate('telegram', 7)).resolves.toBe(true);
     expect((upsertArgs[0] as { opts: { ignoreDuplicates: boolean } }).opts.ignoreDuplicates).toBe(true);
+    expect(wasTakeoverQueried()).toBe(false);
   });
 
-  it('returns false on duplicate delivery (conflict ignored)', async () => {
-    const { store } = makeStoreWithUpsert([]);
+  it('returns false on duplicate delivery of a live/completed claim', async () => {
+    const { store, wasTakeoverQueried } = makeStoreWithUpsert([], []);
     await expect(store.claimUpdate('telegram', 7)).resolves.toBe(false);
+    expect(wasTakeoverQueried()).toBe(true);
+  });
+
+  it('takes over a stale uncompleted claim (dead handler) on retry', async () => {
+    const { store } = makeStoreWithUpsert([], [{ update_id: 7 }]);
+    await expect(store.claimUpdate('telegram', 7)).resolves.toBe(true);
   });
 });

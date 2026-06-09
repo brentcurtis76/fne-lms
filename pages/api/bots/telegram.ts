@@ -18,7 +18,10 @@
 //
 // Processing is inline (no fire-and-forget): Pages Router lambdas may freeze
 // after res.end(), and Telegram redeliveries are absorbed by the
-// bot_processed_updates claim, so a slow extraction is safe.
+// bot_processed_updates claim, so a slow extraction is safe. Function
+// duration is set explicitly in vercel.json (maxDuration: 120 for this
+// route); if the function still dies after claiming, the claim is taken
+// over after 90s by Telegram's retry (see BotStore.claimUpdate).
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { timingSafeEqual } from 'crypto';
@@ -68,6 +71,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       { adapter, store, expenses: new ExpenseService(supabase), extract: extractReceipt },
       message
     );
+    // Only completed claims are final — an uncompleted claim older than 90s
+    // (handler died/timed out) gets taken over by the platform's retry.
+    await store.markUpdateCompleted(message.platform, message.updateId);
     return res.status(200).json({ ok: true });
   } catch (error) {
     // Always 200 once parsed — a 5xx would make Telegram redeliver a poison

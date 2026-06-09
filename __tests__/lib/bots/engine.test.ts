@@ -89,6 +89,25 @@ class FakeStore {
       submit_report_id: null
     });
   }
+  async claimSessionTransition(
+    sessionId: string,
+    fromItemId: string | null,
+    toItemId: string | null,
+    state: BotSessionRow['state']
+  ) {
+    for (const session of this.sessions.values()) {
+      if (
+        session.id === sessionId &&
+        (session.active_item_id === null || session.active_item_id === fromItemId)
+      ) {
+        session.active_item_id = toItemId;
+        session.state = state;
+        session.edit_field = null;
+        return true;
+      }
+    }
+    return false;
+  }
   isLinkLocked(session: BotSessionRow) {
     return !!session.link_locked_until && new Date(session.link_locked_until) > new Date();
   }
@@ -565,6 +584,32 @@ describe('expiry and stale buttons', () => {
     const session = [...env.store.sessions.values()][0];
     expect(session.active_item_id).toBe(item.id);
     expect(await env.store.countQueued(session.id)).toBe(0);
+  });
+
+  it('re-queues the item and backs off when the session slot is taken (qn race)', async () => {
+    const env = makeDeps();
+    const first = await startCard(env);
+    await handleInbound(env.deps, photo({ file: { fileRef: 'file-2', mime: 'image/jpeg' } }));
+    await handleInbound(env.deps, callback(`x:${encodeId(first.id)}`)); // discard → queue prompt
+
+    // Simulate a concurrent handler grabbing the slot between the qn check
+    // and the activation: the atomic session claim loses.
+    env.store.claimSessionTransition = vi.fn().mockResolvedValue(false);
+    await handleInbound(env.deps, callback('qn'));
+
+    const second = [...env.store.items.values()][1];
+    expect(second.status).toBe('queued'); // re-queued, not double-activated
+    expect(env.extract).toHaveBeenCalledTimes(1); // never processed
+  });
+
+  it('queues the photo when the session slot is lost at arrival time', async () => {
+    const env = makeDeps();
+    env.store.claimSessionTransition = vi.fn().mockResolvedValue(false);
+    await handleInbound(env.deps, photo());
+    const item = [...env.store.items.values()][0];
+    expect(item.status).toBe('queued');
+    expect(env.adapter.lastSent().text).toContain('en cola');
+    expect(env.extract).not.toHaveBeenCalled();
   });
 
   it('acks stale callbacks for unknown items without crashing', async () => {

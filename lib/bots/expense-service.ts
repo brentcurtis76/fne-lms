@@ -347,12 +347,18 @@ export class ExpenseService {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8000);
       try {
-        await fetch(`${this.appUrl}/api/send-email`, {
+        const response = await fetch(`${this.appUrl}/api/send-email`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(emailData),
           signal: controller.signal
         });
+        if (!response.ok) {
+          const body = await response.text().catch(() => '');
+          console.error(
+            `[Bot] submit notification email failed: HTTP ${response.status} ${body.slice(0, 300)}`
+          );
+        }
       } finally {
         clearTimeout(timeout);
       }

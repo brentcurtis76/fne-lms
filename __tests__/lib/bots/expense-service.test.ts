@@ -232,6 +232,38 @@ describe('submitReport', () => {
     await expect(service.submitReport(actor, REPORT_ID)).rejects.toMatchObject({ code: 'SUBMIT_CONFLICT' });
   });
 
+  it('logs non-2xx email responses without failing the committed submit', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500, text: async () => 'smtp down' });
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      const { client } = buildClient({
+        expense_reports: [
+          {
+            data: [
+              {
+                id: REPORT_ID,
+                report_name: 'Gastos junio 2026',
+                total_amount: 57690,
+                start_date: '2026-06-01',
+                end_date: '2026-06-30',
+                expense_items: [{ count: 4 }]
+              }
+            ]
+          }
+        ]
+      });
+      const service = new ExpenseService(client as never, 'https://app.test');
+      const result = await service.submitReport(actor, REPORT_ID);
+      expect(result.reportName).toBe('Gastos junio 2026'); // submit survives email failure
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('HTTP 500'));
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('smtp down'));
+    } finally {
+      vi.unstubAllGlobals();
+      errorSpy.mockRestore();
+    }
+  });
+
   it('submits and fires the approver email at an absolute URL', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('fetch', fetchMock);

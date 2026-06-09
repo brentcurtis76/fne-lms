@@ -34,6 +34,10 @@ const LINK_CODE_LENGTH = 8;
 const MAX_LINK_ATTEMPTS = 5;
 const LINK_LOCKOUT_MINUTES = 15;
 const PROCESSED_UPDATES_RETENTION_HOURS = 48;
+// INVARIANT: must exceed the webhook's maxDuration (60s in vercel.json) plus
+// a buffer — a takeover while the original invocation is still alive would
+// process the same update twice (duplicate card for the same receipt).
+const STALE_CLAIM_TAKEOVER_MS = 90_000;
 
 export function generateLinkCode(): string {
   const bytes = randomBytes(LINK_CODE_LENGTH);
@@ -73,7 +77,7 @@ export class BotStore {
     let claimed = Array.isArray(data) && data.length > 0;
 
     if (!claimed) {
-      const staleCutoff = new Date(Date.now() - 90_000).toISOString();
+      const staleCutoff = new Date(Date.now() - STALE_CLAIM_TAKEOVER_MS).toISOString();
       const { data: takeover, error: takeoverError } = await this.supabase
         .from('bot_processed_updates')
         .update({ processed_at: new Date().toISOString() })
@@ -151,6 +155,35 @@ export class BotStore {
       .update({ ...patch, updated_at: new Date().toISOString() })
       .eq('id', sessionId);
     if (error) throw error;
+  }
+
+  /**
+   * Atomically moves the session's single active-card slot from
+   * `fromItemId` (or empty) to `toItemId`. Returns false when another
+   * concurrent handler already owns the slot with a different item — the
+   * caller must back off instead of double-activating.
+   */
+  async claimSessionTransition(
+    sessionId: string,
+    fromItemId: string | null,
+    toItemId: string | null,
+    state: SessionState
+  ): Promise<boolean> {
+    let query = this.supabase
+      .from('bot_sessions')
+      .update({
+        active_item_id: toItemId,
+        state,
+        edit_field: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', sessionId);
+    query = fromItemId
+      ? query.or(`active_item_id.is.null,active_item_id.eq.${fromItemId}`)
+      : query.is('active_item_id', null);
+    const { data, error } = await query.select('id');
+    if (error) throw error;
+    return Array.isArray(data) && data.length > 0;
   }
 
   async resetSession(sessionId: string, state: SessionState = 'idle'): Promise<void> {

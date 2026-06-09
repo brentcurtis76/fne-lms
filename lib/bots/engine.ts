@@ -284,6 +284,9 @@ async function handleFile(
 
   const hasActiveCard = CARD_STATES.has(session.state) && !!session.active_item_id;
 
+  // Always create as queued, then atomically claim the session's card slot —
+  // a concurrent handler (parallel photo, stale "Continuar") may be doing the
+  // same, and only one activation can win.
   const item = await store.createPendingItem({
     sessionId: session.id,
     userId: actor.userId,
@@ -291,7 +294,7 @@ async function handleFile(
     fileMime: mime,
     fileName: msg.file.fileName ?? null,
     caption: msg.caption?.trim() || null,
-    status: hasActiveCard ? 'queued' : 'active'
+    status: 'queued'
   });
 
   if (hasActiveCard) {
@@ -300,12 +303,25 @@ async function handleFile(
     return;
   }
 
-  await store.updateSession(session.id, {
-    state: 'card_main',
-    active_item_id: item.id,
-    edit_field: null,
-    submit_report_id: null
-  });
+  const sessionClaimed = await store.claimSessionTransition(
+    session.id,
+    session.active_item_id,
+    item.id,
+    'card_main'
+  );
+  if (!sessionClaimed) {
+    // Lost the slot to a concurrent handler — the photo stays queued.
+    const queuedCount = await store.countQueued(session.id);
+    await adapter.sendMessage(msg.chatId, M.queued(queuedCount));
+    return;
+  }
+  const itemClaimed = await store.claimPendingItem(item.id, 'queued', 'active');
+  if (!itemClaimed) {
+    // Discarded concurrently (e.g. racing "Descartar todas") — free the slot.
+    await store.resetSession(session.id);
+    return;
+  }
+  item.status = 'active';
   session.state = 'card_main';
   session.active_item_id = item.id;
   await processReceipt(deps, session, actor, item);
@@ -407,22 +423,35 @@ async function advanceQueueOrIdle(
   actor: BotActor
 ): Promise<void> {
   const { store } = deps;
-  // A claim can lose to a concurrent handler (e.g. a racing "discard all") —
-  // keep trying the next queued item rather than going idle silently.
+  // The card slot we are allowed to replace: the item this handler just
+  // finished (saved/discarded), or none. Anything else means a concurrent
+  // handler owns the slot.
+  const previousItemId = session.active_item_id;
+  // An item claim can lose to a concurrent handler (e.g. a racing "discard
+  // all") — keep trying the next queued item rather than going idle silently.
   for (;;) {
     const next = await store.nextQueuedItem(session.id);
     if (!next) {
       await store.resetSession(session.id);
+      session.state = 'idle';
+      session.active_item_id = null;
       return;
     }
     const claimed = await store.claimPendingItem(next.id, 'queued', 'active');
     if (!claimed) continue;
+    // Atomic slot handoff: of two parallel continuations only one may
+    // activate a card; the loser re-queues its item and backs off.
+    const sessionClaimed = await store.claimSessionTransition(
+      session.id,
+      previousItemId,
+      next.id,
+      'card_main'
+    );
+    if (!sessionClaimed) {
+      await store.claimPendingItem(next.id, 'active', 'queued');
+      return;
+    }
     next.status = 'active';
-    await store.updateSession(session.id, {
-      state: 'card_main',
-      active_item_id: next.id,
-      edit_field: null
-    });
     session.state = 'card_main';
     session.active_item_id = next.id;
     await processReceipt(deps, session, actor, next);

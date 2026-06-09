@@ -19,9 +19,11 @@
 // Processing is inline (no fire-and-forget): Pages Router lambdas may freeze
 // after res.end(), and Telegram redeliveries are absorbed by the
 // bot_processed_updates claim, so a slow extraction is safe. Function
-// duration is set explicitly in vercel.json (maxDuration: 120 for this
+// duration is set explicitly in vercel.json (maxDuration: 60 for this
 // route); if the function still dies after claiming, the claim is taken
-// over after 90s by Telegram's retry (see BotStore.claimUpdate).
+// over after 90s by Telegram's retry (see BotStore.claimUpdate — the 90s
+// takeover MUST stay above maxDuration + buffer, or a live invocation and
+// its retry could both process the same update).
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { timingSafeEqual } from 'crypto';

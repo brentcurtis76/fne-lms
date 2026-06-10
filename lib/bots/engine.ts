@@ -238,13 +238,21 @@ async function handleCancel(
   }
 
   if (CARD_STATES.has(session.state) && session.active_item_id) {
-    const claimed = await store.claimPendingItem(session.active_item_id, 'active', 'discarded');
-    const item = await store.getPendingItem(session.active_item_id);
+    const activeItemId = session.active_item_id;
+    const claimed = await store.claimPendingItem(activeItemId, 'active', 'discarded');
+    const item = await store.getPendingItem(activeItemId);
     if (claimed && item?.card_message_ref) {
       await adapter.editMessage(chatId, item.card_message_ref, M.DISCARDED);
     }
     const queuedCount = await store.countQueued(session.id);
-    await store.resetSession(session.id);
+    // Conditioned release: only clear the slot if this item still owns it —
+    // a concurrent continuation may have legitimately moved it on.
+    const released = await store.claimSessionTransition(session.id, activeItemId, null, 'idle');
+    if (released) {
+      session.state = 'idle';
+      session.active_item_id = null;
+      session.edit_field = null;
+    }
     if (queuedCount > 0) {
       await adapter.sendMessage(chatId, M.queuePrompt(queuedCount), M.queueKeyboard());
     }
@@ -339,18 +347,32 @@ async function processReceiptSafely(
     await processReceipt(deps, session, actor, item);
   } catch (error) {
     console.error('[Bot] receipt processing failed:', error);
-    if (item.card_message_ref) {
-      try {
+    // Never leave the user in silence: edit the card if one was sent, else
+    // send a fresh message. Notification failures are logged, never fatal.
+    try {
+      if (item.card_message_ref) {
         await adapter.editMessage(session.chat_id, item.card_message_ref, M.SAVE_ERROR);
-      } catch (notifyError) {
-        console.error('[Bot] receipt failure notification failed:', notifyError);
+      } else {
+        await adapter.sendMessage(session.chat_id, M.SAVE_ERROR);
       }
+    } catch (notifyError) {
+      console.error('[Bot] receipt failure notification failed:', notifyError);
     }
-    await store.updatePendingItem(item.id, { status: 'discarded' });
-    await store.resetSession(session.id);
-    item.status = 'discarded';
-    session.state = 'idle';
-    session.active_item_id = null;
+    // Cleanup must not throw (a DB-side root cause would throw again here and
+    // escape past the webhook's markUpdateCompleted) and must not clobber
+    // state a concurrent handler owns — both transitions are conditioned.
+    try {
+      const discarded = await store.claimPendingItem(item.id, 'active', 'discarded');
+      if (discarded) item.status = 'discarded';
+      const released = await store.claimSessionTransition(session.id, item.id, null, 'idle');
+      if (released) {
+        session.state = 'idle';
+        session.active_item_id = null;
+      }
+    } catch (cleanupError) {
+      // Zombie card until /cancelar or expiry — nothing more we can do here.
+      console.error('[Bot] receipt failure cleanup failed:', cleanupError);
+    }
   }
 }
 
@@ -372,8 +394,12 @@ async function processReceipt(
   const categories = await expenses.getActiveCategories();
   if (categories.length === 0) {
     await adapter.editMessage(chatId, messageRef, M.NO_CATEGORIES);
-    await store.updatePendingItem(item.id, { status: 'discarded' });
-    await store.resetSession(session.id);
+    await store.claimPendingItem(item.id, 'active', 'discarded');
+    const released = await store.claimSessionTransition(session.id, item.id, null, 'idle');
+    if (released) {
+      session.state = 'idle';
+      session.active_item_id = null;
+    }
     return;
   }
 
@@ -459,9 +485,13 @@ async function advanceQueueOrIdle(
   for (;;) {
     const next = await store.nextQueuedItem(session.id);
     if (!next) {
-      await store.resetSession(session.id);
-      session.state = 'idle';
-      session.active_item_id = null;
+      // Conditioned idle: don't clobber a slot a concurrent handler claimed
+      // between our last step and now.
+      const released = await store.claimSessionTransition(session.id, previousItemId, null, 'idle');
+      if (released) {
+        session.state = 'idle';
+        session.active_item_id = null;
+      }
       return;
     }
     const claimed = await store.claimPendingItem(next.id, 'queued', 'active');
@@ -839,9 +869,12 @@ async function handleCallback(
         await adapter.editMessage(session.chat_id, item.card_message_ref, M.DISCARDED);
       }
       const queuedCount = await store.countQueued(session.id);
-      await store.resetSession(session.id);
-      session.state = 'idle';
-      session.active_item_id = null;
+      // Conditioned release: only clear the slot if this item still owns it.
+      const released = await store.claimSessionTransition(session.id, item.id, null, 'idle');
+      if (released) {
+        session.state = 'idle';
+        session.active_item_id = null;
+      }
       if (queuedCount > 0) {
         await adapter.sendMessage(session.chat_id, M.queuePrompt(queuedCount), M.queueKeyboard());
       }

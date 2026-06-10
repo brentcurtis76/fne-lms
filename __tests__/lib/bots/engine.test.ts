@@ -391,6 +391,55 @@ describe('receipt capture', () => {
     expect(session.active_item_id).toBeNull();
   });
 
+  it('shows SAVE_ERROR on the card when the render fails after PROCESSING was sent', async () => {
+    const env = makeDeps();
+    const realEdit = env.adapter.editMessage.bind(env.adapter);
+    vi.spyOn(env.adapter, 'editMessage')
+      .mockImplementationOnce(async () => {
+        throw new Error('render edit failed'); // the renderCard-phase edit
+      })
+      .mockImplementation(realEdit); // the SAVE_ERROR notification goes through
+
+    await expect(handleInbound(env.deps, photo())).resolves.toBeUndefined();
+
+    const item = [...env.store.items.values()][0];
+    const session = [...env.store.sessions.values()][0];
+    expect(item.status).toBe('discarded');
+    expect(session.state).toBe('idle');
+    expect(session.active_item_id).toBeNull();
+    expect(env.adapter.lastEdit().text).toContain('Algo falló'); // user was told
+  });
+
+  it('still releases the slot when both the render and the failure notice fail', async () => {
+    const env = makeDeps();
+    vi.spyOn(env.adapter, 'editMessage').mockRejectedValue(new Error('telegram down'));
+
+    await expect(handleInbound(env.deps, photo())).resolves.toBeUndefined();
+
+    const item = [...env.store.items.values()][0];
+    const session = [...env.store.sessions.values()][0];
+    expect(item.status).toBe('discarded');
+    expect(session.state).toBe('idle');
+  });
+
+  it('falls back to a fresh message and never throws when cleanup itself fails', async () => {
+    const env = makeDeps();
+    // PROCESSING send fails (no card ref), then the fallback SAVE_ERROR send works.
+    vi.spyOn(env.adapter, 'sendMessage').mockRejectedValueOnce(new Error('tg fail'));
+    // Activation claim works; the cleanup claim hits a dead DB.
+    const realClaim = env.store.claimPendingItem.bind(env.store);
+    let claimCalls = 0;
+    vi.spyOn(env.store, 'claimPendingItem').mockImplementation(async (...args) => {
+      claimCalls += 1;
+      if (claimCalls >= 2) throw new Error('db down');
+      return realClaim(...(args as Parameters<typeof realClaim>));
+    });
+
+    await expect(handleInbound(env.deps, photo())).resolves.toBeUndefined(); // no escape
+
+    expect(env.adapter.lastSent().text).toContain('Algo falló'); // fallback notification
+  });
+
   it('queues photos that arrive while a card is active', async () => {
     const env = makeDeps();
     await startCard(env);

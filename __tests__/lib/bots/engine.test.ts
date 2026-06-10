@@ -378,6 +378,19 @@ describe('receipt capture', () => {
     expect(env.adapter.lastSent().text).toContain('Solo puedo procesar');
   });
 
+  it('releases the session when the processing card cannot be sent', async () => {
+    const env = makeDeps();
+    vi.spyOn(env.adapter, 'sendMessage').mockRejectedValueOnce(new Error('Telegram timeout'));
+
+    await expect(handleInbound(env.deps, photo())).resolves.toBeUndefined();
+
+    const item = [...env.store.items.values()][0];
+    const session = [...env.store.sessions.values()][0];
+    expect(item.status).toBe('discarded');
+    expect(session.state).toBe('idle');
+    expect(session.active_item_id).toBeNull();
+  });
+
   it('queues photos that arrive while a card is active', async () => {
     const env = makeDeps();
     await startCard(env);
@@ -467,6 +480,21 @@ describe('confirm flow', () => {
     expect(env.extract).toHaveBeenCalledTimes(2);
     const second = [...env.store.items.values()][1];
     expect(second.status).toBe('active');
+  });
+
+  it('releases the session when a queued receipt cannot render', async () => {
+    const env = makeDeps();
+    const item = await startCard(env);
+    await handleInbound(env.deps, photo({ file: { fileRef: 'file-2', mime: 'image/jpeg' } }));
+    vi.spyOn(env.adapter, 'sendMessage').mockRejectedValueOnce(new Error('Telegram timeout'));
+
+    await handleInbound(env.deps, callback(`ok:${encodeId(item.id)}`));
+
+    const second = [...env.store.items.values()][1];
+    const session = [...env.store.sessions.values()][0];
+    expect(second.status).toBe('discarded');
+    expect(session.state).toBe('idle');
+    expect(session.active_item_id).toBeNull();
   });
 
   it('discards via the trash button and prompts about the queue', async () => {

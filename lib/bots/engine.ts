@@ -324,7 +324,34 @@ async function handleFile(
   item.status = 'active';
   session.state = 'card_main';
   session.active_item_id = item.id;
-  await processReceipt(deps, session, actor, item);
+  await processReceiptSafely(deps, session, actor, item);
+}
+
+/** Prevent an unexpected adapter/API failure from stranding the card slot. */
+async function processReceiptSafely(
+  deps: EngineDeps,
+  session: BotSessionRow,
+  actor: BotActor,
+  item: BotPendingItemRow
+): Promise<void> {
+  const { adapter, store } = deps;
+  try {
+    await processReceipt(deps, session, actor, item);
+  } catch (error) {
+    console.error('[Bot] receipt processing failed:', error);
+    if (item.card_message_ref) {
+      try {
+        await adapter.editMessage(session.chat_id, item.card_message_ref, M.SAVE_ERROR);
+      } catch (notifyError) {
+        console.error('[Bot] receipt failure notification failed:', notifyError);
+      }
+    }
+    await store.updatePendingItem(item.id, { status: 'discarded' });
+    await store.resetSession(session.id);
+    item.status = 'discarded';
+    session.state = 'idle';
+    session.active_item_id = null;
+  }
 }
 
 /** Extracts the receipt and renders the confirm card (new or queued item). */
@@ -339,8 +366,8 @@ async function processReceipt(
 
   await adapter.sendTyping(chatId);
   const { messageRef } = await adapter.sendMessage(chatId, M.PROCESSING);
-  await store.updatePendingItem(item.id, { card_message_ref: messageRef });
   item.card_message_ref = messageRef;
+  await store.updatePendingItem(item.id, { card_message_ref: messageRef });
 
   const categories = await expenses.getActiveCategories();
   if (categories.length === 0) {
@@ -454,7 +481,7 @@ async function advanceQueueOrIdle(
     next.status = 'active';
     session.state = 'card_main';
     session.active_item_id = next.id;
-    await processReceipt(deps, session, actor, next);
+    await processReceiptSafely(deps, session, actor, next);
     return;
   }
 }

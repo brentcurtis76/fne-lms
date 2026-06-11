@@ -1,3 +1,5 @@
+import { EXPENSE_APPROVER_EMAIL } from './expenseConfig';
+
 interface EmailData {
   to: string;
   subject: string;
@@ -33,7 +35,7 @@ export const generateExpenseReportSubmissionEmail = (
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('es-CL');
 
   return {
-    to: 'gnaranjo@nuevaeducacion.org',
+    to: EXPENSE_APPROVER_EMAIL,
     subject: `📋 Nuevo Reporte de Gastos Pendiente de Aprobación - ${reportName}`,
     html: `
       <!DOCTYPE html>

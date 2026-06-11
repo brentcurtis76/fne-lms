@@ -37,7 +37,9 @@ const PROCESSED_UPDATES_RETENTION_HOURS = 48;
 // INVARIANT: must exceed the webhook's maxDuration (60s in vercel.json) plus
 // a buffer — a takeover while the original invocation is still alive would
 // process the same update twice (duplicate card for the same receipt).
-const STALE_CLAIM_TAKEOVER_MS = 90_000;
+// Enforced by __tests__/lib/bots/duration-invariant.test.ts, which reads
+// vercel.json and fails CI if the two values drift.
+export const STALE_CLAIM_TAKEOVER_MS = 90_000;
 
 export function generateLinkCode(): string {
   const bytes = randomBytes(LINK_CODE_LENGTH);
@@ -90,16 +92,20 @@ export class BotStore {
       claimed = Array.isArray(takeover) && takeover.length > 0;
     }
 
-    // Opportunistic retention sweep (~4% of claims) — no cron needed.
+    // Opportunistic retention sweep (~4% of claims) — no cron needed. Awaited:
+    // serverless may freeze a lambda before a fire-and-forget promise settles,
+    // and the delete is indexed (idx_bot_processed_updates_processed_at).
     if (claimed && updateId % 25 === 0) {
-      const cutoff = new Date(Date.now() - PROCESSED_UPDATES_RETENTION_HOURS * 3600_000).toISOString();
-      void this.supabase
-        .from('bot_processed_updates')
-        .delete()
-        .lt('processed_at', cutoff)
-        .then(({ error: sweepError }) => {
-          if (sweepError) console.error('[Bot] processed_updates sweep failed:', sweepError);
-        });
+      try {
+        const cutoff = new Date(Date.now() - PROCESSED_UPDATES_RETENTION_HOURS * 3600_000).toISOString();
+        const { error: sweepError } = await this.supabase
+          .from('bot_processed_updates')
+          .delete()
+          .lt('processed_at', cutoff);
+        if (sweepError) console.error('[Bot] processed_updates sweep failed:', sweepError);
+      } catch (sweepError) {
+        console.error('[Bot] processed_updates sweep failed:', sweepError);
+      }
     }
     return claimed;
   }

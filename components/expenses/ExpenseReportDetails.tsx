@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { X, Calendar, DollarSign, Receipt, Eye, Download, Edit, Trash2, FileText, FileSpreadsheet } from 'lucide-react';
 
 import { formatCurrency as formatCurrencyWithSymbol } from '../../lib/currency-service';
+import { RECEIPTS_BUCKET } from '../../utils/expenseConfig';
 import { ExpenseReportExporter } from '../../lib/expenseReportExport';
 import { toast } from 'react-hot-toast';
 
@@ -114,9 +115,11 @@ export default function ExpenseReportDetails({
     
     // If it's a file path, generate a signed URL
     try {
-      const filePath = receiptUrl.startsWith('boletas/') ? receiptUrl.substring(8) : receiptUrl;
+      const filePath = receiptUrl.startsWith(`${RECEIPTS_BUCKET}/`)
+        ? receiptUrl.substring(RECEIPTS_BUCKET.length + 1)
+        : receiptUrl;
       const { data, error } = await supabase.storage
-        .from('boletas')
+        .from(RECEIPTS_BUCKET)
         .createSignedUrl(filePath, 3600); // 1 hour
       
       if (error) throw error;
@@ -137,7 +140,7 @@ export default function ExpenseReportDetails({
         // Try to find the file in storage and generate URL
         // For now, we'll try common receipt file patterns
         const { data: files, error: listError } = await supabase.storage
-          .from('boletas')
+          .from(RECEIPTS_BUCKET)
           .list('', { limit: 50 });
           
         if (!listError && files) {
@@ -148,7 +151,7 @@ export default function ExpenseReportDetails({
           
           if (receiptFile) {
             const { data: urlData, error: urlError } = await supabase.storage
-              .from('boletas')
+              .from(RECEIPTS_BUCKET)
               .createSignedUrl(receiptFile.name, 3600);
               
             if (!urlError && urlData.signedUrl) {
@@ -192,7 +195,7 @@ export default function ExpenseReportDetails({
                 } else if (item.receipt_filename) {
                   // Try to get any available file for download
                   const { data: files, error: listError } = await supabase.storage
-                    .from('boletas')
+                    .from(RECEIPTS_BUCKET)
                     .list('', { limit: 10 });
                   
                   if (!listError && files && files.length > 0) {
@@ -202,7 +205,7 @@ export default function ExpenseReportDetails({
                     
                     if (receiptFile) {
                       const { data: urlData, error: urlError } = await supabase.storage
-                        .from('boletas')
+                        .from(RECEIPTS_BUCKET)
                         .createSignedUrl(receiptFile.name, 3600);
                       
                       if (!urlError && urlData.signedUrl) {

@@ -9,8 +9,26 @@ import {
   ExpenseCategoryRow,
   Platform
 } from './types';
+import { RECEIPTS_BUCKET } from '../../utils/expenseConfig';
 
-const BUCKET = 'boletas';
+const BUCKET = RECEIPTS_BUCKET;
+
+/**
+ * Parses supabase-js embedded aggregates of the form `expense_items(count)`
+ * (expected shape: [{ count: n }]). An unexpected shape logs loudly instead
+ * of silently reading as 0 — a silent 0 here blocks legitimate submits.
+ */
+function parseEmbeddedCount(value: unknown, context: string): number {
+  if (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    typeof (value[0] as { count?: unknown }).count === 'number'
+  ) {
+    return (value[0] as { count: number }).count;
+  }
+  console.error(`[Bot] unexpected embedded count shape (${context}):`, JSON.stringify(value)?.slice(0, 200));
+  return 0;
+}
 
 export class BotExpenseError extends Error {
   constructor(public readonly code:
@@ -25,6 +43,8 @@ export class BotExpenseError extends Error {
 
 export interface SaveItemInput {
   userId: string;
+  /** Channel that captured the expense — labels notes/report description. */
+  platform: Platform;
   /** null ⇒ create a new draft report with the provided defaults. */
   reportId: string | null;
   categoryId: string;
@@ -179,9 +199,7 @@ export class ExpenseService {
       updated_at: (row.updated_at as string) ?? null,
       start_date: row.start_date as string,
       end_date: row.end_date as string,
-      item_count: Array.isArray(row.expense_items)
-        ? Number((row.expense_items[0] as { count?: number } | undefined)?.count ?? 0)
-        : 0
+      item_count: parseEmbeddedCount(row.expense_items, 'getReport')
     };
   }
 
@@ -199,9 +217,7 @@ export class ExpenseService {
       total_amount: Number(row.total_amount ?? 0),
       status: row.status as string,
       updated_at: (row.updated_at as string) ?? null,
-      item_count: Array.isArray(row.expense_items)
-        ? Number((row.expense_items[0] as { count?: number } | undefined)?.count ?? 0)
-        : 0
+      item_count: parseEmbeddedCount(row.expense_items, 'listReports')
     }));
   }
 
@@ -256,7 +272,9 @@ export class ExpenseService {
     }
 
     const defaults = newReportDefaults(input.expenseDate);
+    const channelLabel = input.platform === 'whatsapp' ? 'WhatsApp' : 'Telegram';
     const { data, error } = await this.supabase.rpc('bot_save_expense_item', {
+      p_report_description: `Creado desde ${channelLabel}`,
       p_user_id: input.userId,
       p_report_id: input.reportId,
       p_report_name: defaults.name,
@@ -300,9 +318,7 @@ export class ExpenseService {
       reportId,
       reportName: reportRow.report_name as string,
       totalAmount: Number(reportRow.total_amount ?? 0),
-      itemCount: Array.isArray(reportRow.expense_items)
-        ? Number((reportRow.expense_items[0] as { count?: number } | undefined)?.count ?? 0)
-        : 0
+      itemCount: parseEmbeddedCount(reportRow.expense_items, 'saveExpenseItem')
     };
   }
 
@@ -326,9 +342,7 @@ export class ExpenseService {
       reportId,
       reportName: row.report_name as string,
       totalAmount: Number(row.total_amount ?? 0),
-      itemCount: Array.isArray(row.expense_items)
-        ? Number((row.expense_items[0] as { count?: number } | undefined)?.count ?? 0)
-        : 0
+      itemCount: parseEmbeddedCount(row.expense_items, 'submitReport')
     };
 
     // Approver notification — same template as the web flow. Awaited (with a

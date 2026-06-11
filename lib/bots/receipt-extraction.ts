@@ -6,13 +6,18 @@ import {
   ExtractionResult,
   NormalizedExtraction
 } from './types';
+import { safeTruncate } from './messages';
 
 export const MAX_IMAGE_BYTES = 4.5 * 1024 * 1024;
 export const MAX_PDF_BYTES = 10 * 1024 * 1024;
 const MIN_CATEGORY_CONFIDENCE = 0; // guesses below are still shown, just never preselected
 
-const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const;
+export const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const;
 type SupportedImageType = (typeof SUPPORTED_IMAGE_TYPES)[number];
+
+// One client per lambda instance — construction is not free and the key
+// never changes within a process.
+let defaultClient: Anthropic | null = null;
 
 const confidenceSchema = z.number().min(0).max(1).catch(0);
 
@@ -100,17 +105,17 @@ export async function extractReceipt(
   const { buffer, mime, categories } = input;
 
   const isPdf = mime === 'application/pdf';
+  // No silent relabeling: an unsupported image type (bmp, tiff...) must not
+  // be declared as JPEG to the API — reject it instead.
   const imageType = SUPPORTED_IMAGE_TYPES.includes(mime as SupportedImageType)
     ? (mime as SupportedImageType)
-    : mime.startsWith('image/')
-      ? 'image/jpeg'
-      : null;
+    : null;
 
   if (!isPdf && !imageType) return { ok: false, reason: 'unreadable' };
   if (isPdf && buffer.length > MAX_PDF_BYTES) return { ok: false, reason: 'unreadable' };
   if (!isPdf && buffer.length > MAX_IMAGE_BYTES) return { ok: false, reason: 'unreadable' };
 
-  const anthropic = client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const anthropic = client ?? (defaultClient ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }));
   const data = buffer.toString('base64');
 
   let responseText: string;
@@ -186,7 +191,7 @@ export async function extractReceipt(
     currency,
     expenseNumber: raw.expense_number?.trim() || null,
     docType: raw.doc_type,
-    description: raw.description?.trim().slice(0, 100) || null,
+    description: raw.description ? safeTruncate(raw.description.trim(), 100) || null : null,
     categoryGuesses,
     fieldConfidence: {
       vendor: raw.confidence.vendor ?? 0,

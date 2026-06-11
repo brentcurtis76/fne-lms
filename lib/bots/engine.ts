@@ -15,6 +15,7 @@ import {
 } from './types';
 import { BotStore, decodeId } from './store';
 import { BotExpenseError, ExpenseService, newReportDefaults } from './expense-service';
+import { MAX_IMAGE_BYTES, MAX_PDF_BYTES, SUPPORTED_IMAGE_TYPES } from './receipt-extraction';
 import * as M from './messages';
 
 export interface EngineDeps {
@@ -280,11 +281,14 @@ async function handleFile(
   }
 
   const mime = msg.file.mime;
-  if (!mime.startsWith('image/') && mime !== 'application/pdf') {
+  // Only formats the extraction API accepts — no silent bmp/tiff relabeling.
+  if (!(SUPPORTED_IMAGE_TYPES as readonly string[]).includes(mime) && mime !== 'application/pdf') {
     await adapter.sendMessage(msg.chatId, M.UNSUPPORTED);
     return;
   }
-  const maxBytes = mime === 'application/pdf' ? 10 * 1024 * 1024 : 4.5 * 1024 * 1024;
+  // Pre-flight reject when Telegram declares the size; file_size is optional,
+  // so the authoritative check is post-download in processReceipt.
+  const maxBytes = mime === 'application/pdf' ? MAX_PDF_BYTES : MAX_IMAGE_BYTES;
   if (msg.file.sizeBytes && msg.file.sizeBytes > maxBytes) {
     await adapter.sendMessage(msg.chatId, M.FILE_TOO_BIG);
     return;
@@ -414,6 +418,16 @@ async function processReceipt(
     return;
   }
 
+  // Authoritative size check on actual bytes — Telegram's declared file_size
+  // is optional, so the pre-flight check in handleFile can be skipped.
+  const maxBytes = item.file_mime === 'application/pdf' ? MAX_PDF_BYTES : MAX_IMAGE_BYTES;
+  if (downloaded.buffer.length > maxBytes) {
+    await adapter.editMessage(chatId, messageRef, M.FILE_TOO_BIG);
+    await store.claimPendingItem(item.id, 'active', 'discarded');
+    await advanceQueueOrIdle(deps, session, actor);
+    return;
+  }
+
   const result = await extract({
     buffer: downloaded.buffer,
     mime: item.file_mime || downloaded.mime,
@@ -433,7 +447,7 @@ async function processReceipt(
 
   const receipt = result.receipt;
   if (item.caption) {
-    receipt.description = item.caption.slice(0, 200);
+    receipt.description = M.safeTruncate(item.caption, 200);
   }
 
   if (!receipt.isReceipt) {
@@ -534,8 +548,16 @@ async function renderCard(
   if (!payload || !item.card_message_ref) return;
 
   const receipt = payload.receipt;
-  const drafts = await expenses.listDraftReports(actor.userId);
   const defaults = newReportDefaults(receipt.expenseDate);
+
+  // Independent reads — fetch them together.
+  const [drafts, category, categories, queuedCount] = await Promise.all([
+    expenses.listDraftReports(actor.userId),
+    item.category_id ? expenses.getCategory(item.category_id) : Promise.resolve(null),
+    forceVariant === 'category_grid' ? expenses.getActiveCategories() : Promise.resolve(undefined),
+    store.countQueued(session.id)
+  ]);
+  const categoryName = category?.name ?? null;
 
   const explicitTarget = item.target_report_id
     ? drafts.find((d) => d.id === item.target_report_id) ?? null
@@ -548,17 +570,8 @@ async function renderCard(
   const lowConfidence =
     !item.category_id || (topGuess !== null && item.category_id === topGuess.categoryId && topGuess.confidence < M.LOW_CATEGORY_CONFIDENCE && !payload.forcedReceipt);
 
-  let variant: CardVariant =
+  const variant: CardVariant =
     forceVariant ?? (payload.duplicate ? 'dup' : lowConfidence ? 'lowcat' : 'main');
-
-  const categoryName = item.category_id
-    ? (await expenses.getCategory(item.category_id))?.name ?? null
-    : null;
-
-  const categories =
-    variant === 'category_grid' ? await expenses.getActiveCategories() : undefined;
-
-  const queuedCount = await store.countQueued(session.id);
 
   const stateByVariant: Record<CardVariant, BotSessionRow['state']> = {
     main: 'card_main',
@@ -747,7 +760,9 @@ async function handleCallback(
     case 'dx': {
       let target: string | null | 'unresolved' = 'unresolved';
       if (parts[2] === 'n') target = null;
-      else if (parts[2]) target = decodeId(parts[2]);
+      // Malformed ids fall back to safe resolution — null would silently
+      // mean "create a new report".
+      else if (parts[2]) target = decodeId(parts[2]) ?? 'unresolved';
 
       if (verb === 'dx' && item.extraction?.duplicate) {
         const payload = item.extraction;
@@ -840,7 +855,12 @@ async function handleCallback(
         await store.updateSession(session.id, { state: 'card_edit' });
         return;
       }
-      if (!M.EDIT_PROMPTS[field]) return;
+      if (!M.EDIT_PROMPTS[field]) {
+        // Unknown field key (crafted/stale callback): restore the menu
+        // instead of leaving a silently unresponsive card.
+        await renderCard(deps, session, actor, item, 'edit_menu');
+        return;
+      }
       await store.updateSession(session.id, { state: 'card_edit_wait', edit_field: field });
       session.state = 'card_edit_wait';
       session.edit_field = field;
@@ -932,38 +952,47 @@ async function confirmSave(
     return;
   }
 
-  // callback_data is user-controlled: the category must resolve to a live,
-  // active row before anything is written (getCategory filters is_active).
-  const category = await expenses.getCategory(item.category_id);
-  if (!category) {
-    await store.updatePendingItem(item.id, { category_id: null });
-    item.category_id = null;
+  const claimed = await store.claimPendingItem(item.id, 'active', 'saving');
+  if (!claimed) return; // double-tap or redelivery — first claim wins
+
+  // Re-read after winning the claim: the pre-claim checks ran on a snapshot
+  // that a concurrent handler (typed edit, failure cleanup) may have changed.
+  // The claim guarantees exclusivity from here on; the fresh row is the truth.
+  // getCategory filters is_active, so a stale/crafted category id fails here.
+  const fresh = await store.getPendingItem(item.id);
+  const freshReceipt = fresh?.extraction?.receipt;
+  const freshCategoryId = fresh?.category_id ?? null;
+  const category = freshCategoryId ? await expenses.getCategory(freshCategoryId) : null;
+  if (!fresh || !freshReceipt || freshReceipt.amount === null || !freshReceipt.expenseDate || !category) {
+    await store.claimPendingItem(item.id, 'saving', 'active');
+    if (freshCategoryId && !category) {
+      await store.updatePendingItem(item.id, { category_id: null });
+      item.category_id = null;
+    }
     await renderCard(deps, session, actor, item, 'main');
     return;
   }
 
-  const claimed = await store.claimPendingItem(item.id, 'active', 'saving');
-  if (!claimed) return; // double-tap or redelivery — first claim wins
-
-  const expenseDate = receipt.expenseDate;
+  const expenseDate = freshReceipt.expenseDate;
 
   try {
-    const downloaded = await adapter.downloadFile(item.file_ref);
+    const downloaded = await adapter.downloadFile(fresh.file_ref);
     const result = await expenses.saveExpenseItem({
       userId: actor.userId,
+      platform: session.platform,
       reportId: targetReportId,
-      categoryId: item.category_id,
-      description: receipt.description || receipt.vendor || 'Gasto sin descripción',
-      amount: receipt.amount,
-      currency: receipt.currency,
+      categoryId: category.id,
+      description: freshReceipt.description || freshReceipt.vendor || 'Gasto sin descripción',
+      amount: freshReceipt.amount,
+      currency: freshReceipt.currency,
       expenseDate,
-      vendor: receipt.vendor,
-      expenseNumber: receipt.expenseNumber,
-      notes: 'Ingresado vía Telegram',
+      vendor: freshReceipt.vendor,
+      expenseNumber: freshReceipt.expenseNumber,
+      notes: M.sourceNotes(session.platform),
       file: {
         buffer: downloaded.buffer,
-        mime: item.file_mime || downloaded.mime,
-        fileName: item.file_name || undefined
+        mime: fresh.file_mime || downloaded.mime,
+        fileName: fresh.file_name || undefined
       }
     });
 
@@ -973,10 +1002,10 @@ async function confirmSave(
         session.chat_id,
         item.card_message_ref,
         M.saved({
-          amount: receipt.amount,
-          currency: receipt.currency,
+          amount: freshReceipt.amount,
+          currency: freshReceipt.currency,
           categoryName: category.name,
-          vendor: receipt.vendor,
+          vendor: freshReceipt.vendor,
           reportName: result.reportName,
           totalAmount: result.totalAmount,
           itemCount: result.itemCount

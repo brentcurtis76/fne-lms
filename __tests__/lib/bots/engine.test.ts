@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { randomUUID } from 'crypto';
 import { handleInbound, EngineDeps } from '../../../lib/bots/engine';
 import { encodeId } from '../../../lib/bots/store';
+import { MAX_IMAGE_BYTES } from '../../../lib/bots/receipt-extraction';
 import type {
   BotActor,
   BotPendingItemRow,
@@ -372,10 +373,26 @@ describe('receipt capture', () => {
     expect(env.adapter.lastSent().text).toContain('Cómo funciona');
   });
 
-  it('rejects unsupported file types', async () => {
+  it('rejects unsupported file types, including unsupported image formats', async () => {
     const env = makeDeps();
     await handleInbound(env.deps, photo({ file: { fileRef: 'x', mime: 'audio/ogg' } }));
     expect(env.adapter.lastSent().text).toContain('Solo puedo procesar');
+    await handleInbound(env.deps, photo({ file: { fileRef: 'y', mime: 'image/bmp' } }));
+    expect(env.adapter.lastSent().text).toContain('Solo puedo procesar');
+    expect(env.store.items.size).toBe(0);
+  });
+
+  it('rejects oversized files after download even when Telegram omits file_size', async () => {
+    const env = makeDeps();
+    vi.spyOn(env.adapter, 'downloadFile').mockResolvedValue({
+      buffer: Buffer.alloc(MAX_IMAGE_BYTES + 1),
+      mime: 'image/jpeg'
+    });
+    await handleInbound(env.deps, photo({ file: { fileRef: 'big', mime: 'image/jpeg' } })); // no sizeBytes
+    const item = [...env.store.items.values()][0];
+    expect(item.status).toBe('discarded');
+    expect(env.adapter.lastEdit().text).toContain('muy pesado');
+    expect(env.extract).not.toHaveBeenCalled();
   });
 
   it('releases the session when the processing card cannot be sent', async () => {
@@ -475,6 +492,32 @@ describe('confirm flow', () => {
     const call = (env.expenses.saveExpenseItem as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(call.reportId).toBe(DRAFT.id);
     expect(call.notes).toBe('Ingresado vía Telegram');
+  });
+
+  it('falls back to safe target resolution on a malformed report id (never "new report")', async () => {
+    const env = makeDeps();
+    const item = await startCard(env);
+    await handleInbound(env.deps, callback(`ok:${encodeId(item.id)}:not-a-valid-id`));
+    const call = (env.expenses.saveExpenseItem as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.reportId).toBe(DRAFT.id); // resolved to the single draft, not null
+  });
+
+  it('re-validates fresh state after winning the save claim (no stale-extraction save)', async () => {
+    const env = makeDeps();
+    const item = await startCard(env);
+    // A concurrent handler wipes the extraction between the pre-claim check
+    // and the post-claim re-read: first getPendingItem (validity) is real,
+    // the fresh read returns no extraction.
+    const realGet = env.store.getPendingItem.bind(env.store);
+    let reads = 0;
+    vi.spyOn(env.store, 'getPendingItem').mockImplementation(async (id: string) => {
+      const row = await realGet(id);
+      reads += 1;
+      return row && reads >= 2 ? { ...row, extraction: null } : row;
+    });
+    await handleInbound(env.deps, callback(`ok:${encodeId(item.id)}`));
+    expect(env.expenses.saveExpenseItem).not.toHaveBeenCalled();
+    expect(item.status).toBe('active'); // claim released for retry
   });
 
   it('creates a new report on ok:<P>:n', async () => {

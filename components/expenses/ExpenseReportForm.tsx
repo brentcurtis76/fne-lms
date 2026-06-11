@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Trash2, Save, Calendar, DollarSign, Upload, X, Eye, FileText } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { convertToCLP, formatCurrency, getAvailableCurrencies } from '../../lib/currency-service';
+import { RECEIPTS_BUCKET } from '../../utils/expenseConfig';
 
 interface ExpenseCategory {
   id: string;
@@ -163,7 +164,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
       console.log('📁 Generated filename:', fileName);
       
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('boletas')
+        .from(RECEIPTS_BUCKET)
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
@@ -172,13 +173,13 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
 
       // Get signed URL for private bucket (valid for 1 year)
       const { data: urlData, error: urlError } = await supabase.storage
-        .from('boletas')
+        .from(RECEIPTS_BUCKET)
         .createSignedUrl(fileName, 365 * 24 * 60 * 60); // 1 year
 
       let finalUrl = '';
       if (urlError) {
         console.warn('⚠️ Error creating signed URL, using basic path:', urlError);
-        finalUrl = `boletas/${fileName}`;
+        finalUrl = `${RECEIPTS_BUCKET}/${fileName}`;
       } else {
         console.log('🔗 Signed URL created:', urlData.signedUrl);
         finalUrl = urlData.signedUrl;
@@ -226,7 +227,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
 
       // Delete from Supabase Storage
       const { error: deleteError } = await supabase.storage
-        .from('boletas')
+        .from(RECEIPTS_BUCKET)
         .remove([fileName]);
 
       if (deleteError) {
@@ -372,6 +373,13 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
 
         if (itemsError) throw itemsError;
 
+        // Recompute the total server-side from the actual items: the Telegram
+        // bot writes to the same tables, so a client-computed total can drift.
+        const { error: totalError } = await supabase.rpc('recompute_expense_report_total', {
+          p_report_id: editingReport.id
+        });
+        if (totalError) console.error('Error recomputing report total:', totalError);
+
         toast.success('Reporte actualizado exitosamente');
         
       } else {
@@ -419,6 +427,12 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
           .insert(itemsData);
 
         if (itemsError) throw itemsError;
+
+        // Same server-side recompute as update mode — DB is the source of truth.
+        const { error: totalError } = await supabase.rpc('recompute_expense_report_total', {
+          p_report_id: newReport.id
+        });
+        if (totalError) console.error('Error recomputing report total:', totalError);
 
         toast.success('Reporte creado exitosamente');
       }
@@ -685,7 +699,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                                 } else if (item.receipt_filename) {
                                   // Try to find the file in storage and generate URL
                                   const { data: files, error: listError } = await supabase.storage
-                                    .from('boletas')
+                                    .from(RECEIPTS_BUCKET)
                                     .list('', { limit: 50 });
                                     
                                   if (!listError && files) {
@@ -695,7 +709,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                                     
                                     if (receiptFile) {
                                       const { data: urlData, error: urlError } = await supabase.storage
-                                        .from('boletas')
+                                        .from(RECEIPTS_BUCKET)
                                         .createSignedUrl(receiptFile.name, 3600);
                                         
                                       if (!urlError && urlData.signedUrl) {

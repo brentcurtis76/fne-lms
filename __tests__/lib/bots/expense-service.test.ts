@@ -156,6 +156,7 @@ describe('resolveActor', () => {
 
 const saveInput = {
   userId: USER_ID,
+  platform: 'telegram' as const,
   reportId: REPORT_ID,
   categoryId: CATEGORY_ID,
   description: 'Almuerzo equipo',
@@ -185,6 +186,7 @@ describe('saveExpenseItem', () => {
     expect(rpc.args.p_report_id).toBe(REPORT_ID);
     expect(rpc.args.p_amount).toBe(12990);
     expect(rpc.args.p_category_id).toBe(CATEGORY_ID);
+    expect(rpc.args.p_report_description).toBe('Creado desde Telegram');
     expect(String(rpc.args.p_receipt_url)).toMatch(/^boletas\/receipt_\d+_[a-z0-9]+\.jpg$/);
     expect(result).toMatchObject({ reportName: 'Gastos junio 2026', totalAmount: 45230, itemCount: 3 });
   });

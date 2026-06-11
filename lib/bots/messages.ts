@@ -6,7 +6,8 @@ import {
   DraftReportSummary,
   ExpenseCategoryRow,
   Keyboard,
-  NormalizedExtraction
+  NormalizedExtraction,
+  Platform
 } from './types';
 import { encodeId } from './store';
 
@@ -17,6 +18,20 @@ export const LOW_CATEGORY_CONFIDENCE = 0.6;
 /** Escape Telegram legacy-Markdown control chars in dynamic values. */
 export function esc(value: string): string {
   return value.replace(/([_*`[])/g, '\\$1');
+}
+
+/** Truncate without splitting UTF-16 surrogate pairs (emoji-safe). */
+export function safeTruncate(value: string, max: number): string {
+  return Array.from(value).slice(0, max).join('');
+}
+
+export function channelLabel(platform: Platform): string {
+  return platform === 'whatsapp' ? 'WhatsApp' : 'Telegram';
+}
+
+/** Item notes recording which channel captured the expense. */
+export function sourceNotes(platform: Platform): string {
+  return `Ingresado vía ${channelLabel(platform)}`;
 }
 
 export function fmtCLP(amount: number): string {

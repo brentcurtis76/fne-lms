@@ -15,6 +15,7 @@ import { ExpenseReportExporter } from '../lib/expenseReportExport';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 
 import { getUserPrimaryRole } from '../utils/roleUtils';
+import { EXPENSE_APPROVER_EMAIL } from '../utils/expenseConfig';
 interface ExpenseCategory {
   id: string;
   name: string;
@@ -212,7 +213,7 @@ export default function ExpenseReportsPage() {
 
   // Check if current user is the designated approver
   const isDesignatedApprover = () => {
-    return currentUser?.email === 'gnaranjo@nuevaeducacion.org';
+    return currentUser?.email === EXPENSE_APPROVER_EMAIL;
   };
 
   const formatCurrency = (amount: number) => {
@@ -319,7 +320,7 @@ export default function ExpenseReportsPage() {
       const { data: approverProfile } = await supabase
         .from('profiles')
         .select('id, first_name, last_name')
-        .eq('email', 'gnaranjo@nuevaeducacion.org')
+        .eq('email', EXPENSE_APPROVER_EMAIL)
         .single();
 
       const { error } = await supabase
@@ -379,7 +380,7 @@ export default function ExpenseReportsPage() {
       const { data: approverProfile } = await supabase
         .from('profiles')
         .select('id, first_name, last_name')
-        .eq('email', 'gnaranjo@nuevaeducacion.org')
+        .eq('email', EXPENSE_APPROVER_EMAIL)
         .single();
 
       const { error } = await supabase

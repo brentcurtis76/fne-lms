@@ -106,6 +106,24 @@ describe('extractReceipt', () => {
     }
   });
 
+  it('rejects unsupported image types instead of relabeling them as JPEG', async () => {
+    const client = makeClient(JSON.stringify(goodResponse));
+    const result = await input(client, { mime: 'image/bmp' });
+    expect(result).toEqual({ ok: false, reason: 'unreadable' });
+    expect((client as unknown as { messages: { create: ReturnType<typeof vi.fn> } }).messages.create).not.toHaveBeenCalled();
+  });
+
+  it('truncates descriptions without splitting surrogate pairs', async () => {
+    const long = { ...goodResponse, description: 'a'.repeat(99) + '😀😀' };
+    const result = await input(makeClient(JSON.stringify(long)));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const description = result.receipt.description ?? '';
+      expect(description).toBe('a'.repeat(99) + '😀'); // whole emoji kept, second dropped
+      expect(description).not.toMatch(/[\uD800-\uDBFF]$/); // no dangling surrogate
+    }
+  });
+
   it('rejects oversize images without calling the API', async () => {
     const client = makeClient(JSON.stringify(goodResponse));
     const result = await input(client, { buffer: Buffer.alloc(MAX_IMAGE_BYTES + 1) });

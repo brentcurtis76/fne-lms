@@ -96,10 +96,12 @@ class FakeStore {
     toItemId: string | null,
     state: BotSessionRow['state']
   ) {
+    // Mirrors the real semantics: exact ownership when fromItemId is given,
+    // empty-slot requirement otherwise (no IS-NULL-or-equals disjunction).
     for (const session of this.sessions.values()) {
       if (
         session.id === sessionId &&
-        (session.active_item_id === null || session.active_item_id === fromItemId)
+        (fromItemId ? session.active_item_id === fromItemId : session.active_item_id === null)
       ) {
         session.active_item_id = toItemId;
         session.state = state;

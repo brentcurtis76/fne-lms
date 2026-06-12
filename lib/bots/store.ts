@@ -168,6 +168,13 @@ export class BotStore {
    * `fromItemId` (or empty) to `toItemId`. Returns false when another
    * concurrent handler already owns the slot with a different item — the
    * caller must back off instead of double-activating.
+   *
+   * IMPORTANT: no `.or()` here. Supabase PostgREST (postgrest-js 2.91.x)
+   * rejects `or` filters on UPDATE with "column ... does not exist" for
+   * non-PK columns — it works on SELECT, which is why fakes/tests can't
+   * catch it (caused the 2026-06-12 stranded-session incident). Exact
+   * ownership via `.eq()` is also semantically stricter and safe: if the
+   * slot was concurrently emptied, backing off is the correct outcome.
    */
   async claimSessionTransition(
     sessionId: string,
@@ -185,7 +192,7 @@ export class BotStore {
       })
       .eq('id', sessionId);
     query = fromItemId
-      ? query.or(`active_item_id.is.null,active_item_id.eq.${fromItemId}`)
+      ? query.eq('active_item_id', fromItemId)
       : query.is('active_item_id', null);
     const { data, error } = await query.select('id');
     if (error) throw error;

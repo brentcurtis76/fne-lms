@@ -159,12 +159,13 @@ describe('BotStore.claimSessionTransition', () => {
     return { store: new BotStore(supabase as never), filters };
   }
 
-  it('claims the slot when the conditioned update matches', async () => {
+  it('claims the slot via exact-ownership eq (never an or-filter: PostgREST rejects or on UPDATE)', async () => {
     const { store, filters } = makeSessionClient([{ id: 'session-1' }]);
     await expect(
       store.claimSessionTransition('session-1', 'prev-item', 'next-item', 'card_main')
     ).resolves.toBe(true);
-    expect(filters.some((f) => f.startsWith('or:') && f.includes('active_item_id.eq.prev-item'))).toBe(true);
+    expect(filters.some((f) => f.startsWith('eq:active_item_id,prev-item'))).toBe(true);
+    expect(filters.some((f) => f.startsWith('or:'))).toBe(false);
   });
 
   it('backs off when another handler holds the slot (zero rows updated)', async () => {

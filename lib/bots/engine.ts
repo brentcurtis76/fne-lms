@@ -468,7 +468,8 @@ async function processReceipt(
     actor.userId,
     receipt.vendor,
     receipt.expenseDate,
-    receipt.amount
+    receipt.amount,
+    receipt.currency
   );
 
   const topGuess = receipt.categoryGuesses[0] ?? null;
@@ -791,7 +792,8 @@ async function handleCallback(
           actor.userId,
           payload.receipt.vendor,
           payload.receipt.expenseDate,
-          payload.receipt.amount
+          payload.receipt.amount,
+          payload.receipt.currency
         ));
         if (!item.category_id && payload.receipt.categoryGuesses[0]) {
           item.category_id = payload.receipt.categoryGuesses[0].categoryId;

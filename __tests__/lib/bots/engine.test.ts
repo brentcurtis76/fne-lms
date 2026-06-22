@@ -333,6 +333,20 @@ describe('receipt capture', () => {
     expect(buttons).toContain(`ok:${encodeId(item.id)}`);
   });
 
+  it('passes the receipt currency to the duplicate check (GBP, not just CLP)', async () => {
+    const env = makeDeps({
+      extraction: { ok: true, receipt: makeReceipt({ currency: 'GBP', amount: 12.5 }) }
+    });
+    await startCard(env);
+    expect(env.expenses.findDuplicate).toHaveBeenCalledWith(
+      USER_ID,
+      'Líder Express',
+      '2026-06-05',
+      12.5,
+      'GBP'
+    );
+  });
+
   it('rejects non-receipt images without data and advances to idle', async () => {
     const env = makeDeps({
       extraction: { ok: true, receipt: makeReceipt({ isReceipt: false, amount: null, expenseDate: null }) }

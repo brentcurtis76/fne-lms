@@ -221,22 +221,33 @@ export class ExpenseService {
     }));
   }
 
-  /** Same vendor + date + amount already saved by this user, in any report. */
+  /**
+   * Same vendor + date + amount already saved by this user, in any report.
+   * The `amount` column stores the CLP-converted value, so a foreign receipt's
+   * original amount (e.g. £12.50, persisted as ~15375 CLP) would never match
+   * itself there. Match foreign currencies against `currency` + `original_amount`
+   * instead; keep CLP matching the `amount` column so legacy rows that predate
+   * `original_amount` still dedupe. (Branching avoids a `.or()`, which has bitten
+   * this service before.)
+   */
   async findDuplicate(
     userId: string,
     vendor: string | null,
     expenseDate: string | null,
-    amount: number | null
+    amount: number | null,
+    currency: Currency = 'CLP'
   ): Promise<{ reportName: string } | null> {
     if (!vendor || !expenseDate || amount === null) return null;
-    const { data, error } = await this.supabase
+    let query = this.supabase
       .from('expense_items')
       .select('id, expense_reports!inner(report_name, submitted_by)')
       .eq('expense_reports.submitted_by', userId)
       .eq('vendor', vendor)
-      .eq('expense_date', expenseDate)
-      .eq('amount', amount)
-      .limit(1);
+      .eq('expense_date', expenseDate);
+    query = currency === 'CLP'
+      ? query.eq('amount', amount)
+      : query.eq('currency', currency).eq('original_amount', amount);
+    const { data, error } = await query.limit(1);
     if (error) {
       console.error('[Bot] duplicate check failed:', error);
       return null; // never block a save on a failed heuristic

@@ -38,6 +38,27 @@ interface ExpenseReportFormProps {
   onCancel: () => void;
 }
 
+/**
+ * Picks the raw, source-currency amount to convert from when the amount or
+ * currency of an item changes. The displayed amount lives in `original_amount`
+ * for foreign currencies and in `amount` (which equals the CLP value) for CLP —
+ * so on a currency switch we must reinterpret the *displayed* value, never the
+ * stored CLP `amount`. (Feeding the CLP amount into convertToCLP as if it were
+ * the new currency is what inflated GBP→EUR switches.)
+ */
+export function conversionSourceAmount(
+  prev: Pick<ExpenseItemForm, 'currency' | 'amount' | 'original_amount'>,
+  field: 'amount' | 'currency',
+  typedValue: number
+): number {
+  // A new typed amount is already in the item's (unchanged) display currency.
+  if (field === 'amount') return typedValue;
+  // A currency change reinterprets the previously displayed amount.
+  return prev.currency && prev.currency !== 'CLP'
+    ? prev.original_amount ?? prev.amount ?? 0
+    : prev.amount ?? 0;
+}
+
 export default function ExpenseReportForm({ categories, editingReport, onSuccess, onCancel }: ExpenseReportFormProps) {
   const supabase = useSupabaseClient();
   const [loading, setLoading] = useState(false);
@@ -125,15 +146,18 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
   };
 
   const updateExpenseItem = async (index: number, field: keyof ExpenseItemForm, value: any) => {
+    const previousItem = expenseItems[index];
     const updatedItems = [...expenseItems];
-    updatedItems[index] = { ...updatedItems[index], [field]: value };
-    
-    // If currency or amount changed, handle conversion
+    updatedItems[index] = { ...previousItem, [field]: value };
+
+    // If currency or amount changed, recompute the CLP conversion from the raw
+    // source-currency amount (not the stored CLP value — see conversionSourceAmount).
     if (field === 'currency' || field === 'amount') {
       const item = updatedItems[index];
-      if (item.amount > 0 && item.currency) {
+      const sourceAmount = conversionSourceAmount(previousItem, field, value);
+      if (sourceAmount > 0 && item.currency) {
         try {
-          const conversion = await convertToCLP(item.amount, item.currency);
+          const conversion = await convertToCLP(sourceAmount, item.currency);
           updatedItems[index] = {
             ...updatedItems[index],
             original_amount: conversion.originalAmount,
@@ -146,7 +170,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
         }
       }
     }
-    
+
     setExpenseItems(updatedItems);
   };
 

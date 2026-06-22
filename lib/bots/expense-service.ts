@@ -227,8 +227,9 @@ export class ExpenseService {
    * original amount (e.g. £12.50, persisted as ~15375 CLP) would never match
    * itself there. Match foreign currencies against `currency` + `original_amount`
    * instead; keep CLP matching the `amount` column so legacy rows that predate
-   * `original_amount` still dedupe. (Branching avoids a `.or()`, which has bitten
-   * this service before.)
+   * `original_amount` still dedupe. The CLP branch is scoped to CLP-or-null rows
+   * so a CLP receipt can't false-match a foreign row merely because its converted
+   * CLP value is identical (legacy rows have a null currency and are treated as CLP).
    */
   async findDuplicate(
     userId: string,
@@ -245,7 +246,7 @@ export class ExpenseService {
       .eq('vendor', vendor)
       .eq('expense_date', expenseDate);
     query = currency === 'CLP'
-      ? query.eq('amount', amount)
+      ? query.eq('amount', amount).or('currency.is.null,currency.eq.CLP')
       : query.eq('currency', currency).eq('original_amount', amount);
     const { data, error } = await query.limit(1);
     if (error) {

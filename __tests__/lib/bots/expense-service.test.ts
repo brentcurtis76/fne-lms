@@ -244,44 +244,50 @@ describe('saveExpenseItem', () => {
 });
 
 describe('findDuplicate', () => {
-  /** Records the .eq() filter chain so we can assert which columns are matched. */
+  /** Records the .eq()/.or() filter chain so we can assert which columns are matched. */
   function buildDuplicateClient(rows: unknown[]) {
     const eqCalls: Array<[string, unknown]> = [];
+    const orCalls: string[] = [];
     const builder: Record<string, unknown> = {
       select: () => builder,
       eq: (col: string, val: unknown) => { eqCalls.push([col, val]); return builder; },
+      or: (expr: string) => { orCalls.push(expr); return builder; },
       limit: () => Promise.resolve({ data: rows, error: null })
     };
-    return { client: { from: () => builder }, eqCalls };
+    return { client: { from: () => builder }, eqCalls, orCalls };
   }
 
   const HIT = [{ id: 'i1', expense_reports: { report_name: 'Gastos junio 2026' } }];
 
-  it('matches a CLP receipt against the (CLP) amount column', async () => {
-    const { client, eqCalls } = buildDuplicateClient(HIT);
+  it('matches a CLP receipt against the amount column, scoped to CLP/legacy-null rows', async () => {
+    const { client, eqCalls, orCalls } = buildDuplicateClient(HIT);
     const service = new ExpenseService(client as never, 'https://app.test');
     const result = await service.findDuplicate(USER_ID, 'Líder Express', '2026-06-05', 12990, 'CLP');
     expect(result).toEqual({ reportName: 'Gastos junio 2026' });
     expect(eqCalls).toContainEqual(['amount', 12990]);
     expect(eqCalls.some(([c]) => c === 'original_amount')).toBe(false);
-    expect(eqCalls.some(([c]) => c === 'currency')).toBe(false);
+    // Currency scoping is an .or() (CLP or legacy null), not an .eq(), so a CLP
+    // receipt can't false-match a foreign row with an equal converted CLP amount.
+    expect(orCalls).toContain('currency.is.null,currency.eq.CLP');
   });
 
   it('matches a GBP receipt against currency + original_amount, not the CLP amount column', async () => {
-    const { client, eqCalls } = buildDuplicateClient(HIT);
+    const { client, eqCalls, orCalls } = buildDuplicateClient(HIT);
     const service = new ExpenseService(client as never, 'https://app.test');
     const result = await service.findDuplicate(USER_ID, 'Tesco', '2026-06-05', 12.5, 'GBP');
     expect(result).toEqual({ reportName: 'Gastos junio 2026' });
     expect(eqCalls).toContainEqual(['currency', 'GBP']);
     expect(eqCalls).toContainEqual(['original_amount', 12.5]);
     expect(eqCalls.some(([c]) => c === 'amount')).toBe(false);
+    expect(orCalls).toHaveLength(0);
   });
 
   it('defaults to CLP matching when no currency is given', async () => {
-    const { client, eqCalls } = buildDuplicateClient(HIT);
+    const { client, eqCalls, orCalls } = buildDuplicateClient(HIT);
     const service = new ExpenseService(client as never, 'https://app.test');
     await service.findDuplicate(USER_ID, 'Líder Express', '2026-06-05', 12990);
     expect(eqCalls).toContainEqual(['amount', 12990]);
+    expect(orCalls).toContain('currency.is.null,currency.eq.CLP');
   });
 
   it('returns null without querying when required fields are missing', async () => {

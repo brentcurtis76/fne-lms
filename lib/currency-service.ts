@@ -17,12 +17,33 @@ interface ConversionResult {
 }
 
 // Cache for exchange rates (valid for 1 hour)
-let ratesCache: { rates: ExchangeRates | null; timestamp: number } = {
+let ratesCache: { rates: ExchangeRates | null; timestamp: number; live: boolean } = {
   rates: null,
-  timestamp: 0
+  timestamp: 0,
+  live: false
 };
 
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+// After a transient API failure we serve FALLBACK_RATES, but only briefly — so a
+// recovered API is picked up within a minute instead of being pinned for an hour.
+const FAILURE_CACHE_DURATION = 60 * 1000; // 1 minute in milliseconds
+
+/** Test-only: clears the module-level rate cache so stubbed fetches stay deterministic. */
+export function resetRatesCache(): void {
+  ratesCache = { rates: null, timestamp: 0, live: false };
+}
+
+/**
+ * Converts an upstream "foreign units per 1 CLP" quote into "CLP per 1 foreign",
+ * rejecting missing/NaN/non-positive values so a bad rate can never reach storage.
+ */
+function toClpPerUnit(raw: unknown, fallback: number): number {
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
+    const inverted = 1 / raw;
+    if (Number.isFinite(inverted) && inverted > 0) return inverted;
+  }
+  return fallback;
+}
 
 // Fallback exchange rates (updated manually as needed)
 const FALLBACK_RATES: ExchangeRates = {
@@ -35,29 +56,32 @@ const FALLBACK_RATES: ExchangeRates = {
 /**
  * Fetch current exchange rates from external API
  */
-async function fetchExchangeRates(): Promise<ExchangeRates> {
+async function fetchExchangeRates(): Promise<{ rates: ExchangeRates; live: boolean }> {
   try {
     // Using a free exchange rate API (you can replace with your preferred service)
     const response = await fetch('https://api.exchangerate-api.com/v4/latest/CLP');
-    
+
     if (!response.ok) {
       throw new Error('Exchange rate API error');
     }
-    
+
     const data = await response.json();
-    
-    // Convert rates to CLP base (1 foreign currency = X CLP)
+    const apiRates = data?.rates ?? {};
+
+    // Convert rates to CLP base (1 foreign currency = X CLP). Each quote is
+    // validated; a missing/NaN/non-positive value falls back per-currency so a
+    // malformed payload can never produce a NaN amount downstream.
     const rates: ExchangeRates = {
-      USD: 1 / data.rates.USD, // How many CLP for 1 USD
-      EUR: 1 / data.rates.EUR, // How many CLP for 1 EUR
-      GBP: 1 / data.rates.GBP, // How many CLP for 1 GBP
+      USD: toClpPerUnit(apiRates.USD, FALLBACK_RATES.USD), // How many CLP for 1 USD
+      EUR: toClpPerUnit(apiRates.EUR, FALLBACK_RATES.EUR), // How many CLP for 1 EUR
+      GBP: toClpPerUnit(apiRates.GBP, FALLBACK_RATES.GBP), // How many CLP for 1 GBP
       CLP: 1
     };
-    
-    return rates;
+
+    return { rates, live: true };
   } catch (error) {
     console.warn('Failed to fetch live exchange rates, using fallback:', error);
-    return FALLBACK_RATES;
+    return { rates: FALLBACK_RATES, live: false };
   }
 }
 
@@ -66,21 +90,20 @@ async function fetchExchangeRates(): Promise<ExchangeRates> {
  */
 export async function getExchangeRates(): Promise<ExchangeRates> {
   const now = Date.now();
-  
-  // Check if we have cached rates that are still valid
-  if (ratesCache.rates && (now - ratesCache.timestamp) < CACHE_DURATION) {
+
+  // A live result is cached for the full hour; a fallback (from a failed fetch)
+  // only for a short window, so a recovered API is picked up quickly.
+  const ttl = ratesCache.live ? CACHE_DURATION : FAILURE_CACHE_DURATION;
+  if (ratesCache.rates && (now - ratesCache.timestamp) < ttl) {
     return ratesCache.rates;
   }
-  
+
   // Fetch fresh rates
-  const rates = await fetchExchangeRates();
-  
+  const { rates, live } = await fetchExchangeRates();
+
   // Update cache
-  ratesCache = {
-    rates,
-    timestamp: now
-  };
-  
+  ratesCache = { rates, timestamp: now, live };
+
   return rates;
 }
 
@@ -117,29 +140,32 @@ export async function convertToCLP(
 /**
  * Format currency amount with proper symbol and decimal places
  */
-export function formatCurrency(amount: number, currency: 'USD' | 'EUR' | 'GBP' | 'CLP'): string {
-  const formatters = {
+export function formatCurrency(amount: number, currency: string): string {
+  const formatters: Record<string, Intl.NumberFormat> = {
     USD: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }),
     EUR: new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }),
     GBP: new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }),
     CLP: new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 })
   };
 
-  return formatters[currency].format(amount);
+  const formatter = formatters[currency];
+  // expense_items.currency is free-form text; never throw on a non-canonical code.
+  if (!formatter) return `${amount.toLocaleString('es-CL')} ${currency}`;
+  return formatter.format(amount);
 }
 
 /**
  * Get currency symbol
  */
-export function getCurrencySymbol(currency: 'USD' | 'EUR' | 'GBP' | 'CLP'): string {
-  const symbols = {
+export function getCurrencySymbol(currency: string): string {
+  const symbols: Record<string, string> = {
     USD: '$',
     EUR: '€',
     GBP: '£',
     CLP: '$'
   };
 
-  return symbols[currency];
+  return symbols[currency] ?? '$';
 }
 
 /**

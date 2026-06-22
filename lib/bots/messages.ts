@@ -359,6 +359,11 @@ export const EDIT_PROMPTS: Record<string, string> = {
   d: '📝 Escríbeme una breve descripción del gasto:'
 };
 
+// Foreign-currency amounts are genuine decimals, so the copy must NOT tell the
+// user to drop separators (the CLP guidance "sin puntos" would mangle 12.50).
+const FOREIGN_AMOUNT_PROMPT = '💵 Escríbeme el monto correcto (ej: 12.50 o 12,50):';
+const FOREIGN_AMOUNT_HINT = 'Debe ser un número mayor que cero, con o sin decimales (ej: 12.50 o 12,50)';
+
 export const EDIT_INVALID_HINTS: Record<string, string> = {
   m: 'Debe ser un número mayor que cero, sin puntos ni símbolos (ej: 12490)',
   f: 'Usa el formato dd-mm-aaaa y una fecha que no sea futura (ej: 05-06-2026)',
@@ -367,8 +372,19 @@ export const EDIT_INVALID_HINTS: Record<string, string> = {
   d: 'Escríbeme una descripción de hasta 200 caracteres'
 };
 
-export const editInvalid = (field: string) =>
-  `🤔 No entendí ese valor. ${EDIT_INVALID_HINTS[field] ?? ''}. O usa /cancelar para volver.`;
+/** Currency-aware edit prompt: CLP keeps the integer guidance, foreign allows decimals. */
+export function editPrompt(field: string, currency?: string): string {
+  if (field === 'm' && currency && currency !== 'CLP') return FOREIGN_AMOUNT_PROMPT;
+  return EDIT_PROMPTS[field];
+}
+
+export const editInvalid = (field: string, currency?: string) => {
+  const hint =
+    field === 'm' && currency && currency !== 'CLP'
+      ? FOREIGN_AMOUNT_HINT
+      : EDIT_INVALID_HINTS[field] ?? '';
+  return `🤔 No entendí ese valor. ${hint}. O usa /cancelar para volver.`;
+};
 
 export function currencyKeyboard(itemId: string): Keyboard {
   const P = encodeId(itemId);

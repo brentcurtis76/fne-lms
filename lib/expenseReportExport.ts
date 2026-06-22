@@ -72,6 +72,20 @@ export class ExpenseReportExporter {
     }
   }
 
+  // Each foreign currency is formatted in its own locale so separators match
+  // convention (en-GB applied to EUR/USD would render "1,234.50" for "1.234,50").
+  private static readonly ORIGINAL_LOCALES: Record<string, string> = {
+    USD: 'en-US',
+    EUR: 'de-DE',
+    GBP: 'en-GB'
+  };
+
+  /** Locale-formatted original amount (no symbol), e.g. "1.234,50" for EUR, "1,234.50" for GBP. */
+  private static formatOriginalNumber(amount: number, currency?: string): string {
+    const locale = (currency && this.ORIGINAL_LOCALES[currency]) || 'es-CL';
+    return amount.toLocaleString(locale, { minimumFractionDigits: 2 });
+  }
+
   /**
    * Foreign receipts are stored converted to CLP, so the original amount and
    * currency must be surfaced separately to stay auditable. Returns e.g.
@@ -79,8 +93,25 @@ export class ExpenseReportExporter {
    */
   private static formatOriginalAmount(item: ExpenseItem): string {
     if (!item.currency || item.currency === 'CLP' || item.original_amount == null) return '-';
-    const value = item.original_amount.toLocaleString('en-GB', { minimumFractionDigits: 2 });
+    const value = this.formatOriginalNumber(item.original_amount, item.currency);
     return `${this.currencySymbol(item.currency)}${value} ${item.currency}`;
+  }
+
+  /**
+   * The Excel "Moneda / Monto Original / Tasa de Cambio" audit cells. Foreign rows
+   * missing their original amount or rate show "-" rather than fabricating the
+   * converted CLP value at a fake rate of 1; CLP rows report their own value/rate.
+   */
+  private static excelAuditCells(item: ExpenseItem): { moneda: string; montoOriginal: string; tasa: string } {
+    const isForeign = !!item.currency && item.currency !== 'CLP';
+    const foreignMissing = isForeign && (item.original_amount == null || item.conversion_rate == null);
+    const montoOriginal = foreignMissing
+      ? '-'
+      : isForeign
+        ? this.formatOriginalNumber(item.original_amount as number, item.currency)
+        : (item.original_amount ?? item.amount).toString();
+    const tasa = foreignMissing ? '-' : (item.conversion_rate ?? 1).toString();
+    return { moneda: item.currency || 'CLP', montoOriginal, tasa };
   }
 
   private static getStatusText(status: string): string {
@@ -328,6 +359,7 @@ export class ExpenseReportExporter {
       ];
 
       report.expense_items.forEach(item => {
+        const audit = this.excelAuditCells(item);
         itemsData.push([
           this.formatDate(item.expense_date),
           item.expense_categories?.name || 'Sin categoría',
@@ -335,9 +367,9 @@ export class ExpenseReportExporter {
           item.vendor || '',
           item.expense_number || '',
           item.amount.toString(),
-          item.currency || 'CLP',
-          (item.original_amount ?? item.amount).toString(),
-          (item.conversion_rate ?? 1).toString(),
+          audit.moneda,
+          audit.montoOriginal,
+          audit.tasa,
           item.receipt_filename ? 'Sí' : 'No',
           item.notes || ''
         ]);

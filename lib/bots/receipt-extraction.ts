@@ -21,12 +21,26 @@ let defaultClient: Anthropic | null = null;
 
 const confidenceSchema = z.number().min(0).max(1).catch(0);
 
+/**
+ * Normalizes obvious currency variants before enum validation: trims/uppercases
+ * codes ("gbp", "GBP ") and maps the £/€ symbols to their codes. A bare "$" is
+ * left as-is — it is ambiguous (CLP vs USD), so it falls through to the CLP
+ * default rather than being treated as a foreign currency.
+ */
+function normalizeCurrency(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim().toUpperCase();
+  if (trimmed === '£' || trimmed === 'GBP') return 'GBP';
+  if (trimmed === '€' || trimmed === 'EUR') return 'EUR';
+  return trimmed;
+}
+
 const rawExtractionSchema = z.object({
   is_receipt: z.boolean(),
   vendor: z.string().nullable().catch(null),
   expense_date: z.string().nullable().catch(null),
   amount: z.number().nullable().catch(null),
-  currency: z.enum(['CLP', 'USD', 'EUR', 'GBP']).nullable().catch(null),
+  currency: z.preprocess(normalizeCurrency, z.enum(['CLP', 'USD', 'EUR', 'GBP']).nullable().catch(null)),
   expense_number: z.string().nullable().catch(null),
   doc_type: z.enum(['boleta', 'factura', 'other']).nullable().catch(null),
   description: z.string().nullable().catch(null),

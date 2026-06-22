@@ -607,11 +607,39 @@ async function renderCard(
 // Typed edit values
 // ---------------------------------------------------------------------------
 
-function parseEditValue(field: string, raw: string): { ok: boolean; apply?: (r: PendingExtractionPayload['receipt']) => void } {
+/**
+ * Normalizes a foreign-currency amount string to a dot-decimal number string.
+ * Handles "12.50", "12,50", and mixed thousands+decimal forms like "1,234.50"
+ * / "1.234,50" by treating the LAST separator as the decimal point.
+ */
+function normalizeForeignAmount(text: string): string {
+  let s = text.replace(/[^\d.,]/g, '');
+  const hasDot = s.includes('.');
+  const hasComma = s.includes(',');
+  if (hasDot && hasComma) {
+    s = s.lastIndexOf(',') > s.lastIndexOf('.')
+      ? s.replace(/\./g, '').replace(',', '.') // comma is the decimal (1.234,50)
+      : s.replace(/,/g, '');                    // dot is the decimal (1,234.50)
+  } else if (hasComma) {
+    s = s.replace(',', '.'); // single comma → decimal
+  }
+  return s;
+}
+
+function parseEditValue(
+  field: string,
+  raw: string,
+  currency?: string
+): { ok: boolean; apply?: (r: PendingExtractionPayload['receipt']) => void } {
   const text = raw.trim();
   switch (field) {
     case 'm': {
-      const cleaned = text.replace(/[$\s.]/g, '').replace(',', '.');
+      // CLP amounts are integers where "." is a thousands separator ("12.990" →
+      // 12990); foreign amounts are genuine decimals ("12.50" → 12.5).
+      const isClp = !currency || currency === 'CLP';
+      const cleaned = isClp
+        ? text.replace(/[$\s.]/g, '').replace(',', '.')
+        : normalizeForeignAmount(text);
       const value = Number(cleaned);
       if (!/^\d+(\.\d{1,2})?$/.test(cleaned) || !Number.isFinite(value) || value <= 0) {
         return { ok: false };
@@ -645,6 +673,21 @@ function parseEditValue(field: string, raw: string): { ok: boolean; apply?: (r: 
   }
 }
 
+/** Re-runs the (currency-aware) duplicate heuristic for the receipt's current fields. */
+async function recomputeDuplicate(
+  expenses: EngineDeps['expenses'],
+  actor: BotActor,
+  receipt: PendingExtractionPayload['receipt']
+) {
+  return expenses.findDuplicate(
+    actor.userId,
+    receipt.vendor,
+    receipt.expenseDate,
+    receipt.amount,
+    receipt.currency
+  );
+}
+
 async function applyTypedEdit(
   deps: EngineDeps,
   session: BotSessionRow,
@@ -652,7 +695,7 @@ async function applyTypedEdit(
   chatId: string,
   text: string
 ): Promise<void> {
-  const { adapter, store } = deps;
+  const { adapter, store, expenses } = deps;
   const field = session.edit_field as string;
   const item = session.active_item_id ? await store.getPendingItem(session.active_item_id) : null;
 
@@ -662,14 +705,20 @@ async function applyTypedEdit(
     return;
   }
 
-  const parsed = parseEditValue(field, text);
+  const currency = item.extraction.receipt.currency;
+  const parsed = parseEditValue(field, text, currency);
   if (!parsed.ok || !parsed.apply) {
-    await adapter.sendMessage(chatId, M.editInvalid(field));
+    await adapter.sendMessage(chatId, M.editInvalid(field, currency));
     return;
   }
 
   const payload = item.extraction;
   parsed.apply(payload.receipt);
+  // Amount/vendor/date feed the duplicate heuristic — recompute so the banner
+  // reflects the edited values (findDuplicate is currency-aware).
+  if (field === 'm' || field === 'c' || field === 'f') {
+    payload.duplicate = await recomputeDuplicate(expenses, actor, payload.receipt);
+  }
   await store.updatePendingItem(item.id, { extraction: payload });
   await store.updateSession(session.id, { state: 'card_main', edit_field: null });
   session.state = 'card_main';
@@ -867,7 +916,7 @@ async function handleCallback(
       session.state = 'card_edit_wait';
       session.edit_field = field;
       if (item.card_message_ref) {
-        await adapter.editMessage(session.chat_id, item.card_message_ref, M.EDIT_PROMPTS[field]);
+        await adapter.editMessage(session.chat_id, item.card_message_ref, M.editPrompt(field, item.extraction?.receipt.currency));
       }
       return;
     }
@@ -876,6 +925,9 @@ async function handleCallback(
       const payload = item.extraction;
       if (payload && (currency === 'CLP' || currency === 'USD' || currency === 'EUR' || currency === 'GBP')) {
         payload.receipt.currency = currency as Currency;
+        // Dedupe is currency-aware (CLP matches converted amount, foreign matches
+        // original_amount), so a currency switch must re-run the heuristic.
+        payload.duplicate = await recomputeDuplicate(expenses, actor, payload.receipt);
         await store.updatePendingItem(item.id, { extraction: payload });
         item.extraction = payload;
       }

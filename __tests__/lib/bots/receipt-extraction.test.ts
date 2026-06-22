@@ -116,6 +116,27 @@ describe('extractReceipt', () => {
     }
   });
 
+  it('normalizes a £ currency symbol to GBP', async () => {
+    const odd = { ...goodResponse, currency: '£', amount: 12.5 };
+    const result = await input(makeClient(JSON.stringify(odd)));
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.receipt.currency).toBe('GBP');
+  });
+
+  it('normalizes lowercase / whitespace currency codes (" gbp ") to GBP', async () => {
+    const odd = { ...goodResponse, currency: ' gbp ', amount: 12.5 };
+    const result = await input(makeClient(JSON.stringify(odd)));
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.receipt.currency).toBe('GBP');
+  });
+
+  it('treats an ambiguous bare "$" as CLP, never a foreign currency', async () => {
+    const odd = { ...goodResponse, currency: '$' };
+    const result = await input(makeClient(JSON.stringify(odd)));
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.receipt.currency).toBe('CLP');
+  });
+
   it('tells the model about GBP and the £ symbol in the prompt', async () => {
     const client = makeClient(JSON.stringify(goodResponse));
     await input(client);

@@ -650,6 +650,62 @@ describe('card adjustments', () => {
     expect(env.adapter.lastEdit().text).toContain('15.990');
   });
 
+  it('parses a CLP amount with a thousands separator (12.990 -> 12990)', async () => {
+    const env = makeDeps();
+    const item = await startCard(env);
+    await handleInbound(env.deps, callback(`ef:${encodeId(item.id)}:m`));
+    await handleInbound(env.deps, text('12.990'));
+    expect(item.extraction?.receipt.amount).toBe(12990);
+  });
+
+  it('parses a GBP decimal amount with a dot (12.50 -> 12.5), not as thousands', async () => {
+    const env = makeDeps({ extraction: { ok: true, receipt: makeReceipt({ currency: 'GBP', amount: 12.5 }) } });
+    const item = await startCard(env);
+    await handleInbound(env.deps, callback(`ef:${encodeId(item.id)}:m`));
+    expect(env.adapter.lastEdit().text).toContain('12.50'); // foreign prompt allows decimals
+    await handleInbound(env.deps, text('12.50'));
+    expect(item.extraction?.receipt.amount).toBe(12.5);
+  });
+
+  it('parses a GBP decimal amount with a comma (12,50 -> 12.5)', async () => {
+    const env = makeDeps({ extraction: { ok: true, receipt: makeReceipt({ currency: 'GBP', amount: 12.5 }) } });
+    const item = await startCard(env);
+    await handleInbound(env.deps, callback(`ef:${encodeId(item.id)}:m`));
+    await handleInbound(env.deps, text('12,50'));
+    expect(item.extraction?.receipt.amount).toBe(12.5);
+  });
+
+  it('refreshes the duplicate banner after a currency switch', async () => {
+    const env = makeDeps();
+    const item = await startCard(env);
+    (env.expenses.findDuplicate as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ reportName: 'Gastos junio 2026' });
+    await handleInbound(env.deps, callback(`cu:${encodeId(item.id)}:GBP`));
+    expect(env.expenses.findDuplicate).toHaveBeenLastCalledWith(USER_ID, 'Líder Express', '2026-06-05', 12990, 'GBP');
+    expect(item.extraction?.duplicate).toEqual({ reportName: 'Gastos junio 2026' });
+    expect(env.adapter.lastEdit().text).toContain('Posible duplicado');
+  });
+
+  it('clears a stale duplicate banner when the new currency no longer matches', async () => {
+    const env = makeDeps();
+    (env.expenses.findDuplicate as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ reportName: 'Old match' });
+    const item = await startCard(env);
+    expect(item.extraction?.duplicate).toEqual({ reportName: 'Old match' });
+    // cu re-runs findDuplicate; default mock returns null -> banner clears.
+    await handleInbound(env.deps, callback(`cu:${encodeId(item.id)}:GBP`));
+    expect(item.extraction?.duplicate).toBeNull();
+    expect(env.adapter.lastEdit().text).not.toContain('Posible duplicado');
+  });
+
+  it('refreshes the duplicate banner after a typed amount edit', async () => {
+    const env = makeDeps();
+    const item = await startCard(env);
+    (env.expenses.findDuplicate as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ reportName: 'Gastos junio 2026' });
+    await handleInbound(env.deps, callback(`ef:${encodeId(item.id)}:m`));
+    await handleInbound(env.deps, text('15990'));
+    expect(env.expenses.findDuplicate).toHaveBeenLastCalledWith(USER_ID, 'Líder Express', '2026-06-05', 15990, 'CLP');
+    expect(item.extraction?.duplicate).toEqual({ reportName: 'Gastos junio 2026' });
+  });
+
   it('rejects an invalid typed date and keeps waiting', async () => {
     const env = makeDeps();
     const item = await startCard(env);

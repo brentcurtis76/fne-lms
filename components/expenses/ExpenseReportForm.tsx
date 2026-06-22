@@ -39,28 +39,23 @@ interface ExpenseReportFormProps {
 }
 
 /**
- * Picks the raw, source-currency amount to convert from when the amount or
- * currency of an item changes. The displayed amount lives in `original_amount`
- * for foreign currencies and in `amount` (which equals the CLP value) for CLP —
- * so on a currency switch we must reinterpret the *displayed* value, never the
- * stored CLP `amount`. (Feeding the CLP amount into convertToCLP as if it were
- * the new currency is what inflated GBP→EUR switches.)
+ * The currency dropdown selects the receipt's SOURCE (original) currency — it is
+ * NOT a display-currency toggle. So the amount to convert from is always the raw
+ * amount currently shown in the input: `original_amount ?? amount` for a foreign
+ * item, or `amount` for a CLP item. That raw value is then converted FROM the
+ * newly selected currency, which keeps a GBP→CLP→GBP round-trip stable (£12.50
+ * stays £12.50) instead of treating the converted CLP magnitude as a new source.
+ * The result depends only on the prior item and whether amount or currency
+ * changed — never on the target currency.
  */
 export function conversionSourceAmount(
   prev: Pick<ExpenseItemForm, 'currency' | 'amount' | 'original_amount'>,
   field: 'amount' | 'currency',
-  value: number | string
+  typedAmount?: number
 ): number {
-  // A new typed amount is already in the item's (unchanged) display currency.
-  if (field === 'amount') return typeof value === 'number' ? value : Number(value) || 0;
-  // Currency change: `value` is the NEW currency code.
-  const newCurrency = String(value);
-  // Switching TO CLP keeps the existing CLP magnitude (the stored `amount`),
-  // never the small foreign original — reinterpreting £12.50 as 12 CLP would
-  // collapse the expense.
-  if (newCurrency === 'CLP') return prev.amount ?? 0;
-  // Switching to a foreign currency reinterprets the previously displayed
-  // amount (original_amount for a prior foreign currency, else the CLP value).
+  // A newly typed amount is already in the item's current source currency.
+  if (field === 'amount') return typedAmount ?? 0;
+  // A currency switch re-reads the raw source amount shown in the input.
   return prev.currency && prev.currency !== 'CLP'
     ? prev.original_amount ?? prev.amount ?? 0
     : prev.amount ?? 0;

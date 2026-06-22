@@ -41,6 +41,7 @@ export function fmtCLP(amount: number): string {
 export function fmtAmount(amount: number, currency: string): string {
   if (currency === 'USD') return `US$ ${amount.toLocaleString('es-CL', { minimumFractionDigits: 2 })}`;
   if (currency === 'EUR') return `€ ${amount.toLocaleString('es-CL', { minimumFractionDigits: 2 })}`;
+  if (currency === 'GBP') return `£${amount.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`;
   return fmtCLP(amount);
 }
 
@@ -375,7 +376,8 @@ export function currencyKeyboard(itemId: string): Keyboard {
     [
       { label: 'CLP', data: `cu:${P}:CLP` },
       { label: 'US$', data: `cu:${P}:USD` },
-      { label: '€', data: `cu:${P}:EUR` }
+      { label: '€', data: `cu:${P}:EUR` },
+      { label: '£', data: `cu:${P}:GBP` }
     ],
     [{ label: '← Volver', data: `bk:${P}` }]
   ];

@@ -20,7 +20,7 @@ interface ExpenseItemForm {
   description: string;
   amount: number;
   original_amount?: number;
-  currency: 'CLP' | 'USD' | 'EUR';
+  currency: 'CLP' | 'USD' | 'EUR' | 'GBP';
   conversion_rate?: number;
   expense_date: string;
   vendor: string;
@@ -588,7 +588,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                     </label>
                     <select
                       value={item.currency}
-                      onChange={(e) => updateExpenseItem(index, 'currency', e.target.value as 'CLP' | 'USD' | 'EUR')}
+                      onChange={(e) => updateExpenseItem(index, 'currency', e.target.value as 'CLP' | 'USD' | 'EUR' | 'GBP')}
                       className="w-full p-3 border-2 border-brand_accent rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-brand_accent text-sm font-medium bg-white"
                     >
                       {getAvailableCurrencies().map(currency => (

@@ -1,9 +1,10 @@
 // Currency conversion service for expense reports
-// Supports USD, EUR to CLP conversion
+// Supports USD, EUR, GBP to CLP conversion
 
 interface ExchangeRates {
   USD: number;
   EUR: number;
+  GBP: number;
   CLP: number;
 }
 
@@ -27,6 +28,7 @@ const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
 const FALLBACK_RATES: ExchangeRates = {
   USD: 950,  // 1 USD ≈ 950 CLP (approximate)
   EUR: 1050, // 1 EUR ≈ 1050 CLP (approximate)
+  GBP: 1230, // 1 GBP ≈ 1230 CLP (approximate)
   CLP: 1     // 1 CLP = 1 CLP
 };
 
@@ -48,6 +50,7 @@ async function fetchExchangeRates(): Promise<ExchangeRates> {
     const rates: ExchangeRates = {
       USD: 1 / data.rates.USD, // How many CLP for 1 USD
       EUR: 1 / data.rates.EUR, // How many CLP for 1 EUR
+      GBP: 1 / data.rates.GBP, // How many CLP for 1 GBP
       CLP: 1
     };
     
@@ -85,8 +88,8 @@ export async function getExchangeRates(): Promise<ExchangeRates> {
  * Convert amount from any supported currency to CLP
  */
 export async function convertToCLP(
-  amount: number, 
-  fromCurrency: 'USD' | 'EUR' | 'CLP'
+  amount: number,
+  fromCurrency: 'USD' | 'EUR' | 'GBP' | 'CLP'
 ): Promise<ConversionResult> {
   if (fromCurrency === 'CLP') {
     return {
@@ -114,26 +117,28 @@ export async function convertToCLP(
 /**
  * Format currency amount with proper symbol and decimal places
  */
-export function formatCurrency(amount: number, currency: 'USD' | 'EUR' | 'CLP'): string {
+export function formatCurrency(amount: number, currency: 'USD' | 'EUR' | 'GBP' | 'CLP'): string {
   const formatters = {
     USD: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }),
     EUR: new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }),
+    GBP: new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }),
     CLP: new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 })
   };
-  
+
   return formatters[currency].format(amount);
 }
 
 /**
  * Get currency symbol
  */
-export function getCurrencySymbol(currency: 'USD' | 'EUR' | 'CLP'): string {
+export function getCurrencySymbol(currency: 'USD' | 'EUR' | 'GBP' | 'CLP'): string {
   const symbols = {
     USD: '$',
     EUR: '€',
+    GBP: '£',
     CLP: '$'
   };
-  
+
   return symbols[currency];
 }
 
@@ -144,7 +149,8 @@ export function getAvailableCurrencies() {
   return [
     { code: 'CLP', name: 'Peso Chileno', symbol: '$' },
     { code: 'USD', name: 'Dólar Estadounidense', symbol: '$' },
-    { code: 'EUR', name: 'Euro', symbol: '€' }
+    { code: 'EUR', name: 'Euro', symbol: '€' },
+    { code: 'GBP', name: 'Libra Esterlina', symbol: '£' }
   ] as const;
 }
 
@@ -159,7 +165,8 @@ export function calculateMultiCurrencyTotal(expenses: Array<{
   const totals = {
     CLP: 0,
     USD: 0,
-    EUR: 0
+    EUR: 0,
+    GBP: 0
   };
   
   expenses.forEach(expense => {

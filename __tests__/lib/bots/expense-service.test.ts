@@ -191,6 +191,30 @@ describe('saveExpenseItem', () => {
     expect(result).toMatchObject({ reportName: 'Gastos junio 2026', totalAmount: 45230, itemCount: 3 });
   });
 
+  it('passes GBP through the RPC with the converted CLP amount, original amount and rate', async () => {
+    mockConvertToCLP.mockResolvedValueOnce({
+      originalAmount: 12.5,
+      originalCurrency: 'GBP',
+      convertedAmount: 15375,
+      conversionRate: 1230,
+      conversionDate: '2026-06-22'
+    });
+    const fake = buildClient({
+      expense_reports: [
+        { data: { report_name: 'Gastos junio 2026', total_amount: 15375, expense_items: [{ count: 1 }] } }
+      ]
+    });
+    const service = new ExpenseService(fake.client as never, 'https://app.test');
+    await service.saveExpenseItem({ ...saveInput, currency: 'GBP', amount: 12.5 });
+
+    expect(mockConvertToCLP).toHaveBeenCalledWith(12.5, 'GBP');
+    const rpc = fake.rpcCalls[0];
+    expect(rpc.args.p_currency).toBe('GBP');
+    expect(rpc.args.p_amount).toBe(15375);
+    expect(rpc.args.p_original_amount).toBe(12.5);
+    expect(rpc.args.p_conversion_rate).toBe(1230);
+  });
+
   it('deletes the uploaded file when the RPC fails', async () => {
     const fake = buildClient({});
     fake.queueRpcResult({ data: null, error: { message: 'boom' } });

@@ -106,6 +106,25 @@ describe('extractReceipt', () => {
     }
   });
 
+  it('preserves a GBP currency from a UK receipt', async () => {
+    const gbp = { ...goodResponse, vendor: 'Tesco', currency: 'GBP', amount: 12.5 };
+    const result = await input(makeClient(JSON.stringify(gbp)));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.receipt.currency).toBe('GBP');
+      expect(result.receipt.amount).toBe(12.5);
+    }
+  });
+
+  it('tells the model about GBP and the £ symbol in the prompt', async () => {
+    const client = makeClient(JSON.stringify(goodResponse));
+    await input(client);
+    const create = (client as unknown as { messages: { create: ReturnType<typeof vi.fn> } }).messages.create;
+    const call = create.mock.calls[0][0];
+    expect(call.system).toContain('GBP');
+    expect(call.system).toContain('£');
+  });
+
   it('rejects unsupported image types instead of relabeling them as JPEG', async () => {
     const client = makeClient(JSON.stringify(goodResponse));
     const result = await input(client, { mime: 'image/bmp' });

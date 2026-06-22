@@ -872,7 +872,7 @@ async function handleCallback(
     case 'cu': {
       const currency = parts[2];
       const payload = item.extraction;
-      if (payload && (currency === 'CLP' || currency === 'USD' || currency === 'EUR')) {
+      if (payload && (currency === 'CLP' || currency === 'USD' || currency === 'EUR' || currency === 'GBP')) {
         payload.receipt.currency = currency as Currency;
         await store.updatePendingItem(item.id, { extraction: payload });
         item.extraction = payload;

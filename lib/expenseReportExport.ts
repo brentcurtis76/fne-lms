@@ -15,7 +15,7 @@ interface ExpenseItem {
   description: string;
   amount: number;
   original_amount?: number;
-  currency?: 'CLP' | 'USD' | 'EUR';
+  currency?: 'CLP' | 'USD' | 'EUR' | 'GBP';
   conversion_rate?: number;
   conversion_date?: string;
   expense_date: string;
@@ -61,6 +61,26 @@ export class ExpenseReportExporter {
 
   private static formatCurrency(amount: number): string {
     return `$${amount.toLocaleString('es-CL')}`;
+  }
+
+  private static currencySymbol(currency?: string): string {
+    switch (currency) {
+      case 'USD': return 'US$';
+      case 'EUR': return '€';
+      case 'GBP': return '£';
+      default: return '$';
+    }
+  }
+
+  /**
+   * Foreign receipts are stored converted to CLP, so the original amount and
+   * currency must be surfaced separately to stay auditable. Returns e.g.
+   * "£12.50 GBP" for non-CLP items, or "-" for CLP / missing originals.
+   */
+  private static formatOriginalAmount(item: ExpenseItem): string {
+    if (!item.currency || item.currency === 'CLP' || item.original_amount == null) return '-';
+    const value = item.original_amount.toLocaleString('en-GB', { minimumFractionDigits: 2 });
+    return `${this.currencySymbol(item.currency)}${value} ${item.currency}`;
   }
 
   private static getStatusText(status: string): string {
@@ -152,11 +172,12 @@ export class ExpenseReportExporter {
         item.vendor || '-',
         item.expense_number || '-',
         this.formatCurrency(item.amount),
+        this.formatOriginalAmount(item),
         item.receipt_filename ? 'Sí' : 'No'
       ]);
-      
+
       autoTable(doc, {
-        head: [['Fecha', 'Categoría', 'Descripción', 'Proveedor', 'N° Factura', 'Monto', 'Boleta']],
+        head: [['Fecha', 'Categoría', 'Descripción', 'Proveedor', 'N° Factura', 'Monto', 'Original', 'Boleta']],
         body: tableData,
         startY: yPos,
         styles: {
@@ -172,13 +193,14 @@ export class ExpenseReportExporter {
           fillColor: [248, 249, 250],
         },
         columnStyles: {
-          0: { cellWidth: 22 },
-          1: { cellWidth: 30 },
-          2: { cellWidth: 45 },
-          3: { cellWidth: 30 },
-          4: { cellWidth: 25 },
-          5: { cellWidth: 25, halign: 'right' },
-          6: { cellWidth: 15, halign: 'center' }
+          0: { cellWidth: 20 },
+          1: { cellWidth: 26 },
+          2: { cellWidth: 38 },
+          3: { cellWidth: 24 },
+          4: { cellWidth: 20 },
+          5: { cellWidth: 20, halign: 'right' },
+          6: { cellWidth: 22, halign: 'right' },
+          7: { cellWidth: 12, halign: 'center' }
         },
         foot: [[
           'TOTAL',
@@ -187,6 +209,7 @@ export class ExpenseReportExporter {
           '',
           '',
           this.formatCurrency(report.total_amount),
+          '',
           ''
         ]],
         footStyles: {
@@ -301,9 +324,9 @@ export class ExpenseReportExporter {
     // Expense items sheet
     if (report.expense_items && report.expense_items.length > 0) {
       const itemsData = [
-        ['Fecha', 'Categoría', 'Descripción', 'Proveedor', 'N° Factura/Boleta', 'Monto (CLP)', 'Tiene Boleta', 'Notas']
+        ['Fecha', 'Categoría', 'Descripción', 'Proveedor', 'N° Factura/Boleta', 'Monto (CLP)', 'Moneda', 'Monto Original', 'Tasa de Cambio', 'Tiene Boleta', 'Notas']
       ];
-      
+
       report.expense_items.forEach(item => {
         itemsData.push([
           this.formatDate(item.expense_date),
@@ -312,11 +335,14 @@ export class ExpenseReportExporter {
           item.vendor || '',
           item.expense_number || '',
           item.amount.toString(),
+          item.currency || 'CLP',
+          (item.original_amount ?? item.amount).toString(),
+          (item.conversion_rate ?? 1).toString(),
           item.receipt_filename ? 'Sí' : 'No',
           item.notes || ''
         ]);
       });
-      
+
       // Add total row
       itemsData.push([
         'TOTAL',
@@ -325,6 +351,9 @@ export class ExpenseReportExporter {
         '',
         '',
         report.total_amount.toString(),
+        '',
+        '',
+        '',
         '',
         ''
       ]);
@@ -338,7 +367,10 @@ export class ExpenseReportExporter {
         { wch: 35 },  // Descripción
         { wch: 20 },  // Proveedor
         { wch: 18 },  // N° Factura
-        { wch: 15 },  // Monto
+        { wch: 15 },  // Monto (CLP)
+        { wch: 10 },  // Moneda
+        { wch: 16 },  // Monto Original
+        { wch: 14 },  // Tasa de Cambio
         { wch: 12 },  // Tiene Boleta
         { wch: 30 }   // Notas
       ];

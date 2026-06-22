@@ -4,7 +4,7 @@
 
 export type Platform = 'telegram' | 'whatsapp';
 
-export type Currency = 'CLP' | 'USD' | 'EUR';
+export type Currency = 'CLP' | 'USD' | 'EUR' | 'GBP';
 
 export interface InboundFile {
   /** Platform file reference (Telegram file_id). Bytes are fetched on demand. */

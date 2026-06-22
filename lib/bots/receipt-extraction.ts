@@ -26,7 +26,7 @@ const rawExtractionSchema = z.object({
   vendor: z.string().nullable().catch(null),
   expense_date: z.string().nullable().catch(null),
   amount: z.number().nullable().catch(null),
-  currency: z.enum(['CLP', 'USD', 'EUR']).nullable().catch(null),
+  currency: z.enum(['CLP', 'USD', 'EUR', 'GBP']).nullable().catch(null),
   expense_number: z.string().nullable().catch(null),
   doc_type: z.enum(['boleta', 'factura', 'other']).nullable().catch(null),
   description: z.string().nullable().catch(null),
@@ -59,7 +59,7 @@ Formato de respuesta:
   "vendor": string | null,      // nombre del comercio o emisor
   "expense_date": string | null,// fecha de emisión en formato ISO YYYY-MM-DD
   "amount": number | null,      // monto TOTAL final del documento (número, sin separadores)
-  "currency": "CLP" | "USD" | "EUR" | null,
+  "currency": "CLP" | "USD" | "EUR" | "GBP" | null,
   "expense_number": string | null, // N° de boleta o factura
   "doc_type": "boleta" | "factura" | "other" | null,
   "description": string | null, // descripción breve del gasto en español (máx 60 caracteres)
@@ -73,6 +73,7 @@ Reglas importantes:
 - Montos chilenos (CLP) son enteros: "$12.990" significa 12990 (el punto es separador de miles). Nunca interpretes el punto como decimal en CLP.
 - Usa la línea "TOTAL" del documento (incluye IVA). Ignora "propina sugerida" salvo que esté sumada en el total.
 - Fechas chilenas suelen venir como DD-MM-YYYY o DD/MM/YYYY: conviértelas a YYYY-MM-DD.
+- Identifica la moneda por su símbolo o país: "£" o recibos del Reino Unido son GBP (libra esterlina); "€" es EUR; "US$" o "USD" es USD; "$" en un recibo chileno es CLP.
 - Si la moneda no es claramente extranjera, asume CLP.
 - El RUT del emisor suele aparecer arriba; el comercio es la razón social o nombre de fantasía.
 - "name" en category_guesses debe ser EXACTAMENTE uno de estos nombres de categoría:

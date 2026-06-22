@@ -22,7 +22,7 @@ interface ExpenseItem {
   description: string;
   amount: number;
   original_amount?: number;
-  currency?: 'CLP' | 'USD' | 'EUR';
+  currency?: 'CLP' | 'USD' | 'EUR' | 'GBP';
   conversion_rate?: number;
   conversion_date?: string;
   expense_date: string;

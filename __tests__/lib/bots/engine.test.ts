@@ -615,6 +615,16 @@ describe('card adjustments', () => {
     expect(env.adapter.lastEdit().text).toContain('Otros');
   });
 
+  it('sets the currency to GBP via the cu callback and re-renders the card', async () => {
+    const env = makeDeps();
+    const item = await startCard(env);
+    await handleInbound(env.deps, callback(`cu:${encodeId(item.id)}:GBP`));
+    expect(item.extraction?.receipt.currency).toBe('GBP');
+    const card = env.adapter.lastEdit().text;
+    expect(card).toContain('GBP');
+    expect(card).toContain('£');
+  });
+
   it('applies a typed amount edit', async () => {
     const env = makeDeps();
     const item = await startCard(env);

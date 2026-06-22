@@ -130,6 +130,13 @@ describe('extractReceipt', () => {
     if (result.ok) expect(result.receipt.currency).toBe('GBP');
   });
 
+  it('maps the unambiguous "US$" token to USD', async () => {
+    const odd = { ...goodResponse, currency: 'US$', amount: 50 };
+    const result = await input(makeClient(JSON.stringify(odd)));
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.receipt.currency).toBe('USD');
+  });
+
   it('treats an ambiguous bare "$" as CLP, never a foreign currency', async () => {
     const odd = { ...goodResponse, currency: '$' };
     const result = await input(makeClient(JSON.stringify(odd)));

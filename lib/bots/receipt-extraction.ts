@@ -23,15 +23,16 @@ const confidenceSchema = z.number().min(0).max(1).catch(0);
 
 /**
  * Normalizes obvious currency variants before enum validation: trims/uppercases
- * codes ("gbp", "GBP ") and maps the £/€ symbols to their codes. A bare "$" is
- * left as-is — it is ambiguous (CLP vs USD), so it falls through to the CLP
- * default rather than being treated as a foreign currency.
+ * codes ("gbp", "GBP ") and maps unambiguous symbols (£→GBP, €→EUR, US$→USD) to
+ * their codes. A bare "$" is left as-is — it is ambiguous (CLP vs USD), so it
+ * falls through to the CLP default rather than being treated as a foreign currency.
  */
 function normalizeCurrency(value: unknown): unknown {
   if (typeof value !== 'string') return value;
   const trimmed = value.trim().toUpperCase();
   if (trimmed === '£' || trimmed === 'GBP') return 'GBP';
   if (trimmed === '€' || trimmed === 'EUR') return 'EUR';
+  if (trimmed === 'US$' || trimmed === 'USD') return 'USD'; // unambiguous; bare "$" stays CLP
   return trimmed;
 }
 

@@ -49,11 +49,18 @@ interface ExpenseReportFormProps {
 export function conversionSourceAmount(
   prev: Pick<ExpenseItemForm, 'currency' | 'amount' | 'original_amount'>,
   field: 'amount' | 'currency',
-  typedValue: number
+  value: number | string
 ): number {
   // A new typed amount is already in the item's (unchanged) display currency.
-  if (field === 'amount') return typedValue;
-  // A currency change reinterprets the previously displayed amount.
+  if (field === 'amount') return typeof value === 'number' ? value : Number(value) || 0;
+  // Currency change: `value` is the NEW currency code.
+  const newCurrency = String(value);
+  // Switching TO CLP keeps the existing CLP magnitude (the stored `amount`),
+  // never the small foreign original — reinterpreting £12.50 as 12 CLP would
+  // collapse the expense.
+  if (newCurrency === 'CLP') return prev.amount ?? 0;
+  // Switching to a foreign currency reinterprets the previously displayed
+  // amount (original_amount for a prior foreign currency, else the CLP value).
   return prev.currency && prev.currency !== 'CLP'
     ? prev.original_amount ?? prev.amount ?? 0
     : prev.amount ?? 0;

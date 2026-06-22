@@ -78,7 +78,13 @@ async function fetchExchangeRates(): Promise<{ rates: ExchangeRates; live: boole
       CLP: 1
     };
 
-    return { rates, live: true };
+    // "live" only if EVERY required rate was a real quote. A 200 with a missing
+    // or invalid rate is a partial fallback and must use the short failure TTL,
+    // not be pinned for the full hour.
+    const isValid = (raw: unknown) => typeof raw === 'number' && Number.isFinite(raw) && raw > 0;
+    const live = isValid(apiRates.USD) && isValid(apiRates.EUR) && isValid(apiRates.GBP);
+
+    return { rates, live };
   } catch (error) {
     console.warn('Failed to fetch live exchange rates, using fallback:', error);
     return { rates: FALLBACK_RATES, live: false };
@@ -148,8 +154,11 @@ export function formatCurrency(amount: number, currency: string): string {
     CLP: new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 })
   };
 
-  const formatter = formatters[currency];
-  // expense_items.currency is free-form text; never throw on a non-canonical code.
+  // hasOwnProperty guard: expense_items.currency is free-form text, and a value
+  // like "constructor"/"__proto__" would otherwise resolve to an inherited
+  // prototype member and throw on .format().
+  const formatter = Object.prototype.hasOwnProperty.call(formatters, currency) ? formatters[currency] : undefined;
+  // never throw on a non-canonical code.
   if (!formatter) return `${amount.toLocaleString('es-CL')} ${currency}`;
   return formatter.format(amount);
 }
@@ -165,7 +174,9 @@ export function getCurrencySymbol(currency: string): string {
     CLP: '$'
   };
 
-  return symbols[currency] ?? '$';
+  // hasOwnProperty guard so prototype keys ("constructor", "__proto__") don't
+  // return an inherited member instead of the "$" fallback.
+  return Object.prototype.hasOwnProperty.call(symbols, currency) ? symbols[currency] : '$';
 }
 
 /**

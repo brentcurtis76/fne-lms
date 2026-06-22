@@ -91,4 +91,27 @@ describe('currency-service hardening', () => {
     stubRates({ GBP: 0.0005 });
     expect((await getExchangeRates()).GBP).toBe(2000);
   });
+
+  it('treats a 200 OK with a missing GBP rate as a short-lived fallback and recovers', async () => {
+    const t0 = 2_000_000;
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(t0);
+
+    // 200 OK but the payload omits GBP → per-currency fallback. This must NOT be
+    // pinned for the full hour just because the transport succeeded.
+    stubRates({ USD: 0.00111, EUR: 0.00097 });
+    expect((await getExchangeRates()).GBP).toBe(1230); // FALLBACK_RATES.GBP
+
+    // 2 minutes later (past the 1-min failure ttl) the API includes GBP again.
+    nowSpy.mockReturnValue(t0 + 2 * 60 * 1000);
+    stubRates({ USD: 0.00111, EUR: 0.00097, GBP: 0.0005 });
+    expect((await getExchangeRates()).GBP).toBe(2000); // recovered, not the stale 1230
+  });
+
+  it('never throws / returns a non-string for prototype-key currency codes', () => {
+    for (const code of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
+      expect(() => formatCurrency(10, code)).not.toThrow();
+      expect(formatCurrency(10, code)).toContain(code);
+      expect(getCurrencySymbol(code)).toBe('$');
+    }
+  });
 });

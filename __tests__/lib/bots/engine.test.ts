@@ -675,6 +675,17 @@ describe('card adjustments', () => {
     expect(item.extraction?.receipt.amount).toBe(12.5);
   });
 
+  it('rejects negative and alphabetic foreign amounts instead of coercing them', async () => {
+    const env = makeDeps({ extraction: { ok: true, receipt: makeReceipt({ currency: 'GBP', amount: 12.5 }) } });
+    const item = await startCard(env);
+    for (const bad of ['-12.50', '12abc']) {
+      await handleInbound(env.deps, callback(`ef:${encodeId(item.id)}:m`));
+      await handleInbound(env.deps, text(bad));
+      expect(env.adapter.lastSent().text).toContain('No entendí'); // rejected, not coerced
+      expect(item.extraction?.receipt.amount).toBe(12.5); // unchanged
+    }
+  });
+
   it('refreshes the duplicate banner after a currency switch', async () => {
     const env = makeDeps();
     const item = await startCard(env);

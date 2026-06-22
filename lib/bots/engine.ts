@@ -613,7 +613,10 @@ async function renderCard(
  * / "1.234,50" by treating the LAST separator as the decimal point.
  */
 function normalizeForeignAmount(text: string): string {
-  let s = text.replace(/[^\d.,]/g, '');
+  // Strip only currency symbols and whitespace — NOT arbitrary characters — so
+  // that signs/letters survive into the final regex gate and get rejected
+  // ("-12.50" and "12abc" must fail, not silently become 12.5 / 12).
+  let s = text.replace(/[£€$\s]/g, '');
   const hasDot = s.includes('.');
   const hasComma = s.includes(',');
   if (hasDot && hasComma) {

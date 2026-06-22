@@ -16,6 +16,7 @@ import {
 import { BotStore, decodeId } from './store';
 import { BotExpenseError, ExpenseService, newReportDefaults } from './expense-service';
 import { MAX_IMAGE_BYTES, MAX_PDF_BYTES, SUPPORTED_IMAGE_TYPES } from './receipt-extraction';
+import { logStageFailure } from './bot-logging';
 import * as M from './messages';
 
 export interface EngineDeps {
@@ -1033,9 +1034,16 @@ async function confirmSave(
   const expenseDate = freshReceipt.expenseDate;
 
   try {
-    const downloaded = await adapter.downloadFile(fresh.file_ref);
+    let downloaded;
+    try {
+      downloaded = await adapter.downloadFile(fresh.file_ref);
+    } catch (downloadError) {
+      logStageFailure('download', downloadError, { currency: freshReceipt.currency, itemId: item.id });
+      throw downloadError;
+    }
     const result = await expenses.saveExpenseItem({
       userId: actor.userId,
+      itemId: item.id,
       platform: session.platform,
       reportId: targetReportId,
       categoryId: category.id,

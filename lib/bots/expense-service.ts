@@ -10,6 +10,7 @@ import {
   Platform
 } from './types';
 import { RECEIPTS_BUCKET } from '../../utils/expenseConfig';
+import { logStageFailure } from './bot-logging';
 
 const BUCKET = RECEIPTS_BUCKET;
 
@@ -43,6 +44,8 @@ export class BotExpenseError extends Error {
 
 export interface SaveItemInput {
   userId: string;
+  /** Pending-item id — non-PII correlation id for structured failure logs. */
+  itemId: string;
   /** Channel that captured the expense — labels notes/report description. */
   platform: Platform;
   /** null ⇒ create a new draft report with the provided defaults. */
@@ -279,7 +282,7 @@ export class ExpenseService {
       .from(BUCKET)
       .upload(fileName, input.file.buffer, { contentType: input.file.mime });
     if (uploadError) {
-      console.error('[Bot] receipt upload failed:', uploadError);
+      logStageFailure('upload', uploadError, { currency: input.currency, itemId: input.itemId });
       throw new BotExpenseError('UPLOAD_FAILED');
     }
 
@@ -308,7 +311,7 @@ export class ExpenseService {
     });
 
     if (error) {
-      console.error('[Bot] bot_save_expense_item RPC failed:', error);
+      logStageFailure('rpc', error, { currency: input.currency, itemId: input.itemId });
       // Clean up the orphaned upload; best effort.
       const { error: removeError } = await this.supabase.storage.from(BUCKET).remove([fileName]);
       if (removeError) console.error('[Bot] orphaned receipt cleanup failed:', removeError);
@@ -323,7 +326,10 @@ export class ExpenseService {
       .select('report_name, total_amount, expense_items(count)')
       .eq('id', reportId)
       .single();
-    if (reportError) throw reportError;
+    if (reportError) {
+      logStageFailure('report_read', reportError, { currency: input.currency, itemId: input.itemId });
+      throw reportError;
+    }
 
     const reportRow = report as Record<string, unknown>;
     return {

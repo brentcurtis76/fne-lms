@@ -154,8 +154,11 @@ describe('resolveActor', () => {
   });
 });
 
+const ITEM_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+
 const saveInput = {
   userId: USER_ID,
+  itemId: ITEM_ID,
   platform: 'telegram' as const,
   reportId: REPORT_ID,
   categoryId: CATEGORY_ID,
@@ -225,6 +228,45 @@ describe('saveExpenseItem', () => {
     expect(remove).toBeTruthy();
     const uploadedName = (fake.storageCalls[0].args[0] as string);
     expect((remove!.args[0] as string[])[0]).toBe(uploadedName);
+  });
+
+  it('logs a structured rpc failure (stage/code/currency/itemId) for the GBP check_violation, without leaking internals to the user', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const fake = buildClient({});
+      // Mirrors the real production Postgres error: GBP rejected by the
+      // expense_items_currency_check constraint.
+      fake.queueRpcResult({
+        data: null,
+        error: {
+          code: '23514',
+          message: 'new row for relation "expense_items" violates check constraint "expense_items_currency_check"',
+          details: null,
+          hint: null
+        }
+      });
+      const service = new ExpenseService(fake.client as never, 'https://app.test');
+
+      // User-facing failure stays the generic typed code — no Supabase internals.
+      await expect(service.saveExpenseItem({ ...saveInput, currency: 'GBP', amount: 12.5 }))
+        .rejects.toMatchObject({ code: 'SAVE_FAILED' });
+
+      const logged = errorSpy.mock.calls.find((c) => c[0] === '[Bot] save failure');
+      expect(logged).toBeTruthy();
+      const record = JSON.parse(logged![1] as string);
+      expect(record).toMatchObject({
+        event: 'bot_save_failure',
+        stage: 'rpc',
+        code: '23514',
+        currency: 'GBP',
+        itemId: ITEM_ID
+      });
+      expect(record.message).toContain('expense_items_currency_check');
+      // Orphan upload still cleaned up after the failure.
+      expect(fake.storageCalls.some((c) => c.op === 'remove')).toBe(true);
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it('maps REPORT_NOT_EDITABLE RPC errors to a typed error', async () => {

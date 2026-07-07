@@ -32,11 +32,11 @@ export default defineConfig({
     },
   ],
 
-  /* Run your local dev server before starting the tests */
+  /* Local: dev server. CI: production server (CI builds beforehand — see .github/workflows/ci.yml) */
   webServer: {
-    command: 'npm run dev:unsafe',
+    command: process.env.CI ? 'npm run start' : 'npm run dev:unsafe',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
+    timeout: 180 * 1000,
   },
 });

@@ -1,0 +1,100 @@
+# GENERA — CI: four quality gates on every PR (Fase 0)
+# Gates: (1) typecheck  (2) unit/Vitest  (3) supabase test db (pgTAP/RLS)  (4) Playwright e2e smoke
+# Plus: RLS migration guard (blocks any migration that disables ROW LEVEL SECURITY).
+# Branch protection on `main` must require these checks — see docs/ci-setup.md.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rls-migration-guard:
+    name: RLS migration guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Block migrations that disable RLS
+        run: bash scripts/ci/check-rls-migrations.sh
+
+  typecheck:
+    name: Gate 1 — Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run type-check
+
+  unit:
+    name: Gate 2 — Unit (Vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  pgtap:
+    name: Gate 3 — RLS pgTAP (supabase test db)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      # NOTE: `supabase db start` builds a shadow DB from supabase/migrations.
+      # Repo migrations start at 2026-02 (schema predates them). If they fail to
+      # apply from scratch, add a baseline schema snapshot as the first migration
+      # (supabase db dump from a trusted source) — see docs/ci-setup.md.
+      - name: Start local Supabase stack (applies migrations)
+        run: supabase db start
+      - name: Run pgTAP suite (supabase/tests/)
+        run: supabase test db
+
+  e2e:
+    name: Gate 4 — E2E smoke (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Prepare env (secrets, or placeholders for smoke)
+        env:
+          SB_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SB_ANON: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SB_SERVICE: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=${SB_URL:-https://placeholder.supabase.co}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${SB_ANON:-public-anon-key-placeholder}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SB_SERVICE:-service-role-placeholder}"
+          } > .env.local
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Build (production)
+        run: npm run build
+      - name: Run smoke suite against production server
+        run: npx playwright test tests/e2e/smoke.spec.ts --project=chromium
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

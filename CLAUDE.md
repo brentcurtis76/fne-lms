@@ -1,112 +1,88 @@
-> **CRITICAL — READ FIRST:** No bridge MCP exists in this session. Never search for `bridge_post_task` or similar tools. Use `jb post ... --project genera` via the bash tool. See Claude Code section below.
-
 # GENERA (FNE-LMS) — Project Rules
 
-> Learning management system for Fundación Nueva Educación.
-> Next.js (Pages Router) + TypeScript + Tailwind/shadcn + Supabase.
+> Learning platform for Fundación Nueva Educación. Next.js (Pages Router) + TypeScript strict + Tailwind/shadcn + Supabase.
+> Durable conventions live HERE. Evolving state lives in `PROJECT_STATE.md` (read it first, update it when a phase ends). `AGENTS.md` mirrors this file for Codex-family agents.
 
 ---
 
 ## Who Are You?
 
-If you are **Cowork**: you diagnose, plan, and delegate. You do NOT edit files. Read the Cowork section below.
+- **Cowork**: diagnose, plan, delegate. Default: do NOT edit files — post tasks through the bridge. Direct edits only when Brent explicitly instructs it in the conversation (e.g. "edit directly").
+- **Claude Code / Codex**: execute tasks end-to-end. Run all quality gates before reporting complete.
 
-If you are **Claude Code**: you execute tasks. Read the Claude Code section below.
+Both: obey Hard Rules and read `PROJECT_STATE.md` before touching anything.
 
-Both: read Hard Rules and Project Context regardless.
+## Bridge Workflow (Cowork → executor)
 
----
+Preferred: MCP tools `bridge_post_task` / `bridge_wait_for_task` with `project='genera'` (available when the jake_bridge MCP is connected — check your tool list). Fallback on the host machine: `jb post ... --project genera`. Neither exists inside the Linux sandbox shell.
 
-## Cowork Rules
+Task format: `{ "project": "genera", "task": "<what>", "context": "<files, root cause, suggested fix, DoD>" }`
 
-**You do NOT edit files in this project. EVER.**
+## Commands
 
-All code changes, bug fixes, refactors — including one-line fixes — go through `bridge_post_task` with `project='genera'`.
+- `npm run dev` — dev server (pre-check script + 4GB heap)
+- `npm run build` — production build
+- `npm run type-check` — tsc --noEmit (8GB heap)
+- `npm run lint` — ESLint, zero warnings allowed
+- `npm run lint:testid` — advisory check: interactive elements need `data-testid` (see Testing)
+- `npm test` — Vitest unit/integration (full run)
+- `npm run test:db` — pgTAP RLS suite via `supabase test db` (requires Supabase CLI + Docker)
+- `npm run e2e` — Playwright (testDir `tests/`, prod build + seeded synthetic tenant)
 
-Your job:
-1. Investigate the issue (read files, check logs, trace the bug)
-2. Describe the root cause and the fix clearly
-3. Post it via `bridge_post_task` with enough context for Claude Code to execute
-4. Follow up with `bridge_wait_for_task` and report the result
+## CI — Four Gates (every PR)
 
-You may READ any file for diagnosis. You may NOT write, edit, or create files.
+`.github/workflows/ci.yml` runs: **(1) type-check, (2) unit (Vitest), (3) `supabase test db` (pgTAP/RLS), (4) Playwright e2e**. Plus a migration guard that fails the PR if any migration contains `DISABLE ROW LEVEL SECURITY`. A phase/task is not done if any gate is red. E2E uses `retries: 2` in CI.
 
-### Bridge Task Format
+## Executor Rules (Claude Code / Codex)
 
-```json
-{
-  "project": "genera",
-  "task": "<what to do>",
-  "context": "<relevant files, root cause, suggested fix>"
-}
-```
-
----
-
-## Claude Code Rules
-
-When executing a task:
-1. Create a feature branch (≤20 chars, e.g. `fix/auth-mid`)
+1. Feature branch ≤20 chars (e.g. `feat/assess`, `fix/auth-mid`) — long names break Vercel preview DNS
 2. Make the changes
-3. Run ALL quality gates before reporting complete:
-   - `npx tsc --noEmit`
-   - `npm run lint`
-   - `npm test`
-   - `npm run build`
-4. Commit with a clear message
-5. Report result back through the bridge
-
-If any quality gate fails, fix the issue before reporting complete. Never skip gates.
+3. Quality gates before reporting: `npm run type-check && npm run lint && npm test && npm run build` (+ `test:db`/`e2e` when DB/UI touched)
+4. Commit with a clear message; never merge to `main` yourself
+5. Report back through the bridge. Never skip gates; fix failures first.
 
 ---
 
 ## Hard Rules
 
 ### NO DEPLOYMENTS
-Deployments are RED-tier. Do not run `vercel`, `vercel --prod`, or trigger Vercel CI. Refuse clearly. The user deploys manually or through a controlled process.
+RED-tier. Never run `vercel`/`vercel --prod` or trigger Vercel CI. `main` auto-deploys — that is Brent's controlled path.
 
 ### Database Safety
-- NEVER touch production database directly
-- NEVER run `DROP`, `TRUNCATE`, or destructive `ALTER`
-- Schema changes must be additive only
-- DB agent owns all migrations — do not write migration SQL directly
-- Supabase RLS policies must be verified against ALL user roles
+- NEVER touch the production database directly
+- NEVER `DROP`, `TRUNCATE`, or destructive `ALTER`; schema changes are additive only
+- DB agent owns migrations — do not hand-write migration SQL outside that flow
+- **Every table in `public` has RLS enabled.** A migration that disables RLS is blocked by a Claude Code hook (`scripts/hooks/block-rls-disable.sh` via `.claude/settings.json`) AND by CI. Do not work around them.
+- RLS policies must be tested per role × table × operation (pgTAP matrix in `supabase/tests/`)
 
-### Privacy — Law 21.719 (Chile)
-- Student data is legally protected PII
-- Student PII never goes in AI prompts, commits, logs, or Open Brain
-- Synthetic data ONLY for development/testing — NEVER real student records
-- Parental consent workflows must respect legal guardianship
+### Privacy — Ley 21.719 (Chile)
+- Student data is legally protected PII; GENERA data is *sensitive* minor data
+- Student PII never goes in AI prompts, commits, logs, or fixtures — synthetic data ONLY
+- No new minor-data table without consent record + EIPD reference (hard gate = Fase 2)
+- Sociogram surfaces are never exposed to student/family roles; asesor sees synthesis, leadership sees macro only
 
-### Branch Naming
-- Keep ≤20 characters (e.g., `feat/assess`, `fix/auth-mid`)
-- Vercel preview URLs include the branch name — long names cause DNS failures
+### Memory Discipline
+Keep this file under 200 lines. Guardrails that MUST hold belong in hooks/CI, not prose.
 
 ---
 
 ## Project Context
 
 ### Architecture
-- **Framework**: Next.js (Pages Router with `getServerSideProps`)
-- **Language**: TypeScript strict mode
-- **Database**: Supabase (dedicated instance)
-- **Auth**: Supabase Auth with role-based access via middleware
-- **Hosting**: Vercel (auto-deploys on push to `main`)
-- **UI**: Tailwind 3, shadcn/ui (2 components currently)
-- **Testing**: Vitest
+- **Framework**: Next.js Pages Router with `getServerSideProps` (no App Router)
+- **Language**: TypeScript strict
+- **DB/Auth**: Supabase (dedicated instance), role-based access via `middleware.ts` — the most bug-prone area; extra scrutiny + session-invalidation checks on any change
+- **Hosting**: Vercel (auto-deploy on push to `main`)
+- **UI**: Tailwind 3 + shadcn/ui; must work on older school hardware (low-end browsers, small screens)
+- **Data fetching**: raw `fetch()` in `getServerSideProps` and API routes — NOT TanStack Query or SWR
 
 ### API Route Pattern (FOLLOW THIS)
 ```typescript
-// Every API route follows: auth → role check → validation → logic
+// auth → role check → validation → logic
 export default async function handler(req, res) {
   const session = await getServerSession(req, res);
   if (!session) return res.status(401).json({ error: 'Unauthorized' });
-
-  // Role check
-  if (!hasRole(session.user, 'admin')) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
-
+  if (!hasRole(session.user, 'admin')) return res.status(403).json({ error: 'Forbidden' });
   // Validation → Business logic → Response
   return res.status(200).json({ data });
 }
@@ -117,21 +93,18 @@ export default async function handler(req, res) {
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const session = await getServerSession(context.req, context.res);
   if (!session) return { redirect: { destination: '/login', permanent: false } };
-
   const data = await fetchData(session.user);
   return { props: { data } };
 };
 ```
 
-### RBAC Roles (4)
-- **Docente (Teacher)** — Manages own classes, views student records
-- **Estudiante (Student)** — Views own records, completes assignments
-- **Admin** — Full platform access, user management
-- **Apoderado (Guardian)** — Views student progress, manages consent
+### RBAC Roles (9 — source of truth: `types/roles.ts`)
+`admin` (FNE global) · `consultor` (FNE consultants per school) · `equipo_directivo` (school admins) · `lider_generacion` · `lider_comunidad` · `supervisor_de_red` (network, reporting only) · `community_manager` · `docente` · `encargado_licitacion` (Ley SEP procurement)
 
-Auth middleware is the most bug-prone area — extra scrutiny on any changes. RLS policies must be tested per-role.
+GENERA phases (see itinerary + PROJECT_STATE.md) add 4 user types (asesor, estudiante, familia/apoderado, leadership/FNE macro). Mapping lands in Fase 1 — do not invent it early.
 
-### Key Notes
-- Auth/RBAC changes are where bugs hide — always check middleware and session invalidation
-- Data fetching uses raw `fetch()` in `getServerSideProps` and API routes (NOT TanStack Query or SWR)
-- Accessibility: must work on older school hardware (lower-end browsers, smaller screens)
+### Testing Conventions
+- Unit/integration: Vitest (`__tests__/`, `tests/`; configs `vitest.config.ts`, `vitest.config.api.ts`)
+- E2E: Playwright, selectors via `getByRole`/`getByTestId`; new interactive elements need `data-testid` (advisory lint: `npm run lint:testid` — becomes blocking once baseline is clean)
+- RLS: pgTAP in `supabase/tests/` run by `supabase test db`; helpers `tests.rls_enabled`, `tests.create_supabase_user`, `tests.authenticate_as`. Blocked `INSERT` throws; blocked `UPDATE` returns empty — assert accordingly.
+- Never `waitForTimeout`; use web-first assertions

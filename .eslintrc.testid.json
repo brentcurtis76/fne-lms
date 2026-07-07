@@ -1,0 +1,31 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module",
+    "ecmaFeatures": { "jsx": true }
+  },
+  "ignorePatterns": ["node_modules/", ".next/", "out/"],
+  "rules": {
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "JSXOpeningElement[name.name='button']:not(:has(JSXAttribute[name.name='data-testid']))",
+        "message": "GENERA: <button> interactivo requiere data-testid (selectores Playwright estables)."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='input']:not(:has(JSXAttribute[name.name='data-testid']))",
+        "message": "GENERA: <input> requiere data-testid."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='select']:not(:has(JSXAttribute[name.name='data-testid']))",
+        "message": "GENERA: <select> requiere data-testid."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='textarea']:not(:has(JSXAttribute[name.name='data-testid']))",
+        "message": "GENERA: <textarea> requiere data-testid."
+      }
+    ]
+  }
+}

@@ -147,3 +147,6 @@ lib/propuestas/__tests__/poc-output.pdf
 !PROJECT_STATE.md
 !AGENTS.md
 !CLAUDE.md
+!docs/**/*.md
+!.claude/settings.json
+!.eslintrc.testid.json

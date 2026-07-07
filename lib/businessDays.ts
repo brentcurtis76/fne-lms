@@ -14,20 +14,23 @@ export async function getHolidays(startYear: number, endYear: number): Promise<D
     .lte('year', endYear);
 
   if (error) throw new Error(`Failed to fetch holidays: ${error.message}`);
-  return (data || []).map((h: { fecha: string }) => new Date(h.fecha + 'T00:00:00'));
+  // Parse as UTC midnight so date-only arithmetic is timezone-independent.
+  return (data || []).map((h: { fecha: string }) => new Date(h.fecha + 'T00:00:00Z'));
 }
 
 /**
  * Checks if a date is a weekend (Saturday = 6, Sunday = 0).
+ * Uses UTC so the result does not depend on the machine timezone.
  */
 export function isWeekend(date: Date): boolean {
-  const day = date.getDay();
+  const day = date.getUTCDay();
   return day === 0 || day === 6;
 }
 
 /**
  * Checks if a date matches any holiday in the provided list.
- * Comparison is date-only (ignores time) using YYYY-MM-DD strings.
+ * Comparison is date-only (ignores time) using UTC YYYY-MM-DD strings,
+ * so it does not depend on the machine timezone.
  */
 export function isHoliday(date: Date, holidays: Date[]): boolean {
   const dateStr = date.toISOString().split('T')[0];
@@ -44,7 +47,8 @@ export function addBusinessDays(startDate: Date, days: number, holidays: Date[])
   const current = new Date(startDate);
   let added = 0;
   while (added < days) {
-    current.setDate(current.getDate() + 1);
+    // Advance in UTC so the day count is independent of the machine timezone.
+    current.setUTCDate(current.getUTCDate() + 1);
     if (!isWeekend(current) && !isHoliday(current, holidays)) {
       added++;
     }

@@ -8,19 +8,22 @@ import {
   calculateLicitacionTimeline
 } from '../businessDays';
 
-// Fixed test holidays (public holidays in Chile 2026 used as test data)
+// Fixed test holidays (public holidays in Chile 2026 used as test data).
+// Constructed as UTC midnight (Z) to match the library's UTC date-only logic,
+// so these tests pass under any machine timezone.
 const TEST_HOLIDAYS: Date[] = [
-  new Date('2026-05-01T00:00:00'), // Dia del Trabajo
-  new Date('2026-05-21T00:00:00'), // Dia de las Glorias Navales
-  new Date('2026-06-29T00:00:00'), // San Pedro y San Pablo
+  new Date('2026-05-01T00:00:00Z'), // Dia del Trabajo
+  new Date('2026-05-21T00:00:00Z'), // Dia de las Glorias Navales
+  new Date('2026-06-29T00:00:00Z'), // San Pedro y San Pablo
 ];
 
-// Helper to create a date from YYYY-MM-DD at midnight (UTC-like comparison via toISOString)
+// Helper to create a date from YYYY-MM-DD at UTC midnight, matching how the
+// library parses dates and how fmt() formats them via toISOString (UTC).
 function d(dateStr: string): Date {
-  return new Date(dateStr + 'T00:00:00');
+  return new Date(dateStr + 'T00:00:00Z');
 }
 
-// Helper to get YYYY-MM-DD from a Date (matches how isHoliday compares)
+// Helper to get the UTC YYYY-MM-DD from a Date (matches how isHoliday compares)
 function fmt(date: Date): string {
   return date.toISOString().split('T')[0];
 }

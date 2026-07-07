@@ -82,8 +82,10 @@ export async function calculateTimeline(
   supabase: SupabaseClient,
   fechaPublicacion: string
 ): Promise<TimelineDates> {
-  const pubDate = new Date(fechaPublicacion + 'T00:00:00');
-  const year = pubDate.getFullYear();
+  // Parse as UTC midnight so business-day math is timezone-independent
+  // (calculateLicitacionTimeline operates in UTC).
+  const pubDate = new Date(fechaPublicacion + 'T00:00:00Z');
+  const year = pubDate.getUTCFullYear();
 
   const { data: holidays, error } = await supabase
     .from('feriados_chile')
@@ -96,7 +98,7 @@ export async function calculateTimeline(
   }
 
   const holidayDates = (holidays || []).map(
-    (h: { fecha: string }) => new Date(h.fecha + 'T00:00:00')
+    (h: { fecha: string }) => new Date(h.fecha + 'T00:00:00Z')
   );
 
   const result = calculateLicitacionTimeline(pubDate, holidayDates);

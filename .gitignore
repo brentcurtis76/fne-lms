@@ -142,3 +142,8 @@ node_modules/canvas
 /*.jpg
 /preview-*.pdf
 lib/propuestas/__tests__/poc-output.pdf
+
+# Fase 0: docs de estado/agentes SIEMPRE trackeados (override *.md linea 111)
+!PROJECT_STATE.md
+!AGENTS.md
+!CLAUDE.md

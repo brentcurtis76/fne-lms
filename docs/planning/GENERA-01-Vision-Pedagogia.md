@@ -793,4 +793,4 @@ Este Documento 1 queda a la espera de tu revisión. Cualquier ajuste —al tono,
 
 ---
 
-*Referencias al material de investigación: compass_artifact_wf-2c7bc2e3 (síntesis de diez preguntas de diseño sobre GENERA). Todas las citas académicas de este documento provienen de esa síntesis y sus fuentes primarias.*
+*Referencias al material de investigación: `docs/planning/GENERA-00-research-synthesis.md` (compass_artifact_wf-2c7bc2e3 — síntesis de diez preguntas de diseño sobre GENERA). Todas las citas académicas de este documento provienen de esa síntesis y sus fuentes primarias.*

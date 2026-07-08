@@ -40,6 +40,7 @@ Task format: `{ "project": "genera", "task": "<what>", "context": "<files, root 
 3. Quality gates before reporting: `npm run type-check && npm run lint && npm test && npm run build` (+ `test:db`/`e2e` when DB/UI touched)
 4. Commit with a clear message; never merge to `main` yourself
 5. Report back through the bridge. Never skip gates; fix failures first.
+6. Before reporting a phase complete, write `docs/planning/reviews/fase-<N>-review-request.md` containing: branch + base SHA + commit count; the phase's objective and scope in/out (copied from the itinerary); files created/modified grouped by risk; test evidence (suite names + counts); the 3–5 areas an independent reviewer should scrutinize hardest, with one line each on why (your own judgment calls, shortcuts, or complexity hotspots — be honest, the reviewer will find them anyway); and known limitations or deferred items. Commit it with the phase. A phase without its review-request file is not complete. (Reviewer side: `docs/planning/review-protocol.md`.)
 
 ---
 

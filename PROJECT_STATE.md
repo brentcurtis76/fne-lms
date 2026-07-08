@@ -2,6 +2,7 @@
 
 > Documento vivo de estado (estructura según §2.2 del itinerario: `docs/planning/GENERA-itinerario-construccion.md`).
 > Convenciones durables: CLAUDE.md / AGENTS.md. Cada fase termina actualizando este archivo.
+> Phase close requires `docs/planning/reviews/fase-<N>-review-request.md` (see CLAUDE.md executor rules). Reviewer verdict is recorded in the Human-review queue before merge.
 
 ## Meta
 - Last phase completed: **Fase 0 — Repo hardening, CI, state scaffolding** + correcciones consolidadas pre-PR (bloques 1–3, 2026-07-08); verificación de checks en GitHub pendiente del primer PR — ver Next phase

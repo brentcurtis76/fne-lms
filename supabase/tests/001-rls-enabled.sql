@@ -42,7 +42,12 @@ select is(
 drop table public._fase0_world_readable;
 drop table public._fase0_rls_ok;
 
--- (3) GLOBAL — allowlist vacía ------------------------------------------------
+-- (3) GLOBAL ------------------------------------------------------------------
+-- ALLOWLIST legacy: 22 tablas pre-Fase-0 sin RLS, detectadas por el baseline
+-- 2026-07-08 y aprobadas por Brent como excepción documentada (PROJECT_STATE.md
+-- → Open decisions, con plan de remediación tabla-por-tabla). Ninguna contiene
+-- datos de menores. PROHIBIDO agregar tablas nuevas aquí sin revisión humana;
+-- el objetivo es VACIAR esta lista, no crecerla.
 select is(
   (select coalesce(array_agg(pc.relname::text order by pc.relname), '{}'::text[])
      from pg_class pc
@@ -50,10 +55,18 @@ select is(
     where pn.nspname = 'public'
       and pc.relkind = 'r'
       and not pc.relrowsecurity
-      and pc.relname <> all (array[]::text[])  -- ALLOWLIST legacy (vacía)
+      and pc.relname <> all (array[
+        'answers','assignments','course_prerequisites','deleted_blocks',
+        'deleted_courses','deleted_lessons','deleted_modules',
+        'group_assignment_discussions','growth_community_transformation_access',
+        'instructors','learning_path_courses','learning_paths',
+        'menu_permissions','metadata_sync_log','modules','profiles_role_backup',
+        'propuesta_rate_limits','qa_tester_time_logs','questions','quizzes',
+        'student_answers','submissions'
+      ]::text[])  -- ALLOWLIST legacy 2026-07-08 (22 tablas)
   ),
   '{}'::text[],
-  'Toda tabla de public tiene RLS habilitado (allowlist legacy vacía)'
+  'Toda tabla de public tiene RLS habilitado (fuera de la allowlist legacy 2026-07-08)'
 );
 
 select * from finish();

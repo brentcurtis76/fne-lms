@@ -8,10 +8,13 @@
 --   2. consultor (school-scoped)
 --                       → SELECT only sessions whose school_id matches an
 --                         active user_roles.school_id row for that user
---   3. consultor (global)
---                       → SELECT every session (school_id IS NULL on their
---                         active consultor role)
---   4. docente / estudiante
+--   3. consultor (no school assignment)
+--                       → SELECT zero sessions. sessions_consultor_select
+--                         requires user_roles.school_id = sessions.school_id;
+--                         there is NO global-access policy and production has
+--                         no consultor rows with school_id IS NULL (verified
+--                         2026-07-08)
+--   4. docente / community_manager
 --                       → SELECT zero sessions (no access path)
 --
 -- How to run (after starting a local Postgres with the real migrations applied
@@ -38,7 +41,7 @@ SELECT plan(8);
 \set global_uid    '''00000000-0000-0000-0000-00000000bbbb'''
 \set scoped_uid    '''00000000-0000-0000-0000-00000000cccc'''
 \set docente_uid   '''00000000-0000-0000-0000-00000000dddd'''
-\set student_uid   '''00000000-0000-0000-0000-00000000eeee'''
+\set cm_uid        '''00000000-0000-0000-0000-00000000eeee'''
 
 -- -----------------------------------------------------------------------------
 -- Seed the minimum auth + profile rows needed for FKs / RLS predicates.
@@ -52,7 +55,17 @@ VALUES
   (:global_uid::uuid,  'global@rls-test.local',  '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated'),
   (:scoped_uid::uuid,  'scoped@rls-test.local',  '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated'),
   (:docente_uid::uuid, 'docente@rls-test.local', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated'),
-  (:student_uid::uuid, 'student@rls-test.local', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated')
+  (:cm_uid::uuid,      'cm@rls-test.local',      '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated')
+ON CONFLICT (id) DO NOTHING;
+
+-- user_roles.user_id references profiles(id), so mirror each auth user there.
+INSERT INTO profiles (id, email, name, approval_status)
+VALUES
+  (:admin_uid::uuid,   'admin@rls-test.local',   'RLS Test Admin',     'approved'),
+  (:global_uid::uuid,  'global@rls-test.local',  'RLS Test Global',    'approved'),
+  (:scoped_uid::uuid,  'scoped@rls-test.local',  'RLS Test Scoped',    'approved'),
+  (:docente_uid::uuid, 'docente@rls-test.local', 'RLS Test Docente',   'approved'),
+  (:cm_uid::uuid,      'cm@rls-test.local',      'RLS Test CommMgr',   'approved')
 ON CONFLICT (id) DO NOTHING;
 
 -- Two distinct schools: one the scoped consultor CAN see, one they cannot.
@@ -63,32 +76,48 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- user_roles fixtures. Per architecture:
---   * admin       → role_type='admin',   school_id NULL
---   * global cons → role_type='consultor', school_id NULL
---   * scoped cons → role_type='consultor', school_id=9001
---   * docente     → role_type='docente',  school_id=9001
---   * estudiante  → role_type='estudiante', school_id=9001
+--   * admin        → role_type='admin',   school_id NULL
+--   * unscoped con → role_type='consultor', school_id NULL (no access expected)
+--   * scoped cons  → role_type='consultor', school_id=9001
+--   * docente      → role_type='docente',  school_id=9001
+--   * comm. mgr    → role_type='community_manager', school_id=9001
 INSERT INTO user_roles (user_id, role_type, school_id, is_active)
 VALUES
-  (:admin_uid::uuid,   'admin',      NULL, true),
-  (:global_uid::uuid,  'consultor',  NULL, true),
-  (:scoped_uid::uuid,  'consultor',  9001, true),
-  (:docente_uid::uuid, 'docente',    9001, true),
-  (:student_uid::uuid, 'estudiante', 9001, true)
+  (:admin_uid::uuid,   'admin',             NULL, true),
+  (:global_uid::uuid,  'consultor',         NULL, true),
+  (:scoped_uid::uuid,  'consultor',         9001, true),
+  (:docente_uid::uuid, 'docente',           9001, true),
+  (:cm_uid::uuid,      'community_manager', 9001, true)
 ON CONFLICT DO NOTHING;
+
+-- consultor_sessions.growth_community_id is NOT NULL — seed one synthetic
+-- growth community per school. No fixture user carries a community_id, so the
+-- sessions_gc_member_select policy never matches these rows.
+INSERT INTO growth_communities (id, school_id, name)
+VALUES
+  ('cccccccc-0000-0000-0000-000000000001'::uuid, 9001, 'RLS Test GC (School A)'),
+  ('cccccccc-0000-0000-0000-000000000002'::uuid, 9002, 'RLS Test GC (School B)')
+ON CONFLICT (id) DO NOTHING;
 
 -- Three consultor_sessions: two in School A, one in School B.
 -- school-scoped consultor (scoped_uid) should see rows in A only.
 INSERT INTO consultor_sessions (
-  id, school_id, title, session_date, start_time, end_time, modality, status, is_active
+  id, school_id, growth_community_id, title, session_date, start_time, end_time,
+  modality, status, is_active, created_by
 )
 VALUES
   ('aaaaaaaa-0000-0000-0000-000000000001'::uuid, 9001,
-   'Session A1 (School A)', CURRENT_DATE, '09:00:00', '10:00:00', 'presencial', 'programada', true),
+   'cccccccc-0000-0000-0000-000000000001'::uuid,
+   'Session A1 (School A)', CURRENT_DATE, '09:00:00', '10:00:00', 'presencial', 'programada', true,
+   :admin_uid::uuid),
   ('aaaaaaaa-0000-0000-0000-000000000002'::uuid, 9001,
-   'Session A2 (School A)', CURRENT_DATE, '11:00:00', '12:00:00', 'presencial', 'programada', true),
+   'cccccccc-0000-0000-0000-000000000001'::uuid,
+   'Session A2 (School A)', CURRENT_DATE, '11:00:00', '12:00:00', 'presencial', 'programada', true,
+   :admin_uid::uuid),
   ('bbbbbbbb-0000-0000-0000-000000000003'::uuid, 9002,
-   'Session B1 (School B)', CURRENT_DATE, '09:00:00', '10:00:00', 'presencial', 'programada', true)
+   'cccccccc-0000-0000-0000-000000000002'::uuid,
+   'Session B1 (School B)', CURRENT_DATE, '09:00:00', '10:00:00', 'presencial', 'programada', true,
+   :admin_uid::uuid)
 ON CONFLICT (id) DO NOTHING;
 
 -- -----------------------------------------------------------------------------
@@ -160,7 +189,11 @@ SELECT is_empty(
 RESET ROLE;
 
 -- =============================================================================
--- Tier 3 — global consultor (user_roles.school_id IS NULL): SELECT all
+-- Tier 3 — consultor with NO school assignment (user_roles.school_id IS NULL):
+-- sees nothing. The only consultor SELECT policy requires an exact school_id
+-- match, so a NULL school row grants no visibility. Production has zero such
+-- rows; if a "global consultor" tier is ever wanted, it needs a new policy and
+-- this assertion flips to 3.
 -- =============================================================================
 SELECT pg_temp.set_authenticated(:global_uid::uuid);
 
@@ -172,14 +205,14 @@ SELECT results_eq(
         'aaaaaaaa-0000-0000-0000-000000000002'::uuid,
         'bbbbbbbb-0000-0000-0000-000000000003'::uuid
       ) $$,
-  ARRAY[3],
-  'global consultor: sees all seeded sessions across every school'
+  ARRAY[0],
+  'consultor without school assignment: sees no sessions (no global-access policy)'
 );
 
 RESET ROLE;
 
 -- =============================================================================
--- Tier 4 — docente / estudiante: zero visibility into consultor_sessions
+-- Tier 4 — docente / community_manager: zero visibility into consultor_sessions
 -- =============================================================================
 SELECT pg_temp.set_authenticated(:docente_uid::uuid);
 
@@ -195,7 +228,7 @@ SELECT is_empty(
 
 RESET ROLE;
 
-SELECT pg_temp.set_authenticated(:student_uid::uuid);
+SELECT pg_temp.set_authenticated(:cm_uid::uuid);
 
 SELECT is_empty(
   $$ SELECT 1 FROM consultor_sessions
@@ -204,7 +237,7 @@ SELECT is_empty(
         'aaaaaaaa-0000-0000-0000-000000000002'::uuid,
         'bbbbbbbb-0000-0000-0000-000000000003'::uuid
       ) $$,
-  'estudiante: is denied SELECT on every seeded consultor_session'
+  'community_manager: is denied SELECT on every seeded consultor_session'
 );
 
 RESET ROLE;

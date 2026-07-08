@@ -32,7 +32,7 @@
 - Dominios existentes: cursos/learning paths, assessment builder, sesiones de consultor, generaciones + growth communities, licitaciones Ley SEP, hour tracking, contratos, propuestas web/PDF, sistema QA, notificaciones, roadmap, badges, bots, expense reports/fx-rates
 - 9 roles (`types/roles.ts`): admin, consultor, equipo_directivo, lider_generacion, lider_comunidad, supervisor_de_red, community_manager, docente, encargado_licitacion
 - Tablas GENERA (`persons`, `enrollments`, `consent_records`, planes, sociograma, señales…): no existen aún (Fases 1+)
-- Verificación RLS homogénea: ahora automatizada — `supabase/tests/001-rls-enabled.sql` exige `public` limpio con **allowlist vacía** (agregar excepción legacy = revisión humana + entrada aquí)
+- Verificación RLS homogénea: ahora automatizada — `supabase/tests/001-rls-enabled.sql` exige `public` limpio salvo la **allowlist legacy 2026-07-08 (22 tablas pre-Fase-0 sin RLS, aprobada por Brent** — ver Open decisions; el objetivo es vaciarla, no crecerla). Toda tabla NUEVA sin RLS sigue rompiendo CI
 
 ## Modules (current)
 - Sin módulos nuevos de producto. Infra nueva Fase 0:
@@ -73,6 +73,8 @@
 - [Brent/PR] Si Gate 3 falla aplicando migraciones desde cero (schema anterior a 2026-02): baseline `supabase db dump --linked` + archivar las 38 migraciones a `supabase/migrations-archive/` en el MISMO PR (procedimiento completo en `docs/ci-setup.md`)
 - [Claude/PR] Si Gate 2 muestra los 13 fallos de abril, o Gate 1b (lint, zero warnings) nace rojo: fix o `.skip()`/triage con TODO vinculado, en el mismo PR
 - [Brent] 7 docs `.md` sueltos quedaron visibles como untracked al des-ignorar `docs/**/*.md` (code reviews, notes) — commitear o descartar
+- [Brent+DB agent · post-Fase 0] **22 tablas legacy sin RLS en producción** (detectadas por el baseline 2026-07-08, allowlisted en `001-rls-enabled.sql` con OK de Brent): answers, assignments, course_prerequisites, deleted_blocks, deleted_courses, deleted_lessons, deleted_modules, group_assignment_discussions, growth_community_transformation_access, instructors, learning_path_courses, learning_paths, menu_permissions, metadata_sync_log, modules, profiles_role_backup, propuesta_rate_limits, qa_tester_time_logs, questions, quizzes, student_answers, submissions. Sin datos de menores, pero legibles vía REST con anon key. Remediación: policies tabla-por-tabla en PR dedicado (no habilitar RLS sin policies — rompería producción); al habilitar cada una, quitarla de la allowlist
+- [Registro Fase 0] El test tier-3 de `010-consultor-sessions-rls.sql` ahora asserta el comportamiento real: consultor con `school_id NULL` NO ve sesiones (no existe policy de acceso global; 0 filas así en producción al 2026-07-08). Si algún día se quiere "consultor global", requiere policy nueva + flip del assert
 - [Brent/legal] EIPD + redacción de consentimiento parental — bloquean Fase 2→3
 - Eliminado: script roto `test:db:supervisor` (apuntaba a archivo inexistente); `test:db` ahora = `supabase test db`
 

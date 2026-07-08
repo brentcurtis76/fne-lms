@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-> Documento vivo de estado (estructura según §2.2 del itinerario de construcción).
+> Documento vivo de estado (estructura según §2.2 del itinerario: `docs/planning/GENERA-itinerario-construccion.md`).
 > Convenciones durables: CLAUDE.md / AGENTS.md. Cada fase termina actualizando este archivo.
 
 ## Meta
@@ -76,7 +76,7 @@
 - Eliminado: script roto `test:db:supervisor` (apuntaba a archivo inexistente); `test:db` ahora = `supabase test db`
 
 ## Next phase: Fase 1 — Core GENERA data model + multi-tenant RLS + seed sintético
-- **Gate de entrada**: primer PR de `feat/fase0-ci` con 4 gates verdes + branch protection activa (cierre formal del DoD Fase 0)
+- **Gate de entrada**: primer PR de `feat/fase0-ci` con 6 checks verdes + branch protection activa (cierre formal del DoD Fase 0)
 - Objective: `persons` (identidad estable), `school_tenants`, `enrollments` y `asesor_assignments` time-bounded, enum `developmental_stage`, `guardianship`; `has_role_on_school()` security-definer envuelta en `(select ...)`; políticas RLS 4 roles GENERA × SELECT/INSERT/UPDATE/DELETE; `seed:test` (3 colegios, ~90 estudiantes 3–18, ~6 asesores, ~20 equipos base, familias, 1 leadership)
 - Files likely touched: `/supabase/migrations/*`, `/lib/auth/roles.ts`, `/supabase/tests/002-rls-core.sql`, `/scripts/seed-test.ts`
 - Dependencies: Fase 0 verde · Context budget ~200K · Model: Opus-class (schema + RLS correctness)

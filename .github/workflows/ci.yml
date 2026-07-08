@@ -1,7 +1,8 @@
-# GENERA — CI: four quality gates on every PR (Fase 0)
-# Gates: (1) typecheck  (2) unit/Vitest  (3) supabase test db (pgTAP/RLS)  (4) Playwright e2e smoke
+# GENERA — CI: quality gates on every PR (Fase 0)
+# Gates: (1) typecheck  (1b) lint (zero warnings)  (2) unit/Vitest  (3) supabase test db (pgTAP/RLS)  (4) Playwright e2e smoke
 # Plus: RLS migration guard (blocks any migration that disables ROW LEVEL SECURITY).
-# Branch protection on `main` must require these checks — see docs/ci-setup.md.
+# Branch protection on `main` must require these six checks — see docs/ci-setup.md.
+# All jobs: timeout-minutes 20 (GitHub default is 360 — a hung job would burn 6h of Actions).
 
 name: CI
 
@@ -18,6 +19,7 @@ jobs:
   rls-migration-guard:
     name: RLS migration guard
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Block migrations that disable RLS
@@ -26,6 +28,7 @@ jobs:
   typecheck:
     name: Gate 1 — Typecheck
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,9 +38,23 @@ jobs:
       - run: npm ci
       - run: npm run type-check
 
+  lint:
+    name: Gate 1b — Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
   unit:
     name: Gate 2 — Unit (Vitest)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -50,6 +67,7 @@ jobs:
   pgtap:
     name: Gate 3 — RLS pgTAP (supabase test db)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
@@ -67,6 +85,7 @@ jobs:
   e2e:
     name: Gate 4 — E2E smoke (Playwright)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

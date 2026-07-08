@@ -75,6 +75,7 @@ Keep this file under 200 lines. Guardrails that MUST hold belong in hooks/CI, no
 - **Hosting**: Vercel (auto-deploy on push to `main`)
 - **UI**: Tailwind 3 + shadcn/ui; must work on older school hardware (low-end browsers, small screens)
 - **Data fetching**: raw `fetch()` in `getServerSideProps` and API routes — NOT TanStack Query or SWR
+- **Language**: UI and all user-facing copy in Chilean Spanish (es-CL); code, comments, commits, migrations, and technical docs in English
 
 ### API Route Pattern (FOLLOW THIS)
 ```typescript

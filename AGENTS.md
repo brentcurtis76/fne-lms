@@ -7,6 +7,8 @@
 
 Learning platform for Fundación Nueva Educación. Next.js **Pages Router** (`getServerSideProps`, no App Router) + TypeScript strict + Tailwind 3/shadcn + Supabase (dedicated instance). Hosted on Vercel; `main` auto-deploys. Data fetching is raw `fetch()` — no TanStack Query, no SWR. Must run on older school hardware.
 
+**Language**: UI and all user-facing copy in Chilean Spanish (es-CL); code, comments, commits, migrations, and technical docs in English.
+
 ## Commands
 
 - `npm run dev` / `npm run build`

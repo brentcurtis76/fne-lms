@@ -6,14 +6,19 @@ import { isGlobalAdmin } from '../../../../utils/roleUtils';
 import { teardownPlatformUser } from '../../../../lib/userTeardown';
 import { logDataAccessEvent } from '../../../../lib/securityAuditLog';
 import {
+  GENERATION_WARNINGS,
+  SIGNUP_SOURCE_INVITE_BODY,
+  SignupSource,
   TRACTOR_ROLE_LABELS,
-  TRACTOR_SIGNUP_SOURCE,
   TractorSignupRole,
+  deriveGenerationOutcome,
+  findGenerationForSchool,
   getFullName,
+  isKnownSignupSource,
   isTractorSignupRole,
   isValidEmail,
   normalizeEmail,
-} from '../../../../lib/tractorSignups';
+} from '../../../../lib/signups';
 
 type SignupRow = {
   id: string;
@@ -23,6 +28,7 @@ type SignupRow = {
   email: string;
   email_normalized: string | null;
   school_id: number | string;
+  generation_id: string | null;
   birth_date: string;
   profession: string;
   role: string;
@@ -37,6 +43,7 @@ type ProfileRow = {
   last_name: string | null;
   name: string | null;
   school_id: number | null;
+  generation_id: string | null;
   approval_status: string | null;
 };
 
@@ -84,7 +91,7 @@ async function getSchoolName(supabase: any, schoolId: number): Promise<string | 
 async function findProfileByEmail(supabase: any, email: string): Promise<ProfileRow | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, first_name, last_name, name, school_id, approval_status')
+    .select('id, email, first_name, last_name, name, school_id, generation_id, approval_status')
     .eq('email', email)
     .limit(1);
 
@@ -98,7 +105,7 @@ async function findProfileByEmail(supabase: any, email: string): Promise<Profile
 
   const { data: caseInsensitiveData, error: caseInsensitiveError } = await supabase
     .from('profiles')
-    .select('id, email, first_name, last_name, name, school_id, approval_status')
+    .select('id, email, first_name, last_name, name, school_id, generation_id, approval_status')
     .ilike('email', email)
     .limit(20);
 
@@ -153,6 +160,14 @@ async function ensureRole(
   return 'created';
 }
 
+async function refreshRolesCache(supabase: any) {
+  // Non-fatal: the materialized cache catches up on its next refresh.
+  const { error } = await supabase.rpc('refresh_user_roles_cache');
+  if (error) {
+    console.error('[tractor-signups grant] refresh_user_roles_cache failed:', error);
+  }
+}
+
 async function markSignupGranted(
   supabase: any,
   signupId: string,
@@ -178,6 +193,7 @@ async function sendInviteEmail(params: {
   to: string;
   firstName: string;
   actionLink: string;
+  bodyLine: string;
 }) {
   if (!process.env.RESEND_API_KEY) {
     console.log('[tractor-signups grant] RESEND_API_KEY missing; invitation email not sent', {
@@ -189,6 +205,7 @@ async function sendInviteEmail(params: {
   const resend = new Resend(process.env.RESEND_API_KEY);
   const safeFirstName = escapeHtml(params.firstName);
   const safeActionLink = escapeHtml(params.actionLink);
+  const safeBodyLine = escapeHtml(params.bodyLine);
 
   const { error } = await resend.emails.send({
     from: process.env.EMAIL_FROM_ADDRESS || 'Genera <notificaciones@nuevaeducacion.org>',
@@ -214,7 +231,7 @@ async function sendInviteEmail(params: {
             <div style="padding:30px 28px;">
               <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hola ${safeFirstName},</p>
               <p style="margin:0 0 20px;font-size:16px;line-height:1.6;">
-                Ya puedes activar tu cuenta para ingresar a la plataforma Genera como parte de Líderes de la Generación Tractor.
+                ${safeBodyLine}
               </p>
               <p style="margin:26px 0;text-align:center;">
                 <a href="${safeActionLink}" style="display:inline-block;background:#fbbf24;color:#0a0a0a;text-decoration:none;font-weight:700;border-radius:6px;padding:14px 22px;">
@@ -278,11 +295,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw signupError;
     }
 
-    if (!signup || signup.source !== TRACTOR_SIGNUP_SOURCE) {
+    if (!signup || !isKnownSignupSource(signup.source)) {
       return res.status(404).json({ error: 'Registro no encontrado' });
     }
 
     const signupRow = signup as SignupRow;
+    const signupSource: SignupSource = signup.source;
 
     if (action === 'delete') {
       // Optionally tear down the provisioned platform account. Only possible
@@ -366,7 +384,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const role = signupRow.role;
     const schoolName = await getSchoolName(supabase, schoolId);
+
+    // Resolve the signup's optional generation (async ownership check), then
+    // let the pure contract in lib/signups decide what gets written where.
+    // Fail-soft: a stale or school-mismatched generation never blocks the
+    // grant itself, and only profiles.generation_id is ever touched —
+    // user_roles.generation_id is reserved for lider_generacion.
+    const resolution: { generationId: string | null; warning: string | null } = {
+      generationId: null,
+      warning: null,
+    };
+    if (signupRow.generation_id) {
+      const belongsToSchool = await findGenerationForSchool(
+        supabase,
+        signupRow.generation_id,
+        schoolId
+      );
+      if (belongsToSchool) {
+        resolution.generationId = signupRow.generation_id;
+      } else {
+        resolution.warning = GENERATION_WARNINGS.stale;
+        console.warn('[tractor-signups grant] signup generation no longer matches school', {
+          signupId,
+          generationId: signupRow.generation_id,
+          schoolId,
+        });
+      }
+    }
+
     const existingProfile = await findProfileByEmail(supabase, email);
+    const { writeGenerationId, generation } = deriveGenerationOutcome(
+      resolution,
+      existingProfile,
+      schoolId
+    );
 
     if (existingProfile) {
       await ensureRole(supabase, existingProfile.id, role, schoolId, adminUser.id);
@@ -382,6 +433,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         profileUpdates.school_id = schoolId;
         profileUpdates.school = schoolName;
       }
+      if (writeGenerationId) {
+        profileUpdates.generation_id = writeGenerationId;
+      }
 
       const { error: profileUpdateError } = await supabase
         .from('profiles')
@@ -392,6 +446,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         throw profileUpdateError;
       }
 
+      await refreshRolesCache(supabase);
       await markSignupGranted(supabase, signupId, existingProfile.id, adminUser.id);
 
       return res.status(200).json({
@@ -399,6 +454,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         status: 'granted',
         existingUser: true,
         linkedUserId: existingProfile.id,
+        generation,
       });
     }
 
@@ -432,6 +488,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           name: fullName,
           school_id: schoolId,
           school: schoolName,
+          generation_id: writeGenerationId,
           approval_status: 'approved',
           must_change_password: true,
         },
@@ -456,12 +513,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         throw linkError || new Error('No se pudo generar el enlace de recuperación');
       }
 
+      await refreshRolesCache(supabase);
       await markSignupGranted(supabase, signupId, createdUserId, adminUser.id);
 
       const emailResult = await sendInviteEmail({
         to: email,
         firstName: signupRow.first_name,
         actionLink,
+        bodyLine: SIGNUP_SOURCE_INVITE_BODY[signupSource],
       });
 
       return res.status(200).json({
@@ -471,6 +530,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         linkedUserId: createdUserId,
         roleLabel: TRACTOR_ROLE_LABELS[role],
         email: emailResult,
+        generation,
       });
     } catch (provisionError) {
       if (createdUserId) {
@@ -481,7 +541,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } catch (error: any) {
     console.error('[tractor-signups grant] unexpected error:', error);
 
-    if (error?.message?.includes('already exists')) {
+    // GoTrue's duplicate-user error: code 'email_exists', message
+    // 'A user with this email address has already been registered'.
+    if (
+      error?.code === 'email_exists' ||
+      error?.message?.includes('already been registered') ||
+      error?.message?.includes('already exists')
+    ) {
       return res.status(409).json({ error: 'Ya existe un usuario con este correo' });
     }
 

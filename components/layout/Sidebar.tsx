@@ -408,10 +408,10 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
       },
       {
         id: 'tractor-signups',
-        label: 'Líderes Tractor',
+        label: 'Registros',
         href: '/admin/tractor-signups',
         icon: AcademicCapIcon,
-        description: 'Registros de la Generación Tractor',
+        description: 'Registros públicos de acceso',
         adminOnly: true
       },
       {

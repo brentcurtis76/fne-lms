@@ -5,17 +5,20 @@ import {
   handleMethodNotAllowed,
 } from '../../../../lib/api-auth';
 import {
+  SIGNUP_SOURCES,
+  SIGNUP_SOURCE_LABELS,
   TRACTOR_ROLE_LABELS,
   TRACTOR_SIGNUP_SOURCE,
   TRACTOR_STATUS_LABELS,
   TractorSignupRole,
   TractorSignupStatus,
+  getAllSchools,
   getFullName,
-  getSantaMartaSchools,
+  isKnownSignupSource,
   isTractorSignupRole,
   isTractorSignupStatus,
   normalizeEmail,
-} from '../../../../lib/tractorSignups';
+} from '../../../../lib/signups';
 
 const BATCH_SIZE = 100;
 
@@ -27,6 +30,9 @@ type SignupRow = {
   email: string;
   email_normalized: string | null;
   school_id: number | string;
+  generation_id: string | null;
+  // FK embed resolved by PostgREST in the main query (alias of generation_id).
+  generation?: { id: string; name: string | null } | null;
   birth_date: string;
   profession: string;
   role: string;
@@ -80,11 +86,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const supabase = createServiceRoleClient();
 
     const [schools, signupsResult] = await Promise.all([
-      getSantaMartaSchools(supabase),
+      getAllSchools(supabase),
       supabase
         .from('tractor_signups')
-        .select('*')
-        .eq('source', TRACTOR_SIGNUP_SOURCE)
+        .select('*, generation:generation_id(id, name)')
+        .in('source', [...SIGNUP_SOURCES])
         .order('created_at', { ascending: false }),
     ]);
 
@@ -189,9 +195,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const role = isTractorSignupRole(signup.role) ? signup.role : 'docente';
       const status = isTractorSignupStatus(signup.status) ? signup.status : 'pending';
       const schoolId = Number(signup.school_id);
+      const source = isKnownSignupSource(signup.source) ? signup.source : TRACTOR_SIGNUP_SOURCE;
 
       return {
         id: signup.id,
+        source,
+        source_label: SIGNUP_SOURCE_LABELS[source],
         first_name: signup.first_name,
         last_name: signup.last_name,
         full_name: getFullName(signup.first_name, signup.last_name),
@@ -199,6 +208,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         email_normalized: normalizedEmail,
         school_id: schoolId,
         school_name: schoolNameById.get(schoolId) ?? `Colegio ${schoolId}`,
+        generation_id: signup.generation_id ?? null,
+        generation_name: signup.generation_id ? signup.generation?.name ?? null : null,
         birth_date: signup.birth_date,
         profession: signup.profession,
         role,

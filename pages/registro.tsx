@@ -5,18 +5,21 @@ import { toast } from 'react-hot-toast';
 import { ArrowRight, Check, Loader2, ShieldCheck } from 'lucide-react';
 import { createServiceRoleClient } from '../lib/api-auth';
 import {
-  SantaMartaSchool,
+  GenerationOption,
+  SchoolOption,
   TRACTOR_ROLE_LABELS,
   TractorSignupRole,
-  getSantaMartaSchools,
+  getAllGenerations,
+  getAllSchools,
   isValidBirthDate,
   isValidEmail,
   normalizeEmail,
   normalizeText,
 } from '../lib/signups';
 
-interface RegistroTractorProps {
-  schools: SantaMartaSchool[];
+interface RegistroProps {
+  schools: SchoolOption[];
+  generations: GenerationOption[];
   schoolLoadError: boolean;
 }
 
@@ -24,6 +27,7 @@ interface FormState {
   firstName: string;
   lastName: string;
   schoolId: string;
+  generationId: string;
   email: string;
   birthDate: string;
   profession: string;
@@ -46,6 +50,7 @@ const initialForm: FormState = {
   firstName: '',
   lastName: '',
   schoolId: '',
+  generationId: '',
   email: '',
   birthDate: '',
   profession: '',
@@ -75,14 +80,37 @@ const FOCUS_ORDER: Exclude<FieldError, 'consent'>[] = [
   'role',
 ];
 
-export const getServerSideProps: GetServerSideProps<RegistroTractorProps> = async () => {
+export const getServerSideProps: GetServerSideProps<RegistroProps> = async (context) => {
+  const supabase = createServiceRoleClient();
+
+  // Schools are required: without them the form is disabled. Generations are
+  // optional metadata, so a failure there only hides the selector. The two
+  // queries are independent — run them concurrently; the generations result
+  // is discarded when schools fail.
+  const schoolsPromise = getAllSchools(supabase);
+  const generationsPromise = getAllGenerations(supabase).catch((error) => {
+    console.error('[registro] Failed to load generations (selector hidden):', error);
+    return [] as GenerationOption[];
+  });
+
+  let schools: SchoolOption[] = [];
+  let schoolLoadError = false;
   try {
-    const schools = await getSantaMartaSchools(createServiceRoleClient());
-    return { props: { schools, schoolLoadError: false } };
+    schools = await schoolsPromise;
   } catch (error) {
-    console.error('[registro-tractor] Failed to load Santa Marta schools:', error);
-    return { props: { schools: [], schoolLoadError: true } };
+    console.error('[registro] Failed to load schools:', error);
+    schoolLoadError = true;
   }
+
+  const generations = schoolLoadError ? [] : await generationsPromise;
+
+  if (!schoolLoadError) {
+    // Public, rarely-changing data: let the CDN absorb repeat views. Errors
+    // are not cached so a transient failure doesn't stick for 5 minutes.
+    context.res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+  }
+
+  return { props: { schools, generations, schoolLoadError } };
 };
 
 // Shared control styling. Genera tokens: focus ring is always yellow (never blue);
@@ -97,7 +125,7 @@ function borderClasses(invalid: boolean): string {
     : 'border-gray-300 focus:border-brand_accent focus:ring-brand_accent/[0.28]';
 }
 
-export default function RegistroTractorPage({ schools, schoolLoadError }: RegistroTractorProps) {
+export default function RegistroPage({ schools, generations, schoolLoadError }: RegistroProps) {
   const [form, setForm] = useState<FormState>(initialForm);
   const [errors, setErrors] = useState<Partial<Record<FieldError, boolean>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -106,11 +134,36 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const schoolsAvailable = schools.length > 0 && !schoolLoadError;
 
+  const generationsBySchool = useMemo(() => {
+    const grouped = new Map<number, GenerationOption[]>();
+    for (const generation of generations) {
+      const existing = grouped.get(generation.school_id) ?? [];
+      existing.push(generation);
+      grouped.set(generation.school_id, existing);
+    }
+    return grouped;
+  }, [generations]);
+
+  const selectedGenerations = form.schoolId
+    ? generationsBySchool.get(Number(form.schoolId)) ?? []
+    : [];
+
   const updateField = <K extends keyof FormState>(field: K, value: FormState[K]) => {
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => {
+      const next = { ...current, [field]: value };
+      // A different school means the previous generation no longer applies.
+      if (field === 'schoolId' && current.schoolId !== value) {
+        next.generationId = '';
+      }
+      return next;
+    });
     // Clear the matching field error as soon as the user corrects it.
     const key: FieldError | null =
-      field === 'consentAccepted' ? 'consent' : field === 'website' ? null : (field as FieldError);
+      field === 'consentAccepted'
+        ? 'consent'
+        : field === 'website' || field === 'generationId'
+          ? null
+          : (field as FieldError);
     if (key) {
       setErrors((prev) => (prev[key] ? { ...prev, [key]: false } : prev));
     }
@@ -144,7 +197,7 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
 
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/tractor-signup', {
+      const response = await fetch('/api/registro-signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -171,10 +224,10 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
   return (
     <>
       <Head>
-        <title>Líderes de la Generación Tractor · Registro | Genera</title>
+        <title>Registro · Genera</title>
         <meta
           name="description"
-          content="Registro para participantes del retiro docente Líderes de la Generación Tractor."
+          content="Registro para acceder a Genera, la plataforma de la Fundación Nueva Educación."
         />
         <meta name="theme-color" content="#0a0a0a" />
       </Head>
@@ -193,17 +246,15 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
 
           <div className="relative z-[1] max-w-[460px]">
             <p className="mb-5 text-[12px] font-semibold uppercase tracking-[.14em] text-brand_accent">
-              Red Santa Marta · Retiro docente
+              Fundación Nueva Educación
             </p>
             <h1 className="m-0 font-black uppercase leading-[.98] tracking-[-.015em] text-white text-[clamp(34px,9vw,46px)] min-[901px]:text-[clamp(40px,4.4vw,56px)]">
-              Líderes de la
+              Súmate a
               <br />
-              Generación
-              <br />
-              <span className="text-brand_accent">Tractor</span>
+              <span className="text-brand_accent">Genera</span>
             </h1>
             <p className="mt-[26px] max-w-[380px] text-[16px] font-normal leading-[1.6] text-white/[0.62]">
-              Tu registro abre el acceso a la comunidad de líderes que está transformando la educación.
+              Tu registro abre el acceso a la comunidad que está transformando la educación.
             </p>
           </div>
 
@@ -233,7 +284,7 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
             ) : (
               <form onSubmit={handleSubmit} noValidate>
                 <p className="mb-[10px] text-[12px] font-semibold uppercase tracking-[.14em] text-gray-400">
-                  Registro privado
+                  Registro
                 </p>
                 <h2 className="mb-2 text-[27px] font-bold tracking-[-.01em] text-brand_primary">
                   Completa tu registro
@@ -258,6 +309,7 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
                     autoComplete="off"
                     value={form.website}
                     onChange={(event) => updateField('website', event.target.value)}
+                    data-testid="registro-website"
                   />
                 </div>
 
@@ -273,6 +325,7 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
                       value={form.firstName}
                       onChange={(event) => updateField('firstName', event.target.value)}
                       className={`${CONTROL_BASE} ${borderClasses(Boolean(errors.firstName))} text-brand_primary placeholder:text-gray-400`}
+                      data-testid="registro-first-name"
                       required
                     />
                   </Field>
@@ -288,6 +341,7 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
                       value={form.lastName}
                       onChange={(event) => updateField('lastName', event.target.value)}
                       className={`${CONTROL_BASE} ${borderClasses(Boolean(errors.lastName))} text-brand_primary placeholder:text-gray-400`}
+                      data-testid="registro-last-name"
                       required
                     />
                   </Field>
@@ -299,6 +353,7 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
                       value={form.schoolId}
                       onChange={(event) => updateField('schoolId', event.target.value)}
                       className={`${CONTROL_BASE} ${borderClasses(Boolean(errors.schoolId))} rt-select cursor-pointer pr-[42px] ${form.schoolId ? 'text-brand_primary' : 'text-gray-500'}`}
+                      data-testid="registro-school"
                       required
                       disabled={!schoolsAvailable}
                     >
@@ -311,6 +366,31 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
                     </select>
                   </Field>
 
+                  {selectedGenerations.length > 0 && (
+                    <Field
+                      id="generationId"
+                      label="Generación"
+                      full
+                      hint="Opcional — si no conoces tu generación, puedes dejarlo en blanco."
+                    >
+                      <select
+                        id="generationId"
+                        name="generationId"
+                        value={form.generationId}
+                        onChange={(event) => updateField('generationId', event.target.value)}
+                        className={`${CONTROL_BASE} ${borderClasses(false)} rt-select cursor-pointer pr-[42px] ${form.generationId ? 'text-brand_primary' : 'text-gray-500'}`}
+                        data-testid="registro-generation"
+                      >
+                        <option value="">Aún no lo sé</option>
+                        {selectedGenerations.map((generation) => (
+                          <option key={generation.id} value={generation.id}>
+                            {generation.name}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  )}
+
                   <Field id="email" label="Correo electrónico" required error={errors.email && ERROR_MESSAGES.email}>
                     <input
                       id="email"
@@ -321,6 +401,7 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
                       value={form.email}
                       onChange={(event) => updateField('email', event.target.value)}
                       className={`${CONTROL_BASE} ${borderClasses(Boolean(errors.email))} text-brand_primary placeholder:text-gray-400`}
+                      data-testid="registro-email"
                       required
                     />
                   </Field>
@@ -340,6 +421,7 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
                       value={form.birthDate}
                       onChange={(event) => updateField('birthDate', event.target.value)}
                       className={`${CONTROL_BASE} ${borderClasses(Boolean(errors.birthDate))} rt-date ${form.birthDate ? 'text-brand_primary' : 'text-gray-500'}`}
+                      data-testid="registro-birth-date"
                       required
                     />
                   </Field>
@@ -359,6 +441,7 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
                       value={form.profession}
                       onChange={(event) => updateField('profession', event.target.value)}
                       className={`${CONTROL_BASE} ${borderClasses(Boolean(errors.profession))} text-brand_primary placeholder:text-gray-400`}
+                      data-testid="registro-profession"
                       required
                     />
                   </Field>
@@ -370,6 +453,7 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
                       value={form.role}
                       onChange={(event) => updateField('role', event.target.value as TractorSignupRole)}
                       className={`${CONTROL_BASE} ${borderClasses(Boolean(errors.role))} rt-select cursor-pointer pr-[42px] ${form.role ? 'text-brand_primary' : 'text-gray-500'}`}
+                      data-testid="registro-role"
                       required
                     >
                       <option value="">Selecciona tu rol</option>
@@ -393,6 +477,7 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
                     checked={form.consentAccepted}
                     onChange={(event) => updateField('consentAccepted', event.target.checked)}
                     className="rt-check relative mt-px h-5 w-5 shrink-0 cursor-pointer appearance-none rounded-[5px] border-[1.5px] border-gray-400 bg-white transition-[background,border-color] duration-[150ms] checked:border-brand_primary checked:bg-brand_primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand_accent/[0.35]"
+                    data-testid="registro-consent"
                     required
                   />
                   <span className="text-[13.5px] leading-[1.5] text-gray-600">
@@ -425,6 +510,7 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
                     type="submit"
                     disabled={isSubmitting || !schoolsAvailable}
                     className="rt-submit inline-flex w-full shrink-0 items-center justify-center gap-[10px] rounded-lg bg-brand_primary px-[22px] py-[13px] text-[15px] font-semibold text-white transition-colors duration-[180ms] hover:bg-brand_gray_dark disabled:cursor-not-allowed disabled:opacity-[.55] min-[541px]:w-auto"
+                    data-testid="registro-submit"
                   >
                     {isSubmitting ? (
                       <>
@@ -511,6 +597,7 @@ function Field({
   required,
   full,
   error,
+  hint,
   children,
 }: {
   id: string;
@@ -518,16 +605,22 @@ function Field({
   required?: boolean;
   full?: boolean;
   error?: string | false;
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className={`flex flex-col gap-[7px] ${full ? 'min-[541px]:col-span-2' : ''}`}>
       <label htmlFor={id} className="text-[13px] font-semibold text-brand_gray_dark">
         {label}
-        {required && <span className="font-bold text-brand_accent_hover">{' *'}</span>}
+        {required && <span className="font-bold text-brand_accent_hover">{' *'}</span>}
       </label>
       {children}
-      {error && <span className="text-[12px] font-medium text-red-500">{error}</span>}
+      {error && (
+        <span role="alert" data-testid={`error-${id}`} className="text-[12px] font-medium text-red-500">
+          {error}
+        </span>
+      )}
+      {!error && hint && <span className="text-[12px] font-medium text-gray-400">{hint}</span>}
     </div>
   );
 }

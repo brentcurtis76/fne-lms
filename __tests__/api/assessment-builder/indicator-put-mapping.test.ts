@@ -121,22 +121,29 @@ describe('PUT indicator — case mapping (fix/ind-put-case)', () => {
     mockHasWritePerm.mockResolvedValue(true);
   });
 
-  it('maps camelCase descriptors and evaluationGuidance into snake_case updateData', async () => {
+  it('maps camelCase descriptors, evaluationGuidance, frequencyConfig, and frequencyUnitOptions into snake_case updateData', async () => {
     const { client, getCaptured } = buildCaptureClient(baseRow);
     mockCreateApiSupabaseClient.mockResolvedValue(client);
     mockCreateServiceRoleClient.mockReturnValue(client);
 
+    const freqCfg = { min: 1, max: 10, unit: 'week' };
+    const freqUnits = ['day', 'week', 'month'];
+
+    // No `category` in body → skips category-transition hygiene block that
+    // would otherwise null the frequency/descriptor columns. Lets us verify
+    // all seven camelCase → snake_case mappings in a single captured payload.
     const { req, res } = createMocks({
       method: 'PUT',
       query: { templateId: TEMPLATE_DRAFT_1, moduleId: MODULE_A, indicatorId: IND_TEST },
       body: {
-        category: 'profundidad',
         level0Descriptor: 'nivel 0 texto',
         level1Descriptor: 'nivel 1 texto',
         level2Descriptor: 'nivel 2 texto',
         level3Descriptor: 'nivel 3 texto',
         level4Descriptor: 'nivel 4 texto',
         evaluationGuidance: 'guía de evaluación',
+        frequencyConfig: freqCfg,
+        frequencyUnitOptions: freqUnits,
       },
     });
     await indicatorIdHandler(req as any, res as any);
@@ -150,9 +157,13 @@ describe('PUT indicator — case mapping (fix/ind-put-case)', () => {
     expect(captured!.level_3_descriptor).toBe('nivel 3 texto');
     expect(captured!.level_4_descriptor).toBe('nivel 4 texto');
     expect(captured!.evaluation_guidance).toBe('guía de evaluación');
+    expect(captured!.frequency_config).toEqual(freqCfg);
+    expect(captured!.frequency_unit_options).toEqual(freqUnits);
     // No camelCase keys should leak into updateData
     expect(captured).not.toHaveProperty('level0Descriptor');
     expect(captured).not.toHaveProperty('evaluationGuidance');
+    expect(captured).not.toHaveProperty('frequencyConfig');
+    expect(captured).not.toHaveProperty('frequencyUnitOptions');
   });
 
   it('still accepts legacy snake_case body keys', async () => {

@@ -18,7 +18,7 @@ export interface MappedIndicator {
   evaluationGuidance: AssessmentIndicator['evaluation_guidance'];
   displayOrder: AssessmentIndicator['display_order'];
   weight: AssessmentIndicator['weight'];
-  visibilityCondition?: AssessmentIndicator['visibility_condition'] | null;
+  visibilityCondition: AssessmentIndicator['visibility_condition'] | null;
   createdAt: AssessmentIndicator['created_at'];
   updatedAt: AssessmentIndicator['updated_at'];
 }

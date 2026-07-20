@@ -25,8 +25,8 @@ const GEN_TRACTOR = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const GEN_INNOVA = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 
 const SCHOOLS = [
-  { id: 1, name: 'Colegio Con Generaciones', has_generations: true },
-  { id: 2, name: 'Colegio Sin Generaciones', has_generations: false },
+  { id: 1, name: 'Colegio Con Generaciones' },
+  { id: 2, name: 'Colegio Sin Generaciones' },
 ];
 
 const GENERATIONS = [

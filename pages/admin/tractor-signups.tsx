@@ -39,7 +39,7 @@ import {
   formatDate,
   formatDateTime,
   formatExistingRoles,
-} from '../../lib/tractorSignups';
+} from '../../lib/signups';
 import { isGlobalAdmin } from '../../utils/roleUtils';
 import {
   ExistingUserBadge,
@@ -91,10 +91,13 @@ export default function TractorSignupsAdminPage() {
   const [existingFilter, setExistingFilter] = useState<ExistingFilter>('all');
 
   // Manage dialog (detail + actions). `confirmDelete` flips the dialog into its
-  // delete-confirmation state; `deleteAccount` toggles tearing down the linked
-  // platform account. `pendingAction` drives the per-button spinner.
+  // delete-confirmation state; `confirmGrant` does the same for
+  // equipo_directivo grants (school-admin tier deserves an explicit confirm);
+  // `deleteAccount` toggles tearing down the linked platform account.
+  // `pendingAction` drives the per-button spinner.
   const [manageRow, setManageRow] = useState<TractorSignup | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmGrant, setConfirmGrant] = useState(false);
   const [deleteAccount, setDeleteAccount] = useState(false);
   const [pendingAction, setPendingAction] = useState<SignupAction | null>(null);
   const busy = pendingAction !== null;
@@ -164,6 +167,7 @@ export default function TractorSignupsAdminPage() {
   const openManage = (row: TractorSignup) => {
     setManageRow(row);
     setConfirmDelete(false);
+    setConfirmGrant(false);
     setDeleteAccount(false);
   };
 
@@ -171,6 +175,7 @@ export default function TractorSignupsAdminPage() {
     if (busy) return;
     setManageRow(null);
     setConfirmDelete(false);
+    setConfirmGrant(false);
     setDeleteAccount(false);
   };
 
@@ -212,6 +217,7 @@ export default function TractorSignupsAdminPage() {
 
       setManageRow(null);
       setConfirmDelete(false);
+      setConfirmGrant(false);
       setDeleteAccount(false);
       await fetchRows();
     } catch (actionError) {
@@ -544,11 +550,54 @@ export default function TractorSignupsAdminPage() {
                 )}
               </div>
 
-              {!confirmDelete ? (
+              {confirmGrant && !confirmDelete ? (
+                <div className="mt-2 border-t border-gray-100 pt-4">
+                  <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                    <div>
+                      Estás por otorgar acceso con rol <strong>Equipo Directivo</strong> en{' '}
+                      <strong>{manageRow.school_name}</strong>. Este rol tiene permisos de
+                      administración sobre el colegio. ¿Deseas continuar?
+                    </div>
+                  </div>
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmGrant(false)}
+                      disabled={busy}
+                      data-testid="signups-grant-cancel"
+                      className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => runAction('grant')}
+                      disabled={busy}
+                      data-testid="signups-grant-confirm"
+                      className="inline-flex items-center justify-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {pendingAction === 'grant' ? (
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                      )}
+                      Confirmar acceso
+                    </button>
+                  </div>
+                </div>
+              ) : !confirmDelete ? (
                 <div className="mt-2 flex flex-col gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:justify-end">
                   <button
                     type="button"
-                    onClick={() => runAction('grant')}
+                    onClick={() => {
+                      // School-admin tier gets an explicit confirm step.
+                      if (manageRow.role === 'equipo_directivo') {
+                        setConfirmGrant(true);
+                      } else {
+                        runAction('grant');
+                      }
+                    }}
                     disabled={busy || manageRow.status === 'granted'}
                     className="inline-flex items-center justify-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
                   >

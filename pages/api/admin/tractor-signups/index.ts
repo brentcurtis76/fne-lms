@@ -17,9 +17,8 @@ import {
   isKnownSignupSource,
   isTractorSignupRole,
   isTractorSignupStatus,
-  isValidUuid,
   normalizeEmail,
-} from '../../../../lib/tractorSignups';
+} from '../../../../lib/signups';
 
 const BATCH_SIZE = 100;
 
@@ -32,6 +31,8 @@ type SignupRow = {
   email_normalized: string | null;
   school_id: number | string;
   generation_id: string | null;
+  // FK embed resolved by PostgREST in the main query (alias of generation_id).
+  generation?: { id: string; name: string | null } | null;
   birth_date: string;
   profession: string;
   role: string;
@@ -88,7 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       getAllSchools(supabase),
       supabase
         .from('tractor_signups')
-        .select('*')
+        .select('*, generation:generation_id(id, name)')
         .in('source', [...SIGNUP_SOURCES])
         .order('created_at', { ascending: false }),
     ]);
@@ -187,27 +188,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const schoolNameById = new Map(schools.map((school) => [school.id, school.name]));
 
-    const generationIds = Array.from(
-      new Set(signupRows.map((signup) => signup.generation_id).filter(isValidUuid))
-    );
-    const generationNameById = new Map<string, string>();
-
-    for (const generationIdBatch of chunk(generationIds, BATCH_SIZE)) {
-      const { data: generations, error: generationsError } = await supabase
-        .from('generations')
-        .select('id, name')
-        .in('id', generationIdBatch);
-
-      if (generationsError) {
-        console.error('[tractor-signups API] generation fetch failed:', generationsError);
-        return res.status(500).json({ error: 'Error al cargar generaciones' });
-      }
-
-      for (const generation of (generations ?? []) as { id: string; name: string | null }[]) {
-        generationNameById.set(generation.id, generation.name ?? '');
-      }
-    }
-
     const rows = signupRows.map((signup) => {
       const normalizedEmail = normalizeEmail(signup.email_normalized || signup.email);
       const existingProfile = profilesByEmail.get(normalizedEmail) ?? null;
@@ -229,9 +209,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         school_id: schoolId,
         school_name: schoolNameById.get(schoolId) ?? `Colegio ${schoolId}`,
         generation_id: signup.generation_id ?? null,
-        generation_name: signup.generation_id
-          ? generationNameById.get(signup.generation_id) ?? null
-          : null,
+        generation_name: signup.generation_id ? signup.generation?.name ?? null : null,
         birth_date: signup.birth_date,
         profession: signup.profession,
         role,

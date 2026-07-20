@@ -31,8 +31,8 @@ test.describe('registro (public generic signup)', () => {
     await page.goto('/registro');
     await page.getByTestId('registro-submit').click();
 
-    await expect(page.getByText('Ingresa tu nombre.')).toBeVisible();
-    await expect(page.getByText('Selecciona tu colegio.')).toBeVisible();
+    await expect(page.getByTestId('error-firstName')).toBeVisible();
+    await expect(page.getByTestId('error-schoolId')).toBeVisible();
     await expect(page.getByTestId('registro-first-name')).toBeFocused();
   });
 

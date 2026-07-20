@@ -9,7 +9,7 @@ import {
   TractorSignupRole,
   TractorSignupStatus,
   formatExistingRoles,
-} from '../../lib/tractorSignups';
+} from '../../lib/signups';
 
 export interface TractorSignup {
   id: string;

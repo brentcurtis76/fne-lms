@@ -13,7 +13,7 @@ import {
   isValidEmail,
   normalizeEmail,
   normalizeText,
-} from '../lib/tractorSignups';
+} from '../lib/signups';
 
 interface RegistroTractorProps {
   schools: SantaMartaSchool[];
@@ -398,7 +398,7 @@ export default function RegistroTractorPage({ schools, schoolLoadError }: Regist
                   <span className="text-[13.5px] leading-[1.5] text-gray-600">
                     Acepto el tratamiento de mis datos personales conforme a la{' '}
                     <a
-                      href="#"
+                      href="/privacidad"
                       target="_blank"
                       rel="noopener"
                       className="text-brand_primary underline underline-offset-2"

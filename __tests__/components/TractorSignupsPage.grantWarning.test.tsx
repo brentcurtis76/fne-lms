@@ -61,7 +61,7 @@ import TractorSignupsAdminPage from '../../pages/admin/tractor-signups';
 const SIGNUP_ID = '22222222-2222-4222-8222-222222222222';
 const WARNING = 'La generación no se aplicó porque el perfil pertenece a otro colegio.';
 
-function signupFixture() {
+function signupFixture(overrides: Record<string, unknown> = {}) {
   return {
     id: SIGNUP_ID,
     source: 'registro_general',
@@ -94,28 +94,36 @@ function signupFixture() {
     existing_status: null,
     existing_school_id: null,
     existing_roles: [],
+    ...overrides,
   };
 }
 
-function mockFetchRoutes(grantResponse: Record<string, unknown>) {
-  return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+function mockFetchRoutes(
+  grantResponse: Record<string, unknown>,
+  row: Record<string, unknown> = signupFixture()
+) {
+  const grantCalls: RequestInit[] = [];
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.includes('/api/admin/tractor-signups/grant')) {
       expect(init?.method).toBe('POST');
+      grantCalls.push(init as RequestInit);
       return { ok: true, json: async () => grantResponse } as Response;
     }
     if (url.includes('/api/admin/tractor-signups')) {
       return {
         ok: true,
-        json: async () => ({ signups: [signupFixture()], schools: [{ id: 55, name: 'Colegio Uno' }] }),
+        json: async () => ({ signups: [row], schools: [{ id: 55, name: 'Colegio Uno' }] }),
       } as Response;
     }
     throw new Error(`Unexpected fetch: ${url}`);
   });
+  return { fetchMock, grantCalls };
 }
 
 async function renderAndGrant(grantResponse: Record<string, unknown>) {
-  global.fetch = mockFetchRoutes(grantResponse) as unknown as typeof fetch;
+  const { fetchMock } = mockFetchRoutes(grantResponse);
+  global.fetch = fetchMock as unknown as typeof fetch;
 
   const view = render(<TractorSignupsAdminPage />);
 
@@ -161,5 +169,60 @@ describe('admin/tractor-signups — grant generation warning', () => {
 
     expect(mockToast).not.toHaveBeenCalled();
     expect(mockToastError).not.toHaveBeenCalled();
+  });
+});
+
+describe('admin/tractor-signups — equipo_directivo grant confirmation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('requires an explicit confirm step before granting an equipo_directivo signup', async () => {
+    const { fetchMock, grantCalls } = mockFetchRoutes(
+      { success: true, status: 'granted', existingUser: false, linkedUserId: 'user-1' },
+      signupFixture({ role: 'equipo_directivo', role_label: 'Equipo Directivo' })
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const view = render(<TractorSignupsAdminPage />);
+
+    const manageButtons = await view.findAllByRole('button', { name: /Gestionar/ });
+    fireEvent.click(manageButtons[0]);
+
+    // First click does NOT grant — it opens the confirmation warning.
+    const grantButton = await view.findByRole('button', { name: /Otorgar acceso/ });
+    fireEvent.click(grantButton);
+    expect(grantCalls).toHaveLength(0);
+    expect(
+      await view.findByText(/permisos de administración sobre el colegio/)
+    ).toBeInTheDocument();
+
+    // Confirming performs the grant.
+    fireEvent.click(view.getByTestId('signups-grant-confirm'));
+    await waitFor(() => {
+      expect(mockToastSuccess).toHaveBeenCalledWith('Acceso otorgado');
+    });
+    expect(grantCalls).toHaveLength(1);
+  });
+
+  it('docente grants go through directly without the confirm step', async () => {
+    const { fetchMock, grantCalls } = mockFetchRoutes(
+      { success: true, status: 'granted', existingUser: false, linkedUserId: 'user-1' },
+      signupFixture()
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const view = render(<TractorSignupsAdminPage />);
+    const manageButtons = await view.findAllByRole('button', { name: /Gestionar/ });
+    fireEvent.click(manageButtons[0]);
+
+    const grantButton = await view.findByRole('button', { name: /Otorgar acceso/ });
+    fireEvent.click(grantButton);
+
+    await waitFor(() => {
+      expect(mockToastSuccess).toHaveBeenCalledWith('Acceso otorgado');
+    });
+    expect(grantCalls).toHaveLength(1);
+    expect(view.queryByTestId('signups-grant-confirm')).not.toBeInTheDocument();
   });
 });

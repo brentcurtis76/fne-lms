@@ -113,6 +113,44 @@ A warning never fails the grant; the admin UI surfaces it as an informational to
    component test (truly deterministic) and kept the e2e spec to environment-independent flows
    (precondition: ≥1 school; fails loudly, never skips). Judge whether that deviation is acceptable.
 
+## Post-review fixes (2026-07-20, same branch)
+
+A /code-review (high effort, 8 finder angles + adversarial verify) produced 10 findings plus 6
+lower-tier items; ALL 16 were applied:
+
+1. **Dismissed-signup black hole** — the shared dedup now re-opens a dismissed signup as
+   `pending` with the fresh submission data (both flows); pending/granted keep silent success.
+2. **Consent link** — `href="#"` replaced by a real public page **/privacidad**
+   (`pages/privacidad.tsx`), sharing content with the footer modal via the extracted
+   `components/PrivacyPolicyContent.tsx`; fixed on BOTH registro pages.
+3. **GoTrue duplicate-user 409** — catch now matches `error.code === 'email_exists'` /
+   'already been registered' (the old 'already exists' substring never matched).
+4. **equipo_directivo grant friction** — the admin dialog now requires an explicit confirm step
+   (amber warning naming the school) before granting school-admin-tier signups.
+5. **e2e selectors** — validation-error spans got `role="alert"` + `data-testid="error-<id>"`;
+   the spec uses getByTestId per CLAUDE.md.
+6. **isKnownSignupSource** — membership derived from `SIGNUP_SOURCES.includes` (no drift).
+7. **Endpoint duplication** — both public routes are now thin configs over
+   `lib/signupSubmission.ts` (shared honeypot/validation/dedup/insert contract, ~15 lines each).
+8. **Generation contract** — extracted to pure `deriveGenerationOutcome()` in the lib
+   (single call site in grant.ts, direct unit tests in `__tests__/lib/signups.test.ts`).
+9. **Submit round-trips** — school/generation/dedup reads run in one `Promise.all`
+   (error precedence preserved).
+10. **Dead payload** — `has_generations` dropped; `SchoolWithGenerations` → `SchoolOption`.
+11. **UUID duplication** — `isValidUuid` delegates to the canonical `Validators.isUUID`.
+12. **Test stub** — shared `__tests__/helpers/supabaseStub.ts`; both new API suites use it.
+13. **Module rename** — `lib/tractorSignups.ts` → `lib/signups.ts` (imports updated repo-wide;
+    tractor files touched only on import lines + consent link).
+14. **GSSP** — schools/generations queries parallelized; `Cache-Control: s-maxage=300,
+    stale-while-revalidate=600` on success responses.
+15. **Admin list** — generation names resolved via the FK embed
+    (`generation:generation_id(id, name)`) in the main query; chunk loop deleted.
+16. **Invite email copy** — per-source `SIGNUP_SOURCE_INVITE_BODY` Record (exhaustive by type).
+
+Note on scope: `/registro-tractor` now shares `lib/signupSubmission.ts`, so it gained exactly two
+behavior changes — the dismissed re-open (fix 1) and the real consent link (fix 2); everything
+else about it is unchanged.
+
 ## Known limitations / deferred
 
 - **Prod migration: APPLIED 2026-07-20** (explicitly authorized by Brent in-session) via the

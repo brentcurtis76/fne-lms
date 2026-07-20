@@ -6,7 +6,7 @@ import { ArrowRight, Check, Loader2, ShieldCheck } from 'lucide-react';
 import { createServiceRoleClient } from '../lib/api-auth';
 import {
   GenerationOption,
-  SchoolWithGenerations,
+  SchoolOption,
   TRACTOR_ROLE_LABELS,
   TractorSignupRole,
   getAllGenerations,
@@ -15,10 +15,10 @@ import {
   isValidEmail,
   normalizeEmail,
   normalizeText,
-} from '../lib/tractorSignups';
+} from '../lib/signups';
 
 interface RegistroProps {
-  schools: SchoolWithGenerations[];
+  schools: SchoolOption[];
   generations: GenerationOption[];
   schoolLoadError: boolean;
 }
@@ -80,27 +80,34 @@ const FOCUS_ORDER: Exclude<FieldError, 'consent'>[] = [
   'role',
 ];
 
-export const getServerSideProps: GetServerSideProps<RegistroProps> = async () => {
+export const getServerSideProps: GetServerSideProps<RegistroProps> = async (context) => {
   const supabase = createServiceRoleClient();
 
   // Schools are required: without them the form is disabled. Generations are
-  // optional metadata, so a failure there only hides the selector.
-  let schools: SchoolWithGenerations[] = [];
+  // optional metadata, so a failure there only hides the selector. The two
+  // queries are independent — run them concurrently; the generations result
+  // is discarded when schools fail.
+  const schoolsPromise = getAllSchools(supabase);
+  const generationsPromise = getAllGenerations(supabase).catch((error) => {
+    console.error('[registro] Failed to load generations (selector hidden):', error);
+    return [] as GenerationOption[];
+  });
+
+  let schools: SchoolOption[] = [];
   let schoolLoadError = false;
   try {
-    schools = await getAllSchools(supabase);
+    schools = await schoolsPromise;
   } catch (error) {
     console.error('[registro] Failed to load schools:', error);
     schoolLoadError = true;
   }
 
-  let generations: GenerationOption[] = [];
+  const generations = schoolLoadError ? [] : await generationsPromise;
+
   if (!schoolLoadError) {
-    try {
-      generations = await getAllGenerations(supabase);
-    } catch (error) {
-      console.error('[registro] Failed to load generations (selector hidden):', error);
-    }
+    // Public, rarely-changing data: let the CDN absorb repeat views. Errors
+    // are not cached so a transient failure doesn't stick for 5 minutes.
+    context.res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
   }
 
   return { props: { schools, generations, schoolLoadError } };
@@ -476,7 +483,7 @@ export default function RegistroPage({ schools, generations, schoolLoadError }: 
                   <span className="text-[13.5px] leading-[1.5] text-gray-600">
                     Acepto el tratamiento de mis datos personales conforme a la{' '}
                     <a
-                      href="#"
+                      href="/privacidad"
                       target="_blank"
                       rel="noopener"
                       className="text-brand_primary underline underline-offset-2"
@@ -608,7 +615,11 @@ function Field({
         {required && <span className="font-bold text-brand_accent_hover">{' *'}</span>}
       </label>
       {children}
-      {error && <span className="text-[12px] font-medium text-red-500">{error}</span>}
+      {error && (
+        <span role="alert" data-testid={`error-${id}`} className="text-[12px] font-medium text-red-500">
+          {error}
+        </span>
+      )}
       {!error && hint && <span className="text-[12px] font-medium text-gray-400">{hint}</span>}
     </div>
   );

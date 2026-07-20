@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { Validators } from './types/api-auth.types';
 
 export const TRACTOR_SIGNUP_SOURCE = 'lideres_generacion_tractor';
 export const GENERAL_SIGNUP_SOURCE = 'registro_general';
@@ -12,8 +13,16 @@ export const SIGNUP_SOURCE_LABELS: Record<SignupSource, string> = {
   [GENERAL_SIGNUP_SOURCE]: 'Registro general',
 };
 
+// Per-source body line for the grant invitation email. A Record (not a
+// conditional) so adding a source forces an explicit copy decision.
+export const SIGNUP_SOURCE_INVITE_BODY: Record<SignupSource, string> = {
+  [TRACTOR_SIGNUP_SOURCE]:
+    'Ya puedes activar tu cuenta para ingresar a la plataforma Genera como parte de Líderes de la Generación Tractor.',
+  [GENERAL_SIGNUP_SOURCE]: 'Ya puedes activar tu cuenta para ingresar a la plataforma Genera.',
+};
+
 export function isKnownSignupSource(value: unknown): value is SignupSource {
-  return value === TRACTOR_SIGNUP_SOURCE || value === GENERAL_SIGNUP_SOURCE;
+  return typeof value === 'string' && (SIGNUP_SOURCES as readonly string[]).includes(value);
 }
 
 export type TractorSignupRole = 'docente' | 'equipo_directivo';
@@ -151,10 +160,9 @@ export async function isSantaMartaSchoolId(
   return schools.some((school) => school.id === schoolId);
 }
 
-export interface SchoolWithGenerations {
+export interface SchoolOption {
   id: number;
   name: string;
-  has_generations: boolean;
 }
 
 export interface GenerationOption {
@@ -163,16 +171,14 @@ export interface GenerationOption {
   school_id: number;
 }
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export function isValidUuid(value: unknown): value is string {
-  return typeof value === 'string' && UUID_PATTERN.test(value);
+  return typeof value === 'string' && Validators.isUUID(value);
 }
 
-export async function getAllSchools(supabase: SupabaseClient): Promise<SchoolWithGenerations[]> {
+export async function getAllSchools(supabase: SupabaseClient): Promise<SchoolOption[]> {
   const { data: schools, error } = await supabase
     .from('schools')
-    .select('id, name, has_generations')
+    .select('id, name')
     .order('name', { ascending: true });
 
   if (error) {
@@ -180,12 +186,11 @@ export async function getAllSchools(supabase: SupabaseClient): Promise<SchoolWit
   }
 
   return (schools ?? [])
-    .map((school: { id?: number | string | null; name?: string | null; has_generations?: boolean | null }) => ({
+    .map((school: { id?: number | string | null; name?: string | null }) => ({
       id: Number(school.id),
       name: school.name ?? '',
-      has_generations: school.has_generations === true,
     }))
-    .filter((school: SchoolWithGenerations) => Number.isSafeInteger(school.id) && school.id > 0 && school.name.length > 0);
+    .filter((school: SchoolOption) => Number.isSafeInteger(school.id) && school.id > 0 && school.name.length > 0);
 }
 
 export async function getAllGenerations(supabase: SupabaseClient): Promise<GenerationOption[]> {
@@ -213,8 +218,74 @@ export async function getAllGenerations(supabase: SupabaseClient): Promise<Gener
     );
 }
 
+export interface GenerationOutcome {
+  applied: boolean;
+  warning: string | null;
+}
+
+export const GENERATION_WARNINGS = {
+  stale: 'La generación del registro ya no corresponde al colegio; se otorgó sin generación.',
+  crossSchool: 'La generación no se aplicó porque el perfil pertenece a otro colegio.',
+  differentGeneration: 'El perfil ya tiene otra generación asignada; no se modificó.',
+} as const;
+
+/**
+ * Pure application of the fill-only-if-safe generation contract (see the table
+ * in docs/planning/reviews/feat-registro-gen-review-request.md). Only ever
+ * targets profiles.generation_id — user_roles.generation_id is reserved for
+ * lider_generacion and is never written by signup flows.
+ *
+ * `resolution` is the outcome of the async ownership check: generationId is
+ * the validated id (or null), warning carries the stale-generation message
+ * when validation failed.
+ */
+export function deriveGenerationOutcome(
+  resolution: { generationId: string | null; warning: string | null },
+  profile: { school_id: number | string | null; generation_id: string | null } | null,
+  schoolId: number
+): { writeGenerationId: string | null; generation: GenerationOutcome } {
+  if (!resolution.generationId) {
+    return { writeGenerationId: null, generation: { applied: false, warning: resolution.warning } };
+  }
+
+  // New user: the profile is created with the validated generation.
+  if (!profile) {
+    return {
+      writeGenerationId: resolution.generationId,
+      generation: { applied: true, warning: null },
+    };
+  }
+
+  // A profile without a school is being backfilled to the signup's school,
+  // so the generation can follow it.
+  const profileMatchesSchool = !profile.school_id || Number(profile.school_id) === schoolId;
+  if (!profileMatchesSchool) {
+    return {
+      writeGenerationId: null,
+      generation: { applied: false, warning: GENERATION_WARNINGS.crossSchool },
+    };
+  }
+
+  if (!profile.generation_id) {
+    return {
+      writeGenerationId: resolution.generationId,
+      generation: { applied: true, warning: null },
+    };
+  }
+
+  if (profile.generation_id === resolution.generationId) {
+    // Already correct — nothing to write.
+    return { writeGenerationId: null, generation: { applied: true, warning: null } };
+  }
+
+  return {
+    writeGenerationId: null,
+    generation: { applied: false, warning: GENERATION_WARNINGS.differentGeneration },
+  };
+}
+
 // Single ownership check: the generation must exist AND belong to the school.
-// has_generations is a denormalized display flag and is never consulted here.
+// The denormalized schools.has_generations flag is never consulted here.
 export async function findGenerationForSchool(
   supabase: SupabaseClient,
   generationId: string,

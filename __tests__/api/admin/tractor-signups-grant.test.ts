@@ -9,6 +9,14 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
+import {
+  StubOptions,
+  TableResult,
+  Tracker,
+  buildClient,
+  findPayloads,
+  makeTracker,
+} from '../../helpers/supabaseStub';
 
 const { mockCheckIsAdmin, mockCreateServiceRoleClient } = vi.hoisted(() => ({
   mockCheckIsAdmin: vi.fn(),
@@ -51,140 +59,6 @@ const GEN_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const OTHER_GEN_ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const SCHOOL_ID = 55;
 const OTHER_SCHOOL_ID = 77;
-
-interface TableResult {
-  data?: unknown;
-  error?: unknown;
-}
-
-interface FromCall {
-  table: string;
-  index: number;
-  inserts: unknown[];
-  updates: unknown[];
-  upserts: unknown[];
-  deletes: number;
-  eqs: Array<{ col: string; val: unknown }>;
-}
-
-interface Tracker {
-  fromCalls: FromCall[];
-  rpcCalls: Array<{ fn: string }>;
-  // Global operation log to assert ordering across from() and rpc() calls.
-  ops: string[];
-}
-
-function makeTracker(): Tracker {
-  return { fromCalls: [], rpcCalls: [], ops: [] };
-}
-
-function buildClient(
-  resultsByTable: Record<string, TableResult[]>,
-  tracker: Tracker,
-  options: {
-    rpcResult?: TableResult;
-    createUserResult?: { data: unknown; error: unknown };
-    generateLinkResult?: { data: unknown; error: unknown };
-  } = {}
-) {
-  const indices: Record<string, number> = {};
-  const rpcResult = options.rpcResult ?? { data: null, error: null };
-
-  return {
-    from: vi.fn((table: string) => {
-      const idx = indices[table] ?? 0;
-      indices[table] = idx + 1;
-      const result = resultsByTable[table]?.[idx] ?? { data: null, error: null };
-
-      const fromCall: FromCall = {
-        table,
-        index: idx,
-        inserts: [],
-        updates: [],
-        upserts: [],
-        deletes: 0,
-        eqs: [],
-      };
-      tracker.fromCalls.push(fromCall);
-      tracker.ops.push(`from:${table}`);
-
-      const resolved = { data: result.data ?? null, error: result.error ?? null };
-
-      const proxyHandler: ProxyHandler<Record<string, unknown>> = {
-        get(_t, prop) {
-          if (prop === 'then') {
-            return (resolve: (v: unknown) => void) => resolve(resolved);
-          }
-          if (prop === 'insert') {
-            return vi.fn((arg: unknown) => {
-              fromCall.inserts.push(arg);
-              return new Proxy({}, proxyHandler);
-            });
-          }
-          if (prop === 'update') {
-            return vi.fn((arg: unknown) => {
-              fromCall.updates.push(arg);
-              return new Proxy({}, proxyHandler);
-            });
-          }
-          if (prop === 'upsert') {
-            return vi.fn((arg: unknown) => {
-              fromCall.upserts.push(arg);
-              return new Proxy({}, proxyHandler);
-            });
-          }
-          if (prop === 'delete') {
-            return vi.fn(() => {
-              fromCall.deletes += 1;
-              return new Proxy({}, proxyHandler);
-            });
-          }
-          if (prop === 'eq') {
-            return vi.fn((col: string, val: unknown) => {
-              fromCall.eqs.push({ col, val });
-              return new Proxy({}, proxyHandler);
-            });
-          }
-          if (prop === 'single' || prop === 'maybeSingle') {
-            return vi.fn(() => ({
-              then: (resolve: (v: unknown) => void) => resolve(resolved),
-            }));
-          }
-          return vi.fn(() => new Proxy({}, proxyHandler));
-        },
-      };
-      return new Proxy({}, proxyHandler);
-    }),
-    rpc: vi.fn((fn: string) => {
-      tracker.rpcCalls.push({ fn });
-      tracker.ops.push(`rpc:${fn}`);
-      const r = { data: rpcResult.data ?? null, error: rpcResult.error ?? null };
-      return { then: (resolve: (v: unknown) => void) => resolve(r) };
-    }),
-    auth: {
-      admin: {
-        createUser: vi.fn(async () => {
-          tracker.ops.push('auth:createUser');
-          return (
-            options.createUserResult ?? {
-              data: { user: { id: CREATED_USER_ID } },
-              error: null,
-            }
-          );
-        }),
-        generateLink: vi.fn(async () => {
-          tracker.ops.push('auth:generateLink');
-          return (
-            options.generateLinkResult ?? {
-              data: { properties: { action_link: 'https://example.com/recovery' } },
-              error: null,
-            }
-          );
-        }),
-      },
-    },
-  };
-}
 
 function signupRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -246,20 +120,19 @@ function existingUserTables(
   };
 }
 
-function findPayloads(tracker: Tracker, table: string, kind: 'inserts' | 'updates' | 'upserts') {
-  return tracker.fromCalls
-    .filter((c) => c.table === table)
-    .flatMap((c) => c[kind]) as Record<string, unknown>[];
-}
-
 async function run(
   tables: Record<string, TableResult[]>,
   body: Record<string, unknown> = { signupId: SIGNUP_ID, action: 'grant' },
-  options: Parameters<typeof buildClient>[2] = {}
+  options: StubOptions = {}
 ) {
-  const tracker = makeTracker();
+  const tracker: Tracker = makeTracker();
   mockCheckIsAdmin.mockResolvedValue({ isAdmin: true, user: { id: ADMIN_ID }, error: null });
-  mockCreateServiceRoleClient.mockReturnValue(buildClient(tables, tracker, options));
+  mockCreateServiceRoleClient.mockReturnValue(
+    buildClient(tables, tracker, {
+      createUserResult: { data: { user: { id: CREATED_USER_ID } }, error: null },
+      ...options,
+    })
+  );
   const { req, res } = createMocks({ method: 'POST', body });
   await handler(req as never, res as never);
   return { res, tracker };

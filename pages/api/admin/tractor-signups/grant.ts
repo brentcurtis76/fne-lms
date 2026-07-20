@@ -6,16 +6,19 @@ import { isGlobalAdmin } from '../../../../utils/roleUtils';
 import { teardownPlatformUser } from '../../../../lib/userTeardown';
 import { logDataAccessEvent } from '../../../../lib/securityAuditLog';
 import {
+  GENERATION_WARNINGS,
+  SIGNUP_SOURCE_INVITE_BODY,
+  SignupSource,
   TRACTOR_ROLE_LABELS,
-  TRACTOR_SIGNUP_SOURCE,
   TractorSignupRole,
+  deriveGenerationOutcome,
   findGenerationForSchool,
   getFullName,
   isKnownSignupSource,
   isTractorSignupRole,
   isValidEmail,
   normalizeEmail,
-} from '../../../../lib/tractorSignups';
+} from '../../../../lib/signups';
 
 type SignupRow = {
   id: string;
@@ -42,11 +45,6 @@ type ProfileRow = {
   school_id: number | null;
   generation_id: string | null;
   approval_status: string | null;
-};
-
-type GenerationOutcome = {
-  applied: boolean;
-  warning: string | null;
 };
 
 function getBaseUrl(req: NextApiRequest): string {
@@ -302,6 +300,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const signupRow = signup as SignupRow;
+    const signupSource: SignupSource = signup.source;
 
     if (action === 'delete') {
       // Optionally tear down the provisioned platform account. Only possible
@@ -386,12 +385,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const role = signupRow.role;
     const schoolName = await getSchoolName(supabase, schoolId);
 
-    // Resolve the signup's optional generation. Fail-soft: a stale or
-    // school-mismatched generation never blocks the grant itself. Note this
-    // only ever touches profiles.generation_id — user_roles.generation_id is
-    // reserved for lider_generacion and stays null for these roles.
-    let validGenerationId: string | null = null;
-    let generation: GenerationOutcome = { applied: false, warning: null };
+    // Resolve the signup's optional generation (async ownership check), then
+    // let the pure contract in lib/signups decide what gets written where.
+    // Fail-soft: a stale or school-mismatched generation never blocks the
+    // grant itself, and only profiles.generation_id is ever touched —
+    // user_roles.generation_id is reserved for lider_generacion.
+    const resolution: { generationId: string | null; warning: string | null } = {
+      generationId: null,
+      warning: null,
+    };
     if (signupRow.generation_id) {
       const belongsToSchool = await findGenerationForSchool(
         supabase,
@@ -399,12 +401,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         schoolId
       );
       if (belongsToSchool) {
-        validGenerationId = signupRow.generation_id;
+        resolution.generationId = signupRow.generation_id;
       } else {
-        generation = {
-          applied: false,
-          warning: 'La generación del registro ya no corresponde al colegio; se otorgó sin generación.',
-        };
+        resolution.warning = GENERATION_WARNINGS.stale;
         console.warn('[tractor-signups grant] signup generation no longer matches school', {
           signupId,
           generationId: signupRow.generation_id,
@@ -414,6 +413,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const existingProfile = await findProfileByEmail(supabase, email);
+    const { writeGenerationId, generation } = deriveGenerationOutcome(
+      resolution,
+      existingProfile,
+      schoolId
+    );
 
     if (existingProfile) {
       await ensureRole(supabase, existingProfile.id, role, schoolId, adminUser.id);
@@ -425,32 +429,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!existingProfile.first_name) profileUpdates.first_name = signupRow.first_name;
       if (!existingProfile.last_name) profileUpdates.last_name = signupRow.last_name;
       if (!existingProfile.name) profileUpdates.name = getFullName(signupRow.first_name, signupRow.last_name);
-      const backfillingSchool = !existingProfile.school_id;
-      if (backfillingSchool) {
+      if (!existingProfile.school_id) {
         profileUpdates.school_id = schoolId;
         profileUpdates.school = schoolName;
       }
-
-      if (validGenerationId) {
-        const profileMatchesSchool =
-          backfillingSchool || Number(existingProfile.school_id) === schoolId;
-        if (!profileMatchesSchool) {
-          generation = {
-            applied: false,
-            warning: 'La generación no se aplicó porque el perfil pertenece a otro colegio.',
-          };
-        } else if (!existingProfile.generation_id) {
-          profileUpdates.generation_id = validGenerationId;
-          generation = { applied: true, warning: null };
-        } else if (existingProfile.generation_id === validGenerationId) {
-          // Profile already carries the signup's generation — nothing to write.
-          generation = { applied: true, warning: null };
-        } else {
-          generation = {
-            applied: false,
-            warning: 'El perfil ya tiene otra generación asignada; no se modificó.',
-          };
-        }
+      if (writeGenerationId) {
+        profileUpdates.generation_id = writeGenerationId;
       }
 
       const { error: profileUpdateError } = await supabase
@@ -504,7 +488,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           name: fullName,
           school_id: schoolId,
           school: schoolName,
-          generation_id: validGenerationId,
+          generation_id: writeGenerationId,
           approval_status: 'approved',
           must_change_password: true,
         },
@@ -513,10 +497,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (profileError) {
         throw profileError;
-      }
-
-      if (validGenerationId) {
-        generation = { applied: true, warning: null };
       }
 
       await ensureRole(supabase, createdUserId, role, schoolId, adminUser.id);
@@ -540,10 +520,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         to: email,
         firstName: signupRow.first_name,
         actionLink,
-        bodyLine:
-          signupRow.source === TRACTOR_SIGNUP_SOURCE
-            ? 'Ya puedes activar tu cuenta para ingresar a la plataforma Genera como parte de Líderes de la Generación Tractor.'
-            : 'Ya puedes activar tu cuenta para ingresar a la plataforma Genera.',
+        bodyLine: SIGNUP_SOURCE_INVITE_BODY[signupSource],
       });
 
       return res.status(200).json({
@@ -564,7 +541,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } catch (error: any) {
     console.error('[tractor-signups grant] unexpected error:', error);
 
-    if (error?.message?.includes('already exists')) {
+    // GoTrue's duplicate-user error: code 'email_exists', message
+    // 'A user with this email address has already been registered'.
+    if (
+      error?.code === 'email_exists' ||
+      error?.message?.includes('already been registered') ||
+      error?.message?.includes('already exists')
+    ) {
       return res.status(409).json({ error: 'Ya existe un usuario con este correo' });
     }
 

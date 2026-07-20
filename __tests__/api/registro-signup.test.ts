@@ -3,11 +3,19 @@
  * /api/registro-signup — public generic self-registration endpoint.
  *
  * Mirrors the tractor-signup flow but accepts any school plus an optional
- * generation that must belong to the selected school. Uses the sequenced
- * supabase stub pattern from assign-role.test.ts.
+ * generation that must belong to the selected school. Both routes share
+ * lib/signupSubmission.ts, so this suite also covers the shared contract
+ * (honeypot, dedup incl. dismissed re-open, silent 23505 success).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
+import {
+  TableResult,
+  buildClient,
+  countInserts,
+  findPayloads,
+  makeTracker,
+} from '../helpers/supabaseStub';
 
 const { mockCreateServiceRoleClient } = vi.hoisted(() => ({
   mockCreateServiceRoleClient: vi.fn(),
@@ -32,83 +40,8 @@ import handler from '../../pages/api/registro-signup';
 const SCHOOL_ID = 55;
 const GEN_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 
-interface TableResult {
-  data?: unknown;
-  error?: unknown;
-}
-
-interface FromCall {
-  table: string;
-  index: number;
-  inserts: unknown[];
-  eqs: Array<{ col: string; val: unknown }>;
-}
-
-interface Tracker {
-  fromCalls: FromCall[];
-}
-
-function makeTracker(): Tracker {
-  return { fromCalls: [] };
-}
-
-function buildClient(resultsByTable: Record<string, TableResult[]>, tracker: Tracker) {
-  const indices: Record<string, number> = {};
-
-  return {
-    from: vi.fn((table: string) => {
-      const idx = indices[table] ?? 0;
-      indices[table] = idx + 1;
-      const result = resultsByTable[table]?.[idx] ?? { data: null, error: null };
-
-      const fromCall: FromCall = { table, index: idx, inserts: [], eqs: [] };
-      tracker.fromCalls.push(fromCall);
-
-      const resolved = { data: result.data ?? null, error: result.error ?? null };
-
-      const proxyHandler: ProxyHandler<Record<string, unknown>> = {
-        get(_t, prop) {
-          if (prop === 'then') {
-            return (resolve: (v: unknown) => void) => resolve(resolved);
-          }
-          if (prop === 'insert') {
-            return vi.fn((arg: unknown) => {
-              fromCall.inserts.push(arg);
-              return new Proxy({}, proxyHandler);
-            });
-          }
-          if (prop === 'eq') {
-            return vi.fn((col: string, val: unknown) => {
-              fromCall.eqs.push({ col, val });
-              return new Proxy({}, proxyHandler);
-            });
-          }
-          if (prop === 'single' || prop === 'maybeSingle') {
-            return vi.fn(() => ({
-              then: (resolve: (v: unknown) => void) => resolve(resolved),
-            }));
-          }
-          return vi.fn(() => new Proxy({}, proxyHandler));
-        },
-      };
-      return new Proxy({}, proxyHandler);
-    }),
-  };
-}
-
-function countInserts(tracker: Tracker, table: string) {
-  return tracker.fromCalls
-    .filter((c) => c.table === table)
-    .reduce((sum, c) => sum + c.inserts.length, 0);
-}
-
-function findInsertPayload(tracker: Tracker, table: string): Record<string, unknown> | undefined {
-  for (const call of tracker.fromCalls) {
-    if (call.table === table && call.inserts.length > 0) {
-      return call.inserts[0] as Record<string, unknown>;
-    }
-  }
-  return undefined;
+function findInsertPayload(tracker: ReturnType<typeof makeTracker>, table: string) {
+  return findPayloads(tracker, table, 'inserts')[0];
 }
 
 function validBody(overrides: Record<string, unknown> = {}) {
@@ -307,7 +240,7 @@ describe('api/registro-signup — dedup and insert failures', () => {
     vi.clearAllMocks();
   });
 
-  it('existing signup with the same email → silent success, no insert', async () => {
+  it('existing pending signup with the same email → silent success, no insert', async () => {
     const { res, tracker } = await run(
       validBody(),
       happyTables({ tractor_signups: [{ data: { id: 'row-1', status: 'pending' } }] })
@@ -315,6 +248,44 @@ describe('api/registro-signup — dedup and insert failures', () => {
     expect(res._getStatusCode()).toBe(200);
     expect(res._getJSONData()).toEqual({ success: true });
     expect(countInserts(tracker, 'tractor_signups')).toBe(0);
+    expect(findPayloads(tracker, 'tractor_signups', 'updates')).toHaveLength(0);
+  });
+
+  it('dismissed signup is re-opened as pending with the fresh submission data', async () => {
+    const { res, tracker } = await run(
+      validBody({ generationId: GEN_ID }),
+      happyTables({
+        tractor_signups: [{ data: { id: 'row-1', status: 'dismissed' } }, { data: null }],
+      })
+    );
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData()).toEqual({ success: true });
+    expect(countInserts(tracker, 'tractor_signups')).toBe(0);
+
+    const update = findPayloads(tracker, 'tractor_signups', 'updates')[0];
+    expect(update).toMatchObject({
+      source: 'registro_general',
+      first_name: 'Ana',
+      school_id: SCHOOL_ID,
+      generation_id: GEN_ID,
+      status: 'pending',
+      linked_user_id: null,
+      granted_by: null,
+      granted_at: null,
+    });
+  });
+
+  it('reopen failure → 500', async () => {
+    const { res } = await run(
+      validBody(),
+      happyTables({
+        tractor_signups: [
+          { data: { id: 'row-1', status: 'dismissed' } },
+          { error: { message: 'boom' } },
+        ],
+      })
+    );
+    expect(res._getStatusCode()).toBe(500);
   });
 
   it('cross-source dedup: email already registered via the Tractor flow → silent success, original row untouched', async () => {

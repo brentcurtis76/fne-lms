@@ -44,7 +44,7 @@
   - `/.eslintrc.testid.json` + `npm run lint:testid` (advisory hasta limpiar baseline)
   - `CLAUDE.md` reescrito (9 roles reales, <200 líneas) + `AGENTS.md` espejo + `docs/ci-setup.md`
 - CI commands: ver `docs/ci-setup.md`. Runners: node 22, npm ci, Supabase CLI latest (setup-cli), Playwright chromium
-- **Registro público (2026-07-20, `feat/registro-gen`):** `/registro` (todas las escuelas + generación opcional) junto a `/registro-tractor` (Santa Marta, sin cambios); ambos alimentan `/admin/tractor-signups` (panel renombrado "Registros", filtro por origen). API nueva `/api/registro-signup`; grant extendido (fuente ampliada, generación a `profiles`, warning fail-soft, `refresh_user_roles_cache`). Tests: pgTAP `020-tractor-signups-rls.sql`, e2e `tests/e2e/registro.spec.ts` (local, no gate CI)
+- **Registro público (2026-07-20, `feat/registro-gen`):** `/registro` (todas las escuelas + generación opcional) junto a `/registro-tractor` (Santa Marta); ambos alimentan `/admin/tractor-signups` (panel "Registros", filtro por origen, confirmación extra para grants de equipo_directivo). Ambos endpoints comparten `lib/signupSubmission.ts` (dedup re-abre registros descartados); helpers compartidos en `lib/signups.ts` (ex `tractorSignups.ts`); contrato de generación en `deriveGenerationOutcome()`. Página pública nueva `/privacidad` (Ley 21.719, contenido compartido con el modal del footer) — los checkboxes de consentimiento enlazan ahí. Tests: pgTAP `020-tractor-signups-rls.sql`, e2e `tests/e2e/registro.spec.ts` (local, no gate CI), stub supabase compartido `__tests__/helpers/supabaseStub.ts`
 
 ## Test status
 - **Typecheck**: PASS local (tsc --noEmit incremental, 0 errores, sandbox 2026-07-07). Full cold-check → Gate 1 en primer PR

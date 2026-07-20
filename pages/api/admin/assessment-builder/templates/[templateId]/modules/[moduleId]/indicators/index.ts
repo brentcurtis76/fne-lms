@@ -4,6 +4,7 @@ import { IndicatorCategory } from '@/types/assessment-builder';
 import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-builder/autoAssignmentService';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 import { validateDetalleOptions } from '@/lib/validation/detalleValidator';
+import { mapIndicatorRow } from '@/lib/services/assessment-builder/indicatorMapper';
 
 /**
  * GET /api/admin/assessment-builder/templates/[templateId]/modules/[moduleId]/indicators
@@ -98,27 +99,7 @@ async function handleGet(
 
     return res.status(200).json({
       success: true,
-      indicators: indicators.map((ind: any) => ({
-        id: ind.id,
-        moduleId: ind.module_id,
-        code: ind.code,
-        name: ind.name,
-        description: ind.description,
-        category: ind.category,
-        frequencyConfig: ind.frequency_config,
-        frequencyUnitOptions: ind.frequency_unit_options,
-        level0Descriptor: ind.level_0_descriptor,
-        level1Descriptor: ind.level_1_descriptor,
-        level2Descriptor: ind.level_2_descriptor,
-        level3Descriptor: ind.level_3_descriptor,
-        level4Descriptor: ind.level_4_descriptor,
-        detalleOptions: ind.detalle_options,
-        evaluationGuidance: ind.evaluation_guidance,
-        displayOrder: ind.display_order,
-        weight: ind.weight,
-        createdAt: ind.created_at,
-        updatedAt: ind.updated_at,
-      })),
+      indicators: indicators.map((ind: any) => mapIndicatorRow(ind)),
     });
   } catch (err: any) {
     console.error('Unexpected error fetching indicators:', err);
@@ -255,27 +236,7 @@ async function handlePost(
 
     return res.status(201).json({
       success: true,
-      indicator: {
-        id: indicator.id,
-        moduleId: indicator.module_id,
-        code: indicator.code,
-        name: indicator.name,
-        description: indicator.description,
-        category: indicator.category,
-        frequencyConfig: indicator.frequency_config,
-        frequencyUnitOptions: indicator.frequency_unit_options,
-        level0Descriptor: indicator.level_0_descriptor,
-        level1Descriptor: indicator.level_1_descriptor,
-        level2Descriptor: indicator.level_2_descriptor,
-        level3Descriptor: indicator.level_3_descriptor,
-        level4Descriptor: indicator.level_4_descriptor,
-        detalleOptions: indicator.detalle_options,
-        evaluationGuidance: indicator.evaluation_guidance,
-        displayOrder: indicator.display_order,
-        weight: indicator.weight,
-        createdAt: indicator.created_at,
-        updatedAt: indicator.updated_at,
-      },
+      indicator: mapIndicatorRow(indicator),
       snapshotUpdated: snapshotResult.success,
     });
   } catch (err: any) {

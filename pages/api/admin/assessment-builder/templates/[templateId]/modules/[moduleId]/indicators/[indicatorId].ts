@@ -4,6 +4,7 @@ import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-build
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 import type { IndicatorCategory } from '@/types/assessment-builder';
 import { validateDetalleOptions } from '@/lib/validation/detalleValidator';
+import { mapIndicatorRow } from '@/lib/services/assessment-builder/indicatorMapper';
 
 const VALID_CATEGORIES: IndicatorCategory[] = ['cobertura', 'frecuencia', 'profundidad', 'traspaso', 'detalle'];
 
@@ -142,7 +143,7 @@ async function handleGet(
 
     return res.status(200).json({
       success: true,
-      indicator
+      indicator: mapIndicatorRow(indicator),
     });
 
   } catch (err: any) {
@@ -162,29 +163,49 @@ async function handlePut(
   userId: string
 ) {
   try {
-    const {
-      code,
-      name,
-      description,
-      evaluation_guidance,
-      category,
-      frequency_config,
-      frequency_unit_options,
-      level_0_descriptor,
-      level_1_descriptor,
-      level_2_descriptor,
-      level_3_descriptor,
-      level_4_descriptor,
-      detalleOptions,
-      weight,
-      visibility_condition
-    } = req.body;
+    const body = (req.body ?? {}) as Record<string, unknown>;
+
+    // Presence-based fallback: camelCase wins; snake_case only if camelCase absent.
+    // Using `in` (not `??`) so an explicit `null` on the camelCase key clears the column.
+    const pick = (camel: string, snake: string): unknown =>
+      camel in body ? body[camel] : (snake in body ? body[snake] : undefined);
+
+    const code = body.code;
+    const name = body.name;
+    const description = body.description;
+    const category = body.category;
+    const detalleOptions = body.detalleOptions;
+    const weight = body.weight;
+
+    const evaluationGuidance = pick('evaluationGuidance', 'evaluation_guidance');
+    const frequencyConfig = pick('frequencyConfig', 'frequency_config');
+    const frequencyUnitOptions = pick('frequencyUnitOptions', 'frequency_unit_options');
+    const level0Descriptor = pick('level0Descriptor', 'level_0_descriptor');
+    const level1Descriptor = pick('level1Descriptor', 'level_1_descriptor');
+    const level2Descriptor = pick('level2Descriptor', 'level_2_descriptor');
+    const level3Descriptor = pick('level3Descriptor', 'level_3_descriptor');
+    const level4Descriptor = pick('level4Descriptor', 'level_4_descriptor');
+    const visibilityCondition = pick('visibilityCondition', 'visibility_condition');
 
     // Validate category if provided
-    if (category !== undefined && !VALID_CATEGORIES.includes(category)) {
+    if (category !== undefined && !VALID_CATEGORIES.includes(category as IndicatorCategory)) {
       return res.status(400).json({
         error: 'Categoría inválida. Debe ser: cobertura, frecuencia, profundidad, traspaso, o detalle',
       });
+    }
+
+    // POST-parity: when setting category to profundidad, require ≥1 provided descriptor
+    // that is a non-empty trimmed string.
+    if (category === 'profundidad') {
+      const descriptors = [level0Descriptor, level1Descriptor, level2Descriptor, level3Descriptor, level4Descriptor];
+      const hasDescriptor = descriptors.some(
+        (d) => typeof d === 'string' && d.trim().length > 0
+      );
+      if (!hasDescriptor) {
+        return res.status(400).json({
+          error: 'Los indicadores de profundidad requieren al menos un descriptor de nivel',
+        });
+      }
     }
 
     // Validate detalle options using shared validator
@@ -230,18 +251,31 @@ async function handlePut(
     if (code !== undefined) updateData.code = code;
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
-    if (evaluation_guidance !== undefined) updateData.evaluation_guidance = evaluation_guidance;
+    if (evaluationGuidance !== undefined) updateData.evaluation_guidance = evaluationGuidance;
     if (category !== undefined) updateData.category = category;
-    if (frequency_config !== undefined) updateData.frequency_config = frequency_config;
-    if (frequency_unit_options !== undefined) updateData.frequency_unit_options = frequency_unit_options;
-    if (level_0_descriptor !== undefined) updateData.level_0_descriptor = level_0_descriptor;
-    if (level_1_descriptor !== undefined) updateData.level_1_descriptor = level_1_descriptor;
-    if (level_2_descriptor !== undefined) updateData.level_2_descriptor = level_2_descriptor;
-    if (level_3_descriptor !== undefined) updateData.level_3_descriptor = level_3_descriptor;
-    if (level_4_descriptor !== undefined) updateData.level_4_descriptor = level_4_descriptor;
+    if (frequencyConfig !== undefined) updateData.frequency_config = frequencyConfig;
+    if (frequencyUnitOptions !== undefined) updateData.frequency_unit_options = frequencyUnitOptions;
+    if (level0Descriptor !== undefined) updateData.level_0_descriptor = level0Descriptor;
+    if (level1Descriptor !== undefined) updateData.level_1_descriptor = level1Descriptor;
+    if (level2Descriptor !== undefined) updateData.level_2_descriptor = level2Descriptor;
+    if (level3Descriptor !== undefined) updateData.level_3_descriptor = level3Descriptor;
+    if (level4Descriptor !== undefined) updateData.level_4_descriptor = level4Descriptor;
     if (validatedDetalleOptions !== undefined) updateData.detalle_options = validatedDetalleOptions;
     if (weight !== undefined) updateData.weight = weight;
-    if (visibility_condition !== undefined) updateData.visibility_condition = visibility_condition;
+    if (visibilityCondition !== undefined) updateData.visibility_condition = visibilityCondition;
+
+    // Category-transition hygiene: clear stale category-specific columns.
+    if (category !== undefined && category !== 'profundidad') {
+      updateData.level_0_descriptor = null;
+      updateData.level_1_descriptor = null;
+      updateData.level_2_descriptor = null;
+      updateData.level_3_descriptor = null;
+      updateData.level_4_descriptor = null;
+    }
+    if (category !== undefined && category !== 'frecuencia') {
+      updateData.frequency_config = null;
+      updateData.frequency_unit_options = null;
+    }
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ error: 'No hay campos para actualizar' });
@@ -268,7 +302,7 @@ async function handlePut(
 
     return res.status(200).json({
       success: true,
-      indicator,
+      indicator: mapIndicatorRow(indicator),
       snapshotUpdated: snapshotResult.success,
     });
 

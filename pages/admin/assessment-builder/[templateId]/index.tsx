@@ -714,8 +714,8 @@ const TemplateEditor: React.FC = () => {
     try {
       const body: any = {
         name: indicatorForm.name.trim(),
-        description: indicatorForm.description.trim() || undefined,
-        evaluationGuidance: indicatorForm.evaluationGuidance.trim() || undefined,
+        description: indicatorForm.description.trim() || null,
+        evaluationGuidance: indicatorForm.evaluationGuidance.trim() || null,
         category: indicatorForm.category,
       };
 
@@ -729,11 +729,11 @@ const TemplateEditor: React.FC = () => {
       }
 
       if (indicatorForm.category === 'profundidad') {
-        body.level0Descriptor = indicatorForm.level0Descriptor.trim() || undefined;
-        body.level1Descriptor = indicatorForm.level1Descriptor.trim() || undefined;
-        body.level2Descriptor = indicatorForm.level2Descriptor.trim() || undefined;
-        body.level3Descriptor = indicatorForm.level3Descriptor.trim() || undefined;
-        body.level4Descriptor = indicatorForm.level4Descriptor.trim() || undefined;
+        body.level0Descriptor = indicatorForm.level0Descriptor.trim() || null;
+        body.level1Descriptor = indicatorForm.level1Descriptor.trim() || null;
+        body.level2Descriptor = indicatorForm.level2Descriptor.trim() || null;
+        body.level3Descriptor = indicatorForm.level3Descriptor.trim() || null;
+        body.level4Descriptor = indicatorForm.level4Descriptor.trim() || null;
       }
 
       if (indicatorForm.category === 'detalle') {
@@ -741,11 +741,6 @@ const TemplateEditor: React.FC = () => {
       }
 
       if (editingIndicator) {
-        // PUT endpoint uses snake_case for evaluation_guidance
-        if (body.evaluationGuidance !== undefined) {
-          body.evaluation_guidance = body.evaluationGuidance;
-          delete body.evaluationGuidance;
-        }
         // Update indicator
         const response = await fetch(
           `/api/admin/assessment-builder/templates/${template.id}/modules/${indicatorModuleId}/indicators/${editingIndicator.id}`,

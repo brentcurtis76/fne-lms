@@ -137,7 +137,7 @@ describe('PUT indicator — cobertura gate enforcement', () => {
     const { req, res } = createMocks({
       method: 'PUT',
       query: { templateId: TEMPLATE_DRAFT_1, moduleId: MODULE_A, indicatorId: IND_FRECUENCIA_1 },
-      body: { category: 'profundidad' },
+      body: { category: 'profundidad', level0Descriptor: 'nivel 0' },
     });
     await indicatorByIdHandler(req as any, res as any);
     expect(res._getStatusCode()).toBe(200);

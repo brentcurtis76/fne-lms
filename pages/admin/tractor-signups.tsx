@@ -29,6 +29,9 @@ import {
 import { createServiceRoleClient } from '../../lib/api-auth';
 import { ReportExporter } from '../../lib/exportUtils';
 import {
+  SIGNUP_SOURCES,
+  SIGNUP_SOURCE_LABELS,
+  SignupSource,
   TRACTOR_ROLE_LABELS,
   TRACTOR_STATUS_LABELS,
   TractorSignupRole,
@@ -41,6 +44,7 @@ import { isGlobalAdmin } from '../../utils/roleUtils';
 import {
   ExistingUserBadge,
   RoleBadge,
+  SourceBadge,
   StatusBadge,
   TractorSignup,
   TractorSignupCard,
@@ -81,6 +85,7 @@ export default function TractorSignupsAdminPage() {
 
   const [search, setSearch] = useState('');
   const [schoolId, setSchoolId] = useState('all');
+  const [source, setSource] = useState<'all' | SignupSource>('all');
   const [role, setRole] = useState<'all' | TractorSignupRole>('all');
   const [status, setStatus] = useState<'all' | TractorSignupStatus>('all');
   const [existingFilter, setExistingFilter] = useState<ExistingFilter>('all');
@@ -137,6 +142,7 @@ export default function TractorSignupsAdminPage() {
       }
 
       if (schoolId !== 'all' && String(row.school_id) !== schoolId) return false;
+      if (source !== 'all' && row.source !== source) return false;
       if (role !== 'all' && row.role !== role) return false;
       if (status !== 'all' && row.status !== status) return false;
       if (existingFilter === 'existing' && !row.is_existing_user) return false;
@@ -144,7 +150,7 @@ export default function TractorSignupsAdminPage() {
 
       return true;
     });
-  }, [rows, search, schoolId, role, status, existingFilter]);
+  }, [rows, search, schoolId, source, role, status, existingFilter]);
 
   const stats = useMemo(() => {
     return {
@@ -194,6 +200,10 @@ export default function TractorSignupsAdminPage() {
         } else {
           toast.success('Acceso otorgado');
         }
+        // The grant itself succeeded; a generation warning is informational only.
+        if (json.generation?.warning) {
+          toast(json.generation.warning, { icon: '⚠️' });
+        }
       } else if (action === 'dismiss') {
         toast.success('Registro descartado');
       } else {
@@ -215,7 +225,9 @@ export default function TractorSignupsAdminPage() {
     return filteredRows.map((row) => ({
       Nombre: row.full_name,
       Email: row.email,
+      Origen: row.source_label,
       Colegio: row.school_name,
+      Generación: row.generation_name ?? '',
       Rol: row.role_label,
       'Fecha nacimiento': formatDate(row.birth_date),
       Profesión: row.profession,
@@ -233,7 +245,9 @@ export default function TractorSignupsAdminPage() {
       data[0] ?? {
         Nombre: '',
         Email: '',
+        Origen: '',
         Colegio: '',
+        Generación: '',
         Rol: '',
         'Fecha nacimiento': '',
         Profesión: '',
@@ -246,8 +260,8 @@ export default function TractorSignupsAdminPage() {
     );
 
     const exportData = {
-      filename: `lideres-tractor-${new Date().toISOString().slice(0, 10)}`,
-      title: 'Líderes de la Generación Tractor',
+      filename: `registros-publicos-${new Date().toISOString().slice(0, 10)}`,
+      title: 'Registros públicos',
       headers,
       data,
       metadata: { totalRecords: data.length },
@@ -272,9 +286,21 @@ export default function TractorSignupsAdminPage() {
       ),
     },
     {
+      key: 'source_label',
+      label: 'Origen',
+      render: (_: unknown, row: TractorSignup) => <SourceBadge source={row.source} />,
+    },
+    {
       key: 'school_name',
       label: 'Colegio',
-      render: (value: string) => <span className="text-sm text-gray-800">{value}</span>,
+      render: (_: unknown, row: TractorSignup) => (
+        <div>
+          <div className="text-sm text-gray-800">{row.school_name}</div>
+          {row.generation_name && (
+            <div className="text-xs text-gray-500">{row.generation_name}</div>
+          )}
+        </div>
+      ),
     },
     {
       key: 'role_label',
@@ -311,12 +337,12 @@ export default function TractorSignupsAdminPage() {
   ];
 
   return (
-    <MainLayout currentPage="tractor-signups" pageTitle="Líderes Tractor">
+    <MainLayout currentPage="tractor-signups" pageTitle="Registros">
       <div className="min-h-screen bg-gray-50">
         <ResponsiveFunctionalPageHeader
           icon={<Users className="h-6 w-6" />}
-          title="Líderes Tractor"
-          subtitle="Registros públicos de Líderes de la Generación Tractor"
+          title="Registros"
+          subtitle="Registros públicos de acceso (Líderes Tractor y registro general)"
         >
           <div className="flex items-center gap-2">
             <button
@@ -360,7 +386,7 @@ export default function TractorSignupsAdminPage() {
               <Filter className="h-4 w-4" aria-hidden="true" />
               Filtros
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1fr_1fr]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <input
@@ -377,6 +403,20 @@ export default function TractorSignupsAdminPage() {
                 {schools.map((school) => (
                   <option key={school.id} value={school.id}>
                     {school.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={source}
+                onChange={(event) => setSource(event.target.value as 'all' | SignupSource)}
+                className={filterClassName}
+                data-testid="signups-source-filter"
+              >
+                <option value="all">Todos los orígenes</option>
+                {SIGNUP_SOURCES.map((sourceKey) => (
+                  <option key={sourceKey} value={sourceKey}>
+                    {SIGNUP_SOURCE_LABELS[sourceKey]}
                   </option>
                 ))}
               </select>
@@ -474,6 +514,10 @@ export default function TractorSignupsAdminPage() {
               </DialogHeader>
 
               <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                <Detail label="Origen">
+                  <SourceBadge source={manageRow.source} />
+                </Detail>
+                <Detail label="Generación" value={manageRow.generation_name ?? undefined} />
                 <Detail label="Colegio" value={manageRow.school_name} />
                 <Detail label="Rol">
                   <RoleBadge>{manageRow.role_label}</RoleBadge>

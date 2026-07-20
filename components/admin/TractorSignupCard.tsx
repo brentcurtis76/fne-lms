@@ -2,6 +2,9 @@ import React from 'react';
 import { Settings2 } from 'lucide-react';
 import {
   ExistingRole,
+  SIGNUP_SOURCE_LABELS,
+  SignupSource,
+  TRACTOR_SIGNUP_SOURCE,
   TRACTOR_STATUS_LABELS,
   TractorSignupRole,
   TractorSignupStatus,
@@ -10,12 +13,16 @@ import {
 
 export interface TractorSignup {
   id: string;
+  source: SignupSource;
+  source_label: string;
   first_name: string;
   last_name: string;
   full_name: string;
   email: string;
   school_id: number;
   school_name: string;
+  generation_id: string | null;
+  generation_name: string | null;
   birth_date: string;
   profession: string;
   role: TractorSignupRole;
@@ -32,6 +39,18 @@ export interface TractorSignup {
   existing_status: string | null;
   existing_roles: ExistingRole[];
   linked_user_id: string | null;
+}
+
+export function SourceBadge({ source }: { source: SignupSource }) {
+  const classes =
+    source === TRACTOR_SIGNUP_SOURCE
+      ? 'border-amber-200 bg-amber-50 text-amber-800'
+      : 'border-gray-200 bg-gray-50 text-gray-700';
+  return (
+    <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${classes}`}>
+      {SIGNUP_SOURCE_LABELS[source]}
+    </span>
+  );
 }
 
 export function RoleBadge({ children }: { children: React.ReactNode }) {
@@ -101,9 +120,19 @@ export function TractorSignupCard({
       </div>
 
       <dl className="mt-3 space-y-2 text-sm">
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-xs uppercase tracking-wide text-gray-500">Origen</dt>
+          <dd>
+            <SourceBadge source={row.source} />
+          </dd>
+        </div>
         <div className="flex items-start justify-between gap-3">
           <dt className="text-xs uppercase tracking-wide text-gray-500">Colegio</dt>
           <dd className="text-right text-gray-800">{row.school_name}</dd>
+        </div>
+        <div className="flex items-start justify-between gap-3">
+          <dt className="text-xs uppercase tracking-wide text-gray-500">Generación</dt>
+          <dd className="text-right text-gray-800">{row.generation_name || '—'}</dd>
         </div>
         <div className="flex items-center justify-between gap-3">
           <dt className="text-xs uppercase tracking-wide text-gray-500">Rol</dt>

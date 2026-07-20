@@ -5,15 +5,19 @@ import {
   handleMethodNotAllowed,
 } from '../../../../lib/api-auth';
 import {
+  SIGNUP_SOURCES,
+  SIGNUP_SOURCE_LABELS,
   TRACTOR_ROLE_LABELS,
   TRACTOR_SIGNUP_SOURCE,
   TRACTOR_STATUS_LABELS,
   TractorSignupRole,
   TractorSignupStatus,
+  getAllSchools,
   getFullName,
-  getSantaMartaSchools,
+  isKnownSignupSource,
   isTractorSignupRole,
   isTractorSignupStatus,
+  isValidUuid,
   normalizeEmail,
 } from '../../../../lib/tractorSignups';
 
@@ -27,6 +31,7 @@ type SignupRow = {
   email: string;
   email_normalized: string | null;
   school_id: number | string;
+  generation_id: string | null;
   birth_date: string;
   profession: string;
   role: string;
@@ -80,11 +85,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const supabase = createServiceRoleClient();
 
     const [schools, signupsResult] = await Promise.all([
-      getSantaMartaSchools(supabase),
+      getAllSchools(supabase),
       supabase
         .from('tractor_signups')
         .select('*')
-        .eq('source', TRACTOR_SIGNUP_SOURCE)
+        .in('source', [...SIGNUP_SOURCES])
         .order('created_at', { ascending: false }),
     ]);
 
@@ -182,6 +187,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const schoolNameById = new Map(schools.map((school) => [school.id, school.name]));
 
+    const generationIds = Array.from(
+      new Set(signupRows.map((signup) => signup.generation_id).filter(isValidUuid))
+    );
+    const generationNameById = new Map<string, string>();
+
+    for (const generationIdBatch of chunk(generationIds, BATCH_SIZE)) {
+      const { data: generations, error: generationsError } = await supabase
+        .from('generations')
+        .select('id, name')
+        .in('id', generationIdBatch);
+
+      if (generationsError) {
+        console.error('[tractor-signups API] generation fetch failed:', generationsError);
+        return res.status(500).json({ error: 'Error al cargar generaciones' });
+      }
+
+      for (const generation of (generations ?? []) as { id: string; name: string | null }[]) {
+        generationNameById.set(generation.id, generation.name ?? '');
+      }
+    }
+
     const rows = signupRows.map((signup) => {
       const normalizedEmail = normalizeEmail(signup.email_normalized || signup.email);
       const existingProfile = profilesByEmail.get(normalizedEmail) ?? null;
@@ -189,9 +215,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const role = isTractorSignupRole(signup.role) ? signup.role : 'docente';
       const status = isTractorSignupStatus(signup.status) ? signup.status : 'pending';
       const schoolId = Number(signup.school_id);
+      const source = isKnownSignupSource(signup.source) ? signup.source : TRACTOR_SIGNUP_SOURCE;
 
       return {
         id: signup.id,
+        source,
+        source_label: SIGNUP_SOURCE_LABELS[source],
         first_name: signup.first_name,
         last_name: signup.last_name,
         full_name: getFullName(signup.first_name, signup.last_name),
@@ -199,6 +228,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         email_normalized: normalizedEmail,
         school_id: schoolId,
         school_name: schoolNameById.get(schoolId) ?? `Colegio ${schoolId}`,
+        generation_id: signup.generation_id ?? null,
+        generation_name: signup.generation_id
+          ? generationNameById.get(signup.generation_id) ?? null
+          : null,
         birth_date: signup.birth_date,
         profession: signup.profession,
         role,

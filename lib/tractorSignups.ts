@@ -1,7 +1,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const TRACTOR_SIGNUP_SOURCE = 'lideres_generacion_tractor';
+export const GENERAL_SIGNUP_SOURCE = 'registro_general';
 export const SANTA_MARTA_NETWORK_NAME = 'Santa Marta';
+
+export const SIGNUP_SOURCES = [TRACTOR_SIGNUP_SOURCE, GENERAL_SIGNUP_SOURCE] as const;
+export type SignupSource = (typeof SIGNUP_SOURCES)[number];
+
+export const SIGNUP_SOURCE_LABELS: Record<SignupSource, string> = {
+  [TRACTOR_SIGNUP_SOURCE]: 'Líderes Tractor',
+  [GENERAL_SIGNUP_SOURCE]: 'Registro general',
+};
+
+export function isKnownSignupSource(value: unknown): value is SignupSource {
+  return value === TRACTOR_SIGNUP_SOURCE || value === GENERAL_SIGNUP_SOURCE;
+}
 
 export type TractorSignupRole = 'docente' | 'equipo_directivo';
 export type TractorSignupStatus = 'pending' | 'granted' | 'dismissed';
@@ -136,6 +149,89 @@ export async function isSantaMartaSchoolId(
 ): Promise<boolean> {
   const schools = await getSantaMartaSchools(supabase);
   return schools.some((school) => school.id === schoolId);
+}
+
+export interface SchoolWithGenerations {
+  id: number;
+  name: string;
+  has_generations: boolean;
+}
+
+export interface GenerationOption {
+  id: string;
+  name: string;
+  school_id: number;
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isValidUuid(value: unknown): value is string {
+  return typeof value === 'string' && UUID_PATTERN.test(value);
+}
+
+export async function getAllSchools(supabase: SupabaseClient): Promise<SchoolWithGenerations[]> {
+  const { data: schools, error } = await supabase
+    .from('schools')
+    .select('id, name, has_generations')
+    .order('name', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return (schools ?? [])
+    .map((school: { id?: number | string | null; name?: string | null; has_generations?: boolean | null }) => ({
+      id: Number(school.id),
+      name: school.name ?? '',
+      has_generations: school.has_generations === true,
+    }))
+    .filter((school: SchoolWithGenerations) => Number.isSafeInteger(school.id) && school.id > 0 && school.name.length > 0);
+}
+
+export async function getAllGenerations(supabase: SupabaseClient): Promise<GenerationOption[]> {
+  const { data: generations, error } = await supabase
+    .from('generations')
+    .select('id, name, school_id')
+    .order('name', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return (generations ?? [])
+    .map((generation: { id?: string | null; name?: string | null; school_id?: number | string | null }) => ({
+      id: generation.id ?? '',
+      name: generation.name ?? '',
+      school_id: Number(generation.school_id),
+    }))
+    .filter(
+      (generation: GenerationOption) =>
+        isValidUuid(generation.id) &&
+        generation.name.length > 0 &&
+        Number.isSafeInteger(generation.school_id) &&
+        generation.school_id > 0
+    );
+}
+
+// Single ownership check: the generation must exist AND belong to the school.
+// has_generations is a denormalized display flag and is never consulted here.
+export async function findGenerationForSchool(
+  supabase: SupabaseClient,
+  generationId: string,
+  schoolId: number
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('generations')
+    .select('id')
+    .eq('id', generationId)
+    .eq('school_id', schoolId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return Boolean(data?.id);
 }
 
 export interface ExistingRole {

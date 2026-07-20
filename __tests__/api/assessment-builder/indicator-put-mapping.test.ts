@@ -90,6 +90,12 @@ function buildCaptureClient(returnRow: Record<string, unknown>) {
   return { client, getCaptured: () => capturedUpdateData };
 }
 
+const MOCK_VISIBILITY_CONDITION = {
+  field: 'ctx.grade',
+  operator: 'equals' as const,
+  value: '3',
+};
+
 describe('PUT indicator — case mapping (fix/ind-put-case)', () => {
   const baseRow = {
     id: IND_TEST,
@@ -109,7 +115,7 @@ describe('PUT indicator — case mapping (fix/ind-put-case)', () => {
     evaluation_guidance: 'guide',
     display_order: 3,
     weight: 1,
-    visibility_condition: null,
+    visibility_condition: MOCK_VISIBILITY_CONDITION,
     created_at: '2026-01-01',
     updated_at: '2026-01-02',
   };
@@ -210,9 +216,11 @@ describe('PUT indicator — case mapping (fix/ind-put-case)', () => {
     expect(payload.indicator.level0Descriptor).toBe('lvl0');
     expect(payload.indicator.evaluationGuidance).toBe('guide');
     expect(payload.indicator.displayOrder).toBe(3);
+    expect(payload.indicator.visibilityCondition).toEqual(MOCK_VISIBILITY_CONDITION);
     expect(payload.indicator).not.toHaveProperty('level_0_descriptor');
     expect(payload.indicator).not.toHaveProperty('evaluation_guidance');
     expect(payload.indicator).not.toHaveProperty('display_order');
+    expect(payload.indicator).not.toHaveProperty('visibility_condition');
   });
 
   it('rejects profundidad with no non-empty descriptor (400 + Spanish message)', async () => {

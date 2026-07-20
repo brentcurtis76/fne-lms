@@ -123,18 +123,23 @@ describe('index.tsx — nav links renamed to "Calibración"', () => {
 
 // ── IndicatorData interface — weight MUST remain ─────────────────────────
 
-describe('index.tsx — IndicatorData interface preserves weight', () => {
-  it('IndicatorData interface still has weight: number (maps to DB data)', () => {
-    // The interface definition should still contain weight
-    // Find the line range for IndicatorData interface (has nested objects, so use line-based search)
-    const lines = indexSrc.split('\n');
-    const startIdx = lines.findIndex(l => l.includes('interface IndicatorData {'));
+describe('index.tsx — IndicatorData preserves weight', () => {
+  it('IndicatorData derives from MappedIndicator, which carries weight (maps to DB data)', () => {
+    // The builder no longer hand-rolls the interface; it derives the exact shape
+    // the indicator API returns (mapIndicatorRow → MappedIndicator).
+    expect(indexSrc).toMatch(/type IndicatorData = MappedIndicator/);
+    // The weight guarantee now lives on MappedIndicator in the types module.
+    const typesSrc = fs.readFileSync(
+      path.join(process.cwd(), 'types/assessment-builder.ts'),
+      'utf-8'
+    );
+    const lines = typesSrc.split('\n');
+    const startIdx = lines.findIndex(l => l.includes('interface MappedIndicator {'));
     expect(startIdx).toBeGreaterThan(-1);
-    // Find closing brace at column 0 (end of top-level interface)
     let endIdx = startIdx + 1;
     while (endIdx < lines.length && !lines[endIdx].match(/^\}/)) endIdx++;
     const interfaceBlock = lines.slice(startIdx, endIdx + 1).join('\n');
-    expect(interfaceBlock).toContain('weight: number');
+    expect(interfaceBlock).toContain('weight');
   });
 });
 

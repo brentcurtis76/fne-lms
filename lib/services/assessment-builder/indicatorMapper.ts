@@ -1,27 +1,6 @@
-import type { AssessmentIndicator } from '@/types/assessment-builder';
+import type { AssessmentIndicator, MappedIndicator } from '@/types/assessment-builder';
 
-export interface MappedIndicator {
-  id: AssessmentIndicator['id'];
-  moduleId: AssessmentIndicator['module_id'];
-  code: AssessmentIndicator['code'];
-  name: AssessmentIndicator['name'];
-  description: AssessmentIndicator['description'];
-  category: AssessmentIndicator['category'];
-  frequencyConfig: AssessmentIndicator['frequency_config'];
-  frequencyUnitOptions: AssessmentIndicator['frequency_unit_options'];
-  level0Descriptor: AssessmentIndicator['level_0_descriptor'];
-  level1Descriptor: AssessmentIndicator['level_1_descriptor'];
-  level2Descriptor: AssessmentIndicator['level_2_descriptor'];
-  level3Descriptor: AssessmentIndicator['level_3_descriptor'];
-  level4Descriptor: AssessmentIndicator['level_4_descriptor'];
-  detalleOptions: AssessmentIndicator['detalle_options'];
-  evaluationGuidance: AssessmentIndicator['evaluation_guidance'];
-  displayOrder: AssessmentIndicator['display_order'];
-  weight: AssessmentIndicator['weight'];
-  visibilityCondition: AssessmentIndicator['visibility_condition'] | null;
-  createdAt: AssessmentIndicator['created_at'];
-  updatedAt: AssessmentIndicator['updated_at'];
-}
+export type { MappedIndicator };
 
 export function mapIndicatorRow(row: AssessmentIndicator): MappedIndicator {
   return {

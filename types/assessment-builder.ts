@@ -527,6 +527,34 @@ export interface AssessmentIndicator {
   expectations?: AssessmentYearExpectation;
 }
 
+/**
+ * camelCase indicator shape returned by the assessment-builder indicator API
+ * routes (GET/POST/PUT) and consumed by the builder UI. Produced by
+ * `mapIndicatorRow` in lib/services/assessment-builder/indicatorMapper.ts.
+ */
+export interface MappedIndicator {
+  id: AssessmentIndicator['id'];
+  moduleId: AssessmentIndicator['module_id'];
+  code: AssessmentIndicator['code'];
+  name: AssessmentIndicator['name'];
+  description: AssessmentIndicator['description'];
+  category: AssessmentIndicator['category'];
+  frequencyConfig: AssessmentIndicator['frequency_config'];
+  frequencyUnitOptions: AssessmentIndicator['frequency_unit_options'];
+  level0Descriptor: AssessmentIndicator['level_0_descriptor'];
+  level1Descriptor: AssessmentIndicator['level_1_descriptor'];
+  level2Descriptor: AssessmentIndicator['level_2_descriptor'];
+  level3Descriptor: AssessmentIndicator['level_3_descriptor'];
+  level4Descriptor: AssessmentIndicator['level_4_descriptor'];
+  detalleOptions: AssessmentIndicator['detalle_options'];
+  evaluationGuidance: AssessmentIndicator['evaluation_guidance'];
+  displayOrder: AssessmentIndicator['display_order'];
+  weight: AssessmentIndicator['weight'];
+  visibilityCondition: AssessmentIndicator['visibility_condition'] | null;
+  createdAt: AssessmentIndicator['created_at'];
+  updatedAt: AssessmentIndicator['updated_at'];
+}
+
 export interface AssessmentSubQuestion {
   id: string;
   indicator_id?: string;

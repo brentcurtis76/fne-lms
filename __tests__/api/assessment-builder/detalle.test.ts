@@ -259,7 +259,7 @@ describe('PUT indicator — detalle category (DOD-5)', () => {
   });
 
   it('rejects detalleOptions update with 1 item (DOD-5)', async () => {
-    const client = buildPutClient({});
+    const client = buildPutClient({ category: 'detalle' });
     mockCreateApiSupabaseClient.mockResolvedValue(client);
     mockCreateServiceRoleClient.mockReturnValue(client);
 
@@ -288,7 +288,7 @@ describe('PUT indicator — detalle category (DOD-5)', () => {
     expect(data.error).toBeTruthy();
   });
 
-  it('clears detalle_options when changing category away from detalle (Fix 1)', async () => {
+  it('preserves detalle_options when changing category away from detalle (preserve + hide)', async () => {
     // Track what updateData is passed to Supabase
     let capturedUpdateData: Record<string, unknown> | null = null;
     const mockClient = {
@@ -301,7 +301,7 @@ describe('PUT indicator — detalle category (DOD-5)', () => {
             get(_target, prop) {
               if (prop === 'then') {
                 return (resolve: (value: unknown) => void) =>
-                  resolve({ data: { id: IND_DETALLE, module_id: MODULE_A, category: 'frecuencia', detalle_options: null }, error: null });
+                  resolve({ data: { id: IND_DETALLE, module_id: MODULE_A, category: 'detalle', detalle_options: ['ABP', 'Gamificación'] }, error: null });
               }
               if (prop === 'update') {
                 return (data: Record<string, unknown>) => {
@@ -326,13 +326,15 @@ describe('PUT indicator — detalle category (DOD-5)', () => {
       body: { category: 'frecuencia' },
     });
     await indicatorIdHandler(req as any, res as any);
-    // The handler should set detalle_options to null in the update
+    // Preserve + hide: the switch must not null detalle_options — the snapshot
+    // builders hide it by category instead, so the data survives a switch-back.
     expect(capturedUpdateData).toBeTruthy();
-    expect(capturedUpdateData!.detalle_options).toBeNull();
+    expect(capturedUpdateData!.category).toBe('frecuencia');
+    expect(capturedUpdateData).not.toHaveProperty('detalle_options');
   });
 
   it('rejects detalle options with HTML tags (XSS, Fix 4)', async () => {
-    const client = buildPutClient({});
+    const client = buildPutClient({ category: 'detalle' });
     mockCreateApiSupabaseClient.mockResolvedValue(client);
     mockCreateServiceRoleClient.mockReturnValue(client);
 

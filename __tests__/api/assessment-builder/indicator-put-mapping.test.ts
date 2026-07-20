@@ -245,7 +245,10 @@ describe('PUT indicator — case mapping (fix/ind-put-case)', () => {
     expect(data.error).toBe('Los indicadores de profundidad requieren al menos un descriptor de nivel');
   });
 
-  it('nulls all 5 descriptor and both frequency columns when category → cobertura', async () => {
+  it('preserves descriptor/frequency columns on category → cobertura (preserve + hide)', async () => {
+    // Preserve + hide: a category change must NOT destroy the off-category
+    // columns. The snapshot builders hide them by category instead, so the data
+    // survives and reappears if the category is switched back.
     const { client, getCaptured } = buildCaptureClient({ ...baseRow, category: 'cobertura' });
     mockCreateApiSupabaseClient.mockResolvedValue(client);
     mockCreateServiceRoleClient.mockReturnValue(client);
@@ -261,13 +264,110 @@ describe('PUT indicator — case mapping (fix/ind-put-case)', () => {
     const captured = getCaptured();
     expect(captured).toBeTruthy();
     expect(captured!.category).toBe('cobertura');
-    expect(captured!.level_0_descriptor).toBeNull();
-    expect(captured!.level_1_descriptor).toBeNull();
-    expect(captured!.level_2_descriptor).toBeNull();
-    expect(captured!.level_3_descriptor).toBeNull();
-    expect(captured!.level_4_descriptor).toBeNull();
-    expect(captured!.frequency_config).toBeNull();
-    expect(captured!.frequency_unit_options).toBeNull();
+    // The switch does not touch the descriptor/frequency columns at all.
+    expect(captured).not.toHaveProperty('level_0_descriptor');
+    expect(captured).not.toHaveProperty('level_1_descriptor');
+    expect(captured).not.toHaveProperty('level_2_descriptor');
+    expect(captured).not.toHaveProperty('level_3_descriptor');
+    expect(captured).not.toHaveProperty('level_4_descriptor');
+    expect(captured).not.toHaveProperty('frequency_config');
+    expect(captured).not.toHaveProperty('frequency_unit_options');
+  });
+
+  it('allows a rename-only PUT on a descriptor-less profundidad row (does not brick legacy rows)', async () => {
+    // Legacy stuck row: profundidad with all-null descriptors. A rename that
+    // touches neither category nor descriptors must not trigger the descriptor
+    // check (it can't worsen the invariant).
+    const stuckRow = {
+      ...baseRow,
+      category: 'profundidad',
+      level_0_descriptor: null,
+      level_1_descriptor: null,
+      level_2_descriptor: null,
+      level_3_descriptor: null,
+      level_4_descriptor: null,
+    };
+    const { client, getCaptured } = buildCaptureClient(stuckRow);
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+    mockCreateServiceRoleClient.mockReturnValue(client);
+
+    const { req, res } = createMocks({
+      method: 'PUT',
+      query: { templateId: TEMPLATE_DRAFT_1, moduleId: MODULE_A, indicatorId: IND_TEST },
+      body: { name: 'Nuevo nombre' },
+    });
+    await indicatorIdHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(getCaptured()!.name).toBe('Nuevo nombre');
+  });
+
+  it('returns 400 (not 500) for a non-object JSON body', async () => {
+    const { client } = buildCaptureClient(baseRow);
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+    mockCreateServiceRoleClient.mockReturnValue(client);
+
+    const { req, res } = createMocks({
+      method: 'PUT',
+      query: { templateId: TEMPLATE_DRAFT_1, moduleId: MODULE_A, indicatorId: IND_TEST },
+      body: 'hello',
+    });
+    await indicatorIdHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+  });
+
+  it('rejects an explicitly-provided empty name', async () => {
+    const { client } = buildCaptureClient(baseRow);
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+    mockCreateServiceRoleClient.mockReturnValue(client);
+
+    const { req, res } = createMocks({
+      method: 'PUT',
+      query: { templateId: TEMPLATE_DRAFT_1, moduleId: MODULE_A, indicatorId: IND_TEST },
+      body: { name: '   ' },
+    });
+    await indicatorIdHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+  });
+
+  it('trims descriptor text before persisting', async () => {
+    const { client, getCaptured } = buildCaptureClient(baseRow);
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+    mockCreateServiceRoleClient.mockReturnValue(client);
+
+    const { req, res } = createMocks({
+      method: 'PUT',
+      query: { templateId: TEMPLATE_DRAFT_1, moduleId: MODULE_A, indicatorId: IND_TEST },
+      body: { level0Descriptor: '  con espacios  ' },
+    });
+    await indicatorIdHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(getCaptured()!.level_0_descriptor).toBe('con espacios');
+  });
+
+  it('re-affirms category detalle without resending options (falls back to stored options)', async () => {
+    const detalleRow = {
+      ...baseRow,
+      category: 'detalle',
+      level_0_descriptor: null,
+      detalle_options: ['ABP', 'Gamificación'],
+    };
+    const { client, getCaptured } = buildCaptureClient(detalleRow);
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+    mockCreateServiceRoleClient.mockReturnValue(client);
+
+    const { req, res } = createMocks({
+      method: 'PUT',
+      query: { templateId: TEMPLATE_DRAFT_1, moduleId: MODULE_A, indicatorId: IND_TEST },
+      body: { category: 'detalle', name: 'Renombrado' },
+    });
+    await indicatorIdHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(getCaptured()!.detalle_options).toEqual(['ABP', 'Gamificación']);
   });
 
   it('propagates explicit camelCase null (level0Descriptor: null) into updateData as null', async () => {

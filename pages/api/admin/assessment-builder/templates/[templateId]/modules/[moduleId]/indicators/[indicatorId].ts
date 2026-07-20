@@ -4,9 +4,18 @@ import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-build
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 import type { IndicatorCategory } from '@/types/assessment-builder';
 import { validateDetalleOptions } from '@/lib/validation/detalleValidator';
+import { validateProfundidadDescriptors } from '@/lib/validation/profundidadValidator';
+import { normalizeIndicatorText } from '@/lib/validation/indicatorNormalize';
 import { mapIndicatorRow } from '@/lib/services/assessment-builder/indicatorMapper';
 
 const VALID_CATEGORIES: IndicatorCategory[] = ['cobertura', 'frecuencia', 'profundidad', 'traspaso', 'detalle'];
+
+// The five level descriptors, so pick / effective-state / update all iterate one
+// list instead of repeating each digit at four sites (transposition-bug guard).
+const LEVEL_DESCRIPTOR_KEYS = [0, 1, 2, 3, 4].map((n) => ({
+  camel: `level${n}Descriptor`,
+  snake: `level_${n}_descriptor`,
+}));
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { templateId, moduleId, indicatorId } = req.query;
@@ -64,10 +73,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'El módulo no pertenece a este template' });
   }
 
-  // Verify indicator exists and belongs to module
+  // Verify indicator exists and belongs to module. Select the category-specific
+  // columns too so handlePut can validate the effective post-update state without
+  // a second round-trip.
   const { data: indicator, error: indicatorError } = await serviceClient
     .from('assessment_indicators')
-    .select('id, module_id')
+    .select('id, module_id, category, level_0_descriptor, level_1_descriptor, level_2_descriptor, level_3_descriptor, level_4_descriptor, detalle_options')
     .eq('id', indicatorId)
     .single();
 
@@ -92,7 +103,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'Los templates archivados no pueden ser modificados' });
       }
       if (req.method === 'PUT') {
-        return handlePut(req, res, serviceClient, templateId, moduleId, indicatorId, user.id);
+        return handlePut(req, res, serviceClient, templateId, moduleId, indicatorId, user.id, indicator);
       }
       return handleDelete(req, res, serviceClient, indicatorId, moduleId, templateId, user.id);
     }
@@ -160,10 +171,16 @@ async function handlePut(
   templateId: string,
   moduleId: string,
   indicatorId: string,
-  userId: string
+  userId: string,
+  currentRow: any
 ) {
   try {
-    const body = (req.body ?? {}) as Record<string, unknown>;
+    // Guard against non-object JSON bodies (e.g. a bare string/number/array),
+    // otherwise the `in` operator below throws and turns a bad request into a 500.
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ error: 'Cuerpo de solicitud inválido' });
+    }
+    const body = req.body as Record<string, unknown>;
 
     // Presence-based fallback: camelCase wins; snake_case only if camelCase absent.
     // Using `in` (not `??`) so an explicit `null` on the camelCase key clears the column.
@@ -174,18 +191,18 @@ async function handlePut(
     const name = body.name;
     const description = body.description;
     const category = body.category;
-    const detalleOptions = body.detalleOptions;
+    const detalleOptions = pick('detalleOptions', 'detalle_options');
     const weight = body.weight;
 
     const evaluationGuidance = pick('evaluationGuidance', 'evaluation_guidance');
     const frequencyConfig = pick('frequencyConfig', 'frequency_config');
     const frequencyUnitOptions = pick('frequencyUnitOptions', 'frequency_unit_options');
-    const level0Descriptor = pick('level0Descriptor', 'level_0_descriptor');
-    const level1Descriptor = pick('level1Descriptor', 'level_1_descriptor');
-    const level2Descriptor = pick('level2Descriptor', 'level_2_descriptor');
-    const level3Descriptor = pick('level3Descriptor', 'level_3_descriptor');
-    const level4Descriptor = pick('level4Descriptor', 'level_4_descriptor');
     const visibilityCondition = pick('visibilityCondition', 'visibility_condition');
+
+    // Level descriptors, de-duplicated via LEVEL_DESCRIPTOR_KEYS.
+    const descriptorProvided = LEVEL_DESCRIPTOR_KEYS.map(({ camel, snake }) => camel in body || snake in body);
+    const descriptorValues = LEVEL_DESCRIPTOR_KEYS.map(({ camel, snake }) => pick(camel, snake));
+    const anyDescriptorProvided = descriptorProvided.some(Boolean);
 
     // Validate category if provided
     if (category !== undefined && !VALID_CATEGORIES.includes(category as IndicatorCategory)) {
@@ -194,55 +211,34 @@ async function handlePut(
       });
     }
 
-    // Fetch current state so we can validate the effective post-update state
-    // (combined current row + request body). Explicit `null` in the body counts
-    // as "provided" and clears the column, so we must judge the merged result.
-    const { data: currentIndicator, error: currentError } = await serviceClient
-      .from('assessment_indicators')
-      .select('category, level_0_descriptor, level_1_descriptor, level_2_descriptor, level_3_descriptor, level_4_descriptor')
-      .eq('id', indicatorId)
-      .single();
-
-    if (currentError || !currentIndicator) {
-      console.error('Error fetching current indicator:', currentError);
-      return res.status(500).json({ error: 'Error al actualizar el indicador' });
+    // Reject an explicitly-provided empty name (PUT is partial — an absent name is fine)
+    if (name !== undefined && (typeof name !== 'string' || name.trim().length === 0)) {
+      return res.status(400).json({ error: 'El nombre del indicador es requerido' });
     }
 
-    const effectiveCategory = category !== undefined ? category : currentIndicator.category;
-    const effectiveLevel0 = level0Descriptor !== undefined ? level0Descriptor : currentIndicator.level_0_descriptor;
-    const effectiveLevel1 = level1Descriptor !== undefined ? level1Descriptor : currentIndicator.level_1_descriptor;
-    const effectiveLevel2 = level2Descriptor !== undefined ? level2Descriptor : currentIndicator.level_2_descriptor;
-    const effectiveLevel3 = level3Descriptor !== undefined ? level3Descriptor : currentIndicator.level_3_descriptor;
-    const effectiveLevel4 = level4Descriptor !== undefined ? level4Descriptor : currentIndicator.level_4_descriptor;
+    // Effective post-update state = current row (passed from the existence check)
+    // merged with the request body. Explicit `null` counts as provided.
+    const effectiveCategory = category !== undefined ? category : currentRow.category;
 
-    if (effectiveCategory === 'profundidad') {
-      const effectiveDescriptors = [effectiveLevel0, effectiveLevel1, effectiveLevel2, effectiveLevel3, effectiveLevel4];
-      const hasDescriptor = effectiveDescriptors.some(
-        (d) => typeof d === 'string' && d.trim().length > 0
+    // Profundidad must keep >=1 non-empty descriptor — but only judge this when the
+    // request actually touches category or descriptors. A pure rename/weight/visibility
+    // edit can't worsen the invariant, and must not be blocked on legacy descriptor-less rows.
+    if (effectiveCategory === 'profundidad' && (category !== undefined || anyDescriptorProvided)) {
+      const effectiveDescriptors = LEVEL_DESCRIPTOR_KEYS.map(({ snake }, i) =>
+        descriptorProvided[i] ? descriptorValues[i] : currentRow[snake]
       );
-      if (!hasDescriptor) {
-        return res.status(400).json({
-          error: 'Los indicadores de profundidad requieren al menos un descriptor de nivel',
-        });
-      }
-    }
-
-    // Validate detalle options using shared validator
-    let validatedDetalleOptions: string[] | null | undefined = undefined;
-
-    if (category === 'detalle') {
-      // When setting category to detalle, detalleOptions is required
-      const result = validateDetalleOptions(detalleOptions);
+      const result = validateProfundidadDescriptors(effectiveDescriptors);
       if (!result.valid) {
         return res.status(400).json({ error: result.error });
       }
-      validatedDetalleOptions = result.options!;
-    } else if (category !== undefined) {
-      // Transitioning away from detalle — clear detalle_options
-      validatedDetalleOptions = null;
-    } else if (detalleOptions !== undefined) {
-      // No category change but updating options (for existing detalle indicator)
-      const result = validateDetalleOptions(detalleOptions);
+    }
+
+    // Validate detalle options. When re-affirming category 'detalle' without new
+    // options, fall back to the row's current options (effective-state parity).
+    let validatedDetalleOptions: string[] | undefined = undefined;
+    if (effectiveCategory === 'detalle' && (category === 'detalle' || detalleOptions !== undefined)) {
+      const optsToValidate = detalleOptions !== undefined ? detalleOptions : currentRow.detalle_options;
+      const result = validateDetalleOptions(optsToValidate);
       if (!result.valid) {
         return res.status(400).json({ error: result.error });
       }
@@ -265,36 +261,25 @@ async function handlePut(
       }
     }
 
-    // Build update object
+    // Build update object. Category-specific columns are preserved on a category
+    // change (not nulled) — the snapshot builders hide off-category columns, so a
+    // switch never destroys data and reappears if the category is switched back.
     const updateData: Record<string, unknown> = {};
-    if (code !== undefined) updateData.code = code;
-    if (name !== undefined) updateData.name = name;
-    if (description !== undefined) updateData.description = description;
-    if (evaluationGuidance !== undefined) updateData.evaluation_guidance = evaluationGuidance;
+    if (code !== undefined) updateData.code = normalizeIndicatorText(code);
+    if (name !== undefined) updateData.name = (name as string).trim();
+    if (description !== undefined) updateData.description = normalizeIndicatorText(description);
+    if (evaluationGuidance !== undefined) updateData.evaluation_guidance = normalizeIndicatorText(evaluationGuidance);
     if (category !== undefined) updateData.category = category;
+    // frequency_config is a full-replace of the jsonb column by design; the client
+    // merges onto the existing config so hidden scoring fields aren't wiped.
     if (frequencyConfig !== undefined) updateData.frequency_config = frequencyConfig;
     if (frequencyUnitOptions !== undefined) updateData.frequency_unit_options = frequencyUnitOptions;
-    if (level0Descriptor !== undefined) updateData.level_0_descriptor = level0Descriptor;
-    if (level1Descriptor !== undefined) updateData.level_1_descriptor = level1Descriptor;
-    if (level2Descriptor !== undefined) updateData.level_2_descriptor = level2Descriptor;
-    if (level3Descriptor !== undefined) updateData.level_3_descriptor = level3Descriptor;
-    if (level4Descriptor !== undefined) updateData.level_4_descriptor = level4Descriptor;
+    LEVEL_DESCRIPTOR_KEYS.forEach(({ snake }, i) => {
+      if (descriptorProvided[i]) updateData[snake] = normalizeIndicatorText(descriptorValues[i]);
+    });
     if (validatedDetalleOptions !== undefined) updateData.detalle_options = validatedDetalleOptions;
     if (weight !== undefined) updateData.weight = weight;
     if (visibilityCondition !== undefined) updateData.visibility_condition = visibilityCondition;
-
-    // Category-transition hygiene: clear stale category-specific columns.
-    if (category !== undefined && category !== 'profundidad') {
-      updateData.level_0_descriptor = null;
-      updateData.level_1_descriptor = null;
-      updateData.level_2_descriptor = null;
-      updateData.level_3_descriptor = null;
-      updateData.level_4_descriptor = null;
-    }
-    if (category !== undefined && category !== 'frecuencia') {
-      updateData.frequency_config = null;
-      updateData.frequency_unit_options = null;
-    }
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ error: 'No hay campos para actualizar' });
@@ -327,7 +312,7 @@ async function handlePut(
 
   } catch (err: any) {
     console.error('Unexpected error updating indicator:', err);
-    return res.status(500).json({ error: err.message || 'Error al actualizar indicador' });
+    return res.status(500).json({ error: 'Error al actualizar indicador' });
   }
 }
 

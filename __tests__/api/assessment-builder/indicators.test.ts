@@ -132,4 +132,30 @@ describe('POST /api/.../modules/[mid]/indicators', () => {
     await handler(req as any, res as any);
     expect(res._getStatusCode()).toBe(400);
   });
+
+  it('rejects a profundidad indicator whose only descriptor is whitespace (parity with PUT)', async () => {
+    const template = { id: TEMPLATE_DRAFT_1, status: 'draft', is_archived: false };
+    const mockClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'assessment_templates') return buildChainableQuery(template);
+        if (table === 'assessment_modules') return buildChainableQuery({ id: MODULE_A, template_id: TEMPLATE_DRAFT_1 });
+        return buildChainableQuery([]);
+      }),
+    };
+
+    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
+    mockCreateApiSupabaseClient.mockResolvedValue(mockClient);
+    mockHasReadPerm.mockResolvedValue(true);
+    mockHasWritePerm.mockResolvedValue(true);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { templateId: TEMPLATE_DRAFT_1, moduleId: MODULE_A },
+      body: { name: 'Prof', category: 'profundidad', level0Descriptor: '   ' },
+    });
+    await handler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(400);
+    const data = JSON.parse(res._getData());
+    expect(data.error).toBe('Los indicadores de profundidad requieren al menos un descriptor de nivel');
+  });
 });

@@ -4,6 +4,7 @@ import { IndicatorCategory } from '@/types/assessment-builder';
 import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-builder/autoAssignmentService';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 import { validateDetalleOptions } from '@/lib/validation/detalleValidator';
+import { validateProfundidadDescriptors } from '@/lib/validation/profundidadValidator';
 import { mapIndicatorRow } from '@/lib/services/assessment-builder/indicatorMapper';
 
 /**
@@ -145,14 +146,15 @@ async function handlePost(
       });
     }
 
-    // For profundidad, require at least some level descriptors
+    // For profundidad, require at least one non-empty level descriptor (shared
+    // validator — trims, so a whitespace-only descriptor cannot slip through and
+    // create a descriptor-less profundidad row).
     if (category === 'profundidad') {
-      const hasDescriptors =
-        level0Descriptor || level1Descriptor || level2Descriptor || level3Descriptor || level4Descriptor;
-      if (!hasDescriptors) {
-        return res.status(400).json({
-          error: 'Los indicadores de profundidad requieren al menos un descriptor de nivel',
-        });
+      const result = validateProfundidadDescriptors([
+        level0Descriptor, level1Descriptor, level2Descriptor, level3Descriptor, level4Descriptor,
+      ]);
+      if (!result.valid) {
+        return res.status(400).json({ error: result.error });
       }
     }
 

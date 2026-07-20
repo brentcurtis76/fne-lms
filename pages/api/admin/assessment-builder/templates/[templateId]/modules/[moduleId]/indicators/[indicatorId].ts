@@ -194,11 +194,30 @@ async function handlePut(
       });
     }
 
-    // POST-parity: when setting category to profundidad, require ≥1 provided descriptor
-    // that is a non-empty trimmed string.
-    if (category === 'profundidad') {
-      const descriptors = [level0Descriptor, level1Descriptor, level2Descriptor, level3Descriptor, level4Descriptor];
-      const hasDescriptor = descriptors.some(
+    // Fetch current state so we can validate the effective post-update state
+    // (combined current row + request body). Explicit `null` in the body counts
+    // as "provided" and clears the column, so we must judge the merged result.
+    const { data: currentIndicator, error: currentError } = await serviceClient
+      .from('assessment_indicators')
+      .select('category, level_0_descriptor, level_1_descriptor, level_2_descriptor, level_3_descriptor, level_4_descriptor')
+      .eq('id', indicatorId)
+      .single();
+
+    if (currentError || !currentIndicator) {
+      console.error('Error fetching current indicator:', currentError);
+      return res.status(500).json({ error: 'Error al actualizar el indicador' });
+    }
+
+    const effectiveCategory = category !== undefined ? category : currentIndicator.category;
+    const effectiveLevel0 = level0Descriptor !== undefined ? level0Descriptor : currentIndicator.level_0_descriptor;
+    const effectiveLevel1 = level1Descriptor !== undefined ? level1Descriptor : currentIndicator.level_1_descriptor;
+    const effectiveLevel2 = level2Descriptor !== undefined ? level2Descriptor : currentIndicator.level_2_descriptor;
+    const effectiveLevel3 = level3Descriptor !== undefined ? level3Descriptor : currentIndicator.level_3_descriptor;
+    const effectiveLevel4 = level4Descriptor !== undefined ? level4Descriptor : currentIndicator.level_4_descriptor;
+
+    if (effectiveCategory === 'profundidad') {
+      const effectiveDescriptors = [effectiveLevel0, effectiveLevel1, effectiveLevel2, effectiveLevel3, effectiveLevel4];
+      const hasDescriptor = effectiveDescriptors.some(
         (d) => typeof d === 'string' && d.trim().length > 0
       );
       if (!hasDescriptor) {

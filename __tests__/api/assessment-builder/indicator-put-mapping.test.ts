@@ -271,14 +271,28 @@ describe('PUT indicator — case mapping (fix/ind-put-case)', () => {
   });
 
   it('propagates explicit camelCase null (level0Descriptor: null) into updateData as null', async () => {
-    const { client, getCaptured } = buildCaptureClient(baseRow);
+    // Effective-state validation reads the same mock row for the current-state
+    // fetch as for the update chain. Give it a second non-empty descriptor so
+    // nulling level_0 still leaves the profundidad row with a valid descriptor.
+    const rowWithLevel1 = {
+      id: IND_TEST,
+      module_id: MODULE_A,
+      category: 'profundidad',
+      level_0_descriptor: 'lvl0',
+      level_1_descriptor: 'algo',
+      level_2_descriptor: null,
+      level_3_descriptor: null,
+      level_4_descriptor: null,
+    };
+    const { client, getCaptured } = buildCaptureClient(rowWithLevel1);
     mockCreateApiSupabaseClient.mockResolvedValue(client);
     mockCreateServiceRoleClient.mockReturnValue(client);
 
     const { req, res } = createMocks({
       method: 'PUT',
       query: { templateId: TEMPLATE_DRAFT_1, moduleId: MODULE_A, indicatorId: IND_TEST },
-      // No category change → skips profundidad validation and category-hygiene.
+      // No category change → skips category-hygiene. Effective state keeps
+      // level_1_descriptor='algo', so profundidad validation passes.
       body: { level0Descriptor: null },
     });
     await indicatorIdHandler(req as any, res as any);
@@ -288,5 +302,35 @@ describe('PUT indicator — case mapping (fix/ind-put-case)', () => {
     expect(captured).toBeTruthy();
     expect(captured).toHaveProperty('level_0_descriptor');
     expect(captured!.level_0_descriptor).toBeNull();
+  });
+
+  it('rejects null of the only remaining profundidad descriptor (effective post-update is empty)', async () => {
+    // Current profundidad row has only level_0_descriptor populated.
+    // Body clears it → effective state has no non-empty descriptor → 400.
+    const rowOnlyLevel0 = {
+      id: IND_TEST,
+      module_id: MODULE_A,
+      category: 'profundidad',
+      level_0_descriptor: 'lvl0',
+      level_1_descriptor: null,
+      level_2_descriptor: null,
+      level_3_descriptor: null,
+      level_4_descriptor: null,
+    };
+    const { client, getCaptured } = buildCaptureClient(rowOnlyLevel0);
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+    mockCreateServiceRoleClient.mockReturnValue(client);
+
+    const { req, res } = createMocks({
+      method: 'PUT',
+      query: { templateId: TEMPLATE_DRAFT_1, moduleId: MODULE_A, indicatorId: IND_TEST },
+      body: { level0Descriptor: null },
+    });
+    await indicatorIdHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+    const data = JSON.parse(res._getData());
+    expect(data.error).toBe('Los indicadores de profundidad requieren al menos un descriptor de nivel');
+    expect(getCaptured()).toBeNull();
   });
 });

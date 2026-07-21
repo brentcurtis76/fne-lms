@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import type { UpdateModuleRequest } from '@/types/assessment-builder';
 import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-builder/autoAssignmentService';
+import { categoryScopedColumns } from '@/lib/services/assessment-builder/indicatorCategoryColumns';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -140,7 +141,9 @@ async function handleGet(
       success: true,
       module: {
         ...module,
-        indicators: indicators || []
+        // Scope category-specific columns to each indicator's category (see the
+        // snapshot builders) so preserved off-category values aren't surfaced.
+        indicators: (indicators || []).map((ind: any) => ({ ...ind, ...categoryScopedColumns(ind) }))
       }
     });
 

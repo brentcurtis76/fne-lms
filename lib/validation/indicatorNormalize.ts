@@ -1,11 +1,11 @@
 /**
  * Shared text normalization for indicator string fields.
- * Keeps the PUT and POST handlers consistent: trim strings, and treat an
- * emptied string as a cleared (null) column. Non-string values pass through
- * unchanged (validation elsewhere rejects wrong types).
+ * Keeps the PUT and POST handlers consistent: trim strings, treat an emptied or
+ * absent value as a cleared (null) column. Non-string, non-nullish values pass
+ * through unchanged (validation elsewhere rejects wrong types).
  */
 export function normalizeIndicatorText(value: unknown): unknown {
-  if (value === null) return null;
+  if (value === null || value === undefined) return null;
   if (typeof value === 'string') return value.trim() || null;
   return value;
 }

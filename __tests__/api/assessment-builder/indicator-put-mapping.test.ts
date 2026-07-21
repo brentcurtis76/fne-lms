@@ -55,6 +55,10 @@ const IND_TEST = 'ab000004-0000-0000-0000-000000000099';
  * Capture-update Supabase proxy — mirrors the "clears detalle_options" pattern
  * in detalle.test.ts. Returns the same `returnRow` for every awaited chain,
  * captures the object passed to `.update(...)`, and exposes an accessor.
+ *
+ * Note: because every assessment_indicators query resolves to the same object
+ * (not an array), the cobertura-lock branch (`indicators?.[0]?.id`) always
+ * no-ops here — that gate is exercised in cobertura-gate.test.ts, not this file.
  */
 function buildCaptureClient(returnRow: Record<string, unknown>) {
   let capturedUpdateData: Record<string, unknown> | null = null;
@@ -311,6 +315,36 @@ describe('PUT indicator — case mapping (fix/ind-put-case)', () => {
       method: 'PUT',
       query: { templateId: TEMPLATE_DRAFT_1, moduleId: MODULE_A, indicatorId: IND_TEST },
       body: 'hello',
+    });
+    await indicatorIdHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+  });
+
+  it('rejects an out-of-range weight with 400 (not a 500 from the DB)', async () => {
+    const { client } = buildCaptureClient(baseRow);
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+    mockCreateServiceRoleClient.mockReturnValue(client);
+
+    const { req, res } = createMocks({
+      method: 'PUT',
+      query: { templateId: TEMPLATE_DRAFT_1, moduleId: MODULE_A, indicatorId: IND_TEST },
+      body: { weight: 99 },
+    });
+    await indicatorIdHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+  });
+
+  it('rejects a non-object frequencyConfig with 400', async () => {
+    const { client } = buildCaptureClient(baseRow);
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+    mockCreateServiceRoleClient.mockReturnValue(client);
+
+    const { req, res } = createMocks({
+      method: 'PUT',
+      query: { templateId: TEMPLATE_DRAFT_1, moduleId: MODULE_A, indicatorId: IND_TEST },
+      body: { frequencyConfig: 'garbage' },
     });
     await indicatorIdHandler(req as any, res as any);
 

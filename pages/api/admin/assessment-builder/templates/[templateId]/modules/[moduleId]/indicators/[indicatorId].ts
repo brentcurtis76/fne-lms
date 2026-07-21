@@ -216,6 +216,21 @@ async function handlePut(
       return res.status(400).json({ error: 'El nombre del indicador es requerido' });
     }
 
+    // Validate the shapes of the structured fields so malformed input is a 400,
+    // not a Postgres error surfaced as a 500.
+    if (weight !== undefined && (typeof weight !== 'number' || !Number.isFinite(weight) || weight < 0 || weight > 10)) {
+      return res.status(400).json({ error: 'El peso debe ser un número entre 0 y 10' });
+    }
+    if (frequencyConfig !== undefined && frequencyConfig !== null && (typeof frequencyConfig !== 'object' || Array.isArray(frequencyConfig))) {
+      return res.status(400).json({ error: 'Configuración de frecuencia inválida' });
+    }
+    if (frequencyUnitOptions !== undefined && frequencyUnitOptions !== null && !Array.isArray(frequencyUnitOptions)) {
+      return res.status(400).json({ error: 'Los períodos permitidos deben ser un arreglo' });
+    }
+    if (visibilityCondition !== undefined && visibilityCondition !== null && (typeof visibilityCondition !== 'object' || Array.isArray(visibilityCondition))) {
+      return res.status(400).json({ error: 'Condición de visibilidad inválida' });
+    }
+
     // Effective post-update state = current row (passed from the existence check)
     // merged with the request body. Explicit `null` counts as provided.
     const effectiveCategory = category !== undefined ? category : currentRow.category;

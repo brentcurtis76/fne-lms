@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import type { UpdateTemplateRequest } from '@/types/assessment-builder';
 import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-builder/autoAssignmentService';
+import { categoryScopedColumns } from '@/lib/services/assessment-builder/indicatorCategoryColumns';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -187,7 +188,10 @@ async function handleGet(
         return res.status(500).json({ error: 'Error al obtener los indicadores' });
       }
 
-      indicators = indicatorData || [];
+      // Scope category-specific columns to the indicator's category so an
+      // off-category value preserved by a category switch isn't surfaced here
+      // (consistent with the published-snapshot builders).
+      indicators = (indicatorData || []).map((ind: any) => ({ ...ind, ...categoryScopedColumns(ind) }));
     }
 
     // Group indicators by module

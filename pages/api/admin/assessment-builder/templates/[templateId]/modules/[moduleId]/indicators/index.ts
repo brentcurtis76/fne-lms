@@ -5,6 +5,7 @@ import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-build
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 import { validateDetalleOptions } from '@/lib/validation/detalleValidator';
 import { validateProfundidadDescriptors } from '@/lib/validation/profundidadValidator';
+import { normalizeIndicatorText } from '@/lib/validation/indicatorNormalize';
 import { mapIndicatorRow } from '@/lib/services/assessment-builder/indicatorMapper';
 
 /**
@@ -206,18 +207,18 @@ async function handlePost(
       .from('assessment_indicators')
       .insert({
         module_id: moduleId,
-        code: code?.trim() || null,
+        code: normalizeIndicatorText(code),
         name: name.trim(),
-        description: description?.trim() || null,
-        evaluation_guidance: evaluationGuidance?.trim() || null,
+        description: normalizeIndicatorText(description),
+        evaluation_guidance: normalizeIndicatorText(evaluationGuidance),
         category,
         frequency_config: isQuantitative ? (frequencyConfig || { unit: 'veces' }) : null,
         frequency_unit_options: isQuantitative ? (frequencyUnitOptions || ['dia', 'semana', 'mes', 'trimestre', 'semestre', 'año']) : null,
-        level_0_descriptor: isRubric ? (level0Descriptor?.trim() || null) : null,
-        level_1_descriptor: isRubric ? (level1Descriptor?.trim() || null) : null,
-        level_2_descriptor: isRubric ? (level2Descriptor?.trim() || null) : null,
-        level_3_descriptor: isRubric ? (level3Descriptor?.trim() || null) : null,
-        level_4_descriptor: isRubric ? (level4Descriptor?.trim() || null) : null,
+        level_0_descriptor: isRubric ? normalizeIndicatorText(level0Descriptor) : null,
+        level_1_descriptor: isRubric ? normalizeIndicatorText(level1Descriptor) : null,
+        level_2_descriptor: isRubric ? normalizeIndicatorText(level2Descriptor) : null,
+        level_3_descriptor: isRubric ? normalizeIndicatorText(level3Descriptor) : null,
+        level_4_descriptor: isRubric ? normalizeIndicatorText(level4Descriptor) : null,
         detalle_options: isDetalle ? validatedDetalleOptions : null,
         display_order: nextOrder,
         weight: weight || 1.0,

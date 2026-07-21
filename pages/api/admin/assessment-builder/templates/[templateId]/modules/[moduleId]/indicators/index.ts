@@ -4,6 +4,9 @@ import { IndicatorCategory } from '@/types/assessment-builder';
 import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-builder/autoAssignmentService';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 import { validateDetalleOptions } from '@/lib/validation/detalleValidator';
+import { validateProfundidadDescriptors } from '@/lib/validation/profundidadValidator';
+import { normalizeIndicatorText } from '@/lib/validation/indicatorNormalize';
+import { mapIndicatorRow } from '@/lib/services/assessment-builder/indicatorMapper';
 
 /**
  * GET /api/admin/assessment-builder/templates/[templateId]/modules/[moduleId]/indicators
@@ -98,27 +101,7 @@ async function handleGet(
 
     return res.status(200).json({
       success: true,
-      indicators: indicators.map((ind: any) => ({
-        id: ind.id,
-        moduleId: ind.module_id,
-        code: ind.code,
-        name: ind.name,
-        description: ind.description,
-        category: ind.category,
-        frequencyConfig: ind.frequency_config,
-        frequencyUnitOptions: ind.frequency_unit_options,
-        level0Descriptor: ind.level_0_descriptor,
-        level1Descriptor: ind.level_1_descriptor,
-        level2Descriptor: ind.level_2_descriptor,
-        level3Descriptor: ind.level_3_descriptor,
-        level4Descriptor: ind.level_4_descriptor,
-        detalleOptions: ind.detalle_options,
-        evaluationGuidance: ind.evaluation_guidance,
-        displayOrder: ind.display_order,
-        weight: ind.weight,
-        createdAt: ind.created_at,
-        updatedAt: ind.updated_at,
-      })),
+      indicators: indicators.map((ind: any) => mapIndicatorRow(ind)),
     });
   } catch (err: any) {
     console.error('Unexpected error fetching indicators:', err);
@@ -164,14 +147,15 @@ async function handlePost(
       });
     }
 
-    // For profundidad, require at least some level descriptors
+    // For profundidad, require at least one non-empty level descriptor (shared
+    // validator — trims, so a whitespace-only descriptor cannot slip through and
+    // create a descriptor-less profundidad row).
     if (category === 'profundidad') {
-      const hasDescriptors =
-        level0Descriptor || level1Descriptor || level2Descriptor || level3Descriptor || level4Descriptor;
-      if (!hasDescriptors) {
-        return res.status(400).json({
-          error: 'Los indicadores de profundidad requieren al menos un descriptor de nivel',
-        });
+      const result = validateProfundidadDescriptors([
+        level0Descriptor, level1Descriptor, level2Descriptor, level3Descriptor, level4Descriptor,
+      ]);
+      if (!result.valid) {
+        return res.status(400).json({ error: result.error });
       }
     }
 
@@ -223,18 +207,18 @@ async function handlePost(
       .from('assessment_indicators')
       .insert({
         module_id: moduleId,
-        code: code?.trim() || null,
+        code: normalizeIndicatorText(code),
         name: name.trim(),
-        description: description?.trim() || null,
-        evaluation_guidance: evaluationGuidance?.trim() || null,
+        description: normalizeIndicatorText(description),
+        evaluation_guidance: normalizeIndicatorText(evaluationGuidance),
         category,
         frequency_config: isQuantitative ? (frequencyConfig || { unit: 'veces' }) : null,
         frequency_unit_options: isQuantitative ? (frequencyUnitOptions || ['dia', 'semana', 'mes', 'trimestre', 'semestre', 'año']) : null,
-        level_0_descriptor: isRubric ? (level0Descriptor?.trim() || null) : null,
-        level_1_descriptor: isRubric ? (level1Descriptor?.trim() || null) : null,
-        level_2_descriptor: isRubric ? (level2Descriptor?.trim() || null) : null,
-        level_3_descriptor: isRubric ? (level3Descriptor?.trim() || null) : null,
-        level_4_descriptor: isRubric ? (level4Descriptor?.trim() || null) : null,
+        level_0_descriptor: isRubric ? normalizeIndicatorText(level0Descriptor) : null,
+        level_1_descriptor: isRubric ? normalizeIndicatorText(level1Descriptor) : null,
+        level_2_descriptor: isRubric ? normalizeIndicatorText(level2Descriptor) : null,
+        level_3_descriptor: isRubric ? normalizeIndicatorText(level3Descriptor) : null,
+        level_4_descriptor: isRubric ? normalizeIndicatorText(level4Descriptor) : null,
         detalle_options: isDetalle ? validatedDetalleOptions : null,
         display_order: nextOrder,
         weight: weight || 1.0,
@@ -255,27 +239,7 @@ async function handlePost(
 
     return res.status(201).json({
       success: true,
-      indicator: {
-        id: indicator.id,
-        moduleId: indicator.module_id,
-        code: indicator.code,
-        name: indicator.name,
-        description: indicator.description,
-        category: indicator.category,
-        frequencyConfig: indicator.frequency_config,
-        frequencyUnitOptions: indicator.frequency_unit_options,
-        level0Descriptor: indicator.level_0_descriptor,
-        level1Descriptor: indicator.level_1_descriptor,
-        level2Descriptor: indicator.level_2_descriptor,
-        level3Descriptor: indicator.level_3_descriptor,
-        level4Descriptor: indicator.level_4_descriptor,
-        detalleOptions: indicator.detalle_options,
-        evaluationGuidance: indicator.evaluation_guidance,
-        displayOrder: indicator.display_order,
-        weight: indicator.weight,
-        createdAt: indicator.created_at,
-        updatedAt: indicator.updated_at,
-      },
+      indicator: mapIndicatorRow(indicator),
       snapshotUpdated: snapshotResult.success,
     });
   } catch (err: any) {

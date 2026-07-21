@@ -16,6 +16,7 @@
 
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import type { GenerationType } from '@/types/assessment-builder';
+import { categoryScopedColumns } from '@/lib/services/assessment-builder/indicatorCategoryColumns';
 
 export interface AutoAssignmentResult {
   success: boolean;
@@ -738,21 +739,17 @@ export async function updatePublishedTemplateSnapshot(
       });
     });
 
-    // Helper to build indicator snapshot data
+    // Helper to build indicator snapshot data.
+    // Category-specific columns are projected through categoryScopedColumns so
+    // off-category data preserved on a category change is never emitted into the
+    // snapshot (which the LLM report consumes).
     const buildIndicatorSnapshot = (indicator: any) => ({
       id: indicator.id,
       code: indicator.code,
       name: indicator.name,
       description: indicator.description,
       category: indicator.category,
-      frequency_config: indicator.frequency_config,
-      frequency_unit_options: indicator.frequency_unit_options,
-      level_0_descriptor: indicator.level_0_descriptor,
-      level_1_descriptor: indicator.level_1_descriptor,
-      level_2_descriptor: indicator.level_2_descriptor,
-      level_3_descriptor: indicator.level_3_descriptor,
-      level_4_descriptor: indicator.level_4_descriptor,
-      detalle_options: indicator.detalle_options || null,
+      ...categoryScopedColumns(indicator),
       display_order: indicator.display_order,
       weight: indicator.weight,
       sub_questions: indicator.sub_questions,

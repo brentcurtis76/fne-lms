@@ -65,7 +65,9 @@ describe('PUT indicator — cobertura gate enforcement', () => {
 
     const template = { id: TEMPLATE_DRAFT_1, status: 'draft', is_archived: false };
     const module = { id: MODULE_A, template_id: TEMPLATE_DRAFT_1 };
-    const indicator = { id: IND_COBERTURA_1, module_id: MODULE_A };
+    // The existence check now selects the category-specific columns and serves as
+    // the current-state row (no separate pre-fetch).
+    const indicator = { id: IND_COBERTURA_1, module_id: MODULE_A, category: 'cobertura', level_0_descriptor: null, level_1_descriptor: null, level_2_descriptor: null, level_3_descriptor: null, level_4_descriptor: null, detalle_options: null };
 
     // First indicator in the module is IND_COBERTURA_1 with display_order 1
     const firstIndicators = [{ id: IND_COBERTURA_1, display_order: 1 }];
@@ -77,9 +79,9 @@ describe('PUT indicator — cobertura gate enforcement', () => {
         if (table === 'assessment_modules') return buildChainableQuery(module);
         if (table === 'assessment_indicators') {
           indicatorCallCount++;
-          // First call: verify indicator exists (eq id + single)
+          // Call 1: verify indicator exists + current state (eq id + single)
           if (indicatorCallCount === 1) return buildChainableQuery(indicator);
-          // Second call: cobertura gate check (eq module_id + order + limit)
+          // Call 2: cobertura gate check (eq module_id + order + limit)
           if (indicatorCallCount === 2) return buildChainableQuery(firstIndicators);
           return buildChainableQuery(null);
         }
@@ -106,7 +108,7 @@ describe('PUT indicator — cobertura gate enforcement', () => {
 
     const template = { id: TEMPLATE_DRAFT_1, status: 'draft', is_archived: false };
     const module = { id: MODULE_A, template_id: TEMPLATE_DRAFT_1 };
-    const indicator = { id: IND_FRECUENCIA_1, module_id: MODULE_A };
+    const indicator = { id: IND_FRECUENCIA_1, module_id: MODULE_A, category: 'frecuencia', level_0_descriptor: null, level_1_descriptor: null, level_2_descriptor: null, level_3_descriptor: null, level_4_descriptor: null, detalle_options: null };
 
     // First indicator is IND_COBERTURA_1 (not the one being updated)
     const firstIndicators = [{ id: IND_COBERTURA_1, display_order: 1 }];
@@ -119,11 +121,11 @@ describe('PUT indicator — cobertura gate enforcement', () => {
         if (table === 'assessment_modules') return buildChainableQuery(module);
         if (table === 'assessment_indicators') {
           indicatorCallCount++;
-          // First call: verify indicator exists
+          // Call 1: verify indicator exists + current state
           if (indicatorCallCount === 1) return buildChainableQuery(indicator);
-          // Second call: cobertura gate check — first indicator is different
+          // Call 2: cobertura gate check — first indicator is different
           if (indicatorCallCount === 2) return buildChainableQuery(firstIndicators);
-          // Third call: update
+          // Call 3: update
           if (indicatorCallCount === 3) return buildChainableQuery(updatedIndicator);
           return buildChainableQuery(null);
         }
@@ -137,7 +139,7 @@ describe('PUT indicator — cobertura gate enforcement', () => {
     const { req, res } = createMocks({
       method: 'PUT',
       query: { templateId: TEMPLATE_DRAFT_1, moduleId: MODULE_A, indicatorId: IND_FRECUENCIA_1 },
-      body: { category: 'profundidad' },
+      body: { category: 'profundidad', level0Descriptor: 'nivel 0' },
     });
     await indicatorByIdHandler(req as any, res as any);
     expect(res._getStatusCode()).toBe(200);
@@ -148,7 +150,7 @@ describe('PUT indicator — cobertura gate enforcement', () => {
 
     const template = { id: TEMPLATE_DRAFT_1, status: 'draft', is_archived: false };
     const module = { id: MODULE_A, template_id: TEMPLATE_DRAFT_1 };
-    const indicator = { id: IND_COBERTURA_1, module_id: MODULE_A };
+    const indicator = { id: IND_COBERTURA_1, module_id: MODULE_A, category: 'cobertura', level_0_descriptor: null, level_1_descriptor: null, level_2_descriptor: null, level_3_descriptor: null, level_4_descriptor: null, detalle_options: null };
     const updatedIndicator = { id: IND_COBERTURA_1, name: 'Updated Name', category: 'cobertura', module_id: MODULE_A };
 
     let indicatorCallCount = 0;
@@ -158,8 +160,10 @@ describe('PUT indicator — cobertura gate enforcement', () => {
         if (table === 'assessment_modules') return buildChainableQuery(module);
         if (table === 'assessment_indicators') {
           indicatorCallCount++;
+          // Call 1: verify indicator exists + current state
           if (indicatorCallCount === 1) return buildChainableQuery(indicator);
           // No cobertura gate check needed — category is 'cobertura'
+          // Call 2: update
           if (indicatorCallCount === 2) return buildChainableQuery(updatedIndicator);
           return buildChainableQuery(null);
         }

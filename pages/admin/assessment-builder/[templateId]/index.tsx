@@ -36,6 +36,7 @@ import type {
   TransformationArea,
   IndicatorCategory,
   FrequencyUnit,
+  MappedIndicator,
   UpdateTemplateRequest,
   CreateModuleRequest,
   UpdateModuleRequest,
@@ -51,6 +52,8 @@ import {
   FREQUENCY_UNIT_LABELS,
   DEFAULT_FREQUENCY_UNIT_OPTIONS,
 } from '@/types/assessment-builder';
+import { buildFrequencyConfig } from '@/lib/services/assessment-builder/frequencyConfig';
+import { validateProfundidadDescriptors } from '@/lib/validation/profundidadValidator';
 
 const STATUS_LABELS: Record<string, { label: string; bgColor: string; textColor: string }> = {
   draft: { label: 'Borrador', bgColor: 'bg-yellow-100', textColor: 'text-yellow-800' },
@@ -58,26 +61,9 @@ const STATUS_LABELS: Record<string, { label: string; bgColor: string; textColor:
   archived: { label: 'Archivado', bgColor: 'bg-gray-100', textColor: 'text-gray-800' },
 };
 
-interface IndicatorData {
-  id: string;
-  moduleId: string;
-  code?: string;
-  name: string;
-  description?: string;
-  evaluationGuidance?: string;
-  category: IndicatorCategory;
-  frequencyConfig?: { unit?: string; min?: number; max?: number };
-  frequencyUnitOptions?: FrequencyUnit[];
-  level0Descriptor?: string;
-  level1Descriptor?: string;
-  level2Descriptor?: string;
-  level3Descriptor?: string;
-  level4Descriptor?: string;
-  detalleOptions?: string[];
-  displayOrder: number;
-  weight: number;
-  isActive: boolean;
-}
+// The builder consumes the exact camelCase shape the indicator API returns
+// (mapIndicatorRow), so derive it rather than maintaining a parallel interface.
+type IndicatorData = MappedIndicator;
 
 interface ModuleWithIndicators extends Omit<AssessmentModule, 'indicators'> {
   indicators?: IndicatorData[];
@@ -674,16 +660,17 @@ const TemplateEditor: React.FC = () => {
       return;
     }
 
-    // For profundidad, require at least one level descriptor
+    // For profundidad, require at least one level descriptor (shared validator)
     if (indicatorForm.category === 'profundidad') {
-      const hasDescriptor =
-        indicatorForm.level0Descriptor.trim() ||
-        indicatorForm.level1Descriptor.trim() ||
-        indicatorForm.level2Descriptor.trim() ||
-        indicatorForm.level3Descriptor.trim() ||
-        indicatorForm.level4Descriptor.trim();
-      if (!hasDescriptor) {
-        toast.error('Los indicadores de profundidad requieren al menos un descriptor de nivel');
+      const result = validateProfundidadDescriptors([
+        indicatorForm.level0Descriptor,
+        indicatorForm.level1Descriptor,
+        indicatorForm.level2Descriptor,
+        indicatorForm.level3Descriptor,
+        indicatorForm.level4Descriptor,
+      ]);
+      if (!result.valid) {
+        toast.error(result.error!);
         return;
       }
     }
@@ -714,8 +701,8 @@ const TemplateEditor: React.FC = () => {
     try {
       const body: any = {
         name: indicatorForm.name.trim(),
-        description: indicatorForm.description.trim() || undefined,
-        evaluationGuidance: indicatorForm.evaluationGuidance.trim() || undefined,
+        description: indicatorForm.description.trim() || null,
+        evaluationGuidance: indicatorForm.evaluationGuidance.trim() || null,
         category: indicatorForm.category,
       };
 
@@ -724,16 +711,18 @@ const TemplateEditor: React.FC = () => {
       }
 
       if (indicatorForm.category === 'frecuencia') {
-        body.frequencyConfig = { unit: indicatorForm.frequencyUnit || 'veces' };
+        // Merge the chosen unit onto the existing config so scoring fields
+        // (min/max/step/type) the modal doesn't expose aren't wiped on edit.
+        body.frequencyConfig = buildFrequencyConfig(editingIndicator?.frequencyConfig, indicatorForm.frequencyUnit || 'veces');
         body.frequencyUnitOptions = indicatorForm.frequencyUnitOptions;
       }
 
       if (indicatorForm.category === 'profundidad') {
-        body.level0Descriptor = indicatorForm.level0Descriptor.trim() || undefined;
-        body.level1Descriptor = indicatorForm.level1Descriptor.trim() || undefined;
-        body.level2Descriptor = indicatorForm.level2Descriptor.trim() || undefined;
-        body.level3Descriptor = indicatorForm.level3Descriptor.trim() || undefined;
-        body.level4Descriptor = indicatorForm.level4Descriptor.trim() || undefined;
+        body.level0Descriptor = indicatorForm.level0Descriptor.trim() || null;
+        body.level1Descriptor = indicatorForm.level1Descriptor.trim() || null;
+        body.level2Descriptor = indicatorForm.level2Descriptor.trim() || null;
+        body.level3Descriptor = indicatorForm.level3Descriptor.trim() || null;
+        body.level4Descriptor = indicatorForm.level4Descriptor.trim() || null;
       }
 
       if (indicatorForm.category === 'detalle') {
@@ -741,11 +730,6 @@ const TemplateEditor: React.FC = () => {
       }
 
       if (editingIndicator) {
-        // PUT endpoint uses snake_case for evaluation_guidance
-        if (body.evaluationGuidance !== undefined) {
-          body.evaluation_guidance = body.evaluationGuidance;
-          delete body.evaluationGuidance;
-        }
         // Update indicator
         const response = await fetch(
           `/api/admin/assessment-builder/templates/${template.id}/modules/${indicatorModuleId}/indicators/${editingIndicator.id}`,

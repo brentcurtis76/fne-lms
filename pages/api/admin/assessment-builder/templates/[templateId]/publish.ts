@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import { upgradeExistingAssignments } from '@/lib/services/assessment-builder/autoAssignmentService';
+import { categoryScopedColumns } from '@/lib/services/assessment-builder/indicatorCategoryColumns';
 import { hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 
 /**
@@ -196,20 +197,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
     }
 
-    // Helper to build indicator snapshot data
+    // Helper to build indicator snapshot data.
+    // Category-specific columns are projected through categoryScopedColumns so
+    // off-category data preserved on a category change never reaches the snapshot.
     const buildIndicatorSnapshot = (indicator: any) => ({
       id: indicator.id,
       code: indicator.code,
       name: indicator.name,
       description: indicator.description,
       category: indicator.category,
-      frequency_config: indicator.frequency_config,
-      frequency_unit_options: indicator.frequency_unit_options,
-      level_0_descriptor: indicator.level_0_descriptor,
-      level_1_descriptor: indicator.level_1_descriptor,
-      level_2_descriptor: indicator.level_2_descriptor,
-      level_3_descriptor: indicator.level_3_descriptor,
-      level_4_descriptor: indicator.level_4_descriptor,
+      ...categoryScopedColumns(indicator),
       display_order: indicator.display_order,
       weight: indicator.weight,
       sub_questions: indicator.sub_questions,

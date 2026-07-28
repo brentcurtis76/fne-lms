@@ -9,6 +9,8 @@ import {
 import { Validators } from '../../../lib/types/api-auth.types';
 import { getUserRoles, getHighestRole } from '../../../utils/roleUtils';
 import { createSessionCalendar, generateExportFilename, ICalSessionInput } from '../../../lib/utils/session-ical';
+import { buildSessionJoinPath } from '../../../lib/utils/session-disclosure';
+import { buildAbsoluteUrl } from '../../../lib/utils/app-url';
 import type { SessionStatus } from '../../../lib/types/consultor-sessions.types';
 
 const VALID_SESSION_STATUSES = [
@@ -201,7 +203,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         start_time: s.start_time as string,
         end_time: s.end_time as string,
         location: (s.location as string | null) || undefined,
-        meeting_link: (s.meeting_link as string | null) || undefined,
+        // Platform link only — the raw meeting_link never leaves in an .ics
+        join_url: (s.meeting_link as string | null)
+          ? buildAbsoluteUrl(buildSessionJoinPath(s.id as string), req)
+          : undefined,
         status: s.status as SessionStatus,
         school_name: ((s.schools as Record<string, unknown> | null)?.name as string | null) || undefined,
         growth_community_name: (

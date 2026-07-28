@@ -9,6 +9,8 @@ import {
 import { Validators } from '../../../../lib/types/api-auth.types';
 import { getUserRoles, getHighestRole } from '../../../../utils/roleUtils';
 import { createSessionCalendar, generateSessionExportFilename, ICalSessionInput } from '../../../../lib/utils/session-ical';
+import { buildSessionJoinPath } from '../../../../lib/utils/session-disclosure';
+import { buildAbsoluteUrl } from '../../../../lib/utils/app-url';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-detail-ical');
@@ -111,7 +113,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       start_time: session.start_time,
       end_time: session.end_time,
       location: session.location,
-      meeting_link: session.meeting_link,
+      // Platform link only — the raw meeting_link never leaves in an .ics
+      join_url: session.meeting_link
+        ? buildAbsoluteUrl(buildSessionJoinPath(session.id), req)
+        : undefined,
       status: session.status,
       school_name: session.schools?.name || undefined,
       growth_community_name: session.growth_communities?.name || undefined,

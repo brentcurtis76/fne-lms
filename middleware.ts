@@ -8,12 +8,37 @@ export async function middleware(req: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession();
 
-  // No session → login
+  const pathname = req.nextUrl.pathname;
+
+  // No session → login, carrying the destination so a deep link survives the
+  // bounce instead of dumping everyone on /dashboard. The value is echoed back
+  // by an attacker-controllable URL, so the login page runs it through
+  // `resolveSafeInternalPath` before navigating anywhere.
+  //
+  // Only the *unauthenticated* redirect gets `next`. The authorization
+  // redirects further down deliberately do not: replaying a destination the
+  // user is not allowed to reach would just loop them back into a denial.
   if (!session) {
-    return NextResponse.redirect(new URL('/login', req.url));
+    const destination = `${pathname}${req.nextUrl.search}`;
+    return NextResponse.redirect(
+      new URL(`/login?next=${encodeURIComponent(destination)}`, req.url)
+    );
   }
 
-  const pathname = req.nextUrl.pathname;
+  // --- SESSION-PRESENCE-ONLY ROUTES ---
+  // `/meet` re-checks authorization in its own getServerSideProps
+  // (`resolveMeetSessionAccess`), and `/consultor` is still client-side gated —
+  // SSR role gating for it is separately ticketed. Both need nothing from this
+  // layer beyond "is there a session?", so they return before any role lookup
+  // and cost zero DB round-trips here.
+  if (
+    pathname === '/meet' ||
+    pathname.startsWith('/meet/') ||
+    pathname === '/consultor' ||
+    pathname.startsWith('/consultor/')
+  ) {
+    return res;
+  }
 
   // --- ADMIN ROUTES ---
   if (pathname.startsWith('/admin')) {
@@ -122,5 +147,12 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/community/workspace/:path*', '/school/:path*']
+  matcher: [
+    '/admin/:path*',
+    '/community/workspace/:path*',
+    '/school/:path*',
+    // Session-presence only — see the early return above.
+    '/meet/:path*',
+    '/consultor/:path*',
+  ]
 };

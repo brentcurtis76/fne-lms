@@ -118,9 +118,16 @@ export const getServerSideProps: GetServerSideProps<MeetSessionPageProps> = asyn
   });
 
   if (access.kind === 'unauthenticated') {
-    // Plain redirect: `next=` round-tripping (and its open-redirect guard)
-    // lands with the middleware work, not here.
-    return { redirect: { destination: '/login', permanent: false } };
+    // The middleware normally bounces these before SSR runs; this is the
+    // defence-in-depth copy for anything it misses. Same contract: carry the
+    // destination so the join link still works after logging in. The login page
+    // guards the value before navigating to it.
+    return {
+      redirect: {
+        destination: `/login?next=${encodeURIComponent(context.resolvedUrl)}`,
+        permanent: false,
+      },
+    };
   }
 
   if (access.kind === 'not-found') {

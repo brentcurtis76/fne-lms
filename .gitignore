@@ -150,3 +150,6 @@ lib/propuestas/__tests__/poc-output.pdf
 !docs/**/*.md
 !.claude/settings.json
 !.eslintrc.testid.json
+
+# Playwright test artifacts
+playwright-report/

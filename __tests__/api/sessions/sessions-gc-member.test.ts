@@ -43,6 +43,7 @@ describe('/api/sessions - GC Member Access', () => {
         {
           role_type: 'lider_comunidad',
           community_id: 'comm-123',
+          is_active: true,
           school_id: null,
         },
       ]);
@@ -110,6 +111,7 @@ describe('/api/sessions - GC Member Access', () => {
         {
           role_type: 'docente',
           community_id: 'comm-123',
+          is_active: true,
           school_id: 1,
         },
       ]);
@@ -168,6 +170,7 @@ describe('/api/sessions - GC Member Access', () => {
         {
           role_type: 'lider_comunidad',
           community_id: 'comm-123',
+          is_active: true,
           school_id: null,
         },
       ]);
@@ -211,6 +214,43 @@ describe('/api/sessions - GC Member Access', () => {
       await handler(req as any, res as any);
 
       expect(capturedCommunityIds).toEqual(['comm-123']);
+    });
+  });
+
+  describe('GET - GC Member with a revoked role', () => {
+    it('should ignore community scope granted by an is_active=false role row', async () => {
+      const { getApiUser, createServiceRoleClient } = await import('../../../lib/api-auth');
+      const { getUserRoles, getHighestRole } = await import('../../../utils/roleUtils');
+
+      (getApiUser as any).mockResolvedValue({
+        user: { id: 'gc-user-revoked' },
+        error: null,
+      });
+
+      (getUserRoles as any).mockResolvedValue([
+        {
+          role_type: 'lider_comunidad',
+          community_id: 'comm-123',
+          is_active: false,
+          school_id: null,
+        },
+      ]);
+
+      (getHighestRole as any).mockReturnValue('lider_comunidad');
+
+      const { req, res } = createMocks({
+        method: 'GET',
+        query: {},
+      });
+
+      await handler(req as any, res as any);
+
+      expect(res._getStatusCode()).toBe(200);
+      const data = JSON.parse(res._getData());
+      expect(data.data.sessions).toEqual([]);
+      expect(data.data.total).toBe(0);
+      // No DB query should even be built for a revoked membership
+      expect(createServiceRoleClient).toHaveBeenCalled();
     });
   });
 
@@ -262,6 +302,7 @@ describe('/api/sessions - GC Member Access', () => {
         {
           role_type: 'lider_comunidad',
           community_id: 'comm-123',
+          is_active: true,
           school_id: null,
         },
       ]);
@@ -315,6 +356,7 @@ describe('/api/sessions - GC Member Access', () => {
         {
           role_type: 'lider_comunidad',
           community_id: 'comm-123',
+          is_active: true,
           school_id: null,
         },
       ]);
@@ -370,6 +412,7 @@ describe('/api/sessions - GC Member Access', () => {
         {
           role_type: 'lider_comunidad',
           community_id: 'comm-123',
+          is_active: true,
           school_id: null,
         },
       ]);
@@ -428,16 +471,19 @@ describe('/api/sessions - GC Member Access', () => {
         {
           role_type: 'lider_comunidad',
           community_id: 'comm-123',
+          is_active: true,
           school_id: null,
         },
         {
           role_type: 'docente',
           community_id: 'comm-456',
+          is_active: true,
           school_id: 1,
         },
         {
           role_type: 'docente',
           community_id: 'comm-123', // duplicate
+          is_active: true,
           school_id: 2,
         },
       ]);

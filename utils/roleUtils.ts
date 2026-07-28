@@ -314,13 +314,22 @@ export function rolePriorityIndex(roleType: string): number {
 }
 
 /**
- * Get user's highest privilege role
+ * Get user's highest privilege role.
+ *
+ * Only ACTIVE role rows count. `getUserRoles()` already filters on
+ * `is_active = true`, so this is defense-in-depth for callers that assemble a
+ * role list by other means (role caches, test fixtures, future endpoints) —
+ * without it, a revoked `admin` row would still win the priority scan and
+ * every `highestRole === 'admin'` grant downstream (session detail/list,
+ * session-policy `canViewSession`/`canEditSession`, report and e-mail
+ * disclosure) would follow it. Rows that simply omit `is_active` are treated
+ * as active, matching the shape returned by the `user_roles_cache` fallback.
  */
 export function getHighestRole(roles: UserRole[]): UserRoleType | null {
   if (!roles || roles.length === 0) return null;
 
   for (const roleType of ROLE_PRIORITY) {
-    if (roles.some(role => role.role_type === roleType)) {
+    if (roles.some(role => role.role_type === roleType && role.is_active !== false)) {
       return roleType;
     }
   }

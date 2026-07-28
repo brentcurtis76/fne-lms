@@ -15,6 +15,10 @@ import {
   AttendanceUpdatePayload,
 } from '../../../../lib/types/consultor-sessions.types';
 import { canViewSession, canContributeToSession, SessionAccessContext } from '../../../../lib/utils/session-policy';
+import {
+  canViewParticipantEmails,
+  redactProfileEmails,
+} from '../../../../lib/utils/session-disclosure';
 
 const attendeeSchema = z.object({
   user_id: z.string().uuid({ message: 'user_id inválido en payload' }),
@@ -82,6 +86,15 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       return sendAuthError(res, 'Usuario sin roles asignados', 403);
     }
 
+    // Facilitator membership is not needed for the view check, but it decides
+    // whether attendee e-mails are disclosed below.
+    const { data: facilitatorCheck } = await serviceClient
+      .from('session_facilitators')
+      .select('id')
+      .eq('session_id', sessionId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
     // Use session-policy helper to check view access
     const accessContext: SessionAccessContext = {
       highestRole,
@@ -92,7 +105,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
         status: 'programada', // Status not needed for view check
       },
       userId: user.id,
-      isFacilitator: false, // Not needed for view check
+      isFacilitator: !!facilitatorCheck,
     };
 
     if (!canViewSession(accessContext)) {
@@ -111,7 +124,12 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       return sendAuthError(res, 'Error al obtener asistentes', 500, attendeesError.message);
     }
 
-    return sendApiResponse(res, { attendees: attendees || [] });
+    // Attendee e-mails only for admins, school-scoped consultors and facilitators
+    const visibleAttendees = canViewParticipantEmails(accessContext)
+      ? attendees || []
+      : redactProfileEmails(attendees || []);
+
+    return sendApiResponse(res, { attendees: visibleAttendees });
   } catch (error: any) {
     console.error('Get attendees error:', error);
     return sendAuthError(res, 'Error inesperado al obtener asistentes', 500, error.message);

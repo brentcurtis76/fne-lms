@@ -19,6 +19,11 @@ import {
 } from '../../../lib/types/consultor-sessions.types';
 import { generateRecurrenceDates, buildRRule } from '../../../lib/utils/recurrence';
 import { validateFacilitatorIntegrity } from '../../../lib/utils/facilitator-validation';
+import { SessionAccessContext } from '../../../lib/utils/session-policy';
+import {
+  canViewParticipantEmails,
+  redactProfileEmails,
+} from '../../../lib/utils/session-disclosure';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-index');
@@ -371,9 +376,11 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
       }
       // If global consultor, no school filter applied - they see all sessions
     } else {
-      // GC member: see sessions for their communities
+      // GC member: see sessions for their communities.
+      // Only ACTIVE role rows grant community scope — same rule canViewSession
+      // applies on the detail endpoint.
       const userCommunityIds = userRoles
-        .filter((r) => r.community_id)
+        .filter((r) => r.community_id && r.is_active)
         .map((r) => r.community_id)
         .filter((id, index, arr) => arr.indexOf(id) === index); // deduplicate
 
@@ -452,8 +459,29 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
       return sendAuthError(res, 'Error al obtener sesiones', 500, queryError.message);
     }
 
+    // Strip facilitator e-mails per row. Evaluated per session because a GC
+    // member may be a facilitator of some rows and a plain member of others.
+    const visibleSessions = (sessions || []).map((row: any) => {
+      const accessContext: SessionAccessContext = {
+        highestRole,
+        userRoles,
+        session: {
+          id: row.id,
+          school_id: row.school_id,
+          growth_community_id: row.growth_community_id,
+          status: row.status,
+        },
+        userId: user.id,
+        isFacilitator: Array.isArray(row.session_facilitators)
+          ? row.session_facilitators.some((f: { user_id?: string }) => f?.user_id === user.id)
+          : false,
+      };
+
+      return canViewParticipantEmails(accessContext) ? row : redactProfileEmails(row);
+    });
+
     return sendApiResponse(res, {
-      sessions: sessions || [],
+      sessions: visibleSessions,
       total: count || 0,
       page: pageNum,
       limit: limitNum,

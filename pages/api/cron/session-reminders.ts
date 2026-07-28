@@ -9,6 +9,8 @@ import {
   getSessionDateTime,
   getHoursUntilSession,
 } from '../../../lib/utils/session-timezone';
+import { buildSessionJoinPath } from '../../../lib/utils/session-disclosure';
+import { buildAbsoluteUrl } from '../../../lib/utils/app-url';
 
 /**
  * Cron job API endpoint for processing session reminders
@@ -102,6 +104,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const formattedDate = format(sessionDateTime, "EEEE d 'de' MMMM", { locale: es });
       const formattedTime = format(sessionDateTime, 'HH:mm', { locale: es });
 
+      // Notification payloads are persisted and rendered into e-mail, so they
+      // carry the platform surface, never the raw meeting link.
+      const joinUrl = session.meeting_link
+        ? buildAbsoluteUrl(buildSessionJoinPath(session.id), req)
+        : null;
+
       // 24h reminder: 23-25 hours out (allows ±1 hour window for cron timing)
       if (hoursUntil > 23 && hoursUntil <= 25) {
         const alreadySent = await checkReminderSent(serviceClient, session.id, 'session_reminder_24h');
@@ -112,7 +120,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               title: session.title,
               date: formattedDate,
               time: formattedTime,
-              meeting_link: session.meeting_link,
+              join_url: joinUrl,
             },
             facilitator_ids: userIds,
             attendee_ids: [],
@@ -132,7 +140,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               title: session.title,
               date: formattedDate,
               time: formattedTime,
-              meeting_link: session.meeting_link,
+              join_url: joinUrl,
             },
             facilitator_ids: userIds,
             attendee_ids: [],

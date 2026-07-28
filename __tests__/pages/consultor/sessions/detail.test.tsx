@@ -16,6 +16,8 @@
  *      (safe null render — no crash).
  *   6. "Solicitar Cambios" (edit) button is hidden for a consultor who is
  *      not a facilitator on the session.
+ *   7. The meeting affordance links to the platform interstitial, never to a
+ *      raw provider link (Z1a-2).
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -134,7 +136,8 @@ function makeSessionPayload(overrides: Record<string, unknown> = {}) {
     start_time: '09:00:00',
     end_time: '10:00:00',
     modality: 'presencial',
-    meeting_link: null,
+    has_meeting: false,
+    join_path: null,
     status: 'programada',
     school_id: 1,
     schools: { name: 'Colegio Test' },
@@ -358,5 +361,45 @@ describe('Consultor Session Detail Page', () => {
 
     // The "Guardar asistencia" save button must also be absent (non-editor view).
     expect(screen.queryByRole('button', { name: /Guardar asistencia/i })).not.toBeInTheDocument();
+  });
+
+  it('links the meeting affordance to the platform interstitial, not a raw link', async () => {
+    mockGetSession.mockResolvedValue(authenticatedSession(AUTH_USER_ID));
+    mockGetUserPrimaryRole.mockResolvedValue('consultor');
+
+    const payload = makeSessionPayload({
+      modality: 'online',
+      has_meeting: true,
+      join_path: '/meet/session/session-1',
+    });
+
+    global.fetch = mockFetchMatrix([
+      {
+        match: (url) => url.includes('/api/sessions/session-1'),
+        response: jsonResponse({ data: { session: payload } }, 200),
+      },
+    ]) as unknown as typeof fetch;
+
+    render(<SessionDetailPage />);
+
+    const link = await screen.findByTestId('session-join-link');
+    expect(link).toHaveAttribute('href', '/meet/session/session-1');
+  });
+
+  it('renders no meeting affordance when the session has no meeting', async () => {
+    mockGetSession.mockResolvedValue(authenticatedSession(AUTH_USER_ID));
+    mockGetUserPrimaryRole.mockResolvedValue('consultor');
+
+    global.fetch = mockFetchMatrix([
+      {
+        match: (url) => url.includes('/api/sessions/session-1'),
+        response: jsonResponse({ data: { session: makeSessionPayload() } }, 200),
+      },
+    ]) as unknown as typeof fetch;
+
+    render(<SessionDetailPage />);
+
+    await screen.findByText('Sesión de prueba');
+    expect(screen.queryByTestId('session-join-link')).not.toBeInTheDocument();
   });
 });

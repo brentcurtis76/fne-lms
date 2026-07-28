@@ -5,7 +5,12 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 interface EditRequestModalProps {
-  session: ConsultorSession;
+  /**
+   * Only the structural fields the form edits — narrower than
+   * `ConsultorSession` so callers holding a disclosure-filtered payload
+   * (where `meeting_link` may be stripped) can pass their session straight in.
+   */
+  session: Pick<ConsultorSession, 'session_date' | 'start_time' | 'end_time' | 'modality'>;
   onClose: () => void;
   onSubmit: (changes: Record<string, { old: unknown; new: unknown }>, reason: string) => Promise<void>;
   submitting: boolean;

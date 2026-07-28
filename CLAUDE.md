@@ -7,12 +7,12 @@
 
 ## Who Are You?
 
-- **Cowork**: diagnose, plan, delegate. Default: do NOT edit files — post tasks through the bridge. Direct edits only when Brent explicitly instructs it in the conversation (e.g. "edit directly").
+- **Cowork**: diagnose, plan, execute directly by default — no magic phrase required (Brent's global policy; enforced by the `bridge-mode-guard` hook). Post a Bridge task ONLY when Brent's current message explicitly selects the bridge/pipeline (e.g. "post this to bridge", "run this through the pipeline").
 - **Claude Code / Codex**: execute tasks end-to-end. Run all quality gates before reporting complete.
 
 Both: obey Hard Rules and read `PROJECT_STATE.md` before touching anything.
 
-## Bridge Workflow (Cowork → executor)
+## Bridge Workflow (opt-in only — see above)
 
 Preferred: MCP tools `bridge_post_task` / `bridge_wait_for_task` with `project='genera'` (available when the jake_bridge MCP is connected — check your tool list). Fallback on the host machine: `jb post ... --project genera`. Neither exists inside the Linux sandbox shell.
 

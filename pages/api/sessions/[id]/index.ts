@@ -16,6 +16,7 @@ import {
 } from '../../../../lib/types/consultor-sessions.types';
 import { canViewSession, SessionAccessContext } from '../../../../lib/utils/session-policy';
 import {
+  applySessionMeetingDisclosure,
   canViewParticipantEmails,
   filterReportsByVisibility,
   redactProfileEmails,
@@ -145,8 +146,13 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
     const showEmails = canViewParticipantEmails(accessContext);
     const redact = <T>(rows: T[]): T[] => (showEmails ? rows : redactProfileEmails(rows));
 
+    // Raw meeting link → admins / facilitators / scoped consultors only.
+    // Transcript → admins / facilitators only. Everyone gets has_meeting +
+    // join_path and reaches the meeting through /meet/session/{id}.
+    const disclosedSession = applySessionMeetingDisclosure(session, accessContext);
+
     const sessionWithRelations: SessionWithRelations = {
-      ...session,
+      ...disclosedSession,
       facilitators: redact(facilitatorsRes.data || []),
       attendees: redact(attendeesRes.data || []),
       // Same rule as GET /api/sessions/[id]/reports — shared helper so the two

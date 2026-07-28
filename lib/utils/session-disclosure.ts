@@ -4,7 +4,8 @@
  * `session-policy.ts` answers "may this user open the session at all?".
  * This module answers the narrower question that comes next: once a caller
  * has passed `canViewSession()`, WHAT is allowed inside the payload they get
- * back — restricted reports and personal e-mail addresses.
+ * back — restricted reports, personal e-mail addresses, and the raw meeting
+ * link / transcript.
  *
  * Every session GET that embeds `profiles(... email)` or `session_reports`
  * routes through these helpers, so the rule cannot drift between the detail
@@ -68,6 +69,102 @@ export function canViewParticipantEmails(ctx: SessionAccessContext): boolean {
   }
 
   return false;
+}
+
+/**
+ * Whether a caller may receive the raw `meeting_link` inside a session
+ * payload.
+ *
+ * Same persona set as `canViewParticipantEmails` — admins, the session's
+ * facilitators, and school-scoped or global consultors — because the raw link
+ * is a credential-shaped value: anyone holding it can walk into the meeting
+ * without passing through the platform. Privileged callers keep the field
+ * because admin/edit forms bind it; every other caller (growth-community
+ * members, GC leaders included) gets `has_meeting` + `join_path` instead and
+ * reaches the meeting through `/meet/session/{id}`.
+ *
+ * Kept as its own exported name — rather than calling `canViewParticipantEmails`
+ * at the call sites — so the two rules can diverge later without hunting down
+ * every consumer.
+ */
+export function canViewRawMeetingLink(ctx: SessionAccessContext): boolean {
+  return canViewParticipantEmails(ctx);
+}
+
+/**
+ * Whether a caller may receive `meeting_transcript`.
+ *
+ * A transcript is raw session content, so this follows the narrower
+ * `facilitators_only` report rule: admins and the session's own facilitators.
+ * A same-school consultor who is not facilitating this session does not read
+ * it (PROJECT_STATE: *el asesor nunca lee contenido crudo de sesiones ajenas*).
+ */
+export function canViewMeetingTranscript(ctx: SessionAccessContext): boolean {
+  return canViewRestrictedReports(ctx);
+}
+
+/**
+ * The platform surface that reveals a session's meeting link. Single source of
+ * truth for the path — the SSR page lives at `pages/meet/session/[id].tsx`.
+ */
+export function buildSessionJoinPath(sessionId: string): string {
+  return `/meet/session/${sessionId}`;
+}
+
+/**
+ * Meeting fields every caller receives, privileged or not.
+ *
+ * `has_meeting` lets a UI decide whether to render a join affordance without
+ * ever holding the link; `join_path` is where that affordance points.
+ */
+export interface SessionMeetingDisclosure {
+  has_meeting: boolean;
+  join_path: string | null;
+}
+
+type MeetingRow = {
+  id?: unknown;
+  meeting_link?: unknown;
+  meeting_transcript?: unknown;
+};
+
+function hasMeetingLink(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+/**
+ * Return a copy of a session row with the meeting disclosure policy applied:
+ * `meeting_link` / `meeting_transcript` stripped unless the caller is entitled
+ * to them, and `has_meeting` / `join_path` always added.
+ *
+ * Fields absent from the input row are not invented — a `select()` that never
+ * asked for `meeting_transcript` does not gain a null one.
+ */
+export function applySessionMeetingDisclosure<T extends MeetingRow>(
+  row: T,
+  ctx: SessionAccessContext
+): T & SessionMeetingDisclosure {
+  const {
+    meeting_link: rawLink,
+    meeting_transcript: rawTranscript,
+    ...rest
+  } = row as MeetingRow & Record<string, unknown>;
+
+  const out: Record<string, unknown> = { ...rest };
+
+  if ('meeting_link' in row && canViewRawMeetingLink(ctx)) {
+    out.meeting_link = rawLink ?? null;
+  }
+
+  if ('meeting_transcript' in row && canViewMeetingTranscript(ctx)) {
+    out.meeting_transcript = rawTranscript ?? null;
+  }
+
+  const present = hasMeetingLink(rawLink);
+  out.has_meeting = present;
+  out.join_path = present && row.id ? buildSessionJoinPath(String(row.id)) : null;
+
+  return out as unknown as T & SessionMeetingDisclosure;
 }
 
 /**

@@ -9,6 +9,9 @@
  *      a facilitator of that session.
  *   3. Profile e-mails (facilitators, attendees, uploaders) reach only admins,
  *      school-scoped consultors and the session's own facilitators.
+ *   4. The raw `meeting_link` reaches that same set and nobody else; the
+ *      `meeting_transcript` reaches only admins and facilitators; every caller
+ *      gets `has_meeting` + `join_path` instead (Z1a-2).
  *
  * Synthetic data only.
  */
@@ -49,6 +52,9 @@ const GC_USER_ID = 'u-gc-member-0001';
 const ADMIN_USER_ID = 'u-admin-0001';
 const CONSULTOR_USER_ID = 'u-consultor-0001';
 
+const MEETING_LINK = 'https://meet.example.test/abc-def';
+const MEETING_TRANSCRIPT = 'Transcripción cruda de la sesión';
+
 const FACILITATOR_EMAIL = 'facilitador@test.local';
 const ATTENDEE_EMAIL = 'asistente@test.local';
 const UPLOADER_EMAIL = 'subio@test.local';
@@ -62,6 +68,8 @@ const sessionRow = {
   is_active: true,
   session_date: '2026-03-10',
   start_time: '09:00:00',
+  meeting_link: MEETING_LINK,
+  meeting_transcript: MEETING_TRANSCRIPT,
   schools: { name: 'Colegio Sintético' },
   growth_communities: { name: 'Comunidad Sintética' },
 };
@@ -434,6 +442,111 @@ describe('GET /api/sessions/[id] — payload disclosure', () => {
   });
 });
 
+describe('GET /api/sessions/[id] — meeting link + transcript disclosure', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const gcMemberRoles = [
+    {
+      role_type: 'lider_comunidad',
+      community_id: SESSION_COMMUNITY_ID,
+      school_id: SESSION_SCHOOL_ID,
+      is_active: true,
+    },
+  ];
+
+  it('a GC member gets neither link nor transcript, but does get has_meeting/join_path', async () => {
+    const res = await runDetail({
+      userId: GC_USER_ID,
+      highestRole: 'lider_comunidad',
+      roles: gcMemberRoles,
+    });
+
+    expect(res._getStatusCode()).toBe(200);
+    const session = payloadOf(res);
+
+    expect(session).not.toHaveProperty('meeting_link');
+    expect(session).not.toHaveProperty('meeting_transcript');
+    expect(session.has_meeting).toBe(true);
+    expect(session.join_path).toBe(`/meet/session/${SESSION_ID}`);
+
+    const body = serialize(res);
+    expect(body).not.toContain(MEETING_LINK);
+    expect(body).not.toContain(MEETING_TRANSCRIPT);
+  });
+
+  it('a facilitator keeps both raw fields AND gets has_meeting/join_path', async () => {
+    const res = await runDetail({
+      userId: FACILITATOR_USER_ID,
+      highestRole: 'consultor',
+      roles: [
+        {
+          role_type: 'consultor',
+          school_id: SESSION_SCHOOL_ID,
+          community_id: null,
+          is_active: true,
+        },
+      ],
+      fixture: { isFacilitator: true },
+    });
+
+    const session = payloadOf(res);
+    expect(session.meeting_link).toBe(MEETING_LINK);
+    expect(session.meeting_transcript).toBe(MEETING_TRANSCRIPT);
+    expect(session.has_meeting).toBe(true);
+    expect(session.join_path).toBe(`/meet/session/${SESSION_ID}`);
+  });
+
+  it('an admin keeps both raw fields AND gets has_meeting/join_path', async () => {
+    const res = await runDetail({
+      userId: ADMIN_USER_ID,
+      highestRole: 'admin',
+      roles: [{ role_type: 'admin', school_id: null, community_id: null, is_active: true }],
+    });
+
+    const session = payloadOf(res);
+    expect(session.meeting_link).toBe(MEETING_LINK);
+    expect(session.meeting_transcript).toBe(MEETING_TRANSCRIPT);
+    expect(session.join_path).toBe(`/meet/session/${SESSION_ID}`);
+  });
+
+  it('a non-facilitating school consultor keeps the link but loses the transcript', async () => {
+    const res = await runDetail({
+      userId: CONSULTOR_USER_ID,
+      highestRole: 'consultor',
+      roles: [
+        {
+          role_type: 'consultor',
+          school_id: SESSION_SCHOOL_ID,
+          community_id: null,
+          is_active: true,
+        },
+      ],
+    });
+
+    const session = payloadOf(res);
+    expect(session.meeting_link).toBe(MEETING_LINK);
+    expect(session).not.toHaveProperty('meeting_transcript');
+    expect(serialize(res)).not.toContain(MEETING_TRANSCRIPT);
+  });
+
+  it('reports has_meeting=false / join_path=null for a session without a link', async () => {
+    const res = await runDetail({
+      userId: GC_USER_ID,
+      highestRole: 'lider_comunidad',
+      roles: gcMemberRoles,
+      fixture: {
+        session: { ...sessionRow, meeting_link: null, meeting_transcript: null },
+      },
+    });
+
+    const session = payloadOf(res);
+    expect(session.has_meeting).toBe(false);
+    expect(session.join_path).toBeNull();
+  });
+});
+
 // ------------------------------------------------------------------
 // List GET
 // ------------------------------------------------------------------
@@ -444,6 +557,8 @@ const listRow = {
   school_id: SESSION_SCHOOL_ID,
   growth_community_id: SESSION_COMMUNITY_ID,
   status: 'programada',
+  meeting_link: MEETING_LINK,
+  meeting_transcript: MEETING_TRANSCRIPT,
   session_facilitators: [
     {
       user_id: FACILITATOR_USER_ID,
@@ -544,6 +659,42 @@ describe('GET /api/sessions — list payload disclosure', () => {
 
     const data = JSON.parse(res._getData()).data;
     expect(data.sessions[0].session_facilitators[0].profiles.email).toBe(FACILITATOR_EMAIL);
+  });
+
+  it('a non-privileged GC member gets no meeting_link/transcript, only has_meeting + join_path', async () => {
+    const res = await runList({
+      userId: GC_USER_ID,
+      highestRole: 'lider_comunidad',
+      roles: [
+        {
+          role_type: 'lider_comunidad',
+          community_id: SESSION_COMMUNITY_ID,
+          school_id: SESSION_SCHOOL_ID,
+          is_active: true,
+        },
+      ],
+    });
+
+    const row = JSON.parse(res._getData()).data.sessions[0];
+    expect(row).not.toHaveProperty('meeting_link');
+    expect(row).not.toHaveProperty('meeting_transcript');
+    expect(row.has_meeting).toBe(true);
+    expect(row.join_path).toBe(`/meet/session/${SESSION_ID}`);
+    expect(res._getData()).not.toContain(MEETING_LINK);
+    expect(res._getData()).not.toContain(MEETING_TRANSCRIPT);
+  });
+
+  it('admin keeps the raw meeting fields on list rows and still gets join_path', async () => {
+    const res = await runList({
+      userId: ADMIN_USER_ID,
+      highestRole: 'admin',
+      roles: [{ role_type: 'admin', school_id: null, community_id: null, is_active: true }],
+    });
+
+    const row = JSON.parse(res._getData()).data.sessions[0];
+    expect(row.meeting_link).toBe(MEETING_LINK);
+    expect(row.meeting_transcript).toBe(MEETING_TRANSCRIPT);
+    expect(row.join_path).toBe(`/meet/session/${SESSION_ID}`);
   });
 
   it('school-scoped consultor keeps facilitator e-mails for their school', async () => {

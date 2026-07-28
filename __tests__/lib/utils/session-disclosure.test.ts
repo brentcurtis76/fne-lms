@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
+  applySessionMeetingDisclosure,
+  buildSessionJoinPath,
+  canViewMeetingTranscript,
   canViewParticipantEmails,
+  canViewRawMeetingLink,
   canViewRestrictedReports,
   filterReportsByVisibility,
   redactProfileEmails,
@@ -131,6 +135,161 @@ describe('canViewParticipantEmails', () => {
         })
       )
     ).toBe(false);
+  });
+});
+
+describe('canViewRawMeetingLink', () => {
+  it('allows admins', () => {
+    expect(canViewRawMeetingLink(buildContext({ highestRole: 'admin' }))).toBe(true);
+  });
+
+  it('allows the session facilitators regardless of role', () => {
+    expect(
+      canViewRawMeetingLink(buildContext({ highestRole: 'docente', isFacilitator: true }))
+    ).toBe(true);
+  });
+
+  it('allows a consultor scoped to the session school', () => {
+    expect(
+      canViewRawMeetingLink(
+        buildContext({
+          highestRole: 'consultor',
+          userRoles: [buildUserRole({ school_id: SCHOOL_ID })],
+        })
+      )
+    ).toBe(true);
+  });
+
+  it('denies a GC leader of the session community', () => {
+    expect(
+      canViewRawMeetingLink(
+        buildContext({
+          highestRole: 'lider_comunidad',
+          userRoles: [buildUserRole({ role_type: 'lider_comunidad', community_id: GC_ID })],
+        })
+      )
+    ).toBe(false);
+  });
+
+  it('denies a consultor scoped to another school', () => {
+    expect(
+      canViewRawMeetingLink(
+        buildContext({
+          highestRole: 'consultor',
+          userRoles: [buildUserRole({ school_id: 999 })],
+        })
+      )
+    ).toBe(false);
+  });
+});
+
+describe('canViewMeetingTranscript', () => {
+  it('allows admins and facilitators', () => {
+    expect(canViewMeetingTranscript(buildContext({ highestRole: 'admin' }))).toBe(true);
+    expect(
+      canViewMeetingTranscript(buildContext({ highestRole: 'docente', isFacilitator: true }))
+    ).toBe(true);
+  });
+
+  it('denies a same-school consultor who is not facilitating — narrower than the link rule', () => {
+    const ctx = buildContext({
+      highestRole: 'consultor',
+      userRoles: [buildUserRole({ school_id: SCHOOL_ID })],
+    });
+    expect(canViewRawMeetingLink(ctx)).toBe(true);
+    expect(canViewMeetingTranscript(ctx)).toBe(false);
+  });
+});
+
+describe('buildSessionJoinPath', () => {
+  it('points at the platform interstitial', () => {
+    expect(buildSessionJoinPath('abc-123')).toBe('/meet/session/abc-123');
+  });
+});
+
+describe('applySessionMeetingDisclosure', () => {
+  const row = {
+    id: 'sess-1',
+    title: 'Sesión sintética',
+    meeting_link: 'https://meet.example.test/abc-def',
+    meeting_transcript: 'transcripción cruda',
+  };
+
+  const gcMember = buildContext({
+    highestRole: 'lider_comunidad',
+    userRoles: [buildUserRole({ role_type: 'lider_comunidad', community_id: GC_ID })],
+  });
+
+  it('strips both fields for a GC member and adds has_meeting/join_path', () => {
+    const out = applySessionMeetingDisclosure(row, gcMember);
+
+    expect(out).not.toHaveProperty('meeting_link');
+    expect(out).not.toHaveProperty('meeting_transcript');
+    expect(out.has_meeting).toBe(true);
+    expect(out.join_path).toBe('/meet/session/sess-1');
+    expect(out.title).toBe('Sesión sintética');
+    expect(JSON.stringify(out)).not.toContain('meet.example.test');
+  });
+
+  it('keeps both fields for an admin, and still adds has_meeting/join_path', () => {
+    const out = applySessionMeetingDisclosure(row, buildContext({ highestRole: 'admin' }));
+
+    expect(out.meeting_link).toBe(row.meeting_link);
+    expect(out.meeting_transcript).toBe(row.meeting_transcript);
+    expect(out.has_meeting).toBe(true);
+    expect(out.join_path).toBe('/meet/session/sess-1');
+  });
+
+  it('keeps the link but strips the transcript for a non-facilitating scoped consultor', () => {
+    const out = applySessionMeetingDisclosure(
+      row,
+      buildContext({
+        highestRole: 'consultor',
+        userRoles: [buildUserRole({ school_id: SCHOOL_ID })],
+      })
+    );
+
+    expect(out.meeting_link).toBe(row.meeting_link);
+    expect(out).not.toHaveProperty('meeting_transcript');
+  });
+
+  it('reports has_meeting=false and join_path=null when there is no link', () => {
+    const out = applySessionMeetingDisclosure(
+      { id: 'sess-2', meeting_link: null, meeting_transcript: null },
+      buildContext({ highestRole: 'admin' })
+    );
+
+    expect(out.has_meeting).toBe(false);
+    expect(out.join_path).toBeNull();
+    expect(out.meeting_link).toBeNull();
+  });
+
+  it('treats a blank link as no meeting', () => {
+    const out = applySessionMeetingDisclosure(
+      { id: 'sess-3', meeting_link: '   ' },
+      buildContext({ highestRole: 'admin' })
+    );
+
+    expect(out.has_meeting).toBe(false);
+    expect(out.join_path).toBeNull();
+  });
+
+  it('does not invent fields the row never selected', () => {
+    const out = applySessionMeetingDisclosure(
+      { id: 'sess-4', title: 'Sin columnas de reunión' },
+      buildContext({ highestRole: 'admin' })
+    );
+
+    expect(out).not.toHaveProperty('meeting_link');
+    expect(out).not.toHaveProperty('meeting_transcript');
+    expect(out.has_meeting).toBe(false);
+  });
+
+  it('does not mutate the input row', () => {
+    const input = { ...row };
+    applySessionMeetingDisclosure(input, gcMember);
+    expect(input.meeting_link).toBe(row.meeting_link);
+    expect(input.meeting_transcript).toBe(row.meeting_transcript);
   });
 });
 

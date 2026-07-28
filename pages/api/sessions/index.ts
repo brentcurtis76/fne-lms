@@ -21,6 +21,7 @@ import { generateRecurrenceDates, buildRRule } from '../../../lib/utils/recurren
 import { validateFacilitatorIntegrity } from '../../../lib/utils/facilitator-validation';
 import { SessionAccessContext } from '../../../lib/utils/session-policy';
 import {
+  applySessionMeetingDisclosure,
   canViewParticipantEmails,
   redactProfileEmails,
 } from '../../../lib/utils/session-disclosure';
@@ -459,8 +460,9 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
       return sendAuthError(res, 'Error al obtener sesiones', 500, queryError.message);
     }
 
-    // Strip facilitator e-mails per row. Evaluated per session because a GC
-    // member may be a facilitator of some rows and a plain member of others.
+    // Strip facilitator e-mails and the raw meeting link/transcript per row.
+    // Evaluated per session because a GC member may be a facilitator of some
+    // rows and a plain member of others.
     const visibleSessions = (sessions || []).map((row: any) => {
       const accessContext: SessionAccessContext = {
         highestRole,
@@ -477,7 +479,11 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
           : false,
       };
 
-      return canViewParticipantEmails(accessContext) ? row : redactProfileEmails(row);
+      const withoutEmails = canViewParticipantEmails(accessContext)
+        ? row
+        : redactProfileEmails(row);
+
+      return applySessionMeetingDisclosure(withoutEmails, accessContext);
     });
 
     return sendApiResponse(res, {

@@ -1,1 +1,14 @@
 project_id = "sxlogxqzmarhqsblxmtj"
+
+# LOCAL Data API exposure (Z1b item 6). Declaring `schemas` replaces the CLI
+# defaults, so the default entries are preserved explicitly alongside
+# zoom_internal. Exposure makes serviceClient.schema('zoom_internal')
+# addressable; access is denied by GRANTS (see the zoom_internal migrations +
+# pgTAP 002) — the grants, not this list, are the enforcing control.
+# PRODUCTION exposure is Brent's ops checklist item at release (plan §16).
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public", "zoom_internal"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000

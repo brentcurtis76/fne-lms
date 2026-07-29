@@ -78,23 +78,67 @@
  * name would read better; the fix is roster hygiene (store the name the
  * transcript will actually contain), not a looser rule.
  *
- * **Role-pattern candidates must be name-plausible (v1.3).** A role noun marks
- * what follows it, but only where that token could be a name:
+ * **Trigger-adjacent candidates must be name-plausible (v1.3 → generalized in
+ * v1.4).** A trigger marks what sits beside it, but only where that token could
+ * be a name:
  *
- *  - CAPITALIZED → `high`, unchanged. Role context legitimately disambiguates a
- *    collision name, so "la alumna Rosa" stays high.
+ *  - CAPITALIZED → `high`. Trigger context legitimately disambiguates a
+ *    collision name, so "la alumna Rosa" stays high. Two exceptions: a
+ *    sentence-initial ordinary word, and an `ORG_HEADS` token.
  *  - lowercase → `uncertain`, and only when nothing says the token is an
  *    ordinary word: not in `COMMON_WORDS`, not school/course/organization
  *    vocabulary, and carrying none of the Spanish morphology in
  *    `NON_NAME_ENDINGS`. This is the branch that survives Whisper lowercasing a
- *    name ("el alumno benjamín"); without the filter it also marked the verb in
- *    "los alumnos **trabajaron** bien", which corrupts the minuta input and
- *    inflates `personCount` → density → spurious `flagged` states (§6).
+ *    name ("el alumno benjamín", "la profe marcela"); without the filter it also
+ *    marked the verb in "los alumnos **trabajaron** bien" and "La profesora
+ *    **terminaba** explicando", which corrupts the minuta input and inflates
+ *    `personCount` → density → spurious `flagged` states (§6).
  *
  * The filter is morphology, not a dictionary: an open-class word whose shape is
  * indistinguishable from a name ("la alumna **tranquila**", "los alumnos
  * **nuevos**") still resolves to `uncertain` → redacted, which is the §12
  * asymmetry working as intended. It costs minuta wording, never a leak.
+ *
+ * ------------------------------------------------------------------------
+ *
+ * **MARKING-PATH AUDIT (v1.4).** The defect above was never one layer's bug: it
+ * is a CLASS — *a marking path fires on a trigger-adjacent token without gap
+ * discipline or name plausibility* — and v1.3 closed only the role-pattern
+ * instance. v1.4 closes the class with three uniform guards, and the table below
+ * is the closure argument: every path that can put evidence on a token, and what
+ * bounds it. A new marking path is not finished until it has a row here.
+ *
+ * | # | Path | Fires on | Bounded by |
+ * |---|------|----------|------------|
+ * | 1 | honorific (i−1)      | `HONORIFICS` | **G1** · **G2** |
+ * | 2 | role-pattern (i−1)   | `ROLE_NOUNS` | **G1** · **G2** · candidate is not itself a role noun |
+ * | 3 | role-pattern (i−2)   | `ROLE_NOUNS` | **G1** (both gaps) · **G2** · intervening token must be a connector or `llamado`/`llamada` |
+ * | 4 | course-pattern (i−1) | `looksLikeCourse` | **G1** · **G2** · candidate must be capitalized |
+ * | 5 | course-pattern (i−2) | `looksLikeCourse` | **G1** (both gaps) · **G2** · candidate must be capitalized |
+ * | 6 | capitalization       | no trigger — the token's own shape | sentence-initial skip · `NON_PERSON_PROPER` veto · `ORG_HEADS` lookbehind at i−1 and i−2 · `COMMON_WORDS` downgrades to `uncertain` |
+ * | 7 | left-extension       | an already-marked token to its right | plain-space gap only · capitalized only · `COMMON_WORDS` / `NON_PERSON_PROPER` / `ORG_HEADS` · **G3** |
+ * | 8 | cross-reference      | the vocabulary built by paths 1–7 | creates no vocabulary of its own, so it inherits every guard above · a lowercase `COMMON_WORDS` token is never propagated |
+ *
+ *  - **G1 — gap discipline** (`patternGapBlocked`). Paths 1–5 may not reach
+ *    across a sentence terminator `[.!?¡¿\n•·]`, unless the token before it is a
+ *    known abbreviation — "Sra. Elena" is one construction, not two sentences.
+ *    Commas and plain spaces stay legal inside a pattern, so "de 5°B, Martina"
+ *    and "la estudiante, Martina" keep working. Without G1, "…los alumnos.
+ *    **Entonces** conversamos" and "…de quinto básico. **Entonces** decidimos"
+ *    both turned the next sentence's adverb into a person.
+ *  - **G2 — name plausibility** (`nameCandidateEvidence`). ONE predicate, shared
+ *    by paths 1–5, which is what makes the guarantee a property of the module
+ *    rather than of whichever layer someone remembered to patch. Path 6 keeps
+ *    its own, older rule: having no trigger to license anything, it vetoes
+ *    `NON_PERSON_PROPER` outright — which a trigger layer must NOT do, because
+ *    that set holds real given names (`julio`, `abril`, `santiago`).
+ *  - **G3 — left-extension veto** (`carriesNonNameEnding` on path 7). A
+ *    capitalized verb opening a sentence is not part of the name beside it:
+ *    "**Quedaron** Martina Rojas y Benjamín Soto" used to produce the span
+ *    `Quedaron Martina Rojas`. `COMMON_WORDS` cannot carry this — Spanish
+ *    sentence openers are an open class — so the guard is morphology instead.
+ *
+ * ------------------------------------------------------------------------
  *
  * **Documented residuals.** R1 and R2 are the ONLY residuals of this module,
  * both roster-identity limits and neither a detection gap. (v1.2's R3 —
@@ -129,7 +173,7 @@
  * Bump on any change to detection behaviour. Stored alongside a transcript so a
  * newer sanitizer can be detected and re-run (§6 state machine).
  */
-export const SANITIZER_VERSION = 'node-1.3.0';
+export const SANITIZER_VERSION = 'node-1.4.0';
 
 /** Default student-reference density (per 100 words) above which a transcript is flagged. */
 export const DEFAULT_FLAG_DENSITY_THRESHOLD = 2.0;
@@ -191,10 +235,23 @@ export type SanitizeResult = {
 /* ------------------------------------------------------------------ lexicons */
 
 /**
- * High-frequency Spanish words. Used only to decide whether a CAPITALIZED token
- * is suspicious: an ordinary word capitalized mid-sentence is ambiguous
- * ("Rosa"), not automatically innocent, so membership here downgrades a
- * detection to `uncertain` rather than dismissing it.
+ * High-frequency Spanish words. Two readers, and the second one is why this set
+ * grew in v1.4:
+ *
+ *  - the CAPITALIZED path, where an ordinary word capitalized mid-sentence is
+ *    ambiguous ("Rosa"), not automatically innocent, so membership here
+ *    downgrades a detection to `uncertain` rather than dismissing it;
+ *  - G2's lowercase branch, where membership dismisses outright. Once the
+ *    honorific layer was routed through G2 (v1.4), the words that had to be
+ *    dismissed were the SHORT preterites an honorific-headed sentence puts right
+ *    after its subject — and `NON_NAME_ENDINGS` cannot reach them, because they
+ *    sit under the length-5 floor that exists to protect "juan" and "ivan".
+ *
+ * The v1.4 additions are marked below. Every one is a verb form or a role noun
+ * with no es-CL given-name collision, so dismissing it costs no recall. The list
+ * is NOT claimed to be complete: an unlisted short verb after an honorific still
+ * resolves to `uncertain` and redacts, which is over-redaction in the §12-safe
+ * direction. What closes the defect class is G1/G2/G3, not this lexicon.
  */
 const COMMON_WORDS = new Set<string>(
   `a al algo alguna algunas alguno algunos ahora ante antes aqui aquel aquella aquello asi aun aunque
@@ -222,7 +279,8 @@ const COMMON_WORDS = new Set<string>(
    ahora bueno igualmente asimismo mientras tanto luego entretanto ok okey vale dale ya
    rosa angel angeles consuelo pilar mercedes milagros sol luz cruz paz nieves dolores esperanza olivia
    alba aurora estrella flor perla violeta jazmin azucena rocio amparo remedios socorro
-   salvador jesus leon lucero prado ribera vega paloma`
+   salvador jesus leon lucero prado ribera vega paloma
+   dijo hizo vino quiso propuso jefe`
     .split(/\s+/)
     .filter(Boolean)
 );
@@ -328,9 +386,19 @@ const NAME_CONNECTORS = new Set<string>(['de', 'del', 'la', 'las', 'los', 'y', '
 const ABBREVIATIONS = new Set<string>(['sr', 'sra', 'srta', 'dr', 'dra', 'prof', 'ing', 'lic']);
 
 /**
- * Spanish endings a person name does not carry. Read ONLY by the role-pattern
- * layer, and only for a lowercase candidate — a capitalized one keeps its `high`
- * evidence whatever it ends in.
+ * Punctuation that ends a sentence. Read by `tokenize` (to mark sentence
+ * starts) and by `gapTerminates` (G1, the pattern layers' gap discipline), so
+ * both answer the "is there a sentence break here?" question the same way.
+ */
+const SENTENCE_TERMINATOR_RE = /[.!?¡¿\n•·]/;
+
+/**
+ * Spanish endings a person name does not carry. Read in two places, both of
+ * them a marking guard: G2's lowercase branch (every pattern layer, v1.4 —
+ * previously role-pattern only), where a capitalized candidate keeps its `high`
+ * evidence whatever it ends in; and G3, the left-extension veto, where a
+ * CAPITALIZED candidate is tested too, because a capitalized verb is exactly
+ * what a sentence-opening extension absorbs ("**Quedaron** Martina Rojas").
  *
  * Matched against the **accent-preserving** lowercase surface, which is what
  * makes the set usable at all: Spanish spells the name/verb minimal pairs apart
@@ -448,12 +516,42 @@ function tokenize(text: string): Token[] {
       tokens[i].sentenceInitial = true;
       continue;
     }
-    const gap = text.slice(tokens[i - 1].end, tokens[i].start);
-    const terminated = /[.!?¡¿\n•·]/.test(gap);
-    tokens[i].sentenceInitial = terminated && !ABBREVIATIONS.has(tokens[i - 1].norm);
+    tokens[i].sentenceInitial = gapTerminates(tokens[i - 1], tokens[i], text);
   }
 
   return tokens;
+}
+
+/**
+ * Does the gap between two adjacent tokens carry a sentence break?
+ *
+ * The abbreviation exception is what keeps "Sra. Elena" a single construction:
+ * the period belongs to the title, not to a sentence. `tokenize` uses this to
+ * decide sentence starts and G1 (`patternGapBlocked`) uses it to decide whether
+ * a trigger may reach across the gap, so the two can never disagree.
+ */
+function gapTerminates(previous: Token, current: Token, text: string): boolean {
+  const gap = text.slice(previous.end, current.start);
+  return SENTENCE_TERMINATOR_RE.test(gap) && !ABBREVIATIONS.has(previous.norm);
+}
+
+/**
+ * **G1 — gap discipline.** A trigger-adjacent pattern (honorific, role noun,
+ * course designation, in both their i-1 and i-2 forms) must not reach across a
+ * sentence boundary. "Llegaron temprano los alumnos. Entonces conversamos…"
+ * used to make the adverb opening the NEXT sentence a person, because the layer
+ * only ever looked at token indices and never at the text between them.
+ *
+ * Every gap in `[from, to]` is checked, so the i-2 variants are bound too. What
+ * stays legal inside a pattern is a comma or a plain space — "de 5°B, Martina"
+ * and "la estudiante, Martina" are one construction, and an abbreviation's own
+ * period ("Sra. Elena") is not a boundary at all.
+ */
+function patternGapBlocked(tokens: Token[], from: number, to: number, text: string): boolean {
+  for (let k = from + 1; k <= to; k += 1) {
+    if (gapTerminates(tokens[k - 1], tokens[k], text)) return true;
+  }
+  return false;
 }
 
 /** Course designations: "5°B", "5 B", "1ºA", "octavo B". */
@@ -563,7 +661,7 @@ function strongest(a: Evidence | undefined, b: Evidence): Evidence {
   return b.confidence === 'high' ? b : a;
 }
 
-/** Does this surface carry an ending no Spanish given name carries? */
+/** Does this surface carry an ending no Spanish given name carries? Case-blind by design (G3 tests capitalized tokens). */
 function carriesNonNameEnding(token: Token): boolean {
   const form = token.raw.normalize('NFC').toLowerCase();
   if (form.length < MIN_ENDING_FILTER_LENGTH) return false;
@@ -573,25 +671,52 @@ function carriesNonNameEnding(token: Token): boolean {
 }
 
 /**
- * What a role noun licenses for the token beside it, or `null` for nothing.
+ * **G2 — uniform name plausibility.** What a trigger licenses for the candidate
+ * beside it, or `null` for nothing. ONE predicate, shared by every pattern layer
+ * (honorific, role-pattern, course-pattern), which is what makes the guarantee a
+ * property of the module rather than of whichever layer someone remembered.
  *
- * Capitalized is `high` as it has always been — "la alumna Rosa" must stay high
- * even though `rosa` is an ordinary word, because the role noun is exactly the
- * disambiguation. Lowercase is the Whisper-lowercasing case ("el alumno
- * benjamín"), and there the token has to look like a name at all: ordinary
- * vocabulary and school/course/organization words are not names, and neither is
- * anything carrying the verb, participle or adverb morphology of
- * `NON_NAME_ENDINGS`. Whatever survives that is `uncertain` — plausible, unproven,
- * and redacted under the §12 asymmetry.
+ * Capitalized is `high`, as the role layer has always had it — "la alumna Rosa"
+ * must stay high even though `rosa` is an ordinary word, because the trigger is
+ * exactly the disambiguation. Two exceptions:
+ *
+ *  - **sentence-initial ∧ ordinary word** → nothing. Capitalization carries no
+ *    information at a sentence start, so "…los alumnos. **Entonces** conversamos"
+ *    must never yield a person. Defence in depth behind G1, which already stops
+ *    a trigger from reaching across the boundary; the layers agree twice.
+ *  - **∈ `ORG_HEADS`** → nothing. "…de primero básico del **Colegio** San Mateo"
+ *    made the institution head a person: the capitalized branch was the one place
+ *    an org head could be marked, since the capitalization layer vetoes it
+ *    outright. Costs no recall — every `ORG_HEADS` member that is not also in
+ *    `NON_PERSON_PROPER` (`villa`, `avenida`, `sala`, `red`…) is still reachable
+ *    by the capitalization layer if it ever appears as a surname. The veto stops
+ *    at `ORG_HEADS` deliberately: `NON_PERSON_PROPER` holds `julio`, `abril`,
+ *    `santiago`, `concepcion` — real es-CL given names — and vetoing those would
+ *    turn "el alumno Julio" into a miss, which is a leak, not a precision gain.
+ *
+ * Lowercase is the Whisper-lowercasing case ("el alumno benjamín"), and there
+ * the token has to look like a name at all: ordinary vocabulary and
+ * school/course/organization words are not names, and neither is anything
+ * carrying the verb, participle or adverb morphology of `NON_NAME_ENDINGS`.
+ * Whatever survives that is `uncertain` — plausible, unproven, and redacted
+ * under the §12 asymmetry.
+ *
+ * Course-pattern additionally requires capitalization at its call sites, which
+ * this predicate must not and does not weaken: its lowercase branch can only
+ * ever produce `uncertain`, never `high`, and course-pattern never reaches it.
  */
-function rolePatternEvidence(token: Token): Evidence | null {
-  if (token.capitalized) return { layer: 'role-pattern', confidence: 'high' };
+function nameCandidateEvidence(token: Token, layer: DetectionLayer): Evidence | null {
+  if (token.capitalized) {
+    if (token.sentenceInitial && COMMON_WORDS.has(token.norm)) return null;
+    if (ORG_HEADS.has(token.norm)) return null;
+    return { layer, confidence: 'high' };
+  }
   if (COMMON_WORDS.has(token.norm)) return null;
   if (NON_PERSON_PROPER.has(token.norm)) return null;
   if (ORG_HEADS.has(token.norm)) return null;
   if (COURSE_WORDS.has(token.norm)) return null;
   if (carriesNonNameEnding(token)) return null;
-  return { layer: 'role-pattern', confidence: 'uncertain' };
+  return { layer, confidence: 'uncertain' };
 }
 
 /**
@@ -610,19 +735,29 @@ function collectEvidence(tokens: Token[], text: string): Map<number, Evidence> {
     const token = tokens[i];
     const previous = i > 0 ? tokens[i - 1] : null;
 
+    // Every trigger-adjacent layer below is bound by the SAME two guards: G1
+    // (`patternGapBlocked`) stops a trigger reaching across a sentence break,
+    // and G2 (`nameCandidateEvidence`) stops it marking a token that could not
+    // be a name. See the MARKING-PATH AUDIT in the module header.
+    const reaches = (from: number): boolean => !patternGapBlocked(tokens, from, i, text);
+
     // --- Layer: honorific. "don Ignacio", "la profe Marcela", "Sra. Elena".
-    // Fires regardless of the following token's capitalization or wordiness,
-    // which is what makes it survive Whisper lowercasing a name.
-    if (previous && HONORIFICS.has(previous.norm)) {
-      mark(i, { layer: 'honorific', confidence: 'high' });
+    // Survives Whisper lowercasing a name ("la profe marcela"), because G2's
+    // lowercase branch licenses a name-plausible token as `uncertain`. What it
+    // no longer does is mark the VERB after an honorific that is also an
+    // ordinary sentence subject: "La profesora terminaba…", "El profesor
+    // entregó…", "La señora dijo…" all used to yield a person.
+    if (previous && HONORIFICS.has(previous.norm) && reaches(i - 1)) {
+      const licensed = nameCandidateEvidence(token, 'honorific');
+      if (licensed) mark(i, licensed);
     }
 
     // --- Layer: role pattern. "el alumno Benjamín", "la estudiante Martina",
     // "la niña de kinder, Florencia". The candidate has to be name-plausible, or
     // the ordinary word after every plural role noun becomes a person:
     // "los alumnos trabajaron bien" made `trabajaron` one.
-    if (previous && ROLE_NOUNS.has(previous.norm) && !ROLE_NOUNS.has(token.norm)) {
-      const licensed = rolePatternEvidence(token);
+    if (previous && ROLE_NOUNS.has(previous.norm) && !ROLE_NOUNS.has(token.norm) && reaches(i - 1)) {
+      const licensed = nameCandidateEvidence(token, 'role-pattern');
       if (licensed) mark(i, licensed);
     }
     // Allow one intervening connector: "el alumno de Martina" is rare, but
@@ -632,18 +767,23 @@ function collectEvidence(tokens: Token[], text: string): Map<number, Evidence> {
     if (
       i >= 2 &&
       ROLE_NOUNS.has(tokens[i - 2].norm) &&
-      (NAME_CONNECTORS.has(previous?.norm ?? '') || previous?.norm === 'llamado' || previous?.norm === 'llamada')
+      (NAME_CONNECTORS.has(previous?.norm ?? '') || previous?.norm === 'llamado' || previous?.norm === 'llamada') &&
+      reaches(i - 2)
     ) {
-      const licensed = rolePatternEvidence(token);
+      const licensed = nameCandidateEvidence(token, 'role-pattern');
       if (licensed) mark(i, licensed);
     }
 
     // --- Layer: course pattern. "de 5°B, Martina", "quinto básico, Antonia".
-    if (previous && looksLikeCourse(previous, text) && token.capitalized) {
-      mark(i, { layer: 'course-pattern', confidence: 'high' });
+    // Capitalization stays a hard requirement here — routing through the shared
+    // predicate adds guards, it does not relax this one.
+    if (previous && looksLikeCourse(previous, text) && token.capitalized && reaches(i - 1)) {
+      const licensed = nameCandidateEvidence(token, 'course-pattern');
+      if (licensed) mark(i, licensed);
     }
-    if (i >= 2 && looksLikeCourse(tokens[i - 2], text) && token.capitalized) {
-      mark(i, { layer: 'course-pattern', confidence: 'high' });
+    if (i >= 2 && looksLikeCourse(tokens[i - 2], text) && token.capitalized && reaches(i - 2)) {
+      const licensed = nameCandidateEvidence(token, 'course-pattern');
+      if (licensed) mark(i, licensed);
     }
 
     // --- Layer: capitalization.
@@ -678,6 +818,15 @@ function collectEvidence(tokens: Token[], text: string): Map<number, Evidence> {
   // name, which is worse than a clean miss because it still reads as sanitized.
   // Ordinary sentence-opening words ("Ayer Renata entregó…") are excluded, or
   // the adverb would be swallowed into the person span.
+  //
+  // **G3 — non-name-ending veto.** `COMMON_WORDS` is a closed list and Spanish
+  // sentence openers are not, so the list alone let a capitalized VERB be
+  // absorbed: "Quedaron Martina Rojas y Benjamín Soto…" produced the span
+  // `Quedaron Martina Rojas`. `carriesNonNameEnding` is the same morphology the
+  // pattern layers use, applied here to the extension candidate — open class,
+  // no list to maintain. Genuine compound names are untouched: `Juan`, `Ana`,
+  // `Luis`, `José` are under the length floor and `María`, `Sebastián`,
+  // `Constanza`, `Matilde` carry no filtered ending.
   for (let i = tokens.length - 1; i > 0; i -= 1) {
     if (!evidence.has(i)) continue;
     for (let j = i - 1; j >= 0; j -= 1) {
@@ -687,6 +836,7 @@ function collectEvidence(tokens: Token[], text: string): Map<number, Evidence> {
       if (COMMON_WORDS.has(candidate.norm)) break;
       if (NON_PERSON_PROPER.has(candidate.norm)) break;
       if (ORG_HEADS.has(candidate.norm)) break;
+      if (carriesNonNameEnding(candidate)) break;
       // Only a plain space may sit between the two — a comma or a period means
       // two separate things, not one name.
       if (!/^\s+$/.test(text.slice(candidate.end, tokens[j + 1].start))) break;

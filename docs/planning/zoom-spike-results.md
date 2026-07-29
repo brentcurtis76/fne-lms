@@ -207,17 +207,28 @@ Fixtures: `__tests__/lib/zoom/fixtures/`, all names synthetic, es-CL classroom
 register. The same JSON is scored by the Python NER spike (§4), so every recall
 number in this document is comparable.
 
+Current version **`node-1.4.0`**, after four remediation rounds recorded in
+§3.5 → §3.5.3. **Z0B-1r4 is the FINAL remediation round of Z0B-1**: it closes a
+defect *class* rather than the instances r1–r3 closed one at a time, and every
+marking path in the module is now guarded, argued in the header's MARKING-PATH
+AUDIT, and measured by a blocking suite. The residual list is closed at R1, R2,
+the accepted inverted-unknown overcount and the plan-sanctioned adversarial
+misses.
+
 ### 3.1 Must-catch suite — BLOCKING
 
-37 cases, 46 mentions of explicit student references: role nouns
+40 cases, 50 mentions of explicit student references: role nouns
 ("la estudiante X"), honorifics (don/doña, Sra., profe, tía), course
 designations ("de 5°B, Antonia"), bare capitalized names, compound names,
 repeat mentions, the 11-case attendee-collision family built across Z0B-1r
-(§3.5) and Z0B-1r2 (§3.5.1), and the 3-case segment-split family plus the
-lowercased role-noun name added in Z0B-1r3 (§3.5.2).
+(§3.5) and Z0B-1r2 (§3.5.1), the 3-case segment-split family plus the
+lowercased role-noun name added in Z0B-1r3 (§3.5.2), and the 3-case
+**guard-cost** family added in Z0B-1r4 (§3.5.3) — the cases that prove the
+trigger-gap and plausibility guards did not buy precision with recall.
 
-**Result: 46/46 — 100%** (26/26 shipped in Z0B-1; +5 cases / 5 mentions in
-Z0B-1r; +7 cases / 9 mentions in Z0B-1r2; +3 cases / 6 mentions in Z0B-1r3).
+**Result: 50/50 — 100%** (26/26 shipped in Z0B-1; +5 cases / 5 mentions in
+Z0B-1r; +7 cases / 9 mentions in Z0B-1r2; +3 cases / 6 mentions in Z0B-1r3;
++3 cases / 4 mentions in Z0B-1r4).
 
 Enforced as ordinary vitest assertions, so a miss is a failing test and a red
 build. There is no threshold to tune: the repo's student-PII rule is absolute
@@ -233,17 +244,33 @@ names (`Colegio San Mateo`, `Fundación Nueva Educación`).
 gated on it.
 
 **Node-only recall: 78.8% (26/33).** Re-measured unchanged after the Z0B-1r
-preservation-rule change, after the Z0B-1r2 segment-classification change, and
-after the Z0B-1r3 role-pattern filter + punctuation split (§3.5): identical
-26/33 four times over, same seven misses, same per-category split, zero
-over-redactions. Expected for r1/r2 — every miss here is a detection failure,
-and the rules those rounds changed decide what happens to spans that *were*
-detected. r3 *does* touch detection, but only the role-pattern layer's lowercase
-branch, and no fixture in this suite puts a lowercased name next to a role noun
-(adv-13 and adv-30 capitalize theirs); the punctuation split changes counts, not
-which mentions disappear. Every one of the five ending-set variants measured in
-§3.5.2 scored 26/33 — the suite cannot discriminate between them, which is why
-the choice was made on the blocking bars instead.
+preservation-rule change, after the Z0B-1r2 segment-classification change, after
+the Z0B-1r3 role-pattern filter + punctuation split, and after the Z0B-1r4 class
+closure (§3.5): identical 26/33 five times over, same seven misses, same
+per-category split, zero over-redactions. Expected for r1/r2 — every miss here
+is a detection failure, and the rules those rounds changed decide what happens to
+spans that *were* detected. r3 *does* touch detection, but only the role-pattern
+layer's lowercase branch, and no fixture in this suite puts a lowercased name
+next to a role noun (adv-13 and adv-30 capitalize theirs); the punctuation split
+changes counts, not which mentions disappear. Every one of the five ending-set
+variants measured in §3.5.2 scored 26/33 — the suite cannot discriminate between
+them, which is why the choice was made on the blocking bars instead.
+
+r4 removes two **wrong redactions** here without moving recall at all, which is
+the delta worth naming rather than burying:
+
+| Case | On `fce2476` | On `node-1.4.0` | Recall |
+|---|---|---|---|
+| adv-11 | `El profesor [persona 1] mencionó que [persona 2]…` — `jefe` redacted, **2 people** | `El profesor jefe mencionó que [persona 1]…` — **1 person** | 1/1 → 1/1 |
+| adv-12 | `La asistente [persona 1] que pancho llegó…` — the VERB redacted, the NAME missed | `La asistente contó que pancho llegó…` | 0/1 → 0/1 |
+
+Both were invisible to a recall-only score, so **both fixtures were amended** to
+record the surviving text in `mustPreserve` (`El profesor jefe`, `La asistente
+contó`). The `pancho` miss in adv-12 is untouched and stays a tracked
+adversarial miss — §3.5.2 named this case as the one already exercising the
+honorific defect silently, and the fix removes the wrong redaction without
+buying the missing one. Nothing was re-scored to make a number move: overall
+recall is 26/33 before and after, and over-redactions are 2 → 0.
 
 | Category | Recall | Caught |
 |---|---|---|
@@ -275,19 +302,31 @@ it; §4 shows what closing it actually costs.
 
 ### 3.3 Precision suite — BLOCKING
 
-**1225 words / 25 paragraphs** of realistic name-free consulting-session speech,
-which must come through **byte-identical**. Two blocks: the original 594 words /
-16 paragraphs (also the ffmpeg spike's TTS corpus, written accent-free), and
+**1548 words / 31 paragraphs** of realistic name-free consulting-session speech,
+which must come through **byte-identical**. Three blocks: the original 594 words
+/ 16 paragraphs (also the ffmpeg spike's TTS corpus, written accent-free);
 **631 words / 9 paragraphs added in Z0B-1r3, built around ROLE NOUNS** — the
 construction the original block never contained, which is exactly why defect D3
-(§3.5.2) survived four green suites for three rounds.
+(§3.5.2) survived four green suites for three rounds; and **323 words / 6
+paragraphs added in Z0B-1r4**, built around the three constructions r3's block
+still had no coverage of: HONORIFIC-headed sentences, CROSS-SENTENCE
+trigger/candidate pairs, and name-free SENTENCE-INITIAL VERBS — plus the
+course + institution construction found during r4 implementation (§3.5.3).
 
-**Result: 0 redactions, 0 persons, status `sanitized`** — unchanged after the
-Z0B-1r rule change, the Z0B-1r2 segment-classification change and the Z0B-1r3
-role-pattern filter (§3.5); byte-identical output on every paragraph and on the
-joined corpus, four measurements running. The original block contains no name
-spans at all, so nothing in it reaches the preservation decision; the r3 block
-reaches the *detection* decision on every sentence, which is the point of it.
+**Result: 0 redactions, 0 persons, status `sanitized`** (density 1.74 < 2.0) —
+unchanged after the Z0B-1r rule change, the Z0B-1r2 segment-classification
+change, the Z0B-1r3 role-pattern filter and the Z0B-1r4 class closure (§3.5);
+byte-identical output on every paragraph and on the joined corpus, five
+measurements running. The original block contains no name spans at all, so
+nothing in it reaches the preservation decision; the r3 and r4 blocks reach the
+*detection* decision on every sentence, which is the point of them.
+
+Every one of the six r4 paragraphs was **reproduced as a redaction on
+`fce2476` before the guards landed** — 5 of 6 damaged, 12 redactions, and the
+joined corpus at density 2.52 → status **`flagged`**. A blocking corpus that
+cannot reach a construction cannot guard it, and this is the third round running
+in which the gap in the corpus, not the gap in the code, is what let a defect
+survive.
 
 This suite exists because recall alone is a trap. The obvious fix for the
 sentence-initial misses above — redact every unrecognized capitalized sentence
@@ -305,7 +344,7 @@ is the honest reason this layer stops where it does.
 
 ### 3.4 Behaviour contracts
 
-Beyond recall, 50 unit tests cover the properties the pipeline depends on:
+Beyond recall, 64 unit tests cover the properties the pipeline depends on:
 
 - **Stable tokens.** The same person mentioned three times yields one
   `[persona N]`; two people yield two numbers; numbering starts at 1.
@@ -329,6 +368,21 @@ Beyond recall, 50 unit tests cover the properties the pipeline depends on:
   still redacted, recorded `uncertain`; a capitalized candidate stays `high`
   even when it is an ordinary word (`la alumna Rosa`); and the measured `-ando`
   collision is asserted in all three of its states.
+- **Trigger gap discipline — G1** (§3.5.3). A role noun, a course word and an
+  honorific are each asserted not to reach across a sentence terminator; the
+  abbreviation exception (`Sra. Elena`) and the constructions that legitimately
+  carry a comma (`de quinto básico, Emilia`, `la estudiante, Martina`) are
+  asserted to keep firing.
+- **Uniform name plausibility — G2** (§3.5.3). The five honorific-headed verb
+  sentences are left alone; `don ignacio` is still redacted and recorded
+  `honorific`/`uncertain`; `tía Rosa` still lands `high`; a pattern layer can
+  never mark a sentence-initial ordinary word; an institution head after a
+  course word survives (`del Colegio San Mateo`); and course-pattern is asserted
+  to still require capitalization.
+- **Left-extension veto — G3** (§3.5.3). A sentence-opening verb stays outside
+  the persona span (`Quedaron [persona 1] y [persona 2]`), genuine compound
+  names still extend (`Juan Pablo`, `María José Aravena`, `Ana María Tapia`),
+  and name-free sentence-initial verbs are untouched.
 - **Purity.** Inputs are not mutated; repeated calls are byte-identical.
 - **Uncertain never passes through.** A capitalized ordinary word mid-sentence
   ("Rosa") is recorded `confidence: 'uncertain'` and **redacted**. A test
@@ -696,9 +750,12 @@ undercount; r3 closes it). Precision corpus extended by 9 paragraphs / 631 words
 of role-noun speech — the blocking gap that hid D3. Plus 11 contract assertions
 in `sanitizer.test.ts` across two new groups.
 
-**Handed forward — the honorific layer carries D3's defect.** Not fixed here:
-the Z0B-1r3 ruling scopes the name-plausibility filter to `role-pattern`, and
-expanding it unilaterally is not this round's call. Reproduced on `node-1.3.0`:
+**Handed forward — the honorific layer carries D3's defect. → CLOSED in
+Z0B-1r4, §3.5.3**, together with two more instances of the same class the PM
+probe then found (cross-sentence firing in two layers, and left-extension
+swallowing a verb). Not fixed here: the Z0B-1r3 ruling scopes the
+name-plausibility filter to `role-pattern`, and expanding it unilaterally is not
+this round's call. Reproduced on `node-1.3.0`:
 
 ```
 La profesora terminaba explicando dos veces la misma consigna.
@@ -722,6 +779,154 @@ adversarial **78.8% (26/33)**, unchanged for the fourth round running, zero
 over-redactions; precision **0 redactions / 0 persons, byte-identical** on 1225
 words / 25 paragraphs, joined status `sanitized` (density 1.88 < 2.0); **182
 sanitizer tests green in 4 files** (was 153).
+
+### 3.5.3 Trigger-gap + plausibility CLASS closure — final remediation round Z0B-1r4 (`SANITIZER_VERSION node-1.4.0`)
+
+> This is the **last** remediation round of Z0B-1. r1 fixed a rule, r2 fixed two
+> defects, r3 fixed two more — and r3's own hand-forward (open item 10) is the
+> evidence that fixing instances was not converging. r4 closes the CLASS instead,
+> and the closure argument now lives in the module header as a **MARKING-PATH
+> AUDIT**: every path that can create evidence, and which guards bound it.
+
+**The class, stated.** *A marking path fires on a trigger-adjacent token without
+(a) gap discipline or (b) name plausibility.* r3 fixed exactly one instance —
+role-pattern's plausibility — and the same shape was still live in three more
+places. All five instances below were PM-reproduced on `fce2476`, and all five
+were re-reproduced by this round before any code changed:
+
+| Instance group | Input | `fce2476` output | Path |
+|---|---|---|---|
+| honorific | `La profesora terminaba explicando…` | `La profesora [persona 1] explicando…` | honorific, no plausibility |
+| honorific | `El profesor entregó la pauta…` | `El profesor [persona 1] la pauta…` | honorific, no plausibility |
+| honorific | `La señora dijo que faltaban sillas…` | `La señora [persona 1] que faltaban…` | honorific, no plausibility |
+| cross-sentence | `Vimos a los niños de quinto básico. Entonces decidimos…` | `…básico. [persona 1] decidimos…` | course-pattern, across `.` |
+| cross-sentence | `Llegaron temprano los alumnos. Entonces conversamos…` | `…alumnos. [persona 1] conversamos…` | role-pattern, across `.` |
+| left-extension | `Quedaron Martina Rojas y Benjamín Soto a cargo…` | `[persona 1] y [persona 2] a cargo…` | left-extension swallowed the verb |
+
+**The closure — three uniform guards.**
+
+**G1 — gap discipline** (`patternGapBlocked`). Every trigger-adjacent pattern —
+honorific, role-pattern, course-pattern, in both their i−1 and i−2 forms — is
+blocked when any gap between the trigger and the candidate carries a sentence
+terminator `[.!?¡¿\n•·]`, unless the token before it is in `ABBREVIATIONS`. That
+set is the one `tokenize` already consults for sentence starts, so `Sra. Elena`
+keeps firing and the two can never disagree. Commas and plain spaces stay legal
+inside a pattern, so `de 5°B, Martina` and `la estudiante, Martina` are
+unaffected. The i−2 variants check **both** gaps, which is what closes the
+course-pattern instance above (`quinto` … `.` … `Entonces`).
+
+**G2 — uniform name plausibility** (`nameCandidateEvidence`). r3's
+`rolePatternEvidence` generalized into ONE predicate, parameterized by layer and
+shared by honorific, role-pattern and course-pattern:
+
+| Candidate | Evidence | Why |
+|---|---|---|
+| CAPITALIZED | `high` | trigger context is legitimate disambiguation — `la alumna Rosa`, `tía Rosa` stay `high` |
+| CAPITALIZED ∧ sentence-initial ∧ ∈ `COMMON_WORDS` | nothing | capitalization carries no information at a sentence start; defence in depth behind G1, so `Entonces` can never be marked by a pattern layer |
+| CAPITALIZED ∧ ∈ `ORG_HEADS` | nothing | **added by this round's own finding — see below** |
+| lowercase ∧ ∉ `COMMON_WORDS` ∪ `NON_PERSON_PROPER` ∪ `ORG_HEADS` ∪ `COURSE_WORDS` ∧ ¬`carriesNonNameEnding` | `uncertain` → redacted | r3's shipped predicate, now shared — the Whisper-lowercasing case (`el alumno benjamín`, `don ignacio`, `la profe marcela`) |
+| lowercase, anything else | nothing | `terminaba`, `entregó`, `contó`, `trabajaron`, `de séptimo` |
+
+Course-pattern keeps `token.capitalized` as a hard requirement at its call sites,
+so routing it through the shared predicate adds guards without relaxing one: its
+lowercase branch is unreachable from that layer and could only ever have produced
+`uncertain` anyway, never `high`. A contract test asserts it
+(`de quinto básico, emilia` stays untouched).
+
+**G3 — left-extension veto**. The extension pass absorbs a capitalized token to
+the left of a detected name. `COMMON_WORDS` was its only word filter, and Spanish
+sentence openers are an open class, so a capitalized verb walked straight in.
+`carriesNonNameEnding` — the same morphology the pattern layers use — is now
+tested on the extension candidate too, which is the one place that function reads
+a CAPITALIZED token. `Quedaron` dies on `-aron`; every compound name in the
+fixtures is unaffected, because `Juan`, `Ana`, `Luis`, `José` sit under the
+length-5 floor and `María`, `Sebastián`, `Constanza`, `Matilde`, `Benjamín`
+carry no filtered ending.
+
+**DECLARED — a fourth instance, found by this round, fixed under the same
+guards.** The scope rule for r4 was class closure, so this is fixed here and not
+handed back:
+
+```
+Trabajamos en primero básico del Colegio San Mateo.
+  → Trabajamos en primero básico del [persona 1] San Mateo.     (fce2476)
+```
+
+The course-pattern **i−2** path marks any capitalized token two positions after a
+course word, with no constraint on what sits between — and `Colegio` is
+capitalized. G1 does not catch it (there is no sentence break) and G2 as ruled
+does not either, because the capitalized branch returns `high` unconditionally.
+The institution is destroyed *and* the sanitizer reports a person that does not
+exist. The fix is one more veto on the capitalized branch: **∈ `ORG_HEADS` →
+nothing**.
+
+Why the veto stops at `ORG_HEADS` and does **not** extend to `NON_PERSON_PROPER`,
+which would have been the tidier-looking rule: `NON_PERSON_PROPER` contains
+`julio`, `abril`, `santiago`, `concepcion` — real es-CL given names — and the
+capitalization layer already vetoes that whole set outright, so `el alumno Julio`
+would become a **miss**. That is a leak, not a precision gain. `ORG_HEADS`
+carries no given-name collision, and every member of it that is not also in
+`NON_PERSON_PROPER` (`villa`, `avenida`, `calle`, `sala`, `sector`, `red`,
+`ciudad`, `poblacion`, `redes`) remains reachable by the capitalization layer if
+it ever appears as a surname. Recall cost: **zero**, by construction.
+
+**`COMMON_WORDS` additions — six, every one forced by a new blocking paragraph.**
+Routing the honorific layer through G2 exposed exactly what the ruling predicted:
+short, high-frequency verbs that `NON_NAME_ENDINGS` cannot reach, because they
+sit under the length-5 floor that exists to protect `juan` and `ivan`.
+
+| Added | Forced by | What it is | es-CL given-name collision |
+|---|---|---|---|
+| `dijo` | `La señora dijo que faltaban sillas…` | preterite of *decir* | none |
+| `hizo` | `La educadora hizo el seguimiento…` | preterite of *hacer* | none |
+| `vino` | `El tío vino a buscar a su sobrino…` | preterite of *venir* / the noun | none |
+| `quiso` | `La profesora quiso probar el formato…` | preterite of *querer* | none |
+| `propuso` | `El maestro propuso dejar el registro…` | preterite of *proponer* | none |
+| `jefe` | `El profesor jefe mencionó…` | noun; `profesor jefe` is the es-CL homeroom-teacher term | none |
+
+No addition can leak: `COMMON_WORDS` membership downgrades a capitalized
+mid-sentence token to `uncertain` (still redacted) and blocks a lowercase one,
+and none of these six is a name. **The list is not claimed to be complete** — an
+unlisted short verb after an honorific still resolves to `uncertain` and redacts,
+which is over-redaction in the §12-safe direction, costing minuta wording. What
+closes the class is G1/G2/G3; this lexicon is a precision refinement on top, and
+saying otherwise would be claiming a closed list over an open one.
+
+**Fail-on-old proof.** The new and amended fixtures plus the new contract
+assertions were run against the `fce2476` module (`git stash` on
+`lib/zoom/sanitizer.ts` only, restored after): **16 failing tests, 196/212
+passing**, split by instance group —
+
+| Instance group | Failures | Which |
+|---|---|---|
+| honorific | **5** | precision paragraphs 26, 27, 28 damaged (9 redactions: `terminaba`, `entregó`, `dijo`, `contó`, `vino`, `educadora hizo`, `jefe`, `quiso`, `propuso`) + 2 contract assertions (the five verb sentences; `don ignacio` recorded `high` instead of `uncertain`) — the `educadora hizo` span is **jointly caused**, `hizo` marked by the honorific layer and `educadora` by role-pattern reaching across the preceding `.` from `apoderados`, so one surface carries both instance groups at once |
+| cross-sentence | **5** | precision paragraph 29 damaged (2 redactions, both `Entonces` — one via course-pattern, one via role-pattern) + 4 contract assertions (role noun, course word and honorific each reaching across `.`; the sentence-initial-ordinary-word guard) |
+| left-extension | **2** | `mc-40` over-redacts `Quedaron` (mustPreserve fails) + 1 contract assertion on the exact output string |
+| course → `ORG_HEADS` *(declared above)* | **2** | precision paragraph 31 damaged (`Colegio` redacted) + 1 contract assertion |
+| corpus-level, jointly caused | **2** | the whole-corpus zero-redaction assertion (12 redactions) and the no-flag assertion (density **2.52** → status `flagged`) |
+
+- **0 leaked mentions.** must-catch recall is **50/50 on the old module too** —
+  every one of these is an over-redaction, a miscount or a spurious flag, which
+  is exactly how the class survived five green suites for four rounds. The one
+  must-catch failure is `mc-40`'s `mustPreserve`, not a `mustRedact`.
+- **The over-correction guards pass on BOTH modules**, as they must: `don
+  ignacio` and `la profe marcela` redacted (`mc-38`, `mc-39` — the old module by
+  marking everything, the new one through G2's lowercase branch, and the fixtures
+  exist to prove the branch was not thrown away); `Sra. Elena` unsplit and still
+  detected; `de quinto básico, Emilia` still caught; `Fuentes, Camila` preserved
+  whole; compound-name left extension intact.
+
+**Residuals after this round — unchanged, and now final for Z0B-1.** R1 and R2,
+both roster-identity limits and neither a detection gap; the accepted
+inverted-unknown overcount; and the plan-sanctioned adversarial misses (§3.2),
+which are a measured monitoring number, not defects. Nothing was added to this
+list by r4, and open item 10 closes.
+
+**Numbers after the round**: must-catch **50/50 (100%)** across 40 cases;
+adversarial **78.8% (26/33)**, unchanged for the fifth round running, over-
+redactions **2 → 0**; precision **0 redactions / 0 persons, byte-identical** on
+1548 words / 31 paragraphs, joined status `sanitized` (density 1.74 < 2.0);
+**212 sanitizer tests green in 4 files** (was 182).
 
 ---
 
@@ -1054,4 +1259,4 @@ and neither existed for chunk Z0B-1.
 | 7 | `/meet/diag` has no automated test; e2e for `/meet` belongs to Z1c (§2) | Z1c |
 | 8 | ~~Cross-entry token coverage still preserves `Camila Pérez` when the roster holds `Camila Fuentes` **and** `Rodrigo Pérez`~~ — **CLOSED** in Z0B-1r2 by segment classification (`node-1.2.0`, §3.5.1): coverage is per roster entry, spans are classified as segments, and the connector-merged undercount (D2) closed with it | Closed 2026-07-29 |
 | 9 | ~~Role-pattern marks any token after a role noun (D3); punctuation-joined people share a segment (D4, v1.2's residual R3)~~ — **CLOSED** in Z0B-1r3 (`node-1.3.0`, §3.5.2) by the name-plausibility filter and the gap-punctuation split. Residuals now R1 + R2 only, plus the accepted inverted-unknown overcount; documented in §3.5.2 and in the module header | Closed 2026-07-29 |
-| 10 | **The honorific layer carries D3's defect** — `HONORIFICS` marks whatever follows regardless of wordiness, so `La profesora terminaba…` → `La profesora [persona 1]…` (§3.5.2). Out of Z0B-1r3's ruled scope; the r3 precision corpus therefore contains no honorific-headed constructions, which is a known gap in a blocking suite | PM decision |
+| 10 | ~~**The honorific layer carries D3's defect** — `HONORIFICS` marks whatever follows regardless of wordiness, so `La profesora terminaba…` → `La profesora [persona 1]…` (§3.5.2)~~ — **CLOSED** in Z0B-1r4 (`node-1.4.0`, §3.5.3). The honorific layer was one of four instances of a single defect CLASS (trigger-adjacent marking without gap discipline or name plausibility); r4 closed the class with three uniform guards — G1 gap discipline on every trigger layer, G2 one shared plausibility predicate, G3 a left-extension veto — plus a MARKING-PATH AUDIT in the module header that states, per path, which guards bound it. The precision corpus gained the honorific, cross-sentence, sentence-initial-verb and course+institution constructions it lacked | Closed 2026-07-29 |

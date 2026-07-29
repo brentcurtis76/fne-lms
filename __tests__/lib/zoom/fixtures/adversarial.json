@@ -102,20 +102,20 @@
     {
       "id": "adv-11",
       "category": "nickname",
-      "description": "diminutive with suffix",
+      "description": "diminutive with suffix. AMENDED in Z0B-1r4: mustPreserve gained 'El profesor jefe'. On fce2476 the honorific layer marked 'jefe' — the token after 'profesor' — so this case silently reported TWO people and shipped 'El profesor [persona 1] mencionó que [persona 2]…'. The mention was caught either way, which is exactly how the over-redaction stayed invisible in a recall-only score.",
       "attendees": ["Rodrigo Pérez"],
       "text": "El profesor jefe mencionó que Nachito ha estado más participativo estas semanas.",
       "mustRedact": ["Nachito"],
-      "mustPreserve": []
+      "mustPreserve": ["El profesor jefe"]
     },
     {
       "id": "adv-12",
       "category": "nickname",
-      "description": "nickname lowercased by transcription",
+      "description": "nickname lowercased by transcription. AMENDED in Z0B-1r4: mustPreserve gained 'La asistente contó'. §3.5.2 named this case as the one already exercising the honorific defect silently — on fce2476 it redacted the VERB and missed the NAME ('La asistente [persona 1] que pancho llegó…'). The r4 guards remove the wrong redaction; the miss on 'pancho' is untouched and stays a tracked adversarial miss, so this case's recall is 0/1 before and after.",
       "attendees": ["Camila Fuentes"],
       "text": "La asistente contó que pancho llegó sin materiales otra vez.",
       "mustRedact": ["pancho"],
-      "mustPreserve": []
+      "mustPreserve": ["La asistente contó"]
     },
     {
       "id": "adv-13",

@@ -1,7 +1,7 @@
 {
   "suite": "must-catch",
   "blocking": true,
-  "description": "Explicit student references, plus the attendee-collision family (mc-23..mc-33) that guards the preservation rule in both directions — mc-28..mc-34 added in Z0B-1r2 for segment classification, mc-35..mc-37 added in Z0B-1r3 for gap-punctuation segment splitting (D4) and the role-pattern name-plausibility filter (D3). Plan §12/§15: the bar is 100% — any miss is a red build. Every name here is synthetic; no real student, family or staff member appears in this file.",
+  "description": "Explicit student references, plus the attendee-collision family (mc-23..mc-33) that guards the preservation rule in both directions — mc-28..mc-34 added in Z0B-1r2 for segment classification, mc-35..mc-37 added in Z0B-1r3 for gap-punctuation segment splitting (D4) and the role-pattern name-plausibility filter (D3), mc-38..mc-40 added in Z0B-1r4 to prove the trigger-gap/plausibility guards (G1/G2/G3) did not cost the detections they bound. Plan §12/§15: the bar is 100% — any miss is a red build. Every name here is synthetic; no real student, family or staff member appears in this file.",
   "cases": [
     {
       "id": "mc-01",
@@ -324,6 +324,36 @@
       "mustRedact": ["benjamín"],
       "mustPreserve": [],
       "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-38",
+      "category": "guard-cost",
+      "description": "G2 applied to the HONORIFIC layer must not throw its lowercase branch away. 'ignacio' after 'don' is not ordinary vocabulary and carries no verb, participle or adverb morphology, so it is name-plausible → uncertain → redacted. This is the honorific twin of mc-37, and the case that proves the r4 fix for 'La profesora terminaba…' did not buy precision with recall.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Conversamos con don ignacio sobre el rendimiento de su hijo en matemática.",
+      "mustRedact": ["ignacio"],
+      "mustPreserve": [],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-39",
+      "category": "guard-cost",
+      "description": "Same guarantee for a school honorific and a lowercased staff name — the mc-09 construction with the capitalization Whisper drops. 'la profe marcela' must still redact after G2.",
+      "attendees": ["Camila Fuentes"],
+      "text": "La profe marcela comentó que el bloque colaborativo se le ocupa en temas administrativos.",
+      "mustRedact": ["marcela"],
+      "mustPreserve": [],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-40",
+      "category": "guard-cost",
+      "description": "G3 — left-extension veto. The sentence-opening verb 'Quedaron' was being absorbed into the persona span ('[persona 1] y [persona 2] a cargo…'), destroying the verb and reporting a person span that started one token too far left. Both students must still be redacted whole, with two numbers, and the verb must survive in the output.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Quedaron Martina Rojas y Benjamín Soto a cargo del mural de la entrada.",
+      "mustRedact": ["Martina Rojas", "Benjamín Soto"],
+      "mustPreserve": ["Quedaron"],
+      "expectedPersonCount": 2
     }
   ]
 }

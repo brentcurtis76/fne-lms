@@ -364,6 +364,136 @@ describe('sanitize — role-pattern candidates must be name-plausible', () => {
   });
 });
 
+describe('sanitize — G1: trigger patterns respect sentence boundaries', () => {
+  // A trigger-adjacent pattern must not reach across a sentence terminator.
+  // Every layer that has a trigger is bound by the same guard, so these cases
+  // are the class statement, not three unrelated bugs.
+
+  it('does not let a role noun mark the word opening the next sentence', () => {
+    const text = 'Llegaron temprano los alumnos. Entonces conversamos del plan.';
+    const result = sanitize(text, ATTENDEES);
+    expect(result.sanitizedText).toBe(text);
+    expect(result.metrics.redactionCount).toBe(0);
+  });
+
+  it('does not let a course word mark the word opening the next sentence', () => {
+    const text = 'Vimos a los niños de quinto básico. Entonces decidimos avanzar.';
+    const result = sanitize(text, ATTENDEES);
+    expect(result.sanitizedText).toBe(text);
+    expect(result.metrics.redactionCount).toBe(0);
+  });
+
+  it('does not let an honorific mark across a sentence break', () => {
+    const text = 'Quedó pendiente hablar con la profesora. Después revisamos el acta.';
+    const result = sanitize(text, ATTENDEES);
+    expect(result.sanitizedText).toBe(text);
+    expect(result.metrics.personCount).toBe(0);
+  });
+
+  it('keeps the abbreviation exception — "Sra. Elena" still fires across its period', () => {
+    const result = sanitize(
+      'Camila Fuentes coordinó la entrevista con la Sra. Elena para el martes.',
+      ATTENDEES
+    );
+    const redaction = result.detections.find((d) => d.action === 'redacted');
+    expect(redaction?.surface).toBe('Sra. Elena');
+    expect(result.metrics.personCount).toBe(1);
+  });
+
+  it('leaves commas and plain spaces legal inside a pattern', () => {
+    // G1 blocks sentence terminators only: the constructions that legitimately
+    // carry a comma must keep working.
+    const course = sanitize('El caso de quinto básico, Emilia, se conversó ayer.', ATTENDEES);
+    expect(course.sanitizedText).not.toContain('Emilia');
+
+    const role = sanitize('Hablamos con la estudiante, Martina, sobre la guía.', ATTENDEES);
+    expect(role.sanitizedText).not.toContain('Martina');
+  });
+});
+
+describe('sanitize — G2: every pattern layer shares one plausibility rule', () => {
+  // r3 gave role-pattern a name-plausibility test. r4 makes it the shared
+  // predicate every trigger layer runs through, which is what turns a fixed
+  // instance into a closed class.
+
+  it('leaves the verb after an honorific alone', () => {
+    for (const text of [
+      'La profesora terminaba explicando dos veces la misma consigna.',
+      'El profesor entregó la pauta corregida ayer.',
+      'La señora dijo que faltaban sillas en la sala.',
+      'La asistente contó que faltaban materiales.',
+      'El tío vino a buscar a su sobrino después del recreo.',
+    ]) {
+      expect(sanitize(text, ATTENDEES).sanitizedText).toBe(text);
+    }
+  });
+
+  it('still redacts a lowercased name after an honorific, as uncertain', () => {
+    const result = sanitize('Conversamos con don ignacio sobre el rendimiento.', ATTENDEES);
+    const detection = result.detections.find((d) => d.action === 'redacted');
+    expect(detection?.layer).toBe('honorific');
+    expect(detection?.confidence).toBe('uncertain');
+    expect(result.sanitizedText).not.toContain('ignacio');
+  });
+
+  it('keeps a capitalized candidate after an honorific at high confidence', () => {
+    const result = sanitize('Los cursos chicos le dicen tía Rosa a la asistente.', ATTENDEES);
+    const detection = result.detections.find((d) => d.surface === 'Rosa');
+    expect(detection?.layer).toBe('honorific');
+    expect(detection?.confidence).toBe('high');
+    expect(detection?.action).toBe('redacted');
+  });
+
+  it('never lets a pattern layer mark a sentence-initial ordinary word', () => {
+    // Defence in depth behind G1: even if a trigger could reach the token,
+    // capitalization carries no information at a sentence start.
+    const result = sanitize('Hablamos con los alumnos. Entonces cerramos la sesión.', ATTENDEES);
+    expect(result.detections).toEqual([]);
+  });
+
+  it('does not let a course word turn an institution head into a person', () => {
+    // Found while implementing r4: the course-pattern i-2 variant marked the
+    // capitalized ORG_HEADS token, fragmenting the institution name.
+    const text = 'Trabajamos en primero básico del Colegio San Mateo durante la mañana.';
+    const result = sanitize(text, ATTENDEES);
+    expect(result.sanitizedText).toBe(text);
+    expect(result.sanitizedText).toContain('Colegio San Mateo');
+  });
+
+  it('keeps course-pattern capitalization-only — the shared predicate does not relax it', () => {
+    const text = 'El caso de quinto básico, emilia, se conversó con la dupla.';
+    expect(sanitize(text, ATTENDEES).sanitizedText).toBe(text);
+  });
+});
+
+describe('sanitize — G3: left extension does not swallow a verb', () => {
+  it('leaves a sentence-opening verb outside the persona span', () => {
+    const result = sanitize('Quedaron Martina Rojas y Benjamín Soto a cargo del mural.', [
+      'Camila Fuentes',
+    ]);
+    expect(result.sanitizedText).toBe('Quedaron [persona 1] y [persona 2] a cargo del mural.');
+    expect(result.metrics.personCount).toBe(2);
+  });
+
+  it('still extends across a genuine compound name', () => {
+    for (const [text, expected] of [
+      ['Juan Pablo mostró un avance importante en matemática.', 'Juan Pablo'],
+      ['Ayer llegó María José Aravena con el informe del ciclo.', 'María José Aravena'],
+      ['El acta menciona a Ana María Tapia como responsable.', 'Ana María Tapia'],
+    ] as const) {
+      const result = sanitize(text, ATTENDEES);
+      for (const part of expected.split(' ')) {
+        expect(result.sanitizedText).not.toContain(part);
+      }
+    }
+  });
+
+  it('leaves name-free sentence-initial verbs alone', () => {
+    const text = 'Quedaron los materiales listos para la próxima sesión.';
+    expect(sanitize(text, ATTENDEES).sanitizedText).toBe(text);
+  });
+});
+
 describe('sanitize — stable person tokens', () => {
   it('gives the same person the same number across mentions', () => {
     const result = sanitize(

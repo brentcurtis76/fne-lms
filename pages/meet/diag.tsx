@@ -31,7 +31,114 @@ import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
  * chrome, no data fetching.
  */
 
-const REPORT_SCHEMA_VERSION = 1;
+const REPORT_SCHEMA_VERSION = 2;
+
+/**
+ * Meeting SDK, loaded from Zoom's CDN on demand (Z0B-2).
+ *
+ * Not an npm dependency on purpose: `@zoom/meetingsdk@6.2.0` declares
+ * `peer react@"18.2.0"` exactly and this repo runs react 18.3.1, so npm refuses
+ * the install without `--legacy-peer-deps` — a flag that would change install
+ * resolution for every CI job to serve one spike probe. Loading the standalone
+ * bundle keeps package.json untouched and keeps the 3.7 MB bundle out of the
+ * initial page load (it is fetched only when a tester presses "Entrar").
+ * The React pin is a finding handed to Z3 (results §6).
+ */
+const SDK_VERSION = '6.2.0';
+const SDK_BASE = `https://source.zoom.us/${SDK_VERSION}`;
+const SDK_SRC = `${SDK_BASE}/zoom-meeting-embedded-${SDK_VERSION}.min.js`;
+
+/**
+ * Load order is load-bearing. The Component View bundle treats React and
+ * ReactDOM as EXTERNALS: with no `window.React` present it throws
+ * "ReferenceError: React is not defined" while evaluating and never assigns
+ * `window.ZoomMtgEmbedded`. Zoom's vendor copies are react 18.2.0 — the exact
+ * version the npm package pins as a peer, which is why they must come from Zoom
+ * rather than from this app's own React 18.3.1.
+ *
+ * These globals are inert for the rest of the page: Next.js resolves React
+ * through its bundle, never through `window.React`, and the SDK renders its own
+ * tree into its own root element. Verified empirically (results §6).
+ */
+const SDK_VENDOR_SRCS = [
+  `${SDK_BASE}/lib/vendor/react.min.js`,
+  `${SDK_BASE}/lib/vendor/react-dom.min.js`,
+];
+
+/** The slice of the Component View surface this probe uses. */
+type ZoomEmbeddedClient = {
+  init: (options: {
+    zoomAppRoot: HTMLElement;
+    language: string;
+    patchJsMedia?: boolean;
+    leaveOnPageUnload?: boolean;
+  }) => Promise<void>;
+  join: (options: {
+    sdkKey: string;
+    signature: string;
+    meetingNumber: string;
+    userName: string;
+    password?: string;
+  }) => Promise<void>;
+  leave: () => Promise<void>;
+};
+
+type ZoomEmbeddedGlobal = { createClient: () => ZoomEmbeddedClient };
+
+declare global {
+  interface Window {
+    ZoomMtgEmbedded?: ZoomEmbeddedGlobal;
+  }
+}
+
+/** Appends one classic script and resolves on load. Reuses an existing tag. */
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(`script[data-sdk-src="${src}"]`);
+    if (existing?.dataset.loaded === 'true') {
+      resolve();
+      return;
+    }
+    const script = existing ?? document.createElement('script');
+    script.addEventListener(
+      'load',
+      () => {
+        script.dataset.loaded = 'true';
+        resolve();
+      },
+      { once: true }
+    );
+    script.addEventListener(
+      'error',
+      () =>
+        reject(
+          new Error('No se pudo descargar el SDK de Zoom. Revisa la conexión a internet del colegio.')
+        ),
+      { once: true }
+    );
+    if (!existing) {
+      script.src = src;
+      script.dataset.sdkSrc = src;
+      document.head.appendChild(script);
+    }
+  });
+}
+
+async function loadMeetingSdk(): Promise<ZoomEmbeddedGlobal> {
+  if (window.ZoomMtgEmbedded) return window.ZoomMtgEmbedded;
+  // Sequential on purpose — see SDK_VENDOR_SRCS. Parallel loading would race
+  // React against the bundle that expects it to already be there.
+  for (const src of SDK_VENDOR_SRCS) {
+    await loadScript(src);
+  }
+  await loadScript(SDK_SRC);
+  if (!window.ZoomMtgEmbedded) {
+    throw new Error('El SDK se descargó pero no quedó disponible en la página.');
+  }
+  return window.ZoomMtgEmbedded;
+}
+
+type JoinState = 'idle' | 'joining' | 'joined' | 'error';
 
 /** Thresholds mirror the §17 device matrix: P0 = Win10 4GB dual-core / Win11 i5, P1 = Chromebook 4GB / Android tablet. */
 const FLOORS = {
@@ -325,9 +432,26 @@ function collectPassiveProbes(): Probe[] {
   return probes;
 }
 
-const MeetDiagPage: React.FC = () => {
+type MeetDiagPageProps = {
+  /** Public SDK app key, or null when the deployment has no Zoom env configured. */
+  sdkClientId: string | null;
+};
+
+const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ sdkClientId }) => {
   const [probes, setProbes] = useState<Probe[]>([]);
   const [storageProbe, setStorageProbe] = useState<Probe | null>(null);
+  const [meetingNumber, setMeetingNumber] = useState('');
+  const [passcode, setPasscode] = useState('');
+  const [joinState, setJoinState] = useState<JoinState>('idle');
+  const [joinProbe, setJoinProbe] = useState<Probe>({
+    id: 'test-join',
+    label: 'Tiempo hasta entrar a la reunión',
+    value: 'Sin probar',
+    status: 'pending',
+    note: 'Umbral del protocolo (B1): menos de 20 segundos desde el clic hasta ver y escuchar.',
+  });
+  const sdkRootRef = React.useRef<HTMLDivElement | null>(null);
+  const clientRef = React.useRef<ZoomEmbeddedClient | null>(null);
   const [mediaProbe, setMediaProbe] = useState<Probe>({
     id: 'get-user-media',
     label: 'Cámara y micrófono',
@@ -438,9 +562,119 @@ const MeetDiagPage: React.FC = () => {
     }
   }, []);
 
+  /**
+   * The B1 measurement from the field protocol: time from the click to a joined
+   * meeting. Measured with performance.now() around the SDK's own join promise —
+   * the protocol asks the tester to stopwatch it, and this removes that error.
+   *
+   * Also the functional check of two things no document can settle: that the SDK
+   * app's Embed toggle is actually on, and what the current SDK requires to join
+   * an in-account meeting. A failure here is a RESULT, so the error text is
+   * surfaced verbatim rather than smoothed over.
+   */
+  const runTestJoin = useCallback(async () => {
+    const digits = meetingNumber.replace(/\D/g, '');
+    if (digits.length < 9 || digits.length > 11) {
+      setJoinProbe({
+        id: 'test-join',
+        label: 'Tiempo hasta entrar a la reunión',
+        value: 'Número de reunión inválido',
+        status: 'fail',
+        note: 'El número de la reunión tiene entre 9 y 11 dígitos. Cópialo sin espacios.',
+      });
+      setJoinState('error');
+      return;
+    }
+
+    setJoinState('joining');
+    setJoinProbe((current) => ({ ...current, value: 'Entrando…', status: 'pending' }));
+
+    const startedAt = performance.now();
+    try {
+      const signatureResponse = await fetch('/api/meet/diag-signature', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ meetingNumber: digits }),
+      });
+      if (!signatureResponse.ok) {
+        throw new Error(
+          signatureResponse.status === 404
+            ? 'Esta instalación no tiene credenciales de Zoom configuradas.'
+            : `No se pudo firmar la entrada (HTTP ${signatureResponse.status}).`
+        );
+      }
+      const { signature, sdkKey } = (await signatureResponse.json()) as {
+        signature: string;
+        sdkKey: string;
+      };
+
+      const sdk = await loadMeetingSdk();
+      const root = sdkRootRef.current;
+      if (!root) throw new Error('No se encontró el contenedor de la reunión.');
+
+      const client = clientRef.current ?? sdk.createClient();
+      if (!clientRef.current) {
+        await client.init({
+          zoomAppRoot: root,
+          // §20: the SDK ships es-ES; there is no es-CL locale.
+          language: 'es-ES',
+          patchJsMedia: true,
+          leaveOnPageUnload: true,
+        });
+        clientRef.current = client;
+      }
+
+      await client.join({
+        sdkKey,
+        signature,
+        meetingNumber: digits,
+        userName: 'Prueba de equipo',
+        ...(passcode ? { password: passcode } : {}),
+      });
+
+      const elapsedMs = Math.round(performance.now() - startedAt);
+      const seconds = (elapsedMs / 1000).toFixed(1);
+      setJoinProbe({
+        id: 'test-join',
+        label: 'Tiempo hasta entrar a la reunión',
+        value: `${seconds} s (${elapsedMs} ms)`,
+        // B1 threshold from the protocol: under 20 s passes.
+        status: elapsedMs <= 20_000 ? 'pass' : 'fail',
+        note: `Umbral del protocolo (B1): menos de 20 segundos. Medido desde el clic hasta que el SDK confirma la entrada. SDK ${SDK_VERSION}.`,
+      });
+      setJoinState('joined');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setJoinProbe({
+        id: 'test-join',
+        label: 'Tiempo hasta entrar a la reunión',
+        value: `No se pudo entrar: ${message}`,
+        status: 'fail',
+        note: 'Anota este mensaje completo en la planilla: distingue un problema de red de un problema de la cuenta de Zoom.',
+      });
+      setJoinState('error');
+    }
+  }, [meetingNumber, passcode]);
+
+  const leaveTestJoin = useCallback(async () => {
+    try {
+      await clientRef.current?.leave();
+    } catch {
+      /* Leaving is best-effort — the tester is about to close the tab anyway. */
+    }
+    setJoinState('idle');
+  }, []);
+
   const allProbes = useMemo<Probe[]>(
-    () => [...probes, ...(storageProbe ? [storageProbe] : []), mediaProbe],
-    [probes, storageProbe, mediaProbe]
+    () => [
+      ...probes,
+      ...(storageProbe ? [storageProbe] : []),
+      mediaProbe,
+      // Always present in the report, even unmeasured: a blank B1 column and a
+      // "not attempted" reading are different facts for the embed decision.
+      joinProbe,
+    ],
+    [probes, storageProbe, mediaProbe, joinProbe]
   );
 
   const report = useMemo<DiagReport>(
@@ -583,16 +817,96 @@ const MeetDiagPage: React.FC = () => {
             </button>
           </section>
 
-          <section className="mt-5 rounded-xl border border-dashed border-gray-300 bg-white p-6">
-            <h2 className="text-base font-semibold text-gray-900">Prueba de conexión</h2>
-            <p className="mt-2 text-sm text-gray-600" data-testid="diag-join-placeholder">
-              Prueba de conexión: disponible próximamente.
-            </p>
-            <p className="mt-2 text-xs text-gray-500">
-              Cuando exista una reunión de prueba, este bloque permitirá entrar a ella y medir el
-              tiempo hasta ver y escuchar (umbral: menos de 20 segundos).
-            </p>
-          </section>
+          {sdkClientId === null ? (
+            <section className="mt-5 rounded-xl border border-dashed border-gray-300 bg-white p-6">
+              <h2 className="text-base font-semibold text-gray-900">Prueba de conexión</h2>
+              <p className="mt-2 text-sm text-gray-600" data-testid="diag-join-placeholder">
+                Prueba de conexión: disponible próximamente.
+              </p>
+              <p className="mt-2 text-xs text-gray-500">
+                Este bloque necesita las credenciales de Zoom configuradas en el servidor. El resto
+                del diagnóstico funciona igual: continúa con la Parte A del protocolo.
+              </p>
+            </section>
+          ) : (
+            <section className="mt-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h2 className="text-base font-semibold text-gray-900">Prueba de conexión</h2>
+              <p className="mt-2 text-sm text-gray-600">
+                Escribe el número y la clave de la reunión de prueba que te pasaron, y presiona{' '}
+                <span className="font-medium">Entrar a la reunión</span>. El tiempo se mide solo y
+                queda en el bloque de resultados.
+              </p>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <label className="block text-sm">
+                  <span className="font-medium text-gray-800">Número de reunión</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={meetingNumber}
+                    onChange={(event) => setMeetingNumber(event.target.value)}
+                    placeholder="Por ejemplo: 87239242778"
+                    data-testid="diag-join-meeting-number"
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand_primary focus:outline-none focus:ring-1 focus:ring-brand_accent"
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="font-medium text-gray-800">Clave de la reunión</span>
+                  <input
+                    type="text"
+                    autoComplete="off"
+                    value={passcode}
+                    onChange={(event) => setPasscode(event.target.value)}
+                    placeholder="Si la reunión no tiene clave, déjalo vacío"
+                    data-testid="diag-join-passcode"
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand_primary focus:outline-none focus:ring-1 focus:ring-brand_accent"
+                  />
+                </label>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={runTestJoin}
+                  disabled={joinState === 'joining' || joinState === 'joined'}
+                  data-testid="diag-join-button"
+                  className="inline-flex items-center justify-center rounded-lg bg-brand_primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand_gray_dark focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {joinState === 'joining' ? 'Entrando…' : 'Entrar a la reunión'}
+                </button>
+                {joinState === 'joined' ? (
+                  <button
+                    type="button"
+                    onClick={leaveTestJoin}
+                    data-testid="diag-join-leave-button"
+                    className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2"
+                  >
+                    Salir de la reunión
+                  </button>
+                ) : null}
+                <span className="text-sm text-gray-600" data-testid="diag-join-status">
+                  {joinProbe.value}
+                </span>
+              </div>
+
+              <p className="mt-3 text-xs text-gray-500">
+                Para la medición B2 del protocolo, entra y sal tres veces seguidas y anota si las
+                tres funcionaron. El video se abre dentro de esta misma página.
+              </p>
+
+              {/*
+                The SDK renders itself into this element. It stays mounted so the
+                client can be reused across the 3 join/leave cycles the protocol
+                asks for (B2), instead of re-initialising each time.
+              */}
+              <div
+                ref={sdkRootRef}
+                data-testid="diag-join-sdk-root"
+                className="mt-4 min-h-0 w-full overflow-hidden rounded-lg"
+              />
+            </section>
+          )}
 
           <section className="mt-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <h2 className="text-base font-semibold text-gray-900">Resultados</h2>
@@ -649,7 +963,7 @@ const MeetDiagPage: React.FC = () => {
  * /meet/*. There is no meeting here, so there is nothing to authorize against;
  * adding a role check would only stop the consultores this page exists for.
  */
-export const getServerSideProps: GetServerSideProps = async (context) => {
+export const getServerSideProps: GetServerSideProps<MeetDiagPageProps> = async (context) => {
   const supabase = createPagesServerClient(context);
   const {
     data: { session },
@@ -664,7 +978,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     };
   }
 
-  return { props: {} };
+  // Read here rather than inlining NEXT_PUBLIC_* in the component so the absent
+  // case is an explicit prop the page can branch on (and a test can assert)
+  // instead of an undefined that silently renders a broken control.
+  return { props: { sdkClientId: process.env.NEXT_PUBLIC_ZOOM_SDK_CLIENT_ID ?? null } };
 };
 
 export default MeetDiagPage;

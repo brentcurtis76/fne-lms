@@ -97,6 +97,62 @@ describe('sanitize — attendee allowlist', () => {
   });
 });
 
+describe('sanitize — attendee coverage rule', () => {
+  // One attendee on purpose: these cases are about what a SINGLE roster entry
+  // does and does not license.
+  const ROSTER = ['Camila Fuentes'];
+
+  it('redacts a distinct person who merely shares a given name with an attendee', () => {
+    const result = sanitize('El caso de la estudiante Camila Pérez se revisó ayer.', ROSTER);
+    // The whole span, not just the surname: a half-redacted name still names.
+    expect(result.sanitizedText).not.toContain('Camila Pérez');
+    expect(result.sanitizedText).not.toContain('Camila');
+    expect(result.sanitizedText).toContain('[persona 1]');
+  });
+
+  it('gives a redacted bare given name the number of the person it collides with', () => {
+    const result = sanitize(
+      'La estudiante Camila Pérez entregó el informe. Más tarde Camila preguntó por la nota.',
+      ROSTER
+    );
+    const tokens = result.sanitizedText.match(/\[persona \d+\]/g) ?? [];
+    expect(tokens.length).toBe(2);
+    expect(new Set(tokens).size).toBe(1);
+    expect(result.metrics.personCount).toBe(1);
+  });
+
+  it('keeps the bare-first-name heuristic when nothing collides', () => {
+    const result = sanitize(
+      'En la reunión Camila propuso revisar el protocolo de convivencia.',
+      ROSTER
+    );
+    expect(result.sanitizedText).toContain('Camila');
+    expect(result.sanitizedText).not.toContain('[persona');
+  });
+
+  it('preserves a roster name written in inverted order', () => {
+    const result = sanitize('En la nómina aparece Fuentes, Camila como facilitadora.', ROSTER);
+    expect(result.sanitizedText).toContain('Fuentes, Camila');
+  });
+
+  it('preserves the attendee full name even after a colliding redaction', () => {
+    const result = sanitize(
+      'La estudiante Camila Pérez faltó el lunes. Camila Fuentes revisará el caso.',
+      ROSTER
+    );
+    expect(result.sanitizedText).toContain('Camila Fuentes');
+    expect(result.sanitizedText).not.toContain('Camila Pérez');
+  });
+
+  it('redacts an attendee name the roster does not fully explain — accepted over-redaction', () => {
+    // "Camila Fuentes Soto" carries a token the roster lacks, so the span goes.
+    // Costs minuta quality, never leaks; roster hygiene is the fix.
+    const result = sanitize('La sesión la dirigió Camila Fuentes Soto en la mañana.', ROSTER);
+    expect(result.sanitizedText).not.toContain('Camila Fuentes Soto');
+    expect(result.sanitizedText).toContain('[persona 1]');
+  });
+});
+
 describe('sanitize — stable person tokens', () => {
   it('gives the same person the same number across mentions', () => {
     const result = sanitize(

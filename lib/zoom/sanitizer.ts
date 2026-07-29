@@ -21,6 +21,24 @@
  *    minuta quality; under-redaction leaks a minor's identity into a third-party
  *    model, so the asymmetry is not close.
  *
+ * **Preservation rule (v1.1).** The same asymmetry governs the attendee
+ * allowlist: a span survives only when the roster accounts for ALL of it.
+ * Sharing one token with an attendee is not enough — with "Camila Fuentes" in
+ * the meeting, the distinct student "Camila Pérez" used to survive intact
+ * because of the shared given name. A multi-token span holding any token the
+ * roster cannot explain is now redacted WHOLE; a bare given name is preserved
+ * on the roster's evidence alone, unless that same token also appears inside a
+ * span this transcript redacted, in which case the reference is ambiguous
+ * between the attendee and a redacted person and the asymmetry resolves it to
+ * redaction.
+ *
+ * **Accepted over-redaction.** The rule redacts an attendee's own extended
+ * name: with a roster entry of "Camila Fuentes", the surface "Camila Fuentes
+ * Soto" carries a token ("Soto") the roster does not have, so the whole span
+ * goes. That is the safe direction — the cost is a `[persona N]` where a
+ * facilitator's name would read better, and the fix is roster hygiene (store
+ * the name the transcript will actually contain), not a looser rule.
+ *
  * Not wired into any production path yet — Z5 does that. Tests only.
  */
 
@@ -28,7 +46,7 @@
  * Bump on any change to detection behaviour. Stored alongside a transcript so a
  * newer sanitizer can be detected and re-run (§6 state machine).
  */
-export const SANITIZER_VERSION = 'node-1.0.0';
+export const SANITIZER_VERSION = 'node-1.1.0';
 
 /** Default student-reference density (per 100 words) above which a transcript is flagged. */
 export const DEFAULT_FLAG_DENSITY_THRESHOLD = 2.0;
@@ -297,25 +315,63 @@ function looksLikeCourse(token: Token, text: string): boolean {
 /* --------------------------------------------------------------- attendees */
 
 type AttendeeIndex = {
+  /** Normalized roster names, spelled as the roster spells them. */
   fullNames: Set<string>;
+  /** The same names with significant tokens sorted, so word order stops mattering. */
+  fullNameKeys: Set<string>;
+  /** Significant tokens of every roster name. */
   tokens: Set<string>;
 };
 
+/** Order-insensitive key for a name: connectors dropped, remaining tokens sorted. */
+function nameKey(parts: string[]): string {
+  return parts
+    .filter((part) => !NAME_CONNECTORS.has(part))
+    .slice()
+    .sort()
+    .join(' ');
+}
+
 function buildAttendeeIndex(attendeeNames: string[]): AttendeeIndex {
   const fullNames = new Set<string>();
+  const fullNameKeys = new Set<string>();
   const tokens = new Set<string>();
   for (const name of attendeeNames) {
     if (typeof name !== 'string') continue;
     const norm = normalize(name).replace(/\s+/g, ' ').trim();
     if (!norm) continue;
     fullNames.add(norm);
-    for (const part of norm.split(' ')) {
+    const parts = norm.split(' ');
+    const key = nameKey(parts);
+    if (key) fullNameKeys.add(key);
+    for (const part of parts) {
       // Two-letter fragments and connectors match far too much to be safe
       // preservation evidence.
       if (part.length >= 3 && !NAME_CONNECTORS.has(part)) tokens.add(part);
     }
   }
-  return { fullNames, tokens };
+  return { fullNames, fullNameKeys, tokens };
+}
+
+/**
+ * Does the roster account for the ENTIRE span?
+ *
+ *   "Camila Fuentes"  (roster: Camila Fuentes) → yes, exact.
+ *   "Fuentes, Camila"                          → yes, same tokens reordered.
+ *   "Camila Pérez"                             → NO. "camila" is roster
+ *      evidence, "perez" is not, and a span the roster only partly explains is
+ *      a different person until proven otherwise.
+ *
+ * A span of nothing but connectors is never covered — `every` over an empty
+ * list is vacuously true, which would preserve exactly the spans with the least
+ * evidence behind them.
+ */
+function isAttendeeCovered(significant: Token[], attendees: AttendeeIndex): boolean {
+  if (significant.length === 0) return false;
+  const norms = significant.map((t) => t.norm);
+  if (attendees.fullNames.has(norms.join(' '))) return true;
+  if (attendees.fullNameKeys.has(nameKey(norms))) return true;
+  return norms.every((norm) => attendees.tokens.has(norm));
 }
 
 /* ---------------------------------------------------------------- detection */
@@ -498,6 +554,78 @@ function buildSpans(tokens: Token[], evidence: Map<number, Evidence>): Span[] {
   return spans;
 }
 
+/** A span plus everything the preservation decision needs. */
+type SpanPlan = {
+  span: Span;
+  start: number;
+  end: number;
+  surface: string;
+  /** Span tokens with connectors dropped — the ones that carry identity. */
+  significant: Token[];
+  preserved: boolean;
+};
+
+function planSpans(tokens: Token[], spans: Span[], rawText: string): SpanPlan[] {
+  return spans.map((span) => {
+    const first = tokens[span.startToken];
+    const last = tokens[span.endToken];
+    return {
+      span,
+      start: first.start,
+      end: last.end,
+      surface: rawText.slice(first.start, last.end),
+      significant: tokens
+        .slice(span.startToken, span.endToken + 1)
+        .filter((t) => !NAME_CONNECTORS.has(t.norm)),
+      preserved: false,
+    };
+  });
+}
+
+/**
+ * Decides preserve-vs-redact for every span, in two passes.
+ *
+ * Pass 1 settles every span whose fate depends on the roster alone: multi-token
+ * spans (attendee coverage, all-or-nothing) and bare names the roster has no
+ * token for. Each redaction contributes its tokens to `contaminated`.
+ *
+ * Pass 2 settles the rest — bare names the roster DOES have a token for. They
+ * are preserved on the plan's "a lone Camila means the attendee" heuristic,
+ * unless pass 1 redacted a person carrying the same token, which makes the bare
+ * mention ambiguous. Two passes rather than one sweep because the contaminating
+ * mention can appear anywhere: a bare "Camila" may well be read before the
+ * "Camila Pérez" that poisons it.
+ */
+function classifySpans(plans: SpanPlan[], attendees: AttendeeIndex): void {
+  const contaminated = new Set<string>();
+  const deferred: SpanPlan[] = [];
+
+  const redact = (plan: SpanPlan): void => {
+    plan.preserved = false;
+    for (const token of plan.significant) contaminated.add(token.norm);
+  };
+
+  for (const plan of plans) {
+    if (plan.significant.length === 1) {
+      if (attendees.tokens.has(plan.significant[0].norm)) {
+        deferred.push(plan);
+        continue;
+      }
+      redact(plan);
+      continue;
+    }
+    if (isAttendeeCovered(plan.significant, attendees)) {
+      plan.preserved = true;
+      continue;
+    }
+    redact(plan);
+  }
+
+  for (const plan of deferred) {
+    plan.preserved = !contaminated.has(plan.significant[0].norm);
+  }
+}
+
 /* ---------------------------------------------------------------- sanitize */
 
 /**
@@ -505,7 +633,9 @@ function buildSpans(tokens: Token[], evidence: Map<number, Evidence>): Span[] {
  *
  * @param rawText        Transcript text as produced by transcription.
  * @param attendeeNames  Display names of the people known to have attended.
- *                       These are preserved; everyone else is redacted.
+ *                       A name span survives only where these account for all
+ *                       of it (see the preservation rule at the top of the
+ *                       file); everyone else is redacted.
  */
 export function sanitize(
   rawText: string,
@@ -535,6 +665,8 @@ export function sanitize(
   const tokens = tokenize(rawText);
   const evidence = collectEvidence(tokens, rawText);
   const spans = buildSpans(tokens, evidence);
+  const plans = planSpans(tokens, spans, rawText);
+  classifySpans(plans, attendees);
 
   /** normalized token → assigned person number. Keeps "Martina Rojas" and a later bare "Martina" on the same token. */
   const personNumbers = new Map<string, number>();
@@ -544,29 +676,18 @@ export function sanitize(
   const replacements: Array<{ start: number; end: number; text: string }> = [];
   let redactionCount = 0;
 
-  for (const span of spans) {
-    const first = tokens[span.startToken];
-    const last = tokens[span.endToken];
-    const surface = rawText.slice(first.start, last.end);
-    const spanTokens = tokens
-      .slice(span.startToken, span.endToken + 1)
-      .filter((t) => !NAME_CONNECTORS.has(t.norm));
-    const normalizedSpan = spanTokens.map((t) => t.norm).join(' ');
-
-    // Attendee check: exact full name, or any shared significant token. A
-    // transcript that says "Camila" when "Camila Fuentes" attended is talking
-    // about the attendee.
-    const isAttendee =
-      attendees.fullNames.has(normalizedSpan) ||
-      spanTokens.some((t) => attendees.tokens.has(t.norm));
-
-    if (isAttendee) {
+  // Emission runs in document order, so person numbers follow the order a
+  // reader meets people in the transcript — and a token-keyed map keeps a
+  // redacted bare "Camila" on the same `[persona N]` as the "Camila Pérez" it
+  // refers to, whichever of the two comes first.
+  for (const plan of plans) {
+    if (plan.preserved) {
       detections.push({
-        surface,
-        start: first.start,
-        end: last.end,
-        layer: span.layer,
-        confidence: span.confidence,
+        surface: plan.surface,
+        start: plan.start,
+        end: plan.end,
+        layer: plan.span.layer,
+        confidence: plan.span.confidence,
         action: 'preserved',
       });
       continue;
@@ -574,7 +695,7 @@ export function sanitize(
 
     // Reuse an existing number if any token of this span was already assigned.
     let assigned: number | undefined;
-    for (const t of spanTokens) {
+    for (const t of plan.significant) {
       const existing = personNumbers.get(t.norm);
       if (existing !== undefined) {
         assigned = assigned === undefined ? existing : Math.min(assigned, existing);
@@ -584,16 +705,16 @@ export function sanitize(
       assigned = nextPersonNumber;
       nextPersonNumber += 1;
     }
-    for (const t of spanTokens) personNumbers.set(t.norm, assigned);
+    for (const t of plan.significant) personNumbers.set(t.norm, assigned);
 
     const token = `[persona ${assigned}]`;
-    replacements.push({ start: first.start, end: last.end, text: token });
+    replacements.push({ start: plan.start, end: plan.end, text: token });
     detections.push({
-      surface,
-      start: first.start,
-      end: last.end,
-      layer: span.layer,
-      confidence: span.confidence,
+      surface: plan.surface,
+      start: plan.start,
+      end: plan.end,
+      layer: plan.span.layer,
+      confidence: plan.span.confidence,
       action: 'redacted',
       token,
     });

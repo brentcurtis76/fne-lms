@@ -1,7 +1,7 @@
 {
   "suite": "must-catch",
   "blocking": true,
-  "description": "Explicit student references. Plan §12/§15: the bar is 100% — any miss is a red build. Every name here is synthetic; no real student, family or staff member appears in this file.",
+  "description": "Explicit student references, plus the attendee-collision family (mc-23..mc-27) that guards the preservation rule in both directions. Plan §12/§15: the bar is 100% — any miss is a red build. Every name here is synthetic; no real student, family or staff member appears in this file.",
   "cases": [
     {
       "id": "mc-01",
@@ -179,6 +179,52 @@
       "text": "Camila propuso el cambio y Rodrigo lo respaldó; el alumno Maximiliano quedó fuera de esa decisión.",
       "mustRedact": ["Maximiliano"],
       "mustPreserve": ["Camila", "Rodrigo"]
+    },
+    {
+      "id": "mc-23",
+      "category": "attendee-collision",
+      "description": "student sharing a given name with an attendee — the WHOLE span goes, not just the surname",
+      "attendees": ["Camila Fuentes"],
+      "text": "El caso de la estudiante Camila Pérez se conversó con la dupla psicosocial del colegio.",
+      "mustRedact": ["Camila Pérez", "Camila"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-24",
+      "category": "attendee-collision",
+      "description": "bare given name once a colliding student exists — ambiguous, so it resolves to redaction and reuses the student's number",
+      "attendees": ["Camila Fuentes"],
+      "text": "La estudiante Camila Pérez entregó el informe atrasado. Más tarde Camila preguntó por la nota en la sala.",
+      "mustRedact": ["Camila Pérez", "Camila"],
+      "mustPreserve": [],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-25",
+      "category": "attendee-collision",
+      "description": "bare given name with no colliding student — the attendee heuristic must survive the tightened rule",
+      "attendees": ["Camila Fuentes"],
+      "text": "En la reunión Camila propuso revisar el protocolo de convivencia con el equipo directivo.",
+      "mustRedact": [],
+      "mustPreserve": ["Camila"]
+    },
+    {
+      "id": "mc-26",
+      "category": "attendee-collision",
+      "description": "attendee name in inverted roster order — coverage is order-insensitive",
+      "attendees": ["Camila Fuentes"],
+      "text": "En la nómina de la sesión aparece Fuentes, Camila como facilitadora del taller.",
+      "mustRedact": [],
+      "mustPreserve": ["Fuentes, Camila"]
+    },
+    {
+      "id": "mc-27",
+      "category": "attendee-collision",
+      "description": "attendee full name after a redacted collision — full coverage beats token contamination",
+      "attendees": ["Camila Fuentes"],
+      "text": "La estudiante Camila Pérez faltó el lunes. Camila Fuentes revisará el caso con la familia esta semana.",
+      "mustRedact": ["Camila Pérez"],
+      "mustPreserve": ["Camila Fuentes"]
     }
   ]
 }

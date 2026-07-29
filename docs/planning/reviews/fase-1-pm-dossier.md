@@ -5,10 +5,34 @@
 ## Identity
 
 - **Phase**: Z1a — Disclosure remediation (WP-0) + auth (`zoom-integration-plan.md` §15, first agent phase)
-- **Branch**: `fix/sess-leak` · **base/fork point**: `959c1fe` (= origin/main) · **11 commits** · +3820/−104 over 42 files
-- **PR**: [#24](https://github.com/brentcurtis76/fne-lms/pull/24) — OPEN, `mergeStateStatus: CLEAN`, all 6 CI gates pass
+- **Branch**: `fix/sess-leak` · **base/fork point**: `959c1fe` (= origin/main)
+- **History**: 3 build chunks (12 commits through `4cde531`) → Sol verdict REQUEST CHANGES (`fase-1-review-verdict.md`, archived `2ef3a9e`) → remediation chunk Z1a-4 (6 commits `b75aa6c`…`a946c52`) → this dossier update
+- **Figures, pinned** (headline totals move with every docs commit — the code figure is the stable one):
+  - full branch at `a946c52`: **19 commits, 56 files, +6271/−725**
+  - code + tests only (excluding `docs/` and `PROJECT_STATE.md`): **50 files, +5179/−711** — invariant across docs commits; matches the review-request's figure
+  - the executor's in-file headline (18/55/+6112) was computed at `5d117ca`, before its own docs commit existed — self-reference, not error
+- **PR**: [#24](https://github.com/brentcurtis76/fne-lms/pull/24) — OPEN, `mergeStateStatus: CLEAN`, all 6 CI gates pass at `a946c52` (PM re-checked via `gh pr checks`)
 - **Diff command**: `git diff 959c1fe...origin/fix/sess-leak`
-- **Local gates**: `npm run type-check && npm run lint && npm test && npm run build` (PM last ran on `b244383`: clean / clean / 2641 passed, 204 files / build OK)
+- **Local gates**: `npm run type-check && npm run lint && npm test && npm run build` (PM last ran on `a946c52`: clean / clean / 2697 passed, 208 files / build OK)
+
+## Remediation record (Z1a-4 — response to the REQUEST CHANGES verdict)
+
+| Sol finding | Fix commit | PM re-verification |
+|---|---|---|
+| ① MAJOR cache fail-open on revocation | `b75aa6c` | Diff read; contract is authoritative-success-final, cache only on query ERROR; cache rows now `is_active: null` + `from_cache: true` (no fabricated `true`); refresh hygiene added to `remove-role`/`delete-user`/`networks/supervisors`. **PM re-executed the fail-on-old proof: 7 failed / 3 passed on pre-fix `roleUtils.ts`, 10/10 after — matches the report exactly** |
+| ② MAJOR single-report email leak | `b149845` | Diff read; GET on shared context + `canViewSession`/`canViewRestrictedReports`/`redactProfileEmails`; PUT untouched (author-only rule, not a policy copy — correct) |
+| ③ MAJOR iCal ATTENDEE emails | `61aa77b` | Diff read; generator fail-closed default, per-caller policy at all 3 endpoints, leak-asserting test rewritten, no other email-bearing iCal fields (ORGANIZER/CN/X- swept) |
+| ④ MAJOR list ≠ detail scope | `68934a1` | Diff read; union in the query via `.or()` — school ids `Number.isFinite`-gated, community ids UUID-gated + quoted, both sourced from `user_roles` not the request; count/pagination preserved; empty-scope semantics unchanged |
+| ⑤ MINOR Host trust in prod | `5d117ca` | Diff read; `VERCEL_ENV` authority, origin validation, `VERCEL_PROJECT_PRODUCTION_URL` fallback, loud throw — Host never consulted in production |
+| ⑥⑦ MINOR docs | `a946c52` | PROJECT_STATE Z1a entry truthful against the diff (invariants, test delta 2544→2697, gate evidence); review-request figures pinned per above |
+
+**New accepted deviations (Z1a-4):** cache rows carry `is_active: null` rather than `false` (honest UNKNOWN; scope checks fail closed on it, `getHighestRole` keeps the session alive during a genuine outage); `[id]/ical.ts` inline authz replaced with `canViewSession` (tightening beyond the letter of T3); batch-iCal row scoping left on its one-branch shape (T4 scoped to the list GET — ticketed below); `sessions-gc-member.test.ts` rewritten rather than patched (asserted implementation details, not behavior). Style note (PM): `getAppBaseUrl`'s throw message is in Spanish — internal errors are conventionally English; cosmetic.
+
+**New residual risks (documented, not fixed here):**
+- A stale cached `admin` row still grants `highestRole === 'admin'` during a `user_roles` query-ERROR window (cache rows are scope-inert but the admin branch needs no scope). Non-attacker-triggerable; closing it means dropping the availability fallback — product call.
+- **`user_roles_cache` is an RLS-less materialized view with `GRANT ALL … TO anon, authenticated`** — any user's roles are readable with the anon key. Pre-existing, discovered by the T1 caller audit; needs a migration (out of Z1a's no-migrations scope). Ticketed for Brent.
+- Batch-iCal (`pages/api/sessions/ical.ts`) still scopes rows by one role branch — same shape the list had. Emails/links no longer leak from it; the gap is feed completeness for mixed-role users. Ticketed follow-up.
+- Mixed-role consultors now see `borrador` drafts of their community sessions in the list (draft visibility keyed on `highestRole`, unchanged in kind; detail never gated drafts). Noted for the reviewer.
 
 ## Scope authority (the itinerary does not carry Zoom phases — scope-fidelity runs against THIS)
 

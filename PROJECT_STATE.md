@@ -5,8 +5,8 @@
 > Phase close requires `docs/planning/reviews/fase-<N>-review-request.md` (see CLAUDE.md executor rules). Reviewer verdict is recorded in the Human-review queue before merge.
 
 ## Meta
-- Last phase completed: **Z1a — Remediación de divulgación de sesiones (WP-0) + auth** (plan Zoom §15, primera fase de agente). En PR [#24](https://github.com/brentcurtis76/fne-lms/pull/24), rama `fix/sess-leak`, pendiente de re-review tras Z1a-5 (los 2 MAJOR de la re-review R2 de Sol están corregidos)
-- Date: 2026-07-28
+- Last phase completed: **Z1a — Remediación de divulgación de sesiones (WP-0) + auth** (plan Zoom §15, primera fase de agente). **CERRADA**: Sol R3 `APPROVE` sin hallazgos (2026-07-29) y merge a `main` como `c8b84f4` vía PR [#24](https://github.com/brentcurtis76/fne-lms/pull/24), rama `fix/sess-leak` (24 commits preservados). Las 6 observaciones de R1 y los 2 MAJOR de R2 quedaron corregidos antes del merge
+- Date: 2026-07-29
 - Model used: Claude Opus 5 (ejecución directa; PM = sesión Fable sobre el plan Zoom)
 - Commit SHA: `fix/sess-leak` — base `959c1fe` → `edc1714` (Z1a-1..3) → `2ef3a9e` (docs) → `5d117ca` (Z1a-4, remediación de las 6 observaciones del reviewer) → `62a448d` (Z1a-5, los 2 MAJOR de la re-review R2). 22 commits, 61 archivos, +7427/−769
 - Phase anterior: **Fase 0 — Repo hardening, CI, state scaffolding** + correcciones consolidadas pre-PR (bloques 1–3, 2026-07-08), rama `feat/fase0-ci`, base `main` @ `0650746`
@@ -90,7 +90,7 @@ Al cierre de Z1a (`62a448d`, local, macOS):
 ## Open decisions / debts (with owner)
 
 ### Deudas que arrastra Z1a
-- [Brent · ANTES DE MERGE de #24] **Confirmar que la producción en Vercel tiene origen configurado.** Desde Z1a-4 `getAppBaseUrl()` LANZA en producción si no hay `NEXT_PUBLIC_BASE_URL` / `NEXT_PUBLIC_SITE_URL` / `NEXT_PUBLIC_APP_URL` ni `VERCEL_PROJECT_PRODUCTION_URL`; ya no cae al encabezado `Host`. Vercel inyecta `VERCEL_PROJECT_PRODUCTION_URL` por defecto, así que se espera satisfecho, pero no está verificado desde la máquina de ejecución
+- [Brent · POST-MERGE · watch item] **Confirmar que la producción en Vercel tiene origen configurado.** Desde Z1a-4 `getAppBaseUrl()` LANZA en producción si no hay `NEXT_PUBLIC_BASE_URL` / `NEXT_PUBLIC_SITE_URL` / `NEXT_PUBLIC_APP_URL` ni `VERCEL_PROJECT_PRODUCTION_URL`; ya no cae al encabezado `Host`. Vercel inyecta `VERCEL_PROJECT_PRODUCTION_URL` por defecto, así que se espera satisfecho, pero no está verificado desde la máquina de ejecución. **#24 ya está mergeado**, así que dejó de ser un bloqueo previo y pasó a ser vigilancia en producción: si las descargas `.ics` o el cron de recordatorios devuelven 500, definir `NEXT_PUBLIC_BASE_URL` en Vercel (proyecto fne-lms, Production). Son los únicos consumidores de `getAppBaseUrl`; nada más se ve afectado
 - [Claude · ticket aparte] **Migración a `getUser()`**: todo SSR y toda API route del repo (incluidas las nuevas) confían en la cookie de `getSession()` en lugar de validar contra el servidor de auth. Z1a no amplió la deuda, tampoco la cerró
 - [Claude · post-Z2] **`/consultor/**` sin gating de rol en servidor**: el middleware ahora exige sesión (estrictamente más que antes), pero la comprobación de rol sigue siendo client-side
 - [Brent+DB agent · ticket aparte] **`user_roles_cache` es una VISTA MATERIALIZADA** (`baseline.sql:11406`) con `GRANT ALL … TO anon, authenticated`: no admite RLS, así que los roles de cualquier usuario son legibles con la anon key. Su trigger sobre `profiles` solo hace `pg_notify` y nadie escucha; solo se refresca por RPC explícita. Z1a-4 lo neutralizó en código (fail-closed + filas de caché sin alcance + refresco en los 3 caminos de revocación) y Z1a-5 lo completó (esas filas ya no autorizan nada), pero el arreglo de schema requiere migración → fuera del alcance de esta fase
@@ -126,8 +126,7 @@ Dos hilos en paralelo, con dueños distintos:
 - DoD: matriz pgTAP rol×tabla×operación verde (~40–60 asserts); toda tabla nueva con RLS + columnas de policies indexadas; `seed:test` idempotente
 
 ## Human-review queue (batched)
-- **Z1a: re-review del PR #24 tras Z1a-5** (las 6 observaciones de R1 y los 2 MAJOR de R2 están corregidos; `fase-1-review-request.md` actualizado) — reviewer independiente, luego Brent para el merge
-- **Z1a: confirmar variables de entorno de producción en Vercel** antes del merge — ver debts
+- **Z1a: confirmar variables de entorno de producción en Vercel** — ya no bloquea el merge (#24 mergeado); queda como vigilancia post-merge, ver debts
 - Verificar en el primer PR: los 6 checks aparecen y corren (evidencia DoD Fase 0) — Brent
 - Revisar los pasajes reescritos de GENERA-01 (§4 sociograma, §6 secuencia+ley, §7 categorías, próximos pasos) — calidad de español y tono para Arnoldo/Sandra/Mora — Brent
 - EIPD (documento legal) — requerida antes de Fase 2

@@ -67,8 +67,14 @@ Local, macOS, at the head of this branch:
 | `npm run lint` (`--max-warnings=0`) | ✅ clean |
 | `npm test` | ✅ **3094 passed / 3094, 217 files** |
 | `npm run build` | ✅ Compiled successfully; `ƒ /meet/diag` 7.2 kB (160 kB first load), `ƒ /api/meet/diag-signature` present |
-| `npm run test:db` | ⏭️ N/A — zero migrations in this phase |
-| `npm run e2e` | ⏭️ not run locally (no seeded Supabase on this machine); `/meet` specs are `.skip()` stubs until Z1c |
+| `npm run test:db` | ⏭️ N/A locally — zero migrations in this phase; CI runs it anyway (green, below) |
+| `npm run e2e` | ⏭️ not run locally (no seeded Supabase on this machine); `/meet` specs are `.skip()` stubs until Z1c. CI's Gate 4 is the verdict (green, below) |
+
+**CI on [PR #25](https://github.com/brentcurtis76/fne-lms/pull/25) at `198ddd5`: 8/8
+checks pass, zero failures** (`gh pr checks 25`) — Gate 1 Typecheck 1m6s · Gate 1b
+Lint 55s · Gate 2 Unit 1m14s · Gate 3 RLS pgTAP 1m31s · Gate 4 E2E smoke 3m39s ·
+RLS migration guard 8s · Vercel deployment · Vercel Preview Comments. PR is marked
+ready for review and is **not** merged.
 
 **Delta vs the Z0B-1 baseline (3072 / 215 files): +22 tests / +2 files**, and the
 arithmetic is exactly the two new suites:

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="es-CL">
+  <head>
+    <meta charset="utf-8" />
+    <title>Z0B-2 · SDK join harness</title>
+    <!--
+      Spike-only Meeting SDK Component View harness for the customerKey round trip
+      (results doc §6). Driven by Playwright, never by a human.
+
+      Why the SDK comes from Zoom's CDN and not from node_modules:
+      @zoom/meetingsdk@6.2.0 declares `peer react@"18.2.0"` EXACTLY, and this repo
+      runs react 18.3.1 — npm refuses the install without --legacy-peer-deps. Forcing
+      that into the repo would change install resolution for every CI job, so the spike
+      loads the standalone bundle instead and package.json stays untouched. The exact
+      React pin is a finding handed to Z3 (see results §6 and the review-request file).
+
+      Everything this page reports lands on window.__spike so the Playwright driver can
+      read it without scraping the DOM.
+    -->
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; }
+      #zmmtg-root, #meetingSDKElement { width: 100vw; height: 100vh; }
+    </style>
+  </head>
+  <body>
+    <div id="meetingSDKElement"></div>
+    <!--
+      LOAD ORDER IS LOAD-BEARING. The Component View bundle treats React and
+      ReactDOM as EXTERNALS: without window.React defined first it throws
+      "ReferenceError: React is not defined" during evaluation and never assigns
+      window.ZoomMtgEmbedded. Zoom's own vendor copies are react 18.2.0 —
+      the exact version the npm package pins as a peer. Measured, not assumed
+      (results §6).
+    -->
+    <script src="https://source.zoom.us/6.2.0/lib/vendor/react.min.js"></script>
+    <script src="https://source.zoom.us/6.2.0/lib/vendor/react-dom.min.js"></script>
+    <script src="https://source.zoom.us/6.2.0/zoom-meeting-embedded-6.2.0.min.js"></script>
+    <script>
+      window.__spike = {
+        state: 'booting',
+        joinedAt: null,
+        clickedAt: null,
+        timeToJoinMs: null,
+        error: null,
+        events: [],
+        sdkVersion: null,
+      };
+
+      function note(kind, detail) {
+        window.__spike.events.push({
+          at: new Date().toISOString(),
+          kind,
+          detail: typeof detail === 'string' ? detail : JSON.stringify(detail),
+        });
+      }
+
+      (async function main() {
+        const params = new URLSearchParams(window.location.search);
+        const required = ['mn', 'signature', 'sdkKey', 'name', 'customerKey'];
+        for (const key of required) {
+          if (!params.get(key)) {
+            window.__spike.state = 'error';
+            window.__spike.error = `missing query param: ${key}`;
+            return;
+          }
+        }
+
+        try {
+          const client = window.ZoomMtgEmbedded.createClient();
+          window.__spike.sdkVersion = window.ZoomMtgEmbedded.VERSION ?? '6.2.0';
+
+          await client.init({
+            zoomAppRoot: document.getElementById('meetingSDKElement'),
+            // §20: the SDK ships es-ES, not es-CL.
+            language: 'es-ES',
+            patchJsMedia: true,
+            leaveOnPageUnload: true,
+          });
+          note('init', 'ok');
+
+          // Listeners must be registered AFTER init(): before it, the client's
+          // internal event map is undefined and `.on()` throws
+          // "Cannot read properties of undefined (reading 'includes')".
+          // Measured, not assumed (results §6).
+          try {
+            client.on('connection-change', (payload) => note('connection-change', payload));
+            client.on('user-added', (payload) => note('user-added', payload));
+          } catch (listenerError) {
+            note('listener-error', String(listenerError));
+          }
+
+          window.__spike.state = 'joining';
+          window.__spike.clickedAt = performance.now();
+
+          const joinArgs = {
+            sdkKey: params.get('sdkKey'),
+            signature: params.get('signature'),
+            meetingNumber: params.get('mn'),
+            userName: params.get('name'),
+            // The whole point of the PoC: does this survive into the reports API?
+            customerKey: params.get('customerKey'),
+          };
+          const pwd = params.get('pwd');
+          if (pwd) joinArgs.password = pwd;
+          // A host join (role:1) additionally needs the host's ZAK — §5: fetched at
+          // start-click, never persisted. Required for the recording round trip,
+          // because cloud recording needs a Licensed host actually in the meeting.
+          const zak = params.get('zak');
+          if (zak) joinArgs.zak = zak;
+
+          await client.join(joinArgs);
+
+          window.__spike.joinedAt = performance.now();
+          window.__spike.timeToJoinMs = Math.round(
+            window.__spike.joinedAt - window.__spike.clickedAt
+          );
+          window.__spike.state = 'joined';
+          note('join', `ok in ${window.__spike.timeToJoinMs}ms`);
+        } catch (error) {
+          window.__spike.state = 'error';
+          // Zoom errors carry {type, reason, errorCode} — keep all of it.
+          window.__spike.error =
+            typeof error === 'object' ? JSON.stringify(error, Object.getOwnPropertyNames(error)) : String(error);
+          note('join-error', window.__spike.error);
+        }
+      })();
+    </script>
+  </body>
+</html>

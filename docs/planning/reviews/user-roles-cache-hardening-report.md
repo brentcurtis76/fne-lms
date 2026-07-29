@@ -7,6 +7,16 @@ function.
 **Date**: 2026-07-29. **Repo**: GENERA (FNE-LMS).
 **Status**: all three branches implemented, gated, pushed, unmerged.
 
+> **Re-audited 2026-07-29 (later).** `fix/sess-leak` (Z1a-4/Z1a-5) merged to
+> `main` as PR #24 (`c8b84f4`) after this stack was branched. The caller audit
+> below was re-run against the new `origin/main` (`2786fa8`). Two corrections
+> resulted: the RPC caller inventory is **seven** routes, not four (§5), and
+> the read-path effect now splits cleanly into **browser callers (denied, fail
+> closed)** vs **server callers (service-role, retained)** (§4).
+> The stack's base `959c1fe` is still an ancestor of `main`, `git merge-tree`
+> reports **no conflicts**, and there is **zero file overlap** between what this
+> stack touches and what `main` changed in the interim.
+
 This document is self-contained — you should not need any prior conversation.
 Every factual claim below is reproducible with the commands given. Where a
 judgment call was made, it is labelled as such. Production figures were obtained
@@ -127,17 +137,38 @@ reproduce.
   `refresh_user_roles_cache()`. All are `SECURITY DEFINER` owned by `postgres`,
   so they read with the owner's privileges, not the caller's. Unaffected. No RLS
   policy or view references the matview directly.
-- **App-side, on `main`** — the only reader is the fallback branch inside
-  `getUserRoles()` at `utils/roleUtils.ts:195`. It executes **only** when the
-  primary RLS-guarded `user_roles` query returns zero rows, and its error path
-  degrades to `[]`. Called with a browser client from
-  `hooks/useAuthEnhanced.ts:127`, `pages/dashboard.tsx:345`,
-  `pages/detailed-reports.tsx:154`, `pages/user/[userId].tsx:108`; every API
-  route caller passes a service-role client.
-- **App-side, on the unmerged `fix/sess-leak`** — the equivalent reader
-  (`getUserRolesFromCache`) is service-role only. This stack touches no app code,
-  so it does not conflict with that branch in either merge order.
-- **Admin API routes** only call the *refresh* RPC, never read the view.
+- **App-side** — the only reader is `getUserRolesFromCache()`
+  (`utils/roleUtils.ts:180`), reachable exclusively from `getUserRoles()`'s
+  degraded path. Since Z1a-5 that path executes **only when the authoritative
+  `user_roles` query ERRORS** — a zero-row result is authoritative and never
+  falls through. It runs on whatever client the caller passed, which is what
+  splits the effect in two:
+
+**Browser callers → denied, fail closed.** The cache SELECT raises `42501`,
+`getUserRolesFromCache()` logs it and returns `[]`, so the degraded path yields
+an empty role list rather than stale rows.
+
+| Caller | Client |
+|---|---|
+| `hooks/useAuthEnhanced.ts:127` | browser |
+| `pages/dashboard.tsx:345` | browser |
+| `pages/detailed-reports.tsx:154` | browser |
+| `pages/user/[userId].tsx:108` | browser |
+| `pages/api/admin/check-permissions.ts:48` | **server route, but anon-key** `createServerSupabaseClient({req,res})` |
+
+That last row is the one a reviewer is most likely to misclassify: it is an API
+route, but it builds a request-scoped client on the anon key plus the user's
+session, so for privilege purposes it is a client caller and is denied.
+
+**Server callers → unaffected.** `service_role` keeps its grant, so the degraded
+path still returns its display rows. This is the overwhelming majority of the
+~90 `getUserRoles()` call sites — every route that builds a service client, plus
+`lib/api/meetings/load-context.ts:135` and
+`lib/utils/session-meet-access.ts:68`. Note `pages/api/reports/detailed.ts:65`
+and `filter-options.ts:32` pass a variable named `supabase` that is a
+module-level **service-role** client — again, judge by construction, not name.
+
+- **Admin API routes** only call the *refresh* RPC, never read the view (§5).
 
 ### Expected outcome
 
@@ -145,13 +176,20 @@ reproduce.
   direct read of the matview.
 - Self-reads are unaffected in substance: they are already served by the
   `read_own_roles` RLS policy on `public.user_roles`
-  (`baseline.sql:21424`).
-- **One user-visible behavior change on `main`**: viewing another user's profile
-  (`pages/user/[userId].tsx`) outside your own community will show no roles
-  where it previously showed them — because it was previously showing them *via
-  the leak*. This resolves once `fix/sess-leak` merges.
-- **Security-positive side effect**: the stale-cache fallback that could
-  resurrect just-revoked roles now fails closed on `main` too.
+  (`baseline.sql:21424`), which this migration does not touch. A signed-in user
+  reading their own roles through the anon client keeps working.
+- **No authorization change, in either direction.** Since Z1a-5 every cached row
+  is stamped `from_cache: true`; `getHighestRole()` refuses those rows and every
+  scope check reads them as no scope. The degraded path was already
+  authorization-inert, so denying it removes no grant and creates no new denial
+  of a legitimate grant.
+- **The only user-visible effect is display continuity during an outage**, and
+  only for browser callers. If `user_roles` is erroring, those callers now show
+  an empty role list instead of stale cached rows — the shell no longer knows
+  which communities the user belongs to until the primary query recovers.
+  Server (service-role) callers keep the fallback and see no change.
+- Normal operation is entirely unaffected for everyone: with `user_roles`
+  healthy the cache is never consulted at all.
 
 ### Design decision to challenge
 
@@ -215,11 +253,31 @@ After the fix: `{postgres=X/postgres,service_role=X/postgres}`.
 
 ### Caller audit
 
-- **Production callers** all use the service-role client, which keeps EXECUTE:
-  `pages/api/admin/assign-role.ts:613`,
-  `pages/api/admin/bulk-create-users.ts:418`,
-  `pages/api/admin/growth-communities/[id]/leaders.ts:112`,
-  `pages/api/admin/tractor-signups/grant.ts:165`.
+**Full RPC caller inventory — seven routes**, re-audited against `origin/main`
+`2786fa8` (an earlier pass against the pre-PR-#24 main listed only four; that
+was incomplete). All seven are **server callers on a service-role client**, so
+none is affected by the REVOKE:
+
+| # | Call site | Receiver | Service-role? |
+|---|---|---|---|
+| 1 | `pages/api/admin/assign-role.ts:613` | `supabaseService` | yes — `createServiceRoleClient()` |
+| 2 | `pages/api/admin/bulk-create-users.ts:418` | `supabaseAdmin` | yes — `createClient(…, SUPABASE_SERVICE_ROLE_KEY)` |
+| 3 | `pages/api/admin/delete-user.ts:116` | `supabaseAdmin` | yes — `createServiceRoleClient()` |
+| 4 | `pages/api/admin/growth-communities/[id]/leaders.ts:112` | `supabase` | yes — `createServiceRoleClient()` at :84 |
+| 5 | `pages/api/admin/networks/supervisors.ts:205` | `supabase` (param) | yes — see trap below |
+| 6 | `pages/api/admin/remove-role.ts:145` | `supabaseService` | yes — `createServiceRoleClient()` |
+| 7 | `pages/api/admin/tractor-signups/grant.ts:165` | `supabase` (param) | yes — `createServiceRoleClient()` at :282 |
+
+**Naming trap — verify rows 5 and 7 at the call site, not the variable name.**
+`networks/supervisors.ts` builds an anon-key `supabase` at handler scope (`:23`)
+*and* a service-role `supabaseAdmin` (`:33`), then passes `supabaseAdmin` into
+`handleRemoveSupervisor()` (`:46`), whose parameter is itself named `supabase`
+(`:155`). Line 205 therefore reads exactly like the anon client but is
+service-role. `grant.ts` does the same thing via `refreshRolesCache(supabase)`.
+Judging either by variable name alone predicts a `42501` regression that does
+not exist. I initially misread row 5 this way; checking the binding corrected it.
+
+- **No browser caller of this RPC exists** anywhere in the repo.
 - **No SQL caller.** The trigger `profiles_changed_refresh_cache`
   (`baseline.sql:15364`) fires `trigger_refresh_user_roles_cache()`, which only
   calls `pg_notify` (`baseline.sql:5007-5012`) — it does **not** invoke the
@@ -228,8 +286,9 @@ After the fix: `{postgres=X/postgres,service_role=X/postgres}`.
 
 ### Expected outcome
 
-`anon`/`authenticated` receive `42501` on the RPC; the four admin routes are
-unaffected.
+`anon`/`authenticated` receive `42501` on the RPC. All seven admin routes above
+are unaffected, because every one of them is a server caller holding
+service-role. There is no browser caller to break.
 
 ### Left alone deliberately
 
@@ -364,6 +423,17 @@ Plus this report. The three per-branch review-request files satisfy the repo's
 "a phase without its review-request file is not complete" rule and contain the
 same analysis scoped to each branch.
 
+> **Where to read the migration comments.** The post-PR-#24 re-audit corrected
+> the header comments of `20260728000000` (browser vs server split) and
+> `20260729000000` (seven-route RPC inventory). Those corrections landed as a
+> later commit on the **tip** branch `fix/roles-refresh`, not as history rewrites
+> of the branches that introduced the files — so `fix/roles-cache-rls` and
+> `fix/roles-exec` still carry the earlier, less precise comment text. The
+> merged result is correct, and only comments differ. **Review the tip's
+> version.** If you would rather each branch carry its own final comment, the
+> stack can be rebased to fold the corrections back — say so and it will be
+> redone that way.
+
 ---
 
 ## 8. Test evidence
@@ -454,6 +524,15 @@ Ranked. Items 1-3 are where I most expect to be wrong.
    depending on them in CI.
 8. **Stacked-branch mechanics.** Three branches, one shared test file, strict
    merge order. Verify the ordering holds and that no branch merges alone.
+9. **The caller inventories (§4, §5) — re-derive them, do not trust them.** An
+   earlier pass of this report undercounted the RPC callers (four instead of
+   seven) because it ran against the pre-PR-#24 `main`, and separately I
+   misclassified `networks/supervisors.ts:205` as an anon-key call because the
+   parameter shadows the name. Both are corrected, but the class of error is
+   easy to repeat. Re-run:
+   `git grep -n "refresh_user_roles_cache" origin/main -- '*.ts' '*.tsx'` and
+   `git grep -n "getUserRoles(" origin/main -- '*.ts' '*.tsx'`, and resolve each
+   receiver to its construction site rather than its identifier.
 
 ---
 
@@ -471,8 +550,11 @@ Ranked. Items 1-3 are where I most expect to be wrong.
   Tracked as a follow-up task.
 - **`trigger_refresh_user_roles_cache()` retains client grants** — not reachable
   (see §5), left alone deliberately.
-- **`pages/user/[userId].tsx` display degradation on `main`** until
-  `fix/sess-leak` merges (see §4).
+- **Display continuity during a `user_roles` outage** is reduced for browser
+  callers only (see §4). No authorization effect. `fix/sess-leak` has since
+  merged (PR #24), so the earlier concern about `pages/user/[userId].tsx`
+  showing roles via the leak no longer applies — that path only reaches the
+  cache when the primary query errors.
 - **First production refresh will be large** (~484 rows added).
 
 ## 11. Explicit non-goals

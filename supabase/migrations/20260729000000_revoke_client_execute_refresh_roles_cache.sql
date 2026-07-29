@@ -19,9 +19,27 @@
 -- leading "=X" is PUBLIC). Revoking only anon and authenticated would leave
 -- both roles still able to execute, inheriting the privilege via PUBLIC.
 --
--- service_role keeps EXECUTE: every production caller goes through it
--- (pages/api/admin/assign-role.ts, bulk-create-users.ts,
--- growth-communities/[id]/leaders.ts, tractor-signups/grant.ts).
+-- service_role keeps EXECUTE. Full RPC caller inventory, re-audited against
+-- main after fix/sess-leak merged (PR #24) — all seven are SERVER callers on a
+-- service-role client, so none is affected:
+--
+--   pages/api/admin/assign-role.ts:613                  supabaseService
+--   pages/api/admin/bulk-create-users.ts:418            supabaseAdmin
+--   pages/api/admin/delete-user.ts:116                  supabaseAdmin
+--   pages/api/admin/growth-communities/[id]/leaders.ts:112  supabase (service)
+--   pages/api/admin/networks/supervisors.ts:205         param (service)
+--   pages/api/admin/remove-role.ts:145                  supabaseService
+--   pages/api/admin/tractor-signups/grant.ts:165        param (service)
+--
+-- Read the last two at the CALL SITE, not the variable name. supervisors.ts
+-- builds an anon-key `supabase` at handler scope AND a service-role
+-- `supabaseAdmin`, then passes supabaseAdmin into handleRemoveSupervisor(),
+-- whose parameter is named `supabase` — so line 205 is service-role despite
+-- reading like the anon client. grant.ts likewise passes its service client
+-- into refreshRolesCache(supabase). Judging either by name alone would wrongly
+-- predict a 42501 regression here.
+--
+-- There are NO browser callers of this RPC anywhere in the repo.
 --
 -- Note for whoever picks up the cache next: this function cannot currently
 -- succeed for ANY caller. CONCURRENTLY requires a unique index with no WHERE

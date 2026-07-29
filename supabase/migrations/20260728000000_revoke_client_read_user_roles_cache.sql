@@ -7,18 +7,42 @@
 -- community_id, generation_id) — a cross-tenant information disclosure
 -- (fase-1 PM dossier, residual risks; Z1a-4 caller audit).
 --
--- Server-side consumers are unaffected:
---   * service_role keeps its grant — degraded-path reads in
---     utils/roleUtils.ts go through the service-role client.
---   * auth_get_user_role(), auth_is_teacher(), auth_has_school_access(),
---     auth_has_school_access_uuid() and refresh_user_roles_cache() are
---     SECURITY DEFINER owned by postgres, so they read the view with the
---     owner's privileges, not the caller's.
+-- The single reader is getUserRolesFromCache() in utils/roleUtils.ts, reached
+-- only from getUserRoles()' degraded path — i.e. only when the authoritative
+-- `user_roles` query ERRORS (a zero-row result is authoritative and never
+-- falls through). It runs on whatever client the caller passed, so the effect
+-- of this REVOKE splits by caller:
+--
+--   * BROWSER callers (anon/authenticated key) — DENIED, and they fail closed.
+--     The cache SELECT now raises 42501, getUserRolesFromCache() logs it and
+--     returns [], so the degraded path yields an empty role list instead of
+--     stale rows. No authorization impact: since Z1a-5 every cached row is
+--     stamped `from_cache: true`, getHighestRole() refuses those rows and every
+--     scope check reads them as no scope, so the degraded path was already
+--     authorization-inert. What is lost is display continuity during a
+--     `user_roles` outage (the shell no longer knows the user's communities).
+--     Callers: hooks/useAuthEnhanced.ts, pages/dashboard.tsx,
+--     pages/detailed-reports.tsx, pages/user/[userId].tsx, and
+--     pages/api/admin/check-permissions.ts — the last one is server-side but
+--     builds a request-scoped createServerSupabaseClient (anon key + user
+--     session), so it is a client caller for privilege purposes.
+--
+--   * SERVER callers (service_role) — UNAFFECTED. service_role keeps its
+--     grant, so the degraded path still returns its (authorization-inert)
+--     display rows. This is the overwhelming majority of call sites: every
+--     API route that builds a service client, plus lib/api/meetings/
+--     load-context.ts and lib/utils/session-meet-access.ts.
+--
+-- Also unaffected: auth_get_user_role(), auth_is_teacher(),
+-- auth_has_school_access(), auth_has_school_access_uuid() and
+-- refresh_user_roles_cache() are SECURITY DEFINER owned by postgres, so they
+-- read the view with the owner's privileges, not the caller's.
 --
 -- No client-facing read wrapper is added: legitimate self-reads already flow
--- through public.user_roles under its own-row RLS policies; no client-side
--- code needs the view. If the view is ever re-created, Supabase default
--- privileges would re-grant it to client roles —
+-- through public.user_roles under its own-row RLS policies (`read_own_roles`,
+-- auth.uid() = user_id), so a signed-in user reading their OWN roles through
+-- the anon client is unaffected by this REVOKE. If the view is ever
+-- re-created, Supabase default privileges would re-grant it to client roles —
 -- supabase/tests/030-user-roles-cache-grants.sql fails CI if that happens.
 -- =============================================================================
 

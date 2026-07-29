@@ -1,0 +1,184 @@
+{
+  "suite": "must-catch",
+  "blocking": true,
+  "description": "Explicit student references. Plan §12/§15: the bar is 100% — any miss is a red build. Every name here is synthetic; no real student, family or staff member appears in this file.",
+  "cases": [
+    {
+      "id": "mc-01",
+      "description": "role noun + full name",
+      "attendees": ["Camila Fuentes", "Rodrigo Pérez"],
+      "text": "Camila Fuentes abrió la sesión y comentó que la estudiante Martina Rojas ha mejorado mucho en lenguaje este semestre.",
+      "mustRedact": ["Martina Rojas"],
+      "mustPreserve": ["Camila Fuentes"]
+    },
+    {
+      "id": "mc-02",
+      "description": "role noun + given name",
+      "attendees": ["Camila Fuentes"],
+      "text": "Revisamos el caso que trajo el equipo: el alumno Benjamín necesita apoyo en la lectura en voz alta.",
+      "mustRedact": ["Benjamín"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-03",
+      "description": "diminutive role noun (niña) + given name",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "Rodrigo Pérez planteó que la niña Florencia se ha integrado bien al grupo de trabajo.",
+      "mustRedact": ["Florencia"],
+      "mustPreserve": ["Rodrigo Pérez"]
+    },
+    {
+      "id": "mc-04",
+      "description": "role noun + full name, second surname included",
+      "attendees": ["Camila Fuentes"],
+      "text": "El niño Vicente Cárcamo faltó tres veces este mes y la familia no ha respondido los correos.",
+      "mustRedact": ["Vicente Cárcamo"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-05",
+      "description": "honorific don + given name",
+      "attendees": ["Camila Fuentes"],
+      "text": "Camila Fuentes contó que don Ignacio pidió una reunión para hablar del rendimiento de su hijo.",
+      "mustRedact": ["Ignacio"],
+      "mustPreserve": ["Camila Fuentes"]
+    },
+    {
+      "id": "mc-06",
+      "description": "honorific doña + full name",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "Quedó pendiente devolverle el llamado a doña Elena Fuenzalida antes del viernes.",
+      "mustRedact": ["Elena Fuenzalida"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-07",
+      "description": "course designation + given name",
+      "attendees": ["Camila Fuentes"],
+      "text": "En el reporte aparece que, de 5°B, Antonia es quien más ha avanzado en comprensión lectora.",
+      "mustRedact": ["Antonia"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-08",
+      "description": "written course designation + given name",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "El caso de quinto básico, Emilia, se conversó con la dupla psicosocial la semana pasada.",
+      "mustRedact": ["Emilia"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-09",
+      "description": "school honorific profe + given name (non-attendee staff)",
+      "attendees": ["Camila Fuentes"],
+      "text": "La profe Marcela comentó que el bloque colaborativo se le ocupa siempre en temas administrativos.",
+      "mustRedact": ["Marcela"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-10",
+      "description": "guardian role noun + full name",
+      "attendees": ["Camila Fuentes"],
+      "text": "El apoderado Jorge Mellado insiste en que la comunicación con el colegio no funciona.",
+      "mustRedact": ["Jorge Mellado"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-11",
+      "description": "school honorific tía + name that collides with a common word",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "Los cursos más chicos siguen llamando tía Rosa a la asistente de la sala, y eso ya está conversado.",
+      "mustRedact": ["Rosa"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-12",
+      "description": "two students coordinated by y",
+      "attendees": ["Camila Fuentes"],
+      "text": "Los estudiantes Matías y Tomás presentaron juntos el trabajo de ciencias y les fue muy bien.",
+      "mustRedact": ["Matías", "Tomás"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-13",
+      "description": "peer role noun + given name",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "La compañera Josefa la ayudó a ponerse al día después de la licencia médica.",
+      "mustRedact": ["Josefa"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-14",
+      "description": "bare capitalized name mid-sentence, no trigger word",
+      "attendees": ["Camila Fuentes"],
+      "text": "Después de la reunión conversamos con Renata sobre la evaluación de historia.",
+      "mustRedact": ["Renata"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-15",
+      "description": "compound given name + surname",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "El informe menciona a María José Aravena como uno de los casos prioritarios del ciclo.",
+      "mustRedact": ["María José Aravena"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-16",
+      "description": "abbreviated honorific with period (must not read as a sentence break)",
+      "attendees": ["Camila Fuentes"],
+      "text": "Camila Fuentes coordinó la entrevista con la Sra. Elena para el martes a primera hora.",
+      "mustRedact": ["Elena"],
+      "mustPreserve": ["Camila Fuentes"]
+    },
+    {
+      "id": "mc-17",
+      "description": "same student named three times must collapse to one token",
+      "attendees": ["Camila Fuentes"],
+      "text": "El alumno Cristóbal Vergara llegó atrasado dos veces. Hablamos con Cristóbal en la mañana y quedó claro. Cristóbal Vergara se comprometió a avisar si vuelve a pasar.",
+      "mustRedact": ["Cristóbal Vergara", "Cristóbal"],
+      "mustPreserve": [],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-18",
+      "description": "list of three students",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "En el grupo de apoyo quedaron Matías, Valentina y Agustín, según lo que definió el equipo.",
+      "mustRedact": ["Matías", "Valentina", "Agustín"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-19",
+      "description": "family relation + name",
+      "attendees": ["Camila Fuentes"],
+      "text": "La madre Verónica pidió que la citación llegue por escrito y no solo por la plataforma.",
+      "mustRedact": ["Verónica"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-20",
+      "description": "student named alongside two attendees — attendees survive, student does not",
+      "attendees": ["Camila Fuentes", "Rodrigo Pérez"],
+      "text": "Camila Fuentes y Rodrigo Pérez coincidieron en que el caso de Ignacia Lillo requiere derivación externa.",
+      "mustRedact": ["Ignacia Lillo"],
+      "mustPreserve": ["Camila Fuentes", "Rodrigo Pérez"]
+    },
+    {
+      "id": "mc-21",
+      "description": "institution name must not be mistaken for a person, student still caught",
+      "attendees": ["Camila Fuentes"],
+      "text": "En el Colegio San Mateo el caso de la estudiante Trinidad se trabajó con la Fundación Nueva Educación.",
+      "mustRedact": ["Trinidad"],
+      "mustPreserve": ["Colegio San Mateo"]
+    },
+    {
+      "id": "mc-22",
+      "description": "attendee referred to by first name only must survive",
+      "attendees": ["Camila Fuentes", "Rodrigo Pérez"],
+      "text": "Camila propuso el cambio y Rodrigo lo respaldó; el alumno Maximiliano quedó fuera de esa decisión.",
+      "mustRedact": ["Maximiliano"],
+      "mustPreserve": ["Camila", "Rodrigo"]
+    }
+  ]
+}

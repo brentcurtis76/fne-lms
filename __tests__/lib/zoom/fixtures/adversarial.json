@@ -1,0 +1,283 @@
+{
+  "suite": "adversarial",
+  "blocking": false,
+  "description": "Monitoring suite. Plan §12/§15/§41: recall here is a tracked METRIC, never a gate — no threshold is asserted. Deliberately contains cases the dependency-free Node layer is expected to miss, because a suite the sanitizer always passes measures nothing. All names synthetic.",
+  "categories": {
+    "whisper-misspelling": "Transcription artefacts: lost capitalization, dropped accents, phonetic substitutions.",
+    "nickname": "Diminutives and hypocorisms used in Chilean classrooms.",
+    "compound-name": "Multi-token given names and two-surname forms.",
+    "common-word-collision": "Given names that are also ordinary Spanish nouns."
+  },
+  "cases": [
+    {
+      "id": "adv-01",
+      "category": "whisper-misspelling",
+      "description": "name fully lowercased by transcription, no capitalized mention anywhere",
+      "attendees": ["Camila Fuentes"],
+      "text": "Después conversé con martina sobre la tarea de lenguaje y quedó de entregarla el lunes.",
+      "mustRedact": ["martina"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-02",
+      "category": "whisper-misspelling",
+      "description": "lowercased on second mention after a capitalized first mention",
+      "attendees": ["Camila Fuentes"],
+      "text": "La estudiante Martina Rojas presentó su trabajo. Más tarde martina preguntó por la nota.",
+      "mustRedact": ["Martina Rojas", "martina"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-03",
+      "category": "whisper-misspelling",
+      "description": "accent dropped",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "El caso de Benjamin Soto se revisó con la dupla psicosocial durante la semana.",
+      "mustRedact": ["Benjamin Soto"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-04",
+      "category": "whisper-misspelling",
+      "description": "phonetic substitution b/v",
+      "attendees": ["Camila Fuentes"],
+      "text": "En el grupo quedó Balentina, que viene llegando de otro colegio este año.",
+      "mustRedact": ["Balentina"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-05",
+      "category": "whisper-misspelling",
+      "description": "name at sentence start, lowercase elsewhere absent",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "Ignacia no alcanzó a terminar la evaluación y pidió rendirla otro día.",
+      "mustRedact": ["Ignacia"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-06",
+      "category": "whisper-misspelling",
+      "description": "surname split by transcription",
+      "attendees": ["Camila Fuentes"],
+      "text": "El informe de Fernanda Val divia quedó incompleto en la plataforma.",
+      "mustRedact": ["Fernanda"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-07",
+      "category": "whisper-misspelling",
+      "description": "all-caps rendering",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "En la lista aparece MATILDE con inasistencias reiteradas durante mayo.",
+      "mustRedact": ["MATILDE"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-08",
+      "category": "nickname",
+      "description": "diminutive of a student name, capitalized",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "Cami se cambió de grupo porque no se sentía cómoda con sus compañeros.",
+      "mustRedact": ["Cami"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-09",
+      "category": "nickname",
+      "description": "diminutive mid-sentence",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "El equipo comentó que Cami se cambió de grupo a mitad del semestre.",
+      "mustRedact": ["Cami"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-10",
+      "category": "nickname",
+      "description": "hypocorism unrelated to the formal name (Josefa → Pepa)",
+      "attendees": ["Camila Fuentes"],
+      "text": "En la sala todos le dicen Pepa, aunque en el registro figura con otro nombre.",
+      "mustRedact": ["Pepa"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-11",
+      "category": "nickname",
+      "description": "diminutive with suffix",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "El profesor jefe mencionó que Nachito ha estado más participativo estas semanas.",
+      "mustRedact": ["Nachito"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-12",
+      "category": "nickname",
+      "description": "nickname lowercased by transcription",
+      "attendees": ["Camila Fuentes"],
+      "text": "La asistente contó que pancho llegó sin materiales otra vez.",
+      "mustRedact": ["pancho"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-13",
+      "category": "nickname",
+      "description": "nickname next to a role noun",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "La alumna Coni pidió cambiarse de puesto porque no alcanza a ver la pizarra.",
+      "mustRedact": ["Coni"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-14",
+      "category": "compound-name",
+      "description": "compound given name with connector",
+      "attendees": ["Camila Fuentes"],
+      "text": "El caso de María de los Ángeles Tapia se derivó a evaluación externa.",
+      "mustRedact": ["María de los Ángeles Tapia"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-15",
+      "category": "compound-name",
+      "description": "two-token given name",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "Juan Pablo mostró un avance importante en matemática durante este ciclo.",
+      "mustRedact": ["Juan Pablo"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-16",
+      "category": "compound-name",
+      "description": "two surnames with connector",
+      "attendees": ["Camila Fuentes"],
+      "text": "En el acta figura Sebastián de la Fuente Ossa como responsable del grupo.",
+      "mustRedact": ["Sebastián de la Fuente Ossa"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-17",
+      "category": "compound-name",
+      "description": "compound name split across a comma",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "Los seleccionados fueron Ana María, Luis Felipe y otro estudiante de séptimo.",
+      "mustRedact": ["Ana María", "Luis Felipe"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-18",
+      "category": "compound-name",
+      "description": "compound name partially lowercased",
+      "attendees": ["Camila Fuentes"],
+      "text": "El informe menciona a José miguel Cortés entre los casos revisados.",
+      "mustRedact": ["José"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-19",
+      "category": "common-word-collision",
+      "description": "flower name used as a given name, mid-sentence",
+      "attendees": ["Camila Fuentes"],
+      "text": "El equipo comentó que Rosa ha estado más callada de lo habitual en clases.",
+      "mustRedact": ["Rosa"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-20",
+      "category": "common-word-collision",
+      "description": "same collision at sentence start",
+      "attendees": ["Camila Fuentes"],
+      "text": "Rosa ha estado más callada de lo habitual durante las clases de la tarde.",
+      "mustRedact": ["Rosa"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-21",
+      "category": "common-word-collision",
+      "description": "Ángel as a given name",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "Revisamos el cuaderno de Ángel y se nota el avance en la escritura.",
+      "mustRedact": ["Ángel"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-22",
+      "category": "common-word-collision",
+      "description": "Sol as a given name",
+      "attendees": ["Camila Fuentes"],
+      "text": "En el grupo de lectura participa Sol, que entró este semestre.",
+      "mustRedact": ["Sol"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-23",
+      "category": "common-word-collision",
+      "description": "Milagros as a given name",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "La familia de Milagros pidió una reunión con el equipo directivo.",
+      "mustRedact": ["Milagros"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-24",
+      "category": "common-word-collision",
+      "description": "Consuelo as a given name next to its ordinary use",
+      "attendees": ["Camila Fuentes"],
+      "text": "Fue un consuelo para el curso, pero Consuelo sigue con dificultades en matemática.",
+      "mustRedact": ["Consuelo"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-25",
+      "category": "common-word-collision",
+      "description": "Pilar as a given name",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "El trabajo de Pilar quedó pendiente por la licencia médica de la semana pasada.",
+      "mustRedact": ["Pilar"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-26",
+      "category": "common-word-collision",
+      "description": "Cruz as a surname",
+      "attendees": ["Camila Fuentes"],
+      "text": "En la nómina aparece Matilde Cruz con observaciones de convivencia.",
+      "mustRedact": ["Matilde Cruz"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-27",
+      "category": "common-word-collision",
+      "description": "Paz as a given name at sentence start",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "Paz entregó su trabajo fuera de plazo y pidió una nueva oportunidad.",
+      "mustRedact": ["Paz"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-28",
+      "category": "common-word-collision",
+      "description": "collision must not swallow the ordinary noun elsewhere",
+      "attendees": ["Camila Fuentes"],
+      "text": "Hablamos con Rosa y también revisamos la rosa que plantaron en el patio.",
+      "mustRedact": ["Rosa"],
+      "mustPreserve": ["la rosa"]
+    },
+    {
+      "id": "adv-29",
+      "category": "whisper-misspelling",
+      "description": "run-on transcription without punctuation",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "bueno entonces el tema de amanda es que no ha entregado nada este mes y la familia no responde",
+      "mustRedact": ["amanda"],
+      "mustPreserve": []
+    },
+    {
+      "id": "adv-30",
+      "category": "nickname",
+      "description": "nickname plus formal name in the same transcript",
+      "attendees": ["Camila Fuentes"],
+      "text": "La estudiante Constanza Miranda avanzó bien. En la sala le dicen Cote y responde mejor así.",
+      "mustRedact": ["Constanza Miranda", "Cote"],
+      "mustPreserve": []
+    }
+  ]
+}

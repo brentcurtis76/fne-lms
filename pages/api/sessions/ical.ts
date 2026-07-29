@@ -9,7 +9,11 @@ import {
 import { Validators } from '../../../lib/types/api-auth.types';
 import { getUserRoles, getHighestRole } from '../../../utils/roleUtils';
 import { createSessionCalendar, generateExportFilename, ICalSessionInput } from '../../../lib/utils/session-ical';
-import { buildSessionJoinPath } from '../../../lib/utils/session-disclosure';
+import {
+  buildSessionJoinPath,
+  canViewParticipantEmails,
+} from '../../../lib/utils/session-disclosure';
+import { SessionAccessContext } from '../../../lib/utils/session-policy';
 import { buildAbsoluteUrl } from '../../../lib/utils/app-url';
 import type { SessionStatus } from '../../../lib/types/consultor-sessions.types';
 
@@ -52,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Build query
     let query = serviceClient
       .from('consultor_sessions')
-      .select('*, session_facilitators(profiles(first_name, last_name, email)), schools!consultor_sessions_school_id_fkey(name), growth_communities(name)')
+      .select('*, session_facilitators(user_id, profiles(first_name, last_name, email)), schools!consultor_sessions_school_id_fkey(name), growth_communities(name)')
       .eq('is_active', true);
 
     // Role-based filtering
@@ -189,10 +193,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
     }
 
-    // Build iCal sessions
+    // Build iCal sessions.
+    //
+    // ATTENDEE entries carry personal e-mail addresses into a file that leaves
+    // the platform, so the participant-e-mail rule is applied PER ROW: a GC
+    // member may facilitate one of these sessions and be a plain member of the
+    // next. Rows the caller is not entitled to simply carry no facilitators, so
+    // the generator has nothing to serialize for them.
     const icalSessions: ICalSessionInput[] = sessions.map((session: unknown) => {
       const s = session as Record<string, unknown>;
       const facilitators = (s.session_facilitators as Array<Record<string, unknown>> | null) || [];
+
+      const accessContext: SessionAccessContext = {
+        highestRole,
+        userRoles,
+        session: {
+          id: s.id as string,
+          school_id: s.school_id as number,
+          growth_community_id: s.growth_community_id as string,
+          status: s.status as string,
+        },
+        userId: user.id,
+        isFacilitator: facilitators.some((f) => f?.user_id === user.id),
+      };
+
+      const showAttendees = canViewParticipantEmails(accessContext);
 
       return {
         id: s.id as string,
@@ -212,16 +237,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         growth_community_name: (
           (s.growth_communities as Record<string, unknown> | null)?.name as string | null
         ) || undefined,
-        facilitators: facilitators.map((f) => ({
-          first_name: (((f.profiles as Record<string, unknown> | null)?.first_name as string) || null) as string | null | undefined,
-          last_name: (((f.profiles as Record<string, unknown> | null)?.last_name as string) || null) as string | null | undefined,
-          email: (((f.profiles as Record<string, unknown> | null)?.email as string) || null) as string | null | undefined,
-        })),
+        facilitators: showAttendees
+          ? facilitators.map((f) => ({
+              first_name: (((f.profiles as Record<string, unknown> | null)?.first_name as string) || null) as string | null | undefined,
+              last_name: (((f.profiles as Record<string, unknown> | null)?.last_name as string) || null) as string | null | undefined,
+              email: (((f.profiles as Record<string, unknown> | null)?.email as string) || null) as string | null | undefined,
+            }))
+          : undefined,
       };
     });
 
-    // Generate calendar
-    const calendar = createSessionCalendar(icalSessions, 'Sesiones Exportadas');
+    // Generate calendar. The per-row entitlement was already applied above, so
+    // whatever survived into `facilitators` is allowed to serialize.
+    const calendar = createSessionCalendar(icalSessions, 'Sesiones Exportadas', {
+      includeAttendees: true,
+    });
 
     // Generate filename with timestamp
     const filename = generateExportFilename(sessions.length);

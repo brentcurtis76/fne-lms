@@ -91,10 +91,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
     });
 
-    // Generate calendar
+    // Generate calendar. This endpoint is admin-only (checkIsAdmin above), and
+    // admins are entitled to participant e-mails, so ATTENDEE entries stay.
     const calendar = createSessionCalendar(
       icalSessions,
-      `Serie de Sesiones: ${icalSessions[0]?.title || 'Series de Capacitación'}`
+      `Serie de Sesiones: ${icalSessions[0]?.title || 'Series de Capacitación'}`,
+      { includeAttendees: true }
     );
 
     // Generate filename

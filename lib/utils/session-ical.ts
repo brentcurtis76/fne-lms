@@ -140,16 +140,44 @@ function buildEventLocation(session: ICalSessionInput): string | undefined {
 }
 
 /**
+ * Options for {@link createSessionCalendar}.
+ */
+export interface CreateSessionCalendarOptions {
+  /**
+   * Whether facilitator ATTENDEE entries may be serialized.
+   *
+   * ATTENDEE is an e-mail channel: `ical-generator` emits
+   * `ATTENDEE;…;CN="Nombre":MAILTO:persona@colegio.cl`, and an .ics is a
+   * plain-text artifact that travels outside the platform. So this follows the
+   * same rule as every other participant e-mail (admins, the session's own
+   * facilitators, and school-scoped or global consultors —
+   * `canViewParticipantEmails`), and everyone else gets a calendar entry with
+   * no attendees at all. A mailto-less ATTENDEE is not useful iCal, so the
+   * entries are omitted rather than stripped down to a name.
+   *
+   * Defaults to FALSE: a caller that forgets to make a decision leaks nothing.
+   */
+  includeAttendees?: boolean;
+}
+
+/**
  * Create an iCal calendar object from an array of sessions
  * Handles timezone setup, event generation, and alarm configuration
  *
+ * ATTENDEE is the only e-mail-bearing field this generator can emit: no
+ * ORGANIZER, no CN parameters outside ATTENDEE, and no custom X- properties
+ * are set. Keep it that way — anything new that carries an address has to go
+ * behind `options.includeAttendees` too.
+ *
  * @param sessions - Array of session data to include in calendar
  * @param calendarName - Optional calendar name (default: "Sesiones de Consultoría")
+ * @param options - Disclosure options; see {@link CreateSessionCalendarOptions}
  * @returns ical-generator ICalCalendar object (call .toString() to get iCal string)
  */
 export function createSessionCalendar(
   sessions: ICalSessionInput[],
-  calendarName: string = 'Sesiones de Consultoría'
+  calendarName: string = 'Sesiones de Consultoría',
+  options: CreateSessionCalendarOptions = {}
 ): ICalCalendar {
   const cal = ical({
     name: calendarName,
@@ -189,8 +217,9 @@ export function createSessionCalendar(
       ],
     };
 
-    // Add facilitators as attendees if provided
-    if (session.facilitators && session.facilitators.length > 0) {
+    // Add facilitators as attendees — privileged callers only (see
+    // CreateSessionCalendarOptions.includeAttendees).
+    if (options.includeAttendees && session.facilitators && session.facilitators.length > 0) {
       eventData.attendees = session.facilitators
         .filter((f) => f.email) // Only include facilitators with email
         .map((f) => ({

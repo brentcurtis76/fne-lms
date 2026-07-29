@@ -9,7 +9,11 @@ import {
 import { Validators } from '../../../../lib/types/api-auth.types';
 import { getUserRoles, getHighestRole } from '../../../../utils/roleUtils';
 import { createSessionCalendar, generateSessionExportFilename, ICalSessionInput } from '../../../../lib/utils/session-ical';
-import { buildSessionJoinPath } from '../../../../lib/utils/session-disclosure';
+import {
+  buildSessionJoinPath,
+  canViewParticipantEmails,
+} from '../../../../lib/utils/session-disclosure';
+import { canViewSession, SessionAccessContext } from '../../../../lib/utils/session-policy';
 import { buildAbsoluteUrl } from '../../../../lib/utils/app-url';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -54,45 +58,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendAuthError(res, 'Usuario sin roles asignados', 403);
     }
 
-    // Role-based visibility
-    let canAccess = false;
-
-    if (highestRole === 'admin') {
-      canAccess = true;
-    } else if (highestRole === 'consultor') {
-      // Check if consultant is at the same school or if they are global
-      const consultorRoles = userRoles.filter(
-        (r) => r.role_type === 'consultor' && r.is_active
-      );
-      const isGlobalConsultor = consultorRoles.some((r) => !r.school_id);
-
-      if (isGlobalConsultor) {
-        canAccess = true;
-      } else {
-        const consultantSchools = consultorRoles
-          .filter((r) => r.school_id)
-          .map((r) => r.school_id);
-
-        if (consultantSchools.includes(session.school_id)) {
-          canAccess = true;
-        }
-      }
-    } else {
-      // GC member: can view sessions for communities they belong to
-      const userCommunityIds = userRoles
-        .filter((r) => r.community_id)
-        .map((r) => r.community_id);
-
-      if (userCommunityIds.includes(session.growth_community_id)) {
-        canAccess = true;
-      }
-    }
-
-    if (!canAccess) {
-      return sendAuthError(res, 'Acceso denegado a esta sesión', 403);
-    }
-
-    // Fetch facilitators
+    // Fetch facilitators — needed both for the access context and (for
+    // privileged callers only) for the ATTENDEE entries.
     const { data: facilitators, error: facilitatorsError } = await serviceClient
       .from('session_facilitators')
       .select('*, profiles(first_name, last_name, email)')
@@ -102,6 +69,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error('Error fetching facilitators:', facilitatorsError);
       return sendAuthError(res, 'Error al obtener facilitadores', 500);
     }
+
+    // Authorization via the canonical policy helper — same context the session
+    // GETs build. The previous inline check granted GC access on any
+    // community_id match, ignoring is_active.
+    const accessContext: SessionAccessContext = {
+      highestRole,
+      userRoles,
+      session: {
+        id: session.id,
+        school_id: session.school_id,
+        growth_community_id: session.growth_community_id,
+        status: session.status,
+      },
+      userId: user.id,
+      isFacilitator: (facilitators || []).some(
+        (f: { user_id?: string }) => f?.user_id === user.id
+      ),
+    };
+
+    if (!canViewSession(accessContext)) {
+      return sendAuthError(res, 'Acceso denegado a esta sesión', 403);
+    }
+
+    // ATTENDEE carries personal e-mail addresses into a file that leaves the
+    // platform — same rule as every other participant e-mail.
+    const includeAttendees = canViewParticipantEmails(accessContext);
 
     // Build iCal input
     const icalSession: ICalSessionInput = {
@@ -132,7 +125,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     };
 
     // Generate calendar
-    const calendar = createSessionCalendar([icalSession], `Sesión: ${session.title}`);
+    const calendar = createSessionCalendar([icalSession], `Sesión: ${session.title}`, {
+      includeAttendees,
+    });
     const filename = generateSessionExportFilename(icalSession);
 
     // Set response headers

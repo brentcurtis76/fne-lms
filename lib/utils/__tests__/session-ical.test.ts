@@ -104,11 +104,27 @@ describe('session-ical utilities', () => {
     expect(icalString).toContain('STATUS:CONFIRMED');
   });
 
-  it('includes facilitators as ATTENDEE entries with email', () => {
+  it('omits ATTENDEE entries by default — the fail-closed case', () => {
+    // ATTENDEE is an e-mail channel (`ATTENDEE;…;CN="…":MAILTO:…`) and an .ics
+    // travels outside the platform, so a caller that does not explicitly claim
+    // the privilege gets a calendar with no attendees at all. A mailto-less
+    // ATTENDEE is not useful iCal, so the entries are omitted, not stripped.
     const cal = createSessionCalendar([mockSession1]);
     const icalString = cal.toString();
 
-    // Verify facilitator is included as attendee
+    expect(icalString).not.toContain('ATTENDEE');
+    expect(icalString).not.toContain('juan.gonzalez@ejemplo.cl');
+    // The event itself is still there — only the attendee channel is gone
+    expect(icalString).toContain('BEGIN:VEVENT');
+    expect(icalString).toContain('SUMMARY:');
+  });
+
+  it('includes facilitators as ATTENDEE entries with email when privileged', () => {
+    const cal = createSessionCalendar([mockSession1], 'Sesiones de Consultoría', {
+      includeAttendees: true,
+    });
+    const icalString = cal.toString();
+
     expect(icalString).toContain('ATTENDEE');
     expect(icalString).toContain('juan.gonzalez@ejemplo.cl');
   });

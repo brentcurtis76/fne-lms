@@ -259,14 +259,22 @@ describe('sanitize — segments split at gap punctuation', () => {
     expect(result.metrics.personCount).toBe(2);
   });
 
-  it('does NOT split an abbreviation period — "Sra. Elena" is one person', () => {
+  it('does NOT split an abbreviation period — the honorific still reaches "Elena"', () => {
+    // AMENDED in Z0B-1r5. The abbreviation exception used to be asserted on the
+    // SPAN: "Sra. Elena" arrived as one detection because `Sra` self-marked and
+    // the period did not split it. Under G4 the title is not name material at
+    // all, so the span is `Elena` alone and the exception's job is now the one
+    // it should always have had — letting the honorific TRIGGER reach across its
+    // own period. The name still goes; the title now survives.
     const result = sanitize(
       'Camila Fuentes coordinó la entrevista con la Sra. Elena para el martes.',
       ATTENDEES
     );
     const redaction = result.detections.find((d) => d.action === 'redacted');
-    expect(redaction?.surface).toBe('Sra. Elena');
+    expect(redaction?.surface).toBe('Elena');
+    expect(redaction?.layer).toBe('honorific');
     expect(result.metrics.personCount).toBe(1);
+    expect(result.sanitizedText).toContain('la Sra. [persona 1] para el martes');
   });
 
   it('runs whole-span coverage BEFORE splitting, so an inverted attendee survives', () => {
@@ -390,13 +398,15 @@ describe('sanitize — G1: trigger patterns respect sentence boundaries', () => 
     expect(result.metrics.personCount).toBe(0);
   });
 
-  it('keeps the abbreviation exception — "Sra. Elena" still fires across its period', () => {
+  it('keeps the abbreviation exception — the honorific still fires across its period', () => {
+    // AMENDED in Z0B-1r5 for the same reason as the segment-split twin above:
+    // what crosses the period is the trigger, not the span.
     const result = sanitize(
       'Camila Fuentes coordinó la entrevista con la Sra. Elena para el martes.',
       ATTENDEES
     );
     const redaction = result.detections.find((d) => d.action === 'redacted');
-    expect(redaction?.surface).toBe('Sra. Elena');
+    expect(redaction?.surface).toBe('Elena');
     expect(result.metrics.personCount).toBe(1);
   });
 
@@ -491,6 +501,167 @@ describe('sanitize — G3: left extension does not swallow a verb', () => {
   it('leaves name-free sentence-initial verbs alone', () => {
     const text = 'Quedaron los materiales listos para la próxima sesión.';
     expect(sanitize(text, ATTENDEES).sanitizedText).toBe(text);
+  });
+});
+
+describe('sanitize — G4: a trigger token is never name material', () => {
+  // v1.5. G1/G2/G3 bounded where a trigger may REACH. None of them asked
+  // whether the trigger token itself may be MARKED, and the answer was yes on
+  // three paths at once — so a title fused into the person span, the span then
+  // failed roster coverage, and the attendee standing beside the title was
+  // destroyed. These are the class assertions, one per path.
+
+  it('V1 — the capitalization layer cannot self-mark a lexicon token', () => {
+    // Empty roster on purpose: nobody is exempt, so whatever survives in the
+    // output survives because it was never marked, not because it was allowed.
+    for (const [text, lexical] of [
+      ['La Profesora Marcela propuso un cambio de horario.', 'Profesora'], // HONORIFICS
+      ['La Alumna Martina no llegó a clases.', 'Alumna'], // ROLE_NOUNS
+      ['En Quinto Básico revisamos la pauta de observación.', 'Quinto Básico'], // COURSE_WORDS
+      ['El Dr. Martínez revisó el informe del ciclo.', 'Dr.'], // ABBREVIATIONS
+    ] as const) {
+      expect(sanitize(text, []).sanitizedText).toContain(lexical);
+    }
+  });
+
+  it('V2 — left extension stops at each lexicon, one token per lexicon', () => {
+    // Each case puts the lexicon member immediately LEFT of a marked name with
+    // a plain-space gap, sentence-initial so the capitalization layer has
+    // already skipped it. That leaves the extension pass as the only thing that
+    // can absorb it — and therefore the only place the break can go. The course
+    // and role lines are terse transcript shapes; a mid-sentence course word is
+    // already stopped by V1, so this is the only construction that reaches the
+    // extension pass at all.
+    for (const [text, absorbed] of [
+      ['Doña Carmen firmó el acta de la sesión.', 'Doña'], // HONORIFICS
+      ['Alumna Martina no llegó a clases hoy.', 'Alumna'], // ROLE_NOUNS
+      ['Kinder Florencia no llegó a clases hoy.', 'Kinder'], // COURSE_WORDS
+      ['Dra Antonia revisó el caso durante la semana.', 'Dra'], // ABBREVIATIONS
+    ] as const) {
+      const result = sanitize(text, []); // empty roster: everyone redacts
+      expect(result.sanitizedText).toContain(absorbed);
+      expect(result.metrics.redactionCount).toBe(1);
+    }
+  });
+
+  it('V3 — the shared pattern predicate vetoes a title following a title', () => {
+    const result = sanitize('El Profesor Jefe mencionó el calendario.', ['Camila Fuentes']);
+    expect(result.detections).toEqual([]);
+    expect(result.metrics.personCount).toBe(0);
+  });
+
+  it("V3 — the course-vs-role asymmetry on NON_PERSON_PROPER, both sides", () => {
+    // Role/honorific sites keep NON_PERSON_PROPER reachable, because it holds
+    // real es-CL given names whose ONLY path this is.
+    const role = sanitize('Hablamos con el alumno Julio sobre la guía.', ['Camila Fuentes']);
+    expect(role.sanitizedText).not.toContain('Julio');
+    expect(role.detections[0]?.layer).toBe('role-pattern');
+
+    const honorific = sanitize('Conversamos con don Santiago sobre el caso.', ['Camila Fuentes']);
+    expect(honorific.sanitizedText).not.toContain('Santiago');
+
+    // Course sites veto it, which is what kills "Básico" and school subjects.
+    const course = sanitize('En quinto básico Lenguaje se trabajó con la pauta.', [
+      'Camila Fuentes',
+    ]);
+    expect(course.sanitizedText).toBe('En quinto básico Lenguaje se trabajó con la pauta.');
+  });
+
+  it('V3 — the accepted narrow miss the asymmetry buys: a course-only month-named student', () => {
+    // "de 5°B, Julio" is a miss: the capitalization layer vetoes julio outright
+    // and G4' vetoes it at the course site, so no path reaches him. Narrow and
+    // self-healing — one mention anywhere else in the transcript redeems him.
+    const courseOnly = sanitize('El caso de quinto básico, Julio, se conversó ayer.', [
+      'Camila Fuentes',
+    ]);
+    expect(courseOnly.sanitizedText).toContain('Julio'); // documented residual
+
+    const redeemed = sanitize(
+      'El caso de quinto básico, Julio, se conversó ayer. El alumno Julio faltó el lunes.',
+      ['Camila Fuentes']
+    );
+    expect(redeemed.sanitizedText).not.toContain('Julio');
+  });
+
+  it('V4 — jefe/jefa are vetoed as candidates and active as triggers', () => {
+    const asCandidate = sanitize('El Profesor Jefe entregó el informe del curso.', [
+      'Camila Fuentes',
+    ]);
+    expect(asCandidate.sanitizedText).toBe('El Profesor Jefe entregó el informe del curso.');
+
+    const asTrigger = sanitize('el profesor jefe marcelo revisó la pauta.', ['Camila Fuentes']);
+    expect(asTrigger.sanitizedText).not.toContain('marcelo');
+    expect(asTrigger.detections[0]?.layer).toBe('honorific');
+    expect(asTrigger.detections[0]?.confidence).toBe('uncertain');
+  });
+
+  it('V4 — promoting a trigger does not over-redact the role title around it', () => {
+    for (const text of [
+      'La jefa técnica revisó la planificación del ciclo.',
+      'El jefe de UTP pidió el informe antes del viernes.',
+    ]) {
+      expect(sanitize(text, ['Camila Fuentes']).sanitizedText).toBe(text);
+    }
+  });
+
+  it('carves out the one lexicon member that is a real given name', () => {
+    // "niña" and "Nina" collapse to the same normalized key, so a blanket
+    // ROLE_NOUNS veto would make a girl called Nina undetectable everywhere.
+    const caught = sanitize('La alumna Nina pidió cambiarse de puesto.', ['Camila Fuentes']);
+    expect(caught.sanitizedText).not.toContain('Nina');
+
+    // …and the carve-out must not leak back through cross-reference, which is
+    // keyed on the accent-stripped norm.
+    const bothForms = sanitize(
+      'La alumna Nina pidió cambiarse de puesto y la niña de kinder también.',
+      ['Camila Fuentes']
+    );
+    expect(bothForms.sanitizedText).toContain('la niña de kinder');
+    expect(bothForms.metrics.personCount).toBe(1);
+  });
+
+  it('keeps the title in the output when the name beside it is redacted', () => {
+    // The consequence of the whole round: titles now SURVIVE redaction, which
+    // is better minuta text than the swallowed title it replaces.
+    expect(sanitize('La Sra. Rosa reclamó por el horario.', ['Camila Fuentes']).sanitizedText).toBe(
+      'La Sra. [persona 1] reclamó por el horario.'
+    );
+    expect(sanitize('La Alumna Martina no llegó a clases.', ['Camila Fuentes']).sanitizedText).toBe(
+      'La Alumna [persona 1] no llegó a clases.'
+    );
+  });
+});
+
+describe('sanitize — G4 and the bare-attendee heuristic', () => {
+  // Once the title leaves the span, "Sra. Elena" reduces to a ONE-token span —
+  // which lands the attendee on the bare-roster-token heuristic rather than on
+  // whole-span coverage. That is the intended path, and it carries the same
+  // contamination caveat it always had.
+
+  it('preserves an honorific-addressed attendee through the bare-token path', () => {
+    const result = sanitize('La Sra. Elena presentó el informe de asistencia.', ['Elena Vidal']);
+    expect(result.sanitizedText).toBe('La Sra. Elena presentó el informe de asistencia.');
+    expect(result.detections).toEqual([
+      expect.objectContaining({ surface: 'Elena', layer: 'honorific', action: 'preserved' }),
+    ]);
+  });
+
+  it('still redacts that bare token when another person in the transcript contaminates it', () => {
+    // Unchanged caveat: a redacted "Elena Fuenzalida" makes the bare "Elena"
+    // ambiguous, and §12 resolves ambiguity to redaction. G4 does not weaken
+    // this — it only stops the TITLE from being the thing that fails coverage.
+    const result = sanitize(
+      'La Sra. Elena presentó el informe. La apoderada Elena Fuenzalida reclamó después.',
+      ['Elena Vidal']
+    );
+    expect(result.sanitizedText).not.toContain('Elena Fuenzalida');
+    expect(result.sanitizedText).toContain('La Sra. [persona');
+  });
+
+  it('takes the whole-span path when the attendee is named in full behind the title', () => {
+    const result = sanitize('La Sra. Elena Vidal presentó el informe.', ['Elena Vidal']);
+    expect(result.sanitizedText).toBe('La Sra. Elena Vidal presentó el informe.');
+    expect(result.metrics.redactionCount).toBe(0);
   });
 });
 

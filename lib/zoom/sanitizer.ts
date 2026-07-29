@@ -110,14 +110,14 @@
  *
  * | # | Path | Fires on | Bounded by |
  * |---|------|----------|------------|
- * | 1 | honorific (i−1)      | `HONORIFICS` | **G1** · **G2** |
- * | 2 | role-pattern (i−1)   | `ROLE_NOUNS` | **G1** · **G2** · candidate is not itself a role noun |
- * | 3 | role-pattern (i−2)   | `ROLE_NOUNS` | **G1** (both gaps) · **G2** · intervening token must be a connector or `llamado`/`llamada` |
- * | 4 | course-pattern (i−1) | `looksLikeCourse` | **G1** · **G2** · candidate must be capitalized |
- * | 5 | course-pattern (i−2) | `looksLikeCourse` | **G1** (both gaps) · **G2** · candidate must be capitalized |
- * | 6 | capitalization       | no trigger — the token's own shape | sentence-initial skip · `NON_PERSON_PROPER` veto · `ORG_HEADS` lookbehind at i−1 and i−2 · `COMMON_WORDS` downgrades to `uncertain` |
- * | 7 | left-extension       | an already-marked token to its right | plain-space gap only · capitalized only · `COMMON_WORDS` / `NON_PERSON_PROPER` / `ORG_HEADS` · **G3** |
- * | 8 | cross-reference      | the vocabulary built by paths 1–7 | creates no vocabulary of its own, so it inherits every guard above · a lowercase `COMMON_WORDS` token is never propagated |
+ * | 1 | honorific (i−1)      | `HONORIFICS` | **G1** · **G2** · **G4** |
+ * | 2 | role-pattern (i−1)   | `ROLE_NOUNS` | **G1** · **G2** · **G4** (which subsumes the old ad-hoc "not itself a role noun" test) |
+ * | 3 | role-pattern (i−2)   | `ROLE_NOUNS` | **G1** (both gaps) · **G2** · **G4** · intervening token must be a connector or `llamado`/`llamada` |
+ * | 4 | course-pattern (i−1) | `looksLikeCourse` | **G1** · **G2** · **G4** · **G4′** (`NON_PERSON_PROPER`, course sites only) · candidate must be capitalized |
+ * | 5 | course-pattern (i−2) | `looksLikeCourse` | **G1** (both gaps) · **G2** · **G4** · **G4′** · candidate must be capitalized |
+ * | 6 | capitalization       | no trigger — the token's own shape | sentence-initial skip · `NON_PERSON_PROPER` veto · `ORG_HEADS` lookbehind at i−1 and i−2 · **G4** · `COMMON_WORDS` downgrades to `uncertain` |
+ * | 7 | left-extension       | an already-marked token to its right | plain-space gap only · capitalized only · `COMMON_WORDS` / `NON_PERSON_PROPER` / `ORG_HEADS` · **G4** · **G3** |
+ * | 8 | cross-reference      | the vocabulary built by paths 1–7 | creates no vocabulary of its own, so it inherits every guard above · a lowercase `COMMON_WORDS` token is never propagated · **G4**, because propagation is keyed on the ACCENT-STRIPPED norm and `Nina` would otherwise reach every `niña` |
  *
  *  - **G1 — gap discipline** (`patternGapBlocked`). Paths 1–5 may not reach
  *    across a sentence terminator `[.!?¡¿\n•·]`, unless the token before it is a
@@ -137,14 +137,66 @@
  *    "**Quedaron** Martina Rojas y Benjamín Soto" used to produce the span
  *    `Quedaron Martina Rojas`. `COMMON_WORDS` cannot carry this — Spanish
  *    sentence openers are an open class — so the guard is morphology instead.
+ *  - **G4 — trigger-token candidacy veto** (`isStructuralLexiconToken`, v1.5).
+ *    A token belonging to the module's own trigger/structural vocabulary —
+ *    `HONORIFICS` ∪ `ROLE_NOUNS` ∪ `COURSE_WORDS` ∪ `ABBREVIATIONS` — is never
+ *    name material, on ANY path. See the class statement below. **G4′** is the
+ *    course-site-only extension of it to `NON_PERSON_PROPER`.
  *
  * ------------------------------------------------------------------------
  *
- * **Documented residuals.** R1 and R2 are the ONLY residuals of this module,
- * both roster-identity limits and neither a detection gap. (v1.2's R3 —
- * punctuation-joined people sharing one segment — is CLOSED by the gap-
- * punctuation split above; what replaces it is an accepted counting artifact,
- * noted after them.)
+ * **LEXICON-CANDIDACY CLOSURE (v1.5).** v1.4 bounded *where a trigger may
+ * reach*. It never asked the complementary question — *may the trigger token
+ * itself be marked?* — and the answer was yes on three paths at once. The
+ * capitalization layer had no skip for `HONORIFICS`, `ROLE_NOUNS`,
+ * `COURSE_WORDS` or `ABBREVIATIONS`, so a title-case "Sra", "Profesora",
+ * "Alumna", "Quinto" or "Dr" self-marked; left-extension had no break for them,
+ * so a sentence-initial "Doña" was absorbed into the name beside it; and the
+ * shared pattern predicate licensed any capitalized candidate, so a title
+ * following a title ("Profesor **Jefe**") was marked too.
+ *
+ * The consequence was not merely cosmetic. A title fused into a person span
+ * makes the span fail roster coverage, so the WORST victims were attendees:
+ *
+ *     roster ["Elena Vidal"]   "La Sra. Elena presentó…"  →  "La [persona 1] presentó…"
+ *     roster ["Marcela Soto"]  "La Profesora Marcela…"    →  "La [persona 1]…"
+ *     roster ["Carmen Ruiz"]   "Doña Carmen firmó…"       →  "[persona 1] firmó…"
+ *
+ * — §12's "attendee names are preserved" breaking in the most common es-CL
+ * registers, invisible to a recall-scored suite because the mention WAS
+ * redacted. Two further instances had nothing to do with people at all: "Quinto
+ * Básico" and "quinto básico Lenguaje" became `[persona N]`.
+ *
+ * v1.5 closes the class with G4/G4′ and states, per lexicon, its relationship
+ * to name candidacy. A new lexicon is not finished until it has a row here.
+ *
+ * | Lexicon | Candidacy | Why |
+ * |---------|-----------|-----|
+ * | `HONORIFICS`     | **never** (G4) | A title is not the name that follows a title. `jefe`/`jefa` joined in v1.5 and are vetoed as candidates while acting as triggers. |
+ * | `ROLE_NOUNS`     | **never** (G4) | Carve-out: `nina`, see `LEXICON_NAME_COLLISIONS`. |
+ * | `COURSE_WORDS`   | **never** (G4) | A course is not a person, however it is capitalized. |
+ * | `ABBREVIATIONS`  | **never** (G4) | `dr`/`dra`/`prof`/`ing`/`lic` fused exactly like `sra`; they are not triggers, so the veto costs no recall. |
+ * | `ORG_HEADS`      | **never** | Predates v1.5: vetoed independently by paths 6, 7 and G2 (both branches). |
+ * | `NON_PERSON_PROPER` | **reachable via role/honorific patterns only** | Vetoed by paths 6 and 7, by G2's lowercase branch, and by G4′ at course sites — but NOT at role/honorific sites, because the set holds `julio`, `abril`, `santiago`, `concepcion`. "el alumno Julio" is a catch; "de 5°B, Julio" is the accepted narrow miss that buys it. |
+ * | `COMMON_WORDS`   | **downgrade** | Capitalized → `uncertain` (still redacted) on path 6; dismissed outright on G2's lowercase branch and on path 7. Never a hard veto, because it holds the collision names (`rosa`, `sol`, `milagros`) the module exists to catch. |
+ * | `NAME_CONNECTORS` | **bridging only** | Never carries evidence and never forms a segment; a span of nothing but connectors emits nothing. |
+ * | `STUDENT_REFERENCE_WORDS` | **never** (inherited) | A subset of `ROLE_NOUNS` ∪ {`curso`}, and `curso` ∈ `NON_PERSON_PROPER`. Feeds the §6 density metric only. |
+ * | `NON_NAME_ENDINGS` | n/a | Suffixes, not tokens. Read by G2's lowercase branch and by G3. |
+ *
+ * **Titles now survive redaction.** The non-attendee case emits "La Sra.
+ * [persona 1] reclamó…" instead of swallowing the title — strictly better
+ * minuta text, and the property every fixture in this family asserts. The
+ * `ABBREVIATIONS` exception in `gapTerminates` changes role accordingly: it no
+ * longer holds "Sra. Elena" together as one SPAN (there is no `Sra` in the span
+ * any more), it lets the honorific TRIGGER reach across its own period.
+ *
+ * ------------------------------------------------------------------------
+ *
+ * **Documented residuals.** R1 and R2 are roster-identity limits, neither a
+ * detection gap. R4 and R5 are the priced costs of G4/G4′, both new in v1.5.
+ * (v1.2's R3 — punctuation-joined people sharing one segment — is CLOSED by the
+ * gap-punctuation split above; what replaces it is an accepted counting
+ * artifact, noted after them.)
  *
  *  - **R1 exact-name collision.** A student genuinely called "Camila Fuentes"
  *    while an attendee of that name exists is textually indistinguishable from
@@ -156,6 +208,27 @@
  *    Andrea Fuentes" is a subset of one entry, so it is preserved. Deliberate:
  *    partial references to attendees are routine, and tightening this breaks
  *    display-name variance for marginal gain.
+ *  - **R4 course-only month-named student** (new in v1.5, the price of G4′). A
+ *    student referred to ONLY through a course designation and carrying a name
+ *    that is also in `NON_PERSON_PROPER` — "el caso de quinto básico, Julio" —
+ *    is now a miss where v1.4 caught him. This is a real recall loss, not a
+ *    pre-existing gap, and it is the deliberate price of not letting a course
+ *    trigger mark "Básico" and the school subjects. Narrow (the name must be a
+ *    month/place AND the reference must be course-only) and self-healing (one
+ *    mention beside a role noun, an honorific, or anywhere capitalized
+ *    mid-sentence redeems him through cross-reference). The reverse trade —
+ *    vetoing `NON_PERSON_PROPER` at role sites too — costs "el alumno Julio",
+ *    which is the far more common construction.
+ *  - **R5 lexicon-token surname residue** (new in v1.5, the price of G4). A
+ *    surname that is also a lexicon member — "Maestro" is the realistic one —
+ *    can no longer be marked, so "El informe de Cristóbal Maestro" emits
+ *    "[persona 1] Maestro". The given name still redacts; what survives is a
+ *    lone surname. Under the §12 asymmetry that is the right side of the trade:
+ *    the alternative is letting `Maestro` be name material again, which
+ *    re-opens the whole class and destroys an attendee every time a title-case
+ *    title appears. Note this is a MISS of one token, not a partial redaction
+ *    of a span — the surname was never inside the redacted segment, so the
+ *    "never act partially inside a segment" contract is untouched.
  *
  * **Accepted counting artifact — inverted unknown overcount** (replaces v1.2's
  * R3). An unknown person written surname-first, "Rojas, Benjamín", is split by
@@ -173,7 +246,7 @@
  * Bump on any change to detection behaviour. Stored alongside a transcript so a
  * newer sanitizer can be detected and re-run (§6 state machine).
  */
-export const SANITIZER_VERSION = 'node-1.4.0';
+export const SANITIZER_VERSION = 'node-1.5.0';
 
 /** Default student-reference density (per 100 words) above which a transcript is flagged. */
 export const DEFAULT_FLAG_DENSITY_THRESHOLD = 2.0;
@@ -252,6 +325,14 @@ export type SanitizeResult = {
  * is NOT claimed to be complete: an unlisted short verb after an honorific still
  * resolves to `uncertain` and redacts, which is over-redaction in the §12-safe
  * direction. What closes the defect class is G1/G2/G3, not this lexicon.
+ *
+ * v1.5 adds `tecnica`/`tecnico`, and they are cost containment for V4 rather
+ * than a defect fix: promoting `jefe`/`jefa` to `HONORIFICS` makes them triggers,
+ * and the very next word in the es-CL role title "la jefa técnica" is an
+ * adjective that no other filter reaches, so V4 would have introduced the
+ * over-redaction "la jefa [persona 1]". Neither form is a given name, so the
+ * containment costs nothing. The general residue stands: an unlisted adjective
+ * after a newly promoted trigger over-redacts, in the safe direction.
  */
 const COMMON_WORDS = new Set<string>(
   `a al algo alguna algunas alguno algunos ahora ante antes aqui aquel aquella aquello asi aun aunque
@@ -280,7 +361,8 @@ const COMMON_WORDS = new Set<string>(
    rosa angel angeles consuelo pilar mercedes milagros sol luz cruz paz nieves dolores esperanza olivia
    alba aurora estrella flor perla violeta jazmin azucena rocio amparo remedios socorro
    salvador jesus leon lucero prado ribera vega paloma
-   dijo hizo vino quiso propuso jefe`
+   dijo hizo vino quiso propuso jefe
+   tecnica tecnico`
     .split(/\s+/)
     .filter(Boolean)
 );
@@ -323,10 +405,26 @@ const ORG_HEADS = new Set<string>(
     .filter(Boolean)
 );
 
-/** Titles that mark the FOLLOWING token as a person name, whatever it looks like. */
+/**
+ * Titles that mark the FOLLOWING token as a person name, whatever it looks like.
+ *
+ * `jefe`/`jefa` joined in v1.5 (V4). They stay in `COMMON_WORDS` as well — the
+ * two memberships drive different mechanisms and neither replaces the other:
+ * `COMMON_WORDS` dismisses a LOWERCASE candidate, membership here makes the
+ * token a TRIGGER for what follows it. Together with the candidacy veto below
+ * that gives both halves of "profesor jefe": "El Profesor Jefe mencionó…" stays
+ * intact because `Jefe` can no longer be name material, and "el profesor jefe
+ * marcelo…" catches `marcelo` because `jefe` now licenses the token after it.
+ *
+ * The entries carrying their own period (`don.`, `sr.`…) never match anything —
+ * `tokenize` splits on `\p{L}` runs, so a token's `norm` never contains a dot.
+ * Left in place as-is: removing them is a behaviour-free edit this round has no
+ * reason to make, and `ABBREVIATIONS` is what actually handles the period.
+ */
 const HONORIFICS = new Set<string>(
   `don dona sr sra srta senor senora senorita profe profesor profesora
    tio tia miss mister maestro maestra educador educadora asistente
+   jefe jefa
    don. sr. sra. srta.`
     .split(/\s+/)
     .filter(Boolean)
@@ -570,6 +668,58 @@ function looksLikeCourse(token: Token, text: string): boolean {
   return /[°º]/.test(text.slice(token.end, token.end + 2));
 }
 
+/**
+ * Accent-preserving lowercase forms that LOOK like a structural lexicon member
+ * once `normalize` strips their diacritics, but are real es-CL given names.
+ *
+ * One member, and it is the whole reason this set exists: `niña` and the given
+ * name `Nina` both normalize to `nina`, so the trigger-token veto below would
+ * have made a girl called Nina undetectable by every path in the module — a
+ * recall REGRESSION introduced by the fix, which is the one outcome the §12
+ * asymmetry never tolerates. Membership is tested on the accent-preserving
+ * surface, so the spelled `niña` keeps its veto and only the tilde-free `Nina`
+ * escapes it.
+ *
+ * Where transcription has already dropped the tilde, an accent-free `nina`
+ * meaning "girl" becomes name-eligible and over-redacts. That is the same
+ * accent-loss trade the module makes everywhere else, in the safe direction.
+ */
+const LEXICON_NAME_COLLISIONS = new Set<string>(['nina']);
+
+/**
+ * **Trigger/structural lexicon membership — the v1.5 candidacy veto (V1·V2·V3).**
+ *
+ * A token that is itself part of the module's trigger or structural vocabulary
+ * is never name material. Before v1.5 each lexicon was consulted only where
+ * someone had remembered to consult it, so the capitalization layer happily
+ * marked `Sra`, `Profesora`, `Alumna`, `Quinto` and `Dr`, and left-extension
+ * absorbed `Doña` — fusing the title into the person span. A fused span then
+ * fails roster coverage, so the worst victims were ATTENDEES: "La Sra. Elena
+ * presentó…" against a roster holding Elena Vidal came out as "La [persona 1]
+ * presentó…", breaking §12's "attendee names are preserved" in the most common
+ * es-CL registers.
+ *
+ * `ABBREVIATIONS` is in the union because `dr`/`dra`/`prof`/`ing`/`lic` are the
+ * same construction as `sra` with none of its `HONORIFICS` membership: "El Dr.
+ * Martínez" fused exactly like "La Sra. Elena". Vetoing them is pure gain —
+ * they were never triggers, so nothing that used to be detected through them
+ * stops being detected. (Making them triggers as well is a recall question this
+ * round deliberately does not answer; see the residuals.)
+ *
+ * `ORG_HEADS` is NOT in the union only because it was already vetoed by every
+ * path individually; `NON_PERSON_PROPER` is deliberately outside it, see
+ * `nameCandidateEvidence`.
+ */
+function isStructuralLexiconToken(token: Token): boolean {
+  if (LEXICON_NAME_COLLISIONS.has(token.raw.normalize('NFC').toLowerCase())) return false;
+  return (
+    HONORIFICS.has(token.norm) ||
+    ROLE_NOUNS.has(token.norm) ||
+    COURSE_WORDS.has(token.norm) ||
+    ABBREVIATIONS.has(token.norm)
+  );
+}
+
 /* --------------------------------------------------------------- attendees */
 
 type AttendeeIndex = {
@@ -706,6 +856,31 @@ function carriesNonNameEnding(token: Token): boolean {
  * ever produce `uncertain`, never `high`, and course-pattern never reaches it.
  */
 function nameCandidateEvidence(token: Token, layer: DetectionLayer): Evidence | null {
+  // **V3 — a title is never the name that follows a title.** Applied before the
+  // capitalized/lowercase split, not only to the capitalized branch: the
+  // lowercase branch already dismissed `COURSE_WORDS`, but not `HONORIFICS` or
+  // `ROLE_NOUNS`, and path 2's own ad-hoc "candidate is not itself a role noun"
+  // test is now redundant and gone. One predicate, every pattern layer, both
+  // branches — which is also what makes the `nina` carve-out apply uniformly
+  // instead of in whichever branch it was remembered.
+  if (isStructuralLexiconToken(token)) return null;
+
+  // **V3, course sites only.** `NON_PERSON_PROPER` is vetoed for the course
+  // patterns and NOT for the role/honorific ones, and the asymmetry is load
+  // bearing in both directions:
+  //  - course → veto. It is what kills "Quinto **Básico**" (`basico` is in the
+  //    set) and "quinto básico **Lenguaje**", where the capitalized branch used
+  //    to mark school-subject and structural vocabulary as people.
+  //  - role/honorific → reachable. That set holds `julio`, `abril`,
+  //    `santiago`, `concepcion` — real es-CL given names whose ONLY detection
+  //    path is a role or honorific pattern, because the capitalization layer
+  //    vetoes the set outright. Vetoing them here would turn "el alumno Julio"
+  //    into a miss, which is a leak, not a precision gain.
+  // Cost of the asymmetry: a course-only reference to a month-named student,
+  // "de 5°B, Julio", is a miss. Narrow and self-healing — one mention of that
+  // student anywhere else in the transcript redeems him through cross-reference.
+  if (layer === 'course-pattern' && NON_PERSON_PROPER.has(token.norm)) return null;
+
   if (token.capitalized) {
     if (token.sentenceInitial && COMMON_WORDS.has(token.norm)) return null;
     if (ORG_HEADS.has(token.norm)) return null;
@@ -756,7 +931,7 @@ function collectEvidence(tokens: Token[], text: string): Map<number, Evidence> {
     // "la niña de kinder, Florencia". The candidate has to be name-plausible, or
     // the ordinary word after every plural role noun becomes a person:
     // "los alumnos trabajaron bien" made `trabajaron` one.
-    if (previous && ROLE_NOUNS.has(previous.norm) && !ROLE_NOUNS.has(token.norm) && reaches(i - 1)) {
+    if (previous && ROLE_NOUNS.has(previous.norm) && reaches(i - 1)) {
       const licensed = nameCandidateEvidence(token, 'role-pattern');
       if (licensed) mark(i, licensed);
     }
@@ -789,6 +964,12 @@ function collectEvidence(tokens: Token[], text: string): Map<number, Evidence> {
     // --- Layer: capitalization.
     if (!token.capitalized) continue;
     if (NON_PERSON_PROPER.has(token.norm)) continue;
+    // **V1 — a trigger token can never self-mark.** This layer has no trigger to
+    // license anything, so a capitalized `Sra`, `Profesora`, `Alumna`, `Quinto`
+    // or `Dr` is exactly what it looks like: the title, the role or the course,
+    // written title-case. Marking it fused the title into the person span and
+    // destroyed the attendee standing beside it.
+    if (isStructuralLexiconToken(token)) continue;
     // Part of an institution name: "Colegio San Mateo", "Fundación Nueva Educación".
     if (previous && ORG_HEADS.has(previous.norm)) continue;
     if (i >= 2 && ORG_HEADS.has(tokens[i - 2].norm) && tokens[i - 1].capitalized) continue;
@@ -836,6 +1017,13 @@ function collectEvidence(tokens: Token[], text: string): Map<number, Evidence> {
       if (COMMON_WORDS.has(candidate.norm)) break;
       if (NON_PERSON_PROPER.has(candidate.norm)) break;
       if (ORG_HEADS.has(candidate.norm)) break;
+      // **V2 — extension stops at a trigger token.** V1 keeps a title from
+      // marking itself, but the title sitting immediately left of a marked name
+      // is precisely what this pass reaches for: "Doña Carmen" opens a sentence,
+      // so `Doña` is skipped by the capitalization layer and then absorbed here,
+      // and the attendee Carmen Ruiz disappears into `[persona 1]`. The same
+      // walk swallowed `Profesora`, `Alumna` and `Quinto`.
+      if (isStructuralLexiconToken(candidate)) break;
       if (carriesNonNameEnding(candidate)) break;
       // Only a plain space may sit between the two — a comma or a period means
       // two separate things, not one name.
@@ -861,6 +1049,13 @@ function collectEvidence(tokens: Token[], text: string): Map<number, Evidence> {
     // A name that doubles as a common word only counts where it is capitalized;
     // otherwise every "rosa" in the transcript would disappear.
     if (COMMON_WORDS.has(tokens[i].norm) && !tokens[i].capitalized) continue;
+    // The same veto as V1/V2/V3, so this layer cannot re-open through the back
+    // door what they closed. It matters for exactly one input today, and it is
+    // the `nina` carve-out: propagation is keyed on the ACCENT-STRIPPED norm, so
+    // a transcript naming a student `Nina` would otherwise turn every `niña` in
+    // it into that student. The carve-out is tested on the accent-preserving
+    // surface, so `Nina` still propagates to `Nina` and `niña` is left alone.
+    if (isStructuralLexiconToken(tokens[i])) continue;
     mark(i, { layer: 'cross-reference', confidence: known.confidence });
   }
 

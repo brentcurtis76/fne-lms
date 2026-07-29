@@ -209,14 +209,15 @@ number in this document is comparable.
 
 ### 3.1 Must-catch suite — BLOCKING
 
-34 cases, 40 mentions of explicit student references: role nouns
+37 cases, 46 mentions of explicit student references: role nouns
 ("la estudiante X"), honorifics (don/doña, Sra., profe, tía), course
 designations ("de 5°B, Antonia"), bare capitalized names, compound names,
-repeat mentions, and the 12-case attendee-collision family built across Z0B-1r
-(§3.5) and Z0B-1r2 (§3.5.1).
+repeat mentions, the 11-case attendee-collision family built across Z0B-1r
+(§3.5) and Z0B-1r2 (§3.5.1), and the 3-case segment-split family plus the
+lowercased role-noun name added in Z0B-1r3 (§3.5.2).
 
-**Result: 40/40 — 100%** (26/26 shipped in Z0B-1; +5 cases / 5 mentions in
-Z0B-1r; +7 cases / 9 mentions in Z0B-1r2).
+**Result: 46/46 — 100%** (26/26 shipped in Z0B-1; +5 cases / 5 mentions in
+Z0B-1r; +7 cases / 9 mentions in Z0B-1r2; +3 cases / 6 mentions in Z0B-1r3).
 
 Enforced as ordinary vitest assertions, so a miss is a failing test and a red
 build. There is no threshold to tune: the repo's student-PII rule is absolute
@@ -232,12 +233,17 @@ names (`Colegio San Mateo`, `Fundación Nueva Educación`).
 gated on it.
 
 **Node-only recall: 78.8% (26/33).** Re-measured unchanged after the Z0B-1r
-preservation-rule change and again after the Z0B-1r2 segment-classification
-change (§3.5): identical 26/33 three times over, same seven misses, same
-per-category split, zero over-redactions. Expected — every miss here is a
-detection failure, and the rules that changed decide what happens to spans that
-*were* detected. No fixture in this suite names a person who shares a token with
-its attendee, which is the only input either change can move.
+preservation-rule change, after the Z0B-1r2 segment-classification change, and
+after the Z0B-1r3 role-pattern filter + punctuation split (§3.5): identical
+26/33 four times over, same seven misses, same per-category split, zero
+over-redactions. Expected for r1/r2 — every miss here is a detection failure,
+and the rules those rounds changed decide what happens to spans that *were*
+detected. r3 *does* touch detection, but only the role-pattern layer's lowercase
+branch, and no fixture in this suite puts a lowercased name next to a role noun
+(adv-13 and adv-30 capitalize theirs); the punctuation split changes counts, not
+which mentions disappear. Every one of the five ending-set variants measured in
+§3.5.2 scored 26/33 — the suite cannot discriminate between them, which is why
+the choice was made on the blocking bars instead.
 
 | Category | Recall | Caught |
 |---|---|---|
@@ -269,14 +275,19 @@ it; §4 shows what closing it actually costs.
 
 ### 3.3 Precision suite — BLOCKING
 
-594 words / 16 paragraphs of realistic name-free consulting-session speech,
-which must come through **byte-identical**.
+**1225 words / 25 paragraphs** of realistic name-free consulting-session speech,
+which must come through **byte-identical**. Two blocks: the original 594 words /
+16 paragraphs (also the ffmpeg spike's TTS corpus, written accent-free), and
+**631 words / 9 paragraphs added in Z0B-1r3, built around ROLE NOUNS** — the
+construction the original block never contained, which is exactly why defect D3
+(§3.5.2) survived four green suites for three rounds.
 
 **Result: 0 redactions, 0 persons, status `sanitized`** — unchanged after the
-Z0B-1r rule change and after the Z0B-1r2 segment-classification change (§3.5);
-byte-identical output on every paragraph and on the joined corpus, three
-measurements running. The corpus contains no name spans at all, so nothing in it
-reaches the preservation decision.
+Z0B-1r rule change, the Z0B-1r2 segment-classification change and the Z0B-1r3
+role-pattern filter (§3.5); byte-identical output on every paragraph and on the
+joined corpus, four measurements running. The original block contains no name
+spans at all, so nothing in it reaches the preservation decision; the r3 block
+reaches the *detection* decision on every sentence, which is the point of it.
 
 This suite exists because recall alone is a trap. The obvious fix for the
 sentence-initial misses above — redact every unrecognized capitalized sentence
@@ -294,7 +305,7 @@ is the honest reason this layer stops where it does.
 
 ### 3.4 Behaviour contracts
 
-Beyond recall, 39 unit tests cover the properties the pipeline depends on:
+Beyond recall, 50 unit tests cover the properties the pipeline depends on:
 
 - **Stable tokens.** The same person mentioned three times yields one
   `[persona N]`; two people yield two numbers; numbering starts at 1.
@@ -308,6 +319,16 @@ Beyond recall, 39 unit tests cover the properties the pipeline depends on:
   `y` come out untouched with zero redactions; two students bridged by `y` get
   two numbers with the connector emitted verbatim between them; and a person
   assembled from two different attendees' tokens is redacted whole.
+- **Segment splitting at gap punctuation** (§3.5.2). A comma-joined pair comes
+  out `[persona 1], [persona 2]` with the comma intact; a span merged across a
+  sentence boundary splits and keeps its period; `Sra. Elena` does **not**
+  split; whole-span coverage runs first, so the inverted attendee
+  `Fuentes, Camila` is preserved before any splitting can touch it.
+- **Role-pattern name plausibility** (§3.5.2). Verbs, quantifiers, adjectives
+  and gerunds after a role noun are left alone; a lowercased name next to one is
+  still redacted, recorded `uncertain`; a capitalized candidate stays `high`
+  even when it is an ordinary word (`la alumna Rosa`); and the measured `-ando`
+  collision is asserted in all three of its states.
 - **Purity.** Inputs are not mutated; repeated calls are byte-identical.
 - **Uncertain never passes through.** A capitalized ordinary word mid-sentence
   ("Rosa") is recorded `confidence: 'uncertain'` and **redacted**. A test
@@ -475,7 +496,7 @@ to r1 — the note stands as written, safe direction, roster hygiene is the fix.
 |---|---|---|---|
 | R1 | exact-name collision | a student truly named `Camila Fuentes` while attendee `Camila Fuentes` exists is **preserved** | textually indistinguishable; irreducible without discourse identity |
 | R2 | entry-subset reference | `Andrea Fuentes` against roster `Camila Andrea Fuentes` is **preserved** | deliberate — partial references to attendees are routine, and tightening breaks display-name variance for marginal gain |
-| R3 | punctuation-joined people share a segment | `Martina Rojas, Benjamín Soto` → both redacted, but as **one** `[persona N]` | segments split at connector TOKENS; a comma is not one, and `buildSpans` merges adjacent name tokens whatever punctuation sits between them. Undercount, never under-redaction |
+| R3 | punctuation-joined people share a segment → **CLOSED in Z0B-1r3, §3.5.2** | `Martina Rojas, Benjamín Soto` → both redacted, but as **one** `[persona N]` | segments split at connector TOKENS; a comma is not one, and `buildSpans` merges adjacent name tokens whatever punctuation sits between them. Undercount, never under-redaction |
 
 R3 is **measured, not assumed**. The PM's pre-implementation estimate was that a
 comma would split such a span into singleton segments, giving ≥2 personas —
@@ -488,6 +509,11 @@ period, so punctuation-splitting would read one person as two, and `Fuentes,
 Camila` only survives because step 1 fires before segmentation. The trade is not
 obviously positive, so the measured behaviour stands and is documented rather
 than tuned.
+
+> **Overruled in Z0B-1r3.** Both objections turned out to be answerable in the
+> rule itself — the abbreviation set `tokenize` already uses exempts `Sra.`, and
+> step 1 genuinely does run before segmentation — so the split ships, R3 closes,
+> and what remains is an overcount rather than an undercount. §3.5.2.
 
 **Also fixed, same layer.** `role-pattern` marks whatever follows a role noun,
 including a connector: "la alumna **de** séptimo" produced a span whose only
@@ -525,6 +551,177 @@ verbatim connector survival, the D1 role-pattern detection now ending
 adversarial **78.8% (26/33)**, unchanged, zero over-redactions; precision **0
 redactions / 0 persons, byte-identical** on 594 words; 153 sanitizer tests
 green in 4 files (was 120).
+
+### 3.5.2 Role-pattern filter + punctuation-aware segments — sealing round Z0B-1r3 (`SANITIZER_VERSION node-1.3.0`)
+
+**The two defects.** Both PM-reproduced on `82afe79`, both counting/precision
+defects rather than leaks — which is precisely why four green suites carried them
+for three rounds.
+
+- **D3 — role-pattern marked ANY token after a role noun.** Present since
+  `node-1.0.0`. `Los alumnos trabajaron bien y las estudiantes avanzaron rápido.`
+  → `Los alumnos [persona 1] bien y las estudiantes [persona 2] rápido.` Two
+  verbs, two people. `Hay dos estudiantes más que…` → the quantifier became a
+  person. This fires on close to every plural-role-noun sentence in real speech:
+  it corrupts the text the minuta is built from *and* inflates `personCount` →
+  density → spurious `flagged` states (§6), which defeats the automation goal.
+  It survived because the precision corpus — the suite whose entire job is
+  false positives — contained **no role nouns at all**.
+- **D4 — punctuation-joined people shared a segment** (v1.2's residual R3, now
+  overruled). `Asistieron la alumna Martina Rojas, Benjamín Soto y la niña
+  Florencia.` → `Asistieron la alumna [persona 1] y la niña [persona 2].` Three
+  students, two personas, and the comma swallowed by the replacement. Same
+  undercount class as D2, on the same §6 metric. The sentence-boundary variant
+  is the same defect: `…la estudiante Martina Rojas. Benjamín Soto llegó…` →
+  `…la estudiante [persona 1] llegó…`, two students as one person with the
+  period eaten.
+
+**D3 — the rule now.** A role noun licenses evidence only for a candidate that
+could be a name:
+
+| Candidate | Evidence | Why |
+|---|---|---|
+| CAPITALIZED | `role-pattern` / `high`, exactly as before | role context is legitimate disambiguation — `la alumna Rosa` must stay high |
+| lowercase, and ∉ `COMMON_WORDS` ∪ `NON_PERSON_PROPER` ∪ `ORG_HEADS` ∪ `COURSE_WORDS`, and carrying no `NON_NAME_ENDINGS` ending | `role-pattern` / `uncertain` → redacted | the Whisper-lowercasing case the branch exists for (`el alumno benjamín`) |
+| lowercase, anything else | nothing | `trabajaron`, `más`, `nueva`, `estudiando`, `de séptimo` |
+
+The one-connector variants (`la estudiante, martina`, `el alumno llamado diego`)
+follow the same rule; they previously required capitalization outright, so the
+lowercase half of that construction is new coverage.
+
+`NON_NAME_ENDINGS` is matched against the **accent-preserving** lowercase
+surface, and that is what makes an ending set viable at all: Spanish spells the
+name/verb minimal pairs apart on the accent. `necesitan` vs `Sebastián`,
+`hablaban` vs `Esteban`, `tenían` vs `Antonia` — filter the unaccented ending and
+the accented names walk through untouched. Where the transcription has already
+dropped the accent the name falls into the filter and is missed, which is the
+same accent-loss gap §3.2 already tracks, not a new one.
+
+**The ending-set measurement.** Five variants, scored on the two blocking bars
+and the monitoring metric. The lowercase-name probes are `el alumno <name>` with
+the name lowercased throughout the transcript — the only situation any of these
+endings can cost a redaction.
+
+| Variant | must-catch | precision (new role-noun block) | adversarial | lowercase-name probes |
+|---|---|---|---|---|
+| **A — shipped** | **46/46** | **0 redactions / 9 clean** | **26/33 (78.8%)** | catches `benjamín`, `maría`; misses `fernando`, `esteban` |
+| B — minus `ando` | 46/46 | ✗ **2 redactions / 1 paragraph damaged** | 26/33 (78.8%) | also catches `fernando` |
+| C — minus `an`/`en` | 46/46 | ✗ **4 redactions / 2 paragraphs damaged** | 26/33 (78.8%) | also catches `esteban` |
+| D — plus the `ía` imperfect family | 46/46 | 0 redactions / 9 clean | 26/33 (78.8%) | ✗ **misses `maría`** |
+| E — plus singular participles `ado`/`ada`/`ido`/`ida` | 46/46 | 0 redactions / 9 clean | 26/33 (78.8%) | same as A here, but would miss `amado`, `frida`, `cándida` |
+
+Read straight off the table: **B and C fail the blocking precision bar**, so
+`ando` and `an`/`en` are forced in — not chosen on a recall tiebreak. `ando`
+collides with `fernando`/`rolando`/`armando`/`orlando` and `an`/`en` with
+`esteban`/`carmen`; both collisions are accepted and asserted. **D and E hold
+both bars and tie A on adversarial recall** — the monitoring suite has no fixture
+that can separate them — so the tie broke on the probes, where D provably loses
+`maría`/`lucía`/`sofía` and E gratuitously widens the filter for constructions
+the corpus never needs. The shipped set is therefore the *smallest* set that
+keeps the precision corpus clean: every ending beyond that is name recall given
+away for nothing, and §12's asymmetry says an ambiguous surface should redact
+rather than walk through.
+
+What that leaves redacting, deliberately: an open-class word after a role noun
+whose shape is a name's shape. `la alumna tranquila`, `los alumnos nuevos`, `el
+alumno seleccionado`, and the singular imperfect `la alumna tenía dudas` (the
+plural `los alumnos tenían` is covered by `an`). Over-redaction, safe direction,
+costs minuta wording only — the same trade as the accepted `Camila Fuentes Soto`
+over-redaction of §3.5.
+
+**D4 — the rule now.** A segment ends at a connector token (unchanged) **and** at
+an inter-token gap containing `,` `;` or `.`, unless the token before the period
+is in `ABBREVIATIONS` — the set `tokenize` already consults for sentence starts,
+so `Sra. Elena` stays one person. Whole-span coverage (step 1) is untouched and
+still runs **first**, which is what keeps the inverted attendee `Fuentes, Camila`
+whole: it matches the roster on sorted keys before any splitting can carve it in
+two. Measured results:
+
+| Input (roster `Camila Fuentes`) | v1.2 | v1.3 |
+|---|---|---|
+| `…la alumna Martina Rojas, Benjamín Soto y la niña Florencia.` | 2 personas, comma swallowed | **3 personas**, `[persona 1], [persona 2] y la niña [persona 3]` |
+| `…la estudiante Martina Rojas. Benjamín Soto llegó…` | 1 persona, period swallowed | **2 personas**, period intact |
+| `…quedaron Martina Rojas, Benjamín Soto y otro más.` (`mc-34`) | 1 persona | **2 personas** |
+| `…aparece Rojas, Benjamín…` (inverted unknown) | 1 persona | **2 personas** — accepted overcount |
+| `…con la Sra. Elena…` | 1 persona | 1 persona, unchanged |
+| `…aparece Fuentes, Camila…` (inverted attendee) | preserved whole | preserved whole, unchanged |
+
+**Residuals after this round.** R1 and R2 are the only ones, both roster-identity
+limits, neither a detection gap; R3 is closed and what replaces it is an accepted
+counting artifact in the *safe* direction.
+
+| # | Residual | Behaviour | Why it stands |
+|---|---|---|---|
+| R1 | exact-name collision | a student truly named `Camila Fuentes` while attendee `Camila Fuentes` exists is **preserved** | textually indistinguishable; irreducible without discourse identity |
+| R2 | entry-subset reference | `Andrea Fuentes` against roster `Camila Andrea Fuentes` is **preserved** | deliberate — partial references to attendees are routine, and tightening breaks display-name variance for marginal gain |
+| — | *(accepted artifact, replaces R3)* inverted-unknown overcount | `Rojas, Benjamín` → both redacted, counted as **two** people | nothing leaks; one extra person in the §6 density metric is the safe direction for a metric that decides whether a human looks. The undercount it replaces — three comma-joined students reported as one — was the unsafe direction on that same metric |
+
+R1 has one new surface worth naming: `Rojas, Camila` (unknown surname, given name
+on the roster) now splits into a redacted `Rojas` and a bare `Camila`, and the
+bare roster token resolves to the attendee under the plan's own "a lone Camila
+means the attendee" heuristic unless something else in the transcript
+contaminates it. Under v1.2 the pair was redacted whole. It is the identical
+trade the connector case has always made (`Camila Fuentes y Martina` → the
+attendee survives), moved onto punctuation, and it is R1's family: an inverted
+surface whose given name is a roster token is not distinguishable from the
+attendee without discourse identity.
+
+**Fail-on-old proof.** The new and amended fixtures plus the new contract
+assertions were run against the `82afe79` module (`git stash` on
+`lib/zoom/sanitizer.ts` only, restored after): **22 failing tests, 160/182
+passing**, split cleanly by defect —
+
+- **D3 — 16 failures.** 9 precision paragraphs damaged (25 redactions across the
+  corpus, joined status `flagged` instead of `sanitized` — the spurious-flag harm
+  reproduced end to end) + 5 contract assertions (verb/quantifier/gerund
+  survival, `uncertain` confidence on a lowercased name, the connector variant,
+  the `-ando` states).
+- **D4 — 6 failures.** 3 `personCount` mismatches (`mc-34` 1≠2, `mc-35` 2≠3,
+  `mc-36` 1≠2) + 3 contract assertions (comma pair, sentence-boundary split,
+  inverted-unknown overcount).
+- **0 leaked mentions.** Neither defect was an under-redaction, so must-catch
+  recall is 46/46 on the old module too — the failures are counts and precision,
+  which is exactly how both defects stayed invisible.
+- **The over-correction guards pass on BOTH modules**, as they must: `Sra. Elena`
+  unsplit, `Fuentes, Camila` preserved whole, a capitalized candidate still
+  `high`, and `mc-37` (`el alumno benjamín`) redacted — the old module caught it
+  by marking everything, the new one by the filter, and the fixture exists to
+  prove the filter did not throw the branch away.
+
+**Test coverage added** (must-catch, blocking): `mc-35` three students in one
+comma list → 3 personas; `mc-36` cross-sentence merge → 2 personas; `mc-37`
+lowercased name next to a role noun → redacted `uncertain`. **`mc-34` amended a
+second time**: `expectedPersonCount` 1 → 2 (r2 recorded it as R3's measured
+undercount; r3 closes it). Precision corpus extended by 9 paragraphs / 631 words
+of role-noun speech — the blocking gap that hid D3. Plus 11 contract assertions
+in `sanitizer.test.ts` across two new groups.
+
+**Handed forward — the honorific layer carries D3's defect.** Not fixed here:
+the Z0B-1r3 ruling scopes the name-plausibility filter to `role-pattern`, and
+expanding it unilaterally is not this round's call. Reproduced on `node-1.3.0`:
+
+```
+La profesora terminaba explicando dos veces la misma consigna.
+  → La profesora [persona 1] explicando dos veces la misma consigna.
+El profesor entregó la pauta corregida ayer.  → El profesor [persona 1] la pauta…
+La asistente contó que faltaban materiales.   → La asistente [persona 1] que faltaban…
+```
+
+`HONORIFICS` contains `profesor/profesora/asistente/educador/educadora/maestro/
+maestra/tio/tia`, several of which are ordinary sentence subjects in this
+register, and the layer marks whatever follows `high` "regardless of the
+following token's capitalization or wordiness". Same harm as D3 — corrupted
+minuta text plus inflated density — and the same fix shape. The r3 precision
+corpus deliberately contains no honorific-headed constructions, so this is a
+**known blocking-suite gap**, stated rather than papered over. Note `adv-12`
+already exercises it silently: `La asistente contó que pancho llegó…` redacts
+`contó` and misses `pancho`.
+
+**Numbers after the round**: must-catch **46/46 (100%)** across 37 cases;
+adversarial **78.8% (26/33)**, unchanged for the fourth round running, zero
+over-redactions; precision **0 redactions / 0 persons, byte-identical** on 1225
+words / 25 paragraphs, joined status `sanitized` (density 1.88 < 2.0); **182
+sanitizer tests green in 4 files** (was 153).
 
 ---
 
@@ -855,4 +1052,6 @@ and neither existed for chunk Z0B-1.
 | 5 | Merge trailing sub-30 s segment in the multi-segment fallback (§5.2) | Z5 |
 | 6 | Verify the executable bit survives `outputFileTracingIncludes` tracing (§5.3) | Z5 |
 | 7 | `/meet/diag` has no automated test; e2e for `/meet` belongs to Z1c (§2) | Z1c |
-| 8 | ~~Cross-entry token coverage still preserves `Camila Pérez` when the roster holds `Camila Fuentes` **and** `Rodrigo Pérez`~~ — **CLOSED** in Z0B-1r2 by segment classification (`node-1.2.0`, §3.5.1): coverage is per roster entry, spans are classified as segments, and the connector-merged undercount (D2) closed with it. Residuals R1–R3 documented in §3.5.1 and in the module header | Closed 2026-07-29 |
+| 8 | ~~Cross-entry token coverage still preserves `Camila Pérez` when the roster holds `Camila Fuentes` **and** `Rodrigo Pérez`~~ — **CLOSED** in Z0B-1r2 by segment classification (`node-1.2.0`, §3.5.1): coverage is per roster entry, spans are classified as segments, and the connector-merged undercount (D2) closed with it | Closed 2026-07-29 |
+| 9 | ~~Role-pattern marks any token after a role noun (D3); punctuation-joined people share a segment (D4, v1.2's residual R3)~~ — **CLOSED** in Z0B-1r3 (`node-1.3.0`, §3.5.2) by the name-plausibility filter and the gap-punctuation split. Residuals now R1 + R2 only, plus the accepted inverted-unknown overcount; documented in §3.5.2 and in the module header | Closed 2026-07-29 |
+| 10 | **The honorific layer carries D3's defect** — `HONORIFICS` marks whatever follows regardless of wordiness, so `La profesora terminaba…` → `La profesora [persona 1]…` (§3.5.2). Out of Z0B-1r3's ruled scope; the r3 precision corpus therefore contains no honorific-headed constructions, which is a known gap in a blocking suite | PM decision |

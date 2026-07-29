@@ -14,6 +14,12 @@ import {
   SessionReport,
   ReportVisibility,
 } from '../../../../../lib/types/consultor-sessions.types';
+import { canViewSession, SessionAccessContext } from '../../../../../lib/utils/session-policy';
+import {
+  canViewParticipantEmails,
+  canViewRestrictedReports,
+  redactProfileEmails,
+} from '../../../../../lib/utils/session-disclosure';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-report-detail');
@@ -55,7 +61,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
     // Fetch session to verify access
     const { data: session, error: sessionError } = await serviceClient
       .from('consultor_sessions')
-      .select('id, growth_community_id, school_id')
+      .select('id, growth_community_id, school_id, status')
       .eq('id', sessionId)
       .eq('is_active', true)
       .single();
@@ -84,62 +90,46 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       return sendAuthError(res, 'Usuario sin roles asignados', 403);
     }
 
-    // Role-based access check (mirrors attendees pattern)
-    let canAccess = false;
-    let isFacilitatorOrAdmin = false;
+    // Facilitator membership is looked up for EVERY role, not just consultors:
+    // it decides view access, restricted-report visibility and e-mail
+    // disclosure alike, and a facilitator may hold any role type.
+    const { data: facilitatorCheck } = await serviceClient
+      .from('session_facilitators')
+      .select('id')
+      .eq('session_id', sessionId)
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    if (highestRole === 'admin') {
-      canAccess = true;
-      isFacilitatorOrAdmin = true;
-    } else if (highestRole === 'consultor') {
-      // Check for global consultor (school_id IS NULL)
-      const consultorRoles = userRoles.filter(
-        (r) => r.role_type === 'consultor' && r.is_active
-      );
-      const isGlobalConsultor = consultorRoles.some((r) => !r.school_id);
+    // Same context the sibling endpoints build. Do NOT reintroduce an inline
+    // role check here — the previous one duplicated canViewSession() by hand
+    // and returned the author's e-mail unfiltered.
+    const accessContext: SessionAccessContext = {
+      highestRole,
+      userRoles,
+      session: {
+        id: session.id,
+        school_id: session.school_id,
+        growth_community_id: session.growth_community_id,
+        status: session.status,
+      },
+      userId: user.id,
+      isFacilitator: !!facilitatorCheck,
+    };
 
-      if (isGlobalConsultor) {
-        canAccess = true;
-      } else {
-        const consultantSchools = consultorRoles
-          .filter((r) => r.school_id)
-          .map((r) => r.school_id);
-
-        if (consultantSchools.includes(session.school_id)) {
-          canAccess = true;
-        }
-      }
-
-      // Check if facilitator
-      const { data: facilitatorCheck } = await serviceClient
-        .from('session_facilitators')
-        .select('id')
-        .eq('session_id', sessionId)
-        .eq('user_id', user.id)
-        .single();
-
-      if (facilitatorCheck) {
-        isFacilitatorOrAdmin = true;
-        canAccess = true;
-      }
-    } else {
-      // GC members can also view reports
-      const gcMemberships = userRoles.filter(
-        (r) => r.community_id === session.growth_community_id && r.is_active
-      );
-      if (gcMemberships.length > 0) {
-        canAccess = true;
-      }
-    }
-
-    if (!canAccess) {
+    if (!canViewSession(accessContext)) {
       return sendAuthError(res, 'Acceso denegado a esta sesión', 403);
     }
 
-    // Visibility check
-    if (!isFacilitatorOrAdmin && report.visibility === 'facilitators_only') {
+    // Visibility: `facilitators_only` reaches admins and this session's
+    // facilitators only — deliberately narrower than canEditSession().
+    if (!canViewRestrictedReports(accessContext) && report.visibility === 'facilitators_only') {
       return sendAuthError(res, 'Acceso denegado a este informe', 403);
     }
+
+    // Author e-mail follows the same rule as every other session payload.
+    const visibleReport = canViewParticipantEmails(accessContext)
+      ? report
+      : redactProfileEmails(report);
 
     // Generate signed audio URL if audio_url is present
     let signedAudioUrl: string | null = null;
@@ -151,7 +141,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       signedAudioUrl = signedData?.signedUrl || null;
     }
 
-    return sendApiResponse(res, { report, signedAudioUrl });
+    return sendApiResponse(res, { report: visibleReport, signedAudioUrl });
   } catch (error: unknown) {
     console.error('Get report detail error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Error desconocido';

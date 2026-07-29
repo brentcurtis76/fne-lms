@@ -87,6 +87,23 @@ export interface UserRole {
   red_id?: string; // Network association for supervisor_de_red role
   is_active: boolean;
   assigned_at: string;
+
+  /**
+   * Provenance marker. `true` ONLY on rows synthesized from the
+   * `user_roles_cache` materialized view by `getUserRolesFromCache()` — the
+   * degraded path taken when the authoritative `user_roles` query ERRORS. An
+   * authoritative row never carries it.
+   *
+   * A cached row is not evidence that the role still exists: the view is
+   * refreshed by the role GRANT paths only, so a revocation can leave a stale
+   * row behind indefinitely. Cached rows therefore MUST NOT authorize.
+   * `getHighestRole()` skips them outright, and `is_active` (null on these
+   * rows) is falsy for every scope check.
+   */
+  from_cache?: boolean;
+
+  /** When the cache view that produced this row was built. Cached rows only. */
+  cached_at?: string | null;
   reporting_scope?: Record<string, any>; // For future analytics features
   feedback_scope?: Record<string, any>;  // For future feedback workflows
   created_at: string;

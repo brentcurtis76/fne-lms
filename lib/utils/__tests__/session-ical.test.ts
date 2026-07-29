@@ -37,7 +37,7 @@ describe('session-ical utilities', () => {
     session_date: '2026-03-22',
     start_time: '14:30:00',
     end_time: '15:30:00',
-    meeting_link: 'https://meet.google.com/abc-defg-hij',
+    join_url: 'https://genera.test/meet/session/22222222-2222-4222-8222-222222222222',
     school_name: 'Escuela Central',
     growth_community_name: 'Comunidad Centro',
     status: 'en_progreso',
@@ -104,21 +104,67 @@ describe('session-ical utilities', () => {
     expect(icalString).toContain('STATUS:CONFIRMED');
   });
 
-  it('includes facilitators as ATTENDEE entries with email', () => {
+  it('omits ATTENDEE entries by default — the fail-closed case', () => {
+    // ATTENDEE is an e-mail channel (`ATTENDEE;…;CN="…":MAILTO:…`) and an .ics
+    // travels outside the platform, so a caller that does not explicitly claim
+    // the privilege gets a calendar with no attendees at all. A mailto-less
+    // ATTENDEE is not useful iCal, so the entries are omitted, not stripped.
     const cal = createSessionCalendar([mockSession1]);
     const icalString = cal.toString();
 
-    // Verify facilitator is included as attendee
+    expect(icalString).not.toContain('ATTENDEE');
+    expect(icalString).not.toContain('juan.gonzalez@ejemplo.cl');
+    // The event itself is still there — only the attendee channel is gone
+    expect(icalString).toContain('BEGIN:VEVENT');
+    expect(icalString).toContain('SUMMARY:');
+  });
+
+  it('includes facilitators as ATTENDEE entries with email when privileged', () => {
+    const cal = createSessionCalendar([mockSession1], 'Sesiones de Consultoría', {
+      includeAttendees: true,
+    });
+    const icalString = cal.toString();
+
     expect(icalString).toContain('ATTENDEE');
     expect(icalString).toContain('juan.gonzalez@ejemplo.cl');
   });
 
-  it('includes meeting link in description for online sessions', () => {
+  it('includes the platform meeting link in description for online sessions', () => {
     const cal = createSessionCalendar([mockSession2]);
     const icalString = cal.toString();
 
-    // Meeting link should be in description
-    expect(icalString).toContain('https://meet.google.com/abc-defg-hij');
+    // Platform link (not the raw provider link) travels in the .ics
+    expect(icalString.replace(/\r\n /g, '')).toContain(
+      'https://genera.test/meet/session/22222222-2222-4222-8222-222222222222'
+    );
+  });
+
+  it('emits a VTIMEZONE component for America/Santiago', () => {
+    const cal = createSessionCalendar([mockSession1]);
+    const icalString = cal.toString();
+
+    // Without the component, strict clients have to guess Chile's offset
+    expect(icalString).toContain('BEGIN:VTIMEZONE');
+    expect(icalString).toContain('TZID:America/Santiago');
+    expect(icalString).toContain('END:VTIMEZONE');
+    // DST rules present, so the offset resolves on both sides of a transition
+    expect(icalString).toContain('BEGIN:STANDARD');
+    expect(icalString).toContain('BEGIN:DAYLIGHT');
+  });
+
+  it('exposes the platform link as the event URL property', () => {
+    const cal = createSessionCalendar([mockSession2]);
+    const icalString = cal.toString().replace(/\r\n /g, '');
+
+    expect(icalString).toContain(
+      'URL;VALUE=URI:https://genera.test/meet/session/22222222-2222-4222-8222-222222222222'
+    );
+  });
+
+  it('has no URL property when the session has no meeting', () => {
+    const cal = createSessionCalendar([mockSession1]);
+    // Anchored to a line start: VTIMEZONE carries a TZURL line of its own
+    expect(cal.toString()).not.toMatch(/\r\nURL[;:]/);
   });
 
   it('includes 30-minute reminder alarm in events', () => {
@@ -221,15 +267,18 @@ describe('session-ical utilities', () => {
       start_time: '15:00:00',
       end_time: '16:00:00',
       location: 'Sala 202',
-      meeting_link: 'https://zoom.us/j/123456789',
+      join_url: 'https://genera.test/meet/session/cccccccc-cccc-4ccc-8ccc-cccccccccccc',
       status: 'programada',
     };
 
     const cal = createSessionCalendar([hybridSession]);
     const icalString = cal.toString();
 
-    // Both location and meeting link should be included somewhere
-    expect(icalString).toContain('Sala 202');
-    expect(icalString).toContain('https://zoom.us/j/123456789');
+    // Both location and the platform meeting link should be included somewhere
+    const unfolded = icalString.replace(/\r\n /g, '');
+    expect(unfolded).toContain('Sala 202');
+    expect(unfolded).toContain(
+      'https://genera.test/meet/session/cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+    );
   });
 });

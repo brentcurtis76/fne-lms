@@ -19,6 +19,13 @@ import {
 } from '../../../lib/types/consultor-sessions.types';
 import { generateRecurrenceDates, buildRRule } from '../../../lib/utils/recurrence';
 import { validateFacilitatorIntegrity } from '../../../lib/utils/facilitator-validation';
+import { SessionAccessContext } from '../../../lib/utils/session-policy';
+import { buildSessionScope, hidesDraftSessions } from '../../../lib/utils/session-scope';
+import {
+  applySessionMeetingDisclosure,
+  canViewParticipantEmails,
+  redactProfileEmails,
+} from '../../../lib/utils/session-disclosure';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-index');
@@ -348,41 +355,28 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
       })
       .eq('is_active', true);
 
-    // Role-based filtering
-    if (highestRole === 'admin') {
-      // Admin sees all sessions
-    } else if (highestRole === 'consultor') {
-      // Consultant sees sessions at their assigned schools or all if global
-      const consultorRoles = userRoles.filter(
-        (r) => r.role_type === 'consultor' && r.is_active
-      );
-      const isGlobalConsultor = consultorRoles.some((r) => !r.school_id);
+    // Query scope = the UNION of everything canViewSession() grants, so the
+    // list, the batch iCal export and the detail endpoint agree about which
+    // sessions exist. The translation from policy to query filter lives in
+    // `lib/utils/session-scope.ts` — shared with the export rather than copied,
+    // because the copies are exactly what drifted before.
+    //
+    // The union is expressed in the QUERY, not by fetching and filtering in
+    // memory, so pagination and `count: 'exact'` stay correct.
+    const scope = buildSessionScope(highestRole, userRoles);
 
-      if (!isGlobalConsultor) {
-        const consultantSchools = consultorRoles
-          .filter((r) => r.school_id)
-          .map((r) => r.school_id);
+    if (scope.kind === 'none') {
+      // Out of scope entirely — empty list, as before.
+      return sendApiResponse(res, { sessions: [], total: 0, page: pageNum, limit: limitNum });
+    }
 
-        if (consultantSchools.length === 0) {
-          return sendApiResponse(res, { sessions: [], total: 0, page: pageNum, limit: limitNum });
-        }
+    if (scope.kind === 'union') {
+      query = query.or(scope.orClause);
+    }
 
-        query = query.in('school_id', consultantSchools);
-      }
-      // If global consultor, no school filter applied - they see all sessions
-    } else {
-      // GC member: see sessions for their communities
-      const userCommunityIds = userRoles
-        .filter((r) => r.community_id)
-        .map((r) => r.community_id)
-        .filter((id, index, arr) => arr.indexOf(id) === index); // deduplicate
-
-      if (userCommunityIds.length === 0) {
-        return sendApiResponse(res, { sessions: [], total: 0, page: pageNum, limit: limitNum });
-      }
-
-      query = query.in('growth_community_id', userCommunityIds);
-      // Exclude drafts for non-admin/non-consultor
+    // Draft visibility is unchanged: hidden from everyone who is neither
+    // admin nor consultor.
+    if (hidesDraftSessions(highestRole)) {
       query = query.neq('status', 'borrador');
     }
 
@@ -452,8 +446,34 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
       return sendAuthError(res, 'Error al obtener sesiones', 500, queryError.message);
     }
 
+    // Strip facilitator e-mails and the raw meeting link/transcript per row.
+    // Evaluated per session because a GC member may be a facilitator of some
+    // rows and a plain member of others.
+    const visibleSessions = (sessions || []).map((row: any) => {
+      const accessContext: SessionAccessContext = {
+        highestRole,
+        userRoles,
+        session: {
+          id: row.id,
+          school_id: row.school_id,
+          growth_community_id: row.growth_community_id,
+          status: row.status,
+        },
+        userId: user.id,
+        isFacilitator: Array.isArray(row.session_facilitators)
+          ? row.session_facilitators.some((f: { user_id?: string }) => f?.user_id === user.id)
+          : false,
+      };
+
+      const withoutEmails = canViewParticipantEmails(accessContext)
+        ? row
+        : redactProfileEmails(row);
+
+      return applySessionMeetingDisclosure(withoutEmails, accessContext);
+    });
+
     return sendApiResponse(res, {
-      sessions: sessions || [],
+      sessions: visibleSessions,
       total: count || 0,
       page: pageNum,
       limit: limitNum,

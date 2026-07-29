@@ -18,6 +18,10 @@ import {
   ContentVisibility,
 } from '../../../../lib/types/consultor-sessions.types';
 import { canViewSession, canContributeToSession, SessionAccessContext } from '../../../../lib/utils/session-policy';
+import {
+  canViewParticipantEmails,
+  redactProfileEmails,
+} from '../../../../lib/utils/session-disclosure';
 
 export const config = {
   api: {
@@ -166,7 +170,12 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       })
     );
 
-    return sendApiResponse(res, { materials: materialsWithUrls });
+    // Uploader e-mails only for admins, school-scoped consultors and facilitators
+    const visibleMaterials = canViewParticipantEmails(accessContext)
+      ? materialsWithUrls
+      : redactProfileEmails(materialsWithUrls);
+
+    return sendApiResponse(res, { materials: visibleMaterials });
   } catch (error: any) {
     console.error('Get materials error:', error);
     return sendAuthError(res, 'Error inesperado al obtener materiales', 500, error.message);

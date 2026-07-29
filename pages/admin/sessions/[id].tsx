@@ -855,13 +855,14 @@ const SessionDetailPage: React.FC = () => {
               </div>
             )}
 
-            {session.meeting_link && (
+            {session.has_meeting && session.join_path && (
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-1">Enlace de reunión</h3>
+                {/* Routes through the platform interstitial for every persona —
+                    admins included — so the raw link is never rendered in join UX. */}
                 <a
-                  href={session.meeting_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={session.join_path}
+                  data-testid="session-join-link"
                   className="text-brand_accent_hover hover:underline"
                 >
                   {session.meeting_provider || 'Enlace'}

@@ -14,6 +14,13 @@ import {
   SessionActivityLogInsert,
   STRUCTURAL_FIELDS,
 } from '../../../../lib/types/consultor-sessions.types';
+import { canViewSession, SessionAccessContext } from '../../../../lib/utils/session-policy';
+import {
+  applySessionMeetingDisclosure,
+  canViewParticipantEmails,
+  filterReportsByVisibility,
+  redactProfileEmails,
+} from '../../../../lib/utils/session-disclosure';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-detail');
@@ -73,41 +80,33 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       return sendAuthError(res, 'Sesión no encontrada', 404);
     }
 
-    // Role-based visibility
-    let canAccess = false;
+    // Facilitator membership feeds the access context: it drives view access,
+    // report visibility and e-mail disclosure alike.
+    const { data: facilitatorCheck } = await serviceClient
+      .from('session_facilitators')
+      .select('id')
+      .eq('session_id', sessionId)
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    if (highestRole === 'admin') {
-      canAccess = true;
-    } else if (highestRole === 'consultor') {
-      // Check if consultant is at the same school or if they are global
-      const consultorRoles = userRoles.filter(
-        (r) => r.role_type === 'consultor' && r.is_active
-      );
-      const isGlobalConsultor = consultorRoles.some((r) => !r.school_id);
+    // Authorization via the canonical policy helper — same context the sibling
+    // endpoints (reports/materials/attendees) build. Do NOT reintroduce an
+    // inline role check here: the previous one granted GC access on any
+    // community_id match, ignoring is_active.
+    const accessContext: SessionAccessContext = {
+      highestRole,
+      userRoles,
+      session: {
+        id: session.id,
+        school_id: session.school_id,
+        growth_community_id: session.growth_community_id,
+        status: session.status,
+      },
+      userId: user.id,
+      isFacilitator: !!facilitatorCheck,
+    };
 
-      if (isGlobalConsultor) {
-        canAccess = true;
-      } else {
-        const consultantSchools = consultorRoles
-          .filter((r) => r.school_id)
-          .map((r) => r.school_id);
-
-        if (consultantSchools.includes(session.school_id)) {
-          canAccess = true;
-        }
-      }
-    } else {
-      // GC member: can view sessions for communities they belong to
-      const userCommunityIds = userRoles
-        .filter((r) => r.community_id)
-        .map((r) => r.community_id);
-
-      if (userCommunityIds.includes(session.growth_community_id)) {
-        canAccess = true;
-      }
-    }
-
-    if (!canAccess) {
+    if (!canViewSession(accessContext)) {
       return sendAuthError(res, 'Acceso denegado a esta sesión', 403);
     }
 
@@ -142,12 +141,24 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
           .order('created_at', { ascending: false }),
       ]);
 
+    // Personal e-mails only for admins, school-scoped consultors and this
+    // session's facilitators. Everyone else gets names only.
+    const showEmails = canViewParticipantEmails(accessContext);
+    const redact = <T>(rows: T[]): T[] => (showEmails ? rows : redactProfileEmails(rows));
+
+    // Raw meeting link → admins / facilitators / scoped consultors only.
+    // Transcript → admins / facilitators only. Everyone gets has_meeting +
+    // join_path and reaches the meeting through /meet/session/{id}.
+    const disclosedSession = applySessionMeetingDisclosure(session, accessContext);
+
     const sessionWithRelations: SessionWithRelations = {
-      ...session,
-      facilitators: facilitatorsRes.data || [],
-      attendees: attendeesRes.data || [],
-      reports: reportsRes.data || [],
-      materials: materialsRes.data || [],
+      ...disclosedSession,
+      facilitators: redact(facilitatorsRes.data || []),
+      attendees: redact(attendeesRes.data || []),
+      // Same rule as GET /api/sessions/[id]/reports — shared helper so the two
+      // sites cannot drift.
+      reports: filterReportsByVisibility(reportsRes.data || [], accessContext),
+      materials: redact(materialsRes.data || []),
       communications: communicationsRes.data || [],
       ...(activityLogRes.data && { activity_log: activityLogRes.data }),
       edit_requests: editRequestsRes.data || [],

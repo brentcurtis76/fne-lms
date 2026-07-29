@@ -16,6 +16,11 @@ import {
   ReportType,
 } from '../../../../lib/types/consultor-sessions.types';
 import { canViewSession, canContributeToSession, SessionAccessContext } from '../../../../lib/utils/session-policy';
+import {
+  canViewParticipantEmails,
+  filterReportsByVisibility,
+  redactProfileEmails,
+} from '../../../../lib/utils/session-disclosure';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-reports');
@@ -96,9 +101,6 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       return sendAuthError(res, 'Acceso denegado a esta sesión', 403);
     }
 
-    // For visibility filtering, need to know if user can edit
-    const isFacilitatorOrAdmin = highestRole === 'admin' || isFacilitator;
-
     // Fetch reports
     const { data: reports, error: reportsError } = await serviceClient
       .from('session_reports')
@@ -111,15 +113,15 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       return sendAuthError(res, 'Error al obtener informes', 500, reportsError.message);
     }
 
-    // Visibility filtering
-    let filteredReports = reports || [];
+    // Visibility filtering — shared with the detail GET so the rule cannot drift
+    const filteredReports = filterReportsByVisibility(reports, accessContext);
 
-    if (!isFacilitatorOrAdmin) {
-      // GC members see only all_participants reports
-      filteredReports = filteredReports.filter((r) => r.visibility === 'all_participants');
-    }
+    // Author e-mails only for admins, school-scoped consultors and facilitators
+    const visibleReports = canViewParticipantEmails(accessContext)
+      ? filteredReports
+      : redactProfileEmails(filteredReports);
 
-    return sendApiResponse(res, { reports: filteredReports });
+    return sendApiResponse(res, { reports: visibleReports });
   } catch (error: any) {
     console.error('Get reports error:', error);
     return sendAuthError(res, 'Error inesperado al obtener informes', 500, error.message);

@@ -366,7 +366,18 @@ export interface AttendanceUpdatePayload {
 /**
  * SessionWithRelations - Full session data with all relations
  */
-export interface SessionWithRelations extends ConsultorSession {
+export interface SessionWithRelations extends Omit<ConsultorSession, 'meeting_link' | 'meeting_transcript'> {
+  /**
+   * Disclosure-gated columns: present only for callers entitled to them
+   * (see `lib/utils/session-disclosure.ts`). Non-privileged viewers get
+   * `has_meeting` + `join_path` instead.
+   */
+  meeting_link?: string | null;
+  meeting_transcript?: string | null;
+  /** True when the session carries a meeting link, whoever is asking. */
+  has_meeting: boolean;
+  /** Platform surface that reveals the link (`/meet/session/{id}`), or null. */
+  join_path: string | null;
   facilitators: (SessionFacilitator & { profiles?: { id: string; first_name: string; last_name: string; email: string } })[];
   attendees: (SessionAttendee & { profiles?: { first_name: string; last_name: string; email: string } })[];
   reports: SessionReport[];

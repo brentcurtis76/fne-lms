@@ -431,6 +431,15 @@ describe('Session Notifications', () => {
         })
       );
 
+      // Z1a-2: the payload is persisted and rendered into e-mail, so it carries
+      // the platform interstitial URL, never the raw provider link.
+      const [, payload] = mockTriggerNotification.mock.calls.find(
+        ([eventType]) => eventType === 'session_reminder_24h'
+      )!;
+      expect(payload.session.join_url).toContain(`/meet/session/${SESSION_ID}`);
+      expect(payload.session).not.toHaveProperty('meeting_link');
+      expect(JSON.stringify(payload)).not.toContain('zoom.us');
+
       process.env.CRON_API_KEY = originalKey;
     });
 
@@ -508,6 +517,13 @@ describe('Session Notifications', () => {
           session: expect.objectContaining({ id: SESSION_ID_2 }),
         })
       );
+
+      const [, payload] = mockTriggerNotification.mock.calls.find(
+        ([eventType]) => eventType === 'session_reminder_1h'
+      )!;
+      expect(payload.session.join_url).toContain(`/meet/session/${SESSION_ID_2}`);
+      expect(payload.session).not.toHaveProperty('meeting_link');
+      expect(JSON.stringify(payload)).not.toContain('zoom.us');
 
       process.env.CRON_API_KEY = originalKey;
     });

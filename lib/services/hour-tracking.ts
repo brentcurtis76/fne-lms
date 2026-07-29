@@ -18,6 +18,7 @@ import {
   LedgerEntryStatus,
 } from '../types/hour-tracking.types';
 import { ConsultorSession } from '../types/consultor-sessions.types';
+import { getSessionDateTime } from '../utils/session-timezone';
 
 // ============================================================
 // PURE FUNCTIONS (no DB)
@@ -147,13 +148,19 @@ export function calculateHours(durationMinutes: number): number {
 
 /**
  * Calculate notice hours between now and the session's scheduled start.
+ *
+ * `session_date` + `start_time` are Chile wall-clock (America/Santiago), so the
+ * instant MUST be built through `getSessionDateTime`. The previous
+ * `new Date(\`${date}T${time}\`)` resolved in server-local time, which on
+ * Vercel (UTC) shifted every session start 3–4 h and could flip a cancellation
+ * across the 48 h / 336 h clause boundaries — a live billing bug.
  */
 export function calculateNoticeHours(
   sessionDate: string,
   startTime: string,
   cancelledAt: Date = new Date()
 ): number {
-  const sessionStart = new Date(`${sessionDate}T${startTime}`);
+  const sessionStart = getSessionDateTime(sessionDate, startTime);
   const diff = sessionStart.getTime() - cancelledAt.getTime();
   return Math.max(0, diff / (1000 * 60 * 60));
 }

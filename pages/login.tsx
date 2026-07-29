@@ -4,6 +4,7 @@ import { useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { checkProfileCompletionSimple } from '../utils/profileCompletionCheck';
+import { resolveSafeInternalPath } from '../lib/utils/safe-redirect';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,11 +18,26 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSigningIn, setIsSigningIn] = useState(false);
 
+  /**
+   * Where to land once nothing else is owed.
+   *
+   * The middleware round-trips the destination the user was bounced off as
+   * `?next=`, so a deep link survives the login. It is attacker-controllable,
+   * hence the internal-path guard; anything suspicious falls back to the
+   * dashboard.
+   *
+   * Only the three "login is finished" branches call this. The forced flows —
+   * change-password and profile completion — ignore `next` entirely, so no one
+   * can skip them by crafting a login URL.
+   */
+  const postLoginDestination = () =>
+    resolveSafeInternalPath(router.query.next) ?? '/dashboard';
+
   // Check for existing session on mount
   useEffect(() => {
     if (session) {
-      // User is already logged in, redirect to dashboard
-      router.push('/dashboard');
+      // User is already logged in, send them on
+      router.push(postLoginDestination());
     } else {
       // No session, user can proceed with login
       setIsLoading(false);
@@ -116,7 +132,7 @@ export default function LoginPage() {
               // On profile fetch error, check profile completion to determine redirect
               const isProfileComplete = await checkProfileCompletionSimple(supabaseClient, userId);
               if (isProfileComplete) {
-                router.push('/dashboard');
+                router.push(postLoginDestination());
               } else {
                 router.push('/profile?from=login&error=profile-check-failed');
               }
@@ -124,15 +140,15 @@ export default function LoginPage() {
             }
             
             if (profile?.must_change_password) {
-              // Redirect to password change page
+              // Forced flow — ignores `next` on purpose
               router.push('/change-password');
             } else {
               // Check if profile is complete
               const isProfileComplete = await checkProfileCompletionSimple(supabaseClient, userId);
 
               if (isProfileComplete) {
-                // If profile is complete, redirect to dashboard
-                router.push('/dashboard');
+                // Nothing else owed — honour the requested destination
+                router.push(postLoginDestination());
               } else {
                 // If profile is incomplete, redirect to profile page
                 router.push('/profile?from=login');

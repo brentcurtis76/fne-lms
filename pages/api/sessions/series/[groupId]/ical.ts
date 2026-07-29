@@ -8,6 +8,8 @@ import {
 } from '../../../../../lib/api-auth';
 import { Validators } from '../../../../../lib/types/api-auth.types';
 import { createSessionCalendar, generateExportFilename, ICalSessionInput } from '../../../../../lib/utils/session-ical';
+import { buildSessionJoinPath } from '../../../../../lib/utils/session-disclosure';
+import { buildAbsoluteUrl } from '../../../../../lib/utils/app-url';
 import type { SessionStatus } from '../../../../../lib/types/consultor-sessions.types';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -72,7 +74,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         start_time: s.start_time as string,
         end_time: s.end_time as string,
         location: (s.location as string | null) || undefined,
-        meeting_link: (s.meeting_link as string | null) || undefined,
+        // Platform link only — the raw meeting_link never leaves in an .ics
+        join_url: (s.meeting_link as string | null)
+          ? buildAbsoluteUrl(buildSessionJoinPath(s.id as string), req)
+          : undefined,
         status: s.status as SessionStatus,
         school_name: ((s.schools as Record<string, unknown> | null)?.name as string | null) || undefined,
         growth_community_name: (
@@ -86,10 +91,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
     });
 
-    // Generate calendar
+    // Generate calendar. This endpoint is admin-only (checkIsAdmin above), and
+    // admins are entitled to participant e-mails, so ATTENDEE entries stay.
     const calendar = createSessionCalendar(
       icalSessions,
-      `Serie de Sesiones: ${icalSessions[0]?.title || 'Series de Capacitación'}`
+      `Serie de Sesiones: ${icalSessions[0]?.title || 'Series de Capacitación'}`,
+      { includeAttendees: true }
     );
 
     // Generate filename

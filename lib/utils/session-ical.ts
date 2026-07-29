@@ -5,12 +5,19 @@
 
 import ical, { ICalAlarmType, ICalAttendeeRole, ICalAttendeeStatus, ICalEventStatus } from 'ical-generator';
 import type { ICalCalendar, ICalEventData } from 'ical-generator';
+import { getVtimezoneComponent } from '@touch4it/ical-timezones';
 import { SessionStatus } from '../types/consultor-sessions.types';
 import { SESSION_TIMEZONE } from './session-timezone';
 
 /**
  * Input data for iCal event generation
  * Subset of ConsultorSession + related fields needed for calendar export
+ *
+ * Note there is no `meeting_link` field, deliberately: an .ics file is a
+ * plain-text artifact that travels outside the platform (mail attachments,
+ * calendar sync, shared calendars), so it never carries the raw meeting link.
+ * Callers pass `join_url` — the absolute `/meet/session/{id}` platform URL —
+ * and authorization happens when that page is opened.
  */
 export interface ICalSessionInput {
   id: string;
@@ -21,7 +28,8 @@ export interface ICalSessionInput {
   start_time: string; // HH:MM:SS or HH:MM
   end_time: string; // HH:MM:SS or HH:MM
   location?: string | null;
-  meeting_link?: string | null;
+  /** Absolute platform URL for the meeting, or omitted when there is none */
+  join_url?: string | null;
   status: SessionStatus;
   school_name?: string | null;
   growth_community_name?: string | null;
@@ -99,8 +107,8 @@ function buildEventDescription(session: ICalSessionInput): string {
     parts.push(`Comunidad de Crecimiento: ${session.growth_community_name}`);
   }
 
-  if (session.meeting_link) {
-    parts.push(`Enlace de Reunión: ${session.meeting_link}`);
+  if (session.join_url) {
+    parts.push(`Enlace de Reunión: ${session.join_url}`);
   }
 
   if (session.description) {
@@ -120,33 +128,67 @@ function buildEventLocation(session: ICalSessionInput): string | undefined {
     parts.push(session.location);
   }
 
-  if (session.meeting_link && session.location) {
+  if (session.join_url && session.location) {
     // If both exist, include both
-    parts.push(`Reunión Online: ${session.meeting_link}`);
-  } else if (session.meeting_link) {
+    parts.push(`Reunión Online: ${session.join_url}`);
+  } else if (session.join_url) {
     // If only online, use as location
-    return session.meeting_link;
+    return session.join_url;
   }
 
   return parts.length > 0 ? parts.join(' / ') : undefined;
 }
 
 /**
+ * Options for {@link createSessionCalendar}.
+ */
+export interface CreateSessionCalendarOptions {
+  /**
+   * Whether facilitator ATTENDEE entries may be serialized.
+   *
+   * ATTENDEE is an e-mail channel: `ical-generator` emits
+   * `ATTENDEE;…;CN="Nombre":MAILTO:persona@colegio.cl`, and an .ics is a
+   * plain-text artifact that travels outside the platform. So this follows the
+   * same rule as every other participant e-mail (admins, the session's own
+   * facilitators, and school-scoped or global consultors —
+   * `canViewParticipantEmails`), and everyone else gets a calendar entry with
+   * no attendees at all. A mailto-less ATTENDEE is not useful iCal, so the
+   * entries are omitted rather than stripped down to a name.
+   *
+   * Defaults to FALSE: a caller that forgets to make a decision leaks nothing.
+   */
+  includeAttendees?: boolean;
+}
+
+/**
  * Create an iCal calendar object from an array of sessions
  * Handles timezone setup, event generation, and alarm configuration
  *
+ * ATTENDEE is the only e-mail-bearing field this generator can emit: no
+ * ORGANIZER, no CN parameters outside ATTENDEE, and no custom X- properties
+ * are set. Keep it that way — anything new that carries an address has to go
+ * behind `options.includeAttendees` too.
+ *
  * @param sessions - Array of session data to include in calendar
  * @param calendarName - Optional calendar name (default: "Sesiones de Consultoría")
+ * @param options - Disclosure options; see {@link CreateSessionCalendarOptions}
  * @returns ical-generator ICalCalendar object (call .toString() to get iCal string)
  */
 export function createSessionCalendar(
   sessions: ICalSessionInput[],
-  calendarName: string = 'Sesiones de Consultoría'
+  calendarName: string = 'Sesiones de Consultoría',
+  options: CreateSessionCalendarOptions = {}
 ): ICalCalendar {
   const cal = ical({
     name: calendarName,
     description: 'Calendario de sesiones de capacitación y consultoría',
-    timezone: SESSION_TIMEZONE,
+    // A VTIMEZONE generator, not just a TZID string: without the component,
+    // strict clients have to guess Chile's UTC offset for the event date and
+    // DST transitions land an hour off.
+    timezone: {
+      name: SESSION_TIMEZONE,
+      generator: getVtimezoneComponent,
+    },
     prodId: {
       company: 'FNE Genera',
       product: 'Consultor Sessions',
@@ -163,6 +205,7 @@ export function createSessionCalendar(
       summary: session.title,
       description: buildEventDescription(session),
       location: buildEventLocation(session),
+      url: session.join_url || undefined,
       status: mapStatusToICalStatus(session.status),
       timezone: SESSION_TIMEZONE,
       alarms: [
@@ -174,8 +217,9 @@ export function createSessionCalendar(
       ],
     };
 
-    // Add facilitators as attendees if provided
-    if (session.facilitators && session.facilitators.length > 0) {
+    // Add facilitators as attendees — privileged callers only (see
+    // CreateSessionCalendarOptions.includeAttendees).
+    if (options.includeAttendees && session.facilitators && session.facilitators.length > 0) {
       eventData.attendees = session.facilitators
         .filter((f) => f.email) // Only include facilitators with email
         .map((f) => ({

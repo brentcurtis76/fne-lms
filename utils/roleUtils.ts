@@ -166,7 +166,132 @@ export async function hasAdminPrivileges(supabase: SupabaseClient, userId: strin
 }
 
 /**
- * Get all active roles for a user
+ * Read a user's roles from the `user_roles_cache` materialized view.
+ *
+ * DEGRADED PATH ONLY — see `getUserRoles()`. The cache is a materialized view
+ * refreshed by explicit `refresh_user_roles_cache()` RPC calls on the role
+ * *grant* paths; a revocation that never triggers a refresh leaves a stale
+ * active row behind. It is therefore never authoritative about whether a role
+ * still exists, only about what it looked like when the view was last built.
+ *
+ * Every row it returns is stamped `from_cache: true`, and `getHighestRole()`
+ * refuses those rows, so nothing this function returns can authorize a request.
+ */
+async function getUserRolesFromCache(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<UserRole[]> {
+  const { data: cacheData, error: cacheError } = await supabase
+    .from('user_roles_cache')
+    .select('*')
+    .eq('user_id', userId)
+    .order('role');
+
+  if (cacheError) {
+    console.error('Error fetching user roles from cache:', cacheError);
+    return [];
+  }
+
+  if (!cacheData || cacheData.length === 0) {
+    return [];
+  }
+
+  const schoolIds = Array.from(
+    new Set(cacheData.map(row => row.school_id).filter(Boolean))
+  );
+  const generationIds = Array.from(
+    new Set(cacheData.map(row => row.generation_id).filter(Boolean))
+  );
+  const communityIds = Array.from(
+    new Set(cacheData.map(row => row.community_id).filter(Boolean))
+  );
+
+  const [schoolsRes, generationsRes, communitiesRes] = await Promise.all([
+    schoolIds.length
+      ? supabase.from('schools').select('*').in('id', schoolIds as number[])
+      : Promise.resolve({ data: [] as any[], error: null }),
+    generationIds.length
+      ? supabase.from('generations').select('*').in('id', generationIds as string[])
+      : Promise.resolve({ data: [] as any[], error: null }),
+    communityIds.length
+      ? supabase
+          .from('growth_communities')
+          .select('*, school:schools(*), generation:generations(*)')
+          .in('id', communityIds as string[])
+      : Promise.resolve({ data: [] as any[], error: null })
+  ]);
+
+  if (schoolsRes.error) {
+    console.error('role cache fallback: failed to load schools', schoolsRes.error);
+  }
+  if (generationsRes.error) {
+    console.error('role cache fallback: failed to load generations', generationsRes.error);
+  }
+  if (communitiesRes.error) {
+    console.error('role cache fallback: failed to load communities', communitiesRes.error);
+  }
+
+  const schoolsMap = new Map<number, any>((schoolsRes.data || []).map((item: any) => [item.id, item]));
+  const generationsMap = new Map<string, any>((generationsRes.data || []).map((item: any) => [item.id, item]));
+  const communitiesMap = new Map<string, any>((communitiesRes.data || []).map((item: any) => [item.id, item]));
+
+  return cacheData.map((cache) => ({
+    id: `${cache.user_id}-${cache.role}`,
+    user_id: cache.user_id,
+    role_type: cache.role as UserRoleType,
+    school_id: cache.school_id || null,
+    generation_id: cache.generation_id || null,
+    community_id: cache.community_id || null,
+    // NOT `true`. The view has no `is_active` column — its definition filters
+    // `ur.is_active = true`, so membership only proves the row was active when
+    // the view was last refreshed, and refreshes are triggered by the role
+    // GRANT paths. `null` is the honest value: activity is UNKNOWN, and it is
+    // falsy for every scope check that grants data access (getConsultorAccess()
+    // and canViewSession()'s GC branch both require a truthy `is_active`).
+    is_active: cache.is_active ?? null,
+    // Provenance, and the authorization switch. An authoritative row never
+    // carries this; `getHighestRole()` skips every row that does, so a cached
+    // role list resolves to `highestRole === null` and every authorization gate
+    // denies. Unknown activity is not a licence to act — a stale cached `admin`
+    // must not out-rank a fail-closed denial just because the DB is down.
+    from_cache: true,
+    cached_at: cache.cached_at ?? null,
+    assigned_at: null,
+    assigned_by: null,
+    reporting_scope: {},
+    feedback_scope: {},
+    created_at: null,
+    school: cache.school_id ? schoolsMap.get(cache.school_id) || null : null,
+    generation: cache.generation_id ? generationsMap.get(cache.generation_id) || null : null,
+    community: cache.community_id ? communitiesMap.get(cache.community_id) || null : null
+  } as unknown as UserRole));
+}
+
+/**
+ * Get all active roles for a user.
+ *
+ * FAIL-CLOSED CONTRACT: a `user_roles` query that SUCCEEDS is authoritative and
+ * final — including when it returns zero rows. Zero active rows means zero
+ * roles, full stop.
+ *
+ * That is not a detail: revoking a role sets `is_active = false`, which
+ * produces exactly the "successful query, zero rows" shape. The previous code
+ * treated an empty result as a cache-miss signal and fell through to
+ * `user_roles_cache`, so a revoked user whose stale cache row still said
+ * `is_active: true` kept every grant that row implied (session detail/list,
+ * `canViewSession`/`canEditSession`, report and e-mail disclosure, the `/meet`
+ * interstitial) until someone happened to call `refresh_user_roles_cache()`.
+ * Revocation has to take effect on the next request, so the cache is now
+ * consulted ONLY when the authoritative query ERRORS — a genuine availability
+ * problem, not a "no rows" answer.
+ *
+ * Client-side callers are safe under this rule: `user_roles` carries
+ * `read_own_roles` / `Users can read own roles` (`auth.uid() = user_id`, SELECT
+ * to `authenticated`), so a signed-in user reading their OWN roles through the
+ * anon client still gets their rows. The one caller that reads *another* user's
+ * roles from the browser (`pages/user/[userId].tsx`) is bounded by RLS to its
+ * own rows plus `user_roles_community_member_view` co-members — a display
+ * narrowing, not an auth path.
  */
 export async function getUserRoles(supabase: SupabaseClient, userId: string): Promise<UserRole[]> {
   try {
@@ -182,87 +307,21 @@ export async function getUserRoles(supabase: SupabaseClient, userId: string): Pr
       .eq('is_active', true)
       .order('role_type');
 
-    if (error) {
-      console.error('Error fetching user roles:', error);
-      return [];
+    if (!error) {
+      // Authoritative answer — an empty list is a real answer, never a miss.
+      return data ?? [];
     }
 
-    if (data && data.length > 0) {
-      return data;
-    }
+    console.error('Error fetching user roles:', error);
 
-    // Fallback to cache when direct query returns no rows (due to RLS or replication delays)
-    const { data: cacheData, error: cacheError } = await supabase
-      .from('user_roles_cache')
-      .select('*')
-      .eq('user_id', userId)
-      .order('role');
-
-    if (cacheError) {
-      console.error('Error fetching user roles from cache:', cacheError);
-      return [];
-    }
-
-    if (cacheData && cacheData.length > 0) {
-      const schoolIds = Array.from(
-        new Set(cacheData.map(row => row.school_id).filter(Boolean))
-      );
-      const generationIds = Array.from(
-        new Set(cacheData.map(row => row.generation_id).filter(Boolean))
-      );
-      const communityIds = Array.from(
-        new Set(cacheData.map(row => row.community_id).filter(Boolean))
-      );
-
-      const [schoolsRes, generationsRes, communitiesRes] = await Promise.all([
-        schoolIds.length
-          ? supabase.from('schools').select('*').in('id', schoolIds as number[])
-          : Promise.resolve({ data: [] as any[], error: null }),
-        generationIds.length
-          ? supabase.from('generations').select('*').in('id', generationIds as string[])
-          : Promise.resolve({ data: [] as any[], error: null }),
-        communityIds.length
-          ? supabase
-              .from('growth_communities')
-              .select('*, school:schools(*), generation:generations(*)')
-              .in('id', communityIds as string[])
-          : Promise.resolve({ data: [] as any[], error: null })
-      ]);
-
-      if (schoolsRes.error) {
-        console.error('role cache fallback: failed to load schools', schoolsRes.error);
-      }
-      if (generationsRes.error) {
-        console.error('role cache fallback: failed to load generations', generationsRes.error);
-      }
-      if (communitiesRes.error) {
-        console.error('role cache fallback: failed to load communities', communitiesRes.error);
-      }
-
-      const schoolsMap = new Map<number, any>((schoolsRes.data || []).map((item: any) => [item.id, item]));
-      const generationsMap = new Map<string, any>((generationsRes.data || []).map((item: any) => [item.id, item]));
-      const communitiesMap = new Map<string, any>((communitiesRes.data || []).map((item: any) => [item.id, item]));
-
-      return cacheData.map((cache) => ({
-        id: `${cache.user_id}-${cache.role}`,
-        user_id: cache.user_id,
-        role_type: cache.role as UserRoleType,
-        school_id: cache.school_id || null,
-        generation_id: cache.generation_id || null,
-        community_id: cache.community_id || null,
-        is_active: true,
-        assigned_at: null,
-        assigned_by: null,
-        reporting_scope: {},
-        feedback_scope: {},
-        created_at: null,
-        school: cache.school_id ? schoolsMap.get(cache.school_id) || null : null,
-        generation: cache.generation_id ? generationsMap.get(cache.generation_id) || null : null,
-        community: cache.community_id ? communitiesMap.get(cache.community_id) || null : null
-      } as unknown as UserRole));
-    }
-
-    return [];
+    // Only here: the authoritative source was unreachable. The cache is served
+    // so a transient failure does not present the user as a stranger to the
+    // shell (they stay signed in, the UI still knows which communities they
+    // belong to), NOT so the request can proceed: every returned row carries
+    // `from_cache: true`, which `getHighestRole()` refuses and every scope
+    // check reads as no scope. During an outage the degraded path is
+    // authorization-inert by construction.
+    return await getUserRolesFromCache(supabase, userId);
   } catch (error) {
     console.error('Error in getUserRoles:', error);
     return [];
@@ -314,13 +373,48 @@ export function rolePriorityIndex(roleType: string): number {
 }
 
 /**
- * Get user's highest privilege role
+ * Get user's highest privilege role — the value every downstream authorization
+ * gate keys on (session detail/list/iCal, session-policy
+ * `canViewSession`/`canEditSession`, report and e-mail disclosure, the `/meet`
+ * interstitial, hour-tracking and reporting endpoints).
+ *
+ * Two rules, both fail-closed:
+ *
+ * 1. **Cached rows never authorize.** A row stamped `from_cache: true` comes
+ *    from `getUserRolesFromCache()` — the `user_roles_cache` materialized view,
+ *    consulted only when the authoritative query ERRORS. That view is refreshed
+ *    by the role GRANT paths, so it can serve a role that was revoked hours ago
+ *    and cannot answer "does this role still exist?". Treating such a row as
+ *    merely "not explicitly revoked" meant a stale cached `admin` still won the
+ *    priority scan and collected every `highestRole === 'admin'` grant during a
+ *    DB outage — fail-open exactly where fail-closed matters most. Skipping them
+ *    outright means a cache-only role list yields `null`, and every caller's
+ *    existing "no roles" branch denies.
+ *
+ * 2. **`is_active === false` never authorizes.** `getUserRoles()` already
+ *    filters on `is_active = true`, so this is defense-in-depth for callers that
+ *    assemble a role list by other means (test fixtures, future endpoints).
+ *    `null`/absent still reads as active for those authoritative-or-fixture
+ *    rows; the cache — the only producer of `null` in the app — is excluded by
+ *    rule 1 before this rule is ever reached.
+ *
+ * This function is for AUTHORIZATION. It is deliberately not a display helper:
+ * during an outage a signed-in user's role renders as "none", which is the
+ * correct answer to "what may this request do?" even if it is a conservative
+ * answer to "what does this user look like?".
  */
 export function getHighestRole(roles: UserRole[]): UserRoleType | null {
   if (!roles || roles.length === 0) return null;
 
   for (const roleType of ROLE_PRIORITY) {
-    if (roles.some(role => role.role_type === roleType)) {
+    if (
+      roles.some(
+        role =>
+          role.role_type === roleType &&
+          role.from_cache !== true &&
+          role.is_active !== false
+      )
+    ) {
       return roleType;
     }
   }

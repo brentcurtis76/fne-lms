@@ -40,10 +40,11 @@ interface FromCall {
 interface Tracker {
   fromCalls: FromCall[];
   authDeletes: string[];
+  rpcCalls: string[];
 }
 
 function makeTracker(): Tracker {
-  return { fromCalls: [], authDeletes: [] };
+  return { fromCalls: [], authDeletes: [], rpcCalls: [] };
 }
 
 function buildAdminClient(
@@ -61,6 +62,13 @@ function buildAdminClient(
         }),
       },
     },
+    // The handler refreshes `user_roles_cache` once the teardown has removed
+    // the user's `user_roles` rows, so the materialized view cannot serve them
+    // on getUserRoles()' degraded (query-error) path.
+    rpc: vi.fn((fn: string) => {
+      tracker.rpcCalls.push(fn);
+      return Promise.resolve({ data: null, error: null });
+    }),
     from: vi.fn((table: string) => {
       const idx = indices[table] ?? 0;
       indices[table] = idx + 1;
@@ -274,6 +282,10 @@ describe('admin/delete-user — POST (ED auth + scoping)', () => {
       profileDeletes: 1,
       authDeletes: 1,
     });
+
+    // Cache hygiene: the deleted user's roles must not survive in the
+    // materialized view (Z1a-4 / T1).
+    expect(tracker.rpcCalls).toEqual(['refresh_user_roles_cache']);
   });
 
   it('ED: 403 when target user is in another school — no cascade runs', async () => {

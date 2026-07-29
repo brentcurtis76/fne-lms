@@ -120,7 +120,13 @@ export interface SessionEventData extends BaseEventData {
     title?: string;
     date?: string;
     time?: string;
-    meeting_link?: string;
+    /**
+     * Absolute platform URL (`{base}/meet/session/{id}`), never the raw
+     * `meeting_link`: notification payloads are persisted in the event log and
+     * rendered into e-mail, so the link they carry must be one that
+     * re-authorizes the reader.
+     */
+    join_url?: string | null;
   };
   requester?: {
     id?: string;
@@ -481,7 +487,7 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventConfig> = {
         ? `${d.session.title} comienza en 1 hora`
         : 'Sesión comienza en 1 hora',
     defaultDescription: (d) => {
-      const link = d.session?.meeting_link ? ' El enlace de reunión está disponible en la sesión.' : '';
+      const link = d.session?.join_url ? ' El enlace de reunión está disponible en la sesión.' : '';
       return `Su sesión está por comenzar.${link}`;
     },
     defaultUrl: '/consultor/sessions',

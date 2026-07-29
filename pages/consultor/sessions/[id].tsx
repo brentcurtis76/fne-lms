@@ -1356,11 +1356,10 @@ const SessionDetailPage: React.FC = () => {
             <div className="flex items-center gap-2 text-gray-700">
               {getModalityIcon(session.modality, 'w-5 h-5')}
               <span className="capitalize">{session.modality}</span>
-              {session.meeting_link && (
+              {session.has_meeting && session.join_path && (
                 <a
-                  href={session.meeting_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={session.join_path}
+                  data-testid="session-join-link"
                   className="ml-2 text-brand_accent hover:text-brand_accent_hover flex items-center gap-1"
                 >
                   <ExternalLink className="w-4 h-4" />

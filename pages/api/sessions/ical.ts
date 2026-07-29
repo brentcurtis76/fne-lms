@@ -9,6 +9,13 @@ import {
 import { Validators } from '../../../lib/types/api-auth.types';
 import { getUserRoles, getHighestRole } from '../../../utils/roleUtils';
 import { createSessionCalendar, generateExportFilename, ICalSessionInput } from '../../../lib/utils/session-ical';
+import {
+  buildSessionJoinPath,
+  canViewParticipantEmails,
+} from '../../../lib/utils/session-disclosure';
+import { SessionAccessContext } from '../../../lib/utils/session-policy';
+import { buildSessionScope, hidesDraftSessions } from '../../../lib/utils/session-scope';
+import { buildAbsoluteUrl } from '../../../lib/utils/app-url';
 import type { SessionStatus } from '../../../lib/types/consultor-sessions.types';
 
 const VALID_SESSION_STATUSES = [
@@ -50,52 +57,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Build query
     let query = serviceClient
       .from('consultor_sessions')
-      .select('*, session_facilitators(profiles(first_name, last_name, email)), schools!consultor_sessions_school_id_fkey(name), growth_communities(name)')
+      .select('*, session_facilitators(user_id, profiles(first_name, last_name, email)), schools!consultor_sessions_school_id_fkey(name), growth_communities(name)')
       .eq('is_active', true);
 
-    // Role-based filtering
-    if (highestRole === 'admin') {
-      // Admin sees all sessions
-    } else if (highestRole === 'consultor') {
-      // Consultant sees sessions at their assigned schools or all if global
-      const consultorRoles = userRoles.filter(
-        (r) => r.role_type === 'consultor' && r.is_active
-      );
-      const isGlobalConsultor = consultorRoles.some((r) => !r.school_id);
+    // Scope = the SHARED canonical builder, identical to GET /api/sessions.
+    //
+    // This endpoint used to carry its own one-branch shape: anyone who was not
+    // admin or consultor was scoped from every row with a `community_id`, with
+    // no `is_active` check and no consultor/community union. That was both a
+    // divergence from the list (a school-scoped consultor never saw their
+    // out-of-school community's sessions) and — once the role cache became
+    // reachable on a DB error — an authorization hole, since a stale membership
+    // would have handed back real session metadata.
+    const scope = buildSessionScope(highestRole, userRoles);
 
-      if (!isGlobalConsultor) {
-        const consultantSchools = consultorRoles
-          .filter((r) => r.school_id)
-          .map((r) => r.school_id);
+    if (scope.kind === 'none') {
+      // Empty result set - return empty calendar
+      const emptyCalendar = createSessionCalendar([]);
+      res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="sesiones-vacio.ics"');
+      return res.status(200).send(emptyCalendar.toString());
+    }
 
-        if (consultantSchools.length === 0) {
-          // Empty result set - return empty calendar
-          const emptyCalendar = createSessionCalendar([]);
-          res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-          res.setHeader('Content-Disposition', 'attachment; filename="sesiones-vacio.ics"');
-          return res.status(200).send(emptyCalendar.toString());
-        }
+    if (scope.kind === 'union') {
+      query = query.or(scope.orClause);
+    }
 
-        query = query.in('school_id', consultantSchools);
-      }
-      // If global consultor, no school filter applied - they see all sessions
-    } else {
-      // GC member: see sessions for their communities
-      const userCommunityIds = userRoles
-        .filter((r) => r.community_id)
-        .map((r) => r.community_id)
-        .filter((id, index, arr) => arr.indexOf(id) === index); // deduplicate
-
-      if (userCommunityIds.length === 0) {
-        // Empty result set - return empty calendar
-        const emptyCalendar = createSessionCalendar([]);
-        res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-        res.setHeader('Content-Disposition', 'attachment; filename="sesiones-vacio.ics"');
-        return res.status(200).send(emptyCalendar.toString());
-      }
-
-      query = query.in('growth_community_id', userCommunityIds);
-      // Exclude drafts for non-admin/non-consultor
+    // Drafts stay hidden from everyone who is neither admin nor consultor —
+    // the same rule the list applies, now from the same helper.
+    if (hidesDraftSessions(highestRole)) {
       query = query.neq('status', 'borrador');
     }
 
@@ -187,10 +177,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
     }
 
-    // Build iCal sessions
+    // Build iCal sessions.
+    //
+    // ATTENDEE entries carry personal e-mail addresses into a file that leaves
+    // the platform, so the participant-e-mail rule is applied PER ROW: a GC
+    // member may facilitate one of these sessions and be a plain member of the
+    // next. Rows the caller is not entitled to simply carry no facilitators, so
+    // the generator has nothing to serialize for them.
     const icalSessions: ICalSessionInput[] = sessions.map((session: unknown) => {
       const s = session as Record<string, unknown>;
       const facilitators = (s.session_facilitators as Array<Record<string, unknown>> | null) || [];
+
+      const accessContext: SessionAccessContext = {
+        highestRole,
+        userRoles,
+        session: {
+          id: s.id as string,
+          school_id: s.school_id as number,
+          growth_community_id: s.growth_community_id as string,
+          status: s.status as string,
+        },
+        userId: user.id,
+        isFacilitator: facilitators.some((f) => f?.user_id === user.id),
+      };
+
+      const showAttendees = canViewParticipantEmails(accessContext);
 
       return {
         id: s.id as string,
@@ -201,22 +212,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         start_time: s.start_time as string,
         end_time: s.end_time as string,
         location: (s.location as string | null) || undefined,
-        meeting_link: (s.meeting_link as string | null) || undefined,
+        // Platform link only — the raw meeting_link never leaves in an .ics
+        join_url: (s.meeting_link as string | null)
+          ? buildAbsoluteUrl(buildSessionJoinPath(s.id as string), req)
+          : undefined,
         status: s.status as SessionStatus,
         school_name: ((s.schools as Record<string, unknown> | null)?.name as string | null) || undefined,
         growth_community_name: (
           (s.growth_communities as Record<string, unknown> | null)?.name as string | null
         ) || undefined,
-        facilitators: facilitators.map((f) => ({
-          first_name: (((f.profiles as Record<string, unknown> | null)?.first_name as string) || null) as string | null | undefined,
-          last_name: (((f.profiles as Record<string, unknown> | null)?.last_name as string) || null) as string | null | undefined,
-          email: (((f.profiles as Record<string, unknown> | null)?.email as string) || null) as string | null | undefined,
-        })),
+        facilitators: showAttendees
+          ? facilitators.map((f) => ({
+              first_name: (((f.profiles as Record<string, unknown> | null)?.first_name as string) || null) as string | null | undefined,
+              last_name: (((f.profiles as Record<string, unknown> | null)?.last_name as string) || null) as string | null | undefined,
+              email: (((f.profiles as Record<string, unknown> | null)?.email as string) || null) as string | null | undefined,
+            }))
+          : undefined,
       };
     });
 
-    // Generate calendar
-    const calendar = createSessionCalendar(icalSessions, 'Sesiones Exportadas');
+    // Generate calendar. The per-row entitlement was already applied above, so
+    // whatever survived into `facilitators` is allowed to serialize.
+    const calendar = createSessionCalendar(icalSessions, 'Sesiones Exportadas', {
+      includeAttendees: true,
+    });
 
     // Generate filename with timestamp
     const filename = generateExportFilename(sessions.length);

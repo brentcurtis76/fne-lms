@@ -137,6 +137,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al remover rol' });
     }
 
+    // Hygiene, not the security mechanism: `getUserRoles()` fails closed on a
+    // successful-but-empty `user_roles` read, so the revocation already takes
+    // effect on the next request. Refreshing keeps the materialized view from
+    // serving a stale active row on the degraded (query-error) path.
+    const { error: cacheRefreshError } = await supabaseService
+      .rpc('refresh_user_roles_cache');
+
+    if (cacheRefreshError) {
+      console.error('[remove-role API] Failed to refresh user_roles_cache:', cacheRefreshError);
+    }
+
     return res.status(200).json({
       success: true,
       role: roleData

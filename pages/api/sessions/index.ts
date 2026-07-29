@@ -19,7 +19,7 @@ import {
 } from '../../../lib/types/consultor-sessions.types';
 import { generateRecurrenceDates, buildRRule } from '../../../lib/utils/recurrence';
 import { validateFacilitatorIntegrity } from '../../../lib/utils/facilitator-validation';
-import { SessionAccessContext } from '../../../lib/utils/session-policy';
+import { SessionAccessContext, getConsultorAccess } from '../../../lib/utils/session-policy';
 import {
   applySessionMeetingDisclosure,
   canViewParticipantEmails,
@@ -354,44 +354,65 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
       })
       .eq('is_active', true);
 
-    // Role-based filtering
-    if (highestRole === 'admin') {
-      // Admin sees all sessions
-    } else if (highestRole === 'consultor') {
-      // Consultant sees sessions at their assigned schools or all if global
-      const consultorRoles = userRoles.filter(
-        (r) => r.role_type === 'consultor' && r.is_active
-      );
-      const isGlobalConsultor = consultorRoles.some((r) => !r.school_id);
+    // Query scope = the UNION of everything canViewSession() grants, so the
+    // list and the detail endpoint agree about which sessions exist.
+    //
+    // The old branch structure picked ONE scope by highestRole: a consultor
+    // got the school filter and nothing else, so a school-scoped consultor who
+    // also belonged to an out-of-school growth community could open that
+    // community's sessions on the detail endpoint (canViewSession's GC branch
+    // grants them) but never saw them in the list.
+    //
+    // The union is expressed in the QUERY, not by fetching and filtering in
+    // memory, so pagination and `count: 'exact'` stay correct.
+    if (highestRole !== 'admin') {
+      // canViewSession only consults the consultor branch when consultor IS
+      // the highest role, so this mirrors it exactly.
+      const consultorAccess =
+        highestRole === 'consultor'
+          ? getConsultorAccess(userRoles)
+          : { isGlobal: false, schoolIds: [] as (string | number)[] };
 
-      if (!isGlobalConsultor) {
-        const consultantSchools = consultorRoles
-          .filter((r) => r.school_id)
-          .map((r) => r.school_id);
+      // A global consultor (school_id IS NULL) already sees everything; any
+      // additional community scope is a subset, so no filter is applied.
+      if (!consultorAccess.isGlobal) {
+        const scopedSchoolIds = consultorAccess.schoolIds
+          .map((value) => (typeof value === 'number' ? value : parseInt(String(value), 10)))
+          .filter((value) => Number.isFinite(value));
 
-        if (consultantSchools.length === 0) {
+        // Only ACTIVE role rows grant community scope — same rule
+        // canViewSession applies on the detail endpoint.
+        const communityIds = userRoles
+          .filter((r) => r.community_id && r.is_active)
+          .map((r) => String(r.community_id))
+          .filter((id, index, arr) => arr.indexOf(id) === index) // deduplicate
+          .filter((id) => Validators.isUUID(id)); // never interpolate a non-UUID
+
+        if (scopedSchoolIds.length === 0 && communityIds.length === 0) {
+          // Out of scope entirely — empty list, as before.
           return sendApiResponse(res, { sessions: [], total: 0, page: pageNum, limit: limitNum });
         }
 
-        query = query.in('school_id', consultantSchools);
-      }
-      // If global consultor, no school filter applied - they see all sessions
-    } else {
-      // GC member: see sessions for their communities.
-      // Only ACTIVE role rows grant community scope — same rule canViewSession
-      // applies on the detail endpoint.
-      const userCommunityIds = userRoles
-        .filter((r) => r.community_id && r.is_active)
-        .map((r) => r.community_id)
-        .filter((id, index, arr) => arr.indexOf(id) === index); // deduplicate
+        const scopeClauses: string[] = [];
+        if (scopedSchoolIds.length > 0) {
+          scopeClauses.push(`school_id.in.(${scopedSchoolIds.join(',')})`);
+        }
+        if (communityIds.length > 0) {
+          scopeClauses.push(
+            `growth_community_id.in.(${communityIds.map((id) => `"${id}"`).join(',')})`
+          );
+        }
 
-      if (userCommunityIds.length === 0) {
-        return sendApiResponse(res, { sessions: [], total: 0, page: pageNum, limit: limitNum });
+        query = query.or(scopeClauses.join(','));
       }
 
-      query = query.in('growth_community_id', userCommunityIds);
-      // Exclude drafts for non-admin/non-consultor
-      query = query.neq('status', 'borrador');
+      // Draft visibility is unchanged: hidden from everyone who is neither
+      // admin nor consultor. Keyed on highestRole exactly as before, so this
+      // change widens WHICH rows are in scope without changing WHAT a given
+      // persona may see of them.
+      if (highestRole !== 'consultor') {
+        query = query.neq('status', 'borrador');
+      }
     }
 
     // Consultant filter (two-step pattern: first get session IDs, then filter)

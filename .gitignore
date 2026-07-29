@@ -151,9 +151,9 @@ lib/propuestas/__tests__/poc-output.pdf
 !.claude/settings.json
 !.eslintrc.testid.json
 
-# Z0B: spike docs + test fixtures SIEMPRE trackeados (override *.md linea 111 y *.json linea 122).
-# Sin esto, `git add` los descarta en silencio: las suites del sanitizer importan
-# estos JSON, así que un clon limpio (CI) falla al importarlos aunque en local pasen.
+# Z0B: spike docs + test fixtures are ALWAYS tracked (overrides *.md line 111 and *.json line 122).
+# Without these negations `git add` drops them silently: the sanitizer suites import
+# those JSON files, so a clean clone (CI) fails at import even while local runs stay green.
 !scripts/spikes/**/*.md
 !__tests__/**/fixtures/*.json
 

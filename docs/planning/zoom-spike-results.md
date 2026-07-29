@@ -107,6 +107,23 @@ The 307s are the middleware bouncing an unauthenticated request to
 `/login?next=%2Fmeet%2Fdiag`; headers are applied regardless of the response
 being a redirect, which is itself worth knowing.
 
+**Re-verified against a production build** (`npm run build && next start`), since
+dev-server header behaviour is not by itself evidence about production:
+
+```
+/meet/diag             Permissions-Policy: camera=(self), microphone=(self), display-capture=(self), geolocation=()
+/meet                  Permissions-Policy: camera=(self), microphone=(self), display-capture=(self), geolocation=()
+/meet/session/abc      Permissions-Policy: camera=(self), microphone=(self), display-capture=(self), geolocation=()
+/login                 Permissions-Policy: camera=(), microphone=(), geolocation=()
+/dashboard             Permissions-Policy: camera=(), microphone=(), geolocation=()
+/meetings              Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+duplicate-header check on /meet/diag: 1
+```
+
+Identical to dev. The override is a build-time route-header rule, not a
+dev-only convenience.
+
 **No middleware or SSR fallback was needed.** The config-level override holds,
 so the contingency in the chunk brief did not apply.
 

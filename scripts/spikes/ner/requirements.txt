@@ -1,0 +1,20 @@
+# Dependencies for the Spanish NER recall layer (scripts/spikes/ner/index.py).
+#
+# NOT installed by this repo. These are the requirements the function would ship
+# with when it moves to api/ in Z5; phase Z0B adds zero dependencies to
+# package.json or to any deployed surface.
+#
+# Versions are the ones actually measured in the Z0B spike — see
+# docs/planning/zoom-spike-results.md §4.
+
+spacy==3.8.14
+
+# spaCy 3.8.14 imports `click` through its CLI module at package import time,
+# but typer 0.27 no longer pulls click in transitively. Without this pin the
+# function fails on `import spacy` with ModuleNotFoundError: No module named
+# 'click'. Found the hard way during the local spike.
+click==8.4.2
+
+# The Spanish model ships as a wheel from the spaCy release page rather than
+# PyPI. Pinned by URL so the build is reproducible.
+https://github.com/explosion/spacy-models/releases/download/es_core_news_md-3.8.0/es_core_news_md-3.8.0-py3-none-any.whl

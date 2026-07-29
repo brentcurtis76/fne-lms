@@ -183,6 +183,35 @@ const ROLE_NOUNS = new Set<string>(
     .filter(Boolean)
 );
 
+/**
+ * Everything the OPTIONAL NER layer must NOT be allowed to call a person.
+ *
+ * The Z0B spike found two things about Spanish NER on session transcripts:
+ * it usually *detects* an ambiguous given name but mislabels it
+ * (Florencia→LOC, Rosa→MISC, Balentina→ORG), so taking only PER entities
+ * throws most of its value away; and once any label is accepted, it starts
+ * emitting sentence-initial verbs ("Vamos", "Propongo") as MISC entities.
+ *
+ * So the composition is: NER proposes entities of any label; this set vetoes
+ * institutions, places and school vocabulary; and the verb noise is filtered
+ * with the POS tags spaCy already computes.
+ *
+ * COMMON_WORDS is deliberately NOT part of this set: it contains the very
+ * collision names ("rosa", "sol", "milagros") the any-label variant exists to
+ * recover, so vetoing with it would cancel the gain it is meant to protect.
+ * Measurements in docs/planning/zoom-spike-results.md §4.
+ */
+export const NON_PERSON_TERMS: ReadonlySet<string> = new Set<string>([
+  ...Array.from(NON_PERSON_PROPER),
+  ...Array.from(ORG_HEADS),
+]);
+
+/**
+ * A person name is at most this many tokens. Longer NER spans are clauses
+ * ("La asistencia a las instancias de trabajo colaborativo"), not people.
+ */
+export const MAX_NAME_TOKENS = 6;
+
 /** Explicit student vocabulary — feeds the density heuristic. */
 const STUDENT_REFERENCE_WORDS = new Set<string>(
   `alumno alumna alumnos alumnas estudiante estudiantes nino nina ninos ninas

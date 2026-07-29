@@ -4,18 +4,20 @@
 **Branch:** `fix/sess-leak`
 **Branch point:** `959c1fe` (`fix(assessment-builder): indicator PUT camelCase mapping + review remediation (#23)`)
 **`main` at PR open:** `d4a5d89` (`docs(planning): add C14 typed indicator request contract prompt`)
-**Head:** `5d117ca` (post-review remediation, Z1a-4)
-**Commits:** 18 — 9 implementation (chunks Z1a-1/2/3) + 4 docs + 5 remediation (Z1a-4)
-**Diff vs branch point:** 55 files, +6112 / −711
-&nbsp;&nbsp;• code + tests only (excluding `docs/`): 50 files, +5179 / −711
-&nbsp;&nbsp;• the Z1a-4 remediation alone (`2ef3a9e..HEAD`): 21 files, +2176 / −665
+**Head:** `62a448d` (second-round remediation, Z1a-5)
+**Commits:** 22 — 9 implementation (chunks Z1a-1/2/3) + 7 docs + 5 remediation (Z1a-4) + 1 remediation (Z1a-5)
+**Diff vs branch point:** 61 files, +7427 / −769
+&nbsp;&nbsp;• the Z1a-4 remediation alone (`2ef3a9e..5d117ca`): 21 files, +2176 / −665
+&nbsp;&nbsp;• the Z1a-5 remediation alone (`9b8a9b9..62a448d`): 9 files, +1205 / −131
 
 > **Figure history.** Earlier revisions of this file quoted 9 commits /
 > 39 files / +3061 / −104, which was the count at chunk Z1a-3's tip
 > (`edc1714`) and was never updated as the docs commits and then the
-> remediation landed. At the reviewed head (`4cde531`) the true figures were
-> 12 commits / 43 files / +3944 / −104. The numbers above are recomputed at
-> the current head with `git diff --shortstat 959c1fe...HEAD`.
+> remediation landed. At the R1-reviewed head (`4cde531`) the true figures were
+> 12 commits / 43 files / +3944 / −104; at the R2-reviewed head (`2bd3211`),
+> 20 commits / 55 files / +6591 / −711. The numbers above are recomputed at the
+> current head with `git diff --shortstat 959c1fe...HEAD` and are re-checked at
+> every chunk tip from now on rather than carried forward.
 
 > **Ancestry note.** The phase brief quoted `d4a5d89` as the base SHA; that is
 > `main`'s current head, not this branch's fork point. `main` is one commit
@@ -47,6 +49,10 @@
 | `61aa77b` | Z1a-4 | `fix(ical): ATTENDEE e-mails follow the participant-e-mail policy (Sol T3)` |
 | `68934a1` | Z1a-4 | `fix(sessions): list scope = the union canViewSession grants (Sol T4)` |
 | `5d117ca` | Z1a-4 | `fix(app-url): production requires a configured origin (Sol T5)` |
+| `a946c52` | Z1a-4 | `docs(state): Z1a in PROJECT_STATE + review-request figures corrected (Sol T6)` |
+| `2bd3211` | Z1a-4 | `docs(review): fase-1 dossier remediation record + Z1a-4 ledger approval` |
+| `9b8a9b9` | Z1a-4 | `docs(review): archive Sol re-review R2 + Z1a-5 dispatch` |
+| `62a448d` | Z1a-5 | `fix(auth): cached roles never authorize + batch iCal joins canonical scope` |
 
 ---
 
@@ -100,6 +106,47 @@ the deep-link round-trip that surface needs.
   origin in production and throws rather than trusting `Host`.
 - **T6 —** this file and `PROJECT_STATE.md` corrected to the shipped reality.
 
+**Added by Z1a-5 (second-round remediation of the 2 MAJOR re-review findings —
+both overturn a deviation the PM had accepted):**
+
+- **① Cached rows never authorize.** `getHighestRole()` excluded only
+  `is_active === false`, so the `is_active: null` cache rows T1 introduced still
+  won the priority scan and a stale cached `admin` kept every admin grant while
+  the DB was down. It now excludes `from_cache === true` outright: a cache-only
+  role list resolves to `null` and each endpoint denies through its existing 403
+  branch. `is_active !== false` is retained for authoritative and fixture rows.
+  `from_cache` / `cached_at` are formalized on the `UserRole` type.
+- **② Batch iCal joins the canonical scope.** The T4 union builder is extracted
+  to `lib/utils/session-scope.ts` and consumed by both `GET /api/sessions` and
+  `GET /api/sessions/ical`, replacing the export's own one-branch filter (which
+  scoped from every `community_id` row with no `is_active` check). Draft
+  visibility, status/date filtering and the T3 per-row ATTENDEE policy are
+  unchanged.
+
+**Z1a-5 caller audit for finding ①** — every `getHighestRole` call site, re-walked
+to decide whether the stricter rule breaks a display surface badly enough to
+justify a separate non-authorizing helper. **Ruling: no such helper was added.**
+
+| Caller | Kind | Effect of the stricter rule |
+|---|---|---|
+| 20+ session / hour-tracking / reporting API routes, `lib/api/meetings/load-context.ts`, `lib/utils/session-meet-access.ts` | authorization | Denies during an outage. This is the fix. |
+| `utils/roleUtils.ts` — `getEffectiveRoleAndStatus`, `getUserPrimaryRole`, `getUserDataScope` | authorization-derived | Return `''` / `individual` scope. Consumers are gates; denying is correct. |
+| `pages/detailed-reports.tsx` | client gate | Redirects to `/dashboard`. The server endpoint denies too, so the page would have been empty regardless. |
+| `components/layout/MainLayout.tsx` | display | Singular `userRole` falls back to `''`, but the sidebar evaluates its gates against the PLURAL `auth.userRoles` array, which still contains the cached role types. Nav does not collapse. |
+| `pages/quiz-reviews.tsx` | display | Passes `userRole=''` to `MainLayout`; same fallback as above. Its own content comes from API calls that fail during the outage anyway. |
+| `components/admin/UnifiedUserManagement.tsx` | display | Reads OTHER users' `user_roles` from the admin APIs, which query `user_roles` directly. Those rows never carry `from_cache`. **Unaffected.** |
+| `contexts/AuthContext.tsx:178` | dead local | Computed and never read (`setAuthState` does not include it). No behaviour change; left alone as out of scope. |
+
+Reachability bound: `AuthContext` sources roles from `/api/auth/my-roles`, which
+queries `user_roles` directly and 500s on error — it never returns cache rows.
+Only its secondary `getUserProfileWithRoles` fallback can, so the display column
+above requires a double failure. `useAuthEnhanced`, `pages/dashboard.tsx` and
+`pages/api/admin/check-permissions.ts` consume `getUserPermissions` /
+`hasAdminPrivileges` / raw role rows and never call `getHighestRole`, so they are
+untouched by this change. (`getUserPermissions` still aggregates over cached rows
+without checking `is_active` — it feeds UI affordance hints, not a server gate,
+and is outside both findings; flagged here rather than changed.)
+
 ---
 
 ## Files changed, grouped by risk
@@ -111,7 +158,7 @@ the deep-link round-trip that surface needs.
 | `middleware.ts` | `?next=` on the unauthenticated redirect; `/meet` + `/consultor` added to the matcher with a session-presence-only early return; existing `/admin`, `/community/workspace`, `/school` role logic untouched |
 | `lib/utils/safe-redirect.ts` | **new** — `resolveSafeInternalPath`, the open-redirect guard |
 | `pages/login.tsx` | three post-login `/dashboard` pushes now honour a guarded `next`; forced flows unchanged |
-| `utils/roleUtils.ts` | `getHighestRole` ignores `is_active: false` rows |
+| `utils/roleUtils.ts` | `getHighestRole` ignores `is_active: false` rows; **Z1a-5:** it also ignores `from_cache` rows entirely, so the degraded path grants no role at all |
 
 ### High — server-side authorization and payload shaping
 
@@ -119,7 +166,9 @@ the deep-link round-trip that surface needs.
 |---|---|
 | `lib/utils/session-disclosure.ts` | **new** — the single policy for what a caller may see of a session |
 | `lib/utils/session-meet-access.ts` | **new** — SSR authorization for the interstitial; defers to `canViewSession` |
-| `utils/roleUtils.ts` | `getHighestRole` ignores `is_active: false`; **Z1a-4:** `getUserRoles` fails closed on a successful-but-empty query, cache reachable only on a DB error, cached rows carry `is_active: null` + `from_cache` |
+| `utils/roleUtils.ts` | `getHighestRole` ignores `is_active: false`; **Z1a-4:** `getUserRoles` fails closed on a successful-but-empty query, cache reachable only on a DB error, cached rows carry `is_active: null` + `from_cache`; **Z1a-5:** `getHighestRole` rejects `from_cache` rows, making the degraded path authorization-inert |
+| `lib/utils/session-scope.ts` | **new (Z1a-5)** — the single translation of `canViewSession()` into a collection query filter (`buildSessionScope`, `hidesDraftSessions`), shared by the list GET and the batch .ics export |
+| `pages/api/sessions/ical.ts` | **Z1a-5:** the bespoke role branching is replaced by the shared scope builder |
 | `pages/api/sessions/[id]/index.ts` | `canViewSession` gating, link/transcript stripping, `has_meeting` + `join_path` |
 | `pages/api/sessions/index.ts` | same for the list endpoint; **Z1a-4:** query scope rebuilt as the `canViewSession` union via `.or(...)` |
 | `pages/api/sessions/[id]/reports.ts` | visibility filter shared with `reports.ts` |
@@ -153,13 +202,13 @@ the deep-link round-trip that surface needs.
 
 ## Test evidence
 
-Gates run locally on `5d117ca`; CI runs all six on the PR.
+Gates run locally on `62a448d`; CI runs all six on the PR.
 
 | Gate | Result |
 |---|---|
 | `npm run type-check` | clean |
 | `npm run lint` (zero warnings) | clean |
-| `npm test` | **2697 passed / 2697** across **208 files** |
+| `npm test` | **2735 passed / 2735** across **211 files** |
 | `npm run build` | success; `/meet/session/[id]` present as a dynamic SSR route; middleware bundle 73.7 kB |
 | `npm run test:db` | not run locally — no migrations in this phase; CI runs `supabase test db` anyway |
 | `npm run e2e` | not run locally — no seeded Supabase env on this machine; relying on the PR's CI e2e gate |
@@ -172,6 +221,7 @@ Growth across the phase (each figure from a full-suite run at that chunk's tip):
 | Z1a-2 (`350e009`) | 2590 | 202 |
 | Z1a-3 (`edc1714`) | 2641 | 204 |
 | Z1a-4 (`5d117ca`) | 2697 | 208 |
+| Z1a-5 (`62a448d`) | 2735 | 211 |
 
 Every Z1a-4 suite was proved to FAIL on the reviewed head before its fix
 landed (implement test → revert the fix → record the failure count → restore):
@@ -183,6 +233,23 @@ landed (implement test → revert the fix → record the failure count → resto
 | T3 iCal ATTENDEE | `ical-attendee-disclosure.test.ts` (12) + `session-ical.test.ts` | 4 failed |
 | T4 list scope union | `sessions-list-scope-union.test.ts` (12) | 5 failed / 7 passed |
 | T5 absolute URL | `app-url.test.ts` (17) | 9 failed / 8 passed |
+
+Z1a-5 repeats the protocol against the RE-reviewed head (`9b8a9b9`), reverting
+one fix at a time so each finding's proof is isolated
+(`git checkout 9b8a9b9 -- <file>` → run → restore):
+
+| Finding | Reverted file | New/changed tests | Failing on `9b8a9b9` |
+|---|---|---|---|
+| ① cached rows authorize | `utils/roleUtils.ts` | `cached-roles-never-authorize.test.ts` (10) | 8 failed / 2 passed |
+| ① (same revert) | `utils/roleUtils.ts` | `role-revocation-fail-closed.test.ts` (10, 2 rewritten) | 2 failed / 8 passed |
+| ② batch iCal scope | `pages/api/sessions/ical.ts` | `ical-scope-union.test.ts` (13) | 6 failed / 7 passed |
+| — | — | `session-scope.test.ts` (15) | n/a — covers a module that does not exist on `9b8a9b9` |
+
+The two `role-revocation-fail-closed` cases that flip are the ones Z1a-4 wrote
+to *codify* the now-overturned semantics (`getHighestRole(cachedRows) ===
+'consultor'`, and the denial arriving from `canViewSession` rather than from the
+role gate). They are rewritten to the new policy, not weakened: both still
+assert a 403, one gate earlier.
 
 Suites added or extended in this phase:
 
@@ -202,6 +269,21 @@ Suites added or extended in this phase:
 - `__tests__/api/sessions/session-ical-export.test.ts`,
   `session-notifications.test.ts`,
   `__tests__/pages/consultor/sessions/detail.test.tsx` (extended)
+
+Z1a-5 adds:
+
+- `__tests__/api/sessions/cached-roles-never-authorize.test.ts` (new, 10 cases
+  — real boundary again: Supabase mocked, `roleUtils` not, so the cache
+  fallback is exercised through `getUserRoles()` itself. Covers detail, list,
+  report disclosure, single iCal, batch iCal and the `/meet` resolver)
+- `__tests__/api/sessions/ical-scope-union.test.ts` (new, 13 cases — asserts the
+  filter that reaches Supabase from BOTH collection endpoints and compares them
+  directly, so a future divergence fails the build)
+- `__tests__/lib/utils/session-scope.test.ts` (new, 15 cases — the shared
+  builder in isolation, including the interpolation guard the endpoint tests
+  cannot reach)
+- `__tests__/api/sessions/role-revocation-fail-closed.test.ts` — 2 assertions
+  rewritten to the Z1a-5 policy (see the proof table above)
 
 Z1a-4 adds:
 
@@ -262,35 +344,55 @@ Z1a-4 adds:
 
 5. **The `is_active` semantics I chose.** Both `getHighestRole` and the meet
    resolver treat `is_active !== false` as active, so a `null` reads as active.
-   That matches the existing data but is a deliberate leniency, and it decides
-   whether a revoked role still sees a session. *(Z1a-4: the reviewer was right
-   that this was load-bearing. `getUserRoles` now fails closed, so the only
-   producer of `is_active: null` rows is the cache fallback, reachable only on
-   a DB error — see item 6.)*
+   *(Z1a-4: the reviewer was right that this was load-bearing. Z1a-5: the
+   leniency is now unreachable in the app — the cache was the only producer of
+   `null`, and cached rows are rejected before the `is_active` test. What
+   remains is defense-in-depth for fixture-assembled role lists.)*
 
-6. **`getUserRoles`' degraded path (Z1a-4).** When the authoritative
-   `user_roles` query ERRORS, the `user_roles_cache` materialized view is still
-   consulted so an outage does not sign everyone out. Those rows now carry
-   `is_active: null` + `from_cache: true`, which is falsy for `getConsultorAccess`
-   and `canViewSession`'s GC branch — so they grant no school or community
-   scope — but `getHighestRole` still reads them (`!== false`). **Residual
-   risk:** a stale cached `admin` row would therefore still yield
-   `highestRole === 'admin'` during a DB outage. Closing that means dropping
-   the fallback entirely, which is a product/availability call rather than a
-   remediation one. Worth a second opinion.
+6. **`getUserRoles`' degraded path — what the fallback is still FOR (Z1a-5).**
+   The residual risk flagged here in Z1a-4 (a stale cached `admin` still
+   yielding `highestRole === 'admin'`) is closed: `getHighestRole` skips
+   `from_cache` rows, so during a DB outage every authorization gate denies with
+   403 "Usuario sin roles asignados". The fallback itself is deliberately kept,
+   which is the part worth a second opinion: it now returns rows that authorize
+   nothing, so its only remaining job is to keep the signed-in shell coherent
+   (`getUserPermissions`, the dashboard's community list). If a reviewer thinks
+   a fallback with no authorization power is dead weight, deleting it is a
+   one-line change — I kept it because removing it also removes the "stay signed
+   in during an outage" property, and that is an availability decision, not a
+   security one.
 
-7. **The `.or()` scope string (Z1a-4).** `pages/api/sessions/index.ts` now
-   builds its scope filter by string interpolation. School ids are coerced
-   through `Number.isFinite` and community ids through `Validators.isUUID`
-   before they reach the string, and both come from `user_roles` rather than
-   from the request — but this is the one place in the phase where a filter is
-   assembled textually, so it deserves a look.
+7. **The `.or()` scope string, now shared (Z1a-4 → Z1a-5).**
+   `lib/utils/session-scope.ts` builds the scope filter by string
+   interpolation. School ids are coerced through `Number.isFinite` and community
+   ids through `Validators.isUUID` before they reach the string, and both come
+   from `user_roles` rather than from the request — but this is the one place in
+   the phase where a filter is assembled textually, and it is now consumed by
+   two endpoints instead of one, so a hole here is twice as wide.
+   `__tests__/lib/utils/session-scope.test.ts` pins the guard directly.
 
-8. **`user_roles_cache` is a materialized view** (`baseline.sql:11406`), so it
-   cannot carry RLS, and it is `GRANT ALL … TO anon, authenticated`. Its
-   refresh trigger on `profiles` only calls `pg_notify`; nothing listens. Out
-   of scope here (no migrations in this phase) but flagged — see PROJECT_STATE
-   debts.
+8. **Whether extracting the scope builder changed anything by accident
+   (Z1a-5).** The batch .ics export previously had its own branching, including
+   two early "empty calendar" returns and a `neq('status','borrador')` reachable
+   only in the non-consultor branch. I claim the draft rule is unchanged (both
+   old and new hide drafts from exactly "not admin and not consultor") and that
+   the only behavioural deltas are the intended ones: `is_active` is now
+   honoured, and consultors get the community half of the union. Worth checking
+   that claim against the diff rather than the prose — the status/date filters,
+   the 100-row cap and the per-row ATTENDEE policy downstream were not meant to
+   move at all.
+
+9. **The two rewritten Z1a-4 assertions (Z1a-5).** Rewriting a test that a
+   previous chunk wrote deliberately is exactly the move a reviewer should
+   distrust. Both live in `role-revocation-fail-closed.test.ts`, both still
+   assert a 403, and the change is *which gate* denies — but please confirm
+   they were tightened rather than relaxed.
+
+10. **`user_roles_cache` is a materialized view** (`baseline.sql:11406`), so
+    it cannot carry RLS, and it is `GRANT ALL … TO anon, authenticated`. Its
+    refresh trigger on `profiles` only calls `pg_notify`; nothing listens. Out
+    of scope here (no migrations in this phase) but flagged — see PROJECT_STATE
+    debts.
 
 ---
 
@@ -323,7 +425,16 @@ Z1a-4 adds:
   merge:** confirm one of those vars is set on the production environment.
   `VERCEL_PROJECT_PRODUCTION_URL` is injected by Vercel by default, so this is
   expected to be satisfied already, but it has not been verified from here.
-- **`getUserRoles` degraded-path admin risk** — see "push hardest" item 6.
+- **`getUserRoles` degraded-path admin risk** — **closed in Z1a-5**; the
+  fallback survives with no authorization power. See "push hardest" item 6.
+- **Sol's group-2 acceptance criterion is met by a stronger outcome than the
+  one written.** The dispatch asked for "batch iCal returns an empty calendar,
+  zero session metadata" on an authoritative error plus a stale cached community
+  row. With finding ① fixed, that input never reaches the scope builder — the
+  request is denied at the `highestRole` gate with a 403 instead. Both the
+  denial and the zero-metadata requirement are asserted; the 200-empty-calendar
+  shape is asserted separately on the input that still reaches it (an active
+  role that simply grants no session scope).
 - **No migrations in this phase**, so `test:db` was not run locally; CI's pgTAP
   gate is the verdict. The `user_roles_cache` findings in Z1a-4 are handled in
   application code for exactly this reason; the schema-level fix is a debt.

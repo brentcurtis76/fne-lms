@@ -2,19 +2,25 @@
 -- user_roles_cache grant test suite (pgTAP)
 --
 -- The materialized view public.user_roles_cache cannot carry RLS, so its only
--- protection is table privileges. Migration
--- 20260728000000_revoke_client_read_user_roles_cache.sql revokes every client
--- privilege; this suite proves:
+-- protection is privileges. Two migrations remove every client-reachable entry
+-- point, and this suite locks both down:
 --
---   1. anon          → no privilege at all; SELECT throws 42501
---   2. authenticated → no privilege at all; SELECT throws 42501
---   3. service_role  → still reads the view (degraded-path in roleUtils.ts)
---   4. SECURITY DEFINER helpers (auth_has_school_access_uuid) still resolve
+--   20260728000000 — REVOKE on the view itself (read exposure)
+--   20260729000000 — REVOKE EXECUTE on refresh_user_roles_cache() (RPC surface)
+--
+-- Proves:
+--   1. anon          → no view privilege; SELECT throws 42501
+--   2. authenticated → no view privilege; SELECT throws 42501
+--   3. neither role  → can EXECUTE refresh_user_roles_cache(), directly or
+--                      inherited via PUBLIC
+--   4. service_role  → still reads the view (degraded path in roleUtils.ts)
+--                      and still holds EXECUTE on the refresh function
+--   5. SECURITY DEFINER helpers (auth_has_school_access_uuid) still resolve
 --      roles from the view on behalf of an authenticated caller
 --
--- This also guards against the view being re-created: Supabase default
--- privileges would silently re-grant client access, and these assertions
--- would go red in CI.
+-- This also guards against the view or function being re-created: Supabase
+-- default privileges (and CREATE FUNCTION's implicit GRANT TO PUBLIC) would
+-- silently re-grant client access, and these assertions would go red in CI.
 --
 -- Runs inside a transaction and rolls back — safe to run repeatedly against a
 -- local database. DO NOT run against production.
@@ -24,7 +30,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(13);
+SELECT plan(18);
 
 -- -----------------------------------------------------------------------------
 -- Fixture ids — stable and obvious so test output is easy to read.
@@ -71,6 +77,37 @@ SELECT ok(
 SELECT ok(
   has_table_privilege('service_role', 'public.user_roles_cache', 'SELECT'),
   'service_role: keeps SELECT privilege on user_roles_cache'
+);
+
+-- -----------------------------------------------------------------------------
+-- Privilege matrix for refresh_user_roles_cache(): the RPC surface.
+-- SECURITY DEFINER does not bypass the EXECUTE check, so the grant is the only
+-- gate. has_function_privilege() already accounts for privileges inherited via
+-- PUBLIC; the aclexplode assertion additionally pins that no PUBLIC grant
+-- lingers, since CREATE FUNCTION re-adds one implicitly.
+-- -----------------------------------------------------------------------------
+SELECT ok(
+  NOT has_function_privilege('anon', 'public.refresh_user_roles_cache()', 'EXECUTE'),
+  'anon: no EXECUTE privilege on refresh_user_roles_cache()'
+);
+
+SELECT ok(
+  NOT has_function_privilege('authenticated', 'public.refresh_user_roles_cache()', 'EXECUTE'),
+  'authenticated: no EXECUTE privilege on refresh_user_roles_cache()'
+);
+
+SELECT is_empty(
+  $$ SELECT 1
+       FROM pg_proc p, aclexplode(p.proacl) a
+      WHERE p.proname = 'refresh_user_roles_cache'
+        AND p.pronamespace = 'public'::regnamespace
+        AND a.grantee = 0 $$,
+  'refresh_user_roles_cache(): no PUBLIC grant remains in proacl'
+);
+
+SELECT ok(
+  has_function_privilege('service_role', 'public.refresh_user_roles_cache()', 'EXECUTE'),
+  'service_role: keeps EXECUTE on refresh_user_roles_cache()'
 );
 
 -- -----------------------------------------------------------------------------
@@ -144,6 +181,17 @@ SELECT throws_ok(
       WHERE user_id = '00000000-0000-0000-0000-000000003ddd'::uuid $$,
   '42501', NULL,
   'authenticated: even own-row SELECT throws permission denied'
+);
+
+-- The RPC surface is closed too. 42501 here is a real discriminator, not a
+-- trivially-passing assertion: the function body cannot succeed for anyone
+-- today (CONCURRENTLY needs a unique index the matview lacks), but that
+-- failure raises 55000. Only a privilege denial raises 42501, so this goes red
+-- if the EXECUTE grant ever comes back.
+SELECT throws_ok(
+  $$ SELECT public.refresh_user_roles_cache() $$,
+  '42501', NULL,
+  'authenticated: EXECUTE on refresh_user_roles_cache() throws permission denied'
 );
 
 -- SECURITY DEFINER helper still resolves the caller's school from the view.

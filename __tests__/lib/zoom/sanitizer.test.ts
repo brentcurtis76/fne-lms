@@ -226,13 +226,141 @@ describe('sanitize — segment classification', () => {
   });
 
   it('never acts partially INSIDE a segment', () => {
-    // Two students with no connector between them stay one segment, so the
-    // whole surface goes — a half-redacted name still names.
+    // Two students separated only by a comma are two segments, and both go —
+    // partial action is illegal inside a segment, never between them.
     const result = sanitize('Quedaron Martina Rojas, Benjamín Soto y otro más.', ['Camila Fuentes']);
     expect(result.sanitizedText).not.toContain('Martina');
     expect(result.sanitizedText).not.toContain('Rojas');
     expect(result.sanitizedText).not.toContain('Benjamín');
     expect(result.sanitizedText).not.toContain('Soto');
+  });
+});
+
+describe('sanitize — segments split at gap punctuation', () => {
+  // buildSpans merges adjacent name tokens whatever punctuation sits between
+  // them, so a comma list and a sentence boundary both arrive as ONE span.
+  // Splitting there is what makes the person count match the people present.
+
+  it('counts a comma-joined pair as two people and emits the comma verbatim', () => {
+    const result = sanitize('Quedaron Martina Rojas, Benjamín Soto y otro más.', ['Camila Fuentes']);
+    expect(result.sanitizedText).toContain('[persona 1], [persona 2]');
+    expect(result.metrics.personCount).toBe(2);
+    expect(result.metrics.redactionCount).toBe(2);
+  });
+
+  it('splits a span that merged across a sentence boundary, keeping the period', () => {
+    const result = sanitize(
+      'Hablamos de la estudiante Martina Rojas. Benjamín Soto llegó tarde a la sesión.',
+      ['Camila Fuentes']
+    );
+    expect(result.sanitizedText).toBe(
+      'Hablamos de la estudiante [persona 1]. [persona 2] llegó tarde a la sesión.'
+    );
+    expect(result.metrics.personCount).toBe(2);
+  });
+
+  it('does NOT split an abbreviation period — "Sra. Elena" is one person', () => {
+    const result = sanitize(
+      'Camila Fuentes coordinó la entrevista con la Sra. Elena para el martes.',
+      ATTENDEES
+    );
+    const redaction = result.detections.find((d) => d.action === 'redacted');
+    expect(redaction?.surface).toBe('Sra. Elena');
+    expect(result.metrics.personCount).toBe(1);
+  });
+
+  it('runs whole-span coverage BEFORE splitting, so an inverted attendee survives', () => {
+    // "Fuentes, Camila" matches the roster on sorted keys at step 1. If the
+    // comma split first, it would become an unknown "Fuentes" plus a bare
+    // "Camila" and the facilitator's name would be destroyed.
+    const result = sanitize('En la nómina aparece Fuentes, Camila como facilitadora.', [
+      'Camila Fuentes',
+    ]);
+    expect(result.sanitizedText).toContain('Fuentes, Camila');
+    expect(result.metrics.redactionCount).toBe(0);
+    expect(result.detections).toEqual([
+      expect.objectContaining({ surface: 'Fuentes, Camila', action: 'preserved' }),
+    ]);
+  });
+
+  it('overcounts an inverted UNKNOWN person — the accepted artifact that replaces R3', () => {
+    // "Rojas, Benjamín" is one person written surname-first, and the comma
+    // makes it two. Both are redacted, so nothing leaks; the cost is one extra
+    // person in the §6 density metric, which is the safe direction for a metric
+    // that decides whether a human should look.
+    const result = sanitize('En la nómina aparece Rojas, Benjamín como caso nuevo.', [
+      'Camila Fuentes',
+    ]);
+    expect(result.sanitizedText).toContain('[persona 1], [persona 2]');
+    expect(result.metrics.personCount).toBe(2);
+  });
+});
+
+describe('sanitize — role-pattern candidates must be name-plausible', () => {
+  // A role noun marks what follows it, but only where that token could be a
+  // name. Without the filter, every plural-role-noun sentence in ordinary
+  // speech produced a person: "los alumnos [persona 1] bien".
+
+  it('leaves the verb after a plural role noun alone', () => {
+    const text = 'Los alumnos trabajaron bien y las estudiantes avanzaron rápido.';
+    const result = sanitize(text, ATTENDEES);
+    expect(result.sanitizedText).toBe(text);
+    expect(result.metrics.personCount).toBe(0);
+  });
+
+  it('leaves quantifiers, adjectives and gerunds after a role noun alone', () => {
+    for (const text of [
+      'Hay dos estudiantes más que necesitan apoyo.',
+      'La alumna nueva llegó esta semana.',
+      'Vimos a los estudiantes estudiando en la sala.',
+      'Las estudiantes destacadas prepararon la presentación.',
+      'Los alumnos de séptimo siguen sin sala fija.',
+    ]) {
+      expect(sanitize(text, ATTENDEES).sanitizedText).toBe(text);
+    }
+  });
+
+  it('still redacts a name the transcription lowercased, as uncertain', () => {
+    const result = sanitize('El equipo comentó que el alumno benjamín no ha entregado.', ATTENDEES);
+    const detection = result.detections.find((d) => d.action === 'redacted');
+    expect(detection?.layer).toBe('role-pattern');
+    expect(detection?.confidence).toBe('uncertain');
+    expect(result.sanitizedText).not.toContain('benjamín');
+  });
+
+  it('applies the same rule behind one connector', () => {
+    const result = sanitize('Conversamos con el alumno llamado diego en la sala.', ATTENDEES);
+    expect(result.sanitizedText).not.toContain('diego');
+    expect(sanitize('Conversamos con la alumna de kinder sobre el horario.', ATTENDEES).sanitizedText).toBe(
+      'Conversamos con la alumna de kinder sobre el horario.'
+    );
+  });
+
+  it('keeps a capitalized candidate at high confidence, ordinary word or not', () => {
+    const result = sanitize('La alumna Rosa ha estado más callada en clases.', ATTENDEES);
+    const detection = result.detections.find((d) => d.surface === 'Rosa');
+    expect(detection?.layer).toBe('role-pattern');
+    expect(detection?.confidence).toBe('high');
+    expect(detection?.action).toBe('redacted');
+  });
+
+  it('documents the -ando collision the ending set was measured into', () => {
+    // "fernando" carries the gerund ending, and the ending has to stay: without
+    // it "vimos a los estudiantes estudiando" redacts. Measured in
+    // zoom-spike-results.md §3.5.2. The cost lands ONLY on a name that is
+    // lowercased everywhere in the transcript.
+    const capitalized = sanitize('Conversamos con el alumno Fernando en el recreo.', ATTENDEES);
+    expect(capitalized.sanitizedText).not.toContain('Fernando');
+
+    const rescued = sanitize(
+      'El alumno Fernando entregó la guía. Después fernando volvió a la sala.',
+      ATTENDEES
+    );
+    expect(rescued.sanitizedText).not.toContain('Fernando');
+    expect(rescued.sanitizedText).not.toContain('fernando');
+
+    const lowercaseOnly = sanitize('Conversamos con el alumno fernando en el recreo.', ATTENDEES);
+    expect(lowercaseOnly.sanitizedText).toContain('fernando');
   });
 });
 

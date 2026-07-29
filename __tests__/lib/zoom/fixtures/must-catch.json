@@ -1,7 +1,7 @@
 {
   "suite": "must-catch",
   "blocking": true,
-  "description": "Explicit student references, plus the attendee-collision family (mc-23..mc-34) that guards the preservation rule in both directions — mc-28..mc-34 added in Z0B-1r2 for segment classification. Plan §12/§15: the bar is 100% — any miss is a red build. Every name here is synthetic; no real student, family or staff member appears in this file.",
+  "description": "Explicit student references, plus the attendee-collision family (mc-23..mc-33) that guards the preservation rule in both directions — mc-28..mc-34 added in Z0B-1r2 for segment classification, mc-35..mc-37 added in Z0B-1r3 for gap-punctuation segment splitting (D4) and the role-pattern name-plausibility filter (D3). Plan §12/§15: the bar is 100% — any miss is a red build. Every name here is synthetic; no real student, family or staff member appears in this file.",
   "cases": [
     {
       "id": "mc-01",
@@ -288,11 +288,40 @@
     },
     {
       "id": "mc-34",
-      "category": "attendee-collision",
-      "description": "two students joined by a comma — R3 residual, measured not assumed: segments split at connector TOKENS and a comma is not one, so both students are redacted inside ONE segment and share a single [persona N]. personCount is 1 here (the PM's pre-implementation estimate was ≥2). Undercount, never under-redaction; splitting on punctuation instead would read 'la Sra. Elena' as two people.",
+      "category": "segment-split",
+      "description": "two students joined by a comma. AMENDED TWICE. Z0B-1r2 set expectedPersonCount to 1 and documented it as residual R3: segments split at connector TOKENS only, so the pair shared ONE [persona N] — an undercount of the §6 density metric. Z0B-1r3 (defect D4) closed that: segments now also split at gap punctuation, so the count is 2. Both mentions were redacted under either rule; the count is what moved, which is exactly how the undercount stayed invisible for a round.",
       "attendees": ["Camila Fuentes"],
       "text": "En el grupo de apoyo quedaron Martina Rojas, Benjamín Soto y otro más.",
       "mustRedact": ["Martina Rojas", "Benjamín Soto"],
+      "mustPreserve": [],
+      "expectedPersonCount": 2
+    },
+    {
+      "id": "mc-35",
+      "category": "segment-split",
+      "description": "D4 — three students in one comma list: a role-noun pair, a bare comma-joined pair, and a third behind a connector. Three person-references, three numbers; before the gap-punctuation split the comma pair collapsed into one persona and the comma itself was swallowed by the replacement.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Asistieron la alumna Martina Rojas, Benjamín Soto y la niña Florencia.",
+      "mustRedact": ["Martina Rojas", "Benjamín Soto", "Florencia"],
+      "mustPreserve": [],
+      "expectedPersonCount": 3
+    },
+    {
+      "id": "mc-36",
+      "category": "segment-split",
+      "description": "D4 across a sentence boundary — buildSpans merges adjacent name tokens whatever sits between them, so a name ending one sentence and a name opening the next arrived as one span. Two students, two numbers, and the period between them survives in the output.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Hablamos de la estudiante Martina Rojas. Benjamín Soto llegó tarde a la sesión.",
+      "mustRedact": ["Martina Rojas", "Benjamín Soto"],
+      "mustPreserve": [],
+      "expectedPersonCount": 2
+    },
+    {
+      "id": "mc-37",
+      "description": "D3 — a name lowercased by transcription, next to a role noun. This is the case the role-pattern layer's lowercase branch exists for, and it must survive the name-plausibility filter that stopped 'los alumnos trabajaron' from producing a person: 'benjamín' is not ordinary vocabulary and carries no verb, participle or adverb morphology, so it is uncertain — and uncertain redacts.",
+      "attendees": ["Camila Fuentes"],
+      "text": "El equipo comentó que el alumno benjamín no ha entregado la guía de lectura.",
+      "mustRedact": ["benjamín"],
       "mustPreserve": [],
       "expectedPersonCount": 1
     }

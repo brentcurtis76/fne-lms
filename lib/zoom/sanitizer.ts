@@ -22,11 +22,13 @@
  *    model, so the asymmetry is not close.
  *
  * **Preservation rule (v1.2) — segment classification.** A detected span is a
- * surface, not a person: `buildSpans` bridges name tokens across connectors, so
- * "Camila Fuentes y Rodrigo Pérez" (two attendees) and "el alumno Matías y
- * Tomás" (two students) both arrive as ONE span. A span is therefore classified
- * as a sequence of SEGMENTS — the runs of significant tokens between its
- * internal connectors — and a segment is one person-reference.
+ * surface, not a person: `buildSpans` bridges name tokens across connectors and
+ * across whatever punctuation sits between adjacent name tokens, so "Camila
+ * Fuentes y Rodrigo Pérez" (two attendees), "el alumno Matías y Tomás" and
+ * "Martina Rojas, Benjamín Soto" (two students each) all arrive as ONE span. A
+ * span is therefore classified as a sequence of SEGMENTS — the runs of
+ * significant tokens between its internal connectors AND its internal gap
+ * punctuation — and a segment is one person-reference.
  *
  * Writing `S` for the span's significant tokens (connectors dropped) and `E_i`
  * for the roster entries, each with its own token set:
@@ -36,6 +38,9 @@
  *     entry's tokens — preserves the span whole. This is what keeps "Camila
  *     Fuentes" against a roster "Camila Andrea Fuentes", the inverted "Fuentes,
  *     Camila", and names carrying internal connectors readable.
+ *     Step 1 runs BEFORE any splitting, which is what keeps the inverted
+ *     attendee "Fuentes, Camila" whole: it matches the roster on sorted keys,
+ *     and the comma inside it never gets the chance to carve it in two.
  *  2. **Otherwise segment by segment**, each judged on its own:
  *       `|seg| ≥ 2` → preserved iff ONE entry accounts for all of it;
  *       `|seg| = 1` → preserved iff the token is a roster token AND no span this
@@ -44,9 +49,10 @@
  *                     makes the reference ambiguous and the §12 asymmetry
  *                     resolves ambiguity to redaction).
  *     Segments act independently: passing segments survive, failing segments are
- *     redacted, and the connector text between them is emitted verbatim —
- *     "Camila Fuentes y [persona 1]" is a legal output. What is never partial is
- *     the action INSIDE a segment: a half-redacted name still names.
+ *     redacted, and the connector or punctuation text between them is emitted
+ *     verbatim — "Camila Fuentes y [persona 1]" and "[persona 1], [persona 2]"
+ *     are both legal outputs. What is never partial is the action INSIDE a
+ *     segment: a half-redacted name still names.
  *  3. **One `[persona N]` per redacted segment**, keyed by token, so two students
  *     joined by "y" get two numbers and a repeat mention reuses its own.
  *     `personCount` / `redactionCount` / the §6 density metric all count per
@@ -57,6 +63,14 @@
  * segment that no single entry explains, so it is redacted whole even though
  * both of its tokens exist somewhere on the roster.
  *
+ * **Segment boundaries (v1.3).** A segment ends at a connector token, and also
+ * at an inter-token gap carrying `,` `;` or `.` — the punctuation that separates
+ * people in "Martina Rojas, Benjamín Soto" and across the sentence break in
+ * "…Martina Rojas. Benjamín Soto llegó…", both of which `buildSpans` merges into
+ * one span. The single exception is a period belonging to a known abbreviation:
+ * "Sra. Elena" is one person and must not split. Whole-span coverage (step 1)
+ * runs first and is untouched by this, so inverted roster names survive.
+ *
  * **Accepted over-redaction.** An attendee's own extended name still goes: with
  * a roster entry of "Camila Fuentes", the surface "Camila Fuentes Soto" has no
  * internal connector, so it is a single three-token segment carrying "soto",
@@ -64,23 +78,49 @@
  * name would read better; the fix is roster hygiene (store the name the
  * transcript will actually contain), not a looser rule.
  *
- * **Documented residuals** — roster-identity limits, not detection gaps:
+ * **Role-pattern candidates must be name-plausible (v1.3).** A role noun marks
+ * what follows it, but only where that token could be a name:
+ *
+ *  - CAPITALIZED → `high`, unchanged. Role context legitimately disambiguates a
+ *    collision name, so "la alumna Rosa" stays high.
+ *  - lowercase → `uncertain`, and only when nothing says the token is an
+ *    ordinary word: not in `COMMON_WORDS`, not school/course/organization
+ *    vocabulary, and carrying none of the Spanish morphology in
+ *    `NON_NAME_ENDINGS`. This is the branch that survives Whisper lowercasing a
+ *    name ("el alumno benjamín"); without the filter it also marked the verb in
+ *    "los alumnos **trabajaron** bien", which corrupts the minuta input and
+ *    inflates `personCount` → density → spurious `flagged` states (§6).
+ *
+ * The filter is morphology, not a dictionary: an open-class word whose shape is
+ * indistinguishable from a name ("la alumna **tranquila**", "los alumnos
+ * **nuevos**") still resolves to `uncertain` → redacted, which is the §12
+ * asymmetry working as intended. It costs minuta wording, never a leak.
+ *
+ * **Documented residuals.** R1 and R2 are the ONLY residuals of this module,
+ * both roster-identity limits and neither a detection gap. (v1.2's R3 —
+ * punctuation-joined people sharing one segment — is CLOSED by the gap-
+ * punctuation split above; what replaces it is an accepted counting artifact,
+ * noted after them.)
  *
  *  - **R1 exact-name collision.** A student genuinely called "Camila Fuentes"
  *    while an attendee of that name exists is textually indistinguishable from
  *    the attendee, and is preserved. Irreducible without discourse identity.
+ *    Same limit, inverted surface: "Rojas, Camila" now splits into an unknown
+ *    "Rojas" and a bare "Camila", and the bare roster token resolves to the
+ *    attendee unless something else in the transcript contaminates it.
  *  - **R2 entry-subset reference.** "Andrea Fuentes" against a roster "Camila
  *    Andrea Fuentes" is a subset of one entry, so it is preserved. Deliberate:
  *    partial references to attendees are routine, and tightening this breaks
  *    display-name variance for marginal gain.
- *  - **R3 punctuation-joined people share a segment.** Segments split at
- *    connector TOKENS; a comma is not a token, and `buildSpans` merges adjacent
- *    name tokens whatever punctuation sits between them. So "Martina Rojas,
- *    Benjamín Soto" is one segment: both students are redacted, but as a single
- *    `[persona N]` — an undercount, never an under-redaction. (The inverted
- *    single person "Rojas, Benjamín" gets the right count for the same reason.)
- *    Splitting on punctuation instead would read "la Sra. Elena" as two people,
- *    so the trade is not obviously positive and the measured behaviour stands.
+ *
+ * **Accepted counting artifact — inverted unknown overcount** (replaces v1.2's
+ * R3). An unknown person written surname-first, "Rojas, Benjamín", is split by
+ * the comma into two segments and counted as TWO people. Both are redacted, so
+ * nothing leaks; the cost is one extra person in `personCount` and therefore a
+ * slightly higher §6 density — an overcount, the safe direction for a metric
+ * whose job is to decide whether a human should look. The undercount it
+ * replaces (a comma-joined list of THREE students reported as one person) was
+ * the unsafe direction on the same metric.
  *
  * Not wired into any production path yet — Z5 does that. Tests only.
  */
@@ -89,7 +129,7 @@
  * Bump on any change to detection behaviour. Stored alongside a transcript so a
  * newer sanitizer can be detected and re-run (§6 state machine).
  */
-export const SANITIZER_VERSION = 'node-1.2.0';
+export const SANITIZER_VERSION = 'node-1.3.0';
 
 /** Default student-reference density (per 100 words) above which a transcript is flagged. */
 export const DEFAULT_FLAG_DENSITY_THRESHOLD = 2.0;
@@ -287,6 +327,83 @@ const NAME_CONNECTORS = new Set<string>(['de', 'del', 'la', 'las', 'los', 'y', '
 /** Abbreviations whose trailing period does not end a sentence. */
 const ABBREVIATIONS = new Set<string>(['sr', 'sra', 'srta', 'dr', 'dra', 'prof', 'ing', 'lic']);
 
+/**
+ * Spanish endings a person name does not carry. Read ONLY by the role-pattern
+ * layer, and only for a lowercase candidate — a capitalized one keeps its `high`
+ * evidence whatever it ends in.
+ *
+ * Matched against the **accent-preserving** lowercase surface, which is what
+ * makes the set usable at all: Spanish spells the name/verb minimal pairs apart
+ * on the accent. `necesitan` vs `Sebastián`, `tenían` vs `Antonia`, `hablaban`
+ * vs `Esteban` — filter the unaccented ending and the accented names walk
+ * through untouched. Where the transcription has already dropped the accent the
+ * name falls into the filter and is missed; that is the same accent-loss gap the
+ * adversarial suite tracks (docs/planning/zoom-spike-results.md §3.2), not a new
+ * one.
+ *
+ * Two endings are in the set despite a real name collision, because dropping
+ * either one redacts ordinary speech the precision corpus requires to survive
+ * (measured, docs/planning/zoom-spike-results.md §3.5.2):
+ *  - `ando` — fernando, rolando, armando, orlando. Dropping it redacts the
+ *    gerund in "vimos a los estudiantes estudiando".
+ *  - `an` / `en` — esteban, carmen, plus any accent-stripped sebastián. Dropping
+ *    them redacts "los estudiantes necesitan más práctica".
+ * The collision costs a name only where it appears ONLY lowercased and ONLY next
+ * to a role noun: one capitalized mention anywhere in the transcript redeems it
+ * through the cross-reference layer.
+ *
+ * Everything with a name collision that the corpus does NOT need stays OUT, so
+ * the ambiguous surface redacts instead of walking through — §12's asymmetry
+ * applied to the lexicon itself. Notably absent: the `ía` imperfect family
+ * (maría, lucía, sofía — and "los alumnos tenían" is already covered by `an`),
+ * and the singular participles `ado`/`ada`/`ido`/`ida` (amado, frida, cándida —
+ * so "el alumno seleccionado" over-redacts, the safe direction).
+ */
+const NON_NAME_ENDINGS: readonly string[] = [
+  // preterite, 3rd person — "trabajaron", "respondieron", "llegó"
+  'aron',
+  'eron',
+  'ó',
+  // imperfect, -ar verbs — "trabajaba", "trabajaban"
+  'aba',
+  'abas',
+  'aban',
+  'ábamos',
+  // present, 3rd person plural — "necesitan", "prefieren" (also "tenían")
+  'an',
+  'en',
+  // gerunds — "estudiando", "haciendo", "leyendo"
+  'ando',
+  'iendo',
+  'yendo',
+  // plural participles and participial adjectives — "destacadas", "distraídos"
+  'ados',
+  'adas',
+  'idos',
+  'idas',
+  'ídos',
+  'ídas',
+  // derivational adjective endings — "participativos", "responsables", "silenciosos"
+  'ivo',
+  'iva',
+  'ivos',
+  'ivas',
+  'ble',
+  'bles',
+  'osos',
+  'osas',
+  // adverbs — "rápidamente"
+  'mente',
+];
+
+/**
+ * Short tokens are exempt from the ending filter: "juan" and "ivan" would
+ * otherwise be swallowed by `an`. Two characters of stem are required as well,
+ * which is what keeps an accent-stripped "aaron" out of `aron`.
+ */
+const MIN_ENDING_FILTER_LENGTH = 5;
+const MIN_ENDING_FILTER_STEM = 2;
+
 /* ------------------------------------------------------------------- helpers */
 
 /** Lowercase + strip diacritics. Whisper drops accents constantly, so every comparison goes through this. */
@@ -446,6 +563,37 @@ function strongest(a: Evidence | undefined, b: Evidence): Evidence {
   return b.confidence === 'high' ? b : a;
 }
 
+/** Does this surface carry an ending no Spanish given name carries? */
+function carriesNonNameEnding(token: Token): boolean {
+  const form = token.raw.normalize('NFC').toLowerCase();
+  if (form.length < MIN_ENDING_FILTER_LENGTH) return false;
+  return NON_NAME_ENDINGS.some(
+    (ending) => form.length - ending.length >= MIN_ENDING_FILTER_STEM && form.endsWith(ending)
+  );
+}
+
+/**
+ * What a role noun licenses for the token beside it, or `null` for nothing.
+ *
+ * Capitalized is `high` as it has always been — "la alumna Rosa" must stay high
+ * even though `rosa` is an ordinary word, because the role noun is exactly the
+ * disambiguation. Lowercase is the Whisper-lowercasing case ("el alumno
+ * benjamín"), and there the token has to look like a name at all: ordinary
+ * vocabulary and school/course/organization words are not names, and neither is
+ * anything carrying the verb, participle or adverb morphology of
+ * `NON_NAME_ENDINGS`. Whatever survives that is `uncertain` — plausible, unproven,
+ * and redacted under the §12 asymmetry.
+ */
+function rolePatternEvidence(token: Token): Evidence | null {
+  if (token.capitalized) return { layer: 'role-pattern', confidence: 'high' };
+  if (COMMON_WORDS.has(token.norm)) return null;
+  if (NON_PERSON_PROPER.has(token.norm)) return null;
+  if (ORG_HEADS.has(token.norm)) return null;
+  if (COURSE_WORDS.has(token.norm)) return null;
+  if (carriesNonNameEnding(token)) return null;
+  return { layer: 'role-pattern', confidence: 'uncertain' };
+}
+
 /**
  * Pass A — decide, per token index, whether it looks like part of a person name
  * and how sure we are.
@@ -470,19 +618,24 @@ function collectEvidence(tokens: Token[], text: string): Map<number, Evidence> {
     }
 
     // --- Layer: role pattern. "el alumno Benjamín", "la estudiante Martina",
-    // "la niña de kinder, Florencia".
+    // "la niña de kinder, Florencia". The candidate has to be name-plausible, or
+    // the ordinary word after every plural role noun becomes a person:
+    // "los alumnos trabajaron bien" made `trabajaron` one.
     if (previous && ROLE_NOUNS.has(previous.norm) && !ROLE_NOUNS.has(token.norm)) {
-      mark(i, { layer: 'role-pattern', confidence: 'high' });
+      const licensed = rolePatternEvidence(token);
+      if (licensed) mark(i, licensed);
     }
     // Allow one intervening connector: "el alumno de Martina" is rare, but
-    // "la estudiante, Martina" and "el alumno llamado Diego" are not.
+    // "la estudiante, Martina" and "el alumno llamado Diego" are not. Same
+    // name-plausibility rule — this variant used to require capitalization,
+    // which the rule now supplies in a form that also survives lowercasing.
     if (
       i >= 2 &&
       ROLE_NOUNS.has(tokens[i - 2].norm) &&
-      (NAME_CONNECTORS.has(previous?.norm ?? '') || previous?.norm === 'llamado' || previous?.norm === 'llamada') &&
-      token.capitalized
+      (NAME_CONNECTORS.has(previous?.norm ?? '') || previous?.norm === 'llamado' || previous?.norm === 'llamada')
     ) {
-      mark(i, { layer: 'role-pattern', confidence: 'high' });
+      const licensed = rolePatternEvidence(token);
+      if (licensed) mark(i, licensed);
     }
 
     // --- Layer: course pattern. "de 5°B, Martina", "quinto básico, Antonia".
@@ -643,12 +796,29 @@ type SpanPlan = {
 };
 
 /**
- * Splits a span at the connector positions `buildSpans` bridged.
+ * Does the gap between two adjacent span tokens end a person-reference?
  *
- * "el alumno Matías y Tomás" → two segments, two students, two numbers. Every
- * significant token inside a span carries evidence (the bridges are connectors
- * by construction), so each segment can report the strongest layer of its OWN
- * tokens rather than inheriting the span's.
+ * `,` and `;` separate people in a list. A `.` does too — "…Martina Rojas.
+ * Benjamín Soto llegó…" is two students, and `buildSpans` merges them because
+ * the tokens are adjacent. The exception is an abbreviation's own period, which
+ * is what keeps "Sra. Elena" one person; `tokenize` already relies on the same
+ * `ABBREVIATIONS` set to decide sentence starts.
+ */
+function gapSplitsSegment(previous: Token, current: Token, rawText: string): boolean {
+  const gap = rawText.slice(previous.end, current.start);
+  if (/[,;]/.test(gap)) return true;
+  if (!gap.includes('.')) return false;
+  return !ABBREVIATIONS.has(previous.norm);
+}
+
+/**
+ * Splits a span at the connector positions `buildSpans` bridged, and at the gap
+ * punctuation it merged across.
+ *
+ * "el alumno Matías y Tomás" and "Martina Rojas, Benjamín Soto" → two segments,
+ * two students, two numbers each. Every significant token inside a span carries
+ * evidence (the bridges are connectors by construction), so each segment can
+ * report the strongest layer of its OWN tokens rather than inheriting the span's.
  */
 function buildSegments(
   tokens: Token[],
@@ -680,6 +850,9 @@ function buildSegments(
   };
 
   for (let i = span.startToken; i <= span.endToken; i += 1) {
+    if (i > span.startToken && gapSplitsSegment(tokens[i - 1], tokens[i], rawText)) {
+      flush();
+    }
     if (NAME_CONNECTORS.has(tokens[i].norm)) {
       flush();
       continue;

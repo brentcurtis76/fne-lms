@@ -1,6 +1,16 @@
 # Fase 1 (Z1a) — Independent review verdict (Sol)
 
-> Archived verbatim by the PM per plan §0.2 (the reviewer is read-only and does not commit). Received 2026-07-28 against branch head `4cde531`. PM triage: **all 7 findings confirmed valid** — remediation dispatched as chunk Z1a-4 on `fix/sess-leak` (PR #24). One bookkeeping note: the verdict's diff figures (43 files, +3944/−104) include the PM dossier commit `4cde531`, making the actual commit count for `959c1fe..4cde531` **12**, not 11; final figures will be recomputed at the remediation head.
+> Archived verbatim by the PM per plan §0.2 (the reviewer is read-only and does not commit). Round 1 received 2026-07-28 against `4cde531`; round 2 (re-review, below) against `2bd3211`. PM triage R1: all 7 findings valid → Z1a-4. PM triage R2: **both findings valid — two PM rulings overturned and accepted** → Z1a-5.
+
+## Round 2 — Re-review after Z1a-4 (verdict: REQUEST CHANGES)
+
+**MAJOR — Cached administrator rows still authorize after revocation** (`utils/roleUtils.ts:381,393`): cached rows are `is_active: null`/`from_cache: true`, but `getHighestRole()` treats them as active — a stale cached `admin` receives every `highestRole === 'admin'` grant when the authoritative query errors. *The PM's accepted deviation is not acceptable as a phase-level availability decision*: continuity does not require authorization from an unverifiable, possibly-revoked admin role; contradicts the fail-closed contract in PROJECT_STATE. Finding ① only partially resolved.
+
+**MAJOR — Batch iCal bypasses canonical active-role scope** (`pages/api/sessions/ical.ts:88`): the non-consultor branch scopes from every row with `community_id`, without `is_active` and without `canViewSession()` — under the new cache fallback this is an authorization leak (error path + stale community row returns session metadata to a revoked user), not merely feed-incompleteness as the PM characterized it; the mixed-role divergence also persists.
+
+**Re-review evidence:** findings ②–⑦ resolved; the authoritative-success half of ① fixed; T1 proof independently reproduced in an isolated clone (7F/3P → 10/10); local gates green (2697/2697, 208 files); CI 6/6 at `2bd3211`. Fix block dispatched as **Z1a-5**.
+
+**PM concession note:** both overturned rulings were mine (dossier "new accepted deviations"/"residual risks", 2026-07-28). Sol's counter-argument is accepted in full: (a) a degraded path where ordinary users lose data access but admins keep everything is fail-open exactly where fail-closed matters most; (b) the batch-iCal branch's missing `is_active` check makes it a live scope hole under the cache fallback, not a completeness nit. Recorded as review-process evidence.
 
 **Verdict: REQUEST CHANGES**
 

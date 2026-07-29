@@ -52,13 +52,20 @@ Linear, each branch built on the previous. Base is `origin/main` @ `959c1fe`.
   └─ 738e875  fix/roles-cache-rls   REVOKE on the view
        └─ 2e2b2f9  fix/roles-exec        REVOKE EXECUTE on the function
             └─ 77ed4f5  fix/roles-refresh     repair the function
-                 ├─ 52d9df0  docs: consolidated report (this file)
-                 └─ c9a9475  docs: post-PR-#24 caller re-audit   ← STACK TIP
+                 └─ 52d9df0  docs: consolidated report (this file)
+                      └─ c9a9475  docs: post-PR-#24 caller re-audit
+                           └─ documentation follow-ups  ← fix/roles-refresh tip
 ```
 
-The two trailing commits are documentation only. `c9a9475` additionally
-corrects the header comments of the `20260728000000` and `20260729000000`
-migrations — see the note in §7.
+Everything after `77ed4f5` is documentation only — no executable SQL changes in
+that tail. The one thing worth knowing about it: `c9a9475` also rewrote the
+header comments of the `20260728000000` and `20260729000000` migrations (comment
+text only), which is why §7 tells you to read those files at the tip.
+
+The tip is deliberately labelled by branch rather than SHA: this report lives
+*inside* the branch it describes, so any further documentation commit would
+invalidate a hard-coded tip SHA the moment it landed. Resolve it with
+`git rev-parse fix/roles-refresh`.
 
 **Merge order is mandatory**: `fix/roles-cache-rls` → `fix/roles-exec` →
 `fix/roles-refresh`. All three modify

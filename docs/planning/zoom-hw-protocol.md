@@ -9,10 +9,15 @@
 > que la reunión se abra en la aplicación de Zoom aparte. Esa decisión depende
 > de estos datos, no de una opinión.
 >
-> **Estado actual:** la **Parte A** (diagnóstico del equipo) se puede hacer hoy.
-> La **Parte B** (entrar a una reunión de prueba) está **bloqueada** hasta que
-> exista una reunión de prueba; se habilita en la etapa Z0B-2. No intentes
-> hacer la Parte B todavía.
+> **Estado actual:** la **Parte A** (diagnóstico del equipo) y la **Parte B**
+> (entrar a una reunión de prueba) se pueden hacer las dos. La Parte B se habilitó
+> en la etapa Z0B-2: la página de diagnóstico ahora trae el bloque **"Prueba de
+> conexión"** con campos para el número y la clave de la reunión.
+>
+> **Antes de salir, pide a Brent el número y la clave de una reunión de prueba.**
+> Sin esos dos datos la Parte B no se puede hacer. La reunión se llama
+> *"PRUEBA SPIKE — no unirse"*: es una reunión de prueba, no hay nadie más
+> adentro salvo quien coordine contigo.
 >
 > Referencia técnica: `docs/planning/zoom-integration-plan.md` §17 ·
 > Resultados: `docs/planning/zoom-spike-results.md` §7.
@@ -147,21 +152,33 @@ Completa una fila de la planilla (más abajo) y pasa a la siguiente combinación
 
 ---
 
-## Parte B — Reunión de prueba (BLOQUEADA por ahora)
+## Parte B — Reunión de prueba
 
-> ⛔ **Todavía no se puede hacer.** Requiere una reunión de prueba que aún no
-> existe. Se habilita en la etapa **Z0B-2**. En la página de diagnóstico verás
-> el aviso *"Prueba de conexión: disponible próximamente"* — mientras diga eso,
-> salta esta parte completa.
+> ✅ **Ya se puede hacer.** Si en la página todavía dice *"Prueba de conexión:
+> disponible próximamente"*, avisa: significa que ese servidor no tiene las
+> credenciales configuradas. En ese caso haz solo la Parte A y anótalo.
 
-Cuando se habilite, la Parte B mide cuatro cosas. Se describen aquí para que
-sepas qué se viene y puedas coordinar el tiempo de la visita.
+### Cómo se hace
+
+1. En la página de diagnóstico, baja hasta **"Prueba de conexión"**.
+2. Escribe el **número de reunión** (11 dígitos, sin espacios) y la **clave**.
+3. Presiona **"Entrar a la reunión"**. El video se abre en la misma página.
+4. Cuando termines, presiona **"Salir de la reunión"**.
+
+La página **mide sola** el tiempo hasta entrar y lo deja en el bloque de
+resultados. Ya no hace falta cronometrar con el celular.
+
+Toma entre 10 y 15 minutos por combinación equipo × navegador × red.
 
 ### B1 — Tiempo hasta entrar · umbral: **menos de 20 segundos**
 
-Desde que presionas "Entrar a la reunión" hasta que **ves y escuchas**. Se
-cronometra con el celular. No cuenta desde que la página carga: cuenta desde el
-clic.
+Desde que presionas "Entrar a la reunión" hasta que el sistema confirma la
+entrada. **Lo mide la página sola** y aparece en la fila *"Tiempo hasta entrar a
+la reunión"*, con estado **OK** si bajó de 20 segundos y **Falla** si no.
+
+Igual anota en observaciones si **ves y escuchas** más tarde que lo que dice el
+número: la medición cuenta la conexión, y en un equipo muy lento el video puede
+demorar un poco más en aparecer.
 
 ### B2 — Entrar 3 de 3 veces · umbral: **3/3**
 
@@ -204,11 +221,12 @@ Una fila por combinación equipo × navegador × red. Copia esta tabla.
 
 | # | Colegio | Fecha | Equipo (P0-a/P0-b/P1-a/P1-b) | Navegador | Red (R1/R2/R3) | Diagnóstico: OK / Atención / Falla | Cámara+micrófono (OK/Falla + mensaje) | B1 tiempo (s) | B2 entradas (x/3) | B3 audio (1-5) | B4 CPU máx (%) | Observaciones |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 |  |  |  |  |  |  |  | *bloq.* | *bloq.* | *bloq.* | *bloq.* |  |
-| 2 |  |  |  |  |  |  |  | *bloq.* | *bloq.* | *bloq.* | *bloq.* |  |
-| 3 |  |  |  |  |  |  |  | *bloq.* | *bloq.* | *bloq.* | *bloq.* |  |
+| 1 |  |  |  |  |  |  |  |  |  |  |  |  |
+| 2 |  |  |  |  |  |  |  |  |  |  |  |  |
+| 3 |  |  |  |  |  |  |  |  |  |  |  |  |
 
-Marca *bloq.* en las columnas B1–B4 mientras la Parte B siga bloqueada.
+El tiempo B1 lo copia sola la página en el bloque de resultados; en la tabla
+basta con el número en segundos.
 
 **Además de la tabla**, envía el **bloque JSON copiado en el Paso 4 de cada
 combinación**, identificando a cuál fila corresponde. Ese bloque es el dato
@@ -249,9 +267,14 @@ personas es dónde se abre la ventana.
 No. Nadie del colegio necesita cuenta ni instalar nada para participar.
 
 **¿Se está grabando algo en esta prueba?**
-No. La página de diagnóstico no graba ni guarda audio ni video. La prueba de
-cámara y micrófono solo verifica que el navegador los entregue, y los libera de
-inmediato.
+No. La **Parte A** no graba nada: la prueba de cámara y micrófono solo verifica
+que el navegador los entregue, y los libera de inmediato.
+
+La reunión de prueba de la **Parte B** se crea sin grabación. Si alguna vez
+entraras a una reunión que sí está grabando, Zoom te lo avisa con un cartel que
+dice *"La reunión se está grabando"* y tienes que apretar **"Lo tengo"** para
+seguir, o **"Salir de la reunión"**. Si ves ese cartel en una reunión de prueba,
+**sal y avísanos**: no debería aparecer.
 
 **¿Puedo hacer esto con alguien del colegio mirando?**
 Sí, y es recomendable. Si a la persona le parece complicado, esa reacción es

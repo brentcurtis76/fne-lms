@@ -11,6 +11,11 @@
 > review found an under-redaction vector in the attendee preservation rule: the
 > revised rule, its fixtures and the re-measured numbers are in §3.5.
 >
+> **Chunk Z0B-1r2** (sealing round, 2026-07-29) amended §3 again: r1's rule
+> judged a merged span as one person, which left a cross-entry leak open and
+> undercounted connector-joined people. Spans are now classified as segments —
+> final rule, closure evidence and residuals R1–R3 in §3.5.1.
+>
 > **Structure is append-only by design.** Chunk Z0B-2 adds the credentialed
 > sections (§6–§9) and the field visits fill in §7. Do not renumber sections —
 > the hardware protocol and the plan's §15 row reference them.
@@ -19,7 +24,7 @@
 |---|---|---|---|
 | §1 | Permissions-Policy override for `/meet` | Z0B-1 | ✅ Verified |
 | §2 | `/meet/diag` capability probe | Z0B-1 | ✅ Built |
-| §3 | Sanitizer required Node layer | Z0B-1 (+Z0B-1r) | ✅ Measured; preservation rule tightened, §3.5 |
+| §3 | Sanitizer required Node layer | Z0B-1 (+Z0B-1r, Z0B-1r2) | ✅ Measured; preservation rule tightened §3.5, sealed by segment classification §3.5.1 |
 | §4 | NER recall layer feasibility | Z0B-1 | ✅ Measured (cold start open) |
 | §5 | ffmpeg transcode + segmentation | Z0B-1 | ✅ Measured |
 | §6 | customerKey round trip | Z0B-2 | ⏳ Needs credentials |
@@ -204,12 +209,14 @@ number in this document is comparable.
 
 ### 3.1 Must-catch suite — BLOCKING
 
-27 cases, 31 mentions of explicit student references: role nouns
+34 cases, 40 mentions of explicit student references: role nouns
 ("la estudiante X"), honorifics (don/doña, Sra., profe, tía), course
 designations ("de 5°B, Antonia"), bare capitalized names, compound names,
-repeat mentions, and the attendee-collision family added in Z0B-1r (§3.5).
+repeat mentions, and the 12-case attendee-collision family built across Z0B-1r
+(§3.5) and Z0B-1r2 (§3.5.1).
 
-**Result: 31/31 — 100%** (was 26/26 before Z0B-1r added 5 cases / 5 mentions).
+**Result: 40/40 — 100%** (26/26 shipped in Z0B-1; +5 cases / 5 mentions in
+Z0B-1r; +7 cases / 9 mentions in Z0B-1r2).
 
 Enforced as ordinary vitest assertions, so a miss is a failing test and a red
 build. There is no threshold to tune: the repo's student-PII rule is absolute
@@ -225,11 +232,12 @@ names (`Colegio San Mateo`, `Fundación Nueva Educación`).
 gated on it.
 
 **Node-only recall: 78.8% (26/33).** Re-measured unchanged after the Z0B-1r
-preservation-rule change (§3.5): identical 26/33, same seven misses, same
-per-category split. Expected — every miss here is a detection failure, and the
-rule that changed decides what happens to spans that *were* detected. No fixture
-in this suite names a person who shares a token with its attendee, which is the
-only input the change can move.
+preservation-rule change and again after the Z0B-1r2 segment-classification
+change (§3.5): identical 26/33 three times over, same seven misses, same
+per-category split, zero over-redactions. Expected — every miss here is a
+detection failure, and the rules that changed decide what happens to spans that
+*were* detected. No fixture in this suite names a person who shares a token with
+its attendee, which is the only input either change can move.
 
 | Category | Recall | Caught |
 |---|---|---|
@@ -265,8 +273,10 @@ it; §4 shows what closing it actually costs.
 which must come through **byte-identical**.
 
 **Result: 0 redactions, 0 persons, status `sanitized`** — unchanged after the
-Z0B-1r rule change (§3.5); the corpus contains no name spans at all, so nothing
-in it reaches the preservation decision.
+Z0B-1r rule change and after the Z0B-1r2 segment-classification change (§3.5);
+byte-identical output on every paragraph and on the joined corpus, three
+measurements running. The corpus contains no name spans at all, so nothing in it
+reaches the preservation decision.
 
 This suite exists because recall alone is a trap. The obvious fix for the
 sentence-initial misses above — redact every unrecognized capitalized sentence
@@ -284,14 +294,20 @@ is the honest reason this layer stops where it does.
 
 ### 3.4 Behaviour contracts
 
-Beyond recall, 30 unit tests cover the properties the pipeline depends on:
+Beyond recall, 39 unit tests cover the properties the pipeline depends on:
 
 - **Stable tokens.** The same person mentioned three times yields one
   `[persona N]`; two people yield two numbers; numbering starts at 1.
-- **Attendee preservation**, including first-name-only reference and inverted
-  roster order, under the coverage rule of §3.5. An empty attendee list redacts
-  everyone — the fail-safe direction. A malformed attendee list is tolerated
-  rather than trusted.
+- **Attendee preservation**, including first-name-only reference, inverted
+  roster order, a name carrying its own connectors, and a partial reference to
+  one roster entry, under the coverage rule of §3.5. An empty attendee list
+  redacts everyone — the fail-safe direction. A malformed attendee list is
+  tolerated rather than trusted.
+- **Segment independence** (§3.5.1). One bridged span holding an attendee and a
+  student comes out `Camila Fuentes y [persona 1]`; two attendees bridged by
+  `y` come out untouched with zero redactions; two students bridged by `y` get
+  two numbers with the connector emitted verbatim between them; and a person
+  assembled from two different attendees' tokens is redacted whole.
 - **Purity.** Inputs are not mutated; repeated calls are byte-identical.
 - **Uncertain never passes through.** A capitalized ordinary word mid-sentence
   ("Rosa") is recorded `confidence: 'uncertain'` and **redacted**. A test
@@ -313,6 +329,12 @@ the adversarial number in either direction.
 
 ### 3.5 Preservation rule — tightened in Z0B-1r (`SANITIZER_VERSION node-1.1.0`)
 
+> **Superseded in part by §3.5.1** (`node-1.2.0`, Z0B-1r2). The two-pass order,
+> the bare-name heuristic and the accepted over-redaction below all still hold;
+> the span-level table was replaced by segment classification, which closed the
+> cross-entry residual this section flagged. Kept in place as the record of what
+> r1 changed and why.
+
 **The defect.** The shipped v1.0.0 rule preserved a span that shared **one**
 significant token with any attendee. With `Camila Fuentes` on the roster, the
 transcript sentence "la estudiante **Camila Pérez** se conversó con la dupla"
@@ -322,10 +344,11 @@ was found, classified as a person, and then handed back whole. No fixture in any
 of the three suites covered the case, so all four suites stayed green over it.
 Found by PM review 2026-07-29, before Z5 wires the module into any path.
 
-**The rule now.** A span is preserved only where the roster accounts for *all*
-of it. Writing `S` for the span's significant tokens (connectors dropped),
-`A.tokens` for the union of all roster tokens (≥3 chars, connectors dropped) and
-`A.keys` for each roster name's tokens sorted:
+**The rule after r1** (span-level; superseded by §3.5.1). A span is preserved
+only where the roster accounts for *all* of it. Writing `S` for the span's
+significant tokens (connectors dropped), `A.tokens` for the union of all roster
+tokens (≥3 chars, connectors dropped) and `A.keys` for each roster name's tokens
+sorted:
 
 | Span shape | Preserved iff |
 |---|---|
@@ -359,17 +382,17 @@ where a facilitator's name would read better) and the fix is roster hygiene —
 store the name the transcript will actually contain. Asserted as a contract test
 so the behaviour is deliberate rather than discovered.
 
-**Known residual — cross-entry token coverage.** Rule `∀t ∈ S: t ∈ A.tokens`
-draws on the union of all roster tokens, so a span whose tokens each belong to a
-*different* attendee is still preserved: roster `{Camila Fuentes, Rodrigo
-Pérez}` + student `Camila Pérez` → preserved, because `camila` and `perez` are
-both roster tokens. Not closed here, deliberately: the obvious tightening
-(require all tokens from one roster entry) redacts `Camila Fuentes` when the
-roster says `Camila Andrea Fuentes` — a common Zoom display-name/profile
-mismatch — and it breaks the legitimate merged span `Camila Fuentes y Rodrigo
-Pérez`, which `buildSpans` bridges into a single span across the connector.
-Closing it properly needs span partitioning against whole roster names; flagged
-for the PM as a pre-Z5 decision, not taken unilaterally in a remediation round.
+**Known residual — cross-entry token coverage. → CLOSED in Z0B-1r2, §3.5.1.**
+Rule `∀t ∈ S: t ∈ A.tokens` draws on the union of all roster tokens, so a span
+whose tokens each belong to a *different* attendee was still preserved: roster
+`{Camila Fuentes, Rodrigo Pérez}` + student `Camila Pérez` → preserved, because
+`camila` and `perez` are both roster tokens. r1 left it open deliberately: the
+obvious tightening (require all tokens from one roster entry) redacts `Camila
+Fuentes` when the roster says `Camila Andrea Fuentes` — a common Zoom
+display-name/profile mismatch — and it breaks the legitimate merged span `Camila
+Fuentes y Rodrigo Pérez`, which `buildSpans` bridges into a single span across
+the connector. Both objections are answered by classifying at segment level
+instead of span level; the PM ruled that design and §3.5.1 implements it.
 
 **Test coverage added** (must-catch, blocking): `mc-23` distinct student sharing
 a given name → whole span redacted; `mc-24` bare colliding given name after the
@@ -379,6 +402,129 @@ Camila` inverted order → preserved; `mc-27` attendee full name after a redacte
 collision → preserved (coverage beats contamination). Plus six contract
 assertions in `sanitizer.test.ts`. Verified against the pre-fix module: mc-23,
 mc-24 and mc-27 leak 5 mentions, and the blocking suite goes red.
+
+### 3.5.1 Segment classification — sealing round Z0B-1r2 (`SANITIZER_VERSION node-1.2.0`)
+
+**The two defects.** Both PM-reproduced on `6340838`, both rooted in the same
+mistake: r1 judged a *span* as if it were a *person*. `buildSpans` merges name
+tokens across connectors, so one span can hold two people.
+
+- **D1 — cross-entry union leak** (the residual above, now closed). Roster
+  `{Camila Fuentes, Rodrigo Pérez}`, transcript "la alumna **Camila Pérez**
+  llegó" → **preserved intact, 0 persons**. The span was stitched from two
+  different attendees' tokens, and the union rule could not tell. It overrode a
+  high-confidence `role-pattern` detection to do it.
+- **D2 — connector-merged people share one token.** "el alumno **Matías y
+  Tomás**" → **one `[persona 1]` for two students**. Nothing leaked, but
+  `personCount`, `redactionCount` and therefore the §6 flag-density metric all
+  undercounted the students present — a privacy-relevant miscount, since density
+  is what decides whether a transcript is `flagged` for human review.
+
+**The rule now.** A span is classified as a sequence of **segments** — the runs
+of significant tokens between the span's internal **connector** positions (the
+bridges `buildSpans` crossed). A segment is one person-reference; a span may
+hold several. Writing `S` for the span's significant tokens and `E_i` for the
+roster entries, each with its own token set `T_i`:
+
+| Step | Test | Outcome |
+|---|---|---|
+| 1 | `\|S\| ≥ 2` **and** (`join(S) ∈ fullNames` **or** `sorted(S) ∈ keys` **or** `S ⊆ T_i` for a **single** `i`) | preserve the WHOLE span |
+| 2 | otherwise, per segment: `\|seg\| ≥ 2` → `join(seg) ∈ fullNames` **or** `sorted(seg) ∈ keys` **or** `seg ⊆ T_i` for a **single** `i` | that segment preserved, else redacted |
+| 2 | otherwise, per segment: `\|seg\| = 1` → token `∈ A.tokens` **and** `∉ contaminated` | that segment preserved, else redacted |
+| — | `\|S\| = 0` (a span of nothing but connectors) | nothing emitted at all |
+
+Coverage is per **entry**, never the union — that single change is what kills
+D1: `Camila Pérez` has no internal connector, so it is one segment; step 1 fails
+because no single entry spans it, step 2's `|seg| ≥ 2` branch fails for the same
+reason, and it is redacted whole even though both tokens exist somewhere on the
+roster.
+
+Step 1 is restricted to `|S| ≥ 2` on purpose: a lone roster token is the
+bare-name heuristic (with contamination), not whole-span coverage. Without that
+restriction a bare `Camila` after a redacted `Camila Pérez` would be preserved
+by step 1 and mc-24 would break.
+
+**Segments act independently.** Passing segments are preserved, failing segments
+are redacted, and the connector text between them is emitted verbatim, so a
+**mixed span is now a legal output**: roster `{Camila Fuentes}` + "con Camila
+Fuentes y Martina" → `con Camila Fuentes y [persona 1]`. r1's "no partial
+preservation" invariant moves DOWN one level and is absolute there: inside a
+segment, never a partial action. In r1 that same sentence destroyed the
+attendee's name along with the student's.
+
+**One number per segment.** Every redacted segment draws its own `[persona N]`
+from the existing token-keyed map, so `el alumno Matías y Tomás` →
+`el alumno [persona 1] y [persona 2]` (D2 closed), while repeat mentions still
+reuse their number and a contaminated bare name still lands on the number of the
+person that contaminated it. `personCount` / `redactionCount` / density now count
+per segment. Contamination bookkeeping collects the tokens of redacted
+**segments**, and r1's two-pass order extends unchanged: pass 1 settles
+`|seg| ≥ 2` and non-roster singletons everywhere, then roster-token singletons
+resolve against the completed contaminated set — a bare roster token can precede
+the span that contaminates it.
+
+**Accepted over-redaction, re-derived.** Does `Camila Fuentes Soto` against a
+roster `Camila Fuentes` behave differently now? No. Step 1 fails (`soto` is in no
+entry); the surface carries no internal connector, so segmentation yields one
+three-token segment, which fails the same test and is redacted whole. Identical
+to r1 — the note stands as written, safe direction, roster hygiene is the fix.
+
+**Documented residuals** — roster-identity limits, not detection gaps:
+
+| # | Residual | Behaviour | Why it stands |
+|---|---|---|---|
+| R1 | exact-name collision | a student truly named `Camila Fuentes` while attendee `Camila Fuentes` exists is **preserved** | textually indistinguishable; irreducible without discourse identity |
+| R2 | entry-subset reference | `Andrea Fuentes` against roster `Camila Andrea Fuentes` is **preserved** | deliberate — partial references to attendees are routine, and tightening breaks display-name variance for marginal gain |
+| R3 | punctuation-joined people share a segment | `Martina Rojas, Benjamín Soto` → both redacted, but as **one** `[persona N]` | segments split at connector TOKENS; a comma is not one, and `buildSpans` merges adjacent name tokens whatever punctuation sits between them. Undercount, never under-redaction |
+
+R3 is **measured, not assumed**. The PM's pre-implementation estimate was that a
+comma would split such a span into singleton segments, giving ≥2 personas —
+overcounting, the safe direction for the density metric. It does not: the
+implemented behaviour is one segment and **one** persona for the pair (fixture
+`mc-34` asserts the true count). The inverted single person `Rojas, Benjamín`
+gets the *right* count for the same reason. Splitting on punctuation instead was
+considered and rejected here: `la Sra. Elena` merges across the abbreviation
+period, so punctuation-splitting would read one person as two, and `Fuentes,
+Camila` only survives because step 1 fires before segmentation. The trade is not
+obviously positive, so the measured behaviour stands and is documented rather
+than tuned.
+
+**Also fixed, same layer.** `role-pattern` marks whatever follows a role noun,
+including a connector: "la alumna **de** séptimo" produced a span whose only
+token was `de`, which r1 redacted — `la alumna [persona 1] séptimo`, one more
+person in the density metric and an unreadable sentence. A span with no
+significant tokens now emits nothing: there is no identity in it to redact.
+
+**Fail-on-old proof.** The new fixtures and contract assertions were run against
+the `6340838` module (`git stash` on `lib/zoom/sanitizer.ts` only, restored
+after): **14 failing tests, 139/153 passing**, split as
+
+- **4 leaked mentions** — `mc-28: Camila Pérez`, `mc-28: Camila`,
+  `mc-29: Camila Pérez`, `mc-29: Camila` (D1);
+- **1 over-redacted attendee** — `mc-31: Camila Fuentes`, destroyed by the
+  all-or-nothing span rule;
+- **3 `personCount` mismatches** — `mc-12` 1≠2, `mc-29` 0≠1, `mc-32` 1≠2 (D2);
+- the blocking must-catch suite goes red (9 failures), the contract suite goes
+  red (5 failures), and **precision and adversarial stay green** — the new
+  fixtures isolate exactly the two defects and touch nothing else.
+
+**Test coverage added** (must-catch, blocking): `mc-28` D1 exactly → whole span
+redacted; `mc-29` D1 plus a later bare `Camila` → redacted, one number for both;
+`mc-30` two attendees bridged by `y` → both preserved, zero redactions;
+`mc-31` mixed span → attendee preserved, student redacted; `mc-32` D2 → two
+distinct numbers; `mc-33` roster `María de los Ángeles Rojas` + surface `María de
+los Ángeles` → preserved intact; `mc-34` comma-joined students → both redacted,
+count documented (R3). **`mc-12` amended**: `expectedPersonCount` added and set
+to 2 — before this change the case passed on recall while its count was wrong,
+which is exactly how D2 stayed invisible. Plus nine contract assertions in
+`sanitizer.test.ts` covering segment independence, per-segment numbering,
+verbatim connector survival, the D1 role-pattern detection now ending
+`redacted`, and R2.
+
+**Numbers after the round**: must-catch **40/40 (100%)** across 34 cases;
+adversarial **78.8% (26/33)**, unchanged, zero over-redactions; precision **0
+redactions / 0 persons, byte-identical** on 594 words; 153 sanitizer tests
+green in 4 files (was 120).
 
 ---
 
@@ -709,4 +855,4 @@ and neither existed for chunk Z0B-1.
 | 5 | Merge trailing sub-30 s segment in the multi-segment fallback (§5.2) | Z5 |
 | 6 | Verify the executable bit survives `outputFileTracingIncludes` tracing (§5.3) | Z5 |
 | 7 | `/meet/diag` has no automated test; e2e for `/meet` belongs to Z1c (§2) | Z1c |
-| 8 | Cross-entry token coverage still preserves `Camila Pérez` when the roster holds `Camila Fuentes` **and** `Rodrigo Pérez`; closing it needs span partitioning against whole roster names, and the naive tightening costs legitimate partial-name preservation (§3.5) | PM decision, pre-Z5 |
+| 8 | ~~Cross-entry token coverage still preserves `Camila Pérez` when the roster holds `Camila Fuentes` **and** `Rodrigo Pérez`~~ — **CLOSED** in Z0B-1r2 by segment classification (`node-1.2.0`, §3.5.1): coverage is per roster entry, spans are classified as segments, and the connector-merged undercount (D2) closed with it. Residuals R1–R3 documented in §3.5.1 and in the module header | Closed 2026-07-29 |

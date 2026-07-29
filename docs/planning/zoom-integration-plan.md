@@ -26,7 +26,14 @@
 
 | Z1a-5 · verdict | Z1a | `fix/sess-leak` | `62a448d`, `caac1e1` | ✅ APPROVED 2026-07-29 | PM re-review: both fix diffs read whole (incl. verifying the executor's mid-run botched-restore left no partial state); **Fix-1 proof re-executed by PM (8F/2P pre-fix → 10/10)**; shared `lib/utils/session-scope.ts` consumed by list + batch iCal (canonical, cannot drift); `getHighestRole` double-guarded (`from_cache !== true` + `is_active !== false`); caller audit ruling (no speculative display helper) accepted; 2735/2735 in 211 files re-run by PM; CI 6/6 at `caac1e1` via `gh`. Dossier remediation record R2 added. |
 
-**Phase Z1a status: Z1a-5 PM-approved · awaiting Sol RE-REVIEW R3 (fix diff `9b8a9b9..caac1e1` — two files + tests) → then Brent merge ⇒ DONE. Pre-merge checklist for Brent: ① prod origin env var (getAppBaseUrl THROWS in prod without one — `VERCEL_PROJECT_PRODUCTION_URL` should satisfy, verify in dashboard); ② reconcile local main (3 unpushed docs commits). Parallel: `user_roles_cache` migration task running in its own session — separate branch, no interaction.**
+**Phase Z1a status: ✅ Sol R3 APPROVE (2026-07-29, zero findings, archived in `fase-1-review-verdict.md`) · ALL review gates cleared · awaiting ONLY Brent's merge of [PR #24](https://github.com/brentcurtis76/fne-lms/pull/24) ⇒ then ledger flips to DONE + PM rotation (§0.1).**
+
+**Brent's merge sequence (order matters — merging auto-deploys, and `getAppBaseUrl` now throws in prod without an origin):**
+1. Vercel dashboard → project → Settings → Environment Variables: either set `NEXT_PUBLIC_BASE_URL` = the canonical production URL (cleanest), or confirm "Automatically expose System Environment Variables" is ON so `VERCEL_PROJECT_PRODUCTION_URL` exists at runtime. Do this BEFORE merging.
+2. Push local `main`'s 3 docs-only commits (`d4a5d89`, `9efbce0`, `5573a85`) — harmless docs deploy — so local and origin agree.
+3. Merge PR #24 on GitHub (merge commit; branch is 24 commits, not rebased per ledger-SHA integrity), then `git pull` locally.
+
+Parallel: `user_roles_cache` migration task running in its own session — separate branch, unaffected by the merge.
 
 **Open items for Brent** (carried until resolved): ① confirm `NEXT_PUBLIC_APP_URL`/`NEXT_PUBLIC_BASE_URL` set in Vercel prod env; ② Vercel Pro confirmation (§16, blocks Z1b); ③ product note: global consultors receive participant emails (accepted, revisit if global rows ever created); ④ ticketed debt: platform-wide cookie-`getSession()` → `getUser()` migration; `/consultor/**` SSR role gating (post-Z2).
 

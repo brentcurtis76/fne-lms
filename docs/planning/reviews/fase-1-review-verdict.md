@@ -12,6 +12,12 @@
 
 **PM concession note:** both overturned rulings were mine (dossier "new accepted deviations"/"residual risks", 2026-07-28). Sol's counter-argument is accepted in full: (a) a degraded path where ordinary users lose data access but admins keep everything is fail-open exactly where fail-closed matters most; (b) the batch-iCal branch's missing `is_active` check makes it a live scope hole under the cache fallback, not a completeness nit. Recorded as review-process evidence.
 
+## Round 3 — Re-review of Z1a-5 (verdict: APPROVE, 2026-07-29)
+
+No findings. Both R2 MAJORs resolved: `getHighestRole` excludes `from_cache` rows before role precedence (`utils/roleUtils.ts:406`); list + batch iCal share the canonical scope builder (`lib/utils/session-scope.ts:56`, consumed at `pages/api/sessions/ical.ts:72` and the list endpoint); the stale-cache 403 deviation ruled strictly fail-closed with the reachable empty-calendar path independently covered.
+
+**Reviewer verification:** focused remediation suites 48/48; historical proofs independently reproduced (pre-fix roleUtils 8/10 + 2/10 failed; pre-fix batch iCal 6/13 failed; current all pass); local gates clean (2735/2735, 211 files); CI 6/6 at `8f13ff6`; documentation figures match inspected SHAs. Fix block: none — **approved for merge**, subject to the pre-merge production-origin check recorded in PROJECT_STATE.md.
+
 **Verdict: REQUEST CHANGES**
 
 ## Findings

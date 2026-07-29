@@ -199,6 +199,14 @@ async function handleRemoveSupervisor(supabase: any, body: RemoveSupervisorReque
       return res.status(500).json({ error: 'Error al remover supervisor' });
     }
 
+    // Hygiene (see remove-role.ts): the revocation is already enforced by
+    // getUserRoles() failing closed; this keeps the cache from serving a stale
+    // active row on the degraded path.
+    const { error: cacheRefreshError } = await supabase.rpc('refresh_user_roles_cache');
+    if (cacheRefreshError) {
+      console.error('[supervisors API] Failed to refresh user_roles_cache:', cacheRefreshError);
+    }
+
     return res.status(200).json({
       success: true,
       message: `${supervisorRole.profiles.first_name} ${supervisorRole.profiles.last_name} removido exitosamente como supervisor de la red "${supervisorRole.redes_de_colegios.name}"`

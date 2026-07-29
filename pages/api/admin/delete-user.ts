@@ -110,6 +110,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: teardownError?.message || 'Failed to delete user profile' });
     }
 
+    // Hygiene (see remove-role.ts): the teardown removed this user's
+    // `user_roles` rows, so drop them from the materialized view too rather
+    // than leaving them to be served on getUserRoles()' degraded path.
+    const { error: cacheRefreshError } = await supabaseAdmin.rpc('refresh_user_roles_cache');
+    if (cacheRefreshError) {
+      console.error('[delete-user API] Failed to refresh user_roles_cache:', cacheRefreshError);
+    }
+
     logDataAccessEvent('USER_DELETED', {
       userId: requestingUser.id,
       targetUserId: userId,

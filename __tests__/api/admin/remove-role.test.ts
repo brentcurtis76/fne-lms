@@ -41,10 +41,11 @@ interface FromCall {
 
 interface Tracker {
   fromCalls: FromCall[];
+  rpcCalls: string[];
 }
 
 function makeTracker(): Tracker {
-  return { fromCalls: [] };
+  return { fromCalls: [], rpcCalls: [] };
 }
 
 function buildClient(
@@ -97,6 +98,13 @@ function buildClient(
         },
       };
       return new Proxy({}, proxyHandler);
+    }),
+    // The handler refreshes `user_roles_cache` after a successful revocation
+    // so the materialized view cannot serve the removed role on
+    // getUserRoles()' degraded (query-error) path.
+    rpc: vi.fn((fn: string) => {
+      tracker.rpcCalls.push(fn);
+      return Promise.resolve({ data: null, error: null });
     }),
   };
 }
@@ -506,6 +514,9 @@ describe('admin/remove-role — POST (ED auth + scoping)', () => {
 
     expect(res._getStatusCode()).toBe(200);
     expect(countUpdates(tracker)).toBe(1);
+    // Cache hygiene: a revocation must not leave the removed role readable in
+    // the materialized view (Z1a-4 / T1).
+    expect(tracker.rpcCalls).toEqual(['refresh_user_roles_cache']);
   });
 
   it('ED: 404 when role not found', async () => {

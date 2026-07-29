@@ -7,6 +7,8 @@
 --
 --   20260728000000 — REVOKE on the view itself (read exposure)
 --   20260729000000 — REVOKE EXECUTE on refresh_user_roles_cache() (RPC surface)
+--   20260729120000 — refresh_user_roles_cache() drops CONCURRENTLY so it can
+--                    actually succeed (it never could: no unique index exists)
 --
 -- Proves:
 --   1. anon          → no view privilege; SELECT throws 42501
@@ -17,6 +19,8 @@
 --                      and still holds EXECUTE on the refresh function
 --   5. SECURITY DEFINER helpers (auth_has_school_access_uuid) still resolve
 --      roles from the view on behalf of an authenticated caller
+--   6. the refresh function actually repopulates the cache end-to-end when
+--      service_role calls it — the regression test for the CONCURRENTLY bug
 --
 -- This also guards against the view or function being re-created: Supabase
 -- default privileges (and CREATE FUNCTION's implicit GRANT TO PUBLIC) would
@@ -30,7 +34,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(18);
+SELECT plan(23);
 
 -- -----------------------------------------------------------------------------
 -- Fixture ids — stable and obvious so test output is easy to read.
@@ -111,6 +115,32 @@ SELECT ok(
 );
 
 -- -----------------------------------------------------------------------------
+-- Definition checks on refresh_user_roles_cache().
+--
+-- CONCURRENTLY requires a unique index with no WHERE clause. This matview has
+-- none and cannot have one: it projects no column that distinguishes duplicate
+-- user_roles rows (approval_status/is_admin/is_teacher are functions of
+-- user_id/role_type; cached_at is now()). Production carries exact full-row
+-- duplicates, so the keyword can never come back without first de-duplicating
+-- the source and re-keying the view — assert it stays gone.
+-- -----------------------------------------------------------------------------
+SELECT ok(
+  (SELECT prosrc NOT ILIKE '%CONCURRENTLY%'
+     FROM pg_proc
+    WHERE proname = 'refresh_user_roles_cache'
+      AND pronamespace = 'public'::regnamespace),
+  'refresh_user_roles_cache(): does not use CONCURRENTLY (no unique index exists)'
+);
+
+SELECT ok(
+  (SELECT proconfig::text[] && ARRAY['search_path=public, pg_temp']
+     FROM pg_proc
+    WHERE proname = 'refresh_user_roles_cache'
+      AND pronamespace = 'public'::regnamespace),
+  'refresh_user_roles_cache(): SECURITY DEFINER pins an explicit search_path'
+);
+
+-- -----------------------------------------------------------------------------
 -- Fixtures (inserted as postgres, bypassing RLS) + populate the view.
 -- Baseline creates the view WITH NO DATA; a plain (non-concurrent) REFRESH is
 -- transactional and rolls back with the rest of the suite.
@@ -183,11 +213,11 @@ SELECT throws_ok(
   'authenticated: even own-row SELECT throws permission denied'
 );
 
--- The RPC surface is closed too. 42501 here is a real discriminator, not a
--- trivially-passing assertion: the function body cannot succeed for anyone
--- today (CONCURRENTLY needs a unique index the matview lacks), but that
--- failure raises 55000. Only a privilege denial raises 42501, so this goes red
--- if the EXECUTE grant ever comes back.
+-- The RPC surface is closed too. This assertion is strictly stronger since
+-- 20260729120000 repaired the function: the body now SUCCEEDS for a permitted
+-- caller (proved in Tier 3), so a returning grant would surface as a passing
+-- call rather than a different error code. 42501 can only come from the
+-- privilege check.
 SELECT throws_ok(
   $$ SELECT public.refresh_user_roles_cache() $$,
   '42501', NULL,
@@ -221,8 +251,30 @@ SELECT throws_ok(
 RESET ROLE;
 
 -- =============================================================================
--- Tier 3 — service_role: degraded-path read still works
+-- Tier 3 — service_role: degraded-path read still works, and the refresh
+-- function actually refreshes.
+--
+-- Regression test for the CONCURRENTLY bug: before 20260729120000 every call
+-- raised 55000 ("cannot refresh materialized view concurrently"), so the cache
+-- silently never updated. A lives_ok alone would be weak, so this adds a new
+-- role assignment, proves the cache does NOT yet contain it, refreshes, and
+-- proves it does — i.e. the function moves data, not just exits cleanly.
 -- =============================================================================
+
+-- Added as postgres, after the fixture's manual refresh, so it is genuinely
+-- absent from the cache at this point.
+INSERT INTO user_roles (user_id, role_type, school_id, is_active)
+VALUES (:docente_uid::uuid, 'equipo_directivo', 9102, true)
+ON CONFLICT DO NOTHING;
+
+SELECT results_eq(
+  $$ SELECT count(*)::int FROM user_roles_cache
+      WHERE user_id = '00000000-0000-0000-0000-000000003ddd'::uuid
+        AND role = 'equipo_directivo' $$,
+  ARRAY[0],
+  'pre-refresh: the new role assignment is absent from the cache'
+);
+
 SELECT set_config('role', 'service_role', true);
 
 SELECT results_eq(
@@ -230,6 +282,19 @@ SELECT results_eq(
       WHERE user_id = '00000000-0000-0000-0000-000000003ddd'::uuid $$,
   ARRAY[1],
   'service_role: still reads role rows from user_roles_cache'
+);
+
+SELECT lives_ok(
+  $$ SELECT public.refresh_user_roles_cache() $$,
+  'service_role: refresh_user_roles_cache() succeeds (was 55000 before the fix)'
+);
+
+SELECT results_eq(
+  $$ SELECT count(*)::int FROM user_roles_cache
+      WHERE user_id = '00000000-0000-0000-0000-000000003ddd'::uuid
+        AND role = 'equipo_directivo' $$,
+  ARRAY[1],
+  'post-refresh: the new role assignment is now cached (refresh moved data)'
 );
 
 RESET ROLE;

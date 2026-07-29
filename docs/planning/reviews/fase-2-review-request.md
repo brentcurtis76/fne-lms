@@ -13,12 +13,16 @@
 | PR | [#25](https://github.com/brentcurtis76/fne-lms/pull/25) |
 | Base SHA | `2786fa8` (`main`) |
 | Chunk Z0B-1 | `2c1f72f`…`0061dbe` — **20 commits**, sealed 2026-07-29 after 6 sanitizer remediation rounds (the §0 ledger's "19 incl. 1 PM docs" counts through `41281b9`; `0061dbe`, the seal commit, is the 20th) |
-| Chunk Z0B-2 | `ace0898`…`6804926` — **6 commits** on top of `0061dbe`, the last being this file |
-| Phase total | **26 commits** (`git rev-list --count 2786fa8..HEAD`) |
+| Chunk Z0B-2 | **5 work commits** (`ace0898`…`f7166dc`, listed below) **+ the docs-only commit(s) carrying this file** |
+| Phase total | `git rev-list --count 2786fa8..HEAD` — **27** at the head that adds this line |
 
-The five work commits are listed below; the sixth is this review-request file,
-which is docs-only and counted above. (Pinning the self-reference deliberately —
-a stale commit count in a review doc was a Sol finding in Z1a.)
+A note on that last figure, because a stale commit count in a review doc was a
+Sol finding in Z1a and I would rather be explicit than quietly wrong: a commit
+cannot contain its own SHA, so this file deliberately pins **only** the five work
+commits by SHA and defers its own to the command above. Z0B-1 contributes 20
+commits (the §0 ledger's "19 incl. 1 PM docs" counts through `41281b9`; the seal
+commit `0061dbe` is the 20th). Verify with `git rev-list` rather than trusting
+this table.
 
 Z0B-2's five commits, in order:
 

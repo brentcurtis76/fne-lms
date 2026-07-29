@@ -110,11 +110,11 @@
  *
  * | # | Path | Fires on | Bounded by |
  * |---|------|----------|------------|
- * | 1 | honorific (i−1)      | `HONORIFICS` | **G1** · **G2** · **G4** |
+ * | 1 | honorific (i−1)      | `HONORIFICS` ∪ `SCHOOL_REGISTER_TITLES` (`isHonorificTrigger`) | **G1** · **G2** · **G4** |
  * | 2 | role-pattern (i−1)   | `ROLE_NOUNS` | **G1** · **G2** · **G4** (which subsumes the old ad-hoc "not itself a role noun" test) |
  * | 3 | role-pattern (i−2)   | `ROLE_NOUNS` | **G1** (both gaps) · **G2** · **G4** · intervening token must be a connector or `llamado`/`llamada` |
- * | 4 | course-pattern (i−1) | `looksLikeCourse` | **G1** · **G2** · **G4** · **G4′** (`NON_PERSON_PROPER`, course sites only) · candidate must be capitalized |
- * | 5 | course-pattern (i−2) | `looksLikeCourse` | **G1** (both gaps) · **G2** · **G4** · **G4′** · candidate must be capitalized |
+ * | 4 | course-pattern (i−1) | `looksLikeCourse` — `COURSE_WORDS` **or a course-code letter** (v1.6) | **G1** · **G2** · **G4** · **G4′** (`NON_PERSON_PROPER`, course sites only) · candidate must be capitalized |
+ * | 5 | course-pattern (i−2) | `looksLikeCourse`, same two triggers | **G1** (both gaps) · **G2** · **G4** · **G4′** · candidate must be capitalized |
  * | 6 | capitalization       | no trigger — the token's own shape | sentence-initial skip · `NON_PERSON_PROPER` veto · `ORG_HEADS` lookbehind at i−1 and i−2 · **G4** · `COMMON_WORDS` downgrades to `uncertain` |
  * | 7 | left-extension       | an already-marked token to its right | plain-space gap only · capitalized only · `COMMON_WORDS` / `NON_PERSON_PROPER` / `ORG_HEADS` · **G4** · **G3** |
  * | 8 | cross-reference      | the vocabulary built by paths 1–7 | creates no vocabulary of its own, so it inherits every guard above · a lowercase `COMMON_WORDS` token is never propagated · **G4**, because propagation is keyed on the ACCENT-STRIPPED norm and `Nina` would otherwise reach every `niña` |
@@ -137,11 +137,16 @@
  *    "**Quedaron** Martina Rojas y Benjamín Soto" used to produce the span
  *    `Quedaron Martina Rojas`. `COMMON_WORDS` cannot carry this — Spanish
  *    sentence openers are an open class — so the guard is morphology instead.
- *  - **G4 — trigger-token candidacy veto** (`isStructuralLexiconToken`, v1.5).
- *    A token belonging to the module's own trigger/structural vocabulary —
- *    `HONORIFICS` ∪ `ROLE_NOUNS` ∪ `COURSE_WORDS` ∪ `ABBREVIATIONS` — is never
+ *  - **G4 — trigger-token candidacy veto** (`isStructuralLexiconToken`, v1.5;
+ *    widened in v1.6). A token belonging to the module's own trigger/structural
+ *    vocabulary — `HONORIFICS` ∪ `SCHOOL_REGISTER_TITLES` ∪ `ROLE_NOUNS` ∪
+ *    `COURSE_WORDS` ∪ `ABBREVIATIONS`, plus **course-code letters** — is never
  *    name material, on ANY path. See the class statement below. **G4′** is the
- *    course-site-only extension of it to `NON_PERSON_PROPER`.
+ *    course-site-only extension of it to `NON_PERSON_PROPER`. The course-code
+ *    letter is the one member whose evidence is positional rather than lexical
+ *    (the `B` of `5°B`, recognized by lookbehind in `tokenize`), and it is in the
+ *    family for the same reason as everything else in it: a class designation is
+ *    not a person.
  *
  * ------------------------------------------------------------------------
  *
@@ -173,15 +178,17 @@
  * | Lexicon | Candidacy | Why |
  * |---------|-----------|-----|
  * | `HONORIFICS`     | **never** (G4) | A title is not the name that follows a title. `jefe`/`jefa` joined in v1.5 and are vetoed as candidates while acting as triggers. |
+ * | `SCHOOL_REGISTER_TITLES` | **never** (G4) | New in v1.6 (F12), and the same two-sided treatment as `jefe`/`jefa`: vetoed as candidates so "La Sra. Directora confirmó…" stays intact, active as triggers so "la directora Marcela" is caught. Collision-audited member by member; no carve-out needed. The set is deliberately incomplete — see residual **R6**. |
  * | `ROLE_NOUNS`     | **never** (G4) | Carve-out: `nina`, see `LEXICON_NAME_COLLISIONS`. |
  * | `COURSE_WORDS`   | **never** (G4) | A course is not a person, however it is capitalized. |
+ * | *course-code letters* | **never** (G4) | New in v1.6 (F14). Not a lexicon — a positional property set in `tokenize` (`courseCodeLetter`): the single letter of `5°B`/`1ºA`. It is also the trigger that makes paths 4/5 fire from a numeric course code, which they never did before. |
  * | `ABBREVIATIONS`  | **never** (G4) | `dr`/`dra`/`prof`/`ing`/`lic` fused exactly like `sra`; they are not triggers, so the veto costs no recall. |
  * | `ORG_HEADS`      | **never** | Predates v1.5: vetoed independently by paths 6, 7 and G2 (both branches). |
  * | `NON_PERSON_PROPER` | **reachable via role/honorific patterns only** | Vetoed by paths 6 and 7, by G2's lowercase branch, and by G4′ at course sites — but NOT at role/honorific sites, because the set holds `julio`, `abril`, `santiago`, `concepcion`. "el alumno Julio" is a catch; "de 5°B, Julio" is the accepted narrow miss that buys it. |
  * | `COMMON_WORDS`   | **downgrade** | Capitalized → `uncertain` (still redacted) on path 6; dismissed outright on G2's lowercase branch and on path 7. Never a hard veto, because it holds the collision names (`rosa`, `sol`, `milagros`) the module exists to catch. |
  * | `NAME_CONNECTORS` | **bridging only** | Never carries evidence and never forms a segment; a span of nothing but connectors emits nothing. |
  * | `STUDENT_REFERENCE_WORDS` | **never** (inherited) | A subset of `ROLE_NOUNS` ∪ {`curso`}, and `curso` ∈ `NON_PERSON_PROPER`. Feeds the §6 density metric only. |
- * | `NON_NAME_ENDINGS` | n/a | Suffixes, not tokens. Read by G2's lowercase branch and by G3. |
+ * | `NON_NAME_ENDINGS` | n/a | Suffixes, not tokens. Read by G2's lowercase branch and by G3, each ending against **its own length floor** (v1.6, F13). |
  *
  * **Titles now survive redaction.** The non-attendee case emits "La Sra.
  * [persona 1] reclamó…" instead of swallowing the title — strictly better
@@ -192,11 +199,38 @@
  *
  * ------------------------------------------------------------------------
  *
+ * **RECOGNIZER COMPLETENESS (v1.6).** v1.5 closed lexicon candidacy: every
+ * lexicon the module HAS now has a stated relationship to name candidacy. v1.6
+ * answers the three questions that survived it, each a different class and each
+ * reproduced by the PM before it was ruled — the vocabulary the module does not
+ * have, the morphology filter it disables by accident, and the trigger it
+ * carries but cannot reach.
+ *
+ *     "La Sra. Directora confirmó la fecha."   →  "La Sra. [persona 1] confirmó…"
+ *     "Al final la profesora dejó la pauta."   →  "…la profesora [persona 1] la pauta…"
+ *     "Los apoderados de 5°B, Antonia…"        →  "…de 5°[persona 1], [persona 2]…"
+ *
+ *  - **F12 — school register.** `director(a)`, `coordinador(a)`, `inspector(a)`,
+ *    `rector(a)`, `docente` and the rest were in NO lexicon, so a job title was
+ *    name material by default. They join the `jefe`/`jefa` pattern:
+ *    `SCHOOL_REGISTER_TITLES` is vetoed as candidates and active as triggers.
+ *  - **F13 — per-ending floor.** The `MIN_ENDING_FILTER_LENGTH` = 5 floor exists
+ *    to protect `juan`/`ivan` from the `an` ending, and it was global, so it also
+ *    switched off the `ó` preterite marker for every 3–4 character preterite.
+ *    A floor now belongs to the ending it protects; `ó` gets 3, audited.
+ *  - **F14 — numeric course codes.** `looksLikeCourse`'s numeric branch was
+ *    unreachable (`WORD_RE` never emits a digit-only token), so `5°B` was not a
+ *    course to this module at all — while its letter `B` WAS name material,
+ *    mangling the course code and inflating the person count. A lookbehind
+ *    replaces the dead lookahead and puts the letter in the G4 family.
+ *
+ * ------------------------------------------------------------------------
+ *
  * **Documented residuals.** R1 and R2 are roster-identity limits, neither a
- * detection gap. R4 and R5 are the priced costs of G4/G4′, both new in v1.5.
- * (v1.2's R3 — punctuation-joined people sharing one segment — is CLOSED by the
- * gap-punctuation split above; what replaces it is an accepted counting
- * artifact, noted after them.)
+ * detection gap. R4 and R5 are the priced costs of G4/G4′, both new in v1.5. R6
+ * is new in v1.6 and is the open-world half of F12. (v1.2's R3 — punctuation-
+ * joined people sharing one segment — is CLOSED by the gap-punctuation split
+ * above; what replaces it is an accepted counting artifact, noted after them.)
  *
  *  - **R1 exact-name collision.** A student genuinely called "Camila Fuentes"
  *    while an attendee of that name exists is textually indistinguishable from
@@ -229,6 +263,24 @@
  *    title appears. Note this is a MISS of one token, not a partial redaction
  *    of a span — the surname was never inside the redacted segment, so the
  *    "never act partially inside a segment" contract is untouched.
+ *  - **R6 open-world titles** (new in v1.6, the other half of F12).
+ *    `SCHOOL_REGISTER_TITLES` is an enumeration, and job titles are an open
+ *    class: "La Sra. Bibliotecaria avisó…", "El Encargado de Convivencia
+ *    pidió…". An unlisted capitalized title is still marked by the
+ *    capitalization layer and still redacts — over-redaction, §12-safe, costing
+ *    minuta wording and never a leak.
+ *
+ *    This one is a residual by CONSTRUCTION rather than by omission, and the
+ *    reason has to be said plainly because the obvious "fix" is a leak: **the
+ *    capitalization layer must keep marking unknown capitalized words.** "La
+ *    Sra. Solange" is a NAME, and nothing distinguishes it from "La Sra.
+ *    Bibliotecaria" except a list. Stop marking capitalized unknowns after a
+ *    title and every unlisted given name in that register walks through
+ *    unredacted; the §12 asymmetry says over-redacting the title is the cheaper
+ *    of the two errors by a wide margin. The only safe way to shrink R6 is to
+ *    lengthen the list — which is why the list is a lexicon with a collision
+ *    audit, not a heuristic. Both halves are fixtures: the unlisted title
+ *    over-redacts, and `La Sra. Solange` redacts.
  *
  * **Accepted counting artifact — inverted unknown overcount** (replaces v1.2's
  * R3). An unknown person written surname-first, "Rojas, Benjamín", is split by
@@ -246,7 +298,7 @@
  * Bump on any change to detection behaviour. Stored alongside a transcript so a
  * newer sanitizer can be detected and re-run (§6 state machine).
  */
-export const SANITIZER_VERSION = 'node-1.5.0';
+export const SANITIZER_VERSION = 'node-1.6.0';
 
 /** Default student-reference density (per 100 words) above which a transcript is flagged. */
 export const DEFAULT_FLAG_DENSITY_THRESHOLD = 2.0;
@@ -333,6 +385,15 @@ export type SanitizeResult = {
  * over-redaction "la jefa [persona 1]". Neither form is a given name, so the
  * containment costs nothing. The general residue stands: an unlisted adjective
  * after a newly promoted trigger over-redacts, in the safe direction.
+ *
+ * v1.6 adds the same containment for `SCHOOL_REGISTER_TITLES` (F12), which
+ * promotes eleven more role titles to triggers and therefore licenses whatever
+ * follows them. The es-CL compound titles are "directora académica",
+ * "coordinadora pedagógica", "inspector general", "orientadora escolar",
+ * "secretaria administrativa" and "directora subrogante", so the adjectives of
+ * those constructions are listed here. None is a given name. The residue is
+ * unchanged and still open-world: an unlisted adjective after a title
+ * over-redacts, in the §12-safe direction.
  */
 const COMMON_WORDS = new Set<string>(
   `a al algo alguna algunas alguno algunos ahora ante antes aqui aquel aquella aquello asi aun aunque
@@ -362,7 +423,9 @@ const COMMON_WORDS = new Set<string>(
    alba aurora estrella flor perla violeta jazmin azucena rocio amparo remedios socorro
    salvador jesus leon lucero prado ribera vega paloma
    dijo hizo vino quiso propuso jefe
-   tecnica tecnico`
+   tecnica tecnico
+   pedagogica pedagogico academica academico escolar escolares general generales
+   administrativa administrativo subrogante subrogantes`
     .split(/\s+/)
     .filter(Boolean)
 );
@@ -426,6 +489,60 @@ const HONORIFICS = new Set<string>(
    tio tia miss mister maestro maestra educador educadora asistente
    jefe jefa
    don. sr. sra. srta.`
+    .split(/\s+/)
+    .filter(Boolean)
+);
+
+/**
+ * **School-register role titles (F12, v1.6).** The es-CL school register has an
+ * enumerable set of role titles that were outside EVERY lexicon before v1.6 and
+ * were therefore name material on the capitalization path: "La Sra. Directora
+ * confirmó la fecha" emitted "La Sra. [persona 1] confirmó…", a person invented
+ * out of a job title.
+ *
+ * They behave exactly like the v1.5 `jefe`/`jefa` promotion, so they are stored
+ * beside `HONORIFICS` rather than inside it — one set, one row in the candidacy
+ * table, one collision audit:
+ *
+ *  - as **candidates** they are vetoed by G4 (`isStructuralLexiconToken`), so
+ *    "La Sra. Directora confirmó…" comes through intact;
+ *  - as **triggers** they license the token after them (`isHonorificTrigger`),
+ *    so "la directora Marcela" catches `Marcela` and "la docente camila" catches
+ *    a lowercased one. "La Directora confirmó" stays clean because `confirmó`
+ *    fails G2's ending filter, not because the trigger did not fire.
+ *
+ * **Collision audit — every member, before admission.** The r4 precedent
+ * (`julio`/`abril`/`santiago` blocking a blanket `NON_PERSON_PROPER` veto) says
+ * a veto is argued member by member. All eleven stems are agentive nouns with no
+ * es-CL given-name collision and no common es-CL surname collision, so none
+ * needs the `LEXICON_NAME_COLLISIONS` treatment and none was dropped. (Contrast
+ * `HONORIFICS`, where `maestro` IS a real if rare surname and pays for it with
+ * residual R5 — nothing of that shape is in this set. Occupational surnames of
+ * the same morphology do exist in Spanish — `Pastor`, `Herrero`, `Escudero` —
+ * but none of the eleven is one of them, which is the check that matters.)
+ *
+ * **Deliberately NOT complete**, and that is the reason residual R6 exists. An
+ * unlisted capitalized title after an honorific — "La Sra. Bibliotecaria" — is
+ * still marked by the capitalization layer and still redacts. That is
+ * over-redaction in the §12-safe direction, and it is the price of the property
+ * on the other side of the same coin: **the capitalization layer MUST keep
+ * marking unknown capitalized words**, because "la Sra. Solange" is a NAME. Any
+ * "fix" that stops marking capitalized unknowns to clean up unlisted titles
+ * turns every unlisted given name into a leak. The only safe way to shrink R6 is
+ * to lengthen this list.
+ */
+const SCHOOL_REGISTER_TITLES = new Set<string>(
+  `director directora directores directoras
+   subdirector subdirectora subdirectores subdirectoras
+   coordinador coordinadora coordinadores coordinadoras
+   inspector inspectora inspectores inspectoras
+   rector rectora rectores rectoras
+   orientador orientadora orientadores orientadoras
+   secretario secretaria secretarios secretarias
+   psicologo psicologa psicologos psicologas
+   supervisor supervisora supervisores supervisoras
+   sostenedor sostenedora sostenedores sostenedoras
+   docente docentes`
     .split(/\s+/)
     .filter(Boolean)
 );
@@ -563,11 +680,26 @@ const NON_NAME_ENDINGS: readonly string[] = [
 ];
 
 /**
- * Short tokens are exempt from the ending filter: "juan" and "ivan" would
- * otherwise be swallowed by `an`. Two characters of stem are required as well,
- * which is what keeps an accent-stripped "aaron" out of `aron`.
+ * **Per-ending length floors (F13, v1.6).** Short tokens are exempt from the
+ * ending filter, because "juan" and "ivan" would otherwise be swallowed by `an`.
+ * Until v1.6 that exemption was GLOBAL at 5 characters — and a floor is a
+ * property of the ending it protects against, not of the filter. The accented
+ * `ó` preterite needs no protection at all, so the floor silently disabled it
+ * for every short preterite: `dejó` is 4 characters, so "la profesora dejó la
+ * pauta" emitted "la profesora [persona 1] la pauta". Same for `sacó`, `pasó`,
+ * `tocó`, `notó`, `miró` — every one of them a false person after any honorific,
+ * title or role noun.
+ *
+ * | Ending | Floor | Audit |
+ * |---|---|---|
+ * | `ó` | **3** | **No es-CL given name ends in accented `-ó`.** Spanish word-final stressed `-ó` is essentially the 3rd-person preterite and nothing else; the name-shaped near misses all end `-é` (`José`, `René`, `Noé`) or `-ón`/`-án` (`Ramón`, `Simón`, `Julián`), none of which this row touches. The 3-and-4 character band it opens (`dio`→`dió`, `vio`→`vió`, `dejó`, `sacó`) is verbs only. No common es-CL surname of 3–4 characters ends in `-ó` either, which matters because G3 runs this filter on capitalized left-extension candidates. |
+ * | *(every other ending)* | 5 | The `juan`/`ivan` protection, unchanged. It is deliberately NOT relaxed here: `-é` and the rest have not been audited, and auditing one ending does not license moving another. A future round that wants a second row must do the same enumeration for that ending. |
+ *
+ * Two characters of stem are required on top of whichever floor applies, which
+ * is what keeps an accent-stripped "aaron" out of `aron`.
  */
-const MIN_ENDING_FILTER_LENGTH = 5;
+const ENDING_FILTER_FLOOR_DEFAULT = 5;
+const ENDING_FILTER_FLOORS: ReadonlyMap<string, number> = new Map([['ó', 3]]);
 const MIN_ENDING_FILTER_STEM = 2;
 
 /* ------------------------------------------------------------------- helpers */
@@ -587,9 +719,61 @@ type Token = {
   end: number;
   capitalized: boolean;
   sentenceInitial: boolean;
+  /** The letter of a numeric course code — the `B` of `5°B`. See `COURSE_CODE_LOOKBEHIND_RE`. */
+  courseCodeLetter: boolean;
 };
 
-const WORD_RE = /[\p{L}][\p{L}\p{M}'’]*/gu;
+/**
+ * A word is a run of letters — with the ORDINAL INDICATORS `º` and `ª` excluded,
+ * which Unicode classifies as `Lo` (a legacy compatibility artifact: they are the
+ * superscript o/a of "1º", "3ª") and `\p{L}` therefore accepts.
+ *
+ * Excluding them is part of F14 and was found while implementing it. `°` (DEGREE
+ * SIGN) is a symbol, so "5°B" already tokenized as the bare letter `B` — but
+ * "1ºA" tokenized as **`ºA`**, a two-character "word" that no course recognizer
+ * could match and that the role-pattern layer marked as an uncertain lowercase
+ * name: "Los apoderados de 1ºA firmaron" → "de 1[persona 1] firmaron". Same
+ * defect as the `5°B` instance, same mangled course code, same inflated count,
+ * reachable only through the ordinal spelling.
+ *
+ * The one other effect is a correction: a standalone "3ª" used to contribute the
+ * token `ª` — a word containing no letters — to `wordCount`, and now contributes
+ * none. That moves the §6 density denominator on texts carrying bare ordinals.
+ */
+const WORD_RE = /(?![ºª])[\p{L}](?:(?![ºª])[\p{L}\p{M}'’])*/gu;
+
+/**
+ * **F14 — numeric course codes, the lookbehind that replaces a dead lookahead.**
+ *
+ * `WORD_RE` matches letter-initial runs only, so a pure-digit token never
+ * exists. `looksLikeCourse` used to test `COURSE_NUMERIC_RE` against `token.raw`
+ * and then peek FORWARD for a `°`, which meant its numeric branch could not fire
+ * on any input at all — provably dead code, and the reason `5°B` was never
+ * recognized as a course.
+ *
+ * What `5°B` actually produces is the bare one-letter token `B`, whose evidence
+ * is entirely positional: the digits and the ordinal mark sit in the raw text
+ * immediately to its LEFT, where no token can carry them. So the recognizer is a
+ * lookbehind over the raw text, and the letter it identifies is a course code on
+ * both counts that matter — never name material (it joins the G4 family), and a
+ * genuine `looksLikeCourse` trigger, which is what finally makes the course
+ * i-1/i-2 patterns fire from `5°B`.
+ *
+ * Bounded on both sides so this stays O(1) per token: at most two digits, at
+ * most three spaces around the mark, and a fixed lookbehind window. That accepts
+ * `5°B`, `1ºA`, `5 ° B` and rejects a sentence-initial `B` (nothing to its left).
+ * It also accepts the `C` of a stray "25 °C", which is over-veto in a domain
+ * where a temperature unit was never going to be a person.
+ */
+const COURSE_CODE_LOOKBEHIND_RE = /\d{1,2}\s{0,3}[°º]\s{0,3}$/;
+const COURSE_CODE_LOOKBEHIND_WINDOW = 12;
+
+function isCourseCodeLetter(raw: string, start: number, text: string): boolean {
+  if (raw.length !== 1) return false;
+  return COURSE_CODE_LOOKBEHIND_RE.test(
+    text.slice(Math.max(0, start - COURSE_CODE_LOOKBEHIND_WINDOW), start)
+  );
+}
 
 function tokenize(text: string): Token[] {
   const tokens: Token[] = [];
@@ -603,6 +787,7 @@ function tokenize(text: string): Token[] {
       end: start + raw.length,
       capitalized: raw[0] !== raw[0].toLowerCase(),
       sentenceInitial: false,
+      courseCodeLetter: isCourseCodeLetter(raw, start, text),
     });
   }
 
@@ -652,8 +837,7 @@ function patternGapBlocked(tokens: Token[], from: number, to: number, text: stri
   return false;
 }
 
-/** Course designations: "5°B", "5 B", "1ºA", "octavo B". */
-const COURSE_NUMERIC_RE = /^\d{1,2}$/;
+/** Course designations: "quinto básico", "octavo B", and the `B` of "5°B". */
 const COURSE_WORDS = new Set<string>(
   `primero segundo tercero cuarto quinto sexto septimo octavo
    primer tercer basico basica medio media kinder prekinder`
@@ -661,11 +845,16 @@ const COURSE_WORDS = new Set<string>(
     .filter(Boolean)
 );
 
-function looksLikeCourse(token: Token, text: string): boolean {
-  if (COURSE_WORDS.has(token.norm)) return true;
-  if (!COURSE_NUMERIC_RE.test(token.raw)) return false;
-  // "5°B" tokenizes as the letter run "B" preceded by "5°"; check the raw gap.
-  return /[°º]/.test(text.slice(token.end, token.end + 2));
+/**
+ * v1.6 (F14): the numeric branch is a LOOKBEHIND on the course-code letter, set
+ * once in `tokenize`. It replaces a `COURSE_NUMERIC_RE` + forward-`°` branch
+ * that `WORD_RE` made unreachable — a digit-only token cannot exist, so that
+ * branch never fired and this predicate was word-only in practice. Both the dead
+ * regex and the lookahead are removed; `courseCodeLetter` is what makes "de 5°B,
+ * Antonia" a course pattern rather than an accident of the capitalization layer.
+ */
+function looksLikeCourse(token: Token): boolean {
+  return COURSE_WORDS.has(token.norm) || token.courseCodeLetter;
 }
 
 /**
@@ -711,13 +900,30 @@ const LEXICON_NAME_COLLISIONS = new Set<string>(['nina']);
  * `nameCandidateEvidence`.
  */
 function isStructuralLexiconToken(token: Token): boolean {
+  // v1.6 (F14). A course-code letter is structural for exactly the reason a
+  // course WORD is — it designates a class, not a person — but its evidence is
+  // positional rather than lexical, so it is tested before any set lookup and
+  // ahead of the collision carve-out (a one-letter token can never be `nina`).
+  if (token.courseCodeLetter) return true;
   if (LEXICON_NAME_COLLISIONS.has(token.raw.normalize('NFC').toLowerCase())) return false;
   return (
     HONORIFICS.has(token.norm) ||
+    SCHOOL_REGISTER_TITLES.has(token.norm) ||
     ROLE_NOUNS.has(token.norm) ||
     COURSE_WORDS.has(token.norm) ||
     ABBREVIATIONS.has(token.norm)
   );
+}
+
+/**
+ * Does this token license the token after it as a person name (path 1)?
+ *
+ * `HONORIFICS ∪ SCHOOL_REGISTER_TITLES` — one predicate so the two sets can
+ * never drift apart at the call site, and so F12's promotion is the same
+ * mechanism as v1.5's `jefe`/`jefa` promotion rather than a parallel one.
+ */
+function isHonorificTrigger(token: Token): boolean {
+  return HONORIFICS.has(token.norm) || SCHOOL_REGISTER_TITLES.has(token.norm);
 }
 
 /* --------------------------------------------------------------- attendees */
@@ -811,12 +1017,23 @@ function strongest(a: Evidence | undefined, b: Evidence): Evidence {
   return b.confidence === 'high' ? b : a;
 }
 
-/** Does this surface carry an ending no Spanish given name carries? Case-blind by design (G3 tests capitalized tokens). */
+/**
+ * Does this surface carry an ending no Spanish given name carries? Case-blind by
+ * design (G3 tests capitalized tokens).
+ *
+ * The length floor is consulted PER ENDING (F13): each ending is tested against
+ * its own floor rather than against one global minimum, so `an` keeps the
+ * 5-character floor that protects `juan`/`ivan` while `ó` — which protects
+ * nothing, see the floor table — reaches down to 3 and finally filters the short
+ * preterites.
+ */
 function carriesNonNameEnding(token: Token): boolean {
   const form = token.raw.normalize('NFC').toLowerCase();
-  if (form.length < MIN_ENDING_FILTER_LENGTH) return false;
   return NON_NAME_ENDINGS.some(
-    (ending) => form.length - ending.length >= MIN_ENDING_FILTER_STEM && form.endsWith(ending)
+    (ending) =>
+      form.length >= (ENDING_FILTER_FLOORS.get(ending) ?? ENDING_FILTER_FLOOR_DEFAULT) &&
+      form.length - ending.length >= MIN_ENDING_FILTER_STEM &&
+      form.endsWith(ending)
   );
 }
 
@@ -922,7 +1139,11 @@ function collectEvidence(tokens: Token[], text: string): Map<number, Evidence> {
     // no longer does is mark the VERB after an honorific that is also an
     // ordinary sentence subject: "La profesora terminaba…", "El profesor
     // entregó…", "La señora dijo…" all used to yield a person.
-    if (previous && HONORIFICS.has(previous.norm) && reaches(i - 1)) {
+    // v1.6 (F12) widens the trigger set with the es-CL school register —
+    // "la directora Marcela", "la docente camila" — through the SAME predicate,
+    // so the new members inherit G1/G2 and the G4 candidacy veto with no new
+    // branch to keep in step.
+    if (previous && isHonorificTrigger(previous) && reaches(i - 1)) {
       const licensed = nameCandidateEvidence(token, 'honorific');
       if (licensed) mark(i, licensed);
     }
@@ -952,11 +1173,11 @@ function collectEvidence(tokens: Token[], text: string): Map<number, Evidence> {
     // --- Layer: course pattern. "de 5°B, Martina", "quinto básico, Antonia".
     // Capitalization stays a hard requirement here — routing through the shared
     // predicate adds guards, it does not relax this one.
-    if (previous && looksLikeCourse(previous, text) && token.capitalized && reaches(i - 1)) {
+    if (previous && looksLikeCourse(previous) && token.capitalized && reaches(i - 1)) {
       const licensed = nameCandidateEvidence(token, 'course-pattern');
       if (licensed) mark(i, licensed);
     }
-    if (i >= 2 && looksLikeCourse(tokens[i - 2], text) && token.capitalized && reaches(i - 2)) {
+    if (i >= 2 && looksLikeCourse(tokens[i - 2]) && token.capitalized && reaches(i - 2)) {
       const licensed = nameCandidateEvidence(token, 'course-pattern');
       if (licensed) mark(i, licensed);
     }

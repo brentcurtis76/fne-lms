@@ -207,40 +207,49 @@ Fixtures: `__tests__/lib/zoom/fixtures/`, all names synthetic, es-CL classroom
 register. The same JSON is scored by the Python NER spike (§4), so every recall
 number in this document is comparable.
 
-Current version **`node-1.5.0`**, after five remediation rounds recorded in
-§3.5 → §3.5.4. r4 closed the *trigger-reach* class (where a trigger may mark).
-**Z0B-1r5 closes the complementary question r4 never asked — may the trigger
-token ITSELF be marked?** — and the answer had been yes on three paths at once,
-which is how capitalized titles ("Sra", "Profesora", "Doña", "Alumna") and
-course vocabulary ("Quinto", "Básico") were fusing into person spans and
-destroying the ATTENDEES standing beside them. Every lexicon in the module now
-has an explicit, tested relationship to name candidacy (§3.5.4). Residual list:
-R1, R2, the two priced costs of this round (R4, R5), the accepted
-inverted-unknown overcount and the plan-sanctioned adversarial misses.
+Current version **`node-1.6.0`**, after six remediation rounds recorded in
+§3.5 → §3.5.5. r4 closed the *trigger-reach* class (where a trigger may mark);
+r5 closed *lexicon candidacy* (may a trigger token itself be marked). Both hold
+unchanged. **Z0B-1r6 closes the three questions that survived r5, and they are
+three DIFFERENT classes rather than one** — the vocabulary the module does not
+have (school-register titles, F12), a morphology filter switched off by a global
+length floor (short accented preterites, F13), and a course-code recognizer that
+could not fire on the spelling it was written for (numeric codes, F14). All
+three were reproduced by the PM on `0011f8c` before they were ruled (§3.5.5).
+
+**The module's known-defect list is now EMPTY.** What remains is argued
+residuals: R1, R2, R4, R5, **R6** (open-world titles, new and by construction),
+the accepted inverted-unknown overcount, and the 7 plan-sanctioned adversarial
+misses (§3.2).
 
 ### 3.1 Must-catch suite — BLOCKING
 
-53 cases, 56 mentions of explicit student references: role nouns
+63 cases, 61 mentions of explicit student references: role nouns
 ("la estudiante X"), honorifics (don/doña, Sra., profe, tía), course
 designations ("de 5°B, Antonia"), bare capitalized names, compound names,
 repeat mentions, the 11-case attendee-collision family built across Z0B-1r
 (§3.5) and Z0B-1r2 (§3.5.1), the 3-case segment-split family plus the
 lowercased role-noun name added in Z0B-1r3 (§3.5.2), the 3-case **guard-cost**
 family added in Z0B-1r4 (§3.5.3) — the cases that prove the trigger-gap and
-plausibility guards did not buy precision with recall — and the 13-case
-**trigger-token-candidacy** family added in Z0B-1r5 (§3.5.4).
+plausibility guards did not buy precision with recall — the 13-case
+**trigger-token-candidacy** family added in Z0B-1r5 (§3.5.4), and the 10-case
+**recognizer-completeness** family added in Z0B-1r6 (§3.5.5).
 
-**Result: 56/56 — 100%** (26/26 shipped in Z0B-1; +5 cases / 5 mentions in
+**Result: 61/61 — 100%** (26/26 shipped in Z0B-1; +5 cases / 5 mentions in
 Z0B-1r; +7 cases / 9 mentions in Z0B-1r2; +3 cases / 6 mentions in Z0B-1r3;
-+3 cases / 4 mentions in Z0B-1r4; +13 cases / 6 mentions in Z0B-1r5).
++3 cases / 4 mentions in Z0B-1r4; +13 cases / 6 mentions in Z0B-1r5; +10 cases
+/ 5 mentions in Z0B-1r6).
 
-The r5 family is deliberately **preserve-weighted**: 13 cases carrying only 6
-new mentions but 12 new `mustPreserve` assertions. That ratio is the shape of
-the defect it guards — r5's instances redacted the right mention for the wrong
-reason and destroyed an attendee doing it, so a recall-only score saw nothing.
-Suite-wide there are now **30 `mustPreserve` assertions against 56 mentions**;
-three rounds running, the thing that hid the defect was an assertion the suite
-did not make, not a case it did not contain.
+The r5 and r6 families are both deliberately **preserve-weighted** — 23 cases
+between them carrying 11 new mentions but 22 new `mustPreserve` assertions.
+That ratio is the shape of the defects they guard: these instances redacted the
+right mention for the wrong reason, or invented a person out of a job title or a
+course code, and a recall-only score saw nothing either time. Suite-wide there
+are now **40 `mustPreserve` assertions against 61 mentions**; four rounds
+running, the thing that hid the defect was an assertion the suite did not make,
+not a case it did not contain. r6 makes the point at its sharpest: **all 61
+mentions are caught on the old module too** (§3.5.5) — every single r6 failure
+is an over-redaction, a destroyed attendee, a miscount or a spurious flag.
 
 Enforced as ordinary vitest assertions, so a miss is a failing test and a red
 build. There is no threshold to tune: the repo's student-PII rule is absolute
@@ -248,9 +257,12 @@ and a sanitizer miss is a defect, not an accepted rate.
 
 The suite also asserts what must **survive**: attendee full names, attendees
 referred to by first name only, roster names in inverted order, institution
-names (`Colegio San Mateo`, `Fundación Nueva Educación`), and — new in r5 —
-the **title beside a redacted name** (`la Sra. [persona 1]`, `La Alumna
-[persona 1]`, `El Dr. [persona 1]`).
+names (`Colegio San Mateo`, `Fundación Nueva Educación`), the **title beside a
+redacted name** added in r5 (`la Sra. [persona 1]`, `La Alumna [persona 1]`,
+`El Dr. [persona 1]`), and — new in r6 — **school-register titles**
+(`La Sra. Directora confirmó`, `La Directora Marcela`), **short preterites after
+a title** (`la profesora dejó la pauta`) and **numeric course codes**
+(`de 5°B, [persona 1] entre ellos`, `de 1ºA, [persona 1] entre ellos`).
 
 ### 3.2 Adversarial suite — MONITORING, no threshold asserted
 
@@ -260,8 +272,8 @@ gated on it.
 **Node-only recall: 78.8% (26/33).** Re-measured unchanged after the Z0B-1r
 preservation-rule change, after the Z0B-1r2 segment-classification change, after
 the Z0B-1r3 role-pattern filter + punctuation split, after the Z0B-1r4 class
-closure, and after the Z0B-1r5 candidacy closure (§3.5): identical 26/33 six
-times over, same seven misses, same
+closure, after the Z0B-1r5 candidacy closure and after the Z0B-1r6 recognizer
+closure (§3.5): identical 26/33 seven times over, same seven misses, same
 per-category split, zero over-redactions. Expected for r1/r2 — every miss here
 is a detection failure, and the rules those rounds changed decide what happens to
 spans that *were* detected. r3 *does* touch detection, but only the role-pattern
@@ -299,6 +311,20 @@ different mechanism than it did on r4 (a candidacy veto rather than the absence
 of a rule), and the `mustPreserve` assertion r4 added is what proves the
 substitution did not cost anything.
 
+**r6 likewise changes nothing here, checked the same way.** No adversarial
+fixture's text was edited, none was added, no score moved: **26/33 before →
+26/33 after**, same seven misses, same per-category split, **0 over-redactions
+before → 0 after**. This is the round where that claim needed checking hardest,
+because r6 both widens a trigger set (F12) and loosens a filter floor (F13) —
+either could plausibly have moved a mention. Neither did: no adversarial fixture
+puts a school-register title beside a name, and the misses are all
+capitalization-signal failures (§3.2's table), which no amount of new trigger
+vocabulary reaches. The one case worth naming is **adv-12**
+(`La asistente contó que pancho llegó…`), because F13 lowers the `ó` floor and
+`contó` is 5 characters — already above the old floor, so the sentence is
+processed identically and `La asistente contó` still survives via the same
+`mustPreserve` assertion r4 added.
+
 | Category | Recall | Caught |
 |---|---|---|
 | compound-name | 100.0% | 6/6 |
@@ -329,8 +355,8 @@ it; §4 shows what closing it actually costs.
 
 ### 3.3 Precision suite — BLOCKING
 
-**1731 words / 34 paragraphs** of realistic name-free consulting-session speech,
-which must come through **byte-identical**. Four blocks: the original 594 words
+**1886 words / 37 paragraphs** of realistic name-free consulting-session speech,
+which must come through **byte-identical**. Five blocks: the original 594 words
 / 16 paragraphs (also the ffmpeg spike's TTS corpus, written accent-free);
 **631 words / 9 paragraphs added in Z0B-1r3, built around ROLE NOUNS** — the
 construction the original block never contained, which is exactly why defect D3
@@ -344,20 +370,30 @@ tokens: course designations (`En Quinto Básico`, `En Primero Medio`, `la
 cobertura de Cuarto Básico`), the compound title `Profesor Jefe` together with
 the `jefa técnica` construction that promoting `jefe`/`jefa` to `HONORIFICS`
 would otherwise have over-redacted, and standalone title-case honorifics and
-role words (`La Educadora de Kinder`, `el Asistente de la sala chica`).
+role words (`La Educadora de Kinder`, `el Asistente de la sala chica`); and
+**155 words / 3 paragraphs added in Z0B-1r6**, one per fix — SCHOOL-REGISTER
+titles in both their title-case (`La Directora del establecimiento`, `La
+Coordinadora preparó`, `El Inspector avisó`) and compound es-CL forms (`la
+coordinadora pedagógica`, `la secretaria administrativa`), which the F12
+promotion would over-redact without its `COMMON_WORDS` containment; SHORT
+ACCENTED PRETERITES immediately after a title (`la profesora dejó`, `el
+coordinador pasó`, `la educadora sacó`); and NUMERIC COURSE CODES in all three
+spellings (`de 5°B`, `En 1ºA`, `de 8°A`).
 
 Honorific-*addressed* people are deliberately **not** here. "La Sra. Elena" is
 name-bearing, so it belongs in a suite that asserts a redaction, not in a corpus
 that asserts zero; the r5 attendee cases live in must-catch (mc-41…mc-44).
 
-**Result: 0 redactions, 0 persons, status `sanitized`** (density 1.62 < 2.0) —
+**Result: 0 redactions, 0 persons, status `sanitized`** (density 1.64 < 2.0) —
 unchanged after the Z0B-1r rule change, the Z0B-1r2 segment-classification
-change, the Z0B-1r3 role-pattern filter, the Z0B-1r4 class closure and the
-Z0B-1r5 candidacy closure (§3.5); byte-identical output on every paragraph and
-on the joined corpus, six measurements running. The original block contains no
-name spans at all, so nothing in it reaches the preservation decision; the r3,
-r4 and r5 blocks reach the *detection* decision on every sentence, which is the
-point of them.
+change, the Z0B-1r3 role-pattern filter, the Z0B-1r4 class closure, the
+Z0B-1r5 candidacy closure and the Z0B-1r6 recognizer closure (§3.5);
+byte-identical output on every paragraph and on the joined corpus, seven
+measurements running. (Density moves 1.62 → 1.64 purely because the corpus grew:
+the numerator is still 0 redactions plus the same student-keyword count per
+word.) The original block contains no name spans at all, so nothing in it
+reaches the preservation decision; the r3, r4, r5 and r6 blocks reach the
+*detection* decision on every sentence, which is the point of them.
 
 Every one of the six r4 paragraphs was **reproduced as a redaction on
 `fce2476` before the guards landed** — 5 of 6 damaged, 12 redactions, and the
@@ -368,9 +404,12 @@ redactions read paragraph-by-paragraph, and the joined 34-paragraph corpus at
 figure exceeds the per-paragraph sum because cross-reference propagates a
 marked `Profesora`/`Educadora`/`Básico` across the whole corpus once any single
 paragraph marks it — which is itself a measure of how far one fused title
-travels.) A blocking corpus that cannot reach a construction cannot guard it,
-and this is now the **fourth round running** in which the gap in the corpus, not
-the gap in the code, is what let a defect survive.
+travels.) All three r6 paragraphs were **reproduced as redactions on `0011f8c`**
+— 3 of 3 damaged, 8 redactions read paragraph-by-paragraph (4 + 2 + 2), and the
+joined 37-paragraph corpus at **11 redactions / 7 persons / density 2.23 →
+status `flagged`**. A blocking corpus that cannot reach a construction cannot
+guard it, and this is now the **fifth round running** in which the gap in the
+corpus, not the gap in the code, is what let a defect survive.
 
 This suite exists because recall alone is a trap. The obvious fix for the
 sentence-initial misses above — redact every unrecognized capitalized sentence
@@ -388,7 +427,7 @@ is the honest reason this layer stops where it does.
 
 ### 3.4 Behaviour contracts
 
-Beyond recall, 76 unit tests cover the properties the pipeline depends on:
+Beyond recall, 92 unit tests cover the properties the pipeline depends on:
 
 - **Stable tokens.** The same person mentioned three times yields one
   `[persona N]`; two people yield two numbers; numbering starts at 1.
@@ -448,6 +487,30 @@ Beyond recall, 76 unit tests cover the properties the pipeline depends on:
   transcript contaminates the token (the caveat is unchanged by r5), and routed
   back through whole-span coverage when the attendee is named in full behind the
   title (`La Sra. Elena Vidal`).
+- **School register — F12** (§3.5.5). Five title-case register titles are
+  asserted never marked; the trigger half is asserted on **two** members
+  (`directora`, `docente`) in their LOWERCASE form, where the new trigger is the
+  only path that can reach them; the title survives beside a redacted name
+  (`la directora [persona 1]`); an attendee addressed by a register title is
+  preserved whole (`La Directora Marcela`); the five compound es-CL role titles
+  the promotion reaches into are asserted NOT over-redacted; and **R6 is
+  asserted from both sides in one test** — `La Sra. Bibliotecaria` over-redacts
+  and `La Sra. Solange` redacts, which is what makes the trade explicit rather
+  than implied.
+- **Per-ending floor — F13** (§3.5.5). Four 4-character preterites after a title
+  are asserted clean (`dejó`, `sacó`, `pasó`, `tocó`); the 3-character boundary
+  itself is asserted (`dió`); and both directions of "no other floor moved" are
+  locked — `juan`/`ivan` are still caught next to a role noun (the `an` floor is
+  where it was) and `josé` is still caught (the un-audited `é` floor did not
+  move with it).
+- **Numeric course codes — F14** (§3.5.5). The code letter is asserted never
+  name material, with and without a name beside it; the course pattern is
+  asserted to genuinely **fire** from a numeric code (the assertion is the
+  `layer: 'course-pattern'` label, not just the redaction); the spaced and
+  ordinal-indicator spellings are asserted (`5 ° B`, `1ºA`); a sentence-initial
+  lone `B` with nothing numeric behind it is untouched; the ordinal indicators
+  are asserted excluded from words (`1ºA`, `3ª`); and G4′ is asserted still to
+  hold at the new trigger site (`En 5°B Lenguaje`).
 - **Purity.** Inputs are not mutated; repeated calls are byte-identical.
 - **Uncertain never passes through.** A capitalized ordinary word mid-sentence
   ("Rosa") is recorded `confidence: 'uncertain'` and **redacted**. A test
@@ -1185,6 +1248,209 @@ persons, byte-identical** on 1731 words / 34 paragraphs, joined status
 `sanitized` (density 1.62 < 2.0); **278 sanitizer tests green in 4 files**
 (was 212).
 
+### 3.5.5 Recognizer completeness — sealing round Z0B-1r6 (`SANITIZER_VERSION node-1.6.0`)
+
+**Three classes, not one.** r5 closed lexicon candidacy: every lexicon the
+module HAS now has a stated, tested relationship to name candidacy, and that
+closure holds unchanged here. r5's own report correctly refused to fix the three
+things it had found beyond that boundary, handing them forward as open items
+12–14 rather than patching them unruled. All three are **different classes** —
+from r5 and from each other:
+
+| # | Fix | Class | Why r5's closure could not reach it |
+|---|---|---|---|
+| 12 | **F12 school register** | *vocabulary the module does not have* | G4 vetoes lexicon MEMBERS. `directora`, `coordinadora`, `inspector`, `docente` were in **no** lexicon, so to this module a job title was an ordinary capitalized unknown. Nothing to veto. |
+| 13 | **F13 per-ending floor** | *a morphology filter disabled by a global constant* | Not about candidacy at all. `MIN_ENDING_FILTER_LENGTH = 5` exists to protect `juan`/`ivan` from the `an` ending, and being global it also switched off the `ó` marker for every short preterite. |
+| 14 | **F14 numeric course codes** | *a trigger the module carries but cannot reach* | `looksLikeCourse`'s numeric branch was **provably dead** — `WORD_RE` matches letter-initial runs, so a digit-only token never exists and the branch never fired on any input. |
+
+**Reproduced by the PM on `0011f8c`** before any of it was ruled; every instance
+is a fixture now:
+
+| Roster | Input | `node-1.5.0` | `node-1.6.0` |
+|---|---|---|---|
+| *(any)* | `La Sra. Directora confirmó la fecha…` | `La Sra. [persona 1] confirmó…` — **a person invented out of a job title** | `La Sra. Directora confirmó…` |
+| `Marcela Soto` | `La Directora Marcela propuso…` | `La [persona 1] propuso…` — **attendee destroyed** | `La Directora Marcela propuso…` |
+| *(any)* | `Al final la profesora dejó la pauta…` | `…la profesora [persona 1] la pauta…` — **a verb is a person** | unchanged |
+| *(any)* | `Los apoderados de 5°B, Antonia entre ellos…` | `de 5°[persona 1], [persona 2] entre ellos…` — **course code mangled, count inflated to 2** | `de 5°B, [persona 1] entre ellos…` |
+| *(any)* | `Los apoderados de 5°B firmaron el acta.` | `de 5°[persona 1] firmaron…` — **one invented person, zero students in the sentence** | unchanged |
+| *(any)* | `Los apoderados de 1ºA, Antonia entre ellos…` | `de 1[persona 1], [persona 2] entre ellos…` | `de 1ºA, [persona 1] entre ellos…` |
+
+**F12 — school-register title lexicon.** `SCHOOL_REGISTER_TITLES` holds eleven
+stems in singular and plural, masculine and feminine: `director`,
+`subdirector`, `coordinador`, `inspector`, `rector`, `orientador`, `secretario`,
+`psicólogo`, `supervisor`, `sostenedor`, `docente`. They get the v1.5
+`jefe`/`jefa` treatment exactly — **vetoed as candidates** by G4, so "La Sra.
+Directora confirmó…" comes through intact, and **active as triggers**, so "la
+directora Marcela" is caught with layer `honorific` and the lowercase-only "la
+docente antonia" is caught at all (a clean miss on `0011f8c`). Stored as their
+own set rather than merged into `HONORIFICS`, so the candidacy table keeps one
+row per argued decision.
+
+The observation that makes the fix worth making rather than merely arguable:
+"La Directora Marcela" was **destroying the attendee** in precisely the way r5
+closed for `Profesora` — the same failure mode re-entering through vocabulary no
+lexicon contained.
+
+**F12 collision audit — every member, before admission.** The r4 precedent
+(`julio`/`abril`/`santiago` blocking a blanket `NON_PERSON_PROPER` veto) says a
+veto is argued member by member, not asserted:
+
+| Member (all four inflections) | Given-name collision | Surname collision | Verdict |
+|---|---|---|---|
+| `director` / `directora` | none | none | admit |
+| `subdirector` / `subdirectora` | none | none | admit |
+| `coordinador` / `coordinadora` | none | none | admit |
+| `inspector` / `inspectora` | none | none | admit |
+| `rector` / `rectora` | none | none | admit |
+| `orientador` / `orientadora` | none | none | admit |
+| `secretario` / `secretaria` | none | none | admit |
+| `psicólogo` / `psicóloga` | none | none | admit |
+| `supervisor` / `supervisora` | none | none | admit |
+| `sostenedor` / `sostenedora` | none | none | admit |
+| `docente` / `docentes` | none | none | admit |
+
+**Nothing dropped, and no `LEXICON_NAME_COLLISIONS` carve-out needed** — unlike
+`ROLE_NOUNS`, where `niña`/`Nina` forced one, and unlike `HONORIFICS`, where
+`maestro` is a real if rare es-CL surname and pays for it with residual R5. The
+check that mattered is the surname column: Spanish does form occupational
+surnames of this exact morphology (`Pastor`, `Herrero`, `Escudero`), and none of
+the eleven is one of them. Two of the four inflections are also checked against
+`NON_PERSON_PROPER`, which already holds the *abstract* nouns of the same family
+(`direccion`, `rectoria`, `coordinacion`, `orientacion`) — different tokens, no
+overlap, no behaviour change to either set.
+
+**F12 cost containment**, the V4 `jefa técnica` lesson applied to eleven
+triggers at once. Promoting a word to a trigger licenses whatever follows it,
+and the es-CL compound titles put an ADJECTIVE there: "coordinadora
+pedagógica", "directora académica", "inspector general", "orientadora escolar",
+"secretaria administrativa", "directora subrogante". Those adjectives join
+`COMMON_WORDS` (none is a given name, so the containment costs no recall) and
+the constructions are asserted in the contract suite and in precision paragraph
+35. Two properties are worth separating: what makes the promotion **affordable**
+is `NON_NAME_ENDINGS`, not the word list — "las coordinadoras dijeron",
+"la Directora confirmó", "el coordinador pasó" are all clean because the
+ending filter stops the verb, which is a rule rather than an enumeration. The
+word list is only for adjectives, where no rule reaches. `mc-58` is the fixture
+that goes red if a future round widens the register without the ending filter
+behind it.
+
+**F13 — per-ending floor.** A length floor is a property of the ending it
+protects against, not of the filter. The global floor of 5 exists for one
+reason — `juan` and `ivan` versus the `an` ending — and being global it silently
+disabled the accented-`ó` preterite marker for every short preterite. `ó` now
+carries its own floor of 3:
+
+| Ending | Floor | Audit |
+|---|---|---|
+| `ó` | **3** | **No es-CL given name ends in accented `-ó`.** Word-final stressed `-ó` in Spanish is essentially the 3rd-person preterite and nothing else; the name-shaped near misses end `-é` (`José`, `René`, `Noé`) or `-ón`/`-án` (`Ramón`, `Simón`, `Julián`), none of which this row touches. The 3-and-4 character band it opens is verbs only (`dió`, `vió`, `dejó`, `sacó`, `pasó`, `tocó`, `notó`, `miró`). No common es-CL surname of 3–4 characters ends in `-ó` either — which had to be checked separately, because G3 runs this same filter on **capitalized** left-extension candidates, i.e. on surnames. |
+| *(every other ending)* | 5 | Unchanged. Deliberately not relaxed: `-é` and the rest have **not** been audited, and auditing one ending does not license moving another. The contract suite locks both sides — `juan`/`ivan` still caught next to a role noun, and `josé` still caught, so a future round cannot quietly generalise the `ó` row. |
+
+The audit note lives in the code beside the floor table, so the argument travels
+with the constant. Unchanged and unrelated: an accent-stripped `dejo` after a
+title still redacts as `uncertain` — that is the pre-existing accent-loss trade
+the module makes everywhere (§3.2), not a gap F13 opens.
+
+**F14 — numeric course codes.** Both halves, as ruled:
+
+- **(a)** A single-letter token whose preceding raw text matches
+  `/\d{1,2}\s*[°º]\s*$/` is a **course-code letter**, set once in `tokenize` as
+  a positional property (`courseCodeLetter`). It joins the **G4 family** — never
+  name material on any path — and it **satisfies `looksLikeCourse`**, so the
+  course i-1/i-2 patterns genuinely fire from `5°B` for the first time. The
+  assertion that proves it is the layer label: `Antonia` in "de 5°B, Antonia" is
+  now `course-pattern`, where before it was caught by the capitalization layer
+  as an accident while the course code was destroyed beside it.
+- **(b)** `COURSE_NUMERIC_RE` and the forward `°`-lookahead are **deleted**.
+  They were unreachable — `WORD_RE` matches letter-initial runs, so
+  `COURSE_NUMERIC_RE.test(token.raw)` could never be true — so the removal is
+  behaviour-free and the lookbehind in (a) is what replaces them.
+
+Result asserted exactly: `Los apoderados de 5°B, [persona 1] entre ellos,
+firmaron.` — code intact, `Antonia` redacted once, `personCount` 1. Plain `5°B`
+with no adjacent name is untouched, which on `0011f8c` was itself a defect
+(`de 5°[persona 1] firmaron` — one invented person in a sentence containing no
+students at all).
+
+**Same-class discovery, fixed here and declared.** Per the round's scope rule:
+**the ordinal-indicator spelling `1ºA`.** Unicode classifies `º` (U+00BA
+MASCULINE ORDINAL INDICATOR) as `Lo` — a *letter* — so `\p{L}` accepted it and
+"1ºA" tokenized as the two-character word **`ºA`**. That token matched no course
+recognizer and was marked by the role-pattern layer as an uncertain lowercase
+name, giving `de 1[persona 1] firmaron`: the same defect as the `5°B` instance,
+the same mangled course code, the same inflated count, reachable only through
+this spelling — and **invisible to a fix written against `°`** (U+00B0, which is
+a symbol and was therefore never glued to the letter). `WORD_RE` now excludes
+both ordinal indicators, so `1ºA` behaves identically to `5°B`. One side effect,
+stated because it moves a metric: a standalone "3ª" used to contribute the token
+`ª` — a word containing no letters — to `wordCount`, and now contributes none,
+which shifts the §6 density denominator on texts carrying bare ordinals. No
+fixture contains one, so no measured figure in this document moves.
+
+**Fail-on-old proof.** The new fixtures and contract assertions were run against
+the `0011f8c` module (module file swapped only, restored after): **27 failing
+tests, 310/337 passing**, grouped by fix —
+
+| Fix | Failures | Which |
+|---|---|---|
+| **F12** school register | **8** | `mc-54` (`La Sra. Directora confirmó` + count) and `mc-55` (`La Directora Marcela` + count, **attendee destroyed**); precision paragraph 35 (4 redactions); contract — title-case never marked, the two-member lowercase trigger half, attendee preserved |
+| **F13** per-ending floor | **5** | `mc-59` (`la profesora dejó la pauta` + count); precision paragraph 36 (2 redactions); contract — the four 4-character preterites, the 3-character boundary `dió` |
+| **F14** numeric course codes | **12** | `mc-60` (`de 5°B, [persona 1] entre ellos` + count **2 → 1**), `mc-61` (`de 5°B firmaron` + count), `mc-62` (`de 1ºA…` + count, the same-class ordinal instance); precision paragraph 37 (2 redactions); contract — letter never name material, course pattern genuinely fires, spaced + ordinal spellings, ordinal exclusion from words, G4′ at the new trigger site |
+| suite-level (all three) | **2** | precision whole-corpus zero-redaction (**11 redactions**) and the no-flag assertion (density **2.23** → `flagged`) |
+
+- **Zero leaked mentions on the old module.** Must-catch recall on `0011f8c` is
+  **61/61** — every one of the 27 failures is an over-redaction, a destroyed
+  attendee, a miscount, a mangled course code or a spurious flag. r5 had one
+  leak (`mc-48`'s `marcelo`); r6 has none, which is the sharpest statement yet
+  of why a recall-scored suite could not have found any of this. It also means
+  **F12/F13/F14 buy no recall** except through F12's lowercase trigger half
+  (asserted in the contract suite, where it does fail on old); what they buy is
+  precision, attendee survival and metric accuracy.
+- **New cases that PASS on old, and why they are still worth having**: `mc-56`
+  and `mc-57` (a CAPITALIZED name after a register title was already caught by
+  the capitalization layer — they lock the *layer* and the surviving title, and
+  their lowercase twins in the contract suite are the ones that fail on old);
+  `mc-58` (the forward-looking cost lock on the register promotion, the
+  `V4 — does not over-redact the role title` pattern); `mc-63` (R6's flip side,
+  which asserts unchanged behaviour on purpose); and the contract cases for the
+  unmoved `-an`/`-é` floors and the sentence-initial lone `B`.
+- **Every r1–r5 guard passes on the new module unchanged**: `don ignacio` and
+  `la profe marcela` still `uncertain`; `de quinto básico, Emilia` still caught;
+  `Fuentes, Camila` preserved whole; `Quedaron` outside the span; `del Colegio
+  San Mateo` intact; G4's V1–V4 and the `nina` carve-out all green; R4's
+  accepted narrow miss (`de quinto básico, Julio`) still exactly as documented.
+
+**Residuals after this round.** R1 and R2 (roster-identity limits, unchanged);
+R4 and R5 (the priced costs of G4/G4′, unchanged); **R6 open-world titles**,
+new; the accepted inverted-unknown overcount; and the plan-sanctioned
+adversarial misses (§3.2).
+
+**R6 is a residual by construction, not by omission**, and the reason has to be
+said plainly because the obvious "fix" for it is a leak. `SCHOOL_REGISTER_TITLES`
+is an enumeration and job titles are an open class, so an unlisted capitalized
+title after an honorific — "La Sra. Bibliotecaria avisó…" — is still marked by
+the capitalization layer and still redacts. That is over-redaction in the
+§12-safe direction. The flip side is the same construction: **"La Sra. Solange"
+is a NAME**, and nothing distinguishes the two except a list. The capitalization
+layer must therefore keep marking unknown capitalized words; stop it in order to
+clean up unlisted titles and every unlisted given name in that register walks
+through unredacted. Both halves are asserted in one contract test and `mc-63`
+locks the second, so the trade is explicit rather than implied. The only safe
+way to shrink R6 is to lengthen the list — which is why the register is a
+lexicon with a collision audit rather than a heuristic.
+
+**What this round claims: the known-defect list is EMPTY.** Open items 12, 13
+and 14 are closed; nothing was found this round that is handed forward
+unfixed. What remains is argued residuals — R1, R2, R4, R5, R6, the accepted
+inverted-unknown overcount, and the 7 plan-sanctioned adversarial misses — each
+with a stated reason it is a trade rather than a bug.
+
+**Numbers after the round**: must-catch **61/61 (100%)** across 63 cases, with
+40 `mustPreserve` assertions; adversarial **78.8% (26/33)**, unchanged for the
+seventh round running, over-redactions **0 → 0**; precision **0 redactions / 0
+persons, byte-identical** on 1886 words / 37 paragraphs, joined status
+`sanitized` (density 1.64 < 2.0); **337 sanitizer tests green in 4 files**
+(was 278).
+
 ---
 
 ## 4. NER recall layer — feasibility
@@ -1518,6 +1784,6 @@ and neither existed for chunk Z0B-1.
 | 9 | ~~Role-pattern marks any token after a role noun (D3); punctuation-joined people share a segment (D4, v1.2's residual R3)~~ — **CLOSED** in Z0B-1r3 (`node-1.3.0`, §3.5.2) by the name-plausibility filter and the gap-punctuation split. Residuals now R1 + R2 only, plus the accepted inverted-unknown overcount; documented in §3.5.2 and in the module header | Closed 2026-07-29 |
 | 10 | ~~**The honorific layer carries D3's defect** — `HONORIFICS` marks whatever follows regardless of wordiness, so `La profesora terminaba…` → `La profesora [persona 1]…` (§3.5.2)~~ — **CLOSED** in Z0B-1r4 (`node-1.4.0`, §3.5.3). The honorific layer was one of four instances of a single defect CLASS (trigger-adjacent marking without gap discipline or name plausibility); r4 closed the class with three uniform guards — G1 gap discipline on every trigger layer, G2 one shared plausibility predicate, G3 a left-extension veto — plus a MARKING-PATH AUDIT in the module header that states, per path, which guards bound it. The precision corpus gained the honorific, cross-sentence, sentence-initial-verb and course+institution constructions it lacked | Closed 2026-07-29 |
 | 11 | ~~**Trigger and structural lexicon tokens are themselves eligible as name material** — a title-case `Sra`/`Profesora`/`Alumna`/`Quinto`/`Dr` self-marks, a sentence-initial `Doña` is absorbed by left-extension, and the fused span then fails roster coverage, DESTROYING the attendee beside it~~ — **CLOSED** in Z0B-1r5 (`node-1.5.0`, §3.5.4) by G4 (a candidacy veto over `HONORIFICS ∪ ROLE_NOUNS ∪ COURSE_WORDS ∪ ABBREVIATIONS`, applied on every marking path including cross-reference) and G4′ (`NON_PERSON_PROPER` at course sites only). Every lexicon in the module now has an explicit, tested candidacy relationship in the header table. Priced costs: R4 (course-only month-named student) and R5 (lexicon-token surname residue) | Closed 2026-07-29 |
-| 12 | **Title-case role titles OUTSIDE every lexicon still become people** — `La Sra. Directora confirmó…`, `La Coordinadora pidió…`, `El Inspector avisó…`. `directora`/`coordinadora`/`inspector`/`rectora` are in no lexicon, so the capitalization layer marks them `high` and emits `La Sra. [persona 1] confirmó…`. **Different class** from r5 (these are not lexicon members, so G4 cannot reach them) — it is the general capitalized-unknown-word behaviour, deliberate by §12 but visibly wrong on role vocabulary. Widening `ROLE_NOUNS`/`HONORIFICS` would fix it and is a recall/precision trade, not a bug fix, so it is handed forward rather than taken | PM decision |
-| 13 | **Short preterites under the ending-filter length floor produce false people** — `la profesora dejó la pauta…` → `la profesora [persona 1] la pauta…`. `dejó` is 4 characters and `MIN_ENDING_FILTER_LENGTH` is 5 (the floor exists to protect `juan`/`ivan` from the `an` ending), so the `ó` preterite marker is never tested. Reproduces on `a9f6f87` and on `node-1.5.0` identically after any role noun or honorific. **Different class** from r5 (a morphology-filter floor, not lexicon candidacy). Candidate fix: a per-ending floor — no es-CL given name ends in accented `ó`, so that ending alone could drop to a 3-character floor. Not taken this round | Z0B-2 / next round |
-| 14 | **The numeric branch of `looksLikeCourse` is unreachable** — `WORD_RE` matches letter-initial runs only, so a pure-digit token never exists and `COURSE_NUMERIC_RE.test(token.raw)` can never be true. `de 5°B, Antonia` is caught by the capitalization layer, not by course-pattern; the `°` lookahead is dead code. Related artifact: the course-code letter `B` is itself marked, so `de 5°B, Antonia` emits `de 5°[persona 1], [persona 2]` — an extra person in the §6 density metric (overcount, safe direction) and a mangled course code in the minuta. Pre-existing, unrelated to r5's class | Z0B-2 / next round |
+| 12 | ~~**Title-case role titles OUTSIDE every lexicon still become people** — `La Sra. Directora confirmó…` → `La Sra. [persona 1] confirmó…`, a person invented out of a job title; the attendee variant `La Directora Marcela` destroys the roster name~~ — **CLOSED** in Z0B-1r6 (`node-1.6.0`, §3.5.5) by **F12**: `SCHOOL_REGISTER_TITLES` (11 stems × 4 inflections, collision-audited member by member, nothing dropped and no carve-out needed) gets the v1.5 `jefe`/`jefa` treatment — vetoed as candidates by G4, active as triggers, so `la directora Marcela` and the lowercase `la docente antonia` are now caught. Compound-title adjectives (`pedagógica`, `general`, `administrativa`, `subrogante`…) joined `COMMON_WORDS` as cost containment. Priced cost: residual **R6** (open-world titles) | Closed 2026-07-29 |
+| 13 | ~~**Short preterites under the ending-filter length floor produce false people** — `la profesora dejó la pauta…` → `la profesora [persona 1] la pauta…`; `dejó` is 4 characters and the floor was a global 5, so the `ó` marker was never tested~~ — **CLOSED** in Z0B-1r6 (`node-1.6.0`, §3.5.5) by **F13**: the floor is now per-ending. `ó` drops to 3 on an audit (no es-CL given name — and no short es-CL surname, which matters because G3 runs this filter on capitalized extension candidates — ends in accented `-ó`); every other ending keeps the 5-character `juan`/`ivan` floor, and the contract suite locks both sides so the row cannot be quietly generalised | Closed 2026-07-29 |
+| 14 | ~~**The numeric branch of `looksLikeCourse` is unreachable**, and the course-code letter `B` is itself name material, so `de 5°B, Antonia` emits `de 5°[persona 1], [persona 2]` — mangled course code, count inflated~~ — **CLOSED** in Z0B-1r6 (`node-1.6.0`, §3.5.5) by **F14**: a single-letter token with `\d{1,2}\s*[°º]` behind it is a course-code letter — never name material (it joins the G4 family) and a genuine `looksLikeCourse` trigger, so the course patterns fire from `5°B` for the first time; `COURSE_NUMERIC_RE` and the dead forward lookahead are removed. Same-class instance found and fixed with it: `º` (U+00BA) is `\p{L}`, so `1ºA` tokenized as the word `ºA` and redacted — `WORD_RE` now excludes both ordinal indicators | Closed 2026-07-29 |

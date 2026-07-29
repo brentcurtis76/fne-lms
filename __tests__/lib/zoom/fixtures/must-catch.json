@@ -1,7 +1,7 @@
 {
   "suite": "must-catch",
   "blocking": true,
-  "description": "Explicit student references, plus the attendee-collision family (mc-23..mc-33) that guards the preservation rule in both directions — mc-28..mc-34 added in Z0B-1r2 for segment classification, mc-35..mc-37 added in Z0B-1r3 for gap-punctuation segment splitting (D4) and the role-pattern name-plausibility filter (D3), mc-38..mc-40 added in Z0B-1r4 to prove the trigger-gap/plausibility guards (G1/G2/G3) did not cost the detections they bound, mc-41..mc-52 added in Z0B-1r5 for the trigger-token candidacy class (G4/G4'): a title, role noun, course word or abbreviation is never name material, so the ATTENDEE standing beside it survives. Note that most of the r5 family asserts through mustPreserve, not mustRedact — the defect they cover redacted the right mention for the wrong reason and destroyed an attendee doing it, which is precisely why a recall-only score never saw it. Plan §12/§15: the bar is 100% — any miss is a red build. Every name here is synthetic; no real student, family or staff member appears in this file.",
+  "description": "Explicit student references, plus the attendee-collision family (mc-23..mc-33) that guards the preservation rule in both directions — mc-28..mc-34 added in Z0B-1r2 for segment classification, mc-35..mc-37 added in Z0B-1r3 for gap-punctuation segment splitting (D4) and the role-pattern name-plausibility filter (D3), mc-38..mc-40 added in Z0B-1r4 to prove the trigger-gap/plausibility guards (G1/G2/G3) did not cost the detections they bound, mc-41..mc-52 added in Z0B-1r5 for the trigger-token candidacy class (G4/G4'): a title, role noun, course word or abbreviation is never name material, so the ATTENDEE standing beside it survives. Note that most of the r5 family asserts through mustPreserve, not mustRedact — the defect they cover redacted the right mention for the wrong reason and destroyed an attendee doing it, which is precisely why a recall-only score never saw it. mc-54..mc-63 added in Z0B-1r6 for RECOGNIZER COMPLETENESS — three different classes the r5 closure could not reach, each reproduced by the PM before it was ruled: vocabulary no lexicon contained (the es-CL school register, F12), a morphology filter switched off by a global length floor (short accented preterites, F13), and a course-code recognizer that could not fire on the spelling it was written for (numeric codes, F14). Plan §12/§15: the bar is 100% — any miss is a red build. Every name here is synthetic; no real student, family or staff member appears in this file.",
   "cases": [
     {
       "id": "mc-01",
@@ -483,6 +483,106 @@
       "text": "La alumna Nina pidió cambiarse de puesto y la niña de kinder también.",
       "mustRedact": ["Nina"],
       "mustPreserve": ["la niña de kinder"],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-54",
+      "category": "recognizer-completeness",
+      "description": "F12 — the SCHOOL REGISTER. 'directora' was in no lexicon at all, so it was not a title to this module, just a capitalized unknown word: the capitalization layer marked it 'high' and 'La Sra. Directora confirmó la fecha' emitted 'La Sra. [persona 1] confirmó…' — a person invented out of a job title. Different class from r5, which could only ever veto lexicon MEMBERS; the repair is to make the register a lexicon in the first place. Reproduced by the PM on 0011f8c.",
+      "attendees": ["Camila Fuentes"],
+      "text": "La Sra. Directora confirmó la fecha del consejo de profesores.",
+      "mustRedact": [],
+      "mustPreserve": ["La Sra. Directora confirmó"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-55",
+      "category": "recognizer-completeness",
+      "description": "The ATTENDEE half of mc-54, and the version that actually costs the minuta. With the title fused into the span, 'La Directora Marcela' fails roster coverage and destroys Marcela Soto exactly as 'La Profesora Marcela' did on a9f6f87 — the same failure mode r5 closed for lexicon members, re-entering through vocabulary no lexicon contained.",
+      "attendees": ["Marcela Soto"],
+      "text": "La Directora Marcela propuso un cambio en el horario del taller.",
+      "mustRedact": [],
+      "mustPreserve": ["La Directora Marcela"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-56",
+      "category": "recognizer-completeness",
+      "description": "The TRIGGER half of F12, member one of two. Vetoing the register as candidates without promoting it to triggers would have been a pure precision trade; joining HONORIFICS makes it a recall gain as well, and 'la directora Marcela' is now caught with layer 'honorific' rather than by the capitalization layer's accident. The lowercase-only form — where the trigger is the ONLY path — is asserted in the contract suite.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Hablamos con la directora Marcela sobre el plan de acompañamiento.",
+      "mustRedact": ["Marcela"],
+      "mustPreserve": ["la directora [persona 1]"],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-57",
+      "category": "recognizer-completeness",
+      "description": "The TRIGGER half of F12, member two of two — 'docente', the one register word with no gendered pair and the one most likely to appear in a session transcript. The roster deliberately excludes Camila, so the bare-token heuristic cannot be what decides her.",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "En la reunión participó la docente Camila con el registro del curso.",
+      "mustRedact": ["Camila"],
+      "mustPreserve": ["la docente [persona 1]"],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-58",
+      "category": "recognizer-completeness",
+      "description": "The COST CHECK on F12: promoting a word to a trigger licenses whatever follows it, so a plural register title followed by an ordinary preterite must NOT produce a person. 'dijeron' is stopped by the ending filter, not by a list of verbs — which is the property that makes the promotion affordable at all. If a future round widens the register without the ending filter behind it, this goes red.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Al final las coordinadoras dijeron que el horario nuevo funcionaba mejor.",
+      "mustRedact": [],
+      "mustPreserve": ["las coordinadoras dijeron que el horario"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-59",
+      "category": "recognizer-completeness",
+      "description": "F13 — the PER-ENDING FLOOR. 'dejó' is 4 characters and the ending filter's length floor was a global 5, so the accented-ó preterite marker was never tested and every short preterite after a title became a person: 'la profesora [persona 1] la pauta'. The floor exists to protect 'juan'/'ivan' from the 'an' ending — a protection the 'ó' ending needs none of, since no es-CL given name ends in accented -ó. Reproduced by the PM on 0011f8c; the boundary cases live in the contract suite.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Al final la profesora dejó la pauta en la sala.",
+      "mustRedact": [],
+      "mustPreserve": ["la profesora dejó la pauta"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-60",
+      "category": "recognizer-completeness",
+      "description": "F14 — NUMERIC COURSE CODES, all three symptoms in one line. WORD_RE tokenizes letters only, so '5°B' yields the bare token 'B': looksLikeCourse's numeric branch was provably dead code, AND the letter was itself name material via role-pattern (i-2 across 'de'), so 'de 5°B, Antonia' emitted 'de 5°[persona 1], [persona 2]' — course code mangled, count inflated to 2. Both halves are fixed: the letter joins the G4 family and becomes a real course trigger, so Antonia is now caught by the COURSE pattern from a numeric code, which never happened before. Reproduced by the PM on 0011f8c.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Los apoderados de 5°B, Antonia entre ellos, firmaron.",
+      "mustRedact": ["Antonia"],
+      "mustPreserve": ["de 5°B, [persona 1] entre ellos"],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-61",
+      "category": "recognizer-completeness",
+      "description": "The half of F14 that has nothing to do with names: a numeric course code with no person anywhere near it must come through untouched. On 0011f8c this alone emitted 'de 5°[persona 1] firmaron' — one invented person, one destroyed course code, zero students in the sentence.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Los apoderados de 5°B firmaron el acta de la reunión.",
+      "mustRedact": [],
+      "mustPreserve": ["de 5°B firmaron"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-62",
+      "category": "recognizer-completeness",
+      "description": "SAME-CLASS instance found during r6 implementation and fixed here: the ORDINAL-INDICATOR spelling. Unicode classifies 'º' (U+00BA) as a LETTER, so '1ºA' tokenized as the two-character word 'ºA' — which no course recognizer could match and which the role-pattern layer marked as an uncertain lowercase name, giving 'de 1[persona 1] firmaron'. Same defect as the 5°B instance, reachable only through this spelling, and invisible to a fix written against '°' (U+00B0, a symbol). WORD_RE now excludes both ordinal indicators, so '1ºA' behaves identically to '5°B'.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Los apoderados de 1ºA, Antonia entre ellos, firmaron.",
+      "mustRedact": ["Antonia"],
+      "mustPreserve": ["de 1ºA, [persona 1] entre ellos"],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-63",
+      "category": "recognizer-completeness",
+      "description": "THE FLIP SIDE OF R6, and the reason F12 is a lexicon rather than a rule. 'Solange' is a capitalized word after an honorific that is in no lexicon — structurally identical to the 'Directora' of mc-54 — and it is a NAME. So the capitalization layer must keep marking unknown capitalized words, and the price is that an unlisted TITLE ('La Sra. Bibliotecaria') over-redacts. This case makes that trade explicit: any future 'fix' for R6 that stops marking capitalized unknowns after a title turns this fixture into a leak.",
+      "attendees": ["Camila Fuentes"],
+      "text": "La Sra. Solange reclamó por el horario de la reunión.",
+      "mustRedact": ["Solange"],
+      "mustPreserve": ["La Sra. [persona 1]"],
       "expectedPersonCount": 1
     }
   ]

@@ -665,6 +665,180 @@ describe('sanitize — G4 and the bare-attendee heuristic', () => {
   });
 });
 
+describe('sanitize — F12: the school register triggers but is never a candidate', () => {
+  // v1.6. r5 could only veto what a lexicon CONTAINED. The es-CL school register
+  // — director(a), coordinador(a), inspector(a), docente… — was in no lexicon at
+  // all, so a job title was an ordinary capitalized unknown and the
+  // capitalization layer made it a person.
+
+  it('never marks a title-case register title', () => {
+    // Empty roster on purpose: whatever survives was never marked, not allowed.
+    for (const [text, title] of [
+      ['La Sra. Directora confirmó la fecha del consejo.', 'Sra. Directora'],
+      ['La Coordinadora pidió adelantar la reunión.', 'La Coordinadora'],
+      ['El Inspector avisó del cambio de horario.', 'El Inspector'],
+      ['La Rectora firmó el acta de la sesión.', 'La Rectora'],
+      ['El Psicólogo entregó el informe del ciclo.', 'El Psicólogo'],
+    ] as const) {
+      const result = sanitize(text, []);
+      expect(result.sanitizedText).toContain(title);
+      expect(result.metrics.personCount).toBe(0);
+    }
+  });
+
+  it('licenses the token after a register title — the trigger half, two members', () => {
+    // Lowercased on purpose: the capitalization layer cannot reach these, so the
+    // NEW trigger is the only path that catches them. On 0011f8c both were clean
+    // misses.
+    const directora = sanitize('Hablamos con la directora marcela sobre el plan.', ATTENDEES);
+    expect(directora.sanitizedText).not.toContain('marcela');
+    expect(directora.detections[0]?.layer).toBe('honorific');
+    expect(directora.detections[0]?.confidence).toBe('uncertain');
+
+    const docente = sanitize('En la reunión participó la docente antonia con el registro.', ATTENDEES);
+    expect(docente.sanitizedText).not.toContain('antonia');
+    expect(docente.detections[0]?.layer).toBe('honorific');
+    expect(docente.detections[0]?.confidence).toBe('uncertain');
+  });
+
+  it('keeps the register title in the output when the name beside it redacts', () => {
+    expect(
+      sanitize('Hablamos con la directora Marcela sobre el plan.', ATTENDEES).sanitizedText
+    ).toBe('Hablamos con la directora [persona 1] sobre el plan.');
+  });
+
+  it('preserves an attendee addressed by a register title', () => {
+    const result = sanitize('La Directora Marcela propuso un cambio de horario.', ['Marcela Soto']);
+    expect(result.sanitizedText).toBe('La Directora Marcela propuso un cambio de horario.');
+    expect(result.metrics.redactionCount).toBe(0);
+  });
+
+  it('does not over-redact the compound es-CL role titles the promotion reaches into', () => {
+    // The V4 `jefa técnica` lesson, applied to eleven more triggers at once.
+    for (const text of [
+      'La coordinadora pedagógica preparó la pauta corta.',
+      'El inspector general avisó del cambio de horario.',
+      'La secretaria administrativa confirmó los horarios.',
+      'La directora subrogante firmó el acta.',
+      'La orientadora escolar pidió más tiempo.',
+    ]) {
+      expect(sanitize(text, ATTENDEES).sanitizedText).toBe(text);
+    }
+  });
+
+  it('R6 — an unlisted title over-redacts, which is the price of catching an unlisted NAME', () => {
+    // Both halves in one assertion, because they are the same construction and
+    // the module cannot tell them apart without a list. Weakening the
+    // capitalization layer to clean up the first turns the second into a leak.
+    expect(sanitize('La Sra. Bibliotecaria avisó del cambio.', ATTENDEES).sanitizedText).toBe(
+      'La Sra. [persona 1] avisó del cambio.'
+    );
+    expect(sanitize('La Sra. Solange reclamó por el horario.', ATTENDEES).sanitizedText).toBe(
+      'La Sra. [persona 1] reclamó por el horario.'
+    );
+  });
+});
+
+describe('sanitize — F13: the ending filter has a floor per ending', () => {
+  // v1.6. The length floor exists to protect `juan`/`ivan` from the `an` ending
+  // and it was GLOBAL, so it silently disabled the accented-ó preterite marker
+  // for every short preterite. A floor belongs to the ending it protects.
+
+  it('filters the 4-character preterite the global floor was hiding', () => {
+    for (const text of [
+      'Al final la profesora dejó la pauta en la sala.',
+      'La educadora sacó las fotos del mural.',
+      'El coordinador pasó por cada curso.',
+      'La asistente tocó el timbre antes de tiempo.',
+    ]) {
+      const result = sanitize(text, ATTENDEES);
+      expect(result.sanitizedText).toBe(text);
+      expect(result.metrics.personCount).toBe(0);
+    }
+  });
+
+  it('filters a 3-character accented preterite — the floor boundary itself', () => {
+    // `dió` is 3 characters: at the floor, and with exactly the 2 characters of
+    // stem the filter requires on top of it.
+    expect(sanitize('Al final la profesora dió la pauta.', ATTENDEES).sanitizedText).toBe(
+      'Al final la profesora dió la pauta.'
+    );
+  });
+
+  it('leaves the -an floor where it was — juan and ivan are untouched', () => {
+    // The whole reason the global floor existed. Lowercased so the ending filter
+    // is the only thing that could dismiss them.
+    for (const name of ['juan', 'ivan']) {
+      const result = sanitize(`Conversamos con el alumno ${name} sobre la guía.`, ATTENDEES);
+      expect(result.sanitizedText).not.toContain(name);
+      expect(result.detections[0]?.layer).toBe('role-pattern');
+    }
+  });
+
+  it('does not move any floor other than the audited one', () => {
+    // `-é` was NOT audited, so `josé` (4 characters) must still be exempt — the
+    // per-ending table is a table, not a licence to lower everything.
+    const result = sanitize('Conversamos con el alumno josé sobre la guía.', ATTENDEES);
+    expect(result.sanitizedText).not.toContain('josé');
+  });
+});
+
+describe('sanitize — F14: numeric course codes', () => {
+  // v1.6. WORD_RE tokenizes letters only, so `looksLikeCourse`'s numeric branch
+  // could never fire — while the bare course-code letter WAS name material.
+
+  it('never treats the course-code letter as name material', () => {
+    const result = sanitize('Los apoderados de 5°B firmaron el acta.', ATTENDEES);
+    expect(result.sanitizedText).toBe('Los apoderados de 5°B firmaron el acta.');
+    expect(result.metrics.personCount).toBe(0);
+  });
+
+  it('makes the course pattern genuinely fire from a numeric code', () => {
+    // The layer label is the assertion: before v1.6 this mention was caught by
+    // the capitalization layer while the course code was destroyed beside it.
+    const result = sanitize('Los apoderados de 5°B, Antonia entre ellos, firmaron.', ATTENDEES);
+    expect(result.sanitizedText).toBe('Los apoderados de 5°B, [persona 1] entre ellos, firmaron.');
+    expect(result.detections[0]?.layer).toBe('course-pattern');
+    expect(result.metrics.personCount).toBe(1);
+  });
+
+  it('accepts the spaced and ordinal-indicator spellings', () => {
+    for (const text of [
+      'Los apoderados de 5 ° B, Antonia entre ellos, firmaron.',
+      'Los apoderados de 1ºA, Antonia entre ellos, firmaron.',
+    ]) {
+      const result = sanitize(text, ATTENDEES);
+      expect(result.sanitizedText).not.toContain('Antonia');
+      expect(result.detections[0]?.layer).toBe('course-pattern');
+      expect(result.metrics.personCount).toBe(1);
+    }
+  });
+
+  it('excludes the ordinal indicators from words, so 1ºA behaves like 5°B', () => {
+    // `º` is `\p{L}` in Unicode, so "1ºA" used to tokenize as the word `ºA` and
+    // redact as an uncertain lowercase name. Same-class instance found in r6.
+    expect(sanitize('Los apoderados de 1ºA firmaron el acta.', ATTENDEES).sanitizedText).toBe(
+      'Los apoderados de 1ºA firmaron el acta.'
+    );
+    expect(sanitize('La reunión de la 3ª etapa quedó pendiente.', ATTENDEES).sanitizedText).toBe(
+      'La reunión de la 3ª etapa quedó pendiente.'
+    );
+  });
+
+  it('leaves a lone letter with nothing numeric behind it alone', () => {
+    // The lookbehind is what makes the letter a course code. Sentence-initial
+    // "B" has nothing to its left, so it is an ordinary token and the
+    // sentence-initial skip is what handles it.
+    const text = 'B es la letra que quedó pendiente en la pauta.';
+    expect(sanitize(text, ATTENDEES).sanitizedText).toBe(text);
+  });
+
+  it('does not let the course code license a school subject beside it (G4′ still holds)', () => {
+    const text = 'En 5°B Lenguaje se trabajó con la pauta corta.';
+    expect(sanitize(text, ATTENDEES).sanitizedText).toBe(text);
+  });
+});
+
 describe('sanitize — stable person tokens', () => {
   it('gives the same person the same number across mentions', () => {
     const result = sanitize(

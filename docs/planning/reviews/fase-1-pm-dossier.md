@@ -29,10 +29,22 @@
 **New accepted deviations (Z1a-4):** cache rows carry `is_active: null` rather than `false` (honest UNKNOWN; scope checks fail closed on it, `getHighestRole` keeps the session alive during a genuine outage); `[id]/ical.ts` inline authz replaced with `canViewSession` (tightening beyond the letter of T3); batch-iCal row scoping left on its one-branch shape (T4 scoped to the list GET — ticketed below); `sessions-gc-member.test.ts` rewritten rather than patched (asserted implementation details, not behavior). Style note (PM): `getAppBaseUrl`'s throw message is in Spanish — internal errors are conventionally English; cosmetic.
 
 **New residual risks (documented, not fixed here):**
-- A stale cached `admin` row still grants `highestRole === 'admin'` during a `user_roles` query-ERROR window (cache rows are scope-inert but the admin branch needs no scope). Non-attacker-triggerable; closing it means dropping the availability fallback — product call.
-- **`user_roles_cache` is an RLS-less materialized view with `GRANT ALL … TO anon, authenticated`** — any user's roles are readable with the anon key. Pre-existing, discovered by the T1 caller audit; needs a migration (out of Z1a's no-migrations scope). Ticketed for Brent.
-- Batch-iCal (`pages/api/sessions/ical.ts`) still scopes rows by one role branch — same shape the list had. Emails/links no longer leak from it; the gap is feed completeness for mixed-role users. Ticketed follow-up.
-- Mixed-role consultors now see `borrador` drafts of their community sessions in the list (draft visibility keyed on `highestRole`, unchanged in kind; detail never gated drafts). Noted for the reviewer.
+- ~~A stale cached `admin` row still grants `highestRole === 'admin'` during a query-ERROR window~~ — **PM ruling OVERTURNED by Sol R2, fixed in Z1a-5** (see remediation R2 below).
+- **`user_roles_cache` is an RLS-less materialized view with `GRANT ALL … TO anon, authenticated`** — any user's roles are readable with the anon key. Pre-existing, discovered by the T1 caller audit; needs a migration (out of Z1a's no-migrations scope). Being handled in a parallel dedicated session.
+- ~~Batch-iCal scopes rows by one role branch (feed completeness)~~ — **PM characterization OVERTURNED by Sol R2 (it was also an authorization hole under the cache fallback); fixed in Z1a-5.**
+- Mixed-role consultors see `borrador` drafts of their community sessions in the list (draft visibility keyed on `highestRole`, unchanged in kind; detail never gated drafts). Noted for the reviewer.
+
+## Remediation record R2 (Z1a-5 — response to the re-review's 2 MAJOR findings)
+
+Sol's R2 overturned two PM rulings; the PM conceded both on the merits (concession note in `fase-1-review-verdict.md`). Fixes: commits `62a448d` (code) + `caac1e1` (docs).
+
+| R2 finding | Fix | PM re-verification |
+|---|---|---|
+| ① Cached admin authorizes on error path | `getHighestRole()` skips `from_cache === true` rows outright (both guards: `from_cache !== true` AND `is_active !== false`); `from_cache`/`cached_at` formalized on `UserRole` with never-authorize documentation; cache-only role lists resolve to `null` → existing 403s | Diff read; **PM re-executed the proof: 8 failed / 2 passed on pre-fix `roleUtils.ts`, 10/10 after — matches report**. Caller audit reviewed: no display surface breaks (sidebar reads the plural roles array; `getDisplayRole()` correctly NOT added speculatively) |
+| ② Batch iCal outside canonical scope | T4 union extracted to shared `lib/utils/session-scope.ts` (`buildSessionScope` + `hidesDraftSessions`, same Number.isFinite/isUUID guards); consumed by BOTH list GET and batch iCal — shared code, not a copy; draft visibility verified identical before/after | Diff read; both endpoints consume the module; single/series iCal verified already on `canViewSession`/admin gating; executor's mid-run botched restore (`HEAD` instead of fix state) checked — final code contains both fixes whole |
+| tests | +38 tests / +3 files (2735/2735 in 211): Sol's 4 groups incl. error-path denial across all 6 surfaces, empty-calendar-zero-metadata, 3-way union agreement, preserved successful-empty suite; 2 Z1a-4 assertions that codified the overturned semantics rewritten (flagged in review-request) | Gates re-run by PM (2735/2735, type-check/lint/build clean); CI 6/6 at `caac1e1` re-checked via `gh` |
+
+Accepted nuance: Sol's group-2 test ("batch iCal returns empty calendar") is satisfied by a stronger outcome — the request now dies at the `highestRole` gate (403) before the scope builder runs; the 200-empty-calendar shape is asserted separately on the input that still reaches it. Also verified-and-left: `reports/analytics.ts` scopes non-admins to facilitated sessions — a deliberately stricter policy, not a divergent copy.
 
 ## Scope authority (the itinerary does not carry Zoom phases — scope-fidelity runs against THIS)
 

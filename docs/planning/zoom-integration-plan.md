@@ -26,14 +26,11 @@
 
 | Z1a-5 · verdict | Z1a | `fix/sess-leak` | `62a448d`, `caac1e1` | ✅ APPROVED 2026-07-29 | PM re-review: both fix diffs read whole (incl. verifying the executor's mid-run botched-restore left no partial state); **Fix-1 proof re-executed by PM (8F/2P pre-fix → 10/10)**; shared `lib/utils/session-scope.ts` consumed by list + batch iCal (canonical, cannot drift); `getHighestRole` double-guarded (`from_cache !== true` + `is_active !== false`); caller audit ruling (no speculative display helper) accepted; 2735/2735 in 211 files re-run by PM; CI 6/6 at `caac1e1` via `gh`. Dossier remediation record R2 added. |
 
-**Phase Z1a status: ✅ Sol R3 APPROVE (2026-07-29, zero findings, archived in `fase-1-review-verdict.md`) · ALL review gates cleared · awaiting ONLY Brent's merge of [PR #24](https://github.com/brentcurtis76/fne-lms/pull/24) ⇒ then ledger flips to DONE + PM rotation (§0.1).**
+**Phase Z1a: ✅ DONE (2026-07-29).** Merged to `main` as `c8b84f4` ([PR #24](https://github.com/brentcurtis76/fne-lms/pull/24), merge commit, 24 branch commits preserved) on Brent's explicit instruction, executed by the PM per Brent's merge-authority policy. Full trail: 3 build chunks + 2 Sol remediation rounds (R1: 4 MAJOR/3 MINOR → Z1a-4; R2: 2 MAJOR overturning PM rulings → Z1a-5; R3: APPROVE, zero findings). Final: 2735 tests/211 files (+191/+11 over baseline), 6/6 CI gates at every reviewed head. Artifacts: `fase-1-review-request.md`, `fase-1-pm-dossier.md`, `fase-1-review-verdict.md` (3 rounds archived).
 
-**Brent's merge sequence (order matters — merging auto-deploys, and `getAppBaseUrl` now throws in prod without an origin):**
-1. Vercel dashboard → project → Settings → Environment Variables: either set `NEXT_PUBLIC_BASE_URL` = the canonical production URL (cleanest), or confirm "Automatically expose System Environment Variables" is ON so `VERCEL_PROJECT_PRODUCTION_URL` exists at runtime. Do this BEFORE merging.
-2. Push local `main`'s 3 docs-only commits (`d4a5d89`, `9efbce0`, `5573a85`) — harmless docs deploy — so local and origin agree.
-3. Merge PR #24 on GitHub (merge commit; branch is 24 commits, not rebased per ledger-SHA integrity), then `git pull` locally.
+**Post-merge watch item:** production origin config was NOT verifiable from the PM session (Vercel CLI unauthenticated). If `.ics` downloads or the reminder cron 500 in production, set `NEXT_PUBLIC_BASE_URL` in Vercel (fne-lms project, Production) — those are the only `getAppBaseUrl` callers; nothing else is affected.
 
-Parallel: `user_roles_cache` migration task running in its own session — separate branch, unaffected by the merge.
+**Next up (fresh PM per §0.1):** Z0B spikes (`feat/zoom-spike`, independent — dispatch anytime) · Z1b (`feat/zoom-core`) blocked on §16 Vercel Pro confirmation from Brent · parallel `user_roles_cache` migration session still running (own branch, will produce its own PR).
 
 **Open items for Brent** (carried until resolved): ① confirm `NEXT_PUBLIC_APP_URL`/`NEXT_PUBLIC_BASE_URL` set in Vercel prod env; ② Vercel Pro confirmation (§16, blocks Z1b); ③ product note: global consultors receive participant emails (accepted, revisit if global rows ever created); ④ ticketed debt: platform-wide cookie-`getSession()` → `getUser()` migration; `/consultor/**` SSR role gating (post-Z2).
 

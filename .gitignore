@@ -156,6 +156,14 @@ lib/propuestas/__tests__/poc-output.pdf
 # those JSON files, so a clean clone (CI) fails at import even while local runs stay green.
 !scripts/spikes/**/*.md
 !__tests__/**/fixtures/*.json
+# Z0B-2: the webhook fixtures sit one level deeper (fixtures/webhooks/*.json), which the
+# single-level negation above does NOT reach — confirmed with `git check-ignore` before use.
+!__tests__/**/fixtures/**/*.json
+
+# Z0B-2: raw webhook captures and Zoom API dumps hold real account/user ids and the host
+# email. They are the INPUT to the redacted fixtures and are never committed themselves.
+scripts/spikes/webhook/captures/
+scripts/spikes/zoom/out/
 
 # Playwright test artifacts
 playwright-report/

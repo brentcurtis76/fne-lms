@@ -2128,6 +2128,44 @@ And the read-back question:
 | `GET /meetings/{id}` | 200, but the only recording field is the **configured** `auto_recording`, not live state |
 | `GET /metrics/meetings/{id}?type=live` | scope-blocked (`dashboard:read:meeting:admin`) |
 
+**The stop demonstrably took effect** — established after the fact from the
+recording's own segment boundaries, which is the strongest evidence available
+without the webhook. The meeting's recording listing came back with **six files:
+two complete sets**, each with its own time range:
+
+| Segment | Files | `recording_start` → `recording_end` |
+|---|---|---|
+| 1 | MP4 357 003 B · M4A 68 147 B · TIMELINE 93 B | 23:11:16 → **23:13:14** |
+| 2 | MP4 35 170 B · M4A 6 483 B · TIMELINE 21 B | **23:13:30** → 23:13:40 |
+
+Segment 1 ends within seconds of the `recording.stop` call and segment 2 begins
+within seconds of the `recording.start` that followed it. So the 202 was not merely
+accepted-and-forgotten: recording actually stopped and actually resumed, on demand,
+server-side. This narrows the unverified gap in §8.4 to the *arrival of the
+confirmation event* rather than the *effect of the call*.
+
+#### A consequence for the pipeline: one meeting can yield N recording segments
+
+Each start/stop cycle produced a **separate, complete file set under the same
+meeting UUID** — its own MP4, M4A and TIMELINE, with its own start/end. §12's
+pipeline is written in the singular ("claim recording file", "transcode M4A →
+Opus", "transcribe"), and the late-decline flow *deliberately stops and may
+resume* recording, so producing multiple segments is not an edge case here — it is
+the expected output of the very flow §12 designs.
+
+Consequences Z4/Z5 must absorb:
+
+- The transfer job iterates **file sets**, not files, and must store each segment
+  distinctly (`zoom_recording_files` already keys on the Zoom file id, so the table
+  shape survives; the *job* logic and the playback UI are what assume one file).
+- Transcription must handle a **fragmented timeline**: two M4A files covering
+  disjoint intervals, with a gap where recording was off. Concatenating them
+  silently would fabricate continuity across a period that was deliberately not
+  recorded — which in a consent-driven stop is precisely the period someone
+  refused. The gap is meaningful and must survive into the transcript.
+- The minuta prompt therefore consumes sanitized text that may be discontinuous,
+  and the notice/audit trail should be able to say why.
+
 ### 8.4 VERDICT — the mechanism Z4/Z5 build the late-decline flow on
 
 **Use the Live Meeting Controls API (`PATCH /live_meetings/{id}/events` with
@@ -2158,12 +2196,15 @@ alternative.** Two consequences the plan should absorb:
    `recording.stopped` after N seconds". The fail-safe choice is to keep credentials
    held and surface it to the facilitator — never to release on a timer.
 
-⚠️ **One half of this verdict is unverified**: `recording.stopped` was never
-*observed*, because no webhook subscription was validated (§6.1). The stop
-mechanism is measured; the arrival of the confirmation event is inferred from §20's
-documented event list. The first thing to do when the subscription is validated is
-run `scripts/spikes/zoom/stop-confirm.mjs` again and confirm the event lands — the
-whole late-decline design rests on it.
+⚠️ **What remains unverified is narrower than it first appears.** The *effect* of
+the stop is measured — the segment boundaries above show recording genuinely
+stopping and resuming on command. What was never *observed* is the
+`recording.stopped` **event arriving**, because no webhook subscription was
+validated (§6.1); that it is emitted at all comes from §20's documented event list,
+not from this chunk. Since the verdict above makes that event the sole confirmation
+signal, the first thing to do once the subscription is validated is re-run
+`scripts/spikes/zoom/stop-confirm.mjs` and watch for it. The late-decline design
+rests on it, and no polling fallback exists to hide behind.
 
 ---
 
@@ -2291,6 +2332,8 @@ should not be recorded as definitive until those ten probes have run.**
 | 22 | **`@zoom/meetingsdk@6.2.0` pins `peer react@18.2.0` exactly** (repo runs 18.3.1) and its CDN bundle treats React/ReactDOM as externals. Z3 must choose: pin React 18.2.0, use `overrides`/`--legacy-peer-deps`, or load Zoom's own vendor React globals as `/meet/diag` now does | **Z3** |
 | 23 | **Re-point the webhook signature vectors at Z1b's real verifier** and delete the test-local reference implementation (§6.1), turning a self-consistency check into a contract test | Z1b |
 | 24 | `supabase/config.toml` gained `[storage]`+`[storage.s3_protocol]` on this branch while `feat/zoom-core` adds `[api]` to the same file — **sequence the merge** | PM |
+| 25 | **One meeting can yield N recording segments (§8.3)** — each start/stop cycle emits a complete file set (MP4+M4A+TIMELINE) under the same meeting UUID. The transfer job must iterate file SETS, and transcription must preserve the gap between them rather than concatenating across a period that was deliberately not recorded | **Z4 / Z5** |
+| 26 | Zoom-side residue: the stop-control meeting's recording (~0.45 MB, 2 segments) was **left in place on purpose** so the G2 probes can be re-run against a meeting with a genuine disclaimer click. Delete it once G2 is settled | Z0B-2 follow-up |
 | 5 | Merge trailing sub-30 s segment in the multi-segment fallback (§5.2) | Z5 |
 | 6 | Verify the executable bit survives `outputFileTracingIncludes` tracing (§5.3) | Z5 |
 | 7 | `/meet/diag` has no automated test; e2e for `/meet` belongs to Z1c (§2) | Z1c |

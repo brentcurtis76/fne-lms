@@ -126,16 +126,26 @@ Honest list, worst first.
    in Marketplace** (scope list in §9.2) — this is the single weakest claim in the
    phase.
 
-2. **The stop-and-confirm verdict is half-measured, and it is the half that
-   matters for a privacy control.** I proved the *stop* works
-   (`PATCH /live_meetings/{id}/events` → 202) and proved *no read-back exists*
-   (both plausible endpoints 404). From those two facts I concluded the
-   `recording.stopped` webhook is the only possible confirmation — but I never
-   observed that event, because no webhook subscription was validated. The
-   conclusion is sound if §20's event list is right, and §20 is vendor-doc-verified,
-   but it is an inference at the centre of §12's late-decline design. Challenge
-   whether a 202-plus-no-read-back is enough to justify the architectural claim I
-   draw from it in §8.4.
+2. **The stop-and-confirm verdict rests partly on an inference, at the centre of a
+   privacy control.** I proved the *stop* works (`PATCH /live_meetings/{id}/events`
+   → 202) and proved *no read-back exists* (both plausible endpoints 404), and I
+   later corroborated that the stop genuinely took effect from the recording's own
+   segment boundaries — segment 1 ends within seconds of my stop call, segment 2
+   begins within seconds of my restart. What I never observed is the
+   `recording.stopped` **event arriving**; that it is emitted comes from §20, not
+   from me. Since §8.4 concludes that event is the *sole* confirmation signal and
+   therefore that §12's late-decline flow is necessarily webhook-dependent,
+   challenge whether that architectural claim is adequately supported. I think it
+   is, but it is the load-bearing inference in the phase.
+
+   **Related, and it arrived late enough that I want it read carefully:** stopping
+   and restarting produced **two complete recording file sets under one meeting
+   UUID** (§8.3). §12's pipeline is written in the singular, and the late-decline
+   flow is exactly the thing that creates segments — so this is not an edge case
+   but the expected output of the designed flow. I recorded the consequence that
+   concatenating segments would fabricate continuity across the period someone
+   refused to be recorded. Check that I have not understated how much of Z4/Z5 this
+   touches.
 
 3. **`pages/api/meet/diag-signature.ts` is a real signing endpoint that ships.**
    I gated it three ways (404 without env, session required, `role:0` hardcoded and

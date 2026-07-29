@@ -14,6 +14,7 @@ import {
   canViewParticipantEmails,
 } from '../../../lib/utils/session-disclosure';
 import { SessionAccessContext } from '../../../lib/utils/session-policy';
+import { buildSessionScope, hidesDraftSessions } from '../../../lib/utils/session-scope';
 import { buildAbsoluteUrl } from '../../../lib/utils/app-url';
 import type { SessionStatus } from '../../../lib/types/consultor-sessions.types';
 
@@ -59,49 +60,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .select('*, session_facilitators(user_id, profiles(first_name, last_name, email)), schools!consultor_sessions_school_id_fkey(name), growth_communities(name)')
       .eq('is_active', true);
 
-    // Role-based filtering
-    if (highestRole === 'admin') {
-      // Admin sees all sessions
-    } else if (highestRole === 'consultor') {
-      // Consultant sees sessions at their assigned schools or all if global
-      const consultorRoles = userRoles.filter(
-        (r) => r.role_type === 'consultor' && r.is_active
-      );
-      const isGlobalConsultor = consultorRoles.some((r) => !r.school_id);
+    // Scope = the SHARED canonical builder, identical to GET /api/sessions.
+    //
+    // This endpoint used to carry its own one-branch shape: anyone who was not
+    // admin or consultor was scoped from every row with a `community_id`, with
+    // no `is_active` check and no consultor/community union. That was both a
+    // divergence from the list (a school-scoped consultor never saw their
+    // out-of-school community's sessions) and — once the role cache became
+    // reachable on a DB error — an authorization hole, since a stale membership
+    // would have handed back real session metadata.
+    const scope = buildSessionScope(highestRole, userRoles);
 
-      if (!isGlobalConsultor) {
-        const consultantSchools = consultorRoles
-          .filter((r) => r.school_id)
-          .map((r) => r.school_id);
+    if (scope.kind === 'none') {
+      // Empty result set - return empty calendar
+      const emptyCalendar = createSessionCalendar([]);
+      res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="sesiones-vacio.ics"');
+      return res.status(200).send(emptyCalendar.toString());
+    }
 
-        if (consultantSchools.length === 0) {
-          // Empty result set - return empty calendar
-          const emptyCalendar = createSessionCalendar([]);
-          res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-          res.setHeader('Content-Disposition', 'attachment; filename="sesiones-vacio.ics"');
-          return res.status(200).send(emptyCalendar.toString());
-        }
+    if (scope.kind === 'union') {
+      query = query.or(scope.orClause);
+    }
 
-        query = query.in('school_id', consultantSchools);
-      }
-      // If global consultor, no school filter applied - they see all sessions
-    } else {
-      // GC member: see sessions for their communities
-      const userCommunityIds = userRoles
-        .filter((r) => r.community_id)
-        .map((r) => r.community_id)
-        .filter((id, index, arr) => arr.indexOf(id) === index); // deduplicate
-
-      if (userCommunityIds.length === 0) {
-        // Empty result set - return empty calendar
-        const emptyCalendar = createSessionCalendar([]);
-        res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-        res.setHeader('Content-Disposition', 'attachment; filename="sesiones-vacio.ics"');
-        return res.status(200).send(emptyCalendar.toString());
-      }
-
-      query = query.in('growth_community_id', userCommunityIds);
-      // Exclude drafts for non-admin/non-consultor
+    // Drafts stay hidden from everyone who is neither admin nor consultor —
+    // the same rule the list applies, now from the same helper.
+    if (hidesDraftSessions(highestRole)) {
       query = query.neq('status', 'borrador');
     }
 

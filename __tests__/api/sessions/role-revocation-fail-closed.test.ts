@@ -279,22 +279,26 @@ describe('getUserRoles — cache is reachable only on an authoritative ERROR', (
 
     // Activity is UNKNOWN, not true, and provenance is explicit.
     expect(roles[0].is_active).toBeNull();
-    expect((roles[0] as unknown as { from_cache?: boolean }).from_cache).toBe(true);
+    expect(roles[0].from_cache).toBe(true);
 
-    // Unknown ≠ revoked: the user stays signed in during the outage…
-    expect(getHighestRole(roles)).toBe('consultor');
+    // Z1a-5 (Sol R2): unknown is not a licence to act either. Z1a-4 let this
+    // resolve to 'consultor' so an outage would not sign the user out; that was
+    // fail-open — a stale cached `admin` collected every admin grant. A
+    // cache-only role list now resolves to null and every gate denies.
+    expect(getHighestRole(roles)).toBeNull();
   });
 
-  it('a cached row grants no school scope, so the degraded path denies the session', async () => {
+  it('a cached row cannot authorize at all, so the degraded path denies the session', async () => {
     const res = await runDetail(
       revokedClient({
         user_roles: [{ data: null, error: { message: 'connection terminated' } }],
       })
     );
 
-    // …but `is_active: null` is falsy for getConsultorAccess(), so the stale
-    // school scope is not honoured and canViewSession() refuses.
+    // Denial now happens one gate EARLIER than in Z1a-4: not "you may not see
+    // this session" (canViewSession refusing a scopeless role) but "you have no
+    // roles" — the cached row never became a role in the first place.
     expect(res._getStatusCode()).toBe(403);
-    expect(JSON.parse(res._getData()).error).toBe('Acceso denegado a esta sesión');
+    expect(JSON.parse(res._getData()).error).toBe('Usuario sin roles asignados');
   });
 });

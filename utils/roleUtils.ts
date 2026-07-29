@@ -173,6 +173,9 @@ export async function hasAdminPrivileges(supabase: SupabaseClient, userId: strin
  * *grant* paths; a revocation that never triggers a refresh leaves a stale
  * active row behind. It is therefore never authoritative about whether a role
  * still exists, only about what it looked like when the view was last built.
+ *
+ * Every row it returns is stamped `from_cache: true`, and `getHighestRole()`
+ * refuses those rows, so nothing this function returns can authorize a request.
  */
 async function getUserRolesFromCache(
   supabase: SupabaseClient,
@@ -242,18 +245,15 @@ async function getUserRolesFromCache(
     // NOT `true`. The view has no `is_active` column — its definition filters
     // `ur.is_active = true`, so membership only proves the row was active when
     // the view was last refreshed, and refreshes are triggered by the role
-    // GRANT paths. Stamping a fresh `true` here made the `is_active !== false`
-    // guard in getHighestRole() structurally unable to reject a revoked role.
-    // `null` is the honest value: activity is UNKNOWN. It reads as
-    // "not explicitly revoked" to getHighestRole (the user stays signed in
-    // while the DB is unreachable) but is falsy for every scope check that
-    // grants data access — getConsultorAccess() and canViewSession()'s GC
-    // branch both require a truthy `is_active` — so the degraded path cannot
-    // hand out school or community scope off a stale row.
+    // GRANT paths. `null` is the honest value: activity is UNKNOWN, and it is
+    // falsy for every scope check that grants data access (getConsultorAccess()
+    // and canViewSession()'s GC branch both require a truthy `is_active`).
     is_active: cache.is_active ?? null,
-    // Provenance: an authoritative row never carries this. Any future caller
-    // that merges cached and authoritative rows can tell them apart instead of
-    // rediscovering this the hard way.
+    // Provenance, and the authorization switch. An authoritative row never
+    // carries this; `getHighestRole()` skips every row that does, so a cached
+    // role list resolves to `highestRole === null` and every authorization gate
+    // denies. Unknown activity is not a licence to act — a stale cached `admin`
+    // must not out-rank a fail-closed denial just because the DB is down.
     from_cache: true,
     cached_at: cache.cached_at ?? null,
     assigned_at: null,
@@ -314,8 +314,13 @@ export async function getUserRoles(supabase: SupabaseClient, userId: string): Pr
 
     console.error('Error fetching user roles:', error);
 
-    // Only here: the authoritative source was unreachable, so serve the last
-    // known good view rather than logging everyone out on a transient failure.
+    // Only here: the authoritative source was unreachable. The cache is served
+    // so a transient failure does not present the user as a stranger to the
+    // shell (they stay signed in, the UI still knows which communities they
+    // belong to), NOT so the request can proceed: every returned row carries
+    // `from_cache: true`, which `getHighestRole()` refuses and every scope
+    // check reads as no scope. During an outage the degraded path is
+    // authorization-inert by construction.
     return await getUserRolesFromCache(supabase, userId);
   } catch (error) {
     console.error('Error in getUserRoles:', error);
@@ -368,29 +373,48 @@ export function rolePriorityIndex(roleType: string): number {
 }
 
 /**
- * Get user's highest privilege role.
+ * Get user's highest privilege role — the value every downstream authorization
+ * gate keys on (session detail/list/iCal, session-policy
+ * `canViewSession`/`canEditSession`, report and e-mail disclosure, the `/meet`
+ * interstitial, hour-tracking and reporting endpoints).
  *
- * Only ACTIVE role rows count. `getUserRoles()` already filters on
- * `is_active = true`, so this is defense-in-depth for callers that assemble a
- * role list by other means (role caches, test fixtures, future endpoints) —
- * without it, a revoked `admin` row would still win the priority scan and
- * every `highestRole === 'admin'` grant downstream (session detail/list,
- * session-policy `canViewSession`/`canEditSession`, report and e-mail
- * disclosure) would follow it.
+ * Two rules, both fail-closed:
  *
- * Rows whose `is_active` is null/absent are treated as active. The only
- * producer of such rows is `getUserRolesFromCache()`, reachable exclusively
- * when the authoritative `user_roles` query ERRORS (see `getUserRoles()`);
- * there, "unknown" must not sign the user out mid-outage. Those rows are
- * stamped `from_cache: true` and are falsy for every scope check, so they
- * cannot hand out school or community access — see the mapper for the full
- * rationale.
+ * 1. **Cached rows never authorize.** A row stamped `from_cache: true` comes
+ *    from `getUserRolesFromCache()` — the `user_roles_cache` materialized view,
+ *    consulted only when the authoritative query ERRORS. That view is refreshed
+ *    by the role GRANT paths, so it can serve a role that was revoked hours ago
+ *    and cannot answer "does this role still exist?". Treating such a row as
+ *    merely "not explicitly revoked" meant a stale cached `admin` still won the
+ *    priority scan and collected every `highestRole === 'admin'` grant during a
+ *    DB outage — fail-open exactly where fail-closed matters most. Skipping them
+ *    outright means a cache-only role list yields `null`, and every caller's
+ *    existing "no roles" branch denies.
+ *
+ * 2. **`is_active === false` never authorizes.** `getUserRoles()` already
+ *    filters on `is_active = true`, so this is defense-in-depth for callers that
+ *    assemble a role list by other means (test fixtures, future endpoints).
+ *    `null`/absent still reads as active for those authoritative-or-fixture
+ *    rows; the cache — the only producer of `null` in the app — is excluded by
+ *    rule 1 before this rule is ever reached.
+ *
+ * This function is for AUTHORIZATION. It is deliberately not a display helper:
+ * during an outage a signed-in user's role renders as "none", which is the
+ * correct answer to "what may this request do?" even if it is a conservative
+ * answer to "what does this user look like?".
  */
 export function getHighestRole(roles: UserRole[]): UserRoleType | null {
   if (!roles || roles.length === 0) return null;
 
   for (const roleType of ROLE_PRIORITY) {
-    if (roles.some(role => role.role_type === roleType && role.is_active !== false)) {
+    if (
+      roles.some(
+        role =>
+          role.role_type === roleType &&
+          role.from_cache !== true &&
+          role.is_active !== false
+      )
+    ) {
       return roleType;
     }
   }

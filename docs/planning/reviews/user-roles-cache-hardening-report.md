@@ -48,11 +48,17 @@ stale cache rows could resurrect just-revoked roles.
 Linear, each branch built on the previous. Base is `origin/main` @ `959c1fe`.
 
 ```
-959c1fe  origin/main
+959c1fe  base (still an ancestor of origin/main @ 2786fa8)
   └─ 738e875  fix/roles-cache-rls   REVOKE on the view
        └─ 2e2b2f9  fix/roles-exec        REVOKE EXECUTE on the function
             └─ 77ed4f5  fix/roles-refresh     repair the function
+                 ├─ 52d9df0  docs: consolidated report (this file)
+                 └─ c9a9475  docs: post-PR-#24 caller re-audit   ← STACK TIP
 ```
+
+The two trailing commits are documentation only. `c9a9475` additionally
+corrects the header comments of the `20260728000000` and `20260729000000`
+migrations — see the note in §7.
 
 **Merge order is mandatory**: `fix/roles-cache-rls` → `fix/roles-exec` →
 `fix/roles-refresh`. All three modify
@@ -317,7 +323,7 @@ matview. `user_roles_cache` has four indexes
 it fails even earlier, with `55000` "CONCURRENTLY cannot be used when the
 materialized view is not populated".
 
-The four admin routes `console.error` and continue, so the failure was
+All seven admin routes (§5) `console.error` and continue, so the failure was
 invisible. Verified against production (read-only): `total_indexes = 4`,
 `unique_indexes = 0`, PostgreSQL 15.8.
 
@@ -397,31 +403,35 @@ goes red.
 - `refresh_user_roles_cache()` succeeds instead of raising `55000`.
 - The first production run will add roughly **484 missing rows** — the first
   time this path has ever moved data. Expected and desirable, but worth watching.
-- Role changes made through the four admin routes will actually propagate to the
-  cache, closing the stale-role window.
+- Role changes made through all seven admin routes (§5) will actually propagate
+  to the cache, closing the stale-role window.
 
 ---
 
 ## 7. Complete file inventory
 
-Nine files, all additive except the shared test file. **No application code was
-modified anywhere in this stack** — SQL, tests and docs only.
+**Eight unique files**, all additive except the shared test file (which three
+branches modify in turn, so it appears three times below). **No application code
+was modified anywhere in this stack** — SQL, tests and docs only.
 
 | Branch | File | Status | Lines | Purpose |
 |---|---|---|---|---|
-| `fix/roles-cache-rls` | `supabase/migrations/20260728000000_revoke_client_read_user_roles_cache.sql` | created | 27 | REVOKE on the matview |
+| `fix/roles-cache-rls` | `supabase/migrations/20260728000000_revoke_client_read_user_roles_cache.sql` | created | 51 | REVOKE on the matview |
 | | `supabase/tests/030-user-roles-cache-grants.sql` | created | 191 | pgTAP suite, `plan(13)` |
 | | `docs/planning/reviews/fix-roles-cache-rls-review-request.md` | created | 98 | per-branch review request |
-| `fix/roles-exec` | `supabase/migrations/20260729000000_revoke_client_execute_refresh_roles_cache.sql` | created | 39 | REVOKE EXECUTE on the function |
+| `fix/roles-exec` | `supabase/migrations/20260729000000_revoke_client_execute_refresh_roles_cache.sql` | created | 57 | REVOKE EXECUTE on the function |
 | | `supabase/tests/030-user-roles-cache-grants.sql` | modified | +70/−11 | → `plan(18)` |
 | | `docs/planning/reviews/fix-roles-exec-review-request.md` | created | 130 | per-branch review request |
 | `fix/roles-refresh` | `supabase/migrations/20260729120000_fix_user_roles_cache_refresh.sql` | created | 58 | repair the function |
 | | `supabase/tests/030-user-roles-cache-grants.sql` | modified | +79/−7 | → `plan(23)` |
 | | `docs/planning/reviews/fix-roles-refresh-review-request.md` | created | 144 | per-branch review request |
+| `fix/roles-refresh` (docs commits) | `docs/planning/reviews/user-roles-cache-hardening-report.md` | created | — | **this report** (`52d9df0`, re-audited in `c9a9475`) |
 
-Plus this report. The three per-branch review-request files satisfy the repo's
-"a phase without its review-request file is not complete" rule and contain the
-same analysis scoped to each branch.
+The two migration line counts are their **current** sizes, after `c9a9475`
+expanded their header comments (they were 27 and 39 when first committed). The
+three per-branch review-request files satisfy the repo's "a phase without its
+review-request file is not complete" rule and contain the same analysis scoped
+to each branch.
 
 > **Where to read the migration comments.** The post-PR-#24 re-audit corrected
 > the header comments of `20260728000000` (browser vs server split) and
@@ -561,4 +571,5 @@ Ranked. Items 1-3 are where I most expect to be wrong.
 
 Not attempted in this stack, on purpose: de-duplicating `user_roles`; re-keying
 or recreating the matview; changing any application code; applying migrations to
-production; touching the unmerged `fix/sess-leak` branch.
+production; revisiting anything delivered by `fix/sess-leak`, which is already
+merged (PR #24) and is treated here as part of the `main` baseline.

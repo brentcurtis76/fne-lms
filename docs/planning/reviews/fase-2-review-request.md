@@ -12,17 +12,23 @@
 | Branch | `feat/zoom-spike` |
 | PR | [#25](https://github.com/brentcurtis76/fne-lms/pull/25) |
 | Base SHA | `2786fa8` (`main`) |
-| Chunk Z0B-1 | `2c1f72f`…`0061dbe` — **19 commits, sealed** 2026-07-29 after 6 sanitizer remediation rounds |
-| Chunk Z0B-2 | 5 commits on top of `0061dbe` (this chunk; the last of them adds this file) |
-| Phase total | **24 commits** |
+| Chunk Z0B-1 | `2c1f72f`…`0061dbe` — **20 commits**, sealed 2026-07-29 after 6 sanitizer remediation rounds (the §0 ledger's "19 incl. 1 PM docs" counts through `41281b9`; `0061dbe`, the seal commit, is the 20th) |
+| Chunk Z0B-2 | `ace0898`…`6804926` — **6 commits** on top of `0061dbe`, the last being this file |
+| Phase total | **26 commits** (`git rev-list --count 2786fa8..HEAD`) |
+
+The five work commits are listed below; the sixth is this review-request file,
+which is docs-only and counted above. (Pinning the self-reference deliberately —
+a stale commit count in a review doc was a Sol finding in Z1a.)
 
 Z0B-2's five commits, in order:
 
-1. `build(gitignore)` — rescue webhook fixtures from `*.json`; ignore raw captures
-2. `feat(spike)` — live-Zoom harness (S2S/SDK/webhook/S3) + local `[storage]` config
-3. `feat(meet)` — `/meet/diag` test-join section + SDK signature route + 8 tests
-4. `test(zoom)` — webhook CRC/signature vectors, 14 tests
-5. `docs(planning)` — results §6/§8/§9, hw-protocol Part B, PROJECT_STATE, this file
+| SHA | Commit | Scope |
+|---|---|---|
+| `ace0898` | `build(gitignore)` | rescue webhook fixtures from `*.json`; ignore raw captures |
+| `4f2d9a7` | `feat(spike)` | live-Zoom harness (S2S/SDK/webhook/S3) + local `[storage]` config |
+| `06f3af1` | `feat(meet)` | `/meet/diag` test-join section + SDK signature route + 8 tests |
+| `8c592eb` | `test(zoom)` | webhook CRC/signature vectors, 14 tests |
+| `f7166dc` | `docs(planning)` | results §6/§8/§9, hw-protocol Part B, PROJECT_STATE |
 
 ## 2. Objective and scope (from plan §15, row Z0B)
 

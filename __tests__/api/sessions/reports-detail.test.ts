@@ -206,7 +206,18 @@ describe('/api/sessions/[id]/reports/[rid]', () => {
             }),
           };
         }
-        return { select: vi.fn() };
+        // session_facilitators: the handler now looks up facilitator
+        // membership for every role, not just consultors.
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+                single: vi.fn().mockResolvedValue({ data: null, error: null }),
+              }),
+            }),
+          }),
+        };
       }),
     };
 

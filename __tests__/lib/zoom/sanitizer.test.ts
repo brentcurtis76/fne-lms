@@ -153,6 +153,89 @@ describe('sanitize — attendee coverage rule', () => {
   });
 });
 
+describe('sanitize — segment classification', () => {
+  // A span is a surface, not a person: buildSpans bridges name tokens across
+  // connectors, so one span can hold an attendee and a student, or two
+  // students. These are the properties that carving it into segments buys.
+
+  it('redacts a person stitched from two DIFFERENT attendees — coverage is per entry, not the union', () => {
+    // Roster has "camila" (Fuentes) and "perez" (Rodrigo). Neither attendee
+    // explains "Camila Pérez", so the union must not license it.
+    const result = sanitize('La alumna Camila Pérez llegó tarde a la sesión.', ATTENDEES);
+    expect(result.sanitizedText).not.toContain('Camila Pérez');
+    expect(result.sanitizedText).not.toContain('Camila');
+    expect(result.sanitizedText).toContain('[persona 1]');
+  });
+
+  it('ends the role-pattern detection of that person as redacted', () => {
+    const result = sanitize('La alumna Camila Pérez llegó tarde a la sesión.', ATTENDEES);
+    const detection = result.detections.find((d) => d.surface === 'Camila Pérez');
+    expect(detection).toBeDefined();
+    expect(detection?.layer).toBe('role-pattern');
+    expect(detection?.confidence).toBe('high');
+    expect(detection?.action).toBe('redacted');
+  });
+
+  it('keeps segments independent — an attendee survives inside a span that also holds a student', () => {
+    const result = sanitize(
+      'Conversamos con Camila Fuentes y Martina sobre el plan de acompañamiento.',
+      ['Camila Fuentes']
+    );
+    expect(result.sanitizedText).toContain('Camila Fuentes y [persona 1]');
+    expect(result.sanitizedText).not.toContain('Martina');
+    expect(result.detections.map((d) => [d.surface, d.action])).toEqual([
+      ['Camila Fuentes', 'preserved'],
+      ['Martina', 'redacted'],
+    ]);
+  });
+
+  it('preserves both attendees of a connector-merged span, with zero redactions', () => {
+    const result = sanitize('Camila Fuentes y Rodrigo Pérez firmaron el acta.', ATTENDEES);
+    expect(result.sanitizedText).toBe('Camila Fuentes y Rodrigo Pérez firmaron el acta.');
+    expect(result.metrics.redactionCount).toBe(0);
+    expect(result.metrics.personCount).toBe(0);
+  });
+
+  it('gives each connector-joined student its own number', () => {
+    const result = sanitize('En la reunión el alumno Matías y Tomás expusieron.', ['Camila Fuentes']);
+    expect(result.sanitizedText).toContain('[persona 1] y [persona 2]');
+    expect(result.metrics.personCount).toBe(2);
+    expect(result.metrics.redactionCount).toBe(2);
+  });
+
+  it('emits the connector text between segments verbatim', () => {
+    const result = sanitize('En la reunión el alumno Matías y Tomás expusieron.', ['Camila Fuentes']);
+    expect(result.sanitizedText).toBe('En la reunión el alumno [persona 1] y [persona 2] expusieron.');
+  });
+
+  it('preserves an attendee name that carries its own connectors', () => {
+    const result = sanitize('La sesión la abrió María de los Ángeles con el equipo.', [
+      'María de los Ángeles Rojas',
+    ]);
+    expect(result.sanitizedText).toContain('María de los Ángeles');
+    expect(result.sanitizedText).not.toContain('[persona');
+  });
+
+  it('preserves a partial reference to a single roster entry (residual R2)', () => {
+    // "Andrea Fuentes" is a subset of one entry, so it survives. Deliberate:
+    // partial references to attendees are routine in session speech.
+    const result = sanitize('El informe lo firmó Andrea Fuentes la semana pasada.', [
+      'Camila Andrea Fuentes',
+    ]);
+    expect(result.sanitizedText).toContain('Andrea Fuentes');
+  });
+
+  it('never acts partially INSIDE a segment', () => {
+    // Two students with no connector between them stay one segment, so the
+    // whole surface goes — a half-redacted name still names.
+    const result = sanitize('Quedaron Martina Rojas, Benjamín Soto y otro más.', ['Camila Fuentes']);
+    expect(result.sanitizedText).not.toContain('Martina');
+    expect(result.sanitizedText).not.toContain('Rojas');
+    expect(result.sanitizedText).not.toContain('Benjamín');
+    expect(result.sanitizedText).not.toContain('Soto');
+  });
+});
+
 describe('sanitize — stable person tokens', () => {
   it('gives the same person the same number across mentions', () => {
     const result = sanitize(

@@ -1,7 +1,7 @@
 {
   "suite": "must-catch",
   "blocking": true,
-  "description": "Explicit student references, plus the attendee-collision family (mc-23..mc-27) that guards the preservation rule in both directions. Plan §12/§15: the bar is 100% — any miss is a red build. Every name here is synthetic; no real student, family or staff member appears in this file.",
+  "description": "Explicit student references, plus the attendee-collision family (mc-23..mc-34) that guards the preservation rule in both directions — mc-28..mc-34 added in Z0B-1r2 for segment classification. Plan §12/§15: the bar is 100% — any miss is a red build. Every name here is synthetic; no real student, family or staff member appears in this file.",
   "cases": [
     {
       "id": "mc-01",
@@ -93,11 +93,12 @@
     },
     {
       "id": "mc-12",
-      "description": "two students coordinated by y",
+      "description": "two students coordinated by y — AMENDED in Z0B-1r2: expectedPersonCount added and set to 2. Before segment classification the connector-merged span produced ONE [persona N] for two students (defect D2), which undercounted personCount and the §6 flag-density metric; both mentions were redacted either way, so the case passed while the count was wrong.",
       "attendees": ["Camila Fuentes"],
       "text": "Los estudiantes Matías y Tomás presentaron juntos el trabajo de ciencias y les fue muy bien.",
       "mustRedact": ["Matías", "Tomás"],
-      "mustPreserve": []
+      "mustPreserve": [],
+      "expectedPersonCount": 2
     },
     {
       "id": "mc-13",
@@ -225,6 +226,75 @@
       "text": "La estudiante Camila Pérez faltó el lunes. Camila Fuentes revisará el caso con la familia esta semana.",
       "mustRedact": ["Camila Pérez"],
       "mustPreserve": ["Camila Fuentes"]
+    },
+    {
+      "id": "mc-28",
+      "category": "attendee-collision",
+      "description": "D1 — student stitched from TWO different attendees' tokens: given name from one, surname from the other. Coverage is per roster entry, never the union, so the whole span goes.",
+      "attendees": ["Camila Fuentes", "Rodrigo Pérez"],
+      "text": "La alumna Camila Pérez llegó tarde a la sesión y quedó fuera de la actividad inicial.",
+      "mustRedact": ["Camila Pérez", "Camila"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-29",
+      "category": "attendee-collision",
+      "description": "D1 plus a later bare given name — contaminated by the cross-entry collision, so it redacts and reuses that student's number",
+      "attendees": ["Camila Fuentes", "Rodrigo Pérez"],
+      "text": "La alumna Camila Pérez entregó el informe atrasado. Más tarde Camila preguntó por la nota en la sala.",
+      "mustRedact": ["Camila Pérez", "Camila"],
+      "mustPreserve": [],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-30",
+      "category": "attendee-collision",
+      "description": "two attendees coordinated by y — buildSpans bridges them into one span, and each segment is covered by its own roster entry, so nothing is redacted",
+      "attendees": ["Camila Fuentes", "Rodrigo Pérez"],
+      "text": "Camila Fuentes y Rodrigo Pérez firmaron el acta de la sesión antes de cerrar la reunión.",
+      "mustRedact": [],
+      "mustPreserve": ["Camila Fuentes", "Rodrigo Pérez"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-31",
+      "category": "attendee-collision",
+      "description": "mixed span — attendee and student inside one bridged span; segments act independently, so the attendee survives and the student is redacted",
+      "attendees": ["Camila Fuentes"],
+      "text": "Conversamos con Camila Fuentes y Martina sobre el plan de acompañamiento del curso.",
+      "mustRedact": ["Martina"],
+      "mustPreserve": ["Camila Fuentes"],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-32",
+      "category": "attendee-collision",
+      "description": "D2 — two students joined by a connector must be two people, not one; the connector text survives between the tokens",
+      "attendees": ["Camila Fuentes"],
+      "text": "En la presentación el alumno Matías y Tomás mostraron el mismo experimento de ciencias.",
+      "mustRedact": ["Matías", "Tomás"],
+      "mustPreserve": [],
+      "expectedPersonCount": 2
+    },
+    {
+      "id": "mc-33",
+      "category": "attendee-collision",
+      "description": "attendee whose name carries internal connectors — the roster entry explains every token, so the surface survives intact",
+      "attendees": ["María de los Ángeles Rojas"],
+      "text": "La sesión la abrió María de los Ángeles con el equipo directivo del colegio.",
+      "mustRedact": [],
+      "mustPreserve": ["María de los Ángeles"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-34",
+      "category": "attendee-collision",
+      "description": "two students joined by a comma — R3 residual, measured not assumed: segments split at connector TOKENS and a comma is not one, so both students are redacted inside ONE segment and share a single [persona N]. personCount is 1 here (the PM's pre-implementation estimate was ≥2). Undercount, never under-redaction; splitting on punctuation instead would read 'la Sra. Elena' as two people.",
+      "attendees": ["Camila Fuentes"],
+      "text": "En el grupo de apoyo quedaron Martina Rojas, Benjamín Soto y otro más.",
+      "mustRedact": ["Martina Rojas", "Benjamín Soto"],
+      "mustPreserve": [],
+      "expectedPersonCount": 1
     }
   ]
 }

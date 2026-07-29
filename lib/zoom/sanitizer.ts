@@ -21,23 +21,66 @@
  *    minuta quality; under-redaction leaks a minor's identity into a third-party
  *    model, so the asymmetry is not close.
  *
- * **Preservation rule (v1.1).** The same asymmetry governs the attendee
- * allowlist: a span survives only when the roster accounts for ALL of it.
- * Sharing one token with an attendee is not enough — with "Camila Fuentes" in
- * the meeting, the distinct student "Camila Pérez" used to survive intact
- * because of the shared given name. A multi-token span holding any token the
- * roster cannot explain is now redacted WHOLE; a bare given name is preserved
- * on the roster's evidence alone, unless that same token also appears inside a
- * span this transcript redacted, in which case the reference is ambiguous
- * between the attendee and a redacted person and the asymmetry resolves it to
- * redaction.
+ * **Preservation rule (v1.2) — segment classification.** A detected span is a
+ * surface, not a person: `buildSpans` bridges name tokens across connectors, so
+ * "Camila Fuentes y Rodrigo Pérez" (two attendees) and "el alumno Matías y
+ * Tomás" (two students) both arrive as ONE span. A span is therefore classified
+ * as a sequence of SEGMENTS — the runs of significant tokens between its
+ * internal connectors — and a segment is one person-reference.
  *
- * **Accepted over-redaction.** The rule redacts an attendee's own extended
- * name: with a roster entry of "Camila Fuentes", the surface "Camila Fuentes
- * Soto" carries a token ("Soto") the roster does not have, so the whole span
- * goes. That is the safe direction — the cost is a `[persona N]` where a
- * facilitator's name would read better, and the fix is roster hygiene (store
- * the name the transcript will actually contain), not a looser rule.
+ * Writing `S` for the span's significant tokens (connectors dropped) and `E_i`
+ * for the roster entries, each with its own token set:
+ *
+ *  1. **Whole span, single entry.** `|S| ≥ 2` and ONE entry accounts for all of
+ *     `S` — exact name, or the same tokens reordered, or `S` a subset of that
+ *     entry's tokens — preserves the span whole. This is what keeps "Camila
+ *     Fuentes" against a roster "Camila Andrea Fuentes", the inverted "Fuentes,
+ *     Camila", and names carrying internal connectors readable.
+ *  2. **Otherwise segment by segment**, each judged on its own:
+ *       `|seg| ≥ 2` → preserved iff ONE entry accounts for all of it;
+ *       `|seg| = 1` → preserved iff the token is a roster token AND no span this
+ *                     transcript redacted contains it (a bare "Camila" is the
+ *                     attendee, unless a "Camila Pérez" was redacted here, which
+ *                     makes the reference ambiguous and the §12 asymmetry
+ *                     resolves ambiguity to redaction).
+ *     Segments act independently: passing segments survive, failing segments are
+ *     redacted, and the connector text between them is emitted verbatim —
+ *     "Camila Fuentes y [persona 1]" is a legal output. What is never partial is
+ *     the action INSIDE a segment: a half-redacted name still names.
+ *  3. **One `[persona N]` per redacted segment**, keyed by token, so two students
+ *     joined by "y" get two numbers and a repeat mention reuses its own.
+ *     `personCount` / `redactionCount` / the §6 density metric all count per
+ *     segment — an undercount here understates the flag threshold.
+ *
+ * Coverage is per-entry, never the union of the roster: with "Camila Fuentes"
+ * AND "Rodrigo Pérez" in the meeting, the distinct student "Camila Pérez" is one
+ * segment that no single entry explains, so it is redacted whole even though
+ * both of its tokens exist somewhere on the roster.
+ *
+ * **Accepted over-redaction.** An attendee's own extended name still goes: with
+ * a roster entry of "Camila Fuentes", the surface "Camila Fuentes Soto" has no
+ * internal connector, so it is a single three-token segment carrying "soto",
+ * which no entry explains. The cost is a `[persona N]` where a facilitator's
+ * name would read better; the fix is roster hygiene (store the name the
+ * transcript will actually contain), not a looser rule.
+ *
+ * **Documented residuals** — roster-identity limits, not detection gaps:
+ *
+ *  - **R1 exact-name collision.** A student genuinely called "Camila Fuentes"
+ *    while an attendee of that name exists is textually indistinguishable from
+ *    the attendee, and is preserved. Irreducible without discourse identity.
+ *  - **R2 entry-subset reference.** "Andrea Fuentes" against a roster "Camila
+ *    Andrea Fuentes" is a subset of one entry, so it is preserved. Deliberate:
+ *    partial references to attendees are routine, and tightening this breaks
+ *    display-name variance for marginal gain.
+ *  - **R3 punctuation-joined people share a segment.** Segments split at
+ *    connector TOKENS; a comma is not a token, and `buildSpans` merges adjacent
+ *    name tokens whatever punctuation sits between them. So "Martina Rojas,
+ *    Benjamín Soto" is one segment: both students are redacted, but as a single
+ *    `[persona N]` — an undercount, never an under-redaction. (The inverted
+ *    single person "Rojas, Benjamín" gets the right count for the same reason.)
+ *    Splitting on punctuation instead would read "la Sra. Elena" as two people,
+ *    so the trade is not obviously positive and the measured behaviour stands.
  *
  * Not wired into any production path yet — Z5 does that. Tests only.
  */
@@ -46,7 +89,7 @@
  * Bump on any change to detection behaviour. Stored alongside a transcript so a
  * newer sanitizer can be detected and re-run (§6 state machine).
  */
-export const SANITIZER_VERSION = 'node-1.1.0';
+export const SANITIZER_VERSION = 'node-1.2.0';
 
 /** Default student-reference density (per 100 words) above which a transcript is flagged. */
 export const DEFAULT_FLAG_DENSITY_THRESHOLD = 2.0;
@@ -319,8 +362,15 @@ type AttendeeIndex = {
   fullNames: Set<string>;
   /** The same names with significant tokens sorted, so word order stops mattering. */
   fullNameKeys: Set<string>;
-  /** Significant tokens of every roster name. */
+  /**
+   * Significant tokens of every roster name, UNION. Only the bare-name
+   * heuristic reads this — a multi-token name is never judged against the
+   * union, or one attendee's given name plus another's surname would license a
+   * third person nobody invited.
+   */
   tokens: Set<string>;
+  /** Significant tokens per roster entry — the set multi-token coverage uses. */
+  entryTokens: Array<Set<string>>;
 };
 
 /** Order-insensitive key for a name: connectors dropped, remaining tokens sorted. */
@@ -336,6 +386,7 @@ function buildAttendeeIndex(attendeeNames: string[]): AttendeeIndex {
   const fullNames = new Set<string>();
   const fullNameKeys = new Set<string>();
   const tokens = new Set<string>();
+  const entryTokens: Array<Set<string>> = [];
   for (const name of attendeeNames) {
     if (typeof name !== 'string') continue;
     const norm = normalize(name).replace(/\s+/g, ' ').trim();
@@ -344,34 +395,41 @@ function buildAttendeeIndex(attendeeNames: string[]): AttendeeIndex {
     const parts = norm.split(' ');
     const key = nameKey(parts);
     if (key) fullNameKeys.add(key);
+    const entry = new Set<string>();
     for (const part of parts) {
       // Two-letter fragments and connectors match far too much to be safe
       // preservation evidence.
-      if (part.length >= 3 && !NAME_CONNECTORS.has(part)) tokens.add(part);
+      if (part.length >= 3 && !NAME_CONNECTORS.has(part)) {
+        tokens.add(part);
+        entry.add(part);
+      }
     }
+    if (entry.size > 0) entryTokens.push(entry);
   }
-  return { fullNames, fullNameKeys, tokens };
+  return { fullNames, fullNameKeys, tokens, entryTokens };
 }
 
 /**
- * Does the roster account for the ENTIRE span?
+ * Does ONE roster entry account for every token of this name?
  *
- *   "Camila Fuentes"  (roster: Camila Fuentes) → yes, exact.
- *   "Fuentes, Camila"                          → yes, same tokens reordered.
- *   "Camila Pérez"                             → NO. "camila" is roster
- *      evidence, "perez" is not, and a span the roster only partly explains is
- *      a different person until proven otherwise.
+ *   "Camila Fuentes"  (roster: Camila Fuentes)        → yes, exact.
+ *   "Fuentes, Camila"                                 → yes, same tokens reordered.
+ *   "Camila Fuentes"  (roster: Camila Andrea Fuentes) → yes, subset of one entry.
+ *   "Camila Pérez"    (roster: Camila Fuentes AND Rodrigo Pérez)
+ *      → NO. Both tokens exist on the roster, but no single attendee explains
+ *        the pair, so this is a third person until proven otherwise. Checking
+ *        the union instead is the cross-entry leak Z0B-1r2 closed.
  *
- * A span of nothing but connectors is never covered — `every` over an empty
- * list is vacuously true, which would preserve exactly the spans with the least
- * evidence behind them.
+ * A name of nothing but connectors is never covered — `every` over an empty
+ * list is vacuously true, which would preserve exactly the surfaces with the
+ * least evidence behind them.
  */
-function isAttendeeCovered(significant: Token[], attendees: AttendeeIndex): boolean {
-  if (significant.length === 0) return false;
-  const norms = significant.map((t) => t.norm);
+function isCoveredBySingleEntry(parts: Token[], attendees: AttendeeIndex): boolean {
+  if (parts.length === 0) return false;
+  const norms = parts.map((t) => t.norm);
   if (attendees.fullNames.has(norms.join(' '))) return true;
   if (attendees.fullNameKeys.has(nameKey(norms))) return true;
-  return norms.every((norm) => attendees.tokens.has(norm));
+  return attendees.entryTokens.some((entry) => norms.every((norm) => entry.has(norm)));
 }
 
 /* ---------------------------------------------------------------- detection */
@@ -554,6 +612,22 @@ function buildSpans(tokens: Token[], evidence: Map<number, Evidence>): Span[] {
   return spans;
 }
 
+/**
+ * One person-reference: a run of significant span tokens with no connector
+ * inside it. Classification, emission and person numbering all happen here —
+ * a span merely delimits the surface these were carved out of.
+ */
+type Segment = {
+  start: number;
+  end: number;
+  surface: string;
+  /** Every token of the run. Connectors are the boundaries, never members. */
+  tokens: Token[];
+  layer: DetectionLayer;
+  confidence: DetectionConfidence;
+  preserved: boolean;
+};
+
 /** A span plus everything the preservation decision needs. */
 type SpanPlan = {
   span: Span;
@@ -562,10 +636,70 @@ type SpanPlan = {
   surface: string;
   /** Span tokens with connectors dropped — the ones that carry identity. */
   significant: Token[];
-  preserved: boolean;
+  /** The span split at its internal connector positions. */
+  segments: Segment[];
+  /** Set when the roster covers the span as a whole; then `segments` is unused. */
+  preservedWhole: boolean;
 };
 
-function planSpans(tokens: Token[], spans: Span[], rawText: string): SpanPlan[] {
+/**
+ * Splits a span at the connector positions `buildSpans` bridged.
+ *
+ * "el alumno Matías y Tomás" → two segments, two students, two numbers. Every
+ * significant token inside a span carries evidence (the bridges are connectors
+ * by construction), so each segment can report the strongest layer of its OWN
+ * tokens rather than inheriting the span's.
+ */
+function buildSegments(
+  tokens: Token[],
+  span: Span,
+  evidence: Map<number, Evidence>,
+  rawText: string
+): Segment[] {
+  const segments: Segment[] = [];
+  let run: number[] = [];
+
+  const flush = (): void => {
+    if (run.length === 0) return;
+    const members = run.map((index) => tokens[index]);
+    let combined: Evidence | undefined;
+    for (const index of run) {
+      const found = evidence.get(index);
+      if (found) combined = strongest(combined, found);
+    }
+    segments.push({
+      start: members[0].start,
+      end: members[members.length - 1].end,
+      surface: rawText.slice(members[0].start, members[members.length - 1].end),
+      tokens: members,
+      layer: combined?.layer ?? span.layer,
+      confidence: combined?.confidence ?? span.confidence,
+      preserved: false,
+    });
+    run = [];
+  };
+
+  for (let i = span.startToken; i <= span.endToken; i += 1) {
+    if (NAME_CONNECTORS.has(tokens[i].norm)) {
+      flush();
+      continue;
+    }
+    run.push(i);
+  }
+  flush();
+
+  // A span of nothing but connectors yields no segments, so it emits nothing:
+  // there is no identity in it to redact, and a `[persona N]` over a bare "de"
+  // would be both unreadable and one more person in the density metric.
+  return segments;
+}
+
+function planSpans(
+  tokens: Token[],
+  spans: Span[],
+  evidence: Map<number, Evidence>,
+  rawText: string
+): SpanPlan[] {
   return spans.map((span) => {
     const first = tokens[span.startToken];
     const last = tokens[span.endToken];
@@ -577,7 +711,8 @@ function planSpans(tokens: Token[], spans: Span[], rawText: string): SpanPlan[] 
       significant: tokens
         .slice(span.startToken, span.endToken + 1)
         .filter((t) => !NAME_CONNECTORS.has(t.norm)),
-      preserved: false,
+      segments: buildSegments(tokens, span, evidence, rawText),
+      preservedWhole: false,
     };
   });
 }
@@ -585,9 +720,15 @@ function planSpans(tokens: Token[], spans: Span[], rawText: string): SpanPlan[] 
 /**
  * Decides preserve-vs-redact for every span, in two passes.
  *
- * Pass 1 settles every span whose fate depends on the roster alone: multi-token
- * spans (attendee coverage, all-or-nothing) and bare names the roster has no
- * token for. Each redaction contributes its tokens to `contaminated`.
+ * A span first gets one chance to be preserved whole, which is what a
+ * multi-token name a single attendee explains needs — including the ones whose
+ * own connectors would otherwise segment them apart. Everything else is decided
+ * at segment level, independently, so a span may come out mixed.
+ *
+ * Pass 1 settles every segment whose fate depends on the roster alone:
+ * multi-token segments (single-entry coverage, all-or-nothing) and bare names
+ * the roster has no token for. Each redaction contributes its tokens to
+ * `contaminated`.
  *
  * Pass 2 settles the rest — bare names the roster DOES have a token for. They
  * are preserved on the plan's "a lone Camila means the attendee" heuristic,
@@ -598,31 +739,40 @@ function planSpans(tokens: Token[], spans: Span[], rawText: string): SpanPlan[] 
  */
 function classifySpans(plans: SpanPlan[], attendees: AttendeeIndex): void {
   const contaminated = new Set<string>();
-  const deferred: SpanPlan[] = [];
+  const deferred: Segment[] = [];
 
-  const redact = (plan: SpanPlan): void => {
-    plan.preserved = false;
-    for (const token of plan.significant) contaminated.add(token.norm);
+  const redact = (segment: Segment): void => {
+    segment.preserved = false;
+    for (const token of segment.tokens) contaminated.add(token.norm);
   };
 
   for (const plan of plans) {
-    if (plan.significant.length === 1) {
-      if (attendees.tokens.has(plan.significant[0].norm)) {
-        deferred.push(plan);
+    // Step 1. Bare names are deliberately excluded: a lone roster token is the
+    // heuristic below, contamination included, not whole-span coverage.
+    if (plan.significant.length >= 2 && isCoveredBySingleEntry(plan.significant, attendees)) {
+      plan.preservedWhole = true;
+      continue;
+    }
+
+    for (const segment of plan.segments) {
+      if (segment.tokens.length === 1) {
+        if (attendees.tokens.has(segment.tokens[0].norm)) {
+          deferred.push(segment);
+          continue;
+        }
+        redact(segment);
         continue;
       }
-      redact(plan);
-      continue;
+      if (isCoveredBySingleEntry(segment.tokens, attendees)) {
+        segment.preserved = true;
+        continue;
+      }
+      redact(segment);
     }
-    if (isAttendeeCovered(plan.significant, attendees)) {
-      plan.preserved = true;
-      continue;
-    }
-    redact(plan);
   }
 
-  for (const plan of deferred) {
-    plan.preserved = !contaminated.has(plan.significant[0].norm);
+  for (const segment of deferred) {
+    segment.preserved = !contaminated.has(segment.tokens[0].norm);
   }
 }
 
@@ -633,9 +783,9 @@ function classifySpans(plans: SpanPlan[], attendees: AttendeeIndex): void {
  *
  * @param rawText        Transcript text as produced by transcription.
  * @param attendeeNames  Display names of the people known to have attended.
- *                       A name span survives only where these account for all
- *                       of it (see the preservation rule at the top of the
- *                       file); everyone else is redacted.
+ *                       A person-reference survives only where ONE of these
+ *                       accounts for all of it (see the preservation rule at
+ *                       the top of the file); everyone else is redacted.
  */
 export function sanitize(
   rawText: string,
@@ -665,7 +815,7 @@ export function sanitize(
   const tokens = tokenize(rawText);
   const evidence = collectEvidence(tokens, rawText);
   const spans = buildSpans(tokens, evidence);
-  const plans = planSpans(tokens, spans, rawText);
+  const plans = planSpans(tokens, spans, evidence, rawText);
   classifySpans(plans, attendees);
 
   /** normalized token → assigned person number. Keeps "Martina Rojas" and a later bare "Martina" on the same token. */
@@ -681,7 +831,7 @@ export function sanitize(
   // redacted bare "Camila" on the same `[persona N]` as the "Camila Pérez" it
   // refers to, whichever of the two comes first.
   for (const plan of plans) {
-    if (plan.preserved) {
+    if (plan.preservedWhole) {
       detections.push({
         surface: plan.surface,
         start: plan.start,
@@ -693,32 +843,48 @@ export function sanitize(
       continue;
     }
 
-    // Reuse an existing number if any token of this span was already assigned.
-    let assigned: number | undefined;
-    for (const t of plan.significant) {
-      const existing = personNumbers.get(t.norm);
-      if (existing !== undefined) {
-        assigned = assigned === undefined ? existing : Math.min(assigned, existing);
+    // Per segment, so a mixed span emits one record per person-reference and
+    // the connector text between them is never inside a replacement range.
+    for (const segment of plan.segments) {
+      if (segment.preserved) {
+        detections.push({
+          surface: segment.surface,
+          start: segment.start,
+          end: segment.end,
+          layer: segment.layer,
+          confidence: segment.confidence,
+          action: 'preserved',
+        });
+        continue;
       }
-    }
-    if (assigned === undefined) {
-      assigned = nextPersonNumber;
-      nextPersonNumber += 1;
-    }
-    for (const t of plan.significant) personNumbers.set(t.norm, assigned);
 
-    const token = `[persona ${assigned}]`;
-    replacements.push({ start: plan.start, end: plan.end, text: token });
-    detections.push({
-      surface: plan.surface,
-      start: plan.start,
-      end: plan.end,
-      layer: plan.span.layer,
-      confidence: plan.span.confidence,
-      action: 'redacted',
-      token,
-    });
-    redactionCount += 1;
+      // Reuse an existing number if any token of this segment was already assigned.
+      let assigned: number | undefined;
+      for (const t of segment.tokens) {
+        const existing = personNumbers.get(t.norm);
+        if (existing !== undefined) {
+          assigned = assigned === undefined ? existing : Math.min(assigned, existing);
+        }
+      }
+      if (assigned === undefined) {
+        assigned = nextPersonNumber;
+        nextPersonNumber += 1;
+      }
+      for (const t of segment.tokens) personNumbers.set(t.norm, assigned);
+
+      const token = `[persona ${assigned}]`;
+      replacements.push({ start: segment.start, end: segment.end, text: token });
+      detections.push({
+        surface: segment.surface,
+        start: segment.start,
+        end: segment.end,
+        layer: segment.layer,
+        confidence: segment.confidence,
+        action: 'redacted',
+        token,
+      });
+      redactionCount += 1;
+    }
   }
 
   // Apply right-to-left so earlier offsets stay valid.

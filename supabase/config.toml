@@ -12,3 +12,15 @@ port = 54321
 schemas = ["public", "graphql_public", "zoom_internal"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
+
+# Z0B-2 (spike): LOCAL Supabase only — the recording round trip streams Zoom → local
+# Storage over the S3 multipart protocol, which the CLI only exposes when
+# [storage.s3_protocol] is enabled. Production storage is never touched by this spike.
+[storage]
+enabled = true
+# Mirrors the plan §7 bucket ceiling (`zoom-recordings`, fileSizeLimit 2GB) so a local
+# transfer fails the same way a production one would, rather than succeeding by accident.
+file_size_limit = "2GiB"
+
+[storage.s3_protocol]
+enabled = true

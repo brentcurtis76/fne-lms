@@ -1,0 +1,589 @@
+{
+  "suite": "must-catch",
+  "blocking": true,
+  "description": "Explicit student references, plus the attendee-collision family (mc-23..mc-33) that guards the preservation rule in both directions — mc-28..mc-34 added in Z0B-1r2 for segment classification, mc-35..mc-37 added in Z0B-1r3 for gap-punctuation segment splitting (D4) and the role-pattern name-plausibility filter (D3), mc-38..mc-40 added in Z0B-1r4 to prove the trigger-gap/plausibility guards (G1/G2/G3) did not cost the detections they bound, mc-41..mc-52 added in Z0B-1r5 for the trigger-token candidacy class (G4/G4'): a title, role noun, course word or abbreviation is never name material, so the ATTENDEE standing beside it survives. Note that most of the r5 family asserts through mustPreserve, not mustRedact — the defect they cover redacted the right mention for the wrong reason and destroyed an attendee doing it, which is precisely why a recall-only score never saw it. mc-54..mc-63 added in Z0B-1r6 for RECOGNIZER COMPLETENESS — three different classes the r5 closure could not reach, each reproduced by the PM before it was ruled: vocabulary no lexicon contained (the es-CL school register, F12), a morphology filter switched off by a global length floor (short accented preterites, F13), and a course-code recognizer that could not fire on the spelling it was written for (numeric codes, F14). Plan §12/§15: the bar is 100% — any miss is a red build. Every name here is synthetic; no real student, family or staff member appears in this file.",
+  "cases": [
+    {
+      "id": "mc-01",
+      "description": "role noun + full name",
+      "attendees": ["Camila Fuentes", "Rodrigo Pérez"],
+      "text": "Camila Fuentes abrió la sesión y comentó que la estudiante Martina Rojas ha mejorado mucho en lenguaje este semestre.",
+      "mustRedact": ["Martina Rojas"],
+      "mustPreserve": ["Camila Fuentes"]
+    },
+    {
+      "id": "mc-02",
+      "description": "role noun + given name",
+      "attendees": ["Camila Fuentes"],
+      "text": "Revisamos el caso que trajo el equipo: el alumno Benjamín necesita apoyo en la lectura en voz alta.",
+      "mustRedact": ["Benjamín"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-03",
+      "description": "diminutive role noun (niña) + given name",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "Rodrigo Pérez planteó que la niña Florencia se ha integrado bien al grupo de trabajo.",
+      "mustRedact": ["Florencia"],
+      "mustPreserve": ["Rodrigo Pérez"]
+    },
+    {
+      "id": "mc-04",
+      "description": "role noun + full name, second surname included",
+      "attendees": ["Camila Fuentes"],
+      "text": "El niño Vicente Cárcamo faltó tres veces este mes y la familia no ha respondido los correos.",
+      "mustRedact": ["Vicente Cárcamo"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-05",
+      "description": "honorific don + given name",
+      "attendees": ["Camila Fuentes"],
+      "text": "Camila Fuentes contó que don Ignacio pidió una reunión para hablar del rendimiento de su hijo.",
+      "mustRedact": ["Ignacio"],
+      "mustPreserve": ["Camila Fuentes"]
+    },
+    {
+      "id": "mc-06",
+      "description": "honorific doña + full name",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "Quedó pendiente devolverle el llamado a doña Elena Fuenzalida antes del viernes.",
+      "mustRedact": ["Elena Fuenzalida"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-07",
+      "description": "course designation + given name",
+      "attendees": ["Camila Fuentes"],
+      "text": "En el reporte aparece que, de 5°B, Antonia es quien más ha avanzado en comprensión lectora.",
+      "mustRedact": ["Antonia"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-08",
+      "description": "written course designation + given name",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "El caso de quinto básico, Emilia, se conversó con la dupla psicosocial la semana pasada.",
+      "mustRedact": ["Emilia"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-09",
+      "description": "school honorific profe + given name (non-attendee staff)",
+      "attendees": ["Camila Fuentes"],
+      "text": "La profe Marcela comentó que el bloque colaborativo se le ocupa siempre en temas administrativos.",
+      "mustRedact": ["Marcela"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-10",
+      "description": "guardian role noun + full name",
+      "attendees": ["Camila Fuentes"],
+      "text": "El apoderado Jorge Mellado insiste en que la comunicación con el colegio no funciona.",
+      "mustRedact": ["Jorge Mellado"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-11",
+      "description": "school honorific tía + name that collides with a common word",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "Los cursos más chicos siguen llamando tía Rosa a la asistente de la sala, y eso ya está conversado.",
+      "mustRedact": ["Rosa"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-12",
+      "description": "two students coordinated by y — AMENDED in Z0B-1r2: expectedPersonCount added and set to 2. Before segment classification the connector-merged span produced ONE [persona N] for two students (defect D2), which undercounted personCount and the §6 flag-density metric; both mentions were redacted either way, so the case passed while the count was wrong.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Los estudiantes Matías y Tomás presentaron juntos el trabajo de ciencias y les fue muy bien.",
+      "mustRedact": ["Matías", "Tomás"],
+      "mustPreserve": [],
+      "expectedPersonCount": 2
+    },
+    {
+      "id": "mc-13",
+      "description": "peer role noun + given name",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "La compañera Josefa la ayudó a ponerse al día después de la licencia médica.",
+      "mustRedact": ["Josefa"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-14",
+      "description": "bare capitalized name mid-sentence, no trigger word",
+      "attendees": ["Camila Fuentes"],
+      "text": "Después de la reunión conversamos con Renata sobre la evaluación de historia.",
+      "mustRedact": ["Renata"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-15",
+      "description": "compound given name + surname",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "El informe menciona a María José Aravena como uno de los casos prioritarios del ciclo.",
+      "mustRedact": ["María José Aravena"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-16",
+      "description": "abbreviated honorific with period (must not read as a sentence break). AMENDED in Z0B-1r5: mustPreserve gained 'la Sra. [persona 1]'. The mention was caught before and after, but on a9f6f87 the title went with it ('con la [persona 1] para el martes'); under G4 the title survives and only the name is replaced. Same text, same recall, better minuta — which is why the r5 class was invisible to this fixture until the assertion was added.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Camila Fuentes coordinó la entrevista con la Sra. Elena para el martes a primera hora.",
+      "mustRedact": ["Elena"],
+      "mustPreserve": ["Camila Fuentes", "la Sra. [persona 1]"]
+    },
+    {
+      "id": "mc-17",
+      "description": "same student named three times must collapse to one token",
+      "attendees": ["Camila Fuentes"],
+      "text": "El alumno Cristóbal Vergara llegó atrasado dos veces. Hablamos con Cristóbal en la mañana y quedó claro. Cristóbal Vergara se comprometió a avisar si vuelve a pasar.",
+      "mustRedact": ["Cristóbal Vergara", "Cristóbal"],
+      "mustPreserve": [],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-18",
+      "description": "list of three students",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "En el grupo de apoyo quedaron Matías, Valentina y Agustín, según lo que definió el equipo.",
+      "mustRedact": ["Matías", "Valentina", "Agustín"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-19",
+      "description": "family relation + name",
+      "attendees": ["Camila Fuentes"],
+      "text": "La madre Verónica pidió que la citación llegue por escrito y no solo por la plataforma.",
+      "mustRedact": ["Verónica"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-20",
+      "description": "student named alongside two attendees — attendees survive, student does not",
+      "attendees": ["Camila Fuentes", "Rodrigo Pérez"],
+      "text": "Camila Fuentes y Rodrigo Pérez coincidieron en que el caso de Ignacia Lillo requiere derivación externa.",
+      "mustRedact": ["Ignacia Lillo"],
+      "mustPreserve": ["Camila Fuentes", "Rodrigo Pérez"]
+    },
+    {
+      "id": "mc-21",
+      "description": "institution name must not be mistaken for a person, student still caught",
+      "attendees": ["Camila Fuentes"],
+      "text": "En el Colegio San Mateo el caso de la estudiante Trinidad se trabajó con la Fundación Nueva Educación.",
+      "mustRedact": ["Trinidad"],
+      "mustPreserve": ["Colegio San Mateo"]
+    },
+    {
+      "id": "mc-22",
+      "description": "attendee referred to by first name only must survive",
+      "attendees": ["Camila Fuentes", "Rodrigo Pérez"],
+      "text": "Camila propuso el cambio y Rodrigo lo respaldó; el alumno Maximiliano quedó fuera de esa decisión.",
+      "mustRedact": ["Maximiliano"],
+      "mustPreserve": ["Camila", "Rodrigo"]
+    },
+    {
+      "id": "mc-23",
+      "category": "attendee-collision",
+      "description": "student sharing a given name with an attendee — the WHOLE span goes, not just the surname",
+      "attendees": ["Camila Fuentes"],
+      "text": "El caso de la estudiante Camila Pérez se conversó con la dupla psicosocial del colegio.",
+      "mustRedact": ["Camila Pérez", "Camila"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-24",
+      "category": "attendee-collision",
+      "description": "bare given name once a colliding student exists — ambiguous, so it resolves to redaction and reuses the student's number",
+      "attendees": ["Camila Fuentes"],
+      "text": "La estudiante Camila Pérez entregó el informe atrasado. Más tarde Camila preguntó por la nota en la sala.",
+      "mustRedact": ["Camila Pérez", "Camila"],
+      "mustPreserve": [],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-25",
+      "category": "attendee-collision",
+      "description": "bare given name with no colliding student — the attendee heuristic must survive the tightened rule",
+      "attendees": ["Camila Fuentes"],
+      "text": "En la reunión Camila propuso revisar el protocolo de convivencia con el equipo directivo.",
+      "mustRedact": [],
+      "mustPreserve": ["Camila"]
+    },
+    {
+      "id": "mc-26",
+      "category": "attendee-collision",
+      "description": "attendee name in inverted roster order — coverage is order-insensitive",
+      "attendees": ["Camila Fuentes"],
+      "text": "En la nómina de la sesión aparece Fuentes, Camila como facilitadora del taller.",
+      "mustRedact": [],
+      "mustPreserve": ["Fuentes, Camila"]
+    },
+    {
+      "id": "mc-27",
+      "category": "attendee-collision",
+      "description": "attendee full name after a redacted collision — full coverage beats token contamination",
+      "attendees": ["Camila Fuentes"],
+      "text": "La estudiante Camila Pérez faltó el lunes. Camila Fuentes revisará el caso con la familia esta semana.",
+      "mustRedact": ["Camila Pérez"],
+      "mustPreserve": ["Camila Fuentes"]
+    },
+    {
+      "id": "mc-28",
+      "category": "attendee-collision",
+      "description": "D1 — student stitched from TWO different attendees' tokens: given name from one, surname from the other. Coverage is per roster entry, never the union, so the whole span goes.",
+      "attendees": ["Camila Fuentes", "Rodrigo Pérez"],
+      "text": "La alumna Camila Pérez llegó tarde a la sesión y quedó fuera de la actividad inicial.",
+      "mustRedact": ["Camila Pérez", "Camila"],
+      "mustPreserve": []
+    },
+    {
+      "id": "mc-29",
+      "category": "attendee-collision",
+      "description": "D1 plus a later bare given name — contaminated by the cross-entry collision, so it redacts and reuses that student's number",
+      "attendees": ["Camila Fuentes", "Rodrigo Pérez"],
+      "text": "La alumna Camila Pérez entregó el informe atrasado. Más tarde Camila preguntó por la nota en la sala.",
+      "mustRedact": ["Camila Pérez", "Camila"],
+      "mustPreserve": [],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-30",
+      "category": "attendee-collision",
+      "description": "two attendees coordinated by y — buildSpans bridges them into one span, and each segment is covered by its own roster entry, so nothing is redacted",
+      "attendees": ["Camila Fuentes", "Rodrigo Pérez"],
+      "text": "Camila Fuentes y Rodrigo Pérez firmaron el acta de la sesión antes de cerrar la reunión.",
+      "mustRedact": [],
+      "mustPreserve": ["Camila Fuentes", "Rodrigo Pérez"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-31",
+      "category": "attendee-collision",
+      "description": "mixed span — attendee and student inside one bridged span; segments act independently, so the attendee survives and the student is redacted",
+      "attendees": ["Camila Fuentes"],
+      "text": "Conversamos con Camila Fuentes y Martina sobre el plan de acompañamiento del curso.",
+      "mustRedact": ["Martina"],
+      "mustPreserve": ["Camila Fuentes"],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-32",
+      "category": "attendee-collision",
+      "description": "D2 — two students joined by a connector must be two people, not one; the connector text survives between the tokens",
+      "attendees": ["Camila Fuentes"],
+      "text": "En la presentación el alumno Matías y Tomás mostraron el mismo experimento de ciencias.",
+      "mustRedact": ["Matías", "Tomás"],
+      "mustPreserve": [],
+      "expectedPersonCount": 2
+    },
+    {
+      "id": "mc-33",
+      "category": "attendee-collision",
+      "description": "attendee whose name carries internal connectors — the roster entry explains every token, so the surface survives intact",
+      "attendees": ["María de los Ángeles Rojas"],
+      "text": "La sesión la abrió María de los Ángeles con el equipo directivo del colegio.",
+      "mustRedact": [],
+      "mustPreserve": ["María de los Ángeles"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-34",
+      "category": "segment-split",
+      "description": "two students joined by a comma. AMENDED TWICE. Z0B-1r2 set expectedPersonCount to 1 and documented it as residual R3: segments split at connector TOKENS only, so the pair shared ONE [persona N] — an undercount of the §6 density metric. Z0B-1r3 (defect D4) closed that: segments now also split at gap punctuation, so the count is 2. Both mentions were redacted under either rule; the count is what moved, which is exactly how the undercount stayed invisible for a round.",
+      "attendees": ["Camila Fuentes"],
+      "text": "En el grupo de apoyo quedaron Martina Rojas, Benjamín Soto y otro más.",
+      "mustRedact": ["Martina Rojas", "Benjamín Soto"],
+      "mustPreserve": [],
+      "expectedPersonCount": 2
+    },
+    {
+      "id": "mc-35",
+      "category": "segment-split",
+      "description": "D4 — three students in one comma list: a role-noun pair, a bare comma-joined pair, and a third behind a connector. Three person-references, three numbers; before the gap-punctuation split the comma pair collapsed into one persona and the comma itself was swallowed by the replacement.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Asistieron la alumna Martina Rojas, Benjamín Soto y la niña Florencia.",
+      "mustRedact": ["Martina Rojas", "Benjamín Soto", "Florencia"],
+      "mustPreserve": [],
+      "expectedPersonCount": 3
+    },
+    {
+      "id": "mc-36",
+      "category": "segment-split",
+      "description": "D4 across a sentence boundary — buildSpans merges adjacent name tokens whatever sits between them, so a name ending one sentence and a name opening the next arrived as one span. Two students, two numbers, and the period between them survives in the output.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Hablamos de la estudiante Martina Rojas. Benjamín Soto llegó tarde a la sesión.",
+      "mustRedact": ["Martina Rojas", "Benjamín Soto"],
+      "mustPreserve": [],
+      "expectedPersonCount": 2
+    },
+    {
+      "id": "mc-37",
+      "description": "D3 — a name lowercased by transcription, next to a role noun. This is the case the role-pattern layer's lowercase branch exists for, and it must survive the name-plausibility filter that stopped 'los alumnos trabajaron' from producing a person: 'benjamín' is not ordinary vocabulary and carries no verb, participle or adverb morphology, so it is uncertain — and uncertain redacts.",
+      "attendees": ["Camila Fuentes"],
+      "text": "El equipo comentó que el alumno benjamín no ha entregado la guía de lectura.",
+      "mustRedact": ["benjamín"],
+      "mustPreserve": [],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-38",
+      "category": "guard-cost",
+      "description": "G2 applied to the HONORIFIC layer must not throw its lowercase branch away. 'ignacio' after 'don' is not ordinary vocabulary and carries no verb, participle or adverb morphology, so it is name-plausible → uncertain → redacted. This is the honorific twin of mc-37, and the case that proves the r4 fix for 'La profesora terminaba…' did not buy precision with recall.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Conversamos con don ignacio sobre el rendimiento de su hijo en matemática.",
+      "mustRedact": ["ignacio"],
+      "mustPreserve": [],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-39",
+      "category": "guard-cost",
+      "description": "Same guarantee for a school honorific and a lowercased staff name — the mc-09 construction with the capitalization Whisper drops. 'la profe marcela' must still redact after G2.",
+      "attendees": ["Camila Fuentes"],
+      "text": "La profe marcela comentó que el bloque colaborativo se le ocupa en temas administrativos.",
+      "mustRedact": ["marcela"],
+      "mustPreserve": [],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-40",
+      "category": "guard-cost",
+      "description": "G3 — left-extension veto. The sentence-opening verb 'Quedaron' was being absorbed into the persona span ('[persona 1] y [persona 2] a cargo…'), destroying the verb and reporting a person span that started one token too far left. Both students must still be redacted whole, with two numbers, and the verb must survive in the output.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Quedaron Martina Rojas y Benjamín Soto a cargo del mural de la entrada.",
+      "mustRedact": ["Martina Rojas", "Benjamín Soto"],
+      "mustPreserve": ["Quedaron"],
+      "expectedPersonCount": 2
+    },
+    {
+      "id": "mc-41",
+      "category": "trigger-token-candidacy",
+      "description": "V1 — an attendee addressed by an abbreviated title. On a9f6f87 the capitalization layer marked 'Sra' (HONORIFICS was not in its skip list), the abbreviation guard correctly refused to split 'Sra. Elena', and the fused span then failed roster coverage: 'La [persona 1] presentó…' with the attendee Elena Vidal destroyed. The defect was never that the span failed coverage — it was that 'Sra' carried evidence at all.",
+      "attendees": ["Elena Vidal"],
+      "text": "La Sra. Elena presentó el informe de asistencia a la comunidad.",
+      "mustRedact": [],
+      "mustPreserve": ["La Sra. Elena"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-42",
+      "category": "trigger-token-candidacy",
+      "description": "V1 — the same destruction with a spelled-out title and no period, so the abbreviation machinery is not involved at all: 'Profesora' self-marked and fused. Attendee Marcela Soto must survive title and all.",
+      "attendees": ["Marcela Soto"],
+      "text": "La Profesora Marcela propuso un cambio en el horario del taller.",
+      "mustRedact": [],
+      "mustPreserve": ["La Profesora Marcela"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-43",
+      "category": "trigger-token-candidacy",
+      "description": "V2 — the LEFT-EXTENSION instance, and the one V1 alone cannot fix. 'Doña' is sentence-initial, so the capitalization layer already skipped it; the extension pass then walked left from 'Carmen' and absorbed it anyway, because HONORIFICS was not among its break conditions either.",
+      "attendees": ["Carmen Ruiz"],
+      "text": "Doña Carmen firmó el acta de la sesión antes de retirarse.",
+      "mustRedact": [],
+      "mustPreserve": ["Doña Carmen"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-44",
+      "category": "trigger-token-candidacy",
+      "description": "The non-attendee half of the same construction: the name goes, the TITLE SURVIVES. On a9f6f87 the title was swallowed with the name ('La [persona 1] reclamó…'); 'La Sra. [persona 1] reclamó…' is strictly better minuta text and is now the asserted contract.",
+      "attendees": ["Camila Fuentes"],
+      "text": "La Sra. Rosa reclamó por el horario de la reunión de apoderados.",
+      "mustRedact": ["Rosa"],
+      "mustPreserve": ["La Sra. [persona 1]"],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-45",
+      "category": "trigger-token-candidacy",
+      "description": "V1 + V3 — a COURSE fused into a 'person'. 'Quinto' was marked by role-pattern (i-2 across the connector, COURSE_WORDS being absent from every candidacy veto) and 'Básico' by the course pattern's capitalized branch, which vetoed ORG_HEADS but not NON_PERSON_PROPER. No person is present in this sentence at all.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Los niños de Quinto Básico salieron temprano.",
+      "mustRedact": [],
+      "mustPreserve": ["Quinto Básico"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-46",
+      "category": "trigger-token-candidacy",
+      "description": "V1 + V2 — a title-case ROLE noun. Both halves matter: 'Alumna' must stop fusing, and 'Martina' must still redact. Getting only the first half would trade a leak for a cosmetic win.",
+      "attendees": ["Camila Fuentes"],
+      "text": "La Alumna Martina no llegó a clases.",
+      "mustRedact": ["Martina"],
+      "mustPreserve": ["La Alumna [persona 1]"],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-47",
+      "category": "trigger-token-candidacy",
+      "description": "V3 + V4 — the compound title 'Profesor Jefe'. 'Jefe' is an honorific-layer candidate and capitalized, so it scored high on a9f6f87 and the whole title became a person. V4 puts jefe/jefa in HONORIFICS, which V3 then vetoes as candidates: a title is never the name that follows a title.",
+      "attendees": ["Camila Fuentes"],
+      "text": "El Profesor Jefe mencionó el calendario de entrevistas.",
+      "mustRedact": [],
+      "mustPreserve": ["El Profesor Jefe"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-48",
+      "category": "trigger-token-candidacy",
+      "description": "V4 in the other direction — the same two words as mc-47, lowercased by transcription and followed by a real name. 'jefe' now acts as a TRIGGER, so 'marcelo' is licensed as uncertain and redacted. On a9f6f87 this was a clean miss: nothing marked 'marcelo' at all.",
+      "attendees": ["Camila Fuentes"],
+      "text": "el profesor jefe marcelo revisó la pauta de observación con el equipo.",
+      "mustRedact": ["marcelo"],
+      "mustPreserve": ["el profesor jefe"],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-49",
+      "category": "trigger-token-candidacy",
+      "description": "The lock on the course-vs-role ASYMMETRY. NON_PERSON_PROPER holds real es-CL given names (julio, abril, santiago) whose only detection path is a role or honorific pattern, because the capitalization layer vetoes the set outright. G4' therefore applies to COURSE call sites ONLY. If someone ever 'simplifies' it into a blanket veto, this case goes red.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Hablamos con el alumno Julio sobre la guía de lectura pendiente.",
+      "mustRedact": ["Julio"],
+      "mustPreserve": [],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-50",
+      "category": "trigger-token-candidacy",
+      "description": "SAME-CLASS instance found during r5 implementation and fixed here: ABBREVIATIONS. 'dr'/'dra'/'prof'/'ing'/'lic' are the 'Sra' construction without its HONORIFICS membership, so 'El Dr. Martínez' fused exactly like 'La Sra. Elena'. They are not triggers, so vetoing them costs no recall — the surname is still caught by the capitalization layer.",
+      "attendees": ["Camila Fuentes"],
+      "text": "El Dr. Martínez revisó el informe del ciclo con el equipo directivo.",
+      "mustRedact": ["Martínez"],
+      "mustPreserve": ["El Dr. [persona 1]"],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-51",
+      "category": "trigger-token-candidacy",
+      "description": "The attendee half of mc-50 — the abbreviation instance destroying a roster name, which is the version that actually costs the minuta.",
+      "attendees": ["Elena Vidal"],
+      "text": "La Prof. Elena entregó la pauta corregida antes del viernes.",
+      "mustRedact": [],
+      "mustPreserve": ["La Prof. Elena"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-52",
+      "category": "trigger-token-candidacy",
+      "description": "SAME-CLASS instance found during r5 implementation: a course trigger marking SCHOOL-SUBJECT vocabulary. 'Lenguaje' is in NON_PERSON_PROPER, so the capitalization layer vetoed it — but the course pattern's capitalized branch did not, and produced 'en quinto básico [persona 1]'. This is the case G4' exists for, beyond 'Básico' itself.",
+      "attendees": ["Camila Fuentes"],
+      "text": "En quinto básico Lenguaje se trabajó con la pauta corta.",
+      "mustRedact": [],
+      "mustPreserve": ["quinto básico Lenguaje"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-53",
+      "category": "trigger-token-candidacy",
+      "description": "The COLLISION CARVE-OUT, in both directions and in one sentence. 'niña' and the given name 'Nina' normalize to the same key, so the ROLE_NOUNS veto would have made a girl called Nina undetectable on every path — a recall regression introduced by the fix. LEXICON_NAME_COLLISIONS tests the ACCENT-PRESERVING surface, so 'Nina' stays name-eligible and 'niña' keeps its veto. The second half is the cross-reference (path 8) half of the guard: propagation is keyed on the accent-stripped norm, so without G4 on path 8 redacting 'Nina' would turn every 'niña' in the transcript into that student.",
+      "attendees": ["Camila Fuentes"],
+      "text": "La alumna Nina pidió cambiarse de puesto y la niña de kinder también.",
+      "mustRedact": ["Nina"],
+      "mustPreserve": ["la niña de kinder"],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-54",
+      "category": "recognizer-completeness",
+      "description": "F12 — the SCHOOL REGISTER. 'directora' was in no lexicon at all, so it was not a title to this module, just a capitalized unknown word: the capitalization layer marked it 'high' and 'La Sra. Directora confirmó la fecha' emitted 'La Sra. [persona 1] confirmó…' — a person invented out of a job title. Different class from r5, which could only ever veto lexicon MEMBERS; the repair is to make the register a lexicon in the first place. Reproduced by the PM on 0011f8c.",
+      "attendees": ["Camila Fuentes"],
+      "text": "La Sra. Directora confirmó la fecha del consejo de profesores.",
+      "mustRedact": [],
+      "mustPreserve": ["La Sra. Directora confirmó"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-55",
+      "category": "recognizer-completeness",
+      "description": "The ATTENDEE half of mc-54, and the version that actually costs the minuta. With the title fused into the span, 'La Directora Marcela' fails roster coverage and destroys Marcela Soto exactly as 'La Profesora Marcela' did on a9f6f87 — the same failure mode r5 closed for lexicon members, re-entering through vocabulary no lexicon contained.",
+      "attendees": ["Marcela Soto"],
+      "text": "La Directora Marcela propuso un cambio en el horario del taller.",
+      "mustRedact": [],
+      "mustPreserve": ["La Directora Marcela"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-56",
+      "category": "recognizer-completeness",
+      "description": "The TRIGGER half of F12, member one of two. Vetoing the register as candidates without promoting it to triggers would have been a pure precision trade; joining HONORIFICS makes it a recall gain as well, and 'la directora Marcela' is now caught with layer 'honorific' rather than by the capitalization layer's accident. The lowercase-only form — where the trigger is the ONLY path — is asserted in the contract suite.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Hablamos con la directora Marcela sobre el plan de acompañamiento.",
+      "mustRedact": ["Marcela"],
+      "mustPreserve": ["la directora [persona 1]"],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-57",
+      "category": "recognizer-completeness",
+      "description": "The TRIGGER half of F12, member two of two — 'docente', the one register word with no gendered pair and the one most likely to appear in a session transcript. The roster deliberately excludes Camila, so the bare-token heuristic cannot be what decides her.",
+      "attendees": ["Rodrigo Pérez"],
+      "text": "En la reunión participó la docente Camila con el registro del curso.",
+      "mustRedact": ["Camila"],
+      "mustPreserve": ["la docente [persona 1]"],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-58",
+      "category": "recognizer-completeness",
+      "description": "The COST CHECK on F12: promoting a word to a trigger licenses whatever follows it, so a plural register title followed by an ordinary preterite must NOT produce a person. 'dijeron' is stopped by the ending filter, not by a list of verbs — which is the property that makes the promotion affordable at all. If a future round widens the register without the ending filter behind it, this goes red.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Al final las coordinadoras dijeron que el horario nuevo funcionaba mejor.",
+      "mustRedact": [],
+      "mustPreserve": ["las coordinadoras dijeron que el horario"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-59",
+      "category": "recognizer-completeness",
+      "description": "F13 — the PER-ENDING FLOOR. 'dejó' is 4 characters and the ending filter's length floor was a global 5, so the accented-ó preterite marker was never tested and every short preterite after a title became a person: 'la profesora [persona 1] la pauta'. The floor exists to protect 'juan'/'ivan' from the 'an' ending — a protection the 'ó' ending needs none of, since no es-CL given name ends in accented -ó. Reproduced by the PM on 0011f8c; the boundary cases live in the contract suite.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Al final la profesora dejó la pauta en la sala.",
+      "mustRedact": [],
+      "mustPreserve": ["la profesora dejó la pauta"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-60",
+      "category": "recognizer-completeness",
+      "description": "F14 — NUMERIC COURSE CODES, all three symptoms in one line. WORD_RE tokenizes letters only, so '5°B' yields the bare token 'B': looksLikeCourse's numeric branch was provably dead code, AND the letter was itself name material via role-pattern (i-2 across 'de'), so 'de 5°B, Antonia' emitted 'de 5°[persona 1], [persona 2]' — course code mangled, count inflated to 2. Both halves are fixed: the letter joins the G4 family and becomes a real course trigger, so Antonia is now caught by the COURSE pattern from a numeric code, which never happened before. Reproduced by the PM on 0011f8c.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Los apoderados de 5°B, Antonia entre ellos, firmaron.",
+      "mustRedact": ["Antonia"],
+      "mustPreserve": ["de 5°B, [persona 1] entre ellos"],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-61",
+      "category": "recognizer-completeness",
+      "description": "The half of F14 that has nothing to do with names: a numeric course code with no person anywhere near it must come through untouched. On 0011f8c this alone emitted 'de 5°[persona 1] firmaron' — one invented person, one destroyed course code, zero students in the sentence.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Los apoderados de 5°B firmaron el acta de la reunión.",
+      "mustRedact": [],
+      "mustPreserve": ["de 5°B firmaron"],
+      "expectedPersonCount": 0
+    },
+    {
+      "id": "mc-62",
+      "category": "recognizer-completeness",
+      "description": "SAME-CLASS instance found during r6 implementation and fixed here: the ORDINAL-INDICATOR spelling. Unicode classifies 'º' (U+00BA) as a LETTER, so '1ºA' tokenized as the two-character word 'ºA' — which no course recognizer could match and which the role-pattern layer marked as an uncertain lowercase name, giving 'de 1[persona 1] firmaron'. Same defect as the 5°B instance, reachable only through this spelling, and invisible to a fix written against '°' (U+00B0, a symbol). WORD_RE now excludes both ordinal indicators, so '1ºA' behaves identically to '5°B'.",
+      "attendees": ["Camila Fuentes"],
+      "text": "Los apoderados de 1ºA, Antonia entre ellos, firmaron.",
+      "mustRedact": ["Antonia"],
+      "mustPreserve": ["de 1ºA, [persona 1] entre ellos"],
+      "expectedPersonCount": 1
+    },
+    {
+      "id": "mc-63",
+      "category": "recognizer-completeness",
+      "description": "THE FLIP SIDE OF R6, and the reason F12 is a lexicon rather than a rule. 'Solange' is a capitalized word after an honorific that is in no lexicon — structurally identical to the 'Directora' of mc-54 — and it is a NAME. So the capitalization layer must keep marking unknown capitalized words, and the price is that an unlisted TITLE ('La Sra. Bibliotecaria') over-redacts. This case makes that trade explicit: any future 'fix' for R6 that stops marking capitalized unknowns after a title turns this fixture into a leak.",
+      "attendees": ["Camila Fuentes"],
+      "text": "La Sra. Solange reclamó por el horario de la reunión.",
+      "mustRedact": ["Solange"],
+      "mustPreserve": ["La Sra. [persona 1]"],
+      "expectedPersonCount": 1
+    }
+  ]
+}

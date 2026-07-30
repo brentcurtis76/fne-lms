@@ -54,6 +54,31 @@ const nextConfig = {
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
         ],
       },
+      // Permissions-Policy override for the meeting surface.
+      //
+      // The global rule above denies camera and microphone on every route.
+      // That is right for the rest of the LMS and fatal for a Zoom embed: the
+      // SDK calls getUserMedia from the page, and a denying Permissions-Policy
+      // blocks it before the browser ever prompts the user.
+      //
+      // This entry is declared AFTER the global one on purpose. Both match a
+      // /meet path; Next.js applies every matching header group in order, so
+      // for a repeated key the later value is the one that survives. Verified
+      // with `curl -I` against a dev server (evidence in
+      // docs/planning/zoom-spike-results.md §1): /meet/* gets the permissive
+      // policy and every other route keeps the restrictive one.
+      //
+      // `display-capture` is included for screen sharing. `geolocation` stays
+      // denied — no meeting surface has any use for it.
+      {
+        source: '/meet/:path*',
+        headers: [
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(self), microphone=(self), display-capture=(self), geolocation=()',
+          },
+        ],
+      },
     ];
   },
 

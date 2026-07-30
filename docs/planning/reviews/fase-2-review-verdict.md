@@ -26,3 +26,7 @@ Fix block: as reproduced in the PM's remediation prompt (Z0B-2r1). Re-review may
 ## PM triage (Round 1)
 
 **All nine findings VALID.** Three explicitly correct PM rulings: ③ the PM's synthetic-only acceptance was scoped to credential values and one noted identifier — Sol's identifier-level scan is the correct bar; ⑤ the PM's session-only acceptance of the signature endpoint is overturned — repo pattern (auth → role → validation) applies even to spike surfaces that ship; ⑥ a PM-accepted deviation cannot amend a settled §15 DoD — that authority is Brent's (decision put to Brent: complete a representative measurement now vs. formally amend the DoD to defer to the Z4 soak; PM recommends the deferral amendment). ① concedes the strict reading of "uncertain → flagged": transcript-level status, not just span redaction. ④ is the sharpest catch: the blocking gate certified less than the invariant. ② and ⑦ are execution-discipline failures (false claims in committed state docs). ⑧ ⑨ ruled fix-now (same remediation round).
+
+## Round 2 — Re-review of Z0B-2r1 (verdict: APPROVE, 2026-07-30)
+
+Scope: fix commits `0c8b498`..`29a4949` + verification of the nine Round 1 findings, per the Round 1 re-review note. Verdict verbatim: "No remediation required. Independent re-review verdict: APPROVE. The branch may proceed to Brent's merge decision." Zero findings; the two PM-flagged judgment items (F4 connective-particle exemption, F6 owner-ruling record) stood.

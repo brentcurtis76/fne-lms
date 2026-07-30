@@ -76,6 +76,14 @@ const body = {
   },
 };
 
+// interlock-exempt(create): the ONLY non-GET Zoom request in this spike that does
+// not route through `destructiveZoomCall`, and the only one that cannot. The
+// interlock proves a meeting's topic before mutating it; there is no meeting here
+// yet — this call is what creates it, and it creates it WITH the `PRUEBA SPIKE`
+// topic that every later interlock check depends on. It touches no existing Zoom
+// state. The exemption is pinned by name in
+// `__tests__/scripts/zoom-spike-interlock.test.ts`, so a second one cannot be
+// added without the test going red.
 const res = await zoomApi(env, 'POST', `/users/${encodeURIComponent(env.ZOOM_LICENSED_HOST_EMAIL)}/meetings`, {
   body,
 });

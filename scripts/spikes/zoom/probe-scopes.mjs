@@ -1,6 +1,19 @@
 /**
  * Probes every Zoom endpoint this spike (and phases Z1b/Z4/Z5/Z7) depends on,
- * and reports which ones the S2S app is actually scoped for. Read-only.
+ * and reports which ones the S2S app is actually scoped for.
+ *
+ * **READ-ONLY, and now actually read-only.** Until Z0B-2r1 this script carried a
+ * `PATCH /live_meetings/{id}/events {method:"recording.stop"}` probe while
+ * advertising itself as read-only, and issued it with no interlock (Sol R1 ②).
+ * That probe is gone. Scope discovery for `/live_meetings/{id}/events` now
+ * happens where the mutation is legitimately owned and interlocked —
+ * `recording-control.mjs --stop`, which reports the same `4711` / missing-scope
+ * shape through `destructiveZoomCall`. Nothing was lost: that script already
+ * exercised the endpoint, so the scope answer came from there anyway.
+ *
+ * The read-only claim is enforced, not asserted: the loop below hard-codes `GET`,
+ * and `__tests__/scripts/zoom-spike-interlock.test.ts` fails the build if any
+ * spike script issues a non-GET `zoomApi()` call outside `destructiveZoomCall`.
  *
  * Why this exists as its own script: a missing granular scope surfaces as HTTP
  * 400 with `code: 4711` and a message naming the exact scope. Discovering those
@@ -39,7 +52,8 @@ const probes = [
   { name: 'GET /metrics/meetings/{id}/participants', path: `/metrics/meetings/${meetingId}/participants`, query: { type: 'past', page_size: 100 }, purpose: 'Dashboard participants — richest identity payload; consent-field candidate', g2: true },
   { name: 'GET /report/activities', path: '/report/activities', query: { page_size: 5 }, purpose: 'sign-in/out activity — consent-event candidate', g2: true },
   { name: 'GET /accounts/me/recordings', path: '/accounts/me/recordings', query: { page_size: 1, from: '2026-07-01', to: '2026-07-29' }, purpose: 'account-wide recording list (retention job)' },
-  { name: 'PATCH /live_meetings/{id}/events (recording control)', path: `/live_meetings/${meetingId}/events`, method: 'PATCH', body: { method: 'recording.stop' }, purpose: 'stop-and-confirm mechanism (§12 late decline, item 4)' },
+  // `/live_meetings/{id}/events` is deliberately NOT probed here — it is a
+  // mutation. See the header: recording-control.mjs --stop owns it.
 ];
 
 if (meetingUuid) {
@@ -59,10 +73,9 @@ if (meetingUuid) {
 
 const results = [];
 for (const probe of probes) {
-  const res = await zoomApi(env, probe.method ?? 'GET', probe.path, {
-    query: probe.query,
-    body: probe.body,
-  });
+  // Method is a hard-coded literal: this script has no mutating path, and the
+  // static interlock test reads this line to prove it.
+  const res = await zoomApi(env, 'GET', probe.path, { query: probe.query });
   const code = res.body?.code;
   const message = res.body?.message ?? '';
   const missingScope = code === 4711 ? message.match(/scopes:\[(.*?)\]/)?.[1] ?? message : null;

@@ -10,7 +10,7 @@
  * Usage: node scripts/spikes/zoom/followup-report.mjs <meetingId> <meetingUuid>
  */
 
-import { loadSpikeEnv, zoomApi, makeRedactor } from './lib.mjs';
+import { loadSpikeEnv, zoomApi, destructiveZoomCall, makeRedactor } from './lib.mjs';
 
 const env = loadSpikeEnv(process.cwd());
 const redact = makeRedactor(env);
@@ -18,23 +18,18 @@ const redact = makeRedactor(env);
 const meetingId = process.argv[2];
 const meetingUuid = process.argv[3];
 
+if (!meetingId) {
+  console.error('Usage: node scripts/spikes/zoom/followup-report.mjs <meetingId> <meetingUuid>');
+  process.exit(1);
+}
+
 // Zoom UUIDs are base64 and may contain `/` or start with `/`; those MUST be
 // double-encoded. Ones without are safe either way — we double-encode uniformly
 // because the production client cannot branch on the value it was handed.
 const encodedUuid = encodeURIComponent(encodeURIComponent(meetingUuid));
 
-const calls = [
-  { label: 'GET /meetings/{id} (live state)', method: 'GET', path: `/meetings/${meetingId}` },
-  { label: 'PUT /meetings/{id}/status action=end', method: 'PUT', path: `/meetings/${meetingId}/status`, body: { action: 'end' } },
-  { label: 'GET /past_meetings/{uuid}', method: 'GET', path: `/past_meetings/${encodedUuid}` },
-  { label: 'GET /past_meetings/{uuid}/participants', method: 'GET', path: `/past_meetings/${encodedUuid}/participants`, query: { page_size: 300 } },
-  { label: 'GET /report/meetings/{uuid}/participants', method: 'GET', path: `/report/meetings/${encodedUuid}/participants`, query: { page_size: 300, include_fields: 'registrant_id' } },
-  { label: 'GET /report/meetings/{uuid}', method: 'GET', path: `/report/meetings/${encodedUuid}` },
-];
-
-for (const call of calls) {
-  const res = await zoomApi(env, call.method, call.path, { query: call.query, body: call.body });
-  console.log(`\n=== ${call.label} -> ${res.status} ===`);
+function report(label, res) {
+  console.log(`\n=== ${label} -> ${res.status} ===`);
   if (res.status === 200 || res.status === 204) {
     const body = res.body ?? {};
     if (Array.isArray(body.participants)) {
@@ -49,4 +44,30 @@ for (const call of calls) {
   } else {
     console.log(redact(JSON.stringify(res.body)));
   }
+}
+
+// The live-state read comes first so the log shows what the meeting looked like
+// before this script touched it.
+report('GET /meetings/{id} (live state)', await zoomApi(env, 'GET', `/meetings/${meetingId}`));
+
+// The one mutation in this script: ending the meeting so the past-meeting report
+// materialises. It used to sit in the same table as the reads and go out through
+// the generic dispatcher with no interlock at all (Sol R1 ②). Now it re-reads and
+// proves the meeting's topic immediately before the PUT.
+report(
+  'PUT /meetings/{id}/status action=end',
+  await destructiveZoomCall(env, meetingId, 'PUT', `/meetings/${meetingId}/status`, {
+    body: { action: 'end' },
+  })
+);
+
+const reads = [
+  { label: 'GET /past_meetings/{uuid}', path: `/past_meetings/${encodedUuid}` },
+  { label: 'GET /past_meetings/{uuid}/participants', path: `/past_meetings/${encodedUuid}/participants`, query: { page_size: 300 } },
+  { label: 'GET /report/meetings/{uuid}/participants', path: `/report/meetings/${encodedUuid}/participants`, query: { page_size: 300, include_fields: 'registrant_id' } },
+  { label: 'GET /report/meetings/{uuid}', path: `/report/meetings/${encodedUuid}` },
+];
+
+for (const call of reads) {
+  report(call.label, await zoomApi(env, 'GET', call.path, { query: call.query }));
 }

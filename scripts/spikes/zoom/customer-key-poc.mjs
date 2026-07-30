@@ -22,7 +22,14 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { chromium } from 'playwright';
-import { loadSpikeEnv, zoomApi, signSdkJwt, makeRedactor, assertSpikeMeeting } from './lib.mjs';
+import {
+  loadSpikeEnv,
+  zoomApi,
+  destructiveZoomCall,
+  signSdkJwt,
+  makeRedactor,
+  assertSpikeMeeting,
+} from './lib.mjs';
 
 const ROOT = process.cwd();
 const env = loadSpikeEnv(ROOT);
@@ -37,7 +44,10 @@ const meeting = JSON.parse(
   readFileSync(path.join(ROOT, 'scripts/spikes/zoom/out/meeting-customerkey.json'), 'utf8')
 );
 
-// Safety interlock before anything else touches this meeting.
+// Fail fast if the wrong meeting file was staged — a readability check, NOT the
+// interlock. The interlock is inside `destructiveZoomCall` and re-runs
+// immediately before the one mutation this script makes (the end-meeting PUT),
+// because a check this far up the file proves nothing about state minutes later.
 await assertSpikeMeeting(env, meeting.id);
 console.log(`meeting ${meeting.id} confirmed as a spike meeting ("${meeting.topic}")`);
 
@@ -139,8 +149,11 @@ console.log(`\nGET /metrics/.../participants?type=live -> ${live.status}`);
 await browser.close();
 server.close();
 
-// End the meeting so the past-meeting report materialises.
-const ended = await zoomApi(env, 'PUT', `/meetings/${meeting.id}/status`, {
+// End the meeting so the past-meeting report materialises. Interlocked at the
+// call: the earlier assert ran before a browser session that held the meeting
+// open for over a minute, which is exactly the staleness a per-sequence check
+// cannot cover.
+const ended = await destructiveZoomCall(env, meeting.id, 'PUT', `/meetings/${meeting.id}/status`, {
   body: { action: 'end' },
 });
 console.log(`PUT /meetings/{id}/status action=end -> ${ended.status}`);

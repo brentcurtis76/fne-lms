@@ -72,87 +72,74 @@ const attempts = [
   {
     name: 'GET /report/meetings/{uuid}/participants',
     why: 'the participants report — where customer_key does survive, so the natural place for a consent flag',
-    method: 'GET',
     path: enc && `/report/meetings/${enc}/participants`,
     query: { page_size: 300, include_fields: 'registrant_id' },
   },
   {
     name: 'GET /metrics/meetings/{uuid}/participants (Dashboard)',
     why: 'the richest per-participant identity payload Zoom exposes',
-    method: 'GET',
     path: enc && `/metrics/meetings/${enc}/participants`,
     query: { type: 'past', page_size: 100 },
   },
   {
     name: 'GET /metrics/meetings/{uuid}/participants?include_fields=registrant_id',
     why: 'same, asking explicitly for extra fields',
-    method: 'GET',
     path: enc && `/metrics/meetings/${enc}/participants`,
     query: { type: 'past', page_size: 100, include_fields: 'registrant_id' },
   },
   {
     name: 'GET /metrics/meetings/{uuid}',
     why: 'meeting-level dashboard record',
-    method: 'GET',
     path: enc && `/metrics/meetings/${enc}`,
     query: { type: 'past' },
   },
   {
     name: 'GET /report/meetings/{uuid}',
     why: 'meeting-level report record',
-    method: 'GET',
     path: enc && `/report/meetings/${enc}`,
   },
   {
     name: 'GET /past_meetings/{uuid}/participants',
     why: 'the non-report participants list — different field set from /report',
-    method: 'GET',
     path: enc && `/past_meetings/${enc}/participants`,
     query: { page_size: 300 },
   },
   {
     name: 'GET /meetings/{uuid}/recordings',
     why: 'the recording object itself — a consent marker could ride on the artifact',
-    method: 'GET',
     path: enc && `/meetings/${enc}/recordings`,
   },
   {
     name: 'GET /report/activities',
     why: 'account activity log — the only Zoom surface that records discrete user ACTIONS',
-    method: 'GET',
     path: '/report/activities',
     query: { from: '2026-07-29', to: '2026-07-30', page_size: 300 },
   },
   {
     name: 'GET /users/{host}/settings (recording section)',
     why: 'confirms the disclaimer WAS on, and whether any consent-reporting toggle exists to enable',
-    method: 'GET',
     path: `/users/${host}/settings`,
   },
   {
     name: 'GET /accounts/me/settings (recording section)',
     why: 'account-level disclaimer lock + any consent-reporting entitlement flag',
-    method: 'GET',
     path: '/accounts/me/settings',
   },
   {
     name: 'GET /report/cloud_recording',
     why: 'cloud-recording usage report — checked for a per-participant consent column',
-    method: 'GET',
     path: '/report/cloud_recording',
     query: { from: '2026-07-29', to: '2026-07-30' },
   },
   {
     name: 'GET /archive_files (archiving API)',
     why: "Zoom's archiving product is the one place consent-adjacent metadata is documented; checked for entitlement",
-    method: 'GET',
     path: '/archive_files',
     query: { from: '2026-07-29', to: '2026-07-30', page_size: 30 },
   },
   {
     name: 'GET /meetings/{id}/recordings/analytics_details',
     why: 'recording analytics — per-viewer records; checked for consent rows',
-    method: 'GET',
     path: meetingId && `/meetings/${meetingId}/recordings/analytics_details`,
     query: { from: '2026-07-29', to: '2026-07-30', type: 'by_view' },
   },
@@ -165,7 +152,11 @@ for (const attempt of attempts) {
     findings.push({ ...attempt, skipped: 'no meeting id/uuid supplied' });
     continue;
   }
-  const res = await zoomApi(env, attempt.method, attempt.path, { query: attempt.query });
+  // Method is a hard-coded literal, not `attempt.method`: this probe is read-only,
+  // and dynamic-method dispatch is exactly how probe-scopes.mjs hid a
+  // state-changing PATCH inside a table of reads (Sol R1 ②). The static interlock
+  // test rejects any zoomApi call whose method it cannot read.
+  const res = await zoomApi(env, 'GET', attempt.path, { query: attempt.query });
   const raw = JSON.stringify(res.body ?? {});
   const markersAnywhere = CONSENT_MARKERS.filter((m) => raw.toLowerCase().includes(m));
   const evidence = findParticipantConsentEvidence(res.body);

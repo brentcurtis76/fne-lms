@@ -26,12 +26,26 @@ tokens, download tokens) before printing. That is why `start_url` shows as
 
 ## Safety interlock
 
-`lib.mjs` → `assertSpikeMeeting(env, id)` re-reads the meeting from Zoom and throws
-unless its topic starts with `PRUEBA SPIKE`. Every destructive call
-(`action=trash`, `action=delete`, `recording.stop`) is preceded by a fresh call to
-it — not once per script, but immediately before each destructive request. Every
-meeting these scripts create is named `PRUEBA SPIKE — no unirse`, so the naming
-convention is load-bearing rather than cosmetic.
+`lib.mjs` → `destructiveZoomCall(env, meetingId, method, path, opts)` is **the only
+way a script may issue a state-changing Zoom request.** It calls
+`assertSpikeMeeting` — which re-reads the meeting from Zoom and throws unless its
+topic starts with `PRUEBA SPIKE` — and only then sends the request. Per CALL, not
+per sequence: three PATCHes mean three fresh reads. Every meeting these scripts
+create is named `PRUEBA SPIKE — no unirse`, so the naming convention is
+load-bearing rather than cosmetic.
+
+The one exemption is `create-meeting.mjs`'s creation POST: there is no meeting yet
+to verify, and that call is what creates the topic the interlock later checks. It
+carries an `interlock-exempt(create)` marker at the call site.
+
+**Enforced, not asserted.** Until Z0B-2r1 this section claimed per-call
+verification while two scripts never called the interlock at all (one of them
+labeled "read-only" while issuing `recording.stop`) and the rest checked once per
+script. `__tests__/scripts/zoom-spike-interlock.test.ts` now fails the build if any
+script here issues a non-GET `zoomApi()` call, reaches `api.zoom.us` directly, or
+adds an unpinned exemption — and separately drives `destructiveZoomCall` against a
+stubbed `fetch` to prove the read precedes the mutation and that a non-spike topic
+aborts before anything is sent.
 
 Scratch output goes to `scripts/spikes/zoom/out/` (**gitignored** — it holds real
 account ids, host email and meeting UUIDs).
@@ -40,9 +54,9 @@ account ids, host email and meeting UUIDs).
 
 | File | Purpose |
 |---|---|
-| `lib.mjs` | S2S token (cached), `zoomApi()` (never throws on non-2xx, so a `4711` is a result), SDK JWT signer, redactor, safety interlock |
+| `lib.mjs` | S2S token (cached), `zoomApi()` (never throws on non-2xx, so a `4711` is a result), `destructiveZoomCall()` (the interlocked mutation path), SDK JWT signer, redactor |
 | `create-meeting.mjs` | Creates one spike meeting. Always `auto_recording:'none'` (§8), Chile wall-clock + `timezone` (§10) |
-| `probe-scopes.mjs` | Probes every endpoint the Zoom phases need and prints the exact missing granular scopes, de-duplicated and paste-ready |
+| `probe-scopes.mjs` | **Read-only.** Probes every endpoint the Zoom phases need and prints the exact missing granular scopes, de-duplicated and paste-ready. `/live_meetings/{id}/events` scope discovery lives in `recording-control.mjs --stop`, where the mutation is interlocked |
 | `customer-key-poc.mjs` | Item 2 — two Playwright SDK guests with distinct customerKeys, then the participants report |
 | `followup-report.mjs` | Re-reads a finished meeting after Zoom's reports settle |
 | `recording-control.mjs` | Item 4(a) — enablement PATCH + read-back; `--stop <id>` for the Live Meeting Controls probe |

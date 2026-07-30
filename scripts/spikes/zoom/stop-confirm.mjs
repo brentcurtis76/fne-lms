@@ -22,7 +22,14 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { chromium } from 'playwright';
-import { loadSpikeEnv, zoomApi, signSdkJwt, makeRedactor, assertSpikeMeeting } from './lib.mjs';
+import {
+  loadSpikeEnv,
+  zoomApi,
+  destructiveZoomCall,
+  signSdkJwt,
+  makeRedactor,
+  assertSpikeMeeting,
+} from './lib.mjs';
 
 const ROOT = process.cwd();
 const env = loadSpikeEnv(ROOT);
@@ -31,11 +38,16 @@ const redact = makeRedactor(env);
 const meeting = JSON.parse(
   readFileSync(path.join(ROOT, 'scripts/spikes/zoom/out/meeting-stopctl.json'), 'utf8')
 );
+// Fail fast on a mis-staged meeting file. NOT the interlock — that lives inside
+// `destructiveZoomCall` and re-runs before each of this script's four mutations,
+// which are separated from here by a browser session and ~25 s of sleeps.
 await assertSpikeMeeting(env, meeting.id);
 console.log(`meeting ${meeting.id} confirmed as a spike meeting`);
 
 // Enable recording (consent-gated PATCH), read-back confirmed.
-await zoomApi(env, 'PATCH', `/meetings/${meeting.id}`, { body: { settings: { auto_recording: 'cloud' } } });
+await destructiveZoomCall(env, meeting.id, 'PATCH', `/meetings/${meeting.id}`, {
+  body: { settings: { auto_recording: 'cloud' } },
+});
 const effective = (await zoomApi(env, 'GET', `/meetings/${meeting.id}`)).body?.settings?.auto_recording;
 console.log(`recording enabled; read-back effective = ${JSON.stringify(effective)}`);
 if (effective !== 'cloud') process.exit(1);
@@ -126,8 +138,7 @@ for (const probe of readbackProbes) {
 
 // Q1: the server-side stop.
 console.log('\n=== Q1: server-side stop via Live Meeting Controls ===');
-await assertSpikeMeeting(env, meeting.id);
-const stop = await zoomApi(env, 'PATCH', `/live_meetings/${meeting.id}/events`, {
+const stop = await destructiveZoomCall(env, meeting.id, 'PATCH', `/live_meetings/${meeting.id}/events`, {
   body: { method: 'recording.stop' },
 });
 console.log(`  PATCH /live_meetings/{id}/events {method:"recording.stop"} -> ${stop.status}`);
@@ -138,7 +149,8 @@ await new Promise((r) => setTimeout(r, 15_000));
 
 // Can it be restarted? Relevant because a withdrawn-then-reinstated consent, or a
 // mistaken stop, needs a defined recovery.
-const start = await zoomApi(env, 'PATCH', `/live_meetings/${meeting.id}/events`, {
+// Interlocked in its own right: the previous check was 15 s and one stop ago.
+const start = await destructiveZoomCall(env, meeting.id, 'PATCH', `/live_meetings/${meeting.id}/events`, {
   body: { method: 'recording.start' },
 });
 console.log(`  PATCH … {method:"recording.start"} -> ${start.status}`);
@@ -146,7 +158,7 @@ if (start.body) console.log(`    body: ${redact(JSON.stringify(start.body))}`);
 trail.push({ phase: 'restart', status: start.status, body: start.body });
 
 await new Promise((r) => setTimeout(r, 10_000));
-const stop2 = await zoomApi(env, 'PATCH', `/live_meetings/${meeting.id}/events`, {
+const stop2 = await destructiveZoomCall(env, meeting.id, 'PATCH', `/live_meetings/${meeting.id}/events`, {
   body: { method: 'recording.stop' },
 });
 console.log(`  PATCH … {method:"recording.stop"} again -> ${stop2.status}`);

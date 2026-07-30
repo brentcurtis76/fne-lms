@@ -198,3 +198,42 @@ export async function assertSpikeMeeting(env, meetingIdOrUuid) {
   }
   return res.body;
 }
+
+/**
+ * THE ONLY way a spike script may issue a state-changing Zoom request.
+ *
+ * `assertSpikeMeeting` existed before this helper and was called correctly in a
+ * couple of places, but it was called PER SEQUENCE — one check at the top of a
+ * script, then several mutations — and two scripts never called it at all (one of
+ * them labeled "read-only" while issuing `recording.stop`). Sol's R1 finding ②.
+ * A per-sequence check is not an interlock: a meeting can end, a `--stop <id>`
+ * argument can be a typo for a real class, and the gap between "verified once"
+ * and "mutating now" is unbounded.
+ *
+ * So the check moves INSIDE the call. Every mutation re-reads the meeting from
+ * Zoom and proves its topic immediately before the request goes out; nothing is
+ * hoisted, cached, or amortized across a sequence. The cost is one extra GET per
+ * mutation, which is nothing next to permanently deleting a real school's
+ * recording.
+ *
+ * The enforcement is static, not just conventional:
+ * `__tests__/scripts/zoom-spike-interlock.test.ts` fails the build if any spike
+ * script issues a non-GET `zoomApi()` call, so a future mutation cannot be added
+ * outside this function without the test going red.
+ *
+ * @param meetingIdOrUuid The meeting the mutation targets — the thing proved to
+ *   be a spike meeting. NOT optional: a mutation whose target cannot be named is
+ *   a mutation that cannot be interlocked.
+ */
+export async function destructiveZoomCall(env, meetingIdOrUuid, method, apiPath, opts = {}) {
+  if (method === 'GET') {
+    throw new Error(`destructiveZoomCall is for mutations; use zoomApi for GET ${apiPath}`);
+  }
+  if (meetingIdOrUuid === undefined || meetingIdOrUuid === null || meetingIdOrUuid === '') {
+    throw new Error(
+      `SAFETY ABORT: ${method} ${apiPath} has no meeting id to verify. Every destructive call must name its target.`
+    );
+  }
+  await assertSpikeMeeting(env, meetingIdOrUuid);
+  return zoomApi(env, method, apiPath, opts);
+}

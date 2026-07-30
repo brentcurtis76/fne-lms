@@ -27,7 +27,14 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { chromium } from 'playwright';
-import { loadSpikeEnv, zoomApi, signSdkJwt, makeRedactor, assertSpikeMeeting } from './lib.mjs';
+import {
+  loadSpikeEnv,
+  zoomApi,
+  destructiveZoomCall,
+  signSdkJwt,
+  makeRedactor,
+  assertSpikeMeeting,
+} from './lib.mjs';
 
 const ROOT = process.cwd();
 const env = loadSpikeEnv(ROOT);
@@ -38,11 +45,13 @@ const holdMinutes = Number(args.includes('--minutes') ? args[args.indexOf('--min
 const meeting = JSON.parse(
   readFileSync(path.join(ROOT, 'scripts/spikes/zoom/out/meeting-recording.json'), 'utf8')
 );
+// Fail fast on a mis-staged meeting file. NOT the interlock — the mutation below
+// carries its own, immediately before the request.
 await assertSpikeMeeting(env, meeting.id);
 console.log(`meeting ${meeting.id} confirmed as a spike meeting ("${meeting.topic}")`);
 
 // --- Step 2: consent-gated enablement, read-back confirmed (§12) -------------
-const patch = await zoomApi(env, 'PATCH', `/meetings/${meeting.id}`, {
+const patch = await destructiveZoomCall(env, meeting.id, 'PATCH', `/meetings/${meeting.id}`, {
   body: { settings: { auto_recording: 'cloud' } },
 });
 const readBack = await zoomApi(env, 'GET', `/meetings/${meeting.id}`);

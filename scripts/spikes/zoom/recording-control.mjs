@@ -25,7 +25,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
-import { loadSpikeEnv, zoomApi, makeRedactor, assertSpikeMeeting } from './lib.mjs';
+import { loadSpikeEnv, zoomApi, destructiveZoomCall, makeRedactor } from './lib.mjs';
 
 const ROOT = process.cwd();
 const env = loadSpikeEnv(ROOT);
@@ -44,12 +44,17 @@ async function readEffective(meetingId) {
 
 if (args.includes('--stop')) {
   // ------------------------------------------------------------------ part (b)
+  //
+  // This is also where `/live_meetings/{id}/events` scope discovery lives, now
+  // that probe-scopes.mjs is genuinely read-only: a missing
+  // `meeting:update:in_meeting_controls` scope surfaces here as the same
+  // `code: 4711` body, printed below.
   const meetingId = args[args.indexOf('--stop') + 1];
-  await assertSpikeMeeting(env, meetingId);
-  console.log(`meeting ${meetingId} confirmed as a spike meeting`);
 
   for (const method of ['recording.stop', 'recording.pause', 'recording.resume', 'recording.start']) {
-    const res = await zoomApi(env, 'PATCH', `/live_meetings/${meetingId}/events`, {
+    // Interlocked PER CALL, not once before the loop: each iteration re-reads the
+    // meeting and proves its topic before the PATCH goes out.
+    const res = await destructiveZoomCall(env, meetingId, 'PATCH', `/live_meetings/${meetingId}/events`, {
       body: { method },
     });
     console.log(`PATCH /live_meetings/{id}/events {method:"${method}"} -> ${res.status}`);
@@ -71,8 +76,8 @@ try {
   process.exit(1);
 }
 
-await assertSpikeMeeting(env, meeting.id);
-console.log(`meeting ${meeting.id} confirmed as a spike meeting ("${meeting.topic}")\n`);
+console.log(`control meeting ${meeting.id} ("${meeting.topic}")`);
+console.log('every PATCH below re-verifies the topic immediately before it is sent\n');
 
 const trail = [];
 
@@ -83,7 +88,7 @@ console.log(`   (§8 invariant: MUST be "none" — recording is never enabled at
 trail.push({ step: 'provisioned', ...provisioned });
 
 // 2. The consent-gated enablement PATCH.
-const patch = await zoomApi(env, 'PATCH', `/meetings/${meeting.id}`, {
+const patch = await destructiveZoomCall(env, meeting.id, 'PATCH', `/meetings/${meeting.id}`, {
   body: { settings: { auto_recording: 'cloud' } },
 });
 const patchBodyShape =
@@ -102,7 +107,7 @@ console.log(
 trail.push({ step: 'readback-after-enable', ...afterEnable });
 
 // 4. And back off again — the decline path must be able to reverse it.
-const patchOff = await zoomApi(env, 'PATCH', `/meetings/${meeting.id}`, {
+const patchOff = await destructiveZoomCall(env, meeting.id, 'PATCH', `/meetings/${meeting.id}`, {
   body: { settings: { auto_recording: 'none' } },
 });
 const afterDisable = await readEffective(meeting.id);
@@ -111,7 +116,7 @@ trail.push({ step: 'readback-after-disable', patchStatus: patchOff.status, ...af
 
 // 5. Does Zoom accept a nonsense value, or reject it? Determines whether the
 //    read-back can ever disagree with what we asked for.
-const patchBogus = await zoomApi(env, 'PATCH', `/meetings/${meeting.id}`, {
+const patchBogus = await destructiveZoomCall(env, meeting.id, 'PATCH', `/meetings/${meeting.id}`, {
   body: { settings: { auto_recording: 'not_a_real_value' } },
 });
 const afterBogus = await readEffective(meeting.id);

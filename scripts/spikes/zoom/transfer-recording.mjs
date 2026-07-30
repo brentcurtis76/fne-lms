@@ -26,7 +26,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
-import { loadSpikeEnv, zoomApi, makeRedactor, assertSpikeMeeting } from './lib.mjs';
+import { loadSpikeEnv, zoomApi, destructiveZoomCall, makeRedactor } from './lib.mjs';
 import { makeS3Client } from './s3.mjs';
 
 const ROOT = process.cwd();
@@ -230,20 +230,22 @@ for (const file of listed.body.recording_files ?? []) {
     continue;
   }
 
-  // -- Step 5: trash, then permanent delete. Interlock re-checked immediately
-  // before each destructive call, not once at the top of the script.
-  await assertSpikeMeeting(env, meetingIdForSafety);
-  const trashed = await zoomApi(
+  // -- Step 5: trash, then permanent delete. `destructiveZoomCall` re-reads the
+  // meeting and proves its topic immediately before each DELETE — this script
+  // already did that by hand, and now the interlock is structural rather than a
+  // convention a future edit could forget.
+  const trashed = await destructiveZoomCall(
     env,
+    meetingIdForSafety,
     'DELETE',
     `/meetings/${encodedUuid}/recordings/${file.id}`,
     { query: { action: 'trash' } }
   );
   console.log(`  DELETE …/recordings/{fileId}?action=trash -> ${trashed.status}`);
 
-  await assertSpikeMeeting(env, meetingIdForSafety);
-  const deleted = await zoomApi(
+  const deleted = await destructiveZoomCall(
     env,
+    meetingIdForSafety,
     'DELETE',
     `/meetings/${encodedUuid}/recordings/${file.id}`,
     { query: { action: 'delete' } }

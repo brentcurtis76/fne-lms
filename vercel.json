@@ -3,5 +3,15 @@
     "pages/api/bots/telegram.ts": {
       "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/zoom-ticker",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/zoom-reconcile",
+      "schedule": "0 * * * *"
+    }
+  ]
 }

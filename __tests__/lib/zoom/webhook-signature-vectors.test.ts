@@ -1,40 +1,44 @@
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHmac } from 'crypto';
 import { readdirSync, readFileSync, existsSync } from 'fs';
 import path from 'path';
 import { describe, it, expect } from 'vitest';
+import {
+  computeWebhookCrcResponse,
+  computeWebhookSignature,
+  isWebhookTimestampFresh,
+  safeCompare,
+} from '../../../lib/zoom/verifier';
 
 /**
  * Zoom webhook CRC + signature vectors (Z0B-2 spike, results §6).
  *
  * Plan §17 requires, in the blocking CI gate: "HMAC/CRC vectors incl.
- * re-serialized-body-must-fail". This file is that gate. It exists on the spike
- * branch — ahead of Z1b's production webhook route — so that the route arrives
+ * re-serialized-body-must-fail". This file is that gate. It arrived on the spike
+ * branch — ahead of Z1b's production webhook route — so that the route would land
  * with executable ground truth rather than a prose description of the algorithm.
  *
- * The reference implementation below is intentionally local to the test. The
- * production verifier belongs to `lib/zoom/*`, which a parallel branch owns; a
- * shared module here would collide on merge. When Z1b lands its verifier, these
- * vectors should be re-pointed at it and this local copy deleted — at which point
- * the test becomes a genuine contract test instead of a self-consistency check.
- * That hand-off is recorded as an open item.
+ * **Z1b-2 hand-off, now done.** The reference implementation used to be local to
+ * this file, because `lib/zoom/*` was a parallel branch and a shared module would
+ * have collided on merge. That branch has landed, so the local copy is deleted and
+ * every vector below now runs through the PRODUCTION verifier
+ * (`lib/zoom/verifier.ts`). This is the point of the exercise: the suite stopped
+ * being a self-consistency check and became a contract test. The vectors themselves
+ * are unchanged — same bodies, same tampering, same boundaries, same fixtures.
+ *
+ * The freshness block still pins the 300 s window it was written against by passing
+ * it explicitly, so its boundary assertions keep their exact original meaning. The
+ * production DEFAULT is 600 s, derived from the 304 s observed retry interval, and
+ * gets its own block at the end of this file rather than quietly redefining these.
  */
 
-/** Zoom's documented scheme: HMAC-SHA256 over the literal `v0:{timestamp}:{rawBody}`. */
-function computeSignature(secret: string, timestamp: string, rawBody: string): string {
-  return `v0=${createHmac('sha256', secret).update(`v0:${timestamp}:${rawBody}`).digest('hex')}`;
-}
+/** Zoom's documented scheme, now the production primitive. */
+const computeSignature = computeWebhookSignature;
 
-/** CRC response: HMAC-SHA256 of plainToken, hex. */
-function computeCrcResponse(secret: string, plainToken: string) {
-  return { plainToken, encryptedToken: createHmac('sha256', secret).update(plainToken).digest('hex') };
-}
+/** CRC response: HMAC-SHA256 of plainToken, hex — the production primitive. */
+const computeCrcResponse = computeWebhookCrcResponse;
 
-function safeEqual(a: string, b: string): boolean {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  if (bufA.length !== bufB.length) return false;
-  return timingSafeEqual(bufA, bufB);
-}
+/** Length-checked constant-time compare — the production primitive. */
+const safeEqual = safeCompare;
 
 const SECRET = 'fixture-secret-token-not-a-real-secret';
 
@@ -134,12 +138,14 @@ describe('Zoom webhook timestamp freshness', () => {
    */
   const FRESHNESS_WINDOW_SECONDS = 5 * 60;
 
-  /** Takes the header verbatim, as a production verifier would receive it. */
+  /**
+   * The production primitive, pinned to the window this block was written against.
+   * Passing the window explicitly keeps every boundary assertion below meaning
+   * exactly what it meant when it was committed; the production default (600 s) is
+   * exercised separately at the end of this file.
+   */
   function isFresh(timestampHeader: string, nowMs: number): boolean {
-    const sentSeconds = Number(timestampHeader);
-    if (!Number.isFinite(sentSeconds)) return false;
-    const nowSeconds = Math.floor(nowMs / 1000);
-    return Math.abs(nowSeconds - sentSeconds) <= FRESHNESS_WINDOW_SECONDS;
+    return isWebhookTimestampFresh(timestampHeader, nowMs, FRESHNESS_WINDOW_SECONDS);
   }
 
   /** A real captured header value and its arrival instant (results §6.1). */

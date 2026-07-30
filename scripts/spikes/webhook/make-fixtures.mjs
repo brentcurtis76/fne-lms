@@ -58,11 +58,17 @@ const SYNTHETIC = {
 function redactRawBody(raw) {
   let out = raw;
 
-  // account_id / host_id / user_id style opaque Zoom ids (22-char base64url).
-  out = out.replace(/"account_id":"([A-Za-z0-9_-]{20,24})"/g, (_m, id) => `"account_id":"${alloc('account', id, SYNTHETIC.account)}"`);
-  out = out.replace(/"host_id":"([A-Za-z0-9_-]{20,24})"/g, (_m, id) => `"host_id":"${alloc('user', id, SYNTHETIC.user)}"`);
-  out = out.replace(/"operator_id":"([A-Za-z0-9_-]{20,24})"/g, (_m, id) => `"operator_id":"${alloc('user', id, SYNTHETIC.user)}"`);
-  out = out.replace(/"participant_user_id":"([A-Za-z0-9_-]{20,24})"/g, (_m, id) => `"participant_user_id":"${alloc('user', id, SYNTHETIC.user)}"`);
+  // Opaque Zoom ids (base64url, ~22 chars). Every key that can carry one is
+  // listed explicitly rather than relying on a generic sweep, because a missed key
+  // ships a real identifier. `id` is included: on a `participant` object it is the
+  // participant's Zoom USER id, not a meeting number — a real leak found by the
+  // post-generation scan before these fixtures were ever committed.
+  for (const key of ['account_id', 'host_id', 'operator_id', 'participant_user_id', 'user_id', 'id']) {
+    out = out.replace(
+      new RegExp(`"${key}":"([A-Za-z0-9_-]{20,24})"`, 'g'),
+      (_m, id) => `"${key}":"${alloc(key === 'account_id' ? 'account' : 'user', id, key === 'account_id' ? SYNTHETIC.account : SYNTHETIC.user)}"`
+    );
+  }
 
   // Meeting numeric id, string or number form.
   out = out.replace(/"id":"(\d{9,11})"/g, (_m, id) => `"id":"${alloc('meeting', id, SYNTHETIC.meeting)}"`);
@@ -70,20 +76,67 @@ function redactRawBody(raw) {
 
   // Meeting/recording UUIDs (base64 with padding, may contain / and +).
   out = out.replace(/"uuid":"([A-Za-z0-9+/=]{20,28})"/g, (_m, id) => `"uuid":"${alloc('uuid', id, SYNTHETIC.uuid)}"`);
+  // Per-participant UUIDs are dashed-hex, a different shape entirely.
+  out = out.replace(
+    /"participant_uuid":"[0-9A-Fa-f-]{20,40}"/g,
+    '"participant_uuid":"00000000-0000-4000-8000-000000000000"'
+  );
 
   // Any email address, including the licensed host's.
   out = out.replace(/"([a-z_]*email)":"([^"]+@[^"]+)"/g, (_m, key, addr) => `"${key}":"${alloc('email', addr, SYNTHETIC.email)}"`);
+
+  // IP addresses — the participant's public IP is personal data under Ley 21.719,
+  // and Zoom's egress IPs are infrastructure detail a fixture has no need for.
+  out = out.replace(/"(public_ip|private_ip|ip_address)":"[^"]*"/g, '"$1":"203.0.113.1"');
 
   // Download tokens and any JWT-shaped value.
   out = out.replace(/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, 'synthetic.jwt.token');
   out = out.replace(/"download_token":"[^"]*"/g, '"download_token":"synthetic-download-token"');
 
-  // Passcodes and share URLs carry live-meeting access.
+  // Passcodes and share URLs carry live access.
   out = out.replace(/"(password|h323_password|pstn_password|encrypted_password)":"[^"]*"/g, '"$1":"000000"');
+  // `recording_play_passcode` is a ~98-char opaque token that grants PLAYBACK of the
+  // real recording — a live credential, and one the shorter `password` pattern above
+  // does not match. Found leaking by the post-generation scan.
+  out = out.replace(/"(recording_play_passcode)":"[^"]*"/g, '"$1":"synthetic-play-passcode"');
   out = out.replace(/https:\/\/[a-z0-9]+\.zoom\.us\/[^"]*/g, 'https://example-synthetic.test/redacted');
+
+  /**
+   * Backstop for the class of defect the two scans caught: any remaining long
+   * opaque high-entropy string is treated as a probable token. This runs LAST so
+   * every named rule above wins, and it exists because guessing Zoom's field names
+   * correctly is exactly what failed twice.
+   */
+  out = out.replace(/"([a-z_]*(?:token|passcode|secret|key))":"([A-Za-z0-9_\-+/=.]{24,})"/gi, '"$1":"synthetic-redacted-token"');
 
   return out;
 }
+
+/**
+ * Headers are ALLOWLISTED, not denylisted.
+ *
+ * Two reasons, both found empirically rather than anticipated:
+ *
+ * 1. **Zoom sends a `clientid` header carrying the S2S Client ID** — a credential.
+ *    A denylist that stripped only `authorization` let it straight into a fixture.
+ *    An allowlist fails closed: a header nobody has vetted simply does not ship.
+ *
+ * 2. The capture arrives through a cloudflared tunnel, so `cf-*`, `cdn-loop`,
+ *    `x-forwarded-*` and `host` describe THIS spike's plumbing, not Zoom's request.
+ *    Shipping them would misinform Z1b about the real header set and bake a
+ *    dev-only topology into a fixture.
+ */
+const HEADER_ALLOWLIST = [
+  'content-type',
+  'content-length',
+  'user-agent',
+  'traceparent',
+  'x-zm-request-id',
+  'x-zm-request-timestamp',
+  'x-zm-signature',
+  'x-zm-trackingid',
+  'zm-trace-upstream',
+];
 
 const HEADER_ALLOWLIST_NOTE =
   'Header values for x-zm-signature / x-zm-request-timestamp are replaced with recomputed values over the REDACTED body using the placeholder secret below, so the fixtures are self-consistent and verifiable in CI without any real secret.';
@@ -111,14 +164,27 @@ mkdirSync(OUT_DIR, { recursive: true });
 const index = [];
 for (const [event, record] of byEvent) {
   const redactedBody = redactRawBody(record.body.raw);
-  // Fixed timestamp so regenerating does not churn the diff.
-  const timestamp = '1753900000000';
-  const headers = { ...record.headers };
-  delete headers.authorization;
+  // Fixed so regenerating does not churn the diff, and 10-digit because
+  // `x-zm-request-timestamp` is epoch SECONDS — measured, not assumed (results
+  // §6.1). A 13-digit millisecond value here would hand Z1b a fixture that
+  // disagrees with reality about the unit.
+  const timestamp = '1785368934';
+  const headers = {};
+  for (const key of HEADER_ALLOWLIST) {
+    if (record.headers[key] !== undefined) headers[key] = record.headers[key];
+  }
   headers['x-zm-signature'] = signFixture(timestamp, redactedBody);
   headers['x-zm-request-timestamp'] = timestamp;
-  if (headers.host) headers.host = 'example-synthetic.test';
   if (headers['content-length']) headers['content-length'] = String(Buffer.byteLength(redactedBody));
+
+  // Fail closed rather than shipping a credential: if any allowlisted value still
+  // contains a secret, refuse to write the fixture at all.
+  const headerBlob = JSON.stringify(headers);
+  for (const secret of [process.env.ZOOM_S2S_CLIENT_ID, process.env.ZOOM_S2S_ACCOUNT_ID].filter(Boolean)) {
+    if (headerBlob.includes(secret)) {
+      throw new Error(`ABORT: a credential survived header allowlisting for ${event}`);
+    }
+  }
 
   const fixture = {
     _note: `Redacted capture of a REAL Zoom ${event} webhook (Z0B-2 spike). ${HEADER_ALLOWLIST_NOTE}`,

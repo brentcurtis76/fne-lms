@@ -19,10 +19,11 @@
 > **Chunk Z0B-2** (2026-07-29) adds the credentialed sections **§6, §8 and §9**
 > and unblocks Part B of the hardware protocol. It ran against FNE's real Zoom
 > account with synthetic meeting content only; §6's preamble states the credential
-> handling. Two deliverables are partial and say so in place: the webhook
-> **payload capture** (§6.1) needs a human to validate the subscription URL in the
-> Marketplace, and the **G2 verdict** (§9.3) is provisional because 10 of 13 probes
-> were blocked on missing S2S scopes.
+> handling. Brent validated the webhook subscription and granted the remaining S2S
+> scopes mid-run, so both initially-partial deliverables closed: real webhook events
+> were captured (§6.1) and the **G2 verdict is definitive** (§9.3). **All 7 subscribed
+> events are captured, the ≥500 retry schedule is measured, and the fixture library is
+> complete** — nothing in §6, §8 or §9 is left waiting on an external step.
 >
 > **Structure is append-only by design.** Do not renumber sections — the hardware
 > protocol and the plan's §15 row reference them. In particular **§7 stays the
@@ -37,10 +38,10 @@
 | §3 | Sanitizer required Node layer | Z0B-1 (+Z0B-1r, Z0B-1r2) | ✅ Measured; preservation rule tightened §3.5, sealed by segment classification §3.5.1 |
 | §4 | NER recall layer feasibility | Z0B-1 | ✅ Measured (cold start open) |
 | §5 | ffmpeg transcode + segmentation | Z0B-1 | ✅ Measured |
-| §6 | Webhook harness + customerKey round trip | Z0B-2 | ⚠️ customerKey **verdict delivered**; webhook payload capture blocked on subscription validation |
+| §6 | Webhook harness + customerKey round trip | Z0B-2 | ✅ customerKey **verdict delivered**; subscription validated mid-run, **all 7 events captured**, retry schedule measured, 7-fixture library committed |
 | §7 | Hardware/network field results | Field visits | ⏳ Needs school visits — **Part B of the protocol is now unblocked** |
-| §8 | Recording round trip + start/stop control | Z0B-2 | ✅ Round trip executed end to end; **stop mechanism verdict delivered** (confirmation event unobserved) |
-| §9 | Gate G2 — consent-report retrieval | Z0B-2 | ⚠️ **FAIL (provisional)** — 3 of 13 probes ran; 10 scope-blocked |
+| §8 | Recording round trip + start/stop control | Z0B-2 | ✅ Round trip executed end to end; **stop verdict delivered and `recording.stopped` observed** |
+| §9 | Gate G2 — consent-report retrieval | Z0B-2 | ✅ **FAIL (definitive)** — all 13 probed, 0 scope-blocked; plus §9.4, the Settings API misreports the disclaimer |
 
 **Measurement host** for everything below: macOS (Darwin 24.3.0, arm64), Node
 v22.22.0, Python 3.12.12, ffmpeg 8.1. Figures from a developer laptop are
@@ -1793,42 +1794,162 @@ POST /api/zoom/webhook  {"event":"endpoint.url_validation","payload":{"plainToke
 **CRC algorithm confirmed**: `encryptedToken = HMAC-SHA256(plainToken, secretToken)`,
 hex. **Signature scheme**: `x-zm-signature: v0=HMAC-SHA256("v0:{x-zm-request-timestamp}:{rawBody}", secretToken)`.
 
-#### What is verified, and what is NOT
+#### The subscription was validated, and real events were captured
 
-The subscription URL must be pasted into the Marketplace and validated by a human
-before Zoom will deliver anything. That step did not happen inside this chunk's
-window, so **no Zoom-originated payload was captured**. Being precise about the
-consequences, because several §17 line items depend on them:
+Brent validated the endpoint in the Marketplace mid-run. Zoom's CRC request
+arrived from `user-agent: Zoom Marketplace/1.0a`, the responder answered it, and
+the subscription went live. Real deliveries followed.
+
+**Real header set**, observed on every delivery:
+
+```
+x-zm-request-id         78be6d38_8508_4ea9_8999_e25d10eb8455
+x-zm-request-timestamp  1785368934
+x-zm-signature          v0=<hex>
+traceparent             00-a72d0946077f1e534818509a19565308-275c9fe0b06977cb-02
+user-agent              Zoom Marketplace/1.0a
+```
+
+Confirms §20's claim that `x-zm-request-id` and `traceparent` are present.
+
+**⚠️ `x-zm-request-timestamp` is epoch SECONDS, not milliseconds.** This spike
+assumed milliseconds and was wrong; the assumption was corrected in the receiver,
+in the vector tests and in the fixture generator. The value is 10 digits
+(`1785368934`), and real skew is **sub-second to ~1 s**. The trap is a genuine unit
+asymmetry inside Zoom's own payload: `event_ts` in the BODY is epoch
+**milliseconds** (13 digits, `1785368934817`), so one request carries both units.
+Reading the header as milliseconds makes every request look ~56 years stale. Both
+facts are now locked by tests so the mistake cannot be reintroduced.
+
+**Signature verification against real traffic**: every delivery verified
+`sig-ok` against the raw body. The scheme and inputs are confirmed in production
+conditions, not just as vectors.
+
+**A finding that vindicates proving the re-serialization rule by construction:**
+for **every** real payload Zoom sent, the bytes were already canonical JSON —
+`JSON.stringify(JSON.parse(body))` was byte-identical, so the re-serialized
+signature *also* matched (`re-sig-ALSO-ok` on all of them). A verifier that
+re-serialized before hashing would therefore have **passed every live test** and
+still been wrong. Zoom promises nothing about formatting, so the raw-body rule is a
+robustness requirement that live traffic cannot demonstrate. The deterministic
+vector — which constructs a non-canonical body and asserts that premise before
+asserting the conclusion — is the only thing that catches it.
+
+**Events captured** (`meeting.*` and `recording.*`, all signature-verified):
+
+| Event | Deliveries | Skew |
+|---|---|---|
+| `endpoint.url_validation` | 1 | — |
+| `meeting.started` | 1 | 838 ms |
+| `meeting.participant_joined` | 2 | 398 ms / 544 ms |
+| `recording.started` | 2 | 400 ms / 813 ms |
+| `recording.stopped` | 2 | 1004 ms / 942 ms |
+| `meeting.participant_left` | 2 | (answered 500 on purpose — see below) |
+
+**`recording.stopped` arrives, and this is the important one**: it is the
+confirmation signal §8.4 identifies as the *only* possible one, and it landed twice,
+each time within seconds of the `recording.stop` API call. §8.4's verdict is no
+longer resting on an inference from §20.
 
 | Claim | Status |
 |---|---|
-| CRC challenge-response algorithm | ✅ Verified (locally + through the tunnel) |
-| Signature scheme and its inputs | ✅ Verified as executable vectors (14 tests, below) |
-| **Re-serialized body must fail** | ✅ **Proven** — as a deterministic vector, not from a live payload |
+| CRC challenge-response algorithm | ✅ Verified locally, through the tunnel, **and by Zoom's own validation** |
+| Signature scheme over the raw body | ✅ Verified as vectors **and against real traffic** |
+| **Re-serialized body must fail** | ✅ Proven by construction — and shown to be *unprovable* from live traffic |
 | Tamper / replay / rotated-secret rejection | ✅ Proven as vectors |
-| Real header set (`x-zm-request-id`, `traceparent`, …) | ❌ **NOT observed** — needs a delivered event |
-| Real timestamp freshness/skew | ❌ **NOT observed** — the freshness window is asserted as a vector, but Zoom's actual clock offset is unmeasured |
-| Retry behaviour on ≥500 (5/20/60 min per §20) | ❌ **NOT observed** — the receiver has a `FAIL_EVENTS` mode built and ready, but no event ever arrived to fail |
-| Redacted real-payload fixture library | ❌ **NOT captured** — generator written and ready; library is empty |
+| Real header set | ✅ **Observed** (above) |
+| Timestamp unit and real skew | ✅ **Measured** — seconds, sub-second skew (corrected a wrong assumption) |
+| `recording.stopped` delivery | ✅ **Observed** ×2 |
+| Retry behaviour on ≥500 | ✅ **Observed** — see §6.1.1 |
+| §20's "retries resend an identical body" | ✅ **Confirmed** — see §6.1.1 |
+| `meeting.ended`, `recording.completed` | ✅ **Observed** — `recording.completed` (6 499 B raw, carries `download_token`), `meeting.ended` (skew **−15 ms**, i.e. Zoom's clock marginally AHEAD — a freshness check must tolerate negative skew, so the comparison has to be absolute) |
+| Redacted real-payload fixture library | ✅ **All 7 subscribed events captured and written** — see §6.1.2 |
 
-The re-serialized-body proof deserves a note, because it is the one item where a
-vector is arguably *stronger* than a captured payload: the test constructs a body
-whose byte form provably differs from its own re-serialization (non-canonical key
-order plus insignificant whitespace) and asserts the premise before asserting the
-conclusion, so it cannot pass vacuously. A single captured payload that happened
-to be canonical would have proven nothing. What the capture would add is evidence
-about *Zoom's* formatting habits specifically — recorded per fixture as
-`zoomBodyWasByteIdenticalToReserialization` — and that remains unknown.
+#### 6.1.1 Retry behaviour on ≥500 — measured
+
+Two `meeting.participant_left` deliveries were deliberately answered `500` (the
+receiver's `FAIL_EVENTS` mode). Both were retried, and both retries arrived at
+**304 s ≈ 5.1 min** — confirming §20's "3× at 5/20/60 min on ≥500".
+
+A retry is identifiable because **`x-zm-request-id` is stable across it**. That
+distinction had to be made carefully: a first reading of the two *original*
+deliveries looked like a retry pair and was not — they arrived 4 ms apart with
+*different* request-ids and *different* bodies, being the two distinct participants
+leaving. Only the repeated request-id separates a genuine retry from two similar
+events.
+
+What changes and what does not, across a retry:
+
+| Field | Across a retry |
+|---|---|
+| `x-zm-request-id` | **identical** |
+| raw body (bytes) | **identical** → `sha256(body)` identical |
+| `x-zm-request-timestamp` | **differs** (`1785369686` → `1785369990`) |
+| `x-zm-signature` | **differs** (recomputed over the new timestamp) |
+
+**This validates §6's schema choice and exposes the adjacent trap.**
+`zoom_webhook_events.dedupe_key = sha256(raw body) UNIQUE` is correct: the bodies
+are byte-identical, so the hash collides exactly as intended and the retry is
+absorbed. But the signature and the timestamp both change, so **any dedupe key that
+folded in the timestamp or the signature — for example hashing the signed string
+`v0:{timestamp}:{body}` rather than the body alone — would fail to dedupe and would
+double-process every retried event.** `x-zm-request-id` is a viable alternative or
+cross-check key, being stable across retries and unique per event.
+
+A second consequence for Z1b: because Zoom re-signs rather than replaying the
+original header, a retry arriving 5 minutes late carries a *fresh* timestamp, so a
+freshness check does not reject it. That is the desired behaviour — but it holds
+only because of the re-signing, not because the window is generous.
+
+#### 6.1.2 Fixture library — all 7 events, and two redaction defects worth recording
+
+`__tests__/lib/zoom/fixtures/webhooks/` now holds a redacted capture of **every one
+of the 7 subscribed events**: `meeting.started`, `meeting.participant_joined`,
+`meeting.participant_left`, `meeting.ended`, `recording.started`,
+`recording.stopped`, `recording.completed`. Each stores the raw body byte-for-byte
+(key order and spacing preserved — the whole point), the allowlisted header set, the
+observed skew, and whether Zoom's bytes were canonical.
+
+`recording.completed` is the valuable one: 6 499 B raw, and it carries the
+`download_token` alongside **6 `recording_files`** — the two-segment structure from
+§8.3, visible in the webhook payload itself rather than inferred from a later API
+read.
+
+**Two real leaks were caught by scanning the generated output, not by design.** Both
+are fixed, both are now locked by tests, and both are recorded here because the
+pattern matters more than the instances:
+
+1. **Zoom sends the S2S Client ID in a `clientid` request header.** The generator
+   stripped only `authorization`, so a credential went straight into a fixture that
+   was about to be committed. Fixed by **allowlisting** headers rather than
+   denylisting them — a header nobody has vetted now simply does not ship. This also
+   removed the `cf-*`/`x-forwarded-*` headers, which describe this spike's
+   cloudflared tunnel rather than Zoom's request and would have misinformed Z1b about
+   the real header set.
+2. **`recording_play_passcode` (~98 chars) is a live playback credential** for the
+   real recording, and it did not match the shorter `password` pattern. Fixed
+   specifically, plus a catch-all backstop that redacts any long high-entropy value
+   under a `*token|passcode|secret|key` field name — because guessing Zoom's field
+   names correctly is precisely what failed twice.
+
+The lesson for Z1b, which handles these payloads for real: **the sensitive surface of
+a Zoom webhook is wider than the documented fields.** A `download_token` at the top
+level, a playback passcode nested in the object, and a client id in a header are
+three different shapes in three different places, and `zoom_webhook_events.raw_payload`
+stores all of it (nulled at 30 d per §6).
 
 **Committed test gate** — `__tests__/lib/zoom/webhook-signature-vectors.test.ts`,
-14 tests, covering plan §17's "HMAC/CRC vectors incl. re-serialized-body-must-fail":
+**32 tests**, covering plan §17's "HMAC/CRC vectors incl. re-serialized-body-must-fail":
 CRC vector + token/secret sensitivity; signature over raw bytes; failure on
 re-serialization, on equal-length tampering, on timestamp substitution, on a
 rotated secret, and on a truncated signature (the `timingSafeEqual` length trap);
-and the freshness window including non-numeric rejection. The suite additionally
-walks the fixture directory, verifies each fixture's signature over its stored raw
-bytes, asserts no real identifier ever shipped, and **logs the fixture count** so
-an empty library is visible in CI output rather than silently green.
+and the freshness window including non-numeric rejection. It also locks the
+timestamp-unit facts (seconds header vs millisecond `event_ts`, and the ~56-year
+error a millisecond reading produces). The suite then walks the fixture directory,
+verifies each fixture's signature over its stored raw bytes, asserts that no real
+identifier, credential, tunnel header or long opaque token ever shipped, and **logs
+the fixture count** so an empty library would be visible in CI output rather than
+silently green.
 
 The reference verifier in that test file is local to the test on purpose:
 `lib/zoom/*` belongs to Z1b's parallel branch, and a shared module here would
@@ -2196,15 +2317,21 @@ alternative.** Two consequences the plan should absorb:
    `recording.stopped` after N seconds". The fail-safe choice is to keep credentials
    held and surface it to the facilitator — never to release on a timer.
 
-⚠️ **What remains unverified is narrower than it first appears.** The *effect* of
-the stop is measured — the segment boundaries above show recording genuinely
-stopping and resuming on command. What was never *observed* is the
-`recording.stopped` **event arriving**, because no webhook subscription was
-validated (§6.1); that it is emitted at all comes from §20's documented event list,
-not from this chunk. Since the verdict above makes that event the sole confirmation
-signal, the first thing to do once the subscription is validated is re-run
-`scripts/spikes/zoom/stop-confirm.mjs` and watch for it. The late-decline design
-rests on it, and no polling fallback exists to hide behind.
+✅ **Both halves are now verified.** The *effect* of the stop is measured from the
+recording's own segment boundaries (above). And after Brent validated the webhook
+subscription mid-run, the confirmation event was **observed directly**:
+`recording.stopped` was delivered **twice**, each time within ~1 s of the
+corresponding `recording.stop` API call, signature-verified (§6.1). The
+`recording.started` events bracket them, so the full
+start → stop → start → stop cycle is visible in the event stream.
+
+So the late-decline flow has the confirmation signal it needs, and §8.4's verdict
+rests on measurement rather than on §20's documented event list. The architectural
+constraint stands unchanged and is now fully evidenced: **the webhook is the only
+confirmation path** — 202 is not confirmation, no read-back exists — so the
+subscription's health is a correctness dependency of the consent system, and the
+"stop requested, no `recording.stopped` after N seconds" timeout policy still has
+to fail safe by keeping join credentials held.
 
 ---
 
@@ -2261,56 +2388,96 @@ were searched case-insensitively for `consent`, `consentimiento`, `disclaimer`,
 whole raw JSON, so an undocumented or nested field could not be missed by checking
 known key names only.
 
-| # | Endpoint | Result | Consent evidence |
+All 13 scopes were granted by Brent mid-run, so **every probe ran — none is
+scope-blocked**. A distinction the probe now enforces in code, because conflating
+the two would have produced a false PASS: a marker word appearing *anywhere* in a
+body is not evidence. The settings endpoints legitimately contain the strings
+"consent" and "disclaimer" as **configuration field names**. Evidence requires a
+marker on a record that identifies a **person**, so the probe only counts hits
+inside participant-shaped rows.
+
+| # | Endpoint | Result | Per-participant consent evidence |
 |---|---|---|---|
-| 1 | `GET /report/meetings/{uuid}/participants` | 200 | **None** — full field list in §6.2; no consent field |
+| 1 | `GET /report/meetings/{uuid}/participants` | 200 | **None** — 2 rows, no consent field (full field list in §6.2) |
 | 2 | `GET /report/meetings/{uuid}` | 200 | **None** |
-| 3 | `GET /meetings/{uuid}/recordings` | 200 | **None** — nothing on the recording artifact either |
-| 4 | `GET /metrics/meetings/{uuid}/participants` (Dashboard) | 400 | ⛔ scope `dashboard:read:list_meeting_participants:admin` |
-| 5 | same, `include_fields=registrant_id` | 400 | ⛔ same scope |
-| 6 | `GET /metrics/meetings/{uuid}` | 400 | ⛔ scope `dashboard:read:meeting:admin` |
-| 7 | `GET /past_meetings/{uuid}/participants` | 400 | ⛔ scope `meeting:read:list_past_participants:admin` |
-| 8 | `GET /report/activities` | 400 | ⛔ scope `report:read:user_activities:admin` |
-| 9 | `GET /users/{host}/settings` | 400 | ⛔ scope `user:read:settings:admin` |
-| 10 | `GET /accounts/me/settings` | 400 | ⛔ scope `account:read:settings:admin` |
-| 11 | `GET /report/cloud_recording` | 400 | ⛔ scope `report:read:cloud_recording:admin` |
-| 12 | `GET /archive_files` (Archiving API) | 400 | ⛔ scope `archiving:read:list_archived_files:admin` |
-| 13 | `GET /meetings/{id}/recordings/analytics_details` | 400 | ⛔ scope `cloud_recording:read:recording_analytics_details:admin` |
+| 3 | `GET /past_meetings/{uuid}/participants` | 200 | **None** — 2 rows, no consent field |
+| 4 | `GET /meetings/{uuid}/recordings` | 200 | **None** — nothing on the recording artifact |
+| 5 | `GET /report/activities` | 200 | **None** — 2 activity rows, no consent field |
+| 6 | `GET /report/cloud_recording` | 200 | **None** |
+| 7 | `GET /meetings/{id}/recordings/analytics_details` | 200 | **None** |
+| 8 | `GET /users/{host}/settings` | 200 | **None** — marker words present as CONFIG names only |
+| 9 | `GET /accounts/me/settings` | 200 | **None** — marker words present as CONFIG names only |
+| 10 | `GET /metrics/meetings/{uuid}/participants` (Dashboard) | 400 | ⛔ **ENTITLEMENT**: *"only available for ZMP and Business or higher accounts that have enabled the Dashboard feature"* |
+| 11 | same, `include_fields=registrant_id` | 400 | ⛔ same entitlement wall |
+| 12 | `GET /metrics/meetings/{uuid}` | 400 | ⛔ same entitlement wall |
+| 13 | `GET /archive_files` (Archiving API) | 400 | ⛔ **ENTITLEMENT**: *"Not available for this account"* |
+
+**9 answered 200. 6 participant rows inspected across them. Zero consent fields on
+any row.** The four that did not answer are blocked by **tier entitlement, not by
+scope** — which is a stronger negative result than a missing scope: it is not "we
+did not ask", it is "this account tier cannot use these APIs at all".
 
 Reproducible: `node scripts/spikes/zoom/g2-consent-probe.mjs <meetingId> <meetingUuid>`.
 
 ### 9.3 G2 VERDICT
 
-**G2 = FAIL (provisional — 10 of 13 probes were scope-blocked).**
+**G2 = FAIL. Definitive.**
 
-Stated precisely, because the distinction matters to the dossier:
+- Every one of the 13 endpoints was probed with full scopes granted. Nine answered;
+  none carries per-participant consent evidence, including the two most plausible
+  carriers — the participants report (which *does* carry `customer_key`, proving it
+  can hold per-person platform data) and the recording artifact itself.
+- The remaining four are **entitlement-blocked on Pro**: the entire Dashboard API
+  family and the Archiving API are unavailable to this tier. Consent reporting is
+  gated by the same class of entitlement as disclaimer customization (KB0068402,
+  G1), and this is that gate showing up empirically in three separate endpoints.
+- No portal export offering consent data was found.
 
-- **What is measured:** the three endpoints that answered — the participants
-  report, the meeting report, and the recording object — carry **no consent field
-  of any kind**. These are the three surfaces the plan would naturally have built
-  on, and the two most likely of all (the participants report, which does carry
-  `customer_key`, and the recording artifact itself) are among them. No portal
-  export offering consent data was found either.
-- **What is not measured:** ten endpoints returned `4711 missing scope` rather than
-  data. The scopes are listed above and were handed to Brent; they are a
-  seconds-long Marketplace edit, but that edit did not happen inside this chunk's
-  window. Until it does, this verdict rests on 3 of 13 probes.
-- **Why FAIL is nonetheless the safe and almost certainly correct answer:** G1
-  independently fails on the entitlement, and consent *reporting* is gated by the
-  **same** KB0068402 entitlement as disclaimer customization. A Pro account is not
-  expected to expose a consent report through any of the ten blocked endpoints,
-  and §12's architecture was explicitly designed for this outcome.
+**No consequence changes.** §12's backstop was already closed by G1: link-out-mode
+recording stays DISABLED, and in SDK mode an unidentified participant in a recorded
+meeting makes that recording ineligible for transfer. G2 failing confirms the
+architecture the plan already chose; nothing depends on it passing.
 
-**No consequence changes either way.** §12's backstop is closed by G1 alone:
-link-out-mode recording stays DISABLED, and in SDK mode an unidentified participant
-in a recorded meeting makes that recording ineligible for transfer. The plan does
-not depend on G2 passing.
+### 9.4 ⚠️ Separate finding: the Settings API does NOT report the disclaimer state
 
-**To make the verdict definitive**, re-run the probe script once the ten scopes are
-granted. The recorded spike meetings with genuine disclaimer clicks are listed in
-`scripts/spikes/zoom/out/` (gitignored) and can be re-probed, or a fresh one made
-in about eight minutes. **This chunk's honest claim is a provisional FAIL, and it
-should not be recorded as definitive until those ten probes have run.**
+Discovered while confirming the disclaimer was on. Both levels report it **off**:
+
+| Setting | API value |
+|---|---|
+| `recording.recording_disclaimer` (user level) | **`false`** |
+| `recording.recording_disclaimer` (account level) | **`false`** |
+| `recording.recording_notification_for_zoom_client.ask_host_to_confirm` | **`false`** |
+| `recording.auto_recording` (both levels) | `"none"` ✅ accurate |
+| `recording.cloud_recording` | `true` ✅ accurate |
+
+Yet the participant disclaimer **demonstrably appeared and had to be clicked** in
+every recorded spike meeting — its verbatim text is in §9.1 — and the host
+**demonstrably got** a separate "Grabar esta reunión? Continuar/Cancelar"
+confirmation. So both `recording_disclaimer` and `ask_host_to_confirm` read `false`
+while the behaviour they name is active.
+
+This spike does not establish *why* (the dialogs may be driven by an
+account-level lock the API does not surface, by a regional/organisational policy, or
+by Zoom having made the consent dialog mandatory for cloud recording irrespective of
+the toggle). What it establishes is the operational fact:
+
+> **`recording_disclaimer` from the Settings API is not a usable signal for
+> "is the disclaimer in force".**
+
+**Consequence for the plan, and it is not cosmetic.** §12 states *"Settings drift
+(disclaimer found off) always triggers the ineligible rule"*, and §18's quarterly
+audit checklist includes verifying the disclaimer. If either is implemented by
+reading `recording_disclaimer`, it will read `false` **always** — so the drift
+check either permanently marks every recording ineligible for transfer (disabling
+the pipeline) or, if someone "fixes" it by inverting the test, provides false
+confidence. Either way it is non-functional as specified.
+
+What IS reliably checkable, and should carry the audit: **`auto_recording` is
+accurate at both levels** (`"none"`), which is the §18 item that actually protects
+the consent gate ("account-level auto-recording verified OFF and not locked-on").
+The disclaimer's presence needs a different verification method — a periodic manual
+check in the portal, or a human-observed join — and §18 should say so rather than
+implying an API check exists.
 
 ---
 
@@ -2322,9 +2489,9 @@ should not be recorded as definitive until those ten probes have run.**
 | 2 | Re-measure NER precision on **accented** text before enabling the layer (§4.4) | Z5 |
 | 3 | Node-only adversarial recall is 78.8%, below the plan's ≥90% target (§3.2). The target predates measurement; §4 shows the cost of closing it | PM decision |
 | 4 | Re-score both suites against real Whisper output once a recording exists (§3.4). **Z0B-2 skipped this**: no `OPENAI_API_KEY` exists in the repo's `.env.local`, and the chunk was instructed not to ask for one. A recording now exists, so the blocker is purely the key | Z5 |
-| 15 | **Webhook payload capture (§6.1)** — validate the subscription URL in the Marketplace, then capture all 7 events, observe the real header set, the timestamp skew, and at least one ≥500 retry; run `make-fixtures.mjs` to populate the fixture library | Z0B-2 follow-up / Z1b |
-| 16 | **Confirm `recording.stopped` actually arrives (§8.4)** — the late-decline design depends on it and it is currently inferred from §20, not observed. Re-run `stop-confirm.mjs` once webhooks are live | Z0B-2 follow-up / Z4 |
-| 17 | **G2 is provisional (§9.3)** — grant the 10 scopes listed in §9.2 and re-run `g2-consent-probe.mjs` to make the FAIL definitive | Brent / Z0B-2 follow-up |
+| 15 | ~~Webhook payload capture~~ — **CLOSED in-run** (§6.1): subscription validated; real header set, timestamp unit and skew measured; **all 7 subscribed events captured** and signature-verified against live traffic; ≥500 retry schedule measured at 304 s with an identical body (§6.1.1); **7-fixture redacted library committed** (§6.1.2) | Closed 2026-07-30 |
+| 16 | ~~Confirm `recording.stopped` actually arrives~~ — **CLOSED** (§8.4): observed twice, each within ~1 s of the `recording.stop` call, signature-verified. The late-decline design's confirmation signal is measured | Closed 2026-07-30 |
+| 17 | ~~G2 is provisional~~ — **CLOSED** (§9.3): all 13 endpoints probed with full scopes, 9 answered, zero per-participant consent evidence, 4 entitlement-blocked on Pro. **FAIL is definitive** | Closed 2026-07-30 |
 | 18 | **Meeting UUID rotates per occurrence (§6.3, §8)** — a UUID captured at provision time is stale for any later occurrence. `zoom_internal.zoom_meetings.uuid` must be occurrence-aware, populated from `meeting.started`, not from the create response | **Z1b — schema consequence** |
 | 19 | **Transfer-then-delete ordering (§8.1)** — deleting files one at a time breaks the remaining files' `download_url`. Transfer and verify every file, then delete | **Z4** |
 | 20 | **Resume state must be job-persisted (§8.2)** — Supabase `ListParts` returns `Size: 0`, so a worker cannot recompute its offset from storage; `uploadId` + part/ETag list need a durable home. Also untested: whether Zoom's download endpoint honours HTTP Range | **Z4** |
@@ -2333,6 +2500,11 @@ should not be recorded as definitive until those ten probes have run.**
 | 23 | **Re-point the webhook signature vectors at Z1b's real verifier** and delete the test-local reference implementation (§6.1), turning a self-consistency check into a contract test | Z1b |
 | 24 | `supabase/config.toml` gained `[storage]`+`[storage.s3_protocol]` on this branch while `feat/zoom-core` adds `[api]` to the same file — **sequence the merge** | PM |
 | 25 | **One meeting can yield N recording segments (§8.3)** — each start/stop cycle emits a complete file set (MP4+M4A+TIMELINE) under the same meeting UUID. The transfer job must iterate file SETS, and transcription must preserve the gap between them rather than concatenating across a period that was deliberately not recorded | **Z4 / Z5** |
+| 26a | **`recording_disclaimer` from the Settings API is not a usable signal (§9.4)** — it reads `false` at user AND account level while the disclaimer demonstrably appears and must be clicked. §12's "settings drift (disclaimer found off)" rule and §18's audit checklist cannot be implemented against it; `auto_recording` IS accurate and should carry the audit instead | **PM / Z4 / §18** |
+| 26d | **A Zoom webhook's sensitive surface is wider than the documented fields (§6.1.2)** — a top-level `download_token`, a nested ~98-char `recording_play_passcode`, and the S2S Client ID in a `clientid` REQUEST HEADER are three different shapes in three places. `zoom_webhook_events.raw_payload` stores all of it; the 30-day nulling in §6 is doing more work than it looks | **Z1b / Z4** |
+| 26e | **Dedupe must key on the BODY only (§6.1.1)** — across a retry the body and `x-zm-request-id` are identical but the timestamp and signature both change, so a key derived from the signed string `v0:{ts}:{body}` would double-process every retry. §6's `sha256(raw body)` is correct as written | Z1b |
+| 26b | `x-zm-request-timestamp` is epoch **SECONDS** while body `event_ts` is **milliseconds** (§6.1) — this spike assumed milliseconds and was wrong; corrected in the receiver, the vectors and the fixture generator. Z1b's verifier must not repeat it | Z1b |
+| 26c | **A re-serializing verifier passes every live payload** (§6.1) — every real body Zoom sent was already canonical JSON, so live traffic cannot demonstrate the raw-body rule. Keep the constructed vector as the gate | Z1b |
 | 26 | Zoom-side residue: the stop-control meeting's recording (~0.45 MB, 2 segments) was **left in place on purpose** so the G2 probes can be re-run against a meeting with a genuine disclaimer click. Delete it once G2 is settled | Z0B-2 follow-up |
 | 5 | Merge trailing sub-30 s segment in the multi-segment fallback (§5.2) | Z5 |
 | 6 | Verify the executable bit survives `outputFileTracingIncludes` tracing (§5.3) | Z5 |

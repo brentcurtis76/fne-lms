@@ -120,8 +120,22 @@ const server = http.createServer((req, res) => {
       },
       verification: {
         timestampHeader: timestamp ?? null,
-        // Zoom sends epoch MILLIseconds in x-zm-request-timestamp.
-        skewMs: timestamp ? arrivedAt - Number(timestamp) : null,
+        /**
+         * MEASURED, and not what this spike first assumed: `x-zm-request-timestamp`
+         * is epoch **SECONDS** (10 digits). The asymmetry that makes this easy to get
+         * wrong is that `event_ts` INSIDE the body is epoch milliseconds (13 digits),
+         * so a payload carries both units at once. Real observed skew on a validated
+         * endpoint: ~1 second.
+         *
+         * `timestampUnit` is recorded per request rather than assumed, so a future
+         * change in Zoom's format shows up as data instead of as a silently broken
+         * freshness check.
+         */
+        timestampUnit: timestamp ? (String(timestamp).length <= 11 ? 'seconds' : 'milliseconds') : null,
+        skewMs: timestamp
+          ? arrivedAt - (String(timestamp).length <= 11 ? Number(timestamp) * 1000 : Number(timestamp))
+          : null,
+        bodyEventTs: parsed?.event_ts ?? null,
         rawBodySignatureMatches: rawMatches,
         reserializedBodySignatureMatches: reserializedMatches,
       },

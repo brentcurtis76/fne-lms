@@ -1,0 +1,20 @@
+{
+  "_note": "Redacted capture of a REAL Zoom meeting.participant_joined webhook (Z0B-2 spike). Header values for x-zm-signature / x-zm-request-timestamp are replaced with recomputed values over the REDACTED body using the placeholder secret below, so the fixtures are self-consistent and verifiable in CI without any real secret.",
+  "_fixtureSecret": "fixture-secret-token-not-a-real-secret",
+  "event": "meeting.participant_joined",
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "687",
+    "user-agent": "Zoom Marketplace/1.0a",
+    "traceparent": "00-ba8b65f768cd0372dbc9c64fac01614b-9ce0b916de1a5c19-02",
+    "x-zm-request-id": "879fa176_1bf8_4929_a86f_5ae3062ad043",
+    "x-zm-request-timestamp": "1785368934",
+    "x-zm-signature": "v0=9df955aa48dc82ad8457b79dd9870c1d9ab4d3c8721a5d8506f98dd552242f6a",
+    "x-zm-trackingid": "EventService_019FB04E-6BB2-7321-B568-8624997E4087_3",
+    "zm-trace-upstream": "Meeting_Web_marketplace-consumer"
+  },
+  "rawBody": "{\"payload\":{\"account_id\":\"AcctSynthetic0001XXXXXX\",\"object\":{\"uuid\":\"c3Bpa2V1dWlkMDAwMDAx==\",\"participant\":{\"customer_key\":\"synthetic-redacted-token\",\"public_ip\":\"203.0.113.1\",\"user_id\":\"16778240\",\"user_name\":\"Anfitrion Spike\",\"participant_user_id\":\"UserSynthetic0001XXXXXXX\",\"id\":\"UserSynthetic0001XXXXXXX\",\"join_time\":\"2026-07-29T23:55:56Z\",\"email\":\"host1@example-synthetic.test\",\"participant_uuid\":\"00000000-0000-4000-8000-000000000000\"},\"id\":\"80000000001\",\"type\":2,\"topic\":\"PRUEBA SPIKE — no unirse\",\"host_id\":\"UserSynthetic0001XXXXXXX\",\"duration\":30,\"start_time\":\"2026-07-29T23:55:56Z\",\"timezone\":\"America/Santiago\"}},\"event_ts\":1785369357392,\"event\":\"meeting.participant_joined\"}",
+  "rawBodyByteLength": 687,
+  "zoomBodyWasByteIdenticalToReserialization": true,
+  "observedSkewMs": 398
+}

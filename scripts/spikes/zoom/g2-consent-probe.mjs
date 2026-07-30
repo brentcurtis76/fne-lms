@@ -46,6 +46,28 @@ const CONSENT_MARKERS = [
   'recording_consent',
 ];
 
+/**
+ * A marker hit is NOT evidence on its own, and conflating the two would have made
+ * this probe report a false PASS: the settings endpoints legitimately contain the
+ * words "consent" and "disclaimer" as CONFIGURATION field names
+ * (`recording_disclaimer`, `ask_participants_to_consent_disclaimer`). Knowing the
+ * feature is switched on says nothing about whether a given person clicked it.
+ *
+ * G2 asks for retrievable per-participant consent EVENTS. That requires a marker
+ * to appear on a record that identifies a person — so evidence is only counted
+ * when a marker lands inside a participant-shaped row.
+ */
+function findParticipantConsentEvidence(body) {
+  const rows = body?.participants ?? body?.activity_logs ?? body?.users ?? null;
+  if (!Array.isArray(rows)) return { rowsInspected: 0, markersOnRows: [] };
+  const markersOnRows = new Set();
+  for (const row of rows) {
+    const raw = JSON.stringify(row).toLowerCase();
+    for (const m of CONSENT_MARKERS) if (raw.includes(m)) markersOnRows.add(m);
+  }
+  return { rowsInspected: rows.length, markersOnRows: [...markersOnRows] };
+}
+
 const attempts = [
   {
     name: 'GET /report/meetings/{uuid}/participants',
@@ -132,7 +154,7 @@ const attempts = [
     why: 'recording analytics — per-viewer records; checked for consent rows',
     method: 'GET',
     path: meetingId && `/meetings/${meetingId}/recordings/analytics_details`,
-    query: { from: '2026-07-29', to: '2026-07-30' },
+    query: { from: '2026-07-29', to: '2026-07-30', type: 'by_view' },
   },
 ];
 
@@ -145,9 +167,12 @@ for (const attempt of attempts) {
   }
   const res = await zoomApi(env, attempt.method, attempt.path, { query: attempt.query });
   const raw = JSON.stringify(res.body ?? {});
-  const markersFound = CONSENT_MARKERS.filter((m) => raw.toLowerCase().includes(m));
+  const markersAnywhere = CONSENT_MARKERS.filter((m) => raw.toLowerCase().includes(m));
+  const evidence = findParticipantConsentEvidence(res.body);
   const missingScope =
     res.body?.code === 4711 ? res.body.message?.match(/scopes:\[(.*?)\]/)?.[1] ?? res.body.message : null;
+  // Zoom error messages can echo the account id — never print one unredacted.
+  const message = missingScope ? null : res.body?.message ? redact(res.body.message) : null;
 
   findings.push({
     name: attempt.name,
@@ -155,18 +180,24 @@ for (const attempt of attempts) {
     status: res.status,
     missingScope,
     zoomCode: res.body?.code ?? null,
-    zoomMessage: missingScope ? null : (res.body?.message ?? null),
-    consentMarkersFound: markersFound,
+    zoomMessage: message,
+    markersAnywhereInBody: markersAnywhere,
+    participantRowsInspected: evidence.rowsInspected,
+    consentMarkersOnParticipantRows: evidence.markersOnRows,
     bodyKeys: res.status === 200 && res.body ? Object.keys(res.body).slice(0, 25) : [],
   });
 
   const verdict = missingScope
     ? `SCOPE-BLOCKED (${missingScope})`
     : res.status !== 200
-      ? `HTTP ${res.status}${res.body?.message ? ` — ${res.body.message}` : ''}`
-      : markersFound.length > 0
-        ? `200 — CONSENT MARKERS PRESENT: ${markersFound.join(', ')}`
-        : '200 — no consent field anywhere in the payload';
+      ? `HTTP ${res.status}${message ? ` — ${message}` : ''}`
+      : evidence.markersOnRows.length > 0
+        ? `200 — CONSENT EVIDENCE ON PARTICIPANT ROWS: ${evidence.markersOnRows.join(', ')}`
+        : evidence.rowsInspected > 0
+          ? `200 — ${evidence.rowsInspected} participant row(s), NO consent field on any of them`
+          : markersAnywhere.length > 0
+            ? `200 — no participant rows; marker words present only as CONFIG field names (${markersAnywhere.join(', ')}) — not evidence`
+            : '200 — no participant rows, no consent field';
   console.log(`${attempt.name}\n    ${verdict}`);
 }
 
@@ -195,14 +226,29 @@ if (settings?.status === 200) {
   );
 }
 
-const anyEvidence = findings.some((f) => f.status === 200 && f.consentMarkersFound.length > 0);
+const anyEvidence = findings.some(
+  (f) => f.status === 200 && f.consentMarkersOnParticipantRows?.length > 0
+);
 const scopeBlocked = findings.filter((f) => f.missingScope);
 
 console.log('\n=== G2 SUMMARY ===');
 console.log(`endpoints probed          : ${findings.filter((f) => !f.skipped).length}`);
 console.log(`answered 200              : ${findings.filter((f) => f.status === 200).length}`);
 console.log(`scope-blocked             : ${scopeBlocked.length}`);
-console.log(`any consent evidence found: ${anyEvidence ? 'YES' : 'NO'}`);
+console.log(`participant rows inspected : ${findings.reduce((n, f) => n + (f.participantRowsInspected ?? 0), 0)}`);
+console.log(`per-participant CONSENT evidence: ${anyEvidence ? 'YES' : 'NO'}`);
+const configOnly = findings.filter(
+  (f) => f.status === 200 && (f.markersAnywhereInBody ?? []).length > 0 && !(f.consentMarkersOnParticipantRows ?? []).length
+);
+if (configOnly.length > 0) {
+  console.log('\nmarker words present but as CONFIGURATION only (NOT evidence):');
+  for (const f of configOnly) console.log(`  ${f.name} -> ${f.markersAnywhereInBody.join(', ')}`);
+}
+const entitlementBlocked = findings.filter((f) => !f.missingScope && f.status === 400 && /only available for|Not available for this account/i.test(f.zoomMessage ?? ''));
+if (entitlementBlocked.length > 0) {
+  console.log('\nENTITLEMENT-blocked (not a scope problem — the tier cannot use these at all):');
+  for (const f of entitlementBlocked) console.log(`  ${f.name} -> ${f.zoomMessage}`);
+}
 if (scopeBlocked.length > 0) {
   console.log('\nscope-blocked endpoints (verdict is provisional until these are granted):');
   for (const f of scopeBlocked) console.log(`  ${f.name} -> ${f.missingScope}`);

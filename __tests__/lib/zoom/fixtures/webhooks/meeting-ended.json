@@ -1,0 +1,20 @@
+{
+  "_note": "Redacted capture of a REAL Zoom meeting.ended webhook (Z0B-2 spike). Header values for x-zm-signature / x-zm-request-timestamp are replaced with recomputed values over the REDACTED body using the placeholder secret below, so the fixtures are self-consistent and verifiable in CI without any real secret.",
+  "_fixtureSecret": "fixture-secret-token-not-a-real-secret",
+  "event": "meeting.ended",
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "404",
+    "user-agent": "Zoom Marketplace/1.0a",
+    "traceparent": "00-ab5cd489f7d73805db77b31e0b25b591-f756a1dce1b4a650-02",
+    "x-zm-request-id": "33ca038c_89e5_4b1e_9a58_aa55a52ceacc",
+    "x-zm-request-timestamp": "1785368934",
+    "x-zm-signature": "v0=04b975db25d55460c13c188fc9910c2438dad53010bfaa88cf2585e24eaa462e",
+    "x-zm-trackingid": "v=2.0;clid=us02;rid=WEB_bbf8973cee595e4ca243766e2a7cb29c",
+    "zm-trace-upstream": "Meeting_Web_marketplace-consumer"
+  },
+  "rawBody": "{\"event\":\"meeting.ended\",\"payload\":{\"account_id\":\"AcctSynthetic0001XXXXXX\",\"object\":{\"duration\":30,\"start_time\":\"2026-07-29T23:55:56Z\",\"timezone\":\"America/Santiago\",\"end_time\":\"2026-07-30T00:03:26Z\",\"topic\":\"PRUEBA SPIKE — no unirse\",\"id\":\"80000000001\",\"type\":2,\"uuid\":\"c3Bpa2V1dWlkMDAwMDAx==\",\"host_id\":\"UserSynthetic0001XXXXXXX\",\"host_email\":\"host1@example-synthetic.test\"}},\"event_ts\":1785369806781}",
+  "rawBodyByteLength": 404,
+  "zoomBodyWasByteIdenticalToReserialization": true,
+  "observedSkewMs": -15
+}

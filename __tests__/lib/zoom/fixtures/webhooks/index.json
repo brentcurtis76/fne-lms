@@ -1,0 +1,41 @@
+{
+  "generatedFrom": "live Zoom captures, redacted",
+  "fixtureSecret": "fixture-secret-token-not-a-real-secret",
+  "events": [
+    {
+      "event": "meeting.started",
+      "file": "meeting-started.json",
+      "bytes": 372
+    },
+    {
+      "event": "meeting.participant_joined",
+      "file": "meeting-participant_joined.json",
+      "bytes": 687
+    },
+    {
+      "event": "recording.started",
+      "file": "recording-started.json",
+      "bytes": 407
+    },
+    {
+      "event": "recording.stopped",
+      "file": "recording-stopped.json",
+      "bytes": 427
+    },
+    {
+      "event": "meeting.participant_left",
+      "file": "meeting-participant_left.json",
+      "bytes": 745
+    },
+    {
+      "event": "recording.completed",
+      "file": "recording-completed.json",
+      "bytes": 2912
+    },
+    {
+      "event": "meeting.ended",
+      "file": "meeting-ended.json",
+      "bytes": 404
+    }
+  ]
+}

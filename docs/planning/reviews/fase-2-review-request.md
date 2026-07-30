@@ -4,6 +4,13 @@
 > `docs/planning/zoom-integration-plan.md` (§15). Written per CLAUDE.md executor
 > rule 6. This is a **claim, not a verdict**: the PM reviews the branch commit by
 > commit, then writes the dossier, then Sol reviews independently (§0.2).
+>
+> **Updated after Brent validated the webhook subscription and granted the remaining
+> S2S scopes mid-run.** Both deliverables that this file originally reported as
+> partial are now complete: all 7 webhook events are captured with a committed
+> fixture library, and the **G2 verdict is definitive**. Two credential leaks were
+> found in generated fixtures during that work and fixed — see §5.1, which is now
+> the item most worth a reviewer's attention.
 
 ## 1. Branch, base, commits
 
@@ -65,7 +72,7 @@ Local, macOS, at the head of this branch:
 |---|---|
 | `npm run type-check` | ✅ clean |
 | `npm run lint` (`--max-warnings=0`) | ✅ clean |
-| `npm test` | ✅ **3094 passed / 3094, 217 files** |
+| `npm test` | ✅ **3112 passed / 3112, 217 files** |
 | `npm run build` | ✅ Compiled successfully; `ƒ /meet/diag` 7.2 kB (160 kB first load), `ƒ /api/meet/diag-signature` present |
 | `npm run test:db` | ⏭️ N/A locally — zero migrations in this phase; CI runs it anyway (green, below) |
 | `npm run e2e` | ⏭️ not run locally (no seeded Supabase on this machine); `/meet` specs are `.skip()` stubs until Z1c. CI's Gate 4 is the verdict (green, below) |
@@ -76,15 +83,18 @@ Lint 55s · Gate 2 Unit 1m14s · Gate 3 RLS pgTAP 1m31s · Gate 4 E2E smoke 3m39
 RLS migration guard 8s · Vercel deployment · Vercel Preview Comments. PR is marked
 ready for review and is **not** merged.
 
-**Delta vs the Z0B-1 baseline (3072 / 215 files): +22 tests / +2 files**, and the
+**Delta vs the Z0B-1 baseline (3072 / 215 files): +40 tests / +2 files**, and the
 arithmetic is exactly the two new suites:
 
-- `__tests__/lib/zoom/webhook-signature-vectors.test.ts` — **14** tests. CRC vector
+- `__tests__/lib/zoom/webhook-signature-vectors.test.ts` — **32** tests. CRC vector
   + token/secret sensitivity; signature over raw bytes; §17's
   **re-serialized-body-must-fail**; equal-length tamper; timestamp substitution;
-  rotated secret; truncated-signature length trap; freshness window incl.
-  non-numeric rejection. Plus a fixture walker that verifies each fixture and
-  **logs the fixture count** so today's empty library is loud, not silently green.
+  rotated secret; truncated-signature length trap; the timestamp-unit facts
+  (seconds header vs millisecond body `event_ts`, and the ~56-year error a
+  millisecond reading produces); freshness incl. non-numeric rejection. Plus a
+  fixture walker over the **7 committed real-payload fixtures** that verifies each
+  signature over the stored raw bytes and asserts no real identifier, credential,
+  tunnel header or long opaque token shipped.
 - `__tests__/pages/meet-diag-join-section.test.ts` — **8** tests. Placeholder-when-env-absent,
   rest-of-page-survives, controls-when-present, B1 row always in the JSON, no
   `sdkClientId` leak, and three `getServerSideProps` cases including
@@ -122,71 +132,89 @@ hand, zero imports from `pages/` or `lib/`.
 
 Honest list, worst first.
 
-1. **G2 is a provisional FAIL and I am reporting it as one — check I have not
-   overclaimed anywhere.** 10 of 13 probes returned `4711 missing scope`; only 3
-   actually ran. I believe FAIL is correct (G1 fails on the same KB0068402
-   entitlement, and the 3 endpoints that *did* answer are the most likely
-   carriers), but the verdict rests on 3 data points plus an inference. Verify that
-   §9.3, the PROJECT_STATE entry, and §7 of this file all say "provisional" and that
-   nothing downstream treats G2 as settled. **The fix is ~30 seconds of Brent's time
-   in Marketplace** (scope list in §9.2) — this is the single weakest claim in the
-   phase.
+### 5.1 I leaked credentials into generated fixtures — twice — and caught it by scanning, not by design
 
-2. **The stop-and-confirm verdict rests partly on an inference, at the centre of a
-   privacy control.** I proved the *stop* works (`PATCH /live_meetings/{id}/events`
-   → 202) and proved *no read-back exists* (both plausible endpoints 404), and I
-   later corroborated that the stop genuinely took effect from the recording's own
-   segment boundaries — segment 1 ends within seconds of my stop call, segment 2
-   begins within seconds of my restart. What I never observed is the
-   `recording.stopped` **event arriving**; that it is emitted comes from §20, not
-   from me. Since §8.4 concludes that event is the *sole* confirmation signal and
-   therefore that §12's late-decline flow is necessarily webhook-dependent,
-   challenge whether that architectural claim is adequately supported. I think it
-   is, but it is the load-bearing inference in the phase.
+This is the finding I most want a second pair of eyes on, because the mechanism that
+caught it was a grep I ran after the fact rather than anything structural.
 
-   **Related, and it arrived late enough that I want it read carefully:** stopping
-   and restarting produced **two complete recording file sets under one meeting
-   UUID** (§8.3). §12's pipeline is written in the singular, and the late-decline
-   flow is exactly the thing that creates segments — so this is not an edge case
-   but the expected output of the designed flow. I recorded the consequence that
-   concatenating segments would fabricate continuity across the period someone
-   refused to be recorded. Check that I have not understated how much of Z4/Z5 this
-   touches.
+`scripts/spikes/webhook/make-fixtures.mjs` redacts real captured payloads into the
+committed fixture library. Two credentials survived the first two versions:
 
-3. **`pages/api/meet/diag-signature.ts` is a real signing endpoint that ships.**
-   I gated it three ways (404 without env, session required, `role:0` hardcoded and
-   never read from the request) and it cannot mint host credentials or issue a ZAK.
-   But it *will* sign a JWT for **any 9–11 digit meeting number** for any
-   authenticated user — including a meeting that has nothing to do with GENERA. I
-   judged that acceptable because a Meeting SDK signature alone does not grant
-   entry (the meeting passcode is still required, and the meeting must permit the
-   join) and because the field instrument is useless without it. A reviewer may
-   reasonably disagree and require a spike flag or an allowlist. This is my most
-   debatable judgment call.
+1. **The S2S Client ID, in a `clientid` REQUEST HEADER that Zoom sends.** My generator
+   denylisted `authorization` and nothing else, so the client id went into a fixture
+   that I was about to commit. Fixed by switching headers to an **allowlist**, which
+   fails closed.
+2. **`recording_play_passcode`, a ~98-char live playback credential** for the real
+   recording, nested in `recording.completed`. It did not match my `password` pattern.
+   Fixed specifically, plus a catch-all for long high-entropy values under any
+   `*token|passcode|secret|key` key.
 
-4. **The recording byte sizes are not representative and I want that read
-   carefully.** Synthetic fake-media input compresses roughly 10× smaller than real
-   speech, so the measured MP4 2.08 MB / M4A 0.41 MB over 12 min must not reach any
-   capacity or cost estimate. I flagged this loudly in §8.1, but the plan's §15 DoD
-   asks for "MP4+M4A real sizes" and **I did not deliver that** — the transfer
-   pipeline is proven, the sizes are not. Check that no number from §8 has leaked
-   into a sizing claim, and rule on whether the DoD is met.
+Both are now asserted in tests, and the final scan over all 13 changed files is clean
+for all six credential values. **But the reviewer should assume my redaction is
+incomplete rather than complete**, and specifically:
 
-5. **The multipart evidence comes from a non-production part size.** Both real
-   files are smaller than one legal 5 MiB S3 part, so the 5-part run used 512 KiB
-   parts via a `--part-size` flag I added for exactly that purpose. The state
-   machine, the completion, the byte-exact verify and the crash/resume probe are all
-   real; the part *size* is not what production will use. I documented this in §8.1
-   and in the flag's own comment. Judge whether that is sufficient or whether the
-   multipart claim needs a genuinely large recording behind it.
+- re-run the leak scan independently instead of trusting mine;
+- check the catch-all backstop for over-reach (it could redact a field Z1b needs);
+- consider whether committing redacted real payloads is the right call at all versus
+  hand-authored synthetic ones. I judged real-shape fixtures materially more valuable
+  to Z1b — Zoom's actual key order, the 6-file `recording_files` array, the real
+  header set — but that judgment is what put credentials one regex away from the repo.
 
-Also worth a look, lower stakes: my first pass at the secret scan used shell
-variable indirection that silently matched nothing and reported "CLEAN". I caught
-it, redid the scan with a direct file list, and it found the licensed host's email
-in the results doc (now redacted to "the licensed host's real address"). **The
-re-run is the one to trust** — zero hits for all six credential values across all
-24 committed files, no JWTs, no live `zoom.us` URLs, no local S3 keys. Re-run it
-yourself rather than taking my word.
+Related, and the same class: my **first** secret scan used shell variable indirection
+that silently matched nothing and printed "CLEAN". I caught that too, re-ran with a
+direct file list, and it found the licensed host's email in results §6.2 (now
+redacted). Three near-misses in one chunk, all in the same "I verified it" direction.
+
+### 5.2 The stop-and-confirm verdict — now measured, but check the reasoning I built on it
+
+The gap I originally flagged here is **closed**: `recording.stopped` was observed
+twice, each within ~1 s of the `recording.stop` call, signature-verified, with
+`recording.started` events bracketing them. The recording's own segment boundaries
+independently corroborate that the stop took effect.
+
+What still deserves scrutiny is the **architectural conclusion** in results §8.4: that
+because 202 is not confirmation and no live-recording read-back exists, §12's
+late-decline flow is *necessarily* webhook-dependent, which makes the webhook
+subscription a correctness dependency of a privacy control and demands a fail-safe
+timeout policy. I believe that follows, but it is the load-bearing inference of the
+phase and it changes what §18's runbook is protecting.
+
+### 5.3 §9.4 — the Settings API misreports the disclaimer, and I am asserting a plan defect
+
+`recording_disclaimer` reads `false` at **both** user and account level, while the
+disclaimer demonstrably appears and must be clicked (verbatim text in §9.1), and
+`ask_host_to_confirm` reads `false` while the host demonstrably gets a confirm dialog.
+
+From that I claim §12's "settings drift (disclaimer found off) always triggers the
+ineligible rule" and §18's audit checklist **cannot be implemented against this
+field** — and that `auto_recording` (accurate at both levels) should carry the audit
+instead. That is me telling the PM the plan has a defect, on two API reads. Challenge
+it: I did not establish *why* the API disagrees with observed behaviour, and an
+alternative reading is that this account is mid-configuration and the field would be
+accurate elsewhere. My claim is deliberately narrow (the field is not a usable
+signal), but the consequence I draw from it is not.
+
+### 5.4 `pages/api/meet/diag-signature.ts` — my most debatable judgment call
+
+Unchanged from the original report. I gated it three ways (404 without env, session
+required, `role:0` hardcoded and never read from the request) and it cannot mint host
+credentials or a ZAK. But it **will sign a JWT for any 9–11 digit meeting number for
+any authenticated user**, including meetings unrelated to GENERA. I judged that
+acceptable because a signature alone does not grant entry (the passcode is still
+required and the meeting must permit the join), and the field instrument is useless
+without it. A reviewer may reasonably require a spike flag or an allowlist.
+
+### 5.5 Recording byte sizes are not representative, and the §15 DoD asks for real ones
+
+Synthetic fake-media input compresses roughly 10× smaller than speech, so MP4 2.08 MB
+/ M4A 0.41 MB over 12 min must not reach any capacity or cost estimate. Flagged loudly
+in §8.1, but §15's DoD says "MP4+M4A real sizes" and **I did not deliver that**. The
+transfer pipeline is proven; the sizes are not. Rule on whether the DoD is met.
+
+Related: the 5-part multipart run used a 512 KiB part size via a flag I added, because
+both real files are smaller than one legal 5 MiB part. The state machine, completion,
+byte-exact verify and crash/resume probe are all real; the part size is not
+production's.
 
 ## 6. Numbered deviations
 
@@ -236,48 +264,55 @@ yourself rather than taking my word.
 
 ## 7. Known limitations and what is NOT verified
 
-**Blocked on out-of-band human steps (both handed to Brent, neither done in the session):**
+**Both original blockers are CLOSED.** Brent validated the webhook subscription and
+granted the remaining S2S scopes mid-run, so:
 
-- **Webhook payload capture.** The subscription URL must be validated in the
-  Marketplace before Zoom sends anything. Consequences, spelled out in results §6.1:
-  the real header set (`x-zm-request-id`, `traceparent`), the real timestamp skew,
-  the **retry schedule on ≥500** (a `FAIL_EVENTS` mode is built and unused), and the
-  **redacted real-payload fixture library** (generator written; library empty) are
-  all unverified. The CRC algorithm, the signature scheme, and
-  re-serialized-body-must-fail *are* verified — the last as a deterministic vector
-  that asserts its own premise, which a single canonical captured payload could not
-  have done.
-- **G2 definitiveness.** 10 scopes listed in results §9.2.
+- **Webhook capture is complete.** All 7 subscribed events captured and
+  signature-verified against live traffic; real header set observed; timestamp unit
+  measured (**seconds** — correcting a wrong assumption of mine that was baked into
+  the receiver, the vectors and the generator); ≥500 retry schedule measured at
+  **304 s** with an identical body, confirming §6's `sha256(raw body)` dedupe key;
+  7-fixture redacted library committed.
+- **G2 is definitive FAIL.** All 13 endpoints probed with full scopes; 9 answered; 6
+  participant rows inspected; zero consent fields; 4 endpoints **entitlement-blocked
+  on Pro** (the whole Dashboard family plus Archiving), which is a stronger negative
+  than a missing scope.
 
-**Deploy-dependent:** no Vercel behaviour was measured — no cold start, no
-Vercel→Supabase throughput, no `outputFileTracingIncludes` verification. The
-throughput figures in §8.1 are loopback-to-localhost.
+**Still not verified, and why:**
 
-**Field-visit-dependent:** the embed go/no-go stays open. Part B of the protocol is
-now runnable and two ambiguities are removed centrally (the SDK Embed capability
-works; B1 has ~16 s of headroom on good hardware), but nothing here substitutes for
-P0 machines on a real school network.
+- **Deploy-dependent:** no Vercel behaviour measured — no cold start, no
+  Vercel→Supabase throughput, no `outputFileTracingIncludes` check. Throughput figures
+  in §8.1 are loopback-to-localhost.
+- **Field-visit-dependent:** the embed go/no-go stays open. Part B is now runnable and
+  two ambiguities are removed centrally (SDK Embed capability works; B1 has ~16 s of
+  headroom on good hardware), but nothing substitutes for P0 machines on a school
+  network.
+- **Representative recording sizes** — see §5.5.
+- **The webhook payload `download_token` download path** — only the re-fetch path was
+  exercised. The token is now visible in a captured fixture, but no download was
+  performed with it.
+- **HTTP Range on Zoom's download endpoint** — untested; relevant to Z4's resume
+  strategy.
+- **Signed-in joiner realism** — the signed-in case is the licensed host via ZAK, not a
+  second independent Zoom account.
+- **The registrant rung** of Z7's hierarchy — untested, and expected to be dead code in
+  the planned flow.
+- **Item 7 (real-Whisper re-score)** — skipped, no `OPENAI_API_KEY`; a real recording
+  now exists so the key is the only blocker.
+- **NER cold start** — not attempted; needs a throwaway Vercel project that does not
+  exist (deployments are out of scope).
+- **Why §9.4's API/behaviour disagreement happens** — established as a fact, not
+  explained.
 
-**Other gaps I am aware of:**
+**G1 = FAIL** stands (Pro tier), and §9.1 now backs it with the verbatim rendered
+disclaimer: the standard participant dialog evidences consent to *being recorded* and
+says nothing about transcription or AI processing.
 
-- The **payload-token** download path is unverified; only the re-fetch path ran.
-- Whether Zoom's download endpoint honours **HTTP Range** is untested — relevant to
-  Z4's resume strategy.
-- Only the **signed-out** joiner case reflects school users; the signed-in case was
-  covered by the licensed host joining with a ZAK, not by a second independent Zoom
-  account.
-- The **registrant** rung of Z7's hierarchy is untested and expected to be dead code
-  in the planned flow.
-- `G1 = FAIL` stands (Pro tier). §9.1 now backs it with the **verbatim rendered
-  disclaimer text**, which says only that the participant consents to *being
-  recorded* — evidence the plan previously had only from the entitlement docs.
-
-**Zoom-side residue:** 5 spike meetings were created (all named
-`PRUEBA SPIKE — no unirse`); the recording from the round trip was trashed and then
-permanently deleted (`GET recordings` → *"Esta grabación no existe"*). The
-stop-control meeting's recording was left in place so the G2 probes can be re-run
-against a meeting with a genuine disclaimer click; it should be deleted once G2 is
-settled.
+**Zoom-side residue:** 6 spike meetings created, all named `PRUEBA SPIKE — no unirse`.
+The round-trip recording was trashed and permanently deleted (`GET recordings` →
+*"no existe"*). Two recordings remain (~0.9 MB total) from the stop-control meetings;
+they were retained so G2 could be re-probed against a real disclaimer click, and can
+now be deleted since G2 is settled.
 
 ## 8. Credential handling
 

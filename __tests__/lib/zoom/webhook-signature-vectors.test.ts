@@ -118,33 +118,76 @@ describe('Zoom webhook signature — raw body is the only valid input', () => {
 });
 
 describe('Zoom webhook timestamp freshness', () => {
-  /** Zoom sends epoch MILLISECONDS in x-zm-request-timestamp (measured, §6). */
-  const FRESHNESS_WINDOW_MS = 5 * 60 * 1000;
+  /**
+   * `x-zm-request-timestamp` is epoch **SECONDS** (10 digits). MEASURED against
+   * real deliveries from a validated subscription — 8 requests across
+   * `endpoint.url_validation`, `meeting.started`, `meeting.participant_joined`,
+   * `recording.started` and `recording.stopped`, all 10-digit, all with sub-second
+   * to ~1 s real skew (results §6.1).
+   *
+   * This spike initially assumed milliseconds and was wrong. The trap is a genuine
+   * unit asymmetry in Zoom's own payloads: `event_ts` INSIDE the body is epoch
+   * MILLISECONDS (13 digits), so a single request carries both units. Treating the
+   * header as milliseconds makes every request look ~56 years stale, which a
+   * naive freshness check would either reject outright or, if the comparison is
+   * signed and unguarded, silently accept. Both cases are locked below.
+   */
+  const FRESHNESS_WINDOW_SECONDS = 5 * 60;
 
+  /** Takes the header verbatim, as a production verifier would receive it. */
   function isFresh(timestampHeader: string, nowMs: number): boolean {
-    const sent = Number(timestampHeader);
-    if (!Number.isFinite(sent)) return false;
-    return Math.abs(nowMs - sent) <= FRESHNESS_WINDOW_MS;
+    const sentSeconds = Number(timestampHeader);
+    if (!Number.isFinite(sentSeconds)) return false;
+    const nowSeconds = Math.floor(nowMs / 1000);
+    return Math.abs(nowSeconds - sentSeconds) <= FRESHNESS_WINDOW_SECONDS;
   }
 
+  /** A real captured header value and its arrival instant (results §6.1). */
+  const REAL_HEADER = '1785368934';
+  const REAL_ARRIVAL_MS = 1785368935026;
+
+  it('the header is epoch SECONDS — 10 digits, not 13', () => {
+    expect(REAL_HEADER).toHaveLength(10);
+    expect(Number(REAL_HEADER) * 1000).toBeLessThan(REAL_ARRIVAL_MS + 60_000);
+  });
+
+  it('accepts a real captured delivery (observed skew ~1 s)', () => {
+    expect(isFresh(REAL_HEADER, REAL_ARRIVAL_MS)).toBe(true);
+    expect(REAL_ARRIVAL_MS - Number(REAL_HEADER) * 1000).toBeLessThan(5_000);
+  });
+
+  it('a millisecond interpretation of the header would be ~56 years off', () => {
+    // Guards the mistake itself, so nobody reintroduces it.
+    const wrongSkewMs = REAL_ARRIVAL_MS - Number(REAL_HEADER);
+    expect(wrongSkewMs / 1000 / 60 / 60 / 24 / 365).toBeGreaterThan(50);
+  });
+
+  it('body event_ts is MILLISECONDS while the header is SECONDS', () => {
+    // The asymmetry that caused the original error. Both from the same real payload.
+    const bodyEventTs = 1785368934817;
+    expect(String(bodyEventTs)).toHaveLength(13);
+    expect(String(REAL_HEADER)).toHaveLength(10);
+    expect(Math.abs(Math.floor(bodyEventTs / 1000) - Number(REAL_HEADER))).toBeLessThanOrEqual(1);
+  });
+
   it('accepts a timestamp inside the window', () => {
-    const now = 1753900000000;
-    expect(isFresh(String(now - 30_000), now)).toBe(true);
+    const nowMs = 1785368935026;
+    expect(isFresh(String(Math.floor(nowMs / 1000) - 30), nowMs)).toBe(true);
   });
 
   it('rejects a stale timestamp', () => {
-    const now = 1753900000000;
-    expect(isFresh(String(now - 10 * 60 * 1000), now)).toBe(false);
+    const nowMs = 1785368935026;
+    expect(isFresh(String(Math.floor(nowMs / 1000) - 10 * 60), nowMs)).toBe(false);
   });
 
   it('rejects a future timestamp beyond the window', () => {
-    const now = 1753900000000;
-    expect(isFresh(String(now + 10 * 60 * 1000), now)).toBe(false);
+    const nowMs = 1785368935026;
+    expect(isFresh(String(Math.floor(nowMs / 1000) + 10 * 60), nowMs)).toBe(false);
   });
 
   it('rejects a non-numeric timestamp rather than coercing it', () => {
-    expect(isFresh('not-a-number', 1753900000000)).toBe(false);
-    expect(isFresh('', 1753900000000)).toBe(false);
+    expect(isFresh('not-a-number', 1785368935026)).toBe(false);
+    expect(isFresh('', 1785368935026)).toBe(false);
   });
 });
 
@@ -189,12 +232,34 @@ describe('captured webhook fixtures', () => {
       expect(safeEqual(fixture.headers['x-zm-signature'], expected)).toBe(true);
     });
 
-    it(`${file}: carries no real Zoom identifiers`, () => {
+    it(`${file}: carries no real Zoom identifiers, credentials or tokens`, () => {
       const raw = readFileSync(path.join(dir, file), 'utf8');
+
       // The licensed host address and any live zoom.us URL must never ship.
       expect(raw).not.toContain('nuevaeducacion.org');
       expect(raw).not.toMatch(/https:\/\/[a-z0-9]+\.zoom\.us\//);
       expect(raw).not.toMatch(/eyJ[A-Za-z0-9_-]{10,}\./);
+
+      // Zoom sends the S2S Client ID in a `clientid` REQUEST HEADER. A denylist
+      // that stripped only `authorization` let it into a generated fixture; headers
+      // are now allowlisted, and this locks that in.
+      expect(Object.keys(JSON.parse(raw).headers)).not.toContain('clientid');
+
+      // Tunnel-specific headers describe this spike's plumbing, not Zoom's request,
+      // and would misinform a reader about the real header set.
+      const headerKeys = Object.keys(JSON.parse(raw).headers);
+      expect(headerKeys.filter((k) => k.startsWith('cf-'))).toHaveLength(0);
+      expect(headerKeys).not.toContain('x-forwarded-for');
+
+      /**
+       * The defect class that leaked twice during generation: an opaque credential
+       * under a field name the redactor had not been taught. `recording_play_passcode`
+       * (~98 chars, grants playback of the real recording) is the concrete instance.
+       * Any long high-entropy value under a token-ish key fails here.
+       */
+      const suspicious = raw.match(/"[a-z_]*(?:token|passcode|secret|key)":"([A-Za-z0-9_\-+/=.]{24,})"/gi) ?? [];
+      const notPlaceholders = suspicious.filter((m) => !/synthetic|redacted|fixture-secret/i.test(m));
+      expect(notPlaceholders).toEqual([]);
     });
   }
 });

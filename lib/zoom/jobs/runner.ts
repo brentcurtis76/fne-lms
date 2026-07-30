@@ -64,8 +64,14 @@ const MAX_STORED_MESSAGE_CHARS = 500;
 export interface ZoomJobFailureRecord {
   /** The retry taxonomy. `'unknown'` = a non-`ZoomError` escaped a handler. */
   kind: ZoomErrorKind | 'unknown';
-  /** Sub-discriminator for failures the runner itself raises. */
-  reason?: 'unknown_job_type';
+  /**
+   * Sub-discriminator, one level finer than `kind`. Set by the runner for failures it
+   * raises itself (`unknown_job_type`), and carried through from any `ZoomError` that
+   * declares a `reason` — which is how `meeting_provision` surfaces §9's terminal
+   * `no_host_available` to triage and the health panel structurally, rather than by
+   * making somebody match a message string.
+   */
+  reason?: string;
   status?: number;
   zoomCode?: number;
   operation?: string;
@@ -74,10 +80,17 @@ export interface ZoomJobFailureRecord {
   message: string;
 }
 
+/** A `ZoomError` subclass may declare a `reason`; nothing else may set one. */
+function readErrorReason(error: unknown): string | undefined {
+  const reason = (error as { reason?: unknown }).reason;
+  return typeof reason === 'string' && reason !== '' ? reason : undefined;
+}
+
 export function describeJobFailure(error: unknown): ZoomJobFailureRecord {
   if (isZoomError(error)) {
     return {
       kind: error.kind,
+      reason: readErrorReason(error),
       status: error.status,
       zoomCode: error.zoomCode,
       operation: error.operation,

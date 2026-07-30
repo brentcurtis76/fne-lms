@@ -63,6 +63,10 @@ import {
   defaultZoomWebhookStore,
   type ZoomWebhookStore,
 } from '../../../lib/zoom/webhook-store';
+import {
+  applyWebhookLifecycle,
+  readOccurrenceUuid,
+} from '../../../lib/zoom/webhook-lifecycle';
 
 /** Raw stream, not a parsed object. See the module header. */
 export const config = {
@@ -147,63 +151,6 @@ function readRawBody(
     req.on('end', onEnd);
     req.on('error', onError);
   });
-}
-
-/**
- * Zoom sends `payload.object.id` as a decimal STRING (the committed fixtures show
- * `"86084701483"`), while `zoom_meetings.zoom_meeting_number` is `bigint`. Accepts a
- * number too, because Zoom's own docs are inconsistent about the type across events.
- * Anything else is "no meeting number", which lands on the row-only path.
- */
-function readMeetingNumber(raw: unknown): number | null {
-  if (typeof raw === 'number') {
-    return Number.isSafeInteger(raw) && raw > 0 ? raw : null;
-  }
-  if (typeof raw === 'string' && /^\d+$/.test(raw.trim())) {
-    const parsed = Number(raw.trim());
-    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
-  }
-  return null;
-}
-
-function readOccurrenceUuid(raw: unknown): string | null {
-  return typeof raw === 'string' && raw.length > 0 ? raw : null;
-}
-
-/**
- * The §15 lifecycle application: rows only, and only for the two meeting events.
- *
- * `meeting.started` is where `zoom_meeting_uuid` is captured — **not** provisioning.
- * That is the routed Z0B finding: Zoom mints a NEW uuid for every occurrence, so the
- * uuid a create/read returns at provision time is not the uuid the recording,
- * participant and transcript APIs will key on. The fake models it (`startOccurrence`
- * returns both uuids so a test can assert they differ). Writing it here, from the
- * event that announces the occurrence, is the only correct moment.
- *
- * An unknown meeting number is normal until provisioning exists (Z1b-4) and stays
- * normal afterwards for meetings created outside the LMS: the ledger row is the whole
- * of the work, and the response is still 200.
- */
-async function applyLifecycle(
-  store: ZoomWebhookStore,
-  eventType: string,
-  object: { id?: unknown; uuid?: unknown } | undefined
-): Promise<void> {
-  if (eventType !== 'meeting.started' && eventType !== 'meeting.ended') return;
-
-  const meetingNumber = readMeetingNumber(object?.id);
-  if (meetingNumber === null) return;
-
-  const meetingId = await store.findMeetingIdByNumber(meetingNumber);
-  if (meetingId === null) return;
-
-  if (eventType === 'meeting.started') {
-    await store.setMeetingStatus(meetingId, 'started', readOccurrenceUuid(object?.uuid));
-    return;
-  }
-  // `meeting.ended` carries the same occurrence uuid, but `started` already captured
-  // it; passing null here means a malformed/absent uuid can never blank the column.
-  await store.setMeetingStatus(meetingId, 'ended', null);
 }
 
 export interface ZoomWebhookHandlerDeps {
@@ -314,7 +261,7 @@ export async function handleZoomWebhook(
       // Recorded but never applied — the first delivery died mid-flight. Finish it.
     }
 
-    await applyLifecycle(store, eventType, object);
+    await applyWebhookLifecycle(store, eventType, object);
     await store.markProcessed(verification.dedupeKey, new Date(now()).toISOString());
   } catch (error) {
     // Zoom retries any non-2xx; the dedupe ledger absorbs the replayed body and the

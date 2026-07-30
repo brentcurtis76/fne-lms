@@ -7,7 +7,7 @@
 | **Commits** | 5 — `ffd8552` (feature), `3479219` (review fixes), `e48acd3` (this document), `33c744e` (R1 remediation), plus the R1 doc-reconciliation commit carrying this table |
 | **State reviewed by R1** | branch @ `e48acd3` — 3 commits, 6 files (5 code + this document). The original version of this table said "2 commits / 5 files" because it excluded its own docs commit; reconciled per R1 item 4. |
 | **Files (code)** | `pages/contracts.tsx`, `components/contracts/ContractDetailsModal.tsx`, `components/contracts/ContractForm.tsx`, `lib/utils/contract-status.ts` (new), `lib/utils/__tests__/contract-status.test.ts` (new), `__tests__/components/contracts/ContractDetailsModal.activation.test.tsx` (new, R1), `__tests__/pages/contracts-activation.test.tsx` (new, R1) |
-| **Net diff vs main** | 8 files, +990 / −128 (includes this document) |
+| **Net diff vs main** | 8 files, +1011 / −128 against base `8a71c89` (includes this document; corrected in R2 — the earlier +990 figure predated this document's own reconciliation commit) |
 | **Date** | 2026-07-30 (R1 remediation same day) |
 | **Author** | Claude (Fable 5) with Brent Curtis; product decisions confirmed interactively with Brent |
 
@@ -45,7 +45,7 @@ The original plan derived "firma pendiente" from `estado==='activo' && !contrato
 
 - `pages/contracts.tsx`: `handleActivateWithoutDocument` (client-side update `estado='activo', incluir_en_flujo=true` + list/modal refresh); upload handler extended with `incluir_en_flujo=true`; FIRMA PENDIENTE list badge; filter chip; new modal prop.
 - `components/contracts/ContractDetailsModal.tsx`: "Firma pendiente" pill; upload section split into pending vs. active-without-doc variants; activate button + hand-rolled confirmation dialog (the shared `components/common/ConfirmModal` was evaluated and rejected — its `isLoading` prop is declared but not implemented, it auto-closes on confirm, and it has no warning variant or testid pass-through).
-- Gates at this commit: type-check, lint (zero warnings), Vitest 3351/3351, build, Playwright e2e 52 passed / 27 skipped.
+- Gates at this commit: type-check, lint (zero warnings), Vitest 3351/3351, build. (The "e2e 52 passed" figure originally reported for this commit was a truncated misreading — see the R2 correction in §8.)
 
 ## 5. Code review — process
 
@@ -95,7 +95,10 @@ Both commits ran the full gate set; final state:
 | `npm run lint` (`--max-warnings=0`) | clean; all new interactive elements have `data-testid` (advisory testid baseline improved, not regressed) |
 | `npm test` (Vitest) | **3370 passed / 3370** (225 files; includes 4 `contract-status` unit tests + 15 R1 behavioral tests) |
 | `npm run build` | success |
-| `npm run e2e` (Playwright) | **52 passed, 27 skipped** (no contract-page e2e specs exist; the suite guards against regressions elsewhere) |
+| Playwright — CI smoke gate (`tests/e2e/smoke.spec.ts`) | **2 passed / 2** (verified independently in R2) |
+| Playwright — full local `npm run e2e` | **51 passed, 57 failed, 27 skipped.** The failures are confined to legacy authenticated QA/proposal suites whose seeded users/configuration do not exist on this machine — not the contract feature. **No contract Playwright spec exists; the 15 RTL behavioral tests (§12) are the feature-specific behavioral coverage.** |
+
+> **R2 correction — earlier e2e figures were misread.** The "52 passed, 27 skipped" previously reported here (and for the first two commits) came from piping the run through `tail`, which truncated the `57 failed` summary header and its failure list, and made the shell report `tail`'s exit code (0) instead of Playwright's. The same environmental failures were almost certainly present in every full local run. The authoritative CI-equivalent gate is the smoke spec above.
 
 Manual verification checklist for the reviewer (as admin on `/contracts`):
 
@@ -146,3 +149,7 @@ External review R1 raised four items; all are implemented.
 **Item 4 — reconciliation.** The header table now states the branch state R1 actually reviewed (`e48acd3`, 3 commits / 6 files including this document) and the current post-remediation state; the earlier "2 commits / 5 files" figure had excluded this document's own commit.
 
 **Test-infrastructure note for future contract page tests:** the page's session effect depends on `[router]`, so a `useRouter` mock must return a **stable** object — a fresh object per call re-fires the effect in an infinite loop. Pages also rely on the automatic JSX runtime; under vitest's classic transform, set `(globalThis as any).React = React` in the suite.
+
+## 13. R2 (2026-07-30) — APPROVE WITH NOTES
+
+R2 verified all four R1 resolutions independently (targeted tests 15/15, type-check, lint, Vitest 3370/3370, build, CI Playwright smoke 2/2, `git diff --check` clean, clean tree) and found **no remaining code defect**. Two documentation-only corrections were ordered and are applied in this revision: the net-diff row (now +1011/−128 vs `8a71c89`) and the Playwright evidence (§8), which now distinguishes the passing CI smoke gate from the full local run whose 57 failures are environmental (unseeded legacy authenticated suites) and were previously masked by `tail`-truncated output and pipeline exit codes. No implementation changes were made in R2 remediation.

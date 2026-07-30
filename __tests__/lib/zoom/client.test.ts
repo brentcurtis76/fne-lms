@@ -99,7 +99,7 @@ describe('createZoomClient — happy path', () => {
 
   it('returns null data for a 204 — the settings-PATCH shape', async () => {
     const { client } = build([{ status: 204 }]);
-    const response = await client.patch('/meetings/84177662364/settings', { auto_recording: 'none' });
+    const response = await client.patch('/meetings/84177662364', { auto_recording: 'none' });
 
     expect(response.status).toBe(204);
     expect(response.data).toBeNull();
@@ -318,7 +318,10 @@ describe('createZoomClient — 429 Retry-After', () => {
 });
 
 describe('patchWithReadBack — the only confirmation that exists', () => {
-  const SETTINGS_PATH = '/meetings/84177662364/settings';
+  // The same path for both, because that is the real shape: there is no
+  // `/meetings/{id}/settings` endpoint. Settings ride on the meeting PATCH and are
+  // read back off the meeting GET (spike-verified, results §8.3).
+  const SETTINGS_PATH = '/meetings/84177662364';
   const READ_PATH = '/meetings/84177662364';
 
   it('reports a match when the read-back agrees with what was sent', async () => {

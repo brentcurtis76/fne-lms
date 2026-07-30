@@ -134,14 +134,27 @@ export interface ZoomClient {
   put<T>(path: string, body?: unknown): Promise<ZoomResponse<T>>;
   del<T>(path: string, query?: ZoomQuery): Promise<ZoomResponse<T>>;
   /**
-   * PATCH then GET, because the PATCH cannot confirm itself. `requested` is the
-   * object that was sent; every one of its keys is compared against the read-back.
+   * PATCH then GET, because the PATCH cannot confirm itself. `requested` is the flat
+   * set of key→value expectations; every one of its keys is compared against the
+   * read-back.
+   *
+   * Zoom nests meeting settings, so the two `options` hooks exist: `patchBody` sends
+   * `{settings: requested}` while `select` points the comparison at
+   * `response.settings`. Without them the comparison would diff the whole settings
+   * object — and Zoom returns dozens of keys nobody sent, so every call would report
+   * drift.
    */
   patchWithReadBack<T extends Record<string, unknown>>(
     patchPath: string,
     requested: Record<string, unknown>,
     readBackPath: string,
-    readBackQuery?: ZoomQuery
+    options?: {
+      readBackQuery?: ZoomQuery;
+      /** Body to PATCH, when it differs from `requested`. Defaults to `requested`. */
+      patchBody?: Record<string, unknown>;
+      /** Picks the object `requested` is compared against. Defaults to the whole body. */
+      select?: (data: T) => Record<string, unknown> | undefined;
+    }
   ): Promise<ZoomReadBack<T>>;
 }
 
@@ -326,11 +339,19 @@ export function createZoomClient(deps: ZoomClientDeps = {}): ZoomClient {
     patchPath: string,
     requested: Record<string, unknown>,
     readBackPath: string,
-    readBackQuery?: ZoomQuery
+    options: {
+      readBackQuery?: ZoomQuery;
+      patchBody?: Record<string, unknown>;
+      select?: (data: T) => Record<string, unknown> | undefined;
+    } = {}
   ): Promise<ZoomReadBack<T>> {
-    const patched = await request<never>({ method: 'PATCH', path: patchPath, body: requested });
+    const patched = await request<never>({
+      method: 'PATCH',
+      path: patchPath,
+      body: options.patchBody ?? requested,
+    });
 
-    const read = await request<T>({ method: 'GET', path: readBackPath, query: readBackQuery });
+    const read = await request<T>({ method: 'GET', path: readBackPath, query: options.readBackQuery });
     if (read.data === null) {
       throw new ZoomRetryableError(`Read-back of ${patchPath} returned no body — the PATCH is unconfirmed.`, {
         status: read.status,
@@ -339,6 +360,7 @@ export function createZoomClient(deps: ZoomClientDeps = {}): ZoomClient {
       });
     }
 
+    const compared = (options.select ? options.select(read.data) : read.data) ?? {};
     const drift: ZoomSettingsDrift[] = [];
     const unverifiable: string[] = [];
 
@@ -347,7 +369,7 @@ export function createZoomClient(deps: ZoomClientDeps = {}): ZoomClient {
         unverifiable.push(key);
         continue;
       }
-      const effective = (read.data as Record<string, unknown>)[key];
+      const effective = compared[key];
       // Structural compare: some settings values are objects (e.g. `approval_type`
       // groups), and a reference compare would report drift on every one of them.
       if (JSON.stringify(effective) !== JSON.stringify(value)) {

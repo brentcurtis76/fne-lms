@@ -433,7 +433,10 @@ describe('secret and identifier containment', () => {
 
 describe('encodeMeetingUuid', () => {
   it('double-encodes, because a real UUID carries / and +', () => {
-    // The exemplar the fixture library preserves on purpose.
+    // Shape-preserving synthetic. Deliberately NOT built by re-inserting `+`/`/`
+    // into a redacted capture value — that would reconstruct the real (inert,
+    // deleted) spike meeting UUID, which the standing identifier rule forbids
+    // regardless of whether the meeting still exists.
     const uuid = 'Fk+SyntheticUuid/0001==';
     const encoded = encodeMeetingUuid(uuid);
 

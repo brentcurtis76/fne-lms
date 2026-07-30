@@ -35,7 +35,7 @@ const REAL_ARRIVAL_MS = 1785368935026;
 
 /** Non-canonical on purpose: key order and spacing a re-serialization would change. */
 const RAW_BODY =
-  '{"payload": {"object": {"id": "84177662364", "uuid": "z5uFFLCyTtypHjJ29CynCA=="}, "account_id": "AcctSynthetic0001XXXXXX"}, "event": "meeting.started", "event_ts": 1785368934817}';
+  '{"payload": {"object": {"id": "84177662364", "uuid": "Fk+SyntheticUuid/0001=="}, "account_id": "AcctSynthetic0001XXXXXX"}, "event": "meeting.started", "event_ts": 1785368934817}';
 
 function signedRequest(overrides: Partial<Parameters<typeof verifyZoomWebhook>[0]> = {}) {
   const timestampHeader = overrides.timestampHeader ?? REAL_HEADER;

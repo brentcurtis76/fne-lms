@@ -28,7 +28,8 @@ import {
  * The freshness block still pins the 300 s window it was written against by passing
  * it explicitly, so its boundary assertions keep their exact original meaning. The
  * production DEFAULT is 600 s, derived from the 304 s observed retry interval, and
- * gets its own block at the end of this file rather than quietly redefining these.
+ * gets its own block in the verifier's own suite (`__tests__/lib/zoom/verifier.test.ts`)
+ * rather than quietly redefining these.
  */
 
 /** Zoom's documented scheme, now the production primitive. */
@@ -142,7 +143,7 @@ describe('Zoom webhook timestamp freshness', () => {
    * The production primitive, pinned to the window this block was written against.
    * Passing the window explicitly keeps every boundary assertion below meaning
    * exactly what it meant when it was committed; the production default (600 s) is
-   * exercised separately at the end of this file.
+   * exercised separately in the verifier's own suite (`__tests__/lib/zoom/verifier.test.ts`).
    */
   function isFresh(timestampHeader: string, nowMs: number): boolean {
     return isWebhookTimestampFresh(timestampHeader, nowMs, FRESHNESS_WINDOW_SECONDS);

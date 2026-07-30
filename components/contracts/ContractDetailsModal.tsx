@@ -78,7 +78,8 @@ interface ContractDetailsModalProps {
   onDelete: (contrato: Contrato) => void;
   onToggleCashFlow: (contrato: Contrato) => void;
   onUploadContract: (contrato: Contrato, file: File) => void;
-  onActivateWithoutDocument: (contrato: Contrato) => Promise<void> | void;
+  /** Returns true when the activation was persisted; false keeps the confirm dialog open. */
+  onActivateWithoutDocument: (contrato: Contrato) => Promise<boolean> | boolean;
   onMarkSigned: (contrato: Contrato) => Promise<void> | void;
   onGeneratePDF: (contrato: Contrato) => void;
   onUploadInvoice?: (cuotaId: string, file: File) => Promise<void>;
@@ -270,8 +271,12 @@ export default function ContractDetailsModal({
   const handleActivateWithoutDocument = async () => {
     setActivating(true);
     try {
-      await onActivateWithoutDocument(contrato);
-      setShowActivateConfirm(false);
+      // Close the confirmation only when the DB update actually succeeded;
+      // on failure the dialog stays open so the user can retry or cancel.
+      const activated = await onActivateWithoutDocument(contrato);
+      if (activated) {
+        setShowActivateConfirm(false);
+      }
     } finally {
       setActivating(false);
     }

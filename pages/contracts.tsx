@@ -433,8 +433,9 @@ export default function ContractsPage() {
 
   // Activate a contract whose signed document hasn't arrived yet. firmado
   // stays false, so the contract reads as "firma pendiente" until the signed
-  // doc is uploaded (or marked as received) later.
-  const handleActivateWithoutDocument = async (contrato: Contrato) => {
+  // doc is uploaded (or marked as received) later. Returns whether the DB
+  // update succeeded so the modal keeps its confirmation open on failure.
+  const handleActivateWithoutDocument = async (contrato: Contrato): Promise<boolean> => {
     try {
       const { error } = await supabase
         .from('contratos')
@@ -450,9 +451,11 @@ export default function ContractsPage() {
       // refresh failure raises its own error toast from loadContratos.
       toast.success('Contrato activado. Recuerda subir el documento firmado cuando el cliente lo envíe.');
       await refreshContratos(contrato.id);
+      return true;
     } catch (error) {
       console.error('Error activating contract without document:', error);
       toast.error('Error al activar el contrato: ' + (error as Error).message);
+      return false;
     }
   };
 
@@ -746,12 +749,13 @@ export default function ContractsPage() {
                     <button
                       onClick={() => setShowFirmaPendiente(!showFirmaPendiente)}
                       data-testid="firma-pendiente-filter"
+                      aria-pressed={showFirmaPendiente}
                       className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                         showFirmaPendiente
                           ? 'bg-orange-600 text-white hover:bg-orange-700'
                           : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
                       }`}
-                      title="Mostrar solo contratos activos sin documento firmado"
+                      title="Mostrar solo contratos activos con firma sin confirmar"
                     >
                       Firma pendiente ({firmaPendienteCount})
                     </button>

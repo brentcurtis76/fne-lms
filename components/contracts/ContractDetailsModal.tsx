@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, FileText, Calendar, DollarSign, MapPin, User, Building, CreditCard, Download, Upload, TrendingUp, Edit, Trash2, Check, Eye } from 'lucide-react';
 import HourAllocationPanel from './HourAllocationPanel';
+import { isFirmaPendiente } from '../../lib/utils/contract-status';
 
 interface Programa {
   id: string;
@@ -58,7 +59,7 @@ interface Contrato {
   precio_total_uf: number;
   tipo_moneda?: 'UF' | 'CLP';
   firmado?: boolean;
-  estado?: 'pendiente' | 'activo' | 'borrador';
+  estado?: 'pendiente' | 'activo' | 'borrador' | 'vigente';
   incluir_en_flujo?: boolean;
   contrato_url?: string;
   es_manual?: boolean;
@@ -78,6 +79,7 @@ interface ContractDetailsModalProps {
   onToggleCashFlow: (contrato: Contrato) => void;
   onUploadContract: (contrato: Contrato, file: File) => void;
   onActivateWithoutDocument: (contrato: Contrato) => Promise<void> | void;
+  onMarkSigned: (contrato: Contrato) => Promise<void> | void;
   onGeneratePDF: (contrato: Contrato) => void;
   onUploadInvoice?: (cuotaId: string, file: File) => Promise<void>;
   onTogglePaymentStatus?: (cuotaId: string, currentStatus: boolean) => Promise<void>;
@@ -94,6 +96,7 @@ export default function ContractDetailsModal({
   onToggleCashFlow,
   onUploadContract,
   onActivateWithoutDocument,
+  onMarkSigned,
   onGeneratePDF,
   onUploadInvoice,
   onTogglePaymentStatus,
@@ -107,13 +110,24 @@ export default function ContractDetailsModal({
   const [hiddenInvoices, setHiddenInvoices] = useState<Set<string>>(new Set());
   const [showActivateConfirm, setShowActivateConfirm] = useState(false);
   const [activating, setActivating] = useState(false);
+  const cancelActivateRef = useRef<HTMLButtonElement>(null);
+  const confirmActivateRef = useRef<HTMLButtonElement>(null);
 
   // Handle Escape key to close modal - MUST be before early return
   useEffect(() => {
     const handleEscapeKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
+      if (event.key !== 'Escape') return;
+      // Escape dismisses the topmost layer only, and never mid-activation.
+      if (activating) return;
+      if (showActivateConfirm) {
+        setShowActivateConfirm(false);
+        return;
       }
+      if (deleteInvoiceId) {
+        setDeleteInvoiceId(null);
+        return;
+      }
+      onClose();
     };
 
     if (isOpen) {
@@ -126,7 +140,14 @@ export default function ContractDetailsModal({
       document.removeEventListener('keydown', handleEscapeKey);
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, activating, showActivateConfirm, deleteInvoiceId]);
+
+  // Move focus into the activate-confirmation dialog when it opens.
+  useEffect(() => {
+    if (showActivateConfirm) {
+      cancelActivateRef.current?.focus();
+    }
+  }, [showActivateConfirm]);
 
   // Clear hidden invoices when modal closes or contract changes
   useEffect(() => {
@@ -139,6 +160,36 @@ export default function ContractDetailsModal({
   }, [isOpen, contrato?.id]);
 
   if (!isOpen) return null;
+
+  const pendingActivation = contrato.estado !== 'activo';
+  const firmaPendiente = isFirmaPendiente(contrato);
+  const isBorrador = contrato.estado === 'borrador';
+
+  // One upload block serves both states; full literal class strings so
+  // Tailwind's JIT sees them (no `border-${color}-300` interpolation).
+  const uploadVariant = pendingActivation
+    ? {
+        container: 'bg-yellow-50 border border-yellow-200 rounded-lg p-4',
+        intro: 'text-sm text-yellow-800 mb-4',
+        introText: 'El contrato está pendiente. Sube el documento firmado para activar el contrato.',
+        dropZone:
+          'flex items-center justify-center space-x-3 w-full p-4 border-2 border-dashed border-yellow-300 rounded-lg hover:border-yellow-400 transition-colors',
+        spinner: 'animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-600',
+        icon: 'text-yellow-600',
+        label: 'font-medium text-yellow-800',
+        testid: 'signed-doc-upload-input',
+      }
+    : {
+        container: 'bg-orange-50 border border-orange-200 rounded-lg p-4',
+        intro: 'text-sm text-orange-800 mb-4',
+        introText: 'El contrato está activo sin documento firmado confirmado. Súbelo cuando el cliente lo envíe.',
+        dropZone:
+          'flex items-center justify-center space-x-3 w-full p-4 border-2 border-dashed border-orange-300 rounded-lg hover:border-orange-400 transition-colors',
+        spinner: 'animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600',
+        icon: 'text-orange-600',
+        label: 'font-medium text-orange-800',
+        testid: 'late-upload-input',
+      };
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -201,13 +252,17 @@ export default function ContractDetailsModal({
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+    const input = event.target;
+    const file = input.files?.[0];
     if (file) {
       setUploadingContract(true);
       try {
         await onUploadContract(contrato, file);
       } finally {
         setUploadingContract(false);
+        // A file input only fires change when its value changes — clear it so
+        // re-selecting the same file after a failed upload works.
+        input.value = '';
       }
     }
   };
@@ -223,13 +278,15 @@ export default function ContractDetailsModal({
   };
 
   const handleInvoiceUpload = async (cuotaId: string, event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+    const input = event.target;
+    const file = input.files?.[0];
     if (file && onUploadInvoice) {
       setUploadingInvoice(cuotaId);
       try {
         await onUploadInvoice(cuotaId, file);
       } finally {
         setUploadingInvoice(null);
+        input.value = '';
       }
     }
   };
@@ -308,12 +365,14 @@ export default function ContractDetailsModal({
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                 contrato.estado === 'activo'
                   ? 'bg-amber-100 text-amber-800'
-                  : 'bg-yellow-100 text-yellow-800'
+                  : contrato.estado === 'borrador'
+                  ? 'bg-yellow-100 text-yellow-800'
+                  : 'bg-gray-100 text-gray-600'
               }`}>
-                {contrato.estado === 'activo' ? 'Activo' : 'Pendiente'}
+                {contrato.estado === 'activo' ? 'Activo' : contrato.estado === 'borrador' ? 'Borrador' : 'Pendiente'}
               </span>
 
-              {contrato.estado === 'activo' && !contrato.contrato_url && (
+              {firmaPendiente && (
                 <span className="px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
                   Firma pendiente
                 </span>
@@ -747,76 +806,69 @@ export default function ContractDetailsModal({
             </div>
           )}
 
-          {/* Contract Upload Section */}
-          {contrato.estado !== 'activo' ? (
+          {/* Contract Upload Section — pending contracts and active ones whose
+              signature is still unconfirmed share one parameterized block */}
+          {(pendingActivation || firmaPendiente) && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">Subir Contrato Firmado</h3>
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <p className="text-sm text-yellow-800 mb-4">
-                  El contrato está pendiente. Sube el documento firmado para activar el contrato.
-                </p>
+              <div className={uploadVariant.container}>
+                <p className={uploadVariant.intro}>{uploadVariant.introText}</p>
                 <label className="cursor-pointer">
                   <input
                     type="file"
                     accept=".pdf,.doc,.docx"
                     onChange={handleFileUpload}
                     className="hidden"
-                    data-testid="signed-doc-upload-input"
+                    data-testid={uploadVariant.testid}
                   />
-                  <div className="flex items-center justify-center space-x-3 w-full p-4 border-2 border-dashed border-yellow-300 rounded-lg hover:border-yellow-400 transition-colors">
+                  <div className={uploadVariant.dropZone}>
                     {uploadingContract ? (
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-600"></div>
+                      <div className={uploadVariant.spinner}></div>
                     ) : (
-                      <Upload className="text-yellow-600" size={24} />
+                      <Upload className={uploadVariant.icon} size={24} />
                     )}
-                    <span className="font-medium text-yellow-800">
+                    <span className={uploadVariant.label}>
                       {uploadingContract ? 'Subiendo...' : 'Subir Contrato Firmado'}
                     </span>
                   </div>
                 </label>
-                <div className="mt-4 pt-4 border-t border-yellow-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <p className="text-sm text-yellow-800">
-                    ¿El cliente aún no envía el documento firmado?
-                  </p>
-                  <button
-                    onClick={() => setShowActivateConfirm(true)}
-                    data-testid="activate-without-doc-btn"
-                    className="inline-flex items-center justify-center px-4 py-2 border border-orange-600 text-sm font-medium rounded-lg text-orange-700 bg-white hover:bg-orange-50 transition-colors"
-                  >
-                    Activar sin documento firmado
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : !contrato.contrato_url ? (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">Subir Contrato Firmado</h3>
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                <p className="text-sm text-orange-800 mb-4">
-                  El contrato está activo sin documento firmado. Súbelo cuando el cliente lo envíe.
-                </p>
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    accept=".pdf,.doc,.docx"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    data-testid="late-upload-input"
-                  />
-                  <div className="flex items-center justify-center space-x-3 w-full p-4 border-2 border-dashed border-orange-300 rounded-lg hover:border-orange-400 transition-colors">
-                    {uploadingContract ? (
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600"></div>
-                    ) : (
-                      <Upload className="text-orange-600" size={24} />
-                    )}
-                    <span className="font-medium text-orange-800">
-                      {uploadingContract ? 'Subiendo...' : 'Subir Contrato Firmado'}
-                    </span>
+                {pendingActivation && (
+                  isBorrador ? (
+                    <p className="mt-4 pt-4 border-t border-yellow-200 text-sm text-yellow-800">
+                      Este contrato es un borrador: complétalo y guárdalo antes de poder activarlo sin documento.
+                    </p>
+                  ) : (
+                    <div className="mt-4 pt-4 border-t border-yellow-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <p className="text-sm text-yellow-800">
+                        ¿El cliente aún no envía el documento firmado?
+                      </p>
+                      <button
+                        onClick={() => setShowActivateConfirm(true)}
+                        data-testid="activate-without-doc-btn"
+                        className="inline-flex items-center justify-center px-4 py-2 border border-orange-600 text-sm font-medium rounded-lg text-orange-700 bg-white hover:bg-orange-50 transition-colors"
+                      >
+                        Activar sin documento firmado
+                      </button>
+                    </div>
+                  )
+                )}
+                {!pendingActivation && contrato.contrato_url && (
+                  <div className="mt-4 pt-4 border-t border-orange-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p className="text-sm text-orange-800">
+                      ¿El documento ya cargado corresponde al contrato firmado?
+                    </p>
+                    <button
+                      onClick={() => onMarkSigned(contrato)}
+                      data-testid="mark-signed-btn"
+                      className="inline-flex items-center justify-center px-4 py-2 border border-orange-600 text-sm font-medium rounded-lg text-orange-700 bg-white hover:bg-orange-50 transition-colors"
+                    >
+                      Marcar como firmado
+                    </button>
                   </div>
-                </label>
+                )}
               </div>
             </div>
-          ) : null}
+          )}
         </div>
       </div>
 
@@ -866,14 +918,30 @@ export default function ContractDetailsModal({
       {/* Activate Without Document Confirmation Modal */}
       {showActivateConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="activate-confirm-title"
+            className="bg-white rounded-lg shadow-xl max-w-md w-full"
+            onKeyDown={(event) => {
+              // Only two focusable controls in this dialog — cycle between
+              // them so Tab/Shift+Tab can't reach the covered modal behind.
+              if (event.key !== 'Tab') return;
+              event.preventDefault();
+              const next =
+                document.activeElement === cancelActivateRef.current
+                  ? confirmActivateRef.current
+                  : cancelActivateRef.current;
+              next?.focus();
+            }}
+          >
             <div className="p-6">
               <div className="flex items-center space-x-3 mb-4">
                 <div className="flex-shrink-0 w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
                   <FileText className="text-orange-600" size={20} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Activar contrato sin documento</h3>
+                  <h3 id="activate-confirm-title" className="text-lg font-semibold text-gray-900">Activar contrato sin documento</h3>
                   <p className="text-sm text-gray-500">La firma quedará pendiente</p>
                 </div>
               </div>
@@ -889,6 +957,7 @@ export default function ContractDetailsModal({
 
               <div className="flex space-x-3 justify-end">
                 <button
+                  ref={cancelActivateRef}
                   onClick={() => setShowActivateConfirm(false)}
                   disabled={activating}
                   data-testid="cancel-activate-btn"
@@ -897,6 +966,7 @@ export default function ContractDetailsModal({
                   Cancelar
                 </button>
                 <button
+                  ref={confirmActivateRef}
                   onClick={handleActivateWithoutDocument}
                   disabled={activating}
                   data-testid="confirm-activate-btn"

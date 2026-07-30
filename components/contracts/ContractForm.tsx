@@ -780,7 +780,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
             es_manual: esManual,
             descripcion_manual: esManual ? contractForm.descripcion_manual : null,
             // Preserve/refresh the imported source PDF URL without nulling it on edit.
-            ...(contractForm.contrato_url ? { contrato_url: contractForm.contrato_url } : {})
+            ...(contractForm.contrato_url ? { contrato_url: contractForm.contrato_url } : {}),
+            // A full save runs only on a validated form (isStepValid), so it
+            // promotes a draft to pendiente — otherwise drafts stay borrador
+            // forever and can never be activated.
+            ...(editingContract.estado === 'borrador' ? { estado: 'pendiente' } : {})
           })
           .eq('id', editingContract.id);
 
@@ -900,6 +904,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         // Save contract (ensure empty date strings become null)
         const newContratoPayload: Record<string, unknown> = {
           numero_contrato: contractForm.numero_contrato,
+          // Explicit estado: without it the DB default 'vigente' applies — a
+          // value the app's status model doesn't use.
+          estado: 'pendiente',
           fecha_contrato: contractForm.fecha_contrato || null,
           fecha_fin: contractForm.fecha_fin || null,
           cliente_id: clienteId,

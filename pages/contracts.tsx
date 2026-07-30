@@ -18,6 +18,7 @@ import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalP
 import { getUserPrimaryRole } from '../utils/roleUtils';
 import { contractMatchesSearch } from '../lib/utils/contract-search';
 import { resolveContractPdfTarget } from '../lib/utils/contract-pdf-target';
+import { isFirmaPendiente } from '../lib/utils/contract-status';
 
 interface Programa {
   id: string;
@@ -59,7 +60,9 @@ interface Contrato {
   precio_total_uf: number;
   tipo_moneda?: 'UF' | 'CLP';
   firmado?: boolean;
-  estado?: 'pendiente' | 'activo' | 'borrador';
+  // 'vigente' is the DB column default; rows created before estado was set
+  // explicitly on insert carry it, so the type must represent it.
+  estado?: 'pendiente' | 'activo' | 'borrador' | 'vigente';
   incluir_en_flujo?: boolean;
   contrato_url?: string;
   is_anexo?: boolean;
@@ -241,7 +244,7 @@ export default function ContractsPage() {
     checkSession();
   }, [router]);
 
-  const loadContratos = async () => {
+  const loadContratos = async (): Promise<Contrato[]> => {
     try {
       const { data, error } = await supabase
         .from('contratos')
@@ -254,9 +257,26 @@ export default function ContractsPage() {
         .order('fecha_contrato', { ascending: false });
 
       if (error) throw error;
-      setContratos(data || []);
+      const rows = data || [];
+      setContratos(rows);
+      return rows;
     } catch (error) {
       console.error('Error loading contracts:', error);
+      toast.error('Error al actualizar la lista de contratos: ' + (error as Error).message);
+      return [];
+    }
+  };
+
+  // Reload the list and, if the details modal is showing the given contract,
+  // refresh it in place from the freshly loaded rows (no extra query). The
+  // functional update means a modal the user closed or switched to another
+  // contract while the request was in flight is never resurrected or clobbered.
+  const refreshContratos = async (contratoId?: string) => {
+    const rows = await loadContratos();
+    if (!contratoId) return;
+    const refreshed = rows.find((c) => c.id === contratoId);
+    if (refreshed) {
+      setSelectedContrato((prev) => (prev && prev.id === contratoId ? refreshed : prev));
     }
   };
 
@@ -345,22 +365,23 @@ export default function ContractsPage() {
     }
   };
 
-  const handleToggleSigned = async (contrato: Contrato) => {
+  // Confirm the signed document was received without uploading a new file —
+  // for imported contracts whose document is already on file, and for
+  // contracts activated before signature tracking used the firmado flag.
+  const handleMarkSigned = async (contrato: Contrato) => {
     try {
-      const newSignedStatus = !contrato.firmado;
-      
       const { error } = await supabase
         .from('contratos')
-        .update({ firmado: newSignedStatus })
+        .update({ firmado: true })
         .eq('id', contrato.id);
 
       if (error) throw error;
 
-      // Refresh the contracts list
-      await loadContratos();
+      toast.success('Contrato marcado como firmado.');
+      await refreshContratos(contrato.id);
     } catch (error) {
-      console.error('Error updating contract signed status:', error);
-      toast.error('Error al actualizar el estado del contrato: ' + (error as Error).message);
+      console.error('Error marking contract as signed:', error);
+      toast.error('Error al marcar el contrato como firmado: ' + (error as Error).message);
     }
   };
 
@@ -383,41 +404,24 @@ export default function ContractsPage() {
         .from('contracts')
         .getPublicUrl(fileName);
 
-      // Update contract status to active and save file URL. Activation always
-      // pulls the contract into the cash flow so accounting sees it; the manual
-      // toggle remains available to opt back out.
+      // Uploading the signed document confirms the signature. It also
+      // activates the contract (into the cash flow) when it isn't active yet;
+      // a late upload to an already-active contract must NOT touch estado or
+      // the flujo flag — the user may have deliberately opted out of the cash
+      // flow after activating without document.
+      const activating = contrato.estado !== 'activo';
       const { error: updateError } = await supabase
         .from('contratos')
         .update({
-          estado: 'activo',
-          incluir_en_flujo: true,
-          contrato_url: publicUrl
+          firmado: true,
+          contrato_url: publicUrl,
+          ...(activating ? { estado: 'activo', incluir_en_flujo: true } : {})
         })
         .eq('id', contrato.id);
 
       if (updateError) throw updateError;
 
-      // Refresh the contracts list
-      await loadContratos();
-
-      // Force refresh the modal if it's open by re-fetching the specific contract,
-      // so its PDF button immediately sees the new contrato_url (no close/reopen).
-      if (selectedContrato) {
-        const { data: refreshedContract, error: refreshError } = await supabase
-          .from('contratos')
-          .select(`
-            *,
-            clientes(*),
-            programas(*),
-            cuotas(*)
-          `)
-          .eq('id', selectedContrato.id)
-          .single();
-
-        if (!refreshError && refreshedContract) {
-          setSelectedContrato(refreshedContract);
-        }
-      }
+      await refreshContratos(contrato.id);
 
     } catch (error) {
       console.error('Error uploading contract:', error);
@@ -427,9 +431,9 @@ export default function ContractsPage() {
     }
   };
 
-  // Activate a contract whose signed document hasn't arrived yet. The signed
-  // doc can be uploaded later (upload stays available while contrato_url is
-  // empty); "firma pendiente" is derived as estado==='activo' && !contrato_url.
+  // Activate a contract whose signed document hasn't arrived yet. firmado
+  // stays false, so the contract reads as "firma pendiente" until the signed
+  // doc is uploaded (or marked as received) later.
   const handleActivateWithoutDocument = async (contrato: Contrato) => {
     try {
       const { error } = await supabase
@@ -442,26 +446,10 @@ export default function ContractsPage() {
 
       if (error) throw error;
 
-      await loadContratos();
-
-      if (selectedContrato) {
-        const { data: refreshedContract, error: refreshError } = await supabase
-          .from('contratos')
-          .select(`
-            *,
-            clientes(*),
-            programas(*),
-            cuotas(*)
-          `)
-          .eq('id', selectedContrato.id)
-          .single();
-
-        if (!refreshError && refreshedContract) {
-          setSelectedContrato(refreshedContract);
-        }
-      }
-
+      // Toast before the refresh: the activation itself succeeded, and a
+      // refresh failure raises its own error toast from loadContratos.
       toast.success('Contrato activado. Recuerda subir el documento firmado cuando el cliente lo envíe.');
+      await refreshContratos(contrato.id);
     } catch (error) {
       console.error('Error activating contract without document:', error);
       toast.error('Error al activar el contrato: ' + (error as Error).message);
@@ -482,9 +470,9 @@ export default function ContractsPage() {
         throw error;
       }
 
-      // Refresh the contracts list
-      await loadContratos();
-      
+      // Refresh list AND the open modal so the toggle reflects the new state.
+      await refreshContratos(contrato.id);
+
       // Show success message
       toast.success(`Contrato ${newCashFlowStatus ? 'incluido en' : 'removido del'} flujo de caja exitosamente.`);
     } catch (error) {
@@ -539,28 +527,10 @@ export default function ContractsPage() {
 
       // Show success notification
       toast.success(`Factura subida exitosamente: ${file.name}`);
-      
-      // Refresh the contracts list to update the modal
-      await loadContratos();
-      
-      // Force refresh the modal if it's open by re-fetching the specific contract
-      if (selectedContrato) {
-        const { data: refreshedContract, error: refreshError } = await supabase
-          .from('contratos')
-          .select(`
-            *,
-            clientes(*),
-            programas(*),
-            cuotas(*)
-          `)
-          .eq('id', selectedContrato.id)
-          .single();
-          
-        if (!refreshError && refreshedContract) {
-          setSelectedContrato(refreshedContract);
-        }
-      }
-      
+
+      // Refresh the list and the open modal
+      await refreshContratos(selectedContrato?.id);
+
     } catch (error) {
       console.error('Error uploading invoice:', error);
       toast.error('Error al subir la factura: ' + (error as Error).message);
@@ -582,27 +552,9 @@ export default function ContractsPage() {
       // Show success notification
       toast.success(`Cuota marcada como ${!currentStatus ? 'pagada' : 'pendiente'}`);
 
-      // Refresh the contracts list to update the modal
-      await loadContratos();
-      
-      // Force refresh the modal if it's open by re-fetching the specific contract
-      if (selectedContrato) {
-        const { data: refreshedContract, error: refreshError } = await supabase
-          .from('contratos')
-          .select(`
-            *,
-            clientes(*),
-            programas(*),
-            cuotas(*)
-          `)
-          .eq('id', selectedContrato.id)
-          .single();
-          
-        if (!refreshError && refreshedContract) {
-          setSelectedContrato(refreshedContract);
-        }
-      }
-      
+      // Refresh the list and the open modal
+      await refreshContratos(selectedContrato?.id);
+
     } catch (error) {
       console.error('Error updating payment status:', error);
       toast.error('Error al actualizar el estado de pago: ' + (error as Error).message);
@@ -672,37 +624,17 @@ export default function ContractsPage() {
       // Show success notification
       toast.success('Factura eliminada exitosamente');
 
-      // Refresh the contracts list to update the modal
-      await loadContratos();
-      
-      // Force refresh the modal if it's open by re-fetching the specific contract
-      if (selectedContrato) {
-        const { data: refreshedContract, error: refreshError } = await supabase
-          .from('contratos')
-          .select(`
-            *,
-            clientes(*),
-            programas(*),
-            cuotas(*)
-          `)
-          .eq('id', selectedContrato.id)
-          .single();
-          
-        if (!refreshError && refreshedContract) {
-          setSelectedContrato(refreshedContract);
-        }
-      }
-      
+      // Refresh the list and the open modal
+      await refreshContratos(selectedContrato?.id);
+
     } catch (error) {
       console.error('Error deleting invoice:', error);
       toast.error('Error al eliminar la factura: ' + (error as Error).message);
     }
   };
 
-  // Active contracts still waiting for the client's signed document.
-  const isFirmaPendiente = (contrato: Contrato) =>
-    contrato.estado === 'activo' && !contrato.contrato_url;
-
+  // Active contracts still waiting for the signed document (shared predicate
+  // from lib/utils/contract-status — derived from firmado, not contrato_url).
   const firmaPendienteCount = contratos.filter(isFirmaPendiente).length;
 
   // Rows shown in the list, filtered by the search box. Null-safe so manual
@@ -810,7 +742,7 @@ export default function ContractsPage() {
                   <h2 className="text-xl font-semibold text-brand_primary">
                     Contratos Registrados ({contratos.length})
                   </h2>
-                  {firmaPendienteCount > 0 && (
+                  {(firmaPendienteCount > 0 || showFirmaPendiente) && (
                     <button
                       onClick={() => setShowFirmaPendiente(!showFirmaPendiente)}
                       data-testid="firma-pendiente-filter"
@@ -937,7 +869,17 @@ export default function ContractsPage() {
                         ) : (
                           <tr>
                             <td colSpan={6} className="text-center py-12 px-4 text-gray-500">
-                              No se encontraron contratos para &quot;{searchQuery}&quot;. Prueba con otro número de contrato, cliente o programa.
+                              {showFirmaPendiente ? (
+                                <>
+                                  No hay contratos activos con firma pendiente
+                                  {searchQuery ? <> que coincidan con &quot;{searchQuery}&quot;</> : null}
+                                  . Desactiva el filtro &quot;Firma pendiente&quot; para ver todos los contratos.
+                                </>
+                              ) : (
+                                <>
+                                  No se encontraron contratos para &quot;{searchQuery}&quot;. Prueba con otro número de contrato, cliente o programa.
+                                </>
+                              )}
                             </td>
                           </tr>
                         )}
@@ -1117,6 +1059,7 @@ export default function ContractsPage() {
               onToggleCashFlow={handleToggleCashFlow}
               onUploadContract={handleUploadContract}
               onActivateWithoutDocument={handleActivateWithoutDocument}
+              onMarkSigned={handleMarkSigned}
               onGeneratePDF={(contrato) => {
                 const target = resolveContractPdfTarget(contrato);
                 if (target.kind === 'original') {

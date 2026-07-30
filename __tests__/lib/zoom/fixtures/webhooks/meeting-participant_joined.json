@@ -4,17 +4,17 @@
   "event": "meeting.participant_joined",
   "headers": {
     "content-type": "application/json; charset=utf-8",
-    "content-length": "687",
+    "content-length": "694",
     "user-agent": "Zoom Marketplace/1.0a",
-    "traceparent": "00-ba8b65f768cd0372dbc9c64fac01614b-9ce0b916de1a5c19-02",
-    "x-zm-request-id": "879fa176_1bf8_4929_a86f_5ae3062ad043",
+    "traceparent": "00-835be459c6cfe66f3fed69db2ba32f23-ead673aae41ba022-02",
+    "x-zm-request-id": "414ce170_9bb5_8503_b11f_3ed2050ec360",
     "x-zm-request-timestamp": "1785368934",
-    "x-zm-signature": "v0=9df955aa48dc82ad8457b79dd9870c1d9ab4d3c8721a5d8506f98dd552242f6a",
-    "x-zm-trackingid": "EventService_019FB04E-6BB2-7321-B568-8624997E4087_3",
+    "x-zm-signature": "v0=e8cb7bfe1e65f1b86392201d40c3f2c9cf51fb9748f27988e7d0a525759e616e",
+    "x-zm-trackingid": "EventService_011ED40A-8DE3-5930-F082-5230093F3453_3",
     "zm-trace-upstream": "Meeting_Web_marketplace-consumer"
   },
-  "rawBody": "{\"payload\":{\"account_id\":\"AcctSynthetic0001XXXXXX\",\"object\":{\"uuid\":\"c3Bpa2V1dWlkMDAwMDAx==\",\"participant\":{\"customer_key\":\"synthetic-redacted-token\",\"public_ip\":\"203.0.113.1\",\"user_id\":\"16778240\",\"user_name\":\"Anfitrion Spike\",\"participant_user_id\":\"UserSynthetic0001XXXXXXX\",\"id\":\"UserSynthetic0001XXXXXXX\",\"join_time\":\"2026-07-29T23:55:56Z\",\"email\":\"host1@example-synthetic.test\",\"participant_uuid\":\"00000000-0000-4000-8000-000000000000\"},\"id\":\"80000000001\",\"type\":2,\"topic\":\"PRUEBA SPIKE — no unirse\",\"host_id\":\"UserSynthetic0001XXXXXXX\",\"duration\":30,\"start_time\":\"2026-07-29T23:55:56Z\",\"timezone\":\"America/Santiago\"}},\"event_ts\":1785369357392,\"event\":\"meeting.participant_joined\"}",
-  "rawBodyByteLength": 687,
+  "rawBody": "{\"payload\":{\"account_id\":\"AcctYmLQWo2ZfC9U8mKGD4\",\"object\":{\"uuid\":\"de+IDqR9f3hhT9D8/NA/J1==\",\"participant\":{\"customer_key\":\"47d97a107c8f4c348519b4c77ed439d9\",\"public_ip\":\"203.0.113.1\",\"user_id\":\"62143101\",\"user_name\":\"Anfitrion Spike\",\"participant_user_id\":\"UsermSB-FIHyajLpZE6nd3\",\"id\":\"UsermSB-FIHyajLpZE6nd3\",\"join_time\":\"2026-07-29T23:55:56Z\",\"email\":\"host-1213@example-synthetic.test\",\"participant_uuid\":\"364B3A17-05C0-6B63-F4FA-2180DCC26971\"},\"id\":\"86084701483\",\"type\":2,\"topic\":\"PRUEBA SPIKE — no unirse\",\"host_id\":\"UsermSB-FIHyajLpZE6nd3\",\"duration\":30,\"start_time\":\"2026-07-29T23:55:56Z\",\"timezone\":\"America/Santiago\"}},\"event_ts\":1785369357392,\"event\":\"meeting.participant_joined\"}",
+  "rawBodyByteLength": 694,
   "zoomBodyWasByteIdenticalToReserialization": true,
   "observedSkewMs": 398
 }

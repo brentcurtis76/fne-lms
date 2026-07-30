@@ -4,17 +4,17 @@
   "event": "meeting.participant_left",
   "headers": {
     "content-type": "application/json; charset=utf-8",
-    "content-length": "745",
+    "content-length": "752",
     "user-agent": "Zoom Marketplace/1.0a",
-    "traceparent": "00-b75f614bb4c26b186b6209fa26c2a188-89bc43eaefb34d7c-02",
-    "x-zm-request-id": "20939b7c_7c8f_414e_8720_408bb50ff1fc",
+    "traceparent": "00-076ff4ba77b5c9cbd39320fa2e9feff3-7a269e11374c61ca-02",
+    "x-zm-request-id": "01148f3f_2d5a_104d_6024_550dc30db6ba",
     "x-zm-request-timestamp": "1785368934",
-    "x-zm-signature": "v0=9d4ddc124da5bb564c5b06284f6966e344449f7283c7070196da0ba60fe969dd",
-    "x-zm-trackingid": "EventService_019FB053-7078-7098-AC4C-B694507A9594_3",
+    "x-zm-signature": "v0=c9416ad6f5cc9c9cdd2f3b2d5fea35e0998d4aab2461aedf5d1f97bcbb96bd15",
+    "x-zm-trackingid": "EventService_016BD054-7392-1510-FC2B-A962026F0354_3",
     "zm-trace-upstream": "Meeting_Web_marketplace-consumer"
   },
-  "rawBody": "{\"payload\":{\"account_id\":\"AcctSynthetic0001XXXXXX\",\"object\":{\"uuid\":\"c3Bpa2V1dWlkMDAwMDAx==\",\"participant\":{\"customer_key\":\"synthetic-redacted-token\",\"leave_time\":\"2026-07-30T00:01:25Z\",\"public_ip\":\"203.0.113.1\",\"user_id\":\"16788480\",\"user_name\":\"Invitada Spike\",\"registrant_id\":\"\",\"participant_user_id\":\"\",\"id\":\"\",\"leave_reason\":\"left the meeting. Reason : left the meeting with Unknown Failover Reason\",\"email\":\"\",\"private_ip\":\"203.0.113.1\",\"participant_uuid\":\"00000000-0000-4000-8000-000000000000\"},\"id\":\"80000000001\",\"type\":2,\"topic\":\"PRUEBA SPIKE — no unirse\",\"host_id\":\"UserSynthetic0001XXXXXXX\",\"duration\":30,\"start_time\":\"2026-07-29T23:55:56Z\",\"timezone\":\"America/Santiago\"}},\"event_ts\":1785369686564,\"event\":\"meeting.participant_left\"}",
-  "rawBodyByteLength": 745,
+  "rawBody": "{\"payload\":{\"account_id\":\"AcctYmLQWo2ZfC9U8mKGD4\",\"object\":{\"uuid\":\"de+IDqR9f3hhT9D8/NA/J1==\",\"participant\":{\"customer_key\":\"38a578a26df462bfe9cd1d7bbe5a0b77\",\"leave_time\":\"2026-07-30T00:01:25Z\",\"public_ip\":\"203.0.113.1\",\"user_id\":\"12344623\",\"user_name\":\"Invitada Spike\",\"registrant_id\":\"\",\"participant_user_id\":\"\",\"id\":\"\",\"leave_reason\":\"left the meeting. Reason : left the meeting with Unknown Failover Reason\",\"email\":\"\",\"private_ip\":\"203.0.113.1\",\"participant_uuid\":\"73823734-9301-A7E5-36F4-684DEEF79FE5\"},\"id\":\"86084701483\",\"type\":2,\"topic\":\"PRUEBA SPIKE — no unirse\",\"host_id\":\"UsermSB-FIHyajLpZE6nd3\",\"duration\":30,\"start_time\":\"2026-07-29T23:55:56Z\",\"timezone\":\"America/Santiago\"}},\"event_ts\":1785369686564,\"event\":\"meeting.participant_left\"}",
+  "rawBodyByteLength": 752,
   "zoomBodyWasByteIdenticalToReserialization": true,
   "observedSkewMs": 715
 }

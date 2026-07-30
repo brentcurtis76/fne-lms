@@ -46,8 +46,20 @@ export function loadSpikeEnv(rootDir = process.cwd()) {
 }
 
 /**
- * Every secret-shaped value the spike touches, so a stray `console.log` of a
- * response body cannot leak one into a terminal transcript or a results doc.
+ * Every value the spike touches that must not reach a terminal transcript or get
+ * pasted into a results doc.
+ *
+ * v1 covered the six CREDENTIALS and stopped there — the same too-narrow bar as
+ * Sol R1 finding ③. `ZOOM_LICENSED_HOST_EMAIL` was omitted, so every
+ * `redact(JSON.stringify(row))` of a participants report printed the host's real
+ * address, and that is how it reached the results doc. Participant identity fields
+ * are collapsed too: a Zoom participants row is exactly the shape that carries an
+ * email, a public IP and a Zoom user id, and under Ley 21.719 a participant's IP is
+ * personal data whether or not anyone calls it a credential.
+ *
+ * Structure survives — keys and field presence are preserved, so a log still shows
+ * WHICH fields Zoom populated (the actual finding behind the customerKey verdict)
+ * while the values become markers.
  */
 export function makeRedactor(env) {
   const secrets = [
@@ -57,6 +69,7 @@ export function makeRedactor(env) {
     env.ZOOM_WEBHOOK_SECRET_TOKEN,
     env.ZOOM_SDK_CLIENT_SECRET,
     env.ZOOM_SDK_CLIENT_ID,
+    env.ZOOM_LICENSED_HOST_EMAIL,
   ].filter(Boolean);
 
   return function redact(value) {
@@ -66,6 +79,24 @@ export function makeRedactor(env) {
     }
     // Bearer tokens and Zoom download tokens are JWTs — collapse them too.
     text = text.replace(/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '«jwt-redacted»');
+
+    // Participant identity fields, by name — then any remaining address, because a
+    // school user's email must never print either, not only the host's.
+    text = text.replace(/("[a-z_]*email"\s*:\s*")[^"]*(")/g, '$1«email-redacted»$2');
+    text = text.replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '«email-redacted»');
+    text = text.replace(/("(?:public_ip|private_ip|ip_address)"\s*:\s*")[^"]*(")/g, '$1«ip-redacted»$2');
+    // `id` is in this list: on a participant object it IS the person's Zoom user id
+    // — the exact value that reached the results doc. Where it happens to be a
+    // meeting number instead, nothing is lost: every script prints the meeting id
+    // separately, outside redact(), because it is an argv input.
+    text = text.replace(
+      /("(?:id|host_id|participant_user_id|operator_id|user_id|participant_uuid|registrant_id)"\s*:\s*")[^"]*(")/g,
+      '$1«id-redacted»$2'
+    );
+    // Numeric form of the same ids.
+    text = text.replace(/("(?:id|host_id|user_id|registrant_id)"\s*:\s*)\d+/g, '$1"«id-redacted»"');
+    // Recording playback/share URLs grant access to the media itself.
+    text = text.replace(/https:\/\/[a-z0-9-]+\.zoom\.us\/rec\/[^\s"]*/g, '«recording-url-redacted»');
     return text;
   };
 }

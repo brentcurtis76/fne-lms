@@ -1,41 +1,96 @@
 {
-  "generatedFrom": "live Zoom captures, redacted",
+  "generatedFrom": "live Zoom captures, every provider-minted identifier synthesized",
   "fixtureSecret": "fixture-secret-token-not-a-real-secret",
+  "synthesizedClasses": {
+    "account": {
+      "distinctRealValues": 1,
+      "exampleSynthetic": "AcctYmLQWo2ZfC9U8mKGD4"
+    },
+    "customerKey": {
+      "distinctRealValues": 2,
+      "exampleSynthetic": "47d97a107c8f4c348519b4c77ed439d9"
+    },
+    "email": {
+      "distinctRealValues": 1,
+      "exampleSynthetic": "host-1213@example-synthetic.test"
+    },
+    "meeting": {
+      "distinctRealValues": 1,
+      "exampleSynthetic": "86084701483"
+    },
+    "numericUser": {
+      "distinctRealValues": 2,
+      "exampleSynthetic": "62143101"
+    },
+    "participantUuid": {
+      "distinctRealValues": 2,
+      "exampleSynthetic": "364B3A17-05C0-6B63-F4FA-2180DCC26971"
+    },
+    "recordingFile": {
+      "distinctRealValues": 6,
+      "exampleSynthetic": "76820abf-618b-4aa0-8311-70a657638b90"
+    },
+    "requestId": {
+      "distinctRealValues": 7,
+      "exampleSynthetic": "570044ff_fcdf_03dd_d052_2f8ab9ea4523"
+    },
+    "traceparent": {
+      "distinctRealValues": 7,
+      "exampleSynthetic": "00-619c594b14c6c7a1773a67e129ff4c3f-dcb64a66ae5897db-02"
+    },
+    "trackingId": {
+      "distinctRealValues": 6,
+      "exampleSynthetic": "v=2.0;clid=us02;rid=WEB_61332ab634daf000233354ab1b010016"
+    },
+    "user": {
+      "distinctRealValues": 1,
+      "exampleSynthetic": "UsermSB-FIHyajLpZE6nd3"
+    },
+    "uuid": {
+      "distinctRealValues": 1,
+      "exampleSynthetic": "de+IDqR9f3hhT9D8/NA/J1=="
+    }
+  },
+  "retainedByDesign": [
+    "wall-clock timestamps (synthetic meeting; event_ts-ms vs header-seconds is §6.1 evidence)",
+    "synthetic display names and the PRUEBA SPIKE topic",
+    "Zoom's constant service strings (user-agent, zm-trace-upstream)"
+  ],
   "events": [
     {
       "event": "meeting.started",
       "file": "meeting-started.json",
-      "bytes": 372
+      "bytes": 375
     },
     {
       "event": "meeting.participant_joined",
       "file": "meeting-participant_joined.json",
-      "bytes": 687
+      "bytes": 694
     },
     {
       "event": "recording.started",
       "file": "recording-started.json",
-      "bytes": 407
+      "bytes": 406
     },
     {
       "event": "recording.stopped",
       "file": "recording-stopped.json",
-      "bytes": 427
+      "bytes": 426
     },
     {
       "event": "meeting.participant_left",
       "file": "meeting-participant_left.json",
-      "bytes": 745
+      "bytes": 752
     },
     {
       "event": "recording.completed",
       "file": "recording-completed.json",
-      "bytes": 2912
+      "bytes": 2914
     },
     {
       "event": "meeting.ended",
       "file": "meeting-ended.json",
-      "bytes": 404
+      "bytes": 407
     }
   ]
 }

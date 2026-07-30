@@ -258,8 +258,278 @@ describe('captured webhook fixtures', () => {
        * Any long high-entropy value under a token-ish key fails here.
        */
       const suspicious = raw.match(/"[a-z_]*(?:token|passcode|secret|key)":"([A-Za-z0-9_\-+/=.]{24,})"/gi) ?? [];
-      const notPlaceholders = suspicious.filter((m) => !/synthetic|redacted|fixture-secret/i.test(m));
+      const notPlaceholders = suspicious
+        .filter((m) => !/synthetic|redacted|fixture-secret/i.test(m))
+        // customer_key ships a shape-preserving 32-hex synthetic on purpose — the
+        // customerKey round trip is this spike's headline verdict and a placeholder
+        // would delete the evidence. Covered by its own assertion below.
+        .filter((m) => !m.startsWith('"customer_key"'));
       expect(notPlaceholders).toEqual([]);
     });
+
+    /**
+     * Sol R1 finding ③: the assertion above claimed "no real identifiers" while
+     * checking a handful of credential shapes. Four whole classes were unexamined
+     * and all four were leaking — `traceparent`, `x-zm-request-id`,
+     * `x-zm-trackingid` in every fixture, the numeric `user_id` in two, and the
+     * meeting UUID plus six recording-file ids in `recording-completed.json`.
+     *
+     * So the claim is now made field by field. Every rewritten class is ENUMERATED
+     * below with the property that identifies a synthetic value, and any field
+     * present in the fixture must satisfy its class's predicate. A class nobody
+     * checked is the whole failure mode, so an unrecognised identifier-ish field
+     * fails too (`unclassified`, last case).
+     */
+    it(`${file}: every provider-minted field class is synthetic, enumerated`, () => {
+      const fixture = JSON.parse(readFileSync(path.join(dir, file), 'utf8')) as {
+        headers: Record<string, string>;
+        rawBody: string;
+      };
+      const body = JSON.parse(fixture.rawBody) as unknown;
+
+      /** Collects `[jsonPath, key, value]` for every scalar in the payload. */
+      const scalars: Array<{ path: string; key: string; value: string | number }> = [];
+      const walk = (node: unknown, at: string) => {
+        if (Array.isArray(node)) {
+          node.forEach((item, i) => walk(item, `${at}[${i}]`));
+          return;
+        }
+        if (node === null || typeof node !== 'object') return;
+        for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+          if (typeof value === 'string' || typeof value === 'number') {
+            scalars.push({ path: `${at}.${key}`, key, value });
+          } else {
+            walk(value, `${at}.${key}`);
+          }
+        }
+      };
+      walk(body, '$');
+      expect(scalars.length).toBeGreaterThan(5);
+
+      /**
+       * `synthetic` returns true only for a value that could not be Zoom's. Each
+       * predicate keys on a property the generator guarantees, not on "looks fake".
+       */
+      const CLASSES: Array<{
+        klass: string;
+        matches: (key: string, value: string | number, at: string) => boolean;
+        synthetic: (value: string) => boolean;
+        why: string;
+      }> = [
+        {
+          klass: 'zoom-account-id',
+          matches: (key) => key === 'account_id',
+          synthetic: (v) => v.startsWith('Acct'),
+          why: 'generator prefixes synthetic account ids with Acct',
+        },
+        {
+          klass: 'zoom-user-id',
+          matches: (key, value, at) =>
+            ['host_id', 'participant_user_id', 'operator_id'].includes(key) ||
+            (key === 'id' && at.includes('.participant.')),
+          synthetic: (v) => v === '' || v.startsWith('User'),
+          why: 'generator prefixes synthetic user ids with User (empty string is Zoom’s own value for a guest)',
+        },
+        {
+          klass: 'zoom-numeric-user-id',
+          matches: (key) => key === 'user_id',
+          // Real ones observed were 167xxxxx; the synthetic map derives from a hash.
+          synthetic: (v) => /^\d{8}$/.test(v) && !v.startsWith('167'),
+          why: 'synthetic numeric ids are hash-derived and cannot fall in the observed real 167xxxxx block',
+        },
+        {
+          klass: 'meeting-uuid',
+          matches: (key) => key === 'uuid' || key === 'meeting_id',
+          // The synthetic uuid carries '+' at index 2 and '/' at index 16 by design.
+          synthetic: (v) => v.length === 24 && v[2] === '+' && v[16] === '/' && v.endsWith('=='),
+          why: 'synthetic meeting UUIDs are minted with + at index 2 and / at index 16, preserving the double-encoding exemplar',
+        },
+        {
+          klass: 'recording-file-id',
+          matches: (key, _value, at) => key === 'id' && at.includes('.recording_files['),
+          synthetic: (v) => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/.test(v),
+          why: 'synthetic recording-file ids are minted with the v4 version/variant nibbles (4 and 8) that the captured real ids did not all carry',
+        },
+        {
+          klass: 'participant-uuid',
+          matches: (key) => key === 'participant_uuid',
+          synthetic: (v) => /^[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}$/.test(v),
+          why: 'shape-preserved uppercase dashed hex, mapped per participant',
+        },
+        {
+          klass: 'customer-key',
+          matches: (key) => key === 'customer_key',
+          synthetic: (v) => /^[0-9a-f]{32}$/.test(v),
+          why: '§4 format preserved (UUID sans hyphens) so the round-trip verdict stays legible',
+        },
+        {
+          klass: 'email',
+          matches: (key) => key.endsWith('email'),
+          synthetic: (v) => v === '' || v.endsWith('@example-synthetic.test'),
+          why: 'reserved .test TLD, which can never resolve',
+        },
+        {
+          klass: 'ip',
+          matches: (key) => ['public_ip', 'private_ip', 'ip_address'].includes(key),
+          synthetic: (v) => v.startsWith('203.0.113.'),
+          why: 'RFC 5737 documentation range',
+        },
+        {
+          klass: 'recording-url',
+          matches: (key) => key.endsWith('_url'),
+          synthetic: (v) => v.startsWith('https://example-synthetic.test/'),
+          why: 'reserved .test TLD; no live playback or download target',
+        },
+        {
+          klass: 'token-or-passcode',
+          matches: (key) => /(?:token|passcode|password)$/.test(key),
+          synthetic: (v) => v === '' || /^(?:synthetic|000000)/.test(v),
+          why: 'placeholder — these grant live access and no shape needs preserving',
+        },
+        {
+          klass: 'registrant-id',
+          matches: (key) => key === 'registrant_id',
+          synthetic: (v) => v === '' || /^[0-9a-f]{8,}$/.test(v),
+          why: 'no registration was used, so Zoom sends an empty string; a populated one would be hash-derived hex',
+        },
+        {
+          // Zoom-authored prose, not an identifier — but asserted rather than
+          // exempted, because a free-text field is exactly where a name or address
+          // could turn up in some future event type.
+          klass: 'zoom-prose',
+          matches: (key) => key === 'leave_reason',
+          synthetic: (v) => !v.includes('@') && !/[A-Za-z0-9_-]{20,}/.test(v),
+          why: 'must carry no address and no opaque identifier-length token',
+        },
+        {
+          klass: 'meeting-number',
+          matches: (key, _value, at) => key === 'id' && !at.includes('.participant.') && !at.includes('.recording_files['),
+          synthetic: (v) => /^8\d{10}$/.test(v),
+          why: 'synthetic meeting numbers are minted in the 8xxxxxxxxxx range from a hash',
+        },
+      ];
+
+      /** Fields that are neither identifiers nor secrets, declared by name. */
+      const NON_IDENTIFYING = new Set([
+        'event',
+        'event_ts',
+        'topic',
+        'type',
+        'duration',
+        'timezone',
+        'start_time',
+        'end_time',
+        'join_time',
+        'leave_time',
+        'recording_start',
+        'recording_end',
+        'user_name',
+        'name',
+        'status',
+        'file_type',
+        'file_extension',
+        'file_size',
+        'total_size',
+        'recording_count',
+        'recording_type',
+      ]);
+
+      const failures: string[] = [];
+      const covered = new Set<string>();
+
+      for (const { path: at, key, value } of scalars) {
+        if (NON_IDENTIFYING.has(key)) continue;
+        const klass = CLASSES.find((c) => c.matches(key, value, at));
+        if (!klass) {
+          failures.push(`unclassified identifier-ish field ${at} = ${JSON.stringify(value)}`);
+          continue;
+        }
+        covered.add(klass.klass);
+        if (!klass.synthetic(String(value))) {
+          failures.push(`${at} (${klass.klass}) is not synthetic: ${JSON.stringify(value)} — ${klass.why}`);
+        }
+      }
+
+      // Header classes, the ones that shipped real in every v1 fixture.
+      const HEADER_CLASSES: Array<{ key: string; synthetic: (v: string) => boolean }> = [
+        // Structure preserved; the value is hash-derived.
+        { key: 'traceparent', synthetic: (v) => /^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$/.test(v) },
+        { key: 'x-zm-request-id', synthetic: (v) => /^[0-9a-f]{8}(_[0-9a-f]{4}){3}_[0-9a-f]{12}$/.test(v) },
+        { key: 'x-zm-trackingid', synthetic: (v) => v.length > 0 },
+      ];
+      for (const { key, synthetic } of HEADER_CLASSES) {
+        const value = fixture.headers[key];
+        if (value === undefined) continue;
+        covered.add(key);
+        if (!synthetic(value)) failures.push(`header ${key} fails its shape check: ${value}`);
+      }
+
+      expect(failures).toEqual([]);
+      // Guard against the check passing because it examined nothing.
+      expect(covered.size).toBeGreaterThanOrEqual(6);
+    });
   }
+
+  /**
+   * Cross-fixture coherence. The mapping is `sha256(salt||real)`-derived precisely
+   * so that a synthetic id means the same thing everywhere — a per-file counter
+   * would have produced seven unrelated meetings and quietly destroyed every join
+   * Z1b will need to test against.
+   */
+  it('keeps identifiers joinable across fixtures', () => {
+    if (files.length < 2) return;
+    const load = (f: string) =>
+      JSON.parse(JSON.parse(readFileSync(path.join(dir, f), 'utf8')).rawBody) as {
+        payload: { account_id: string; object: Record<string, unknown> };
+      };
+
+    const uuids = new Set<string>();
+    const accounts = new Set<string>();
+    const meetingIds = new Set<string>();
+    for (const f of files) {
+      const body = load(f);
+      accounts.add(body.payload.account_id);
+      if (typeof body.payload.object.uuid === 'string') uuids.add(body.payload.object.uuid);
+      if (body.payload.object.id !== undefined) meetingIds.add(String(body.payload.object.id));
+    }
+
+    // All seven events came from ONE meeting on ONE account, and the fixtures must
+    // still say so.
+    expect(accounts.size).toBe(1);
+    expect(uuids.size).toBe(1);
+    expect(meetingIds.size).toBe(1);
+
+    // recording.completed's files must point at that same meeting via `meeting_id`,
+    // which is the field v1 left real precisely because nothing checked this.
+    const completed = files.find((f) => f.includes('recording-completed'));
+    if (completed) {
+      const object = load(completed).payload.object as {
+        uuid: string;
+        recording_files: Array<{ id: string; meeting_id: string }>;
+      };
+      expect(object.recording_files.length).toBeGreaterThan(1);
+      for (const rf of object.recording_files) {
+        expect(rf.meeting_id).toBe(object.uuid);
+      }
+      // Distinct files, not one id repeated.
+      expect(new Set(object.recording_files.map((f) => f.id)).size).toBe(object.recording_files.length);
+    }
+  });
+
+  it('preserves the / and + double-encoding exemplar §6 depends on', () => {
+    if (files.length === 0) return;
+    const body = JSON.parse(
+      JSON.parse(readFileSync(path.join(dir, files[0]), 'utf8')).rawBody
+    ) as { payload: { object: { uuid?: string } } };
+    const uuid = body.payload.object.uuid;
+    if (!uuid) return;
+
+    // Zoom's real UUID contained both, which is the entire reason the production
+    // client must double-encode. A synthetic UUID without them would retire the
+    // exemplar and leave the encoding rule untested.
+    expect(uuid).toContain('+');
+    expect(uuid).toContain('/');
+    expect(encodeURIComponent(encodeURIComponent(uuid))).not.toContain('/');
+    expect(encodeURIComponent(encodeURIComponent(uuid))).not.toContain('+');
+  });
 });

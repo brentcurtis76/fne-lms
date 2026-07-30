@@ -4,17 +4,17 @@
   "event": "recording.stopped",
   "headers": {
     "content-type": "application/json; charset=utf-8",
-    "content-length": "427",
+    "content-length": "426",
     "user-agent": "Zoom Marketplace/1.0a",
-    "traceparent": "00-18b5b2be2373bcf82c09bd2a6ceb7983-80a9c529421f497f-02",
-    "x-zm-request-id": "2a915204_eeb8_4467_902b_4cb34d28cc4e",
+    "traceparent": "00-4d19613a28bcf6a11e3af846146831cd-8d7d5e7143860613-02",
+    "x-zm-request-id": "2b217024_aee4_7048_044c_2db31e60ad7b",
     "x-zm-request-timestamp": "1785368934",
-    "x-zm-signature": "v0=0aacdf574b2e1218209acfe708b3467d1572e8829b86f243a4da9e134a2b514a",
-    "x-zm-trackingid": "v=2.0;clid=us02;rid=WEB_4527ed298ef0c7bf8010676cfc9e07c7",
+    "x-zm-signature": "v0=4813f03c673f14b1e7de390a06361ecd83a0b37b53df258418a1696c1f1a6c52",
+    "x-zm-trackingid": "v=2.0;clid=us02;rid=WEB_4449fa754fc5b6ba8747303aab3c10f0",
     "zm-trace-upstream": "Meeting_Web_marketplace-consumer"
   },
-  "rawBody": "{\"event\":\"recording.stopped\",\"payload\":{\"account_id\":\"AcctSynthetic0001XXXXXX\",\"object\":{\"uuid\":\"c3Bpa2V1dWlkMDAwMDAx==\",\"id\":80000000001,\"host_id\":\"UserSynthetic0001XXXXXXX\",\"topic\":\"PRUEBA SPIKE — no unirse\",\"type\":2,\"start_time\":\"2026-07-29T23:55:56Z\",\"timezone\":\"America/Santiago\",\"duration\":30,\"recording_file\":{\"recording_start\":\"2026-07-29T23:55:56Z\",\"recording_end\":\"2026-07-29T23:57:56Z\"}}},\"event_ts\":1785369476893}",
-  "rawBodyByteLength": 427,
+  "rawBody": "{\"event\":\"recording.stopped\",\"payload\":{\"account_id\":\"AcctYmLQWo2ZfC9U8mKGD4\",\"object\":{\"uuid\":\"de+IDqR9f3hhT9D8/NA/J1==\",\"id\":86084701483,\"host_id\":\"UsermSB-FIHyajLpZE6nd3\",\"topic\":\"PRUEBA SPIKE — no unirse\",\"type\":2,\"start_time\":\"2026-07-29T23:55:56Z\",\"timezone\":\"America/Santiago\",\"duration\":30,\"recording_file\":{\"recording_start\":\"2026-07-29T23:55:56Z\",\"recording_end\":\"2026-07-29T23:57:56Z\"}}},\"event_ts\":1785369476893}",
+  "rawBodyByteLength": 426,
   "zoomBodyWasByteIdenticalToReserialization": true,
   "observedSkewMs": 1004
 }

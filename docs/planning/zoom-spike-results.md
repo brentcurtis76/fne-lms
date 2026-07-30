@@ -1803,14 +1803,20 @@ the subscription went live. Real deliveries followed.
 **Real header set**, observed on every delivery:
 
 ```
-x-zm-request-id         78be6d38_8508_4ea9_8999_e25d10eb8455
-x-zm-request-timestamp  1785368934
-x-zm-signature          v0=<hex>
-traceparent             00-a72d0946077f1e534818509a19565308-275c9fe0b06977cb-02
+x-zm-request-id         <8hex>_<4hex>_<4hex>_<4hex>_<12hex>
+x-zm-request-timestamp  <10 digits — epoch SECONDS>
+x-zm-signature          v0=<64hex>
+traceparent             00-<32hex traceid>-<16hex spanid>-02
+x-zm-trackingid         v=2.0;clid=us02;rid=WEB_<32hex>   (also seen: EventService_<UUID>_3)
 user-agent              Zoom Marketplace/1.0a
+zm-trace-upstream       Meeting_Web_marketplace-consumer
 ```
 
-Confirms §20's claim that `x-zm-request-id` and `traceparent` are present.
+Shapes, not values: `x-zm-request-id`, `traceparent` and `x-zm-trackingid` are
+minted per request by Zoom and are provider identifiers, so this doc carries their
+formats and the fixtures carry synthetic instances (Z0B-2r1 finding ③). The live
+values live only in the gitignored captures. Confirms §20's claim that
+`x-zm-request-id` and `traceparent` are present.
 
 **⚠️ `x-zm-request-timestamp` is epoch SECONDS, not milliseconds.** This spike
 assumed milliseconds and was wrong; the assumption was corrected in the receiver,
@@ -1986,9 +1992,9 @@ set, verbatim, reproduced identically across two meetings:
 |---|---|---|
 | `customer_key` | ✅ exact value as sent | ✅ **exact value as sent** |
 | `user_email` | the licensed host's real address (**populated**) | `""` (empty string) |
-| `participant_user_id` | `CEqlVj4iQWeb5xKSCJ8-Vw` | **field absent from the row** |
-| `id` | `CEqlVj4iQWeb5xKSCJ8-Vw` | `""` (empty string) |
-| `user_id` | `16778240` | `16787456` — per-occurrence, NOT a stable identity |
+| `participant_user_id` | populated — the host's Zoom user id, a 22-char base64url value | **field absent from the row** |
+| `id` | the same 22-char value as `participant_user_id` | `""` (empty string) |
+| `user_id` | an 8-digit number | a DIFFERENT 8-digit number — per-occurrence, NOT a stable identity |
 | `name` | display name as sent | display name as sent |
 | `registrant_id` | absent (no registration used) | absent |
 | `join_time` / `leave_time` / `duration` | populated | populated |
@@ -2035,9 +2041,11 @@ per rung:
    confirmation*, never an automatic attendance write — which is what the plan's
    "attendance-suggestion panel (facilitator applies)" design already does.
 
-**One hazard the hierarchy must not inherit:** `user_id` (e.g. `16778240`) looks
+**One hazard the hierarchy must not inherit:** `user_id` (an 8-digit number) looks
 like a stable identity and is not. It differed per participant per occurrence and
-is a per-meeting handle. It must not be used as a matching key.
+is a per-meeting handle. It must not be used as a matching key. The two observed
+values differed in their leading digits, so nothing about the shape hints that
+they belong to the same account.
 
 **A second, separate finding with schema consequences — see §8.4:** the meeting
 **UUID rotates per occurrence**, so a UUID captured at provision time cannot be

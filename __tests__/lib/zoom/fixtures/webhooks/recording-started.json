@@ -4,17 +4,17 @@
   "event": "recording.started",
   "headers": {
     "content-type": "application/json; charset=utf-8",
-    "content-length": "407",
+    "content-length": "406",
     "user-agent": "Zoom Marketplace/1.0a",
-    "traceparent": "00-990e94bb883e5d23bb8d6f3e7710e056-5a2465aaddfdda21-02",
-    "x-zm-request-id": "39be6bd7_1a3b_4155_89f0_f14670cd64c0",
+    "traceparent": "00-4e2fb6c45ff2b127fb5a565755cbfa9e-f092acfa99f34173-02",
+    "x-zm-request-id": "59fe8ec2_3f6b_1236_34d3_a54660dc15e0",
     "x-zm-request-timestamp": "1785368934",
-    "x-zm-signature": "v0=b3b7f8de862c9909794502ba44c938c2712c30680d4e2c273bac9497e2ef81dd",
-    "x-zm-trackingid": "v=2.0;clid=us02;rid=WEB_d8601b32290b3f35b43ed1b59e6fd380",
+    "x-zm-signature": "v0=f525256d6a9390d894eed49caa1d343a1f2686c49d97c5baa2207e1cd17089b2",
+    "x-zm-trackingid": "v=2.0;clid=us02;rid=WEB_c9695e43851a5c23d11eb3e22a0be005",
     "zm-trace-upstream": "Meeting_Web_marketplace-consumer"
   },
-  "rawBody": "{\"event\":\"recording.started\",\"payload\":{\"account_id\":\"AcctSynthetic0001XXXXXX\",\"object\":{\"uuid\":\"c3Bpa2V1dWlkMDAwMDAx==\",\"id\":80000000001,\"host_id\":\"UserSynthetic0001XXXXXXX\",\"topic\":\"PRUEBA SPIKE — no unirse\",\"type\":2,\"start_time\":\"2026-07-29T23:55:56Z\",\"timezone\":\"America/Santiago\",\"duration\":30,\"recording_file\":{\"recording_start\":\"2026-07-29T23:55:56Z\",\"recording_end\":\"\"}}},\"event_ts\":1785369357501}",
-  "rawBodyByteLength": 407,
+  "rawBody": "{\"event\":\"recording.started\",\"payload\":{\"account_id\":\"AcctYmLQWo2ZfC9U8mKGD4\",\"object\":{\"uuid\":\"de+IDqR9f3hhT9D8/NA/J1==\",\"id\":86084701483,\"host_id\":\"UsermSB-FIHyajLpZE6nd3\",\"topic\":\"PRUEBA SPIKE — no unirse\",\"type\":2,\"start_time\":\"2026-07-29T23:55:56Z\",\"timezone\":\"America/Santiago\",\"duration\":30,\"recording_file\":{\"recording_start\":\"2026-07-29T23:55:56Z\",\"recording_end\":\"\"}}},\"event_ts\":1785369357501}",
+  "rawBodyByteLength": 406,
   "zoomBodyWasByteIdenticalToReserialization": true,
   "observedSkewMs": 400
 }

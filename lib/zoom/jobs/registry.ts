@@ -6,40 +6,14 @@
  * grows one chunk at a time (Z1b-3 owns `host_sync`; provisioning is Z1b-4,
  * recordings are Z4).
  *
- * Handlers must be IDEMPOTENT. `complete_zoom_job` can lose a race with a reclaim, so
- * the queue is at-least-once by construction (plan §12) — a handler that ran twice
- * must produce the same world as one that ran once.
+ * The handler contract itself lives in `./types` — this module imports handlers, so
+ * it must not be what handlers import.
  */
-import type { ZoomJobRow } from '../db-types';
+import { hostSyncJobHandler } from './host-sync';
+import type { ZoomJobHandler, ZoomJobRegistry } from './types';
 
-export interface ZoomJobContext {
-  job: ZoomJobRow;
-  workerId: string;
-  /**
-   * Extends this worker's lease, optionally checkpointing `stage_state`. Returns
-   * `false` when the lease was lost or expired — at which point the RPC contract says
-   * the worker MUST stop, because another worker now owns the job. Long handlers call
-   * this between units of work and throw `ZoomJobLeaseLostError` on `false`.
-   */
-  heartbeat(stageState?: Record<string, unknown>): Promise<boolean>;
-}
-
-/** The returned object is stored as the job's `stage_state` on completion. */
-export type ZoomJobHandler = (ctx: ZoomJobContext) => Promise<Record<string, unknown>>;
-
-export type ZoomJobRegistry = Record<string, ZoomJobHandler>;
-
-/**
- * Thrown by a handler that saw `heartbeat()` return false. Distinct from a job
- * failure: nothing is wrong with the job, this worker simply no longer owns it, so
- * the runner must not report a failure against a lease it does not hold.
- */
-export class ZoomJobLeaseLostError extends Error {
-  constructor(jobId: string) {
-    super(`Lease lost for zoom job ${jobId}; another worker owns it now.`);
-    this.name = 'ZoomJobLeaseLostError';
-  }
-}
+export type { ZoomJobContext, ZoomJobHandler, ZoomJobRegistry } from './types';
+export { ZoomJobLeaseLostError } from './types';
 
 /**
  * A handler that does nothing, successfully.
@@ -55,10 +29,15 @@ export const noopJobHandler: ZoomJobHandler = async (ctx) => ({
 
 /**
  * The production registry. Built per invocation so a handler can close over
- * per-request dependencies; today none of them need to.
+ * per-request dependencies.
+ *
+ * Every job type Z1b-3 knows about is here. A type NOT in this table is claimed
+ * anyway (the runner passes `p_job_types = NULL`) and marked terminally `failed` —
+ * see `runner.ts` for why that is the recoverable outcome rather than the silent one.
  */
 export function createZoomJobRegistry(): ZoomJobRegistry {
   return {
+    host_sync: hostSyncJobHandler,
     noop: noopJobHandler,
   };
 }

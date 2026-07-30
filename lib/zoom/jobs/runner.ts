@@ -38,7 +38,7 @@ import {
   ZoomJobLeaseLostError,
   type ZoomJobContext,
   type ZoomJobRegistry,
-} from './registry';
+} from './types';
 
 /**
  * ~50 s. Vercel's default function timeout is far higher, but the ticker is scheduled

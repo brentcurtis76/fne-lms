@@ -27,7 +27,7 @@ import {
   ZoomJobLeaseLostError,
   type ZoomJobHandler,
   type ZoomJobRegistry,
-} from '../../../lib/zoom/jobs/registry';
+} from '../../../lib/zoom/jobs/types';
 import type { EnqueueResult, ZoomJobQueue } from '../../../lib/zoom/jobs/queue';
 import type { ZoomJobRow, ZoomJobStatus } from '../../../lib/zoom/db-types';
 import {

@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_FLAG_DENSITY_THRESHOLD,
   SANITIZER_VERSION,
+  blocksMinutaGeneration,
   sanitize,
 } from '../../../lib/zoom/sanitizer';
 
@@ -907,10 +908,14 @@ describe('sanitize — detection records', () => {
 
 describe('sanitize — flagged status', () => {
   it('stays sanitized for a transcript with few student references', () => {
+    // Capitalized after a role noun, so the detection is `high` — low density AND
+    // resolved confidence are both required for `sanitized`. Lowercase the name
+    // and the uncertain rule below takes over even at this density.
     const text = `${'Revisamos los acuerdos del ciclo anterior y definimos los focos del semestre. '.repeat(
       12
     )} El alumno Benjamín avanzó bien.`;
     const result = sanitize(text, ATTENDEES);
+    expect(result.detections.every((d) => d.confidence === 'high')).toBe(true);
     expect(result.status).toBe('sanitized');
     expect(result.flagReasons).toEqual([]);
   });
@@ -943,6 +948,99 @@ describe('sanitize — flagged status', () => {
 
   it('exposes a documented default threshold', () => {
     expect(DEFAULT_FLAG_DENSITY_THRESHOLD).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * §12 / §15 Z0B DoD: "uncertain detections must land as `flagged`". This is the
+ * transcript-status obligation, separate from the density gate — Sol R1 finding ①.
+ */
+describe('sanitize — uncertain detections flag the transcript (§12)', () => {
+  /** A long, otherwise-clean transcript so density can never be what flags it. */
+  const filler = 'Revisamos los acuerdos del ciclo anterior y definimos los focos del semestre. ';
+
+  it('flags a single low-density uncertain redaction, and the §6 predicate blocks', () => {
+    // Whisper lowercased the name: the role-pattern layer licenses it as
+    // `uncertain` and redacts. One redaction in ~150 words — density well under
+    // the threshold, which is exactly the case that used to report `sanitized`.
+    const result = sanitize(`${filler.repeat(12)} El alumno benjamín avanzó bien.`, ATTENDEES);
+
+    const uncertainRedactions = result.detections.filter(
+      (d) => d.confidence === 'uncertain' && d.action === 'redacted'
+    );
+    expect(uncertainRedactions).toHaveLength(1);
+    expect(result.metrics.density).toBeLessThan(DEFAULT_FLAG_DENSITY_THRESHOLD);
+    expect(result.flagReasons.some((r) => /density/.test(r))).toBe(false);
+
+    expect(result.status).toBe('flagged');
+    expect(result.flagReasons.some((r) => /uncertain/.test(r))).toBe(true);
+    expect(blocksMinutaGeneration(result)).toBe(true);
+  });
+
+  it('flags an uncertain collision-name redaction the density gate cannot see', () => {
+    // "Rosa" is in COMMON_WORDS, so the capitalization layer downgrades it to
+    // `uncertain` and redacts. Density 0.67 per 100 words.
+    const result = sanitize(`${filler.repeat(12)} Hablamos con Rosa un momento.`, ATTENDEES);
+
+    expect(
+      result.detections.filter((d) => d.confidence === 'uncertain' && d.action === 'redacted')
+    ).toHaveLength(1);
+    expect(result.metrics.density).toBeLessThan(DEFAULT_FLAG_DENSITY_THRESHOLD);
+    expect(result.status).toBe('flagged');
+    expect(blocksMinutaGeneration(result)).toBe(true);
+  });
+
+  it('flags on confidence even when the caller raises the density threshold out of reach', () => {
+    // Proves the two flag sources are independent rather than one feeding the other.
+    const result = sanitize(`${filler.repeat(12)} El alumno benjamín avanzó bien.`, ATTENDEES, {
+      flagDensityThreshold: 100,
+    });
+    expect(result.status).toBe('flagged');
+    expect(result.flagReasons).toHaveLength(1);
+    expect(result.flagReasons[0]).toMatch(/uncertain/);
+  });
+
+  it('does NOT flag an uncertain span preserved as a roster attendee', () => {
+    // The owner-level edge ruling (Z0B-2r1 F1): the roster match resolves the
+    // identity question the `uncertain` shape heuristic raised, so this stays
+    // `sanitized` — otherwise every meeting with a collision name on the roster
+    // would flag, and "Rosa plantea…" is what §12 wants readable in the minuta.
+    const result = sanitize('Hablamos con Rosa Milagros sobre el plan del semestre.', [
+      'Rosa Milagros',
+    ]);
+
+    expect(result.detections).toHaveLength(1);
+    expect(result.detections[0]).toMatchObject({ confidence: 'uncertain', action: 'preserved' });
+    expect(result.sanitizedText).toContain('Rosa Milagros');
+    expect(result.status).toBe('sanitized');
+    expect(result.flagReasons).toEqual([]);
+    expect(blocksMinutaGeneration(result)).toBe(false);
+  });
+
+  it('does NOT flag a bare uncertain attendee reference either', () => {
+    const result = sanitize('Hablamos con Rosa sobre el plan del semestre y quedamos de acuerdo.', [
+      'Rosa Milagros',
+    ]);
+    expect(result.detections[0]).toMatchObject({ confidence: 'uncertain', action: 'preserved' });
+    expect(result.status).toBe('sanitized');
+  });
+
+  it('reports both reasons when a dense transcript also carries uncertain redactions', () => {
+    const result = sanitize('El alumno benjamín, la alumna martina, el estudiante tomás.', ATTENDEES);
+    expect(result.status).toBe('flagged');
+    expect(result.flagReasons.some((r) => /density/.test(r))).toBe(true);
+    expect(result.flagReasons.some((r) => /uncertain/.test(r))).toBe(true);
+  });
+
+  it('counts the uncertain redactions in the reason so a reviewer knows the scale', () => {
+    const result = sanitize(`${filler.repeat(12)} El alumno benjamín y la alumna martina.`, ATTENDEES);
+    const reason = result.flagReasons.find((r) => /uncertain/.test(r));
+    expect(reason).toMatch(/^2 uncertain detection\(s\) redacted/);
+  });
+
+  it('bumps the version alongside the behaviour change', () => {
+    // A stored transcript sanitized by node-1.6.0 must be re-runnable (§6).
+    expect(SANITIZER_VERSION).toBe('node-1.6.1');
   });
 });
 

@@ -21,6 +21,28 @@
  *    minuta quality; under-redaction leaks a minor's identity into a third-party
  *    model, so the asymmetry is not close.
  *
+ * **Uncertain ⇒ `flagged` (v1.6.1).** Redaction is not the whole obligation.
+ * §12 and the §15 Z0B DoD both say *uncertain detections must land as `flagged`*,
+ * and that is a statement about the TRANSCRIPT's status, not only about what
+ * happened to the span. So any detection with `confidence: 'uncertain'` AND
+ * `action: 'redacted'` adds a `flagReason` and forces `status: 'flagged'` —
+ * **independently of density**. Density measures volume; this measures
+ * confidence. Before v1.6.1 a lone uncertain redaction inside a long clean
+ * transcript moved density by a fraction of a point and reported `sanitized`,
+ * which is the gap Sol's R1 finding ① named.
+ *
+ * The edge, and the reason it goes the other way (owner-level ruling, Z0B-2r1):
+ * an uncertain-confidence span **PRESERVED as a roster attendee does NOT flag.**
+ * The uncertainty those layers record is *"is this surface a person at all?"* —
+ * `COMMON_WORDS` downgrades "Rosa"/"Milagros"/"Sol" to `uncertain` because the
+ * token is ambiguous in isolation. A roster match RESOLVES that question with
+ * strictly better evidence than the shape heuristic that raised it: we know who
+ * attended. Flagging preserved-uncertain spans would flag every meeting whose
+ * attendee list happens to contain a collision name, which is precisely the
+ * population §12 wants left readable in the minuta ("Rosa plantea…"), and it
+ * would flag on evidence we have already answered. Redacted-uncertain is the
+ * unresolved case, and it is the one that goes to a human.
+ *
  * **Preservation rule (v1.2) — segment classification.** A detected span is a
  * surface, not a person: `buildSpans` bridges name tokens across connectors and
  * across whatever punctuation sits between adjacent name tokens, so "Camila
@@ -298,7 +320,7 @@
  * Bump on any change to detection behaviour. Stored alongside a transcript so a
  * newer sanitizer can be detected and re-run (§6 state machine).
  */
-export const SANITIZER_VERSION = 'node-1.6.0';
+export const SANITIZER_VERSION = 'node-1.6.1';
 
 /** Default student-reference density (per 100 words) above which a transcript is flagged. */
 export const DEFAULT_FLAG_DENSITY_THRESHOLD = 2.0;
@@ -356,6 +378,16 @@ export type SanitizeResult = {
   flagReasons: string[];
   metrics: SanitizeMetrics;
 };
+
+/**
+ * The §6 state-machine predicate, named so it can be asserted directly instead
+ * of restated at every call site: a `flagged` transcript blocks minuta
+ * generation until a human reviews it. Both flag sources — density above
+ * threshold and any uncertain redaction (§12) — route through here.
+ */
+export function blocksMinutaGeneration(result: SanitizeResult): boolean {
+  return result.status === 'flagged';
+}
 
 /* ------------------------------------------------------------------ lexicons */
 
@@ -1644,6 +1676,31 @@ export function sanitize(
   if (density > threshold) {
     flagReasons.push(
       `student-reference density ${density.toFixed(2)} per 100 words exceeds threshold ${threshold}`
+    );
+  }
+
+  // §12/§15: "uncertain detections must land as `flagged`" — a TRANSCRIPT-level
+  // obligation, not just a span-level one. Redaction alone does not discharge it:
+  // an uncertain detection means the module could not tell a person from an
+  // ordinary word, and §6 wants a human to look at that transcript before a
+  // minuta leaves the platform. Independent of density, which measures volume
+  // rather than confidence — a single uncertain redaction in a long clean
+  // transcript never moves density and used to report `sanitized`.
+  //
+  // Scope is `redacted` only, per the owner-level edge ruling (Z0B-2r1 F1): an
+  // uncertain-confidence span that was PRESERVED was preserved because a roster
+  // entry accounted for it, and roster evidence RESOLVES the identity — the
+  // uncertainty was about whether the surface was a name at all, and the
+  // attendee match answers that with better evidence than the shape heuristic
+  // that raised it. Flagging those would flag every meeting whose roster carries
+  // a collision name ("Rosa", "Milagros", "Sol"), which is exactly the
+  // population §12 wants readable in the minuta.
+  const uncertainRedactions = detections.filter(
+    (d) => d.confidence === 'uncertain' && d.action === 'redacted'
+  );
+  if (uncertainRedactions.length > 0) {
+    flagReasons.push(
+      `${uncertainRedactions.length} uncertain detection(s) redacted — uncertain confidence requires human review (§12)`
     );
   }
 

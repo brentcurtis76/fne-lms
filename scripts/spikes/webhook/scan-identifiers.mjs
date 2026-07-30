@@ -183,8 +183,8 @@ for (const item of [...found]) {
 /**
  * Declared exclusion, stated rather than hidden.
  *
- * `ZOOM_LICENSED_HOST_EMAIL` is `info@nuevaeducacion.org` — FNE's PUBLISHED
- * institutional contact address. It is printed on their public website and appears
+ * `ZOOM_LICENSED_HOST_EMAIL` is FNE's PUBLISHED institutional contact address (the
+ * value is not written here — this scanner would flag its own comment, and did). It is printed on their public website and appears
  * in 11 unrelated repo files (Footer, contact API, the public-site HTML, …) that
  * long predate this branch. It is not a leak and it is not this phase's to change;
  * what matters is that it does not appear in any Zoom-phase artifact, which the

@@ -160,10 +160,25 @@ the field visits (§7), and it is the only test that counts.
 ## 2. `/meet/diag` capability probe
 
 `pages/meet/diag.tsx`. The instrument consultores open on a school machine
-during a field visit. Gating is **session presence only**, mirroring
-`pages/meet/session/[id].tsx` — there is no meeting here, so there is nothing to
-authorize against, and a role check would lock out the consultores it exists
-for.
+during a field visit. **The PAGE is gated on session presence only**, mirroring
+`pages/meet/session/[id].tsx`: every reading on it is a browser capability
+probe, so a role check would lock out the consultores it exists for.
+
+**The test-join section that Z0B-2 added is a different matter, and Z0B-2r1
+separated the two properly** (Sol R1 findings ⑤/⑧). The join needs a
+server-signed SDK credential, which is a capability rather than a reading, and it
+is bounded in `/api/meet/diag-signature` by four gates: configured → session →
+**role `admin`/`consultor`** → **server-side meeting allowlist**
+(`ZOOM_DIAG_MEETING_IDS`). The section's availability comes from ONE server-side
+predicate shared with that route (`isDiagJoinConfigured()` in
+`lib/meet/diag-config.ts`), passed to the page as `joinAvailable`; it no longer
+keys on `NEXT_PUBLIC_ZOOM_SDK_CLIENT_ID`, which was a different env contract from
+the one the API enforced. The passcode field is now required — the probe must not
+be able to walk into a passcode-less meeting.
+
+**New env var:** `ZOOM_DIAG_MEETING_IDS` — comma-separated meeting numbers the
+deployment will sign a diag join for. Absent or empty means the endpoint 404s and
+the page renders its placeholder; there is no "unset = allow everything" mode.
 
 ### What it reports
 
@@ -202,10 +217,20 @@ API needs a secure context and school machines are not reliable about that.
 A placeholder block reads *"Prueba de conexión: disponible próximamente"* where
 Z0B-2 adds the test-join once a test meeting exists.
 
-**Not covered:** the page has no automated test. It is a field instrument whose
-entire output depends on the host machine, so a jsdom test would assert the mock
-rather than the behaviour. The e2e coverage that would exercise it belongs to
-Z1c, which owns `/meet` specs.
+**Coverage.** The capability readings themselves still have no automated test —
+a field instrument's entire output depends on the host machine, so a jsdom test
+would assert the mock rather than the behaviour, and the e2e that would exercise
+it belongs to Z1c, which owns `/meet` specs. What IS covered, as of Z0B-2r1, is
+everything around them that is a contract rather than a reading: the server
+render of the join section for each value of `joinAvailable`
+(`__tests__/pages/meet-diag-join-section.test.ts`, 6), how
+`getServerSideProps` computes that value across eight partial-configuration
+combinations (`__tests__/pages/meet/diag-ssr.test.ts`, 10), the passcode
+requirement under jsdom (`__tests__/pages/meet/diag-join-passcode.test.tsx`, 6),
+and the API's authorization contract (`__tests__/api/meet/diag-signature.test.ts`,
+34). *The earlier claim that this repo has "no jsdom dependency and no DOM test
+environment configured" was wrong when written — other suites already used
+`// @vitest-environment jsdom`.*
 
 ---
 
@@ -2124,6 +2149,51 @@ Total `total_size` 2 609 982 across 3 files.
 > transfer pipeline is proven, the file sizes are not.** A representative size
 > figure needs a recording of real speech — see open items.
 
+#### 8.1.1 OWNER-APPROVED DoD AMENDMENT — real-media measurement deferred to Z4
+
+Plan §15 lists **"MP4+M4A real sizes"** among Z0B's deliverables. That deliverable
+is **NOT met by this chunk**, and the deviation is recorded here as an amendment to
+the settled DoD rather than as an executor or PM acceptance — a PM cannot amend a
+settled §15 DoD, which is exactly what Sol's R1 finding ⑥ said and the PM triage
+conceded.
+
+**Ruling — Brent, 2026-07-29, in session, on the Z0B-2r1 F6 escalation:**
+
+> "Defer to Z4 (amendment)"
+
+Recorded against the option put to him: *record a DoD amendment moving real-media
+sizing/throughput/cost to the Z4 soak*, versus *coordinate one real consent-safe
+meeting now and re-run the transfer with real media*. He chose the amendment; the PM
+had recommended it.
+
+**What the amendment moves, precisely.** Only the *representative byte sizes* and the
+cost/throughput figures that depend on them. Everything else in §8.1 stands as
+measured and is not deferred:
+
+| §15 Z0B item | Status after the amendment |
+|---|---|
+| Full round trip executed end to end | ✅ delivered (claim → stream → verify → trash → permanent delete) |
+| No disk buffering | ✅ delivered (peak memory = one part) |
+| Multipart state machine + crash/resume behaviour | ✅ delivered (5-part run; `ListParts` retains parts while `HeadObject` 404s pre-Complete) |
+| Verify-before-delete | ✅ delivered (HEAD byte-compare before any destructive call) |
+| **MP4+M4A real sizes** | ⏸️ **DEFERRED TO Z4** by this amendment |
+| **Transfer throughput / cost table at real sizes** | ⏸️ **DEFERRED TO Z4** by this amendment |
+
+**Why deferring is defensible on the merits, not only by authority.** A real-speech
+recording of a real session needs (a) real participants, who under §12 are the
+consent population this plan exists to protect, and (b) a recording that then has to
+be transferred and deleted — which is the Z4 soak by definition. Manufacturing one
+now would either use synthetic speech (which is what Z0B-1 §5 already measured
+against a real es-CL TTS corpus: **2 h → 13.0 MB @16 kbps**, and that figure is the
+one the plan's sizing rests on) or put a real session in front of a pipeline that has
+not yet been through the Z4 gates.
+
+**What Z4 must therefore carry as a blocking item**, so the deferral cannot quietly
+lapse: on the FIRST real recorded session, capture MP4 and M4A byte sizes and the
+Vercel→Supabase transfer throughput, and only then quote a storage-cost figure. Until
+that lands, no capacity or cost number may be sourced from §8.1. Open item 21 already
+tracks this and is now the amendment's enforcement point.
+
 **Throughput and wall time**, at a production-realistic 8 MiB part size:
 
 | File | Parts | Wall time | Throughput |
@@ -2144,12 +2214,22 @@ pushed part-by-part into S3; peak memory is one part. Nothing is written to disk
 `/tmp` at any point — satisfying §12 stage 3.
 
 **Token re-fetch path exercised.** §12 stage 2 allows either the webhook payload's
-`download_token` or a re-fetch. Because no webhook was delivered (§6.1), only the
-**re-fetch** path ran: `GET /meetings/{uuid}/recordings?include_fields=download_access_token&ttl=3600`
+`download_token` or a re-fetch. Only the **re-fetch** path ran:
+`GET /meetings/{uuid}/recordings?include_fields=download_access_token&ttl=3600`
 returned a token, and the download authenticated with `Authorization: Bearer <token>`
 → 200. **The payload-token path is unverified.** Both are documented in §20; the one
 a resumed or retried job must use is the one that was tested, which is the more
 important of the two.
+
+*Corrected in Z0B-2r1 (Sol R1 finding ⑨).* This paragraph previously read "because no
+webhook was delivered (§6.1)" — written while the subscription was still unvalidated,
+and never revised after §6 recorded **all 7 events captured, signature-verified, across
+14 Zoom requests**. The `recording.completed` payload WAS delivered and IS committed as
+a fixture. The reason the payload-token path went untested is different and narrower:
+the transfer script claims its own token by re-fetch because that is the path a
+**resumed** job must use (a payload token has expired by then), so the re-fetch was
+exercised deliberately rather than for lack of a webhook. Z4 exercises the payload
+token on the live path.
 
 **Deletion.** Verify-before-delete held: HEAD size was compared to Zoom's reported
 size before any destructive call, and each destructive call was preceded by a fresh

@@ -59,7 +59,7 @@ describe('/meet/diag join section — passcode is required', () => {
     expect(button).toBeDisabled();
 
     fireEvent.change(screen.getByTestId('diag-join-meeting-number'), {
-      target: { value: '84830781209' },
+      target: { value: '90210042001' },
     });
     // Meeting number alone is not enough.
     expect(button).toBeDisabled();

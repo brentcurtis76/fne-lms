@@ -32,8 +32,11 @@ vi.mock('../../../utils/roleUtils', () => ({
 import handler from '../../../pages/api/meet/diag-signature';
 import { diagMeetingAllowlist, isDiagJoinConfigured } from '../../../lib/meet/diag-config';
 
-const ALLOWED_MEETING = '84830781209';
-const UNLISTED_MEETING = '87239242778';
+// Invented, not the spike's real meeting numbers — `scan-identifiers.mjs` treats a
+// real Zoom-minted id in a committed file as a finding regardless of where it sits,
+// and it caught these two when they were first copied out of the capture dump.
+const ALLOWED_MEETING = '90210042001';
+const UNLISTED_MEETING = '90210042002';
 
 type Captured = { status: number; body: unknown; headers: Record<string, string> };
 
@@ -204,7 +207,7 @@ describe('POST /api/meet/diag-signature — validation', () => {
 
   it('400s a non-scalar body value rather than coercing it into the allowlist check', async () => {
     // Found while writing these tests: `String(x)` invokes `toString()`, so a JSON
-    // body of `{"meetingNumber": ["84830781209"]}` coerced to an allowlisted number
+    // body of `{"meetingNumber": ["<allowlisted id>"]}` coerced to an allowlisted number
     // and got SIGNED. The handler now checks the type before coercing.
     expect(await call({ meetingNumber: [ALLOWED_MEETING] })).toMatchObject({ status: 400 });
     expect(await call({ meetingNumber: { toString: () => ALLOWED_MEETING } })).toMatchObject({
@@ -338,7 +341,7 @@ describe('isDiagJoinConfigured — one contract for page and API', () => {
 
   it('parses the allowlist to digits-only entries in Zoom range', () => {
     expect(
-      diagMeetingAllowlist({ ZOOM_DIAG_MEETING_IDS: '848-3078-1209, 12, abc, 872 392 42778' } as NodeJS.ProcessEnv)
+      diagMeetingAllowlist({ ZOOM_DIAG_MEETING_IDS: '902-1004-2001, 12, abc, 902 1004 2002' } as NodeJS.ProcessEnv)
     ).toEqual([ALLOWED_MEETING, UNLISTED_MEETING]);
   });
 });

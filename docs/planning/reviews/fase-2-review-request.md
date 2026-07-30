@@ -211,6 +211,23 @@ Synthetic fake-media input compresses roughly 10× smaller than speech, so MP4 2
 in §8.1, but §15's DoD says "MP4+M4A real sizes" and **I did not deliver that**. The
 transfer pipeline is proven; the sizes are not. Rule on whether the DoD is met.
 
+> **RESOLVED in Z0B-2r1 as an OWNER-APPROVED DoD AMENDMENT, not a PM acceptance.**
+>
+> Sol's R1 finding ⑥ was that this deviation had been accepted by the PM, and a PM
+> cannot amend a settled §15 DoD. Correct. The decision was escalated to Brent, who
+> ruled in session on **2026-07-29**:
+>
+> > "Defer to Z4 (amendment)"
+>
+> put to him against the alternative of coordinating one real consent-safe meeting
+> now and re-running the transfer with real media. The amendment moves ONLY the
+> representative byte sizes and the throughput/cost figures that depend on them; the
+> round trip, the no-disk-buffering property, the multipart state machine, the
+> crash/resume probe and verify-before-delete all stand as delivered. Full text, with
+> the item-by-item split and the blocking obligation it places on Z4, is
+> `zoom-spike-results.md` §8.1.1. Open item 21 is the enforcement point: until Z4
+> measures a real session, no capacity or cost number may be sourced from §8.1.
+
 Related: the 5-part multipart run used a 512 KiB part size via a flag I added, because
 both real files are smaller than one legal 5 MiB part. The state machine, completion,
 byte-exact verify and crash/resume probe are all real; the part size is not

@@ -16,8 +16,15 @@ Required keys:
 ZOOM_S2S_ACCOUNT_ID           ZOOM_SDK_CLIENT_ID
 ZOOM_S2S_CLIENT_ID            ZOOM_SDK_CLIENT_SECRET
 ZOOM_S2S_CLIENT_SECRET        ZOOM_LICENSED_HOST_EMAIL
-ZOOM_WEBHOOK_SECRET_TOKEN     NEXT_PUBLIC_ZOOM_SDK_CLIENT_ID  (same value as the SDK client id)
+ZOOM_WEBHOOK_SECRET_TOKEN
 ```
+
+The Next.js app (not these scripts) additionally reads **`ZOOM_DIAG_MEETING_IDS`** —
+comma-separated meeting numbers `/api/meet/diag-signature` will sign a diag join for.
+Absent or empty ⇒ the route 404s and `/meet/diag` renders its placeholder. Since
+Z0B-2r1 the app no longer reads `NEXT_PUBLIC_ZOOM_SDK_CLIENT_ID` at all: the SDK key
+reaches the browser in the API response, and page availability is computed
+server-side from `lib/meet/diag-config.ts`.
 
 `lib.mjs` exports `makeRedactor(env)`, which every script pipes output through: it
 collapses all seven credentials plus any JWT-shaped string (ZAKs, `start_url`

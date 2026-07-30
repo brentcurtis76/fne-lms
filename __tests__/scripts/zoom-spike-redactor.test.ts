@@ -60,7 +60,7 @@ describe('spike redactor — participant identity (new in Z0B-2r1)', () => {
   /** The row shape the customerKey PoC and followup-report both print. */
   const ROW = {
     id: 'UserIdInvented00000001',
-    user_id: 16778240,
+    user_id: 62143101,
     name: 'Prueba Spike Uno',
     user_email: 'apoderado@colegio-inventado.cl',
     participant_user_id: 'UserIdInvented00000001',
@@ -95,7 +95,7 @@ describe('spike redactor — participant identity (new in Z0B-2r1)', () => {
     const redact = await loadRedactor();
     const out = redact(ROW);
     expect(out).not.toContain('UserIdInvented00000001');
-    expect(out).not.toContain('16778240');
+    expect(out).not.toContain('62143101');
     expect(out).not.toContain('AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE');
     expect(out).not.toContain('RegIdInvented0001');
   });

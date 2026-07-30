@@ -107,7 +107,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // a 400 rather than falling through to the allowlist comparison.
   const rawMeetingNumber = (req.body as { meetingNumber?: unknown } | undefined)?.meetingNumber;
   // Type FIRST, then coerce. `String(x)` on a non-scalar runs `toString()`, so a JSON
-  // body of `{"meetingNumber": ["84830781209"]}` used to coerce cleanly to an
+  // body of `{"meetingNumber": ["<an allowlisted id>"]}` used to coerce cleanly to an
   // allowlisted number and get signed. Only a string or a number is a meeting number.
   if (typeof rawMeetingNumber !== 'string' && typeof rawMeetingNumber !== 'number') {
     return res.status(400).json({ error: 'Número de reunión inválido.' });

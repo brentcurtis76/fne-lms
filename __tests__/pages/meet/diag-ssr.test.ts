@@ -21,7 +21,7 @@ vi.mock('@supabase/auth-helpers-nextjs', () => ({
 
 import { getServerSideProps } from '../../../pages/meet/diag';
 
-const MEETING = '84830781209';
+const MEETING = '90210042001'; // invented; see diag-signature.test.ts
 
 const ENV_KEYS = [
   'ZOOM_SDK_CLIENT_ID',

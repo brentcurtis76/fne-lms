@@ -308,11 +308,18 @@ granted the remaining S2S scopes mid-run, so:
 disclaimer: the standard participant dialog evidences consent to *being recorded* and
 says nothing about transcription or AI processing.
 
-**Zoom-side residue:** 6 spike meetings created, all named `PRUEBA SPIKE — no unirse`.
-The round-trip recording was trashed and permanently deleted (`GET recordings` →
-*"no existe"*). Two recordings remain (~0.9 MB total) from the stop-control meetings;
-they were retained so G2 could be re-probed against a real disclaimer click, and can
-now be deleted since G2 is settled.
+**Zoom-side residue, final state:** 6 spike meetings created, all named
+`PRUEBA SPIKE — no unirse`. **Every recording this chunk produced has been permanently
+deleted** — the round-trip one during the transfer (trash then delete), and the two
+stop-control ones after G2 was settled (466 917 B and 471 953 B, 6 files each);
+`GET recordings` returns *"Esta grabación no existe"* for all three. The 6 empty
+scheduled meetings remain and are harmless.
+
+**One thing Brent should know:** the webhook subscription in Marketplace now points at
+a dead URL. The `cloudflared` quick tunnel and the receiver were stopped once capture
+was complete, rather than left as an open public tunnel into a localhost service. Zoom
+re-validates every 72 h and disables a subscription after 6 failures (§18) — the
+expected, harmless outcome for a spike. Z1b will repoint it at the real route.
 
 ## 8. Credential handling
 

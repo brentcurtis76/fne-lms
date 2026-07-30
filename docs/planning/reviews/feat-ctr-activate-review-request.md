@@ -4,10 +4,10 @@
 |---|---|
 | **Branch** | `feat/ctr-activate` |
 | **Base** | `main` @ `8a71c89` |
-| **Commits** | 5 — `ffd8552` (feature), `3479219` (review fixes), `e48acd3` (this document), `33c744e` (R1 remediation), plus the R1 doc-reconciliation commit carrying this table |
+| **Commits** | 7 — `ffd8552` (feature), `3479219` (review fixes), `e48acd3` (this document), `33c744e` (R1 remediation), `4155744` (R1 doc reconciliation), `d7d0c58` (R2 doc corrections), plus this R3 documentation-only reconciliation commit |
 | **State reviewed by R1** | branch @ `e48acd3` — 3 commits, 6 files (5 code + this document). The original version of this table said "2 commits / 5 files" because it excluded its own docs commit; reconciled per R1 item 4. |
 | **Files (code)** | `pages/contracts.tsx`, `components/contracts/ContractDetailsModal.tsx`, `components/contracts/ContractForm.tsx`, `lib/utils/contract-status.ts` (new), `lib/utils/__tests__/contract-status.test.ts` (new), `__tests__/components/contracts/ContractDetailsModal.activation.test.tsx` (new, R1), `__tests__/pages/contracts-activation.test.tsx` (new, R1) |
-| **Net diff vs main** | 8 files, +1011 / −128 against base `8a71c89` (includes this document; corrected in R2 — the earlier +990 figure predated this document's own reconciliation commit) |
+| **Net diff vs main** | 8 files, +1018 / −128 against base `8a71c89` (includes this document; reconciled in R3 — earlier +990/+1011 figures each predated the doc commit that followed them) |
 | **Date** | 2026-07-30 (R1 remediation same day) |
 | **Author** | Claude (Fable 5) with Brent Curtis; product decisions confirmed interactively with Brent |
 
@@ -152,4 +152,4 @@ External review R1 raised four items; all are implemented.
 
 ## 13. R2 (2026-07-30) — APPROVE WITH NOTES
 
-R2 verified all four R1 resolutions independently (targeted tests 15/15, type-check, lint, Vitest 3370/3370, build, CI Playwright smoke 2/2, `git diff --check` clean, clean tree) and found **no remaining code defect**. Two documentation-only corrections were ordered and are applied in this revision: the net-diff row (now +1011/−128 vs `8a71c89`) and the Playwright evidence (§8), which now distinguishes the passing CI smoke gate from the full local run whose 57 failures are environmental (unseeded legacy authenticated suites) and were previously masked by `tail`-truncated output and pipeline exit codes. No implementation changes were made in R2 remediation.
+R2 verified all four R1 resolutions independently (targeted tests 15/15, type-check, lint, Vitest 3370/3370, build, CI Playwright smoke 2/2, `git diff --check` clean, clean tree) and found **no remaining code defect**. Two documentation-only corrections were ordered and are applied in this revision: the net-diff row (now +1018/−128 vs `8a71c89`, per R3) and the Playwright evidence (§8), which now distinguishes the passing CI smoke gate from the full local run whose 57 failures are environmental (unseeded legacy authenticated suites) and were previously masked by `tail`-truncated output and pipeline exit codes. No implementation changes were made in R2 remediation.

@@ -1,8 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createHmac } from 'crypto';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { getUserPrimaryRole } from '../../../utils/roleUtils';
 import { diagMeetingAllowlist, isDiagJoinConfigured } from '../../../lib/meet/diag-config';
+import { signZoomSdkJwt } from '../../../lib/zoom/signer';
 
 /**
  * Meeting SDK signature for the /meet/diag test-join probe (Z0B-2, spike).
@@ -58,6 +58,18 @@ import { diagMeetingAllowlist, isDiagJoinConfigured } from '../../../lib/meet/di
  * `authorizeMeetingJoin()` against a provisioned session (Z2) rather than an env
  * allowlist. The allowlist is right for a probe against hand-typed synthetic spike
  * meetings and would be wrong for the product.
+ *
+ * ## Z1b-2: the JWT itself now comes from `lib/zoom/signer.ts`
+ *
+ * The claim construction that used to live at the bottom of this file is the same
+ * construction Z2's join API needs, so it moved to the pure signer and this route
+ * became one of its two callers. Nothing about the four gates changed — the
+ * committed authorization suite runs unmodified against this file.
+ *
+ * The TTL stays 1800 s here rather than adopting the signer's 2 h production
+ * default. A field operator's diag join is a probe that lasts minutes, and the
+ * shortest §20-legal lifetime is the right one for a credential minted against an
+ * env allowlist.
  */
 
 /** §20: exp must be ≥ iat+1800s and ≤ 48h; tokenExp must match exp. */
@@ -65,14 +77,6 @@ const SIGNATURE_TTL_SECONDS = 1800;
 
 /** §17 field-protocol operators. Nobody else runs the hardware protocol. */
 const ALLOWED_ROLES = ['admin', 'consultor'];
-
-function base64url(input: Buffer | string): string {
-  return Buffer.from(input)
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const sdkKey = process.env.ZOOM_SDK_CLIENT_ID;
@@ -124,23 +128,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(404).json({ error: 'Not found' });
   }
 
-  const iat = Math.floor(Date.now() / 1000) - 30;
-  const exp = iat + SIGNATURE_TTL_SECONDS;
-
-  const header = { alg: 'HS256', typ: 'JWT' };
-  const payload = {
-    appKey: sdkKey,
-    sdkKey,
-    mn: meetingNumber,
+  const signature = signZoomSdkJwt({
+    sdkKey: sdkKey as string,
+    sdkSecret: sdkSecret as string,
+    meetingNumber,
     // Hardcoded — see the header comment. Never read from the request.
     role: 0,
-    iat,
-    exp,
-    tokenExp: exp,
-  };
+    ttlSeconds: SIGNATURE_TTL_SECONDS,
+  });
 
-  const unsigned = `${base64url(JSON.stringify(header))}.${base64url(JSON.stringify(payload))}`;
-  const signature = base64url(createHmac('sha256', sdkSecret as string).update(unsigned).digest());
-
-  return res.status(200).json({ signature: `${unsigned}.${signature}`, sdkKey });
+  return res.status(200).json({ signature, sdkKey });
 }

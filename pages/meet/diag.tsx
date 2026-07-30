@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import type { GetServerSideProps } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { isDiagJoinConfigured } from '../../lib/meet/diag-config';
 
 /**
  * /meet/diag — capability probe for the Zoom hardware/network protocol (Z0B).
@@ -12,15 +13,21 @@ import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
  * exports every reading as a single JSON blob to paste into the protocol
  * results sheet (docs/planning/zoom-hw-protocol.md).
  *
- * Two things it deliberately is NOT:
- *  - It is not a meeting. There is no meeting id, no join, no Zoom credential,
- *    and therefore no meeting authorization to perform. Gating is session
- *    presence only, exactly like the middleware matcher already enforces for
- *    /meet/*.
+ * What it is NOT:
  *  - It is not a fix. Nothing here changes headers or capabilities; the
  *    crossOriginIsolated / SharedArrayBuffer rows MEASURE the current state.
  *    COOP/COEP are not set anywhere in this repo and this page does not set
  *    them.
+ *
+ * **Correction (Z0B-2r1 — Sol R1 finding ⑧).** This comment used to say "there is
+ * no meeting id, no join, no Zoom credential, and therefore no meeting
+ * authorization to perform". That stopped being true when Z0B-2 added the B1
+ * test-join: there IS a meeting id (hand-typed), there IS a join, and it needs a
+ * server-signed SDK credential. The authorization for it lives in
+ * `/api/meet/diag-signature` — session + role (`admin`/`consultor`) + a server-side
+ * meeting allowlist. The PAGE remains session-presence-only, which is correct
+ * because everything on it except the join section is a browser capability read;
+ * `joinAvailable` and the API's gates are what bound the join.
  *
  * The camera+microphone probe doubles as the live proof of the /meet
  * Permissions-Policy override in next.config.js: under the global policy
@@ -433,11 +440,26 @@ function collectPassiveProbes(): Probe[] {
 }
 
 type MeetDiagPageProps = {
-  /** Public SDK app key, or null when the deployment has no Zoom env configured. */
-  sdkClientId: string | null;
+  /**
+   * Whether the join section can work AT ALL on this deployment, computed in
+   * `getServerSideProps` from the SERVER's full configuration — the SDK id/secret
+   * pair AND a non-empty meeting allowlist — via `isDiagJoinConfigured()` in
+   * `lib/meet/diag-config.ts`, the same predicate the API route's first gate uses
+   * (Sol R1 finding ⑧).
+   *
+   * The page used to branch on `NEXT_PUBLIC_ZOOM_SDK_CLIENT_ID`, which is a
+   * DIFFERENT variable from the pair the API requires: a deployment with only the
+   * public half rendered a join form whose every submission 404'd, and a deployment
+   * with the server pair but no allowlist rendered one whose every submission would
+   * now 404 too. One contract, one answer.
+   *
+   * The `sdkKey` the SDK needs at join time comes from the API response, not from a
+   * NEXT_PUBLIC_ variable, so nothing here depends on the public one.
+   */
+  joinAvailable: boolean;
 };
 
-const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ sdkClientId }) => {
+const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ joinAvailable }) => {
   const [probes, setProbes] = useState<Probe[]>([]);
   const [storageProbe, setStorageProbe] = useState<Probe | null>(null);
   const [meetingNumber, setMeetingNumber] = useState('');
@@ -586,6 +608,23 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ sdkClientId }) => {
       return;
     }
 
+    // A passcode is REQUIRED (Sol R1 finding ⑧). The field previously accepted an
+    // empty value and the join was attempted without `password`, which meant this
+    // instrument would happily walk into a passcode-less meeting — and a
+    // passcode-less Zoom meeting is exactly the configuration §5 forbids for a
+    // school surface. Refusing here keeps the probe from normalising it.
+    if (passcode.trim().length === 0) {
+      setJoinProbe({
+        id: 'test-join',
+        label: 'Tiempo hasta entrar a la reunión',
+        value: 'Falta la clave de la reunión',
+        status: 'fail',
+        note: 'La reunión de prueba debe tener clave. Si la que te pasaron no la tiene, pide otra: una reunión sin clave no se usa en este protocolo.',
+      });
+      setJoinState('error');
+      return;
+    }
+
     setJoinState('joining');
     setJoinProbe((current) => ({ ...current, value: 'Entrando…', status: 'pending' }));
 
@@ -629,7 +668,8 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ sdkClientId }) => {
         signature,
         meetingNumber: digits,
         userName: 'Prueba de equipo',
-        ...(passcode ? { password: passcode } : {}),
+        // Always present — the guard above rejects an empty passcode.
+        password: passcode.trim(),
       });
 
       const elapsedMs = Math.round(performance.now() - startedAt);
@@ -817,7 +857,7 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ sdkClientId }) => {
             </button>
           </section>
 
-          {sdkClientId === null ? (
+          {!joinAvailable ? (
             <section className="mt-5 rounded-xl border border-dashed border-gray-300 bg-white p-6">
               <h2 className="text-base font-semibold text-gray-900">Prueba de conexión</h2>
               <p className="mt-2 text-sm text-gray-600" data-testid="diag-join-placeholder">
@@ -856,9 +896,11 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ sdkClientId }) => {
                   <input
                     type="text"
                     autoComplete="off"
+                    required
+                    aria-required="true"
                     value={passcode}
                     onChange={(event) => setPasscode(event.target.value)}
-                    placeholder="Si la reunión no tiene clave, déjalo vacío"
+                    placeholder="Obligatoria — cópiala tal cual"
                     data-testid="diag-join-passcode"
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand_primary focus:outline-none focus:ring-1 focus:ring-brand_accent"
                   />
@@ -869,7 +911,11 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ sdkClientId }) => {
                 <button
                   type="button"
                   onClick={runTestJoin}
-                  disabled={joinState === 'joining' || joinState === 'joined'}
+                  disabled={
+                    joinState === 'joining' ||
+                    joinState === 'joined' ||
+                    passcode.trim().length === 0
+                  }
                   data-testid="diag-join-button"
                   className="inline-flex items-center justify-center rounded-lg bg-brand_primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand_gray_dark focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -959,9 +1005,14 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ sdkClientId }) => {
 };
 
 /**
- * Session presence only — the same bar the middleware already sets for
- * /meet/*. There is no meeting here, so there is nothing to authorize against;
- * adding a role check would only stop the consultores this page exists for.
+ * Session presence only — the same bar the middleware already sets for /meet/*.
+ * The PAGE is a capability probe: it reads browser features and needs no Zoom
+ * credential, so a role check here would only stop the consultores it exists for.
+ *
+ * The join section is different, and that difference is now explicit: it is gated by
+ * role AND by a server-side meeting allowlist inside
+ * `/api/meet/diag-signature`. This page can render the form for a docente; the API
+ * will refuse to sign for one.
  */
 export const getServerSideProps: GetServerSideProps<MeetDiagPageProps> = async (context) => {
   const supabase = createPagesServerClient(context);
@@ -978,10 +1029,9 @@ export const getServerSideProps: GetServerSideProps<MeetDiagPageProps> = async (
     };
   }
 
-  // Read here rather than inlining NEXT_PUBLIC_* in the component so the absent
-  // case is an explicit prop the page can branch on (and a test can assert)
-  // instead of an undefined that silently renders a broken control.
-  return { props: { sdkClientId: process.env.NEXT_PUBLIC_ZOOM_SDK_CLIENT_ID ?? null } };
+  // ONE contract, evaluated on the server, shared with the API route: SDK pair
+  // present AND allowlist non-empty. Never NEXT_PUBLIC_*.
+  return { props: { joinAvailable: isDiagJoinConfigured() } };
 };
 
 export default MeetDiagPage;

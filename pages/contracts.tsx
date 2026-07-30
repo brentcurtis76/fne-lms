@@ -107,6 +107,7 @@ export default function ContractsPage() {
   const [programas, setProgramas] = useState<Programa[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFirmaPendiente, setShowFirmaPendiente] = useState(false);
   
   // View states
   const [activeTab, setActiveTab] = useState<'lista' | 'nuevo' | 'editar' | 'flujo' | 'nuevo-anexo' | 'editar-anexo'>('lista');
@@ -382,11 +383,14 @@ export default function ContractsPage() {
         .from('contracts')
         .getPublicUrl(fileName);
 
-      // Update contract status to active and save file URL
+      // Update contract status to active and save file URL. Activation always
+      // pulls the contract into the cash flow so accounting sees it; the manual
+      // toggle remains available to opt back out.
       const { error: updateError } = await supabase
         .from('contratos')
-        .update({ 
+        .update({
           estado: 'activo',
+          incluir_en_flujo: true,
           contrato_url: publicUrl
         })
         .eq('id', contrato.id);
@@ -420,6 +424,47 @@ export default function ContractsPage() {
       toast.error('Error al subir el contrato: ' + (error as Error).message);
     } finally {
       setUploadingContrato(null);
+    }
+  };
+
+  // Activate a contract whose signed document hasn't arrived yet. The signed
+  // doc can be uploaded later (upload stays available while contrato_url is
+  // empty); "firma pendiente" is derived as estado==='activo' && !contrato_url.
+  const handleActivateWithoutDocument = async (contrato: Contrato) => {
+    try {
+      const { error } = await supabase
+        .from('contratos')
+        .update({
+          estado: 'activo',
+          incluir_en_flujo: true
+        })
+        .eq('id', contrato.id);
+
+      if (error) throw error;
+
+      await loadContratos();
+
+      if (selectedContrato) {
+        const { data: refreshedContract, error: refreshError } = await supabase
+          .from('contratos')
+          .select(`
+            *,
+            clientes(*),
+            programas(*),
+            cuotas(*)
+          `)
+          .eq('id', selectedContrato.id)
+          .single();
+
+        if (!refreshError && refreshedContract) {
+          setSelectedContrato(refreshedContract);
+        }
+      }
+
+      toast.success('Contrato activado. Recuerda subir el documento firmado cuando el cliente lo envíe.');
+    } catch (error) {
+      console.error('Error activating contract without document:', error);
+      toast.error('Error al activar el contrato: ' + (error as Error).message);
     }
   };
 
@@ -654,10 +699,18 @@ export default function ContractsPage() {
     }
   };
 
+  // Active contracts still waiting for the client's signed document.
+  const isFirmaPendiente = (contrato: Contrato) =>
+    contrato.estado === 'activo' && !contrato.contrato_url;
+
+  const firmaPendienteCount = contratos.filter(isFirmaPendiente).length;
+
   // Rows shown in the list, filtered by the search box. Null-safe so manual
   // contracts (programa_id = null, programas = null) don't blank the table.
-  const filteredContratos = contratos.filter((contrato) =>
-    contractMatchesSearch(contrato, searchQuery),
+  const filteredContratos = contratos.filter(
+    (contrato) =>
+      contractMatchesSearch(contrato, searchQuery) &&
+      (!showFirmaPendiente || isFirmaPendiente(contrato)),
   );
 
   if (loading) {
@@ -753,10 +806,24 @@ export default function ContractsPage() {
             {/* Content based on active tab */}
             {activeTab === 'lista' && (
               <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-200">
+                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-brand_primary">
                     Contratos Registrados ({contratos.length})
                   </h2>
+                  {firmaPendienteCount > 0 && (
+                    <button
+                      onClick={() => setShowFirmaPendiente(!showFirmaPendiente)}
+                      data-testid="firma-pendiente-filter"
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                        showFirmaPendiente
+                          ? 'bg-orange-600 text-white hover:bg-orange-700'
+                          : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
+                      }`}
+                      title="Mostrar solo contratos activos sin documento firmado"
+                    >
+                      Firma pendiente ({firmaPendienteCount})
+                    </button>
+                  )}
                 </div>
 
                 {contratos.length > 0 ? (
@@ -832,6 +899,11 @@ export default function ContractsPage() {
                                 }`}>
                                   {contrato.estado === 'activo' ? 'Activo' : contrato.estado === 'borrador' ? 'Borrador' : 'Pendiente'}
                                 </span>
+                                {isFirmaPendiente(contrato) && (
+                                  <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">
+                                    FIRMA PENDIENTE
+                                  </span>
+                                )}
                                 {contrato.incluir_en_flujo && (
                                   <span className="px-2 py-1 bg-brand_beige text-brand_primary rounded-full text-xs font-medium">
                                     En Flujo
@@ -1044,6 +1116,7 @@ export default function ContractsPage() {
               }}
               onToggleCashFlow={handleToggleCashFlow}
               onUploadContract={handleUploadContract}
+              onActivateWithoutDocument={handleActivateWithoutDocument}
               onGeneratePDF={(contrato) => {
                 const target = resolveContractPdfTarget(contrato);
                 if (target.kind === 'original') {

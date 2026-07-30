@@ -81,6 +81,24 @@ jobs:
         run: supabase db start
       - name: Run pgTAP suite (supabase/tests/)
         run: supabase test db
+      # §17 overlapping-ticker proof. Reuses the stack the pgTAP steps already
+      # started: two concurrent runZoomTick loops against the REAL
+      # claim_zoom_jobs, asserting every job runs exactly once. This is the
+      # FOR UPDATE SKIP LOCKED proof the vitest queue suite explicitly disclaims
+      # — no in-process double can produce a second transaction to skip a lock
+      # on. `supabase db start` brings up Postgres only (no PostgREST), so the
+      # proof speaks SQL and needs the Node toolchain the other gates set up.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Queue concurrency proof (§17 overlapping ticker)
+        run: |
+          # Ask the CLI for the URL rather than hardcoding the default port, so a
+          # future [db] section in supabase/config.toml cannot silently break this.
+          eval "$(supabase status -o env | grep '^DB_URL=')"
+          SUPABASE_DB_URL="${DB_URL}" npm run test:queue
 
   e2e:
     name: Gate 4 — E2E smoke (Playwright)

@@ -47,6 +47,7 @@
     "test:api:coverage": "cross-env NODE_OPTIONS=--require=./tests/mocks/register-canvas.js vitest run --config vitest.config.api.ts --coverage",
     "test:api:watch": "cross-env NODE_OPTIONS=--require=./tests/mocks/register-canvas.js vitest --config vitest.config.api.ts",
     "test:db": "supabase test db",
+    "test:queue": "tsx scripts/ci/queue-concurrency-proof.mjs",
     "test:db:consultor": "psql $DATABASE_URL -f supabase/tests/010-consultor-sessions-rls.sql",
     "apply:group-assignments": "node scripts/apply-group-assignments.js",
     "apply:dev-role": "node scripts/apply-dev-role.js",

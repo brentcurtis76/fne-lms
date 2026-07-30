@@ -89,17 +89,22 @@ describe('/api/cron/zoom-reconcile — auth and method', () => {
 });
 
 describe('/api/cron/zoom-reconcile — hourly enqueue', () => {
-  it('enqueues host_sync keyed on the UTC hour', async () => {
+  it('enqueues host_sync and webhook_sweep, each keyed on the UTC hour', async () => {
     const { queue, enqueued } = createFakeQueue();
     const res = await invokeReconcile({ queue });
 
     expect(res._getStatusCode()).toBe(200);
-    expect(JSON.parse(res._getData())).toEqual({ enqueued: 1 });
+    expect(JSON.parse(res._getData())).toEqual({ enqueued: 2 });
     expect(enqueued).toEqual([
       {
         job_type: 'host_sync',
         payload: { source: 'reconcile' },
         dedupe_key: 'host_sync:2026-07-30T12',
+      },
+      {
+        job_type: 'webhook_sweep',
+        payload: { source: 'reconcile' },
+        dedupe_key: 'webhook_sweep:2026-07-30T12',
       },
     ]);
   });
@@ -110,12 +115,13 @@ describe('/api/cron/zoom-reconcile — hourly enqueue', () => {
     const first = await invokeReconcile({ queue });
     const second = await invokeReconcile({ queue });
 
-    expect(JSON.parse(first._getData())).toEqual({ enqueued: 1 });
+    expect(JSON.parse(first._getData())).toEqual({ enqueued: 2 });
     expect(JSON.parse(second._getData())).toEqual({ enqueued: 0 });
-    // Both calls attempted the insert; the UNIQUE index is what made the second a
-    // no-op, exactly as a Vercel double-fire would be.
-    expect(enqueued).toHaveLength(2);
-    expect(enqueued[0].dedupe_key).toBe(enqueued[1].dedupe_key);
+    // Both calls attempted both inserts; the UNIQUE index is what made the second pass
+    // a no-op, exactly as a Vercel double-fire would be.
+    expect(enqueued).toHaveLength(4);
+    expect(enqueued[0].dedupe_key).toBe(enqueued[2].dedupe_key);
+    expect(enqueued[1].dedupe_key).toBe(enqueued[3].dedupe_key);
   });
 
   it('the next hour gets its own key', async () => {
@@ -127,8 +133,8 @@ describe('/api/cron/zoom-reconcile — hourly enqueue', () => {
       nowMs: Date.parse('2026-07-30T13:00:00.000Z'),
     });
 
-    expect(JSON.parse(noon._getData())).toEqual({ enqueued: 1 });
-    expect(JSON.parse(onePast._getData())).toEqual({ enqueued: 1 });
+    expect(JSON.parse(noon._getData())).toEqual({ enqueued: 2 });
+    expect(JSON.parse(onePast._getData())).toEqual({ enqueued: 2 });
   });
 
   it('answers 500 when the queue is unreachable', async () => {
@@ -152,8 +158,16 @@ describe('reconcile plan', () => {
     expect(utcHourKey(Date.parse('2026-07-31T04:00:00.000Z'))).toBe('2026-07-31T04');
   });
 
-  it('plans exactly one job in this chunk — the rest are later chunks', () => {
+  it('plans exactly the two jobs this phase owns — the rest are later chunks', () => {
     const jobs = planReconcileJobs(NOON_UTC);
-    expect(jobs.map((job) => job.job_type)).toEqual(['host_sync']);
+    expect(jobs.map((job) => job.job_type)).toEqual(['host_sync', 'webhook_sweep']);
+  });
+
+  it('gives every planned job its own hour-scoped dedupe key', () => {
+    const jobs = planReconcileJobs(NOON_UTC);
+    const keys = jobs.map((job) => job.dedupe_key);
+    expect(keys).toEqual(['host_sync:2026-07-30T12', 'webhook_sweep:2026-07-30T12']);
+    // Distinct keys, or one job's enqueue would suppress the other's.
+    expect(new Set(keys).size).toBe(jobs.length);
   });
 });

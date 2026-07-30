@@ -12,10 +12,11 @@
  *
  * ## What is here now
  *
- * One job: `host_sync`, deduped on the UTC hour. `dedupe_key = 'host_sync:<hour>'`
- * against the UNIQUE index means an hour enqueues exactly once, no matter how many
- * times the endpoint fires — Vercel crons can double-fire, and an operator can always
- * `curl` it. A second call in the same hour is a `'duplicate'` and a clean 200.
+ * Two jobs, each deduped on the UTC hour — `host_sync:<hour>` and
+ * `webhook_sweep:<hour>`. Against the UNIQUE index that means an hour enqueues each
+ * exactly once, no matter how many times the endpoint fires — Vercel crons can
+ * double-fire, and an operator can always `curl` it. A second call in the same hour is
+ * a `'duplicate'` and a clean 200.
  *
  * The hour is taken in UTC, deliberately: the key must be stable regardless of the
  * invoking region's local time, and America/Santiago's DST transitions would
@@ -27,12 +28,7 @@
  * `planReconcileJobs()` below:
  *
  *  - **Stalled lifecycle** (§8): `zoom_meetings` rows still `provisioned` well past
- *    `ends_at`, i.e. a `meeting.ended` webhook that never arrived. Needs the
- *    provisioning pipeline first (Z1b-4).
- *  - **Unapplied webhook events**: ledger rows with `processed_at IS NULL` — the
- *    marker `/api/zoom/webhook` leaves when a delivery is recorded but dies before it
- *    is applied. This is the recovery path for that window, and it is why the route
- *    writes the marker at all.
+ *    `ends_at`, i.e. a `meeting.ended` webhook that never arrived.
  *  - **Settings drift** (§12/§18): re-read `auto_recording` for active meetings.
  *    Keys on `auto_recording`, never on `recording_disclaimer` (ledger §9.4).
  *  - **Recording transfer sweep** (§12): `zoom_recording_files` stuck in
@@ -58,14 +54,20 @@ export function utcHourKey(nowMs: number): string {
  * takes the service client as an argument and the route stays exactly as it is.
  */
 export function planReconcileJobs(nowMs: number): ZoomJobInsert[] {
+  const hour = utcHourKey(nowMs);
   return [
     {
       job_type: 'host_sync',
       payload: { source: 'reconcile' },
-      dedupe_key: `host_sync:${utcHourKey(nowMs)}`,
+      dedupe_key: `host_sync:${hour}`,
     },
-    // Future: stalled-lifecycle, unapplied-webhook, settings-drift and
-    // recording-sweep jobs. See the module header for what each one is waiting on.
+    {
+      job_type: 'webhook_sweep',
+      payload: { source: 'reconcile' },
+      dedupe_key: `webhook_sweep:${hour}`,
+    },
+    // Future: stalled-lifecycle, settings-drift and recording-sweep jobs. See the
+    // module header for what each one is waiting on.
   ];
 }
 

@@ -3,8 +3,8 @@
  *
  * A registry rather than a `switch` because the ticker's suite has to be able to
  * dispatch to doubles without mocking a module, and because the set of job types
- * grows one chunk at a time (Z1b-3 owns `host_sync`; Z1b-4 adds `meeting_provision`;
- * recordings are Z4).
+ * grows one chunk at a time (Z1b-3 owns `host_sync`; Z1b-4 adds `meeting_provision`
+ * and `webhook_sweep`; recordings are Z4).
  *
  * **Sequencing rule** (Z1b-3 finding ②): a new job type is registered HERE in the same
  * commit that ships its first enqueue. Otherwise a deploy skew lets a newer instance
@@ -18,7 +18,9 @@ import {
   createMeetingProvisionHandler,
   type MeetingProvisionStore,
 } from './meeting-provision';
+import { createWebhookSweepHandler } from './webhook-sweep';
 import type { ZoomApi } from '../api';
+import type { ZoomWebhookSweepStore } from '../webhook-store';
 import type { ZoomJobHandler, ZoomJobRegistry } from './types';
 
 export type { ZoomJobContext, ZoomJobHandler, ZoomJobRegistry } from './types';
@@ -50,6 +52,7 @@ export interface ZoomJobRegistryDeps {
   api?: ZoomApi;
   hostStore?: ZoomHostStore;
   meetingProvisionStore?: MeetingProvisionStore;
+  webhookSweepStore?: ZoomWebhookSweepStore;
   env?: NodeJS.ProcessEnv;
 }
 
@@ -69,6 +72,7 @@ export function createZoomJobRegistry(deps: ZoomJobRegistryDeps = {}): ZoomJobRe
       store: deps.meetingProvisionStore,
       env: deps.env,
     }),
+    webhook_sweep: createWebhookSweepHandler({ store: deps.webhookSweepStore, env: deps.env }),
     noop: noopJobHandler,
   };
 }

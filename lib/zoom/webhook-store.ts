@@ -51,6 +51,30 @@ export interface ZoomWebhookStore {
   ): Promise<void>;
 }
 
+/** A ledger row the sweep has to finish. `raw_payload` is null once scrubbed. */
+export interface UnappliedWebhookEvent {
+  dedupe_key: string;
+  event_type: string;
+  raw_payload: Record<string, unknown> | null;
+}
+
+/**
+ * The route's contract plus the one query only the `webhook_sweep` job needs.
+ *
+ * Deliberately a SEPARATE interface rather than two more methods on
+ * `ZoomWebhookStore`: the route neither needs nor should be able to reach a bulk scan
+ * of the ledger, and widening the base interface would force every route test double
+ * to implement a method the route never calls.
+ */
+export interface ZoomWebhookSweepStore extends ZoomWebhookStore {
+  /**
+   * Ledger rows with `processed_at IS NULL` received before `receivedBeforeIso`,
+   * oldest first, capped at `limit`. The age floor is what keeps the sweep from
+   * racing a delivery the route is still handling right now.
+   */
+  listUnappliedEvents(receivedBeforeIso: string, limit: number): Promise<UnappliedWebhookEvent[]>;
+}
+
 // ---------------------------------------------------------------------------
 // Supabase-backed store
 // ---------------------------------------------------------------------------
@@ -87,6 +111,25 @@ export interface WebhookSchemaClient {
           error: PostgrestError | null;
         }>;
       };
+      is(
+        column: string,
+        value: null
+      ): {
+        lt(
+          column: string,
+          value: string
+        ): {
+          order(
+            column: string,
+            options: { ascending: boolean }
+          ): {
+            limit(count: number): PromiseLike<{
+              data: UnappliedWebhookEvent[] | null;
+              error: PostgrestError | null;
+            }>;
+          };
+        };
+      };
     };
     upsert(
       values: Record<string, unknown>,
@@ -106,8 +149,25 @@ export interface WebhookSchemaClient {
   };
 }
 
-export function createSupabaseWebhookStore(client: WebhookSchemaClient): ZoomWebhookStore {
+export function createSupabaseWebhookStore(
+  client: WebhookSchemaClient
+): ZoomWebhookSweepStore {
   return {
+    async listUnappliedEvents(receivedBeforeIso, limit) {
+      const { data, error } = await client
+        .from('zoom_webhook_events')
+        .select('dedupe_key, event_type, raw_payload')
+        .is('processed_at', null)
+        .lt('received_at', receivedBeforeIso)
+        .order('received_at', { ascending: true })
+        .limit(limit);
+
+      if (error) {
+        throw new Error(`zoom_webhook_events sweep read failed: ${error.message}`);
+      }
+      return data ?? [];
+    },
+
     async recordEvent(event) {
       // `ignoreDuplicates: true` is PostgREST's ON CONFLICT DO NOTHING. The
       // `.select()` is what makes the outcome observable: a conflict returns zero
@@ -192,7 +252,7 @@ export function createSupabaseWebhookStore(client: WebhookSchemaClient): ZoomWeb
 export function defaultZoomWebhookStore(
   env: NodeJS.ProcessEnv = process.env,
   clientFactory: (env: NodeJS.ProcessEnv) => SupabaseClient = createZoomServiceClient
-): ZoomWebhookStore {
+): ZoomWebhookSweepStore {
   return createSupabaseWebhookStore(
     zoomInternalSchema<WebhookSchemaClient>(clientFactory(env))
   );

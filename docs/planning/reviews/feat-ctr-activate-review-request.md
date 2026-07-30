@@ -4,10 +4,11 @@
 |---|---|
 | **Branch** | `feat/ctr-activate` |
 | **Base** | `main` @ `8a71c89` |
-| **Commits** | 2 — `ffd8552` (feature), `3479219` (review fixes) |
-| **Files** | `pages/contracts.tsx`, `components/contracts/ContractDetailsModal.tsx`, `components/contracts/ContractForm.tsx`, `lib/utils/contract-status.ts` (new), `lib/utils/__tests__/contract-status.test.ts` (new) |
-| **Net diff** | 5 files, +374 / −128 |
-| **Date** | 2026-07-30 |
+| **Commits** | 5 — `ffd8552` (feature), `3479219` (review fixes), `e48acd3` (this document), `33c744e` (R1 remediation), plus the R1 doc-reconciliation commit carrying this table |
+| **State reviewed by R1** | branch @ `e48acd3` — 3 commits, 6 files (5 code + this document). The original version of this table said "2 commits / 5 files" because it excluded its own docs commit; reconciled per R1 item 4. |
+| **Files (code)** | `pages/contracts.tsx`, `components/contracts/ContractDetailsModal.tsx`, `components/contracts/ContractForm.tsx`, `lib/utils/contract-status.ts` (new), `lib/utils/__tests__/contract-status.test.ts` (new), `__tests__/components/contracts/ContractDetailsModal.activation.test.tsx` (new, R1), `__tests__/pages/contracts-activation.test.tsx` (new, R1) |
+| **Net diff vs main** | 8 files, +990 / −128 (includes this document) |
+| **Date** | 2026-07-30 (R1 remediation same day) |
 | **Author** | Claude (Fable 5) with Brent Curtis; product decisions confirmed interactively with Brent |
 
 ---
@@ -82,16 +83,17 @@ Severity order as reported. "Pre-existing" = the defect predates the branch but 
 - **No audit trail / who-when for no-document activation** (surfaced by the altitude reviewer). Dropped because Brent explicitly chose "confirmation dialog only, no schema change" during planning. If compliance later requires it, the right shape already exists in-repo: the `licitacionService` pattern (`VALID_TRANSITIONS` + historial table + server route).
 - **`activating` flag could stick if a Supabase request hangs forever** — requires an indefinitely unsettled promise; judged below the reporting bar.
 - **Refuted:** dialog-closes-on-failure (matches the page-wide toast-only failure convention, and no optimistic state is written); reuse of `components/common/ConfirmModal` (structurally unable to serve the case — dead `isLoading` prop, auto-close on confirm, no warning variant).
+  - *R1 update:* the external reviewer overrode the dialog-closes-on-failure refutation; the behavior is now implemented (see §12, item 2) — activation returns a boolean and the dialog closes only on a successful DB update.
 
 ## 8. Test evidence
 
 Both commits ran the full gate set; final state:
 
-| Gate | Result |
+| Gate | Result (post-R1, commit `33c744e`) |
 |---|---|
 | `npm run type-check` | clean |
 | `npm run lint` (`--max-warnings=0`) | clean; all new interactive elements have `data-testid` (advisory testid baseline improved, not regressed) |
-| `npm test` (Vitest) | **3355 passed / 3355** (223 files; includes 4 new `contract-status` tests) |
+| `npm test` (Vitest) | **3370 passed / 3370** (225 files; includes 4 `contract-status` unit tests + 15 R1 behavioral tests) |
 | `npm run build` | success |
 | `npm run e2e` (Playwright) | **52 passed, 27 skipped** (no contract-page e2e specs exist; the suite guards against regressions elsewhere) |
 
@@ -122,6 +124,25 @@ Manual verification checklist for the reviewer (as admin on `/contracts`):
 ## 11. Known limitations / deferred
 
 - The pre-existing invoice-delete confirmation overlay received the Escape scoping fix but was **not** upgraded to full dialog semantics/focus-trap (only the new activate dialog was). Same for extracting a genuinely shared confirm-dialog component — `ConfirmModal` would need `isLoading` implemented, a warning variant, ReactNode body, and testid pass-through first.
-- No contract-page e2e specs were added (none existed; seeded tenant coverage for contracts is an open gap).
+- No contract-page e2e specs were added (none existed; seeded tenant coverage for contracts is an open gap). RTL behavioral coverage of the page + modal was added in R1 (see §12).
 - `firmado=false` history is not reconstructible for legacy rows (see §9).
-- Branch not yet pushed at time of writing (GitHub credentials unavailable on the machine); all evidence is local at `feat/ctr-activate` @ `3479219`.
+- Branch not yet pushed at time of writing (GitHub credentials unavailable on the machine); all evidence is local on `feat/ctr-activate`.
+
+## 12. R1 remediation (2026-07-30, commit `33c744e` + doc reconciliation)
+
+External review R1 raised four items; all are implemented.
+
+**Item 1 — behavioral RTL/Vitest coverage.** Two new suites, 15 tests total, exercising the real components (not mirrored markup):
+
+- `__tests__/components/contracts/ContractDetailsModal.activation.test.tsx` (8 tests): pendiente offers the activation action; borrador hides it and shows guidance while keeping the upload path; the confirmation dialog closes on success and stays open on failure; Escape dismisses only the topmost layer (dialog first, modal second); Tab/Shift+Tab are trapped between the dialog's two buttons with initial focus on Cancel; an imported active contract (`contrato_url` set, `firmado=false`) offers both the late-upload input and "Marcar como firmado"; a signed active contract shows no upload section.
+- `__tests__/pages/contracts-activation.test.tsx` (7 tests): renders the **real page and real modal** over a fake Supabase client that records update payloads and applies them to the seeded rows (so refreshes behave like production). Covers: activating a `pendiente` **and** a `vigente` contract writes exactly `{estado:'activo', incluir_en_flujo:true}`; a failed update keeps the confirmation dialog open (error toast, zero writes recorded); a pending upload writes `{firmado, contrato_url, estado, incluir_en_flujo}`; a late upload on an active **opted-out** contract writes only `{firmado, contrato_url}` and the row's `incluir_en_flujo` stays `false`; mark-signed writes `{firmado:true}` only; the firma-pendiente filter remains recoverable when its count reaches zero (chip persists at `(0)`, list recovers, chip unmounts once filter is off and count is 0).
+
+**DoD evidence — tests fail pre-fix:** running both suites against the pre-fix implementation (`git checkout ffd8552 -- <impl files>`) yields **10 failed / 5 passed**. The 5 passes cover behavior that already existed at `ffd8552` (pendiente shows the button, success closes the dialog, activation payloads — per "where applicable").
+
+**Item 2 — activation communicates failure.** `onActivateWithoutDocument` now returns `Promise<boolean>` (the page handler returns `true` only after a successful DB update; errors toast and return `false`). The modal closes the confirmation dialog only on `true`. This supersedes the §7 refutation, per the reviewer.
+
+**Item 3 — filter toggle a11y.** The chip carries `aria-pressed={showFirmaPendiente}` and its `title` now reads "Mostrar solo contratos activos con firma sin confirmar" — describing an unconfirmed signature rather than document absence, consistent with the `firmado`-based model.
+
+**Item 4 — reconciliation.** The header table now states the branch state R1 actually reviewed (`e48acd3`, 3 commits / 6 files including this document) and the current post-remediation state; the earlier "2 commits / 5 files" figure had excluded this document's own commit.
+
+**Test-infrastructure note for future contract page tests:** the page's session effect depends on `[router]`, so a `useRouter` mock must return a **stable** object — a fresh object per call re-fires the effect in an infinite loop. Pages also rely on the automatic JSX runtime; under vitest's classic transform, set `(globalThis as any).React = React` in the suite.

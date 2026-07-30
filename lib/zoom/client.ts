@@ -39,6 +39,7 @@
  */
 import {
   isZoomError,
+  parseRetryAfter,
   ZoomAuthError,
   ZoomNonRetryableError,
   ZoomRateLimitError,
@@ -179,19 +180,6 @@ function parseFailureBody(raw: string): ParsedFailure {
     // ends up in `zoom_jobs.last_error`, and a full page there helps nobody.
     return { message: raw.slice(0, 200) };
   }
-}
-
-/**
- * `Retry-After` is either delta-seconds or an HTTP-date (RFC 9110). Zoom sends
- * seconds, but parsing both costs three lines and removes a failure mode.
- */
-export function parseRetryAfter(header: string | null, nowMs: number): number | undefined {
-  if (!header) return undefined;
-  const trimmed = header.trim();
-  if (/^\d+$/.test(trimmed)) return Number(trimmed);
-  const asDate = Date.parse(trimmed);
-  if (!Number.isFinite(asDate)) return undefined;
-  return Math.max(0, Math.ceil((asDate - nowMs) / 1000));
 }
 
 // ---------------------------------------------------------------------------

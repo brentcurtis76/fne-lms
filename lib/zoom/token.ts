@@ -38,7 +38,13 @@
  * one of the two behaviours until somebody measures it against a live account.
  */
 import { createClient } from '@supabase/supabase-js';
-import { ZoomAuthError, ZoomConfigError, ZoomRetryableError } from './errors';
+import {
+  parseRetryAfter,
+  ZoomAuthError,
+  ZoomConfigError,
+  ZoomRateLimitError,
+  ZoomRetryableError,
+} from './errors';
 
 const ZOOM_OAUTH_URL = 'https://zoom.us/oauth/token';
 
@@ -267,6 +273,17 @@ export function createZoomTokenProvider(deps: ZoomTokenProviderDeps): ZoomTokenP
         throw new ZoomRetryableError(`Zoom OAuth token request failed: ${response.status} (${detail}).`, {
           status: response.status,
           operation: 'POST /oauth/token',
+        });
+      }
+      if (response.status === 429) {
+        // The OAuth endpoint throttles like any other. This is NOT an auth failure —
+        // the credentials were never judged — so it must not land in the job layer's
+        // auth triage, which is terminal. `errors.ts` says 429 ⇒ `rate_limit`, retry
+        // after `retryAfterSeconds`, and that holds here too.
+        throw new ZoomRateLimitError(`Zoom OAuth token request was rate limited: 429 (${detail}).`, {
+          status: response.status,
+          operation: 'POST /oauth/token',
+          retryAfterSeconds: parseRetryAfter(response.headers.get('retry-after'), now()),
         });
       }
       throw new ZoomAuthError(`Zoom OAuth token request rejected: ${response.status} (${detail}).`, {

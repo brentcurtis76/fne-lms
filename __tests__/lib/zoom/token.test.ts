@@ -14,7 +14,12 @@ import {
   type SchemaScopedClient,
   type ZoomTokenCacheStore,
 } from '../../../lib/zoom/token';
-import { ZoomAuthError, ZoomConfigError, ZoomRetryableError } from '../../../lib/zoom/errors';
+import {
+  ZoomAuthError,
+  ZoomConfigError,
+  ZoomRateLimitError,
+  ZoomRetryableError,
+} from '../../../lib/zoom/errors';
 
 const ENV = {
   ZOOM_S2S_ACCOUNT_ID: 'AcctSynthetic0001XXXXXX',
@@ -290,6 +295,64 @@ describe('createZoomTokenProvider — error taxonomy', () => {
     await expect(provider.getToken()).rejects.toMatchObject({
       kind: 'auth',
       status: 401,
+    });
+  });
+
+  /**
+   * The OAuth endpoint is rate-limited like any other Zoom endpoint. Folding its 429
+   * into the auth branch — which is what `!response.ok` did before this case existed —
+   * contradicts the taxonomy table in `errors.ts` (429 ⇒ `rate_limit`, caller may
+   * retry after `retryAfterSeconds`) and routes a transient throttle to Z1b-3's auth
+   * triage, where no amount of waiting is allowed to help.
+   */
+  it('classifies a 429 from the OAuth endpoint as rate_limit, NOT auth', async () => {
+    const impl = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ reason: 'Too Many Requests' }), {
+          status: 429,
+          headers: { 'retry-after': '17' },
+        })
+    ) as unknown as typeof fetch;
+    const provider = createZoomTokenProvider({ store: memoryStore().store, fetchImpl: impl, env: ENV });
+
+    const error = await provider.getToken().catch((e: Error) => e);
+    expect(error).toBeInstanceOf(ZoomRateLimitError);
+    expect(error).not.toBeInstanceOf(ZoomAuthError);
+    expect(error).toMatchObject({ kind: 'rate_limit', status: 429, retryAfterSeconds: 17 });
+  });
+
+  it('classifies a 429 with no Retry-After as rate_limit with no wait hint', async () => {
+    const impl = vi.fn(async () => new Response('', { status: 429 })) as unknown as typeof fetch;
+    const provider = createZoomTokenProvider({ store: memoryStore().store, fetchImpl: impl, env: ENV });
+
+    const error = await provider.getToken().catch((e: Error) => e);
+    expect(error).toBeInstanceOf(ZoomRateLimitError);
+    expect(error).toMatchObject({ kind: 'rate_limit', status: 429 });
+    expect((error as ZoomRateLimitError).retryAfterSeconds).toBeUndefined();
+  });
+
+  it('parses an HTTP-date Retry-After against the provider clock', async () => {
+    // RFC 9110 allows either form. Resolving the date against the injected `now`
+    // seam — not wall time — is what keeps this assertion deterministic.
+    const clock = 1_800_000_000_000;
+    const impl = vi.fn(
+      async () =>
+        new Response('', {
+          status: 429,
+          headers: { 'retry-after': new Date(clock + 45_000).toUTCString() },
+        })
+    ) as unknown as typeof fetch;
+    const provider = createZoomTokenProvider({
+      store: memoryStore().store,
+      fetchImpl: impl,
+      env: ENV,
+      now: () => clock,
+    });
+
+    await expect(provider.getToken()).rejects.toMatchObject({
+      kind: 'rate_limit',
+      status: 429,
+      retryAfterSeconds: 45,
     });
   });
 

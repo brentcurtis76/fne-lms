@@ -1,321 +1,444 @@
-# PLAN — INSPIRA Comms (Pasantías Barcelona web/leads + Email platform)
+# PLAN — INSPIRA Comms (Pasantías Barcelona web/leads + Email platform) — v2
 
 META
-- REPO / ROOT: fne-lms-working (nuevaeducacion.org — hybrid public marketing site + Genera LMS; Next.js Pages Router, TS strict, Tailwind, Supabase, Vercel auto-deploy from `main`)
-- BRANCH CONVENTION: `phase/p<n>-<slug>` — total length ≤20 chars (Vercel preview DNS limit). Each phase branches from current `main`; a phase starts only after its dependencies are DONE (merged).
-- PROCESS: AGENT-WORKFLOW.md SOP. Roles — PM: Fable (writes this file + LEDGER.md only, never source); Executor: fresh Opus session per round; Adversarial reviewer: Codex Sol (final say on BLOCKING); Arbiter/trigger: Brent. Loop caps: executor 3 red-test attempts → BLOCKED; 3 PM↔executor rounds → re-plan; 2 Codex rounds → Brent decides. Finding taxonomy: BLOCKING / SHOULD-FIX / NIT.
-- MERGES: per-phase explicit go from Brent only. `main` auto-deploys to production. PM never merges on its own authority.
-- PLAN FROZEN: — (DRAFT; freezes on Codex plan-review PASS. Changes after freeze require a Decision Log entry.)
+- REPO / ROOT: fne-lms-working (nuevaeducacion.org — hybrid public marketing site + Genera LMS; Next.js Pages Router, TypeScript, Tailwind, Supabase, Vercel auto-deploy from `main`)
+- BRANCH CONVENTION: `phase/<id>-<slug>`, total ≤20 chars. Each phase branches from current `main`; a phase starts only after its dependencies are DONE (merged).
+- PROCESS: SOP at `docs/plan/AGENT-WORKFLOW.md` (authoritative in-repo copy). PM: Fable (writes PLAN.md/LEDGER.md only). Executors: fresh Opus session per round. Reviewer: Codex Sol (final say on BLOCKING). Arbiter: Brent. Caps: 3 executor attempts / 3 PM rounds / 2 Codex rounds.
+- MERGES: per-phase explicit go from Brent only; `main` auto-deploys. PM never merges on own authority.
+- MIGRATIONS: dispatched through the repo DB-agent flow (dedicated single-purpose DB executor round; DDL in this plan is the spec, not hand-off-free SQL). Additive only; **no DROP/TRUNCATE/destructive ALTER ever, including in rollback paths** — rollback of DB phases = disable consuming routes/UI (forward-only), never schema removal.
+- REVIEW ARTIFACTS: executor phase review-requests at `docs/planning/reviews/fase-<phase-id>-review-request.md` (CLAUDE.md rule 6 location/naming); Codex phase reviews at `docs/plan/reviews/REVIEW-<phase-id>.md`.
+- PLAN v1 REVIEW: FAIL (13 BLOCKING) — `docs/plan/reviews/REVIEW-PLAN.md`. This v2 is the remediation; triage in LEDGER round 2.
+- PLAN FROZEN: — (DRAFT; freezes on Codex plan-review PASS)
 
 ## Goal
 
-Improve communication and sales of the Pasantías INSPIRA Barcelona program for the **October 2026 cohort** (week 1: Mon Oct 12–Fri Oct 16; week 2: Tue Oct 20–Fri Oct 23 — Mon 19 skipped, holiday), and give FNE a permanent in-house capability to (a) capture and track interest leads and (b) design and send broadcast emails to its contact database.
+Improve communication and sales of Pasantías INSPIRA Barcelona for the **October 2026 cohort** (week 1 Mon Oct 12–Fri 16; week 2 Tue Oct 20–Fri 23), and give FNE a permanent in-house capability to (a) capture/track interest leads and (b) design and send broadcast emails to its contact base — safely: no price leakage to the web, provable consent, durable suppression, reliable sending.
 
-Concretely:
-1. A dedicated, inviting, linkable landing page `/pasantias` with correct dates (today the homepage advertises "Abril 2026" — already past — and "Noviembre 2026" — wrong).
-2. Better downloadables generated from a single source of truth: an open 1–2 page "ficha" (no prices) + a full brochure PDF (with prices), replacing the error-ridden PPTX flow ("domingo 11 de enero" leftover, stale validity date, missing week 2).
-3. Lead capture into the DB with consent (Ley 21.719), auto-reply with the brochure, internal notification, and a thin admin triage view — replacing the Formspree path (50/month hard cap, stores nothing).
-4. A simple broadcast email platform ("Correos"): contacts + tags + CSV import, fixed-frame branded composer, reliable batch sending via Resend, legal unsubscribe, basic per-campaign metrics.
+1. Dedicated landing page `/pasantias` with correct dates (homepage currently advertises Abril 2026 — past — and Noviembre 2026 — wrong).
+2. Generated downloadables from a single content source: open ficha (no prices) + full brochure (prices; UI-gated, publicly shareable link — owner decision).
+3. Lead capture with explicit consent evidence, auto-reply, internal notification, admin triage.
+4. "Correos": admin-only broadcast platform — contacts + tags + CSV import, fixed-frame composer, cron-driven reliable sending via Resend, one-click unsubscribe, per-campaign metrics.
 
 ## Non-goals
 
-- No CRM beyond lead-status triage (no pipelines, reminders, assignments).
-- No email automation sequences, scheduling, merge tags, per-link analytics, A/B tests (v2 candidates; schema must not preclude them).
-- No prices anywhere on the web or in email bodies — prices live only in the full brochure PDF (Brent decision, 2026-07-30).
-- No changes to the "Programa Estratégico para Directivos" offer (October = single track, líderes pedagógicos only).
-- No rebuild of the existing B2B quoting backend (`pasantias_quotes`, `/admin/quotes`, `/quote/[id]`).
-- No CMS / DB-driven marketing content editing; cohort content is a typed constants file.
-- No Resend Audiences/Broadcasts — contact data stays in our Supabase.
-- Out of scope for this plan (tracked in Backlog): hardening/removing the open relay `pages/api/send-email.ts`; migrating the homepage off the `cdn.tailwindcss.com` runtime script; `form_submissions` missing-migration drift; homepage contact form dual-write into leads.
+- No CRM beyond lead triage; no automation sequences, scheduling, merge tags, per-link analytics, A/B tests (v2; schema must not preclude).
+- No prices in any web bundle, page, or email body — brochure PDF bytes only.
+- No changes to the Directivos offer (October = single track) or the B2B quoting backend.
+- No CMS; cohort content is typed constants gated by an owner-approved content brief.
+- No Resend Audiences/Broadcasts; contact data lives in our Supabase.
+- No school-scoped access to the email platform (admin-only v1 — owner decision; school targeting via tags).
 
 ## Frozen architectural decisions
 
-No phase may violate these without a Decision Log entry.
+- **D-01 Split cohort data by exposure.** `lib/pasantias/cohort-public.ts` — client-safe (dates, schools, experts, objectives, day structure, lodging area, Madrid school names; zero monetary fields) — is the only cohort module public pages may import. `lib/pasantias/cohort-commercial.ts` — prices, payment terms, monetary includes/excludes, plus sentinel constant `__INSPIRA_COMMERCIAL__` — may be imported **only** by the server-side brochure generator. Enforced by a post-build assertion (`scripts/check-price-leak.mjs`: sentinel and price literals absent from `.next/static/**`) wired into CI, plus a unit test that the serialized public module contains no monetary keys/values.
+- **D-02 Prices exist only in brochure PDF bytes.** Verified by PDF text extraction (brochure contains €1.560; ficha does not), the D-01 bundle assertion, and email-content tests (no price strings).
+- **D-03 Leads.** Dedicated `pasantias_leads` table. Transition graph (authoritative helper `canTransitionLead(from,to)` in `lib/pasantias/leads.ts`, used by every writer; each edge tested, allowed and denied): `new→contacted`, `new→dismissed`, `contacted→converted`, `contacted→dismissed`, `dismissed→new` (admin re-open, or automatic on public resubmission). `converted` is terminal. No flow creates platform users from a lead.
+- **D-04 Write/access posture.** Public-facing writes go through server routes using `createServiceRoleClient()`. All new tables: RLS enabled, **admin-only** policies (Track A and Track B — owner decision "solo admins"), no anon policies, no `community_manager` grant (v2 backlog), therefore **no `middleware.ts` changes anywhere in this plan**. In-memory `lib/rateLimit.ts` is best-effort dampening only — never a security-relevant acceptance criterion; durable cost controls are structural (bucket-cached PDFs, per-lead email dedup, cron-paced sending).
+- **D-05 Generated downloadables.** React-PDF from cohort modules; cached in `propuestas` bucket keyed by `BROCHURE_VERSION`; served by streaming routes with stable public URLs and `Cache-Control: public` (consistent with the owner's gating decision: form is the UI path, link is shareable). Manual override files require explicit per-file owner approval recorded in the ledger (an unreviewed override can violate D-02).
+- **D-06 Email schema sized to obligations, not a table quota.** Core: `email_contacts`, `email_campaigns`, `email_campaign_sends`, plus `email_suppression` (SHA-256 email-hash tombstones that survive erasure and block resurrection at import AND queue time) and `email_webhook_events` (`svix_id` unique — at-least-once dedup ledger). SQL surface the API layer cannot express ships as SECURITY DEFINER functions/RPCs: `queue_campaign_sends`, `claim_campaign_sends`, `import_email_contacts`, `get_campaign_metrics`, `list_contact_tags`, `retry_failed_sends`, `anonymize_email_contact`. All SECURITY DEFINER: `SET search_path = ''` with schema-qualified references, `REVOKE EXECUTE FROM PUBLIC, anon, authenticated` (baseline default-grants make PUBLIC revocation mandatory), EXECUTE granted to `service_role` only. Campaign metrics always computed from sends (no denormalized counters).
+- **D-07 Sending is server-driven and durable.** A drain route (`/api/cron/email-drain`, `Bearer CRON_SECRET`, per existing cron-route pattern) processes all `sending` campaigns in short idempotent ticks: claim ≤200 (`FOR UPDATE SKIP LOCKED`; stale `sending` rows >15 min reclaimable), send ≤100-recipient `resend.batch.send` calls, write the ledger per batch (index-aligned ids). Invoked by Vercel cron (cadence per B2 spike findings on the account's plan) AND by an authenticated admin "Procesar ahora" action — the UI observes state, it never owns liveness. **Campaign state machine:** `draft→sending` (queue, >0 recipients) · `draft→failed` (queue error/empty audience) · `sending→sent` (complete, 0 failed) · `sending→sent_with_errors` (complete, ≥1 failed) · `sent_with_errors→sending` (explicit retry API flips `failed→pending`). Send-row machine: `pending→sending→sent|failed|skipped`; `failed→pending` via retry RPC only. Completion requires no pending AND no claimable rows. Accepted tradeoff (documented): a mid-tick crash can duplicate ≤1 batch after reclaim — chosen over silent non-delivery.
+- **D-08 Compliance is structural and evidenced.** Every campaign email: per-recipient unsubscribe URL + `List-Unsubscribe` + `List-Unsubscribe-Post: One-Click`. Unsubscribe: GET never mutates; POST (JSON and RFC 8058 form-encoded) is idempotent, exempt from shared-IP throttling, returns generic 200 for unknown tokens but **5xx on internal failure** (caller can retry). Webhooks verified with the `svix` package (Resend 3.5.0 has no verifier — dependency decided here), raw body capped (256 KB), timestamp tolerance ±5 min past **and** future, `svix_id` deduplicated via insert-first into `email_webhook_events`; event state table covers `sent, delivered, delivery_delayed, failed, suppressed, bounced, complained, opened, clicked` (failed/suppressed/bounced/complained also suppress the contact); unknown types/duplicates → 200; internal failure → 5xx.
+- **D-09 Reuse with verified assumptions.** Resend for all sending — after B1 closes the open relay and B2 locks the installed SDK's real contracts (batch response nesting, headers, error-as-value shapes, idempotency support; upgrade only if the spike says so). Campaign editor schema = the shared TipTap config's real capabilities (headings 2–3, bold/italic/underline, lists, paragraphs) **plus a deliberately added Link extension with regression tests**; no H1, no inline images (hero slot covers imagery); the renderer implements exactly this schema. `renderCampaignHtml` is a marketing-specific sibling of `emailLayout` (different footer obligations). URLs via `lib/utils/app-url.ts`. Admin UI follows the hand-rolled Tailwind + MainLayout house pattern.
+- **D-10 Repo hard rules.** RLS + pgTAP for every new table (privilege matrix AND behavioral contracts); migrations via DB-agent flow, additive, forward-only rollbacks; es-CL UI copy, English code/commits; `data-testid` on new interactive elements; e2e via `getByRole`/`getByTestId`, no `waitForTimeout`; no agent deployments.
+- **D-11 Tenancy exception (owner-approved 2026-07-30).** Comms data (leads, contacts, campaigns) is FNE-global — no `school_id`. Substitute access rule: admin-only RLS + service-role writes (D-04). School-level segmentation via contact tags. The GENERA `school_id` invariant is untouched for academic data. Minor-data guard: comms tables hold adult professional contacts only; platform imports exclude non-staff roles (allowlist of current staff role types); no student/family identities may enter these tables (EIPD position: out of comms scope by construction).
+- **D-12 Consent is evidence, not a default.** `consent_accepted_at` has **no DB default** — always explicitly supplied. Every consent-bearing row records `consent_notice_version` (from `PRIVACY_NOTICE_VERSION`, introduced in A0 with a stable, dated privacy notice — the current page renders today's date on every request and must be fixed first). `email_contacts` records `legal_basis` CHECK (`consent_form | customer_relationship | manual_verified`) + `basis_note` + `basis_recorded_at` (NOT NULL, no defaults on basis fields). Platform approval ≠ marketing permission: imports require an explicit admin-attested basis; lead-form consent text covers response + requested materials + related program updates (the recorded basis for later broadcasts to leads).
 
-- **D-01 Single source of truth for cohort content**: `lib/pasantias/cohort.ts` (pure typed data, no side-effect imports). Landing page, homepage teaser card, ficha, brochure, and lead auto-reply all render from `CURRENT_COHORT`. No cohort date, price, school, or name may be hardcoded anywhere else.
-- **D-02 No prices on web/email**: prices render only inside the full brochure PDF. The ficha, landing page, homepage, and email bodies never show prices.
-- **D-03 Leads table is new and dedicated**: `pasantias_leads` (NOT an extension of `tractor_signups`). Status machine `new → contacted → converted | dismissed`. No flow may create platform users from a lead.
-- **D-04 Service-role write posture**: public form/API writes go through `createServiceRoleClient()` server-side. New tables get RLS enabled with admin-role (Track A) or admin+community_manager (Track B) policies only; **no anon policies**. Blocked INSERT throws, blocked UPDATE returns empty (pgTAP asserts accordingly).
-- **D-05 Downloadables are generated**: React-PDF (`renderToBuffer`) from `CURRENT_COHORT`, reusing `lib/propuestas/{fonts,styles}.ts` + its components; cached in the `propuestas` bucket keyed by `BROCHURE_VERSION`; served by streaming API routes with stable public URLs. A manually designed PDF uploaded to the cache path legitimately overrides generation.
-- **D-06 Email campaign data model**: exactly 3 tables (`email_contacts`, `email_campaigns`, `email_campaign_sends`) + 3 SECURITY DEFINER functions (`queue_campaign_sends`, `claim_campaign_sends`, `import_email_contacts`; EXECUTE revoked from anon/authenticated). The sends ledger (`UNIQUE(campaign_id, contact_id)`, insert-before-send) is the idempotency mechanism. Campaign counts are always computed from sends (no denormalized counters).
-- **D-07 Send pipeline is UI-driven ticks**: short idempotent POST ticks claim ≤200 rows (`FOR UPDATE SKIP LOCKED`, 15-min stale reclaim) and send ≤100-recipient Resend batches, writing the ledger per batch. No cron, no long-running mega-function. Accepted tradeoff: a mid-request crash can duplicate at most one batch after reclaim — chosen over silent non-delivery.
-- **D-08 Compliance is structural**: every campaign email carries a per-recipient unsubscribe URL + `List-Unsubscribe` + `List-Unsubscribe-Post: One-Click` headers; unsubscribe GET never mutates (scanner-safe), POST does; bounces/complaints suppress the contact via verified Resend webhooks (`RESEND_WEBHOOK_SECRET`, raw-body HMAC). Lead capture requires a consent checkbox → `consent_accepted_at`.
-- **D-09 Reuse over rebuild**: Resend (existing prod integration) for all sending; `TipTapEditor` for campaign bodies; `emailLayout` NOT reused for marketing (separate `renderCampaignHtml` — different footer obligations); admin pages follow the hand-rolled Tailwind + MainLayout + react-hot-toast house style (`pages/admin/news.tsx` model); URLs via `lib/utils/app-url.ts` (never hardcode domains).
-- **D-10 Repo hard rules apply**: RLS on every new `public` table + pgTAP matrix; migrations additive only; UI copy es-CL, code/comments/commits English; `data-testid` on new interactive elements; e2e selectors `getByRole`/`getByTestId`, never `waitForTimeout`; no deployments by agents; executor writes `docs/planning/reviews/<phase-branch>-review-request.md` per phase (CLAUDE.md rule 6) as Codex review input.
+## Working constraints (verified 2026-07-30)
 
-## Working constraints (evidence, 2026-07-30)
-
-- GitHub push auth is broken (invalid gh token, no SSH) — commits stay local; gates run locally (`npm run type-check && npm run lint && npm test && npm run build`, + `npm run test:db` / targeted e2e). Full local e2e is false-green-prone (~57 unseeded legacy failures; `| tail` hides the count) — run targeted specs and grep for "N failed".
-- Local `.env.local` has no `RESEND_API_KEY` — email paths must fail soft locally (log + succeed pattern, as `grant.ts` does); real send verification happens on preview/prod.
-- `supabase test db` requires Supabase CLI + Docker running.
+- GitHub push auth restored ~15:20 — branches push; CI runs on PRs. CI today runs type-check, Vitest, `supabase test db`, and **only** `tests/e2e/smoke.spec.ts` (`.github/workflows/ci.yml:85-112`) — phase T2 makes new specs mandatory.
+- Local `.env.local` lacks `RESEND_API_KEY` — email code paths must fail soft locally; real sends verified on preview/prod (A9/B11 gates).
+- `supabase test db` needs Supabase CLI + Docker. Full local e2e is false-green-prone (~57 legacy env failures) — run targeted specs, grep "N failed".
+- Resend 3.5.0 installed: batch response nested `{data:{data:[{id}]}}`, no webhook verifier — B2 spike locks final shapes before any sending code.
 
 ## Phase index
 
+Track T = shared infrastructure, A = pasantías, B = email platform.
+
 | ID | Name | Status | Branch | Depends on |
 |----|------|--------|--------|-----------|
-| P1 | Cohort source of truth + homepage date fix | TODO | `phase/p1-cohort` | — |
-| P2 | `pasantias_leads` migration + RLS + pgTAP | TODO | `phase/p2-leads-db` | — |
-| P3 | Lead API + auto-reply/notification emails | TODO | `phase/p3-lead-api` | P1, P2 |
-| P4 | Ficha + brochure PDF generators + endpoints | TODO | `phase/p4-pdfs` | P1 |
-| P5 | `/pasantias` landing page + LeadForm + e2e | TODO | `phase/p5-landing` | P1, P3, P4 |
-| P6 | Site link rewiring + contact.ts fixes | TODO | `phase/p6-links` | P5 |
-| P7 | Admin leads triage page + API | TODO | `phase/p7-leads-ui` | P2 |
-| P8 | Email marketing schema + functions + pgTAP | TODO | `phase/p8-email-db` | — |
-| P9 | Contacts admin (CRUD/search/tags) + routing | TODO | `phase/p9-contacts` | P8 |
-| P10 | CSV + platform imports | TODO | `phase/p10-import` | P9 |
-| P11 | Unsubscribe + Resend webhooks | TODO | `phase/p11-unsub` | P8 |
-| P12 | Campaign HTML renderer | TODO | `phase/p12-render` | — |
-| P13 | Campaigns API + composer + test-send | TODO | `phase/p13-compose` | P9, P12 |
-| P14 | Send pipeline + progress/resume + metrics | TODO | `phase/p14-send` | P11, P13 |
+| A0 | Content brief sign-off + privacy notice versioning | TODO | `phase/a0-content` | — |
+| T1 | (reserved — merged into A0/B2) | — | — | — |
+| T2 | CI: synthetic admin fixture + mandatory non-skipping specs | TODO | `phase/t2-ci` | — |
+| A1 | Cohort data modules + leak guard + homepage date fix | TODO | `phase/a1-cohort` | A0 |
+| A2 | `pasantias_leads` migration + RLS + pgTAP (DB-agent) | TODO | `phase/a2-leads-db` | A0 |
+| A3 | Brochure + ficha generators + PDF text/visual QA | TODO | `phase/a3-pdfgen` | A1 |
+| A4 | PDF serving endpoints (cache/headers) + leak checks | TODO | `phase/a4-pdfsrv` | A3 |
+| A5 | Lead API + transition helper + auto-reply/notification | TODO | `phase/a5-lead-api` | A2, A4 |
+| A6 | `/pasantias` landing page + LeadForm + UI e2e | TODO | `phase/a6-landing` | A5, T2 |
+| A7 | Link rewiring (incl. programas flipbooks) + contact.ts swap | TODO | `phase/a7-links` | A6 |
+| A8 | Admin leads triage (transition-enforced) | TODO | `phase/a8-leads-ui` | A5, T2 |
+| A9 | Track A release verification (integration e2e + prod checklist) | TODO | `phase/a9-verify` | A6, A7, A8 |
+| B1 | Open-relay remediation (prerequisite for all Track B) | TODO | `phase/b1-relay` | — |
+| B2 | Resend SDK / svix / Vercel-cron compatibility spike | TODO | `phase/b2-spike` | B1 |
+| B3 | Email schema: tables + RLS + privilege pgTAP (DB-agent) | TODO | `phase/b3-email-db` | A0, B2 |
+| B4 | Email SQL functions + behavioral pgTAP (DB-agent) | TODO | `phase/b4-email-fn` | B3 |
+| B5 | Contacts admin (CRUD, tags, anonymize-erasure) | TODO | `phase/b5-contacts` | B4, T2 |
+| B6 | Imports: CSV + platform sources with basis attestation | TODO | `phase/b6-import` | B5 |
+| B7 | Unsubscribe + webhooks (svix, dedup, full event set) | TODO | `phase/b7-unsub` | B4 |
+| B8 | Renderer + editor Link extension + sandboxed preview | TODO | `phase/b8-render` | B2 |
+| B9 | Campaigns API + composer UI + test-send | TODO | `phase/b9-compose` | B5, B8 |
+| B10 | Send backend: drain route + state machine + retry | TODO | `phase/b10-send` | B7, B9 |
+| B11 | Send/progress/metrics UI + campaign e2e + preflight gate | TODO | `phase/b11-sendui` | B10 |
 
-Execution order: Track A (P1→P7) first — the October cohort is selling now and P1 alone fixes publicly wrong dates. P8/P12 may interleave (no Track A deps). Estimated total: ~4–6 focused executor days + review loops.
-
----
-
-## Phase P1 — Cohort source of truth + homepage date fix
-
-**Scope:** `lib/pasantias/cohort.ts` (new); `__tests__/lib/pasantias-cohort.test.ts` (new); `pages/index.tsx` (surgical edit of the "Próximas Expediciones" card, ~L300–313).
-**Out of scope:** nav links, flipbook modals/buttons, contact form, any other homepage section, any new page.
-**Acceptance criteria:**
-- [A1] `lib/pasantias/cohort.ts` exports typed `CURRENT_COHORT` (id `octubre-2026`), `BROCHURE_VERSION`, `BROCHURE_FILENAME` with: 2 weeks (2026-10-12→16, 2026-10-20→23, week-2 note "lunes 19 feriado"), prices (1000/560/1560, Madrid 810), minParticipants 5, ≥6 schools, 8 experts (Coral Regí directora, Mora del Fresno coordinadora, Jordi Musons, Boris Mir, Pepe Menéndez, Joan Quintana, Sergi del Moral, Sandra Entrena), 13 objectives, day structure, includes/excludes, payment terms, lodging (Residencia Instituto Relacional, Eixample), Madrid schools (IDEO, Santa Gema, Virgen de Europa). Pure data module — no imports with side effects.
-- [A2] Guard test passes: money math (1000+560=1560), all week dates valid ISO and Oct 19 absent, week 2 starts Tuesday, minParticipants 5, ≥6 schools, 13 objectives.
-- [A3] Homepage "Próximas Expediciones" card shows exactly one upcoming cohort — "Octubre 2026" with "12–16 y 20–23 de octubre" — rendered from `CURRENT_COHORT` (no literal date strings in `index.tsx`), replacing the "Abril 2026"/"Noviembre 2026" cards. No prices shown (D-02).
-- [A4] `grep -n "Abril 2026\|Noviembre 2026" pages/index.tsx` returns only the two flipbook modal titles (L1083/L1133 area — out of scope here, P6 handles them).
-- [A5] Gates green: `npm run type-check && npm run lint && npm test && npm run build`.
-**Test plan:** `__tests__/lib/pasantias-cohort.test.ts` — `describe('COHORT_OCT_2026')`: `totals add up`, `no session on Oct 19`, `week dates are valid ISO Mondays/Tuesdays–Fridays`, `has 13 objectives and >=6 schools and 8 experts`. Command: `npx vitest run __tests__/lib/pasantias-cohort.test.ts`, then full `npm test`.
-**Definition of done:** criteria checked, gates green, review-request file written, no BLOCKING findings, branch mergeable.
-**Risks / unknowns:** day-1 content (Oct 12 = Fiesta Nacional in Spain, schools closed) unconfirmed — model it as data (`weeks[0].note` or per-day labels) so correcting it later is a one-line data change, not a layout change.
-**Rollback:** revert the branch; homepage returns to prior (stale) cards. No DB involvement.
-
-## Phase P2 — `pasantias_leads` migration + RLS + pgTAP
-
-**Scope:** new migration `supabase/migrations/<ts>_add_pasantias_leads.sql`; new `supabase/tests/030-pasantias-leads-rls.sql`.
-**Out of scope:** any API route, UI, or email code; any change to `tractor_signups` or other tables.
-**Acceptance criteria:**
-- [A1] Table `public.pasantias_leads` per spec: id uuid PK default `gen_random_uuid()`; cohort text NOT NULL; first_name/last_name/email/email_normalized/institution NOT NULL; phone, role_title, num_people (CHECK 1–60 or NULL), message, source_path, utm_source/utm_medium/utm_campaign, notes nullable; status NOT NULL default `'new'` CHECK in (`new`,`contacted`,`converted`,`dismissed`); `consent_accepted_at` NOT NULL default now(); `brochure_sent_at` nullable; created_at/updated_at defaults; CHECK `email_normalized = lower(btrim(email)) AND email_normalized <> ''`.
-- [A2] Unique index on `(email_normalized, cohort)`; indexes on `(status)` and `(created_at DESC)`; `set_updated_at` trigger attached (function exists in baseline).
-- [A3] RLS enabled; single policy `pasantias_leads_admin_all` for `authenticated` mirroring `tractor_signups_admin_all` (active admin role required), USING + WITH CHECK; no anon policies (D-04).
-- [A4] Migration is additive only and contains no `DISABLE ROW LEVEL SECURITY` (CI guard + hook).
-- [A5] pgTAP suite passes: rls_enabled; admin SELECT/INSERT/UPDATE/DELETE allowed; docente SELECT 0 rows, INSERT throws 42501, UPDATE matches 0; anon SELECT 0 rows, INSERT throws (~11 asserts, modeled on `020-tractor-signups-rls.sql` fixtures).
-- [A6] Gates green incl. `npm run test:db`.
-**Test plan:** `supabase/tests/030-pasantias-leads-rls.sql` as above. Command: `npm run test:db` (Supabase CLI + Docker).
-**Definition of done:** criteria checked, gates + test:db green, review-request file, mergeable.
-**Risks / unknowns:** baseline helper availability (`set_updated_at`) — verified present; if pgTAP fixture helpers differ from CLAUDE.md's description, follow the real `020-*` file (precedent over prose).
-**Rollback:** table is additive and unreferenced until P3; abandoning the phase = revert branch (a follow-up migration to drop the table only if it ever reached prod).
-
-## Phase P3 — Lead API + auto-reply/notification emails
-
-**Scope:** `pages/api/pasantias/lead.ts` (new); `lib/pasantias/emails.ts` (new); `__tests__/api/pasantias-lead.test.ts` (new); minor export additions to `lib/pasantias/` index if needed.
-**Out of scope:** landing page/UI, brochure endpoints (P4 — email links to the P4 route path as a constant), contact.ts, admin UI.
-**Acceptance criteria:**
-- [A1] POST-only route: rate-limited via `lib/rateLimit.ts` (5/min per IP, key `pasantias-lead`); honeypot field `website` returns fake success 200 without insert.
-- [A2] Validation: required first_name, last_name, email (via `isValidEmail`), institution, `consent === true`, `cohort === CURRENT_COHORT.id`; optional phone/role_title/num_people/message/utm fields; length caps (80/80/140 email/140 institution/40 phone/1000 message) → 400 with es-CL field errors.
-- [A3] Insert path: normalized via `normalizeEmail`/`normalizeText` (`lib/signups.ts`); writes via `createServiceRoleClient()`; duplicate `(email_normalized, cohort)` → updates contact fields, re-opens to `new` only from `dismissed`; unique-violation race (23505) handled as duplicate path; both paths return identical `200 {success:true}` (anti-enumeration).
-- [A4] After successful persist: auto-reply email to the lead (es-CL, FNE-branded minimal layout in `lib/pasantias/emails.ts`, NOT `emailLayout`; no prices in body per D-02; brochure button → `buildAbsoluteUrl('/api/pasantias/brochure')`) and internal notification to `info@nuevaeducacion.org` with lead details. Email failures are logged, still return 200; `brochure_sent_at` set only on auto-reply success. Missing `RESEND_API_KEY` → soft-fail (log + 200), matching `grant.ts` behavior.
-- [A5] Unit suite green (cases in test plan) and gates green.
-**Test plan:** `__tests__/api/pasantias-lead.test.ts` (clone `__tests__/api/registro-signup.test.ts` harness: `supabaseStub`, mocked service client + mocked `resend`): method 405; honeypot 200-no-insert; missing-field/invalid-email/missing-consent/wrong-cohort 400s; happy insert payload includes cohort, consent_accepted_at, normalized email; duplicate → update + 200 + auto-reply still sent; dismissed → re-open; 23505 race → 200; email-throw → still 200, `brochure_sent_at` untouched. Command: `npx vitest run __tests__/api/pasantias-lead.test.ts`, then `npm test`.
-**Definition of done:** standard + review-request file.
-**Risks / unknowns:** none material; route is dark (nothing links it) until P5.
-**Rollback:** revert branch; table from P2 remains, unused.
-
-## Phase P4 — Ficha + brochure PDF generators + endpoints
-
-**Scope:** `lib/pasantias/brochure.tsx`, `lib/pasantias/ficha.tsx` (new; may share a sections module); `pages/api/pasantias/brochure.ts`, `pages/api/pasantias/ficha.ts` (new); `lib/pasantias/__tests__/pdf.test.ts` (new).
-**Out of scope:** landing page, lead API, any propuestas-kit refactoring (reuse as-is; if a kit component can't be reused cleanly, write a local one — do not modify `lib/propuestas/*`).
-**Acceptance criteria:**
-- [A1] `generateBrochure(cohort)` → PDF Buffer via `renderToBuffer`, reusing `lib/propuestas/fonts.ts` + `styles.ts`; content: portada (INSPIRA · Barcelona · Octubre 2026), qué es + 13 objetivos, estructura del día, itinerario 2 semanas (lunes 19 marcado feriado), 7 escuelas, equipo (8), alojamiento, **inversión + forma de pago** (only place prices appear), incluye/no incluye, contacto. All content from `CURRENT_COHORT` — zero literal dates/prices in the components.
-- [A2] `generateFicha(cohort)` → 1–2 page PDF Buffer: qué es, fechas, escuelas, día tipo, equipo destacado, CTA (web + email). **No prices** (D-02).
-- [A3] Both GET endpoints: rate-limited; serve from `propuestas` bucket cache path `pasantias/<name>-<BROCHURE_VERSION>.pdf` via `lib/propuestas/storage.ts`; on miss generate + upload + serve; headers `Content-Type: application/pdf`, `Content-Disposition: inline; filename="<es-CL name>.pdf"`, `Cache-Control: public, max-age=3600`. A pre-uploaded file at the cache path is served as-is (manual override, D-05).
-- [A4] Unit tests green: both buffers start `%PDF`; brochure ≥5 pages, ficha ≤2 (page count via `pdf-lib`, pattern from `lib/propuestas/__tests__/generator.test.ts`); brochure text layer contains "1.560" and ficha's does not (extraction as in existing generator tests; if text extraction is impractical, assert via rendered component tree instead — state the substitution in the report).
-- [A5] Gates green.
-**Test plan:** `lib/pasantias/__tests__/pdf.test.ts` — `brochure renders %PDF with >=5 pages`, `ficha renders %PDF with <=2 pages`, `prices only in brochure`. Command: `npx vitest run lib/pasantias/__tests__/pdf.test.ts`, then `npm test`.
-**Definition of done:** standard + review-request file.
-**Risks / unknowns:** sizing — two documents in one phase; if context gets tight, ship brochure + endpoint complete and report ficha as NOT DONE (PM will split a follow-up round). React-PDF aesthetics below designed-PPTX level — accepted (D-05 override path). Storage upload needs service-role envs at runtime; endpoint must degrade to generate-and-serve (no cache) if upload fails.
-**Rollback:** revert branch; endpoints unreferenced until P5.
-
-## Phase P5 — `/pasantias` landing page + LeadForm + e2e
-
-**Scope:** `pages/pasantias.tsx` (new); `components/pasantias/LeadForm.tsx` (new); `tests/e2e/pasantias.spec.ts` (new); `public/` OG image only if an existing asset can't serve.
-**Out of scope:** nav/footer/link changes anywhere else (P6), homepage edits, admin UI, any endpoint changes.
-**Acceptance criteria:**
-- [A1] Page renders with compiled Tailwind + brand tokens (model `registro-tractor.tsx`; no `cdn.tailwindcss.com`), existing `Footer`, `<Head>` with es-CL title/description + OG/Twitter meta (title, description, image, url via `lib/utils/app-url.ts`) so WhatsApp shares unfurl.
-- [A2] Sections, all cohort content from `CURRENT_COHORT`, no prices (D-02): hero (fecha chip "Octubre 2026 · 12–16 y 20–23", CTA primario "Recibe el programa completo" → form anchor, secundario "Descarga la ficha (PDF)" → `/api/pasantias/ficha`); por qué Barcelona + stats (400+ pasantes, 40+ colegios); cómo funciona un día (3 cards); itinerario 2 semanas (feriado del lunes 19 marcado); las escuelas; el equipo (8); testimonios (renders only if quotes present in a `TESTIMONIALS` const — empty array hides section); FAQ accordion (≥5 es-CL items incl. Madrid opcional + cotización grupal → existing contact path); formulario; WhatsApp CTA (renders only if `WHATSAPP_NUMBER` const non-empty).
-- [A3] LeadForm posts to `/api/pasantias/lead` with cohort id + utm params from query string + `source_path`; fields nombre, apellido, email, WhatsApp (opt), institución, cargo (opt), nº personas (opt), mensaje (opt), consent checkbox linking `/privacidad` (required), honeypot `website` (hidden); client validation + first-invalid focus (pattern `registro-tractor.tsx:109-166`); submit disabled while pending; success panel `role="status"` with "Descargar programa (PDF)" → `/api/pasantias/brochure` + "te lo enviamos también a tu correo"; server/network error → es-CL error with retry, form data preserved.
-- [A4] Every interactive element has `data-testid` (`pasantias-*`); `npm run lint:testid` reports no regressions on the new files.
-- [A5] E2E spec green (cases below); gates green.
-**Test plan:** `tests/e2e/pasantias.spec.ts` (route-mock `**/api/pasantias/lead`, pattern `tests/e2e/registro.spec.ts` — no DB): renders hero with "Octubre 2026" + visible `pasantias-submit`; ficha link href correct; empty submit → errors + focus on first invalid; mocked success → success panel with brochure link; mocked 500 → error message, fields preserved. Command: `npx playwright test tests/e2e/pasantias.spec.ts`.
-**Definition of done:** standard + review-request file.
-**Risks / unknowns:** sizing (~650 lines) — if tight, FAQ/testimonios sections may land minimal; report honestly. Page is orphaned (nothing links to it) until P6 — intentional, allows preview review before wiring.
-**Rollback:** revert branch — page disappears, no other surface affected (P6 not yet applied).
-**Content placeholders:** `TESTIMONIALS = []` and `WHATSAPP_NUMBER = ''` ship empty until Brent provides content (sections self-hide); wiring them later is a data-only change.
-
-## Phase P6 — Site link rewiring + contact.ts fixes
-
-**Scope:** `pages/index.tsx` (nav ×2, section CTA, flipbook button/modal/state); `pages/programas.tsx`, `pages/nosotros.tsx`, `pages/noticias.tsx` (nav ×2 each); `components/Footer.tsx`; `pages/api/contact.ts`; `__tests__/api/contact.test.ts` (new).
-**Out of scope:** homepage form UI fields (no consent checkbox addition — Backlog), any new page/section, `pages/quote/*`, stats numbers.
-**Acceptance criteria:**
-- [A1] All nav/footer "PASANTÍAS" links point to `/pasantias` (index L188/L224, programas L254/L290, nosotros L352/L388, noticias L450/L496, Footer L84); homepage `#pasantias` section id preserved (old anchors don't break).
-- [A2] Homepage: "Programa para líderes pedagógicos" flipbook button replaced by `Link` → `/pasantias`; `showFlipbook` state + modal (~L1078–1125) removed; Directivos flipbook kept, "Abril 2026" dropped from its title; pasantías section CTA card links `/pasantias`; `programas.tsx` INSPIRA card gains "Pasantía Octubre 2026 → /pasantias" link.
-- [A3] `contact.ts`: interestMap covers `inspira`/`inicia`/`evoluciona`/`aula-generativa`/`otro` (old keys kept as aliases); transport = Resend (reusing the existing dead `htmlContent`, to `info@nuevaeducacion.org`, from `EMAIL_FROM_ADDRESS`), Formspree call and the 50/month 429 block removed; `trackFormSubmission` retained for stats; `rateLimit` 5/min added; missing `RESEND_API_KEY` → soft-fail 200 with log.
-- [A4] `grep -rn "heyzine" pages/` shows only the Directivos flipbook; `grep -rn "/#pasantias" pages/ components/` returns no nav/footer hits.
-- [A5] Unit suite green: interes labels (inspira→"Inspira (Pasantía en Barcelona)" etc.), Resend called with expected subject/to, rate-limit 429 path, no-key soft-fail; gates green; e2e nav check (extend `pasantias.spec.ts` or smoke) asserting homepage nav href.
-**Test plan:** `__tests__/api/contact.test.ts` as above. Commands: `npx vitest run __tests__/api/contact.test.ts`; `npx playwright test tests/e2e/pasantias.spec.ts`.
-**Definition of done:** standard + review-request file.
-**Risks / unknowns:** contact.ts swap touches every contact-form submission (all interest types) — the highest-blast-radius change in Track A; mitigated by unit tests + soft-fail. Line numbers cited are 2026-07-30 evidence; executor must re-locate by content, not trust them blindly.
-**Rollback:** revert branch; Formspree path returns (still capped but functional).
-
-## Phase P7 — Admin leads triage page + API
-
-**Scope:** `pages/admin/pasantia-leads.tsx` (new); `pages/api/admin/pasantia-leads/index.ts` (new); Sidebar entry (`components/layout/Sidebar.tsx`, near the "Propuestas Pasantías" item ~L539).
-**Out of scope:** middleware changes (admin gating is automatic), lead API changes, email platform, bulk actions/exports beyond CSV.
-**Acceptance criteria:**
-- [A1] API: GET returns leads (service client) with optional `status` filter + search on nombre/email/institución, ordered created_at DESC; PATCH `{id, status?, notes?}` validates status against the CHECK set; both behind admin check (`checkIsAdmin` pattern from `tractor-signups/index.ts`); non-admin → 403, unauthenticated → 401.
-- [A2] Page (admin-only, MainLayout, house style, model `pages/admin/tractor-signups.tsx`): status filter tabs with counts (Nuevos/Contactados/Convertidos/Descartados/Todos), table (fecha, nombre, email, WhatsApp, institución, cargo, nº personas, estado badge, brochure_sent_at indicator), row expand shows message/utm/source, status dropdown + notes editing with optimistic toast, CSV export (existing `ReportExporter` pattern).
-- [A3] `data-testid` on interactive elements; es-CL copy.
-- [A4] Unit test green: API auth (401/403), status validation 400, PATCH persists; gates green.
-- [A5] E2E smoke: unauthenticated `/admin/pasantia-leads` redirects to login (pattern from existing admin smoke).
-**Test plan:** `__tests__/api/admin-pasantia-leads.test.ts` (harness as P3). Commands: `npx vitest run __tests__/api/admin-pasantia-leads.test.ts`; targeted playwright smoke.
-**Definition of done:** standard + review-request file.
-**Risks / unknowns:** none material — read/update UI over an existing table.
-**Rollback:** revert branch.
-
-## Phase P8 — Email marketing schema + functions + pgTAP
-
-**Scope:** migration `supabase/migrations/<ts>_add_email_marketing.sql`; `supabase/tests/040-email-marketing-rls.sql`.
-**Out of scope:** any API/UI/lib code.
-**Acceptance criteria:**
-- [A1] `email_contacts`: email + `email_normalized` (UNIQUE, CHECK lower/btrim/non-empty), first_name/last_name/organization nullable, `tags text[]` NOT NULL default `{}` + GIN index, source CHECK (`manual|csv_import|profiles|tractor_signups|pasantia_leads|other`), `imported_by` FK profiles ON DELETE SET NULL, `unsubscribe_token uuid` NOT NULL default gen_random_uuid() UNIQUE, subscribed_at default now(), unsubscribed_at, suppressed_at, suppression_reason CHECK (`bounce|complaint|manual`), timestamps + trigger.
-- [A2] `email_campaigns`: subject default '', preheader, content jsonb, content_html, hero_image_url, cta_label, cta_url, `audience_tags text[]` default `{}`, status CHECK (`draft|sending|sent|failed`) default draft, created_by FK, send_started_at, completed_at, timestamps + trigger. No counter columns (D-06).
-- [A3] `email_campaign_sends`: FK campaign CASCADE + FK contact CASCADE, email snapshot, status CHECK (`pending|sending|sent|failed|skipped`) default pending, claimed_at, sent_at, resend_email_id, error, delivered_at/opened_at/clicked_at/bounced_at/complained_at/unsubscribed_at, created_at; `UNIQUE(campaign_id, contact_id)`; indexes `(campaign_id, status)`, `(resend_email_id)`, `(contact_id)`.
-- [A4] Functions (SECURITY DEFINER, `SET search_path = public`, EXECUTE revoked from anon+authenticated): `queue_campaign_sends(uuid)` — asserts draft, inserts eligible recipients (subscribed, unsuppressed, tags overlap or empty filter) ON CONFLICT DO NOTHING, flips to sending, returns count; `claim_campaign_sends(uuid, int default 200)` — claims pending or stale-sending (>15 min) rows FOR UPDATE SKIP LOCKED with subscription re-check → skipped, returns rows; `import_email_contacts(jsonb, uuid, text)` — upsert by email_normalized with tag union + COALESCE names/org, never resurrects unsubscribed/suppressed, returns `{inserted, updated}`.
-- [A5] RLS enabled ×3; one policy each for admin+community_manager (copy `news_articles_admin_cm_all`); no anon policies. Migration additive, no RLS disable.
-- [A6] pgTAP suite green (~34 asserts): rls_enabled ×3; admin CRUD ×3; community_manager CRUD ×3; docente blocked ×3 (SELECT empty / INSERT 42501 / UPDATE empty); anon blocked ×3; authenticated cannot EXECUTE the 3 functions. `npm run test:db` green.
-**Test plan:** `supabase/tests/040-email-marketing-rls.sql`, modeled on `020-tractor-signups-rls.sql` (+ a community_manager fixture). Command: `npm run test:db`.
-**Definition of done:** standard + review-request file.
-**Risks / unknowns:** `user_role_type` enum must contain `community_manager` (it does — used by news policy); function reclaim interval (15 min) frozen here, tuning later is a Decision Log entry.
-**Rollback:** additive tables unreferenced until P9+; revert branch.
-
-## Phase P9 — Contacts admin (CRUD/search/tags) + routing
-
-**Scope:** `pages/admin/email/contacts.tsx` (new); `pages/api/admin/email/contacts/index.ts` (new); `lib/email/adminGuard.ts` (new); `components/admin/email/ContactModal.tsx` (new); `components/layout/Sidebar.tsx` (add "Correos"→`/admin/email/campaigns` [stub target ok] + "Contactos"→`/admin/email/contacts` in the comunicacion group, `restrictedRoles: ['admin','community_manager']`); `middleware.ts` (add `'/admin/email'` to `cmRoutes`).
-**Out of scope:** CSV/platform imports (P10), campaigns pages/APIs (P13), unsubscribe (P11).
-**Acceptance criteria:**
-- [A1] `adminGuard(req,res)` helper: resolves user via `getApiUser`, service-role check for active `admin|community_manager` role, else 401/403 via `sendAuthError`; used by the contacts API.
-- [A2] API: GET paginated (50/page) with `ilike` search (email/nombre/organización), tag filter, estado filter (suscrito/desuscrito/suprimido); POST create (normalizes email, 409 on duplicate); PUT update (names/org/tags; manual unsubscribe/resubscribe — resubscribe only allowed when suppression_reason is `manual` or null; manual suppress/unsuppress); DELETE with id (hard delete — Ley 21.719 erasure).
-- [A3] Page: table (email, nombre, organización, tag chips, estado badge, fecha), search box, tag filter populated from `DISTINCT unnest(tags)`, estado filter, add/edit modal, delete confirm, per-contact detail showing send history placeholder (empty until P14 data exists), toasts, `data-testid`s, es-CL.
-- [A4] Sidebar entries visible to admin + community_manager only; middleware allows CM into `/admin/email/*` and still blocks other roles (existing matrix test pattern if present).
-- [A5] Unit tests green (guard 401/403/200; contacts API validation + dedupe 409 + resubscribe rules); gates green; e2e smoke: unauthenticated redirect on `/admin/email/contacts`.
-**Test plan:** `__tests__/api/admin-email-contacts.test.ts`; `__tests__/lib/email-adminGuard.test.ts`. Commands: `npx vitest run` on both, `npm test`, targeted smoke.
-**Definition of done:** standard + review-request file.
-**Risks / unknowns:** middleware edit touches the most bug-prone file in the repo (per CLAUDE.md) — keep to the one-line cmRoutes addition; PM diff-review extra hard here.
-**Rollback:** revert branch (sidebar/middleware lines included).
-
-## Phase P10 — CSV + platform imports
-
-**Scope:** `components/admin/email/CsvImportModal.tsx` (new); `pages/api/admin/email/contacts/import.ts` (new); `pages/api/admin/email/contacts/import-platform.ts` (new); `lib/email/importHelpers.ts` (new, pure); `package.json` (+`papaparse`, `@types/papaparse`); wire modal + platform-import buttons into `contacts.tsx`.
-**Out of scope:** campaigns, sending, unsubscribe; automatic/scheduled syncs (explicit buttons only, D-09/consent).
-**Acceptance criteria:**
-- [A1] CSV modal flow: file → papaparse (handles `;` delimiters + BOM) → column mapping (email required; nombre/apellido/organización optional) → tags-to-apply input → validation preview (valid/invalid emails, in-file duplicates collapsed, count already-in-DB) → confirm → chunked POSTs (≤500 rows) → summary `{nuevos, actualizados, inválidos}`.
-- [A2] `import.ts`: adminGuard; server-side re-validation (email format, length caps); calls `import_email_contacts` RPC with source `csv_import`; per-chunk result aggregation; rejects >500 rows/chunk.
-- [A3] `import-platform.ts`: adminGuard; source `profiles` (approval_status approved, email present → tag `plataforma`) and `tractor_signups` (→ tag `registro`) behind an es-CL consent-reminder confirm in the UI; same RPC; idempotent (re-running updates, never duplicates).
-- [A4] Unsubscribed/suppressed contacts are never resurrected by any import (RPC contract) — covered by an API test asserting the RPC receives rows and by helper tests for the client-side pipeline.
-- [A5] Unit tests green; gates green.
-**Test plan:** `__tests__/lib/email-importHelpers.test.ts` (normalization, dedupe-in-file, mapping, chunking incl. 501-row split, semicolon+BOM fixture); `__tests__/api/admin-email-import.test.ts` (guard, oversize 400, RPC payload shape, aggregation). Commands: targeted vitest, `npm test`.
-**Definition of done:** standard + review-request file.
-**Risks / unknowns:** consent basis for imported historic lists is an owner responsibility (setup checklist) — the tool only enforces mechanics; `pasantias_leads` import button deferred until Track A merged (Backlog if P10 lands first).
-**Rollback:** revert branch + `npm uninstall papaparse @types/papaparse`.
-
-## Phase P11 — Unsubscribe + Resend webhooks
-
-**Scope:** `pages/desuscribir.tsx` (new); `pages/api/email/unsubscribe.ts` (new); `pages/api/email/webhook.ts` (new); `lib/email/webhookVerify.ts` (new); tests.
-**Out of scope:** campaign composer/sending (P13/P14 consume these), contacts UI.
-**Acceptance criteria:**
-- [A1] `/desuscribir?token=…&c=…`: public, `noindex`, es-CL; GET performs no mutation (scanner-safe); button POSTs to the API; result state "Listo, no recibirás más correos de Fundación Nueva Educación."; invalid/missing token shows the same generic success (no enumeration).
-- [A2] `unsubscribe.ts`: POST only (405 otherwise); accepts JSON `{token, c?}` AND RFC 8058 one-click form-encoded `List-Unsubscribe=One-Click` with token in query; rate-limited; service-role lookup by `unsubscribe_token` → set `unsubscribed_at` (idempotent); when `c` valid, stamp that campaign's send row `unsubscribed_at`; always generic 200.
-- [A3] `webhookVerify.ts`: raw-body HMAC-SHA256 over `${svix-id}.${svix-timestamp}.${rawBody}` with base64-decoded secret (strip `whsec_`), `crypto.timingSafeEqual`, reject timestamps older than 5 min; header names verified against current Resend docs at implementation time (executor confirms in report).
-- [A4] `webhook.ts`: `bodyParser:false`; bad signature → 401; `email.delivered/opened/clicked` → stamp send-row timestamps (first-write-wins for opened/clicked) by `resend_email_id`; `email.bounced/complained` → stamp + suppress contact (`suppression_reason` bounce/complaint), falling back to `email_normalized` match when no send row; unknown event types → 200 ignore; fast 200 always on verified requests.
-- [A5] Unit tests green; gates green. Env documented: `RESEND_WEBHOOK_SECRET` (Vercel; owner registers endpoint per checklist).
-**Test plan:** `__tests__/lib/email-webhookVerify.test.ts` (known-vector pass, tampered body fail, stale timestamp fail); `__tests__/api/email-webhook.test.ts` (401 bad sig, delivered stamps, bounce suppresses, unknown type 200); `__tests__/api/email-unsubscribe.test.ts` (GET 405 on API, POST idempotent, one-click path, generic success on bad token). Commands: targeted vitest, `npm test`.
-**Definition of done:** standard + review-request file.
-**Risks / unknowns:** webhook can't be fully verified until the owner registers it in Resend (prod-only) — unit vectors + soft manual verification post-merge.
-**Rollback:** revert branch; no other phase consumes these routes until P14 sends real mail.
-
-## Phase P12 — Campaign HTML renderer
-
-**Scope:** `lib/email/renderCampaign.ts` (new); `__tests__/lib/email-renderCampaign.test.ts` (new).
-**Out of scope:** UI, APIs, sending.
-**Acceptance criteria:**
-- [A1] `tiptapToEmailHtml(json)`: supports the node/mark set the news converter supports (paragraph, heading 1–3, bold/italic/underline, link, bullet/ordered list, blockquote, image, horizontal rule) emitting **inline-styled** email-safe HTML; escapes ALL text via `escapeHtml` and hrefs via `safeUrl` (rejects `javascript:` etc.) — the known news-converter href gap must not be copied.
-- [A2] `renderCampaignHtml({subject, preheader, heroImageUrl?, bodyHtml, ctaLabel?, ctaUrl?, unsubscribeUrl})`: 600px table layout, FNE header, optional hero/CTA slots, fixed legal footer (org name + Santiago address + "Cancelar suscripción" → unsubscribeUrl), hidden preheader, MSO conditionals; pure string function usable client-side (no server-only imports).
-- [A3] `buildUnsubscribeUrl(token, campaignId)` helper → `/desuscribir?token=…&c=…` via `buildAbsoluteUrl`.
-- [A4] Unit suite green: each mark/node renders; `javascript:alert(1)` href neutralized; text `<script>` escaped; unsubscribe URL lands in footer + preheader hidden; optional slots render/omit correctly.
-- [A5] Gates green.
-**Test plan:** `__tests__/lib/email-renderCampaign.test.ts` as above. Command: `npx vitest run __tests__/lib/email-renderCampaign.test.ts`, then `npm test`.
-**Definition of done:** standard + review-request file.
-**Risks / unknowns:** none — pure library. Email-client rendering quirks are validated by test-sends in P13.
-**Rollback:** revert branch.
-
-## Phase P13 — Campaigns API + composer + test-send
-
-**Scope:** `pages/admin/email/campaigns/index.tsx`, `pages/admin/email/campaigns/[id].tsx` (new); `pages/api/admin/email/campaigns/{index,[id]/index,[id]/test-send}.ts` (new); `components/admin/email/{CampaignForm,CampaignPreview}.tsx` (new); `pages/admin/email/index.tsx` redirect (new).
-**Out of scope:** the send pipeline + progress/metrics UI states (P14) — `[id].tsx` ships draft-state complete with sending/sent states stubbed ("Envío disponible próximamente" if status ≠ draft).
-**Acceptance criteria:**
-- [A1] APIs behind `adminGuard`: list (GET, ordered updated_at DESC, status chip data); create (POST → draft with defaults); detail GET (campaign + audience count computed live from contacts for its `audience_tags`); PUT (draft-only: subject, preheader, TipTap `content` + server-rendered `content_html` via P12, hero_image_url, cta fields, audience_tags; editing non-draft → 409); DELETE (draft-only).
-- [A2] Composer: subject + preheader inputs, TipTapEditor body (reuse `src/components/TipTapEditor.tsx` as in `admin/news.tsx`), hero image upload (`uploadFile` → `resources` bucket), optional CTA label+URL, audience tag multi-select with live recipient count, save-draft with dirty-state guard.
-- [A3] Preview: client-side `<iframe srcDoc>` from the same `renderCampaignHtml` used at send (D-08 single source), 600px/375px toggle, dummy unsubscribe link.
-- [A4] Test-send: POST sends exactly one Resend email to the logged-in admin's address, subject `[PRUEBA] <subject>`, dummy unsubscribe URL, never writes `email_campaign_sends`; soft-fail without `RESEND_API_KEY`.
-- [A5] Guard rails: send/test-send disabled until subject + non-empty body; es-CL copy; `data-testid`s; unit tests + gates green; e2e smoke (list loads, create draft navigates to composer, unauthenticated redirect).
-**Test plan:** `__tests__/api/admin-email-campaigns.test.ts` (guard, draft-only PUT 409, content_html rendered on save, audience count math, test-send single-recipient + no-ledger-write); e2e `tests/e2e/email-admin.spec.ts` (smoke cases above). Commands: targeted vitest + playwright, `npm test`.
-**Definition of done:** standard + review-request file.
-**Risks / unknowns:** sizing (~650 lines) — sending/sent stubs keep it inside the cap; if tight, drop hero-image upload to a Backlog item and report it.
-**Rollback:** revert branch; P9 sidebar "Correos" link would 404 → acceptable pre-merge state is NOT allowed, so P13 must merge before/with the sidebar target going live — sidebar already points here from P9; if P13 is abandoned, a one-line sidebar revert restores consistency (note in report).
-**Note:** P9 ships the sidebar link to `/admin/email/campaigns` before this page exists. Next.js 404 behind an admin-only sidebar for a few days is accepted (per-phase merge cadence); if Brent objects at P9 review, the sidebar entry moves to P13 (one-line change, no re-plan).
-
-## Phase P14 — Send pipeline + progress/resume + metrics
-
-**Scope:** `pages/api/admin/email/campaigns/[id]/send.ts` (new); `components/admin/email/{SendProgress,CampaignMetrics}.tsx` (new); `[id].tsx` sending/sent states replacing P13 stubs; `lib/email/sendBatch.ts` (new, pure batching helpers); optional `vercel.json` maxDuration 60 for the send route.
-**Out of scope:** scheduling, retries beyond the manual "Reintentar fallidos", any renderer/webhook changes.
-**Acceptance criteria:**
-- [A1] Send endpoint (adminGuard): status `draft` → validates (subject, body, audience count > 0), freezes `content_html`, calls `queue_campaign_sends`, returns queued count; status `sending` → `claim_campaign_sends(id, 200)`, chunks into ≤100-recipient `resend.batch.send` calls (~600ms spacing), each email = frozen HTML with per-recipient unsubscribe URL substituted + `List-Unsubscribe` / `List-Unsubscribe-Post: One-Click` headers; per-batch ledger update (index-aligned `resend_email_id` → sent/sent_at; batch error → failed + error text); no rows left → status `sent` + completed_at; response `{status, processed, pending, counts}`.
-- [A2] Idempotency proven by tests: double-queue impossible (ON CONFLICT), concurrent ticks cannot double-claim (SKIP LOCKED — asserted via RPC contract), re-POST after completion is a no-op 200.
-- [A3] UI: confirm modal (from-address, audience description, exact count) → tick loop with progress bar from counts; leaving mid-send is safe — detail page shows "Envío incompleto — Reanudar" whenever status `sending` + pending>0; "Reintentar fallidos" flips failed→pending then resumes; failure list shows per-row error.
-- [A4] Metrics panel (sent state): Destinatarios/Enviados/Entregados/Abiertos/Clics/Rebotes/Desuscritos from one GROUP BY over sends; es-CL note that opens are approximate.
-- [A5] Sender = `EMAIL_MARKETING_FROM` env (fallback `EMAIL_FROM_ADDRESS`); unit tests + gates green; e2e extends admin smoke (send button disabled on empty draft).
-**Test plan:** `__tests__/lib/email-sendBatch.test.ts` (chunk ≤100, id alignment, unsubscribe substitution per recipient, header presence); `__tests__/api/admin-email-send.test.ts` (draft→queue path, sending→claim/send/ledger path with mocked RPC+Resend, batch-error → failed rows, completion flip, re-POST no-op, guard). Commands: targeted vitest, `npm test`, targeted playwright.
-**Definition of done:** standard + review-request file; end-to-end manual verification per Verification section after merge.
-**Risks / unknowns:** duplicate-window tradeoff accepted in D-07; Resend rate/plan limits are an owner setup gate (free tier 100/day would fail a real campaign mid-send — rows land `failed`, retryable after upgrade).
-**Rollback:** revert branch; composer returns to P13 stub state.
+Sequencing per Codex: Track A starts only after A0 (content/privacy). Track B starts with B1→B2; schema follows the consent model; webhook/unsubscribe before sending; backend before UI; no visible link/control before its target works. Honest effort note: ~10–14 focused executor days plus PM/Codex loop overhead; no calendar commitment.
 
 ---
 
-## Verification (end-to-end, PM-run after merges)
+## Phase A0 — Content brief sign-off + privacy notice versioning
 
-- **Track A:** `/pasantias` renders correct dates; ficha downloads openly; form submit → `pasantias_leads` row + auto-reply received + internal notification + brochure link works; homepage card shows Octubre; WhatsApp share of `/pasantias` unfurls OG card; `/admin/pasantia-leads` triage works.
-- **Track B:** CSV import (incl. a semicolon+BOM file) → contacts; campaign → test-send received; real send to internal tag (~5) completes with progress; webhook events populate metrics; unsubscribe link: GET shows page, POST unsubscribes, next send skips the contact.
+**Scope:** Appendix A of this file (content brief — PM-written from owner inputs, owner-approved, versioned); executor work: `components/PrivacyPolicyContent.tsx` (stable dated version + exported `PRIVACY_NOTICE_VERSION`), consent copy constants (es-CL) for the lead form, legal footer identity block (name + physical address from brief).
+**Out of scope:** any cohort/lead/email code.
+**Acceptance criteria:**
+- [A1] Appendix A completed and marked APPROVED by Brent in the Decision Log, covering: exact 7-school list, day-1 shape (Oct 12 = Fiesta Nacional — schools closed), full itinerary, experts + titles, prices/payment terms (for brochure only), claims ("400+ pasantes" etc.), legal org identity + postal address, WhatsApp number, testimonios (or explicit "launch without").
+- [A2] Privacy page shows a fixed "Última actualización" date and version string sourced from `PRIVACY_NOTICE_VERSION` (no more render-time current date); es-CL consent sentence for the lead form exists as an exported constant and states: response to the request, delivery of the requested program, and related program updates; unsubscribe promise.
+- [A3] Gates green (`npm run type-check && npm run lint && npm test && npm run build`).
+**Test plan:** snapshot/unit test that the privacy component renders the fixed version+date. Command: targeted vitest + full gates.
+**Definition of done:** brief APPROVED logged; criteria met; review-request `fase-a0-review-request.md`; mergeable.
+**Risks:** owner availability for the brief — blocks both tracks' schema/copy phases by design.
+**Rollback:** revert branch (copy-only phase).
 
-## Owner setup checklist (Brent — before first campaign)
+## Phase T2 — CI: synthetic fixtures + mandatory non-skipping specs
 
-1. Resend plan (free = 3.000/mes, 100/día — insufficient for a real campaign; ~US$20/mo covers 50k). 2. DKIM/SPF verified in Resend; add DMARC if missing. 3. Set `EMAIL_MARKETING_FROM` (recommend `Fundación Nueva Educación <hola@nuevaeducacion.org>`). 4. Register webhook → `/api/email/webhook`; set `RESEND_WEBHOOK_SECRET`. 5. Enable open/click tracking. 6. Confirm consent basis for historic lists before import; first send explains "por qué recibes este correo". 7. Content: 2–3 testimonios + WhatsApp number for `/pasantias`; confirm day-1 shape with BCN team (Oct 12 = Fiesta Nacional, schools closed).
+**Scope:** `.github/workflows/ci.yml` e2e step; e2e seed additions for a synthetic admin user (existing seeded-synthetic-tenant mechanism); `tests/e2e/helpers/` auth fixture; a fail-on-skip guard for the mandatory spec list (introduced per phase as specs land).
+**Out of scope:** the product specs themselves (their phases own them).
+**Acceptance criteria:**
+- [A1] CI e2e step runs an explicit mandatory spec list (initially smoke; later phases append) and **fails if any mandatory spec is skipped** (skip-guard verified by a deliberate `test.skip` in a scratch run, then removed).
+- [A2] A seeded synthetic admin fixture logs in headlessly in CI (no real credentials; no PII) and is usable via a helper; a spec proving login works is in the mandatory list.
+- [A3] Gates green including the e2e job on the PR.
+**Test plan:** the fixture-login spec itself + CI run evidence (PR checks). Command: `npx playwright test tests/e2e/ci-fixture.spec.ts` locally + CI.
+**Definition of done:** standard + review-request.
+**Risks:** CI environment seeding differences — executor must read the existing e2e workflow seeding path first and report findings if the synthetic tenant lacks an admin.
+**Rollback:** revert branch (CI config + test files only).
+
+## Phase A1 — Cohort data modules + leak guard + homepage date fix
+
+**Scope:** `lib/pasantias/cohort-public.ts`, `lib/pasantias/cohort-commercial.ts`, `scripts/check-price-leak.mjs` (+ wire into `ci.yml` build step and `npm run build:check` script), `__tests__/lib/pasantias-cohort.test.ts`, `pages/index.tsx` (dates card only).
+**Out of scope:** nav links, flipbooks, contact form, new pages, PDFs.
+**Acceptance criteria:**
+- [A1] Public module: cohort id/label, weeks (2026-10-12→16; 2026-10-20→23; day-1 labeled per Appendix A; "lunes 19 feriado" note), the approved 7 schools, 8 experts, 13 objectives, day structure, lodging area, Madrid school names. **Zero monetary values or fields.** Commercial module: program/lodging/total/Madrid prices, payment terms, monetary includes/excludes, `BROCHURE_VERSION`, `BROCHURE_FILENAME`, and `COMMERCIAL_SENTINEL = '__INSPIRA_COMMERCIAL__'` embedded in a value.
+- [A2] `check-price-leak.mjs` scans `.next/static/**` after build and fails on sentinel or price literals (`1560`, `1.560`, `€1.000`, `810`, `560` as standalone monetary tokens); wired into CI after `next build`; passes on this branch.
+- [A3] Unit guard: commercial math (1000+560=1560), no Oct 19 session, valid ISO dates, week 2 starts Tuesday; public module serialization contains no `/€|price|precio|eur/i` keys and no monetary numbers; **all content values assert against Appendix A rows, cited by anchor, not self-invented numbers**.
+- [A4] Homepage card shows "Octubre 2026 · 12–16 y 20–23 de octubre" rendered from the **public** module; "Abril 2026"/"Noviembre 2026" remain only in the two flipbook modal titles (A7 removes them); no prices.
+- [A5] Gates green + leak script green.
+**Test plan:** `__tests__/lib/pasantias-cohort.test.ts` as above; leak script run in build. Commands: `npx vitest run __tests__/lib/pasantias-cohort.test.ts`; `npm run build && node scripts/check-price-leak.mjs`.
+**Definition of done:** standard + review-request.
+**Risks:** false positives on numeric tokens in unrelated chunks — scope the scan to token+context (regex with € or price-key adjacency) and document exclusions in the script.
+**Rollback:** revert branch.
+
+## Phase A2 — `pasantias_leads` migration + RLS + pgTAP (DB-agent)
+
+**Scope (DB-agent round):** migration `add_pasantias_leads.sql`; `supabase/tests/030-pasantias-leads-rls.sql`.
+**Out of scope:** API/UI/email code; any change to existing tables.
+**Acceptance criteria:**
+- [A1] Table per spec: identity/contact/institution fields as v1, plus `consent_accepted_at timestamptz NOT NULL` (**no default**), `consent_notice_version text NOT NULL`, status CHECK (`new|contacted|converted|dismissed`) default `new`, `brochure_sent_at`, timestamps + `set_updated_at`; CHECK on `email_normalized`; UNIQUE `(email_normalized, cohort)`; indexes status / created_at DESC.
+- [A2] RLS enabled; admin-only ALL policy (active admin role, USING + WITH CHECK); no anon/other-role policies.
+- [A3] Migration additive; no RLS disable; **rollback section states forward-only** (disable consuming routes; no drop).
+- [A4] pgTAP: rls_enabled; admin SELECT/INSERT/UPDATE/DELETE allowed; docente + anon fully blocked (INSERT throws 42501 / SELECT empty / UPDATE matches 0); insert without explicit `consent_accepted_at` fails (NOT NULL proves no default). ~13 asserts, `020-tractor-signups-rls.sql` conventions.
+- [A5] `npm run test:db` green + full gates.
+**Test plan:** the 030 suite. Command: `npm run test:db`.
+**Definition of done:** standard + review-request.
+**Risks:** none new — additive, unreferenced until A5.
+**Rollback:** forward-only (no consumer exists yet; abandoning = leave table dormant).
+
+## Phase A3 — Brochure + ficha generators + PDF text/visual QA
+
+**Scope:** `lib/pasantias/brochure.tsx`, `lib/pasantias/ficha.tsx`, shared section components under `lib/pasantias/pdf/`; `lib/pasantias/__tests__/pdf.test.ts`; visual QA artifacts (rendered page images attached to the executor report).
+**Out of scope:** serving endpoints/caching (A4), lead API, landing page.
+**Acceptance criteria:**
+- [A1] `generateBrochure()` (server-only; imports commercial module): portada, qué es + objetivos, día tipo, itinerario 2 semanas (day-1 per brief; lunes 19 feriado), 7 escuelas, equipo, alojamiento, inversión + forma de pago, incluye/no incluye, contacto (legal identity from A0). `generateFicha()` (public module only): 1–2 pages, no prices.
+- [A2] PDF **text-extraction** tests (real extraction, not component-tree): brochure text contains "1.560" and payment terms; ficha text contains no monetary tokens; both start `%PDF`; brochure ≥5 pages, ficha ≤2.
+- [A3] Visual QA performed: every page rendered to PNG at 144 DPI, attached to the report; no clipped/overflowing text, no missing glyphs (accented es-CL), readable hierarchy — PM independently inspects; unresolved visual defects are findings, not notes.
+- [A4] Filenames es-CL via RFC 5987-compatible naming constants (consumed by A4-phase headers).
+- [A5] Gates green.
+**Test plan:** `lib/pasantias/__tests__/pdf.test.ts` (extraction + structure); render-to-image script for QA (dev-only, not CI). Commands: `npx vitest run lib/pasantias/__tests__/pdf.test.ts`; QA script per report.
+**Definition of done:** standard + review-request + attached page renders.
+**Risks:** React-PDF typographic ceiling — visual QA is the gate; if quality is unacceptable, PM escalates to Brent (designed-PDF override path per D-05 with per-file approval).
+**Rollback:** revert branch.
+
+## Phase A4 — PDF serving endpoints + leak checks
+
+**Scope:** `pages/api/pasantias/brochure.ts`, `pages/api/pasantias/ficha.ts`; `__tests__/api/pasantias-pdf.test.ts`.
+**Out of scope:** generators (A3), lead API.
+**Acceptance criteria:**
+- [A1] GET-only; serve from `propuestas` bucket cache path `pasantias/<name>-<BROCHURE_VERSION>.pdf`; on miss: generate → upload → serve; upload failure degrades to generate-and-serve (logged). Headers: `application/pdf`, `Content-Disposition: inline` with RFC 5987 filename, `Cache-Control: public, max-age=3600` (consistent with owner's shareable-link decision).
+- [A2] A pre-existing file at the cache path is served as-is; the code path is covered by a test; the plan's override rule (per-file owner approval) is stated in the route's doc comment.
+- [A3] Best-effort rate limit present (best-effort wording; the durable cost control is the cache).
+- [A4] Tests: cache-hit path, generate-on-miss path, degrade-on-upload-failure path, header assertions. Gates green.
+**Test plan:** `__tests__/api/pasantias-pdf.test.ts` with mocked storage + real generator (small fixture cohort). Command: targeted vitest + `npm test`.
+**Definition of done:** standard + review-request.
+**Risks:** cold-start render latency (~1–3s once per version) — accepted.
+**Rollback:** revert branch (endpoints unreferenced until A5/A6).
+
+## Phase A5 — Lead API + transition helper + auto-reply/notification
+
+**Scope:** `lib/pasantias/leads.ts` (`canTransitionLead` + validation helpers), `pages/api/pasantias/lead.ts`, `lib/pasantias/emails.ts`, `__tests__/api/pasantias-lead.test.ts`, `__tests__/lib/pasantias-leads.test.ts`.
+**Out of scope:** UI, admin triage, PDF code, contact.ts.
+**Acceptance criteria:**
+- [A1] POST-only; best-effort rate limit; honeypot fake-success; validation (required names/email/institution/consent-checkbox true; `cohort === CURRENT_COHORT.id`; length caps) → 400 with es-CL field errors; **all user-supplied strings HTML-escaped at every interpolation point in both emails** (hostile-string tests).
+- [A2] Persist via service role with explicit `consent_accepted_at: now-from-server` + `consent_notice_version: PRIVACY_NOTICE_VERSION`; duplicate `(email,cohort)` → update contact fields + `dismissed→new` via `canTransitionLead` only; 23505 race → duplicate path; identical 200 body both paths.
+- [A3] Emails after persist, best-effort: auto-reply (es-CL, minimal FNE layout, **no prices**, brochure link via `buildAbsoluteUrl('/api/pasantias/brochure')`) + internal notification to `info@nuevaeducacion.org`; failure → still 200, logged, `brochure_sent_at` untouched; missing `RESEND_API_KEY` → soft-fail; **auto-reply dedup**: not re-sent more than once per 24h per lead (amplification control).
+- [A4] Transition helper: full edge matrix tested (5 allowed edges pass; every other from→to pair denied).
+- [A5] Gates green.
+**Test plan:** as v1 suite plus: escaping (hostile payloads render inert), 24h dedup, transition matrix. Commands: targeted vitest ×2 + `npm test`.
+**Definition of done:** standard + review-request.
+**Risks:** none new; route dark until A6.
+**Rollback:** revert branch.
+
+## Phase A6 — `/pasantias` landing page + LeadForm + UI e2e
+
+**Scope:** `pages/pasantias.tsx`, `components/pasantias/LeadForm.tsx`, `tests/e2e/pasantias.spec.ts` (mandatory-list addition per T2), OG image asset if needed.
+**Out of scope:** other pages' links (A7), admin UI, endpoints.
+**Acceptance criteria:**
+- [A1] Compiled Tailwind + brand tokens (model `registro-tractor.tsx`), `Footer`, `<Head>` OG/Twitter meta via `app-url`; imports **only** the public cohort module (leak script from A1 stays green — CI-enforced).
+- [A2] Sections from Appendix A content: hero (fecha chip; CTA primario → form; secundario → ficha), por qué Barcelona + approved claims, día tipo (3 cards), itinerario (2 weeks, day-1 per brief, feriado marked), 7 escuelas, equipo (8), testimonios (only if brief supplied them), FAQ ≥5 (no prices; cotización grupal → existing contact path), LeadForm, WhatsApp CTA (number from brief; omit section if brief says none).
+- [A3] LeadForm: fields per A5 contract + consent checkbox (A0 sentence, links `/privacidad`) + honeypot; client validation + first-invalid focus; disabled while pending; success panel `role="status"` with brochure link + "te lo enviamos por correo"; server error → es-CL retry, data preserved; UTM/source captured from query.
+- [A4] `data-testid` on all interactive elements (`pasantias-*`); accessibility basics: labeled inputs, focus management, contrast per existing tokens (checkable: labels associated + keyboard-only submit path in e2e).
+- [A5] `tests/e2e/pasantias.spec.ts` green and in the CI mandatory list: renders hero + dates from public module; ficha link href; empty-submit errors + focus; mocked-API success panel; mocked 500 preserves data; keyboard-only completion.
+**Test plan:** the e2e spec (route-mocked; the unmocked integration flow is A9's). Command: `npx playwright test tests/e2e/pasantias.spec.ts`.
+**Definition of done:** standard + review-request.
+**Risks:** genuinely large phase — it is UI-only by design (API/PDF landed earlier); if context runs out, executor reports honestly and PM splits a round-2 (no silent scope drops — every A-criterion is due).
+**Rollback:** revert branch (page orphaned until A7 links it).
+
+## Phase A7 — Link rewiring + contact.ts swap
+
+**Scope:** `pages/index.tsx` (nav ×2, section CTA, **both** flipbook buttons/modals/state as applicable), `pages/programas.tsx` (nav ×2, INSPIRA card link, **its own INSPIRA flipbook state/iframe ~L149-153/651-675**), `pages/nosotros.tsx`, `pages/noticias.tsx`, `components/Footer.tsx`; `pages/api/contact.ts`; `__tests__/api/contact.test.ts`.
+**Out of scope:** homepage form fields/consent (backlog), stats numbers, quote flow.
+**Acceptance criteria:**
+- [A1] Every "PASANTÍAS" nav/footer link → `/pasantias`; homepage section id preserved; homepage + programas INSPIRA flipbooks removed and replaced by links to `/pasantias`; Directivos flipbooks retained with "Abril 2026" removed from titles; `grep -rn "heyzine" pages/ components/` → only Directivos URLs remain; `grep -rn '"/#pasantias"' pages/ components/` → no nav/footer hits.
+- [A2] `contact.ts`: interest map covers `inspira/inicia/evoluciona/aula-generativa/otro` (+ legacy aliases); transport = Resend to `info@` from `EMAIL_FROM_ADDRESS` reusing the existing HTML **with all fields escaped** (current template interpolates raw user input — fix, don't copy); Formspree call, 50/month block, and the `trackFormSubmission` call all removed (tracker still fires Formspree warnings at 45 and writes an unmigrated table — dead weight; page `admin/form-usage` → backlog removal); best-effort rate limit; soft-fail without key.
+- [A3] Unit tests: label mapping, Resend payload + escaping (hostile input), soft-fail, method guard. E2E nav assertion added to the pasantías spec.
+- [A4] Gates green; leak script green.
+**Test plan:** `__tests__/api/contact.test.ts`; e2e nav check. Commands: targeted vitest + playwright.
+**Definition of done:** standard + review-request.
+**Risks:** highest-blast-radius Track A change (all contact-form paths) — soft-fail + tests; PM reads this diff hardest.
+**Rollback:** revert branch (Formspree path returns).
+
+## Phase A8 — Admin leads triage
+
+**Scope:** `pages/admin/pasantia-leads.tsx`, `pages/api/admin/pasantia-leads/index.ts`, Sidebar entry (admin-only), `__tests__/api/admin-pasantia-leads.test.ts`, e2e smoke additions.
+**Out of scope:** middleware (untouched by plan), email platform, exports beyond CSV.
+**Acceptance criteria:**
+- [A1] API GET (filters: status, search) + PATCH `{id, status?, notes?}` where **every status change passes `canTransitionLead`** — denied transitions → 400 listing allowed targets; admin-only (401/403 tested for anon/docente).
+- [A2] Page per house pattern: status tabs with counts, table (fecha, nombre, email, WhatsApp, institución, cargo, personas, estado, brochure_sent_at), row expand (mensaje/utm/source/consent version), status dropdown offering **only** legal transitions, notes, CSV export; es-CL; `data-testid`s.
+- [A3] Unit: auth matrix, transition enforcement (allowed + denied via API), persistence. E2E (mandatory list): admin fixture opens the page and sees a seeded lead; unauthenticated redirect.
+- [A4] Gates green.
+**Test plan:** targeted vitest + playwright with T2 fixture. Commands: as above.
+**Definition of done:** standard + review-request.
+**Risks:** none new.
+**Rollback:** revert branch.
+
+## Phase A9 — Track A release verification
+
+**Scope:** `tests/e2e/pasantias-flow.spec.ts` (unmocked integration: real form POST → DB → admin page shows the lead, using T2 fixture; mail asserted soft-failed-or-sent via API response contract), CI mandatory-list addition; a written verification checklist executed on the preview/prod deploy with results in the ledger.
+**Out of scope:** new features.
+**Acceptance criteria:**
+- [A1] Integration spec green in CI (no mocks on the lead path; synthetic data only).
+- [A2] Post-merge checklist executed and ledgered with evidence: `/pasantias` live with correct dates; ficha downloads; form → lead row + auto-reply received at a test mailbox + internal notification received; brochure link from the email works; homepage card correct; WhatsApp share unfurl checked on a named device (owner-run, result recorded).
+- [A3] Any failure = finding; phase closes only when checklist is fully green.
+**Test plan:** the integration spec + checklist. Command: `npx playwright test tests/e2e/pasantias-flow.spec.ts`.
+**Definition of done:** checklist evidence in LEDGER; Codex review; then Track A is releasable as a whole.
+**Risks:** prod-only mail verification depends on Vercel env — coordinate with Brent for the test mailbox.
+**Rollback:** n/a (verification phase).
+
+## Phase B1 — Open-relay remediation (Track B prerequisite)
+
+**Scope:** `pages/api/send-email.ts`, `pages/api/test-email.ts`, `lib/bots/expense-service.ts` (caller migration), `package.json` (drop unused `@sendgrid/mail`), tests.
+**Out of scope:** campaign features.
+**Acceptance criteria:**
+- [A1] No unauthenticated route can send arbitrary email: `send-email.ts` deleted or gated behind an internal server-secret + fixed recipient allowlist; `test-email.ts` deleted or admin-gated; `expense-service.ts` sends via a direct internal helper (Resend) with fixed internal recipients — its behavior covered by an updated/added test.
+- [A2] Repo-wide grep proves no remaining `fetch`-able unauthenticated send path; `@sendgrid/mail` removed from dependencies (never imported — verified).
+- [A3] Gates green.
+**Test plan:** unit tests for the gated/migrated paths + a 401 test on any retained route. Command: targeted vitest + `npm test`.
+**Definition of done:** standard + review-request.
+**Risks:** expense-bot flow must keep working — its existing tests/report cover it; soft-fail preserved.
+**Rollback:** revert branch (relay returns — unacceptable long-term; rollback only for defect triage).
+
+## Phase B2 — Resend / svix / cron compatibility spike
+
+**Scope:** a spike executor round producing `docs/plan/reviews/fase-b2-findings.md` + minimal locked-contract tests (`__tests__/lib/resend-contract.test.ts`) + dependency decisions applied (`svix` added; Resend upgraded only if required).
+**Out of scope:** feature code.
+**Acceptance criteria:**
+- [A1] Locked and test-encoded: exact `resend.batch.send` request/response shape on the installed version (nested `{data:{data:[…]}}` or post-upgrade shape), per-email `headers` support, error-as-value vs thrown behavior, idempotency-key support (or its absence, with the dedup implication stated).
+- [A2] `svix` verification API locked with a known-vector test (multi-signature header, versioned scheme, past/future tolerance).
+- [A3] Vercel cron capability on the account's plan verified (max cadence documented); D-07 cadence parameter recorded in the findings file and reflected in B10's spec (if cron is unavailable/too coarse, findings must say so and PM re-plans B10's invoker before it starts — that path is a FINDINGS outcome, not silent adaptation).
+- [A4] Gates green.
+**Test plan:** the contract tests (network-mocked; shapes from SDK types + docs). Command: targeted vitest.
+**Definition of done:** findings file + tests merged; decisions logged.
+**Risks:** none — that's the point of the spike.
+**Rollback:** revert branch.
+
+## Phase B3 — Email schema: tables + RLS + privilege pgTAP (DB-agent)
+
+**Scope (DB-agent round):** migration `add_email_marketing_tables.sql`; `supabase/tests/040-email-marketing-rls.sql`.
+**Out of scope:** SQL functions (B4), all app code.
+**Acceptance criteria:**
+- [A1] `email_contacts`: identity fields; `email_normalized` UNIQUE + CHECK; `tags text[]` + GIN; source CHECK; `legal_basis` CHECK (`consent_form|customer_relationship|manual_verified`) NOT NULL, `basis_note`, `basis_recorded_at timestamptz NOT NULL` (**no default**), `consent_notice_version` (nullable — set when basis is consent_form); `unsubscribe_token` UNIQUE default gen_random_uuid(); subscribed_at/unsubscribed_at/suppressed_at + `suppression_reason` CHECK (`bounce|complaint|manual|failed|suppressed`); timestamps + trigger.
+- [A2] `email_campaigns`: content fields as v1 + status CHECK (`draft|sending|sent|sent_with_errors|failed`) default draft; audience_tags; send_started_at/completed_at; no counters. `email_campaign_sends`: as v1 + UNIQUE(campaign_id, contact_id) + indexes; **contact FK `ON DELETE RESTRICT`** (erasure is anonymization via RPC, never cascade-delete of history).
+- [A3] `email_suppression`: `email_hash text PRIMARY KEY` (SHA-256 of normalized email), reason, created_at. `email_webhook_events`: `svix_id text PRIMARY KEY`, event_type, resend_email_id, received_at.
+- [A4] RLS enabled ×5; **admin-only** ALL policies (no community_manager, no anon); migration additive; forward-only rollback wording.
+- [A5] pgTAP privilege matrix: rls_enabled ×5; admin CRUD ×5; docente/anon blocked ×5; NOT NULL consent/basis columns reject defaults-missing inserts. `npm run test:db` green.
+**Test plan:** 040 suite (~40 asserts). Command: `npm run test:db`.
+**Definition of done:** standard + review-request.
+**Risks:** none — additive, dormant until B4+.
+**Rollback:** forward-only.
+
+## Phase B4 — Email SQL functions + behavioral pgTAP (DB-agent)
+
+**Scope (DB-agent round):** migration `add_email_marketing_functions.sql`; `supabase/tests/041-email-marketing-fn.sql`.
+**Out of scope:** app code.
+**Acceptance criteria:**
+- [A1] Functions (all SECURITY DEFINER, `SET search_path = ''`, schema-qualified, `REVOKE FROM PUBLIC, anon, authenticated`, GRANT to service_role only): `queue_campaign_sends(uuid)` (draft-assert; eligible = subscribed, unsuppressed, not in email_suppression by hash, tags overlap OR empty filter; ON CONFLICT DO NOTHING; flips sending; returns queued count), `claim_campaign_sends(uuid,int)` (pending or stale>15min, SKIP LOCKED, re-check eligibility → skipped), `import_email_contacts(jsonb,uuid,text)` (upsert, tag union, basis fields required per row, refuses rows matching email_suppression, never resurrects unsubscribed/suppressed), `retry_failed_sends(uuid)` (failed→pending, campaign sent_with_errors→sending, returns count), `get_campaign_metrics(uuid)` (grouped counts incl. skipped/failed/unsubscribed), `list_contact_tags()` (distinct unnest), `anonymize_email_contact(uuid)` (hash → email_suppression with reason manual; null PII fields on contact + its sends' email snapshots; keeps rows; idempotent).
+- [A2] Behavioral pgTAP (the B-04 list): empty-tag vs overlapping-tag audience; double-queue no-op; stale vs fresh claim; unsubscribe/suppress between queue and claim → skipped; import insert/update/tag-union; suppression-hash refusal; no resurrection; retry flips only failed; metrics math on a seeded fixture; anonymize leaves metrics unchanged and blocks re-import; privilege denial via PUBLIC/anon/authenticated EXECUTE attempts; service-role success.
+- [A3] `npm run test:db` green; gates green.
+**Test plan:** 041 suite (~45 asserts). Command: `npm run test:db`.
+**Definition of done:** standard + review-request.
+**Risks:** true SKIP LOCKED concurrency can't be fully exercised in single-session pgTAP — covered structurally (claim marks rows `sending` so a second claim returns disjoint rows; asserted) and noted honestly in the report.
+**Rollback:** forward-only.
+
+## Phase B5 — Contacts admin
+
+**Scope:** `pages/admin/email/contacts.tsx`, `pages/api/admin/email/contacts/index.ts`, `lib/email/adminGuard.ts` (admin-only), `components/admin/email/ContactModal.tsx`, Sidebar "Contactos" entry (admin-only), tests.
+**Out of scope:** imports (B6), campaigns (B9), send history UI (B11 — no placeholder UI).
+**Acceptance criteria:**
+- [A1] Guard: `getApiUser` + active-admin check (401/403; docente/CM denied — tested).
+- [A2] API: paginated GET (search ilike email/nombre/organización; tag filter via `list_contact_tags` RPC; estado filter incl. suprimido); POST manual add (requires explicit `legal_basis` + `basis_note`; normalized; 409 duplicate); PUT edit (names/org/tags; manual unsubscribe/resubscribe — resubscribe only when suppression_reason is null/manual); **erasure action calls `anonymize_email_contact` RPC** (confirm modal states permanence, es-CL) — no hard-delete endpoint exists.
+- [A3] Page per house pattern: table (estado badges Suscrito/Desuscrito/Suprimido/Anonimizado), filters, add/edit modal with basis fields, anonymize confirm; `data-testid`s; es-CL.
+- [A4] Unit + e2e (mandatory list, T2 fixture): guard matrix, basis-required validation, anonymize flow calls RPC, page loads for admin, denied for non-admin.
+- [A5] Gates green.
+**Test plan:** `__tests__/api/admin-email-contacts.test.ts`, `__tests__/lib/email-adminGuard.test.ts`, e2e additions. Commands: targeted + full.
+**Definition of done:** standard + review-request.
+**Risks:** none new (no middleware change; sidebar entry is admin-only and its target exists in this phase).
+**Rollback:** revert branch.
+
+## Phase B6 — Imports: CSV + platform sources
+
+**Scope:** `components/admin/email/CsvImportModal.tsx`, `pages/api/admin/email/contacts/import.ts`, `import-platform.ts`, `lib/email/importHelpers.ts`, `package.json` (+`papaparse` + types), wiring into contacts page, tests.
+**Out of scope:** automatic syncs; `pasantias_leads` import (needs A-track merged — backlog if B6 lands first).
+**Acceptance criteria:**
+- [A1] CSV flow: parse (`;` + BOM), column mapping, **mandatory basis step** (choose `consent_form` — requires notice-version text — or `manual_verified` with attestation note; es-CL explanation), tags, validation preview (invalid/dupes/existing/suppressed counts), chunks ≤500 → RPC; summary incl. `suprimidos_excluidos`.
+- [A2] Platform import: `profiles` restricted to an explicit staff-role allowlist (no student/family role types — D-11), approved accounts, email present, basis fixed `customer_relationship` + auto note; `tractor_signups` similarly; both behind an es-CL confirm explaining the basis being recorded; idempotent.
+- [A3] Server re-validation; suppression-hash exclusion proven by test (import a suppressed address → not created).
+- [A4] Unit tests (helpers: normalization, dedupe, chunk split at 501, semicolon+BOM fixture; API: guard, oversize 400, basis-missing 400, RPC payload, suppressed exclusion). Gates green.
+**Test plan:** `__tests__/lib/email-importHelpers.test.ts`, `__tests__/api/admin-email-import.test.ts`. Commands: targeted + full.
+**Definition of done:** standard + review-request.
+**Risks:** consent quality of historic lists remains an owner responsibility — the tool now records basis + excludes suppressed; B11 preflight re-checks before first send.
+**Rollback:** revert branch + dependency removal.
+
+## Phase B7 — Unsubscribe + webhooks
+
+**Scope:** `pages/desuscribir.tsx`, `pages/api/email/unsubscribe.ts`, `pages/api/email/webhook.ts`, `lib/email/webhookVerify.ts` (thin wrapper over `svix`), tests.
+**Out of scope:** sending, composer.
+**Acceptance criteria:**
+- [A1] `/desuscribir`: noindex, es-CL; GET mutation-free; POST → confirmation; unknown token → same generic success.
+- [A2] `unsubscribe.ts`: JSON POST + RFC 8058 one-click form POST; idempotent; **exempt from shared-IP throttling** (token-scoped dampening only); `c` param stamps `unsubscribed_at` on the send row matched by **both** campaign_id AND the token's contact (cross-pair test included); unknown token → generic 200; **internal failure → 5xx**.
+- [A3] `webhook.ts`: `bodyParser:false` + 256 KB raw cap; `svix` verification (multi-signature, versioned scheme, ±5 min past/future); `svix_id` insert-first dedup into `email_webhook_events` (duplicate → 200 no-op); event table per D-08: delivered/opened/clicked stamp send rows (first-write-wins); `failed|suppressed|bounced|complained` stamp + suppress contact (+ email_suppression hash) with matching reason, falling back to email match when no send row; unknown types → 200; **internal failure → 5xx** (provider retries); bad signature → 401.
+- [A4] Tests: svix vectors (valid/tampered/stale/future/multi-sig), dedup no-op, each event's state effect, bounce→suppression+tombstone, oversized body 413, failure-path 5xx, unsubscribe idempotency + one-click + wrong-pair scoping. Gates green.
+**Test plan:** `__tests__/lib/email-webhookVerify.test.ts`, `__tests__/api/email-webhook.test.ts`, `__tests__/api/email-unsubscribe.test.ts`. Commands: targeted + full.
+**Definition of done:** standard + review-request.
+**Risks:** live webhook registration is prod-only — B11 preflight verifies with a real test event.
+**Rollback:** revert branch.
+
+## Phase B8 — Renderer + editor Link extension + sandboxed preview
+
+**Scope:** `lib/email/renderCampaign.ts`, `lib/tiptap/extensions.ts` (add Link deliberately) + editor toolbar Link control, `components/admin/email/CampaignPreview.tsx` (sandboxed iframe util), tests.
+**Out of scope:** campaign pages/APIs (B9).
+**Acceptance criteria:**
+- [A1] Campaign editor schema defined = shared config (headings 2–3, bold/italic/underline, lists, paragraphs, blockquote if present) **+ Link** (with `safeUrl` enforcement at render); no H1, no inline images. Existing editor consumers regression-tested (news admin still renders/saves — its specs stay green).
+- [A2] `tiptapToEmailHtml` renders exactly that schema to inline-styled email HTML; **every** interpolation escaped: text nodes, link hrefs (`javascript:`/`data:` neutralized), and in `renderCampaignHtml`: subject, preheader, hero URL/alt, CTA label/URL, unsubscribe URL, all attribute contexts.
+- [A3] `renderCampaignHtml`: 600px table layout, header, optional hero/CTA, legal footer (identity + postal address from A0 brief) + "Cancelar suscripción"; pure function, client-importable.
+- [A4] Preview component: `<iframe sandbox srcDoc>` — no scripts/forms/top-navigation possible (asserted); 600/375 toggle.
+- [A5] Hostile-string test matrix green for every boundary; gates green.
+**Test plan:** `__tests__/lib/email-renderCampaign.test.ts` (schema + escaping matrix), editor regression via existing news tests + a toolbar unit test. Commands: targeted + full.
+**Definition of done:** standard + review-request.
+**Risks:** Link extension touches the shared editor — regression scope is why it's isolated here.
+**Rollback:** revert branch.
+
+## Phase B9 — Campaigns API + composer + test-send
+
+**Scope:** `pages/admin/email/campaigns/index.tsx`, `[id].tsx` (draft state only; non-draft states render read-only status text until B11), `pages/api/admin/email/campaigns/{index,[id]/index,[id]/test-send}.ts`, `components/admin/email/CampaignForm.tsx`, Sidebar "Correos" entry (**this phase** — target now exists), tests.
+**Out of scope:** queue/send/drain/retry (B10), progress/metrics UI (B11). **Invariant: no code path in this phase can move a campaign out of `draft`** — asserted by test (PUT rejects status fields; no send route exists yet).
+**Acceptance criteria:**
+- [A1] APIs (adminGuard): list; create draft; detail (campaign + live audience estimate via tags, labeled "estimado"); PUT draft-only (subject/preheader/content JSON + server-rendered `content_html` via B8, hero upload URL, CTA, audience_tags; non-draft → 409; status not client-settable); DELETE draft-only.
+- [A2] Composer: subject/preheader, TipTap (B8 schema incl. Link), hero upload (`utils/storage` → resources), CTA fields, tag multi-select **labeled "cualquiera de estas etiquetas (O)"** with estimate; dirty-state guard; sandboxed preview (B8 component); `data-testid`s; es-CL.
+- [A3] Test-send: single email to the logged-in admin, `[PRUEBA]` prefix, dummy unsubscribe; **no ledger writes**; without `RESEND_API_KEY` returns an explicit visible "no enviado — falta configuración" error (never fake success).
+- [A4] Unit + e2e (mandatory list): guard, draft-only 409, content_html rendered on save, OR-label present, test-send single-recipient behavior incl. unconfigured error; e2e: create draft → edit → preview renders in sandbox → dirty-guard.
+- [A5] Gates green.
+**Test plan:** `__tests__/api/admin-email-campaigns.test.ts`; `tests/e2e/email-admin.spec.ts` (T2 fixture). Commands: targeted + full.
+**Definition of done:** standard + review-request.
+**Risks:** sizing — largest UI phase; split point pre-agreed: if executor reports tight context, PM splits `[id].tsx` composer internals into a round 2 (no criterion dropped).
+**Rollback:** revert branch (sidebar entry included — no dangling link).
+
+## Phase B10 — Send backend: drain + state machine + retry
+
+**Scope:** `pages/api/cron/email-drain.ts`, `pages/api/admin/email/campaigns/[id]/{send,retry}.ts`, `lib/email/sendBatch.ts`, `vercel.json` cron entry (cadence per B2 findings), tests.
+**Out of scope:** progress/metrics UI (B11).
+**Acceptance criteria:**
+- [A1] `send.ts` (adminGuard): draft → validates (subject, body, estimate>0), freezes HTML, `queue_campaign_sends` → returns **queued snapshot count** (authoritative; UI must display it, not the estimate); non-draft → 409.
+- [A2] `email-drain.ts` (`Bearer CRON_SECRET`, per existing cron pattern): for each `sending` campaign: claim → batch (≤100, spacing per B2 rate findings) → per-batch ledger writes using the B2-locked response shape incl. error-as-value; terminal transitions exactly per D-07 (`sent` / `sent_with_errors`; all-failed → `sent_with_errors` unless 0 sent total AND queue-complete → `failed`); also invocable via an adminGuard-ed manual "Procesar ahora" route reusing the same handler core (single implementation).
+- [A3] `retry.ts` (adminGuard): calls `retry_failed_sends`; only from `sent_with_errors`; returns new pending count.
+- [A4] Every email: frozen HTML + per-recipient unsubscribe substitution + List-Unsubscribe headers (asserted on the batch payload); sender = `EMAIL_MARKETING_FROM` (fallback `EMAIL_FROM_ADDRESS`).
+- [A5] Tests: queue idempotency (double POST no-op), drain tick with mocked RPC+Resend (success, partial batch error → failed rows + campaign continues, resolved `{error}` value handled, thrown error handled), terminal-state matrix (incl. all-failed), retry authorization + state gating, cron auth 401, manual-drain guard. Gates green.
+**Test plan:** `__tests__/lib/email-sendBatch.test.ts`, `__tests__/api/email-drain.test.ts`, `__tests__/api/admin-email-send.test.ts`. Commands: targeted + full.
+**Definition of done:** standard + review-request.
+**Risks:** cron cadence dependency on B2 findings; duplicate-window tradeoff per D-07 (documented).
+**Rollback:** revert branch (drain/cron removed; campaigns stay draft-only as in B9).
+
+## Phase B11 — Send/progress/metrics UI + campaign e2e + preflight gate
+
+**Scope:** `[id].tsx` sending/sent/sent_with_errors/failed states, `components/admin/email/{SendProgress,CampaignMetrics}.tsx`, contact detail send-history (real data now), `tests/e2e/email-send.spec.ts`, `docs/plan/PREFLIGHT-B.md` execution (checklist below).
+**Out of scope:** new backend behavior.
+**Acceptance criteria:**
+- [A1] Confirm modal: from-address, audience description, **queued count shown as authoritative after queueing** (estimate labeled as estimate before); progress = polled `get_campaign_metrics` while `sending` (UI observes; liveness is the cron's); "Procesar ahora" button; incomplete-send banner whenever `sending` (works after tab close/reopen); `sent_with_errors` state: failure list with per-row error + "Reintentar fallidos".
+- [A2] Metrics panel: Destinatarios/Enviados/Entregados/Abiertos/Clics/Rebotes/Fallidos/Omitidos/Desuscritos from the RPC; es-CL note that opens are approximate.
+- [A3] E2E (mandatory, T2 fixture, mocked Resend boundary): full synthetic flow — create → compose → queue → drain tick → progress reflects counts → terminal state → metrics render; interruption path (queued, no drain → banner + manual process); retry path.
+- [A4] **Preflight gate executed and ledgered with evidence before any real-audience send** (owner + PM): DKIM/SPF verified; DMARC present; `EMAIL_MARKETING_FROM` configured; webhook registered + live test event verified end-to-end; open/click tracking on; Resend plan/quota confirmed vs audience size; consent basis review of imported lists; canary send to internal tag received + unsubscribe round-trip verified. Until ledgered PASS, Brent does not authorize a real send.
+- [A5] Gates green.
+**Test plan:** e2e spec + component tests for state rendering. Commands: targeted + full.
+**Definition of done:** standard + review-request + preflight PASS ledgered ⇒ Track B releasable.
+**Risks:** prod-dependent preflight items — scheduled with Brent.
+**Rollback:** revert branch (backend intact, UI returns to B9 read-only states).
+
+---
 
 ## Backlog
 
 | Item | Source | Class |
 |---|---|---|
-| Harden/remove open relay `pages/api/send-email.ts` (+ migrate `expense-service.ts` caller, delete `test-email.ts`), drop dead `@sendgrid/mail` | audit 2026-07-30 | SHOULD-FIX (security) |
-| Homepage off `cdn.tailwindcss.com` → compiled Tailwind | audit 2026-07-30 | SHOULD-FIX (perf/SEO) |
-| `form_submissions` table missing migration (schema drift) | audit 2026-07-30 | SHOULD-FIX |
-| Homepage contact form consent checkbox + dual-write Inspira interest into `pasantias_leads` | plan D2 discussion | v2 |
-| `pasantias_leads` import button in Contactos | P10 note | v2 |
-| Scheduled sends, merge tags, nurture sequence, public double-opt-in signup, sending subdomain | design | v2 |
+| Remove `lib/formSubmissionTracker.ts` + `pages/admin/form-usage.tsx` + unmigrated `form_submissions` decision | B-10 triage | SHOULD-FIX |
+| Homepage off `cdn.tailwindcss.com` → compiled Tailwind | audit | SHOULD-FIX (perf/SEO) |
+| Homepage contact form consent checkbox + dual-write into leads | plan v1 | v2 |
+| `pasantias_leads` import button in Contactos | B6 note | v2 |
+| `community_manager` access tier for Correos | owner decision (admin-only v1) | v2 |
+| Scheduled sends, merge tags, nurture sequences, public double-opt-in, sending subdomain | design | v2 |
 
 ## Decision log
 
 | Date | Decision | Rationale | Raised by |
 |------|----------|-----------|-----------|
-| 2026-07-30 | Adopt AGENT-WORKFLOW.md SOP; process files at `docs/plan/`; one PLAN.md, two tracks; per-phase explicit merge go from Brent | Standardize multi-agent development; `main` auto-deploys so merge stays human-gated | Brent |
-| 2026-07-30 | No prices on web or email bodies; prices only in full brochure PDF | Commercial flexibility; brochure circulates in conversations | Brent |
-| 2026-07-30 | Hybrid downloadables: open ficha + form-gated full brochure with instant download | Lead capture without hostage content | Brent |
-| 2026-07-30 | October 2026 = single track (líderes pedagógicos) | Directivos track not offered this cohort | Brent |
-| 2026-07-30 | Email platform v1 = broadcast simple (no automation) | Don't go overboard; schema stays v2-extensible | Brent |
-| 2026-07-30 | New `pasantias_leads` table over extending `tractor_signups` | Incompatible constraints + grant flow creates platform users | Fable (plan) |
-| 2026-07-30 | Send pipeline = UI-driven ticks over a sends ledger; no cron | Simplest reliable option; no silent stalls; idempotent resume | Fable (plan) |
+| 2026-07-30 | Adopt AGENT-WORKFLOW.md SOP; files at `docs/plan/`; one plan, two tracks; per-phase explicit merge go | Standardized multi-agent development; human-gated deploys | Brent |
+| 2026-07-30 | No prices on web or email bodies; brochure PDF only | Commercial flexibility | Brent |
+| 2026-07-30 | Hybrid downloadables; October = single track; email v1 = broadcast simple | Scope control | Brent |
+| 2026-07-30 | New `pasantias_leads` table; tick-ledger send concept | Design | Fable |
+| 2026-07-30 | **v2 re-plan on Codex FAIL (13 BLOCKING accepted)**: split cohort modules + leak guard; consent-as-evidence model; suppression tombstones + anonymize-erasure; svix + webhook-event dedup + full event set; cron-driven drain + full state machine; relay remediation as B1 prerequisite; CI fixture phase; phase graph resequenced (no broken intermediate states); DB-agent rounds; forward-only rollbacks | REVIEW-PLAN.md | Codex Sol |
+| 2026-07-30 | Brochure gating = UI-gated, publicly shareable stable link; public caching consistent | Matches real WhatsApp distribution; zero forward friction | Brent |
+| 2026-07-30 | Erasure = anonymize + permanent SHA-256 suppression tombstone; metrics immutable under erasure | Honors deletion without losing do-not-contact | Brent |
+| 2026-07-30 | Comms tables are FNE-global (tenancy exception, D-11); **email platform access = admin-only v1**; school segmentation via tags | "Solo admins"; removes middleware.ts from scope entirely | Brent |
+| 2026-07-30 | SOP copy committed at `docs/plan/AGENT-WORKFLOW.md` as authoritative in-repo version | Codex NIT: plan referenced a file outside the repo | Fable |
+
+## Appendix A — Content brief (v0 — DRAFT, awaiting owner sign-off in A0)
+
+| # | Item | Value | Status |
+|---|---|---|---|
+| A-1 | Cohort label | Octubre 2026 | OK (Brent 2026-07-30) |
+| A-2 | Week 1 | Lun 12 – Vie 16 octubre 2026 | OK (Brent) |
+| A-3 | Week 2 | Mar 20 – Vie 23 octubre 2026 (lunes 19 feriado) | OK (Brent) |
+| A-4 | Day 1 shape (12-oct = Fiesta Nacional, colegios cerrados) | — | **PENDING (BCN team)** |
+| A-5 | Exact 7-school list | Sadako, Learnlife, Octavio Paz, El Puig, Virolai, Les Vinyes + 1 TBC | **PENDING (confirm 7th + order)** |
+| A-6 | Experts + titles | Coral Regí (directora), Mora del Fresno (coordinadora), Jordi Musons, Boris Mir, Pepe Menéndez, Joan Quintana, Sergi del Moral, Sandra Entrena | OK (PPTX) — titles TBC |
+| A-7 | 13 objectives + day structure + includes/excludes | per PPTX "BROCHURE INSPIRA 2026 - oct2026 2.0" | OK (source named) |
+| A-8 | Prices/payment (brochure only) | €1.000 + €560 (doble) = €1.560; Madrid €810; mín 5; 50% + saldo 30 días | OK (Brent) — validity date TBC |
+| A-9 | Claims | "400+ pasantes", "40+ colegios", "12 escuelas BCN" | **PENDING (confirm current)** |
+| A-10 | Legal identity + postal address (email footer) | — | **PENDING** |
+| A-11 | WhatsApp CTA number | — | **PENDING (or launch without)** |
+| A-12 | Testimonios (2–3, named + authorized) | — | **PENDING (or launch without)** |
+| A-13 | Privacy notice version | `PRIVACY_NOTICE_VERSION` introduced in A0 | in A0 scope |

@@ -21,7 +21,11 @@
  *     deployment without the secret cannot verify anything, so answering 401 would
  *     advertise an endpoint that can never succeed.
  *  2. **POST only → 405.**
- *  3. **1 MB cap → 413.** Bounded before the bytes are buffered, not after.
+ *  3. **1 MB cap → 413.** Bounded before the bytes are buffered, not after — and the
+ *     413 actually REACHES the caller: the read stops consuming, the response is
+ *     written, and only once it has flushed is the rest of the upload discarded. The
+ *     earlier order (destroy, then write) produced an ECONNRESET the client could not
+ *     tell apart from a network failure (Sol F5).
  *  4. **Signature + freshness → 401.** The typed rejection reason is logged
  *     server-side (it is the §18 "webhook signature failures" signal) and NEVER
  *     echoed to the caller: which of five reasons failed is an oracle.
@@ -121,9 +125,15 @@ function readRawBody(
       if (total > limitBytes) {
         settled = true;
         cleanup();
-        // Stop pulling bytes we have already decided to refuse. Guarded because the
-        // suite's request double is an EventEmitter, not a socket.
-        if (typeof req.destroy === 'function') req.destroy();
+        // Stop CONSUMING the bytes we have already decided to refuse — but do NOT
+        // destroy the socket here (Sol F5). The 413 has not been written yet, and
+        // tearing the connection down before the response exists is what made clients
+        // see ECONNRESET instead of a status code. `cleanup()` removes the listeners
+        // and `pause()` stops the flow (removing a `data` handler does not pause a
+        // stream on its own), so nothing accumulates past the cap: the read stops at
+        // the first chunk over the limit and backpressure holds the rest at the
+        // socket. Guarded because the route's suite drives a plain EventEmitter.
+        if (typeof req.pause === 'function') req.pause();
         resolve(BODY_TOO_LARGE);
         return;
       }
@@ -151,6 +161,33 @@ function readRawBody(
     req.on('end', onEnd);
     req.on('error', onError);
   });
+}
+
+/**
+ * Discards the rest of an oversized upload — but only AFTER the response has left.
+ *
+ * A refused request still has a client on the other end pushing megabytes at a socket
+ * we have stopped reading. Left alone it would sit there until a timeout. Destroyed
+ * before the response flushed, the client would get ECONNRESET and never learn it sent
+ * too much. So: answer, wait for `finish` (the response is handed to the OS), then tear
+ * down. `close` is the belt-and-braces path for a connection that dies first, and the
+ * `once` guard keeps the two from double-firing.
+ */
+function discardRequestAfterResponse(req: NextApiRequest, res: NextApiResponse): void {
+  let done = false;
+  const discard = () => {
+    if (done) return;
+    done = true;
+    if (typeof req.destroy === 'function') req.destroy();
+  };
+
+  // The route's suite hands in doubles that are not full streams.
+  if (typeof res.on !== 'function') {
+    discard();
+    return;
+  }
+  res.on('finish', discard);
+  res.on('close', discard);
 }
 
 export interface ZoomWebhookHandlerDeps {
@@ -186,6 +223,11 @@ export async function handleZoomWebhook(
   // Gate 3 — bounded read.
   const rawBody = await readRawBody(req, MAX_WEBHOOK_BODY_BYTES);
   if (rawBody === BODY_TOO_LARGE) {
+    // `Connection: close` because we are refusing mid-upload: the request framing is
+    // unfinished, so this connection cannot be reused for a keep-alive follow-up.
+    res.setHeader('Connection', 'close');
+    // Registered BEFORE the write, so `finish` cannot fire between the two.
+    discardRequestAfterResponse(req, res);
     res.status(413).json({ error: 'Payload too large' });
     return;
   }

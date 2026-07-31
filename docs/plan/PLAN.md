@@ -67,7 +67,7 @@ Improve communication and sales of Pasantías INSPIRA Barcelona for the **Octobe
 | A7b | contact.ts transport swap (Formspree→Resend) | **DONE 2026-07-31** (Codex PASS, zero findings; code `5e1940d`, PR #29) | `phase/a7b-contact` | — |
 | A8 | Admin leads triage (transition-enforced via API) | TODO | `phase/a8-leads-ui` | A5, T2 |
 | A9 | Track A release verification (integration e2e + evidence) | TODO | `phase/a9-verify` | A6b, A7a, A7b, A8 |
-| B1a | Expense-report mail moved server-side (recipients derived server-side) | TODO | `phase/b1a-expmail` | — |
+| B1a | Expense-report mail moved server-side (recipients derived server-side) | **DONE 2026-07-31** (Codex PASS; code `f29c1ce`, PR #30) | `phase/b1a-expmail` | — |
 | B1b | Relay removal (`send-email.ts`, `test-email.ts`, sendgrid dep) | TODO | `phase/b1b-relay` | B1a |
 | B2 | Resend / svix / cron compatibility spike | TODO | `phase/b2-spike` | B1b |
 | B3 | Email schema: 5 tables + per-op RLS + privilege pgTAP (DB-agent) | TODO | `phase/b3-email-db` | A0, B2 |
@@ -325,6 +325,10 @@ The v2 B11 preflight as its own evidence phase: DKIM/SPF verified; DMARC present
 | `pasantias_leads` (marketing_opt_in=true only) import button in Contactos | B6/D-12 | v2 |
 | `community_manager` access tier for Correos | owner decision | v2 |
 | Scheduled sends, merge tags, nurture sequences, public double-opt-in, sending subdomain | design | v2 |
+| Restore an explicit delivery timeout (~8s) on the bot expense-notification send | Codex B1a S-01 | SHOULD-FIX |
+| Expense-report e2e (seeded reports + approver + mocked Resend) | B1a round 1 | SHOULD-FIX |
+| Expense e-mail deep links hardcode fne-lms.vercel.app → migrate to app-url | B1a round 1 (pre-existing) | SHOULD-FIX |
+| Durable notify dedup (`notified_at` column, needs migration) | B1a round 1 | v2 |
 
 ## Decision log
 

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { convertToCLP } from '../currency-service';
 import { hasAdminPrivileges } from '../../utils/roleUtils';
-import { generateExpenseReportSubmissionEmail } from '../../utils/emailUtils';
+import { sendExpenseSubmissionNotification } from '../email/expenseNotifications';
 import {
   BotActor,
   Currency,
@@ -94,10 +94,7 @@ export function newReportDefaults(expenseDateIso: string | null): {
 }
 
 export class ExpenseService {
-  constructor(
-    private readonly supabase: SupabaseClient,
-    private readonly appUrl: string = process.env.NEXT_PUBLIC_APP_URL || 'https://fne-lms.vercel.app'
-  ) {}
+  constructor(private readonly supabase: SupabaseClient) {}
 
   /**
    * Resolves the acting LMS user behind a platform identity, including the
@@ -363,36 +360,25 @@ export class ExpenseService {
       itemCount: parseEmbeddedCount(row.expense_items, 'submitReport')
     };
 
-    // Approver notification — same template as the web flow. Awaited (with a
-    // short timeout): a serverless runtime may freeze after the response, so
+    // Approver notification — same template as the web flow, now sent directly
+    // from the server instead of POSTing an arbitrary payload to the relay
+    // (B1a). Awaited: a serverless runtime may freeze after the response, so
     // fire-and-forget could silently drop the email. Failure never rolls back
-    // the submit — it is already committed; we only log.
+    // the submit — it is already committed; we only log. The recipient is the
+    // configured approver, resolved inside the notification module.
     try {
-      const emailData = generateExpenseReportSubmissionEmail(
-        result.reportName,
-        actor.fullName,
-        actor.email ?? '',
-        result.totalAmount,
-        row.start_date as string,
-        row.end_date as string
-      );
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-      try {
-        const response = await fetch(`${this.appUrl}/api/send-email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(emailData),
-          signal: controller.signal
-        });
-        if (!response.ok) {
-          const body = await response.text().catch(() => '');
-          console.error(
-            `[Bot] submit notification email failed: HTTP ${response.status} ${body.slice(0, 300)}`
-          );
-        }
-      } finally {
-        clearTimeout(timeout);
+      const emailResult = await sendExpenseSubmissionNotification({
+        reportName: result.reportName,
+        submitterName: actor.fullName,
+        submitterEmail: actor.email ?? '',
+        totalAmount: result.totalAmount,
+        startDate: row.start_date as string,
+        endDate: row.end_date as string
+      });
+      if (!emailResult.sent && !emailResult.skipped) {
+        console.error(
+          `[Bot] submit notification email failed: ${emailResult.error ?? 'unknown error'}`
+        );
       }
     } catch (emailError) {
       console.error('[Bot] submit notification email failed:', emailError);

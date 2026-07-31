@@ -1,9 +1,10 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockHasAdminPrivileges, mockConvertToCLP } = vi.hoisted(() => ({
+const { mockHasAdminPrivileges, mockConvertToCLP, mockSendSubmissionNotification } = vi.hoisted(() => ({
   mockHasAdminPrivileges: vi.fn(),
-  mockConvertToCLP: vi.fn()
+  mockConvertToCLP: vi.fn(),
+  mockSendSubmissionNotification: vi.fn()
 }));
 
 vi.mock('../../../utils/roleUtils', async (importOriginal) => {
@@ -14,6 +15,13 @@ vi.mock('../../../utils/roleUtils', async (importOriginal) => {
 vi.mock('../../../lib/currency-service', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return { ...actual, convertToCLP: mockConvertToCLP };
+});
+
+// B1a: the bot no longer POSTs `{to, subject, html}` to /api/send-email — it
+// calls the server-side notification module directly.
+vi.mock('../../../lib/email/expenseNotifications', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return { ...actual, sendExpenseSubmissionNotification: mockSendSubmissionNotification };
 });
 
 import { ExpenseService, newReportDefaults, BotExpenseError } from '../../../lib/bots/expense-service';
@@ -84,6 +92,7 @@ function buildClient(resultsByTable: Record<string, TableResult[]>) {
 }
 
 beforeEach(() => {
+  mockSendSubmissionNotification.mockReset().mockResolvedValue({ sent: true });
   mockHasAdminPrivileges.mockReset().mockResolvedValue(false);
   mockConvertToCLP.mockReset().mockResolvedValue({
     originalAmount: 12990,
@@ -116,7 +125,7 @@ describe('newReportDefaults', () => {
 describe('resolveActor', () => {
   it('returns null for unlinked identities', async () => {
     const { client } = buildClient({ bot_identities: [{ data: null }] });
-    const service = new ExpenseService(client as never, 'https://app.test');
+    const service = new ExpenseService(client as never);
     expect(await service.resolveActor('telegram', '555')).toBeNull();
   });
 
@@ -126,7 +135,7 @@ describe('resolveActor', () => {
       profiles: [{ data: { first_name: 'Bren', name: 'Bren Curtis', email: 'b@test.cl' } }],
       expense_report_access: [{ data: { can_submit: true } }]
     });
-    const service = new ExpenseService(client as never, 'https://app.test');
+    const service = new ExpenseService(client as never);
     const actor = await service.resolveActor('telegram', '555');
     expect(actor).toMatchObject({ userId: USER_ID, canSubmit: true, firstName: 'Bren' });
     expect(mockHasAdminPrivileges).not.toHaveBeenCalled();
@@ -139,7 +148,7 @@ describe('resolveActor', () => {
       profiles: [{ data: { first_name: 'Adm', name: 'Adm In', email: 'a@test.cl' } }],
       expense_report_access: [{ data: null }]
     });
-    const service = new ExpenseService(client as never, 'https://app.test');
+    const service = new ExpenseService(client as never);
     expect((await service.resolveActor('telegram', '555'))?.canSubmit).toBe(true);
   });
 
@@ -149,7 +158,7 @@ describe('resolveActor', () => {
       profiles: [{ data: { first_name: 'Sin', name: 'Sin Acceso', email: 's@test.cl' } }],
       expense_report_access: [{ data: null }]
     });
-    const service = new ExpenseService(client as never, 'https://app.test');
+    const service = new ExpenseService(client as never);
     expect((await service.resolveActor('telegram', '555'))?.canSubmit).toBe(false);
   });
 });
@@ -179,7 +188,7 @@ describe('saveExpenseItem', () => {
         { data: { report_name: 'Gastos junio 2026', total_amount: 45230, expense_items: [{ count: 3 }] } }
       ]
     });
-    const service = new ExpenseService(fake.client as never, 'https://app.test');
+    const service = new ExpenseService(fake.client as never);
     const result = await service.saveExpenseItem(saveInput);
 
     expect(fake.storageCalls[0].op).toBe('upload');
@@ -207,7 +216,7 @@ describe('saveExpenseItem', () => {
         { data: { report_name: 'Gastos junio 2026', total_amount: 15375, expense_items: [{ count: 1 }] } }
       ]
     });
-    const service = new ExpenseService(fake.client as never, 'https://app.test');
+    const service = new ExpenseService(fake.client as never);
     await service.saveExpenseItem({ ...saveInput, currency: 'GBP', amount: 12.5 });
 
     expect(mockConvertToCLP).toHaveBeenCalledWith(12.5, 'GBP');
@@ -221,7 +230,7 @@ describe('saveExpenseItem', () => {
   it('deletes the uploaded file when the RPC fails', async () => {
     const fake = buildClient({});
     fake.queueRpcResult({ data: null, error: { message: 'boom' } });
-    const service = new ExpenseService(fake.client as never, 'https://app.test');
+    const service = new ExpenseService(fake.client as never);
 
     await expect(service.saveExpenseItem(saveInput)).rejects.toMatchObject({ code: 'SAVE_FAILED' });
     const remove = fake.storageCalls.find((c) => c.op === 'remove');
@@ -245,7 +254,7 @@ describe('saveExpenseItem', () => {
           hint: null
         }
       });
-      const service = new ExpenseService(fake.client as never, 'https://app.test');
+      const service = new ExpenseService(fake.client as never);
 
       // User-facing failure stays the generic typed code — no Supabase internals.
       await expect(service.saveExpenseItem({ ...saveInput, currency: 'GBP', amount: 12.5 }))
@@ -272,14 +281,14 @@ describe('saveExpenseItem', () => {
   it('maps REPORT_NOT_EDITABLE RPC errors to a typed error', async () => {
     const fake = buildClient({});
     fake.queueRpcResult({ data: null, error: { message: 'REPORT_NOT_EDITABLE' } });
-    const service = new ExpenseService(fake.client as never, 'https://app.test');
+    const service = new ExpenseService(fake.client as never);
     await expect(service.saveExpenseItem(saveInput)).rejects.toMatchObject({ code: 'REPORT_NOT_EDITABLE' });
   });
 
   it('does not call the RPC when the upload fails', async () => {
     const fake = buildClient({});
     fake.setUploadResult({ error: { message: 'storage down' } });
-    const service = new ExpenseService(fake.client as never, 'https://app.test');
+    const service = new ExpenseService(fake.client as never);
     await expect(service.saveExpenseItem(saveInput)).rejects.toMatchObject({ code: 'UPLOAD_FAILED' });
     expect(fake.rpcCalls).toHaveLength(0);
   });
@@ -303,7 +312,7 @@ describe('findDuplicate', () => {
 
   it('matches a CLP receipt against the amount column, scoped to CLP/legacy-null rows', async () => {
     const { client, eqCalls, orCalls } = buildDuplicateClient(HIT);
-    const service = new ExpenseService(client as never, 'https://app.test');
+    const service = new ExpenseService(client as never);
     const result = await service.findDuplicate(USER_ID, 'Líder Express', '2026-06-05', 12990, 'CLP');
     expect(result).toEqual({ reportName: 'Gastos junio 2026' });
     expect(eqCalls).toContainEqual(['amount', 12990]);
@@ -315,7 +324,7 @@ describe('findDuplicate', () => {
 
   it('matches a GBP receipt against currency + original_amount, not the CLP amount column', async () => {
     const { client, eqCalls, orCalls } = buildDuplicateClient(HIT);
-    const service = new ExpenseService(client as never, 'https://app.test');
+    const service = new ExpenseService(client as never);
     const result = await service.findDuplicate(USER_ID, 'Tesco', '2026-06-05', 12.5, 'GBP');
     expect(result).toEqual({ reportName: 'Gastos junio 2026' });
     expect(eqCalls).toContainEqual(['currency', 'GBP']);
@@ -326,7 +335,7 @@ describe('findDuplicate', () => {
 
   it('defaults to CLP matching when no currency is given', async () => {
     const { client, eqCalls, orCalls } = buildDuplicateClient(HIT);
-    const service = new ExpenseService(client as never, 'https://app.test');
+    const service = new ExpenseService(client as never);
     await service.findDuplicate(USER_ID, 'Líder Express', '2026-06-05', 12990);
     expect(eqCalls).toContainEqual(['amount', 12990]);
     expect(orCalls).toContain('currency.is.null,currency.eq.CLP');
@@ -334,7 +343,7 @@ describe('findDuplicate', () => {
 
   it('returns null without querying when required fields are missing', async () => {
     const { client, eqCalls } = buildDuplicateClient(HIT);
-    const service = new ExpenseService(client as never, 'https://app.test');
+    const service = new ExpenseService(client as never);
     expect(await service.findDuplicate(USER_ID, null, '2026-06-05', 12.5, 'GBP')).toBeNull();
     expect(eqCalls).toHaveLength(0);
   });
@@ -351,72 +360,76 @@ describe('submitReport', () => {
 
   it('throws SUBMIT_CONFLICT when the conditioned update matches nothing', async () => {
     const { client } = buildClient({ expense_reports: [{ data: [] }] });
-    const service = new ExpenseService(client as never, 'https://app.test');
+    const service = new ExpenseService(client as never);
     await expect(service.submitReport(actor, REPORT_ID)).rejects.toMatchObject({ code: 'SUBMIT_CONFLICT' });
   });
 
-  it('logs non-2xx email responses without failing the committed submit', async () => {
+  function submittedReportClient() {
+    return buildClient({
+      expense_reports: [
+        {
+          data: [
+            {
+              id: REPORT_ID,
+              report_name: 'Gastos junio 2026',
+              total_amount: 57690,
+              start_date: '2026-06-01',
+              end_date: '2026-06-30',
+              expense_items: [{ count: 4 }]
+            }
+          ]
+        }
+      ]
+    });
+  }
+
+  it('logs a failed notification without failing the committed submit', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500, text: async () => 'smtp down' });
-    vi.stubGlobal('fetch', fetchMock);
+    mockSendSubmissionNotification.mockResolvedValue({ sent: false, error: 'smtp down' });
     try {
-      const { client } = buildClient({
-        expense_reports: [
-          {
-            data: [
-              {
-                id: REPORT_ID,
-                report_name: 'Gastos junio 2026',
-                total_amount: 57690,
-                start_date: '2026-06-01',
-                end_date: '2026-06-30',
-                expense_items: [{ count: 4 }]
-              }
-            ]
-          }
-        ]
-      });
-      const service = new ExpenseService(client as never, 'https://app.test');
+      const { client } = submittedReportClient();
+      const service = new ExpenseService(client as never);
       const result = await service.submitReport(actor, REPORT_ID);
       expect(result.reportName).toBe('Gastos junio 2026'); // submit survives email failure
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('HTTP 500'));
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('smtp down'));
     } finally {
-      vi.unstubAllGlobals();
       errorSpy.mockRestore();
     }
   });
 
-  it('submits and fires the approver email at an absolute URL', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+  it('does not log an error when the notification is skipped for a missing API key', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockSendSubmissionNotification.mockResolvedValue({ sent: false, skipped: true });
+    try {
+      const { client } = submittedReportClient();
+      const service = new ExpenseService(client as never);
+      await service.submitReport(actor, REPORT_ID);
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('submits and sends the approver notification server-side (no relay fetch)', async () => {
+    const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     try {
-      const { client } = buildClient({
-        expense_reports: [
-          {
-            data: [
-              {
-                id: REPORT_ID,
-                report_name: 'Gastos junio 2026',
-                total_amount: 57690,
-                start_date: '2026-06-01',
-                end_date: '2026-06-30',
-                expense_items: [{ count: 4 }]
-              }
-            ]
-          }
-        ]
-      });
-      const service = new ExpenseService(client as never, 'https://app.test');
+      const { client } = submittedReportClient();
+      const service = new ExpenseService(client as never);
       const result = await service.submitReport(actor, REPORT_ID);
       expect(result).toMatchObject({ reportName: 'Gastos junio 2026', itemCount: 4 });
-      expect(fetchMock).toHaveBeenCalledWith(
-        'https://app.test/api/send-email',
-        expect.objectContaining({ method: 'POST' })
-      );
-      const body = JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body);
-      expect(body.to).toContain('@');
-      expect(body.subject).toContain('Gastos junio 2026');
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(mockSendSubmissionNotification).toHaveBeenCalledTimes(1);
+      // No recipient/subject/HTML crosses this boundary — only report facts.
+      const payload = mockSendSubmissionNotification.mock.calls[0][0];
+      expect(payload).toEqual({
+        reportName: 'Gastos junio 2026',
+        submitterName: 'Bren Curtis',
+        submitterEmail: 'b@test.cl',
+        totalAmount: 57690,
+        startDate: '2026-06-01',
+        endDate: '2026-06-30'
+      });
     } finally {
       vi.unstubAllGlobals();
     }

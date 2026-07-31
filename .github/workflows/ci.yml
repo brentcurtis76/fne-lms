@@ -130,6 +130,12 @@ jobs:
       - name: Build (production)
         run: npm run build
 
+      # D-01: the Pasantías price/payment data lives in a server-only module.
+      # This scans what the build actually ships to browsers, so a bad import
+      # fails the PR instead of publishing a price list.
+      - name: Guard — no commercial cohort data in the client bundle
+        run: node scripts/check-price-leak.mjs
+
       - name: Seed synthetic e2e fixtures
         run: |
           set -euo pipefail

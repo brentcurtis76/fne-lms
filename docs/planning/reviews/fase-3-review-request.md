@@ -10,8 +10,9 @@
 | Branch | `feat/zoom-core` (PR [#26](https://github.com/brentcurtis76/fne-lms/pull/26), **draft — not marked ready**) |
 | Base | `origin/main` @ `18057e2` (absorbed mid-phase via merge `5d54f12`, which brought the contracts track `c878ec7`) |
 | Implementation head, Z1b-4·r1 | `ae210a5` (`4b71b3c` → `ccb8fce` → `ae210a5`) |
-| Head at THIS request | the six **Z1b-sol1** fix commits below, on top of the Sol R1 archive `ad649b3` |
-| Commits ahead of `origin/main` | 28 through `ae210a5`; + the review/archive doc commits; + the six Z1b-sol1 fix commits |
+| Head at THIS request | the four **Z1b-sol2** fix commits below, on top of the Sol R2 archive `c552594` |
+| Commits ahead of `origin/main` | 28 through `ae210a5`; + the review/archive doc commits; + the six Z1b-sol1 fix commits; + the four Z1b-sol2 fix commits |
+| `origin/main` this round | **deliberately NOT merged** — Sol R3's scope is the Z1b-sol2 fix commits only |
 | Net diff vs `origin/main` (at `ae210a5`) | 53 files, +11734/−70 |
 | This chunk (Z1b-4) alone | merge `5d54f12` + 3 commits; 15 files, +2484/−92 |
 | Z1b-4·r1 remediation | `ccb8fce` (fix + tests + `PROJECT_STATE.md`) + `ae210a5` (type-clean); 2 PM findings, no scope beyond them |
@@ -57,6 +58,59 @@ assertions are proven to bite rather than asserted to.
 | F3 | **All 8** ineligible sessions (cancelled · draft · awaiting-approval · under-way · soft-deleted · presencial · google_meet · null provider) reached `createMeeting` — one meeting minted each. Reschedule case: the EXCLUDE-protected interval stayed at `19:00Z` while Zoom was sent `21:00Z`. |
 | F4 | The create-then-lose-the-response fake produced **3 meetings across 3 ticker runs** (`expected […3 items] to have a length of 1 but got 3`) — one per tick, each releasing and re-reserving the host. |
 | F5 | The real client received **`ECONNRESET`**, never a status code (`expected 'ECONNRESET' to be undefined`). |
+
+## Sol R2 remediation — round Z1b-sol2
+
+Sol's round 2 (re-review of Z1b-sol1 at head `da38eb9`) returned **REQUEST CHANGES** with
+**2 MAJOR / 2 MINOR**; the PM triaged **all four VALID** (archive + triage in the verdict file,
+committed at `c552594`). **Sol R3's scope is the fix commits below only** — `origin/main` was
+deliberately NOT merged this round. One commit per finding, ④ last.
+
+| SHA | Finding | What changed |
+|---|---|---|
+| `ddb07d3` | **① MAJOR** unusable 2xx creates | `createMeeting` shape-checks the response **before** `mapMeeting`'s unchecked cast, over exactly the fields the provisioner persists and joins with: positive safe-integer `id`, non-empty `join_url`, and the `password`/`settings` shapes `mapMeeting` silently coerces. Fields nobody persists (`uuid`, `host_id`, `topic`, `start_time`, `duration`, `timezone`) are deliberately **not** checked — rejecting there would turn a usable meeting into a human-triage event. All three unusable-2xx paths (empty · schema-invalid · the client-level unparseable one) now carry `outcome: 'ambiguous'` with `status` + `requestId`. The empty-body throw already reached the ambiguous branch (verified — it passed `outcome` explicitly) but was a `ZoomConfigError`; both it and the new throw are now `ZoomUnusableSuccessError`, which carries the ambiguous outcome as a **class invariant** rather than a per-call-site argument. |
+| `db304d6` | **② MAJOR** parked-ambiguous enforced | The handler now refuses a row parked by an unresolved ambiguous create — after the two anchors resolve, before reservation reuse, host resolution or any Zoom call — non-retryably under a **distinct** reason `ambiguous_unresolved`, writing nothing: not the reservation, not the row, not Zoom. Distinct rather than reusing `ambiguous_create_outcome` because they are different events with different side effects (Zoom answering ambiguously *writes* the marker; an operator requeueing without resolving writes nothing), and §18 should be able to tell them apart. The anchors still win, which **is** the resolution path. `parseAmbiguousCreateMarker` replaces the boolean-only check so the refusal can carry the parked `x-zm-request-id`. |
+| `e2d747a` | **③ MINOR** production store chain tested | 8 tests drive the real `createSupabaseWebhookStore` — through `defaultZoomWebhookStore`, so the `.schema('zoom_internal')` wiring is exercised — with real `supabase-js` over an intercepted `fetch`. No local DB. Asserts the guards **on the wire**: `ended` applies and returns surface keys from the UPDATE's `RETURNING`; a later `started` carries the started applies-from filter and reports `applied=false`; projection `live` cannot overwrite `ended`; requests target `zoom_internal.zoom_meetings` (by `Content-Profile`) and `public.session_meetings_public` (which must not carry it); a PostgREST error throws rather than reporting the silent no-op `applied: false` means. |
+| (this commit) | **④ MINOR** remediation records | The two orphan classes distinguished (scrutiny area ② + limitation 7); the `21 files, +1889/−89` figure relabelled as the **through-F5** implementation diff with the full round's `22 files, +2014/−101` alongside; this section. `fase-3-pm-dossier.md` deliberately untouched — its §8 "85 tests" line is the PM's file and the PM fixes it at approval. |
+
+### Fail-on-old evidence (Z1b-sol2)
+
+Same method: stash **only** the source file(s), re-run the new tests. `meeting-provision.ts` was
+first confirmed byte-identical between `da38eb9` and the ① commit, so ②'s stash reproduces
+`da38eb9` exactly.
+
+| Finding | Pre-fix observation |
+|---|---|
+| ① | **14 of 16** new `fake.test.ts` tests fail. `201 {}` and nine other unusable bodies return a mapped "meeting" instead of throwing. The 2 that pass are the pre-existing client-level unparseable path and the must-not-over-reject guard — neither is a new fix, and both are pinned here on purpose. End to end, driving the **real** live adapter over an intercepted fetch: **2 of 2** `meeting-provision.test.ts` tests fail — the row reached `markProvisioned` with `zoom_meeting_number` undefined and the job **completed**. |
+| ② | **2 of 2** regression tests fail, at the assertion that matters: `expected "createMeeting" to be called 1 times, but got 2 times`. One requeue of the terminal job creates a **second** meeting at Zoom. (The 2 accompanying guard tests — a park resolved by a recorded meeting number, and one resolved by clearing `last_error` — pass against `da38eb9` **by design**: they protect the documented recovery path against the new gate, so they must be green on both sides.) |
+| ③ | **Not applicable** — ③ is a coverage finding against code that is already correct, so its tests pass on both sides. The equivalent proof is **mutation**, run at this head: dropping `.in()` from `setMeetingStatus` fails 2 tests · dropping it from `setProjectionStatus` fails 2 · swapping the two applies-from sets fails 2 · dropping `.schema('zoom_internal')` fails 1. `webhook-store.ts` restored byte-identical after each (`git diff --stat` empty). |
+
+### Gates at the Z1b-sol2 head
+
+| Gate | Result |
+|---|---|
+| `npm run type-check` | clean (exit 0) |
+| `npm run lint` (zero warnings) | clean (exit 0) |
+| `npm test` | **3710/3710 in 239 files** (from **3680/238** at `da38eb9`: **+30 / +1**) |
+| `npm run build` | OK — `/api/zoom/webhook` and the Zoom routes in the route table |
+| `npm run test:db` | **PASS — 6 files, 91 tests** — unchanged this round (no migration touched), re-run to prove it |
+| `npm run test:queue` | **PASS** — 40 jobs, 2 concurrent loops, split **21/19**, every job executed exactly once |
+
+Per-file test delta: `fake.test.ts` 36→**52** (+16) · `meeting-provision.test.ts` 39→**45** (+6) ·
+new `__tests__/lib/zoom/webhook-store.test.ts` (**8**). 16+6+8 = the +30 above; no other suite moved.
+
+**Scanners, this round:** both committed scanners still exit **2** in this worktree — same cause as
+the previous two rounds, their inputs are gitignored and live in the spike worktree, so they
+scanned nothing. Reported as exit 2, **not** as a pass; the PM re-runs the real replication. Manual
+audit of the Z1b-sol2 **implementation** diff — `c552594..e2d747a`, the three fix commits ①–③,
+6 files, +864/−20; ④ adds only this file, so the round total is 7 files (stated precisely here
+because collapsing the two is exactly the error ④ corrects upstream): 0 emails, 0 non-synthetic URLs
+(only `example-synthetic.test`, plus the `.supabase.test` host the intercepted fetch never
+dials), 0 secrets, 0 real PII. New identifiers this round are synthetic and inert: meeting numbers
+`82000000042`/`82000000777` (the `82xxxxxxxxx` range), request ids
+`synthetic-zm-request-id-0003`/`0004`/`0042`, dedupe key `synthetic-dedupe-0001`, and the
+placeholder service-role string `sb_secret_synthetic_service_role_key`, which is a literal in a
+test that never reaches a network.
 
 ## Objective and scope (from plan §15, Z1b)
 
@@ -155,7 +209,10 @@ scheduling asserts run **as `service_role`** (unhinted ≈30 s · a 600 s hint f
 **Scanners, this round:** both committed scanners still exit **2** in this worktree, for the same
 reason as before — their inputs are gitignored and live in the spike worktree, so they scanned
 nothing. Reported as exit 2, not as a pass; the PM re-runs the real replication. Manual audit of
-the Z1b-sol1 diff (21 files, +1889/−89): 0 emails, 0 non-synthetic URLs (only
+the Z1b-sol1 **implementation** diff, F1 through F5 — `ad649b3..7d4b062`, 21 files, +1889/−89;
+the full round including F6's docs pass is `ad649b3..9648c3b`, 22 files, +2014/−101 (figure
+relabelled in Z1b-sol2 per Sol R2 ④ — it had read as if it covered the whole round): 0 emails,
+0 non-synthetic URLs (only
 `example-synthetic.test`), 0 secrets, 0 real PII. New identifiers introduced this round are all
 synthetic and inert: meeting numbers `82000001111`/`82000005555`/`82000009999` (the `82xxxxxxxxx`
 range), request ids `synthetic-zm-request-id-0001`/`0002`, surface uuids of the obvious repeated
@@ -234,11 +291,24 @@ The honest guarantee: **a re-run that sees either anchor never creates a second 
 **The residual, which is what to scrutinize.** If the process dies — or the lease is lost, so the
 post-create heartbeat returns `false` and nothing is written — *between* the create returning and
 the checkpoint landing, the retry sees neither anchor and creates a second meeting; the first is
-orphaned at Zoom. This is irreducible without a provider-side idempotency key. What the
-checkpoint buys when it lands is that the orphan is **named**: `stage_state.meeting.number` on
-the failed job is the meeting number a human cancels via dead-job triage. Please check that
-judgment — the alternative I rejected was a pre-create `listMeetings` scan by topic+time, which
-is a fuzzy match on staff-authored text and would still race.
+orphaned at Zoom. This is irreducible without a provider-side idempotency key.
+
+**Two orphan classes, and only one of them is named** (corrected in Z1b-sol2 per Sol R2 ④; the
+code header at `meeting-provision.ts:97` already drew this line and this text did not):
+
+- **Checkpoint LANDED.** `stage_state.meeting.number` on the failed job is the meeting number,
+  and `fail_zoom_job` leaves `stage_state` untouched, so it survives for a human to act on. Normally
+  this case does not orphan at all — the retry adopts. It orphans only when there is nothing to
+  adopt onto, e.g. the `zoom_meetings` row is gone. Dead-job triage works here.
+- **Pre-checkpoint crash or lease-loss.** Nothing was written, so the meeting is named **nowhere**:
+  not on the row, not in `stage_state`, not in `last_error`. Dead-job triage on
+  `stage_state.meeting.number` does not apply, because there is no such value. Recovering it
+  requires a **Zoom-side search** — list the host's meetings around that window and match topic and
+  start time — which is the same fuzzy reconciliation an `ambiguous_create_outcome` park needs.
+
+Please check that judgment — the alternative I rejected was a pre-create `listMeetings` scan by
+topic+time, which is that same fuzzy match on staff-authored text, done on every create, and would
+still race.
 
 Two sub-points worth your attention. First, the plaintext passcode now sits in
 `zoom_jobs.stage_state`; I argue that is §5-equivalent to `zoom_meetings.passcode` because
@@ -287,8 +357,11 @@ would break the step.
    credentials exist in this worktree (`ZOOM_MODE=mock` throughout, per the dispatch).
 7. **The create→persist window is narrowed, not closed** (Z1b-4·r1, see scrutiny area ②). A
    crash or lease-loss before the post-create checkpoint lands still orphans a meeting at Zoom.
-   Cleanup is manual, via dead-job triage on `stage_state.meeting.number`. Irreducible without a
-   Zoom idempotency key; no automated orphan sweep exists (a candidate for a later chunk).
+   Cleanup is manual, and **which manual path depends on whether the checkpoint landed** — see
+   the two orphan classes in scrutiny area ②. Dead-job triage on `stage_state.meeting.number`
+   only works for the landed-checkpoint class; a pre-checkpoint orphan is named nowhere and needs
+   a Zoom-side search by host + window + topic. Irreducible without a Zoom idempotency key; no
+   automated orphan sweep exists (a candidate for a later chunk).
 8. **`docs/runbooks/zoom.md` does not exist yet** (plan §16 puts it in a later phase), but two
    `meeting-provision.ts` comments cited it as if it did — one of them pre-existing, one added by
    F4. Corrected in F6: both now say the runbook is unwritten and that triage today means a human

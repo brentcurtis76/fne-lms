@@ -317,16 +317,27 @@ export function createLiveZoomApi(client: ZoomClient = createZoomClient()): Zoom
         }
       );
       // ---------------------------------------------------------------------
-      // The three unusable-2xx bodies, all one outcome (Sol F4, Sol R2 ①)
+      // The three unusable-2xx bodies: ONE OUTCOME, two classes (Sol F4, R2 ①, R3 ③)
       //
       // Zoom accepted the request; the response does not say what it produced. Empty,
       // schema-invalid and — raised one layer down in `client.ts` — unparseable are the
       // same fact about a non-idempotent verb: the meeting MAY exist and we cannot name
-      // it. `ZoomUnusableSuccessError` carries `outcome: 'ambiguous'` as a class
-      // invariant, so none of these can read as a definite pre-create rejection merely
-      // because the status was 2xx. `status` + `requestId` ride along on all three:
-      // `x-zm-request-id` is what a Zoom support ticket needs, and it is the only
-      // identifier an ambiguous create ever produces.
+      // it. What is genuinely unified is the OUTCOME, and that is the field the
+      // provisioner branches on:
+      //
+      //   empty body        → ZoomUnusableSuccessError (non_retryable) · ambiguous
+      //   schema-invalid    → ZoomUnusableSuccessError (non_retryable) · ambiguous
+      //   unparseable JSON  → ZoomRetryableError       (retryable)     · ambiguous
+      //                       ...raised in `client.ts`, for every verb, not just this one
+      //
+      // The CLASSES are not unified, and describing them as one class would be a lie
+      // that matters: `kind` drives the queue's backoff, and only `outcome` drives the
+      // park. Deliberately left as is — the unparseable path is generic client
+      // machinery shared with GET and PATCH, where retryable is the right kind, and the
+      // provisioner already treats `outcome: 'ambiguous'` as decisive regardless of
+      // kind (`meeting-provision.ts`, the create catch). `status` + `requestId` ride
+      // along on all three: `x-zm-request-id` is what a Zoom support ticket needs, and
+      // it is the only identifier an ambiguous create ever produces.
       // ---------------------------------------------------------------------
       const context = {
         status: response.status,

@@ -502,8 +502,9 @@ describe('live adapter — unusable 2xx create responses (Sol R2 ①)', () => {
   });
 
   it('an EMPTY 2xx body is the same outcome, and no longer a "config" error', async () => {
-    // Uniformity across all three unusable-2xx paths — empty, schema-invalid, and the
-    // unparseable one `client.ts` raises. The empty-body throw was a ZoomConfigError,
+    // Uniformity of OUTCOME across all three unusable-2xx paths — empty, schema-invalid,
+    // and the unparseable one `client.ts` raises under a different CLASS (see the test
+    // below for that asymmetry). The empty-body throw was a ZoomConfigError,
     // which reached the ambiguous branch correctly but named the wrong cause: nothing
     // about Zoom answering 201 with no body is a misconfiguration of this deployment.
     const { api } = liveApi([{ status: 201, headers: REQUEST_ID_HEADER }]);
@@ -516,9 +517,12 @@ describe('live adapter — unusable 2xx create responses (Sol R2 ①)', () => {
     expect((error as ZoomError).requestId).toBe('synthetic-zm-request-id-0042');
   });
 
-  it('an UNPARSEABLE 2xx body already carries the same outcome (client layer)', async () => {
-    // Not a new fix — asserted here so the three paths are pinned as one class in one
-    // place. If a later change split them apart, this file says so.
+  it('an UNPARSEABLE 2xx body carries the same OUTCOME under a different class', async () => {
+    // Not a new fix — asserted here so the three unusable-2xx paths are pinned in one
+    // place, INCLUDING the asymmetry this comment used to paper over (Sol R3 ③): empty
+    // and schema-invalid bodies are `ZoomUnusableSuccessError` (non_retryable), while
+    // unparseable JSON stays a `ZoomRetryableError` raised in the client for every verb.
+    // One outcome, two classes — and `outcome` is what the provisioner parks on.
     const tokens: ZoomTokenProvider = {
       async getToken() {
         return 'token-1';
@@ -539,6 +543,10 @@ describe('live adapter — unusable 2xx create responses (Sol R2 ①)', () => {
     expect((error as ZoomError).outcome).toBe('ambiguous');
     expect((error as ZoomError).status).toBe(201);
     expect((error as ZoomError).requestId).toBe('synthetic-zm-request-id-0042');
+    // The half that was never stated: this one is NOT the unusable-success class, and
+    // its kind is `retryable`. Nothing downstream may assume the class from the outcome.
+    expect(error).not.toBeInstanceOf(ZoomUnusableSuccessError);
+    expect((error as ZoomError).kind).toBe('retryable');
   });
 
   it('NEVER lets an absent passcode or settings map to a usable meeting (Sol R3 ②)', async () => {

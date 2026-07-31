@@ -137,9 +137,15 @@ export class ZoomConfigError extends ZoomNonRetryableError {}
 
 /**
  * A 2xx this integration cannot use: Zoom accepted and acted on the request, and the
- * response does not tell us what it produced. Three bodies land here — empty, valid
- * JSON that fails the caller's shape check, and (from `client.ts`) unparseable — and
- * all three mean the same thing on a non-idempotent verb: the write MAY have landed.
+ * response does not tell us what it produced. TWO bodies land here — empty, and valid
+ * JSON that fails the caller's shape check.
+ *
+ * A third unusable 2xx exists and does NOT land here (Sol R3 ③): unparseable JSON is
+ * raised in `client.ts` as a `ZoomRetryableError`, also carrying `outcome: 'ambiguous'`
+ * explicitly. All three mean the same thing on a non-idempotent verb — the write MAY
+ * have landed — so the OUTCOME is unified; the CLASS is not, and this comment used to
+ * claim otherwise. The asymmetry is deliberate: that path is generic client machinery
+ * shared with GET and PATCH, where `retryable` is the correct kind.
  *
  * The class exists so `outcome: 'ambiguous'` is an INVARIANT rather than something
  * every call site has to remember to pass. Sol R2 ① found the gap this closes: a

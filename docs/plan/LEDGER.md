@@ -273,3 +273,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: deviations accepted.
 - BACKLOG ADDED: none (num_people≤60 rationale question noted in review-request; not blocking).
 - OPEN AFTER THIS ROUND: **A2 clean — ready for Codex final review.** PR opened by PM for CI evidence.
+
+### 2026-07-31 — A2 Codex round 1 — Fable (PM triage)
+- CONTEXT PRESSURE: n/a
+- ACTION: Codex final review = **FAIL** (REVIEW-A2.md, committed with this entry; Codex independently re-ran test:db 47/47 and judged the consent CHECKs + impersonation stand-in sound). 2 BLOCKING, **both ACCEPTED**: (1) `anon`/`authenticated` hold TRUNCATE on `pasantias_leads` via Supabase default grants — RLS and WITH CHECK do not govern TRUNCATE, so the "no authenticated write path" claim was false at the privilege layer; fix = revoke non-SELECT privileges (incl. TRUNCATE/REFERENCES/TRIGGER) from both roles, keep authenticated SELECT (RLS-gated), assert privileges in pgTAP; (2) anon UPDATE/DELETE denial asserts missing from the matrix — add. Migration edited IN PLACE on the branch (nothing merged/deployed; a second migration would be clutter). **Standard raised project-wide: D-04 amended so every comms table (incl. B3's five) carries the privilege-revocation matrix + pgTAP privilege asserts** — Decision Log row on main. Remediation = A2 round r2 (Codex round 1 of max 2).
+- COMMITS: (this commit — REVIEW-A2.md + this entry)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: n/a (triage)
+- DECISIONS: both findings accepted; D-04 amendment (recorded on main)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: A2 r2 in flight once dispatched (`prompts/a2-2.md`).

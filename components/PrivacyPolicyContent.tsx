@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  LEGAL_IDENTITY,
   PRIVACY_NOTICE_UPDATED_LABEL,
   PRIVACY_NOTICE_VERSION,
 } from '../lib/legal/privacy-notice';
@@ -12,6 +13,12 @@ import {
  * The update date and version come from constants, not the clock: consent
  * records cite the notice version they were given, so what this page shows must
  * be the same on every request.
+ *
+ * The controller is named from {@link LEGAL_IDENTITY}, never hard-coded: the
+ * name the audience knows is a nombre de fantasía, so every block that speaks
+ * of the responsable shows it together with the razón social, RUT and postal
+ * address (Appendix A-10). Later references use the short form «FNE», defined
+ * in the identification block below.
  */
 export default function PrivacyPolicyContent() {
   return (
@@ -20,9 +27,16 @@ export default function PrivacyPolicyContent() {
         Última actualización: {PRIVACY_NOTICE_UPDATED_LABEL} · Versión {PRIVACY_NOTICE_VERSION}
       </p>
 
+      <p className="mb-4" data-testid="privacy-controller-identity">
+        El responsable del tratamiento de sus datos personales es{' '}
+        {LEGAL_IDENTITY.brandName} (razón social: {LEGAL_IDENTITY.legalName}, {LEGAL_IDENTITY.taxId}),
+        con domicilio en {LEGAL_IDENTITY.streetAddress}, {LEGAL_IDENTITY.city}, {LEGAL_IDENTITY.country}
+        {' '}(en adelante, «FNE»).
+      </p>
+
       <h3 className="text-lg font-semibold mb-3">1. Información que Recopilamos</h3>
       <p className="mb-4">
-        En Fundación Nueva Educación recopilamos información que usted nos proporciona directamente, tales como:
+        En FNE recopilamos información que usted nos proporciona directamente, tales como:
       </p>
       <ul className="list-disc pl-6 mb-4">
         <li>Nombre y apellidos</li>
@@ -105,10 +119,21 @@ export default function PrivacyPolicyContent() {
       <p className="mb-4">
         Si tiene preguntas sobre esta política de privacidad o sobre el tratamiento de sus datos personales, puede contactarnos en:
       </p>
-      <div className="bg-gray-50 p-4 rounded-lg">
-        <p className="font-semibold">Fundación Nueva Educación</p>
-        <p>Email: <a href="mailto:info@nuevaeducacion.org" className="text-blue-600 hover:underline">info@nuevaeducacion.org</a></p>
-        <p>Dirección: Santiago, Chile</p>
+      <div className="bg-gray-50 p-4 rounded-lg" data-testid="privacy-contact-block">
+        <p className="font-semibold">{LEGAL_IDENTITY.brandName}</p>
+        <p>Razón social: {LEGAL_IDENTITY.legalName} · {LEGAL_IDENTITY.taxId}</p>
+        <p>
+          Email:{' '}
+          <a
+            href={`mailto:${LEGAL_IDENTITY.contactEmail}`}
+            className="text-blue-600 hover:underline"
+          >
+            {LEGAL_IDENTITY.contactEmail}
+          </a>
+        </p>
+        <p>
+          Dirección: {LEGAL_IDENTITY.streetAddress}, {LEGAL_IDENTITY.city}, {LEGAL_IDENTITY.country}
+        </p>
       </div>
     </div>
   );

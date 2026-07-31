@@ -1,0 +1,33 @@
+# A2 evidence — pgTAP TAP output for 030-pasantias-leads-rls.sql
+
+Generated 2026-07-31 after `supabase db reset` (all migrations applied from scratch).
+Command: psql -X -q -f supabase/tests/030-pasantias-leads-rls.sql (tuples-only, to expose every assert)
+
+```
+1..21
+ok 1 - La tabla pasantias_leads del schema public debe tener RLS habilitado
+ok 2 - pasantias_leads: exactly one policy — admin SELECT-only, TO authenticated
+ok 3 - pasantias_leads: no policy carries a WITH CHECK — no authenticated write path exists
+
+ok 4 - admin: SELECT allowed — sees the seeded lead
+ok 5 - admin: INSERT throws RLS violation (no WITH CHECK policy exists)
+ok 6 - admin: UPDATE matches 0 rows (blocked UPDATE returns empty)
+ok 7 - admin: DELETE matches 0 rows
+
+ok 8 - docente: sees 0 lead rows
+ok 9 - docente: INSERT throws RLS violation
+ok 10 - docente: UPDATE matches 0 rows
+ok 11 - docente: DELETE matches 0 rows
+
+ok 12 - anon: sees 0 lead rows
+ok 13 - anon: INSERT throws RLS violation
+
+ok 14 - service_role: INSERT allowed (with full marketing opt-in evidence)
+ok 15 - service_role: INSERT without consent_accepted_at violates NOT NULL (no default asserts consent)
+ok 16 - service_role: INSERT without consent_notice_version violates NOT NULL
+ok 17 - service_role: marketing_opt_in = true without timestamp/version violates the consent CHECK
+ok 18 - service_role: marketing_opt_in = false with timestamp/version violates the consent CHECK
+ok 19 - service_role: email_normalized that is not lower(btrim(email)) violates the email CHECK
+ok 20 - service_role: duplicate (email_normalized, cohort) violates the unique constraint
+ok 21 - pasantias_leads: set_updated_at trigger refreshes updated_at on UPDATE
+```

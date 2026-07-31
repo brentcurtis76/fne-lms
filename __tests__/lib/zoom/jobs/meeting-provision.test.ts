@@ -27,7 +27,9 @@ import {
   type ProvisionSessionRow,
 } from '../../../../lib/zoom/jobs/meeting-provision';
 import { ZoomNonRetryableError, ZoomRetryableError } from '../../../../lib/zoom/errors';
-import type { ZoomApi } from '../../../../lib/zoom/api';
+import { createLiveZoomApi, type ZoomApi } from '../../../../lib/zoom/api';
+import { createZoomClient } from '../../../../lib/zoom/client';
+import type { ZoomTokenProvider } from '../../../../lib/zoom/token';
 import { describeJobFailure } from '../../../../lib/zoom/jobs/runner';
 import { createZoomFake, type ZoomFake } from '../../../../lib/zoom/fake';
 import { applyWebhookLifecycle } from '../../../../lib/zoom/webhook-lifecycle';
@@ -801,6 +803,80 @@ describe('meeting_provision · ambiguous create outcomes', () => {
     });
     // It cannot name the meeting, and does not pretend to.
     expect(row.zoom_meeting_number).toBeNull();
+  });
+
+  /**
+   * Sol R2 ①, end to end: the REAL live adapter over an intercepted fetch, wired into
+   * the real handler. An api double asserting the same thing would only prove the
+   * handler branches on `outcome` — which R1 already proved. What was broken is the
+   * chain: `createMeeting` classified a schema-invalid 2xx as a SUCCESS, so the handler
+   * never saw a failure to branch on and marked the row `provisioned` with no number.
+   */
+  function liveApiAnswering(status: number, body: unknown): ZoomApi {
+    const tokens: ZoomTokenProvider = {
+      async getToken() {
+        return 'token-1';
+      },
+      async forceRefresh() {
+        return 'token-2';
+      },
+    };
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(body === undefined ? null : JSON.stringify(body), {
+          status,
+          headers: { 'x-zm-request-id': 'synthetic-zm-request-id-0003' },
+        })
+    ) as unknown as typeof fetch;
+    return createLiveZoomApi(
+      createZoomClient({ tokenProvider: tokens, fetchImpl, sleep: async () => {} })
+    );
+  }
+
+  it.each([
+    ['201 with an empty object', {}],
+    ['201 with a partial, mistyped meeting', { id: '82000000042', join_url: '', settings: [] }],
+  ])('parks %s instead of provisioning a row with no number', async (_label, body) => {
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+    const jobs = createMemoryJobQueue();
+    const registry = {
+      meeting_provision: createMeetingProvisionHandler({
+        api: liveApiAnswering(201, body),
+        store: harness.store,
+      }),
+    };
+
+    await jobs.queue.enqueue({
+      job_type: 'meeting_provision',
+      payload: { surface_type: 'consultor_session', surface_id: SESSION_ID },
+    });
+    await runZoomTick({ queue: jobs.queue, registry, workerId: 'w1', now: oneBatchClock() });
+
+    // Terminal, under the reason triage and §18 alerting key on.
+    const job = jobs.jobFor('meeting_provision') as StoredJob;
+    expect(job.status).toBe('failed');
+    expect(JSON.parse(job.last_error as string)).toMatchObject({
+      kind: 'non_retryable',
+      reason: 'ambiguous_create_outcome',
+    });
+
+    // The row is PARKED, not provisioned: the reservation keeps blocking the host,
+    // because Zoom answered 2xx and a meeting may exist for that interval.
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('pending');
+    expect(['pending', 'provisioned', 'started']).toContain(row.status);
+    expect(row.host_zoom_user_id).toBe(HOST_POOL_A.zoom_user_id);
+    expect(row.zoom_meeting_number).toBeNull();
+    expect(JSON.parse(row.last_error as string)).toMatchObject({
+      reason: 'ambiguous_create_outcome',
+    });
+
+    // The bug in one assertion: this used to be a `provisioned` row with no number.
+    expect(harness.store.markProvisioned).not.toHaveBeenCalled();
+    expect(harness.store.markError).not.toHaveBeenCalled();
+    // ...and nothing was published to the UI's status surface.
+    expect(harness.store.upsertProjection).not.toHaveBeenCalled();
+    expect(harness.projectionFor(SESSION_ID)).toBeUndefined();
   });
 
   it('a DEFINITE pre-create rejection keeps the old path: error, released, retryable', async () => {

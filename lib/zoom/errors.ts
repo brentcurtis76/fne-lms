@@ -135,6 +135,26 @@ export class ZoomNonRetryableError extends ZoomError {
  */
 export class ZoomConfigError extends ZoomNonRetryableError {}
 
+/**
+ * A 2xx this integration cannot use: Zoom accepted and acted on the request, and the
+ * response does not tell us what it produced. Three bodies land here — empty, valid
+ * JSON that fails the caller's shape check, and (from `client.ts`) unparseable — and
+ * all three mean the same thing on a non-idempotent verb: the write MAY have landed.
+ *
+ * The class exists so `outcome: 'ambiguous'` is an INVARIANT rather than something
+ * every call site has to remember to pass. Sol R2 ① found the gap this closes: a
+ * schema-invalid 201 flowed through as a success, and a success that cannot be read is
+ * indistinguishable, from here, from one that never happened.
+ *
+ * `non_retryable` because retrying a create is precisely the second write this class
+ * exists to prevent; `outcome` — not `kind` — is what the provisioner branches on.
+ */
+export class ZoomUnusableSuccessError extends ZoomNonRetryableError {
+  constructor(message: string, context: Omit<ZoomErrorContext, 'outcome'> = {}) {
+    super(message, { ...context, outcome: 'ambiguous' });
+  }
+}
+
 /** Kinds a bounded-backoff loop is allowed to repeat. Auth and 4xx are not. */
 export function isRetryableKind(kind: ZoomErrorKind): boolean {
   return kind === 'rate_limit' || kind === 'retryable';

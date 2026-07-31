@@ -25,7 +25,7 @@
  * `zoom_meetings.zoom_meeting_uuid` must never be assigned from it.
  */
 import { createZoomClient, type ZoomClient, type ZoomReadBack } from './client';
-import { ZoomConfigError } from './errors';
+import { ZoomConfigError, ZoomUnusableSuccessError } from './errors';
 import { createZoomFake } from './fake';
 
 // ---------------------------------------------------------------------------
@@ -186,6 +186,63 @@ export function mapMeeting(raw: ZoomMeetingRaw): ZoomMeeting {
   };
 }
 
+/**
+ * Shape-checks a create response BEFORE `mapMeeting` casts it (Sol R2 ①).
+ *
+ * `mapMeeting` is a total function over a type it is merely ASSERTED to receive, so a
+ * 201 whose body is `{}` mapped cleanly to a "meeting" with `id: undefined` and
+ * `joinUrl: undefined` — and `meeting_provision` then wrote `status: 'provisioned'`
+ * onto a row with no meeting number and completed. The row said provisioned, nothing
+ * existed to join, and the manual-reconciliation path R1-F4 built was bypassed.
+ *
+ * ## What is checked, and why exactly this set
+ *
+ * The fields `meeting_provision` PERSISTS or JOINS WITH, and no others:
+ *
+ *  - `id` → `zoom_meetings.zoom_meeting_number`, the anchor that means "Zoom holds a
+ *    meeting for this surface, never create a second one". A non-integer or ≤ 0 value
+ *    is not a meeting number. `isSafeInteger` rather than `isFinite`: past 2^53 the
+ *    value has ALREADY lost precision in JSON.parse, so it names a different meeting.
+ *  - `join_url` → `zoom_meetings.join_url`, the only thing a participant can act on.
+ *  - `password` / `settings` → `passcode` and `effective_settings`, checked for the
+ *    shapes `mapMeeting` coerces silently (`?? ''`, `?? {}`) — a mistyped value would
+ *    otherwise be persisted as an empty passcode or an empty settings object, and an
+ *    empty `effective_settings` is also what the §9.4 drift signal reads.
+ *
+ * NOT checked: `uuid`, `host_id`, `topic`, `start_time`, `duration`, `timezone`. The
+ * provisioner deliberately persists none of them (`zoom_meeting_uuid` stays NULL — see
+ * the `uuidAtRead` note above), so rejecting a create over a field nobody stores would
+ * turn a usable response into an ambiguous outcome that needs a human. Widen this set
+ * when a consumer starts persisting one of them, not before.
+ *
+ * Returns the problems as field-level strings. Values are NEVER interpolated — these
+ * strings reach `zoom_jobs.last_error` under the message discipline in `errors.ts`.
+ */
+export function findUnusableCreateFields(raw: unknown): string[] {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return ['body is not a JSON object'];
+  }
+  const body = raw as Record<string, unknown>;
+  const problems: string[] = [];
+
+  if (typeof body.id !== 'number' || !Number.isSafeInteger(body.id) || body.id <= 0) {
+    problems.push('id is not a positive integer meeting number');
+  }
+  if (typeof body.join_url !== 'string' || body.join_url.trim() === '') {
+    problems.push('join_url is missing or empty');
+  }
+  if (body.password !== undefined && typeof body.password !== 'string') {
+    problems.push('password is not a string');
+  }
+  if (
+    body.settings !== undefined &&
+    (typeof body.settings !== 'object' || body.settings === null || Array.isArray(body.settings))
+  ) {
+    problems.push('settings is not an object');
+  }
+  return problems;
+}
+
 function mapUser(raw: ZoomUserRaw): ZoomUser {
   return {
     id: raw.id,
@@ -229,18 +286,39 @@ export function createLiveZoomApi(client: ZoomClient = createZoomClient()): Zoom
           ...(input.settings === undefined ? {} : { settings: input.settings }),
         }
       );
+      // ---------------------------------------------------------------------
+      // The three unusable-2xx bodies, all one outcome (Sol F4, Sol R2 ①)
+      //
+      // Zoom accepted the request; the response does not say what it produced. Empty,
+      // schema-invalid and — raised one layer down in `client.ts` — unparseable are the
+      // same fact about a non-idempotent verb: the meeting MAY exist and we cannot name
+      // it. `ZoomUnusableSuccessError` carries `outcome: 'ambiguous'` as a class
+      // invariant, so none of these can read as a definite pre-create rejection merely
+      // because the status was 2xx. `status` + `requestId` ride along on all three:
+      // `x-zm-request-id` is what a Zoom support ticket needs, and it is the only
+      // identifier an ambiguous create ever produces.
+      // ---------------------------------------------------------------------
+      const context = {
+        status: response.status,
+        operation: `POST /users/{id}/meetings`,
+        requestId: response.requestId,
+      };
+
       if (!response.data) {
-        // A 2xx with an empty body on a CREATE: Zoom accepted the request and told us
-        // nothing about what it made. Same class as an unparseable body — the meeting
-        // may exist and we cannot name it (Sol F4), so this must not read as a definite
-        // pre-create rejection just because the status was 2xx.
-        throw new ZoomConfigError('Zoom returned no body for a meeting create.', {
-          status: response.status,
-          operation: `POST /users/{id}/meetings`,
-          requestId: response.requestId,
-          outcome: 'ambiguous',
-        });
+        throw new ZoomUnusableSuccessError('Zoom returned no body for a meeting create.', context);
       }
+
+      // BEFORE `mapMeeting`, whose cast is unchecked by construction: a valid-JSON body
+      // that is not a meeting maps to a meeting-shaped object full of `undefined`, and
+      // the provisioner persists that as a provisioned row with no number.
+      const problems = findUnusableCreateFields(response.data);
+      if (problems.length > 0) {
+        throw new ZoomUnusableSuccessError(
+          `Zoom answered a meeting create with a body this integration cannot use: ${problems.join('; ')}.`,
+          context
+        );
+      }
+
       // The create response reflects EFFECTIVE settings on a capability mismatch, so
       // the caller must read `settings` off this object rather than assume its input.
       return mapMeeting(response.data);

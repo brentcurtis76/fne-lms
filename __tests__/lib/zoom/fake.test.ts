@@ -12,6 +12,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createZoomFake, type ZoomFake } from '../../../lib/zoom/fake';
 import {
   createLiveZoomApi,
+  findUnusableCreateFields,
   getZoomApi,
   isLicensedHost,
   mapMeeting,
@@ -20,7 +21,13 @@ import {
   type ZoomUser,
 } from '../../../lib/zoom/api';
 import { createZoomClient } from '../../../lib/zoom/client';
-import { ZoomConfigError, ZoomNonRetryableError } from '../../../lib/zoom/errors';
+import {
+  isZoomError,
+  ZoomConfigError,
+  ZoomNonRetryableError,
+  ZoomUnusableSuccessError,
+  type ZoomError,
+} from '../../../lib/zoom/errors';
 import type { ZoomTokenProvider } from '../../../lib/zoom/token';
 
 const HOST = 'host-licensed-1';
@@ -263,7 +270,7 @@ describe('fake — ordinary lifecycle', () => {
 // Live adapter — wire shapes
 // ---------------------------------------------------------------------------
 
-function liveApi(replies: Array<{ status: number; body?: unknown }>) {
+function liveApi(replies: Array<{ status: number; body?: unknown; headers?: Record<string, string> }>) {
   const calls: Array<{ url: string; method: string; body?: unknown }> = [];
   let index = 0;
   const tokens: ZoomTokenProvider = {
@@ -284,6 +291,7 @@ function liveApi(replies: Array<{ status: number; body?: unknown }>) {
     });
     return new Response(reply.body === undefined ? null : JSON.stringify(reply.body), {
       status: reply.status,
+      headers: reply.headers,
     });
   }) as unknown as typeof fetch;
 
@@ -405,6 +413,127 @@ describe('live adapter — wire shapes', () => {
     const { api, calls } = liveApi([{ status: 204 }]);
     await api.deleteMeeting(82000000042);
     expect(calls[0]).toMatchObject({ method: 'DELETE', url: 'https://api.zoom.us/v2/meetings/82000000042' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sol R2 ① — a 2xx this integration cannot use is AMBIGUOUS, never a success
+// ---------------------------------------------------------------------------
+
+/**
+ * The regression Sol reproduced: `201 {}` is valid JSON, so it never reached the
+ * empty-body guard, and `mapMeeting`'s cast is unchecked — the adapter returned a
+ * "meeting" whose `id` and `joinUrl` were `undefined`, which `meeting_provision` then
+ * persisted as a `provisioned` row with no meeting number.
+ *
+ * The bar these tests hold is not "it throws" — a definite rejection also throws, and
+ * that one RELEASES the reservation and retries. It is that the throw carries
+ * `outcome: 'ambiguous'`, because Zoom answered 2xx and may well have created a
+ * meeting we cannot name.
+ */
+const REQUEST_ID_HEADER = { 'x-zm-request-id': 'synthetic-zm-request-id-0042' };
+
+describe('live adapter — unusable 2xx create responses (Sol R2 ①)', () => {
+  const unusableBodies: Array<[string, unknown]> = [
+    ['an empty object', {}],
+    ['a body with no id', { join_url: 'https://example-synthetic.test/j/1', uuid: 'u' }],
+    ['a body with no join_url', { id: 82000000042, uuid: 'u' }],
+    ['an empty join_url', { id: 82000000042, join_url: '   ' }],
+    ['a string id', { id: '82000000042', join_url: 'https://example-synthetic.test/j/1' }],
+    ['a non-integer id', { id: 8.2e10 + 0.5, join_url: 'https://example-synthetic.test/j/1' }],
+    ['a zero id', { id: 0, join_url: 'https://example-synthetic.test/j/1' }],
+    ['a mistyped password', { id: 82000000042, join_url: 'https://x.test/j/1', password: 246813 }],
+    ['mistyped settings', { id: 82000000042, join_url: 'https://x.test/j/1', settings: [] }],
+    ['an error envelope', { code: 3001, message: 'Meeting host does not exist' }],
+    ['a JSON array', []],
+  ];
+
+  it.each(unusableBodies)('rejects %s with an AMBIGUOUS outcome', async (_label, body) => {
+    const { api } = liveApi([{ status: 201, body, headers: REQUEST_ID_HEADER }]);
+
+    const error = await api.createMeeting(provisionInput()).catch((caught) => caught);
+
+    expect(isZoomError(error)).toBe(true);
+    // The whole point. `not_executed` here is what lets a retry create a second meeting.
+    expect((error as ZoomError).outcome).toBe('ambiguous');
+    expect(error).toBeInstanceOf(ZoomUnusableSuccessError);
+    // status + requestId survive: the request id is the ONLY identifier an ambiguous
+    // create ever yields, and a support ticket is the reconciliation path.
+    expect((error as ZoomError).status).toBe(201);
+    expect((error as ZoomError).requestId).toBe('synthetic-zm-request-id-0042');
+  });
+
+  it('names the offending fields without echoing their values', async () => {
+    const { api } = liveApi([{ status: 201, body: {}, headers: REQUEST_ID_HEADER }]);
+    const error = (await api.createMeeting(provisionInput()).catch((caught) => caught)) as Error;
+
+    expect(error.message).toContain('id is not a positive integer meeting number');
+    expect(error.message).toContain('join_url is missing or empty');
+  });
+
+  it('an EMPTY 2xx body is the same outcome, and no longer a "config" error', async () => {
+    // Uniformity across all three unusable-2xx paths — empty, schema-invalid, and the
+    // unparseable one `client.ts` raises. The empty-body throw was a ZoomConfigError,
+    // which reached the ambiguous branch correctly but named the wrong cause: nothing
+    // about Zoom answering 201 with no body is a misconfiguration of this deployment.
+    const { api } = liveApi([{ status: 201, headers: REQUEST_ID_HEADER }]);
+    const error = await api.createMeeting(provisionInput()).catch((caught) => caught);
+
+    expect((error as ZoomError).outcome).toBe('ambiguous');
+    expect(error).toBeInstanceOf(ZoomUnusableSuccessError);
+    expect(error).not.toBeInstanceOf(ZoomConfigError);
+    expect((error as ZoomError).status).toBe(201);
+    expect((error as ZoomError).requestId).toBe('synthetic-zm-request-id-0042');
+  });
+
+  it('an UNPARSEABLE 2xx body already carries the same outcome (client layer)', async () => {
+    // Not a new fix — asserted here so the three paths are pinned as one class in one
+    // place. If a later change split them apart, this file says so.
+    const tokens: ZoomTokenProvider = {
+      async getToken() {
+        return 'token-1';
+      },
+      async forceRefresh() {
+        return 'token-2';
+      },
+    };
+    const fetchImpl = vi.fn(
+      async () => new Response('<html>gateway</html>', { status: 201, headers: REQUEST_ID_HEADER })
+    ) as unknown as typeof fetch;
+    const api = createLiveZoomApi(
+      createZoomClient({ tokenProvider: tokens, fetchImpl, sleep: async () => {} })
+    );
+
+    const error = await api.createMeeting(provisionInput()).catch((caught) => caught);
+
+    expect((error as ZoomError).outcome).toBe('ambiguous');
+    expect((error as ZoomError).status).toBe(201);
+    expect((error as ZoomError).requestId).toBe('synthetic-zm-request-id-0042');
+  });
+
+  it('still accepts a usable create that merely omits the OPTIONAL fields', async () => {
+    // The guard must not turn a good response into a human-triage event. `password` and
+    // `settings` are absent here, and `mapMeeting`'s documented `?? ''` / `?? {}`
+    // coercions are legitimate for that case.
+    const { api } = liveApi([
+      {
+        status: 201,
+        body: { ...RAW_MEETING, password: undefined, settings: undefined },
+      },
+    ]);
+
+    const meeting = await api.createMeeting(provisionInput());
+    expect(meeting.id).toBe(82000000042);
+    expect(meeting.passcode).toBe('');
+    expect(meeting.settings).toEqual({});
+  });
+
+  it('does not reject over fields the provisioner never persists', async () => {
+    // `uuid`/`host_id`/`topic` are deliberately outside the checked set — see the
+    // `findUnusableCreateFields` header. Rejecting here would strand a usable meeting.
+    expect(
+      findUnusableCreateFields({ id: 82000000042, join_url: 'https://x.test/j/1' })
+    ).toEqual([]);
   });
 });
 

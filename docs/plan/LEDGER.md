@@ -303,3 +303,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: deviations accepted
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: **A2 ready for Codex round 2 (of 2) — scoped closure re-review.**
+
+### 2026-07-31 — A2 Codex round 2 — Fable (PM triage, §1.5 to Brent)
+- CONTEXT PRESSURE: n/a
+- ACTION: Codex round 2 = **FAIL** (REVIEW-A2-R2.md, committed with this entry): both original blockers CLOSED (Codex re-ran its TRUNCATE probes + test:db 56/56), but the remediation's denylist form omits PostgreSQL 17's `MAINTAIN` privilege — a role holding it can take ACCESS EXCLUSIVE locks, violating the SELECT-only contract. Codex binds B3 to the revoke-all-then-GRANT-SELECT form (resolving the flagged form question). **PM fact-check with own hands: production runs PostgreSQL 15.8 — `MAINTAIN` does not exist there; the finding is forward-looking (materializes on a future PG17 upgrade or for tables created under PG17 defaults), not a live exposure.** Also explains the executor's miss: their grant-set pin used the SQL-standard catalog view, which never surfaces PG-specific privileges. Round cap (2) reached → residue to Brent per §1.5: (a) authorize targeted r3 (flip to revoke-all-then-grant-SELECT + version-guarded MAINTAIN assert + aclexplode-based grant pin) + scoped Codex confirmation on his authority — PM RECOMMENDS; or (b) accept residue, pass A2 as-is, backlog the form flip (B3 bound to the stronger form regardless).
+- COMMITS: (this commit — REVIEW-A2-R2.md + this entry)
+- TESTS: prod `select version()` → PostgreSQL 15.8 (PM, via read-only MCP)
+- FINDINGS RAISED: n/a (triage)
+- DECISIONS: pending Brent (§1.5)
+- BACKLOG ADDED: none yet (depends on the decision)
+- OPEN AFTER THIS ROUND: Brent's §1.5 word; then either `/exec INSPIRA A2 r3` or phase close with residue logged.

@@ -293,3 +293,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: (1) The prompt's [B2] wording asked for "anon UPDATE matches-0 / DELETE matches-0". After [B1]'s revocation that outcome is unreachable — anon cannot match 0 rows because it cannot execute the statement — and an `is_empty` on a raising statement would abort the suite's transaction rather than fail one assert. Implemented as `throws_ok '42501'`, which is REVIEW-A2.md's own closure wording ("the repository's correct blocked operation semantics") and a strictly stronger claim. (2) Plan 21 → 30: five catalog asserts (exact grant set per role for anon/authenticated, explicit `has_table_privilege(...,'TRUNCATE')` false for both, and `service_role` CRUD intact) + four new behavioral denials (admin TRUNCATE, anon UPDATE/DELETE/TRUNCATE). (3) `authenticated`'s revoke is a **denylist** of the six non-SELECT privileges rather than revoke-all-then-`GRANT SELECT`; the two exact-grant-set asserts pin the resulting state, so a future new PostgreSQL table privilege would fail the suite rather than leak in silently — but B3's five tables should copy whichever form Codex prefers, and this is the round to say so.
 - BACKLOG ADDED: none.
 - OPEN AFTER THIS ROUND: PM verification, then Codex round 2 (cap 2). Two forward consequences: **anon can no longer SELECT this table at all**, so A5 must not assume a readable-but-empty table via the anon key; and the same REVOKE + privilege-assert pattern now binds B3's five email tables per the amended D-04.
+
+### 2026-07-31 — A2 round r2 — Fable (PM verification)
+- CONTEXT PRESSURE: n/a
+- ACTION: Independent verification. Migration diff read: the two REVOKEs exactly per the amended D-04 (anon: ALL; authenticated: the six non-SELECT privileges), two-layer header matrix + table COMMENT. PM re-ran `supabase db reset && npm run test:db`: first attempt hit a transient container error mid-suite (the CLI-version flake the executor documented); clean retry → **56/56 PASS**. PR #31 CI CLEAN at the r2 head (independent runner execution of the same suite). All four deviations ACCEPTED — notably the raise-vs-empty semantics flip is forced by PostgreSQL checking privileges before RLS, and the suite header documents why the house "blocked UPDATE returns empty" convention doesn't apply post-revocation; the service_role-CRUD-intact assert is exactly the guard that protects A5. Denylist-vs-grantlist form flagged to Codex as planned. Forward note for A5 recorded (anon cannot SELECT at all).
+- COMMITS: (this ledger commit)
+- TESTS: `supabase db reset && npm run test:db` → 56/56 PASS (PM re-run, clean retry)
+- FINDINGS RAISED: none
+- DECISIONS: deviations accepted
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: **A2 ready for Codex round 2 (of 2) — scoped closure re-review.**

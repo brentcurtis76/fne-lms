@@ -115,3 +115,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: 1 Decision Log row (cohort-facts correction, Appendix A normative)
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: Appendix A remaining: A-5 day-order (BCN), A-6 lineup (BCN), A-9 claims, A-10 RUT+address, A-11 WhatsApp, A-12 testimonios, A-14/A-15 ratification. A1 must NOT start until [A1] sign-off (its guard tests pin these facts). A7b/B1a remain dispatchable (no cohort-fact dependency).
+
+### 2026-07-31 — PLAN amendment 2 (program structure) — Fable (PM, owner input)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner clarified that the 5-school list was **week 2 only** — the PM's previous entry over-corrected ("Sadako/Virolai out" was a misreading of the list's scope). Real structure: **week 1 = immersion, each pasante spends 2,5 days at Escola Virolai + 2,5 days at Escola Sadako** (Jordi Musons and Sandra Entrena run many week-1 sessions in their schools); **week 2 = visits, 1–2 schools per day** — El Puig, La Maquinista, Octavio Paz, Angeleta Ferrer, Les Vinyes, with El Puig and Les Vinyes as full days (outside Barcelona). **7 schools total; only Learnlife is out.** Sandra Entrena's title corrected: **Encargada de Innovación, Virolai** (not directora). A-5 and A-6 now OK; A-6 lineup question resolved; A1 criteria updated to the two-tier structure (immersion 2 + visits 5). Marketing narrative gains "inmersión + panorámica" framing.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 1 Decision Log row (second correction, structure + title)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: Appendix A remaining: **A-9 claims, A-10 RUT + street address, A-11 WhatsApp, A-12 testimonios, A-14/A-15 consent ratification** (A-5/A-6 now closed; week-2 day-order stays flexible by design). Then [A1] sign-off → A1 dispatchable and A0 → Codex. A7b/B1a still awaiting Brent's "go".

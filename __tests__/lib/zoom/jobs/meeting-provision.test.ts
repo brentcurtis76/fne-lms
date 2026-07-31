@@ -1055,44 +1055,188 @@ describe('meeting_provision · ambiguous create outcomes', () => {
     expect(fake.listMeetings()).toHaveLength(0);
   });
 
-  it('a resolved park RESUMES: an operator-recorded meeting number lets the requeue finish', async () => {
-    // Resolution path 1 from the module header. The marker is still on the row — the
-    // operator only filled in the number — and the ANCHOR must win over the gate,
-    // otherwise the documented recovery is unreachable and the row is stuck forever.
+  /**
+   * Resolution path 1's fixture (Sol R3 ①): the meeting the lost create REALLY made at
+   * Zoom. Seeded through the fake's own create so the read-back is a genuine Zoom-shaped
+   * meeting — passcode, join_url and effective settings included — rather than a double
+   * asserting what we hope Zoom returns.
+   */
+  function seedDiscoveredMeeting(fake: ZoomFake, settings?: Record<string, unknown>) {
+    return fake.createMeeting({
+      hostZoomUserId: HOST_POOL_A.zoom_user_id,
+      topic: SESSION.title,
+      startTime: '2026-08-05T15:00:00',
+      durationMinutes: 90,
+      timezone: 'America/Santiago',
+      passcode: 'rec0very77',
+      ...(settings === undefined ? {} : { settings }),
+    });
+  }
+
+  /**
+   * What the operator leaves behind on resolution path 1: the discovered number, and
+   * NOTHING else. No passcode, no join_url, NULL effective settings, the park marker
+   * still in place, the reservation still `pending`.
+   */
+  function operatorResolvedRow(zoomMeetingNumber: number): StoredMeeting {
+    return {
+      id: 'meeting-resolved',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+      // What reconciliation against Zoom found — written by hand.
+      zoom_meeting_number: zoomMeetingNumber,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'pending',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: ambiguousCreateMarker('synthetic-zm-request-id-0004', 'lost response'),
+    };
+  }
+
+  it('a resolved park RECOVERS: the row is completed from Zoom before anything publishes', async () => {
+    // Resolution path 1 from the module header. The anchor must win over the gate — but
+    // winning it is not enough: the OLD replay path published a `scheduled` projection
+    // over a row that was still `pending`, with no passcode, no join_url and NULL
+    // effective settings, and left the park marker on it. A meeting nobody could join,
+    // announced to the UI as ready.
     const fake = seedFake();
+    const discovered = await seedDiscoveredMeeting(fake);
     const api: ZoomApi = { ...fake };
     const createSpy = vi.spyOn(api, 'createMeeting');
     const harness = createMemoryProvisionStore({
       session: SESSION,
       hosts: [HOST_POOL_A],
-      meetings: [
-        {
-          id: 'meeting-resolved',
-          surface_type: 'consultor_session',
-          surface_id: SESSION_ID,
-          school_id: 77,
-          host_zoom_user_id: HOST_POOL_A.zoom_user_id,
-          // What reconciliation against Zoom found.
-          zoom_meeting_number: 82000000777,
-          zoom_meeting_uuid: null,
-          passcode: null,
-          join_url: null,
-          effective_settings: { auto_recording: 'none' },
-          status: 'pending',
-          starts_at: EXPECTED_STARTS_AT,
-          duration_minutes: 90,
-          last_error: ambiguousCreateMarker('synthetic-zm-request-id-0004', 'lost response'),
-        },
-      ],
+      meetings: [operatorResolvedRow(discovered.id)],
     });
 
     const result = await createMeetingProvisionHandler({ api, store: harness.store })(context());
 
+    // Never a second meeting, on any recovery branch.
     expect(createSpy).not.toHaveBeenCalled();
-    expect(result).toMatchObject({ zoom_meeting_number: 82000000777, created: false });
-    // ...and the surface finally reaches the UI.
+    expect(fake.listMeetings()).toHaveLength(1);
+
+    // The row is COMPLETE — this is the assertion the sol2 test was missing.
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('provisioned');
+    expect(row.zoom_meeting_number).toBe(discovered.id);
+    expect(row.passcode).toBe('rec0very77');
+    expect(row.join_url).toBe(discovered.joinUrl);
+    expect(row.join_url).not.toBe('');
+    expect(row.effective_settings).toMatchObject({ auto_recording: 'none' });
+    // The marker is the record of an UNRESOLVED create; this row is resolved. Cleared in
+    // the same UPDATE that provisioned it — never a second write that could be lost.
+    expect(row.last_error).toBeNull();
+    expect(harness.store.markProvisioned).toHaveBeenCalledTimes(1);
+    expect(harness.store.recordLastError).not.toHaveBeenCalled();
+
+    // ...and only NOW does the surface reach the UI.
     expect(harness.projectionFor(SESSION_ID)).toMatchObject({ meeting_status: 'scheduled' });
+    expect(result).toMatchObject({
+      zoom_meeting_number: discovered.id,
+      created: false,
+      effective_auto_recording: 'none',
+      settings_drift: false,
+    });
   });
+
+  it('derives §9.4 drift from the RECOVERY read-back, never from the empty row', async () => {
+    // The row's `effective_settings` is NULL, and `readAutoRecording(null)` floors to
+    // 'none'. If recovery published without re-reading, a meeting Zoom is silently
+    // recording would be reported as a clean run.
+    const fake = seedFake();
+    const discovered = await seedDiscoveredMeeting(fake, { auto_recording: 'cloud' });
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [operatorResolvedRow(discovered.id)],
+    });
+
+    const result = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context()
+    );
+
+    expect(result).toMatchObject({ settings_drift: true, effective_auto_recording: 'cloud' });
+    expect(harness.meetingFor(SESSION_ID)?.effective_settings).toMatchObject({
+      auto_recording: 'cloud',
+    });
+  });
+
+  it.each([
+    [
+      'a number that does not answer at Zoom',
+      (fake: ZoomFake): ZoomApi => ({ ...fake }),
+      // 404 at the fake: nothing was ever created under this number.
+      82000000999,
+    ],
+    [
+      'a read-back with no passcode',
+      (fake: ZoomFake): ZoomApi => ({
+        ...fake,
+        async getMeeting(meetingNumber: number) {
+          return { ...(await fake.getMeeting(meetingNumber)), passcode: '' };
+        },
+      }),
+      null,
+    ],
+    [
+      'a read-back whose settings never state auto_recording',
+      (fake: ZoomFake): ZoomApi => ({
+        ...fake,
+        async getMeeting(meetingNumber: number) {
+          return { ...(await fake.getMeeting(meetingNumber)), settings: {} };
+        },
+      }),
+      null,
+    ],
+  ])(
+    'leaves the parked row UNTOUCHED when recovery hits %s',
+    async (_label, makeApi, overrideNumber) => {
+      const fake = seedFake();
+      const discovered = await seedDiscoveredMeeting(fake);
+      const api = makeApi(fake);
+      const createSpy = vi.spyOn(api, 'createMeeting');
+      const seeded = operatorResolvedRow((overrideNumber as number | null) ?? discovered.id);
+      const before = { ...seeded };
+      const harness = createMemoryProvisionStore({
+        session: SESSION,
+        hosts: [HOST_POOL_A],
+        meetings: [seeded],
+      });
+
+      const error = await createMeetingProvisionHandler({ api, store: harness.store })(
+        context()
+      ).catch((caught) => caught);
+
+      // Terminal and structured: triage keys on the reason, and this one is NOT
+      // `ambiguous_unresolved` — a human already resolved it, with a number that does
+      // not check out. The recorded number rides along as the thing to re-check.
+      expect(describeJobFailure(error).kind).toBe('non_retryable');
+      expect(describeJobFailure(error).reason).toBe('recovery_unusable');
+      expect(describeJobFailure(error).detail).toBe(String(before.zoom_meeting_number));
+
+      // Never a create, on any recovery branch.
+      expect(createSpy).not.toHaveBeenCalled();
+      expect(fake.listMeetings()).toHaveLength(1);
+
+      // The row is byte-for-byte what the operator left: reservation held, marker in
+      // place, no half-written passcode or join_url to make it look joinable.
+      expect(harness.meetingFor(SESSION_ID)).toEqual(before);
+      expect(harness.store.markProvisioned).not.toHaveBeenCalled();
+      expect(harness.store.markError).not.toHaveBeenCalled();
+      expect(harness.store.recordLastError).not.toHaveBeenCalled();
+      expect(harness.store.releaseReservation).not.toHaveBeenCalled();
+      expect(harness.store.reserveExistingMeeting).not.toHaveBeenCalled();
+
+      // ...and nothing was announced to the UI.
+      expect(harness.store.upsertProjection).not.toHaveBeenCalled();
+      expect(harness.projectionFor(SESSION_ID)).toBeUndefined();
+    }
+  );
 
   it('a resolved park RESUMES: clearing last_error lets the requeue create', async () => {
     // Resolution path 2. Reconciliation proved no meeting exists, so the operator

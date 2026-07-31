@@ -148,18 +148,49 @@
  *  1. **A meeting WAS created.** Reconcile against Zoom — list the host's meetings
  *     around that window and match topic + start time; `x-zm-request-id` in the marker
  *     is what a Zoom support ticket needs, though it cannot be looked up as a meeting
- *     id. Write the discovered number into `zoom_meeting_number`. That is anchor 1: the
- *     requeued job now RESUMES, finishing passcode/join_url/projection without creating.
- *  2. **No meeting exists.** Clear `last_error` (to NULL). The row reverts to an
- *     ordinary held reservation and the requeued job creates normally.
+ *     id. Write the discovered number into `zoom_meeting_number` and leave the rest of
+ *     the row alone. That is anchor 1, and the requeued job takes the RECOVERY branch
+ *     below rather than the replay one.
+ *  2. **No meeting exists.** Clear `last_error` (to NULL). The row has no anchors at
+ *     all then — no number, no marker — so it reverts to an ordinary held reservation
+ *     and the requeued job creates normally. Nothing about this path changes.
  *
  * Clearing the marker while a meeting DOES exist at Zoom is the one move that
  * reintroduces the double-create, which is why the gate refuses to guess between the
  * two. The blocked host interval holds either way until a human decides.
+ *
+ * ### Recovery is a re-read, not a replay (Sol R3 ①)
+ *
+ * Resolution 1 leaves a row that has a number and NOTHING ELSE: `pending`, no passcode,
+ * no join_url, NULL `effective_settings`, the marker still on it. Treating that as the
+ * ordinary "already created" replay published a `scheduled` projection for a meeting
+ * nobody could join, on a row that still said `pending` — and §9.4 read the absent
+ * settings as a clean `'none'`. The two states are told apart by STATUS, because
+ * `markProvisioned` writes the number and everything else in ONE update:
+ *
+ *  - `provisioned` (or any later lifecycle status) + a number ⇒ REPLAY. The row already
+ *    holds what a previous attempt persisted; finish the remaining steps and publish.
+ *  - `pending` + a number ⇒ RECOVERY. `ZoomApi.getMeeting` re-reads the discovered
+ *    meeting, the result must clear the same fail-closed bar a create response clears
+ *    (`findUnusableProvisionedMeetingFields`: a real number, a non-empty passcode and
+ *    join_url, settings with an EXPLICIT `auto_recording`), and only then does one
+ *    `markProvisioned` write the lot — including clearing the park marker, in the same
+ *    UPDATE. The projection publishes after that write and never before it.
+ *
+ * A read-back that fails or comes back unusable leaves the row EXACTLY as the operator
+ * left it — no writes at all — and fails the job terminally under `recovery_unusable`.
+ * `createMeeting` is unreachable from either recovery outcome: the number is anchor 1,
+ * and anchor 1 is absolute.
  */
 import { randomInt } from 'crypto';
 import { getSessionDateTime, SESSION_TIMEZONE } from '../../utils/session-timezone';
-import { getZoomApi, type ZoomApi, type ZoomMeetingSettings } from '../api';
+import {
+  findUnusableProvisionedMeetingFields,
+  getZoomApi,
+  type ZoomApi,
+  type ZoomMeeting,
+  type ZoomMeetingSettings,
+} from '../api';
 import { isZoomError, ZoomNonRetryableError } from '../errors';
 import { createZoomServiceClient, zoomInternalSchema } from '../service-client';
 import { ZoomJobLeaseLostError, type ZoomJobHandler } from './types';
@@ -341,6 +372,33 @@ export class ZoomAmbiguousUnresolvedError extends ZoomNonRetryableError {
 
   constructor(message: string, requestId: string | undefined) {
     super(message, { operation: 'meeting_provision', requestId });
+  }
+}
+
+/** The `reason` an unusable operator-recovery read-back fails under. */
+export const RECOVERY_UNUSABLE_REASON = 'recovery_unusable';
+
+/**
+ * An operator resolved a parked row by recording a `zoom_meeting_number`, and the
+ * read-back of that meeting either failed or came back unusable (Sol R3 ①). Terminal,
+ * and it writes NOTHING: the row is left byte-for-byte as the operator left it, so the
+ * reservation goes on blocking the host and the recovery can be re-attempted with a
+ * corrected number — or abandoned by clearing the marker, if reconciliation actually
+ * proves no meeting exists.
+ *
+ * A distinct reason from `ambiguous_unresolved` on purpose. That one means "no human has
+ * resolved this yet"; this one means "a human resolved it with a number that does not
+ * answer". On the §18 panel the two must not collapse, because the operator's next move
+ * is different: re-check the number, not the queue.
+ */
+export class ZoomRecoveryUnusableError extends ZoomNonRetryableError {
+  readonly reason = RECOVERY_UNUSABLE_REASON;
+  /** The recorded number, so triage does not have to open the row to see it. */
+  readonly detail: string;
+
+  constructor(message: string, meetingNumber: number, requestId: string | undefined) {
+    super(message, { operation: 'meeting_provision', requestId });
+    this.detail = String(meetingNumber);
   }
 }
 
@@ -872,9 +930,13 @@ export function orderHostCandidates(
  * previous attempt persisted from one. Never a constant: a resume that assumed `'none'`
  * would report a clean run for a meeting Zoom is silently recording.
  *
- * A missing/NULL settings object floors to `'none'`. `markProvisioned` writes the number
- * and the settings in one UPDATE, so "has a meeting number, has no settings" is not a
- * state this handler can produce; the floor is the type-level bottom, not a claim.
+ * A missing/NULL settings object floors to `'none'` — the type-level bottom, and NOT a
+ * claim about a meeting. Nothing this handler persists can reach it: `markProvisioned`
+ * writes the number and the settings in ONE UPDATE, the create response must carry an
+ * explicit string `auto_recording` to be usable at all (Sol R3 ②), and the
+ * operator-recovery read-back must clear the same bar before it is written (Sol R3 ①).
+ * The state "has a meeting number, has no settings" is unproducible from BOTH sources —
+ * which is what makes the floor honest rather than a silent clean bill of health.
  */
 export function readAutoRecording(settings: Record<string, unknown> | null | undefined): string {
   return String(settings?.auto_recording ?? 'none');
@@ -1071,8 +1133,21 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
     let candidatesTried = 0;
 
     // Anchor 1 (module header): a meeting number means Zoom already holds a meeting for
-    // this surface. Never create a second one — just finish the remaining steps.
-    const alreadyCreated = existing !== null && existing.zoom_meeting_number !== null;
+    // this surface. Never create a second one. Absolute, and deliberately keyed on the
+    // number ALONE — every "do not create" guard below reads this flag.
+    const hasNumber = existing !== null && existing.zoom_meeting_number !== null;
+
+    // What is left to DO for such a row is not the same question, and the answer is the
+    // row's status (Sol R3 ①). `markProvisioned` writes the number, the passcode, the
+    // join_url and the effective settings in ONE update, so a row that reached
+    // `provisioned` — or a later lifecycle status — carries all of them: replaying it
+    // just finishes the remaining steps. A row still `pending` with a number is the
+    // other case entirely: an OPERATOR wrote that number by hand to resolve a parked
+    // ambiguous create, and NOTHING has ever read the meeting. Replaying that one
+    // published a `scheduled` projection for a meeting with no passcode and no join_url,
+    // on a row that still said `pending` and still carried the park marker.
+    const operatorRecovery = hasNumber && (existing as ProvisionMeetingRow).status === 'pending';
+    const alreadyCreated = hasNumber && !operatorRecovery;
 
     // Anchor 2: the previous attempt created at Zoom and checkpointed, then died before
     // `markProvisioned` landed. The checkpoint is only adoptable onto the row it names —
@@ -1080,7 +1155,7 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
     // anywhere else would corrupt a different reservation.
     const checkpoint = readCreatedCheckpoint(ctx.job.stage_state);
     const adoption =
-      !alreadyCreated && existing !== null && checkpoint !== null && checkpoint.meetingId === existing.id
+      !hasNumber && existing !== null && checkpoint !== null && checkpoint.meetingId === existing.id
         ? { row: existing, checkpoint }
         : null;
 
@@ -1094,14 +1169,9 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
     //
     // Deliberately after the two anchors and before everything else: a row that now
     // carries a meeting number, or a checkpoint that names one, IS the resolution —
-    // those resume normally. Below this line nothing is touched: not the reservation,
-    // not the row, not Zoom.
-    if (
-      !alreadyCreated &&
-      adoption === null &&
-      existing !== null &&
-      existing.zoom_meeting_number === null
-    ) {
+    // those take the recovery/adopt branches instead. Below this line nothing is
+    // touched: not the reservation, not the row, not Zoom.
+    if (!hasNumber && adoption === null && existing !== null) {
       const parked = parseAmbiguousCreateMarker(existing.last_error);
       if (parked !== null) {
         throw new ZoomAmbiguousUnresolvedError(
@@ -1119,7 +1189,7 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
     // protecting is not the interval about to be sent to Zoom, and the host is
     // double-bookable for the time the meeting will actually occupy.
     const heldReservation =
-      !alreadyCreated &&
+      !hasNumber &&
       adoption === null &&
       existing !== null &&
       existing.status === 'pending' &&
@@ -1148,9 +1218,9 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
       }
     }
 
-    if (alreadyCreated) {
-      meetingId = existing.id;
-      hostZoomUserId = existing.host_zoom_user_id ?? '';
+    if (hasNumber) {
+      meetingId = (existing as ProvisionMeetingRow).id;
+      hostZoomUserId = (existing as ProvisionMeetingRow).host_zoom_user_id ?? '';
     } else if (adoption !== null) {
       meetingId = adoption.row.id;
       hostZoomUserId = adoption.row.host_zoom_user_id ?? '';
@@ -1230,6 +1300,59 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
       // DERIVED from those persisted settings, never assumed — a row provisioned with
       // drifted `auto_recording` must still report the drift on every replay.
       effectiveAutoRecording = readAutoRecording(existing.effective_settings);
+    } else if (operatorRecovery) {
+      // Sol R3 ①. The operator recorded the number reconciliation found; the create
+      // response that carried the passcode, the join_url and the effective settings is
+      // the thing that was lost. So this branch RE-READS the meeting — the only source
+      // those values can come from — and `createMeeting` is unreachable from it under
+      // every outcome, because the number is anchor 1 and anchor 1 is absolute.
+      const recorded = (existing as ProvisionMeetingRow).zoom_meeting_number as number;
+      const marker = parseAmbiguousCreateMarker((existing as ProvisionMeetingRow).last_error);
+
+      let discovered: ZoomMeeting;
+      try {
+        discovered = await api.getMeeting(recorded);
+      } catch (error) {
+        // No writes. The row stays parked exactly as the operator left it — reservation
+        // intact, marker intact — so nothing is lost by refusing, and a corrected number
+        // resolves it on the next requeue.
+        throw new ZoomRecoveryUnusableError(
+          `consultor_session ${surfaceId} carries an operator-recorded zoom_meeting_number that could not be read back from Zoom: ${(error instanceof Error ? error.message : String(error)).slice(0, 200)} The row is untouched; re-check the recorded number.`,
+          recorded,
+          marker?.request_id ?? undefined
+        );
+      }
+
+      // The same fail-closed bar a create response has to clear (Sol R3 ②), plus the one
+      // check only this path can make: Zoom must have answered about the meeting we
+      // asked for. Persisting a read-back that names a different meeting would bind the
+      // surface to somebody else's.
+      const problems = findUnusableProvisionedMeetingFields(discovered);
+      if (discovered.id !== recorded) problems.push('the read-back names a different meeting');
+      if (problems.length > 0) {
+        throw new ZoomRecoveryUnusableError(
+          `consultor_session ${surfaceId} carries an operator-recorded zoom_meeting_number whose read-back cannot be used: ${problems.join('; ')}. The row is untouched; re-check the recorded number.`,
+          recorded,
+          marker?.request_id ?? undefined
+        );
+      }
+
+      // ONE write, and it is the entire resolution: the number, the passcode, the
+      // join_url, the effective settings and `provisioned` — with `last_error` cleared
+      // in the SAME UPDATE (see `markProvisioned` in the store above). The marker must
+      // not outlive the row it parks: it is the record of an UNRESOLVED create, and this
+      // row is now resolved. Only after this write does the projection publish.
+      await store.markProvisioned(meetingId, {
+        zoom_meeting_number: recorded,
+        passcode: discovered.passcode,
+        join_url: discovered.joinUrl,
+        effective_settings: discovered.settings as Record<string, unknown>,
+        status: 'provisioned',
+      });
+      zoomMeetingNumber = recorded;
+      // Read off what Zoom just said, exactly as the create path does — §9.4 drift is
+      // reported for a recovered meeting like any other.
+      effectiveAutoRecording = readAutoRecording(discovered.settings);
     } else if (adoption !== null) {
       // Anchor 2. Zoom already holds this meeting; the only thing the crashed attempt
       // owed the row is this write. No create, and no heartbeat before it — the
@@ -1365,8 +1488,9 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
       meeting_id: meetingId,
       zoom_meeting_number: zoomMeetingNumber,
       host_zoom_user_id: hostZoomUserId,
-      // Both resume anchors mean a PREVIOUS attempt created it at Zoom.
-      created: !alreadyCreated && adoption === null,
+      // Every resume anchor means a PREVIOUS attempt created it at Zoom — the replay,
+      // the checkpoint adoption and the operator recovery alike.
+      created: !hasNumber && adoption === null,
       candidates_tried: candidatesTried,
       settings_drift: settingsDrift,
       effective_auto_recording: effectiveAutoRecording,

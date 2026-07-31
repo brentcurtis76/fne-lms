@@ -250,6 +250,29 @@ export function findUnusableCreateFields(raw: unknown): string[] {
   return problems;
 }
 
+/**
+ * The SAME requirement set as `findUnusableCreateFields`, applied to a meeting that has
+ * already been through `mapMeeting`. Its one caller is `meeting_provision`'s
+ * operator-recovery read-back (Sol R3 ①): the row's meeting number came from a human
+ * who reconciled a parked ambiguous create against Zoom, so a `getMeeting` is the only
+ * place the passcode, the join_url and the effective settings can come from — and they
+ * must clear exactly the bar a create response clears before they are persisted.
+ *
+ * Checking AFTER the map is not a weaker check. `mapMeeting`'s coercions are lossless
+ * for this purpose: an absent `password` arrives as `''` and absent `settings` as an
+ * object with no `auto_recording`, which are precisely the two states the create rules
+ * reject. And it leaves GET semantics alone — `getMeeting` still maps whatever Zoom
+ * sends, for every other reader; only this one refuses to PERSIST an unusable result.
+ */
+export function findUnusableProvisionedMeetingFields(meeting: ZoomMeeting): string[] {
+  return findUnusableCreateFields({
+    id: meeting.id,
+    join_url: meeting.joinUrl,
+    password: meeting.passcode,
+    settings: meeting.settings,
+  });
+}
+
 function mapUser(raw: ZoomUserRaw): ZoomUser {
   return {
     id: raw.id,

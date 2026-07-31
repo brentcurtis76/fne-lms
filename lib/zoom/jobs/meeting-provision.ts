@@ -129,6 +129,33 @@
  * `x-zm-request-id` (when Zoom sent one) is all the record carries, and only
  * reconciliation against Zoom can identify a meeting if one exists. The BLOCKED HOST
  * INTERVAL is the safety here, not knowledge.
+ *
+ * ### Resolving a parked row — the manual contract (Sol R2 ②)
+ *
+ * The park is ENFORCED, not merely recorded. A parked row (`pending`, no
+ * `zoom_meeting_number`, `last_error.reason = 'ambiguous_create_outcome'`) is
+ * shape-identical to an ordinary crashed-pre-create reservation, so without a gate the
+ * obvious recovery lever — requeue the terminal job — would sail into the create path
+ * and make the second meeting this whole mechanism exists to prevent. The handler
+ * therefore refuses such a row up front, non-retryably, under reason
+ * `ambiguous_unresolved`, WITHOUT touching the reservation, the row or Zoom. Requeue it
+ * as often as you like; it fails the same way every time and creates nothing.
+ *
+ * An operator resolves it in exactly one of two ways. Both are ordinary writes to
+ * `zoom_internal.zoom_meetings` — there is no RPC, and (until §16's
+ * `docs/runbooks/zoom.md` exists) no runbook:
+ *
+ *  1. **A meeting WAS created.** Reconcile against Zoom — list the host's meetings
+ *     around that window and match topic + start time; `x-zm-request-id` in the marker
+ *     is what a Zoom support ticket needs, though it cannot be looked up as a meeting
+ *     id. Write the discovered number into `zoom_meeting_number`. That is anchor 1: the
+ *     requeued job now RESUMES, finishing passcode/join_url/projection without creating.
+ *  2. **No meeting exists.** Clear `last_error` (to NULL). The row reverts to an
+ *     ordinary held reservation and the requeued job creates normally.
+ *
+ * Clearing the marker while a meeting DOES exist at Zoom is the one move that
+ * reintroduces the double-create, which is why the gate refuses to guess between the
+ * two. The blocked host interval holds either way until a human decides.
  */
 import { randomInt } from 'crypto';
 import { getSessionDateTime, SESSION_TIMEZONE } from '../../utils/session-timezone';
@@ -295,6 +322,36 @@ export class ZoomAmbiguousCreateError extends ZoomNonRetryableError {
   }
 }
 
+/** The `reason` a REQUEUE against an unresolved parked row is refused under. */
+export const AMBIGUOUS_UNRESOLVED_REASON = 'ambiguous_unresolved';
+
+/**
+ * The job was requeued against a row still parked by an unresolved ambiguous create
+ * (Sol R2 ②). Terminal, and it writes NOTHING — not the row, not the reservation, and
+ * above all not Zoom.
+ *
+ * A distinct reason from `ambiguous_create_outcome` on purpose. The two are different
+ * events with different side effects: the first is Zoom answering ambiguously (and it
+ * WRITES the marker), the second is an operator requeueing without having resolved it
+ * (and it writes nothing). Collapsing them would hide, on the §18 panel, the one case
+ * that means "a human tried the recovery lever and it is still not resolved".
+ */
+export class ZoomAmbiguousUnresolvedError extends ZoomNonRetryableError {
+  readonly reason = AMBIGUOUS_UNRESOLVED_REASON;
+
+  constructor(message: string, requestId: string | undefined) {
+    super(message, { operation: 'meeting_provision', requestId });
+  }
+}
+
+/** The parsed shape of the marker `recordLastError` leaves on a parked row. */
+export interface AmbiguousCreateMarker {
+  reason: string;
+  /** Zoom's `x-zm-request-id`, when it sent one. The only identifier that exists. */
+  request_id: string | null;
+  message: string;
+}
+
 /**
  * The marker `recordLastError` leaves on a row whose create outcome is unresolved.
  * Structural — parsed and read by field, never matched as a substring.
@@ -310,15 +367,34 @@ export function ambiguousCreateMarker(
   });
 }
 
+/**
+ * The marker's contents, or `null` when `last_error` is absent, unparseable, or carries
+ * some other reason. Total and defensive for the same rationale as
+ * `readCreatedCheckpoint`: `last_error` is free text written by a previous deploy.
+ */
+export function parseAmbiguousCreateMarker(
+  lastError: string | null
+): AmbiguousCreateMarker | null {
+  if (lastError === null) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(lastError);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  const record = parsed as Record<string, unknown>;
+  if (record.reason !== AMBIGUOUS_CREATE_REASON) return null;
+  return {
+    reason: AMBIGUOUS_CREATE_REASON,
+    request_id: typeof record.request_id === 'string' ? record.request_id : null,
+    message: typeof record.message === 'string' ? record.message : '',
+  };
+}
+
 /** Is this row's `last_error` an unresolved ambiguous create? */
 export function isAmbiguousCreateMarker(lastError: string | null): boolean {
-  if (lastError === null) return false;
-  try {
-    const parsed = JSON.parse(lastError) as { reason?: unknown };
-    return parsed.reason === AMBIGUOUS_CREATE_REASON;
-  } catch {
-    return false;
-  }
+  return parseAmbiguousCreateMarker(lastError) !== null;
 }
 
 /**
@@ -1007,6 +1083,35 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
       !alreadyCreated && existing !== null && checkpoint !== null && checkpoint.meetingId === existing.id
         ? { row: existing, checkpoint }
         : null;
+
+    // --- The parked-ambiguous gate (Sol R2 ②) -----------------------------
+    // A row parked by an unresolved ambiguous create is SHAPE-IDENTICAL to a
+    // crashed-pre-create reservation: `pending`, a host, no meeting number. So the
+    // reservation-reuse path below would happily adopt it and create — which makes
+    // REQUEUEING the terminal job, the designated manual-triage lever, the exact
+    // second-create that R1-F4 exists to prevent. Parking has to be enforced HERE, by
+    // the handler, not merely recorded on the row.
+    //
+    // Deliberately after the two anchors and before everything else: a row that now
+    // carries a meeting number, or a checkpoint that names one, IS the resolution —
+    // those resume normally. Below this line nothing is touched: not the reservation,
+    // not the row, not Zoom.
+    if (
+      !alreadyCreated &&
+      adoption === null &&
+      existing !== null &&
+      existing.zoom_meeting_number === null
+    ) {
+      const parked = parseAmbiguousCreateMarker(existing.last_error);
+      if (parked !== null) {
+        throw new ZoomAmbiguousUnresolvedError(
+          `consultor_session ${surfaceId} is parked by an UNRESOLVED ambiguous create; a meeting may already exist at Zoom for this host and window. Requeueing cannot create: resolve it first by recording the discovered zoom_meeting_number, or by clearing last_error if reconciliation proved no meeting exists${
+            parked.request_id === null ? '' : ` (x-zm-request-id ${parked.request_id})`
+          }.`,
+          parked.request_id ?? undefined
+        );
+      }
+    }
 
     // The crashed-pre-create path: a `pending` row under a host, no meeting at Zoom.
     // Reusing it blindly was Sol F3's second half — the session may have been

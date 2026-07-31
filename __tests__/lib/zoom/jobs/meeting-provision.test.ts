@@ -906,6 +906,190 @@ describe('meeting_provision · ambiguous create outcomes', () => {
     expect(['pending', 'provisioned', 'started']).not.toContain(row.status);
   });
 
+  /**
+   * Sol R2 ②. The R1 fix parked the row; nothing stopped the parked row from being
+   * used. A parked row is `pending` + a host + no meeting number — byte-for-byte the
+   * shape of an ordinary crashed-pre-create reservation — so REQUEUEING the terminal
+   * job, which is the manual-triage lever, walked straight into the create path.
+   *
+   * This is the requeue simulation: park the row through a real ambiguous create, then
+   * put the job back to `pending` the way an operator would and re-run the ticker.
+   */
+  it('refuses every requeue while the ambiguous park is unresolved', async () => {
+    const fake = seedFake();
+    const api = createsThenLosesTheResponse(fake);
+    const createSpy = vi.spyOn(api, 'createMeeting');
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+    const jobs = createMemoryJobQueue();
+    const registry = { meeting_provision: createMeetingProvisionHandler({ api, store: harness.store }) };
+
+    await jobs.queue.enqueue({
+      job_type: 'meeting_provision',
+      payload: { surface_type: 'consultor_session', surface_id: SESSION_ID },
+    });
+
+    // Attempt 1: an eligible row, an ambiguous create. This one DOES reach Zoom.
+    await runZoomTick({ queue: jobs.queue, registry, workerId: 'w1', now: oneBatchClock() });
+    const job = jobs.jobFor('meeting_provision') as StoredJob;
+    expect(job.status).toBe('failed');
+    expect(createSpy).toHaveBeenCalledTimes(1);
+
+    const parkedRow = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    const markerAfterPark = parkedRow.last_error;
+    const hostAfterPark = parkedRow.host_zoom_user_id;
+
+    // Now the operator pulls the lever: requeue the terminal job. Three times.
+    for (const worker of ['w2', 'w3', 'w4']) {
+      job.status = 'pending';
+      job.worker_id = null;
+      await runZoomTick({ queue: jobs.queue, registry, workerId: worker, now: oneBatchClock() });
+
+      // FIRST, and the whole point: the requeue must not have created at Zoom. Asserted
+      // inside the loop so a regression fails on the second create itself rather than on
+      // some downstream symptom of it.
+      expect(createSpy).toHaveBeenCalledTimes(1);
+      expect(fake.listMeetings()).toHaveLength(1);
+
+      // Structured, non-retryable, and a DIFFERENT reason from the original park: this
+      // is "a human retried without resolving", not "Zoom answered ambiguously".
+      expect(job.status).toBe('failed');
+      expect(JSON.parse(job.last_error as string)).toMatchObject({
+        kind: 'non_retryable',
+        reason: 'ambiguous_unresolved',
+        requestId: 'synthetic-zm-request-id-0001',
+      });
+    }
+
+    // The assertion this test exists for: still exactly ONE create at Zoom.
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(fake.listMeetings()).toHaveLength(1);
+
+    // Nothing was touched — not the reservation, not the marker, not the projection.
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('pending');
+    expect(row.host_zoom_user_id).toBe(hostAfterPark);
+    expect(row.last_error).toBe(markerAfterPark);
+    expect(row.zoom_meeting_number).toBeNull();
+    expect(harness.store.markError).not.toHaveBeenCalled();
+    expect(harness.store.releaseReservation).not.toHaveBeenCalled();
+    expect(harness.store.reserveExistingMeeting).not.toHaveBeenCalled();
+    expect(harness.store.upsertProjection).not.toHaveBeenCalled();
+  });
+
+  it('refuses a requeue with ZERO creates when the row was parked before any create', async () => {
+    // The pre-create ambiguity: the very first attempt never reached Zoom's handler in
+    // a knowable way. Seeded directly, because the point is the count staying at 0.
+    const fake = seedFake();
+    const api: ZoomApi = { ...fake };
+    const createSpy = vi.spyOn(api, 'createMeeting');
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [
+        {
+          id: 'meeting-parked',
+          surface_type: 'consultor_session',
+          surface_id: SESSION_ID,
+          school_id: 77,
+          host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+          zoom_meeting_number: null,
+          zoom_meeting_uuid: null,
+          passcode: null,
+          join_url: null,
+          effective_settings: null,
+          status: 'pending',
+          starts_at: EXPECTED_STARTS_AT,
+          duration_minutes: 90,
+          last_error: ambiguousCreateMarker(undefined, 'transport failure'),
+        },
+      ],
+    });
+
+    const error = await createMeetingProvisionHandler({ api, store: harness.store })(
+      context()
+    ).catch((caught) => caught);
+
+    expect(describeJobFailure(error).reason).toBe('ambiguous_unresolved');
+    expect(describeJobFailure(error).kind).toBe('non_retryable');
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(fake.listMeetings()).toHaveLength(0);
+  });
+
+  it('a resolved park RESUMES: an operator-recorded meeting number lets the requeue finish', async () => {
+    // Resolution path 1 from the module header. The marker is still on the row — the
+    // operator only filled in the number — and the ANCHOR must win over the gate,
+    // otherwise the documented recovery is unreachable and the row is stuck forever.
+    const fake = seedFake();
+    const api: ZoomApi = { ...fake };
+    const createSpy = vi.spyOn(api, 'createMeeting');
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [
+        {
+          id: 'meeting-resolved',
+          surface_type: 'consultor_session',
+          surface_id: SESSION_ID,
+          school_id: 77,
+          host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+          // What reconciliation against Zoom found.
+          zoom_meeting_number: 82000000777,
+          zoom_meeting_uuid: null,
+          passcode: null,
+          join_url: null,
+          effective_settings: { auto_recording: 'none' },
+          status: 'pending',
+          starts_at: EXPECTED_STARTS_AT,
+          duration_minutes: 90,
+          last_error: ambiguousCreateMarker('synthetic-zm-request-id-0004', 'lost response'),
+        },
+      ],
+    });
+
+    const result = await createMeetingProvisionHandler({ api, store: harness.store })(context());
+
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ zoom_meeting_number: 82000000777, created: false });
+    // ...and the surface finally reaches the UI.
+    expect(harness.projectionFor(SESSION_ID)).toMatchObject({ meeting_status: 'scheduled' });
+  });
+
+  it('a resolved park RESUMES: clearing last_error lets the requeue create', async () => {
+    // Resolution path 2. Reconciliation proved no meeting exists, so the operator
+    // cleared the marker and the row is an ordinary held reservation again.
+    const fake = seedFake();
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [
+        {
+          id: 'meeting-cleared',
+          surface_type: 'consultor_session',
+          surface_id: SESSION_ID,
+          school_id: 77,
+          host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+          zoom_meeting_number: null,
+          zoom_meeting_uuid: null,
+          passcode: null,
+          join_url: null,
+          effective_settings: null,
+          status: 'pending',
+          starts_at: EXPECTED_STARTS_AT,
+          duration_minutes: 90,
+          last_error: null,
+        },
+      ],
+    });
+
+    const result = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context()
+    );
+
+    expect(fake.listMeetings()).toHaveLength(1);
+    expect(result).toMatchObject({ created: true });
+    expect(harness.meetingFor(SESSION_ID)?.status).toBe('provisioned');
+  });
+
   it('never releases a row parked by an unresolved ambiguous create', async () => {
     const fake = seedFake();
     const parked: StoredMeeting = {

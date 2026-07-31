@@ -278,6 +278,49 @@ mid-round (`fne-lms-zoom-core` → `/Users/brentcurtis/Documents/fne-zoom`); the
 verified tree identity (branch/SHA/cleanliness) before proceeding — the right call —
 and every PM-owned reference is updated.
 
+## 7e. Sol-R4 remediation record (Z1b-sol4, 2026-07-31)
+
+Sol R4: REQUEST CHANGES — ONE finding, which **overturned the PM's sol3 scrutiny-C
+ruling** (conceded in the verdict archive Round 4): the recovery write was ID-only with
+no lease guard, and `started`-applies-from-`pending` makes the lifecycle race reachable
+— a webhook advancing the row mid-read-back would be clobbered back to `provisioned`
+by the late recovery write, reintroducing the R2-F1 order-safety class through recovery.
+Fixed in `23f730a` (fix) + `beab6e8` (store-wire suite).
+
+The fix, verified hunk-by-hunk to touch ONLY the recovery branch, the store seam, the
+result types and the header (rule 4): post-validation `ctx.heartbeat()` BEFORE any
+write — argumentless, verified against the RPC's `COALESCE` so it cannot blank the
+job's checkpoint; false ⇒ LeaseLost, zero writes. The write is a DEDICATED
+compare-and-set, `markRecoveredProvisioned` (`WHERE id AND status='pending' AND
+zoom_meeting_number=<recorded>`, `.select('id')` with **exactly-one** semantics — the
+executor's `length === 1`-not-`>= 1` reasoning is right: a store that stopped filtering
+by id must read as refusal); the guard number is DERIVED from the persisted patch, so
+guard and payload cannot drift (accepted deviation — better than the spec). CAS miss ⇒
+stop before the projection, complete with a structured `superseded` result carrying the
+row ids (a legitimate world-advance is not a triage event); the residual is ASSERTED,
+not just documented — a superseded row keeps NULL passcode/join_url forever (the CAS is
+one-way), the historical record of a meeting that ran without platform join.
+
+**PM verification**: fail-on-old re-executed — **7/59 fail** with the `a67bc18`-era
+handler restored, including the clobber in its own words (`expected 'provisioned' to be
+'ended'`), 59/59 at head; the race tests drive the advance through the REAL
+`applyWebhookLifecycle` and its applies-from guard (reachability proven, not assumed);
+gates at `beab6e8`: **3730/3730 in 240 files** (+7/+1), build OK, `test:db` 91/91,
+`test:queue` PASS (21/19); scans CLEAN. All six deviations ACCEPTED — notably the
+UNREQUESTED store-wire suite (closes the same R2-③ doubles-gap class for the provision
+store proactively) and the strict-reading deviation that the recovery-success test is
+no longer green-on-old (it now asserts the new guard; green-at-head is the DoD's
+intent). The adoption-branch exemption argument is PM-verified: pre-adoption rows carry
+`zoom_meeting_number = NULL` and the lifecycle finds rows BY number
+(`findMeetingIdByNumber`), so no lifecycle event can reach one — the race is
+structurally absent there, not merely unhandled.
+
+**Residuals**: `superseded` has no reader yet (shaped for the §18 health query, Z12);
+the projection race variant "already at ended, not overwritten" is unreachable from a
+parked create (a parked row never published a projection) — the tests assert
+no-projection-call + `undefined`, and covering the seeded-artificial state is left to
+Sol's discretion.
+
 ## 8. Exact local gate commands
 
 ```bash

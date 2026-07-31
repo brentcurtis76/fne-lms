@@ -72,3 +72,43 @@ Severity as triaged: F1/F3/F4 correctness (MAJOR-class), F2 operational correctn
 round per standing rule). All six go to one remediation round (Z1b-sol1); the migration
 edit in F2 is legitimate pre-merge (the Z1b migrations exist only on this unmerged branch
 and are re-applied from scratch by CI and local stacks).
+
+## Round 2 — Re-review of Z1b-sol1 (verdict: REQUEST CHANGES, 2026-07-31)
+
+Scope: the fix commits `ad649b3..9648c3b` + verification of the six R1 findings, run at
+head `da38eb9`; Sol re-ran the full gate set itself (3680/238, pgTAP 91/91, queue proof
+40/40 at split 19/21, clean checkout). Verdict: **REQUEST CHANGES — 2 MAJOR / 2 MINOR**;
+remediation round **Z1b-sol2** per the verdict's own fix block.
+
+**MAJOR ①** `lib/zoom/api.ts:232` — F4 still treats schema-invalid 2xx creates as
+successes. Only empty/non-JSON bodies classify as ambiguous; a valid-JSON `{}` reaches
+`mapMeeting()` through the unchecked cast and yields a meeting with `id`/`joinUrl`
+undefined (Sol reproduced: 201 `{}` → `{"passcode":"","settings":{}}`). The provisioner
+can then mark the row `provisioned` with no number and complete — bypassing the
+manual-reconciliation behavior R1-F4 required, though Zoom may have created a meeting.
+
+**MAJOR ②** `meeting-provision.ts:1016` — the ambiguous marker does not prevent a later
+create. A parked row (`pending`, no number, `last_error.reason=ambiguous_create_outcome`)
+satisfies `heldReservation`; requeueing the terminal job — the designated manual-triage
+lever — silently creates again. The parked state must be handler-enforced.
+
+**MINOR ③** `webhook.test.ts:86` / `webhook-store.ts:375` — F1's production store chain
+is untested; the suites re-implement the guards in memory from the exported sets. First
+lifecycle fix whose correctness depends on the persistence filter itself ⇒ close the
+executor's flagged caveat with a real `createSupabaseWebhookStore` test.
+
+**MINOR ④** docs — the review-request residual text overclaims (pre-checkpoint orphans
+carry NO `stage_state.meeting.number` to name them — the code header states this
+correctly); the `21 files, +1889/−89` figure is the through-F5 diff (full range: 22,
++2014/−101); the dossier §8 comment still says 85 pgTAP tests (now 91).
+
+## PM triage (Round 2)
+
+**ALL FOUR VALID** — anchors re-verified in the code before dispatch. Two qualify the
+PM's Z1b-sol1 round: ② the PM verified that ambiguous outcomes PARK the row but never
+replayed the parked job — the recovery path itself was the regression vector; ③ the PM
+accepted "doubles import the rule" as a recorded residual — Sol correctly overturns
+recorded-not-tested for the first store method whose correctness lives in the filter.
+① is partly a pre-existing Z1b-2 gap (the unchecked `mapMeeting` cast) that F4's
+classification made load-bearing. ④'s dossier line is the PM's own file — the PM fixes
+it at the round's approval, not the executor. Severities as filed. One round: Z1b-sol2.

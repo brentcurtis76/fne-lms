@@ -1114,11 +1114,18 @@ describe('meeting_provision · ambiguous create outcomes', () => {
       meetings: [operatorResolvedRow(discovered.id)],
     });
 
-    const result = await createMeetingProvisionHandler({ api, store: harness.store })(context());
+    const ctx = context();
+    const result = await createMeetingProvisionHandler({ api, store: harness.store })(ctx);
 
     // Never a second meeting, on any recovery branch.
     expect(createSpy).not.toHaveBeenCalled();
     expect(fake.listMeetings()).toHaveLength(1);
+
+    // The lease is re-proved between the read-back and the write (Sol R4) — and with NO
+    // stage_state: this path has no checkpoint of its own, and pushing one would
+    // overwrite whatever the job already carries.
+    expect(ctx.heartbeat).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(ctx.heartbeat).mock.calls[0]).toEqual([]);
 
     // The row is COMPLETE — this is the assertion the sol2 test was missing.
     const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
@@ -1131,7 +1138,10 @@ describe('meeting_provision · ambiguous create outcomes', () => {
     // The marker is the record of an UNRESOLVED create; this row is resolved. Cleared in
     // the same UPDATE that provisioned it — never a second write that could be lost.
     expect(row.last_error).toBeNull();
-    expect(harness.store.markProvisioned).toHaveBeenCalledTimes(1);
+    // ...and that UPDATE is the GUARDED one (Sol R4), never the absolute `markProvisioned`
+    // the create and adopt paths use.
+    expect(harness.store.markRecoveredProvisioned).toHaveBeenCalledTimes(1);
+    expect(harness.store.markProvisioned).not.toHaveBeenCalled();
     expect(harness.store.recordLastError).not.toHaveBeenCalled();
 
     // ...and only NOW does the surface reach the UI.
@@ -1208,9 +1218,10 @@ describe('meeting_provision · ambiguous create outcomes', () => {
         meetings: [seeded],
       });
 
-      const error = await createMeetingProvisionHandler({ api, store: harness.store })(
-        context()
-      ).catch((caught) => caught);
+      const ctx = context();
+      const error = await createMeetingProvisionHandler({ api, store: harness.store })(ctx).catch(
+        (caught) => caught
+      );
 
       // Terminal and structured: triage keys on the reason, and this one is NOT
       // `ambiguous_unresolved` — a human already resolved it, with a number that does
@@ -1227,14 +1238,162 @@ describe('meeting_provision · ambiguous create outcomes', () => {
       // place, no half-written passcode or join_url to make it look joinable.
       expect(harness.meetingFor(SESSION_ID)).toEqual(before);
       expect(harness.store.markProvisioned).not.toHaveBeenCalled();
+      expect(harness.store.markRecoveredProvisioned).not.toHaveBeenCalled();
       expect(harness.store.markError).not.toHaveBeenCalled();
       expect(harness.store.recordLastError).not.toHaveBeenCalled();
       expect(harness.store.releaseReservation).not.toHaveBeenCalled();
       expect(harness.store.reserveExistingMeeting).not.toHaveBeenCalled();
+      // The lease guard sits AFTER validation, so a read-back that never validated does
+      // not even spend a heartbeat — and cannot have written under a stolen lease.
+      expect(ctx.heartbeat).not.toHaveBeenCalled();
 
       // ...and nothing was announced to the UI.
       expect(harness.store.upsertProjection).not.toHaveBeenCalled();
       expect(harness.projectionFor(SESSION_ID)).toBeUndefined();
+    }
+  );
+
+  it('a lost lease at the recovery write leaves the row and the UI untouched', async () => {
+    // Sol R4, first half. Nothing heartbeats between the row read and the write, and the
+    // `getMeeting` in between is a network round trip — long enough for a lease to expire
+    // or be stolen. A worker that no longer owns the job must not persist its verdict.
+    const fake = seedFake();
+    const discovered = await seedDiscoveredMeeting(fake);
+    const api: ZoomApi = { ...fake };
+    const createSpy = vi.spyOn(api, 'createMeeting');
+    const seeded = operatorResolvedRow(discovered.id);
+    const before = { ...seeded };
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [seeded],
+    });
+
+    const heartbeat = vi.fn(async () => false);
+    const ctx: ZoomJobContext = { job: jobRow(), workerId: 'worker-1', heartbeat };
+
+    const error = await createMeetingProvisionHandler({ api, store: harness.store })(ctx).catch(
+      (caught) => caught
+    );
+
+    // Not a job failure: the runner returns without calling `fail_zoom_job`, because the
+    // new leaseholder already owns this job.
+    expect(error).toBeInstanceOf(ZoomJobLeaseLostError);
+    expect(heartbeat).toHaveBeenCalledTimes(1);
+
+    // The guard is BEFORE the write, so the row is byte-for-byte the operator's: the
+    // reservation still held, the park marker still on it, still recoverable.
+    expect(harness.meetingFor(SESSION_ID)).toEqual(before);
+    expect(harness.store.markRecoveredProvisioned).not.toHaveBeenCalled();
+    expect(harness.store.markProvisioned).not.toHaveBeenCalled();
+    expect(harness.store.recordLastError).not.toHaveBeenCalled();
+
+    // ...and nothing reached the UI.
+    expect(harness.store.upsertProjection).not.toHaveBeenCalled();
+    expect(harness.projectionFor(SESSION_ID)).toBeUndefined();
+
+    // Never a create, on any recovery branch.
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(fake.listMeetings()).toHaveLength(1);
+  });
+
+  it.each([['started'], ['ended']] as const)(
+    'a webhook that advances the row to %s mid-read-back SUPERSEDES the recovery',
+    async (advanceTo) => {
+      // Sol R4, the sharper half. The row is not frozen while the GET is in flight:
+      // `LIFECYCLE_STARTED_APPLIES_FROM` includes `pending`, so the meeting the operator
+      // recorded can legitimately START (and then END) between the read and the write.
+      // An id-only write then RESET a running meeting to `provisioned` and announced it
+      // to the UI as `scheduled` — the order-safety class F1 fixed for the webhook path,
+      // arriving through the recovery path instead.
+      const fake = seedFake();
+      const discovered = await seedDiscoveredMeeting(fake);
+      const seeded = operatorResolvedRow(discovered.id);
+      const harness = createMemoryProvisionStore({
+        session: SESSION,
+        hosts: [HOST_POOL_A],
+        meetings: [seeded],
+      });
+      const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+
+      // The REAL lifecycle applier over the same double shape the F1 suite uses, so the
+      // advance under test is the one production performs — including its own
+      // applies-from guard, which is what makes `pending → started` reachable at all.
+      const webhookStore: ZoomWebhookStore = {
+        recordEvent: vi.fn(async () => 'inserted' as const),
+        readProcessedAt: vi.fn(async () => undefined),
+        markProcessed: vi.fn(async () => undefined),
+        findMeetingIdByNumber: vi.fn(async (number: number) =>
+          number === discovered.id ? row.id : null
+        ),
+        setMeetingStatus: vi.fn(async (_id, status, uuid) => {
+          const appliesFrom: readonly string[] =
+            status === 'started' ? LIFECYCLE_STARTED_APPLIES_FROM : LIFECYCLE_ENDED_APPLIES_FROM;
+          if (!appliesFrom.includes(row.status)) return { applied: false, surface: null };
+          row.status = status;
+          if (uuid !== null) row.zoom_meeting_uuid = uuid;
+          return {
+            applied: true,
+            surface: { surfaceType: row.surface_type, surfaceId: row.surface_id },
+          };
+        }),
+        setProjectionStatus: vi.fn(async (surface, status) => {
+          const projected = harness.projectionFor(surface.surfaceId);
+          if (projected) projected.meeting_status = status;
+        }),
+      };
+
+      const api: ZoomApi = {
+        ...fake,
+        async getMeeting(meetingNumber: number) {
+          const meeting = await fake.getMeeting(meetingNumber);
+          // ...and WHILE that answer was in flight, the meeting it describes started.
+          await applyWebhookLifecycle(webhookStore, 'meeting.started', {
+            id: String(meetingNumber),
+            uuid: 'Fk+SyntheticUuid/0007==',
+          });
+          if (advanceTo === 'ended') {
+            await applyWebhookLifecycle(webhookStore, 'meeting.ended', {
+              id: String(meetingNumber),
+            });
+          }
+          return meeting;
+        },
+      };
+      const createSpy = vi.spyOn(api, 'createMeeting');
+
+      const result = await createMeetingProvisionHandler({ api, store: harness.store })(context());
+
+      // The webhook's write stands. This is the state the CAS is racing.
+      expect(row.status).toBe(advanceTo);
+
+      // The job COMPLETES: a miss is the world legitimately moving on — another writer
+      // got there first — not something a human can act on, so it never reaches triage.
+      expect(result).toEqual({
+        meeting_id: 'meeting-resolved',
+        zoom_meeting_number: discovered.id,
+        recovered: false,
+        superseded: true,
+      });
+
+      // The clobber, refused in both halves. The row is not reset...
+      expect(harness.store.markRecoveredProvisioned).toHaveBeenCalledTimes(1);
+      expect(harness.store.markProvisioned).not.toHaveBeenCalled();
+      expect(row.status).not.toBe('provisioned');
+      // ...which is exactly the documented residual: this row keeps NULL passcode and
+      // NULL join_url forever, the honest record of a meeting that ran with no platform
+      // join path. The CAS cannot fire again — the status guard is one-way.
+      expect(row.passcode).toBeNull();
+      expect(row.join_url).toBeNull();
+      expect(row.effective_settings).toBeNull();
+
+      // ...and no `scheduled` projection is published over a meeting that is already
+      // under way or finished.
+      expect(harness.store.upsertProjection).not.toHaveBeenCalled();
+      expect(harness.projectionFor(SESSION_ID)).toBeUndefined();
+
+      expect(createSpy).not.toHaveBeenCalled();
+      expect(fake.listMeetings()).toHaveLength(1);
     }
   );
 

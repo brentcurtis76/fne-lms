@@ -181,6 +181,39 @@
  * left it — no writes at all — and fails the job terminally under `recovery_unusable`.
  * `createMeeting` is unreachable from either recovery outcome: the number is anchor 1,
  * and anchor 1 is absolute.
+ *
+ * ### The recovery write is GUARDED, because the row is not frozen (Sol R4)
+ *
+ * That recovery write is the only one in this handler decided from a row read BEFORE a
+ * network round trip, and the world does not hold still for the `getMeeting`. Two things
+ * can change underneath it, and an id-only write noticed neither:
+ *
+ *  - **The lease.** Nothing heartbeats between the row read and the write, so an expired
+ *    or stolen lease let a non-owner persist its verdict onto another worker's row.
+ *  - **The row.** `LIFECYCLE_STARTED_APPLIES_FROM` includes `'pending'`
+ *    (`webhook-store.ts`), so a `meeting.started` may LEGITIMATELY advance this very row
+ *    while the GET is in flight — and `meeting.ended` after it. A late id-only write then
+ *    RESET a started/ended meeting to `provisioned` and republished a `scheduled`
+ *    projection: the exact order-safety class Sol F1 fixed for the webhook path,
+ *    reintroduced through the recovery path.
+ *
+ * So: `ctx.heartbeat()` the moment the read-back validates and before any write (false ⇒
+ * `ZoomJobLeaseLostError`, zero writes, no projection), and then ONE compare-and-set —
+ * `markRecoveredProvisioned`, guarded on `status = 'pending'` and on the recorded number,
+ * evaluated by Postgres inside the UPDATE. A miss writes nothing and STOPS before
+ * `upsertProjection`: a row another worker, a webhook or an operator has advanced is
+ * never overwritten and never republished.
+ *
+ * A miss is not a failure. It is the world having legitimately moved on, so the job
+ * COMPLETES with `{ recovered: false, superseded: true }` rather than going to triage —
+ * there is nothing for a human to do about a webhook that won a race.
+ *
+ * RESIDUAL, and it is deliberate: a row that advanced past `pending` before its recovery
+ * landed keeps NULL `passcode` and NULL `join_url` forever. The CAS can never fire again
+ * — the status guard is one-way — and that is the honest record of what happened: a
+ * meeting that ran without a platform join path, because the create response that carried
+ * those values was lost and the read-back arrived after the meeting had already started.
+ * Backfilling them post-hoc would describe a joinable meeting that nobody could join.
  */
 import { randomInt } from 'crypto';
 import { getSessionDateTime, SESSION_TIMEZONE } from '../../utils/session-timezone';
@@ -600,6 +633,26 @@ export interface MeetingProvisionStore {
     durationMinutes: number
   ): Promise<boolean>;
   markProvisioned(meetingId: string, patch: ProvisionedMeetingPatch): Promise<void>;
+  /**
+   * The OPERATOR-RECOVERY write, and the only GUARDED transition in this store (Sol R4).
+   *
+   * Deliberately a second method rather than a condition inside `markProvisioned`: that
+   * one is absolute for its other three callers by design — each writes what Zoom just
+   * minted, or what its own checkpoint holds, onto a row it is already the sole author
+   * of — and narrowing it would make every one of them fail closed on states they are
+   * entitled to overwrite.
+   *
+   * Recovery is the exception because its decision predates a network round trip. The
+   * write therefore re-proves the state it was decided from, in the UPDATE's own WHERE:
+   * `id = meetingId AND status = 'pending' AND zoom_meeting_number = <recorded>`. The
+   * guard number is read off `patch.zoom_meeting_number` instead of being passed a second
+   * time — recovery persists exactly the number it guarded on, so the two cannot drift.
+   *
+   * `true` = EXACTLY ONE row changed. `false` = the guard refused it and NOTHING was
+   * written, because another worker finished this recovery or a webhook advanced the row
+   * past `pending`. A `false` must not be followed by a projection publish.
+   */
+  markRecoveredProvisioned(meetingId: string, patch: ProvisionedMeetingPatch): Promise<boolean>;
   markError(meetingId: string, lastError: string): Promise<void>;
   /**
    * Writes `last_error` and NOTHING else — the status is deliberately untouched.
@@ -630,6 +683,11 @@ interface PostgrestError {
 }
 
 type PostgrestResult<T> = PromiseLike<{ data: T | null; error: PostgrestError | null }>;
+
+/** What the guarded recovery UPDATE returns: zero rows = the guard refused it. */
+interface MeetingIdRow {
+  id: string;
+}
 
 /** The ONLY untyped boundaries in this module. See `service-client.ts`. */
 export interface ProvisionPublicClient {
@@ -666,7 +724,27 @@ export interface ProvisionInternalClient {
       };
     };
     update(values: Record<string, unknown>): {
-      eq(column: string, value: string | number): PromiseLike<{ error: PostgrestError | null }>;
+      eq(
+        column: string,
+        value: string | number
+      ): PromiseLike<{ error: PostgrestError | null }> & {
+        /**
+         * The recovery compare-and-set chain, and the only place this store adds
+         * filters to an UPDATE: `.eq('status', …).eq('zoom_meeting_number', …)` and a
+         * `.select()` to make the row count observable. See `markRecoveredProvisioned`.
+         */
+        eq(
+          column: string,
+          value: string | number
+        ): {
+          eq(
+            column: string,
+            value: string | number
+          ): {
+            select(columns: string): PostgrestResult<MeetingIdRow[]>;
+          };
+        };
+      };
     };
   };
 }
@@ -783,6 +861,27 @@ export function createSupabaseMeetingProvisionStore(
         .update({ ...patch, last_error: null, updated_at: new Date().toISOString() })
         .eq('id', meetingId);
       if (error) throw new Error(`zoom_meetings provision write failed: ${error.message}`);
+    },
+
+    async markRecoveredProvisioned(meetingId, patch) {
+      // The two `.eq(...)` after the id ARE the guard, and Postgres evaluates them
+      // inside the UPDATE — so a recovery racing a `meeting.started` webhook, or racing
+      // a second worker's recovery, cannot both win. `.select()` turns the outcome into
+      // data: one row back = applied, zero rows = the row had already moved and nothing
+      // was written. Same field set as `markProvisioned`, `last_error` cleared in the
+      // SAME write — the marker must not outlive the row it parks.
+      const { data, error } = await internalClient
+        .from('zoom_meetings')
+        .update({ ...patch, last_error: null, updated_at: new Date().toISOString() })
+        .eq('id', meetingId)
+        .eq('status', 'pending')
+        .eq('zoom_meeting_number', patch.zoom_meeting_number)
+        .select('id');
+      if (error) throw new Error(`zoom_meetings recovery write failed: ${error.message}`);
+      // EXACTLY one. `id` is the primary key, so more than one is unreachable — asserting
+      // it anyway means a store that ever stopped filtering by id reads as a refusal
+      // rather than as a success.
+      return (data ?? []).length === 1;
     },
 
     async markError(meetingId, lastError) {
@@ -1021,6 +1120,24 @@ export interface MeetingProvisionResult extends Record<string, unknown> {
   /** §9.4: effective `auto_recording` came back as something other than 'none'. */
   settings_drift: boolean;
   effective_auto_recording: string;
+}
+
+/**
+ * What an operator recovery returns when the compare-and-set MISSED (Sol R4): the row
+ * moved past `pending` — a webhook advanced it, or another worker finished the same
+ * recovery — while the `getMeeting` was in flight.
+ *
+ * A COMPLETION, not a failure, and that is a design decision worth being explicit about:
+ * nothing is wrong, nothing is retryable, and there is no action a human could take, so
+ * sending it to triage would put noise on the §18 panel where the real ambiguous parks
+ * live. `superseded` is the flag a future health query keys on; a distinct shape from
+ * `MeetingProvisionResult` so nothing can read a superseded run as a provisioned one.
+ */
+export interface MeetingProvisionSupersededResult extends Record<string, unknown> {
+  meeting_id: string;
+  zoom_meeting_number: number;
+  recovered: false;
+  superseded: true;
 }
 
 interface ProvisionPayload {
@@ -1337,18 +1454,53 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
         );
       }
 
+      // --- The lease guard (Sol R4) ---------------------------------------
+      // Nothing has heartbeated since BEFORE the GET, and the GET is a network round
+      // trip. Check the lease the moment the read-back validates and before any write:
+      // a worker that no longer owns the job must not persist its verdict onto another
+      // worker's row. Lease lost ⇒ zero writes — not the row, and not the projection
+      // (the runner handles `ZoomJobLeaseLostError` without a `fail_zoom_job` call).
+      // No `stage_state` argument: this path has no checkpoint of its own to keep, and
+      // passing one would overwrite whatever the job already carries.
+      const stillLeased = await ctx.heartbeat();
+      if (!stillLeased) throw new ZoomJobLeaseLostError(ctx.job.id);
+
+      // --- The state guard (Sol R4) ---------------------------------------
       // ONE write, and it is the entire resolution: the number, the passcode, the
       // join_url, the effective settings and `provisioned` — with `last_error` cleared
-      // in the SAME UPDATE (see `markProvisioned` in the store above). The marker must
-      // not outlive the row it parks: it is the record of an UNRESOLVED create, and this
-      // row is now resolved. Only after this write does the projection publish.
-      await store.markProvisioned(meetingId, {
+      // in the SAME UPDATE. The marker must not outlive the row it parks: it is the
+      // record of an UNRESOLVED create, and this row is now resolved.
+      //
+      // And it is COMPARE-AND-SET, not an id-only write. The row was read before the
+      // GET; `LIFECYCLE_STARTED_APPLIES_FROM` includes `pending`, so a webhook may have
+      // advanced it to `started` (then `ended`) in between, and an id-only write would
+      // reset a meeting that is running to `provisioned`. The guard is the state this
+      // branch was decided from — still `pending`, still carrying the recorded number.
+      const applied = await store.markRecoveredProvisioned(meetingId, {
         zoom_meeting_number: recorded,
         passcode: discovered.passcode,
         join_url: discovered.joinUrl,
         effective_settings: discovered.settings as Record<string, unknown>,
         status: 'provisioned',
       });
+
+      if (!applied) {
+        // STOP — before the projection, which is the whole point: republishing
+        // `scheduled` over a meeting the webhook path already moved to `live` or `ended`
+        // is the second half of the clobber, and it would be visible in the UI. Nothing
+        // was written, so there is nothing to undo; the job completes (see
+        // `MeetingProvisionSupersededResult`) rather than failing into triage.
+        console.warn(
+          `[meeting-provision] recovery SUPERSEDED for meeting ${meetingId} (zoom ${recorded}): the row left 'pending' while the read-back was in flight; nothing written, nothing published.`
+        );
+        const superseded: MeetingProvisionSupersededResult = {
+          meeting_id: meetingId,
+          zoom_meeting_number: recorded,
+          recovered: false,
+          superseded: true,
+        };
+        return superseded;
+      }
       zoomMeetingNumber = recorded;
       // Read off what Zoom just said, exactly as the create path does — §9.4 drift is
       // reported for a recovered meeting like any other.

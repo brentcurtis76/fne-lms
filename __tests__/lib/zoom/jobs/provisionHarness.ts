@@ -210,6 +210,31 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
       row.last_error = null;
     }),
 
+    /**
+     * The recovery compare-and-set (Sol R4), modelled the way `conflicts()` above models
+     * the EXCLUDE constraint: the guard is evaluated HERE, on the stored row, so a double
+     * that wrote unconditionally could not make the handler's state test pass. The guard
+     * is exactly the production WHERE — id, `status = 'pending'`, and the recorded number
+     * — and a miss writes NOTHING.
+     */
+    markRecoveredProvisioned: vi.fn(async (meetingId: string, patch: ProvisionedMeetingPatch) => {
+      const matched = meetings.filter(
+        (candidate) =>
+          candidate.id === meetingId &&
+          candidate.status === 'pending' &&
+          candidate.zoom_meeting_number === patch.zoom_meeting_number
+      );
+      if (matched.length !== 1) return false;
+      const row = matched[0];
+      row.zoom_meeting_number = patch.zoom_meeting_number;
+      row.passcode = patch.passcode;
+      row.join_url = patch.join_url;
+      row.effective_settings = patch.effective_settings;
+      row.status = patch.status;
+      row.last_error = null;
+      return true;
+    }),
+
     markError: vi.fn(async (meetingId: string, lastError: string) => {
       const row = meetings.find((candidate) => candidate.id === meetingId);
       if (!row) throw new Error(`no such meeting ${meetingId}`);

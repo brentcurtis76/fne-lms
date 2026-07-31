@@ -168,11 +168,21 @@ export interface ZoomJobRow {
   updated_at: string;
 }
 
-/** Insert shape for enqueueing a job (service-role .insert on zoom_jobs). */
+/** Insert shape for enqueueing a job (service-role write on zoom_jobs). */
 export interface ZoomJobInsert {
   job_type: string;
   payload?: Record<string, unknown>;
-  /** UNIQUE — a duplicate enqueue rejects with 23505. Omit for no dedupe. */
+  /**
+   * UNIQUE at the table level, so a raw `INSERT` of a key that already exists rejects
+   * with 23505 — that is the constraint, and pgTAP 002 asserts it directly.
+   *
+   * The enqueue API does NOT surface that error. `ZoomJobQueue.enqueue` writes with
+   * `ON CONFLICT (dedupe_key) DO NOTHING` and reads the returned rows, so a conflict
+   * comes back as the ordinary result `'duplicate'` (zero rows) rather than a throw —
+   * absorbed, not failed. Callers therefore branch on the `EnqueueResult`, and never
+   * on a caught 23505. Omit the key entirely for a job type that needs no dedupe;
+   * NULLs do not conflict with each other.
+   */
   dedupe_key?: string | null;
   max_attempts?: number;
   run_after?: string;

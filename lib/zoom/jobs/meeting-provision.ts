@@ -104,7 +104,9 @@
  *
  * What the checkpoint buys when it DOES land is that the orphan is NAMED:
  * `zoom_jobs.stage_state.meeting.number` on the failed job is the meeting number a human
- * can cancel. Dead-job triage (`docs/runbooks/zoom.md`) is the cleanup path.
+ * can cancel. Dead-job triage is the cleanup path — plan §16 puts its procedure in
+ * `docs/runbooks/zoom.md`, which is NOT written yet (later phase); until it is, the
+ * path is a human reading `zoom_jobs.last_error` and `stage_state` directly.
  *
  * ### The third case: create failed, and we do not know whether it landed (Sol F4)
  *
@@ -282,7 +284,8 @@ export const AMBIGUOUS_CREATE_REASON = 'ambiguous_create_outcome';
  * around that window and match the topic and start time) can identify a first meeting
  * if one exists. The blocked host interval is the safety here, not knowledge: the
  * reservation stays `pending`, so nothing else is booked onto that host for that window
- * while a human resolves it via dead-job triage (`docs/runbooks/zoom.md`).
+ * while a human resolves it via dead-job triage (see the module header: the runbook
+ * that will carry the procedure is a later phase).
  */
 export class ZoomAmbiguousCreateError extends ZoomNonRetryableError {
   readonly reason = AMBIGUOUS_CREATE_REASON;

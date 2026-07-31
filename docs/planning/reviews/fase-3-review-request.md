@@ -9,11 +9,12 @@
 |---|---|
 | Branch | `feat/zoom-core` (PR [#26](https://github.com/brentcurtis76/fne-lms/pull/26), **draft — not marked ready**) |
 | Base | `origin/main` @ `18057e2` (absorbed mid-phase via merge `5d54f12`, which brought the contracts track `c878ec7`) |
-| Head at request time | `4b71b3c`; **`ccb8fce` + this doc commit after the Z1b-4·r1 remediation** |
-| Commits ahead of `origin/main` | **28** (26 + the 2 r1 commits) |
-| Net diff vs `origin/main` | 53 files, +11734/−70 |
+| Implementation head, Z1b-4·r1 | `ae210a5` (`4b71b3c` → `ccb8fce` → `ae210a5`) |
+| Head at THIS request | the six **Z1b-sol1** fix commits below, on top of the Sol R1 archive `ad649b3` |
+| Commits ahead of `origin/main` | 28 through `ae210a5`; + the review/archive doc commits; + the six Z1b-sol1 fix commits |
+| Net diff vs `origin/main` (at `ae210a5`) | 53 files, +11734/−70 |
 | This chunk (Z1b-4) alone | merge `5d54f12` + 3 commits; 15 files, +2484/−92 |
-| Z1b-4·r1 remediation | `ccb8fce` (fix + tests + `PROJECT_STATE.md`) + this doc commit; 2 PM findings, no scope beyond them |
+| Z1b-4·r1 remediation | `ccb8fce` (fix + tests + `PROJECT_STATE.md`) + `ae210a5` (type-clean); 2 PM findings, no scope beyond them |
 
 Z1b-4 is the **closing chunk**. Chunks Z1b-1, Z1b-2 (+r1) and Z1b-3 were each reviewed and
 approved by the PM already; their evidence is in the plan's §0 ledger. This file covers the
@@ -27,6 +28,35 @@ phase as a whole, with the sharpest attention on Z1b-4, which no one has reviewe
 | `83e30d5` | `meeting_provision` handler + registration + mock-mode round trip (items A, B) |
 | `c9b5ebc` | `webhook_sweep` job + shared lifecycle + hourly enqueue (item C) |
 | `4b71b3c` | §17 overlapping-ticker proof, wired into Gate 3 (item E) |
+
+## Sol R1 remediation — round Z1b-sol1
+
+Sol's round 1 returned **REQUEST CHANGES** with six findings; the PM triaged **all six VALID**
+(archive + triage: `docs/planning/reviews/fase-3-review-verdict.md`, committed at `ad649b3`).
+Per the relay, **Sol's re-review scope is these fix commits only.** One commit per finding, F6
+last, no unrelated churn.
+
+| SHA | Finding | What changed |
+|---|---|---|
+| `e748d32` | **F1** order-safe lifecycle + projection | Lifecycle writes became GUARDED transitions — the guard is the UPDATE's own `WHERE ... status IN (...)` in Postgres, not an in-process check, so the route and a concurrent sweep converge. `started` applies only from `pending`/`provisioned`/`started`; `ended` from anything but `cancelled`/`deleted`. `session_meetings_public.meeting_status` now moves WITH the lifecycle (`live`/`ended`) under the same rule, from the surface keys the guarded UPDATE returns, and only when the internal transition applied. The "absolute writes ⇒ safe" claim is withdrawn in `webhook-lifecycle.ts`, `webhook-sweep.ts` and `PROJECT_STATE.md`. |
+| `8e726ef` | **F2** Retry-After reaches `run_after` | `fail_zoom_job` gains `p_retry_after_seconds integer DEFAULT NULL`; `run_after = now() + GREATEST(<existing backoff>, COALESCE(hint, 0))`. Migration amended IN PLACE (branch-only, re-applied from scratch by CI and `supabase db reset`; nothing dropped). REVOKE/GRANT moved to the new five-arg signature — they key on it — and pgTAP 002's four EXECUTE asserts with them. Threaded `FailZoomJobArgs` → `queue.fail` → runner. |
+| `6691f1f` | **F3** source-state + reservation revalidation | Eligibility gate before any reservation: `is_active`, `status = 'programada'`, modality `online`/`hibrida`, `meeting_provider = 'zoom'`; anything else fails non-retryably with `reason: 'session_ineligible'` + `detail: <check>`. A bare reservation left on a now-ineligible session is released to `cancelled` (outside the EXCLUDE predicate); one with a real meeting behind it is deliberately left blocking. A resumed `pending` reservation is compared against the current source and atomically re-reserved on drift (23P01 ⇒ candidate walk). **No `is_zoom_managed` column** — named seam comment only; that is Z2's additive migration. |
+| `3107d02` | **F4** ambiguous create outcomes | `ZoomError.outcome: 'not_executed' \| 'ambiguous'`, set at the client (definite = a status arrived and was <500; ambiguous = transport throw, ≥500, unreadable/empty 2xx). On ambiguous the provision handler does NOT `markError` (that releases the interval): the row stays `pending`, `last_error` is written without a status change, and the job fails non-retryably under `ambiguous_create_outcome` with the provider `requestId`. Documented: an ambiguous failure cannot NAME the possible meeting — the blocked interval is the safety, not knowledge. |
+| `7d4b062` | **F5** 413 reaches the client | The overflow path pauses instead of destroying; the handler sets `Connection: close`, writes the 413, and discards the rest of the upload only after the response flushes. New real-`http.Server` integration test with a real client. |
+| (this commit) | **F6** documentation truth pass | `PROJECT_STATE.md` figures + head; the `db-types.ts` dedupe comment; this section. |
+
+### Fail-on-old evidence (every fix, measured against the pre-fix source)
+
+Each was captured by stashing ONLY the source file(s) and re-running the new tests, so the
+assertions are proven to bite rather than asserted to.
+
+| Finding | Pre-fix observation |
+|---|---|
+| F1 | A late/swept `meeting.started` over an `ended` row: `expected 'started' to be 'ended'`. Projection: `setProjectionStatus` `called 1 times, but got 0 times` — the lifecycle never touched `session_meetings_public` at all. |
+| F2 | `run_after` = `QUEUE_NOW + 30 000 ms` where the 600 s hint requires `+600 000 ms`; the `fail` call carried **no** `p_retry_after_seconds` at all, while `last_error` stored `retryAfterSeconds: 600`. |
+| F3 | **All 8** ineligible sessions (cancelled · draft · awaiting-approval · under-way · soft-deleted · presencial · google_meet · null provider) reached `createMeeting` — one meeting minted each. Reschedule case: the EXCLUDE-protected interval stayed at `19:00Z` while Zoom was sent `21:00Z`. |
+| F4 | The create-then-lose-the-response fake produced **3 meetings across 3 ticker runs** (`expected […3 items] to have a length of 1 but got 3`) — one per tick, each releasing and re-reserving the host. |
+| F5 | The real client received **`ECONNRESET`**, never a status code (`expected 'ECONNRESET' to be undefined`). |
 
 ## Objective and scope (from plan §15, Z1b)
 
@@ -104,6 +134,33 @@ mid-crash test fail with `expected "createMeeting" to be called 1 times, but got
 orphan the finding describes; restoring the old `effectiveAutoRecording = 'none'` makes the
 persisted-drift test fail with `expected 'none' to be 'cloud'`. Both new assertions bite.
 
+### Z1b-sol1 re-run — gates at the final head (`7d4b062` + this doc commit), local, macOS
+
+| Gate | Result |
+|---|---|
+| `npm run type-check` | clean |
+| `npm run lint` (zero warnings) | clean |
+| `npm test` | **3680/3680 in 238 files** (from **3646/237** at `ae210a5`: **+34 / +1**) |
+| `npm run build` | OK — all three Zoom routes in the route table |
+| `npm run test:db` | **PASS — 6 files, 91 tests**, after a clean `supabase db reset` (mandatory this round: `20260729120200` was amended and pgTAP 002 changed) |
+| `npm run test:queue` | **PASS** — 40 jobs, 2 concurrent loops, split 21/19 |
+
+Per-file delta over `ae210a5`: `meeting-provision.test.ts` 21→**39** · `client.test.ts` 39→**44** ·
+`zoom-ticker.test.ts` 24→**27** · `webhook.test.ts` 17→**21** · `webhook-sweep.test.ts` 7→**9** ·
+new `__tests__/api/zoom/webhook-oversize.server.test.ts` (**2**). pgTAP `002` went 44 → **50**
+asserts: the four `fail_zoom_job` EXECUTE asserts moved to the five-arg signature, plus four new
+scheduling asserts run **as `service_role`** (unhinted ≈30 s · a 600 s hint floors `run_after` at
+600 s · a 5 s hint cannot shorten the 60 s second backoff, and its `pending` return).
+
+**Scanners, this round:** both committed scanners still exit **2** in this worktree, for the same
+reason as before — their inputs are gitignored and live in the spike worktree, so they scanned
+nothing. Reported as exit 2, not as a pass; the PM re-runs the real replication. Manual audit of
+the Z1b-sol1 diff (21 files, +1889/−89): 0 emails, 0 non-synthetic URLs (only
+`example-synthetic.test`), 0 secrets, 0 real PII. New identifiers introduced this round are all
+synthetic and inert: meeting numbers `82000001111`/`82000005555`/`82000009999` (the `82xxxxxxxxx`
+range), request ids `synthetic-zm-request-id-0001`/`0002`, surface uuids of the obvious repeated
+pattern, and `pgTAP` job/meeting uuids in the existing `dddddddd-`/`eeeeeeee-` families.
+
 **Negative control on the §17 proof** (run by the executor, not committed): replacing the RPC
 with a naive non-locking `SELECT`+`UPDATE` makes all 40 jobs double-execute and the proof fail
 loudly. The assertions bite; the green is not vacuous.
@@ -113,6 +170,40 @@ and live in the spike worktree, so they scanned nothing. Reported honestly rathe
 pass. Manual audit of the chunk diff: 0 emails, 0 non-synthetic URLs, 0 secrets, meeting
 numbers all in the synthetic `82xxxxxxxxx` range. The one non-obvious value, `86084701483`, is
 pre-existing in the synthetic fixture library and was only moved verbatim in a comment.
+
+## What to scrutinize in Z1b-sol1 (the re-review scope)
+
+**A. The guards are asserted against DOUBLES, not against PostgREST.** F1's monotonicity and
+F3/F4's store additions are proven by in-memory doubles that model the conditional UPDATE (they
+import the applies-from sets from the store, so the RULE cannot drift). What no test in this
+repo exercises is the supabase-js chain itself — `update().eq().in().select()` on
+`zoom_meetings`, and the `public`-schema chain on `session_meetings_public`. That gap is
+pre-existing for every other store method in the phase, but F1 is the first one whose
+CORRECTNESS depends on the filter reaching Postgres rather than merely on the row being written.
+
+**B. `hibrida` is my call, and it is a widening.** The dispatch said "online-modality"; Sol's DoD
+named only `presencial` as must-not-provision. I included `hibrida` because a hybrid session has
+a remote leg and is exactly as entitled to a meeting, and because the real intent gate is Z2's
+`is_zoom_managed`. If you disagree, `PROVISION_ELIGIBLE_MODALITIES` is one line.
+
+**C. Eligibility is re-checked on the idempotent replay path too.** A `meeting_provision` that
+re-runs after `complete_zoom_job` lost a race (at-least-once) will now fail
+`session_ineligible` if the session has since moved to `en_progreso`, instead of returning its
+idempotent result. The meeting and the row are untouched and the release guard refuses to touch
+a row with a meeting number — so the cost is a spurious `failed` job in triage, not a data
+problem. I judged a stricter gate worth that; say if you would rather exempt the
+`alreadyCreated` path.
+
+**D. `'cancelled'` as the release status.** F3 releases a bare reservation to `cancelled` rather
+than `error`. `error` also frees the interval but reads as "provisioning failed transiently" and
+invites a resume; `cancelled` says the meeting is not going to happen. Both are outside the
+EXCLUDE predicate, so the host is freed either way.
+
+**E. F4 changed the semantics of an UNTYPED throw.** A plain `Error` out of `createMeeting` is
+now ambiguous (reservation kept, job terminal) where it used to be a definite failure
+(reservation released, retryable). That is deliberate — an untyped throw is exactly the case
+where we do not know — but it converts a previously-retrying failure class into a triage item.
+The pre-existing test that covered this path was rewritten in place rather than deleted.
 
 ## The 4 areas to scrutinize hardest
 
@@ -198,10 +289,16 @@ would break the step.
    crash or lease-loss before the post-create checkpoint lands still orphans a meeting at Zoom.
    Cleanup is manual, via dead-job triage on `stage_state.meeting.number`. Irreducible without a
    Zoom idempotency key; no automated orphan sweep exists (a candidate for a later chunk).
-8. **Repo-level debt carried, not introduced (Z1b-3 finding ⑦):** `tsconfig.json` excludes
+8. **`docs/runbooks/zoom.md` does not exist yet** (plan §16 puts it in a later phase), but two
+   `meeting-provision.ts` comments cited it as if it did — one of them pre-existing, one added by
+   F4. Corrected in F6: both now say the runbook is unwritten and that triage today means a human
+   reading `zoom_jobs.last_error` and `stage_state` directly. This matters more after F4, because
+   `ambiguous_create_outcome` is a failure class whose ONLY resolution is manual reconciliation
+   against Zoom.
+9. **Repo-level debt carried, not introduced (Z1b-3 finding ⑦):** `tsconfig.json` excludes
    `__tests__` from type-check *and* sets `strict: false`, which contradicts CLAUDE.md's
    "TypeScript strict". Already ticketed; Brent rules on the wording.
-9. **Post-merge human prerequisites:** repoint the Marketplace subscription to
+10. **Post-merge human prerequisites:** repoint the Marketplace subscription to
    `https://<prod>/api/zoom/webhook`; set `ZOOM_WEBHOOK_SECRET_TOKEN` and `CRON_SECRET` in
    Vercel (Production). If validation 401s at repoint, see the CRC contingency in the Z1b-3
    ledger row.

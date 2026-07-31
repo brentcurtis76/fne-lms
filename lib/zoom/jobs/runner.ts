@@ -75,6 +75,13 @@ export interface ZoomJobFailureRecord {
    * making somebody match a message string.
    */
   reason?: string;
+  /**
+   * A third level, one finer than `reason`, for failures whose reason alone does not
+   * say WHICH input was wrong — `meeting_provision`'s `session_ineligible` carries the
+   * failed eligibility check (`status`, `is_active`, `modality`, `meeting_provider`)
+   * here, so triage can bucket them without parsing a sentence.
+   */
+  detail?: string;
   status?: number;
   zoomCode?: number;
   operation?: string;
@@ -89,11 +96,18 @@ function readErrorReason(error: unknown): string | undefined {
   return typeof reason === 'string' && reason !== '' ? reason : undefined;
 }
 
+/** Same contract as `reason`, one level down. */
+function readErrorDetail(error: unknown): string | undefined {
+  const detail = (error as { detail?: unknown }).detail;
+  return typeof detail === 'string' && detail !== '' ? detail : undefined;
+}
+
 export function describeJobFailure(error: unknown): ZoomJobFailureRecord {
   if (isZoomError(error)) {
     return {
       kind: error.kind,
       reason: readErrorReason(error),
+      detail: readErrorDetail(error),
       status: error.status,
       zoomCode: error.zoomCode,
       operation: error.operation,

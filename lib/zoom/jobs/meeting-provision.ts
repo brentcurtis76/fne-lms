@@ -3,6 +3,23 @@
  * database itself reserved (plan §8 provisioning lifecycle, §9 host resolution + the
  * EXCLUDE reservation, §10 timezone rules, §12 staged idempotent pipelines).
  *
+ * ## Eligibility comes before everything (Sol F3)
+ *
+ * The handler used to validate the schedule FIELDS and nothing about the session
+ * itself, so a cancelled, draft, soft-deleted, `presencial` or Google-Meet session was
+ * provisioned exactly like a live one — a real Zoom meeting, on a real licensed host,
+ * for something that will never happen. `checkSessionEligibility` runs first, before a
+ * host is resolved and before any row is written, and refuses non-retryably: no backoff
+ * turns a cancelled session into a scheduled one.
+ *
+ * The one write that CAN happen on that path is a release. A previous attempt may
+ * already hold a bare reservation for this surface, and a session cancelled after the
+ * fact must not keep blocking a host for a window nobody will use — so an unfulfilled
+ * reservation is dropped to `cancelled`, a status outside the EXCLUDE predicate. A row
+ * that already carries a `zoom_meeting_number` is left alone: a meeting genuinely
+ * exists at Zoom for that interval, and freeing it would let a second meeting be booked
+ * onto an occupied host.
+ *
  * ## The INSERT is the reservation
  *
  * §9's concurrency rule is not enforced by a query that looks for a free host and then
@@ -17,6 +34,17 @@
  * The same is true of the resume path: flipping a row from `error` back to `pending`
  * re-enters the constraint's WHERE clause, so the UPDATE re-checks it and can itself
  * raise 23P01. That is deliberate — a resumed job must re-prove the host is free.
+ *
+ * And a resumed `pending` reservation must re-prove it is protecting the RIGHT window.
+ * The session may have been rescheduled between the reservation and the retry, in which
+ * case the interval the constraint is defending is not the interval about to be sent to
+ * Zoom — the host is then double-bookable for the time the meeting will actually
+ * occupy. `reservationMatchesSource` compares the row against the current source; on
+ * drift the row is re-reserved by UPDATE with the new interval, which re-enters the
+ * predicate and can 23P01 like any other reservation, at which point the candidate walk
+ * takes over. The checkpoint-adopt path is EXEMPT: Zoom already holds that meeting at
+ * the old time, so moving our reservation would protect an interval Zoom knows nothing
+ * about. Reconciling a rescheduled meeting with Zoom is Z2's reschedule sync.
  *
  * Host *load* is only a preference. `countHostLoads` orders candidates least-loaded
  * first, and it is allowed to be approximate: the constraint, not the count, is what
@@ -117,6 +145,86 @@ export const EXCLUSION_VIOLATION = '23P01';
 const MINUTE_MS = 60_000;
 
 // ---------------------------------------------------------------------------
+// Source-state eligibility (Sol F3)
+// ---------------------------------------------------------------------------
+
+/**
+ * The only `consultor_sessions.status` a meeting may be provisioned for: approved and
+ * scheduled, and not yet under way.
+ *
+ * Deliberately a single value rather than "anything not cancelled". `borrador` and
+ * `pendiente_aprobacion` are pre-approval — plan §8 is explicit that creating a session
+ * as `borrador` makes NO Zoom call — and `en_progreso` / `pendiente_informe` /
+ * `completada` are at-or-past execution, where creating a scheduled meeting produces a
+ * link nobody will ever use while holding a host slot that is already spent.
+ */
+export const PROVISION_ELIGIBLE_SESSION_STATUSES = ['programada'] as const;
+
+/**
+ * Modalities with a remote leg. `hibrida` is IN: a hybrid session has attendees joining
+ * remotely and is exactly as entitled to a meeting as an `online` one. `presencial` is
+ * the exclusion — there is nothing to join.
+ */
+export const PROVISION_ELIGIBLE_MODALITIES = ['online', 'hibrida'] as const;
+
+/**
+ * §8/ledger item 21: managed intent is spelled `meeting_provider = 'zoom'` — NOT a new
+ * enum value, which would violate the live CHECK constraint (baseline:7740).
+ */
+export const PROVISION_ELIGIBLE_PROVIDER = 'zoom';
+
+/** Which gate refused the session. Stored structurally as the failure's `detail`. */
+export type SessionEligibilityCheck =
+  | 'status'
+  | 'is_active'
+  | 'modality'
+  | 'meeting_provider';
+
+/**
+ * The §8 eligibility gate: the first failed check, or `null` when the session may be
+ * provisioned for. Order is deliberate — `is_active` first, because a soft-deleted
+ * session is the least interesting reason to look further.
+ *
+ * SEAM (Z2): `is_zoom_managed` — the durable managed-intent flag from plan §8/ledger
+ * item 22 — joins this list as one more check as soon as Z2's additive migration adds
+ * the column. It is NOT added here: inventing the column now would be a rival mechanism
+ * to the one the plan already specifies, and `meeting_provider = 'zoom'` is the intent
+ * signal that exists today. When the flag lands, `is_zoom_managed !== true` becomes a
+ * `'is_zoom_managed'` member of `SessionEligibilityCheck` and a branch below.
+ */
+export function checkSessionEligibility(
+  session: ProvisionSessionRow
+): SessionEligibilityCheck | null {
+  if (session.is_active !== true) return 'is_active';
+  if (!(PROVISION_ELIGIBLE_SESSION_STATUSES as readonly string[]).includes(session.status)) {
+    return 'status';
+  }
+  if (!(PROVISION_ELIGIBLE_MODALITIES as readonly string[]).includes(session.modality)) {
+    return 'modality';
+  }
+  if (session.meeting_provider !== PROVISION_ELIGIBLE_PROVIDER) return 'meeting_provider';
+  return null;
+}
+
+/**
+ * Does the reservation this row is holding still describe the CURRENT session?
+ *
+ * Compared as instants, not strings: `starts_at` comes back from Postgres as
+ * `+00:00`-suffixed and goes in as `Z`-suffixed, so a string compare would report drift
+ * on every single resume.
+ */
+export function reservationMatchesSource(
+  row: ProvisionMeetingRow,
+  startsAtIso: string,
+  durationMinutes: number
+): boolean {
+  return (
+    Date.parse(row.starts_at) === Date.parse(startsAtIso) &&
+    row.duration_minutes === durationMinutes
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Failure taxonomy
 // ---------------------------------------------------------------------------
 
@@ -135,6 +243,22 @@ export class ZoomNoHostAvailableError extends ZoomNonRetryableError {
   }
 
   readonly candidatesTried: number;
+}
+
+/**
+ * The source session is not one this job may provision for (§8; Sol F3). Terminal for
+ * the same reason as `no_host_available`: no backoff turns a cancelled session into a
+ * scheduled one. `reason` + `detail` are what triage keys on — never the message.
+ */
+export class ZoomSessionIneligibleError extends ZoomNonRetryableError {
+  readonly reason = 'session_ineligible';
+  /** WHICH check failed, so triage does not have to re-derive it. */
+  readonly detail: SessionEligibilityCheck;
+
+  constructor(message: string, check: SessionEligibilityCheck) {
+    super(message, { operation: 'meeting_provision' });
+    this.detail = check;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -157,6 +281,19 @@ export interface ProvisionSessionRow {
    * §10 fallback below still has to exist.
    */
   scheduled_duration_minutes: number | null;
+  /**
+   * The eligibility columns. All four VERIFIED against the live table in
+   * `supabase/migrations/00000000000000_baseline.sql:7703-7742`:
+   *   status          NOT NULL, CHECK IN (borrador, pendiente_aprobacion, programada,
+   *                   en_progreso, pendiente_informe, completada, cancelada)
+   *   is_active       NOT NULL DEFAULT true
+   *   modality        NOT NULL, CHECK IN (presencial, online, hibrida)
+   *   meeting_provider NULLABLE, CHECK IN (zoom, google_meet, teams, otro)
+   */
+  status: string;
+  is_active: boolean;
+  modality: string;
+  meeting_provider: string | null;
 }
 
 export interface SessionFacilitatorRow {
@@ -248,6 +385,13 @@ export interface MeetingProvisionStore {
   ): Promise<boolean>;
   markProvisioned(meetingId: string, patch: ProvisionedMeetingPatch): Promise<void>;
   markError(meetingId: string, lastError: string): Promise<void>;
+  /**
+   * Drops a reservation into `cancelled` — a status the §9 EXCLUDE `WHERE` ignores, so
+   * the host slot is freed. Used only for a reservation held on behalf of a session
+   * that turned out to be ineligible: leaving it `pending` would block that host for
+   * the window of a meeting nobody is ever going to hold.
+   */
+  releaseReservation(meetingId: string, lastError: string): Promise<void>;
   upsertProjection(row: ProjectionUpsert): Promise<void>;
 }
 
@@ -316,7 +460,7 @@ export function createSupabaseMeetingProvisionStore(
       const { data, error } = await publicClient
         .from('consultor_sessions')
         .select(
-          'id, school_id, growth_community_id, title, session_date, start_time, end_time, scheduled_duration_minutes'
+          'id, school_id, growth_community_id, title, session_date, start_time, end_time, scheduled_duration_minutes, status, is_active, modality, meeting_provider'
         )
         .eq('id', surfaceId)
         .maybeSingle();
@@ -423,6 +567,18 @@ export function createSupabaseMeetingProvisionStore(
         .update({ status: 'error', last_error: lastError, updated_at: new Date().toISOString() })
         .eq('id', meetingId);
       if (error) throw new Error(`zoom_meetings error write failed: ${error.message}`);
+    },
+
+    async releaseReservation(meetingId, lastError) {
+      const { error } = await internalClient
+        .from('zoom_meetings')
+        .update({
+          status: 'cancelled',
+          last_error: lastError,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', meetingId);
+      if (error) throw new Error(`zoom_meetings release failed: ${error.message}`);
     },
 
     async upsertProjection(row) {
@@ -673,6 +829,41 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
       );
     }
 
+    // --- §8 eligibility, BEFORE any reservation ---------------------------
+    // The handler used to validate only the schedule FIELDS, so a cancelled, draft,
+    // soft-deleted, `presencial` or non-Zoom session went all the way to `createMeeting`
+    // (Sol F3). This gate runs before a host is even resolved, so the ordinary refusal
+    // costs one read and writes nothing.
+    const ineligible = checkSessionEligibility(session);
+    if (ineligible !== null) {
+      // ...but a PREVIOUS attempt may already hold a reservation for this surface, and a
+      // session that has since been cancelled must not go on blocking a host for a
+      // window nobody will use. Release it — but only when it is a bare reservation.
+      // A row carrying `zoom_meeting_number` has a real meeting behind it at Zoom, and
+      // freeing that interval would let a second meeting be booked onto a host who is
+      // genuinely occupied; deleting the Zoom meeting is Z2's cancel flow, not this
+      // job's. Same for a live post-create checkpoint.
+      const held = await store.findMeetingBySurface(surfaceType, surfaceId);
+      const checkpointHere = readCreatedCheckpoint(ctx.job.stage_state);
+      const isBareReservation =
+        held !== null &&
+        held.zoom_meeting_number === null &&
+        (ZOOM_MEETING_ACTIVE_STATUSES as readonly string[]).includes(held.status) &&
+        !(checkpointHere !== null && checkpointHere.meetingId === held.id);
+
+      if (isBareReservation) {
+        await store.releaseReservation(
+          (held as ProvisionMeetingRow).id,
+          `session_ineligible:${ineligible}`
+        );
+      }
+
+      throw new ZoomSessionIneligibleError(
+        `consultor_session ${surfaceId} is not eligible for Zoom provisioning (${ineligible}).`,
+        ineligible
+      );
+    }
+
     // --- §10 instants -----------------------------------------------------
     const startsAtMs = getSessionDateTime(
       session.session_date,
@@ -713,17 +904,53 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
         ? { row: existing, checkpoint }
         : null;
 
+    // The crashed-pre-create path: a `pending` row under a host, no meeting at Zoom.
+    // Reusing it blindly was Sol F3's second half — the session may have been
+    // RESCHEDULED since, in which case the interval the EXCLUDE constraint is
+    // protecting is not the interval about to be sent to Zoom, and the host is
+    // double-bookable for the time the meeting will actually occupy.
+    const heldReservation =
+      !alreadyCreated &&
+      adoption === null &&
+      existing !== null &&
+      existing.status === 'pending' &&
+      existing.host_zoom_user_id !== null
+        ? existing
+        : null;
+
+    let resumedHost: string | null = null;
+    if (heldReservation !== null) {
+      if (reservationMatchesSource(heldReservation, startsAtIso, durationMinutes)) {
+        resumedHost = heldReservation.host_zoom_user_id;
+      } else {
+        // Re-reserve ATOMICALLY on the host we already hold: the UPDATE carries the new
+        // interval through the same EXCLUDE predicate, so it either moves the
+        // reservation or answers 23P01 because the new window collides with somebody
+        // else. There is no moment in between where the row protects neither interval.
+        const rereserved = await store.reserveExistingMeeting(
+          heldReservation.id,
+          heldReservation.host_zoom_user_id as string,
+          startsAtIso,
+          durationMinutes
+        );
+        // 23P01 ⇒ this host is busy at the NEW time. Fall through and walk candidates
+        // exactly as the fresh path does; the row is still ours to re-point.
+        if (rereserved) resumedHost = heldReservation.host_zoom_user_id;
+      }
+    }
+
     if (alreadyCreated) {
       meetingId = existing.id;
       hostZoomUserId = existing.host_zoom_user_id ?? '';
     } else if (adoption !== null) {
       meetingId = adoption.row.id;
       hostZoomUserId = adoption.row.host_zoom_user_id ?? '';
-    } else if (existing !== null && existing.status === 'pending' && existing.host_zoom_user_id) {
-      // Crashed between the reservation and the create. The reservation is still held
-      // by this very row, so re-resolving a host would only fight our own constraint.
-      meetingId = existing.id;
-      hostZoomUserId = existing.host_zoom_user_id;
+    } else if (resumedHost !== null) {
+      // Crashed between the reservation and the create, and the reservation still
+      // matches the source (either it never drifted, or we just moved it). Re-resolving
+      // a host from scratch would only fight our own constraint.
+      meetingId = (heldReservation as ProvisionMeetingRow).id;
+      hostZoomUserId = resumedHost;
     } else {
       const [hosts, facilitators] = await Promise.all([
         store.listActiveHosts(),

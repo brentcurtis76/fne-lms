@@ -216,6 +216,15 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
       row.last_error = lastError;
     }),
 
+    releaseReservation: vi.fn(async (meetingId: string, lastError: string) => {
+      const row = meetings.find((candidate) => candidate.id === meetingId);
+      if (!row) throw new Error(`no such meeting ${meetingId}`);
+      // `cancelled` is outside ZOOM_MEETING_ACTIVE_STATUSES, so `conflicts()` above
+      // stops counting this row — which is the point: the host slot is freed.
+      row.status = 'cancelled';
+      row.last_error = lastError;
+    }),
+
     upsertProjection: vi.fn(async (row: ProjectionUpsert) => {
       projection.set(`${row.surface_type}:${row.surface_id}`, { ...row });
     }),

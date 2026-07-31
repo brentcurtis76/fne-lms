@@ -61,6 +61,12 @@ const SESSION: ProvisionSessionRow = {
   start_time: '15:00:00',
   end_time: '16:30:00',
   scheduled_duration_minutes: 90,
+  // The §8 eligibility columns (Sol F3). Values are the live CHECK-constraint
+  // vocabulary from baseline:7740-7742.
+  status: 'programada',
+  is_active: true,
+  modality: 'online',
+  meeting_provider: 'zoom',
 };
 
 const EXPECTED_STARTS_AT = '2026-08-05T19:00:00.000Z';
@@ -709,6 +715,274 @@ describe('meeting_provision · mock-mode round trip (§15 Z1b DoD)', () => {
 
     expect(describeJobFailure(error).kind).toBe('non_retryable');
     expect(fake.listMeetings()).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sol F3 — source-state eligibility and reservation revalidation
+// ---------------------------------------------------------------------------
+
+describe('meeting_provision · §8 source-state eligibility', () => {
+  /** Every row here is a session the handler must REFUSE before touching Zoom. */
+  const INELIGIBLE: Array<{ name: string; patch: Partial<ProvisionSessionRow>; check: string }> = [
+    { name: 'cancelled', patch: { status: 'cancelada' }, check: 'status' },
+    { name: 'draft', patch: { status: 'borrador' }, check: 'status' },
+    { name: 'awaiting approval', patch: { status: 'pendiente_aprobacion' }, check: 'status' },
+    { name: 'already under way', patch: { status: 'en_progreso' }, check: 'status' },
+    { name: 'soft-deleted', patch: { is_active: false }, check: 'is_active' },
+    { name: 'presencial', patch: { modality: 'presencial' }, check: 'modality' },
+    { name: 'another provider', patch: { meeting_provider: 'google_meet' }, check: 'meeting_provider' },
+    { name: 'no provider intent', patch: { meeting_provider: null }, check: 'meeting_provider' },
+  ];
+
+  for (const { name, patch, check } of INELIGIBLE) {
+    it(`refuses a ${name} session before any Zoom call, non-retryably`, async () => {
+      const fake = seedFake();
+      const harness = createMemoryProvisionStore({
+        session: { ...SESSION, ...patch },
+        hosts: [HOST_LEAD, HOST_POOL_A],
+      });
+
+      const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+        context()
+      ).catch((caught) => caught);
+
+      // Nothing was created, and no host was even resolved.
+      expect(fake.listMeetings()).toHaveLength(0);
+      expect(harness.store.listActiveHosts).not.toHaveBeenCalled();
+      expect(harness.meetings).toHaveLength(0);
+
+      // Triage keys on the typed pair, never on the message.
+      const record = describeJobFailure(error);
+      expect(record.kind).toBe('non_retryable');
+      expect(record.reason).toBe('session_ineligible');
+      expect(record.detail).toBe(check);
+    });
+  }
+
+  it('provisions a hibrida session — a remote leg is a remote leg', async () => {
+    const fake = seedFake();
+    const harness = createMemoryProvisionStore({
+      session: { ...SESSION, modality: 'hibrida' },
+      hosts: [HOST_POOL_A],
+    });
+
+    await createMeetingProvisionHandler({ api: fake, store: harness.store })(context());
+    expect(fake.listMeetings()).toHaveLength(1);
+  });
+
+  it('RELEASES a reservation a previous attempt left on a now-ineligible session', async () => {
+    const fake = seedFake();
+    const held: StoredMeeting = {
+      id: 'meeting-held',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+      zoom_meeting_number: null,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'pending',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+    };
+    const harness = createMemoryProvisionStore({
+      // Cancelled AFTER the reservation was taken — the realistic ordering.
+      session: { ...SESSION, status: 'cancelada' },
+      hosts: [HOST_POOL_A],
+      meetings: [held],
+    });
+
+    const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context()
+    ).catch((caught) => caught);
+
+    expect(describeJobFailure(error).reason).toBe('session_ineligible');
+    expect(fake.listMeetings()).toHaveLength(0);
+    // Released into a status the EXCLUDE WHERE ignores, so the host is free again.
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('cancelled');
+    expect(['pending', 'provisioned', 'started']).not.toContain(row.status);
+    expect(row.last_error).toBe('session_ineligible:status');
+  });
+
+  it('does NOT release a reservation with a real Zoom meeting behind it', async () => {
+    const fake = seedFake();
+    const provisioned: StoredMeeting = {
+      id: 'meeting-live',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+      zoom_meeting_number: 82000009999,
+      zoom_meeting_uuid: null,
+      passcode: 'synthetic1',
+      join_url: 'https://example-synthetic.test/j/82000009999',
+      effective_settings: { auto_recording: 'none' },
+      status: 'provisioned',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+    };
+    const harness = createMemoryProvisionStore({
+      session: { ...SESSION, status: 'cancelada' },
+      hosts: [HOST_POOL_A],
+      meetings: [provisioned],
+    });
+
+    const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context()
+    ).catch((caught) => caught);
+
+    expect(describeJobFailure(error).reason).toBe('session_ineligible');
+    // The host stays blocked ON PURPOSE: a meeting really exists at Zoom for that
+    // window, and freeing the interval would let a second one be booked onto a host
+    // who is genuinely occupied. Deleting it at Zoom is Z2's cancel flow.
+    expect(harness.store.releaseReservation).not.toHaveBeenCalled();
+    expect(harness.meetingFor(SESSION_ID)?.status).toBe('provisioned');
+  });
+});
+
+describe('meeting_provision · §9 reservation revalidation on resume', () => {
+  /** A `pending` reservation held under a host, no meeting at Zoom yet. */
+  function heldReservation(overrides: Partial<StoredMeeting> = {}): StoredMeeting {
+    return {
+      id: 'meeting-held',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+      zoom_meeting_number: null,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'pending',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+      ...overrides,
+    };
+  }
+
+  it('reuses an undrifted reservation untouched', async () => {
+    const fake = seedFake();
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [heldReservation()],
+    });
+
+    const result = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context()
+    );
+
+    expect(result).toMatchObject({ host_zoom_user_id: HOST_POOL_A.zoom_user_id, created: true });
+    // Nothing to move, so no re-reservation round trip.
+    expect(harness.store.reserveExistingMeeting).not.toHaveBeenCalled();
+  });
+
+  it('re-reserves when the session was RESCHEDULED after the reservation was taken', async () => {
+    const fake = seedFake();
+    // The row still protects the OLD interval; the session now starts two hours later.
+    const harness = createMemoryProvisionStore({
+      session: { ...SESSION, start_time: '17:00:00', end_time: '18:30:00' },
+      hosts: [HOST_POOL_A],
+      meetings: [heldReservation()],
+    });
+
+    await createMeetingProvisionHandler({ api: fake, store: harness.store })(context());
+
+    const expectedStartsAt = '2026-08-05T21:00:00.000Z';
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+
+    // The EXCLUDE-protected interval is the interval that was sent to Zoom.
+    expect(Date.parse(row.starts_at)).toBe(Date.parse(expectedStartsAt));
+    expect(row.duration_minutes).toBe(90);
+    const created = fake.listMeetings()[0];
+    expect(created.startTime).toBe('2026-08-05T17:00:00');
+    expect(created.durationMinutes).toBe(90);
+    expect(harness.store.reserveExistingMeeting).toHaveBeenCalledWith(
+      'meeting-held',
+      HOST_POOL_A.zoom_user_id,
+      expectedStartsAt,
+      90
+    );
+  });
+
+  it('walks candidates when the NEW interval collides on the held host', async () => {
+    const fake = seedFake();
+    // Somebody else already owns HOST_POOL_A at the new time.
+    const blocker: StoredMeeting = {
+      id: 'meeting-blocker',
+      surface_type: 'consultor_session',
+      surface_id: '99999999-9999-4999-8999-999999999999',
+      school_id: 77,
+      host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+      zoom_meeting_number: 82000001111,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'provisioned',
+      starts_at: '2026-08-05T21:00:00.000Z',
+      duration_minutes: 90,
+      last_error: null,
+    };
+    const harness = createMemoryProvisionStore({
+      session: { ...SESSION, start_time: '17:00:00', end_time: '18:30:00' },
+      hosts: [HOST_POOL_A, HOST_POOL_B],
+      meetings: [heldReservation(), blocker],
+    });
+
+    const result = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context()
+    );
+
+    // 23P01 on the held host ⇒ the fresh candidate walk moved it to the next pool host.
+    expect(result).toMatchObject({ host_zoom_user_id: HOST_POOL_B.zoom_user_id });
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.host_zoom_user_id).toBe(HOST_POOL_B.zoom_user_id);
+    expect(Date.parse(row.starts_at)).toBe(Date.parse('2026-08-05T21:00:00.000Z'));
+  });
+
+  it('exempts the checkpoint-adopt path — Zoom already holds that meeting', async () => {
+    const fake = seedFake();
+    const harness = createMemoryProvisionStore({
+      // Rescheduled, but a previous attempt already created at Zoom and checkpointed.
+      session: { ...SESSION, start_time: '17:00:00', end_time: '18:30:00' },
+      hosts: [HOST_POOL_A],
+      meetings: [heldReservation()],
+    });
+    const job = jobRow({
+      stage_state: {
+        stage: 'created',
+        meeting_id: 'meeting-held',
+        meeting: {
+          number: 82000005555,
+          passcode: 'synthetic2',
+          join_url: 'https://example-synthetic.test/j/82000005555',
+          settings: { auto_recording: 'none' },
+        },
+      },
+    });
+
+    const result = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context(job)
+    );
+
+    // Adopted, not created, and NOT re-reserved: the meeting Zoom holds is at the old
+    // time, so moving the reservation would protect an interval Zoom does not know
+    // about. Reconciling a rescheduled meeting with Zoom is Z2's reschedule sync.
+    expect(result).toMatchObject({ created: false, zoom_meeting_number: 82000005555 });
+    expect(fake.listMeetings()).toHaveLength(0);
+    expect(harness.store.reserveExistingMeeting).not.toHaveBeenCalled();
+    expect(Date.parse((harness.meetingFor(SESSION_ID) as StoredMeeting).starts_at)).toBe(
+      Date.parse(EXPECTED_STARTS_AT)
+    );
   });
 });
 

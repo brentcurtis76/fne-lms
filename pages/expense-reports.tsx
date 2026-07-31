@@ -10,7 +10,6 @@ import MainLayout from '../components/layout/MainLayout';
 import { ArrowLeft, FileText, Plus, Calendar, DollarSign, Receipt, Eye, Download, Trash2, Edit, Send, Check, X, FileSpreadsheet } from 'lucide-react';
 import ExpenseReportForm from '../components/expenses/ExpenseReportForm';
 import ExpenseReportDetails from '../components/expenses/ExpenseReportDetails';
-import { sendEmail, generateExpenseReportSubmissionEmail, generateExpenseReportApprovalEmail } from '../utils/emailUtils';
 import { ExpenseReportExporter } from '../lib/expenseReportExport';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 
@@ -216,6 +215,28 @@ export default function ExpenseReportsPage() {
     return currentUser?.email === EXPENSE_APPROVER_EMAIL;
   };
 
+  /**
+   * Ask the server to send the notification that matches the report's current
+   * stored state. The browser passes only the id — recipient, subject and body
+   * are derived server-side from the report record, and the route authorizes
+   * the caller per notification moment. Non-blocking: a notification failure
+   * never undoes the state change that was already committed.
+   */
+  const requestExpenseNotification = async (reportId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`/api/expense-reports/${reportId}/notify`, {
+        method: 'POST',
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+      });
+      if (!response.ok) {
+        console.error(`Expense report notification failed: HTTP ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Expense report notification failed:', error);
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return `$${amount.toLocaleString('es-CL')}`;
   };
@@ -275,35 +296,8 @@ export default function ExpenseReportsPage() {
 
       if (error) throw error;
 
-      // Get report details for email notification
-      const { data: reportData } = await supabase
-        .from('expense_reports')
-        .select(`
-          *,
-          profiles!expense_reports_submitted_by_fkey(first_name, last_name, email)
-        `)
-        .eq('id', reportId)
-        .single();
-
-      if (reportData) {
-        // Send email notification to designated approver
-        const submitterName = `${reportData.profiles?.first_name || ''} ${reportData.profiles?.last_name || ''}`.trim() || 'Usuario';
-        const submitterEmail = reportData.profiles?.email || '';
-        
-        const emailData = generateExpenseReportSubmissionEmail(
-          reportData.report_name,
-          submitterName,
-          submitterEmail,
-          reportData.total_amount,
-          reportData.start_date,
-          reportData.end_date
-        );
-        
-        // Send email notification (non-blocking)
-        sendEmail(emailData).catch(error => 
-          console.error('Failed to send submission notification:', error)
-        );
-      }
+      // Approver notification — server-derived recipient and body (non-blocking)
+      void requestExpenseNotification(reportId);
 
       await loadExpenseReports();
       toast.success('Reporte enviado para revisión');
@@ -334,34 +328,8 @@ export default function ExpenseReportsPage() {
 
       if (error) throw error;
 
-      // Get report details for email notification
-      const { data: reportData } = await supabase
-        .from('expense_reports')
-        .select(`
-          *,
-          profiles!expense_reports_submitted_by_fkey(first_name, last_name, email)
-        `)
-        .eq('id', reportId)
-        .single();
-
-      if (reportData && reportData.profiles?.email) {
-        // Send approval email to report creator
-        const reviewerName = `${approverProfile?.first_name || ''} ${approverProfile?.last_name || ''}`.trim() || 'Administrador';
-        
-        const emailData = generateExpenseReportApprovalEmail(
-          reportData.report_name,
-          'approved',
-          reviewerName,
-          reportData.total_amount
-        );
-        
-        emailData.to = reportData.profiles.email;
-        
-        // Send email notification (non-blocking)
-        sendEmail(emailData).catch(error => 
-          console.error('Failed to send approval notification:', error)
-        );
-      }
+      // Owner notification — server-derived recipient and body (non-blocking)
+      void requestExpenseNotification(reportId);
 
       await loadExpenseReports();
       toast.success('Reporte aprobado');
@@ -395,35 +363,8 @@ export default function ExpenseReportsPage() {
 
       if (error) throw error;
 
-      // Get report details for email notification
-      const { data: reportData } = await supabase
-        .from('expense_reports')
-        .select(`
-          *,
-          profiles!expense_reports_submitted_by_fkey(first_name, last_name, email)
-        `)
-        .eq('id', reportId)
-        .single();
-
-      if (reportData && reportData.profiles?.email) {
-        // Send rejection email to report creator
-        const reviewerName = `${approverProfile?.first_name || ''} ${approverProfile?.last_name || ''}`.trim() || 'Administrador';
-        
-        const emailData = generateExpenseReportApprovalEmail(
-          reportData.report_name,
-          'rejected',
-          reviewerName,
-          reportData.total_amount,
-          comments || undefined
-        );
-        
-        emailData.to = reportData.profiles.email;
-        
-        // Send email notification (non-blocking)
-        sendEmail(emailData).catch(error => 
-          console.error('Failed to send rejection notification:', error)
-        );
-      }
+      // Owner notification — server-derived recipient and body (non-blocking)
+      void requestExpenseNotification(reportId);
 
       await loadExpenseReports();
       toast.success('Reporte rechazado');

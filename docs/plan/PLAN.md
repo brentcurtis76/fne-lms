@@ -54,7 +54,7 @@ Improve communication and sales of Pasantías INSPIRA Barcelona for the **Octobe
 
 | ID | Name | Status | Branch | Depends on |
 |----|------|--------|--------|-----------|
-| A0 | Content brief sign-off + privacy notice versioning + consent copy (both checkboxes) | TODO | `phase/a0-content` | — |
+| A0 | Content brief sign-off + privacy notice versioning + consent copy (both checkboxes) | **DONE 2026-07-31** (Codex PASS r2; code `82a14cd`+`b50bff3`+`17f3da8`, PR #28) | `phase/a0-content` | — |
 | T2 | CI e2e topology: local Supabase stack + seeded fixtures + mandatory specs | **DONE 2026-07-31** (Codex PASS; code head `eb908ed`, PR #27) | `phase/t2-ci` | — |
 | A1 | Cohort data modules + leak guard + homepage date fix | TODO | `phase/a1-cohort` | A0 |
 | A2 | `pasantias_leads` migration + per-op RLS + pgTAP (DB-agent) | TODO | `phase/a2-leads-db` | A0 |

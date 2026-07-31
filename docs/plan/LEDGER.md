@@ -185,3 +185,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: as above.
 - BACKLOG ADDED: TermsOfUseModal legal-identity block (SHOULD-FIX).
 - OPEN AFTER THIS ROUND: **A0 remediation complete — ready for Codex round 2 (of max 2)**. Owner still owes: S1 ratification of info@ as data-subject-request address; if a different address is chosen it is a one-field edit in `LEGAL_IDENTITY`.
+
+### 2026-07-31 — A0 close — Fable (PM, per SOP §3.8)
+- CONTEXT PRESSURE: n/a
+- ACTION: Codex round 2 = **PASS** (REVIEW-A0-R2.md, committed with this entry; [B1] closed against the prerendered HTML, no-version-bump reasoning accepted as a pre-exposure correction, no new findings, 17/17 + PR #28 green at `0c72a75`). Phase marked DONE in PLAN.md. Built across three rounds: fixed citable privacy-notice version/date; split D-12 consent constants (owner-approved); legal/brand controller identity modeled and filled (A-10); controller rendered truthfully across the privacy notice. vs original plan: +1 Codex remediation round (page prose), +legal/brand split the original spec lacked. [S1] stays owner-side: ratify info@ as the data-subject-request address (one-field edit whenever answered; does not block).
+- COMMITS: (this close commit)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: —
+- BACKLOG ADDED: none new (TermsOfUseModal item already recorded)
+- OPEN AFTER THIS ROUND: **Awaiting Brent's merge go for PR #28** (recommended merge order: #28 first — it carries the newest PLAN/Appendix — then #29, then #30, PM reconciling docs between each). Next-phase re-read (§3.8.5): A1 spec already realigned to the corrected cohort facts; A2's consent columns match the D-12 split — both become dispatchable when A0 merges, and A2 is a DB-agent round. No amendments needed.

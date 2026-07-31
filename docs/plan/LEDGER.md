@@ -263,3 +263,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: (1) leave the three SendGrid comments rather than silently widen a deletion-phase diff; (2) treat `utils/meetingUtils.ts:713` `supabase.functions.invoke('send-email', …)` as out of scope after verifying independently that it targets a Supabase **edge function**, not the deleted route; (3) verify [A1]'s "no arbitrary-recipient path" claim by enumerating send sites rather than asserting it from the two deletions.
 - BACKLOG ADDED: (1) three dead `SendGrid` comments in `pages/api/cron/email-digest.ts` — delete on the next phase that touches that file, or as a NIT here; (2) `pages/api/cron/email-digest.ts` has no `CRON_SECRET`/auth guard while constructing a service-role client — audit before its commented-out send is ever enabled.
 - OPEN AFTER THIS ROUND: PM verification, then Codex review. Branch `phase/b1b-relay` pushed, mergeable from `baec41a`; no merge without Brent's explicit go. B2 (Resend/svix/cron spike) unblocks on B1b DONE.
+
+### 2026-07-31 — B1b round 1 — Fable (PM verification)
+- CONTEXT PRESSURE: n/a
+- ACTION: Independent verification. Re-ran the caller sweep on the pushed branch: `api/send-email` matches only the two historical doc comments in B1a files; both route files absent from the tree; `@sendgrid/mail` gone from package.json; executor's enumeration of the four surviving Resend send sites read and concurred (none browser-controlled). Deviation ACCEPTED: the three comment-only `SendGrid` mentions in `pages/api/cron/email-digest.ts` stay — comments are not callers, and deleting them is the adjacent refactoring the prompt forbids; the grep-empty criterion is reinterpreted accordingly (noted for Codex). External-caller risk of the deleted routes accepted: both known callers (site + Telegram bot) were migrated in B1a.
+- COMMITS: (this ledger commit)
+- TESTS: branch greps + tree checks (PM re-run); full gates were executor-run; CI runs on the PR.
+- FINDINGS RAISED: none.
+- DECISIONS: sendgrid-comment deviation accepted.
+- BACKLOG ADDED: (1) dead SendGrid comments in email-digest.ts; (2) email-digest.ts is an unauthenticated route constructing a service-role client — harmless while its send is commented out, guard before anyone uncomments (executor find, confirmed).
+- OPEN AFTER THIS ROUND: **B1b clean — ready for Codex final review.** PR opened by PM for CI evidence. Track B unblocked: B2 (spike) is next.

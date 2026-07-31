@@ -107,7 +107,7 @@ jobs:
       - run: npm ci
 
       # Excluded services are the ones no e2e path touches; skipping them saves
-      # several GB of image pulls per run. db/auth/rest/kong stay.
+      # several GB of image pulls per run. db, auth, rest, storage and kong stay.
       - name: Start ephemeral local Supabase stack
         run: supabase start -x studio,logflare,vector,edge-runtime,imgproxy,mailpit,realtime,supavisor,pooler
       - name: Apply all migrations from scratch

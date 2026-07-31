@@ -166,6 +166,9 @@ lib/propuestas/__tests__/poc-output.pdf
 scripts/spikes/webhook/captures/
 scripts/spikes/zoom/out/
 
+# Local Supabase CLI state (written by supabase start / db reset)
+supabase/.branches/
+
 # Playwright test artifacts
 playwright-report/
 test-results/

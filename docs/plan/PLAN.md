@@ -64,7 +64,7 @@ Improve communication and sales of Pasantías INSPIRA Barcelona for the **Octobe
 | A6a | `/pasantias` page: sections + ficha CTA (no form) | TODO | `phase/a6a-page` | A1, A4 |
 | A6b | LeadForm (split consent) + wiring + e2e + a11y | TODO | `phase/a6b-form` | A5, A6a, T2 |
 | A7a | Site link rewiring + both INSPIRA flipbooks | TODO | `phase/a7a-links` | A6b |
-| A7b | contact.ts transport swap (Formspree→Resend) | TODO | `phase/a7b-contact` | — |
+| A7b | contact.ts transport swap (Formspree→Resend) | **DONE 2026-07-31** (Codex PASS, zero findings; code `5e1940d`, PR #29) | `phase/a7b-contact` | — |
 | A8 | Admin leads triage (transition-enforced via API) | TODO | `phase/a8-leads-ui` | A5, T2 |
 | A9 | Track A release verification (integration e2e + evidence) | TODO | `phase/a9-verify` | A6b, A7a, A7b, A8 |
 | B1a | Expense-report mail moved server-side (recipients derived server-side) | **DONE 2026-07-31** (Codex PASS; code `f29c1ce`, PR #30) | `phase/b1a-expmail` | — |

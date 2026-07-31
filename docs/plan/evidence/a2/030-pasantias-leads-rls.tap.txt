@@ -1,33 +1,69 @@
 # A2 evidence — pgTAP TAP output for 030-pasantias-leads-rls.sql
 
-Generated 2026-07-31 after `supabase db reset` (all migrations applied from scratch).
-Command: psql -X -q -f supabase/tests/030-pasantias-leads-rls.sql (tuples-only, to expose every assert)
+Generated 2026-07-31 (round r2) after `supabase db reset` (all migrations applied
+from scratch, including the D-04 privilege hardening).
+Command: psql -X -q -t -f supabase/tests/030-pasantias-leads-rls.sql (tuples-only, to expose every assert)
+
+Round r2 grew the plan 21 → 30: 5 catalog asserts for the privilege layer
+(4–8) and 4 behavioral denials RLS alone could not produce (13 admin TRUNCATE,
+20–22 anon UPDATE/DELETE/TRUNCATE). Asserts 10–12, 15–17, 18–19 changed
+expected error text — after the REVOKEs these commands are refused at the
+privilege layer (42501 "permission denied for table") instead of producing an
+RLS violation or an empty result.
 
 ```
-1..21
+1..30
 ok 1 - La tabla pasantias_leads del schema public debe tener RLS habilitado
 ok 2 - pasantias_leads: exactly one policy — admin SELECT-only, TO authenticated
 ok 3 - pasantias_leads: no policy carries a WITH CHECK — no authenticated write path exists
 
-ok 4 - admin: SELECT allowed — sees the seeded lead
-ok 5 - admin: INSERT throws RLS violation (no WITH CHECK policy exists)
-ok 6 - admin: UPDATE matches 0 rows (blocked UPDATE returns empty)
-ok 7 - admin: DELETE matches 0 rows
+ok 4 - anon: holds no privilege at all — SELECT/INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER all revoked
+ok 5 - authenticated: holds SELECT and nothing else — the RLS policy gates the rows
+ok 6 - anon: no TRUNCATE privilege (RLS would not govern it)
+ok 7 - authenticated: no TRUNCATE privilege (RLS would not govern it)
+ok 8 - service_role: CRUD privileges untouched by the REVOKEs — the only write path survives
 
-ok 8 - docente: sees 0 lead rows
-ok 9 - docente: INSERT throws RLS violation
-ok 10 - docente: UPDATE matches 0 rows
-ok 11 - docente: DELETE matches 0 rows
+ok 9 - admin: SELECT allowed — sees the seeded lead
+ok 10 - admin: INSERT denied at the privilege layer (no INSERT grant, no WITH CHECK policy)
+ok 11 - admin: UPDATE denied at the privilege layer
+ok 12 - admin: DELETE denied at the privilege layer
+ok 13 - admin: TRUNCATE denied — the SELECT-only posture survives a command RLS never sees
 
-ok 12 - anon: sees 0 lead rows
-ok 13 - anon: INSERT throws RLS violation
+ok 14 - docente: sees 0 lead rows
+ok 15 - docente: INSERT denied at the privilege layer
+ok 16 - docente: UPDATE denied at the privilege layer
+ok 17 - docente: DELETE denied at the privilege layer
 
-ok 14 - service_role: INSERT allowed (with full marketing opt-in evidence)
-ok 15 - service_role: INSERT without consent_accepted_at violates NOT NULL (no default asserts consent)
-ok 16 - service_role: INSERT without consent_notice_version violates NOT NULL
-ok 17 - service_role: marketing_opt_in = true without timestamp/version violates the consent CHECK
-ok 18 - service_role: marketing_opt_in = false with timestamp/version violates the consent CHECK
-ok 19 - service_role: email_normalized that is not lower(btrim(email)) violates the email CHECK
-ok 20 - service_role: duplicate (email_normalized, cohort) violates the unique constraint
-ok 21 - pasantias_leads: set_updated_at trigger refreshes updated_at on UPDATE
+ok 18 - anon: SELECT denied at the privilege layer (never reaches the policy)
+ok 19 - anon: INSERT denied at the privilege layer
+ok 20 - anon: UPDATE denied at the privilege layer
+ok 21 - anon: DELETE denied at the privilege layer
+ok 22 - anon: TRUNCATE denied — the command RLS never sees is stopped by the revoked grant
+
+ok 23 - service_role: INSERT allowed (with full marketing opt-in evidence)
+ok 24 - service_role: INSERT without consent_accepted_at violates NOT NULL (no default asserts consent)
+ok 25 - service_role: INSERT without consent_notice_version violates NOT NULL
+ok 26 - service_role: marketing_opt_in = true without timestamp/version violates the consent CHECK
+ok 27 - service_role: marketing_opt_in = false with timestamp/version violates the consent CHECK
+ok 28 - service_role: email_normalized that is not lower(btrim(email)) violates the email CHECK
+ok 29 - service_role: duplicate (email_normalized, cohort) violates the unique constraint
+ok 30 - pasantias_leads: set_updated_at trigger refreshes updated_at on UPDATE
 ```
+
+Full-suite run (`npm run test:db` → `supabase test db`), same reset database:
+
+```
+supabase/tests/000-setup.sql ................... ok
+supabase/tests/001-rls-enabled.sql ............. ok
+supabase/tests/010-consultor-sessions-rls.sql .. ok
+supabase/tests/020-tractor-signups-rls.sql ..... ok
+supabase/tests/030-pasantias-leads-rls.sql ..... ok
+All tests successful.
+Files=5, Tests=56,  0 wallclock secs ( 0.02 usr  0.01 sys +  0.03 cusr  0.01 csys =  0.07 CPU)
+Result: PASS
+```
+
+Catalog state after the migration (independent of pgTAP), for the reviewer to
+re-probe: `information_schema.role_table_grants` for `public.pasantias_leads`
+lists only `postgres` and `service_role` with the full privilege set, plus
+`authenticated` with `SELECT`. `anon` has no row at all.

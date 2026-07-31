@@ -6,23 +6,38 @@
 -- (disable the consumers, then ship a follow-up migration — never drop this
 -- table, its policy or its data).
 --
--- ACCESS MATRIX (frozen decision D-04 — per-operation, not per-table):
+-- ACCESS MATRIX (frozen decision D-04 — per-operation, not per-table).
+-- The posture is enforced in TWO layers, because RLS alone is not the write
+-- boundary: TRUNCATE (and REFERENCES/TRIGGER) are GRANT-level privileges that
+-- row-level security never evaluates, and Supabase's default privileges hand
+-- them to `anon` and `authenticated` on every new public table.
 --
---   role                SELECT   INSERT   UPDATE   DELETE
+--   LAYER 1 — GRANTs (what the role may attempt at all):
+--
+--   role            SELECT  INSERT  UPDATE  DELETE  TRUNCATE  REFERENCES/TRIGGER
+--   ----------------------------------------------------------------------------
+--   anon              no      no      no      no       no            no
+--   authenticated     YES     no      no      no       no            no
+--   service_role      YES     YES     YES     YES      YES           YES
+--
+--   LAYER 2 — RLS policy (which rows the surviving SELECT may read):
+--
+--   role                              SELECT   INSERT   UPDATE   DELETE
 --   ------------------------------------------------------------------
---   authenticated admin   YES      no       no       no
---   any other authenticated role
---                          no      no       no       no
---   anon                   no      no       no       no
---   service_role          (BYPASSRLS — the only write path)
+--   authenticated admin                 YES      no       no       no
+--   any other authenticated role         no      no       no       no
+--   anon                                 no      no       no       no
+--   service_role                  (BYPASSRLS — the only write path)
 --
 -- Exactly ONE policy exists on this table: an admin-only, SELECT-only USING
 -- clause. There is deliberately no WITH CHECK anywhere, so no authenticated
--- role can INSERT/UPDATE/DELETE at all. Every mutation goes through
--- service-role clients inside guarded API routes (A5/A8), which is also where
--- the lead status transition graph is enforced (D-03: the graph lives in
--- lib/pasantias/leads.ts, NOT in SQL — the CHECK below constrains the set of
--- legal statuses, never the legal transitions between them).
+-- role can INSERT/UPDATE/DELETE at all — and after the REVOKEs below it cannot
+-- even reach the policy machinery for those commands, nor TRUNCATE around it.
+-- Every mutation goes through service-role clients inside guarded API routes
+-- (A5/A8), which is also where the lead status transition graph is enforced
+-- (D-03: the graph lives in lib/pasantias/leads.ts, NOT in SQL — the CHECK
+-- below constrains the set of legal statuses, never the legal transitions
+-- between them).
 --
 -- Consent is split evidence (D-12): `consent_accepted_at` / `consent_notice_version`
 -- record the REQUIRED processing consent and carry no default — a row cannot
@@ -107,8 +122,18 @@ BEGIN
 END
 $$;
 
+-- Privilege hardening (D-04, amended 2026-07-31). RLS governs rows, not
+-- commands: `TRUNCATE` is never evaluated by a policy, and Supabase's
+-- ALTER DEFAULT PRIVILEGES grants ALL on new public tables to `anon` and
+-- `authenticated`. Without these REVOKEs either role could empty the table at
+-- the SQL layer despite the SELECT-only policy. Idempotent and additive —
+-- revoking an inherited grant drops no object and no data. `service_role`
+-- grants are deliberately untouched: it is the only write path.
+REVOKE ALL ON public.pasantias_leads FROM anon;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.pasantias_leads FROM authenticated;
+
 COMMENT ON TABLE public.pasantias_leads IS
-  'Interest leads for Pasantías INSPIRA. Admin-readable only; every write goes through service-role API routes (D-04). Status transitions are enforced in lib/pasantias/leads.ts, not in SQL (D-03).';
+  'Interest leads for Pasantías INSPIRA. Admin-readable only; every write goes through service-role API routes (D-04). anon holds no privilege at all and authenticated holds SELECT only, so TRUNCATE cannot bypass the policy. Status transitions are enforced in lib/pasantias/leads.ts, not in SQL (D-03).';
 
 COMMENT ON COLUMN public.pasantias_leads.consent_accepted_at IS
   'REQUIRED processing consent evidence (D-12). No default: the write path must stamp it.';

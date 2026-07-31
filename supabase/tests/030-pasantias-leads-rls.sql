@@ -2,15 +2,26 @@
 -- pasantias_leads RLS + constraint test suite (pgTAP) — INSPIRA A2
 --
 -- The table backs the public Pasantías INSPIRA lead form. Per frozen decision
--- D-04 the access posture is PER-OPERATION, not per-table:
+-- D-04 (amended 2026-07-31) the access posture is PER-OPERATION and enforced in
+-- TWO layers, so this suite asserts PRIVILEGES as well as POLICIES:
 --
---   1. authenticated admin → SELECT only. INSERT throws 42501; UPDATE and
---      DELETE match 0 rows (repo convention: blocked INSERT throws, blocked
---      UPDATE/DELETE return empty).
---   2. any other authenticated role (docente) → nothing at all.
---   3. anon → nothing (the single policy is TO authenticated).
---   4. service_role → the only write path (BYPASSRLS), used exclusively by
---      guarded API routes.
+--   Layer 1 — GRANTs. anon holds nothing; authenticated holds SELECT only;
+--     service_role keeps the full set. This is what stops TRUNCATE, which RLS
+--     never evaluates and which Supabase's default privileges would otherwise
+--     grant to both public roles.
+--   Layer 2 — the single RLS policy, which decides which rows the surviving
+--     authenticated SELECT may read (admin only).
+--
+--   1. authenticated admin → SELECT only. INSERT/UPDATE/DELETE/TRUNCATE are
+--      denied at the privilege layer, so they raise 42501 "permission denied
+--      for table" — a stricter failure than the RLS-empty result they would
+--      produce if the grant survived, and the reason the repo's usual
+--      "blocked UPDATE returns empty" convention does not apply here.
+--   2. any other authenticated role (docente) → SELECT reaches the policy and
+--      returns 0 rows; every write command is denied at the privilege layer.
+--   3. anon → nothing at all: every command, including SELECT, raises 42501.
+--   4. service_role → the only write path (BYPASSRLS + full grants), used
+--      exclusively by guarded API routes.
 --
 -- It also pins the D-12 split-consent contract at the storage layer: the
 -- required processing-consent columns have no defaults, and the optional
@@ -24,7 +35,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(21);
+SELECT plan(30);
 
 -- -----------------------------------------------------------------------------
 -- Fixture ids — stable and obvious so test output is easy to read.
@@ -62,6 +73,51 @@ SELECT is(
       AND p.with_check IS NOT NULL),
   0,
   'pasantias_leads: no policy carries a WITH CHECK — no authenticated write path exists'
+);
+
+-- -----------------------------------------------------------------------------
+-- [A2 / D-04 amended] Privilege layer. RLS never evaluates TRUNCATE, and
+-- Supabase's ALTER DEFAULT PRIVILEGES grants ALL on new public tables to anon
+-- and authenticated — so the migration's REVOKEs, not the policy, are what
+-- stops either role from emptying the table. Asserted from the catalog first,
+-- then behaviorally per role below.
+-- -----------------------------------------------------------------------------
+SELECT is(
+  (SELECT coalesce(string_agg(g.privilege_type, ',' ORDER BY g.privilege_type), '(none)')
+     FROM information_schema.role_table_grants g
+    WHERE g.table_schema = 'public'
+      AND g.table_name = 'pasantias_leads'
+      AND g.grantee = 'anon'),
+  '(none)',
+  'anon: holds no privilege at all — SELECT/INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER all revoked'
+);
+
+SELECT is(
+  (SELECT coalesce(string_agg(g.privilege_type, ',' ORDER BY g.privilege_type), '(none)')
+     FROM information_schema.role_table_grants g
+    WHERE g.table_schema = 'public'
+      AND g.table_name = 'pasantias_leads'
+      AND g.grantee = 'authenticated'),
+  'SELECT',
+  'authenticated: holds SELECT and nothing else — the RLS policy gates the rows'
+);
+
+SELECT ok(
+  NOT has_table_privilege('anon', 'public.pasantias_leads', 'TRUNCATE'),
+  'anon: no TRUNCATE privilege (RLS would not govern it)'
+);
+
+SELECT ok(
+  NOT has_table_privilege('authenticated', 'public.pasantias_leads', 'TRUNCATE'),
+  'authenticated: no TRUNCATE privilege (RLS would not govern it)'
+);
+
+SELECT ok(
+  has_table_privilege('service_role', 'public.pasantias_leads', 'SELECT')
+    AND has_table_privilege('service_role', 'public.pasantias_leads', 'INSERT')
+    AND has_table_privilege('service_role', 'public.pasantias_leads', 'UPDATE')
+    AND has_table_privilege('service_role', 'public.pasantias_leads', 'DELETE'),
+  'service_role: CRUD privileges untouched by the REVOKEs — the only write path survives'
 );
 
 -- -----------------------------------------------------------------------------
@@ -150,22 +206,33 @@ SELECT throws_ok(
        'admin-insert@leads-rls.local', 'Colegio de Prueba', now(), 'v1'
      ) $$,
   '42501',
-  'new row violates row-level security policy for table "pasantias_leads"',
-  'admin: INSERT throws RLS violation (no WITH CHECK policy exists)'
+  'permission denied for table pasantias_leads',
+  'admin: INSERT denied at the privilege layer (no INSERT grant, no WITH CHECK policy)'
 );
 
-SELECT is_empty(
+SELECT throws_ok(
   $$ UPDATE pasantias_leads SET status = 'contacted'
-      WHERE id = '66666666-0000-0000-0000-000000000001'::uuid
-      RETURNING 1 $$,
-  'admin: UPDATE matches 0 rows (blocked UPDATE returns empty)'
+      WHERE id = '66666666-0000-0000-0000-000000000001'::uuid $$,
+  '42501',
+  'permission denied for table pasantias_leads',
+  'admin: UPDATE denied at the privilege layer'
 );
 
-SELECT is_empty(
+SELECT throws_ok(
   $$ DELETE FROM pasantias_leads
-      WHERE id = '66666666-0000-0000-0000-000000000001'::uuid
-      RETURNING 1 $$,
-  'admin: DELETE matches 0 rows'
+      WHERE id = '66666666-0000-0000-0000-000000000001'::uuid $$,
+  '42501',
+  'permission denied for table pasantias_leads',
+  'admin: DELETE denied at the privilege layer'
+);
+
+-- The exact bypass Codex probed: RLS does not apply to TRUNCATE, so only the
+-- revoked grant stops an authenticated session from emptying the table.
+SELECT throws_ok(
+  $$ TRUNCATE pasantias_leads $$,
+  '42501',
+  'permission denied for table pasantias_leads',
+  'admin: TRUNCATE denied — the SELECT-only posture survives a command RLS never sees'
 );
 
 RESET ROLE;
@@ -190,35 +257,40 @@ SELECT throws_ok(
        'hack@leads-rls.local', 'Colegio de Prueba', now(), 'v1'
      ) $$,
   '42501',
-  'new row violates row-level security policy for table "pasantias_leads"',
-  'docente: INSERT throws RLS violation'
+  'permission denied for table pasantias_leads',
+  'docente: INSERT denied at the privilege layer'
 );
 
-SELECT is_empty(
+SELECT throws_ok(
   $$ UPDATE pasantias_leads SET status = 'converted'
-      WHERE id = '66666666-0000-0000-0000-000000000001'::uuid
-      RETURNING 1 $$,
-  'docente: UPDATE matches 0 rows'
+      WHERE id = '66666666-0000-0000-0000-000000000001'::uuid $$,
+  '42501',
+  'permission denied for table pasantias_leads',
+  'docente: UPDATE denied at the privilege layer'
 );
 
-SELECT is_empty(
+SELECT throws_ok(
   $$ DELETE FROM pasantias_leads
-      WHERE id = '66666666-0000-0000-0000-000000000001'::uuid
-      RETURNING 1 $$,
-  'docente: DELETE matches 0 rows'
+      WHERE id = '66666666-0000-0000-0000-000000000001'::uuid $$,
+  '42501',
+  'permission denied for table pasantias_leads',
+  'docente: DELETE denied at the privilege layer'
 );
 
 RESET ROLE;
 
 -- =============================================================================
--- Tier 3 — anon: the policy is TO authenticated, so anon has nothing
+-- Tier 3 — anon: no policy applies to it AND it holds no privilege, so every
+-- command is denied outright. Full per-operation matrix, TRUNCATE included.
 -- =============================================================================
 SELECT pg_temp.set_anon();
 
-SELECT is_empty(
+SELECT throws_ok(
   $$ SELECT 1 FROM pasantias_leads
       WHERE id = '66666666-0000-0000-0000-000000000001'::uuid $$,
-  'anon: sees 0 lead rows'
+  '42501',
+  'permission denied for table pasantias_leads',
+  'anon: SELECT denied at the privilege layer (never reaches the policy)'
 );
 
 SELECT throws_ok(
@@ -230,8 +302,31 @@ SELECT throws_ok(
        'anon@leads-rls.local', 'Colegio de Prueba', now(), 'v1'
      ) $$,
   '42501',
-  'new row violates row-level security policy for table "pasantias_leads"',
-  'anon: INSERT throws RLS violation'
+  'permission denied for table pasantias_leads',
+  'anon: INSERT denied at the privilege layer'
+);
+
+SELECT throws_ok(
+  $$ UPDATE pasantias_leads SET status = 'dismissed'
+      WHERE id = '66666666-0000-0000-0000-000000000001'::uuid $$,
+  '42501',
+  'permission denied for table pasantias_leads',
+  'anon: UPDATE denied at the privilege layer'
+);
+
+SELECT throws_ok(
+  $$ DELETE FROM pasantias_leads
+      WHERE id = '66666666-0000-0000-0000-000000000001'::uuid $$,
+  '42501',
+  'permission denied for table pasantias_leads',
+  'anon: DELETE denied at the privilege layer'
+);
+
+SELECT throws_ok(
+  $$ TRUNCATE pasantias_leads $$,
+  '42501',
+  'permission denied for table pasantias_leads',
+  'anon: TRUNCATE denied — the command RLS never sees is stopped by the revoked grant'
 );
 
 RESET ROLE;

@@ -129,3 +129,126 @@ depends on it yet.
   table; `cohort` is free text carrying `'oct-2026'`.
 - **`num_people` upper bound is 60**, per the prompt. No product rationale is
   recorded in the plan for that number; flagging it rather than inventing one.
+
+---
+
+# Round r2 — remediation of REVIEW-A2.md
+
+**Executor round:** 2 · **Branch:** `phase/a2-leads-db` (continued) · **Base:** `origin/main` @ `baec41a`
+**Scope:** the same two SQL files, edited in place. No second migration, no new
+file, nothing outside `supabase/`. Round r1's schema, constraints, trigger,
+policy and consent contract are unchanged.
+
+## The two findings and how they are closed
+
+### [B1] `anon` and `authenticated` could TRUNCATE the table
+
+Confirmed independently before touching anything —
+`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES
+TO anon/authenticated` in the baseline (lines 26108–26109) gives every new
+public table the full privilege set, and `information_schema.role_table_grants`
+listed `DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE` for both roles.
+
+The migration now revokes, after the policy block:
+
+```sql
+REVOKE ALL ON public.pasantias_leads FROM anon;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.pasantias_leads FROM authenticated;
+```
+
+`authenticated` keeps `SELECT` (the policy gates the rows); `service_role`'s
+grants are untouched. Post-reset catalog state:
+
+| grantee | privileges |
+|---|---|
+| `anon` | *(no row at all)* |
+| `authenticated` | `SELECT` |
+| `service_role` | `DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE` |
+| `postgres` | `DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE` |
+
+The header comment now documents the posture as **two layers** — GRANTs decide
+which commands a role may attempt at all, the policy decides which rows the
+surviving `SELECT` returns — instead of presenting RLS as the whole boundary.
+
+### [B2] The anon deny matrix was incomplete
+
+`anon` now has all four CRUD commands plus `TRUNCATE` asserted behaviorally
+(asserts 18–22), and `authenticated` gains a `TRUNCATE` denial (assert 13).
+
+## Assert count: 21 → 30
+
+| # | Assert | Why |
+|---|---|---|
+| 4 | `anon` holds no privilege at all | catalog-level [B1] |
+| 5 | `authenticated` holds `SELECT` and nothing else | catalog-level [B1] |
+| 6, 7 | `has_table_privilege(..., 'TRUNCATE')` false for both roles | the explicit TRUNCATE denial the amended D-04 requires |
+| 8 | `service_role` keeps SELECT/INSERT/UPDATE/DELETE | proves the REVOKEs did not sever the write path |
+| 13 | admin `TRUNCATE` denied | the exact probe Codex ran |
+| 20, 21 | anon `UPDATE` / `DELETE` denied | [B2] |
+| 22 | anon `TRUNCATE` denied | [B2] + [B1] |
+
+## Deviation you should check first
+
+**Eight pre-existing asserts changed their expected outcome, and this was
+unavoidable.** PostgreSQL checks table privileges *before* RLS, so once the
+grant is gone the command no longer reaches the policy:
+
+| asserts | round r1 expectation | round r2 expectation |
+|---|---|---|
+| 10, 15, 19 (INSERT: admin/docente/anon) | `42501` *new row violates row-level security policy* | `42501` *permission denied for table pasantias_leads* |
+| 11, 12, 16, 17 (UPDATE/DELETE: admin/docente) | `is_empty` — 0 rows matched | `throws_ok 42501` — permission denied |
+| 18 (anon SELECT) | `is_empty` — 0 rows visible | `throws_ok 42501` — permission denied |
+
+The prompt's wording for [B2] asked for "behavioral anon UPDATE matches-0 and
+anon DELETE matches-0". After [B1]'s revocation that outcome is no longer
+reachable: anon cannot match 0 rows because it cannot execute the statement at
+all, and an `is_empty` on a statement that raises would abort the suite's
+transaction rather than fail one assert. The asserts therefore use
+`throws_ok '42501'`, which is what REVIEW-A2.md's own closure text asks for
+("with the repository's correct blocked operation semantics") and is a strictly
+stronger claim than matches-0. The repo convention "blocked UPDATE returns
+empty" is an *RLS* convention; it does not describe a privilege denial, and the
+suite header now says so.
+
+## Test evidence (round r2)
+
+```
+supabase db reset    → all 3 migrations applied from scratch
+npm run test:db      → Files=5, Tests=56, Result: PASS   (030 file: 30/30)
+npm run type-check   → clean
+npm run lint         → clean (--max-warnings=0)
+npm test             → 232 files, 3445 tests, all passed
+npm run build        → succeeded through page-data collection
+```
+
+The four JS gates cannot be affected by a diff confined to two `.sql` files;
+they were run anyway and are recorded above unchanged from round r1.
+Refreshed TAP: `docs/plan/evidence/a2/030-pasantias-leads-rls.tap.txt`.
+
+## What to scrutinise hardest in this round
+
+1. **The REVOKE list is a denylist, not an allowlist.** I revoked the six
+   non-SELECT privileges from `authenticated` by name rather than doing
+   `REVOKE ALL ... FROM authenticated; GRANT SELECT ... TO authenticated;`.
+   Both reach the same state today; the denylist form breaks if PostgreSQL
+   ever adds a new table privilege. Asserts 4 and 5 pin the *exact* resulting
+   grant set, so a new privilege leaking in would fail the suite rather than
+   pass silently — but if you prefer the revoke-all-then-grant form as the
+   pattern B3's five tables should copy, this is the round to say so.
+2. **`anon` now cannot even SELECT.** That is the intended D-04 posture (the
+   public lead form posts to a service-role API route, never to PostgREST), but
+   it means any future attempt to read this table with the anon key fails hard
+   with a 401/403 rather than returning an empty set. A5 must not assume a
+   readable-but-empty table.
+3. **Assert 8 is the only thing standing between these REVOKEs and a broken
+   write path.** If it were ever weakened, an over-broad revoke could sever
+   `service_role` and A5 would fail at runtime rather than in this suite.
+4. **Idempotency.** `REVOKE` on an already-revoked privilege is a no-op, so the
+   migration remains re-runnable, consistent with the `IF NOT EXISTS` /
+   `CREATE OR REPLACE` style of the rest of the file.
+
+## Rollback (unchanged, forward-only)
+
+Still no destructive rollback. The REVOKEs remove no object and no data —
+they withdraw inherited grants — so the forward-only rule in the round-r1
+section applies to this round verbatim.

@@ -173,17 +173,24 @@ export const COHORT_CLAIMS: readonly string[] = [
 ] as const;
 
 /**
- * Appendix A-7 content — objectives, día tipo and includes/excludes — comes from
- * the PPTX "BROCHURE INSPIRA 2026 - oct2026 2.0", which is not in the repo and
- * was not reachable from this session. Inventing the copy would put unapproved
- * marketing claims in front of prospects, so these stay empty until the owner
- * supplies the source; see the A1 round-1 LEDGER entry.
- *
- * `COHORT_CONTENT_PENDING` is what downstream phases (A3 brochure, A6a landing
- * page) should check before rendering a section, so a missing block is visible
- * instead of silently blank.
+ * Appendix A-7, the thirteen objectives, verbatim es-CL. The only edits are
+ * mechanical: the list numbering is the array index, not part of the copy.
  */
-export const COHORT_OBJECTIVES: readonly string[] = [];
+export const COHORT_OBJECTIVES: readonly string[] = [
+  'Conocer los proyectos educativos de las principales escuelas de vanguardia en Cataluña y compartir la mirada pedagógica de sus directores.',
+  'Tomar contacto con las prácticas pedagógicas en terreno y profundizar en su comprensión por medio de entrevistas con estudiantes y docentes.',
+  'Valorar el profundo peso que ha tenido la evolución del propósito del educar en las escuelas de vanguardia y en las prioridades estratégicas que surgen desde esa nueva jerarquía.',
+  'Conocer cómo ha tomado forma la evolución del proceso de aprendizaje, con foco en las metodologías activas, colaborativas y centradas en la autonomía y el propósito de los estudiantes.',
+  'Conectar con la globalización y el uso de herramientas como: cajas de aprendizaje, nubes de preguntas, integración de niveles, diversos tipos de proyectos, momentos públicos, entre muchas otras.',
+  'Visualizar cómo se organizan los procesos de evaluación, con énfasis en la evaluación formativa y formadora, por medio del uso de herramientas como: portafolios, rúbricas participativas, diarios de aprendizaje, entre otras.',
+  'Profundizar en la comprensión de los procesos de personalización y su aplicación en terreno. Tanto el uso de planes personales, proyectos de autoconocimiento, inventarios personales de aprendizaje, brújulas y otras herramientas.',
+  'Apreciar nuevos estilos de liderazgo y de organización para conducir los procesos de cambio y evolución cultural hacia el nuevo paradigma educativo.',
+  'Conocer y comprender la evolución del trabajo colaborativo docente y la constitución de equipos de alto desempeño.',
+  'Visualizar el uso del tiempo, los espacios, los materiales y el equipamiento en los diversos proyectos educativos visitados.',
+  'Comprender el nuevo rol de las familias en las escuelas de Nueva Educación y las dinámicas de crecimiento que de ello surgen.',
+  'Valorar la apertura y conexión de la escuela con su entorno, el funcionamiento en red y el poder del pensamiento sistémico para diseñar las experiencias de aprendizaje.',
+  'Comprender y apreciar el giro relacional que implica migrar hacia la Nueva Educación y los beneficios personales y societales que conlleva.',
+] as const;
 
 export interface CohortDayBlock {
   /** es-CL label for the block, e.g. a time band. */
@@ -192,32 +199,71 @@ export interface CohortDayBlock {
   description: string;
 }
 
-/** Appendix A-7 "día tipo" — pending, see {@link COHORT_CONTENT_PENDING}. */
-export const COHORT_DAY_STRUCTURE: readonly CohortDayBlock[] = [];
-
-/** Appendix A-7 includes — pending, see {@link COHORT_CONTENT_PENDING}. */
-export const COHORT_INCLUDES: readonly string[] = [];
-
-/** Appendix A-7 excludes — pending, see {@link COHORT_CONTENT_PENDING}. */
-export const COHORT_EXCLUDES: readonly string[] = [];
-
-/** Neighbourhood the group stays in — pending, see {@link COHORT_CONTENT_PENDING}. */
-export const COHORT_LODGING_AREA: string | null = null;
+/**
+ * Appendix A-7 "día tipo", verbatim. The afternoon block is where the workshops
+ * venue lives — the visited schools and/or the Instituto Relacional offices in
+ * Eixample — so it is copy, not a separate structured field.
+ */
+export const COHORT_DAY_STRUCTURE: readonly CohortDayBlock[] = [
+  {
+    label: 'Mañana 1',
+    description: 'Presentación del proyecto educativo y entrevista con la dirección.',
+  },
+  {
+    label: 'Mañana 2',
+    description: 'Visita guiada, entrevistas con estudiantes y educadores.',
+  },
+  {
+    label: 'Tarde',
+    description:
+      'Talleres con expertos en las temáticas centrales del movimiento de Nueva Educación, en las dependencias de las escuelas visitadas y/o en las oficinas del Instituto Relacional, barrio de Eixample, Barcelona.',
+  },
+] as const;
 
 /**
- * Schools of the optional Madrid extension — pending. Appendix A-8 confirms the
- * extension exists but names no schools.
+ * Appendix A-7 "el programa incluye", verbatim apart from sentence casing and
+ * the two A-16 holds:
+ *
+ * - lodging says only "(base doble)" — the source's night count is still open
+ *   with the owner (A-16), and nothing here may imply one;
+ * - the source's "comidas en días de visita" is omitted for the same reason: the
+ *   meal-to-day mapping it describes is January's one-week shape. The closing
+ *   dinner survives on its own because the excludes line below asserts it
+ *   ("cenas, salvo la de cierre") and carries no A-16 hold.
+ *
+ * When A-16 is answered these two items get their detail back; until then no
+ * surface may state nights or per-day meals.
  */
-export const COHORT_MADRID_SCHOOLS: readonly string[] = [];
+export const COHORT_INCLUDES: readonly string[] = [
+  'El pago de las visitas a las escuelas',
+  'Los talleres de la tarde con especialistas',
+  'Alojamiento en Barcelona (base doble)',
+  'Los honorarios de la dirección del programa, los relatores y el equipo de facilitadores de FNE que acompañan a los pasantes',
+  'Bibliografía básica recomendada para preparar el viaje, una bitácora y un sistema de registro de los aprendizajes presentado al menos un mes antes del viaje',
+  'Desayuno a media mañana en las escuelas',
+  'Transporte para las visitas a El Puig y Les Vinyes',
+  'Cena de cierre',
+] as const;
 
-/** Public fields still waiting on the Appendix A-7 brochure source. */
-export const COHORT_CONTENT_PENDING: readonly string[] = [
-  'COHORT_OBJECTIVES',
-  'COHORT_DAY_STRUCTURE',
-  'COHORT_INCLUDES',
-  'COHORT_EXCLUDES',
-  'COHORT_LODGING_AREA',
-  'COHORT_MADRID_SCHOOLS',
+/** Appendix A-7 "el programa NO incluye", verbatim. */
+export const COHORT_EXCLUDES: readonly string[] = [
+  'Desayunos de hotel',
+  'Cenas (salvo la de cierre)',
+  'Pasajes aéreos ni transporte terrestre de llegada/salida',
+  'Seguros',
+] as const;
+
+/**
+ * Appendix A-7 names the lodging city and nothing finer — no neighbourhood, and
+ * no night count until A-16 is answered.
+ */
+export const COHORT_LODGING_AREA = 'Barcelona';
+
+/** Appendix A-7 — the three schools of the optional Madrid extension. */
+export const COHORT_MADRID_SCHOOLS: readonly string[] = [
+  'Colegio IDEO',
+  'Colegio Santa Gema',
+  'Colegio Virgen de Europa',
 ] as const;
 
 /** Parse an ISO calendar date into UTC midnight, so no timezone can shift it. */

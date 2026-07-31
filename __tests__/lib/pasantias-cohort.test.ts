@@ -1,13 +1,20 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
+import * as cohortPublicModule from '../../lib/pasantias/cohort-public';
 import {
   COHORT_CLAIMS,
   COHORT_DATE_LABEL,
+  COHORT_DAY_STRUCTURE,
+  COHORT_EXCLUDES,
   COHORT_FREE_DAYS,
   COHORT_HEADLINE,
   COHORT_ID,
   COHORT_IMMERSION_SCHOOLS,
+  COHORT_INCLUDES,
   COHORT_LABEL,
+  COHORT_LODGING_AREA,
+  COHORT_MADRID_SCHOOLS,
+  COHORT_OBJECTIVES,
   COHORT_PUBLIC,
   COHORT_SCHOOLS,
   COHORT_VISIT_DAYS,
@@ -194,10 +201,86 @@ describe('public cohort module — people and claims (Appendix A-6/A-9)', () => 
   });
 });
 
+describe('public cohort module — programme content (Appendix A-7)', () => {
+  it('carries all thirteen objectives, each non-empty and distinct', () => {
+    expect(COHORT_OBJECTIVES).toHaveLength(13);
+    for (const objective of COHORT_OBJECTIVES) {
+      expect(objective.trim().length).toBeGreaterThan(0);
+    }
+    expect(new Set(COHORT_OBJECTIVES).size).toBe(13);
+  });
+
+  it('keeps the first and last objective verbatim', () => {
+    expect(COHORT_OBJECTIVES[0]).toBe(
+      'Conocer los proyectos educativos de las principales escuelas de vanguardia en Cataluña y compartir la mirada pedagógica de sus directores.'
+    );
+    expect(COHORT_OBJECTIVES[12]).toBe(
+      'Comprender y apreciar el giro relacional que implica migrar hacia la Nueva Educación y los beneficios personales y societales que conlleva.'
+    );
+  });
+
+  it('describes the day as two mornings and an afternoon, every field filled', () => {
+    expect(COHORT_DAY_STRUCTURE.map((block) => block.label)).toEqual([
+      'Mañana 1',
+      'Mañana 2',
+      'Tarde',
+    ]);
+    for (const block of COHORT_DAY_STRUCTURE) {
+      expect(block.label.trim().length).toBeGreaterThan(0);
+      expect(block.description.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('names the workshops venue inside the afternoon block', () => {
+    const tarde = COHORT_DAY_STRUCTURE.find((block) => block.label === 'Tarde');
+    expect(tarde?.description).toContain('escuelas visitadas');
+    expect(tarde?.description).toContain('Instituto Relacional');
+    expect(tarde?.description).toContain('Eixample');
+  });
+
+  it('lists what the programme includes and excludes', () => {
+    expect(COHORT_INCLUDES.length).toBeGreaterThanOrEqual(6);
+    expect(COHORT_EXCLUDES.length).toBeGreaterThanOrEqual(3);
+    for (const item of [...COHORT_INCLUDES, ...COHORT_EXCLUDES]) {
+      expect(item.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('states lodging without a night count while A-16 is open', () => {
+    const lodging = COHORT_INCLUDES.filter((item) => /alojamiento/i.test(item));
+    expect(lodging).toEqual(['Alojamiento en Barcelona (base doble)']);
+    expect(COHORT_LODGING_AREA).toBe('Barcelona');
+  });
+
+  it('makes no per-day meal or night claim while A-16 is open', () => {
+    const text = COHORT_INCLUDES.join(' | ');
+    expect(text).not.toMatch(/comidas en días de visita/i);
+    expect(text).not.toMatch(/\d+\s*(?:noches?|días?)/i);
+  });
+
+  it('names the three Madrid extension schools', () => {
+    expect(COHORT_MADRID_SCHOOLS).toEqual([
+      'Colegio IDEO',
+      'Colegio Santa Gema',
+      'Colegio Virgen de Europa',
+    ]);
+  });
+
+  it('never leaks the plan’s own pending markers into public copy', () => {
+    expect(JSON.stringify(COHORT_PUBLIC)).not.toMatch(/PENDIENTE|A-16/i);
+  });
+
+  it('no longer ships the pending-content registry', () => {
+    expect(Object.keys(cohortPublicModule)).not.toContain('COHORT_CONTENT_PENDING');
+  });
+});
+
 describe('public cohort module — no monetary data (D-01)', () => {
   it('serializes without a single monetary key or value', () => {
     const serialized = JSON.stringify(COHORT_PUBLIC);
-    expect(serialized).not.toMatch(/€|price|precio|eur/i);
+    // `eur` is matched as a whole token: the Madrid extension visits "Colegio
+    // Virgen de Europa", a school name, not a currency. EUR/euro/euros still fail.
+    expect(serialized).not.toMatch(/€|price|precio|\beur(?:os?)?\b/i);
   });
 
   it('carries no numeric field that could be an amount in disguise', () => {

@@ -112,3 +112,74 @@ link rewiring and the flipbooks (A7a), the lead form (A6b), nav, contact form.
   A7a rewires them. "Noviembre 2026" is gone from the page entirely.
 - No e2e spec was added for the homepage card; the phase's test plan is unit-level
   and A6a/A6b own the page-level specs.
+
+---
+
+# Round 2 — Appendix A-7 content fill
+
+**Round:** 2 (executor) · **Status reported:** COMPLETE · base = round 1's `b03dd56`
+(round-1 code untouched).
+
+## R2.1 What changed and why
+
+Round 1 returned FINDINGS because the A-7 source PPTX lived outside the repo. The
+PM resolved that by transcribing the block verbatim into `docs/plan/PLAN.md`
+("Appendix A-7 (verbatim content)"). This round fills the six exports that shipped
+empty and retires `COHORT_CONTENT_PENDING`. No other file in the phase was touched.
+
+- `lib/pasantias/cohort-public.ts` (+94/−45) — 13 objectives, día tipo (3 blocks),
+  includes (8) / excludes (4), `COHORT_LODGING_AREA`, three Madrid schools;
+  `COHORT_CONTENT_PENDING` and the empty-export scaffolding deleted.
+- `__tests__/lib/pasantias-cohort.test.ts` (+79/−2) — 21 → 31 tests.
+
+## R2.2 Scrutinise these hardest
+
+1. **The two A-16 holds are the only places this file is not verbatim.** A-16
+   (nights covered by the €560 lodging, and the meal-to-day mapping) is still open
+   with the owner, so the lodging item is exactly `Alojamiento en Barcelona (base
+   doble)` — the source's night count and its "habitación simple a consultar"
+   aside are both dropped — and the source's `comidas en días de visita` is
+   omitted entirely. Check that judgment: I kept `Cena de cierre`, because the
+   excludes line `Cenas (salvo la de cierre)` is verbatim, carries no A-16 hold,
+   and asserts the closing dinner independently. Dropping it would have made the
+   two lists contradict each other.
+2. **`Desayuno a media mañana en las escuelas` was kept.** It is a meal claim, and
+   the prompt said to omit per-day meal claims. I read A-16 as being about the
+   *mapping of meals to days/dates* for the two-week format, and this item maps to
+   "at the schools", not to a day count — so it stays verbatim. If the reviewer
+   reads A-16 wider, this is the one line to cut.
+3. **The D-01 serialization grep was narrowed, and that is a guard weakening.**
+   `/€|price|precio|eur/i` → `/€|price|precio|\beur(?:os?)?\b/i`. It had to change:
+   A-7 names `Colegio Virgen de Europa`, and `Europa` contains `eur`. The bounded
+   form still fails on `EUR`, `euro` and `euros` and still rejects `Europa` as a
+   false positive — but it is a looser net than round 1 shipped, deliberately.
+   `scripts/check-price-leak.mjs` is unaffected: its currency token is
+   case-sensitive `(?:€|EUR)`, which `Europa` never matched.
+4. **`COHORT_LODGING_AREA = 'Barcelona'` is derived, not quoted.** A-7 says
+   "alojamiento en Barcelona en base doble" and names no neighbourhood; the field
+   carries the city and nothing finer. If the plan's `[A1]` "lodging area" meant a
+   barrio, the source does not supply one.
+5. **Nothing consumes these exports yet.** A3 and A6a are the first readers, so
+   the only proof the copy is right is that it matches the PLAN block character
+   for character. Spot-check objectives 1 and 13 against `PLAN.md` — the tests pin
+   exactly those two.
+
+## R2.3 Test evidence (round 2)
+
+- `npx vitest run __tests__/lib/pasantias-cohort.test.ts` → 31 passed (was 21).
+- `npm run type-check` → clean · `npm run lint` → clean (zero warnings).
+- `npm test` → 233 files, 3476 tests, all passed.
+- `npm run build` → succeeded · `node scripts/check-price-leak.mjs` → OK, 266 files.
+
+## R2.4 Known limitations / deferred (round 2)
+
+- **A-16 is still unanswered.** When it lands, the lodging item and the meals item
+  need their detail restored — the code comment on `COHORT_INCLUDES` says which
+  two lines and why. A test asserts no export matches `/PENDIENTE|A-16/i`.
+- Round 1 dropped "para conocer Europa" from the free-day label to dodge the `eur`
+  grep. Now that the grep is bounded, that workaround is no longer needed — but
+  the phrase is A6a page copy, so restoring it is A6a's call, not this round's.
+- The worktree for this round was cut from `origin/phase/a1-cohort`, whose
+  `PLAN.md` predates the A-7 block (the block is committed on `phase/t2-ci`). The
+  verbatim source was read from the main checkout at `784d7c6`; the two ledgers
+  and plans union at merge as usual.

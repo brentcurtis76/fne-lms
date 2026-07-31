@@ -86,6 +86,44 @@ PHASE    PM bootstrap (fresh Fable)
 CLOSE    PM updates PLAN.md (Done) + LEDGER.md, opens backlog items, merges branch
 ```
 
+### 1.8 Session identity and lifecycle
+
+With more than one project in flight, the bottleneck stops being the work and becomes
+finding the right conversation. Agent apps auto-title a session from its opening
+content, and a session cannot rename itself — so **the first line of the prompt is the
+title**. Don't fight the auto-namer, feed it. Every fresh-session prompt in §3 opens
+with:
+
+```
+SESSION: <PROJ> · <phase>[ · r<round>] · <ROLE>
+```
+
+| Field | Values |
+|---|---|
+| `PROJ` | fixed short prefix, one per project — e.g. `GEN` `ZOOM` `INSPIRA` `CASA` |
+| `phase` | phase ID from `PLAN.md`; `plan` during planning |
+| `round` | remediation round; omit on round 1 |
+| `ROLE` | `PM` · `EXEC` · `REVIEW` |
+
+Examples: `INSPIRA · B1a · r2 · EXEC` — `ZOOM · Z1b-4 · PM` — `CASA · PD · REVIEW`.
+
+Only prompts that open a **new** session carry the line: §3.1, §3.2, §3.3, §3.4, §3.6.
+The rest (§3.5, §3.7, §3.8, §3.9) are pasted into the live PM conversation and must not
+re-title it.
+
+Three rules keep the session list readable:
+
+- **One working directory per project.** Sessions group by directory, so two projects
+  sharing a checkout are indistinguishable in the list. Give each project a long-lived
+  git worktree and start every session from it. Per-*phase* worktrees are fine for
+  isolation but useless as identity — the directory has to outlive the phase.
+- **One live PM session per project.** That is the only durable conversation; everything
+  else is transient. Four projects should mean four standing sessions plus whatever is
+  mid-round.
+- **Archive an executor the moment its report is pasted back.** §4 already requires a
+  fresh executor per round, so yesterday's executor is a corpse. Corpses are what make
+  the list unreadable — not the live work.
+
 ---
 
 ## 2. Fixed formats
@@ -128,6 +166,7 @@ META
 
 ```markdown
 ### <ISO date> — P<n> round <r> — <actor>
+- SESSION: <the §1.8 SESSION line of the conversation that did the work>
 - CONTEXT PRESSURE: <for executor rounds — this is your sizing evidence>
 - ACTION:
 - COMMITS: <sha…>
@@ -176,6 +215,8 @@ NOTES ON THE PLAN ITSELF: <if the plan, not the code, is the problem>
 ### 3.1 PLANNER — new Fable conversation
 
 ```
+SESSION: <PROJ> · plan · PM
+
 You are the planning agent for <PROJECT>. You will produce PLAN.md and nothing else.
 You will not write any source code in this conversation.
 
@@ -213,6 +254,8 @@ do not understand yet — flag it instead of inventing criteria.
 ### 3.2 PLAN REVIEW — Codex Sol
 
 ```
+SESSION: <PROJ> · plan · REVIEW
+
 Adversarial review of docs/plan/PLAN.md for <PROJECT>. You are not here to be
 agreeable — you are the last check before we burn execution time on a bad plan.
 
@@ -233,6 +276,8 @@ be held to this plan. Classify every finding BLOCKING / SHOULD-FIX / NIT.
 ### 3.3 PM BOOTSTRAP — new Fable conversation, once per phase (or whenever the PM session gets heavy)
 
 ```
+SESSION: <PROJ> · P<n> · PM
+
 You are the PM for <PROJECT>. Start by reading, in this order:
 - docs/plan/PLAN.md
 - docs/plan/LEDGER.md (last 10 entries minimum; all entries for the current phase)
@@ -274,6 +319,8 @@ Amending the plan is cheaper than executing a wrong one.
 ### 3.4 EXECUTOR PROMPT TEMPLATE — the PM fills this in; Brent pastes it into a fresh Opus session
 
 ```
+SESSION: <PROJ> · P<n> · r<r> · EXEC
+
 You are the executor for <PROJECT>, phase P<n> round <r>. You have no prior context.
 Everything you need is below or in the repo.
 
@@ -336,6 +383,8 @@ Write the ledger entry either way.
 ### 3.6 CODEX FINAL REVIEW
 
 ```
+SESSION: <PROJ> · P<n> · REVIEW
+
 Final review of phase P<n> for <PROJECT>. Read docs/plan/PLAN.md for the acceptance
 criteria and frozen decisions, then review branch <branch>.
 
@@ -424,4 +473,9 @@ Amend PLAN.md only after I approve.
   others didn't; usually it's file count, not line count.
 - **Watch for the PM going soft.** If two rounds pass with no findings and Codex then
   returns blocking items, your PM is rubber-stamping. Re-bootstrap it.
-```
+- **Archive dead sessions on the spot** (§1.8). An executor is single-use and a
+  superseded PM is dead weight, but both sit in the session list until archived. You
+  pay the cost of skipping this every time you go hunting for the live conversation.
+- **Name the session before you paste the prompt, not after.** A session cannot rename
+  itself, so a prompt that opens without its `SESSION:` line gets an auto-title you
+  will have to fix by hand — if you notice at all.

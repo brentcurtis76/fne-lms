@@ -73,6 +73,19 @@ Running 8 tests using 1 worker
 - Scratch commit reverted in the next commit; `tests/e2e/ci-fixture.spec.ts` on
   the branch contains no `test.skip`.
 
-## Run 4 — final, scratch skip reverted
+## Run 4 — scratch skip reverted, gate 4 GREEN again
 
-- _Recorded below._
+- Commit `c123727` · https://github.com/brentcurtis76/fne-lms/actions/runs/30602963208
+- Run conclusion: **success** — all six checks green (RLS migration guard,
+  Gate 1 Typecheck, Gate 1b Lint, Gate 2 Unit, Gate 3 pgTAP, Gate 4 E2E).
+
+```
+Running 8 tests using 1 worker
+  8 passed (9.6s)
+[e2e-mandatory] OK — 2 mandatory spec(s) ran with no skips
+```
+
+## Run 5 — final head (docs + a comment-only edit)
+
+- Commit `<head>` · recorded in the PR checks. Same code as run 4; it exists only
+  because this evidence file had to record run 4's result.

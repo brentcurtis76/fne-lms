@@ -58,7 +58,7 @@ export async function loginViaUi(page: Page, user: E2eFixtureUser): Promise<void
 }
 
 /**
- * Logs the fixture in in a throwaway context and writes its storageState.
+ * Logs the fixture in using a throwaway context and writes its storageState.
  * Called from `beforeAll`, so the state file exists before Playwright builds a
  * context from it for the tests in that describe block.
  */

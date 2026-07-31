@@ -7,9 +7,10 @@ against placeholder env and ran only the smoke spec against no Supabase stack).
 
 | # | Purpose | Run | Gate 4 result |
 |---|---------|-----|---------------|
-| 1 | Baseline — reworked gate 4 on the real topology | _see below_ | _see below_ |
-| 2 | **Skip-guard demonstration** — a scratch `test.skip` added to a mandatory spec | _see below_ | must FAIL at "Guard — no mandatory spec may be skipped" |
-| 3 | Final — scratch skip removed | _see below_ | green |
+| [1](https://github.com/brentcurtis76/fne-lms/actions/runs/30601851610) | Baseline — reworked gate 4 on the real topology | `decf9e4` | RED — 7/8, locator ambiguity (not access) |
+| [2](https://github.com/brentcurtis76/fne-lms/actions/runs/30602316662) | Locator fixed | `c6e3c99` | **GREEN — 8 passed (8.6s)** |
+| [3](https://github.com/brentcurtis76/fne-lms/actions/runs/30602616645) | **Skip-guard demonstration** — scratch `test.skip` on a mandatory spec | `48c5806` | specs step SUCCEEDS (7/8), **guard step FAILS** |
+| [4](https://github.com/brentcurtis76/fne-lms/actions/runs/30602963208) | Scratch skip reverted | `c123727` | **GREEN — 8 passed (9.6s)**, all six checks |
 
 Run URLs and the guard's failure output are recorded in [`ci-runs.md`](ci-runs.md).
 

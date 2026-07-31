@@ -10,9 +10,9 @@
 | Branch | `feat/zoom-core` (PR [#26](https://github.com/brentcurtis76/fne-lms/pull/26), **draft — not marked ready**) |
 | Base | `origin/main` @ `18057e2` (absorbed mid-phase via merge `5d54f12`, which brought the contracts track `c878ec7`) |
 | Implementation head, Z1b-4·r1 | `ae210a5` (`4b71b3c` → `ccb8fce` → `ae210a5`) |
-| Head at THIS request | the four **Z1b-sol2** fix commits below, on top of the Sol R2 archive `c552594` |
-| Commits ahead of `origin/main` | 28 through `ae210a5`; + the review/archive doc commits; + the six Z1b-sol1 fix commits; + the four Z1b-sol2 fix commits |
-| `origin/main` this round | **deliberately NOT merged** — Sol R3's scope is the Z1b-sol2 fix commits only |
+| Head at THIS request | the three **Z1b-sol3** fix commits below, on top of the Sol R3 archive `c39c6af` |
+| Commits ahead of `origin/main` | 28 through `ae210a5`; + the review/archive doc commits; + the six Z1b-sol1 fix commits; + the four Z1b-sol2 fix commits; + the three Z1b-sol3 fix commits |
+| `origin/main` this round | **deliberately NOT merged** — Sol R4's scope is the Z1b-sol3 fix commits only |
 | Net diff vs `origin/main` (at `ae210a5`) | 53 files, +11734/−70 |
 | This chunk (Z1b-4) alone | merge `5d54f12` + 3 commits; 15 files, +2484/−92 |
 | Z1b-4·r1 remediation | `ccb8fce` (fix + tests + `PROJECT_STATE.md`) + `ae210a5` (type-clean); 2 PM findings, no scope beyond them |
@@ -111,6 +111,97 @@ dials), 0 secrets, 0 real PII. New identifiers this round are synthetic and iner
 `synthetic-zm-request-id-0003`/`0004`/`0042`, dedupe key `synthetic-dedupe-0001`, and the
 placeholder service-role string `sb_secret_synthetic_service_role_key`, which is a literal in a
 test that never reaches a network.
+
+## Sol R3 remediation — round Z1b-sol3
+
+Sol's round 3 (re-review of Z1b-sol2 at head `c39c6af`) returned **REQUEST CHANGES** with
+**1 MAJOR / 1 MAJOR-minus / 1 MINOR**; the PM triaged **all three VALID** (archive + triage in
+the verdict file, committed at `c39c6af`). **Sol R4's scope is the fix commits below only** —
+`origin/main` was deliberately NOT merged this round.
+
+Commit order is ② → ① → ③, not ①-first: ① reuses ②'s tightened requirement set through
+`findUnusableProvisionedMeetingFields`, so ② has to land first for ①'s commit to stand alone.
+
+| SHA | Finding | What changed |
+|---|---|---|
+| `3470672` | **② MAJOR-minus** fail-closed create validation | `password` and `settings` are now REQUIRED in a create response, not type-checked only when present, and `settings` must carry an **explicit string `auto_recording`**. `meeting_provision` sends both on every create, so a 2xx without them is anomalous — and `mapMeeting`'s `?? ''` / `?? {}` turned that absence into a persisted empty passcode and an empty `effective_settings`, which §9.4 reads as a clean `'none'`. Failure ⇒ `ZoomUnusableSuccessError`, i.e. the ambiguous unusable-success classification: reservation stays `pending`, no `markProvisioned`, no projection. The two `fake.test.ts` tests that asserted the OLD optional-when-present semantics are **inverted, not deleted**. |
+| `a67bc18` | **① MAJOR** operator-recovery completed from Zoom | `alreadyCreated` keyed on the number alone, so an operator-resolved row (`pending` + the discovered number + the park marker, nothing else) took the replay path built for `markProvisioned`-completed rows: no `markProvisioned`, NULL passcode/join_url/effective settings, marker uncleared, and a `scheduled` projection for a meeting nobody could join. The states are now split by STATUS — `provisioned` (or later) + number ⇒ today's replay, unchanged; `pending` + number ⇒ **recovery**: `ZoomApi.getMeeting` re-reads the meeting, the result must clear ②'s bar (`findUnusableProvisionedMeetingFields`) plus an identity check that Zoom answered about the number we asked for, and only then does **one** `markProvisioned` write number + passcode + join_url + effective settings + `provisioned`, clearing `last_error` in the SAME UPDATE. Projection publishes after that write, never before. A failing or unusable read-back ⇒ **zero writes**, terminal under a distinct `recovery_unusable` reason carrying the recorded number as `detail`. `createMeeting` is unreachable from every recovery outcome: each "do not create" guard now reads `hasNumber`. Resolution 2 (clear `last_error`, no number) is untouched. |
+| `830d31d` | **③ MINOR** classification commentary | Three code comments claimed the three unusable-2xx paths were unified under one class. One **outcome** is true; one **class** is not — empty and schema-invalid are `ZoomUnusableSuccessError` (`non_retryable`), client-level unparseable JSON stays a `ZoomRetryableError` with an explicit `outcome: 'ambiguous'` (`client.ts:269`). `api.ts`'s create block, `ZoomUnusableSuccessError`'s own doc comment and the `fake.test.ts` commentary now state the asymmetry and why it is deliberate (that path is generic client machinery shared with GET/PATCH, where `retryable` is the right kind). The classes were **not** unified — that would have changed GET semantics. Pinned by assertion too: the unparseable-2xx test now asserts the error is NOT a `ZoomUnusableSuccessError` and that its kind is `retryable`. `fase-3-pm-dossier.md` and the ledger carry the same overclaim in the PM's own words and are deliberately untouched. |
+
+### Fail-on-old evidence (Z1b-sol3)
+
+Same method: revert **only** the source file(s) to `c39c6af`, re-run the new tests. ①'s check
+keeps HEAD's `api.ts` (②'s rules) and reverts only `meeting-provision.ts`, so the two findings
+are measured independently.
+
+| Finding | Pre-fix observation |
+|---|---|
+| ① | **5 of 5** new tests fail against `c39c6af`'s handler (52 pass at this head): *a resolved park RECOVERS: the row is completed from Zoom before anything publishes* · *derives §9.4 drift from the RECOVERY read-back, never from the empty row* · *leaves the parked row UNTOUCHED when recovery hits* {a number that does not answer at Zoom · a read-back with no passcode · a read-back whose settings never state auto_recording}. On the old handler the row stays `pending` with NULL passcode/join_url/effective settings, the marker survives, the projection publishes anyway, and the drift case reports `'none'` for a meeting Zoom says is recording to the cloud. |
+| ② | **10 tests** fail against `c39c6af`'s `lib/zoom/api.ts` (106 pass at this head): 7 adapter-level in `fake.test.ts` (5 new bodies — omitted password · blank password · omitted settings · settings with no `auto_recording` · non-string `auto_recording` — plus the inverted omits-the-optional-fields test and the new `settings: {}` unit case) and 3 end-to-end in `meeting-provision.test.ts` driving the REAL live adapter over an intercepted fetch (`{id, join_url, settings:{}}` · omitted settings · omitted password). On the old source each of those completes the job with `effective_auto_recording: 'none'`, `settings_drift: false`, and a row carrying an empty passcode. |
+| ③ | **Not applicable by design** — ③ is a commentary fix over behaviour that is already correct, so its two new assertions (the unparseable 2xx is NOT a `ZoomUnusableSuccessError`; its kind is `retryable`) pass on both sides. They exist to make a future silent unification fail loudly, not to prove a fix. |
+
+### Gates at the Z1b-sol3 head
+
+| Gate | Result |
+|---|---|
+| `npm run type-check` | clean (exit 0) |
+| `npm run lint` (zero warnings) | clean (exit 0) |
+| `npm test` | **3723/3723 in 239 files** (from **3710/239** at `c39c6af`: **+13 / +0**) |
+| `npm run build` | OK |
+| `npm run test:db` | **PASS — 6 files, 91 tests** — unchanged this round (no migration touched), re-run to prove it |
+| `npm run test:queue` | **PASS** — 40 jobs, 2 concurrent loops, split **21/19**, every job executed exactly once |
+
+Per-file test delta: `fake.test.ts` 52→**58** (+6) · `meeting-provision.test.ts` 45→**52** (+7).
+6+7 = the +13 above; no other suite moved.
+
+**Scanners, this round:** both committed scanners (`scripts/spikes/webhook/scan-identifiers.mjs`,
+`scan-credentials.mjs`) still exit **2** in this worktree — same cause as the previous three
+rounds: their input, `scripts/spikes/webhook/captures/events.jsonl`, is gitignored and lives in
+the spike worktree, so they scanned nothing. Reported as exit 2, **not** as a pass; the PM re-runs
+the real replication. Manual audit of the Z1b-sol3 diff `c39c6af..830d31d` — 5 files, +507/−89:
+0 emails, 0 non-synthetic URLs (only `example-synthetic.test` and `x.test`, neither dialled),
+0 secrets, 0 real PII. New identifiers this round are synthetic and inert: meeting number
+`82000000999` (the `82xxxxxxxxx` range, deliberately absent from the fake so the read-back 404s)
+and the passcode literal `rec0very77` on a fake-minted meeting; `82000000042` and `246813` are
+pre-existing fixture values reused verbatim.
+
+### What to scrutinize in Z1b-sol3
+
+**A. The recovery trigger is `status === 'pending'`, not the marker.** Sol's finding specifies
+`pending` + number + the ambiguous marker. The implementation keys on `pending` + number and reads
+the marker only to carry its `request_id` onto the failure. That is deliberately BROADER: keying
+on the marker would leave `pending` + number **without** a marker on the old replay path — the
+same defect, differing only in how the number got there. Nothing this handler writes produces
+that state, so today it is operator-only either way. The judgment to check is the other edge:
+every row with a number and any status OTHER than `pending` still takes the replay path
+unchanged, which is what keeps a `started`/`ended` row from being dragged back to `provisioned`.
+
+**B. Anchor 1 was split into two variables.** `hasNumber` (number present) now drives every "do
+not create" guard — adoption, the parked gate, the held-reservation reuse, the meeting-id
+resolution — while `alreadyCreated`/`operatorRecovery` only choose which finishing branch runs.
+If any guard were left reading `alreadyCreated`, a recovery row would fall through to the
+candidate walk and create a SECOND meeting. Worth re-deriving from the source rather than trusting
+the tests: this is the one refactor in the round that could reintroduce R1-F4.
+
+**C. Recovery does no heartbeat before its Zoom GET.** The adopt path deliberately skips the
+heartbeat (it would overwrite the checkpoint); recovery skips it for a weaker reason — there is no
+checkpoint to protect and the branch is one short GET plus one UPDATE. A lost lease during that
+GET means `markProvisioned` is written by a worker that no longer owns the job. The write is
+absolute and idempotent, so the outcome is the same row either way, but it is a departure from the
+create path's "checkpoint before the network" discipline and is called out rather than hidden.
+
+**D. ② is a fail-closed tightening of a live-account contract.** The evidence that Zoom always
+reflects `password` and `settings.auto_recording` on a create is the Z0B spike plus this
+integration always sending both. If a real account ever answers 201 without them, provisioning
+now parks instead of completing — the deliberate trade (a human-triage event over a silently
+unjoinable meeting), but it is the one change in this round whose blast radius is the live API's
+behaviour rather than this repo's.
+
+**E. `findUnusableProvisionedMeetingFields` validates AFTER `mapMeeting`.** It projects the mapped
+meeting back to wire names and delegates to `findUnusableCreateFields`, so there is exactly one
+rule set. The claim to check is that the map is lossless for these four fields — absent `password`
+arrives as `''`, absent `settings` as `{}` — and that GET semantics are untouched for every other
+reader of `getMeeting`.
 
 ## Objective and scope (from plan §15, Z1b)
 

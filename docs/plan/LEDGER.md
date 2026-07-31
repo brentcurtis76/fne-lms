@@ -263,3 +263,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: (1) `[A2]`'s negative claim ("no other policies") is asserted directly off `pg_policies` — one aggregate of `policyname|cmd|roles`, plus a count of policies with non-NULL `with_check` — rather than pgTAP's `policies_are`/`policy_cmd_is`, to avoid depending on the installed pgTAP version. (2) Assert count is 21, not the prompt's ~16: added the two structural policy asserts, `consent_notice_version` NOT NULL (the criterion names the consent columns plural), docente DELETE, and a `set_updated_at` trigger check — the trigger is in the [A1] spec and nothing else in the suite would catch its absence. No assert from the prompt's list was dropped. (3) `UNIQUE` shipped as a named table constraint rather than a `CREATE UNIQUE INDEX` (baseline style) so the 23505 carries the constraint name the A5 dedup path will branch on.
 - BACKLOG ADDED: none. Flagged for the plan, not the backlog: `num_people`'s upper bound of 60 has no recorded product rationale — implemented as specced, not invented.
 - OPEN AFTER THIS ROUND: PM independent verification, then Codex final review. A5 (lead API) is unblocked on the schema side once A4 lands; A5 must not introduce any authenticated write path, or D-03's app-layer transition guard stops being authoritative.
+
+### 2026-07-31 — A2 round r1 — Fable (PM verification)
+- CONTEXT PRESSURE: n/a
+- ACTION: Independent verification. Read the migration in full — header documents the per-operation matrix + forward-only rollback; SELECT-only admin policy with no WITH CHECK anywhere; consent columns NOT NULL no-default; marketing all-or-nothing CHECK; additive-safe idempotent constructs. PM re-ran `npm run test:db` after the executor's reset: 5 files / 47 tests PASS incl. all 21 new asserts. Deviations accepted (21 vs ~16 asserts — all additions justified; TAP evidence committed per PLAN META). Assumptions noted for Codex: service_role impersonation via set_config+BYPASSRLS stand-in; grants left to Supabase defaults (behavior proven, not grants); named UNIQUE constraint for A5's 23505 branch. D-03 storage-layer note is correct per plan.
+- COMMITS: (this ledger commit)
+- TESTS: `npm run test:db` → PASS 47/47 (PM re-run)
+- FINDINGS RAISED: none. Codex scrutiny items: the impersonation stand-in; policy-inventory asserts.
+- DECISIONS: deviations accepted.
+- BACKLOG ADDED: none (num_people≤60 rationale question noted in review-request; not blocking).
+- OPEN AFTER THIS ROUND: **A2 clean — ready for Codex final review.** PR opened by PM for CI evidence.

@@ -125,3 +125,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: 1 Decision Log row (second correction, structure + title)
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: Appendix A remaining: **A-9 claims, A-10 RUT + street address, A-11 WhatsApp, A-12 testimonios, A-14/A-15 consent ratification** (A-5/A-6 now closed; week-2 day-order stays flexible by design). Then [A1] sign-off → A1 dispatchable and A0 → Codex. A7b/B1a still awaiting Brent's "go".
+
+### 2026-07-31 — A0 [A1] sign-off + dispatch authorization — Fable (PM, owner input)
+- CONTEXT PRESSURE: n/a
+- ACTION: Brent completed the content brief in one message: claims confirmed (A-9, earlier today); **legal identity** — nombre legal Fundación Instituto Relacional, fantasía Fundación Nueva Educación, RUT 65.166.503-5, Carlos Silva Vildósola 10448, La Reina, Santiago (A-10); **WhatsApp +56 9 4162 3577** (A-11); **testimonios = launch without**, 2–3 later (A-12); **consent sentences APPROVED as drafted** (A-14/A-15, ratifying version `2026-07-v1`/A-13). A-8 validity resolved by design ("precios vigentes para la cohorte", no fixed date). **Appendix A fully approved → A0 [A1] satisfied**; Decision Log row added. Remaining before A0 → Codex: executor round 2 fills the real legal-identity values (legal/brand name split — shipped code says legalName 'Fundación Nueva Educación', which is the fantasy name; interface needs brandName vs legalName). Brent authorized dispatch of A7b + B1a ("go"). PM dispatching three executor prompts: A7b (`phase/a7b-contact`), B1a (`phase/b1a-expmail`), A0-r2 (continues `phase/a0-content`) — all under the mandatory own-worktree rule. Note for B1a: scope explicitly includes migrating `lib/bots/expense-service.ts` off `/api/send-email` (v2 B1 carried it; the v4 split text dropped the mention, but B1b's "no live caller" criterion is unsatisfiable without it — same architectural concern).
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 1 Decision Log row (Appendix A approved; A0 [A1] satisfied; dispatch authorized)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: Three executor rounds in flight once Brent pastes the prompts (A7b r1, B1a r1, A0 r2). A1 becomes dispatchable after A0 closes (Codex PASS + merge). LEDGER copies will diverge across the three branches — union at merges, keep all entries.

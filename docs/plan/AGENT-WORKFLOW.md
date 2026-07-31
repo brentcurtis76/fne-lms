@@ -19,13 +19,29 @@ copy-paste prompts.
 The PM must **never** fix code it finds broken. It writes a finding; a fresh
 executor fixes it. This is the whole reason the loop exists.
 
-### 1.2 Files (adapt paths to whatever the project already uses)
+### 1.2 Files
+
+A **new** workstream gets its own slug directory. The slug is its §1.8 `PROJ` prefix
+lowercased, so `INSPIRA` ⇄ `docs/plan/inspira/`:
 
 ```
-<project>/docs/plan/PLAN.md        # the frozen plan + phase status
-<project>/docs/plan/LEDGER.md      # append-only, one entry per ROUND
-<project>/docs/plan/reviews/       # Codex review artifacts per phase
+docs/plan/<slug>/PLAN.md      # the frozen plan + phase status
+docs/plan/<slug>/LEDGER.md    # append-only, one entry per ROUND
+docs/plan/<slug>/reviews/     # reviewer artifacts per phase
+docs/plan/<slug>/evidence/    # committed proof per phase
+docs/plan/<slug>/prompts/     # PM-written executor prompts (optional)
 ```
+
+The slug directory exists because `PLAN.md` is not a unique name and one repo
+routinely holds several workstreams. Without it the second workstream has to invent a
+workaround — a suffixed filename, or its own subtree — and by the third you have three
+conventions and no way to tell from a path which plan you are looking at.
+
+**Existing workstreams keep whatever layout they have.** This is a rule for new work;
+migrate an old one only at a phase boundary, or never. Anything reading these files
+should resolve `docs/plan/<slug>/` first, then fall back to the older shapes: a
+directory holding both `PLAN.md` and `LEDGER.md`, or a single plan document with an
+embedded ledger section.
 
 **The ledger is written at the end of every round, not every phase.** Any PM
 conversation is disposable; a fresh one re-seeds from these two files.

@@ -47,9 +47,11 @@ test.describe('CI fixtures — admin storage state', () => {
     await page.goto(ADMIN_ONLY_PAGE);
     // Two gates have to pass for this heading to render: the middleware role
     // check on /admin/* and the page's own getUserPrimaryRole() check.
-    await expect(page.getByRole('heading', { name: ADMIN_PAGE_HEADING })).toBeVisible({
-      timeout: 30_000,
-    });
+    // Scoped to the main landmark: the layout renders the same title twice
+    // (page heading + layout header), which trips Playwright's strict mode.
+    await expect(
+      page.getByRole('main').getByRole('heading', { name: ADMIN_PAGE_HEADING })
+    ).toBeVisible({ timeout: 30_000 });
     await expect(page).toHaveURL(new RegExp(`${ADMIN_ONLY_PAGE}(\\?|$)`));
   });
 });

@@ -1,15 +1,23 @@
 import React from 'react';
+import {
+  PRIVACY_NOTICE_UPDATED_LABEL,
+  PRIVACY_NOTICE_VERSION,
+} from '../lib/legal/privacy-notice';
 
 /**
  * Privacy policy body (Ley 21.719), shared by the footer modal
  * (PrivacyPolicyModal) and the standalone public page (/privacidad) that the
  * signup consent checkboxes link to.
+ *
+ * The update date and version come from constants, not the clock: consent
+ * records cite the notice version they were given, so what this page shows must
+ * be the same on every request.
  */
 export default function PrivacyPolicyContent() {
   return (
     <div className="prose prose-gray max-w-none">
-      <p className="text-sm text-gray-600 mb-4" suppressHydrationWarning>
-        Última actualización: {new Date().toLocaleDateString('es-CL')}
+      <p className="text-sm text-gray-600 mb-4" data-testid="privacy-notice-version">
+        Última actualización: {PRIVACY_NOTICE_UPDATED_LABEL} · Versión {PRIVACY_NOTICE_VERSION}
       </p>
 
       <h3 className="text-lg font-semibold mb-3">1. Información que Recopilamos</h3>

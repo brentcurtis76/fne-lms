@@ -55,7 +55,7 @@ Improve communication and sales of Pasantías INSPIRA Barcelona for the **Octobe
 | ID | Name | Status | Branch | Depends on |
 |----|------|--------|--------|-----------|
 | A0 | Content brief sign-off + privacy notice versioning + consent copy (both checkboxes) | TODO | `phase/a0-content` | — |
-| T2 | CI e2e topology: local Supabase stack + seeded fixtures + mandatory specs | TODO | `phase/t2-ci` | — |
+| T2 | CI e2e topology: local Supabase stack + seeded fixtures + mandatory specs | **DONE 2026-07-31** (Codex PASS; code head `eb908ed`, PR #27) | `phase/t2-ci` | — |
 | A1 | Cohort data modules + leak guard + homepage date fix | TODO | `phase/a1-cohort` | A0 |
 | A2 | `pasantias_leads` migration + per-op RLS + pgTAP (DB-agent) | TODO | `phase/a2-leads-db` | A0 |
 | A3 | Brochure + ficha generators + PDF text/visual QA | TODO | `phase/a3-pdfgen` | A1 |
@@ -333,6 +333,8 @@ The v2 B11 preflight as its own evidence phase: DKIM/SPF verified; DMARC present
 | 2026-07-30 | **Arbitration on Codex R2 (cap reached):** (1) marketing = separate optional opt-in with own evidence (D-12); (2) tombstones truly permanent — no authenticated DELETE anywhere, per-operation RLS (D-04); (3) D-02 narrowed to repository-authored content + non-blocking composer warning; (4) SOP sizing honored — 8 phases pre-split (A6, A7, B1, B4, B7, B9, B10, B11 → 30-phase index) | REVIEW-PLAN-R2.md §arbitration | Brent |
 | 2026-07-30 | v3 mechanical fixes: atomic webhook RPC; completion predicate incl. `sending` rows + two-worker test; zero-queue stays draft; send re-POST → 409; campaign `failed` status removed; bounded drain ticks; B1 split to cover expense-mail chain (`utils/emailUtils.ts`, `pages/expense-reports.tsx`); T2 rebuilt as isolated local Supabase CI topology with admin+docente fixtures; evidence directories under docs/plan/evidence/ | REVIEW-PLAN-R2.md B-03..B-06, S-01..S-05 | Fable (accepting Codex) |
 | 2026-07-30 | **R3 residue resolution (§1.5) + FREEZE:** residue 1 → sanitized PII-free webhook ledger (allowlist projection inside `process_webhook_event`; sweep assertion post-anonymization); residue 2 → generic client-side currency pattern for the composer warning (no protected values client-side). Both are Codex's recommended remedies, closing all open findings; plan frozen v4 on Brent's authority | REVIEW-PLAN-R3.md §residue | Brent |
+| 2026-07-31 | **Process amendment (binding):** every executor session runs in its own dedicated `git worktree` — never the shared checkout — and concurrent sessions must not share the local Supabase stack (DB-touching gate runs serialize). Cause: A0/T2 shared-checkout collision silently misplaced a commit (recovered; `rescue/a0-6e69c9e` fidelity-confirmed). Enforced via every executor prompt. | A0/T2 round-1 findings | Fable (PM) |
+| 2026-07-31 | T2 execution deviations accepted: gate-4 job timeout 20→30 min; Supabase CLI pinned (gate 4 only); `.gitignore` negation for fixtures JSON; real-login storageState over minted tokens; CI-as-evidence for gates. T2 DONE — Codex PASS, 2 NITs logged (stale ci.yml header comment; evidence README run-number) | REVIEW-T2.md | Fable (PM) |
 
 ## Appendix A — Content brief (v0 — DRAFT, awaiting owner sign-off in A0)
 

@@ -338,7 +338,10 @@ The v2 B11 preflight as its own evidence phase: DKIM/SPF verified; DMARC present
 
 ## Appendix A — Content brief (v0 — DRAFT, awaiting owner sign-off in A0)
 
-Unchanged from v2 (items A-1..A-13; PENDING: A-4 day-1 shape, A-5 7th school, A-9 claims, A-10 legal identity/address, A-11 WhatsApp, A-12 testimonios) **plus**:
+Unchanged from v2 (items A-1..A-13; PENDING: A-5 7th school, A-9 claims, A-10 legal identity/address, A-11 WhatsApp, A-12 testimonios) **plus**:
+| # | Item | Value | Status |
+|---|---|---|---|
+| A-4 | Day shape, both Mondays (Brent 2026-07-31) | **No program activity on lunes 12-oct** (Fiesta Nacional, colegios cerrados — día libre/llegada) **nor on lunes 19-oct** (día libre en Barcelona o fin de semana largo para conocer Europa). School visits run **mar 13–vie 16** and **mar 20–vie 23** = **8 días de visitas** across two weeks. (Usual format is 9 days — 5 + lun–jue; this cohort is 4+4 because of the holiday.) Marketing copy says "dos semanas" and shows the honest day-by-day; the old brochure's "10 días" claim is retired. | OK (Brent) |
 | # | Item | Value | Status |
 |---|---|---|---|
 | A-14 | Processing-consent sentence (es-CL) | drafted in A0, owner-approved | in A0 scope |

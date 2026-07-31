@@ -25,7 +25,7 @@ const ENV = {
   ZOOM_S2S_ACCOUNT_ID: 'AcctSynthetic0001XXXXXX',
   ZOOM_S2S_CLIENT_ID: 'S2sClientIdInvented1',
   ZOOM_S2S_CLIENT_SECRET: 'S2sClientSecretInvented00001',
-} as NodeJS.ProcessEnv;
+} as unknown as NodeJS.ProcessEnv;
 
 /** An in-memory stand-in for the single row. Records every call for assertions. */
 function memoryStore(seed: Parameters<ZoomTokenCacheStore['write']>[0] | null = null) {
@@ -424,7 +424,9 @@ describe('createZoomTokenProvider — error taxonomy', () => {
     ) as unknown as typeof fetch;
     const provider = createZoomTokenProvider({ store: memoryStore().store, fetchImpl: impl, env: ENV });
 
-    const error = await provider.getToken().catch((e: Error) => e);
+    // `.catch` widens the result to `string | Error`; this call is asserted to reject,
+    // so narrow to the rejection arm.
+    const error = (await provider.getToken().catch((e: Error) => e)) as Error;
     expect(error.message).toContain('Invalid client_id or client_secret');
     expect(error.message).not.toContain(ENV.ZOOM_S2S_CLIENT_SECRET as string);
   });

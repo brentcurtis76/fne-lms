@@ -409,9 +409,11 @@ describe('secret and identifier containment', () => {
   it('never puts the bearer token or the query string in an error message', async () => {
     const { client } = build([{ status: 400, body: { code: 300, message: 'Invalid meeting id' } }]);
 
-    const error = await client
+    // `.catch` widens the result to `ZoomResponse | Error`; this call is asserted to
+    // reject, so narrow to the rejection arm.
+    const error = (await client
       .get('/meetings/84177662364/recordings', { download_access_token: 'a-live-download-token', ttl: 3600 })
-      .catch((e: Error) => e);
+      .catch((e: Error) => e)) as Error;
 
     expect(error.message).not.toContain('token-1');
     expect(error.message).not.toContain('a-live-download-token');
@@ -429,7 +431,7 @@ describe('secret and identifier containment', () => {
       maxAttempts: 1,
     });
 
-    const error = await client.get('/users/me').catch((e: Error) => e);
+    const error = (await client.get('/users/me').catch((e: Error) => e)) as Error;
     expect(error.message.length).toBeLessThan(400);
   });
 });

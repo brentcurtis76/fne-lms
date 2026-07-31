@@ -431,22 +431,24 @@ describe('getZoomApi — the ZOOM_MODE switch (§14)', () => {
   it('throws on an unrecognised value rather than defaulting to live', () => {
     // A typo must not silently become the mode that talks to the real account.
     for (const value of ['Mock', 'MOCK', 'fake', 'true']) {
-      expect(() => resolveZoomMode({ ZOOM_MODE: value } as NodeJS.ProcessEnv)).toThrow(ZoomConfigError);
+      expect(() => resolveZoomMode({ ZOOM_MODE: value } as unknown as NodeJS.ProcessEnv)).toThrow(
+        ZoomConfigError
+      );
     }
   });
 
   it('returns a stateful singleton in mock mode', async () => {
-    const api = getZoomApi({ ZOOM_MODE: 'mock' } as NodeJS.ProcessEnv);
+    const api = getZoomApi({ ZOOM_MODE: 'mock' } as unknown as NodeJS.ProcessEnv);
     const created = await api.createMeeting(provisionInput());
 
     // A later job must see what an earlier one provisioned.
-    const again = getZoomApi({ ZOOM_MODE: 'mock' } as NodeJS.ProcessEnv);
+    const again = getZoomApi({ ZOOM_MODE: 'mock' } as unknown as NodeJS.ProcessEnv);
     expect(again).toBe(api);
     await expect(again.getMeeting(created.id)).resolves.toMatchObject({ id: created.id });
   });
 
   it('hands back the fake, traps and all', async () => {
-    const api = getZoomApi({ ZOOM_MODE: 'mock' } as NodeJS.ProcessEnv);
+    const api = getZoomApi({ ZOOM_MODE: 'mock' } as unknown as NodeJS.ProcessEnv);
     const created = await api.createMeeting(provisionInput({ settings: { auto_recording: 'nube' } }));
     expect(created.settings.auto_recording).toBe('none');
   });

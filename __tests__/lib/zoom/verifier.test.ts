@@ -309,7 +309,7 @@ describe('safeCompare', () => {
 
 describe('readWebhookSecret', () => {
   it('reads ZOOM_WEBHOOK_SECRET_TOKEN', () => {
-    expect(readWebhookSecret({ ZOOM_WEBHOOK_SECRET_TOKEN: 'value' } as NodeJS.ProcessEnv)).toBe('value');
+    expect(readWebhookSecret({ ZOOM_WEBHOOK_SECRET_TOKEN: 'value' } as unknown as NodeJS.ProcessEnv)).toBe('value');
   });
 
   it('throws a config error naming the variable, never a value', () => {
@@ -318,7 +318,7 @@ describe('readWebhookSecret', () => {
   });
 
   it('rejects an empty value as absent', () => {
-    expect(() => readWebhookSecret({ ZOOM_WEBHOOK_SECRET_TOKEN: '' } as NodeJS.ProcessEnv)).toThrow(
+    expect(() => readWebhookSecret({ ZOOM_WEBHOOK_SECRET_TOKEN: '' } as unknown as NodeJS.ProcessEnv)).toThrow(
       ZoomConfigError
     );
   });

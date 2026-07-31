@@ -23,14 +23,16 @@ import {
   COHORT_WEEKS,
   COHORT_EXPERTS,
 } from '../../lib/pasantias/cohort-public';
+import * as cohortCommercialModule from '../../lib/pasantias/cohort-commercial';
 import {
   BROCHURE_FILENAME,
   BROCHURE_VERSION,
+  COHORT_LODGING_NOTE,
+  COHORT_LODGING_PER_NIGHT_EUR,
   COHORT_MADRID_EXTENSION,
   COHORT_MIN_PARTICIPANTS,
   COHORT_PAYMENT_TERMS,
   COHORT_PRICE_ITEMS,
-  COHORT_PRICE_TOTAL,
   COHORT_PRICE_VALIDITY,
   COMMERCIAL_SENTINEL,
 } from '../../lib/pasantias/cohort-commercial';
@@ -246,16 +248,26 @@ describe('public cohort module — programme content (Appendix A-7)', () => {
     }
   });
 
-  it('states lodging without a night count while A-16 is open', () => {
-    const lodging = COHORT_INCLUDES.filter((item) => /alojamiento/i.test(item));
-    expect(lodging).toEqual(['Alojamiento en Barcelona (base doble)']);
+  it('does not present lodging as an inclusion at all (A-8 amended 2026-07-31)', () => {
+    // Lodging is quoted separately as a per-night band, so it is neither part of
+    // the programme nor public data. The retired "base doble" package must not
+    // survive anywhere in the public module.
+    expect(COHORT_INCLUDES.filter((item) => /alojamiento/i.test(item))).toEqual([]);
+    expect(JSON.stringify(COHORT_PUBLIC)).not.toMatch(/base doble/i);
+    // The city itself is not a price, and stays.
     expect(COHORT_LODGING_AREA).toBe('Barcelona');
   });
 
-  it('makes no per-day meal or night claim while A-16 is open', () => {
+  it('carries the meals line in the source’s own generic phrasing (A-16 closed)', () => {
+    expect(COHORT_INCLUDES).toContain(
+      'Comidas incluidas en los días de visita y cena de cierre'
+    );
+  });
+
+  it('claims no night count and no per-day meal mapping', () => {
     const text = COHORT_INCLUDES.join(' | ');
-    expect(text).not.toMatch(/comidas en días de visita/i);
     expect(text).not.toMatch(/\d+\s*(?:noches?|días?)/i);
+    expect(JSON.stringify(COHORT_PUBLIC)).not.toMatch(/por noche/i);
   });
 
   it('names the three Madrid extension schools', () => {
@@ -285,16 +297,61 @@ describe('public cohort module — no monetary data (D-01)', () => {
 
   it('carries no numeric field that could be an amount in disguise', () => {
     const serialized = JSON.stringify(COHORT_PUBLIC);
-    for (const amount of ['1000', '1.000', '1560', '1.560', '560', '810']) {
-      expect(serialized).not.toContain(amount);
+    // Live commercial amounts plus the two the A-8 amendment retired (560 and
+    // the 1.560 total), which must never reappear on a public surface. Matched
+    // as whole numbers so an unrelated future figure inside a longer number
+    // cannot fail this.
+    for (const amount of ['1000', '1\\.000', '1560', '1\\.560', '560', '810', '70', '120']) {
+      expect(serialized).not.toMatch(new RegExp(`(?<!\\d)${amount}(?!\\d)`));
     }
   });
 });
 
-describe('commercial cohort module (Appendix A-8)', () => {
-  it('adds the programme and lodging into the published total', () => {
-    expect(COHORT_PRICE_ITEMS.map((item) => item.amount)).toEqual([1000, 560]);
-    expect(COHORT_PRICE_TOTAL).toBe(1560);
+/** Every number reachable from the module's exports, however deeply nested. */
+function collectNumbers(value: unknown, found: number[] = []): number[] {
+  if (typeof value === 'number') {
+    found.push(value);
+  } else if (Array.isArray(value)) {
+    for (const item of value) collectNumbers(item, found);
+  } else if (value && typeof value === 'object') {
+    for (const item of Object.values(value)) collectNumbers(item, found);
+  }
+  return found;
+}
+
+describe('commercial cohort module (Appendix A-8, amended 2026-07-31)', () => {
+  it('prices the programme at €1.000 and nothing else as a fixed amount', () => {
+    expect(COHORT_PRICE_ITEMS.map((item) => item.amount)).toEqual([1000]);
+    expect(COHORT_PRICE_ITEMS.map((item) => item.id)).toEqual(['programa']);
+  });
+
+  it('quotes Barcelona lodging as a per-person-per-night band, €70–€120', () => {
+    const { min, max } = COHORT_LODGING_PER_NIGHT_EUR;
+    expect(min).toBe(70);
+    expect(max).toBe(120);
+    expect(min).toBeGreaterThanOrEqual(70);
+    expect(min).toBeLessThan(max);
+    expect(max).toBeLessThanOrEqual(120);
+    expect(COHORT_LODGING_NOTE).toBe(
+      'Alojamiento en Barcelona: entre €70 y €120 por persona por noche, según el tipo de alojamiento.'
+    );
+  });
+
+  it('publishes no combined total — the retired €1.560 package is gone', () => {
+    // A range times an unstated number of nights has no total, so the module
+    // must not export one: neither the old literal nor any programme+lodging sum.
+    expect(cohortCommercialModule).not.toHaveProperty('COHORT_PRICE_TOTAL');
+    expect(Object.keys(cohortCommercialModule.COHORT_COMMERCIAL)).not.toContain('total');
+
+    const programme = COHORT_PRICE_ITEMS[0].amount;
+    const { min, max } = COHORT_LODGING_PER_NIGHT_EUR;
+    const forbidden = new Set([1560, programme + min, programme + max]);
+    for (const number of collectNumbers(cohortCommercialModule)) {
+      expect(forbidden.has(number)).toBe(false);
+    }
+
+    // Nor as a string anywhere in the module's copy.
+    expect(JSON.stringify(cohortCommercialModule)).not.toMatch(/(?<!\d)1[.,]?560(?!\d)/);
   });
 
   it('quotes the Madrid extension separately from the total', () => {

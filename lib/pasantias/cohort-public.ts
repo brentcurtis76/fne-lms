@@ -221,28 +221,24 @@ export const COHORT_DAY_STRUCTURE: readonly CohortDayBlock[] = [
 ] as const;
 
 /**
- * Appendix A-7 "el programa incluye", verbatim apart from sentence casing and
- * the two A-16 holds:
+ * Appendix A-7 "el programa incluye", verbatim apart from sentence casing.
  *
- * - lodging says only "(base doble)" — the source's night count is still open
- *   with the owner (A-16), and nothing here may imply one;
- * - the source's "comidas en días de visita" is omitted for the same reason: the
- *   meal-to-day mapping it describes is January's one-week shape. The closing
- *   dinner survives on its own because the excludes line below asserts it
- *   ("cenas, salvo la de cierre") and carries no A-16 hold.
+ * Lodging is deliberately absent: the owner's 2026-07-31 amendment to A-8 made
+ * Barcelona lodging a separately quoted per-night range rather than part of the
+ * programme, so it is neither an inclusion nor public data — the band lives in
+ * the commercial module only (D-01/D-02).
  *
- * When A-16 is answered these two items get their detail back; until then no
- * surface may state nights or per-day meals.
+ * A-16 is closed: the meals line is the source's own generic phrasing, which
+ * makes no per-day claim, and no surface states a night count.
  */
 export const COHORT_INCLUDES: readonly string[] = [
   'El pago de las visitas a las escuelas',
   'Los talleres de la tarde con especialistas',
-  'Alojamiento en Barcelona (base doble)',
   'Los honorarios de la dirección del programa, los relatores y el equipo de facilitadores de FNE que acompañan a los pasantes',
   'Bibliografía básica recomendada para preparar el viaje, una bitácora y un sistema de registro de los aprendizajes presentado al menos un mes antes del viaje',
   'Desayuno a media mañana en las escuelas',
   'Transporte para las visitas a El Puig y Les Vinyes',
-  'Cena de cierre',
+  'Comidas incluidas en los días de visita y cena de cierre',
 ] as const;
 
 /** Appendix A-7 "el programa NO incluye", verbatim. */
@@ -254,8 +250,9 @@ export const COHORT_EXCLUDES: readonly string[] = [
 ] as const;
 
 /**
- * Appendix A-7 names the lodging city and nothing finer — no neighbourhood, and
- * no night count until A-16 is answered.
+ * Appendix A-7 names the lodging city and nothing finer — no neighbourhood, no
+ * night count (A-16 closed: participants compute their own stay) and, since the
+ * A-8 amendment, no price: the per-night band is commercial data.
  */
 export const COHORT_LODGING_AREA = 'Barcelona';
 

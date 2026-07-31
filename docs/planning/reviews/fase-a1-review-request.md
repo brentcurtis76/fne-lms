@@ -183,3 +183,101 @@ empty and retires `COHORT_CONTENT_PENDING`. No other file in the phase was touch
   `PLAN.md` predates the A-7 block (the block is committed on `phase/t2-ci`). The
   verbatim source was read from the main checkout at `784d7c6`; the two ledgers
   and plans union at merge as usual.
+
+---
+
+# Round 3 — A-8 lodging pricing model (delta only)
+
+**Round:** 3 (executor) · **Status reported:** COMPLETE
+**Base:** `origin/phase/a1-cohort` @ `9bd389b` (round 2's head)
+
+## R3.1 What this round was
+
+Round 2 was executed faithfully against a prompt that predated the owner's
+2026-07-31 lodging amendment — a dispatch race, triaged by the PM in the ledger.
+This round applies only the missing delta; round 2's content work is untouched.
+
+The amendment: Barcelona lodging is no longer a fixed €560 double package and
+there is no €1.560 combined total. Programme stays €1.000 per person; lodging is
+€70–120 per person per night depending on the type of accommodation. Prices are
+commercial data, so the band lives in the commercial module only and the public
+module carries no lodging pricing and no lodging inclusion at all.
+
+## R3.2 Files
+
+- `lib/pasantias/cohort-commercial.ts` (+19/−9) — `COHORT_PRICE_ITEMS` drops the
+  `alojamiento` item; `COHORT_PRICE_TOTAL` **removed** (a band times an unstated
+  number of nights has no total); adds `COHORT_LODGING_PER_NIGHT_EUR`
+  `{min:70,max:120}` and `COHORT_LODGING_NOTE`, derived from it so copy and data
+  cannot drift; `COHORT_COMMERCIAL` gains `lodgingPerNightEur` + `lodgingNote`
+  and loses `total`. `BROCHURE_VERSION` `2026-10-v1` → `-v2` (the file's own rule:
+  the `propuestas` bucket is keyed by it — see R3.5).
+- `lib/pasantias/cohort-public.ts` (+11/−14) — includes list drops
+  "Alojamiento en Barcelona (base doble)" and restores the A-7 meals line
+  "Comidas incluidas en los días de visita y cena de cierre" in place of round 2's
+  bare "Cena de cierre". The list is now A-7's own seven items in A-7's order.
+  Two comments rewritten (A-16 is closed; lodging is not public data).
+- `__tests__/lib/pasantias-cohort.test.ts` (+69/−12) — 31 → 34 tests.
+- `scripts/check-price-leak.mjs` (+15/−6) — amount patterns and copy patterns.
+- `docs/plan/evidence/a1/leak-guard.md` (+55) — §5, the r3 guard demo.
+
+## R3.3 Test evidence
+
+Gate chain run verbatim from the prompt, in the round's worktree:
+
+- `npx vitest run __tests__/lib/pasantias-cohort.test.ts` → **34 passed** (was 31).
+- `npm run type-check` → clean · `npm run lint` → clean (zero warnings).
+- `npm test` → **233 files, 3479 tests, all passed**.
+- `npm run build` → succeeded · `node scripts/check-price-leak.mjs` → OK, 266 files.
+
+Two guards were mutation-tested rather than assumed:
+
+1. Temporarily re-adding `export const COHORT_PRICE_TOTAL = 1560` turned the
+   no-total test red (`expected … to not have property "COHORT_PRICE_TOTAL"`),
+   then reverted.
+2. Leaking `COHORT_LODGING_NOTE` into `pages/index.tsx` turned the price-leak
+   script red on 3 `commercial-copy` matches, then reverted. Full output in
+   `docs/plan/evidence/a1/leak-guard.md` §5.
+
+## R3.4 Scrutinise these
+
+1. **The leak guard now covers the lodging band by copy, not by amount.** `560`
+   and `1[.,\s]?560` are gone from `PRICE_AMOUNT_PATTERNS`; `70` and `120` were
+   deliberately **not** added, because two- and three-digit numbers near a euro
+   sign are everywhere in minified output and the repo ships unrelated
+   euro-denominated code. Coverage moved to `commercial-copy`, where
+   `Alojamiento \(habitación doble\)` (now a dead string) was replaced by
+   `por persona por noche`. The §5 demo shows this catching a leak the sentinel
+   missed entirely — but it is a judgment call about where the tripwire sits, and
+   it is the one to argue with if any is.
+2. **`COHORT_PRICE_TOTAL` was deleted, not zeroed.** Nothing imports it yet (A3 is
+   the first reader and does not exist), so removal is free today. If A3 wants a
+   "desde" figure it must build one from the band explicitly and decide what the
+   night count is — which is the point.
+3. **The public includes list changed shape, and one item is a meal claim.**
+   "Desayuno a media mañana en las escuelas" survived round 2's A-16 caveat and is
+   still here; the restored meals line now sits beside it. Both are A-7 verbatim
+   and A-16 is closed on generic phrasing, so neither states a per-day mapping —
+   but if the reviewer reads A-16's closure narrowly, these are the two lines.
+4. **The D-01 numeric test switched from `toContain` to bounded regex** and gained
+   `70`/`120`. That makes it stricter (the band must not reach public data) and
+   less brittle (`560` no longer matches inside `1560`). Verified with positive
+   and negative controls. Risk: a future public figure that legitimately *is* 70
+   or 120 would fail this test — deliberate, and cheap to revisit.
+5. **`BROCHURE_VERSION` bumped without being asked to.** The prompt's delta did
+   not mention it; the file's own comment says to bump whenever a value changes,
+   and A3 keys the `propuestas` bucket on it. No PDFs exist yet, so nothing is
+   invalidated either way. Flagged because it is outside the literal delta.
+
+## R3.5 Known limitations / deferred
+
+- **Madrid's €810 is untouched and still carries the owner's doubt.** Amended A-8
+  says its €360 lodging component inherits the same question and must be confirmed
+  at A3 before the brochure renders it. Out of this round's scope; A3's problem.
+- **The lodging styling question is open** (A-8): whether lodging is FNE-managed
+  at cost or self-booked. It affects brochure copy only, not this data model.
+- **The plan sources are on `phase/t2-ci`, not `origin/main`.** The prompt told
+  this round to read them from `origin/main` HEAD, where they do not exist — see
+  the ledger entry. Sources were read from `origin/phase/t2-ci` @ `71cba41`, which
+  is the commit that also carries this round's own prompt file.
+- Nothing consumes these exports yet; A3/A6a are the first readers.

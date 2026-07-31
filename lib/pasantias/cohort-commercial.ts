@@ -34,17 +34,26 @@ export interface CohortPriceItem {
   optional?: boolean;
 }
 
-/** Appendix A-8 — the two components of the base investment. */
+/**
+ * Appendix A-8 — the programme fee. It is the only fixed amount of the base
+ * investment: lodging is quoted as a per-night range (see below), so there is
+ * no second item to add and deliberately no combined total anywhere.
+ */
 export const COHORT_PRICE_ITEMS: readonly CohortPriceItem[] = [
   { id: 'programa', label: 'Programa', amount: 1000 },
-  { id: 'alojamiento', label: 'Alojamiento (habitación doble)', amount: 560 },
 ] as const;
 
-/** Appendix A-8 — €1.000 + €560. Derived so the parts and the total cannot drift. */
-export const COHORT_PRICE_TOTAL = COHORT_PRICE_ITEMS.reduce(
-  (total, item) => total + item.amount,
-  0
-);
+/**
+ * Appendix A-8, amended by the owner on 2026-07-31: Barcelona lodging is not a
+ * package any more but a range that depends on the type of accommodation the
+ * participant chooses, so the brochure quotes a per-person-per-night band and
+ * lets the reader do the arithmetic for their own stay. No night count is
+ * quoted (A-16), which is the other reason a "total" cannot be computed here.
+ */
+export const COHORT_LODGING_PER_NIGHT_EUR = { min: 70, max: 120 } as const;
+
+/** es-CL brochure line for the lodging band. Derived so copy and data cannot drift. */
+export const COHORT_LODGING_NOTE = `Alojamiento en Barcelona: entre €${COHORT_LODGING_PER_NIGHT_EUR.min} y €${COHORT_LODGING_PER_NIGHT_EUR.max} por persona por noche, según el tipo de alojamiento.`;
 
 /** Appendix A-8 — optional Madrid extension, quoted separately from the total. */
 export const COHORT_MADRID_EXTENSION: CohortPriceItem = {
@@ -78,7 +87,7 @@ export const COHORT_PRICE_VALIDITY = `Precios vigentes para la cohorte ${COHORT_
  * this module or any brochure copy changes — the `propuestas` bucket is keyed
  * by it, so a stale key serves a stale PDF.
  */
-export const BROCHURE_VERSION = '2026-10-v1';
+export const BROCHURE_VERSION = '2026-10-v2';
 
 /** Download filename. ASCII only, so the RFC 5987 header in A4 stays simple. */
 export const BROCHURE_FILENAME = `Pasantias-INSPIRA-Barcelona-${COHORT_ID}-${BROCHURE_VERSION}.pdf`;
@@ -94,7 +103,8 @@ export const COHORT_COMMERCIAL = {
   sentinel: COMMERCIAL_SENTINEL,
   currency: COMMERCIAL_CURRENCY,
   items: COHORT_PRICE_ITEMS,
-  total: COHORT_PRICE_TOTAL,
+  lodgingPerNightEur: COHORT_LODGING_PER_NIGHT_EUR,
+  lodgingNote: COHORT_LODGING_NOTE,
   madridExtension: COHORT_MADRID_EXTENSION,
   minParticipants: COHORT_MIN_PARTICIPANTS,
   depositPercent: COHORT_DEPOSIT_PERCENT,

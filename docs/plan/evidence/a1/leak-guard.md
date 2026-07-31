@@ -83,3 +83,58 @@ euro-denominated code (consultant rates, expense reports).
       - name: Guard — no commercial cohort data in the client bundle
         run: node scripts/check-price-leak.mjs
 ```
+
+## 5. Round r3 — re-verified after the A-8 lodging amendment
+
+The amendment retired the €560 lodging package and the €1.560 total and replaced
+them with a €70–120 per-person-per-night band, so `PRICE_AMOUNT_PATTERNS` lost
+`560` and `1[.,\s]?560`. The band's own numbers were **deliberately not added**:
+two- and three-digit figures sit near a euro sign all over unrelated minified
+code, so listing them would buy noise rather than coverage. Coverage for the band
+moved to the `commercial-copy` check, where the retired
+`Alojamiento \(habitación doble\)` alternative was replaced by
+`por persona por noche`.
+
+That is a claim about a guard, so it was demonstrated rather than asserted.
+Scratch change (reverted; not committed): import **only**
+`COHORT_LODGING_NOTE` into `pages/index.tsx` and assign it to `window` so it
+cannot be tree-shaken.
+
+```
+$ npm run build && node scripts/check-price-leak.mjs
+check-price-leak: FAIL — commercial cohort data reached the client bundle (3 match(es)).
+
+  [commercial-copy] .next/static/chunks/pages/index-bab84200ef9e9998.js @ 8830
+      a string that only exists in cohort-commercial.ts
+      …entre €".concat(70," y €").concat(120," por persona por noche, según el tipo de alojamiento.");"".con…
+
+  [commercial-copy] .next/static/chunks/pages/index-bab84200ef9e9998.js @ 8901
+      a string that only exists in cohort-commercial.ts
+      … tipo de alojamiento.");"".concat(50,"% al momento del acuerdo y el saldo ").concat(30," días antes de…
+
+  [commercial-copy] .next/static/chunks/pages/index-bab84200ef9e9998.js @ 8976
+      a string that only exists in cohort-commercial.ts
+      …).concat(30," días antes del inicio."),"Pasantias-INSPIRA-Barcelona-".concat("octubre-2026","-").concat("20…
+
+EXIT=1
+```
+
+Two things this demo settles:
+
+- **The sentinel did not fire.** Importing one constant tree-shook
+  `COMMERCIAL_SENTINEL` away entirely — the §3 caveat, now observed rather than
+  predicted. The copy check is what caught this leak, which is the reason the
+  band's coverage was put there.
+- **The band survives minification split across `.concat()` calls** —
+  `"entre €".concat(70," y €").concat(120," por persona por noche…`. The prose is
+  contiguous and searchable; the digits are not attached to their currency marker
+  in the way a naive numeric rule would assume. Another argument against listing
+  `70`/`120` as amount patterns.
+
+Clean build after reverting the scratch change:
+
+```
+$ npm run build && node scripts/check-price-leak.mjs
+check-price-leak: OK — scanned 266 file(s) under .next/static, no commercial data found.
+EXIT=0
+```

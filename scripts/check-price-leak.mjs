@@ -21,7 +21,7 @@
  * including source maps when a build emits them.
  *
  * FALSE POSITIVES: bare amounts are useless as a signal — minified JS is full of
- * the digits 560 and 1000 — so numeric matching is context-scoped: an amount
+ * digits like 1000 and 810 — so numeric matching is context-scoped: an amount
  * counts only when a currency marker (€ or EUR) sits nearby. The euro symbol on
  * its own is not a finding; the app has unrelated euro-denominated features
  * (consultant rates, expense reports).
@@ -35,8 +35,11 @@
  *   - object keys do NOT survive — the minifier flattens the object down to the
  *     properties that were read, so `madridExtension` is not a usable signal
  *     while the label string it pointed at is;
- *   - `COHORT_PRICE_TOTAL` is a runtime `reduce`, so `1560` never appears as a
- *     literal at all; the parts do.
+ *   - values the module derives at runtime never appear as literals at all, only
+ *     their parts do — which is why the copy check below matters as much as the
+ *     amounts. (The €1.560 total that first demonstrated this was retired with
+ *     the 2026-07-31 lodging amendment; the lodging note is now derived the same
+ *     way, from the per-night band.)
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -54,12 +57,18 @@ const BINARY_EXTENSIONS = new Set([
  * Amounts from Appendix A-8, in every form a bundler emits them. Keep in sync
  * with the values in `lib/pasantias/cohort-commercial.ts` — a price added there
  * without being added here is a price this guard will not look for.
+ *
+ * The 2026-07-31 amendment retired the €560 lodging package and the €1.560
+ * total, so both are gone from this list. Their replacement — the €70–120
+ * per-night band — is deliberately NOT listed: two- and three-digit numbers sit
+ * near a euro sign all over unrelated minified code, so adding them would buy
+ * noise rather than coverage. The sentinel remains the primary tripwire, and
+ * the `commercial-copy` check below covers the band through the one string that
+ * survives minification intact.
  */
 const PRICE_AMOUNT_PATTERNS = [
   '1[.,\\s]?000', // 1000, 1.000, 1,000, 1 000
   '1e3', //          how the minifier writes 1000
-  '1[.,\\s]?560', // the programme + lodging total
-  '560',
   '810',
 ];
 
@@ -95,7 +104,7 @@ const CHECKS = [
     id: 'commercial-copy',
     description: 'a string that only exists in cohort-commercial.ts',
     pattern:
-      /Extensión opcional a Madrid|Alojamiento \(habitación doble\)|Precios vigentes para la cohorte|al momento del acuerdo|Pasantias-INSPIRA-Barcelona/g,
+      /Extensión opcional a Madrid|por persona por noche|Precios vigentes para la cohorte|al momento del acuerdo|Pasantias-INSPIRA-Barcelona/g,
   },
 ];
 

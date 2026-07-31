@@ -12,7 +12,7 @@ META
 
 ## Goal
 
-Improve communication and sales of Pasantías INSPIRA Barcelona for the **October 2026 cohort** (week 1 Mon Oct 12–Fri 16; week 2 Tue Oct 20–Fri 23), and give FNE a permanent, legally sound in-house capability to (a) capture/track interest leads and (b) design and send broadcast emails to consenting contacts.
+Improve communication and sales of Pasantías INSPIRA Barcelona for the **October 2026 cohort** (week 1 Mon Oct 5–Fri Oct 9, full week; free long weekend Sat 10–Mon 12 — Oct 12 is Spain's Fiesta Nacional; week 2 Tue Oct 13–Fri Oct 16; **9 visit days**, corrected by owner 2026-07-31 — Appendix A is normative), and give FNE a permanent, legally sound in-house capability to (a) capture/track interest leads and (b) design and send broadcast emails to consenting contacts.
 
 1. Dedicated landing page `/pasantias` with correct dates (homepage today shows Abril 2026 — past — and Noviembre 2026 — wrong).
 2. Generated downloadables from one content source: open ficha (no prices) + full brochure (prices; UI-gated, publicly shareable link — owner decision).
@@ -99,7 +99,7 @@ Gates: `npm run type-check && npm run lint && npm test && npm run build` (+ `npm
 **Scope:** Appendix A sign-off (owner); executor: `components/PrivacyPolicyContent.tsx` (stable date + exported `PRIVACY_NOTICE_VERSION`), exported es-CL consent constants: processing-consent sentence (respond + deliver requested program) and **separate optional marketing-opt-in sentence** ("quiero recibir novedades…"), legal footer identity block.
 **Out of scope:** any cohort/lead/email feature code.
 **Acceptance criteria:**
-- [A1] Appendix A APPROVED by Brent in the Decision Log (7 schools, day-1 shape, itinerary, experts, prices for brochure, claims, legal identity + postal address, WhatsApp, testimonios or explicit without).
+- [A1] Appendix A APPROVED by Brent in the Decision Log (school list, free-day/itinerary shape, experts, prices for brochure, claims, legal identity + postal address, WhatsApp, testimonios or explicit without).
 - [A2] Privacy page renders fixed version + date from `PRIVACY_NOTICE_VERSION`; the two consent sentences exist as exported constants and are textually distinct (processing ≠ marketing; marketing explicitly optional).
 - [A3] Snapshot/unit test of version rendering + constants; gates green.
 **Test plan:** targeted vitest. **Risks:** owner availability (blocks by design). 
@@ -118,7 +118,12 @@ Gates: `npm run type-check && npm run lint && npm test && npm run build` (+ `npm
 
 ## Phase A1 — Cohort data modules + leak guard + homepage date fix
 
-As v2 (public/commercial split; `scripts/check-price-leak.mjs` in CI; guard tests pinned to Appendix A; homepage card from public module; "Abril/Noviembre 2026" remain only in flipbook titles until A7a). **Criteria/test plan/risks unchanged from v2 A1.**
+Public/commercial split per D-01, criteria inlined here (the prior "as v2" reference embedded superseded cohort facts — Appendix A is normative):
+- [A1] Public module `lib/pasantias/cohort-public.ts`: cohort id `octubre-2026`, label, weeks per Appendix A-2/A-3/A-4 (week 1 `2026-10-05→09` full; free long weekend sáb 10–lun 12 with "lunes 12 = Fiesta Nacional" note; week 2 `2026-10-13→16` mar–vie), school list per A-5 (5 schools), experts per A-6, 13 objectives, day structure, lodging area, Madrid school names. **Zero monetary fields.** Commercial module `lib/pasantias/cohort-commercial.ts`: prices/payment terms per A-8, `BROCHURE_VERSION`, `BROCHURE_FILENAME`, `COMMERCIAL_SENTINEL`.
+- [A2] `scripts/check-price-leak.mjs` scans `.next/static/**` post-build for sentinel + price literals; wired into CI; green on this branch.
+- [A3] Guard test pinned to Appendix A anchors: money math (1000+560=1560); **no session on 2026-10-12** or any free-weekend day; week 1 = 5 consecutive visit days lun 5–vie 9; week 2 = 4 visit days mar 13–vie 16; **9 visit days total**; valid ISO dates; school list length 5 and names matching A-5; public-module serialization contains no monetary keys/values.
+- [A4] Homepage "Próximas Expediciones" card renders "Octubre 2026 · 5–9 y 13–16 de octubre" from the public module (no literal date strings in `index.tsx`), no prices; "Abril/Noviembre 2026" remain only in flipbook titles until A7a.
+- [A5] Gates + leak script green.
 
 ## Phase A2 — `pasantias_leads` migration + per-op RLS + pgTAP (DB-agent)
 
@@ -335,14 +340,26 @@ The v2 B11 preflight as its own evidence phase: DKIM/SPF verified; DMARC present
 | 2026-07-30 | **R3 residue resolution (§1.5) + FREEZE:** residue 1 → sanitized PII-free webhook ledger (allowlist projection inside `process_webhook_event`; sweep assertion post-anonymization); residue 2 → generic client-side currency pattern for the composer warning (no protected values client-side). Both are Codex's recommended remedies, closing all open findings; plan frozen v4 on Brent's authority | REVIEW-PLAN-R3.md §residue | Brent |
 | 2026-07-31 | **Process amendment (binding):** every executor session runs in its own dedicated `git worktree` — never the shared checkout — and concurrent sessions must not share the local Supabase stack (DB-touching gate runs serialize). Cause: A0/T2 shared-checkout collision silently misplaced a commit (recovered; `rescue/a0-6e69c9e` fidelity-confirmed). Enforced via every executor prompt. | A0/T2 round-1 findings | Fable (PM) |
 | 2026-07-31 | T2 execution deviations accepted: gate-4 job timeout 20→30 min; Supabase CLI pinned (gate 4 only); `.gitignore` negation for fixtures JSON; real-login storageState over minted tokens; CI-as-evidence for gates. T2 DONE — Codex PASS, 2 NITs logged (stale ci.yml header comment; evidence README run-number) | REVIEW-T2.md | Fable (PM) |
+| 2026-07-31 | **Cohort facts corrected by owner** — the 07-30 brief had the dates mixed up. Real October 2026: week 1 lun 5–vie 9 (full), free long weekend sáb 10–lun 12 (Fiesta Nacional), week 2 mar 13–vie 16; **9 visit days**. School list revised to **5**: El Puig, La Maquinista, Octavio Paz, Angeleta Ferrer, Les Vinyes (Sadako/Learnlife/Virolai out). Goal, A0 [A1], A1 criteria realigned; Appendix A rewritten v1 and declared **normative** over any embedded/referenced cohort fact. Expert lineup flagged TBC (includes directors of dropped schools). | Brent (2026-07-31) | Brent / Fable (PM) |
 
-## Appendix A — Content brief (v0 — DRAFT, awaiting owner sign-off in A0)
+## Appendix A — Content brief (v1 — NORMATIVE for cohort facts)
 
-Unchanged from v2 (items A-1..A-13; PENDING: A-5 7th school, A-9 claims, A-10 legal identity/address, A-11 WhatsApp, A-12 testimonios) **plus**:
+**Supremacy rule:** this table is the single normative source for cohort dates, day counts, school and expert lists, prices, and claims. Wherever any phase text — or any prior plan revision a phase references — states a conflicting cohort fact, **this table supersedes it.**
+
 | # | Item | Value | Status |
 |---|---|---|---|
-| A-4 | Day shape, both Mondays (Brent 2026-07-31) | **No program activity on lunes 12-oct** (Fiesta Nacional, colegios cerrados — día libre/llegada) **nor on lunes 19-oct** (día libre en Barcelona o fin de semana largo para conocer Europa). School visits run **mar 13–vie 16** and **mar 20–vie 23** = **8 días de visitas** across two weeks. (Usual format is 9 days — 5 + lun–jue; this cohort is 4+4 because of the holiday.) Marketing copy says "dos semanas" and shows the honest day-by-day; the old brochure's "10 días" claim is retired. | OK (Brent) |
-| # | Item | Value | Status |
-|---|---|---|---|
-| A-14 | Processing-consent sentence (es-CL) | drafted in A0, owner-approved | in A0 scope |
-| A-15 | Marketing opt-in sentence (es-CL, optional, unchecked) | drafted in A0, owner-approved | in A0 scope |
+| A-1 | Cohort label | Octubre 2026 | OK |
+| A-2 | Week 1 | **Lun 5 – Vie 9 octubre 2026 — semana completa, 5 días de visitas** | OK (Brent 2026-07-31; supersedes the 07-30 dates) |
+| A-3 | Week 2 | **Mar 13 – Vie 16 octubre 2026 — 4 días de visitas** | OK (Brent 2026-07-31) |
+| A-4 | Free days | Fin de semana largo **sáb 10 – lun 12**; lunes 12 = Fiesta Nacional de España (colegios cerrados) — día libre en Barcelona o para conocer Europa. **Total 9 días de visitas (5+4), el formato habitual.** Marketing dice "dos semanas" con calendario honesto; el claim "10 días" del brochure antiguo se retira. | OK (Brent 2026-07-31) |
+| A-5 | Schools (visitas) | **El Puig, La Maquinista, Octavio Paz, Angeleta Ferrer, Les Vinyes** (5). Sadako, Learnlife y Virolai NO están en esta cohorte. Day-by-day order: pending — materials show weeks + school list with "el orden puede variar", no rigid per-day grid until BCN confirms. | List OK (Brent 2026-07-31); order PENDING (BCN) |
+| A-6 | Experts + titles | Coral Regí (directora programa), Mora del Fresno (coordinadora), Jordi Musons, Boris Mir, Pepe Menéndez, Joan Quintana, Sergi del Moral, Sandra Entrena — **TBC: roster includes directors of schools no longer visited (Musons/Sadako, Entrena/Virolai); confirm the October lineup with BCN** | PENDING (confirm lineup) |
+| A-7 | Objectives, day structure, includes/excludes | per PPTX "BROCHURE INSPIRA 2026 - oct2026 2.0" | OK |
+| A-8 | Inversión (brochure only) | €1.000 programa + €560 alojamiento (doble) = €1.560; Madrid opcional €810; mín. 5 personas; 50% al acuerdo + saldo 30 días antes | OK — validity date TBC |
+| A-9 | Claims | "400+ pasantes", "40+ colegios", "12 escuelas BCN" — confirm current; any "7 escuelas" phrasing is retired (this cohort visits 5) | PENDING |
+| A-10 | Legal identity (email footer) | Razón social + RUT + street address | PENDING |
+| A-11 | WhatsApp CTA number | número, or drop the button | PENDING |
+| A-12 | Testimonios | 2–3 quotes with name + school, or explicit "launch without" | PENDING |
+| A-13 | Privacy notice version | `2026-07-v1` (shipped in A0 executor round) | OK (PM-accepted; owner ratifies with A-14/A-15) |
+| A-14 | Processing-consent sentence (es-CL) | drafted: `CONSENT_PROCESSING_TEXT` in `lib/pasantias/consent.ts` | DRAFTED — owner ratification pending |
+| A-15 | Marketing opt-in sentence (es-CL, optional, unchecked) | drafted: `CONSENT_MARKETING_TEXT` in `lib/pasantias/consent.ts` | DRAFTED — owner ratification pending |

@@ -105,3 +105,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: (1) **Process amendment, binding from now on (PLAN.md Decision Log entry to follow once the doc copies converge on main): every executor session runs in its own dedicated `git worktree` — never the shared checkout — and concurrent sessions must not share the local Supabase stack (DB-touching gate runs serialize). Enforced through every future executor prompt.** (2) PM accepts the `2026-07-v1` version scheme and the `lib/legal/` placement of `LEGAL_IDENTITY`; owner ratification rides the A-14/A-15 sign-off. (3) `rescue/a0-6e69c9e` may be deleted — fidelity confirmed by diff.
 - BACKLOG ADDED: none in this entry (T2's entry carries the login `data-testid` + duplicate `<h1>` items).
 - OPEN AFTER THIS ROUND: Executor half is clean. [A1] needs Brent's Appendix A inputs (A-4, A-5, A-9..A-12) + approval of the drafted consent sentences and version scheme (A-14/A-15). Codex final review of A0 should run after [A1] closes (criteria incomplete until then). PR #28 CI pending at entry time. Merge order: T2 first (carries plan docs), A0 second with ledger-union reconciliation.
+
+### 2026-07-31 — PLAN amendment (cohort facts) — Fable (PM, owner input)
+- CONTEXT PRESSURE: n/a
+- ACTION: Brent corrected the cohort facts in plain terms: the 07-30 brief had the dates mixed up. **Real October 2026: week 1 lun 5–vie 9 (semana completa, 5 días), fin de semana largo sáb 10–lun 12 (lunes 12 = Fiesta Nacional, colegios cerrados — día libre o viaje por Europa), week 2 mar 13–vie 16 (4 días); 9 días de visitas — the usual format.** School list revised to five: **El Puig, La Maquinista, Octavio Paz, Angeleta Ferrer, Les Vinyes** (Sadako, Learnlife, Virolai out). Amended: Goal, A0 [A1], A1 criteria (inlined — the "as v2" reference embedded superseded facts), Appendix A rewritten as v1 with a supremacy rule (normative over any embedded/referenced cohort fact). This supersedes today's earlier A-4 commit (4baf37e), which recorded the mixed-up version. New TBC raised: expert roster includes directors of schools no longer visited (Musons/Sadako, Entrena/Virolai) — October lineup needs BCN confirmation (A-6 now PENDING). Old-brochure "10 días" claim retired; "7 escuelas" phrasing retired.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 1 Decision Log row (cohort-facts correction, Appendix A normative)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: Appendix A remaining: A-5 day-order (BCN), A-6 lineup (BCN), A-9 claims, A-10 RUT+address, A-11 WhatsApp, A-12 testimonios, A-14/A-15 ratification. A1 must NOT start until [A1] sign-off (its guard tests pin these facts). A7b/B1a remain dispatchable (no cohort-fact dependency).

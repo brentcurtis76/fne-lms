@@ -1,0 +1,30 @@
+{
+  "_comment": [
+    "T2 — single source of truth for the CI e2e synthetic fixtures.",
+    "Consumed by scripts/ci/seed-e2e.mjs (writes them) and tests/e2e/helpers/auth.ts (logs in as them),",
+    "so a credential can never drift between the seeder and the specs.",
+    "SYNTHETIC ONLY (Ley 21.719): example.com is RFC 2606 reserved, the names are invented,",
+    "and these credentials are only ever valid on the ephemeral local Supabase stack the CI job",
+    "starts and destroys. The seeder refuses to run against a non-local Supabase URL."
+  ],
+  "school": {
+    "id": 990001,
+    "name": "Colegio Sintetico E2E"
+  },
+  "users": {
+    "admin": {
+      "email": "e2e-admin@example.com",
+      "password": "E2E-Synthetic-Admin-2026",
+      "firstName": "Admin",
+      "lastName": "Sintetico",
+      "role": "admin"
+    },
+    "docente": {
+      "email": "e2e-docente@example.com",
+      "password": "E2E-Synthetic-Docente-2026",
+      "firstName": "Docente",
+      "lastName": "Sintetico",
+      "role": "docente"
+    }
+  }
+}

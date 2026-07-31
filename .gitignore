@@ -126,6 +126,7 @@ run-*.mjs
 !package-lock.json
 !tsconfig.json
 !vercel.json
+!scripts/ci/e2e-fixtures.json  # synthetic CI e2e fixtures (seeder + specs share it)
 
 # Backups
 /backups/
@@ -167,3 +168,6 @@ scripts/spikes/zoom/out/
 
 # Playwright test artifacts
 playwright-report/
+test-results/
+# Live sessions produced by tests/e2e/helpers/auth.ts — never commit these
+tests/e2e/.auth/

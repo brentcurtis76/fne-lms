@@ -1,5 +1,6 @@
 # GENERA — CI: quality gates on every PR (Fase 0)
-# Gates: (1) typecheck  (1b) lint (zero warnings)  (2) unit/Vitest  (3) supabase test db (pgTAP/RLS)  (4) Playwright e2e smoke
+# Gates: (1) typecheck  (1b) lint (zero warnings)  (2) unit/Vitest  (3) supabase test db (pgTAP/RLS)
+#        (4) Playwright e2e on a seeded, ephemeral local Supabase stack (T2)
 # Plus: RLS migration guard (blocks any migration that disables ROW LEVEL SECURITY).
 # Branch protection on `main` must require these six checks — see docs/ci-setup.md.
 # All jobs: timeout-minutes 20 (GitHub default is 360 — a hung job would burn 6h of Actions).
@@ -82,34 +83,67 @@ jobs:
       - name: Run pgTAP suite (supabase/tests/)
         run: supabase test db
 
+  # T2: the e2e gate runs against an ISOLATED, EPHEMERAL Supabase stack started on
+  # the runner — no remote QA project, no production credentials, no shared state.
+  # `supabase db reset` re-applies every migration from scratch, so the schema the
+  # specs exercise is exactly what supabase/migrations declares, and the fixtures
+  # are seeded fresh (scripts/ci/seed-e2e.mjs) for each run. Everything dies with
+  # the runner.
   e2e:
-    name: Gate 4 — E2E smoke (Playwright)
+    name: Gate 4 — E2E (Playwright on seeded local Supabase)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          # Pinned, unlike gate 3: this job passes service names to `supabase start -x`,
+          # and a rename in a future CLI release would break the gate on an unrelated PR.
+          version: 2.110.0
       - run: npm ci
-      - name: Prepare env (secrets, or placeholders for smoke)
-        env:
-          SB_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SB_ANON: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SB_SERVICE: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      # Excluded services are the ones no e2e path touches; skipping them saves
+      # several GB of image pulls per run. db/auth/rest/kong stay.
+      - name: Start ephemeral local Supabase stack
+        run: supabase start -x studio,logflare,vector,edge-runtime,imgproxy,mailpit,realtime,supavisor,pooler
+      - name: Apply all migrations from scratch
+        run: supabase db reset
+
+      - name: Point the app at the local stack
         run: |
+          set -euo pipefail
+          STATUS="$(supabase status -o json)"
           {
-            echo "NEXT_PUBLIC_SUPABASE_URL=${SB_URL:-https://placeholder.supabase.co}"
-            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${SB_ANON:-public-anon-key-placeholder}"
-            echo "SUPABASE_SERVICE_ROLE_KEY=${SB_SERVICE:-service-role-placeholder}"
+            echo "NEXT_PUBLIC_SUPABASE_URL=$(jq -er '.API_URL' <<<"$STATUS")"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(jq -er '.ANON_KEY' <<<"$STATUS")"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$(jq -er '.SERVICE_ROLE_KEY' <<<"$STATUS")"
           } > .env.local
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
+
+      # NEXT_PUBLIC_* is inlined at build time, so the build must come after .env.local.
       - name: Build (production)
         run: npm run build
-      - name: Run smoke suite against production server
-        run: npx playwright test tests/e2e/smoke.spec.ts --project=chromium
+
+      - name: Seed synthetic e2e fixtures
+        run: |
+          set -euo pipefail
+          set -a && . ./.env.local && set +a
+          node scripts/ci/seed-e2e.mjs
+
+      - name: Run mandatory e2e specs
+        run: npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium
+
+      # A skipped test reports as a success — this is what makes "green" mean "ran".
+      - name: Guard — no mandatory spec may be skipped
+        if: always()
+        run: node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json
+
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
@@ -117,3 +151,7 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+      - name: Tear down local Supabase stack
+        if: always()
+        run: supabase stop --no-backup

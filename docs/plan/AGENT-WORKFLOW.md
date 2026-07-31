@@ -88,11 +88,13 @@ CLOSE    PM updates PLAN.md (Done) + LEDGER.md, opens backlog items, merges bran
 
 ### 1.8 Session identity and lifecycle
 
-With more than one project in flight, the bottleneck stops being the work and becomes
-finding the right conversation. Agent apps auto-title a session from its opening
-content, and a session cannot rename itself — so **the first line of the prompt is the
-title**. Don't fight the auto-namer, feed it. Every fresh-session prompt in §3 opens
-with:
+With several **workstreams** in flight, the bottleneck stops being the work and becomes
+finding the right conversation. A workstream is one plan with its own phase sequence;
+a repo usually holds more than one (GENERA, Zoom and INSPIRA Comms all live in the
+genera checkout), so the repo cannot identify the work and neither can the directory.
+Agent apps auto-title a session from its opening content, and a session cannot rename
+itself — so **the first line of the prompt is the title**. Don't fight the auto-namer,
+feed it. Every fresh-session prompt in §3 opens with:
 
 ```
 SESSION: <PROJ> · <phase>[ · r<round>] · <ROLE>
@@ -100,7 +102,7 @@ SESSION: <PROJ> · <phase>[ · r<round>] · <ROLE>
 
 | Field | Values |
 |---|---|
-| `PROJ` | fixed short prefix, one per project — e.g. `GEN` `ZOOM` `INSPIRA` `CASA` |
+| `PROJ` | fixed short prefix, one per **workstream**, not per repo — e.g. `GEN` `ZOOM` `INSPIRA` `CASA` |
 | `phase` | phase ID from `PLAN.md`; `plan` during planning |
 | `round` | remediation round; omit on round 1 |
 | `ROLE` | `PM` · `EXEC` · `REVIEW` |
@@ -111,15 +113,19 @@ Only prompts that open a **new** session carry the line: §3.1, §3.2, §3.3, §
 The rest (§3.5, §3.7, §3.8, §3.9) are pasted into the live PM conversation and must not
 re-title it.
 
-Three rules keep the session list readable:
+Four rules keep the session list readable:
 
-- **One working directory per project.** Sessions group by directory, so two projects
-  sharing a checkout are indistinguishable in the list. Give each project a long-lived
-  git worktree and start every session from it. Per-*phase* worktrees are fine for
-  isolation but useless as identity — the directory has to outlive the phase.
-- **One live PM session per project.** That is the only durable conversation; everything
-  else is transient. Four projects should mean four standing sessions plus whatever is
-  mid-round.
+- **The SESSION line is the identity, not the directory.** Sessions group by working
+  directory, but workstreams sharing a repo also share a checkout — and worktrees of
+  that repo all carry the same `docs/` tree — so the directory can never tell you which
+  plan a session is executing. Cut worktrees for branch parallelism, which is their real
+  job; where you do keep one, keep it per *active workstream* rather than per phase, so
+  it outlives the phase. Just don't expect it to do the naming.
+- **One live PM session per workstream.** That is the only durable conversation;
+  everything else is transient. Four active workstreams should mean four standing
+  sessions plus whatever is mid-round.
+- **Confirm the plan matches the prefix.** Finding a `PLAN.md` is not evidence it is
+  *your* plan — one repo can hold several. Read its title before acting on it.
 - **Archive an executor the moment its report is pasted back.** §4 already requires a
   fresh executor per round, so yesterday's executor is a corpse. Corpses are what make
   the list unreadable — not the live work.

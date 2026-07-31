@@ -1,4 +1,12 @@
-# Fase A0 — review request (round 1)
+# Fase A0 — review request
+
+**Round 1 (below, unchanged) → Round 2 (appended at the end).** Where the two
+disagree, round 2 wins: it closes item 4 of "scrutinise these hardest" and the
+first two "known limitations".
+
+---
+
+**ROUND 1**
 
 **Branch:** `phase/a0-content`
 **Base:** `main` @ `d62d7e9`
@@ -153,3 +161,103 @@ Two evidence caveats, both worth knowing:
   format). If the owner wants a different scheme, changing it now is one edit
   plus one test constant; changing it after A5 ships means stored consent
   records cite a retired version.
+
+---
+
+**ROUND 2 — real legal identity, brand/legal split**
+
+**Branch:** `phase/a0-content` (continued) · **Base for this round:** `3bdee33`
+**Executor:** fresh Opus session, round 2, own worktree (`../wt-a0`)
+
+## What changed and why
+
+Appendix A was approved on 2026-07-31, which both supplied the A-10 values and
+surfaced a distinction the round-1 interface did not model: **"Fundación Nueva
+Educación" is the nombre de fantasía, not the data controller.** The controller
+is *Fundación Instituto Relacional*. Round 1 had the fantasy name sitting in
+`legalName` — wrong in a field that ends up in a legal footer.
+
+Two files, nothing else:
+
+- `lib/legal/privacy-notice.ts` (+18/−15) — `LegalIdentity` gains `brandName`;
+  `legalName` now holds the razón social. Values per A-10: brand `Fundación
+  Nueva Educación`, legal `Fundación Instituto Relacional`, `RUT 65.166.503-5`,
+  `Carlos Silva Vildósola 10448`, `La Reina, Santiago`, `Chile`;
+  `contactEmail` unchanged. `LEGAL_IDENTITY_PENDING` **deleted** (nothing
+  referenced it outside this module and its test). Module doc comment now
+  states the rendering contract: any footer/legal block shows brand **plus**
+  legal name, RUT and address.
+- `__tests__/lib/legal/privacy-notice.test.ts` (+22/−9) — 7 → 10 tests. The
+  sentinel test is replaced by its inverse (no field matches
+  `/PENDIENTE|\[|TODO/i`), plus brand ≠ legal name with both non-empty, plus a
+  pin of every A-10 value. `PRIVACY_NOTICE_VERSION` stays `2026-07-v1` and is
+  now pinned by value, not only by regex — A-13 ratified it, so drift should
+  break the build rather than pass a format check.
+
+`components/PrivacyPolicyContent.tsx`, `lib/pasantias/consent.ts` and their
+tests are untouched: nothing renders `LEGAL_IDENTITY` yet.
+
+## Test evidence (round 2)
+
+```
+npx vitest run __tests__/lib/legal/privacy-notice.test.ts \
+  __tests__/components/PrivacyPolicyContent.version.test.tsx
+
+ ✓ __tests__/lib/legal/privacy-notice.test.ts  (10 tests) 2ms
+ ✓ __tests__/components/PrivacyPolicyContent.version.test.tsx  (2 tests) 17ms
+ Test Files  2 passed (2)
+      Tests  12 passed (12)
+```
+
+All four gates in the isolated worktree (log: `gates-r2.log`, session scratchpad):
+
+```
+=== TYPE-CHECK ===   TYPECHECK_EXIT=0
+=== LINT ===         LINT_EXIT=0
+=== TEST ===          Test Files  228 passed (228)
+                           Tests  3389 passed (3389)   (3386 + 3 net new)
+                     TEST_EXIT=0
+=== BUILD ===         ✓ Compiled successfully
+                     BUILD_EXIT=0
+                     ├ ○ /privacidad          2.44 kB    152 kB
+```
+
+Honest note on the build: the first attempt exited 1 at "Collecting page data"
+with `NEXT_PUBLIC_SUPABASE_URL … required`. Cause was the fresh worktree having
+no `.env.local` (gitignored, so `git worktree add` does not bring it). Copied
+from the main checkout and re-ran → exit 0. Not a code regression, but worth
+knowing that a clean-worktree build needs that file staged first.
+
+## Scrutinise these hardest (round 2)
+
+1. **Is `taxId` the right shape?** It stores `'RUT 65.166.503-5'` — label
+   included, exactly as A-10 writes it and as a footer renders it. The prompt
+   specified that string. Consequence: any future consumer that wants the bare
+   number (validation, an API field) must strip the prefix. If a machine-
+   readable RUT is ever needed, that is a second field, not a reformat of this
+   one.
+2. **Pinning every A-10 value in a test.** Round 1 deliberately asserted
+   *structural* properties so owner rewording would not break the suite. These
+   values are now owner-approved and legally load-bearing, so I inverted that
+   for this block: exact pins. A legitimate owner correction to the address will
+   now fail a test — intended, but it is a change of testing philosophy inside
+   the same file, so it deserves a look.
+3. **`brandName` has no enforcement.** The interface models the split and the
+   doc comment states the "show both" rule, but nothing yet stops a future
+   consumer from rendering `brandName` alone (which would be the exact defect
+   round 1 shipped). The first real consumer — B-track campaign footer, A6b's
+   form — is where that becomes testable; there is no consumer to test today.
+4. **Deleting `LEGAL_IDENTITY_PENDING`.** Verified unreferenced across
+   `*.ts/tsx/js` outside this module and its test (the LEDGER and this file
+   mention it only as history). If any in-flight branch (A7b, B1a) started
+   importing it, this is a merge-time break — cheap to check, worth checking.
+
+## Known limitations / deferred (round 2)
+
+- Still no consumer: `LEGAL_IDENTITY` is exported and tested but rendered
+  nowhere. A0's scope ends at the constants.
+- `contactEmail` (`info@nuevaeducacion.org`) was not part of A-10's fill and is
+  carried over from round 1 unverified against the owner's preferred
+  data-subject-request address.
+- Round-1 limitations that remain: nothing consumes `CONSENT_*`; no evidence
+  directory (the test output is the evidence).

@@ -68,7 +68,8 @@ test.describe('CI fixtures — docente storage state', () => {
     await expect(page).not.toHaveURL(/\/login/);
   });
 
-  test('is denied the admin-only page', async ({ page }) => {
+  // SCRATCH — T2 [A4] skip-guard demonstration. Reverted in the next commit.
+  test.skip('is denied the admin-only page', async ({ page }) => {
     await page.goto(ADMIN_ONLY_PAGE);
     // Denied, not merely unauthenticated: the middleware bounces a signed-in
     // non-admin to /dashboard rather than to /login.

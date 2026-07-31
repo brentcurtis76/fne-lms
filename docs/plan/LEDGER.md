@@ -145,3 +145,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: (1) Exact-value pins for the A-10 block, deliberately reversing round 1's structure-only testing philosophy for this one object — the values are owner-approved and legally load-bearing, so an unreviewed edit should fail a gate. (2) `taxId` stores the display string including `RUT `, per the prompt and A-10's own formatting.
 - BACKLOG ADDED: enforce the "brand + legal name + RUT + address together" rule at the first render site (B-track email footer / A6b), since the constants alone cannot.
 - OPEN AFTER THIS ROUND: A0 executor work is complete — [A1] (owner) satisfied 2026-07-31, [A2]/[A3] shipped in round 1, A-10 code fill shipped here. Ready for PM verification then Codex final review. In-flight A7b/B1a branches must not import the deleted `LEGAL_IDENTITY_PENDING`; LEDGER copies still diverge across branches (union at merge).
+
+### 2026-07-31 — A0 round 2 — Fable (PM verification)
+- CONTEXT PRESSURE: n/a
+- ACTION: Independent verification per SOP §3.3.2. Read the diff: `brandName` added and populated ('Fundación Nueva Educación'), `legalName` now the razón social ('Fundación Instituto Relacional'), RUT + street address per A-10, doc comment states the both-names rendering contract, `LEGAL_IDENTITY_PENDING` removed (grep-verified unreferenced; a7b/b1a branches also clean). PM re-ran suites: 12/12 pass. Version pin deviation accepted ('2026-07-v1' by value — enforces the ratified A-13). **A0 is now criteria-complete: [A1] owner-approved (Decision Log), [A2]+[A3] shipped over two executor rounds — ready for Codex final review of the whole phase.**
+- COMMITS: (this ledger commit)
+- TESTS: targeted vitest ×2 files → 12/12 (PM re-run)
+- FINDINGS RAISED: none blocking. Owner to confirm: `contactEmail` for data-subject requests stays info@nuevaeducacion.org (carried from round 1, not part of A-10's fill).
+- DECISIONS: version pin accepted.
+- BACKLOG ADDED: enforce "never render brandName alone" at the first render site (campaign footer B8 / A6b).
+- OPEN AFTER THIS ROUND: **A0 clean — ready for Codex final review** (Brent triggers; PR #28). Process note adopted for future prompts: fresh worktrees need `.env.local` copied before the build gate.

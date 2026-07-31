@@ -145,6 +145,54 @@ passcode in `stage_state`; the diag route keeping TTL 1800 vs the signer's 2 h d
   ①/② portion) — both were cold-reviewed from the branch per §0.1; the r1 executor's report
   arrived only for finding ③.
 
+## 7b. Sol-R1 remediation record (Z1b-sol1, 2026-07-31) — read WITH the verdict archive
+
+Sol R1: REQUEST CHANGES, six findings, ALL triaged valid (four qualified earlier PM
+rulings — conceded in `fase-3-review-verdict.md`). Fixed in six commits, one per finding:
+`e748d32` (order-safe lifecycle + projection: guard = the UPDATE's own `WHERE status IN`,
+applies-from sets exported as the single rule; projection driven `live`/`ended`, never
+resurrecting `cancelled`) · `8e726ef` (`fail_zoom_job` + `p_retry_after_seconds`;
+`run_after = GREATEST(backoff, hint)` — a floor, never a replacement; grants + pgTAP
+moved to the five-arg signature; pgTAP 44→50 incl. hinted/unhinted/floor asserts as
+`service_role`) · `6691f1f` (eligibility gate before any reservation: `is_active` ·
+`status='programada'` · modality `online|hibrida` · `meeting_provider='zoom'`, all four
+columns verified against the live table; bare stale reservations released to `cancelled`;
+resumed reservations re-proven against the current source interval) · `3107d02`
+(`ZoomError.outcome: 'not_executed'|'ambiguous'`; ambiguous keeps the row `pending` —
+the interval stays blocked — and terminally fails the job under
+`ambiguous_create_outcome` with the provider request id) · `7d4b062` (413 flushed with
+`Connection: close` before teardown; real-`http.Server` test) · `9648c3b` (docs truth
+pass; also corrected two comments citing a runbook that does not exist yet).
+
+**PM verification of the round**: all six diffs read; fail-on-old re-executed (pre-fix
+source restored → **15/39 provision tests fail**, incl. the 8-ineligible-sessions and
+3-meetings-across-3-ticks cases; HEAD → 39/39 + the 2 real-server tests); gates re-run
+(**3680/3680 in 238 files**, build OK); `supabase db reset` from scratch + `test:db`
+**91/91**; `test:queue` PASS; CI 8/8; scanner replication CLEAN over the fix commits.
+
+**PM rulings on the flagged judgment calls** (executor scrutiny A–E): `hibrida`
+eligibility ACCEPTED (a hybrid session has a remote leg; `presencial` never provisions;
+one-line revert available — **product-visible, flagged to Brent**); `programada`-only
+ACCEPTED (verified as the sole approved-pre-execution status in the live CHECK);
+strict eligibility on the replay path ACCEPTED with its asymmetry as argued — the
+checkpoint-adopt path is exempt because blocking it loses Zoom-truth entirely, the
+row-anchor path is gated because blocking it costs at most a stranded projection row
+(NEW RESIDUAL: first run dies between `markProvisioned` and the projection upsert AND
+the session leaves `programada` before the replay ⇒ the projection row never lands;
+visible as the failed job in triage; healed by the future stalled-lifecycle sweep or
+Z2's sync); `cancelled` as the release status ACCEPTED (truthful; outside the EXCLUDE
+predicate either way); untyped-throw-as-ambiguous ACCEPTED (the unknown case is exactly
+where we do not know).
+
+**New residuals for §7**: `ambiguous_create_outcome` is a failure class whose ONLY
+resolution is manual reconciliation against Zoom — and an ambiguous failure cannot NAME
+the possible first meeting (no runbook exists yet; triage = reading `zoom_jobs.last_error`
++ `stage_state` directly). The F1/F3/F4 store guards are proven against in-memory doubles
+that import the applies-from sets; the supabase-js chains themselves
+(`update().eq().in().select()`, and the `public`-schema projection chain) are exercised
+by no test in the repo — F1 is the first store method whose CORRECTNESS depends on the
+filter reaching Postgres, which sharpens the §5 "doubles, not PostgREST" caveat.
+
 ## 8. Exact local gate commands
 
 ```bash

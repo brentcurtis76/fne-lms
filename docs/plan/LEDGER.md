@@ -46,3 +46,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: 2 Decision Log entries (arbitration; v3 mechanical fixes)
 - BACKLOG ADDED: none (lead-import backlog item annotated marketing_opt_in-only)
 - OPEN AFTER THIS ROUND: Codex confirmation review of v3 — beyond the 2-round cap, so it runs on Brent's authority as arbiter, scoped to verifying the 8 R2 findings + 4 arbitration implementations (not a fresh full review). Appendix A pendings unchanged (A-4, A-5, A-9..A-12, now A-14/A-15 drafting in A0). Plan remains NOT frozen until that PASS.
+
+### 2026-07-30 — PLAN round 4 — Fable (R3 residues → Brent §1.5 → v4 + FREEZE)
+- CONTEXT PRESSURE: n/a
+- ACTION: REVIEW-PLAN-R3.md closure matrix: 6/8 R2 blockers CLOSED, all 5 SHOULD-FIX CLOSED, 2 remediation-introduced residues taken to Brent per §1.5. **Residue decisions (both = Codex's recommended remedy):** (1) webhook PII → sanitized ledger: `email_webhook_events.detail` holds an allowlisted non-PII operational subset only; projection happens INSIDE `process_webhook_event` (raw payload never written); pgTAP sweep asserts post-anonymization no recipient email in contacts/sends/webhook events (D-06, B3, B4b amended). (2) composer price warning → generic client-side currency pattern (`detectCurrencyAmounts`; no protected values, no commercial import client-side; broader warnings accepted) (D-02, B8, B9b amended). NITs fixed: D-12 reworded ("no default may assert consent or a legal basis"); Decision Log corrected to 8 pre-split phases. **PLAN FROZEN v4** on Brent's arbiter authority — every R1/R2/R3 finding is now closed or resolved by logged owner decision; no live disagreement remains.
+- COMMITS: (this commit — PLAN.md v4, REVIEW-PLAN-R3.md tracked)
+- TESTS: none run (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 1 Decision Log entry (residue resolution + freeze)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: Execution begins. Next: A0 (content brief inputs from Brent + privacy-versioning executor round) and T2 (CI topology) — independent, can run in parallel. A0's Appendix A inputs still pending from Brent/BCN team (A-4, A-5, A-9..A-12). PM to dispatch executor prompts.

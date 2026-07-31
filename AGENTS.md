@@ -13,6 +13,7 @@ Learning platform for Fundación Nueva Educación. Next.js **Pages Router** (`ge
 
 - `npm run dev` / `npm run build`
 - `npm run type-check` — tsc --noEmit (8GB heap)
+- `npm run type-check:tests` — tsc over test files (tsconfig.tests.json; CI Gate 1 runs both)
 - `npm run lint` — zero warnings allowed
 - `npm run lint:testid` — advisory: interactive elements need `data-testid`
 - `npm test` — Vitest unit/integration

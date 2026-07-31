@@ -23,6 +23,7 @@ Task format: `{ "project": "genera", "task": "<what>", "context": "<files, root 
 - `npm run dev` — dev server (pre-check script + 4GB heap)
 - `npm run build` — production build
 - `npm run type-check` — tsc --noEmit (8GB heap)
+- `npm run type-check:tests` — tsc over test files (tsconfig.tests.json; CI Gate 1 runs both)
 - `npm run lint` — ESLint, zero warnings allowed
 - `npm run lint:testid` — advisory check: interactive elements need `data-testid` (see Testing)
 - `npm test` — Vitest unit/integration (full run)

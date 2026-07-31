@@ -14,6 +14,7 @@
     "lint": "eslint --ext .js,.jsx,.ts,.tsx --max-warnings=0 .",
     "lint:testid": "eslint --no-eslintrc -c .eslintrc.testid.json --ext .jsx,.tsx components pages",
     "type-check": "NODE_OPTIONS='--max-old-space-size=8192' tsc --noEmit",
+    "type-check:tests": "NODE_OPTIONS='--max-old-space-size=8192' tsc --noEmit -p tsconfig.tests.json",
     "test": "vitest run",
     "test:transformation": "cross-env NODE_OPTIONS=--require=./tests/mocks/register-canvas.js vitest run __tests__/lib/transformation/contextBuilder.test.ts __tests__/lib/transformation/interactionService.test.ts",
     "test:watch": "cross-env NODE_OPTIONS=--require=./tests/mocks/register-canvas.js vitest",

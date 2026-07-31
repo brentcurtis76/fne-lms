@@ -1,0 +1,31 @@
+{
+  // Type-checks test files, which the root tsconfig deliberately excludes to
+  // keep the main gate fast. Run via `npm run type-check:tests` (CI Gate 1).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Some tests import the module they vi.mock by its on-disk name
+    // (e.g. `./workspace.tsx`); legal because this config never emits.
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "__tests__/**/*",
+    "tests/**/*",
+    "**/__tests__/**/*",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "playwright.config.ts"
+  ],
+  // Overrides the root exclude (which drops all test files). Non-test dirs
+  // that must stay out of the program are re-listed here.
+  "exclude": [
+    "node_modules",
+    "node_modules.old",
+    "cc-bridge-mcp-server",
+    // Parked suites (vitest does not match *.test.skip.* either). The one such
+    // file predates the current mock-based GroupAssignmentsContent.test.tsx.
+    "**/*.test.skip.*"
+  ]
+}

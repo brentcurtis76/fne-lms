@@ -37,6 +37,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run type-check
+      # Test files are excluded from the root tsconfig; check them separately.
+      - run: npm run type-check:tests
 
   lint:
     name: Gate 1b — Lint

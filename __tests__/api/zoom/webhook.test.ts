@@ -18,10 +18,17 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 
 import { handleZoomWebhook, MAX_WEBHOOK_BODY_BYTES } from '../../../pages/api/zoom/webhook';
 import { computeWebhookSignature } from '../../../lib/zoom/verifier';
-import type {
-  LedgerWriteResult,
-  ZoomWebhookEventInsert,
-  ZoomWebhookStore,
+import {
+  LIFECYCLE_ENDED_APPLIES_FROM,
+  LIFECYCLE_STARTED_APPLIES_FROM,
+  PROJECTION_ENDED_APPLIES_FROM,
+  PROJECTION_LIVE_APPLIES_FROM,
+  type LedgerWriteResult,
+  type MeetingSurfaceKeys,
+  type ProjectionLifecycleStatus,
+  type ZoomLifecycleStatus,
+  type ZoomWebhookEventInsert,
+  type ZoomWebhookStore,
 } from '../../../lib/zoom/webhook-store';
 
 import meetingStartedFixture from '../../lib/zoom/fixtures/webhooks/meeting-started.json';
@@ -63,13 +70,35 @@ interface MeetingRow {
   id: string;
   status: string;
   zoom_meeting_uuid: string | null;
+  /** The projection's key. Defaulted so existing fixtures need not spell it out. */
+  surface_id?: string;
 }
 
-function createFakeStore(options: { meetings?: Record<number, MeetingRow> } = {}) {
+/** The projection row the §6 UI badge reads. Absent = no row for that surface. */
+interface ProjectionRow {
+  surface_type: string;
+  surface_id: string;
+  meeting_status: string;
+}
+
+const DEFAULT_SURFACE_ID = 'aaaa1111-2222-4333-8444-555566667777';
+
+/**
+ * MODELS THE MONOTONIC GUARD, exactly as `provisionHarness` models the EXCLUDE
+ * constraint: `setMeetingStatus` / `setProjectionStatus` here re-implement the
+ * conditional UPDATE's `WHERE ... IN (...)` and answer "zero rows" where Postgres
+ * would. A double that wrote unconditionally would make every ordering test below
+ * assert nothing. The applies-from sets are imported rather than re-typed so the
+ * double cannot disagree with the store about WHICH statuses those are.
+ */
+function createFakeStore(
+  options: { meetings?: Record<number, MeetingRow>; projections?: ProjectionRow[] } = {}
+) {
   const ledger = new Map<string, LedgerRow>();
   const meetings = new Map<number, MeetingRow>(
     Object.entries(options.meetings ?? {}).map(([number, row]) => [Number(number), { ...row }])
   );
+  const projections: ProjectionRow[] = (options.projections ?? []).map((row) => ({ ...row }));
 
   const store: ZoomWebhookStore = {
     recordEvent: vi.fn(async (event: ZoomWebhookEventInsert): Promise<LedgerWriteResult> => {
@@ -89,17 +118,44 @@ function createFakeStore(options: { meetings?: Record<number, MeetingRow> } = {}
       return meetings.get(meetingNumber)?.id ?? null;
     }),
     setMeetingStatus: vi.fn(
-      async (meetingId: string, status: 'started' | 'ended', occurrenceUuid: string | null) => {
+      async (meetingId: string, status: ZoomLifecycleStatus, occurrenceUuid: string | null) => {
+        const appliesFrom: readonly string[] =
+          status === 'started' ? LIFECYCLE_STARTED_APPLIES_FROM : LIFECYCLE_ENDED_APPLIES_FROM;
         for (const row of meetings.values()) {
           if (row.id !== meetingId) continue;
+          // The guard. Zero rows matched ⇒ nothing written, nothing returned.
+          if (!appliesFrom.includes(row.status)) return { applied: false, surface: null };
           row.status = status;
           if (occurrenceUuid !== null) row.zoom_meeting_uuid = occurrenceUuid;
+          return {
+            applied: true,
+            surface: {
+              surfaceType: 'consultor_session' as const,
+              surfaceId: row.surface_id ?? DEFAULT_SURFACE_ID,
+            },
+          };
         }
+        return { applied: false, surface: null };
+      }
+    ),
+    setProjectionStatus: vi.fn(
+      async (surface: MeetingSurfaceKeys, status: ProjectionLifecycleStatus) => {
+        const appliesFrom: readonly string[] =
+          status === 'live' ? PROJECTION_LIVE_APPLIES_FROM : PROJECTION_ENDED_APPLIES_FROM;
+        const row = projections.find(
+          (candidate) =>
+            candidate.surface_type === surface.surfaceType &&
+            candidate.surface_id === surface.surfaceId
+        );
+        // No row for this surface (a meeting created outside the LMS) ⇒ no-op.
+        if (!row) return;
+        if (!appliesFrom.includes(row.meeting_status)) return;
+        row.meeting_status = status;
       }
     ),
   };
 
-  return { store, ledger, meetings };
+  return { store, ledger, meetings, projections };
 }
 
 // ---------------------------------------------------------------------------
@@ -517,5 +573,112 @@ describe('/api/zoom/webhook — lifecycle application (§15 rows only)', () => {
     expect(store.findMeetingIdByNumber).not.toHaveBeenCalled();
     expect(store.setMeetingStatus).not.toHaveBeenCalled();
     expect(ledger.get(sha256Hex(participantJoinedFixture.rawBody))?.processed_at).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sol F1 — order-safe lifecycle + projection
+// ---------------------------------------------------------------------------
+
+/**
+ * The ordering matrix. Zoom does not order its deliveries and `webhook_sweep` replays
+ * events minutes late, so every one of these arrival orders is reachable in normal
+ * operation. In each case the assertions are the same three: the internal row ends
+ * `ended`, the projection ends `ended`, and the row never re-enters the §9 EXCLUDE
+ * active set (`pending`/`provisioned`/`started`) — because that set is what would
+ * re-acquire the host.
+ */
+describe('/api/zoom/webhook — F1 lifecycle ordering + projection', () => {
+  const SURFACE_ID = 'bbbb1111-2222-4333-8444-555566667777';
+
+  function seeded(status: string, meetingStatus: string) {
+    return createFakeStore({
+      meetings: {
+        [FIXTURE_MEETING_NUMBER]: {
+          id: MEETING_ROW_ID,
+          status,
+          zoom_meeting_uuid: null,
+          surface_id: SURFACE_ID,
+        },
+      },
+      projections: [
+        {
+          surface_type: 'consultor_session',
+          surface_id: SURFACE_ID,
+          meeting_status: meetingStatus,
+        },
+      ],
+    });
+  }
+
+  /** The EXCLUDE predicate's WHERE clause, restated where the assertion reads it. */
+  const ACTIVE_RESERVING_STATUSES = ['pending', 'provisioned', 'started'];
+
+  async function deliver(store: ZoomWebhookStore, fixture: typeof meetingStartedFixture) {
+    const res = await invoke({ store, rawBody: fixture.rawBody, headers: fixtureHeaders(fixture) });
+    expect(res._getStatusCode()).toBe(200);
+  }
+
+  it('started → ended: both surfaces end ended, and the host is released', async () => {
+    const { store, meetings, projections } = seeded('provisioned', 'scheduled');
+
+    await deliver(store, meetingStartedFixture);
+    expect(meetings.get(FIXTURE_MEETING_NUMBER)?.status).toBe('started');
+    expect(projections[0].meeting_status).toBe('live');
+
+    await deliver(store, meetingEndedFixture);
+    expect(meetings.get(FIXTURE_MEETING_NUMBER)?.status).toBe('ended');
+    expect(projections[0].meeting_status).toBe('ended');
+    expect(ACTIVE_RESERVING_STATUSES).not.toContain(meetings.get(FIXTURE_MEETING_NUMBER)?.status);
+  });
+
+  it('ended BEFORE started: the late started is refused, both surfaces stay ended', async () => {
+    const { store, meetings, projections } = seeded('provisioned', 'scheduled');
+
+    // `meeting.ended` first — it applies from `provisioned`, so it lands.
+    await deliver(store, meetingEndedFixture);
+    expect(meetings.get(FIXTURE_MEETING_NUMBER)?.status).toBe('ended');
+    expect(projections[0].meeting_status).toBe('ended');
+
+    // ...and the started that Zoom delivered out of order can never reopen it.
+    await deliver(store, meetingStartedFixture);
+    expect(meetings.get(FIXTURE_MEETING_NUMBER)?.status).toBe('ended');
+    expect(projections[0].meeting_status).toBe('ended');
+    expect(ACTIVE_RESERVING_STATUSES).not.toContain(meetings.get(FIXTURE_MEETING_NUMBER)?.status);
+  });
+
+  it('duplicate started and duplicate ended are absorbed without moving anything back', async () => {
+    const { store, meetings, projections } = seeded('provisioned', 'scheduled');
+
+    await deliver(store, meetingStartedFixture);
+    // Byte-identical replay: the ledger absorbs it and `processed_at` is already set.
+    await deliver(store, meetingStartedFixture);
+    expect(meetings.get(FIXTURE_MEETING_NUMBER)?.status).toBe('started');
+    expect(projections[0].meeting_status).toBe('live');
+
+    await deliver(store, meetingEndedFixture);
+    await deliver(store, meetingEndedFixture);
+    expect(meetings.get(FIXTURE_MEETING_NUMBER)?.status).toBe('ended');
+    expect(projections[0].meeting_status).toBe('ended');
+    expect(ACTIVE_RESERVING_STATUSES).not.toContain(meetings.get(FIXTURE_MEETING_NUMBER)?.status);
+  });
+
+  it('a meeting with no projection row (created outside the LMS) is a silent no-op', async () => {
+    const { store, meetings, projections } = createFakeStore({
+      meetings: {
+        [FIXTURE_MEETING_NUMBER]: {
+          id: MEETING_ROW_ID,
+          status: 'provisioned',
+          zoom_meeting_uuid: null,
+          surface_id: SURFACE_ID,
+        },
+      },
+      projections: [],
+    });
+
+    await deliver(store, meetingStartedFixture);
+    expect(meetings.get(FIXTURE_MEETING_NUMBER)?.status).toBe('started');
+    expect(store.setProjectionStatus).toHaveBeenCalledTimes(1);
+    expect(projections).toHaveLength(0);
   });
 });

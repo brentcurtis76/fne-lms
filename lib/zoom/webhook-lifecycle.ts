@@ -11,7 +11,7 @@
  * (`pages/api/zoom/webhook.ts`) and the job (`lib/zoom/jobs/webhook-sweep.ts`) can
  * import it without either importing the other.
  */
-import type { ZoomWebhookStore } from './webhook-store';
+import { PROJECTION_STATUS_FOR, type ZoomWebhookStore } from './webhook-store';
 
 /** The only two event types that move a row. Everything else is ledger-only. */
 export const LIFECYCLE_EVENT_TYPES = ['meeting.started', 'meeting.ended'] as const;
@@ -57,9 +57,28 @@ export function readOccurrenceUuid(raw: unknown): string | null {
  * An unknown meeting number is normal for meetings created outside the LMS: the ledger
  * row is the whole of the work, and the caller still reports success.
  *
- * Idempotent by construction — every write is an absolute status assignment, never a
- * transition guarded on the current value. That is what lets the sweep re-apply an
- * event the route may or may not have already applied.
+ * ## Idempotent AND order-guarded — both, and the second is the load-bearing one
+ *
+ * Idempotence alone was never sufficient, and the earlier claim that it was (absolute
+ * status assignments ⇒ safe) is withdrawn (Sol F1). Zoom does not order its deliveries,
+ * and `webhook_sweep` deliberately re-plays events minutes after the fact, so a
+ * `meeting.started` arriving AFTER its `meeting.ended` is reachable in normal operation
+ * — and an absolute write would have flipped a finished meeting back to `started`,
+ * re-entering the §9 EXCLUDE active set and re-acquiring the host.
+ *
+ * So every write here is a GUARDED transition, and the guard is the UPDATE's own
+ * `WHERE ... status IN (...)` inside Postgres — see `webhook-store.ts` for the two
+ * applies-from sets. An in-process check would be a TOCTOU race between this route and
+ * a concurrent sweep. Re-applying the SAME status is still allowed (each set contains
+ * its own target), which is what keeps duplicate deliveries and the sweep harmless.
+ *
+ * ## The projection moves with the row, under the same rule
+ *
+ * §6 makes `public.session_meetings_public.meeting_status` the UI's status surface, so
+ * a lifecycle that moved only the internal row would leave every badge reading
+ * `scheduled` forever. It is updated here, from the surface keys the guarded UPDATE
+ * returns, and only when the internal transition actually applied — so a late `started`
+ * can no more resurrect an `ended` projection row than it can an `ended` meeting.
  */
 export async function applyWebhookLifecycle(
   store: ZoomWebhookStore,
@@ -74,11 +93,15 @@ export async function applyWebhookLifecycle(
   const meetingId = await store.findMeetingIdByNumber(meetingNumber);
   if (meetingId === null) return;
 
-  if (eventType === 'meeting.started') {
-    await store.setMeetingStatus(meetingId, 'started', readOccurrenceUuid(object?.uuid));
-    return;
-  }
+  const status = eventType === 'meeting.started' ? 'started' : 'ended';
   // `meeting.ended` carries the same occurrence uuid, but `started` already captured
-  // it; passing null here means a malformed/absent uuid can never blank the column.
-  await store.setMeetingStatus(meetingId, 'ended', null);
+  // it; passing null there means a malformed/absent uuid can never blank the column.
+  const occurrenceUuid = status === 'started' ? readOccurrenceUuid(object?.uuid) : null;
+
+  const transition = await store.setMeetingStatus(meetingId, status, occurrenceUuid);
+  // Refused: the row is already past this status. Nothing moved, and nothing downstream
+  // may move either — the projection stays wherever the winning event left it.
+  if (!transition.applied || transition.surface === null) return;
+
+  await store.setProjectionStatus(transition.surface, PROJECTION_STATUS_FOR[status]);
 }

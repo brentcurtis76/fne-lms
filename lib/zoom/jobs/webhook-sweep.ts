@@ -21,15 +21,22 @@
  * ## Why the age floor
  *
  * Only rows older than `SWEEP_MIN_AGE_MINUTES` are touched, so the sweep never races a
- * delivery the route is handling at this instant. Re-applying is harmless anyway —
- * every lifecycle write is an absolute assignment — but doing pointless work against a
- * live request is still worth not doing.
+ * delivery the route is handling at this instant. Re-applying is harmless anyway — the
+ * lifecycle's writes are guarded transitions, not absolute assignments — but doing
+ * pointless work against a live request is still worth not doing.
  *
- * ## Idempotent
+ * ## Idempotent, and ORDER-SAFE — which is a stronger and separate property
  *
- * A second run finds nothing (the first marked the rows processed), and even a
- * concurrent double-run converges: two workers applying the same absolute status write
- * produce the same row.
+ * A second run finds nothing (the first marked the rows processed), and a concurrent
+ * double-run converges because the two workers issue the same conditional UPDATE and
+ * only one of them can match a row.
+ *
+ * The property this job actually depends on is order-safety, not idempotence (Sol F1).
+ * This sweep is precisely the thing that replays a `meeting.started` fifteen minutes or
+ * more after it was received — by which time the `meeting.ended` may long since have
+ * been applied. `lib/zoom/webhook-lifecycle.ts` refuses that transition at the database
+ * level; without that refusal this job would be the mechanism that resurrects finished
+ * meetings and re-acquires their hosts.
  */
 import { applyWebhookLifecycle, type ZoomWebhookObject } from '../webhook-lifecycle';
 import {

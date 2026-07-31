@@ -14,9 +14,16 @@
 import { describe, it, expect, vi } from 'vitest';
 
 import { createWebhookSweepHandler } from '../../../../lib/zoom/jobs/webhook-sweep';
-import type {
-  UnappliedWebhookEvent,
-  ZoomWebhookSweepStore,
+import {
+  LIFECYCLE_ENDED_APPLIES_FROM,
+  LIFECYCLE_STARTED_APPLIES_FROM,
+  PROJECTION_ENDED_APPLIES_FROM,
+  PROJECTION_LIVE_APPLIES_FROM,
+  type MeetingSurfaceKeys,
+  type ProjectionLifecycleStatus,
+  type UnappliedWebhookEvent,
+  type ZoomLifecycleStatus,
+  type ZoomWebhookSweepStore,
 } from '../../../../lib/zoom/webhook-store';
 import type { ZoomJobContext } from '../../../../lib/zoom/jobs/types';
 import type { ZoomJobRow } from '../../../../lib/zoom/db-types';
@@ -38,10 +45,32 @@ function startedEvent(): Record<string, unknown> {
   };
 }
 
-function createMemorySweepStore(rows: LedgerRow[]) {
+function endedEvent(): Record<string, unknown> {
+  return {
+    event: 'meeting.ended',
+    payload: { object: { id: String(MEETING_NUMBER), uuid: OCCURRENCE_UUID } },
+  };
+}
+
+const SURFACE_ID = 'cccc1111-2222-4333-8444-555566667777';
+
+/**
+ * Like the route suite's double, this one MODELS THE MONOTONIC GUARD — and here it
+ * matters most: the sweep is the mechanism that replays a `meeting.started` long after
+ * its `meeting.ended` landed, so a double that wrote unconditionally would let the very
+ * bug this job could cause pass unnoticed.
+ */
+function createMemorySweepStore(
+  rows: LedgerRow[],
+  seed: { status?: string; projectionStatus?: string | null } = {}
+) {
   const meetings = new Map<number, { id: string; status: string; uuid: string | null }>([
-    [MEETING_NUMBER, { id: MEETING_ID, status: 'provisioned', uuid: null }],
+    [MEETING_NUMBER, { id: MEETING_ID, status: seed.status ?? 'provisioned', uuid: null }],
   ]);
+  const projection =
+    seed.projectionStatus === null
+      ? null
+      : { meeting_status: seed.projectionStatus ?? 'scheduled' };
 
   const store: ZoomWebhookSweepStore = {
     listUnappliedEvents: vi.fn(async (receivedBeforeIso: string, limit: number) =>
@@ -59,17 +88,35 @@ function createMemorySweepStore(rows: LedgerRow[]) {
       if (row) row.processed_at = processedAt;
     }),
     findMeetingIdByNumber: vi.fn(async (number: number) => meetings.get(number)?.id ?? null),
-    setMeetingStatus: vi.fn(async (meetingId: string, status: string, uuid: string | null) => {
-      const entry = [...meetings.values()].find((candidate) => candidate.id === meetingId);
-      if (!entry) return;
-      entry.status = status;
-      if (uuid !== null) entry.uuid = uuid;
-    }),
+    setMeetingStatus: vi.fn(
+      async (meetingId: string, status: ZoomLifecycleStatus, uuid: string | null) => {
+        const entry = [...meetings.values()].find((candidate) => candidate.id === meetingId);
+        if (!entry) return { applied: false, surface: null };
+        const appliesFrom: readonly string[] =
+          status === 'started' ? LIFECYCLE_STARTED_APPLIES_FROM : LIFECYCLE_ENDED_APPLIES_FROM;
+        if (!appliesFrom.includes(entry.status)) return { applied: false, surface: null };
+        entry.status = status;
+        if (uuid !== null) entry.uuid = uuid;
+        return {
+          applied: true,
+          surface: { surfaceType: 'consultor_session' as const, surfaceId: SURFACE_ID },
+        };
+      }
+    ),
+    setProjectionStatus: vi.fn(
+      async (_surface: MeetingSurfaceKeys, status: ProjectionLifecycleStatus) => {
+        if (projection === null) return;
+        const appliesFrom: readonly string[] =
+          status === 'live' ? PROJECTION_LIVE_APPLIES_FROM : PROJECTION_ENDED_APPLIES_FROM;
+        if (!appliesFrom.includes(projection.meeting_status)) return;
+        projection.meeting_status = status;
+      }
+    ),
     recordEvent: vi.fn(async () => 'inserted' as const),
     readProcessedAt: vi.fn(async () => undefined),
   };
 
-  return { store, rows, meetings };
+  return { store, rows, meetings, projection };
 }
 
 function context(): ZoomJobContext {
@@ -243,5 +290,77 @@ describe('webhook_sweep', () => {
 
     expect(result).toMatchObject({ scanned: 2, applied: 2 });
     expect(harness.rows.filter((row) => row.processed_at === null)).toHaveLength(3);
+  });
+
+  // -------------------------------------------------------------------------
+  // Sol F1 — the sweep is the reachable out-of-order replay
+  // -------------------------------------------------------------------------
+
+  /**
+   * The scenario the age floor makes INEVITABLE rather than unlikely: a
+   * `meeting.started` whose first delivery died is only swept 15+ minutes later, by
+   * which time the meeting has ended and the route applied `meeting.ended` normally.
+   * Before F1 this sweep flipped the row back to `started` — re-entering the §9
+   * EXCLUDE active set and re-acquiring a host for a window that was over.
+   */
+  it('a SWEPT older started, replayed after ended, cannot reopen the meeting', async () => {
+    const harness = createMemorySweepStore(
+      [
+        {
+          dedupe_key: 'sha-late-started',
+          event_type: 'meeting.started',
+          raw_payload: startedEvent(),
+          // Received first, swept last — 40 min old.
+          received_at: '2026-08-05T11:20:00.000Z',
+          processed_at: null,
+        },
+      ],
+      // The route already applied `meeting.ended` in the meantime.
+      { status: 'ended', projectionStatus: 'ended' }
+    );
+
+    const result = await createWebhookSweepHandler({
+      store: harness.store,
+      now: () => NOW_MS,
+    })(context());
+
+    // The sweep did its job — the ledger row is finished, so it stops reappearing.
+    expect(result).toMatchObject({ scanned: 1, applied: 1 });
+    expect(harness.rows[0].processed_at).not.toBeNull();
+
+    // ...and the transition it replayed was refused at the store.
+    expect(harness.meetings.get(MEETING_NUMBER)?.status).toBe('ended');
+    expect(harness.projection?.meeting_status).toBe('ended');
+    expect(['pending', 'provisioned', 'started']).not.toContain(
+      harness.meetings.get(MEETING_NUMBER)?.status
+    );
+    // The refusal is what stops the projection call — `live` never even attempted.
+    expect(harness.store.setProjectionStatus).not.toHaveBeenCalled();
+  });
+
+  it('a swept ended lands on a still-provisioned row and moves the projection too', async () => {
+    const harness = createMemorySweepStore(
+      [
+        {
+          dedupe_key: 'sha-late-ended',
+          event_type: 'meeting.ended',
+          raw_payload: endedEvent(),
+          received_at: '2026-08-05T11:20:00.000Z',
+          processed_at: null,
+        },
+      ],
+      // `ended` applies from anything but cancelled/deleted — including a row whose
+      // `started` never arrived at all.
+      { status: 'provisioned', projectionStatus: 'scheduled' }
+    );
+
+    const result = await createWebhookSweepHandler({
+      store: harness.store,
+      now: () => NOW_MS,
+    })(context());
+
+    expect(result).toMatchObject({ scanned: 1, applied: 1 });
+    expect(harness.meetings.get(MEETING_NUMBER)?.status).toBe('ended');
+    expect(harness.projection?.meeting_status).toBe('ended');
   });
 });

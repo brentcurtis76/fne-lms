@@ -30,7 +30,11 @@ import { createZoomFake, type ZoomFake } from '../../../../lib/zoom/fake';
 import { applyWebhookLifecycle } from '../../../../lib/zoom/webhook-lifecycle';
 import { ZoomJobLeaseLostError, type ZoomJobContext } from '../../../../lib/zoom/jobs/types';
 import type { ZoomJobRow } from '../../../../lib/zoom/db-types';
-import type { ZoomWebhookStore } from '../../../../lib/zoom/webhook-store';
+import {
+  LIFECYCLE_ENDED_APPLIES_FROM,
+  LIFECYCLE_STARTED_APPLIES_FROM,
+  type ZoomWebhookStore,
+} from '../../../../lib/zoom/webhook-store';
 import {
   createMemoryJobQueue,
   createMemoryProvisionStore,
@@ -735,10 +739,26 @@ describe('meeting_provision · meeting.started captures the occurrence uuid', ()
         number === meetingNumber ? row.id : null
       ),
       setMeetingStatus: vi.fn(async (_id, status, uuid) => {
+        const appliesFrom: readonly string[] =
+          status === 'started' ? LIFECYCLE_STARTED_APPLIES_FROM : LIFECYCLE_ENDED_APPLIES_FROM;
+        if (!appliesFrom.includes(row.status)) return { applied: false, surface: null };
         row.status = status;
         if (uuid !== null) row.zoom_meeting_uuid = uuid;
+        return {
+          applied: true,
+          surface: { surfaceType: row.surface_type, surfaceId: row.surface_id },
+        };
+      }),
+      // Writes straight onto the row `meeting_provision` upserted moments ago — this is
+      // the §6 projection the UI badge reads, and F1 is what finally moves it.
+      setProjectionStatus: vi.fn(async (surface, status) => {
+        const projected = harness.projectionFor(surface.surfaceId);
+        if (projected) projected.meeting_status = status;
       }),
     };
+
+    // Provisioning left the projection at `scheduled`; only the lifecycle moves it.
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('scheduled');
 
     await applyWebhookLifecycle(store, 'meeting.started', {
       // Zoom sends the id as a decimal STRING.
@@ -748,10 +768,20 @@ describe('meeting_provision · meeting.started captures the occurrence uuid', ()
 
     expect(row.status).toBe('started');
     expect(row.zoom_meeting_uuid).toBe(occurrenceUuid);
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('live');
 
     // `meeting.ended` must never blank it.
     await applyWebhookLifecycle(store, 'meeting.ended', { id: String(meetingNumber) });
     expect(row.status).toBe('ended');
     expect(row.zoom_meeting_uuid).toBe(occurrenceUuid);
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('ended');
+
+    // ...and a duplicate/swept `started` arriving now moves neither surface back.
+    await applyWebhookLifecycle(store, 'meeting.started', {
+      id: String(meetingNumber),
+      uuid: occurrenceUuid,
+    });
+    expect(row.status).toBe('ended');
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('ended');
   });
 });

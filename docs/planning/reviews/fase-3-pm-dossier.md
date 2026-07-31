@@ -199,9 +199,13 @@ Sol R2 (re-review of sol1 at `da38eb9`): REQUEST CHANGES — 2 MAJOR / 2 MINOR, 
 triaged valid (two qualified the PM's sol1-round verification; conceded in the verdict
 archive Round 2). Fixed in four commits: `ddb07d3` (①: `findUnusableCreateFields`
 shape-checks a 2xx create over exactly the fields the provisioner persists —
-safe-integer id, non-empty join_url, password/settings shapes; all three unusable-2xx
-classes unified under `ZoomUnusableSuccessError`, whose constructor FORCES
-`outcome:'ambiguous'`) · `db304d6` (②: handler-enforced parked state — after the
+safe-integer id, non-empty join_url, password/settings shapes; the empty-body and
+schema-invalid classes unified under `ZoomUnusableSuccessError`, whose constructor
+FORCES `outcome:'ambiguous'`, while the client-level unparseable-2xx remains
+`ZoomRetryableError` carrying `outcome:'ambiguous'` — one outcome, two classes.
+*[Corrected in sol3 per Sol R3 ③: this line originally claimed "all three unified";
+the overclaim was the PM's own — the executor's sol2 report stated the asymmetry
+accurately]*) · `db304d6` (②: handler-enforced parked state — after the
 anchors, before any reservation reuse/host resolution/Zoom call, a pending-no-number
 row carrying the `ambiguous_create_outcome` marker fails under the DISTINCT reason
 `ambiguous_unresolved`; the manual resolution contract — populate the number, or clear
@@ -230,6 +234,49 @@ runbook exists; the ③ tests prove the store SENDS the guard — that Postgres 
 `status IN(...)` semantics is the pgTAP suite's territory; settings validation is
 shape-only (a false-`{}` settings body under-reports §9.4 drift — pre-existing,
 unchanged).
+
+## 7d. Sol-R3 remediation record (Z1b-sol3, 2026-07-31)
+
+Sol R3: REQUEST CHANGES — 3 findings (① MAJOR operator-recovery incomplete; ② MAJOR-minus
+fail-open create validation for always-requested fields; ③ MINOR classification
+commentary — an overclaim that was the PM's own wording, corrected above in §7c). Fixed
+in `3470672` (② first — ① depends on its rule set), `a67bc18` (①), `830d31d` (③),
+`b64e945` (round record).
+
+① The anchor split: `hasNumber` now drives EVERY do-not-create guard (adoption, parked
+gate, held-reservation, branch selector, the `created` result flag) while status only
+selects the branch — `pending`+number ⇒ operator recovery (Zoom `getMeeting` read-back →
+identity check → the ②-bar validation via `findUnusableProvisionedMeetingFields` → ONE
+`markProvisioned` that clears `last_error` in the same UPDATE → only then the
+projection); `provisioned`-or-later+number ⇒ the unchanged replay. Unusable read-back ⇒
+zero writes, terminal `recovery_unusable` (a THIRD reason string on the §18 surface —
+deliberate: "re-check the number" is a different operator action from "resolve the
+queue"). The executor's self-caught note is load-bearing: keying replay on
+`status==='provisioned'` alone would have dropped `started`/`ended`+number rows into the
+candidate walk — a second meeting; `hasNumber` guarding prevents the whole class.
+② `password` required non-empty; `settings` required with an explicit string
+`auto_recording`; absence ⇒ `ZoomUnusableSuccessError` (parked, never a clean-looking
+`'none'`/`drift=false`). `readAutoRecording`'s floor comment is truthful again.
+③ Corrected in `api.ts`, `errors.ts` (which carried the same overclaim) and the fake
+suite, with pinning assertions (`not.toBeInstanceOf(ZoomUnusableSuccessError)`,
+`kind==='retryable'`); classes deliberately NOT unified; GET semantics untouched.
+
+**PM verification**: all three diffs read; fail-on-old re-executed — ① 5/52 fail with
+only `meeting-provision.ts` reverted; ② 14/110 fail running BOTH suites with only
+`api.ts` reverted (the executor's 10 named + 4 of ①'s recovery tests that import ②'s
+validator — a cross-dependency superset, consistent); gates at the final head:
+**3723/3723 in 239 files**, build OK, `test:db` 91/91, `test:queue` PASS; scanner
+replication CLEAN. Deviations 1–6 ALL ACCEPTED — notably recovery keyed on
+`pending`+number as STATE rather than marker provenance (a marker-less operator row
+would otherwise hit the same defect; the marker is still read for its `request_id`) and
+the distinct `recovery_unusable` reason. **Scrutiny C accepted as-is**: recovery does no
+heartbeat before its Zoom GET — a lost lease there means a non-owner writes
+`markProvisioned`, an absolute idempotent write of Zoom-truth (same resulting row); the
+create path's checkpoint discipline guards an IRREVERSIBLE call, a GET is free —
+recorded, Sol may re-weigh. **Environment note**: the zoom worktree was renamed
+mid-round (`fne-lms-zoom-core` → `/Users/brentcurtis/Documents/fne-zoom`); the executor
+verified tree identity (branch/SHA/cleanliness) before proceeding — the right call —
+and every PM-owned reference is updated.
 
 ## 8. Exact local gate commands
 

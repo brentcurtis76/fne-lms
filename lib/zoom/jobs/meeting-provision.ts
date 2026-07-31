@@ -46,14 +46,37 @@
  *
  * ## Idempotent and resumable (§12, at-least-once)
  *
- * `zoom_meeting_number` is the anchor: once it is set, the meeting exists at Zoom and
- * NO re-run may create a second one. A re-run then only finishes the remaining steps.
- * Everything else is an absolute write, never a guarded transition.
+ * Zoom's create API takes NO idempotency key, so "create exactly once" cannot be bought
+ * from the provider — it is reconstructed from two anchors, checked in this order:
+ *
+ *  1. `zoom_meetings.zoom_meeting_number`. Once it is set the meeting exists at Zoom and
+ *     no re-run may create a second one; the re-run only finishes the remaining steps.
+ *  2. failing that, a `stage: 'created'` checkpoint in the job's own `stage_state`,
+ *     written by the heartbeat IMMEDIATELY after `createMeeting` returns. A re-run that
+ *     finds one ADOPTS it — `markProvisioned` from the checkpoint — and does not create.
+ *
+ * Only when NEITHER anchor exists does the handler reserve a host and create. Every
+ * other write is absolute, never a guarded transition.
  *
  * Note the `complete_zoom_job` contract (Z1b-3 finding ③): completion REPLACES
- * `stage_state` with the handler's return value, so nothing that must survive across
- * attempts is parked there. Cross-attempt state lives in the `zoom_meetings` row
- * itself; `heartbeat(stage_state)` carries only in-run progress.
+ * `stage_state` with the handler's return value. That is exactly why anchor 1 is the ROW
+ * and not the checkpoint — the checkpoint only has to survive a FAILED attempt, and
+ * `fail_zoom_job` leaves `stage_state` untouched. It is in-run progress that outlives
+ * the run that wrote it, nothing more.
+ *
+ * ### RESIDUAL — the window that stays open
+ *
+ * The checkpoint NARROWS the create→persist window; it does not close it. If the process
+ * dies between `createMeeting` returning and the checkpoint landing — or the lease is
+ * lost, so the heartbeat returns false and nothing is written at all — the retry sees
+ * neither anchor and creates a SECOND meeting at Zoom. The first is then orphaned:
+ * scheduled, never joined, pointed at by no row. The same holds if the `zoom_meetings`
+ * row is missing when a checkpoint is read, because there is nothing to adopt it onto.
+ * This is irreducible without a Zoom-side idempotency key.
+ *
+ * What the checkpoint buys when it DOES land is that the orphan is NAMED:
+ * `zoom_jobs.stage_state.meeting.number` on the failed job is the meeting number a human
+ * can cancel. Dead-job triage (`docs/runbooks/zoom.md`) is the cleanup path.
  */
 import { randomInt } from 'crypto';
 import { getSessionDateTime, SESSION_TIMEZONE } from '../../utils/session-timezone';
@@ -153,6 +176,12 @@ export interface ProvisionMeetingRow {
   status: ZoomMeetingStatus;
   host_zoom_user_id: string | null;
   zoom_meeting_number: number | null;
+  /**
+   * The EFFECTIVE settings the create response carried, as persisted. Read back so a
+   * resume DERIVES the §9.4 drift signal from what Zoom actually said instead of
+   * assuming it — see `readAutoRecording`.
+   */
+  effective_settings: Record<string, unknown> | null;
   starts_at: string;
   duration_minutes: number;
 }
@@ -338,7 +367,9 @@ export function createSupabaseMeetingProvisionStore(
     async findMeetingBySurface(surfaceType, surfaceId) {
       const { data, error } = await internalClient
         .from('zoom_meetings')
-        .select('id, status, host_zoom_user_id, zoom_meeting_number, starts_at, duration_minutes')
+        .select(
+          'id, status, host_zoom_user_id, zoom_meeting_number, effective_settings, starts_at, duration_minutes'
+        )
         .eq('surface_type', surfaceType)
         .eq('surface_id', surfaceId)
         .maybeSingle();
@@ -350,7 +381,9 @@ export function createSupabaseMeetingProvisionStore(
       const { data, error } = await internalClient
         .from('zoom_meetings')
         .insert({ ...row, status: 'pending' })
-        .select('id, status, host_zoom_user_id, zoom_meeting_number, starts_at, duration_minutes')
+        .select(
+          'id, status, host_zoom_user_id, zoom_meeting_number, effective_settings, starts_at, duration_minutes'
+        )
         .single();
       // 23P01 is not an error condition here — it is the answer "that host is busy".
       if (isExclusionViolation(error)) return { reserved: false };
@@ -503,6 +536,63 @@ export function orderHostCandidates(
 }
 
 /**
+ * §9.4's drift signal, derived from EFFECTIVE settings — the create response, or what a
+ * previous attempt persisted from one. Never a constant: a resume that assumed `'none'`
+ * would report a clean run for a meeting Zoom is silently recording.
+ *
+ * A missing/NULL settings object floors to `'none'`. `markProvisioned` writes the number
+ * and the settings in one UPDATE, so "has a meeting number, has no settings" is not a
+ * state this handler can produce; the floor is the type-level bottom, not a claim.
+ */
+export function readAutoRecording(settings: Record<string, unknown> | null | undefined): string {
+  return String(settings?.auto_recording ?? 'none');
+}
+
+/** The `stage_state.stage` value that marks a landed post-create checkpoint. */
+export const CREATED_CHECKPOINT_STAGE = 'created';
+
+/** What a `stage: 'created'` checkpoint carries — enough to persist without Zoom. */
+export interface CreatedMeetingCheckpoint {
+  meetingId: string;
+  number: number;
+  passcode: string;
+  joinUrl: string;
+  settings: Record<string, unknown>;
+}
+
+/**
+ * Reads a post-create checkpoint out of the claimed job's `stage_state` (anchor 2 in the
+ * module header). Total and defensive: `stage_state` is jsonb written by a *previous*
+ * deploy of this handler, so anything short of a complete, well-typed checkpoint returns
+ * `null` and the caller falls through to the create path. A partial checkpoint must never
+ * be persisted as if it were a real meeting.
+ */
+export function readCreatedCheckpoint(
+  stageState: Record<string, unknown> | null | undefined
+): CreatedMeetingCheckpoint | null {
+  if (!stageState || stageState.stage !== CREATED_CHECKPOINT_STAGE) return null;
+
+  const meetingId = stageState.meeting_id;
+  const meeting = stageState.meeting;
+  if (typeof meetingId !== 'string' || meetingId === '') return null;
+  if (typeof meeting !== 'object' || meeting === null) return null;
+
+  const { number, passcode, join_url: joinUrl, settings } = meeting as Record<string, unknown>;
+  if (typeof number !== 'number' || !Number.isFinite(number)) return null;
+  if (typeof passcode !== 'string' || passcode === '') return null;
+  if (typeof joinUrl !== 'string' || joinUrl === '') return null;
+  if (typeof settings !== 'object' || settings === null) return null;
+
+  return {
+    meetingId,
+    number,
+    passcode,
+    joinUrl,
+    settings: settings as Record<string, unknown>,
+  };
+}
+
+/**
  * Server-generated, never derived from anything about the session. 10 chars from an
  * unambiguous alphanumeric alphabet, drawn with `crypto.randomInt` (rejection-sampled,
  * so no modulo bias). Zoom allows up to 10 characters for a meeting passcode.
@@ -609,13 +699,26 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
     let hostZoomUserId: string;
     let candidatesTried = 0;
 
-    // The idempotence anchor: a meeting number means Zoom already holds a meeting for
+    // Anchor 1 (module header): a meeting number means Zoom already holds a meeting for
     // this surface. Never create a second one — just finish the remaining steps.
     const alreadyCreated = existing !== null && existing.zoom_meeting_number !== null;
+
+    // Anchor 2: the previous attempt created at Zoom and checkpointed, then died before
+    // `markProvisioned` landed. The checkpoint is only adoptable onto the row it names —
+    // a checkpoint whose `meeting_id` is not this surface's row is stale, and writing it
+    // anywhere else would corrupt a different reservation.
+    const checkpoint = readCreatedCheckpoint(ctx.job.stage_state);
+    const adoption =
+      !alreadyCreated && existing !== null && checkpoint !== null && checkpoint.meetingId === existing.id
+        ? { row: existing, checkpoint }
+        : null;
 
     if (alreadyCreated) {
       meetingId = existing.id;
       hostZoomUserId = existing.host_zoom_user_id ?? '';
+    } else if (adoption !== null) {
+      meetingId = adoption.row.id;
+      hostZoomUserId = adoption.row.host_zoom_user_id ?? '';
     } else if (existing !== null && existing.status === 'pending' && existing.host_zoom_user_id) {
       // Crashed between the reservation and the create. The reservation is still held
       // by this very row, so re-resolving a host would only fight our own constraint.
@@ -680,11 +783,6 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
       hostZoomUserId = reservedHost;
     }
 
-    // The reservation is held; the Zoom call is the slow part. Checkpoint before it so
-    // a lost lease is noticed before we spend a network round trip on it.
-    const alive = await ctx.heartbeat({ meeting_id: meetingId, stage: 'reserved' });
-    if (!alive) throw new ZoomJobLeaseLostError(ctx.job.id);
-
     // --- Create at Zoom ---------------------------------------------------
     let zoomMeetingNumber: number;
     let effectiveAutoRecording: string;
@@ -693,8 +791,30 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
       zoomMeetingNumber = existing.zoom_meeting_number as number;
       // Nothing is re-read from Zoom: the row already holds the effective settings the
       // create returned, and a GET here would cost a round trip to learn nothing new.
-      effectiveAutoRecording = 'none';
+      // DERIVED from those persisted settings, never assumed — a row provisioned with
+      // drifted `auto_recording` must still report the drift on every replay.
+      effectiveAutoRecording = readAutoRecording(existing.effective_settings);
+    } else if (adoption !== null) {
+      // Anchor 2. Zoom already holds this meeting; the only thing the crashed attempt
+      // owed the row is this write. No create, and no heartbeat before it — the
+      // checkpoint in `stage_state` is the only copy of these values, and a heartbeat
+      // carrying a different stage would overwrite it.
+      await store.markProvisioned(adoption.row.id, {
+        zoom_meeting_number: adoption.checkpoint.number,
+        passcode: adoption.checkpoint.passcode,
+        join_url: adoption.checkpoint.joinUrl,
+        effective_settings: adoption.checkpoint.settings,
+        status: 'provisioned',
+      });
+      zoomMeetingNumber = adoption.checkpoint.number;
+      effectiveAutoRecording = readAutoRecording(adoption.checkpoint.settings);
     } else {
+      // The reservation is held; the Zoom call is the slow part. Checkpoint before it so
+      // a lost lease is noticed before we spend a network round trip on it. Only on this
+      // path: the resume paths above must not touch `stage_state`.
+      const alive = await ctx.heartbeat({ meeting_id: meetingId, stage: 'reserved' });
+      if (!alive) throw new ZoomJobLeaseLostError(ctx.job.id);
+
       let created;
       try {
         created = await api.createMeeting({
@@ -719,9 +839,31 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
         throw error;
       }
 
+      // Zoom's create has no idempotency key, so THIS is the irreversible step and the
+      // next line is the narrowest the window gets: checkpoint what Zoom just minted
+      // into the job's own `stage_state`, atomically with the lease extension, so a
+      // crash before `markProvisioned` resumes by ADOPTING rather than creating again.
+      // The plaintext passcode is safe here in the §5 sense and adds no surface:
+      // `stage_state` lives in `zoom_internal.zoom_jobs`, whose grants are service-role
+      // only — the same exposure `zoom_meetings.passcode` already has.
+      // Lease lost ⇒ ZoomJobLeaseLostError and NO markError: this worker no longer owns
+      // the job, so it must not write its verdict onto another worker's row. Nothing is
+      // checkpointed in that case — see the module header's RESIDUAL.
+      const stillLeased = await ctx.heartbeat({
+        meeting_id: meetingId,
+        stage: CREATED_CHECKPOINT_STAGE,
+        meeting: {
+          number: created.id,
+          passcode: created.passcode,
+          join_url: created.joinUrl,
+          settings: created.settings,
+        },
+      });
+      if (!stillLeased) throw new ZoomJobLeaseLostError(ctx.job.id);
+
       // Read the RESPONSE, never the request: Zoom reflects EFFECTIVE settings on a
       // capability mismatch (§20) rather than refusing.
-      effectiveAutoRecording = String(created.settings.auto_recording ?? 'none');
+      effectiveAutoRecording = readAutoRecording(created.settings);
 
       await store.markProvisioned(meetingId, {
         zoom_meeting_number: created.id,
@@ -764,7 +906,8 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
       meeting_id: meetingId,
       zoom_meeting_number: zoomMeetingNumber,
       host_zoom_user_id: hostZoomUserId,
-      created: !alreadyCreated,
+      // Both resume anchors mean a PREVIOUS attempt created it at Zoom.
+      created: !alreadyCreated && adoption === null,
       candidates_tried: candidatesTried,
       settings_drift: settingsDrift,
       effective_auto_recording: effectiveAutoRecording,

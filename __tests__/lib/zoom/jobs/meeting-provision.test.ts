@@ -28,12 +28,13 @@ import {
 import { describeJobFailure } from '../../../../lib/zoom/jobs/runner';
 import { createZoomFake, type ZoomFake } from '../../../../lib/zoom/fake';
 import { applyWebhookLifecycle } from '../../../../lib/zoom/webhook-lifecycle';
-import type { ZoomJobContext } from '../../../../lib/zoom/jobs/types';
+import { ZoomJobLeaseLostError, type ZoomJobContext } from '../../../../lib/zoom/jobs/types';
 import type { ZoomJobRow } from '../../../../lib/zoom/db-types';
 import type { ZoomWebhookStore } from '../../../../lib/zoom/webhook-store';
 import {
   createMemoryJobQueue,
   createMemoryProvisionStore,
+  type StoredJob,
   type StoredMeeting,
 } from './provisionHarness';
 
@@ -94,6 +95,18 @@ function seedFake(): ZoomFake {
   const fake = createZoomFake();
   fake.reset();
   return fake;
+}
+
+/**
+ * A clock that has spent the whole tick budget by its third read, so `runZoomTick`
+ * claims exactly ONE batch and returns. Without it the in-memory queue — which has no
+ * `run_after` backoff — would re-claim a just-failed job inside the same tick, and the
+ * two runs the crash test is about would collapse into one.
+ */
+function oneBatchClock(): () => number {
+  let read = 0;
+  // 0 = startedAt, 1 = the while-check that admits the batch, 2+ = budget exhausted.
+  return () => (read++ < 2 ? 0 : 1_000_000);
 }
 
 // ---------------------------------------------------------------------------
@@ -251,7 +264,12 @@ describe('meeting_provision · mock-mode round trip (§15 Z1b DoD)', () => {
     expect(job?.status).toBe('done');
   });
 
-  it('is idempotent across a crash after create: createMeeting runs EXACTLY once', async () => {
+  /**
+   * NOTE: this is the REPLAY of a run that COMPLETED (at-least-once redelivery), not the
+   * mid-crash case — run 1 persisted the meeting number, so run 2 resumes off anchor 1.
+   * The genuine create→persist crash is the next test.
+   */
+  it('replays a COMPLETED run off the row: no second create, drift re-derived', async () => {
     const fake = seedFake();
     const createSpy = vi.spyOn(fake, 'createMeeting');
     const harness = createMemoryProvisionStore({
@@ -276,6 +294,243 @@ describe('meeting_provision · mock-mode round trip (§15 Z1b DoD)', () => {
     expect(harness.meetings).toHaveLength(1);
     expect(harness.meetingFor(SESSION_ID)?.status).toBe('provisioned');
     expect(second.zoom_meeting_number).toBe(first.zoom_meeting_number);
+
+    // Derived from the settings the row actually holds, not from a constant.
+    expect(second.effective_auto_recording).toBe('none');
+    expect(second.settings_drift).toBe(false);
+  });
+
+  it('re-derives §9.4 drift from the PERSISTED row on the replay path', async () => {
+    const fake = seedFake();
+    // What a first attempt persisted from an account that forces cloud recording on.
+    const drifted: StoredMeeting = {
+      id: 'meeting-drifted',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: 'zoomUserPoolA001',
+      zoom_meeting_number: 82000004242,
+      zoom_meeting_uuid: null,
+      passcode: 'driftpass1',
+      join_url: 'https://example-synthetic.test/j/82000004242',
+      effective_settings: { join_before_host: false, waiting_room: false, auto_recording: 'cloud' },
+      status: 'provisioned',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+    };
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [drifted],
+    });
+
+    const result = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context()
+    );
+
+    expect(result.created).toBe(false);
+    // This path used to hardcode 'none' — it reported a clean run for a meeting Zoom
+    // is recording. The signal has to survive the resume.
+    expect(result.effective_auto_recording).toBe('cloud');
+    expect(result.settings_drift).toBe(true);
+    expect(fake.listMeetings()).toHaveLength(0);
+  });
+
+  it('adopts the post-create checkpoint after a genuine mid-crash: ONE create in two runs', async () => {
+    const fake = seedFake();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      facilitators: [{ user_id: LEAD_PROFILE, is_lead: true }],
+      hosts: [HOST_LEAD],
+    });
+    const queueHarness = createMemoryJobQueue();
+    const registry = createZoomJobRegistry({ api: fake, meetingProvisionStore: harness.store });
+
+    await queueHarness.queue.enqueue({
+      job_type: 'meeting_provision',
+      payload: { surface_type: 'consultor_session', surface_id: SESSION_ID },
+    });
+
+    // THE crash window: Zoom minted the meeting, the persist never landed.
+    vi.mocked(harness.store.markProvisioned).mockRejectedValueOnce(new Error('connection reset'));
+
+    const firstTick = await runZoomTick({
+      queue: queueHarness.queue,
+      registry,
+      workerId: 'worker-1',
+      now: oneBatchClock(),
+    });
+    expect(firstTick).toEqual({ claimed: 1, completed: 0, failed: 1 });
+
+    // The row is exactly what the finding describes — pending, no meeting number...
+    const midRow = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(midRow.status).toBe('pending');
+    expect(midRow.zoom_meeting_number).toBeNull();
+
+    // ...but the meeting Zoom is holding is NAMED in the job's stage_state, and the
+    // untyped failure is retryable, so the job is runnable again.
+    const atZoom = fake.listMeetings();
+    expect(atZoom).toHaveLength(1);
+    const job = queueHarness.jobFor('meeting_provision') as StoredJob;
+    expect(job.status).toBe('pending');
+    expect(job.stage_state).toMatchObject({
+      stage: 'created',
+      meeting_id: midRow.id,
+      meeting: { number: atZoom[0].id, passcode: atZoom[0].passcode },
+    });
+
+    // Run 2 claims the same job WITH that checkpoint and adopts it.
+    const secondTick = await runZoomTick({
+      queue: queueHarness.queue,
+      registry,
+      workerId: 'worker-2',
+      now: oneBatchClock(),
+    });
+    expect(secondTick).toEqual({ claimed: 1, completed: 1, failed: 0 });
+
+    // The whole point: one create across both runs, one meeting at Zoom, one row.
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(fake.listMeetings()).toHaveLength(1);
+    expect(harness.meetings).toHaveLength(1);
+
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('provisioned');
+    expect(row.zoom_meeting_number).toBe(atZoom[0].id);
+    expect(row.passcode).toBe(atZoom[0].passcode);
+    expect(row.join_url).toBe(atZoom[0].joinUrl);
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('scheduled');
+  });
+
+  it('derives §9.4 drift from the CHECKPOINT settings on the adopt path', async () => {
+    const fake = seedFake();
+    // A reservation the crashed attempt left behind: pending, host held, no number.
+    const reserved: StoredMeeting = {
+      id: 'meeting-checkpointed',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: 'zoomUserPoolA001',
+      zoom_meeting_number: null,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'pending',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+    };
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [reserved],
+    });
+    const job = jobRow({
+      stage_state: {
+        meeting_id: 'meeting-checkpointed',
+        stage: 'created',
+        meeting: {
+          number: 82000007777,
+          passcode: 'checkpoint1',
+          join_url: 'https://example-synthetic.test/j/82000007777',
+          settings: { join_before_host: false, waiting_room: false, auto_recording: 'cloud' },
+        },
+      },
+    });
+
+    const result = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context(job)
+    );
+
+    expect(result.created).toBe(false);
+    expect(result.zoom_meeting_number).toBe(82000007777);
+    // Derived from the checkpoint's own settings — the create never re-ran, so there is
+    // no response to read and a constant would lose the drift entirely.
+    expect(result.effective_auto_recording).toBe('cloud');
+    expect(result.settings_drift).toBe(true);
+
+    expect(fake.listMeetings()).toHaveLength(0);
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('provisioned');
+    expect(row.zoom_meeting_number).toBe(82000007777);
+    expect(row.effective_settings).toMatchObject({ auto_recording: 'cloud' });
+  });
+
+  it('ignores a checkpoint that names a different row and creates normally', async () => {
+    const fake = seedFake();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    const reserved: StoredMeeting = {
+      id: 'meeting-mine',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: 'zoomUserPoolA001',
+      zoom_meeting_number: null,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'pending',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+    };
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [reserved],
+    });
+    // A stale checkpoint pointing at somebody else's reservation. Adopting it would
+    // write another surface's meeting onto this row.
+    const job = jobRow({
+      stage_state: {
+        meeting_id: 'meeting-somebody-else',
+        stage: 'created',
+        meeting: {
+          number: 82000008888,
+          passcode: 'stalepass1',
+          join_url: 'https://example-synthetic.test/j/82000008888',
+          settings: { auto_recording: 'none' },
+        },
+      },
+    });
+
+    const result = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context(job)
+    );
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(result.created).toBe(true);
+    expect(result.zoom_meeting_number).not.toBe(82000008888);
+    expect(harness.meetingFor(SESSION_ID)?.zoom_meeting_number).toBe(fake.listMeetings()[0].id);
+  });
+
+  it('throws LeaseLost at the post-create checkpoint and writes nothing after it', async () => {
+    const fake = seedFake();
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+
+    // Alive for the pre-create heartbeat, lost by the post-create checkpoint.
+    const heartbeat = vi.fn(
+      async (stageState?: Record<string, unknown>) => stageState?.stage !== 'created'
+    );
+    const ctx: ZoomJobContext = { job: jobRow(), workerId: 'worker-1', heartbeat };
+
+    const handler = createMeetingProvisionHandler({ api: fake, store: harness.store });
+    await expect(handler(ctx)).rejects.toBeInstanceOf(ZoomJobLeaseLostError);
+
+    expect(heartbeat).toHaveBeenCalledTimes(2);
+    // Worker mismatch: this worker no longer owns the job, so it records no verdict —
+    // markError would park a failure on a row the new leaseholder is working.
+    expect(harness.store.markError).not.toHaveBeenCalled();
+    expect(harness.store.markProvisioned).not.toHaveBeenCalled();
+    expect(harness.store.upsertProjection).not.toHaveBeenCalled();
+
+    // The documented RESIDUAL, asserted rather than glossed: Zoom holds a meeting, the
+    // checkpoint never landed, and nothing points at it.
+    expect(fake.listMeetings()).toHaveLength(1);
+    expect(harness.meetingFor(SESSION_ID)?.zoom_meeting_number).toBeNull();
   });
 
   it('takes the next candidate when the first host is busy (23P01)', async () => {

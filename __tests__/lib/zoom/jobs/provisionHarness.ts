@@ -115,6 +115,8 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
       status: row.status,
       host_zoom_user_id: row.host_zoom_user_id,
       zoom_meeting_number: row.zoom_meeting_number,
+      // Read back so the resume paths can DERIVE §9.4 drift instead of assuming 'none'.
+      effective_settings: row.effective_settings,
       starts_at: row.starts_at,
       duration_minutes: row.duration_minutes,
     };

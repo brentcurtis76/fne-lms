@@ -189,3 +189,47 @@ rather than failing into triage; and the miss leaves a documented residual (a ro
 advanced past `pending` before recovery keeps NULL passcode/join_url — the historical
 record of a meeting that ran without platform join; the CAS never fires again by
 design). One round: **Z1b-sol4**.
+
+## Round 5 — Re-review of Z1b-sol4 (verdict: REQUEST CHANGES, 2026-07-31)
+
+Relayed as the Z1b-sol5 fix block. Two substantive findings + docs:
+
+**① (MAJOR-class)** The successful-recovery projection race: the CAS
+(`meeting-provision.ts:1479`) and `upsertProjection` are two calls. A webhook landing in
+the gap (started→ended on the now-provisioned row; the projection does not exist yet so
+lifecycle's guarded update no-ops) is followed by the late projection INSERT of
+`scheduled` — a permanently wrong public row for an ended meeting, with no later event
+to correct it. Fix: one database transaction (service-role-only SECURITY DEFINER RPC)
+making the provisioned row and the scheduled projection visible atomically; CAS miss
+writes neither; regression test drives REAL `applyWebhookLifecycle` into the old gap.
+
+**② (MAJOR-class)** The checkpoint-adoption exemption is unsound — remove it:
+argumentless `ctx.heartbeat()` before adoption (false ⇒ LeaseLost, zero writes);
+adoption guarded on `id + status='pending' + zoom_meeting_number IS NULL` with
+exactly-one semantics; projection published atomically with it; tests for a stale/lost-
+lease adopter and lifecycle-immediately-after-adoption.
+
+**③ (docs)** sol4's round record never landed in `fase-3-review-request.md` (its
+commits touched no docs); dossier §7e's "structurally absent" ruling and its
+projection-race statement need correction.
+
+## PM triage (Round 5)
+
+**ALL THREE VALID — two are PM concessions.** ② overturns the PM's §7e "structurally
+absent" ruling on a SECOND axis: the PM analyzed single-adopter-vs-lifecycle (NULL
+number ⇒ lifecycle cannot find the row — true) and missed the dual-adopter interleaving
+— a stale adopter whose lease was reclaimed writes its UNGUARDED `markProvisioned`
+AFTER the fresh adopter's write gave the row a number and lifecycle advanced it: the
+same clobber, through adoption, one lease-loss deep. The executor's original
+no-heartbeat rationale (a checkpoint-overwriting heartbeat) is already answered by the
+argumentless form sol4 proved safe against the RPC's COALESCE. ③ is a PM verification
+slip conceded: sol4's diff contained no review-request update and the PM's re-review
+did not catch the omission (ledger/dossier carried the record; the per-round
+review-request convention broke silently). ① is the CAS's sibling gap — real,
+millisecond-window, permanent-consequence (a `scheduled` projection nothing ever
+corrects). PM notes for the round: the RPC(s) must follow the §6 discipline (SECURITY
+DEFINER, `SET search_path=''`, service-role-only EXECUTE, pgTAP 002 extended — its
+count will grow past 91, superseding the DoD's literal); the in-RPC projection write
+must never move an existing projection backward (reuse the applies-from discipline);
+dossier §7e corrections are the PM's at approval, the review-request backfill (sol4 +
+sol5 records) is the executor's. One round: **Z1b-sol5**.

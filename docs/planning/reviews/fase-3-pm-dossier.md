@@ -193,11 +193,49 @@ that import the applies-from sets; the supabase-js chains themselves
 by no test in the repo — F1 is the first store method whose CORRECTNESS depends on the
 filter reaching Postgres, which sharpens the §5 "doubles, not PostgREST" caveat.
 
+## 7c. Sol-R2 remediation record (Z1b-sol2, 2026-07-31)
+
+Sol R2 (re-review of sol1 at `da38eb9`): REQUEST CHANGES — 2 MAJOR / 2 MINOR, all
+triaged valid (two qualified the PM's sol1-round verification; conceded in the verdict
+archive Round 2). Fixed in four commits: `ddb07d3` (①: `findUnusableCreateFields`
+shape-checks a 2xx create over exactly the fields the provisioner persists —
+safe-integer id, non-empty join_url, password/settings shapes; all three unusable-2xx
+classes unified under `ZoomUnusableSuccessError`, whose constructor FORCES
+`outcome:'ambiguous'`) · `db304d6` (②: handler-enforced parked state — after the
+anchors, before any reservation reuse/host resolution/Zoom call, a pending-no-number
+row carrying the `ambiguous_create_outcome` marker fails under the DISTINCT reason
+`ambiguous_unresolved`; the manual resolution contract — populate the number, or clear
+`last_error` — is documented in the module header and both paths are test-covered) ·
+`e2d747a` (③: 8 tests drive the real `createSupabaseWebhookStore` through
+`defaultZoomWebhookStore` with real supabase-js over an intercepted fetch — schema,
+table, and `status IN(...)` filters asserted on the wire) · `8cbb277` (④:
+review-request record corrected — the two orphan classes distinguished; the 21-file
+figure labeled as the through-F5 diff).
+
+**PM verification**: both MAJOR fail-on-olds re-executed (①: 14/52 fail pre-fix;
+②: fails on `"createMeeting" … got 2 times` itself); the ③ mutation probe re-executed
+by the PM with an asserted-applied mutation (guard removed → 2/8 fail; the PM's own
+first probe silently failed to apply — the same trap the executor self-caught — and
+was redone); gates at `8cbb277`: **3710/3710 in 239 files**, build OK, `test:db`
+91/91, `test:queue` PASS; CI 8/8 — including the PR merge-ref already exercising the
+UNION of this branch's workflow with the newly-merged T2 e2e topology (Gate 4 ran the
+seeded-Supabase form, green), which de-risks the phase-close absorption. Scanner
+replication CLEAN over the full branch. All five deviations accepted (the getMeeting
+cast stays unvalidated — a GET is retryable, not ambiguous; noted as later hardening).
+
+**Residuals added this round**: `ambiguous_unresolved` is a second reason string on
+the §18 surface (deliberate — "Zoom was ambiguous" vs "an operator requeued without
+resolving"); the manual resolution contract lives in a code comment until the Z12
+runbook exists; the ③ tests prove the store SENDS the guard — that Postgres honours
+`status IN(...)` semantics is the pgTAP suite's territory; settings validation is
+shape-only (a false-`{}` settings body under-reports §9.4 drift — pre-existing,
+unchanged).
+
 ## 8. Exact local gate commands
 
 ```bash
 npm run type-check && npm run lint && npm test && npm run build
-npm run test:db          # local Supabase stack; 6 files / 85 tests
+npm run test:db          # local Supabase stack; 6 files / 91 tests
 supabase db start && eval "$(supabase status -o env | grep '^DB_URL=')" \
   && SUPABASE_DB_URL="${DB_URL}" npm run test:queue   # §17 proof, ~40 jobs
 ```

@@ -60,7 +60,7 @@ import responsesHandler from '../../../pages/api/docente/assessments/[instanceId
 // ============================================================
 
 describe('POST indicator — traspaso category', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); });
 
   it('accepts traspaso as a valid category (DOD-16)', async () => {
     const template = { id: TEMPLATE_DRAFT_1, status: 'draft', is_archived: false };
@@ -131,7 +131,7 @@ describe('POST indicator — traspaso category', () => {
 // ============================================================
 
 describe('PUT responses — traspaso validation (DOD-15)', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); });
 
   const buildResponseClient = (category: string, savedData: unknown = []) => {
     const assignee = {

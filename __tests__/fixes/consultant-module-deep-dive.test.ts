@@ -19,6 +19,7 @@ describe('Consultant Module Deep Dive Bug Fixes', () => {
           school_id: null, // Global consultor
           community_id: null,
           is_active: true,
+          assigned_at: '2026-01-01T00:00:00Z',
           created_at: '2026-01-01T00:00:00Z',
         },
       ];
@@ -34,9 +35,10 @@ describe('Consultant Module Deep Dive Bug Fixes', () => {
           id: '1',
           user_id: 'user1',
           role_type: 'consultor',
-          school_id: 100,
+          school_id: 100 as unknown as string,
           community_id: null,
           is_active: true,
+          assigned_at: '2026-01-01T00:00:00Z',
           created_at: '2026-01-01T00:00:00Z',
         },
       ];
@@ -52,9 +54,10 @@ describe('Consultant Module Deep Dive Bug Fixes', () => {
           id: '1',
           user_id: 'user1',
           role_type: 'consultor',
-          school_id: 100,
+          school_id: 100 as unknown as string,
           community_id: null,
           is_active: true,
+          assigned_at: '2026-01-01T00:00:00Z',
           created_at: '2026-01-01T00:00:00Z',
         },
         {
@@ -64,6 +67,7 @@ describe('Consultant Module Deep Dive Bug Fixes', () => {
           school_id: null, // One global role makes them global
           community_id: null,
           is_active: true,
+          assigned_at: '2026-01-02T00:00:00Z',
           created_at: '2026-01-02T00:00:00Z',
         },
       ];
@@ -81,6 +85,7 @@ describe('Consultant Module Deep Dive Bug Fixes', () => {
           school_id: null,
           community_id: null,
           is_active: true,
+          assigned_at: '2026-01-01T00:00:00Z',
           created_at: '2026-01-01T00:00:00Z',
         },
       ];
@@ -107,9 +112,10 @@ describe('Consultant Module Deep Dive Bug Fixes', () => {
           id: '1',
           user_id: 'user1',
           role_type: 'consultor',
-          school_id: 100,
+          school_id: 100 as unknown as string,
           community_id: null,
           is_active: true,
+          assigned_at: '2026-01-01T00:00:00Z',
           created_at: '2026-01-01T00:00:00Z',
         },
       ];
@@ -136,9 +142,10 @@ describe('Consultant Module Deep Dive Bug Fixes', () => {
           id: '1',
           user_id: 'user1',
           role_type: 'consultor',
-          school_id: 100,
+          school_id: 100 as unknown as string,
           community_id: null,
           is_active: true,
+          assigned_at: '2026-01-01T00:00:00Z',
           created_at: '2026-01-01T00:00:00Z',
         },
       ];
@@ -168,6 +175,7 @@ describe('Consultant Module Deep Dive Bug Fixes', () => {
           school_id: null,
           community_id: null,
           is_active: false, // Inactive
+          assigned_at: '2026-01-01T00:00:00Z',
           created_at: '2026-01-01T00:00:00Z',
         },
       ];

@@ -30,7 +30,7 @@ vi.mock('../../../lib/api-auth', () => ({
 import handler from '../../../pages/api/docente/assessments/index';
 
 describe('GET /api/docente/assessments', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); });
 
   it('returns 401 when not authenticated', async () => {
     mockGetApiUser.mockResolvedValue({ user: null, error: 'No session' });

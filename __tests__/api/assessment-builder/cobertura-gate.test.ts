@@ -52,7 +52,7 @@ vi.mock('../../../lib/services/assessment-builder/autoAssignmentService', () => 
 import indicatorByIdHandler from '../../../pages/api/admin/assessment-builder/templates/[templateId]/modules/[moduleId]/indicators/[indicatorId]';
 
 describe('PUT indicator — cobertura gate enforcement', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); });
 
   const setupMocks = () => {
     mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });

@@ -62,7 +62,6 @@ const baseProps = {
 };
 
 const installFetchWithRoles = (roles: any[]) => {
-  // @ts-expect-error override global fetch for test
   global.fetch = vi.fn(async (url: any) => {
     if (String(url).includes('/api/admin/user-roles')) {
       return new Response(JSON.stringify({ roles }), {

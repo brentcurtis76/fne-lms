@@ -79,7 +79,7 @@ test.describe('Proposal Config Panel @flow @proposal', () => {
     }
 
     // Wait for validation panel to appear
-    await page.waitForText(/Validación MINEDUC/, { timeout: 5000 }).catch(() => {});
+    await expect(page.getByText(/Validación MINEDUC/).first()).toBeVisible({ timeout: 5000 }).catch(() => {});
 
     // Set hours to a clearly wrong value
     const presencialesInput = page.getByLabel(/presenciales/i).first();

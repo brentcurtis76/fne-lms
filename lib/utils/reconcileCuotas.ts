@@ -123,7 +123,7 @@ export async function reconcileCuotas(
 export function attachExistingCuotaIds<T extends { id?: string; numero_cuota: number }>(
   cuotas: T[],
   existing: { id: string; numero_cuota: number }[]
-): T[] {
+): Array<T & { id?: string }> {
   if (cuotas.length === 0 || !cuotas.every((c) => !c.id)) return cuotas;
   const idByNumero = new Map<number, string>(existing.map((row) => [row.numero_cuota, row.id]));
   return cuotas.map((c) => ({ ...c, id: idByNumero.get(c.numero_cuota) }));

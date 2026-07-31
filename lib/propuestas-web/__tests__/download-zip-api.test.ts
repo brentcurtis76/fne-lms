@@ -77,7 +77,7 @@ function mockRes(): MockResponse {
 }
 
 function arrayBufferFromBuffer(buffer: Buffer): ArrayBuffer {
-  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
 }
 
 function makeStorageBlob(buffer: Buffer) {

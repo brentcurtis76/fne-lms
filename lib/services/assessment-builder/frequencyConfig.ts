@@ -11,7 +11,7 @@ import type { FrequencyConfig } from '@/types/assessment-builder';
  * config, so the result is just `{ unit }`.
  */
 export function buildFrequencyConfig(
-  existing: FrequencyConfig | null | undefined,
+  existing: Partial<FrequencyConfig> | null | undefined,
   unit: string
 ): Partial<FrequencyConfig> & { unit: string } {
   return { ...(existing ?? {}), unit };

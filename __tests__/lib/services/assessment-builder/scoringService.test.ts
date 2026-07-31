@@ -319,8 +319,8 @@ describe('Weighted global score', () => {
     responses.set('1', { id: '1', instance_id: 'i1', indicator_id: '1', coverage_value: true } as AssessmentResponse);
     responses.set('2', { id: '2', instance_id: 'i1', indicator_id: '2', frequency_value: 100 } as AssessmentResponse);
     responses.set('3', { id: '3', instance_id: 'i1', indicator_id: '3', profundity_level: 4 } as AssessmentResponse);
-    responses.set('4', { id: '4', instance_id: 'i1', indicator_id: '4', sub_responses: { selected_options: ['ABP', 'Tutoría'] } } as AssessmentResponse);
-    responses.set('5', { id: '5', instance_id: 'i1', indicator_id: '5', sub_responses: { evidence_link: 'https://doc.com' } } as AssessmentResponse);
+    responses.set('4', { id: '4', instance_id: 'i1', indicator_id: '4', sub_responses: { selected_options: ['ABP', 'Tutoría'] } } as unknown as AssessmentResponse);
+    responses.set('5', { id: '5', instance_id: 'i1', indicator_id: '5', sub_responses: { evidence_link: 'https://doc.com' } } as unknown as AssessmentResponse);
 
     const result = calculateModuleScore(indicators, responses, 'Full Module', 1);
     // All score 100 → (100*20)*5 / (20*5) = 100
@@ -334,7 +334,7 @@ describe('Weighted global score', () => {
     ];
     const responses = new Map<string, AssessmentResponse>();
     responses.set('1', { id: '1', instance_id: 'i1', indicator_id: '1', coverage_value: true } as AssessmentResponse);
-    responses.set('2', { id: '2', instance_id: 'i1', indicator_id: '2', sub_responses: { selected_options: [] } } as AssessmentResponse);
+    responses.set('2', { id: '2', instance_id: 'i1', indicator_id: '2', sub_responses: { selected_options: [] } } as unknown as AssessmentResponse);
 
     const result = calculateModuleScore(indicators, responses, 'Test', 1);
     // cobertura=100*50, detalle=0*50 → (5000) / 100 = 50

@@ -43,7 +43,7 @@ import archiveHandler from '../../../pages/api/admin/assessment-builder/template
 import duplicateHandler from '../../../pages/api/admin/assessment-builder/templates/[templateId]/duplicate';
 
 describe('POST /api/.../templates/[id]/archive', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); });
 
   it('returns 401 when not authenticated', async () => {
     mockGetApiUser.mockResolvedValue({ user: null, error: 'No session' });
@@ -93,7 +93,7 @@ describe('POST /api/.../templates/[id]/archive', () => {
 });
 
 describe('POST /api/.../templates/[id]/duplicate', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); });
 
   it('returns 401 when not authenticated', async () => {
     mockGetApiUser.mockResolvedValue({ user: null, error: 'No session' });

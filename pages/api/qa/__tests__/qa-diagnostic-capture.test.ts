@@ -265,7 +265,7 @@ describe('R3: Stack trace capture from Error instances', () => {
   });
 
   it('returns undefined for non-error arguments', () => {
-    const plainArg = 'plain string';
+    const plainArg: unknown = 'plain string';
 
     const errorArg = plainArg instanceof Error
       ? plainArg
@@ -289,7 +289,7 @@ describe('R5: DOM snapshot capture only on failed steps', () => {
   });
 
   it('should NOT capture DOM snapshot when passed=true', () => {
-    const passed = true;
+    const passed = true as boolean;
     const shouldCaptureDom = passed === false;
     expect(shouldCaptureDom).toBe(false);
   });

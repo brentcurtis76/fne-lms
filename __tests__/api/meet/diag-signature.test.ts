@@ -314,7 +314,7 @@ describe('isDiagJoinConfigured — one contract for page and API', () => {
     ZOOM_SDK_CLIENT_ID: 'id',
     ZOOM_SDK_CLIENT_SECRET: 'secret',
     ZOOM_DIAG_MEETING_IDS: ALLOWED_MEETING,
-  } as NodeJS.ProcessEnv;
+  } as unknown as NodeJS.ProcessEnv;
 
   it('is true only when all three parts are present', () => {
     expect(isDiagJoinConfigured(BASE)).toBe(true);
@@ -335,13 +335,13 @@ describe('isDiagJoinConfigured — one contract for page and API', () => {
     const publicOnly = {
       NEXT_PUBLIC_ZOOM_SDK_CLIENT_ID: 'id',
       ZOOM_DIAG_MEETING_IDS: ALLOWED_MEETING,
-    } as NodeJS.ProcessEnv;
+    } as unknown as NodeJS.ProcessEnv;
     expect(isDiagJoinConfigured(publicOnly)).toBe(false);
   });
 
   it('parses the allowlist to digits-only entries in Zoom range', () => {
     expect(
-      diagMeetingAllowlist({ ZOOM_DIAG_MEETING_IDS: '902-1004-2001, 12, abc, 902 1004 2002' } as NodeJS.ProcessEnv)
+      diagMeetingAllowlist({ ZOOM_DIAG_MEETING_IDS: '902-1004-2001, 12, abc, 902 1004 2002' } as unknown as NodeJS.ProcessEnv)
     ).toEqual([ALLOWED_MEETING, UNLISTED_MEETING]);
   });
 });

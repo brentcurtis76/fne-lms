@@ -26,7 +26,6 @@ import { FinalizeMeetingDialog } from '../../../components/meetings/FinalizeMeet
 type FetchStub = (url: string, init?: any) => Promise<Response>;
 
 const installFetch = (handler: FetchStub) => {
-  // @ts-expect-error override global fetch for test
   global.fetch = vi.fn((url: any, init?: any) =>
     handler(String(url), init),
   );
@@ -121,7 +120,6 @@ describe('FinalizeMeetingDialog', () => {
 
   it('POSTs to /api/meetings/:id/finalize with { audience, facilitator_message_doc: undefined } when the editor is empty', async () => {
     const calls: Array<{ url: string; init?: any }> = [];
-    // @ts-expect-error override global fetch for test
     global.fetch = vi.fn(async (url: any, init?: any) => {
       const u = String(url);
       calls.push({ url: u, init });

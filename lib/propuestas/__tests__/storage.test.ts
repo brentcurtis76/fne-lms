@@ -37,7 +37,7 @@ describe('getSignedUrl', () => {
       data: { signedUrl: 'https://example.com/signed' },
       error: null,
     });
-    mockFrom.mockReturnValue(bucket as ReturnType<typeof mockFrom>);
+    mockFrom.mockReturnValue(bucket as unknown as ReturnType<typeof mockFrom>);
 
     const url = await getSignedUrl('proposals/doc.pdf');
     expect(url).toBe('https://example.com/signed');
@@ -51,7 +51,7 @@ describe('getSignedUrl', () => {
       data: { signedUrl: 'https://example.com/signed' },
       error: null,
     });
-    mockFrom.mockReturnValue(bucket as ReturnType<typeof mockFrom>);
+    mockFrom.mockReturnValue(bucket as unknown as ReturnType<typeof mockFrom>);
 
     await getSignedUrl('proposals/doc.pdf', 7200);
     expect(bucket.createSignedUrl).toHaveBeenCalledWith('proposals/doc.pdf', 7200);
@@ -63,7 +63,7 @@ describe('getSignedUrl', () => {
       data: null,
       error: { message: 'Object not found' },
     });
-    mockFrom.mockReturnValue(bucket as ReturnType<typeof mockFrom>);
+    mockFrom.mockReturnValue(bucket as unknown as ReturnType<typeof mockFrom>);
 
     await expect(getSignedUrl('missing/file.pdf')).rejects.toThrow(
       'Failed to create signed URL for missing/file.pdf: Object not found'
@@ -81,7 +81,7 @@ describe('uploadFile', () => {
       data: { path: 'proposals/output.pdf' },
       error: null,
     });
-    mockFrom.mockReturnValue(bucket as ReturnType<typeof mockFrom>);
+    mockFrom.mockReturnValue(bucket as unknown as ReturnType<typeof mockFrom>);
 
     const file = Buffer.from('pdf content');
     const result = await uploadFile('proposals/output.pdf', file, 'application/pdf');
@@ -100,7 +100,7 @@ describe('uploadFile', () => {
       data: null,
       error: { message: 'Bucket not found' },
     });
-    mockFrom.mockReturnValue(bucket as ReturnType<typeof mockFrom>);
+    mockFrom.mockReturnValue(bucket as unknown as ReturnType<typeof mockFrom>);
 
     await expect(
       uploadFile('proposals/output.pdf', Buffer.from(''), 'application/pdf')
@@ -122,7 +122,7 @@ describe('downloadFile', () => {
       data: mockBlob,
       error: null,
     });
-    mockFrom.mockReturnValue(bucket as ReturnType<typeof mockFrom>);
+    mockFrom.mockReturnValue(bucket as unknown as ReturnType<typeof mockFrom>);
 
     const result = await downloadFile('proposals/doc.pdf');
     expect(result).toBeInstanceOf(Buffer);
@@ -137,7 +137,7 @@ describe('downloadFile', () => {
       data: null,
       error: { message: 'File not found' },
     });
-    mockFrom.mockReturnValue(bucket as ReturnType<typeof mockFrom>);
+    mockFrom.mockReturnValue(bucket as unknown as ReturnType<typeof mockFrom>);
 
     await expect(downloadFile('proposals/missing.pdf')).rejects.toThrow(
       'Failed to download proposals/missing.pdf: File not found'

@@ -267,7 +267,12 @@ vi.mock('../../pages/community/workspace.tsx', async () => {
 });
 
 // Import the mocked component
-import { GroupAssignmentsContent } from '../../pages/community/workspace.tsx';
+import * as workspaceMock from '../../pages/community/workspace.tsx';
+// vi.mock above replaces the module: the real page only default-exports, so
+// GroupAssignmentsContent exists only on the mock — type the import loosely.
+const { GroupAssignmentsContent } = workspaceMock as unknown as {
+  GroupAssignmentsContent: React.ComponentType<Record<string, unknown>>;
+};
 
 describe('GroupAssignmentsContent', () => {
   const mockUser = {
@@ -308,12 +313,12 @@ describe('GroupAssignmentsContent', () => {
       error: null,
     });
 
-    groupAssignmentsV2Service.getGroupAssignmentsForUser.mockResolvedValue({
+    vi.mocked(groupAssignmentsV2Service.getGroupAssignmentsForUser).mockResolvedValue({
       assignments: mockAssignments,
       error: null
     });
 
-    groupAssignmentsV2Service.getOrCreateGroup.mockResolvedValue({
+    vi.mocked(groupAssignmentsV2Service.getOrCreateGroup).mockResolvedValue({
       group: { id: 'group-1', name: 'Grupo 1' },
       error: null
     });
@@ -371,7 +376,7 @@ describe('GroupAssignmentsContent', () => {
       error: null,
     });
 
-    groupAssignmentsV2Service.getGroupAssignmentsForConsultant.mockResolvedValue({
+    vi.mocked(groupAssignmentsV2Service.getGroupAssignmentsForConsultant).mockResolvedValue({
       assignments: mockConsultantAssignments,
       students: [{ id: 'student-1' }, { id: 'student-2' }],
       error: null
@@ -437,7 +442,7 @@ describe('GroupAssignmentsContent', () => {
       error: null,
     });
 
-    groupAssignmentsV2Service.getGroupAssignmentsForConsultant.mockResolvedValue({
+    vi.mocked(groupAssignmentsV2Service.getGroupAssignmentsForConsultant).mockResolvedValue({
       assignments: mockAssignments,
       students: [],
       error: null
@@ -462,7 +467,7 @@ describe('GroupAssignmentsContent', () => {
   });
 
   it('should handle assignment submission', async () => {
-    groupAssignmentsV2Service.submitGroupAssignment.mockResolvedValue({
+    vi.mocked(groupAssignmentsV2Service.submitGroupAssignment).mockResolvedValue({
       success: true,
       error: null
     });
@@ -496,7 +501,7 @@ describe('GroupAssignmentsContent', () => {
   });
 
   it('should display empty state when no assignments', async () => {
-    groupAssignmentsV2Service.getGroupAssignmentsForUser.mockResolvedValue({
+    vi.mocked(groupAssignmentsV2Service.getGroupAssignmentsForUser).mockResolvedValue({
       assignments: [],
       error: null
     });
@@ -517,7 +522,7 @@ describe('GroupAssignmentsContent', () => {
   });
 
   it('should handle errors gracefully', async () => {
-    groupAssignmentsV2Service.getGroupAssignmentsForUser.mockResolvedValue({
+    vi.mocked(groupAssignmentsV2Service.getGroupAssignmentsForUser).mockResolvedValue({
       assignments: [],
       error: new Error('Network error')
     });

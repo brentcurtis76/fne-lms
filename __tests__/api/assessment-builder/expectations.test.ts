@@ -40,7 +40,7 @@ vi.mock('../../../lib/assessment-permissions', () => ({
 import handler from '../../../pages/api/admin/assessment-builder/templates/[templateId]/expectations/index';
 
 describe('GET /api/.../templates/[id]/expectations', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); });
 
   it('returns 401 when not authenticated', async () => {
     mockGetApiUser.mockResolvedValue({ user: null, error: 'No session' });

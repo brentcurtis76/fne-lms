@@ -45,7 +45,7 @@ import schoolResultsHandler from '../../../pages/api/directivo/assessments/schoo
 import courseResultsHandler from '../../../pages/api/directivo/assessments/course-results';
 
 describe('GET /api/directivo/assessments/school-results', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); });
 
   it('returns 401 when not authenticated', async () => {
     mockGetApiUser.mockResolvedValue({ user: null, error: 'No session' });
@@ -74,7 +74,7 @@ describe('GET /api/directivo/assessments/school-results', () => {
 });
 
 describe('GET /api/directivo/assessments/course-results', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); });
 
   it('returns 401 when not authenticated', async () => {
     mockGetApiUser.mockResolvedValue({ user: null, error: 'No session' });

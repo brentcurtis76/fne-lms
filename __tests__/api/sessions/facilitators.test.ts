@@ -36,7 +36,7 @@ const CONSULTANT_ID_1 = '33333333-3333-4333-8333-333333333333';
 const CONSULTANT_ID_2 = '44444444-4444-4444-8444-444444444444';
 const SCHOOL_ID = 1;
 
-function buildChainableQuery(data: unknown[] | null = [], error: unknown = null) {
+function buildChainableQuery(data: unknown = [], error: unknown = null) {
   const handler: ProxyHandler<Record<string, unknown>> = {
     get(_target, prop) {
       if (prop === 'then') {

@@ -59,7 +59,7 @@ function happyPathMap(overrides?: {
   templates?: ReturnType<typeof buildChainableQuery>;
   existingInstance?: ReturnType<typeof buildChainableQuery>;
   newInstance?: ReturnType<typeof buildChainableQuery>;
-  assignee?: ReturnType<typeof buildChainableQuery>;
+  assignee?: ReturnType<typeof buildChainableQuery> | ReturnType<typeof buildChainableQuery>[];
 }) {
   const map: Record<string, ReturnType<typeof buildChainableQuery> | ReturnType<typeof buildChainableQuery>[]> = {
     school_transversal_context:

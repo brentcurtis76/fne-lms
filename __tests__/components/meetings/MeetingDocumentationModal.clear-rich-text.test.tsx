@@ -114,7 +114,6 @@ describe('MeetingDocumentationModal — clearing rich text clears plaintext', ()
   beforeEach(() => {
     editorOnChange.clear();
     for (const key of Object.keys(capturedCalls)) delete capturedCalls[key];
-    // @ts-expect-error override global fetch for test
     global.fetch = vi.fn(async () =>
       new Response(JSON.stringify({ data: null }), { status: 200 })
     );

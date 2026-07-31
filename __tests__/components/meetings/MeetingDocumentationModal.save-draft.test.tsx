@@ -99,7 +99,6 @@ beforeEach(() => {
   mockSendTaskNotifications.mockReset();
   mockCreateMeeting.mockResolvedValue({ success: true, meetingId: 'new-meeting' });
   mockUpdateMeeting.mockResolvedValue({ success: true });
-  // @ts-expect-error override global fetch for test
   global.fetch = vi.fn(async () =>
     new Response(JSON.stringify({ data: null }), { status: 200 })
   );

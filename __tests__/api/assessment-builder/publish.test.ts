@@ -46,7 +46,7 @@ vi.mock('../../../lib/services/assessment-builder/autoAssignmentService', () => 
 import handler from '../../../pages/api/admin/assessment-builder/templates/[templateId]/publish';
 
 describe('POST /api/.../templates/[id]/publish', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); });
 
   it('returns 401 when not authenticated', async () => {
     mockGetApiUser.mockResolvedValue({ user: null, error: 'No session' });

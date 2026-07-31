@@ -16,6 +16,10 @@ const ENV_KEYS = [
 // would leave the literal string "undefined" behind).
 let saved: Record<string, string | undefined>;
 
+// next/types declares NODE_ENV readonly; these tests exercise both branches of
+// the production check, so they write through this alias (same object).
+const mutableEnv = process.env as Record<string, string | undefined>;
+
 beforeEach(() => {
   saved = {};
   for (const key of ENV_KEYS) {
@@ -29,7 +33,7 @@ afterEach(() => {
     if (saved[key] === undefined) {
       delete process.env[key];
     } else {
-      process.env[key] = saved[key];
+      mutableEnv[key] = saved[key];
     }
   }
 });
@@ -68,7 +72,7 @@ describe('getAppBaseUrl — development / preview', () => {
     // VERCEL_ENV distinguishes preview from production; both run a production
     // build, so NODE_ENV alone cannot tell them apart.
     process.env.VERCEL_ENV = 'preview';
-    process.env.NODE_ENV = 'production';
+    mutableEnv.NODE_ENV = 'production';
     expect(getAppBaseUrl({ headers: { host: 'my-branch.vercel.app' } })).toBe(
       'https://my-branch.vercel.app'
     );
@@ -77,12 +81,12 @@ describe('getAppBaseUrl — development / preview', () => {
 
 describe('getAppBaseUrl — production hardening', () => {
   it('throws when nothing is configured', () => {
-    process.env.NODE_ENV = 'production';
+    mutableEnv.NODE_ENV = 'production';
     expect(() => getAppBaseUrl()).toThrow(/URL pública/i);
   });
 
   it('throws rather than trusting the Host header', () => {
-    process.env.NODE_ENV = 'production';
+    mutableEnv.NODE_ENV = 'production';
     // The header is attacker-controlled and would otherwise be baked into
     // e-mail and .ics artifacts that outlive the request.
     expect(() => getAppBaseUrl({ headers: { host: 'attacker.test' } })).toThrow();
@@ -95,31 +99,31 @@ describe('getAppBaseUrl — production hardening', () => {
 
   it('VERCEL_ENV=production throws even when NODE_ENV says otherwise', () => {
     process.env.VERCEL_ENV = 'production';
-    process.env.NODE_ENV = 'development';
+    mutableEnv.NODE_ENV = 'development';
     expect(() => getAppBaseUrl({ headers: { host: 'attacker.test' } })).toThrow();
   });
 
   it('accepts VERCEL_PROJECT_PRODUCTION_URL and prepends https', () => {
-    process.env.NODE_ENV = 'production';
+    mutableEnv.NODE_ENV = 'production';
     process.env.VERCEL_PROJECT_PRODUCTION_URL = 'genera.fne.cl';
     expect(getAppBaseUrl({ headers: { host: 'attacker.test' } })).toBe('https://genera.fne.cl');
   });
 
   it('accepts VERCEL_PROJECT_PRODUCTION_URL that already carries a scheme', () => {
-    process.env.NODE_ENV = 'production';
+    mutableEnv.NODE_ENV = 'production';
     process.env.VERCEL_PROJECT_PRODUCTION_URL = 'https://genera.fne.cl/';
     expect(getAppBaseUrl()).toBe('https://genera.fne.cl');
   });
 
   it('an explicitly configured origin still wins over the deployment URL', () => {
-    process.env.NODE_ENV = 'production';
+    mutableEnv.NODE_ENV = 'production';
     process.env.VERCEL_PROJECT_PRODUCTION_URL = 'genera.fne.cl';
     process.env.NEXT_PUBLIC_BASE_URL = 'https://custom.example.cl';
     expect(getAppBaseUrl()).toBe('https://custom.example.cl');
   });
 
   it('rejects a configured value that is not a valid http(s) URL', () => {
-    process.env.NODE_ENV = 'production';
+    mutableEnv.NODE_ENV = 'production';
     // No scheme — would otherwise be concatenated straight into every link.
     process.env.NEXT_PUBLIC_BASE_URL = 'genera.example.cl';
     expect(() => getAppBaseUrl()).toThrow();
@@ -129,7 +133,7 @@ describe('getAppBaseUrl — production hardening', () => {
   });
 
   it('rejects a malformed VERCEL_PROJECT_PRODUCTION_URL rather than guessing', () => {
-    process.env.NODE_ENV = 'production';
+    mutableEnv.NODE_ENV = 'production';
     process.env.VERCEL_PROJECT_PRODUCTION_URL = 'not a host';
     expect(() => getAppBaseUrl()).toThrow();
   });
@@ -148,7 +152,7 @@ describe('buildAbsoluteUrl', () => {
   });
 
   it('propagates the production failure instead of emitting a Host-derived link', () => {
-    process.env.NODE_ENV = 'production';
+    mutableEnv.NODE_ENV = 'production';
     expect(() => buildAbsoluteUrl('/meet/session/abc', { headers: { host: 'attacker.test' } })).toThrow();
   });
 });

@@ -314,7 +314,7 @@ describe('PUT indicator — case mapping (fix/ind-put-case)', () => {
     const { req, res } = createMocks({
       method: 'PUT',
       query: { templateId: TEMPLATE_DRAFT_1, moduleId: MODULE_A, indicatorId: IND_TEST },
-      body: 'hello',
+      body: 'hello' as any,
     });
     await indicatorIdHandler(req as any, res as any);
 

@@ -273,3 +273,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: sendgrid-comment deviation accepted.
 - BACKLOG ADDED: (1) dead SendGrid comments in email-digest.ts; (2) email-digest.ts is an unauthenticated route constructing a service-role client — harmless while its send is commented out, guard before anyone uncomments (executor find, confirmed).
 - OPEN AFTER THIS ROUND: **B1b clean — ready for Codex final review.** PR opened by PM for CI evidence. Track B unblocked: B2 (spike) is next.
+
+### 2026-07-31 — B1b Codex round 1 — Fable (PM triage)
+- CONTEXT PRESSURE: n/a
+- ACTION: Codex final review = **FAIL, 1 BLOCKING — ACCEPTED** (REVIEW-B1B.md, committed with this entry): the browser bundle ships `utils/meetingUtils.ts`'s `sendTaskAssignmentNotifications`, which builds `{to, subject, html}` client-side and invokes a Supabase edge function named `send-email` — the same browser-controlled-send class B1b exists to eliminate, through a different door. **The PM's round-1 prompt explicitly told the executor not to chase this ("different system") — the miss is the PM's**, inherited from the B1a verification's mechanism-based scoping; Codex's class-based reading of the criterion is correct. PM investigation (own hands): the function IS called (components/meetings/MeetingDocumentationModal.tsx:778 on task assignment) but the `send-email` edge function DOES NOT EXIST in this Supabase project (list_edge_functions: only generate-scene-images + process-reflexion-pdf, both unrelated) — every invocation has 404'd into a swallowed console.error; the email notification has never worked. Remediation r2 = delete the dead path (function + import + call site) and prove the bundle no longer carries it; rebuilding task-assignment email properly (server-side) goes to Backlog as a feature request, not a regression. Sendgrid-comments deviation stands accepted by Codex.
+- COMMITS: (this commit — REVIEW-B1B.md + this entry)
+- TESTS: none this round (PM investigation: caller grep + edge-function inventory)
+- FINDINGS RAISED: n/a (triage)
+- DECISIONS: deletion over server-side rebuild (feature never functioned; rebuild = backlog)
+- BACKLOG ADDED: task-assignment email notifications, built properly server-side (recipients derived from assignment rows) — if the feature is wanted; verify whether in-app notifications already cover assignment (executor confirms in r2)
+- OPEN AFTER THIS ROUND: B1b r2 in flight once dispatched (`prompts/b1b-2.md`). Codex round 1 of max 2.

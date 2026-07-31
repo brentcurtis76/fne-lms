@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { trackFormSubmission } from '../../lib/formSubmissionTracker';
-import { createServiceRoleClient } from '../../lib/api-auth';
+import { Resend } from 'resend';
+import { rateLimit } from '../../lib/rateLimit';
+import { escapeHtml } from '../../lib/utils/html-escape';
 
 interface ContactFormData {
   nombre: string;
@@ -11,9 +12,34 @@ interface ContactFormData {
   mensaje: string;
 }
 
+const CONTACT_RECIPIENT = 'info@nuevaeducacion.org';
+
+// Best-effort dampening only, matching the other public form endpoints
+// (see pages/api/tractor-signup.ts).
+const contactRateLimit = rateLimit({ limit: 5, windowMs: 60 * 1000 }, 'contact');
+
+// Map interest values to readable names. The first five keys are what the
+// homepage select actually submits (pages/index.tsx); the last three are
+// legacy values kept as aliases so older payloads still resolve to a label.
+const interestMap: { [key: string]: string } = {
+  'inspira': 'Inspira (Pasantía en Barcelona)',
+  'inicia': 'Inicia',
+  'evoluciona': 'Evoluciona',
+  'aula-generativa': 'Aula Generativa',
+  'otro': 'Otro proyecto',
+  'pasantias': 'Pasantías en Barcelona',
+  'consultoria': 'Consultoría educativa',
+  'formacion': 'Formación de equipos'
+};
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const allowed = await contactRateLimit(req, res);
+  if (!allowed) {
+    return; // 429 already sent by the limiter
   }
 
   try {
@@ -21,7 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Validate required fields
     if (!nombre || !email || !institucion || !interes || !mensaje) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Faltan campos obligatorios',
         missing: {
           nombre: !nombre,
@@ -39,16 +65,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Formato de email inválido' });
     }
 
-    // Map interest values to readable names
-    const interestMap: { [key: string]: string } = {
-      'pasantias': 'Pasantías en Barcelona',
-      'aula-generativa': 'Aula Generativa',
-      'consultoria': 'Consultoría educativa',
-      'formacion': 'Formación de equipos',
-      'otro': 'Otro proyecto'
-    };
-
     const interestText = interestMap[interes] || interes;
+
+    // Every value below is user-supplied: escape before interpolating into HTML.
+    const safeNombre = escapeHtml(nombre);
+    const safeEmail = escapeHtml(email);
+    const safeInstitucion = escapeHtml(institucion);
+    const safeCargo = escapeHtml(cargo);
+    const safeInterestText = escapeHtml(interestText);
+    const safeMensaje = escapeHtml(mensaje).replace(/\n/g, '<br>');
 
     // Create HTML email template
     const htmlContent = `
@@ -74,153 +99,87 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               <h1>📧 Contacto Vía Web - FNE</h1>
               <p style="margin: 10px 0 0 0; font-size: 14px;">Mensaje recibido desde el formulario de contacto del sitio web</p>
             </div>
-            
+
             <div class="content">
               <div class="field">
                 <div class="label">Nombre:</div>
-                <div class="value">${nombre}</div>
+                <div class="value">${safeNombre}</div>
               </div>
-              
+
               <div class="field">
                 <div class="label">Email:</div>
-                <div class="value">${email}</div>
+                <div class="value">${safeEmail}</div>
               </div>
-              
+
               <div class="field">
                 <div class="label">Institución:</div>
-                <div class="value">${institucion}</div>
+                <div class="value">${safeInstitucion}</div>
               </div>
-              
+
               ${cargo ? `
               <div class="field">
                 <div class="label">Cargo:</div>
-                <div class="value">${cargo}</div>
+                <div class="value">${safeCargo}</div>
               </div>
               ` : ''}
-              
+
               <div class="field">
                 <div class="label">Área de Interés:</div>
-                <div class="value">${interestText}</div>
+                <div class="value">${safeInterestText}</div>
               </div>
-              
+
               <div class="field">
                 <div class="label">Mensaje:</div>
-                <div class="message">${mensaje.replace(/\n/g, '<br>')}</div>
+                <div class="message">${safeMensaje}</div>
               </div>
             </div>
-            
+
             <div class="footer">
               <p><strong>📧 Contacto Vía Web - Fundación Nueva Educación</strong></p>
               <p>Este mensaje fue enviado desde el formulario de contacto de nuevaeducacion.org</p>
               <p>Fecha: ${new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' })}</p>
-              <p style="margin-top: 10px; font-size: 11px; color: #999;">
-                Nota: Este email es enviado a través del servicio Formspree para garantizar la entrega.
-              </p>
             </div>
           </div>
         </body>
       </html>
     `;
 
-    // Track form submission for limit monitoring
-    const trackingResult = await trackFormSubmission(createServiceRoleClient(), {
-      senderEmail: email,
-      senderName: nombre,
-      formType: 'contact'
-    });
+    // Subject is plain text, not HTML — HTML-escaping it would surface literal
+    // entities in the inbox. Strip line breaks so a hostile value cannot shape
+    // the subject line.
+    const subjectSafe = (value: string) => String(value).replace(/[\r\n]+/g, ' ').trim();
+    const subject = `[Contacto Web FNE] ${subjectSafe(nombre)} - ${subjectSafe(institucion)} (${subjectSafe(interestText)})`;
 
-    // Log tracking info
-    if (trackingResult.message) {
-      console.log(trackingResult.message);
-    }
-
-    // Block submission if limit reached
-    if (trackingResult.count >= 50) {
-      return res.status(429).json({ 
-        error: 'Límite mensual alcanzado',
-        message: 'Hemos alcanzado el límite mensual de envíos. Por favor, contáctanos directamente a info@nuevaeducacion.org o intenta nuevamente el próximo mes.',
-        count: trackingResult.count,
-        limit: 50
-      });
-    }
-
-    // Send email via Formspree
+    // Send the internal notification via Resend (house transactional sender).
+    // Soft-fail: a missing key or a transport error is logged, never surfaced
+    // to the visitor — the form still reports success, as it did before.
     let emailSent = false;
-    let emailError = null;
 
-    if (process.env.FORMSPREE_ENDPOINT) {
-      try {
-        const response = await fetch(process.env.FORMSPREE_ENDPOINT, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify({
-            email: email,
-            name: nombre,
-            _replyto: email,
-            _subject: `[Contacto Web FNE] ${nombre} - ${institucion} (${interestText})`,
-            institucion: institucion,
-            cargo: cargo || 'No especificado',
-            interes: interestText,
-            message: mensaje,
-            _template: 'table', // Use table template for better formatting
-            // Additional formatted message
-            full_message: `
-NUEVO MENSAJE DE CONTACTO - FUNDACIÓN NUEVA EDUCACIÓN
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-INFORMACIÓN DEL CONTACTO:
-
-• Nombre: ${nombre}
-• Email: ${email}
-• Institución: ${institucion}
-${cargo ? `• Cargo: ${cargo}` : ''}
-• Área de Interés: ${interestText}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-MENSAJE:
-
-${mensaje}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Este mensaje fue enviado desde el formulario de contacto de nuevaeducacion.org
-Fecha: ${new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' })}
-            `,
-          }),
-        });
-
-        const result = await response.json();
-        
-        console.log('Formspree Response:', {
-          status: response.status,
-          ok: response.ok,
-          result: result
-        });
-        
-        if (response.ok && result.ok) {
-          emailSent = true;
-          console.log('✅ Email sent successfully to info@nuevaeducacion.org via Formspree');
-        } else {
-          emailError = result.error || result.errors?.join(', ') || 'Email sending failed';
-          console.error('Formspree error:', result);
-        }
-      } catch (error: any) {
-        console.error('Formspree error:', error);
-        emailError = error.message || 'Email sending failed';
-      }
-    } else {
-      // No email service configured - log for now
-      console.log('📧 Email notification (no service configured):', {
-        to: 'info@nuevaeducacion.org',
-        subject: `Nuevo contacto de ${nombre} - ${institucion} (${interestText})`,
-        timestamp: new Date().toISOString(),
-        note: 'Add FORMSPREE_ENDPOINT environment variable to enable email sending'
+    if (!process.env.RESEND_API_KEY) {
+      console.log('[contact] RESEND_API_KEY missing; notification email not sent', {
+        to: CONTACT_RECIPIENT,
+        interes: interestText,
+        timestamp: new Date().toISOString()
       });
+    } else {
+      try {
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const { error } = await resend.emails.send({
+          from: process.env.EMAIL_FROM_ADDRESS || 'Genera <notificaciones@nuevaeducacion.org>',
+          to: CONTACT_RECIPIENT,
+          reply_to: email,
+          subject,
+          html: htmlContent
+        });
+
+        if (error) {
+          console.error('[contact] Resend failed:', error);
+        } else {
+          emailSent = true;
+        }
+      } catch (error) {
+        console.error('[contact] Resend threw:', error);
+      }
     }
 
     // Log successful submission
@@ -230,65 +189,20 @@ Fecha: ${new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' })}
       institucion,
       interes: interestText,
       timestamp: new Date().toISOString(),
-      emailSent: emailSent || !emailError
+      emailSent
     });
 
-    // Send confirmation email to the user
-    const confirmationHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background-color: #000; color: white; padding: 20px; text-align: center; }
-            .content { background-color: #f9f9f9; padding: 20px; }
-            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>¡Gracias por contactarnos!</h1>
-            </div>
-            
-            <div class="content">
-              <p>Hola ${nombre},</p>
-              
-              <p>Hemos recibido tu mensaje sobre <strong>${interestText}</strong> y te responderemos a la brevedad.</p>
-              
-              <p>Nuestro equipo revisará tu consulta y se pondrá en contacto contigo pronto para conversar sobre cómo podemos acompañar el proceso de transformación educativa en ${institucion}.</p>
-              
-              <p>¡Gracias por tu interés en la Nueva Educación!</p>
-              
-              <p>Saludos,<br>
-              <strong>Equipo Fundación Nueva Educación</strong></p>
-            </div>
-            
-            <div class="footer">
-              <p>Fundación Nueva Educación | ATE certificada por RPA Mineduc</p>
-              <p>info@nuevaeducacion.org</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    // Note: Web3Forms doesn't support sending confirmation emails to users
-    // The user will see the success message on the form instead
-
-    return res.status(200).json({ 
-      success: true, 
+    return res.status(200).json({
+      success: true,
       message: 'Mensaje enviado exitosamente. Te responderemos pronto.',
-      emailSent: emailSent || !emailError
+      emailSent
     });
 
   } catch (error) {
     console.error('Error processing contact form:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Error interno del servidor',
-      message: 'Hubo un problema al procesar tu mensaje. Por favor intenta nuevamente.' 
+      message: 'Hubo un problema al procesar tu mensaje. Por favor intenta nuevamente.'
     });
   }
 }

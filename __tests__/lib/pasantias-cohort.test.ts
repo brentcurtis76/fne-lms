@@ -354,7 +354,7 @@ describe('commercial cohort module (Appendix A-8, amended 2026-07-31)', () => {
     expect(JSON.stringify(cohortCommercialModule)).not.toMatch(/(?<!\d)1[.,]?560(?!\d)/);
   });
 
-  it('quotes the Madrid extension separately from the total', () => {
+  it('quotes the Madrid extension apart from the programme fee', () => {
     expect(COHORT_MADRID_EXTENSION.amount).toBe(810);
     expect(COHORT_MADRID_EXTENSION.optional).toBe(true);
     expect(COHORT_PRICE_ITEMS.map((item) => item.id)).not.toContain(

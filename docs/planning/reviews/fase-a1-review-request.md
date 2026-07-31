@@ -190,6 +190,8 @@ empty and retires `COHORT_CONTENT_PENDING`. No other file in the phase was touch
 
 **Round:** 3 (executor) · **Status reported:** COMPLETE
 **Base:** `origin/phase/a1-cohort` @ `9bd389b` (round 2's head)
+**Commits:** `65aa52b` (the delta) + a one-line follow-up correcting a comment
+that still referred to "the total" after the total was removed.
 
 ## R3.1 What this round was
 
@@ -205,7 +207,7 @@ module carries no lodging pricing and no lodging inclusion at all.
 
 ## R3.2 Files
 
-- `lib/pasantias/cohort-commercial.ts` (+19/−9) — `COHORT_PRICE_ITEMS` drops the
+- `lib/pasantias/cohort-commercial.ts` (+19/−9, +1/−1 in the follow-up) — `COHORT_PRICE_ITEMS` drops the
   `alojamiento` item; `COHORT_PRICE_TOTAL` **removed** (a band times an unstated
   number of nights has no total); adds `COHORT_LODGING_PER_NIGHT_EUR`
   `{min:70,max:120}` and `COHORT_LODGING_NOTE`, derived from it so copy and data
@@ -217,7 +219,8 @@ module carries no lodging pricing and no lodging inclusion at all.
   "Comidas incluidas en los días de visita y cena de cierre" in place of round 2's
   bare "Cena de cierre". The list is now A-7's own seven items in A-7's order.
   Two comments rewritten (A-16 is closed; lodging is not public data).
-- `__tests__/lib/pasantias-cohort.test.ts` (+69/−12) — 31 → 34 tests.
+- `__tests__/lib/pasantias-cohort.test.ts` (+69/−12, +1/−1 in the follow-up) —
+  31 → 34 tests.
 - `scripts/check-price-leak.mjs` (+15/−6) — amount patterns and copy patterns.
 - `docs/plan/evidence/a1/leak-guard.md` (+55) — §5, the r3 guard demo.
 

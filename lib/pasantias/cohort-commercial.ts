@@ -55,7 +55,7 @@ export const COHORT_LODGING_PER_NIGHT_EUR = { min: 70, max: 120 } as const;
 /** es-CL brochure line for the lodging band. Derived so copy and data cannot drift. */
 export const COHORT_LODGING_NOTE = `Alojamiento en Barcelona: entre €${COHORT_LODGING_PER_NIGHT_EUR.min} y €${COHORT_LODGING_PER_NIGHT_EUR.max} por persona por noche, según el tipo de alojamiento.`;
 
-/** Appendix A-8 — optional Madrid extension, quoted separately from the total. */
+/** Appendix A-8 — optional Madrid extension, quoted apart from the programme fee. */
 export const COHORT_MADRID_EXTENSION: CohortPriceItem = {
   id: 'madrid',
   label: 'Extensión opcional a Madrid',

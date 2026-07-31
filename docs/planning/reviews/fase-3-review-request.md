@@ -9,10 +9,11 @@
 |---|---|
 | Branch | `feat/zoom-core` (PR [#26](https://github.com/brentcurtis76/fne-lms/pull/26), **draft — not marked ready**) |
 | Base | `origin/main` @ `18057e2` (absorbed mid-phase via merge `5d54f12`, which brought the contracts track `c878ec7`) |
-| Head at request time | `4b71b3c` |
-| Commits ahead of `origin/main` | **26** |
-| Net diff vs `origin/main` | 51 files, +11151/−65 |
+| Head at request time | `4b71b3c`; **`ccb8fce` + this doc commit after the Z1b-4·r1 remediation** |
+| Commits ahead of `origin/main` | **28** (26 + the 2 r1 commits) |
+| Net diff vs `origin/main` | 53 files, +11734/−70 |
 | This chunk (Z1b-4) alone | merge `5d54f12` + 3 commits; 15 files, +2484/−92 |
+| Z1b-4·r1 remediation | `ccb8fce` (fix + tests + `PROJECT_STATE.md`) + this doc commit; 2 PM findings, no scope beyond them |
 
 Z1b-4 is the **closing chunk**. Chunks Z1b-1, Z1b-2 (+r1) and Z1b-3 were each reviewed and
 approved by the PM already; their evidence is in the plan's §0 ledger. This file covers the
@@ -50,8 +51,9 @@ dependencies and es-CL copy in Z1b-4 specifically (server-only chunk).
 
 ### Highest — concurrency and the reservation
 
-- `lib/zoom/jobs/meeting-provision.ts` **(new, 778 lines)** — host resolution, the
-  EXCLUDE-backed reservation, the Zoom create, the projection upsert, and every resume path.
+- `lib/zoom/jobs/meeting-provision.ts` **(new, 921 lines after `ccb8fce`)** — host resolution,
+  the EXCLUDE-backed reservation, the Zoom create, the post-create checkpoint, the projection
+  upsert, and every resume path.
 - `supabase/migrations/20260729120100_zoom_internal_tables.sql` (Z1b-1, approved) — the
   `zoom_meetings_host_no_overlap` EXCLUDE constraint this chunk now actually depends on.
 - `scripts/ci/queue-concurrency-proof.mjs` **(new)** + the Gate-3 step in
@@ -94,6 +96,14 @@ Merged baseline after absorbing `origin/main`: **3617/235**. Z1b-4's own delta: 
 — `meeting-provision.test.ts` (16), `webhook-sweep.test.ts` (7), `+1` in the reconcile suite.
 `provisionHarness.ts` is a shared helper, not a test file.
 
+**Z1b-4·r1 re-run at `ccb8fce`** (the fix commit; the doc commit after it touches no code):
+type-check clean, lint clean, `npm test` **3646/3646 in 237 files** (+5 in
+`meeting-provision.test.ts`, now 21), build OK, `npm run test:queue` PASS. **Negative controls,
+run by the executor and not committed:** disabling the checkpoint adoption alone makes the
+mid-crash test fail with `expected "createMeeting" to be called 1 times, but got 2 times` — the
+orphan the finding describes; restoring the old `effectiveAutoRecording = 'none'` makes the
+persisted-drift test fail with `expected 'none' to be 'cloud'`. Both new assertions bite.
+
 **Negative control on the §17 proof** (run by the executor, not committed): replacing the RPC
 with a naive non-locking `SELECT`+`UPDATE` makes all 40 jobs double-execute and the proof fail
 loudly. The assertions bite; the green is not vacuous.
@@ -116,13 +126,43 @@ arithmetic: if there is a path where the ordering alone can cause a wrong outcom
 missed it. The duplicated buffer constants (`RESERVATION_LEAD_MINUTES` /
 `RESERVATION_TRAIL_MINUTES`) are a second copy of a number that lives in SQL, and copies drift.
 
-**② The `alreadyCreated` resume path skips the Zoom read-back entirely.**
-When a re-run finds a row that already has `zoom_meeting_number`, I skip `createMeeting` — which
-is the point — but I also skip any `getMeeting`, and I then report `effective_auto_recording:
-'none'` from an assumption rather than from a read. If the first attempt persisted drifted
-settings, the *row* still records the drift correctly, but the *job result* of the resumed run
-will claim 'none'. I judged a network round trip per replay too expensive for a signal the
-reconciler will re-read anyway. That trade is worth a second opinion.
+**② The resume paths and what "created exactly once" actually guarantees.** *(Rewritten in
+Z1b-4·r1 — `ccb8fce`. The original text of this section over-claimed; both findings are fixed,
+and the part that cannot be fixed is now stated instead of implied.)*
+
+Zoom's create API takes **no idempotency key**, so exactly-once creation is not purchasable from
+the provider — it is reconstructed from two anchors, checked in order: (1) the row's
+`zoom_meeting_number`; (2) a `stage: 'created'` checkpoint written into the job's own
+`stage_state` by the heartbeat immediately after `createMeeting` returns, which a re-run
+**adopts** (`markProvisioned` from the checkpoint) rather than creating again. `fail_zoom_job`
+leaves `stage_state` untouched, which is the only window the checkpoint must survive;
+`complete_zoom_job` replaces it, which is exactly why the row and not the checkpoint is anchor 1.
+
+The honest guarantee: **a re-run that sees either anchor never creates a second meeting.**
+
+**The residual, which is what to scrutinize.** If the process dies — or the lease is lost, so the
+post-create heartbeat returns `false` and nothing is written — *between* the create returning and
+the checkpoint landing, the retry sees neither anchor and creates a second meeting; the first is
+orphaned at Zoom. This is irreducible without a provider-side idempotency key. What the
+checkpoint buys when it lands is that the orphan is **named**: `stage_state.meeting.number` on
+the failed job is the meeting number a human cancels via dead-job triage. Please check that
+judgment — the alternative I rejected was a pre-create `listMeetings` scan by topic+time, which
+is a fuzzy match on staff-authored text and would still race.
+
+Two sub-points worth your attention. First, the plaintext passcode now sits in
+`zoom_jobs.stage_state`; I argue that is §5-equivalent to `zoom_meetings.passcode` because
+`zoom_internal` is service-role-only by the same GRANT lockdown, so it is not a new exposure —
+but it *is* a second location for a secret, and that is a real change. Second, the pre-create
+heartbeat moved inside the create branch: left outside it, the `reserved` stage would overwrite
+the checkpoint on the adopt path and reopen the window. That means the two resume paths no longer
+verify the lease before writing; I judged that safe because both write values that are already
+fixed (the row's, or the checkpoint's), so two workers racing write identical bytes.
+
+**Settings drift is no longer assumed on any path.** `findMeetingBySurface` selects
+`effective_settings`, and `effective_auto_recording` is derived from the row on the row-adopt path
+and from the checkpoint's settings on the checkpoint-adopt path. The previous hardcoded `'none'`
+reported a clean run for a meeting Zoom was recording; a negative control confirms the new test
+fails against that old line.
 
 **③ Host candidacy silently excludes personal hosts of non-facilitators.**
 `orderHostCandidates` returns `null` for a host whose `profile_id` is a real profile that is not
@@ -154,10 +194,14 @@ would break the step.
    `effective_settings` and a `console.warn`. Wiring it to the §18 health panel is a later chunk.
 6. **`zoom_meeting_uuid` capture is only exercised against the fake**, since no live Zoom
    credentials exist in this worktree (`ZOOM_MODE=mock` throughout, per the dispatch).
-7. **Repo-level debt carried, not introduced (Z1b-3 finding ⑦):** `tsconfig.json` excludes
+7. **The create→persist window is narrowed, not closed** (Z1b-4·r1, see scrutiny area ②). A
+   crash or lease-loss before the post-create checkpoint lands still orphans a meeting at Zoom.
+   Cleanup is manual, via dead-job triage on `stage_state.meeting.number`. Irreducible without a
+   Zoom idempotency key; no automated orphan sweep exists (a candidate for a later chunk).
+8. **Repo-level debt carried, not introduced (Z1b-3 finding ⑦):** `tsconfig.json` excludes
    `__tests__` from type-check *and* sets `strict: false`, which contradicts CLAUDE.md's
    "TypeScript strict". Already ticketed; Brent rules on the wording.
-8. **Post-merge human prerequisites:** repoint the Marketplace subscription to
+9. **Post-merge human prerequisites:** repoint the Marketplace subscription to
    `https://<prod>/api/zoom/webhook`; set `ZOOM_WEBHOOK_SECRET_TOKEN` and `CRON_SECRET` in
    Vercel (Production). If validation 401s at repoint, see the CRC contingency in the Z1b-3
    ledger row.

@@ -106,3 +106,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: deviations accepted as recorded.
 - BACKLOG ADDED: FORMSPREE_ENDPOINT env cleanup (ops note).
 - OPEN AFTER THIS ROUND: **A7b clean — ready for Codex final review** (Brent triggers). Merge after PASS + explicit go; LEDGER union at merge.
+
+### 2026-07-31 — A7b close — Fable (PM, per SOP §3.8)
+- CONTEXT PRESSURE: n/a
+- ACTION: Codex final review = **PASS with zero findings of any class** (REVIEW-A7B.md, committed with this entry; Codex independently ran targeted 24/24, full suite 3394/3394, type-check, lint, build). Phase marked DONE in PLAN.md (code `5e1940d`, PR #29). Nothing to move to backlog beyond the round-1 ops note (inert FORMSPREE_ENDPOINT env).
+- COMMITS: (this close commit)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: —
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: **Awaiting Brent's merge go for PR #29.** After merge, the homepage contact form sends via Resend with correct Inspira labeling and no monthly cap.

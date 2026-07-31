@@ -85,7 +85,9 @@ Running 8 tests using 1 worker
 [e2e-mandatory] OK — 2 mandatory spec(s) ran with no skips
 ```
 
-## Run 5 — final head (docs + a comment-only edit)
+## Run 5+ — final PR head (documentation only)
 
-- Commit `<head>` · recorded in the PR checks. Same code as run 4; it exists only
-  because this evidence file had to record run 4's result.
+The commits after run 4 change no test, script or workflow code — they record
+run 4's result here, fix a comment typo in the auth helper and complete the
+ledger's commit list. The PR head run is therefore run 4's gate 4 re-executed
+unchanged; its result is on the PR checks.

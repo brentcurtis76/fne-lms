@@ -15,6 +15,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { runZoomTick } from '../../../../lib/zoom/jobs/runner';
 import { createZoomJobRegistry } from '../../../../lib/zoom/jobs/registry';
 import {
+  ambiguousCreateMarker,
   createMeetingProvisionHandler,
   deriveDurationMinutes,
   generateMeetingPasscode,
@@ -25,6 +26,8 @@ import {
   type ProvisionHostRow,
   type ProvisionSessionRow,
 } from '../../../../lib/zoom/jobs/meeting-provision';
+import { ZoomNonRetryableError, ZoomRetryableError } from '../../../../lib/zoom/errors';
+import type { ZoomApi } from '../../../../lib/zoom/api';
 import { describeJobFailure } from '../../../../lib/zoom/jobs/runner';
 import { createZoomFake, type ZoomFake } from '../../../../lib/zoom/fake';
 import { applyWebhookLifecycle } from '../../../../lib/zoom/webhook-lifecycle';
@@ -653,7 +656,7 @@ describe('meeting_provision · mock-mode round trip (§15 Z1b DoD)', () => {
     expect(row.last_error).toBeNull();
   });
 
-  it("parks the failure on the row and rethrows when Zoom's create fails", async () => {
+  it('parks an UNTYPED create failure as ambiguous and keeps the reservation', async () => {
     const fake = seedFake();
     const boom = new Error('zoom exploded');
     vi.spyOn(fake, 'createMeeting').mockRejectedValueOnce(boom);
@@ -663,12 +666,19 @@ describe('meeting_provision · mock-mode round trip (§15 Z1b DoD)', () => {
     });
 
     const handler = createMeetingProvisionHandler({ api: fake, store: harness.store });
-    await expect(handler(context())).rejects.toThrow('zoom exploded');
+    const error = await handler(context()).catch((caught) => caught);
 
+    // An untyped throw is precisely the case where we cannot say whether the request
+    // went out, so it is treated as ambiguous (Sol F4). Before F4 this released the
+    // reservation and rethrew retryably, and the retry created a second meeting.
+    expect(describeJobFailure(error).reason).toBe('ambiguous_create_outcome');
     const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
-    // 'error' is not an ACTIVE status, so the reservation is released for the retry.
-    expect(row.status).toBe('error');
-    expect(row.last_error).toBe('zoom exploded');
+    expect(row.status).toBe('pending');
+    expect(JSON.parse(row.last_error as string)).toMatchObject({
+      reason: 'ambiguous_create_outcome',
+      request_id: null,
+      message: 'zoom exploded',
+    });
   });
 
   it('flags §9.4 settings drift when effective auto_recording is not none', async () => {
@@ -715,6 +725,143 @@ describe('meeting_provision · mock-mode round trip (§15 Z1b DoD)', () => {
 
     expect(describeJobFailure(error).kind).toBe('non_retryable');
     expect(fake.listMeetings()).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sol F4 — ambiguous create outcomes never auto-create again
+// ---------------------------------------------------------------------------
+
+describe('meeting_provision · ambiguous create outcomes', () => {
+  /**
+   * The exact scenario: Zoom DID create the meeting, and the response was lost on the
+   * way back. The fake creates for real, then throws the error the client would raise
+   * when it cannot read the body. A handler that treats this as a definite failure
+   * releases the interval and creates a second meeting on the next tick.
+   */
+  function createsThenLosesTheResponse(fake: ZoomFake): ZoomApi {
+    return {
+      ...fake,
+      async createMeeting(input) {
+        await fake.createMeeting(input);
+        throw new ZoomRetryableError('Zoom returned unparseable JSON for POST /users/x/meetings.', {
+          status: 200,
+          operation: 'POST /users/x/meetings',
+          requestId: 'synthetic-zm-request-id-0001',
+          outcome: 'ambiguous',
+        });
+      },
+    };
+  }
+
+  it('creates EXACTLY ONCE across repeated ticker runs and keeps the host blocked', async () => {
+    const fake = seedFake();
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+    const jobs = createMemoryJobQueue();
+    const registry = {
+      meeting_provision: createMeetingProvisionHandler({
+        api: createsThenLosesTheResponse(fake),
+        store: harness.store,
+      }),
+    };
+
+    await jobs.queue.enqueue({
+      job_type: 'meeting_provision',
+      payload: { surface_type: 'consultor_session', surface_id: SESSION_ID },
+    });
+
+    await runZoomTick({ queue: jobs.queue, registry, workerId: 'w1', now: oneBatchClock() });
+    await runZoomTick({ queue: jobs.queue, registry, workerId: 'w2', now: oneBatchClock() });
+    await runZoomTick({ queue: jobs.queue, registry, workerId: 'w3', now: oneBatchClock() });
+
+    // ONE meeting at Zoom, no matter how many ticks run.
+    expect(fake.listMeetings()).toHaveLength(1);
+
+    // The job is terminal after the first attempt — nothing auto-creates again.
+    const job = jobs.jobFor('meeting_provision') as StoredJob;
+    expect(job.status).toBe('failed');
+    const record = JSON.parse(job.last_error as string);
+    expect(record).toMatchObject({
+      kind: 'non_retryable',
+      reason: 'ambiguous_create_outcome',
+      requestId: 'synthetic-zm-request-id-0001',
+    });
+
+    // The reservation still blocks the host: status untouched, host still assigned.
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('pending');
+    expect(['pending', 'provisioned', 'started']).toContain(row.status);
+    expect(row.host_zoom_user_id).toBe(HOST_POOL_A.zoom_user_id);
+    expect(harness.store.markError).not.toHaveBeenCalled();
+
+    // ...and the row says WHY, structurally.
+    expect(JSON.parse(row.last_error as string)).toMatchObject({
+      reason: 'ambiguous_create_outcome',
+      request_id: 'synthetic-zm-request-id-0001',
+    });
+    // It cannot name the meeting, and does not pretend to.
+    expect(row.zoom_meeting_number).toBeNull();
+  });
+
+  it('a DEFINITE pre-create rejection keeps the old path: error, released, retryable', async () => {
+    const fake = seedFake();
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+    const api: ZoomApi = {
+      ...fake,
+      async createMeeting() {
+        // Zoom answered 400 — it never created anything.
+        throw new ZoomNonRetryableError('Zoom rejected POST with 400: invalid topic.', {
+          status: 400,
+          operation: 'POST /users/x/meetings',
+        });
+      },
+    };
+
+    const error = await createMeetingProvisionHandler({ api, store: harness.store })(
+      context()
+    ).catch((caught) => caught);
+
+    expect(describeJobFailure(error).reason).toBeUndefined();
+    expect(harness.store.markError).toHaveBeenCalledTimes(1);
+    expect(harness.store.recordLastError).not.toHaveBeenCalled();
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    // `error` is outside the EXCLUDE predicate ⇒ the host is free again.
+    expect(row.status).toBe('error');
+    expect(['pending', 'provisioned', 'started']).not.toContain(row.status);
+  });
+
+  it('never releases a row parked by an unresolved ambiguous create', async () => {
+    const fake = seedFake();
+    const parked: StoredMeeting = {
+      id: 'meeting-parked',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+      // No number: we never learned one. That is NOT the same as "no meeting exists".
+      zoom_meeting_number: null,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'pending',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: ambiguousCreateMarker('synthetic-zm-request-id-0002', 'lost response'),
+    };
+    const harness = createMemoryProvisionStore({
+      session: { ...SESSION, status: 'cancelada' },
+      hosts: [HOST_POOL_A],
+      meetings: [parked],
+    });
+
+    const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context()
+    ).catch((caught) => caught);
+
+    expect(describeJobFailure(error).reason).toBe('session_ineligible');
+    expect(harness.store.releaseReservation).not.toHaveBeenCalled();
+    expect(harness.meetingFor(SESSION_ID)?.status).toBe('pending');
   });
 });
 

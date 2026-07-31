@@ -105,11 +105,33 @@
  * What the checkpoint buys when it DOES land is that the orphan is NAMED:
  * `zoom_jobs.stage_state.meeting.number` on the failed job is the meeting number a human
  * can cancel. Dead-job triage (`docs/runbooks/zoom.md`) is the cleanup path.
+ *
+ * ### The third case: create failed, and we do not know whether it landed (Sol F4)
+ *
+ * The two anchors answer "did a PREVIOUS attempt create?". Neither answers "did the
+ * attempt that just threw create?" — and `createMeeting` can fail in ways that do not
+ * rule it out: a transport throw, a 5xx, a 2xx whose body is unreadable or empty. The
+ * client labels every error `outcome: 'not_executed' | 'ambiguous'` so this handler
+ * never has to reconstruct that from status codes.
+ *
+ *  - DEFINITE (`not_executed`): Zoom answered and refused. `markError` → status `error`
+ *    → the interval is released → rethrow, and the retry re-reserves and creates. This
+ *    is the pre-existing behaviour and it is correct for this class.
+ *  - AMBIGUOUS: the row is NOT moved to `error`, because that would release the interval
+ *    and the retry would create a second meeting against a host we had just declared
+ *    free. `last_error` is written WITHOUT a status change, so the reservation keeps
+ *    blocking, and the job fails NON-retryably under reason `ambiguous_create_outcome`.
+ *
+ * Be honest about the limit: an ambiguous failure CANNOT NAME the possible first
+ * meeting. There is no id — either the response never arrived or it was unreadable — so
+ * `x-zm-request-id` (when Zoom sent one) is all the record carries, and only
+ * reconciliation against Zoom can identify a meeting if one exists. The BLOCKED HOST
+ * INTERVAL is the safety here, not knowledge.
  */
 import { randomInt } from 'crypto';
 import { getSessionDateTime, SESSION_TIMEZONE } from '../../utils/session-timezone';
 import { getZoomApi, type ZoomApi, type ZoomMeetingSettings } from '../api';
-import { ZoomNonRetryableError } from '../errors';
+import { isZoomError, ZoomNonRetryableError } from '../errors';
 import { createZoomServiceClient, zoomInternalSchema } from '../service-client';
 import { ZoomJobLeaseLostError, type ZoomJobHandler } from './types';
 import {
@@ -245,6 +267,57 @@ export class ZoomNoHostAvailableError extends ZoomNonRetryableError {
   readonly candidatesTried: number;
 }
 
+/** The `reason` an ambiguous create parks under. Triage and §18 alerting key on it. */
+export const AMBIGUOUS_CREATE_REASON = 'ambiguous_create_outcome';
+
+/**
+ * `createMeeting` failed in a way that CANNOT rule out a meeting having been created
+ * (Sol F4). Terminal on purpose: the job must never retry, because a retry is exactly
+ * the second create this class exists to prevent.
+ *
+ * What it can and cannot tell you is worth being blunt about. It carries the provider's
+ * `x-zm-request-id` when Zoom sent one, which is what a support ticket needs — but it
+ * CANNOT name the meeting. There is no id to record: either the response never arrived
+ * or it was unreadable. Only reconciliation against Zoom (list the host's meetings
+ * around that window and match the topic and start time) can identify a first meeting
+ * if one exists. The blocked host interval is the safety here, not knowledge: the
+ * reservation stays `pending`, so nothing else is booked onto that host for that window
+ * while a human resolves it via dead-job triage (`docs/runbooks/zoom.md`).
+ */
+export class ZoomAmbiguousCreateError extends ZoomNonRetryableError {
+  readonly reason = AMBIGUOUS_CREATE_REASON;
+
+  constructor(message: string, requestId: string | undefined) {
+    super(message, { operation: 'meeting_provision', requestId });
+  }
+}
+
+/**
+ * The marker `recordLastError` leaves on a row whose create outcome is unresolved.
+ * Structural — parsed and read by field, never matched as a substring.
+ */
+export function ambiguousCreateMarker(
+  requestId: string | undefined,
+  message: string
+): string {
+  return JSON.stringify({
+    reason: AMBIGUOUS_CREATE_REASON,
+    request_id: requestId ?? null,
+    message: message.slice(0, 300),
+  });
+}
+
+/** Is this row's `last_error` an unresolved ambiguous create? */
+export function isAmbiguousCreateMarker(lastError: string | null): boolean {
+  if (lastError === null) return false;
+  try {
+    const parsed = JSON.parse(lastError) as { reason?: unknown };
+    return parsed.reason === AMBIGUOUS_CREATE_REASON;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * The source session is not one this job may provision for (§8; Sol F3). Terminal for
  * the same reason as `no_host_available`: no backoff turns a cancelled session into a
@@ -321,6 +394,12 @@ export interface ProvisionMeetingRow {
   effective_settings: Record<string, unknown> | null;
   starts_at: string;
   duration_minutes: number;
+  /**
+   * Read back so the eligibility release can tell an ordinary bare reservation from one
+   * parked by an UNRESOLVED ambiguous create — the second must not be released, because
+   * a meeting may exist at Zoom for that interval (Sol F4).
+   */
+  last_error: string | null;
 }
 
 export interface ReservationInsert {
@@ -385,6 +464,14 @@ export interface MeetingProvisionStore {
   ): Promise<boolean>;
   markProvisioned(meetingId: string, patch: ProvisionedMeetingPatch): Promise<void>;
   markError(meetingId: string, lastError: string): Promise<void>;
+  /**
+   * Writes `last_error` and NOTHING else — the status is deliberately untouched.
+   * `markError` would move the row to `error`, which is outside the EXCLUDE predicate
+   * and therefore RELEASES the host; that is right for a definite failure and wrong for
+   * an ambiguous one, where a meeting may already exist on that host at that time
+   * (Sol F4).
+   */
+  recordLastError(meetingId: string, lastError: string): Promise<void>;
   /**
    * Drops a reservation into `cancelled` — a status the §9 EXCLUDE `WHERE` ignores, so
    * the host slot is freed. Used only for a reservation held on behalf of a session
@@ -512,7 +599,7 @@ export function createSupabaseMeetingProvisionStore(
       const { data, error } = await internalClient
         .from('zoom_meetings')
         .select(
-          'id, status, host_zoom_user_id, zoom_meeting_number, effective_settings, starts_at, duration_minutes'
+          'id, status, host_zoom_user_id, zoom_meeting_number, effective_settings, starts_at, duration_minutes, last_error'
         )
         .eq('surface_type', surfaceType)
         .eq('surface_id', surfaceId)
@@ -526,7 +613,7 @@ export function createSupabaseMeetingProvisionStore(
         .from('zoom_meetings')
         .insert({ ...row, status: 'pending' })
         .select(
-          'id, status, host_zoom_user_id, zoom_meeting_number, effective_settings, starts_at, duration_minutes'
+          'id, status, host_zoom_user_id, zoom_meeting_number, effective_settings, starts_at, duration_minutes, last_error'
         )
         .single();
       // 23P01 is not an error condition here — it is the answer "that host is busy".
@@ -567,6 +654,16 @@ export function createSupabaseMeetingProvisionStore(
         .update({ status: 'error', last_error: lastError, updated_at: new Date().toISOString() })
         .eq('id', meetingId);
       if (error) throw new Error(`zoom_meetings error write failed: ${error.message}`);
+    },
+
+    async recordLastError(meetingId, lastError) {
+      const { error } = await internalClient
+        .from('zoom_meetings')
+        // No `status` key: the row keeps whatever status it has, and keeps its
+        // reservation with it.
+        .update({ last_error: lastError, updated_at: new Date().toISOString() })
+        .eq('id', meetingId);
+      if (error) throw new Error(`zoom_meetings last_error write failed: ${error.message}`);
     },
 
     async releaseReservation(meetingId, lastError) {
@@ -849,7 +946,11 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
         held !== null &&
         held.zoom_meeting_number === null &&
         (ZOOM_MEETING_ACTIVE_STATUSES as readonly string[]).includes(held.status) &&
-        !(checkpointHere !== null && checkpointHere.meetingId === held.id);
+        !(checkpointHere !== null && checkpointHere.meetingId === held.id) &&
+        // ...and not a row parked by an UNRESOLVED ambiguous create: it has no meeting
+        // number precisely because we never learned one, which is not the same as
+        // knowing no meeting exists (Sol F4).
+        !isAmbiguousCreateMarker(held.last_error);
 
       if (isBareReservation) {
         await store.releaseReservation(
@@ -1056,12 +1157,35 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
           settings: PROVISION_MEETING_SETTINGS,
         });
       } catch (error) {
-        // Park the failure on the row, then rethrow so `fail_zoom_job` applies its own
+        const message = error instanceof Error ? error.message : String(error);
+
+        // Did the request reach Zoom? The client answers that, so nothing here does
+        // status-code archaeology. A non-`ZoomError` escaping `createMeeting` is treated
+        // as ambiguous too: an untyped throw is precisely the case where we do not know.
+        const ambiguous = !isZoomError(error) || error.outcome === 'ambiguous';
+
+        if (ambiguous) {
+          // NOT markError. Moving the row to `error` would release the interval, and a
+          // meeting may exist at Zoom on that host at that time — the retry would then
+          // create a SECOND one against a host we had just declared free (Sol F4). The
+          // row keeps its `pending` status and its reservation; only `last_error` is
+          // written, and the job fails NON-retryably so nothing auto-creates again.
+          const requestId = isZoomError(error) ? error.requestId : undefined;
+          await store.recordLastError(meetingId, ambiguousCreateMarker(requestId, message));
+          throw new ZoomAmbiguousCreateError(
+            `createMeeting for consultor_session ${surfaceId} failed with an AMBIGUOUS outcome; a meeting may exist at Zoom and cannot be named from here. Reconcile against Zoom${
+              requestId === undefined ? '' : ` (x-zm-request-id ${requestId})`
+            }.`,
+            requestId
+          );
+        }
+
+        // DEFINITE pre-create rejection: Zoom answered, and answered without creating.
+        // Park the failure on the row and rethrow so `fail_zoom_job` applies its own
         // backoff / dead-letter rules. `error` is NOT an active status, so this also
         // RELEASES the reservation — the EXCLUDE WHERE covers pending/provisioned/
         // started only, and a host held by a job that is not progressing is worse than
         // one that has to be re-reserved on the retry.
-        const message = error instanceof Error ? error.message : String(error);
         await store.markError(meetingId, message.slice(0, 500));
         throw error;
       }

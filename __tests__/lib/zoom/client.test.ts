@@ -456,3 +456,62 @@ describe('encodeMeetingUuid', () => {
     expect(encodeMeetingUuid('Fk+SyntheticUuid/0001==')).toContain('%252F');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Sol F4 — did the request reach Zoom?
+// ---------------------------------------------------------------------------
+
+/**
+ * `outcome` is the field a caller of a NON-IDEMPOTENT verb has to branch on, and the
+ * whole point of it living here is that no caller re-derives it from a status code.
+ * DEFINITE = a status arrived and it was < 500. Everything else may have landed.
+ */
+describe('ZoomClient — request outcome classification', () => {
+  it('labels a transport throw ambiguous — no status, but the bytes may have gone out', async () => {
+    const { client } = build([{ status: 0, throws: true }], { maxAttempts: 1 });
+    const error = await client.post('/users/x/meetings', {}).catch((caught) => caught);
+    expect(error).toMatchObject({ kind: 'retryable', outcome: 'ambiguous' });
+    expect(error.status).toBeUndefined();
+  });
+
+  it('labels a 5xx ambiguous — the edge answered for a backend that may have run', async () => {
+    const { client } = build([{ status: 503, body: { message: 'upstream' } }], { maxAttempts: 1 });
+    const error = await client.post('/users/x/meetings', {}).catch((caught) => caught);
+    expect(error).toMatchObject({ kind: 'retryable', status: 503, outcome: 'ambiguous' });
+  });
+
+  it('labels an unreadable 2xx body ambiguous, even though the status is a success', async () => {
+    // A 201 whose body is not JSON: Zoom acted, and we cannot tell on what. This is the
+    // case a plain `status < 500` rule gets WRONG, which is why the client sets the
+    // field instead of leaving callers to compare status codes.
+    const fetcher = vi.fn(async () => new Response('<html>gateway</html>', { status: 201 }));
+    const client = createZoomClient({
+      tokenProvider: fakeTokens().provider,
+      fetchImpl: fetcher as unknown as typeof fetch,
+      maxAttempts: 1,
+    });
+
+    const error = await client.post('/users/x/meetings', {}).catch((caught) => caught);
+    expect(error).toMatchObject({ kind: 'retryable', status: 201, outcome: 'ambiguous' });
+  });
+
+  it('labels 4xx and 429 not_executed — Zoom answered without creating', async () => {
+    const rejected = build([{ status: 400, body: { message: 'bad topic' } }], { maxAttempts: 1 });
+    await expect(rejected.client.post('/users/x/meetings', {})).rejects.toMatchObject({
+      kind: 'non_retryable',
+      outcome: 'not_executed',
+    });
+
+    const throttled = build([{ status: 429, headers: { 'retry-after': '600' } }], {
+      maxAttempts: 1,
+    });
+    await expect(throttled.client.post('/users/x/meetings', {})).rejects.toMatchObject({
+      kind: 'rate_limit',
+      outcome: 'not_executed',
+    });
+  });
+
+  it('labels a locally raised error not_executed — it never went near the wire', () => {
+    expect(new ZoomNonRetryableError('config missing').outcome).toBe('not_executed');
+  });
+});

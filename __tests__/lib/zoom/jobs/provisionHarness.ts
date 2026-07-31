@@ -119,6 +119,7 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
       effective_settings: row.effective_settings,
       starts_at: row.starts_at,
       duration_minutes: row.duration_minutes,
+      last_error: row.last_error,
     };
   }
 
@@ -213,6 +214,13 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
       const row = meetings.find((candidate) => candidate.id === meetingId);
       if (!row) throw new Error(`no such meeting ${meetingId}`);
       row.status = 'error';
+      row.last_error = lastError;
+    }),
+
+    recordLastError: vi.fn(async (meetingId: string, lastError: string) => {
+      const row = meetings.find((candidate) => candidate.id === meetingId);
+      if (!row) throw new Error(`no such meeting ${meetingId}`);
+      // Status deliberately untouched — the row keeps its reservation.
       row.last_error = lastError;
     }),
 

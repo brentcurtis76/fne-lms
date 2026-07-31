@@ -230,7 +230,16 @@ export function createLiveZoomApi(client: ZoomClient = createZoomClient()): Zoom
         }
       );
       if (!response.data) {
-        throw new ZoomConfigError('Zoom returned no body for a meeting create.');
+        // A 2xx with an empty body on a CREATE: Zoom accepted the request and told us
+        // nothing about what it made. Same class as an unparseable body — the meeting
+        // may exist and we cannot name it (Sol F4), so this must not read as a definite
+        // pre-create rejection just because the status was 2xx.
+        throw new ZoomConfigError('Zoom returned no body for a meeting create.', {
+          status: response.status,
+          operation: `POST /users/{id}/meetings`,
+          requestId: response.requestId,
+          outcome: 'ambiguous',
+        });
       }
       // The create response reflects EFFECTIVE settings on a capability mismatch, so
       // the caller must read `settings` off this object rather than assume its input.

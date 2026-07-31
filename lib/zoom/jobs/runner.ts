@@ -86,6 +86,12 @@ export interface ZoomJobFailureRecord {
   zoomCode?: number;
   operation?: string;
   retryAfterSeconds?: number;
+  /**
+   * Zoom's `x-zm-request-id`, when the response carried one. Stored so a human
+   * resolving a job by hand — an `ambiguous_create_outcome` above all — has the one
+   * identifier a Zoom support ticket can be opened against.
+   */
+  requestId?: string;
   /** Human-facing only. Nothing may branch on this string. */
   message: string;
 }
@@ -112,6 +118,7 @@ export function describeJobFailure(error: unknown): ZoomJobFailureRecord {
       zoomCode: error.zoomCode,
       operation: error.operation,
       retryAfterSeconds: error.retryAfterSeconds,
+      requestId: error.requestId,
       message: error.message.slice(0, MAX_STORED_MESSAGE_CHARS),
     };
   }

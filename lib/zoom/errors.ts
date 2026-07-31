@@ -25,6 +25,22 @@
 
 export type ZoomErrorKind = 'auth' | 'rate_limit' | 'retryable' | 'non_retryable';
 
+/**
+ * Did the request REACH the provider? Orthogonal to `kind`, and the only question that
+ * matters for a non-idempotent verb (Sol F4).
+ *
+ * | outcome        | means                              | caller may assume            |
+ * |----------------|------------------------------------|------------------------------|
+ * | `not_executed` | Zoom answered, and answered <500   | nothing was created          |
+ * | `ambiguous`    | transport threw, 5xx, or an        | the request MAY have landed  |
+ * |                | unreadable 2xx body                |                              |
+ *
+ * `kind` cannot answer it: a 429 and a socket reset are both retryable-ish, but only
+ * one of them is a definite pre-create rejection. Callers must not re-derive this from
+ * status codes — that archaeology is exactly what this field exists to delete.
+ */
+export type ZoomRequestOutcome = 'not_executed' | 'ambiguous';
+
 export interface ZoomErrorContext {
   /** HTTP status, when the failure came from a response rather than the socket. */
   status?: number;
@@ -36,6 +52,13 @@ export interface ZoomErrorContext {
   operation?: string;
   /** Parsed from `Retry-After` on a 429. */
   retryAfterSeconds?: number;
+  /**
+   * Overrides the status-derived default below. The client sets it explicitly for the
+   * two cases a status code cannot express: a transport throw (no status at all, but
+   * the bytes may well have gone out) and an unreadable 2xx body (a success status
+   * over a response we cannot use).
+   */
+  outcome?: ZoomRequestOutcome;
   cause?: unknown;
 }
 
@@ -46,6 +69,8 @@ export class ZoomError extends Error {
   readonly requestId?: string;
   readonly operation?: string;
   readonly retryAfterSeconds?: number;
+  /** Always defined — see `deriveOutcome` for the default. */
+  readonly outcome: ZoomRequestOutcome;
 
   constructor(kind: ZoomErrorKind, message: string, context: ZoomErrorContext = {}) {
     super(message, context.cause === undefined ? undefined : { cause: context.cause });
@@ -56,7 +81,21 @@ export class ZoomError extends Error {
     this.requestId = context.requestId;
     this.operation = context.operation;
     this.retryAfterSeconds = context.retryAfterSeconds;
+    this.outcome = deriveOutcome(context);
   }
+}
+
+/**
+ * A status ≥ 500 means Zoom's edge answered for a backend that may or may not have run
+ * the write — ambiguous. A status < 500 means Zoom itself answered and refused, so
+ * nothing was created. NO status means the error was raised locally (a config error, a
+ * handler's own taxonomy) and never went near the wire — `not_executed`; the client
+ * passes `outcome` explicitly for the one local throw that is genuinely ambiguous, the
+ * transport failure.
+ */
+function deriveOutcome(context: ZoomErrorContext): ZoomRequestOutcome {
+  if (context.outcome !== undefined) return context.outcome;
+  return context.status !== undefined && context.status >= 500 ? 'ambiguous' : 'not_executed';
 }
 
 /**

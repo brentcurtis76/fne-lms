@@ -25,12 +25,19 @@
  * the API: those keys are excluded from the drift set and reported separately, so a
  * consumer cannot accidentally build an alert on a field Zoom lies about.
  *
- * ## 3. POSTs are never retried automatically
+ * ## 3. POSTs are never retried automatically, and every error says whether it landed
  *
  * Retrying `POST /users/{id}/meetings` after an ambiguous failure creates a second
  * meeting. Idempotency for non-idempotent verbs lives in the Z1b-3 job layer, which
  * owns dedupe keys and stage checkpoints; it does not live in a transport retry
  * loop. GET/PUT/PATCH/DELETE are safe to repeat and do get bounded backoff.
+ *
+ * Not retrying is only half of it: the job layer still has to know whether the request
+ * it just gave up on may have executed. So every `ZoomError` this client throws carries
+ * `outcome` (`'not_executed' | 'ambiguous'`), set HERE rather than reconstructed by
+ * callers from status codes. A definite pre-create rejection is "a status arrived and
+ * it was < 500"; a transport throw, a 5xx and an unreadable 2xx body are all ambiguous,
+ * and the last of those is why the rule cannot simply be a status comparison (Sol F4).
  *
  * The one exception is a 401, which is handled separately from the backoff loop: a
  * 401 means the request was rejected at the auth boundary and never executed, so
@@ -233,8 +240,13 @@ export function createZoomClient(deps: ZoomClientDeps = {}): ZoomClient {
         ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
       });
     } catch (cause) {
+      // AMBIGUOUS, explicitly: `fetch` rejects for a connection that was never made AND
+      // for one that sent every byte and lost the response. There is no status to
+      // derive it from, and guessing "not executed" is the guess that creates a second
+      // meeting (Sol F4).
       throw new ZoomRetryableError(`Zoom request failed at the transport layer: ${operation}.`, {
         operation,
+        outcome: 'ambiguous',
         cause,
       });
     }
@@ -251,7 +263,14 @@ export function createZoomClient(deps: ZoomClientDeps = {}): ZoomClient {
         try {
           data = JSON.parse(raw) as T;
         } catch (cause) {
-          throw new ZoomRetryableError(`Zoom returned unparseable JSON for ${operation}.`, { ...context, cause });
+          // A 2xx we cannot read. The status says Zoom accepted and acted on the
+          // request; the body says we have no idea what it produced. AMBIGUOUS, and
+          // the status-derived default would have said `not_executed`.
+          throw new ZoomRetryableError(`Zoom returned unparseable JSON for ${operation}.`, {
+            ...context,
+            outcome: 'ambiguous',
+            cause,
+          });
         }
       }
       return { status: response.status, data, requestId };

@@ -357,7 +357,7 @@ The v2 B11 preflight as its own evidence phase: DKIM/SPF verified; DMARC present
 | A-6 | Experts + titles | Coral Regí (directora del programa), Mora del Fresno (coordinadora), **Jordi Musons (director, Escola Sadako)** and **Sandra Entrena (Encargada de Innovación, Escola Virolai)** — week-1 immersion hosts running many sessions in their schools; Boris Mir (Angeleta Ferrer), Sergi del Moral (Les Vinyes), Pepe Menéndez, Joan Quintana | OK (Brent 2026-07-31; Sandra's title corrected — NOT directora) |
 | A-7 | Objectives, day structure, includes/excludes | per PPTX "BROCHURE INSPIRA 2026 - oct2026 2.0" | OK |
 | A-8 | Inversión (brochure only) | €1.000 programa + €560 alojamiento (doble) = €1.560; Madrid opcional €810; mín. 5 personas; 50% al acuerdo + saldo 30 días antes | OK — validity date TBC |
-| A-9 | Claims | "400+ pasantes", "40+ colegios", "12 escuelas BCN" — confirm current; any "7 escuelas" phrasing is retired (this cohort visits 5) | PENDING |
+| A-9 | Claims | **"400+ pasantes", "40+ colegios", "12 escuelas BCN" — confirmed correct.** "7 escuelas" phrasing is valid again via the two-tier structure (2 inmersión + 5 visitas). | OK (Brent 2026-07-31) |
 | A-10 | Legal identity (email footer) | Razón social + RUT + street address | PENDING |
 | A-11 | WhatsApp CTA number | número, or drop the button | PENDING |
 | A-12 | Testimonios | 2–3 quotes with name + school, or explicit "launch without" | PENDING |

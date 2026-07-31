@@ -155,3 +155,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: version pin accepted.
 - BACKLOG ADDED: enforce "never render brandName alone" at the first render site (campaign footer B8 / A6b).
 - OPEN AFTER THIS ROUND: **A0 clean — ready for Codex final review** (Brent triggers; PR #28). Process note adopted for future prompts: fresh worktrees need `.env.local` copied before the build gate.
+
+### 2026-07-31 — A0 Codex round 1 — Fable (PM triage)
+- CONTEXT PRESSURE: n/a
+- ACTION: Codex final review of A0 = **FAIL** (REVIEW-A0.md, committed with this entry). 1 BLOCKING — **AGREED**: `/privacidad`'s prose still presents the fantasy name as the controller and a generic address; the approved A-10 requires the legal identity (Fundación Instituto Relacional + RUT 65.166.503-5 + Carlos Silva Vildósola 10448, La Reina, Santiago) wherever the controller is named. Rounds 1–2 fixed constants + version line but not the page copy — a real gap against the brief, not a taste call. D-12 split consent passed; Codex ran 19/19 targeted + full gates green. 1 SHOULD-FIX: ratify the data-subject-request email (info@nuevaeducacion.org) — question already with the owner. Remediation = A0 round 3 (single consolidated executor prompt, per SOP §3.7): render the controller identity block in `PrivacyPolicyContent.tsx` from `LEGAL_IDENTITY`, with tests. This is Codex round 1 of max 2 for the phase.
+- COMMITS: (this commit — REVIEW-A0.md + this entry)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: n/a (triage)
+- DECISIONS: blocking accepted; remediation dispatched
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: A0 round 3 executor in flight once Brent pastes the prompt. Owner input pending: confirm info@ as the data-subject-request address (folds into the round or the ledger).

@@ -156,3 +156,36 @@ approval; the executor corrects any same claim in code commentary. ② tightens 
 accepted shape-only residual — provision always requests both fields, so absence is
 anomalous, and Sol is right that it must not coerce to a clean-looking 'none'. One
 round: **Z1b-sol3**.
+
+## Round 4 — Re-review of Z1b-sol3 (verdict: REQUEST CHANGES, 2026-07-31)
+
+Relayed as the Z1b-sol4 fix block. **One finding** (MAJOR-class): the operator-recovery
+write path has no lease guard and no state guard. After the recovery `getMeeting`
+validates, the handler writes `markProvisioned` keyed on `id` ALONE (verified:
+`meeting-provision.ts:780` — `.eq('id', meetingId)`, no status/number condition) with no
+heartbeat since before the GET. Two reachable races: a lost/expired lease lets a
+non-owner write; and — the sharper one — a webhook can legitimately advance the row
+`pending → started` while the GET is in flight (`LIFECYCLE_STARTED_APPLIES_FROM`
+includes `'pending'`, `webhook-store.ts:52`), after which the late recovery write RESETS
+the row to `provisioned` and republishes a `scheduled` projection — reintroducing
+through the recovery path the exact order-safety class R2-F1 fixed for the webhook path.
+Required: heartbeat immediately after validation and before any write (false ⇒
+`ZoomJobLeaseLostError`, zero writes); the recovery write becomes compare-and-set
+(`WHERE id AND status='pending' AND zoom_meeting_number=recordedNumber`, exactly-one-row
+semantics); a CAS miss stops before `upsertProjection`; create/checkpoint-adoption
+branches unchanged. DoD includes fail-on-old against `a67bc18`.
+
+## PM triage (Round 4)
+
+**VALID — and it overturns the PM's sol3 ruling on scrutiny C, conceded in full.** The
+PM's acceptance reasoned about the duplicate-writer case ("a non-owner's late write is
+an absolute idempotent write of the same Zoom-truth") and MISSED the lifecycle race: the
+row is not static while the GET is in flight, and `started`-from-`pending` makes the
+clobber reachable, not theoretical. Recovery needs the same monotonicity discipline the
+webhook store received in sol1 — a guarded, compare-and-set write. PM design note for
+the round: a CAS miss is a LEGITIMATE world-advance (another worker completed recovery,
+or lifecycle moved the row) — the job completes with a structured `superseded` result
+rather than failing into triage; and the miss leaves a documented residual (a row
+advanced past `pending` before recovery keeps NULL passcode/join_url — the historical
+record of a meeting that ran without platform join; the CAS never fires again by
+design). One round: **Z1b-sol4**.

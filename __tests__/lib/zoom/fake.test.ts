@@ -446,6 +446,36 @@ describe('live adapter — unusable 2xx create responses (Sol R2 ①)', () => {
     ['mistyped settings', { id: 82000000042, join_url: 'https://x.test/j/1', settings: [] }],
     ['an error envelope', { code: 3001, message: 'Meeting host does not exist' }],
     ['a JSON array', []],
+    // Sol R3 ②: the fields provisioning ALWAYS sends. Absence used to coerce through
+    // `mapMeeting` into an empty passcode and a settings object whose missing
+    // `auto_recording` reads, at §9.4, as a clean 'none'.
+    [
+      'an omitted password',
+      { id: 82000000042, join_url: 'https://x.test/j/1', settings: { auto_recording: 'none' } },
+    ],
+    [
+      'a blank password',
+      {
+        id: 82000000042,
+        join_url: 'https://x.test/j/1',
+        password: '   ',
+        settings: { auto_recording: 'none' },
+      },
+    ],
+    ['omitted settings', { id: 82000000042, join_url: 'https://x.test/j/1', password: '246813' }],
+    [
+      'settings with no auto_recording',
+      { id: 82000000042, join_url: 'https://x.test/j/1', password: '246813', settings: {} },
+    ],
+    [
+      'a non-string auto_recording',
+      {
+        id: 82000000042,
+        join_url: 'https://x.test/j/1',
+        password: '246813',
+        settings: { auto_recording: true },
+      },
+    ],
   ];
 
   it.each(unusableBodies)('rejects %s with an AMBIGUOUS outcome', async (_label, body) => {
@@ -511,28 +541,53 @@ describe('live adapter — unusable 2xx create responses (Sol R2 ①)', () => {
     expect((error as ZoomError).requestId).toBe('synthetic-zm-request-id-0042');
   });
 
-  it('still accepts a usable create that merely omits the OPTIONAL fields', async () => {
-    // The guard must not turn a good response into a human-triage event. `password` and
-    // `settings` are absent here, and `mapMeeting`'s documented `?? ''` / `?? {}`
-    // coercions are legitimate for that case.
+  it('NEVER lets an absent passcode or settings map to a usable meeting (Sol R3 ②)', async () => {
+    // This test used to assert the opposite — that omitting `password`/`settings` was
+    // merely `mapMeeting` exercising its `?? ''` / `?? {}` coercions on a good response.
+    // It is not: `meeting_provision` sends both on every create, so a 2xx without them
+    // is anomalous, and the coercion output is a joinable-looking meeting with an empty
+    // passcode and a settings object whose silence §9.4 reads as 'none'.
     const { api } = liveApi([
       {
         status: 201,
         body: { ...RAW_MEETING, password: undefined, settings: undefined },
+        headers: REQUEST_ID_HEADER,
       },
     ]);
 
-    const meeting = await api.createMeeting(provisionInput());
-    expect(meeting.id).toBe(82000000042);
-    expect(meeting.passcode).toBe('');
-    expect(meeting.settings).toEqual({});
+    const error = (await api.createMeeting(provisionInput()).catch((caught) => caught)) as Error;
+
+    expect(error).toBeInstanceOf(ZoomUnusableSuccessError);
+    expect((error as unknown as ZoomError).outcome).toBe('ambiguous');
+    expect(error.message).toContain('password is missing or not a non-empty string');
+    expect(error.message).toContain('settings is missing or not an object');
   });
 
-  it('does not reject over fields the provisioner never persists', async () => {
-    // `uuid`/`host_id`/`topic` are deliberately outside the checked set — see the
-    // `findUnusableCreateFields` header. Rejecting here would strand a usable meeting.
+  it('names the missing auto_recording rather than reading its absence as none', () => {
+    // The §9.4 trap in one assertion: `{}` is a settings OBJECT, so a shape-only check
+    // passes it, and `readAutoRecording({})` then answers 'none' — a clean run reported
+    // for a meeting Zoom never said anything about.
     expect(
-      findUnusableCreateFields({ id: 82000000042, join_url: 'https://x.test/j/1' })
+      findUnusableCreateFields({
+        id: 82000000042,
+        join_url: 'https://x.test/j/1',
+        password: '246813',
+        settings: {},
+      })
+    ).toEqual(['settings.auto_recording is missing or not a string']);
+  });
+
+  it('does not reject over fields the provisioner never persists', () => {
+    // `uuid`/`host_id`/`topic`/`start_time`/`duration`/`timezone` are deliberately
+    // outside the checked set — see the `findUnusableCreateFields` header. Rejecting
+    // here would strand a usable meeting behind a human-triage event.
+    expect(
+      findUnusableCreateFields({
+        id: 82000000042,
+        join_url: 'https://x.test/j/1',
+        password: '246813',
+        settings: { auto_recording: 'none' },
+      })
     ).toEqual([]);
   });
 });

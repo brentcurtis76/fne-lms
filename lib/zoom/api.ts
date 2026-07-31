@@ -204,10 +204,17 @@ export function mapMeeting(raw: ZoomMeetingRaw): ZoomMeeting {
  *    is not a meeting number. `isSafeInteger` rather than `isFinite`: past 2^53 the
  *    value has ALREADY lost precision in JSON.parse, so it names a different meeting.
  *  - `join_url` → `zoom_meetings.join_url`, the only thing a participant can act on.
- *  - `password` / `settings` → `passcode` and `effective_settings`, checked for the
- *    shapes `mapMeeting` coerces silently (`?? ''`, `?? {}`) — a mistyped value would
- *    otherwise be persisted as an empty passcode or an empty settings object, and an
- *    empty `effective_settings` is also what the §9.4 drift signal reads.
+ *  - `password` → `zoom_meetings.passcode`, and `settings` → `effective_settings`.
+ *    Both are FAIL-CLOSED — REQUIRED, not merely type-checked when present (Sol R3 ②).
+ *    `meeting_provision` sends a passcode and a settings object on EVERY create, so a
+ *    2xx carrying neither is anomalous, and `mapMeeting`'s documented `?? ''` / `?? {}`
+ *    coercions turn that absence into a persisted EMPTY passcode — a meeting nobody can
+ *    join, on a row that says `provisioned` — and an empty `effective_settings`. The
+ *    second is the worse half: §9.4 reads drift off `effective_settings.auto_recording`
+ *    and an absent value floors to `'none'`, which is exactly the value that means
+ *    "clean run". So `settings` must also carry an EXPLICIT string `auto_recording`:
+ *    the drift signal is only meaningful when Zoom actually stated the value, and a
+ *    silence that reads as compliance is worse than a refusal a human can see.
  *
  * NOT checked: `uuid`, `host_id`, `topic`, `start_time`, `duration`, `timezone`. The
  * provisioner deliberately persists none of them (`zoom_meeting_uuid` stays NULL — see
@@ -231,14 +238,14 @@ export function findUnusableCreateFields(raw: unknown): string[] {
   if (typeof body.join_url !== 'string' || body.join_url.trim() === '') {
     problems.push('join_url is missing or empty');
   }
-  if (body.password !== undefined && typeof body.password !== 'string') {
-    problems.push('password is not a string');
+  if (typeof body.password !== 'string' || body.password.trim() === '') {
+    problems.push('password is missing or not a non-empty string');
   }
-  if (
-    body.settings !== undefined &&
-    (typeof body.settings !== 'object' || body.settings === null || Array.isArray(body.settings))
-  ) {
-    problems.push('settings is not an object');
+  const settings = body.settings;
+  if (typeof settings !== 'object' || settings === null || Array.isArray(settings)) {
+    problems.push('settings is missing or not an object');
+  } else if (typeof (settings as Record<string, unknown>).auto_recording !== 'string') {
+    problems.push('settings.auto_recording is missing or not a string');
   }
   return problems;
 }

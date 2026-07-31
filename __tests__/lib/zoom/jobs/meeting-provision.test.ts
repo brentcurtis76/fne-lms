@@ -836,6 +836,35 @@ describe('meeting_provision · ambiguous create outcomes', () => {
   it.each([
     ['201 with an empty object', {}],
     ['201 with a partial, mistyped meeting', { id: '82000000042', join_url: '', settings: [] }],
+    // Sol R3 ②, end to end. Each of these is a body the OLD adapter accepted: `id` and
+    // `join_url` are impeccable, and only the two fields provisioning always SENDS are
+    // missing. The old chain persisted an empty passcode and an empty
+    // `effective_settings`, and completed the job reporting a clean 'none'.
+    [
+      '201 with an empty settings object',
+      {
+        id: 82000000042,
+        join_url: 'https://example-synthetic.test/j/82000000042',
+        password: '246813',
+        settings: {},
+      },
+    ],
+    [
+      '201 with no settings at all',
+      {
+        id: 82000000042,
+        join_url: 'https://example-synthetic.test/j/82000000042',
+        password: '246813',
+      },
+    ],
+    [
+      '201 with no password',
+      {
+        id: 82000000042,
+        join_url: 'https://example-synthetic.test/j/82000000042',
+        settings: { auto_recording: 'none' },
+      },
+    ],
   ])('parks %s instead of provisioning a row with no number', async (_label, body) => {
     const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
     const jobs = createMemoryJobQueue();
@@ -877,6 +906,17 @@ describe('meeting_provision · ambiguous create outcomes', () => {
     // ...and nothing was published to the UI's status surface.
     expect(harness.store.upsertProjection).not.toHaveBeenCalled();
     expect(harness.projectionFor(SESSION_ID)).toBeUndefined();
+
+    // Sol R3 ②'s bar, stated directly: an ABSENT field must never surface as a clean
+    // run. `complete_zoom_job` REPLACES `stage_state` with the handler's result, so a
+    // job that wrongly completed would be carrying that result right here.
+    expect(job.status).not.toBe('done');
+    expect(job.stage_state).not.toMatchObject({ effective_auto_recording: 'none' });
+    expect(job.stage_state).not.toMatchObject({ settings_drift: false });
+    // The row cannot carry a joinable-looking secret either.
+    expect(row.passcode).toBeNull();
+    expect(row.join_url).toBeNull();
+    expect(row.effective_settings).toBeNull();
   });
 
   it('a DEFINITE pre-create rejection keeps the old path: error, released, retryable', async () => {

@@ -106,3 +106,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: single-route design accepted; escaping + rate-limit additions accepted.
 - BACKLOG ADDED: expense-report e2e (phase-sized); e-mail deep links still hardcode fne-lms.vercel.app (pre-existing, migrate to app-url later); durable notify dedup via `notified_at` column (needs migration).
 - OPEN AFTER THIS ROUND: **B1a clean — ready for Codex final review** (Brent triggers). B1b becomes dispatchable after B1a merges. Future executor prompts must include: copy `.env.local` from the main checkout into fresh worktrees before the build gate.
+
+### 2026-07-31 — B1a close — Fable (PM, per SOP §3.8)
+- CONTEXT PRESSURE: n/a
+- ACTION: Codex final review = **PASS, zero BLOCKING** (REVIEW-B1A.md, committed with this entry; verified 47/47 + CI green at PR head). SHOULD-FIX moved to Backlog: the bot's previous 8-second delivery timeout was lost in the relay→direct-send migration (restore an explicit timeout). Authorization breadth + replayability accepted by Codex as non-blocking residuals. Phase marked DONE in PLAN.md (code `f29c1ce`, PR #30). Backlog table updated with the phase's four items.
+- COMMITS: (this close commit)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: —
+- BACKLOG ADDED: 4 rows to PLAN Backlog (timeout, expense e2e, deep links, notified_at)
+- OPEN AFTER THIS ROUND: **Awaiting Brent's merge go for PR #30.** B1b (relay deletion) becomes dispatchable after merge; its no-caller grep must ignore the Supabase edge-function invocation in utils/meetingUtils.ts (see PM verification entry).

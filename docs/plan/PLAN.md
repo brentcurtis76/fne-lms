@@ -320,6 +320,10 @@ The v2 B11 preflight as its own evidence phase: DKIM/SPF verified; DMARC present
 | `pasantias_leads` (marketing_opt_in=true only) import button in Contactos | B6/D-12 | v2 |
 | `community_manager` access tier for Correos | owner decision | v2 |
 | Scheduled sends, merge tags, nurture sequences, public double-opt-in, sending subdomain | design | v2 |
+| Restore an explicit delivery timeout (~8s) on the bot expense-notification send | Codex B1a S-01 | SHOULD-FIX |
+| Expense-report e2e (seeded reports + approver + mocked Resend) | B1a round 1 | SHOULD-FIX |
+| Expense e-mail deep links hardcode fne-lms.vercel.app → migrate to app-url | B1a round 1 (pre-existing) | SHOULD-FIX |
+| Durable notify dedup (`notified_at` column, needs migration) | B1a round 1 | v2 |
 
 ## Decision log
 

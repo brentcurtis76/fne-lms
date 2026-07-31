@@ -112,3 +112,47 @@ recorded-not-tested for the first store method whose correctness lives in the fi
 ① is partly a pre-existing Z1b-2 gap (the unchecked `mapMeeting` cast) that F4's
 classification made load-bearing. ④'s dossier line is the PM's own file — the PM fixes
 it at the round's approval, not the executor. Severities as filed. One round: Z1b-sol2.
+
+## Round 3 — Re-review of Z1b-sol2 (verdict: REQUEST CHANGES, 2026-07-31)
+
+Relayed as the Z1b-sol3 fix block (no prose verdict forwarded). Three findings:
+
+**① (MAJOR-class)** The operator-recorded-number recovery path is incomplete. A pending
+row with the ambiguous marker plus a manually populated `zoom_meeting_number` takes the
+`alreadyCreated` replay path — built for rows `markProvisioned` completed — so it
+publishes a `scheduled` projection while the row is still `pending` with NO passcode,
+NO join_url, NULL `effective_settings` (drift read from absence → 'none'), and the
+marker uncleared. Required: re-read the discovered meeting from Zoom, validate, then
+`markProvisioned` atomically (number, non-empty passcode/join_url, effective settings
+with an EXPLICIT `auto_recording`, status `provisioned`, `last_error` cleared) BEFORE
+any projection; unusable read-back ⇒ stay parked, job terminal, no projection, never
+`createMeeting`. Extend the recovery test to assert the full row outcome, not only the
+zero create count.
+
+**② (MAJOR-minus)** Create-success validation must fail closed for the fields
+`meeting_provision` always requests: require non-empty `password` and a `settings`
+object with an explicit string `auto_recording`; absence ⇒ the ambiguous
+unusable-success classification (reservation stays pending, no projection). Fail-on-old
+cases: `{id, join_url, settings:{}}`, omitted settings, omitted password; assert absence
+can never become `effective_auto_recording='none'` / `settings_drift=false`.
+
+**③ (MINOR, docs)** The commentary overclaims unification: empty and schema-invalid
+bodies use `ZoomUnusableSuccessError`; client-level unparseable JSON remains
+`ZoomRetryableError` with an explicit `ambiguous` outcome. State the asymmetry (or
+intentionally unify).
+
+## PM triage (Round 3)
+
+**ALL THREE VALID** — anchors re-verified (`meeting-provision.ts:1075` keys
+`alreadyCreated` on the number alone; `api.ts:234/238` type-check password/settings only
+when present; `client.ts:269` is `ZoomRetryableError` + `outcome:'ambiguous'`). Two
+concessions: ① qualifies the PM's sol2 approval — the PM accepted "both resolution paths
+are test-covered" without checking that the populate-the-number test asserted only the
+create count, not the resulting row's integrity; ③'s overclaim is the **PM's own** — the
+executor's sol2 report described the class asymmetry accurately ("the pre-existing
+client-level unparseable path"), while the PM's ledger row and dossier §7c wrote "all
+three unified under `ZoomUnusableSuccessError`". The PM corrects its own two documents at
+approval; the executor corrects any same claim in code commentary. ② tightens the PM's
+accepted shape-only residual — provision always requests both fields, so absence is
+anomalous, and Sol is right that it must not coerce to a clean-looking 'none'. One
+round: **Z1b-sol3**.

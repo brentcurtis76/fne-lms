@@ -76,3 +76,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: executor's four recorded decisions accepted (real-login storageState; no setup-project coupling to legacy specs; gate-4-only CLI pin; CI-as-evidence given the polluted local tree).
 - BACKLOG ADDED: (1) `data-testid` + label association on `pages/login.tsx` inputs — wanted before A6b builds on the auth helper; (2) duplicate `<h1>` on `/admin/schools` (a11y + strict-mode trap); (3) consider gate 3 adopting the same pinned-CLI/`-x` treatment.
 - OPEN AFTER THIS ROUND: **T2 is clean — ready for Codex final review (Brent triggers).** No merge until Codex PASS + Brent's explicit go. Recommended merge order: T2 first (lands the plan docs on main), then A0 reconciles its ledger tail on top.
+
+### 2026-07-31 — T2 close — Fable (PM, per SOP §3.8)
+- CONTEXT PRESSURE: n/a
+- ACTION: Codex final review = **PASS, zero BLOCKING, zero SHOULD-FIX** (REVIEW-T2.md, committed with this entry). Phase marked DONE in PLAN.md (code head `eb908ed`, PR #27; final PR head verified green by Codex on run 30626801265). What was built vs planned: as specified, plus accepted deviations (timeout 30 min, gate-4 CLI pin, `.gitignore` negation, real-login storageState) — recorded in the Decision Log alongside the binding worktree/stack process amendment. NITs logged, not acted on: stale 20-min comment at ci.yml:6 (fix rides the next CI-touching phase); evidence README says run 2 where the guard demo is run 3 (`30602616645`).
+- COMMITS: (this close commit: REVIEW-T2.md + PLAN.md DONE + this entry)
+- TESTS: none this round (docs only; phase evidence unchanged)
+- FINDINGS RAISED: none
+- DECISIONS: 2 Decision Log rows added (process amendment; T2 deviations + close)
+- BACKLOG ADDED: none new (login `data-testid`, duplicate `<h1>`, gate-3 pinning already recorded in round 1)
+- OPEN AFTER THIS ROUND: **Awaiting Brent's explicit merge go for PR #27** (fast-forward if ancestry allows; merge lands the plan docs + CI topology on main). Next-phase re-read done: A0 unaffected (waiting on Appendix A); A6b/A8/B5/B9a consume T2's fixtures + mandatory-list mechanism as planned — later phases append to `MANDATORY_SPECS` in `scripts/ci/e2e-mandatory.mjs`; the login `data-testid` backlog item should land before A6b. After merge: A0 rebases/reconciles its ledger tail; `rescue/a0-6e69c9e` deletable.

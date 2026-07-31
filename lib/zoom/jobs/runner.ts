@@ -18,9 +18,12 @@
  * telling anyone. `kind` is the four-value taxonomy the retry rules are defined on,
  * and it is the only field with a contract.
  *
- * `isRetryableKind()` is the retry signal, passed straight through as `p_retryable`.
- * What happens next — backoff schedule, dead-lettering at `max_attempts`, terminal
- * `failed` for a non-retryable — belongs to the RPC and is not re-decided here.
+ * `isRetryableKind()` is the retry signal, passed straight through as `p_retryable`,
+ * and `retryAfterSeconds` rides along as `p_retry_after_seconds`. What happens next —
+ * backoff schedule, the floor the hint imposes on it, dead-lettering at `max_attempts`,
+ * terminal `failed` for a non-retryable — belongs to the RPC and is not re-decided here.
+ * The runner's job is to hand the RPC every input it needs; it decides nothing about
+ * WHEN a job runs again.
  *
  * ## Claiming every job type, on purpose
  *
@@ -241,6 +244,10 @@ async function runOneJob(
       p_worker_id: deps.workerId,
       p_error: serializeJobFailure(record),
       p_retryable: isRetryableFailure(record),
+      // The provider's own Retry-After, carried into SCHEDULING rather than only into
+      // the stored record. Storing it and then re-claiming at 30 s was the whole of
+      // Sol F2: `fail_zoom_job` floors the backoff at this value.
+      p_retry_after_seconds: record.retryAfterSeconds ?? null,
     });
     console.error(
       `[zoom-ticker] job ${job.id} (${job.job_type}) failed: kind=${record.kind} status=${status ?? 'reclaimed'}`

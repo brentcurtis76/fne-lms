@@ -240,4 +240,14 @@ export interface FailZoomJobArgs {
   p_error: string;
   /** false = terminal 'failed' (manual triage); default true = retry/backoff path. */
   p_retryable?: boolean;
+  /**
+   * The provider's own `Retry-After`, in seconds — `ZoomError.retryAfterSeconds`,
+   * threaded through by the runner.
+   *
+   * A FLOOR under the 30·2^n backoff, never a replacement: the RPC schedules
+   * `GREATEST(backoff, hint)`. Omitted/null reproduces the pre-hint schedule exactly.
+   * Without it a 600 s hint was re-claimed at 30/60/120/240 s — four attempts spent to
+   * be told 429 again (Sol F2).
+   */
+  p_retry_after_seconds?: number | null;
 }

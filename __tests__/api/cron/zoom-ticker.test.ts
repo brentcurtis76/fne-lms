@@ -123,9 +123,12 @@ function createFakeQueue(initial: ZoomJobRow[] = [], queueNow: () => number = ()
             ? 'dead'
             : 'pending';
       if (row.status === 'pending') {
-        // The RPC's schedule: LEAST(30s * 2^prior_attempts, 3600s).
+        // The RPC's schedule: GREATEST(LEAST(30s * 2^prior_attempts, 3600s), hint).
+        // The hint half is Sol F2 — modelled here so a runner that stopped passing
+        // `p_retry_after_seconds` would visibly re-claim a 600 s-hinted job at 30 s.
         const backoffSeconds = Math.min(30 * 2 ** Math.min(priorAttempts, 10), 3600);
-        row.run_after = new Date(queueNow() + backoffSeconds * 1000).toISOString();
+        const scheduled = Math.max(backoffSeconds, args.p_retry_after_seconds ?? 0);
+        row.run_after = new Date(queueNow() + scheduled * 1000).toISOString();
       }
       return row.status;
     },
@@ -490,6 +493,66 @@ describe('runZoomTick — failures are stored structurally', () => {
     expect(calls.fail).toHaveLength(1);
     expect(rows.get('job-a')?.status).toBe('pending');
     expect(rows.get('job-a')?.attempts).toBe(1);
+    expect(Date.parse(rows.get('job-a')?.run_after as string)).toBe(QUEUE_NOW_MS + 30_000);
+  });
+
+  // -------------------------------------------------------------------------
+  // Sol F2 — the provider's Retry-After has to reach SCHEDULING, not just storage
+  // -------------------------------------------------------------------------
+
+  it("passes the ZoomError's retryAfterSeconds to fail_zoom_job", async () => {
+    const { queue, rows, calls } = createFakeQueue([makeJob({ id: 'job-a', job_type: 'noop' })]);
+    const registry: ZoomJobRegistry = {
+      noop: async () => {
+        throw new ZoomRateLimitError('rate limited', { status: 429, retryAfterSeconds: 600 });
+      },
+    };
+
+    await runZoomTick({ queue, registry, workerId: 'w1' });
+
+    // Stored structurally for triage AND handed to the RPC as the scheduling floor.
+    expect(JSON.parse(rows.get('job-a')?.last_error as string)).toMatchObject({
+      kind: 'rate_limit',
+      retryAfterSeconds: 600,
+    });
+    expect(calls.fail[0]).toMatchObject({ p_retryable: true, p_retry_after_seconds: 600 });
+  });
+
+  it('a 600 s hint is NOT claimable at 30/60/120/240 s', async () => {
+    const { queue, rows } = createFakeQueue([makeJob({ id: 'job-a', job_type: 'noop' })]);
+    const registry: ZoomJobRegistry = {
+      noop: async () => {
+        throw new ZoomRateLimitError('rate limited', { status: 429, retryAfterSeconds: 600 });
+      },
+    };
+
+    await runZoomTick({ queue, registry, workerId: 'w1' });
+
+    const runAfter = Date.parse(rows.get('job-a')?.run_after as string);
+    expect(runAfter).toBe(QUEUE_NOW_MS + 600_000);
+    // The four instants the un-hinted 30·2^n schedule would have re-claimed at. Before
+    // F2 the job was runnable at every one of them — four attempts spent to be told 429.
+    for (const backoffSeconds of [30, 60, 120, 240]) {
+      const claimed = await queue.claim({
+        p_worker_id: 'w2',
+        p_max_n: 5,
+      });
+      expect(claimed).toHaveLength(0);
+      expect(runAfter).toBeGreaterThan(QUEUE_NOW_MS + backoffSeconds * 1000);
+    }
+  });
+
+  it('sends no hint when the error carries none, leaving the backoff untouched', async () => {
+    const { queue, rows, calls } = createFakeQueue([makeJob({ id: 'job-a', job_type: 'noop' })]);
+    const registry: ZoomJobRegistry = {
+      noop: async () => {
+        throw new ZoomRetryableError('upstream 503', { status: 503 });
+      },
+    };
+
+    await runZoomTick({ queue, registry, workerId: 'w1' });
+
+    expect(calls.fail[0]).toMatchObject({ p_retry_after_seconds: null });
     expect(Date.parse(rows.get('job-a')?.run_after as string)).toBe(QUEUE_NOW_MS + 30_000);
   });
 

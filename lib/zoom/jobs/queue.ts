@@ -103,6 +103,10 @@ export function createSupabaseJobQueue(client: JobQueueSchemaClient): ZoomJobQue
         p_worker_id: args.p_worker_id,
         p_error: args.p_error,
         p_retryable: args.p_retryable ?? true,
+        // Null, not omitted: PostgREST resolves the overload from the argument NAMES it
+        // is given, so always sending the key keeps it on the five-arg signature the
+        // grants are written against.
+        p_retry_after_seconds: args.p_retry_after_seconds ?? null,
       });
       if (error) throw new Error(`fail_zoom_job failed: ${error.message}`);
       return typeof data === 'string' ? (data as ZoomJobStatus) : null;

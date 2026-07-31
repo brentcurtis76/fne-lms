@@ -18,7 +18,7 @@
 
 BEGIN;
 
-SELECT plan(44);
+SELECT plan(50);
 
 -- =============================================================================
 -- A. Schema / grants / RLS isolation (20 asserts)
@@ -70,10 +70,10 @@ SELECT is(has_function_privilege('authenticated',
   'zoom_internal.complete_zoom_job(uuid, text, jsonb)', 'EXECUTE'), false,
   'authenticated cannot execute complete_zoom_job');
 SELECT is(has_function_privilege('anon',
-  'zoom_internal.fail_zoom_job(uuid, text, text, boolean)', 'EXECUTE'), false,
+  'zoom_internal.fail_zoom_job(uuid, text, text, boolean, integer)', 'EXECUTE'), false,
   'anon cannot execute fail_zoom_job');
 SELECT is(has_function_privilege('authenticated',
-  'zoom_internal.fail_zoom_job(uuid, text, text, boolean)', 'EXECUTE'), false,
+  'zoom_internal.fail_zoom_job(uuid, text, text, boolean, integer)', 'EXECUTE'), false,
   'authenticated cannot execute fail_zoom_job');
 
 SELECT is(has_function_privilege('service_role',
@@ -86,11 +86,11 @@ SELECT is(has_function_privilege('service_role',
   'zoom_internal.complete_zoom_job(uuid, text, jsonb)', 'EXECUTE'), true,
   'service_role can execute complete_zoom_job');
 SELECT is(has_function_privilege('service_role',
-  'zoom_internal.fail_zoom_job(uuid, text, text, boolean)', 'EXECUTE'), true,
+  'zoom_internal.fail_zoom_job(uuid, text, text, boolean, integer)', 'EXECUTE'), true,
   'service_role can execute fail_zoom_job');
 
 -- =============================================================================
--- B. Job-queue behavior (20 asserts). Fixtures use dedicated job_types so the
+-- B. Job-queue behavior (26 asserts). Fixtures use dedicated job_types so the
 -- claims here can never touch other sections' rows.
 -- =============================================================================
 
@@ -203,6 +203,57 @@ SELECT is(
     WHERE id = 'dddddddd-0000-0000-0000-000000000003'),
   '(dead,2)',
   'dead job records the exhausted attempt count');
+
+-- Sol F2: the backoff schedule, and the Retry-After hint as a FLOOR under it.
+-- Asserted AS service_role, so these also prove the grant on the new signature is
+-- what the runner actually calls through.
+INSERT INTO zoom_internal.zoom_jobs (id, job_type, max_attempts, run_after)
+VALUES ('dddddddd-0000-0000-0000-000000000005', 'zt_d', 5, now() - interval '1 min'),
+       ('dddddddd-0000-0000-0000-000000000006', 'zt_d', 5, now() - interval '1 min');
+
+SET LOCAL ROLE service_role;
+
+CREATE TEMP TABLE _claimd AS
+  SELECT * FROM zoom_internal.claim_zoom_jobs('wD', ARRAY['zt_d'], 2, 300);
+
+-- (a) No hint ⇒ the unchanged 30 s first backoff.
+SELECT is(zoom_internal.fail_zoom_job(
+  'dddddddd-0000-0000-0000-000000000005', 'wD', 'unhinted'), 'pending',
+  'unhinted retryable fail requeues as pending');
+SELECT ok(
+  (SELECT run_after BETWEEN now() + interval '25 sec' AND now() + interval '35 sec'
+     FROM zoom_internal.zoom_jobs
+    WHERE id = 'dddddddd-0000-0000-0000-000000000005'),
+  'unhinted first backoff schedules at ~30 s (GREATEST(backoff, 0) = backoff)');
+
+-- (b) A 600 s hint ⇒ run_after is at least 600 s out, not the 30 s backoff.
+SELECT is(zoom_internal.fail_zoom_job(
+  'dddddddd-0000-0000-0000-000000000006', 'wD', 'rate limited', true, 600), 'pending',
+  'hinted retryable fail requeues as pending');
+SELECT ok(
+  (SELECT run_after >= now() + interval '600 sec'
+     FROM zoom_internal.zoom_jobs
+    WHERE id = 'dddddddd-0000-0000-0000-000000000006'),
+  'a 600 s Retry-After hint floors run_after at 600 s, not the 30 s backoff');
+
+-- (c) A hint SMALLER than the backoff must not shorten it — GREATEST, not override.
+UPDATE zoom_internal.zoom_jobs
+   SET run_after = now() - interval '1 sec'
+ WHERE id = 'dddddddd-0000-0000-0000-000000000006';
+
+CREATE TEMP TABLE _claimd2 AS
+  SELECT * FROM zoom_internal.claim_zoom_jobs('wD', ARRAY['zt_d'], 1, 300);
+
+SELECT is(zoom_internal.fail_zoom_job(
+  'dddddddd-0000-0000-0000-000000000006', 'wD', 'tiny hint', true, 5), 'pending',
+  'second hinted fail still requeues as pending');
+SELECT ok(
+  (SELECT run_after >= now() + interval '55 sec'
+     FROM zoom_internal.zoom_jobs
+    WHERE id = 'dddddddd-0000-0000-0000-000000000006'),
+  'a 5 s hint cannot shorten the 60 s second backoff');
+
+RESET ROLE;
 
 -- Non-retryable fail is terminal 'failed'
 INSERT INTO zoom_internal.zoom_jobs (id, job_type, run_after)

@@ -38,14 +38,22 @@
 --     job handlers must be idempotent (plan §12).
 --
 -- fail_zoom_job(p_job_id uuid, p_worker_id text, p_error text,
---               p_retryable boolean) RETURNS text
+--               p_retryable boolean, p_retry_after_seconds integer) RETURNS text
 --   * Records the failure on the caller's own leased job and increments
 --     attempts. Resulting status (also the return value):
 --       - p_retryable = false            -> 'failed' (terminal, manual triage)
 --       - attempts (incl. this) >= max   -> 'dead'   (dead-letter)
 --       - otherwise                      -> 'pending' with exponential backoff
---         run_after = now() + LEAST(30s * 2^prior_attempts, 3600s)
---         (30s, 60s, 120s, ... capped at 1h).
+--         run_after = now() + GREATEST(
+--                       LEAST(30s * 2^prior_attempts, 3600s),
+--                       COALESCE(p_retry_after_seconds, 0))
+--         (30s, 60s, 120s, ... capped at 1h — but NEVER sooner than a
+--         provider-supplied Retry-After hint).
+--   * p_retry_after_seconds is the provider's own `Retry-After`, threaded from
+--     ZoomError.retryAfterSeconds by the runner. Omitted/NULL reproduces the
+--     pre-hint schedule byte for byte, because GREATEST(backoff, 0) = backoff.
+--     Honouring it is the whole point: re-claiming a 429'd job at 30 s when
+--     Zoom said 600 s just spends another attempt to be told 429 again.
 --   * Returns NULL when the job was not leased by this worker (reclaimed or
 --     unknown id) — nothing is modified in that case.
 -- =============================================================================
@@ -166,7 +174,8 @@ CREATE OR REPLACE FUNCTION zoom_internal.fail_zoom_job(
     p_job_id uuid,
     p_worker_id text,
     p_error text,
-    p_retryable boolean DEFAULT true
+    p_retryable boolean DEFAULT true,
+    p_retry_after_seconds integer DEFAULT NULL
 ) RETURNS text
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -186,10 +195,16 @@ BEGIN
                         WHEN j.attempts + 1 >= j.max_attempts THEN 'dead'
                         ELSE 'pending'
                     END,
+           -- GREATEST(backoff, hint): the provider's Retry-After is a FLOOR, never
+           -- a replacement. A 600 s hint must not be re-claimed at 30 s, and a
+           -- 5 s hint must not shorten a 240 s backoff. No hint ⇒ COALESCE gives
+           -- 0 and GREATEST(backoff, 0) = backoff, i.e. the pre-hint schedule
+           -- byte for byte.
            run_after = CASE
                         WHEN p_retryable AND j.attempts + 1 < j.max_attempts
-                        THEN now() + make_interval(secs =>
-                               LEAST(30 * power(2, LEAST(j.attempts, 10)), 3600))
+                        THEN now() + make_interval(secs => GREATEST(
+                               LEAST(30 * power(2, LEAST(j.attempts, 10)), 3600),
+                               COALESCE(p_retry_after_seconds, 0)))
                         ELSE j.run_after
                        END,
            updated_at = now()
@@ -205,6 +220,12 @@ $$;
 -- Grants: service-role only. Functions are born with EXECUTE granted to
 -- PUBLIC — revoke it explicitly per signature; the pgTAP suite proves the
 -- denial for anon/authenticated.
+--
+-- NOTE: these statements key on the SIGNATURE. `fail_zoom_job` gained
+-- `p_retry_after_seconds integer` above, so its arg list here is
+-- (uuid, text, text, boolean, integer) — the four-arg spelling would now
+-- reference a function that does not exist and abort the migration, which is
+-- the failure mode this comment exists to prevent on the next amendment.
 -- -----------------------------------------------------------------------------
 REVOKE EXECUTE ON FUNCTION zoom_internal.claim_zoom_jobs(text, text[], integer, integer)
   FROM PUBLIC, anon, authenticated;
@@ -212,7 +233,7 @@ REVOKE EXECUTE ON FUNCTION zoom_internal.heartbeat_zoom_job(uuid, text, integer,
   FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION zoom_internal.complete_zoom_job(uuid, text, jsonb)
   FROM PUBLIC, anon, authenticated;
-REVOKE EXECUTE ON FUNCTION zoom_internal.fail_zoom_job(uuid, text, text, boolean)
+REVOKE EXECUTE ON FUNCTION zoom_internal.fail_zoom_job(uuid, text, text, boolean, integer)
   FROM PUBLIC, anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION zoom_internal.claim_zoom_jobs(text, text[], integer, integer)
@@ -221,7 +242,7 @@ GRANT EXECUTE ON FUNCTION zoom_internal.heartbeat_zoom_job(uuid, text, integer, 
   TO service_role;
 GRANT EXECUTE ON FUNCTION zoom_internal.complete_zoom_job(uuid, text, jsonb)
   TO service_role;
-GRANT EXECUTE ON FUNCTION zoom_internal.fail_zoom_job(uuid, text, text, boolean)
+GRANT EXECUTE ON FUNCTION zoom_internal.fail_zoom_job(uuid, text, text, boolean, integer)
   TO service_role;
 
 -- Blanket re-run so no function in the schema keeps a stray PUBLIC grant.

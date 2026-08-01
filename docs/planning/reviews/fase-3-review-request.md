@@ -10,9 +10,9 @@
 | Branch | `feat/zoom-core` (PR [#26](https://github.com/brentcurtis76/fne-lms/pull/26), **draft — not marked ready**) |
 | Base | `origin/main` @ `18057e2` (absorbed mid-phase via merge `5d54f12`, which brought the contracts track `c878ec7`) |
 | Implementation head, Z1b-4·r1 | `ae210a5` (`4b71b3c` → `ccb8fce` → `ae210a5`) |
-| Head at THIS request | **Z1b-sol6** implementation `1490187` plus the review-record commit containing the sol6 section |
-| Commits ahead of `origin/main` | **61** through `1490187`; this review-record commit is the 62nd |
-| `origin/main` this round | **deliberately NOT merged** — Sol R7's scope is the Z1b-sol6 remediation only |
+| Head at THIS request | **Z1b-sol7** implementation `a311ff6` plus the review-record commit containing the sol7 section |
+| Commits ahead of `origin/main` | **65** through `a311ff6`; this review-record commit is the 66th |
+| `origin/main` this round | **deliberately NOT merged** — Sol R8's scope is the Z1b-sol7 remediation only |
 | Net diff vs `origin/main` (at `ae210a5`) | 53 files, +11734/−70 |
 | This chunk (Z1b-4) alone | merge `5d54f12` + 3 commits; 15 files, +2484/−92 |
 | Z1b-4·r1 remediation | `ccb8fce` (fix + tests + `PROJECT_STATE.md`) + `ae210a5` (type-clean); 2 PM findings, no scope beyond them |
@@ -480,9 +480,16 @@ tree at the implementation commit contained the seven intended files and nothing
    `MeetingProvisionAdoptionSupersededResult` says `adopted: false`, and a fresh-create miss
    adopted nothing — it created. The two states also differ operationally: an adoption miss means
    somebody persisted the same checkpoint (nothing lost), while a fresh-create miss is EITHER that
-   or a rival that created a different meeting, leaving ours orphaned at Zoom. This process cannot
+   or a rival that created a different meeting, leaving ours orphaned at Zoom. ~~This process cannot
    tell which, so the result claims neither; it carries the number and the `console.warn` says
-   plainly that it is an orphan only if the winner recorded a different one.
+   plainly that it is an orphan only if the winner recorded a different one.~~
+   > **Corrected in Z1b-sol7 (Sol R7 ①, triaged VALID).** "This process cannot tell which" was
+   > wrong, and it was my claim, not a limit of the situation: the winner's persisted
+   > `zoom_meeting_number` is one SELECT away through `findMeetingBySurface`, which already selects
+   > it. The handler now reads it and RESOLVES the split — equal ⇒ a completion that claims
+   > `orphan_risk: false`, different or unreadable ⇒ a terminal `possible_orphan` failure. A warn
+   > whose own text named the orphan condition was evidence the code knew the question; it just
+   > never asked it.
 3. **The sync signature takes a second parameter.** `zoom_meetings` has no `growth_community_id`,
    and the projection needs it for the §7 growth-community SELECT policy, so the function is
    `(p_meeting_id uuid, p_growth_community_id uuid)` rather than the one-argument sketch.
@@ -496,9 +503,14 @@ tree at the implementation commit contained the seven intended files and nothing
    ① it had zero production callers, and the reasoning Sol gave for removing the one applies
    verbatim to the other: an unguarded write left lying around is the vector. Both survive in the
    test harness as explicitly-labelled legacy seams so fail-on-old can revert one source file.
-6. **`missing` and `not_publishable` warn and COMPLETE; they do not throw.** Throwing on `missing`
+6. ~~**`missing` and `not_publishable` warn and COMPLETE; they do not throw.** Throwing on `missing`
    would be actively dangerous: the retry would find no row, take the fresh path, and create a
-   SECOND meeting for a surface Zoom already holds one for.
+   SECOND meeting for a surface Zoom already holds one for.~~
+   > **Corrected in Z1b-sol7 (Sol R7 ②, triaged VALID).** The danger analysis was right and the
+   > remedy was wrong. A NON-retryable failure has no retry, so it cannot reach the fresh path at
+   > all; completing green was the one option that HID a vanished row behind a successful job.
+   > Both outcomes now fail terminally under `sync_missing_row` / `sync_not_publishable`, and the
+   > requeue lever a human can still pull is closed by a job-level anomaly gate.
 7. **No heartbeat guards the replay sync,** and that is deliberate. Unlike recovery, nothing here
    is a verdict formed before a network round trip — the value written is read inside the same
    transaction it is written in, so even a worker whose lease was stolen an hour ago can only
@@ -525,17 +537,174 @@ tree at the implementation commit contained the seven intended files and nothing
 4. **The supersession is a completion, three times over now.** Recovery, adoption and fresh create
    all complete rather than fail on a CAS miss. Confirm the fresh-create case is not the one that
    should reach the §18 triage panel, given it is the only one that can leave an orphan at Zoom.
+   > **Answered by Sol R7 ①: it IS that case, when the winner's number is not ours.** The
+   > invitation was the right one to issue and the answer went against me. Fixed in Z1b-sol7 —
+   > the miss is split by a winner-read, and only the same-meeting half still completes.
 5. **Privilege boundary on the third signature.** `sync_projection_from_meeting` writes a PUBLIC
    table from a `SECURITY DEFINER` body; only `service_role` may EXECUTE it, and the blanket
    re-revoke at the end of the migration must not have missed it.
 
 **Known limitations / Sol R7 notes:** the create→checkpoint window documented in the module header
-is unchanged and remains irreducible without a Zoom-side idempotency key. A fresh-create CAS miss
+is unchanged and remains irreducible without a Zoom-side idempotency key. ~~A fresh-create CAS miss
 cannot distinguish "another worker adopted my checkpoint" from "another worker created a different
-meeting"; naming the number on the result is the whole mitigation. `sync_projection_from_meeting`
+meeting"; naming the number on the result is the whole mitigation.~~ **Corrected in Z1b-sol7: it
+can, and now does — see the sol7 section below.** `sync_projection_from_meeting`
 is called only from the replay branch — Z2's reschedule/cancel flows are its obvious second caller
 and are not wired here. `supabase/.branches/`, if recreated by local Supabase gates, is CLI state
 only and must remain untracked/uncommitted.
+
+## Sol R7 remediation — round Z1b-sol7
+
+Sol R7 reviewed Z1b-sol6 and returned **REQUEST CHANGES** with two findings plus a docs item; the
+PM triaged **both VALID, and both overturn the PM's own sol6 rulings**
+(`docs/planning/reviews/fase-3-review-verdict.md`, Round 7 + PM triage). They are the same defect
+seen twice: **R6 made every write guarded, and left two places where the guard FIRING was reported
+as success.** The round base is `abecb91`; implementation commit `a311ff6` plus this documentation
+commit are the round's **2 commits**. No migration was needed (the winner-read uses the existing
+store; the classification is TS-side), `origin/main` was not merged, the PM dossier was not
+edited, and no live Zoom or deployment action was performed.
+
+### Objective and scope — Z1b-sol7
+
+**Objective.** Make an anomaly report as an anomaly. The fresh-create CAS miss resolves its own
+ambiguity instead of declining to, and the replay sync's two anomalous outcomes fail the job
+instead of completing it — without reopening the double-create path that made completing look
+attractive in sol6.
+
+**In scope:** the winner-read after a failed fresh-create CAS and the two results it splits into;
+typed non-retryable `possible_orphan` / `sync_missing_row` / `sync_not_publishable` failures with
+structured evidence; a job-level anomaly gate closing the requeue path; `evidence` on the runner's
+failure record; the module header's contract; handler regressions; this record and the sol6 claims
+it corrects.
+
+**Out of scope:** the PM-owned dossier (its §7g praise lines — "the epistemics are right", the
+complete-don't-throw commendation — are the PM's corrections at approval), migrations (none
+needed), other job types, Zoom API behaviour, UI, dependencies, CI, `origin/main`, live account
+calls, and deployment.
+
+### Fixes, commits, and files by risk — Z1b-sol7
+
+| SHA | Finding | What changed |
+|---|---|---|
+| `a311ff6` | **① the CAS miss resolves its ambiguity** | After `adoptCheckpointMeeting` returns false on the fresh path, the row is RE-READ through `findMeetingBySurface` (which already selects `zoom_meeting_number`) and the winner's number compared to `created.id`. **Equal** ⇒ the winner adopted our own checkpoint: `MeetingProvisionCreateSupersededResult` completes, now carrying `winner_zoom_meeting_number` and `orphan_risk: false` — a checked claim, and a shape the sol6 claims-neither form cannot be mistaken for. **Different, or unreadable by any route** (row gone, number back to NULL, the read itself throwing) ⇒ terminal `ZoomPossibleOrphanError`, reason `possible_orphan`, `detail` = which of those four causes, `evidence` = `{meeting_id, created_zoom_meeting_number, winner_zoom_meeting_number, cause}`. |
+| `a311ff6` | **② replay anomalies are terminal** | `missing` / `not_publishable` keep the `console.warn` as a live-tail line and then throw `ZoomReplaySyncAnomalyError` — reasons `sync_missing_row` / `sync_not_publishable`, `detail` = the meeting number, `evidence` = `{meeting_id, zoom_meeting_number, sync_outcome}`. Non-retryable, so the job row goes `failed` through the runner's existing fail path. |
+| `a311ff6` | **② the requeue is closed** | A job-level anomaly gate at the top of the handler, mirroring the sol4 row-marker gate including its position: **after** the two anchors, so a repaired surface replays instead of being refused forever, and **before** every write, reservation and Zoom call. It parses `ctx.job.last_error` (`ZoomJobRow.last_error`, verified present at `db-types.ts:165`) and refuses non-retryably under `anomaly_unresolved` when the marker names an unresolved anomaly and nothing anchors the surface. |
+| `a311ff6` | **evidence seam** | `ZoomJobFailureRecord.evidence?: Record<string, unknown>`, read off the error exactly as `reason` and `detail` already are, and dropped unless it is a plain object. `zoom_jobs.last_error` is the durable record Sol asked for; `zoom_internal` is service-role-only, so meeting numbers there are no new exposure. |
+| (this commit) | **③ docs** | This section, plus the four sol6 claims below that are mine. |
+
+Implementation diff `abecb91..a311ff6`: **3 files, +971/−57**.
+
+- **Highest:** `lib/zoom/jobs/meeting-provision.ts` (+427/−35) — the winner-read and its two
+  outcomes, three new error classes, the marker parser, the job-level gate, and ~90 lines of
+  header contract.
+- **Medium:** `lib/zoom/jobs/runner.ts` (+34) — the `evidence` field and its reader. Additive; no
+  existing behaviour changes.
+- **Medium:** `__tests__/lib/zoom/jobs/meeting-provision.test.ts` (+510/−22) — **+11 test cases** (67 → 78) and
+  2 rewritten in place: the sol6 fresh-create CAS-miss test is now the safe-supersession case, and
+  the sol6 `not_publishable` replay test now asserts a failure instead of a completion.
+
+### Fail-on-old evidence — Z1b-sol7
+
+Captured by reverting ONLY the file under test to `abecb91` and re-running the handler suite at the
+new head, then restoring. Both controls were run; the file was restored and re-verified green
+(`78 passed`) after each.
+
+| Control | Pre-fix observation |
+|---|---|
+| `meeting-provision.ts` @ `abecb91` | **13 failed / 65 passed of 78.** All 13 are genuine, and there is no rewire artifact this round. ① — the safe supersession (`expected { meeting_id: 'meeting-1', …(3) } to deeply equal { …(5) }`: the old shape has neither `winner_zoom_meeting_number` nor `orphan_risk`), the different-number case and the read-throws case (`expected 'unknown' to be 'non_retryable'` — old source RETURNS, so the assertion sees no typed failure at all), both unreadable-winner cases (`expected undefined to be 'possible_orphan'`), and the requeue round trip (`expected 'done' to be 'failed'`). ② — `not_publishable` and `missing` (`expected 'unknown' to be 'non_retryable'`), the queue-row-red case, the three-requeue gate case, the repaired-row case and the cleared-marker case (all `expected 'done' to be 'failed'` — sol6's green job, exactly), and the gate's total-parser case (`promise resolved … instead of rejecting`). |
+| `runner.ts` @ `abecb91` (new source elsewhere) | **9 failed / 69 passed of 78** — every assertion that reads `evidence`, as `expected undefined to deeply equal { … }` or `to match object`. This isolates the seam: without the runner field the failures are still typed and still terminal, but the numbers a human needs never reach `zoom_jobs.last_error`. |
+
+### Gates at the Z1b-sol7 head
+
+| Gate | Result at implementation head `a311ff6` |
+|---|---|
+| `npm run type-check` | clean (exit 0) |
+| `npm run lint` | clean, zero warnings (exit 0) |
+| `npm test` | **3760/3760 in 240 files** (from 3749/240; +11 in the handler suite, 67 → 78) |
+| `npm run build` | OK — full route table generated |
+| `supabase db reset` + `npm run test:db` | **PASS — 6 files, 139 tests** — unchanged from sol6, as expected: no migration was touched, and the fix is entirely TS-side |
+| `npm run test:queue` | **PASS — 40/40 exactly once**, concurrent split **20/20** |
+
+Every gate was then **re-run in full at the round's final head** (this documentation commit, which
+touches no code): type-check clean, lint clean, `npm test` 3760/3760 in 240 files, build OK,
+`supabase db reset` + `test:db` PASS 139, `test:queue` PASS 40/40 exactly once. The only figure
+that differs is the queue proof's split, which is nondeterministic by construction — 20/20 at
+`a311ff6`, 21/19 at the final head.
+
+`supabase/.branches/` did **not** reappear during either round of local database gates; the working
+tree at both commits contained the intended files and nothing else.
+
+### Deviations and judgment calls — Z1b-sol7
+
+1. **The refusal carries the original evidence forward, and this is load-bearing.** Found by my own
+   test, not by reasoning: the first draft of the gate matched only the anomaly record shape, and
+   the three-requeue loop failed on the SECOND requeue with a real second create. `fail_zoom_job`
+   REPLACES `last_error` — the same field the gate reads — so the refusal record buried the
+   anomaly it was refusing. Unlike the sol4 precedent, where the marker is on the ROW and the
+   failure on the JOB, here there is one column. `parseTerminalAnomalyMarker` therefore matches the
+   refusal shape too (`reason: 'anomaly_unresolved'`, original in `detail`) and every refusal
+   re-states the evidence verbatim. Without both halves the gate would have held exactly once and
+   erased the orphaned meeting number doing it.
+2. **The gate sits AFTER the anchors, on the sol4 precedent, and that is what makes ① requeue-safe
+   rather than requeue-jammed.** A `possible_orphan` requeue against a row that now carries the
+   winner's number is `hasNumber` ⇒ anchor 1 ⇒ the REPLAY path; `createMeeting` is unreachable and
+   no marker-clearing is needed. Refusing it up front would have been simpler and would have
+   parked a surface that is already correct.
+3. **`evidence` is a new field on the runner's record, not a formatted `detail` string.** `detail`
+   is one string and ① needs two numbers. Encoding them into it would have made triage parse a
+   sentence — the exact anti-pattern the runner header forbids for `message`. The field is
+   additive, ignores anything that is not a plain object, and no existing failure sets it.
+4. **Four unreadable causes, one failure.** `different_number`, `row_missing`, `number_null` and
+   `read_failed` all fail; only exact equality completes. Not knowing is not the same as being
+   safe, and sol6's result treated them alike. `detail` keeps them distinguishable for triage.
+5. **The re-read is wrapped in try/catch.** A throwing store call would otherwise escape as an
+   untyped error, which `fail_zoom_job` treats as RETRYABLE by default — and a retry after a
+   fresh-create CAS miss is precisely what must not happen.
+6. **The `console.warn`s stay.** Sol allowed it; they are the live-tail signal, and the durable
+   record is now the failure beside them, not instead of them.
+7. **`not_publishable` is self-limiting even unresolved,** because the row has a number: a requeue
+   replays, fails identically and creates nothing. It is in the gate's reason set anyway, for the
+   case where that row is LATER deleted — at which point it becomes `missing`'s problem.
+8. **Clearing a `sync_missing_row` job's `last_error` while the Zoom meeting still exists
+   re-enables fresh creation.** One-way, exactly like clearing an ambiguous-create marker, and
+   documented per-reason in the header: the correct resolution for that anomaly is to RESTORE the
+   row carrying its number, not to clear the marker. Tested in both directions rather than glossed.
+
+### What an independent reviewer should scrutinize hardest — Z1b-sol7
+
+1. **Is the winner-read the RIGHT read?** It goes through `findMeetingBySurface` (surface_type +
+   surface_id), not by `meetingId`. On this path they are the same row — the reservation for this
+   surface — but if a future path could ever reach the fresh-create branch with a `meetingId` that
+   is not the surface's current row, the comparison would be against the wrong row and a real
+   orphan could read as safe.
+2. **The gate's reason set versus the reasons the handler can actually emit.** `possible_orphan`,
+   `sync_missing_row`, `sync_not_publishable` are gated; `ambiguous_create_outcome`,
+   `recovery_unusable`, `no_host_available`, `session_ineligible` deliberately are not (the first
+   is gated by its ROW marker, the rest cannot create on requeue). Check that split — a reason in
+   the wrong bucket either jams a recoverable queue or reopens a create path.
+3. **Deciding `possible_orphan` from a read taken AFTER the CAS.** The re-read is not in the CAS's
+   transaction, so the winner's number can change again between them. My argument that this is
+   safe: any value other than exact equality fails, and a value that later becomes ours cannot make
+   an orphan appear — only a false `possible_orphan`, which costs a triage item, never a lost
+   meeting. Check the asymmetry rather than the sequence.
+4. **The one-column marker problem (deviation 1).** The carry-forward is asserted by a
+   three-iteration loop; convince yourself that three is enough and that the parser cannot be
+   walked out of matching by a fourth record shape — a refusal of a refusal, say.
+5. **`missing` now fails a job that may be entirely benign.** If an operator deletes a
+   `zoom_meetings` row on purpose while a redelivered job is in flight, sol6 completed and sol7
+   fails. I judge that correct — a surface with a meeting at Zoom and no row is an anomaly however
+   it arose — but it does convert a silent case into a triage item, and that is my call to defend.
+
+**Known limitations / Sol R8 notes:** the create→checkpoint window in the module header is
+unchanged and still irreducible without a Zoom-side idempotency key; `possible_orphan` is a THIRD
+orphan class beside the two documented there, and like them its remedy is manual cancellation at
+Zoom — no automated orphan sweep exists. The gate is a TypeScript guard over a text column, not a
+database constraint: an operator who edits `zoom_jobs.last_error` by hand can walk past it, which
+is the same property the row-marker gate has and the same reason both are documented as contracts.
+`docs/runbooks/zoom.md` (plan §16, later phase) still does not exist, so all three resolution paths
+remain a human reading `zoom_jobs.last_error` — `.reason`, `.detail`, `.evidence` — directly.
+`supabase/.branches/`, if recreated by local Supabase gates, is CLI state only and must remain
+untracked/uncommitted.
 
 ## Objective and scope (from plan §15, Z1b)
 

@@ -10,9 +10,9 @@
 | Branch | `feat/zoom-core` (PR [#26](https://github.com/brentcurtis76/fne-lms/pull/26), **draft — not marked ready**) |
 | Base | `origin/main` @ `18057e2` (absorbed mid-phase via merge `5d54f12`, which brought the contracts track `c878ec7`) |
 | Implementation head, Z1b-4·r1 | `ae210a5` (`4b71b3c` → `ccb8fce` → `ae210a5`) |
-| Head at THIS request | the three **Z1b-sol3** fix commits below, on top of the Sol R3 archive `c39c6af` |
-| Commits ahead of `origin/main` | 28 through `ae210a5`; + the review/archive doc commits; + the six Z1b-sol1 fix commits; + the four Z1b-sol2 fix commits; + the three Z1b-sol3 fix commits |
-| `origin/main` this round | **deliberately NOT merged** — Sol R4's scope is the Z1b-sol3 fix commits only |
+| Head at THIS request | **Z1b-sol5** implementation `cfe22fb` plus the review-record commit containing this section |
+| Commits ahead of `origin/main` | **57** through `cfe22fb`; this review-record commit is the 58th |
+| `origin/main` this round | **deliberately NOT merged** — Sol R6's scope is the Z1b-sol5 remediation only |
 | Net diff vs `origin/main` (at `ae210a5`) | 53 files, +11734/−70 |
 | This chunk (Z1b-4) alone | merge `5d54f12` + 3 commits; 15 files, +2484/−92 |
 | Z1b-4·r1 remediation | `ccb8fce` (fix + tests + `PROJECT_STATE.md`) + `ae210a5` (type-clean); 2 PM findings, no scope beyond them |
@@ -202,6 +202,191 @@ meeting back to wire names and delegates to `findUnusableCreateFields`, so there
 rule set. The claim to check is that the map is lossless for these four fields — absent `password`
 arrives as `''`, absent `settings` as `{}` — and that GET semantics are untouched for every other
 reader of `getMeeting`.
+
+## Sol R4 remediation — round Z1b-sol4 (backfilled during Z1b-sol5)
+
+This record was omitted from the executor-owned review request during Z1b-sol4. The PM archive and
+dossier already preserve that round; this is the required executor-side backfill. Sol R4 reviewed
+the Z1b-sol3 head and the PM accepted one valid finding: recovery could write after losing its job
+lease. The round base was archive `9eac80c`; its two remediation commits were `23f730a` and
+`beab6e8` (**2 commits**, implementation head `beab6e8`). `origin/main` was not merged.
+
+### Objective and scope — Z1b-sol4
+
+**Objective.** Make operator recovery lease-safe and prevent an outdated recovery worker from
+completing a row whose recovery state changed while Zoom was queried.
+
+**In scope:** an argumentless heartbeat after validation and before the recovery write; a dedicated
+recovery CAS constrained by meeting id, `pending`, and the recorded meeting number; a structured
+superseded result on CAS miss; handler and production-store wire regressions.
+
+**Out of scope:** fresh-create/adoption behavior, lifecycle transitions, schema/migrations, UI,
+live Zoom calls, CI, deployment, and changes to the PM dossier.
+
+### Commits and files by risk — Z1b-sol4
+
+| SHA | What |
+|---|---|
+| `23f730a` | recovery lease heartbeat, guarded store write, structured superseded completion, handler/harness tests |
+| `beab6e8` | production-store wire coverage for the new recovery CAS |
+
+Round diff `9eac80c..beab6e8`: **4 files, +503/−10**.
+
+- **Highest:** `lib/zoom/jobs/meeting-provision.ts` (+157/−5) — lease/CAS ordering and the
+  recovery completion state machine.
+- **High:** `__tests__/lib/zoom/jobs/meeting-provision.test.ts` (+164/−5) — lease loss,
+  supersession, and lifecycle regressions.
+- **Medium:** `__tests__/lib/zoom/jobs/meeting-provision-store.test.ts` (+157, new) — exact
+  PostgREST filter/returning behavior on the production store.
+- **Lower:** `__tests__/lib/zoom/jobs/provisionHarness.ts` (+25) — recovery CAS model.
+
+### Test and fail-on-old evidence — Z1b-sol4
+
+The full unit suite moved from **3723/3723 in 239 files** to **3730/3730 in 240 files**: handler
+52→55 (+3) plus the new four-test store suite (+4). Against pre-fix handler source `a67bc18`,
+**4/55 handler tests failed** (lost lease, both lifecycle-reachability variants, and the recovery
+success heartbeat assertion). Against the old production store, **3/4 store tests failed** because
+the recovery method did not exist; the unchanged fresh-create `markProvisioned` case passed by
+design. Thus **7/59** tests failed across the two focused suites on old source.
+
+| Gate | Result |
+|---|---|
+| `npm run type-check` | clean |
+| `npm run lint` | clean, zero warnings |
+| `npm test` | **3730/3730 in 240 files** |
+| `npm run build` | OK |
+| `npm run test:db` | **6 files, 91 tests, PASS** |
+| `npm run test:queue` | **40/40 exactly once**, concurrent split **21/19** |
+
+### Deviations and judgment calls — Z1b-sol4
+
+1. The fix added a dedicated `markRecoveredProvisioned` method rather than widening ordinary
+   `markProvisioned`; this isolated recovery's stricter guard.
+2. The expected meeting number came from the validated recovery patch rather than a separate
+   method argument; the store still placed the number in the UPDATE predicate.
+3. Exactly-one semantics were enforced from the returned-row count (`length === 1`).
+4. A CAS miss completed the job with a structured `superseded` result rather than failing it.
+5. The recovery success test gained a heartbeat assertion, so it intentionally joined the
+   fail-on-old count even though its original business outcome had already been green.
+6. A separate production-store suite was added because handler doubles could not prove the CAS
+   predicates were actually emitted on the wire. The PM accepted all six choices.
+
+### What an independent reviewer should scrutinize hardest — Z1b-sol4
+
+1. **Heartbeat placement:** it must be argumentless and after the Zoom read-back validation, so it
+   checks ownership without overwriting a job checkpoint.
+2. **CAS filters on the wire:** id, `pending`, and the recorded number must all be present, and a
+   zero-row response must not be mistaken for success.
+3. **Real lifecycle reachability:** the started/ended webhook helper must still be reachable during
+   recovery tests rather than replaced by a projection-only fake.
+4. **Recovery field completeness:** passcode, join URL, effective settings, status and `last_error`
+   must remain one internal write.
+
+**Known limitation deferred from Z1b-sol4:** recovery still wrote the public projection in a second
+statement after its internal CAS. A webhook could move the projection to `live`/`ended` in that
+gap and the late recovery upsert could regress it to `scheduled`. Z1b-sol5 closes that gap.
+
+## Sol R5 remediation — round Z1b-sol5
+
+Sol R5 reviewed Z1b-sol4 and returned two valid concurrency findings plus the missing executor
+record above. The round base is `d401960`; implementation commit `cfe22fb` plus this documentation
+commit are the round's **2 commits**. `origin/main` was not merged, the PM dossier was not edited,
+and no live Zoom or deployment action was performed.
+
+### Objective and scope — Z1b-sol5
+
+**Objective.** Remove the recovery/adoption projection race by making each guarded internal write
+and its public projection one transaction, and apply the same lease/state discipline to checkpoint
+adoption that recovery already had.
+
+**In scope:** one additive migration defining two service-role-only `SECURITY DEFINER` RPCs with
+`SET search_path = ''`; atomic recovery and checkpoint-adoption CAS writes; projection updates in
+the same transaction without moving `live`, `ended`, or `cancelled` backward; argumentless adoption
+heartbeat; structured superseded adoption; production-store, real-lifecycle, and pgTAP regressions.
+
+**Out of scope:** fresh-create/replay behavior, other job types, Zoom API behavior, UI, dependencies,
+CI, destructive schema changes, live account calls, deployment, and the PM-owned dossier.
+
+### Fixes, commits, and files by risk — Z1b-sol5
+
+| SHA | Finding | What changed |
+|---|---|---|
+| `cfe22fb` | **F1 atomic recovery** | `recover_provisioned_meeting` performs the pending+recorded-number CAS, complete provisioned write, `last_error = NULL`, and guarded projection in one transaction. A miss returns false before any projection write. |
+| `cfe22fb` | **F2 atomic adoption + lease** | adoption first calls argumentless `heartbeat`; lease loss writes nothing. `adopt_checkpoint_meeting` accepts only pending+NULL-number state, performs the full internal/projection transaction, and a miss returns structured superseded completion. |
+| (this commit) | **F3 records** | backfills Z1b-sol4 and records Z1b-sol5 in the executor review request; PM dossier deliberately untouched. |
+
+Implementation diff `d401960..cfe22fb`: **6 files, +842/−171**.
+
+- **Highest:** `supabase/migrations/20260731120000_zoom_provision_rpcs.sql` (+154, new) — both
+  privileged transactional CAS operations and projection anti-regression guards.
+- **High:** `lib/zoom/jobs/meeting-provision.ts` (+123/−99) —
+  adoption heartbeat, RPC calls, superseded control flow, and removal of the second projection write.
+- **High:** `supabase/tests/002-zoom-internal-isolation.sql` — EXECUTE isolation and real-database
+  success/miss/backward-projection behavior for both RPCs.
+- **Medium:** `__tests__/lib/zoom/jobs/meeting-provision.test.ts` and
+  `meeting-provision-store.test.ts` — lease/CAS/lifecycle and RPC wire regressions.
+- **Lower:** `__tests__/lib/zoom/jobs/provisionHarness.ts` — atomic transaction model and a
+  test-only legacy seam used solely for fail-on-old proof.
+
+### Test and fail-on-old evidence — Z1b-sol5
+
+The full unit suite moved from **3730/3730** to **3735/3735 in 240 files**. The provision handler
+suite is now **59 tests** (+4) and the store suite **5 tests** (+1). The pgTAP suite moved from
+**91** to **115** assertions (+24).
+
+- With only `meeting-provision.ts` restored to `d401960`, the four focused handler regressions
+  failed: **4 failed / 55 skipped of 59** — stale adopter lease loss, adoption CAS supersession,
+  real lifecycle after adoption, and real lifecycle after recovery.
+- With the old production store, **4/5** store tests failed because the two RPC-backed methods did
+  not exist; the unchanged fresh-create `markProvisioned` wire test passed by design.
+- With the new migration removed from a temporary reset, pgTAP 002 aborted at the first missing
+  RPC signature: it reported **54/74 failed subtests after 20 ran**. This proves the old schema
+  cannot satisfy the 24 new assertions; it does not pretend all 24 executed individually. The
+  migration was restored and a clean reset then passed all 115 assertions.
+
+| Gate | Result at implementation head `cfe22fb` |
+|---|---|
+| `npm run type-check` | clean (exit 0) |
+| `npm run lint` | clean, zero warnings (exit 0) |
+| `npm test` | **3735/3735 in 240 files** |
+| `npm run build` | OK — 156 static pages generated |
+| `supabase db reset` + `npm run test:db` | **PASS — 6 files, 115 tests** |
+| `npm run test:queue` | **PASS — 40/40 exactly once**, concurrent split **19/21** |
+
+### Deviations and judgment calls — Z1b-sol5
+
+1. **Pre-authorized test-wire rewire:** the recovery store tests moved from PostgREST UPDATE-chain
+   assertions to the new RPC names and exact argument objects; retaining the old chain assertions
+   would test code that no longer exists. The unchanged fresh-create wire assertion remains.
+2. Both RPCs take the complete provisioned payload even though some fields duplicate the Zoom
+   meeting number guard. That keeps the SQL signatures explicit and makes every persisted field
+   reviewable at the call boundary.
+3. Projection conflict updates are permitted only while the existing public state is `scheduled`;
+   `live`, `ended`, and `cancelled` are all preserved. `cancelled` is stricter than the finding's
+   minimum and avoids resurrecting an explicitly cancelled surface row.
+4. Adoption CAS miss is a successful structured supersession, matching recovery, because another
+   actor has already made this worker's checkpoint stale; retrying the stale write is not useful.
+5. The migration uses schema-qualified object and function references throughout because the
+   security-definer search path is deliberately empty.
+
+### What an independent reviewer should scrutinize hardest — Z1b-sol5
+
+1. **False-return atomicity:** neither RPC may touch the projection unless its guarded internal
+   UPDATE affected exactly one row.
+2. **Projection monotonicity:** an immediately interleaved real `meeting.started`/`meeting.ended`
+   transition must win over late recovery/adoption publication.
+3. **Privilege boundary:** only `service_role` should have EXECUTE; `anon`, `authenticated`, and
+   PUBLIC must remain denied on both exact signatures.
+4. **Adoption lease ordering:** the argumentless heartbeat must precede every adoption write and a
+   false result must produce zero writes.
+5. **RPC payload fidelity:** passcode, join URL, effective settings, status, and `last_error` must
+   land together and the projection must derive its surface keys from the row actually updated.
+
+**Known limitations / Sol R6 notes:** fresh-create and already-provisioned replay still use their
+existing `markProvisioned`/projection paths; they were outside both R5 findings and should not be
+mistaken for coverage by the new RPCs. The new RPCs intentionally do not contact Zoom or resolve
+ambiguous meetings themselves. `supabase/.branches/`, if recreated by local Supabase gates, is CLI
+state only and must remain untracked/uncommitted; its final presence is reported separately.
 
 ## Objective and scope (from plan §15, Z1b)
 

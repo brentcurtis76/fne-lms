@@ -14,6 +14,7 @@
 import { vi } from 'vitest';
 import type {
   MeetingProvisionStore,
+  AtomicProvisionPatch,
   ProjectionUpsert,
   ProvisionHostRow,
   ProvisionMeetingRow,
@@ -85,6 +86,23 @@ export interface ProvisionHarnessSeed {
   facilitators?: SessionFacilitatorRow[];
   hosts: ProvisionHostRow[];
   meetings?: StoredMeeting[];
+  /** Runs after the in-memory atomic transaction commits, before the RPC returns. */
+  afterAtomicProvision?: (
+    kind: 'recovery' | 'adoption',
+    row: StoredMeeting
+  ) => void | Promise<void>;
+  /** Negative-control seam used only when reverting the handler to pre-sol5 source. */
+  afterLegacyProvisionWrite?: (
+    kind: 'recovery' | 'adoption',
+    row: StoredMeeting
+  ) => void | Promise<void>;
+}
+
+interface LegacyProvisionStore {
+  markRecoveredProvisioned(
+    meetingId: string,
+    patch: ProvisionedMeetingPatch
+  ): Promise<boolean>;
 }
 
 export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
@@ -123,7 +141,24 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
     };
   }
 
-  const store: MeetingProvisionStore = {
+  function publishScheduled(row: StoredMeeting, growthCommunityId: string | null): void {
+    const key = `${row.surface_type}:${row.surface_id}`;
+    const existing = projection.get(key);
+    // Same backward guard as the SQL ON CONFLICT WHERE: live/ended/cancelled is final
+    // relative to provisioning and can never be replaced by scheduled.
+    if (existing && existing.meeting_status !== 'scheduled') return;
+    projection.set(key, {
+      surface_type: row.surface_type,
+      surface_id: row.surface_id,
+      school_id: row.school_id,
+      growth_community_id: growthCommunityId,
+      meeting_status: 'scheduled',
+      starts_at: row.starts_at,
+      ends_at: new Date(Date.parse(row.starts_at) + row.duration_minutes * MINUTE_MS).toISOString(),
+    });
+  }
+
+  const store: MeetingProvisionStore & LegacyProvisionStore = {
     readSession: vi.fn(async (surfaceId: string) =>
       surfaceId === seed.session.id ? { ...seed.session } : null
     ),
@@ -208,14 +243,15 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
       row.effective_settings = patch.effective_settings;
       row.status = patch.status;
       row.last_error = null;
+      if (seed.afterLegacyProvisionWrite) {
+        await seed.afterLegacyProvisionWrite('adoption', row);
+      }
     }),
 
     /**
-     * The recovery compare-and-set (Sol R4), modelled the way `conflicts()` above models
-     * the EXCLUDE constraint: the guard is evaluated HERE, on the stored row, so a double
-     * that wrote unconditionally could not make the handler's state test pass. The guard
-     * is exactly the production WHERE — id, `status = 'pending'`, and the recorded number
-     * — and a miss writes NOTHING.
+     * Test-only pre-sol5 compatibility. Current production has no such method; keeping
+     * the old seam in the double lets fail-on-old revert only the touched source file and
+     * drive lifecycle into the historical CAS→projection gap.
      */
     markRecoveredProvisioned: vi.fn(async (meetingId: string, patch: ProvisionedMeetingPatch) => {
       const matched = meetings.filter(
@@ -232,8 +268,55 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
       row.effective_settings = patch.effective_settings;
       row.status = patch.status;
       row.last_error = null;
+      if (seed.afterLegacyProvisionWrite) {
+        await seed.afterLegacyProvisionWrite('recovery', row);
+      }
       return true;
     }),
+
+    recoverProvisionedMeeting: vi.fn(
+      async (meetingId: string, patch: AtomicProvisionPatch): Promise<boolean> => {
+        const matched = meetings.filter(
+          (candidate) =>
+            candidate.id === meetingId &&
+            candidate.status === 'pending' &&
+            candidate.zoom_meeting_number === patch.zoom_meeting_number
+        );
+        if (matched.length !== 1) return false;
+        const row = matched[0];
+        row.zoom_meeting_number = patch.zoom_meeting_number;
+        row.passcode = patch.passcode;
+        row.join_url = patch.join_url;
+        row.effective_settings = patch.effective_settings;
+        row.status = 'provisioned';
+        row.last_error = null;
+        publishScheduled(row, patch.growth_community_id);
+        if (seed.afterAtomicProvision) await seed.afterAtomicProvision('recovery', row);
+        return true;
+      }
+    ),
+
+    adoptCheckpointMeeting: vi.fn(
+      async (meetingId: string, patch: AtomicProvisionPatch): Promise<boolean> => {
+        const matched = meetings.filter(
+          (candidate) =>
+            candidate.id === meetingId &&
+            candidate.status === 'pending' &&
+            candidate.zoom_meeting_number === null
+        );
+        if (matched.length !== 1) return false;
+        const row = matched[0];
+        row.zoom_meeting_number = patch.zoom_meeting_number;
+        row.passcode = patch.passcode;
+        row.join_url = patch.join_url;
+        row.effective_settings = patch.effective_settings;
+        row.status = 'provisioned';
+        row.last_error = null;
+        publishScheduled(row, patch.growth_community_id);
+        if (seed.afterAtomicProvision) await seed.afterAtomicProvision('adoption', row);
+        return true;
+      }
+    ),
 
     markError: vi.fn(async (meetingId: string, lastError: string) => {
       const row = meetings.find((candidate) => candidate.id === meetingId);

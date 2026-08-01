@@ -38,6 +38,8 @@ import type { ZoomJobRow } from '../../../../lib/zoom/db-types';
 import {
   LIFECYCLE_ENDED_APPLIES_FROM,
   LIFECYCLE_STARTED_APPLIES_FROM,
+  PROJECTION_ENDED_APPLIES_FROM,
+  PROJECTION_LIVE_APPLIES_FROM,
   type ZoomWebhookStore,
 } from '../../../../lib/zoom/webhook-store';
 import {
@@ -104,6 +106,40 @@ function jobRow(overrides: Partial<ZoomJobRow> = {}): ZoomJobRow {
 
 function context(job: ZoomJobRow = jobRow()): ZoomJobContext {
   return { job, workerId: 'worker-1', heartbeat: vi.fn(async () => true) };
+}
+
+/** Real lifecycle applier over the provision harness's rows/projection. */
+function lifecycleStoreFor(
+  harness: ReturnType<typeof createMemoryProvisionStore>,
+  row: StoredMeeting,
+  meetingNumber: number
+): ZoomWebhookStore {
+  return {
+    recordEvent: vi.fn(async () => 'inserted' as const),
+    readProcessedAt: vi.fn(async () => undefined),
+    markProcessed: vi.fn(async () => undefined),
+    findMeetingIdByNumber: vi.fn(async (number: number) =>
+      number === meetingNumber ? row.id : null
+    ),
+    setMeetingStatus: vi.fn(async (_id, status, uuid) => {
+      const appliesFrom: readonly string[] =
+        status === 'started' ? LIFECYCLE_STARTED_APPLIES_FROM : LIFECYCLE_ENDED_APPLIES_FROM;
+      if (!appliesFrom.includes(row.status)) return { applied: false, surface: null };
+      row.status = status;
+      if (uuid !== null) row.zoom_meeting_uuid = uuid;
+      return {
+        applied: true,
+        surface: { surfaceType: row.surface_type, surfaceId: row.surface_id },
+      };
+    }),
+    setProjectionStatus: vi.fn(async (surface, status) => {
+      const projected = harness.projectionFor(surface.surfaceId);
+      if (!projected) return;
+      const appliesFrom: readonly string[] =
+        status === 'live' ? PROJECTION_LIVE_APPLIES_FROM : PROJECTION_ENDED_APPLIES_FROM;
+      if (appliesFrom.includes(projected.meeting_status)) projected.meeting_status = status;
+    }),
+  };
 }
 
 function seedFake(): ZoomFake {
@@ -471,6 +507,178 @@ describe('meeting_provision · mock-mode round trip (§15 Z1b DoD)', () => {
     expect(row.status).toBe('provisioned');
     expect(row.zoom_meeting_number).toBe(82000007777);
     expect(row.effective_settings).toMatchObject({ auto_recording: 'cloud' });
+  });
+
+  it('a stale checkpoint adopter loses its lease before the write and changes nothing', async () => {
+    // Sol R5 ②. The former exemption let a reclaimed worker keep going. Argumentless
+    // heartbeat is safe: heartbeat_zoom_job COALESCEs NULL stage_state, preserving the
+    // created checkpoint that this branch is about to adopt.
+    const reserved: StoredMeeting = {
+      id: 'meeting-stale-adopter',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+      zoom_meeting_number: null,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'pending',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+    };
+    const before = { ...reserved };
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [reserved],
+    });
+    const job = jobRow({
+      stage_state: {
+        stage: 'created',
+        meeting_id: reserved.id,
+        meeting: {
+          number: 82000007601,
+          passcode: 'stale7601',
+          join_url: 'https://example-synthetic.test/j/82000007601',
+          settings: { auto_recording: 'none' },
+        },
+      },
+    });
+    const heartbeat = vi.fn(async () => false);
+    const ctx: ZoomJobContext = { job, workerId: 'stale-worker', heartbeat };
+
+    await expect(
+      createMeetingProvisionHandler({ api: seedFake(), store: harness.store })(ctx)
+    ).rejects.toBeInstanceOf(ZoomJobLeaseLostError);
+
+    expect(heartbeat).toHaveBeenCalledTimes(1);
+    expect(heartbeat.mock.calls[0]).toEqual([]);
+    expect(harness.meetingFor(SESSION_ID)).toEqual(before);
+    expect(harness.store.adoptCheckpointMeeting).not.toHaveBeenCalled();
+    expect(harness.store.markProvisioned).not.toHaveBeenCalled();
+    expect(harness.store.upsertProjection).not.toHaveBeenCalled();
+    expect(harness.projectionFor(SESSION_ID)).toBeUndefined();
+  });
+
+  it('completes a checkpoint-adoption CAS miss as superseded with zero writes', async () => {
+    const reserved: StoredMeeting = {
+      id: 'meeting-adoption-miss',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+      zoom_meeting_number: null,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'pending',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+    };
+    const before = { ...reserved };
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [reserved],
+    });
+    vi.mocked(harness.store.adoptCheckpointMeeting).mockResolvedValueOnce(false);
+    const job = jobRow({
+      stage_state: {
+        stage: 'created',
+        meeting_id: reserved.id,
+        meeting: {
+          number: 82000007602,
+          passcode: 'miss7602x',
+          join_url: 'https://example-synthetic.test/j/82000007602',
+          settings: { auto_recording: 'none' },
+        },
+      },
+    });
+
+    const result = await createMeetingProvisionHandler({ api: seedFake(), store: harness.store })(
+      context(job)
+    );
+
+    expect(result).toEqual({
+      meeting_id: reserved.id,
+      zoom_meeting_number: 82000007602,
+      adopted: false,
+      superseded: true,
+    });
+    expect(harness.meetingFor(SESSION_ID)).toEqual(before);
+    expect(harness.store.upsertProjection).not.toHaveBeenCalled();
+    expect(harness.projectionFor(SESSION_ID)).toBeUndefined();
+  });
+
+  it('keeps ended public after REAL lifecycle lands immediately after adoption commits', async () => {
+    // The dual-adopter/lifecycle race's visible half. On old source the legacy write
+    // fires the hook before the separate projection exists, so lifecycle cannot publish;
+    // the handler then clobbers public back to scheduled. The RPC path publishes first,
+    // lifecycle advances both rows, and no late write remains.
+    const meetingNumber = 82000007603;
+    const reserved: StoredMeeting = {
+      id: 'meeting-adoption-lifecycle',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+      zoom_meeting_number: null,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'pending',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+    };
+    let runLifecycle = async () => undefined;
+    const afterWrite = async (kind: 'recovery' | 'adoption') => {
+      if (kind === 'adoption') await runLifecycle();
+    };
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [reserved],
+      afterAtomicProvision: afterWrite,
+      afterLegacyProvisionWrite: afterWrite,
+    });
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    const webhookStore = lifecycleStoreFor(harness, row, meetingNumber);
+    runLifecycle = async () => {
+      await applyWebhookLifecycle(webhookStore, 'meeting.started', {
+        id: String(meetingNumber),
+        uuid: 'Fk+SyntheticUuid/sol5-adoption==',
+      });
+      await applyWebhookLifecycle(webhookStore, 'meeting.ended', { id: String(meetingNumber) });
+    };
+    const job = jobRow({
+      stage_state: {
+        stage: 'created',
+        meeting_id: reserved.id,
+        meeting: {
+          number: meetingNumber,
+          passcode: 'life7603x',
+          join_url: `https://example-synthetic.test/j/${meetingNumber}`,
+          settings: { auto_recording: 'none' },
+        },
+      },
+    });
+    const ctx = context(job);
+
+    await createMeetingProvisionHandler({ api: seedFake(), store: harness.store })(ctx);
+
+    expect(ctx.heartbeat).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(ctx.heartbeat).mock.calls[0]).toEqual([]);
+    expect(row.status).toBe('ended');
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('ended');
+    expect(harness.store.upsertProjection).not.toHaveBeenCalled();
+    expect(harness.store.adoptCheckpointMeeting).toHaveBeenCalledTimes(1);
   });
 
   it('ignores a checkpoint that names a different row and creates normally', async () => {
@@ -1138,9 +1346,8 @@ describe('meeting_provision · ambiguous create outcomes', () => {
     // The marker is the record of an UNRESOLVED create; this row is resolved. Cleared in
     // the same UPDATE that provisioned it — never a second write that could be lost.
     expect(row.last_error).toBeNull();
-    // ...and that UPDATE is the GUARDED one (Sol R4), never the absolute `markProvisioned`
-    // the create and adopt paths use.
-    expect(harness.store.markRecoveredProvisioned).toHaveBeenCalledTimes(1);
+    // ...and the guarded RPC owns both writes, never the fresh-create `markProvisioned`.
+    expect(harness.store.recoverProvisionedMeeting).toHaveBeenCalledTimes(1);
     expect(harness.store.markProvisioned).not.toHaveBeenCalled();
     expect(harness.store.recordLastError).not.toHaveBeenCalled();
 
@@ -1152,6 +1359,43 @@ describe('meeting_provision · ambiguous create outcomes', () => {
       effective_auto_recording: 'none',
       settings_drift: false,
     });
+  });
+
+  it('keeps ended public after REAL lifecycle lands immediately after recovery commits', async () => {
+    // Sol R5 ① regression. The old handler had a CAS→projection gap: lifecycle could
+    // move the just-provisioned row started→ended while no projection existed, then the
+    // handler inserted `scheduled` after both events were gone. Both callbacks below let
+    // this same test run as a negative control against the old and new store seams.
+    const fake = seedFake();
+    const discovered = await seedDiscoveredMeeting(fake);
+    let runLifecycle = async () => undefined;
+    const afterWrite = async (kind: 'recovery' | 'adoption') => {
+      if (kind === 'recovery') await runLifecycle();
+    };
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [operatorResolvedRow(discovered.id)],
+      afterAtomicProvision: afterWrite,
+      afterLegacyProvisionWrite: afterWrite,
+    });
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    const webhookStore = lifecycleStoreFor(harness, row, discovered.id);
+    runLifecycle = async () => {
+      await applyWebhookLifecycle(webhookStore, 'meeting.started', {
+        id: String(discovered.id),
+        uuid: 'Fk+SyntheticUuid/sol5-recovery==',
+      });
+      await applyWebhookLifecycle(webhookStore, 'meeting.ended', { id: String(discovered.id) });
+    };
+
+    await createMeetingProvisionHandler({ api: fake, store: harness.store })(context());
+
+    expect(row.status).toBe('ended');
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('ended');
+    // Atomic recovery owns the sole publish; there is no late scheduled upsert left.
+    expect(harness.store.upsertProjection).not.toHaveBeenCalled();
+    expect(harness.store.recoverProvisionedMeeting).toHaveBeenCalledTimes(1);
   });
 
   it('derives §9.4 drift from the RECOVERY read-back, never from the empty row', async () => {
@@ -1238,7 +1482,7 @@ describe('meeting_provision · ambiguous create outcomes', () => {
       // place, no half-written passcode or join_url to make it look joinable.
       expect(harness.meetingFor(SESSION_ID)).toEqual(before);
       expect(harness.store.markProvisioned).not.toHaveBeenCalled();
-      expect(harness.store.markRecoveredProvisioned).not.toHaveBeenCalled();
+      expect(harness.store.recoverProvisionedMeeting).not.toHaveBeenCalled();
       expect(harness.store.markError).not.toHaveBeenCalled();
       expect(harness.store.recordLastError).not.toHaveBeenCalled();
       expect(harness.store.releaseReservation).not.toHaveBeenCalled();
@@ -1284,7 +1528,7 @@ describe('meeting_provision · ambiguous create outcomes', () => {
     // The guard is BEFORE the write, so the row is byte-for-byte the operator's: the
     // reservation still held, the park marker still on it, still recoverable.
     expect(harness.meetingFor(SESSION_ID)).toEqual(before);
-    expect(harness.store.markRecoveredProvisioned).not.toHaveBeenCalled();
+    expect(harness.store.recoverProvisionedMeeting).not.toHaveBeenCalled();
     expect(harness.store.markProvisioned).not.toHaveBeenCalled();
     expect(harness.store.recordLastError).not.toHaveBeenCalled();
 
@@ -1377,7 +1621,7 @@ describe('meeting_provision · ambiguous create outcomes', () => {
       });
 
       // The clobber, refused in both halves. The row is not reset...
-      expect(harness.store.markRecoveredProvisioned).toHaveBeenCalledTimes(1);
+      expect(harness.store.recoverProvisionedMeeting).toHaveBeenCalledTimes(1);
       expect(harness.store.markProvisioned).not.toHaveBeenCalled();
       expect(row.status).not.toBe('provisioned');
       // ...which is exactly the documented residual: this row keeps NULL passcode and
@@ -1699,7 +1943,7 @@ describe('meeting_provision · §9 reservation revalidation on resume', () => {
     expect(Date.parse(row.starts_at)).toBe(Date.parse('2026-08-05T21:00:00.000Z'));
   });
 
-  it('exempts the checkpoint-adopt path — Zoom already holds that meeting', async () => {
+  it('keeps the checkpoint-adopt reservation window — Zoom already holds that meeting', async () => {
     const fake = seedFake();
     const harness = createMemoryProvisionStore({
       // Rescheduled, but a previous attempt already created at Zoom and checkpointed.

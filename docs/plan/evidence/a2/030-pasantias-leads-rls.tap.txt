@@ -1,69 +1,104 @@
 # A2 evidence — pgTAP TAP output for 030-pasantias-leads-rls.sql
 
-Generated 2026-07-31 (round r2) after `supabase db reset` (all migrations applied
-from scratch, including the D-04 privilege hardening).
+Generated 2026-08-01 (round r3) with all migrations applied from scratch onto a
+freshly initialised local database, including the grant-list privilege hardening.
 Command: psql -X -q -t -f supabase/tests/030-pasantias-leads-rls.sql (tuples-only, to expose every assert)
 
-Round r2 grew the plan 21 → 30: 5 catalog asserts for the privilege layer
-(4–8) and 4 behavioral denials RLS alone could not produce (13 admin TRUNCATE,
-20–22 anon UPDATE/DELETE/TRUNCATE). Asserts 10–12, 15–17, 18–19 changed
-expected error text — after the REVOKEs these commands are refused at the
-privilege layer (42501 "permission denied for table") instead of producing an
-RLS violation or an empty result.
+Round r3 grew the plan 30 → 32 and changed the *kind* of evidence behind asserts
+4 and 5. They previously read `information_schema.role_table_grants`, a
+SQL-standard view that reports only standard privileges — which is precisely how
+round r2's pin failed to notice that PostgreSQL 17's `MAINTAIN` was not covered
+by the enumerated REVOKE. They now read the real ACL via
+`aclexplode(pg_class.relacl)`, so any privilege the server defines — standard,
+PostgreSQL-specific, or added by a future release — is inside the assertion.
+Asserts 8 and 9 are the new, version-guarded `MAINTAIN` probes.
+
+## Server version — the asserts run LIVE here, they do not skip
+
+The local and CI stacks are **PostgreSQL 17.6**: `supabase/config.toml` pins no
+`[db] major_version`, so the Supabase CLI's default image applies, and CI gate 3
+uses the same unpinned `supabase/setup-cli@v1`. `MAINTAIN` therefore genuinely
+exists on the server this evidence was produced on, and asserts 8–9 execute
+rather than skip. The hosted production database is 15.8 and takes the skip
+branch. The 15.8 path is proven separately below.
+
+## Live ACL after the migration (the state asserts 4–5 pin)
 
 ```
-1..30
+    grantee    |                              privs
+---------------+------------------------------------------------------------------
+ authenticated | SELECT
+ postgres      | DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+ service_role  | DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+```
+
+`anon` has no ACL entry at all. `MAINTAIN` is visible on the roles that keep the
+full set and absent from both public roles — the finding closed, on a server that
+actually has the privilege.
+
+```
+1..32
 ok 1 - La tabla pasantias_leads del schema public debe tener RLS habilitado
 ok 2 - pasantias_leads: exactly one policy — admin SELECT-only, TO authenticated
 ok 3 - pasantias_leads: no policy carries a WITH CHECK — no authenticated write path exists
 
-ok 4 - anon: holds no privilege at all — SELECT/INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER all revoked
-ok 5 - authenticated: holds SELECT and nothing else — the RLS policy gates the rows
+ok 4 - anon: the ACL carries no entry for it — every privilege the server defines, standard or not, is revoked
+ok 5 - authenticated: the ACL carries exactly {SELECT} — nothing else is granted, whatever privileges this server version defines
 ok 6 - anon: no TRUNCATE privilege (RLS would not govern it)
 ok 7 - authenticated: no TRUNCATE privilege (RLS would not govern it)
-ok 8 - service_role: CRUD privileges untouched by the REVOKEs — the only write path survives
+ok 8 - anon: no MAINTAIN privilege (PostgreSQL 17+)
+ok 9 - authenticated: no MAINTAIN privilege (PostgreSQL 17+)
+ok 10 - service_role: CRUD privileges untouched by the REVOKEs — the only write path survives
 
-ok 9 - admin: SELECT allowed — sees the seeded lead
-ok 10 - admin: INSERT denied at the privilege layer (no INSERT grant, no WITH CHECK policy)
-ok 11 - admin: UPDATE denied at the privilege layer
-ok 12 - admin: DELETE denied at the privilege layer
-ok 13 - admin: TRUNCATE denied — the SELECT-only posture survives a command RLS never sees
+ok 11 - admin: SELECT allowed — sees the seeded lead
+ok 12 - admin: INSERT denied at the privilege layer (no INSERT grant, no WITH CHECK policy)
+ok 13 - admin: UPDATE denied at the privilege layer
+ok 14 - admin: DELETE denied at the privilege layer
+ok 15 - admin: TRUNCATE denied — the SELECT-only posture survives a command RLS never sees
 
-ok 14 - docente: sees 0 lead rows
-ok 15 - docente: INSERT denied at the privilege layer
-ok 16 - docente: UPDATE denied at the privilege layer
-ok 17 - docente: DELETE denied at the privilege layer
+ok 16 - docente: sees 0 lead rows
+ok 17 - docente: INSERT denied at the privilege layer
+ok 18 - docente: UPDATE denied at the privilege layer
+ok 19 - docente: DELETE denied at the privilege layer
 
-ok 18 - anon: SELECT denied at the privilege layer (never reaches the policy)
-ok 19 - anon: INSERT denied at the privilege layer
-ok 20 - anon: UPDATE denied at the privilege layer
-ok 21 - anon: DELETE denied at the privilege layer
-ok 22 - anon: TRUNCATE denied — the command RLS never sees is stopped by the revoked grant
+ok 20 - anon: SELECT denied at the privilege layer (never reaches the policy)
+ok 21 - anon: INSERT denied at the privilege layer
+ok 22 - anon: UPDATE denied at the privilege layer
+ok 23 - anon: DELETE denied at the privilege layer
+ok 24 - anon: TRUNCATE denied — the command RLS never sees is stopped by the revoked grant
 
-ok 23 - service_role: INSERT allowed (with full marketing opt-in evidence)
-ok 24 - service_role: INSERT without consent_accepted_at violates NOT NULL (no default asserts consent)
-ok 25 - service_role: INSERT without consent_notice_version violates NOT NULL
-ok 26 - service_role: marketing_opt_in = true without timestamp/version violates the consent CHECK
-ok 27 - service_role: marketing_opt_in = false with timestamp/version violates the consent CHECK
-ok 28 - service_role: email_normalized that is not lower(btrim(email)) violates the email CHECK
-ok 29 - service_role: duplicate (email_normalized, cohort) violates the unique constraint
-ok 30 - pasantias_leads: set_updated_at trigger refreshes updated_at on UPDATE
+ok 25 - service_role: INSERT allowed (with full marketing opt-in evidence)
+ok 26 - service_role: INSERT without consent_accepted_at violates NOT NULL (no default asserts consent)
+ok 27 - service_role: INSERT without consent_notice_version violates NOT NULL
+ok 28 - service_role: marketing_opt_in = true without timestamp/version violates the consent CHECK
+ok 29 - service_role: marketing_opt_in = false with timestamp/version violates the consent CHECK
+ok 30 - service_role: email_normalized that is not lower(btrim(email)) violates the email CHECK
+ok 31 - service_role: duplicate (email_normalized, cohort) violates the unique constraint
+ok 32 - pasantias_leads: set_updated_at trigger refreshes updated_at on UPDATE
 ```
 
-Full-suite run (`npm run test:db` → `supabase test db`), same reset database:
+Full suite: `npm run test:db` → `Files=5, Tests=58, Result: PASS`.
+
+## The sub-PostgreSQL-17 path, proven separately
+
+Asserts 8–9 run live here, so the branch production (15.8) will take was proven
+with a scratch script — not committed, not part of the suite — that reuses the
+suite's exact CASE expressions with the version threshold raised so the ELSE
+branch is taken on this PG17 server, plus a third assert proving the guard is
+lazy. Laziness is the property that makes the suite runnable against a pre-17
+server at all: `has_table_privilege(..., 'MAINTAIN')` raises "unrecognized
+privilege type" there, so the call must not be evaluated when the guard is false.
+The call is wrapped in a plpgsql function (`pg_temp.lacks_maintain`) rather than
+written inline for exactly this reason — plpgsql functions are never folded into
+the plan.
 
 ```
-supabase/tests/000-setup.sql ................... ok
-supabase/tests/001-rls-enabled.sql ............. ok
-supabase/tests/010-consultor-sessions-rls.sql .. ok
-supabase/tests/020-tractor-signups-rls.sql ..... ok
-supabase/tests/030-pasantias-leads-rls.sql ..... ok
-All tests successful.
-Files=5, Tests=56,  0 wallclock secs ( 0.02 usr  0.01 sys +  0.03 cusr  0.01 csys =  0.07 CPU)
-Result: PASS
+1..3
+ok 1 # SKIP MAINTAIN does not exist below PostgreSQL 17 (server is 17.6) — the grant-list REVOKE ALL covers it on upgrade
+ok 2 # SKIP MAINTAIN does not exist below PostgreSQL 17 (server is 17.6) — the grant-list REVOKE ALL covers it on upgrade
+ok 3 - version guard is lazy: the PG17-only call is not evaluated when the guard is false
 ```
 
-Catalog state after the migration (independent of pgTAP), for the reviewer to
-re-probe: `information_schema.role_table_grants` for `public.pasantias_leads`
-lists only `postgres` and `service_role` with the full privilege set, plus
-`authenticated` with `SELECT`. `anon` has no row at all.
+(The "server is 17.6" text is the real `current_setting('server_version')` of the
+machine this ran on; against production the same string would read 15.8. The
+threshold in the scratch script was 990000 solely to force the branch.)

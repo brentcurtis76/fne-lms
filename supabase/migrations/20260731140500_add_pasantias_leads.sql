@@ -12,13 +12,22 @@
 -- row-level security never evaluates, and Supabase's default privileges hand
 -- them to `anon` and `authenticated` on every new public table.
 --
---   LAYER 1 — GRANTs (what the role may attempt at all):
+--   LAYER 1 — GRANTs, expressed as a GRANT-LIST, never a denylist. Both public
+--   roles are stripped with `REVOKE ALL` and then handed back only what they
+--   must hold. This form — not an enumerated REVOKE of the privileges that
+--   exist today — is the standard for every comms table (B3's five included),
+--   precisely because a privilege that does not exist yet can never leak into
+--   it: PostgreSQL 17 added `MAINTAIN`, which an enumerated revoke written on
+--   PostgreSQL 15 would silently leave granted after an upgrade.
 --
 --   role            SELECT  INSERT  UPDATE  DELETE  TRUNCATE  REFERENCES/TRIGGER
 --   ----------------------------------------------------------------------------
 --   anon              no      no      no      no       no            no
 --   authenticated     YES     no      no      no       no            no
 --   service_role      YES     YES     YES     YES      YES           YES
+--
+--   ...and, for anon and authenticated, nothing else — including every table
+--   privilege a future PostgreSQL release may introduce.
 --
 --   LAYER 2 — RLS policy (which rows the surviving SELECT may read):
 --
@@ -129,8 +138,14 @@ $$;
 -- the SQL layer despite the SELECT-only policy. Idempotent and additive —
 -- revoking an inherited grant drops no object and no data. `service_role`
 -- grants are deliberately untouched: it is the only write path.
+--
+-- Grant-list form (see LAYER 1 above): revoke everything, then grant back the
+-- single privilege the role needs. Upgrade-proof by construction — a new
+-- server version's new privilege lands on the revoked side of the line, not
+-- the granted side.
 REVOKE ALL ON public.pasantias_leads FROM anon;
-REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.pasantias_leads FROM authenticated;
+REVOKE ALL ON public.pasantias_leads FROM authenticated;
+GRANT SELECT ON public.pasantias_leads TO authenticated;
 
 COMMENT ON TABLE public.pasantias_leads IS
   'Interest leads for Pasantías INSPIRA. Admin-readable only; every write goes through service-role API routes (D-04). anon holds no privilege at all and authenticated holds SELECT only, so TRUNCATE cannot bypass the policy. Status transitions are enforced in lib/pasantias/leads.ts, not in SQL (D-03).';

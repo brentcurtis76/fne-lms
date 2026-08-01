@@ -252,3 +252,160 @@ Refreshed TAP: `docs/plan/evidence/a2/030-pasantias-leads-rls.tap.txt`.
 Still no destructive rollback. The REVOKEs remove no object and no data —
 they withdraw inherited grants — so the forward-only rule in the round-r1
 section applies to this round verbatim.
+
+---
+
+# Round r3 — MAINTAIN closure (REVIEW-A2-R2.md's remaining finding)
+
+**Executor round:** 3 · **Branch:** `phase/a2-leads-db` (continued)
+**Scope:** the same two SQL files, edited in place, plus this section and the
+refreshed TAP evidence. No third migration, no schema change, nothing outside
+`supabase/` and `docs/`.
+
+## The finding and how it is closed
+
+Round r2 revoked `authenticated`'s non-SELECT privileges by *name*. That is a
+denylist, and a denylist cannot cover a privilege that does not exist yet —
+PostgreSQL 17 added `MAINTAIN`, which an enumerated revoke written against
+PostgreSQL 15 leaves granted.
+
+The migration now uses the **grant-list** form:
+
+```sql
+REVOKE ALL ON public.pasantias_leads FROM anon;
+REVOKE ALL ON public.pasantias_leads FROM authenticated;
+GRANT SELECT ON public.pasantias_leads TO authenticated;
+```
+
+Upgrade-proof by construction: a future release's new privilege lands on the
+revoked side of the line, never the granted side. The header access matrix now
+states this as the reason the form is the standard — Codex has bound B3's five
+tables to the same shape.
+
+The two grant-set pins (asserts 4, 5) moved off
+`information_schema.role_table_grants` and onto `aclexplode(pg_class.relacl)`.
+This is not cosmetic: the information_schema views are SQL-standard and report
+only standard privileges, so a PostgreSQL-specific one is *invisible* there —
+which is exactly how r2's pin passed while `MAINTAIN` was unrevoked. The ACL is
+total, so the pins now hold for privileges that do not exist yet.
+
+Asserts 8 and 9 are new, version-guarded `MAINTAIN` probes. Plan: 30 → 32.
+
+## Read this before anything else: the prompt's PG15 premise is wrong for local/CI
+
+The r3 prompt states as a PM-verified fact that the local stack is PostgreSQL 15
+and therefore cannot exercise a PG17-only privilege. **The local and CI stacks
+are PostgreSQL 17.6.** `supabase/config.toml` pins no `[db] major_version`, so
+the Supabase CLI's default image applies, and CI gate 3 uses the same unpinned
+`supabase/setup-cli@v1`. Only the hosted production database is 15.8 (the PM's
+`select version()` was against production, and that part is correct).
+
+Three consequences, all in the reviewer's favour:
+
+1. **Asserts 8–9 run live rather than skipping.** The acceptance criterion
+   anticipated visible skips; what the suite actually produces is two passing
+   assertions on a server where `MAINTAIN` genuinely exists. That is strictly
+   stronger evidence, and it means the fix is verified against the privilege
+   itself rather than against its absence.
+2. **The finding is closer to live than "forward-looking".** The PM's triage
+   classified it as materialising only on a future upgrade. Tables created on
+   the PG17 local/CI stacks carry `MAINTAIN` in their default privileges today —
+   visible in the ACL dump in the evidence file. Production at 15.8 is still
+   unaffected, so the severity call does not change, but the "no server we run
+   has this privilege" part of the rationale does not hold.
+3. **The version guard is still required**, for the opposite direction from the
+   one the prompt assumed: it exists so the suite can run against the 15.8
+   production server, where `has_table_privilege(..., 'MAINTAIN')` raises
+   *unrecognized privilege type*.
+
+## Why the MAINTAIN call is wrapped in a plpgsql function
+
+`pg_temp.lacks_maintain(role_name)` exists solely to guarantee the call is not
+evaluated when the guard is false. Written inline, correctness would rest on
+PostgreSQL not constant-folding the expression; `has_table_privilege` is STABLE
+so it would not be folded in practice, but a plpgsql function is *never* folded,
+which turns a reasoned argument into a structural one. The evidence file records
+a laziness proof (an exception-raising function in the untaken branch, which the
+suite does not reach).
+
+## Test evidence (round r3)
+
+```
+supabase test db  (npm run test:db) → Files=5, Tests=58, Result: PASS   (030 file: 32/32)
+npm run type-check → clean
+npm run lint       → clean (--max-warnings=0)
+npm test           → 232 files, 3445 tests, all passed
+npm run build      → succeeded through page-data collection
+```
+
+Refreshed TAP, the live ACL dump, and the sub-PG17 branch proof:
+`docs/plan/evidence/a2/030-pasantias-leads-rls.tap.txt`.
+
+**How the database was built, stated plainly.** `supabase db reset` and
+`supabase start` both wedged on this machine — the CLI sat idle in `ClientRead`
+at "Initialising schema...", the Docker daemon went unresponsive once and needed
+a restart, and the CLI's image pulls then stalled indefinitely. The schema under
+test was therefore built by applying `supabase/migrations/*.sql` in order with
+`psql -v ON_ERROR_STOP=1` onto a **freshly initialised** database container —
+the same three files in the same order that `db reset` applies, from scratch,
+with no pre-existing objects. Two further environment repairs were needed and
+are disclosed because they are the kind of thing that can manufacture a false
+green:
+
+- **`auth.uid()`** ships in the Postgres image in its pre-2021 form
+  (`request.jwt.claim.sub` only); the modern form is installed by GoTrue's own
+  migration `20211202183645_update_auth_uid.up.sql`, which never ran because the
+  auth container could not be pulled. Every policy in the repo that calls
+  `auth.uid()` fails without it — **suites 010 and 020, which this round does not
+  touch, failed too**, which is how the cause was identified rather than guessed.
+  That migration's SQL was extracted from the GoTrue image and applied verbatim
+  with `Namespace` = `auth`. It is upstream's own text, not hand-written.
+- **`public.schema_migrations`** was debris created by an attempt to run
+  `gotrue migrate` (the `pop` migrator's own tracking table, `varchar(14)`); it
+  is not in any repo migration and it broke `001-rls-enabled.sql`. Dropped from
+  the local throwaway container.
+
+Neither repair touches the repository, the migrations, the test files, or any
+non-local database. Both are disclosed so the run can be discounted if you would
+rather rely on CI — **CI gate 3 is the authoritative execution of this suite**,
+and it runs the same PG17 image, so asserts 8–9 will run live there too.
+
+## What to scrutinise hardest in this round
+
+1. **Does the ACL pin actually close the class of bug, or just this instance?**
+   Asserts 4–5 now compare the *complete* set of ACL privilege types per role
+   against a literal. My claim is that this is total — a new privilege in any
+   future release appears in `aclexplode` output and breaks the equality. Check
+   that claim; it is the whole argument for why r3 is a fix and not another
+   patch. In particular, `aclexplode` returns nothing for a NULL `relacl`, which
+   the `coalesce(..., '(none)')` handles for `anon` — satisfy yourself the
+   `authenticated` side cannot pass vacuously the same way.
+2. **The two-server split is now load-bearing.** The suite behaves differently
+   on 17.6 (asserts run) and 15.8 (asserts skip). A skip is a *pass* in TAP, so
+   on production-parity the MAINTAIN coverage silently disappears. That is
+   correct — the privilege does not exist there — but it means the guard's
+   threshold (`>= 170000`) is the only thing standing between real coverage and
+   vacuous coverage. If you think a skipping assert is too quiet, this is the
+   round to say so.
+3. **`REVOKE ALL FROM authenticated` immediately followed by `GRANT SELECT`.**
+   There is a window inside the migration where `authenticated` holds nothing.
+   The statements are in one transaction (Supabase applies each migration file
+   transactionally), so no concurrent session observes the gap — but confirm
+   that, because if migrations were ever applied non-transactionally this would
+   be a brief live denial rather than a no-op.
+4. **The environment repairs above.** I would rather you discount this local run
+   entirely than trust it silently. The specific question worth asking is
+   whether applying GoTrue's `auth.uid()` migration could mask a genuine failure
+   in the three suites — my answer is no, because the function text is upstream's
+   verbatim and the two untouched suites returned to green with no other change,
+   but it is your call.
+5. **Nothing else changed.** Round r1's schema, constraints, trigger, policy and
+   consent contract are untouched, and r2's behavioral denial matrix is
+   untouched. The diff is two REVOKE/GRANT lines, two rewritten catalog asserts,
+   two new asserts, one plpgsql helper, and comments. If you find anything else
+   in the diff, that is a finding.
+
+## Rollback (unchanged, forward-only)
+
+`REVOKE ALL` + `GRANT SELECT` removes no object and no data, exactly as the r2
+REVOKEs did. The forward-only rule from round r1 applies to this round verbatim.

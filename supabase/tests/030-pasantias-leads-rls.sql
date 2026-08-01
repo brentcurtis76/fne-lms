@@ -9,6 +9,21 @@
 --     service_role keeps the full set. This is what stops TRUNCATE, which RLS
 --     never evaluates and which Supabase's default privileges would otherwise
 --     grant to both public roles.
+--
+--     The grant-set pins read the REAL ACL — `aclexplode(pg_class.relacl)` —
+--     not `information_schema.role_table_grants`. The information_schema views
+--     are SQL-standard and therefore report only standard privileges: a
+--     PostgreSQL-specific one is invisible there, which is exactly how the
+--     earlier pin failed to notice that PostgreSQL 17's `MAINTAIN` was not
+--     covered by an enumerated REVOKE. Asserting over the ACL makes the pins
+--     total: any privilege the server knows about, present or future, shows up.
+--     `MAINTAIN` itself is additionally probed under a server-version guard,
+--     since it does not exist below PostgreSQL 17 and `has_table_privilege`
+--     errors on an unknown privilege name. The guard is what makes the suite
+--     portable across both servers this project actually runs on: the local
+--     and CI stacks are PostgreSQL 17.6 (the Supabase CLI's default image —
+--     `supabase/config.toml` pins no `[db] major_version`), where the probes
+--     run live; the hosted production database is 15.8, where they skip.
 --   Layer 2 — the single RLS policy, which decides which rows the surviving
 --     authenticated SELECT may read (admin only).
 --
@@ -35,7 +50,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(30);
+SELECT plan(32);
 
 -- -----------------------------------------------------------------------------
 -- Fixture ids — stable and obvious so test output is easy to read.
@@ -78,28 +93,28 @@ SELECT is(
 -- -----------------------------------------------------------------------------
 -- [A2 / D-04 amended] Privilege layer. RLS never evaluates TRUNCATE, and
 -- Supabase's ALTER DEFAULT PRIVILEGES grants ALL on new public tables to anon
--- and authenticated — so the migration's REVOKEs, not the policy, are what
--- stops either role from emptying the table. Asserted from the catalog first,
+-- and authenticated — so the migration's grant-list, not the policy, is what
+-- stops either role from emptying the table. Asserted from the real ACL first,
 -- then behaviorally per role below.
 -- -----------------------------------------------------------------------------
 SELECT is(
-  (SELECT coalesce(string_agg(g.privilege_type, ',' ORDER BY g.privilege_type), '(none)')
-     FROM information_schema.role_table_grants g
-    WHERE g.table_schema = 'public'
-      AND g.table_name = 'pasantias_leads'
-      AND g.grantee = 'anon'),
+  (SELECT coalesce(string_agg(DISTINCT a.privilege_type, ',' ORDER BY a.privilege_type), '(none)')
+     FROM pg_class c
+     CROSS JOIN LATERAL aclexplode(c.relacl) a
+    WHERE c.oid = 'public.pasantias_leads'::regclass
+      AND a.grantee = 'anon'::regrole::oid),
   '(none)',
-  'anon: holds no privilege at all — SELECT/INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER all revoked'
+  'anon: the ACL carries no entry for it — every privilege the server defines, standard or not, is revoked'
 );
 
 SELECT is(
-  (SELECT coalesce(string_agg(g.privilege_type, ',' ORDER BY g.privilege_type), '(none)')
-     FROM information_schema.role_table_grants g
-    WHERE g.table_schema = 'public'
-      AND g.table_name = 'pasantias_leads'
-      AND g.grantee = 'authenticated'),
+  (SELECT coalesce(string_agg(DISTINCT a.privilege_type, ',' ORDER BY a.privilege_type), '(none)')
+     FROM pg_class c
+     CROSS JOIN LATERAL aclexplode(c.relacl) a
+    WHERE c.oid = 'public.pasantias_leads'::regclass
+      AND a.grantee = 'authenticated'::regrole::oid),
   'SELECT',
-  'authenticated: holds SELECT and nothing else — the RLS policy gates the rows'
+  'authenticated: the ACL carries exactly {SELECT} — nothing else is granted, whatever privileges this server version defines'
 );
 
 SELECT ok(
@@ -111,6 +126,43 @@ SELECT ok(
   NOT has_table_privilege('authenticated', 'public.pasantias_leads', 'TRUNCATE'),
   'authenticated: no TRUNCATE privilege (RLS would not govern it)'
 );
+
+-- MAINTAIN (PostgreSQL 17+) — the privilege that motivated the grant-list form.
+-- Wrapped in plpgsql so the call is evaluated only when the CASE branch is
+-- taken: `has_table_privilege` raises "unrecognized privilege type" on servers
+-- below 17, where the privilege simply does not exist. On the local/CI stack
+-- (17.6) these two run live; against the 15.8 production server they skip.
+CREATE OR REPLACE FUNCTION pg_temp.lacks_maintain(role_name text) RETURNS boolean AS $$
+BEGIN
+  RETURN NOT has_table_privilege(role_name, 'public.pasantias_leads', 'MAINTAIN');
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT CASE WHEN current_setting('server_version_num')::int >= 170000
+  THEN ok(
+         pg_temp.lacks_maintain('anon'),
+         'anon: no MAINTAIN privilege (PostgreSQL 17+)'
+       )
+  ELSE skip(
+         'MAINTAIN does not exist below PostgreSQL 17 (server is '
+           || current_setting('server_version')
+           || ') — the grant-list REVOKE ALL covers it on upgrade',
+         1
+       )
+END;
+
+SELECT CASE WHEN current_setting('server_version_num')::int >= 170000
+  THEN ok(
+         pg_temp.lacks_maintain('authenticated'),
+         'authenticated: no MAINTAIN privilege (PostgreSQL 17+)'
+       )
+  ELSE skip(
+         'MAINTAIN does not exist below PostgreSQL 17 (server is '
+           || current_setting('server_version')
+           || ') — the grant-list REVOKE ALL covers it on upgrade',
+         1
+       )
+END;
 
 SELECT ok(
   has_table_privilege('service_role', 'public.pasantias_leads', 'SELECT')

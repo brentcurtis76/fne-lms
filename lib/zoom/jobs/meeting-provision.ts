@@ -227,6 +227,37 @@
  * `COALESCE` preserves `stage_state`), then `adoptCheckpointMeeting` compare-and-sets
  * `id + pending + zoom_meeting_number IS NULL` and publishes the projection atomically.
  * A miss completes as superseded; it never creates and never writes either table.
+ *
+ * ### And so do the last two paths (Sol R6)
+ *
+ * R5 closed recovery and adoption. Fresh-create and already-provisioned replay were left
+ * on the old two-call shape, on the reading that a fresh create publishes into a
+ * projection that cannot pre-exist. That reading was wrong, and Sol ruled it a finding
+ * rather than a Z2 baseline: the R5 race never required a pre-existing projection — a
+ * pre-existing projection was what the race PRODUCED.
+ *
+ *  - **Fresh create** persisted with an id-only `markProvisioned` and then a separate
+ *    `scheduled` upsert. Between the post-create checkpoint heartbeat and that write a
+ *    worker can stall, lose its lease, and wake to a row a second adopter has finished
+ *    and lifecycle has advanced — whereupon the id-only write resets it and the upsert
+ *    puts `scheduled` over a `live` badge. It now goes through `adoptCheckpointMeeting`,
+ *    the SAME RPC adoption uses, because the row at that instant IS `pending` +
+ *    `zoom_meeting_number IS NULL`: the reservation put it there and nothing since has
+ *    touched it. A CAS miss completes as `MeetingProvisionCreateSupersededResult`,
+ *    carrying the number Zoom minted — the only place it survives, since completion
+ *    replaces `stage_state` and the checkpoint with it.
+ *  - **Replay** re-upserted a hard-coded `scheduled` through the unguarded projection
+ *    call, so a redelivered job landing after `meeting.started` clobbered the badge
+ *    backwards. It now calls `sync_projection_from_meeting`, which DERIVES the public
+ *    status from the internal row under `FOR UPDATE` and applies it behind a
+ *    never-backward guard mirroring `webhook-store.ts`'s applies-from sets. Because the
+ *    value is read rather than asserted, that same call also RECREATES a projection that
+ *    is missing entirely — at `ended` for a meeting that has ended, not at `scheduled`.
+ *
+ * `upsertProjection` and `markProvisioned` are GONE from the store seam, and
+ * `ProvisionPublicClient` no longer carries an `upsert` at all. Every persistence path in
+ * this handler is now one guarded transaction; there is no unguarded write left to reach
+ * for.
  */
 import { randomInt } from 'crypto';
 import { getSessionDateTime, SESSION_TIMEZONE } from '../../utils/session-timezone';
@@ -602,6 +633,11 @@ export interface ProvisionedMeetingPatch {
   status: ZoomMeetingStatus;
 }
 
+/**
+ * The projection row's shape. No longer written from TypeScript — every publication
+ * goes through a guarded RPC (Sol R6) — but this is still the record of what a
+ * projection row IS, and the harness models its map with it.
+ */
 export interface ProjectionUpsert {
   surface_type: ZoomSurfaceType;
   surface_id: string;
@@ -611,6 +647,20 @@ export interface ProjectionUpsert {
   starts_at: string;
   ends_at: string;
 }
+
+/**
+ * What `sync_projection_from_meeting` did (Sol R6 ②). Typed rather than boolean
+ * because the three non-publishing outcomes mean different things:
+ *
+ *  - `published` — the projection was created or advanced.
+ *  - `blocked` — the never-backward guard refused: the public row is already AT or
+ *    PAST the status this meeting derives to. The ordinary monotonic refusal, and
+ *    the entire point of the function; not an error.
+ *  - `not_publishable` — the internal row is `pending` or `error`. There is nothing
+ *    to announce for a reservation that never reached Zoom.
+ *  - `missing` — no such internal row. It was deleted under us mid-run.
+ */
+export type ProjectionSyncOutcome = 'published' | 'blocked' | 'not_publishable' | 'missing';
 
 /** Fields the atomic recovery/adoption RPCs need in addition to the Zoom result. */
 export interface AtomicProvisionPatch extends ProvisionedMeetingPatch {
@@ -650,18 +700,31 @@ export interface MeetingProvisionStore {
     startsAt: string,
     durationMinutes: number
   ): Promise<boolean>;
-  markProvisioned(meetingId: string, patch: ProvisionedMeetingPatch): Promise<void>;
   /**
    * Guarded recovery transition + projection publication in one database transaction.
    * `false` means the CAS missed and neither table changed.
    */
   recoverProvisionedMeeting(meetingId: string, patch: AtomicProvisionPatch): Promise<boolean>;
   /**
-   * Guarded checkpoint adoption + projection publication in one database transaction.
-   * `false` means the row was no longer `pending` with a NULL meeting number; neither
-   * table changed.
+   * Guarded `pending` + NULL-number → `provisioned` transition + projection publication
+   * in one database transaction. `false` means the row was no longer `pending` with a
+   * NULL meeting number; neither table changed.
+   *
+   * Used by BOTH paths that turn a bare reservation into a provisioned meeting: the
+   * checkpoint adoption it was written for (Sol R5 ②) and the fresh create (Sol R6 ①),
+   * whose row is in exactly the same state when `createMeeting` returns.
    */
   adoptCheckpointMeeting(meetingId: string, patch: AtomicProvisionPatch): Promise<boolean>;
+  /**
+   * Republishes the projection DERIVED from the internal row, under the never-backward
+   * guard, in one transaction (Sol R6 ②). The replay path's only projection write —
+   * and the one that RECREATES a projection missing for a meeting that has already
+   * started or ended.
+   */
+  syncProjectionFromMeeting(
+    meetingId: string,
+    growthCommunityId: string | null
+  ): Promise<ProjectionSyncOutcome>;
   markError(meetingId: string, lastError: string): Promise<void>;
   /**
    * Writes `last_error` and NOTHING else — the status is deliberately untouched.
@@ -678,7 +741,6 @@ export interface MeetingProvisionStore {
    * the window of a meeting nobody is ever going to hold.
    */
   releaseReservation(meetingId: string, lastError: string): Promise<void>;
-  upsertProjection(row: ProjectionUpsert): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -693,7 +755,14 @@ interface PostgrestError {
 
 type PostgrestResult<T> = PromiseLike<{ data: T | null; error: PostgrestError | null }>;
 
-/** The ONLY untyped boundaries in this module. See `service-client.ts`. */
+/**
+ * The ONLY untyped boundaries in this module. See `service-client.ts`.
+ *
+ * READ-ONLY by construction since Sol R6: the `upsert` member this seam used to carry
+ * was the module's one way to write `public.session_meetings_public` without a guard,
+ * and it is gone along with its caller. Every projection write now goes through a
+ * `zoom_internal` RPC on the internal client.
+ */
 export interface ProvisionPublicClient {
   from(table: string): {
     select(columns: string): {
@@ -701,10 +770,6 @@ export interface ProvisionPublicClient {
         maybeSingle(): PostgrestResult<Record<string, unknown>>;
       } & PostgrestResult<Record<string, unknown>[]>;
     };
-    upsert(
-      values: Record<string, unknown>,
-      options: { onConflict: string }
-    ): PromiseLike<{ error: PostgrestError | null }>;
   };
 }
 
@@ -843,14 +908,6 @@ export function createSupabaseMeetingProvisionStore(
       return true;
     },
 
-    async markProvisioned(meetingId, patch) {
-      const { error } = await internalClient
-        .from('zoom_meetings')
-        .update({ ...patch, last_error: null, updated_at: new Date().toISOString() })
-        .eq('id', meetingId);
-      if (error) throw new Error(`zoom_meetings provision write failed: ${error.message}`);
-    },
-
     async recoverProvisionedMeeting(meetingId, patch) {
       const { data, error } = await internalClient.rpc('recover_provisioned_meeting', {
         p_meeting_id: meetingId,
@@ -875,6 +932,25 @@ export function createSupabaseMeetingProvisionStore(
       });
       if (error) throw new Error(`adopt_checkpoint_meeting failed: ${error.message}`);
       return data === true;
+    },
+
+    async syncProjectionFromMeeting(meetingId, growthCommunityId) {
+      const { data, error } = await internalClient.rpc('sync_projection_from_meeting', {
+        p_meeting_id: meetingId,
+        p_growth_community_id: growthCommunityId,
+      });
+      if (error) throw new Error(`sync_projection_from_meeting failed: ${error.message}`);
+      // The function's four documented values, and nothing else may be invented from
+      // an unexpected body: an unreadable outcome is a failure, not a quiet success.
+      if (
+        data === 'published' ||
+        data === 'blocked' ||
+        data === 'not_publishable' ||
+        data === 'missing'
+      ) {
+        return data;
+      }
+      throw new Error(`sync_projection_from_meeting returned an unknown outcome: ${String(data)}`);
     },
 
     async markError(meetingId, lastError) {
@@ -905,16 +981,6 @@ export function createSupabaseMeetingProvisionStore(
         })
         .eq('id', meetingId);
       if (error) throw new Error(`zoom_meetings release failed: ${error.message}`);
-    },
-
-    async upsertProjection(row) {
-      const { error } = await publicClient
-        .from('session_meetings_public')
-        .upsert(
-          { ...row, provider: 'zoom', updated_at: new Date().toISOString() },
-          { onConflict: 'surface_type,surface_id' }
-        );
-      if (error) throw new Error(`session_meetings_public upsert failed: ${error.message}`);
     },
   };
 }
@@ -1023,8 +1089,9 @@ export function orderHostCandidates(
  * would report a clean run for a meeting Zoom is silently recording.
  *
  * A missing/NULL settings object floors to `'none'` — the type-level bottom, and NOT a
- * claim about a meeting. Nothing this handler persists can reach it: `markProvisioned`
- * writes the number and the settings in ONE UPDATE, the create response must carry an
+ * claim about a meeting. Nothing this handler persists can reach it: every provisioning
+ * write is one guarded RPC that lands the number and the settings together (Sol R5/R6),
+ * so neither can exist without the other; the create response must carry an
  * explicit string `auto_recording` to be usable at all (Sol R3 ②), and the
  * operator-recovery read-back must clear the same bar before it is written (Sol R3 ①).
  * The state "has a meeting number, has no settings" is unproducible from BOTH sources —
@@ -1141,6 +1208,32 @@ export interface MeetingProvisionAdoptionSupersededResult extends Record<string,
   superseded: true;
 }
 
+/**
+ * The FRESH create persisted through the same CAS (Sol R6 ①) and lost it: between the
+ * post-create checkpoint heartbeat and the write, another worker took the row out of
+ * `pending` + NULL-number.
+ *
+ * A distinct shape from the adoption miss, because the operational meaning is not the
+ * same. An adoption miss means somebody else persisted the checkpoint THIS job would
+ * have persisted — same meeting, nothing lost. A fresh-create miss is one of two
+ * things and this process cannot tell which: either another worker adopted our own
+ * checkpoint (same meeting number, nothing lost), or it created a different meeting,
+ * in which case the one Zoom just minted for us is an ORPHAN. So the number rides on
+ * the result: `complete_zoom_job` REPLACES `stage_state` with what the handler returns
+ * (Z1b-3 ③), and this is the last record that can name it.
+ *
+ * A completion, not a failure, for the same reason the other two misses are: the row
+ * is correct, the CAS did its job, and no retry improves anything — a retry would take
+ * the replay path off the number the winner wrote.
+ */
+export interface MeetingProvisionCreateSupersededResult extends Record<string, unknown> {
+  meeting_id: string;
+  /** The meeting Zoom minted for THIS attempt — possibly an orphan. */
+  zoom_meeting_number: number;
+  persisted: false;
+  superseded: true;
+}
+
 interface ProvisionPayload {
   surface_type: ZoomSurfaceType;
   surface_id: string;
@@ -1241,7 +1334,10 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
         { operation: 'meeting_provision' }
       );
     }
-    const endsAtIso = new Date(startsAtMs + durationMinutes * MINUTE_MS).toISOString();
+    // The projection's `ends_at` is NOT derived here any more (Sol R6): every RPC that
+    // publishes reads it off `zoom_meetings.ends_at`, the STORED generated column, so
+    // the window the UI shows and the window the EXCLUDE constraint defends are the
+    // same value rather than two computations that agree today.
 
     // --- Reservation ------------------------------------------------------
     const existing = await store.findMeetingBySurface(surfaceType, surfaceId);
@@ -1256,8 +1352,8 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
     const hasNumber = existing !== null && existing.zoom_meeting_number !== null;
 
     // What is left to DO for such a row is not the same question, and the answer is the
-    // row's status (Sol R3 ①). `markProvisioned` writes the number, the passcode, the
-    // join_url and the effective settings in ONE update, so a row that reached
+    // row's status (Sol R3 ①). The provisioning write lands the number, the passcode,
+    // the join_url and the effective settings in ONE transition, so a row that reached
     // `provisioned` — or a later lifecycle status — carries all of them: replaying it
     // just finishes the remaining steps. A row still `pending` with a number is the
     // other case entirely: an OPERATOR wrote that number by hand to resolve a parked
@@ -1268,7 +1364,7 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
     const alreadyCreated = hasNumber && !operatorRecovery;
 
     // Anchor 2: the previous attempt created at Zoom and checkpointed, then died before
-    // `markProvisioned` landed. The checkpoint is only adoptable onto the row it names —
+    // the provisioning write landed. The checkpoint is only adoptable onto the row it names —
     // a checkpoint whose `meeting_id` is not this surface's row is stale, and writing it
     // anywhere else would corrupt a different reservation.
     const checkpoint = readCreatedCheckpoint(ctx.job.stage_state);
@@ -1408,11 +1504,11 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
     }
 
     // --- Create at Zoom ---------------------------------------------------
+    // EVERY branch below publishes the projection inside its own guarded RPC. There is
+    // no trailing projection write in this handler any more, and no way to make one:
+    // `ProvisionPublicClient` no longer carries an `upsert`.
     let zoomMeetingNumber: number;
     let effectiveAutoRecording: string;
-    // Recovery and adoption publish inside their guarded RPC. Every other path still
-    // uses the ordinary projection call below.
-    let projectionPublishedAtomically = false;
 
     if (alreadyCreated) {
       zoomMeetingNumber = existing.zoom_meeting_number as number;
@@ -1421,6 +1517,32 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
       // DERIVED from those persisted settings, never assumed — a row provisioned with
       // drifted `auto_recording` must still report the drift on every replay.
       effectiveAutoRecording = readAutoRecording(existing.effective_settings);
+
+      // --- The replay projection is DERIVED, not asserted (Sol R6 ②) ------
+      // This branch used to re-upsert a hard-coded `scheduled` through an unguarded
+      // ON CONFLICT DO UPDATE, so a redelivered job arriving after `meeting.started`
+      // put the badge back to `scheduled` for a meeting that was live — or over an
+      // `ended` one. The status is now read off the internal row INSIDE the RPC,
+      // under FOR UPDATE, behind the same never-backward guard the webhook path uses.
+      //
+      // No heartbeat guards this call, and none is needed: unlike recovery, nothing
+      // here is a verdict this process formed before a network round trip. The value
+      // written is whatever the row says at the moment of writing, so a worker whose
+      // lease was stolen an hour ago still publishes the truth. That is also what
+      // makes it HEALING — a surface whose projection never landed gets one created
+      // at the meeting's real status, `ended` included.
+      const synced = await store.syncProjectionFromMeeting(
+        meetingId,
+        session.growth_community_id
+      );
+      if (synced === 'not_publishable' || synced === 'missing') {
+        // Neither is retryable in a useful way. `missing` especially must NOT throw:
+        // a retry would find no row, take the fresh path, and create a SECOND meeting
+        // for a surface that already has one at Zoom.
+        console.warn(
+          `[meeting-provision] projection sync for meeting ${meetingId} (zoom ${zoomMeetingNumber}) returned '${synced}'; nothing was published.`
+        );
+      }
     } else if (operatorRecovery) {
       // Sol R3 ①. The operator recorded the number reconciliation found; the create
       // response that carried the passcode, the join_url and the effective settings is
@@ -1506,7 +1628,6 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
         };
         return superseded;
       }
-      projectionPublishedAtomically = true;
       zoomMeetingNumber = recorded;
       // Read off what Zoom just said, exactly as the create path does — §9.4 drift is
       // reported for a recovered meeting like any other.
@@ -1538,7 +1659,6 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
         };
         return superseded;
       }
-      projectionPublishedAtomically = true;
       zoomMeetingNumber = adoption.checkpoint.number;
       effectiveAutoRecording = readAutoRecording(adoption.checkpoint.settings);
     } else {
@@ -1598,7 +1718,7 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
       // Zoom's create has no idempotency key, so THIS is the irreversible step and the
       // next line is the narrowest the window gets: checkpoint what Zoom just minted
       // into the job's own `stage_state`, atomically with the lease extension, so a
-      // crash before `markProvisioned` resumes by ADOPTING rather than creating again.
+      // crash before the provisioning write resumes by ADOPTING rather than creating again.
       // The plaintext passcode is safe here in the §5 sense and adds no surface:
       // `stage_state` lives in `zoom_internal.zoom_jobs`, whose grants are service-role
       // only — the same exposure `zoom_meetings.passcode` already has.
@@ -1621,7 +1741,23 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
       // capability mismatch (§20) rather than refusing.
       effectiveAutoRecording = readAutoRecording(created.settings);
 
-      await store.markProvisioned(meetingId, {
+      // --- The fresh write is the SAME guarded transaction (Sol R6 ①) -----
+      // This used to be `markProvisioned` (an id-only UPDATE) followed by a separate
+      // `scheduled` projection upsert — the identical two-call gap R5 ① closed for
+      // recovery, and the PM's "a fresh create publishes into a projection that cannot
+      // pre-exist" framing did not save it: the race never needed a pre-existing
+      // projection. A worker that stalls after the checkpoint heartbeat, loses its
+      // lease, and wakes up to write finds a row another adopter has already finished
+      // and lifecycle has already advanced — and the id-only write resets it, then
+      // republishes `scheduled` over a `live` badge.
+      //
+      // No new function was needed. The row is at this instant EXACTLY
+      // `pending` + `zoom_meeting_number IS NULL` — the reservation INSERT/UPDATE put
+      // it there and nothing since has touched it — which is `adopt_checkpoint_meeting`'s
+      // compare-and-set verbatim, over the identical field set. The checkpoint
+      // heartbeat two statements up is the lease proof immediately before the write,
+      // exactly as adoption's argumentless heartbeat is.
+      const persisted = await store.adoptCheckpointMeeting(meetingId, {
         zoom_meeting_number: created.id,
         passcode: created.passcode,
         join_url: created.joinUrl,
@@ -1630,29 +1766,34 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
         // never keys on `recording_disclaimer` (ledger §9.4).
         effective_settings: created.settings as Record<string, unknown>,
         status: 'provisioned',
+        // Carried through so the §7 growth-community SELECT policy can match; a NULL
+        // here would make the projection invisible to exactly the members it is for.
+        growth_community_id: session.growth_community_id,
       });
       // zoom_meeting_uuid is deliberately NOT written — see the module header.
+
+      if (!persisted) {
+        // STOP before anything else, projection included. The winner's row is correct
+        // and this attempt has nothing left to contribute. The number is on the result
+        // because it is the only place it survives: completion REPLACES `stage_state`,
+        // taking the checkpoint that named it with it.
+        console.warn(
+          `[meeting-provision] fresh-create persistence SUPERSEDED for meeting ${meetingId} (zoom ${created.id}): the row left 'pending'/NULL-number between the post-create checkpoint and the write. Nothing written, nothing published. If the winner recorded a DIFFERENT number, zoom ${created.id} is an orphan at Zoom.`
+        );
+        const superseded: MeetingProvisionCreateSupersededResult = {
+          meeting_id: meetingId,
+          zoom_meeting_number: created.id,
+          persisted: false,
+          superseded: true,
+        };
+        return superseded;
+      }
       zoomMeetingNumber = created.id;
     }
 
-    // --- Projection -------------------------------------------------------
     // `consultor_sessions.meeting_link` is NEVER written: §8 keeps it NULL for managed
     // sessions, so the join path stays the authorized endpoint rather than a bare URL
     // sitting in a public column.
-    if (!projectionPublishedAtomically) {
-      await store.upsertProjection({
-        surface_type: surfaceType,
-        surface_id: surfaceId,
-        school_id: session.school_id,
-        // Carried through so the §7 growth-community SELECT policy can match; a NULL
-        // here would make the row invisible to exactly the members it is for.
-        growth_community_id: session.growth_community_id,
-        meeting_status: 'scheduled',
-        starts_at: startsAtIso,
-        ends_at: endsAtIso,
-      });
-    }
-
     const settingsDrift = effectiveAutoRecording !== 'none';
     if (settingsDrift) {
       console.warn(

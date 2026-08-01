@@ -404,8 +404,12 @@ describe('meeting_provision · mock-mode round trip (§15 Z1b DoD)', () => {
       payload: { surface_type: 'consultor_session', surface_id: SESSION_ID },
     });
 
-    // THE crash window: Zoom minted the meeting, the persist never landed.
-    vi.mocked(harness.store.markProvisioned).mockRejectedValueOnce(new Error('connection reset'));
+    // THE crash window: Zoom minted the meeting, the persist never landed. Since Sol R6
+    // the fresh-create persist IS `adoptCheckpointMeeting`, so that is what fails here;
+    // `mockRejectedValueOnce` leaves run 2's genuine adoption call working.
+    vi.mocked(harness.store.adoptCheckpointMeeting).mockRejectedValueOnce(
+      new Error('connection reset')
+    );
 
     const firstTick = await runZoomTick({
       queue: queueHarness.queue,
@@ -681,6 +685,96 @@ describe('meeting_provision · mock-mode round trip (§15 Z1b DoD)', () => {
     expect(harness.store.adoptCheckpointMeeting).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps ended public after REAL lifecycle lands in the FRESH-create write gap', async () => {
+    // Sol R6 ①. The fresh path used to be `markProvisioned` (id-only) → separate
+    // `scheduled` upsert. Drive a genuine started→ended through the moment between
+    // them: on old source the row ends `ended` while the late upsert publishes
+    // `scheduled` over it — a meeting that has finished, badged as upcoming. On new
+    // source the guarded RPC publishes first, so lifecycle can move BOTH forward and
+    // there is no late write left to undo it.
+    const fake = seedFake();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    let harnessRef: ReturnType<typeof createMemoryProvisionStore> | null = null;
+
+    const afterWrite = async (kind: 'recovery' | 'adoption', row: StoredMeeting) => {
+      if (kind !== 'adoption' || harnessRef === null) return;
+      const webhookStore = lifecycleStoreFor(
+        harnessRef,
+        row,
+        row.zoom_meeting_number as number
+      );
+      await applyWebhookLifecycle(webhookStore, 'meeting.started', {
+        id: String(row.zoom_meeting_number),
+        uuid: 'Fk+SyntheticUuid/sol6-fresh==',
+      });
+      await applyWebhookLifecycle(webhookStore, 'meeting.ended', {
+        id: String(row.zoom_meeting_number),
+      });
+    };
+
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      afterAtomicProvision: afterWrite,
+      afterLegacyProvisionWrite: afterWrite,
+    });
+    harnessRef = harness;
+
+    await createMeetingProvisionHandler({ api: fake, store: harness.store })(context());
+
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(row.status).toBe('ended');
+    // The visible half of the finding. `scheduled` here is the bug.
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('ended');
+
+    // ...and it is the guarded RPC that owns the fresh write now, with no unguarded
+    // writer left anywhere on the path.
+    expect(harness.store.adoptCheckpointMeeting).toHaveBeenCalledTimes(1);
+    expect(harness.store.markProvisioned).not.toHaveBeenCalled();
+    expect(harness.store.upsertProjection).not.toHaveBeenCalled();
+  });
+
+  it('completes a FRESH-create CAS miss as superseded, writing and publishing nothing', async () => {
+    // Sol R6 ①, the miss half. The rival lands in the one window the finding names:
+    // after the post-create checkpoint heartbeat, before the persist. The old id-only
+    // write noticed nothing and overwrote the winner's number; the CAS refuses.
+    const fake = seedFake();
+    const RIVAL_NUMBER = 82000009999;
+    let harness!: ReturnType<typeof createMemoryProvisionStore>;
+
+    const heartbeat = vi.fn(async (stageState?: Record<string, unknown>) => {
+      if (stageState?.stage === 'created') {
+        const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+        row.zoom_meeting_number = RIVAL_NUMBER;
+        row.status = 'provisioned';
+      }
+      return true;
+    });
+
+    harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+    const ctx: ZoomJobContext = { job: jobRow(), workerId: 'worker-1', heartbeat };
+
+    const result = await createMeetingProvisionHandler({ api: fake, store: harness.store })(ctx);
+
+    const ourNumber = fake.listMeetings()[0].id;
+    expect(result).toEqual({
+      meeting_id: (harness.meetingFor(SESSION_ID) as StoredMeeting).id,
+      zoom_meeting_number: ourNumber,
+      persisted: false,
+      superseded: true,
+    });
+
+    // The winner's row is untouched — not our number, not our passcode.
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.zoom_meeting_number).toBe(RIVAL_NUMBER);
+    expect(row.passcode).toBeNull();
+    // ...and nothing at all reached the UI.
+    expect(harness.projectionFor(SESSION_ID)).toBeUndefined();
+    expect(harness.store.upsertProjection).not.toHaveBeenCalled();
+    expect(harness.store.markProvisioned).not.toHaveBeenCalled();
+  });
+
   it('ignores a checkpoint that names a different row and creates normally', async () => {
     const fake = seedFake();
     const createSpy = vi.spyOn(fake, 'createMeeting');
@@ -941,6 +1035,138 @@ describe('meeting_provision · mock-mode round trip (§15 Z1b DoD)', () => {
 // ---------------------------------------------------------------------------
 // Sol F4 — ambiguous create outcomes never auto-create again
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Sol R6 ② — the already-provisioned replay
+// ---------------------------------------------------------------------------
+
+describe('meeting_provision · replay publishes a DERIVED projection (Sol R6 ②)', () => {
+  /** A row a previous run provisioned, moved on to `status` by lifecycle or an operator. */
+  function replayRow(status: StoredMeeting['status'], meetingNumber: number): StoredMeeting {
+    return {
+      id: `meeting-replay-${status}`,
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+      zoom_meeting_number: meetingNumber,
+      zoom_meeting_uuid: null,
+      passcode: 'replaypass',
+      join_url: `https://example-synthetic.test/j/${meetingNumber}`,
+      effective_settings: { join_before_host: false, waiting_room: false, auto_recording: 'none' },
+      status,
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+    };
+  }
+
+  function seedProjection(
+    harness: ReturnType<typeof createMemoryProvisionStore>,
+    meetingStatus: 'scheduled' | 'live' | 'ended' | 'cancelled'
+  ): void {
+    harness.projection.set(`consultor_session:${SESSION_ID}`, {
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      growth_community_id: COMMUNITY_ID,
+      meeting_status: meetingStatus,
+      starts_at: EXPECTED_STARTS_AT,
+      ends_at: EXPECTED_ENDS_AT,
+    });
+  }
+
+  it.each([
+    ['started', 'live'],
+    ['ended', 'ended'],
+    ['cancelled', 'cancelled'],
+  ] as const)(
+    'a redelivered job over a %s meeting leaves the badge at %s — never scheduled',
+    async (meetingStatus, publicStatus) => {
+      // The finding itself: the replay branch used to upsert a HARD-CODED `scheduled`
+      // through an unguarded ON CONFLICT DO UPDATE, so an at-least-once redelivery
+      // landing after `meeting.started` put a live meeting back to "upcoming".
+      const fake = seedFake();
+      const createSpy = vi.spyOn(fake, 'createMeeting');
+      const harness = createMemoryProvisionStore({
+        session: SESSION,
+        hosts: [HOST_POOL_A],
+        meetings: [replayRow(meetingStatus, 82000006100)],
+      });
+      seedProjection(harness, publicStatus);
+
+      const result = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+        context()
+      );
+
+      expect(result.created).toBe(false);
+      expect(createSpy).not.toHaveBeenCalled();
+      expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe(publicStatus);
+      // Derived from the row inside the RPC, so nothing in TypeScript asserted a status.
+      expect(harness.store.syncProjectionFromMeeting).toHaveBeenCalledWith(
+        `meeting-replay-${meetingStatus}`,
+        COMMUNITY_ID
+      );
+      expect(harness.store.upsertProjection).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([
+    ['started', 'live'],
+    ['ended', 'ended'],
+  ] as const)(
+    'a replay RECREATES a missing projection for a %s meeting, at %s (the healing case)',
+    async (meetingStatus, publicStatus) => {
+      // The sol2-era stranded-projection residual, structurally healed: because the
+      // status is READ rather than asserted, a surface whose projection never landed
+      // gets one at the meeting's real status — not a `scheduled` badge for a meeting
+      // that has already ended.
+      const fake = seedFake();
+      const harness = createMemoryProvisionStore({
+        session: SESSION,
+        hosts: [HOST_POOL_A],
+        meetings: [replayRow(meetingStatus, 82000006200)],
+      });
+      expect(harness.projectionFor(SESSION_ID)).toBeUndefined();
+
+      await createMeetingProvisionHandler({ api: fake, store: harness.store })(context());
+
+      expect(harness.projectionFor(SESSION_ID)).toMatchObject({
+        surface_type: 'consultor_session',
+        surface_id: SESSION_ID,
+        school_id: 77,
+        growth_community_id: COMMUNITY_ID,
+        meeting_status: publicStatus,
+        starts_at: EXPECTED_STARTS_AT,
+        ends_at: EXPECTED_ENDS_AT,
+      });
+      expect(harness.store.upsertProjection).not.toHaveBeenCalled();
+    }
+  );
+
+  it('publishes NOTHING for a replay over a row that failed before Zoom', async () => {
+    // `error` + a number is not a publishable state: the typed no-op keeps the RPC from
+    // announcing a meeting the internal machine never completed.
+    const fake = seedFake();
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [replayRow('error', 82000006300)],
+    });
+
+    const result = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context()
+    );
+
+    expect(result.created).toBe(false);
+    const outcomes = await Promise.all(
+      vi.mocked(harness.store.syncProjectionFromMeeting).mock.results.map((call) => call.value)
+    );
+    expect(outcomes).toEqual(['not_publishable']);
+    expect(harness.projectionFor(SESSION_ID)).toBeUndefined();
+    expect(harness.store.upsertProjection).not.toHaveBeenCalled();
+  });
+});
 
 describe('meeting_provision · ambiguous create outcomes', () => {
   /**

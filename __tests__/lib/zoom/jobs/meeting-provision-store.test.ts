@@ -151,16 +151,61 @@ describe('createSupabaseMeetingProvisionStore · atomic provision RPC wiring (So
     });
   });
 
-  it('leaves markProvisioned UNGUARDED for the fresh-create path', async () => {
-    // The contract deliberately did not change: the fresh-create path writes the row it
-    // just reserved after checkpointing the provider response.
-    const { store, requests } = interceptedStore([{ status: 204 }]);
+  it('exposes NO unguarded row or projection writer at all (Sol R6)', async () => {
+    // `markProvisioned` and `upsertProjection` were the last two ways this module could
+    // write without a guard, and the fresh-create/replay paths that called them now go
+    // through RPCs. Their ABSENCE is the fix, so it is asserted directly: a future
+    // "quick" reintroduction has to delete this line to pass.
+    const { store } = interceptedStore([{ status: 204 }]);
 
-    await store.markProvisioned(MEETING_ID, RECOVERY_PATCH);
+    expect(store).not.toHaveProperty('markProvisioned');
+    expect(store).not.toHaveProperty('upsertProjection');
+  });
+});
+
+describe('createSupabaseMeetingProvisionStore · projection sync RPC wiring (Sol R6 ②)', () => {
+  it('calls sync_projection_from_meeting with the id and the growth community', async () => {
+    const { store, requests } = interceptedStore([{ body: 'published' }]);
+
+    await expect(
+      store.syncProjectionFromMeeting(MEETING_ID, '44444444-4444-4444-8444-444444444444')
+    ).resolves.toBe('published');
 
     const [request] = requests;
-    expect(request.url.searchParams.get('id')).toBe(`eq.${MEETING_ID}`);
-    expect(request.url.searchParams.get('status')).toBeNull();
-    expect(request.url.searchParams.get('zoom_meeting_number')).toBeNull();
+    expect(request.method).toBe('POST');
+    expect(request.url.pathname).toBe('/rest/v1/rpc/sync_projection_from_meeting');
+    expect(request.headers.get('content-profile')).toBe('zoom_internal');
+    // No status and no window: the RPC DERIVES both from the internal row. Sending a
+    // status from here would be the very assertion Sol R6 ② removed.
+    expect(request.body).toEqual({
+      p_meeting_id: MEETING_ID,
+      p_growth_community_id: '44444444-4444-4444-8444-444444444444',
+    });
+  });
+
+  it.each(['blocked', 'not_publishable', 'missing'] as const)(
+    'passes the %s outcome through untranslated',
+    async (outcome) => {
+      const { store } = interceptedStore([{ body: outcome }]);
+      await expect(store.syncProjectionFromMeeting(MEETING_ID, null)).resolves.toBe(outcome);
+    }
+  );
+
+  it('refuses to invent an outcome from an unrecognised body', async () => {
+    const { store } = interceptedStore([{ body: 'something_new' }]);
+
+    await expect(store.syncProjectionFromMeeting(MEETING_ID, null)).rejects.toThrow(
+      /unknown outcome: something_new/
+    );
+  });
+
+  it('surfaces a sync RPC error as a throw, never as a quiet miss', async () => {
+    const { store } = interceptedStore([
+      { status: 400, body: { message: 'synthetic postgrest failure' } },
+    ]);
+
+    await expect(store.syncProjectionFromMeeting(MEETING_ID, null)).rejects.toThrow(
+      /sync_projection_from_meeting failed/
+    );
   });
 });

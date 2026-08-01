@@ -63,6 +63,14 @@ export const LIFECYCLE_ENDED_APPLIES_FROM = [
  * neither status overwrites `cancelled` (a cancelled session's badge is not the
  * lifecycle's to reopen). `scheduled` is the projection's initial value, written by
  * `meeting_provision`; the lifecycle only ever drives it forward from there.
+ *
+ * DRIFT WARNING (Z1b-sol6). These two sets have SQL twins with no shared code:
+ * the `ON CONFLICT ... WHERE` of `zoom_internal.sync_projection_from_meeting`
+ * (`supabase/migrations/20260731120000_zoom_provision_rpcs.sql`, section 3) applies
+ * the identical rule when `meeting_provision` republishes a projection derived from
+ * the internal row. Its `live` arm is this file's `PROJECTION_LIVE_APPLIES_FROM` and
+ * its `ended` arm is `PROJECTION_ENDED_APPLIES_FROM`; that function's header carries
+ * the reciprocal pointer back here. Change one, change the other.
  */
 export const PROJECTION_LIVE_APPLIES_FROM = ['scheduled', 'live'] as const;
 export const PROJECTION_ENDED_APPLIES_FROM = ['scheduled', 'live', 'ended'] as const;

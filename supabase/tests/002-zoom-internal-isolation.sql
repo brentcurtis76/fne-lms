@@ -18,10 +18,14 @@
 
 BEGIN;
 
-SELECT plan(74);
+SELECT plan(98);
 
 -- =============================================================================
--- A. Schema / grants / RLS isolation (20 asserts)
+-- A. Schema / grants / RLS isolation (29 asserts)
+--
+-- The count above is maintained by hand and had gone stale: it still said 20
+-- after Z1b-sol5 added 6 provisioning-RPC privilege asserts (Sol R6 ④). 26 was
+-- the truth at sol5; Z1b-sol6 adds 3 more for the projection-sync signature.
 -- =============================================================================
 
 SELECT is(has_schema_privilege('anon', 'zoom_internal', 'USAGE'), false,
@@ -108,6 +112,19 @@ SELECT is(has_function_privilege('service_role',
 SELECT is(has_function_privilege('service_role',
   'zoom_internal.adopt_checkpoint_meeting(uuid, bigint, text, text, jsonb, uuid)',
   'EXECUTE'), true, 'service_role can execute adopt_checkpoint_meeting');
+
+-- Z1b-sol6: the projection-sync signature is subject to the same boundary. It
+-- writes a PUBLIC table from a SECURITY DEFINER body, so an accidental grant here
+-- would hand `authenticated` a way to rewrite meeting badges.
+SELECT is(has_function_privilege('anon',
+  'zoom_internal.sync_projection_from_meeting(uuid, uuid)',
+  'EXECUTE'), false, 'anon cannot execute sync_projection_from_meeting');
+SELECT is(has_function_privilege('authenticated',
+  'zoom_internal.sync_projection_from_meeting(uuid, uuid)',
+  'EXECUTE'), false, 'authenticated cannot execute sync_projection_from_meeting');
+SELECT is(has_function_privilege('service_role',
+  'zoom_internal.sync_projection_from_meeting(uuid, uuid)',
+  'EXECUTE'), true, 'service_role can execute sync_projection_from_meeting');
 
 -- =============================================================================
 -- B. Job-queue behavior (26 asserts). Fixtures use dedicated job_types so the
@@ -485,6 +502,175 @@ SELECT ok((SELECT meeting_status = 'live'
              FROM public.session_meetings_public
             WHERE surface_id = 'ffffffff-1111-0000-0000-000000000006'),
   'adoption never moves a live projection backward or rewrites its window');
+
+RESET ROLE;
+
+-- =============================================================================
+-- E. Projection sync DERIVED from the internal row (21 asserts; Z1b-sol6, Sol R6
+-- ②). The replay path no longer asserts `scheduled` from TypeScript: the public
+-- status is read off zoom_meetings under FOR UPDATE and applied only forward.
+--
+-- The guard mirrors `PROJECTION_LIVE_APPLIES_FROM` / `PROJECTION_ENDED_APPLIES_FROM`
+-- in lib/zoom/webhook-store.ts. These asserts are what catches the two drifting
+-- apart, since they cannot share code.
+-- =============================================================================
+
+INSERT INTO zoom_internal.zoom_meetings
+  (id, surface_type, surface_id, school_id, zoom_meeting_number, status,
+   starts_at, duration_minutes)
+VALUES
+  -- provisioned, no projection yet → publishes scheduled
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'consultor_session',
+   'aaaaaaaa-1111-0000-0000-000000000001', 9901, 82000002001, 'provisioned',
+   '2026-10-01T14:00:00Z', 60),
+  -- started, projection still scheduled → advances to live
+  ('aaaaaaaa-0000-0000-0000-000000000002', 'consultor_session',
+   'aaaaaaaa-1111-0000-0000-000000000002', 9901, 82000002002, 'started',
+   '2026-10-02T14:00:00Z', 60),
+  -- ended, NO projection at all → the healing case, created at ended
+  ('aaaaaaaa-0000-0000-0000-000000000003', 'consultor_session',
+   'aaaaaaaa-1111-0000-0000-000000000003', 9901, 82000002003, 'ended',
+   '2026-10-03T14:00:00Z', 60),
+  -- provisioned, projection already ended → the finding: must NOT go back
+  ('aaaaaaaa-0000-0000-0000-000000000004', 'consultor_session',
+   'aaaaaaaa-1111-0000-0000-000000000004', 9901, 82000002004, 'provisioned',
+   '2026-10-04T14:00:00Z', 60),
+  -- started, projection cancelled → cancellation is terminal against live
+  ('aaaaaaaa-0000-0000-0000-000000000005', 'consultor_session',
+   'aaaaaaaa-1111-0000-0000-000000000005', 9901, 82000002005, 'started',
+   '2026-10-05T14:00:00Z', 60),
+  -- pending: nothing to announce
+  ('aaaaaaaa-0000-0000-0000-000000000006', 'consultor_session',
+   'aaaaaaaa-1111-0000-0000-000000000006', 9901, NULL, 'pending',
+   '2026-10-06T14:00:00Z', 60),
+  -- deleted over a live badge → cancelled
+  ('aaaaaaaa-0000-0000-0000-000000000007', 'consultor_session',
+   'aaaaaaaa-1111-0000-0000-000000000007', 9901, 82000002007, 'deleted',
+   '2026-10-07T14:00:00Z', 60),
+  -- cancelled over cancelled → idempotent, still applies
+  ('aaaaaaaa-0000-0000-0000-000000000008', 'consultor_session',
+   'aaaaaaaa-1111-0000-0000-000000000008', 9901, 82000002008, 'cancelled',
+   '2026-10-08T14:00:00Z', 60),
+  -- cancelled over ENDED → ended is terminal in this direction too
+  ('aaaaaaaa-0000-0000-0000-000000000009', 'consultor_session',
+   'aaaaaaaa-1111-0000-0000-000000000009', 9901, 82000002009, 'cancelled',
+   '2026-10-09T14:00:00Z', 60),
+  -- error: a row that never completed is not publishable either
+  ('aaaaaaaa-0000-0000-0000-000000000010', 'consultor_session',
+   'aaaaaaaa-1111-0000-0000-000000000010', 9901, 82000002010, 'error',
+   '2026-10-10T14:00:00Z', 60);
+
+INSERT INTO public.session_meetings_public
+  (surface_type, surface_id, school_id, meeting_status, starts_at, ends_at)
+VALUES
+  ('consultor_session', 'aaaaaaaa-1111-0000-0000-000000000002', 9901,
+   'scheduled', '2026-10-02T14:00:00Z', '2026-10-02T15:00:00Z'),
+  ('consultor_session', 'aaaaaaaa-1111-0000-0000-000000000004', 9901,
+   'ended', '2003-01-01T00:00:00Z', '2003-01-01T01:00:00Z'),
+  ('consultor_session', 'aaaaaaaa-1111-0000-0000-000000000005', 9901,
+   'cancelled', '2004-01-01T00:00:00Z', '2004-01-01T01:00:00Z'),
+  ('consultor_session', 'aaaaaaaa-1111-0000-0000-000000000007', 9901,
+   'live', '2005-01-01T00:00:00Z', '2005-01-01T01:00:00Z'),
+  ('consultor_session', 'aaaaaaaa-1111-0000-0000-000000000008', 9901,
+   'cancelled', '2006-01-01T00:00:00Z', '2006-01-01T01:00:00Z'),
+  ('consultor_session', 'aaaaaaaa-1111-0000-0000-000000000009', 9901,
+   'ended', '2007-01-01T00:00:00Z', '2007-01-01T01:00:00Z');
+
+SET LOCAL ROLE service_role;
+
+-- provisioned → scheduled, created from nothing.
+SELECT is(zoom_internal.sync_projection_from_meeting(
+  'aaaaaaaa-0000-0000-0000-000000000001', NULL),
+  'published', 'sync publishes scheduled for a provisioned meeting');
+SELECT ok((SELECT meeting_status = 'scheduled'
+                  AND starts_at = '2026-10-01T14:00:00Z'::timestamptz
+                  AND ends_at = '2026-10-01T15:00:00Z'::timestamptz
+                  AND provider = 'zoom'
+             FROM public.session_meetings_public
+            WHERE surface_id = 'aaaaaaaa-1111-0000-0000-000000000001'),
+  'sync takes the window off the row, not off a caller-supplied value');
+
+-- started → live, over a scheduled badge.
+SELECT is(zoom_internal.sync_projection_from_meeting(
+  'aaaaaaaa-0000-0000-0000-000000000002', NULL),
+  'published', 'sync advances a scheduled badge to live for a started meeting');
+SELECT is((SELECT meeting_status FROM public.session_meetings_public
+            WHERE surface_id = 'aaaaaaaa-1111-0000-0000-000000000002'),
+  'live', 'the derived status is live, never the hard-coded scheduled');
+
+-- THE HEALING CASE: ended meeting, no projection row at all.
+SELECT is(zoom_internal.sync_projection_from_meeting(
+  'aaaaaaaa-0000-0000-0000-000000000003', NULL),
+  'published', 'sync RECREATES a missing projection for an already-ended meeting');
+SELECT ok((SELECT meeting_status = 'ended'
+                  AND starts_at = '2026-10-03T14:00:00Z'::timestamptz
+                  AND ends_at = '2026-10-03T15:00:00Z'::timestamptz
+             FROM public.session_meetings_public
+            WHERE surface_id = 'aaaaaaaa-1111-0000-0000-000000000003'),
+  'the recreated projection is ended — not a scheduled badge for a finished meeting');
+
+-- THE FINDING: a late replay may never put an ended badge back to scheduled.
+SELECT is(zoom_internal.sync_projection_from_meeting(
+  'aaaaaaaa-0000-0000-0000-000000000004', NULL),
+  'blocked', 'sync refuses to move an ended projection back to scheduled');
+SELECT ok((SELECT meeting_status = 'ended'
+                  AND starts_at = '2003-01-01T00:00:00Z'::timestamptz
+             FROM public.session_meetings_public
+            WHERE surface_id = 'aaaaaaaa-1111-0000-0000-000000000004'),
+  'the blocked sync rewrote neither the status nor the window');
+
+-- cancelled is terminal against live.
+SELECT is(zoom_internal.sync_projection_from_meeting(
+  'aaaaaaaa-0000-0000-0000-000000000005', NULL),
+  'blocked', 'sync refuses to reopen a cancelled projection as live');
+SELECT is((SELECT meeting_status FROM public.session_meetings_public
+            WHERE surface_id = 'aaaaaaaa-1111-0000-0000-000000000005'),
+  'cancelled', 'the cancelled badge survives a started meeting');
+
+-- pending: nothing to publish, and nothing published.
+SELECT is(zoom_internal.sync_projection_from_meeting(
+  'aaaaaaaa-0000-0000-0000-000000000006', NULL),
+  'not_publishable', 'a pending meeting yields a typed no-op');
+SELECT is((SELECT count(*)::int FROM public.session_meetings_public
+            WHERE surface_id = 'aaaaaaaa-1111-0000-0000-000000000006'),
+  0, 'the pending no-op creates no projection row');
+
+-- deleted reads as cancelled to the UI, and cancellation beats live.
+SELECT is(zoom_internal.sync_projection_from_meeting(
+  'aaaaaaaa-0000-0000-0000-000000000007', NULL),
+  'published', 'a deleted meeting publishes over a live badge');
+SELECT is((SELECT meeting_status FROM public.session_meetings_public
+            WHERE surface_id = 'aaaaaaaa-1111-0000-0000-000000000007'),
+  'cancelled', 'deleted maps to cancelled on the public projection');
+
+-- cancelled over cancelled: idempotent, applies rather than blocks.
+SELECT is(zoom_internal.sync_projection_from_meeting(
+  'aaaaaaaa-0000-0000-0000-000000000008', NULL),
+  'published', 'a repeated cancellation is idempotent, not a block');
+SELECT is((SELECT meeting_status FROM public.session_meetings_public
+            WHERE surface_id = 'aaaaaaaa-1111-0000-0000-000000000008'),
+  'cancelled', 'the repeated cancellation leaves the badge cancelled');
+
+-- ...but ended is terminal in the other direction too.
+SELECT is(zoom_internal.sync_projection_from_meeting(
+  'aaaaaaaa-0000-0000-0000-000000000009', NULL),
+  'blocked', 'sync refuses to cancel a projection that already ended');
+SELECT is((SELECT meeting_status FROM public.session_meetings_public
+            WHERE surface_id = 'aaaaaaaa-1111-0000-0000-000000000009'),
+  'ended', 'the ended badge survives a cancelled meeting row');
+
+-- error: also not publishable.
+SELECT is(zoom_internal.sync_projection_from_meeting(
+  'aaaaaaaa-0000-0000-0000-000000000010', NULL),
+  'not_publishable', 'an errored meeting yields a typed no-op');
+SELECT is((SELECT count(*)::int FROM public.session_meetings_public
+            WHERE surface_id = 'aaaaaaaa-1111-0000-0000-000000000010'),
+  0, 'the errored no-op creates no projection row');
+
+-- A vanished row is reported, never guessed at.
+SELECT is(zoom_internal.sync_projection_from_meeting(
+  'aaaaaaaa-0000-0000-0000-0000000000ff', NULL),
+  'missing', 'sync reports a missing internal row instead of publishing');
 
 RESET ROLE;
 

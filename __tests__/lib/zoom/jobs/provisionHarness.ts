@@ -15,6 +15,7 @@ import { vi } from 'vitest';
 import type {
   MeetingProvisionStore,
   AtomicProvisionPatch,
+  ProjectionSyncOutcome,
   ProjectionUpsert,
   ProvisionHostRow,
   ProvisionMeetingRow,
@@ -33,6 +34,7 @@ import type {
   CompleteZoomJobArgs,
   FailZoomJobArgs,
   HeartbeatZoomJobArgs,
+  SessionMeetingPublicStatus,
   ZoomJobInsert,
   ZoomJobRow,
   ZoomJobStatus,
@@ -91,19 +93,59 @@ export interface ProvisionHarnessSeed {
     kind: 'recovery' | 'adoption',
     row: StoredMeeting
   ) => void | Promise<void>;
-  /** Negative-control seam used only when reverting the handler to pre-sol5 source. */
+  /** Negative-control seam used only when reverting the handler to pre-sol5/sol6 source. */
   afterLegacyProvisionWrite?: (
     kind: 'recovery' | 'adoption',
     row: StoredMeeting
   ) => void | Promise<void>;
 }
 
+/**
+ * Methods PRODUCTION NO LONGER HAS. They live on the double so a fail-on-old run can
+ * revert only `lib/zoom/jobs/meeting-provision.ts` and still find the seams the old
+ * source calls:
+ *
+ *  - `markRecoveredProvisioned` — the pre-sol5 recovery CAS.
+ *  - `markProvisioned` — the pre-sol6 UNGUARDED fresh-create/adoption row write.
+ *  - `upsertProjection` — the pre-sol6 UNGUARDED `scheduled` projection write, the one
+ *    Sol R6 ② is about.
+ *
+ * Keeping the last two also keeps the handler suite's `not.toHaveBeenCalled()` guards
+ * meaningful: they now assert that no unguarded write path was reintroduced.
+ */
 interface LegacyProvisionStore {
   markRecoveredProvisioned(
     meetingId: string,
     patch: ProvisionedMeetingPatch
   ): Promise<boolean>;
+  markProvisioned(meetingId: string, patch: ProvisionedMeetingPatch): Promise<void>;
+  upsertProjection(row: ProjectionUpsert): Promise<void>;
 }
+
+/**
+ * The §8 internal status → §6/§7 public badge map, and the never-backward guard, as
+ * `zoom_internal.sync_projection_from_meeting` implements them. A second implementation
+ * on purpose: if the SQL and this drift, the pgTAP behavior asserts and these unit tests
+ * disagree, which is exactly the alarm we want.
+ */
+const PUBLIC_STATUS_FOR_MEETING: Partial<Record<ZoomMeetingStatus, SessionMeetingPublicStatus>> = {
+  provisioned: 'scheduled',
+  started: 'live',
+  ended: 'ended',
+  cancelled: 'cancelled',
+  deleted: 'cancelled',
+};
+
+/** Which existing public statuses each target may overwrite. Mirrors the SQL CASE. */
+const PROJECTION_APPLIES_FROM: Record<
+  SessionMeetingPublicStatus,
+  readonly SessionMeetingPublicStatus[]
+> = {
+  scheduled: ['scheduled'],
+  live: ['scheduled', 'live'],
+  ended: ['scheduled', 'live', 'ended'],
+  cancelled: ['scheduled', 'live', 'cancelled'],
+};
 
 export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
   const meetings: StoredMeeting[] = [...(seed.meetings ?? [])];
@@ -234,6 +276,12 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
       }
     ),
 
+    /**
+     * Test-only pre-sol6 compatibility: the UNGUARDED fresh-create/adoption row write.
+     * Production replaced it with `adoptCheckpointMeeting`; the double keeps it so a
+     * reverted handler still runs. The `'adoption'` hook kind is shared with the
+     * atomic path so one negative-control test drives both sources.
+     */
     markProvisioned: vi.fn(async (meetingId: string, patch: ProvisionedMeetingPatch) => {
       const row = meetings.find((candidate) => candidate.id === meetingId);
       if (!row) throw new Error(`no such meeting ${meetingId}`);
@@ -318,6 +366,43 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
       }
     ),
 
+    /**
+     * `zoom_internal.sync_projection_from_meeting` in TypeScript: derive the public
+     * status from the CURRENT row, then apply it only forward. Never invents a window —
+     * `starts_at`/`ends_at` come off the row, as the SQL takes them off the stored
+     * generated column.
+     */
+    syncProjectionFromMeeting: vi.fn(
+      async (
+        meetingId: string,
+        growthCommunityId: string | null
+      ): Promise<ProjectionSyncOutcome> => {
+        const row = meetings.find((candidate) => candidate.id === meetingId);
+        if (!row) return 'missing';
+
+        const target = PUBLIC_STATUS_FOR_MEETING[row.status];
+        if (target === undefined) return 'not_publishable';
+
+        const key = `${row.surface_type}:${row.surface_id}`;
+        const current = projection.get(key);
+        if (current && !PROJECTION_APPLIES_FROM[target].includes(current.meeting_status)) {
+          return 'blocked';
+        }
+        projection.set(key, {
+          surface_type: row.surface_type,
+          surface_id: row.surface_id,
+          school_id: row.school_id,
+          growth_community_id: growthCommunityId,
+          meeting_status: target,
+          starts_at: row.starts_at,
+          ends_at: new Date(
+            Date.parse(row.starts_at) + row.duration_minutes * MINUTE_MS
+          ).toISOString(),
+        });
+        return 'published';
+      }
+    ),
+
     markError: vi.fn(async (meetingId: string, lastError: string) => {
       const row = meetings.find((candidate) => candidate.id === meetingId);
       if (!row) throw new Error(`no such meeting ${meetingId}`);
@@ -341,6 +426,11 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
       row.last_error = lastError;
     }),
 
+    /**
+     * Test-only pre-sol6 compatibility: the UNGUARDED projection write. Deliberately
+     * models NO guard — clobbering `live`/`ended` back to `scheduled` is precisely the
+     * behavior the Sol R6 ② negative controls have to be able to reproduce.
+     */
     upsertProjection: vi.fn(async (row: ProjectionUpsert) => {
       projection.set(`${row.surface_type}:${row.surface_id}`, { ...row });
     }),

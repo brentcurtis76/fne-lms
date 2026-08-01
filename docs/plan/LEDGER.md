@@ -334,3 +334,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: deviations accepted; record corrected (main Decision Log addendum).
 - BACKLOG ADDED: consider pinning `[db] major_version` in supabase/config.toml so local/CI/prod versions are chosen, not inherited (surfaced by this round; owner/DB-agent call).
 - OPEN AFTER THIS ROUND: **A2 ready for scoped Codex confirmation (round 3, on Brent's authority per §1.5).**
+
+### 2026-07-31 — A2 close — Fable (PM, per SOP §3.8)
+- CONTEXT PRESSURE: n/a
+- ACTION: Scoped Codex confirmation = **PASS, zero findings, zero residue** (REVIEW-A2-R3.md, committed with this entry; Codex independently verified the PG17.6 ACL state, 58/58 suite, the PG15.8 skip branch, and CI 30705595846). Phase DONE in PLAN.md (head `e13adfb`, PR #31). Built vs planned: +2 remediation rounds beyond r1 — both Codex catches (TRUNCATE via default grants; PG17 MAINTAIN via denylist form) hardened into permanent standards: amended D-04 + **grant-list form binding B3's five tables** + ACL-level pgTAP pins. SHOULD-FIX in backlog: config.toml `major_version` pin consideration. Next-phase re-read (§3.8.5): A5's spec already carries the forward notes (service-role-only access — anon cannot SELECT; named UNIQUE constraint for the 23505 dedup branch; transition graph lives app-layer). A3/A4 unaffected. **Post-merge owner step: the migration must be APPLIED to the production database** (merge only lands the file; per the DB-safety rules the PM will not touch prod without Brent's explicit word).
+- COMMITS: (this close commit)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: —
+- BACKLOG ADDED: none new
+- OPEN AFTER THIS ROUND: reconcile branch with main → CI → **Brent's merge go for PR #31**, then his word on applying the migration to prod.

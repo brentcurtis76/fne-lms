@@ -313,13 +313,64 @@ no longer green-on-old (it now asserts the new guard; green-at-head is the DoD's
 intent). The adoption-branch exemption argument is PM-verified: pre-adoption rows carry
 `zoom_meeting_number = NULL` and the lifecycle finds rows BY number
 (`findMeetingIdByNumber`), so no lifecycle event can reach one — the race is
-structurally absent there, not merely unhandled.
+structurally absent there, not merely unhandled. *[ERRATUM sol5, Sol R5 ②: TRUE for
+lifecycle-direct but FALSE overall — the PM's argument missed the dual-adopter
+interleaving: a stale reclaimed adopter's unguarded write lands after the fresh
+adopter's number made the row lifecycle-reachable. The exemption was removed in sol5;
+adoption is now heartbeat-guarded and CAS-atomic with its projection]*
 
 **Residuals**: `superseded` has no reader yet (shaped for the §18 health query, Z12);
 the projection race variant "already at ended, not overwritten" is unreachable from a
 parked create (a parked row never published a projection) — the tests assert
 no-projection-call + `undefined`, and covering the seeded-artificial state is left to
-Sol's discretion.
+Sol's discretion. *[ERRATUM sol5, Sol R5 ①: this framing analyzed the wrong window —
+the REAL race was the CAS→projection two-call gap itself: a webhook landing between
+them no-ops on the not-yet-existing projection and the late `scheduled` INSERT then
+stands forever. Closed in sol5 by making transition + projection one SECURITY DEFINER
+transaction]*
+
+## 7f. Sol-R5 remediation record (Z1b-sol5, 2026-07-31)
+
+Sol R5: REQUEST CHANGES — 2 findings + docs; two PM concessions (§7e's errata above;
+and sol4's review-request omission was a PM verification slip — the per-round record
+convention broke silently and the re-review missed it; backfilled by the executor this
+round). Fixed in `cfe22fb` (fix) + `d40affd` (docs; sol4 backfill + sol5 record). A
+STEP-0 stop preceded the round: the executor found untracked `supabase/.branches/` (a
+4-byte Supabase-CLI state file left by the PM's own verification runs), stopped with
+zero writes, and resumed on explicit PM approval — the discipline working; `.branches`
+in `.gitignore` is a noted one-line hygiene candidate for a later round.
+
+The fix: NEW additive function-only migration `20260731120000_zoom_provision_rpcs.sql`
+— `recover_provisioned_meeting` + `adopt_checkpoint_meeting`, both SECURITY DEFINER +
+empty search_path + signature-specific grants + a blanket re-revoke that strips only
+the untrusted roles (prior service-role grants survive — PM-verified). Each function is
+ONE transaction: the CAS (recovery: `pending` + recorded number; adoption: `pending` +
+number IS NULL; `GET DIAGNOSTICS` exactly-one) then the projection publish whose ON
+CONFLICT update is guarded `WHERE meeting_status='scheduled'` — `live`/`ended`/
+`cancelled` are never regressed. Row-lock serialization gives the exact spec property:
+lifecycle either wins before the CAS (miss, nothing written) or arrives after the
+atomic commit and finds the projection to advance. The adoption branch lost its
+exemption: argumentless heartbeat first (LeaseLost ⇒ zero writes), miss ⇒ structured
+supersession matching recovery.
+
+**PM verification**: migration read whole; handler wiring + heartbeat placement
+verified; fail-on-old re-executed — **11/64 fail** with the pre-sol5 handler (the
+executor's 8 named + 3 rewired recovery assertions, the usual consistent superset),
+64/64 at head; **pgTAP 115/115 on a clean reset, re-executed**, and the executor's
+negative control REPLICATED by the PM (migration removed ⇒ 002 aborts at the first
+missing signature, "Failed 54/74 after 20 executed" — honestly reported as an abort,
+not dressed as independent failures; restored ⇒ 115/115 again); gates at `d40affd`:
+**3735/3735 in 240 files** (+5/+0), build OK, `test:queue` PASS (20/20 — a fourth
+distinct split); CI 8/8; scans CLEAN. All six deviations ACCEPTED (the pre-authorized
+wire-assertion rewire executed as authorized; `cancelled` added to the preserved set;
+full-payload RPC signatures; schema-qualification under the empty search_path).
+
+**Residuals**: fresh-create and already-provisioned replay RETAIN their existing
+two-call `markProvisioned`/projection paths — outside R5's findings by its own scope;
+their race exposure differs (fresh-create publishes into a projection that cannot
+pre-exist; replay re-upserts idempotently) but they are NOT covered by the new atomic
+RPCs — recorded for Sol R6's judgment and as the natural Z2 hardening baseline (any
+future provision path should build on the atomic RPCs, not the two-call shape).
 
 ## 8. Exact local gate commands
 

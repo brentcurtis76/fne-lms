@@ -10,9 +10,9 @@
 | Branch | `feat/zoom-core` (PR [#26](https://github.com/brentcurtis76/fne-lms/pull/26), **draft — not marked ready**) |
 | Base | `origin/main` @ `18057e2` (absorbed mid-phase via merge `5d54f12`, which brought the contracts track `c878ec7`) |
 | Implementation head, Z1b-4·r1 | `ae210a5` (`4b71b3c` → `ccb8fce` → `ae210a5`) |
-| Head at THIS request | **Z1b-sol5** implementation `cfe22fb` plus the review-record commit containing this section |
-| Commits ahead of `origin/main` | **57** through `cfe22fb`; this review-record commit is the 58th |
-| `origin/main` this round | **deliberately NOT merged** — Sol R6's scope is the Z1b-sol5 remediation only |
+| Head at THIS request | **Z1b-sol6** implementation `1490187` plus the review-record commit containing the sol6 section |
+| Commits ahead of `origin/main` | **61** through `1490187`; this review-record commit is the 62nd |
+| `origin/main` this round | **deliberately NOT merged** — Sol R7's scope is the Z1b-sol6 remediation only |
 | Net diff vs `origin/main` (at `ae210a5`) | 53 files, +11734/−70 |
 | This chunk (Z1b-4) alone | merge `5d54f12` + 3 commits; 15 files, +2484/−92 |
 | Z1b-4·r1 remediation | `ccb8fce` (fix + tests + `PROJECT_STATE.md`) + `ae210a5` (type-clean); 2 PM findings, no scope beyond them |
@@ -387,6 +387,155 @@ existing `markProvisioned`/projection paths; they were outside both R5 findings 
 mistaken for coverage by the new RPCs. The new RPCs intentionally do not contact Zoom or resolve
 ambiguous meetings themselves. `supabase/.branches/`, if recreated by local Supabase gates, is CLI
 state only and must remain untracked/uncommitted; its final presence is reported separately.
+
+> **Superseded by Z1b-sol6.** Sol R6 ruled that residual a finding, not a Z2 baseline, and the PM
+> triaged it VALID — conceding the "a fresh create publishes into a projection that cannot
+> pre-exist" framing above. See the next section.
+
+## Sol R6 remediation — round Z1b-sol6
+
+Sol R6 reviewed Z1b-sol5 and returned **REQUEST CHANGES** with two concurrency findings, their
+regressions, and a docs item; the PM triaged **all four VALID**
+(`docs/planning/reviews/fase-3-review-verdict.md`, Round 6 + PM triage). ① is
+concession-flavoured: the §7f framing that kept fresh-create out of R5's scope was wrong, because
+the R5 race never required a pre-existing projection — a pre-existing projection was what the race
+PRODUCED. The round base is `ae05331`; implementation commit `1490187` plus this documentation
+commit are the round's **2 commits**. `origin/main` was not merged, the PM dossier was not edited,
+and no live Zoom or deployment action was performed.
+
+### Objective and scope — Z1b-sol6
+
+**Objective.** Make the last two provisioning persistence paths — fresh create and
+already-provisioned replay — atomic and monotonic, so that every write in this handler is one
+guarded transaction and no unguarded writer is left in the module at all.
+
+**In scope:** reuse of `adopt_checkpoint_meeting` for the fresh-create persist; one additive
+service-role-only `SECURITY DEFINER` projection-sync function with `SET search_path = ''`;
+removal of `markProvisioned`, `upsertProjection` and the public client's `upsert` seam; the
+structured fresh-create supersession result; handler, production-store and pgTAP regressions;
+002's stale section-A count comment; this record.
+
+**Out of scope:** the PM-owned dossier (its "re-upserts idempotently" ruling and stale §8 figure
+are the PM's corrections at approval), other job types, Zoom API behaviour, UI, dependencies, CI,
+`origin/main`, destructive schema changes, live account calls, and deployment.
+
+### Fixes, commits, and files by risk — Z1b-sol6
+
+| SHA | Finding | What changed |
+|---|---|---|
+| `1490187` | **① atomic fresh create** | The fresh path's `markProvisioned` → projection-upsert pair is replaced by ONE call to the EXISTING `adopt_checkpoint_meeting`. The fit was verified, not assumed: at that instant the row is exactly `pending` + `zoom_meeting_number IS NULL` (the reservation INSERT/UPDATE put it there; nothing since has touched it), which is that RPC's CAS verbatim, over the identical field set including `last_error = NULL`; `growth_community_id` comes from the same `session` row the projection already used. The post-create checkpoint heartbeat is the lease proof immediately before the write, mirroring adoption's argumentless one. A miss returns `MeetingProvisionCreateSupersededResult` and writes nothing. |
+| `1490187` | **② monotonic + healing replay** | New `zoom_internal.sync_projection_from_meeting(uuid, uuid)`: `SELECT … FOR UPDATE` the internal row, derive the public status (`provisioned→scheduled · started→live · ended→ended · cancelled→cancelled · deleted→cancelled`; `pending`/`error` ⇒ typed `not_publishable` no-op), then `INSERT … ON CONFLICT DO UPDATE` behind a never-backward guard. The replay branch calls it instead of upserting `scheduled`. Because the status is READ, the same call recreates a missing projection at the meeting's real status. |
+| `1490187` | **② vector removal** | `upsertProjection` had exactly one caller (shared by fresh create and replay) and `markProvisioned` exactly one; after ① and ② both had zero. Both are removed from `MeetingProvisionStore` and the Supabase store, and `ProvisionPublicClient` lost its `upsert` member — the module can no longer write `public.session_meetings_public` at all except through a guarded RPC. |
+| `1490187` | **③ regressions** | See the evidence table below. |
+| (this commit) | **④ docs** | This section. 002's section-A count comment was corrected in `1490187` alongside the asserts it counts. |
+
+Implementation diff `ae05331..1490187`: **7 files, +895/−71**.
+
+- **Highest:** `supabase/migrations/20260731120000_zoom_provision_rpcs.sql` (+130/−2, amended in
+  place — the branch-only precedent set by F2 in sol1) — the derived-status projection sync, its
+  never-backward guard, and the grants/revokes for the third signature.
+- **High:** `lib/zoom/jobs/meeting-provision.ts` (+197/−56) — the fresh-create RPC call and its
+  supersession branch, the replay sync call, and the removal of both unguarded writers.
+- **High:** `supabase/tests/002-zoom-internal-isolation.sql` (+180/−10) — EXECUTE isolation for the
+  new signature plus 21 real-database behaviour asserts for the status map, the guard in both
+  directions, the healing case and the typed no-ops.
+- **Medium:** `__tests__/lib/zoom/jobs/meeting-provision.test.ts`,
+  `meeting-provision-store.test.ts` — lifecycle-in-the-gap, CAS miss, replay monotonicity/healing,
+  and the RPC wire assertions.
+- **Lower:** `__tests__/lib/zoom/jobs/provisionHarness.ts` — the projection-sync model and two more
+  test-only legacy seams. `lib/zoom/webhook-store.ts` (+8) — comment only: the reciprocal
+  drift pointer to the SQL guard.
+
+### Fail-on-old evidence — Z1b-sol6
+
+Captured by reverting ONLY the file under test to `ae05331` and re-running the new suites at the
+new head, then restoring.
+
+| Control | Pre-fix observation |
+|---|---|
+| `meeting-provision.ts` @ `ae05331`, handler suite | **9 failed / 58 passed of 67.** 8 are genuine: the fresh-create lifecycle gap (`expected 'scheduled' to be 'ended'`), the fresh-create CAS miss (`expected { meeting_id: 'meeting-1', …(6) } to deeply equal { meeting_id: 'meeting-1', …(3) }` — the old source returned a full provisioned result and clobbered the winner's number), the three replay-monotonicity cases (`expected 'scheduled' to be 'live'` / `'ended'` / `'cancelled'`), the two healing cases, and the `not_publishable` no-op. The 9th — "adopts the post-create checkpoint after a genuine mid-crash" — is a REWIRE artifact, not a regression signal: its crash injection moved from `markProvisioned` to `adoptCheckpointMeeting` because that is now the fresh-create persist, so on old source no crash is injected at all. Stated plainly rather than counted as proof. |
+| `meeting-provision.ts` @ `ae05331`, store suite | **7 failed / 4 passed of 11** — the five `sync_projection_from_meeting` wire tests plus the outcome-passthrough case (the method does not exist), and the assertion that the store exposes NEITHER `markProvisioned` NOR `upsertProjection` (on old source it exposes both). |
+| migration @ `ae05331`, clean reset + pgTAP | 002 aborted at the FIRST new assert: `ERROR: function "zoom_internal.sync_projection_from_meeting(uuid, uuid)" does not exist`, reported as `Failed 72/98 subtests`, `Bad plan. You planned 98 tests but ran 26`. This proves the old schema cannot satisfy the 24 new assertions; it does NOT claim all 24 executed individually. The migration was restored and a clean reset then passed all 139. |
+
+### Gates at the Z1b-sol6 head
+
+| Gate | Result at implementation head `1490187` |
+|---|---|
+| `npm run type-check` | clean (exit 0) |
+| `npm run lint` | clean, zero warnings (exit 0) |
+| `npm test` | **3749/3749 in 240 files** (from 3735/240; +8 handler, +6 store) |
+| `npm run build` | OK — full route table generated |
+| `supabase db reset` + `npm run test:db` | **PASS — 6 files, 139 tests** (from 115; +24 in 002, whose own plan goes 74 → 98) |
+| `npm run test:queue` | **PASS — 40/40 exactly once**, concurrent split **21/19** |
+
+`supabase/.branches/` did **not** reappear during this round's local database gates; the working
+tree at the implementation commit contained the seven intended files and nothing else.
+
+### Deviations and judgment calls — Z1b-sol6
+
+1. **Reuse, not a new function, for ①.** The fit was checked field by field before committing to
+   it — CAS predicate, the five written columns plus `last_error`, and the `growth_community_id`
+   parameter all match exactly. No generalized finalization RPC was needed, so none was written.
+2. **A THIRD supersession shape, because the existing one would have lied.**
+   `MeetingProvisionAdoptionSupersededResult` says `adopted: false`, and a fresh-create miss
+   adopted nothing — it created. The two states also differ operationally: an adoption miss means
+   somebody persisted the same checkpoint (nothing lost), while a fresh-create miss is EITHER that
+   or a rival that created a different meeting, leaving ours orphaned at Zoom. This process cannot
+   tell which, so the result claims neither; it carries the number and the `console.warn` says
+   plainly that it is an orphan only if the winner recorded a different one.
+3. **The sync signature takes a second parameter.** `zoom_meetings` has no `growth_community_id`,
+   and the projection needs it for the §7 growth-community SELECT policy, so the function is
+   `(p_meeting_id uuid, p_growth_community_id uuid)` rather than the one-argument sketch.
+4. **Self-transitions are allowed by the guard.** `→ live` applies from `{scheduled, live}` and
+   `→ ended` from `{scheduled, live, ended}` — the SQL twins of the two `webhook-store.ts`
+   constants, which include their own target for the same reason (a duplicate delivery must
+   re-apply harmlessly). `→ cancelled` likewise applies from `{scheduled, live, cancelled}`, which
+   is what makes `deleted → cancelled` idempotent; `→ scheduled` applies only from `scheduled`.
+   `ended` and `cancelled` are terminal against each other in BOTH directions.
+5. **`markProvisioned` was removed too, though the finding named only `upsertProjection`.** After
+   ① it had zero production callers, and the reasoning Sol gave for removing the one applies
+   verbatim to the other: an unguarded write left lying around is the vector. Both survive in the
+   test harness as explicitly-labelled legacy seams so fail-on-old can revert one source file.
+6. **`missing` and `not_publishable` warn and COMPLETE; they do not throw.** Throwing on `missing`
+   would be actively dangerous: the retry would find no row, take the fresh path, and create a
+   SECOND meeting for a surface Zoom already holds one for.
+7. **No heartbeat guards the replay sync,** and that is deliberate. Unlike recovery, nothing here
+   is a verdict formed before a network round trip — the value written is read inside the same
+   transaction it is written in, so even a worker whose lease was stolen an hour ago can only
+   publish the current truth.
+8. **Migration amended in place** rather than adding a second file, following sol1's F2 precedent:
+   this migration is branch-only and is re-applied from scratch by CI and `supabase db reset`.
+   Nothing was dropped or altered destructively; `adopt_checkpoint_meeting` is byte-identical.
+9. **The projection's `ends_at` is no longer computed in TypeScript.** Every publishing RPC reads
+   it off `zoom_meetings.ends_at`, the STORED generated column, so the window the UI shows and the
+   window the §9 EXCLUDE constraint defends are one value rather than two that agree today.
+
+### What an independent reviewer should scrutinize hardest — Z1b-sol6
+
+1. **Is the fresh-path CAS actually always satisfiable?** The claim is that `pending` +
+   NULL-number holds at the write on every route into the create branch — fresh INSERT, resumed
+   reservation, re-reserved-after-drift, and the candidate walk over an `error` row. If any route
+   can arrive with a number already set, the fresh path would supersede itself forever.
+2. **The two copies of the applies-from rule.** `webhook-store.ts`'s constants and the SQL `CASE`
+   cannot share code. Check they agree, and that the pgTAP behaviour asserts would catch it if a
+   future edit moved one.
+3. **`deleted → cancelled`.** This is the one status mapping with no lifecycle precedent; the
+   webhook path never writes `cancelled`. Confirm that reading a `deleted` meeting as a cancelled
+   badge is right for the §7 surfaces, and that it cannot resurrect an `ended` one.
+4. **The supersession is a completion, three times over now.** Recovery, adoption and fresh create
+   all complete rather than fail on a CAS miss. Confirm the fresh-create case is not the one that
+   should reach the §18 triage panel, given it is the only one that can leave an orphan at Zoom.
+5. **Privilege boundary on the third signature.** `sync_projection_from_meeting` writes a PUBLIC
+   table from a `SECURITY DEFINER` body; only `service_role` may EXECUTE it, and the blanket
+   re-revoke at the end of the migration must not have missed it.
+
+**Known limitations / Sol R7 notes:** the create→checkpoint window documented in the module header
+is unchanged and remains irreducible without a Zoom-side idempotency key. A fresh-create CAS miss
+cannot distinguish "another worker adopted my checkpoint" from "another worker created a different
+meeting"; naming the number on the result is the whole mitigation. `sync_projection_from_meeting`
+is called only from the replay branch — Z2's reschedule/cancel flows are its obvious second caller
+and are not wired here. `supabase/.branches/`, if recreated by local Supabase gates, is CLI state
+only and must remain untracked/uncommitted.
 
 ## Objective and scope (from plan §15, Z1b)
 

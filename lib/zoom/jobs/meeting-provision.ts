@@ -109,6 +109,14 @@
  * `docs/runbooks/zoom.md`, which is NOT written yet (later phase); until it is, the
  * path is a human reading `zoom_jobs.last_error` and `stage_state` directly.
  *
+ * There is a SECOND way this handler can leave a meeting orphaned, and its remedy is the
+ * same manual one: a fresh create that loses the persist CAS to a writer holding a
+ * different number (`possible_orphan`, Sol R7 ① below). That one is named in
+ * `zoom_jobs.last_error.evidence.created_zoom_meeting_number` rather than in
+ * `stage_state`, because a completion would have replaced `stage_state` and a failure
+ * leaves it. Either way the cleanup is a human cancelling that meeting AT ZOOM; no
+ * database action resolves it, and no requeue attempts one.
+ *
  * ### The third case: create failed, and we do not know whether it landed (Sol F4)
  *
  * The two anchors answer "did a PREVIOUS attempt create?". Neither answers "did the
@@ -243,9 +251,8 @@
  *    puts `scheduled` over a `live` badge. It now goes through `adoptCheckpointMeeting`,
  *    the SAME RPC adoption uses, because the row at that instant IS `pending` +
  *    `zoom_meeting_number IS NULL`: the reservation put it there and nothing since has
- *    touched it. A CAS miss completes as `MeetingProvisionCreateSupersededResult`,
- *    carrying the number Zoom minted — the only place it survives, since completion
- *    replaces `stage_state` and the checkpoint with it.
+ *    touched it. What a CAS miss then MEANS is decided by reading the winner — see the
+ *    next section.
  *  - **Replay** re-upserted a hard-coded `scheduled` through the unguarded projection
  *    call, so a redelivered job landing after `meeting.started` clobbered the badge
  *    backwards. It now calls `sync_projection_from_meeting`, which DERIVES the public
@@ -258,6 +265,80 @@
  * `ProvisionPublicClient` no longer carries an `upsert` at all. Every persistence path in
  * this handler is now one guarded transaction; there is no unguarded write left to reach
  * for.
+ *
+ * ### An anomaly is not an outcome (Sol R7)
+ *
+ * R6 made every write guarded. It left two places where the guard FIRING was reported as
+ * success, and Sol ruled both findings:
+ *
+ *  - **The fresh-create CAS miss claimed neither outcome.** It completed with a warn
+ *    whose own text said "if the winner recorded a DIFFERENT number, zoom <id> is an
+ *    orphan" — an admission that the process had not looked. It was not a limit of what
+ *    can be known here: the winner's `zoom_meeting_number` is one SELECT away, and
+ *    `findMeetingBySurface` already selects it. The handler now re-reads the row and
+ *    RESOLVES the ambiguity. Equal to the number we created ⇒ the winner adopted our own
+ *    checkpoint, nothing is unaccounted for, and the job completes with
+ *    `MeetingProvisionCreateSupersededResult` — which carries `orphan_risk: false` as a
+ *    checked claim rather than a shrug. Different, or unreadable in any way (row gone,
+ *    number back to NULL, the read itself throwing) ⇒ `ZoomPossibleOrphanError`, terminal.
+ *  - **`missing` and `not_publishable` on the replay sync produced GREEN jobs.** A
+ *    vanished internal row and a meeting that can never be announced both looked exactly
+ *    like a clean replay to everything except a `console.warn`. They are now
+ *    `ZoomReplaySyncAnomalyError`, terminal, under `sync_missing_row` /
+ *    `sync_not_publishable`. The sol6 reasoning — "`missing` must not throw, because the
+ *    retry would create a second meeting" — had the danger right and the remedy wrong: a
+ *    NON-retryable failure has no retry, and the requeue lever a human can still pull is
+ *    closed by the gate below.
+ *
+ * Both failures carry structured `evidence` into `zoom_jobs.last_error` through the
+ * runner's failure record (`ZoomJobFailureRecord.evidence`) — meeting id and meeting
+ * numbers, in fields, not in a sentence. That column is the durable record: a losing
+ * attempt writes no row, and `complete_zoom_job` replaces `stage_state`, so nothing else
+ * survives to name the meeting. `zoom_jobs` is service-role-only by the §6 lockdown, so
+ * meeting numbers there are no new exposure.
+ *
+ * ### Resolving a terminal anomaly — the manual contract (Sol R7 ②)
+ *
+ * Enforced, not merely recorded, on the `ambiguous_unresolved` precedent. A requeued job
+ * whose `last_error` still records one of `TERMINAL_ANOMALY_REASONS` is refused at the top
+ * of the handler under `anomaly_unresolved`, non-retryably, with ZERO writes — but ONLY
+ * while the anchors cannot resolve it (`!hasNumber && adoption === null`), exactly as the
+ * row-marker gate sits after the anchors. A job whose underlying state has genuinely been
+ * repaired therefore takes the replay/recovery branch instead of the refusal, and needs no
+ * marker-clearing at all.
+ *
+ * One asymmetry with that precedent decides the shape of the refusal. The ambiguous-create
+ * marker lives on the ROW, and `fail_zoom_job` writes the JOB — two columns, so the
+ * refusal cannot disturb what the gate reads. Here they are the SAME column: the refusal
+ * record replaces the anomaly record. So `parseTerminalAnomalyMarker` matches the refusal
+ * shape as well as the anomaly shape, and every refusal re-states the original `reason`
+ * (in `detail`) and its `evidence` verbatim. Without both halves the first requeue would
+ * erase the orphaned meeting number and the second would find nothing to match and CREATE
+ * — the gate would have held exactly once. (`complete_zoom_job`, by contrast, leaves
+ * `last_error` alone, so evidence also survives on a job that later replays green.)
+ *
+ * The remedy is per-anomaly, because the anomalies are not the same event:
+ *
+ *  1. **`possible_orphan`.** `evidence.created_zoom_meeting_number` is a real meeting at
+ *     Zoom that no row points at. The remedy is NOT a database action: CANCEL IT AT ZOOM
+ *     (`evidence.winner_zoom_meeting_number` is the one to keep, when the row has one).
+ *     Then clear the JOB's `last_error`. Note the common case needs nothing: when the
+ *     winner's row carries its own number, a requeue is `hasNumber` and REPLAYS — it can
+ *     never re-enter creation, whatever the marker says. The orphan still has to be
+ *     cancelled by hand; that is the residual, not a queue problem.
+ *  2. **`sync_missing_row`.** The internal row vanished while a meeting exists at Zoom.
+ *     RESTORE the row carrying that number — the gate then stops matching and the requeue
+ *     replays. Clearing `last_error` instead would re-enable fresh creation and mint a
+ *     SECOND meeting; it is correct ONLY if the Zoom meeting is genuinely gone too. This
+ *     is the same one-way trap `ambiguous_create_outcome` has, and the gate refuses to
+ *     guess for the same reason.
+ *  3. **`sync_not_publishable`.** The row has a number and a status a replay can never
+ *     announce (`error`, in practice). REPAIR THE STATUS, then requeue. This one is
+ *     self-limiting even unresolved: the row has a number, so a requeue replays, fails
+ *     identically and creates nothing.
+ *
+ * Until §16's `docs/runbooks/zoom.md` exists, all three are a human reading
+ * `zoom_jobs.last_error` — `.reason`, `.detail` and `.evidence` — directly.
  */
 import { randomInt } from 'crypto';
 import { getSessionDateTime, SESSION_TIMEZONE } from '../../utils/session-timezone';
@@ -477,6 +558,227 @@ export class ZoomRecoveryUnusableError extends ZoomNonRetryableError {
     super(message, { operation: 'meeting_provision', requestId });
     this.detail = String(meetingNumber);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Terminal anomalies (Sol R7)
+// ---------------------------------------------------------------------------
+
+/** The fresh-create CAS miss resolved to "a meeting may be orphaned at Zoom". */
+export const POSSIBLE_ORPHAN_REASON = 'possible_orphan';
+/** The replay's projection sync found no internal row at all. */
+export const SYNC_MISSING_ROW_REASON = 'sync_missing_row';
+/** The replay's projection sync found a row in a state that cannot be announced. */
+export const SYNC_NOT_PUBLISHABLE_REASON = 'sync_not_publishable';
+
+/**
+ * The reasons that mean "this job stopped on an anomaly a HUMAN has to resolve", as
+ * opposed to one the next attempt can work through. A requeue is refused while the
+ * anchors still cannot resolve it — see `parseTerminalAnomalyReason` and the module
+ * header's resolution contract.
+ */
+export const TERMINAL_ANOMALY_REASONS = [
+  POSSIBLE_ORPHAN_REASON,
+  SYNC_MISSING_ROW_REASON,
+  SYNC_NOT_PUBLISHABLE_REASON,
+] as const;
+
+export type TerminalAnomalyReason = (typeof TERMINAL_ANOMALY_REASONS)[number];
+
+/** WHY the winner's number could not be matched to ours. Triage buckets on it. */
+export type PossibleOrphanCause =
+  /** The winner persisted a DIFFERENT number: two meetings exist, ours is the spare. */
+  | 'different_number'
+  /** The row is gone. Nothing anchors the meeting we just created. */
+  | 'row_missing'
+  /** The row is back to a NULL number — no winner to compare against. */
+  | 'number_null'
+  /** The re-read itself failed. We know nothing, which is not the same as "safe". */
+  | 'read_failed';
+
+/**
+ * The fresh-create compare-and-set missed AND the winner's persisted number could not be
+ * shown to be ours (Sol R7 ①).
+ *
+ * The predecessor of this class was a green completion carrying a `console.warn` whose
+ * own text said "if the winner recorded a DIFFERENT number, zoom <id> is an orphan" —
+ * an admission that the process had not looked. It looks now: one SELECT of the winner's
+ * `zoom_meeting_number` splits the CAS miss into "the winner adopted the same meeting"
+ * (safe, completes) and this — a meeting Zoom is holding that no row points at.
+ *
+ * Terminal, because there is nothing to retry: the winner's row is correct and a retry
+ * would take the replay path off the winner's number and report success over the top of
+ * an orphan. The remedy is MANUAL and it is not a database action — cancel
+ * `created_zoom_meeting_number` at Zoom. `evidence` carries both numbers because they are
+ * the remedy, and because this record is the only place the created number survives:
+ * `complete_zoom_job` replaces `stage_state` (Z1b-3 ③) and the losing attempt never wrote
+ * a row.
+ */
+export class ZoomPossibleOrphanError extends ZoomNonRetryableError {
+  readonly reason = POSSIBLE_ORPHAN_REASON;
+  /** WHICH way the comparison failed. */
+  readonly detail: PossibleOrphanCause;
+  /** Serialized into `zoom_jobs.last_error` by the runner — the durable record. */
+  readonly evidence: {
+    meeting_id: string;
+    /** The meeting THIS attempt created. The one to cancel, if the winner is not it. */
+    created_zoom_meeting_number: number;
+    /** What the winner's row said when we read it — `null` when it said nothing. */
+    winner_zoom_meeting_number: number | null;
+    cause: PossibleOrphanCause;
+  };
+
+  constructor(
+    message: string,
+    evidence: {
+      meetingId: string;
+      createdNumber: number;
+      winnerNumber: number | null;
+      cause: PossibleOrphanCause;
+    }
+  ) {
+    super(message, { operation: 'meeting_provision' });
+    this.detail = evidence.cause;
+    this.evidence = {
+      meeting_id: evidence.meetingId,
+      created_zoom_meeting_number: evidence.createdNumber,
+      winner_zoom_meeting_number: evidence.winnerNumber,
+      cause: evidence.cause,
+    };
+  }
+}
+
+/**
+ * The replay path's projection sync came back `missing` or `not_publishable` (Sol R7 ②).
+ *
+ * Both used to warn and COMPLETE, which made a vanished internal row and an impossible
+ * status indistinguishable from a clean replay on every surface a human looks at: a green
+ * job, and a `console.warn` in a log nobody consumes. The job outcome is now `failed`, so
+ * the anomaly is where triage already looks.
+ *
+ * Terminal rather than retryable, and that is the substantive half of the fix: a
+ * RETRYABLE failure on `missing` would find no row on the next attempt, fall through to
+ * the eligibility gate, and CREATE a second meeting for a surface Zoom already holds one
+ * for. Non-retryable has no next attempt — and the requeue lever that does exist is
+ * closed by the job-level anomaly gate at the top of the handler.
+ */
+export class ZoomReplaySyncAnomalyError extends ZoomNonRetryableError {
+  readonly reason: typeof SYNC_MISSING_ROW_REASON | typeof SYNC_NOT_PUBLISHABLE_REASON;
+  /** The meeting number, so triage does not have to open the row to see it. */
+  readonly detail: string;
+  readonly evidence: {
+    meeting_id: string;
+    zoom_meeting_number: number;
+    sync_outcome: 'missing' | 'not_publishable';
+  };
+
+  constructor(
+    message: string,
+    outcome: 'missing' | 'not_publishable',
+    meetingId: string,
+    zoomMeetingNumber: number
+  ) {
+    super(message, { operation: 'meeting_provision' });
+    this.reason =
+      outcome === 'missing' ? SYNC_MISSING_ROW_REASON : SYNC_NOT_PUBLISHABLE_REASON;
+    this.detail = String(zoomMeetingNumber);
+    this.evidence = {
+      meeting_id: meetingId,
+      zoom_meeting_number: zoomMeetingNumber,
+      sync_outcome: outcome,
+    };
+  }
+}
+
+/** The `reason` a REQUEUE against an unresolved terminal anomaly is refused under. */
+export const ANOMALY_UNRESOLVED_REASON = 'anomaly_unresolved';
+
+/**
+ * The job was requeued while its own `last_error` still records a terminal anomaly the
+ * anchors cannot resolve (Sol R7 ②). Terminal, and it writes NOTHING.
+ *
+ * A distinct reason from the anomaly that produced it, on exactly the precedent
+ * `ambiguous_unresolved` set: the first is the machine finding the anomaly, this is a
+ * human pulling the requeue lever without having resolved it. On the §18 panel they must
+ * not collapse, because only the second means "the designated recovery lever has been
+ * tried and it is still not resolved". `detail` carries WHICH anomaly is unresolved.
+ *
+ * It CARRIES THE ORIGINAL EVIDENCE FORWARD, and that is load-bearing rather than tidy.
+ * `fail_zoom_job` overwrites `last_error` with this record — so unlike the row-marker
+ * precedent, where the marker and the failure live in different columns, the refusal
+ * lands on top of the very field the gate reads. A refusal that dropped the evidence
+ * would erase the orphaned meeting number on the FIRST requeue and stop matching on the
+ * SECOND, reopening the create path it exists to close. Every refusal therefore re-states
+ * both the anomaly and its evidence, indefinitely, until an operator resolves it.
+ */
+export class ZoomTerminalAnomalyUnresolvedError extends ZoomNonRetryableError {
+  readonly reason = ANOMALY_UNRESOLVED_REASON;
+  readonly detail: TerminalAnomalyReason;
+  /** The original anomaly's evidence, verbatim. Omitted only if it never had any. */
+  readonly evidence: Record<string, unknown> | undefined;
+
+  constructor(message: string, marker: TerminalAnomalyMarker) {
+    super(message, { operation: 'meeting_provision' });
+    this.detail = marker.reason;
+    this.evidence = marker.evidence ?? undefined;
+  }
+}
+
+/** What a JOB's `last_error` says about an unresolved terminal anomaly. */
+export interface TerminalAnomalyMarker {
+  /** The anomaly that stopped the job — the ORIGINAL one, across any refusals since. */
+  reason: TerminalAnomalyReason;
+  /** Its structured evidence, preserved verbatim through every refusal. */
+  evidence: Record<string, unknown> | null;
+}
+
+/**
+ * The terminal anomaly recorded in a JOB's `last_error`, or `null` when there is none.
+ *
+ * TWO record shapes match, and both must: the anomaly itself (`reason` ∈
+ * `TERMINAL_ANOMALY_REASONS`) and a previous refusal of it (`reason` =
+ * `anomaly_unresolved`, whose `detail` names the original). The second is not a nicety —
+ * `fail_zoom_job` REPLACES `last_error`, so from the second requeue onward the refusal
+ * record is all there is to read.
+ *
+ * Total and defensive for the same reason `parseAmbiguousCreateMarker` is: `last_error`
+ * is a text column a PREVIOUS deploy wrote — here through `serializeJobFailure`, whose
+ * record shape is the runner's, not this module's. Anything else — an ordinary retryable
+ * failure, unparseable text, `NULL`, a refusal whose `detail` no longer names a known
+ * anomaly — is treated as "no anomaly" and falls through to normal processing rather than
+ * jamming the queue.
+ */
+export function parseTerminalAnomalyMarker(
+  lastError: string | null
+): TerminalAnomalyMarker | null {
+  if (lastError === null) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(lastError);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  const record = parsed as Record<string, unknown>;
+
+  const known = (value: unknown): value is TerminalAnomalyReason =>
+    typeof value === 'string' && (TERMINAL_ANOMALY_REASONS as readonly string[]).includes(value);
+
+  const reason = known(record.reason)
+    ? record.reason
+    : record.reason === ANOMALY_UNRESOLVED_REASON && known(record.detail)
+      ? record.detail
+      : null;
+  if (reason === null) return null;
+
+  const evidence = record.evidence;
+  return {
+    reason,
+    evidence:
+      typeof evidence === 'object' && evidence !== null && !Array.isArray(evidence)
+        ? (evidence as Record<string, unknown>)
+        : null,
+  };
 }
 
 /** The parsed shape of the marker `recordLastError` leaves on a parked row. */
@@ -1209,29 +1511,33 @@ export interface MeetingProvisionAdoptionSupersededResult extends Record<string,
 }
 
 /**
- * The FRESH create persisted through the same CAS (Sol R6 ①) and lost it: between the
- * post-create checkpoint heartbeat and the write, another worker took the row out of
- * `pending` + NULL-number.
+ * The FRESH create persisted through the same CAS (Sol R6 ①), lost it, AND the winner's
+ * persisted number turned out to be the number we created (Sol R7 ①).
  *
- * A distinct shape from the adoption miss, because the operational meaning is not the
- * same. An adoption miss means somebody else persisted the checkpoint THIS job would
- * have persisted — same meeting, nothing lost. A fresh-create miss is one of two
- * things and this process cannot tell which: either another worker adopted our own
- * checkpoint (same meeting number, nothing lost), or it created a different meeting,
- * in which case the one Zoom just minted for us is an ORPHAN. So the number rides on
- * the result: `complete_zoom_job` REPLACES `stage_state` with what the handler returns
- * (Z1b-3 ③), and this is the last record that can name it.
+ * The sol6 version of this shape claimed neither outcome. A fresh-create CAS miss is one
+ * of two things — another worker adopted OUR checkpoint (same meeting, nothing lost), or
+ * it created a different meeting and ours is an orphan at Zoom — and the sol6 result
+ * carried the number with a `console.warn` conceding it had not looked. It is not an
+ * epistemic limit: the winner's `zoom_meeting_number` is one SELECT away through
+ * `findMeetingBySurface`, which already selects it. The handler reads it, and this shape
+ * is now the RESOLVED half: `orphan_risk: false` is a claim, checked against
+ * `winner_zoom_meeting_number`, not a shrug. The unresolved half is
+ * `ZoomPossibleOrphanError` and it is a FAILURE.
  *
- * A completion, not a failure, for the same reason the other two misses are: the row
- * is correct, the CAS did its job, and no retry improves anything — a retry would take
- * the replay path off the number the winner wrote.
+ * Still a completion, for the same reason the other two misses are: the row is correct,
+ * the CAS did its job, the meeting Zoom holds is the meeting the row names, and no retry
+ * improves anything — a retry would simply take the replay path off the same number.
  */
 export interface MeetingProvisionCreateSupersededResult extends Record<string, unknown> {
   meeting_id: string;
-  /** The meeting Zoom minted for THIS attempt — possibly an orphan. */
+  /** The meeting Zoom minted for THIS attempt. */
   zoom_meeting_number: number;
+  /** What the WINNER persisted. Equal to the above — that is what makes this safe. */
+  winner_zoom_meeting_number: number;
   persisted: false;
   superseded: true;
+  /** Checked, not assumed: no meeting was left behind at Zoom by this attempt. */
+  orphan_risk: false;
 }
 
 interface ProvisionPayload {
@@ -1397,6 +1703,30 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
       }
     }
 
+    // --- The JOB-level anomaly gate (Sol R7 ②) ----------------------------
+    // The gate above reads the ROW's marker; this one reads the JOB's, and it exists
+    // because the R7 anomalies do not all leave a row to mark. `sync_missing_row` is the
+    // sharp case: the internal row is GONE, so a requeue of that terminal job finds no
+    // existing row, sails past every guard that keys on one, walks the candidate list and
+    // CREATES a second meeting for a surface Zoom already holds one for — the exact
+    // failure mode that made `missing` complete-with-a-warn in sol6. Making the anomaly
+    // terminal without closing this door would have moved the danger, not removed it.
+    //
+    // Same structure as the row-marker gate, deliberately: it is placed AFTER the two
+    // anchors, so a job whose state has genuinely been repaired takes the recovery/replay
+    // branch instead of the refusal — a `possible_orphan` requeue against a row that now
+    // carries the winner's number is `hasNumber`, and replay never creates. And below
+    // this line nothing is touched: not the row, not the reservation, not Zoom.
+    if (!hasNumber && adoption === null) {
+      const anomaly = parseTerminalAnomalyMarker(ctx.job.last_error);
+      if (anomaly !== null) {
+        throw new ZoomTerminalAnomalyUnresolvedError(
+          `meeting_provision job ${ctx.job.id} was requeued while its last_error still records an UNRESOLVED '${anomaly.reason}', and nothing anchors this surface: consultor_session ${surfaceId} has no meeting number and no adoptable checkpoint, so proceeding would create a meeting at Zoom that may already exist. Resolve it first — see the resolution contract in the meeting-provision module header — then clear the job's last_error.`,
+          anomaly
+        );
+      }
+    }
+
     // The crashed-pre-create path: a `pending` row under a host, no meeting at Zoom.
     // Reusing it blindly was Sol F3's second half — the session may have been
     // RESCHEDULED since, in which case the interval the EXCLUDE constraint is
@@ -1536,11 +1866,27 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
         session.growth_community_id
       );
       if (synced === 'not_publishable' || synced === 'missing') {
-        // Neither is retryable in a useful way. `missing` especially must NOT throw:
-        // a retry would find no row, take the fresh path, and create a SECOND meeting
-        // for a surface that already has one at Zoom.
+        // --- Anomalies FAIL the job (Sol R7 ②) ----------------------------
+        // sol6 warned and completed here, reasoning that `missing` must not throw
+        // because a retry would find no row, take the fresh path and create a SECOND
+        // meeting. The danger analysis was right and the remedy was wrong: a
+        // NON-retryable failure has no retry, and the requeue lever a human can still
+        // pull is closed by the job-level anomaly gate above. Completing green was the
+        // one option that HID a vanished row or an unannounceable meeting behind a
+        // successful job and a log line nobody reads.
+        //
+        // The warn stays — it is the live-tail signal — but the job outcome is `failed`,
+        // with the meeting number in structured evidence where triage already looks.
         console.warn(
           `[meeting-provision] projection sync for meeting ${meetingId} (zoom ${zoomMeetingNumber}) returned '${synced}'; nothing was published.`
+        );
+        throw new ZoomReplaySyncAnomalyError(
+          synced === 'missing'
+            ? `The zoom_meetings row for consultor_session ${surfaceId} (meeting ${meetingId}, zoom ${zoomMeetingNumber}) VANISHED between this replay's read and its projection sync; nothing was published and nothing can be. A meeting exists at Zoom with no row pointing at it: restore the row carrying that number, or cancel the meeting at Zoom, before requeueing.`
+            : `The projection for consultor_session ${surfaceId} (meeting ${meetingId}, zoom ${zoomMeetingNumber}) cannot be published: the internal row carries a meeting number but sits in a non-publishable status, so a replay can never announce it. Repair the row's status before requeueing.`,
+          synced,
+          meetingId,
+          zoomMeetingNumber
         );
       }
     } else if (operatorRecovery) {
@@ -1774,19 +2120,65 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
 
       if (!persisted) {
         // STOP before anything else, projection included. The winner's row is correct
-        // and this attempt has nothing left to contribute. The number is on the result
-        // because it is the only place it survives: completion REPLACES `stage_state`,
-        // taking the checkpoint that named it with it.
-        console.warn(
-          `[meeting-provision] fresh-create persistence SUPERSEDED for meeting ${meetingId} (zoom ${created.id}): the row left 'pending'/NULL-number between the post-create checkpoint and the write. Nothing written, nothing published. If the winner recorded a DIFFERENT number, zoom ${created.id} is an orphan at Zoom.`
+        // and this attempt has nothing left to WRITE. But it does have one thing left to
+        // do, and sol6 skipped it (Sol R7 ①): find out WHICH miss this is.
+        //
+        // Re-read the row. The winner's `zoom_meeting_number` — which
+        // `findMeetingBySurface` already selects — answers the only question that
+        // matters, and answers it from the store this handler already depends on:
+        //
+        //  - EQUAL to what we created ⇒ the winner adopted OUR checkpoint. Same meeting,
+        //    nothing at Zoom is unaccounted for, the job completes.
+        //  - ANYTHING ELSE ⇒ a meeting exists at Zoom that no row points at. That is not
+        //    a green job; it is a terminal failure whose durable evidence names the
+        //    number a human has to cancel.
+        //
+        // "Anything else" includes every unreadable case on purpose — the row gone, the
+        // number back to NULL, the read itself throwing. Not knowing is not the same as
+        // being safe, and the sol6 result treated them alike.
+        let winner: ProvisionMeetingRow | null = null;
+        let readFailed = false;
+        try {
+          winner = await store.findMeetingBySurface(surfaceType, surfaceId);
+        } catch {
+          readFailed = true;
+        }
+
+        const winnerNumber = winner?.zoom_meeting_number ?? null;
+        if (winnerNumber === created.id) {
+          console.warn(
+            `[meeting-provision] fresh-create persistence SUPERSEDED for meeting ${meetingId} (zoom ${created.id}): the row left 'pending'/NULL-number between the post-create checkpoint and the write, and the winner persisted THE SAME meeting. Nothing written, nothing published, nothing orphaned.`
+          );
+          const superseded: MeetingProvisionCreateSupersededResult = {
+            meeting_id: meetingId,
+            zoom_meeting_number: created.id,
+            winner_zoom_meeting_number: winnerNumber,
+            persisted: false,
+            superseded: true,
+            orphan_risk: false,
+          };
+          return superseded;
+        }
+
+        const cause: PossibleOrphanCause = readFailed
+          ? 'read_failed'
+          : winner === null
+            ? 'row_missing'
+            : winnerNumber === null
+              ? 'number_null'
+              : 'different_number';
+
+        throw new ZoomPossibleOrphanError(
+          `createMeeting for consultor_session ${surfaceId} minted zoom meeting ${created.id}, the persist CAS was won by another writer, and the winner's row does not name that meeting (${cause}${
+            winnerNumber === null ? '' : `: it names ${winnerNumber}`
+          }). Zoom is holding ${created.id} with no row pointing at it — CANCEL IT AT ZOOM; there is no database action that resolves this, and requeueing this job will not.`,
+          {
+            meetingId,
+            createdNumber: created.id,
+            winnerNumber,
+            cause,
+          }
         );
-        const superseded: MeetingProvisionCreateSupersededResult = {
-          meeting_id: meetingId,
-          zoom_meeting_number: created.id,
-          persisted: false,
-          superseded: true,
-        };
-        return superseded;
       }
       zoomMeetingNumber = created.id;
     }

@@ -30,7 +30,7 @@ import { ZoomNonRetryableError, ZoomRetryableError } from '../../../../lib/zoom/
 import { createLiveZoomApi, type ZoomApi } from '../../../../lib/zoom/api';
 import { createZoomClient } from '../../../../lib/zoom/client';
 import type { ZoomTokenProvider } from '../../../../lib/zoom/token';
-import { describeJobFailure } from '../../../../lib/zoom/jobs/runner';
+import { describeJobFailure, serializeJobFailure } from '../../../../lib/zoom/jobs/runner';
 import { createZoomFake, type ZoomFake } from '../../../../lib/zoom/fake';
 import { applyWebhookLifecycle } from '../../../../lib/zoom/webhook-lifecycle';
 import { ZoomJobLeaseLostError, type ZoomJobContext } from '../../../../lib/zoom/jobs/types';
@@ -735,24 +735,41 @@ describe('meeting_provision · mock-mode round trip (§15 Z1b DoD)', () => {
     expect(harness.store.upsertProjection).not.toHaveBeenCalled();
   });
 
-  it('completes a FRESH-create CAS miss as superseded, writing and publishing nothing', async () => {
-    // Sol R6 ①, the miss half. The rival lands in the one window the finding names:
-    // after the post-create checkpoint heartbeat, before the persist. The old id-only
-    // write noticed nothing and overwrote the winner's number; the CAS refuses.
-    const fake = seedFake();
-    const RIVAL_NUMBER = 82000009999;
-    let harness!: ReturnType<typeof createMemoryProvisionStore>;
-
-    const heartbeat = vi.fn(async (stageState?: Record<string, unknown>) => {
-      if (stageState?.stage === 'created') {
-        const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
-        row.zoom_meeting_number = RIVAL_NUMBER;
-        row.status = 'provisioned';
+  /**
+   * Sol R6 ① / Sol R7 ①. A rival lands in the one window the R6 finding names: after the
+   * post-create checkpoint heartbeat, before the persist. `winner` decides what the
+   * winner's row ends up holding, which is the whole of the R7 finding — sol6 completed
+   * green either way and said in a warn that it had not looked.
+   */
+  function freshCreateCasMiss(
+    winner: (row: StoredMeeting, ourNumber: number) => void,
+    harnessRef: { current: ReturnType<typeof createMemoryProvisionStore> | null }
+  ) {
+    return vi.fn(async (stageState?: Record<string, unknown>) => {
+      if (stageState?.stage === 'created' && harnessRef.current !== null) {
+        const row = harnessRef.current.meetingFor(SESSION_ID) as StoredMeeting;
+        const meeting = stageState.meeting as { number: number };
+        winner(row, meeting.number);
       }
       return true;
     });
+  }
 
-    harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+  it('completes a FRESH-create CAS miss as a RESOLVED safe supersession when the winner holds OUR number', async () => {
+    // Sol R7 ①, the safe half. The winner adopted our own checkpoint, so the number it
+    // persisted IS the number Zoom minted for us: nothing is orphaned, and the result
+    // says so as a checked claim (`orphan_risk: false`) rather than declining to say.
+    const fake = seedFake();
+    const harnessRef: { current: ReturnType<typeof createMemoryProvisionStore> | null } = {
+      current: null,
+    };
+    const heartbeat = freshCreateCasMiss((row, ourNumber) => {
+      row.zoom_meeting_number = ourNumber;
+      row.status = 'provisioned';
+    }, harnessRef);
+
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+    harnessRef.current = harness;
     const ctx: ZoomJobContext = { job: jobRow(), workerId: 'worker-1', heartbeat };
 
     const result = await createMeetingProvisionHandler({ api: fake, store: harness.store })(ctx);
@@ -761,18 +778,212 @@ describe('meeting_provision · mock-mode round trip (§15 Z1b DoD)', () => {
     expect(result).toEqual({
       meeting_id: (harness.meetingFor(SESSION_ID) as StoredMeeting).id,
       zoom_meeting_number: ourNumber,
+      winner_zoom_meeting_number: ourNumber,
       persisted: false,
       superseded: true,
+      orphan_risk: false,
     });
 
-    // The winner's row is untouched — not our number, not our passcode.
+    // Exactly one meeting at Zoom, and the row names it. Nothing to cancel by hand.
+    expect(fake.listMeetings()).toHaveLength(1);
+    expect((harness.meetingFor(SESSION_ID) as StoredMeeting).zoom_meeting_number).toBe(ourNumber);
+    expect(harness.store.upsertProjection).not.toHaveBeenCalled();
+    expect(harness.store.markProvisioned).not.toHaveBeenCalled();
+  });
+
+  it('fails NON-retryably with possible_orphan when the winner holds a DIFFERENT number', async () => {
+    // The half sol6 completed green. Two meetings exist at Zoom; the row names one of
+    // them; ours is the spare. Evidence has to name it or nobody can cancel it.
+    const fake = seedFake();
+    const RIVAL_NUMBER = 82000009999;
+    const harnessRef: { current: ReturnType<typeof createMemoryProvisionStore> | null } = {
+      current: null,
+    };
+    const heartbeat = freshCreateCasMiss((row) => {
+      row.zoom_meeting_number = RIVAL_NUMBER;
+      row.status = 'provisioned';
+    }, harnessRef);
+
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+    harnessRef.current = harness;
+    const ctx: ZoomJobContext = { job: jobRow(), workerId: 'worker-1', heartbeat };
+
+    const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      ctx
+    ).catch((caught) => caught);
+
+    const ourNumber = fake.listMeetings()[0].id;
+    const record = describeJobFailure(error);
+    expect(record.kind).toBe('non_retryable');
+    expect(record.reason).toBe('possible_orphan');
+    expect(record.detail).toBe('different_number');
+    // The durable half: BOTH numbers, structurally, in what the runner serializes into
+    // zoom_jobs.last_error. The created one is the meeting a human has to cancel.
+    expect(record.evidence).toEqual({
+      meeting_id: (harness.meetingFor(SESSION_ID) as StoredMeeting).id,
+      created_zoom_meeting_number: ourNumber,
+      winner_zoom_meeting_number: RIVAL_NUMBER,
+      cause: 'different_number',
+    });
+    expect(JSON.parse(serializeJobFailure(record)).evidence.created_zoom_meeting_number).toBe(
+      ourNumber
+    );
+
+    // Still zero writes: the winner's row is untouched, and nothing reached the UI.
     const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
     expect(row.zoom_meeting_number).toBe(RIVAL_NUMBER);
     expect(row.passcode).toBeNull();
-    // ...and nothing at all reached the UI.
     expect(harness.projectionFor(SESSION_ID)).toBeUndefined();
     expect(harness.store.upsertProjection).not.toHaveBeenCalled();
     expect(harness.store.markProvisioned).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      'the row is GONE',
+      'row_missing',
+      (row: StoredMeeting, harness: ReturnType<typeof createMemoryProvisionStore>) => {
+        harness.meetings.splice(harness.meetings.indexOf(row), 1);
+      },
+    ],
+    [
+      'the number is back to NULL',
+      'number_null',
+      (row: StoredMeeting) => {
+        row.zoom_meeting_number = null;
+        row.status = 'error';
+      },
+    ],
+  ] as const)(
+    'fails with possible_orphan when the winner is UNREADABLE: %s',
+    async (_label, cause, mutate) => {
+      // Not knowing is not the same as being safe. Every unreadable shape goes to the
+      // failure side, because a meeting Zoom is holding is unaccounted for either way.
+      const fake = seedFake();
+      const harnessRef: { current: ReturnType<typeof createMemoryProvisionStore> | null } = {
+        current: null,
+      };
+      const heartbeat = freshCreateCasMiss((row) => {
+        mutate(row, harnessRef.current as ReturnType<typeof createMemoryProvisionStore>);
+      }, harnessRef);
+
+      const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+      harnessRef.current = harness;
+      const ctx: ZoomJobContext = { job: jobRow(), workerId: 'worker-1', heartbeat };
+
+      const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+        ctx
+      ).catch((caught) => caught);
+
+      const record = describeJobFailure(error);
+      expect(record.reason).toBe('possible_orphan');
+      expect(record.detail).toBe(cause);
+      expect(record.evidence).toMatchObject({
+        created_zoom_meeting_number: fake.listMeetings()[0].id,
+        winner_zoom_meeting_number: null,
+        cause,
+      });
+      expect(harness.projectionFor(SESSION_ID)).toBeUndefined();
+    }
+  );
+
+  it('fails with possible_orphan when the winner RE-READ itself throws', async () => {
+    // The third unreadable shape, and the one a `null` return cannot model: the store
+    // call rejects. It must not escape as an untyped error — that would be treated as
+    // retryable by `fail_zoom_job`'s default and re-enter the handler.
+    const fake = seedFake();
+    let harness!: ReturnType<typeof createMemoryProvisionStore>;
+    const heartbeat = vi.fn(async (stageState?: Record<string, unknown>) => {
+      if (stageState?.stage === 'created') {
+        const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+        row.zoom_meeting_number = 82000009999;
+        row.status = 'provisioned';
+        vi.mocked(harness.store.findMeetingBySurface).mockRejectedValueOnce(
+          new Error('connection reset')
+        );
+      }
+      return true;
+    });
+
+    harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+    const ctx: ZoomJobContext = { job: jobRow(), workerId: 'worker-1', heartbeat };
+
+    const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      ctx
+    ).catch((caught) => caught);
+
+    const record = describeJobFailure(error);
+    expect(record.kind).toBe('non_retryable');
+    expect(record.reason).toBe('possible_orphan');
+    expect(record.detail).toBe('read_failed');
+    expect(record.evidence).toMatchObject({
+      created_zoom_meeting_number: fake.listMeetings()[0].id,
+      winner_zoom_meeting_number: null,
+      cause: 'read_failed',
+    });
+  });
+
+  it('a requeued possible_orphan job REPLAYS off the winner number and never creates again', async () => {
+    // Sol R7 ①'s requeue-safety requirement, end to end through the runner: the job row
+    // goes `failed` with the evidence on it, and every requeue after that finds a row
+    // carrying the winner's number — anchor 1 — so it takes the replay path. The
+    // job-level anomaly gate sits AFTER the anchors precisely so this case resolves
+    // itself instead of being refused forever.
+    const fake = seedFake();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    const RIVAL_NUMBER = 82000007777;
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+    const jobs = createMemoryJobQueue();
+
+    // The rival wins the CAS on the FIRST attempt only.
+    let rivalHasWon = false;
+    const rivalHeartbeat: ZoomJobContext['heartbeat'] = async (stageState) => {
+      if (stageState?.stage === 'created' && !rivalHasWon) {
+        rivalHasWon = true;
+        const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+        row.zoom_meeting_number = RIVAL_NUMBER;
+        row.status = 'provisioned';
+      }
+      return true;
+    };
+    const handler = createMeetingProvisionHandler({ api: fake, store: harness.store });
+    const registry = {
+      meeting_provision: (ctx: ZoomJobContext) =>
+        handler({ ...ctx, heartbeat: rivalHeartbeat }),
+    };
+
+    await jobs.queue.enqueue({
+      job_type: 'meeting_provision',
+      payload: { surface_type: 'consultor_session', surface_id: SESSION_ID },
+    });
+
+    await runZoomTick({ queue: jobs.queue, registry, workerId: 'w1', now: oneBatchClock() });
+
+    const job = jobs.jobFor('meeting_provision') as StoredJob;
+    expect(job.status).toBe('failed');
+    const parked = JSON.parse(job.last_error as string);
+    expect(parked).toMatchObject({ kind: 'non_retryable', reason: 'possible_orphan' });
+    expect(parked.evidence.created_zoom_meeting_number).toBe(fake.listMeetings()[0].id);
+    expect(createSpy).toHaveBeenCalledTimes(1);
+
+    // Three requeues of the terminal job — the designated manual lever.
+    for (const worker of ['w2', 'w3', 'w4']) {
+      job.status = 'pending';
+      job.worker_id = null;
+      await runZoomTick({ queue: jobs.queue, registry, workerId: worker, now: oneBatchClock() });
+
+      // The assertion the whole test exists for, inside the loop so a regression fails
+      // on the second create itself.
+      expect(createSpy).toHaveBeenCalledTimes(1);
+      expect(fake.listMeetings()).toHaveLength(1);
+      // ...and it is not merely refused: it REPLAYS, off the winner's number.
+      expect(job.status).toBe('done');
+      expect(job.stage_state).toMatchObject({
+        result: { zoom_meeting_number: RIVAL_NUMBER, created: false },
+      });
+    }
+
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('scheduled');
   });
 
   it('ignores a checkpoint that names a different row and creates normally', async () => {
@@ -1144,9 +1355,10 @@ describe('meeting_provision · replay publishes a DERIVED projection (Sol R6 ②
     }
   );
 
-  it('publishes NOTHING for a replay over a row that failed before Zoom', async () => {
+  it('publishes NOTHING for a replay over a row that failed before Zoom, and FAILS the job', async () => {
     // `error` + a number is not a publishable state: the typed no-op keeps the RPC from
-    // announcing a meeting the internal machine never completed.
+    // announcing a meeting the internal machine never completed. Sol R7 ②: the no-op is
+    // still right, and COMPLETING over it was not — the job outcome is now `failed`.
     const fake = seedFake();
     const harness = createMemoryProvisionStore({
       session: SESSION,
@@ -1154,17 +1366,293 @@ describe('meeting_provision · replay publishes a DERIVED projection (Sol R6 ②
       meetings: [replayRow('error', 82000006300)],
     });
 
-    const result = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+    const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
       context()
-    );
+    ).catch((caught) => caught);
 
-    expect(result.created).toBe(false);
+    const record = describeJobFailure(error);
+    expect(record.kind).toBe('non_retryable');
+    expect(record.reason).toBe('sync_not_publishable');
+    expect(record.detail).toBe('82000006300');
+    expect(record.evidence).toEqual({
+      meeting_id: 'meeting-replay-error',
+      zoom_meeting_number: 82000006300,
+      sync_outcome: 'not_publishable',
+    });
+
     const outcomes = await Promise.all(
       vi.mocked(harness.store.syncProjectionFromMeeting).mock.results.map((call) => call.value)
     );
     expect(outcomes).toEqual(['not_publishable']);
     expect(harness.projectionFor(SESSION_ID)).toBeUndefined();
     expect(harness.store.upsertProjection).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sol R7 ② — replay-sync anomalies are terminal, and their requeue cannot create
+// ---------------------------------------------------------------------------
+
+describe('meeting_provision · replay-sync anomalies fail the job (Sol R7 ②)', () => {
+  const REPLAY_NUMBER = 82000006400;
+
+  function provisionedRow(): StoredMeeting {
+    return {
+      id: 'meeting-vanishing',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+      zoom_meeting_number: REPLAY_NUMBER,
+      zoom_meeting_uuid: null,
+      passcode: 'replaypass',
+      join_url: `https://example-synthetic.test/j/${REPLAY_NUMBER}`,
+      effective_settings: { join_before_host: false, waiting_room: false, auto_recording: 'none' },
+      status: 'provisioned',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+    };
+  }
+
+  /**
+   * The row is deleted under the run, between `findMeetingBySurface` and the projection
+   * sync — which is exactly what `missing` MEANS. Modelled by deleting it for real, so
+   * the requeue that follows sees the world the anomaly describes rather than a mock
+   * return value over an intact row.
+   */
+  function vanishOnSync(harness: ReturnType<typeof createMemoryProvisionStore>): void {
+    vi.mocked(harness.store.syncProjectionFromMeeting).mockImplementationOnce(async () => {
+      harness.meetings.length = 0;
+      return 'missing';
+    });
+  }
+
+  it('fails NON-retryably with sync_missing_row when the internal row vanished mid-run', async () => {
+    const fake = seedFake();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [provisionedRow()],
+    });
+    vanishOnSync(harness);
+
+    const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context()
+    ).catch((caught) => caught);
+
+    const record = describeJobFailure(error);
+    expect(record.kind).toBe('non_retryable');
+    expect(record.reason).toBe('sync_missing_row');
+    // The evidence a human needs to find the meeting Zoom is still holding.
+    expect(record.evidence).toEqual({
+      meeting_id: 'meeting-vanishing',
+      zoom_meeting_number: REPLAY_NUMBER,
+      sync_outcome: 'missing',
+    });
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(harness.projectionFor(SESSION_ID)).toBeUndefined();
+  });
+
+  it('turns the QUEUE ROW red and keeps the evidence — sol6 completed this green', async () => {
+    // Asserted through the runner's own fail path, because "the job outcome is failed" is
+    // a claim about `fail_zoom_job(p_retryable => false)`, not about a thrown object.
+    const fake = seedFake();
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [provisionedRow()],
+    });
+    vanishOnSync(harness);
+    const jobs = createMemoryJobQueue();
+    const registry = createZoomJobRegistry({ api: fake, meetingProvisionStore: harness.store });
+
+    await jobs.queue.enqueue({
+      job_type: 'meeting_provision',
+      payload: { surface_type: 'consultor_session', surface_id: SESSION_ID },
+    });
+
+    const tick = await runZoomTick({
+      queue: jobs.queue,
+      registry,
+      workerId: 'w1',
+      now: oneBatchClock(),
+    });
+
+    expect(tick).toEqual({ claimed: 1, completed: 0, failed: 1 });
+    const job = jobs.jobFor('meeting_provision') as StoredJob;
+    expect(job.status).toBe('failed');
+    expect(JSON.parse(job.last_error as string)).toMatchObject({
+      kind: 'non_retryable',
+      reason: 'sync_missing_row',
+      evidence: { zoom_meeting_number: REPLAY_NUMBER, sync_outcome: 'missing' },
+    });
+  });
+
+  it('refuses every requeue of a sync_missing_row job with ZERO creates', async () => {
+    // THE subtle half of Sol R7 ②. The internal row is gone, so a requeue has no anchor,
+    // no marker on any row, and nothing between it and the candidate walk — it would
+    // reserve a host and CREATE a second meeting for a surface Zoom already holds one
+    // for. The job-level anomaly gate is what stops it.
+    const fake = seedFake();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [provisionedRow()],
+    });
+    vanishOnSync(harness);
+    const jobs = createMemoryJobQueue();
+    const registry = createZoomJobRegistry({ api: fake, meetingProvisionStore: harness.store });
+
+    await jobs.queue.enqueue({
+      job_type: 'meeting_provision',
+      payload: { surface_type: 'consultor_session', surface_id: SESSION_ID },
+    });
+    await runZoomTick({ queue: jobs.queue, registry, workerId: 'w1', now: oneBatchClock() });
+
+    const job = jobs.jobFor('meeting_provision') as StoredJob;
+    expect(job.status).toBe('failed');
+    expect(harness.meetings).toHaveLength(0);
+
+    // THREE requeues, not one. The refusal record REPLACES `last_error`, so a gate that
+    // only matched the original anomaly shape would hold on w2 and let w3 create — which
+    // is what the first draft of this fix did, and what this loop caught.
+    for (const worker of ['w2', 'w3', 'w4']) {
+      job.status = 'pending';
+      job.worker_id = null;
+      await runZoomTick({ queue: jobs.queue, registry, workerId: worker, now: oneBatchClock() });
+
+      // First and foremost: nothing was created at Zoom, ever.
+      expect(createSpy).not.toHaveBeenCalled();
+      expect(fake.listMeetings()).toHaveLength(0);
+      // And no row was reserved either — the gate is BEFORE the candidate walk.
+      expect(harness.meetings).toHaveLength(0);
+      expect(harness.store.insertReservation).not.toHaveBeenCalled();
+
+      // A DIFFERENT reason from the anomaly that produced it: "a human pulled the lever
+      // and it is still not resolved", not "the row vanished". The original anomaly and
+      // its evidence ride along on every refusal — the meeting number a human needs must
+      // not be erased by the act of refusing.
+      expect(job.status).toBe('failed');
+      expect(JSON.parse(job.last_error as string)).toMatchObject({
+        kind: 'non_retryable',
+        reason: 'anomaly_unresolved',
+        detail: 'sync_missing_row',
+        evidence: {
+          meeting_id: 'meeting-vanishing',
+          zoom_meeting_number: REPLAY_NUMBER,
+          sync_outcome: 'missing',
+        },
+      });
+    }
+  });
+
+  it('a REPAIRED row lets the requeue replay — the gate keys on state, not on the marker', async () => {
+    // Resolution 2 from the header: restore the row carrying the number. The gate sits
+    // after the anchors, so a repaired surface needs no marker-clearing at all.
+    const fake = seedFake();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [provisionedRow()],
+    });
+    vanishOnSync(harness);
+    const jobs = createMemoryJobQueue();
+    const registry = createZoomJobRegistry({ api: fake, meetingProvisionStore: harness.store });
+
+    await jobs.queue.enqueue({
+      job_type: 'meeting_provision',
+      payload: { surface_type: 'consultor_session', surface_id: SESSION_ID },
+    });
+    await runZoomTick({ queue: jobs.queue, registry, workerId: 'w1', now: oneBatchClock() });
+
+    const job = jobs.jobFor('meeting_provision') as StoredJob;
+    expect(job.status).toBe('failed');
+
+    // The operator restores the row — the meeting number included, which is the point.
+    harness.meetings.push(provisionedRow());
+    job.status = 'pending';
+    job.worker_id = null;
+    await runZoomTick({ queue: jobs.queue, registry, workerId: 'w2', now: oneBatchClock() });
+
+    expect(job.status).toBe('done');
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('scheduled');
+  });
+
+  it('a job whose last_error is CLEARED is no longer gated — the operator lever, and its hazard', async () => {
+    // Resolution 1's escape hatch, and it is one-way exactly like clearing an
+    // ambiguous-create marker: with the row genuinely gone and the marker cleared, the
+    // requeue creates. That is correct only when the operator has established the Zoom
+    // meeting is gone too. Asserted rather than glossed, because it is the sharpest edge
+    // of the contract.
+    const fake = seedFake();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [provisionedRow()],
+    });
+    vanishOnSync(harness);
+    const jobs = createMemoryJobQueue();
+    const registry = createZoomJobRegistry({ api: fake, meetingProvisionStore: harness.store });
+
+    await jobs.queue.enqueue({
+      job_type: 'meeting_provision',
+      payload: { surface_type: 'consultor_session', surface_id: SESSION_ID },
+    });
+    await runZoomTick({ queue: jobs.queue, registry, workerId: 'w1', now: oneBatchClock() });
+
+    const job = jobs.jobFor('meeting_provision') as StoredJob;
+    expect(job.status).toBe('failed');
+    expect(createSpy).not.toHaveBeenCalled();
+
+    job.status = 'pending';
+    job.worker_id = null;
+    job.last_error = null;
+    await runZoomTick({ queue: jobs.queue, registry, workerId: 'w2', now: oneBatchClock() });
+
+    expect(job.status).toBe('done');
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(harness.meetingFor(SESSION_ID)?.zoom_meeting_number).toBe(fake.listMeetings()[0].id);
+  });
+
+  it('ignores an ordinary retryable last_error — only the anomaly reasons gate', async () => {
+    // The gate is total and defensive: a job requeued after a plain 5xx, or one carrying
+    // a hand-edited string, must run normally. Jamming the queue on unparseable text
+    // would be a worse failure than the one being fixed.
+    const fake = seedFake();
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+
+    for (const lastError of [
+      serializeJobFailure({ kind: 'retryable', message: 'Zoom 502' }),
+      'not json at all',
+      JSON.stringify({ reason: 'no_host_available' }),
+    ]) {
+      const local = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+      const result = await createMeetingProvisionHandler({ api: seedFake(), store: local.store })(
+        context(jobRow({ last_error: lastError }))
+      );
+      expect(result.created).toBe(true);
+    }
+
+    // ...and the anomaly reasons DO gate, from the same parser.
+    await expect(
+      createMeetingProvisionHandler({ api: fake, store: harness.store })(
+        context(
+          jobRow({
+            last_error: serializeJobFailure({
+              kind: 'non_retryable',
+              reason: 'possible_orphan',
+              message: 'orphan',
+            }),
+          })
+        )
+      )
+    ).rejects.toMatchObject({ reason: 'anomaly_unresolved', detail: 'possible_orphan' });
   });
 });
 

@@ -18,6 +18,12 @@
  * telling anyone. `kind` is the four-value taxonomy the retry rules are defined on,
  * and it is the only field with a contract.
  *
+ * Three optional fields ride along beside it, all declared by the throwing error and
+ * none of them derived here: `reason` (the sub-discriminator triage buckets on),
+ * `detail` (one level finer), and `evidence` (the structured VALUES a manual remedy
+ * needs — see `ZoomJobFailureRecord.evidence`). A handler that has to hand a human a
+ * meeting number puts it there, not in the sentence.
+ *
  * `isRetryableKind()` is the retry signal, passed straight through as `p_retryable`,
  * and `retryAfterSeconds` rides along as `p_retry_after_seconds`. What happens next —
  * backoff schedule, the floor the hint imposes on it, dead-lettering at `max_attempts`,
@@ -92,6 +98,19 @@ export interface ZoomJobFailureRecord {
    * identifier a Zoom support ticket can be opened against.
    */
   requestId?: string;
+  /**
+   * Structured triage evidence, for the failures whose remedy needs VALUES rather than
+   * a category: `meeting_provision`'s `possible_orphan` carries the meeting number Zoom
+   * minted for the losing attempt and the number the winner persisted, because those two
+   * numbers ARE the remedy (cancel the first at Zoom) and this record is the only place
+   * they survive — `complete_zoom_job` replaces `stage_state`, and a failed attempt never
+   * wrote its number to a row.
+   *
+   * An object, not a formatted string, for the same reason `kind` is not a message
+   * prefix: triage reads fields. Nothing here may carry student PII — meeting numbers and
+   * internal row ids only, and `zoom_jobs` is service-role-only by the §6 GRANT lockdown.
+   */
+  evidence?: Record<string, unknown>;
   /** Human-facing only. Nothing may branch on this string. */
   message: string;
 }
@@ -108,6 +127,20 @@ function readErrorDetail(error: unknown): string | undefined {
   return typeof detail === 'string' && detail !== '' ? detail : undefined;
 }
 
+/**
+ * Same contract again: only a `ZoomError` subclass may declare `evidence`, and only a
+ * plain object counts. Anything else is dropped rather than stored, so a handler cannot
+ * accidentally serialize an Error, a class instance or a cyclic structure into a text
+ * column the ticker has to write.
+ */
+function readErrorEvidence(error: unknown): Record<string, unknown> | undefined {
+  const evidence = (error as { evidence?: unknown }).evidence;
+  if (typeof evidence !== 'object' || evidence === null || Array.isArray(evidence)) {
+    return undefined;
+  }
+  return evidence as Record<string, unknown>;
+}
+
 export function describeJobFailure(error: unknown): ZoomJobFailureRecord {
   if (isZoomError(error)) {
     return {
@@ -119,6 +152,7 @@ export function describeJobFailure(error: unknown): ZoomJobFailureRecord {
       operation: error.operation,
       retryAfterSeconds: error.retryAfterSeconds,
       requestId: error.requestId,
+      evidence: readErrorEvidence(error),
       message: error.message.slice(0, MAX_STORED_MESSAGE_CHARS),
     };
   }

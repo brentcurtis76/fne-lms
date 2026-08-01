@@ -371,12 +371,62 @@ their race exposure differs (fresh-create publishes into a projection that canno
 pre-exist; replay re-upserts idempotently) but they are NOT covered by the new atomic
 RPCs — recorded for Sol R6's judgment and as the natural Z2 hardening baseline (any
 future provision path should build on the atomic RPCs, not the two-call shape).
+*[ERRATUM sol6, Sol R6: Sol ruled the residual a FINDING and the PM concedes the
+framing — "cannot pre-exist" mitigated nothing (the R5 race never required a
+pre-existing projection; that WAS the race), and "re-upserts idempotently" was wrong
+because upsertProjection was UNGUARDED (a late replay clobbered live/ended back to
+scheduled). Both paths were closed in sol6; see §7g]*
+
+## 7g. Sol-R6 remediation record (Z1b-sol6, 2026-07-31)
+
+Sol R6 ruled the §7f residual a finding (PM framing conceded — see the §7f erratum).
+Fixed in `1490187` (fix) + `be1f5d3` (docs). **The two-call surface is now EXHAUSTED**:
+fresh-create REUSES `adopt_checkpoint_meeting` (fit verified field-by-field by the
+executor AND the PM — every route into the create branch arrives `pending`+NULL-number,
+so the CAS is always satisfiable); replay goes through the NEW
+`zoom_internal.sync_projection_from_meeting(uuid, uuid)` — FOR UPDATE on the internal
+row, status derivation (provisioned→scheduled · started→live · ended→ended ·
+cancelled→cancelled · deleted→cancelled, the one mapping with no lifecycle precedent;
+pending/error ⇒ typed `not_publishable`), a never-backward applies-from guard
+cross-referenced BOTH ways with the TS constants, and the healing case (a missing
+projection for a started/ended meeting is created at the right status — structurally
+closing the sol2-era stranded-projection residual). `markProvisioned` AND
+`upsertProjection` are REMOVED (zero callers verified — historical comments only): the
+module can no longer write the public table unguarded at all.
+
+**PM verification**: migration amendment read (adopt byte-identical — the diff touches
+it only in a comment); fail-on-old re-executed EXACTLY (handler **9/67** incl. the
+honestly-declared rewire artifact, store **7/11**; 78/78 at head); the pgTAP negative
+control replicated (`Bad plan… planned 98 but ran 26`, `Failed 72/98` at the first
+missing sync signature; restored ⇒ **139/139**); gates at `be1f5d3`: **3749/3749 in
+240 files** (+14/+0), build OK, `test:queue` PASS (20/20); CI **8/8**; scans CLEAN.
+All nine deviations ACCEPTED — notably the THIRD supersession shape (a fresh-create
+miss claims neither adopted nor created, because the process cannot distinguish
+"rival adopted my checkpoint" from "rival created a different meeting" — the number on
+the result is the whole mitigation, and whether that miss belongs on the §18 triage
+panel instead of completing is flagged for Sol R7); `markProvisioned` removed beyond
+the letter of the finding (same vector argument); complete-don't-throw on
+`missing`/`not_publishable` (throwing on `missing` would send the retry down the fresh
+path and CREATE A SECOND MEETING — the executor's sharpest catch of the round); no
+heartbeat on the replay sync (the value is read inside the transaction that writes it).
+
+**PM process note, recorded against itself**: the PM's first sol6 scan run piped
+through `tail` and reported exit 0 while the scan had CRASHED (script purged by the
+tmp cleaner; `MODULE_NOT_FOUND` masked by the pipe) — the exact false-green class in
+the repo's e2e memory and the sol2 scanner lesson. Caught by the stack-trace footer,
+re-run unpiped: genuinely CLEAN. The scan discipline is now: re-Write before every
+run, never pipe, assert the true exit.
+
+**Also closed here**: PROJECT_STATE:81's sol5-era stale claim ("`markProvisioned`
+desde el checkpoint") — flagged by the sol6 executor with correct scope discipline,
+corrected in the PM's approval commit (one line, labelled; the no-deferral rule wanted
+it closed before Sol R7 reads the file).
 
 ## 8. Exact local gate commands
 
 ```bash
 npm run type-check && npm run lint && npm test && npm run build
-npm run test:db          # local Supabase stack; 6 files / 91 tests
+npm run test:db          # local Supabase stack; 6 files / 139 tests (002 grew across sol5–sol6)
 supabase db start && eval "$(supabase status -o env | grep '^DB_URL=')" \
   && SUPABASE_DB_URL="${DB_URL}" npm run test:queue   # §17 proof, ~40 jobs
 ```

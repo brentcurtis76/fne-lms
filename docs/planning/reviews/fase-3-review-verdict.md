@@ -233,3 +233,46 @@ count will grow past 91, superseding the DoD's literal); the in-RPC projection w
 must never move an existing projection backward (reuse the applies-from discipline);
 dossier §7e corrections are the PM's at approval, the review-request backfill (sol4 +
 sol5 records) is the executor's. One round: **Z1b-sol5**.
+
+## Round 6 — Re-review of Z1b-sol5 (verdict: REQUEST CHANGES, 2026-07-31)
+
+Relayed as the Z1b-sol6 fix block. Sol ruled on the residual §7f explicitly put before
+it: the two-call shape on the LAST two paths is an R6 finding, not a Z2 baseline.
+
+**① (MAJOR-class)** Fresh-create persistence is the same two-call gap R5-① closed for
+recovery: `markProvisioned` (meeting-provision.ts:1624) → `upsertProjection` (:1643).
+Fix: one guarded service-role transaction — REUSE `adopt_checkpoint_meeting` if its
+`pending` + NULL-number CAS fits (it does: the post-create fresh write IS that
+transition), or a generalized finalization RPC; CAS miss ⇒ no late projection write,
+structured supersession.
+
+**② (MAJOR-class)** Already-provisioned replay is not monotonic: the replay branch
+re-upserts `scheduled` through the UNGUARDED `upsertProjection` (:910 — plain ON
+CONFLICT DO UPDATE, no status guard; it predates the monotonic work), so a late replay
+clobbers a `live`/`ended` projection back to `scheduled`. Fix: one transaction that
+locks/reads the current internal row and derives the public status (provisioned →
+scheduled · started → live · ended → ended · cancelled → cancelled), never moving an
+existing projection backward — and RECREATING a missing projection for an
+already-started/ended meeting (which structurally heals the sol2-era stranded-
+projection residual).
+
+**③** Fail-on-old regressions for both, incl. the replay-heals-missing-projection case
+and wire/pgTAP coverage for any new or changed RPC signature.
+
+**④ (docs)** Replace the dossier's "re-upserts idempotently" residual ruling; 002's
+section-A comment says 20 asserts (now 26); the dossier §8 comment says 91 pgTAP tests
+(now 115 — the PM's own figure gone stale a second time).
+
+## PM triage (Round 6)
+
+**ALL FOUR VALID.** ① is concession-flavored: the PM's §7f framing — "fresh-create
+publishes into a projection that cannot pre-exist" — did not mitigate the race, because
+the R5 race never required a pre-existing projection; that WAS the race. The analysis
+is conceded; the PROCESS held (the residual was explicitly routed to Sol rather than
+silently accepted, and Sol ruled). ② is verified real at the anchor (:910 unguarded).
+④'s dossier items are the PM's at approval; 002's comment and the review-request are
+the executor's. **Convergence statement for the owner**: after sol6, every provision-
+path persistence is atomic and monotonic — fresh-create (reused adopt RPC), recovery +
+adoption (sol5), replay (new sync RPC) — the two-call surface of this handler is
+EXHAUSTED by construction; a hypothetical R7 finding would be a new class, not this one
+again. One round: **Z1b-sol6**.

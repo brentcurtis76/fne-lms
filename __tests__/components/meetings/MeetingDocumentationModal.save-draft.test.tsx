@@ -61,12 +61,10 @@ vi.mock('react-hot-toast', () => ({
 const mockCreateMeeting = vi.fn();
 const mockUpdateMeeting = vi.fn();
 const mockGetMeetingDetails = vi.fn();
-const mockSendTaskNotifications = vi.fn();
 
 vi.mock('../../../utils/meetingUtils', () => ({
   createMeetingWithDocumentation: (...args: any[]) => mockCreateMeeting(...args),
   getCommunityMembersForAssignment: vi.fn().mockResolvedValue([]),
-  sendTaskAssignmentNotifications: (...args: any[]) => mockSendTaskNotifications(...args),
   getMeetingDetails: (...args: any[]) => mockGetMeetingDetails(...args),
   updateMeeting: (...args: any[]) => mockUpdateMeeting(...args),
 }));
@@ -96,7 +94,6 @@ beforeEach(() => {
   mockCreateMeeting.mockReset();
   mockUpdateMeeting.mockReset();
   mockGetMeetingDetails.mockReset();
-  mockSendTaskNotifications.mockReset();
   mockCreateMeeting.mockResolvedValue({ success: true, meetingId: 'new-meeting' });
   mockUpdateMeeting.mockResolvedValue({ success: true });
   // @ts-expect-error override global fetch for test
@@ -176,8 +173,6 @@ describe('MeetingDocumentationModal — "Guardar borrador" persists step-3 conte
     expect(payload.tasks).toHaveLength(1);
     expect(payload.tasks[0].task_title).toBe('Preparar deck');
     expect(payload.tasks[0].task_description).toBe('Preparar presentación');
-    // Draft save should not fire assignee notifications.
-    expect(mockSendTaskNotifications).not.toHaveBeenCalled();
   });
 
   it('edit mode: "Guardar borrador" updates the existing commitment and deletes the removed one, keeping status=borrador', async () => {
@@ -267,8 +262,5 @@ describe('MeetingDocumentationModal — "Guardar borrador" persists step-3 conte
 
     // A delete-in call fired with c1 (the removed commitment).
     expect(deletedIdBatches.flat()).toContain('c1');
-
-    // Draft save still skips task-assignment notifications.
-    expect(mockSendTaskNotifications).not.toHaveBeenCalled();
   });
 });

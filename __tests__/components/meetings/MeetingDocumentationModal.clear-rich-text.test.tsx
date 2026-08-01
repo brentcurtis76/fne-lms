@@ -53,7 +53,6 @@ vi.mock('react-hot-toast', () => ({
 vi.mock('../../../utils/meetingUtils', () => ({
   createMeetingWithDocumentation: vi.fn(),
   getCommunityMembersForAssignment: vi.fn().mockResolvedValue([]),
-  sendTaskAssignmentNotifications: vi.fn(),
   getMeetingDetails: vi.fn().mockResolvedValue({
     id: 'meeting-1',
     title: 'Test meeting',

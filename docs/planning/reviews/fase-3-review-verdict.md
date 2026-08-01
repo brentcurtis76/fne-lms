@@ -276,3 +276,43 @@ path persistence is atomic and monotonic — fresh-create (reused adopt RPC), re
 adoption (sol5), replay (new sync RPC) — the two-call surface of this handler is
 EXHAUSTED by construction; a hypothetical R7 finding would be a new class, not this one
 again. One round: **Z1b-sol6**.
+
+## Round 7 — Re-review of Z1b-sol6 (verdict: REQUEST CHANGES, 2026-07-31)
+
+Relayed as the Z1b-sol7 fix block. Two findings, both on the sol6 supersession
+semantics:
+
+**① (MAJOR-class)** The fresh-create CAS miss shrugs at a distinguishable ambiguity:
+the handler completes with a warn whose own text admits "if the winner recorded a
+DIFFERENT number, zoom <id> is an orphan" (meeting-provision.ts:1781) — without reading
+the winner's persisted `zoom_meeting_number`, which `findMeetingBySurface` provides.
+Required: read it after the failed CAS; equal to `created.id` ⇒ structured SAFE
+supersession, complete; different or unreadable ⇒ typed NON-retryable
+`possible_orphan` failure with the created number in durable job evidence. Tests incl.
+no-retry-into-create.
+
+**② (MAJOR-class)** Replay-sync `missing`/`not_publishable` warn-and-complete
+(:1538) — a vanished internal row or an impossible status produces a GREEN job and a
+console line nobody consumes. Required: typed non-retryable failures (or an explicit
+§18-consumed durable state); queue row `failed`, actionable meeting evidence retained,
+never retried into fresh creation.
+
+**③ (docs)** Correct the review-request AND the PM dossier claims that these outcomes
+"must complete" / "cannot be distinguished".
+
+## PM triage (Round 7)
+
+**BOTH VALID — both overturn the PM's sol6 rulings, conceded in full.** ① the PM
+accepted "the process can't tell, so the result claims neither" without checking
+whether the ignorance was necessary — it is not: one SELECT of the winner's number
+distinguishes same-meeting supersession from a real orphan, and the code's own warn
+text knew it. ② the PM conflated the executor's correct danger analysis (a RETRY into
+the fresh path would create a second meeting) with the wrong remedy (complete): a
+non-retryable failure has no retry, preserves evidence where triage looks, and a
+requeued `failed` job re-enters the replay path (the row holds the winner's number),
+never the create path — completing green was the one option that HIDES the anomaly.
+The executor's own R7 scrutiny note invited this second opinion; the PM's ruling was
+the weak link. ③ splits as before: review-request = executor; the dossier §7g lines
+("the epistemics are right", the complete-don't-throw praise) = the PM at approval.
+No migration is needed (the winner-read uses the existing store; classification is
+TS-side). One round: **Z1b-sol7**.

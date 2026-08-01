@@ -333,3 +333,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: 1 Decision Log addendum row
 - BACKLOG ADDED: config.toml major_version pin (consideration)
 - OPEN AFTER THIS ROUND: Brent triggers the scoped Codex confirmation on A2. Still awaited: A1 r3 report, B1b r2 report.
+
+### 2026-08-01 — Branch-drift incident + recovery — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: **Incident, owned by the PM.** After the T2-era restore, the shared checkout was at some point switched from `main` back to `phase/t2-ci` by another session; the PM's next nine docs commits (064a8a0..8d7b847 — prompt files, A-7 verbatim block, A-8 lodging amendment, D-04 privilege standard, §1.5 rows, record corrections, eight ledger entries) were committed and pushed to that dormant branch while every verification checked FILE STATE but never the REF. Consequences now explained retroactively: the A1-r2 "dispatch race" (the session read the checkout, which was ahead of real main), executors finding prompts in the checkout but not in their origin/main worktrees, and the A2 reconciliation repeatedly seeing a "stale" main that was in fact the real one. Detected when a deterministic-union assert demanded a main-side ledger entry that origin/main provably never had. Recovery: `docs/pm-sync` (PR #33) built from origin/main + the stranded docs' final state — PLAN taken from the t2-ci tip (verified superset; only the two amendment-superseded rows differ), LEDGER via deterministic union (25 merged-phase entries + 8 stranded PM entries = 33, dual-direction no-loss asserts), 8 prompt files. A first cherry-pick attempt was correctly blocked by its own asserts (the corrupted-then-repaired commit pair does not replay) and a pipe-masked failure pushed an empty branch ref — repaired in the same recovery.
+- COMMITS: eb73aac + (this entry)
+- TESTS: union asserts (dual-direction, zero loss); PLAN/prompts content asserts — all gated pre-commit.
+- FINDINGS RAISED: none beyond the incident itself.
+- DECISIONS: **New hard rule (binding on the PM): every PM commit block begins with an explicit ref assertion (`test "$(git branch --show-current)" = <expected>`), and no mutating pipeline may mask exit codes (`cmd | tail` never guards a mutation). Dispatches are frozen until the prompts/plan are readable from origin/main.** Post-merge cleanup for Brent's word: reset `origin/phase/t2-ci` to its true tip `3051203` (or delete the merged branch) so the stranded lineage cannot be read as authoritative.
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: PR #33 merge (Brent); then re-reconcile `phase/a2-leads-db` against true main and hand over the PR #31 merge line; then flip the shared checkout to main (no live sessions) and resume dispatches.

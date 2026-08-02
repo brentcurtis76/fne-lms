@@ -343,3 +343,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: **New hard rule (binding on the PM): every PM commit block begins with an explicit ref assertion (`test "$(git branch --show-current)" = <expected>`), and no mutating pipeline may mask exit codes (`cmd | tail` never guards a mutation). Dispatches are frozen until the prompts/plan are readable from origin/main.** Post-merge cleanup for Brent's word: reset `origin/phase/t2-ci` to its true tip `3051203` (or delete the merged branch) so the stranded lineage cannot be read as authoritative.
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: PR #33 merge (Brent); then re-reconcile `phase/a2-leads-db` against true main and hand over the PR #31 merge line; then flip the shared checkout to main (no live sessions) and resume dispatches.
+
+### 2026-08-01 — A1 r3 + B1b r2 verified; A-8 propagation completed — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Both rounds verified with PM's own hands (branch greps + targeted re-runs: A1 34/34; B1b regression + modal suites 5/5; helper/values confirmed gone on origin refs). A1 r3 was a re-dispatch — the prior r3 session had already landed the delta and stopped on FINDINGS (origin/main unreadable pre-PR-33); the second session correctly verified instead of re-implementing. **Executor finding accepted and fixed: the A-8 amendment's propagation stopped short of the plan's criteria text** — A1 [A3] and A3's brochure test still required the retired "1.560" total; both rewritten to the band model (Decision Log row), A3 gains dispatch-time owner items (Madrid €360; lodging styling). B1b scope-3 answer recorded: meeting task assignees currently get NO notification of any kind (not even in-app) — the backlogged server-side rebuild is a real feature gap, not duplicate coverage. Housekeeping: wt-b1b2 removed, wt-b1b fast-forwarded. PR opened for phase/a1-cohort.
+- COMMITS: (this commit — PLAN amendments + this entry)
+- TESTS: A1 34/34 + B1b 5/5 (PM re-runs)
+- FINDINGS RAISED: none new
+- DECISIONS: 1 Decision Log row (propagation completion)
+- BACKLOG ADDED: none new (assignee-notification gap already recorded, now upgraded with the no-in-app fact)
+- OPEN AFTER THIS ROUND: **A1 → Codex final review; B1b → Codex round 2 (of 2)** — Brent triggers both. Still pending Brent's words: merge #31 (A2, CI green); prod application of the leads migration; phase/t2-ci reset/delete.

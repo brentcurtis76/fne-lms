@@ -359,3 +359,47 @@ serialization path on the seam sol7 added. All three live entirely inside the pr
 round's additions — the narrowing pattern holds. Dossier corrections (the "gate at the
 top/before every write" §7h wording and the requeue-resolution claims) are the PM's at
 approval; the review-request is the executor's. One round: **Z1b-sol8**.
+
+## Round 9 — Re-review of Z1b-sol8 (verdict: REQUEST CHANGES, 2026-08-02)
+
+Relayed as the Z1b-sol9 fix block. Four items:
+
+**① (MAJOR)** The `possible_orphan` CHECKPOINT arm self-resolves: the checkpoint in
+`stage_state` is the pre-existing artifact of the SAME attempt that produced the
+orphan, so on requeue the predicate finds it (names created=A, points at this row),
+declares the marker resolved, and the different-number orphan (row winner=B) replays
+green — the R8-① defect through a narrower door, with NO operator action and NO
+database change. Smallest safe rule (Sol's): `created_zoom_meeting_number` must
+already BE the row's persisted `zoom_meeting_number`; the checkpoint arm is removed
+from possible_orphan resolution; ordinary checkpoint adoption for UNMARKED jobs stays.
+
+**② (MAJOR-adjacent, test fidelity)** The different-number round-trip test masked ①:
+its injected heartbeat installs the rival row state WITHOUT first forwarding
+stageState to ctx.heartbeat, so the checkpoint never lands in `job.stage_state` and
+the requeue scenario (rival row B + checkpoint A) was never actually constructed.
+Fix the double (forward first, then install) and add the four regressions: B+A stays
+anomaly_unresolved; three requeues preserve created=A and stay failed; row number=A
+still resolves; no requeue creates.
+
+**③ (MINOR)** Extend defensive reads in `describeJobFailure` to `message`, `reason`,
+`detail` — including the non-Zoom `String(error)` path — with ticker-level tests that
+getter-throwing fields cannot escape and `fail_zoom_job` is still called. (The
+residual the sol8 executor declared and the PM endorsed as a two-liner; Sol rules it
+in-scope.)
+
+**④ (docs)** Review-request per-file numstat + checkpoint/total-failure claims
+(executor); the corresponding dossier §7i erratum (PM at approval — §7i endorsed the
+checkpoint anchor as "the same rule as adoption").
+
+## PM triage (Round 9)
+
+**ALL FOUR VALID — ① and ② are PM sol8-verification misses, conceded.** ① the PM
+walked the ROW arm through the different-number case and read the checkpoint arm as
+adoption-equivalent without walking IT through: the checkpoint's row-identity check
+says "points at this row", not "A is persisted anywhere" — A remains unaccounted for
+while the marker self-resolves. ② the PM re-ran the executor's tests without
+inspecting the heartbeat double's ordering — the reproduced 9/93 counted a test that
+passed for the wrong reason. ③ was pre-declared by the executor, PM-endorsed, and is
+now ruled in by Sol. The narrowing holds: one substantive code defect (a
+single-predicate-arm deletion), one test-double fix, one pre-declared two-liner, and
+docs. One round: **Z1b-sol9**.

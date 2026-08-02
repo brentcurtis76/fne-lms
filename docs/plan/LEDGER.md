@@ -363,3 +363,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: pending Brent on B1b
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A1 r4`; Brent's §1.5 word on B1b (then `/exec INSPIRA B1b r3`); STILL pending Brent: merge #31, prod migration application, phase/t2-ci cleanup.
+
+### 2026-08-02 — Madrid removed + lodging styling decided — Fable (PM, owner input)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner: the PPTX's "Opcional Madrid" block was accidental — **no Madrid options for now**. Purged from PLAN (Appendix A-7/A-8, A1/A3 criteria; 2 Decision Log rows); `prompts/a1-5.md` staged (owner-authorized round on the passed phase: remove Madrid exports/values/patterns + a no-return guard). Lodging styling delegated ("that's fine") → PM chose the coordination framing; owner veto point = A3's brochure review. Merge train unchanged and still awaiting words: #31 + #32 mergeable NOW; #34 after r5 lands + quick Sol confirmation.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 2 Decision Log rows
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A1 r5`; Brent's words: merge #31, merge #32, prod migration application, phase/t2-ci cleanup.

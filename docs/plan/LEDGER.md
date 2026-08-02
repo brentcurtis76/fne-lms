@@ -363,3 +363,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: (1) **Guard kept over a literally-empty grep** — mechanical prevention is the substantive requirement; PM/Codex to overrule if the grep was meant literally. (2) **`810` kept in the test's `PROTECTED_AMOUNTS`** as a retired amount, the same treatment 560 and 1.560 got in r3 — it may never reach a public surface even though the module no longer holds it. (3) **`CohortPriceItem.optional` left in place** though the removed extension was its only user — it is part of the type A3 consumes; deleting it is scope creep on a passed phase. (4) **A-8's lodging coordination framing NOT added** — that is A3 brochure copy per the owner's delegation, not a cohort-module string.
 - BACKLOG ADDED: none. Voided: the carried "Madrid €810 / €360 lodging component to confirm at A3" item — there is nothing left to confirm. Still open from r4: S1 importer allowlist, S2 rendered homepage-card assertion.
 - OPEN AFTER THIS ROUND: PM verification, then the quick Sol confirmation the PM queued before PR #34 merges. Branch PLAN.md remains stale by design — union at close.
+
+### 2026-08-02 — A1 round r5 — Fable (PM verification)
+- CONTEXT PRESSURE: n/a
+- ACTION: Independent verification: 52/52 re-run by PM; source purge confirmed (0 madrid hits in lib/pasantias + scanner); base-doble clause present in the note string and as a new scanner fragment. Deviation 1 ACCEPTED — the no-return guard necessarily names /madrid/i; mechanical prevention outranks a literally empty grep in the test file (the two source files ARE literally clean). Deviation 2 ACCEPTED — retired amounts stay in PROTECTED_AMOUNTS, matching r3's treatment of 560/1560. All three assumptions accepted (coordination framing = A3 copy; CohortPriceItem.optional kept for A3's type; unrelated Madrid strings untouched). The r4 carry-forward "Madrid to confirm at A3" is void — A3's sole remaining owner item is nothing (styling already decided).
+- COMMITS: (this ledger commit)
+- TESTS: targeted ×2 → 52/52 (PM re-run)
+- FINDINGS RAISED: none
+- DECISIONS: deviations accepted
+- BACKLOG ADDED: none (S1/S2 stand)
+- OPEN AFTER THIS ROUND: **A1 → scoped Sol confirmation (owner-authorized round, cap spent)**; then reconcile + the merge train (#31 → #34 → #32).

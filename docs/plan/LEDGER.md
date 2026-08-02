@@ -344,6 +344,26 @@ Entry format (§2.2 of the SOP):
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: PR #33 merge (Brent); then re-reconcile `phase/a2-leads-db` against true main and hand over the PR #31 merge line; then flip the shared checkout to main (no live sessions) and resume dispatches.
 
+### 2026-08-01 — A1 r3 + B1b r2 verified; A-8 propagation completed — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Both rounds verified with PM's own hands (branch greps + targeted re-runs: A1 34/34; B1b regression + modal suites 5/5; helper/values confirmed gone on origin refs). A1 r3 was a re-dispatch — the prior r3 session had already landed the delta and stopped on FINDINGS (origin/main unreadable pre-PR-33); the second session correctly verified instead of re-implementing. **Executor finding accepted and fixed: the A-8 amendment's propagation stopped short of the plan's criteria text** — A1 [A3] and A3's brochure test still required the retired "1.560" total; both rewritten to the band model (Decision Log row), A3 gains dispatch-time owner items (Madrid €360; lodging styling). B1b scope-3 answer recorded: meeting task assignees currently get NO notification of any kind (not even in-app) — the backlogged server-side rebuild is a real feature gap, not duplicate coverage. Housekeeping: wt-b1b2 removed, wt-b1b fast-forwarded. PR opened for phase/a1-cohort.
+- COMMITS: (this commit — PLAN amendments + this entry)
+- TESTS: A1 34/34 + B1b 5/5 (PM re-runs)
+- FINDINGS RAISED: none new
+- DECISIONS: 1 Decision Log row (propagation completion)
+- BACKLOG ADDED: none new (assignee-notification gap already recorded, now upgraded with the no-in-app fact)
+- OPEN AFTER THIS ROUND: **A1 → Codex final review; B1b → Codex round 2 (of 2)** — Brent triggers both. Still pending Brent's words: merge #31 (A2, CI green); prod application of the leads migration; phase/t2-ci reset/delete.
+
+### 2026-08-02 — A1/B1b Codex triage → prompts staged — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: A1 Codex r1 = FAIL ×2 BLOCKING, both accepted (scanner blind to the €70/€120 band — partly PM prompt gap; serialization guard covers one export) → `prompts/a1-4.md` committed, dispatchable now (Codex round 1 of 2). B1b Codex r2 = FAIL ×1 (guard sweep omits `src/`) → **cap reached, §1.5 with Brent**; `prompts/b1b-3.md` staged, dispatch only on his word. Full triage in branch ledgers.
+- COMMITS: (this commit — both prompts + this entry)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: pending Brent on B1b
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A1 r4`; Brent's §1.5 word on B1b (then `/exec INSPIRA B1b r3`); STILL pending Brent: merge #31, prod migration application, phase/t2-ci cleanup.
+
 ### 2026-07-31 — A2 round 1 — Opus (executor)
 - CONTEXT PRESSURE: comfortable — 2 SQL files + docs, ~505 new lines; the only large reads were the `tractor_signups` slices of the 26k-line baseline and `020-tractor-signups-rls.sql`. Nothing was cut for context.
 - ACTION: Created `public.pasantias_leads` in one additive migration (`20260731140500_add_pasantias_leads.sql`) with the column set specced in A2 [A1], four CHECKs (email normalization, `num_people` 1–60, status set, marketing all-or-nothing), `UNIQUE (email_normalized, cohort)`, indexes on `(status)` and `(created_at DESC)`, and the shared `set_updated_at` trigger. [A2]: RLS enabled with **exactly one** policy — `pasantias_leads_admin_select`, `FOR SELECT TO authenticated`, `USING` the same `user_roles` admin-EXISTS test as `tractor_signups_admin_all`; **no `WITH CHECK` exists anywhere on the table**, which is what makes the D-04 posture per-operation rather than per-table. [A3]: nothing dropped, truncated or destructively altered; the migration header carries the full access matrix and the forward-only rollback rule, and the policy is created inside a `DO … IF NOT EXISTS (SELECT 1 FROM pg_policies …)` block rather than `DROP POLICY IF EXISTS` + `CREATE`, so it is re-runnable without a DROP. `CREATE OR REPLACE TRIGGER` for the same reason. [A4]: `supabase/tests/030-pasantias-leads-rls.sql`, 21 asserts. Status transitions are deliberately **not** enforced in SQL (D-03: the graph lives in `lib/pasantias/leads.ts`, and is authoritative only because D-04 leaves no authenticated write path).

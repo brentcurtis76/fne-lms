@@ -353,3 +353,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: 1 Decision Log row (propagation completion)
 - BACKLOG ADDED: none new (assignee-notification gap already recorded, now upgraded with the no-in-app fact)
 - OPEN AFTER THIS ROUND: **A1 → Codex final review; B1b → Codex round 2 (of 2)** — Brent triggers both. Still pending Brent's words: merge #31 (A2, CI green); prod application of the leads migration; phase/t2-ci reset/delete.
+
+### 2026-08-02 — A1/B1b Codex triage → prompts staged — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: A1 Codex r1 = FAIL ×2 BLOCKING, both accepted (scanner blind to the €70/€120 band — partly PM prompt gap; serialization guard covers one export) → `prompts/a1-4.md` committed, dispatchable now (Codex round 1 of 2). B1b Codex r2 = FAIL ×1 (guard sweep omits `src/`) → **cap reached, §1.5 with Brent**; `prompts/b1b-3.md` staged, dispatch only on his word. Full triage in branch ledgers.
+- COMMITS: (this commit — both prompts + this entry)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: pending Brent on B1b
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A1 r4`; Brent's §1.5 word on B1b (then `/exec INSPIRA B1b r3`); STILL pending Brent: merge #31, prod migration application, phase/t2-ci cleanup.

@@ -268,3 +268,111 @@ regression, since the deleted email never reached anyone. Nothing was built.
 <code commit>  chore(b1b): delete the dead browser-controlled edge-function mail path
 <docs commit>  docs(b1b): round-2 evidence, review request and ledger entry
 ```
+
+---
+
+# Round 3 — guard sweep extended to the full client source surface
+
+**Branch:** `phase/b1b-relay` · base for this round: `2407d43` · 1 commit.
+**Owner-authorized third round** (§1.5 — Codex round cap of 2 was reached).
+
+## Objective
+
+Close REVIEW-B1B-R2.md's single BLOCKING [B1]: the round-2 regression guard's
+collector defined the browser-source universe as `components`, `pages`, `hooks`,
+`contexts`, `utils` and omitted `src/`, so the exact reviewed-away transport
+placed in `src/components/TipTapEditor.tsx` would have passed all three tests
+while Next emitted it into browser chunks.
+
+**In scope:** one test file + evidence. **Out of scope:** everything else — no
+source change, no new deletion, no re-litigating the round-2 design choices
+Codex explicitly accepted (transport-keyed rule, source-level assertion).
+
+## Files changed
+
+| File | Δ | Risk |
+|---|---|---|
+| `__tests__/utils/no-browser-mail-transport.test.ts` | +72 / −10 | test-only; no runtime code touched |
+| `docs/plan/evidence/b1b/dead-edge-relay-removal.md` | +~120 | docs |
+| `docs/planning/reviews/fase-b1b-review-request.md` | this section | docs |
+| `docs/plan/LEDGER.md` | round entry | docs |
+
+## What changed in the guard
+
+`CLIENT_SURFACES` is no longer a literal. It is derived at run time:
+
+```
+top-level directories
+  − dot-directories (.github, .claude — tooling config)
+  − plain-name roots read from tsconfig.json's own `exclude`
+  − NON_CLIENT_ROOTS (lib, scripts, supabase, tests, docs — each with its reason)
+```
+
+which yields `components config constants contexts hooks pages public src styles
+types utils` — 546 client files, up from 500. The repo-wide sweep now covers
+every compiled root (1124 files) rather than `clientFiles + lib + scripts`, so
+its stated claim ("nothing *anywhere* invokes the edge function") is now true of
+the code it actually reads. The tsconfig excludes are parsed, not restated, so
+the two cannot drift.
+
+The direction of the default is the point: a directory is now swept unless
+someone writes down why it should not be. A new top-level client tree is covered
+the day it appears.
+
+## Test evidence
+
+- Focused: `npx vitest run __tests__/utils/no-browser-mail-transport.test.ts` →
+  3 passed.
+- Non-vacuity, per your §1.5 note: the third test asserts `src` is in
+  `CLIENT_SURFACES` and that `src/components/TipTapEditor.tsx` (the file you
+  named) and `components/meetings/MeetingDocumentationModal.tsx` are both in the
+  swept list, alongside the existing >100-file floor.
+- Bite proof, verbatim in evidence §7: injecting
+  `supabase.functions.invoke('send-email', { body: { to, subject, html } })` into
+  `src/components/TipTapEditor.tsx` fails **both** transport assertions; the
+  round-2 collector run against the same injected file reports 0 offenders and
+  `src/components/TipTapEditor.tsx swept? false`. Reverted, re-run green.
+- Four gates: type-check pass, lint pass (`--max-warnings=0`), `npm test`
+  233 files / 3448 tests passed, `npm run build` exit 0.
+
+## Scrutinize hardest
+
+1. **`public/` is now in the client set — my call, and arguable.** Nothing
+   bundles `public/`; Next serves it verbatim. I swept it anyway because
+   `public/sw.js` is a service worker the browser executes, which is the same
+   capability class. If you consider `public/` outside the criterion, it belongs
+   in `NON_CLIENT_ROOTS` with a reason; nothing else changes.
+2. **`lib/` stays out of the client sweep, unchanged from round 2.** It is the
+   only exclusion that hides real transports (`lib/emailService.js`,
+   `lib/email/expenseNotifications.ts`), and it is genuinely shared — client
+   modules import non-mail things from `lib/`. The compensating rule is the
+   `server-side mail modules` pattern: a client file importing `lib/emailService`
+   or `lib/email/` is an offender. A *new* server sender placed outside `lib/`
+   and `pages/api/` would land in the client set and fail the guard, which is the
+   right failure, but it would fail for the wrong-looking reason.
+3. **`tests/` and `scripts/` are excluded as "not shipped".** True today. Both
+   are still swept repo-wide for the edge-function call, so the exclusion only
+   affects the SDK-import patterns — a Playwright helper importing `resend` would
+   not be flagged. I judged that correct (test code legitimately touches
+   providers); say so if you disagree.
+4. **The tsconfig parse is narrow by design.** It takes only `exclude` entries
+   with no glob and no extension. Glob entries (`**/*.test.ts`) and file entries
+   (`playwright.config.ts`) are ignored, so they never remove a *directory* from
+   the sweep. If someone later excludes a directory as `"src/legacy/**"`, the
+   parse will not see it and the tree stays swept — fail-closed, but worth
+   knowing.
+5. **Round-2 review-request item 5 is now resolved.** I flagged the hand-picked
+   list as a judgment call last round; you found the hole in it. The replacement
+   removes the judgment rather than re-exercising it.
+
+## Known limitations / deferred — round 3
+
+- The guard remains source-level. A post-build assertion over `.next/static`
+  would be stronger; the repo grows its first such harness in A1
+  (`scripts/check-price-leak.mjs`), and wiring one for mail transport is a
+  separate phase's work, not this round's.
+- All round-2 deferrals stand unchanged: the backlogged server-side rebuild of
+  task-assignment notification, the comment-only SendGrid references in
+  `pages/api/cron/email-digest.ts`, and that route's unauthenticated
+  service-role posture.
+- No e2e: this round changes only a test file.

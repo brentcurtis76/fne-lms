@@ -10,9 +10,9 @@
 | Branch | `feat/zoom-core` (PR [#26](https://github.com/brentcurtis76/fne-lms/pull/26), **draft — not marked ready**) |
 | Base | `origin/main` @ `18057e2` (absorbed mid-phase via merge `5d54f12`, which brought the contracts track `c878ec7`) |
 | Implementation head, Z1b-4·r1 | `ae210a5` (`4b71b3c` → `ccb8fce` → `ae210a5`) |
-| Head at THIS request | **Z1b-sol8** implementation commit plus the review-record commit containing the sol8 section (round base `90d71f9`) |
-| Commits ahead of `origin/main` | **69** through the sol8 implementation commit; this review-record commit is the 70th |
-| `origin/main` this round | **deliberately NOT merged** — Sol R9's scope is the Z1b-sol8 remediation only |
+| Head at THIS request | **Z1b-sol9** implementation `93a33e1` plus the review-record commit containing the sol9 section (round base `0b341f4`) |
+| Commits ahead of `origin/main` | **73** through the sol9 implementation commit; this review-record commit is the 74th |
+| `origin/main` this round | **deliberately NOT merged** — Sol R10's scope is the Z1b-sol9 remediation only |
 | Net diff vs `origin/main` (at `ae210a5`) | 53 files, +11734/−70 |
 | This chunk (Z1b-4) alone | merge `5d54f12` + 3 commits; 15 files, +2484/−92 |
 | Z1b-4·r1 remediation | `ccb8fce` (fix + tests + `PROJECT_STATE.md`) + `ae210a5` (type-clean); 2 PM findings, no scope beyond them |
@@ -735,8 +735,9 @@ performed.
 **Objective.** Make the anomaly gate answer the right question, and make sure nothing can answer a
 different one in front of it. ① resolution becomes IDENTITY (does the anchor carry the meeting the
 evidence names?) instead of EXISTENCE (does the row carry *a* meeting number?). ② the marker
-decision moves ahead of every operation that can overwrite the marker. ③ the failure path is made
-unable to throw from serialization.
+decision moves ahead of every operation that can overwrite the marker. ③ evidence serialization is
+made unable to abort the failure path. **R9 correction:** that last claim is intentionally narrow;
+`message`/`reason`/`detail` reads and the non-Zoom `String(error)` path were not yet total at sol8.
 
 **In scope:** the per-reason resolution predicate and the anchors it reads; the handler head's
 ordering and its fail-closed anchor read; the module header's resolution contract; evidence
@@ -753,17 +754,17 @@ learned a number to compare against), other job types, Zoom API behaviour, UI, d
 
 | Finding | What changed |
 |---|---|
-| **① reason-aware resolution** | New exported pure predicate `isTerminalAnomalyResolved(marker, anchors)` over `{row, checkpoint}`. **`possible_orphan`** → resolved only when the row (or an adoptable checkpoint naming that row) carries `evidence.created_zoom_meeting_number`; a row carrying the DIFFERENT winner number never resolves it. **`sync_missing_row`** → only a restored row carrying the recorded `evidence.zoom_meeting_number`. **`sync_not_publishable`** → the recorded number AND a status in `PUBLISHABLE_MEETING_STATUSES` (a TS mirror of `sync_projection_from_meeting`'s CASE; the SQL stays authoritative). Fails closed on evidence that lacks the number its reason needs, and on an unknown reason. Clearing the JOB's `last_error` remains the universal override for every reason. |
+| **① reason-aware resolution** | New exported pure predicate `isTerminalAnomalyResolved(marker, anchors)` over `{row, checkpoint}`. **`possible_orphan`** → resolved only when the ROW carries `evidence.created_zoom_meeting_number`; a row carrying the DIFFERENT winner number never resolves it. **R9 correction:** sol8 also accepted an adoptable checkpoint naming that row, but that was wrong because the orphaning attempt co-produced the checkpoint; sol9 removes that arm. **`sync_missing_row`** → only a restored row carrying the recorded `evidence.zoom_meeting_number`. **`sync_not_publishable`** → the recorded number AND a status in `PUBLISHABLE_MEETING_STATUSES` (a TS mirror of `sync_projection_from_meeting`'s CASE; the SQL stays authoritative). Fails closed on evidence that lacks the number its reason needs, and on an unknown reason. Clearing the JOB's `last_error` remains the universal override for every reason. |
 | **① header contract** | The module header's resolution section rewritten: the "a row that now carries a meeting number IS the resolution" framing is gone, replaced by the per-reason predicate and by the reason each remedy differs (`possible_orphan`'s remedy is at Zoom, not in the database). |
 | **② the decision happens first** | The handler head is restructured: `readPayload` (pure) → parse the marker (pure) → **if marked**, ONE `findMeetingBySurface` plus the already-in-hand `stage_state` checkpoint → refuse or proceed. `getZoomApi` and `readSession` are no longer reached first; the store is opened lazily so even its construction sits inside the gate's try. A failing anchor read raises the SAME refusal shape, carrying the original `reason`/`evidence` forward — fail closed. The gate at its old position (after the anchors) is removed; a one-line marker records where it used to be. |
-| **③ evidence hardening** | `readErrorEvidence` now wraps the property access (a throwing getter) and round-trips the value through JSON; anything that cannot survive that becomes `{ evidence_unserializable: <error class> }` and the rest of the record is preserved. `serializeJobFailure` is additionally TOTAL: full record → record minus evidence → the `kind`/`reason`/`detail` taxonomy → a constant. It cannot throw, so the ticker's failure path always reaches `fail_zoom_job`. |
+| **③ evidence hardening** | `readErrorEvidence` now wraps the property access (a throwing getter) and round-trips the value through JSON; anything that cannot survive that becomes `{ evidence_unserializable: <error class> }` and the rest of the record is preserved. `serializeJobFailure` is additionally TOTAL for any record it receives: full record → record minus evidence → the `kind`/`reason`/`detail` taxonomy → a constant. **R9 correction:** `describeJobFailure` could still throw before serialization while reading `message`/`reason`/`detail` or converting a plain object; sol9 closes those reads. |
 
 Implementation diff `90d71f9..HEAD` (code commit): **4 files, +1045/−89**.
 
 - **Highest:** `lib/zoom/jobs/meeting-provision.ts` (+244/−58) — the predicate, the publishable-status
   mirror, the restructured handler head, the per-reason refusal messages, the header contract.
 - **Medium:** `lib/zoom/jobs/runner.ts` (+92/−6) — evidence sanitization and the total serializer.
-- **Medium:** `__tests__/lib/zoom/jobs/meeting-provision.test.ts` (+560/−29, **+15 cases**, 78 → 93)
+- **Medium:** `__tests__/lib/zoom/jobs/meeting-provision.test.ts` (+557/−25, **+15 cases**, 78 → 93)
   and `__tests__/api/cron/zoom-ticker.test.ts` (+152, **+7 cases**, 27 → 34).
 
 **Rewires declared.** One existing case was rewritten because it asserted the defect: *"a requeued
@@ -823,12 +824,12 @@ contained the intended files and nothing else.
    invalid value, which is `getZoomApi`'s own deterministic throw.
 3. **A resolved marker is allowed to be overwritten by a later preflight failure, and that is
    safe by construction.** Resolution means the anchored number is on the row (⇒ `hasNumber` ⇒ the
-   replay path, which cannot create) or on an adoptable checkpoint naming that row (⇒ the adoption
-   path, which cannot create, and `fail_zoom_job` leaves `stage_state` alone so the checkpoint
-   survives). The same two cases are also why the ineligible-release path cannot fire on a resolved
-   marker: a row with a number is not a bare reservation, and the checkpoint clause already excludes
-   the other. So the marker is only load-bearing while unresolved, and while unresolved nothing
-   reaches the code that could overwrite it.
+   replay path, which cannot create). **R9 correction:** sol8 also cited an adoptable checkpoint as a
+   safe resolution case; that was the defect, because a different-number orphan's own checkpoint
+   changes no database state. After sol9 only the persisted row resolves `possible_orphan`. A row
+   with a number is not a bare reservation, so the ineligible-release path cannot fire. The marker
+   is only load-bearing while unresolved, and while unresolved nothing reaches code that could
+   overwrite it.
 4. **A `possible_orphan` whose evidence has no `created_zoom_meeting_number` can only be resolved by
    clearing the marker.** Fail-closed: there is no number to anchor against, so no state can be
    shown to resolve it. This covers hand-edited records and any anomaly recorded before the evidence
@@ -852,12 +853,11 @@ contained the intended files and nothing else.
 
 ### What an independent reviewer should scrutinize hardest — Z1b-sol8
 
-1. **The `possible_orphan` checkpoint anchor.** It resolves the marker when the job's own
-   `stage_state` checkpoint names this row and carries the created number. My argument: that is
-   exactly the adoption path's own precondition, adoption writes THAT number onto THAT row, and
-   `createMeeting` is unreachable from it. But it is the one resolution that does not require the
-   database to have changed — check that a stale-but-matching checkpoint cannot resolve an orphan
-   that a later writer re-opened.
+1. **The `possible_orphan` checkpoint arm (R9 correction).** Sol followed this requested scrutiny
+   and disproved the sol8 argument: the same attempt wrote checkpoint A before discovering persisted
+   winner B, so the checkpoint proves creation but not accounting. The arm is removed in sol9;
+   reviewers should now verify that ordinary checkpoint adoption remains reachable only for jobs
+   without a terminal marker.
 2. **Ordering versus the ROW-marker (ambiguous-create) gate.** The job gate now runs first; the row
    gate still sits after the anchors. I argue they cannot interact, because every resolved marker
    implies `hasNumber` or an adoption, and the row gate requires neither. If that reasoning is
@@ -875,16 +875,129 @@ contained the intended files and nothing else.
    discriminator and drops everything else. Check that dropping `retryAfterSeconds` there is
    acceptable: the runner reads it off the RECORD, not the JSON, so scheduling is unaffected.
 
-**Known limitations / Sol R9 notes:** `describeJobFailure` still reads `error.message`, `error.reason`
-and `error.detail` as plain property accesses — only `evidence` is access-hardened, because only
-`evidence` is the field R8 ③ names and only it is handler-supplied structure. A `ZoomError` whose
-`message` getter throws would still abort the fail path; if that residual matters it is a two-line
-change, not a redesign. The gate remains a TypeScript guard over a text column rather than a
-database constraint, unchanged from sol7. `docs/runbooks/zoom.md` (plan §16, later phase) still does
-not exist, so all three remedies are a human reading `zoom_jobs.last_error` directly — which is why
-the refusal message now carries the per-reason remedy. `possible_orphan` is still a third orphan
-class with no automated sweep. `supabase/.branches/`, if recreated by local Supabase gates, is CLI
-state only and must remain untracked/uncommitted.
+**Known limitations / Sol R9 notes:** At the sol8 head, `describeJobFailure` still read
+`error.message`, `error.reason` and `error.detail` as plain property accesses and converted a
+non-Error through unguarded `String(error)`; a throwing getter/converter could therefore abort the
+catch block before `fail_zoom_job`. **Closed in sol9 below.** The gate remains a TypeScript guard
+over a text column rather than a database constraint, unchanged from sol7. `docs/runbooks/zoom.md`
+(plan §16, later phase) still does not exist, so all three remedies are a human reading
+`zoom_jobs.last_error` directly — which is why the refusal message carries the per-reason remedy.
+`possible_orphan` is still a third orphan class with no automated sweep. `supabase/.branches/`, if
+recreated by local Supabase gates, is CLI state only and must remain untracked/uncommitted.
+
+## Sol R9 remediation — round Z1b-sol9
+
+Sol R9 reviewed Z1b-sol8 and returned **REQUEST CHANGES** with four findings; the PM triaged **all
+four VALID**, with ① and ② explicitly conceded as PM sol8-verification misses
+(`docs/planning/reviews/fase-3-review-verdict.md`, Round 9 + PM triage). The round base is
+`0b341f4`; implementation `93a33e1` plus this documentation commit are the round's **2 commits**.
+No migration, dependency or CI file changed; `origin/main` was not merged; no live Zoom call,
+deployment or production database action occurred. Per the relay, `fase-3-pm-dossier.md` was not
+edited — its §7i checkpoint-anchor erratum remains PM-owned at approval.
+
+### Objective and scope — Z1b-sol9
+
+**Objective.** Make `possible_orphan` resolvable only by persisted row identity, prove the exact
+checkpoint-A/row-B requeue rather than a masked double, and make every requested human-readable
+failure field safe against hostile getters/string conversion so the catch block still reports the
+job.
+
+**In scope:** deletion of the `possible_orphan` checkpoint arm; predicate and module-contract
+comments; the rival-heartbeat ordering; four provisioning regressions; defensive reads for
+`message`, `reason`, `detail` and non-Zoom `String(error)`; four ticker-level regressions; correction
+of this review-request's sol8 per-file numstat and checkpoint/total-failure claims; this round's
+record and evidence.
+
+**Out of scope:** ordinary checkpoint adoption for jobs with no terminal marker; other anomaly
+reasons; migrations, dependencies, CI, UI and other job types; `origin/main`; live Zoom; production
+DB; deployment; and `fase-3-pm-dossier.md` (PM-owned §7i erratum).
+
+### Fixes, commit, and files by risk — Z1b-sol9
+
+| Finding | What changed |
+|---|---|
+| **① row-only `possible_orphan` resolution** | `isTerminalAnomalyResolved` now accepts `possible_orphan` only when `row.zoom_meeting_number === evidence.created_zoom_meeting_number`. The co-produced checkpoint is ignored for this reason. The ordinary unmarked checkpoint-adoption branch later in the handler is byte-for-byte untouched. The module header now distinguishes a genuine B/A orphan (cancel A at Zoom, clear marker) from operator repair of a false positive (persist A on the row). |
+| **② faithful rival double + four regressions** | The injected heartbeat first awaits `ctx.heartbeat(stageState)`, genuinely persisting checkpoint A in `job.stage_state`, then installs rival row B. Four named regressions cover B+A refusal, three evidence-preserving failed requeues, operator repair to row A, and zero `createMeeting` calls from any requeue. |
+| **③ defensive failure reads** | `readErrorReason`, `readErrorDetail` and the new `readErrorMessage` wrap access/conversion. A throw becomes `[unreadable:<ErrorClass>]` (class only; hostile messages are not stored), while the surviving fields continue into the JSON record and `fail_zoom_job`. Three getter cases plus a plain-object hostile `toString` run through the real ticker catch block. |
+| **④ docs** | Corrected sol8's handler-test numstat from the claimed +560/−29 to the actual **+557/−25**, narrowed its serialization claim to `serializeJobFailure` after a record exists, removed the invalid checkpoint-resolution argument, and added this record. |
+
+Implementation diff `0b341f4..93a33e1`: **4 files, +227/−58**.
+
+- **Highest:** `lib/zoom/jobs/meeting-provision.ts` (+27/−28) — one predicate arm removed;
+  header/predicate contract corrected without touching ordinary adoption.
+- **High:** `__tests__/lib/zoom/jobs/meeting-provision.test.ts` (+105/−23, **+3 net cases**,
+  93 → 96) — the prior combined case becomes four explicit R9 regressions and forwards the real
+  heartbeat before installing the rival.
+- **Medium:** `lib/zoom/jobs/runner.ts` (+29/−7) — three defensive readers and a class-name marker.
+- **Medium:** `__tests__/api/cron/zoom-ticker.test.ts` (+66, **+4 cases**, 34 → 38) — catch-block
+  coverage for each requested hostile field/conversion.
+
+### Fail-on-old evidence — Z1b-sol9
+
+Both controls used the new tests against the exact `0b341f4` behavior by restoring only the
+relevant old source lines, then restoring the fix and re-running both focused suites green.
+
+| Control | Pre-fix observation |
+|---|---|
+| Reinsert only `possible_orphan`'s checkpoint arm from `0b341f4` | **3 failed / 93 passed of 96** in `meeting-provision.test.ts`: B+A replays `done` instead of staying `failed`; the three-requeue test goes green on its first requeue and loses the preserved-failure assertion; and the direct predicate returns `true` for the co-produced same-row checkpoint. The operator-repair and zero-create tests pass old, deliberately: they are must-not-regress guards, not claimed detectors. |
+| Restore only `0b341f4`'s unguarded `message`/`reason`/`detail` and `String(error)` reads | **4 failed / 34 passed of 38** in `zoom-ticker.test.ts`: each hostile getter throws `RangeError` from inside `describeJobFailure`, and the hostile plain object's converter throws `URIError`; all four escape `runZoomTick`, so `fail_zoom_job` is never called. |
+
+Fixed-source focused proof after both controls were restored: **134/134** —
+`meeting-provision.test.ts` **96/96** + `zoom-ticker.test.ts` **38/38**.
+
+### Gates at the Z1b-sol9 final head
+
+| Gate | Result |
+|---|---|
+| `npm run type-check` | clean (exit 0) |
+| `npm run lint` | clean, zero warnings (exit 0) |
+| `npm test` | **3789/3789 in 240 files** (+7 over the sol8 head: +3 provisioning, +4 ticker) |
+| `npm run build` | OK — full route table generated |
+| `supabase db reset` + `npm run test:db` | **PASS — 6 files, 139 tests**; no migration changed |
+| `npm run test:queue` | **PASS — 40/40 exactly once** under two concurrent tickers |
+
+`supabase/.branches/` is pre-approved CLI state and remains untracked/uncommitted; no other
+unintended file is present.
+
+### Deviations and judgment calls — Z1b-sol9
+
+1. **The predicate's `anchors.checkpoint` field remains in the shared input shape.** Removing the
+   field would be broader churn for no safety gain; `possible_orphan` ignores it, while the handler
+   still reads the checkpoint for ordinary unmarked adoption later. The R9 regression proves the
+   same-row/same-number checkpoint cannot resolve the marker.
+2. **The four requested provisioning regressions are four named tests, but only three are expected
+   to fail old source.** Operator row=A was already safe, and `createMeeting` was already unreachable
+   from the old false-green replay; those two properties constrain the fix rather than detect the
+   bug. The direct predicate plus two failed-state round trips are the three old-source detectors.
+3. **Unreadable string fields use `[unreadable:<class>]`, not the thrown message.** This mirrors
+   evidence hardening's class-only policy: an arbitrary getter/converter message is unvetted text.
+   The marker stays a string so existing `reason`/`detail`/`message` consumers do not need a new
+   union shape.
+4. **The defensive change is deliberately limited to the four paths Sol named.** `kind`, `status`,
+   `zoomCode`, `operation`, `retryAfterSeconds` and `requestId` remain normal fields on a real
+   `ZoomError`; expanding the record reader beyond the finding would add noise to this narrow round.
+5. **No PROJECT_STATE update.** Z1b remains in review and the phase has not ended; this round changes
+   neither phase scope nor architecture state.
+
+### What Sol R10 should scrutinize hardest
+
+1. **Marker gate versus ordinary adoption.** Confirm a terminal B+A job is refused even though its
+   checkpoint looks adoptable, while an otherwise identical job with `last_error = null` still
+   reaches the unchanged checkpoint-adoption branch and never creates.
+2. **Heartbeat ordering in the double.** The checkpoint must be visible in the queue row before B is
+   installed; reversing or swallowing that call recreates the R9 verification miss.
+3. **Three-requeue evidence carry-forward.** Each refusal replaces `last_error`; verify the parser
+   continues matching `anomaly_unresolved` and preserving created A on w2/w3/w4.
+4. **Getter marker semantics.** A hostile `reason`/`detail` becomes a structural string marker while
+   the other fields survive and retryability still comes from `kind`; confirm no read in the tested
+   catch path can occur before its wrapper.
+5. **Docs truth boundary.** This file corrects executor-owned claims only. The dossier §7i erratum is
+   intentionally absent and remains the PM's approval task.
+
+**Known limitations / deferred:** `docs/runbooks/zoom.md` remains a later-phase §16 deliverable;
+`possible_orphan` cleanup remains manual and has no automated sweep; the anomaly gate remains a
+TypeScript guard over `last_error` text rather than a database constraint. These are unchanged from
+sol8. There are no new dependencies, migrations, CI changes or product surfaces in sol9.
 
 ## Objective and scope (from plan §15, Z1b)
 

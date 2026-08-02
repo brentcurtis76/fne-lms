@@ -43,6 +43,7 @@
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const STATIC_DIR = join(process.cwd(), '.next', 'static');
 
@@ -59,18 +60,25 @@ const BINARY_EXTENSIONS = new Set([
  * without being added here is a price this guard will not look for.
  *
  * The 2026-07-31 amendment retired the €560 lodging package and the €1.560
- * total, so both are gone from this list. Their replacement — the €70–120
- * per-night band — is deliberately NOT listed: two- and three-digit numbers sit
- * near a euro sign all over unrelated minified code, so adding them would buy
- * noise rather than coverage. The sentinel remains the primary tripwire, and
- * the `commercial-copy` check below covers the band through the one string that
- * survives minification intact.
+ * total, so both are gone from this list. Its replacement, the €70–120
+ * per-night band, is protected data too but its figures are two and three
+ * digits long, so they get their own check below rather than this list's wide
+ * currency window.
  */
 const PRICE_AMOUNT_PATTERNS = [
   '1[.,\\s]?000', // 1000, 1.000, 1,000, 1 000
   '1e3', //          how the minifier writes 1000
   '810',
 ];
+
+/**
+ * The Appendix A-8 lodging band (`COHORT_LODGING_PER_NIGHT_EUR`). A leak that
+ * reads `.min` or `.max` alone is tree-shaken free of both the sentinel and the
+ * lodging prose, so these figures have to be looked for directly — but `70` and
+ * `120` are ordinary numbers that occur constantly in minified output, so they
+ * only count inside a much tighter currency window than the amounts above.
+ */
+const BAND_AMOUNT_PATTERNS = ['70', '120'];
 
 const CURRENCY = '(?:€|EUR)';
 /**
@@ -81,8 +89,23 @@ const CURRENCY = '(?:€|EUR)';
  * a clean build of this repo, which does ship unrelated euro-denominated code.
  */
 const GAP = '[\\s\\S]{0,120}?';
+/**
+ * The band's window, sized to what a rendered figure actually looks like after
+ * minification — `"€70"`, `["€",70]`, `"entre €".concat(70,` (nine characters,
+ * measured on the r3 leak demo) — and no wider, because at `GAP`'s width a bare
+ * `70` would find a euro sign somewhere in most unrelated chunks.
+ */
+const BAND_GAP = '[\\s\\S]{0,12}?';
 
 const amountPattern = PRICE_AMOUNT_PATTERNS.join('|');
+/**
+ * Bounded so the band's figures only match as whole amounts: not preceded or
+ * followed by another digit, and not sitting inside a grouped or decimal number
+ * (`€1.200,70`, `€120.000`), which is how unrelated euro amounts in this repo
+ * are written.
+ */
+const bandAmountPattern =
+  `(?<!\\d)(?<![\\d][.,])(?:${BAND_AMOUNT_PATTERNS.join('|')})(?!\\d)(?![.,]\\d)`;
 
 const CHECKS = [
   {
@@ -99,12 +122,20 @@ const CHECKS = [
     ),
   },
   {
+    id: 'priced-band-amount',
+    description: 'an Appendix A-8 lodging-band amount beside a currency marker',
+    pattern: new RegExp(
+      `${CURRENCY}${BAND_GAP}${bandAmountPattern}|${bandAmountPattern}${BAND_GAP}${CURRENCY}`,
+      'g'
+    ),
+  },
+  {
     // Copy is what actually survives minification (keys do not), so a structural
     // leak carrying no currency symbol is still visible through its strings.
     id: 'commercial-copy',
     description: 'a string that only exists in cohort-commercial.ts',
     pattern:
-      /Extensión opcional a Madrid|por persona por noche|Precios vigentes para la cohorte|al momento del acuerdo|Pasantias-INSPIRA-Barcelona/g,
+      /Extensión opcional a Madrid|Alojamiento en Barcelona: entre|por persona por noche|según el tipo de alojamiento|Precios vigentes para la cohorte|al momento del acuerdo|Pasantias-INSPIRA-Barcelona/g,
   },
 ];
 
@@ -112,7 +143,7 @@ const CHECKS = [
  * Minified bundles escape non-ASCII (`Extensi\xf3n`), which would hide every
  * accented Spanish string from a literal search. Undo that before scanning.
  */
-function unescapeLiterals(text) {
+export function unescapeLiterals(text) {
   return text
     .replace(/\\x([0-9a-fA-F]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
     .replace(/\\u\{([0-9a-fA-F]+)\}/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
@@ -136,6 +167,24 @@ function isScannable(path) {
   const dot = path.lastIndexOf('.');
   const extension = dot === -1 ? '' : path.slice(dot).toLowerCase();
   return !BINARY_EXTENSIONS.has(extension);
+}
+
+/**
+ * Every check's matches in one already-unescaped blob of text. `main` scans
+ * files through this, and `__tests__/scripts/check-price-leak.test.ts` scans
+ * synthetic leak shapes through it — so what the regression test proves is what
+ * the build actually runs, not a copy of it.
+ */
+export function scanText(text) {
+  const found = [];
+  for (const check of CHECKS) {
+    check.pattern.lastIndex = 0;
+    let match;
+    while ((match = check.pattern.exec(text)) !== null) {
+      found.push({ check, index: match.index, match: match[0] });
+    }
+  }
+  return found;
 }
 
 /** Bundles are one enormous line, so report an offset and its neighbourhood. */
@@ -170,17 +219,13 @@ function main() {
   const findings = [];
   for (const file of files) {
     const text = unescapeLiterals(readFileSync(file, 'utf8'));
-    for (const check of CHECKS) {
-      check.pattern.lastIndex = 0;
-      let match;
-      while ((match = check.pattern.exec(text)) !== null) {
-        findings.push({
-          check,
-          file: relative(process.cwd(), file),
-          index: match.index,
-          snippet: snippetAt(text, match.index, match[0].length),
-        });
-      }
+    for (const finding of scanText(text)) {
+      findings.push({
+        check: finding.check,
+        file: relative(process.cwd(), file),
+        index: finding.index,
+        snippet: snippetAt(text, finding.index, finding.match.length),
+      });
     }
   }
 
@@ -205,4 +250,8 @@ function main() {
   );
 }
 
-main();
+// Only when run as a CLI: importing this module (the regression test does) must
+// not scan the filesystem or exit the process.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

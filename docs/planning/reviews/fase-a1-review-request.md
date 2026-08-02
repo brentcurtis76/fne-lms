@@ -284,3 +284,116 @@ Two guards were mutation-tested rather than assumed:
   the ledger entry. Sources were read from `origin/phase/t2-ci` @ `71cba41`, which
   is the commit that also carries this round's own prompt file.
 - Nothing consumes these exports yet; A3/A6a are the first readers.
+
+---
+
+# Round 4 — Codex remediation (REVIEW-A1.md B1 + B2)
+
+Both BLOCKING findings from Codex round 1, in one round. No other change: the
+cohort data, the homepage card and the plan criteria are untouched.
+
+## R4.1 What changed and why
+
+**B1 — the scanner was blind to the band values.** `€70` and `€120` are
+protected data under the amended A-8, but `PRICE_AMOUNT_PATTERNS` listed only
+`1.000`/`1e3`/`810`, so a consumer that reads
+`COHORT_LODGING_PER_NIGHT_EUR.min` and renders it produced no finding. The r3
+round left them out for a real reason — a two-digit number inside
+`PRICE_AMOUNT_PATTERNS`' 120-character currency window would fire across every
+chunk — so the fix keeps that window and gives the band its own, narrower one:
+
+- `BAND_AMOUNT_PATTERNS = ['70','120']` in a new `priced-band-amount` check with
+  `BAND_GAP = 12` characters, sized against the widest real shape measured in the
+  r3 demo (`"entre €".concat(70,` — nine characters).
+- The figures are bounded on both sides against longer numbers
+  (`(?<!\d)(?<![\d][.,]) … (?!\d)(?![.,]\d)`), so `€1.200,70` and `€120.000` —
+  how this repo's unrelated euro amounts are written — cannot match.
+- `commercial-copy` gains two more fragments of the band sentence
+  (`Alojamiento en Barcelona: entre`, `según el tipo de alojamiento`), so
+  reworded copy has to lose all three fragments to slip past.
+
+**B2 — the serialization guard watched one export.** The D-01 test serialized
+`COHORT_PUBLIC`, a hand-assembled aggregate, so a standalone monetary export
+added to `cohort-public.ts` and left out of the aggregate would not have been
+seen. It now enumerates every runtime export mechanically (`Object.keys` over the
+`import * as cohortPublicModule` namespace) and serializes all of them, with
+exported functions serialized as their source so a helper cannot carry an amount
+past it either. Both original assertions are kept and now run against the
+namespace **and** the aggregate.
+
+## R4.2 Files
+
+- `scripts/check-price-leak.mjs` (+68/−21) — the `priced-band-amount` check and
+  its bounded pattern; two more `commercial-copy` fragments; the file-scanning
+  loop refactored to call a new exported `scanText` so the regression test
+  exercises the same code path the build runs; `main()` now runs only when the
+  file is the CLI entry point, so importing it neither scans nor exits.
+- `__tests__/scripts/check-price-leak.test.ts` (new, +80) — 16 tests: six
+  isolated band-leak shapes, each asserted to fire `priced-band-amount` and
+  **only** that check; the full note; the programme fee; the sentinel; and eight
+  negative controls.
+- `__tests__/lib/pasantias-cohort.test.ts` (+52/−13) — the D-01 describe block
+  rewritten to the module namespace, plus a test that the serialization is not
+  vacuous. 34 → 35 tests.
+- `lib/pasantias/cohort-public.ts` (+5/−1) — the `COHORT_PUBLIC` doc comment said
+  the guard test serializes it; it no longer does, so the comment says what the
+  guard actually covers. Comment only; no data change.
+- `docs/plan/evidence/a1/leak-guard.md` (+97) — §6, the r4 red-then-green demo.
+
+## R4.3 Test evidence
+
+Run verbatim from the prompt, in this round's worktree:
+
+- `npx vitest run __tests__/lib/pasantias-cohort.test.ts __tests__/scripts/check-price-leak.test.ts`
+  → **51 passed** (35 + 16).
+- `npm run type-check` → exit 0 · `npm run lint` → exit 0 (`--max-warnings=0`).
+- `npm test` → **234 files, 3496 tests, all passed** (was 233 / 3479).
+- `npm run build` → exit 0 · `node scripts/check-price-leak.mjs` → `OK — scanned
+  266 file(s)`.
+
+Both guards were mutation-tested, not assumed:
+
+1. Appending `export const SCRATCH_LODGING_MIN_EUR = 70` to `cohort-public.ts`
+   turned the namespace test red (`expected '{"COHORT_ID":"octubre-2026",…' not
+   to match /(?<!\d)70(?!\d)/`) — the drift B2 described — then reverted.
+2. Leaking `COHORT_LODGING_PER_NIGHT_EUR` into `pages/index.tsx` and rendering
+   `.min`/`.max` turned the build scanner red on `priced-band-amount` at the two
+   render offsets, then reverted; the note-only leak from §5 was re-run and is
+   now caught by two independent checks. Full output in
+   `docs/plan/evidence/a1/leak-guard.md` §6.
+
+## R4.4 Scrutinise these
+
+1. **The 12-character band window is a measured guess, not a proof.** It covers
+   every shape observed in two real leak builds (`"€70"`, `["€",70]`,
+   `"€".concat(120)`, `currency:"EUR",amount:120`) and finds nothing across 266
+   real client files. A future leak that puts more than 12 characters between the
+   marker and the figure would still slip; widening it re-imports the noise
+   problem r3 identified. This is the trade-off to argue with if any is.
+2. **The build demo could not fully isolate the figures, and §6.1 says so.**
+   Importing one band constant still drags `COHORT_LODGING_NOTE` into the chunk —
+   both are module-scope literals derived from the same values — so
+   `commercial-copy` fired alongside `priced-band-amount`. The genuinely isolated
+   case is proven at unit level against the script's own regexes, not at bundle
+   level, because the bundler will not produce that bundle from this module.
+3. **`main()` is now behind an entry-point check.** This is a real change to how
+   the script behaves when loaded. Verified both ways: `node
+   scripts/check-price-leak.mjs` with no build present still errors and exits 1,
+   and importing the module runs nothing.
+4. **The namespace guard serializes function bodies.** That makes the guard
+   stricter than "no monetary values" — an exported helper whose *source* mentions
+   a protected number would now fail it. `buildCohortDateLabel` is the only
+   function export and contains no such number. Deliberate; cheap to revisit if a
+   future helper legitimately needs one.
+5. **`priced-band-amount` is a separate check, not extra entries in
+   `PRICE_AMOUNT_PATTERNS`.** That is why the two checks report separately in the
+   scanner output. Folding them together would have forced one window on both.
+
+## R4.5 Known limitations / deferred
+
+- Codex's S1 (source-level importer allowlist for `cohort-commercial.ts`) and S2
+  (rendered homepage-card assertion) were **not** done — SHOULD-FIX, ledger
+  backlog, out of this round's scope per the prompt.
+- Madrid's €810 and its embedded €360 lodging component still carry the owner's
+  doubt, to be confirmed at A3. Unchanged by this round.
+- Nothing consumes the cohort exports yet; A3/A6a are the first readers.

@@ -287,22 +287,69 @@ describe('public cohort module — programme content (Appendix A-7)', () => {
   });
 });
 
+/**
+ * Every runtime export of the public module, serialized. `COHORT_PUBLIC` is a
+ * hand-assembled aggregate, so guarding it alone would let a standalone monetary
+ * export be added to `cohort-public.ts`, left out of the aggregate, and stay
+ * invisible here — the exact drift a module-boundary guard exists to stop.
+ * Exported functions are serialized as their source, so a helper cannot carry an
+ * amount past this either.
+ */
+function serializeEveryExport(moduleNamespace: Record<string, unknown>): string {
+  const exported = Object.keys(moduleNamespace).map(
+    (name) => [name, moduleNamespace[name]] as const
+  );
+  return JSON.stringify(Object.fromEntries(exported), (_name, value) =>
+    typeof value === 'function' ? value.toString() : value
+  );
+}
+
+/**
+ * Live commercial amounts plus the two the A-8 amendment retired (560 and the
+ * 1.560 total), which must never reappear on a public surface.
+ */
+const PROTECTED_AMOUNTS = [
+  '1000',
+  '1\\.000',
+  '1560',
+  '1\\.560',
+  '560',
+  '810',
+  '70', // lodging band minimum
+  '120', // lodging band maximum
+];
+
 describe('public cohort module — no monetary data (D-01)', () => {
+  const wholeModule = serializeEveryExport(
+    cohortPublicModule as unknown as Record<string, unknown>
+  );
+
+  it('guards the whole module namespace, not one aggregate object', () => {
+    // A guard over an empty or partial serialization is vacuously green, so pin
+    // that this one really enumerates the module: the aggregate is one export
+    // among many, and both data and function bodies are in the string asserted on.
+    const exported = Object.keys(cohortPublicModule);
+    expect(exported).toContain('COHORT_PUBLIC');
+    expect(exported.length).toBeGreaterThan(1);
+    expect(wholeModule).toContain('octubre-2026');
+    expect(wholeModule).toContain('buildCohortDateLabel');
+  });
+
   it('serializes without a single monetary key or value', () => {
-    const serialized = JSON.stringify(COHORT_PUBLIC);
     // `eur` is matched as a whole token: the Madrid extension visits "Colegio
     // Virgen de Europa", a school name, not a currency. EUR/euro/euros still fail.
-    expect(serialized).not.toMatch(/€|price|precio|\beur(?:os?)?\b/i);
+    const monetary = /€|price|precio|\beur(?:os?)?\b/i;
+    expect(wholeModule).not.toMatch(monetary);
+    expect(JSON.stringify(COHORT_PUBLIC)).not.toMatch(monetary);
   });
 
   it('carries no numeric field that could be an amount in disguise', () => {
-    const serialized = JSON.stringify(COHORT_PUBLIC);
-    // Live commercial amounts plus the two the A-8 amendment retired (560 and
-    // the 1.560 total), which must never reappear on a public surface. Matched
-    // as whole numbers so an unrelated future figure inside a longer number
-    // cannot fail this.
-    for (const amount of ['1000', '1\\.000', '1560', '1\\.560', '560', '810', '70', '120']) {
-      expect(serialized).not.toMatch(new RegExp(`(?<!\\d)${amount}(?!\\d)`));
+    // Matched as whole numbers so an unrelated future figure inside a longer
+    // number cannot fail this.
+    for (const amount of PROTECTED_AMOUNTS) {
+      const bounded = new RegExp(`(?<!\\d)${amount}(?!\\d)`);
+      expect(wholeModule).not.toMatch(bounded);
+      expect(JSON.stringify(COHORT_PUBLIC)).not.toMatch(bounded);
     }
   });
 });

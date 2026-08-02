@@ -308,7 +308,11 @@ export const COHORT_DATE_LABEL = buildCohortDateLabel();
 /** The full headline used on the homepage card: label + dates. */
 export const COHORT_HEADLINE = `${COHORT_LABEL} · ${COHORT_DATE_LABEL}`;
 
-/** Everything public, in one object — what the leak guard test serializes. */
+/**
+ * Everything public, in one object — the convenient shape for consumers. The
+ * D-01 guard test serializes every export of this module, not just this
+ * aggregate, so adding a monetary constant beside it is no way past it.
+ */
 export const COHORT_PUBLIC = {
   id: COHORT_ID,
   label: COHORT_LABEL,

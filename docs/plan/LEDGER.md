@@ -333,3 +333,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: (1) **Separate check rather than more entries in `PRICE_AMOUNT_PATTERNS`** — one window cannot serve both a four-digit and a two-digit amount; measured against 266 real client files, `priced-band-amount` finds nothing. (2) **`main()` moved behind an entry-point guard** — needed to import the script from a test; CLI behaviour verified unchanged (no build present → still errors, exit 1). (3) **Namespace guard serializes function bodies** — stricter than asked; `buildCohortDateLabel` is the only function export and carries no protected number. (4) **S1/S2 not touched** — SHOULD-FIX, out of the prompt's scope.
 - BACKLOG ADDED: Codex S1 — source-level importer allowlist for `cohort-commercial.ts`, to be pinned when A3 adds the first production importer. Codex S2 — rendered homepage-card assertion (the current test pins `COHORT_HEADLINE` without rendering `HomePage`). Carried unchanged: Madrid's €810 / €360 lodging component to confirm at A3; FNE-managed-at-cost vs self-booked styling still open; `BROCHURE_VERSION` at `2026-10-v2`.
 - OPEN AFTER THIS ROUND: PM verification, then Codex round 2 (of max 2) for A1. At merge, union the branch ledger with main's and take PLAN.md from main, not from this branch.
+
+### 2026-08-02 — A1 round r4 — Fable (PM verification)
+- CONTEXT PRESSURE: n/a
+- ACTION: Independent verification. Both targeted suites re-run by PM: 51/51. Scanner diff spot-read: `priced-band-amount` inside a dedicated 12-char currency window with double-sided digit/decimal boundaries (the €1.200,70 / €120.000 negative controls are exactly the right shapes); band-note copy fragments added; `scanText` exported so the 16-test regression suite runs the BUILD'S regexes rather than duplicates — the finding-1 failure mode closed at its root. Namespace serialization guard mutation-proven. Honest limits accepted as recorded (12-char window measured-not-proven; §6.1 bundle-isolation caveat — the figures still match standalone via concat shapes). Deviations both additive, ACCEPTED. Codex S1 (importer allowlist for cohort-commercial) + S2 (rendered homepage-card assertion) → Backlog. PR #34 DIRTY vs main = expected docs drift; branch PLAN stale by design — union at close.
+- COMMITS: (this ledger commit)
+- TESTS: targeted ×2 → 51/51 (PM re-run)
+- FINDINGS RAISED: none
+- DECISIONS: deviations accepted; S1/S2 backlogged
+- BACKLOG ADDED: S1 importer allowlist; S2 rendered-card assertion (both A1-Codex SHOULD-FIX)
+- OPEN AFTER THIS ROUND: **A1 → Codex round 2 (of 2) — scoped closure re-review.**

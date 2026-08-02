@@ -373,3 +373,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: deviations accepted
 - BACKLOG ADDED: none (S1/S2 stand)
 - OPEN AFTER THIS ROUND: **A1 → scoped Sol confirmation (owner-authorized round, cap spent)**; then reconcile + the merge train (#31 → #34 → #32).
+
+### 2026-08-02 — A1 close — Fable (PM, per SOP §3.8)
+- CONTEXT PRESSURE: n/a
+- ACTION: Sol scoped r5 confirmation = **PASS, zero findings, zero residue** (REVIEW-A1-R3.md, committed with this entry; Sol re-ran the mutation proof, greps, base-doble coverage, and all gates at 992aeef). **A1 DONE** — five executor rounds (modules/guard/homepage → A-7 fill → pricing-band pivot → scanner+namespace hardening → Madrid purge + base-doble), three reviews. The phase leaves behind: single-source cohort data, a fail-closed price-leak CI gate, the correct October dates for the homepage, and a no-return guard on the Madrid ghost. DONE row rides this close's reconciliation (branch PLAN stale by design). S1/S2 remain the phase's backlog legacy.
+- COMMITS: (this close commit)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: —
+- BACKLOG ADDED: none new
+- OPEN AFTER THIS ROUND: reconcile → **merge train awaits Brent: #31 → #34 → #32** (PM re-unions between cars); then prod application word; then A3 + B2 dispatch.

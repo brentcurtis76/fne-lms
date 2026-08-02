@@ -343,3 +343,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: deviations accepted; S1/S2 backlogged
 - BACKLOG ADDED: S1 importer allowlist; S2 rendered-card assertion (both A1-Codex SHOULD-FIX)
 - OPEN AFTER THIS ROUND: **A1 → Codex round 2 (of 2) — scoped closure re-review.**
+
+### 2026-08-02 — A1 close — Fable (PM, per SOP §3.8)
+- CONTEXT PRESSURE: n/a
+- ACTION: Codex round 2 = **PASS, both blockers closed, zero residue** (REVIEW-A1-R2.md, committed with this entry; Sol re-ran 16/16 + 35/35 + its own window/boundary probes; reviewed head `9a9c282`). Phase DONE (rides the close reconciliation; PR #34; four rounds r1–r4). Built vs planned: the single-source cohort modules + fail-closed price-leak CI guard + the correct October dates on the homepage; the lodging-band pivot (owner amendment) landed mid-phase and propagated through code, tests, scanner, and plan criteria. S1 (importer allowlist) + S2 (rendered-card assertion) in Backlog. Next-phase re-read: A3 dispatch requires the two owner answers flagged in its criteria (Madrid €360; lodging styling); A6a consumes the public module as specced.
+- COMMITS: (this close commit)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: —
+- BACKLOG ADDED: S1/S2 (recorded at r4 verification)
+- OPEN AFTER THIS ROUND: reconcile + **Brent's merge go for PR #34** (queued after #31).

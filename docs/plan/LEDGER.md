@@ -323,3 +323,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: deviations none; assumptions accepted
 - BACKLOG ADDED: none new
 - OPEN AFTER THIS ROUND: **B1b → scoped Codex confirmation (owner-authorized round 3).**
+
+### 2026-08-02 — B1b close — Fable (PM, per SOP §3.8)
+- CONTEXT PRESSURE: n/a
+- ACTION: Scoped Codex confirmation = **PASS, zero residue** (REVIEW-B1B-R3.md, committed with this entry; Sol independently re-ran the guard 3/3 + the src-injection red-then-green). Phase DONE (rides the close reconciliation; code heads f91e088→4aeecda→07ae6b1, PR #32). Built vs planned: +2 rounds beyond the deletion — Codex's class-based reading caught the dead browser edge-function relay (r2) and the guard's sweep gap (r3); net result: the repo now has a fail-closed regression guard against ANY browser-side mail transport. Backlog carried: server-side task-assignment notifications (real gap — no in-app coverage exists); email-digest comments + unauthenticated posture; B2 unblocks at merge.
+- COMMITS: (this close commit)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: —
+- BACKLOG ADDED: none new
+- OPEN AFTER THIS ROUND: reconcile + **Brent's merge go for PR #32** (queued after #31/#34 per PM merge-train).

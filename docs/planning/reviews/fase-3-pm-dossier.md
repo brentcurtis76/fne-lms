@@ -404,10 +404,19 @@ All nine deviations ACCEPTED — notably the THIRD supersession shape (a fresh-c
 miss claims neither adopted nor created, because the process cannot distinguish
 "rival adopted my checkpoint" from "rival created a different meeting" — the number on
 the result is the whole mitigation, and whether that miss belongs on the §18 triage
-panel instead of completing is flagged for Sol R7); `markProvisioned` removed beyond
+panel instead of completing is flagged for Sol R7) *[ERRATUM sol7, Sol R7 ①: Sol ruled
+and the PM concedes — "cannot distinguish" was FALSE; one read of the winner's
+persisted number distinguishes safe supersession from a real orphan, and sol7 performs
+it: equal completes, different/unreadable fails terminal `possible_orphan` with durable
+evidence]*; `markProvisioned` removed beyond
 the letter of the finding (same vector argument); complete-don't-throw on
 `missing`/`not_publishable` (throwing on `missing` would send the retry down the fresh
-path and CREATE A SECOND MEETING — the executor's sharpest catch of the round); no
+path and CREATE A SECOND MEETING — the executor's sharpest catch of the round)
+*[ERRATUM sol7, Sol R7 ②: the danger analysis was right, the remedy was wrong — the PM
+conflated retry-danger with completion-necessity. A NON-retryable failure has no retry,
+keeps the evidence where triage looks, and sol7's job-level anomaly gate (with
+carry-forward, so a refusal cannot erase the marker it refuses on) closes the requeue
+path into fresh creation]*; no
 heartbeat on the replay sync (the value is read inside the transaction that writes it).
 
 **PM process note, recorded against itself**: the PM's first sol6 scan run piped
@@ -421,6 +430,44 @@ run, never pipe, assert the true exit.
 desde el checkpoint") — flagged by the sol6 executor with correct scope discipline,
 corrected in the PM's approval commit (one line, labelled; the no-deferral rule wanted
 it closed before Sol R7 reads the file).
+
+## 7h. Sol-R7 remediation record (Z1b-sol7, 2026-07-31)
+
+Sol R7 overturned BOTH sol6 supersession rulings — the PM's, conceded in full (see the
+§7g errata above). Fixed in `a311ff6` (impl) + `dbf4092` (docs). ① the fresh-create CAS
+miss now RESOLVES its ambiguity: re-read via `findMeetingBySurface`, compare the
+winner's number to `created.id` — equal ⇒ safe supersession completes
+(`orphan_risk: false`, a CHECKED claim); different or unreadable by any of four causes
+⇒ terminal `possible_orphan` with `{meeting_id, created_number, winner_number, cause}`
+in durable job evidence (the new `ZoomJobFailureRecord.evidence` seam). ② replay-sync
+`missing`/`not_publishable` throw terminal (`sync_missing_row`/`sync_not_publishable`)
+instead of completing green; the requeue path into fresh creation is closed by a
+JOB-level anomaly gate (`ctx.job.last_error`, mirroring the sol4 row-marker pattern,
+positioned after the anchors so a repaired row replays). The round's load-bearing
+self-catch: the first gate draft REFUSED and thereby OVERWROTE the marker it refused
+on — the second requeue sailed through and created; caught by a deliberately
+three-iteration requeue loop; fixed by matching the refusal shape and carrying
+reason/evidence forward on every refusal.
+
+**PM verification**: both fail-on-olds re-executed EXACTLY (handler revert → **13/78**;
+runner revert → **9/78**, isolating the evidence seam; 78/78 at head); gates at
+`dbf4092`: **3760/3760 in 240 files** (+11/+0), build OK, `test:db` 139/139 unchanged
+on a clean reset (TS-only round), `test:queue` PASS (21/19); CI 8/8; scans CLEAN
+(unpiped, true exit — the sol6 lesson applied). All eight deviations ACCEPTED — the
+carry-forward (dev 1) is the round's essential insight (`fail_zoom_job` replaces the
+very column the gate reads — unlike the sol4 precedent where marker and failure live
+in different columns); the gated reason set deliberately excludes the recoverable
+buckets (`ambiguous_create_outcome` has its own ROW gate; `recovery_unusable`/
+`no_host_available`/`session_ineligible` resolve by state).
+
+**Residuals for Sol R8** (the executor's own list, PM-endorsed): the winner-read keys
+on the surface, not the meetingId — same row on this path, an invariant worth
+attacking; the post-CAS read is outside the CAS transaction, safe by ASYMMETRY (a late
+change can only manufacture a false `possible_orphan`, never hide a real one);
+`missing` now fails a possibly-benign operator deletion (an anomaly however it arose —
+a triage item, not a silent case); the gate is a TypeScript guard over a text column,
+a documented contract like the row-marker gate, not a constraint; `possible_orphan` is
+a third orphan class, manual-cancel-at-Zoom, still no runbook.
 
 ## 8. Exact local gate commands
 

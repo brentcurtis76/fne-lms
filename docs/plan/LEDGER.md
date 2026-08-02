@@ -313,3 +313,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: (1) **Reported COMPLETE, not FINDINGS** — A1's own delta is finished and green; the A3 criteria defect blocks A3, not this round, so per the prompt it is raised here and under NOT DONE rather than used to stop work. (2) **Did not re-do or amend the prior session's work** — it satisfies the prompt exactly; rewriting it would have produced churn and destroyed a clean review surface. (3) **Did not refresh the branch's stale `docs/plan/PLAN.md`** — the branch predates the PR #33 docs sync so its copy still shows the pre-amendment A-8 row, but PLAN.md is the PM's file and the ledger already schedules a docs union at merge; the *code* is verified against `origin/main`, not against that stale copy.
 - BACKLOG ADDED: none new. Carried unchanged: Madrid's €810 still embeds the €360 lodging figure flagged as inheriting the same doubt (confirm at A3); the FNE-managed-at-cost vs self-booked styling question stays open; `BROCHURE_VERSION` is at `2026-10-v2`.
 - OPEN AFTER THIS ROUND: PM verification, then Codex final review for A1. **Before A3 is dispatched, its criteria must be realigned to the per-night band** (finding above). At merge, union the branch ledger with main's and take PLAN.md from main, not from this branch.
+
+### 2026-08-02 — A1 Codex round 1 — Fable (PM triage)
+- CONTEXT PRESSURE: n/a
+- ACTION: Codex final review = **FAIL, 2 BLOCKING, both ACCEPTED** (REVIEW-A1.md, committed with this entry; Codex independently ran all gates green): (1) the leak scanner's amount patterns omit the band values €70/€120 — partially a PM prompt gap ("keep the others" instead of naming the band as commercial data); fix = context-scoped patterns for 70/120 within the scanner's existing currency-window machinery (bare numerals would false-positive across bundles) + the note-string fragments as commercial-copy patterns; (2) the serialization guard asserts over the `COHORT_PUBLIC` aggregate only — a future standalone export bypasses it; fix = assert over the whole module namespace (`import * as`). Remediation = round r4 (`prompts/a1-4.md`). This is Codex round 1 of max 2 for the phase.
+- COMMITS: (this commit — REVIEW-A1.md + this entry)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: n/a (triage)
+- DECISIONS: both accepted; r4 dispatched
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: `/exec INSPIRA A1 r4` awaited.

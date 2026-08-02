@@ -316,3 +316,46 @@ the weak link. ③ splits as before: review-request = executor; the dossier §7g
 ("the epistemics are right", the complete-don't-throw praise) = the PM at approval.
 No migration is needed (the winner-read uses the existing store; classification is
 TS-side). One round: **Z1b-sol7**.
+
+## Round 8 — Re-review of Z1b-sol7 (verdict: REQUEST CHANGES, 2026-08-01)
+
+Relayed as the Z1b-sol8 fix block. Three findings, all inside the sol7 anomaly
+machinery:
+
+**① (MAJOR)** Anomaly resolution is existence-based, not identity-based: the gate (and
+the sol7 header) treat "the row now carries a meeting number" as resolution — but for
+a DIFFERENT-number `possible_orphan`, the winner's number on the row is the very state
+that DEFINES the orphan. Such a requeue passes the gate, replays green, and the orphan
+evidence trail goes dark while our spare meeting still exists at Zoom. Required:
+reason-aware resolution — `possible_orphan` bypasses only when the CREATED number
+(evidence.created_zoom_meeting_number) is anchored; different-number stays
+failed/anomaly_unresolved until the operator cancels at Zoom and clears the marker;
+`sync_missing_row` replays only when a restored row carries the RECORDED number;
+`sync_not_publishable` only when the recorded row is publishable.
+
+**② (MAJOR)** The marker is only protected against the gate's own refusals: the gate
+sits ~130 lines after `readSession` (:1579 vs :1706), so ANY preflight failure —
+session read, eligibility, configuration, schedule validation — fails the job through
+`fail_zoom_job`, REPLACING the marker and erasing the orphan's number; the next
+requeue sees no marker and can create. Required: evaluate/preserve an existing
+terminal anomaly BEFORE any operation that can replace `last_error` or write state
+(incl. the ineligible-release path); a failing minimal anchor-read fails closed
+carrying the original reason/evidence forward.
+
+**③ (MINOR-plus)** `ZoomJobFailureRecord.evidence` reaches `JSON.stringify` with only
+an object-shape check: cyclic/BigInt/getter-throwing evidence throws INSIDE the
+runner's failure path, so `fail_zoom_job` never runs and the job dies by lease expiry
+with the original error lost. Sanitize/clone defensively.
+
+## PM triage (Round 8)
+
+**ALL THREE VALID.** ① and ② overturn/extend the PM's sol7 rulings, conceded: the
+gate-after-anchors placement the PM accepted was right for the SAME-number case and
+inverted for the different-number case (resolution must compare numbers, not count
+them); and the PM's requeue drills tested paths that REACHED the gate, never failures
+that bypass-and-overwrite it — the carry-forward protected the gate's refusals while
+`readSession` could erase the marker 130 lines earlier. ③ is an unstressed
+serialization path on the seam sol7 added. All three live entirely inside the previous
+round's additions — the narrowing pattern holds. Dossier corrections (the "gate at the
+top/before every write" §7h wording and the requeue-resolution claims) are the PM's at
+approval; the review-request is the executor's. One round: **Z1b-sol8**.

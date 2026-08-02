@@ -13,7 +13,6 @@ import {
   COHORT_INCLUDES,
   COHORT_LABEL,
   COHORT_LODGING_AREA,
-  COHORT_MADRID_SCHOOLS,
   COHORT_OBJECTIVES,
   COHORT_PUBLIC,
   COHORT_SCHOOLS,
@@ -29,7 +28,6 @@ import {
   BROCHURE_VERSION,
   COHORT_LODGING_NOTE,
   COHORT_LODGING_PER_NIGHT_EUR,
-  COHORT_MADRID_EXTENSION,
   COHORT_MIN_PARTICIPANTS,
   COHORT_PAYMENT_TERMS,
   COHORT_PRICE_ITEMS,
@@ -270,14 +268,6 @@ describe('public cohort module — programme content (Appendix A-7)', () => {
     expect(JSON.stringify(COHORT_PUBLIC)).not.toMatch(/por noche/i);
   });
 
-  it('names the three Madrid extension schools', () => {
-    expect(COHORT_MADRID_SCHOOLS).toEqual([
-      'Colegio IDEO',
-      'Colegio Santa Gema',
-      'Colegio Virgen de Europa',
-    ]);
-  });
-
   it('never leaks the plan’s own pending markers into public copy', () => {
     expect(JSON.stringify(COHORT_PUBLIC)).not.toMatch(/PENDIENTE|A-16/i);
   });
@@ -305,8 +295,10 @@ function serializeEveryExport(moduleNamespace: Record<string, unknown>): string 
 }
 
 /**
- * Live commercial amounts plus the two the A-8 amendment retired (560 and the
- * 1.560 total), which must never reappear on a public surface.
+ * Live commercial amounts plus the three the plan has retired — 560 and the
+ * 1.560 total (A-8 amendment, 2026-07-31) and 810 (the optional extension
+ * removed on owner authority, 2026-08-02). Retired is not the same as harmless:
+ * none of them may reappear on a public surface.
  */
 const PROTECTED_AMOUNTS = [
   '1000',
@@ -336,8 +328,8 @@ describe('public cohort module — no monetary data (D-01)', () => {
   });
 
   it('serializes without a single monetary key or value', () => {
-    // `eur` is matched as a whole token: the Madrid extension visits "Colegio
-    // Virgen de Europa", a school name, not a currency. EUR/euro/euros still fail.
+    // `eur` is matched as a whole token so a European place name in school or
+    // expert copy is not a currency finding. EUR/euro/euros still fail.
     const monetary = /€|price|precio|\beur(?:os?)?\b/i;
     expect(wholeModule).not.toMatch(monetary);
     expect(JSON.stringify(COHORT_PUBLIC)).not.toMatch(monetary);
@@ -379,9 +371,18 @@ describe('commercial cohort module (Appendix A-8, amended 2026-07-31)', () => {
     expect(min).toBeGreaterThanOrEqual(70);
     expect(min).toBeLessThan(max);
     expect(max).toBeLessThanOrEqual(120);
+    // Pinned verbatim: the leak guard's `commercial-copy` fragments are cut from
+    // this string, so a silent edit here would quietly blunt the tripwire.
     expect(COHORT_LODGING_NOTE).toBe(
-      'Alojamiento en Barcelona: entre €70 y €120 por persona por noche, según el tipo de alojamiento.'
+      'Alojamiento en Barcelona: entre €70 y €120 por persona por noche, en base a habitación doble — el monto es por persona, no por habitación — según el tipo de alojamiento.'
     );
+  });
+
+  it('says the band is per person sharing a double room (owner, 2026-08-02)', () => {
+    // The precision exists because "por persona por noche" alone was read as a
+    // room rate; both halves of the clause have to survive future copy edits.
+    expect(COHORT_LODGING_NOTE).toContain('en base a habitación doble');
+    expect(COHORT_LODGING_NOTE).toContain('el monto es por persona, no por habitación');
   });
 
   it('publishes no combined total — the retired €1.560 package is gone', () => {
@@ -399,14 +400,6 @@ describe('commercial cohort module (Appendix A-8, amended 2026-07-31)', () => {
 
     // Nor as a string anywhere in the module's copy.
     expect(JSON.stringify(cohortCommercialModule)).not.toMatch(/(?<!\d)1[.,]?560(?!\d)/);
-  });
-
-  it('quotes the Madrid extension apart from the programme fee', () => {
-    expect(COHORT_MADRID_EXTENSION.amount).toBe(810);
-    expect(COHORT_MADRID_EXTENSION.optional).toBe(true);
-    expect(COHORT_PRICE_ITEMS.map((item) => item.id)).not.toContain(
-      COHORT_MADRID_EXTENSION.id
-    );
   });
 
   it('keeps the minimum group size and the payment split', () => {
@@ -427,4 +420,32 @@ describe('commercial cohort module (Appendix A-8, amended 2026-07-31)', () => {
     // A4 puts this in a Content-Disposition header; keep it ASCII.
     expect(BROCHURE_FILENAME).toMatch(/^[\x20-\x7E]+$/);
   });
+});
+
+/**
+ * Owner decision 2026-08-02: the optional extension was an accidental carry from
+ * a stale source deck — no such pasantías exist. It may return in a future
+ * cohort, but only through a plan change, so its absence is pinned rather than
+ * left to nobody re-adding a constant. This is the one place in the phase's
+ * source and tests where the name still appears, and it appears as a prohibition.
+ */
+describe('both cohort modules — the removed extension cannot return silently', () => {
+  const removedExtension = /madrid/i;
+
+  const modules = [
+    ['public', cohortPublicModule],
+    ['commercial', cohortCommercialModule],
+  ] as const;
+
+  for (const [name, moduleNamespace] of modules) {
+    it(`has no matching export name or value in the ${name} module`, () => {
+      const names = Object.keys(moduleNamespace);
+      expect(names.filter((key) => removedExtension.test(key))).toEqual([]);
+      // Values and function bodies too, so a re-added school list or price label
+      // cannot hide behind a neutral constant name.
+      expect(
+        serializeEveryExport(moduleNamespace as unknown as Record<string, unknown>)
+      ).not.toMatch(removedExtension);
+    });
+  }
 });

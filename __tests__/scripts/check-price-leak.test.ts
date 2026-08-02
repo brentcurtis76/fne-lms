@@ -49,8 +49,11 @@ describe('leak guard — isolated lodging-band literals (Appendix A-8)', () => {
   });
 
   it('still fails on the full band note and on the programme fee', () => {
+    // Verbatim `COHORT_LODGING_NOTE`, including the 2026-08-02 base-doble
+    // clause — the fragments the `commercial-copy` check looks for are cut from
+    // this exact string, so it is pinned in both places.
     const note =
-      'Alojamiento en Barcelona: entre €70 y €120 por persona por noche, según el tipo de alojamiento.';
+      'Alojamiento en Barcelona: entre €70 y €120 por persona por noche, en base a habitación doble — el monto es por persona, no por habitación — según el tipo de alojamiento.';
     expect(checksFiring(note)).toEqual(['commercial-copy', 'priced-band-amount']);
     expect(checksFiring('x="€1.000"')).toEqual(['priced-amount']);
     expect(checksFiring('x="__INSPIRA_COMMERCIAL__"')).toEqual(['sentinel']);

@@ -21,20 +21,20 @@
  * including source maps when a build emits them.
  *
  * FALSE POSITIVES: bare amounts are useless as a signal — minified JS is full of
- * digits like 1000 and 810 — so numeric matching is context-scoped: an amount
- * counts only when a currency marker (€ or EUR) sits nearby. The euro symbol on
- * its own is not a finding; the app has unrelated euro-denominated features
- * (consultant rates, expense reports).
+ * digits like 1000 — so numeric matching is context-scoped: an amount counts
+ * only when a currency marker (€ or EUR) sits nearby. The euro symbol on its own
+ * is not a finding; the app has unrelated euro-denominated features (consultant
+ * rates, expense reports).
  *
  * WHAT A REAL LEAK LOOKS LIKE, verified by deliberately importing the commercial
  * module into `pages/index.tsx` and building — the minifier is why the obvious
  * checks are not enough:
- *   - accented copy is emitted escaped (`Extensi\xf3n opcional a Madrid`), so
+ *   - accented copy is emitted escaped (`seg\xfan el tipo de alojamiento`), so
  *     every file is unescaped before it is searched;
  *   - `1000` is emitted as `1e3`, so amounts are matched in that form too;
  *   - object keys do NOT survive — the minifier flattens the object down to the
- *     properties that were read, so `madridExtension` is not a usable signal
- *     while the label string it pointed at is;
+ *     properties that were read, so `lodgingNote` is not a usable signal while
+ *     the string it pointed at is;
  *   - values the module derives at runtime never appear as literals at all, only
  *     their parts do — which is why the copy check below matters as much as the
  *     amounts. (The €1.560 total that first demonstrated this was retired with
@@ -60,15 +60,15 @@ const BINARY_EXTENSIONS = new Set([
  * without being added here is a price this guard will not look for.
  *
  * The 2026-07-31 amendment retired the €560 lodging package and the €1.560
- * total, so both are gone from this list. Its replacement, the €70–120
- * per-night band, is protected data too but its figures are two and three
- * digits long, so they get their own check below rather than this list's wide
- * currency window.
+ * total, and the owner's 2026-08-02 decision removed the optional city
+ * extension and its €810 — all three are gone from this list because the module
+ * no longer holds them. The €70–120 per-night band is protected data too, but
+ * its figures are two and three digits long, so they get their own check below
+ * rather than this list's wide currency window.
  */
 const PRICE_AMOUNT_PATTERNS = [
   '1[.,\\s]?000', // 1000, 1.000, 1,000, 1 000
   '1e3', //          how the minifier writes 1000
-  '810',
 ];
 
 /**
@@ -132,10 +132,14 @@ const CHECKS = [
   {
     // Copy is what actually survives minification (keys do not), so a structural
     // leak carrying no currency symbol is still visible through its strings.
+    // Every fragment must stay a verbatim substring of a live `COHORT_*` string,
+    // or it guards nothing: the optional city extension's label fragment was
+    // dropped on 2026-08-02 with the extension itself, and `en base a habitación
+    // doble` added with the same round's base-doble precision to the lodging note.
     id: 'commercial-copy',
     description: 'a string that only exists in cohort-commercial.ts',
     pattern:
-      /Extensión opcional a Madrid|Alojamiento en Barcelona: entre|por persona por noche|según el tipo de alojamiento|Precios vigentes para la cohorte|al momento del acuerdo|Pasantias-INSPIRA-Barcelona/g,
+      /Alojamiento en Barcelona: entre|por persona por noche|en base a habitación doble|según el tipo de alojamiento|Precios vigentes para la cohorte|al momento del acuerdo|Pasantias-INSPIRA-Barcelona/g,
   },
 ];
 

@@ -397,3 +397,102 @@ Both guards were mutation-tested, not assumed:
 - Madrid's €810 and its embedded €360 lodging component still carry the owner's
   doubt, to be confirmed at A3. Unchanged by this round.
 - Nothing consumes the cohort exports yet; A3/A6a are the first readers.
+
+---
+
+# Round 5 — owner-directed extension removal + base-doble precision
+
+Runs on owner authority after the phase had already passed Codex (round 2). Two
+owner decisions of 2026-08-02, no other change: the cohort calendar, schools,
+experts, the homepage card, the CI wiring and every guard mechanism are
+untouched.
+
+## R5.1 What changed and why
+
+**The optional Madrid extension was an accidental carry from the stale source
+PPTX — no such pasantías exist** (Decision Log, 2026-08-02). It is removed from
+both modules, from the leak scanner's patterns, and from the tests. Because the
+plan says it may come back in a future cohort, its absence is now *pinned* rather
+than merely achieved: a new guard fails if any export of either cohort module has
+a matching name, value, or function body. That is the only place in the phase's
+source and tests where the word still appears, and it appears as a prohibition.
+
+**Base-doble precision (A-7/A-8, owner 2026-08-02).** `COHORT_LODGING_NOTE` read
+"entre €70 y €120 por persona por noche, según el tipo de alojamiento", which
+was being read as a *room* rate. It now carries the owner's clause verbatim from
+the current A-7: "…por persona por noche, en base a habitación doble — el monto
+es por persona, no por habitación — según el tipo de alojamiento." The string
+stays derived from `COHORT_LODGING_PER_NIGHT_EUR`, so copy and data still cannot
+drift apart.
+
+The two interact through the leak guard, which is why they are one round: the
+`commercial-copy` check's fragments are cut from this exact string. Each
+surviving fragment was re-verified as a substring of the final note, the removed
+extension's label fragment was dropped with the extension, and a new
+`en base a habitación doble` fragment was added — a phrase that exists nowhere in
+the public module, so it strengthens the tripwire rather than widening it.
+
+## R5.2 Files
+
+| File | Change |
+|---|---|
+| `lib/pasantias/cohort-public.ts` | `COHORT_MADRID_SCHOOLS` and the aggregate's `madridSchools` field deleted (−8). |
+| `lib/pasantias/cohort-commercial.ts` | `COHORT_MADRID_EXTENSION` + aggregate field deleted; `COHORT_LODGING_NOTE` gains the base-doble clause. |
+| `scripts/check-price-leak.mjs` | `'810'` dropped from `PRICE_AMOUNT_PATTERNS`; the label fragment dropped from `commercial-copy`; `en base a habitación doble` added; the two doc examples that used the removed constant re-pointed at live ones (`seg\xfan…`, `lodgingNote`). |
+| `__tests__/lib/pasantias-cohort.test.ts` | Two asserts removed with their imports; note pinned to the new string; new base-doble assert; new no-return guard over both module namespaces. |
+| `__tests__/scripts/check-price-leak.test.ts` | The pinned note literal updated to the final string. |
+
+`810` survives in exactly two places, both deliberate: `PROTECTED_AMOUNTS` in the
+cohort test (retired amounts stay guarded against re-appearing on a public
+surface — the same treatment 560 and 1.560 got in r3), and a comment in the
+scanner recording why it left the pattern list.
+
+## R5.3 Test evidence
+
+- `npx vitest run __tests__/lib/pasantias-cohort.test.ts __tests__/scripts/check-price-leak.test.ts`
+  → **2 files, 52 tests passed** (was 51: −2 removed asserts, +3 added).
+- `npm run type-check` → exit 0 · `npm run lint` → exit 0.
+- `npm test` → **234 files, 3497 tests, all passed**.
+- `npm run build` → exit 0 · `node scripts/check-price-leak.mjs` →
+  `OK — scanned 266 file(s) under .next/static, no commercial data found`.
+
+The new guard was mutation-tested, not assumed: re-adding
+`export const COHORT_MADRID_SCHOOLS = ['Colegio IDEO']` to `cohort-public.ts`
+turned it red (`expected [ "COHORT_MADRID_SCHOOLS" ] to deeply equal []`) at
+`__tests__/lib/pasantias-cohort.test.ts:443`, then reverted — `git diff --stat`
+on that file back to the intended −8.
+
+## R5.4 Scrutinise these
+
+1. **The purge grep is not literally empty, by construction.** The prompt asked
+   both for a `/madrid/i` guard and for `grep -rin madrid` over the same three
+   paths to return nothing; a guard that asserts absence has to name what it
+   forbids. `lib/pasantias` and `scripts/check-price-leak.mjs` are literally
+   clean; the single remaining hit is the guard's own pattern. If the reviewer
+   prefers a literally-empty grep, the guard is what has to go — say which.
+2. **Keeping `810` in `PROTECTED_AMOUNTS`.** Arguably "a Madrid assert" that the
+   prompt told me to remove. I read the list as the set of amounts that must
+   never reach a public surface, where retired amounts are the *most* worth
+   keeping — but it is a judgment call against the literal instruction.
+3. **The scanner's doc comments lost their worked example.** The escaped-accent
+   and dead-object-key lessons were both illustrated with the removed
+   constant. I re-pointed them at live strings (`seg\xfan el tipo de
+   alojamiento`, `lodgingNote`) rather than deleting the lessons, but those
+   substitutes were reasoned from the same minifier behaviour, not re-measured
+   against a fresh leak build.
+4. **A3 inherits a longer lodging line.** The note is now 163 characters with an
+   em-dash aside; the brochure's layout is A3's problem, and A-8's coordination
+   framing ("se coordina con el equipo FNE según tu preferencia") is *not* in
+   this string — it stays A3 copy, per the owner's delegation.
+5. **`CohortPriceItem.optional` now has no user.** The removed extension was the
+   only item that set it. Left in place deliberately: it is part of the type A3
+   consumes, and deleting it would be scope creep on a passed phase.
+
+## R5.5 Known limitations / deferred
+
+- Codex's S1 (source-level importer allowlist) and S2 (rendered homepage-card
+  assertion) remain open SHOULD-FIX backlog items — untouched again this round.
+- The r4 note about "Madrid's €810 and its embedded €360 lodging component
+  awaiting confirmation at A3" is void: the extension is gone, so there is
+  nothing to confirm.
+- Nothing consumes the cohort exports yet; A3/A6a are still the first readers.

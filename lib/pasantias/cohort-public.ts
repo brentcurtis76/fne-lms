@@ -256,13 +256,6 @@ export const COHORT_EXCLUDES: readonly string[] = [
  */
 export const COHORT_LODGING_AREA = 'Barcelona';
 
-/** Appendix A-7 — the three schools of the optional Madrid extension. */
-export const COHORT_MADRID_SCHOOLS: readonly string[] = [
-  'Colegio IDEO',
-  'Colegio Santa Gema',
-  'Colegio Virgen de Europa',
-] as const;
-
 /** Parse an ISO calendar date into UTC midnight, so no timezone can shift it. */
 function toUtcDate(isoDate: string): Date {
   const [year, month, day] = isoDate.split('-').map(Number);
@@ -332,5 +325,4 @@ export const COHORT_PUBLIC = {
   includes: COHORT_INCLUDES,
   excludes: COHORT_EXCLUDES,
   lodgingArea: COHORT_LODGING_AREA,
-  madridSchools: COHORT_MADRID_SCHOOLS,
 } as const;

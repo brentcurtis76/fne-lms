@@ -52,16 +52,13 @@ export const COHORT_PRICE_ITEMS: readonly CohortPriceItem[] = [
  */
 export const COHORT_LODGING_PER_NIGHT_EUR = { min: 70, max: 120 } as const;
 
-/** es-CL brochure line for the lodging band. Derived so copy and data cannot drift. */
-export const COHORT_LODGING_NOTE = `Alojamiento en Barcelona: entre €${COHORT_LODGING_PER_NIGHT_EUR.min} y €${COHORT_LODGING_PER_NIGHT_EUR.max} por persona por noche, según el tipo de alojamiento.`;
-
-/** Appendix A-8 — optional Madrid extension, quoted apart from the programme fee. */
-export const COHORT_MADRID_EXTENSION: CohortPriceItem = {
-  id: 'madrid',
-  label: 'Extensión opcional a Madrid',
-  amount: 810,
-  optional: true,
-};
+/**
+ * es-CL brochure line for the lodging band. Derived so copy and data cannot
+ * drift. The base-doble clause is the owner's 2026-08-02 precision (A-7/A-8):
+ * the band is the rate one person pays sharing a double room, not the room's
+ * price, which is the reading a bare "por persona por noche" invites.
+ */
+export const COHORT_LODGING_NOTE = `Alojamiento en Barcelona: entre €${COHORT_LODGING_PER_NIGHT_EUR.min} y €${COHORT_LODGING_PER_NIGHT_EUR.max} por persona por noche, en base a habitación doble — el monto es por persona, no por habitación — según el tipo de alojamiento.`;
 
 /** Appendix A-8 — the cohort does not run below this many participants. */
 export const COHORT_MIN_PARTICIPANTS = 5;
@@ -105,7 +102,6 @@ export const COHORT_COMMERCIAL = {
   items: COHORT_PRICE_ITEMS,
   lodgingPerNightEur: COHORT_LODGING_PER_NIGHT_EUR,
   lodgingNote: COHORT_LODGING_NOTE,
-  madridExtension: COHORT_MADRID_EXTENSION,
   minParticipants: COHORT_MIN_PARTICIPANTS,
   depositPercent: COHORT_DEPOSIT_PERCENT,
   balanceDueDaysBefore: COHORT_BALANCE_DUE_DAYS_BEFORE,

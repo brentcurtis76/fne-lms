@@ -443,7 +443,13 @@ in durable job evidence (the new `ZoomJobFailureRecord.evidence` seam). ② repl
 `missing`/`not_publishable` throw terminal (`sync_missing_row`/`sync_not_publishable`)
 instead of completing green; the requeue path into fresh creation is closed by a
 JOB-level anomaly gate (`ctx.job.last_error`, mirroring the sol4 row-marker pattern,
-positioned after the anchors so a repaired row replays). The round's load-bearing
+positioned after the anchors so a repaired row replays). *[ERRATUM sol8, Sol R8 ①②:
+both halves of that clause were defects — "after the anchors" let ANY number resolve
+the marker (a DIFFERENT-number orphan replayed green: resolution by existence, not
+identity), and nothing protected the marker from preflight failures 130 lines earlier
+(a transient readSession throw replaced it via fail_zoom_job). sol8 moved the marker
+decision FIRST (pure parse → one minimal anchor read, fail-closed with carry-forward)
+and made resolution reason-aware against the marker's own evidence]*. The round's load-bearing
 self-catch: the first gate draft REFUSED and thereby OVERWROTE the marker it refused
 on — the second requeue sailed through and created; caught by a deliberately
 three-iteration requeue loop; fixed by matching the refusal shape and carrying
@@ -468,6 +474,54 @@ change can only manufacture a false `possible_orphan`, never hide a real one);
 a triage item, not a silent case); the gate is a TypeScript guard over a text column,
 a documented contract like the row-marker gate, not a constraint; `possible_orphan` is
 a third orphan class, manual-cancel-at-Zoom, still no runbook.
+
+## 7i. Sol-R8 remediation record (Z1b-sol8, 2026-08-02)
+
+Sol R8: REQUEST CHANGES — 3 findings, all inside the sol7 anomaly machinery; ①②
+overturned/extended PM sol7 rulings, conceded (§7h erratum above). Fixed in `40b52c8`
+(impl) + `dc256f4` (docs). ① resolution is now REASON-AWARE and identity-based:
+`isTerminalAnomalyResolved(marker, anchors)` — `possible_orphan` resolves only when
+the row (or an adoptable checkpoint naming THAT row) carries
+`evidence.created_zoom_meeting_number`; the winner's different number NEVER resolves
+it; `sync_missing_row` only on a restored row carrying the RECORDED number;
+`sync_not_publishable` additionally requires a publishable status
+(`PUBLISHABLE_MEETING_STATUSES`, TS mirror of the RPC CASE, SQL authoritative);
+fail-closed on missing/non-numeric evidence and unknown reasons; clearing the JOB
+marker stays the universal override, with PER-REASON refusal hints (the "record the
+number" remedy was wrong for `possible_orphan`). ② the marker decision is FIRST:
+`readPayload` (pure) → marker parse (pure) → ONE `findMeetingBySurface` + the in-hand
+checkpoint, inside a try whose failure re-raises the refusal shape with the original
+reason/evidence; the store opens LAZILY inside that try and `getZoomApi` is deferred
+past the gate entirely (asserted with an invalid `ZOOM_MODE`), so config throws,
+session reads, eligibility, and the ineligible-release path can no longer replace a
+marker or write state ahead of the decision. ③ evidence is access-hardened AND
+JSON-round-tripped defensively (`readErrorEvidence`); `serializeJobFailure` is TOTAL
+with a four-level fallback (full → minus evidence → kind/reason/detail → constant);
+on failure only the error CLASS is recorded, never the serializer's message.
+
+**PM verification**: predicate + handler-head + runner reads confirmed the design;
+fail-on-old re-executed EXACTLY — runner raw revert → **6/127 fail** (three hostile
+evidences abort the old fail path outright); handler control RECONSTRUCTED per the
+executor's method (old file + the new-export block appended; the PM verified the
+raw-old suite cannot even collect) → **9/93 fail**, 93/93 at head; gates at `dc256f4`:
+**3782/3782 in 240 files** (+22/+0), build OK, `test:db` 139/139 on a clean reset,
+`test:queue` PASS; CI **8/8**; scans CLEAN (script present, run unpiped, true exit).
+All eight deviations ACCEPTED — dev 3's resolved-marker-overwrite argument is sound
+(resolution implies hasNumber or an adoptable checkpoint, both create-proof; a
+preflight failure after resolution loses only stale information); dev 8's rewire is
+the sol7 test that ASSERTED the defect, declared and replaced.
+
+**Residuals for Sol R9** (executor-declared, PM-endorsed): `describeJobFailure` still
+reads `message`/`reason`/`detail` via plain property access — only `evidence` (the
+R8-③-named field, the only handler-supplied structure) is access-hardened; a ZoomError
+whose `message` getter throws would still abort the fail path (two-line fix if Sol
+wants it). The `possible_orphan` CHECKPOINT anchor is the one resolution requiring no
+database change; fail-closed during a store outage means a marker can then only be
+cleared, not repaired; the ROW-level ambiguous-create gate deliberately keeps
+existence-based resolution (that anomaly never learned a number); `deleted` sits in
+the publishable set (public `cancelled`); the taxonomy fallback drops
+`retryAfterSeconds` from the JSON (scheduling unaffected — the runner reads the
+record, not the JSON).
 
 ## 8. Exact local gate commands
 

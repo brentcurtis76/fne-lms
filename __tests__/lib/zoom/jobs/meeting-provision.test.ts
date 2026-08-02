@@ -943,22 +943,29 @@ describe('meeting_provision · mock-mode round trip (§15 Z1b DoD)', () => {
   ) {
     // The rival wins the CAS on the FIRST attempt only.
     let rivalHasWon = false;
-    const rivalHeartbeat: ZoomJobContext['heartbeat'] = async (stageState) => {
-      if (stageState?.stage === 'created' && !rivalHasWon) {
-        rivalHasWon = true;
-        const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
-        row.zoom_meeting_number = rivalNumber;
-        row.status = 'provisioned';
-      }
-      return true;
-    };
     const handler = createMeetingProvisionHandler({ api: fake, store: harness.store });
     return {
-      meeting_provision: (ctx: ZoomJobContext) => handler({ ...ctx, heartbeat: rivalHeartbeat }),
+      meeting_provision: (ctx: ZoomJobContext) => {
+        const rivalHeartbeat: ZoomJobContext['heartbeat'] = async (stageState) => {
+          // Fidelity is load-bearing (Sol R9 ②): checkpoint A lands in the JOB first,
+          // exactly as production's heartbeat RPC writes it. Only then does rival row B
+          // win the persist CAS. Installing B first while swallowing the heartbeat made
+          // the requeue see no checkpoint and masked the self-resolving predicate arm.
+          const alive = await ctx.heartbeat(stageState);
+          if (alive && stageState?.stage === 'created' && !rivalHasWon) {
+            rivalHasWon = true;
+            const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+            row.zoom_meeting_number = rivalNumber;
+            row.status = 'provisioned';
+          }
+          return alive;
+        };
+        return handler({ ...ctx, heartbeat: rivalHeartbeat });
+      },
     };
   }
 
-  it('a requeued DIFFERENT-number possible_orphan stays FAILED, keeps its evidence, and never creates', async () => {
+  async function parkedDifferentNumberOrphan() {
     const fake = seedFake();
     const createSpy = vi.spyOn(fake, 'createMeeting');
     const RIVAL_NUMBER = 82000007777;
@@ -980,36 +987,108 @@ describe('meeting_provision · mock-mode round trip (§15 Z1b DoD)', () => {
     expect(parked).toMatchObject({ kind: 'non_retryable', reason: 'possible_orphan' });
     expect(parked.evidence.created_zoom_meeting_number).toBe(ourNumber);
     expect(createSpy).toHaveBeenCalledTimes(1);
+    // The scenario Sol R9 ② says the old double never built: BOTH artifacts coexist.
+    expect(job.stage_state).toMatchObject({
+      stage: 'created',
+      meeting: { number: ourNumber },
+    });
+    expect(harness.meetingFor(SESSION_ID)?.zoom_meeting_number).toBe(RIVAL_NUMBER);
+
+    return { fake, createSpy, RIVAL_NUMBER, harness, jobs, registry, job, ourNumber };
+  }
+
+  async function requeueParkedOrphan(
+    scenario: Awaited<ReturnType<typeof parkedDifferentNumberOrphan>>,
+    workerId: string
+  ): Promise<void> {
+    scenario.job.status = 'pending';
+    scenario.job.worker_id = null;
+    await runZoomTick({
+      queue: scenario.jobs.queue,
+      registry: scenario.registry,
+      workerId,
+      now: oneBatchClock(),
+    });
+  }
+
+  it('row winner B + durable checkpoint created A stays anomaly_unresolved', async () => {
+    const scenario = await parkedDifferentNumberOrphan();
+
+    await requeueParkedOrphan(scenario, 'w2');
+
+    expect(scenario.job.status).toBe('failed');
+    expect(JSON.parse(scenario.job.last_error as string)).toMatchObject({
+      kind: 'non_retryable',
+      reason: 'anomaly_unresolved',
+      detail: 'possible_orphan',
+      evidence: {
+        created_zoom_meeting_number: scenario.ourNumber,
+        winner_zoom_meeting_number: scenario.RIVAL_NUMBER,
+        cause: 'different_number',
+      },
+    });
+  });
+
+  it('three requeues preserve created A in evidence and stay failed', async () => {
+    const scenario = await parkedDifferentNumberOrphan();
 
     // Three requeues of the terminal job — the designated manual lever, pulled by someone
     // who has NOT cancelled the spare meeting at Zoom.
     for (const worker of ['w2', 'w3', 'w4']) {
-      job.status = 'pending';
-      job.worker_id = null;
-      await runZoomTick({ queue: jobs.queue, registry, workerId: worker, now: oneBatchClock() });
+      await requeueParkedOrphan(scenario, worker);
 
       // Nothing was created, and nothing was written — the winner's row is already right.
       // (`listMeetings()` holds only OUR meeting: the rival is modelled at the row, so the
       // meeting its number stands for was never minted in the fake. `createSpy` is the
       // assertion that matters — one create across the whole round trip.)
-      expect(createSpy).toHaveBeenCalledTimes(1);
-      expect(fake.listMeetings()).toHaveLength(1);
-      expect(job.status).toBe('failed');
+      expect(scenario.createSpy).toHaveBeenCalledTimes(1);
+      expect(scenario.fake.listMeetings()).toHaveLength(1);
+      expect(scenario.job.status).toBe('failed');
 
       // And the number a human has to cancel survives every refusal. This is the half
       // sol7's green replay destroyed: `complete_zoom_job` leaves `last_error` alone, but
       // the NEXT ordinary failure would have overwritten an anomaly nobody could see.
-      expect(JSON.parse(job.last_error as string)).toMatchObject({
+      expect(JSON.parse(scenario.job.last_error as string)).toMatchObject({
         kind: 'non_retryable',
         reason: 'anomaly_unresolved',
         detail: 'possible_orphan',
         evidence: {
-          created_zoom_meeting_number: ourNumber,
-          winner_zoom_meeting_number: RIVAL_NUMBER,
+          created_zoom_meeting_number: scenario.ourNumber,
+          winner_zoom_meeting_number: scenario.RIVAL_NUMBER,
           cause: 'different_number',
         },
       });
     }
+  });
+
+  it('row number A after operator repair resolves safely', async () => {
+    const scenario = await parkedDifferentNumberOrphan();
+    const row = scenario.harness.meetingFor(SESSION_ID) as StoredMeeting;
+    row.zoom_meeting_number = scenario.ourNumber;
+
+    await requeueParkedOrphan(scenario, 'w2');
+
+    expect(scenario.job.status).toBe('done');
+    expect(scenario.job.stage_state).toMatchObject({
+      result: { zoom_meeting_number: scenario.ourNumber, created: false },
+    });
+    expect(scenario.createSpy).toHaveBeenCalledTimes(1);
+    expect(scenario.fake.listMeetings()).toHaveLength(1);
+  });
+
+  it('no B+A refusal or repaired-A requeue calls createMeeting', async () => {
+    const scenario = await parkedDifferentNumberOrphan();
+
+    await requeueParkedOrphan(scenario, 'w2');
+    expect(scenario.createSpy).toHaveBeenCalledTimes(1);
+
+    const row = scenario.harness.meetingFor(SESSION_ID) as StoredMeeting;
+    row.zoom_meeting_number = scenario.ourNumber;
+    await requeueParkedOrphan(scenario, 'w3');
+
+    // The one call belongs to the ORIGINAL attempt. Neither requeue added one.
+    expect(scenario.createSpy).toHaveBeenCalledTimes(1);
+    expect(scenario.fake.listMeetings()).toHaveLength(1);
   });
 
   it('after the operator CLEARS the marker, the existing winner replays without creating', async () => {
@@ -1830,17 +1909,20 @@ describe('meeting_provision · anomaly resolution is per-reason and decided FIRS
       expect(isTerminalAnomalyResolved(marker, anchors(rowWith()))).toBe(false);
     });
 
-    it('possible_orphan: an ADOPTABLE checkpoint naming the created meeting anchors it', () => {
+    it('possible_orphan: its co-produced checkpoint never resolves it', () => {
       const marker = { reason: 'possible_orphan' as const, evidence: ORPHAN_EVIDENCE };
       const row = rowWith({ status: 'pending' });
 
+      // Sol R9 ①: this checkpoint is the artifact of the SAME attempt that created A
+      // and then discovered row winner B. It proves A exists, not that a row accounts for
+      // A, so even the superficially "adoptable" same-row/same-number shape is unresolved.
       expect(
         isTerminalAnomalyResolved(marker, {
           row,
           checkpoint: checkpointFor(row.id, CREATED_NUMBER),
         })
-      ).toBe(true);
-      // ...but only when it names THIS row (anchor 2's own rule) and THAT meeting.
+      ).toBe(false);
+      // Stale-row, wrong-number and no-row variants remain unresolved as before.
       expect(
         isTerminalAnomalyResolved(marker, {
           row,

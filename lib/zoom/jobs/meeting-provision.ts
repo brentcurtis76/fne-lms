@@ -109,13 +109,15 @@
  * `docs/runbooks/zoom.md`, which is NOT written yet (later phase); until it is, the
  * path is a human reading `zoom_jobs.last_error` and `stage_state` directly.
  *
- * There is a SECOND way this handler can leave a meeting orphaned, and its remedy is the
- * same manual one: a fresh create that loses the persist CAS to a writer holding a
- * different number (`possible_orphan`, Sol R7 ① below). That one is named in
- * `zoom_jobs.last_error.evidence.created_zoom_meeting_number` rather than in
- * `stage_state`, because a completion would have replaced `stage_state` and a failure
- * leaves it. Either way the cleanup is a human cancelling that meeting AT ZOOM; no
- * database action resolves it, and no requeue attempts one.
+ * There is a SECOND way this handler can leave a meeting orphaned: a fresh create that
+ * loses the persist CAS to a writer holding a different number (`possible_orphan`, Sol
+ * R7 ① below). That one is named in
+ * `zoom_jobs.last_error.evidence.created_zoom_meeting_number`. Its post-create checkpoint
+ * is NOT resolution evidence: the same attempt wrote that checkpoint before discovering
+ * row winner B, so it anchors nothing about meeting A. A genuine different-number orphan
+ * is cleaned up by a human cancelling A AT ZOOM and clearing the marker. A false positive
+ * can instead be repaired by writing A onto the row; only that persisted row identity
+ * resolves the marker, and no requeue creates.
  *
  * ### The third case: create failed, and we do not know whether it landed (Sol F4)
  *
@@ -297,7 +299,7 @@
  * survives to name the meeting. `zoom_jobs` is service-role-only by the §6 lockdown, so
  * meeting numbers there are no new exposure.
  *
- * ### Resolving a terminal anomaly — the manual contract (Sol R7 ②, Sol R8 ①②)
+ * ### Resolving a terminal anomaly — the manual contract (Sol R7 ②, Sol R8 ①②, Sol R9 ①)
  *
  * Enforced, not merely recorded, on the `ambiguous_unresolved` precedent. A requeued job
  * whose `last_error` still records one of `TERMINAL_ANOMALY_REASONS` is refused under
@@ -321,11 +323,12 @@
  * against the marker's own `evidence`:
  *
  *  1. **`possible_orphan`.** `evidence.created_zoom_meeting_number` is a real meeting at
- *     Zoom that no row points at. Anchored ⇔ the surface's row (or an adoptable checkpoint
- *     on this job) carries THAT number — which happens when the winner adopted our
- *     checkpoint after all, or when an operator repaired a false positive. A row carrying
- *     the DIFFERENT winner number does NOT resolve it and never will: the spare meeting is
- *     still standing at Zoom. The remedy is not a database action — CANCEL
+ *     Zoom that no row points at. Anchored ⇔ the surface's PERSISTED row carries THAT
+ *     number — which can happen when an operator repairs a false positive. The checkpoint
+ *     does NOT count: it was co-produced by the same attempt that discovered winner B and
+ *     therefore proves only that A was created, not that any row accounts for A. A row
+ *     carrying the DIFFERENT winner number does NOT resolve it and never will: the spare
+ *     meeting is still standing at Zoom. For that genuine orphan, CANCEL
  *     `created_zoom_meeting_number` AT ZOOM (`evidence.winner_zoom_meeting_number` is the
  *     one to keep), then clear the JOB's `last_error`. Until then every requeue is refused,
  *     which costs nothing: the row is already correct and the surface is already published.
@@ -352,8 +355,10 @@
  * `reason` (in `detail`) and its `evidence` verbatim. Without both halves the first requeue
  * would erase the orphaned meeting number and the second would find nothing to match and
  * CREATE — the gate would have held exactly once. (`complete_zoom_job`, by contrast, leaves
- * `last_error` alone, so evidence also survives on a job that later replays green; and
- * `fail_zoom_job` leaves `stage_state` alone, so a checkpoint anchor survives a refusal.)
+ * `last_error` alone, so evidence also survives on a job that later replays green. And
+ * `fail_zoom_job` leaves `stage_state` alone, so a checkpoint remains available to the
+ * ordinary UNMARKED adoption path after an operator clears the marker; it is not terminal
+ * anomaly resolution evidence.)
  *
  * Until §16's `docs/runbooks/zoom.md` exists, all three are a human reading
  * `zoom_jobs.last_error` — `.reason`, `.detail` and `.evidence` — directly.
@@ -865,7 +870,7 @@ function readEvidenceNumber(
 }
 
 /**
- * Has the anomaly this marker records actually been resolved? (Sol R8 ①)
+ * Has the anomaly this marker records actually been resolved? (Sol R8 ①, Sol R9 ①)
  *
  * Per-reason, and comparing the anchors against the marker's OWN evidence — the whole of
  * the R8 ① finding. sol7 asked one existence question for all three reasons ("does the row
@@ -884,7 +889,7 @@ export function isTerminalAnomalyResolved(
   marker: TerminalAnomalyMarker,
   anchors: TerminalAnomalyAnchors
 ): boolean {
-  const { row, checkpoint } = anchors;
+  const { row } = anchors;
   const rowNumber = row === null ? null : row.zoom_meeting_number;
 
   switch (marker.reason) {
@@ -893,17 +898,11 @@ export function isTerminalAnomalyResolved(
       // it: the winner's number on the row is the anomaly, not the remedy.
       const created = readEvidenceNumber(marker.evidence, 'created_zoom_meeting_number');
       if (created === null) return false;
-      if (rowNumber === created) return true;
-      // An adoptable checkpoint naming that same meeting anchors it just as well — the
-      // adoption branch writes THAT number onto THIS row and cannot reach `createMeeting`.
-      // Same match rule as anchor 2 below, including the row-identity check: a checkpoint
-      // pointing at some other row is stale, not an anchor.
-      return (
-        row !== null &&
-        checkpoint !== null &&
-        checkpoint.meetingId === row.id &&
-        checkpoint.number === created
-      );
+      // The post-create checkpoint was written by the SAME attempt that later discovered
+      // the orphan. It proves A was created, not that A is persisted anywhere; only the
+      // row carrying A accounts for it. Ordinary checkpoint adoption for an UNMARKED job
+      // remains unchanged later in the handler.
+      return rowNumber === created;
     }
     case SYNC_MISSING_ROW_REASON: {
       // The row that vanished held this number; a restored row holding a different one is

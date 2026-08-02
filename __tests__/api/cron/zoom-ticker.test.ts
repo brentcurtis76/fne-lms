@@ -559,6 +559,72 @@ describe('runZoomTick — failures are stored structurally', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Sol R9 ③ — every human-readable failure field must be defensive too
+  // -------------------------------------------------------------------------
+
+  it.each(['message', 'reason', 'detail'] as const)(
+    'still calls fail_zoom_job when the ZoomError %s getter throws',
+    async (hostileField) => {
+      const { queue, rows, calls } = createFakeQueue([
+        makeJob({ id: 'job-hostile', job_type: 'noop' }),
+      ]);
+      const registry: ZoomJobRegistry = {
+        noop: async () => {
+          const error = Object.assign(
+            new ZoomNonRetryableError('safe message', { operation: 'meeting_provision' }),
+            { reason: 'possible_orphan', detail: 'different_number' }
+          );
+          Object.defineProperty(error, hostileField, {
+            configurable: true,
+            get() {
+              throw new RangeError(`${hostileField} getter is hostile`);
+            },
+          });
+          throw error;
+        },
+      };
+
+      const result = await runZoomTick({ queue, registry, workerId: 'w1' });
+
+      expect(result).toEqual({ claimed: 1, completed: 0, failed: 1 });
+      expect(calls.fail).toHaveLength(1);
+      expect(calls.fail[0]).toMatchObject({ p_retryable: false });
+      const stored = JSON.parse(rows.get('job-hostile')?.last_error as string);
+      expect(stored.kind).toBe('non_retryable');
+      expect(stored.operation).toBe('meeting_provision');
+      expect(stored[hostileField]).toBe('[unreadable:RangeError]');
+      if (hostileField !== 'message') expect(stored.message).toBe('safe message');
+      if (hostileField !== 'reason') expect(stored.reason).toBe('possible_orphan');
+      if (hostileField !== 'detail') expect(stored.detail).toBe('different_number');
+    }
+  );
+
+  it('still calls fail_zoom_job when a plain object has a hostile toString', async () => {
+    const { queue, rows, calls } = createFakeQueue([
+      makeJob({ id: 'job-hostile', job_type: 'noop' }),
+    ]);
+    const registry: ZoomJobRegistry = {
+      noop: async () => {
+        throw {
+          toString() {
+            throw new URIError('plain-object toString is hostile');
+          },
+        };
+      },
+    };
+
+    const result = await runZoomTick({ queue, registry, workerId: 'w1' });
+
+    expect(result).toEqual({ claimed: 1, completed: 0, failed: 1 });
+    expect(calls.fail).toHaveLength(1);
+    expect(calls.fail[0]).toMatchObject({ p_retryable: true });
+    expect(JSON.parse(rows.get('job-hostile')?.last_error as string)).toMatchObject({
+      kind: 'unknown',
+      message: '[unreadable:URIError]',
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Sol R8 ③ — evidence must not be able to abort the failure path
   // -------------------------------------------------------------------------
 

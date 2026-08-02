@@ -119,16 +119,39 @@ export interface ZoomJobFailureRecord {
   message: string;
 }
 
+/** A class-name-only marker for a field whose getter/string conversion threw. */
+function unreadableFieldMarker(error: unknown): string {
+  return `[unreadable:${errorClassName(error)}]`;
+}
+
 /** A `ZoomError` subclass may declare a `reason`; nothing else may set one. */
 function readErrorReason(error: unknown): string | undefined {
-  const reason = (error as { reason?: unknown }).reason;
-  return typeof reason === 'string' && reason !== '' ? reason : undefined;
+  try {
+    const reason = (error as { reason?: unknown }).reason;
+    return typeof reason === 'string' && reason !== '' ? reason : undefined;
+  } catch (accessError) {
+    return unreadableFieldMarker(accessError);
+  }
 }
 
 /** Same contract as `reason`, one level down. */
 function readErrorDetail(error: unknown): string | undefined {
-  const detail = (error as { detail?: unknown }).detail;
-  return typeof detail === 'string' && detail !== '' ? detail : undefined;
+  try {
+    const detail = (error as { detail?: unknown }).detail;
+    return typeof detail === 'string' && detail !== '' ? detail : undefined;
+  } catch (accessError) {
+    return unreadableFieldMarker(accessError);
+  }
+}
+
+/** A bounded message read/conversion that cannot throw from inside the failure path. */
+function readErrorMessage(error: unknown): string {
+  try {
+    const message = error instanceof Error ? error.message : String(error);
+    return message.slice(0, MAX_STORED_MESSAGE_CHARS);
+  } catch (accessError) {
+    return unreadableFieldMarker(accessError);
+  }
 }
 
 /**
@@ -202,11 +225,10 @@ export function describeJobFailure(error: unknown): ZoomJobFailureRecord {
       retryAfterSeconds: error.retryAfterSeconds,
       requestId: error.requestId,
       evidence: readErrorEvidence(error),
-      message: error.message.slice(0, MAX_STORED_MESSAGE_CHARS),
+      message: readErrorMessage(error),
     };
   }
-  const message = error instanceof Error ? error.message : String(error);
-  return { kind: 'unknown', message: message.slice(0, MAX_STORED_MESSAGE_CHARS) };
+  return { kind: 'unknown', message: readErrorMessage(error) };
 }
 
 /**

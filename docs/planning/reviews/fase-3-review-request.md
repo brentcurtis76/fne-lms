@@ -10,9 +10,9 @@
 | Branch | `feat/zoom-core` (PR [#26](https://github.com/brentcurtis76/fne-lms/pull/26), **draft — not marked ready**) |
 | Base | `origin/main` @ `18057e2` (absorbed mid-phase via merge `5d54f12`, which brought the contracts track `c878ec7`) |
 | Implementation head, Z1b-4·r1 | `ae210a5` (`4b71b3c` → `ccb8fce` → `ae210a5`) |
-| Head at THIS request | **Z1b-sol7** implementation `a311ff6` plus the review-record commit containing the sol7 section |
-| Commits ahead of `origin/main` | **65** through `a311ff6`; this review-record commit is the 66th |
-| `origin/main` this round | **deliberately NOT merged** — Sol R8's scope is the Z1b-sol7 remediation only |
+| Head at THIS request | **Z1b-sol8** implementation commit plus the review-record commit containing the sol8 section (round base `90d71f9`) |
+| Commits ahead of `origin/main` | **69** through the sol8 implementation commit; this review-record commit is the 70th |
+| `origin/main` this round | **deliberately NOT merged** — Sol R9's scope is the Z1b-sol8 remediation only |
 | Net diff vs `origin/main` (at `ae210a5`) | 53 files, +11734/−70 |
 | This chunk (Z1b-4) alone | merge `5d54f12` + 3 commits; 15 files, +2484/−92 |
 | Z1b-4·r1 remediation | `ccb8fce` (fix + tests + `PROJECT_STATE.md`) + `ae210a5` (type-clean); 2 PM findings, no scope beyond them |
@@ -588,7 +588,7 @@ calls, and deployment.
 |---|---|---|
 | `a311ff6` | **① the CAS miss resolves its ambiguity** | After `adoptCheckpointMeeting` returns false on the fresh path, the row is RE-READ through `findMeetingBySurface` (which already selects `zoom_meeting_number`) and the winner's number compared to `created.id`. **Equal** ⇒ the winner adopted our own checkpoint: `MeetingProvisionCreateSupersededResult` completes, now carrying `winner_zoom_meeting_number` and `orphan_risk: false` — a checked claim, and a shape the sol6 claims-neither form cannot be mistaken for. **Different, or unreadable by any route** (row gone, number back to NULL, the read itself throwing) ⇒ terminal `ZoomPossibleOrphanError`, reason `possible_orphan`, `detail` = which of those four causes, `evidence` = `{meeting_id, created_zoom_meeting_number, winner_zoom_meeting_number, cause}`. |
 | `a311ff6` | **② replay anomalies are terminal** | `missing` / `not_publishable` keep the `console.warn` as a live-tail line and then throw `ZoomReplaySyncAnomalyError` — reasons `sync_missing_row` / `sync_not_publishable`, `detail` = the meeting number, `evidence` = `{meeting_id, zoom_meeting_number, sync_outcome}`. Non-retryable, so the job row goes `failed` through the runner's existing fail path. |
-| `a311ff6` | **② the requeue is closed** | A job-level anomaly gate at the top of the handler, mirroring the sol4 row-marker gate including its position: **after** the two anchors, so a repaired surface replays instead of being refused forever, and **before** every write, reservation and Zoom call. It parses `ctx.job.last_error` (`ZoomJobRow.last_error`, verified present at `db-types.ts:165`) and refuses non-retryably under `anomaly_unresolved` when the marker names an unresolved anomaly and nothing anchors the surface. |
+| `a311ff6` | **② the requeue is closed** | A job-level anomaly gate, mirroring the sol4 row-marker gate including its position: **after** the two anchors, so a repaired surface replays instead of being refused forever. It parses `ctx.job.last_error` (`ZoomJobRow.last_error`, verified present at `db-types.ts:165`) and refuses non-retryably under `anomaly_unresolved` when the marker names an unresolved anomaly and nothing anchors the surface. **⚠️ CORRECTED by Sol R8 ② — see the sol8 section.** This cell originally read "a job-level anomaly gate **at the top of the handler** … **before** every write, reservation and Zoom call". Neither was true: the gate sat ~130 lines after `readSession` (`:1579` vs `:1706`), so a session read, an ineligibility release, a configuration error or a schedule failure ran in front of it, and each of those calls `fail_zoom_job`, which REPLACES the column the gate reads. It was before every write the gate itself could reach, not before every write. Both claims are mine, and both were wrong. |
 | `a311ff6` | **evidence seam** | `ZoomJobFailureRecord.evidence?: Record<string, unknown>`, read off the error exactly as `reason` and `detail` already are, and dropped unless it is a plain object. `zoom_jobs.last_error` is the durable record Sol asked for; `zoom_internal` is service-role-only, so meeting numbers there are no new exposure. |
 | (this commit) | **③ docs** | This section, plus the four sol6 claims below that are mine. |
 
@@ -645,11 +645,19 @@ tree at both commits contained the intended files and nothing else.
    refusal shape too (`reason: 'anomaly_unresolved'`, original in `detail`) and every refusal
    re-states the evidence verbatim. Without both halves the gate would have held exactly once and
    erased the orphaned meeting number doing it.
-2. **The gate sits AFTER the anchors, on the sol4 precedent, and that is what makes ① requeue-safe
+2. ~~**The gate sits AFTER the anchors, on the sol4 precedent, and that is what makes ① requeue-safe
    rather than requeue-jammed.** A `possible_orphan` requeue against a row that now carries the
    winner's number is `hasNumber` ⇒ anchor 1 ⇒ the REPLAY path; `createMeeting` is unreachable and
    no marker-clearing is needed. Refusing it up front would have been simpler and would have
-   parked a surface that is already correct.
+   parked a surface that is already correct.~~ **WRONG on both halves — Sol R8 ①②, and the
+   `possible_orphan` example is the exact case it gets backwards.** A row carrying the WINNER's
+   number does not resolve a different-number orphan; that row IS the orphan's definition, and the
+   green replay this deviation defends took the created number out of `last_error` while the spare
+   meeting stood at Zoom. "Refusing it up front would have parked a surface that is already
+   correct" is also the wrong frame: the surface being correct is precisely why refusing costs
+   nothing — it is already published, and only the Zoom-side cancellation is outstanding. The
+   sol4 precedent does not transfer either, because there the marker (row) and the failure (job)
+   are different columns. Both errors are mine. See the sol8 section for what replaced this.
 3. **`evidence` is a new field on the runner's record, not a formatted `detail` string.** `detail`
    is one string and ① needs two numbers. Encoding them into it would have made triage parse a
    sentence — the exact anti-pattern the runner header forbids for `message`. The field is
@@ -665,6 +673,11 @@ tree at both commits contained the intended files and nothing else.
 7. **`not_publishable` is self-limiting even unresolved,** because the row has a number: a requeue
    replays, fails identically and creates nothing. It is in the gate's reason set anyway, for the
    case where that row is LATER deleted — at which point it becomes `missing`'s problem.
+   *(Sol R8 amendment: the safety claim holds, the mechanism changed. An unresolved
+   `sync_not_publishable` requeue is now REFUSED by the gate rather than replaying into an
+   identical failure, because resolution for that reason requires the recorded row to have reached
+   a publishable status. The refusal is also the stronger form: it names the remedy instead of
+   repeating the symptom.)*
 8. **Clearing a `sync_missing_row` job's `last_error` while the Zoom meeting still exists
    re-enables fresh creation.** One-way, exactly like clearing an ambiguous-create marker, and
    documented per-reason in the header: the correct resolution for that anomaly is to RESTORE the
@@ -705,6 +718,173 @@ is the same property the row-marker gate has and the same reason both are docume
 remain a human reading `zoom_jobs.last_error` — `.reason`, `.detail`, `.evidence` — directly.
 `supabase/.branches/`, if recreated by local Supabase gates, is CLI state only and must remain
 untracked/uncommitted.
+
+## Sol R8 remediation — round Z1b-sol8
+
+Sol R8 reviewed Z1b-sol7 and returned **REQUEST CHANGES** with three findings; the PM triaged **all
+three VALID**, ① and ② as **PM concessions** that overturn the sol7 rulings
+(`docs/planning/reviews/fase-3-review-verdict.md`, Round 8 + PM triage). All three live inside the
+anomaly machinery sol7 added — the narrowing pattern holds. The round base is `90d71f9`;
+implementation commit plus this documentation commit are the round's **2 commits**. No migration
+was needed (the fix is entirely TS-side), `origin/main` was not merged, `fase-3-pm-dossier.md` was
+not edited (§7h's wording is the PM's at approval), and no live Zoom or deployment action was
+performed.
+
+### Objective and scope — Z1b-sol8
+
+**Objective.** Make the anomaly gate answer the right question, and make sure nothing can answer a
+different one in front of it. ① resolution becomes IDENTITY (does the anchor carry the meeting the
+evidence names?) instead of EXISTENCE (does the row carry *a* meeting number?). ② the marker
+decision moves ahead of every operation that can overwrite the marker. ③ the failure path is made
+unable to throw from serialization.
+
+**In scope:** the per-reason resolution predicate and the anchors it reads; the handler head's
+ordering and its fail-closed anchor read; the module header's resolution contract; evidence
+sanitization in the runner's failure record; regressions for all three; this record and the two
+sol7 claims of mine that R8 overturns.
+
+**Out of scope:** the PM-owned dossier (§7h is the PM's at approval), migrations (none needed —
+`supabase db reset` + `test:db` is re-run as a no-change control), the ROW-level ambiguous-create
+gate (a different marker, and its resolution is genuinely existence-based: that anomaly never
+learned a number to compare against), other job types, Zoom API behaviour, UI, dependencies, CI,
+`origin/main`, live account calls, and deployment.
+
+### Fixes, commits, and files by risk — Z1b-sol8
+
+| Finding | What changed |
+|---|---|
+| **① reason-aware resolution** | New exported pure predicate `isTerminalAnomalyResolved(marker, anchors)` over `{row, checkpoint}`. **`possible_orphan`** → resolved only when the row (or an adoptable checkpoint naming that row) carries `evidence.created_zoom_meeting_number`; a row carrying the DIFFERENT winner number never resolves it. **`sync_missing_row`** → only a restored row carrying the recorded `evidence.zoom_meeting_number`. **`sync_not_publishable`** → the recorded number AND a status in `PUBLISHABLE_MEETING_STATUSES` (a TS mirror of `sync_projection_from_meeting`'s CASE; the SQL stays authoritative). Fails closed on evidence that lacks the number its reason needs, and on an unknown reason. Clearing the JOB's `last_error` remains the universal override for every reason. |
+| **① header contract** | The module header's resolution section rewritten: the "a row that now carries a meeting number IS the resolution" framing is gone, replaced by the per-reason predicate and by the reason each remedy differs (`possible_orphan`'s remedy is at Zoom, not in the database). |
+| **② the decision happens first** | The handler head is restructured: `readPayload` (pure) → parse the marker (pure) → **if marked**, ONE `findMeetingBySurface` plus the already-in-hand `stage_state` checkpoint → refuse or proceed. `getZoomApi` and `readSession` are no longer reached first; the store is opened lazily so even its construction sits inside the gate's try. A failing anchor read raises the SAME refusal shape, carrying the original `reason`/`evidence` forward — fail closed. The gate at its old position (after the anchors) is removed; a one-line marker records where it used to be. |
+| **③ evidence hardening** | `readErrorEvidence` now wraps the property access (a throwing getter) and round-trips the value through JSON; anything that cannot survive that becomes `{ evidence_unserializable: <error class> }` and the rest of the record is preserved. `serializeJobFailure` is additionally TOTAL: full record → record minus evidence → the `kind`/`reason`/`detail` taxonomy → a constant. It cannot throw, so the ticker's failure path always reaches `fail_zoom_job`. |
+
+Implementation diff `90d71f9..HEAD` (code commit): **4 files, +1045/−89**.
+
+- **Highest:** `lib/zoom/jobs/meeting-provision.ts` (+244/−58) — the predicate, the publishable-status
+  mirror, the restructured handler head, the per-reason refusal messages, the header contract.
+- **Medium:** `lib/zoom/jobs/runner.ts` (+92/−6) — evidence sanitization and the total serializer.
+- **Medium:** `__tests__/lib/zoom/jobs/meeting-provision.test.ts` (+560/−29, **+15 cases**, 78 → 93)
+  and `__tests__/api/cron/zoom-ticker.test.ts` (+152, **+7 cases**, 27 → 34).
+
+**Rewires declared.** One existing case was rewritten because it asserted the defect: *"a requeued
+possible_orphan job REPLAYS off the winner number and never creates again"* is now *"a requeued
+DIFFERENT-number possible_orphan stays FAILED, keeps its evidence, and never creates"*. That test
+was sol7's own proof of deviation 2 above, and R8 ① is the finding that it proved the wrong thing.
+Its replacement asserts the same zero-create property plus evidence preservation across three
+requeues. No other existing case changed; the sol7 anomaly-gate, supersession, recovery and
+adoption suites are unmodified and green.
+
+### Fail-on-old evidence — Z1b-sol8
+
+Captured by reverting ONLY the file under test to `90d71f9` and re-running at the new head, then
+restoring. Both controls were run; both files were restored and re-verified green after each.
+
+| Control | Pre-fix observation |
+|---|---|
+| `meeting-provision.ts` @ `90d71f9` (+ the four new EXPORTS appended verbatim, so the suite can still load — see the note below) | **9 failed / 84 passed of 93.** ① — the different-number requeue (`expected 'done' to be 'failed'`: sol7 replayed green, which is the finding), the `sync_missing_row` row restored around a DIFFERENT meeting (`expected undefined to be 'anomaly_unresolved'` — the old gate saw a number and stood down) and the `sync_not_publishable` status repair (`expected 'sync_not_publishable' to be 'anomaly_unresolved'` — old source replayed and failed on the symptom instead of refusing). ② — the transient `readSession` failure (`expected 'unknown' to be 'non_retryable'`: the untyped throw became the job's `last_error`, RETRYABLE, and the anomaly was gone), its end-to-end requeue (`expected 'pending' to be 'failed'` — the marker was overwritten and the job went back into the queue), the ineligible session (`expected 'session_ineligible' to be 'anomaly_unresolved'`, with `releaseReservation` called), the missing session and the bad configuration (both `expected 'unknown' to be 'non_retryable'`), and the failing anchor read (`expected undefined to be 'anomaly_unresolved'`). |
+| `runner.ts` @ `90d71f9` (new source elsewhere) | **6 failed / 121 passed of 127** (ticker + handler suites together). Three of the four hostile evidence shapes ABORT the fail path outright — `Converting circular structure to JSON`, `Do not know how to serialize a BigInt`, `this getter is hostile` — thrown from inside the runner's own catch block, so `fail_zoom_job` is never called and the tick itself dies. Plus the structural-marker case, the clone case (`expected … not to be …` — the old record aliases the handler's object) and the hand-built hostile record (`expected [Function] to not throw an error but 'EvalError: nope' was thrown`). |
+
+Two honest notes on the controls. **(a)** Reverting `meeting-provision.ts` wholesale makes the
+suite fail to *collect* (four new exports do not exist at `90d71f9`), which measures nothing, so
+the control is the old file with the new exported symbols appended verbatim and otherwise unused.
+The consequence is that the five `isTerminalAnomalyResolved` unit cases test new surface and pass
+under the control by construction; the nine failures above are all handler-behaviour regressions.
+**(b)** The fourth hostile-evidence shape (a class instance whose `toJSON` returns `undefined`)
+does not throw on the old source — it silently DROPS the evidence key. That is a lost remedy
+rather than a dead tick, which is why it passes the "reason/detail intact" assertion under the
+control and is reported here rather than counted as a regression.
+
+### Gates at the Z1b-sol8 head
+
+| Gate | Result |
+|---|---|
+| `npm run type-check` | clean (exit 0) |
+| `npm run lint` | clean, zero warnings (exit 0) |
+| `npm test` | **3782/3782 in 240 files** (from 3760/240; +22 — 15 in the handler suite, 7 in the ticker suite) |
+| `npm run build` | OK — full route table generated |
+| `supabase db reset` + `npm run test:db` | **PASS — 6 files, 139 tests** — unchanged, as expected: no migration this round |
+| `npm run test:queue` | **PASS — 40/40 exactly once**, concurrent split 21/19 |
+
+Measured at implementation head `40b52c8`, then re-run in full at the round's final head (this
+documentation commit, which touches no code). `supabase/.branches/` reappeared as untracked CLI
+state during the local database gates and was left uncommitted; the working tree otherwise
+contained the intended files and nothing else.
+
+### Deviations and judgment calls — Z1b-sol8
+
+1. **`readPayload` still runs before the marker decision.** It is pure, it does no I/O, and the gate
+   needs the surface id it produces in order to read an anchor at all. A job that reached a terminal
+   anomaly had a well-formed payload by construction, and a requeue does not rewrite `payload`, so
+   it cannot newly fail on a marked job. Stated rather than left implicit because "the marker
+   decision happens FIRST" is otherwise not literally true.
+2. **The store is opened lazily, inside the gate's `try`.** `defaultMeetingProvisionStore(env)` can
+   throw on missing configuration, and a config error must not be able to replace a marker either.
+   `getZoomApi` is simply not built until the gate has ruled — asserted with `ZOOM_MODE` set to an
+   invalid value, which is `getZoomApi`'s own deterministic throw.
+3. **A resolved marker is allowed to be overwritten by a later preflight failure, and that is
+   safe by construction.** Resolution means the anchored number is on the row (⇒ `hasNumber` ⇒ the
+   replay path, which cannot create) or on an adoptable checkpoint naming that row (⇒ the adoption
+   path, which cannot create, and `fail_zoom_job` leaves `stage_state` alone so the checkpoint
+   survives). The same two cases are also why the ineligible-release path cannot fire on a resolved
+   marker: a row with a number is not a bare reservation, and the checkpoint clause already excludes
+   the other. So the marker is only load-bearing while unresolved, and while unresolved nothing
+   reaches the code that could overwrite it.
+4. **A `possible_orphan` whose evidence has no `created_zoom_meeting_number` can only be resolved by
+   clearing the marker.** Fail-closed: there is no number to anchor against, so no state can be
+   shown to resolve it. This covers hand-edited records and any anomaly recorded before the evidence
+   field existed. The refusal names the remedy, so it is a triage item, not a jam.
+5. **`PUBLISHABLE_MEETING_STATUSES` is a second implementation of the RPC's CASE.** Deliberate, and
+   the same choice the test harness already makes for the same mapping. Drift is self-limiting in
+   both directions (too narrow refuses a requeue that would have replayed; too wide replays and
+   fails identically, creating nothing, because the row still holds its number), and the SQL remains
+   the authority.
+6. **The refusal message is per-reason (`resolutionHint`).** "Record the discovered meeting number"
+   is right for `sync_missing_row` and actively wrong for `possible_orphan`, whose row already has
+   one and whose remedy is at Zoom. Until §16's runbook exists the message is where an operator
+   reads the remedy, so a generic sentence would have been a real cost.
+7. **Sanitization happens in `describeJobFailure`, and `serializeJobFailure` is hardened anyway.**
+   The first makes the in-memory record JSON-safe (so anything that later stringifies it is safe
+   too); the second is a total function because it is exported and can be handed a record this
+   module did not build. Belt and braces on the one path whose whole job is to report a failure.
+8. **Only the error class name is kept when evidence cannot be serialized** — never the serializer's
+   message. A message from an arbitrary `toJSON`/getter is unvetted text on its way into a stored
+   column; the class name is a field triage can key on.
+
+### What an independent reviewer should scrutinize hardest — Z1b-sol8
+
+1. **The `possible_orphan` checkpoint anchor.** It resolves the marker when the job's own
+   `stage_state` checkpoint names this row and carries the created number. My argument: that is
+   exactly the adoption path's own precondition, adoption writes THAT number onto THAT row, and
+   `createMeeting` is unreachable from it. But it is the one resolution that does not require the
+   database to have changed — check that a stale-but-matching checkpoint cannot resolve an orphan
+   that a later writer re-opened.
+2. **Ordering versus the ROW-marker (ambiguous-create) gate.** The job gate now runs first; the row
+   gate still sits after the anchors. I argue they cannot interact, because every resolved marker
+   implies `hasNumber` or an adoption, and the row gate requires neither. If that reasoning is
+   wrong, an ambiguous-create refusal could land on top of a just-resolved anomaly record.
+3. **Fail-closed on a store outage, forever.** While `findMeetingBySurface` is failing, every
+   requeue of a marked job is refused. That is the safe direction, but it also means a marker
+   cannot be resolved by state repair during an outage — only by clearing. Check that the refusal
+   really is idempotent in that state (it re-states reason and evidence, so the parser keeps
+   matching), because a mis-shaped refusal here would erase the marker on the first outage.
+4. **`sync_not_publishable`'s publishable set.** `deleted` maps to a public `cancelled`, so a
+   DELETED row counts as resolved and the requeue replays into a `cancelled` projection. I judge
+   that correct — it is what the RPC does — but it is the least obvious member of the set.
+5. **Is the taxonomy fallback in `serializeJobFailure` reachable, and is it right?** It fires only
+   when a record's own `kind`/`reason`/`message` cannot be read or encoded. It preserves the retry
+   discriminator and drops everything else. Check that dropping `retryAfterSeconds` there is
+   acceptable: the runner reads it off the RECORD, not the JSON, so scheduling is unaffected.
+
+**Known limitations / Sol R9 notes:** `describeJobFailure` still reads `error.message`, `error.reason`
+and `error.detail` as plain property accesses — only `evidence` is access-hardened, because only
+`evidence` is the field R8 ③ names and only it is handler-supplied structure. A `ZoomError` whose
+`message` getter throws would still abort the fail path; if that residual matters it is a two-line
+change, not a redesign. The gate remains a TypeScript guard over a text column rather than a
+database constraint, unchanged from sol7. `docs/runbooks/zoom.md` (plan §16, later phase) still does
+not exist, so all three remedies are a human reading `zoom_jobs.last_error` directly — which is why
+the refusal message now carries the per-reason remedy. `possible_orphan` is still a third orphan
+class with no automated sweep. `supabase/.branches/`, if recreated by local Supabase gates, is CLI
+state only and must remain untracked/uncommitted.
 
 ## Objective and scope (from plan §15, Z1b)
 

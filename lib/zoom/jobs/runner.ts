@@ -109,6 +109,10 @@ export interface ZoomJobFailureRecord {
    * An object, not a formatted string, for the same reason `kind` is not a message
    * prefix: triage reads fields. Nothing here may carry student PII — meeting numbers and
    * internal row ids only, and `zoom_jobs` is service-role-only by the §6 GRANT lockdown.
+   *
+   * As produced by `describeJobFailure` this is always a JSON-SAFE clone of what the error
+   * declared (Sol R8 ③) — never the handler's own object — or, when it could not be made
+   * one, `{ evidence_unserializable: <error class> }`.
    */
   evidence?: Record<string, unknown>;
   /** Human-facing only. Nothing may branch on this string. */
@@ -128,17 +132,62 @@ function readErrorDetail(error: unknown): string | undefined {
 }
 
 /**
+ * The field name a record carries INSTEAD of its evidence when the evidence could not be
+ * serialized. Structural, like everything else in this record: triage sees that evidence
+ * existed and was lost, rather than a job that failed for no stated reason.
+ */
+export const UNSERIALIZABLE_EVIDENCE_FIELD = 'evidence_unserializable';
+
+/**
  * Same contract again: only a `ZoomError` subclass may declare `evidence`, and only a
- * plain object counts. Anything else is dropped rather than stored, so a handler cannot
- * accidentally serialize an Error, a class instance or a cyclic structure into a text
- * column the ticker has to write.
+ * plain object counts. Anything else is dropped rather than stored.
+ *
+ * The shape check is not enough on its own (Sol R8 ③). A plain object can still be
+ * unserializable — cyclic, holding a `BigInt`, or carrying a getter that throws — and
+ * `JSON.stringify` would then throw INSIDE the runner's failure path, which is the one
+ * place that must not throw: `fail_zoom_job` would never run, and the job would die by
+ * lease expiry with its whole record lost. So the evidence is round-tripped through JSON
+ * HERE, defensively, and replaced by a marker naming the failure's class if it cannot be.
+ * Reading the property is itself wrapped, because that access can be a throwing getter too.
  */
 function readErrorEvidence(error: unknown): Record<string, unknown> | undefined {
-  const evidence = (error as { evidence?: unknown }).evidence;
+  let evidence: unknown;
+  try {
+    evidence = (error as { evidence?: unknown }).evidence;
+  } catch (accessError) {
+    return { [UNSERIALIZABLE_EVIDENCE_FIELD]: errorClassName(accessError) };
+  }
   if (typeof evidence !== 'object' || evidence === null || Array.isArray(evidence)) {
     return undefined;
   }
-  return evidence as Record<string, unknown>;
+  return sanitizeEvidence(evidence);
+}
+
+/** The constructor name of a thrown value — never its message, which may carry anything. */
+function errorClassName(error: unknown): string {
+  if (error instanceof Error) return error.constructor?.name ?? 'Error';
+  return typeof error;
+}
+
+/**
+ * A JSON-safe clone of `evidence`, or a minimal marker when it cannot be made one.
+ *
+ * The round trip is the check: whatever survives `JSON.parse(JSON.stringify(x))` is by
+ * construction something `serializeJobFailure` can write. Anything else — cyclic, BigInt,
+ * a throwing getter, a `toJSON` that returns `undefined` — is replaced rather than
+ * propagated, and only the ERROR CLASS is kept, because an arbitrary message from a
+ * serializer is not a field triage can key on and is not a place to put unvetted text.
+ */
+function sanitizeEvidence(evidence: object): Record<string, unknown> {
+  try {
+    const cloned: unknown = JSON.parse(JSON.stringify(evidence));
+    if (typeof cloned !== 'object' || cloned === null || Array.isArray(cloned)) {
+      return { [UNSERIALIZABLE_EVIDENCE_FIELD]: 'TypeError' };
+    }
+    return cloned as Record<string, unknown>;
+  } catch (error) {
+    return { [UNSERIALIZABLE_EVIDENCE_FIELD]: errorClassName(error) };
+  }
 }
 
 export function describeJobFailure(error: unknown): ZoomJobFailureRecord {
@@ -160,8 +209,45 @@ export function describeJobFailure(error: unknown): ZoomJobFailureRecord {
   return { kind: 'unknown', message: message.slice(0, MAX_STORED_MESSAGE_CHARS) };
 }
 
+/**
+ * The record as `zoom_jobs.last_error` stores it. TOTAL: it cannot throw (Sol R8 ③).
+ *
+ * `describeJobFailure` already hands back a JSON-safe `evidence`, so the first attempt is
+ * the one that runs in practice. The retry underneath it exists because this function is
+ * exported and takes a hand-built record, and because a single throw here would abort the
+ * runner's failure path before `fail_zoom_job` — the failure mode being fixed. Each step
+ * preserves strictly more than the one below it: full record → record minus evidence →
+ * the discriminators triage keys on.
+ */
 export function serializeJobFailure(record: ZoomJobFailureRecord): string {
-  return JSON.stringify(record);
+  let failure = 'Error';
+  /** `null` when this shape could not be encoded; remembers WHY for the next shape. */
+  const attempt = (build: () => unknown): string | null => {
+    try {
+      const json = JSON.stringify(build());
+      return typeof json === 'string' ? json : null;
+    } catch (error) {
+      failure = errorClassName(error);
+      return null;
+    }
+  };
+
+  return (
+    attempt(() => record) ??
+    attempt(() => ({ ...record, evidence: { [UNSERIALIZABLE_EVIDENCE_FIELD]: failure } })) ??
+    // Everything but the taxonomy is now suspect. `kind` is what the retry rules read and
+    // `reason`/`detail` are what triage buckets on; losing those makes a job unclassifiable.
+    attempt(() => ({
+      kind: typeof record.kind === 'string' ? record.kind : 'unknown',
+      reason: typeof record.reason === 'string' ? record.reason : undefined,
+      detail: typeof record.detail === 'string' ? record.detail : undefined,
+      evidence: { [UNSERIALIZABLE_EVIDENCE_FIELD]: failure },
+      message: 'The failure record could not be serialized.',
+    })) ??
+    // No property of the record can be trusted to be readable. Still valid JSON, still
+    // `kind`-keyed, and still a `fail_zoom_job` call rather than a lease expiry.
+    `{"kind":"unknown","${UNSERIALIZABLE_EVIDENCE_FIELD}":"unreadable","message":"The failure record could not be serialized."}`
+  );
 }
 
 /**

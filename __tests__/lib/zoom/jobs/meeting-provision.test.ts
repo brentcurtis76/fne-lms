@@ -19,11 +19,15 @@ import {
   createMeetingProvisionHandler,
   deriveDurationMinutes,
   generateMeetingPasscode,
+  isTerminalAnomalyResolved,
   orderHostCandidates,
+  PUBLISHABLE_MEETING_STATUSES,
   reservationOverlapBounds,
   toZoomWallClock,
   ZoomNoHostAvailableError,
+  type CreatedMeetingCheckpoint,
   type ProvisionHostRow,
+  type ProvisionMeetingRow,
   type ProvisionSessionRow,
 } from '../../../../lib/zoom/jobs/meeting-provision';
 import { ZoomNonRetryableError, ZoomRetryableError } from '../../../../lib/zoom/errors';
@@ -34,7 +38,7 @@ import { describeJobFailure, serializeJobFailure } from '../../../../lib/zoom/jo
 import { createZoomFake, type ZoomFake } from '../../../../lib/zoom/fake';
 import { applyWebhookLifecycle } from '../../../../lib/zoom/webhook-lifecycle';
 import { ZoomJobLeaseLostError, type ZoomJobContext } from '../../../../lib/zoom/jobs/types';
-import type { ZoomJobRow } from '../../../../lib/zoom/db-types';
+import type { ZoomJobRow, ZoomMeetingStatus } from '../../../../lib/zoom/db-types';
 import {
   LIFECYCLE_ENDED_APPLIES_FROM,
   LIFECYCLE_STARTED_APPLIES_FROM,
@@ -923,34 +927,44 @@ describe('meeting_provision · mock-mode round trip (§15 Z1b DoD)', () => {
     });
   });
 
-  it('a requeued possible_orphan job REPLAYS off the winner number and never creates again', async () => {
-    // Sol R7 ①'s requeue-safety requirement, end to end through the runner: the job row
-    // goes `failed` with the evidence on it, and every requeue after that finds a row
-    // carrying the winner's number — anchor 1 — so it takes the replay path. The
-    // job-level anomaly gate sits AFTER the anchors precisely so this case resolves
-    // itself instead of being refused forever.
-    const fake = seedFake();
-    const createSpy = vi.spyOn(fake, 'createMeeting');
-    const RIVAL_NUMBER = 82000007777;
-    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
-    const jobs = createMemoryJobQueue();
-
+  /**
+   * The DIFFERENT-number `possible_orphan` round trip, end to end through the runner.
+   *
+   * REWRITTEN for Sol R8 ①. sol7 asserted the opposite of what this now asserts — that
+   * every requeue REPLAYS green off the winner's number — and that was the finding: for
+   * this anomaly the winner's number on the row is the state that DEFINES the orphan, so
+   * "the row carries a meeting number" is not resolution. Replaying green also took the
+   * created number out of `last_error` with it, and the spare meeting at Zoom went dark.
+   */
+  function differentNumberOrphanRound(
+    fake: ZoomFake,
+    harness: ReturnType<typeof createMemoryProvisionStore>,
+    rivalNumber: number
+  ) {
     // The rival wins the CAS on the FIRST attempt only.
     let rivalHasWon = false;
     const rivalHeartbeat: ZoomJobContext['heartbeat'] = async (stageState) => {
       if (stageState?.stage === 'created' && !rivalHasWon) {
         rivalHasWon = true;
         const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
-        row.zoom_meeting_number = RIVAL_NUMBER;
+        row.zoom_meeting_number = rivalNumber;
         row.status = 'provisioned';
       }
       return true;
     };
     const handler = createMeetingProvisionHandler({ api: fake, store: harness.store });
-    const registry = {
-      meeting_provision: (ctx: ZoomJobContext) =>
-        handler({ ...ctx, heartbeat: rivalHeartbeat }),
+    return {
+      meeting_provision: (ctx: ZoomJobContext) => handler({ ...ctx, heartbeat: rivalHeartbeat }),
     };
+  }
+
+  it('a requeued DIFFERENT-number possible_orphan stays FAILED, keeps its evidence, and never creates', async () => {
+    const fake = seedFake();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    const RIVAL_NUMBER = 82000007777;
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+    const jobs = createMemoryJobQueue();
+    const registry = differentNumberOrphanRound(fake, harness, RIVAL_NUMBER);
 
     await jobs.queue.enqueue({
       job_type: 'meeting_provision',
@@ -960,29 +974,128 @@ describe('meeting_provision · mock-mode round trip (§15 Z1b DoD)', () => {
     await runZoomTick({ queue: jobs.queue, registry, workerId: 'w1', now: oneBatchClock() });
 
     const job = jobs.jobFor('meeting_provision') as StoredJob;
+    const ourNumber = fake.listMeetings()[0].id;
     expect(job.status).toBe('failed');
     const parked = JSON.parse(job.last_error as string);
     expect(parked).toMatchObject({ kind: 'non_retryable', reason: 'possible_orphan' });
-    expect(parked.evidence.created_zoom_meeting_number).toBe(fake.listMeetings()[0].id);
+    expect(parked.evidence.created_zoom_meeting_number).toBe(ourNumber);
     expect(createSpy).toHaveBeenCalledTimes(1);
 
-    // Three requeues of the terminal job — the designated manual lever.
+    // Three requeues of the terminal job — the designated manual lever, pulled by someone
+    // who has NOT cancelled the spare meeting at Zoom.
     for (const worker of ['w2', 'w3', 'w4']) {
       job.status = 'pending';
       job.worker_id = null;
       await runZoomTick({ queue: jobs.queue, registry, workerId: worker, now: oneBatchClock() });
 
-      // The assertion the whole test exists for, inside the loop so a regression fails
-      // on the second create itself.
+      // Nothing was created, and nothing was written — the winner's row is already right.
+      // (`listMeetings()` holds only OUR meeting: the rival is modelled at the row, so the
+      // meeting its number stands for was never minted in the fake. `createSpy` is the
+      // assertion that matters — one create across the whole round trip.)
       expect(createSpy).toHaveBeenCalledTimes(1);
       expect(fake.listMeetings()).toHaveLength(1);
-      // ...and it is not merely refused: it REPLAYS, off the winner's number.
-      expect(job.status).toBe('done');
-      expect(job.stage_state).toMatchObject({
-        result: { zoom_meeting_number: RIVAL_NUMBER, created: false },
+      expect(job.status).toBe('failed');
+
+      // And the number a human has to cancel survives every refusal. This is the half
+      // sol7's green replay destroyed: `complete_zoom_job` leaves `last_error` alone, but
+      // the NEXT ordinary failure would have overwritten an anomaly nobody could see.
+      expect(JSON.parse(job.last_error as string)).toMatchObject({
+        kind: 'non_retryable',
+        reason: 'anomaly_unresolved',
+        detail: 'possible_orphan',
+        evidence: {
+          created_zoom_meeting_number: ourNumber,
+          winner_zoom_meeting_number: RIVAL_NUMBER,
+          cause: 'different_number',
+        },
       });
     }
+  });
 
+  it('after the operator CLEARS the marker, the existing winner replays without creating', async () => {
+    // The universal override, and the only exit from a different-number orphan: the
+    // operator cancels the spare at Zoom, then clears `last_error`. The row already
+    // carries the winner's number, so the requeue is anchor 1 — a REPLAY, never a create.
+    const fake = seedFake();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    const RIVAL_NUMBER = 82000007777;
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+    const jobs = createMemoryJobQueue();
+    const registry = differentNumberOrphanRound(fake, harness, RIVAL_NUMBER);
+
+    await jobs.queue.enqueue({
+      job_type: 'meeting_provision',
+      payload: { surface_type: 'consultor_session', surface_id: SESSION_ID },
+    });
+    await runZoomTick({ queue: jobs.queue, registry, workerId: 'w1', now: oneBatchClock() });
+
+    const job = jobs.jobFor('meeting_provision') as StoredJob;
+    expect(job.status).toBe('failed');
+
+    job.status = 'pending';
+    job.worker_id = null;
+    job.last_error = null;
+    await runZoomTick({ queue: jobs.queue, registry, workerId: 'w2', now: oneBatchClock() });
+
+    expect(job.status).toBe('done');
+    expect(job.stage_state).toMatchObject({
+      result: { zoom_meeting_number: RIVAL_NUMBER, created: false },
+    });
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('scheduled');
+  });
+
+  it('a FALSE possible_orphan resolves itself once the created number is anchored', async () => {
+    // The other side of identity-based resolution, and the reason it is not simply "refuse
+    // until a human clears it": when the row genuinely comes to carry the number THIS
+    // attempt created — the winner adopted our checkpoint after all, or an operator
+    // repaired a false positive — nothing is orphaned and the requeue must replay.
+    const fake = seedFake();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+    const jobs = createMemoryJobQueue();
+    // `read_failed`: the winner-read threw, so the handler could not tell WHICH miss it
+    // was and failed closed. The row in fact holds our own number.
+    let readHasFailed = false;
+    const heartbeat: ZoomJobContext['heartbeat'] = async (stageState) => {
+      if (stageState?.stage === 'created' && !readHasFailed) {
+        readHasFailed = true;
+        const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+        row.zoom_meeting_number = (stageState.meeting as { number: number }).number;
+        row.status = 'provisioned';
+        vi.mocked(harness.store.findMeetingBySurface).mockRejectedValueOnce(
+          new Error('connection reset')
+        );
+      }
+      return true;
+    };
+    const handler = createMeetingProvisionHandler({ api: fake, store: harness.store });
+    const registry = {
+      meeting_provision: (ctx: ZoomJobContext) => handler({ ...ctx, heartbeat }),
+    };
+
+    await jobs.queue.enqueue({
+      job_type: 'meeting_provision',
+      payload: { surface_type: 'consultor_session', surface_id: SESSION_ID },
+    });
+    await runZoomTick({ queue: jobs.queue, registry, workerId: 'w1', now: oneBatchClock() });
+
+    const job = jobs.jobFor('meeting_provision') as StoredJob;
+    expect(job.status).toBe('failed');
+    expect(JSON.parse(job.last_error as string)).toMatchObject({
+      reason: 'possible_orphan',
+      detail: 'read_failed',
+    });
+
+    job.status = 'pending';
+    job.worker_id = null;
+    await runZoomTick({ queue: jobs.queue, registry, workerId: 'w2', now: oneBatchClock() });
+
+    // Resolved by the anchor, with no marker-clearing: the row names the meeting the
+    // evidence names, so there is nothing standing at Zoom that nothing points at.
+    expect(job.status).toBe('done');
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(fake.listMeetings()).toHaveLength(1);
     expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('scheduled');
   });
 
@@ -1653,6 +1766,425 @@ describe('meeting_provision · replay-sync anomalies fail the job (Sol R7 ②)',
         )
       )
     ).rejects.toMatchObject({ reason: 'anomaly_unresolved', detail: 'possible_orphan' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sol R8 ①② — identity-based resolution, and a gate nothing can get in front of
+// ---------------------------------------------------------------------------
+
+describe('meeting_provision · anomaly resolution is per-reason and decided FIRST (Sol R8 ①②)', () => {
+  const CREATED_NUMBER = 82000004242;
+  const WINNER_NUMBER = 82000009999;
+  const RECORDED_NUMBER = 82000006400;
+
+  function rowWith(patch: Partial<ProvisionMeetingRow> = {}): ProvisionMeetingRow {
+    return {
+      id: 'meeting-1',
+      status: 'provisioned',
+      host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+      zoom_meeting_number: null,
+      effective_settings: null,
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+      ...patch,
+    };
+  }
+
+  function checkpointFor(meetingId: string, number: number): CreatedMeetingCheckpoint {
+    return {
+      meetingId,
+      number,
+      passcode: 'synthetic1',
+      joinUrl: `https://example-synthetic.test/j/${number}`,
+      settings: { auto_recording: 'none' },
+    };
+  }
+
+  const ORPHAN_EVIDENCE = {
+    meeting_id: 'meeting-1',
+    created_zoom_meeting_number: CREATED_NUMBER,
+    winner_zoom_meeting_number: WINNER_NUMBER,
+    cause: 'different_number',
+  };
+
+  /**
+   * The predicate, directly. The handler round trips below prove it is WIRED; this proves
+   * it is RIGHT, including the three shapes that are expensive to stage end to end.
+   */
+  describe('isTerminalAnomalyResolved', () => {
+    it('possible_orphan: only the CREATED number resolves it — the winner number never does', () => {
+      const marker = { reason: 'possible_orphan' as const, evidence: ORPHAN_EVIDENCE };
+      const anchors = (row: ProvisionMeetingRow | null, checkpoint = null) => ({ row, checkpoint });
+
+      // The finding, in one assertion: this is the state that DEFINES the orphan.
+      expect(
+        isTerminalAnomalyResolved(marker, anchors(rowWith({ zoom_meeting_number: WINNER_NUMBER })))
+      ).toBe(false);
+      expect(
+        isTerminalAnomalyResolved(marker, anchors(rowWith({ zoom_meeting_number: CREATED_NUMBER })))
+      ).toBe(true);
+      // No row at all, and a row whose number is back to NULL: unanchored either way.
+      expect(isTerminalAnomalyResolved(marker, anchors(null))).toBe(false);
+      expect(isTerminalAnomalyResolved(marker, anchors(rowWith()))).toBe(false);
+    });
+
+    it('possible_orphan: an ADOPTABLE checkpoint naming the created meeting anchors it', () => {
+      const marker = { reason: 'possible_orphan' as const, evidence: ORPHAN_EVIDENCE };
+      const row = rowWith({ status: 'pending' });
+
+      expect(
+        isTerminalAnomalyResolved(marker, {
+          row,
+          checkpoint: checkpointFor(row.id, CREATED_NUMBER),
+        })
+      ).toBe(true);
+      // ...but only when it names THIS row (anchor 2's own rule) and THAT meeting.
+      expect(
+        isTerminalAnomalyResolved(marker, {
+          row,
+          checkpoint: checkpointFor('meeting-elsewhere', CREATED_NUMBER),
+        })
+      ).toBe(false);
+      expect(
+        isTerminalAnomalyResolved(marker, {
+          row,
+          checkpoint: checkpointFor(row.id, WINNER_NUMBER),
+        })
+      ).toBe(false);
+      expect(
+        isTerminalAnomalyResolved(marker, {
+          row: null,
+          checkpoint: checkpointFor('meeting-1', CREATED_NUMBER),
+        })
+      ).toBe(false);
+    });
+
+    it('fails CLOSED when the evidence does not carry the number its reason needs', () => {
+      // Anomalies recorded before the evidence field existed, hand-edited records, and
+      // non-numeric junk. None of them can be shown resolved, so none of them are.
+      for (const evidence of [
+        null,
+        {},
+        { created_zoom_meeting_number: String(CREATED_NUMBER) },
+        { created_zoom_meeting_number: Number.NaN },
+      ]) {
+        expect(
+          isTerminalAnomalyResolved(
+            { reason: 'possible_orphan', evidence },
+            { row: rowWith({ zoom_meeting_number: CREATED_NUMBER }), checkpoint: null }
+          )
+        ).toBe(false);
+      }
+    });
+
+    it('sync_missing_row: only a restored row carrying the RECORDED number resolves it', () => {
+      const marker = {
+        reason: 'sync_missing_row' as const,
+        evidence: { meeting_id: 'meeting-1', zoom_meeting_number: RECORDED_NUMBER },
+      };
+      expect(
+        isTerminalAnomalyResolved(marker, {
+          row: rowWith({ zoom_meeting_number: RECORDED_NUMBER }),
+          checkpoint: null,
+        })
+      ).toBe(true);
+      // A row restored around a DIFFERENT meeting leaves the recorded one unaccounted for.
+      expect(
+        isTerminalAnomalyResolved(marker, {
+          row: rowWith({ zoom_meeting_number: WINNER_NUMBER }),
+          checkpoint: null,
+        })
+      ).toBe(false);
+      expect(isTerminalAnomalyResolved(marker, { row: null, checkpoint: null })).toBe(false);
+    });
+
+    it('sync_not_publishable: the recorded row must ALSO have reached a publishable status', () => {
+      const marker = {
+        reason: 'sync_not_publishable' as const,
+        evidence: { meeting_id: 'meeting-1', zoom_meeting_number: RECORDED_NUMBER },
+      };
+      const at = (status: ZoomMeetingStatus) =>
+        isTerminalAnomalyResolved(marker, {
+          row: rowWith({ status, zoom_meeting_number: RECORDED_NUMBER }),
+          checkpoint: null,
+        });
+
+      // The two the RPC's CASE maps to NULL — the whole of this anomaly.
+      expect(at('pending')).toBe(false);
+      expect(at('error')).toBe(false);
+      for (const status of PUBLISHABLE_MEETING_STATUSES) expect(at(status)).toBe(true);
+
+      // A publishable status on a row that now names a different meeting is not it.
+      expect(
+        isTerminalAnomalyResolved(marker, {
+          row: rowWith({ status: 'provisioned', zoom_meeting_number: WINNER_NUMBER }),
+          checkpoint: null,
+        })
+      ).toBe(false);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // The gate's POSITION (Sol R8 ②): nothing that can fail may run in front of it
+  // -------------------------------------------------------------------------
+
+  const markerFor = (reason: string, evidence: Record<string, unknown>): string =>
+    serializeJobFailure({
+      kind: 'non_retryable',
+      reason,
+      message: 'the original anomaly',
+      evidence,
+    });
+
+  const ORPHAN_MARKER = markerFor('possible_orphan', ORPHAN_EVIDENCE);
+  const MISSING_ROW_EVIDENCE = {
+    meeting_id: 'meeting-vanished',
+    zoom_meeting_number: RECORDED_NUMBER,
+    sync_outcome: 'missing',
+  };
+  const MISSING_ROW_MARKER = markerFor('sync_missing_row', MISSING_ROW_EVIDENCE);
+
+  /** Every refusal must look like this: same anomaly, same evidence, zero writes. */
+  function expectCarriedForward(
+    error: unknown,
+    detail: string,
+    evidence: Record<string, unknown>
+  ): void {
+    const record = describeJobFailure(error);
+    expect(record.kind).toBe('non_retryable');
+    expect(record.reason).toBe('anomaly_unresolved');
+    expect(record.detail).toBe(detail);
+    expect(record.evidence).toEqual(evidence);
+  }
+
+  it('a TRANSIENT readSession failure cannot replace a sync_missing_row marker', async () => {
+    // The R8 ② scenario in its simplest form. sol7 read the session ~130 lines before the
+    // gate, so this throw became the job's `last_error` — an untyped, RETRYABLE record —
+    // and the anomaly was gone. With the row also gone, the attempt after it created.
+    const fake = seedFake();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+    vi.mocked(harness.store.readSession).mockRejectedValue(new Error('connection reset'));
+
+    const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context(jobRow({ last_error: MISSING_ROW_MARKER }))
+    ).catch((caught) => caught);
+
+    expectCarriedForward(error, 'sync_missing_row', MISSING_ROW_EVIDENCE);
+    // Never reached, which is the invariant: a preflight that cannot run cannot fail, and
+    // a preflight that cannot fail cannot overwrite the marker.
+    expect(harness.store.readSession).not.toHaveBeenCalled();
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(harness.store.insertReservation).not.toHaveBeenCalled();
+    expect(harness.meetings).toHaveLength(0);
+  });
+
+  it('survives the transient failure end to end: the next attempt still cannot create', async () => {
+    // The requeue half, through the runner, because "the marker survives" is a claim about
+    // what `fail_zoom_job` wrote — and the refusal record lands on the field the gate reads.
+    const fake = seedFake();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+    const jobs = createMemoryJobQueue();
+    const registry = createZoomJobRegistry({ api: fake, meetingProvisionStore: harness.store });
+
+    await jobs.queue.enqueue({
+      job_type: 'meeting_provision',
+      payload: { surface_type: 'consultor_session', surface_id: SESSION_ID },
+    });
+    const job = jobs.jobFor('meeting_provision') as StoredJob;
+    job.last_error = MISSING_ROW_MARKER;
+
+    // Attempt 1 hits a transient store outage; attempt 2 finds a healthy store.
+    vi.mocked(harness.store.readSession).mockRejectedValueOnce(new Error('connection reset'));
+    for (const worker of ['w1', 'w2', 'w3']) {
+      job.status = 'pending';
+      job.worker_id = null;
+      await runZoomTick({ queue: jobs.queue, registry, workerId: worker, now: oneBatchClock() });
+
+      expect(job.status).toBe('failed');
+      expect(createSpy).not.toHaveBeenCalled();
+      expect(harness.meetings).toHaveLength(0);
+      expect(JSON.parse(job.last_error as string)).toMatchObject({
+        kind: 'non_retryable',
+        reason: 'anomaly_unresolved',
+        detail: 'sync_missing_row',
+        evidence: MISSING_ROW_EVIDENCE,
+      });
+    }
+  });
+
+  it('an INELIGIBLE session neither erases the marker nor releases the reservation', async () => {
+    // The ineligible-release path is the one preflight that WRITES, and sol7 ran it before
+    // the gate: a cancelled session released the held reservation and failed the job under
+    // `session_ineligible`, taking the orphan's number with it.
+    const held: StoredMeeting = {
+      id: 'meeting-held',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+      zoom_meeting_number: null,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'pending',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+    };
+    const fake = seedFake();
+    const harness = createMemoryProvisionStore({
+      session: { ...SESSION, status: 'cancelada' },
+      hosts: [HOST_POOL_A],
+      meetings: [held],
+    });
+
+    const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context(jobRow({ last_error: ORPHAN_MARKER }))
+    ).catch((caught) => caught);
+
+    expectCarriedForward(error, 'possible_orphan', ORPHAN_EVIDENCE);
+    expect(harness.store.releaseReservation).not.toHaveBeenCalled();
+    expect(harness.store.readSession).not.toHaveBeenCalled();
+    expect(harness.meetingFor(SESSION_ID)?.status).toBe('pending');
+    expect(fake.listMeetings()).toHaveLength(0);
+  });
+
+  it('a MISSING session cannot erase the marker either', async () => {
+    const fake = seedFake();
+    const harness = createMemoryProvisionStore({
+      // `readSession` answers null for any other id — the "session deleted" case.
+      session: { ...SESSION, id: '99999999-9999-4999-8999-999999999999' },
+      hosts: [HOST_POOL_A],
+    });
+
+    const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context(jobRow({ last_error: ORPHAN_MARKER }))
+    ).catch((caught) => caught);
+
+    expectCarriedForward(error, 'possible_orphan', ORPHAN_EVIDENCE);
+    expect(harness.store.readSession).not.toHaveBeenCalled();
+  });
+
+  it('a CONFIGURATION failure cannot erase the marker — the api is not even built', async () => {
+    // `getZoomApi` validates §5 configuration and throws on a bad one. sol7 called it on
+    // the handler's first line, so a misconfigured deploy would have converted every marked
+    // job into a config error and reopened the create path once the config was fixed.
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+
+    const error = await createMeetingProvisionHandler({
+      store: harness.store,
+      env: { ZOOM_MODE: 'not-a-mode' },
+    })(context(jobRow({ last_error: ORPHAN_MARKER }))).catch((caught) => caught);
+
+    expectCarriedForward(error, 'possible_orphan', ORPHAN_EVIDENCE);
+  });
+
+  it('a failing ANCHOR read fails CLOSED, carrying the anomaly forward', async () => {
+    // The gate's own read is the one thing it cannot avoid doing. "We could not look" is
+    // not "it is resolved", so the refusal is raised anyway — with the original reason and
+    // evidence, so a store outage spanning several requeues still cannot launder a marker.
+    const fake = seedFake();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+    vi.mocked(harness.store.findMeetingBySurface).mockRejectedValue(new Error('connection reset'));
+
+    const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context(jobRow({ last_error: ORPHAN_MARKER }))
+    ).catch((caught) => caught);
+
+    expectCarriedForward(error, 'possible_orphan', ORPHAN_EVIDENCE);
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(harness.store.insertReservation).not.toHaveBeenCalled();
+    expect(harness.store.readSession).not.toHaveBeenCalled();
+  });
+
+  it('a sync_missing_row row restored around a DIFFERENT meeting stays refused', async () => {
+    // Existence-based resolution accepted this: a row, with a number, therefore "repaired".
+    // The recorded meeting is still at Zoom with nothing pointing at it.
+    const fake = seedFake();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    const restored: StoredMeeting = {
+      id: 'meeting-restored',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+      zoom_meeting_number: WINNER_NUMBER,
+      zoom_meeting_uuid: null,
+      passcode: 'restored01',
+      join_url: `https://example-synthetic.test/j/${WINNER_NUMBER}`,
+      effective_settings: { auto_recording: 'none' },
+      status: 'provisioned',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+    };
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [restored],
+    });
+
+    const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context(jobRow({ last_error: MISSING_ROW_MARKER }))
+    ).catch((caught) => caught);
+
+    expectCarriedForward(error, 'sync_missing_row', MISSING_ROW_EVIDENCE);
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(harness.store.syncProjectionFromMeeting).not.toHaveBeenCalled();
+  });
+
+  it('a sync_not_publishable row replays once its STATUS is repaired, and not before', async () => {
+    const parked: StoredMeeting = {
+      id: 'meeting-parked',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+      zoom_meeting_number: RECORDED_NUMBER,
+      zoom_meeting_uuid: null,
+      passcode: 'parkedpass',
+      join_url: `https://example-synthetic.test/j/${RECORDED_NUMBER}`,
+      effective_settings: { auto_recording: 'none' },
+      status: 'error',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+    };
+    const evidence = {
+      meeting_id: 'meeting-parked',
+      zoom_meeting_number: RECORDED_NUMBER,
+      sync_outcome: 'not_publishable',
+    };
+    const fake = seedFake();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [parked],
+    });
+    const handler = createMeetingProvisionHandler({ api: fake, store: harness.store });
+    const job = jobRow({ last_error: markerFor('sync_not_publishable', evidence) });
+
+    const refused = await handler(context(job)).catch((caught) => caught);
+    expectCarriedForward(refused, 'sync_not_publishable', evidence);
+    // `error` is not an active status, so an unrefused requeue would have RE-RESERVED this
+    // row and walked into a create. It never gets that far.
+    expect(harness.store.reserveExistingMeeting).not.toHaveBeenCalled();
+    expect(createSpy).not.toHaveBeenCalled();
+
+    // The operator repairs the status the projection could not carry. Same marker, same
+    // number, now anchored — so the requeue replays and publishes.
+    parked.status = 'provisioned';
+    const result = await handler(context(job));
+    expect(result).toMatchObject({ zoom_meeting_number: RECORDED_NUMBER, created: false });
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('scheduled');
   });
 });
 

@@ -297,45 +297,63 @@
  * survives to name the meeting. `zoom_jobs` is service-role-only by the §6 lockdown, so
  * meeting numbers there are no new exposure.
  *
- * ### Resolving a terminal anomaly — the manual contract (Sol R7 ②)
+ * ### Resolving a terminal anomaly — the manual contract (Sol R7 ②, Sol R8 ①②)
  *
  * Enforced, not merely recorded, on the `ambiguous_unresolved` precedent. A requeued job
- * whose `last_error` still records one of `TERMINAL_ANOMALY_REASONS` is refused at the top
- * of the handler under `anomaly_unresolved`, non-retryably, with ZERO writes — but ONLY
- * while the anchors cannot resolve it (`!hasNumber && adoption === null`), exactly as the
- * row-marker gate sits after the anchors. A job whose underlying state has genuinely been
- * repaired therefore takes the replay/recovery branch instead of the refusal, and needs no
- * marker-clearing at all.
+ * whose `last_error` still records one of `TERMINAL_ANOMALY_REASONS` is refused under
+ * `anomaly_unresolved`, non-retryably, with ZERO writes — unless the anomaly's OWN
+ * evidence can be shown to be anchored. Two properties of that gate are load-bearing and
+ * both were wrong in sol7:
  *
- * One asymmetry with that precedent decides the shape of the refusal. The ambiguous-create
- * marker lives on the ROW, and `fail_zoom_job` writes the JOB — two columns, so the
- * refusal cannot disturb what the gate reads. Here they are the SAME column: the refusal
- * record replaces the anomaly record. So `parseTerminalAnomalyMarker` matches the refusal
- * shape as well as the anomaly shape, and every refusal re-states the original `reason`
- * (in `detail`) and its `evidence` verbatim. Without both halves the first requeue would
- * erase the orphaned meeting number and the second would find nothing to match and CREATE
- * — the gate would have held exactly once. (`complete_zoom_job`, by contrast, leaves
- * `last_error` alone, so evidence also survives on a job that later replays green.)
+ * **It runs FIRST (Sol R8 ②).** Before `readSession`, before eligibility, before the
+ * schedule maths, before `getZoomApi` — before anything that can fail and therefore
+ * before anything that can call `fail_zoom_job`, whose write REPLACES the very column the
+ * gate reads. sol7 placed it ~130 lines after `readSession`, so an unrelated preflight
+ * failure on a marked job (session read, ineligibility, a missing credential) overwrote
+ * the marker with its own record and the NEXT requeue found nothing to gate on and could
+ * create. The only I/O the gate itself performs is one `findMeetingBySurface`; if that
+ * read throws, the refusal is raised anyway, carrying the original reason and evidence —
+ * FAIL CLOSED, because "we could not look" is not "it is resolved".
  *
- * The remedy is per-anomaly, because the anomalies are not the same event:
+ * **Resolution is IDENTITY, not existence (Sol R8 ①).** "The row now carries a meeting
+ * number" is not resolution; for a different-number `possible_orphan` it is the very
+ * state that DEFINES the anomaly. The predicate is therefore per-reason, and it compares
+ * against the marker's own `evidence`:
  *
  *  1. **`possible_orphan`.** `evidence.created_zoom_meeting_number` is a real meeting at
- *     Zoom that no row points at. The remedy is NOT a database action: CANCEL IT AT ZOOM
- *     (`evidence.winner_zoom_meeting_number` is the one to keep, when the row has one).
- *     Then clear the JOB's `last_error`. Note the common case needs nothing: when the
- *     winner's row carries its own number, a requeue is `hasNumber` and REPLAYS — it can
- *     never re-enter creation, whatever the marker says. The orphan still has to be
- *     cancelled by hand; that is the residual, not a queue problem.
+ *     Zoom that no row points at. Anchored ⇔ the surface's row (or an adoptable checkpoint
+ *     on this job) carries THAT number — which happens when the winner adopted our
+ *     checkpoint after all, or when an operator repaired a false positive. A row carrying
+ *     the DIFFERENT winner number does NOT resolve it and never will: the spare meeting is
+ *     still standing at Zoom. The remedy is not a database action — CANCEL
+ *     `created_zoom_meeting_number` AT ZOOM (`evidence.winner_zoom_meeting_number` is the
+ *     one to keep), then clear the JOB's `last_error`. Until then every requeue is refused,
+ *     which costs nothing: the row is already correct and the surface is already published.
  *  2. **`sync_missing_row`.** The internal row vanished while a meeting exists at Zoom.
- *     RESTORE the row carrying that number — the gate then stops matching and the requeue
- *     replays. Clearing `last_error` instead would re-enable fresh creation and mint a
- *     SECOND meeting; it is correct ONLY if the Zoom meeting is genuinely gone too. This
- *     is the same one-way trap `ambiguous_create_outcome` has, and the gate refuses to
- *     guess for the same reason.
+ *     RESTORE the row carrying `evidence.zoom_meeting_number` — a restored row bearing any
+ *     OTHER number is a different meeting and does not resolve it. Clearing `last_error`
+ *     instead would re-enable fresh creation and mint a SECOND meeting; it is correct ONLY
+ *     if the Zoom meeting is genuinely gone too. This is the same one-way trap
+ *     `ambiguous_create_outcome` has, and the gate refuses to guess for the same reason.
  *  3. **`sync_not_publishable`.** The row has a number and a status a replay can never
- *     announce (`error`, in practice). REPAIR THE STATUS, then requeue. This one is
- *     self-limiting even unresolved: the row has a number, so a requeue replays, fails
- *     identically and creates nothing.
+ *     announce (`error`, in practice). REPAIR THE STATUS, then requeue: anchored ⇔ the row
+ *     still carries the recorded number AND its status now maps to a public one
+ *     (`PUBLISHABLE_MEETING_STATUSES`). A repaired status alone on a row whose number
+ *     changed is not this anomaly's resolution.
+ *
+ * Clearing the JOB's `last_error` is the universal override for every reason — the
+ * operator asserting they have looked. It is one-way by design and always has been.
+ *
+ * One asymmetry with the `ambiguous_unresolved` precedent decides the shape of the
+ * refusal. That marker lives on the ROW, and `fail_zoom_job` writes the JOB — two columns,
+ * so the refusal cannot disturb what the gate reads. Here they are the SAME column: the
+ * refusal record replaces the anomaly record. So `parseTerminalAnomalyMarker` matches the
+ * refusal shape as well as the anomaly shape, and every refusal re-states the original
+ * `reason` (in `detail`) and its `evidence` verbatim. Without both halves the first requeue
+ * would erase the orphaned meeting number and the second would find nothing to match and
+ * CREATE — the gate would have held exactly once. (`complete_zoom_job`, by contrast, leaves
+ * `last_error` alone, so evidence also survives on a job that later replays green; and
+ * `fail_zoom_job` leaves `stage_state` alone, so a checkpoint anchor survives a refusal.)
  *
  * Until §16's `docs/runbooks/zoom.md` exists, all three are a human reading
  * `zoom_jobs.last_error` — `.reason`, `.detail` and `.evidence` — directly.
@@ -724,6 +742,29 @@ export class ZoomTerminalAnomalyUnresolvedError extends ZoomNonRetryableError {
   }
 }
 
+/**
+ * The one-sentence remedy for a marker, in the refusal message. Per-reason for the same
+ * reason the predicate is: "record the meeting number" is the right instruction for
+ * `sync_missing_row` and the WRONG one for `possible_orphan`, whose row already has one.
+ */
+function resolutionHint(marker: TerminalAnomalyMarker): string {
+  const evidence = marker.evidence;
+  const number = (field: string): string => {
+    const value = evidence === null ? undefined : evidence[field];
+    return typeof value === 'number' ? String(value) : 'the number in evidence';
+  };
+  switch (marker.reason) {
+    case POSSIBLE_ORPHAN_REASON:
+      return `Resolve it at ZOOM: cancel meeting ${number('created_zoom_meeting_number')}, which no row points at (there is no database action that resolves this, and requeueing will not).`;
+    case SYNC_MISSING_ROW_REASON:
+      return `Resolve it by RESTORING the zoom_meetings row carrying meeting ${number('zoom_meeting_number')} — or, only if that meeting is genuinely gone from Zoom too, by clearing the marker.`;
+    case SYNC_NOT_PUBLISHABLE_REASON:
+      return `Resolve it by REPAIRING the status of the row carrying meeting ${number('zoom_meeting_number')} to one the projection can publish.`;
+    default:
+      return 'Resolve it by hand, then clear the marker.';
+  }
+}
+
 /** What a JOB's `last_error` says about an unresolved terminal anomaly. */
 export interface TerminalAnomalyMarker {
   /** The anomaly that stopped the job — the ORIGINAL one, across any refusals since. */
@@ -779,6 +820,113 @@ export function parseTerminalAnomalyMarker(
         ? (evidence as Record<string, unknown>)
         : null,
   };
+}
+
+/**
+ * The `zoom_meetings.status` values `sync_projection_from_meeting`'s CASE maps to a public
+ * status (`20260731120000_zoom_provision_rpcs.sql`); every other status returns
+ * `not_publishable`. Mirrored here for ONE purpose — deciding whether a
+ * `sync_not_publishable` marker has been resolved — and the SQL remains the authority.
+ *
+ * Drift in either direction is self-limiting rather than dangerous: too narrow refuses a
+ * requeue that would have replayed (a triage item), too wide lets a requeue replay and
+ * fail identically on the same `not_publishable` outcome, creating nothing. The
+ * `zoom_meetings` row still carries its number on both sides, which is what keeps
+ * `createMeeting` unreachable.
+ */
+export const PUBLISHABLE_MEETING_STATUSES = [
+  'provisioned',
+  'started',
+  'ended',
+  'cancelled',
+  'deleted',
+] as const satisfies readonly ZoomMeetingStatus[];
+
+/** Does this internal status map to a `session_meetings_public.meeting_status`? */
+export function isPublishableMeetingStatus(status: ZoomMeetingStatus): boolean {
+  return (PUBLISHABLE_MEETING_STATUSES as readonly string[]).includes(status);
+}
+
+/** The anchors the anomaly gate compares a marker against. One read, then pure. */
+export interface TerminalAnomalyAnchors {
+  /** The surface's `zoom_meetings` row as of the gate's own read, or `null`. */
+  row: ProvisionMeetingRow | null;
+  /** This job's post-create checkpoint, if it still carries one. */
+  checkpoint: CreatedMeetingCheckpoint | null;
+}
+
+/** A numeric evidence field, or `null` for anything that is not a finite number. */
+function readEvidenceNumber(
+  evidence: Record<string, unknown> | null,
+  field: string
+): number | null {
+  const value = evidence === null ? undefined : evidence[field];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Has the anomaly this marker records actually been resolved? (Sol R8 ①)
+ *
+ * Per-reason, and comparing the anchors against the marker's OWN evidence — the whole of
+ * the R8 ① finding. sol7 asked one existence question for all three reasons ("does the row
+ * carry a meeting number, or is there an adoptable checkpoint?"), which is right for
+ * `sync_missing_row` only by accident and INVERTED for the case that matters most: a
+ * `possible_orphan` whose row carries the DIFFERENT winner number passed that test,
+ * replayed green, and took the orphaned meeting number out of `last_error` with it while
+ * the spare meeting was still standing at Zoom.
+ *
+ * Fail-closed everywhere: evidence that does not carry the number this reason needs — an
+ * anomaly recorded before that field existed, a hand-edited record, an unknown reason —
+ * is UNRESOLVED. The operator lever for those is clearing `last_error`, which is the
+ * universal override and is deliberately not automatable.
+ */
+export function isTerminalAnomalyResolved(
+  marker: TerminalAnomalyMarker,
+  anchors: TerminalAnomalyAnchors
+): boolean {
+  const { row, checkpoint } = anchors;
+  const rowNumber = row === null ? null : row.zoom_meeting_number;
+
+  switch (marker.reason) {
+    case POSSIBLE_ORPHAN_REASON: {
+      // The number THIS attempt minted and could not account for. Nothing else resolves
+      // it: the winner's number on the row is the anomaly, not the remedy.
+      const created = readEvidenceNumber(marker.evidence, 'created_zoom_meeting_number');
+      if (created === null) return false;
+      if (rowNumber === created) return true;
+      // An adoptable checkpoint naming that same meeting anchors it just as well — the
+      // adoption branch writes THAT number onto THIS row and cannot reach `createMeeting`.
+      // Same match rule as anchor 2 below, including the row-identity check: a checkpoint
+      // pointing at some other row is stale, not an anchor.
+      return (
+        row !== null &&
+        checkpoint !== null &&
+        checkpoint.meetingId === row.id &&
+        checkpoint.number === created
+      );
+    }
+    case SYNC_MISSING_ROW_REASON: {
+      // The row that vanished held this number; a restored row holding a different one is
+      // a different meeting, and the one the anomaly names is still unaccounted for.
+      const recorded = readEvidenceNumber(marker.evidence, 'zoom_meeting_number');
+      return recorded !== null && rowNumber === recorded;
+    }
+    case SYNC_NOT_PUBLISHABLE_REASON: {
+      // The row never went anywhere — it was its STATUS that could not be announced. So
+      // both halves have to hold: same meeting, and a status the projection can now carry.
+      const recorded = readEvidenceNumber(marker.evidence, 'zoom_meeting_number');
+      return (
+        recorded !== null &&
+        rowNumber === recorded &&
+        row !== null &&
+        isPublishableMeetingStatus(row.status)
+      );
+    }
+    default:
+      // Unreachable: `parseTerminalAnomalyMarker` only yields known reasons. Kept so a
+      // reason added without a case here refuses requeues rather than admitting them.
+      return false;
+  }
 }
 
 /** The parsed shape of the marker `recordLastError` leaves on a parked row. */
@@ -1570,11 +1718,70 @@ function readPayload(payload: Record<string, unknown>): ProvisionPayload {
 export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): ZoomJobHandler {
   return async (ctx) => {
     const env = deps.env ?? process.env;
-    const api = deps.api ?? getZoomApi(env);
-    const store = deps.store ?? defaultMeetingProvisionStore(env);
     const makePasscode = deps.passcodeFactory ?? generateMeetingPasscode;
 
+    // Pure, and first because the anomaly gate below needs the surface to read its anchor
+    // against. It cannot newly fail on a marked job: a job that reached an anomaly had a
+    // well-formed payload, and `payload` is not rewritten by a requeue.
     const { surface_type: surfaceType, surface_id: surfaceId } = readPayload(ctx.job.payload);
+
+    // The store is the only dependency the gate needs, so it is opened lazily and reused.
+    // `getZoomApi` is NOT built yet on purpose (Sol R8 ②): it validates the §5 credentials
+    // and throws when they are missing, which on a marked job would fail through
+    // `fail_zoom_job` and overwrite the marker with a configuration error.
+    let openedStore: MeetingProvisionStore | null = null;
+    const openStore = (): MeetingProvisionStore =>
+      (openedStore ??= deps.store ?? defaultMeetingProvisionStore(env));
+
+    // --- The JOB-level anomaly gate, BEFORE EVERYTHING (Sol R7 ②, Sol R8 ②) ---
+    // The row-marker gate further down reads the ROW's marker; this one reads the JOB's,
+    // and it exists because the R7 anomalies do not all leave a row to mark.
+    // `sync_missing_row` is the sharp case: the internal row is GONE, so a requeue of that
+    // terminal job finds no existing row, sails past every guard that keys on one, walks
+    // the candidate list and CREATES a second meeting for a surface Zoom already holds one
+    // for.
+    //
+    // sol7 placed this after the two resume anchors — ~130 lines past `readSession` — on
+    // the row-marker gate's precedent. That precedent does not transfer, because the two
+    // gates do not read the same column as the failure they raise: an unrelated preflight
+    // failure (the session read, ineligibility, a missing credential, a bad schedule) calls
+    // `fail_zoom_job`, which REPLACES `last_error` — so on a marked job the sol7 ordering
+    // could erase the anomaly and let the requeue after it create. Nothing above this block
+    // does I/O; nothing above it can fail on a job that has a marker.
+    //
+    // The decision itself is per-reason and identity-based (`isTerminalAnomalyResolved`,
+    // Sol R8 ①), and it reads exactly one row: no `readSession`, no eligibility, no
+    // schedule maths, no Zoom.
+    const marker = parseTerminalAnomalyMarker(ctx.job.last_error);
+    if (marker !== null) {
+      let anchors: TerminalAnomalyAnchors;
+      try {
+        anchors = {
+          row: await openStore().findMeetingBySurface(surfaceType, surfaceId),
+          // Pure — `stage_state` is already in hand, and `fail_zoom_job` never touches it,
+          // so a checkpoint anchor survives every refusal.
+          checkpoint: readCreatedCheckpoint(ctx.job.stage_state),
+        };
+      } catch (error) {
+        // FAIL CLOSED. "We could not look" is not "it is resolved", and the refusal shape
+        // is the one that carries `reason` and `evidence` forward — so a store outage
+        // cannot launder a marker away, however many requeues it spans.
+        throw new ZoomTerminalAnomalyUnresolvedError(
+          `meeting_provision job ${ctx.job.id} still records an UNRESOLVED '${marker.reason}', and the anchor read for consultor_session ${surfaceId} FAILED (${(error instanceof Error ? error.message : String(error)).slice(0, 200)}), so it cannot be shown to be resolved. Nothing was written. ${resolutionHint(marker)}`,
+          marker
+        );
+      }
+
+      if (!isTerminalAnomalyResolved(marker, anchors)) {
+        throw new ZoomTerminalAnomalyUnresolvedError(
+          `meeting_provision job ${ctx.job.id} was requeued while its last_error still records an UNRESOLVED '${marker.reason}', and consultor_session ${surfaceId} does not anchor the meeting that anomaly names, so proceeding could leave a meeting at Zoom unaccounted for. ${resolutionHint(marker)} Then clear the job's last_error — see the resolution contract in the meeting-provision module header.`,
+          marker
+        );
+      }
+    }
+
+    const store = openStore();
+    const api = deps.api ?? getZoomApi(env);
 
     const session = await store.readSession(surfaceId);
     if (session === null) {
@@ -1703,29 +1910,8 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
       }
     }
 
-    // --- The JOB-level anomaly gate (Sol R7 ②) ----------------------------
-    // The gate above reads the ROW's marker; this one reads the JOB's, and it exists
-    // because the R7 anomalies do not all leave a row to mark. `sync_missing_row` is the
-    // sharp case: the internal row is GONE, so a requeue of that terminal job finds no
-    // existing row, sails past every guard that keys on one, walks the candidate list and
-    // CREATES a second meeting for a surface Zoom already holds one for — the exact
-    // failure mode that made `missing` complete-with-a-warn in sol6. Making the anomaly
-    // terminal without closing this door would have moved the danger, not removed it.
-    //
-    // Same structure as the row-marker gate, deliberately: it is placed AFTER the two
-    // anchors, so a job whose state has genuinely been repaired takes the recovery/replay
-    // branch instead of the refusal — a `possible_orphan` requeue against a row that now
-    // carries the winner's number is `hasNumber`, and replay never creates. And below
-    // this line nothing is touched: not the row, not the reservation, not Zoom.
-    if (!hasNumber && adoption === null) {
-      const anomaly = parseTerminalAnomalyMarker(ctx.job.last_error);
-      if (anomaly !== null) {
-        throw new ZoomTerminalAnomalyUnresolvedError(
-          `meeting_provision job ${ctx.job.id} was requeued while its last_error still records an UNRESOLVED '${anomaly.reason}', and nothing anchors this surface: consultor_session ${surfaceId} has no meeting number and no adoptable checkpoint, so proceeding would create a meeting at Zoom that may already exist. Resolve it first — see the resolution contract in the meeting-provision module header — then clear the job's last_error.`,
-          anomaly
-        );
-      }
-    }
+    // (The JOB-level anomaly gate used to sit HERE, after the anchors. It now runs before
+    // `readSession` — see the top of this handler and Sol R8 ②.)
 
     // The crashed-pre-create path: a `pending` row under a host, no meeting at Zoom.
     // Reusing it blindly was Sol F3's second half — the session may have been

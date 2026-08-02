@@ -21,7 +21,9 @@ import { handleZoomTicker } from '../../../pages/api/cron/zoom-ticker';
 import {
   runZoomTick,
   describeJobFailure,
+  serializeJobFailure,
   DEFAULT_LEASE_SECONDS,
+  type ZoomJobFailureRecord,
 } from '../../../lib/zoom/jobs/runner';
 import {
   ZoomJobLeaseLostError,
@@ -554,6 +556,156 @@ describe('runZoomTick — failures are stored structurally', () => {
 
     expect(calls.fail[0]).toMatchObject({ p_retry_after_seconds: null });
     expect(Date.parse(rows.get('job-a')?.run_after as string)).toBe(QUEUE_NOW_MS + 30_000);
+  });
+
+  // -------------------------------------------------------------------------
+  // Sol R8 ③ — evidence must not be able to abort the failure path
+  // -------------------------------------------------------------------------
+
+  /**
+   * Four evidence shapes that pass the record's plain-object check and then blow up
+   * inside `JSON.stringify`. Before the fix each of them threw INSIDE the runner's catch
+   * block: `fail_zoom_job` was never called, the throw escaped `runZoomTick` — taking the
+   * rest of the batch with it — and the job died by lease expiry with its reason, its
+   * detail and its meeting numbers gone.
+   */
+  function evidenceCases(): Array<{ label: string; evidence: unknown }> {
+    const cyclic: Record<string, unknown> = { meeting_id: 'meeting-1' };
+    cyclic.self = cyclic;
+
+    const throwingGetter: Record<string, unknown> = { meeting_id: 'meeting-1' };
+    Object.defineProperty(throwingGetter, 'created_zoom_meeting_number', {
+      enumerable: true,
+      get() {
+        throw new RangeError('this getter is hostile');
+      },
+    });
+
+    class EvidenceBag {
+      constructor(readonly meeting_id: string) {}
+      toJSON(): undefined {
+        return undefined;
+      }
+    }
+
+    return [
+      { label: 'cyclic', evidence: cyclic },
+      { label: 'BigInt', evidence: { meeting_id: 'meeting-1', created_zoom_meeting_number: 82n } },
+      { label: 'throwing getter', evidence: throwingGetter },
+      { label: 'class instance', evidence: new EvidenceBag('meeting-1') },
+    ];
+  }
+
+  it.each(evidenceCases())(
+    'still calls fail_zoom_job with reason/detail intact when evidence is $label',
+    async ({ evidence }) => {
+      const { queue, rows, calls } = createFakeQueue([makeJob({ id: 'job-a', job_type: 'noop' })]);
+      const registry: ZoomJobRegistry = {
+        noop: async () => {
+          const error = new ZoomNonRetryableError('a meeting may be orphaned at Zoom.', {
+            operation: 'meeting_provision',
+          });
+          Object.assign(error, {
+            reason: 'possible_orphan',
+            detail: 'different_number',
+            evidence,
+          });
+          throw error;
+        },
+      };
+
+      const result = await runZoomTick({ queue, registry, workerId: 'w1' });
+
+      // The whole point: the tick completes, and the RPC was called.
+      expect(result).toEqual({ claimed: 1, completed: 0, failed: 1 });
+      expect(calls.fail).toHaveLength(1);
+      expect(calls.fail[0]).toMatchObject({ p_retryable: false });
+
+      // And the record is still the structured one triage keys on.
+      const stored = JSON.parse(rows.get('job-a')?.last_error as string);
+      expect(stored).toMatchObject({
+        kind: 'non_retryable',
+        reason: 'possible_orphan',
+        detail: 'different_number',
+      });
+      expect(rows.get('job-a')?.status).toBe('failed');
+    }
+  );
+
+  it('names the serialization failure structurally instead of dropping evidence silently', async () => {
+    // `evidence` is where a manual remedy's VALUES live, so "it is gone" has to be a field
+    // rather than an absence — an empty record and a lost one must not look alike.
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+
+    const record = describeJobFailure(
+      Object.assign(new ZoomNonRetryableError('cyclic', {}), {
+        reason: 'possible_orphan',
+        evidence: cyclic,
+      })
+    );
+
+    expect(record.evidence).toEqual({ evidence_unserializable: 'TypeError' });
+    expect(() => JSON.parse(serializeJobFailure(record))).not.toThrow();
+  });
+
+  it('a SERIALIZABLE evidence object is stored verbatim, as a clone', async () => {
+    // The negative control for the sanitizer: hardening must not change what a normal
+    // record carries, and the stored copy must not alias the handler's own object.
+    const evidence = {
+      meeting_id: 'meeting-1',
+      created_zoom_meeting_number: 82000001111,
+      winner_zoom_meeting_number: null,
+      cause: 'row_missing',
+    };
+    const record = describeJobFailure(
+      Object.assign(new ZoomNonRetryableError('orphan', {}), {
+        reason: 'possible_orphan',
+        evidence,
+      })
+    );
+
+    expect(record.evidence).toEqual(evidence);
+    expect(record.evidence).not.toBe(evidence);
+    expect(JSON.parse(serializeJobFailure(record)).evidence).toEqual(evidence);
+
+    // An ORDINARY class instance is serializable and keeps its own fields — the round
+    // trip flattens it to the plain object triage reads, it does not discard it.
+    class Evidence {
+      constructor(readonly meeting_id: string) {}
+    }
+    const instanced = describeJobFailure(
+      Object.assign(new ZoomNonRetryableError('orphan', {}), {
+        reason: 'possible_orphan',
+        evidence: new Evidence('meeting-2'),
+      })
+    );
+    expect(instanced.evidence).toEqual({ meeting_id: 'meeting-2' });
+  });
+
+  it('serializeJobFailure cannot throw, even on a hand-built hostile record', async () => {
+    // Exported and callable with a record this module did not build, so the total
+    // guarantee is asserted on the function itself, not only through describeJobFailure.
+    const hostile = { kind: 'non_retryable', reason: 'possible_orphan', message: 'x' } as Record<
+      string,
+      unknown
+    >;
+    Object.defineProperty(hostile, 'evidence', {
+      enumerable: true,
+      get() {
+        throw new EvalError('nope');
+      },
+    });
+
+    let encoded!: string;
+    expect(() => {
+      encoded = serializeJobFailure(hostile as unknown as ZoomJobFailureRecord);
+    }).not.toThrow();
+    expect(JSON.parse(encoded)).toMatchObject({
+      kind: 'non_retryable',
+      reason: 'possible_orphan',
+      evidence: { evidence_unserializable: 'EvalError' },
+    });
   });
 
   it('does not call fail_zoom_job when the lease was lost mid-handler', async () => {

@@ -293,3 +293,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: (1) Added a test file to a deletion round — the prompt asked for grep evidence, [B1] asked for a regression assertion, and an evidence file only proves one commit. (2) The guard asserts over **source**, not `.next/static`: no post-build assertion harness exists yet (A1 introduces the first, `scripts/check-price-leak.mjs`) and a test needing a prior production build cannot run in gate 2. (3) It keys on **transport**, not on `{to, subject, html}` shape — a shape rule fails `pages/email-showcase.tsx`, which assembles subject/HTML strings only to render previews and can reach no sender. (4) Left `collectAssignedUserIds` (`components/meetings/persistMeeting.ts:334`, still unit-tested) and `getMeetingWithDetails` (`utils/meetingUtils.ts:228`) in place though both now have no in-repo consumer: pure functions with no send capability, and deleting a tested helper plus its tests is wider than the prompt's scope. Flagged in the review request as deliberate leave-behinds — one-line deletions if the reviewer prefers a clean tree.
 - BACKLOG ADDED: nothing new. The task-assignment notification rebuild (already on the backlog from the PM triage) is now confirmed to be a real gap rather than duplicate coverage.
 - OPEN AFTER THIS ROUND: PM verification, then Codex round 2 (of max 2). Branch `phase/b1b-relay` pushed at `4aeecda` + this docs commit; no merge without Brent's explicit go. B2 unblocks on B1b DONE.
+
+### 2026-08-02 — B1b Codex round 2 — Fable (PM triage, §1.5 to Brent)
+- CONTEXT PRESSURE: n/a
+- ACTION: Codex round 2 = **FAIL, 1 finding** (REVIEW-B1B-R2.md, committed with this entry): the bundle is clean and persistence suites pass, but the r2 regression guard sweeps `utils lib components pages` and **omits the active `src/` client tree** — a future browser-send added under `src/` would go undetected. Round cap (2) reached → §1.5 to Brent: (a) targeted r3 — extend the guard's sweep to the full client source surface (src + any other tsconfig-included trees), minutes of work, then scoped Codex confirmation on his authority — PM RECOMMENDS; (b) accept residue → backlog. Prompt `b1b-3.md` staged pending his word.
+- COMMITS: (this commit — REVIEW-B1B-R2.md + this entry)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: n/a (triage)
+- DECISIONS: pending Brent (§1.5)
+- BACKLOG ADDED: none yet
+- OPEN AFTER THIS ROUND: Brent's §1.5 word on B1b.

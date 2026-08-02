@@ -313,3 +313,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: (1) **Derived over enumerated** — the fix is the direction of the default: a directory is swept unless someone writes down why not, so the next `src`-shaped omission cannot happen by forgetting. (2) `public/` **is** swept, though nothing bundles it: `public/sw.js` is browser-executed, same capability class. Flagged for the reviewer as the one arguable inclusion. (3) `lib/` stays excluded from the client sweep (unchanged from r2, Codex-accepted): it is the legitimate home of the server senders, and client surfaces are instead forbidden from importing `lib/emailService` / `lib/email/`. (4) The tsconfig parse deliberately reads only glob-free, extension-free `exclude` entries, so a future `"src/legacy/**"` exclusion would leave that tree swept — fail-closed, documented in the review request. (5) Scope held to the prompt: one test file + evidence, no source change, no re-litigation of the transport-keyed / source-level choices Codex accepted.
 - BACKLOG ADDED: none. Round-2 deferrals stand (server-side rebuild of task-assignment notification; comment-only SendGrid references and the unauthenticated service-role posture in `pages/api/cron/email-digest.ts`).
 - OPEN AFTER THIS ROUND: PM verification, then the scoped Codex confirmation Brent authorized under §1.5. Branch `phase/b1b-relay` pushed; no merge without Brent's explicit go. B2 unblocks on B1b DONE.
+
+### 2026-08-02 — B1b round r3 — Fable (PM verification)
+- CONTEXT PRESSURE: n/a
+- ACTION: Independent verification. Guard test re-run by PM: 3/3. Diff spot-read: the sweep set is now DERIVED (all top-level dirs minus dot-dirs, minus tsconfig's own `exclude` parsed at run time, minus reasoned NON_CLIENT_ROOTS) — fail-closed by construction; non-vacuity asserts pin `src` membership and two named files; red-then-green proof includes the round-2 collector's blind spot demonstrated on the same injected file (546 files swept, up from 500). `public/` inclusion accepted (sw.js is browser-executed — same capability class). Assumptions accepted. PR #32 DIRTY vs main = expected docs drift; reconciliation at close, after Codex.
+- COMMITS: (this ledger commit)
+- TESTS: `npx vitest run __tests__/utils/no-browser-mail-transport.test.ts` → 3/3 (PM re-run)
+- FINDINGS RAISED: none
+- DECISIONS: deviations none; assumptions accepted
+- BACKLOG ADDED: none new
+- OPEN AFTER THIS ROUND: **B1b → scoped Codex confirmation (owner-authorized round 3).**

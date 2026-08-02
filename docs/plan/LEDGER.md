@@ -373,3 +373,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: 2 Decision Log rows
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A1 r5`; Brent's words: merge #31, merge #32, prod migration application, phase/t2-ci cleanup.
+
+### 2026-08-02 — Base-doble precision (owner) — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner precision: the €70–120/persona/noche range is **en base a habitación doble — per person, not per room**. Applied to A-8 and the A-7 block; `prompts/a1-5.md` amended to v2 pre-dispatch (note-string update + scanner-fragment consistency + test pin ride the Madrid-removal round). Race note: if r5 was dispatched against prompt v1 in the last minutes, the report's scope will show it and a micro-round covers the string.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: content precision recorded in A-8 row (no separate decision row)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: unchanged — dispatch `/exec INSPIRA A1 r5`; Brent's words: merge #31, merge #32, prod application, t2-ci cleanup.

@@ -357,6 +357,7 @@ The v2 B11 preflight as its own evidence phase: DKIM/SPF verified; DMARC present
 | 2026-08-02 | **§1.5 on B1b's Codex-r2 residue: fix now (round r3, owner-authorized)** — the browser-mail regression guard extends its sweep to the full client-source surface (tsconfig-derived, incl. `src/`), with red-then-green proof; then scoped Codex confirmation on Brent's authority. | Brent (2026-08-02) | Brent |
 | 2026-08-02 | **Madrid option REMOVED** — owner: the PPTX's "Opcional Madrid" block was an accidental carry; no Madrid pasantías for now (may return in a future cohort). Purged from Appendix A, cohort modules, tests, scanner patterns via A1 round r5 (owner-authorized — A1's Codex cap was spent; this change is owner-directed). | Brent (2026-08-02) | Brent |
 | 2026-08-02 | **Lodging styling delegated to PM** ("that's fine") — coordination framing chosen; owner veto point = A3's brochure review. | Brent (2026-08-02) | Brent / Fable (PM) |
+| 2026-08-02 | **Headline date label = single span ("Octubre, 5 al 16")** — owner: the merged two-range label ("5–9 y 13–16") reads as two different pasantías. Label derivation changes in `cohort-public.ts` (micro-round a1-6 on a fresh branch; A1 is merged); A3/A6a inherit via the module. Two-week detail stays in itinerary contexts. | Brent (2026-08-02) | Brent |
 
 ## Appendix A — Content brief (v1 — NORMATIVE for cohort facts)
 
@@ -364,7 +365,7 @@ The v2 B11 preflight as its own evidence phase: DKIM/SPF verified; DMARC present
 
 | # | Item | Value | Status |
 |---|---|---|---|
-| A-1 | Cohort label | Octubre 2026 | OK |
+| A-1 | Cohort label | Octubre 2026. **Headline date-span in all materials: "Octubre, 5 al 16"** — one continuous span; never two ranges in titles/chips (reads as two pasantías — Brent 2026-08-02). The two-week structure appears only in itinerary detail. | OK (amended 2026-08-02) |
 | A-2 | Week 1 | **Lun 5 – Vie 9 octubre 2026 — semana completa, 5 días de visitas** | OK (Brent 2026-07-31; supersedes the 07-30 dates) |
 | A-3 | Week 2 | **Mar 13 – Vie 16 octubre 2026 — 4 días de visitas** | OK (Brent 2026-07-31) |
 | A-4 | Free days | Fin de semana largo **sáb 10 – lun 12**; lunes 12 = Fiesta Nacional de España (colegios cerrados) — día libre en Barcelona o para conocer Europa. **Total 9 días de visitas (5+4), el formato habitual.** Marketing dice "dos semanas" con calendario honesto; el claim "10 días" del brochure antiguo se retira. | OK (Brent 2026-07-31) |

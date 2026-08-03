@@ -694,3 +694,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: none
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A3 r1` + `/exec INSPIRA B2 r1` (parallel-safe: disjoint files, own worktrees). Owner words still parked: **prod application of the leads migration** ("apply it" — required before A5 goes live); **phase/t2-ci reset/delete**.
+
+### 2026-08-02 — Headline label fix staged (owner) — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner: the live two-range label reads as two pasantías → headline span becomes "Octubre, 5 al 16" everywhere (A-1 amended + Decision Log row). Micro-round `prompts/a1-6.md` staged on a fresh branch (A1 is merged). A3/A6a inherit through the module — no prompt changes needed there. A3/B2 dispatches proceed in parallel; the label fix merges independently on the owner's word after PM verify + a fast Sol nod.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 1 Decision Log row
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A1 r6` (plus A3 r1 + B2 r1 already staged). Parked: "apply it"; t2-ci.

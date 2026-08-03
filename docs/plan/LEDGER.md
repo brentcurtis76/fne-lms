@@ -804,3 +804,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: none
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: unchanged — B2 r2 dispatch, A3 with Sol, owner: "apply it", t2-ci, design session.
+
+### 2026-08-02 — B2 r2 verified; carry-forwards absorbed — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Verified 42/42 by PM re-run (after another worktree node_modules evaporation — recurring, harmless). Round quality is exceptional: the r1 raw-byte case round-tripped a *subtree*, so it only proved value-difference — which is exactly why a canonicalising verifier survived Sol's mutation; r2 replaces it with four value-identical/byte-different spellings plus a reverse-direction case, and kills **7/7 of its own mutants** with a SHA-256-restore-checked driver committed as evidence. Two corrections OF SOL accepted for Sol's re-review: (a) the real minimum SDK is **4.5.0, not 4.3.0** — read from every published tarball's shipped `dist/` (4.3.0's batch options type is empty AND its `post()` leaks the key onto the shared client Headers, fatal for a 12-call tick); (b) duplicate-cron is **0**, not a duplication path — `SKIP LOCKED` makes concurrent ticks disjoint. **Both PM carry-forwards absorbed into the plan** (Decision Log): B3 creates a nullable `provider_batch_key` (free now, migration later — every non-status-quo option needs it); B10a [A3] gains a 429/rate-limit test + an explicit fake-clock pacing assert. S1 (mis-labelled resend mutant) stays backlog per the round's scope.
+- COMMITS: (this commit — PLAN amendments + this entry)
+- TESTS: 42/42 (PM re-run); PR #36 CLEAN, main is an ancestor
+- FINDINGS RAISED: none
+- DECISIONS: 1 Decision Log row (carry-forwards)
+- BACKLOG ADDED: B2 S1 — resend mutation §6.1 mis-labelled (rethrow-from-outer-catch mutant is the proper fix)
+- OPEN AFTER THIS ROUND: **B2 → Sol round 2 (of 2), scoped closure.**

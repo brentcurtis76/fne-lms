@@ -3,6 +3,14 @@
 Every page of both generated PDFs, rasterised at **144 DPI** (criterion [A4]).
 The PM inspects these files from the repository, not from a chat transcript.
 
+**Re-rendered 2026-08-03 for the `a1-repricing` round.** The owner's 2026-08-02
+repricing changed three pages and only three: `brochure-08` (Programa now
+**€2.500**), `brochure-09` (week-1 lunches in; week-2 meals, all cenas and the
+El Puig / Les Vinyes transport out) and `brochure-10` (the version caption, now
+`2026-10-v3` — the D-05 cache key was bumped with the price). Pages 01–07 and
+both ficha pages came back byte-identical, which is the expected result:
+nothing else in Appendix A moved.
+
 | File | Document | Page |
 |---|---|---|
 | `brochure-01.png` | Brochure | Portada |

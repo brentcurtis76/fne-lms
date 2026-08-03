@@ -9,9 +9,10 @@
  * React tree, not a page.
  *
  * Two properties are load-bearing:
- *  - the brochure carries the Appendix A-8 investment (the €1.000 programme fee
- *    and the €70–120 per-night band on a base-doble basis) and never the retired
- *    €560 package or its €1.560 total, and never Madrid (removed 2026-08-02);
+ *  - the brochure carries the Appendix A-8 investment (the €2.500 programme fee
+ *    and the €70–120 per-night band on a base-doble basis) and never a retired
+ *    amount — the €560 package, its €1.560 total, or the €1.000 the owner
+ *    repriced away on 2026-08-02 — and never Madrid (removed 2026-08-02);
  *  - the ficha carries no monetary token at all — enforced structurally, since
  *    it does not import `cohort-commercial.ts` and so has no price in reach.
  */
@@ -166,9 +167,30 @@ describe('generateBrochure — cohort content (Appendix A)', () => {
   });
 
   it('renders what the programme includes and excludes', () => {
-    expect(brochureText).toContain('Comidas incluidas en los días de visita y cena de cierre');
+    // Terms replaced by the owner on 2026-08-02 with the canonical brochure:
+    // week-1 lunches are the whole of the meals inclusion, and week-2 meals,
+    // all dinners and the El Puig / Les Vinyes transport are exclusions.
+    expect(brochureText).toContain(
+      'Almuerzos de la primera semana, en Escola Virolai y Escola Sadako'
+    );
+    expect(brochureText).toContain('Comidas en los días de visita de la segunda semana');
+    expect(brochureText).toContain('Transporte a El Puig y Les Vinyes');
     expect(brochureText).toContain('Desayunos de hotel');
     expect(brochureText).toContain('Seguros');
+  });
+
+  it('renders none of the terms the 2026-08-02 amendment retired', () => {
+    // The closing dinner is the sharpest case: it was an inclusion, then an
+    // explicit "salvo la de cierre" carve-out, and is now simply not offered.
+    for (const retired of [
+      'Comidas incluidas en los días de visita y cena de cierre',
+      'cena de cierre',
+      'salvo la de cierre',
+      'Transporte para las visitas a El Puig y Les Vinyes',
+    ]) {
+      expect(brochureText).not.toContain(retired);
+      expect(brochureCompact).not.toContain(compact(retired));
+    }
   });
 
   it('identifies the controller, not just the brand', () => {
@@ -183,22 +205,35 @@ describe('generateBrochure — cohort content (Appendix A)', () => {
 });
 
 /**
- * The retired €560 lodging package and its €1.560 combined total (Appendix A-8,
- * amended 2026-07-31), in every form they could reach a page — but only ever in
- * **currency context**. The figures alone are three and four digits that occur
- * innocently in RUTs, phone numbers and addresses; a bare substring check goes
- * red on those coincidences, and a check that cries wolf is one that gets
- * loosened or removed. `RETIRED_AMOUNT_PATTERNS` is exercised in both
- * directions by its own control test below.
+ * Every amount Appendix A-8 has retired, in every form it could reach a page —
+ * but only ever in **currency context**. The figures alone are three and four
+ * digits that occur innocently in RUTs, phone numbers and addresses; a bare
+ * substring check goes red on those coincidences, and a check that cries wolf
+ * is one that gets loosened or removed. `RETIRED_AMOUNT_PATTERNS` is exercised
+ * in both directions by its own control test below.
+ *
+ * The €560 lodging package and its €1.560 total went on 2026-07-31; the €1.000
+ * programme fee joined them on 2026-08-02 when the owner repriced to €2.500.
+ * A superseded price is the most dangerous thing this brochure could print —
+ * it is a number FNE would have to honour or publicly retract.
  */
 const RETIRED_AMOUNT_PATTERNS: readonly RegExp[] = [
   /€\s*1?[.,]?560\b/, // €560 · € 560 · €1.560 · €1560
   /\b1?[.,]?560\s*(?:€|EUR\b|euros?\b)/i, // 560 € · 1.560 EUR · 1.560 euros
+  /€\s*1[.,]?000\b/, // €1.000 · € 1.000 · €1000
+  /\b1[.,]?000\s*(?:€|EUR\b|euros?\b)/i, // 1.000 € · 1.000 EUR · 1.000 euros
 ];
 
 describe('generateBrochure — investment per amended Appendix A-8', () => {
-  it('quotes the programme fee in es-CL currency format', () => {
-    expect(brochureText).toContain('1.000');
+  it('quotes the repriced programme fee in es-CL currency format', () => {
+    expect(brochureText).toContain('2.500');
+  });
+
+  it('carries no trace of the €1.000 the owner repriced away (2026-08-02)', () => {
+    // Both the bare grouped literal — what PLAN A3's criterion names — and the
+    // currency-context patterns above, which also catch `€1000` and `1.000 EUR`.
+    expect(brochureText).not.toContain('1.000');
+    expect(brochureCompact).not.toContain('1.000');
   });
 
   it('quotes the lodging band and its base-doble basis', () => {
@@ -244,6 +279,12 @@ describe('generateBrochure — investment per amended Appendix A-8', () => {
       '1.560 euros por persona',
       'Alojamiento€560',
       '€1560',
+      // Repriced away 2026-08-02 — the same guard, the same currency context.
+      'Programa: €1.000 por persona',
+      'Programa € 1.000',
+      '1.000 EUR por participante',
+      '1.000 euros por persona',
+      '€1000',
     ]) {
       expect(RETIRED_AMOUNT_PATTERNS.some((pattern) => pattern.test(leak))).toBe(true);
     }
@@ -273,7 +314,8 @@ const MONETARY_TOKENS: readonly RegExp[] = [
   /€/,
   /\bEUR\b/i,
   /\beuros?\b/i,
-  /\b1[.,]?000\b/,
+  /\b2[.,]?500\b/, // live programme fee (owner repricing, 2026-08-02)
+  /\b1[.,]?000\b/, // retired programme fee — barred from the ficha just as hard
   /\b70\b/,
   /\b120\b/,
   /por persona por noche/i,

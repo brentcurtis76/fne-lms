@@ -16,6 +16,7 @@ Spanish (es-CL)**. Deliverable: **A4 portrait PDF**.
 | Retired | Why | Correct version |
 |---|---|---|
 | "10 días" | Never true for this cohort | **9 días de visitas** |
+| **€1.000 por persona** (precio anterior) | Repreciado 2026-08-02 | **€2.500 por persona** |
 | €560 alojamiento · €1.560 total | Package pricing retired | Programa €1.000 + alojamiento €70–120 pp/noche (see §7) |
 | Extensión opcional Madrid (Colegio IDEO, Santa Gema, Virgen de Europa, €400/€810/€360, tren €50) | **No existe.** Accidental carry-over | Omit entirely |
 | "desde la noche del domingo 11 de enero" | Leftover from a January edition | Omit; no night counts at all |
@@ -212,7 +213,7 @@ Business School. Desarrolló el Enfoque Relacional; co-autor de "Anticípate" y
 
 ## 7. Inversión
 
-- **Programa: €1.000 por persona.**
+- **Programa: €2.500 por persona.** *(Repreciado 2026-08-02 — el €1.000 anterior está retirado y no debe aparecer.)*
 - **Alojamiento en Barcelona (aparte del programa): entre €70 y €120 por persona
   por noche, en base a habitación doble — el monto es por persona, no por
   habitación — según el tipo de alojamiento.** El alojamiento se coordina con el
@@ -222,16 +223,21 @@ Business School. Desarrolló el Enfoque Relacional; co-autor de "Anticípate" y
 - **Mínimo 5 participantes.**
 - "Precios vigentes para la cohorte Octubre 2026."
 
-**El programa incluye:** el pago de las visitas a las escuelas; los talleres de
-la tarde con especialistas; los honorarios de la dirección del programa, los
-relatores y el equipo de facilitadores de FNE que acompañan a los pasantes;
-bibliografía básica recomendada para preparar el viaje, una bitácora y un
+**El programa (€2.500) incluye — seis cosas:** el pago de las visitas a las
+escuelas; los talleres de la tarde con especialistas; los honorarios de la
+dirección del programa, los relatores y el equipo de facilitadores de FNE que
+acompañan a los pasantes; bibliografía básica recomendada, una bitácora y un
 sistema de registro de los aprendizajes presentado al menos un mes antes del
-viaje; desayuno a media mañana en las escuelas; transporte para las visitas a El
-Puig y Les Vinyes; comidas incluidas en los días de visita y cena de cierre.
+viaje; desayuno a media mañana en las escuelas; **almuerzos de la primera
+semana, en Escola Virolai y Escola Sadako**.
 
-**No incluye:** desayunos de hotel; cenas (salvo la de cierre); pasajes aéreos ni
-transporte terrestre de llegada/salida; seguros.
+**NO incluye:** desayunos de hotel; **comidas en los días de visita de la
+segunda semana**; **cenas**; pasajes aéreos y transporte terrestre de llegada y
+salida; **transporte a El Puig y Les Vinyes**; seguros.
+
+*(Condiciones actualizadas por el propietario 2026-08-02, junto con el nuevo
+precio. Reemplazan la versión anterior que incluía comidas en todos los días de
+visita, la cena de cierre y el transporte a El Puig/Les Vinyes.)*
 
 ## 8. Respaldo (cifras aprobadas)
 

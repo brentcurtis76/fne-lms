@@ -366,3 +366,196 @@ Module-side, `__tests__/lib/pasantias-cohort.test.ts` adds `2500`/`2.500` to
 is barred from the public module by the same list) and pins that the commercial
 module holds no `1000` anywhere — the repricing is only done when the old number
 is gone, not merely outvoted by a new one sitting beside it.
+
+## 8. Round a1-repricing r2 — every retired amount, proved one at a time (Sol B2)
+
+§7 proved the €1.000 half of the retired-amount rule and stopped there. Sol's
+round-1 review found the other half missing: `PRICE_AMOUNT_PATTERNS` carried no
+€1.560 and no €560, both retired by the 2026-07-31 lodging amendment and both
+removed from this list at the time — before the retired-amount concept existed.
+Sol reproduced a build publishing `€1.560` that the guard passed.
+
+The patterns are restored, and the rule now has its reasoning written above the
+list rather than in a round's evidence file: a **retired** amount cannot reach a
+bundle through the commercial module (the module no longer holds it), so the only
+route left is hand-written copy someone forgot to update — which is exactly the
+leak worth catching.
+
+```js
+const PRICE_AMOUNT_PATTERNS = [
+  '2[.,\\s]?500', //  2500, 2.500, 2,500, 2 500 — the live programme fee
+  '2\\.5e3', //       the exponential spelling of 2500
+  '1[.,\\s]?000', //  RETIRED 2026-08-02: 1000, 1.000, 1,000, 1 000
+  '1e3', //           RETIRED 2026-08-02: how the minifier writes 1000
+  '1[.,\\s]?560', //  RETIRED 2026-07-31: the lodging-inclusive total
+];
+
+const RETIRED_SHORT_AMOUNT_PATTERNS = ['560']; // RETIRED 2026-07-31
+```
+
+**Why €560 is a separate check.** Three digits are far too common to hunt for
+inside the 120-character window the four-digit amounts use — that window exists
+so a `2500` can be tied to a `€` sitting on the far side of a minified object.
+`560` gets the same treatment `70` and `120` have had since §6: whole-amount
+boundaries and a 12-character currency window. Its check id is
+`retired-short-amount`.
+
+Below, each retired amount is proved individually: build a bundle publishing only
+that amount → guard fails; delete that amount's pattern and rescan **the same
+build** (no rebuild — same `.next`, same leak on disk) → guard passes; restore →
+guard fails again. The middle step is the one that matters: it is what "the
+pattern is load-bearing" means, and it is the exact regression Sol found.
+
+### 8.1 €1.560 — the amount Sol proved was unguarded
+
+Scratch change (reverted; not committed): `<p>Total retirado: €1.560 por
+persona</p>` in `pages/index.tsx`.
+
+```
+$ npm run build && node scripts/check-price-leak.mjs
+check-price-leak: FAIL — commercial cohort data reached the client bundle (1 match(es)).
+
+  [priced-amount] .next/static/chunks/pages/index-7ce69996b23ec759.js @ 19357
+      an Appendix A-8 programme amount, live or retired, near a currency marker
+      …0,a.jsx)("p",{children:"Total retirado: €1.560 por persona"})]})]}),(0,a.jsxs)("div",{…
+EXIT=1
+```
+
+Mutant — `'1[.,\\s]?560'` deleted, no rebuild:
+
+```
+$ node scripts/check-price-leak.mjs
+check-price-leak: OK — scanned 266 file(s) under .next/static, no commercial data found.
+EXIT=0
+```
+
+That `OK` is Sol's finding reproduced on this branch: **a build publishing
+€1.560, reported clean.** Pattern restored, same `.next` rescanned:
+
+```
+$ node scripts/check-price-leak.mjs
+check-price-leak: FAIL — … [priced-amount] … index-7ce69996b23ec759.js @ 19357
+EXIT=1
+```
+
+### 8.2 €560 — the retired lodging package
+
+Scratch change (reverted; not committed): `<p>Alojamiento retirado: €560 por
+persona</p>` in `pages/index.tsx`.
+
+```
+$ npm run build && node scripts/check-price-leak.mjs
+check-price-leak: FAIL — commercial cohort data reached the client bundle (1 match(es)).
+
+  [retired-short-amount] .next/static/chunks/pages/index-8add7568147f28ba.js @ 19363
+      the retired Appendix A-8 lodging package (€560) beside a currency marker
+      …x)("p",{children:"Alojamiento retirado: €560 por persona"})]})]}),(0,a.jsxs)("div",{…
+EXIT=1
+```
+
+Mutant — the whole `retired-short-amount` check removed, no rebuild:
+
+```
+$ node scripts/check-price-leak.mjs
+check-price-leak: OK — scanned 266 file(s) under .next/static, no commercial data found.
+EXIT=0
+```
+
+Check restored, same `.next` rescanned:
+
+```
+$ node scripts/check-price-leak.mjs
+check-price-leak: FAIL — … [retired-short-amount] … index-8add7568147f28ba.js @ 19363
+EXIT=1
+```
+
+### 8.3 €1.000 — re-proved under the new bounded patterns
+
+§7.3/§7.4 proved this amount against the *unbounded* expression. This round added
+whole-amount boundaries (§8.4), so the proof had to be re-run rather than cited:
+a boundary that was slightly too strict would silently un-guard the amount §7
+was written about. Scratch change (reverted; not committed): `<p>Programa:
+€1.000 por persona</p>` in `pages/index.tsx`.
+
+```
+$ npm run build && node scripts/check-price-leak.mjs
+check-price-leak: FAIL — commercial cohort data reached the client bundle (1 match(es)).
+
+  [priced-amount] .next/static/chunks/pages/index-3c3d020e4379c6dd.js @ 19351
+      an Appendix A-8 programme amount, live or retired, near a currency marker
+      …:y}),(0,a.jsx)("p",{children:"Programa: €1.000 por persona"})]})]}),(0,a.jsxs)("div",{…
+EXIT=1
+```
+
+Mutant — `'1[.,\\s]?000'` and `'1e3'` deleted, no rebuild:
+
+```
+$ node scripts/check-price-leak.mjs
+check-price-leak: OK — scanned 266 file(s) under .next/static, no commercial data found.
+EXIT=0
+```
+
+Patterns restored, same `.next` rescanned:
+
+```
+$ node scripts/check-price-leak.mjs
+check-price-leak: FAIL — … [priced-amount] … index-3c3d020e4379c6dd.js @ 19351
+EXIT=1
+```
+
+The chunk hash is byte-identical to §7.3's (`index-3c3d020e4379c6dd.js`), which
+is the cleanest possible statement that nothing about *this* leak changed — only
+the guard around it did.
+
+### 8.4 Whole-amount boundaries (Sol S1)
+
+Sol measured that the unbounded `2[.,\s]?500` fires on `€12.500` and `€2.5000`.
+Nothing in the current tree collides, so this was a SHOULD-FIX, but it is taken
+now because B2 required editing the same expression. The band's figures have been
+bounded since §6; the same boundary is now shared by all three amount groups:
+
+```js
+function wholeAmountPattern(patterns) {
+  return `(?<!\\d)(?<![\\d][.,])(?:${patterns.join('|')})(?:,\\d{2})?(?!\\d)(?![.,]\\d)`;
+}
+```
+
+The `(?:,\d{2})?` tail is the one addition to the band's existing shape: a
+two-decimal ending belongs to the amount rather than being a boundary violation,
+so `€2.500,00` stays a finding while `€2.5000` stops being one. It can only make
+the guard fire on *more* strings than the bare boundary would, never fewer — the
+band's own controls (`€1.200,70`, `€120.000`) are unaffected and still silent
+(§8.5).
+
+Asserted in `__tests__/scripts/check-price-leak.test.ts` rather than through a
+build, because these are single-string questions a build cannot ask precisely:
+negative controls `€12.500`, `€2.5000`, `€22.500`, `€12.500,00`, `€21.000`;
+positive controls `€2.500`, `€2.500,00`, `€1.000,00`.
+
+### 8.5 Clean build — guard green, no new false positives
+
+The final state of the branch, with the page reverted and all patterns restored:
+
+```
+$ npm run build && node scripts/check-price-leak.mjs
+check-price-leak: OK — scanned 266 file(s) under .next/static, no commercial data found.
+EXIT=0
+```
+
+Same 266 client files as §7.1. The three added expressions (`1[.,\s]?560`, the
+`560` check, the shared boundary) introduce no finding on the real tree.
+
+### 8.6 Unit-level coverage added with this round
+
+`__tests__/scripts/check-price-leak.test.ts` went from 25 to 41 tests:
+
+- `the 2026-07-31 retired amounts (Sol r1 B2)` (8): four €1.560 shapes asserted
+  to fire `priced-amount` exactly, three €560 shapes asserted to fire
+  `retired-short-amount` exactly, and one case pinning that `€1.560` reports
+  **once** — the bounded `560` must not count the `560` inside `1.560` as a
+  second finding, or every real leak of that amount would report twice.
+- `programme amounts match as whole amounts only (Sol r1 S1)` (8): the five
+  negative and three positive controls listed in §8.4.
+
+Module-side, `__tests__/lib/pasantias-cohort.test.ts` went from 41 to 43 tests
+with the Appendix A-7 drift pins described in the round's review request.

@@ -98,6 +98,77 @@ describe('leak guard — retired amounts stay guarded (2026-08-02 repricing)', (
   }
 });
 
+describe('leak guard — the 2026-07-31 retired amounts (Sol r1 B2)', () => {
+  // €1.560 and €560 were dropped from the scanner when the lodging amendment
+  // deleted them from the module — before the retired-amount rule existed. Sol
+  // proved a build publishing €1.560 passed the guard. These are the isolated
+  // shapes that must never stop firing again; the build-level proof is
+  // `docs/plan/evidence/a1/leak-guard.md` §8.
+  const retiredTotalShapes: ReadonlyArray<readonly [string, string]> = [
+    ['the retired total as a grouped literal', 'x="€1.560"'],
+    ['the retired total as a bare integer', 'x={currency:"EUR",amount:1560}'],
+    ['the retired total in a template concat', '"Total: €".concat(1560)'],
+    ['the retired total with an escaped euro sign', unescapeLiterals('window.p="\\u20ac1.560"')],
+  ];
+
+  for (const [description, leak] of retiredTotalShapes) {
+    it(`fails on ${description}`, () => {
+      expect(checksFiring(leak)).toEqual(['priced-amount']);
+    });
+  }
+
+  const retiredPackageShapes: ReadonlyArray<readonly [string, string]> = [
+    ['the retired lodging package as a literal', 'x="€560"'],
+    ['the retired lodging package as a bare integer', 'x={currency:"EUR",amount:560}'],
+    ['the retired lodging package in a JSX array split', 'e=[(0,r.jsx)("span",{children:["€",560]})]'],
+  ];
+
+  for (const [description, leak] of retiredPackageShapes) {
+    it(`fails on ${description}`, () => {
+      // Its own check: three digits are far too common for the wide 120-char
+      // window the four-digit amounts use, so €560 gets the band's tight one.
+      expect(checksFiring(leak)).toEqual(['retired-short-amount']);
+    });
+  }
+
+  it('reports €1.560 once, not twice — the 560 inside it is not a second finding', () => {
+    // `retired-short-amount` is bounded, so the `560` of `1.560` is part of a
+    // grouped number rather than a whole amount. If that ever regresses, every
+    // real €1.560 leak starts reporting two findings for one string.
+    expect(checksFiring('x="€1.560"')).toEqual(['priced-amount']);
+  });
+});
+
+describe('leak guard — programme amounts match as whole amounts only (Sol r1 S1)', () => {
+  // Unbounded, `2[.,\s]?500` fired on any `€12.500` or `€2.5000` in the tree.
+  // Nothing collided today, but a guard that cries wolf gets switched off.
+  const notTheAmount: ReadonlyArray<readonly [string, string]> = [
+    ['an unrelated larger amount', 'x="€12.500"'],
+    ['a malformed trailing digit', 'x="€2.5000"'],
+    ['another unrelated larger amount', 'x="€22.500"'],
+    ['a larger amount with cents', 'x="€12.500,00"'],
+    ['the retired amount inside a larger one', 'x="€21.000"'],
+  ];
+
+  for (const [description, text] of notTheAmount) {
+    it(`stays silent on ${description}`, () => {
+      expect(checksFiring(text)).toEqual([]);
+    });
+  }
+
+  const stillTheAmount: ReadonlyArray<readonly [string, string]> = [
+    ['the live fee itself', 'x="€2.500"'],
+    ['the live fee written with cents', 'x="€2.500,00"'],
+    ['the retired fee written with cents', 'x="€1.000,00"'],
+  ];
+
+  for (const [description, text] of stillTheAmount) {
+    it(`still fails on ${description}`, () => {
+      expect(checksFiring(text)).toEqual(['priced-amount']);
+    });
+  }
+});
+
 describe('leak guard — the band figures do not fire on ordinary output', () => {
   // `70` and `120` are ordinary numbers, and this repo ships unrelated
   // euro-denominated code (consultant rates, expense reports). Everything here

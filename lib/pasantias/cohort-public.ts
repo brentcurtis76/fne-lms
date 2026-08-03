@@ -221,7 +221,15 @@ export const COHORT_DAY_STRUCTURE: readonly CohortDayBlock[] = [
 ] as const;
 
 /**
- * Appendix A-7 "el programa incluye", verbatim apart from sentence casing.
+ * Appendix A-7 "el programa incluye", transcribed item by item from the
+ * Appendix's own sentence. The **only** edit is mechanical: the Appendix writes
+ * the six items as one semicolon-separated sentence, so each item inherits an
+ * initial capital when it becomes a list entry. Wording, order and punctuation
+ * are the Appendix's — including phrasing a copywriter would want to smooth —
+ * because the owner declared the designed brochure canonical and this module is
+ * a transcription of it, not an edit of it. `__tests__/lib/pasantias-cohort.test.ts`
+ * re-parses A-7 out of `docs/plan/PLAN.md` and compares both arrays against it,
+ * so drift on either side fails rather than passes.
  *
  * Lodging is deliberately absent: the owner's 2026-07-31 amendment to A-8 made
  * Barcelona lodging a separately quoted per-night range rather than part of the
@@ -239,17 +247,21 @@ export const COHORT_INCLUDES: readonly string[] = [
   'El pago de las visitas a las escuelas',
   'Los talleres de la tarde con especialistas',
   'Los honorarios de la dirección del programa, los relatores y el equipo de facilitadores de FNE que acompañan a los pasantes',
-  'Bibliografía básica recomendada para preparar el viaje, una bitácora y un sistema de registro de los aprendizajes presentado al menos un mes antes del viaje',
+  'Bibliografía básica recomendada, una bitácora y un sistema de registro de los aprendizajes, presentado al menos un mes antes del viaje',
   'Desayuno a media mañana en las escuelas',
   'Almuerzos de la primera semana, en Escola Virolai y Escola Sadako',
 ] as const;
 
-/** Appendix A-7 "NO incluye", as replaced by the owner on 2026-08-02. */
+/**
+ * Appendix A-7 "NO incluye", as replaced by the owner on 2026-08-02 —
+ * transcribed under the same rule as {@link COHORT_INCLUDES}: initial capitals
+ * only, everything else exactly as the Appendix writes it.
+ */
 export const COHORT_EXCLUDES: readonly string[] = [
   'Desayunos de hotel',
   'Comidas en los días de visita de la segunda semana',
   'Cenas',
-  'Pasajes aéreos ni transporte terrestre de llegada/salida',
+  'Pasajes aéreos y transporte terrestre de llegada y salida',
   'Transporte a El Puig y Les Vinyes',
   'Seguros',
 ] as const;

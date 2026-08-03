@@ -1,4 +1,6 @@
 // @vitest-environment node
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, it, expect } from 'vitest';
 import * as cohortPublicModule from '../../lib/pasantias/cohort-public';
 import {
@@ -37,6 +39,57 @@ import {
 } from '../../lib/pasantias/cohort-commercial';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Appendix A-7 is the normative source for the programme's includes/excludes
+ * copy, and `cohort-public.ts` is meant to be a transcription of it — not an
+ * improved edit. Pinning the module against hand-written expectations proved too
+ * weak in round a1-repricing r1 (Sol B1: two paraphrases survived a green
+ * suite), so the Appendix is re-parsed out of the plan here and compared. Drift
+ * on either side now fails instead of passing.
+ */
+const PLAN_PATH = path.join(process.cwd(), 'docs/plan/PLAN.md');
+const A7_HEADING = '### Appendix A-7';
+
+/** The Appendix A-7 section only — a match elsewhere in the plan proves nothing. */
+function readAppendixA7(): string {
+  const plan = readFileSync(PLAN_PATH, 'utf8');
+  const start = plan.indexOf(A7_HEADING);
+  if (start === -1) throw new Error(`${A7_HEADING} not found in ${PLAN_PATH}`);
+  const body = plan.slice(start + A7_HEADING.length);
+  const nextHeading = body.search(/\n#{1,3} /);
+  return nextHeading === -1 ? body : body.slice(0, nextHeading);
+}
+
+const APPENDIX_A7 = readAppendixA7();
+
+/** The one line of A-7 whose bold lead-in matches, or a loud failure. */
+function a7Sentence(leadIn: RegExp): string {
+  const matches = APPENDIX_A7.match(leadIn);
+  if (!matches || matches.length !== 1) {
+    throw new Error(`expected exactly one A-7 line matching ${leadIn}, got ${matches?.length ?? 0}`);
+  }
+  return matches[0];
+}
+
+/**
+ * A-7 writes each list as one semicolon-separated sentence behind a bold
+ * lead-in. Turning it into array entries is mechanical and lossless: drop the
+ * lead-in, the Appendix's own trailing italic note, its bold markers and the
+ * sentence's final full stop, then split on `;`. The only character this adds is
+ * the entry's initial capital — everything else must be what A-7 says.
+ */
+function parseA7Items(sentence: string): string[] {
+  return sentence
+    .slice(sentence.indexOf(':**') + ':**'.length)
+    .replace(/\s*\*\([\s\S]*\)\*\s*$/, '')
+    .replace(/\*\*/g, '')
+    .trim()
+    .replace(/\.$/, '')
+    .split(';')
+    .map((item) => item.trim())
+    .map((item) => item.charAt(0).toUpperCase() + item.slice(1));
+}
 
 /** Calendar dates only — UTC midnight, so no timezone can move a day. */
 function utcDate(iso: string): Date {
@@ -286,6 +339,26 @@ describe('public cohort module — programme content (Appendix A-7)', () => {
     expect(COHORT_EXCLUDES).toHaveLength(6);
     for (const item of [...COHORT_INCLUDES, ...COHORT_EXCLUDES]) {
       expect(item.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('transcribes both lists verbatim from Appendix A-7, in the Appendix’s order', () => {
+    // The whole ordered arrays, parsed from the plan itself — so an edit to
+    // either side (a smoothed phrase here, an owner amendment there) fails.
+    expect(COHORT_INCLUDES).toEqual(
+      parseA7Items(a7Sentence(/^\*\*El programa[^\n]*?incluye[^\n]*?:\*\*[^\n]*$/m))
+    );
+    expect(COHORT_EXCLUDES).toEqual(
+      parseA7Items(a7Sentence(/^\*\*NO incluye:\*\*[^\n]*$/m))
+    );
+  });
+
+  it('has every includes/excludes item present verbatim inside the A-7 text', () => {
+    for (const item of [...COHORT_INCLUDES, ...COHORT_EXCLUDES]) {
+      // A-7 writes the items mid-sentence, so the entry's initial capital is the
+      // one character this module owns; the rest is character-for-character A-7.
+      const asTheAppendixWritesIt = item.charAt(0).toLowerCase() + item.slice(1);
+      expect(APPENDIX_A7).toContain(asTheAppendixWritesIt);
     }
   });
 

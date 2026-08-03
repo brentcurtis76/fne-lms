@@ -11,6 +11,15 @@ El Puig / Les Vinyes transport out) and `brochure-10` (the version caption, now
 both ficha pages came back byte-identical, which is the expected result:
 nothing else in Appendix A moved.
 
+**`brochure-09` re-rendered again in round r2** (Sol B1): two of its inclusion /
+exclusion strings were paraphrases of Appendix A-7 rather than transcriptions,
+and now read as A-7 writes them — `Bibliografía básica recomendada, una bitácora
+y un sistema de registro de los aprendizajes, presentado al menos un mes antes
+del viaje` and `Pasajes aéreos y transporte terrestre de llegada y salida`. It
+was the only page of the twelve that changed. `BROCHURE_VERSION` stays
+`2026-10-v3`: the D-05 cache key was already bumped for this round's brochure
+and no cached object was ever served from it.
+
 | File | Document | Page |
 |---|---|---|
 | `brochure-01.png` | Brochure | Portada |

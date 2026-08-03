@@ -963,3 +963,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: deviations accepted (BROCHURE_VERSION bump, format.ts doc comment, includes re-transcription judgment)
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: **→ Sol final review**; then owner merge word. `mínimo 5 participantes` still the owner's open question (module + brochure both currently say 5).
+
+### 2026-08-02 — a1-repricing Sol round 1 — Fable (PM triage)
+- CONTEXT PRESSURE: n/a
+- ACTION: Sol = **FAIL, 2 BLOCKING, both ACCEPTED** (REVIEW-A1-REPRICING.md, committed with this entry; Sol's own gates green, BROCHURE_VERSION bump accepted as necessary for D-05 cache invalidation). (1) Public includes/excludes differ from canonical A-7 in two strings — the executor flagged their non-re-transcription as a judgment call and Sol ruled the stricter reading correct; A-7 is canonical, so the arrays get transcribed verbatim. (2) **The leak guard catches €1.000 but misses €1.560** — and that gap is MINE: the `a1-3` prompt I wrote said "drop 560/1560" from `PRICE_AMOUNT_PATTERNS` on the reasoning that the amount had been deleted from the module, before the retired-amount concept existed. Result: two retired prices, only one guarded. Both retired amounts must be guarded — the whole point of §7.4's mutation proof. Sol's SHOULD-FIX (unbounded `2[.,\s]?500` also matches €12.500 / €2.5000) is folded into r2 since it edits the same regex block. Sol round 1 of 2.
+- COMMITS: (this commit — REVIEW-A1-REPRICING.md + this entry)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: n/a (triage)
+- DECISIONS: both accepted; SHOULD-FIX folded into the same round
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: `/exec INSPIRA a1-repricing r2`.

@@ -944,3 +944,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: 1 Decision Log row (retired amounts guarded permanently)
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA a1-repricing r2`. Owner words still parked: "apply it" (leads migration → prod), t2-ci cleanup.
+
+### 2026-08-02 — Production migration applied; t2-ci retired — Fable (PM, owner-authorized)
+- CONTEXT PRESSURE: n/a
+- ACTION: **(1) `pasantias_leads` APPLIED TO PRODUCTION** on Brent's explicit "apply it". Pre-flight (read-only MCP): table absent, `set_updated_at` present, `user_role_type` has `admin`, `user_roles` present. Migration read from `origin/main` and scanned — every DROP/TRUNCATE hit is inside a comment, additive only. Applied verbatim via the Management API (HTTP 201). **Post-verify against the real ACL** (`aclexplode(relacl)`, not the filtered `information_schema` view — which showed a misleading NONE): `authenticated = SELECT` only, **`anon` has no ACL entry at all**, `service_role` = full (the sole write path); RLS enabled; exactly one policy (`pasantias_leads_admin_select`, SELECT, no WITH CHECK); 4 CHECK constraints; `set_updated_at` trigger attached. Production now matches the pgTAP-proven design, so A5's lead API has a real table to write to. **(2) `phase/t2-ci` DELETED** after proving it held nothing unique: its 9 non-main commits were docs-only (the stranded PM lineage), every prompt file and PLAN marker from them is present on main via PR #33, and T2's actual deliverables (`scripts/ci/seed-e2e.mjs`, `e2e-mandatory.mjs`, `e2e-fixtures.json`, `tests/e2e/helpers/auth.ts`) are on main. The branch-drift incident is now closed at the source — no stale lineage remains readable as authoritative.
+- COMMITS: (this commit)
+- TESTS: production catalog verification (above), PM-run
+- FINDINGS RAISED: none
+- DECISIONS: none new (executes owner instructions)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: merge word for PR #38; A4/A5/B3 dispatchable — **A5 is now unblocked end-to-end** (table live in prod).

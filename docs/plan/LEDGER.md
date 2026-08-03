@@ -754,3 +754,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: D-07 dedup deferred (branch entry)
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A3 r2`; Sol on B2; owner: Vercel-Pro confirm, "apply it", t2-ci.
+
+### 2026-08-02 — Brochure design parked to override path; Vercel Pro confirmed — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner: the generated brochure is too basic vs the PPTX — **the customer-facing brochure will be a Claude-designed PDF, delivered through D-05's manual-override path** (which existed for exactly this outcome). Nothing cancels: A3 r2 (in flight, owner-dispatched) completes the date fix; the generator stays as fallback + canary; the ficha stays generated; A4 serves whatever sits at the cache path. Design-content rule recorded (content pack from Appendix A + modules + PPTX bios; per-file approval + D-02 check; amendment-checklist hook). **Vercel Pro confirmed by owner screenshot** — B2 R1 residue closed with first-hand evidence, upgrading the findings card's cron conclusion from secondhand to confirmed. B2 is with Sol (owner-dispatched).
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 2 Decision Log rows
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: A3 r2 + B2 Sol reports awaited. PM offer standing: build the design session's content pack on the owner's word. Parked: "apply it"; t2-ci.

@@ -39,7 +39,7 @@ and layout only. Everything factual in it is wrong for October 2026:
 | "4 días para conocer 5 escuelas" | **9 días de visitas · 7 escuelas** |
 | Enero 2025 · mar 15 – vie 18 | **Octubre, 5 al 16 · 2026** |
 | €3.000 por 2 personas + €1.500 por participante adicional · máximo 12 | **€2.500 por persona** · mínimo 5 |
-| **No incluye** almuerzos, desayunos ni cenas | **Sí incluye** comidas en los días de visita + cena de cierre + desayuno a media mañana |
+| **No incluye** almuerzos, desayunos ni cenas | Octubre incluye **desayuno a media mañana en las escuelas y los almuerzos de la primera semana** (Virolai/Sadako); las comidas de la segunda semana y las cenas **no** están incluidas (§7, actualizado 2026-08-02) |
 | **No incluye** alojamiento | Alojamiento aparte pero **coordinado por FNE**, €70–120 pp/noche base doble |
 | Talleres en el **barrio del Born (Barrio Gótico)** | Instituto Relacional, **Eixample** — no es contradicción: el Instituto Relacional **se mudó**. El Born es la dirección antigua (Brent, 2026-08-02). |
 | "Conferencista INSPIRA 2024" | Sin año en los cargos |

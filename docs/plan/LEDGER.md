@@ -814,3 +814,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: 1 Decision Log row (carry-forwards)
 - BACKLOG ADDED: B2 S1 — resend mutation §6.1 mis-labelled (rethrow-from-outer-catch mutant is the proper fix)
 - OPEN AFTER THIS ROUND: **B2 → Sol round 2 (of 2), scoped closure.**
+
+### 2026-08-02 — Designed brochure reviewed; repricing propagated — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: PM fact/price check of the owner's Claude-designed brochure (13 pp, `~/Downloads/Brochure Pasantía Octubre 2026.pdf` + handoff zip). **Design quality high; dates/structure/legals all correct** (weekday-date pairings, 9 días/7 escuelas, two-tier, Eixample, Sandra's title, RUT+address footer, no Madrid/€1.560/"10 días"/Learnlife, single-span headline). **Five conflicts found, two resolved by the owner as CHANGES not errors:** programa **€2.500** (not €1.000) and the brochure's includes/excludes (week-1 lunches IN; week-2 meals, cenas incl. closing dinner, and El Puig/Les Vinyes transport OUT) are now authoritative → Appendix A-7/A-8, both content-pack copies, and Decision Log updated; `prompts/a1-repricing-1.md` staged to propagate into the commercial module, public includes, leak-scanner patterns, cohort tests and A3's brochure pins + renders. **Three still open against the brochure (design-side fixes):** Sergi del Moral titled "Director" (explicitly on the retired list — he is equipo directivo); El Puig + Les Vinyes "aspectos destacados" are unsourced (the pack marked them FALTA — need Coral/Mora); Joan Quintana credited with «Educación Relacional» (pack has «Anticípate»/«Relaciones Poderosas») and Boris Mir's title conflates Angeleta Ferrer with Escola Nova 21. Also missing: **"mínimo 5 participantes"** (material condition). Portraits are per-person named assets cropped from the reference deck — owner should eyeball identity before publishing.
+- COMMITS: (this commit — PLAN + pack + prompt + this entry)
+- TESTS: none (docs only)
+- FINDINGS RAISED: 3 design-side + 1 missing condition (above)
+- DECISIONS: 1 Decision Log row (repricing + terms)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: **merge order matters** — PR #37 (A3) and #36 (B2) merge FIRST, then dispatch `/exec INSPIRA a1-repricing r1` so it can update A3's pins in one pass. Brochure not publishable until the three design fixes + mínimo-5 land and the owner approves the file for the A4 override path.

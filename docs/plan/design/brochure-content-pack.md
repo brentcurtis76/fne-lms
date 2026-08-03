@@ -25,6 +25,26 @@ Spanish (es-CL)**. Deliverable: **A4 portrait PDF**.
 | Headlines reading "5–9 y 13–16" | Reads as two separate pasantías | **"Octubre, 5 al 16"** (detail belongs in the itinerary only) |
 | Any lodging night count ("6 noches") | Not fixed for this cohort | Range per night, no counts |
 
+### Traps specific to the **Enero 2025 / IH Uruguay** deck (`referencia-visual-enero2025-uruguay.pptx`)
+
+That deck describes a **different program**. It is attached for its photography
+and layout only. Everything factual in it is wrong for October 2026:
+
+| It says | October 2026 says |
+|---|---|
+| "4 días para conocer 5 escuelas" | **9 días de visitas · 7 escuelas** |
+| Enero 2025 · mar 15 – vie 18 | **Octubre, 5 al 16 · 2026** |
+| €3.000 por 2 personas + €1.500 por participante adicional · máximo 12 | **€1.000 por persona** · mínimo 5 |
+| **No incluye** almuerzos, desayunos ni cenas | **Sí incluye** comidas en los días de visita + cena de cierre + desayuno a media mañana |
+| **No incluye** alojamiento | Alojamiento aparte pero **coordinado por FNE**, €70–120 pp/noche base doble |
+| Talleres en el **barrio del Born (Barrio Gótico)** | Instituto Relacional, **Eixample** — ⚠️ los dos decks se contradicen; verificar con Coral/Mora antes de imprimir |
+| "Conferencista INSPIRA 2024" | Sin año en los cargos |
+| Sergi del Moral, "Director Escuela Las Viñas" | Equipo directivo, **Institut Escola Les Vinyes** |
+
+**The meals and lodging rows are the dangerous ones:** the two decks state
+opposite things about what the price covers. October's version (§7) is the
+approved one.
+
 ---
 
 ## 2. Identity of the program
@@ -85,6 +105,28 @@ escuelas.*
 11. Comprender el nuevo rol de las familias en las escuelas de Nueva Educación y las dinámicas de crecimiento que de ello surgen.
 12. Valorar la apertura y conexión de la escuela con su entorno, el funcionamiento en red y el poder del pensamiento sistémico para diseñar las experiencias de aprendizaje.
 13. Comprender y apreciar el giro relacional que implica migrar hacia la Nueva Educación y los beneficios personales y societales que conlleva.
+
+## 5b. Aspectos destacados por escuela — CONTENIDO A REVIVIR
+
+The Enero-2025 deck had one page the current material lacks entirely: what each
+school is actually *known for*. This answers "why do I care about this school",
+which the October brochure never says. Transcribed below **for revival, subject
+to verification** — school levels and focus areas may have changed since
+January 2025.
+
+| Escuela | Niveles | Aspectos destacados |
+|---|---|---|
+| **Virolai** | Infantil, primaria, ESO y Bachillerato | Organización y espacios · Evaluación formativa, portfolios · Personalización y plan personal · Gestión del equipo docente |
+| **Sadako** | Infantil, primaria y ESO | Organización y espacios · Evaluación formativa, portfolios · Secuenciación y co-docencia · Organización y participación estudiantil |
+| **La Maquinista** | Infantil y primaria | Organización y espacios · Evaluación formativa, rúbricas y autoevaluación · Cajas de aprendizaje · Organización participativa de los alumnos |
+| **Octavio Paz** | Infantil y primaria | Organización y espacios · Evaluación formativa, diarios de aprendizaje · Proyecto anual temático y cajas de aprendizaje · Trabajo por comunidades de alumnos |
+| **Angeleta Ferrer** | ESO | Organización y espacios · Evaluación formativa, portfolios · Autonomía del alumnado · Vinculación de la escuela con la comunidad |
+| **El Puig** | — | **FALTA** — pedir a Coral/Mora |
+| **Les Vinyes** | — | **FALTA** — pedir a Coral/Mora |
+
+> Two of October's seven schools have no highlights on record. Either request
+> them from the Barcelona team, or design the page so five entries look
+> deliberate rather than incomplete.
 
 ## 6. Equipo
 
@@ -212,6 +254,8 @@ transporte terrestre de llegada/salida; seguros.
 ---
 
 ## 10. Design brief
+
+**Visual references in this folder:** `referencia-visual-enero2025-uruguay.pptx` (the January 2025 / IH Uruguay deck — the richest source of Barcelona photography, B&W portraits and layout ideas; **facts inside it are wrong**, see §1) and, if the owner still has it, the October-2026 deck from WhatsApp.
 
 **What exists today (in `renders-actuales/`):** a programmatically generated
 brochure — 10 pages, correct in every fact, deliberately austere. Dark cover

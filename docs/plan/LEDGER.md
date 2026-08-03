@@ -784,3 +784,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: none new (executes the recorded rule)
 - BACKLOG ADDED: bios name↔bio pairing verification with the BCN team (pre-publication gate for the designed brochure)
 - OPEN AFTER THIS ROUND: owner runs the design session; the resulting PDF needs per-file owner approval + a PM D-02 price check before it goes to the override cache path (A4).
+
+### 2026-08-02 — Content pack v2 (Enero-2025 deck) — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner is handing the design session the **Enero 2025 / IH Uruguay** deck instead (richer photography, 36 media assets). Analyzed it: it describes a materially DIFFERENT program, so the pack gained a second retired-facts table — 4 días/5 escuelas; enero 2025 dates; **€3.000 por 2 personas + €1.500 por adicional, máx 12** (vs €1.000 pp, mín 5); and the two dangerous rows where the decks state OPPOSITE things: that deck says meals and lodging are NOT included, October's approved version includes meals on visit days + closing dinner and coordinates lodging. Also surfaced a genuine fact conflict for owner verification: **workshop venue is "barrio del Born (Barrio Gótico)" in the Enero deck vs "Eixample" in the Oct deck** — the pack flags it as verify-before-print. Recovered one content idea worth reviving: per-school **"aspectos destacados"** (Virolai, Sadako, La Maquinista, Octavio Paz, Angeleta Ferrer) — the October material never says why each school matters; El Puig and Les Vinyes have no highlights on record and are marked as owner asks. Both copies updated (repo + ~/Documents/inspira-design/, which now also holds the deck itself).
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: venue discrepancy (Born vs Eixample) — owner/BCN verification before any print or publish
+- DECISIONS: none new
+- BACKLOG ADDED: request El Puig + Les Vinyes "aspectos destacados" from the BCN team
+- OPEN AFTER THIS ROUND: owner runs the design session with the v2 pack + Enero deck; resulting PDF needs owner approval + PM D-02 check before the A4 override path.

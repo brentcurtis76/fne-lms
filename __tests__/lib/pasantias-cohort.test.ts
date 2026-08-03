@@ -279,8 +279,11 @@ describe('public cohort module — programme content (Appendix A-7)', () => {
   });
 
   it('lists what the programme includes and excludes', () => {
-    expect(COHORT_INCLUDES.length).toBeGreaterThanOrEqual(6);
-    expect(COHORT_EXCLUDES.length).toBeGreaterThanOrEqual(3);
+    // Exact counts, not floors: the 2026-08-02 amendment moved two lines from
+    // one list to the other, and a `>=` assertion is green whether or not the
+    // move happened. Appendix A-7 has six of each.
+    expect(COHORT_INCLUDES).toHaveLength(6);
+    expect(COHORT_EXCLUDES).toHaveLength(6);
     for (const item of [...COHORT_INCLUDES, ...COHORT_EXCLUDES]) {
       expect(item.trim().length).toBeGreaterThan(0);
     }
@@ -296,10 +299,36 @@ describe('public cohort module — programme content (Appendix A-7)', () => {
     expect(COHORT_LODGING_AREA).toBe('Barcelona');
   });
 
-  it('carries the meals line in the source’s own generic phrasing (A-16 closed)', () => {
+  it('includes only the first week’s lunches (owner, 2026-08-02)', () => {
+    // A-16's generic meals phrasing was superseded by the canonical brochure:
+    // week-1 lunches at Virolai and Sadako are in, and that is the whole of the
+    // meals inclusion. Pinned as the last item because A-7 reads that way and
+    // the brochure prints the list in order.
     expect(COHORT_INCLUDES).toContain(
-      'Comidas incluidas en los días de visita y cena de cierre'
+      'Almuerzos de la primera semana, en Escola Virolai y Escola Sadako'
     );
+    expect(COHORT_INCLUDES[COHORT_INCLUDES.length - 1]).toBe(
+      'Almuerzos de la primera semana, en Escola Virolai y Escola Sadako'
+    );
+  });
+
+  it('excludes week-2 meals, all dinners, and the El Puig / Les Vinyes transport', () => {
+    expect(COHORT_EXCLUDES).toContain('Comidas en los días de visita de la segunda semana');
+    expect(COHORT_EXCLUDES).toContain('Cenas');
+    expect(COHORT_EXCLUDES).toContain('Transporte a El Puig y Les Vinyes');
+  });
+
+  it('keeps no trace of the terms the 2026-08-02 amendment retired', () => {
+    // Both retired lines were *inclusions*, so asserting only on the excludes
+    // list would miss the failure this test exists for; scan both. The closing
+    // dinner is the sharpest case — it moved from an inclusion, to an explicit
+    // "salvo la de cierre" carve-out in the excludes, to nothing at all.
+    const everyTerm = [...COHORT_INCLUDES, ...COHORT_EXCLUDES].join(' | ');
+    expect(everyTerm).not.toMatch(/cena de cierre|salvo la de cierre/i);
+    expect(everyTerm).not.toMatch(/Comidas incluidas en los días de visita/i);
+    expect(everyTerm).not.toMatch(/Transporte para las visitas a El Puig/i);
+    // …and the whole public surface, not just the two lists.
+    expect(JSON.stringify(COHORT_PUBLIC)).not.toMatch(/cena de cierre|salvo la de cierre/i);
   });
 
   it('claims no night count and no per-day meal mapping', () => {
@@ -335,13 +364,16 @@ function serializeEveryExport(moduleNamespace: Record<string, unknown>): string 
 }
 
 /**
- * Live commercial amounts plus the three the plan has retired — 560 and the
- * 1.560 total (A-8 amendment, 2026-07-31) and 810 (the optional extension
- * removed on owner authority, 2026-08-02). Retired is not the same as harmless:
- * none of them may reappear on a public surface.
+ * Live commercial amounts plus every one the plan has retired — 560 and the
+ * 1.560 total (A-8 amendment, 2026-07-31), 810 (the optional extension removed
+ * on owner authority, 2026-08-02) and now 1.000, the programme price the same
+ * owner decision replaced with 2.500. Retired is not the same as harmless: none
+ * of them may reappear on a public surface.
  */
 const PROTECTED_AMOUNTS = [
-  '1000',
+  '2500', // live programme fee (owner repricing, 2026-08-02)
+  '2\\.500',
+  '1000', // retired programme fee — same decision
   '1\\.000',
   '1560',
   '1\\.560',
@@ -399,9 +431,18 @@ function collectNumbers(value: unknown, found: number[] = []): number[] {
 }
 
 describe('commercial cohort module (Appendix A-8, amended 2026-07-31)', () => {
-  it('prices the programme at €1.000 and nothing else as a fixed amount', () => {
-    expect(COHORT_PRICE_ITEMS.map((item) => item.amount)).toEqual([1000]);
+  it('prices the programme at €2.500 and nothing else as a fixed amount', () => {
+    expect(COHORT_PRICE_ITEMS.map((item) => item.amount)).toEqual([2500]);
     expect(COHORT_PRICE_ITEMS.map((item) => item.id)).toEqual(['programa']);
+  });
+
+  it('has fully retired the €1.000 programme price (owner, 2026-08-02)', () => {
+    // The repricing is only done when the old number is gone from the module,
+    // not merely outvoted by a new one sitting beside it.
+    for (const number of collectNumbers(cohortCommercialModule)) {
+      expect(number).not.toBe(1000);
+    }
+    expect(JSON.stringify(cohortCommercialModule)).not.toMatch(/(?<!\d)1[.,]?000(?!\d)/);
   });
 
   it('quotes Barcelona lodging as a per-person-per-night band, €70–€120', () => {

@@ -228,8 +228,12 @@ export const COHORT_DAY_STRUCTURE: readonly CohortDayBlock[] = [
  * programme, so it is neither an inclusion nor public data — the band lives in
  * the commercial module only (D-01/D-02).
  *
- * A-16 is closed: the meals line is the source's own generic phrasing, which
- * makes no per-day claim, and no surface states a night count.
+ * A-16 was superseded on 2026-08-02: the owner's canonical brochure states the
+ * meals terms exactly, so the generic phrasing is gone. Meals are now an
+ * inclusion only for the first week's lunches, and the retired "comidas en los
+ * días de visita y cena de cierre" line has become two exclusions. Transport to
+ * El Puig and Les Vinyes moved the same way — from included to excluded — so
+ * neither string may survive on this side.
  */
 export const COHORT_INCLUDES: readonly string[] = [
   'El pago de las visitas a las escuelas',
@@ -237,15 +241,16 @@ export const COHORT_INCLUDES: readonly string[] = [
   'Los honorarios de la dirección del programa, los relatores y el equipo de facilitadores de FNE que acompañan a los pasantes',
   'Bibliografía básica recomendada para preparar el viaje, una bitácora y un sistema de registro de los aprendizajes presentado al menos un mes antes del viaje',
   'Desayuno a media mañana en las escuelas',
-  'Transporte para las visitas a El Puig y Les Vinyes',
-  'Comidas incluidas en los días de visita y cena de cierre',
+  'Almuerzos de la primera semana, en Escola Virolai y Escola Sadako',
 ] as const;
 
-/** Appendix A-7 "el programa NO incluye", verbatim. */
+/** Appendix A-7 "NO incluye", as replaced by the owner on 2026-08-02. */
 export const COHORT_EXCLUDES: readonly string[] = [
   'Desayunos de hotel',
-  'Cenas (salvo la de cierre)',
+  'Comidas en los días de visita de la segunda semana',
+  'Cenas',
   'Pasajes aéreos ni transporte terrestre de llegada/salida',
+  'Transporte a El Puig y Les Vinyes',
   'Seguros',
 ] as const;
 

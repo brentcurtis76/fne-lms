@@ -55,9 +55,47 @@ describe('leak guard — isolated lodging-band literals (Appendix A-8)', () => {
     const note =
       'Alojamiento en Barcelona: entre €70 y €120 por persona por noche, en base a habitación doble — el monto es por persona, no por habitación — según el tipo de alojamiento.';
     expect(checksFiring(note)).toEqual(['commercial-copy', 'priced-band-amount']);
-    expect(checksFiring('x="€1.000"')).toEqual(['priced-amount']);
+    expect(checksFiring('x="€2.500"')).toEqual(['priced-amount']);
     expect(checksFiring('x="__INSPIRA_COMMERCIAL__"')).toEqual(['sentinel']);
   });
+});
+
+describe('leak guard — the live programme fee, in every shape a bundler emits', () => {
+  // €2.500 replaced €1.000 on 2026-08-02 (owner). The guard is only repriced
+  // when it catches the new figure in the forms minified output actually uses,
+  // not just the one a human would type.
+  const liveShapes: ReadonlyArray<readonly [string, string]> = [
+    ['a grouped literal', 'x="€2.500"'],
+    ['a comma-grouped literal', 'x="€2,500"'],
+    ['a bare integer', 'x={currency:"EUR",amount:2500}'],
+    ['an exponential spelling', 'e=[(0,r.jsx)("span",{children:["€",2.5e3]})]'],
+    ['a template concat', '"Programa: €".concat(2500)'],
+    ['an escaped euro sign', unescapeLiterals('window.p="\\u20ac2.500"')],
+  ];
+
+  for (const [description, leak] of liveShapes) {
+    it(`fails on ${description}`, () => {
+      expect(checksFiring(leak)).toContain('priced-amount');
+    });
+  }
+});
+
+describe('leak guard — retired amounts stay guarded (2026-08-02 repricing)', () => {
+  // A price FNE no longer sells at is worse on a public page than the current
+  // one: it is a number the foundation would have to honour or retract. The
+  // repricing round therefore *added* €1.000 to the guard rather than swapping
+  // it out, and these cases are what stop a later cleanup from dropping it.
+  const retiredShapes: ReadonlyArray<readonly [string, string]> = [
+    ['the retired grouped literal', 'x="€1.000"'],
+    ['the retired bare integer', 'x={currency:"EUR",amount:1000}'],
+    ['the retired exponential spelling', '"desde €".concat(1e3)'],
+  ];
+
+  for (const [description, leak] of retiredShapes) {
+    it(`fails on ${description}`, () => {
+      expect(checksFiring(leak)).toContain('priced-amount');
+    });
+  }
 });
 
 describe('leak guard — the band figures do not fire on ordinary output', () => {

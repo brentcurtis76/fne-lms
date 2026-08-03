@@ -38,9 +38,14 @@ export interface CohortPriceItem {
  * Appendix A-8 — the programme fee. It is the only fixed amount of the base
  * investment: lodging is quoted as a per-night range (see below), so there is
  * no second item to add and deliberately no combined total anywhere.
+ *
+ * Repriced by the owner on 2026-08-02 together with the canonical designed
+ * brochure: €1.000 → €2.500 por persona. The old figure is not merely stale —
+ * it is a price the programme is no longer sold at, so `check-price-leak.mjs`
+ * hunts for it as a retired amount alongside the live one.
  */
 export const COHORT_PRICE_ITEMS: readonly CohortPriceItem[] = [
-  { id: 'programa', label: 'Programa', amount: 1000 },
+  { id: 'programa', label: 'Programa', amount: 2500 },
 ] as const;
 
 /**
@@ -83,8 +88,12 @@ export const COHORT_PRICE_VALIDITY = `Precios vigentes para la cohorte ${COHORT_
  * Cache key for the generated brochure (D-05). Bump this whenever any value in
  * this module or any brochure copy changes — the `propuestas` bucket is keyed
  * by it, so a stale key serves a stale PDF.
+ *
+ * v3: the 2026-08-02 repricing (€2.500) and the replaced includes/excludes.
+ * Both are brochure copy, so leaving the key at v2 is exactly the case this
+ * comment exists for — A4 would keep serving a cached €1.000 brochure.
  */
-export const BROCHURE_VERSION = '2026-10-v2';
+export const BROCHURE_VERSION = '2026-10-v3';
 
 /** Download filename. ASCII only, so the RFC 5987 header in A4 stays simple. */
 export const BROCHURE_FILENAME = `Pasantias-INSPIRA-Barcelona-${COHORT_ID}-${BROCHURE_VERSION}.pdf`;

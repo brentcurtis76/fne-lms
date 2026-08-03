@@ -31,7 +31,8 @@
  * checks are not enough:
  *   - accented copy is emitted escaped (`seg\xfan el tipo de alojamiento`), so
  *     every file is unescaped before it is searched;
- *   - `1000` is emitted as `1e3`, so amounts are matched in that form too;
+ *   - round thousands are emitted in exponential form when that is shorter
+ *     (`1000` → `1e3`), so amounts are matched in that form too;
  *   - object keys do NOT survive — the minifier flattens the object down to the
  *     properties that were read, so `lodgingNote` is not a usable signal while
  *     the string it pointed at is;
@@ -59,16 +60,24 @@ const BINARY_EXTENSIONS = new Set([
  * with the values in `lib/pasantias/cohort-commercial.ts` — a price added there
  * without being added here is a price this guard will not look for.
  *
- * The 2026-07-31 amendment retired the €560 lodging package and the €1.560
- * total, and the owner's 2026-08-02 decision removed the optional city
- * extension and its €810 — all three are gone from this list because the module
- * no longer holds them. The €70–120 per-night band is protected data too, but
- * its figures are two and three digits long, so they get their own check below
- * rather than this list's wide currency window.
+ * RETIRED AMOUNTS STAY ON THIS LIST. The owner's 2026-08-02 repricing moved the
+ * programme from €1.000 to €2.500, and a retired price reaching a public surface
+ * is worse than a current one: it is a number FNE would have to honour or
+ * retract. So €1.000 is guarded exactly like the live figure, and only amounts
+ * whose *shape* stops being distinctive should ever leave this list.
+ *
+ * Not here: the €560 lodging package, its €1.560 total (both retired 2026-07-31)
+ * and the €810 city extension (removed 2026-08-02) — those were dropped before
+ * this rule existed and are covered by `__tests__/lib/pasantias-cohort.test.ts`'s
+ * PROTECTED_AMOUNTS on the module side. The €70–120 per-night band is protected
+ * data too, but its figures are two and three digits long, so they get their own
+ * check below rather than this list's wide currency window.
  */
 const PRICE_AMOUNT_PATTERNS = [
-  '1[.,\\s]?000', // 1000, 1.000, 1,000, 1 000
-  '1e3', //          how the minifier writes 1000
+  '2[.,\\s]?500', //  2500, 2.500, 2,500, 2 500 — the live programme fee
+  '2\\.5e3', //       the exponential spelling of 2500
+  '1[.,\\s]?000', //  RETIRED 2026-08-02: 1000, 1.000, 1,000, 1 000
+  '1e3', //           RETIRED 2026-08-02: how the minifier writes 1000
 ];
 
 /**
@@ -115,7 +124,8 @@ const CHECKS = [
   },
   {
     id: 'priced-amount',
-    description: 'an Appendix A-8 amount near a currency marker',
+    description:
+      'an Appendix A-8 programme amount, live or retired, near a currency marker',
     pattern: new RegExp(
       `${CURRENCY}${GAP}(?:${amountPattern})|(?:${amountPattern})${GAP}${CURRENCY}`,
       'g'

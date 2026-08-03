@@ -684,3 +684,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: —
 - BACKLOG ADDED: none new
 - OPEN AFTER THIS ROUND: reconcile + **Brent's merge go for PR #32** (queued after #31/#34 per PM merge-train).
+
+### 2026-08-02 — Merge train complete; A3 + B2 staged — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner ran the train: **#31 (A2) → #34 (A1) → #32 (B1b) merged** (2f2ffd7, 37702ab, fab2454) with PM docs re-unions between cars. Final main verified: **7/30 phases DONE**, 68 ledger entries, homepage now shows Octubre 2026 in production, leads migration file on main, relay gone + guard live. Next wave staged against finished main: `prompts/a3-1.md` (brochure+ficha generators — no Madrid, band lodging base-doble, coordination framing) + `prompts/b2-1.md` (Resend/svix/cron spike). A4 unblocks after A3; A6a after A1+A4.
+- COMMITS: (this commit — both prompts + this entry)
+- TESTS: final-main verification greps (7 DONE, 68 entries, 0 markers)
+- FINDINGS RAISED: none
+- DECISIONS: none
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A3 r1` + `/exec INSPIRA B2 r1` (parallel-safe: disjoint files, own worktrees). Owner words still parked: **prod application of the leads migration** ("apply it" — required before A5 goes live); **phase/t2-ci reset/delete**.

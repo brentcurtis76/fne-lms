@@ -22,11 +22,11 @@ import '../propuestas/fonts';
 import { LEGAL_IDENTITY } from '../legal/privacy-notice';
 import {
   COHORT_CLAIMS,
-  COHORT_DATE_LABEL,
   COHORT_DAY_STRUCTURE,
   COHORT_EXCLUDES,
   COHORT_EXPERTS,
   COHORT_FREE_DAYS,
+  COHORT_HEADLINE,
   COHORT_IMMERSION_SCHOOLS,
   COHORT_INCLUDES,
   COHORT_LABEL,
@@ -83,11 +83,6 @@ function formatDays(days: number): string {
   return String(days).replace('.', ',');
 }
 
-/** `lunes 5` → `Lunes 5`, for a line that starts with the weekday. */
-function capitalize(text: string): string {
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
 /** `Semana 1 — inmersión · lunes 5 de octubre a viernes 9 de octubre`. */
 function weekHeading(week: (typeof COHORT_WEEKS)[number]): string {
   return `${week.label} · ${formatDayLong(week.startDate)} a ${formatDayLong(week.endDate)}`;
@@ -129,7 +124,10 @@ export function BrochureDocument({ webUrl }: { webUrl: string }) {
           eyebrow={`INSPIRA · ${COHORT_LODGING_AREA} · ${COHORT_LABEL}`}
           title="Pasantías INSPIRA Barcelona"
           subtitles={[
-            `${capitalize(COHORT_DATE_LABEL)} de 2026`,
+            // Appendix A-1 (amended 2026-08-02): one continuous span, the year
+            // beside it once. `COHORT_HEADLINE` already carries both — composing
+            // the year here is what let this cover drift from the module.
+            COHORT_HEADLINE,
             `${COHORT_VISIT_DAY_COUNT} días de visitas · ${COHORT_SCHOOLS.length} escuelas`,
           ]}
           claims={COHORT_CLAIMS}
@@ -144,7 +142,7 @@ export function BrochureDocument({ webUrl }: { webUrl: string }) {
 
         <View style={styles.blockSpacer}>
           <Row term="Cohorte" value={COHORT_LABEL} />
-          <Row term="Fechas" value={`${COHORT_DATE_LABEL} de 2026`} />
+          <Row term="Fechas" value={COHORT_HEADLINE} />
           <Row term="Días de visitas" value={String(COHORT_VISIT_DAY_COUNT)} />
           <Row
             term="Escuelas"

@@ -22,6 +22,7 @@ import { PDFDocument } from 'pdf-lib';
 import pdfParse from 'pdf-parse';
 import { generateBrochure } from '../brochure';
 import { generateFicha } from '../ficha';
+import { COHORT_HEADLINE } from '../cohort-public';
 import { FICHA_FILENAME, FICHA_VERSION, isRfc5987SafeFilename } from '../pdf/filenames';
 import { BROCHURE_FILENAME, COMMERCIAL_SENTINEL } from '../cohort-commercial';
 
@@ -46,6 +47,19 @@ function normalize(text: string): string {
 function compact(text: string): string {
   return text.replace(/\s+/g, '');
 }
+
+/**
+ * The headline date form both documents must print, and the one they must not.
+ *
+ * Appendix A-1 was amended on 2026-08-02: the two-range label read as two
+ * different pasantías, so every headline surface shows one continuous span.
+ * `COHORT_HEADLINE` is the derived string (`Octubre, 5 al 16 · 2026`) — pinning
+ * the constant proves the documents consume the module rather than composing
+ * their own year, and the literal below proves the retired form is gone even if
+ * someone reintroduces it by hand.
+ */
+const SINGLE_SPAN_LABEL = 'Octubre, 5 al 16';
+const RETIRED_TWO_RANGE_LABEL = '5–9 y 13–16';
 
 let brochure: Buffer;
 let ficha: Buffer;
@@ -91,7 +105,13 @@ describe('generateBrochure — cohort content (Appendix A)', () => {
   it('names the cohort and its dates', () => {
     expect(brochureText).toContain('Pasantías INSPIRA');
     expect(brochureText).toContain('Octubre 2026');
-    expect(brochureText).toContain('5–9 y 13–16 de octubre de 2026');
+    expect(brochureText).toContain(SINGLE_SPAN_LABEL);
+  });
+
+  it('prints the dates as one span with the year once, never the retired two ranges', () => {
+    expect(brochureText).toContain(COHORT_HEADLINE);
+    expect(brochureText).not.toContain(RETIRED_TWO_RANGE_LABEL);
+    expect(brochureCompact).not.toContain(compact(RETIRED_TWO_RANGE_LABEL));
   });
 
   it('states the honest day count and the two-week structure', () => {
@@ -162,6 +182,20 @@ describe('generateBrochure — cohort content (Appendix A)', () => {
   });
 });
 
+/**
+ * The retired €560 lodging package and its €1.560 combined total (Appendix A-8,
+ * amended 2026-07-31), in every form they could reach a page — but only ever in
+ * **currency context**. The figures alone are three and four digits that occur
+ * innocently in RUTs, phone numbers and addresses; a bare substring check goes
+ * red on those coincidences, and a check that cries wolf is one that gets
+ * loosened or removed. `RETIRED_AMOUNT_PATTERNS` is exercised in both
+ * directions by its own control test below.
+ */
+const RETIRED_AMOUNT_PATTERNS: readonly RegExp[] = [
+  /€\s*1?[.,]?560\b/, // €560 · € 560 · €1.560 · €1560
+  /\b1?[.,]?560\s*(?:€|EUR\b|euros?\b)/i, // 560 € · 1.560 EUR · 1.560 euros
+];
+
 describe('generateBrochure — investment per amended Appendix A-8', () => {
   it('quotes the programme fee in es-CL currency format', () => {
     expect(brochureText).toContain('1.000');
@@ -188,10 +222,39 @@ describe('generateBrochure — investment per amended Appendix A-8', () => {
   });
 
   it('never quotes the retired lodging package or its combined total', () => {
-    expect(brochureText).not.toContain('1.560');
-    expect(brochureText).not.toContain('560');
-    expect(brochureCompact).not.toContain('1.560');
-    expect(brochureCompact).not.toContain('560');
+    for (const pattern of RETIRED_AMOUNT_PATTERNS) {
+      expect(brochureText).not.toMatch(pattern);
+      expect(brochureCompact).not.toMatch(pattern);
+    }
+  });
+
+  /**
+   * The guard above is only worth its line if it still fires. A bare `560`
+   * substring did fire, but on any three digits that happened to line up — a
+   * RUT, a phone number, a street number — and a check that goes red for
+   * innocent reasons is a check someone eventually deletes, taking the real
+   * coverage with it. Hence the currency context; hence this control.
+   */
+  it('the retired-amount guard matches real leaks in every currency form', () => {
+    for (const leak of [
+      '€560 por persona',
+      'alojamiento 560 € por noche',
+      '560 EUR en habitación doble',
+      'total: €1.560',
+      '1.560 euros por persona',
+      'Alojamiento€560',
+      '€1560',
+    ]) {
+      expect(RETIRED_AMOUNT_PATTERNS.some((pattern) => pattern.test(leak))).toBe(true);
+    }
+    for (const innocent of [
+      'RUT 65.166.503-5',
+      '+56 9 4162 3577',
+      'Carlos Silva Vildósola 10448',
+      '560 metros del metro',
+    ]) {
+      expect(RETIRED_AMOUNT_PATTERNS.some((pattern) => pattern.test(innocent))).toBe(false);
+    }
   });
 
   it('never mentions Madrid', () => {
@@ -238,12 +301,21 @@ describe('generateFicha — open content, no prices (D-02)', () => {
   it('carries the cohort essentials', () => {
     expect(fichaText).toContain('Pasantías INSPIRA Barcelona');
     expect(fichaText).toContain('Octubre 2026');
-    expect(fichaText).toContain('5–9 y 13–16 de octubre de 2026');
+    expect(fichaText).toContain(SINGLE_SPAN_LABEL);
     expect(fichaText).toContain('9 días de visitas');
     expect(fichaText).toContain('Escola Virolai');
     expect(fichaText).toContain('Institut Escola Les Vinyes');
     expect(fichaText).toContain('Mañana 1');
     expect(fichaText).toContain('Coral Regí');
+  });
+
+  it('prints the dates as one span with the year once, never the retired two ranges', () => {
+    expect(fichaText).toContain(COHORT_HEADLINE);
+    expect(fichaText).not.toContain(RETIRED_TWO_RANGE_LABEL);
+    expect(fichaCompact).not.toContain(compact(RETIRED_TWO_RANGE_LABEL));
+    // The two-week breakdown stays where itinerary detail belongs.
+    expect(fichaText).toContain('Semana 1 — inmersión');
+    expect(fichaText).toContain('Semana 2 — visitas');
   });
 
   it('offers the web and WhatsApp call to action', () => {

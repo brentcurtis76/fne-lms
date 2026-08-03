@@ -19,10 +19,10 @@ import '../propuestas/fonts';
 import { LEGAL_IDENTITY } from '../legal/privacy-notice';
 import {
   COHORT_CLAIMS,
-  COHORT_DATE_LABEL,
   COHORT_DAY_STRUCTURE,
   COHORT_EXPERTS,
   COHORT_FREE_DAYS,
+  COHORT_HEADLINE,
   COHORT_IMMERSION_SCHOOLS,
   COHORT_LABEL,
   COHORT_LODGING_AREA,
@@ -95,7 +95,10 @@ export function FichaDocument({ webUrl }: { webUrl: string }) {
         <Masthead
           eyebrow={`INSPIRA · ${COHORT_LODGING_AREA} · ${COHORT_LABEL}`}
           title="Pasantías INSPIRA Barcelona"
-          subtitle={`${COHORT_DATE_LABEL} de 2026 · ${COHORT_VISIT_DAY_COUNT} días de visitas · ${COHORT_SCHOOLS.length} escuelas`}
+          // Appendix A-1 (amended 2026-08-02): the single span with its year,
+          // straight from the module — the detailed two-week breakdown lives in
+          // the Fechas table below, where itinerary detail belongs.
+          subtitle={`${COHORT_HEADLINE} · ${COHORT_VISIT_DAY_COUNT} días de visitas · ${COHORT_SCHOOLS.length} escuelas`}
         />
 
         <LightBody>

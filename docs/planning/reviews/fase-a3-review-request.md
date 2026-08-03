@@ -156,3 +156,88 @@ no policy, no page and no route.
 - **A4 will need `BROCHURE_FILENAME` from the commercial module** (it lives there
   by D-01 necessity) and `FICHA_FILENAME` from `lib/pasantias/pdf/filenames.ts`.
   Both pass `isRfc5987SafeFilename`, which is exported for the header builder.
+
+---
+
+# Round r2 — retired-label fix (`prompts/a3-2.md`)
+
+**Branch:** `phase/a3-pdfgen` (continued)
+**Merged in:** `origin/main` @ `f3eba27` (brings A1 r6's single-span
+`buildCohortDateLabel`; PR #35 was merged after this branch was cut)
+**Commits this round:** merge commit + 1 work commit
+**Executor round:** r2
+
+## What r2 was for
+
+PM visual QA of r1 found both documents' subtitle lines rendering the **retired**
+two-range date label (`5–9 y 13–16 de octubre de 2026`). The branch was cut from
+`26ff2f0`, before the owner's 2026-08-02 decision landed on main as A1 r6
+(`Octubre, 5 al 16`). Branch race, not a content error — but the fix was not
+purely mechanical, because both documents composed the year locally.
+
+## Files changed
+
+| File | Change | Risk |
+|---|---|---|
+| `lib/pasantias/brochure.tsx` | cover subtitle + `Fechas` row now render `COHORT_HEADLINE`; local `capitalize` helper removed (its only caller was the subtitle) | low |
+| `lib/pasantias/ficha.tsx` | masthead subtitle now leads with `COHORT_HEADLINE` | low |
+| `lib/pasantias/__tests__/pdf.test.ts` | date pins re-cut; two prohibition tests; retired-amount check moved to currency context with a two-way control | low |
+| `docs/plan/evidence/a3/{brochure-01,brochure-02,ficha-1}.png` | re-rendered at 144 DPI | none |
+
+The other nine PNGs re-rendered byte-identical (git reports them unmodified), so
+the pages the PM already inspected page by page are provably unchanged.
+
+## Why `COHORT_HEADLINE` and not `COHORT_DATE_LABEL`
+
+Both surfaces previously read `${COHORT_DATE_LABEL} de 2026`. Under the new
+derivation that composition prints **"Octubre, 5 al 16 de 2026"** — the span
+followed by a year-of construction that reads as a date. `COHORT_HEADLINE` is
+the module's own `${COHORT_DATE_LABEL} · ${COHORT_YEAR}` (`COHORT_YEAR` is
+module-private by A1 r6's decision), which is exactly "the single span with the
+year rendered once" and is the same string the homepage card prints. Consuming
+it removes the last locally-composed date fragment from either document: after
+this round neither file names a month, a day or a year of its own.
+
+## Areas to scrutinise hardest
+
+1. **The `Fechas` row is now the same string as the cover.** In the brochure's
+   "Qué es" table, `Fechas` reads `Octubre, 5 al 16 · 2026` — the `·` separator
+   inside a table value is a style call I made rather than one the plan fixes.
+   The alternative (drop the year in the row, since `Cohorte` above it already
+   says "Octubre 2026") would reintroduce a local composition, which is the
+   defect this round exists to remove.
+
+2. **The retired-amount guard changed shape.** r1 asserted
+   `not.toContain('560')` on the raw and compacted text. That fires on any three
+   digits that line up — the brochure prints a RUT (`65.166.503-5`), a phone
+   (`+56 9 4162 3577`) and a street number — so a legitimate content change
+   could have turned it red for an innocent reason, and a check that cries wolf
+   is one that eventually gets deleted. It is now two currency-context regexes
+   (`€\s*1?[.,]?560\b` and `\b1?[.,]?560\s*(?:€|EUR\b|euros?\b)`) exercised by a
+   control test in both directions: seven leak forms must match, four innocent
+   strings must not. Judgement call: a leak written as a bare "560" with no
+   currency marker anywhere near it would now pass. That shape is not reachable
+   from `cohort-commercial.ts` (which has no 560 in it at all — the amount was
+   deleted in A1 r3), so the guard protects against reintroduction by hand, and
+   scoping it to currency is what keeps it alive to do so.
+
+3. **`capitalize` was deleted, not left unused.** Its only caller was the cover
+   subtitle; `buildCohortDateLabel` already capitalises the month. Leaving it
+   would have failed `--max-warnings=0`. No other call site existed (grep).
+
+4. **The ledger merge was a union, not a resolution.** `docs/plan/LEDGER.md`
+   conflicted at the tail. Both sides' entries were kept (main's six, the
+   branch's two), verified by asserting every `### ` heading from each parent
+   survives in the merged file: 75 from main + 2 branch-only = 77. `PLAN.md`
+   came from main untouched (`git diff origin/main -- docs/plan/PLAN.md` is
+   empty).
+
+## Known limitations / deferred
+
+- Everything carried from r1 stands unchanged (CTA URL depends on deployment
+  config; no page-number footer; no testimonios; QA script not in CI; A4 must
+  register itself in `ALLOWED_COMMERCIAL_IMPORTERS`).
+- The prohibition tests pin the *retired* literal `5–9 y 13–16`. If a future
+  cohort legitimately spans two ranges, that pin is the thing to revisit — it
+  encodes an owner decision about this cohort's headline, not a permanent
+  property of the format.

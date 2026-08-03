@@ -17,7 +17,7 @@ Spanish (es-CL)**. Deliverable: **A4 portrait PDF**.
 |---|---|---|
 | "10 días" | Never true for this cohort | **9 días de visitas** |
 | **€1.000 por persona** (precio anterior) | Repreciado 2026-08-02 | **€2.500 por persona** |
-| €560 alojamiento · €1.560 total | Package pricing retired | Programa €1.000 + alojamiento €70–120 pp/noche (see §7) |
+| €560 alojamiento · €1.560 total | Package pricing retired | Programa €2.500 + alojamiento €70–120 pp/noche (ver §7) |
 | Extensión opcional Madrid (Colegio IDEO, Santa Gema, Virgen de Europa, €400/€810/€360, tren €50) | **No existe.** Accidental carry-over | Omit entirely |
 | "desde la noche del domingo 11 de enero" | Leftover from a January edition | Omit; no night counts at all |
 | "presupuesto válido hasta el 1 octubre de 2025" | Stale | "Precios vigentes para la cohorte Octubre 2026" |
@@ -35,7 +35,7 @@ and layout only. Everything factual in it is wrong for October 2026:
 |---|---|
 | "4 días para conocer 5 escuelas" | **9 días de visitas · 7 escuelas** |
 | Enero 2025 · mar 15 – vie 18 | **Octubre, 5 al 16 · 2026** |
-| €3.000 por 2 personas + €1.500 por participante adicional · máximo 12 | **€1.000 por persona** · mínimo 5 |
+| €3.000 por 2 personas + €1.500 por participante adicional · máximo 12 | **€2.500 por persona** · mínimo 5 |
 | **No incluye** almuerzos, desayunos ni cenas | **Sí incluye** comidas en los días de visita + cena de cierre + desayuno a media mañana |
 | **No incluye** alojamiento | Alojamiento aparte pero **coordinado por FNE**, €70–120 pp/noche base doble |
 | Talleres en el **barrio del Born (Barrio Gótico)** | Instituto Relacional, **Eixample** — no es contradicción: el Instituto Relacional **se mudó**. El Born es la dirección antigua (Brent, 2026-08-02). |

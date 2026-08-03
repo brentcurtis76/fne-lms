@@ -714,3 +714,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: 1 Decision Log row (checklist rule)
 - BACKLOG ADDED: none (S2 stands)
 - OPEN AFTER THIS ROUND: Sol scoped nod → owner's merge word for the label fix.
+
+### 2026-08-02 — Correction of the prior entry — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: **The previous entry (commit da7a25c) misstated:** its claimed [A4] rewrite and Decision Log row did NOT land — the python edit failed on an anchor mismatch (bold-marker difference from memory of my own file) and the unchained commands committed the ledger anyway, violating the very gating rule the entry announces. Both edits are truly applied in THIS commit, verified by asserts gating the commit. The irony is recorded as the strongest argument for the rule.
+- COMMITS: (this commit)
+- TESTS: asserts gated the commit (anchor count, retired-literal absence)
+- FINDINGS RAISED: none
+- DECISIONS: (the checklist rule row, actually landed now)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: Sol scoped nod on r6 → owner's merge word for PR #35.

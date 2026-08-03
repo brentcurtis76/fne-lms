@@ -704,3 +704,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: 1 Decision Log row
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A1 r6` (plus A3 r1 + B2 r1 already staged). Parked: "apply it"; t2-ci.
+
+### 2026-08-02 — A1 r6 verified — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Verified with own hands: 54/54 + TZ=America/Santiago 38/38; committed rendered evidence shows `cohort-headline">Octubre, 5 al 16 · 2026<`. Deviation ACCEPTED (year kept trailing in the same element — the literal instruction would have doubled "Octubre"; owner may drop the year with one word). Executor's should-fix accepted: A1 [A4] still pinned the retired label — second propagation-class miss → **new binding PM rule: every content amendment ends with a criteria-grep for the retired literal** (Decision Log). PR opened for CI.
+- COMMITS: (this commit)
+- TESTS: 54/54 + TZ sweep spot (PM re-runs)
+- FINDINGS RAISED: none new
+- DECISIONS: 1 Decision Log row (checklist rule)
+- BACKLOG ADDED: none (S2 stands)
+- OPEN AFTER THIS ROUND: Sol scoped nod → owner's merge word for the label fix.

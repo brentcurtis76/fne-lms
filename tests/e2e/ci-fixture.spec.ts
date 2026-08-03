@@ -1,11 +1,21 @@
 import { test, expect } from '@playwright/test';
-import { E2E_USERS, ensureStorageState, loginViaUi, storageStatePath } from './helpers/auth';
+import {
+  E2E_USERS,
+  FIXTURE_KEYS,
+  ensureStorageState,
+  loginViaUi,
+  storageStatePath,
+} from './helpers/auth';
 
 /**
  * T2 — proves the CI e2e topology itself: the seeded synthetic fixtures exist,
- * both can authenticate through the real login form, and role gating actually
+ * every one can authenticate through the real login form, and role gating actually
  * differs between them. This spec is mandatory (scripts/ci/e2e-mandatory.mjs);
  * it fails the gate if it is skipped.
+ *
+ * Z1c — the login block now iterates every persona in the fixture file instead of the
+ * original two. A persona that is seeded but cannot authenticate is a fixture that would
+ * fail obscurely inside some later authorization spec; here it fails as itself.
  *
  * Requires the seeded local Supabase stack — see .github/workflows/ci.yml gate 4
  * and `node scripts/ci/seed-e2e.mjs`.
@@ -22,7 +32,7 @@ test.describe('CI fixtures — login', () => {
   // Anonymous on purpose: this block exercises the login form itself.
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  for (const key of ['admin', 'docente'] as const) {
+  for (const key of FIXTURE_KEYS) {
     test(`${key} fixture logs in through the login form`, async ({ page }) => {
       await loginViaUi(page, E2E_USERS[key]);
       await expect(page).toHaveURL(/\/dashboard(\?|$)/);

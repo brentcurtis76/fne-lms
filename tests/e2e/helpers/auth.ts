@@ -15,7 +15,14 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import fixtures from '../../../scripts/ci/e2e-fixtures.json';
 
-export type FixtureKey = 'admin' | 'docente';
+export type FixtureKey =
+  | 'admin'
+  | 'docente'
+  | 'consultorGlobal'
+  | 'consultorAssigned'
+  | 'consultorOtherSchool'
+  | 'gcLeader'
+  | 'inactiveConsultor';
 
 export interface E2eFixtureUser {
   email: string;
@@ -23,10 +30,38 @@ export interface E2eFixtureUser {
   firstName: string;
   lastName: string;
   role: string;
+  /** Which fixture school this persona belongs to. Absent means `primary`. */
+  school?: string;
+  /** `global` puts NULL in the role row's school_id — GLOBAL consultor access. */
+  roleScope?: string;
+  /** Which fixture growth community the role row points at. Absent means none. */
+  community?: string;
+  /** Extra role rows seeded with is_active=false. */
+  inactiveRoles?: { role: string; school?: string; roleScope?: string; community?: string }[];
 }
 
+/**
+ * This assignment is the anti-drift mechanism, not decoration: a persona added to
+ * e2e-fixtures.json but missing from `FixtureKey` is unreachable from the specs, and a
+ * `FixtureKey` with no entry in the JSON fails `npm run type-check`. (The spec files
+ * themselves are excluded from tsc by tsconfig's spec-file exclude — this file is not.)
+ */
 export const E2E_USERS: Record<FixtureKey, E2eFixtureUser> = fixtures.users;
 export const E2E_SCHOOL: { id: number; name: string } = fixtures.school;
+export const E2E_SCHOOL_SECONDARY: { id: number; name: string } = fixtures.schoolSecondary;
+
+/**
+ * Every seeded persona, derived from the fixture file rather than listed again — so a
+ * persona added to the JSON is covered by the login proof without anyone remembering to
+ * extend a second list.
+ */
+export const FIXTURE_KEYS = Object.keys(E2E_USERS) as FixtureKey[];
+
+/** The Zoom domain graph seeded by scripts/ci/seed-e2e-zoom.mjs. */
+export const E2E_ZOOM: {
+  community: { id: string; name: string };
+  session: { id: string; title: string; sessionDate: string; startTime: string; endTime: string };
+} = fixtures.zoom;
 
 /** Written at run time; git-ignored — a storageState file is a live session. */
 const AUTH_DIR = join(__dirname, '..', '.auth');

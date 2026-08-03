@@ -69,7 +69,7 @@ Improve communication and sales of Pasantías INSPIRA Barcelona for the **Octobe
 | A9 | Track A release verification (integration e2e + evidence) | TODO | `phase/a9-verify` | A6b, A7a, A7b, A8 |
 | B1a | Expense-report mail moved server-side (recipients derived server-side) | **DONE 2026-07-31** (Codex PASS; code `f29c1ce`, PR #30) | `phase/b1a-expmail` | — |
 | B1b | Relay removal (`send-email.ts`, `test-email.ts`, sendgrid dep) | **DONE 2026-08-02** (Sol PASS r3; head `07ae6b1`, PR #32) | `phase/b1b-relay` | B1a |
-| B2 | Resend / svix / cron compatibility spike | TODO | `phase/b2-spike` | B1b |
+| B2 | Resend / svix / cron compatibility spike | **DONE 2026-08-02** (Sol PASS r2; head per PR #36) | `phase/b2-spike` | B1b |
 | B3 | Email schema: 5 tables + per-op RLS + privilege pgTAP (DB-agent) | TODO | `phase/b3-email-db` | A0, B2 |
 | B4a | Send-side SQL fns (queue/claim/complete/retry) + behavioral pgTAP incl. two-worker | TODO | `phase/b4a-sendfn` | B3 |
 | B4b | Data-side SQL fns (import/metrics/tags/anonymize/webhook-process) + behavioral pgTAP | TODO | `phase/b4b-datafn` | B3 |

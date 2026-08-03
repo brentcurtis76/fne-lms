@@ -282,24 +282,44 @@ const MONTH_NAMES_ES = [
   'diciembre',
 ];
 
+/** The month name leads the label, so it carries the sentence's initial. */
+function capitalizeFirst(word: string): string {
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
 /**
  * The short date line every surface shows, derived from {@link COHORT_WEEKS} so
  * it can never drift from the calendar above. All weeks fall in one month, which
- * is what lets the month be named once at the end.
+ * is what lets the month be named once, at the front.
+ *
+ * Appendix A-1, amended 2026-08-02: **one continuous span**, from the first
+ * visit day of the first week to the last visit day of the last week. The two
+ * ranges this used to print read as two different pasantías; the two-week
+ * structure belongs to itinerary detail, never to a headline or a chip.
+ *
+ * The year is deliberately absent — it renders beside the span (see
+ * {@link COHORT_HEADLINE}), and repeating it here would print it twice.
  */
 export function buildCohortDateLabel(weeks: readonly CohortWeek[] = COHORT_WEEKS): string {
-  const ranges = weeks.map(
-    (week) => `${dayOfMonth(week.startDate)}–${dayOfMonth(week.endDate)}`
-  );
-  const month = MONTH_NAMES_ES[toUtcDate(weeks[0].startDate).getUTCMonth()];
-  return `${ranges.join(' y ')} de ${month}`;
+  const visitDays = weeks.flatMap((week) => week.visitDays);
+  const firstDay = visitDays[0];
+  const lastDay = visitDays[visitDays.length - 1];
+  const month = MONTH_NAMES_ES[toUtcDate(firstDay).getUTCMonth()];
+  return `${capitalizeFirst(month)}, ${dayOfMonth(firstDay)} al ${dayOfMonth(lastDay)}`;
 }
 
-/** e.g. `5–9 y 13–16 de octubre`. */
+/** e.g. `Octubre, 5 al 16`. */
 export const COHORT_DATE_LABEL = buildCohortDateLabel();
 
-/** The full headline used on the homepage card: label + dates. */
-export const COHORT_HEADLINE = `${COHORT_LABEL} · ${COHORT_DATE_LABEL}`;
+/** Read off the calendar above rather than written down a second time. */
+const COHORT_YEAR = toUtcDate(COHORT_WEEKS[0].startDate).getUTCFullYear();
+
+/**
+ * The full headline used on the homepage card: the single span plus the year.
+ * The span already names the month, so {@link COHORT_LABEL} ("Octubre 2026")
+ * cannot lead it without printing "Octubre" twice — the year alone follows.
+ */
+export const COHORT_HEADLINE = `${COHORT_DATE_LABEL} · ${COHORT_YEAR}`;
 
 /**
  * Everything public, in one object — the convenient shape for consumers. The

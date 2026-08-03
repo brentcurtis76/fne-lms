@@ -795,3 +795,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: deviation + Fechas-row assumption accepted
 - BACKLOG ADDED: none (S2 stands; A4 carries the allowlist + CTA-URL items)
 - OPEN AFTER THIS ROUND: **A3 → Sol final review.** Note for Sol: the customer-facing brochure will be a Claude-designed PDF via D-05's override path (owner decision, Decision Log 2026-08-02) — this generator remains the data-faithful fallback + regression canary, and the ficha stays generated, so the phase's criteria are unchanged.
+
+### 2026-08-02 — A3 close — Fable (PM, per SOP §3.8)
+- CONTEXT PRESSURE: n/a
+- ACTION: Sol final review = **PASS, zero BLOCKING** (REVIEW-A3.md, committed with this entry; Sol independently ran the 29-test suite, inspected all 12 renders, checked the D-02/import boundary and full gates). **A3 DONE** — two rounds: generators + 12-render visual QA, then the single-span label fix and the currency-context retired-amount hardening. Two SHOULD-FIX to Backlog: (1) retired-amount prefix matching is still incomplete; (2) the RFC 5987 helper is overly permissive — both current filename constants are safe under the grammar, but **A4 consumes that helper for its Content-Disposition headers, so A4's round tightens it** (carry-forward recorded in the backlog rows). Product note carried for Sol/future readers: the customer-facing brochure will be a Claude-designed PDF via D-05's override path; this generator is the data-faithful fallback + regression canary and the ficha ships generated.
+- COMMITS: (this close commit)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: —
+- BACKLOG ADDED: retired-amount prefix matching; RFC 5987 helper strictness (both → A4)
+- OPEN AFTER THIS ROUND: reconcile → **Brent's merge word for PR #37**.

@@ -774,3 +774,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: 1 Decision Log row (mandatory pacing)
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA B2 r2`; A3 awaits Sol; owner: "apply it", t2-ci, design content pack on request.
+
+### 2026-08-02 — Brochure design content pack — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Built the design-session handoff per the design-content rule (Decision Log 2026-08-02). Committed at `docs/plan/design/brochure-content-pack.md`; working copy for the owner at `~/Documents/inspira-design/` with the 12 current renders in `renders-actuales/`. The pack leads with a **retired-facts table** (10 días, €560/€1.560, Madrid, enero leftover, 2025 validity, Learnlife, Sandra-as-directora, two-range headline, night counts) so a design session cannot resurrect them from the old deck; then carries every approved fact, the 13 objectives verbatim, the two-tier structure, the equipo with corrected titles, the bios transcribed from the source PPTX, investment per amended A-8, claims, legal identity, and a design brief naming exactly what the generated version lacks. **Honesty note carried into the pack:** the bios were extracted from a column layout where name↔bio pairing can scramble — flagged for Coral/Mora verification before publication. The source PPTX itself is gone from disk (WhatsApp temp cleared); its text survives only through this pack, which is now its system of record.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: none new (executes the recorded rule)
+- BACKLOG ADDED: bios name↔bio pairing verification with the BCN team (pre-publication gate for the designed brochure)
+- OPEN AFTER THIS ROUND: owner runs the design session; the resulting PDF needs per-file owner approval + a PM D-02 price check before it goes to the override cache path (A4).

@@ -964,3 +964,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: none new (applies the standing canonical-brochure ruling)
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: merge word for PR #38; A4 / A5 / B3 dispatchable.
+
+### 2026-08-02 — A4 / A5 / B3 dispatched — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner: "let's do it all." Three prompts written and committed. **A4** (`prompts/a4-1.md`) — criteria INLINED rather than referencing PLAN's "as v2 A4", because stale plan references have caused three defects here; carries two prior findings that land in this phase (register the brochure route in `ALLOWED_COMMERCIAL_IMPORTERS`, and tighten Sol's over-permissive RFC 5987 helper), and asks the CTA-URL question explicitly instead of letting it be guessed. **A5** (`prompts/a5-1.md`) — full D-12 split-consent contract, the transition graph, anti-enumeration identical 200s, escaping, 24h auto-reply dedup, and the fact that the table is now live in prod with service-role as the only write path. **B3** (`prompts/b3-1.md`) — DB-agent round front-loaded with everything A2 paid to learn: grant-list form (not a denylist), RLS-is-not-the-write-boundary, ACL-level pgTAP via `aclexplode` (not `information_schema`), version-guarded MAINTAIN asserts with the local/CI PG17.6 vs prod PG15.8 split spelled out. PR #38 reconciled with main; watcher will merge it when CI clears.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: none
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: three executor rounds in flight once dispatched; PR #38 merging on the watcher.

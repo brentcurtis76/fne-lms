@@ -934,3 +934,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: —
 - BACKLOG ADDED: none new
 - OPEN AFTER THIS ROUND: reconcile with main@b69b4a9 → **Brent's merge word for PR #36**. B3 unblocks on merge.
+
+### 2026-08-02 — a1-repricing Sol triage → r2 staged — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Sol FAIL ×2, both accepted (branch ledger carries detail). Finding 2 is a PM-caused gap — my `a1-3` prompt dropped €1.560/€560 from the scanner — so a **standing rule is now in the Decision Log: every retired price stays guarded forever**, with per-amount mutation evidence. `prompts/a1-repricing-2.md` staged: verbatim A-7 transcription + a drift test, both retired amounts restored with proofs, and Sol's SHOULD-FIX (bounding `2[.,\s]?500` against €12.500/€2.5000) folded in since it edits the same regex block.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 1 Decision Log row (retired amounts guarded permanently)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA a1-repricing r2`. Owner words still parked: "apply it" (leads migration → prod), t2-ci cleanup.

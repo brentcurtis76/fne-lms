@@ -744,3 +744,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: —
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: **merge word for #35.**
+
+### 2026-08-02 — A3 r1 + B2 r1 verified; a3-2 staged — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Both verified with own hands (26/26 + 35/35 re-runs; 12 renders inspected page by page; findings card read). A3: high quality, ONE finding — both subtitles render the retired two-range label (branch predates r6); `prompts/a3-2.md` staged (merge main → derived label flows → re-render evidence → pin + currency-context 560 hardening). B2: clean → Sol review (PR #36); D-07 idempotency decision deferred to B10a with three costed options; owner one-liner open: confirm the Vercel account is Pro (closes B2's R1 residue — currently sourced from the Zoom doc's record).
+- COMMITS: (this commit — a3-2 prompt + this entry)
+- TESTS: as branch entries
+- FINDINGS RAISED: A3 retired-label (r2)
+- DECISIONS: D-07 dedup deferred (branch entry)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A3 r2`; Sol on B2; owner: Vercel-Pro confirm, "apply it", t2-ci.

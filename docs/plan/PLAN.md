@@ -58,7 +58,7 @@ Improve communication and sales of Pasantías INSPIRA Barcelona for the **Octobe
 | T2 | CI e2e topology: local Supabase stack + seeded fixtures + mandatory specs | **DONE 2026-07-31** (Codex PASS; code head `eb908ed`, PR #27) | `phase/t2-ci` | — |
 | A1 | Cohort data modules + leak guard + homepage date fix | **DONE 2026-08-02** (Sol PASS r5; head `992aeef`, PR #34) | `phase/a1-cohort` | A0 |
 | A2 | `pasantias_leads` migration + per-op RLS + pgTAP (DB-agent) | **DONE 2026-07-31** (Codex PASS r3; head `e13adfb`, PR #31) | `phase/a2-leads-db` | A0 |
-| A3 | Brochure + ficha generators + PDF text/visual QA | TODO | `phase/a3-pdfgen` | A1 |
+| A3 | Brochure + ficha generators + PDF text/visual QA | **DONE 2026-08-02** (Sol PASS r2; PR #37) | `phase/a3-pdfgen` | A1 |
 | A4 | PDF serving endpoints + leak checks | TODO | `phase/a4-pdfsrv` | A3 |
 | A5 | Lead API + transition helper + auto-reply/notification | TODO | `phase/a5-lead-api` | A2, A4 |
 | A6a | `/pasantias` page: sections + ficha CTA (no form) | TODO | `phase/a6a-page` | A1, A4 |

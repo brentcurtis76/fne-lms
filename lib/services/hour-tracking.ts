@@ -305,7 +305,13 @@ export async function createReservation(
     ? budgetInfo.available_hours < hours
     : false;
 
-  // Create ledger entry
+  // Create ledger entry.
+  // planned_minutes_snapshot (Zoom plan §11, Z1b slice): the approved duration
+  // in minutes captured at reservation time — durationMins IS the session's
+  // scheduled_duration_minutes (or the identical start/end computation when
+  // the generated column is absent), the same figure `hours` bills from.
+  // Zoom execution data never changes it; only the Z2 pre-execution reschedule
+  // RPC (and the Z7 admin override) may.
   const { data: ledgerEntry, error: ledgerError } = await serviceClient
     .from('contract_hours_ledger')
     .insert({
@@ -317,6 +323,7 @@ export async function createReservation(
       recorded_by: userId,
       is_over_budget: isOverBudget,
       is_manual: false,
+      planned_minutes_snapshot: durationMins,
     })
     .select('id')
     .single();

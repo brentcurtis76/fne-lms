@@ -1,12 +1,21 @@
 project_id = "sxlogxqzmarhqsblxmtj"
 
+# LOCAL Data API exposure (Z1b item 6). Declaring `schemas` replaces the CLI
+# defaults, so the default entries are preserved explicitly alongside
+# zoom_internal. Exposure makes serviceClient.schema('zoom_internal')
+# addressable; access is denied by GRANTS (see the zoom_internal migrations +
+# pgTAP 002) — the grants, not this list, are the enforcing control.
+# PRODUCTION exposure is Brent's ops checklist item at release (plan §16).
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public", "zoom_internal"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
 # Z0B-2 (spike): LOCAL Supabase only — the recording round trip streams Zoom → local
 # Storage over the S3 multipart protocol, which the CLI only exposes when
 # [storage.s3_protocol] is enabled. Production storage is never touched by this spike.
-#
-# MERGE NOTE: a parallel branch (feat/zoom-core, Z1b) adds an [api] section to this same
-# 36-byte stub. The two diffs do not overlap textually but do touch the same file —
-# sequence them rather than expecting a clean auto-merge.
 [storage]
 enabled = true
 # Mirrors the plan §7 bucket ceiling (`zoom-recordings`, fileSizeLimit 2GB) so a local

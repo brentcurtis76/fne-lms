@@ -934,6 +934,17 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: —
 - BACKLOG ADDED: none new
 - OPEN AFTER THIS ROUND: reconcile with main@b69b4a9 → **Brent's merge word for PR #36**. B3 unblocks on merge.
+
+### 2026-08-02 — a1-repricing Sol triage → r2 staged — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Sol FAIL ×2, both accepted (branch ledger carries detail). Finding 2 is a PM-caused gap — my `a1-3` prompt dropped €1.560/€560 from the scanner — so a **standing rule is now in the Decision Log: every retired price stays guarded forever**, with per-amount mutation evidence. `prompts/a1-repricing-2.md` staged: verbatim A-7 transcription + a drift test, both retired amounts restored with proofs, and Sol's SHOULD-FIX (bounding `2[.,\s]?500` against €12.500/€2.5000) folded in since it edits the same regex block.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 1 Decision Log row (retired amounts guarded permanently)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA a1-repricing r2`. Owner words still parked: "apply it" (leads migration → prod), t2-ci cleanup.
+
 ### 2026-08-03 — a1-repricing r1: FINDINGS (no code) — Opus (executor)
 - CONTEXT PRESSURE: comfortable
 - ACTION: **Stopped before any code change — three blocking findings, two of which would have made a correct branch fail review by construction.** (F1) The prompt's premise "A1 and A3 are already merged" is **false for A3**: PR #37 is still OPEN, so `lib/pasantias/__tests__/pdf.test.ts`, `brochure.tsx`, `ficha.tsx`, `pdf/*`, `scripts/pasantias-visual-qa.ts` and `docs/plan/evidence/a3/` **do not exist on `origin/main`** — scope items 4c (A3 brochure pins) and 5 (re-render evidence PNGs) are unexecutable from the specified base. PR #36 (B2) is also still open. This is precisely the precondition the previous entry recorded under OPEN AFTER THIS ROUND; the round was dispatched ahead of it. (F2) **PLAN acceptance criteria still pin the retired €1.000** — `PLAN.md:124` A1 [A3] "money math per amended A-8 (**program = 1000**…)" and `PLAN.md:140` Phase A3 "brochure carries **\"1.000\"**". Executing scope item 1 (1000 → 2500) makes the branch violate two written criteria; this is the **third propagation-class miss** and the exact failure mode the r3 finding (`PLAN.md:356`) and the binding PM amendment-checklist rule (`PLAN.md:361`) exist to prevent — the grep-for-the-retired-literal step did not run for this amendment. (F3) **Appendix A-7 contradicts itself on excludes**: the updated "**NO incluye:** … comidas … segunda semana; **cenas**; … transporte a El Puig y Les Vinyes …" line is followed three lines later by the *retired* list "**El programa NO incluye:** desayunos de hotel; **cenas (salvo la de cierre)**; …", which still matches today's `COHORT_EXCLUDES` **verbatim** — so the authoritative source gives two conflicting normative answers and an executor cannot distinguish "not yet propagated" from "deliberately kept". `A-16`'s CLOSED text (`PLAN.md:389`) likewise still prescribes the retired phrasing "comidas incluidas en los días de visita y cena de cierre". Verified consistent and needing no arbitration: the **includes** list (prompt item 2 matches A-7 exactly — 6 items, ending in the Virolai/Sadako lunches; the El Puig/Les Vinyes transport and the old meals line both drop out) and the €2.500 / €70–120 band figures in A-8.

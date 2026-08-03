@@ -724,3 +724,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: D-07 dedup mechanism deferred to B10a with the findings' three options
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: **B2 → Sol final review.** PR opened for CI.
+
+### 2026-08-02 — B2 Codex round 1 — Fable (PM triage)
+- CONTEXT PRESSURE: n/a
+- ACTION: Sol review = **FAIL, 3 BLOCKING, all ACCEPTED** (REVIEW-B2.md, committed with this entry). (1) Idempotency options understate duplicate exposure + misprice the minimum SDK upgrade → r2 rewrites the option set with correct exposure arithmetic and a verified minimum version. (2) The svix suite does not actually lock raw-byte verification or the exact ±300s boundary — **two meaningful mutants stayed falsely green**, which is precisely the failure mode a contract suite exists to prevent → r2 tightens both, with the mutants as the acceptance proof. (3) **PM-owned plan defect:** D-07's bounds (≤2 campaigns × ≤3 claims × ≤200 rows, ≤100/batch) permit **12 provider calls per tick** against Resend's 10 req/s ceiling, with no pacing requirement anywhere — Sol did arithmetic on my spec that I never did. Fixed on main: D-07 + B10a [A1] now mandate a paced sender (≥150 ms between provider calls ⇒ ≤6.7 req/s, comfortably inside the ceiling) with fake-clock spacing tests. Also: R1 CLOSED by Brent's first-hand Pro screenshot (already on main); PR #36 needs a main reconciliation for CI — folded into r2's first step. Codex round 1 of 2.
+- COMMITS: (this commit — REVIEW-B2.md + this entry)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: n/a (triage)
+- DECISIONS: all three accepted; the pacing amendment is recorded in main's Decision Log
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: `/exec INSPIRA B2 r2`.

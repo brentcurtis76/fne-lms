@@ -403,3 +403,17 @@ passed for the wrong reason. ③ was pre-declared by the executor, PM-endorsed, 
 now ruled in by Sol. The narrowing holds: one substantive code defect (a
 single-predicate-arm deletion), one test-double fix, one pre-declared two-liner, and
 docs. One round: **Z1b-sol9**.
+
+## Round 10 — Re-review of Z1b-sol9 (verdict: APPROVE, 2026-08-02)
+
+Verdict verbatim: "No changes requested. Z1b-sol9 is approved as reviewed." Zero
+findings. The fase-3 independent review closes after ten rounds: R1 six findings →
+R2 four → R3 three → R4 one → R5 two → R6 two → R7 two → R8 three → R9 four items →
+R10 APPROVE. Every finding was remediated in its own round, independently verified by
+the PM (fail-on-old re-executions, reconstructed controls, negative-control
+replications, line-by-line double reads), and archived here with the PM's triage —
+including eleven explicit PM concessions across the loop, each of which produced a
+recorded discipline change (binary verdicts; identity over existence; markers decided
+first; doubles read, not counted; guard commands never piped through tail).
+
+**The branch may proceed to Brent's merge decision per §0.2 step 5.**

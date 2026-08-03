@@ -114,9 +114,7 @@ escuelas.*
 
 The Enero-2025 deck had one page the current material lacks entirely: what each
 school is actually *known for*. This answers "why do I care about this school",
-which the October brochure never says. Transcribed below **for revival, subject
-to verification** — school levels and focus areas may have changed since
-January 2025.
+which the October brochure never says. **Todo lo de abajo está aprobado por el propietario (2026-08-02)** — el brochure revisado es canónico y los niveles de El Puig y Les Vinyes los confirmó él directamente. No requiere verificación adicional.
 
 | Escuela | Niveles | Aspectos destacados |
 |---|---|---|
@@ -125,8 +123,8 @@ January 2025.
 | **La Maquinista** | Infantil y primaria | Organización y espacios · Evaluación formativa, rúbricas y autoevaluación · Cajas de aprendizaje · Organización participativa de los alumnos |
 | **Octavio Paz** | Infantil y primaria | Organización y espacios · Evaluación formativa, diarios de aprendizaje · Proyecto anual temático y cajas de aprendizaje · Trabajo por comunidades de alumnos |
 | **Angeleta Ferrer** | ESO | Organización y espacios · Evaluación formativa, portfolios · Autonomía del alumnado · Vinculación de la escuela con la comunidad |
-| **El Puig** | — | Incorporación de la naturaleza y el arte · Gobierno estudiantil · Trabajo de estudiantes internivel · Metaprendizaje *(aprobado en el brochure 2026-08-02)* |
-| **Les Vinyes** | — | Trabajo interdisciplinario · Aprendizaje Basado en Proyectos · Autonomía del estudiante · Coherencia escolar · Codocencia *(aprobado en el brochure 2026-08-02)* |
+| **El Puig** | Infantil, primaria y ESO | Incorporación de la naturaleza y el arte · Gobierno estudiantil · Trabajo de estudiantes internivel · Metaprendizaje *(aprobado en el brochure 2026-08-02)* |
+| **Les Vinyes** | Infantil, primaria y ESO | Trabajo interdisciplinario · Aprendizaje Basado en Proyectos · Autonomía del estudiante · Coherencia escolar · Codocencia *(aprobado en el brochure 2026-08-02)* |
 
 > **Closed 2026-08-02:** all seven schools now have owner-approved highlights (the brochure supplied El Puig's and Les Vinyes').
 

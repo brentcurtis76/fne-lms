@@ -945,6 +945,26 @@ Entry format (§2.2 of the SOP):
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA a1-repricing r2`. Owner words still parked: "apply it" (leads migration → prod), t2-ci cleanup.
 
+### 2026-08-02 — Production migration applied; t2-ci retired — Fable (PM, owner-authorized)
+- CONTEXT PRESSURE: n/a
+- ACTION: **(1) `pasantias_leads` APPLIED TO PRODUCTION** on Brent's explicit "apply it". Pre-flight (read-only MCP): table absent, `set_updated_at` present, `user_role_type` has `admin`, `user_roles` present. Migration read from `origin/main` and scanned — every DROP/TRUNCATE hit is inside a comment, additive only. Applied verbatim via the Management API (HTTP 201). **Post-verify against the real ACL** (`aclexplode(relacl)`, not the filtered `information_schema` view — which showed a misleading NONE): `authenticated = SELECT` only, **`anon` has no ACL entry at all**, `service_role` = full (the sole write path); RLS enabled; exactly one policy (`pasantias_leads_admin_select`, SELECT, no WITH CHECK); 4 CHECK constraints; `set_updated_at` trigger attached. Production now matches the pgTAP-proven design, so A5's lead API has a real table to write to. **(2) `phase/t2-ci` DELETED** after proving it held nothing unique: its 9 non-main commits were docs-only (the stranded PM lineage), every prompt file and PLAN marker from them is present on main via PR #33, and T2's actual deliverables (`scripts/ci/seed-e2e.mjs`, `e2e-mandatory.mjs`, `e2e-fixtures.json`, `tests/e2e/helpers/auth.ts`) are on main. The branch-drift incident is now closed at the source — no stale lineage remains readable as authoritative.
+- COMMITS: (this commit)
+- TESTS: production catalog verification (above), PM-run
+- FINDINGS RAISED: none
+- DECISIONS: none new (executes owner instructions)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: merge word for PR #38; A4/A5/B3 dispatchable — **A5 is now unblocked end-to-end** (table live in prod).
+
+### 2026-08-02 — School levels recorded; verification item withdrawn — Fable (PM, owner input)
+- CONTEXT PRESSURE: n/a
+- ACTION: **PM error corrected:** the owner had already declared the reviewed brochure canonical (Decision Log 2026-08-02) and the pack's FALTA rows were closed on that basis — then I drafted a Coral/Mora verification message for the same El Puig / Les Vinyes highlights, re-opening a question the owner had settled. Withdrawn; no message drafted or sent. Owner supplied the one genuinely missing datum in the same breath: **El Puig and Les Vinyes each serve infantil, primaria y ESO — no bachillerato** (the brochure's school page omits levels for those two, so this fills a real gap for future materials). Recorded in §5b of both content-pack copies, and the section's "subject to verification" caveat replaced with the owner-approved status.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: none new (applies the standing canonical-brochure ruling)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: merge word for PR #38; A4 / A5 / B3 dispatchable.
+
 ### 2026-08-03 — a1-repricing r1: FINDINGS (no code) — Opus (executor)
 - CONTEXT PRESSURE: comfortable
 - ACTION: **Stopped before any code change — three blocking findings, two of which would have made a correct branch fail review by construction.** (F1) The prompt's premise "A1 and A3 are already merged" is **false for A3**: PR #37 is still OPEN, so `lib/pasantias/__tests__/pdf.test.ts`, `brochure.tsx`, `ficha.tsx`, `pdf/*`, `scripts/pasantias-visual-qa.ts` and `docs/plan/evidence/a3/` **do not exist on `origin/main`** — scope items 4c (A3 brochure pins) and 5 (re-render evidence PNGs) are unexecutable from the specified base. PR #36 (B2) is also still open. This is precisely the precondition the previous entry recorded under OPEN AFTER THIS ROUND; the round was dispatched ahead of it. (F2) **PLAN acceptance criteria still pin the retired €1.000** — `PLAN.md:124` A1 [A3] "money math per amended A-8 (**program = 1000**…)" and `PLAN.md:140` Phase A3 "brochure carries **\"1.000\"**". Executing scope item 1 (1000 → 2500) makes the branch violate two written criteria; this is the **third propagation-class miss** and the exact failure mode the r3 finding (`PLAN.md:356`) and the binding PM amendment-checklist rule (`PLAN.md:361`) exist to prevent — the grep-for-the-retired-literal step did not run for this amendment. (F3) **Appendix A-7 contradicts itself on excludes**: the updated "**NO incluye:** … comidas … segunda semana; **cenas**; … transporte a El Puig y Les Vinyes …" line is followed three lines later by the *retired* list "**El programa NO incluye:** desayunos de hotel; **cenas (salvo la de cierre)**; …", which still matches today's `COHORT_EXCLUDES` **verbatim** — so the authoritative source gives two conflicting normative answers and an executor cannot distinguish "not yet propagated" from "deliberately kept". `A-16`'s CLOSED text (`PLAN.md:389`) likewise still prescribes the retired phrasing "comidas incluidas en los días de visita y cena de cierre". Verified consistent and needing no arbitration: the **includes** list (prompt item 2 matches A-7 exactly — 6 items, ending in the Virolai/Sadako lunches; the El Puig/Les Vinyes transport and the old meals line both drop out) and the €2.500 / €70–120 band figures in A-8.

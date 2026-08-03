@@ -1,0 +1,147 @@
+1..142
+ok 1 - La tabla email_contacts del schema public debe tener RLS habilitado
+ok 2 - La tabla email_campaigns del schema public debe tener RLS habilitado
+ok 3 - La tabla email_campaign_sends del schema public debe tener RLS habilitado
+ok 4 - La tabla email_suppression del schema public debe tener RLS habilitado
+ok 5 - La tabla email_webhook_events del schema public debe tener RLS habilitado
+ok 6 - email_contacts: exactly one policy — admin SELECT-only, TO authenticated
+ok 7 - email_campaigns: exactly one policy — admin SELECT-only, TO authenticated
+ok 8 - email_campaign_sends: exactly one policy — admin SELECT-only, TO authenticated
+ok 9 - email_suppression: exactly one policy — admin SELECT-only, TO authenticated
+ok 10 - email_webhook_events: exactly one policy — admin SELECT-only, TO authenticated
+ok 11 - comms tables: no policy carries a WITH CHECK — no authenticated write path exists
+ok 12 - email_contacts / anon: the ACL carries no entry for it — every privilege the server defines, standard or not, is revoked
+ok 13 - email_campaigns / anon: the ACL carries no entry for it — every privilege the server defines, standard or not, is revoked
+ok 14 - email_campaign_sends / anon: the ACL carries no entry for it — every privilege the server defines, standard or not, is revoked
+ok 15 - email_suppression / anon: the ACL carries no entry for it — every privilege the server defines, standard or not, is revoked
+ok 16 - email_webhook_events / anon: the ACL carries no entry for it — every privilege the server defines, standard or not, is revoked
+ok 17 - email_contacts / authenticated: the ACL carries exactly {SELECT} — nothing else, whatever privileges this server version defines
+ok 18 - email_campaigns / authenticated: the ACL carries exactly {SELECT} — nothing else, whatever privileges this server version defines
+ok 19 - email_campaign_sends / authenticated: the ACL carries exactly {SELECT} — nothing else, whatever privileges this server version defines
+ok 20 - email_suppression / authenticated: the ACL carries exactly {SELECT} — nothing else, whatever privileges this server version defines
+ok 21 - email_webhook_events / authenticated: the ACL carries exactly {SELECT} — nothing else, whatever privileges this server version defines
+ok 22 - anon: holds TRUNCATE on none of the five tables (RLS would not govern it)
+ok 23 - authenticated: holds TRUNCATE on none of the five tables (RLS would not govern it)
+ok 24 - anon: holds MAINTAIN on none of the five tables (PostgreSQL 17+)
+ok 25 - authenticated: holds MAINTAIN on none of the five tables (PostgreSQL 17+)
+ok 26 - email_contacts / service_role: CRUD privileges untouched by the REVOKEs — the only write path survives
+ok 27 - email_campaigns / service_role: CRUD privileges untouched by the REVOKEs — the only write path survives
+ok 28 - email_campaign_sends / service_role: CRUD privileges untouched by the REVOKEs — the only write path survives
+ok 29 - email_suppression / service_role: CRUD privileges untouched by the REVOKEs — the only write path survives
+ok 30 - email_webhook_events / service_role: CRUD privileges untouched by the REVOKEs — the only write path survives
+ok 31 - email_campaign_sends.provider_batch_key exists (created unused at B3 for B10a)
+ok 32 - email_campaign_sends.provider_batch_key is nullable — nothing writes it until B10a
+ok 33 - email_webhook_events.detail exists (D-06 allowlisted, PII-free projection written only by process_webhook_event)
+
+ok 34 - admin / email_contacts: SELECT allowed — the policy lets an admin read the seeded row
+ok 35 - admin / email_campaigns: SELECT allowed — the policy lets an admin read the seeded row
+ok 36 - admin / email_campaign_sends: SELECT allowed — the policy lets an admin read the seeded row
+ok 37 - admin / email_suppression: SELECT allowed — the policy lets an admin read the seeded row
+ok 38 - admin / email_webhook_events: SELECT allowed — the policy lets an admin read the seeded row
+ok 39 - admin / email_contacts: INSERT denied at the privilege layer (no INSERT grant, no WITH CHECK policy)
+ok 40 - admin / email_campaigns: INSERT denied at the privilege layer (no INSERT grant, no WITH CHECK policy)
+ok 41 - admin / email_campaign_sends: INSERT denied at the privilege layer (no INSERT grant, no WITH CHECK policy)
+ok 42 - admin / email_suppression: INSERT denied at the privilege layer (no INSERT grant, no WITH CHECK policy)
+ok 43 - admin / email_webhook_events: INSERT denied at the privilege layer (no INSERT grant, no WITH CHECK policy)
+ok 44 - admin / email_contacts: UPDATE denied at the privilege layer
+ok 45 - admin / email_campaigns: UPDATE denied at the privilege layer
+ok 46 - admin / email_campaign_sends: UPDATE denied at the privilege layer
+ok 47 - admin / email_suppression: UPDATE denied at the privilege layer
+ok 48 - admin / email_webhook_events: UPDATE denied at the privilege layer
+ok 49 - admin / email_contacts: DELETE denied at the privilege layer — erasure is anonymize-only
+ok 50 - admin / email_campaigns: DELETE denied at the privilege layer — erasure is anonymize-only
+ok 51 - admin / email_campaign_sends: DELETE denied at the privilege layer — erasure is anonymize-only
+ok 52 - admin / email_suppression: DELETE denied at the privilege layer — erasure is anonymize-only
+ok 53 - admin / email_webhook_events: DELETE denied at the privilege layer — erasure is anonymize-only
+ok 54 - admin / email_contacts: TRUNCATE denied — the SELECT-only posture survives a command RLS never sees
+ok 55 - admin / email_campaigns: TRUNCATE denied — the SELECT-only posture survives a command RLS never sees
+ok 56 - admin / email_campaign_sends: TRUNCATE denied — the SELECT-only posture survives a command RLS never sees
+ok 57 - admin / email_suppression: TRUNCATE denied — the SELECT-only posture survives a command RLS never sees
+ok 58 - admin / email_webhook_events: TRUNCATE denied — the SELECT-only posture survives a command RLS never sees
+
+ok 59 - docente / email_contacts: SELECT returns 0 rows — the admin-only policy filters everything
+ok 60 - docente / email_campaigns: SELECT returns 0 rows — the admin-only policy filters everything
+ok 61 - docente / email_campaign_sends: SELECT returns 0 rows — the admin-only policy filters everything
+ok 62 - docente / email_suppression: SELECT returns 0 rows — the admin-only policy filters everything
+ok 63 - docente / email_webhook_events: SELECT returns 0 rows — the admin-only policy filters everything
+ok 64 - docente / email_contacts: INSERT denied at the privilege layer
+ok 65 - docente / email_campaigns: INSERT denied at the privilege layer
+ok 66 - docente / email_campaign_sends: INSERT denied at the privilege layer
+ok 67 - docente / email_suppression: INSERT denied at the privilege layer
+ok 68 - docente / email_webhook_events: INSERT denied at the privilege layer
+ok 69 - docente / email_contacts: UPDATE denied at the privilege layer
+ok 70 - docente / email_campaigns: UPDATE denied at the privilege layer
+ok 71 - docente / email_campaign_sends: UPDATE denied at the privilege layer
+ok 72 - docente / email_suppression: UPDATE denied at the privilege layer
+ok 73 - docente / email_webhook_events: UPDATE denied at the privilege layer
+ok 74 - docente / email_contacts: DELETE denied at the privilege layer
+ok 75 - docente / email_campaigns: DELETE denied at the privilege layer
+ok 76 - docente / email_campaign_sends: DELETE denied at the privilege layer
+ok 77 - docente / email_suppression: DELETE denied at the privilege layer
+ok 78 - docente / email_webhook_events: DELETE denied at the privilege layer
+ok 79 - docente / email_contacts: TRUNCATE denied at the privilege layer
+ok 80 - docente / email_campaigns: TRUNCATE denied at the privilege layer
+ok 81 - docente / email_campaign_sends: TRUNCATE denied at the privilege layer
+ok 82 - docente / email_suppression: TRUNCATE denied at the privilege layer
+ok 83 - docente / email_webhook_events: TRUNCATE denied at the privilege layer
+
+ok 84 - anon / email_contacts: SELECT denied at the privilege layer (never reaches the policy)
+ok 85 - anon / email_campaigns: SELECT denied at the privilege layer (never reaches the policy)
+ok 86 - anon / email_campaign_sends: SELECT denied at the privilege layer (never reaches the policy)
+ok 87 - anon / email_suppression: SELECT denied at the privilege layer (never reaches the policy)
+ok 88 - anon / email_webhook_events: SELECT denied at the privilege layer (never reaches the policy)
+ok 89 - anon / email_contacts: INSERT denied at the privilege layer
+ok 90 - anon / email_campaigns: INSERT denied at the privilege layer
+ok 91 - anon / email_campaign_sends: INSERT denied at the privilege layer
+ok 92 - anon / email_suppression: INSERT denied at the privilege layer
+ok 93 - anon / email_webhook_events: INSERT denied at the privilege layer
+ok 94 - anon / email_contacts: UPDATE denied at the privilege layer
+ok 95 - anon / email_campaigns: UPDATE denied at the privilege layer
+ok 96 - anon / email_campaign_sends: UPDATE denied at the privilege layer
+ok 97 - anon / email_suppression: UPDATE denied at the privilege layer
+ok 98 - anon / email_webhook_events: UPDATE denied at the privilege layer
+ok 99 - anon / email_contacts: DELETE denied at the privilege layer
+ok 100 - anon / email_campaigns: DELETE denied at the privilege layer
+ok 101 - anon / email_campaign_sends: DELETE denied at the privilege layer
+ok 102 - anon / email_suppression: DELETE denied at the privilege layer
+ok 103 - anon / email_webhook_events: DELETE denied at the privilege layer
+ok 104 - anon / email_contacts: TRUNCATE denied — the command RLS never sees is stopped by the revoked grant
+ok 105 - anon / email_campaigns: TRUNCATE denied — the command RLS never sees is stopped by the revoked grant
+ok 106 - anon / email_campaign_sends: TRUNCATE denied — the command RLS never sees is stopped by the revoked grant
+ok 107 - anon / email_suppression: TRUNCATE denied — the command RLS never sees is stopped by the revoked grant
+ok 108 - anon / email_webhook_events: TRUNCATE denied — the command RLS never sees is stopped by the revoked grant
+
+ok 109 - service_role: INSERT allowed on email_contacts
+ok 110 - service_role: INSERT allowed on email_campaigns
+ok 111 - service_role: INSERT allowed on email_campaign_sends
+ok 112 - service_role: INSERT allowed on email_suppression
+ok 113 - service_role: INSERT allowed on email_webhook_events
+ok 114 - contacts: a non-anonymized row with no email violates the two-shape identity CHECK
+ok 115 - contacts: email_normalized that is not lower(btrim(email)) violates the two-shape identity CHECK
+ok 116 - contacts: a live row without an unsubscribe_token violates the identity CHECK (D-08 needs one per recipient)
+ok 117 - contacts: anonymized_at set while the email survives violates the identity CHECK — no partial erasure
+ok 118 - contacts: the fully anonymized shape (all identity NULL + anonymized_at) commits
+ok 119 - contacts: INSERT without legal_basis violates NOT NULL (no default may manufacture a legal basis)
+ok 120 - contacts: INSERT without basis_recorded_at violates NOT NULL (no default)
+ok 121 - contacts: legal_basis outside consent_form|customer_relationship|manual_verified violates the CHECK
+ok 122 - contacts: consent_form basis without consent_notice_version violates the CHECK (D-12 evidence)
+ok 123 - contacts: consent_form basis with its notice version commits
+ok 124 - contacts: suppressed_at without suppression_reason violates the suppression CHECK
+ok 125 - contacts: suppression_reason without suppressed_at violates the suppression CHECK
+ok 126 - contacts: suppression_reason outside bounce|complaint|manual|failed|suppressed violates the CHECK
+ok 127 - contacts: duplicate email_normalized violates the unique constraint
+ok 128 - contacts: source outside the allowed set violates the CHECK
+ok 129 - campaigns: status `failed` is rejected — D-07 removed it; a zero-audience campaign stays draft
+ok 130 - campaigns: a freshly inserted campaign defaults to draft
+ok 131 - sends: status outside pending|sending|sent|failed|skipped violates the CHECK
+ok 132 - sends: a second row for the same (campaign, contact) violates the unique constraint — the ledger is the idempotency key
+ok 133 - sends: a freshly inserted send row defaults to pending
+ok 134 - sends: deleting a contact that has send history is RESTRICTed — erasure is anonymize-only, never a cascade
+ok 135 - sends: deleting a campaign that has send history is RESTRICTed — the draft-only delete route is unaffected (drafts have no sends)
+ok 136 - suppression: reason outside bounce|complaint|manual|failed|suppressed violates the CHECK
+ok 137 - suppression: email_hash is the primary key — one tombstone per address
+ok 138 - webhook events: svix_id is the primary key — a redelivery cannot insert twice (D-08 dedup)
+ok 139 - webhook events: event_type is NOT NULL — a ledger row always says what it recorded
+ok 140 - webhook events: detail defaults to an empty object — B4b projects the allowlisted subset into it, never a raw payload
+ok 141 - email_contacts: set_updated_at trigger refreshes updated_at on UPDATE
+ok 142 - email_campaigns: set_updated_at trigger refreshes updated_at on UPDATE

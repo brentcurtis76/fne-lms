@@ -1,0 +1,588 @@
+// @vitest-environment node
+/**
+ * POST /api/pasantias/lead — the public Pasantías interest form.
+ *
+ * The service-role client is faked at the `lib/api-auth` boundary (the table
+ * grants no anon/authenticated write at all, so there is no lighter seam), and
+ * the assertions are made against the column payloads the route hands to
+ * Supabase — that is where the D-12 consent shapes and the D-03 transition
+ * decision actually become visible. Resend is mocked; the real `lib/rateLimit`
+ * limiter runs, so every case that must not be throttled uses its own IP.
+ */
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { createMocks } from 'node-mocks-http';
+import { COHORT_ID } from '../../lib/pasantias/cohort-public';
+import { PRIVACY_NOTICE_VERSION } from '../../lib/legal/privacy-notice';
+import { LEAD_VALIDATION_MESSAGES } from '../../lib/pasantias/leads';
+import { LEAD_NOTIFICATION_RECIPIENT } from '../../lib/pasantias/emails';
+
+const { mockSend, mockResendCtor, mockCreateServiceRoleClient } = vi.hoisted(() => {
+  const send = vi.fn();
+  return {
+    mockSend: send,
+    mockResendCtor: vi.fn(() => ({ emails: { send } })),
+    mockCreateServiceRoleClient: vi.fn(),
+  };
+});
+
+vi.mock('resend', () => ({ Resend: mockResendCtor }));
+
+vi.mock('../../lib/api-auth', () => ({
+  createServiceRoleClient: mockCreateServiceRoleClient,
+}));
+
+vi.mock('../../lib/securityAuditLog', () => ({
+  logSecurityIncident: vi.fn(),
+}));
+
+import handler from '../../pages/api/pasantias/lead';
+
+interface QueryResult {
+  data: unknown;
+  error: unknown;
+}
+
+interface ExistingRow {
+  id: string;
+  status: string;
+  marketing_opt_in: boolean;
+  brochure_sent_at: string | null;
+}
+
+/**
+ * Minimal stand-in for the two supabase-js chains this route uses:
+ * `select().eq().eq().maybeSingle()` and `insert().select().maybeSingle()`,
+ * plus `update().eq()`. Every payload is recorded for assertion.
+ */
+function createSupabase(
+  options: {
+    selects?: QueryResult[];
+    insert?: QueryResult;
+    update?: QueryResult;
+  } = {}
+) {
+  const selectQueue = [...(options.selects ?? [{ data: null, error: null }])];
+  const inserts: Array<Record<string, unknown>> = [];
+  const updates: Array<{ payload: Record<string, unknown>; filters: Record<string, unknown> }> = [];
+  const selectFilters: Array<Record<string, unknown>> = [];
+
+  function nextSelect(): QueryResult {
+    return selectQueue.length > 1
+      ? (selectQueue.shift() as QueryResult)
+      : selectQueue[0] ?? { data: null, error: null };
+  }
+
+  const from = vi.fn(() => ({
+    select: () => {
+      const filters: Record<string, unknown> = {};
+      const chain = {
+        eq(column: string, value: unknown) {
+          filters[column] = value;
+          return chain;
+        },
+        maybeSingle: async () => {
+          selectFilters.push(filters);
+          return nextSelect();
+        },
+      };
+      return chain;
+    },
+    insert: (payload: Record<string, unknown>) => {
+      inserts.push(payload);
+      return {
+        select: () => ({
+          maybeSingle: async () =>
+            options.insert ?? {
+              data: {
+                id: 'lead-new',
+                status: 'new',
+                marketing_opt_in: payload.marketing_opt_in ?? false,
+                brochure_sent_at: null,
+              },
+              error: null,
+            },
+        }),
+      };
+    },
+    update: (payload: Record<string, unknown>) => {
+      const record = { payload, filters: {} as Record<string, unknown> };
+      return {
+        eq(column: string, value: unknown) {
+          record.filters[column] = value;
+          updates.push(record);
+          return Promise.resolve(options.update ?? { data: null, error: null });
+        },
+      };
+    },
+  }));
+
+  const client = { from };
+  mockCreateServiceRoleClient.mockReturnValue(client);
+  return { client, inserts, updates, selectFilters };
+}
+
+function existingRow(overrides: Partial<ExistingRow> = {}): ExistingRow {
+  return {
+    id: 'lead-1',
+    status: 'new',
+    marketing_opt_in: false,
+    brochure_sent_at: null,
+    ...overrides,
+  };
+}
+
+let ipCounter = 0;
+function nextIp(): string {
+  ipCounter += 1;
+  return `198.51.100.${ipCounter % 250}:${ipCounter}`;
+}
+
+function validBody(overrides: Record<string, unknown> = {}) {
+  return {
+    cohort: COHORT_ID,
+    firstName: 'Ana',
+    lastName: 'Pérez',
+    email: 'Ana@Example.com',
+    institution: 'Colegio Uno',
+    consent: true,
+    ...overrides,
+  };
+}
+
+async function run(
+  body: Record<string, unknown> | undefined,
+  opts: { method?: string; ip?: string } = {}
+) {
+  const { req, res } = createMocks({
+    method: opts.method ?? 'POST',
+    body,
+    headers: { 'x-forwarded-for': opts.ip ?? nextIp() },
+  });
+  await handler(req as never, res as never);
+  return { req, res };
+}
+
+/** The payload of the message sent to a given recipient, if any. */
+function mailTo(to: string): Record<string, string> | undefined {
+  return mockSend.mock.calls
+    .map((call) => call[0] as Record<string, string>)
+    .find((payload) => payload.to === to);
+}
+
+const LEAD_EMAIL = 'ana@example.com';
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockSend.mockResolvedValue({ data: { id: 'email-1' }, error: null });
+  vi.stubEnv('RESEND_API_KEY', 'test-resend-key');
+  vi.stubEnv('EMAIL_FROM_ADDRESS', '');
+  vi.spyOn(console, 'log').mockImplementation(() => {});
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+});
+
+describe('method, rate limit and honeypot [A1]', () => {
+  it('rejects non-POST with 405 and touches nothing', async () => {
+    const supabase = createSupabase();
+    const { res } = await run(undefined, { method: 'GET' });
+
+    expect(res._getStatusCode()).toBe(405);
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+    expect(supabase.inserts).toHaveLength(0);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('throttles the sixth request from the same IP inside the window', async () => {
+    createSupabase();
+    const ip = '198.51.100.251:rate';
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const { res } = await run(validBody(), { ip });
+      expect(res._getStatusCode()).toBe(200);
+    }
+
+    const { res } = await run(validBody(), { ip });
+    expect(res._getStatusCode()).toBe(429);
+  });
+
+  it('honeypot: returns the ordinary success body and stores nothing', async () => {
+    const supabase = createSupabase();
+    const { res } = await run(validBody({ website: 'http://spam.example' }));
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData()).toEqual({ success: true });
+    expect(supabase.inserts).toHaveLength(0);
+    expect(supabase.updates).toHaveLength(0);
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+});
+
+describe('validation [A2]', () => {
+  it('returns 400 with per-field es-CL errors and inserts nothing', async () => {
+    const supabase = createSupabase();
+    const { res } = await run({});
+
+    expect(res._getStatusCode()).toBe(400);
+    const body = res._getJSONData();
+    expect(body.fields).toEqual({
+      firstName: LEAD_VALIDATION_MESSAGES.firstNameRequired,
+      lastName: LEAD_VALIDATION_MESSAGES.lastNameRequired,
+      email: LEAD_VALIDATION_MESSAGES.emailRequired,
+      institution: LEAD_VALIDATION_MESSAGES.institutionRequired,
+      consent: LEAD_VALIDATION_MESSAGES.consentRequired,
+      cohort: LEAD_VALIDATION_MESSAGES.cohortInvalid,
+    });
+    expect(supabase.inserts).toHaveLength(0);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('rejects a cohort that is not the running one', async () => {
+    const supabase = createSupabase();
+    const { res } = await run(validBody({ cohort: 'abril-2026' }));
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData().fields.cohort).toBe(LEAD_VALIDATION_MESSAGES.cohortInvalid);
+    expect(supabase.inserts).toHaveLength(0);
+  });
+
+  it('rejects a submission without the required processing consent', async () => {
+    const supabase = createSupabase();
+    const { res } = await run(validBody({ consent: false }));
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData().fields.consent).toBe(LEAD_VALIDATION_MESSAGES.consentRequired);
+    expect(supabase.inserts).toHaveLength(0);
+  });
+});
+
+describe('insert path and split consent [A3][A4]', () => {
+  it('inserts a new lead with the full column set and the required consent evidence', async () => {
+    const supabase = createSupabase();
+    const before = Date.now();
+    const { res } = await run(
+      validBody({
+        phone: '+56 9 1111 2222',
+        roleTitle: 'Directora',
+        numPeople: 4,
+        message: 'Queremos ir en equipo.',
+        utmSource: 'google',
+        utmMedium: 'cpc',
+        utmCampaign: 'inspira-oct',
+      })
+    );
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(supabase.inserts).toHaveLength(1);
+
+    const payload = supabase.inserts[0];
+    expect(payload).toMatchObject({
+      cohort: COHORT_ID,
+      status: 'new',
+      first_name: 'Ana',
+      last_name: 'Pérez',
+      email: 'Ana@Example.com',
+      email_normalized: LEAD_EMAIL,
+      institution: 'Colegio Uno',
+      phone: '+56 9 1111 2222',
+      role_title: 'Directora',
+      num_people: 4,
+      message: 'Queremos ir en equipo.',
+      utm_source: 'google',
+      utm_medium: 'cpc',
+      utm_campaign: 'inspira-oct',
+      consent_notice_version: PRIVACY_NOTICE_VERSION,
+    });
+
+    // Server clock, not anything the caller sent.
+    const acceptedAt = Date.parse(payload.consent_accepted_at as string);
+    expect(acceptedAt).toBeGreaterThanOrEqual(before);
+    expect(acceptedAt).toBeLessThanOrEqual(Date.now());
+  });
+
+  it('dedups on (email_normalized, cohort)', async () => {
+    const supabase = createSupabase();
+    await run(validBody());
+
+    expect(supabase.selectFilters[0]).toEqual({
+      email_normalized: LEAD_EMAIL,
+      cohort: COHORT_ID,
+    });
+  });
+
+  it('writes the false marketing shape when nobody opted in', async () => {
+    const supabase = createSupabase();
+    await run(validBody());
+
+    expect(supabase.inserts[0]).toMatchObject({
+      marketing_opt_in: false,
+      marketing_opt_in_at: null,
+      marketing_notice_version: null,
+    });
+  });
+
+  it('writes the complete true marketing shape when the person opted in', async () => {
+    const supabase = createSupabase();
+    await run(validBody({ marketingOptIn: true }));
+
+    const payload = supabase.inserts[0];
+    expect(payload.marketing_opt_in).toBe(true);
+    expect(typeof payload.marketing_opt_in_at).toBe('string');
+    expect(payload.marketing_notice_version).toBe(PRIVACY_NOTICE_VERSION);
+    // The table CHECK accepts only these two shapes — never a half-set row.
+    expect(Number.isNaN(Date.parse(payload.marketing_opt_in_at as string))).toBe(false);
+  });
+
+  it('returns 500 when the insert fails for a reason other than a duplicate', async () => {
+    createSupabase({ insert: { data: null, error: { code: '23502' } } });
+    const { res } = await run(validBody());
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 when the table is missing', async () => {
+    createSupabase({ selects: [{ data: null, error: { code: '42P01' } }] });
+    const { res } = await run(validBody());
+
+    expect(res._getStatusCode()).toBe(503);
+  });
+});
+
+describe('duplicate path is indistinguishable from the new path [A4]', () => {
+  it('returns the identical 200 body for a first-time and a repeat submission', async () => {
+    createSupabase();
+    const first = await run(validBody());
+
+    createSupabase({ selects: [{ data: existingRow(), error: null }] });
+    const repeat = await run(validBody());
+
+    expect(first.res._getStatusCode()).toBe(repeat.res._getStatusCode());
+    expect(first.res._getJSONData()).toEqual(repeat.res._getJSONData());
+    expect(repeat.res._getJSONData()).toEqual({ success: true });
+  });
+
+  it('updates the contact fields of an existing lead', async () => {
+    const supabase = createSupabase({ selects: [{ data: existingRow(), error: null }] });
+    await run(validBody({ institution: 'Colegio Dos', phone: '+56 9 3333 4444' }));
+
+    expect(supabase.inserts).toHaveLength(0);
+    const update = supabase.updates[0];
+    expect(update.filters).toEqual({ id: 'lead-1' });
+    expect(update.payload).toMatchObject({
+      institution: 'Colegio Dos',
+      phone: '+56 9 3333 4444',
+      consent_notice_version: PRIVACY_NOTICE_VERSION,
+    });
+  });
+
+  it('treats a 23505 race as the duplicate path and still answers 200', async () => {
+    const supabase = createSupabase({
+      selects: [
+        { data: null, error: null },
+        { data: existingRow({ id: 'lead-raced' }), error: null },
+      ],
+      insert: { data: null, error: { code: '23505' } },
+    });
+
+    const { res } = await run(validBody());
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData()).toEqual({ success: true });
+    expect(supabase.updates[0].filters).toEqual({ id: 'lead-raced' });
+  });
+});
+
+describe('status transitions are decided by canTransitionLead [A6]', () => {
+  it('re-opens a dismissed lead (dismissed → new is a legal edge)', async () => {
+    const supabase = createSupabase({
+      selects: [{ data: existingRow({ status: 'dismissed' }), error: null }],
+    });
+    await run(validBody());
+
+    expect(supabase.updates[0].payload.status).toBe('new');
+  });
+
+  for (const status of ['new', 'contacted', 'converted']) {
+    it(`leaves the status column unwritten for a ${status} lead`, async () => {
+      const supabase = createSupabase({
+        selects: [{ data: existingRow({ status }), error: null }],
+      });
+      await run(validBody());
+
+      expect(supabase.updates[0].payload).not.toHaveProperty('status');
+    });
+  }
+});
+
+describe('marketing opt-in is never silently cleared [A5]', () => {
+  it('leaves an existing opt-in untouched when the box is unchecked', async () => {
+    const supabase = createSupabase({
+      selects: [{ data: existingRow({ marketing_opt_in: true }), error: null }],
+    });
+    await run(validBody({ marketingOptIn: false }));
+
+    const payload = supabase.updates[0].payload;
+    expect(payload).not.toHaveProperty('marketing_opt_in');
+    expect(payload).not.toHaveProperty('marketing_opt_in_at');
+    expect(payload).not.toHaveProperty('marketing_notice_version');
+  });
+
+  it('sets the opt-in with fresh evidence when the box is checked', async () => {
+    const supabase = createSupabase({
+      selects: [{ data: existingRow({ marketing_opt_in: false }), error: null }],
+    });
+    await run(validBody({ marketingOptIn: true }));
+
+    const payload = supabase.updates[0].payload;
+    expect(payload.marketing_opt_in).toBe(true);
+    expect(typeof payload.marketing_opt_in_at).toBe('string');
+    expect(payload.marketing_notice_version).toBe(PRIVACY_NOTICE_VERSION);
+  });
+
+  it('refreshes the evidence when an opted-in lead opts in again', async () => {
+    const supabase = createSupabase({
+      selects: [{ data: existingRow({ marketing_opt_in: true }), error: null }],
+    });
+    await run(validBody({ marketingOptIn: true }));
+
+    expect(supabase.updates[0].payload.marketing_opt_in).toBe(true);
+    expect(typeof supabase.updates[0].payload.marketing_opt_in_at).toBe('string');
+  });
+});
+
+describe('auto-reply and internal notification [A7]', () => {
+  it('sends both messages and stamps brochure_sent_at on auto-reply success', async () => {
+    const supabase = createSupabase();
+    const { res } = await run(validBody());
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(mockSend).toHaveBeenCalledTimes(2);
+
+    const autoReply = mailTo('Ana@Example.com');
+    expect(autoReply).toBeDefined();
+    expect(autoReply?.html).toContain('/api/pasantias/brochure');
+
+    const notification = mailTo(LEAD_NOTIFICATION_RECIPIENT);
+    expect(notification).toBeDefined();
+    expect(notification?.html).toContain('Colegio Uno');
+
+    const stamp = supabase.updates.find((entry) => 'brochure_sent_at' in entry.payload);
+    expect(stamp).toBeDefined();
+    expect(typeof stamp?.payload.brochure_sent_at).toBe('string');
+  });
+
+  it('is the FNE frame, not the Genera emailLayout', async () => {
+    createSupabase();
+    await run(validBody());
+
+    const autoReply = mailTo('Ana@Example.com');
+    expect(autoReply?.html).toContain('Fundación Nueva Educación');
+    expect(autoReply?.html).not.toContain('HUB DE TRANSFORMACIÓN');
+  });
+
+  it('carries no prices (D-02)', async () => {
+    createSupabase();
+    await run(validBody());
+
+    const autoReply = mailTo('Ana@Example.com');
+    expect(autoReply?.html).not.toMatch(/€|\bEUR\b|\bUSD\b|\$\s?\d/);
+  });
+
+  it('does not re-send the auto-reply inside the 24h window, but still notifies', async () => {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const supabase = createSupabase({
+      selects: [{ data: existingRow({ brochure_sent_at: oneHourAgo }), error: null }],
+    });
+    const { res } = await run(validBody());
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(mailTo('Ana@Example.com')).toBeUndefined();
+    expect(mailTo(LEAD_NOTIFICATION_RECIPIENT)).toBeDefined();
+    expect(supabase.updates.find((entry) => 'brochure_sent_at' in entry.payload)).toBeUndefined();
+  });
+
+  it('re-sends the auto-reply once the window has passed', async () => {
+    const longAgo = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+    createSupabase({
+      selects: [{ data: existingRow({ brochure_sent_at: longAgo }), error: null }],
+    });
+    await run(validBody());
+
+    expect(mailTo('Ana@Example.com')).toBeDefined();
+  });
+
+  it('soft-fails without RESEND_API_KEY: still 200, nothing sent, no stamp', async () => {
+    vi.stubEnv('RESEND_API_KEY', '');
+    const supabase = createSupabase();
+    const { res } = await run(validBody());
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData()).toEqual({ success: true });
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(supabase.updates.find((entry) => 'brochure_sent_at' in entry.payload)).toBeUndefined();
+  });
+
+  it('soft-fails when Resend returns an error: no stamp, still 200', async () => {
+    mockSend.mockResolvedValue({ data: null, error: { message: 'nope' } });
+    const supabase = createSupabase();
+    const { res } = await run(validBody());
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(supabase.updates.find((entry) => 'brochure_sent_at' in entry.payload)).toBeUndefined();
+  });
+
+  it('soft-fails when the mail transport throws', async () => {
+    mockSend.mockRejectedValue(new Error('socket hang up'));
+    createSupabase();
+    const { res } = await run(validBody());
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData()).toEqual({ success: true });
+  });
+});
+
+describe('hostile input is escaped at every interpolation [A7]', () => {
+  const HOSTILE = '<script>alert(1)</script>';
+
+  it('escapes the name in both messages', async () => {
+    createSupabase();
+    await run(validBody({ firstName: HOSTILE }));
+
+    for (const payload of mockSend.mock.calls.map((call) => call[0] as Record<string, string>)) {
+      expect(payload.html).not.toContain('<script>');
+      expect(payload.html).toContain('&lt;script&gt;');
+    }
+  });
+
+  it('escapes institution, role, phone and message in the notification', async () => {
+    createSupabase();
+    await run(
+      validBody({
+        institution: `Colegio ${HOSTILE}`,
+        roleTitle: `"><img src=x onerror=alert(1)>`,
+        phone: `<b>+56</b>`,
+        message: `hola ${HOSTILE}`,
+      })
+    );
+
+    const notification = mailTo(LEAD_NOTIFICATION_RECIPIENT);
+    expect(notification?.html).not.toContain('<script>');
+    expect(notification?.html).not.toContain('<img src=x');
+    expect(notification?.html).not.toContain('<b>+56</b>');
+    expect(notification?.html).toContain('&lt;script&gt;');
+  });
+
+  it('keeps line breaks out of the subject lines', async () => {
+    createSupabase();
+    await run(validBody({ firstName: 'Ana\nBcc: victim@example.com', institution: 'Uno\r\nDos' }));
+
+    for (const payload of mockSend.mock.calls.map((call) => call[0] as Record<string, string>)) {
+      expect(payload.subject).not.toMatch(/[\r\n]/);
+    }
+  });
+});

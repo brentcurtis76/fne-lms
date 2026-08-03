@@ -254,6 +254,136 @@ Entry format (§2.2 of the SOP):
 - BACKLOG ADDED: 4 rows to PLAN Backlog (timeout, expense e2e, deep links, notified_at)
 - OPEN AFTER THIS ROUND: **Awaiting Brent's merge go for PR #30.** B1b (relay deletion) becomes dispatchable after merge; its no-caller grep must ignore the Supabase edge-function invocation in utils/meetingUtils.ts (see PM verification entry).
 
+### 2026-07-31 — Dispatch corrections — Fable (PM, owner input)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner corrected the dispatch flow before any session started: (1) `/exec` signature is `/exec <PROJ> <phase> <round>` — correct lines are `/exec INSPIRA A1 r1`, `/exec INSPIRA A2 r1`, `/exec INSPIRA B1b r1` (the PM's `/exec a1 1` form would have mis-parsed and stalled); (2) prompt files MUST be committed — the PM's claim that uncommitted prompts were parallel-safe was wrong, since worktrees are separate folders where untracked files do not exist; committed with this entry; (3) standing rules adopted: commit every prompt file, end each PM round with the exact dispatch lines. **Standing merge authorization DENIED** — per-phase explicit go stays; rationale: the stale-fetch docs-union slip this same day, caught by PM self-verification, is the check working. S1 (data-subject address) remains UNANSWERED (owner placeholder unfilled — not assumed).
+- COMMITS: (this commit — prompts a1-1/a2-1/b1b-1 + decision row + this entry)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 1 Decision Log row (dispatch mechanics; standing-auth denial)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: Brent dispatches A1/A2/B1b via the three /exec lines. S1 pending. PM verification on the three reports when they return.
+
+### 2026-07-31 — A1 findings resolution + A2/B1b verified — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Three round-r1 reports verified with PM's own hands (details in each phase branch's ledger): **A2 clean** (pgTAP 47/47 re-run; PR #31) and **B1b clean** (deletion greps re-proven on the branch; PR #32) — both ready for Codex. **A1 = FINDINGS, accepted as a PM prompt fault**: the A-7 source PPTX exists only outside the repo, so the executor rightly shipped pending exports instead of invented copy. Resolved by transcribing the A-7 content verbatim into PLAN.md ("Appendix A-7 (verbatim content)" — provenance noted) and dispatching round r2 (`docs/plan/prompts/a1-2.md`). New owner gap **A-16** added: nights/dates covered by the €560 lodging + meals mapping for the two-week October format (source text describes January's single-week shape); until answered, materials carry no night counts or per-day meal claims.
+- COMMITS: (this commit — PLAN A-7 block + A-16 row + a1-2.md prompt + this entry)
+- TESTS: A2 test:db 47/47 + A1 21/21 (PM re-runs); B1b branch greps.
+- FINDINGS RAISED: A-16 (owner).
+- DECISIONS: none new (per-branch acceptances recorded in branch ledgers).
+- BACKLOG ADDED: (branch ledgers) email-digest.ts guard + dead comments; leak-script hardening.
+- OPEN AFTER THIS ROUND: Brent: (1) dispatch `/exec INSPIRA A1 r2`; (2) trigger Codex for A2 and B1b; (3) answer A-16; (4) S1 still pending. LEDGER note: A2/B1b/A1 branch ledgers will union at merge as usual.
+
+### 2026-07-31 — A-8 amendment + S1 close — Fable (PM, owner input)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner answered the two open items. (1) **A-16/lodging**: Barcelona lodging fluctuates €70–120 por persona por noche según tipo — a pricing-model change, not a detail: the fixed €560-double package and the "€1.560 total" are RETIRED everywhere; program stays €1.000; meals rendered with generic truthful phrasing; A-16 CLOSED. A-8 amended; A-7 verbatim block updated (lodging moved out of includes); `prompts/a1-2.md` updated pre-dispatch to carry the commercial-module restructure (drop 560/1560, add per-night range, update guard tests + leak patterns). Madrid's €360 lodging figure flagged for confirmation at A3. Deferred one styling question to A3: FNE-managed-at-cost vs self-booked lodging (brochure copy only). (2) **S1 CLOSED**: info@nuevaeducacion.org ratified for data-subject requests; shipped code already correct, no change.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 2 Decision Log rows (A-8 amendment; S1 ratified)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: Brent dispatches `/exec INSPIRA A1 r2` (prompt now includes the pricing restructure) and triggers Codex for A2 + B1b. No owner items remain open except future testimonios and the A3-time lodging-styling question.
+
+### 2026-07-31 — A2 Codex triage → D-04 amendment + r2 dispatch — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Codex A2 review = FAIL, 2 BLOCKING, both accepted (triage detail in the a2 branch ledger). The TRUNCATE finding raises a project-wide standard: **D-04 amended** — comms tables get privilege-level revocations (anon: ALL; authenticated: everything but SELECT) with pgTAP asserting privileges as well as policies; binds A2 r2 now and B3's five tables later. `prompts/a2-2.md` committed (migration + suite edited in place on the unmerged branch — no second migration).
+- COMMITS: (this commit — D-04 Decision Log row + a2-2 prompt + this entry)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 1 Decision Log row (D-04 amendment)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A2 r2`. B1b Codex review still awaited. A1 r2 dispatch still awaited.
+
+### 2026-07-31 — B1b Codex triage → r2 dispatch — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Codex B1b review = FAIL, 1 BLOCKING, accepted — browser-side `sendTaskAssignmentNotifications` invokes a `send-email` edge function with browser-built {to,subject,html}; the PM's r1 prompt had wrongly fenced it off as "different system" (class-based criterion reading is correct). PM facts: sole caller is MeetingDocumentationModal; the edge function does not exist (only generate-scene-images + process-reflexion-pdf are deployed) — the email path never worked. r2 = delete the dead path + bundle-level proof; server-side rebuild of task-assignment email → Backlog (feature, not regression). Full triage in the b1b branch ledger. `prompts/b1b-2.md` committed.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: deletion over rebuild (recorded in branch triage)
+- BACKLOG ADDED: server-side task-assignment email notifications (if wanted; pending r2's in-app-notification answer)
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA B1b r2`. Also still awaited: `/exec INSPIRA A1 r2`, `/exec INSPIRA A2 r2`.
+
+### 2026-07-31 — A2 r2 + A1 r2 verified; a1-3 dispatched — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: A2 r2 verified clean (migration diff per amended D-04; PM re-run 56/56 after one transient container flake; PR #31 CI CLEAN) — **ready for Codex round 2 (of 2), scoped closure**. A1 r2 verified faithful — to a superseded prompt: dispatch race (session snapshot predated the 14b6bf3 lodging amendment; detectable thanks to the report's source-SHA discipline). Delta round a1-3 committed: commercial restructure (retire 560/1560, per-night range in the commercial module only), public includes realignment (no lodging item; meals line restored per current A-7). r3 prompts now mandate reading plan sources from origin/main HEAD. Branch-ledger entries carry both verifications in full.
+- COMMITS: (this commit — a1-3 prompt + this entry)
+- TESTS: A2 56/56 + A1 31/31 (PM re-runs)
+- FINDINGS RAISED: none
+- DECISIONS: race triaged (branch ledger)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A1 r3`; trigger Codex A2 round 2; B1b r2 report still awaited.
+
+### 2026-07-31 — A2 §1.5 resolved → r3 dispatch — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Brent authorized round r3 on A2's residue (option a). `prompts/a2-3.md` committed: grant-list form (revoke-all-then-GRANT-SELECT), ACL-level pgTAP pins via aclexplode (the information_schema view is how the r2 pin missed MAINTAIN), version-guarded MAINTAIN asserts (local + prod are PG15.8). Decision Log row added; the grant-list form is now THE standard for all comms tables (B3 bound by Codex).
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 1 Decision Log row (§1.5 resolution + form standard)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A2 r3`; after its report + PM verification → scoped Codex confirmation on Brent's authority. Still awaited: A1 r3 report, B1b r2 report.
+
+### 2026-07-31 — A2 r3 verified + PG-version record corrected — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: A2 r3 verified clean (diff = grant-list form; PR #31 CI 6/6 at e13adfb with gate 3 running reset+suite on PG17.6 — MAINTAIN asserts live). Record corrected in the Decision Log: local/CI are PG17.6, not PG15 (PM's over-generalization from a prod-only check); the executor also fixed the two in-repo comments carrying the wrong claim. Backlog: consider pinning `[db] major_version` in config.toml. Full verification + acceptances in the branch ledger. **A2 awaits scoped Codex confirmation (round 3, Brent's authority).**
+- COMMITS: (this commit — Decision Log addendum + this entry)
+- TESTS: gh pr checks 31 → 6/6 (PM-verified)
+- FINDINGS RAISED: none
+- DECISIONS: 1 Decision Log addendum row
+- BACKLOG ADDED: config.toml major_version pin (consideration)
+- OPEN AFTER THIS ROUND: Brent triggers the scoped Codex confirmation on A2. Still awaited: A1 r3 report, B1b r2 report.
+
+### 2026-08-01 — Branch-drift incident + recovery — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: **Incident, owned by the PM.** After the T2-era restore, the shared checkout was at some point switched from `main` back to `phase/t2-ci` by another session; the PM's next nine docs commits (064a8a0..8d7b847 — prompt files, A-7 verbatim block, A-8 lodging amendment, D-04 privilege standard, §1.5 rows, record corrections, eight ledger entries) were committed and pushed to that dormant branch while every verification checked FILE STATE but never the REF. Consequences now explained retroactively: the A1-r2 "dispatch race" (the session read the checkout, which was ahead of real main), executors finding prompts in the checkout but not in their origin/main worktrees, and the A2 reconciliation repeatedly seeing a "stale" main that was in fact the real one. Detected when a deterministic-union assert demanded a main-side ledger entry that origin/main provably never had. Recovery: `docs/pm-sync` (PR #33) built from origin/main + the stranded docs' final state — PLAN taken from the t2-ci tip (verified superset; only the two amendment-superseded rows differ), LEDGER via deterministic union (25 merged-phase entries + 8 stranded PM entries = 33, dual-direction no-loss asserts), 8 prompt files. A first cherry-pick attempt was correctly blocked by its own asserts (the corrupted-then-repaired commit pair does not replay) and a pipe-masked failure pushed an empty branch ref — repaired in the same recovery.
+- COMMITS: eb73aac + (this entry)
+- TESTS: union asserts (dual-direction, zero loss); PLAN/prompts content asserts — all gated pre-commit.
+- FINDINGS RAISED: none beyond the incident itself.
+- DECISIONS: **New hard rule (binding on the PM): every PM commit block begins with an explicit ref assertion (`test "$(git branch --show-current)" = <expected>`), and no mutating pipeline may mask exit codes (`cmd | tail` never guards a mutation). Dispatches are frozen until the prompts/plan are readable from origin/main.** Post-merge cleanup for Brent's word: reset `origin/phase/t2-ci` to its true tip `3051203` (or delete the merged branch) so the stranded lineage cannot be read as authoritative.
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: PR #33 merge (Brent); then re-reconcile `phase/a2-leads-db` against true main and hand over the PR #31 merge line; then flip the shared checkout to main (no live sessions) and resume dispatches.
+
+### 2026-08-01 — A1 r3 + B1b r2 verified; A-8 propagation completed — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Both rounds verified with PM's own hands (branch greps + targeted re-runs: A1 34/34; B1b regression + modal suites 5/5; helper/values confirmed gone on origin refs). A1 r3 was a re-dispatch — the prior r3 session had already landed the delta and stopped on FINDINGS (origin/main unreadable pre-PR-33); the second session correctly verified instead of re-implementing. **Executor finding accepted and fixed: the A-8 amendment's propagation stopped short of the plan's criteria text** — A1 [A3] and A3's brochure test still required the retired "1.560" total; both rewritten to the band model (Decision Log row), A3 gains dispatch-time owner items (Madrid €360; lodging styling). B1b scope-3 answer recorded: meeting task assignees currently get NO notification of any kind (not even in-app) — the backlogged server-side rebuild is a real feature gap, not duplicate coverage. Housekeeping: wt-b1b2 removed, wt-b1b fast-forwarded. PR opened for phase/a1-cohort.
+- COMMITS: (this commit — PLAN amendments + this entry)
+- TESTS: A1 34/34 + B1b 5/5 (PM re-runs)
+- FINDINGS RAISED: none new
+- DECISIONS: 1 Decision Log row (propagation completion)
+- BACKLOG ADDED: none new (assignee-notification gap already recorded, now upgraded with the no-in-app fact)
+- OPEN AFTER THIS ROUND: **A1 → Codex final review; B1b → Codex round 2 (of 2)** — Brent triggers both. Still pending Brent's words: merge #31 (A2, CI green); prod application of the leads migration; phase/t2-ci reset/delete.
+
+### 2026-08-02 — A1/B1b Codex triage → prompts staged — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: A1 Codex r1 = FAIL ×2 BLOCKING, both accepted (scanner blind to the €70/€120 band — partly PM prompt gap; serialization guard covers one export) → `prompts/a1-4.md` committed, dispatchable now (Codex round 1 of 2). B1b Codex r2 = FAIL ×1 (guard sweep omits `src/`) → **cap reached, §1.5 with Brent**; `prompts/b1b-3.md` staged, dispatch only on his word. Full triage in branch ledgers.
+- COMMITS: (this commit — both prompts + this entry)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: pending Brent on B1b
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A1 r4`; Brent's §1.5 word on B1b (then `/exec INSPIRA B1b r3`); STILL pending Brent: merge #31, prod migration application, phase/t2-ci cleanup.
+
+### 2026-08-02 — Madrid removed + lodging styling decided — Fable (PM, owner input)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner: the PPTX's "Opcional Madrid" block was accidental — **no Madrid options for now**. Purged from PLAN (Appendix A-7/A-8, A1/A3 criteria; 2 Decision Log rows); `prompts/a1-5.md` staged (owner-authorized round on the passed phase: remove Madrid exports/values/patterns + a no-return guard). Lodging styling delegated ("that's fine") → PM chose the coordination framing; owner veto point = A3's brochure review. Merge train unchanged and still awaiting words: #31 + #32 mergeable NOW; #34 after r5 lands + quick Sol confirmation.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 2 Decision Log rows
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A1 r5`; Brent's words: merge #31, merge #32, prod migration application, phase/t2-ci cleanup.
+
+### 2026-08-02 — Base-doble precision (owner) — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner precision: the €70–120/persona/noche range is **en base a habitación doble — per person, not per room**. Applied to A-8 and the A-7 block; `prompts/a1-5.md` amended to v2 pre-dispatch (note-string update + scanner-fragment consistency + test pin ride the Madrid-removal round). Race note: if r5 was dispatched against prompt v1 in the last minutes, the report's scope will show it and a micro-round covers the string.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: content precision recorded in A-8 row (no separate decision row)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: unchanged — dispatch `/exec INSPIRA A1 r5`; Brent's words: merge #31, merge #32, prod application, t2-ci cleanup.
+
 ### 2026-07-31 — A1 round 1 — Opus (executor)
 - CONTEXT PRESSURE: comfortable — small surface (6 files), and the only expensive loop was rebuilding to exercise the leak guard.
 - ACTION: Built the D-01 public/commercial split and its enforcement. `lib/pasantias/cohort-public.ts` (cohort id/label, both week blocks with their visit days, the three free days incl. the Fiesta Nacional, the two-tier school structure — 2 inmersión + 5 visita = 7, the 8 experts with A-6 titles, the A-9 claims, and a date label *derived* from the week data so the headline cannot drift from the calendar). `lib/pasantias/cohort-commercial.ts` (A-8 prices as parts that `reduce` to the total, Madrid extension, min group, payment split, cohort-scoped validity, `BROCHURE_VERSION`/`BROCHURE_FILENAME`/`COMMERCIAL_SENTINEL`, plus a `COHORT_COMMERCIAL` aggregate so the sentinel travels with the data). `scripts/check-price-leak.mjs` scans `.next/static/**` after `next build`; wired into CI gate 4 right after the build step. Homepage "Próximas Expediciones" card now renders `COHORT_HEADLINE` from the public module — no literal date string left in `index.tsx` for that card. **[A1] is only partially met: the Appendix A-7 content (13 objectives, día tipo, includes/excludes, lodging area, Madrid school names) is not in the module — see FINDINGS.**

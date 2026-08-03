@@ -764,3 +764,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: 2 Decision Log rows
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: A3 r2 + B2 Sol reports awaited. PM offer standing: build the design session's content pack on the owner's word. Parked: "apply it"; t2-ci.
+
+### 2026-08-02 — B2 Sol triage → D-07 pacing amendment + r2 — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Sol B2 = FAIL ×3, all accepted (branch ledger carries the detail). **Finding 3 was mine**: D-07's bounds allow 12 provider calls/tick vs Resend's 10 req/s, and no revision ever required pacing — D-07 and B10a [A1] now mandate a shared paced sender (≥150 ms between provider calls, fake-clock tested); Decision Log row added. Findings 1–2 → `prompts/b2-2.md` (svix suite must kill its own mutants — raw-byte + exact ±300 s boundary; idempotency options recomputed with real exposure numbers and a verified minimum SDK version; card cites amended D-07 and drops the closed R1). r2 also merges main so PR #36 stops conflicting and CI can run.
+- COMMITS: (this commit — PLAN amendments + b2-2 prompt + this entry)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 1 Decision Log row (mandatory pacing)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA B2 r2`; A3 awaits Sol; owner: "apply it", t2-ci, design content pack on request.

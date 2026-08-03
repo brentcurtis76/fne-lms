@@ -128,3 +128,92 @@ phases will treat this document as settled.
   have it and 3.5.0 does not.
 - `vercel.json` was **not** touched. D-07's cron entry belongs to B10a; this phase only
   establishes that a per-minute expression is permissible.
+
+---
+
+# Round r2 — Sol remediation (REVIEW-B2.md findings 1 and 2)
+
+**Base:** merged `origin/main` (`93ca0e9`) into `phase/b2-spike` as step 1 — PR #36 was
+CONFLICTING and had no CI results. `docs/plan/PLAN.md` taken from main verbatim (zero diff);
+`docs/plan/LEDGER.md` unioned, asserted by script: branch parent 73 `###` headings, main parent
+77, union 80, final file 80, nothing missing and nothing invented.
+
+**Finding 3 is not addressed here** — it was a PM-owned plan defect, already fixed on `main`
+(D-07 + B10a [A1] now mandate a shared sender pacing provider calls ≥150 ms apart; Decision Log
+2026-08-02). r2's job with it was to make the findings card cite the amended rule, which §1.5,
+§3.4 and C16 now do.
+
+## What changed
+
+**[F2] svix suite (`__tests__/lib/svix-contract.test.ts`, 22 → 29 tests).**
+- Raw-byte contract re-derived. r1's "re-serialised body" case extracted a subtree
+  (`JSON.parse(PAYLOAD).data`), so it proved only that a *different value* is rejected — exactly
+  why a canonicalising verifier stayed green. There is now a table of four **value-identical,
+  byte-different** spellings (pretty-printed, space-separated, key-order swapped, trailing
+  newline), each asserted `toEqual` the signed value *and* `not.toBe` its bytes before the
+  rejection assertion, plus a reverse-direction case (sign pretty, verify compact) that kills a
+  both-sides canonicaliser. The old subtree case is retained under an honest name.
+- Exact boundary locked: ±300 accepted **and** ±301 rejected on both sides. `>` is the library's
+  comparison, so ±300 s is inclusive.
+- **Mutation evidence** committed at `docs/plan/evidence/b2/svix-mutation.md` — 7 mutants, 7
+  killed, verbatim run output plus the driver. Includes both mutants Sol found surviving (SM2
+  boundary `>`→`>=`, SM3 canonicalisation) and their variants.
+
+**[F1] Idempotency section (`fase-b2-findings.md` §1.4, now §1.4.1–§1.4.4).**
+- §1.4.1 computes duplicate exposure per failure mode against the amended D-07 bound (12
+  provider calls / 1 200 recipients per tick): M1 crash-before-ledger-write ≤100 per crash; M2
+  `application_error` ambiguity ≤1 200 per tick and repeatable per retry round; M3 duplicate
+  cron delivery **0** — `SKIP LOCKED` makes concurrent ticks disjoint, so r1 was wrong to list
+  it as a duplication path.
+- §1.4.2 pins the minimum SDK version **from the published tarballs**, not from assertion.
+- §1.4.3 costs the 3.5.0 → 4.5.x delta for this repo specifically.
+- §1.4.4 restates four options (status quo, 4.5.x, 6.18.1, raw fetch, non-retriable `unknown`)
+  with those numbers. No recommendation is offered — r1's rested on a wrong version figure.
+- R5's severity corrected from "low, bounded" to "medium, unbounded across retries".
+
+**Also:** §3.2 R1 closed on the owner's first-hand Pro confirmation (residue removed, no
+`vercel login` step left outstanding); §1.5 corrected from "≤3 calls, no pacing needed" to the
+real 12 calls against a team-wide ceiling; C16/C17 added to the contract card.
+
+## Where a reviewer should push hardest
+
+**1. §1.4.2's version claim, because it contradicts the review that ordered it.**
+REVIEW-B2.md names `resend@4.3.0` as the minimum. I read the shipped `dist/` of every stable
+3.x/4.x release and reached **4.5.0**: 4.3.0 introduces `IdempotentRequest` but
+`CreateBatchRequestOptions extends PostOptions {}` is empty there, so `batch.send(p, {
+idempotencyKey })` does not type-check — and 4.3.0's `post()` sets the header on the
+*client-level* `this.headers`, so the key would persist onto every subsequent POST from the same
+client (fatal for a drain issuing 12 calls per tick from one client). 4.4.1 fixes the leak,
+4.5.0 adds the type. Verify this independently; if 4.3.0 is workable with a cast, my option
+pricing is one minor too conservative.
+
+**2. Whether §1.4.1's M2 figure is right.** ≤1 200 rests on the claim that transport ambiguity
+is independent per provider call. If there is a coupling I have not seen (a shared client state,
+a Resend-side behaviour), the number is wrong and B10a's decision rests on it.
+
+**3. The claim that "0 duplicates" for the keyed options is conditional.** §1.4.4 says it holds
+only within Resend's 24 h key window *and* only if the retried request has the same composition
+— which implies a persisted per-batch key stamped on send rows before the provider call. If that
+reasoning is wrong, options (b)/(c) are cheaper than I priced them.
+
+**4. The B3 sequencing note.** §1.4.4 says (b), (c) and (d) all need a column B3 does not
+currently define, so B3 is the cheap moment even though D-10's additive-migration rule means the
+decision *can* wait for B10a. That is a claim about a phase I did not touch — check it against
+B3's [A1].
+
+**5. Whether the new spellings really are value-identical.** Each case asserts
+`expect(JSON.parse(spelling)).toEqual(JSON.parse(PAYLOAD))` first. If any spelling is
+semantically different, that case has silently degraded into another tampering test and the
+raw-byte contract is unlocked again — which is precisely the r1 failure repeating.
+
+## Known limitations / deferred
+
+- **[S1] not addressed** (SHOULD-FIX in REVIEW-B2.md): §6.1's second resend mutation is still
+  labelled "an SDK that switches to thrown errors" when it in fact demonstrates altered error
+  *mapping*. It is a should-fix; the PM's r2 prompt scoped this round to findings 1 and 2, so it
+  stays in the ledger backlog rather than being fixed here.
+- **No SDK upgrade performed** — the prompt forbids it this round; §1.4.4 recommends nothing and
+  B10a decides.
+- **No live API call**, `pgTAP` not run (zero SQL), `vercel.json` untouched — all as in r1.
+- **The 3.5.0 → 6.18.1 path is deliberately not costed.** §1.4.3 costs only the one-major move;
+  a 6.x move would need its own read of a rewritten type surface.

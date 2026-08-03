@@ -1,18 +1,19 @@
 # FASE B2 — Compatibility spike findings
 
 **Phase:** B2 — Resend / svix / cron compatibility spike
-**Branch:** `phase/b2-spike` (from `origin/main` `2613b46`)
-**Date:** 2026-08-03
+**Branch:** `phase/b2-spike` (from `origin/main` `2613b46`; reconciled with `main` in r2)
+**Date:** 2026-08-03 (r1), amended 2026-08-03 (r2 — Sol REVIEW-B2.md findings 1 and 2)
 **Status of this document:** the locked reference for B3, B4a/B4b, B7, B8, B10a, B10b and B11b.
 Anything a later phase assumes about Resend, svix or Vercel cron must be citable from here
 or re-verified in that phase and appended below.
 
 Executable half of these findings:
 `__tests__/lib/resend-contract.test.ts` (13 tests) and `__tests__/lib/svix-contract.test.ts`
-(22 tests). Neither suite mocks its library: both instantiate the real class and control only
+(29 tests). Neither suite mocks its library: both instantiate the real class and control only
 the transport (`globalThis.fetch`) or the clock, so the libraries' own request building,
-deserialisation, error mapping and HMAC code runs for real. §6 records the mutation run that
-proves the suites detect drift rather than restating their own fixtures.
+deserialisation, error mapping and HMAC code runs for real. §6 records the mutation runs that
+prove the suites detect drift rather than restating their own fixtures — including the two
+mutants that survived r1's svix suite and now do not (§6.2).
 
 Legend: **LOCKED** = asserted by a test in this repo. **VERIFIED** = read from the installed
 package source or an authoritative doc, but not asserted by a test (usually because it is a
@@ -116,28 +117,110 @@ already follow this shape.
   SDK's `Headers` object wholesale* — the request then goes out with **no `authorization`
   header at all**. The suite pins this. Do not hand-bolt idempotency onto 3.5.0.
 
-**Implication for D-07 (unchanged, but now evidence-backed).** The plan anticipated this
-outcome and D-07's ledger dedup is the substitute: duplication is bounded by
-`claim_campaign_sends`' `FOR UPDATE SKIP LOCKED` plus the 15-minute stale-reclaim window, with
-the documented tradeoff that a mid-tick crash can duplicate ≤1 batch. Idempotency keys would
-have shrunk that to zero. Three ways forward, for the PM — **not** an executor decision:
+#### 1.4.1 How many recipients can actually receive a duplicate
 
-| Option | Cost | Effect |
+The r1 version of this section priced the status quo as "≤1 batch duplicable per crash". That
+number is right for one failure mode and 12× too small for the other. Recomputed against the
+**amended** D-07 bounds (`PLAN.md` D-07 / B10a [A1], amended 2026-08-02): ≤2 campaigns × ≤3
+claim-batches × ≤200 rows, ≤100 rows per `batch.send` ⇒ **≤12 provider calls and ≤1 200
+recipients per tick**, every call ≥150 ms after the previous one.
+
+| Mode | What happens | Recipients duplicable |
 |---|---|---|
-| (a) Keep 3.5.0, keep D-07's ledger dedup | none | status quo; ≤1 batch duplicable per crash |
-| (b) Upgrade the SDK (current docs show `resend.batch.send([...], { idempotencyKey })`) | 3.5.0 → 6.x is three majors; every contract in this document must be re-locked, and B1a/B1b's send paths re-tested | eliminates the crash-duplication window; also brings a first-party webhook verifier, likely removing the `svix` dependency |
-| (c) Keep 3.5.0 but call `POST /emails/batch` with raw `fetch` in the drain only | small, contained | idempotency without a global upgrade, at the cost of one hand-rolled transport |
+| **M1 — process death between a returned `batch.send` and its ledger write** | D-07 writes the ledger *per batch*, so at most one batch is ever un-ledgered. Its rows stay `sending`, are reclaimed after 15 min, and are re-sent. | **≤100 per crash** (one batch) — the plan's existing bound, correct for this mode |
+| **M2 — ambiguous provider outcome (§1.3)** | `application_error` is returned both when the request never left *and* when a 200 came back with an unparseable body. The rows are recorded `failed`; `retry_failed_sends` returns them to `pending`; the next drain re-sends mail that may already have gone out. Transport ambiguity is **independent per call** — nothing couples one call's outcome to another's. | **≤1 200 per tick** (all 12 calls ambiguous), and **not one-shot**: each retry round can end ambiguously again, so across enough rounds a campaign of *N* recipients can duplicate up to *N* |
+| **M3 — duplicate or overlapping cron delivery** | `claim_campaign_sends` uses `FOR UPDATE SKIP LOCKED`, so a concurrent tick claims a **disjoint** row set. | **0** — not an independent path. r1 listed it as a third route to ≤1-batch duplication; that was wrong. It matters only as the *trigger* that performs M1's stale reclaim. |
 
-Recommendation: **(a) for now** — D-07 is already designed around the absence and B10a is not
-the moment to absorb a three-major upgrade. Revisit as a post-v1 item. If the PM prefers (b),
-it belongs in its own phase *before* B10a, not inside it.
+Two clarifications that keep the numbers honest:
+
+- **Only unparseable failures are ambiguous.** A 429 or a 422 arrives as parseable JSON and is
+  returned verbatim (§1.3, row 1), so rate-limit rejections are a *delay* problem, not a
+  duplicate one. M2 covers non-JSON error bodies and `fetch` rejections only.
+- **M1 and M2 are additive but not simultaneous**; the per-tick worst case is dominated by M2.
+
+#### 1.4.2 The minimum SDK version that exposes `idempotencyKey` — VERIFIED
+
+Established by unpacking the published tarballs and reading the shipped `dist/` of each
+version, not by asserting that "current SDKs have it". Stable releases only:
+
+| Version | `idempotencyKey` present? | Usable for `batch.send`? |
+|---|---|---|
+| 3.5.0 (installed; last stable 3.x — 3.6.0 never left canary) | no — zero occurrences | no |
+| 4.0.0 · 4.0.1 · 4.1.1 · 4.1.2 · **4.2.0** | no — zero occurrences | no |
+| **4.3.0** — first appearance | `IdempotentRequest.idempotencyKey` (`dist/index.d.ts:136-142`) on `CreateEmailRequestOptions` and `Resend.post()` | **no.** `CreateBatchRequestOptions extends PostOptions {}` — **empty**, so `batch.send(p, { idempotencyKey })` fails `tsc`. Worse at runtime: `post()` does `this.headers.set("Idempotency-Key", …)` on the **client-level** `Headers`, so the key **persists onto every later POST from that client**. A drain reusing one client would send batches 2…12 under batch 1's key. |
+| 4.4.0 · 4.4.1 | same typing gap; 4.4.1 fixes the leak (`const headers = new Headers(this.headers)`) | no (types) |
+| **4.5.0 — the real minimum** | `CreateBatchRequestOptions extends PostOptions, IdempotentRequest` **and** per-request header copy | **yes** |
+| 4.5.2 … 6.18.1 (latest) | unchanged | yes |
+
+So the minimum is **4.5.x — one major from 3.5.0**, not three. (Sol's review named 4.3.0; that
+is where the symbol first appears, but the batch path is neither typed nor safe there.)
+
+#### 1.4.3 What a 3.5.0 → 4.5.x upgrade actually costs this repo — VERIFIED
+
+Read from the two tarballs side by side:
+
+- **These contracts are byte-identical in 4.5.2 and therefore survive the upgrade unchanged:**
+  `CreateBatchSuccessResponse` / `CreateBatchResponse` (the `data.data[i].id` double nesting,
+  C2), `ErrorResponse`, and the whole of `fetchRequest`'s error mapping (C4, C5 — character for
+  character). The batch body is still the bare array, per-element `headers` still pass through
+  (`parseEmailToApiOptions` copies `headers` verbatim), and the caller-`headers` footgun still
+  exists (`options` still spreads last over the request init).
+- **One source line breaks, and `tsc` catches it:** `CreateEmailBaseOptions.reply_to` was
+  renamed `replyTo` in 4.x. The repo's only occurrence is
+  [`pages/api/contact.ts:170`](../../../pages/api/contact.ts). The other two Resend call sites
+  (`lib/email/expenseNotifications.ts:235`, `pages/api/admin/tractor-signups/grant.ts:210`) pass
+  no renamed field.
+- **Test re-cuts:** the `resend-node:3.5.0` User-Agent pin and §1.4's three absence assertions
+  in `__tests__/lib/resend-contract.test.ts`. Everything else in that suite is version-neutral.
+- **Transitive bump:** `@react-email/render` 0.0.16 → 1.1.2, whose peers are
+  `react ^18.0 || ^19.0` — this repo is on 18.3.1, so it is satisfied.
+- **Not measured here:** the 4.x `parseEmailToApiOptions` key **allowlist** means any element
+  property outside its twelve keys is silently dropped. Nothing we send today is affected, but
+  B10a should re-assert its payload shape after any upgrade rather than assume.
+
+A 3.5.0 → 6.18.1 upgrade is a different proposition and is **not** costed here: three majors,
+a rewritten dist layout (`index.d.mts`/`index.cjs`, no `index.d.ts`), and generic-parameterised
+response types (`CreateBatchResponse<Options>`) — every contract in this document would need
+re-locking, which is exactly the work 4.5.x avoids.
+
+#### 1.4.4 The four ways forward — for the PM, not an executor decision
+
+Exposure figures are per §1.4.1. "0 duplicates" for the keyed options holds **within Resend's
+24 h key window** and **only if the retried request is composed of the same rows**: the key must
+be stamped on the send rows *before* the provider call and the reclaim must re-send exactly the
+stamped set, or a re-batched reclaim produces a different request under a different key.
+
+| Option | M1 exposure | M2 exposure | Cost |
+|---|---|---|---|
+| **(a) Stay on 3.5.0, ledger dedup only** (status quo) | ≤100 / crash | ≤1 200 / tick, repeatable per retry round | none |
+| **(b1) Upgrade to `resend@4.5.x`** — one major | 0 | 0 | one line at `contact.ts:170`; two test re-cuts; deps bump; §1.4.3 |
+| **(b2) Upgrade to `resend@6.18.1`** — three majors | 0 | 0 | b1's work **plus** re-locking C1–C7 against a rewritten type surface and re-testing all three existing send paths; also brings a first-party webhook verifier that would likely retire `svix` |
+| **(c) Keep 3.5.0; raw `fetch` to `/emails/batch` in the drain only** | 0 | 0 | ~30 hand-rolled lines, contained to the drain; must reimplement §1.3's error mapping exactly, or the drain's failure taxonomy silently diverges from the rest of the repo |
+| **(d) No idempotency: make the ambiguous outcome non-auto-retriable** — record `application_error` as an `unknown` outcome that `retry_failed_sends` refuses, and reconcile it by operator | ≤100 / crash (unchanged) | **0 duplicates** — converted into a manual reconciliation queue | a D-06/D-07 amendment (the frozen send-row machine is `pending→sending→sent\|failed\|skipped`, with no such outcome) plus an admin surface to work the queue |
+
+**All of (b1), (b2), (c) and (d) need a column B3 does not currently define** — a persisted
+per-batch idempotency key for (b)/(c), an `unknown` outcome for (d). D-10 permits additive
+migrations, so the decision can still be taken at the B10a gate; **B3 is simply the cheap
+moment**, since a nullable `idempotency_key text` plus a status CHECK that admits the
+reconciliation outcome costs nothing now and a second migration later.
+
+No recommendation is offered here: r1's "(a) for now" rested on the three-major figure, which
+§1.4.2 has since shown to be wrong, and the choice is the PM's at the B10a dispatch gate.
 
 ### 1.5 Other verified limits
 
 - **Batch size ≤100 emails per call** — matches D-07's `≤100/batch.send` bound exactly.
-- **Rate limit: 10 requests/second per team**, `429` on exceed (the SDK's error map already
-  contains `rate_limit_exceeded: 429`). D-07's tick issues ≤3 batch calls, so the drain has
-  ~3 orders of magnitude of headroom; no client-side pacing needed.
+- **Rate limit: 10 requests/second, counted per team, with no separate burst allowance**, `429`
+  on exceed (the SDK's error map already contains `rate_limit_exceeded: 429`). r1 said the tick
+  issues ≤3 batch calls and therefore had ~3 orders of magnitude of headroom. **Both halves were
+  wrong.** D-07's own bounds permit **12** provider calls per tick (§1.4.1), the ceiling is
+  team-wide — every other FNE send path (`contact.ts`, expense notifications, tractor grants)
+  draws on the same pool — and a maximally productive unpaced tick can therefore exceed the
+  limit by itself. **D-07 was amended on 2026-08-02 to make pacing mandatory**: a shared sender
+  enforcing **≥150 ms since the previous provider call** (≤6.7 req/s), proven by fake-clock
+  spacing tests, is now part of the frozen decision and of B10a's [A1]. B10a must also carry a
+  **429 test** — a rate-limit rejection arrives as parseable JSON, so it is a *definite* failure
+  (delay, retry later) and must never be folded into §1.3's `application_error` unknown bucket.
 - `to` accepts `string | string[]`, max 50 recipients — irrelevant to us: campaign sends are
   one recipient per element so that each gets its own unsubscribe header.
 - **3.5.0 has no webhook verification of any kind** — zero occurrences of "webhook" in its type
@@ -169,12 +252,19 @@ new Webhook(secret: string | Uint8Array, options?: { format?: 'raw' })
   `whsec_`-prefixed secret and its bare base64 form produce identical signatures.
 - `sign()` is public, which is what makes real known-answer vectors possible in tests.
 
-### 2.2 Timestamp tolerance is ±5 minutes, both directions — LOCKED
+### 2.2 Timestamp tolerance is exactly ±300 s, inclusive, both directions — LOCKED
 
-`WEBHOOK_TOLERANCE_IN_SECONDS = 5 * 60`, checked symmetrically. Boundaries asserted at ±299 s
-(accepted) and ±301 s (rejected), with the clock pinned by fake timers. **This satisfies D-08's
-"±5 min past AND future" requirement with no extra code in B7** — the future half is the one a
-past-only verifier would silently miss, so it has its own test.
+`WEBHOOK_TOLERANCE_IN_SECONDS = 5 * 60`, checked symmetrically with **`>`**, so the boundary is
+inclusive: `now - timestamp > 300` is "too old" and `timestamp > now + 300` is "too new".
+Asserted with the clock pinned by fake timers at **−300, −299, +299, +300 accepted** and
+**±301 rejected**.
+
+The exact-boundary cases exist because ±299/±301 alone do not pin the tolerance: flipping both
+comparisons to `>=` — a verifier that rejects exactly 300 s — leaves such a suite green. §6.2
+records that mutant (SM2) turning the suite red, so B7 may inherit the inclusive ±300 s result
+as a fact rather than an inference. **This satisfies D-08's "±5 min past AND future" with no
+extra code in B7** — the future half is the one a past-only verifier would silently miss, so it
+has its own test.
 
 ### 2.3 Multi-signature and rejection semantics — LOCKED
 
@@ -204,13 +294,33 @@ failure**" split, and both are asserted:
 
 ### 2.4 The signature is over the raw bytes — LOCKED
 
-The signed string is `` `${msgId}.${unixSeconds}.${payload}` ``. The suite asserts that a body
-which has merely been round-tripped through `JSON.parse`/`JSON.stringify` fails verification.
+The signed string is `` `${msgId}.${unixSeconds}.${payload}` `` — the payload bytes exactly as
+they arrived, with no normalisation of any kind.
+
+r1 asserted this with a body that had been round-tripped through `JSON.parse`/`JSON.stringify`,
+but the round-trip **extracted a subtree** (`JSON.parse(PAYLOAD).data`), so the case proved only
+that a *different value* is rejected — a canonicalising verifier would have kept it green. The
+suite now signs one spelling and rejects four **value-identical, byte-different** spellings of
+the same object, each asserted `toEqual` the signed value first so the case cannot decay back
+into a tampering test:
+
+| Spelling | Differs by |
+|---|---|
+| pretty-printed (`JSON.stringify(v, null, 2)`) | whitespace and newlines |
+| space-separated (`{"type": "email.sent", …}`) | whitespace only |
+| key-order swapped (`{"data":…,"type":…}`) | member order |
+| trailing newline | one trailing byte |
+
+plus the reverse direction — sign the pretty-printed spelling, verify the compact one — which
+is what kills a verifier canonicalising on *both* sides. §6.2 records three canonicalisation
+mutants — verify-side (SM3), both-sides (SM4) and both-sides-with-sorted-keys (SM7) — each
+turning the suite red; SM7 is the one the key-order case exists for.
 
 **Consequence for B7:** the webhook route must set `export const config = { api: { bodyParser:
-false } }` and verify the raw buffer. Reading `req.body` from Next's parser will fail every
-signature. This also composes with D-08's ≤256 KB raw-body cap: read the stream with a byte
-ceiling, then verify, then call `process_webhook_event` once.
+false } }` and verify the raw buffer — and must not re-encode the body in either direction.
+Reading `req.body` from Next's parser will fail every signature. This also composes with D-08's
+≤256 KB raw-body cap: read the stream with a byte ceiling, then verify, then call
+`process_webhook_event` once.
 
 ### 2.5 Event names carry an `email.` prefix — VERIFIED
 
@@ -244,36 +354,25 @@ D-07 invokes `/api/cron/email-drain` on a cadence "per B2 findings", with each t
 
 *(Vercel, "Usage & Pricing for Cron Jobs", doc last updated 2026-06-16.)*
 
-**This project is on Pro.** The evidence, and its limits, stated plainly:
+**This project is on Pro — CONFIRMED first-hand by the owner.** r1 left this as open risk R1
+because the executor could only cite a second-hand in-repo record. **R1 is now closed:**
 
-- **Owner-recorded, in-repo:** `docs/planning/zoom-integration-plan.md:134` —
+- **Owner's own account page, 2026-08-02** ("Brent Curtis' projects — Pro"), recorded in the
+  plan's Decision Log (`PLAN.md`, Decision Log 2026-08-02). This is first-hand evidence from the
+  account holder, not an inference, and it supersedes the r1 residue entirely — no `vercel
+  login` step remains outstanding before B10a's `vercel.json` entry ships.
+- **Corroborating, in-repo:** `docs/planning/zoom-integration-plan.md:134` —
   "② ~~Vercel Pro confirmation~~ **RESOLVED 2026-07-29** (Pro confirmed; Z1b unblocked)". That
   workstream had listed "Vercel Pro plan confirmation (per-minute crons, 800s maxDuration)" as a
-  *blocking decision owned by Brent* (line 447) and recorded it resolved five days before this
-  spike. The Zoom build depends on a per-minute ticker on the strength of that same confirmation.
+  *blocking decision owned by Brent* (line 447) and recorded it resolved before this spike.
 - **Historical, and now superseded:** this repo hit Hobby cron limits twice — `94a66a8`
   (Nov 2025) downgraded `*/5 * * * *` → `0 0 * * *` "for Vercel Hobby plan compatibility", and
   `4616035` (Jul 2025) disabled crons wholesale "to bypass plan limit". Both predate the
   upgrade and explain why `vercel.json` currently carries **no `crons` array at all**.
-- **Not independently re-verified here.** The Vercel CLI in this environment is
-  unauthenticated (`vercel whoami` → "No existing credentials found"), no `VERCEL_TOKEN` is
-  present, and the Vercel MCP server requires an OAuth flow this session cannot run. Deploying
-  to observe the outcome is forbidden by CLAUDE.md. So the plan tier rests on the owner's
-  recorded confirmation, not on a live query made by this executor.
 
 **Verdict: no FINDINGS gate is triggered — B10a is not blocked, and D-07's invoker does not
 need re-planning.** A per-minute drain (`* * * * *`) is within Pro's limits, and the phase's
 "unavailable/coarse cron ⇒ FINDINGS" branch does not apply.
-
-**One cheap confirmation for Brent before B10a's `vercel.json` entry ships** — a Hobby account
-*fails the deployment* on a sub-daily expression, so a stale plan assumption would surface as a
-broken deploy rather than a silent misbehaviour:
-
-```bash
-vercel login && vercel teams ls
-```
-
-or simply the Cron Jobs page under the project's Vercel settings.
 
 ### 3.3 Cron semantics B10a must design against — VERIFIED
 
@@ -311,12 +410,19 @@ not weaken it:
 - **No retries:** an unhandled 500 in a tick is simply skipped until the next one. The handler
   must therefore never leave rows stuck in `sending` outside the 15-minute stale window.
 
-One wording refinement for the PM to consider (documentation only, no design change): D-07's
-accepted tradeoff is currently phrased as "a mid-tick crash can duplicate ≤1 batch after stale
-reclaim". Two further paths reach the same ≤1-batch duplication and are worth naming in the
-same sentence — (i) Vercel's documented duplicate cron delivery, and (ii) §1.3's
-`application_error` ambiguity, where a send whose outcome is unknown is recorded `failed` and
-may be retried. The bound does not change; the list of causes does.
+**What r1 got wrong here, corrected.** r1 suggested naming duplicate cron delivery as a second
+path to ≤1-batch duplication. It is not a duplication path at all: `SKIP LOCKED` gives the
+concurrent tick a disjoint claim (§1.4.1, M3), and duplicate delivery matters only as a trigger
+that may perform the stale reclaim. The path r1 was reaching for is §1.3's `application_error`
+ambiguity — and that one is **not** bounded at ≤1 batch: it is ≤1 200 recipients per tick and
+repeatable per retry round (§1.4.1, M2). D-07's "≤1 batch" tradeoff sentence describes M1
+correctly and must not be read as covering M2.
+
+**Pacing is no longer optional.** The tick that this section calls "maximally productive" is
+also the one that would breach Resend's 10 req/s team ceiling on its own (§1.5). D-07 and B10a
+[A1] were amended on 2026-08-02 to require a shared sender spacing every provider call ≥150 ms
+after the previous one, asserted with a fake clock. A per-minute cadence leaves ample room: a
+full 12-call tick spends ≥1.65 s in pacing alone.
 
 ---
 
@@ -330,15 +436,17 @@ may be retried. The bound does not change; the list of causes does.
 | C4 | Errors are resolved values; `try/catch` alone is insufficient | §1.3 |
 | C5 | `application_error` = **unknown** outcome, not a confirmed failure | §1.3 |
 | C6 | Build the `Resend` client lazily inside the handler | §1.3 |
-| C7 | No idempotency key on 3.5.0; never pass `headers` through request options | §1.4 |
+| C7 | No idempotency key on 3.5.0 (minimum usable version is **4.5.x**); never pass `headers` through request options | §1.4.2 |
 | C8 | Verify with `new Webhook(secret).verify(rawBody, req.headers)` | §2.1 |
-| C9 | Tolerance ±300 s satisfies D-08 with no extra code | §2.2 |
+| C9 | Tolerance is **inclusive ±300 s** on both sides; satisfies D-08 with no extra code | §2.2 |
 | C10 | 401 **only** for `WebhookVerificationError`; everything else 5xx | §2.3 |
-| C11 | `bodyParser: false` — signatures are over raw bytes | §2.4 |
+| C11 | `bodyParser: false` — signatures are over raw bytes; never re-encode the body | §2.4 |
 | C12 | Effect table keys on full dotted names (`email.sent`, …) | §2.5 |
 | C13 | Cron = GET, production only, `Authorization: Bearer $CRON_SECRET` | §3.3 |
-| C14 | Cron may double-fire, may be missed, is never retried, may overlap | §3.3, §3.4 |
-| C15 | Per-minute cadence (`* * * * *`) is available on this project's plan | §3.2 |
+| C14 | Cron may double-fire, may be missed, is never retried, may overlap — but overlap is **not** a duplicate-send path (`SKIP LOCKED`) | §3.3, §3.4 |
+| C15 | Per-minute cadence (`* * * * *`) is available on this project's plan (Pro, owner-confirmed) | §3.2 |
+| C16 | Provider calls are **paced ≥150 ms apart** (amended D-07 / B10a [A1]); worst-case tick is **12 calls / 1 200 recipients**, against a **team-wide** 10 req/s ceiling with no burst allowance | §1.4.1, §1.5 |
+| C17 | A 429 (or any parseable error body) is a **definite** failure — never folded into `application_error`'s unknown bucket; B10a carries a 429 test | §1.5, §1.3 |
 
 ---
 
@@ -346,19 +454,21 @@ may be retried. The bound does not change; the list of causes does.
 
 | # | Risk | Severity | Owner |
 |---|---|---|---|
-| R1 | Plan tier is owner-recorded (2026-07-29), not re-verified by this executor; the CLI here is unauthenticated. A stale assumption fails the *deployment* of B10a's `vercel.json`. | Low — one command to confirm (§3.2) | Brent, before B10a merges |
-| R2 | SDK 3.5.0 is three majors behind 6.18.1 and unmaintained in practice. Every contract here is version-pinned; an upgrade invalidates the lot. | Medium — deliberate, deferred | PM (§1.4 option b) |
+| R1 | ~~Plan tier is owner-recorded, not re-verified.~~ **CLOSED 2026-08-02** — the owner confirmed Pro first-hand from the account page (Decision Log). Per-minute cron stands. | — | closed |
+| R2 | SDK 3.5.0 is behind 6.18.1. Contracts here are version-pinned — but §1.4.3 shows the batch response, error mapping and header pass-through are byte-identical through 4.5.x, so a **one-major** move re-locks almost nothing. The exposure is a 6.x move, not an upgrade as such. | Medium — deliberate, deferred | PM (§1.4.4) |
 | R3 | Batch index alignment is an API guarantee we cannot test without a live send. A silent change writes wrong provider ids into `email_campaign_sends`. | Low, but silent | B10a — assert length, fail loud (§1.2) |
 | R4 | Whether Resend's batch endpoint actually *honours* per-email `headers` end-to-end is a server-side behaviour. The wire format is locked; delivery is not. | Medium — D-08 compliance depends on it | B11b live-send gate: send one campaign to a seeded inbox and read the received headers |
-| R5 | `application_error` ambiguity (§1.3) is a real duplicate-delivery path, independent of cron. | Low, bounded | B10a — record error text on the send row so it is diagnosable |
+| R5 | `application_error` ambiguity (§1.3) is a real duplicate-delivery path, independent of cron — and it is **not** bounded at one batch: ≤1 200 recipients per tick, repeatable per retry round (§1.4.1, M2). | **Medium, unbounded across retries** (was recorded "low, bounded" in r1 — wrong) | PM at the B10a gate (§1.4.4); B10a must record the error text on the send row so it is diagnosable |
 | R6 | No `RESEND_API_KEY` locally, so nothing in Track B is exercised against the real API before A9/B11b. | Known, pre-existing | per PLAN.md working constraints |
 
 ## 6. Evidence that the tests detect drift
 
 Green at head: `npx vitest run __tests__/lib/resend-contract.test.ts __tests__/lib/svix-contract.test.ts`
-→ **35 passed** (13 + 22).
+→ **42 passed** (13 + 29).
 
-Three drift mutations were then applied to the installed packages — to the shipped bundles the
+### 6.1 Resend suite (r1)
+
+Three drift mutations were applied to the installed packages — to the shipped bundles the
 test runner actually resolves (`resend/dist/index.mjs`, not the CJS twin) — and the suites
 re-run:
 
@@ -375,4 +485,33 @@ suites re-run to **35 passed**.
 
 A first attempt mutated `resend/dist/index.js` (CJS) and produced a **false green** — vitest
 resolves the `import` condition, so the ESM bundle is the one under test. Recorded here because
-anyone re-running this check will otherwise reach the wrong conclusion.
+anyone re-running this check will otherwise reach the wrong conclusion. (`standardwebhooks` has
+no such twin: it ships CJS only, `"type": "commonjs"`, `main: ./dist/index.js`.)
+
+### 6.2 svix suite (r2) — seven mutants, seven kills
+
+The r1 svix suite had 22 tests and **survived two meaningful mutations**: canonicalising the
+body before hashing, and narrowing the tolerance boundary from inclusive to exclusive. A
+contract suite that passes a mutation is worse than no suite, because B7 and B10a inherit it as
+fact. §2.2 and §2.4 are re-derived; the suite is now 29 tests and this is the run that proves
+it. Verbatim output: [`docs/plan/evidence/b2/svix-mutation.md`](../evidence/b2/svix-mutation.md).
+
+Every mutation targets `node_modules/standardwebhooks/dist/index.js` — `svix`'s `Webhook` is a
+thin header-normalising wrapper, so that bundle is where verification actually happens. Each
+mutant was applied alone from a byte-for-byte backup, the suite run, the file restored and the
+restore asserted by SHA-256 before the next mutant.
+
+| # | Mutation | Simulates | Result |
+|---|---|---|---|
+| SM1 | `WEBHOOK_TOLERANCE_IN_SECONDS = 5 * 60` → `10 * 60` | a verifier widening the replay window | **2 failed** — ±301 s rejections |
+| SM2 | both `>` → `>=` in `verifyTimestamp` | a verifier making the boundary exclusive | **2 failed** — the exact ±300 s acceptances (r1 could not see this) |
+| SM3 | `verify` hashes `JSON.stringify(JSON.parse(payload))` | canonicalisation on the verify side | **4 failed** — three spellings + the reverse-direction case |
+| SM4 | `sign` canonicalises, so both sides hash canonical JSON | canonicalisation on both sides | **4 failed** — same four |
+| SM5 | `if (version !== "v1") continue;` removed | a verifier accepting any signature version | **1 failed** — the non-`v1` rejection |
+| SM6 | `timingSafeEqual(…)` → `!timingSafeEqual(…)` | an inverted signature comparison | **18 failed** |
+| SM7 | `sign` canonicalises with **sorted keys** | a canonicaliser that also normalises member order | **6 failed** — the known-answer vector plus all five raw-byte cases, including the key-order spelling |
+
+Restored byte-for-byte afterwards: **29/29 green**. SM2 and SM3 are the two mutants Sol found
+surviving r1; SM4 and SM7 are their both-sides and member-order variants. SM7 is why the
+key-order spelling is in the table at §2.4 — a plain `JSON.stringify(JSON.parse(x))` round-trip
+preserves insertion order, so only a sorting canonicaliser makes that case fire.

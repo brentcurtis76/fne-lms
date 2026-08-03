@@ -29,6 +29,20 @@ const KNOWN_MSG_ID = 'msg_2b1c3d';
 const KNOWN_TIMESTAMP = 1_700_000_000;
 const KNOWN_PAYLOAD = '{"type":"email.sent","data":{"email_id":"e1"}}';
 
+/**
+ * Byte-different, value-identical spellings of `PAYLOAD`. Every one of them
+ * parses to exactly the same JSON value (asserted per case), so only a verifier
+ * that hashes the *raw bytes* can tell them apart: a verifier that canonicalised
+ * the body first — `JSON.stringify(JSON.parse(body))` — would accept all four.
+ * That mutant is the reason this table exists.
+ */
+const EQUIVALENT_SPELLINGS: Array<[label: string, body: string]> = [
+  ['pretty-printed', JSON.stringify(JSON.parse(PAYLOAD), null, 2)],
+  ['space-separated', '{"type": "email.sent", "data": {"email_id": "e1"}}'],
+  ['key-order swapped', '{"data":{"email_id":"e1"},"type":"email.sent"}'],
+  ['trailing newline', `${PAYLOAD}\n`],
+];
+
 function headers(signature: string, timestamp: number = NOW_SECONDS) {
   return {
     'svix-id': MSG_ID,
@@ -147,11 +161,15 @@ describe('verify — accepted requests', () => {
   });
 });
 
-describe('verify — timestamp tolerance is ±5 minutes (D-08)', () => {
-  it('accepts a timestamp 299 s in the past', () => {
-    const past = NOW_SECONDS - 299;
+describe('verify — timestamp tolerance is exactly ±300 s, inclusive (D-08)', () => {
+  // The library compares with `>`, so ±300 s is *accepted* and ±301 s rejected.
+  // The exact boundary is asserted on both sides: with only ±299/±301 cases, a
+  // verifier that flipped both comparisons to `>=` (rejecting exactly 300)
+  // would stay green, and B7 would inherit a tolerance nobody had pinned.
+  it.each([-300, -299, 299, 300])('accepts an offset of %i s', (offset) => {
+    const stamped = NOW_SECONDS + offset;
 
-    expect(new Webhook(SECRET).verify(PAYLOAD, headers(signAt(past), past))).toEqual({
+    expect(new Webhook(SECRET).verify(PAYLOAD, headers(signAt(stamped), stamped))).toEqual({
       type: 'email.sent',
       data: { email_id: 'e1' },
     });
@@ -165,15 +183,6 @@ describe('verify — timestamp tolerance is ±5 minutes (D-08)', () => {
     );
   });
 
-  it('accepts a timestamp 299 s in the future', () => {
-    const future = NOW_SECONDS + 299;
-
-    expect(new Webhook(SECRET).verify(PAYLOAD, headers(signAt(future), future))).toEqual({
-      type: 'email.sent',
-      data: { email_id: 'e1' },
-    });
-  });
-
   it('rejects a timestamp 301 s in the future', () => {
     // The future half of the window is the one D-08 calls out explicitly; a
     // verifier that only guards the past would pass every other test here.
@@ -181,6 +190,39 @@ describe('verify — timestamp tolerance is ±5 minutes (D-08)', () => {
 
     expect(() => new Webhook(SECRET).verify(PAYLOAD, headers(signAt(future), future))).toThrow(
       /Message timestamp too new/
+    );
+  });
+});
+
+describe('verify — the signature covers the raw bytes, not the JSON value', () => {
+  it.each(EQUIVALENT_SPELLINGS)(
+    'rejects a %s spelling of the signed body',
+    (_label, spelling) => {
+      // Same value, different bytes — both halves asserted, so the case cannot
+      // decay into the weaker "tampered payload" claim.
+      expect(JSON.parse(spelling)).toEqual(JSON.parse(PAYLOAD));
+      expect(spelling).not.toBe(PAYLOAD);
+
+      expect(() => new Webhook(SECRET).verify(spelling, headers(signAt(NOW_SECONDS)))).toThrow(
+        /No matching signature found/
+      );
+    }
+  );
+
+  it('rejects the compact spelling when the pretty-printed one was signed', () => {
+    // The reverse direction: a verifier that canonicalised on *both* the sign
+    // and verify sides would accept this, and every case above would still be
+    // red-proof. Consequence for B7: whatever bytes arrive are the bytes to
+    // hash — never re-encode the body in either direction.
+    const pretty = JSON.stringify(JSON.parse(PAYLOAD), null, 2);
+    const signature = signAt(NOW_SECONDS, pretty);
+
+    expect(new Webhook(SECRET).verify(pretty, headers(signature))).toEqual({
+      type: 'email.sent',
+      data: { email_id: 'e1' },
+    });
+    expect(() => new Webhook(SECRET).verify(PAYLOAD, headers(signature))).toThrow(
+      /No matching signature found/
     );
   });
 });
@@ -194,12 +236,12 @@ describe('verify — rejected requests', () => {
     ).toThrow(WebhookVerificationError);
   });
 
-  it('rejects a re-serialised body, proving the raw bytes are what is signed', () => {
-    // Consequence for B7: the webhook route must disable Next's body parser and
-    // verify the raw body. `JSON.parse` + `JSON.stringify` already breaks it.
-    const reserialised = JSON.stringify(JSON.parse(PAYLOAD).data);
+  it('rejects a body whose signed subtree was extracted', () => {
+    // A different *value*, not merely different bytes — the raw-byte contract
+    // lives in its own describe block above.
+    const subtree = JSON.stringify(JSON.parse(PAYLOAD).data);
 
-    expect(() => new Webhook(SECRET).verify(reserialised, headers(signAt(NOW_SECONDS)))).toThrow(
+    expect(() => new Webhook(SECRET).verify(subtree, headers(signAt(NOW_SECONDS)))).toThrow(
       /No matching signature found/
     );
   });

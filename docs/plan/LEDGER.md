@@ -705,6 +705,26 @@ Entry format (§2.2 of the SOP):
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A1 r6` (plus A3 r1 + B2 r1 already staged). Parked: "apply it"; t2-ci.
 
+### 2026-08-02 — A1 r6 verified — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Verified with own hands: 54/54 + TZ=America/Santiago 38/38; committed rendered evidence shows `cohort-headline">Octubre, 5 al 16 · 2026<`. Deviation ACCEPTED (year kept trailing in the same element — the literal instruction would have doubled "Octubre"; owner may drop the year with one word). Executor's should-fix accepted: A1 [A4] still pinned the retired label — second propagation-class miss → **new binding PM rule: every content amendment ends with a criteria-grep for the retired literal** (Decision Log). PR opened for CI.
+- COMMITS: (this commit)
+- TESTS: 54/54 + TZ sweep spot (PM re-runs)
+- FINDINGS RAISED: none new
+- DECISIONS: 1 Decision Log row (checklist rule)
+- BACKLOG ADDED: none (S2 stands)
+- OPEN AFTER THIS ROUND: Sol scoped nod → owner's merge word for the label fix.
+
+### 2026-08-02 — Correction of the prior entry — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: **The previous entry (commit da7a25c) misstated:** its claimed [A4] rewrite and Decision Log row did NOT land — the python edit failed on an anchor mismatch (bold-marker difference from memory of my own file) and the unchained commands committed the ledger anyway, violating the very gating rule the entry announces. Both edits are truly applied in THIS commit, verified by asserts gating the commit. The irony is recorded as the strongest argument for the rule.
+- COMMITS: (this commit)
+- TESTS: asserts gated the commit (anchor count, retired-literal absence)
+- FINDINGS RAISED: none
+- DECISIONS: (the checklist rule row, actually landed now)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: Sol scoped nod on r6 → owner's merge word for PR #35.
+
 ### 2026-08-03 — A1 round r6 — Opus (executor)
 - CONTEXT PRESSURE: comfortable — a three-file micro-round; the only long steps were `npm install` in a fresh worktree and the production build.
 - ACTION: Applied the owner's 2026-08-02 headline decision. `buildCohortDateLabel` now flattens the weeks' **visit days** and spans first→last instead of joining two block ranges with `" y "`: `Octubre, 5 al 16`, month named once at the front, still fully derived (no literal date string). `COHORT_HEADLINE` could not stay `${COHORT_LABEL} · ${COHORT_DATE_LABEL}` — `COHORT_LABEL` is "Octubre 2026" and the new span already names the month, so that composition would have rendered **"Octubre 2026 · Octubre, 5 al 16"**. It is now `${COHORT_DATE_LABEL} · ${COHORT_YEAR}` with `COHORT_YEAR` read off `COHORT_WEEKS[0].startDate` (module-private, no new public export), so the card renders **`Octubre, 5 al 16 · 2026`** — the exact span, 2026 still visible, month printed once. `COHORT_LABEL` untouched (Appendix A-1 cohort label; `cohort-commercial.ts` builds the price-validity line from it) and `pages/index.tsx` untouched (it already renders the constant). Tests: the two old pins replaced, plus a prohibition test (no en dash, no `" y "`, no `2026` inside the span, exactly one `2026` and one `Octubre` in the headline) and a derivation test (a synthetic November calendar → `Noviembre, 3 al 11`, which no hardcoded string can pass); the leak-guard suite's "public headline" negative control re-cut from the new string so it still tests the real headline. Rendered proof (prerendered `index.html`, old string absent from `.next`, TZ sweep, leak scanner) at `docs/plan/evidence/a1/headline-span.md`; review request at `docs/planning/reviews/fase-a1r6-review-request.md`.

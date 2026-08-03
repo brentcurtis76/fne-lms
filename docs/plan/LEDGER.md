@@ -714,3 +714,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: (1) **Headline recomposed rather than left duplicating the month** — the prompt's premise that the year "already renders separately (card title)" is not true of this card: the year lived only inside `COHORT_HEADLINE`, in the same `<p>`. Kept it in that element, moved it behind the span. The alternative that follows the prompt literally ships "Octubre" twice, which is exactly the kind of headline the owner just rejected. (2) **Span ends taken from `visitDays`, not from the week blocks** — the prompt said so, and for this cohort the two are indistinguishable (both 5 and 16); the synthetic-November test is what tells them apart. (3) **`COHORT_YEAR` kept module-private** — nothing downstream needs it, and every new public export widens the D-01 namespace guard's surface for no gain. (4) **Evidence committed under `docs/plan/evidence/a1/`** rather than only in the report, per META — the rendered card is the acceptance criterion and a constant-pin test does not prove it (Codex S2 remains the durable fix).
 - BACKLOG ADDED: none (S1/S2 carried unchanged)
 - OPEN AFTER THIS ROUND: PM verification + the fast Sol nod, then the owner's word to merge `phase/a1-r6-label` independently. **Before that merge, PLAN.md [A4] needs the amended string** (finding above). A3 and A6a inherit the new span through the module — no change needed on their side.
+
+### 2026-08-02 — A1 r6 close — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Sol scoped confirmation = **PASS, year-placement deviation accepted, zero residue** (REVIEW-A1-R6.md, committed with this entry). The headline-span amendment is complete: derived "Octubre, 5 al 16 · 2026", prohibition + synthetic-calendar tests, rendered evidence. Awaiting the owner's merge word for PR #35 — on merge, the production homepage reads the single-span label.
+- COMMITS: (this close commit)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: —
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: **merge word for #35.**

@@ -364,6 +364,26 @@ Entry format (§2.2 of the SOP):
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A1 r4`; Brent's §1.5 word on B1b (then `/exec INSPIRA B1b r3`); STILL pending Brent: merge #31, prod migration application, phase/t2-ci cleanup.
 
+### 2026-08-02 — Madrid removed + lodging styling decided — Fable (PM, owner input)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner: the PPTX's "Opcional Madrid" block was accidental — **no Madrid options for now**. Purged from PLAN (Appendix A-7/A-8, A1/A3 criteria; 2 Decision Log rows); `prompts/a1-5.md` staged (owner-authorized round on the passed phase: remove Madrid exports/values/patterns + a no-return guard). Lodging styling delegated ("that's fine") → PM chose the coordination framing; owner veto point = A3's brochure review. Merge train unchanged and still awaiting words: #31 + #32 mergeable NOW; #34 after r5 lands + quick Sol confirmation.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 2 Decision Log rows
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A1 r5`; Brent's words: merge #31, merge #32, prod migration application, phase/t2-ci cleanup.
+
+### 2026-08-02 — Base-doble precision (owner) — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner precision: the €70–120/persona/noche range is **en base a habitación doble — per person, not per room**. Applied to A-8 and the A-7 block; `prompts/a1-5.md` amended to v2 pre-dispatch (note-string update + scanner-fragment consistency + test pin ride the Madrid-removal round). Race note: if r5 was dispatched against prompt v1 in the last minutes, the report's scope will show it and a micro-round covers the string.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: content precision recorded in A-8 row (no separate decision row)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: unchanged — dispatch `/exec INSPIRA A1 r5`; Brent's words: merge #31, merge #32, prod application, t2-ci cleanup.
+
 ### 2026-07-31 — A2 round 1 — Opus (executor)
 - CONTEXT PRESSURE: comfortable — 2 SQL files + docs, ~505 new lines; the only large reads were the `tractor_signups` slices of the 26k-line baseline and `020-tractor-signups-rls.sql`. Nothing was cut for context.
 - ACTION: Created `public.pasantias_leads` in one additive migration (`20260731140500_add_pasantias_leads.sql`) with the column set specced in A2 [A1], four CHECKs (email normalization, `num_people` 1–60, status set, marketing all-or-nothing), `UNIQUE (email_normalized, cohort)`, indexes on `(status)` and `(created_at DESC)`, and the shared `set_updated_at` trigger. [A2]: RLS enabled with **exactly one** policy — `pasantias_leads_admin_select`, `FOR SELECT TO authenticated`, `USING` the same `user_roles` admin-EXISTS test as `tractor_signups_admin_all`; **no `WITH CHECK` exists anywhere on the table**, which is what makes the D-04 posture per-operation rather than per-table. [A3]: nothing dropped, truncated or destructively altered; the migration header carries the full access matrix and the forward-only rollback rule, and the policy is created inside a `DO … IF NOT EXISTS (SELECT 1 FROM pg_policies …)` block rather than `DROP POLICY IF EXISTS` + `CREATE`, so it is re-runnable without a DROP. `CREATE OR REPLACE TRIGGER` for the same reason. [A4]: `supabase/tests/030-pasantias-leads-rls.sql`, 21 asserts. Status transitions are deliberately **not** enforced in SQL (D-03: the graph lives in `lib/pasantias/leads.ts`, and is authoritative only because D-04 leaves no authenticated write path).

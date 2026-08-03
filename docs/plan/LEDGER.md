@@ -775,6 +775,36 @@ Entry format (§2.2 of the SOP):
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA B2 r2`; A3 awaits Sol; owner: "apply it", t2-ci, design content pack on request.
 
+### 2026-08-02 — Brochure design content pack — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Built the design-session handoff per the design-content rule (Decision Log 2026-08-02). Committed at `docs/plan/design/brochure-content-pack.md`; working copy for the owner at `~/Documents/inspira-design/` with the 12 current renders in `renders-actuales/`. The pack leads with a **retired-facts table** (10 días, €560/€1.560, Madrid, enero leftover, 2025 validity, Learnlife, Sandra-as-directora, two-range headline, night counts) so a design session cannot resurrect them from the old deck; then carries every approved fact, the 13 objectives verbatim, the two-tier structure, the equipo with corrected titles, the bios transcribed from the source PPTX, investment per amended A-8, claims, legal identity, and a design brief naming exactly what the generated version lacks. **Honesty note carried into the pack:** the bios were extracted from a column layout where name↔bio pairing can scramble — flagged for Coral/Mora verification before publication. The source PPTX itself is gone from disk (WhatsApp temp cleared); its text survives only through this pack, which is now its system of record.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: none new (executes the recorded rule)
+- BACKLOG ADDED: bios name↔bio pairing verification with the BCN team (pre-publication gate for the designed brochure)
+- OPEN AFTER THIS ROUND: owner runs the design session; the resulting PDF needs per-file owner approval + a PM D-02 price check before it goes to the override cache path (A4).
+
+### 2026-08-02 — Content pack v2 (Enero-2025 deck) — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner is handing the design session the **Enero 2025 / IH Uruguay** deck instead (richer photography, 36 media assets). Analyzed it: it describes a materially DIFFERENT program, so the pack gained a second retired-facts table — 4 días/5 escuelas; enero 2025 dates; **€3.000 por 2 personas + €1.500 por adicional, máx 12** (vs €1.000 pp, mín 5); and the two dangerous rows where the decks state OPPOSITE things: that deck says meals and lodging are NOT included, October's approved version includes meals on visit days + closing dinner and coordinates lodging. Also surfaced a genuine fact conflict for owner verification: **workshop venue is "barrio del Born (Barrio Gótico)" in the Enero deck vs "Eixample" in the Oct deck** — the pack flags it as verify-before-print. Recovered one content idea worth reviving: per-school **"aspectos destacados"** (Virolai, Sadako, La Maquinista, Octavio Paz, Angeleta Ferrer) — the October material never says why each school matters; El Puig and Les Vinyes have no highlights on record and are marked as owner asks. Both copies updated (repo + ~/Documents/inspira-design/, which now also holds the deck itself).
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: venue discrepancy (Born vs Eixample) — owner/BCN verification before any print or publish
+- DECISIONS: none new
+- BACKLOG ADDED: request El Puig + Les Vinyes "aspectos destacados" from the BCN team
+- OPEN AFTER THIS ROUND: owner runs the design session with the v2 pack + Enero deck; resulting PDF needs owner approval + PM D-02 check before the A4 override path.
+
+### 2026-08-02 — Venue discrepancy resolved (owner) — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner resolved the Born-vs-Eixample conflict raised in the last entry: **the Instituto Relacional moved** — Eixample is current, el Born is the old address. No contradiction, no verification pending. Impact check: **nothing to change in code or plan** — Appendix A-7 and `COHORT_DAY_STRUCTURE` already say Eixample, so the shipped brochure/ficha generators and the approved brief were correct; only the content pack's warning row needed rewriting (both copies updated). The finding closes without a remediation round.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none (previous one closed)
+- DECISIONS: none
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: unchanged — B2 r2 dispatch, A3 with Sol, owner: "apply it", t2-ci, design session.
+
 ### 2026-08-03 — B2 round 1 — Opus (executor)
 - CONTEXT PRESSURE: comfortable — the phase is read-heavy (two SDK bundles, four Vercel doc pages) but writes little; ended with room to spare.
 - ACTION: Compatibility spike, no feature code. **Resend 3.5.0** read from the shipped bundle and locked in `__tests__/lib/resend-contract.test.ts` (13 tests, real `Resend` + stubbed `globalThis.fetch`): `POST /emails/batch` takes the **bare array**; the response double-nests to `data.data[i].id` (plan's suspicion CONFIRMED); per-email `headers` survive serialisation, so D-08's per-recipient `List-Unsubscribe` pair is mechanically possible; **errors are always resolved values, never thrown** — the sole throw in the SDK is the constructor on a missing key, so a `try/catch`-only drain would see nothing. Two reality-vs-type gaps locked: `ErrorResponse` is declared `{name,message}` but the SDK returns the API's JSON verbatim (a real 422 carries `statusCode`), and an `application_error`/"Unable to fetch data" result is an **unknown** outcome — the same value is returned for a network failure and for a 200 with an unparseable body, which is a genuine duplicate-send path independent of cron. **Idempotency: absent in 3.5.0** — the only request option is `PostOptions.query`, which POSTs ignore (spread into the fetch init, where `fetch` drops it); the API *does* support `Idempotency-Key` and current SDKs expose `idempotencyKey`, but 3.5.0 has no way to reach it, and the obvious workaround is pinned as a footgun test: passing `{headers}` through request options **replaces the SDK's Headers wholesale and sends the request unauthenticated**. **svix 1.99.1** added as a dependency and locked in `__tests__/lib/svix-contract.test.ts` (22 tests, real HMACs + fake timers): pinned known-answer vector; tolerance is `5*60` s checked **symmetrically** — ±299 s accepted, ±301 s rejected, so D-08's "past AND future" needs no extra code in B7; multi-signature is space-separated with non-`v1` entries skipped and any matching `v1` accepted (secret rotation survivable); the signature covers **raw bytes** (a `JSON.parse`→`stringify` round-trip fails), so B7 needs `bodyParser: false`; and the two non-`WebhookVerificationError` throws — empty secret (plain `Error`) and signed-but-unparseable body (`SyntaxError`) — are asserted, because collapsing them into a 401 would tell Resend "rejected, don't retry" on every event of a misconfigured deploy. **Findings file** `docs/plan/reviews/fase-b2-findings.md` (378 lines) with a 15-row contract card (C1–C15) for B3/B4/B7/B8/B10 to cite, six open risks, and the mutation evidence.

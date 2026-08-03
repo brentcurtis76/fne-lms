@@ -1,0 +1,41 @@
+# Phase A3 — visual QA evidence
+
+Every page of both generated PDFs, rasterised at **144 DPI** (criterion [A4]).
+The PM inspects these files from the repository, not from a chat transcript.
+
+| File | Document | Page |
+|---|---|---|
+| `brochure-01.png` | Brochure | Portada |
+| `brochure-02.png` | Brochure | Qué es la pasantía |
+| `brochure-03.png` | Brochure | Objetivos (13) |
+| `brochure-04.png` | Brochure | Estructura del día |
+| `brochure-05.png` | Brochure | Itinerario (semana 1 · fin de semana largo · semana 2) |
+| `brochure-06.png` | Brochure | Las 7 escuelas (2 inmersión + 5 visitas) |
+| `brochure-07.png` | Brochure | Equipo (8) |
+| `brochure-08.png` | Brochure | **Inversión** — the only page with prices |
+| `brochure-09.png` | Brochure | Qué incluye / no incluye |
+| `brochure-10.png` | Brochure | Contacto |
+| `ficha-1.png` | Ficha | Qué es · fechas · escuelas |
+| `ficha-2.png` | Ficha | Día tipo · equipo · cifras · CTA |
+
+## Regenerating
+
+```
+NEXT_PUBLIC_BASE_URL=https://nuevaeducacion.org npx tsx scripts/pasantias-visual-qa.ts
+```
+
+The base URL matters: the printed call to action resolves through
+`lib/utils/app-url.ts` (D-09), so a run without it renders `localhost:3000/pasantias`.
+Requires poppler's `pdftoppm` (`brew install poppler`) — a local tool, not a CI
+gate; the committed PNGs are the artifact.
+
+## What to look for
+
+- **Prices appear on `brochure-08.png` and nowhere else.** The ficha has no page
+  with a monetary token — that is structural (`ficha.tsx` never imports
+  `cohort-commercial.ts`) and asserted in `lib/pasantias/__tests__/pdf.test.ts`.
+- The lodging figure reads **€70 – €120 por persona por noche · base doble**,
+  with the verbatim Appendix A-8 note and the coordination framing under it.
+  **No combined total, no night count, no Madrid** anywhere in either document.
+- Accented es-CL glyphs (`Pasantías`, `inmersión`, `Cataluña`, `brújulas`,
+  `Vildósola`) render from the embedded Inter faces.

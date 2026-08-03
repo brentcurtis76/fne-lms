@@ -984,3 +984,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: (1) **`canTransitionLead(s, s)` is false** — a no-op is not a transition, and the route depends on it: a `new` lead's update simply omits the `status` key. A8's triage UI should be written knowing this. (2) **"Never clears an opt-in" is an absent key, not a preserved value** — `marketingColumns()` returns `{}` in that case, which is correct for a partial update but dies silently if a later phase switches this call to an upsert. (3) **The auto-reply dedup is read-then-write with no lock** — two submissions racing inside the same second both see a null `brochure_sent_at` and both send. Bounded (one duplicate courtesy mail per 24 h window) and cheap; a conditional update seemed out of proportion. (4) **Consent evidence is overwritten, not appended** — one row per `(email, cohort)` leaves nowhere to keep a history; if an audit wants the first acceptance as well as the latest, that is a schema question.
 - BACKLOG ADDED: `source_path` write path (finding 1) — belongs to A6b or a PM ruling. Second `reply_to` call site for the eventual Resend 4.5.x upgrade (B2's C-item; `tsc` catches it).
 - OPEN AFTER THIS ROUND: PM verification, then Codex/Sol review for A5. A8 unblocks on A5 DONE + T2. No merge without Brent's explicit go.
+
+### 2026-08-03 — A5 round r1 — Fable (PM verification)
+- CONTEXT PRESSURE: n/a
+- ACTION: Verified: 75/75 re-run by PM. Split-consent handling is exactly D-12 (`marketingColumns()` emits only the two shapes the CHECK accepts — never a half-set); identical-200 anti-enumeration asserted by comparing the two responses rather than reading them separately; full 4×4 transition matrix; escaping + CRLF-stripped subjects; 24h auto-reply dedup; soft-fail everywhere. Assumptions ratified: the six caps map as the executor read them, `role_title`/`utm_*` capped at 140 (leaving unbounded strings on a public endpoint would be a real hole), strict `consent === true`, and `canTransitionLead(s,s) = false`. **Finding accepted, and it is the PM's omission: `source_path` has no write path** — the column exists on the live table but my [A2] optional list omitted it, so it would stay permanently null and A6b could not attribute a lead. r2 adds it. Honest limits noted: consent evidence is overwritten not appended (schema question, deferred), and the auto-reply dedup is read-then-write (bounded to one courtesy mail per 24h window).
+- COMMITS: (this ledger commit)
+- TESTS: 75/75 (PM re-run)
+- FINDINGS RAISED: source_path → A5 r2
+- DECISIONS: assumptions ratified
+- BACKLOG ADDED: consent-evidence history (schema question, if audit ever needs first+latest)
+- OPEN AFTER THIS ROUND: A5 r2 (source_path), then Sol.

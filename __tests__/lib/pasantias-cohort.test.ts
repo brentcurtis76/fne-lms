@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import * as cohortPublicModule from '../../lib/pasantias/cohort-public';
 import {
+  buildCohortDateLabel,
   COHORT_CLAIMS,
   COHORT_DATE_LABEL,
   COHORT_DAY_STRUCTURE,
@@ -127,8 +128,47 @@ describe('public cohort module — calendar (Appendix A-2/A-3/A-4)', () => {
   });
 
   it('derives the date label and headline from the calendar above', () => {
-    expect(COHORT_DATE_LABEL).toBe('5–9 y 13–16 de octubre');
-    expect(COHORT_HEADLINE).toBe('Octubre 2026 · 5–9 y 13–16 de octubre');
+    // Appendix A-1 amended 2026-08-02: one continuous span, never two ranges.
+    expect(COHORT_DATE_LABEL).toBe('Octubre, 5 al 16');
+    expect(COHORT_HEADLINE).toBe('Octubre, 5 al 16 · 2026');
+    // The span's ends are the calendar's ends, not a string someone typed.
+    expect(COHORT_DATE_LABEL).toContain(String(Number(COHORT_VISIT_DAYS[0].slice(8))));
+    expect(COHORT_DATE_LABEL).toContain(
+      String(Number(COHORT_VISIT_DAYS[COHORT_VISIT_DAYS.length - 1].slice(8)))
+    );
+  });
+
+  it('never splits the headline into two ranges (Appendix A-1, 2026-08-02)', () => {
+    // The retired shape read as two different pasantías, so its markers are
+    // pinned as prohibitions rather than left to nobody re-adding them.
+    expect(COHORT_DATE_LABEL).not.toContain('–');
+    expect(COHORT_DATE_LABEL).not.toMatch(/\sy\s/);
+    expect(COHORT_HEADLINE).not.toContain('–');
+    // The year belongs to the headline once, and to the span not at all.
+    expect(COHORT_DATE_LABEL).not.toContain('2026');
+    expect(COHORT_HEADLINE.match(/2026/g)).toHaveLength(1);
+    expect(COHORT_HEADLINE.match(/Octubre/g)).toHaveLength(1);
+  });
+
+  it('rebuilds the span from whatever weeks it is handed', () => {
+    // Derivation, not a constant: a different calendar has to produce a
+    // different label, ends taken from the visit days rather than the blocks.
+    expect(
+      buildCohortDateLabel([
+        {
+          ...COHORT_WEEKS[0],
+          startDate: '2026-11-02',
+          endDate: '2026-11-06',
+          visitDays: ['2026-11-03', '2026-11-04'],
+        },
+        {
+          ...COHORT_WEEKS[1],
+          startDate: '2026-11-09',
+          endDate: '2026-11-13',
+          visitDays: ['2026-11-10', '2026-11-11'],
+        },
+      ])
+    ).toBe('Noviembre, 3 al 11');
   });
 });
 

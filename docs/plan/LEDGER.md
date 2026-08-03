@@ -705,6 +705,76 @@ Entry format (§2.2 of the SOP):
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A1 r6` (plus A3 r1 + B2 r1 already staged). Parked: "apply it"; t2-ci.
 
+### 2026-08-02 — A1 r6 verified — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Verified with own hands: 54/54 + TZ=America/Santiago 38/38; committed rendered evidence shows `cohort-headline">Octubre, 5 al 16 · 2026<`. Deviation ACCEPTED (year kept trailing in the same element — the literal instruction would have doubled "Octubre"; owner may drop the year with one word). Executor's should-fix accepted: A1 [A4] still pinned the retired label — second propagation-class miss → **new binding PM rule: every content amendment ends with a criteria-grep for the retired literal** (Decision Log). PR opened for CI.
+- COMMITS: (this commit)
+- TESTS: 54/54 + TZ sweep spot (PM re-runs)
+- FINDINGS RAISED: none new
+- DECISIONS: 1 Decision Log row (checklist rule)
+- BACKLOG ADDED: none (S2 stands)
+- OPEN AFTER THIS ROUND: Sol scoped nod → owner's merge word for the label fix.
+
+### 2026-08-02 — Correction of the prior entry — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: **The previous entry (commit da7a25c) misstated:** its claimed [A4] rewrite and Decision Log row did NOT land — the python edit failed on an anchor mismatch (bold-marker difference from memory of my own file) and the unchained commands committed the ledger anyway, violating the very gating rule the entry announces. Both edits are truly applied in THIS commit, verified by asserts gating the commit. The irony is recorded as the strongest argument for the rule.
+- COMMITS: (this commit)
+- TESTS: asserts gated the commit (anchor count, retired-literal absence)
+- FINDINGS RAISED: none
+- DECISIONS: (the checklist rule row, actually landed now)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: Sol scoped nod on r6 → owner's merge word for PR #35.
+
+### 2026-08-03 — A1 round r6 — Opus (executor)
+- CONTEXT PRESSURE: comfortable — a three-file micro-round; the only long steps were `npm install` in a fresh worktree and the production build.
+- ACTION: Applied the owner's 2026-08-02 headline decision. `buildCohortDateLabel` now flattens the weeks' **visit days** and spans first→last instead of joining two block ranges with `" y "`: `Octubre, 5 al 16`, month named once at the front, still fully derived (no literal date string). `COHORT_HEADLINE` could not stay `${COHORT_LABEL} · ${COHORT_DATE_LABEL}` — `COHORT_LABEL` is "Octubre 2026" and the new span already names the month, so that composition would have rendered **"Octubre 2026 · Octubre, 5 al 16"**. It is now `${COHORT_DATE_LABEL} · ${COHORT_YEAR}` with `COHORT_YEAR` read off `COHORT_WEEKS[0].startDate` (module-private, no new public export), so the card renders **`Octubre, 5 al 16 · 2026`** — the exact span, 2026 still visible, month printed once. `COHORT_LABEL` untouched (Appendix A-1 cohort label; `cohort-commercial.ts` builds the price-validity line from it) and `pages/index.tsx` untouched (it already renders the constant). Tests: the two old pins replaced, plus a prohibition test (no en dash, no `" y "`, no `2026` inside the span, exactly one `2026` and one `Octubre` in the headline) and a derivation test (a synthetic November calendar → `Noviembre, 3 al 11`, which no hardcoded string can pass); the leak-guard suite's "public headline" negative control re-cut from the new string so it still tests the real headline. Rendered proof (prerendered `index.html`, old string absent from `.next`, TZ sweep, leak scanner) at `docs/plan/evidence/a1/headline-span.md`; review request at `docs/planning/reviews/fase-a1r6-review-request.md`.
+- COMMITS: `948e616` (code + tests + evidence + review request) + this ledger commit
+- TESTS: targeted `npx vitest run __tests__/lib/pasantias-cohort.test.ts __tests__/scripts/check-price-leak.test.ts` → 54/54 (38 + 16; cohort file was 36). TZ sweep UTC / Europe/Madrid / America/Santiago → 38/38 each. Gates: `npm run type-check` clean · `npm run lint` clean (0 warnings) · `npm test` → **235 files / 3502 tests passed** · `npm run build` succeeded · `node scripts/check-price-leak.mjs` → OK, 266 files scanned, exit 0.
+- FINDINGS RAISED: **(should-fix, PM-owned)** `PLAN.md:125` — Phase A1 criterion [A4] still pins the retired string `"Octubre 2026 · 5–9 y 13–16 de octubre"`. The 2026-08-02 amendment reached Appendix A-1 and the Decision Log but not the phase criteria, so A1's own acceptance line now contradicts the owner's decision. PLAN.md is the PM's file; not touched here. (Same class of gap as the A-8 propagation miss found in A1 r3.)
+- DECISIONS: (1) **Headline recomposed rather than left duplicating the month** — the prompt's premise that the year "already renders separately (card title)" is not true of this card: the year lived only inside `COHORT_HEADLINE`, in the same `<p>`. Kept it in that element, moved it behind the span. The alternative that follows the prompt literally ships "Octubre" twice, which is exactly the kind of headline the owner just rejected. (2) **Span ends taken from `visitDays`, not from the week blocks** — the prompt said so, and for this cohort the two are indistinguishable (both 5 and 16); the synthetic-November test is what tells them apart. (3) **`COHORT_YEAR` kept module-private** — nothing downstream needs it, and every new public export widens the D-01 namespace guard's surface for no gain. (4) **Evidence committed under `docs/plan/evidence/a1/`** rather than only in the report, per META — the rendered card is the acceptance criterion and a constant-pin test does not prove it (Codex S2 remains the durable fix).
+- BACKLOG ADDED: none (S1/S2 carried unchanged)
+- OPEN AFTER THIS ROUND: PM verification + the fast Sol nod, then the owner's word to merge `phase/a1-r6-label` independently. **Before that merge, PLAN.md [A4] needs the amended string** (finding above). A3 and A6a inherit the new span through the module — no change needed on their side.
+
+### 2026-08-02 — A1 r6 close — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Sol scoped confirmation = **PASS, year-placement deviation accepted, zero residue** (REVIEW-A1-R6.md, committed with this entry). The headline-span amendment is complete: derived "Octubre, 5 al 16 · 2026", prohibition + synthetic-calendar tests, rendered evidence. Awaiting the owner's merge word for PR #35 — on merge, the production homepage reads the single-span label.
+- COMMITS: (this close commit)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: —
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: **merge word for #35.**
+
+### 2026-08-02 — A3 r1 + B2 r1 verified; a3-2 staged — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Both verified with own hands (26/26 + 35/35 re-runs; 12 renders inspected page by page; findings card read). A3: high quality, ONE finding — both subtitles render the retired two-range label (branch predates r6); `prompts/a3-2.md` staged (merge main → derived label flows → re-render evidence → pin + currency-context 560 hardening). B2: clean → Sol review (PR #36); D-07 idempotency decision deferred to B10a with three costed options; owner one-liner open: confirm the Vercel account is Pro (closes B2's R1 residue — currently sourced from the Zoom doc's record).
+- COMMITS: (this commit — a3-2 prompt + this entry)
+- TESTS: as branch entries
+- FINDINGS RAISED: A3 retired-label (r2)
+- DECISIONS: D-07 dedup deferred (branch entry)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A3 r2`; Sol on B2; owner: Vercel-Pro confirm, "apply it", t2-ci.
+
+### 2026-08-02 — Brochure design parked to override path; Vercel Pro confirmed — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner: the generated brochure is too basic vs the PPTX — **the customer-facing brochure will be a Claude-designed PDF, delivered through D-05's manual-override path** (which existed for exactly this outcome). Nothing cancels: A3 r2 (in flight, owner-dispatched) completes the date fix; the generator stays as fallback + canary; the ficha stays generated; A4 serves whatever sits at the cache path. Design-content rule recorded (content pack from Appendix A + modules + PPTX bios; per-file approval + D-02 check; amendment-checklist hook). **Vercel Pro confirmed by owner screenshot** — B2 R1 residue closed with first-hand evidence, upgrading the findings card's cron conclusion from secondhand to confirmed. B2 is with Sol (owner-dispatched).
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 2 Decision Log rows
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: A3 r2 + B2 Sol reports awaited. PM offer standing: build the design session's content pack on the owner's word. Parked: "apply it"; t2-ci.
+
+### 2026-08-02 — B2 Sol triage → D-07 pacing amendment + r2 — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Sol B2 = FAIL ×3, all accepted (branch ledger carries the detail). **Finding 3 was mine**: D-07's bounds allow 12 provider calls/tick vs Resend's 10 req/s, and no revision ever required pacing — D-07 and B10a [A1] now mandate a shared paced sender (≥150 ms between provider calls, fake-clock tested); Decision Log row added. Findings 1–2 → `prompts/b2-2.md` (svix suite must kill its own mutants — raw-byte + exact ±300 s boundary; idempotency options recomputed with real exposure numbers and a verified minimum SDK version; card cites amended D-07 and drops the closed R1). r2 also merges main so PR #36 stops conflicting and CI can run.
+- COMMITS: (this commit — PLAN amendments + b2-2 prompt + this entry)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 1 Decision Log row (mandatory pacing)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA B2 r2`; A3 awaits Sol; owner: "apply it", t2-ci, design content pack on request.
+
 ### 2026-08-03 — B2 round 1 — Opus (executor)
 - CONTEXT PRESSURE: comfortable — the phase is read-heavy (two SDK bundles, four Vercel doc pages) but writes little; ended with room to spare.
 - ACTION: Compatibility spike, no feature code. **Resend 3.5.0** read from the shipped bundle and locked in `__tests__/lib/resend-contract.test.ts` (13 tests, real `Resend` + stubbed `globalThis.fetch`): `POST /emails/batch` takes the **bare array**; the response double-nests to `data.data[i].id` (plan's suspicion CONFIRMED); per-email `headers` survive serialisation, so D-08's per-recipient `List-Unsubscribe` pair is mechanically possible; **errors are always resolved values, never thrown** — the sole throw in the SDK is the constructor on a missing key, so a `try/catch`-only drain would see nothing. Two reality-vs-type gaps locked: `ErrorResponse` is declared `{name,message}` but the SDK returns the API's JSON verbatim (a real 422 carries `statusCode`), and an `application_error`/"Unable to fetch data" result is an **unknown** outcome — the same value is returned for a network failure and for a 200 with an unparseable body, which is a genuine duplicate-send path independent of cron. **Idempotency: absent in 3.5.0** — the only request option is `PostOptions.query`, which POSTs ignore (spread into the fetch init, where `fetch` drops it); the API *does* support `Idempotency-Key` and current SDKs expose `idempotencyKey`, but 3.5.0 has no way to reach it, and the obvious workaround is pinned as a footgun test: passing `{headers}` through request options **replaces the SDK's Headers wholesale and sends the request unauthenticated**. **svix 1.99.1** added as a dependency and locked in `__tests__/lib/svix-contract.test.ts` (22 tests, real HMACs + fake timers): pinned known-answer vector; tolerance is `5*60` s checked **symmetrically** — ±299 s accepted, ±301 s rejected, so D-08's "past AND future" needs no extra code in B7; multi-signature is space-separated with non-`v1` entries skipped and any matching `v1` accepted (secret rotation survivable); the signature covers **raw bytes** (a `JSON.parse`→`stringify` round-trip fails), so B7 needs `bodyParser: false`; and the two non-`WebhookVerificationError` throws — empty secret (plain `Error`) and signed-but-unparseable body (`SyntaxError`) — are asserted, because collapsing them into a 401 would tell Resend "rejected, don't retry" on every event of a misconfigured deploy. **Findings file** `docs/plan/reviews/fase-b2-findings.md` (378 lines) with a 15-row contract card (C1–C15) for B3/B4/B7/B8/B10 to cite, six open risks, and the mutation evidence.

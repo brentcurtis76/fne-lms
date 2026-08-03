@@ -122,7 +122,7 @@ Public/commercial split per D-01, criteria inlined here (the prior "as v2" refer
 - [A1] Public module `lib/pasantias/cohort-public.ts`: cohort id `octubre-2026`, label, weeks per Appendix A-2/A-3/A-4 (week 1 `2026-10-05→09` full; free long weekend sáb 10–lun 12 with "lunes 12 = Fiesta Nacional" note; week 2 `2026-10-13→16` mar–vie), **two-tier school structure per A-5 (immersion: Virolai + Sadako, 2,5 días each; visits: 5 schools, 1–2/day, El Puig + Les Vinyes full-day)**, experts per A-6, 13 objectives, day structure, lodging area. **Zero monetary fields — and no Madrid exports (removed 2026-08-02).** Commercial module `lib/pasantias/cohort-commercial.ts`: prices/payment terms per A-8, `BROCHURE_VERSION`, `BROCHURE_FILENAME`, `COMMERCIAL_SENTINEL`.
 - [A2] `scripts/check-price-leak.mjs` scans `.next/static/**` post-build for sentinel + price literals; wired into CI; green on this branch.
 - [A3] Guard test pinned to Appendix A anchors: money math per amended A-8 (program = 1000; lodging band 70 ≤ min < max ≤ 120; **no combined total exists or may return**); **no session on 2026-10-12** or any free-weekend day; week 1 = 5 consecutive visit days lun 5–vie 9; week 2 = 4 visit days mar 13–vie 16; **9 visit days total**; valid ISO dates; **immersion list = 2 and visit list = 5, names matching A-5 (7 total)**; public-module serialization contains no monetary keys/values.
-- [A4] Homepage "Próximas Expediciones" card renders "Octubre 2026 · 5–9 y 13–16 de octubre" from the public module (no literal date strings in `index.tsx`), no prices; "Abril/Noviembre 2026" remain only in flipbook titles until A7a.
+- [A4] Homepage "Próximas Expediciones" card renders the derived single-span headline per amended A-1 ("Octubre, 5 al 16", year rendered once alongside) from the public module (no literal date strings in `index.tsx`), no prices; "Abril/Noviembre 2026" remain only in flipbook titles until A7a. *(Rewritten 2026-08-02 with the A-1 span amendment — r6.)*
 - [A5] Gates + leak script green.
 
 ## Phase A2 — `pasantias_leads` migration + per-op RLS + pgTAP (DB-agent)
@@ -357,6 +357,8 @@ The v2 B11 preflight as its own evidence phase: DKIM/SPF verified; DMARC present
 | 2026-08-02 | **§1.5 on B1b's Codex-r2 residue: fix now (round r3, owner-authorized)** — the browser-mail regression guard extends its sweep to the full client-source surface (tsconfig-derived, incl. `src/`), with red-then-green proof; then scoped Codex confirmation on Brent's authority. | Brent (2026-08-02) | Brent |
 | 2026-08-02 | **Madrid option REMOVED** — owner: the PPTX's "Opcional Madrid" block was an accidental carry; no Madrid pasantías for now (may return in a future cohort). Purged from Appendix A, cohort modules, tests, scanner patterns via A1 round r5 (owner-authorized — A1's Codex cap was spent; this change is owner-directed). | Brent (2026-08-02) | Brent |
 | 2026-08-02 | **Lodging styling delegated to PM** ("that's fine") — coordination framing chosen; owner veto point = A3's brochure review. | Brent (2026-08-02) | Brent / Fable (PM) |
+| 2026-08-02 | **Headline date label = single span ("Octubre, 5 al 16")** — owner: the merged two-range label ("5–9 y 13–16") reads as two different pasantías. Label derivation changes in `cohort-public.ts` (micro-round a1-6 on a fresh branch; A1 is merged); A3/A6a inherit via the module. Two-week detail stays in itinerary contexts. | Brent (2026-08-02) | Brent |
+| 2026-08-02 | **PM amendment-checklist rule (binding):** every content amendment now ends with a grep of PLAN criteria for the retired literal before commit — the r6 executor found A1 [A4] still pinning the old label, the SECOND propagation-class miss (after A-8/r3). [A4] rewritten. | A1 r6 report | Fable (PM) |
 
 ## Appendix A — Content brief (v1 — NORMATIVE for cohort facts)
 
@@ -364,7 +366,7 @@ The v2 B11 preflight as its own evidence phase: DKIM/SPF verified; DMARC present
 
 | # | Item | Value | Status |
 |---|---|---|---|
-| A-1 | Cohort label | Octubre 2026 | OK |
+| A-1 | Cohort label | Octubre 2026. **Headline date-span in all materials: "Octubre, 5 al 16"** — one continuous span; never two ranges in titles/chips (reads as two pasantías — Brent 2026-08-02). The two-week structure appears only in itinerary detail. | OK (amended 2026-08-02) |
 | A-2 | Week 1 | **Lun 5 – Vie 9 octubre 2026 — semana completa, 5 días de visitas** | OK (Brent 2026-07-31; supersedes the 07-30 dates) |
 | A-3 | Week 2 | **Mar 13 – Vie 16 octubre 2026 — 4 días de visitas** | OK (Brent 2026-07-31) |
 | A-4 | Free days | Fin de semana largo **sáb 10 – lun 12**; lunes 12 = Fiesta Nacional de España (colegios cerrados) — día libre en Barcelona o para conocer Europa. **Total 9 días de visitas (5+4), el formato habitual.** Marketing dice "dos semanas" con calendario honesto; el claim "10 días" del brochure antiguo se retira. | OK (Brent 2026-07-31) |

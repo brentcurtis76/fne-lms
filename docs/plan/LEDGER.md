@@ -695,6 +695,66 @@ Entry format (§2.2 of the SOP):
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A3 r1` + `/exec INSPIRA B2 r1` (parallel-safe: disjoint files, own worktrees). Owner words still parked: **prod application of the leads migration** ("apply it" — required before A5 goes live); **phase/t2-ci reset/delete**.
 
+### 2026-08-02 — Headline label fix staged (owner) — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner: the live two-range label reads as two pasantías → headline span becomes "Octubre, 5 al 16" everywhere (A-1 amended + Decision Log row). Micro-round `prompts/a1-6.md` staged on a fresh branch (A1 is merged). A3/A6a inherit through the module — no prompt changes needed there. A3/B2 dispatches proceed in parallel; the label fix merges independently on the owner's word after PM verify + a fast Sol nod.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 1 Decision Log row
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A1 r6` (plus A3 r1 + B2 r1 already staged). Parked: "apply it"; t2-ci.
+
+### 2026-08-02 — A1 r6 verified — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Verified with own hands: 54/54 + TZ=America/Santiago 38/38; committed rendered evidence shows `cohort-headline">Octubre, 5 al 16 · 2026<`. Deviation ACCEPTED (year kept trailing in the same element — the literal instruction would have doubled "Octubre"; owner may drop the year with one word). Executor's should-fix accepted: A1 [A4] still pinned the retired label — second propagation-class miss → **new binding PM rule: every content amendment ends with a criteria-grep for the retired literal** (Decision Log). PR opened for CI.
+- COMMITS: (this commit)
+- TESTS: 54/54 + TZ sweep spot (PM re-runs)
+- FINDINGS RAISED: none new
+- DECISIONS: 1 Decision Log row (checklist rule)
+- BACKLOG ADDED: none (S2 stands)
+- OPEN AFTER THIS ROUND: Sol scoped nod → owner's merge word for the label fix.
+
+### 2026-08-02 — Correction of the prior entry — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: **The previous entry (commit da7a25c) misstated:** its claimed [A4] rewrite and Decision Log row did NOT land — the python edit failed on an anchor mismatch (bold-marker difference from memory of my own file) and the unchained commands committed the ledger anyway, violating the very gating rule the entry announces. Both edits are truly applied in THIS commit, verified by asserts gating the commit. The irony is recorded as the strongest argument for the rule.
+- COMMITS: (this commit)
+- TESTS: asserts gated the commit (anchor count, retired-literal absence)
+- FINDINGS RAISED: none
+- DECISIONS: (the checklist rule row, actually landed now)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: Sol scoped nod on r6 → owner's merge word for PR #35.
+
+### 2026-08-03 — A1 round r6 — Opus (executor)
+- CONTEXT PRESSURE: comfortable — a three-file micro-round; the only long steps were `npm install` in a fresh worktree and the production build.
+- ACTION: Applied the owner's 2026-08-02 headline decision. `buildCohortDateLabel` now flattens the weeks' **visit days** and spans first→last instead of joining two block ranges with `" y "`: `Octubre, 5 al 16`, month named once at the front, still fully derived (no literal date string). `COHORT_HEADLINE` could not stay `${COHORT_LABEL} · ${COHORT_DATE_LABEL}` — `COHORT_LABEL` is "Octubre 2026" and the new span already names the month, so that composition would have rendered **"Octubre 2026 · Octubre, 5 al 16"**. It is now `${COHORT_DATE_LABEL} · ${COHORT_YEAR}` with `COHORT_YEAR` read off `COHORT_WEEKS[0].startDate` (module-private, no new public export), so the card renders **`Octubre, 5 al 16 · 2026`** — the exact span, 2026 still visible, month printed once. `COHORT_LABEL` untouched (Appendix A-1 cohort label; `cohort-commercial.ts` builds the price-validity line from it) and `pages/index.tsx` untouched (it already renders the constant). Tests: the two old pins replaced, plus a prohibition test (no en dash, no `" y "`, no `2026` inside the span, exactly one `2026` and one `Octubre` in the headline) and a derivation test (a synthetic November calendar → `Noviembre, 3 al 11`, which no hardcoded string can pass); the leak-guard suite's "public headline" negative control re-cut from the new string so it still tests the real headline. Rendered proof (prerendered `index.html`, old string absent from `.next`, TZ sweep, leak scanner) at `docs/plan/evidence/a1/headline-span.md`; review request at `docs/planning/reviews/fase-a1r6-review-request.md`.
+- COMMITS: `948e616` (code + tests + evidence + review request) + this ledger commit
+- TESTS: targeted `npx vitest run __tests__/lib/pasantias-cohort.test.ts __tests__/scripts/check-price-leak.test.ts` → 54/54 (38 + 16; cohort file was 36). TZ sweep UTC / Europe/Madrid / America/Santiago → 38/38 each. Gates: `npm run type-check` clean · `npm run lint` clean (0 warnings) · `npm test` → **235 files / 3502 tests passed** · `npm run build` succeeded · `node scripts/check-price-leak.mjs` → OK, 266 files scanned, exit 0.
+- FINDINGS RAISED: **(should-fix, PM-owned)** `PLAN.md:125` — Phase A1 criterion [A4] still pins the retired string `"Octubre 2026 · 5–9 y 13–16 de octubre"`. The 2026-08-02 amendment reached Appendix A-1 and the Decision Log but not the phase criteria, so A1's own acceptance line now contradicts the owner's decision. PLAN.md is the PM's file; not touched here. (Same class of gap as the A-8 propagation miss found in A1 r3.)
+- DECISIONS: (1) **Headline recomposed rather than left duplicating the month** — the prompt's premise that the year "already renders separately (card title)" is not true of this card: the year lived only inside `COHORT_HEADLINE`, in the same `<p>`. Kept it in that element, moved it behind the span. The alternative that follows the prompt literally ships "Octubre" twice, which is exactly the kind of headline the owner just rejected. (2) **Span ends taken from `visitDays`, not from the week blocks** — the prompt said so, and for this cohort the two are indistinguishable (both 5 and 16); the synthetic-November test is what tells them apart. (3) **`COHORT_YEAR` kept module-private** — nothing downstream needs it, and every new public export widens the D-01 namespace guard's surface for no gain. (4) **Evidence committed under `docs/plan/evidence/a1/`** rather than only in the report, per META — the rendered card is the acceptance criterion and a constant-pin test does not prove it (Codex S2 remains the durable fix).
+- BACKLOG ADDED: none (S1/S2 carried unchanged)
+- OPEN AFTER THIS ROUND: PM verification + the fast Sol nod, then the owner's word to merge `phase/a1-r6-label` independently. **Before that merge, PLAN.md [A4] needs the amended string** (finding above). A3 and A6a inherit the new span through the module — no change needed on their side.
+
+### 2026-08-02 — A1 r6 close — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Sol scoped confirmation = **PASS, year-placement deviation accepted, zero residue** (REVIEW-A1-R6.md, committed with this entry). The headline-span amendment is complete: derived "Octubre, 5 al 16 · 2026", prohibition + synthetic-calendar tests, rendered evidence. Awaiting the owner's merge word for PR #35 — on merge, the production homepage reads the single-span label.
+- COMMITS: (this close commit)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: —
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: **merge word for #35.**
+
+### 2026-08-02 — A3 r1 + B2 r1 verified; a3-2 staged — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Both verified with own hands (26/26 + 35/35 re-runs; 12 renders inspected page by page; findings card read). A3: high quality, ONE finding — both subtitles render the retired two-range label (branch predates r6); `prompts/a3-2.md` staged (merge main → derived label flows → re-render evidence → pin + currency-context 560 hardening). B2: clean → Sol review (PR #36); D-07 idempotency decision deferred to B10a with three costed options; owner one-liner open: confirm the Vercel account is Pro (closes B2's R1 residue — currently sourced from the Zoom doc's record).
+- COMMITS: (this commit — a3-2 prompt + this entry)
+- TESTS: as branch entries
+- FINDINGS RAISED: A3 retired-label (r2)
+- DECISIONS: D-07 dedup deferred (branch entry)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A3 r2`; Sol on B2; owner: Vercel-Pro confirm, "apply it", t2-ci.
+
 ### 2026-08-03 — A3 round r1 — Opus (executor)
 - CONTEXT PRESSURE: comfortable — two cohort modules, the house PDF kit and four new files all fit in context; the 12 evidence renders were inspected page by page without trimming.
 - ACTION: Per `prompts/a3-1.md` on `phase/a3-pdfgen` from `origin/main` @ `26ff2f0`, in worktree `../wt-a3`. **`lib/pasantias/brochure.tsx`** — `generateBrochure()` renders 10 A4 pages (portada `INSPIRA · Barcelona · Octubre 2026` + claims; qué es; 13 objetivos; estructura del día; itinerario semana 1 / fin de semana largo sáb 10–lun 12 con Fiesta Nacional / semana 2 con El Puig y Les Vinyes día completo; las 7 escuelas two-tier; equipo de 8 con títulos A-6; **inversión**; incluye/no incluye; contacto). It is the **single production importer** of `cohort-commercial.ts` (D-01). Investment per amended A-8: `€1.000` programa + table cell `€70 – €120 por persona por noche · base doble` with the verbatim `COHORT_LODGING_NOTE` directly under it, the delegated coordination framing ("El alojamiento se coordina con el equipo FNE según tu preferencia."), 50%+saldo 30 días, mínimo 5, validez por cohorte. No total, no night count, no Madrid. **`lib/pasantias/ficha.tsx`** — `generateFicha()` renders exactly 2 pages and imports `cohort-public.ts` only, so "no monetary token" is structural, not disciplinary. **`lib/pasantias/pdf/`** — `components.tsx` (cover, masthead, Numbered/Bullets, Row, ContactBlock with `LEGAL_IDENTITY`), `format.ts` (es-CL weekday/euro; UTC-canonical dates; hand-grouped `€1.000` because a no-full-ICU runtime writes `1,000`), `contact.ts` (A-11 WhatsApp, `/pasantias` via `lib/utils/app-url.ts` per D-09), `filenames.ts` (`FICHA_VERSION`/`FICHA_FILENAME` + `isRfc5987SafeFilename`). `lib/propuestas/*` imported, never edited. **Evidence:** `scripts/pasantias-visual-qa.ts` rasterises every page at 144 DPI via `pdftoppm` into `docs/plan/evidence/a3/` (10 + 2 PNGs + README); all 12 inspected — no clipping, no overflow, accents correct.
@@ -714,3 +774,4 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: deviations accepted
 - BACKLOG ADDED: none (S1 done early; S2 stands)
 - OPEN AFTER THIS ROUND: `/exec INSPIRA A3 r2` — then Sol review of the whole phase.
+

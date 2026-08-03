@@ -72,7 +72,7 @@ describe('leak guard — the band figures do not fire on ordinary output', () =>
     ['a chunk hash', 'static/chunks/pages/index-a70f9c120b.js'],
     ['a four-digit year', 'x="€1970"'],
     ['a distant euro sign', `p="€"${'z'.repeat(40)}70`],
-    ['the public headline', 'x="Octubre 2026 · 5–9 y 13–16 de octubre"'],
+    ['the public headline', 'x="Octubre, 5 al 16 · 2026"'],
   ];
 
   for (const [description, text] of clean) {

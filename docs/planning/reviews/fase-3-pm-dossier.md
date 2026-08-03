@@ -482,8 +482,15 @@ overturned/extended PM sol7 rulings, conceded (§7h erratum above). Fixed in `40
 (impl) + `dc256f4` (docs). ① resolution is now REASON-AWARE and identity-based:
 `isTerminalAnomalyResolved(marker, anchors)` — `possible_orphan` resolves only when
 the row (or an adoptable checkpoint naming THAT row) carries
-`evidence.created_zoom_meeting_number`; the winner's different number NEVER resolves
-it; `sync_missing_row` only on a restored row carrying the RECORDED number;
+`evidence.created_zoom_meeting_number` *[ERRATUM sol9, Sol R9 ①: the checkpoint arm
+was UNSOUND and is deleted — the pre-existing checkpoint co-produced the orphan (it
+proves A was created, not that A is persisted anywhere), so it SELF-RESOLVED a
+different-number marker with no operator action; the surviving rule is row-persisted
+identity only: `rowNumber === created`. The PM endorsed the arm without walking the
+different-number case through it — conceded; and the masking test double (rival
+installed without forwarding the checkpoint) got past the PM's count-based re-run —
+the re-review discipline now includes reading the doubles]*; the winner's different
+number NEVER resolves it; `sync_missing_row` only on a restored row carrying the RECORDED number;
 `sync_not_publishable` additionally requires a publishable status
 (`PUBLISHABLE_MEETING_STATUSES`, TS mirror of the RPC CASE, SQL authoritative);
 fail-closed on missing/non-numeric evidence and unknown reasons; clearing the JOB
@@ -522,6 +529,38 @@ existence-based resolution (that anomaly never learned a number); `deleted` sits
 the publishable set (public `cancelled`); the taxonomy fallback drops
 `retryAfterSeconds` from the JSON (scheduling unaffected — the runner reads the
 record, not the JSON).
+
+## 7j. Sol-R9 remediation record (Z1b-sol9, 2026-08-02)
+
+Sol R9: REQUEST CHANGES — 4 items; ①② were PM sol8-verification misses, conceded
+(§7i erratum above). Fixed in `93a33e1` (impl/tests) + `b889636` (docs). ① the
+`possible_orphan` checkpoint arm is DELETED — the code is now `rowNumber === created`,
+the smallest safe rule, with the why preserved as a comment (PM verified the two
+remaining "checkpoint" strings in the case are the explanatory comment, not code);
+ordinary unmarked checkpoint adoption untouched. ② the rival heartbeat double now
+FORWARDS `ctx.heartbeat(stageState)` first and installs row B only on a live
+`created` heartbeat (PM read the double line by line — the new discipline); four
+regressions: B+A stays `anomaly_unresolved`, three requeues preserve created=A and
+stay failed, row=A still auto-resolves (the FALSE-positive/raced-read path — an
+operator writing A over the winner's live B would be corruption, which is why the
+per-reason hint correctly says no database action resolves a REAL different-number
+orphan), zero requeue creates. ③ `message`/`reason`/`detail` and the `String(error)`
+path are defensively read (`[unreadable:<class>]` markers; hostile messages never
+stored). ④ review-request numstat corrected (`+557/−25`), the total-failure claim
+narrowed, the invalid checkpoint argument removed.
+
+**PM verification**: predicate case printed verbatim; the double read line by line;
+fail-on-olds re-executed EXACTLY — ① raw revert → **3/96** (raw collect works this
+round: no new exports), ③ runner raw → **4/38**; 134/134 at head; gates at `b889636`:
+**3789/3789 in 240 files** (+7/+0), build OK, `test:db` 139/139 clean-reset,
+`test:queue` PASS (21/19); CI 8/8; scans CLEAN (unpiped). All five deviations
+ACCEPTED (dev 2's honest 3-of-4-fail-on-old accounting — the row=A regression passes
+on both sides by design and is labelled so).
+
+**Residuals**: unchanged from §7i minus the closed items — manual `possible_orphan`
+cleanup at Zoom (no automated sweep; the per-reason hint is the operator contract
+until the §16 runbook exists); the ROW-level gate stays existence-based by design;
+`deleted` in the publishable set; the TS↔SQL applies-from pair.
 
 ## 8. Exact local gate commands
 

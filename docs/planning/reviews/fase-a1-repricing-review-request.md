@@ -139,3 +139,116 @@ Build-level red-then-green proof appended as **§7 of
 - **`mínimo 5 participantes` remains open** as a PM/owner question — the
   canonical brochure omits it while A-8 still carries it. `COHORT_MIN_PARTICIPANTS
   = 5` is untouched here, and `brochure-08.png` still prints "5 personas".
+
+---
+
+# Round r2 — Sol remediation (B1, B2, S1)
+
+**Branch** `phase/a1-repricing` · **base** `f4fa33a` (origin/main) ·
+**10 commits**, of which the last two are this round: `698b5b1` (the fix) and
+`205331f` (ledger + this section).
+
+Correcting round r1's own audit (Sol N1): the branch carries ten commits from
+`f4fa33a`, not three. The eight before this round are `ba14275` and `ada5aae`
+(the previous round's FINDINGS entry, the second being its rebase-preserved
+copy), `41dbf78` + `246d36a` (the r1 code and A3 pins), `34f99df` (r1 ledger +
+review request), `91e9c93` (tree-neutral pre-rebase reconciliation), `54ffbb6`
+(PM verification entry) and `afdc3cf` (PM triage, which is also the commit Sol's
+review file arrived on).
+
+## Scope
+
+Closes both BLOCKING findings of `docs/plan/reviews/REVIEW-A1-REPRICING.md` and
+takes its SHOULD-FIX in the same pass, per `docs/plan/prompts/a1-repricing-2.md`.
+Everything else from r1 stands, including the `BROCHURE_VERSION` v3 bump Sol
+accepted. **Nothing outside `cohort-public.ts`, `check-price-leak.mjs` and their
+two test files changed** (plus the evidence file and this one).
+
+## Files changed, grouped by risk
+
+### Highest risk — the guard that has to keep working
+
+- `scripts/check-price-leak.mjs` (+60/−20). `1[.,\s]?560` restored to
+  `PRICE_AMOUNT_PATTERNS`; a new `retired-short-amount` check carries `560` in
+  the band's tight window; all three amount groups now share one
+  `wholeAmountPattern()` boundary helper. The retired-amount rule and its
+  reasoning are written above the list.
+
+### Medium risk — public copy the site renders
+
+- `lib/pasantias/cohort-public.ts` (+16/−4). Two strings transcribed to match
+  Appendix A-7 exactly: the bibliography item loses `para preparar el viaje` and
+  regains the comma before `presentado`; the flights exclusion becomes `Pasajes
+  aéreos y transporte terrestre de llegada y salida`. Doc comments now state the
+  transcription rule (initial capitals only) and name the drift test.
+
+### Lower risk — tests and evidence
+
+- `__tests__/lib/pasantias-cohort.test.ts` (+73/−0) — the A-7 drift pins.
+- `__tests__/scripts/check-price-leak.test.ts` (+71/−0) — retired-amount and
+  boundary regressions.
+- `docs/plan/evidence/a1/leak-guard.md` (+193) — §8, the per-amount proofs.
+
+## Test evidence
+
+| Gate | Result |
+|---|---|
+| `npm run type-check` | clean |
+| `npm run lint` | clean, 0 warnings |
+| `npm test` | **238 files / 3605 tests passed** (was 3587) |
+| `npm run build` | succeeded, 156/156 static pages |
+| `node scripts/check-price-leak.mjs` | OK — 266 files scanned, exit 0 |
+
+Targeted: `pasantias-cohort` 43 (was 41) · `check-price-leak` 41 (was 25).
+
+Build-level red→mutant-green→restored-red proofs for **each** retired amount are
+§8.1 (€1.560), §8.2 (€560) and §8.3 (€1.000) of
+`docs/plan/evidence/a1/leak-guard.md`.
+
+## The four things to scrutinise hardest
+
+1. **The drift test reads `docs/plan/PLAN.md` at test time.** That is what makes
+   it a drift test rather than a second copy of the copy — but it couples a unit
+   test to a document's markdown shape (a bold lead-in, `;` separators, an
+   italic trailing note). If the PM reformats A-7, the suite goes red and the
+   correct fix will be the parser, not the module. I judged that the right
+   trade: the failure is loud and points at the Appendix, which is exactly where
+   a copy question belongs. Both parse helpers throw rather than skip when the
+   Appendix cannot be found, so it cannot silently pass on a missing section.
+
+2. **Initial capitals are the one edit I kept.** A-7 writes both lists as
+   semicolon-separated sentences, so `el pago de las visitas…` is lowercase in
+   the Appendix and `El pago de las visitas…` in the array. Sol's own quotations
+   in B1 render the module's entries capitalised while flagging only wording and
+   punctuation, so I read "verbatim" as covering everything except the sentence
+   position each item is lifted out of. The second test asserts the entry with
+   its initial lowercased is a literal substring of A-7, which is the strictest
+   form that reading allows.
+
+3. **`(?:,\d{2})?` in the shared boundary helper.** The prompt asked for the
+   band's boundaries; this adds a two-decimal tail to them. Without it,
+   `(?![.,]\d)` would make `€2.500,00` — a genuine rendering of the protected
+   figure — stop being a finding, i.e. the SHOULD-FIX would have bought a
+   false-negative with a false-positive. It can only widen what matches, never
+   narrow it, and the band's own negative controls (`€1.200,70`, `€120.000`) are
+   re-asserted green. Flagging it because it is more than was asked for.
+
+4. **`560` gets its own check instead of joining `BAND_AMOUNT_PATTERNS`.** It is
+   a retired amount, not a lodging-band figure, and the band check's id and
+   description are asserted by name in existing tests. A separate
+   `retired-short-amount` check keeps both semantics honest at the cost of a
+   third near-identical CHECKS entry. The alternative — widening the band list —
+   would have made `priced-band-amount` fire on a non-band amount.
+
+## Known limitations / deferred
+
+- **N1 is answered in prose here, not by editing round r1's section.** That
+  section is the record of what was claimed at the time; the corrected history
+  is at the top of this one.
+- **No e2e / `test:db`.** Unchanged from r1: no UI surface renders these strings
+  yet (`/pasantias` is A6a, TODO) and no schema is touched.
+- **`mínimo 5 participantes` remains open** for the owner, exactly as r1 left it.
+- **`brochure-09.png` re-rendered and inspected**, per B1's closure list — the
+  only one of the twelve pages that changed. Both corrected strings render in
+  full, six bullets per column, no clipping and no reflow onto a second page.
+  The other eleven pages came back byte-identical.

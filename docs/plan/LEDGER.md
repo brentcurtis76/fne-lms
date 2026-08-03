@@ -984,3 +984,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: (a) `subscribed_at` is nullable with **no default** and the authoritative subscription predicate is documented as `unsubscribed_at IS NULL` — `DEFAULT now()` would read as the database asserting a subscription it was never told about (D-12). **B4a must not write `WHERE subscribed_at IS NOT NULL`.** (b) The `source` CHECK list and the campaign content fields are taken verbatim from the v1/v2 plan lineage rather than invented, since v4 names neither. (c) `email_webhook_events.detail` is `jsonb NOT NULL DEFAULT '{}'` — the rule that it stay PII-free is documented in table/column comments; it is enforceable only inside `process_webhook_event`, i.e. B4b [A3].
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: PM verification, then Sol review. Branch `phase/b3-email-db` pushed; no merge without Brent's explicit go. **B4a and B4b unblock on B3 DONE.** Post-merge owner step, as with `pasantias_leads`: the migration must be APPLIED to the production database — merge only lands the file.
+
+### 2026-08-03 — B3 round r1 — Fable (PM verification)
+- CONTEXT PRESSURE: n/a
+- ACTION: Verified: first re-run FAILED (policies absent) — **stale local stack, not the migration**; after `supabase db reset` the suite is **313/313 PASS**, confirming the executor's numbers. 142 asserts vs the plan's ~45 estimate because the full per-operation matrix across five tables is 75 on its own. Grant-list form applied to all five, ACL pins via `aclexplode`, version-guarded MAINTAIN asserts live on PG17.6. **All five assumptions RATIFIED**, two with forward consequences recorded here: (a) `ON DELETE RESTRICT` on BOTH send FKs — correct under D-04's unqualified no-deletes rule, and free because a draft campaign holds no send rows; (b) the identity CHECK also requires `unsubscribe_token IS NOT NULL` on the live shape — **B6's import must let the default fire, never pass explicit NULL**; (c) `subscribed_at` is nullable and the authoritative predicate is `unsubscribed_at IS NULL` — **B4a must not filter on `subscribed_at IS NOT NULL`**; (d) source CHECK + campaign content fields taken from the v1/v2 lineage since v4 names neither; (e) `detail jsonb NOT NULL DEFAULT '{}'`.
+- COMMITS: (this ledger commit)
+- TESTS: 313/313 after reset (PM re-run)
+- FINDINGS RAISED: none
+- DECISIONS: five assumptions ratified; (b) and (c) are binding constraints on B6 and B4a
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: → Sol. Migration applies to production after merge, on the owner's word (as with pasantias_leads).

@@ -993,3 +993,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: deviations accepted
 - BACKLOG ADDED: `/exec` skill template arg-shift bug (owner-side tooling); A4 must bump `BROCHURE_VERSION` if it lands before this merges (executor's open item — no `propuestas` cache object exists yet, so nothing is stale today)
 - OPEN AFTER THIS ROUND: **→ Sol round 2 (of 2), scoped closure.**
+
+### 2026-08-02 — a1-repricing close — Fable (PM, per SOP §3.8)
+- CONTEXT PRESSURE: n/a
+- ACTION: Sol round 2 = **PASS** (REVIEW-A1-REPRICING-R2.md, committed with this entry; Sol independently reproduced all three build-level mutants and ran full gates — 238 files / 3605 tests, build 156/156, clean scan). **Round complete over two executor rounds**: €2.500 + the canonical brochure's terms now live in the commercial module, the public includes/excludes (verbatim from A-7, drift-tested), the leak guard (all three retired amounts, bounded patterns), the cohort/guard/PDF suites, and A3's regenerated renders; `BROCHURE_VERSION` bumped so A4 cannot serve a stale cached PDF. New non-blocking **[S2] → Backlog**: the drift parser does not detect duplicate matching A-7 lines (a second identical Appendix line would satisfy it silently).
+- COMMITS: (this close commit)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: —
+- BACKLOG ADDED: S2 drift-parser duplicate-line blindness
+- OPEN AFTER THIS ROUND: reconcile → **Brent's merge word for PR #38**.

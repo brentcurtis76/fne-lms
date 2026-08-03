@@ -1,5 +1,7 @@
 # CONTENT PACK — Brochure Pasantías INSPIRA Barcelona · Octubre 2026
 
+> **STATUS 2026-08-02: the owner-reviewed brochure (`Brochure Pasantía Octubre 2026.pdf`, versión 2026-10-V2) is now CANONICAL for content.** Where this pack and that brochure disagree, the brochure wins and this pack gets corrected. The pack remains the source for anything the brochure does not state, and its retired-facts tables still bind.
+
 **Purpose.** This file is the *only* approved source of facts for the brochure.
 It exists because the previous deck ("BROCHURE INSPIRA 2026 - oct2026 2.0.pptx")
 carries several stale facts that have already caused problems. Use the old deck
@@ -23,6 +25,7 @@ Spanish (es-CL)**. Deliverable: **A4 portrait PDF**.
 | "presupuesto válido hasta el 1 octubre de 2025" | Stale | "Precios vigentes para la cohorte Octubre 2026" |
 | Learnlife | Not in this cohort | Omit |
 | Sandra Entrena as "Directora de Virolai" | Title changed | **Encargada de Innovación, Escola Virolai** |
+| Sergi del Moral as "parte del equipo directivo" | Corrected by the owner-reviewed brochure | **Director, Institut Escola Les Vinyes** |
 | Headlines reading "5–9 y 13–16" | Reads as two separate pasantías | **"Octubre, 5 al 16"** (detail belongs in the itinerary only) |
 | Any lodging night count ("6 noches") | Not fixed for this cohort | Range per night, no counts |
 
@@ -40,7 +43,7 @@ and layout only. Everything factual in it is wrong for October 2026:
 | **No incluye** alojamiento | Alojamiento aparte pero **coordinado por FNE**, €70–120 pp/noche base doble |
 | Talleres en el **barrio del Born (Barrio Gótico)** | Instituto Relacional, **Eixample** — no es contradicción: el Instituto Relacional **se mudó**. El Born es la dirección antigua (Brent, 2026-08-02). |
 | "Conferencista INSPIRA 2024" | Sin año en los cargos |
-| Sergi del Moral, "Director Escuela Las Viñas" | Equipo directivo, **Institut Escola Les Vinyes** |
+| Sergi del Moral, "Director Escuela **Las Viñas**" | Nombre correcto: **Institut Escola Les Vinyes** (el cargo "Director" sí es correcto) |
 
 **The meals and lodging rows are the dangerous ones:** the two decks state
 opposite things about what the price covers. October's version (§7) is the
@@ -122,12 +125,10 @@ January 2025.
 | **La Maquinista** | Infantil y primaria | Organización y espacios · Evaluación formativa, rúbricas y autoevaluación · Cajas de aprendizaje · Organización participativa de los alumnos |
 | **Octavio Paz** | Infantil y primaria | Organización y espacios · Evaluación formativa, diarios de aprendizaje · Proyecto anual temático y cajas de aprendizaje · Trabajo por comunidades de alumnos |
 | **Angeleta Ferrer** | ESO | Organización y espacios · Evaluación formativa, portfolios · Autonomía del alumnado · Vinculación de la escuela con la comunidad |
-| **El Puig** | — | **FALTA** — pedir a Coral/Mora |
-| **Les Vinyes** | — | **FALTA** — pedir a Coral/Mora |
+| **El Puig** | — | Incorporación de la naturaleza y el arte · Gobierno estudiantil · Trabajo de estudiantes internivel · Metaprendizaje *(aprobado en el brochure 2026-08-02)* |
+| **Les Vinyes** | — | Trabajo interdisciplinario · Aprendizaje Basado en Proyectos · Autonomía del estudiante · Coherencia escolar · Codocencia *(aprobado en el brochure 2026-08-02)* |
 
-> Two of October's seven schools have no highlights on record. Either request
-> them from the Barcelona team, or design the page so five entries look
-> deliberate rather than incomplete.
+> **Closed 2026-08-02:** all seven schools now have owner-approved highlights (the brochure supplied El Puig's and Les Vinyes').
 
 ## 6. Equipo
 
@@ -140,7 +141,7 @@ Titles below are the **corrected, approved** ones — they override the old deck
 | **Jordi Musons** | Director, Escola Sadako — anfitrión semana 1 |
 | **Sandra Entrena** | **Encargada de Innovación, Escola Virolai** — anfitriona semana 1 |
 | **Boris Mir** | Institut Angeleta Ferrer |
-| **Sergi del Moral** | Institut Escola Les Vinyes |
+| **Sergi del Moral** | **Director, Institut Escola Les Vinyes** |
 | **Pepe Menéndez** | Conferencista INSPIRA |
 | **Joan Quintana** | Conferencista INSPIRA |
 
@@ -186,7 +187,7 @@ Escola Nova 21. Ha impulsado proyectos de innovación en evaluación formativa,
 estrategias de aprendizaje y creatividad en el aula; es formador universitario y
 consultor en gestión del cambio y liderazgo.
 
-**Sergi del Moral** — Parte del equipo directivo del Institut Escola Les Vinyes
+**Sergi del Moral** — Director del Institut Escola Les Vinyes
 (Castellbisbal), centro deliberadamente innovador reconocido por el Departament
 d'Educació y galardonado con el Premi Baldiri i Reixach y el Premi Educació del
 Cercle d'Economia; fue centro impulsor de Escola Nova 21. Profesor de didáctica
@@ -205,7 +206,7 @@ Relacional. Director del programa de Dirección Avanzada en RRHH en ESADE
 Business School. Desarrolló el Enfoque Relacional; co-autor de "Anticípate" y
 "Relaciones Poderosas".
 
-> **Verification note (important):** these bios were transcribed from the old
+> **Verification note (largely resolved 2026-08-02 — the owner reviewed the brochure's team pages personally; titles there are canonical):** these bios were transcribed from the old
 > deck's text layer, where names and biography blocks were laid out in columns
 > that can pair incorrectly when extracted. **Have Coral or Mora confirm each
 > name↔bio pairing and each title before the brochure is published.** Sandra

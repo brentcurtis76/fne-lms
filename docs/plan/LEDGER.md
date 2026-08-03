@@ -824,3 +824,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: 1 Decision Log row (repricing + terms)
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: **merge order matters** — PR #37 (A3) and #36 (B2) merge FIRST, then dispatch `/exec INSPIRA a1-repricing r1` so it can update A3's pins in one pass. Brochure not publishable until the three design fixes + mínimo-5 land and the owner approves the file for the A4 override path.
+
+### 2026-08-02 — Brochure declared canonical; FINDINGS accepted — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: **Executor returned FINDINGS and was right on all three** (round a1-repricing r1, no code written — correct escape-hatch use). F1: my prompt claimed A3 was merged; it is not (PR #37 open) — scope items 4c/5 are unexecutable from main, and my OWN ledger had recorded the merge-first precondition. F2: **third propagation-class miss** — PLAN A1 [A3] still pinned `program = 1000` and A3 still required the brochure to carry "1.000", despite the binding amendment-checklist rule created after the second miss; both rewritten to 2.500 (+ an explicit no-retired-1.000 assertion), and this time the rule's grep was actually run. F3: my A-7 edit left a stale trailing `NO incluye` line contradicting the new one, and A-16's meals text still prescribed the superseded phrasing — both fixed. **Owner ruling: the reviewed brochure is CANONICAL for content** ("I went through it myself"), so three of my four brochure findings invert into corrections of my records: Sergi del Moral IS Director of Les Vinyes (my "equipo directivo" correction retired); Boris Mir's and Joan Quintana's titles/bibliography adopted; El Puig + Les Vinyes aspectos destacados are approved (pack's FALTA closed). Content pack v4 carries a canonical-source banner. One item NOT auto-resolvable and left open for the owner: the brochure omits **"mínimo 5 participantes"** — an omission is not a decision, so A-8 still carries it as a commercial condition pending his word.
+- COMMITS: (this commit)
+- TESTS: none (docs only); §361 retired-literal grep run and CLEAN
+- FINDINGS RAISED: mínimo-5 (owner question)
+- DECISIONS: 1 Decision Log row (brochure canonical)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: merge #37 then #36 (owner word), then re-dispatch a1-repricing r1 unchanged in scope (branch `phase/a1-repricing` currently carries only the FINDINGS ledger entry — rebase at re-dispatch).

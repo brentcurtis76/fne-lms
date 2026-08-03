@@ -755,6 +755,56 @@ Entry format (§2.2 of the SOP):
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A3 r2`; Sol on B2; owner: Vercel-Pro confirm, "apply it", t2-ci.
 
+### 2026-08-02 — Brochure design parked to override path; Vercel Pro confirmed — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner: the generated brochure is too basic vs the PPTX — **the customer-facing brochure will be a Claude-designed PDF, delivered through D-05's manual-override path** (which existed for exactly this outcome). Nothing cancels: A3 r2 (in flight, owner-dispatched) completes the date fix; the generator stays as fallback + canary; the ficha stays generated; A4 serves whatever sits at the cache path. Design-content rule recorded (content pack from Appendix A + modules + PPTX bios; per-file approval + D-02 check; amendment-checklist hook). **Vercel Pro confirmed by owner screenshot** — B2 R1 residue closed with first-hand evidence, upgrading the findings card's cron conclusion from secondhand to confirmed. B2 is with Sol (owner-dispatched).
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 2 Decision Log rows
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: A3 r2 + B2 Sol reports awaited. PM offer standing: build the design session's content pack on the owner's word. Parked: "apply it"; t2-ci.
+
+### 2026-08-02 — B2 Sol triage → D-07 pacing amendment + r2 — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Sol B2 = FAIL ×3, all accepted (branch ledger carries the detail). **Finding 3 was mine**: D-07's bounds allow 12 provider calls/tick vs Resend's 10 req/s, and no revision ever required pacing — D-07 and B10a [A1] now mandate a shared paced sender (≥150 ms between provider calls, fake-clock tested); Decision Log row added. Findings 1–2 → `prompts/b2-2.md` (svix suite must kill its own mutants — raw-byte + exact ±300 s boundary; idempotency options recomputed with real exposure numbers and a verified minimum SDK version; card cites amended D-07 and drops the closed R1). r2 also merges main so PR #36 stops conflicting and CI can run.
+- COMMITS: (this commit — PLAN amendments + b2-2 prompt + this entry)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: 1 Decision Log row (mandatory pacing)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA B2 r2`; A3 awaits Sol; owner: "apply it", t2-ci, design content pack on request.
+
+### 2026-08-02 — Brochure design content pack — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Built the design-session handoff per the design-content rule (Decision Log 2026-08-02). Committed at `docs/plan/design/brochure-content-pack.md`; working copy for the owner at `~/Documents/inspira-design/` with the 12 current renders in `renders-actuales/`. The pack leads with a **retired-facts table** (10 días, €560/€1.560, Madrid, enero leftover, 2025 validity, Learnlife, Sandra-as-directora, two-range headline, night counts) so a design session cannot resurrect them from the old deck; then carries every approved fact, the 13 objectives verbatim, the two-tier structure, the equipo with corrected titles, the bios transcribed from the source PPTX, investment per amended A-8, claims, legal identity, and a design brief naming exactly what the generated version lacks. **Honesty note carried into the pack:** the bios were extracted from a column layout where name↔bio pairing can scramble — flagged for Coral/Mora verification before publication. The source PPTX itself is gone from disk (WhatsApp temp cleared); its text survives only through this pack, which is now its system of record.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: none new (executes the recorded rule)
+- BACKLOG ADDED: bios name↔bio pairing verification with the BCN team (pre-publication gate for the designed brochure)
+- OPEN AFTER THIS ROUND: owner runs the design session; the resulting PDF needs per-file owner approval + a PM D-02 price check before it goes to the override cache path (A4).
+
+### 2026-08-02 — Content pack v2 (Enero-2025 deck) — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner is handing the design session the **Enero 2025 / IH Uruguay** deck instead (richer photography, 36 media assets). Analyzed it: it describes a materially DIFFERENT program, so the pack gained a second retired-facts table — 4 días/5 escuelas; enero 2025 dates; **€3.000 por 2 personas + €1.500 por adicional, máx 12** (vs €1.000 pp, mín 5); and the two dangerous rows where the decks state OPPOSITE things: that deck says meals and lodging are NOT included, October's approved version includes meals on visit days + closing dinner and coordinates lodging. Also surfaced a genuine fact conflict for owner verification: **workshop venue is "barrio del Born (Barrio Gótico)" in the Enero deck vs "Eixample" in the Oct deck** — the pack flags it as verify-before-print. Recovered one content idea worth reviving: per-school **"aspectos destacados"** (Virolai, Sadako, La Maquinista, Octavio Paz, Angeleta Ferrer) — the October material never says why each school matters; El Puig and Les Vinyes have no highlights on record and are marked as owner asks. Both copies updated (repo + ~/Documents/inspira-design/, which now also holds the deck itself).
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: venue discrepancy (Born vs Eixample) — owner/BCN verification before any print or publish
+- DECISIONS: none new
+- BACKLOG ADDED: request El Puig + Les Vinyes "aspectos destacados" from the BCN team
+- OPEN AFTER THIS ROUND: owner runs the design session with the v2 pack + Enero deck; resulting PDF needs owner approval + PM D-02 check before the A4 override path.
+
+### 2026-08-02 — Venue discrepancy resolved (owner) — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner resolved the Born-vs-Eixample conflict raised in the last entry: **the Instituto Relacional moved** — Eixample is current, el Born is the old address. No contradiction, no verification pending. Impact check: **nothing to change in code or plan** — Appendix A-7 and `COHORT_DAY_STRUCTURE` already say Eixample, so the shipped brochure/ficha generators and the approved brief were correct; only the content pack's warning row needed rewriting (both copies updated). The finding closes without a remediation round.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none (previous one closed)
+- DECISIONS: none
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: unchanged — B2 r2 dispatch, A3 with Sol, owner: "apply it", t2-ci, design session.
+
 ### 2026-08-03 — A3 round r1 — Opus (executor)
 - CONTEXT PRESSURE: comfortable — two cohort modules, the house PDF kit and four new files all fit in context; the 12 evidence renders were inspected page by page without trimming.
 - ACTION: Per `prompts/a3-1.md` on `phase/a3-pdfgen` from `origin/main` @ `26ff2f0`, in worktree `../wt-a3`. **`lib/pasantias/brochure.tsx`** — `generateBrochure()` renders 10 A4 pages (portada `INSPIRA · Barcelona · Octubre 2026` + claims; qué es; 13 objetivos; estructura del día; itinerario semana 1 / fin de semana largo sáb 10–lun 12 con Fiesta Nacional / semana 2 con El Puig y Les Vinyes día completo; las 7 escuelas two-tier; equipo de 8 con títulos A-6; **inversión**; incluye/no incluye; contacto). It is the **single production importer** of `cohort-commercial.ts` (D-01). Investment per amended A-8: `€1.000` programa + table cell `€70 – €120 por persona por noche · base doble` with the verbatim `COHORT_LODGING_NOTE` directly under it, the delegated coordination framing ("El alojamiento se coordina con el equipo FNE según tu preferencia."), 50%+saldo 30 días, mínimo 5, validez por cohorte. No total, no night count, no Madrid. **`lib/pasantias/ficha.tsx`** — `generateFicha()` renders exactly 2 pages and imports `cohort-public.ts` only, so "no monetary token" is structural, not disciplinary. **`lib/pasantias/pdf/`** — `components.tsx` (cover, masthead, Numbered/Bullets, Row, ContactBlock with `LEGAL_IDENTITY`), `format.ts` (es-CL weekday/euro; UTC-canonical dates; hand-grouped `€1.000` because a no-full-ICU runtime writes `1,000`), `contact.ts` (A-11 WhatsApp, `/pasantias` via `lib/utils/app-url.ts` per D-09), `filenames.ts` (`FICHA_VERSION`/`FICHA_FILENAME` + `isRfc5987SafeFilename`). `lib/propuestas/*` imported, never edited. **Evidence:** `scripts/pasantias-visual-qa.ts` rasterises every page at 144 DPI via `pdftoppm` into `docs/plan/evidence/a3/` (10 + 2 PNGs + README); all 12 inspected — no clipping, no overflow, accents correct.
@@ -774,7 +824,6 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: deviations accepted
 - BACKLOG ADDED: none (S1 done early; S2 stands)
 - OPEN AFTER THIS ROUND: `/exec INSPIRA A3 r2` — then Sol review of the whole phase.
-
 
 ### 2026-08-03 — A3 round r2 — Opus (executor)
 - CONTEXT PRESSURE: comfortable — a four-file round on an already-understood branch; the only slow steps were `npm ci` in the fresh worktree and the full gate sweep.

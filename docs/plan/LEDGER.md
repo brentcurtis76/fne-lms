@@ -954,3 +954,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: none new (executes owner instructions)
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: merge word for PR #38; A4/A5/B3 dispatchable — **A5 is now unblocked end-to-end** (table live in prod).
+
+### 2026-08-02 — School levels recorded; verification item withdrawn — Fable (PM, owner input)
+- CONTEXT PRESSURE: n/a
+- ACTION: **PM error corrected:** the owner had already declared the reviewed brochure canonical (Decision Log 2026-08-02) and the pack's FALTA rows were closed on that basis — then I drafted a Coral/Mora verification message for the same El Puig / Les Vinyes highlights, re-opening a question the owner had settled. Withdrawn; no message drafted or sent. Owner supplied the one genuinely missing datum in the same breath: **El Puig and Les Vinyes each serve infantil, primaria y ESO — no bachillerato** (the brochure's school page omits levels for those two, so this fills a real gap for future materials). Recorded in §5b of both content-pack copies, and the section's "subject to verification" caveat replaced with the owner-approved status.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: none new (applies the standing canonical-brochure ruling)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: merge word for PR #38; A4 / A5 / B3 dispatchable.

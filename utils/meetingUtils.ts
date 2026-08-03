@@ -685,60 +685,6 @@ export async function canUserManageMeetings(userId: string, workspaceId: string)
 }
 
 /**
- * Send email notifications for new task assignments
- */
-export async function sendTaskAssignmentNotifications(
-  meetingId: string,
-  assignedUserIds: string[]
-): Promise<void> {
-  try {
-    // Get meeting details
-    const meeting = await getMeetingWithDetails(meetingId);
-    if (!meeting) return;
-
-    // Get assigned users' email addresses
-    const { data: users, error } = await supabase
-      .from('profiles')
-      .select('id, email, first_name, last_name')
-      .in('id', assignedUserIds);
-
-    if (error || !users) {
-      console.error('Error fetching user emails:', error);
-      return;
-    }
-
-    // Send notifications (integrate with existing email infrastructure)
-    for (const user of users) {
-      try {
-        const { error: emailError } = await supabase.functions.invoke('send-email', {
-          body: {
-            to: user.email,
-            subject: `Nueva asignación de reunión: ${meeting.title}`,
-            html: `
-              <h2>Nueva asignación de reunión</h2>
-              <p>Hola ${user.first_name},</p>
-              <p>Se te han asignado nuevas tareas o compromisos en la reunión "<strong>${meeting.title}</strong>".</p>
-              <p><strong>Fecha de reunión:</strong> ${new Date(meeting.meeting_date).toLocaleDateString('es-CL')}</p>
-              <p>Por favor, revisa los detalles en el espacio colaborativo de tu comunidad.</p>
-              <p>Saludos,<br>Equipo FNE</p>
-            `
-          }
-        });
-
-        if (emailError) {
-          console.error('Error sending email to', user.email, emailError);
-        }
-      } catch (emailError) {
-        console.error('Error sending notification email:', emailError);
-      }
-    }
-
-  } catch (error) {
-    console.error('Error in sendTaskAssignmentNotifications:', error);
-  }
-}
-
-/**
  * Update overdue statuses (utility function to be called periodically)
  */
 export async function updateOverdueStatuses(): Promise<void> {

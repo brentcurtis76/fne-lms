@@ -42,7 +42,6 @@ import {
 import { 
   createMeetingWithDocumentation,
   getCommunityMembersForAssignment,
-  sendTaskAssignmentNotifications,
   getMeetingDetails,
   updateMeeting
 } from '../../utils/meetingUtils';
@@ -56,7 +55,6 @@ import {
   applyMeetingDiffs,
   removeDeletedAttachments,
   uploadSelectedAttachments,
-  collectAssignedUserIds,
 } from './persistMeeting';
 import { MEETING_STATUS } from '../../lib/utils/meeting-policy';
 import { profileName } from '../../lib/utils/profile-name';
@@ -687,9 +685,9 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   // the work-session presence banner come online.
   // Shared persistence path used by both "Guardar borrador" (no validation,
   // forces status='borrador') and the final submit (step validation, keeps
-  // the form's current status). Keeps agreement/commitment/task diff upserts,
-  // attachment add/remove, and task-assignment notifications in one place so
-  // a draft save from step 1 or 2 cannot drop step-3 content.
+  // the form's current status). Keeps agreement/commitment/task diff upserts
+  // and attachment add/remove in one place so a draft save from step 1 or 2
+  // cannot drop step-3 content.
   const persistMeetingData = async ({
     status,
     runValidations,
@@ -707,7 +705,6 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     }
 
     const effectiveStatus: MeetingStatus = status ?? formData.summary_info.status;
-    const isDraft = effectiveStatus === MEETING_STATUS.BORRADOR;
 
     const docs = deriveMeetingDocs(formData);
 
@@ -769,15 +766,6 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       userId,
       files: selectedFiles,
     });
-
-    // Send notifications for assigned tasks/commitments only when the user is
-    // actually submitting — a draft save should not fire notifications yet.
-    if (!isDraft) {
-      const assignedUserIds = collectAssignedUserIds(formData);
-      if (assignedUserIds.length > 0) {
-        await sendTaskAssignmentNotifications(result.meetingId, assignedUserIds);
-      }
-    }
 
     // Thread the inserted `version` (only populated by the create path — edit
     // mode already owns an authoritative version in component state) back to

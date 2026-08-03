@@ -983,3 +983,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: (1) **Initial capitals are the one non-verbatim character**, documented in both the module and the test — the alternative reads as `el pago de las visitas…` in a rendered bullet list. (2) **`BROCHURE_VERSION` stays `2026-10-v3`.** The brochure copy changed again, but A4 is TODO — no serving endpoint and no `propuestas` cache exist yet, so no v3 object has ever been written, let alone served. (3) **N1 answered in prose, not by editing r1's section**: that section is the record of what was claimed at the time; the corrected nine-commit history is at the top of the r2 section.
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: PM verification, then **Sol round 2 of 2**. `mínimo 5 participantes` is still the owner's open question — untouched here. Owner words still parked: "apply it" (leads migration → prod), t2-ci cleanup.
+
+### 2026-08-02 — a1-repricing r2 — Fable (PM verification)
+- CONTEXT PRESSURE: n/a
+- ACTION: Verified: 84/84 re-run by PM; guard now carries `1[.,\s]?000`, `1e3`, `1[.,\s]?560` and a tight-window `560` with the *why* written above the list. **Both deviations ACCEPTED and one is a genuine improvement**: the shared boundary helper's optional `(?:,\d{2})?` tail — without it, bounding the pattern would have made `€2.500,00` (a real rendering of the protected figure) stop being a finding, i.e. the SHOULD-FIX would have bought a false negative with a false positive; the brochure-09 re-render was Sol's own closure item. The A-7 **drift test is the structural win of this round**: it re-parses the Appendix out of `docs/plan/PLAN.md` at test time and compares complete ordered arrays, so plan-vs-code divergence now fails a test instead of surviving three review rounds — the propagation-class failure that has bitten this project three times is now mechanically caught for these two lists. Executor also worked around a `/exec` template bug (args shifted one position, `$3` unsubstituted) by deriving the correct header from the repo — worth fixing in the skill. **PM self-check triggered by this round**: ran the §361 grep over my own files and found the same drift class in the content pack — the Enero-deck comparison table still advertised the superseded "comidas en los días de visita + cena de cierre" terms; corrected in both copies (`60bd1ab`).
+- COMMITS: (this ledger commit)
+- TESTS: 84/84 (PM re-run)
+- FINDINGS RAISED: none
+- DECISIONS: deviations accepted
+- BACKLOG ADDED: `/exec` skill template arg-shift bug (owner-side tooling); A4 must bump `BROCHURE_VERSION` if it lands before this merges (executor's open item — no `propuestas` cache object exists yet, so nothing is stale today)
+- OPEN AFTER THIS ROUND: **→ Sol round 2 (of 2), scoped closure.**

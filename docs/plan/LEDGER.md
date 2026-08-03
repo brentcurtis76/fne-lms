@@ -794,3 +794,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: none new
 - BACKLOG ADDED: request El Puig + Les Vinyes "aspectos destacados" from the BCN team
 - OPEN AFTER THIS ROUND: owner runs the design session with the v2 pack + Enero deck; resulting PDF needs owner approval + PM D-02 check before the A4 override path.
+
+### 2026-08-02 — Venue discrepancy resolved (owner) — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner resolved the Born-vs-Eixample conflict raised in the last entry: **the Instituto Relacional moved** — Eixample is current, el Born is the old address. No contradiction, no verification pending. Impact check: **nothing to change in code or plan** — Appendix A-7 and `COHORT_DAY_STRUCTURE` already say Eixample, so the shipped brochure/ficha generators and the approved brief were correct; only the content pack's warning row needed rewriting (both copies updated). The finding closes without a remediation round.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none (previous one closed)
+- DECISIONS: none
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: unchanged — B2 r2 dispatch, A3 with Sol, owner: "apply it", t2-ci, design session.

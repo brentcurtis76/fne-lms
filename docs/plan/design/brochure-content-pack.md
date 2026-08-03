@@ -37,7 +37,7 @@ and layout only. Everything factual in it is wrong for October 2026:
 | €3.000 por 2 personas + €1.500 por participante adicional · máximo 12 | **€1.000 por persona** · mínimo 5 |
 | **No incluye** almuerzos, desayunos ni cenas | **Sí incluye** comidas en los días de visita + cena de cierre + desayuno a media mañana |
 | **No incluye** alojamiento | Alojamiento aparte pero **coordinado por FNE**, €70–120 pp/noche base doble |
-| Talleres en el **barrio del Born (Barrio Gótico)** | Instituto Relacional, **Eixample** — ⚠️ los dos decks se contradicen; verificar con Coral/Mora antes de imprimir |
+| Talleres en el **barrio del Born (Barrio Gótico)** | Instituto Relacional, **Eixample** — no es contradicción: el Instituto Relacional **se mudó**. El Born es la dirección antigua (Brent, 2026-08-02). |
 | "Conferencista INSPIRA 2024" | Sin año en los cargos |
 | Sergi del Moral, "Director Escuela Las Viñas" | Equipo directivo, **Institut Escola Les Vinyes** |
 

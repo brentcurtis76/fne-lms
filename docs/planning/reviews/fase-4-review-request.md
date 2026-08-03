@@ -182,3 +182,229 @@ Evidence:
 | Zoom-domain seeding requires a **migration** | Queried the live local schema after `supabase db reset` (all 7 migrations applied) for `growth_communities`, `consultor_sessions`, `session_facilitators`, `user_roles`, `schools`, `profiles` | **DID NOT FIRE.** Every column and FK the seeding needs already exists in the baseline. **No migration is added by this chunk.** |
 | Gate 4's ephemeral stack cannot support the persona matrix | `supabase start -x studio,logflare,vector,edge-runtime,imgproxy,mailpit,realtime,supavisor,pooler` (CI's exact list) locally | **DID NOT FIRE.** `db`, `auth` (gotrue), `rest` (postgrest), `kong`, `storage` and `pg_meta` all come up. The matrix needs auth (login), rest (service-role writes) and kong (API URL); none is in the exclusion list. |
 | The existing fixtures/seeder are not what Gate 4 uses | Read `ci.yml:157-169` | **DID NOT FIRE.** Gate 4 sources `.env.local` and runs `node scripts/ci/seed-e2e.mjs`, then runs exactly `node scripts/ci/e2e-mandatory.mjs --list` and checks the report. The premise holds. |
+
+---
+
+## 6. Persona matrix
+
+Seeded by `scripts/ci/seed-e2e.mjs` + `scripts/ci/seed-e2e-zoom.mjs`. "Verdict" is the expected
+`canViewSession` outcome for the seeded session
+(`e2e00000-0000-4000-8000-000000000501`, school `990001`, community
+`e2e00000-0000-4000-8000-000000000c01`) — **asserted by Z1c-2, not by this chunk.**
+
+| Persona (fixture key) | Roles seeded | `canViewSession` branch it proves | Verdict |
+|---|---|---|---|
+| `admin` *(pre-existing)* | `admin` @ 990001, active | `:94` — `highestRole === 'admin'` short-circuit | **allow** |
+| `consultorGlobal` | `consultor`, **school_id NULL**, active | `:103` — `getConsultorAccess(...).isGlobal` | **allow** |
+| `consultorAssigned` | `consultor` @ **990001**, active (+ lead facilitator on the session) | `:108` — `access.schoolIds` contains the session's school | **allow** |
+| `consultorOtherSchool` | `consultor` @ **990002**, active | negation of `:108` — consultor whose schools exclude the session's; falls through to `:122` | **deny** |
+| `gcLeader` | `lider_comunidad` @ 990001, **community_id = the session's community**, active | `:114-120` — an active role whose `community_id` matches | **allow** |
+| `docente` *(pre-existing)* | `docente` @ 990001, no community, active | negation of everything — the plain `:122` fall-through | **deny** |
+| `inactiveConsultor` | `docente` @ 990001 active **+ `consultor` @ 990001 `is_active:false`** | the Z1a invariant: a role that would authorize via `:108` does not, because it is inactive | **deny** |
+
+Three notes a reviewer should hold onto:
+
+1. **The inactive persona needs its active `docente` row.** With only an inactive role,
+   `getUserRoles` returns `[]` → `getHighestRole` returns `null` →
+   `resolveMeetSessionAccess` bails at `session-meet-access.ts:71` before `canViewSession` is
+   ever consulted, and the persona could not log in and reach `/dashboard` either. The active
+   `docente` row (no `community_id`) makes the denial attributable to the *deactivation* rather
+   than to having no roles at all. The two rows use different `role_type`s deliberately —
+   `ensureRole` keys on `(user_id, role_type)`.
+2. **The denial is enforced twice, and the seeding exercises both.** `getUserRoles`
+   (`utils/roleUtils.ts:307`) filters `is_active = true` in the query, so the inactive row never
+   reaches `canViewSession`; `canViewSession`'s own `r.is_active` predicates (`:114-120`) are the
+   second layer. A reviewer should not read the persona as proving only the second.
+3. **`consultorAssigned` being the facilitator cannot mask its branch.** `canViewSession` never
+   reads `ctx.isFacilitator` — that flag only reaches `canEditSession` and the disclosure
+   helpers. The facilitator link exists because Z1c-2's disclosure specs need a persona that
+   satisfies `canViewRestrictedReports` (`lib/utils/session-disclosure.ts:26`).
+
+### Why `lider_comunidad` for the community-membership branch
+
+`canViewSession`'s GC branch is role-type-agnostic — it matches **any** active role carrying the
+session's `community_id`. But the app's write paths only ever put a `community_id` on a
+`lider_comunidad` row: `pages/api/admin/assign-role.ts:101-102` sanitizes `communityId` to `null`
+for every other role type, explicitly so "stray IDs on roles that don't own them (e.g. docente
+with a body communityId) are written as null". **A plain non-leader growth-community "member"
+with a `user_roles.community_id` is not a shape this application produces**, so seeding one would
+have meant inventing a row the product never creates. Declared as a limitation: the branch is
+proven with the only shape that reaches it.
+
+### `meeting_link` is NULL, and that is enough for the matrix
+
+The seeded session is pre-provisioning: `meeting_provider = 'zoom'`, no link. On
+`/meet/session/[id]` that means an **authorized** persona renders the page with
+`data-testid="meet-no-link"` (`pages/meet/session/[id].tsx:86`) while an **unauthorized** one
+gets `notFound: true` (`:133-135`). So Z1c-2 can write the full join-authz matrix on
+`page-renders` vs `404` **without Q1 being resolved first** — Q1 only gates the specs that need
+an actual meeting.
+
+---
+
+## 7. Commit map
+
+| SHA | Purpose |
+|---|---|
+| `5e9d935` | `docs(z1c)` — the reconciliation (§1–§5 above). Landed alone, before any code. |
+| `3034c28` | `test(z1c)` — fixture personas, the two-pass seeder, `scripts/ci/seed-e2e-zoom.mjs`. |
+| `e4e4b93` | `test(z1c)` — `FixtureKey`/`FIXTURE_KEYS` typing + the login proof over every persona. |
+| *(this commit)* | `docs(z1c)` — §6–§11 of this file. |
+
+Three code/doc commits + this one. No migrations, no application source touched.
+
+---
+
+## 8. Files
+
+**Risk: medium — changes what CI seeds**
+
+- `scripts/ci/seed-e2e.mjs` *(modified)* — two-pass ordering (schools → users+profiles → zoom
+  domain → roles); per-fixture school/community/active-state resolution; `ensureRole` now
+  converges an existing row instead of only reactivating it. **The local-only guard
+  (`:31`, `:33-49`) is untouched — byte-identical to the fork point.**
+- `scripts/ci/e2e-fixtures.json` *(modified)* — 5 new personas, a second school, and the `zoom`
+  domain block with fixed synthetic ids.
+
+**Risk: low — new, additive, reached only through the guarded seeder**
+
+- `scripts/ci/seed-e2e-zoom.mjs` *(new)* — growth community + provisionable session +
+  facilitator link. No `main()`, no shebang, not runnable, no env access.
+
+**Risk: low — test-side only**
+
+- `tests/e2e/helpers/auth.ts` *(modified)* — `FixtureKey` extended (this is the compile-time
+  anti-drift tie), `E2eFixtureUser` gains the optional seeding fields, plus `FIXTURE_KEYS`,
+  `E2E_SCHOOL_SECONDARY`, `E2E_ZOOM`.
+- `tests/e2e/ci-fixture.spec.ts` *(modified)* — the login block iterates `FIXTURE_KEYS`
+  instead of a hard-coded `['admin', 'docente']`.
+
+**Untouched, deliberately**: `.github/workflows/ci.yml`, `scripts/ci/e2e-mandatory.mjs`, every
+`lib/zoom/**` module, `supabase/migrations/**`, all application source.
+
+---
+
+## 9. Test evidence
+
+All figures produced on this branch, on this machine, against the local ephemeral stack.
+No command in this section was piped through `tail` before its exit code was read.
+
+| Gate | Result |
+|---|---|
+| `npm run type-check` | **exit 0**, no diagnostics |
+| `npm run lint` | **exit 0** (`--max-warnings=0`) |
+| `npm test` | **exit 0** — **3992 passed / 3992, 253 test files** |
+| `npm run build` | **exit 0** (production build, `.env.local` pointing at the local stack) |
+| `npm run test:db` | **exit 0** — `Files=7, Tests=171 … Result: PASS`, on a from-scratch `supabase db reset`. **Matches the 171/171 across 7 suites baseline exactly.** |
+| e2e (mandatory specs, `CI=true` ⇒ prod server, workers 1) | **exit 0** — **13 passed (17.0s)** |
+| `node scripts/ci/e2e-mandatory.mjs --check` | **exit 0** — `OK — 2 mandatory spec(s) ran with no skips` |
+
+E2e composition: 7 login tests (one per persona, was 2) + 4 storage-state tests +
+2 smoke = 13. Every new persona reached `/dashboard` through the real login form, including
+`consultorGlobal` (`school_id NULL`), `gcLeader` (`lider_comunidad`) and `inactiveConsultor`.
+
+### Seeder double-run proof
+
+`supabase db reset` → seed → snapshot → seed → snapshot, on the final code:
+
+```
+RESET_EXIT=0   SEED1_EXIT=0   SEED2_EXIT=0
+SNAPSHOT_DIFF_EXIT=0 (0 = identical)
+authusers 7 · profiles 7 · user_roles 8 · schools 2 ·
+growth_communities 1 · consultor_sessions 1 · session_facilitators 1
+```
+
+The snapshot covers row counts plus every seeded column of `profiles`, `user_roles`,
+`growth_communities`, `consultor_sessions` and `session_facilitators`. The **only** difference
+between the two runs is the log line `created` → `reused`. Counts are unchanged, so nothing
+duplicated; values are unchanged, so nothing was rewritten.
+
+### Local-only guard, re-proven (not modified)
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co node scripts/ci/seed-e2e.mjs
+[seed-e2e] FAILED: refusing to seed e2e fixtures against non-local Supabase host …
+GUARD_EXIT=1
+```
+
+### Fail-on-old proofs
+
+**(a) `ensureRole` convergence — genuine fail-on-old, fork-point code actually executed.**
+`git show a1712f5:scripts/ci/seed-e2e.mjs` was extracted and run against a deliberately drifted
+row:
+
+| Step | `inactiveConsultor`'s `consultor` row |
+|---|---|
+| 1. after the new seeder | `is_active = f` ✓ |
+| 2. drift (manual `UPDATE`) | `is_active = t` |
+| 3. **fork-point seeder** (`exit 0`) | `is_active = t` — **old code silently leaves the drift in place** |
+| 4. new seeder (`exit 0`) | `is_active = f` — converged |
+
+The old `ensureRole` only ever reactivates (`a1712f5:scripts/ci/seed-e2e.mjs:118-126`), so a
+persona meant to be denied would have been silently granted access on any re-seed of a drifted
+stack. This is the defect the convergence change fixes.
+
+**(b) `FixtureKey` ↔ fixture-file drift — genuine fail-on-old.** Adding a `FixtureKey` member
+with no JSON entry and running the real gate:
+
+```
+tests/e2e/helpers/auth.ts(50,14): error TS2741: Property 'personaNotInTheJson' is missing in
+type '{ admin: …; docente: …; consultorGlobal: …; … }' but required in type
+'Record<FixtureKey, E2eFixtureUser>'.
+```
+
+Reverted immediately; `git diff` on the file confirms restoration.
+
+**(c) The login tests have NO fail-on-old, and I am not going to manufacture one.**
+They assert authentication, which the fork-point seeder also produces: run the old seeder against
+the *new* fixture file and all seven personas still log in (the old loop iterates
+`FIXTURES.users` and ignores the fields it does not know, so they get roles — the *wrong* ones,
+at the primary school, with no community and no inactive row). What the old seeder gets wrong is
+**authorization shape**, and nothing in this chunk asserts authorization — that is exactly what
+Z1c-2's matrix is for. Stated plainly so the PM does not read 7/7 green as coverage it is not.
+
+---
+
+## 10. Scrutiny areas — where I would attack this if I were reviewing
+
+1. **`ensureRole`'s convergence is now a three-column write, and I changed T2's semantics.**
+   It updates `school_id`, `community_id` and `is_active` together. If a future persona is
+   expected to accumulate a role row from somewhere else (a UI flow inside a spec, say), this
+   seeder will now stomp it on the next run where the old one would not have. I judged that
+   correct — a fixture file that does not fully describe the fixture is worse — but it is a
+   behavioural change to another track's code and deserves a second opinion.
+2. **The two-pass split moved the zoom seeding into the middle of user seeding.** If
+   `seedZoomFixtures` throws, the tenant is left with profiles but no role rows — a *partially*
+   seeded stack in a shape the old single-pass loop could not produce. Re-running converges it
+   (every write is an upsert/look-before-insert), but the failure mode is new. Worth deciding
+   whether a partially-seeded stack should be loud rather than merely recoverable.
+3. **`scripts/ci/seed-e2e-zoom.mjs` is reached by neither `type-check` nor `lint`** (§4). A
+   column name typo in it fails only at seed time. That is true of `seed-e2e.mjs` too and I did
+   not change the situation — but the surface just grew, and the PM may want `.mjs` brought into
+   one of the gates as its own piece of work.
+4. **`sessionDate: "2030-06-12"` is a magic constant chosen for idempotency.** It has to be in
+   the future for provisioning to make sense and fixed so a re-run writes the same row. It will
+   stop being "the future" in 2030. No test asserts futureness, so this fails silently and late.
+5. **I extended T2's `ci-fixture.spec.ts` rather than adding a Zoom-scoped sibling spec.** The
+   login block is now data-driven off `FIXTURE_KEYS`, which means any persona a *future* track
+   adds to the fixture file silently joins this spec — good for coverage, but it makes one spec's
+   runtime a function of a file other people edit. If the PM prefers a separate
+   `tests/e2e/zoom-fixtures.spec.ts` (registered in `MANDATORY_SPECS`), that is a cheap change and
+   I will make it in Z1c-2.
+
+---
+
+## 11. Known limitations / deferred
+
+- **No `zoom_meetings` / `session_meetings_public` rows** — that is Q1, deliberately unimplemented
+  pending the PM's ruling.
+- **`ZOOM_MODE=mock` is not wired into `ci.yml`** — that is Q2, and `ci.yml` is untouched in this
+  chunk. Until it is wired, `getZoomApi` in the e2e environment would resolve to `live`.
+- **No non-leader growth-community "member" persona** — the shape does not exist in the app's
+  write paths (§6).
+- **No `data-testid` added to application source.** The three the matrix needs already exist
+  (`meet-join-link`, `meet-no-link`, `meet-back-link`). Z1c-2 will need **no new testid for the
+  join-authz matrix**; whether the disclosure and iCal specs need one is an open question for
+  that chunk.
+- **The zoom-domain rows are asserted by nothing yet.** Their existence is proven only by the
+  seeder exiting 0 and the snapshot; no spec reads them until Z1c-2.

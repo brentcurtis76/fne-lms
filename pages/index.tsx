@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import Script from 'next/script';
 import dynamic from 'next/dynamic';
+import { COHORT_HEADLINE } from '../lib/pasantias/cohort-public';
 
 // Lazy load heavy components
 const Footer = dynamic(() => import('../components/Footer'), { 
@@ -300,15 +301,9 @@ export default function HomePage() {
                   {/* Dates Highlight */}
                   <div className="bg-black text-white rounded-2xl p-8 mb-8 transform hover:scale-105 transition-transform duration-300">
                     <h3 className="text-2xl font-bold mb-4">Próximas Expediciones</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-white/10 backdrop-blur rounded-lg p-4 border border-white/20">
-                        <p className="text-sm opacity-80">Primer Cohorte</p>
-                        <p className="text-xl font-bold">Abril 2026</p>
-                      </div>
-                      <div className="bg-white/10 backdrop-blur rounded-lg p-4 border border-white/20">
-                        <p className="text-sm opacity-80">Segundo Cohorte</p>
-                        <p className="text-xl font-bold">Noviembre 2026</p>
-                      </div>
+                    <div className="bg-white/10 backdrop-blur rounded-lg p-4 border border-white/20">
+                      <p className="text-sm opacity-80">Próxima cohorte</p>
+                      <p className="text-xl font-bold" data-testid="cohort-headline">{COHORT_HEADLINE}</p>
                     </div>
                   </div>
 

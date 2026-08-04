@@ -416,14 +416,22 @@ const COMMERCIAL_IMPORT =
 
 /**
  * The files allowed to import the commercial cohort module (D-01). The brochure
- * generator is the only production importer; the two test files exercise the
- * split itself. Anything else is a price on its way to a client bundle.
+ * generator and the route that serves it are the production importers — the
+ * route needs `BROCHURE_VERSION` for its cache key and `BROCHURE_FILENAME` for
+ * its `Content-Disposition`; the test files exercise the split itself. Anything
+ * else is a price on its way to a client bundle.
  */
 const ALLOWED_COMMERCIAL_IMPORTERS = [
   'lib/pasantias/brochure.tsx',
+  'pages/api/pasantias/brochure.ts',
   'lib/pasantias/__tests__/pdf.test.ts',
   '__tests__/lib/pasantias-cohort.test.ts',
+  '__tests__/api/pasantias-pdf.test.ts',
 ].sort();
+
+/** The two A4 routes, by the D-01 side of the fence each one sits on. */
+const BROCHURE_ROUTE = 'pages/api/pasantias/brochure.ts';
+const FICHA_ROUTE = 'pages/api/pasantias/ficha.ts';
 
 function listSourceFiles(dir: string): string[] {
   let entries;
@@ -467,5 +475,20 @@ describe('D-01 — who may import cohort-commercial.ts', () => {
     }
 
     expect(importers.sort()).toEqual(ALLOWED_COMMERCIAL_IMPORTERS);
+  });
+
+  /**
+   * The equality above already fails if the ficha route reaches for a price,
+   * but it fails as "the list changed" — this states the actual rule the two
+   * A4 routes have to keep, so a future reader sees which side each one is on.
+   */
+  it('lets the brochure route reach the prices and never the ficha route', () => {
+    const brochure = readFileSync(join(REPO_ROOT, BROCHURE_ROUTE), 'utf8');
+    const ficha = readFileSync(join(REPO_ROOT, FICHA_ROUTE), 'utf8');
+
+    expect(COMMERCIAL_IMPORT.test(brochure)).toBe(true);
+    expect(COMMERCIAL_IMPORT.test(ficha)).toBe(false);
+    expect(ALLOWED_COMMERCIAL_IMPORTERS).toContain(BROCHURE_ROUTE);
+    expect(ALLOWED_COMMERCIAL_IMPORTERS).not.toContain(FICHA_ROUTE);
   });
 });

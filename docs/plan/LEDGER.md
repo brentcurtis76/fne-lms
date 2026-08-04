@@ -1054,3 +1054,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: storage.ts extension + shape-matching + serve-generated-on-conflict all ratified
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: → Sol round 2. PR reconciliation is PM work at close, as the executor correctly left it.
+
+### 2026-08-03 — A4 close — Fable (PM, per SOP §3.8)
+- CONTEXT PRESSURE: n/a
+- ACTION: Sol round 2 = **PASS** (REVIEW-A4-R2.md). Opt-in create-only design accepted with the shared default unchanged; conflict classifier accepted as message-independent; both race orderings proven to preserve the designed PDF; the falsification check reproduces 8/71. Sol also accepted 4069/4070 as evidence given the unrelated renderer passes 7/7 in isolation — **explicitly noting it is not represented as a clean full-suite pass**, which is the honest framing the executor chose. **A4 DONE** — three rounds: serving + carried findings, the production-only cache gate, and create-only writes protecting D-05's publishing surface.
+- COMMITS: (this close commit)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: —
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: Brent's merge word for PR #39.

@@ -1004,3 +1004,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: none
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: awaiting Sol on A4, A5 and B3 (three review rounds outstanding); A4 r3 + A5 r3 executor prompts are committed and dispatchable once their reviews land — or now, since they close findings Sol already stated.
+
+### 2026-08-03 — A4/A5 r3 prompts on main (after two losses) — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: The r3 prompts were written three times before landing on `main`, and both losses were infrastructure, not authorship. **First loss:** commit `5e5e722` created and pushed both files, then stopped being an ancestor of `origin/main` — dropped by a history rewrite from the parallel Zoom workstream that shares this branch. **Second loss:** the recovery commits (`b06ac0c`, `c91a640`) went to `phase/a5-lead-api`, because a parallel session moved the shared checkout onto that branch between my branch assertion and my commit — the branch-drift hazard recurring in a narrower window than a per-block guard can close. Also recorded honestly: b06ac0c's ledger text described edits whose python had failed mid-block, so it was false when written; c91a640 corrected it and this entry supersedes both. **Structural fix, not another rule:** the PM now works from a **dedicated worktree pinned to `main`** (`scratchpad/pm-main`) instead of the shared checkout, so no other session can move HEAD underneath it. Content verified by grep before commit and by `git ls-tree origin/main` after push — local success is no longer accepted as evidence.
+- COMMITS: (this commit)
+- TESTS: pre-commit greps on both files; post-push remote verification
+- FINDINGS RAISED: shared checkout + parallel history rewrites can silently lose PM commits; mitigated by the dedicated worktree and post-push remote verification
+- DECISIONS: PM works from a pinned `main` worktree from now on
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: **A4 r3 + A5 r3 dispatchable** (prompts verified present on origin/main); B3 awaits Sol round 2.

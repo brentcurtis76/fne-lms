@@ -25,7 +25,7 @@
   - 19+1+12+2+8 = **42**
   - *Nota sobre una corrección propia:* la primera pasada de esta reconciliación afirmó que `0061dbe` "no es el SHA sellado" y dejó fuera ese commit del desglose, dando 41. Estaba mal en los dos sentidos — `0061dbe` **es** el commit con el que el PM selló Z0B-1, y la redacción anterior de este archivo ("Z0B-1 hasta `0061dbe`, 19 commits, sellado") era correcta en ese punto. Lo que sí estaba desfasado era el resto: no mencionaba Z0B-2 por rango ni los commits posteriores
 - Phase anterior: **Fase 0 — Repo hardening, CI, state scaffolding** + correcciones consolidadas pre-PR (bloques 1–3, 2026-07-08), rama `feat/fase0-ci`, base `main` @ `0650746`
-- Nota: Z1a **no es una fase del itinerario GENERA**; pertenece al plan de integración Zoom (`docs/planning/zoom-integration-plan.md`). El itinerario sigue con Fase 1 — ver Next phase
+- Nota: Z1a **no es una fase del itinerario GENERA**; pertenece al plan de integración Zoom (`docs/plan/zoom/PLAN.md`). El itinerario sigue con Fase 1 — ver Next phase
 
 ## Architecture invariants (never violate)
 - RLS habilitado en toda tabla del schema `public`; `school_id` en cada fila (multi-tenant por colegio)
@@ -174,7 +174,7 @@ Al cierre de Z1a (`62a448d`, local, macOS):
 ## Next phase
 Dos hilos en paralelo, con dueños distintos:
 
-**(a) Plan Zoom — Z1b** (continúa donde termina Z1a; ver `docs/planning/zoom-integration-plan.md` §15 y el ledger de §0)
+**(a) Plan Zoom — Z1b** (continúa donde termina Z1a; ver `docs/plan/zoom/PLAN.md` §15 y `docs/plan/zoom/LEDGER.md`)
 - **Gate de entrada**: PR #24 con re-review aprobado y merge a `main`
 - Z1c es quien trae la cobertura e2e/integración que Z1a dejó como stubs
 

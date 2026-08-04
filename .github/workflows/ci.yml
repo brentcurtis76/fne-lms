@@ -147,6 +147,15 @@ jobs:
             # e2e run can never reach live Zoom by accident once a spec does drive a job.
             # Runtime-only (not NEXT_PUBLIC_*), so build ordering is irrelevant.
             echo "ZOOM_MODE=mock"
+            # Required, not cosmetic. `getAppBaseUrl` (lib/utils/app-url.ts:91-102) THROWS
+            # in production rather than trusting the client-controlled Host header, and the
+            # e2e gate serves a production build — so every surface that emits an absolute
+            # platform URL (the .ics `join_url`, reminder notifications) returns HTTP 500
+            # here without it. Z1c-1 never hit this because its only session had a NULL
+            # meeting_link and the join_url branch was therefore never taken.
+            # Unlike ZOOM_MODE this is NEXT_PUBLIC_*, so it is inlined at build time and
+            # must precede the build step — as it does.
+            echo "NEXT_PUBLIC_BASE_URL=http://localhost:3000"
           } > .env.local
 
       - name: Install Playwright browsers

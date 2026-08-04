@@ -21,6 +21,7 @@ export const MANDATORY_SPECS = [
   // it: who may open a session, what is allowed inside the payload, and what survives into
   // an artifact that leaves the platform.
   'tests/e2e/zoom-join-authz.spec.ts',
+  'tests/e2e/session-disclosure.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

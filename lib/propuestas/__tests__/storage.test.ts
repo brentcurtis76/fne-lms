@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getSignedUrl, uploadFile, downloadFile } from '../storage';
+import { getSignedUrl, uploadFile, downloadFile, StorageObjectExistsError } from '../storage';
 
 // Mock the supabaseAdmin module
 vi.mock('@/lib/supabaseAdmin', () => ({
@@ -105,6 +105,81 @@ describe('uploadFile', () => {
     await expect(
       uploadFile('proposals/output.pdf', Buffer.from(''), 'application/pdf')
     ).rejects.toThrow('Failed to upload proposals/output.pdf: Bucket not found');
+  });
+
+  /**
+   * Create-only uploads exist for paths whose object may be authored by someone
+   * else — D-05's manual-override brochure path. The conflict is recognised by
+   * the SDK's error shape (`StorageApiError` carries `code`, `status` and
+   * `statusCode`), never by its message, which no contract pins.
+   */
+  describe('create-only (upsert: false)', () => {
+    function bucketFailingWith(error: Record<string, unknown>) {
+      const bucket = makeMockBucket();
+      (bucket.upload as ReturnType<typeof vi.fn>).mockResolvedValue({ data: null, error });
+      mockFrom.mockReturnValue(bucket as ReturnType<typeof mockFrom>);
+      return bucket;
+    }
+
+    it('passes upsert: false through to the SDK', async () => {
+      const bucket = makeMockBucket();
+      (bucket.upload as ReturnType<typeof vi.fn>).mockResolvedValue({
+        data: { path: 'pasantias/brochure-v1.pdf' },
+        error: null,
+      });
+      mockFrom.mockReturnValue(bucket as ReturnType<typeof mockFrom>);
+
+      const file = Buffer.from('pdf content');
+      await uploadFile('pasantias/brochure-v1.pdf', file, 'application/pdf', { upsert: false });
+
+      expect(bucket.upload).toHaveBeenCalledWith('pasantias/brochure-v1.pdf', file, {
+        contentType: 'application/pdf',
+        upsert: false,
+      });
+    });
+
+    it.each([
+      ['the service error code', { code: 'ResourceAlreadyExists', message: 'The resource already exists' }],
+      ['the HTTP status', { status: 409, message: 'The resource already exists' }],
+      ['the string statusCode', { statusCode: '409', message: 'Duplicate' }],
+    ])('reports an already-exists conflict from %s', async (_label, error) => {
+      const bucket = bucketFailingWith(error);
+
+      await expect(
+        uploadFile('pasantias/brochure-v1.pdf', Buffer.from('pdf'), 'application/pdf', {
+          upsert: false,
+        })
+      ).rejects.toBeInstanceOf(StorageObjectExistsError);
+
+      // Terminal, not retried: the object exists, and asking twice cannot change that.
+      expect(bucket.upload).toHaveBeenCalledTimes(1);
+    });
+
+    it('still reports a genuine failure as a plain upload error', async () => {
+      const bucket = bucketFailingWith({ status: 500, message: 'Bucket unavailable' });
+
+      const attempt = uploadFile('pasantias/brochure-v1.pdf', Buffer.from('pdf'), 'application/pdf', {
+        upsert: false,
+      });
+
+      await expect(attempt).rejects.toThrow(
+        'Failed to upload pasantias/brochure-v1.pdf: Bucket unavailable'
+      );
+      await expect(attempt).rejects.not.toBeInstanceOf(StorageObjectExistsError);
+      expect(bucket.upload).toHaveBeenCalledTimes(2);
+    });
+
+    /**
+     * Upserting callers cannot receive a conflict — the write replaces whatever
+     * is there — so a 409 from that path is a real error, not a benign one.
+     */
+    it('does not classify conflicts away when upserting', async () => {
+      bucketFailingWith({ status: 409, message: 'The resource already exists' });
+
+      await expect(
+        uploadFile('proposals/output.pdf', Buffer.from('pdf'), 'application/pdf')
+      ).rejects.not.toBeInstanceOf(StorageObjectExistsError);
+    });
   });
 });
 

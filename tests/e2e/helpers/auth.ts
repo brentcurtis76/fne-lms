@@ -41,10 +41,29 @@ export interface E2eFixtureUser {
 }
 
 /**
- * This assignment is the anti-drift mechanism, not decoration: a persona added to
- * e2e-fixtures.json but missing from `FixtureKey` is unreachable from the specs, and a
- * `FixtureKey` with no entry in the JSON fails `npm run type-check`. (The spec files
- * themselves are excluded from tsc by tsconfig's spec-file exclude — this file is not.)
+ * This assignment is the anti-drift mechanism, not decoration — but it only guards ONE
+ * direction, and the two directions differ in a way worth being exact about:
+ *
+ *   FixtureKey -> JSON   TYPE ERROR. A `FixtureKey` member with no entry in
+ *                        e2e-fixtures.json fails `npm run type-check` (TS2741, "property
+ *                        is missing … but required in type Record<FixtureKey, …>").
+ *
+ *   JSON -> FixtureKey   NOT type-checked. `fixtures.users` is a property access, not a
+ *                        fresh object literal, so TypeScript applies no excess-property
+ *                        check: a persona in the JSON with no `FixtureKey` member
+ *                        type-checks clean (verified — tsc exits 0 with one present).
+ *
+ * Do not read the second case as "unreachable, therefore harmless". It is the opposite:
+ * such a persona is UNTYPED YET AUTOMATICALLY COVERED. `FIXTURE_KEYS` below is
+ * `Object.keys(E2E_USERS)` with an `as FixtureKey[]` cast, and a cast asserts a type the
+ * runtime value need not actually have — so the array carries the JSON's keys, all of
+ * them, and the login block in ci-fixture.spec.ts iterates that runtime value. A persona
+ * added to the JSON alone therefore generates a live test inside a MANDATORY spec
+ * (`npx playwright test tests/e2e/ci-fixture.spec.ts --list` shows it) without ever being
+ * declared here. The cast is what makes that possible; nothing else checks it.
+ *
+ * (The spec files themselves are excluded from tsc by tsconfig's spec-file exclude — this
+ * file is not.)
  */
 export const E2E_USERS: Record<FixtureKey, E2eFixtureUser> = fixtures.users;
 export const E2E_SCHOOL: { id: number; name: string } = fixtures.school;

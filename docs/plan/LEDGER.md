@@ -1024,3 +1024,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: strict VERCEL_ENV gate ratified
 - BACKLOG ADDED: three log levels in serve.ts left un-normalised (would touch r1 lines) — cosmetic
 - OPEN AFTER THIS ROUND: → Sol.
+
+### 2026-08-03 — B3 r2 verified; A4/A5 Sol FAILs triaged — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: **B3 r2 verified (335/335, migration untouched) → Sol round 2.** **A4 Sol = FAIL ×1, ACCEPTED and it is the sharpest finding of the day**: generated cache fills use `upsert: true`, and that same path is D-05's manual-override path — so a transient read failure or a race could let a *generated* PDF silently overwrite the *owner's designed brochure*. Everything else in A4 passed (the VERCEL_ENV gate and pinned CTA origin both ratified by Sol). `prompts/a4-3.md`: create-only writes, already-exists treated as benign, plus an end-to-end test proving a published designed PDF survives a generate attempt. **A5 Sol = FAIL ×1 + SHOULD-FIX, both ACCEPTED**: the read-decide-write sequence lets a stale unchecked submission clobber a concurrent marketing opt-in — a **consent regression**, worse than an ordinary lost update, so `prompts/a5-3.md` makes the update structurally incapable of writing marketing columns unless the submission is itself opting in, with the interleaving asserted; the SHOULD-FIX (sourcePath trims despite the claimed verbatim contract) is folded in with the instruction to make code, tests, comment AND ledger agree either way. Sol round 1 of 2 for both.
+- COMMITS: (this commit)
+- TESTS: B3 335/335 (PM re-run)
+- FINDINGS RAISED: none new
+- DECISIONS: all three accepted
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch A4 r3 + A5 r3; B3 → Sol r2. PRs #39/#40/#41 need reconciliation with main before merge (main has moved).

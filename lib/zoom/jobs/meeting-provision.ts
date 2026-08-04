@@ -441,19 +441,23 @@ export type SessionEligibilityCheck =
   | 'status'
   | 'is_active'
   | 'modality'
-  | 'meeting_provider';
+  | 'meeting_provider'
+  | 'is_zoom_managed';
 
 /**
  * The §8 eligibility gate: the first failed check, or `null` when the session may be
  * provisioned for. Order is deliberate — `is_active` first, because a soft-deleted
  * session is the least interesting reason to look further.
  *
- * SEAM (Z2): `is_zoom_managed` — the durable managed-intent flag from plan §8/ledger
- * item 22 — joins this list as one more check as soon as Z2's additive migration adds
- * the column. It is NOT added here: inventing the column now would be a rival mechanism
- * to the one the plan already specifies, and `meeting_provider = 'zoom'` is the intent
- * signal that exists today. When the flag lands, `is_zoom_managed !== true` becomes a
- * `'is_zoom_managed'` member of `SessionEligibilityCheck` and a branch below.
+ * `is_zoom_managed` closes the Z2 seam this comment used to describe as pending: the
+ * durable managed-intent flag from plan §8/ledger item 22 now exists on the table
+ * (`20260804120000_zoom_managed_intent.sql`) and is checked LAST, because it is the
+ * narrowest of the five — a session that fails only this one is well-formed in every
+ * other respect and was simply never marked for a platform-managed meeting, so
+ * reporting the structural refusals first keeps triage pointed at the real reason.
+ * `meeting_provider = 'zoom'` stays a separate check rather than being folded in: it is
+ * the provider vocabulary (baseline:7740 CHECK), not the intent, and the two can
+ * legitimately disagree on a session whose link is hand-managed.
  */
 export function checkSessionEligibility(
   session: ProvisionSessionRow
@@ -466,6 +470,7 @@ export function checkSessionEligibility(
     return 'modality';
   }
   if (session.meeting_provider !== PROVISION_ELIGIBLE_PROVIDER) return 'meeting_provider';
+  if (session.is_zoom_managed !== true) return 'is_zoom_managed';
   return null;
 }
 
@@ -1018,18 +1023,21 @@ export interface ProvisionSessionRow {
    */
   scheduled_duration_minutes: number | null;
   /**
-   * The eligibility columns. All four VERIFIED against the live table in
+   * The eligibility columns. The first four VERIFIED against the live table in
    * `supabase/migrations/00000000000000_baseline.sql:7703-7742`:
    *   status          NOT NULL, CHECK IN (borrador, pendiente_aprobacion, programada,
    *                   en_progreso, pendiente_informe, completada, cancelada)
    *   is_active       NOT NULL DEFAULT true
    *   modality        NOT NULL, CHECK IN (presencial, online, hibrida)
    *   meeting_provider NULLABLE, CHECK IN (zoom, google_meet, teams, otro)
+   * The fifth is added by `20260804120000_zoom_managed_intent.sql`:
+   *   is_zoom_managed NOT NULL DEFAULT false — durable managed intent (plan §8).
    */
   status: string;
   is_active: boolean;
   modality: string;
   meeting_provider: string | null;
+  is_zoom_managed: boolean;
 }
 
 export interface SessionFacilitatorRow {
@@ -1264,7 +1272,7 @@ export function createSupabaseMeetingProvisionStore(
       const { data, error } = await publicClient
         .from('consultor_sessions')
         .select(
-          'id, school_id, growth_community_id, title, session_date, start_time, end_time, scheduled_duration_minutes, status, is_active, modality, meeting_provider'
+          'id, school_id, growth_community_id, title, session_date, start_time, end_time, scheduled_duration_minutes, status, is_active, modality, meeting_provider, is_zoom_managed'
         )
         .eq('id', surfaceId)
         .maybeSingle();

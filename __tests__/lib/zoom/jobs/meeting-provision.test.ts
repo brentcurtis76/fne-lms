@@ -78,6 +78,11 @@ const SESSION: ProvisionSessionRow = {
   is_active: true,
   modality: 'online',
   meeting_provider: 'zoom',
+  // Z2-1: durable managed intent. This fixture is the session the whole file provisions
+  // for, and only a session the scheduler marked "Generar reunión Zoom" is ever
+  // provisioned for — so the ONE happy-path fixture is legitimately managed. Every
+  // refusal case below derives from it by patch, so nothing else needed changing.
+  is_zoom_managed: true,
 };
 
 const EXPECTED_STARTS_AT = '2026-08-05T19:00:00.000Z';
@@ -3055,6 +3060,14 @@ describe('meeting_provision · §8 source-state eligibility', () => {
     { name: 'presencial', patch: { modality: 'presencial' }, check: 'modality' },
     { name: 'another provider', patch: { meeting_provider: 'google_meet' }, check: 'meeting_provider' },
     { name: 'no provider intent', patch: { meeting_provider: null }, check: 'meeting_provider' },
+    // Z2-1: the closed seam. `meeting_provider = 'zoom'` alone is NOT managed intent —
+    // a hand-scheduled Zoom link is exactly that shape.
+    { name: 'not managed by the platform', patch: { is_zoom_managed: false }, check: 'is_zoom_managed' },
+    {
+      name: 'pre-migration row with no flag at all',
+      patch: { is_zoom_managed: undefined as unknown as boolean },
+      check: 'is_zoom_managed',
+    },
   ];
 
   for (const { name, patch, check } of INELIGIBLE) {

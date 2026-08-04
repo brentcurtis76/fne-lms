@@ -14,7 +14,7 @@ import {
   canViewParticipantEmails,
 } from '../../../../lib/utils/session-disclosure';
 import { canViewSession, SessionAccessContext } from '../../../../lib/utils/session-policy';
-import { sendSessionNotFound } from '../../../../lib/utils/session-not-found';
+import { sendSessionNotFound } from '../../../../lib/utils/session-denials';
 import { buildAbsoluteUrl } from '../../../../lib/utils/app-url';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

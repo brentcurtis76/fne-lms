@@ -22,7 +22,7 @@ import {
   canViewParticipantEmails,
   redactProfileEmails,
 } from '../../../../lib/utils/session-disclosure';
-import { sendSessionNotFound } from '../../../../lib/utils/session-not-found';
+import { sendSessionNotFound } from '../../../../lib/utils/session-denials';
 
 export const config = {
   api: {

@@ -19,7 +19,7 @@ import {
   canViewParticipantEmails,
   redactProfileEmails,
 } from '../../../../lib/utils/session-disclosure';
-import { sendSessionNotFound } from '../../../../lib/utils/session-not-found';
+import { sendSessionNotFound } from '../../../../lib/utils/session-denials';
 
 const attendeeSchema = z.object({
   user_id: z.string().uuid({ message: 'user_id inválido en payload' }),

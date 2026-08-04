@@ -15,7 +15,7 @@ import {
   STRUCTURAL_FIELDS,
 } from '../../../../lib/types/consultor-sessions.types';
 import { canViewSession, SessionAccessContext } from '../../../../lib/utils/session-policy';
-import { sendSessionNotFound } from '../../../../lib/utils/session-not-found';
+import { sendSessionNotFound } from '../../../../lib/utils/session-denials';
 import {
   applySessionMeetingDisclosure,
   canViewParticipantEmails,

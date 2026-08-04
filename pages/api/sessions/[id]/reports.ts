@@ -21,7 +21,7 @@ import {
   filterReportsByVisibility,
   redactProfileEmails,
 } from '../../../../lib/utils/session-disclosure';
-import { sendSessionNotFound } from '../../../../lib/utils/session-not-found';
+import { sendSessionNotFound } from '../../../../lib/utils/session-denials';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-reports');

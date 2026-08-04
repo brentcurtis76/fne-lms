@@ -2,6 +2,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 import handler from '../../../pages/api/sessions/[id]/reports/[rid]';
+import {
+  SESSION_NOT_FOUND_MESSAGE,
+  SESSION_NOT_FOUND_STATUS,
+} from '../../../lib/utils/session-denials';
 
 // Mock dependencies
 vi.mock('../../../lib/api-auth', () => ({
@@ -156,7 +160,7 @@ describe('/api/sessions/[id]/reports/[rid]', () => {
     expect(data.error).toContain('contenido o visibilidad');
   });
 
-  it('should return 403 on GET if user has no access to session', async () => {
+  it('should answer the shared session denial on GET if user has no access to session', async () => {
     const { getApiUser, createServiceRoleClient } = await import('../../../lib/api-auth');
     const { getUserRoles, getHighestRole } = await import('../../../utils/roleUtils');
 
@@ -233,8 +237,11 @@ describe('/api/sessions/[id]/reports/[rid]', () => {
 
     await handler(req as any, res as any);
 
-    expect(res._getStatusCode()).toBe(403);
+    // 404, not 403 — see lib/utils/session-denials.ts. A caller denied at
+    // session level must be indistinguishable from one asking about a session
+    // that does not exist, on this endpoint exactly as on the other five.
+    expect(res._getStatusCode()).toBe(SESSION_NOT_FOUND_STATUS);
     const data = JSON.parse(res._getData());
-    expect(data.error).toContain('Acceso denegado');
+    expect(data.error).toBe(SESSION_NOT_FOUND_MESSAGE);
   });
 });

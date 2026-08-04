@@ -20,6 +20,10 @@ import {
   canViewRestrictedReports,
   redactProfileEmails,
 } from '../../../../../lib/utils/session-disclosure';
+import {
+  sendReportNotFound,
+  sendSessionNotFound,
+} from '../../../../../lib/utils/session-denials';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-report-detail');
@@ -67,19 +71,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       .single();
 
     if (sessionError || !session) {
-      return sendAuthError(res, 'Sesión no encontrada', 404);
-    }
-
-    // Fetch report
-    const { data: report, error: reportError } = await serviceClient
-      .from('session_reports')
-      .select('*, profiles:author_id(first_name, last_name, email)')
-      .eq('id', reportId)
-      .eq('session_id', sessionId)
-      .single();
-
-    if (reportError || !report) {
-      return sendAuthError(res, 'Informe no encontrado', 404);
+      return sendSessionNotFound(res);
     }
 
     // Determine user role
@@ -116,14 +108,38 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       isFacilitator: !!facilitatorCheck,
     };
 
+    // Denied views are indistinguishable from a missing session — see
+    // `sendSessionNotFound`. Do NOT restore a 403 here: the status difference
+    // alone is an existence oracle.
+    //
+    // This check is also why the report is fetched BELOW rather than alongside
+    // the session: a caller denied at session level must not go on to learn
+    // whether the report exists either, or the report id becomes the oracle
+    // the session id no longer is.
     if (!canViewSession(accessContext)) {
-      return sendAuthError(res, 'Acceso denegado a esta sesión', 403);
+      return sendSessionNotFound(res);
+    }
+
+    // Fetch report
+    const { data: report, error: reportError } = await serviceClient
+      .from('session_reports')
+      .select('*, profiles:author_id(first_name, last_name, email)')
+      .eq('id', reportId)
+      .eq('session_id', sessionId)
+      .single();
+
+    if (reportError || !report) {
+      return sendReportNotFound(res);
     }
 
     // Visibility: `facilitators_only` reaches admins and this session's
     // facilitators only — deliberately narrower than canEditSession().
+    //
+    // Same shared denial as the absent row above, for the same reason: a
+    // caller who could tell "no such report" from "not your report" could
+    // enumerate this session's restricted reports by id.
     if (!canViewRestrictedReports(accessContext) && report.visibility === 'facilitators_only') {
-      return sendAuthError(res, 'Acceso denegado a este informe', 403);
+      return sendReportNotFound(res);
     }
 
     // Author e-mail follows the same rule as every other session payload.

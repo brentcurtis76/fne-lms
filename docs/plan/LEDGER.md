@@ -1326,3 +1326,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: —
 - BACKLOG ADDED: B3 evidence-driver robustness; wording nit
 - OPEN AFTER THIS ROUND: Brent's merge word for PR #41, then the production apply.
+
+### 2026-08-03 — Merge train complete; A5 DONE row restored — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: **Train complete — #39 (A4), #38 (repricing), #40 (A5), #41 (B3) all merged**, each reconciled against the newest main with a docs union between cars; #41 needed one automatic re-reconcile and took it. **12 of 30 phases now DONE.** One defect in my own train script, caught by verifying the board rather than trusting the merges: the reconcile step resolves a PLAN.md conflict with `--theirs` (main's copy), which silently discarded **A5's DONE row** — A4's and B3's survived only because their PLAN edits did not conflict. Row restored here with a count assertion. The lesson generalises: `--theirs` on PLAN.md is right for stale plan text but wrong for a phase-status row the branch just set; a future train should re-apply the DONE row *after* the union rather than before it.
+- COMMITS: (this commit)
+- TESTS: phase-status board verified row by row on origin/main
+- FINDINGS RAISED: train reconcile can drop a branch's DONE row
+- DECISIONS: none
+- BACKLOG ADDED: merge-train script — set the DONE row after the docs union, not before
+- OPEN AFTER THIS ROUND: **B3's migration needs applying to production** (owner's word, as with pasantias_leads); **A6a is the next dispatch** — the first phase a visitor sees.

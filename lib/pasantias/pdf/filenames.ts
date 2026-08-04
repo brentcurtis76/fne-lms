@@ -27,19 +27,58 @@ export const FICHA_VERSION = '2026-10-v1';
 export const FICHA_FILENAME = `Ficha-Pasantias-INSPIRA-Barcelona-${COHORT_ID}-${FICHA_VERSION}.pdf`;
 
 /**
- * Characters that would have to be escaped in a quoted `filename=` value or
- * that separate header parameters: control characters, the quote and backslash,
- * `;` and `,`, and both path separators.
+ * RFC 5987 §3.2.1 `attr-char` — the only characters an `ext-value` may carry
+ * verbatim: ALPHA / DIGIT and `! # $ & + - . ^ _ \` | ~`. Everything else has to
+ * be percent-encoded, `%`, `'` and `*` included.
+ *
+ * This replaces an earlier "printable ASCII minus a denylist" test (Sol's A3
+ * SHOULD-FIX): that one accepted names the grammar forbids — a SPACE, a bare
+ * `%` (illegal outside a pct-encoded triplet), a `'` (which terminates the
+ * charset/language prefix a parser is reading) and a `*` (which would read as
+ * the start of another extended parameter). Both filename constants are
+ * letters, digits, `-` and `.`, so they stay valid under the tighter grammar.
+ *
+ * Note the character class is also a subset of what a quoted `filename=` value
+ * accepts, so one predicate still answers both header forms.
+ * @see https://www.rfc-editor.org/rfc/rfc5987.html#section-3.2.1
  */
-const UNSAFE_FILENAME = /[\u0000-\u001F\u007F"\\;,/]/;
+const ATTR_CHAR = /^[A-Za-z0-9!#$&+\-.^_`|~]+$/;
 
 /**
  * True when `name` can be used verbatim in both `Content-Disposition` forms:
- * printable ASCII, no header-breaking character, no path component.
+ * every character is an RFC 5987 `attr-char`. Empty names are rejected — the
+ * grammar requires at least one character.
  */
 export function isRfc5987SafeFilename(name: string): boolean {
-  if (name.length === 0) return false;
-  // eslint-disable-next-line no-control-regex
-  if (!/^[\u0020-\u007E]+$/.test(name)) return false;
-  return !UNSAFE_FILENAME.test(name);
+  return ATTR_CHAR.test(name);
+}
+
+/**
+ * `name` as an RFC 5987 `value-chars`: `attr-char` bytes verbatim, every other
+ * byte percent-encoded from its UTF-8 encoding. Encoding is per BYTE, not per
+ * character, which is what makes an accented es-CL name (`Pasantías` → `%C3%AD`)
+ * come out right.
+ */
+export function encodeRfc5987Filename(name: string): string {
+  return Array.from(new TextEncoder().encode(name))
+    .map((byte) => {
+      const char = String.fromCharCode(byte);
+      return isRfc5987SafeFilename(char)
+        ? char
+        : `%${byte.toString(16).toUpperCase().padStart(2, '0')}`;
+    })
+    .join('');
+}
+
+/**
+ * The `Content-Disposition` header A4's routes emit: `inline` (both documents
+ * are meant to open in the browser's viewer), the quoted ASCII `filename=`
+ * fallback for clients that never learned RFC 5987, and the `filename*=` form
+ * that carries the real name. A name that is not attr-char-clean cannot go in
+ * the quoted fallback either, so it degrades to the percent-encoded form there.
+ */
+export function buildContentDisposition(filename: string): string {
+  const encoded = encodeRfc5987Filename(filename);
+  const fallback = isRfc5987SafeFilename(filename) ? filename : encoded;
+  return `inline; filename="${fallback}"; filename*=UTF-8''${encoded}`;
 }

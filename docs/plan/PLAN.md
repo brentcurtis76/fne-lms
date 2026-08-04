@@ -59,8 +59,8 @@ Improve communication and sales of Pasantías INSPIRA Barcelona for the **Octobe
 | A1 | Cohort data modules + leak guard + homepage date fix | **DONE 2026-08-02** (Sol PASS r5; head `992aeef`, PR #34) | `phase/a1-cohort` | A0 |
 | A2 | `pasantias_leads` migration + per-op RLS + pgTAP (DB-agent) | **DONE 2026-07-31** (Codex PASS r3; head `e13adfb`, PR #31) | `phase/a2-leads-db` | A0 |
 | A3 | Brochure + ficha generators + PDF text/visual QA | **DONE 2026-08-02** (Sol PASS r2; PR #37) | `phase/a3-pdfgen` | A1 |
-| A4 | PDF serving endpoints + leak checks | TODO | `phase/a4-pdfsrv` | A3 |
-| A5 | Lead API + transition helper + auto-reply/notification | **DONE 2026-08-03** (Sol PASS r2; PR #40) | `phase/a5-lead-api` | A2, A4 |
+| A4 | PDF serving endpoints + leak checks | **DONE 2026-08-03** (Sol PASS r2; PR #39) | `phase/a4-pdfsrv` | A3 |
+| A5 | Lead API + transition helper + auto-reply/notification | TODO | `phase/a5-lead-api` | A2, A4 |
 | A6a | `/pasantias` page: sections + ficha CTA (no form) | TODO | `phase/a6a-page` | A1, A4 |
 | A6b | LeadForm (split consent) + wiring + e2e + a11y | TODO | `phase/a6b-form` | A5, A6a, T2 |
 | A7a | Site link rewiring + both INSPIRA flipbooks | TODO | `phase/a7a-links` | A6b |

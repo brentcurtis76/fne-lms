@@ -17,6 +17,10 @@ import { readFileSync } from 'node:fs';
 export const MANDATORY_SPECS = [
   'tests/e2e/smoke.spec.ts',
   'tests/e2e/ci-fixture.spec.ts',
+  // Z1c — the Zoom/session authorization surface. Each family defends a different half of
+  // it: who may open a session, what is allowed inside the payload, and what survives into
+  // an artifact that leaves the platform.
+  'tests/e2e/zoom-join-authz.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

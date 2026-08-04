@@ -10,7 +10,13 @@
  * The fixtures only exist on the ephemeral local Supabase stack that CI starts
  * and destroys (see .github/workflows/ci.yml, gate 4).
  */
-import { expect, type Browser, type Page } from '@playwright/test';
+import {
+  expect,
+  request as playwrightRequest,
+  type APIRequestContext,
+  type Browser,
+  type Page,
+} from '@playwright/test';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import fixtures from '../../../scripts/ci/e2e-fixtures.json';
@@ -198,4 +204,26 @@ export async function ensureStorageState(browser: Browser, key: FixtureKey): Pro
   }
 
   return file;
+}
+
+/**
+ * An `APIRequestContext` carrying a persona's real, logged-in cookies.
+ *
+ * Z1c-2 — the disclosure and iCal specs assert on API payloads, not on rendered
+ * pages, and they must do so as a specific persona. The state is produced by
+ * `ensureStorageState`, i.e. by the same login form, so what these requests carry is
+ * the auth-helpers cookie chain the API routes' `getApiUser()` actually reads — never
+ * a hand-minted token that could pass a check the real chain would fail.
+ *
+ * Built explicitly rather than leaning on the `request` fixture inheriting
+ * `test.use({ storageState })`: a spec that drives SEVERAL personas in one test needs
+ * several contexts, and the fixture only ever supplies one. Callers must `dispose()`.
+ */
+export async function apiContextFor(
+  browser: Browser,
+  key: FixtureKey,
+  baseURL: string
+): Promise<APIRequestContext> {
+  const storageState = await ensureStorageState(browser, key);
+  return playwrightRequest.newContext({ storageState, baseURL });
 }

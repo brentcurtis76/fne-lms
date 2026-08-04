@@ -272,21 +272,49 @@ async function handleRemoveSchool(supabase: any, body: RemoveSchoolRequest, res:
       return res.status(404).json({ error: 'Asignación no encontrada' });
     }
 
-    // Check if there are active supervisors for this network
-    const { data: activeSupervisors } = await supabase
+    // Check if there are active supervisors for this network.
+    //
+    // `user_roles` has TWO foreign keys into `profiles`
+    // (`user_roles_user_id_fkey` and `user_roles_assigned_by_fkey`), so a bare
+    // `profiles(...)` embed is ambiguous: PostgREST rejects it with PGRST201
+    // (HTTP 300) and returns no rows at all. Name the relationship by its FK
+    // column — the house convention, see sessions/[id]/index.ts:125.
+    const { data: activeSupervisors, error: supervisorsError } = await supabase
       .from('user_roles')
-      .select('id, profiles(email, first_name, last_name)')
+      .select('id, profiles:user_id(email, first_name, last_name)')
       .eq('red_id', networkId)
       .eq('role_type', 'supervisor_de_red')
       .eq('is_active', true);
 
+    // Fail CLOSED. This lookup guards a destructive delete, so a failed query
+    // must never be read as "no supervisors": that is exactly how the
+    // ambiguous embed above silently disabled this protection. Any error here
+    // stops the request rather than falling through to the DELETE.
+    if (supervisorsError) {
+      console.error('Error checking active supervisors:', supervisorsError);
+      return res.status(500).json({
+        error: 'Error al verificar los supervisores activos de la red'
+      });
+    }
+
     if (activeSupervisors && activeSupervisors.length > 0) {
-      const supervisorNames = activeSupervisors.map((s: any) => 
-        `${s.profiles.first_name} ${s.profiles.last_name} (${s.profiles.email})`
-      ).join(', ');
-      
-      return res.status(409).json({ 
-        error: `No se puede remover la escuela porque hay supervisores activos asignados a esta red: ${supervisorNames}` 
+      const supervisorNames = activeSupervisors
+        .map((s: any) => {
+          // PostgREST returns a to-one embed as an object, but supabase-js can
+          // surface it as a single-element array. A missing profile must not
+          // throw — the guard has to fire either way.
+          const profile = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
+          const fullName = [profile?.first_name, profile?.last_name]
+            .filter(Boolean)
+            .join(' ');
+          if (fullName && profile?.email) return `${fullName} (${profile.email})`;
+          return fullName || profile?.email || '';
+        })
+        .filter(Boolean)
+        .join(', ');
+
+      return res.status(409).json({
+        error: `No se puede remover la escuela porque hay supervisores activos asignados a esta red: ${supervisorNames || `${activeSupervisors.length} supervisor(es)`}`
       });
     }
 

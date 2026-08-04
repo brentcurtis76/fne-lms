@@ -130,7 +130,12 @@ which the October brochure never says. **Todo lo de abajo está aprobado por el 
 
 ## 6. Equipo
 
-Titles below are the **corrected, approved** ones — they override the old deck.
+> **SINGLE SOURCE OF TRUTH: Appendix A-6 in `docs/plan/PLAN.md`.** This table is a
+> convenience copy and MUST NOT be used to author titles anywhere. Corrected
+> 2026-08-04: three rows below (Mir, Menéndez, Quintana) had drifted from A-6 and
+> disagreed with the owner-reviewed brochure. A third source of expert titles is
+> precisely how the A6a placeholder bug happened — if this table and A-6 ever
+> disagree again, A-6 wins and this one gets fixed.
 
 | Persona | Rol |
 |---|---|
@@ -138,10 +143,10 @@ Titles below are the **corrected, approved** ones — they override the old deck
 | **Mora del Fresno** | Coordinadora INSPIRA |
 | **Jordi Musons** | Director, Escola Sadako — anfitrión semana 1 |
 | **Sandra Entrena** | **Encargada de Innovación, Escola Virolai** — anfitriona semana 1 |
-| **Boris Mir** | Institut Angeleta Ferrer |
+| **Boris Mir** | **Ex-director adjunto, Institut Angeleta Ferrer y Escola Nova 21; fundador del Institut Angeleta Ferrer** |
 | **Sergi del Moral** | **Director, Institut Escola Les Vinyes** |
-| **Pepe Menéndez** | Conferencista INSPIRA |
-| **Joan Quintana** | Conferencista INSPIRA |
+| **Pepe Menéndez** | **Consultor en transformación pedagógica** |
+| **Joan Quintana** | **Consultor en procesos de cambio, co-autor de «Educación Relacional»** |
 
 ### Biografías (transcritas del deck anterior — ver nota de verificación)
 

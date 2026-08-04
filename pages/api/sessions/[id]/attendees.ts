@@ -112,10 +112,18 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       return sendAuthError(res, 'Acceso denegado a esta sesión', 403);
     }
 
-    // Fetch attendees with profile info
+    // Fetch attendees with profile info.
+    //
+    // The embed MUST name the FK: `session_attendees` has two into `profiles`
+    // (`user_id` and `marked_by`), so a bare `profiles(...)` is ambiguous and
+    // PostgREST answers PGRST201 before reading a row — which this handler turned
+    // into a 500 for every caller. Aliased to `profiles` (not `profiles!…fkey`)
+    // to match the detail GET at [id]/index.ts:125 and, more importantly, because
+    // redactProfileEmails only strips e-mails under the key `profiles`
+    // (session-disclosure.ts:175).
     const { data: attendees, error: attendeesError } = await serviceClient
       .from('session_attendees')
-      .select('*, profiles(id, first_name, last_name, email)')
+      .select('*, profiles:user_id(id, first_name, last_name, email)')
       .eq('session_id', sessionId)
       .order('created_at');
 

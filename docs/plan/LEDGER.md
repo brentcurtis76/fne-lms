@@ -994,3 +994,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: A4/A5 deviations + assumptions ratified
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch B3 r2; A4 + A5 → Sol; merges + B3's prod apply on the owner's word.
+
+### 2026-08-03 — Misdispatch caught; shared checkout restored — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: `/exec INSPIRA B3 r2` was dispatched at a round that was already complete and PM-verified (0f9c048 + 2b85553) — B3's remaining step is a **Sol** review, not an executor round. The session did the right thing: located the state, confirmed the criteria were already met by an earlier commit, swept every branch for a b3-3 prompt, found none, and **stopped rather than re-running or improvising a scope**; it also declined to write a ledger entry for a round that did not happen. No cost beyond the session. It surfaced the cause: **the shared checkout was sitting on `phase/a5-lead-api` with a days-stale `docs/plan/` tree**, which made the completed round look pending — the same shared-checkout hazard that caused the branch-drift incident. Restored to `main` and pulled. Reinforces the standing rule: read plan state from `origin/main`, never from whatever a checkout happens to be on.
+- COMMITS: (this commit)
+- TESTS: none (no round took place)
+- FINDINGS RAISED: none
+- DECISIONS: none
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: awaiting Sol on A4, A5 and B3 (three review rounds outstanding); A4 r3 + A5 r3 executor prompts are committed and dispatchable once their reviews land — or now, since they close findings Sol already stated.

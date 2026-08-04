@@ -4,6 +4,8 @@
     "node_modules/",
     ".next/",
     "out/",
+    "playwright-report/",
+    "test-results/",
     "*.config.js",
     "*.config.mjs"
   ],

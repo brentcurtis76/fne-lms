@@ -1,9 +1,19 @@
 # Fase 4 (Zoom Z1c) — PM dossier for independent review
 
 **Phase:** Z1c — Synthetic tenant + CI e2e (Zoom plan §15)
-**Branch:** `feat/e2e-tenant` · **Base:** `a1712f5` · **Head:** `42d7192` · **25 commits**
-**PR:** not opened at the time of writing — the PM opens it at phase close.
-**Reviewer entry points:** this file + `docs/planning/reviews/fase-4-review-request.md` (executor-authored). Both are leads, never the boundary. Review the diff: `git diff a1712f5...feat/e2e-tenant`.
+**Branch:** `feat/e2e-tenant` · **Head:** `88094a7` · **26 own (non-merge) commits**
+**PR:** [#42](https://github.com/brentcurtis76/fne-lms/pull/42) (draft, not merged).
+**CI green at the exact final head:** [run 30944197577](https://github.com/brentcurtis76/fne-lms/actions/runs/30944197577) — all 6 jobs, at `88094a7`. (Prior head `68adc80`: [run 30940946644](https://github.com/brentcurtis76/fne-lms/actions/runs/30940946644), also green.)
+
+**Reviewer entry points:** this file + `docs/planning/reviews/fase-4-review-request.md` (executor-authored). Both are leads, never the boundary.
+
+**⚠️ Use this diff command, not the obvious one:**
+
+```
+git diff origin/main...feat/e2e-tenant     # 29 files, +4003/−91 — Z1c's actual work
+```
+
+The branch absorbed `origin/main` twice mid-phase, so a diff from the phase base (`a1712f5..`) spans **95 commits** and drags in the entire parallel INSPIRA/pasantías track — several hundred files this phase never touched. The three-dot diff against current `origin/main` isolates Z1c. **Application source touched by the whole phase is exactly seven files**: `lib/utils/session-denials.ts` plus the six session GETs (`[id]/index.ts`, `reports.ts`, `materials.ts`, `attendees.ts`, `ical.ts`, `reports/[rid].ts`). Anything else in a wider diff is not this phase's.
 
 ---
 
@@ -23,6 +33,8 @@ The GENERA itinerary does not carry Zoom phases, so this section is the scope au
 | **Z1c-1 r1** | `88dc0f9` (1) | PM finding: a false anti-drift claim in `tests/e2e/helpers/auth.ts` (comment-only fix) |
 | **Z1c-2** | `2b18a8a`…`18b32ef` (9) | `FIXTURE_KEYS` completeness assertion; `ZOOM_MODE=mock` + `NEXT_PUBLIC_BASE_URL` into the CI heredoc; linked session + both report visibilities + attendees; the three blocking spec families |
 | **Z1c-3** | `b8e9e30`…`42d7192` (6) | F1 (ambiguous PostgREST embed, application fix); `/attendees` into the disclosure consumer set; the unit blind-spot answer; F2 (ESLint ignorePatterns) |
+| **Z1c-4** | `eb32e3e`…`68adc80` (5) | **Sol remediation.** Existence oracle closed on five session GETs via a shared denial; blocking server-side mock-mode proof (`host_sync` driven through a real `next start`, two negative controls); PR opened, CI green |
+| **Z1c-4 r1** | `6e18ed3`…`88094a7` (4) | PM finding: a **sixth** consumer (`reports/[rid].ts`) carried the same oracle twice. Both collapsed; the report fetch reordered below `canViewSession`; helper renamed `session-not-found.ts` → `session-denials.ts` |
 
 **Out of scope, deliberately:** Q1 meeting rows (`zoom_meetings` / `session_meetings_public`) — the PM verified nothing in this phase needs them, since `has_meeting`/`join_path` derive from the legacy `meeting_link` column and no API route reads the projection; that surface is Z2's. Also out: the 403/404 question (§6 below), any `lib/zoom/**` change, any migration, tsconfig/ESLint coverage widening.
 
@@ -89,7 +101,8 @@ Z1c-1 deviations 1–9, Z1c-2 deviations 1–5, Z1c-3 none. The ones a reviewer 
 ## 6. Open items and residual risks
 
 - **F1 is fixed; §24 is NOT.** `pages/api/admin/networks/schools.ts:278` has the same ambiguous-embed class over `user_roles` (2 FKs into `profiles`), but destructures only `{ data }` and never checks `error`. PM reproduced with a negative control: exact embed → HTTP 300 `PGRST201`; disambiguated → 200. So `data` is null, `if (activeSupervisors && …)` is falsy, and the handler proceeds to DELETE the `red_escuelas` assignment. **The active-supervisor protection has never fired.** This fails *open* where F1 failed closed. Reported, deliberately not fixed (out of scope). `schools-broken.ts:279` is a byte-identical copy. **Escalated to Brent.**
-- **403/404 existence oracle.** The session API distinguishes 403 ("not yours") from 404 ("no such session") while the interstitial deliberately collapses both. Pre-existing, unasserted, PM-ruled out of scope because changing it alters API semantics the frontend depends on. **Explicitly routed to Sol for a ruling.**
+- **403/404 existence oracle — RESOLVED in Z1c-4/r1, not carried.** It was PM-ruled out of scope; the independent review overturned that and the owner directed the fix. All six session GET consumers now answer a shared `sendSessionNotFound()`, and `reports/[rid].ts` additionally answers a shared `sendReportNotFound()`. **Two things a reviewer should press:** (a) the report fetch had to move *below* `canViewSession` — previously a session-denied caller still learned whether a report existed, so the report id was the oracle the session id no longer was; that ordering is now an invariant stated in the helper's header and is the subtlest part of the change; (b) the two denials are deliberately **not** collapsed into each other (session denial says `'Sesión no encontrada'`, report denial says `'Informe no encontrado'`, both 404) on the argument that a caller reaching the report check has already been told the session exists. Judge that argument.
+- **One user-visible product change, intended.** A user denied a specific session now sees "Sesión no encontrada" rather than "Acceso denegado" (`pages/consultor/sessions/[id].tsx:162,167` — the only session-GET consumer in the app that branches on status, PM-verified by independent sweep). Its `forbidden` branch stays reachable via the roleless 403.
 - **The unit layer cannot catch a PGRST embed-shape error behaviourally** — argued at length in `attendees.test.ts`; caught instead as a property of the query string the handler builds. A reviewer may judge that regex as encoding a DB fact it cannot verify.
 - **Scrutiny carried from the executors:** UUID masking in the denial comparison could mask a UUID-shaped leak; `.ics` assertions only ever see one origin; a persona placed in the *wrong* tier partitions cleanly and only the bite proofs would catch it; `toBe(ATTENDEE_EMAILS.length)` couples the spec to fixture count.
 - **Shared local Supabase stack** — one stack per project id across all worktrees. A concurrent session's `db reset` zeroed every table during PM verification (third occurrence this phase, first to hit the PM). Concurrent `next build` runs across tracks also make gate timings unreliable. Recommendation: isolate the stack for Z2.
@@ -108,10 +121,18 @@ Z1c-1 deviations 1–9, Z1c-2 deviations 1–5, Z1c-3 none. The ones a reviewer 
 - F1 reproduced against live PostgREST with a negative control; the embed-key preservation proven empirically; §24 reproduced with a negative control; F1's origin traced to `08bde65` via `git log -S`.
 - Blast-radius enumeration: every `profiles(` embed under `pages/api/sessions/` and all 24 multi-FK tables.
 
+**Added in Z1c-4 and r1, all re-executed by the PM:** the oracle fail-on-old on the five GETs (endpoints reverted, revert asserted applied first ⇒ **6 failed / 17 passed**); the sixth consumer's fail-on-old in both layers (**e2e 13 failed / 18 passed**, **unit 8 failed / 11 passed**); the frontend 403/404 sweep re-run independently rather than accepted; CI verified green at both heads via `gh` at job level.
+
 **NOT independently verified by the PM — highest-yield hunting ground:**
-- **Bite proofs B and D** (participant-email gate; iCal `join_url`) — accepted as reported, never re-executed.
-- **The `ZOOM_MODE=mock` line is unexercised.** No spec reaches `getZoomApi`; it is a protective floor only. Its correctness under an actual mock-mode job path is untested.
-- **CI has never run this branch.** All e2e evidence is local. No PR is open, so no CI run exists for any Z1c head.
+- **Bite proofs B and D** (participant-email gate; iCal `join_url`) — accepted as reported in Z1c-2, never re-executed by the PM. **Nor were A–D re-executed by the PM in Z1c-4**, where the executor re-ran them against a changed baseline (A 16F/34P, B 7F/43P, C 3F/47P, D 4F/46P) — those four figures are reported, not verified.
+- **The mock-mode proof's internals.** The PM read the spec and verified its negative controls assert config-shaped *and* not-network-shaped failure, and confirmed the `resolveZoomMode`/`readCredentials` claim structurally — but did **not** re-execute the three-server matrix (`mock` / `bogus` / `''`) itself. That table is the executor's.
+- **The two denial messages differ** (`'Sesión no encontrada'` vs `'Informe no encontrado'`). The PM accepts the argument that reaching the report check implies the session is already known to exist — but this is a reasoning acceptance, not a proof, and it is the natural place for a residual oracle to hide.
+- **Port fragility.** The mock-mode negative controls spawn real servers on ports 3101/3102. A collision on a busy runner fails the gate for an unrelated reason. Not exercised under contention.
+- **The mock-mode proof depends on `zoom_hosts` being empty.** A future fixture seeding an active host flips `host_sync` to "refuses" (`host-sync.ts:216`) and fails the spec — correctly, but confusingly. Documented in the spec header; nothing enforces it.
+- **`ABSENT_SESSION_ID` / `ABSENT_REPORT_ID`** are guarded at module load against the fixture file only, not against rows a future spec creates at runtime.
+- Playwright specs are outside `tsc` (they are linted); `scripts/ci/*.mjs` is outside **both**.
+- Other consumers of the disclosure helper (`cron/session-reminders`, the batch and series iCal routes) are not driven end-to-end.
+- Production behaviour of any of it — verified locally and in CI only.
 - The iCal assertions only ever observed `http://localhost:3000` as the origin.
 - Playwright specs are outside `tsc` (they are linted); `scripts/ci/*.mjs` is outside **both**.
 - The seeded tenant is exercised only through the surfaces these specs drive; other consumers of the disclosure helper (`materials`, `reports/[rid]`, `cron/session-reminders`) are not driven end-to-end.
@@ -140,4 +161,8 @@ CI=true npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --projec
 node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json
 ```
 
-Baselines to reproduce: **3994/3994 in 253 files** · **pgTAP 171/171 across 7 files** · **e2e 58 passed, 5 mandatory specs, no skips**.
+Baselines to reproduce at head `88094a7`: **4212/4212 in 257 files** · **pgTAP 335/335 across 8 files** · **e2e 75 passed, 6 mandatory specs, no skips**. CI reports the same figures independently.
+
+**Delta accounting** (the earlier baselines were 3994/253, 171/7, 58/5 — most of the growth is not this phase's): unit +216 of +218 arrived with the two `origin/main` merges (four pasantías suites), only +2 are Z1c's; pgTAP 171→335 is **entirely** the merged `040-email-marketing-rls.sql` — the phase touched no SQL, verifiable with `git diff --name-only 6e18ed3..88094a7 | grep -E '\.sql$'` returning nothing; e2e 58→75 is all Z1c (+4 mock-mode, +4 five-GET comparisons, +8 sixth-consumer, +1 net from earlier rounds).
+
+**Local-run caveat.** `zoom-mock-mode.spec.ts` spawns `next start`, which needs a production `.next`. Playwright's local `webServer` is `npm run dev:unsafe`, and `next dev` overwrites `.next` — so running that spec after a dev server has touched the build fails with "server on port 3101 never became ready". Run it as CI does (`CI=true`, after `npm run build`). This cannot occur in CI, which uses `npm run start`.

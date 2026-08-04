@@ -974,3 +974,23 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: none
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: three executor rounds in flight once dispatched; PR #38 merging on the watcher.
+
+### 2026-08-03 — A4/A5/B3 verified; two r2 rounds staged — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: All three r1 rounds verified by PM re-run (A4 43/43, A5 75/75, B3 313/313 after a local reset — the first B3 run failed only because my stack was stale, not the migration). PRs #39/#40/#41 opened. Two findings, **both raised by the executors themselves and both traceable to PM specs**: (1) A4's unconditional cache upload lets any non-production run poison the shared `propuestas` bucket with a `localhost:3000` CTA — `prompts/a4-2.md` gates uploads on production while keeping reads universal; (2) A5's `source_path` had no write path because my [A2] list omitted it — `prompts/a5-2.md` adds it, and hardens it as untrusted input (same-site relative only) since the browser supplies it. B3's five assumptions ratified, two of them now binding on later phases (B6 must let `unsubscribe_token` default fire; B4a must filter on `unsubscribed_at IS NULL`, not `subscribed_at`).
+- COMMITS: (this commit)
+- TESTS: as branch entries
+- FINDINGS RAISED: none new
+- DECISIONS: CTA origin pinned (A4); A5 assumptions ratified; B3 assumptions ratified
+- BACKLOG ADDED: consent-evidence history question (A5)
+- OPEN AFTER THIS ROUND: dispatch A4 r2 + A5 r2; B3 → Sol now; merges on the owner's word.
+
+### 2026-08-03 — A4 r2 + A5 r2 verified; B3 r2 staged — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: A4 r2 (61/61) and A5 r2 (92/92) verified by PM re-run; both closed findings the executors themselves raised, and both made the judgment call I would have — A4's strict `VERCEL_ENV` gate with no `NODE_ENV` fallback (NODE_ENV reads "production" for previews and local builds, the very cases the gate exists to stop), and A5's drop-not-reject for an untrusted `sourcePath` no human types. Both → Sol. **B3 Sol FAIL ×2 accepted**: both are test-proof gaps, not schema defects — Sol mutated the schema and 313/313 stayed green. `prompts/b3-2.md` staged: ACL pins must compare `is_grantable` and assert no PUBLIC (grantee 0) entry exists; anonymization must pin every identity field individually, each mutation proven to turn the suite red. The prompt explicitly forbids silently repairing the migration if a mutation says it is actually wrong — that would be a FINDINGS outcome.
+- COMMITS: (this commit)
+- TESTS: as branch entries
+- FINDINGS RAISED: none new
+- DECISIONS: A4/A5 deviations + assumptions ratified
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch B3 r2; A4 + A5 → Sol; merges + B3's prod apply on the owner's word.

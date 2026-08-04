@@ -28,10 +28,11 @@ import {
   type ValidatedLead,
 } from '../../../lib/pasantias/leads';
 import {
+  autoReplyClaimCutoff,
   buildBrochureUrl,
+  canReleaseAutoReplyClaim,
   sendLeadAutoReply,
   sendLeadNotification,
-  shouldSendAutoReply,
   type LeadEmailPayload,
 } from '../../../lib/pasantias/emails';
 
@@ -41,13 +42,20 @@ const LOG_PREFIX = 'pasantias-lead';
 // Matches the other public form endpoints (contact, tractor-signup).
 const leadRateLimit = rateLimit({ limit: 5, windowMs: 60 * 1000 }, 'pasantias-lead');
 
-/** The columns the dedup read needs, and nothing more. */
-const EXISTING_COLUMNS = 'id, status, marketing_opt_in, brochure_sent_at';
+/**
+ * The columns the dedup read needs, and nothing more.
+ *
+ * `marketing_opt_in` is deliberately NOT among them. Nothing may decide a
+ * marketing write from a snapshot taken before the write (see
+ * `marketingColumns`), and the cheapest way to keep that true is to never have
+ * the value in hand. `brochure_sent_at` is read only to be restored if a claimed
+ * auto-reply fails — the claim itself re-reads it inside the statement.
+ */
+const EXISTING_COLUMNS = 'id, status, brochure_sent_at';
 
 interface ExistingLead {
   id: string;
   status: string | null;
-  marketing_opt_in: boolean | null;
   brochure_sent_at: string | null;
 }
 
@@ -76,14 +84,26 @@ function contactColumns(lead: ValidatedLead, nowIso: string) {
 /**
  * Marketing columns (D-12), written all-or-nothing.
  *
- * Opting in refreshes the evidence. NOT opting in never clears an opt-in that
- * is already on file — withdrawing consent is unsubscribe's job, and a form
- * submitted with the box unchecked is not a withdrawal. The returned object is
- * empty in that case, which leaves all three columns untouched.
+ * Opting in refreshes the evidence. NOT opting in never clears an opt-in —
+ * withdrawing consent is unsubscribe's job, and a form submitted with the box
+ * unchecked is not a withdrawal.
+ *
+ * The decision reads ONLY this submission, never the row we selected earlier.
+ * An earlier version consulted `existing.marketing_opt_in` and wrote the
+ * complete false tuple when that snapshot said false — which loses the update
+ * if another submission (or an admin) sets the flag between our SELECT and our
+ * UPDATE. That is a consent regression, not an ordinary lost update: the person
+ * opted in and the record would say they did not. So on `update` the columns are
+ * simply absent unless this submission is itself the opt-in, and no snapshot can
+ * influence the payload.
+ *
+ * `insert` still writes the complete false tuple, because there is no prior
+ * state to lose and `false / null / null` is the safe non-assertion D-12 asks
+ * for on a brand-new row.
  */
 function marketingColumns(
   lead: ValidatedLead,
-  existing: ExistingLead | null,
+  mode: 'insert' | 'update',
   nowIso: string
 ): Record<string, unknown> {
   if (lead.marketingOptIn) {
@@ -94,7 +114,7 @@ function marketingColumns(
     };
   }
 
-  if (existing?.marketing_opt_in) {
+  if (mode === 'update') {
     return {};
   }
 
@@ -135,6 +155,131 @@ function toEmailPayload(lead: ValidatedLead): LeadEmailPayload {
     utmMedium: lead.utmMedium,
     utmCampaign: lead.utmCampaign,
   };
+}
+
+/**
+ * Take the right to send this lead's auto-reply, atomically.
+ *
+ * The window is `brochure_sent_at IS NULL OR brochure_sent_at < cutoff`, but it
+ * is claimed with TWO single-predicate statements rather than one `or` filter.
+ * PostgREST rejects `or` filters on UPDATE for non-PK columns — it accepts them
+ * on SELECT, so no fake or unit test can catch the difference, and this repo has
+ * already paid for that once (see the incident note on
+ * `lib/bots/store.ts:claimSessionTransition`). `.eq`/`.is`/`.lt` on UPDATE are
+ * the proven form.
+ *
+ * Splitting the disjunction costs nothing in correctness. Each statement is
+ * atomic on its own, and whichever one succeeds sets the column to `now` — which
+ * satisfies neither predicate — so a concurrent request that reaches either
+ * statement afterwards matches no row. Exactly one caller can get `true`.
+ */
+async function claimAutoReplyWindow(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  leadId: string,
+  nowIso: string,
+  cutoff: string
+): Promise<boolean> {
+  // Never sent.
+  const fresh = await supabase
+    .from('pasantias_leads')
+    .update({ brochure_sent_at: nowIso })
+    .eq('id', leadId)
+    .is('brochure_sent_at', null)
+    .select('id');
+
+  if (fresh.error) {
+    console.error(`[${LOG_PREFIX}] auto-reply claim (unsent) failed:`, fresh.error);
+    return false;
+  }
+  if (Array.isArray(fresh.data) && fresh.data.length > 0) {
+    return true;
+  }
+
+  // Sent, but longer ago than the dedup window.
+  const expired = await supabase
+    .from('pasantias_leads')
+    .update({ brochure_sent_at: nowIso })
+    .eq('id', leadId)
+    .lt('brochure_sent_at', cutoff)
+    .select('id');
+
+  if (expired.error) {
+    console.error(`[${LOG_PREFIX}] auto-reply claim (expired) failed:`, expired.error);
+    return false;
+  }
+  return Array.isArray(expired.data) && expired.data.length > 0;
+}
+
+/**
+ * The auto-reply, deduped by an ATOMIC CLAIM rather than a check-then-act read.
+ *
+ * The claim IS the dedup: PostgreSQL evaluates the predicate against the row it
+ * has locked, so of N simultaneous submissions exactly one wins and exactly one
+ * message goes out. The previous shape — read the timestamp, decide in
+ * application memory, send, then stamp — could not give that guarantee: two
+ * requests read the same null and both sent, and a send whose stamp then failed
+ * made the next request send again.
+ *
+ * Order matters. The brochure URL is resolved BEFORE the claim, so a
+ * configuration throw costs no claim and leaves the window open for the next
+ * submission.
+ *
+ * If the send fails after a won claim, `canReleaseAutoReplyClaim` decides
+ * whether the window re-opens: yes when nothing can have left this process, no
+ * when the transport threw and the provider may already hold the message. The
+ * release is itself guarded on `brochure_sent_at` still being our own stamp, so
+ * it can never stomp a claim someone else has taken in the meantime.
+ *
+ * Nothing here throws into the caller — the lead is already saved, and the
+ * visitor's 200 does not depend on any of it.
+ */
+async function runAutoReply(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  existing: ExistingLead,
+  lead: ValidatedLead,
+  now: Date,
+  nowIso: string
+): Promise<void> {
+  try {
+    const brochureUrl = buildBrochureUrl();
+
+    const claimed = await claimAutoReplyWindow(
+      supabase,
+      existing.id,
+      nowIso,
+      autoReplyClaimCutoff(now)
+    );
+
+    if (!claimed) {
+      // Another submission owns this 24h window, or the claim itself failed.
+      // Skip silently — a refused claim is the dedup working, not an error.
+      return;
+    }
+
+    const result = await sendLeadAutoReply({
+      to: lead.email,
+      firstName: lead.firstName,
+      brochureUrl,
+    });
+
+    if (!canReleaseAutoReplyClaim(result)) {
+      return;
+    }
+
+    // Restore what the row held before we claimed it. That value is null or an
+    // already-expired timestamp — either way the row becomes claimable again.
+    const { error: releaseError } = await supabase
+      .from('pasantias_leads')
+      .update({ brochure_sent_at: existing.brochure_sent_at })
+      .eq('id', existing.id)
+      .eq('brochure_sent_at', nowIso);
+
+    if (releaseError) {
+      console.error(`[${LOG_PREFIX}] auto-reply claim release failed:`, releaseError);
+    }
+  } catch (autoReplyError) {
+    console.error(`[${LOG_PREFIX}] auto-reply step failed:`, autoReplyError);
+  }
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -194,7 +339,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           status: 'new',
           source_path: lead.sourcePath,
           ...contactColumns(lead, nowIso),
-          ...marketingColumns(lead, null, nowIso),
+          ...marketingColumns(lead, 'insert', nowIso),
         })
         .select(EXISTING_COLUMNS)
         .maybeSingle();
@@ -237,7 +382,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .from('pasantias_leads')
         .update({
           ...contactColumns(lead, nowIso),
-          ...marketingColumns(lead, existing, nowIso),
+          ...marketingColumns(lead, 'update', nowIso),
           ...sourcePathColumns(lead),
           ...(reopen ? { status: 'new' } : {}),
         })
@@ -251,29 +396,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Everything below is best-effort: the lead is already persisted, so no
     // mail problem may change the response the visitor sees.
+    //
+    // The two messages are INDEPENDENT and get one try/catch each. Sharing one
+    // meant that a throw while preparing the auto-reply — `buildBrochureUrl`
+    // throws when a production origin is missing or invalid — also skipped the
+    // internal notification, silently costing FNE the lead alert over a problem
+    // that has nothing to do with it.
+    if (existing) {
+      await runAutoReply(supabase, existing, lead, now, nowIso);
+    }
+
     try {
-      if (existing && shouldSendAutoReply(existing.brochure_sent_at, now)) {
-        const autoReply = await sendLeadAutoReply({
-          to: lead.email,
-          firstName: lead.firstName,
-          brochureUrl: buildBrochureUrl(),
-        });
-
-        if (autoReply.sent) {
-          const { error: stampError } = await supabase
-            .from('pasantias_leads')
-            .update({ brochure_sent_at: nowIso })
-            .eq('id', existing.id);
-
-          if (stampError) {
-            console.error(`[${LOG_PREFIX}] brochure_sent_at stamp failed:`, stampError);
-          }
-        }
-      }
-
       await sendLeadNotification({ lead: toEmailPayload(lead), isNewLead });
-    } catch (emailError) {
-      console.error(`[${LOG_PREFIX}] notification step failed:`, emailError);
+    } catch (notificationError) {
+      console.error(`[${LOG_PREFIX}] notification failed:`, notificationError);
     }
 
     // Identical for the new and the existing path (anti-enumeration).

@@ -219,3 +219,176 @@ refused).
    column with different insert and update behaviour, so it is written at the two
    call sites instead. If a later phase adds a third write path to this table, it
    will not get this behaviour for free.
+
+---
+
+# Round r3 — Sol remediation (BLOCKING ×2 + SHOULD-FIX)
+
+Branch `phase/a5-lead-api`. Closes both BLOCKING findings and the SHOULD-FIX in
+`docs/plan/prompts/a5-3.md`. Both blockers are the **same defect shape** in the
+same file — a decision computed in application memory from a row read earlier,
+then written unconditionally — so both are closed by removing the dependency on
+the stale read rather than by narrowing the window.
+
+## BLOCKING 1 — a stale submission could clear a concurrent marketing opt-in
+
+`marketingColumns()` used to consult `existing.marketing_opt_in`: when that
+snapshot said false and this submission did not opt in, it wrote the complete
+false tuple. Interleave two requests — U reads false, O writes the true tuple, U
+then updates — and U erases O's consent. The table's CHECK accepts that tuple, so
+the database could not stop it, and it is a consent regression rather than an
+ordinary lost update.
+
+The parameter is now `mode: 'insert' | 'update'`; **the snapshot is not an input
+at all.** On `update` the three columns are absent unless this submission is
+itself the opt-in — not false, not NULL. `insert` still writes the complete false
+tuple, because a brand-new row has no prior state to lose and `false/null/null` is
+the safe non-assertion D-12 asks for.
+
+`marketing_opt_in` was also dropped from `EXISTING_COLUMNS`, so the route no
+longer even fetches it. The cheapest way to guarantee nothing decides a marketing
+write from a stale snapshot is to never hold the value: a future edit would have
+to deliberately add the column back before it could reintroduce this bug.
+
+Structural, not probabilistic: with no snapshot in scope, no interleaving can
+produce a clearing payload. Two tests pin it — one drives the exact interleaving,
+one asserts the update payload is byte-identical whichever value the snapshot
+held.
+
+## BLOCKING 2 — the 24h auto-reply dedup is now an atomic claim
+
+Was: read `brochure_sent_at`, decide with `shouldSendAutoReply`, send, then stamp
+unconditionally. Two requests read the same null, both passed, both sent; a send
+whose stamp then failed made the next request send again. N concurrent requests
+could produce N messages.
+
+Now **claim-then-act**. A conditional UPDATE takes the window, and PostgreSQL
+evaluates the predicate against the row it has locked — so the second of two
+simultaneous statements re-checks against the first's committed value and matches
+nothing. A returned row is the right to send; no row means another request owns
+the window, and this one skips silently. A claim that *errors* is also treated as
+lost: "we could not tell" must not read as "go ahead".
+
+**The window is claimed with two single-predicate statements, not one `or`
+filter.** This is the round's one non-obvious implementation choice and the thing
+most worth checking. The natural expression is
+
+```
+WHERE id = $1 AND (brochure_sent_at IS NULL OR brochure_sent_at < $cutoff)
+```
+
+but PostgREST **rejects `or` filters on UPDATE** for non-PK columns — it accepts
+them on SELECT, so the query passes every fake and unit test and fails only
+against the live database. This repo has already paid for exactly that once; the
+incident note lives on `lib/bots/store.ts:claimSessionTransition` (2026-06-12
+stranded-session). The first draft of this round had the `or` form and would have
+shipped the same bug.
+
+So the claim is `.is('brochure_sent_at', null)` first, then
+`.lt('brochure_sent_at', cutoff)` — the `.eq`/`.is`/`.lt`-on-UPDATE form that
+incident proved works. Splitting the disjunction costs nothing in correctness:
+each statement is atomic on its own, and whichever one wins sets the column to
+`now`, which satisfies **neither** predicate, so any concurrent request reaching
+either statement afterwards matches no row. Exactly one caller can win.
+
+`shouldSendAutoReply` is **deleted**, replaced by `autoReplyClaimCutoff(now)`.
+That is deliberate: an exported predicate over `brochure_sent_at` is the
+check-then-act shape itself, and leaving it in the module invites a future caller
+to reintroduce the race. The window is now only expressible as a value inside the
+claim's WHERE clause.
+
+### A failed send does NOT always roll the claim back
+
+The prompt asked which and why. **Released when nothing can have left this
+process; kept when the outcome is unknown.** `sendSoft` now classifies its
+failure: `not_configured` (no API key — the request was never built), `rejected`
+(Resend answered and refused — the call completed, nothing queued), `unknown`
+(the call threw — a timeout can follow an accepted request).
+
+`canReleaseAutoReplyClaim` releases on the first two and keeps on the third.
+Reasoning: [A7] is an **upper bound on messages**, so the one failure this
+endpoint refuses to risk is a second copy — that rules out releasing on a throw.
+But holding the claim on a missing key would be worse than useless: nothing was
+sent, nobody can be mailed twice, and the lead would carry a `brochure_sent_at`
+that is simply a lie for 24 hours — including on every local and misconfigured
+environment, where `.env.local` has no `RESEND_API_KEY` at all.
+
+The release is guarded on `brochure_sent_at` still equalling our own stamp, so it
+can never stomp a claim taken in the meantime, and it restores what the row held
+before (null or an already-expired value — either way claimable again).
+
+## Also fixed while restructuring that block (REVIEW-A5 [S1])
+
+`buildBrochureUrl()` was evaluated inside the same `try` as
+`sendLeadNotification`, so a thrown URL — `lib/utils/app-url.ts` throws with no
+configured production origin — skipped FNE's internal notification entirely.
+Ordinary Resend failures did not, because `sendSoft` absorbs them; this
+preparation path did. The two messages now get one `try/catch` each, and the URL
+is resolved **before** the claim, so the throw also costs no window. Tested.
+
+This is beyond the prompt's literal list — it is a reviewer SHOULD-FIX in the
+same seven lines the blocker rewrites, and leaving it would have meant touching
+this block twice.
+
+## SHOULD-FIX — `sourcePath`: the trim is gone, the contract stands
+
+**Chose: stop trimming.** r2's ledger, this document and the function's own
+comment all promised the value is judged raw and stored byte-identical, while the
+code called `value.trim()` first — so `"  /pasantias  "` was accepted as
+`"/pasantias"`, and a wrapping CR/LF was silently laundered into a valid path.
+
+Correcting the code rather than the prose, because the verbatim contract is the
+one worth having: a browser reporting `location.pathname` never sends surrounding
+whitespace, so its presence says the value was hand-crafted, and *refusing* is
+strictly safer than *cleaning*. The cap now applies to the raw length too, so
+padding cannot smuggle an over-length value under the limit. A6b's obligation is
+unchanged and now actually true: what is stored is what arrived, escape it on
+render like any other stored string.
+
+No documentation needed correcting — the wording was already right; only the code
+disagreed with it.
+
+## Test evidence
+
+See the ledger entry for this round for the verbatim gate output; every count
+below was produced from the final commit, not carried over from an earlier round
+(REVIEW-A5 [S2]).
+
+New this round: the marketing interleaving pair; two simultaneous submissions →
+exactly one auto-reply; claim released on `not_configured` and on `rejected`,
+kept on a thrown transport; a lost claim writes nothing further; notification
+still sent when auto-reply preparation throws; `sourcePath` refuses leading and
+trailing CR, LF, tab and space; accepted values byte-identical; raw-length cap;
+and direct unit coverage of `autoReplyClaimCutoff` (nothing previously pinned the
+24h arithmetic) and `canReleaseAutoReplyClaim`.
+
+Both blockers were mutation-checked: reverting `marketingColumns` to consult the
+snapshot, and ignoring the claim result, each turn the relevant new tests red.
+
+## What to scrutinise
+
+1. **The two-statement claim, against a live PostgREST.** The argument that it
+   is equivalent to the disjunction is above and I believe it holds, but it is
+   the round's real risk surface, and the `or`-on-UPDATE trap it avoids is
+   invisible to every test in this repo. The test fake now *evaluates* the
+   predicate against stored state rather than replaying a scripted result, and it
+   has no `.or()` at all, so a regression to that form fails loudly — but a fake
+   agreeing with me is not a live database agreeing with me.
+2. **The keep-on-`unknown` rule.** A thrown transport now burns the window with
+   nothing sent, which is the deliberate cost of never mailing twice. If FNE
+   would rather risk a duplicate than lose a brochure, that is a one-line change
+   in `canReleaseAutoReplyClaim` — and the argument to have with the owner, not
+   with the code.
+3. **Deleting `shouldSendAutoReply`.** It removes a tested export. The claim
+   covers its behaviour, but if any later phase wants "is this lead due?" as a
+   read-only question, it must not come back in this shape.
+4. **The route tests assert against a fake.** The atomicity claim rests on
+   PostgreSQL's re-check under READ COMMITTED, which no Vitest fake proves. The
+   fake does hold real per-row `brochure_sent_at` state and apply each
+   statement's own predicate to it, so the two-simultaneous-submissions test
+   fails if the route ignores a lost claim — but that is the route obeying the
+   database, not the database being proven. A6b's e2e is where a real two-writer
+   run could exist.
+5. **`insert` still writes the false tuple, `update` writes nothing.** The two
+   paths now differ on purpose. A third writer to this table would not inherit
+   either behaviour for free — same caveat r2 recorded for `source_path`.

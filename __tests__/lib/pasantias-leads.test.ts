@@ -309,8 +309,40 @@ describe('sanitizeSourcePath — browser-reported, therefore untrusted', () => {
     }
   });
 
-  it('trims surrounding whitespace before judging the value', () => {
-    expect(sanitizeSourcePath('  /pasantias  ')).toBe('/pasantias');
+  // The contract is verbatim-or-null, so nothing here rewrites the value and
+  // surrounding whitespace is a REFUSAL rather than something to clean up. A
+  // browser reporting `location.pathname` never produces it; a hand-crafted
+  // POST does — and trimming is what would launder a wrapping CR/LF into an
+  // accepted path.
+  it('refuses surrounding whitespace instead of trimming it away', () => {
+    for (const value of [
+      '  /pasantias  ',
+      ' /pasantias',
+      '/pasantias ',
+      '\t/pasantias',
+      '/pasantias\t',
+      '\r/pasantias',
+      '/pasantias\r',
+      '\n/pasantias',
+      '/pasantias\n',
+      '\r\n/pasantias',
+      '/pasantias\r\n',
+    ]) {
+      expect(sanitizeSourcePath(value)).toBeNull();
+    }
+  });
+
+  it('returns an accepted value byte-identical to what arrived', () => {
+    for (const value of ['/pasantias', '/pasantias?utm_source=ig&x=1', '/a/b/c#frag']) {
+      expect(sanitizeSourcePath(value)).toBe(value);
+    }
+  });
+
+  it('caps the RAW length, so padding cannot smuggle a value under the limit', () => {
+    // Exactly the cap once trimmed, over it as it arrived. Judged raw it is
+    // refused — twice over, since the padding alone disqualifies it.
+    const atLimit = `/${'a'.repeat(LEAD_FIELD_LIMITS.sourcePath - 1)}`;
+    expect(sanitizeSourcePath(`  ${atLimit}  `)).toBeNull();
   });
 });
 

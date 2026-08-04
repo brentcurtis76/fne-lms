@@ -16,16 +16,27 @@ import { PRIVACY_NOTICE_VERSION } from '../../lib/legal/privacy-notice';
 import { LEAD_VALIDATION_MESSAGES } from '../../lib/pasantias/leads';
 import { LEAD_NOTIFICATION_RECIPIENT } from '../../lib/pasantias/emails';
 
-const { mockSend, mockResendCtor, mockCreateServiceRoleClient } = vi.hoisted(() => {
-  const send = vi.fn();
-  return {
-    mockSend: send,
-    mockResendCtor: vi.fn(() => ({ emails: { send } })),
-    mockCreateServiceRoleClient: vi.fn(),
-  };
-});
+const { mockSend, mockResendCtor, mockCreateServiceRoleClient, mockBuildAbsoluteUrl } = vi.hoisted(
+  () => {
+    const send = vi.fn();
+    return {
+      mockSend: send,
+      mockResendCtor: vi.fn(() => ({ emails: { send } })),
+      mockCreateServiceRoleClient: vi.fn(),
+      mockBuildAbsoluteUrl: vi.fn(),
+    };
+  }
+);
 
 vi.mock('resend', () => ({ Resend: mockResendCtor }));
+
+// Only `buildAbsoluteUrl` is replaced — it is the one call in the auto-reply's
+// preparation that can throw (no configured production origin), and a test has
+// to be able to make it do so.
+vi.mock('../../lib/utils/app-url', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return { ...actual, buildAbsoluteUrl: mockBuildAbsoluteUrl };
+});
 
 vi.mock('../../lib/api-auth', () => ({
   createServiceRoleClient: mockCreateServiceRoleClient,
@@ -49,27 +60,91 @@ interface ExistingRow {
   brochure_sent_at: string | null;
 }
 
+interface UpdateRecord {
+  payload: Record<string, unknown>;
+  /** `.eq()` filters. */
+  filters: Record<string, unknown>;
+  /** `.is(column, null)` — only the unsent half of the claim uses it. */
+  isNull: string | null;
+  /** `.lt(column, value)` — only the expired half of the claim uses it. */
+  lessThan: { column: string; value: string } | null;
+  /** A claim asks for rows back; every other write does not. */
+  kind: 'write' | 'claim';
+}
+
 /**
- * Minimal stand-in for the two supabase-js chains this route uses:
- * `select().eq().eq().maybeSingle()` and `insert().select().maybeSingle()`,
- * plus `update().eq()`. Every payload is recorded for assertion.
+ * Minimal stand-in for the supabase-js chains this route uses:
+ * `select().eq().eq().maybeSingle()`, `insert().select().maybeSingle()`,
+ * `update().eq()`, and the two halves of the auto-reply claim,
+ * `update().eq().is().select()` and `update().eq().lt().select()`.
+ *
+ * The claim is EVALUATED, not scripted. The fake keeps the real
+ * `brochure_sent_at` per row and applies each statement's own predicate to it,
+ * so a test cannot pass by replaying a canned "you won" — the route has to
+ * issue a statement that genuinely matches. That is what makes the
+ * two-simultaneous-submissions case mean anything: the second request loses
+ * because the first already moved the column, exactly as PostgreSQL would
+ * decide it.
+ *
+ * ISO-8601 UTC strings compare lexicographically in timestamp order, which is
+ * what lets `<` stand in for the SQL comparison.
  */
 function createSupabase(
   options: {
     selects?: QueryResult[];
     insert?: QueryResult;
     update?: QueryResult;
+    /** Forces both claim statements to error, for the failure path. */
+    claimError?: unknown;
   } = {}
 ) {
   const selectQueue = [...(options.selects ?? [{ data: null, error: null }])];
   const inserts: Array<Record<string, unknown>> = [];
-  const updates: Array<{ payload: Record<string, unknown>; filters: Record<string, unknown> }> = [];
+  const updates: UpdateRecord[] = [];
   const selectFilters: Array<Record<string, unknown>> = [];
+  /** `brochure_sent_at` as the database would hold it, keyed by row id. */
+  const sentAt = new Map<string, string | null>();
 
   function nextSelect(): QueryResult {
-    return selectQueue.length > 1
-      ? (selectQueue.shift() as QueryResult)
-      : selectQueue[0] ?? { data: null, error: null };
+    const result =
+      selectQueue.length > 1
+        ? (selectQueue.shift() as QueryResult)
+        : selectQueue[0] ?? { data: null, error: null };
+    const row = result.data as ExistingRow | null;
+    if (row?.id && !sentAt.has(row.id)) {
+      sentAt.set(row.id, row.brochure_sent_at);
+    }
+    return result;
+  }
+
+  /** Apply one claim/release statement to the stored value. */
+  function runGuardedWrite(record: UpdateRecord): QueryResult {
+    if (options.claimError) {
+      return { data: null, error: options.claimError };
+    }
+
+    const id = record.filters.id as string;
+    if (!sentAt.has(id)) {
+      sentAt.set(id, null);
+    }
+    const current = sentAt.get(id) ?? null;
+
+    let matches: boolean;
+    if (record.isNull) {
+      matches = current === null;
+    } else if (record.lessThan) {
+      matches = current !== null && current < record.lessThan.value;
+    } else {
+      // The release: guarded on the claim still being ours.
+      matches = current === record.filters.brochure_sent_at;
+    }
+
+    if (!matches) {
+      return { data: [], error: null };
+    }
+
+    sentAt.set(id, (record.payload.brochure_sent_at ?? null) as string | null);
+    return { data: [{ id }], error: null };
   }
 
   const from = vi.fn(() => ({
@@ -91,8 +166,8 @@ function createSupabase(
       inserts.push(payload);
       return {
         select: () => ({
-          maybeSingle: async () =>
-            options.insert ?? {
+          maybeSingle: async () => {
+            const result = options.insert ?? {
               data: {
                 id: 'lead-new',
                 status: 'new',
@@ -100,25 +175,82 @@ function createSupabase(
                 brochure_sent_at: null,
               },
               error: null,
-            },
+            };
+            const row = result.data as ExistingRow | null;
+            if (row?.id && !sentAt.has(row.id)) {
+              sentAt.set(row.id, row.brochure_sent_at);
+            }
+            return result;
+          },
         }),
       };
     },
     update: (payload: Record<string, unknown>) => {
-      const record = { payload, filters: {} as Record<string, unknown> };
-      return {
+      const record: UpdateRecord = {
+        payload,
+        filters: {},
+        isNull: null,
+        lessThan: null,
+        kind: 'write',
+      };
+      let recorded = false;
+      const commit = () => {
+        if (!recorded) {
+          recorded = true;
+          updates.push(record);
+        }
+      };
+
+      const builder = {
         eq(column: string, value: unknown) {
           record.filters[column] = value;
-          updates.push(record);
-          return Promise.resolve(options.update ?? { data: null, error: null });
+          return builder;
+        },
+        is(column: string, value: unknown) {
+          if (value === null) {
+            record.isNull = column;
+          }
+          return builder;
+        },
+        lt(column: string, value: string) {
+          record.lessThan = { column, value };
+          return builder;
+        },
+        select() {
+          record.kind = 'claim';
+          const settle = async () => {
+            commit();
+            return runGuardedWrite(record);
+          };
+          // The route awaits `.select('id')` directly; `.maybeSingle()` is kept
+          // so a future caller of either shape is covered.
+          return Object.assign(
+            { maybeSingle: settle },
+            { then: (ok?: (v: QueryResult) => unknown, no?: (e: unknown) => unknown) => settle().then(ok, no) }
+          );
+        },
+        // Awaiting the builder is what a plain `update().eq()` does.
+        then(
+          onFulfilled?: (value: QueryResult) => unknown,
+          onRejected?: (reason: unknown) => unknown
+        ) {
+          commit();
+          // The claim release is a plain write, but it is still guarded on the
+          // stored value, so it goes through the same evaluation.
+          const result =
+            'brochure_sent_at' in record.filters
+              ? runGuardedWrite(record)
+              : options.update ?? { data: null, error: null };
+          return Promise.resolve(result).then(onFulfilled, onRejected);
         },
       };
+      return builder;
     },
   }));
 
   const client = { from };
   mockCreateServiceRoleClient.mockReturnValue(client);
-  return { client, inserts, updates, selectFilters };
+  return { client, inserts, updates, selectFilters, sentAt };
 }
 
 function existingRow(overrides: Partial<ExistingRow> = {}): ExistingRow {
@@ -174,6 +306,7 @@ const LEAD_EMAIL = 'ana@example.com';
 beforeEach(() => {
   vi.clearAllMocks();
   mockSend.mockResolvedValue({ data: { id: 'email-1' }, error: null });
+  mockBuildAbsoluteUrl.mockImplementation((path: string) => `https://nuevaeducacion.org${path}`);
   vi.stubEnv('RESEND_API_KEY', 'test-resend-key');
   vi.stubEnv('EMAIL_FROM_ADDRESS', '');
   vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -453,6 +586,39 @@ describe('marketing opt-in is never silently cleared [A5]', () => {
     expect(supabase.updates[0].payload.marketing_opt_in).toBe(true);
     expect(typeof supabase.updates[0].payload.marketing_opt_in_at).toBe('string');
   });
+
+  // The interleaving the previous shape lost: this request SELECTs `false`,
+  // another request stores a true, and only then does this UPDATE run. The
+  // payload must carry no marketing key at all, so the outcome cannot depend on
+  // when the two statements interleave — a stale submission is structurally
+  // incapable of clearing the flag rather than merely unlikely to.
+  it('cannot clear an opt-in stored after its own snapshot was taken', async () => {
+    const supabase = createSupabase({
+      selects: [{ data: existingRow({ marketing_opt_in: false }), error: null }],
+    });
+    await run(validBody({ marketingOptIn: false }));
+
+    const payload = supabase.updates[0].payload;
+    expect(payload).not.toHaveProperty('marketing_opt_in');
+    expect(payload).not.toHaveProperty('marketing_opt_in_at');
+    expect(payload).not.toHaveProperty('marketing_notice_version');
+  });
+
+  // Same guarantee from the other side: no snapshot value produces a different
+  // update payload, so nothing about the earlier SELECT can reach the write.
+  it('writes the same marketing-free update whatever the snapshot said', async () => {
+    const payloads = [];
+    for (const snapshot of [true, false]) {
+      const supabase = createSupabase({
+        selects: [{ data: existingRow({ marketing_opt_in: snapshot }), error: null }],
+      });
+      await run(validBody({ marketingOptIn: false }));
+      payloads.push(supabase.updates[0].payload);
+    }
+
+    expect(Object.keys(payloads[0]).sort()).toEqual(Object.keys(payloads[1]).sort());
+    expect(Object.keys(payloads[0]).filter((key) => key.startsWith('marketing_'))).toEqual([]);
+  });
 });
 
 describe('source_path attribution', () => {
@@ -527,9 +693,38 @@ describe('auto-reply and internal notification [A7]', () => {
     expect(notification).toBeDefined();
     expect(notification?.html).toContain('Colegio Uno');
 
-    const stamp = supabase.updates.find((entry) => 'brochure_sent_at' in entry.payload);
-    expect(stamp).toBeDefined();
-    expect(typeof stamp?.payload.brochure_sent_at).toBe('string');
+    // The stamp is the CLAIM, taken before the send — and it is the only write
+    // to the column, because a successful send never releases it. A never-sent
+    // lead is claimed by the `IS NULL` half, so the second half never runs.
+    const claims = supabase.updates.filter((entry) => entry.kind === 'claim');
+    expect(claims).toHaveLength(1);
+    expect(typeof claims[0].payload.brochure_sent_at).toBe('string');
+    expect(claims[0].filters).toEqual({ id: 'lead-new' });
+    expect(claims[0].isNull).toBe('brochure_sent_at');
+    expect(supabase.updates.filter((entry) => 'brochure_sent_at' in entry.payload)).toHaveLength(1);
+  });
+
+  // The bug this shape exists to avoid: PostgREST accepts an `or` filter on
+  // SELECT but rejects it on UPDATE for non-PK columns, so a claim written that
+  // way passes every fake and fails only in production (see the incident note on
+  // `lib/bots/store.ts:claimSessionTransition`). Each claim statement must carry
+  // exactly one predicate.
+  it('claims with single-predicate statements, never an `or` filter', async () => {
+    const longAgo = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+    const supabase = createSupabase({
+      selects: [{ data: existingRow({ brochure_sent_at: longAgo }), error: null }],
+    });
+    await run(validBody());
+
+    const claims = supabase.updates.filter((entry) => entry.kind === 'claim');
+    expect(claims).toHaveLength(2);
+    expect(claims[0].isNull).toBe('brochure_sent_at');
+    expect(claims[0].lessThan).toBeNull();
+    expect(claims[1].lessThan?.column).toBe('brochure_sent_at');
+    expect(claims[1].isNull).toBeNull();
+    for (const claim of claims) {
+      expect(Object.keys(claim.filters)).toEqual(['id']);
+    }
   });
 
   it('is the FNE frame, not the Genera emailLayout', async () => {
@@ -550,6 +745,8 @@ describe('auto-reply and internal notification [A7]', () => {
   });
 
   it('does not re-send the auto-reply inside the 24h window, but still notifies', async () => {
+    // The window belongs to whoever holds the claim, so the refusal comes back
+    // from the conditional UPDATE, not from a decision made in this process.
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const supabase = createSupabase({
       selects: [{ data: existingRow({ brochure_sent_at: oneHourAgo }), error: null }],
@@ -559,7 +756,9 @@ describe('auto-reply and internal notification [A7]', () => {
     expect(res._getStatusCode()).toBe(200);
     expect(mailTo('Ana@Example.com')).toBeUndefined();
     expect(mailTo(LEAD_NOTIFICATION_RECIPIENT)).toBeDefined();
-    expect(supabase.updates.find((entry) => 'brochure_sent_at' in entry.payload)).toBeUndefined();
+    // Both halves were tried and neither matched; the stored value is untouched.
+    expect(supabase.updates.filter((entry) => entry.kind === 'claim')).toHaveLength(2);
+    expect(supabase.sentAt.get('lead-1')).toBe(oneHourAgo);
   });
 
   it('re-sends the auto-reply once the window has passed', async () => {
@@ -572,7 +771,48 @@ describe('auto-reply and internal notification [A7]', () => {
     expect(mailTo('Ana@Example.com')).toBeDefined();
   });
 
-  it('soft-fails without RESEND_API_KEY: still 200, nothing sent, no stamp', async () => {
+  it('two simultaneous submissions produce exactly one auto-reply', async () => {
+    // Both requests read the same row and see the same null `brochure_sent_at`
+    // — the interleaving the old read-then-write shape could not survive. Only
+    // one of them wins the conditional UPDATE, so only one message goes out.
+    const supabase = createSupabase({
+      selects: [{ data: existingRow(), error: null }],
+    });
+
+    const [first, second] = await Promise.all([run(validBody()), run(validBody())]);
+
+    expect(first.res._getStatusCode()).toBe(200);
+    expect(second.res._getStatusCode()).toBe(200);
+
+    const autoReplies = mockSend.mock.calls
+      .map((call) => call[0] as Record<string, string>)
+      .filter((payload) => payload.to === 'Ana@Example.com');
+    expect(autoReplies).toHaveLength(1);
+
+    // FNE still gets both internal notifications — only the auto-reply dedups.
+    expect(
+      mockSend.mock.calls.filter(
+        (call) => (call[0] as Record<string, string>).to === LEAD_NOTIFICATION_RECIPIENT
+      )
+    ).toHaveLength(2);
+  });
+
+  it('skips the auto-reply rather than risking a duplicate when a claim errors', async () => {
+    const supabase = createSupabase({
+      selects: [{ data: existingRow(), error: null }],
+      claimError: { code: '42501', message: 'permission denied' },
+    });
+    const { res } = await run(validBody());
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(mailTo('Ana@Example.com')).toBeUndefined();
+    expect(mailTo(LEAD_NOTIFICATION_RECIPIENT)).toBeDefined();
+    // The first statement's error ends the claim — a failed guard is never
+    // retried past, because "we could not tell" must not read as "go ahead".
+    expect(supabase.updates.filter((entry) => entry.kind === 'claim')).toHaveLength(1);
+  });
+
+  it('releases the claim without RESEND_API_KEY: still 200, nothing sent', async () => {
     vi.stubEnv('RESEND_API_KEY', '');
     const supabase = createSupabase();
     const { res } = await run(validBody());
@@ -580,25 +820,55 @@ describe('auto-reply and internal notification [A7]', () => {
     expect(res._getStatusCode()).toBe(200);
     expect(res._getJSONData()).toEqual({ success: true });
     expect(mockSend).not.toHaveBeenCalled();
-    expect(supabase.updates.find((entry) => 'brochure_sent_at' in entry.payload)).toBeUndefined();
+
+    // Nothing left the process, so the window re-opens: the release restores
+    // what the row held, guarded on the claim still being ours.
+    const release = supabase.updates.filter((entry) => entry.kind === 'write').at(-1);
+    expect(release?.payload).toEqual({ brochure_sent_at: null });
+    expect(Object.keys(release?.filters ?? {})).toEqual(['id', 'brochure_sent_at']);
   });
 
-  it('soft-fails when Resend returns an error: no stamp, still 200', async () => {
+  it('releases the claim when Resend answers with an error: still 200', async () => {
     mockSend.mockResolvedValue({ data: null, error: { message: 'nope' } });
     const supabase = createSupabase();
     const { res } = await run(validBody());
 
     expect(res._getStatusCode()).toBe(200);
-    expect(supabase.updates.find((entry) => 'brochure_sent_at' in entry.payload)).toBeUndefined();
+    const release = supabase.updates.filter((entry) => entry.kind === 'write').at(-1);
+    expect(release?.payload).toEqual({ brochure_sent_at: null });
   });
 
-  it('soft-fails when the mail transport throws', async () => {
+  it('KEEPS the claim when the mail transport throws — the outcome is unknown', async () => {
+    // Resend may already hold the message, so re-opening the window could mail
+    // the person twice. [A7] is an upper bound: hold the claim instead.
     mockSend.mockRejectedValue(new Error('socket hang up'));
-    createSupabase();
+    const supabase = createSupabase();
     const { res } = await run(validBody());
 
     expect(res._getStatusCode()).toBe(200);
     expect(res._getJSONData()).toEqual({ success: true });
+    expect(
+      supabase.updates.filter(
+        (entry) => entry.kind === 'write' && 'brochure_sent_at' in entry.payload
+      )
+    ).toHaveLength(0);
+  });
+
+  it('still notifies FNE when preparing the auto-reply throws', async () => {
+    // `buildAbsoluteUrl` throws with no configured production origin. That is
+    // the auto-reply's problem alone — the internal notification is independent.
+    mockBuildAbsoluteUrl.mockImplementation(() => {
+      throw new Error('NEXT_PUBLIC_APP_URL missing');
+    });
+    const supabase = createSupabase();
+    const { res } = await run(validBody());
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData()).toEqual({ success: true });
+    expect(mailTo(LEAD_NOTIFICATION_RECIPIENT)).toBeDefined();
+    expect(mailTo('Ana@Example.com')).toBeUndefined();
+    // The URL is resolved before the claim, so the throw costs no window.
+    expect(supabase.updates.filter((entry) => entry.kind === 'claim')).toHaveLength(0);
   });
 });
 

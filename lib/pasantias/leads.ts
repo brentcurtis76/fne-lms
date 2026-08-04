@@ -167,21 +167,27 @@ function optionalText(value: unknown): string | null {
  * entry in `LEAD_VALIDATION_MESSAGES`. Losing one lead's attribution is the
  * cheap failure; losing the lead is not.
  *
- * Note this runs on the RAW string: `normalizeText` collapses `\s+` to a
- * single space, which would quietly turn an injected CRLF into a valid-looking
- * path instead of refusing it.
+ * Note this runs on the RAW string and rewrites nothing: the value is returned
+ * byte-identical or not at all. `normalizeText` would collapse `\s+` to a
+ * single space, and a `trim()` would strip a surrounding CR/LF — either turns
+ * an injected value into a valid-looking path instead of refusing it.
+ * Surrounding whitespace is therefore a REFUSAL rather than something to clean
+ * up: a browser reporting `location.pathname` never produces it, so its
+ * presence says the value was hand-crafted. The cap applies to that same raw
+ * length. A6b still escapes on render, as it must for any stored string.
  */
 export function sanitizeSourcePath(value: unknown): string | null {
   if (typeof value !== 'string') {
     return null;
   }
 
-  const path = value.trim();
+  // The RAW value throughout — no trim, no normalization (see above).
+  const path = value;
   if (!path || path.length > LEAD_FIELD_LIMITS.sourcePath) {
     return null;
   }
-  // Whitespace (incl. CR/LF/tab), the C0 control block and DEL. A genuine path
-  // percent-encodes all of these.
+  // Whitespace (incl. CR/LF/tab, leading and trailing alike), the C0 control
+  // block and DEL. A genuine path percent-encodes all of these.
   if (/[\s\u0000-\u001f\u007f]/.test(path)) {
     return null;
   }

@@ -35,10 +35,37 @@ export const BROCHURE_PATH = '/api/pasantias/brochure';
  */
 export const AUTO_REPLY_DEDUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Why a send did not happen — what the caller needs in order to decide whether
+ * a failed auto-reply may release the 24 h claim it has already taken.
+ *
+ * - `not_configured` — no `RESEND_API_KEY`, so the request was never built.
+ * - `rejected` — Resend answered and refused: the call completed, nothing queued.
+ * - `unknown` — the call threw. The provider may or may not already hold it.
+ */
+export type LeadEmailFailure = 'not_configured' | 'rejected' | 'unknown';
+
 export interface LeadEmailResult {
   sent: boolean;
   /** Present when the send did not happen. Logged, never shown to a visitor. */
   error?: string;
+  /** Present exactly when `sent` is false. */
+  failure?: LeadEmailFailure;
+}
+
+/**
+ * Whether a failed auto-reply may re-open the 24 h window it claimed.
+ *
+ * Releasing is safe only where we know nothing left this process:
+ * `not_configured` and `rejected` both mean no message was queued, so re-opening
+ * cannot duplicate anything — and a missing key must not silently mark a lead as
+ * "brochure sent" for a day when nobody was ever mailed. A thrown transport is
+ * genuinely ambiguous (the provider may already have accepted the message), so
+ * that claim is KEPT: [A7] is an upper bound on messages, and a second copy is
+ * the one failure this endpoint refuses to risk.
+ */
+export function canReleaseAutoReplyClaim(result: LeadEmailResult): boolean {
+  return !result.sent && result.failure !== 'unknown';
 }
 
 /** The lead fields both messages read. Already validated, never escaped yet. */
@@ -58,23 +85,19 @@ export interface LeadEmailPayload {
 }
 
 /**
- * Whether the auto-reply is due. `null` means it has never been sent.
+ * The far edge of the dedup window, as the value a claim statement compares
+ * `brochure_sent_at` against: a row is claimable when the column IS NULL or
+ * holds something older than this.
  *
- * An unparseable timestamp is treated as "never sent": the alternative is
- * suppressing a message the person is waiting for because a column holds junk.
+ * Deliberately a cutoff and NOT a `shouldSendAutoReply(...)` predicate. A
+ * predicate evaluated in application memory is check-then-act — two requests
+ * read the same timestamp, both pass, both send — which is exactly the race
+ * this round exists to remove. The only legitimate consumer of this window is
+ * the WHERE clause of the conditional UPDATE in `pages/api/pasantias/lead.ts`,
+ * where PostgreSQL evaluates it against the row it has locked.
  */
-export function shouldSendAutoReply(
-  brochureSentAt: string | null | undefined,
-  now: Date = new Date()
-): boolean {
-  if (!brochureSentAt) {
-    return true;
-  }
-  const sentAt = new Date(brochureSentAt).getTime();
-  if (Number.isNaN(sentAt)) {
-    return true;
-  }
-  return now.getTime() - sentAt >= AUTO_REPLY_DEDUP_WINDOW_MS;
+export function autoReplyClaimCutoff(now: Date = new Date()): string {
+  return new Date(now.getTime() - AUTO_REPLY_DEDUP_WINDOW_MS).toISOString();
 }
 
 /**
@@ -244,7 +267,7 @@ async function sendSoft(
     console.log(`[${logPrefix}] RESEND_API_KEY missing; email not sent`, {
       toDomain: payload.to.split('@')[1] ?? 'unknown',
     });
-    return { sent: false, error: 'RESEND_API_KEY no configurado' };
+    return { sent: false, error: 'RESEND_API_KEY no configurado', failure: 'not_configured' };
   }
 
   try {
@@ -259,13 +282,14 @@ async function sendSoft(
 
     if (error) {
       console.error(`[${logPrefix}] Resend failed:`, error);
-      return { sent: false, error: 'Resend rechazó el envío' };
+      return { sent: false, error: 'Resend rechazó el envío', failure: 'rejected' };
     }
 
     return { sent: true };
   } catch (error) {
     console.error(`[${logPrefix}] Resend threw:`, error);
-    return { sent: false, error: 'Error de transporte' };
+    // Ambiguous by construction: a timeout can follow an accepted request.
+    return { sent: false, error: 'Error de transporte', failure: 'unknown' };
   }
 }
 

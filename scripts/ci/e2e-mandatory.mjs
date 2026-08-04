@@ -22,6 +22,7 @@ export const MANDATORY_SPECS = [
   // an artifact that leaves the platform.
   'tests/e2e/zoom-join-authz.spec.ts',
   'tests/e2e/session-disclosure.spec.ts',
+  'tests/e2e/session-ical.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

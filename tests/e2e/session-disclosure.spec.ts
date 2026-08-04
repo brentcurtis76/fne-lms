@@ -35,11 +35,17 @@ import {
  * GET would let reports.ts or attendees.ts diverge unnoticed.
  *
  * Z1c-4 adds the question that comes BEFORE disclosure: what a denied caller learns from the
- * denial itself. All five session GETs now answer a byte-identical `sendSessionNotFound()`
- * (lib/utils/session-not-found.ts) whether the row is absent or merely not the caller's, and
+ * denial itself. All six session GETs now answer a byte-identical `sendSessionNotFound()`
+ * (lib/utils/session-denials.ts) whether the row is absent or merely not the caller's, and
  * the tier-3 block compares status and raw body across both cases on every one of them. The
  * comparison is paired with a positive control — an authorised caller must still be served —
  * because "every denial matches" is trivially satisfiable by refusing everybody.
+ *
+ * The sixth consumer, `/api/sessions/[id]/reports/[rid]`, resolves a SECOND id and so carried
+ * the oracle twice: report absent vs report-not-yours. `sendReportNotFound()` collapses that
+ * pair too, and the report-level block below is what distinguishes the two leaks — a fix that
+ * closed only the session half would still let a GC leader enumerate a session's
+ * facilitators_only reports by id.
  *
  * This spec is mandatory (scripts/ci/e2e-mandatory.mjs) — it fails the gate if skipped.
  * Requires the seeded local Supabase stack (`node scripts/ci/seed-e2e.mjs`).
@@ -73,19 +79,32 @@ const CONSUMERS = [
 ];
 
 /**
- * Every GET that resolves a session id, including the two the disclosure loop above cannot
- * use: `materials` (nothing seeded, so it proves no disclosure rule) and `ical` (answers
- * text/calendar, not the `{ data }` envelope). Both still resolve a session id, so both
- * still had the oracle, and the denial comparison below must cover them.
+ * Every GET that resolves a session id, including the three the disclosure loop above cannot
+ * use: `materials` (nothing seeded, so it proves no disclosure rule), `ical` (answers
+ * text/calendar, not the `{ data }` envelope) and `report-detail` (needs a second id, and the
+ * one used here is deliberately the RESTRICTED report so the entry doubles as the
+ * report-privileged positive control). All still resolve a session id, so all still had the
+ * oracle, and the denial comparison below must cover them.
+ *
+ * `report-detail` was missing from this set through the first Z1c-4 round, which is exactly
+ * how a sixth consumer keeps an oracle the other five have closed: it is a member of the
+ * consumer set, not a special case bolted on beside it, so every loop over this list now
+ * covers it for free — and a seventh will have to be added here or fail visibly.
  */
-function consumersFor(sessionId: string) {
+function consumersFor(sessionId: string, reportId: string = RESTRICTED_REPORT.id) {
   return [
     { label: 'detail', path: `/api/sessions/${sessionId}` },
     { label: 'reports', path: `/api/sessions/${sessionId}/reports` },
     { label: 'materials', path: `/api/sessions/${sessionId}/materials` },
     { label: 'attendees', path: `/api/sessions/${sessionId}/attendees` },
     { label: 'ical', path: `/api/sessions/${sessionId}/ical` },
+    { label: 'report-detail', path: `/api/sessions/${sessionId}/reports/${reportId}` },
   ];
+}
+
+/** The report-detail path, spelled out where a test needs a specific report id. */
+function reportDetailPath(sessionId: string, reportId: string): string {
+  return `/api/sessions/${sessionId}/reports/${reportId}`;
 }
 
 /**
@@ -104,6 +123,23 @@ if (JSON.stringify(fixtures).includes(ABSENT_SESSION_ID)) {
     `[session-disclosure] ABSENT_SESSION_ID ${ABSENT_SESSION_ID} appears in e2e-fixtures.json. ` +
       'It must name a session that is never seeded, or the absent-vs-forbidden comparison ' +
       'compares two existing sessions and proves nothing.'
+  );
+}
+
+/**
+ * The same thing one level down: a valid-but-never-seeded REPORT id, for the report-level
+ * half of the oracle. Same two constraints and the same guard — it must satisfy
+ * `Validators.isUUID` (the handler rejects the request at :33 otherwise, before any
+ * authorization runs) and it must never be seeded, or "absent report" quietly becomes a
+ * second "existing report".
+ */
+const ABSENT_REPORT_ID = 'e2e00000-0000-4000-8000-0000000008ff';
+
+if (JSON.stringify(fixtures).includes(ABSENT_REPORT_ID)) {
+  throw new Error(
+    `[session-disclosure] ABSENT_REPORT_ID ${ABSENT_REPORT_ID} appears in e2e-fixtures.json. ` +
+      'It must name a report that is never seeded, or the absent-vs-forbidden comparison ' +
+      'compares two existing reports and proves nothing.'
   );
 }
 
@@ -437,6 +473,137 @@ for (const key of DENIED_PERSONAS) {
         }
       }
     });
+
+    test('the report detail endpoint denies exactly as the other five do', async () => {
+      // The leak must not reappear as "this endpoint denies differently". The comparison
+      // above is per-label — each consumer against its own absent-session counterpart — so
+      // it would still pass if report-detail answered a distinct-but-self-consistent
+      // denial. This one is cross-label: the sixth consumer's refusal must be the SAME
+      // bytes the detail GET returns, or the pair of them is itself the oracle.
+      const [detail, reportDetail] = await Promise.all([
+        api.get(DETAIL),
+        api.get(reportDetailPath(LINKED.id, RESTRICTED_REPORT.id)),
+      ]);
+      const [detailBody, reportDetailBody] = await Promise.all([
+        detail.text(),
+        reportDetail.text(),
+      ]);
+
+      expect(
+        reportDetail.status(),
+        `report-detail refused ${key} with a different status than the detail GET`
+      ).toBe(detail.status());
+      expect(
+        reportDetailBody,
+        `report-detail refused ${key} with a different body than the detail GET`
+      ).toBe(detailBody);
+    });
+
+    test('cannot tell a real report from an absent one on an inaccessible session', async () => {
+      // The report-level half of the leak, for a caller who fails at SESSION level. Before
+      // this commit the endpoint fetched the report BEFORE checking canViewSession, so a
+      // real report id answered 403 'Acceso denegado a esta sesión' while an absent one
+      // answered 404 'Informe no encontrado' — a caller who may not open the session at all
+      // could still enumerate its reports. The ordering fix is what this asserts.
+      const [real, absent] = await Promise.all([
+        api.get(reportDetailPath(LINKED.id, RESTRICTED_REPORT.id)),
+        api.get(reportDetailPath(LINKED.id, ABSENT_REPORT_ID)),
+      ]);
+      const [realBody, absentBody] = await Promise.all([real.text(), absent.text()]);
+
+      expect(
+        real.status(),
+        `a real report answered ${key} with a different status than an absent one`
+      ).toBe(absent.status());
+      expect(
+        realBody,
+        `a real report answered ${key} with a different body than an absent one`
+      ).toBe(absentBody);
+
+      for (const [which, body] of [
+        ['real', realBody],
+        ['absent', absentBody],
+      ] as const) {
+        expectNoFixtureEmails(body, `the report-detail ${which} denial`);
+        expect(body, `report-detail ${which} denial leaked a report id`).not.toContain(
+          RESTRICTED_REPORT.id
+        );
+      }
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// The report-level oracle, on the persona that can actually observe it.
+//
+// gcLeader passes canViewSession, so the session-level denial never fires for
+// them — they reach the visibility check, and before this commit were told
+// `403 'Acceso denegado a este informe'` for a facilitators_only report versus
+// `404 'Informe no encontrado'` for an id that does not exist. That difference
+// let any growth-community member enumerate the restricted reports of every
+// session they may open, which is the content the narrow rule exists to
+// withhold in the first place.
+// ---------------------------------------------------------------------------
+
+for (const key of VIEW_ONLY_PERSONAS) {
+  test.describe(`report-detail denial — ${key} (may view the session, not the report)`, () => {
+    let api: APIRequestContext;
+
+    test.beforeAll(async ({ browser, baseURL }) => {
+      test.setTimeout(120_000);
+      api = await apiContextFor(browser, key, baseURL!);
+    });
+    test.afterAll(async () => {
+      await api?.dispose();
+    });
+
+    test('cannot tell a restricted report from one that does not exist', async () => {
+      const [restricted, absent] = await Promise.all([
+        api.get(reportDetailPath(LINKED.id, RESTRICTED_REPORT.id)),
+        api.get(reportDetailPath(LINKED.id, ABSENT_REPORT_ID)),
+      ]);
+      const [restrictedBody, absentBody] = await Promise.all([
+        restricted.text(),
+        absent.text(),
+      ]);
+
+      expect(
+        restricted.status(),
+        `a restricted report answered ${key} with a different status than an absent one`
+      ).toBe(absent.status());
+      expect(
+        restrictedBody,
+        `a restricted report answered ${key} with a different body than an absent one`
+      ).toBe(absentBody);
+
+      // And nothing about the report leaks through either denial.
+      for (const [which, body] of [
+        ['restricted', restrictedBody],
+        ['absent', absentBody],
+      ] as const) {
+        expectNoFixtureEmails(body, `the report-detail ${which} denial`);
+        expect(body, `report-detail ${which} denial leaked a report id`).not.toContain(
+          RESTRICTED_REPORT.id
+        );
+        expect(body, `report-detail ${which} denial leaked the session title`).not.toContain(
+          LINKED.title
+        );
+      }
+    });
+
+    test('still receives the all_participants report through the same endpoint', async () => {
+      // The positive control WITHOUT which the comparison above is satisfied by an endpoint
+      // that answers 404 to gcLeader for every report id. This persona must still be served
+      // the open report — the narrow rule withholds facilitators_only content, not the
+      // endpoint.
+      const body = await getJson(api, reportDetailPath(LINKED.id, OPEN_REPORT.id));
+
+      expect(body.report?.id).toBe(OPEN_REPORT.id);
+      expect(body.report?.visibility).toBe('all_participants');
+      expect(body.report?.content).toBeTruthy();
+      // Tier-2 disclosure still applies on the way out: no author address.
+      expectNoFixtureEmails(body, 'the report-detail payload');
+    });
   });
 }
 
@@ -460,7 +627,7 @@ for (const key of REPORT_PRIVILEGED_PERSONAS) {
       await api?.dispose();
     });
 
-    test('receives a real payload from all five consumers', async () => {
+    test('receives a real payload from all six consumers', async () => {
       for (const { label, path } of consumersFor(LINKED.id)) {
         const response = await api.get(path);
         expect(response.status(), `${label} refused an authorised caller`).toBe(200);
@@ -478,6 +645,23 @@ for (const key of REPORT_PRIVILEGED_PERSONAS) {
 
       const attendees = await getJson(api, ATTENDEES);
       expect((attendees.attendees ?? []).length).toBe(ATTENDEE_EMAILS.length);
+
+      // The report-detail control. Not merely 200: the RESTRICTED report, by id, with its
+      // content — the exact thing withheld from gcLeader two blocks up. Without this, the
+      // report-level comparisons there would pass just as happily against an endpoint that
+      // had been "fixed" by 404ing every facilitators_only report for everybody.
+      const restricted = await getJson(
+        api,
+        reportDetailPath(LINKED.id, RESTRICTED_REPORT.id)
+      );
+      expect(restricted.report?.id).toBe(RESTRICTED_REPORT.id);
+      expect(restricted.report?.visibility).toBe('facilitators_only');
+      expect(restricted.report?.content).toBeTruthy();
+
+      // And an absent REPORT id still answers not-found for this same authorised caller, so
+      // the report 404s above are a property of the report, not of the persona.
+      const absentReport = await api.get(reportDetailPath(LINKED.id, ABSENT_REPORT_ID));
+      expect(absentReport.status()).toBe(404);
 
       // iCal answers text/calendar, so it is asserted on its own terms.
       const ical = await api.get(`/api/sessions/${LINKED.id}/ical`);

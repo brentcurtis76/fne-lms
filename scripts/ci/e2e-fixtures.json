@@ -5,11 +5,110 @@
     "so a credential can never drift between the seeder and the specs.",
     "SYNTHETIC ONLY (Ley 21.719): example.com is RFC 2606 reserved, the names are invented,",
     "and these credentials are only ever valid on the ephemeral local Supabase stack the CI job",
-    "starts and destroys. The seeder refuses to run against a non-local Supabase URL."
+    "starts and destroys. The seeder refuses to run against a non-local Supabase URL.",
+    "",
+    "Z1c — extended with the personas the Zoom join-authz matrix needs. Each user's optional",
+    "fields drive the seeder:",
+    "  school       'primary' (default) | 'secondary' — the profile's school AND the role row's school_id",
+    "  roleScope    'global' — the role row's school_id is NULL. Only consultor reads this distinction",
+    "               (lib/utils/session-policy.ts:31 treats consultor.school_id IS NULL as GLOBAL).",
+    "  community    'zoom' — the role row's community_id is zoom.community.id",
+    "  inactiveRoles  extra role rows seeded with is_active=false, to prove deactivation denies",
+    "",
+    "The `zoom` block is the domain graph seeded by scripts/ci/seed-e2e-zoom.mjs. Its ids are fixed",
+    "so the seeding is idempotent and the specs can address the rows without a lookup.",
+    "",
+    "Z1c-2 — two sessions, because one cannot exercise both branches of the disclosure rule:",
+    "  session        meeting_link NULL — the provisionable-but-unprovisioned case, and the",
+    "                 `meet-no-link` branch of the interstitial.",
+    "  linkedSession  a legacy MANUAL meeting link — the case Z1a's interstitial was built for.",
+    "                 It is the session that can prove stripping: a non-privileged caller must",
+    "                 get has_meeting/join_path and NOT the raw link. It carries the attendees",
+    "                 and the two report visibilities too, so one GET exercises all three tier-2",
+    "                 assertions (no e-mail, no raw link, no facilitators_only report) at once.",
+    "The link host is example.net — RFC 2606 reserved, like the addresses. No real meeting."
   ],
   "school": {
     "id": 990001,
     "name": "Colegio Sintetico E2E"
+  },
+  "schoolSecondary": {
+    "id": 990002,
+    "name": "Colegio Sintetico E2E Norte"
+  },
+  "zoom": {
+    "community": {
+      "id": "e2e00000-0000-4000-8000-000000000c01",
+      "name": "Comunidad de Crecimiento Sintetica E2E"
+    },
+    "session": {
+      "id": "e2e00000-0000-4000-8000-000000000501",
+      "title": "Sesion Sintetica E2E - provisionable",
+      "description": "Sesion sintetica para las pruebas e2e de Zoom. No corresponde a ninguna sesion real.",
+      "sessionDate": "2030-06-12",
+      "startTime": "15:00:00",
+      "endTime": "16:30:00",
+      "modality": "online",
+      "status": "programada",
+      "meetingProvider": "zoom",
+      "createdBy": "admin",
+      "facilitators": [
+        {
+          "user": "consultorAssigned",
+          "facilitatorRole": "consultor_externo",
+          "isLead": true
+        }
+      ]
+    },
+    "linkedSession": {
+      "id": "e2e00000-0000-4000-8000-000000000502",
+      "title": "Sesion Sintetica E2E - enlace manual",
+      "description": "Sesion sintetica con enlace de reunion manual heredado. No corresponde a ninguna sesion real.",
+      "sessionDate": "2030-06-19",
+      "startTime": "09:00:00",
+      "endTime": "10:30:00",
+      "modality": "online",
+      "status": "programada",
+      "meetingProvider": "otro",
+      "meetingLink": "https://meet.example.net/e2e-sintetica-enlace-manual",
+      "createdBy": "admin",
+      "facilitators": [
+        {
+          "user": "consultorAssigned",
+          "facilitatorRole": "consultor_externo",
+          "isLead": true
+        }
+      ],
+      "attendees": [
+        {
+          "user": "gcLeader",
+          "expected": true,
+          "attended": true,
+          "arrivalStatus": "on_time"
+        },
+        {
+          "user": "docente",
+          "expected": true,
+          "attended": false
+        }
+      ],
+      "reports": [
+        {
+          "id": "e2e00000-0000-4000-8000-000000000601",
+          "author": "consultorAssigned",
+          "reportType": "session_report",
+          "visibility": "facilitators_only",
+          "content": "Informe sintetico restringido a facilitadores. Contenido de prueba, sin datos reales."
+        },
+        {
+          "id": "e2e00000-0000-4000-8000-000000000602",
+          "author": "admin",
+          "reportType": "session_report",
+          "visibility": "all_participants",
+          "content": "Informe sintetico visible para todos los participantes. Contenido de prueba, sin datos reales."
+        }
+      ]
+    }
   },
   "users": {
     "admin": {
@@ -25,6 +124,53 @@
       "firstName": "Docente",
       "lastName": "Sintetico",
       "role": "docente"
+    },
+    "consultorGlobal": {
+      "email": "e2e-consultor-global@example.com",
+      "password": "E2E-Synthetic-ConsultorGlobal-2026",
+      "firstName": "Consultor",
+      "lastName": "Global Sintetico",
+      "role": "consultor",
+      "roleScope": "global"
+    },
+    "consultorAssigned": {
+      "email": "e2e-consultor-escuela@example.com",
+      "password": "E2E-Synthetic-ConsultorEscuela-2026",
+      "firstName": "Consultor",
+      "lastName": "Escuela Sintetico",
+      "role": "consultor",
+      "school": "primary"
+    },
+    "consultorOtherSchool": {
+      "email": "e2e-consultor-otra@example.com",
+      "password": "E2E-Synthetic-ConsultorOtra-2026",
+      "firstName": "Consultor",
+      "lastName": "Otra Escuela Sintetico",
+      "role": "consultor",
+      "school": "secondary"
+    },
+    "gcLeader": {
+      "email": "e2e-lider-comunidad@example.com",
+      "password": "E2E-Synthetic-LiderComunidad-2026",
+      "firstName": "Lider",
+      "lastName": "Comunidad Sintetico",
+      "role": "lider_comunidad",
+      "school": "primary",
+      "community": "zoom"
+    },
+    "inactiveConsultor": {
+      "email": "e2e-rol-inactivo@example.com",
+      "password": "E2E-Synthetic-RolInactivo-2026",
+      "firstName": "Rol",
+      "lastName": "Inactivo Sintetico",
+      "role": "docente",
+      "school": "primary",
+      "inactiveRoles": [
+        {
+          "role": "consultor",
+          "school": "primary"
+        }
+      ]
     }
   }
 }

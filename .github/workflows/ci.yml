@@ -139,6 +139,30 @@ jobs:
             echo "NEXT_PUBLIC_SUPABASE_URL=$(jq -er '.API_URL' <<<"$STATUS")"
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(jq -er '.ANON_KEY' <<<"$STATUS")"
             echo "SUPABASE_SERVICE_ROLE_KEY=$(jq -er '.SERVICE_ROLE_KEY' <<<"$STATUS")"
+            # A floor, not a feature: `resolveZoomMode` (lib/zoom/api.ts:431-436) treats an
+            # UNSET ZOOM_MODE as `live`, which is right for production and wrong for a test
+            # environment. Reachable only through the job registry behind
+            # pages/api/cron/zoom-{ticker,reconcile}.ts.
+            # No longer unexercised (Z1c-4): tests/e2e/zoom-mock-mode.spec.ts drives a
+            # registered `host_sync` job through this server and asserts it completes on
+            # the fake, with negative controls proving the job REFUSES to run — without
+            # emitting a Zoom request — when this value is invalid or absent.
+            # Runtime-only (not NEXT_PUBLIC_*), so build ordering is irrelevant.
+            echo "ZOOM_MODE=mock"
+            # Synthetic, and never a real credential: this stack is ephemeral and dies with
+            # the runner. `authorizeCronRequest` (lib/zoom/cron-auth.ts:51) compares the whole
+            # `Authorization` header constant-time, so the cron routes fail closed without it
+            # and zoom-mock-mode.spec.ts could not reach the queue at all.
+            echo "CRON_SECRET=e2e-synthetic-cron-secret-not-a-real-credential"
+            # Required, not cosmetic. `getAppBaseUrl` (lib/utils/app-url.ts:91-102) THROWS
+            # in production rather than trusting the client-controlled Host header, and the
+            # e2e gate serves a production build — so every surface that emits an absolute
+            # platform URL (the .ics `join_url`, reminder notifications) returns HTTP 500
+            # here without it. Z1c-1 never hit this because its only session had a NULL
+            # meeting_link and the join_url branch was therefore never taken.
+            # Unlike ZOOM_MODE this is NEXT_PUBLIC_*, so it is inlined at build time and
+            # must precede the build step — as it does.
+            echo "NEXT_PUBLIC_BASE_URL=http://localhost:3000"
           } > .env.local
 
       - name: Install Playwright browsers

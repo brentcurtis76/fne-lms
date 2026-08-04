@@ -15,6 +15,7 @@ import {
   STRUCTURAL_FIELDS,
 } from '../../../../lib/types/consultor-sessions.types';
 import { canViewSession, SessionAccessContext } from '../../../../lib/utils/session-policy';
+import { sendSessionNotFound } from '../../../../lib/utils/session-denials';
 import {
   applySessionMeetingDisclosure,
   canViewParticipantEmails,
@@ -77,7 +78,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
     const { data: session, error: sessionError } = await sessionQuery.single();
 
     if (sessionError || !session) {
-      return sendAuthError(res, 'Sesión no encontrada', 404);
+      return sendSessionNotFound(res);
     }
 
     // Facilitator membership feeds the access context: it drives view access,
@@ -106,8 +107,11 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       isFacilitator: !!facilitatorCheck,
     };
 
+    // Denied views are indistinguishable from a missing session — see
+    // `sendSessionNotFound`. Do NOT restore a 403 here: the status difference
+    // alone is an existence oracle.
     if (!canViewSession(accessContext)) {
-      return sendAuthError(res, 'Acceso denegado a esta sesión', 403);
+      return sendSessionNotFound(res);
     }
 
     // Check if activity_log should be included (exact match whitelist)

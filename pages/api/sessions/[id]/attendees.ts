@@ -19,6 +19,7 @@ import {
   canViewParticipantEmails,
   redactProfileEmails,
 } from '../../../../lib/utils/session-disclosure';
+import { sendSessionNotFound } from '../../../../lib/utils/session-denials';
 
 const attendeeSchema = z.object({
   user_id: z.string().uuid({ message: 'user_id inválido en payload' }),
@@ -75,7 +76,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       .single();
 
     if (sessionError || !session) {
-      return sendAuthError(res, 'Sesión no encontrada', 404);
+      return sendSessionNotFound(res);
     }
 
     // Determine user role
@@ -108,14 +109,25 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       isFacilitator: !!facilitatorCheck,
     };
 
+    // Denied views are indistinguishable from a missing session — see
+    // `sendSessionNotFound`. Do NOT restore a 403 here: the status difference
+    // alone is an existence oracle.
     if (!canViewSession(accessContext)) {
-      return sendAuthError(res, 'Acceso denegado a esta sesión', 403);
+      return sendSessionNotFound(res);
     }
 
-    // Fetch attendees with profile info
+    // Fetch attendees with profile info.
+    //
+    // The embed MUST name the FK: `session_attendees` has two into `profiles`
+    // (`user_id` and `marked_by`), so a bare `profiles(...)` is ambiguous and
+    // PostgREST answers PGRST201 before reading a row — which this handler turned
+    // into a 500 for every caller. Aliased to `profiles` (not `profiles!…fkey`)
+    // to match the detail GET at [id]/index.ts:125 and, more importantly, because
+    // redactProfileEmails only strips e-mails under the key `profiles`
+    // (session-disclosure.ts:175).
     const { data: attendees, error: attendeesError } = await serviceClient
       .from('session_attendees')
-      .select('*, profiles(id, first_name, last_name, email)')
+      .select('*, profiles:user_id(id, first_name, last_name, email)')
       .eq('session_id', sessionId)
       .order('created_at');
 

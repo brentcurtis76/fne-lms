@@ -122,7 +122,7 @@ describe('/api/sessions/[id]/materials', () => {
     expect(data.error).toContain('completadas o canceladas');
   });
 
-  it('should return 403 on GET if user has no access', async () => {
+  it('answers GET with the shared not-found denial if user has no access', async () => {
     const { getApiUser, createServiceRoleClient } = await import('../../../lib/api-auth');
     const { getUserRoles, getHighestRole } = await import('../../../utils/roleUtils');
 
@@ -176,8 +176,10 @@ describe('/api/sessions/[id]/materials', () => {
 
     await handler(req as any, res as any);
 
-    expect(res._getStatusCode()).toBe(403);
+    // 404, not 403: a denied caller must not be able to tell this session
+    // exists. Same response as an absent id — see `sendSessionNotFound`.
+    expect(res._getStatusCode()).toBe(404);
     const data = JSON.parse(res._getData());
-    expect(data.error).toContain('Acceso denegado');
+    expect(data.error).toBe('Sesión no encontrada');
   });
 });

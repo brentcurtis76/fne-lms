@@ -10,11 +10,24 @@
  * siblings and defers to `canViewSession` / `canViewRestrictedReports` /
  * `canViewParticipantEmails`.
  *
+ * Z1c-4 adds the question that comes before disclosure: what a denied caller
+ * learns from the denial itself. This endpoint carried the oracle TWICE — once
+ * per id — so both denials now route through lib/utils/session-denials.ts, and
+ * the session denial strictly precedes the report fetch. The assertions below
+ * name the shared constants rather than the literals, so a drift in either
+ * message or status fails here rather than in a comment.
+ *
  * Synthetic data only.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 import handler from '../../../pages/api/sessions/[id]/reports/[rid]';
+import {
+  REPORT_NOT_FOUND_MESSAGE,
+  REPORT_NOT_FOUND_STATUS,
+  SESSION_NOT_FOUND_MESSAGE,
+  SESSION_NOT_FOUND_STATUS,
+} from '../../../lib/utils/session-denials';
 
 vi.mock('../../../lib/api-auth', () => ({
   getApiUser: vi.fn(),
@@ -75,10 +88,13 @@ function reportRow(visibility: 'all_participants' | 'facilitators_only') {
 function buildClient(opts: {
   visibility: 'all_participants' | 'facilitators_only';
   isFacilitator?: boolean;
+  reportAbsent?: boolean;
 }) {
   const perTable: Record<string, unknown> = {
     consultor_sessions: { data: sessionRow, error: null },
-    session_reports: { data: reportRow(opts.visibility), error: null },
+    session_reports: opts.reportAbsent
+      ? { data: null, error: { code: 'PGRST116', message: 'no rows' } }
+      : { data: reportRow(opts.visibility), error: null },
     session_facilitators: {
       data: opts.isFacilitator ? { id: 'sf-1' } : null,
       error: null,
@@ -112,6 +128,7 @@ async function runGet(opts: {
   highestRole: string | null;
   visibility?: 'all_participants' | 'facilitators_only';
   isFacilitator?: boolean;
+  reportAbsent?: boolean;
 }) {
   const { getApiUser, createServiceRoleClient } = await import('../../../lib/api-auth');
   const { getUserRoles, getHighestRole } = await import('../../../utils/roleUtils');
@@ -123,6 +140,7 @@ async function runGet(opts: {
     buildClient({
       visibility: opts.visibility ?? 'all_participants',
       isFacilitator: opts.isFacilitator,
+      reportAbsent: opts.reportAbsent,
     })
   );
 
@@ -228,7 +246,7 @@ describe('GET /api/sessions/[id]/reports/[rid] — restricted-report visibility'
     vi.clearAllMocks();
   });
 
-  it('GC member + facilitators_only report: 403', async () => {
+  it('GC member + facilitators_only report: the shared report denial', async () => {
     const res = await runGet({
       userId: GC_USER_ID,
       highestRole: 'lider_comunidad',
@@ -236,13 +254,15 @@ describe('GET /api/sessions/[id]/reports/[rid] — restricted-report visibility'
       visibility: 'facilitators_only',
     });
 
-    expect(res._getStatusCode()).toBe(403);
-    expect(JSON.parse(res._getData()).error).toBe('Acceso denegado a este informe');
+    // 404, not 403 — see lib/utils/session-denials.ts. A 403 here would tell
+    // this caller the report exists, which is the whole oracle.
+    expect(res._getStatusCode()).toBe(REPORT_NOT_FOUND_STATUS);
+    expect(JSON.parse(res._getData()).error).toBe(REPORT_NOT_FOUND_MESSAGE);
     expect(res._getData()).not.toContain('Contenido sintético del informe');
     expect(res._getData()).not.toContain(AUTHOR_EMAIL);
   });
 
-  it('non-facilitating scoped consultor + facilitators_only report: 403', async () => {
+  it('non-facilitating scoped consultor + facilitators_only report: the shared report denial', async () => {
     // The narrower-than-edit rule: a consultor who can view the session and
     // does receive e-mails still is not a facilitator of THIS session.
     const res = await runGet({
@@ -252,9 +272,69 @@ describe('GET /api/sessions/[id]/reports/[rid] — restricted-report visibility'
       visibility: 'facilitators_only',
     });
 
-    expect(res._getStatusCode()).toBe(403);
-    expect(JSON.parse(res._getData()).error).toBe('Acceso denegado a este informe');
+    expect(res._getStatusCode()).toBe(REPORT_NOT_FOUND_STATUS);
+    expect(JSON.parse(res._getData()).error).toBe(REPORT_NOT_FOUND_MESSAGE);
     expect(res._getData()).not.toContain('Contenido sintético del informe');
+  });
+
+  it('an inaccessible report is byte-identical to an absent one', async () => {
+    // The report-level oracle itself, asserted as an equality rather than as
+    // two literals that merely happen to match today. `gcLeader`'s analogue:
+    // may open the session, may not read a facilitators_only report — so
+    // before this change the status code alone told them it existed.
+    const forbidden = await runGet({
+      userId: GC_USER_ID,
+      highestRole: 'lider_comunidad',
+      roles: gcMemberRoles,
+      visibility: 'facilitators_only',
+    });
+
+    vi.clearAllMocks();
+
+    const absent = await runGet({
+      userId: GC_USER_ID,
+      highestRole: 'lider_comunidad',
+      roles: gcMemberRoles,
+      reportAbsent: true,
+    });
+
+    expect(forbidden._getStatusCode()).toBe(absent._getStatusCode());
+    expect(forbidden._getData()).toBe(absent._getData());
+  });
+
+  it('a session-level denial outranks the report check entirely', async () => {
+    // The ordering invariant. The report row here is present and readable, but
+    // the caller may not open the session — so they must receive the SESSION
+    // denial, identical to the one they get for an absent report, and must not
+    // learn from the difference that this report exists.
+    const otherSchoolRoles = [
+      {
+        role_type: 'consultor',
+        school_id: OTHER_SCHOOL_ID,
+        community_id: null,
+        is_active: true,
+      },
+    ];
+
+    const reportPresent = await runGet({
+      userId: CONSULTOR_USER_ID,
+      highestRole: 'consultor',
+      roles: otherSchoolRoles,
+      visibility: 'all_participants',
+    });
+
+    vi.clearAllMocks();
+
+    const reportAbsent = await runGet({
+      userId: CONSULTOR_USER_ID,
+      highestRole: 'consultor',
+      roles: otherSchoolRoles,
+      reportAbsent: true,
+    });
+
+    expect(reportPresent._getStatusCode()).toBe(SESSION_NOT_FOUND_STATUS);
+    expect(JSON.parse(reportPresent._getData()).error).toBe(SESSION_NOT_FOUND_MESSAGE);
+    expect(reportPresent._getData()).toBe(reportAbsent._getData());
   });
 
   it('facilitator + facilitators_only report: 200', async () => {
@@ -292,8 +372,8 @@ describe('GET /api/sessions/[id]/reports/[rid] — session access', () => {
       roles: [{ ...gcMemberRoles[0], is_active: false }],
     });
 
-    expect(res._getStatusCode()).toBe(403);
-    expect(JSON.parse(res._getData()).error).toBe('Acceso denegado a esta sesión');
+    expect(res._getStatusCode()).toBe(SESSION_NOT_FOUND_STATUS);
+    expect(JSON.parse(res._getData()).error).toBe(SESSION_NOT_FOUND_MESSAGE);
   });
 
   it('denies a consultor scoped to a different school', async () => {
@@ -310,7 +390,7 @@ describe('GET /api/sessions/[id]/reports/[rid] — session access', () => {
       ],
     });
 
-    expect(res._getStatusCode()).toBe(403);
+    expect(res._getStatusCode()).toBe(SESSION_NOT_FOUND_STATUS);
     expect(res._getData()).not.toContain(AUTHOR_EMAIL);
   });
 
@@ -332,7 +412,7 @@ describe('GET /api/sessions/[id]/reports/[rid] — session access', () => {
     // canViewSession() does not grant on isFacilitator alone, so this asserts
     // the real contract: a facilitator outside the school/community scope is
     // denied the session, exactly as on the detail endpoint.
-    expect(res._getStatusCode()).toBe(403);
-    expect(JSON.parse(res._getData()).error).toBe('Acceso denegado a esta sesión');
+    expect(res._getStatusCode()).toBe(SESSION_NOT_FOUND_STATUS);
+    expect(JSON.parse(res._getData()).error).toBe(SESSION_NOT_FOUND_MESSAGE);
   });
 });

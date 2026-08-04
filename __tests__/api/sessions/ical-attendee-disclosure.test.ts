@@ -242,7 +242,10 @@ describe('GET /api/sessions/[id]/ical — ATTENDEE disclosure', () => {
     );
     const res = await runSingle(CONSULTOR_ID);
 
-    expect(res._getStatusCode()).toBe(403);
+    // 404, not 403: a denied caller must not be able to tell this session
+    // exists. Same response as an absent id — see `sendSessionNotFound`.
+    expect(res._getStatusCode()).toBe(404);
+    expect(JSON.parse(res._getData()).error).toBe('Sesión no encontrada');
     expect(res._getData()).not.toContain(FACILITATOR_EMAIL);
   });
 
@@ -250,7 +253,8 @@ describe('GET /api/sessions/[id]/ical — ATTENDEE disclosure', () => {
     setRoles([{ ...GC_MEMBER_ROLES[0], is_active: false }], 'lider_comunidad');
     const res = await runSingle(GC_MEMBER_ID);
 
-    expect(res._getStatusCode()).toBe(403);
+    expect(res._getStatusCode()).toBe(404);
+    expect(JSON.parse(res._getData()).error).toBe('Sesión no encontrada');
     expect(res._getData()).not.toContain(FACILITATOR_EMAIL);
   });
 });

@@ -19,6 +19,7 @@ import {
   canViewParticipantEmails,
   redactProfileEmails,
 } from '../../../../lib/utils/session-disclosure';
+import { sendSessionNotFound } from '../../../../lib/utils/session-not-found';
 
 const attendeeSchema = z.object({
   user_id: z.string().uuid({ message: 'user_id inválido en payload' }),
@@ -75,7 +76,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       .single();
 
     if (sessionError || !session) {
-      return sendAuthError(res, 'Sesión no encontrada', 404);
+      return sendSessionNotFound(res);
     }
 
     // Determine user role
@@ -108,8 +109,11 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       isFacilitator: !!facilitatorCheck,
     };
 
+    // Denied views are indistinguishable from a missing session — see
+    // `sendSessionNotFound`. Do NOT restore a 403 here: the status difference
+    // alone is an existence oracle.
     if (!canViewSession(accessContext)) {
-      return sendAuthError(res, 'Acceso denegado a esta sesión', 403);
+      return sendSessionNotFound(res);
     }
 
     // Fetch attendees with profile info.

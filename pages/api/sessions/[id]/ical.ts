@@ -14,6 +14,7 @@ import {
   canViewParticipantEmails,
 } from '../../../../lib/utils/session-disclosure';
 import { canViewSession, SessionAccessContext } from '../../../../lib/utils/session-policy';
+import { sendSessionNotFound } from '../../../../lib/utils/session-not-found';
 import { buildAbsoluteUrl } from '../../../../lib/utils/app-url';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -47,7 +48,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     if (sessionError || !session) {
-      return sendAuthError(res, 'Sesión no encontrada', 404);
+      return sendSessionNotFound(res);
     }
 
     // Determine user role
@@ -88,8 +89,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ),
     };
 
+    // Denied views are indistinguishable from a missing session — see
+    // `sendSessionNotFound`. Do NOT restore a 403 here: the status difference
+    // alone is an existence oracle.
     if (!canViewSession(accessContext)) {
-      return sendAuthError(res, 'Acceso denegado a esta sesión', 403);
+      return sendSessionNotFound(res);
     }
 
     // ATTENDEE carries personal e-mail addresses into a file that leaves the

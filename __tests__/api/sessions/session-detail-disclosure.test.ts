@@ -234,8 +234,12 @@ describe('GET /api/sessions/[id] — access control (is_active + scope)', () => 
       ],
     });
 
-    expect(res._getStatusCode()).toBe(403);
-    expect(JSON.parse(res._getData()).error).toBe('Acceso denegado a esta sesión');
+    // 404, not 403: a denied caller must not be able to tell this session
+    // exists. Same status and body as an absent id — see `sendSessionNotFound`.
+    // The byte-for-byte comparison across all five GETs lives in
+    // tests/e2e/session-disclosure.spec.ts.
+    expect(res._getStatusCode()).toBe(404);
+    expect(JSON.parse(res._getData()).error).toBe('Sesión no encontrada');
   });
 
   it('denies an active GC member of a different community', async () => {
@@ -252,7 +256,8 @@ describe('GET /api/sessions/[id] — access control (is_active + scope)', () => 
       ],
     });
 
-    expect(res._getStatusCode()).toBe(403);
+    expect(res._getStatusCode()).toBe(404);
+    expect(JSON.parse(res._getData()).error).toBe('Sesión no encontrada');
   });
 
   it('denies a consultor scoped to a different school', async () => {
@@ -269,7 +274,8 @@ describe('GET /api/sessions/[id] — access control (is_active + scope)', () => 
       ],
     });
 
-    expect(res._getStatusCode()).toBe(403);
+    expect(res._getStatusCode()).toBe(404);
+    expect(JSON.parse(res._getData()).error).toBe('Sesión no encontrada');
   });
 
   it('denies a consultor whose school-scoped role has been revoked', async () => {
@@ -286,10 +292,11 @@ describe('GET /api/sessions/[id] — access control (is_active + scope)', () => 
       ],
     });
 
-    expect(res._getStatusCode()).toBe(403);
+    expect(res._getStatusCode()).toBe(404);
+    expect(JSON.parse(res._getData()).error).toBe('Sesión no encontrada');
   });
 
-  it('returns 404 (not 403) when the session does not exist', async () => {
+  it('returns the same not-found denial when the session does not exist', async () => {
     const res = await runDetail({
       userId: ADMIN_USER_ID,
       highestRole: 'admin',
@@ -298,6 +305,7 @@ describe('GET /api/sessions/[id] — access control (is_active + scope)', () => 
     });
 
     expect(res._getStatusCode()).toBe(404);
+    expect(JSON.parse(res._getData()).error).toBe('Sesión no encontrada');
   });
 });
 

@@ -1,4 +1,5 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
+import fixtures from '../../scripts/ci/e2e-fixtures.json';
 import { E2E_USERS, E2E_ZOOM, apiContextFor, type FixtureKey } from './helpers/auth';
 import {
   DENIED_PERSONAS,
@@ -33,6 +34,13 @@ import {
  * between the detail endpoint and its siblings, and a spec that only exercised the detail
  * GET would let reports.ts or attendees.ts diverge unnoticed.
  *
+ * Z1c-4 adds the question that comes BEFORE disclosure: what a denied caller learns from the
+ * denial itself. All five session GETs now answer a byte-identical `sendSessionNotFound()`
+ * (lib/utils/session-not-found.ts) whether the row is absent or merely not the caller's, and
+ * the tier-3 block compares status and raw body across both cases on every one of them. The
+ * comparison is paired with a positive control — an authorised caller must still be served —
+ * because "every denial matches" is trivially satisfiable by refusing everybody.
+ *
  * This spec is mandatory (scripts/ci/e2e-mandatory.mjs) — it fails the gate if skipped.
  * Requires the seeded local Supabase stack (`node scripts/ci/seed-e2e.mjs`).
  */
@@ -63,6 +71,41 @@ const CONSUMERS = [
   { label: 'reports', path: REPORTS },
   { label: 'attendees', path: ATTENDEES },
 ];
+
+/**
+ * Every GET that resolves a session id, including the two the disclosure loop above cannot
+ * use: `materials` (nothing seeded, so it proves no disclosure rule) and `ical` (answers
+ * text/calendar, not the `{ data }` envelope). Both still resolve a session id, so both
+ * still had the oracle, and the denial comparison below must cover them.
+ */
+function consumersFor(sessionId: string) {
+  return [
+    { label: 'detail', path: `/api/sessions/${sessionId}` },
+    { label: 'reports', path: `/api/sessions/${sessionId}/reports` },
+    { label: 'materials', path: `/api/sessions/${sessionId}/materials` },
+    { label: 'attendees', path: `/api/sessions/${sessionId}/attendees` },
+    { label: 'ical', path: `/api/sessions/${sessionId}/ical` },
+  ];
+}
+
+/**
+ * A syntactically valid session id in the fixture namespace that is deliberately never
+ * seeded — the "no such session" side of the comparison.
+ *
+ * It must pass `Validators.isUUID` (api-auth.types.ts:163) or the handlers answer 400 at the
+ * door and the comparison would prove nothing about the authorization paths. And it must not
+ * collide with anything the seeder writes, or the "absent" case would quietly become a second
+ * "exists" case and the whole comparison would pass vacuously — hence the module-load guard.
+ */
+const ABSENT_SESSION_ID = 'e2e00000-0000-4000-8000-0000000009ff';
+
+if (JSON.stringify(fixtures).includes(ABSENT_SESSION_ID)) {
+  throw new Error(
+    `[session-disclosure] ABSENT_SESSION_ID ${ABSENT_SESSION_ID} appears in e2e-fixtures.json. ` +
+      'It must name a session that is never seeded, or the absent-vs-forbidden comparison ' +
+      'compares two existing sessions and proves nothing.'
+  );
+}
 
 /** The seeded attendees' addresses — what a privileged caller must receive, and nobody else. */
 const ATTENDEE_EMAILS = LINKED.attendees.map((a) => E2E_USERS[a.user].email);
@@ -327,9 +370,10 @@ for (const key of DENIED_PERSONAS) {
     });
 
     test('is refused by every session consumer, with no payload at all', async () => {
-      for (const { label, path } of CONSUMERS) {
+      for (const { label, path } of consumersFor(LINKED.id)) {
         const response = await api.get(path);
-        expect(response.status(), `${label} should refuse ${key}`).toBe(403);
+        // 404, not 403 — see the byte-identical comparison below.
+        expect(response.status(), `${label} should refuse ${key}`).toBe(404);
 
         const text = await response.text();
         expect(text, `${label} leaked the raw meeting link to ${key}`).not.toContain(
@@ -341,6 +385,110 @@ for (const key of DENIED_PERSONAS) {
         expect(text).not.toContain(RESTRICTED_REPORT.id);
         expect(text).not.toContain(OPEN_REPORT.id);
       }
+    });
+
+    test('cannot tell an inaccessible session from one that does not exist', async () => {
+      // The oracle itself. Before commit 1 these five answered 403 for a session that
+      // exists-but-is-not-yours and 404 for an absent id, so the status code alone let an
+      // unauthorised caller enumerate which sessions exist — across every school and
+      // community in the tenant, not just their own.
+      //
+      // Raw text is compared rather than parsed objects on purpose: two bodies that parse
+      // to equal objects but differ in key order or whitespace are still distinguishable
+      // by anyone reading the socket, and that is all an oracle needs.
+      for (const { label, path } of consumersFor(LINKED.id)) {
+        const absentPath = consumersFor(ABSENT_SESSION_ID).find((c) => c.label === label)!.path;
+
+        const [forbidden, absent] = await Promise.all([api.get(path), api.get(absentPath)]);
+        const [forbiddenBody, absentBody] = await Promise.all([
+          forbidden.text(),
+          absent.text(),
+        ]);
+
+        expect(
+          forbidden.status(),
+          `${label}: an inaccessible session answered ${key} with a different status than an absent one`
+        ).toBe(absent.status());
+
+        expect(
+          forbiddenBody,
+          `${label}: an inaccessible session answered ${key} with a different body than an absent one`
+        ).toBe(absentBody);
+
+        // Neither response may carry session, participant, report or material data.
+        // Whole-payload sweep, not key-presence: a leak under an unexpected key still leaks.
+        for (const [which, body] of [
+          ['forbidden', forbiddenBody],
+          ['absent', absentBody],
+        ] as const) {
+          expectNoFixtureEmails(body, `the ${label} ${which} denial`);
+          expect(body, `${label} ${which} denial leaked the raw meeting link`).not.toContain(
+            LINKED.meetingLink
+          );
+          expect(body, `${label} ${which} denial leaked a report id`).not.toContain(
+            RESTRICTED_REPORT.id
+          );
+          expect(body, `${label} ${which} denial leaked a report id`).not.toContain(
+            OPEN_REPORT.id
+          );
+          expect(body, `${label} ${which} denial leaked the session title`).not.toContain(
+            LINKED.title
+          );
+        }
+      }
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// The positive control for the comparison above.
+//
+// Without it every assertion in this file's tier-3 block would pass just as
+// happily against five endpoints that had been changed to answer 404 to
+// everybody — which is precisely the failure mode of "make the denials match".
+// ---------------------------------------------------------------------------
+
+for (const key of REPORT_PRIVILEGED_PERSONAS) {
+  test.describe(`disclosure — ${key} (still served after the denials were unified)`, () => {
+    let api: APIRequestContext;
+
+    test.beforeAll(async ({ browser, baseURL }) => {
+      test.setTimeout(120_000);
+      api = await apiContextFor(browser, key, baseURL!);
+    });
+    test.afterAll(async () => {
+      await api?.dispose();
+    });
+
+    test('receives a real payload from all five consumers', async () => {
+      for (const { label, path } of consumersFor(LINKED.id)) {
+        const response = await api.get(path);
+        expect(response.status(), `${label} refused an authorised caller`).toBe(200);
+      }
+
+      // Not merely 200 — the real thing. Each consumer is checked against content only an
+      // authorised caller can obtain, so a stubbed-out 200 would not satisfy this.
+      const detail = await getJson(api, DETAIL);
+      expect(detail.session.id).toBe(LINKED.id);
+      expect(detail.session.meeting_link).toBe(LINKED.meetingLink);
+
+      const reports = await getJson(api, REPORTS);
+      const reportIds = (reports.reports ?? []).map((r: { id: string }) => r.id);
+      expect(reportIds).toContain(RESTRICTED_REPORT.id);
+
+      const attendees = await getJson(api, ATTENDEES);
+      expect((attendees.attendees ?? []).length).toBe(ATTENDEE_EMAILS.length);
+
+      // iCal answers text/calendar, so it is asserted on its own terms.
+      const ical = await api.get(`/api/sessions/${LINKED.id}/ical`);
+      const icalBody = await ical.text();
+      expect(icalBody).toContain('BEGIN:VCALENDAR');
+      expect(icalBody).toContain(LINKED.title);
+
+      // And the absent id still answers not-found for this same authorised caller — so the
+      // 404s above are a property of the session, not of the persona.
+      const absent = await api.get(`/api/sessions/${ABSENT_SESSION_ID}`);
+      expect(absent.status()).toBe(404);
     });
   });
 }

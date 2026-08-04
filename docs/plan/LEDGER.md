@@ -1014,3 +1014,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: drop-not-reject ratified; verbatim-storage contract noted for A6b
 - BACKLOG ADDED: none (r1 carry-forwards stand)
 - OPEN AFTER THIS ROUND: → Sol.
+
+### 2026-08-03 — Sol re-reviews triaged; r3 prompts sharpened — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Sol reviewed A4 and A5 again against the same (pre-r3) code, so both blockers stand and both r3 prompts were already staged — but Sol's detail sharpened them. **A4:** the fix is not a one-word flag — `lib/propuestas/storage.ts`'s `uploadFile` hardcodes `upsert: true` and is **shared** with the licitaciones proposal generator, which legitimately overwrites; flipping the shared default would break an unrelated feature. `prompts/a4-3.md` now requires an opt-in create-only option (shared default unchanged) or a direct storage call, and flags the helper's 2-attempt retry loop, where a retry after a silently-successful first attempt reports already-exists and must read as success. **A5:** Sol blocks on the non-atomic 24h auto-reply dedup, which **I accepted in r1 as a bounded courtesy-mail duplicate. Sol is right and I was wrong** — it is the same read-decide-write shape as the consent bug in the same file, and shipping two of them is indefensible. `prompts/a5-3.md` now requires claim-then-act (a conditional UPDATE returning the row, send only if the claim won) with an interleaving test, and asks the executor to state whether a failed send rolls the claim back. PR hygiene noted from Sol: #39/#40/#41 all need reconciliation with main so their required checks run — PM's job at close.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none new
+- DECISIONS: r1's acceptance of the non-atomic dedup REVERSED
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch A4 r3 + A5 r3 (prompts now complete); B3 still needs Sol round 2.

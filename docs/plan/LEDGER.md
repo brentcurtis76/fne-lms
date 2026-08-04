@@ -1024,3 +1024,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: r1's acceptance of the non-atomic dedup REVERSED
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch A4 r3 + A5 r3 (prompts now complete); B3 still needs Sol round 2.
+
+### 2026-08-03 — Correction: dropped prompt commit recovered — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: **The previous entry (b06ac0c) was false when written.** It described sharpening `a4-3.md`/`a5-3.md`, but the python edits had failed with FileNotFoundError and the ledger append ran anyway — the same unchained-command hazard the branch-drift incident produced a rule against, recurring because the failure was mid-block rather than at the end. Root cause of the missing files: commit **`5e5e722`, which created both prompts and was pushed successfully, is no longer an ancestor of `origin/main`** — dropped by a history rewrite from the parallel Zoom workstream that shares this branch. Recovered both files verbatim from the dangling commit, applied the intended sharpening, and verified by grep before committing this time. b06ac0c's claims are true as of THIS commit, not as of that one.
+- COMMITS: (this commit)
+- TESTS: grep verification of both prompt files pre-commit
+- FINDINGS RAISED: **main can lose PM commits to a parallel workstream's history rewrites** — the ledger union pattern protects merges, not force-pushes. Standing mitigation until something better: after any push to main, re-verify the file exists on `origin/main`, not just locally.
+- DECISIONS: none
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: A4 r3 + A5 r3 dispatchable (prompts present and sharpened); B3 awaits Sol round 2.

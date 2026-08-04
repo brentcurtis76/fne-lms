@@ -265,6 +265,61 @@ describe('public cohort module — schools (Appendix A-5)', () => {
     const names = COHORT_SCHOOLS.map((school) => school.name).join(' ');
     expect(names).not.toMatch(/learnlife/i);
   });
+
+  /**
+   * Content pack §5b, owner-approved 2026-08-02. A school with no highlights is
+   * a card that cannot say why the school is worth the trip, which is the whole
+   * point of the section — so this fails rather than degrading quietly, the way
+   * the A-6 expert titles degraded for two days.
+   */
+  it('gives every school its levels and at least one aspecto destacado (pack §5b)', () => {
+    expect(COHORT_SCHOOLS).toHaveLength(7);
+    for (const school of COHORT_SCHOOLS) {
+      expect(school.levels.trim(), `${school.name} has no levels`).not.toBe('');
+      expect(school.highlights.length, `${school.name} has no highlights`).toBeGreaterThan(0);
+      for (const highlight of school.highlights) {
+        expect(highlight.trim(), `${school.name} has an empty highlight`).not.toBe('');
+      }
+      // Repeated copy inside one card reads as a rendering bug, not as emphasis.
+      expect(new Set(school.highlights).size).toBe(school.highlights.length);
+    }
+  });
+
+  it('carries the levels the owner confirmed for El Puig and Les Vinyes', () => {
+    // These two were the pack's open question until the 2026-08-02 brochure; the
+    // answer is pinned so a future edit has to argue with the owner, not with a
+    // silent default.
+    for (const name of ['Institut Escola El Puig', 'Institut Escola Les Vinyes']) {
+      const school = COHORT_SCHOOLS.find((candidate) => candidate.name === name);
+      expect(school?.levels).toBe('Infantil, primaria y ESO');
+    }
+    const virolai = COHORT_SCHOOLS.find((school) => school.name === 'Escola Virolai');
+    expect(virolai?.levels).toBe('Infantil, primaria, ESO y Bachillerato');
+    const angeleta = COHORT_SCHOOLS.find(
+      (school) => school.name === 'Institut Angeleta Ferrer'
+    );
+    expect(angeleta?.levels).toBe('ESO');
+  });
+
+  it('keeps the pack §5b highlights verbatim for one school of each tier', () => {
+    const sadako = COHORT_SCHOOLS.find((school) => school.name === 'Escola Sadako');
+    expect(sadako?.highlights).toEqual([
+      'Organización y espacios',
+      'Evaluación formativa, portfolios',
+      'Secuenciación y co-docencia',
+      'Organización y participación estudiantil',
+    ]);
+    const vinyes = COHORT_SCHOOLS.find(
+      (school) => school.name === 'Institut Escola Les Vinyes'
+    );
+    expect(vinyes?.highlights).toEqual([
+      'Trabajo interdisciplinario',
+      'Aprendizaje Basado en Proyectos',
+      'Autonomía del estudiante',
+      'Coherencia escolar',
+      'Codocencia',
+    ]);
+  });
 });
 
 describe('public cohort module — people and claims (Appendix A-6/A-9)', () => {
@@ -287,6 +342,44 @@ describe('public cohort module — people and claims (Appendix A-6/A-9)', () => 
     expect(sandra?.role).toBe('Encargada de Innovación');
     expect(sandra?.role).not.toMatch(/directora/i);
     expect(sandra?.school).toBe('Escola Virolai');
+  });
+
+  /**
+   * THE PROPAGATION GUARD. The 2026-08-02 A-6 amendment reached the Appendix and
+   * never reached this module, so Boris Mir, Sergi del Moral, Pepe Menéndez and
+   * Joan Quintana rendered as the placeholder "Experto invitado" on the live
+   * page — a landing page introducing four people by no title at all. Nothing
+   * failed, because nothing was looking. This is what looks.
+   */
+  it('has no placeholder or empty role left on any expert (Appendix A-6)', () => {
+    for (const expert of COHORT_EXPERTS) {
+      expect(expert.role.trim(), `${expert.name} has an empty role`).not.toBe('');
+      expect(expert.role, `${expert.name} still carries the placeholder role`).not.toMatch(
+        /experto invitado/i
+      );
+    }
+  });
+
+  it('carries the 2026-08-02 A-6 titles verbatim for the four that were placeholders', () => {
+    const roleOf = (name: string) =>
+      COHORT_EXPERTS.find((expert) => expert.name === name);
+
+    expect(roleOf('Boris Mir')?.role).toBe(
+      'Ex-director adjunto, Institut Angeleta Ferrer y Escola Nova 21; fundador del Institut Angeleta Ferrer'
+    );
+    expect(roleOf('Sergi del Moral')?.role).toBe('Director');
+    expect(roleOf('Sergi del Moral')?.school).toBe('Institut Escola Les Vinyes');
+    expect(roleOf('Pepe Menéndez')?.role).toBe('Consultor en transformación pedagógica');
+    expect(roleOf('Joan Quintana')?.role).toBe(
+      'Consultor en procesos de cambio, co-autor de «Educación Relacional»'
+    );
+  });
+
+  it('names the two week-1 hosts as hosts (Appendix A-6)', () => {
+    const hosts = COHORT_EXPERTS.filter((expert) => expert.note);
+    expect(hosts.map((expert) => expert.name)).toEqual(['Jordi Musons', 'Sandra Entrena']);
+    expect(hosts[0].note).toBe('Anfitrión semana 1');
+    expect(hosts[1].note).toBe('Anfitriona semana 1');
   });
 
   it('drops the retired "10 días" claim', () => {

@@ -136,3 +136,73 @@ change when it lands** — it renders whatever the module holds.
 - The page is still orphaned: nothing links to `/pasantias` yet (A7a).
 - `npm run lint:testid` not run (advisory); every interactive element on the page
   carries a `data-testid`.
+
+---
+
+# Round r2 — data propagation (prompt `a6a-2.md`)
+
+**Commits:** 2 — r1's page, plus this round's module propagation + guards
+**Scope of this round:** close r1's own finding (the A-6 expert titles that never
+reached `cohort-public.ts`) and r1's should-fix (school *aspectos destacados* not
+exported), then make both un-droppable with tests.
+
+## What changed
+
+| File | Change |
+|---|---|
+| `lib/pasantias/cohort-public.ts` | Four placeholder expert roles replaced with the Appendix A-6 wording; `note` added for the two week-1 hosts; `levels` + `highlights` added to `CohortSchool` as **required** fields and filled for all seven schools from content-pack §5b. |
+| `pages/pasantias.tsx` | New `SchoolDetail` sub-component renders levels + highlights on every school card; expert cards render the host marker; escuelas section stacked by tier instead of two columns. |
+| `lib/pasantias/cohort-commercial.ts` | `BROCHURE_VERSION` `2026-10-v3` → `2026-10-v4` (D-05 cache key; the brochure prints all eight roles). |
+| `__tests__/lib/pasantias-cohort.test.ts` | +5 tests: the placeholder/empty-role guard, the four corrected titles verbatim, the host markers, every-school-has-levels-and-a-highlight, and two verbatim §5b pins. |
+| `lib/pasantias/__tests__/pdf.test.ts` | +2 tests: neither PDF's text layer may contain `Experto invitado`; the brochure must print the three corrected role strings. |
+| `tests/e2e/pasantias-page.spec.ts` | The equipo section must not contain the placeholder and must contain one real title as a **literal**; every school card must show its levels and first highlight; `Metaprendizaje` pinned. |
+| `docs/plan/evidence/a3/brochure-07.png`, `brochure-10.png` | Re-rendered — the only two of the twelve pages that changed. |
+| `docs/plan/evidence/a6a/` | New: page screenshots at 1280 and 390 px + README. |
+
+## Guards demonstrated failing
+
+Reverting Pepe Menéndez to `Experto invitado` and emptying one school's
+`highlights` fails **5 tests** — the module guard names the person
+(`Pepe Menéndez still carries the placeholder role`), the school guard names the
+school (`Escola Sadako has no highlights`), and the brochure text-layer guard
+fires on the rendered PDF. Rebuilt and re-run, the e2e also fails with the
+placeholder visible in the received string. Restored: 4216/4216 and 4/4 green.
+
+## Scrutinise these hardest
+
+1. **`levels` / `highlights` are required, not optional.** That is the actual
+   guard — the runtime test is a backstop for data that is present but empty. It
+   means every future school must arrive with pack-approved copy or fail
+   `type-check`. Deliberate; say so if it is too strict.
+2. **Boris Mir lost his `school` field.** A-6's wording for him names Institut
+   Angeleta Ferrer twice inside the role string, so keeping `school` would print
+   it a third time. The alternative — a shorter role plus the school field —
+   would not be the Appendix's wording.
+3. **Initial capitals on two roles.** A-6 writes "consultor en transformación
+   pedagógica" mid-sentence inside a table cell; the card renders it as a
+   standalone line, so it ships as "Consultor …". This is the same mechanical
+   rule already documented on `COHORT_INCLUDES`, and the only edit made to any
+   A-6 string.
+4. **`FICHA_VERSION` deliberately not bumped.** The ficha features only the first
+   four experts, none of whose roles changed, and it does not render `note`. Its
+   extracted text is byte-identical before and after (diffed, not assumed), so
+   bumping would invalidate a valid cached PDF for nothing.
+5. **The escuelas layout change.** Not in the prompt. With levels + highlights on
+   each card, the 2-vs-5 column split left ~800 px of empty column on desktop;
+   the section is now stacked by tier. Data, testids and copy are unchanged.
+
+## Known limitations / deferred (r2)
+
+- **A-6 also carries "INSPIRA" on the first two roles** ("Directora del programa
+  INSPIRA", "Coordinadora INSPIRA") where the module says "Directora del
+  programa" / "Coordinadora". The prompt marks both as already correct, so they
+  were left alone — flagged rather than silently changed. One word each if the
+  owner wants them.
+- Content-pack §6 lists Boris Mir as plain "Institut Angeleta Ferrer" and both
+  consultants as "Conferencista INSPIRA", which contradicts Appendix A-6.
+  Appendix A-6 is the normative source (and the prompt pins it), so §6 is now
+  stale; PM-owned.
+- School highlights are **not** rendered into the brochure or ficha — out of this
+  round's scope, and neither document has a per-school block to hold them.
+- The page is still orphaned until A7a; `#programa` is still the interim mailto
+  panel until A6b.

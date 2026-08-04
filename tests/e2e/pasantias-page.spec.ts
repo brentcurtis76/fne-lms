@@ -71,6 +71,27 @@ test.describe('pasantías landing page', () => {
       await expect(card).toContainText(expert.role);
     }
 
+    // A6a r1 shipped four experts titled "Experto invitado" because the module
+    // had never absorbed the 2026-08-02 A-6 amendment. Reading the roles from
+    // the module (above) cannot catch that — the page and the expectation are
+    // wrong together. So the placeholder is named here as a prohibition, and one
+    // real title is pinned as a literal.
+    const equipo = page.getByTestId('pasantias-equipo');
+    await expect(equipo).not.toContainText('Experto invitado');
+    await expect(equipo).toContainText('Consultor en transformación pedagógica');
+
+    // Every school card says what the school is known for (pack §5b) and which
+    // levels it teaches — the reason the section is more than a list of names.
+    for (const school of COHORT_SCHOOLS) {
+      const card = page
+        .getByTestId('pasantias-escuelas')
+        .locator('li', { has: page.getByText(school.name, { exact: true }) })
+        .first();
+      await expect(card).toContainText(school.levels);
+      await expect(card).toContainText(school.highlights[0]);
+    }
+    await expect(page.getByTestId('pasantias-escuelas')).toContainText('Metaprendizaje');
+
     // All thirteen objectives, verbatim.
     await expect(page.getByTestId('pasantias-objetivos').locator('li')).toHaveCount(
       COHORT_OBJECTIVES.length

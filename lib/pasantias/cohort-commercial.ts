@@ -92,8 +92,12 @@ export const COHORT_PRICE_VALIDITY = `Precios vigentes para la cohorte ${COHORT_
  * v3: the 2026-08-02 repricing (€2.500) and the replaced includes/excludes.
  * Both are brochure copy, so leaving the key at v2 is exactly the case this
  * comment exists for — A4 would keep serving a cached €1.000 brochure.
+ *
+ * v4: the Appendix A-6 expert titles finally propagated into `cohort-public.ts`
+ * (2026-08-04). The brochure prints all eight roles, so a cached v3 PDF would
+ * keep handing readers four people titled "Experto invitado".
  */
-export const BROCHURE_VERSION = '2026-10-v3';
+export const BROCHURE_VERSION = '2026-10-v4';
 
 /** Download filename. ASCII only, so the RFC 5987 header in A4 stays simple. */
 export const BROCHURE_FILENAME = `Pasantias-INSPIRA-Barcelona-${COHORT_ID}-${BROCHURE_VERSION}.pdf`;

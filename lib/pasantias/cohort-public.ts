@@ -103,28 +103,121 @@ export interface CohortSchool {
   /** School name as it is written on its own materials. */
   name: string;
   tier: CohortSchoolTier;
+  /**
+   * Levels the school teaches, es-CL — content pack §5b, verbatim. Required, so
+   * a school cannot be added to this module without them.
+   */
+  levels: string;
+  /**
+   * The owner-approved *aspectos destacados* — what this school is known for and
+   * therefore why it is worth the trip (content pack §5b, verbatim, in the
+   * pack's order). Required for the same reason as {@link CohortSchool.levels}:
+   * the type is the guard against the next school shipping without them.
+   */
+  highlights: readonly string[];
   /** Days each pasante spends there — immersion tier only. */
   immersionDays?: number;
   /** True when the visit takes a whole day because the school is outside Barcelona. */
   fullDay?: boolean;
 }
 
-/** Appendix A-5, week 1: 2,5 días en cada una, por pasante. */
+/**
+ * Appendix A-5, week 1: 2,5 días en cada una, por pasante. Levels and highlights
+ * are content pack §5b, owner-approved 2026-08-02.
+ */
 export const COHORT_IMMERSION_SCHOOLS: readonly CohortSchool[] = [
-  { name: 'Escola Virolai', tier: 'inmersion', immersionDays: 2.5 },
-  { name: 'Escola Sadako', tier: 'inmersion', immersionDays: 2.5 },
+  {
+    name: 'Escola Virolai',
+    tier: 'inmersion',
+    immersionDays: 2.5,
+    levels: 'Infantil, primaria, ESO y Bachillerato',
+    highlights: [
+      'Organización y espacios',
+      'Evaluación formativa, portfolios',
+      'Personalización y plan personal',
+      'Gestión del equipo docente',
+    ],
+  },
+  {
+    name: 'Escola Sadako',
+    tier: 'inmersion',
+    immersionDays: 2.5,
+    levels: 'Infantil, primaria y ESO',
+    highlights: [
+      'Organización y espacios',
+      'Evaluación formativa, portfolios',
+      'Secuenciación y co-docencia',
+      'Organización y participación estudiantil',
+    ],
+  },
 ] as const;
 
 /**
  * Appendix A-5, week 2: one or two per day, order flexible. El Puig and Les
- * Vinyes are outside Barcelona and take the whole day.
+ * Vinyes are outside Barcelona and take the whole day. Levels and highlights are
+ * content pack §5b — El Puig's and Les Vinyes' came from the canonical brochure
+ * the owner approved on 2026-08-02, which is also where their levels (infantil,
+ * primaria y ESO) were confirmed.
  */
 export const COHORT_VISIT_SCHOOLS: readonly CohortSchool[] = [
-  { name: 'Institut Escola El Puig', tier: 'visita', fullDay: true },
-  { name: 'Escola La Maquinista', tier: 'visita' },
-  { name: 'Escola Octavio Paz', tier: 'visita' },
-  { name: 'Institut Angeleta Ferrer', tier: 'visita' },
-  { name: 'Institut Escola Les Vinyes', tier: 'visita', fullDay: true },
+  {
+    name: 'Institut Escola El Puig',
+    tier: 'visita',
+    fullDay: true,
+    levels: 'Infantil, primaria y ESO',
+    highlights: [
+      'Incorporación de la naturaleza y el arte',
+      'Gobierno estudiantil',
+      'Trabajo de estudiantes internivel',
+      'Metaprendizaje',
+    ],
+  },
+  {
+    name: 'Escola La Maquinista',
+    tier: 'visita',
+    levels: 'Infantil y primaria',
+    highlights: [
+      'Organización y espacios',
+      'Evaluación formativa, rúbricas y autoevaluación',
+      'Cajas de aprendizaje',
+      'Organización participativa de los alumnos',
+    ],
+  },
+  {
+    name: 'Escola Octavio Paz',
+    tier: 'visita',
+    levels: 'Infantil y primaria',
+    highlights: [
+      'Organización y espacios',
+      'Evaluación formativa, diarios de aprendizaje',
+      'Proyecto anual temático y cajas de aprendizaje',
+      'Trabajo por comunidades de alumnos',
+    ],
+  },
+  {
+    name: 'Institut Angeleta Ferrer',
+    tier: 'visita',
+    levels: 'ESO',
+    highlights: [
+      'Organización y espacios',
+      'Evaluación formativa, portfolios',
+      'Autonomía del alumnado',
+      'Vinculación de la escuela con la comunidad',
+    ],
+  },
+  {
+    name: 'Institut Escola Les Vinyes',
+    tier: 'visita',
+    fullDay: true,
+    levels: 'Infantil, primaria y ESO',
+    highlights: [
+      'Trabajo interdisciplinario',
+      'Aprendizaje Basado en Proyectos',
+      'Autonomía del estudiante',
+      'Coherencia escolar',
+      'Codocencia',
+    ],
+  },
 ] as const;
 
 /** Appendix A-5 / A-9 — 7 escuelas en total (2 de inmersión + 5 de visita). */
@@ -139,29 +232,53 @@ export interface CohortExpert {
   role: string;
   /** School the expert is associated with, when the brief names one. */
   school?: string;
+  /** Extra standing the Appendix names, e.g. hosting one of the two weeks. */
+  note?: string;
 }
 
 /**
- * Appendix A-6. Jordi Musons and Sandra Entrena host the week-1 immersion and
- * run many of its sessions inside their own schools.
+ * Appendix A-6, whose canonical source is the brochure the owner reviewed on
+ * 2026-08-02. Jordi Musons and Sandra Entrena host the week-1 immersion and run
+ * many of its sessions inside their own schools.
+ *
+ * The four roles below `Sandra Entrena` were the placeholder `Experto invitado`
+ * until 2026-08-04: the 2026-08-02 amendment reached the Appendix and never
+ * reached this module, so the page rendered four people with no title. They now
+ * carry the Appendix's own wording, transcribed under the same rule as
+ * {@link COHORT_INCLUDES} — the Appendix writes the roles mid-sentence inside a
+ * table cell, so the **only** edit is the initial capital a standalone line
+ * needs. `__tests__/lib/pasantias-cohort.test.ts` fails on any placeholder or
+ * empty role, so the next amendment cannot silently not-land the same way.
  */
 export const COHORT_EXPERTS: readonly CohortExpert[] = [
   { name: 'Coral Regí', role: 'Directora del programa' },
   { name: 'Mora del Fresno', role: 'Coordinadora' },
-  { name: 'Jordi Musons', role: 'Director', school: 'Escola Sadako' },
+  {
+    name: 'Jordi Musons',
+    role: 'Director',
+    school: 'Escola Sadako',
+    note: 'Anfitrión semana 1',
+  },
   {
     name: 'Sandra Entrena',
     role: 'Encargada de Innovación',
     school: 'Escola Virolai',
+    note: 'Anfitriona semana 1',
   },
-  { name: 'Boris Mir', role: 'Experto invitado', school: 'Institut Angeleta Ferrer' },
+  {
+    name: 'Boris Mir',
+    role: 'Ex-director adjunto, Institut Angeleta Ferrer y Escola Nova 21; fundador del Institut Angeleta Ferrer',
+  },
   {
     name: 'Sergi del Moral',
-    role: 'Experto invitado',
+    role: 'Director',
     school: 'Institut Escola Les Vinyes',
   },
-  { name: 'Pepe Menéndez', role: 'Experto invitado' },
-  { name: 'Joan Quintana', role: 'Experto invitado' },
+  { name: 'Pepe Menéndez', role: 'Consultor en transformación pedagógica' },
+  {
+    name: 'Joan Quintana',
+    role: 'Consultor en procesos de cambio, co-autor de «Educación Relacional»',
+  },
 ] as const;
 
 /** Appendix A-9 — the claims the owner confirmed as correct. */

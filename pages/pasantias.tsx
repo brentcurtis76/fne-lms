@@ -16,6 +16,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import Footer from '../components/Footer';
 import { getAppBaseUrl } from '../lib/utils/app-url';
+import type { CohortSchool } from '../lib/pasantias/cohort-public';
 import {
   COHORT_CLAIMS,
   COHORT_DAY_STRUCTURE,
@@ -134,6 +135,38 @@ const CARD = 'rounded-2xl border border-gray-200 bg-white p-6 sm:p-8';
 interface FaqItem {
   question: string;
   answer: React.ReactNode;
+}
+
+/**
+ * The levels a school teaches and the owner-approved *aspectos destacados* — the
+ * part of a school card that answers "why do I care about this one". Both come
+ * from `cohort-public.ts`, where the type makes them mandatory, so a school
+ * cannot reach this component without them.
+ */
+function SchoolDetail({ school }: { school: CohortSchool }) {
+  return (
+    <>
+      <p
+        className="mt-3 text-[13px] font-semibold uppercase tracking-[.08em] text-brand_gray_medium"
+        data-testid="pasantias-school-levels"
+      >
+        {school.levels}
+      </p>
+      <ul className="mt-3 space-y-1.5" data-testid="pasantias-school-highlights">
+        {school.highlights.map((highlight) => (
+          <li
+            key={highlight}
+            className="flex gap-2 text-[15px] leading-[1.5] text-brand_gray_dark"
+          >
+            <span aria-hidden="true" className="text-brand_accent_hover">
+              ·
+            </span>
+            {highlight}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
 }
 
 export default function PasantiasPage({
@@ -533,15 +566,21 @@ export default function PasantiasPage({
           </h2>
           <p className="mt-5 max-w-[720px] text-[17px] leading-[1.65] text-brand_gray_dark">
             Dos escuelas te reciben la semana completa. Cinco más abren sus puertas en la segunda
-            semana.
+            semana. Cada una es conocida por algo distinto — eso es lo que hace que el recorrido
+            sume en vez de repetirse.
           </p>
 
-          <div className="mt-10 grid gap-10 lg:grid-cols-2">
+          {/*
+            Stacked by tier rather than side by side: the two tiers hold two and
+            five schools, so a pair of columns leaves most of the immersion
+            column empty once each card carries its levels and highlights.
+          */}
+          <div className="mt-10 space-y-12">
             <div>
               <h3 className="text-[13px] font-semibold uppercase tracking-[.12em] text-brand_gray_medium">
                 Escuelas de inmersión
               </h3>
-              <ul className="mt-4 space-y-3">
+              <ul className="mt-4 grid gap-4 sm:grid-cols-2">
                 {COHORT_IMMERSION_SCHOOLS.map((school, index) => (
                   <li
                     key={school.name}
@@ -552,6 +591,7 @@ export default function PasantiasPage({
                     <p className="mt-1 text-[15px] text-brand_gray_medium">
                       {formatDays(school.immersionDays ?? 0)} días de inmersión por pasante
                     </p>
+                    <SchoolDetail school={school} />
                   </li>
                 ))}
               </ul>
@@ -561,7 +601,7 @@ export default function PasantiasPage({
               <h3 className="text-[13px] font-semibold uppercase tracking-[.12em] text-brand_gray_medium">
                 Escuelas de visita
               </h3>
-              <ul className="mt-4 space-y-3">
+              <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {COHORT_VISIT_SCHOOLS.map((school, index) => (
                   <li
                     key={school.name}
@@ -574,6 +614,7 @@ export default function PasantiasPage({
                         ? 'Día completo — fuera de Barcelona'
                         : 'Visita de media jornada'}
                     </p>
+                    <SchoolDetail school={school} />
                   </li>
                 ))}
               </ul>
@@ -603,6 +644,11 @@ export default function PasantiasPage({
                   <p className="mt-2 text-[15px] leading-[1.5] text-brand_gray_dark">{expert.role}</p>
                   {expert.school && (
                     <p className="mt-1 text-[14px] text-brand_gray_medium">{expert.school}</p>
+                  )}
+                  {expert.note && (
+                    <p className="mt-2 text-[13px] font-semibold uppercase tracking-[.08em] text-brand_accent_hover">
+                      {expert.note}
+                    </p>
                   )}
                 </li>
               ))}

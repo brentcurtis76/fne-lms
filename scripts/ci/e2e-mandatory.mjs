@@ -23,6 +23,10 @@ export const MANDATORY_SPECS = [
   'tests/e2e/zoom-join-authz.spec.ts',
   'tests/e2e/session-disclosure.spec.ts',
   'tests/e2e/session-ical.spec.ts',
+  // Z1c-4 — proves ZOOM_MODE=mock actually holds: a registered job driven through the
+  // running server on the fake adapter, with negative controls showing the proof fails
+  // without it and that neither failure path can emit an outbound Zoom request.
+  'tests/e2e/zoom-mock-mode.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

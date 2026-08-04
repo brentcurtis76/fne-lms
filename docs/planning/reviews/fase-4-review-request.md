@@ -950,3 +950,264 @@ Supabase client in this build resolves to it.
    pgTAP assertion over `pg_constraint` (or a lint rule over `.select()` strings) would bind
    the schema fact to the code instead of leaving it in a comment and a regex. Out of scope
    here; cheap later.
+
+---
+
+# Z1c-4 — Sol remediation: the existence oracle, and ZOOM_MODE proven
+
+## 32. Commit map (Z1c-4)
+
+Base `df13192`, plus a docs-only merge of `origin/main` (`f602c84`) taken at the start of the
+round — five doc files, no code, no conflict.
+
+| commit | what |
+|---|---|
+| `eb32e3e` | merge `origin/main` (docs only: LEDGER/PLAN/prompts/zoom plan) |
+| `98ea665` | **fix** — close the session existence oracle on the five GETs |
+| `e0448e1` | **test** — prove the five denials are byte-identical |
+| `7d8db0f` | **test** — prove `ZOOM_MODE=mock`, through the running server |
+| _this_ | docs — this section |
+
+## 33. The oracle — what changed, and exactly where
+
+The PM's earlier ruling put this out of scope; the independent review overturned it and the
+owner directed the fix. It is now in.
+
+New shared helper `lib/utils/session-not-found.ts` exports `sendSessionNotFound(res)`, wrapping
+`sendAuthError(res, 'Sesión no encontrada', 404)`. Both the absent-row path and the
+`canViewSession()`-false path call **the same helper**, following the interstitial's
+single-`NOT_FOUND`-constant pattern (`session-meet-access.ts:39`). They are not two responses
+that happen to match today; they are one call site's worth of behaviour reached from two places.
+
+| file | absent (was 404) | forbidden (was 403) |
+|---|---|---|
+| `pages/api/sessions/[id]/index.ts` | `:81` | `:114` |
+| `pages/api/sessions/[id]/reports.ts` | `:67` | `:105` |
+| `pages/api/sessions/[id]/materials.ts` | `:94` | `:132` |
+| `pages/api/sessions/[id]/attendees.ts` | `:79` | `:116` |
+| `pages/api/sessions/[id]/ical.ts` | `:51` | `:96` |
+
+Byte-identical is literal: `sendAuthError` emits `{ error: message }` and appends `details` only
+in development, and no denial passes `details`. Same status, same body, and — because both go
+through one helper — the same `[API Auth] Error 404:` log line, so the oracle is absent from the
+logs too.
+
+**Scope boundaries held.** The PUT/POST handlers in these files keep their own 403s
+(`index.ts:236` `'No tiene permisos para editar esta sesión'`, `reports.ts:199`,
+`materials.ts:249`, `attendees.ts:219`) — untouched, and correctly so: they answer "may you
+edit", a question only asked of a caller who already passed a view check, so they disclose
+nothing new. `403 'Usuario sin roles asignados'` is likewise untouched at all seven of its sites:
+it is returned identically for every session id, so it describes the caller, not any session.
+
+## 34. Frontend consumers — the mandatory check
+
+Swept every non-API caller of the five endpoints, then swept `pages/`, `components/`, `hooks/`
+and `contexts/` for `status === 403` / `=== 404` generally.
+
+| consumer | endpoint | branches on 403 vs 404? |
+|---|---|---|
+| `pages/consultor/sessions/[id].tsx:162,167` | detail GET | **YES** — `setFetchError('forbidden' \| 'not_found')` |
+| `pages/admin/sessions/[id].tsx:211` | detail GET | No — `!response.ok` → one generic toast |
+| `pages/consultor/sessions/[id].tsx:328` | attendees | No — **PUT**, not a GET |
+| `pages/consultor/sessions/[id].tsx:443` | materials | No — **POST**, not a GET |
+| `pages/admin/sessions/[id].tsx:770`, `pages/consultor/sessions/[id].tsx:1277` | ical | No — `href=` browser navigation, no JS branch |
+| `pages/quiz-reviews/[id].tsx:51,57` | — | Different endpoint, unaffected |
+| `pages/admin/upcoming-courses/index.tsx:44` | — | Different endpoint; treats 401/403 alike |
+
+**One real product change, and it is the intended one.** A user denied a specific session on
+`/consultor/sessions/[id]` previously saw *"Acceso denegado — No tiene permisos para ver esta
+sesión."* and now sees *"Sesión no encontrada — La sesión solicitada no existe o fue
+eliminada."* (`[id].tsx:1186-1208`). That is the point of the change: the UI must not distinguish
+either, or the oracle simply moves from the status code to the screen.
+
+**Nothing breaks, and the `forbidden` branch is not dead.** It stays reachable through
+`403 'Usuario sin roles asignados'`, which this round deliberately left alone — so it now fires
+exactly for the denial that reveals nothing about a particular session, which is the correct
+residual meaning. No frontend edit was needed; none was made.
+
+## 35. A sixth endpoint has the same oracle — reported, not fixed
+
+`pages/api/sessions/[id]/reports/[rid].ts` (GET) answers `404 'Sesión no encontrada'` at `:70`
+and `404 'Informe no encontrado'` at `:82`, but `403 'Acceso denegado a esta sesión'` at `:120`
+and `403 'Acceso denegado a este informe'` at `:126`. That is the identical defect class on a
+sixth consumer, and it additionally leaks *report* existence.
+
+It is **not in the five-file table**, and the prompt said not to widen silently. So it is
+untouched and flagged here instead. `__tests__/api/sessions/report-detail-disclosure.test.ts:296,336`
+still assert the old 403s and still pass. Recommended for a follow-up round; the fix is
+mechanical now that the helper exists.
+
+## 36. Unit assertions that encoded the old oracle
+
+Eight, all failing with `expected 404 to be 403` — every one a denial test, none failing for an
+unrelated reason. Updated to assert the shared denial (status **and** body, not just the number):
+
+- `session-detail-disclosure.test.ts` ×4, plus the pre-existing absent-session test gains a body
+  assertion; its title `'returns 404 (not 403) when the session does not exist'` was renamed,
+  because the "(not 403)" contrast it drew no longer exists.
+- `ical-attendee-disclosure.test.ts` ×2. Its third 403 (`:315`, the **series** iCal endpoint) is
+  not one of the five and did not fail — left alone.
+- `materials.test.ts` ×1, `reports.test.ts` ×1. Both were titled `'should return 403 on GET if
+  user has no access'`; renamed, since a test name that states the wrong contract is worse than
+  no name.
+
+## 37. `ZOOM_MODE=mock` — the proof, and why the negative controls are safe
+
+`tests/e2e/zoom-mock-mode.spec.ts` (new, mandatory). Drives a **registered** job through the
+**running server**: `zoom-reconcile` enqueues `host_sync:<UTC hour>`, `zoom-ticker` claims and
+runs it through `runZoomTick`. Real queue table, real handler, real routes, real cron auth.
+
+`CRON_SECRET` added to the `ci.yml` heredoc (synthetic value; the stack dies with the runner).
+The cron routes fail closed without it. The heredoc's stale comment claiming `ZOOM_MODE` is
+"protective and currently unexercised" is corrected in the same commit rather than left to
+mislead the next reader.
+
+**Why `done` proves the fake ran.** The ticker answers 200 for an empty queue, so the assertion
+is the job row reaching terminal `done` with a null `last_error`, plus the tick counters. What
+makes that conclusive is the negative space: no `ZOOM_S2S_*` credentials exist in this
+environment (asserted by the spec, and confirmed independently — `env | grep -c '^ZOOM_S2S_'`
+→ `0`), so the live adapter could not have produced a success. `done` is reachable only through
+`createZoomFake()`.
+
+**Why an empty host inventory is the right fixture.** `host-sync.ts:216` refuses to act on an
+empty snapshot while active hosts exist — deactivating a whole inventory on one bad response is
+exactly the accident that guard prevents. With `zoom_hosts` empty (the seeded state), the fake's
+empty page is a legitimate completion instead of a refusal.
+
+**Negative controls — both structurally unable to reach the network.**
+
+| control | mechanism | where it throws |
+|---|---|---|
+| **PRIMARY** `ZOOM_MODE=bogus` | `resolveZoomMode` (`api.ts:431-436`) rejects any value that is not `live`/`mock` | inside `getZoomApi`, **before** `createLiveZoomApi()` is constructed — no client, no token provider, no socket |
+| **SECONDARY** `ZOOM_MODE=''` | treated as unset ⇒ resolves `live` ⇒ live adapter is built | **verified by reading the chain, not assumed**: `grantFromZoom()` calls `readCredentials(env)` at `token.ts:242`; the OAuth `fetchImpl(...)` is at `token.ts:248`. With no credentials, it throws at `:242` — six lines before anything is sent, while *building* the request |
+
+The secondary control uses `ZOOM_MODE=''` rather than deleting the key because `.env.local`
+declares `ZOOM_MODE=mock` and `@next/env` does not overwrite a key already present in the spawned
+process's environment — **verified empirically** (`ZOOM_MODE='' node -e "loadEnvConfig(...)"` →
+`before: "" / after: ""`). A deleted key would be refilled from the file and would silently
+re-run the positive case while looking like a control.
+
+Each control spawns a second `next start` on its own port with a doctored environment, so it
+exercises the same route, registry and handler as the positive proof rather than an analogue of
+it. Both assert the failure is **config-shaped** and explicitly *not* network- or auth-shaped
+(`ECONNREFUSED|ENOTFOUND|…|transport layer|fetch failed|rate limited|401|403|zoom.us`) — that is
+what separates "refused to run" from "tried and failed".
+
+**Verified independently of Playwright** (three servers, `curl`, `psql`; no `ZOOM_S2S_*` set):
+
+| `ZOOM_MODE` | tick counters | `zoom_internal.zoom_jobs` row |
+|---|---|---|
+| `mock` | `{"claimed":1,"completed":1,"failed":0}` | `host_sync \| done \| attempts 0 \| last_error NULL` |
+| `bogus` | `{"claimed":1,"completed":0,"failed":1}` | `failed` — `{"kind":"non_retryable","message":"ZOOM_MODE must be 'live' or 'mock'; received 'bogus'."}` |
+| `''` | `{"claimed":1,"completed":0,"failed":1}` | `failed` — `{"kind":"non_retryable","message":"Zoom S2S credentials missing: ZOOM_S2S_ACCOUNT_ID, ZOOM_S2S_CLIENT_ID, ZOOM_S2S_CLIENT_SECRET."}` |
+
+`ZoomConfigError extends ZoomNonRetryableError`, so both refusals land terminal `failed` rather
+than spinning against a variable no backoff can create.
+
+`webhook_sweep` (also enqueued by `planReconcileJobs`) is deleted before each tick: this spec
+makes claims about `host_sync`, and a proof should not depend on the health of a job it is not
+asserting anything about.
+
+## 38. Fail-on-old — the oracle spec, both directions
+
+Commit 1's five source files reverted to `df13192`, rebuilt, disclosure spec re-run:
+
+**6 failed / 17 passed** — exactly 3 denied personas × 2 tests (the tier-3 refusal test and the
+new comparison test). The positive controls still passed, correctly: they do not depend on the
+fix.
+
+```
+Error: detail: an inaccessible session answered consultorOtherSchool with a different status
+       than an absent one
+Expected: 404
+Received: 403
+```
+
+Restored, rebuilt: **23 passed**. `grep -c "Acceso denegado a esta sesión"` across all of
+`pages/api/sessions/[id]/*.ts` → `0`.
+
+## 39. Bite proofs re-run (A–D) and F1 fail-on-old re-run
+
+Three-family baseline is now **50 passed** (was 41 at Z1c-2; Z1c-3's F1 work took it to 45, and
+this round's +5 disclosure tests take it to 50). Each probe is an uncommitted edit to application
+source with its own production rebuild.
+
+| probe | neutered | Z1c-2 result | **Z1c-4 result** | families hit |
+|---|---|---|---|---|
+| A | `canViewSession` → `return true` | 13 failed / 28 passed | **16 failed / 34 passed** | join-authz 10, disclosure **6** |
+| B | `canViewParticipantEmails` → `return true` | 6 failed / 16 passed | **7 failed / 43 passed** | disclosure 5, iCal 2 |
+| C | `filterReportsByVisibility` bypassed | 3 failed / 11 passed | **3 failed / 47 passed** | disclosure 3 |
+| D | `[id]/ical.ts` ships `meeting_link` as `join_url` | 4 failed / 4 passed | **4 failed / 46 passed** | iCal 4 |
+
+Probe A's disclosure count rises 3 → 6: with `canViewSession` neutered, each denied persona now
+fails both the tier-3 refusal test and the new comparison test.
+
+**F1 fail-on-old re-run.** `attendees.ts` reverted to the ambiguous `profiles(` embed, rebuilt:
+**7 failed / 16 passed**, server log carrying `PGRST201 — Could not embed because more than one
+relationship was found for 'session_attendees' and 'profiles'`. Z1c-3 recorded 5 failures; the
+two additional ones are this round's positive control (`receives a real payload from all five
+consumers`, once per `REPORT_PRIVILEGED` persona), which turns out to defend F1 as well as the
+oracle fix. Restored, rebuilt, green.
+
+After all probes: `grep -rn "BITE PROBE" lib pages scripts tests` → nothing (exit 1),
+`git status --porcelain` empty, `git diff HEAD` on every probed file empty.
+
+## 40. Test evidence (Z1c-4) — every gate re-run at the final head
+
+| gate | result | baseline |
+|---|---|---|
+| `npm run type-check` | **exit 0** | — |
+| `npm run lint` | **exit 0**, zero warnings | — |
+| `npm test` | **exit 0** — **3994 passed in 253 files** | 3994/253 — **matched** |
+| `npm run build` | **exit 0** | — |
+| `npm run test:db` | **exit 0** — `Files=7, Tests=171`, `Result: PASS` | 171/7 — **matched** |
+| e2e (mandatory, `CI=true` ⇒ prod server) | **exit 0** — **67 passed** | 58 → **+9** |
+| `e2e-mandatory.mjs --check` | **exit 0** — `OK — 6 mandatory spec(s) ran with no skips` | 5 specs → **6** |
+
+**e2e delta accounted for: 58 → 67.** `session-disclosure.spec.ts` 18 → 23 (+5: one comparison
+test per denied persona ×3, plus one positive control per `REPORT_PRIVILEGED` persona ×2), and
+`zoom-mock-mode.spec.ts` contributes 4 (credential precondition, positive proof, two negative
+controls). 5 + 4 = 9.
+
+Unit count is unchanged at 3994 because this round edited assertions and two test titles, not the
+number of `it()` blocks.
+
+> Method note: `${PIPESTATUS[0]}` was NOT used. It silently yields nothing under zsh — it caught
+> both the previous executor and the PM in this phase, and it produced an empty `LINT_EXIT=` here
+> on first use before being replaced. Every exit code above comes from `$?` on an unpiped command
+> whose output was redirected to a file.
+
+## 41. Scrutiny areas — where I would attack this
+
+1. **The `forbidden` UI branch is now reachable only via the roleless 403.** I argue that is
+   correct and deliberate (§34). If Sol disagrees and wants that branch removed, or wants the
+   roleless case folded into the shared denial too, that is a real design call I did not make
+   unilaterally.
+2. **The sixth endpoint (§35) is knowingly left leaking.** I held the stated boundary rather than
+   widening. If the boundary was meant as "the five I found" rather than "exactly five", this is
+   the gap.
+3. **The negative controls spawn real servers from the spec.** That is heavier than the rest of
+   the suite and introduces ports 3101/3102 and a readiness poll. It is justified (§37) but it is
+   the most operationally fragile thing added this round — a port collision on a busy runner
+   would fail the gate.
+4. **`ABSENT_SESSION_ID` is a hardcoded UUID** guarded at module load against the fixture file.
+   The guard covers accidental collision with seeded data; it does not cover a session created
+   at runtime by some future spec.
+5. **The mock-mode proof depends on `zoom_hosts` being empty.** That is the seeded state today.
+   A future fixture that seeds an active host would flip `host_sync` from "completes on an empty
+   page" to "refuses" (`host-sync.ts:216`) and fail this spec — correctly, but confusingly. The
+   spec header says so; nothing enforces it.
+
+## 42. Not delivered / declared (Z1c-4)
+
+- **`pages/api/admin/networks/schools.ts` untouched**, per the round's hard scope rule. Tracked as
+  a separate hotfix on its own branch.
+- **No migration.** No schema change of any kind.
+- **The sixth endpoint (§35) is reported, not fixed.**
+- **The local stack WAS reset this round** — `supabase db reset` plus a re-seed, because the
+  shared stack had been wiped by a concurrent session before this round started (`sessions=0`,
+  `profiles=0`, `zoom_jobs=0` on first inspection). Declaring it explicitly because Z1c-3
+  declared the opposite: any other worktree's fixtures were already gone, and are now re-seeded.
+- **No `vercel` command, no deployment.** The PR is opened under this round's explicit
+  authorisation and nothing beyond it.
+- **Not merged.** `feat/e2e-tenant` pushed; PR left open for review.

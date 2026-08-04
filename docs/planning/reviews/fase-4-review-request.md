@@ -408,3 +408,204 @@ Z1c-2's matrix is for. Stated plainly so the PM does not read 7/7 green as cover
   that chunk.
 - **The zoom-domain rows are asserted by nothing yet.** Their existence is proven only by the
   seeder exiting 0 and the snapshot; no spec reads them until Z1c-2.
+
+---
+---
+
+# Z1c-2 — Authorization specs over the seeded tenant
+
+> Appended, not merged into the sections above: everything before this line describes Z1c-1 as
+> it was sealed at `88dc0f9` and is left as written. Where Z1c-2 supersedes a Z1c-1 statement,
+> it says so explicitly here.
+
+## 12. Commit map (Z1c-2)
+
+| SHA | Purpose |
+|---|---|
+| `2b18a8a` | Merge `origin/main` (docs-only; no conflicts) |
+| `812ee74` | Module-load completeness assertion for the fixture roster |
+| `97e787b` | `ZOOM_MODE=mock` into the e2e `.env.local` |
+| `6414c93` | Seeded tenant extended — linked session, both report visibilities, attendees |
+| `1459530` | `NEXT_PUBLIC_BASE_URL` into the e2e `.env.local` |
+| `5b452ca` | Join-authz persona matrix + shared tier helper + `apiContextFor` |
+| `763dfaa` | Disclosure regressions across the session GETs |
+| `34167cc` | iCal content — platform links, VTIMEZONE, gated ATTENDEE |
+
+## 13. What Z1c-2 supersedes from the sections above
+
+- **§11 "`ZOOM_MODE=mock` is not wired into `ci.yml`"** — now wired (`97e787b`). Declared as a
+  protective floor: no spec in this chunk reaches `getZoomApi`, which is reachable only through
+  `lib/zoom/jobs/{host-sync,meeting-provision}.ts` via the job registry behind
+  `pages/api/cron/zoom-{ticker,reconcile}.ts`. Verified by tracing call sites, not assumed.
+- **§11 "the zoom-domain rows are asserted by nothing yet"** — 41 tests now read them.
+- **§11 "no new testid"** — held. Zero `data-testid` added to application source in Z1c-2; the
+  disclosure and iCal families assert on API payloads and .ics bytes, which need none.
+- **§2 Q1** — ruled (a′) and ruled out of this chunk. No meeting rows seeded.
+
+## 14. The tier model is three-way, not two-way
+
+The chunk prompt's tier table put `consultorGlobal` in the same tier as `admin` for
+`facilitators_only` reports. The code does not:
+
+| rule | who | anchor |
+|---|---|---|
+| participant e-mails, raw `meeting_link` | admin ∪ facilitator ∪ scoped/global consultor | `session-disclosure.ts:52`, `:90` |
+| `facilitators_only` reports, transcript | admin ∪ facilitator **only** | `session-disclosure.ts:25` |
+
+`consultorGlobal` is the persona that makes the two observably different: full e-mail and
+raw-link privilege, and still no `facilitators_only` report. The first spec draft asserted the
+prompt's model and went red against the application — the application was right. The tiers now
+live in `tests/e2e/helpers/session-personas.ts`, which asserts at module load that they
+partition the fixture roster.
+
+## 15. Findings against application source (NOT fixed here)
+
+### F1 — `GET /api/sessions/[id]/attendees` returns 500 to every caller, always
+
+`pages/api/sessions/[id]/attendees.ts:118` selects `*, profiles(id, first_name, last_name, email)`.
+`session_attendees` has **two** foreign keys into `profiles` — `user_id` and `marked_by` — so
+PostgREST cannot resolve the embed and answers `PGRST201` before reading a row. The sibling
+endpoints disambiguate (`profiles:user_id(...)`); this one does not.
+
+- Reproduced against a session with **zero** attendee rows, so it is schema-level, not
+  fixture-dependent.
+- Pre-existing: the file is untouched by this branch, and its last change (`db58c15`,
+  2026-07-28) is an ancestor of the merge base `a1712f5`.
+- Out of scope to fix (Z1c does not modify application source), so the endpoint is deliberately
+  absent from the disclosure spec's `CONSUMERS` list, with the reason inlined there. Adding it
+  without the fix would encode a 500 as expected behaviour. Attendee redaction is asserted
+  through the detail GET instead.
+
+### F2 — `npm run lint` fails on git-ignored Playwright artifacts
+
+After any local e2e run, `playwright-report/trace/**` (minified vendor JS) is linted and produces
+77 `react-hooks/rules-of-hooks` errors. `.eslintrc.json` ignores `node_modules/`, `.next/` and
+`out/` but not `playwright-report/` or `test-results/`. Environment-only: CI's lint job never
+runs Playwright, so it never sees this. Lint exits 0 with the artifact directories absent. Not
+fixed here — `.eslintrc.json` is outside this chunk's hunk discipline.
+
+## 16. Spec inventory (Z1c-2)
+
+`tests/e2e/zoom-join-authz.spec.ts` — 19 tests
+
+| assertion | tier | defends |
+|---|---|---|
+| join link + correct `href` on the linked session | 1 & 2 (all viewers) | `pages/meet/session/[id].tsx:74` |
+| `meet-no-link` on the unlinked session | 1 & 2 | `pages/meet/session/[id].tsx:86` |
+| 404, not a 403 page, on both sessions | 3 | `pages/meet/session/[id].tsx:133-135` |
+| raw link absent from the denial body | 3 | `session-meet-access.ts:101-103` |
+| denial for a real session is byte-identical (UUIDs masked) to one for an absent id | 3 | `session-meet-access.ts:39` |
+| an attendee row is not view access | 3 (`docente`) | `session-policy.ts:114-118` |
+
+`tests/e2e/session-disclosure.spec.ts` — 14 tests
+
+| assertion | tier | defends |
+|---|---|---|
+| `has_meeting` + `join_path`, `meeting_link` key absent | 2 | `session-disclosure.ts:155,164-165` |
+| no seeded address anywhere in the payload | 2 | `session-disclosure.ts:52,196` |
+| `all_participants` only, `facilitators_only` id absent | 2 | `session-disclosure.ts:25,33-42` |
+| detail + reports agree (no drift between siblings) | 2 | module header |
+| attendee names survive, addresses do not | 2 | `session-disclosure.ts:177-186` |
+| raw link + e-mails present | 1 | `session-disclosure.ts:90` |
+| both report visibilities present | admin ∪ facilitator | `session-disclosure.ts:25` |
+| e-mails and link yes, `facilitators_only` no | `consultorGlobal` | `session-disclosure.ts:25` vs `:52` |
+| 403 on every consumer, no payload | 3 | `session-policy.ts:92-123` |
+
+`tests/e2e/session-ical.spec.ts` — 8 tests
+
+| assertion | tier | defends |
+|---|---|---|
+| `BEGIN:VTIMEZONE` + `America/Santiago` | all | `session-ical.ts:188-191` |
+| raw link and its host absent | all | `[id]/ical.ts:109-112` |
+| `ATTENDEE` + facilitator address present | 1 | `[id]/ical.ts:95-97` |
+| no `ATTENDEE`, no `MAILTO:`, no address; VEVENT + join URL still present | 2 | `session-ical.ts:222-232` |
+| batch export gated per row | 1 & 2 | `pages/api/sessions/ical.ts:182` |
+
+## 17. Bite proofs (Z1c-2)
+
+Uncommitted probes on application source, each with its own production rebuild. Baseline for the
+three families is **41 passed / 0 failed**.
+
+| probe | neutered | result | families hit |
+|---|---|---|---|
+| A | `canViewSession` → `return true` | **13 failed / 28 passed** | join-authz (10), disclosure (3) |
+| B | `canViewParticipantEmails` → `return true` | **6 failed / 16 passed** (of 22 run) | disclosure (4), iCal (2) |
+| C | `filterReportsByVisibility` filter bypassed | **3 failed / 11 passed** (of 14 run) | disclosure (3) |
+| D | `[id]/ical.ts` ships `meeting_link` as `join_url` | **4 failed / 4 passed** (of 8 run) | iCal (4) |
+
+Probe C is the one that proves the third tier bites: it fails
+`consultorGlobal … NOT facilitators_only` as well as the two `gcLeader` report tests.
+
+After restore: `grep -rn "BITE PROBE" lib pages scripts tests` returns nothing (exit 1),
+`git status --porcelain` is empty, and `git diff HEAD` on the three probed files is empty.
+
+## 18. Test evidence (Z1c-2)
+
+| gate | result |
+|---|---|
+| `npm run type-check` | exit 0 |
+| `npm run lint` | exit 0 (with git-ignored Playwright artifacts absent — see F2) |
+| `npm test` | **3992/3992 in 253 files** |
+| `npm run build` | exit 0 |
+| `npm run test:db` | **171/171 across 7 files**, from a from-scratch `supabase db reset` |
+| `CI=true npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **54/54**, 0 flaky |
+| `node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json` | exit 0 — 5 mandatory specs, no skips |
+
+Per-spec: `smoke` 2, `ci-fixture` 11, `zoom-join-authz` 19, `session-disclosure` 14,
+`session-ical` 8.
+
+### Completeness assertion — fail-on-old, both directions
+
+- **JSON → `FixtureKey`.** Injected `probeUndeclared` into `e2e-fixtures.json` alone.
+  `ci-fixture.spec.ts` went from **11 tests to a module-load error**: *persona roster is out of
+  sync — in scripts/ci/e2e-fixtures.json but not in DECLARED_FIXTURE_KEYS: probeUndeclared*.
+  Restored; back to 11.
+- **`FixtureKey` → JSON.** Added `probeUnseeded` to `DECLARED_FIXTURE_KEYS` alone. Same hard
+  error naming it, **and** `tsc` raised `TS2741` at `auth.ts:103`. Restored; back to 11 and
+  type-check exit 0.
+
+### Seeder double-run proof
+
+Against a from-scratch `supabase db reset`, seeded twice with a full row-level snapshot
+(`to_jsonb` over schools, profiles, user_roles, growth_communities, consultor_sessions,
+session_facilitators, session_attendees, session_reports, auth.users) taken after each run.
+
+- Run 1: 7 users **created**. Run 2: 7 users **reused**. Counts identical: 2 sessions,
+  2 facilitators, 3 attendees, 2 reports, 8 role rows, 7 users.
+- All `id` values identical between snapshots (diff exit 0). All `created_at` values identical
+  (diff exit 0) — no row was recreated.
+- Normalizing only `updated_at` and `encrypted_password`, the snapshots are **byte-identical**.
+  Those two differ by design: `consultor_sessions` and `session_reports` both carry a
+  `BEFORE UPDATE` trigger that an `ON CONFLICT DO UPDATE` fires unconditionally, and
+  `ensureAuthUser` deliberately re-asserts the password, which bcrypt re-salts.
+
+## 19. Scrutiny areas (Z1c-2)
+
+1. **The masked denial comparison.** UUIDs are masked before comparing the two 404 bodies,
+   because Next.js serialises the requested route into `__NEXT_DATA__`. That is necessary, but it
+   is also the assertion's weak point: a leak that happened to be UUID-shaped would be masked
+   away with it. I judged the alternative worse (an unmasked comparison is unfalsifiable).
+2. **The disclosure specs trust `403` as the denial signal.** The API returns 403 for
+   "exists but not yours" and 404 for "no such session" — an existence oracle at the API layer
+   that the interstitial deliberately does not have. Pre-existing app behaviour, not modified,
+   not asserted against. Worth a PM ruling on whether it should match the interstitial.
+3. **`NEXT_PUBLIC_BASE_URL` in CI is `http://localhost:3000`.** Correct for the gate, but it
+   means the .ics assertions only ever see that origin; a bug in `deploymentOrigin()` would not
+   surface here.
+4. **F1 shrank the consumer set.** The disclosure spec drives two endpoints, not three, because
+   the third is broken. If F1 is fixed, `/attendees` should be added back to `CONSUMERS`.
+5. **The tier helper is a second list to keep honest.** It asserts it partitions the roster, but
+   a persona put in the *wrong* tier would still partition cleanly and would then assert the
+   wrong access. Only the bite proofs catch that class of error.
+
+## 20. Not delivered / declared (Z1c-2)
+
+- **`supabase db reset` was run five times** against the shared local stack, destroying whatever
+  other worktrees had seeded. The stack is shared per project id (`sxlogxqzmarhqsblxmtj`) across
+  all `fne-*` worktrees and there is no CLI override for it. This cut both ways: a concurrent
+  worktree reset the stack out from under this session twice mid-proof, once wiping a completed
+  seed and once leaving a foreign migration (`20260803170000`, not in this branch) applied. Every
+  figure above was re-taken afterwards on a stack reset from this worktree.
+- **F1 and F2 are reported, not fixed.**
+- **No meeting rows, no `session_meetings_public`, no `lib/zoom/**` change, no migration, no
+  tsconfig/eslint change, no `data-testid` added to application source.**

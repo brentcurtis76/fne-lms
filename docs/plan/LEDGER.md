@@ -1014,3 +1014,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: (1) Grantability is asserted globally per table (`no ACL entry anywhere is grantable`) in addition to the per-role tuple pin, so the same widening applied to `service_role` or the owner also fails — proven by M-A4. (2) The mutation driver is committed as a script rather than narrated, so the runs are reproducible and the restore is machine-checked. (3) `email_normalized IS NOT NULL` and `email IS NOT NULL` are pinned by the two half-identified live shapes rather than declared redundant — see FINDINGS.
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: PM verification, then Sol round 2 (of max 2). Branch `phase/b3-email-db` pushed; no merge without Brent's explicit go. Post-merge owner step unchanged: the migration must be APPLIED to the production database.
+
+### 2026-08-03 — B3 round r2 — Fable (PM verification)
+- CONTEXT PRESSURE: n/a
+- ACTION: Verified: 335/335 after a clean reset (PM re-run), and `git diff` confirms **the migration was not touched** — exactly right, since both findings were proof gaps. **18 mutants, 18 killed**, driver committed as a script rather than narrated, capturing `pg_get_constraintdef()` + the full ACL up front and re-comparing after every restore. Two additions beyond the brief accepted and commended: a global per-table "no ACL entry is grantable, any grantee" assert (catches a widening applied to service_role or the owner, which per-role pins would miss — M-A4 proves the reach), and two extra mutants. **The round's best work is self-correction**: the executor's own comment claimed two live-arm mutants were unkillable, and the driver disproved it — a CHECK rejects only on FALSE, so a NULL result ADMITS the row, meaning dropping either `IS NOT NULL` guard would silently commit a half-identified contact; a 120-row census found the disagreeing shapes and two new cases now kill both. Also caught why M-C1 first survived: `unsubscribe_token` DEFAULTs to `gen_random_uuid()`, so an otherwise-empty row never reaches the `anonymized_at` clause. Process finding recorded and real: **the local Supabase stack is shared across worktrees** — a reset from a branch without this migration voided two driver runs mid-flight; the driver now records the applied migration head and aborts on drift, which detects but cannot prevent. Serialising DB-gate runs remains a rule without a mechanism.
+- COMMITS: (this ledger commit)
+- TESTS: 335/335 (PM re-run after reset)
+- FINDINGS RAISED: none
+- DECISIONS: extra asserts + local-DB mutation approach ratified
+- BACKLOG ADDED: shared local-stack serialisation has no enforcement mechanism (process risk)
+- OPEN AFTER THIS ROUND: **→ Sol round 2 (of 2), scoped closure.**

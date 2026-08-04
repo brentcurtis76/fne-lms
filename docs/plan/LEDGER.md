@@ -984,3 +984,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: CTA origin pinned (A4); A5 assumptions ratified; B3 assumptions ratified
 - BACKLOG ADDED: consent-evidence history question (A5)
 - OPEN AFTER THIS ROUND: dispatch A4 r2 + A5 r2; B3 → Sol now; merges on the owner's word.
+
+### 2026-08-03 — A4 r2 + A5 r2 verified; B3 r2 staged — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: A4 r2 (61/61) and A5 r2 (92/92) verified by PM re-run; both closed findings the executors themselves raised, and both made the judgment call I would have — A4's strict `VERCEL_ENV` gate with no `NODE_ENV` fallback (NODE_ENV reads "production" for previews and local builds, the very cases the gate exists to stop), and A5's drop-not-reject for an untrusted `sourcePath` no human types. Both → Sol. **B3 Sol FAIL ×2 accepted**: both are test-proof gaps, not schema defects — Sol mutated the schema and 313/313 stayed green. `prompts/b3-2.md` staged: ACL pins must compare `is_grantable` and assert no PUBLIC (grantee 0) entry exists; anonymization must pin every identity field individually, each mutation proven to turn the suite red. The prompt explicitly forbids silently repairing the migration if a mutation says it is actually wrong — that would be a FINDINGS outcome.
+- COMMITS: (this commit)
+- TESTS: as branch entries
+- FINDINGS RAISED: none new
+- DECISIONS: A4/A5 deviations + assumptions ratified
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch B3 r2; A4 + A5 → Sol; merges + B3's prod apply on the owner's word.

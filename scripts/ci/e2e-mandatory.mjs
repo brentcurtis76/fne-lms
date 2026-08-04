@@ -17,6 +17,7 @@ import { readFileSync } from 'node:fs';
 export const MANDATORY_SPECS = [
   'tests/e2e/smoke.spec.ts',
   'tests/e2e/ci-fixture.spec.ts',
+  'tests/e2e/pasantias-page.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

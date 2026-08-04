@@ -994,3 +994,33 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: A4/A5 deviations + assumptions ratified
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch B3 r2; A4 + A5 → Sol; merges + B3's prod apply on the owner's word.
+
+### 2026-08-03 — Misdispatch caught; shared checkout restored — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: `/exec INSPIRA B3 r2` was dispatched at a round that was already complete and PM-verified (0f9c048 + 2b85553) — B3's remaining step is a **Sol** review, not an executor round. The session did the right thing: located the state, confirmed the criteria were already met by an earlier commit, swept every branch for a b3-3 prompt, found none, and **stopped rather than re-running or improvising a scope**; it also declined to write a ledger entry for a round that did not happen. No cost beyond the session. It surfaced the cause: **the shared checkout was sitting on `phase/a5-lead-api` with a days-stale `docs/plan/` tree**, which made the completed round look pending — the same shared-checkout hazard that caused the branch-drift incident. Restored to `main` and pulled. Reinforces the standing rule: read plan state from `origin/main`, never from whatever a checkout happens to be on.
+- COMMITS: (this commit)
+- TESTS: none (no round took place)
+- FINDINGS RAISED: none
+- DECISIONS: none
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: awaiting Sol on A4, A5 and B3 (three review rounds outstanding); A4 r3 + A5 r3 executor prompts are committed and dispatchable once their reviews land — or now, since they close findings Sol already stated.
+
+### 2026-08-03 — A4/A5 r3 prompts on main (after two losses) — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: The r3 prompts were written three times before landing on `main`, and both losses were infrastructure, not authorship. **First loss:** commit `5e5e722` created and pushed both files, then stopped being an ancestor of `origin/main` — dropped by a history rewrite from the parallel Zoom workstream that shares this branch. **Second loss:** the recovery commits (`b06ac0c`, `c91a640`) went to `phase/a5-lead-api`, because a parallel session moved the shared checkout onto that branch between my branch assertion and my commit — the branch-drift hazard recurring in a narrower window than a per-block guard can close. Also recorded honestly: b06ac0c's ledger text described edits whose python had failed mid-block, so it was false when written; c91a640 corrected it and this entry supersedes both. **Structural fix, not another rule:** the PM now works from a **dedicated worktree pinned to `main`** (`scratchpad/pm-main`) instead of the shared checkout, so no other session can move HEAD underneath it. Content verified by grep before commit and by `git ls-tree origin/main` after push — local success is no longer accepted as evidence.
+- COMMITS: (this commit)
+- TESTS: pre-commit greps on both files; post-push remote verification
+- FINDINGS RAISED: shared checkout + parallel history rewrites can silently lose PM commits; mitigated by the dedicated worktree and post-push remote verification
+- DECISIONS: PM works from a pinned `main` worktree from now on
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: **A4 r3 + A5 r3 dispatchable** (prompts verified present on origin/main); B3 awaits Sol round 2.
+
+### 2026-08-03 — A4 r3 + A5 r3 verified; PM worktree moved to a durable path — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Both verified by PM re-run (A4 84/84, A5 106/106); detail in the branch ledgers. Both fixed their blockers at the shape level rather than patching symptoms: A4 made create-only an **opt-in** on the shared `uploadFile` (default untouched, so the licitaciones generator is unaffected) and proved both race orderings with a stateful fake bucket; A5 removed the racy inputs outright — `marketing_opt_in` is no longer fetched at all, and `shouldSendAutoReply` was **deleted** rather than left exported. A4's executor reported 4069/4070 with the failure explained (a 30s timeout in an unrelated test under load average 47, green in isolation) rather than claiming a clean sweep. **A5's parting finding is now a frozen decision** (Decision Log): PostgREST `or`-on-UPDATE is banned for claim logic — it passes every mocked test and fails only in production, and this repo already lost sessions to it once; B4a/B4b's claim functions must stay in SECURITY DEFINER SQL. **Process:** the scratchpad PM worktree was reclaimed by the OS mid-command, so those commands ran in the shared checkout (on `phase/a5-lead-api`) and produced two stray commits there; both were caught by rejected pushes, the branch was reset to `7e6c272`, and nothing reached any remote. The PM worktree now lives at `~/Documents/fne-lms-pm`, alongside the durable worktrees rather than in a temp path the OS reclaims — and `set -e` is no longer trusted to abort a failed `cd` inside an `&&` chain; critical steps now carry explicit `|| exit 1`.
+- COMMITS: (this commit)
+- TESTS: as branch entries
+- FINDINGS RAISED: none new
+- DECISIONS: 1 Decision Log row (PostgREST or-on-UPDATE ban)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: A4, A5 and B3 all await Sol round 2; then reconcile #38/#39/#40/#41 into one merge list for Brent.

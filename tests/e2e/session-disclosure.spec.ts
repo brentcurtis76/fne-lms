@@ -41,28 +41,31 @@ const LINKED = E2E_ZOOM.linkedSession;
 
 const DETAIL = `/api/sessions/${LINKED.id}`;
 const REPORTS = `/api/sessions/${LINKED.id}/reports`;
+const ATTENDEES = `/api/sessions/${LINKED.id}/attendees`;
 
 /**
  * Every consumer this spec drives, so the "must not drift" claim is exercised, not asserted.
  *
- * `/api/sessions/[id]/attendees` is DELIBERATELY ABSENT, and this is the one thing to read
- * before adding it back. That endpoint returns HTTP 500 to every caller, on every session,
- * regardless of fixtures: its `select('*, profiles(id, first_name, last_name, email)')`
- * (attendees.ts:118) is an ambiguous embed, because session_attendees has TWO foreign keys
- * into profiles — `user_id` and `marked_by` — so PostgREST answers PGRST201 before it ever
- * reads a row. The sibling endpoints disambiguate (`profiles:user_id(...)`); this one does
- * not. It is pre-existing (attendees.ts is untouched by this branch, and its last change is
- * an ancestor of the merge base) and fixing application source is out of scope for Z1c, so
- * it is reported as a finding rather than papered over. Adding the path here without the
- * fix would encode a 500 as expected behaviour.
+ * `/api/sessions/[id]/attendees` was absent through Z1c-2, because the endpoint returned
+ * HTTP 500 to every caller on every session: `select('*, profiles(...)')` was an ambiguous
+ * embed — `session_attendees` has TWO foreign keys into `profiles`, `user_id` and
+ * `marked_by` — so PostgREST answered PGRST201 before it read a row. Z1c-3 fixed that
+ * (attendees.ts now names the `user_id` relationship) and the path is back in the set.
  *
- * Coverage of "more than one consumer" is still met — the detail GET, the reports GET, and
- * the two iCal endpoints in session-ical.spec.ts.
+ * It earns its place rather than merely occupying it: this endpoint's disclosure branch had
+ * never executed in production, so the assertions below are the first thing that has ever
+ * confirmed a non-privileged caller does not get attendee addresses out of it. A fix that
+ * turned the 500 into a leak would be worse than the 500, and only an e2e assertion can
+ * tell the two apart — the unit suite passed throughout (see attendees.test.ts).
  */
 const CONSUMERS = [
   { label: 'detail', path: DETAIL },
   { label: 'reports', path: REPORTS },
+  { label: 'attendees', path: ATTENDEES },
 ];
+
+/** The seeded attendees' addresses — what a privileged caller must receive, and nobody else. */
+const ATTENDEE_EMAILS = LINKED.attendees.map((a) => E2E_USERS[a.user].email);
 
 const RESTRICTED_REPORT = LINKED.reports.find((r) => r.visibility === 'facilitators_only')!;
 const OPEN_REPORT = LINKED.reports.find((r) => r.visibility === 'all_participants')!;
@@ -180,13 +183,27 @@ for (const key of VIEW_ONLY_PERSONAS) {
 
     test('attendee names survive the redaction — only the address is removed', async () => {
       // Read through the detail GET, which embeds attendees as `profiles:user_id(...)`.
-      // The dedicated /attendees endpoint cannot serve this assertion — see CONSUMERS.
       const body = await getJson(api, DETAIL);
       const attendees = body.session.attendees ?? [];
 
       expect(attendees.length).toBeGreaterThan(0);
       expect(attendees.some((a: any) => a.profiles?.first_name)).toBe(true);
       expect(attendees.every((a: any) => a.profiles?.email === undefined)).toBe(true);
+    });
+
+    test('the dedicated attendees endpoint redacts the same way the detail GET does', async () => {
+      // The half of F1 that matters. Before Z1c-3 this endpoint 500'd, so its
+      // `redactProfileEmails` branch had never run against a real PostgREST response — the
+      // fix put a previously-dead disclosure path into service. Asserted here directly
+      // rather than only through the CONSUMERS loop, because "no addresses" alone would
+      // also pass against an endpoint that returned nothing at all.
+      const body = await getJson(api, ATTENDEES);
+      const attendees = body.attendees ?? [];
+
+      expect(attendees.length).toBe(ATTENDEE_EMAILS.length);
+      expect(attendees.some((a: any) => a.profiles?.first_name)).toBe(true);
+      expect(attendees.every((a: any) => a.profiles?.email === undefined)).toBe(true);
+      expectNoFixtureEmails(body, 'the attendees payload');
     });
   });
 }
@@ -221,6 +238,21 @@ for (const key of PRIVILEGED_PERSONAS) {
       expect(flatten(body)).toContain(E2E_USERS[facilitatorKey].email);
     });
 
+    test('the dedicated attendees endpoint discloses attendee e-mails', async () => {
+      // The privileged control for the redaction assertion in tier 2. Without it, that one
+      // would still pass against an endpoint that stripped every address unconditionally —
+      // or against one that had gone back to answering 500.
+      const body = await getJson(api, ATTENDEES);
+      const attendees = body.attendees ?? [];
+
+      expect(attendees.length).toBe(ATTENDEE_EMAILS.length);
+      const flat = flatten(body);
+      for (const email of ATTENDEE_EMAILS) {
+        expect(flat, `the attendees payload withheld ${email} from a privileged caller`).toContain(
+          email
+        );
+      }
+    });
   });
 }
 

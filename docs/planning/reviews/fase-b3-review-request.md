@@ -142,3 +142,105 @@ it shows.
   that is the owner's post-merge step, as it was for `pasantias_leads`.
 - **CI gate 3 will run this suite against a fresh stack**; it has only been run
   locally so far, on PostgreSQL 17.6.
+
+---
+
+# Round r2 — proof hardening (REVIEW-B3.md [B1] + [B2])
+
+**Round:** r2
+**Commits this round:** 1
+**Files changed:** `supabase/tests/040-email-marketing-rls.sql` only, plus evidence.
+**The migration is byte-identical to r1** — `git diff supabase/migrations/` is
+empty. Both blockers were proof gaps; no mutation showed the schema itself wrong,
+so per the round's instruction nothing in the DDL was touched.
+
+## What changed
+
+**[B1] — ACL pins now compare the whole `aclexplode` tuple.** The r1 pins
+aggregated `privilege_type` for a named grantee and discarded everything else.
+Three drivers replace the two, plus one new global driver:
+
+| assertion (× 5 tables) | kills |
+|---|---|
+| `anon` entries = `(none)` | any direct grant to anon |
+| `authenticated` entries = `SELECT` — rendered as `PRIVILEGE [WITH GRANT OPTION]` | a re-grantable SELECT, which shares an ACL entry with the plain one and so has an identical privilege *name* |
+| PUBLIC (grantee 0) entries = `(none)` | a grant that reaches anon by inheritance without ever appearing in anon's own ACL rows |
+| no grantable entry anywhere on the table, any grantee | the same widening applied to `service_role` or the owner |
+
+The version-guarded `MAINTAIN` branch and the per-role `TRUNCATE`/`service_role`
+CRUD probes are untouched. The new grantability driver is deliberately
+version-independent: it enumerates whatever the ACL holds rather than naming
+privileges that may not exist on a given server, so it needs no PG15/PG17 split.
+
+**[B2] — the identity CHECK is pinned one term at a time.** The r1 cases each
+violated a term in *both* arms of the disjunction, so dropping any single term
+left the other arm rejecting the row and the test green. Every new case violates
+exactly one term: the anonymized-arm fixtures are fully anonymized rows except
+for the single named field, and the live-arm fixtures leave `anonymized_at` NULL
+and satisfy every other live requirement. All eight anonymized terms
+(`anonymized_at IS NOT NULL`, `email`, `email_normalized`, `first_name`,
+`last_name`, `organization`, `basis_note`, `unsubscribe_token`) and all six live
+terms are now independently killed, and the live shape's inverse is asserted
+positively (a live row may carry every optional identity field).
+
+## Evidence
+
+- `docs/plan/evidence/b3/mutation-driver-r2.sh` — the driver, committed so the
+  runs are reproducible rather than narrated.
+- `docs/plan/evidence/b3/mutation-probe-r2.txt` — its verbatim output.
+  **18 mutants, 18 killed**, baseline and restored schema green. It includes
+  Sol's two mutations verbatim (M-A1, M-A2), a `GRANT SELECT ... TO PUBLIC` on
+  the tombstones (M-A3), a grantable `service_role` INSERT (M-A4), and one probe
+  per CHECK term (M-C1…M-C14).
+- `docs/plan/evidence/b3/040-email-marketing-rls.tap` — refreshed, `1..164`,
+  164 ok / 0 not ok.
+
+The driver captures `pg_get_constraintdef()` and the full ACL before touching
+anything and re-compares both after every restore, aborting if either differs, so
+a botched restore cannot be mistaken for a surviving mutant.
+
+## Two things the reviewer should scrutinise hardest
+
+1. **The suite gained two cases my own reasoning said were impossible, and the
+   census is what caught it.** I claimed in a code comment that the live arm's
+   `email IS NOT NULL` and `email_normalized IS NOT NULL` were redundant beside
+   `email_normalized = lower(btrim(email))` and therefore unkillable equivalent
+   mutants. That was wrong: **a CHECK constraint rejects only on FALSE — a NULL
+   result ADMITS the row.** Dropping either guard turns the arm from false to
+   NULL for a half-identified contact, so the mutant *commits* rows the shipped
+   constraint rejects. The disagreement census in the driver enumerates a 120-row
+   candidate grid, found 3 and 5 disagreeing shapes respectively, and printed
+   them; the two half-identified live cases in the suite came from that output.
+   Worth checking that the census grid is not itself too narrow.
+2. **`anonymized_at IS NOT NULL` needed an explicit NULL token to be pinned.**
+   `unsubscribe_token` defaults to `gen_random_uuid()`, so an otherwise-empty row
+   that simply omits the column is rejected by `unsubscribe_token IS NULL`
+   instead, leaving the arm's marker term unproven. M-C1 survived the first full
+   driver run for exactly this reason. The fixture now passes `NULL` explicitly.
+
+## Gates
+
+`supabase db reset` then `npm run test:db` → **Files=8, Tests=335, Result: PASS**
+(the suite's own plan is `1..164`, up from 142).
+
+The four JS gates cannot be affected by a change confined to one `.sql` test
+file; they were run anyway and are green: `type-check` exit 0, `lint` exit 0
+(`--max-warnings=0`), `npm test` **253 files / 3992 tests passed**, `npm run
+build` exit 0 (`✓ Compiled successfully`).
+
+## Known limitations / deferred (r2)
+
+- **Everything under "Known limitations" from r1 still stands** — the tables are
+  still dormant, `provider_batch_key` is still unwritten, `detail`'s PII-free
+  rule is still B4b's to enforce, and the migration is still not applied to
+  production.
+- **The local Supabase stack is shared between worktrees**, and a `supabase db
+  reset` run from a branch without this migration dropped the five tables in the
+  middle of a driver run. The driver now records the applied migration head at
+  the start and re-checks it at the end, and aborts if it moved — so an
+  interfered-with run cannot be published as evidence. It does not *prevent* the
+  interference; serialising DB gate runs across sessions is still a process rule,
+  not a mechanism.
+- **`is_grantable` is asserted false, never true.** No fixture proves the render
+  would show `WITH GRANT OPTION` if a privilege genuinely were grantable —
+  except through the mutation probes (M-A1, M-A4), where it does exactly that.

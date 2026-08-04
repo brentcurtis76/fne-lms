@@ -1,0 +1,138 @@
+# B3 r2 — fail-on-mutant evidence
+# container: supabase_db_sxlogxqzmarhqsblxmtj
+# server:    PostgreSQL 17.6 on aarch64-unknown-linux-gnu, compiled by gcc (GCC) 15.2.0, 64-bit
+# migration head: 20260803170000 (must be 20260803170000 — the local stack is shared
+#   between worktrees, and a reset run from a branch without this migration silently
+#   drops the five tables mid-run; the head is re-checked at the end)
+# baseline constraint: CHECK ((((anonymized_at IS NULL) AND (email IS NOT NULL) AND (email_normalized IS NOT NULL) AND (email_normalized = lower(btrim(email))) AND (email_normalized <> ''::text) AND (unsubscribe_token IS NOT NULL)) OR ((anonymized_at IS NOT NULL) AND (email IS NULL) AND (email_normalized IS NULL) AND (first_name IS NULL) AND (last_name IS NULL) AND (organization IS NULL) AND (basis_note IS NULL) AND (unsubscribe_token IS NULL))))
+
+## Baseline — unmutated schema
+### M0 — no mutation (baseline)
+mutation: (none)
+green as expected (Result: PASS)
+
+## ACL mutations — REVIEW-B3.md [B1]
+### M-A1 — authenticated's SELECT becomes re-grantable (Sol's mutation 1, verbatim)
+mutation: GRANT SELECT ON public.email_contacts TO authenticated WITH GRANT OPTION;
+killed: 2 assert(s) failed (Result: FAIL)
+# Failed test 17: "email_contacts / authenticated: the ACL carries exactly {SELECT}, NOT grantable — nothing else, whatever privileges this server version defines"
+#         have: SELECT WITH GRANT OPTION
+#         want: SELECT
+# Failed test 27: "email_contacts: no ACL entry anywhere on the table is grantable — no role may re-grant it to a third party"
+#         have: authenticated:SELECT
+#         want: (none)
+
+### M-A2 — REFERENCES reaches anon through PUBLIC (Sol's mutation 2, verbatim)
+mutation: GRANT REFERENCES ON public.email_contacts TO PUBLIC;
+killed: 1 assert(s) failed (Result: FAIL)
+# Failed test 22: "email_contacts / PUBLIC: no grantee-0 ACL entry — a PUBLIC grant is inherited by anon and every other role, so per-role pins alone cannot see it"
+#         have: REFERENCES
+#         want: (none)
+
+### M-A3 — SELECT on the tombstones granted to PUBLIC
+mutation: GRANT SELECT ON public.email_suppression TO PUBLIC;
+killed: 2 assert(s) failed (Result: FAIL)
+# Failed test 25: "email_suppression / PUBLIC: no grantee-0 ACL entry — a PUBLIC grant is inherited by anon and every other role, so per-role pins alone cannot see it"
+#         have: SELECT
+#         want: (none)
+# Failed test 97: "anon / email_suppression: SELECT denied at the privilege layer (never reaches the policy)"
+
+### M-A4 — service_role's INSERT on the tombstones becomes re-grantable
+mutation: GRANT INSERT ON public.email_suppression TO service_role WITH GRANT OPTION;
+killed: 1 assert(s) failed (Result: FAIL)
+# Failed test 30: "email_suppression: no ACL entry anywhere on the table is grantable — no role may re-grant it to a third party"
+#         have: service_role:INSERT
+#         want: (none)
+
+## Identity CHECK mutations — REVIEW-B3.md [B2] (one term dropped per probe)
+### M-C1 — anonymized arm drops `anonymized_at IS NOT NULL`
+mutation: identity CHECK re-added without `anonymized_at IS NOT NULL` (anon arm)
+killed: 1 assert(s) failed (Result: FAIL)
+# Failed test 131: "contacts / anonymized arm: a row with the whole identity set NULL but no anonymized_at marker violates the identity CHECK — erasure must be stamped, not inferred"
+
+### M-C2 — anonymized arm drops `email IS NULL`
+mutation: identity CHECK re-added without `email IS NULL` (anon arm)
+killed: 1 assert(s) failed (Result: FAIL)
+# Failed test 132: "contacts / anonymized arm: a retained email alone violates the identity CHECK"
+
+### M-C3 — anonymized arm drops `email_normalized IS NULL`
+mutation: identity CHECK re-added without `email_normalized IS NULL` (anon arm)
+killed: 1 assert(s) failed (Result: FAIL)
+# Failed test 133: "contacts / anonymized arm: a retained email_normalized alone violates the identity CHECK"
+
+### M-C4 — anonymized arm drops `first_name IS NULL`
+mutation: identity CHECK re-added without `first_name IS NULL` (anon arm)
+killed: 1 assert(s) failed (Result: FAIL)
+# Failed test 134: "contacts / anonymized arm: a retained first_name alone violates the identity CHECK"
+
+### M-C5 — anonymized arm drops `last_name IS NULL`
+mutation: identity CHECK re-added without `last_name IS NULL` (anon arm)
+killed: 1 assert(s) failed (Result: FAIL)
+# Failed test 135: "contacts / anonymized arm: a retained last_name alone violates the identity CHECK"
+
+### M-C6 — anonymized arm drops `organization IS NULL`
+mutation: identity CHECK re-added without `organization IS NULL` (anon arm)
+killed: 1 assert(s) failed (Result: FAIL)
+# Failed test 136: "contacts / anonymized arm: a retained organization alone violates the identity CHECK"
+
+### M-C7 — anonymized arm drops `basis_note IS NULL`
+mutation: identity CHECK re-added without `basis_note IS NULL` (anon arm)
+killed: 1 assert(s) failed (Result: FAIL)
+# Failed test 137: "contacts / anonymized arm: a retained basis_note alone violates the identity CHECK (it can name a person — this is the term round 1 could drop unnoticed)"
+
+### M-C8 — anonymized arm drops `unsubscribe_token IS NULL`
+mutation: identity CHECK re-added without `unsubscribe_token IS NULL` (anon arm)
+killed: 1 assert(s) failed (Result: FAIL)
+# Failed test 138: "contacts / anonymized arm: a retained unsubscribe_token alone violates the identity CHECK"
+
+### M-C9 — live arm drops `anonymized_at IS NULL`
+mutation: identity CHECK re-added without `anonymized_at IS NULL` (live arm)
+killed: 1 assert(s) failed (Result: FAIL)
+# Failed test 130: "contacts: anonymized_at set while the email survives violates the identity CHECK — no partial erasure"
+
+### M-C10 — live arm drops `email IS NOT NULL`
+mutation: identity CHECK re-added without `email IS NOT NULL` (live arm)
+killed: 1 assert(s) failed (Result: FAIL)
+# Failed test 129: "contacts: a live row with an email_normalized but no email violates the identity CHECK (same NULL-admits-the-row trap, mirrored)"
+
+### M-C11 — live arm drops `email_normalized IS NOT NULL`
+mutation: identity CHECK re-added without `email_normalized IS NOT NULL` (live arm)
+killed: 1 assert(s) failed (Result: FAIL)
+# Failed test 128: "contacts: a live row with an email but no email_normalized violates the identity CHECK (the equality term alone would evaluate to NULL, which a CHECK admits)"
+
+### M-C12 — live arm drops `email_normalized = lower(btrim(email))`
+mutation: identity CHECK re-added without `email_normalized = lower(btrim(email))` (live arm)
+killed: 1 assert(s) failed (Result: FAIL)
+# Failed test 125: "contacts: email_normalized that is not lower(btrim(email)) violates the two-shape identity CHECK"
+
+### M-C13 — live arm drops `email_normalized <> ''`
+mutation: identity CHECK re-added without `email_normalized <> ''` (live arm)
+killed: 1 assert(s) failed (Result: FAIL)
+# Failed test 127: "contacts: a live row whose normalized email is the empty string violates the identity CHECK (email_normalized <> '')"
+
+### M-C14 — live arm drops `unsubscribe_token IS NOT NULL`
+mutation: identity CHECK re-added without `unsubscribe_token IS NOT NULL` (live arm)
+killed: 1 assert(s) failed (Result: FAIL)
+# Failed test 126: "contacts: a live row without an unsubscribe_token violates the identity CHECK (D-08 needs one per recipient)"
+
+## Disagreement census — do the live arm's two IS NOT NULL guards do real work?
+census (a CHECK rejects only on FALSE — a NULL result ADMITS the row):
+  120 candidate rows; 3 disagree with M-C10; 5 disagree with M-C11; 3 rows satisfy the live arm (grid is not vacuous)
+disagreeing shapes (original=false → rejected; mutant=NULL → admitted):
+  mutant=M-C10  email=NULL  email_normalized='a@b.c'
+  mutant=M-C10  email=NULL  email_normalized='A@B.C'
+  mutant=M-C10  email=NULL  email_normalized='x'
+  mutant=M-C11  email='   '  email_normalized=NULL
+  mutant=M-C11  email=' a@b.c '  email_normalized=NULL
+  mutant=M-C11  email=''  email_normalized=NULL
+  mutant=M-C11  email='a@b.c'  email_normalized=NULL
+  mutant=M-C11  email='A@B.C'  email_normalized=NULL
+
+## Final state — schema restored
+### M-Z — restored schema (constraint and ACL byte-identical to baseline)
+mutation: (reverted)
+green as expected (Result: PASS)
+
+# restored constraint: CHECK ((((anonymized_at IS NULL) AND (email IS NOT NULL) AND (email_normalized IS NOT NULL) AND (email_normalized = lower(btrim(email))) AND (email_normalized <> ''::text) AND (unsubscribe_token IS NOT NULL)) OR ((anonymized_at IS NOT NULL) AND (email IS NULL) AND (email_normalized IS NULL) AND (first_name IS NULL) AND (last_name IS NULL) AND (organization IS NULL) AND (basis_note IS NULL) AND (unsubscribe_token IS NULL))))
+# migration head at start: 20260803170000
+# migration head at end:   20260803170000

@@ -17,6 +17,11 @@
 --     first pin failed to notice that PostgreSQL 17's `MAINTAIN` was not
 --     covered by an enumerated REVOKE. Asserting over the ACL makes the pins
 --     total: any privilege the server knows about, present or future, shows up.
+--     The pins compare the whole ACL tuple, not just the privilege name:
+--     grantability (`is_grantable`) and the inherited `PUBLIC` grantee are both
+--     asserted, because a privilege can be widened without its name changing
+--     (WITH GRANT OPTION) and can reach anon without ever appearing in anon's
+--     own ACL rows (a grant to PUBLIC).
 --     `MAINTAIN` itself is additionally probed under a server-version guard,
 --     since it does not exist below PostgreSQL 17 and `has_table_privilege`
 --     errors on an unknown privilege name. The guard is what makes the suite
@@ -59,7 +64,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(142);
+SELECT plan(164);
 
 -- -----------------------------------------------------------------------------
 -- Fixture ids — stable and obvious so test output is easy to read.
@@ -120,24 +125,77 @@ SELECT is(
 );
 
 -- [A2 / D-04] Privilege layer, pinned from the real ACL.
+--
+-- An `aclexplode` row is a TUPLE — (grantor, grantee, privilege_type,
+-- is_grantable) — and a pin that reads only `privilege_type` for a named
+-- grantee misses two real exposures, both of which survived the round-1 suite:
+--
+--   * `GRANT SELECT ... TO authenticated WITH GRANT OPTION` collapses into the
+--     SAME ACL entry (`authenticated=r*/postgres`), so the privilege NAME is
+--     unchanged while every authenticated session gains the right to re-grant
+--     the table to anyone. Only `is_grantable` distinguishes the two states, so
+--     it is part of the compared value below.
+--   * `GRANT ... TO PUBLIC` writes a grantee-0 entry that NO per-role filter
+--     can see: `anon`'s own ACL rows stay empty while `has_table_privilege`
+--     starts answering true for it, because PUBLIC is inherited by every role.
+--     A PUBLIC entry is therefore asserted absent in its own right.
+--
+-- `pg_temp.acl_entries` renders one grantee's entries as `PRIVILEGE` or
+-- `PRIVILEGE WITH GRANT OPTION`, so both the privilege set and its grantability
+-- are compared in a single `is()` whose diff names the offending privilege.
+CREATE OR REPLACE FUNCTION pg_temp.acl_entries(tbl text, grantee_oid oid) RETURNS text AS $$
+  SELECT coalesce(string_agg(e, ', ' ORDER BY e), '(none)')
+    FROM (
+      SELECT DISTINCT
+             a.privilege_type
+               || CASE WHEN a.is_grantable THEN ' WITH GRANT OPTION' ELSE '' END AS e
+        FROM pg_class c
+        CROSS JOIN LATERAL aclexplode(c.relacl) a
+       WHERE c.oid = ('public.' || tbl)::regclass
+         AND a.grantee = grantee_oid
+    ) s;
+$$ LANGUAGE sql STABLE;
+
+-- Every grantable entry on a table, whoever holds it. D-04's posture is that
+-- nobody — not anon, not authenticated, not service_role, not the owner — may
+-- hand these tables on, so the expected value is '(none)' unconditionally and
+-- the assert is version-independent (it enumerates whatever the ACL holds
+-- rather than naming privileges that may not exist on a given server).
+CREATE OR REPLACE FUNCTION pg_temp.grantable_entries(tbl text) RETURNS text AS $$
+  SELECT coalesce(string_agg(e, ', ' ORDER BY e), '(none)')
+    FROM (
+      SELECT DISTINCT
+             (CASE WHEN a.grantee = 0 THEN 'PUBLIC' ELSE a.grantee::regrole::text END)
+               || ':' || a.privilege_type AS e
+        FROM pg_class c
+        CROSS JOIN LATERAL aclexplode(c.relacl) a
+       WHERE c.oid = ('public.' || tbl)::regclass
+         AND a.is_grantable
+    ) s;
+$$ LANGUAGE sql STABLE;
+
 SELECT is(
-  (SELECT coalesce(string_agg(DISTINCT a.privilege_type, ',' ORDER BY a.privilege_type), '(none)')
-     FROM pg_class c
-     CROSS JOIN LATERAL aclexplode(c.relacl) a
-    WHERE c.oid = ('public.' || tbl)::regclass
-      AND a.grantee = 'anon'::regrole::oid),
+  pg_temp.acl_entries(tbl, 'anon'::regrole::oid),
   '(none)',
   tbl || ' / anon: the ACL carries no entry for it — every privilege the server defines, standard or not, is revoked'
 ) FROM unnest(pg_temp.comms_tables()) AS tbl;
 
 SELECT is(
-  (SELECT coalesce(string_agg(DISTINCT a.privilege_type, ',' ORDER BY a.privilege_type), '(none)')
-     FROM pg_class c
-     CROSS JOIN LATERAL aclexplode(c.relacl) a
-    WHERE c.oid = ('public.' || tbl)::regclass
-      AND a.grantee = 'authenticated'::regrole::oid),
+  pg_temp.acl_entries(tbl, 'authenticated'::regrole::oid),
   'SELECT',
-  tbl || ' / authenticated: the ACL carries exactly {SELECT} — nothing else, whatever privileges this server version defines'
+  tbl || ' / authenticated: the ACL carries exactly {SELECT}, NOT grantable — nothing else, whatever privileges this server version defines'
+) FROM unnest(pg_temp.comms_tables()) AS tbl;
+
+SELECT is(
+  pg_temp.acl_entries(tbl, 0::oid),
+  '(none)',
+  tbl || ' / PUBLIC: no grantee-0 ACL entry — a PUBLIC grant is inherited by anon and every other role, so per-role pins alone cannot see it'
+) FROM unnest(pg_temp.comms_tables()) AS tbl;
+
+SELECT is(
+  pg_temp.grantable_entries(tbl),
+  '(none)',
+  tbl || ': no ACL entry anywhere on the table is grantable — no role may re-grant it to a third party'
 ) FROM unnest(pg_temp.comms_tables()) AS tbl;
 
 SELECT is(
@@ -499,6 +557,24 @@ SELECT lives_ok(
 -- consistent normalized email and a token, or an anonymized row whose whole
 -- identity set is NULL. Nothing in between can commit — which is what makes a
 -- partial anonymization impossible rather than merely unlikely.
+--
+-- The constraint is a disjunction of two arms, so a case that violates a term
+-- in BOTH arms proves only that the constraint exists — drop any single term
+-- and the other arm still rejects the row, leaving the test green. Round 1
+-- learned that the hard way: removing `basis_note IS NULL` from the anonymized
+-- arm left the whole gate passing. Each case below is therefore built to
+-- violate exactly ONE term, so dropping that term turns exactly that line red:
+-- the anonymized-arm fixtures satisfy every other NULL requirement and carry
+-- `anonymized_at` (which alone rules out the live arm), and the live-arm
+-- fixtures leave `anonymized_at` NULL and satisfy every other live requirement.
+--
+-- The live arm's two `IS NOT NULL` guards look redundant next to their sibling
+-- `email_normalized = lower(btrim(email))` and are NOT: a CHECK constraint
+-- admits a row when its expression is true OR **NULL**, and it is only false
+-- that rejects. Drop `email IS NOT NULL` and a row with a NULL email makes the
+-- comparison — and therefore the whole arm — NULL rather than false, so the row
+-- COMMITS. The half-identified shapes below (an email with no normalized form,
+-- a normalized form with no email) are what hold those two guards down.
 -- -----------------------------------------------------------------------------
 SELECT throws_ok(
   $$ INSERT INTO email_contacts (source, legal_basis, basis_recorded_at)
@@ -522,16 +598,120 @@ SELECT throws_ok(
 );
 
 SELECT throws_ok(
+  $$ INSERT INTO email_contacts (email, email_normalized, source, legal_basis, basis_recorded_at)
+     VALUES ('   ', '', 'manual', 'manual_verified', now()) $$,
+  '23514', NULL,
+  'contacts: a live row whose normalized email is the empty string violates the identity CHECK (email_normalized <> '''')'
+);
+
+-- The two half-identified live shapes. Each leaves the equality term NULL, so
+-- without its own `IS NOT NULL` guard the arm would evaluate to NULL and the
+-- CHECK would ADMIT the row — these are the cases that make those guards real.
+SELECT throws_ok(
+  $$ INSERT INTO email_contacts (email, source, legal_basis, basis_recorded_at)
+     VALUES ('sinnormalizar@email-rls.local', 'manual', 'manual_verified', now()) $$,
+  '23514', NULL,
+  'contacts: a live row with an email but no email_normalized violates the identity CHECK (the equality term alone would evaluate to NULL, which a CHECK admits)'
+);
+
+SELECT throws_ok(
+  $$ INSERT INTO email_contacts (email_normalized, source, legal_basis, basis_recorded_at)
+     VALUES ('huerfano@email-rls.local', 'manual', 'manual_verified', now()) $$,
+  '23514', NULL,
+  'contacts: a live row with an email_normalized but no email violates the identity CHECK (same NULL-admits-the-row trap, mirrored)'
+);
+
+SELECT throws_ok(
   $$ INSERT INTO email_contacts (email, email_normalized, anonymized_at, source, legal_basis, basis_recorded_at)
      VALUES ('resto@email-rls.local', 'resto@email-rls.local', now(), 'manual', 'manual_verified', now()) $$,
   '23514', NULL,
   'contacts: anonymized_at set while the email survives violates the identity CHECK — no partial erasure'
 );
 
+-- The anonymized arm, one identity field per line. Every fixture below is a
+-- fully anonymized row EXCEPT for the single named field, so the only term that
+-- can reject it is that field's own `IS NULL` clause.
+--
+-- This first one is the arm's marker term, and it needs an EXPLICIT NULL token:
+-- `unsubscribe_token` defaults to gen_random_uuid(), so an otherwise-empty row
+-- that omits the column is rejected by `unsubscribe_token IS NULL` instead and
+-- the marker term goes unproven (that default is precisely why the fail-on-
+-- mutant probe caught this case and prose reasoning did not).
+SELECT throws_ok(
+  $$ INSERT INTO email_contacts (unsubscribe_token, source, legal_basis, basis_recorded_at)
+     VALUES (NULL, 'manual', 'manual_verified', now()) $$,
+  '23514', NULL,
+  'contacts / anonymized arm: a row with the whole identity set NULL but no anonymized_at marker violates the identity CHECK — erasure must be stamped, not inferred'
+);
+
+SELECT throws_ok(
+  $$ INSERT INTO email_contacts (anonymized_at, unsubscribe_token, email, source, legal_basis, basis_recorded_at)
+     VALUES (now(), NULL, 'resta-email@email-rls.local', 'manual', 'manual_verified', now()) $$,
+  '23514', NULL,
+  'contacts / anonymized arm: a retained email alone violates the identity CHECK'
+);
+
+SELECT throws_ok(
+  $$ INSERT INTO email_contacts (anonymized_at, unsubscribe_token, email_normalized, source, legal_basis, basis_recorded_at)
+     VALUES (now(), NULL, 'resta-norm@email-rls.local', 'manual', 'manual_verified', now()) $$,
+  '23514', NULL,
+  'contacts / anonymized arm: a retained email_normalized alone violates the identity CHECK'
+);
+
+SELECT throws_ok(
+  $$ INSERT INTO email_contacts (anonymized_at, unsubscribe_token, first_name, source, legal_basis, basis_recorded_at)
+     VALUES (now(), NULL, 'Ana', 'manual', 'manual_verified', now()) $$,
+  '23514', NULL,
+  'contacts / anonymized arm: a retained first_name alone violates the identity CHECK'
+);
+
+SELECT throws_ok(
+  $$ INSERT INTO email_contacts (anonymized_at, unsubscribe_token, last_name, source, legal_basis, basis_recorded_at)
+     VALUES (now(), NULL, 'Sintetica', 'manual', 'manual_verified', now()) $$,
+  '23514', NULL,
+  'contacts / anonymized arm: a retained last_name alone violates the identity CHECK'
+);
+
+SELECT throws_ok(
+  $$ INSERT INTO email_contacts (anonymized_at, unsubscribe_token, organization, source, legal_basis, basis_recorded_at)
+     VALUES (now(), NULL, 'Colegio Sintetico', 'manual', 'manual_verified', now()) $$,
+  '23514', NULL,
+  'contacts / anonymized arm: a retained organization alone violates the identity CHECK'
+);
+
+SELECT throws_ok(
+  $$ INSERT INTO email_contacts (anonymized_at, unsubscribe_token, basis_note, source, legal_basis, basis_recorded_at)
+     VALUES (now(), NULL, 'alta verificada por el equipo', 'manual', 'manual_verified', now()) $$,
+  '23514', NULL,
+  'contacts / anonymized arm: a retained basis_note alone violates the identity CHECK (it can name a person — this is the term round 1 could drop unnoticed)'
+);
+
+SELECT throws_ok(
+  $$ INSERT INTO email_contacts (anonymized_at, unsubscribe_token, source, legal_basis, basis_recorded_at)
+     VALUES (now(), '77777777-0000-0000-0000-0000000000aa'::uuid, 'manual', 'manual_verified', now()) $$,
+  '23514', NULL,
+  'contacts / anonymized arm: a retained unsubscribe_token alone violates the identity CHECK'
+);
+
 SELECT lives_ok(
   $$ INSERT INTO email_contacts (anonymized_at, unsubscribe_token, source, legal_basis, basis_recorded_at)
      VALUES (now(), NULL, 'manual', 'manual_verified', now()) $$,
   'contacts: the fully anonymized shape (all identity NULL + anonymized_at) commits'
+);
+
+-- The live arm's inverse: those same identity fields are OPTIONAL on a live
+-- row, so a contact carrying all of them commits. If the anonymized arm's NULL
+-- requirements ever leaked into the live arm, this line is what catches it.
+SELECT lives_ok(
+  $$ INSERT INTO email_contacts (
+       email, email_normalized, first_name, last_name, organization, basis_note,
+       source, legal_basis, basis_recorded_at
+     ) VALUES (
+       'viva@email-rls.local', 'viva@email-rls.local', 'Ana', 'Sintetica',
+       'Colegio Sintetico', 'alta verificada por el equipo',
+       'manual', 'manual_verified', now()
+     ) $$,
+  'contacts: a live row may carry every identity field — the anonymized arm''s NULL requirements do not apply to it'
 );
 
 -- -----------------------------------------------------------------------------

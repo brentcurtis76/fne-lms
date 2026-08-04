@@ -1211,3 +1211,152 @@ number of `it()` blocks.
 - **No `vercel` command, no deployment.** The PR is opened under this round's explicit
   authorisation and nothing beyond it.
 - **Not merged.** `feat/e2e-tenant` pushed; PR left open for review.
+
+---
+
+# Z1c-4 r1 — the sixth consumer
+
+## 43. Supersedes §35 and one bullet of §42
+
+Two claims above are now false and are corrected here rather than edited in place, so the
+audit trail survives:
+
+- §35 "A sixth endpoint has the same oracle — **reported, not fixed**" → **fixed this round.**
+- §42 "The sixth endpoint (§35) is reported, not fixed" → **superseded.**
+- §41 scrutiny item 2, "the sixth endpoint is knowingly left leaking… If the boundary was meant
+  as 'the five I found' rather than 'exactly five', this is the gap" → **that reading was the
+  correct one.** The five-file table said *including*, not *only*, and the round's objective was
+  to remove the session-existence oracle, which is not met while a sixth consumer leaks it.
+
+Everything else in §§32–42 stands.
+
+## 44. What the sixth consumer leaked, and the ordering that mattered
+
+`pages/api/sessions/[id]/reports/[rid].ts` resolves TWO ids, so it carried the oracle twice on
+its GET path:
+
+| Leak | absent → | inaccessible → |
+| --- | --- | --- |
+| session existence | 404 `'Sesión no encontrada'` | 403 `'Acceso denegado a esta sesión'` |
+| report existence | 404 `'Informe no encontrado'` | 403 `'Acceso denegado a este informe'` |
+
+The messages were the smaller half. The substantive defect was **order**: the report row was
+fetched *before* `canViewSession()` ran. A caller who could not open the session at all still
+learned whether a given report existed — a real report id answered `403 'Acceso denegado a esta
+sesión'`, an absent one `404 'Informe no encontrado'`. Closing only the message pairs would have
+left that intact.
+
+The GET path now runs: session fetch → `sendSessionNotFound()` · roles → 403 · facilitator
+lookup → context → `canViewSession()` → `sendSessionNotFound()` · **then** report fetch →
+`sendReportNotFound()` · visibility → `sendReportNotFound()`. A session-level denial terminates
+the request before any report row is read.
+
+## 45. Where the shared report denial lives — and why
+
+`lib/utils/session-not-found.ts` is **renamed** to `lib/utils/session-denials.ts` and gains
+`sendReportNotFound()` / `REPORT_NOT_FOUND_STATUS` / `REPORT_NOT_FOUND_MESSAGE`, rather than
+getting a sibling module. The argument, since both were declared defensible:
+
+1. The doctrine header — *why* denials collapse, and why `403 'Usuario sin roles asignados'`
+   deliberately does not — is the real asset. A sibling would either duplicate that prose or
+   point at it, and a pointer rots.
+2. These are one rule at two granularities. Two files imply two rules that can be reasoned about
+   independently, which is precisely how they would drift apart.
+3. The ordering constraint in §44 is an invariant *between* the two denials. An invariant
+   between two things belongs where both are defined; it is stated in the module header.
+4. The rename costs five import lines and is compiler-enforced. It cannot half-apply.
+
+A second copy of the constant was never on the table.
+
+## 46. Scope held
+
+- **GET only.** `handlePut` is untouched: its `'Sesión no encontrada'`, the
+  `completada`/`cancelada` refusal, `'Informe no encontrado'` and the author-only 403 all
+  answer *"may you edit"*, asked by callers who already passed a view check. (The prompt cited
+  these as `:185/:190/:202/:207` and as PUT/POST — this file has no POST handler; the four are
+  all in `handlePut`.)
+- **`403 'Usuario sin roles asignados'` stays 403**, same reasoning as the five-file round:
+  identical for every session and report id, so it discloses something about the caller and
+  nothing about a row.
+- **`pages/api/admin/networks/schools*.ts` untouched**, still tracked as a separate hotfix.
+- **No migration, no schema change, no deployment, not merged.**
+
+## 47. Frontend consumer check
+
+`pages/consultor/sessions/[id].tsx:243` is the only caller of this GET. It branches on
+`!response.ok` alone, so no status-specific handling changes and there is no product-visible
+delta from the 403 → 404 move on this endpoint.
+
+## 48. Fail-on-old, both directions
+
+Endpoint reverted to its pre-fix version (`git show 6e18ed3:…`), tests kept:
+
+| Suite | Reverted | Restored |
+| --- | --- | --- |
+| `tests/e2e/session-disclosure.spec.ts` | **13 failed**, 18 passed | **31 passed** |
+| the two `[rid]` unit files | **8 failed**, 11 passed | **19 passed** |
+
+Every e2e failure named the oracle — e.g. *"a restricted report answered gcLeader with a
+different status than an absent one"*, *"report-detail refused docente with a different status
+than the detail GET"*, *"report-detail: an inaccessible session answered inactiveConsultor with
+a different status than an absent one"*. The positive controls passed in **both** directions,
+which is what makes the 13 red results evidence of the leak rather than of a broken endpoint.
+
+## 49. Gates at the final head
+
+| Gate | Baseline (68adc80) | Now | Delta |
+| --- | --- | --- | --- |
+| type-check | 0 | 0 | — |
+| lint | 0 | 0 | — |
+| unit | 3994 in 253 files | **4212 in 257 files** | +218 / +4 files |
+| pgTAP | 171 | **335 in 8 files** | +164 |
+| e2e (6 mandatory) | 67 | **75** | +8 |
+| build | pass | pass | — |
+| no-skip guard | pass | pass | — |
+
+- **Unit +218 / +4 files.** +216 and all four files came from merging `origin/main`
+  (`__tests__/api/pasantias-lead.test.ts`, `pasantias-pdf.test.ts`,
+  `__tests__/lib/pasantias-emails.test.ts`, `pasantias-leads.test.ts`, plus additions to
+  existing pasantías files). **+2 are mine**: the two new cases in
+  `report-detail-disclosure.test.ts` (10 → 12).
+- **pgTAP +164.** Entirely `supabase/tests/040-email-marketing-rls.sql`, added by the merge.
+  No SQL was touched this round.
+- **e2e +8.** All mine: 3 `DENIED_PERSONAS` × 2 new tests, plus `gcLeader` × 2 new tests.
+
+## 50. Local stack — reset again, and why
+
+The stack was seeded on arrival (`sessions=2`, `reports=2`, `facilitators=2`, `attendees=3` —
+not wiped this time). But pgTAP failed 10 assertions against the `email_*` tables: the merge
+from `origin/main` brought `supabase/migrations/20260803170000_add_email_marketing_tables.sql`
+and its pgTAP file, and the local DB predated both. `supabase db reset` + re-seed
+(`set -a && . ./.env.local && set +a && node scripts/ci/seed-e2e.mjs`) fixed it; pgTAP then
+passed 335/335. Declaring it because it destroys any other worktree's fixtures.
+
+## 51. One local-only e2e failure, and its cause
+
+The first mandatory run failed `zoom-mock-mode.spec.ts:263` with *"server on port 3101 never
+became ready"*. Not a regression: that spec spawns `next start`, which needs a **production**
+`.next`, and Playwright's local `webServer` is `npm run dev:unsafe` — `next dev` overwrites
+`.next` with a dev build. CI uses `npm run start`, so the mismatch cannot occur there. Re-run as
+CI runs it (`npm run build` then `CI=1 npx playwright test …`): **75 passed**. Worth knowing for
+anyone running this suite locally.
+
+## 52. Scrutiny areas for this round
+
+1. **The ordering, not the constants.** If a future edit moves the report fetch back up beside
+   the session fetch, every message assertion still passes and the leak returns. The e2e case
+   *"cannot tell a real report from an absent one on an inaccessible session"* is the only thing
+   guarding it. Attack that first.
+2. **`consumersFor()` now takes a `reportId` with a default.** The default is
+   `RESTRICTED_REPORT.id`, chosen so the entry doubles as the report-privileged positive
+   control. A caller passing a different report id would silently change what three existing
+   loops assert.
+3. **`ABSENT_REPORT_ID` has the same weakness §41.4 named for `ABSENT_SESSION_ID`** — a
+   module-load guard against the fixture file, which does not cover a report created at runtime
+   by some future spec.
+4. **`REPORT_NOT_FOUND_MESSAGE` equals the old absent-report literal.** Deliberate: the absent
+   case was already correct, so only the forbidden case moved. It does mean a reviewer diffing
+   messages alone sees less change than actually happened — the status and the ordering are
+   where the work is.
+5. **The rename touched five PM-verified files.** Import lines only, but it is churn on code
+   that had just been signed off.

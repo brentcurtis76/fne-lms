@@ -455,6 +455,62 @@ describe('marketing opt-in is never silently cleared [A5]', () => {
   });
 });
 
+describe('source_path attribution', () => {
+  it('persists an accepted same-site path on insert', async () => {
+    const supabase = createSupabase();
+    const { res } = await run(validBody({ sourcePath: '/pasantias?utm_source=ig' }));
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(supabase.inserts[0].source_path).toBe('/pasantias?utm_source=ig');
+  });
+
+  it('writes null on insert when no path was reported', async () => {
+    const supabase = createSupabase();
+    await run(validBody());
+
+    expect(supabase.inserts[0]).toHaveProperty('source_path', null);
+  });
+
+  // The value is browser-reported, so an off-site or injected shape is dropped
+  // to null — never stored, and never a 400 the visitor cannot act on.
+  for (const value of [
+    'https://evil.example',
+    '//evil.example',
+    'javascript:alert(1)',
+    '/pasantias\r\nX-Injected: 1',
+    `/${'a'.repeat(400)}`,
+  ]) {
+    it(`drops ${JSON.stringify(value).slice(0, 40)} without failing the submission`, async () => {
+      const supabase = createSupabase();
+      const { res } = await run(validBody({ sourcePath: value }));
+
+      expect(res._getStatusCode()).toBe(200);
+      expect(supabase.inserts[0].source_path).toBeNull();
+    });
+  }
+
+  it('refreshes the stored path when a resubmission reports one', async () => {
+    const supabase = createSupabase({ selects: [{ data: existingRow(), error: null }] });
+    await run(validBody({ sourcePath: '/pasantias/barcelona' }));
+
+    expect(supabase.updates[0].payload.source_path).toBe('/pasantias/barcelona');
+  });
+
+  // Never overwrite a stored value with null: leaving the column out of the
+  // UPDATE payload is what preserves the original attribution.
+  for (const [label, value] of [
+    ['the field is absent', undefined],
+    ['the reported value was refused', 'https://evil.example'],
+  ] as const) {
+    it(`leaves source_path unwritten on update when ${label}`, async () => {
+      const supabase = createSupabase({ selects: [{ data: existingRow(), error: null }] });
+      await run(validBody(value === undefined ? {} : { sourcePath: value }));
+
+      expect(supabase.updates[0].payload).not.toHaveProperty('source_path');
+    });
+  }
+});
+
 describe('auto-reply and internal notification [A7]', () => {
   it('sends both messages and stamps brochure_sent_at on auto-reply success', async () => {
     const supabase = createSupabase();

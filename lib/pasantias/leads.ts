@@ -69,6 +69,7 @@ export const LEAD_FIELD_LIMITS = {
   /** Not one of the six caps the phase criteria name — see roleTitle below. */
   roleTitle: 140,
   utm: 140,
+  sourcePath: 200,
 } as const;
 
 export const LEAD_NUM_PEOPLE_MIN = 1;
@@ -87,6 +88,8 @@ export interface LeadSubmissionBody {
   message?: unknown;
   consent?: unknown;
   marketingOptIn?: unknown;
+  /** Where on the site the form was submitted from. Browser-reported. */
+  sourcePath?: unknown;
   utmSource?: unknown;
   utmMedium?: unknown;
   utmCampaign?: unknown;
@@ -110,6 +113,8 @@ export interface ValidatedLead {
   message: string | null;
   /** Optional and defaulting to false: a default may never assert consent. */
   marketingOptIn: boolean;
+  /** Same-site relative path, or null when absent or refused — see `sanitizeSourcePath`. */
+  sourcePath: string | null;
   utmSource: string | null;
   utmMedium: string | null;
   utmCampaign: string | null;
@@ -145,6 +150,48 @@ function optionalText(value: unknown): string | null {
 }
 
 /**
+ * `source_path` — attribution only, and the least trustworthy field on the
+ * form: the browser reports it, so a hand-crafted POST can put anything there.
+ * A6b reads it back into the admin surface, so an absolute URL stored here
+ * would later render as an off-site link the admin did not choose.
+ *
+ * Accepted: a same-site relative path — starts with `/`, not `//` or `/\`
+ * (both of which browsers resolve as protocol-relative to another host), and
+ * free of whitespace and control characters. Requiring the leading `/` is what
+ * rules out every scheme, `https:` and `javascript:` alike.
+ *
+ * Anything else is DROPPED to null rather than rejected with a 400. Nobody
+ * typed this value, so there is no form field to render an error against, and
+ * a visitor must never lose a submission over telemetry they never saw. The
+ * over-cap case is dropped for the same reason, which is why this field has no
+ * entry in `LEAD_VALIDATION_MESSAGES`. Losing one lead's attribution is the
+ * cheap failure; losing the lead is not.
+ *
+ * Note this runs on the RAW string: `normalizeText` collapses `\s+` to a
+ * single space, which would quietly turn an injected CRLF into a valid-looking
+ * path instead of refusing it.
+ */
+export function sanitizeSourcePath(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const path = value.trim();
+  if (!path || path.length > LEAD_FIELD_LIMITS.sourcePath) {
+    return null;
+  }
+  // Whitespace (incl. CR/LF/tab), the C0 control block and DEL. A genuine path
+  // percent-encodes all of these.
+  if (/[\s\u0000-\u001f\u007f]/.test(path)) {
+    return null;
+  }
+  if (path[0] !== '/' || path[1] === '/' || path[1] === '\\') {
+    return null;
+  }
+  return path;
+}
+
+/**
  * Validate a public lead submission.
  *
  * Every problem is collected rather than returned on the first failure: the
@@ -166,6 +213,8 @@ export function validateLeadSubmission(body: LeadSubmissionBody): LeadValidation
   const utmSource = optionalText(body.utmSource);
   const utmMedium = optionalText(body.utmMedium);
   const utmCampaign = optionalText(body.utmCampaign);
+  // Never contributes an error — an unusable value becomes null (see above).
+  const sourcePath = sanitizeSourcePath(body.sourcePath);
 
   if (!firstName) {
     errors.firstName = LEAD_VALIDATION_MESSAGES.firstNameRequired;
@@ -251,6 +300,7 @@ export function validateLeadSubmission(body: LeadSubmissionBody): LeadValidation
       message,
       // Optional, and false unless the person actively opted in (D-12).
       marketingOptIn: body.marketingOptIn === true,
+      sourcePath,
       utmSource,
       utmMedium,
       utmCampaign,

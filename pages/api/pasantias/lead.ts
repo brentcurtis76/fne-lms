@@ -105,6 +105,21 @@ function marketingColumns(
   };
 }
 
+/**
+ * `source_path` (attribution), written only when this submission actually
+ * reported a usable one.
+ *
+ * On INSERT there is nothing to lose, so the column is always written — null
+ * included. On UPDATE the column is left out entirely unless a fresh path
+ * arrived: a resubmission from a page that sends no `sourcePath`, or one whose
+ * value `sanitizeSourcePath` refused, must not erase where the lead first came
+ * from. Same idiom as `marketingColumns` — an empty object leaves the column
+ * untouched.
+ */
+function sourcePathColumns(lead: ValidatedLead): Record<string, unknown> {
+  return lead.sourcePath ? { source_path: lead.sourcePath } : {};
+}
+
 function toEmailPayload(lead: ValidatedLead): LeadEmailPayload {
   return {
     firstName: lead.firstName,
@@ -177,6 +192,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .insert({
           cohort: lead.cohort,
           status: 'new',
+          source_path: lead.sourcePath,
           ...contactColumns(lead, nowIso),
           ...marketingColumns(lead, null, nowIso),
         })
@@ -222,6 +238,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .update({
           ...contactColumns(lead, nowIso),
           ...marketingColumns(lead, existing, nowIso),
+          ...sourcePathColumns(lead),
           ...(reopen ? { status: 'new' } : {}),
         })
         .eq('id', existing.id);

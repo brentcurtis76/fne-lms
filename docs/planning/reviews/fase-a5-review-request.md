@@ -127,3 +127,95 @@ sees. Both the new-lead and the already-known paths end in the same
   finding is that a 4.5.x upgrade renames it to `replyTo`; `tsc` catches it, and
   this becomes a second call site for that upgrade.
 - **No e2e.** The form does not exist yet (A6b).
+
+---
+
+# Round r2 — `source_path`
+
+**Prompt:** `docs/plan/prompts/a5-2.md`
+**Base for this round:** `phase/a5-lead-api` @ `45c08fc` (r1 head + PM ledger entry)
+**Commits:** 1
+
+Closes the r1 limitation recorded above ("**`source_path` is never written**").
+The column exists on the live table; the r1 criteria's optional-field list
+omitted it, so it would have stayed permanently null and A6b could not attribute
+where a lead came from.
+
+## Scope
+
+- `lib/pasantias/leads.ts` — `sanitizeSourcePath()`, `LEAD_FIELD_LIMITS.sourcePath`,
+  `sourcePath` on `LeadSubmissionBody` and `ValidatedLead`.
+- `pages/api/pasantias/lead.ts` — `source_path` on INSERT, `sourcePathColumns()`
+  on UPDATE.
+- Both test files.
+
+Nothing else touched. No schema change, no migration, no new dependency.
+
+## The decision the prompt asked me to make: drop, not reject
+
+An invalid `sourcePath` is **dropped to null** and the submission still succeeds.
+It is never a 400. Three reasons:
+
+1. **Nobody typed it.** It is browser-reported telemetry, so there is no form
+   field to render an error against — a `fields.sourcePath` error would arrive at
+   a form with nowhere to display it.
+2. **The failure modes are asymmetric.** Dropping costs one lead's attribution.
+   Rejecting costs the lead — a real school that filled the form correctly, told
+   they made a mistake in a field they cannot see.
+3. **It makes the field uniform.** Over-cap is dropped for the same reason as
+   `https://evil.example`, so there is exactly one rule for the column instead of
+   a 400 for length and a silent null for shape.
+
+This is why `sourcePath` has no entry in `LEAD_VALIDATION_MESSAGES` — it cannot
+produce an error by construction.
+
+## What counts as valid
+
+Accepted: starts with `/`, second character is neither `/` nor `\`, no
+whitespace and no C0/DEL control character, ≤200 characters after trim.
+Everything else → null.
+
+Requiring the leading `/` is what rejects every scheme (`https:`, `javascript:`,
+`data:`) without a scheme denylist to keep current. The `//` and `/\` checks
+cover protocol-relative forms, which browsers resolve against another host.
+
+The check runs on the **raw** string, deliberately: `normalizeText` (used for
+every other optional field) collapses `\s+` to a single space, which would turn
+`/pasantias\r\nX-Injected: 1` into the innocuous-looking `/pasantias X-Injected: 1`
+and store it, instead of refusing it.
+
+## Insert vs update
+
+- **INSERT** always writes the column, null included — there is nothing to lose
+  on a brand-new row.
+- **UPDATE** writes it only when this submission supplied an accepted path
+  (`sourcePathColumns` returns `{}` otherwise, the same idiom as
+  `marketingColumns`). A resubmission from a page that sends no `sourcePath` — or
+  sends one that was refused — must not erase where the lead first came from.
+
+## Test evidence
+
+`npx vitest run __tests__/lib/pasantias-leads.test.ts __tests__/api/pasantias-lead.test.ts`
+→ **92 passed** (75 in r1, +17 this round). All r1 tests unchanged and still green.
+
+New coverage: accepted shapes incl. query/fragment; the cap boundary (200 accepted,
+201 dropped); the full refused set (`https://`, `http://`, `javascript:`, `data:`,
+`//host`, `/\host`, CRLF, LF, tab, NUL, internal space, unrooted, `../`, empty,
+whitespace-only); non-strings; trim; persisted on insert; null on insert when
+absent; dropped-but-still-200 at the route; refreshed on update; **and the two
+cases that must leave the column unwritten on update** (field absent, value
+refused).
+
+## What to scrutinise
+
+1. **The drop-vs-reject call itself** — argued above; it is a judgement call the
+   prompt explicitly delegated, so it is the thing to overrule if you disagree.
+2. **`sanitizeSourcePath` is an allowlist, not a sanitiser.** It never rewrites a
+   value — it returns it verbatim or returns null. That means a stored path is
+   byte-identical to what the browser reported, which is what makes the A6b
+   admin surface's rendering obligation simple (escape it like any other stored
+   string) rather than "trust it, it was cleaned".
+3. **`source_path` sits outside `contactColumns`.** It is the only contact-ish
+   column with different insert and update behaviour, so it is written at the two
+   call sites instead. If a later phase adds a third write path to this table, it
+   will not get this behaviour for free.

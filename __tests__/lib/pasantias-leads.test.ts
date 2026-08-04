@@ -17,6 +17,7 @@ import {
   LEAD_VALIDATION_MESSAGES,
   canTransitionLead,
   isLeadStatus,
+  sanitizeSourcePath,
   validateLeadSubmission,
   type LeadStatus,
   type LeadSubmissionBody,
@@ -248,6 +249,86 @@ describe('validateLeadSubmission — numPeople', () => {
       expect(result.ok).toBe(false);
       if (result.ok) continue;
       expect(result.errors.numPeople).toBe(LEAD_VALIDATION_MESSAGES.numPeopleInvalid);
+    }
+  });
+});
+
+describe('sanitizeSourcePath — browser-reported, therefore untrusted', () => {
+  it('keeps a same-site relative path, query and fragment included', () => {
+    for (const path of [
+      '/pasantias',
+      '/pasantias?utm_source=google',
+      '/pasantias/barcelona#formulario',
+      '/',
+      '/ruta%20con%20espacios',
+    ]) {
+      expect(sanitizeSourcePath(path)).toBe(path);
+    }
+  });
+
+  it('accepts the cap and drops one character past it', () => {
+    const atLimit = `/${'a'.repeat(LEAD_FIELD_LIMITS.sourcePath - 1)}`;
+    expect(atLimit).toHaveLength(LEAD_FIELD_LIMITS.sourcePath);
+    expect(sanitizeSourcePath(atLimit)).toBe(atLimit);
+
+    expect(sanitizeSourcePath(`${atLimit}a`)).toBeNull();
+  });
+
+  it('drops every off-site and injected shape instead of storing it', () => {
+    const refused = [
+      // Absolute URLs and schemes — no leading `/`.
+      'https://evil.example',
+      'http://evil.example/pasantias',
+      'javascript:alert(1)',
+      'data:text/html,<script>alert(1)</script>',
+      // Protocol-relative: the browser would resolve both against evil.example.
+      '//evil.example',
+      '//evil.example/pasantias',
+      '/\\evil.example',
+      // Header/log injection.
+      '/pasantias\r\nX-Injected: 1',
+      '/pasantias\nX-Injected: 1',
+      '/pasantias\tvalue',
+      '/pasantias\u0000',
+      '/pas antias',
+      // Relative-but-not-rooted.
+      'pasantias',
+      '../pasantias',
+      '',
+      '   ',
+    ];
+
+    for (const value of refused) {
+      expect(sanitizeSourcePath(value)).toBeNull();
+    }
+  });
+
+  it('drops non-strings rather than coercing them', () => {
+    for (const value of [undefined, null, 42, true, {}, ['/pasantias']]) {
+      expect(sanitizeSourcePath(value)).toBeNull();
+    }
+  });
+
+  it('trims surrounding whitespace before judging the value', () => {
+    expect(sanitizeSourcePath('  /pasantias  ')).toBe('/pasantias');
+  });
+});
+
+describe('validateLeadSubmission — sourcePath', () => {
+  it('carries an accepted path through to the validated lead', () => {
+    const result = validateLeadSubmission(validBody({ sourcePath: '/pasantias?utm_source=ig' }));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.sourcePath).toBe('/pasantias?utm_source=ig');
+  });
+
+  it('nulls a refused path WITHOUT failing the submission — nobody typed it', () => {
+    for (const value of ['https://evil.example', '//evil.example', 'x'.repeat(400), undefined]) {
+      const result = validateLeadSubmission(validBody({ sourcePath: value }));
+      expect(result.ok).toBe(true);
+      if (!result.ok) continue;
+      expect(result.value.sourcePath).toBeNull();
+      expect(result.errors).toBeUndefined();
     }
   });
 });

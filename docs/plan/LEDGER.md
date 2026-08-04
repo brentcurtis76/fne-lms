@@ -1056,3 +1056,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: deviations + rollback rule ratified
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: → Sol round 2. A5's 3-attempt executor cap is now spent — a further defect goes to §1.5.
+
+### 2026-08-03 — A5 close — Fable (PM, per SOP §3.8)
+- CONTEXT PRESSURE: n/a
+- ACTION: Sol round 2 = **PASS** (REVIEW-A5-R2.md); all three mutations failed as expected, all gates green. **A5 DONE** — three rounds: the lead API with split-consent evidence, sourcePath as untrusted input, and the two race fixes (stale-snapshot consent clobber, non-atomic auto-reply claim). **One §1.5 residue documented and non-blocking**: a concurrent definite-failure rollback can restore a stale claim timestamp, suppressing a retry — it never weakens the at-most-one guarantee, so the failure mode is a missing courtesy email, not a duplicate. Recorded to Backlog rather than spending a fourth round (the 3-round cap is spent, and the residue is strictly less harmful than what it replaced).
+- COMMITS: (this close commit)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: residue accepted as backlog, not §1.5 escalation — it cannot cause a duplicate send
+- BACKLOG ADDED: stale-claim-timestamp rollback can suppress one retry (A5 §1.5 residue)
+- OPEN AFTER THIS ROUND: Brent's merge word for PR #40.

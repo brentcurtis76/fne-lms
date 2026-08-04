@@ -1,0 +1,45 @@
+### M1 — authenticated regains INSERT on email_contacts
+mutation: GRANT INSERT ON public.email_contacts TO authenticated;
+killed: 3 assert(s) failed
+not ok 17 - email_contacts / authenticated: the ACL carries exactly {SELECT} — nothing else, whatever privileges this server version defines
+not ok 39 - admin / email_contacts: INSERT denied at the privilege layer (no INSERT grant, no WITH CHECK policy)
+not ok 64 - docente / email_contacts: INSERT denied at the privilege layer
+
+### M2 — two-shape identity CHECK removed
+mutation: ALTER TABLE public.email_contacts DROP CONSTRAINT email_contacts_identity_shape_check;
+killed: 4 assert(s) failed
+not ok 114 - contacts: a non-anonymized row with no email violates the two-shape identity CHECK
+not ok 115 - contacts: email_normalized that is not lower(btrim(email)) violates the two-shape identity CHECK
+not ok 116 - contacts: a live row without an unsubscribe_token violates the identity CHECK (D-08 needs one per recipient)
+not ok 117 - contacts: anonymized_at set while the email survives violates the identity CHECK — no partial erasure
+
+### M3 — an authenticated write policy is added
+mutation: CREATE POLICY email_contacts_bad_write ON public.email_contacts FOR INSERT TO authenticated WITH CHECK (true);
+killed: 2 assert(s) failed
+not ok 6 - email_contacts: exactly one policy — admin SELECT-only, TO authenticated
+not ok 11 - comms tables: no policy carries a WITH CHECK — no authenticated write path exists
+
+### M4 — send-ledger contact FK loses ON DELETE RESTRICT
+mutation: ALTER TABLE public.email_campaign_sends DROP CONSTRAINT email_campaign_sends_contact_id_fkey; ALTER TABLE public.email_campaign_sends ADD CONSTRAINT email_campaign_sends_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.email_contacts(id) ON DELETE CASCADE;
+killed: 1 assert(s) failed
+not ok 134 - sends: deleting a contact that has send history is RESTRICTed — erasure is anonymize-only, never a cascade
+
+### M5 — authenticated regains TRUNCATE on the suppression tombstones
+mutation: GRANT TRUNCATE ON public.email_suppression TO authenticated;
+killed: 5 assert(s) failed
+not ok 20 - email_suppression / authenticated: the ACL carries exactly {SELECT} — nothing else, whatever privileges this server version defines
+not ok 23 - authenticated: holds TRUNCATE on none of the five tables (RLS would not govern it)
+not ok 57 - admin / email_suppression: TRUNCATE denied — the SELECT-only posture survives a command RLS never sees
+not ok 82 - docente / email_suppression: TRUNCATE denied at the privilege layer
+not ok 137 - suppression: email_hash is the primary key — one tombstone per address
+
+### M6 — campaigns status CHECK readmits 'failed'
+mutation: ALTER TABLE public.email_campaigns DROP CONSTRAINT email_campaigns_status_check; ALTER TABLE public.email_campaigns ADD CONSTRAINT email_campaigns_status_check CHECK (status = ANY (ARRAY['draft','sending','sent','sent_with_errors','failed']));
+killed: 1 assert(s) failed
+not ok 129 - campaigns: status `failed` is rejected — D-07 removed it; a zero-audience campaign stays draft
+
+### M7 — basis_recorded_at gains a default (D-12 violation)
+mutation: ALTER TABLE public.email_contacts ALTER COLUMN basis_recorded_at SET DEFAULT now();
+killed: 1 assert(s) failed
+not ok 120 - contacts: INSERT without basis_recorded_at violates NOT NULL (no default)
+

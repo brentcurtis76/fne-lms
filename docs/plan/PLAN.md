@@ -59,8 +59,8 @@ Improve communication and sales of Pasantías INSPIRA Barcelona for the **Octobe
 | A1 | Cohort data modules + leak guard + homepage date fix | **DONE 2026-08-02** (Sol PASS r5; head `992aeef`, PR #34) | `phase/a1-cohort` | A0 |
 | A2 | `pasantias_leads` migration + per-op RLS + pgTAP (DB-agent) | **DONE 2026-07-31** (Codex PASS r3; head `e13adfb`, PR #31) | `phase/a2-leads-db` | A0 |
 | A3 | Brochure + ficha generators + PDF text/visual QA | **DONE 2026-08-02** (Sol PASS r2; PR #37) | `phase/a3-pdfgen` | A1 |
-| A4 | PDF serving endpoints + leak checks | TODO | `phase/a4-pdfsrv` | A3 |
-| A5 | Lead API + transition helper + auto-reply/notification | TODO | `phase/a5-lead-api` | A2, A4 |
+| A4 | PDF serving endpoints + leak checks | **DONE 2026-08-03** (Sol PASS r2; PR #39) | `phase/a4-pdfsrv` | A3 |
+| A5 | Lead API + transition helper + auto-reply/notification | **DONE 2026-08-03** (Sol PASS r2; PR #40, merge `4e8400c`..) | `phase/a5-lead-api` | A2, A4 |
 | A6a | `/pasantias` page: sections + ficha CTA (no form) | TODO | `phase/a6a-page` | A1, A4 |
 | A6b | LeadForm (split consent) + wiring + e2e + a11y | TODO | `phase/a6b-form` | A5, A6a, T2 |
 | A7a | Site link rewiring + both INSPIRA flipbooks | TODO | `phase/a7a-links` | A6b |
@@ -70,7 +70,7 @@ Improve communication and sales of Pasantías INSPIRA Barcelona for the **Octobe
 | B1a | Expense-report mail moved server-side (recipients derived server-side) | **DONE 2026-07-31** (Codex PASS; code `f29c1ce`, PR #30) | `phase/b1a-expmail` | — |
 | B1b | Relay removal (`send-email.ts`, `test-email.ts`, sendgrid dep) | **DONE 2026-08-02** (Sol PASS r3; head `07ae6b1`, PR #32) | `phase/b1b-relay` | B1a |
 | B2 | Resend / svix / cron compatibility spike | **DONE 2026-08-02** (Sol PASS r2; PR #36) | `phase/b2-spike` | B1b |
-| B3 | Email schema: 5 tables + per-op RLS + privilege pgTAP (DB-agent) | TODO | `phase/b3-email-db` | A0, B2 |
+| B3 | Email schema: 5 tables + per-op RLS + privilege pgTAP (DB-agent) | **DONE 2026-08-03** (Sol PASS r2; PR #41) | `phase/b3-email-db` | A0, B2 |
 | B4a | Send-side SQL fns (queue/claim/complete/retry) + behavioral pgTAP incl. two-worker | TODO | `phase/b4a-sendfn` | B3 |
 | B4b | Data-side SQL fns (import/metrics/tags/anonymize/webhook-process) + behavioral pgTAP | TODO | `phase/b4b-datafn` | B3 |
 | B5 | Contacts admin (CRUD via service-role APIs, anonymize) | TODO | `phase/b5-contacts` | B4b, T2 |

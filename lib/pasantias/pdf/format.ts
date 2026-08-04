@@ -55,10 +55,10 @@ export function formatDayLong(isoDate: string): string {
 }
 
 /**
- * es-CL currency rendering: the thousands separator is a period, so €1.000 is
- * one thousand euros. Written by hand rather than through `Intl` because a
- * runtime built without full ICU silently falls back to `1,000`, which reads as
- * "one point zero" to a Chilean audience.
+ * es-CL currency rendering: the thousands separator is a period, so €2.500 is
+ * two thousand five hundred euros. Written by hand rather than through `Intl`
+ * because a runtime built without full ICU silently falls back to `2,500`,
+ * which reads as "two point five" to a Chilean audience.
  */
 export function formatEuro(amount: number): string {
   const whole = Math.trunc(Math.abs(amount)).toString();

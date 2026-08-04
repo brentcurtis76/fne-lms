@@ -31,7 +31,8 @@
  * checks are not enough:
  *   - accented copy is emitted escaped (`seg\xfan el tipo de alojamiento`), so
  *     every file is unescaped before it is searched;
- *   - `1000` is emitted as `1e3`, so amounts are matched in that form too;
+ *   - round thousands are emitted in exponential form when that is shorter
+ *     (`1000` → `1e3`), so amounts are matched in that form too;
  *   - object keys do NOT survive — the minifier flattens the object down to the
  *     properties that were read, so `lodgingNote` is not a usable signal while
  *     the string it pointed at is;
@@ -39,7 +40,8 @@
  *     their parts do — which is why the copy check below matters as much as the
  *     amounts. (The €1.560 total that first demonstrated this was retired with
  *     the 2026-07-31 lodging amendment; the lodging note is now derived the same
- *     way, from the per-night band.)
+ *     way, from the per-night band. €1.560 is still hunted for — see the
+ *     retired-amount rule above `PRICE_AMOUNT_PATTERNS`.)
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -59,16 +61,34 @@ const BINARY_EXTENSIONS = new Set([
  * with the values in `lib/pasantias/cohort-commercial.ts` — a price added there
  * without being added here is a price this guard will not look for.
  *
- * The 2026-07-31 amendment retired the €560 lodging package and the €1.560
- * total, and the owner's 2026-08-02 decision removed the optional city
- * extension and its €810 — all three are gone from this list because the module
- * no longer holds them. The €70–120 per-night band is protected data too, but
- * its figures are two and three digits long, so they get their own check below
- * rather than this list's wide currency window.
+ * EVERY RETIRED AMOUNT STAYS ON THIS LIST, PERMANENTLY — and the reason is the
+ * opposite of the intuitive one. A live price can only reach a public surface
+ * through the commercial module, which the sentinel and the copy check already
+ * cover. A **retired** price cannot come from the module at all: the module no
+ * longer holds it. The only route left is hand-written copy someone forgot to
+ * update — which is exactly the leak worth catching, and a number FNE would have
+ * to honour or retract if a reader found it. Removing a pattern because "that
+ * value is gone from the code" therefore removes the guard precisely when it
+ * starts mattering. That mistake was made once already: €1.560/€560 were dropped
+ * here when the 2026-07-31 lodging amendment deleted them from the module, and
+ * Sol's round-1 review proved a build publishing €1.560 passed. Only an amount
+ * whose *shape* stops being distinctive may ever leave this list.
+ *
+ * Not here: the €810 city extension (removed 2026-08-02) — its shape is not
+ * distinctive enough for the wide window and it is covered on the module side by
+ * `__tests__/lib/pasantias-cohort.test.ts`'s PROTECTED_AMOUNTS. The €70–120
+ * per-night band and the retired €560 package are protected data too, but their
+ * figures are two and three digits long, so they get their own tight-window
+ * checks below rather than this list's wide currency window.
  */
 const PRICE_AMOUNT_PATTERNS = [
-  '1[.,\\s]?000', // 1000, 1.000, 1,000, 1 000
-  '1e3', //          how the minifier writes 1000
+  '2[.,\\s]?500', //  2500, 2.500, 2,500, 2 500 — the live programme fee
+  '2\\.5e3', //       the exponential spelling of 2500
+  '1[.,\\s]?000', //  RETIRED 2026-08-02: 1000, 1.000, 1,000, 1 000
+  '1e3', //           RETIRED 2026-08-02: how the minifier writes 1000
+  '1[.,\\s]?560', //  RETIRED 2026-07-31: the lodging-inclusive total
+  //                  (no exponential twin: `1.56e3` is longer than `1560`, so
+  //                  no minifier emits it — unlike `1e3` for 1000.)
 ];
 
 /**
@@ -79,6 +99,15 @@ const PRICE_AMOUNT_PATTERNS = [
  * only count inside a much tighter currency window than the amounts above.
  */
 const BAND_AMOUNT_PATTERNS = ['70', '120'];
+
+/**
+ * RETIRED 2026-07-31: the €560 lodging package, the other half of the €1.560
+ * total above. It falls under the same permanent rule as the amounts in
+ * `PRICE_AMOUNT_PATTERNS`, but three digits are far too common to look for
+ * inside that list's 120-character window, so it is checked the way the band's
+ * figures are: whole-amount boundaries, and a currency marker right beside it.
+ */
+const RETIRED_SHORT_AMOUNT_PATTERNS = ['560'];
 
 const CURRENCY = '(?:€|EUR)';
 /**
@@ -97,15 +126,26 @@ const GAP = '[\\s\\S]{0,120}?';
  */
 const BAND_GAP = '[\\s\\S]{0,12}?';
 
-const amountPattern = PRICE_AMOUNT_PATTERNS.join('|');
 /**
- * Bounded so the band's figures only match as whole amounts: not preceded or
- * followed by another digit, and not sitting inside a grouped or decimal number
- * (`€1.200,70`, `€120.000`), which is how unrelated euro amounts in this repo
- * are written.
+ * Bound a list of amounts so its figures only match as whole amounts: not
+ * preceded or followed by another digit, and not sitting inside a grouped or
+ * decimal number (`€1.200,70`, `€120.000`, `€12.500`, `€2.5000`), which is how
+ * unrelated euro amounts in this repo are written. A two-decimal tail is part of
+ * the amount rather than a boundary violation, so `€2.500,00` is the protected
+ * figure and still matches.
+ *
+ * The band's figures have been bounded this way since round r4; the programme
+ * amounts joined them after Sol's round-1 S1 — unbounded, `2[.,\s]?500` fired on
+ * `€12.500` and `€2.5000`, and a guard that cries wolf is a guard that gets
+ * switched off.
  */
-const bandAmountPattern =
-  `(?<!\\d)(?<![\\d][.,])(?:${BAND_AMOUNT_PATTERNS.join('|')})(?!\\d)(?![.,]\\d)`;
+function wholeAmountPattern(patterns) {
+  return `(?<!\\d)(?<![\\d][.,])(?:${patterns.join('|')})(?:,\\d{2})?(?!\\d)(?![.,]\\d)`;
+}
+
+const amountPattern = wholeAmountPattern(PRICE_AMOUNT_PATTERNS);
+const bandAmountPattern = wholeAmountPattern(BAND_AMOUNT_PATTERNS);
+const retiredShortAmountPattern = wholeAmountPattern(RETIRED_SHORT_AMOUNT_PATTERNS);
 
 const CHECKS = [
   {
@@ -115,9 +155,10 @@ const CHECKS = [
   },
   {
     id: 'priced-amount',
-    description: 'an Appendix A-8 amount near a currency marker',
+    description:
+      'an Appendix A-8 programme amount, live or retired, near a currency marker',
     pattern: new RegExp(
-      `${CURRENCY}${GAP}(?:${amountPattern})|(?:${amountPattern})${GAP}${CURRENCY}`,
+      `${CURRENCY}${GAP}${amountPattern}|${amountPattern}${GAP}${CURRENCY}`,
       'g'
     ),
   },
@@ -126,6 +167,15 @@ const CHECKS = [
     description: 'an Appendix A-8 lodging-band amount beside a currency marker',
     pattern: new RegExp(
       `${CURRENCY}${BAND_GAP}${bandAmountPattern}|${bandAmountPattern}${BAND_GAP}${CURRENCY}`,
+      'g'
+    ),
+  },
+  {
+    id: 'retired-short-amount',
+    description:
+      'the retired Appendix A-8 lodging package (€560) beside a currency marker',
+    pattern: new RegExp(
+      `${CURRENCY}${BAND_GAP}${retiredShortAmountPattern}|${retiredShortAmountPattern}${BAND_GAP}${CURRENCY}`,
       'g'
     ),
   },

@@ -1336,3 +1336,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: none
 - BACKLOG ADDED: merge-train script — set the DONE row after the docs union, not before
 - OPEN AFTER THIS ROUND: **B3's migration needs applying to production** (owner's word, as with pasantias_leads); **A6a is the next dispatch** — the first phase a visitor sees.
+
+### 2026-08-03 — B3 migration APPLIED TO PRODUCTION — Fable (PM, owner-authorized)
+- CONTEXT PRESSURE: n/a
+- ACTION: On Brent's "apply b3". Pre-flight (read-only MCP): none of the five tables present, `set_updated_at` + `profiles` + the `admin` enum all present, production confirmed **PostgreSQL 15.8** — so the version-guarded MAINTAIN asserts take their skip branch there, exactly as designed for the PG17-local/PG15-prod split. Migration read from `origin/main` and scanned: no DROP/TRUNCATE/DELETE/column-drop outside comments. Applied verbatim via the Management API (HTTP 201). **Post-verify against the real ACL** (`aclexplode`, not `information_schema`): all five tables have RLS enabled, exactly one policy each, **zero write policies**, `authenticated = SELECT only`, **anon holds nothing at all**, and **zero grantable entries on any of the five** — the property Sol's r2 finding forced into the test suite now confirmed on the live database. The email platform's foundation exists in production; every table is dormant until B4a/B4b add the functions.
+- COMMITS: (this commit)
+- TESTS: production catalog + ACL verification (PM-run, above)
+- FINDINGS RAISED: none
+- DECISIONS: none (executes the owner instruction)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: **A6a is the next dispatch** — the `/pasantias` page, first phase a visitor sees. Track B continues at B4a/B4b (SQL functions), bound by the PostgREST or-on-UPDATE ban.

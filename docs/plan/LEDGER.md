@@ -994,3 +994,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: five assumptions ratified; (b) and (c) are binding constraints on B6 and B4a
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: → Sol. Migration applies to production after merge, on the owner's word (as with pasantias_leads).
+
+### 2026-08-03 — B3 Sol round 1 — Fable (PM triage)
+- CONTEXT PRESSURE: n/a
+- ACTION: Sol = **FAIL, 2 BLOCKING, both ACCEPTED** (REVIEW-B3.md, committed with this entry). Both are **test-proof gaps, not schema defects** — the migration is correct; the suite fails to prove it, and Sol demonstrated exactly that by mutating the schema and watching 313/313 stay green. (1) The ACL pins compare privilege *names* while ignoring `is_grantable` and grants inherited via `PUBLIC`, so a WITH GRANT OPTION or a PUBLIC-level grant passes unnoticed — the same blind-spot family as A2's `information_schema` miss, one level deeper. (2) The anonymization tests do not independently pin every identity field: dropping `basis_note IS NULL` from the anonymized shape survived. Sol's five ratified assumptions stand and the clean-reset run passed 313/313. Remediation r2 tightens both proofs; the schema is not expected to change. Sol round 1 of 2.
+- COMMITS: (this commit — REVIEW-B3.md + this entry)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: n/a (triage)
+- DECISIONS: both accepted
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: `/exec INSPIRA B3 r2`.

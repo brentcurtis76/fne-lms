@@ -1024,3 +1024,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: extra asserts + local-DB mutation approach ratified
 - BACKLOG ADDED: shared local-stack serialisation has no enforcement mechanism (process risk)
 - OPEN AFTER THIS ROUND: **→ Sol round 2 (of 2), scoped closure.**
+
+### 2026-08-03 — B3 close — Fable (PM, per SOP §3.8)
+- CONTEXT PRESSURE: n/a
+- ACTION: Sol round 2 = **PASS** (REVIEW-B3-R2.md): clean-reset pgTAP 335/335, 18/18 mutants killed including M-A1, M-A2 and the M-C7 survivor, migration blob byte-unchanged from r1, global grantability assertion accepted, and the live-arm NULL/CHECK self-correction verified. **B3 DONE** — the email platform's schema: five tables, grant-list revocations, admin SELECT-only policies, ACL-level pins, anonymization two-shape CHECK, PII-free webhook ledger, provider_batch_key created-unused. Two non-blocking notes to Backlog (evidence-driver robustness; one wording nit). **The migration still has to be applied to production after merge** — the owner's step, as with pasantias_leads.
+- COMMITS: (this close commit)
+- TESTS: none this round (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: —
+- BACKLOG ADDED: B3 evidence-driver robustness; wording nit
+- OPEN AFTER THIS ROUND: Brent's merge word for PR #41, then the production apply.

@@ -1014,3 +1014,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: PM works from a pinned `main` worktree from now on
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: **A4 r3 + A5 r3 dispatchable** (prompts verified present on origin/main); B3 awaits Sol round 2.
+
+### 2026-08-03 — A4 r3 + A5 r3 verified; PM worktree moved to a durable path — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Both verified by PM re-run (A4 84/84, A5 106/106); detail in the branch ledgers. Both fixed their blockers at the shape level rather than patching symptoms: A4 made create-only an **opt-in** on the shared `uploadFile` (default untouched, so the licitaciones generator is unaffected) and proved both race orderings with a stateful fake bucket; A5 removed the racy inputs outright — `marketing_opt_in` is no longer fetched at all, and `shouldSendAutoReply` was **deleted** rather than left exported. A4's executor reported 4069/4070 with the failure explained (a 30s timeout in an unrelated test under load average 47, green in isolation) rather than claiming a clean sweep. **A5's parting finding is now a frozen decision** (Decision Log): PostgREST `or`-on-UPDATE is banned for claim logic — it passes every mocked test and fails only in production, and this repo already lost sessions to it once; B4a/B4b's claim functions must stay in SECURITY DEFINER SQL. **Process:** the scratchpad PM worktree was reclaimed by the OS mid-command, so those commands ran in the shared checkout (on `phase/a5-lead-api`) and produced two stray commits there; both were caught by rejected pushes, the branch was reset to `7e6c272`, and nothing reached any remote. The PM worktree now lives at `~/Documents/fne-lms-pm`, alongside the durable worktrees rather than in a temp path the OS reclaims — and `set -e` is no longer trusted to abort a failed `cd` inside an `&&` chain; critical steps now carry explicit `|| exit 1`.
+- COMMITS: (this commit)
+- TESTS: as branch entries
+- FINDINGS RAISED: none new
+- DECISIONS: 1 Decision Log row (PostgREST or-on-UPDATE ban)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: A4, A5 and B3 all await Sol round 2; then reconcile #38/#39/#40/#41 into one merge list for Brent.

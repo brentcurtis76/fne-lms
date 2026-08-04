@@ -1356,3 +1356,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: none
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A6a r1`. Track B's next executable pair is B4a/B4b (SQL functions, bound by the PostgREST or-on-UPDATE ban).
+
+### 2026-08-03 — A6a r1 verified; r2 staged (fourth propagation miss) — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: A6a r1 verified including **PM visual QA** — built, served and screenshotted the page at desktop and mobile widths rather than reading tests alone. It works: the two-modes structure carries the argument, the free weekend reads as intentional, no prices anywhere. The screenshot also made the defect obvious: four experts render "Experto invitado" because **Appendix A-6's 2026-08-02 amendment never reached `cohort-public.ts` — my miss, the fourth of this class**. `prompts/a6a-2.md` staged on the same branch so page and data ship together: real titles, plus the owner-approved school *aspectos destacados* (which the pack has for all seven and the module never exported), **plus guards that fail on a placeholder or a school with no highlight** — the point being that the next amendment cannot silently not-land. Downstream PDF pins and `*_VERSION` bumps included, since D-05 keys the cache on them and a stale cached brochure would still say "Experto invitado".
+- COMMITS: (this commit)
+- TESTS: as branch entry
+- FINDINGS RAISED: none new
+- DECISIONS: r1 deviations accepted (slim header; getAppBaseUrl try/catch)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A6a r2`.

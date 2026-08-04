@@ -1014,3 +1014,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: (1) **No `NODE_ENV` fallback** — rationale above; the prompt specified `VERCEL_ENV === 'production'` and widening it would re-open the exact hole being closed. If someone wants a local production-ish build to warm the cache, that is a PM call, not a default. (2) **`console.info` for the skip**, per the prompt, so the file now carries three log levels (`log` for the miss, `info` for the skip, `error` for failures). (3) **"Log once" read as once per skipped upload, not once per process** — a module-level `warned` flag would hide the line from anyone who starts reading logs late; the cost is repetition on a busy dev server. (4) **Merged main rather than leaving PR #39 conflicting**, following the B2 r2 precedent; the union is asserted, not asserted-by-eye.
 - BACKLOG ADDED: none new. Carried from A3: the retired-amount prefix-matching should-fix (general to the cohort modules, untouched here); S2 (rendered homepage-card assertion).
 - OPEN AFTER THIS ROUND: PM verification, then Sol final review. **Preview deployments now never warm the cache** — intended, and the reason reads stay unconditional, but it means a preview on a cold cache re-renders per request (`maxDuration: 60` already covers a cold render). The operational consequence of the whole gate: the first production request after a `BROCHURE_VERSION`/`FICHA_VERSION` bump is the one that warms the shared object, and nothing outside production can pre-warm it.
+
+### 2026-08-03 — A4 round r2 — Fable (PM verification)
+- CONTEXT PRESSURE: n/a
+- ACTION: Verified: 61/61 re-run by PM; the production gate is the single `uploadFile` call under the `pasantias/` prefix. **Strict `VERCEL_ENV === 'production'` with no `NODE_ENV` fallback is exactly right** — the executor's reasoning is worth preserving: `NODE_ENV` is `production` for preview builds, `npm start` on a laptop and a local `npm run build`, i.e. every case the gate exists to stop. Reads stay unconditional, so a preview still serves warm production bytes and the D-05 owner-uploaded brochure is served everywhere. Deviation (merging main + unioning the ledger mid-round) accepted — PR #39 was already conflicting and the union was asserted by counts, not by eye. Operational consequence recorded: after a VERSION bump the first production request warms the shared object and nothing outside production can pre-warm it — acceptable, and `maxDuration: 60` covers the cold render.
+- COMMITS: (this ledger commit)
+- TESTS: 61/61 (PM re-run)
+- FINDINGS RAISED: none
+- DECISIONS: strict VERCEL_ENV gate ratified
+- BACKLOG ADDED: three log levels in serve.ts left un-normalised (would touch r1 lines) — cosmetic
+- OPEN AFTER THIS ROUND: → Sol.

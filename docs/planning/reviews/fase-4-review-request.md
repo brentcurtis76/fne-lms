@@ -609,3 +609,344 @@ session_facilitators, session_attendees, session_reports, auth.users) taken afte
 - **F1 and F2 are reported, not fixed.**
 - **No meeting rows, no `session_meetings_public`, no `lib/zoom/**` change, no migration, no
   tsconfig/eslint change, no `data-testid` added to application source.**
+
+---
+
+# Z1c-3 — Closing F1 and F2
+
+> Appended, not merged. Sections 1–20 describe Z1c-1 (sealed at `88dc0f9`) and Z1c-2 (sealed at
+> `18b32ef`) as they were written. Where Z1c-3 changes a statement made there, it says so here.
+
+## 21. Commit map (Z1c-3)
+
+| SHA | Purpose |
+|---|---|
+| `b8e9e30` | Merge `origin/main` (docs-only: `zoom-integration-plan.md`, +2 lines; no conflicts) |
+| `29fc036` | **F1** — disambiguate the `profiles` embed in `/api/sessions/[id]/attendees` |
+| `5488087` | `/attendees` back in the disclosure spec's consumer set, both tiers |
+| `167bbd7` | The unit blind spot — answered, and the query-shape assertion that follows from it |
+| `a8cd363` | **F2** — `playwright-report/` + `test-results/` into ESLint `ignorePatterns` |
+| _this_ | This section |
+
+Total application-source delta: **one line of query string** (plus 8 lines of comment).
+
+## 22. Files, by risk
+
+| Risk | File | What changed |
+|---|---|---|
+| **High** — application source, prod path | `pages/api/sessions/[id]/attendees.ts` | `profiles(...)` → `profiles:user_id(...)`, +comment. Nothing else in the file. |
+| Medium — the gate | `tests/e2e/session-disclosure.spec.ts` | `ATTENDEES` added to `CONSUMERS`; +1 tier-2 test, +1 privileged test (×3 personas) |
+| Low | `__tests__/api/sessions/attendees.test.ts` | new recording double + 2 tests; existing 5 untouched |
+| Low | `.eslintrc.json` | 2 lines added to `ignorePatterns`; nothing else in the file |
+
+## 23. Spec inventory (Z1c-3)
+
+`tests/e2e/session-disclosure.spec.ts` — **14 → 18 tests**. The delta is +4, not +2:
+
+| Added | Personas | Count |
+|---|---|---|
+| `the dedicated attendees endpoint redacts the same way the detail GET does` | `gcLeader` | 1 |
+| `the dedicated attendees endpoint discloses attendee e-mails` | `admin`, `consultorAssigned`, `consultorGlobal` | 3 |
+
+`ATTENDEES` joining `CONSUMERS` adds no test count — it widens two existing ones: the tier-2
+no-leak sweep and the tier-3 "403 with no payload at all" for all three denied personas.
+
+`__tests__/api/sessions/attendees.test.ts` — **5 → 7 tests**.
+
+## 24. F1 — what was actually wrong, and the blast radius re-verified
+
+`session_attendees` carries two FKs into `profiles`, so `select('*, profiles(...)')` is
+ambiguous. PostgREST answers `PGRST201` / HTTP 300 before reading a row; the handler's
+`attendeesError` branch turns that into a 500. Origin `08bde65`, not `db58c15`.
+
+**Empirical proof, against the local PostgREST, with a negative control** (service-role,
+`session_id=…502`, which has two seeded attendees):
+
+```
+SELECT: *, profiles(id, first_name, last_name, email)
+{"code":"PGRST201", …,"hint":"Try changing 'profiles' to one of the following:
+ 'profiles!session_attendees_marked_by_fkey', 'profiles!session_attendees_user_id_fkey'.",
+ "message":"Could not embed because more than one relationship was found for
+ 'session_attendees' and 'profiles'"}
+HTTP=300
+
+SELECT: *, profiles!session_attendees_user_id_fkey(id, first_name, last_name, email)
+[{"id":"3a7368ca…","user_id":"a6aabf8d…", …,"profiles":{"id": "a6aabf8d…", "email": …}}, …]
+HTTP=200
+
+SELECT: *, profiles:user_id(id, first_name, last_name, email)
+[{"id":"3a7368ca…","user_id":"a6aabf8d…", …,"profiles":{"id": "a6aabf8d…", "email": …}}, …]
+HTTP=200
+```
+
+**The response key does not change.** Both disambiguated forms return the embed under
+`profiles` — proven above, not reasoned about. That matters because `redactProfileEmails`
+(`lib/utils/session-disclosure.ts:175`) strips e-mails only from a key literally named
+`profiles`; a form that renamed the key would have turned a 500 into a leak. The alias form
+was chosen over the constraint hint precisely because it *states* the key rather than
+inheriting PostgREST's default for it, and because it matches the sibling detail GET
+(`pages/api/sessions/[id]/index.ts:125`).
+
+### Redaction on the newly-live path — read, then asserted
+
+`attendees.ts:135-138` (post-fix numbering) routes the rows through
+`canViewParticipantEmails(accessContext) ? attendees : redactProfileEmails(attendees)`. That
+branch had never executed against a real response, because the query above it always failed.
+Reading it: `accessContext` carries `highestRole`, `userRoles`, `session.school_id` and
+`isFacilitator` — every field `canViewParticipantEmails` consults — and `redactProfileEmails`
+walks arrays and strips `email` under `PROFILE_EMBED_KEY = 'profiles'`, which the fixed query
+now produces. Confirmed empirically by the new `gcLeader` assertion: the payload contains
+attendee `first_name` values and **no** `profiles.email` on any row, plus the whole-body
+substring sweep for all seven fixture addresses.
+
+### Blast-radius re-verification (my own, not inherited)
+
+**24 tables** in `public` carry more than one FK into `profiles` — matches the PM's count
+exactly (`assignment_feedback`, `assignment_submissions`, `community_meetings`,
+`consultant_assignments`, `consultant_rates`, `consultor_sessions`, `contract_hours_ledger`,
+`course_assignments`, `course_enrollments`, `dev_users`, `expense_report_access`,
+`expense_reports`, `feedback_permissions`, `learning_path_assignments`,
+`lesson_assignment_submissions`, `pasantias_quotes`, `qa_scenario_assignments`,
+`quiz_submissions`, `session_attendees`, `session_edit_requests`, `tractor_signups`,
+`user_mentions`, `user_roles`, `workspace_messages`).
+
+Every `profiles(` embed under `pages/api/sessions/` — all 8 of them:
+
+| Site | Root of the embed | FKs into `profiles` | Verdict |
+|---|---|---|---|
+| `[id]/attendees.ts:118` | `session_attendees` | **2** | **the defect — fixed** |
+| `[id]/index.ts:123` | `session_facilitators` | 1 | unambiguous |
+| `[id]/ical.ts:65` | `session_facilitators` | 1 | unambiguous |
+| `[id]/facilitators.ts:146` | `session_facilitators` | 1 | unambiguous |
+| `index.ts:353` | `session_facilitators` (nested) | 1 | unambiguous |
+| `ical.ts:60` | `session_facilitators` (nested) | 1 | unambiguous |
+| `series/[groupId].ts:39` | `session_facilitators` (nested) | 1 | unambiguous |
+| `series/[groupId]/ical.ts:41` | `session_facilitators` (nested) | 1 | unambiguous |
+
+The four nested cases resolve against `session_facilitators`, not the `consultor_sessions`
+root (which does have 4 FKs into `profiles`) — checked by reading the select strings, not by
+pattern-matching the file. **The PM's claim holds exactly within the stated scope.**
+
+### One thing the stated scope did not cover — reported, NOT fixed
+
+A repo-wide scan (all top-level `profiles(` embeds on any of the 24 tables, across
+`pages/ lib/ components/ utils/ hooks/ src/ scripts/ tests/ __tests__/`) returns **three**
+sites. The third is outside `pages/api/sessions/` and outside this phase's scope:
+
+- **`pages/api/admin/networks/schools.ts:277`** — `.from('user_roles').select('id,
+  profiles(email, first_name, last_name)')`. `user_roles` has 2 FKs into `profiles`
+  (`user_id`, `assigned_by`), so this is the same defect class. It does **not** surface as a
+  500: the call destructures only `{ data }` and never `error`, so PGRST201 yields
+  `activeSupervisors === null`, the `if (activeSupervisors && …)` guard silently does not
+  fire, and the handler proceeds to delete the `red_escuelas` assignment. **The
+  active-supervisor safety check has never run.** Failure mode is a silent guard bypass, not
+  an error — strictly worse to leave, and strictly out of scope to touch here.
+- `pages/api/admin/networks/schools-broken.ts:278` — byte-identical code in a file whose name
+  says what it is; last touched by `898ecaa` "add all source files to repository".
+
+Per the chunk's own rule ("Do not 'fix' anything else you find. Report it.") neither is
+touched. Flagged for Sol alongside the 403/404 residual.
+
+## 25. F1 — fail-on-old, both directions
+
+Serial run against a warmed dev server, `tests/e2e/session-disclosure.spec.ts` only.
+
+**Old source (`profiles(...)`), new spec — 5 failed | 13 passed:**
+
+```
+  ✓   1 gcLeader › receives the session, with has_meeting and join_path instead of the raw link
+  ✓   2 gcLeader › receives participant names without e-mail addresses
+  ✓   3 gcLeader › receives all_participants reports and not facilitators_only ones
+  ✘   4 gcLeader › the sibling consumers apply the same rule as the detail endpoint
+  ✓   5 gcLeader › attendee names survive the redaction — only the address is removed
+  ✘   6 gcLeader › the dedicated attendees endpoint redacts the same way the detail GET does
+  ✓   7 admin › receives the raw meeting link and participant e-mails
+  ✘   8 admin › the dedicated attendees endpoint discloses attendee e-mails
+  ✓   9 consultorAssigned › receives the raw meeting link and participant e-mails
+  ✘  10 consultorAssigned › the dedicated attendees endpoint discloses attendee e-mails
+  ✓  11 consultorGlobal › receives the raw meeting link and participant e-mails
+  ✘  12 consultorGlobal › the dedicated attendees endpoint discloses attendee e-mails
+  ✓  13-18 (report tiers, denied tiers)
+  5 failed
+  13 passed (33.6s)
+
+    Error: GET /api/sessions/e2e00000-0000-4000-8000-000000000502/attendees status
+    expect(received).toBe(expected) // Object.is equality
+    Expected: 200
+    Received: 500
+```
+
+Exactly the five assertions that touch `/attendees`, and no others. The three tier-3 denied
+personas still pass on the old source — correct, and worth noting: `canViewSession` refuses
+them at `attendees.ts:111`, *above* the broken query, so a 403 was the one thing that endpoint
+did answer correctly.
+
+**New source, new spec — 18 passed:**
+
+```
+  ✓   1 … ✓  18   (all 18, listed in §23)
+  18 passed (2.0m)
+```
+
+## 26. F1 — the unit-test blind spot, answered
+
+**Why `attendees.test.ts` passed while production was broken.** Not a lenient double. No test
+in the file reached the database *at all*. All five cases returned at a guard clause above the
+query: 400 (invalid UUID, at `handler`), 401 (unauthenticated, at the top of `handleGet`),
+400 ×2 (PUT payload schema, before the `try`), 405 (method). `createServiceRoleClient` was
+mocked as a bare `vi.fn()` — it returns `undefined`, so a test that *had* reached the query
+would have thrown on `undefined.from(...)`, been swallowed by the handler's `catch`, and
+produced a 500 that looked like the bug instead of exposing it. The happy path was untested,
+and a broken embed inside untested code is invisible at any assertion strength.
+
+**Can this class be caught at the unit layer?** Not by observing behaviour. `PGRST201` is
+PostgREST's answer to a schema fact, and a mock has no schema; a double that "raised PGRST201"
+would do so only because the test told it which query strings deserve that error — the test
+asserting the string it exists to verify. That is the tautology, and it is not worth writing.
+
+**It can be caught as a property of the query the handler builds**, which is what was added.
+The double now *records* `.from()`/`.select()` and the GET happy path is driven end-to-end
+(status 200). Two assertions, both about the query, neither about the double's return value:
+
+1. the embed names a relationship — `not.toMatch(/(^|[\s,(])profiles\s*\(/)`. This is the
+   defect verbatim, and it **fails against the pre-fix source**.
+2. the embed is aliased `profiles:<fk column>`, not `profiles!<constraint>` — because the
+   response key is load-bearing for `redactProfileEmails`, and the alias states it.
+
+**Stated limit, in the file itself:** assertion 1 encodes a schema fact this layer cannot
+verify. A future migration adding a second FK into `profiles` on some other table goes
+unnoticed here. Only `supabase test db` sees the constraints; only e2e sees a real PostgREST.
+Which is the argument for the e2e assertion, not a substitute for it.
+
+**Fail-on-old:** against `HEAD~2`'s `attendees.ts`, `1 failed | 6 passed`:
+
+```
+AssertionError: the profiles embed must name a relationship:
+  expected '*, profiles(id, first_name, last_name…' not to match /(^|[\s,(])profiles\s*\(/
+```
+
+With the fix, `7 passed`. Note the first new test (`reaches the attendees query at all`)
+passes in *both* directions — the double cannot fail the way PostgREST does. That is the
+honest limit above, visible in the evidence rather than only asserted in prose.
+
+## 27. F2 — lint with artifacts present, before and after
+
+The `.js` files are **not** the trace bundles in `test-results/` (those are `trace.zip`,
+binary). They are Playwright's **HTML-reporter trace-viewer bundle**, written to
+`playwright-report/trace/*.js` only when the report has traces to view. So the chain is:
+failing run → `trace: 'on-first-retry'` (`playwright.config.ts:33`) writes a trace → the HTML
+reporter emits its viewer → ESLint walks into minified React.
+
+Reproduced deliberately: a throwaway failing spec run with `--retries=1` and the HTML
+reporter (`PW_TEST_HTML_REPORT_OPEN=never`), then deleted. It produced 5 `.js` files:
+
+```
+playwright-report/trace/index.Bk2uYQRV.js
+playwright-report/trace/uiMode.CQJ9SCIQ.js
+playwright-report/trace/sw.bundle.js
+playwright-report/trace/assets/defaultSettingsView-CJSZINFr.js
+playwright-report/trace/assets/codeMirrorModule-a5XoALAZ.js
+```
+
+**Before (`a8cd363^`), artifacts on disk:**
+
+```
+$ npm run lint ; echo "LINT_EXIT=$?"
+…
+  2:17303  error  React Hook "H.useEffect" is called in function "fe" that is neither a React
+                  function component nor a custom React Hook function …  react-hooks/rules-of-hooks
+
+✖ 77 problems (77 errors, 0 warnings)
+LINT_EXIT=1
+```
+
+77, matching the PM's ~77 exactly. Every one is `react-hooks/rules-of-hooks` in
+`playwright-report/trace/*.js`.
+
+**After (`a8cd363`), the same 5 `.js` files still on disk:**
+
+```
+$ echo "js artifacts still present: $(find playwright-report test-results -name '*.js' | wc -l)"
+js artifacts still present:        5
+$ npm run lint ; echo "LINT_EXIT=$?"
+> eslint --ext .js,.jsx,.ts,.tsx --max-warnings=0 .
+LINT_EXIT=0
+```
+
+Incidental confirmation of the PM's "does not reproduce after a green run": the final green
+e2e run left `find playwright-report test-results -name '*.js' | wc -l` = **0**. Playwright
+rewrites `playwright-report/` at the end of every run, so a pass erases the evidence of the
+previous failure. That is why this survived three chunks.
+
+## 28. Test evidence (Z1c-3) — every gate re-run here
+
+| Gate | Command | Result |
+|---|---|---|
+| type-check | `npm run type-check` | exit 0, no output |
+| lint | `npm run lint` | exit 0, clean |
+| unit | `npm test` | **3994 passed (3994)**, 253 files, exit 0 |
+| build | `npm run build` | exit 0, 156/156 static pages |
+| RLS | `npm run test:db` | **Files=7, Tests=171**, `Result: PASS`, exit 0 |
+| e2e | `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **58 passed (44.8s)**, exit 0 |
+| e2e guard | `node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json` | `OK — 5 mandatory spec(s) ran with no skips`, exit 0 |
+
+Deltas against the Z1c-2 baseline:
+
+- **unit 3992 → 3994** (+2): the two tests in §26. File count unchanged at 253.
+- **e2e 54 → 58** (+4): the breakdown in §23. Per spec: `smoke` 2, `ci-fixture` 11,
+  `zoom-join-authz` 19, `session-disclosure` **18** (was 14), `session-ical` 8.
+- **pgTAP 171/171 across 7 files** — unchanged, as expected: no migration, no policy touched.
+
+Every exit code above was read from an **unpiped** command. No `tail`, no `${PIPESTATUS[0]}`.
+
+**Built bundle points at the local stack.** `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321`
+is inlined into `.next/static/chunks/pages/_app-*.js`. The production host string does appear
+in the bundle, and it is not a data path: hardcoded public Storage image URLs on the marketing
+pages (`/equipo`, `/nosotros`, `/`) and one `<link rel="preconnect">` in `_document`. No
+Supabase client in this build resolves to it.
+
+## 29. Scrutiny areas — where I would attack this
+
+1. **The alias-vs-constraint-hint choice is the one real judgment call.** Both forms were
+   proven to return the key `profiles`, so the choice is not load-bearing *today*. If a
+   reviewer prefers the constraint hint (self-documenting; survives a column rename that
+   keeps the constraint), that is a defensible opposite call and a one-word change. What is
+   NOT defensible is a bare `profiles(...)` or a rename of the key.
+2. **The unit assertion regex is a hand-maintained encoding of a DB fact.** `not.toMatch(/…profiles\s*\(/)`
+   knows nothing about `pg_constraint`. It is right today because `session_attendees` has two
+   FKs today. §26 says so in the file, but a reviewer should decide whether an assertion whose
+   premise lives outside the test is worth having at all.
+3. **`expect(attendees.length).toBe(ATTENDEE_EMAILS.length)` couples the spec to the fixture
+   count.** Chosen over `toBeGreaterThan(0)` deliberately — a partial result is a real failure
+   mode for an embed change and `>0` would not catch it — but it does mean adding an attendee
+   to `e2e-fixtures.json` breaks two tests.
+4. **The privileged `/attendees` assertion scans the whole flattened body for the address**,
+   like its siblings. It would pass if the address surfaced under an unexpected key. That is
+   deliberate for the *negative* assertions (a leak anywhere is a leak) and is arguably too
+   loose for a positive one.
+5. **The out-of-scope finding in §24 is the thing I am least comfortable leaving.** A silent
+   guard bypass on `red_escuelas` deletion is a worse failure mode than the 500 this chunk
+   fixed. It was left alone because the chunk said to. Read §24 before deciding that was right.
+
+## 30. Not delivered / declared (Z1c-3)
+
+- **No `supabase db reset`.** The shared local stack was not reset at any point in this chunk;
+  no other worktree's fixtures were destroyed. `npm run test:db` runs pgTAP against the running
+  database and does not reset it. The seeder was run twice, and it upserts.
+- **The 403/404 existence-oracle question is untouched and unasserted**, per PM ruling. No
+  claim is made about it in either direction, in code or in this document.
+- **`pages/api/admin/networks/schools.ts:277` and `schools-broken.ts:278` are reported, not
+  fixed** (§24).
+- **No migration, no `lib/zoom/**` change, no tsconfig change, no fixture-persona change, no
+  Q1 meeting rows, no `session_meetings_public`, no `data-testid` added to application source.**
+- **No PR opened.** Branch `feat/e2e-tenant` pushed only.
+
+## 31. Open questions
+
+1. **§24's out-of-scope finding** — does Sol want it in this phase, a follow-up, or the
+   residual list next to the 403/404 question? `schools-broken.ts` looks like dead weight that
+   should be deleted rather than fixed, but that is a call for someone with the history.
+2. **Should the `profiles`-embed rule be enforced mechanically** rather than per-call-site? A
+   pgTAP assertion over `pg_constraint` (or a lint rule over `.select()` strings) would bind
+   the schema fact to the code instead of leaving it in a comment and a regex. Out of scope
+   here; cheap later.

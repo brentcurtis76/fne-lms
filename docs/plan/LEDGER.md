@@ -965,6 +965,56 @@ Entry format (§2.2 of the SOP):
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: merge word for PR #38; A4 / A5 / B3 dispatchable.
 
+### 2026-08-02 — A4 / A5 / B3 dispatched — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Owner: "let's do it all." Three prompts written and committed. **A4** (`prompts/a4-1.md`) — criteria INLINED rather than referencing PLAN's "as v2 A4", because stale plan references have caused three defects here; carries two prior findings that land in this phase (register the brochure route in `ALLOWED_COMMERCIAL_IMPORTERS`, and tighten Sol's over-permissive RFC 5987 helper), and asks the CTA-URL question explicitly instead of letting it be guessed. **A5** (`prompts/a5-1.md`) — full D-12 split-consent contract, the transition graph, anti-enumeration identical 200s, escaping, 24h auto-reply dedup, and the fact that the table is now live in prod with service-role as the only write path. **B3** (`prompts/b3-1.md`) — DB-agent round front-loaded with everything A2 paid to learn: grant-list form (not a denylist), RLS-is-not-the-write-boundary, ACL-level pgTAP via `aclexplode` (not `information_schema`), version-guarded MAINTAIN asserts with the local/CI PG17.6 vs prod PG15.8 split spelled out. PR #38 reconciled with main; watcher will merge it when CI clears.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: none
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: three executor rounds in flight once dispatched; PR #38 merging on the watcher.
+
+### 2026-08-03 — A4/A5/B3 verified; two r2 rounds staged — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: All three r1 rounds verified by PM re-run (A4 43/43, A5 75/75, B3 313/313 after a local reset — the first B3 run failed only because my stack was stale, not the migration). PRs #39/#40/#41 opened. Two findings, **both raised by the executors themselves and both traceable to PM specs**: (1) A4's unconditional cache upload lets any non-production run poison the shared `propuestas` bucket with a `localhost:3000` CTA — `prompts/a4-2.md` gates uploads on production while keeping reads universal; (2) A5's `source_path` had no write path because my [A2] list omitted it — `prompts/a5-2.md` adds it, and hardens it as untrusted input (same-site relative only) since the browser supplies it. B3's five assumptions ratified, two of them now binding on later phases (B6 must let `unsubscribe_token` default fire; B4a must filter on `unsubscribed_at IS NULL`, not `subscribed_at`).
+- COMMITS: (this commit)
+- TESTS: as branch entries
+- FINDINGS RAISED: none new
+- DECISIONS: CTA origin pinned (A4); A5 assumptions ratified; B3 assumptions ratified
+- BACKLOG ADDED: consent-evidence history question (A5)
+- OPEN AFTER THIS ROUND: dispatch A4 r2 + A5 r2; B3 → Sol now; merges on the owner's word.
+
+### 2026-08-03 — A4 r2 + A5 r2 verified; B3 r2 staged — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: A4 r2 (61/61) and A5 r2 (92/92) verified by PM re-run; both closed findings the executors themselves raised, and both made the judgment call I would have — A4's strict `VERCEL_ENV` gate with no `NODE_ENV` fallback (NODE_ENV reads "production" for previews and local builds, the very cases the gate exists to stop), and A5's drop-not-reject for an untrusted `sourcePath` no human types. Both → Sol. **B3 Sol FAIL ×2 accepted**: both are test-proof gaps, not schema defects — Sol mutated the schema and 313/313 stayed green. `prompts/b3-2.md` staged: ACL pins must compare `is_grantable` and assert no PUBLIC (grantee 0) entry exists; anonymization must pin every identity field individually, each mutation proven to turn the suite red. The prompt explicitly forbids silently repairing the migration if a mutation says it is actually wrong — that would be a FINDINGS outcome.
+- COMMITS: (this commit)
+- TESTS: as branch entries
+- FINDINGS RAISED: none new
+- DECISIONS: A4/A5 deviations + assumptions ratified
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch B3 r2; A4 + A5 → Sol; merges + B3's prod apply on the owner's word.
+
+### 2026-08-03 — Misdispatch caught; shared checkout restored — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: `/exec INSPIRA B3 r2` was dispatched at a round that was already complete and PM-verified (0f9c048 + 2b85553) — B3's remaining step is a **Sol** review, not an executor round. The session did the right thing: located the state, confirmed the criteria were already met by an earlier commit, swept every branch for a b3-3 prompt, found none, and **stopped rather than re-running or improvising a scope**; it also declined to write a ledger entry for a round that did not happen. No cost beyond the session. It surfaced the cause: **the shared checkout was sitting on `phase/a5-lead-api` with a days-stale `docs/plan/` tree**, which made the completed round look pending — the same shared-checkout hazard that caused the branch-drift incident. Restored to `main` and pulled. Reinforces the standing rule: read plan state from `origin/main`, never from whatever a checkout happens to be on.
+- COMMITS: (this commit)
+- TESTS: none (no round took place)
+- FINDINGS RAISED: none
+- DECISIONS: none
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: awaiting Sol on A4, A5 and B3 (three review rounds outstanding); A4 r3 + A5 r3 executor prompts are committed and dispatchable once their reviews land — or now, since they close findings Sol already stated.
+
+### 2026-08-03 — A4/A5 r3 prompts on main (after two losses) — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: The r3 prompts were written three times before landing on `main`, and both losses were infrastructure, not authorship. **First loss:** commit `5e5e722` created and pushed both files, then stopped being an ancestor of `origin/main` — dropped by a history rewrite from the parallel Zoom workstream that shares this branch. **Second loss:** the recovery commits (`b06ac0c`, `c91a640`) went to `phase/a5-lead-api`, because a parallel session moved the shared checkout onto that branch between my branch assertion and my commit — the branch-drift hazard recurring in a narrower window than a per-block guard can close. Also recorded honestly: b06ac0c's ledger text described edits whose python had failed mid-block, so it was false when written; c91a640 corrected it and this entry supersedes both. **Structural fix, not another rule:** the PM now works from a **dedicated worktree pinned to `main`** (`scratchpad/pm-main`) instead of the shared checkout, so no other session can move HEAD underneath it. Content verified by grep before commit and by `git ls-tree origin/main` after push — local success is no longer accepted as evidence.
+- COMMITS: (this commit)
+- TESTS: pre-commit greps on both files; post-push remote verification
+- FINDINGS RAISED: shared checkout + parallel history rewrites can silently lose PM commits; mitigated by the dedicated worktree and post-push remote verification
+- DECISIONS: PM works from a pinned `main` worktree from now on
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: **A4 r3 + A5 r3 dispatchable** (prompts verified present on origin/main); B3 awaits Sol round 2.
+
 ### 2026-08-03 — a1-repricing r1: FINDINGS (no code) — Opus (executor)
 - CONTEXT PRESSURE: comfortable
 - ACTION: **Stopped before any code change — three blocking findings, two of which would have made a correct branch fail review by construction.** (F1) The prompt's premise "A1 and A3 are already merged" is **false for A3**: PR #37 is still OPEN, so `lib/pasantias/__tests__/pdf.test.ts`, `brochure.tsx`, `ficha.tsx`, `pdf/*`, `scripts/pasantias-visual-qa.ts` and `docs/plan/evidence/a3/` **do not exist on `origin/main`** — scope items 4c (A3 brochure pins) and 5 (re-render evidence PNGs) are unexecutable from the specified base. PR #36 (B2) is also still open. This is precisely the precondition the previous entry recorded under OPEN AFTER THIS ROUND; the round was dispatched ahead of it. (F2) **PLAN acceptance criteria still pin the retired €1.000** — `PLAN.md:124` A1 [A3] "money math per amended A-8 (**program = 1000**…)" and `PLAN.md:140` Phase A3 "brochure carries **\"1.000\"**". Executing scope item 1 (1000 → 2500) makes the branch violate two written criteria; this is the **third propagation-class miss** and the exact failure mode the r3 finding (`PLAN.md:356`) and the binding PM amendment-checklist rule (`PLAN.md:361`) exist to prevent — the grep-for-the-retired-literal step did not run for this amendment. (F3) **Appendix A-7 contradicts itself on excludes**: the updated "**NO incluye:** … comidas … segunda semana; **cenas**; … transporte a El Puig y Les Vinyes …" line is followed three lines later by the *retired* list "**El programa NO incluye:** desayunos de hotel; **cenas (salvo la de cierre)**; …", which still matches today's `COHORT_EXCLUDES` **verbatim** — so the authoritative source gives two conflicting normative answers and an executor cannot distinguish "not yet propagated" from "deliberately kept". `A-16`'s CLOSED text (`PLAN.md:389`) likewise still prescribes the retired phrasing "comidas incluidas en los días de visita y cena de cierre". Verified consistent and needing no arbitration: the **includes** list (prompt item 2 matches A-7 exactly — 6 items, ending in the Virolai/Sadako lunches; the El Puig/Les Vinyes transport and the old meals line both drop out) and the €2.500 / €70–120 band figures in A-8.

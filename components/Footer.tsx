@@ -79,7 +79,14 @@ export default function Footer({ className = '' }: FooterProps) {
             
             {/* Navigation Links */}
             <div>
-              <h4 className="text-lg font-bold mb-6">Navegación</h4>
+              {/*
+                h2, not h4: these two are the footer's own top-level sections and
+                nothing inside the landmark introduces an h2 or h3 above them, so
+                an h4 makes every page that renders this Footer jump two levels
+                and fail axe's `heading-order`. The size is carried entirely by
+                `text-lg`, so the tag change moves nothing visually.
+              */}
+              <h2 className="text-lg font-bold mb-6">Navegación</h2>
               <ul className="space-y-3">
                 <li><Link href="/#pasantias" className="text-white/70 hover:text-white transition-colors">Pasantías</Link></li>
                 <li><Link href="/programas" className="text-white/70 hover:text-white transition-colors">Programas</Link></li>
@@ -92,7 +99,7 @@ export default function Footer({ className = '' }: FooterProps) {
             
             {/* Contact & Platform */}
             <div>
-              <h4 className="text-lg font-bold mb-6">Contacto</h4>
+              <h2 className="text-lg font-bold mb-6">Contacto</h2>
               <ul className="space-y-3">
                 <li>
                   <a href="mailto:info@nuevaeducacion.org" className="text-white/70 hover:text-white transition-colors flex items-center">

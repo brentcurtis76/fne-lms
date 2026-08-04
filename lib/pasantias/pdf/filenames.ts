@@ -20,8 +20,14 @@ import { COHORT_ID } from '../cohort-public';
  * public cohort value it renders changes — the `propuestas` bucket is keyed by
  * it, so a stale key serves a stale PDF. Independent of `BROCHURE_VERSION`: the
  * ficha carries no prices, so a pricing change alone must not invalidate it.
+ *
+ * v2 (2026-08-04): Coral Regí and Mora del Fresno gained A-6's `INSPIRA`
+ * suffix. Unlike the r2 title round — which touched only experts 5–8, none of
+ * which the ficha prints — these two are inside `COHORT_EXPERTS.slice(0, 4)`,
+ * the four the "Equipo destacado" block renders, so the ficha's text really
+ * does change and a cached v1 would keep serving the old titles.
  */
-export const FICHA_VERSION = '2026-10-v1';
+export const FICHA_VERSION = '2026-10-v2';
 
 /** Download filename for the open ficha. ASCII only — see the module comment. */
 export const FICHA_FILENAME = `Ficha-Pasantias-INSPIRA-Barcelona-${COHORT_ID}-${FICHA_VERSION}.pdf`;

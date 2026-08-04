@@ -249,10 +249,18 @@ export interface CohortExpert {
  * table cell, so the **only** edit is the initial capital a standalone line
  * needs. `__tests__/lib/pasantias-cohort.test.ts` fails on any placeholder or
  * empty role, so the next amendment cannot silently not-land the same way.
+ *
+ * The first two roles dropped A-6's `INSPIRA` suffix until 2026-08-04 — the r2
+ * prompt declared them correct and they were left alone rather than quietly
+ * edited. They now read exactly as A-6 writes them, and the whole eight-row
+ * table is deep-equalled against a test-owned transcription of A-6, so no row
+ * is unpinned any more. Where the content pack's §6 disagrees (it still calls
+ * Menéndez and Quintana "Conferencista INSPIRA"), **Appendix A-6 wins**: it is
+ * the normative table and its canonical source is the owner-reviewed brochure.
  */
 export const COHORT_EXPERTS: readonly CohortExpert[] = [
-  { name: 'Coral Regí', role: 'Directora del programa' },
-  { name: 'Mora del Fresno', role: 'Coordinadora' },
+  { name: 'Coral Regí', role: 'Directora del programa INSPIRA' },
+  { name: 'Mora del Fresno', role: 'Coordinadora INSPIRA' },
   {
     name: 'Jordi Musons',
     role: 'Director',

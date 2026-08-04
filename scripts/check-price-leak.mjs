@@ -22,9 +22,10 @@
  *
  * FALSE POSITIVES: bare amounts are useless as a signal — minified JS is full of
  * digits like 1000 — so numeric matching is context-scoped: an amount counts
- * only when a currency marker (€ or EUR) sits nearby. The euro symbol on its own
- * is not a finding; the app has unrelated euro-denominated features (consultant
- * rates, expense reports).
+ * only when a currency marker (`€`, `EUR`, or the words `euro`/`euros` — see
+ * {@link CURRENCY}) sits nearby. A currency marker on its own is not a finding;
+ * the app has unrelated euro-denominated features (consultant rates, expense
+ * reports) whose bundles are full of the string `EUR`.
  *
  * WHAT A REAL LEAK LOOKS LIKE, verified by deliberately importing the commercial
  * module into `pages/index.tsx` and building — the minifier is why the obvious
@@ -60,6 +61,12 @@ const BINARY_EXTENSIONS = new Set([
  * Amounts from Appendix A-8, in every form a bundler emits them. Keep in sync
  * with the values in `lib/pasantias/cohort-commercial.ts` — a price added there
  * without being added here is a price this guard will not look for.
+ *
+ * Every separator below is optional (`[.,\s]?`), so each figure matches both the
+ * Spanish-formatted `2.500` and the bare `2500` — that has been true since these
+ * patterns were written, and `__tests__/scripts/check-price-leak.test.ts` now
+ * pins both spellings against every currency form so it cannot quietly stop
+ * being true.
  *
  * EVERY RETIRED AMOUNT STAYS ON THIS LIST, PERMANENTLY — and the reason is the
  * opposite of the intuitive one. A live price can only reach a public surface
@@ -109,7 +116,24 @@ const BAND_AMOUNT_PATTERNS = ['70', '120'];
  */
 const RETIRED_SHORT_AMOUNT_PATTERNS = ['560'];
 
-const CURRENCY = '(?:€|EUR)';
+/**
+ * What counts as "a price is being quoted here".
+ *
+ * Until Sol's round-2 review this was `(?:€|EUR)` — the glyph and the ISO code,
+ * nothing else. Sol injected `<p>Programa: 2500 euros por persona</p>`, built,
+ * and the scanner reported clean: the amount matched (`2[.,\s]?500` has always
+ * had an optional separator, so the bare `2500` was never the gap) but the word
+ * beside it was not a currency marker as far as this file was concerned. The
+ * most ordinary way a Spanish page states a price was invisible to the guard.
+ *
+ * So the word forms are recognised too, case-insensitively: `eur`, `euro`,
+ * `euros`. Both edges are bounded to non-letters, which is the whole reason
+ * this is spelled out rather than written with the `i` flag — **`Europa` must
+ * not match**, and it is live copy on `/pasantias` ("recorrer Barcelona o
+ * conocer Europa"). `Eur|Euro` both fail the trailing boundary inside `Europa`,
+ * so the word is silent while `euro`, `euros` and `EUROS` all fire.
+ */
+const CURRENCY = '(?:€|(?<![A-Za-z])[Ee][Uu][Rr](?:[Oo][Ss]?)?(?![A-Za-z]))';
 /**
  * How far apart the amount and its currency marker may sit. Minified output has
  * no line breaks and packs a whole object into one run of characters, so this

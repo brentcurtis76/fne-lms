@@ -206,3 +206,207 @@ placeholder visible in the received string. Restored: 4216/4216 and 4/4 green.
   round's scope, and neither document has a per-school block to hold them.
 - The page is still orphaned until A7a; `#programa` is still the interim mailto
   panel until A6b.
+
+---
+
+# Round r3 — Sol FAIL closed (5 blocking + 2 should-fix)
+
+**Branch:** `phase/a6a-page` · base `4de30f3` (r2 head) · 1 commit
+**Prompt:** `docs/plan/prompts/a6a-3.md`
+
+Sol's content-fidelity audit passed in r2; what failed was the machinery. Three
+of the five blocking findings were guards that did not guard, so for each of
+those the deliverable is not the fix but the demonstrated failure when the fix
+is reverted. All mutation proofs below were run, not reasoned about.
+
+## What changed, by finding
+
+**B1 — the leak scanner missed ordinary Spanish prices.**
+`scripts/check-price-leak.mjs`'s `CURRENCY` was `(?:€|EUR)`. It now also
+recognises `eur` / `euro` / `euros`, case-insensitively, bounded on both sides by
+non-letters. The boundary is the whole reason it is written out rather than
+using the `i` flag: **`Europa` is live copy on this page** ("recorrer Barcelona o
+conocer Europa"), and a naive alternation fires on every free-day block.
+
+One correction to the finding's diagnosis, stated because it changes what the
+fix is: **the bare `2500` was never the gap.** `PRICE_AMOUNT_PATTERNS` has always
+spelled the separator `[.,\s]?`, so `2500`, `2.500`, `2,500` and `2 500` all
+matched already; the same is true of `1000`, `1560` and `560`. What was missing
+was only the currency word. Both spellings are now pinned against every currency
+form so the property cannot quietly lapse.
+
+*Proof:* 19 new cases in `__tests__/scripts/check-price-leak.test.ts`, driven
+through the scanner's own exported `scanText` (not a copy of it), including
+Sol's exact injection. Reverting `CURRENCY` to `(?:€|EUR)` turns **9** of them
+red by name — `fires on Sol's exact injection`, `fires on the same amount
+grouped`, `fires on title case`, `fires on the singular word`, `fires on the
+retired programme fee in words`, `fires on the retired total in words`, `fires on
+the retired lodging package in words`, `fires on the lodging band, both figures
+in words`, `fires on the lodging band minimum in words`. (`2500 EUROS` survives
+the old pattern only because `EUR` is a prefix of `EUROS` — which is the sort of
+accident that made the old guard look like it worked.)
+
+The windows were **not** touched: `node scripts/check-price-leak.mjs` on an
+unmodified production build reports OK over 267 files with the wider
+alternation, so no narrowing was needed. This repo does ship the string `EUR`
+in unrelated bundles (consultant rates, expense reports) and none of it fires.
+
+**B2 — the fidelity guards were partial and self-referential.**
+`__tests__/lib/pasantias-cohort.test.ts` gains `ORACLE_SCHOOLS` (7 rows: name,
+tier, levels, the full ordered highlight list, `immersionDays`/`fullDay`) and
+`ORACLE_EXPERTS` (8 rows: name, role, school, host note), both hand-transcribed
+from Appendix A-5/A-6 and pack §5b and both compared with `toEqual`, which is
+symmetric — an added, removed, renamed or reordered entry fails. They are
+literals in the test file: not imported, not derived, not shared with the module.
+
+At the page level, `tests/e2e/pasantias-page.spec.ts` gains a `PINNED` block with
+at least one literal assertion per section (headline, hero stats, week labels,
+día tipo, the seven school names, one level string, one highlight, three expert
+roles, the objective count and the first objective's opening). The e2e still
+reads the module for rendering assertions — that is its job — but a wholesale
+module corruption now fails at both levels.
+
+*Proof:* Sol's three mutations, applied one at a time:
+
+| Mutation | Test that failed |
+|---|---|
+| La Maquinista `levels` → `ESO` | `the independent oracle (Sol r2 B2) > matches the hand-transcribed A-5 / §5b school table exactly, row for row` |
+| La Maquinista `highlights[0]` → `Innovación educativa` | same test |
+| Jordi Musons `role` → `Coordinador` | `the independent oracle (Sol r2 B2) > matches the hand-transcribed A-6 expert table exactly, row for row` |
+
+Reverted, 54/54 green.
+
+**B3 — whole-page heading order failed.**
+`components/Footer.tsx`'s two section headings are now `h2` instead of `h4`,
+classes untouched (`text-lg font-bold mb-6` carries the size, so nothing moves
+visually). The A6a heading assertion is un-scoped from `<main>` to the whole
+document.
+
+`Footer` is shared by 8 public pages; all 8 were checked on this build. The
+Footer change **regresses none of them** — it can only ever remove a jump, since
+the footer's headings come last in DOM order and moving them up a level cannot
+affect any heading before them. Three pages do carry pre-existing `heading-order`
+violations of their own, all far above the footer and none introduced here:
+`/nosotros` (h1 → h3 "Transformar"), `/programas` (h1 → h3 "AULA GENERATIVA"),
+`/brand-preview` (h2 "4. Cards" → h4). Raised as a finding; not fixed, because
+restructuring three unrelated marketing pages is not this phase's scope.
+
+New spec `tests/e2e/footer-heading-order.spec.ts` (added to `MANDATORY_SPECS` —
+CI runs only that list, so a guard off it never runs) asserts precisely the
+Footer's own contract on 6 of those pages: no jump **into** the footer and none
+**inside** it. Deliberately narrow, so it neither adopts nor hides the three
+pages' own debt.
+
+*Proof:* reverting both `h2`s to `h4` fails
+`pasantias-page.spec.ts > has one h1, ordered headings across the whole document
+and a Tab-reachable CTA` plus the footer spec on `/programas`,
+`/brand-preview` and `/pasantias` — and passes on `/`, `/nosotros` and `/equipo`,
+whose last body heading is an `h3`. That asymmetry is exactly why the defect
+looked absent for two rounds.
+
+**B4 — text contrast failed WCAG AA.**
+New token `brand_accent_text: '#b45309'` (amber 700). Measured against the real
+background (#ffffff, both the equipo card and the objectives section):
+**5.02:1** — computed from the WCAG relative-luminance formula, not assumed.
+`brand_accent_hover` (#f59e0b) measures 2.14:1 and `brand_accent` (#fbbf24)
+1.66:1, so neither may carry small text on white; both keep their surface/hover
+roles untouched everywhere else in the repo. The two host markers (13 px), the
+thirteen objective numbers (15 px) and the decorative `·` in `SchoolDetail` now
+use the new token — the third is `aria-hidden` and was never a violation, but
+leaving one lighter amber beside the others would have been an inconsistency
+with no reason.
+
+The durable half: `@axe-core/playwright` (already a devDependency, previously
+unused) is wired into the A6a e2e and fails on any **serious or critical**
+violation. Current result: zero.
+
+*Proof:* reverting the two flagged elements to `brand_accent_hover` and
+rebuilding fails `has no serious or critical accessibility violations (axe)`
+with, verbatim:
+`serious · color-contrast · 15 node(s) · li[data-testid="pasantias-expert-2"] > … | li[data-testid="pasantias-objective-0"] > …`
+— Sol's fifteen, named.
+
+Note for the reviewer: axe rates `heading-order` **moderate**, so B3's defect
+does *not* surface through this filter. The explicit heading-sequence assertion
+is what covers it; the two checks are not redundant.
+
+**B5 — the page defeated the production-origin contract.**
+The try/catch in `pages/pasantias.tsx` is deleted; `getAppBaseUrl(context.req)`
+is called directly and allowed to throw. `.github/workflows/ci.yml` now writes
+`NEXT_PUBLIC_BASE_URL=http://localhost:3000` into the `.env.local` it already
+generates.
+
+**S1 — invented content.** `Visita de media jornada` → `Visita en Barcelona`.
+The replacement claims no duration; it carries the same contrast A-5 itself
+draws (El Puig and Les Vinyes take the whole day *because they are outside
+Barcelona*). No duration data was added to the module. A new e2e test asserts the
+section contains neither `media jornada` nor `medio día`.
+
+**S3 — the keyboard test.** `.focus()` is gone; the test presses `Tab` from the
+document start until the primary CTA holds focus (bounded at 20 presses, reached
+in 3), then `Enter`.
+
+**S2 — not acted on**, per the prompt.
+
+**Also folded in:** Coral Regí → `Directora del programa INSPIRA`, Mora del
+Fresno → `Coordinadora INSPIRA` (Appendix A-6 verbatim), pinned in the new oracle
+and in the page-level `PINNED` block.
+
+## Files changed
+
+| File | Risk | Why |
+|---|---|---|
+| `components/Footer.tsx` | **highest — shared by 8 public pages** | h4 → h2 ×2, classes unchanged |
+| `.github/workflows/ci.yml` | high — CI gate 4 | one env line, must stay before the build step |
+| `tailwind.config.js` | medium — global theme | additive token only, nothing redefined |
+| `scripts/check-price-leak.mjs` | medium — CI guard | `CURRENCY` widened; windows and amounts unchanged |
+| `pages/pasantias.tsx` | medium | origin, 3 colour classes, 1 copy string |
+| `lib/pasantias/cohort-public.ts` | medium | 2 role strings |
+| `lib/pasantias/cohort-commercial.ts`, `lib/pasantias/pdf/filenames.ts` | medium — D-05 cache keys | v4 → v5, v1 → v2 |
+| `scripts/ci/e2e-mandatory.mjs` | medium | one spec added to the list |
+| `tests/e2e/pasantias-page.spec.ts`, `tests/e2e/footer-heading-order.spec.ts`, `__tests__/…` | low | tests only |
+| `docs/plan/evidence/a6a/*`, `docs/plan/evidence/a3/*` | none | re-rendered artefacts |
+
+## Scrutinise hardest
+
+1. **The `CURRENCY` boundary.** `(?<![A-Za-z])[Ee][Uu][Rr](?:[Oo][Ss]?)?(?![A-Za-z])`
+   is the only new regex in a CI gate. It is bounded on letters, not on word
+   characters — `2500EUR` still matches (a leak shape) while `Europa` and
+   `eurocentrismo` do not. Both directions are tested; the clean-build run is the
+   evidence that matters most.
+2. **The `h4 → h2` choice.** `h3` would have been the conservative-looking
+   option and is the wrong one: on a page whose last body heading is an `h1`, an
+   `h3` footer is itself a two-level jump. `h2` is safe after any level.
+3. **The narrow footer spec.** It deliberately does not assert whole-document
+   heading order on the other pages. That is a judgement call — the alternative
+   was to inherit three unrelated pages' debt or weaken the assertion.
+4. **The two PDF version bumps.** If `FICHA_VERSION` were left at v1, A4 would
+   keep serving a cached ficha with the pre-`INSPIRA` titles. r2 correctly did
+   not bump it; r3 must, and the reason is one row of `slice(0, 4)`.
+5. **`Visita en Barcelona`.** It is a claim, just a much weaker one than the
+   string it replaces. It rests on A-5's "están fuera de Barcelona" implying the
+   other five are inside it. If the PM reads that as still too much inference,
+   the honest fallback is to print nothing at all on those cards.
+
+## Known limitations / deferred (r3)
+
+- **Three pages carry pre-existing `heading-order` violations** in their own
+  bodies (`/nosotros`, `/programas`, `/brand-preview` — listed above). Not this
+  phase's scope; the footer spec is scoped so it neither fixes nor hides them.
+- **`NEXT_PUBLIC_*` is inlined at build time.** An attempt to prove B5's throw at
+  runtime — stripping the origin vars from `.env.local` and restarting
+  `next start` — did **not** produce a 500, because the value is baked into the
+  server bundle by the build. The consequence is real and load-bearing: the CI
+  step that writes `.env.local` must stay ahead of the build step. It does, and
+  the workflow now says so in a comment. A build-time proof was not run (it costs
+  two extra production builds and B5's stated acceptance is "the e2e passes with
+  the catch gone and the env set", which it does).
+- `ci-fixture.spec.ts` cannot run in this worktree — it needs T2's seeded local
+  Supabase stack and this `.env.local` points at the remote project. 4 failed / 2
+  did not run there; every other mandatory spec is green.
+- The content-pack §6 vs Appendix A-6 contradiction is **still open and still
+  PM-owned** (§6 calls Menéndez and Quintana "Conferencista INSPIRA" and gives
+  Boris Mir no role). The module and both oracles follow A-6, and the module now
+  says so in a comment.
+- The page is still orphaned until A7a; `#programa` is still the interim mailto
+  panel until A6b.

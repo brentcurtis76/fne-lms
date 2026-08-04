@@ -169,6 +169,58 @@ describe('leak guard — programme amounts match as whole amounts only (Sol r1 S
   }
 });
 
+/**
+ * Sol's round-2 B1. The guard recognised `€` and `EUR` and nothing else, so
+ * `<p>Programa: 2500 euros por persona</p>` shipped, built, and reported clean —
+ * the most ordinary way a Spanish page quotes a price was invisible to it.
+ *
+ * These are the mutants themselves, run through the scanner's own matcher rather
+ * than through six production builds: each string must make the guard fire, and
+ * the clean counterparts must leave it silent. `main()` turns any finding into
+ * `process.exit(1)`, so "the matcher fires" and "the scanner exits non-zero" are
+ * the same statement.
+ */
+describe('leak guard — word-form currencies (Sol r2 B1)', () => {
+  const mustFail: ReadonlyArray<readonly [string, string]> = [
+    ['Sol’s exact injection', '<p>Programa: 2500 euros por persona</p>'],
+    ['the same amount grouped', '<p>Programa: 2.500 euros por persona</p>'],
+    ['shouted', 'PROGRAMA: 2500 EUROS POR PERSONA'],
+    ['title case', 'Programa: 2500 Euros por persona'],
+    ['the singular word', 'x="2500 euro"'],
+    ['the bare ISO code after the figure', 'x="2500 EUR"'],
+    ['the glyph, grouped', '<p>Programa: €2.500 por persona</p>'],
+    ['the glyph, bare', '<p>Programa: €2500 por persona</p>'],
+    ['the retired programme fee in words', 'x="1000 euros"'],
+    ['the retired total in words', 'x="1560 euros"'],
+    ['the retired lodging package in words', 'x="560 euros"'],
+    ['the lodging band, both figures in words', 'entre 70 euros y 120 euros por noche'],
+    ['the lodging band minimum in words', 'desde 70 euros la noche'],
+    ['a commercial phrase with no figure at all', 'x="por persona por noche"'],
+  ];
+
+  for (const [description, leak] of mustFail) {
+    it(`fires on ${description}`, () => {
+      expect(checksFiring(leak).length, leak).toBeGreaterThan(0);
+    });
+  }
+
+  const mustStaySilent: ReadonlyArray<readonly [string, string]> = [
+    // Live `/pasantias` copy. `Europa` contains `Eur`, and a case-insensitive
+    // alternation with no trailing boundary would fire on every free-day block.
+    ['the free-weekend copy', 'recorrer Barcelona o conocer Europa antes de la segunda semana'],
+    ['Europa beside a band figure', 'conocer Europa · 70 personas'],
+    ['a euro-word inside a longer word', 'x="eurocentrismo 2500"'],
+    ['the ISO code with no protected amount near it', 'th="Tarifa EUR/hora"'],
+    ['an unrelated euro rate', '"Tarifa EUR",amount:45'],
+  ];
+
+  for (const [description, text] of mustStaySilent) {
+    it(`stays silent on ${description}`, () => {
+      expect(checksFiring(text), text).toEqual([]);
+    });
+  }
+});
+
 describe('leak guard — the band figures do not fire on ordinary output', () => {
   // `70` and `120` are ordinary numbers, and this repo ships unrelated
   // euro-denominated code (consultant rates, expense reports). Everything here

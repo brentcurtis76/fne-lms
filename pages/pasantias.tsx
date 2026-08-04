@@ -92,29 +92,23 @@ function formatDayMonth(isoDate: string): string {
 }
 
 /**
- * The page's own absolute origin.
+ * `getAppBaseUrl` is called directly and is allowed to throw.
  *
- * `getAppBaseUrl` is the repo's authority and is used first. It throws when a
- * production build runs outside Vercel with no configured origin — which is
- * exactly the CI e2e server (`npm run start`) — and a marketing page must not
- * 500 there, so that one case falls back to the request's own host. Nothing
- * durable is minted from this value: it only fills this page's own meta tags.
+ * Round r1 wrapped it in a try/catch that rebuilt the origin from the request's
+ * `Host` header, arguing that nothing durable was minted because the value only
+ * fills meta tags. **That argument was wrong**, and the PM's acceptance of it
+ * was withdrawn in r3: `<link rel="canonical">` and the OG URL are scraped,
+ * cached and indexed by search engines and by WhatsApp, so a poisoned origin
+ * outlives the request exactly the way `lib/utils/app-url.ts` warns about — the
+ * artifact just happens to live in someone else's cache instead of an .ics file.
+ *
+ * The real problem the catch was papering over is that CI's `npm run start`
+ * runs a production build with no configured origin. That is fixed where it
+ * belongs: `.github/workflows/ci.yml` writes `NEXT_PUBLIC_BASE_URL` into the
+ * `.env.local` it already generates for the e2e stack.
  */
-function resolveOrigin(req: { headers?: { host?: string | string[] } }): string {
-  try {
-    return getAppBaseUrl(req);
-  } catch {
-    const rawHost = req?.headers?.host;
-    const host = Array.isArray(rawHost) ? rawHost[0] : rawHost;
-    if (!host) {
-      return 'http://localhost:3000';
-    }
-    return `${host.includes('localhost') ? 'http' : 'https'}://${host}`;
-  }
-}
-
 export const getServerSideProps: GetServerSideProps<PasantiasPageProps> = async (context) => {
-  const origin = resolveOrigin(context.req);
+  const origin = getAppBaseUrl(context.req);
 
   return {
     props: {
@@ -158,7 +152,7 @@ function SchoolDetail({ school }: { school: CohortSchool }) {
             key={highlight}
             className="flex gap-2 text-[15px] leading-[1.5] text-brand_gray_dark"
           >
-            <span aria-hidden="true" className="text-brand_accent_hover">
+            <span aria-hidden="true" className="text-brand_accent_text">
               ·
             </span>
             {highlight}
@@ -609,10 +603,20 @@ export default function PasantiasPage({
                     data-testid={`pasantias-school-visita-${index}`}
                   >
                     <p className="text-[17px] font-bold">{school.name}</p>
+                    {/*
+                      Only what Appendix A-5 states. The retired string here
+                      read "Visita de media jornada", which the Appendix never
+                      says: A-5 gives "1–2 escuelas por día" and marks El Puig
+                      and Les Vinyes as full-day *because they are outside
+                      Barcelona*. Half a day was an inference from the absence
+                      of `fullDay`, printed to buyers as programme detail. The
+                      replacement carries the same contrast the Appendix draws —
+                      inside the city vs outside it — and claims no duration.
+                    */}
                     <p className="mt-1 text-[15px] text-brand_gray_medium">
                       {school.fullDay
                         ? 'Día completo — fuera de Barcelona'
-                        : 'Visita de media jornada'}
+                        : 'Visita en Barcelona'}
                     </p>
                     <SchoolDetail school={school} />
                   </li>
@@ -645,8 +649,15 @@ export default function PasantiasPage({
                   {expert.school && (
                     <p className="mt-1 text-[14px] text-brand_gray_medium">{expert.school}</p>
                   )}
+                  {/*
+                    `brand_accent_text`, not `brand_accent_hover`: this marker
+                    is 13 px on a white card, so WCAG AA wants 4.5:1 and
+                    #f59e0b measures 2.14:1. #b45309 measures 5.02:1 and keeps
+                    the amber accent role — see the token's comment in
+                    tailwind.config.js. Same swap on the objective numbers below.
+                  */}
                   {expert.note && (
-                    <p className="mt-2 text-[13px] font-semibold uppercase tracking-[.08em] text-brand_accent_hover">
+                    <p className="mt-2 text-[13px] font-semibold uppercase tracking-[.08em] text-brand_accent_text">
                       {expert.note}
                     </p>
                   )}
@@ -677,7 +688,7 @@ export default function PasantiasPage({
                 className="flex gap-4 border-t border-gray-200 pt-5"
                 data-testid={`pasantias-objective-${index}`}
               >
-                <span className="shrink-0 text-[15px] font-black tabular-nums text-brand_accent_hover">
+                <span className="shrink-0 text-[15px] font-black tabular-nums text-brand_accent_text">
                   {String(index + 1).padStart(2, '0')}
                 </span>
                 <p className="text-[15px] leading-[1.6] text-brand_gray_dark">{objective}</p>

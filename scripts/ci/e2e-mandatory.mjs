@@ -18,6 +18,10 @@ export const MANDATORY_SPECS = [
   'tests/e2e/smoke.spec.ts',
   'tests/e2e/ci-fixture.spec.ts',
   'tests/e2e/pasantias-page.spec.ts',
+  // A6a r3: `components/Footer.tsx` is shared by every public marketing page, so
+  // its heading levels are a cross-page contract. CI runs only the specs on this
+  // list, which means a guard that is not on it is a guard that never runs.
+  'tests/e2e/footer-heading-order.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

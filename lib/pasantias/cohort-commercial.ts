@@ -96,8 +96,12 @@ export const COHORT_PRICE_VALIDITY = `Precios vigentes para la cohorte ${COHORT_
  * v4: the Appendix A-6 expert titles finally propagated into `cohort-public.ts`
  * (2026-08-04). The brochure prints all eight roles, so a cached v3 PDF would
  * keep handing readers four people titled "Experto invitado".
+ *
+ * v5: the two remaining A-6 titles gained their `INSPIRA` suffix (2026-08-04) —
+ * same reason as v4. The Equipo page prints `expert.role` verbatim, so a cached
+ * v4 would keep printing "Directora del programa" without it.
  */
-export const BROCHURE_VERSION = '2026-10-v4';
+export const BROCHURE_VERSION = '2026-10-v5';
 
 /** Download filename. ASCII only, so the RFC 5987 header in A4 stays simple. */
 export const BROCHURE_FILENAME = `Pasantias-INSPIRA-Barcelona-${COHORT_ID}-${BROCHURE_VERSION}.pdf`;

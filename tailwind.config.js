@@ -13,6 +13,12 @@ module.exports = {
         brand_accent: '#fbbf24',        // Yellow - Primary accent
         brand_accent_hover: '#f59e0b',  // Intense Yellow - Hover states
         brand_accent_light: '#fcd34d',  // Light Yellow - Highlights
+        // Amber that is legible as TEXT on white. brand_accent (#fbbf24) and
+        // brand_accent_hover (#f59e0b) are surface/hover colours: on white they
+        // measure 1.66:1 and 2.14:1, well under the 4.5:1 WCAG AA needs at body
+        // size, so neither may carry small text on a light background. This one
+        // measures 5.02:1 on #ffffff and keeps the accent role.
+        brand_accent_text: '#b45309',   // Amber 700 - accent text on light bg
         brand_light: '#ffffff',         // White - Backgrounds
         brand_gray_dark: '#1f1f1f',     // Dark Gray - Secondary text
         brand_gray_medium: '#6b7280',   // Medium Gray - Tertiary text

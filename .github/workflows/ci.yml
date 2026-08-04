@@ -139,6 +139,14 @@ jobs:
             echo "NEXT_PUBLIC_SUPABASE_URL=$(jq -er '.API_URL' <<<"$STATUS")"
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(jq -er '.ANON_KEY' <<<"$STATUS")"
             echo "SUPABASE_SERVICE_ROLE_KEY=$(jq -er '.SERVICE_ROLE_KEY' <<<"$STATUS")"
+            # `npm run start` below serves a PRODUCTION build, so lib/utils/app-url.ts
+            # refuses to derive the origin from the client-controlled Host header and
+            # throws unless one is configured. Configure it here rather than letting a
+            # page fall back to Host: that fallback is precisely what the module exists
+            # to prevent, and a page shipped with one (A6a r1) to keep this job green.
+            # This step MUST stay ahead of "Build (production)" — NEXT_PUBLIC_* is
+            # inlined at build time, so a value written after the build is ignored.
+            echo "NEXT_PUBLIC_BASE_URL=http://localhost:3000"
           } > .env.local
 
       - name: Install Playwright browsers

@@ -975,6 +975,56 @@ Entry format (§2.2 of the SOP):
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: three executor rounds in flight once dispatched; PR #38 merging on the watcher.
 
+### 2026-08-03 — A4/A5/B3 verified; two r2 rounds staged — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: All three r1 rounds verified by PM re-run (A4 43/43, A5 75/75, B3 313/313 after a local reset — the first B3 run failed only because my stack was stale, not the migration). PRs #39/#40/#41 opened. Two findings, **both raised by the executors themselves and both traceable to PM specs**: (1) A4's unconditional cache upload lets any non-production run poison the shared `propuestas` bucket with a `localhost:3000` CTA — `prompts/a4-2.md` gates uploads on production while keeping reads universal; (2) A5's `source_path` had no write path because my [A2] list omitted it — `prompts/a5-2.md` adds it, and hardens it as untrusted input (same-site relative only) since the browser supplies it. B3's five assumptions ratified, two of them now binding on later phases (B6 must let `unsubscribe_token` default fire; B4a must filter on `unsubscribed_at IS NULL`, not `subscribed_at`).
+- COMMITS: (this commit)
+- TESTS: as branch entries
+- FINDINGS RAISED: none new
+- DECISIONS: CTA origin pinned (A4); A5 assumptions ratified; B3 assumptions ratified
+- BACKLOG ADDED: consent-evidence history question (A5)
+- OPEN AFTER THIS ROUND: dispatch A4 r2 + A5 r2; B3 → Sol now; merges on the owner's word.
+
+### 2026-08-03 — A4 r2 + A5 r2 verified; B3 r2 staged — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: A4 r2 (61/61) and A5 r2 (92/92) verified by PM re-run; both closed findings the executors themselves raised, and both made the judgment call I would have — A4's strict `VERCEL_ENV` gate with no `NODE_ENV` fallback (NODE_ENV reads "production" for previews and local builds, the very cases the gate exists to stop), and A5's drop-not-reject for an untrusted `sourcePath` no human types. Both → Sol. **B3 Sol FAIL ×2 accepted**: both are test-proof gaps, not schema defects — Sol mutated the schema and 313/313 stayed green. `prompts/b3-2.md` staged: ACL pins must compare `is_grantable` and assert no PUBLIC (grantee 0) entry exists; anonymization must pin every identity field individually, each mutation proven to turn the suite red. The prompt explicitly forbids silently repairing the migration if a mutation says it is actually wrong — that would be a FINDINGS outcome.
+- COMMITS: (this commit)
+- TESTS: as branch entries
+- FINDINGS RAISED: none new
+- DECISIONS: A4/A5 deviations + assumptions ratified
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch B3 r2; A4 + A5 → Sol; merges + B3's prod apply on the owner's word.
+
+### 2026-08-03 — Misdispatch caught; shared checkout restored — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: `/exec INSPIRA B3 r2` was dispatched at a round that was already complete and PM-verified (0f9c048 + 2b85553) — B3's remaining step is a **Sol** review, not an executor round. The session did the right thing: located the state, confirmed the criteria were already met by an earlier commit, swept every branch for a b3-3 prompt, found none, and **stopped rather than re-running or improvising a scope**; it also declined to write a ledger entry for a round that did not happen. No cost beyond the session. It surfaced the cause: **the shared checkout was sitting on `phase/a5-lead-api` with a days-stale `docs/plan/` tree**, which made the completed round look pending — the same shared-checkout hazard that caused the branch-drift incident. Restored to `main` and pulled. Reinforces the standing rule: read plan state from `origin/main`, never from whatever a checkout happens to be on.
+- COMMITS: (this commit)
+- TESTS: none (no round took place)
+- FINDINGS RAISED: none
+- DECISIONS: none
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: awaiting Sol on A4, A5 and B3 (three review rounds outstanding); A4 r3 + A5 r3 executor prompts are committed and dispatchable once their reviews land — or now, since they close findings Sol already stated.
+
+### 2026-08-03 — A4/A5 r3 prompts on main (after two losses) — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: The r3 prompts were written three times before landing on `main`, and both losses were infrastructure, not authorship. **First loss:** commit `5e5e722` created and pushed both files, then stopped being an ancestor of `origin/main` — dropped by a history rewrite from the parallel Zoom workstream that shares this branch. **Second loss:** the recovery commits (`b06ac0c`, `c91a640`) went to `phase/a5-lead-api`, because a parallel session moved the shared checkout onto that branch between my branch assertion and my commit — the branch-drift hazard recurring in a narrower window than a per-block guard can close. Also recorded honestly: b06ac0c's ledger text described edits whose python had failed mid-block, so it was false when written; c91a640 corrected it and this entry supersedes both. **Structural fix, not another rule:** the PM now works from a **dedicated worktree pinned to `main`** (`scratchpad/pm-main`) instead of the shared checkout, so no other session can move HEAD underneath it. Content verified by grep before commit and by `git ls-tree origin/main` after push — local success is no longer accepted as evidence.
+- COMMITS: (this commit)
+- TESTS: pre-commit greps on both files; post-push remote verification
+- FINDINGS RAISED: shared checkout + parallel history rewrites can silently lose PM commits; mitigated by the dedicated worktree and post-push remote verification
+- DECISIONS: PM works from a pinned `main` worktree from now on
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: **A4 r3 + A5 r3 dispatchable** (prompts verified present on origin/main); B3 awaits Sol round 2.
+
+### 2026-08-03 — A4 r3 + A5 r3 verified; PM worktree moved to a durable path — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: Both verified by PM re-run (A4 84/84, A5 106/106); detail in the branch ledgers. Both fixed their blockers at the shape level rather than patching symptoms: A4 made create-only an **opt-in** on the shared `uploadFile` (default untouched, so the licitaciones generator is unaffected) and proved both race orderings with a stateful fake bucket; A5 removed the racy inputs outright — `marketing_opt_in` is no longer fetched at all, and `shouldSendAutoReply` was **deleted** rather than left exported. A4's executor reported 4069/4070 with the failure explained (a 30s timeout in an unrelated test under load average 47, green in isolation) rather than claiming a clean sweep. **A5's parting finding is now a frozen decision** (Decision Log): PostgREST `or`-on-UPDATE is banned for claim logic — it passes every mocked test and fails only in production, and this repo already lost sessions to it once; B4a/B4b's claim functions must stay in SECURITY DEFINER SQL. **Process:** the scratchpad PM worktree was reclaimed by the OS mid-command, so those commands ran in the shared checkout (on `phase/a5-lead-api`) and produced two stray commits there; both were caught by rejected pushes, the branch was reset to `7e6c272`, and nothing reached any remote. The PM worktree now lives at `~/Documents/fne-lms-pm`, alongside the durable worktrees rather than in a temp path the OS reclaims — and `set -e` is no longer trusted to abort a failed `cd` inside an `&&` chain; critical steps now carry explicit `|| exit 1`.
+- COMMITS: (this commit)
+- TESTS: as branch entries
+- FINDINGS RAISED: none new
+- DECISIONS: 1 Decision Log row (PostgREST or-on-UPDATE ban)
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: A4, A5 and B3 all await Sol round 2; then reconcile #38/#39/#40/#41 into one merge list for Brent.
+
 ### 2026-08-03 — B3 r1 (email schema: 5 tables + per-op RLS + privilege pgTAP) — Opus (executor)
 - CONTEXT PRESSURE: comfortable
 - ACTION: One additive migration (`20260803170000_add_email_marketing_tables.sql`) creating `email_contacts`, `email_campaigns`, `email_campaign_sends`, `email_suppression`, `email_webhook_events`, plus `supabase/tests/040-email-marketing-rls.sql` (142 asserts). A2's lessons applied without re-deriving them: **grant-list form** (`REVOKE ALL` from anon + authenticated, then `GRANT SELECT` to authenticated) on all five; one admin-SELECT-only policy each, no `WITH CHECK` anywhere; ACL pins read `aclexplode(pg_class.relacl)`, not `information_schema`; version-guarded MAINTAIN asserts **ran live on the local PG17.6** (TAP lines 24–25) and skip on prod's 15.8. Full per-operation matrix ×5 tables ×3 roles (admin/docente/anon × SELECT/INSERT/UPDATE/DELETE/TRUNCATE = 75 asserts) driven from one table array, so a sixth comms table added without its policy or REVOKE fails the suite. Storage-layer contracts pinned: two-shape identity CHECK (partial anonymization cannot commit), consent/basis NOT NULL **without defaults**, campaign status CHECK with **no `failed`** (D-07), send status CHECK, `UNIQUE(campaign_id, contact_id)`, both send FKs `ON DELETE RESTRICT`, `provider_batch_key` created unused (B2 §1.4.4 / B10a), `detail` documented as the D-06 allowlisted PII-free projection.

@@ -16,7 +16,17 @@
     "  inactiveRoles  extra role rows seeded with is_active=false, to prove deactivation denies",
     "",
     "The `zoom` block is the domain graph seeded by scripts/ci/seed-e2e-zoom.mjs. Its ids are fixed",
-    "so the seeding is idempotent and the specs can address the rows without a lookup."
+    "so the seeding is idempotent and the specs can address the rows without a lookup.",
+    "",
+    "Z1c-2 — two sessions, because one cannot exercise both branches of the disclosure rule:",
+    "  session        meeting_link NULL — the provisionable-but-unprovisioned case, and the",
+    "                 `meet-no-link` branch of the interstitial.",
+    "  linkedSession  a legacy MANUAL meeting link — the case Z1a's interstitial was built for.",
+    "                 It is the session that can prove stripping: a non-privileged caller must",
+    "                 get has_meeting/join_path and NOT the raw link. It carries the attendees",
+    "                 and the two report visibilities too, so one GET exercises all three tier-2",
+    "                 assertions (no e-mail, no raw link, no facilitators_only report) at once.",
+    "The link host is example.net — RFC 2606 reserved, like the addresses. No real meeting."
   ],
   "school": {
     "id": 990001,
@@ -47,6 +57,55 @@
           "user": "consultorAssigned",
           "facilitatorRole": "consultor_externo",
           "isLead": true
+        }
+      ]
+    },
+    "linkedSession": {
+      "id": "e2e00000-0000-4000-8000-000000000502",
+      "title": "Sesion Sintetica E2E - enlace manual",
+      "description": "Sesion sintetica con enlace de reunion manual heredado. No corresponde a ninguna sesion real.",
+      "sessionDate": "2030-06-19",
+      "startTime": "09:00:00",
+      "endTime": "10:30:00",
+      "modality": "online",
+      "status": "programada",
+      "meetingProvider": "otro",
+      "meetingLink": "https://meet.example.net/e2e-sintetica-enlace-manual",
+      "createdBy": "admin",
+      "facilitators": [
+        {
+          "user": "consultorAssigned",
+          "facilitatorRole": "consultor_externo",
+          "isLead": true
+        }
+      ],
+      "attendees": [
+        {
+          "user": "gcLeader",
+          "expected": true,
+          "attended": true,
+          "arrivalStatus": "on_time"
+        },
+        {
+          "user": "docente",
+          "expected": true,
+          "attended": false
+        }
+      ],
+      "reports": [
+        {
+          "id": "e2e00000-0000-4000-8000-000000000601",
+          "author": "consultorAssigned",
+          "reportType": "session_report",
+          "visibility": "facilitators_only",
+          "content": "Informe sintetico restringido a facilitadores. Contenido de prueba, sin datos reales."
+        },
+        {
+          "id": "e2e00000-0000-4000-8000-000000000602",
+          "author": "admin",
+          "reportType": "session_report",
+          "visibility": "all_participants",
+          "content": "Informe sintetico visible para todos los participantes. Contenido de prueba, sin datos reales."
         }
       ]
     }

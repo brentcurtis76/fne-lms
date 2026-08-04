@@ -6,14 +6,15 @@
  *   - two school rows (the org rows the fixtures hang off; the second exists so a
  *     consultor can be assigned somewhere OTHER than the session's school),
  *   - one auth user + profile + role row per entry in `e2e-fixtures.json`,
- *   - (Z1c) the Zoom domain graph — growth community, provisionable session,
- *     facilitator link — via `scripts/ci/seed-e2e-zoom.mjs`.
+ *   - (Z1c) the Zoom domain graph — growth community, two sessions (one unprovisioned,
+ *     one carrying a legacy manual meeting link), their facilitators, attendees and
+ *     reports — via `scripts/ci/seed-e2e-zoom.mjs`.
  *
  * Ordering is load-bearing and is why the users are seeded in two passes:
  *   schools -> auth users + profiles -> zoom domain -> role rows
- * The zoom session's `created_by` and its facilitator rows are FKs to `profiles`, so
- * they need pass 1; a `user_roles.community_id` is an FK to `growth_communities`, so
- * the role rows need the zoom domain.
+ * Each zoom session's `created_by`, and every facilitator, attendee and report author,
+ * is an FK to `profiles`, so they need pass 1; a `user_roles.community_id` is an FK to
+ * `growth_communities`, so the role rows need the zoom domain.
  *
  * Idempotent: safe to re-run against an already-seeded stack. Every write is an
  * upsert or a look-before-insert; nothing is deleted.

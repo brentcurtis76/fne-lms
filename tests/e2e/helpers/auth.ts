@@ -118,11 +118,34 @@ export const E2E_SCHOOL_SECONDARY: { id: number; name: string } = fixtures.schoo
  */
 export const FIXTURE_KEYS = Object.keys(E2E_USERS) as FixtureKey[];
 
-/** The Zoom domain graph seeded by scripts/ci/seed-e2e-zoom.mjs. */
-export const E2E_ZOOM: {
+interface E2eFixtureSession {
+  id: string;
+  title: string;
+  sessionDate: string;
+  startTime: string;
+  endTime: string;
+}
+
+interface E2eZoomFixtures {
   community: { id: string; name: string };
-  session: { id: string; title: string; sessionDate: string; startTime: string; endTime: string };
-} = fixtures.zoom;
+  session: E2eFixtureSession;
+  linkedSession: E2eFixtureSession & {
+    meetingLink: string;
+    facilitators: { user: FixtureKey }[];
+    attendees: { user: FixtureKey }[];
+    reports: { id: string; author: FixtureKey; reportType: string; visibility: string }[];
+  };
+}
+
+/**
+ * The Zoom domain graph seeded by scripts/ci/seed-e2e-zoom.mjs.
+ *
+ * `session` has no meeting link; `linkedSession` carries a legacy manual one, plus the
+ * attendees and the two report visibilities. Same school and same growth community, so the
+ * persona tiers are identical across the pair and any difference a spec observes between
+ * them is attributable to the link, not to authorization.
+ */
+export const E2E_ZOOM: E2eZoomFixtures = fixtures.zoom as unknown as E2eZoomFixtures;
 
 /** Written at run time; git-ignored — a storageState file is a live session. */
 const AUTH_DIR = join(__dirname, '..', '.auth');

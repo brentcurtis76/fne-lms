@@ -1346,3 +1346,13 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: none (executes the owner instruction)
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: **A6a is the next dispatch** — the `/pasantias` page, first phase a visitor sees. Track B continues at B4a/B4b (SQL functions), bound by the PostgREST or-on-UPDATE ban.
+
+### 2026-08-03 — A6a dispatched — Fable (PM)
+- CONTEXT PRESSURE: n/a
+- ACTION: `prompts/a6a-1.md` committed. Written as a story brief rather than a section list, because this is the first phase a visitor sees and the risk is a technically-correct page that sells nothing: the prompt gives the two-modes structure the most space (it is the program's most persuasive idea), insists the free long weekend reads as a feature, and pins the corrected titles (Entrena/Encargada de Innovación, del Moral/Director) that cost two rounds to get right. Facts come only from `cohort-public.ts`; the commercial module is barred and the CI leak guard enforces it; no prices anywhere. The `#programa` panel ships as an interim mailto CTA and is explicitly marked swappable so A6b drops the real form in. WhatsApp unfurl called out as mattering as much as the page, since this link will travel by message.
+- COMMITS: (this commit)
+- TESTS: none (docs only)
+- FINDINGS RAISED: none
+- DECISIONS: none
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A6a r1`. Track B's next executable pair is B4a/B4b (SQL functions, bound by the PostgREST or-on-UPDATE ban).

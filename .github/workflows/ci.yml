@@ -139,6 +139,14 @@ jobs:
             echo "NEXT_PUBLIC_SUPABASE_URL=$(jq -er '.API_URL' <<<"$STATUS")"
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(jq -er '.ANON_KEY' <<<"$STATUS")"
             echo "SUPABASE_SERVICE_ROLE_KEY=$(jq -er '.SERVICE_ROLE_KEY' <<<"$STATUS")"
+            # A floor, not a feature: `resolveZoomMode` (lib/zoom/api.ts:431-436) treats an
+            # UNSET ZOOM_MODE as `live`, which is right for production and wrong for a test
+            # environment. No spec here reaches getZoomApi today — it is only reachable
+            # through the job registry behind pages/api/cron/zoom-{ticker,reconcile}.ts — so
+            # this is protective and currently unexercised. It stays declared anyway, so an
+            # e2e run can never reach live Zoom by accident once a spec does drive a job.
+            # Runtime-only (not NEXT_PUBLIC_*), so build ordering is irrelevant.
+            echo "ZOOM_MODE=mock"
           } > .env.local
 
       - name: Install Playwright browsers

@@ -99,6 +99,13 @@ export interface ConsultorSession {
   modality: SessionModality;
   meeting_link: string | null;
   meeting_provider: MeetingProvider | null;
+  /**
+   * Zoom plan §8 durable managed intent: the platform provisions and owns the meeting
+   * for this session. NOT derived from the projection row, which only exists after
+   * provisioning and would conflate "intended" with "provisioned". While true,
+   * `meeting_link` stays NULL on this row and manual edits to it are rejected.
+   */
+  is_zoom_managed: boolean;
   location: string | null;
   status: SessionStatus;
   recurrence_rule: string | null;
@@ -306,6 +313,7 @@ export type ConsultorSessionInsert = Omit<
   | 'cancelled_notice_hours'
   | 'hour_type_key'
   | 'contrato_id'
+  | 'is_zoom_managed'
 > & {
   description?: string | null;
   objectives?: string | null;
@@ -319,6 +327,9 @@ export type ConsultorSessionInsert = Omit<
   meeting_transcript?: string | null;
   program_enrollment_id?: string | null;
   cancellation_reason?: string | null;
+  // Optional on insert: the column is NOT NULL DEFAULT false, so omitting it means
+  // "unmanaged" without the caller having to say so.
+  is_zoom_managed?: boolean;
   // Hour tracking fields — optional for backward compatibility with legacy sessions
   hour_type_key?: string | null;
   contrato_id?: string | null;

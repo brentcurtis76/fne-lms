@@ -161,15 +161,25 @@ async function handleRemoveSupervisor(supabase: any, body: RemoveSupervisorReque
       return res.status(400).json({ error: 'Network ID y User ID son requeridos' });
     }
 
-    // Find existing supervisor role
-    const { data: supervisorRole } = await supabase
+    // Find existing supervisor role.
+    //
+    // Two defects made this lookup impossible to satisfy, so removing a
+    // supervisor always answered 404:
+    //   - `user_roles` has TWO foreign keys into `profiles`
+    //     (`user_roles_user_id_fkey`, `user_roles_assigned_by_fkey`), so a bare
+    //     `profiles(...)` embed is ambiguous — PostgREST answers PGRST201.
+    //   - `redes_de_colegios` has no `name` column; it is `nombre`.
+    // Both errors were discarded by destructuring only `{ data }`.
+    // `maybeSingle()` keeps "no such assignment" as data:null rather than an
+    // error, so a genuine 404 stays a 404 once errors are checked.
+    const { data: supervisorRole, error: supervisorLookupError } = await supabase
       .from('user_roles')
       .select(`
         id,
         redes_de_colegios (
-          name
+          nombre
         ),
-        profiles (
+        profiles:user_id (
           first_name,
           last_name,
           email
@@ -179,7 +189,13 @@ async function handleRemoveSupervisor(supabase: any, body: RemoveSupervisorReque
       .eq('role_type', 'supervisor_de_red')
       .eq('red_id', networkId)
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
+
+    // Fail CLOSED: a failed lookup is not proof the assignment is absent.
+    if (supervisorLookupError) {
+      console.error('Error looking up supervisor role:', supervisorLookupError);
+      return res.status(500).json({ error: 'Error al verificar la asignación de supervisor' });
+    }
 
     if (!supervisorRole) {
       return res.status(404).json({ error: 'Asignación de supervisor no encontrada' });
@@ -207,9 +223,22 @@ async function handleRemoveSupervisor(supabase: any, body: RemoveSupervisorReque
       console.error('[supervisors API] Failed to refresh user_roles_cache:', cacheRefreshError);
     }
 
+    // The role is already deactivated by this point, so nothing here may throw:
+    // a missing embed must not report failure for a removal that succeeded.
+    const profile: any = Array.isArray(supervisorRole.profiles)
+      ? supervisorRole.profiles[0]
+      : supervisorRole.profiles;
+    const red: any = Array.isArray(supervisorRole.redes_de_colegios)
+      ? supervisorRole.redes_de_colegios[0]
+      : supervisorRole.redes_de_colegios;
+    const supervisorName =
+      [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') ||
+      profile?.email ||
+      'El supervisor';
+
     return res.status(200).json({
       success: true,
-      message: `${supervisorRole.profiles.first_name} ${supervisorRole.profiles.last_name} removido exitosamente como supervisor de la red "${supervisorRole.redes_de_colegios.name}"`
+      message: `${supervisorName} removido exitosamente como supervisor de la red "${red?.nombre ?? ''}"`
     });
   } catch (error) {
     console.error('Error in handleRemoveSupervisor:', error);

@@ -252,6 +252,68 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
       }
     }
 
+    // ---------------------------------------------------------------------
+    // Zoom plan §8 — the managed-meeting guard.
+    //
+    // Keyed on the STORED `is_zoom_managed`, never on the projection row: intent is
+    // durable and exists before any meeting does. Three invariants, in order of how
+    // early they can be decided.
+    // ---------------------------------------------------------------------
+    const managedIntentAttempted = req.body.is_zoom_managed !== undefined;
+
+    // Managed intent is admin-only, same shape as the structural-field rule above.
+    if (managedIntentAttempted && !isAdmin) {
+      return sendAuthError(
+        res,
+        'Los consultores no pueden activar ni desactivar la reunión Zoom gestionada por la plataforma.',
+        403
+      );
+    }
+
+    // The column is NOT NULL — reject a non-boolean here rather than letting Postgres
+    // turn it into a 500.
+    if (managedIntentAttempted && typeof req.body.is_zoom_managed !== 'boolean') {
+      return sendAuthError(res, 'is_zoom_managed debe ser un booleano', 400);
+    }
+
+    if (session.is_zoom_managed === true) {
+      // The link is owned by the provisioner. Clearing it is not this route's business
+      // either, but it is at least not a rival link — only a non-null write is rejected.
+      if (req.body.meeting_link !== undefined && req.body.meeting_link !== null) {
+        return res.status(409).json({
+          error:
+            'Esta sesión usa una reunión Zoom gestionada por la plataforma; el enlace no se edita manualmente.',
+          code: 'ZOOM_MANAGED_SESSION',
+        });
+      }
+
+      // Same invariant wearing a different hat: moving the provider off 'zoom' would
+      // orphan a meeting the platform still owns.
+      if (req.body.meeting_provider !== undefined && req.body.meeting_provider !== 'zoom') {
+        return res.status(409).json({
+          error:
+            'Esta sesión usa una reunión Zoom gestionada por la plataforma; el proveedor no se puede cambiar.',
+          code: 'ZOOM_MANAGED_SESSION',
+        });
+      }
+    }
+
+    // Intent may only be set while the session is still pre-approval. After approval a
+    // meeting may already exist, and unmanaging it requires the `meeting_delete` sync
+    // that does not exist yet — so the flag is frozen rather than silently leaking a
+    // meeting nobody owns.
+    if (
+      managedIntentAttempted &&
+      session.status !== 'borrador' &&
+      session.status !== 'pendiente_aprobacion'
+    ) {
+      return res.status(409).json({
+        error:
+          'La reunión Zoom gestionada solo se puede activar o desactivar mientras la sesión está en borrador o pendiente de aprobación.',
+        code: 'ZOOM_MANAGED_LOCKED',
+      });
+    }
+
     // Build update object (only allow specific fields)
     const updateData: any = {};
     const allowedFields = [
@@ -270,6 +332,7 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
       'growth_community_id',
       'school_id',
       'status',
+      'is_zoom_managed',
     ];
 
     const fieldsChanged: string[] = [];

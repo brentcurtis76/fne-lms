@@ -47,10 +47,11 @@ header doing its job during `scrollIntoViewIfNeeded`, not a layout fault — see
   `05-modos` runs straight into `06-photo-escuela-interior`, and `15-cierre` is
   a solid black panel. A fixed-height black band in an unfilled slot would read
   as a broken image; nothing reads as a page designed with fewer photographs.
-- **`10-equipo` shows the same principle on the portraits.** Six of eight experts
-  have a photograph in the repository; Mora del Fresno and Sergi del Moral get an
-  initials tile on the brand black with the accent, which sits beside the six
-  without looking like a failed load.
+- **`10-equipo`: all eight portraits now resolve.** Six came from
+  `public/images/consultants/`; Mora del Fresno's and Sergi del Moral's were
+  pulled from the Supabase Equipo bucket in r2. The initials-tile fallback still
+  exists in the page and is still the right behaviour for an expert added without
+  a photograph — it is simply no longer exercised, so no capture shows it.
 - **`13-programa` is deliberately not a form.** The delivered design puts a full
   request form here. A6b owns the form's behaviour, so this round ports the
   section's treatment and keeps A6a's interim mailto. The faint lineal symbol in
@@ -61,11 +62,24 @@ header doing its job during `scrollIntoViewIfNeeded`, not a layout fault — see
   background is `brand_accent_text` (#b45309, 5.02:1), never `brand_accent`.
 - **`14-faq-open`** exists because the closed accordion shows six questions and
   no copy. The answers are A6a's owner-reviewed ones, not the mockup's — see the
-  ledger entry for why the mockup's six differ. **The two `14-faq*` sets are the
-  only captures re-rendered in r2**, which swapped "¿Qué incluye el programa?" —
-  it restated the `#incluye` section a screen above it — for "¿Necesito hablar
-  catalán?", whose answer is owner-approved copy rather than the mockup's
-  wording. Still six.
+  ledger entry for why the mockup's six differ. **The two `14-faq*` sets were
+  re-rendered in r2**, which swapped "¿Qué incluye el programa?" — it restated the
+  `#incluye` section a screen above it — for "¿Necesito hablar catalán?", whose
+  answer is owner-approved copy rather than the mockup's wording. Still six.
+- **`02-hero` is r3's capture, not r1's.** The veil was running at ~53 % where the
+  eyebrow sits, which measured **2.98:1 at 390 px and 2.88:1 at 1440 px** against
+  the 4.5:1 that 11 px text needs — Sol's B3. It now reaches 85 % under the text
+  and dissolves upward, so the photograph reads at the top of the frame and the
+  eyebrow measures **8.72:1 and 8.55:1**. The ratios are asserted against the
+  actual composited pixels in `tests/e2e/pasantias-page.spec.ts`; axe cannot see
+  this defect, because it files text over a photograph as `incomplete`.
+
+## Which captures belong to which round
+
+r1 rendered the whole set. r2 re-rendered `14-faq*`. r3 re-rendered `00-full-*`
+(page-level, so it carries the new hero), `02-hero-*` (the veil) and `10-equipo-*`
+(the two portraits that landed after r1's capture). Everything else is r1's and
+still current — nothing below the hero changed in r3.
 
 ## Size
 

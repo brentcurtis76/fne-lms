@@ -25,6 +25,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import Footer from '../components/Footer';
 import { getAppBaseUrl } from '../lib/utils/app-url';
+import { PASANTIAS_IMAGE_PATHS } from '../lib/pasantias/image-manifest';
 import type { CohortSchool } from '../lib/pasantias/cohort-public';
 import {
   COHORT_CLAIMS,
@@ -71,10 +72,10 @@ function splitClaim(claim: string): { figure: string; caption: string } {
  * a future cohort splits the week unevenly this collapses to `null` and the
  * phrase disappears instead of quietly printing one school's figure for both.
  */
-const UNIFORM_IMMERSION_DAYS: number | null = (() => {
+function uniformImmersionDays(): number | null {
   const distinct = new Set(COHORT_IMMERSION_SCHOOLS.map((school) => school.immersionDays ?? 0));
   return distinct.size === 1 ? [...distinct][0] : null;
-})();
+}
 
 /** Appendix A-11. `wa.me` wants the number with no punctuation. */
 const WHATSAPP_NUMBER = '56941623577';
@@ -136,16 +137,15 @@ type PhotoSlot = keyof typeof PHOTO_SLOTS;
 interface PasantiasPageProps {
   /** Absolute URL of this page, for the OG/Twitter unfurl. */
   canonicalUrl: string;
-  /** Absolute URL of the share image. */
-  ogImageUrl: string;
+  /**
+   * Absolute URL of the share image, or `null` when no share image is
+   * guaranteed to exist — see {@link OG_IMAGE_PATH}.
+   */
+  ogImageUrl: string | null;
   /** es-CL date range per week of {@link COHORT_WEEKS}, same order. */
   weekRanges: string[];
   /** es-CL date of each free day of {@link COHORT_FREE_DAYS}, same order. */
   freeDayDates: string[];
-  /** Resolved `/images/...` URL per slot, or `null` when nothing fills it yet. */
-  photos: Record<PhotoSlot, string | null>;
-  /** Resolved portrait URL per expert of {@link COHORT_EXPERTS}, same order. */
-  portraits: (string | null)[];
 }
 
 /**
@@ -180,6 +180,60 @@ function portraitSlug(name: string): string {
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'] as const;
 
 /**
+ * Which photographs ship, decided at build time.
+ *
+ * r2 asked the filesystem this per request — 37 `existsSync` calls against
+ * `public/` on every render. That is wrong twice over. `public/` is not in a
+ * Vercel function's file trace (the clean build traces 14 files, none of them
+ * images), so the probes can answer "missing" in production for photographs
+ * that ship perfectly well: a page that looks right locally and renders
+ * photo-less when deployed. And it is 37 syscalls to re-derive a value that
+ * only changes when someone adds a file to the repository.
+ *
+ * `lib/pasantias/image-manifest.ts` is generated from the directory by
+ * `npm run images:manifest` and committed;
+ * `__tests__/lib/pasantias-image-manifest.test.ts` fails if the two ever
+ * disagree. Resolution below is a `Set` lookup at module scope, so it happens
+ * once per process and cannot depend on the runtime's filesystem at all.
+ */
+const AVAILABLE_IMAGES = new Set(PASANTIAS_IMAGE_PATHS);
+
+/** First candidate that actually ships, or `null` when the slot is still empty. */
+function resolveImage(directory: string, basenames: readonly string[]): string | null {
+  for (const basename of basenames) {
+    for (const extension of IMAGE_EXTENSIONS) {
+      const path = `/${directory}/${basename}${extension}`;
+      if (AVAILABLE_IMAGES.has(path)) return path;
+    }
+  }
+  return null;
+}
+
+/** Resolved `/images/...` URL per slot, or `null` when nothing fills it yet. */
+const PHOTOS = Object.fromEntries(
+  (Object.keys(PHOTO_SLOTS) as PhotoSlot[]).map((slot) => [
+    slot,
+    resolveImage('images/pasantias', PHOTO_SLOTS[slot]),
+  ])
+) as Record<PhotoSlot, string | null>;
+
+/** Resolved portrait URL per expert of {@link COHORT_EXPERTS}, same order. */
+const PORTRAITS: (string | null)[] = COHORT_EXPERTS.map((expert) =>
+  resolveImage('images/pasantias/equipo', [portraitSlug(expert.name)])
+);
+
+/**
+ * The share image, or `null` when none is guaranteed.
+ *
+ * It is the hero, so the unfurl and the page can never disagree, and falls back
+ * to the site-wide Barcelona asset. Both are checked against the manifest: a
+ * social preview pointing at a 404 is worse than no tag, so when neither ships
+ * the `og:image`/`twitter:image` tags are omitted entirely rather than guessed.
+ */
+const OG_IMAGE_PATH: string | null =
+  PHOTOS.hero ?? resolveImage('images/pasantias', ['bcn-skyline']);
+
+/**
  * `getAppBaseUrl` is called directly and is allowed to throw.
  *
  * Round r1 wrapped it in a try/catch that rebuilt the origin from the request's
@@ -198,48 +252,14 @@ const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'] as const;
 export const getServerSideProps: GetServerSideProps<PasantiasPageProps> = async (context) => {
   const origin = getAppBaseUrl(context.req);
 
-  // Imported here rather than at module scope: this is the only server-side
-  // consumer, and a dynamic import keeps `node:fs` out of the page's module
-  // graph no matter how the bundler decides to treat the file.
-  const { existsSync } = await import('node:fs');
-  const { join } = await import('node:path');
-
-  const publicDir = join(process.cwd(), 'public');
-  const resolveImage = (directory: string, basenames: readonly string[]): string | null => {
-    for (const basename of basenames) {
-      for (const extension of IMAGE_EXTENSIONS) {
-        const relative = `${directory}/${basename}${extension}`;
-        if (existsSync(join(publicDir, relative))) return `/${relative}`;
-      }
-    }
-    return null;
-  };
-
-  const photos = Object.fromEntries(
-    (Object.keys(PHOTO_SLOTS) as PhotoSlot[]).map((slot) => [
-      slot,
-      resolveImage('images/pasantias', PHOTO_SLOTS[slot]),
-    ])
-  ) as Record<PhotoSlot, string | null>;
-
-  const portraits = COHORT_EXPERTS.map((expert) =>
-    resolveImage('images/pasantias/equipo', [portraitSlug(expert.name)])
-  );
-
-  // The share image is the hero, so the two can never disagree; the fallback is
-  // the site-wide Barcelona asset for the case where no hero photo is present.
-  const ogImagePath = photos.hero ?? '/images/pasantias/bcn-skyline.jpg';
-
   return {
     props: {
       canonicalUrl: `${origin}${PAGE_PATH}`,
-      ogImageUrl: `${origin}${ogImagePath}`,
+      ogImageUrl: OG_IMAGE_PATH ? `${origin}${OG_IMAGE_PATH}` : null,
       weekRanges: COHORT_WEEKS.map(
         (week) => `${formatDayMonth(week.startDate)} al ${formatDayMonth(week.endDate)}`
       ),
       freeDayDates: COHORT_FREE_DAYS.map((freeDay) => formatDayMonth(freeDay.date)),
-      photos,
-      portraits,
     },
   };
 };
@@ -362,10 +382,11 @@ export default function PasantiasPage({
   ogImageUrl,
   weekRanges,
   freeDayDates,
-  photos,
-  portraits,
 }: PasantiasPageProps) {
+  const photos = PHOTOS;
+  const portraits = PORTRAITS;
   const [immersionWeek, visitWeek] = COHORT_WEEKS;
+  const immersionDays = uniformImmersionDays();
   const [menuOpen, setMenuOpen] = React.useState(false);
 
   const faqs: FaqItem[] = [
@@ -452,13 +473,19 @@ export default function PasantiasPage({
         <meta property="og:title" content={PAGE_TITLE} />
         <meta property="og:description" content={PAGE_DESCRIPTION} />
         <meta property="og:url" content={canonicalUrl} />
-        <meta property="og:image" content={ogImageUrl} />
-        <meta property="og:image:alt" content="Barcelona, sede de las Pasantías INSPIRA" />
+        {/* Omitted rather than guessed when no share image is guaranteed to
+            ship — an unfurl pointing at a 404 is worse than no image at all. */}
+        {ogImageUrl && (
+          <>
+            <meta property="og:image" content={ogImageUrl} />
+            <meta property="og:image:alt" content="Barcelona, sede de las Pasantías INSPIRA" />
+          </>
+        )}
 
-        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:card" content={ogImageUrl ? 'summary_large_image' : 'summary'} />
         <meta name="twitter:title" content={PAGE_TITLE} />
         <meta name="twitter:description" content={PAGE_DESCRIPTION} />
-        <meta name="twitter:image" content={ogImageUrl} />
+        {ogImageUrl && <meta name="twitter:image" content={ogImageUrl} />}
       </Head>
 
       {/* ============ Site header ============ */}
@@ -552,12 +579,27 @@ export default function PasantiasPage({
               decoding="async"
             />
           )}
-          {/* The manual's veil: black rising from the text edge, dissolving before
-              the focal point. Without a photograph behind it the section is simply
-              the brand black, which is why the hero still reads with no image. */}
+          {/*
+            The manual's veil: black rising from the text edge, dissolving before
+            the focal point. Without a photograph behind it the section is simply
+            the brand black, which is why the hero still reads with no image.
+
+            r2 ran it at ~53 % where the eyebrow sits, which measured 2.98:1 at
+            390 px and 2.88:1 at 1440 px against the 4.5:1 that 11 px text needs.
+            axe files photo-backed text as `incomplete`, so the serious/critical
+            gate never saw it. It now reaches 85 % under the text.
+
+            Anchored from the bottom in pixels rather than in percent: the text
+            block is bottom-aligned, so the eyebrow sits ~440–460 px above the
+            hero's lower edge at every width, while its *fraction* of the hero
+            swings from 0.17 to 0.41 with the window's height. A percentage stop
+            passes at one window size and fails at another; 480 px clears the
+            eyebrow at all of them. `tests/e2e/pasantias-page.spec.ts` samples the
+            composited pixels behind the glyphs and asserts the ratio.
+          */}
           <div
             aria-hidden="true"
-            className="absolute inset-0 bg-gradient-to-b from-brand_primary/[0.45] via-brand_primary/[0.55] to-brand_primary/80"
+            className="absolute inset-0 bg-gradient-to-t from-brand_primary/[0.92] via-brand_primary/[0.85] via-[480px] to-brand_primary/15"
           />
           <div className={`${SHELL} relative py-12 sm:py-16 lg:py-24`}>
             <span className={`${EYEBROW} mb-5 text-brand_accent`}>Pasantías internacionales</span>
@@ -662,7 +704,7 @@ export default function PasantiasPage({
           <div className="mt-8 grid items-stretch gap-5 lg:mt-14 lg:grid-cols-3">
             <article
               className={`${CARD_DARK} flex flex-col gap-3.5`}
-              data-testid="pasantias-week-semana-1"
+              data-testid={`pasantias-week-${immersionWeek.id}`}
             >
               <span className={`${EYEBROW} text-brand_accent`}>{immersionWeek.label}</span>
               <h3 className="m-0 text-[20px] font-bold leading-[1.25] text-white">
@@ -671,8 +713,8 @@ export default function PasantiasPage({
               <p className="text-white/80">{immersionWeek.summary}</p>
               <p className="mt-auto border-t border-white/20 pt-4 text-[13px] font-medium uppercase tracking-[.08em] text-white/70">
                 {COHORT_IMMERSION_SCHOOLS.length} escuelas
-                {UNIFORM_IMMERSION_DAYS !== null && (
-                  <> · {formatDays(UNIFORM_IMMERSION_DAYS)} días cada una</>
+                {immersionDays !== null && (
+                  <> · {formatDays(immersionDays)} días cada una</>
                 )}
               </p>
             </article>
@@ -706,7 +748,7 @@ export default function PasantiasPage({
 
             <article
               className={`${CARD_LIGHT} flex flex-col gap-3.5`}
-              data-testid="pasantias-week-semana-2"
+              data-testid={`pasantias-week-${visitWeek.id}`}
             >
               <span className={`${EYEBROW} text-brand_accent_text`}>{visitWeek.label}</span>
               <h3 className="m-0 text-[20px] font-bold leading-[1.25] text-brand_primary">
@@ -767,9 +809,9 @@ export default function PasantiasPage({
 
           <h3 className="mb-5 mt-9 text-[13px] font-semibold uppercase tracking-[.15em] text-brand_primary lg:mt-14">
             Escuelas de inmersión{' '}
-            {UNIFORM_IMMERSION_DAYS !== null && (
+            {immersionDays !== null && (
               <span className="font-medium text-brand_gray_medium">
-                ({formatDays(UNIFORM_IMMERSION_DAYS)} días cada una)
+                ({formatDays(immersionDays)} días cada una)
               </span>
             )}
           </h3>

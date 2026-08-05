@@ -311,6 +311,109 @@ test.describe('pasantías landing page', () => {
    * *moderate*, so B3's defect would slip straight through this filter. The two
    * checks cover different halves of Sol's report on purpose.
    */
+  /**
+   * Sol r3 B3: the hero eyebrow is 11 px `#FBBF24` over a photograph, and it
+   * measured 2.98:1 at 390 px and 2.88:1 at 1440 px against the 4.5:1 that
+   * normal-size text needs. The axe test above cannot catch it — axe classifies
+   * text over a photograph as `incomplete`, never as a violation — so that gate
+   * passing is not evidence about this element.
+   *
+   * This samples the real thing instead of modelling it: the glyphs are made
+   * transparent, the eyebrow's box is screenshotted so the capture is the
+   * composited photograph *and* veil exactly as the browser painted them, and
+   * that PNG is handed back to the page for decoding — the browser is the only
+   * image decoder involved, so no dependency is added for it.
+   *
+   * The ratio is taken against the **lightest** pixel behind the text, not the
+   * mean: a mean passes while a bright patch of sky makes a word illegible.
+   */
+  const WCAG_AA_NORMAL_TEXT = 4.5;
+
+  for (const { label, width, height } of [
+    { label: '390 px', width: 390, height: 844 },
+    { label: '1440 px', width: 1440, height: 900 },
+  ]) {
+    test(`hero eyebrow clears WCAG AA against the photograph at ${label}`, async ({ page }) => {
+      await page.setViewportSize({ width, height });
+      await page.goto('/pasantias');
+
+      const eyebrow = page.getByTestId('pasantias-hero').locator('span').first();
+      await expect(eyebrow).toBeVisible();
+
+      const box = await eyebrow.boundingBox();
+      expect(box, 'the hero eyebrow has no box to sample').not.toBeNull();
+
+      const color = await eyebrow.evaluate((node) => getComputedStyle(node).color);
+      const fontSize = await eyebrow.evaluate((node) =>
+        Number.parseFloat(getComputedStyle(node).fontSize)
+      );
+      // Below 18.66 px bold / 24 px regular, WCAG's large-text exemption does
+      // not apply. Asserted so the threshold below cannot silently become wrong.
+      expect(fontSize).toBeLessThan(18.66);
+
+      await page.addStyleTag({
+        content:
+          '[data-testid="pasantias-hero"] span:first-of-type { color: transparent !important; }',
+      });
+
+      const shot = await page.screenshot({
+        clip: {
+          x: Math.floor(box!.x),
+          y: Math.floor(box!.y),
+          width: Math.max(1, Math.ceil(box!.width)),
+          height: Math.max(1, Math.ceil(box!.height)),
+        },
+      });
+
+      const lightestBackground = await page.evaluate(async (encoded) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${encoded}`;
+        await image.decode();
+
+        const canvas = document.createElement('canvas');
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const context = canvas.getContext('2d')!;
+        context.drawImage(image, 0, 0);
+
+        const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+        const channel = (value: number) => {
+          const srgb = value / 255;
+          return srgb <= 0.03928 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
+        };
+
+        let lightest = 0;
+        for (let index = 0; index < data.length; index += 4) {
+          const luminance =
+            0.2126 * channel(data[index]) +
+            0.7152 * channel(data[index + 1]) +
+            0.0722 * channel(data[index + 2]);
+          if (luminance > lightest) lightest = luminance;
+        }
+        return lightest;
+      }, shot.toString('base64'));
+
+      const [red, green, blue] = color.match(/[\d.]+/g)!.map(Number);
+      const channel = (value: number) => {
+        const srgb = value / 255;
+        return srgb <= 0.03928 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
+      };
+      const textLuminance =
+        0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue);
+
+      const [lighter, darker] =
+        textLuminance > lightestBackground
+          ? [textLuminance, lightestBackground]
+          : [lightestBackground, textLuminance];
+      const ratio = (lighter + 0.05) / (darker + 0.05);
+
+      expect(
+        ratio,
+        `hero eyebrow ${color} measured ${ratio.toFixed(2)}:1 against its lightest backing pixel at ${label}`
+      ).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
+    });
+  }
+
   test('has no serious or critical accessibility violations (axe)', async ({ page }) => {
     await page.goto('/pasantias');
 

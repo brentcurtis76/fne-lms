@@ -1471,3 +1471,17 @@ Entry format (§2.2 of the SOP):
 - DECISIONS: r6 scoped to the segmentation fix, the generated corpus, and S1's contract. Accepted limits explicitly listed as out of scope so the round does not sprawl.
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A6a r6`, then **Sol closure — not a PM merge recommendation.** No merge word to be sought until Sol returns PASS on this file.
+
+### 2026-08-04 — A6a r6 verified by an independently-written generator: 0 losses — Fable (PM)
+- CONTEXT PRESSURE: comfortable
+- ACTION: Verified r6 (`8382df8`) with **my own generator, written without reading the executor's corpus module** and on deliberately different axes (6 protected amounts × written form incl. all 21 `\s`/NBSP separators and decimal tails × 11 surrounding contexts, plus 17 controls). Re-running their corpus would have been circular — that circularity is what this whole sequence has been about.
+- **974 generated cases: 0 losses vs `ca8e024`, 60 gains, 0 false positives.** The same generator run against `2158c44` reports **252 losses**. Three independent measurements of r5's damage now exist — Sol found 4 by hand, the executor's generator found 112, mine found 252 on different axes — and they agree on the only thing that matters: spot-checking this file never stood a chance.
+- Full suite **5225/5225** (the leak-guard file alone went 131 → 1045 tests). Clean production build scanned green, 267 files in 0.089 s — *faster* than r5's 0.14 s despite reading more, because `candidateReadings` is capped at 4 pieces. `pages/pasantias.tsx` and `cohort-public.ts` byte-identical to `ca8e024`.
+- The executor's own account is the most useful thing in the report: `2158c44` lost **112** cases, not the 4 Sol named, and `1560` escaped that list only because on `€1 560 7` r5 *did* fire — on the nested `560` rather than on the fee. **The finding survived on the wrong figure**, which is exactly why every spot-check passed. Generation also turned up the S1 leading-zero class with nobody looking for it.
+- COMMITS: `bd9b89f` + `8382df8` (executor) · this commit (PM)
+- TESTS: executor gates green (5225 unit, build, clean scan, 14/14 e2e, `€2 500 7` production mutant with HEAD exit 1 / r5 exit 0 / `ca8e024` exit 1 on the same bundle) — plus PM: independent 974-case generated differential in both directions, full suite, own clean build + timed scan, scope and byte-identity checks
+- FINDINGS RAISED: none
+- DECISIONS: the third-file deviation accepted — the corpus must be importable by both vitest and the comparison harness, and inlining it in the `.test.ts` would have forced the harness to re-derive the cases, restoring the circularity the round exists to remove. The maximal-reading suppression argument (a contained reading is never nearer a currency marker than its container, so whenever the inner would fire the outer already has) is sound and is the one thing worth an independent re-derivation in review — flagged to Sol rather than settled here.
+- **NO MERGE RECOMMENDATION. Awaiting Sol.** I said last round I would not put my verification up against Sol's on this file again, and that holds even though my numbers are clean: my numbers were clean at r5 too.
+- BACKLOG ADDED: none
+- OPEN AFTER THIS ROUND: Sol closure on r6. Merge word only after it returns PASS.

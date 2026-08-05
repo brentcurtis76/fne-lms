@@ -527,3 +527,144 @@ branch and stayed green. It now fails in **both** suites.
   assertion, not at the undeclared column.
 - Still nothing integration-tests this endpoint against real Postgres. These are better
   doubles, not a database.
+
+---
+
+## Chunk Z2-2b — the two human surfaces
+
+### Branch and commits
+
+- **Branch:** `feat/zoom-sess`
+- **Base:** `6c71eda` (the r5 head; worktree was clean at it)
+- **Worktree:** `/Users/brentcurtis/dev/wt/zoom-sess` — **new path.** Every ZOOM
+  worktree under `~/Documents` died when iCloud evicted the shared `.git` on
+  2026-08-05. No work was lost; the live clone is now `/Users/brentcurtis/dev/fne-lms`.
+- **PR:** not opened — the PR opens at phase end, after all Z2 chunks land.
+
+| SHA | Cluster |
+|---|---|
+| `f77889c6` | S1 + S2 + three new suites |
+
+### Objective and scope
+
+Z2-1 made managed intent durable and made approval enqueue provisioning; Z2-2a
+opened `POST /api/meet/session/[id]/join`. Neither was reachable by a person —
+no one could set the flag and no one could press join. This chunk is those two
+surfaces and nothing else.
+
+**In:** the "Generar reunión Zoom" box in the scheduler, and the managed join on
+the meeting interstitial.
+**Out, deliberately:** the workspace "Sesiones" tab placement (PM deferral),
+dual-zone time preview and dial-in (Z2-4), notifications / iCal / reminders
+(Z2-4), reschedule-cancel-delete sync (Z2-3), the hours-consumer audit (Z2-5),
+embed (Z3), community meetings (Z6). No migration. `lib/utils/meeting-join-policy.ts`,
+`pages/api/meet/session/[id]/join.ts` and `tests/e2e/zoom-join-authz.spec.ts` are
+untouched, per PM rulings 1 and 4.
+
+### Files, by risk
+
+| Risk | File | Δ |
+|---|---|---|
+| **High** | `pages/admin/sessions/create.tsx` | +82 / −32 |
+| **High** | `components/sessions/JoinMeetingButton.tsx` (new) | +134 |
+| Medium | `pages/meet/session/[id].tsx` | +12 / −3 |
+| Low | `lib/utils/session-meet-access.ts` | +8 / −1 |
+| Test | `__tests__/pages/admin/sessions/create-zoom-managed.test.tsx` (new) | +302 |
+| Test | `__tests__/components/sessions/JoinMeetingButton.test.tsx` (new) | +190 |
+| Test | `__tests__/pages/meet/session-managed-join.test.tsx` (new) | +145 |
+| Test | `__tests__/lib/utils/session-meet-access.test.ts` | +26 |
+
+### The payload builders — how "exactly two" was established
+
+`create.tsx` posts to `/api/sessions` from `handleSaveDraft` and
+`handleScheduleSession`, each spreading its own object literal. Both now send
+`is_zoom_managed`. That there is no third was established three ways over the file
+at `6c71eda`, all agreeing:
+
+1. `grep -n "fetch("` → six call sites. Two are `POST /api/sessions` (`:565`,
+   `:651`); the other four are `GET /api/admin/consultants`, `GET /api/hour-types`,
+   `POST /api/sessions/bulk-approve` and `POST /api/sessions/{id}/approve` — the
+   approve calls carry only a `recurrence_group_id` or nothing, no session fields.
+2. `grep -n "JSON.stringify"` → three. Two are `body: JSON.stringify(payload)`
+   (`:571`, `:657`); the third is the bulk-approve body.
+3. `grep -n "payload\b"` → two `const payload` declarations (`:538`, `:624`) and
+   nothing that mutates a payload elsewhere. `grep -n "meeting_link"` finds the same
+   two spread sites (`:548`, `:634`) and no third.
+
+Both are asserted independently in the new page suite — the draft path and the
+schedule path each get a checked-box case and an unchecked-box case, reading the
+actual `fetch` body.
+
+### The interstitial's unmanaged markup
+
+A6 asks for byte-identical legacy branches. Proven directly rather than by
+inspection: `git show HEAD:'pages/meet/session/[id].tsx'` was written to a
+temporary sibling module (so its relative imports resolved unchanged), both
+revisions were rendered through `renderToStaticMarkup` for the has-link and
+no-link sessions, and the strings compared.
+
+```
+=== HAS-LINK BEFORE LENGTH 2539 AFTER 2539   → identical
+=== NO-LINK  BEFORE LENGTH 1784 AFTER 1784   → identical
+✓ __tests__/_baseline_tmp.test.tsx  (2 tests) 7ms
+```
+
+Both temporary files were deleted; the committed tree has neither. Those exact
+strings are now frozen in `session-managed-join.test.tsx`, so future drift in the
+legacy branches fails there.
+
+### Mutation probes
+
+No fail-on-old exists — this is new UI, not a modified route. Instead the two
+assertions carrying the security weight were mutated against the shipped source,
+the suite run, and the file restored from a copy taken beforehand.
+
+| Probe | Mutation | Result |
+|---|---|---|
+| 1 (A6) | render the join button for every session (`{session.is_zoom_managed ?` → `{true ?`) | **2 failed** / 4 passed — both frozen-markup tests |
+| 2 (A8) | `getServerSideProps` returns `{...access.session, join_url: 'https://zoom.example.test/j/…'}` | **1 failed** / 5 passed — the serialized-props test |
+
+After each revert, `shasum -a 256 pages/meet/session/[id].tsx` returned
+`edf8dc75006decc6dbc0bc1e16d71fb92064ea54605f1169bb900e532b1eae52` — the
+pre-probe value — and `diff` against the pre-probe copy was empty.
+
+### Decisions a reviewer should look at
+
+- **The provider `<select>` is hidden with the link field, not just the link
+  field.** §2 says to hide the manual link; the provider dropdown exists only to
+  classify that link, and `POST /api/sessions` forces `meeting_provider: 'zoom'`
+  for a managed session. Leaving it visible would offer "Teams" as a choice the
+  server silently overrides. Flagged as a deviation.
+- **`401` → `router.replace('/login?next=' + encodeURIComponent(router.asPath))`,
+  `404` → `router.replace('/404')`.** These are the destinations
+  `getServerSideProps` already uses for the same two answers. A `router.reload()`
+  would have been the more literal delegation but is wrong for `404`: the join
+  policy is narrower than `canViewSession`, so SSR would re-grant the page and the
+  denial would silently vanish.
+- **A checked box does not clear a previously typed `meeting_link`.** The field is
+  hidden and the server nulls the link for a managed session, so nothing leaks;
+  clearing it would be adjacent form code this chunk was told not to touch.
+
+### Gates at this head
+
+`npm run type-check && npm run lint && npm test && npm run build` → exit 0;
+**4378 passed / 269 files** (baseline 4350 / 266 — 28 new across 3 new files, none lost).
+`npm run test:db` → `Files=8, Tests=338`, `Result: PASS`, exit 0.
+`npx playwright test tests/e2e/zoom-join-authz.spec.ts` → **19 passed**, exit 0,
+spec unmodified (`git diff --stat` on it is empty). Run against a freshly
+`supabase db reset` local stack seeded by `scripts/ci/seed-e2e.mjs`; `.env.local`
+was pointed at that stack for the run and restored afterwards (hash verified).
+
+### What this round does NOT close
+
+- The scheduler suite renders the real page but stubs Supabase and `fetch`. Nothing
+  here proves the form's request survives a real `POST /api/sessions`; the server
+  side of that contract is covered by Z2-1's own suite, not by this one.
+- No e2e drives either new surface. `zoom-join-authz.spec.ts` seeds only unmanaged
+  sessions, so it proves the legacy branches are intact and says nothing about the
+  managed one. A managed fixture and a spec for it would need a seeded
+  `zoom_internal.zoom_meetings` row — out of scope here.
+- The join button's `window.open` runs after an `await`, so a strict popup blocker
+  can swallow the tab. It matches the repo's existing fetch-then-open pattern
+  (`components/licitaciones/ArchiveView.tsx:94`), and nothing in this chunk makes it
+  worse, but school hardware is exactly where it would show up first.

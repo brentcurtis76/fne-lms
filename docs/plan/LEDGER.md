@@ -1672,3 +1672,13 @@ Entry format (§2.2 of the SOP):
 - COMMITS: this commit
 - FINDINGS RAISED: `barcelona-innovation.jpg` on the live page — generic stock + identifiable minors without recorded consent. Folded into A6r as a required removal, not left to taste.
 - OPEN: owner attaches these three plus the brochure photos to Claude Design.
+
+### 2026-08-05 — Supplied Barcelona photos are thumbnails; kept as reference, not assets — Fable (PM)
+- ACTION: Owner supplied three Barcelona photographs (Park Güell at dusk, Casa Milà from below, Eixample aerial). Subject matter is right — the manual explicitly wants architectural scale and urban context, and two of the three are the manual's **own** example images from p.15. But measured, they are **620×506, 678×452 and 1000×770**.
+- **Too small to ship.** A full-bleed hero needs ~2400–2880 px (1440 CSS px at 2×); the repo's `bcn-skyline.jpg` is 2400 px downsampled from a 7551 px original. These top out at a third of that and would visibly soften stretched full-width — worst on the large displays a school director is most likely using.
+- **Provenance also unresolved.** Thumbnail dimensions of that shape are typical of a search-result save. This page sells a paid programme, so every image needs either a commercial-use licence or to be FNE's own work. Raising it as a business risk, not a legal opinion.
+- Kept under `public/images/pasantias/reference/` with a README stating plainly that they must not ship, because they remain **useful compositional references** — they tell a designer what each section should look like, which is exactly what Claude Design needs. What ships must be a licensed high-resolution version of the same idea.
+- Recommended replacement route: **FNE's own photography.** These trips run twice a year with 400+ alumni, and the manual prefers real situations over stock, so team photos are both cheaper and more on-brand than anything purchased. Failing that, Unsplash/Pexels have Barcelona at 4000 px+ under commercial-use terms.
+- COMMITS: this commit
+- FINDINGS RAISED: shippable Barcelona photography is now the **critical path for A6r**. The repo supplies exactly one high-resolution on-brand hero (`bcn-skyline.jpg`) plus two authentic-but-posed people shots; the slot list wants four to five. The design can proceed on references, but the round cannot ship on them.
+- OPEN: owner to source high-resolution versions, ideally FNE's own. Design handoff can proceed now — references are enough to compose against.

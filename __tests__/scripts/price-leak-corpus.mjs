@@ -17,10 +17,21 @@
  *
  * and derives each case's expected verdict from **what was planted**, not from
  * what the scanner returns. A case is built by choosing a protected amount, a
- * way of writing it, and something to put around it; the expected verdict is the
- * check that guards that amount, plus the check for any second amount the
- * context plants. If the guard cannot find a figure this file deliberately put
- * in front of it, that is a failure by construction rather than by opinion.
+ * way of writing it, and something to put around it; the expected verdict is one
+ * entry per figure the case plants — the amount and the check that guards it —
+ * so a case that plants two figures must produce two findings. If the guard
+ * cannot find a figure this file deliberately put in front of it, that is a
+ * failure by construction rather than by opinion.
+ *
+ * WHY OCCURRENCES AND NOT CHECK IDS (A6a r7). The oracle used to reduce a case
+ * to the *set* of check ids that fired. Under that oracle `€120 €70` and
+ * `€560 560` stay green when the first planted figure stops firing, because the
+ * second still produces the same id — and that is exactly how r5's damage hid:
+ * on `€1 560 7` r5 did fire, on the nested `560` rather than on the fee, so
+ * every spot check passed while the finding was attributed to the wrong figure.
+ * The expected verdict is therefore a multiset of `(check, amount)` pairs, and
+ * findings carry the canonical amount and the span of the reading that produced
+ * them (see `scanText` in `scripts/check-price-leak.mjs`).
  *
  * The module is plain ESM rather than TypeScript so that a differential harness
  * — which imports two revisions of `scripts/check-price-leak.mjs` side by side
@@ -44,33 +55,88 @@ export const PROTECTED = [
 ];
 
 /**
- * Every character JavaScript's `\s` matches, which is the separator class the
- * guard commits to. Vector (b) of the threat model is a human typing a price
- * into copy and the tool emitting one of these where the space was: NBSP,
- * narrow NBSP and thin space are what design tools and word processors produce,
- * and a wrapped line produces the newline. Written as escapes because most of
- * them are invisible in an editor.
+ * How far each check lets an amount sit from its currency marker, mirroring
+ * `GAP` / `BAND_GAP` in `scripts/check-price-leak.mjs`. Duplicated for the same
+ * reason as {@link PROTECTED}, and used by the window-boundary contexts below:
+ * marker distance is a dimension the corpus did not vary until r7.
  */
-export const SEPARATORS = [
-  ['plain space', ' '],
-  ['tab', '\t'],
-  ['newline', '\n'],
-  ['carriage return', '\r'],
-  ['vertical tab', '\v'],
-  ['form feed', '\f'],
-  ['NBSP (U+00A0)', '\u00a0'],
-  ['ogham space mark (U+1680)', '\u1680'],
-  ['en quad (U+2000)', '\u2000'],
-  ['em space (U+2003)', '\u2003'],
-  ['thin space (U+2009)', '\u2009'],
-  ['hair space (U+200A)', '\u200a'],
-  ['line separator (U+2028)', '\u2028'],
-  ['paragraph separator (U+2029)', '\u2029'],
-  ['narrow NBSP (U+202F)', '\u202f'],
-  ['medium mathematical space (U+205F)', '\u205f'],
-  ['ideographic space (U+3000)', '\u3000'],
-  ['zero-width NBSP (U+FEFF)', '\ufeff'],
-];
+export const WINDOW = new Map([
+  ['priced-amount', 120],
+  ['priced-band-amount', 12],
+  ['retired-short-amount', 12],
+]);
+
+/**
+ * Every code point JavaScript's `\s` matches, **derived from the engine** rather
+ * than typed out.
+ *
+ * This list has now been wrong three times, in three different ways, by three
+ * different authors: r4 narrowed the guard's class to two characters and lost
+ * fifteen spellings; r6's corpus enumerated eighteen of the twenty-five and
+ * omitted U+2001, U+2002 and U+2004–U+2008; an independent generator written to
+ * check that enumeration listed twenty-one and omitted four. Adding the missing
+ * characters would repeat the method that keeps failing, so the set is asked of
+ * the engine. {@link WHITESPACE_COUNT} is the size that answer is expected to
+ * have — a future engine gaining or losing a whitespace character surfaces as a
+ * failing assertion rather than as silently thinner coverage.
+ */
+export const WHITESPACE_CODE_POINTS = (() => {
+  const found = [];
+  for (let code = 0; code <= 0xffff; code += 1) {
+    if (/\s/.test(String.fromCharCode(code))) found.push(code);
+  }
+  return found;
+})();
+
+/**
+ * The size of the ECMAScript whitespace set: WhiteSpace (11.2) + LineTerminator
+ * (11.3) = 25 code points, all in the BMP. Asserted in
+ * `__tests__/scripts/check-price-leak.test.ts`.
+ */
+export const WHITESPACE_COUNT = 25;
+
+/**
+ * Readable names for the code points a reader is likely to care about. Cosmetic
+ * only — this map never decides membership, so an entry missing from it costs a
+ * case its nice label and nothing else.
+ */
+const WHITESPACE_NAMES = new Map([
+  [0x09, 'tab'],
+  [0x0a, 'newline'],
+  [0x0b, 'vertical tab'],
+  [0x0c, 'form feed'],
+  [0x0d, 'carriage return'],
+  [0x20, 'plain space'],
+  [0xa0, 'NBSP'],
+  [0x1680, 'ogham space mark'],
+  [0x2007, 'figure space'],
+  [0x2009, 'thin space'],
+  [0x200a, 'hair space'],
+  [0x2028, 'line separator'],
+  [0x2029, 'paragraph separator'],
+  [0x202f, 'narrow NBSP'],
+  [0x205f, 'medium mathematical space'],
+  [0x3000, 'ideographic space'],
+  [0xfeff, 'zero-width NBSP'],
+]);
+
+function whitespaceLabel(code) {
+  const point = `U+${code.toString(16).toUpperCase().padStart(4, '0')}`;
+  const name = WHITESPACE_NAMES.get(code);
+  return name === undefined ? point : `${name} (${point})`;
+}
+
+/**
+ * The separator class the guard commits to, as `[label, character]`. Vector (b)
+ * of the threat model is a human typing a price into copy and the tool emitting
+ * one of these where the space was: NBSP, narrow NBSP and thin space are what
+ * design tools and word processors produce, and a wrapped line produces the
+ * newline.
+ */
+export const SEPARATORS = WHITESPACE_CODE_POINTS.map((code) => [
+  whitespaceLabel(code),
+  String.fromCharCode(code),
+]);
 
 /** `2500` -> `2 500` under `separator`; only meaningful past three digits. */
 function group(value, separator) {
@@ -125,67 +191,133 @@ export function spellings(value) {
   return written;
 }
 
+/** The occurrence a case's own amount must produce. */
+const own = (amount) => ({ value: amount.value, check: amount.check });
+
+/** The figures a context can plant alongside the amount under test. */
+const BAND_MINIMUM = { value: '70', check: 'priced-band-amount' };
+const BAND_MAXIMUM = { value: '120', check: 'priced-band-amount' };
+const RETIRED_PACKAGE = { value: '560', check: 'retired-short-amount' };
+
 /**
- * What can sit around a written amount. Each returns the full text plus any
- * *extra* check the context itself plants, so the expected verdict stays a
- * statement about what was put in the string rather than a reading of the
- * output.
+ * Padding for the window-boundary contexts: a character that is neither a digit,
+ * nor a separator, nor part of any currency marker, so the only thing it changes
+ * is the distance between the amount and its marker.
+ */
+const FILLER = 'x';
+
+/**
+ * What can sit around a written amount. Each returns the full text plus **every
+ * occurrence it plants**, so the expected verdict stays a statement about what
+ * was put in the string rather than a reading of the output.
  *
  * The trailing-digit contexts are the composition r5 lost: a price, then a digit
- * belonging to something else, close enough to fuse into one token.
+ * belonging to something else, close enough to fuse into one token. The
+ * two-figure contexts are the attribution case (A6a r7): with a same-id second
+ * figure present, a set-of-ids oracle cannot tell "both fired" from "only one
+ * did". The window-boundary contexts vary marker distance, which is the
+ * dimension the real `lib/services/hour-tracking.ts` over-firing lives on and
+ * which nothing varied before r7.
  */
 export const CONTEXTS = [
   {
     label: 'with a currency glyph before it',
-    build: (written) => ({ text: `€${written}`, plants: [] }),
+    build: (written, amount) => ({ text: `€${written}`, occurrences: [own(amount)] }),
   },
   {
     label: 'with the ISO code after it',
-    build: (written) => ({ text: `${written} EUR`, plants: [] }),
+    build: (written, amount) => ({ text: `${written} EUR`, occurrences: [own(amount)] }),
   },
   {
     label: 'with the word after it',
-    build: (written) => ({ text: `${written} euros`, plants: [] }),
+    build: (written, amount) => ({ text: `${written} euros`, occurrences: [own(amount)] }),
   },
   {
     label: 'with a stray digit after one space',
-    build: (written) => ({ text: `€${written} 7`, plants: [] }),
+    build: (written, amount) => ({ text: `€${written} 7`, occurrences: [own(amount)] }),
   },
   {
     label: 'with a stray digit after a newline',
-    build: (written) => ({ text: `€${written}\n45`, plants: [] }),
+    build: (written, amount) => ({ text: `€${written}\n45`, occurrences: [own(amount)] }),
   },
   {
     label: 'inside JSX copy, with a stray digit after it',
-    build: (written) => ({ text: `<p>Programa: €${written} 7 cupos</p>`, plants: [] }),
+    build: (written, amount) => ({
+      text: `<p>Programa: €${written} 7 cupos</p>`,
+      occurrences: [own(amount)],
+    }),
   },
   {
     label: 'followed by the band minimum, with its own marker',
-    build: (written) => ({ text: `€${written} €70`, plants: ['priced-band-amount'] }),
+    build: (written, amount) => ({
+      text: `€${written} €70`,
+      occurrences: [own(amount), BAND_MINIMUM],
+    }),
   },
   {
     label: 'followed by the retired package, sharing one marker',
-    build: (written) => ({ text: `€${written} 560`, plants: ['retired-short-amount'] }),
+    build: (written, amount) => ({
+      text: `€${written} 560`,
+      occurrences: [own(amount), RETIRED_PACKAGE],
+    }),
+  },
+  // Everything below is new in r7, and is appended rather than interleaved so
+  // that the first eight contexts stay exactly the r6 set — the differential
+  // harness slices them off to reproduce Sol's figures on the corpus Sol read.
+  {
+    label: 'followed by the band maximum, with its own marker',
+    build: (written, amount) => ({
+      text: `€${written} €120`,
+      occurrences: [own(amount), BAND_MAXIMUM],
+    }),
+  },
+  {
+    label: 'with its marker at the far edge of the window, after it',
+    build: (written, amount) => ({
+      text: `${written}${FILLER.repeat(WINDOW.get(amount.check))}€`,
+      occurrences: [own(amount)],
+    }),
+  },
+  {
+    label: 'with its marker one character past the window, after it',
+    build: (written, amount) => ({
+      text: `${written}${FILLER.repeat(WINDOW.get(amount.check) + 1)}€`,
+      occurrences: [],
+    }),
+  },
+  {
+    label: 'with its marker at the far edge of the window, before it',
+    build: (written, amount) => ({
+      text: `€${FILLER.repeat(WINDOW.get(amount.check))}${written}`,
+      occurrences: [own(amount)],
+    }),
+  },
+  {
+    label: 'with its marker one character past the window, before it',
+    build: (written, amount) => ({
+      text: `€${FILLER.repeat(WINDOW.get(amount.check) + 1)}${written}`,
+      occurrences: [],
+    }),
   },
 ];
 
 /**
- * The full cross-product, each case carrying the verdict it must produce.
+ * The full cross-product, each case carrying the occurrences it must produce.
  *
- * `expected` is the sorted set of check ids: the one guarding the amount that
- * was written, plus whatever the context planted. A context never removes a
- * finding — that is the property under test.
+ * `expected` is the multiset of `(check, amount)` pairs the case plants, in the
+ * canonical order {@link sortOccurrences} imposes. A context never removes an
+ * occurrence — that is the property under test.
  */
 export function generateCorpus() {
   const cases = [];
   for (const amount of PROTECTED) {
     for (const [spelling, written] of spellings(amount.value)) {
       for (const context of CONTEXTS) {
-        const { text, plants } = context.build(written);
+        const { text, occurrences } = context.build(written, amount);
         cases.push({
           description: `${amount.label} (${amount.value}), ${spelling}, ${context.label}`,
           text,
-          expected: [...new Set([amount.check, ...plants])].sort(),
+          expected: sortOccurrences(occurrences),
         });
       }
     }
@@ -194,7 +326,29 @@ export function generateCorpus() {
 }
 
 /**
- * The limits the guard deliberately does not cover, and the two over-firings it
+ * The canonical order for an occurrence multiset: `check:amount`, sorted. A
+ * multiset rather than a set — two figures guarded by the same check are two
+ * occurrences, and collapsing them is the attribution loss this corpus exists to
+ * catch.
+ */
+export function sortOccurrences(occurrences) {
+  return occurrences
+    .map(({ check, value }) => (value === null || value === undefined ? check : `${check}:${value}`))
+    .sort();
+}
+
+/**
+ * The live `lib/services/hour-tracking.ts` fragment that puts an unrelated cache
+ * TTL of `1000` inside `priced-amount`'s 120-character window of the FX API
+ * URL's `EUR`. Copied verbatim, so a change to that file's shape shows up here.
+ */
+export const HOUR_TRACKING_FX_FRAGMENT = [
+  'const FX_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour',
+  "const FX_API_URL = 'https://api.exchangerate-api.com/v4/latest/EUR';",
+].join('\n');
+
+/**
+ * The limits the guard deliberately does not cover, and the over-firings it
  * accepts, pinned as expected verdicts so they stay recorded decisions rather
  * than something a later round rediscovers as a bug. Read the threat model at
  * the top of `scripts/check-price-leak.mjs` before changing one.
@@ -205,8 +359,29 @@ export const PINNED_LIMITS = [
   ['a doubled space (expected miss)', '€2  500', []],
   ['a negative exponent (expected miss)', '€25000e-1', []],
   ['a bare leading zero, no exponent (expected miss)', '€02500', []],
-  ['€2500e-1, which is 250 (expected over-firing)', '€2500e-1', ['priced-amount']],
-  ['€2.500e0, which is 2.5 (expected over-firing)', '€2.500e0', ['priced-amount']],
+  [
+    '€2500e-1, which is 250 (expected over-firing)',
+    '€2500e-1',
+    [{ value: '2500', check: 'priced-amount' }],
+  ],
+  [
+    '€2.500e0, which is 2.5 (expected over-firing)',
+    '€2.500e0',
+    [{ value: '2500', check: 'priced-amount' }],
+  ],
+  // The real one, added in r7. `1000` is a retired programme fee and this is an
+  // hour cache TTL; the two sit 75 characters apart, well inside the window that
+  // has to span `currency:"EUR",items:[{id:…,label:…,amount:…}` for the
+  // commercial-module mutant proof to fire. Tightening the association — a
+  // no-newline rule, a URL exclusion — would buy silence here at the cost of the
+  // proof this guard exists for, so the over-firing is kept and recorded
+  // instead. It costs nothing today: the constant does not survive minification,
+  // so `.next/static` never carries it and the production scan stays green.
+  [
+    'the live hour-tracking FX cache TTL near the API URL (expected over-firing)',
+    HOUR_TRACKING_FX_FRAGMENT,
+    [{ value: '1000', check: 'priced-amount' }],
+  ],
 ];
 
 /**
@@ -246,14 +421,74 @@ export const SILENT_CONTROLS = [
  * The four shapes Sol's round 4 proved regressed between `ca8e024` and
  * `2158c44`, plus the three neighbours that kept working. Generation is what
  * stops the next composition from slipping through; these stay named so that a
- * failure here says *which* regression came back.
+ * failure here says *which* regression came back — and now also *which figure*
+ * the guard attributed it to, since `€1 560 45` is the row where r5 fired on the
+ * nested `560` instead of on the fee and every spot check still passed.
  */
 export const SOL_ROUND_4_ROWS = [
-  ['grouped fee, digit on the next line', '€2 500\n7', ['priced-amount']],
-  ['grouped fee, digit after a space', '€2 500 7', ['priced-amount']],
-  ['grouped retired fee, digits on the next line', '€1 000\n45', ['priced-amount']],
-  ['narrow-NBSP fee, digit after a space', '€2\u202f500 7', ['priced-amount']],
-  ['grouped retired total, digits after it', '€1 560 45', ['priced-amount']],
-  ['the grouped fee alone', '€2 500', ['priced-amount']],
-  ['bare fee, digit on the next line', '€2500\n7', ['priced-amount']],
+  ['grouped fee, digit on the next line', '€2 500\n7', [{ value: '2500', check: 'priced-amount' }]],
+  ['grouped fee, digit after a space', '€2 500 7', [{ value: '2500', check: 'priced-amount' }]],
+  [
+    'grouped retired fee, digits on the next line',
+    '€1 000\n45',
+    [{ value: '1000', check: 'priced-amount' }],
+  ],
+  [
+    'narrow-NBSP fee, digit after a space',
+    '€2 500 7',
+    [{ value: '2500', check: 'priced-amount' }],
+  ],
+  [
+    'grouped retired total, digits after it',
+    '€1 560 45',
+    [{ value: '1560', check: 'priced-amount' }],
+  ],
+  ['the grouped fee alone', '€2 500', [{ value: '2500', check: 'priced-amount' }]],
+  ['bare fee, digit on the next line', '€2500\n7', [{ value: '2500', check: 'priced-amount' }]],
+];
+
+/**
+ * Attribution cases: two planted figures whose findings a set-of-ids oracle
+ * cannot tell apart, plus the nesting cases where one reading is suppressed
+ * inside another. `spans` is what each finding's reading must slice back to, in
+ * the order the scanner reports them — this is the assertion that says *which
+ * figure* fired, not merely that something did.
+ */
+export const ATTRIBUTION_ROWS = [
+  {
+    description: 'the band maximum and the band minimum, same check id',
+    text: '€120 €70',
+    occurrences: [BAND_MAXIMUM, BAND_MINIMUM],
+    spans: ['120', '70'],
+  },
+  {
+    description: 'the retired package twice, sharing one marker',
+    text: '€560 560',
+    occurrences: [RETIRED_PACKAGE, RETIRED_PACKAGE],
+    spans: ['560', '560'],
+  },
+  {
+    description: 'the band minimum twice, each with its own marker',
+    text: '€70 €70',
+    occurrences: [BAND_MINIMUM, BAND_MINIMUM],
+    spans: ['70', '70'],
+  },
+  {
+    description: 'the retired total reported once, on the fee and not on the 560 inside it',
+    text: '€1 560',
+    occurrences: [{ value: '1560', check: 'priced-amount' }],
+    spans: ['1 560'],
+  },
+  {
+    description: 'the retired total beside a separately planted package',
+    text: '€1 560 560',
+    occurrences: [{ value: '1560', check: 'priced-amount' }, RETIRED_PACKAGE],
+    spans: ['1 560', '560'],
+  },
+  {
+    description: 'the fee and a separately planted package, sharing one marker',
+    text: '€2 500 560',
+    occurrences: [{ value: '2500', check: 'priced-amount' }, RETIRED_PACKAGE],
+    spans: ['2 500', '560'],
+  },
 ];

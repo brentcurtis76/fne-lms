@@ -68,9 +68,9 @@
  * over-firings are left alone for the same reason — `€2500e-1` (=250) and
  * `€2.500e0` (=2.5) both fire — because a guard erring towards a false alarm
  * errs in the safe direction, and neither shape arises from either vector.
- * Every one of these limits is pinned as an explicit expected verdict in the
- * differential corpus in `__tests__/scripts/check-price-leak.test.ts`, so it
- * stays a recorded decision rather than something a later round rediscovers.
+ * Every one of these limits is pinned as an explicit expected verdict in
+ * `__tests__/scripts/price-leak-corpus.mjs`, so it stays a recorded decision
+ * rather than something a later round rediscovers.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -391,10 +391,8 @@ const MAX_GROUPED_PIECES = 4;
  * protected reading is dropped, so `€1 560` reports the fee once instead of
  * reporting the retired `560` inside it as a second finding. That is the r5
  * "the fused reading *is* the finding" rule, generalised — the whole token is
- * just the longest candidate. Dropping the inner one never loses a finding: a
- * contained reading is never closer to a currency marker than its container,
- * and never carries a wider window, so whenever the inner one would fire the
- * outer one already has.
+ * just the longest candidate. See {@link maximalReadings} for the condition
+ * under which dropping the inner one is lossless.
  */
 function candidateReadings(text, offset) {
   const pieces = whitespacePieces(text);
@@ -408,25 +406,59 @@ function candidateReadings(text, offset) {
       const amounts = canonicalAmounts(text.slice(start, end)).filter((value) =>
         CHECK_BY_AMOUNT.has(value)
       );
-      if (amounts.length > 0) readings.push({ first, last: piece, start, end, amounts });
+      if (amounts.length > 0) {
+        readings.push({ first, last: piece, start, end, amounts, window: widestWindow(amounts) });
+      }
     }
   }
 
-  return readings
-    .filter(
-      (reading) =>
-        !readings.some(
-          (other) =>
-            other.first <= reading.first &&
-            other.last >= reading.last &&
-            (other.first < reading.first || other.last > reading.last)
-        )
-    )
-    .map((reading) => ({
-      amounts: reading.amounts,
-      start: offset + reading.start,
-      end: offset + reading.end,
-    }));
+  return maximalReadings(readings).map((reading) => ({
+    amounts: reading.amounts,
+    start: offset + reading.start,
+    end: offset + reading.end,
+  }));
+}
+
+/** The widest window any of `amounts` is guarded by. */
+function widestWindow(amounts) {
+  let widest = 0;
+  for (const amount of amounts) {
+    widest = Math.max(widest, CHECK_BY_AMOUNT.get(amount).gap);
+  }
+  return widest;
+}
+
+/**
+ * Drop every protected reading that sits inside a longer protected reading with
+ * a window **at least as wide**, keeping the containers.
+ *
+ * Suppression is what keeps `€1 560` at one finding instead of also reporting
+ * the retired `560` inside it, and it is lossless — but only under a condition
+ * this function now checks rather than assumes. A contained reading's span is
+ * inside its container's, so it is never closer to a marker: whichever side the
+ * marker is on, `innerDistance >= containerDistance`. That makes "the inner one
+ * fired" imply "the container fired" **iff** the container's window is at least
+ * as wide as the inner one's. Containment on its own says nothing about window
+ * width.
+ *
+ * Today the only nesting the amount table admits is `1560 ⊃ 560`, where the
+ * container's window is 120 and the inner's is 12, so the condition holds and
+ * this changes no verdict. Adding a wide-window amount that can sit inside a
+ * narrow-window one would have made the old unconditional version drop real
+ * findings silently, which is why the condition is evaluated instead of being
+ * argued for in a comment.
+ */
+export function maximalReadings(readings) {
+  return readings.filter(
+    (reading) =>
+      !readings.some(
+        (other) =>
+          other.first <= reading.first &&
+          other.last >= reading.last &&
+          (other.first < reading.first || other.last > reading.last) &&
+          other.window >= reading.window
+      )
+  );
 }
 
 /** Checks whose whole definition is a regex over the file's text. */
@@ -521,6 +553,15 @@ function nearestMarker(markers, start, end) {
  * Every protected amount in `text` that has a currency marker inside its
  * check's window. A file with no currency marker at all cannot contain one, and
  * most bundle chunks are that file — so the tokeniser never runs on them.
+ *
+ * Each finding carries the canonical `amount` it fired on and the `[start, end)`
+ * span of the reading that denoted it — not just the check that guards it. Those
+ * two fields are what let a caller say *which planted figure* fired: a check id
+ * alone cannot distinguish `€120 €70` firing twice from firing once, and that is
+ * how r5's damage stayed hidden (on `€1 560 7` it fired on the nested `560`
+ * rather than on the fee, so every spot check passed). `index` and `match` stay
+ * the reporting anchor — they widen to include the marker, so the console output
+ * shows the pair rather than a bare figure.
  */
 function scanAmounts(text) {
   const markers = currencyMarkers(text);
@@ -542,7 +583,14 @@ function scanAmounts(text) {
 
         const from = Math.min(reading.start, nearest.start);
         const to = Math.max(reading.end, nearest.end);
-        found.push({ check, index: from, match: text.slice(from, to) });
+        found.push({
+          check,
+          index: from,
+          match: text.slice(from, to),
+          amount,
+          start: reading.start,
+          end: reading.end,
+        });
       }
     }
   }
@@ -584,6 +632,11 @@ function isScannable(path) {
  * files through this, and `__tests__/scripts/check-price-leak.test.ts` scans
  * synthetic leak shapes through it — so what the regression test proves is what
  * the build actually runs, not a copy of it.
+ *
+ * Every finding has the same shape: `{ check, index, match, amount, start, end }`.
+ * A text check has no amount, so it reports `amount: null` and its own match span
+ * rather than leaving the fields undefined — a caller keying on them should not
+ * have to know which kind of check produced the finding.
  */
 export function scanText(text) {
   const found = [];
@@ -591,7 +644,14 @@ export function scanText(text) {
     check.pattern.lastIndex = 0;
     let match;
     while ((match = check.pattern.exec(text)) !== null) {
-      found.push({ check, index: match.index, match: match[0] });
+      found.push({
+        check,
+        index: match.index,
+        match: match[0],
+        amount: null,
+        start: match.index,
+        end: match.index + match[0].length,
+      });
     }
   }
   found.push(...scanAmounts(text));

@@ -11,6 +11,8 @@ import { Validators } from '../../../../lib/types/api-auth.types';
 import { SessionActivityLogInsert } from '../../../../lib/types/consultor-sessions.types';
 import { executeCancellation, evaluateCancellationClause, calculateNoticeHours } from '../../../../lib/services/hour-tracking';
 import { CancelledByParty } from '../../../../lib/types/hour-tracking.types';
+import { enqueueSessionMeetingDelete } from '../../../../lib/zoom/provisioning-intent';
+import type { ProvisionSessionRow } from '../../../../lib/zoom/jobs/meeting-provision';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-cancel');
@@ -152,6 +154,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       await serviceClient.from('session_activity_log').insert(activityLogEntry);
 
+      // Z2-3b (plan §8): a cancelled session must not leave a live meeting on a booked
+      // host. Beside the clause flow, never inside it — nothing above this line changed.
+      // Gated on the §14 flags plus the durable managed intent, and it swallows its own
+      // errors, so this response is byte-identical whether the job was enqueued,
+      // deduped, gated off, or errored. The refetched row is preferred only because it is
+      // the fresher one; the gate reads fields the cancellation does not touch.
+      await enqueueSessionMeetingDelete({
+        session: (updatedSession ?? session) as ProvisionSessionRow,
+      });
+
       return sendApiResponse(res, {
         session: updatedSession,
         clause_result: cancellationResult.clause_result,
@@ -216,6 +228,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
       clauseInfo = evaluateCancellationClause(session.modality, 'school', noticeHours);
     }
+
+    // Z2-3b: the legacy cancel path reaches `cancelada` too, so it owes Zoom the same
+    // cleanup. See the extended path above for why this cannot change the response.
+    await enqueueSessionMeetingDelete({
+      session: (updatedSession ?? session) as ProvisionSessionRow,
+    });
 
     return sendApiResponse(res, {
       session: updatedSession,

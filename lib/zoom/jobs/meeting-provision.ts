@@ -1471,6 +1471,26 @@ export function toZoomWallClock(sessionDate: string, startTime: string): string 
 }
 
 /**
+ * The session's start as a UTC instant — the value `zoom_meetings.starts_at`, the
+ * projection and every dedupe key that names a schedule are written from.
+ *
+ * Via `.getTime()` and a plain `Date`, and that step is not decoration: the §10 helper
+ * returns a `TZDate`, whose `toISOString()` renders the ZONED form
+ * (`2026-08-05T17:00:00.000-04:00`). Postgres parses both to the same instant, so the
+ * difference is invisible in the database and very visible in a dedupe key, a fixture or
+ * a log line. One shape, derived in one place — `meeting_sync` and the enqueue gate call
+ * this rather than repeating the conversion and drifting from the provisioner.
+ */
+export function sessionStartsAtIso(session: {
+  session_date: string;
+  start_time: string;
+}): string {
+  return new Date(
+    getSessionDateTime(session.session_date, normalizeTime(session.start_time)).getTime()
+  ).toISOString();
+}
+
+/**
  * Minutes between two Chile wall-clock times on the same session date, via the §10
  * helper. The fallback for a NULL `scheduled_duration_minutes`.
  */
@@ -1838,11 +1858,8 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
     }
 
     // --- §10 instants -----------------------------------------------------
-    const startsAtMs = getSessionDateTime(
-      session.session_date,
-      normalizeTime(session.start_time)
-    ).getTime();
-    const startsAtIso = new Date(startsAtMs).toISOString();
+    const startsAtIso = sessionStartsAtIso(session);
+    const startsAtMs = Date.parse(startsAtIso);
     const wallClock = toZoomWallClock(session.session_date, session.start_time);
 
     const durationMinutes =

@@ -29,6 +29,8 @@ import {
   RESERVATION_LEAD_MINUTES,
   RESERVATION_TRAIL_MINUTES,
 } from '../../../../lib/zoom/jobs/meeting-provision';
+import type { MeetingSyncStore } from '../../../../lib/zoom/jobs/meeting-sync';
+import type { MeetingDeleteStore } from '../../../../lib/zoom/jobs/meeting-delete';
 import type {
   ClaimZoomJobsArgs,
   CompleteZoomJobArgs,
@@ -436,8 +438,62 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
     }),
   };
 
+  // -------------------------------------------------------------------------
+  // Z2-3b: the reschedule/cleanup stores, over the SAME rows and projection
+  // -------------------------------------------------------------------------
+  //
+  // Sharing the state is the point. `meeting_sync` moving a reservation has to meet the
+  // same EXCLUDE model `insertReservation` does — otherwise the host-busy path would
+  // assert nothing — and a delete has to be visible to the projection map the join
+  // endpoint's badge is derived from.
+
+  const syncStore: MeetingSyncStore = {
+    readSession: store.readSession,
+    findMeetingBySurface: store.findMeetingBySurface,
+
+    updateMeetingSchedule: vi.fn(
+      async (meetingId: string, startsAt: string, durationMinutes: number) => {
+        const row = meetings.find((candidate) => candidate.id === meetingId);
+        if (!row) throw new Error(`no such meeting ${meetingId}`);
+        // The row is ACTIVE, so moving its interval re-enters the EXCLUDE predicate and
+        // can be refused exactly as Postgres refuses it: 23P01 → `false`.
+        if (
+          row.host_zoom_user_id !== null &&
+          isActive(row.status) &&
+          conflicts(row.host_zoom_user_id, startsAt, durationMinutes, meetingId)
+        ) {
+          return false;
+        }
+        row.starts_at = startsAt;
+        row.duration_minutes = durationMinutes;
+        return true;
+      }
+    ),
+
+    syncProjectionFromMeeting: store.syncProjectionFromMeeting,
+    recordLastError: store.recordLastError,
+  };
+
+  const deleteStore: MeetingDeleteStore = {
+    readSession: store.readSession,
+    findMeetingBySurface: store.findMeetingBySurface,
+
+    markMeetingDeleted: vi.fn(async (meetingId: string, lastError: string | null) => {
+      const row = meetings.find((candidate) => candidate.id === meetingId);
+      if (!row) throw new Error(`no such meeting ${meetingId}`);
+      // `deleted` is outside ZOOM_MEETING_ACTIVE_STATUSES, so `conflicts()` stops
+      // counting this row — the host slot is freed, which is half the point of the job.
+      row.status = 'deleted';
+      row.last_error = lastError;
+    }),
+
+    syncProjectionFromMeeting: store.syncProjectionFromMeeting,
+  };
+
   return {
     store,
+    syncStore,
+    deleteStore,
     meetings,
     projection,
     /** The single row for a surface, or undefined. */

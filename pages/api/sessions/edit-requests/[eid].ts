@@ -13,6 +13,8 @@ import {
   isDurationRelevantChange,
   syncRescheduleHours,
 } from '../../../../lib/services/hour-tracking';
+import { enqueueSessionMeetingSync } from '../../../../lib/zoom/provisioning-intent';
+import type { ProvisionSessionRow } from '../../../../lib/zoom/jobs/meeting-provision';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-edit-request-detail');
@@ -215,6 +217,29 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, editRequestI
       if (sessionUpdateError) {
         console.error('Database error updating session:', sessionUpdateError);
         return sendAuthError(res, 'Error al aplicar cambios a la sesión', 500, sessionUpdateError.message);
+      }
+
+      // Z2-3b (plan §8): the second reschedule path tells Zoom too. Same placement
+      // rationale as the admin PUT — after the session update commits, before the
+      // hours sync, whose failure path returns 500 over times that already moved.
+      //
+      // The session row is reconstructed the same way `effectiveStatus` is: this route
+      // updates without a `.select()`, so `{ ...session, ...sessionUpdate }` is what the
+      // row now holds. The gate and the dedupe key both read from it.
+      //
+      // With ONE correction. `scheduled_duration_minutes` is a STORED generated column,
+      // so the value on `session` is the one computed for the OLD times and the merge
+      // cannot recompute it. Nulling it makes the enqueue derive the duration from the
+      // new `start_time`/`end_time` — which are the authoritative values here — instead
+      // of keying a moved session on the duration it used to have.
+      if (isDurationRelevantChange(Object.keys(changes))) {
+        await enqueueSessionMeetingSync({
+          session: {
+            ...session,
+            ...sessionUpdate,
+            scheduled_duration_minutes: null,
+          } as ProvisionSessionRow,
+        });
       }
 
       // Z2-3a (plan §11): an approved edit request is the second reschedule path, and

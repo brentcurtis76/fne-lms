@@ -18,6 +18,10 @@ import {
   isDurationRelevantChange,
   syncRescheduleHours,
 } from '../../../../lib/services/hour-tracking';
+import {
+  enqueueSessionMeetingDelete,
+  enqueueSessionMeetingSync,
+} from '../../../../lib/zoom/provisioning-intent';
 import { canViewSession, SessionAccessContext } from '../../../../lib/utils/session-policy';
 import { sendSessionNotFound } from '../../../../lib/utils/session-denials';
 import {
@@ -430,6 +434,31 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
         code: 'SESSION_CONFLICT',
         current: currentSession,
       });
+    }
+
+    // ---------------------------------------------------------------------
+    // Z2-3b (plan §8): tell Zoom. Placed HERE — after the update has committed and
+    // before the hours sync — for two reasons. The update is what makes the change
+    // real, so nothing is enqueued for a change that did not land; and the hours sync
+    // below can return 500, on a path where the session times DID move, so an enqueue
+    // after it would leave Zoom holding the old time on exactly the case an admin is
+    // being told to go and check.
+    //
+    // Neither call can throw and neither can change the response: both gate on the §14
+    // flags and swallow their own errors, so every branch below returns byte-identical
+    // status and body whether the job was enqueued, deduped, gated off, or errored.
+    // ---------------------------------------------------------------------
+    const flippedToPresencial =
+      fieldsChanged.includes('modality') &&
+      updatedSession?.modality === 'presencial' &&
+      session.modality !== 'presencial';
+
+    if (flippedToPresencial) {
+      // A presencial session has nothing to join, so the meeting goes rather than moves
+      // — even if this same request also changed the times.
+      await enqueueSessionMeetingDelete({ session: updatedSession });
+    } else if (updatedSession && isDurationRelevantChange(fieldsChanged)) {
+      await enqueueSessionMeetingSync({ session: updatedSession });
     }
 
     // Z2-3a (plan §11): a PRE-EXECUTION reschedule must carry the hour reservation

@@ -181,6 +181,20 @@ test.describe('pasantías landing page', () => {
     // FAQ: at least five, per the plan.
     const faqCount = await page.getByTestId(/^pasantias-faq-\d+$/).count();
     expect(faqCount).toBeGreaterThanOrEqual(5);
+
+    // A6r r2 swapped one question for another, and both directions are pinned so
+    // that either half can fail on its own. "¿Qué incluye el programa?" restated
+    // the `#incluye` section a screen above it — a FAQ that repeats the page
+    // teaches readers not to open it — and the language question is one a Chilean
+    // buyer genuinely asks about Barcelona that nothing else here answers. The
+    // answer is owner-approved copy: "una mezcla de catalán y español" is the
+    // accurate expectation and must not be softened into "todo en español".
+    const faq = page.getByTestId('pasantias-faq');
+    await expect(faq).not.toContainText('¿Qué incluye el programa?');
+    await expect(faq).toContainText('¿Necesito hablar catalán?');
+    await expect(faq).toContainText(
+      'En las escuelas vas a escuchar una mezcla de catalán y español'
+    );
   });
 
   test('states no visit duration Appendix A does not state', async ({ page }) => {

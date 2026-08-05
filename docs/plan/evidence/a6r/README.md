@@ -61,7 +61,11 @@ header doing its job during `scrollIntoViewIfNeeded`, not a layout fault — see
   background is `brand_accent_text` (#b45309, 5.02:1), never `brand_accent`.
 - **`14-faq-open`** exists because the closed accordion shows six questions and
   no copy. The answers are A6a's owner-reviewed ones, not the mockup's — see the
-  ledger entry for why the mockup's six differ.
+  ledger entry for why the mockup's six differ. **The two `14-faq*` sets are the
+  only captures re-rendered in r2**, which swapped "¿Qué incluye el programa?" —
+  it restated the `#incluye` section a screen above it — for "¿Necesito hablar
+  catalán?", whose answer is owner-approved copy rather than the mockup's
+  wording. Still six.
 
 ## Size
 

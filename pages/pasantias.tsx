@@ -383,20 +383,12 @@ export default function PasantiasPage({
       ),
     },
     {
-      question: '¿Qué incluye el programa?',
+      question: '¿Necesito hablar catalán?',
       answer: (
         <>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
-            {COHORT_INCLUDES.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-          <p className="mt-4 font-semibold">No incluye:</p>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
-            {COHORT_EXCLUDES.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
+          No. Las sesiones del programa se desarrollan en español: las presentaciones, las
+          entrevistas y los talleres. En las escuelas vas a escuchar una mezcla de catalán y
+          español, y el equipo de FNE acompaña las visitas.
         </>
       ),
     },

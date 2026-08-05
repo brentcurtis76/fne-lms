@@ -14,6 +14,10 @@ import {
   SessionActivityLogInsert,
   STRUCTURAL_FIELDS,
 } from '../../../../lib/types/consultor-sessions.types';
+import {
+  isDurationRelevantChange,
+  syncRescheduleHours,
+} from '../../../../lib/services/hour-tracking';
 import { canViewSession, SessionAccessContext } from '../../../../lib/utils/session-policy';
 import { sendSessionNotFound } from '../../../../lib/utils/session-denials';
 import {
@@ -426,6 +430,34 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
         code: 'SESSION_CONFLICT',
         current: currentSession,
       });
+    }
+
+    // Z2-3a (plan §11): a PRE-EXECUTION reschedule must carry the hour reservation
+    // with it. Until now this path never touched the ledger, so moving a session
+    // 09:00–10:30 → 09:00–11:30 still billed 1.5 h.
+    //
+    // Gated on the status the row HAS AFTER the update, because that is the status
+    // the RPC will read. Post-execution time edits stay allowed at the session level
+    // and simply do not reach the RPC — the RPC refuses them on its own for any
+    // other caller (it is the security boundary; this gate is only about not
+    // provoking a refusal on a path that is legitimately allowed to edit times).
+    if (
+      updatedSession?.status === 'programada' &&
+      isDurationRelevantChange(fieldsChanged)
+    ) {
+      const hoursSync = await syncRescheduleHours(serviceClient, sessionId, user.id);
+
+      if (!hoursSync.ok) {
+        // Loud, never silent: the session times moved but the ledger did not, and a
+        // stale ledger is the exact billing bug this chunk exists to close.
+        console.error('Error syncing reschedule hours:', hoursSync.error);
+        return sendAuthError(
+          res,
+          'La sesión se actualizó, pero no se pudieron recalcular las horas del contrato. Revise el libro de horas antes de continuar.',
+          500,
+          hoursSync.error
+        );
+      }
     }
 
     // Insert activity log

@@ -668,3 +668,114 @@ was pointed at that stack for the run and restored afterwards (hash verified).
   can swallow the tab. It matches the repo's existing fetch-then-open pattern
   (`components/licitaciones/ArchiveView.tsx:94`), and nothing in this chunk makes it
   worse, but school hardware is exactly where it would show up first.
+
+---
+
+## Chunk Z2-3a — the atomic pre-execution reschedule (hours only)
+
+### Branch and commits
+
+`feat/zoom-sess`, on top of `c2be4ec9`. One commit, listed in the executor report.
+No Zoom in this chunk at all — `meeting_sync`/`meeting_delete` and every reschedule
+enqueue hook are Z2-3b.
+
+### Objective and scope
+
+Plan §11: a pre-execution reschedule updates the hour reservation, the planned
+snapshot and an append-only revision entry **in one transaction**.
+
+The gap was re-verified against `c2be4ec9` before any code was written, and it is
+real: neither `pages/api/sessions/[id]/index.ts` nor
+`pages/api/sessions/edit-requests/[eid].ts` referenced `hour-tracking`,
+`createReservation` or `contract_hours_ledger` at all. Moving a session from
+09:00–10:30 to 09:00–11:30 left the school billed — and the consultant paid — for
+1.5 h. That is a live billing bug; the Zoom work only made it visible.
+
+### Files, by risk
+
+| Risk | File | Purpose |
+|---|---|---|
+| **High** | `supabase/migrations/20260805120000_reschedule_hours_rpc.sql` (new) | `public.reschedule_session_hours(uuid, uuid)` + the `session_activity_log.action` widening |
+| **High** | `pages/api/sessions/[id]/index.ts` | admin PUT calls the RPC on a duration-relevant change |
+| **High** | `pages/api/sessions/edit-requests/[eid].ts` | edit-request approve does the same |
+| Medium | `lib/services/hour-tracking.ts` | `syncRescheduleHours` + `isDurationRelevantChange` (new exports; the three cancellation-flow functions are untouched) |
+| Low | `lib/types/hour-tracking.types.ts` | `RescheduleHoursPayload` / `RescheduleHoursResult` |
+| Test | `supabase/tests/012-reschedule-hours-rpc.sql` (new, 36 assertions) | RPC behaviour in the database |
+| Test | `__tests__/api/sessions/reschedule-hours-sync.test.ts` (new, 13 tests) | both routes, both directions |
+
+### Decisions a reviewer should look at hardest
+
+1. **The `session_activity_log.action` CHECK was widened, and that is a schema
+   change the prompt did not anticipate.** Ruling §3.3 requires a new, specific
+   action value; `action` carries a 16-value CHECK allowlist, so a new value cannot
+   be written without widening it. The new list is a strict **superset** — every
+   previously legal value is still legal, no row can fail it, nothing is removed.
+   PostgreSQL has no "add a value to a CHECK" verb, so the mechanism is DROP + ADD;
+   ordering is DROP → ADD NOT VALID → VALIDATE so the audit table is never blocked
+   for writers. If the PM considers any `DROP CONSTRAINT` out of bounds regardless
+   of direction, this is the line to reject.
+2. **The RPC restates `get_bucket_summary`'s availability inline.** It could not
+   call it: `get_bucket_summary` is a plain SQL function with **no `search_path` of
+   its own**, so it resolves table names against the caller's — and the RPC pins an
+   empty one per the `20260731120000` convention. Calling it fails with `relation
+   "contract_hour_allocations" does not exist` (observed, not theorised). Two pgTAP
+   assertions pin the restatement against `get_bucket_summary`'s own output so the
+   two cannot drift silently.
+3. **Route gating uses the status the row has AFTER the update**, because that is
+   what the RPC reads. Post-execution time edits remain allowed at the session level
+   and simply never reach the RPC; the RPC refuses them independently for any other
+   caller ([A4] asserts that by calling it directly).
+4. **A failed recomputation returns 500 rather than logging and continuing.** The
+   session update has already been applied at that point, so this is loud-and-
+   inconsistent rather than silent-and-stale — see "does NOT close" below.
+5. **Over-budget matches `createReservation`, with the row's own reservation added
+   back** before the comparison, since it is already inside the bucket's
+   `reserved_hours` at reschedule time (it is not at approve time).
+
+### Test evidence
+
+pgTAP `012` — 36 assertions. [A3] atomicity is proven by forcing the revision
+INSERT to fail with a trigger (a bogus actor would fail at the UPDATE instead,
+because `updated_by` has an FK to `profiles`, and would prove nothing about
+ordering), then asserting `hours` and `planned_minutes_snapshot` are unchanged and
+no revision row survives.
+
+**Mutation probe for [A3]:** replacing the revision INSERT with a best-effort
+`BEGIN … EXCEPTION WHEN OTHERS THEN NULL; END` — precisely the anti-pattern §11
+names — fails tests 16/17/18, with the ledger left reading `2.00` h / `120` min and
+no revision row. The atomicity test is not vacuous.
+
+**Fail-on-old for [A2]/[A6]:** with both route hunks reverted to `c2be4ec9` and
+everything else in place, `reschedule-hours-sync.test.ts` is **7 failed / 6 passed**
+— every "calls the RPC" assertion fails (`expected [] to have a length of 1 but got
++0`) and both 500 paths fail (`expected 200 to be 500`). The 6 that still pass are
+the negative "does NOT call the RPC" assertions, which pass trivially against code
+that never calls it — that is expected, and they earn their place only alongside the
+positive ones.
+
+### Gates at this head
+
+`npm run type-check && npm run lint && npm test && npm run build` → exit 0,
+**4391 passed / 270 files** (PM baseline at `c2be4ec9`: 4378 / 269 — +13 in 1 new
+file, none lost).
+`npm run test:db` → `Files=9, Tests=374`, `Result: PASS`, exit 0 (baseline 338 / 8
+— +36 in 1 new suite). Run after a full `supabase db reset`, so the migration is
+verified to replay **in chain order**, not just applied by hand.
+
+### What this round does NOT close
+
+- **The session UPDATE and the ledger RPC are still two statements.** The RPC makes
+  its own three writes atomic, which is what §11 requires, but a mid-request failure
+  can still leave the session retimed with the ledger unmoved. The route now returns
+  500 instead of swallowing it, so the operator learns — but there is no compensating
+  rollback of the session row. Folding the session update into the RPC would touch
+  both routes' whole update path and is beyond this chunk.
+- **No production verification.** Every gate here ran against a local Postgres. The
+  migration is unapplied in production and applying it is a separate Brent-authorized
+  step.
+- **`edit-requests/[eid].ts:185` inserts `action: 'edit_approval_blocked'`, which was
+  never in the CHECK allowlist** — that best-effort insert has always failed silently.
+  Pre-existing, unrelated to this chunk, and deliberately left alone; the widening
+  here adds only `'hours_revised'`. Worth its own ticket.
+- The `en_progreso`+ freeze is asserted on the RPC and on the routes, but nothing
+  here covers the Z7 override path, which does not exist yet.

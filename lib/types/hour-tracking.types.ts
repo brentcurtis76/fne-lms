@@ -213,6 +213,42 @@ export interface LedgerEntryOverride {
 }
 
 /**
+ * RescheduleHoursPayload — the `reschedule_session_hours` RPC return value
+ * (Z2-3a, plan §11).
+ *
+ * `applied: false` is a legitimate no-op, not a failure: the session is not yet
+ * approved (`not_reserved_yet`), carries no reservation (`no_ledger_entry`), or
+ * nothing duration-relevant actually moved (`no_change`). A refusal — a session at
+ * `en_progreso` or beyond, a finalized ledger row, or a recomputation that would
+ * yield 0 h — raises inside the RPC and surfaces as an error instead.
+ */
+export interface RescheduleHoursPayload {
+  applied: boolean;
+  reason?: 'not_reserved_yet' | 'no_ledger_entry' | 'no_change';
+  status?: string;
+  ledger_entry_id?: string;
+  old_minutes?: number;
+  new_minutes?: number;
+  hours?: number;
+  is_over_budget?: boolean;
+  session_date?: string;
+  revision_written?: boolean;
+}
+
+/**
+ * Result of `syncRescheduleHours` — the RPC ran, or it errored.
+ *
+ * A flat shape rather than a discriminated union: this project compiles with
+ * `strict: false`, where narrowing a union on a boolean discriminant does not
+ * hold, and callers would have to cast at every use.
+ */
+export interface RescheduleHoursResult {
+  ok: boolean;
+  error?: string;
+  result?: RescheduleHoursPayload;
+}
+
+/**
  * CancelSessionRequest — For POST /api/sessions/[id]/cancel (extended)
  */
 export interface CancelSessionRequest {

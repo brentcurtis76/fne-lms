@@ -16,6 +16,8 @@ import {
   FxRateResponse,
   BucketSummary,
   LedgerEntryStatus,
+  RescheduleHoursPayload,
+  RescheduleHoursResult,
 } from '../types/hour-tracking.types';
 import { ConsultorSession } from '../types/consultor-sessions.types';
 import { getSessionDateTime } from '../utils/session-timezone';
@@ -528,6 +530,61 @@ export async function executeCancellation(
     clause_result: clauseResult,
     cancelled_notice_hours: noticeHours,
   };
+}
+
+// ============================================================
+// PRE-EXECUTION RESCHEDULE (Z2-3a, plan §11)
+// ============================================================
+
+/**
+ * The session fields whose change can move the billed duration or the ledger's
+ * `session_date`. `start_time`/`end_time` drive `scheduled_duration_minutes`;
+ * `session_date` moves the date the ledger row carries but not the duration.
+ */
+export const DURATION_RELEVANT_SESSION_FIELDS = [
+  'session_date',
+  'start_time',
+  'end_time',
+] as const;
+
+/** True when a reschedule touched anything the ledger row has to follow. */
+export function isDurationRelevantChange(fieldsChanged: readonly string[]): boolean {
+  return fieldsChanged.some((field) =>
+    (DURATION_RELEVANT_SESSION_FIELDS as readonly string[]).includes(field)
+  );
+}
+
+/**
+ * Keep the hour reservation in step with a PRE-EXECUTION reschedule.
+ *
+ * Delegates to the `reschedule_session_hours` RPC
+ * (supabase/migrations/20260805120000_reschedule_hours_rpc.sql), which recomputes
+ * the ledger `hours`, updates `planned_minutes_snapshot` and `session_date`, and
+ * appends one `hours_revised` revision row — all three in ONE transaction, or none.
+ *
+ * It is an RPC rather than three calls from the route because the routes' activity
+ * logging is deliberately best-effort: a route-level sequence could leave the ledger
+ * updated with no revision trail (plan §11).
+ *
+ * Callers gate on the session being `programada`; the RPC re-checks that itself and
+ * refuses anything at `en_progreso` or beyond, because the caller is not the security
+ * boundary.
+ */
+export async function syncRescheduleHours(
+  serviceClient: SupabaseClient,
+  sessionId: string,
+  userId: string
+): Promise<RescheduleHoursResult> {
+  const { data, error } = await serviceClient.rpc('reschedule_session_hours', {
+    p_session_id: sessionId,
+    p_actor_id: userId,
+  });
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, result: data as RescheduleHoursPayload };
 }
 
 // ============================================================

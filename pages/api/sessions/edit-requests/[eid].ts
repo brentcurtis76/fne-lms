@@ -9,6 +9,10 @@ import {
 } from '../../../../lib/api-auth';
 import { Validators } from '../../../../lib/types/api-auth.types';
 import { SessionActivityLogInsert } from '../../../../lib/types/consultor-sessions.types';
+import {
+  isDurationRelevantChange,
+  syncRescheduleHours,
+} from '../../../../lib/services/hour-tracking';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-edit-request-detail');
@@ -211,6 +215,34 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, editRequestI
       if (sessionUpdateError) {
         console.error('Database error updating session:', sessionUpdateError);
         return sendAuthError(res, 'Error al aplicar cambios a la sesión', 500, sessionUpdateError.message);
+      }
+
+      // Z2-3a (plan §11): an approved edit request is the second reschedule path, and
+      // it never touched the ledger either. Same rule as the admin PUT — the hour
+      // reservation, the planned snapshot and the revision row move together or not
+      // at all. Gated on the status the session HAS after the update, since that is
+      // what the RPC reads.
+      const effectiveStatus =
+        (sessionUpdate.status as string | undefined) ?? (session.status as string);
+
+      if (
+        effectiveStatus === 'programada' &&
+        isDurationRelevantChange(Object.keys(changes))
+      ) {
+        const hoursSync = await syncRescheduleHours(serviceClient, sessionId, user!.id);
+
+        if (!hoursSync.ok) {
+          // The edit request stays `pending` (it is marked approved only below), so a
+          // failed recomputation leaves the request retryable rather than closing it
+          // over a stale ledger.
+          console.error('Error syncing reschedule hours:', hoursSync.error);
+          return sendAuthError(
+            res,
+            'Los cambios se aplicaron a la sesión, pero no se pudieron recalcular las horas del contrato. Revise el libro de horas antes de continuar.',
+            500,
+            hoursSync.error
+          );
+        }
       }
 
       // Now mark edit request as approved

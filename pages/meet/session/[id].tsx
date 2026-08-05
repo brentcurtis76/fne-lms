@@ -7,6 +7,7 @@ import { Calendar, Clock, ExternalLink } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { createServiceRoleClient } from '../../../lib/api-auth';
+import JoinMeetingButton from '../../../components/sessions/JoinMeetingButton';
 import { formatTime } from '../../../lib/utils/session-ui-helpers';
 import {
   MeetSessionView,
@@ -22,8 +23,14 @@ import {
  * every visit rather than being frozen into an artifact that outlives the
  * viewer's permissions.
  *
- * Intentionally light: no layout chrome, no client-side data fetching, no
- * state. School hardware is slow and this page's whole job is one link.
+ * Intentionally light: no layout chrome, and for a legacy session no
+ * client-side data fetching and no state at all. School hardware is slow and
+ * this page's whole job is one link.
+ *
+ * A platform-managed session (plan §8) is the one exception: it has no raw link
+ * to render, so the join goes through `JoinMeetingButton`, which fetches the URL
+ * per click from the §5 opening. Nothing about that path reaches the props — see
+ * the component. The legacy branches below are untouched by it.
  */
 
 type MeetSessionPageProps = {
@@ -65,7 +72,9 @@ const MeetSessionPage: React.FC<MeetSessionPageProps> = ({ session }) => {
             </div>
           </dl>
 
-          {session.meeting_link ? (
+          {session.is_zoom_managed ? (
+            <JoinMeetingButton sessionId={session.id} />
+          ) : session.meeting_link ? (
             <div className="mt-6">
               <a
                 href={session.meeting_link}

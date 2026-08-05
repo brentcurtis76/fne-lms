@@ -44,6 +44,7 @@ const sessionRow = {
   start_time: '09:00:00',
   end_time: '10:30:00',
   meeting_link: MEETING_LINK,
+  is_zoom_managed: false,
   school_id: SCHOOL_ID,
   growth_community_id: COMMUNITY_ID,
   status: 'programada',
@@ -141,6 +142,7 @@ describe('resolveMeetSessionAccess', () => {
         start_time: '09:00:00',
         end_time: '10:30:00',
         meeting_link: MEETING_LINK,
+        is_zoom_managed: false,
       },
     });
   });
@@ -154,6 +156,30 @@ describe('resolveMeetSessionAccess', () => {
 
     expect(access.kind).toBe('ok');
     expect(access.kind === 'ok' && access.session.meeting_link).toBeNull();
+  });
+
+  // Zoom plan §8: the page picks its join control from this flag, so it has to
+  // survive the resolver rather than being re-derived from the (always NULL)
+  // link of a managed session.
+  it('carries managed intent through to the view', async () => {
+    const access = await run({
+      roles: activeGcRole,
+      highestRole: 'lider_comunidad',
+      session: { ...sessionRow, meeting_link: null, is_zoom_managed: true },
+    });
+
+    expect(access.kind === 'ok' && access.session.is_zoom_managed).toBe(true);
+  });
+
+  it('treats a missing managed flag as unmanaged', async () => {
+    const { is_zoom_managed: _omitted, ...withoutFlag } = sessionRow;
+    const access = await run({
+      roles: activeGcRole,
+      highestRole: 'lider_comunidad',
+      session: withoutFlag,
+    });
+
+    expect(access.kind === 'ok' && access.session.is_zoom_managed).toBe(false);
   });
 
   it('is not-found for a viewer of a different community', async () => {

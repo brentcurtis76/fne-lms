@@ -28,6 +28,12 @@ export interface MeetSessionView {
   start_time: string;
   end_time: string;
   meeting_link: string | null;
+  /**
+   * Durable managed intent (plan §8). A managed session never carries a raw
+   * link on the source row — the join goes through the authorized POST opening
+   * instead — so the page needs this to pick which control to render.
+   */
+  is_zoom_managed: boolean;
 }
 
 export type MeetSessionAccess =
@@ -56,7 +62,7 @@ export async function resolveMeetSessionAccess(params: {
   const { data: session, error } = await service
     .from('consultor_sessions')
     .select(
-      'id, title, session_date, start_time, end_time, meeting_link, school_id, growth_community_id, status, is_active'
+      'id, title, session_date, start_time, end_time, meeting_link, is_zoom_managed, school_id, growth_community_id, status, is_active'
     )
     .eq('id', sessionId)
     .maybeSingle();
@@ -111,6 +117,7 @@ export async function resolveMeetSessionAccess(params: {
       start_time: session.start_time,
       end_time: session.end_time,
       meeting_link: session.meeting_link ?? null,
+      is_zoom_managed: session.is_zoom_managed === true,
     },
   };
 }

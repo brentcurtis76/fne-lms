@@ -36,12 +36,10 @@ export type ProvisionGateRefusal =
 
 /**
  * Why the CLEANUP gate refused. A separate vocabulary from `ProvisionGateRefusal` because
- * the two gates ask different questions — see `checkCleanupGate`.
+ * the two gates ask different questions — and cleanup asks only one, so there is only one
+ * way to refuse it. See `checkCleanupGate`.
  */
-export type CleanupGateRefusal =
-  | { reason: 'feature_disabled' }
-  | { reason: 'school_not_allowlisted'; schoolId: number }
-  | { reason: 'not_managed' };
+export type CleanupGateRefusal = { reason: 'not_managed' };
 
 export type ZoomEnqueueRefusal = ProvisionGateRefusal | CleanupGateRefusal;
 
@@ -163,23 +161,17 @@ export function checkProvisionGate(
  * checked rather than `meeting_provider`: the provider is vocabulary (baseline:7740) and
  * can legitimately be hand-managed, whereas the intent is the fact.
  *
- * Both §14 flags gate cleanup as well as provisioning, per this chunk's [A10]. That is
- * NARROWER than plan §14's own wording, which says the kill switch "stops new meetings and
- * joins, never cleanup" and names `meeting_delete` among the jobs that continue with the
- * master flag off — see the round's report; the flag check is this one line either way.
+ * NEITHER §14 flag is consulted here, deliberately — this is not an oversight, so do not
+ * "restore" a flag check. §14 says the master kill switch stops *new meetings and joins*,
+ * **never cleanup**, and names `meeting_delete` for cancellations among the jobs that
+ * CONTINUE while it is off: a session cancelled during an incident window would otherwise
+ * leave a live meeting on a booked host, which is the failure that sentence exists to
+ * prevent. `ZOOM_SCHOOL_ALLOWLIST` follows from §14's own wording that it is "checked at
+ * provision time" — a cancellation is not a provision, and a school leaving the wave must
+ * never strand a live meeting. Hence no `env` parameter: there is no environment to read.
  */
-export function checkCleanupGate(
-  session: ProvisionSessionRow,
-  env: NodeJS.ProcessEnv = process.env
-): CleanupGateRefusal | null {
-  if (env[ZOOM_MEETINGS_FLAG] !== 'true') return { reason: 'feature_disabled' };
-
+export function checkCleanupGate(session: ProvisionSessionRow): CleanupGateRefusal | null {
   if (session.is_zoom_managed !== true) return { reason: 'not_managed' };
-
-  const allowlist = parseSchoolAllowlist(env[ZOOM_SCHOOL_ALLOWLIST_VAR]);
-  if (allowlist !== null && !allowlist.has(session.school_id)) {
-    return { reason: 'school_not_allowlisted', schoolId: session.school_id };
-  }
 
   return null;
 }
@@ -302,6 +294,8 @@ export async function enqueueSessionMeetingSync(
  *
  * NEVER throws, for the same reason as every other enqueue here: a cancellation returns
  * what it returns today whether this succeeded, deduped, was gated off or errored.
+ *
+ * `env` still reaches the queue factory, but no longer any gate — see `checkCleanupGate`.
  */
 export async function enqueueSessionMeetingDelete(
   args: EnqueueSessionMeetingArgs
@@ -309,7 +303,7 @@ export async function enqueueSessionMeetingDelete(
   const { session } = args;
   const env = args.env ?? process.env;
 
-  const refusal = checkCleanupGate(session, env);
+  const refusal = checkCleanupGate(session);
   if (refusal !== null) {
     return { status: 'skipped', refusal };
   }

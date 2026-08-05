@@ -10,9 +10,14 @@
  * The cancellation-clause flow itself is untouched by this chunk; these tests assert the
  * enqueue BESIDE it, and that the clause result still comes back unchanged.
  *
- * Only the QUEUE seam is faked. The §14 flags, the managed-intent gate, the dedupe key and
- * the route wiring are real. The session double is FILTER-AWARE: a canned row resolves
- * only when the recorded `.eq()` filters match it.
+ * Only the QUEUE seam is faked. The cleanup gate, the dedupe key and the route wiring are
+ * real. The session double is FILTER-AWARE: a canned row resolves only when the recorded
+ * `.eq()` filters match it.
+ *
+ * r9 ruling ([R1]–[R4]): cleanup is UNGATED by both §14 flags — the kill switch "stops new
+ * meetings and joins, never cleanup", and the allowlist is checked at provision time only.
+ * The `[R2]`/`[R3]` cases below assert exactly that, and they replace the r8 `[A10]` cases
+ * that asserted the reverse. Managed intent remains the one refusal.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
@@ -270,26 +275,43 @@ describe('POST /api/sessions/[id]/cancel — legacy path [A7] [A8] [A10]', () =>
   it.each([
     ['the master flag is off', 'FEATURE_ZOOM_MEETINGS', 'false'],
     ['the master flag is unset', 'FEATURE_ZOOM_MEETINGS', undefined],
-  ])('[A10] does not enqueue when %s', async (_label, name, value) => {
+  ])('[R2] STILL enqueues when %s — §14: the kill switch never stops cleanup', async (
+    _label,
+    name,
+    value
+  ) => {
     setEnv(name, value);
 
     const { req, res } = cancelRequest();
     await cancelHandler(req as any, res as any);
 
     expect(res._getStatusCode()).toBe(200);
-    expect(mockEnqueue).not.toHaveBeenCalled();
+    // Cancelling during an incident window must not leave a live meeting on a booked host.
+    expect(mockEnqueue).toHaveBeenCalledTimes(1);
+    expect(mockEnqueue).toHaveBeenCalledWith({
+      job_type: 'meeting_delete',
+      payload: { surface_type: 'consultor_session', surface_id: SESSION_ID },
+      dedupe_key: `meeting_delete:consultor_session:${SESSION_ID}`,
+    });
   });
 
-  it('[A10] does not enqueue when the school is outside the allowlist', async () => {
+  it('[R3] STILL enqueues when the school is outside the allowlist', async () => {
+    // §14: the allowlist is "checked at provision time". A cancellation is not a
+    // provision, and a school leaving the wave must never strand a live meeting.
     setEnv('ZOOM_SCHOOL_ALLOWLIST', '12, 34');
 
     const { req, res } = cancelRequest();
     await cancelHandler(req as any, res as any);
 
-    expect(mockEnqueue).not.toHaveBeenCalled();
+    expect(mockEnqueue).toHaveBeenCalledTimes(1);
+    expect(mockEnqueue).toHaveBeenCalledWith({
+      job_type: 'meeting_delete',
+      payload: { surface_type: 'consultor_session', surface_id: SESSION_ID },
+      dedupe_key: `meeting_delete:consultor_session:${SESSION_ID}`,
+    });
   });
 
-  it('[A10] DOES enqueue when the school is inside the allowlist', async () => {
+  it('[R3] enqueues when the school is inside the allowlist too', async () => {
     setEnv('ZOOM_SCHOOL_ALLOWLIST', `12, ${SCHOOL_ID}`);
 
     const { req, res } = cancelRequest();
@@ -441,23 +463,35 @@ describe('POST /api/sessions/series/[groupId]/cancel — [A9] [A8] [A10]', () =>
     consoleError.mockRestore();
   });
 
-  it('[A10] does not enqueue when the master flag is off', async () => {
-    setEnv('FEATURE_ZOOM_MEETINGS', 'false');
+  it.each([
+    ['the master flag is off', 'FEATURE_ZOOM_MEETINGS', 'false'],
+    ['the master flag is unset', 'FEATURE_ZOOM_MEETINGS', undefined],
+  ])('[R2] STILL enqueues one per managed session when %s', async (_label, name, value) => {
+    setEnv(name, value);
 
     const { req, res } = seriesCancelRequest();
     await seriesCancelHandler(req as any, res as any);
 
     expect(res._getStatusCode()).toBe(200);
-    expect(mockEnqueue).not.toHaveBeenCalled();
+    // Same two jobs as the flag-on case, and for the same two sessions.
+    expect(mockEnqueue).toHaveBeenCalledTimes(2);
+    expect(mockEnqueue.mock.calls.map((call) => call[0].dedupe_key)).toEqual([
+      `meeting_delete:consultor_session:${SESSION_ID}`,
+      `meeting_delete:consultor_session:${THIRD_ID}`,
+    ]);
   });
 
-  it('[A10] does not enqueue when the school is outside the allowlist', async () => {
+  it('[R3] STILL enqueues when the school is outside the allowlist', async () => {
     setEnv('ZOOM_SCHOOL_ALLOWLIST', '12, 34');
 
     const { req, res } = seriesCancelRequest();
     await seriesCancelHandler(req as any, res as any);
 
-    expect(mockEnqueue).not.toHaveBeenCalled();
+    expect(mockEnqueue).toHaveBeenCalledTimes(2);
+    expect(mockEnqueue.mock.calls.map((call) => call[0].dedupe_key)).toEqual([
+      `meeting_delete:consultor_session:${SESSION_ID}`,
+      `meeting_delete:consultor_session:${THIRD_ID}`,
+    ]);
   });
 
   it('does not enqueue when the batch matched nothing', async () => {

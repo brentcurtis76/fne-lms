@@ -12,6 +12,11 @@
  * Only the QUEUE seam is faked. The §14 gate, the dedupe key, the schedule derivation and
  * the route wiring are all the real thing, so a change to any of them shows up here.
  *
+ * r9 ruling: the two gates now differ, and this file is where the difference is visible on
+ * ONE route. `meeting_sync` stays gated by both §14 flags (the `[A10]` cases, unchanged);
+ * the modality-flip `meeting_delete` is gated by neither (`[R2]`/`[R3]`), because §14's
+ * kill switch never stops cleanup.
+ *
  * The session double is FILTER-AWARE: a canned row resolves only when the recorded
  * `.eq()` filters actually match it, so a route that dropped a filter would stop finding
  * its row rather than sailing through on a table-name match.
@@ -424,12 +429,49 @@ describe('PUT /api/sessions/[id] — Zoom reschedule sync [A7] [A8] [A10]', () =
     expect(mockEnqueue).toHaveBeenCalledTimes(1);
   });
 
-  it('[A10] the allowlist also gates the modality-flip DELETE', async () => {
+  it('[R3] the allowlist does NOT gate the modality-flip DELETE', async () => {
+    // §14: the allowlist is "checked at provision time". A flip to presencial is not a
+    // provision, and a school leaving the wave must never strand a live meeting.
     setEnv('ZOOM_SCHOOL_ALLOWLIST', '12, 34');
 
     const { req, res } = put({ modality: 'presencial' });
     await putHandler(req as any, res as any);
 
+    expect(mockEnqueue).toHaveBeenCalledTimes(1);
+    expect(mockEnqueue).toHaveBeenCalledWith({
+      job_type: 'meeting_delete',
+      payload: { surface_type: 'consultor_session', surface_id: SESSION_ID },
+      dedupe_key: `meeting_delete:consultor_session:${SESSION_ID}`,
+    });
+  });
+
+  it.each([
+    ['off', 'false'],
+    ['unset', undefined],
+  ])(
+    '[R2] the modality-flip DELETE still enqueues with the master flag %s',
+    async (_label, value) => {
+      // The sync cases above prove the SAME request shape is gated when it only moves the
+      // time; §14 stops new meetings and joins, never cleanup.
+      setEnv('FEATURE_ZOOM_MEETINGS', value);
+
+      const { req, res } = put({ modality: 'presencial' });
+      await putHandler(req as any, res as any);
+
+      expect(res._getStatusCode()).toBe(200);
+      expect(mockEnqueue).toHaveBeenCalledTimes(1);
+      expect(mockEnqueue.mock.calls[0][0].job_type).toBe('meeting_delete');
+    }
+  );
+
+  it('[R4] the modality-flip DELETE still refuses an unmanaged session', async () => {
+    // The one refusal the cleanup gate keeps: nothing was ever provisioned to remove.
+    state.row = managedSession({ is_zoom_managed: false });
+
+    const { req, res } = put({ modality: 'presencial' });
+    await putHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
     expect(mockEnqueue).not.toHaveBeenCalled();
   });
 

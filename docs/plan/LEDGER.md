@@ -1641,3 +1641,13 @@ Entry format (§2.2 of the SOP):
 - COMMITS: this commit
 - DECISIONS: content is explicitly out of scope — copy may be re-set typographically but not rewritten, and a section needing data the module lacks must **add an export** rather than type text into the page. That is criterion [A1] restated where the executor will actually read it.
 - OPEN: dispatch `/exec INSPIRA A6r r1` once the owner's Barcelona photos are in `public/images/pasantias/` — though the round can start without them on the four existing assets.
+
+### 2026-08-05 — A6r design brief for Claude Design (correcting the wrong artifact) — Fable (PM)
+- ACTION: I wrote `prompts/a6r-1.md` as an **executor** prompt; the owner wanted a brief for **Claude Design**, which has no repo — no `cohort-public.ts`, no `tailwind.config.js`, no tests, no ability to run anything. Wrote `docs/plan/design/a6r-design-brief.md` as a self-contained document instead: every fact inlined verbatim from the module, the brand system transcribed from the manual, and an explicit deliverable format.
+- Content extracted straight from `lib/pasantias/cohort-public.ts` rather than paraphrased — claims, day structure, both school tiers with levels and full ordered highlights, all eight experts with the corrected A-6 titles, all 13 objectives, includes/excludes. The brief states the strings are fixed and that a badly-reading line is a finding, not a licence to rewrite.
+- Deliverable specified as **one self-contained HTML file with Tailwind via CDN**, declaring the brand colours under the **exact token names already in `tailwind.config.js`** (`brand_primary`, `brand_accent`, `brand_accent_text`, …). That makes the port near-mechanical instead of a translation exercise. Also asked for stable section ids, one `h1`, no skipped heading levels, real `<section>` elements, and 390px — the structural properties the A6a guards check, requested up front rather than repaired later.
+- Told it Mont is unavailable to it: use a geometric stand-in and mark where Mont goes, rather than designing around another typeface's personality.
+- Flagged the 13 objectives as **the hardest layout problem on the page** — currently a wall of text — and the free weekend as something to present as a feature.
+- **The two documents now have different jobs and both stand:** the design brief goes out to Claude Design; `prompts/a6r-1.md` becomes the integration round and needs rewriting from "design it" to "port the delivered design and wire it to the module" once the design lands. Recorded so it is not dispatched as-is.
+- COMMITS: this commit
+- OPEN: owner hands the brief + Barcelona photos to Claude Design. When the HTML comes back, rewrite `a6r-1.md` as a port-and-wire round, then dispatch.

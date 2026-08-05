@@ -314,6 +314,31 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
       });
     }
 
+    // Turning managed ON is a TRANSITION: the stored intent is not yet true and the
+    // request sets it. Re-sending `true` on an already-managed row is not a transition
+    // and forces nothing — the guards above already govern that row.
+    const managedIntentTransition =
+      managedIntentAttempted &&
+      req.body.is_zoom_managed === true &&
+      session.is_zoom_managed !== true;
+
+    // Mirror the POST eligibility rule (pages/api/sessions/index.ts:120-126): only an
+    // online or híbrida session may be managed. Gated on the modality the row will HAVE,
+    // so a PUT that flips to 'online' alongside the toggle is allowed. Checked before the
+    // forcing below so a refused request writes nothing.
+    if (managedIntentTransition) {
+      const effectiveModality =
+        req.body.modality !== undefined ? req.body.modality : session.modality;
+
+      if (effectiveModality !== 'online' && effectiveModality !== 'hibrida') {
+        return sendAuthError(
+          res,
+          'Solo las sesiones online o híbridas pueden usar una reunión Zoom gestionada por la plataforma',
+          400
+        );
+      }
+    }
+
     // Build update object (only allow specific fields)
     const updateData: any = {};
     const allowedFields = [
@@ -343,6 +368,23 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
         fieldsChanged.push(field);
       }
     });
+
+    // §8: the ON transition forces the managed shape in the SAME update. Discarding the
+    // manual link is the intended semantic of "the platform now owns this meeting", not
+    // data loss — a managed row never carries a raw link, and the provisioner mints the
+    // real one at approve time. POST already does exactly this at creation
+    // (pages/api/sessions/index.ts:141-145 forces the provider, :219-221 the null link);
+    // one rule now governs both entry points. Forced unconditionally rather than only
+    // when the stored value differs: a difference-only rule would be a third rule POST
+    // does not have, and it would leave a rival link in place if a concurrent PUT set one
+    // between the SELECT above and this UPDATE.
+    if (managedIntentTransition) {
+      updateData.meeting_link = null;
+      updateData.meeting_provider = 'zoom';
+
+      if (!fieldsChanged.includes('meeting_link')) fieldsChanged.push('meeting_link');
+      if (!fieldsChanged.includes('meeting_provider')) fieldsChanged.push('meeting_provider');
+    }
 
     if (Object.keys(updateData).length === 0) {
       return sendAuthError(res, 'No hay campos para actualizar', 400);

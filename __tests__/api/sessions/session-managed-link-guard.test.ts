@@ -208,7 +208,13 @@ describe('PUT /api/sessions/[id] — managed intent toggle [A10]', () => {
     await handler(req as any, res as any);
 
     expect(res._getStatusCode()).toBe(200);
-    expect(state.updates[0]).toEqual({ is_zoom_managed: true });
+    // Three keys, not one: the Z2-1 r3 ruling forces the managed shape on the ON
+    // transition unconditionally. This literal IS the ruling, not drift.
+    expect(state.updates[0]).toEqual({
+      is_zoom_managed: true,
+      meeting_link: null,
+      meeting_provider: 'zoom',
+    });
   });
 
   it('admin + pendiente_aprobacion: allowed', async () => {
@@ -218,7 +224,13 @@ describe('PUT /api/sessions/[id] — managed intent toggle [A10]', () => {
     await handler(req as any, res as any);
 
     expect(res._getStatusCode()).toBe(200);
-    expect(state.updates[0]).toEqual({ is_zoom_managed: true });
+    // Three keys, not one: the Z2-1 r3 ruling forces the managed shape on the ON
+    // transition unconditionally. This literal IS the ruling, not drift.
+    expect(state.updates[0]).toEqual({
+      is_zoom_managed: true,
+      meeting_link: null,
+      meeting_provider: 'zoom',
+    });
   });
 
   it('admin + programada: 409 in es-CL, nothing written', async () => {
@@ -267,5 +279,148 @@ describe('PUT /api/sessions/[id] — managed intent toggle [A10]', () => {
     expect(res._getStatusCode()).toBe(400);
     expect(JSON.parse(res._getData()).error).toBe('is_zoom_managed debe ser un booleano');
     expect(state.updates).toHaveLength(0);
+  });
+});
+
+/**
+ * Z2-1 r3 — the ON transition forces the managed shape (ruling: Reading A, force
+ * unconditionally). The r1 toggle tests above ran on a fixture whose stored link was
+ * already null and whose provider was already 'zoom', so they could not tell forcing
+ * apart from doing nothing. These start from the opposite shape.
+ */
+describe('PUT /api/sessions/[id] — managed ON transition forces the shape [R1] [R2]', () => {
+  /** Unmanaged, pre-approval, and carrying a rival link on a non-zoom provider. */
+  function unmanagedWithManualLink(overrides: Record<string, any> = {}) {
+    return sessionRow({
+      status: 'borrador',
+      is_zoom_managed: false,
+      modality: 'online',
+      meeting_link: 'https://meet.google.com/abc-defg-hij',
+      meeting_provider: 'google_meet',
+      ...overrides,
+    });
+  }
+
+  it('discards a stored manual link and forces provider zoom, in ONE update [R1]', async () => {
+    state.row = unmanagedWithManualLink();
+
+    const { req, res } = put({ is_zoom_managed: true });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(state.updates).toHaveLength(1);
+    expect(state.updates[0]).toEqual({
+      is_zoom_managed: true,
+      meeting_link: null,
+      meeting_provider: 'zoom',
+    });
+  });
+
+  it('a manual link sent WITH the toggle is discarded, not stored [R1]', async () => {
+    state.row = unmanagedWithManualLink();
+
+    const { req, res } = put({
+      is_zoom_managed: true,
+      meeting_link: 'https://zoom.us/j/999',
+      meeting_provider: 'otro',
+    });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(state.updates).toHaveLength(1);
+    expect(state.updates[0]).toEqual({
+      is_zoom_managed: true,
+      meeting_link: null,
+      meeting_provider: 'zoom',
+    });
+  });
+
+  it('re-sending true on an already-managed row forces nothing extra [R2]', async () => {
+    // Deliberately mismatched stored values: if forcing were keyed on "stored differs"
+    // rather than on the transition, this row would be rewritten. It must not be.
+    state.row = sessionRow({
+      status: 'borrador',
+      is_zoom_managed: true,
+      meeting_link: 'https://meet.google.com/abc-defg-hij',
+      meeting_provider: 'google_meet',
+    });
+
+    const { req, res } = put({ is_zoom_managed: true, title: 'Nuevo título' });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(state.updates[0]).toEqual({ is_zoom_managed: true, title: 'Nuevo título' });
+  });
+});
+
+describe('PUT /api/sessions/[id] — modality rule on the ON transition [R3]', () => {
+  const MODALITY_ERROR =
+    'Solo las sesiones online o híbridas pueden usar una reunión Zoom gestionada por la plataforma';
+
+  it('refuses the toggle on a stored presencial session with 400 es-CL, nothing written', async () => {
+    state.row = sessionRow({
+      status: 'borrador',
+      is_zoom_managed: false,
+      modality: 'presencial',
+    });
+
+    const { req, res } = put({ is_zoom_managed: true });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(JSON.parse(res._getData()).error).toBe(MODALITY_ERROR);
+    expect(state.updates).toHaveLength(0);
+  });
+
+  it('refuses the toggle when the request itself moves modality to presencial', async () => {
+    state.row = sessionRow({ status: 'borrador', is_zoom_managed: false, modality: 'online' });
+
+    const { req, res } = put({ is_zoom_managed: true, modality: 'presencial' });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(JSON.parse(res._getData()).error).toBe(MODALITY_ERROR);
+    expect(state.updates).toHaveLength(0);
+  });
+
+  it("allows modality: 'online' sent together with the toggle on a presencial row", async () => {
+    state.row = sessionRow({
+      status: 'borrador',
+      is_zoom_managed: false,
+      modality: 'presencial',
+      meeting_link: null,
+      meeting_provider: null,
+    });
+
+    const { req, res } = put({ is_zoom_managed: true, modality: 'online' });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(state.updates[0]).toEqual({
+      is_zoom_managed: true,
+      modality: 'online',
+      meeting_link: null,
+      meeting_provider: 'zoom',
+    });
+  });
+
+  it('allows the toggle on a hibrida session', async () => {
+    state.row = sessionRow({
+      status: 'borrador',
+      is_zoom_managed: false,
+      modality: 'hibrida',
+      meeting_link: 'https://meet.google.com/abc-defg-hij',
+      meeting_provider: 'google_meet',
+    });
+
+    const { req, res } = put({ is_zoom_managed: true });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(state.updates[0]).toEqual({
+      is_zoom_managed: true,
+      meeting_link: null,
+      meeting_provider: 'zoom',
+    });
   });
 });

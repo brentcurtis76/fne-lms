@@ -265,6 +265,242 @@ describe('public cohort module — schools (Appendix A-5)', () => {
     const names = COHORT_SCHOOLS.map((school) => school.name).join(' ');
     expect(names).not.toMatch(/learnlife/i);
   });
+
+  /**
+   * Content pack §5b, owner-approved 2026-08-02. A school with no highlights is
+   * a card that cannot say why the school is worth the trip, which is the whole
+   * point of the section — so this fails rather than degrading quietly, the way
+   * the A-6 expert titles degraded for two days.
+   */
+  it('gives every school its levels and at least one aspecto destacado (pack §5b)', () => {
+    expect(COHORT_SCHOOLS).toHaveLength(7);
+    for (const school of COHORT_SCHOOLS) {
+      expect(school.levels.trim(), `${school.name} has no levels`).not.toBe('');
+      expect(school.highlights.length, `${school.name} has no highlights`).toBeGreaterThan(0);
+      for (const highlight of school.highlights) {
+        expect(highlight.trim(), `${school.name} has an empty highlight`).not.toBe('');
+      }
+      // Repeated copy inside one card reads as a rendering bug, not as emphasis.
+      expect(new Set(school.highlights).size).toBe(school.highlights.length);
+    }
+  });
+
+  it('carries the levels the owner confirmed for El Puig and Les Vinyes', () => {
+    // These two were the pack's open question until the 2026-08-02 brochure; the
+    // answer is pinned so a future edit has to argue with the owner, not with a
+    // silent default.
+    for (const name of ['Institut Escola El Puig', 'Institut Escola Les Vinyes']) {
+      const school = COHORT_SCHOOLS.find((candidate) => candidate.name === name);
+      expect(school?.levels).toBe('Infantil, primaria y ESO');
+    }
+    const virolai = COHORT_SCHOOLS.find((school) => school.name === 'Escola Virolai');
+    expect(virolai?.levels).toBe('Infantil, primaria, ESO y Bachillerato');
+    const angeleta = COHORT_SCHOOLS.find(
+      (school) => school.name === 'Institut Angeleta Ferrer'
+    );
+    expect(angeleta?.levels).toBe('ESO');
+  });
+
+  it('keeps the pack §5b highlights verbatim for one school of each tier', () => {
+    const sadako = COHORT_SCHOOLS.find((school) => school.name === 'Escola Sadako');
+    expect(sadako?.highlights).toEqual([
+      'Organización y espacios',
+      'Evaluación formativa, portfolios',
+      'Secuenciación y co-docencia',
+      'Organización y participación estudiantil',
+    ]);
+    const vinyes = COHORT_SCHOOLS.find(
+      (school) => school.name === 'Institut Escola Les Vinyes'
+    );
+    expect(vinyes?.highlights).toEqual([
+      'Trabajo interdisciplinario',
+      'Aprendizaje Basado en Proyectos',
+      'Autonomía del estudiante',
+      'Coherencia escolar',
+      'Codocencia',
+    ]);
+  });
+});
+
+/**
+ * THE INDEPENDENT ORACLE — Sol's round-2 B2.
+ *
+ * Everything above pins *parts*: four of seven school levels, two complete
+ * highlight lists, a subset of expert titles. Sol changed La Maquinista's level
+ * to `ESO`, its first highlight to `Innovación educativa` and Jordi Musons's
+ * title to `Coordinador`, and all 83 targeted tests passed — because nothing
+ * unpinned was ever looked at.
+ *
+ * The two tables below are a **hand transcription of Appendix A-5/A-6 and
+ * content pack §5b**, owned by this test file. They are deliberately not
+ * imported, not derived and not read from a fixture the module also reads: the
+ * whole point is that they are a second, independent copy, so a wrong value in
+ * `cohort-public.ts` disagrees with something instead of agreeing with itself.
+ * That self-reference is exactly what let the r2 bug through one level down
+ * (`tests/e2e/pasantias-page.spec.ts` read its expectations from the module it
+ * was checking), and it is what these two `toEqual`s remove.
+ *
+ * `toEqual` is symmetric deep equality over ordered arrays, so it fails in both
+ * directions at once: an added row, a removed row, a renamed school, a reordered
+ * highlight list or a single changed character all break it.
+ *
+ * Where §6 of the content pack and Appendix A-6 disagree — the pack still calls
+ * Pepe Menéndez and Joan Quintana "Conferencista INSPIRA" and gives Boris Mir no
+ * role at all — **the Appendix wins**, per its own supremacy rule and because its
+ * canonical source is the brochure the owner reviewed on 2026-08-02. That
+ * disagreement is a live PM-owned finding, raised in r2 and unresolved.
+ */
+const ORACLE_SCHOOLS = [
+  {
+    name: 'Escola Virolai',
+    tier: 'inmersion',
+    immersionDays: 2.5,
+    levels: 'Infantil, primaria, ESO y Bachillerato',
+    highlights: [
+      'Organización y espacios',
+      'Evaluación formativa, portfolios',
+      'Personalización y plan personal',
+      'Gestión del equipo docente',
+    ],
+  },
+  {
+    name: 'Escola Sadako',
+    tier: 'inmersion',
+    immersionDays: 2.5,
+    levels: 'Infantil, primaria y ESO',
+    highlights: [
+      'Organización y espacios',
+      'Evaluación formativa, portfolios',
+      'Secuenciación y co-docencia',
+      'Organización y participación estudiantil',
+    ],
+  },
+  {
+    name: 'Institut Escola El Puig',
+    tier: 'visita',
+    fullDay: true,
+    levels: 'Infantil, primaria y ESO',
+    highlights: [
+      'Incorporación de la naturaleza y el arte',
+      'Gobierno estudiantil',
+      'Trabajo de estudiantes internivel',
+      'Metaprendizaje',
+    ],
+  },
+  {
+    name: 'Escola La Maquinista',
+    tier: 'visita',
+    levels: 'Infantil y primaria',
+    highlights: [
+      'Organización y espacios',
+      'Evaluación formativa, rúbricas y autoevaluación',
+      'Cajas de aprendizaje',
+      'Organización participativa de los alumnos',
+    ],
+  },
+  {
+    name: 'Escola Octavio Paz',
+    tier: 'visita',
+    levels: 'Infantil y primaria',
+    highlights: [
+      'Organización y espacios',
+      'Evaluación formativa, diarios de aprendizaje',
+      'Proyecto anual temático y cajas de aprendizaje',
+      'Trabajo por comunidades de alumnos',
+    ],
+  },
+  {
+    name: 'Institut Angeleta Ferrer',
+    tier: 'visita',
+    levels: 'ESO',
+    highlights: [
+      'Organización y espacios',
+      'Evaluación formativa, portfolios',
+      'Autonomía del alumnado',
+      'Vinculación de la escuela con la comunidad',
+    ],
+  },
+  {
+    name: 'Institut Escola Les Vinyes',
+    tier: 'visita',
+    fullDay: true,
+    levels: 'Infantil, primaria y ESO',
+    highlights: [
+      'Trabajo interdisciplinario',
+      'Aprendizaje Basado en Proyectos',
+      'Autonomía del estudiante',
+      'Coherencia escolar',
+      'Codocencia',
+    ],
+  },
+];
+
+const ORACLE_EXPERTS = [
+  { name: 'Coral Regí', role: 'Directora del programa INSPIRA' },
+  { name: 'Mora del Fresno', role: 'Coordinadora INSPIRA' },
+  {
+    name: 'Jordi Musons',
+    role: 'Director',
+    school: 'Escola Sadako',
+    note: 'Anfitrión semana 1',
+  },
+  {
+    name: 'Sandra Entrena',
+    role: 'Encargada de Innovación',
+    school: 'Escola Virolai',
+    note: 'Anfitriona semana 1',
+  },
+  {
+    name: 'Boris Mir',
+    role: 'Ex-director adjunto, Institut Angeleta Ferrer y Escola Nova 21; fundador del Institut Angeleta Ferrer',
+  },
+  {
+    name: 'Sergi del Moral',
+    role: 'Director',
+    school: 'Institut Escola Les Vinyes',
+  },
+  { name: 'Pepe Menéndez', role: 'Consultor en transformación pedagógica' },
+  {
+    name: 'Joan Quintana',
+    role: 'Consultor en procesos de cambio, co-autor de «Educación Relacional»',
+  },
+];
+
+describe('public cohort module — the independent oracle (Sol r2 B2)', () => {
+  it('matches the hand-transcribed A-5 / §5b school table exactly, row for row', () => {
+    // Spread each row so a readonly module object compares as a plain object.
+    // Optional keys absent on both sides (`fullDay` on a half-day school) are
+    // equal; a key present on only one side is not.
+    expect(COHORT_SCHOOLS.map((school) => ({ ...school }))).toEqual(ORACLE_SCHOOLS);
+  });
+
+  it('has exactly the seven school names the oracle lists, no more and no fewer', () => {
+    // Same fact as above, asserted on names alone so a missing or invented
+    // school names itself in the failure output instead of drowning in a diff.
+    expect(COHORT_SCHOOLS.map((school) => school.name)).toEqual(
+      ORACLE_SCHOOLS.map((school) => school.name)
+    );
+  });
+
+  it('matches the hand-transcribed A-6 expert table exactly, row for row', () => {
+    expect(COHORT_EXPERTS.map((expert) => ({ ...expert }))).toEqual(ORACLE_EXPERTS);
+  });
+
+  it('has exactly the eight expert names the oracle lists, in the Appendix’s order', () => {
+    expect(COHORT_EXPERTS.map((expert) => expert.name)).toEqual(
+      ORACLE_EXPERTS.map((expert) => expert.name)
+    );
+  });
+
+  it('gives Coral Regí and Mora del Fresno A-6’s INSPIRA suffix', () => {
+    // Called out separately because it is the one correction this round made to
+    // the data: the r2 prompt declared both rows already correct, and they were
+    // not. Pinning them here as well as in the table means a revert fails twice.
+    const roleOf = (name: string) =>
+      COHORT_EXPERTS.find((expert) => expert.name === name)?.role;
+    expect(roleOf('Coral Regí')).toBe('Directora del programa INSPIRA');
+    expect(roleOf('Mora del Fresno')).toBe('Coordinadora INSPIRA');
+  });
 });
 
 describe('public cohort module — people and claims (Appendix A-6/A-9)', () => {
@@ -287,6 +523,44 @@ describe('public cohort module — people and claims (Appendix A-6/A-9)', () => 
     expect(sandra?.role).toBe('Encargada de Innovación');
     expect(sandra?.role).not.toMatch(/directora/i);
     expect(sandra?.school).toBe('Escola Virolai');
+  });
+
+  /**
+   * THE PROPAGATION GUARD. The 2026-08-02 A-6 amendment reached the Appendix and
+   * never reached this module, so Boris Mir, Sergi del Moral, Pepe Menéndez and
+   * Joan Quintana rendered as the placeholder "Experto invitado" on the live
+   * page — a landing page introducing four people by no title at all. Nothing
+   * failed, because nothing was looking. This is what looks.
+   */
+  it('has no placeholder or empty role left on any expert (Appendix A-6)', () => {
+    for (const expert of COHORT_EXPERTS) {
+      expect(expert.role.trim(), `${expert.name} has an empty role`).not.toBe('');
+      expect(expert.role, `${expert.name} still carries the placeholder role`).not.toMatch(
+        /experto invitado/i
+      );
+    }
+  });
+
+  it('carries the 2026-08-02 A-6 titles verbatim for the four that were placeholders', () => {
+    const roleOf = (name: string) =>
+      COHORT_EXPERTS.find((expert) => expert.name === name);
+
+    expect(roleOf('Boris Mir')?.role).toBe(
+      'Ex-director adjunto, Institut Angeleta Ferrer y Escola Nova 21; fundador del Institut Angeleta Ferrer'
+    );
+    expect(roleOf('Sergi del Moral')?.role).toBe('Director');
+    expect(roleOf('Sergi del Moral')?.school).toBe('Institut Escola Les Vinyes');
+    expect(roleOf('Pepe Menéndez')?.role).toBe('Consultor en transformación pedagógica');
+    expect(roleOf('Joan Quintana')?.role).toBe(
+      'Consultor en procesos de cambio, co-autor de «Educación Relacional»'
+    );
+  });
+
+  it('names the two week-1 hosts as hosts (Appendix A-6)', () => {
+    const hosts = COHORT_EXPERTS.filter((expert) => expert.note);
+    expect(hosts.map((expert) => expert.name)).toEqual(['Jordi Musons', 'Sandra Entrena']);
+    expect(hosts[0].note).toBe('Anfitrión semana 1');
+    expect(hosts[1].note).toBe('Anfitriona semana 1');
   });
 
   it('drops the retired "10 días" claim', () => {

@@ -27,6 +27,11 @@ export const MANDATORY_SPECS = [
   // running server on the fake adapter, with negative controls showing the proof fails
   // without it and that neither failure path can emit an outbound Zoom request.
   'tests/e2e/zoom-mock-mode.spec.ts',
+  'tests/e2e/pasantias-page.spec.ts',
+  // A6a r3: `components/Footer.tsx` is shared by every public marketing page, so
+  // its heading levels are a cross-page contract. CI runs only the specs on this
+  // list, which means a guard that is not on it is a guard that never runs.
+  'tests/e2e/footer-heading-order.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

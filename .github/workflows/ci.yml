@@ -162,6 +162,8 @@ jobs:
             # meeting_link and the join_url branch was therefore never taken.
             # Unlike ZOOM_MODE this is NEXT_PUBLIC_*, so it is inlined at build time and
             # must precede the build step — as it does.
+            # A6a r1 shipped a page that fell back to Host to keep this job green;
+            # that fallback was removed in r3 and this key is what replaces it.
             echo "NEXT_PUBLIC_BASE_URL=http://localhost:3000"
           } > .env.local
 

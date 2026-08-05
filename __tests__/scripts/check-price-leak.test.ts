@@ -14,11 +14,48 @@
  * is what `npm run build && node scripts/check-price-leak.mjs` runs.
  */
 import { describe, it, expect } from 'vitest';
-import { scanText, unescapeLiterals } from '../../scripts/check-price-leak.mjs';
+import { scanText, maximalReadings, unescapeLiterals } from '../../scripts/check-price-leak.mjs';
+import {
+  generateCorpus,
+  sortOccurrences,
+  ATTRIBUTION_ROWS,
+  PINNED_LIMITS,
+  SILENT_CONTROLS,
+  SOL_ROUND_4_ROWS,
+  WHITESPACE_CODE_POINTS,
+  WHITESPACE_COUNT,
+} from './price-leak-corpus.mjs';
 
-/** Check ids that fired on a blob of text. */
+/**
+ * Every occurrence that fired, as `check:amount` — a **multiset**, not a set.
+ *
+ * This is the oracle A6a r7 replaced. Reducing a scan to the set of check ids
+ * that fired cannot tell `€120 €70` firing twice from firing once, so a case
+ * stays green when the first planted figure stops firing and the second still
+ * produces the same id — which is exactly how r5's regression hid: on `€1 560 7`
+ * it fired on the nested `560` rather than on the fee, and every spot check
+ * passed. Findings now carry the canonical amount, so the corpus can assert per
+ * planted occurrence instead.
+ */
+function occurrencesFiring(text: string): string[] {
+  return sortOccurrences(
+    scanText(text).map((finding) => ({ check: finding.check.id, value: finding.amount }))
+  );
+}
+
+/**
+ * Check ids that fired, deduplicated — the older, weaker statement, kept for the
+ * hand-written blocks below, which pin one figure at a time and predate the
+ * occurrence oracle. Built on top of the occurrence list so the dedup is
+ * explicit and lives in exactly one place.
+ */
 function checksFiring(text: string): string[] {
   return [...new Set(scanText(text).map((finding) => finding.check.id))].sort();
+}
+
+/** What each finding's reading spans, in the order the scanner reports them. */
+function spansFiring(text: string): string[] {
+  return scanText(text).map((finding) => text.slice(finding.start, finding.end));
 }
 
 describe('leak guard — isolated lodging-band literals (Appendix A-8)', () => {
@@ -167,6 +204,265 @@ describe('leak guard — programme amounts match as whole amounts only (Sol r1 S
       expect(checksFiring(text)).toEqual(['priced-amount']);
     });
   }
+});
+
+/**
+ * Sol's round-2 B1. The guard recognised `€` and `EUR` and nothing else, so
+ * `<p>Programa: 2500 euros por persona</p>` shipped, built, and reported clean —
+ * the most ordinary way a Spanish page quotes a price was invisible to it.
+ *
+ * These are the mutants themselves, run through the scanner's own matcher rather
+ * than through six production builds: each string must make the guard fire, and
+ * the clean counterparts must leave it silent. `main()` turns any finding into
+ * `process.exit(1)`, so "the matcher fires" and "the scanner exits non-zero" are
+ * the same statement.
+ */
+describe('leak guard — word-form currencies (Sol r2 B1)', () => {
+  const mustFail: ReadonlyArray<readonly [string, string]> = [
+    ['Sol’s exact injection', '<p>Programa: 2500 euros por persona</p>'],
+    ['the same amount grouped', '<p>Programa: 2.500 euros por persona</p>'],
+    ['shouted', 'PROGRAMA: 2500 EUROS POR PERSONA'],
+    ['title case', 'Programa: 2500 Euros por persona'],
+    ['the singular word', 'x="2500 euro"'],
+    ['the bare ISO code after the figure', 'x="2500 EUR"'],
+    ['the glyph, grouped', '<p>Programa: €2.500 por persona</p>'],
+    ['the glyph, bare', '<p>Programa: €2500 por persona</p>'],
+    ['the retired programme fee in words', 'x="1000 euros"'],
+    ['the retired total in words', 'x="1560 euros"'],
+    ['the retired lodging package in words', 'x="560 euros"'],
+    ['the lodging band, both figures in words', 'entre 70 euros y 120 euros por noche'],
+    ['the lodging band minimum in words', 'desde 70 euros la noche'],
+    ['a commercial phrase with no figure at all', 'x="por persona por noche"'],
+  ];
+
+  for (const [description, leak] of mustFail) {
+    it(`fires on ${description}`, () => {
+      expect(checksFiring(leak).length, leak).toBeGreaterThan(0);
+    });
+  }
+
+  const mustStaySilent: ReadonlyArray<readonly [string, string]> = [
+    // Live `/pasantias` copy. `Europa` contains `Eur`, and a case-insensitive
+    // alternation with no trailing boundary would fire on every free-day block.
+    ['the free-weekend copy', 'recorrer Barcelona o conocer Europa antes de la segunda semana'],
+    ['Europa beside a band figure', 'conocer Europa · 70 personas'],
+    ['a euro-word inside a longer word', 'x="eurocentrismo 2500"'],
+    ['the ISO code with no protected amount near it', 'th="Tarifa EUR/hora"'],
+    ['an unrelated euro rate', '"Tarifa EUR",amount:45'],
+  ];
+
+  for (const [description, text] of mustStaySilent) {
+    it(`stays silent on ${description}`, () => {
+      expect(checksFiring(text), text).toEqual([]);
+    });
+  }
+});
+
+/**
+ * Sol's round-2 B1 residue. The amount patterns admitted a two-digit tail after
+ * a comma and nothing else, so `Programa: 2500.00 euros por persona` shipped,
+ * built, and reported clean — and Sol proved it survived into
+ * `.next/static/chunks/pages/pasantias-*.js` while the script exited 0.
+ *
+ * The fix was not a fourth alternation. A digit run is now tokenised maximally
+ * and normalised to a canonical integer, so every convention for writing the
+ * same amount collapses to the same value and the trailing separator stops
+ * being something the guard has to enumerate. These cases are that promise:
+ * each block below is the *same amount* in every convention, and the guard must
+ * not be able to tell them apart.
+ */
+describe('leak guard — decimal separators do not hide an amount (Sol r2 B1 residue)', () => {
+  const sameProgrammeFee: ReadonlyArray<readonly [string, string]> = [
+    ['a decimal-dot tail', 'Programa: 2500.00 euros por persona'],
+    ['comma grouping with a decimal-dot tail', '2,500.00 euros'],
+    ['the ISO code before a dot-decimal amount', 'EUR 2,500.00'],
+    ['the word before a dot-decimal amount', 'euros 2500.00'],
+    ['dot grouping with a decimal-comma tail', '2.500,00 euros'],
+    ['a decimal-comma tail on a bare integer', '2500,00 euros'],
+    ['the glyph with a dot-decimal tail', 'x="€2,500.00"'],
+    ['a space-grouped amount', 'x="€2 500"'],
+  ];
+
+  for (const [description, leak] of sameProgrammeFee) {
+    it(`fires on ${description}`, () => {
+      expect(checksFiring(leak), leak).toEqual(['priced-amount']);
+    });
+  }
+
+  const sameShortAmounts: ReadonlyArray<readonly [string, string, string]> = [
+    ['the band minimum with cents', 'x="€70.00"', 'priced-band-amount'],
+    ['the band maximum with cents', 'x="€120,00"', 'priced-band-amount'],
+    ['the retired total with a dot-decimal tail', 'x="1560.00 euros"', 'priced-amount'],
+    ['the retired package with a dot-decimal tail', 'x="560.00 euros"', 'retired-short-amount'],
+  ];
+
+  for (const [description, leak, id] of sameShortAmounts) {
+    it(`fires on ${description}`, () => {
+      expect(checksFiring(leak), leak).toEqual([id]);
+    });
+  }
+
+  // The reason the tail was comma-only in the first place: it was the control
+  // that kept the guard from crying wolf on ordinary euro amounts. Widening it
+  // by hand would have brought those back, so every one of them is pinned here.
+  const stillSilent: ReadonlyArray<readonly [string, string]> = [
+    ['an unrelated larger amount', 'x="€12.500"'],
+    ['a malformed trailing digit', 'x="€2.5000"'],
+    ['a grouped euro thousand', 'x="€120.000"'],
+    ['a larger amount with cents', 'x="€12.500,00"'],
+    ['a larger amount with a dot-decimal tail', 'x="€12,500.00"'],
+    ['a euro decimal whose cents are a band figure', 'total="€1.200,70 por hora"'],
+    ['the same, written the other way round', 'total="€1,200.70 por hora"'],
+    // Verbatim from `lib/currency-service.ts` and `lib/expenseReportExport.ts` —
+    // live, unrelated, euro-denominated repo code, one of which writes an amount
+    // in exactly the dot-grouped/comma-decimal shape this round taught the
+    // guard to read. Neither may become noise.
+    ['the live fallback exchange rate', 'EUR: 1050, // 1 EUR ≈ 1050 CLP (approximate)'],
+    ['the live formatter example', 'Locale-formatted original amount, e.g. "1.234,50" for EUR'],
+  ];
+
+  for (const [description, text] of stillSilent) {
+    it(`stays silent on ${description}`, () => {
+      expect(checksFiring(text), text).toEqual([]);
+    });
+  }
+});
+
+/**
+ * The differential corpus (A6a r6 — generated, not listed).
+ *
+ * Three rounds running, a hand-picked list of leak shapes passed while real
+ * coverage was lost. r4 narrowed the separator class and dropped fifteen
+ * spellings. r5 rebuilt the corpus by hand — this block, in its previous form —
+ * and dropped four more, because it covered whitespace-grouped amounts *alone*
+ * and bare amounts *followed by a stray digit*, and never their composition.
+ * Both times the round reported zero coverage lost, because the list tested was
+ * the list written, and the list written was the author's model of the problem.
+ *
+ * A list cannot cover a product. So the cases below are **generated** by
+ * crossing AMOUNT x SPELLING x CONTEXT in `./price-leak-corpus.mjs`, and each
+ * one's expected verdict is derived from the amount that was planted rather than
+ * from what the scanner returns. The composition r5 lost is in there because the
+ * product contains it, not because anyone remembered to write it down.
+ *
+ * `[]` means "no check fires". Read the threat model at the top of
+ * `scripts/check-price-leak.mjs` before changing a pinned limit from a miss to a
+ * hit or the other way round: those are decisions, not oversights.
+ */
+describe('leak guard — the separator set is derived, not listed (A6a r7)', () => {
+  // Hand-enumeration of this dimension has been wrong three times, in three
+  // different ways, by three different authors: r4 narrowed the guard's class
+  // and lost fifteen spellings, r6's corpus listed eighteen of the twenty-five,
+  // and an independent generator written to check it listed twenty-one. So the
+  // corpus asks the engine — and this asserts the answer's size, so a future
+  // engine gaining or losing a whitespace character surfaces here rather than
+  // quietly thinning the corpus.
+  it('asks the engine for every character `\\s` matches', () => {
+    expect(WHITESPACE_CODE_POINTS).toHaveLength(WHITESPACE_COUNT);
+  });
+
+  it('contains the seven code points the r6 corpus omitted', () => {
+    for (const code of [0x2001, 0x2002, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008]) {
+      expect(WHITESPACE_CODE_POINTS, `U+${code.toString(16)}`).toContain(code);
+    }
+  });
+
+  it('contains nothing that is not whitespace', () => {
+    for (const code of WHITESPACE_CODE_POINTS) {
+      expect(/^\s$/.test(String.fromCharCode(code)), `U+${code.toString(16)}`).toBe(true);
+    }
+  });
+});
+
+describe('leak guard — generated differential corpus (A6a r6, per-occurrence since r7)', () => {
+  for (const { description, text, expected } of generateCorpus()) {
+    it(`fires on ${description}`, () => {
+      expect(occurrencesFiring(text), JSON.stringify(text)).toEqual([...expected]);
+    });
+  }
+});
+
+describe('leak guard — accepted limits, pinned (A6a r6)', () => {
+  for (const [description, text, expected] of PINNED_LIMITS) {
+    it(`${expected.length === 0 ? 'stays silent on' : 'fires on'} ${description}`, () => {
+      expect(occurrencesFiring(text), JSON.stringify(text)).toEqual(sortOccurrences(expected));
+    });
+  }
+});
+
+describe('leak guard — unrelated euro text stays silent (A6a r6)', () => {
+  for (const [description, text] of SILENT_CONTROLS) {
+    it(`stays silent on ${description}`, () => {
+      expect(occurrencesFiring(text), JSON.stringify(text)).toEqual([]);
+    });
+  }
+});
+
+/**
+ * Sol's round 4. The generated product already contains these, but a regression
+ * should say which named shape came back rather than only which coordinate of
+ * the cross-product moved — and four of the rows below are the exact strings Sol
+ * proved fired at `ca8e024` and missed at `2158c44`.
+ */
+describe('leak guard — the shapes Sol round 4 proved regressed', () => {
+  for (const [description, text, expected] of SOL_ROUND_4_ROWS) {
+    it(`fires on ${description}`, () => {
+      expect(occurrencesFiring(text), JSON.stringify(text)).toEqual(sortOccurrences(expected));
+    });
+  }
+});
+
+/**
+ * Attribution (A6a r7). Every row below plants two figures, or plants one where
+ * a second could plausibly be read. The set-of-ids oracle these replace says
+ * `['priced-band-amount']` for `€120 €70` whether both fired or only one did;
+ * these say which, and where.
+ */
+describe('leak guard — findings name the figure they fired on', () => {
+  for (const { description, text, occurrences, spans } of ATTRIBUTION_ROWS) {
+    it(`reports every planted figure in ${description}`, () => {
+      expect(occurrencesFiring(text), JSON.stringify(text)).toEqual(sortOccurrences(occurrences));
+    });
+
+    it(`points each finding at the figure it read in ${description}`, () => {
+      expect(spansFiring(text), JSON.stringify(text)).toEqual([...spans]);
+    });
+  }
+});
+
+/**
+ * The suppression invariant (A6a r7). `candidateReadings` drops a protected
+ * reading contained in a longer protected one, which is what keeps `€1 560` at
+ * one finding. That is lossless only when the container's window is at least as
+ * wide as the inner one's: containment guarantees the container is never further
+ * from a marker, and nothing more. Today's amount table satisfies it (1560's
+ * window is 120, the 560 inside it is guarded at 12), so the condition is
+ * invisible in behaviour — these drive it directly instead.
+ */
+describe('leak guard — suppression is window-aware, not merely containment-based', () => {
+  const container = { first: 0, last: 1, window: 120 };
+  const inner = { first: 1, last: 1, window: 12 };
+
+  it('drops a contained reading when the container has the wider window', () => {
+    expect(maximalReadings([container, inner])).toEqual([container]);
+  });
+
+  it('drops a contained reading when the windows are equal', () => {
+    const sameWindow = { first: 1, last: 1, window: 120 };
+    expect(maximalReadings([container, sameWindow])).toEqual([container]);
+  });
+
+  it('keeps a contained reading whose window is wider than its container’s', () => {
+    const narrowContainer = { first: 0, last: 1, window: 12 };
+    const wideInner = { first: 1, last: 1, window: 120 };
+    expect(maximalReadings([narrowContainer, wideInner])).toEqual([narrowContainer, wideInner]);
+  });
+
+  it('keeps overlapping readings that contain each other in neither direction', () => {
+    const left = { first: 0, last: 1, window: 120 };
+    const right = { first: 1, last: 2, window: 120 };
+    expect(maximalReadings([left, right])).toEqual([left, right]);
+  });
 });
 
 describe('leak guard — the band figures do not fire on ordinary output', () => {

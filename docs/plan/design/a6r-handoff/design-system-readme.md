@@ -263,3 +263,20 @@ write to the Fundación's communications team.
   described in the manual, so they are reproduced as-is rather than reinterpreted.
 - **Admin surfaces of the platform** (course builder, licitaciones, consultant
   assignment, reports, QA) are not recreated in the UI kit.
+
+
+---
+
+## PM correction 2026-08-05 — the two veil figures
+
+This document states a photo veil of "at least 40%" / "40–55%", and
+`tokens/colors.css` carries `--veil-photo: rgba(10,10,10,.4)`. That conflates two
+different rules in the FNE brand manual:
+
+- **p.6, logo over photography:** the white logo needs a black veil of **at least 40%**.
+- **p.15, the canonical text treatment:** the veil **reaches 85% under the text** and
+  dissolves before the photo's centre of interest.
+
+40% is the logo minimum; 85% is the text veil. A flat veil in the 40–55% band puts
+`#FBBF24` at 11px near 3.3:1 — below the 4.5:1 the manual itself demands for text over
+an image. `/pasantias` implements 85% under the text and measures 8.72:1 at 390px.

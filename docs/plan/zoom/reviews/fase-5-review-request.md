@@ -1,7 +1,7 @@
 # Fase 5 (Zoom Z2) — review request
 
-> Z2 is `fase-5` (Z1c was `fase-4`). This file is extended by each Z2 chunk. Only
-> **chunk Z2-1** is covered below.
+> Z2 is `fase-5` (Z1c was `fase-4`). This file is extended by each Z2 chunk.
+> Covered below: **Z2-1**, **Z2-2a**.
 
 ---
 
@@ -324,3 +324,135 @@ The +7 are this round's new tests; nothing moved down.
   session's modality to `presencial` with no guard. Inert today (the eligibility gate
   refuses on modality, so nothing provisions); logged by the PM as backlog. Deliberately
   left untested so a future fix does not have to delete an assertion pinning the gap.
+
+---
+
+## Chunk Z2-2a — the authorized join opening (server only)
+
+### Branch and commits
+
+- **Branch:** `feat/zoom-sess`
+- **Base:** `42ecdf6` (the Z2-1 r3 head; worktree was clean at it)
+- **Worktree:** `/Users/brentcurtis/Documents/fne-zoom-sess`
+- **PR:** not opened — the PR opens at phase end, after all Z2 chunks land.
+
+| SHA | Cluster |
+|---|---|
+| `110f74a` | S1 + S2 + both suites |
+
+### Objective and scope
+
+Plan §5: *"everything Zoom-credential-shaped lives server-side… Exactly one narrow
+per-request opening: the authorized join payload from
+`POST /api/meet/{surface}/{id}/join`."* Chunk Z2-1 sealed the intent and the
+provisioning enqueue; nothing could join the resulting meeting. This chunk opens
+that door for consultor sessions, server-side only.
+
+**In:** `authorizeMeetingJoin()` (the §5 persona matrix) and
+`POST /api/meet/session/[id]/join` in link mode.
+**Out, deliberately:** all UI (Z2-2b), community-meeting join (Z6), embed / SDK
+signature / ZAK (Z3), reschedule-cancel-delete sync (Z2-3), notifications and iCal
+(Z2-4), the hours audit (Z2-5). No migration; no change to `zoom_internal` grants
+or RLS.
+
+### Files, by risk
+
+| Risk | File | Δ |
+|---|---|---|
+| **High** | `lib/utils/meeting-join-policy.ts` (new) | +184 |
+| **High** | `pages/api/meet/session/[id]/join.ts` (new) | +191 |
+| Test | `__tests__/lib/utils/meeting-join-policy.test.ts` (new) | +386 |
+| Test | `__tests__/api/meet/session-join.test.ts` (new) | +502 |
+
+Nothing existing was modified. `resolveMeetSessionAccess`,
+`pages/meet/session/[id].tsx` and `tests/e2e/zoom-join-authz.spec.ts` are untouched,
+per PM ruling 5.
+
+### Test evidence
+
+`__tests__/lib/utils/meeting-join-policy.test.ts` — 17 tests: the seven §5 personas,
+two `canViewSession()`-diverges-from-join assertions, and six edges (malformed id,
+no roles, archived session, facilitator-who-is-also-attendee, global consultor,
+foreign/inactive community membership).
+
+`__tests__/api/meet/session-join.test.ts` — 22 tests: 405/401, the kill switch with
+its no-lookup assertion, the byte-identity pair, the two distinguishable 403s, the
+three-persona secret sweep, 410 × {cancelled, ended} × {admin, facilitator,
+attendee}, the 404-not-410 ordering proof, four pending shapes, the three link
+payloads, and two read-failure paths.
+
+The route suite runs against the **real** `authorizeMeetingJoin` and the **real**
+`sendAuthError`/`sendApiResponse`/`sendSessionNotFound`; only `getApiUser` and the two
+Supabase client factories are stubbed. [A2] and [A3] are claims about bytes, and a
+mocked policy or mocked responder would let them pass while the shipped bodies
+differed.
+
+**Mutation probes** (a fail-on-old is not available for a brand-new endpoint, and one
+was not manufactured):
+
+1. *Other-school branch returns 403 instead of the shared not-found* — 5 failures,
+   including `expected 403 to be 404` on the byte-identity pair and on the
+   404-not-410 ordering test. Reverted.
+2. *Meeting read hoisted above the authorization gates, `join_url` echoed on the
+   denial bodies* — 2 failures: the secret sweep
+   (`expected '{"error":"No estás en la lista de asi…' to not include 'https://…'`)
+   and `expected [ 'zoom_meetings', …(3) ] to not include 'zoom_meetings'`. Reverted.
+
+### Gates
+
+Run from `/Users/brentcurtis/Documents/fne-zoom-sess`:
+
+| Gate | Baseline at `42ecdf6` | Z2-2a |
+|---|---|---|
+| `npm run type-check` | 0 | **0** |
+| `npm run lint` (`--max-warnings=0`) | 0 | **0** |
+| `npm test` | 4305 passed / 264 files | **4344 passed / 266 files** |
+| `npm run build` | 0 | **0** (route emitted as `ƒ /api/meet/session/[id]/join`) |
+| `npm run test:db` | 338, `Result: PASS`, 8 files | **338, `Result: PASS`, 8 files** |
+
+The +39 / +2 are this chunk's two new suites; nothing moved down.
+
+### What a reviewer should scrutinise hardest
+
+- **The ordering in the route is the security property, and it is enforced by
+  reading order alone — there is no structural barrier.** Steps 5–7 read meeting
+  state; steps 1–4 must all have returned first. One statement moved above the
+  `decision.kind` branches rebuilds the meeting existence oracle, and the only thing
+  that catches it is the `tablesRead` assertion in the 404-not-410 test. That is one
+  assertion guarding an invariant that spans forty lines.
+- **`is_active === false → not-found` is mine, not the prompt's.** The §5 matrix has
+  no archived-session row. I mirrored `resolveMeetSessionAccess` and
+  `GET /api/sessions/[id]` (only admins reach archived sessions) because without it
+  the join opening would be strictly more permissive than every surface that leads to
+  it, and Z2-3's cancel sync does not exist yet — so a soft-deleted session's meeting
+  would otherwise stay joinable. If the PM wants the matrix read literally, this
+  branch and its test come out.
+- **The success envelope is `{ data: … }`, not a bare object.** The prompt writes
+  `200 { mode: 'pending' }` and `{ mode: 'link', join_url, role }`; I put exactly those
+  payloads through `sendApiResponse`, so the wire body is `{"data":{"mode":"link",…}}`.
+  That follows CLAUDE.md's API Route Pattern and the repo's other session routes, but
+  it is an interpretation, and Z2-2b will be written against whichever shape stands.
+- **Both suites assert against hand-rolled Supabase proxies, not Postgres.** The
+  proxy answers one canned result per table regardless of the filters applied, so
+  `.eq('expected', true)` on `session_attendees` and the
+  `surface_type`/`surface_id` pair on both meeting reads are *asserted nowhere*. A
+  policy that forgot the `expected` filter, or a route that queried the wrong surface,
+  would pass every test in this chunk. Nothing integration-tests this endpoint.
+- **`JOINABLE_MEETING_STATUSES = ['provisioned', 'started']` is a judgment call about
+  the §8 state machine.** Everything else — including a `zoom_meetings` row that is
+  `ended` or `cancelled` while the projection still reads `scheduled` — falls to
+  `{ mode: 'pending' }` rather than 410, because the prompt makes the projection the
+  authority for the 410 and step 6 the catch-all. A reviewer may reasonably argue a
+  desynced `ended` row should be 410, not "in preparation".
+
+### Known limitations / deferred
+
+- No UI consumes this endpoint yet (Z2-2b). It is unreachable in the product.
+- Community meetings are not handled; `authorizeMeetingJoin` is consultor-sessions-only
+  and would need §5's second matrix for Z6.
+- The 503 kill-switch branch is reached before the service client is built, which is
+  what [A4] asserts — but that also means a flag flip mid-request is not observable
+  anywhere later in the handler. Not a concern today; worth remembering if the flag
+  ever becomes per-school.
+- Carried from Z2-1 and still open, still out of scope: PUT can move an
+  already-managed session's modality to `presencial` with no guard.

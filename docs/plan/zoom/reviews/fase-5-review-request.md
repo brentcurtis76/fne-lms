@@ -188,3 +188,139 @@ does not exist`.
 - **Production schema is NOT updated.** Applying the migration to production is a separate,
   Brent-authorized, Brent-executed step. This chunk's green gates prove code correctness
   and nothing about deployment.
+
+---
+
+## Chunk Z2-1 — round r3 (B1 remediation)
+
+### Branch and commits
+
+- **Branch:** `feat/zoom-sess` (unchanged), on top of `6d1f58b`
+- **Commits:** `7048fb3` (code + tests), plus the commit carrying this section
+- **Files:** `pages/api/sessions/[id]/index.ts` (+42/−0),
+  `__tests__/api/sessions/session-managed-link-guard.test.ts` (+159/−2)
+- **No migration, no new file.** r1's migration, seam, gate module, approve hooks,
+  POST path, feature-flag entry and pgTAP additions are untouched.
+
+### The B1 fix as shipped
+
+r1 shipped the PUT guard keyed on the STORED `is_zoom_managed`, but it did not act on
+the ON **transition**. An admin could set `is_zoom_managed: true` on a row that already
+carried a manual `meeting_link` on a non-`zoom` provider, and the row would stay that
+way — a managed session holding a rival link the provisioner does not own. Two additions,
+both in the `handlePut` guard block:
+
+1. **Forcing (S1).** On the transition the update carries `is_zoom_managed: true`,
+   `meeting_link: null`, `meeting_provider: 'zoom'` — one update, routed through the
+   existing `updateData`/`fieldsChanged` copy so the `session_activity_log` entry sees it.
+   Discarding the manual link is the semantic of "the platform now owns this meeting".
+2. **Modality rule (S2).** The transition is refused 400 es-CL when the effective
+   modality is neither `online` nor `hibrida`, mirroring `pages/api/sessions/index.ts:120-126`.
+   Ordered **before** the forcing, so a refused request writes nothing. This closes the
+   gap r1 flagged in its own known-limitations list ("PUT does not re-validate modality
+   when an admin turns the flag on").
+
+Both are scoped to the transition (stored `!== true` AND request sets `true`), so
+re-sending `true` on an already-managed row forces nothing and is never newly refused.
+
+### The R1/R4 contradiction, and how it was resolved
+
+**r2 stopped with `STATUS: FINDINGS` and committed nothing — correctly.** The r2 prompt's
+R1 required the transition to write `meeting_link: null` / `meeting_provider: 'zoom'`
+"whatever the stored link was", while its R4 required every r1 assertion to pass
+untouched. Two r1 assertions pin the transition's payload exactly, on a fixture whose
+stored link is already null (`session-managed-link-guard.test.ts:211` and `:221`, both
+`toEqual({ is_zoom_managed: true })`). Unconditional forcing adds two keys to that
+payload, so R1 and R4 could not both hold. The PM verified the contradiction against the
+code and ruled it a drafting error in R4, whose purpose was to stop assertions being
+weakened to manufacture green — not to freeze a literal the fix deliberately changes.
+
+**The r3 ruling: Reading A, force unconditionally.** Reading B (force only fields whose
+stored value differs) was rejected on two grounds: it would be a third rule POST does not
+have, re-diverging the two entry points; and it reopens B1 through a race — between the
+row `SELECT` and the `UPDATE`, a concurrent PUT can set a `meeting_link`, and a
+difference-only rule would leave it in place on a managed row.
+
+**Accepted cost, ruled by the PM and deliberately NOT "fixed":** because `fieldsChanged`
+drives the audit entry at `pages/api/sessions/[id]/index.ts:389-400`, a toggle on an
+already-null-link row records `meeting_link: null → null` and
+`meeting_provider: 'zoom' → 'zoom'`. Cosmetic noise, weighed against a correctness hole.
+Filtering no-op fields out of `fieldsChanged` would change shared behaviour for every
+field on this route and was ruled out of scope.
+
+**Test edits authorised and taken:** the payload literals at `:211` and `:221` only,
+updated to the three-key shape, each with a comment recording that the literal IS the
+ruling. Both tests keep their names and their `toBe(200)` assertions. No other r1
+assertion, fixture or test name was touched in any file.
+
+### Fail-on-old proof
+
+`pages/api/sessions/[id]/index.ts` alone reverted to `6d1f58b`, r3 tests left in place:
+
+```
+ ❯ __tests__/api/sessions/session-managed-link-guard.test.ts  (20 tests | 8 failed) 13ms
+   → admin + borrador: allowed
+     expected { is_zoom_managed: true } to deeply equal { is_zoom_managed: true, …(2) }
+   → admin + pendiente_aprobacion: allowed
+     expected { is_zoom_managed: true } to deeply equal { is_zoom_managed: true, …(2) }
+   → discards a stored manual link and forces provider zoom, in ONE update [R1]
+     expected { is_zoom_managed: true } to deeply equal { is_zoom_managed: true, …(2) }
+   → a manual link sent WITH the toggle is discarded, not stored [R1]
+     expected { …(3) } to deeply equal { is_zoom_managed: true, …(2) }
+   → refuses the toggle on a stored presencial session with 400 es-CL, nothing written
+     expected 200 to be 400
+   → refuses the toggle when the request itself moves modality to presencial
+     expected 200 to be 400
+   → allows modality: 'online' sent together with the toggle on a presencial row
+     expected { modality: 'online', …(1) } to deeply equal { is_zoom_managed: true, …(3) }
+   → allows the toggle on a hibrida session
+     expected { is_zoom_managed: true } to deeply equal { is_zoom_managed: true, …(2) }
+
+ Tests  8 failed | 12 passed (20)
+```
+
+All six new-behaviour tests fail against r1's route, plus the two authorised literals.
+Restored, the file passes 20/20.
+
+### Gates
+
+Run from `/Users/brentcurtis/Documents/fne-zoom-sess`:
+
+| Gate | Baseline at `6d1f58b` | r3 |
+|---|---|---|
+| `npm run type-check` | 0 | **0** |
+| `npm run lint` (`--max-warnings=0`) | 0 | **0** |
+| `npm test` | 4298 passed / 264 files | **4305 passed / 264 files** |
+| `npm run build` | 0 | **0** |
+| `npm run test:db` | 338, `Result: PASS`, 8 files | **338, `Result: PASS`, 8 files** |
+
+The +7 are this round's new tests; nothing moved down.
+
+### What a reviewer should still distrust
+
+- **The guard block now does four things in sequence** — admin-only, boolean-shape,
+  managed-row link/provider 409s, pre-approval lock, transition modality 400, transition
+  forcing — and the ordering carries the safety. `managedIntentTransition` is computed
+  after the lock check and read in two places; anything inserted between them, or any
+  future early `return` before the forcing block, silently un-forces the shape. The
+  cheapest thing to verify is that no path reaches the `.update(...)` with
+  `managedIntentTransition === true` and a two-key payload.
+- **The effective-modality read is a ternary on `!== undefined`, not `??`.** The prompt's
+  prose says `req.body.modality ?? session.modality`; the accepted r2 implementation is
+  `req.body.modality !== undefined ? req.body.modality : session.modality`. These differ
+  only when a caller sends `modality: null` — the ternary refuses the toggle with a 400,
+  `??` would fall back to the stored modality and let `updateData.modality = null` reach a
+  NOT NULL column. The ternary was kept as the safer of the two; a reviewer may still want
+  the null case rejected explicitly rather than incidentally.
+- **All 20 assertions are against a hand-rolled Supabase mock,** the same one r1 used.
+  It records `.update(...)` payloads faithfully but does not model Postgres: the CHECK
+  constraint on `meeting_provider`, the NOT NULL on `is_zoom_managed`, and the optimistic
+  `if_updated_at` guard are all unexercised here. No integration test drives this route.
+- **The race the ruling cites is closed by argument, not by a test.** Unconditional
+  forcing means a concurrent PUT that sets a link between the SELECT and the UPDATE is
+  overwritten — but nothing here proves the two statements are not separated by anything
+  else, and the route holds no lock.
+- **Carried from r1, still open and still out of scope:** PUT can move an already-managed
+  session's modality to `presencial` with no guard. Inert today (the eligibility gate
+  refuses on modality, so nothing provisions); logged by the PM as backlog. Deliberately
+  left untested so a future fix does not have to delete an assertion pinning the gap.

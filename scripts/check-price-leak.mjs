@@ -43,6 +43,34 @@
  *     the 2026-07-31 lodging amendment; the lodging note is now derived the same
  *     way, from the per-night band. €1.560 is still hunted for — see the
  *     retired-amount rule above `PRICE_AMOUNTS`.)
+ *
+ * THREAT MODEL — what this guard is for, and what it deliberately is not.
+ * There are exactly two realistic ways a protected figure reaches `.next/static`:
+ *
+ *   (a) **The commercial module reaches a client bundle.** Then the *minifier*
+ *       chooses the spelling, and it always chooses the shortest one: plain
+ *       digits (`2500`), or exponential when that is shorter (`1e3`, `2.5e3`).
+ *       It never emits `2.500e3` or `25000e-1` — both are longer than the plain
+ *       form — and it never emits a space-grouped or fullwidth figure at all.
+ *   (b) **A human types or pastes a price into JSX or copy.** That is where
+ *       `€2 500` comes from, in all of its spacings: design tools and word
+ *       processors emit NBSP (U+00A0), narrow NBSP (U+202F) and thin space
+ *       (U+2009) where a person typed a space, and a wrapped line puts a newline
+ *       between the figure and its currency marker. Humans do not type fullwidth
+ *       or Devanagari digits into a Spanish price.
+ *
+ * So the separator class below covers **every character JavaScript's `\s`
+ * covers** — that is vector (b)'s whole surface — and the exponent handling
+ * covers vector (a)'s spellings. This guard **deliberately does not attempt
+ * arbitrary Unicode digit normalisation** (fullwidth `２５００`, Arabic-Indic
+ * `٢٥٠٠`): neither vector produces them, and a normalisation pass over every
+ * byte of every bundle would cost more than the risk it removes. Two known
+ * over-firings are left alone for the same reason — `€2500e-1` (=250) and
+ * `€2.500e0` (=2.5) both fire — because a guard erring towards a false alarm
+ * errs in the safe direction, and neither shape arises from either vector.
+ * Every one of these limits is pinned as an explicit expected verdict in the
+ * differential corpus in `__tests__/scripts/check-price-leak.test.ts`, so it
+ * stays a recorded decision rather than something a later round rediscovers.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -166,22 +194,41 @@ const BAND_GAP = 12;
  * were exactly the crying-wolf cases Sol's round-1 S1 raised, and they now fall
  * out of tokenisation instead of being fenced off one lookaround at a time.
  *
- * The separator class is `.`, `,` and the two spaces a rendered figure uses
- * (`2 500`, `2\u00a0500`) — deliberately **not** `\s`. A newline or tab between
- * two numbers means two numbers, and swallowing it would let an unrelated
- * neighbour hide a protected figure inside a longer token. Same-line spaces keep
- * that risk in theory, and it is the accepted cost of still catching `€2 500`.
+ * The separator class is `.`, `,` and `\s` — every whitespace character, which
+ * is what this guard used before round r4 narrowed it by hand to `[\u00a0 ]`.
+ * That narrowing silently dropped **fifteen** spellings the guard had been
+ * catching — every whitespace character except the two it kept: tab, newline,
+ * carriage return, vertical tab, form feed, U+1680, U+2000–U+200A (thin space
+ * among them), U+2028, U+2029, U+202F narrow NBSP, U+205F, U+3000 and U+FEFF.
+ * Threat-model vector (b) at the top of this file is exactly where those come
+ * from — a design tool emits a narrow NBSP where a person typed a space — so the
+ * class is written as `\s` rather than as an enumeration, because an enumeration
+ * is the thing that silently falls behind.
+ *
+ * r4's stated reason for excluding `\s` — that swallowing a newline would let an
+ * unrelated neighbour hide a protected figure inside a longer token — names a
+ * real hazard, but excluding newline never addressed it: the same masking
+ * already happened across an ordinary space, which r4 kept (`€2.500 000` fired
+ * before r4 and was a miss after it). {@link whitespaceRuns} is what actually
+ * addresses it, for every whitespace separator rather than for the two r4
+ * happened to leave out.
  *
  * The exponent is capped at two digits: the minifier writes `1e3` for 1000 and
  * `2.5e3` for 2500, nothing near a protected amount needs more, and an
  * uncapped exponent would let `1e999999` ask for a gigabyte of zero padding.
  */
-const NUMBER_TOKEN = /\d(?:[\d.,\u00a0 ]*\d)?(?:[eE]\+?\d{1,2})?/g;
+const NUMBER_TOKEN = /\d(?:[\d.,\s]*\d)?(?:[eE]\+?\d{1,2})?/g;
 
 const PLAIN = /^\d+$/;
 const PLAIN_WITH_DECIMALS = /^(\d+)[.,](\d{1,2})$/;
-const GROUPED = /^\d{1,3}(?:([.,\u00a0 ])\d{3})(?:\1\d{3})*$/;
-const GROUPED_WITH_DECIMALS = /^\d{1,3}(?:([.,\u00a0 ])\d{3})(?:\1\d{3})*([.,])(\d{1,2})$/;
+const GROUPED = /^\d{1,3}(?:([.,\s])\d{3})(?:\1\d{3})*$/;
+const GROUPED_WITH_DECIMALS = /^\d{1,3}(?:([.,\s])\d{3})(?:\1\d{3})*([.,])(\d{1,2})$/;
+/**
+ * A mantissa read the way JavaScript reads one: `.` is a decimal point, and the
+ * fractional run carries no two-digit cap. Only consulted when the token has an
+ * exponent — see {@link canonicalAmounts}.
+ */
+const LITERAL_MANTISSA = /^(\d+)[.,](\d+)$/;
 
 /**
  * Split a written number into its integer digits and its decimal tail, or
@@ -224,26 +271,77 @@ function shiftDecimalPoint({ integer, decimals }, exponent) {
 }
 
 /**
- * Collapse one {@link NUMBER_TOKEN} to the integer digits it denotes, or `null`
- * when it is not a well-formed amount. This is what lets the lists above hold
- * values instead of spellings: `2500`, `2.500`, `2,500`, `2 500`, `2500,00`,
- * `2500.00`, `2,500.00`, `2.500,00` and `2.5e3` all return `'2500'`.
+ * Every integer value one {@link NUMBER_TOKEN} can denote — empty when it denotes
+ * none. This is what lets the lists above hold values instead of spellings:
+ * `2500`, `2.500`, `2,500`, `2 500`, `2500,00`, `2500.00`, `2,500.00`,
+ * `2.500,00`, `2.5e3` and `2.500e3` all yield `'2500'`.
+ *
+ * A list rather than a single value because **a mantissa with an exponent is
+ * ambiguous and both readings must be checked**. In `2.500e3` the `.` is a
+ * decimal point, the way JavaScript reads a numeric literal: 2.5 × 10³ = 2500,
+ * the protected fee. In `2.500e0` the same `.` is far more likely a thousands
+ * separator, and reading it that way gives 2500 too. Round r4 committed to the
+ * grouped reading alone and lost `€2.500e3` (2.500 × 10³ = 2 500 000, no match);
+ * committing to the decimal reading alone would lose `€2.500e0`. A guard has no
+ * reason to choose: it checks both and fires if either is protected, which is
+ * the conservative direction.
  *
  * Cents are dropped rather than compared, matching the `(?:,\d{2})?` tail this
  * replaces: `€2.500,00` and `€2.500,50` are both the protected fee, quoted with
  * cents. Leading zeroes are **not** stripped, so `€070` stays silent exactly as
  * the old `(?<!\d)` boundary left it — no real amount is written that way.
  */
-function canonicalAmount(token) {
+function canonicalAmounts(token) {
   const exponentAt = token.search(/[eE]/);
   const mantissa = exponentAt === -1 ? token : token.slice(0, exponentAt);
   const exponent = exponentAt === -1 ? 0 : Number(token.slice(exponentAt + 1).replace('+', ''));
 
-  const parsed = splitNumber(mantissa);
-  if (parsed === null) return null;
+  const readings = [splitNumber(mantissa)];
+  if (exponentAt !== -1) {
+    const literal = LITERAL_MANTISSA.exec(mantissa);
+    if (literal) readings.push({ integer: literal[1], decimals: literal[2] });
+  }
 
-  const shifted = exponent === 0 ? parsed : shiftDecimalPoint(parsed, exponent);
-  return shifted.decimals.length > 2 ? null : shifted.integer;
+  const values = [];
+  for (const parsed of readings) {
+    if (parsed === null) continue;
+    const shifted = exponent === 0 ? parsed : shiftDecimalPoint(parsed, exponent);
+    if (shifted.decimals.length > 2) continue;
+    if (!values.includes(shifted.integer)) values.push(shifted.integer);
+  }
+  return values;
+}
+
+/**
+ * The figures a token holds when its whitespace is read as a gap rather than as
+ * a grouping separator.
+ *
+ * Maximal tokenisation is the false-positive control, but it has one cost: two
+ * unrelated numbers with a separator-class character between them tokenise as
+ * one, and the fused reading can denote something harmless while each half is a
+ * protected figure. `€70\n120` is the case — the band's two figures, one per
+ * line, fuse into the innocuous `70120` — and `€2.500 000` and `€2500\n7` are
+ * the same shape. `€2.500 000` was already a miss in r4, whose class held the
+ * space; the other two only became reachable when this round put `\n` back, and
+ * catching them is the condition on widening the class at all.
+ *
+ * No numeric convention groups thousands with a newline, and a rendered
+ * `€70 120` is two figures as often as one, so whitespace is where the fused
+ * reading is least trustworthy. {@link scanAmounts} therefore falls back to
+ * these runs whenever the fused reading is **not** itself a protected amount.
+ *
+ * The split is on whitespace only. `.` and `,` groups stay intact, which is what
+ * keeps `€1.200,70` reading as 1200 rather than decomposing into an unrelated
+ * `70` beside a euro sign — the crying-wolf case Sol's round-1 S1 raised.
+ */
+function whitespaceRuns(text, offset) {
+  const runs = [];
+  let index = 0;
+  for (const run of text.split(/\s/)) {
+    if (run !== '') runs.push({ text: run, offset: offset + index });
+    index += run.length + 1;
+  }
+  return runs;
 }
 
 /** Checks whose whole definition is a regex over the file's text. */
@@ -347,19 +445,32 @@ function scanAmounts(text) {
   NUMBER_TOKEN.lastIndex = 0;
   let token;
   while ((token = NUMBER_TOKEN.exec(text)) !== null) {
-    const amount = canonicalAmount(token[0]);
-    if (amount === null) continue;
-    const check = CHECK_BY_AMOUNT.get(amount);
-    if (check === undefined) continue;
+    // When the fused reading is itself a protected amount it *is* the finding,
+    // and reporting its parts as well would turn one leak into several. When it
+    // is not, the whitespace inside it may be a gap rather than a grouping
+    // separator, hiding a protected figure on either side — so read it both
+    // ways. See {@link whitespaceRuns}.
+    const fused = canonicalAmounts(token[0]).some((value) => CHECK_BY_AMOUNT.has(value));
+    const numbers =
+      fused || !/\s/.test(token[0])
+        ? [{ text: token[0], offset: token.index }]
+        : whitespaceRuns(token[0], token.index);
 
-    const start = token.index;
-    const end = start + token[0].length;
-    const { nearest, distance } = nearestMarker(markers, start, end);
-    if (distance > check.gap) continue;
+    for (const number of numbers) {
+      for (const amount of canonicalAmounts(number.text)) {
+        const check = CHECK_BY_AMOUNT.get(amount);
+        if (check === undefined) continue;
 
-    const from = Math.min(start, nearest.start);
-    const to = Math.max(end, nearest.end);
-    found.push({ check, index: from, match: text.slice(from, to) });
+        const start = number.offset;
+        const end = start + number.text.length;
+        const { nearest, distance } = nearestMarker(markers, start, end);
+        if (distance > check.gap) continue;
+
+        const from = Math.min(start, nearest.start);
+        const to = Math.max(end, nearest.end);
+        found.push({ check, index: from, match: text.slice(from, to) });
+      }
+    }
   }
   return found;
 }

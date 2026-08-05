@@ -1,0 +1,39 @@
+/* Type · Mont only. Scale and tracking from the brand manual. */
+:root{
+  --font-core:"Mont","Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-fallback:"Inter",ui-sans-serif,system-ui,sans-serif;
+
+  --weight-light:300;   /* firma del logotipo */
+  --weight-book:400;    /* texto corrido */
+  --weight-regular:500; /* etiquetas y navegación */
+  --weight-semibold:600;/* botones y antetítulos */
+  --weight-bold:700;    /* títulos de sección */
+  --weight-heavy:800;   /* títulos de página */
+  --weight-black:900;   /* titulares display, siempre en caja alta */
+
+  --size-display:44px;
+  --size-h1:32px;
+  --size-h2:24px;
+  --size-h3:18px;
+  --size-body:15px;   /* 11 pt impreso */
+  --size-small:13px;
+  --size-eyebrow:11px;
+
+  --leading-display:1.05;
+  --leading-title:1.2;
+  --leading-body:1.6;
+
+  --tracking-signature:0.20em; /* firma del logotipo */
+  --tracking-descriptor:0.15em;/* bajada o descriptor */
+  --tracking-eyebrow:0.08em;   /* antetítulos y etiquetas */
+  --tracking-display:-0.02em;  /* titulares display, apretado */
+  --tracking-normal:normal;
+
+  --type-display:var(--weight-black) var(--size-display)/var(--leading-display) var(--font-core);
+  --type-h1:var(--weight-heavy) var(--size-h1)/var(--leading-title) var(--font-core);
+  --type-h2:var(--weight-bold) var(--size-h2)/var(--leading-title) var(--font-core);
+  --type-h3:var(--weight-bold) var(--size-h3)/var(--leading-title) var(--font-core);
+  --type-body:var(--weight-book) var(--size-body)/var(--leading-body) var(--font-core);
+  --type-small:var(--weight-book) var(--size-small)/1.5 var(--font-core);
+  --type-eyebrow:var(--weight-semibold) var(--size-eyebrow)/1.4 var(--font-core);
+}

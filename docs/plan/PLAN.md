@@ -62,7 +62,8 @@ Improve communication and sales of Pasantías INSPIRA Barcelona for the **Octobe
 | A4 | PDF serving endpoints + leak checks | **DONE 2026-08-03** (Sol PASS r2; PR #39) | `phase/a4-pdfsrv` | A3 |
 | A5 | Lead API + transition helper + auto-reply/notification | **DONE 2026-08-03** (Sol PASS r2; PR #40, merge `4e8400c`..) | `phase/a5-lead-api` | A2, A4 |
 | A6a | `/pasantias` page: sections + ficha CTA (no form) | **DONE 2026-08-05** (Sol r6 REQUEST CHANGES on reporting completeness only — both findings verified non-silencing, shipped under the r7 stopping rule; head `99825c31`, merge `81222df0`) | `phase/a6a-page` | A1, A4 |
-| A6b | LeadForm (split consent) + wiring + e2e + a11y | TODO | `phase/a6b-form` | A5, A6a, T2 |
+| A6r | **Visual redesign of `/pasantias`** (externally designed markup; same data module, same guards) | TODO | `phase/a6r-design` | A6a |
+| A6b | LeadForm (split consent) + wiring + e2e + a11y | TODO | `phase/a6b-form` | A5, A6r, T2 |
 | A7a | Site link rewiring + both INSPIRA flipbooks | TODO | `phase/a7a-links` | A6b |
 | A7b | contact.ts transport swap (Formspree→Resend) | **DONE 2026-07-31** (Codex PASS, zero findings; code `5e1940d`, PR #29) | `phase/a7b-contact` | — |
 | A8 | Admin leads triage (transition-enforced via API) | TODO | `phase/a8-leads-ui` | A5, T2 |
@@ -160,6 +161,38 @@ As v2 A5, with consent handling updated to D-12:
 - [A3] E2E (mandatory list): sections render with brief content; ficha link href; no price tokens in page HTML (assert absence).
 - [A4] Gates + leak script green.
 **Risks:** none — static content; single concern (page composition).
+
+## Phase A6r — Visual redesign of `/pasantias`
+
+**Why:** the r1 page was built for structure and guard coverage, not visual craft; the
+owner rejected the design on sight (2026-08-05). Markup is redesigned externally and
+delivered as code.
+
+**Scope:** `pages/pasantias.tsx` markup/styling, and new components under
+`components/pasantias/` if the design needs them.
+**Out of scope:** the content itself, `lib/pasantias/cohort-public.ts`, the leak guard,
+the PDFs, the form (still A6b).
+
+**Acceptance criteria:**
+- [A1] **Every fact still comes from `lib/pasantias/cohort-public.ts`.** No cohort string
+  is hardcoded in the page — not a date, school, level, highlight, expert name or title.
+  A grep-based test asserts this; a redesign that inlines copy fails the phase.
+- [A2] All A6a guards stay green unmodified: no price token in the rendered page (D-02);
+  no `experto invitado` placeholder; every school renders levels + ≥1 highlight; one `h1`
+  and valid heading order **across the whole document** including `Footer`; axe reports no
+  serious/critical violations; the leak scan passes on a production build.
+- [A3] Every `data-testid` the existing e2e depends on survives, or the spec is updated in
+  the same commit with the change called out explicitly in the report.
+- [A4] Renders correctly at 390 px and 1280 px; evidence PNGs re-rendered under
+  `docs/plan/evidence/a6r/`.
+- [A5] Self-contained: no CDN fonts, scripts or remote images — assets live in the repo.
+  (`pages/index.tsx` loads Tailwind from a CDN; that pattern must not spread here.)
+- [A6] `#programa` remains the interim mailto panel until A6b replaces it.
+- [A7] Gates + leak script green.
+
+**Risks:** externally-authored markup is the likeliest source of hardcoded content and of
+silently dropped testids — [A1] and [A3] exist for exactly that, and both are mechanical
+to check.
 
 ## Phase A6b — LeadForm (split consent) + wiring + e2e + a11y
 

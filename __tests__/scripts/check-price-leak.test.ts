@@ -221,6 +221,76 @@ describe('leak guard — word-form currencies (Sol r2 B1)', () => {
   }
 });
 
+/**
+ * Sol's round-2 B1 residue. The amount patterns admitted a two-digit tail after
+ * a comma and nothing else, so `Programa: 2500.00 euros por persona` shipped,
+ * built, and reported clean — and Sol proved it survived into
+ * `.next/static/chunks/pages/pasantias-*.js` while the script exited 0.
+ *
+ * The fix was not a fourth alternation. A digit run is now tokenised maximally
+ * and normalised to a canonical integer, so every convention for writing the
+ * same amount collapses to the same value and the trailing separator stops
+ * being something the guard has to enumerate. These cases are that promise:
+ * each block below is the *same amount* in every convention, and the guard must
+ * not be able to tell them apart.
+ */
+describe('leak guard — decimal separators do not hide an amount (Sol r2 B1 residue)', () => {
+  const sameProgrammeFee: ReadonlyArray<readonly [string, string]> = [
+    ['a decimal-dot tail', 'Programa: 2500.00 euros por persona'],
+    ['comma grouping with a decimal-dot tail', '2,500.00 euros'],
+    ['the ISO code before a dot-decimal amount', 'EUR 2,500.00'],
+    ['the word before a dot-decimal amount', 'euros 2500.00'],
+    ['dot grouping with a decimal-comma tail', '2.500,00 euros'],
+    ['a decimal-comma tail on a bare integer', '2500,00 euros'],
+    ['the glyph with a dot-decimal tail', 'x="€2,500.00"'],
+    ['a space-grouped amount', 'x="€2 500"'],
+  ];
+
+  for (const [description, leak] of sameProgrammeFee) {
+    it(`fires on ${description}`, () => {
+      expect(checksFiring(leak), leak).toEqual(['priced-amount']);
+    });
+  }
+
+  const sameShortAmounts: ReadonlyArray<readonly [string, string, string]> = [
+    ['the band minimum with cents', 'x="€70.00"', 'priced-band-amount'],
+    ['the band maximum with cents', 'x="€120,00"', 'priced-band-amount'],
+    ['the retired total with a dot-decimal tail', 'x="1560.00 euros"', 'priced-amount'],
+    ['the retired package with a dot-decimal tail', 'x="560.00 euros"', 'retired-short-amount'],
+  ];
+
+  for (const [description, leak, id] of sameShortAmounts) {
+    it(`fires on ${description}`, () => {
+      expect(checksFiring(leak), leak).toEqual([id]);
+    });
+  }
+
+  // The reason the tail was comma-only in the first place: it was the control
+  // that kept the guard from crying wolf on ordinary euro amounts. Widening it
+  // by hand would have brought those back, so every one of them is pinned here.
+  const stillSilent: ReadonlyArray<readonly [string, string]> = [
+    ['an unrelated larger amount', 'x="€12.500"'],
+    ['a malformed trailing digit', 'x="€2.5000"'],
+    ['a grouped euro thousand', 'x="€120.000"'],
+    ['a larger amount with cents', 'x="€12.500,00"'],
+    ['a larger amount with a dot-decimal tail', 'x="€12,500.00"'],
+    ['a euro decimal whose cents are a band figure', 'total="€1.200,70 por hora"'],
+    ['the same, written the other way round', 'total="€1,200.70 por hora"'],
+    // Verbatim from `lib/currency-service.ts` and `lib/expenseReportExport.ts` —
+    // live, unrelated, euro-denominated repo code, one of which writes an amount
+    // in exactly the dot-grouped/comma-decimal shape this round taught the
+    // guard to read. Neither may become noise.
+    ['the live fallback exchange rate', 'EUR: 1050, // 1 EUR ≈ 1050 CLP (approximate)'],
+    ['the live formatter example', 'Locale-formatted original amount, e.g. "1.234,50" for EUR'],
+  ];
+
+  for (const [description, text] of stillSilent) {
+    it(`stays silent on ${description}`, () => {
+      expect(checksFiring(text), text).toEqual([]);
+    });
+  }
+});
+
 describe('leak guard — the band figures do not fire on ordinary output', () => {
   // `70` and `120` are ordinary numbers, and this repo ships unrelated
   // euro-denominated code (consultant rates, expense reports). Everything here

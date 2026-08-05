@@ -42,7 +42,7 @@
  *     amounts. (The €1.560 total that first demonstrated this was retired with
  *     the 2026-07-31 lodging amendment; the lodging note is now derived the same
  *     way, from the per-night band. €1.560 is still hunted for — see the
- *     retired-amount rule above `PRICE_AMOUNT_PATTERNS`.)
+ *     retired-amount rule above `PRICE_AMOUNTS`.)
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -58,15 +58,22 @@ const BINARY_EXTENSIONS = new Set([
 ]);
 
 /**
- * Amounts from Appendix A-8, in every form a bundler emits them. Keep in sync
- * with the values in `lib/pasantias/cohort-commercial.ts` — a price added there
- * without being added here is a price this guard will not look for.
+ * Amounts from Appendix A-8, as **values** rather than as spellings. Keep in
+ * sync with the values in `lib/pasantias/cohort-commercial.ts` — a price added
+ * there without being added here is a price this guard will not look for.
  *
- * Every separator below is optional (`[.,\s]?`), so each figure matches both the
- * Spanish-formatted `2.500` and the bare `2500` — that has been true since these
- * patterns were written, and `__tests__/scripts/check-price-leak.test.ts` now
- * pins both spellings against every currency form so it cannot quietly stop
- * being true.
+ * These used to be regex fragments, one alternation per shape a bundler might
+ * emit, and the list grew every time the guard was proved wrong: unbounded
+ * amounts (Sol r1 S1), missing currency word forms (Sol r2 B1), then decimal-dot
+ * tails — `2500.00`, `2,500.00`, `EUR 2,500.00` all sailed past a tail that
+ * admitted a comma and nothing else, and Sol proved the first of them survived
+ * into a production bundle while this script exited 0. Three holes, three
+ * alternations, one class of bug. So the matching changed shape instead: a digit
+ * run near a currency marker is normalised to a canonical integer (see
+ * {@link canonicalAmount}) and compared with the numbers below, so `2500`,
+ * `2.500`, `2,500`, `2 500`, `2500,00`, `2500.00`, `2,500.00`, `2.500,00` and
+ * the minifier's `2.5e3` all collapse to `2500`. One shape to recognise instead
+ * of six, and a fourth separator convention costs nothing.
  *
  * EVERY RETIRED AMOUNT STAYS ON THIS LIST, PERMANENTLY — and the reason is the
  * opposite of the intuitive one. A live price can only reach a public surface
@@ -88,14 +95,10 @@ const BINARY_EXTENSIONS = new Set([
  * figures are two and three digits long, so they get their own tight-window
  * checks below rather than this list's wide currency window.
  */
-const PRICE_AMOUNT_PATTERNS = [
-  '2[.,\\s]?500', //  2500, 2.500, 2,500, 2 500 — the live programme fee
-  '2\\.5e3', //       the exponential spelling of 2500
-  '1[.,\\s]?000', //  RETIRED 2026-08-02: 1000, 1.000, 1,000, 1 000
-  '1e3', //           RETIRED 2026-08-02: how the minifier writes 1000
-  '1[.,\\s]?560', //  RETIRED 2026-07-31: the lodging-inclusive total
-  //                  (no exponential twin: `1.56e3` is longer than `1560`, so
-  //                  no minifier emits it — unlike `1e3` for 1000.)
+const PRICE_AMOUNTS = [
+  '2500', // the live programme fee
+  '1000', // RETIRED 2026-08-02
+  '1560', // RETIRED 2026-07-31: the lodging-inclusive total
 ];
 
 /**
@@ -105,16 +108,16 @@ const PRICE_AMOUNT_PATTERNS = [
  * `120` are ordinary numbers that occur constantly in minified output, so they
  * only count inside a much tighter currency window than the amounts above.
  */
-const BAND_AMOUNT_PATTERNS = ['70', '120'];
+const BAND_AMOUNTS = ['70', '120'];
 
 /**
  * RETIRED 2026-07-31: the €560 lodging package, the other half of the €1.560
  * total above. It falls under the same permanent rule as the amounts in
- * `PRICE_AMOUNT_PATTERNS`, but three digits are far too common to look for
- * inside that list's 120-character window, so it is checked the way the band's
- * figures are: whole-amount boundaries, and a currency marker right beside it.
+ * `PRICE_AMOUNTS`, but three digits are far too common to look for inside that
+ * list's 120-character window, so it is checked the way the band's figures are:
+ * with a currency marker right beside it.
  */
-const RETIRED_SHORT_AMOUNT_PATTERNS = ['560'];
+const RETIRED_SHORT_AMOUNTS = ['560'];
 
 /**
  * What counts as "a price is being quoted here".
@@ -133,75 +136,122 @@ const RETIRED_SHORT_AMOUNT_PATTERNS = ['560'];
  * conocer Europa"). `Eur|Euro` both fail the trailing boundary inside `Europa`,
  * so the word is silent while `euro`, `euros` and `EUROS` all fire.
  */
-const CURRENCY = '(?:€|(?<![A-Za-z])[Ee][Uu][Rr](?:[Oo][Ss]?)?(?![A-Za-z]))';
+const CURRENCY = /€|(?<![A-Za-z])[Ee][Uu][Rr](?:[Oo][Ss]?)?(?![A-Za-z])/g;
 /**
- * How far apart the amount and its currency marker may sit. Minified output has
- * no line breaks and packs a whole object into one run of characters, so this
- * has to be wide enough to span `currency:"EUR",items:[{id:…,label:…,amount:…}`
- * — measured at roughly 60 characters in the leak demo. Verified not to fire on
- * a clean build of this repo, which does ship unrelated euro-denominated code.
+ * How far apart the amount and its currency marker may sit, in characters.
+ * Minified output has no line breaks and packs a whole object into one run of
+ * characters, so this has to be wide enough to span
+ * `currency:"EUR",items:[{id:…,label:…,amount:…}` — measured at roughly 60
+ * characters in the leak demo. Verified not to fire on a clean build of this
+ * repo, which does ship unrelated euro-denominated code.
  */
-const GAP = '[\\s\\S]{0,120}?';
+const GAP = 120;
 /**
  * The band's window, sized to what a rendered figure actually looks like after
  * minification — `"€70"`, `["€",70]`, `"entre €".concat(70,` (nine characters,
  * measured on the r3 leak demo) — and no wider, because at `GAP`'s width a bare
  * `70` would find a euro sign somewhere in most unrelated chunks.
  */
-const BAND_GAP = '[\\s\\S]{0,12}?';
+const BAND_GAP = 12;
 
 /**
- * Bound a list of amounts so its figures only match as whole amounts: not
- * preceded or followed by another digit, and not sitting inside a grouped or
- * decimal number (`€1.200,70`, `€120.000`, `€12.500`, `€2.5000`), which is how
- * unrelated euro amounts in this repo are written. A two-decimal tail is part of
- * the amount rather than a boundary violation, so `€2.500,00` is the protected
- * figure and still matches.
+ * One written number, matched **maximally**: every digit, separator and
+ * exponent that belongs to it, and nothing that does not.
  *
- * The band's figures have been bounded this way since round r4; the programme
- * amounts joined them after Sol's round-1 S1 — unbounded, `2[.,\s]?500` fired on
- * `€12.500` and `€2.5000`, and a guard that cries wolf is a guard that gets
- * switched off.
+ * Maximality is the whole false-positive control, and it replaces the four
+ * lookarounds this file used to carry (`(?<!\d)(?<![\d][.,])…(?!\d)(?![.,]\d)`).
+ * `€12.500` tokenises as the single number `12.500`, so there is no `500` left
+ * over to compare against a protected amount; likewise `€120.000` yields
+ * `120.000` and not `120`, and `€1.200,70` yields `1.200,70` and not `70`. Those
+ * were exactly the crying-wolf cases Sol's round-1 S1 raised, and they now fall
+ * out of tokenisation instead of being fenced off one lookaround at a time.
+ *
+ * The separator class is `.`, `,` and the two spaces a rendered figure uses
+ * (`2 500`, `2\u00a0500`) — deliberately **not** `\s`. A newline or tab between
+ * two numbers means two numbers, and swallowing it would let an unrelated
+ * neighbour hide a protected figure inside a longer token. Same-line spaces keep
+ * that risk in theory, and it is the accepted cost of still catching `€2 500`.
+ *
+ * The exponent is capped at two digits: the minifier writes `1e3` for 1000 and
+ * `2.5e3` for 2500, nothing near a protected amount needs more, and an
+ * uncapped exponent would let `1e999999` ask for a gigabyte of zero padding.
  */
-function wholeAmountPattern(patterns) {
-  return `(?<!\\d)(?<![\\d][.,])(?:${patterns.join('|')})(?:,\\d{2})?(?!\\d)(?![.,]\\d)`;
+const NUMBER_TOKEN = /\d(?:[\d.,\u00a0 ]*\d)?(?:[eE]\+?\d{1,2})?/g;
+
+const PLAIN = /^\d+$/;
+const PLAIN_WITH_DECIMALS = /^(\d+)[.,](\d{1,2})$/;
+const GROUPED = /^\d{1,3}(?:([.,\u00a0 ])\d{3})(?:\1\d{3})*$/;
+const GROUPED_WITH_DECIMALS = /^\d{1,3}(?:([.,\u00a0 ])\d{3})(?:\1\d{3})*([.,])(\d{1,2})$/;
+
+/**
+ * Split a written number into its integer digits and its decimal tail, or
+ * `null` when it is not a well-formed amount under either convention.
+ *
+ * Well-formed means one of four grammars: plain (`2500`), plain with up to two
+ * decimals (`2500.00`, `2500,00`), grouped in threes by a single consistent
+ * separator (`2.500`, `1,234,567`, `2 500`), or grouped plus a decimal tail
+ * whose separator differs from the grouping one (`2.500,00`, `2,500.00`).
+ *
+ * Rejecting everything else is the second half of the false-positive control:
+ * `2.5000` is neither a grouping (the run after the dot is four digits) nor a
+ * decimal (more than two), so it is not an amount and never reaches comparison.
+ */
+function splitNumber(text) {
+  if (PLAIN.test(text)) return { integer: text, decimals: '' };
+
+  let parsed = PLAIN_WITH_DECIMALS.exec(text);
+  if (parsed) return { integer: parsed[1], decimals: parsed[2] };
+
+  parsed = GROUPED.exec(text);
+  if (parsed) return { integer: text.split(parsed[1]).join(''), decimals: '' };
+
+  parsed = GROUPED_WITH_DECIMALS.exec(text);
+  if (parsed && parsed[2] !== parsed[1]) {
+    const grouped = text.slice(0, text.length - parsed[3].length - 1);
+    return { integer: grouped.split(parsed[1]).join(''), decimals: parsed[3] };
+  }
+  return null;
 }
 
-const amountPattern = wholeAmountPattern(PRICE_AMOUNT_PATTERNS);
-const bandAmountPattern = wholeAmountPattern(BAND_AMOUNT_PATTERNS);
-const retiredShortAmountPattern = wholeAmountPattern(RETIRED_SHORT_AMOUNT_PATTERNS);
+/** Move the decimal point right by `exponent` places, padding with zeroes. */
+function shiftDecimalPoint({ integer, decimals }, exponent) {
+  const digits = integer + decimals;
+  const point = integer.length + exponent;
+  if (point >= digits.length) {
+    return { integer: digits + '0'.repeat(point - digits.length), decimals: '' };
+  }
+  return { integer: digits.slice(0, point), decimals: digits.slice(point) };
+}
 
-const CHECKS = [
+/**
+ * Collapse one {@link NUMBER_TOKEN} to the integer digits it denotes, or `null`
+ * when it is not a well-formed amount. This is what lets the lists above hold
+ * values instead of spellings: `2500`, `2.500`, `2,500`, `2 500`, `2500,00`,
+ * `2500.00`, `2,500.00`, `2.500,00` and `2.5e3` all return `'2500'`.
+ *
+ * Cents are dropped rather than compared, matching the `(?:,\d{2})?` tail this
+ * replaces: `€2.500,00` and `€2.500,50` are both the protected fee, quoted with
+ * cents. Leading zeroes are **not** stripped, so `€070` stays silent exactly as
+ * the old `(?<!\d)` boundary left it — no real amount is written that way.
+ */
+function canonicalAmount(token) {
+  const exponentAt = token.search(/[eE]/);
+  const mantissa = exponentAt === -1 ? token : token.slice(0, exponentAt);
+  const exponent = exponentAt === -1 ? 0 : Number(token.slice(exponentAt + 1).replace('+', ''));
+
+  const parsed = splitNumber(mantissa);
+  if (parsed === null) return null;
+
+  const shifted = exponent === 0 ? parsed : shiftDecimalPoint(parsed, exponent);
+  return shifted.decimals.length > 2 ? null : shifted.integer;
+}
+
+/** Checks whose whole definition is a regex over the file's text. */
+const TEXT_CHECKS = [
   {
     id: 'sentinel',
     description: 'COMMERCIAL_SENTINEL from cohort-commercial.ts',
     pattern: /__INSPIRA_COMMERCIAL__/g,
-  },
-  {
-    id: 'priced-amount',
-    description:
-      'an Appendix A-8 programme amount, live or retired, near a currency marker',
-    pattern: new RegExp(
-      `${CURRENCY}${GAP}${amountPattern}|${amountPattern}${GAP}${CURRENCY}`,
-      'g'
-    ),
-  },
-  {
-    id: 'priced-band-amount',
-    description: 'an Appendix A-8 lodging-band amount beside a currency marker',
-    pattern: new RegExp(
-      `${CURRENCY}${BAND_GAP}${bandAmountPattern}|${bandAmountPattern}${BAND_GAP}${CURRENCY}`,
-      'g'
-    ),
-  },
-  {
-    id: 'retired-short-amount',
-    description:
-      'the retired Appendix A-8 lodging package (€560) beside a currency marker',
-    pattern: new RegExp(
-      `${CURRENCY}${BAND_GAP}${retiredShortAmountPattern}|${retiredShortAmountPattern}${BAND_GAP}${CURRENCY}`,
-      'g'
-    ),
   },
   {
     // Copy is what actually survives minification (keys do not), so a structural
@@ -216,6 +266,103 @@ const CHECKS = [
       /Alojamiento en Barcelona: entre|por persona por noche|en base a habitación doble|según el tipo de alojamiento|Precios vigentes para la cohorte|al momento del acuerdo|Pasantias-INSPIRA-Barcelona/g,
   },
 ];
+
+/** Checks that pair a normalised amount with a nearby currency marker. */
+const AMOUNT_CHECKS = [
+  {
+    id: 'priced-amount',
+    description:
+      'an Appendix A-8 programme amount, live or retired, near a currency marker',
+    amounts: PRICE_AMOUNTS,
+    gap: GAP,
+  },
+  {
+    id: 'priced-band-amount',
+    description: 'an Appendix A-8 lodging-band amount beside a currency marker',
+    amounts: BAND_AMOUNTS,
+    gap: BAND_GAP,
+  },
+  {
+    id: 'retired-short-amount',
+    description:
+      'the retired Appendix A-8 lodging package (€560) beside a currency marker',
+    amounts: RETIRED_SHORT_AMOUNTS,
+    gap: BAND_GAP,
+  },
+];
+
+/** Canonical integer → the one check that guards it. The three lists are disjoint. */
+const CHECK_BY_AMOUNT = new Map(
+  AMOUNT_CHECKS.flatMap((check) => check.amounts.map((amount) => [amount, check]))
+);
+
+/** Every currency marker in `text`, in ascending order and never overlapping. */
+function currencyMarkers(text) {
+  const markers = [];
+  CURRENCY.lastIndex = 0;
+  let match;
+  while ((match = CURRENCY.exec(text)) !== null) {
+    markers.push({ start: match.index, end: match.index + match[0].length });
+  }
+  return markers;
+}
+
+/**
+ * The marker closest to `[start, end)`, and how many characters sit between
+ * them. Markers and number tokens are built from disjoint character classes, so
+ * they never overlap and the distance is never negative.
+ */
+function nearestMarker(markers, start, end) {
+  let low = 0;
+  let high = markers.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (markers[middle].start >= end) high = middle;
+    else low = middle + 1;
+  }
+
+  let nearest = null;
+  let distance = Infinity;
+  if (low < markers.length && markers[low].start - end < distance) {
+    nearest = markers[low];
+    distance = markers[low].start - end;
+  }
+  if (low > 0 && start - markers[low - 1].end < distance) {
+    nearest = markers[low - 1];
+    distance = start - markers[low - 1].end;
+  }
+  return { nearest, distance };
+}
+
+/**
+ * Every protected amount in `text` that has a currency marker inside its
+ * check's window. A file with no currency marker at all cannot contain one, and
+ * most bundle chunks are that file — so the tokeniser never runs on them.
+ */
+function scanAmounts(text) {
+  const markers = currencyMarkers(text);
+  if (markers.length === 0) return [];
+
+  const found = [];
+  NUMBER_TOKEN.lastIndex = 0;
+  let token;
+  while ((token = NUMBER_TOKEN.exec(text)) !== null) {
+    const amount = canonicalAmount(token[0]);
+    if (amount === null) continue;
+    const check = CHECK_BY_AMOUNT.get(amount);
+    if (check === undefined) continue;
+
+    const start = token.index;
+    const end = start + token[0].length;
+    const { nearest, distance } = nearestMarker(markers, start, end);
+    if (distance > check.gap) continue;
+
+    const from = Math.min(start, nearest.start);
+    const to = Math.max(end, nearest.end);
+    found.push({ check, index: from, match: text.slice(from, to) });
+  }
+  return found;
+}
 
 /**
  * Minified bundles escape non-ASCII (`Extensi\xf3n`), which would hide every
@@ -255,13 +402,14 @@ function isScannable(path) {
  */
 export function scanText(text) {
   const found = [];
-  for (const check of CHECKS) {
+  for (const check of TEXT_CHECKS) {
     check.pattern.lastIndex = 0;
     let match;
     while ((match = check.pattern.exec(text)) !== null) {
       found.push({ check, index: match.index, match: match[0] });
     }
   }
+  found.push(...scanAmounts(text));
   return found;
 }
 

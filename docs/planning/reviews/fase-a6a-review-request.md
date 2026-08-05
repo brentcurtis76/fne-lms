@@ -410,3 +410,98 @@ and in the page-level `PINNED` block.
   says so in a comment.
 - The page is still orphaned until A7a; `#programa` is still the interim mailto
   panel until A6b.
+
+---
+
+# Round r4 — Sol r2 B1 residue closed (decimal-dot prices)
+
+**Branch:** `phase/a6a-page` · base `ca8e024` (r3 head) · 1 commit
+**Prompt:** `docs/plan/prompts/a6a-4.md`
+
+Sol's second review verified B2–B5, S1 and S3 closed by mutation and withdrew
+S2. One blocking residue remained and is the only thing this round touches: the
+leak scanner's amount tail admitted a comma and nothing else, so
+`Programa: 2500.00 euros por persona` reached a real production bundle while
+`check-price-leak.mjs` exited 0.
+
+## Which approach, and why
+
+The prompt offered two: normalise the digit run to a canonical form, or extend
+the tail to `(?:[.,]\d{2})?`. **I took normalisation.** The narrow fix works,
+but it is a fourth special case on a guard that had already been wrong three
+times in three different ways — and the next convention (a thin-space grouping,
+an amount inside a longer number) would have been a fifth.
+
+`scripts/check-price-leak.mjs` now tokenises a written number **maximally** and
+normalises it to a canonical integer, and the three amount lists hold values
+(`'2500'`) instead of spellings (`'2[.,\s]?500'`, `'2\.5e3'`). `2500`, `2.500`,
+`2,500`, `2 500`, `2500,00`, `2500.00`, `2,500.00`, `2.500,00` and the
+minifier's `2.5e3` all collapse to `2500`.
+
+The prompt's trap was the trailing `(?![.,]\d)` — the false-positive control
+added after Sol's r1 S1, and the same clause that rejected a dot decimal. It is
+not widened; it is **replaced by a stronger invariant**. Maximal tokenisation
+means `€12.500` is the single number `12.500`, so there is no `500` left over to
+compare against a protected amount, and `€1.200,70` is `1.200,70`, so there is
+no `70`. `2.5000` is rejected by the grammar itself: four digits after a dot is
+neither a thousands grouping nor a two-decimal tail, so it is not an amount.
+Every r1 S1 control is still pinned and still green, now for a structural reason
+rather than a lookaround.
+
+The window logic changed shape with it — `GAP`/`BAND_GAP` are character counts
+rather than regex fragments, and proximity is a binary search over the file's
+currency markers instead of a `CURRENCY GAP amount|amount GAP CURRENCY`
+alternation. The windows themselves are unchanged (120 and 12). Files with no
+currency marker skip tokenisation entirely, so the rewrite does not slow the
+scan of the ~267 client files.
+
+## Proof
+
+`docs/plan/evidence/a6a/leak-guard-r4.md` — two production-build mutants, each
+scanned by the **r3** scanner and the **r4** scanner against the same
+`.next/static`: r3 says OK/exit 0, r4 says FAIL/exit 1 and names the chunk and
+offset. Then the page is restored, rebuilt, and the guard is green on the same
+267 files.
+
+## Scrutinise hardest
+
+1. **`splitNumber`'s four grammars are the whole false-positive surface.** Plain,
+   plain-with-decimals, grouped-by-a-consistent-separator, and grouped-plus-a-
+   different-decimal-separator. Anything outside them is "not an amount" and is
+   silently skipped. That is deliberate (it is what kills `2.5000`), but it is
+   also where a real leak could hide if a bundler emits an amount in a shape none
+   of the four describe. I could not construct one; the exponential path
+   (`2.5e3`, `1e3`) is the only non-grammar shape the minifier was observed to
+   produce and it is handled separately by `shiftDecimalPoint`.
+2. **Maximal tokenisation can mask as well as bound.** `€70 120` tokenises as
+   one grouped number `70 120` → `70120`, so neither band figure is seen. Every
+   instance I could think of is semantically correct (`€120 000` really is
+   120000), and the alternative — dropping the space separator — loses `€2 500`,
+   which the old pattern caught. Newline and tab are deliberately **not**
+   separators for exactly this reason. Documented at `NUMBER_TOKEN`.
+3. **Cents are dropped, not compared.** `€2.500,00` and `€2.500,50` both
+   normalise to `2500` and both fire, matching the old `(?:,\d{2})?` tail. If the
+   intent were "only exact amounts", `€2.500,50` should be silent — I judged a
+   fee quoted with cents to be the same fee.
+4. **`nearestMarker` returns the nearest marker only.** If the nearest is outside
+   the check's window, no finding is recorded — correct, since a farther marker
+   is farther still. Worth a second pair of eyes on the binary search's boundary
+   (`markers[low].start >= end`) and on the claim that markers and number tokens
+   can never overlap (they are built from disjoint character classes: `€`/letters
+   vs digits and separators).
+5. **The exponent cap.** `[eE]\+?\d{1,2}` — two digits. Uncapped, `1e999999`
+   would ask `shiftDecimalPoint` for a gigabyte of zero padding on a hostile or
+   merely odd bundle. Two digits covers every shape the minifier emits near a
+   four-digit amount, but it is a cap, and caps are where things get missed.
+
+## Known limitations / deferred (r4)
+
+- `€2\n500` no longer fires; it did under `2[.,\s]?500`. Newline is not a
+  thousands separator in any convention and minified bundles are single-line, so
+  this is an intentional trade for the masking safety described above.
+- Everything Sol left out of scope stays out: the pre-existing `heading-order`
+  debt on `/nosotros`, `/programas`, `/brand-preview`; `ci-fixture.spec.ts`,
+  which still needs T2's seeded stack and cannot run in this worktree; the
+  content-pack §6 vs Appendix A-6 contradiction (PM-owned).
+- No evidence PNGs were re-rendered — no rendered copy changed. `pages/pasantias.tsx`
+  is byte-identical to `ca8e024`.

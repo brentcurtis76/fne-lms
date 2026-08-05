@@ -61,7 +61,7 @@ Improve communication and sales of Pasantías INSPIRA Barcelona for the **Octobe
 | A3 | Brochure + ficha generators + PDF text/visual QA | **DONE 2026-08-02** (Sol PASS r2; PR #37) | `phase/a3-pdfgen` | A1 |
 | A4 | PDF serving endpoints + leak checks | **DONE 2026-08-03** (Sol PASS r2; PR #39) | `phase/a4-pdfsrv` | A3 |
 | A5 | Lead API + transition helper + auto-reply/notification | **DONE 2026-08-03** (Sol PASS r2; PR #40, merge `4e8400c`..) | `phase/a5-lead-api` | A2, A4 |
-| A6a | `/pasantias` page: sections + ficha CTA (no form) | TODO | `phase/a6a-page` | A1, A4 |
+| A6a | `/pasantias` page: sections + ficha CTA (no form) | **DONE 2026-08-05** (Sol r6 REQUEST CHANGES on reporting completeness only — both findings verified non-silencing, shipped under the r7 stopping rule; head `99825c31`, merge `81222df0`) | `phase/a6a-page` | A1, A4 |
 | A6b | LeadForm (split consent) + wiring + e2e + a11y | TODO | `phase/a6b-form` | A5, A6a, T2 |
 | A7a | Site link rewiring + both INSPIRA flipbooks | TODO | `phase/a7a-links` | A6b |
 | A7b | contact.ts transport swap (Formspree→Resend) | **DONE 2026-07-31** (Codex PASS, zero findings; code `5e1940d`, PR #29) | `phase/a7b-contact` | — |

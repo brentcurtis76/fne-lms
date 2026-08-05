@@ -930,3 +930,93 @@ here rather than a proof of new behaviour.
   meeting.
 - Notifications, iCal and reminders still describe the OLD time after a reschedule —
   Z2-4.
+
+---
+
+## Z2-3b — round r9 (remediation: the [A10]/§14 ruling)
+
+**Commit:** `ec400d24` on `feat/zoom-sess`, on top of `0666b996`. One source file, two
+test files. No migration.
+
+### The ruling this round applies
+
+The PM ruled §14 over [A10], and narrower than [A10] in one direction only: **`meeting_delete`
+is ungated by both flags; `meeting_sync` is unchanged.**
+
+- **Master flag.** PLAN.md:292 — the kill switch stops *new meetings and joins*, **never
+  cleanup**, and names `meeting_delete` for cancellations among the jobs that continue while
+  it is off. The r8 report's one-directional consequence was the right one: with the flag off
+  during an incident, a session cancelled in that window left a live meeting on a booked host.
+- **Allowlist.** PLAN.md:296 — `ZOOM_SCHOOL_ALLOWLIST` is "checked at **provision time**". A
+  cancellation is not a provision, and a school removed after provisioning must not have a
+  live meeting stranded on it.
+- **Sync stays gated.** §14 does not name sync among what continues, and the documented
+  behaviour for a removed school is that its existing meetings **freeze** ("NOT auto-deleted
+  … a reconcile notice lists still-provisioned meetings so an admin can bulk-cancel
+  deliberately"). Freezing is the plan's stated intent, so leaving sync gated follows §14's
+  words rather than extending them.
+
+### What changed
+
+`lib/zoom/provisioning-intent.ts` (+18/−26) — `checkCleanupGate` drops the
+`FEATURE_ZOOM_MEETINGS` branch and the `ZOOM_SCHOOL_ALLOWLIST` branch, keeping only
+`is_zoom_managed !== true → { reason: 'not_managed' }`. It therefore reads no environment at
+all, so the `env` parameter went with the branches rather than sitting unread on the
+signature; its one caller (`enqueueSessionMeetingDelete`) drops the argument and still passes
+`env` to the queue factory. `CleanupGateRefusal` narrows to the single reason that remains —
+the `feature_disabled` and `school_not_allowlisted` variants are now unreachable on this gate
+and are removed rather than left as dead shapes (both still exist on `ProvisionGateRefusal`,
+so `ZoomEnqueueRefusal` is unchanged). The doc comment states **why** cleanup is ungated and
+says explicitly not to "restore" a flag check, so the next reader does not re-add one.
+
+`checkProvisionGate`, the sync enqueue, all four enqueue points, both handlers, the registry
+entries, the dedupe keys and the `sessionStartsAtIso` extraction are untouched.
+
+### Test evidence
+
+The r8 `[A10]` cases that asserted the reverse were **replaced**, not supplemented — an
+assertion that cleanup is gated is now a statement the plan contradicts. The three delete
+points (single cancel, series cancel, modality flip) each assert they **still enqueue** with
+the master flag `'false'` and unset, and with the school outside a non-empty allowlist, on
+the exact argument object; the unmanaged refusal is asserted at all three. Every `meeting_sync`
+assertion is byte-unchanged and still passing — that is ruling (b), and the reschedule suite
+is now where the two gates' difference is visible on ONE route.
+
+**Mutation probe** (there is no fail-on-old here: the behaviour is being deliberately
+reversed, so the old source is the thing under repair).
+
+1. Re-added the master-flag check to `checkCleanupGate` → **6 failed / 40 passed** across the
+   two route suites: both legacy-cancel `[R2]` cases, both series `[R2]` cases (`expected
+   "spy" to be called 2 times, but got 0 times`) and both modality-flip `[R2]` cases.
+2. Re-added the allowlist check instead → **3 failed / 43 passed**: the `[R3]` case at each of
+   the three delete points.
+3. Reverted. `git hash-object lib/zoom/provisioning-intent.ts` →
+   `bd9e23bc939d31ae4481d94ef486d10156b19653`, identical to the pre-probe hash.
+
+Each probe fails **only** the cases that encode the ruling, and no sync case moved under
+either — the new assertions bite on exactly the behaviour they name.
+
+### Gates at `ec400d24`
+
+`npm run type-check && npm run lint && npm test && npm run build` → exit 0,
+**4479 passed / 274 files** (PM baseline at `0666b996`: 4475 / 274 — +4 new cases, none
+lost, no file added).
+
+`npm run test:db` → **NOT RUN**, same cause as r8: the Docker daemon is down on this host
+(`Cannot connect to the Docker daemon at unix:///Users/brentcurtis/.docker/run/docker.sock`),
+so `supabase test db` never reached a local Postgres (`LegacyDbConnectError`, exit 1). Not
+worked around, and the r8 `Files=9, Tests=374` figure is still not restated as though it were
+reproduced. This round adds no migration and touches no SQL, so nothing here changes what the
+suite would assert.
+
+### Still open after this round
+
+Everything under r8's "What this round does NOT close" stands, minus the [A10]/§14 item,
+which this round closes. Plus:
+
+- **The edit-request modality gap is still open.** `PUT /api/sessions/edit-requests/[eid]`
+  can carry a `modality` change and enqueues only `meeting_sync`, so an approved edit request
+  that flips a session to `presencial` leaves the meeting alive. Flagged in r8, recorded by
+  the PM as backlog, and deliberately not fixed here — it is a new lifecycle point, not the
+  ruling. Note that the ruling makes this gap slightly wider in one respect: the delete that
+  path fails to enqueue would now fire regardless of either flag.

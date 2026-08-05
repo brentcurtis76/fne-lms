@@ -1661,3 +1661,14 @@ Entry format (§2.2 of the SOP):
 - COMMITS: this commit
 - BACKLOG ADDED: **image weight** — resize the four Barcelona assets to web dimensions; fold into A6r rather than a separate round, since A6r rewrites every image reference anyway.
 - OPEN: owner hands brief + brand kit + photos to Claude Design.
+
+### 2026-08-05 — Barcelona photo prep for the A6r handoff; one live image must come off — Fable (PM)
+- ACTION: Prepared web-sized 16:9 crops of the repo's Barcelona assets so the owner can hand Claude Design the real frames and the same work fixes the page weight. **17 MB → 3.3 MB** across the set. Then **looked at every one** rather than trusting the filenames, which is where it got interesting.
+- `bcn-skyline.jpg` (1.5 MB, 2400×1350) — **excellent, and it is the hero.** Eixample grid from above with the Sagrada Família centred, golden hour. Effectively the same shot the brand manual itself uses on p.14 to illustrate the canonical treatment. Crop is clean.
+- `pasantes-virolai.jpg` (919 KB, was `barcelona-third.jpg`) — **the most valuable asset here and it was hiding behind a meaningless name.** Real pasantes wearing VISITA badges outside **Escola Virolai** — an actual immersion school of this cohort. Posed to camera, which the manual discourages, but the authenticity is worth more than the rule here.
+- `educadores-biblioteca.jpg` (852 KB, was `barcelona-stats.jpg`) — five educators in a school library, warm, real, Catalan/Spanish books on the shelves. Also posed to camera.
+- **`barcelona-innovation.jpg` — FINDING, and it is live on `/pasantias` right now (`pages/pasantias.tsx:395`).** It is **not Barcelona**: generic North-American-looking stock of **identifiable children** around an Ultimaker 3D printer, on carpet against a drywall column. Two independent problems: the manual prohibits generic stock outright, and identifiable minors need image-use authorisation on file — the manual says so, and this project operates under Ley 21.719. I excluded it from the handoff set and did **not** edit the page: I am PM and the source change belongs to A6r's executor. **This should come off the live page in A6r regardless of what the redesign does.**
+- Net: **only one of four existing assets is a genuine on-brand Barcelona photograph.** The owner's brochure photos are not a nice-to-have — the slot list needs four to five and the repo supplies one hero plus two authentic-but-posed people shots.
+- COMMITS: this commit
+- FINDINGS RAISED: `barcelona-innovation.jpg` on the live page — generic stock + identifiable minors without recorded consent. Folded into A6r as a required removal, not left to taste.
+- OPEN: owner attaches these three plus the brochure photos to Claude Design.

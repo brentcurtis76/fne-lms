@@ -525,6 +525,9 @@ describe('edit-request approve — Zoom reschedule sync [A7] [A8] [A10]', () => 
     await editRequestHandler(req as any, res as any);
 
     expect(res._getStatusCode()).toBe(200);
+    const body = JSON.parse(res._getData());
+    expect(body.data.edit_request.status).toBe('approved');
+    expect(body.data.edit_request.reviewed_by).toBe(ADMIN_ID);
     // The edit request was still approved and the session still moved.
     expect(state.editRequest.status).toBe('approved');
     expect(state.row.start_time).toBe('11:00:00');

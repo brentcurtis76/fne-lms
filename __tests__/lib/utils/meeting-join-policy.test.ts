@@ -54,45 +54,105 @@ const sessionRow = {
   is_active: true,
 };
 
-/** Chainable Supabase stub — one canned result per table. */
-function buildService(opts: {
-  session?: unknown;
-  isFacilitator?: boolean;
-  isExpectedAttendee?: boolean;
-}) {
-  const results: Record<string, { data: unknown; error: unknown }> = {
-    consultor_sessions: {
-      data: 'session' in opts ? opts.session : sessionRow,
-      error: null,
-    },
-    session_facilitators: {
-      data: opts.isFacilitator ? { id: 'sf-1' } : null,
-      error: null,
-    },
-    session_attendees: {
-      data: opts.isExpectedAttendee ? { id: 'sa-1' } : null,
-      error: null,
+/**
+ * A seeded row: the column values it actually carries (`match` — what Postgres
+ * would compare every `.eq()` against) and the columns the `select()` returns.
+ */
+type TableEntry = { match?: Record<string, unknown>; data: unknown; error?: unknown };
+
+/**
+ * Resolve a lookup the way the database would: the seeded row is returned only
+ * if EVERY recorded filter matches one of its column values. A filter the row
+ * does not satisfy — a `user_id` that belongs to somebody else, an `expected`
+ * that is `false` — resolves as "no row", which is the whole point of recording
+ * them. A double that ignored filters would pass a policy that dropped one.
+ */
+function resolveEntry(entry: TableEntry, filters: Array<[string, unknown]>) {
+  if (entry.error) {
+    return { data: null, error: entry.error };
+  }
+  if (entry.data === null || entry.data === undefined) {
+    return { data: null, error: null };
+  }
+
+  const match = entry.match ?? {};
+  const satisfied = filters.every(
+    ([column, value]) => column in match && Object.is(match[column], value)
+  );
+
+  return satisfied ? { data: entry.data, error: null } : { data: null, error: null };
+}
+
+/** Chainable Supabase stub — records the `(column, value)` pairs it is given. */
+function chainable(entry: TableEntry) {
+  const filters: Array<[string, unknown]> = [];
+  const settle = () => resolveEntry(entry, filters);
+
+  const handler: ProxyHandler<Record<string, unknown>> = {
+    get(_t, prop) {
+      if (prop === 'then') {
+        return (resolve: (v: unknown) => void) => resolve(settle());
+      }
+      if (prop === 'single' || prop === 'maybeSingle') {
+        return vi.fn(() => ({
+          then: (resolve: (v: unknown) => void) => resolve(settle()),
+        }));
+      }
+      if (prop === 'eq') {
+        return vi.fn((column: string, value: unknown) => {
+          filters.push([column, value]);
+          return chain;
+        });
+      }
+      return vi.fn(() => chain);
     },
   };
 
+  const chain = new Proxy({}, handler);
+  return chain;
+}
+
+/** A facilitator / attendee row is owned by the caller unless a test says otherwise. */
+type FacilitatorSeed = { userId?: string };
+type AttendeeSeed = { userId?: string; expected?: boolean };
+
+function buildService(opts: {
+  sessionId: string;
+  userId: string;
+  session?: unknown;
+  facilitator?: FacilitatorSeed | null;
+  attendee?: AttendeeSeed | null;
+}) {
+  const session = 'session' in opts ? opts.session : sessionRow;
+
+  const results: Record<string, TableEntry> = {
+    consultor_sessions: {
+      match: { id: (session as { id?: string } | null)?.id },
+      data: session,
+    },
+    session_facilitators: opts.facilitator
+      ? {
+          match: {
+            session_id: opts.sessionId,
+            user_id: opts.facilitator.userId ?? opts.userId,
+          },
+          data: { id: 'sf-1' },
+        }
+      : { data: null },
+    session_attendees: opts.attendee
+      ? {
+          match: {
+            session_id: opts.sessionId,
+            user_id: opts.attendee.userId ?? opts.userId,
+            expected: opts.attendee.expected ?? true,
+          },
+          data: { id: 'sa-1' },
+        }
+      : { data: null },
+  };
+
   return {
-    from: vi.fn((table: string) => {
-      const resolved = results[table] ?? { data: null, error: null };
-      const handler: ProxyHandler<Record<string, unknown>> = {
-        get(_t, prop) {
-          if (prop === 'then') {
-            return (resolve: (v: unknown) => void) => resolve(resolved);
-          }
-          if (prop === 'single' || prop === 'maybeSingle') {
-            return vi.fn(() => ({
-              then: (resolve: (v: unknown) => void) => resolve(resolved),
-            }));
-          }
-          return vi.fn(() => new Proxy({}, handler));
-        },
-      };
-      return new Proxy({}, handler);
-    }),
+    from: vi.fn((table: string) => chainable(results[table] ?? { data: null })),
   };
 }
 
@@ -104,17 +164,26 @@ function run(opts: {
   session?: unknown;
   isFacilitator?: boolean;
   isExpectedAttendee?: boolean;
+  /** Seeds a facilitator row owned by someone else — `isFacilitator` seeds one for the caller. */
+  facilitator?: FacilitatorSeed;
+  /** Same, for `session_attendees`, and it can carry `expected: false`. */
+  attendee?: AttendeeSeed;
 }) {
   mockGetUserRoles.mockResolvedValue(opts.roles ?? []);
   mockGetHighestRole.mockReturnValue(opts.highestRole ?? null);
 
+  const sessionId = 'sessionId' in opts ? opts.sessionId : SESSION_ID;
+  const userId = opts.userId === undefined ? GC_USER_ID : opts.userId;
+
   return authorizeMeetingJoin({
-    sessionId: 'sessionId' in opts ? opts.sessionId : SESSION_ID,
-    userId: opts.userId === undefined ? GC_USER_ID : opts.userId,
+    sessionId,
+    userId,
     service: buildService({
+      sessionId: typeof sessionId === 'string' ? sessionId : SESSION_ID,
+      userId: userId ?? GC_USER_ID,
       ...('session' in opts ? { session: opts.session } : {}),
-      isFacilitator: opts.isFacilitator,
-      isExpectedAttendee: opts.isExpectedAttendee,
+      facilitator: opts.facilitator ?? (opts.isFacilitator ? {} : null),
+      attendee: opts.attendee ?? (opts.isExpectedAttendee ? {} : null),
     }) as never,
   });
 }
@@ -382,5 +451,76 @@ describe('authorizeMeetingJoin — edges', () => {
     });
 
     expect(result).toEqual({ kind: 'not-found' });
+  });
+});
+
+/**
+ * The join list is *defined* by the filters on these two lookups — `user_id` on
+ * both, and `expected` on the attendee read. Dropping any one of them is a
+ * one-line regression that authorizes a caller who is not on the roster, so
+ * each is asserted against a row that exists but must not satisfy the lookup.
+ */
+describe('authorizeMeetingJoin — the roster lookups are bound to their filters', () => {
+  it('an expected-attendee row belonging to ANOTHER user does not authorize', async () => {
+    const result = await run({
+      userId: GC_USER_ID,
+      roles: [gcRole],
+      highestRole: 'docente',
+      attendee: { userId: ATTENDEE_USER_ID },
+    });
+
+    expect(result).toEqual({
+      kind: 'forbidden',
+      reason: 'not-in-attendees',
+      message: NOT_IN_ATTENDEES_MESSAGE,
+    });
+  });
+
+  it("an attendee row with `expected: false` does not authorize its own owner", async () => {
+    const result = await run({
+      userId: ATTENDEE_USER_ID,
+      roles: [gcRole],
+      highestRole: 'docente',
+      attendee: { userId: ATTENDEE_USER_ID, expected: false },
+    });
+
+    expect(result).toEqual({
+      kind: 'forbidden',
+      reason: 'not-in-attendees',
+      message: NOT_IN_ATTENDEES_MESSAGE,
+    });
+  });
+
+  it('a facilitator row belonging to ANOTHER user does not make this caller host', async () => {
+    const result = await run({
+      userId: CONSULTOR_USER_ID,
+      roles: [{ role_type: 'consultor', is_active: true, school_id: String(SCHOOL_ID) }],
+      highestRole: 'consultor',
+      facilitator: { userId: FACILITATOR_USER_ID },
+    });
+
+    expect(result).toEqual({
+      kind: 'forbidden',
+      reason: 'consultor-not-facilitator',
+      message: CONSULTOR_NOT_FACILITATOR_MESSAGE,
+    });
+  });
+
+  it('the same rows DO authorize the user they belong to — the double is not simply blind', async () => {
+    const attendee = await run({
+      userId: ATTENDEE_USER_ID,
+      roles: [gcRole],
+      highestRole: 'docente',
+      attendee: { userId: ATTENDEE_USER_ID },
+    });
+    expect(attendee).toEqual({ kind: 'authorized', sessionId: SESSION_ID, role: 'participant' });
+
+    const facilitator = await run({
+      userId: FACILITATOR_USER_ID,
+      roles: [{ role_type: 'consultor', is_active: true, school_id: String(SCHOOL_ID) }],
+      highestRole: 'consultor',
+      facilitator: { userId: FACILITATOR_USER_ID },
+    });
+    expect(facilitator).toEqual({ kind: 'authorized', sessionId: SESSION_ID, role: 'host' });
   });
 });

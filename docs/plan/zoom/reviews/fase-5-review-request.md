@@ -456,3 +456,74 @@ The +39 / +2 are this chunk's two new suites; nothing moved down.
   ever becomes per-school.
 - Carried from Z2-1 and still open, still out of scope: PUT can move an
   already-managed session's modality to `presencial` with no guard.
+
+---
+
+## Round r5 — chunk Z2-2a, filter-aware test doubles (test-only)
+
+Closes the gap the r4 report disclosed under *scrutiny*: **"a policy that dropped the
+`expected` filter would pass every test here."** The PM measured it and it was worse
+than one filter — the old `chainable()` Proxy returned a canned row per *table name*,
+so `.eq()` arguments were invisible to every assertion in both suites, and three
+lookups were each one line away from a real breach.
+
+**No source changed.** `lib/utils/meeting-join-policy.ts` and
+`pages/api/meet/session/[id]/join.ts` are byte-identical to `4cd2263`
+(`git hash-object` == `git rev-parse 4cd2263:<path>` for both). The diff is two test
+files.
+
+### What changed
+
+- Both doubles now **record the `(column, value)` pairs** each `from(table)` chain is
+  given and resolve the seeded row **only if every recorded filter matches one of its
+  column values** — the way Postgres would. A filter the row does not satisfy resolves
+  `{ data: null, error: null }`, i.e. "no row". Seeded rows carry an explicit `match`
+  (their real column values) separate from the `data` the `select()` returns, because
+  `select('id')` returns one column while the WHERE clause compares three.
+- `isFacilitator` / `isExpectedAttendee` keep their old meaning — a roster row owned by
+  the caller — so every pre-existing test reads unchanged. New `facilitator` /
+  `attendee` / `meetingSurfaceId` seeds place a row somewhere else on purpose.
+- `tablesRead` is untouched; the [A8] ordering assertion still rests on it.
+
+### New assertions (6)
+
+Policy suite — *the roster lookups are bound to their filters*: an expected-attendee row
+belonging to another `user_id` does not authorize; an attendee row with
+`expected: false` does not authorize its own owner; a facilitator row belonging to
+another `user_id` does not make this caller host; and a positive control — the same rows
+DO authorize the user they belong to, so the double is not simply blind.
+
+Route suite — *the reads are bound to their filters*: a provisioned meeting for a
+different `surface_id` yields `mode: 'pending'`, never that other session's `join_url`;
+an attendee row belonging to another user yields 403 with no link.
+
+### Mutation probes — the evidence the doubles now bite
+
+Each mutation was applied to the shipped source, the two suites run, then the file
+restored from a copy taken beforehand. There is still no prior revision to fail against.
+
+| Probe | Mutation | Before r5 | After r5 |
+|---|---|---|---|
+| 1 | attendee lookup loses `.eq('user_id', userId)` | 39/39 **passed** (PM) | **2 failed** / 43 passed |
+| 2 | attendee lookup loses `.eq('expected', true)` | would pass | **1 failed** / 44 passed |
+| 3 | `zoom_meetings` read loses `.eq('surface_id', …)` | would pass | **1 failed** / 44 passed |
+
+Probe 1 is the PM's own probe — the one that authorized every caller reaching that
+branch and stayed green. It now fails in **both** suites.
+
+### Gates at this head
+
+`npm run type-check && npm run lint && npm test && npm run build` → exit 0;
+**4350 passed / 266 files** (baseline 4344 / 266 — six new, none lost).
+`npm run test:db` → `Files=8, Tests=338`, `Result: PASS`, exit 0.
+
+### What this round does NOT close
+
+- The doubles model `.eq()` only. `.in()`, `.or()`, `.is()`, `.gte()` and RLS itself are
+  still unmodelled — a future lookup using any of them would be as invisible as `.eq()`
+  was, because an unrecognised chain method still just returns the chain.
+- An `.eq()` on a column the scenario did not declare resolves as "no row" rather than
+  raising. That fails loudly in the authorized-path tests, but the message points at the
+  assertion, not at the undeclared column.
+- Still nothing integration-tests this endpoint against real Postgres. These are better
+  doubles, not a database.

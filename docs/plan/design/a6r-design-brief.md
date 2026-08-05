@@ -1,7 +1,9 @@
 # DESIGN BRIEF — Landing page `/pasantias` · Fundación Nueva Educación
 
-**For:** Claude Design · **From:** Fundación Nueva Educación (nuevaeducacion.org)
-**Deliverable:** one self-contained HTML file, ready to be ported into a Next.js page.
+**Deliverable:** one self-contained HTML file, ready to port into a Next.js page.
+**You already have the FNE brand system** — palette, Mont scale, tracking, icons,
+photography criteria. This brief covers only what the brand kit doesn't: the page,
+the content, and two exceptions.
 
 ---
 
@@ -11,27 +13,34 @@ Redesign the landing page for **Pasantías INSPIRA Barcelona · Octubre 2026** �
 two-week study visit where Chilean school leaders live inside seven leading schools
 in Barcelona.
 
-A version of this page exists at **https://nuevaeducacion.org/pasantias**. Its
-content is correct and approved; its design is not. **Look at it for the content
-and structure. Replace the visual design entirely.**
+The page exists at **https://nuevaeducacion.org/pasantias**. Content correct,
+design not. **Take the content from it. Replace the design entirely.**
 
-The reader is a Chilean school director or pedagogical lead deciding whether to
-spend two weeks and a significant budget. The page should feel like an invitation
-into a movement, not a brochure. Warm, confident, concrete.
+Reader: a Chilean school director deciding whether to spend two weeks and real money.
+It should feel like an invitation into a movement, not a brochure.
 
 ---
 
-## Three non-negotiables
+## Non-negotiable
 
-1. **Do not change a single fact, name, date or word of the content below.** It has
-   been through owner review and repeated verification. You may re-set it
-   typographically, re-order sections, or split and combine blocks — but the strings
-   are fixed. If something reads badly, flag it; don't rewrite it.
+1. **Do not change a single fact, name, date or word below.** It's been through owner
+   review and repeated verification. Re-set it typographically, re-order sections,
+   split or combine blocks — but the strings are fixed. A line that reads badly is
+   something to flag, not rewrite.
 2. **No prices anywhere.** Not a number, not a range, not "desde". Pricing lives only
-   in a PDF sent after someone makes contact. This is a hard rule with an automated
-   check behind it.
-3. **Spanish (Chile), and accents survive in capitals** — PASANTÍAS, FUNDACIÓN,
-   EDUCACIÓN. Dropping an accent in a headline is an error, not a style choice.
+   in a PDF sent after contact. There's an automated check behind this.
+
+## Two brand exceptions
+
+- **`#B45309` is the only yellow that may carry text on a light background.** The
+  kit's `#FBBF24` and `#F59E0B` measure 1.66:1 and 2.14:1 on white — both fail WCAG
+  AA at body size. We hit 15 real contrast violations on this page and added
+  `#B45309` (5.02:1) to fix them. Use it for accent text; the kit's yellows stay on
+  surfaces.
+- **Declare the palette using these exact token names**, which already exist in the
+  codebase: `brand_primary` `brand_accent` `brand_accent_hover` `brand_accent_light`
+  `brand_accent_text` `brand_gray_dark` `brand_gray_medium`. Matching them makes the
+  port mechanical.
 
 ---
 
@@ -39,98 +48,34 @@ into a movement, not a brochure. Warm, confident, concrete.
 
 The page must read as part of nuevaeducacion.org, not a separate microsite.
 
-**Header** (replicate — go look at the live site): white bar, FNE logo top-left
-(gold twelve-pointed flower + "FUNDACIÓN NUEVA EDUCACIÓN" stacked). Nav in small
-caps, medium weight, dark grey: **PASANTÍAS · PROGRAMAS · NOTICIAS Y EVENTOS ·
-NOSOTROS · CONTACTO**. Far right, a pill-shaped outlined button: **HUB DE
-TRANSFORMACIÓN**. Collapses to a drawer on mobile.
+**Header** — replicate it; go look at the live site. White bar, FNE logo top-left.
+Nav in small caps, medium weight, dark grey: **PASANTÍAS · PROGRAMAS · NOTICIAS Y
+EVENTOS · NOSOTROS · CONTACTO**. Far right, a pill-shaped outlined button: **HUB DE
+TRANSFORMACIÓN**. Drawer on mobile.
 
-**Footer**: keep the site's existing footer. Don't design a new one.
-
----
-
-## Brand system (from the FNE brand manual, v1.0)
-
-### Colour
-
-| | hex | use |
-|---|---|---|
-| Negro FNE | `#0A0A0A` | primary |
-| Amarillo FNE | `#FBBF24` | accent — **surfaces only** |
-| Blanco | `#FFFFFF` | default background |
-| Ámbar | `#F59E0B` | hover |
-| Amarillo claro | `#FCD34D` | soft highlights |
-| Gris oscuro | `#1F1F1F` | body text |
-| Gris medio | `#6B7280` | secondary text |
-| Ámbar oscuro | `#B45309` | **the only yellow that may carry text on white** |
-| Degradado dorado | `#FDB833 → #B47410`, 135° | brand gradient |
-
-**Rules that are not suggestions:**
-
-- **Proportion: 60% white · 30% black · 10% yellow.** If the page reads "yellow,"
-  there's too much — cut it to an accent and give the weight back to black.
-- **One solid-yellow element per surface.** Not two.
-- **Black text on yellow. Never white on yellow.**
-- `#FBBF24` and `#F59E0B` measure 1.66:1 and 2.14:1 on white — they **cannot** carry
-  small text on a light background. Use `#B45309` (5.02:1) for accent text.
-- **The gradient is brand, not decoration.** Outside the logo it appears as a rule or
-  an accent — never as a full background, never as a tint over a photo.
-
-### Typography — Mont (Fontfabric) only
-
-| role | size / weight | notes |
-|---|---|---|
-| Display | 44 / 900 | ALWAYS UPPERCASE, tracking **−0.02em** (tight, not expanded) |
-| H1 | 32 / 800 | |
-| H2 | 24 / 700 | section titles, sentence case |
-| H3 | 18 / 700 | |
-| Body | 15 / 400 | line-height 1.6 |
-| Small | 13 / 400 | captions |
-| Eyebrow | 11 / 600 | UPPERCASE, tracking 0.08em |
-
-Display headlines and short labels in caps; section titles in sentence case; never
-English Title Case. Only four tracking values exist: 0.20em (logo), 0.15em
-(descriptor), 0.08em (eyebrows/labels), normal (everything else).
-
-### Icons and ornament
-
-Lucide icons, **1.75px stroke at every size**, rounded caps, monochrome inheriting
-the text colour. No filled or two-colour icons. The only permitted ornaments: a gold
-rule as a section separator, a short yellow bar under a title, and the outlined
-flower symbol as a watermark at **≤12% opacity**.
+**Footer** — the site already has one. Don't design a new one.
 
 ---
 
-## Photography — this is the heart of the redesign
+## Photography
 
-The current page is a wall of white cards. **Photography is the only place this brand
-allows abundant colour**, and it's the mechanism for giving the page rhythm and heat.
-Use it generously: a hero, and image breaks between major sections.
+Use the kit's canonical treatment for the hero, and reuse the pattern for section
+breaks. The current page is a wall of white cards — photography is what gives it
+rhythm and heat, and the owner specifically wants **more Barcelona**.
 
-**The canonical treatment**, straight from the manual — use it for the hero and reuse
-the pattern for section breaks:
+Photos will be attached. Your HTML can't load them, so reference them as
+`/images/pasantias/<name>.jpg` and note in a comment what each slot needs. Broken
+images in your preview are expected; the real files get wired in on port.
 
-> Full-bleed photograph · a **black gradient veil** rising from the edge where the
-> text sits, reaching **85% opacity under the text and dissolving before the photo's
-> centre of interest** · a **yellow eyebrow** in caps · a **white headline in Black
-> 900**, uppercase.
+| slot | what it wants |
+|---|---|
+| Hero | Barcelona from above, golden hour |
+| after *dos semanas* | school interior, in use |
+| before *las 7 escuelas* | street-level Barcelona, architectural scale |
+| before *el equipo* | people mid-conversation, not posed |
+| closing (optional) | Barcelona wide, evening |
 
-**Yes:** real situations — classrooms, workshops, conversation, the city. Natural
-light, golden hour, warm saturated colour. People *doing something*, not posing.
-Architectural scale and urban context — this is Barcelona and it should feel like it.
-
-**No:** generic stock. Black and white. Heavy grain, vignette, colour filters.
-**Duotones or yellow tints over images** (called out explicitly in the manual).
-Collages, decorative frames, overlaid textures.
-
-**Mechanics:** 16:9 for headers, 1:1, 4:5 for portraits. **12px radius** on contained
-cards; **no radius** when an image bleeds to the edge. Crop, never distort — centre
-the crop on the subject. Text over an image **always** needs the veil, at ≥4.5:1
-contrast. One hero photograph per section. Every image needs descriptive alt text in
-Spanish. Over a photo, the logo is the **white** version, never the gradient.
-
-Barcelona photographs will be supplied. Reference them as
-`/images/pasantias/<name>.jpg` and note what each slot needs.
+Four or five total. One hero photograph per section — more becomes a slideshow.
 
 ---
 
@@ -141,25 +86,24 @@ Barcelona photographs will be supplied. Reference them as
 - Eyebrow: `PASANTÍAS INTERNACIONALES`
 - Headline: **VIVE UNA ESCUELA POR DENTRO, NO LA VISITES**
 - Date chip: **Octubre, 5 al 16 · 2026** — must read as **one** span. It previously
-  read as two separate trips and that was a real problem.
+  read as two separate trips, which was a real problem.
 - Summary: **9 días de visitas · 7 escuelas**
-- Primary CTA: *Solicita el programa completo* → anchors to `#programa`
-- Secondary CTA: *Descarga la ficha* → `/api/pasantias/ficha`
+- Primary CTA: *Solicita el programa completo* → `#programa`
+- Secondary: *Descarga la ficha* → `/api/pasantias/ficha`
 
 ### Trust strip
 
 `400+ pasantes` · `40+ colegios` · `12 escuelas de Barcelona en la red` ·
 `7 escuelas en esta cohorte`
 
-### Dos semanas, dos modos (the central idea — give it weight)
+### Dos semanas, dos modos — the central idea, give it weight
 
-**Semana 1 — inmersión · lunes 5 a viernes 9 de octubre.**
-Semana completa de inmersión: cada pasante vive 2,5 días en Escola Virolai y 2,5 días
-en Escola Sadako.
+**Semana 1 — inmersión · lunes 5 a viernes 9 de octubre.** Semana completa de
+inmersión: cada pasante vive 2,5 días en Escola Virolai y 2,5 días en Escola Sadako.
 
 **Fin de semana largo · sábado 10 a lunes 12.** Libre. El lunes 12 es Fiesta Nacional
 de España y los colegios están cerrados: día libre en Barcelona o para conocer Europa.
-*Present this as a feature, not a gap.*
+*Present as a feature, not a gap.*
 
 **Semana 2 — visitas · martes 13 a viernes 16 de octubre.** Una o dos escuelas por día.
 
@@ -175,9 +119,9 @@ de España y los colegios están cerrados: día libre en Barcelona o para conoce
 
 **Escuelas de inmersión** (2,5 días cada una):
 
-- **Escola Virolai** — Infantil, primaria, ESO y Bachillerato — *Organización y
-  espacios · Evaluación formativa, portfolios · Personalización y plan personal ·
-  Gestión del equipo docente*
+- **Escola Virolai** — Infantil, primaria, ESO y Bachillerato — *Organización y espacios
+  · Evaluación formativa, portfolios · Personalización y plan personal · Gestión del
+  equipo docente*
 - **Escola Sadako** — Infantil, primaria y ESO — *Organización y espacios · Evaluación
   formativa, portfolios · Secuenciación y co-docencia · Organización y participación
   estudiantil*
@@ -214,13 +158,13 @@ de España y los colegios están cerrados: día libre en Barcelona o para conoce
 | **Pepe Menéndez** | Consultor en transformación pedagógica |
 | **Joan Quintana** | Consultor en procesos de cambio, co-autor de «Educación Relacional» |
 
-Headshots exist and are black and white — that's the one place b&w is correct.
+Headshots exist and are black and white — the one place b&w is correct here.
 
 ### Los 13 objetivos
 
-Thirteen long paragraphs. **This is the hardest layout problem on the page** — it
-currently reads as a wall. Solve it: numbered pairs, an accordion, grouped themes,
-whatever earns its place. Text is fixed:
+**The hardest layout problem on the page.** Thirteen long paragraphs that currently
+read as a wall. Solve it — numbered pairs, accordion, grouped themes, whatever earns
+its place. Text is fixed:
 
 1. Conocer los proyectos educativos de las principales escuelas de vanguardia en Cataluña y compartir la mirada pedagógica de sus directores.
 2. Tomar contacto con las prácticas pedagógicas en terreno y profundizar en su comprensión por medio de entrevistas con estudiantes y docentes.
@@ -253,38 +197,33 @@ Puig y Les Vinyes · Seguros
 
 ### `#programa` — request panel
 
-A panel headed *Solicita el programa completo*, explaining that the full programme
-with all details arrives by email. For now the action is an email link to
-`info@nuevaeducacion.org`; **design it as a form** — name, email, institution, role,
-number of people, message, plus two checkboxes — because a real form replaces it next.
+Headed *Solicita el programa completo*: the full programme arrives by email. Today the
+action is a mail link to `info@nuevaeducacion.org`, but **design it as a form** — name,
+email, institution, role, number of people, message, plus two checkboxes — because a
+real form replaces it in the next round.
 
 ### FAQ
 
-Six questions, accordion. Existing set covers: who it's for, what a day looks like,
-whether Spanish is needed, group bookings, how to reserve, what happens on the free
-weekend. **No prices in any answer.**
+Six questions, accordion: who it's for, what a day looks like, whether Spanish is
+needed, group bookings, how to reserve, the free weekend. **No prices in any answer.**
 
 ### Closing CTA
 
-WhatsApp button → `+56 9 4162 3577`.
+WhatsApp → `+56 9 4162 3577`.
 
 ---
 
-## What to deliver
+## Deliverable
 
-**One self-contained HTML file**, opening in a browser with no build step:
+**One self-contained HTML file** that opens in a browser with no build step.
 
-- Tailwind via CDN is fine for the mockup — I'll port it to the real build.
-- Declare the brand colours in a `tailwind.config` block using these exact names:
-  `brand_primary` `brand_accent` `brand_accent_hover` `brand_accent_light`
-  `brand_accent_text` `brand_gray_dark` `brand_gray_medium`. They already exist in
-  the codebase under those names, so matching them makes the port near-mechanical.
-- Mont isn't available to you — use a geometric sans stand-in and mark clearly where
-  Mont goes. Don't design around a different typeface's personality.
-- Reference images as `/images/pasantias/<name>.jpg` and note in a comment what each
-  slot needs ("16:9 Barcelona aerial, golden hour").
-- Give each major section a stable `id` and keep the semantic structure clean: one
-  `<h1>`, no skipped heading levels, real `<section>` elements.
+- Tailwind via CDN is fine — I port it to the real build.
+- Palette declared under the token names above.
+- Mont isn't available to you: use a geometric stand-in and mark where Mont goes.
+  Don't design around another typeface's personality.
+- Images referenced as `/images/pasantias/<name>.jpg` with a comment per slot.
+- Stable `id` on each major section. One `<h1>`, no skipped heading levels, real
+  `<section>` elements — these are checked automatically downstream.
 - **Must work at 390px.** Many readers are on phones, some on older school hardware.
 
-Design for both a full-width desktop and a phone. If you show one, show the phone too.
+Show desktop and phone.

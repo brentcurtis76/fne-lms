@@ -1651,3 +1651,13 @@ Entry format (§2.2 of the SOP):
 - **The two documents now have different jobs and both stand:** the design brief goes out to Claude Design; `prompts/a6r-1.md` becomes the integration round and needs rewriting from "design it" to "port the delivered design and wire it to the module" once the design lands. Recorded so it is not dispatched as-is.
 - COMMITS: this commit
 - OPEN: owner hands the brief + Barcelona photos to Claude Design. When the HTML comes back, rewrite `a6r-1.md` as a port-and-wire round, then dispatch.
+
+### 2026-08-05 — A6r brief cut: the brand system was already in Design's context — Fable (PM)
+- ACTION: Owner: Claude Design has already turned the brand kit into a design system, so restating it is waste. Correct. Cut the palette table, the Mont scale, the four tracking values, the icon spec and the photography criteria — all of it is verbatim from a manual Design already holds.
+- **Two things survived the cut because they are genuinely NOT in the kit:** (1) `#B45309` — the kit's `#FBBF24` and `#F59E0B` measure 1.66:1 and 2.14:1 on white and both fail AA at body size; this token was invented in A6a r3 to close 15 real contrast violations and the manual has no equivalent. (2) The codebase's token *names*, which make the port mechanical rather than a translation.
+- Also kept because they are page-specific, not brand-general: the header replication (Design has never seen nuevaeducacion.org's nav), the photo **slot list** as opposed to the photography *rules*, the "no prices" rule and its automated check, the content itself, and the structural asks the A6a guards check downstream.
+- **The photo question, answered honestly in the brief:** Design's output cannot load local or remote images at all, so it references `/images/pasantias/<name>.jpg` with a comment per slot and its preview shows broken images by design. The owner attaches the photos so Design can *see* them and compose to the real frames; the files get wired on port.
+- **Defect found while inventorying photos, not yet fixed:** `public/barcelona-skyline.jpg` is **9.4 MB at 7551×5034** and the live page ships it; `barcelona-stats.jpg` and `barcelona-third.jpg` are ~3 MB each. On a page whose stated audience is older school hardware this is a real performance fault, and it predates A6a. Offered to prepare web-sized 16:9 crops so the same work fixes the weight and gives Design the real frames.
+- COMMITS: this commit
+- BACKLOG ADDED: **image weight** — resize the four Barcelona assets to web dimensions; fold into A6r rather than a separate round, since A6r rewrites every image reference anyway.
+- OPEN: owner hands brief + brand kit + photos to Claude Design.

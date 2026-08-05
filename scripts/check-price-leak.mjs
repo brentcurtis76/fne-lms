@@ -209,7 +209,7 @@ const BAND_GAP = 12;
  * unrelated neighbour hide a protected figure inside a longer token — names a
  * real hazard, but excluding newline never addressed it: the same masking
  * already happened across an ordinary space, which r4 kept (`€2.500 000` fired
- * before r4 and was a miss after it). {@link whitespaceRuns} is what actually
+ * before r4 and was a miss after it). {@link candidateReadings} is what actually
  * addresses it, for every whitespace separator rather than for the two r4
  * happened to leave out.
  *
@@ -260,14 +260,32 @@ function splitNumber(text) {
   return null;
 }
 
-/** Move the decimal point right by `exponent` places, padding with zeroes. */
+/** `0250` → `250`, `0` → `0`. Never empties the string. */
+function stripLeadingZeroes(digits) {
+  return digits.replace(/^0+(?=\d)/, '');
+}
+
+/**
+ * Move the decimal point right by `exponent` places, padding with zeroes.
+ *
+ * The integer part comes back without leading zeroes, because shifting is what
+ * produces them: `0.25e4` is 2500 written with a mantissa below one, and it
+ * shifts to `02500`, which then failed to match the protected `2500` (Sol
+ * round-4 S1). Stripping belongs here rather than in {@link canonicalAmounts}
+ * so it applies **only** to tokens carrying an exponent — a bare `€070` is not
+ * a number JavaScript would write and stays silent, exactly as the `(?<!\d)`
+ * boundary this file used to carry left it.
+ */
 function shiftDecimalPoint({ integer, decimals }, exponent) {
   const digits = integer + decimals;
   const point = integer.length + exponent;
   if (point >= digits.length) {
-    return { integer: digits + '0'.repeat(point - digits.length), decimals: '' };
+    return {
+      integer: stripLeadingZeroes(digits + '0'.repeat(point - digits.length)),
+      decimals: '',
+    };
   }
-  return { integer: digits.slice(0, point), decimals: digits.slice(point) };
+  return { integer: stripLeadingZeroes(digits.slice(0, point)), decimals: digits.slice(point) };
 }
 
 /**
@@ -288,8 +306,11 @@ function shiftDecimalPoint({ integer, decimals }, exponent) {
  *
  * Cents are dropped rather than compared, matching the `(?:,\d{2})?` tail this
  * replaces: `€2.500,00` and `€2.500,50` are both the protected fee, quoted with
- * cents. Leading zeroes are **not** stripped, so `€070` stays silent exactly as
- * the old `(?<!\d)` boundary left it — no real amount is written that way.
+ * cents. Leading zeroes survive in a token with no exponent, so `€070` stays
+ * silent exactly as the old `(?<!\d)` boundary left it; a token **with** an
+ * exponent is read as a shifted number and comes back normalised, so `€0.25e4`
+ * and `€0.1e4` denote 2500 and 1000 rather than `02500` and `01000` — see
+ * {@link shiftDecimalPoint}.
  */
 function canonicalAmounts(token) {
   const exponentAt = token.search(/[eE]/);
@@ -305,7 +326,7 @@ function canonicalAmounts(token) {
   const values = [];
   for (const parsed of readings) {
     if (parsed === null) continue;
-    const shifted = exponent === 0 ? parsed : shiftDecimalPoint(parsed, exponent);
+    const shifted = exponentAt === -1 ? parsed : shiftDecimalPoint(parsed, exponent);
     if (shifted.decimals.length > 2) continue;
     if (!values.includes(shifted.integer)) values.push(shifted.integer);
   }
@@ -313,35 +334,99 @@ function canonicalAmounts(token) {
 }
 
 /**
- * The figures a token holds when its whitespace is read as a gap rather than as
- * a grouping separator.
- *
- * Maximal tokenisation is the false-positive control, but it has one cost: two
- * unrelated numbers with a separator-class character between them tokenise as
- * one, and the fused reading can denote something harmless while each half is a
- * protected figure. `€70\n120` is the case — the band's two figures, one per
- * line, fuse into the innocuous `70120` — and `€2.500 000` and `€2500\n7` are
- * the same shape. `€2.500 000` was already a miss in r4, whose class held the
- * space; the other two only became reachable when this round put `\n` back, and
- * catching them is the condition on widening the class at all.
- *
- * No numeric convention groups thousands with a newline, and a rendered
- * `€70 120` is two figures as often as one, so whitespace is where the fused
- * reading is least trustworthy. {@link scanAmounts} therefore falls back to
- * these runs whenever the fused reading is **not** itself a protected amount.
+ * The whitespace-free pieces of a token, as offsets into it.
  *
  * The split is on whitespace only. `.` and `,` groups stay intact, which is what
  * keeps `€1.200,70` reading as 1200 rather than decomposing into an unrelated
  * `70` beside a euro sign — the crying-wolf case Sol's round-1 S1 raised.
  */
-function whitespaceRuns(text, offset) {
-  const runs = [];
-  let index = 0;
-  for (const run of text.split(/\s/)) {
-    if (run !== '') runs.push({ text: run, offset: offset + index });
-    index += run.length + 1;
+function whitespacePieces(text) {
+  const pieces = [];
+  const piece = /\S+/g;
+  let match;
+  while ((match = piece.exec(text)) !== null) {
+    pieces.push({ start: match.index, end: match.index + match[0].length });
   }
-  return runs;
+  return pieces;
+}
+
+/**
+ * How many whitespace-separated pieces one candidate reading may span.
+ *
+ * Every protected figure is at most four digits, so its whitespace-grouped
+ * spelling is at most two pieces (`2 500`); four is headroom, and a cap is what
+ * keeps this linear in the size of a bundle rather than quadratic. Nothing is
+ * lost by capping: a reading that spans more pieces than this denotes at least
+ * five digits and cannot be a protected amount, so it can neither be a finding
+ * nor suppress one (see {@link candidateReadings}).
+ */
+const MAX_GROUPED_PIECES = 4;
+
+/**
+ * Every reading of a token that denotes a protected amount, keeping only the
+ * **maximal** ones.
+ *
+ * Maximal tokenisation is the false-positive control, but it has one cost: two
+ * unrelated numbers with a separator-class character between them tokenise as
+ * one, and the fused reading can denote something harmless while a protected
+ * figure sits inside it. `€70\n120` is the case — the band's two figures, one
+ * per line, fuse into the innocuous `70120` — and `€2.500 000` and `€2500\n7`
+ * are the same shape.
+ *
+ * Round r5 answered that by falling back to the *whole* whitespace split when
+ * the fused reading was harmless, which is all-or-nothing: for `€2 500\n7` it
+ * checked `2 500 7` (harmless) and then `2`, `500`, `7` (harmless), and never
+ * checked `2 500` — the grouped reading a human actually sees. Four shapes the
+ * guard had been catching regressed that way (Sol round 4), because a protected
+ * amount can sit in a whitespace-grouped **subsequence** rather than in the
+ * whole token or in a single piece.
+ *
+ * So every contiguous run of pieces is a candidate, not just the two extremes.
+ * Each is sliced out of the original text, so the separators it contains are the
+ * ones that were written — which is why a doubled space still reads as a gap
+ * rather than as a grouping (`€2  500` stays an accepted miss: no numeric
+ * convention doubles a thousands separator).
+ *
+ * Only maximal readings are kept: a protected reading contained in a longer
+ * protected reading is dropped, so `€1 560` reports the fee once instead of
+ * reporting the retired `560` inside it as a second finding. That is the r5
+ * "the fused reading *is* the finding" rule, generalised — the whole token is
+ * just the longest candidate. Dropping the inner one never loses a finding: a
+ * contained reading is never closer to a currency marker than its container,
+ * and never carries a wider window, so whenever the inner one would fire the
+ * outer one already has.
+ */
+function candidateReadings(text, offset) {
+  const pieces = whitespacePieces(text);
+  const readings = [];
+
+  for (let first = 0; first < pieces.length; first += 1) {
+    const last = Math.min(pieces.length, first + MAX_GROUPED_PIECES);
+    for (let piece = first; piece < last; piece += 1) {
+      const start = pieces[first].start;
+      const end = pieces[piece].end;
+      const amounts = canonicalAmounts(text.slice(start, end)).filter((value) =>
+        CHECK_BY_AMOUNT.has(value)
+      );
+      if (amounts.length > 0) readings.push({ first, last: piece, start, end, amounts });
+    }
+  }
+
+  return readings
+    .filter(
+      (reading) =>
+        !readings.some(
+          (other) =>
+            other.first <= reading.first &&
+            other.last >= reading.last &&
+            (other.first < reading.first || other.last > reading.last)
+        )
+    )
+    .map((reading) => ({
+      amounts: reading.amounts,
+      start: offset + reading.start,
+      end: offset + reading.end,
+    }));
 }
 
 /** Checks whose whole definition is a regex over the file's text. */
@@ -445,29 +530,18 @@ function scanAmounts(text) {
   NUMBER_TOKEN.lastIndex = 0;
   let token;
   while ((token = NUMBER_TOKEN.exec(text)) !== null) {
-    // When the fused reading is itself a protected amount it *is* the finding,
-    // and reporting its parts as well would turn one leak into several. When it
-    // is not, the whitespace inside it may be a gap rather than a grouping
-    // separator, hiding a protected figure on either side — so read it both
-    // ways. See {@link whitespaceRuns}.
-    const fused = canonicalAmounts(token[0]).some((value) => CHECK_BY_AMOUNT.has(value));
-    const numbers =
-      fused || !/\s/.test(token[0])
-        ? [{ text: token[0], offset: token.index }]
-        : whitespaceRuns(token[0], token.index);
-
-    for (const number of numbers) {
-      for (const amount of canonicalAmounts(number.text)) {
+    // Whitespace inside a token may be a grouping separator or a gap, and the
+    // protected figure may be the whole token, one piece of it, or a grouped
+    // run in the middle. Every reading a reader would see is a candidate; see
+    // {@link candidateReadings}.
+    for (const reading of candidateReadings(token[0], token.index)) {
+      for (const amount of reading.amounts) {
         const check = CHECK_BY_AMOUNT.get(amount);
-        if (check === undefined) continue;
-
-        const start = number.offset;
-        const end = start + number.text.length;
-        const { nearest, distance } = nearestMarker(markers, start, end);
+        const { nearest, distance } = nearestMarker(markers, reading.start, reading.end);
         if (distance > check.gap) continue;
 
-        const from = Math.min(start, nearest.start);
-        const to = Math.max(end, nearest.end);
+        const from = Math.min(reading.start, nearest.start);
+        const to = Math.max(reading.end, nearest.end);
         found.push({ check, index: from, match: text.slice(from, to) });
       }
     }

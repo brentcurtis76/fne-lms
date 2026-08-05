@@ -15,6 +15,12 @@
  */
 import { describe, it, expect } from 'vitest';
 import { scanText, unescapeLiterals } from '../../scripts/check-price-leak.mjs';
+import {
+  generateCorpus,
+  PINNED_LIMITS,
+  SILENT_CONTROLS,
+  SOL_ROUND_4_ROWS,
+} from './price-leak-corpus.mjs';
 
 /** Check ids that fired on a blob of text. */
 function checksFiring(text: string): string[] {
@@ -292,112 +298,59 @@ describe('leak guard — decimal separators do not hide an amount (Sol r2 B1 res
 });
 
 /**
- * The differential corpus (A6a r5).
+ * The differential corpus (A6a r6 — generated, not listed).
  *
- * Round r4 replaced the guard's matching with a normalisation pass and, in
- * doing so, narrowed the separator class from `\s` to a hand-written
- * `[\u00a0 ]`. That silently dropped **fifteen** spellings the guard had been
- * catching — every whitespace character except the two it kept — and the round
- * reported one of them, because only the new cases were tested and the old ones
- * were assumed to be safe.
+ * Three rounds running, a hand-picked list of leak shapes passed while real
+ * coverage was lost. r4 narrowed the separator class and dropped fifteen
+ * spellings. r5 rebuilt the corpus by hand — this block, in its previous form —
+ * and dropped four more, because it covered whitespace-grouped amounts *alone*
+ * and bare amounts *followed by a stray digit*, and never their composition.
+ * Both times the round reported zero coverage lost, because the list tested was
+ * the list written, and the list written was the author's model of the problem.
  *
- * This block exists so that cannot happen again. It is one list of every
- * representative way a protected amount can be written, each pinned to the
- * verdict it must produce — including the shapes the guard deliberately does
- * **not** catch, which are pinned as expected misses with the reason attached.
- * A future change that stops firing on a spelling fails here by name, without
- * anyone having to remember that the spelling was ever covered.
+ * A list cannot cover a product. So the cases below are **generated** by
+ * crossing AMOUNT x SPELLING x CONTEXT in `./price-leak-corpus.mjs`, and each
+ * one's expected verdict is derived from the amount that was planted rather than
+ * from what the scanner returns. The composition r5 lost is in there because the
+ * product contains it, not because anyone remembered to write it down.
  *
  * `[]` means "no check fires". Read the threat model at the top of
- * `scripts/check-price-leak.mjs` before changing an expected miss to a hit or
- * the other way round: the limits below are decisions, not oversights.
+ * `scripts/check-price-leak.mjs` before changing a pinned limit from a miss to a
+ * hit or the other way round: those are decisions, not oversights.
  */
-describe('leak guard — differential corpus (A6a r5)', () => {
-  const corpus: ReadonlyArray<readonly [string, string, readonly string[]]> = [
-    // ---- the separator family -------------------------------------------
-    // Every character JS `\s` matches, between the fee's digits. Vector (b) of
-    // the threat model: a person types a space and the tool emits one of these.
-    // r4 kept only the last two of them; the other fifteen are the regression.
-    ['tab', '€2\t500', ['priced-amount']],
-    ['newline', '€2\n500', ['priced-amount']],
-    ['carriage return', '€2\r500', ['priced-amount']],
-    ['vertical tab', '€2\v500', ['priced-amount']],
-    ['form feed', '€2\f500', ['priced-amount']],
-    ['ogham space mark (U+1680)', '€2\u1680500', ['priced-amount']],
-    ['en quad (U+2000)', '€2\u2000500', ['priced-amount']],
-    ['thin space (U+2009)', '€2\u2009500', ['priced-amount']],
-    ['hair space (U+200A)', '€2\u200a500', ['priced-amount']],
-    ['line separator (U+2028)', '€2\u2028500', ['priced-amount']],
-    ['paragraph separator (U+2029)', '€2\u2029500', ['priced-amount']],
-    ['narrow NBSP (U+202F)', '€2\u202f500', ['priced-amount']],
-    ['medium mathematical space (U+205F)', '€2\u205f500', ['priced-amount']],
-    ['ideographic space (U+3000)', '€2\u3000500', ['priced-amount']],
-    ['zero-width NBSP (U+FEFF)', '€2\ufeff500', ['priced-amount']],
-    ['NBSP (U+00A0)', '€2\u00a0500', ['priced-amount']],
-    ['plain space', '€2 500', ['priced-amount']],
+describe('leak guard — generated differential corpus (A6a r6)', () => {
+  for (const { description, text, expected } of generateCorpus()) {
+    it(`fires on ${description}`, () => {
+      expect(checksFiring(text), JSON.stringify(text)).toEqual([...expected]);
+    });
+  }
+});
 
-    // ---- scientific notation --------------------------------------------
-    ['the minifier spelling', '€2.5e3', ['priced-amount']],
-    ['a grouped mantissa', '€2.500e3', ['priced-amount']],
-    ['an explicit positive exponent', '€2.5e+3', ['priced-amount']],
-    ['the retired fee, minified', '"desde €".concat(1e3)', ['priced-amount']],
-
-    // ---- whitespace that is a gap, not a separator ----------------------
-    ['a price with an unrelated run after it', '€2.500\n000', ['priced-amount']],
-    ['the same across a space', '€2.500 000', ['priced-amount']],
-    ['the fee with an adjacent digit on the next line', '€2500\n7', ['priced-amount']],
-    ['both band figures, one per line', '€70\n120', ['priced-band-amount']],
-
-    // ---- ordinary spellings ---------------------------------------------
-    ['a bare integer', '€2500', ['priced-amount']],
-    ['dot grouping', '€2.500', ['priced-amount']],
-    ['comma grouping', '€2,500', ['priced-amount']],
-    ['a decimal-dot tail', 'Programa: 2500.00 euros por persona', ['priced-amount']],
-    ['comma grouping with a dot tail', 'x="€2,500.00"', ['priced-amount']],
-    ['the word form', '2500 euros', ['priced-amount']],
-    ['the retired programme fee', '€1.000', ['priced-amount']],
-    ['the retired total', '€1.560', ['priced-amount']],
-    ['the retired lodging package', '€560', ['retired-short-amount']],
-    ['the band minimum', '€70', ['priced-band-amount']],
-    ['the band maximum', '€120', ['priced-band-amount']],
-
-    // ---- expected misses: deliberately out of the threat model -----------
-    // Neither vector produces these. (a) is the minifier, which always picks the
-    // *shortest* spelling — never a fullwidth digit, never a doubled space,
-    // never `25000e-1` when `2500` is shorter. (b) is a human typing a price
-    // into JSX, who does not reach for fullwidth digits in a Spanish page.
-    // Normalising arbitrary Unicode digits over every byte of every bundle would
-    // cost more than the risk it removes; see the threat model in the script.
-    ['fullwidth digits (expected miss)', '\u20ac\uff12\uff15\uff10\uff10', []],
-    ['a doubled space (expected miss)', '€2  500', []],
-    ['a negative exponent (expected miss)', '€25000e-1', []],
-
-    // ---- expected over-firings: conservative, and left that way ----------
-    // Both denote something other than a protected amount (250 and 2.5), and
-    // both fire because the guard reads the mantissa as an amount. A guard that
-    // errs towards a false alarm errs in the safe direction, and neither shape
-    // reaches a bundle by any route in the threat model, so they are pinned
-    // rather than chased.
-    ['€2500e-1, which is 250 (expected over-firing)', '€2500e-1', ['priced-amount']],
-    ['€2.500e0, which is 2.5 (expected over-firing)', '€2.500e0', ['priced-amount']],
-
-    // ---- false-positive controls (Sol r1 S1) ----------------------------
-    // Unrelated euro amounts. Every one of these must stay silent or the guard
-    // becomes noise, and noise gets switched off.
-    ['an unrelated larger amount', 'x="€12.500"', []],
-    ['a malformed trailing digit', 'x="€2.5000"', []],
-    ['a grouped euro thousand', 'x="€120.000"', []],
-    ['a larger amount with cents', 'x="€12.500,00"', []],
-    ['a larger amount with a dot tail', 'x="€12,500.00"', []],
-    ['a euro decimal whose cents are a band figure', 'total="€1.200,70 por hora"', []],
-    ['the same, written the other way round', 'total="€1,200.70 por hora"', []],
-    // Verbatim from `lib/currency-service.ts` and `lib/expenseReportExport.ts`.
-    ['the live fallback exchange rate', 'EUR: 1050, // 1 EUR ≈ 1050 CLP (approximate)', []],
-    ['the live formatter example', 'Locale-formatted original amount, e.g. "1.234,50" for EUR', []],
-  ];
-
-  for (const [description, text, expected] of corpus) {
+describe('leak guard — accepted limits, pinned (A6a r6)', () => {
+  for (const [description, text, expected] of PINNED_LIMITS) {
     it(`${expected.length === 0 ? 'stays silent on' : 'fires on'} ${description}`, () => {
+      expect(checksFiring(text), JSON.stringify(text)).toEqual([...expected]);
+    });
+  }
+});
+
+describe('leak guard — unrelated euro text stays silent (A6a r6)', () => {
+  for (const [description, text] of SILENT_CONTROLS) {
+    it(`stays silent on ${description}`, () => {
+      expect(checksFiring(text), JSON.stringify(text)).toEqual([]);
+    });
+  }
+});
+
+/**
+ * Sol's round 4. The generated product already contains these, but a regression
+ * should say which named shape came back rather than only which coordinate of
+ * the cross-product moved — and four of the rows below are the exact strings Sol
+ * proved fired at `ca8e024` and missed at `2158c44`.
+ */
+describe('leak guard — the shapes Sol round 4 proved regressed', () => {
+  for (const [description, text, expected] of SOL_ROUND_4_ROWS) {
+    it(`fires on ${description}`, () => {
       expect(checksFiring(text), JSON.stringify(text)).toEqual([...expected]);
     });
   }

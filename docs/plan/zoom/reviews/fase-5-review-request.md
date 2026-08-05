@@ -779,3 +779,154 @@ verified to replay **in chain order**, not just applied by hand.
   here adds only `'hours_revised'`. Worth its own ticket.
 - The `en_progreso`+ freeze is asserted on the RPC and on the routes, but nothing
   here covers the Z7 override path, which does not exist yet.
+
+---
+
+## Chunk Z2-3b — telling Zoom
+
+### Branch and commits
+
+`feat/zoom-sess`, on top of `334de02a`. One commit, `08d3e82b`, listed in the
+executor report. No migration.
+
+### Objective and scope
+
+Plan §8's two missing lifecycle legs. Z2-1 made a session platform-managed and
+enqueued `meeting_provision` at approve; Z2-2a/2b built and exposed the join; Z2-3a
+made a pre-execution reschedule move the hours ledger atomically. **Nothing ever
+told Zoom.** A rescheduled session kept its original Zoom time, and a cancelled
+session left a live meeting on a booked host forever — the row stayed in an ACTIVE
+status, so the §9 EXCLUDE constraint went on reserving that host for a window nobody
+would use, and the projection went on advertising a joinable meeting.
+
+Two handlers (`meeting_sync`, `meeting_delete`), both registered, and four enqueue
+points — the two reschedule routes, both cancel routes, and the PUT modality flip to
+`presencial`.
+
+### Files, by risk
+
+| Risk | File | Purpose |
+|---|---|---|
+| **High** | `lib/zoom/jobs/meeting-sync.ts` (new, 559) | PATCH Zoom to the current Chile wall-clock; move the reservation; republish |
+| **High** | `lib/zoom/jobs/meeting-delete.ts` (new, 410) | DELETE at Zoom; row → `deleted` (releasing the host); republish → `cancelled` |
+| **High** | `lib/zoom/provisioning-intent.ts` (+204/−1) | the two dedupe keys, the cleanup gate, the two enqueue functions |
+| **Medium** | `pages/api/sessions/[id]/index.ts` (+29) | reschedule → `meeting_sync`; flip to `presencial` → `meeting_delete` |
+| **Medium** | `pages/api/sessions/[id]/cancel.ts` (+18) | both cancel paths → `meeting_delete` |
+| **Medium** | `pages/api/sessions/series/[groupId]/cancel.ts` (+11) | one `meeting_delete` per affected managed session |
+| **Medium** | `pages/api/sessions/edit-requests/[eid].ts` (+25) | edit-request approve → `meeting_sync` |
+| **Low** | `lib/zoom/jobs/registry.ts` (+18/−1) | both types registered, same commit as their first enqueue |
+| **Low** | `lib/zoom/jobs/meeting-provision.ts` (+22/−5) | `sessionStartsAtIso` extracted; the provisioner now calls it |
+| **Low** | `__tests__/lib/zoom/jobs/provisionHarness.ts` (+56) | sync/delete store doubles over the SAME rows and projection |
+
+### Decisions a reviewer should look at hardest
+
+**1. `meeting_sync` writes the DATABASE first, then Zoom.** The chunk is called
+"telling Zoom" and it tells the row first. The row's interval IS a §9 host
+reservation, so moving it can raise 23P01 — and that refusal is PERMANENT (no
+backoff frees a host; host reassignment is a later phase). Discovering it before the
+Zoom call leaves both sides on the old time and a consistent world for a human to
+repair. The reverse order would put Zoom on a window the database had just refused to
+reserve: a host genuinely double-booked, with no retry that repairs it. The residual
+is bounded — a failed PATCH leaves the row ahead of Zoom and the retry re-PATCHes,
+which is safe because PATCH, unlike `createMeeting`, is idempotent.
+
+**2. Cleanup does NOT use the provisioning gate.** `checkSessionEligibility` refuses
+a cancelled session and a `presencial` one, which are exactly the two states a
+cleanup exists for; running it here would refuse every job it is supposed to mint. So
+`checkCleanupGate` keys on the durable `is_zoom_managed` intent instead (the fact,
+not `meeting_provider`, which is vocabulary and can legitimately be hand-managed).
+
+**3. `meeting_delete` refuses one row: a numberless reservation parked under
+`ambiguous_create_outcome`.** That park is not an empty reservation — it is one held
+BECAUSE a meeting may exist at Zoom under a number nobody could read (Sol F4).
+`meeting_provision`'s own eligibility path refuses to release it; this handler does
+the same, non-retryably, with zero writes.
+
+**4. Sync accepts only `provisioned`.** `pending` is either a bare reservation or the
+operator-recovery state `meeting_provision` owns; `started` means reality overtook the
+reschedule; the rest have nothing joinable to move. A NULL meeting number is a
+COMPLETION, not a failure — the provisioner re-proves its reservation against the
+current schedule (`reservationMatchesSource`) and will create at the new time.
+
+**5. Both enqueues sit BEFORE the Z2-3a hours sync, not after.** The hours sync can
+return 500 on a path where the times already moved; an enqueue after it would leave
+Zoom on the old time in exactly the case an admin is being told to go and check the
+ledger. Neither enqueue can throw or change the response, so no branch's status or
+body moves.
+
+**6. `sessionStartsAtIso` was extracted rather than re-derived.** `TZDate`'s
+`toISOString()` renders the ZONED form (`…T17:00:00.000-04:00`). Postgres parses it to
+the same instant, so the difference is invisible in the database and very visible in a
+dedupe key — a key built the obvious way would still be a valid string and would
+silently stop deduplicating. One derivation, three call sites.
+
+**7. The edit-request path nulls `scheduled_duration_minutes` before enqueueing.**
+That route updates without a `.select()`, so the row is reconstructed as
+`{ ...session, ...sessionUpdate }` — and the generated column on `session` is the one
+computed for the OLD times. Nulling it forces derivation from the new start/end. Found
+by the suite, not by reading.
+
+### Test evidence
+
+84 new tests in 4 files: `meeting-sync.test.ts` (27), `meeting-delete.test.ts` (15),
+`session-reschedule-zoom-sync.test.ts` (24), `session-cancel-zoom-delete.test.ts` (18).
+
+Both handler suites run the round trip through `runZoomTick` and the REAL
+`createZoomJobRegistry()`, so a handler that existed but was never registered fails
+them — the Z1b-3 sequencing rule, asserted rather than assumed. The store doubles are
+the shared provision harness extended over the SAME rows and projection, so the
+host-busy path meets the real EXCLUDE model and the delete path is proved to release
+the reservation by re-reserving the same host for the same window afterwards.
+
+Route suites fake ONLY the queue seam; the gate, the dedupe key and the wiring are
+real. The session doubles are **filter-aware** — a canned row resolves only when the
+recorded `.eq()` filters match it — and the `consultor_sessions` double recomputes
+`scheduled_duration_minutes` on update, because it is a stored generated column and
+the dedupe key reads it.
+
+The reschedule fixture sits on **2026-09-10**, inside Chile DST (UTC−3). A handler
+shipping a UTC-converted instant, or a key built by concatenation, would agree with a
+UTC−4 fixture half the year and disagree here.
+
+**Fail-on-old for [A7]/[A9]:** with the four route files alone reverted to `334de02a`
+and everything else in place, the two route suites are **14 failed / 28 passed** —
+every positive enqueue assertion fails (`expected "spy" to be called 1 times, but got
+0 times`; the series case `2 times, but got 0`), on all four routes. The 28 that still
+pass are the negative "does NOT enqueue" assertions, which pass trivially against code
+that never enqueues; they earn their place only alongside the positive ones. Restored
+by blob hash — all four files back to their committed hashes, `git status` clean, and
+the suites green again at 42/42.
+
+### Gates at this head
+
+`npm run type-check && npm run lint && npm test && npm run build` → exit 0,
+**4475 passed / 274 files** (PM baseline at `334de02a`: 4391 / 270 — +84 in 4 new
+files, none lost).
+
+`npm run test:db` → **NOT RUN.** The Docker daemon is down on this host
+(`Cannot connect to the Docker daemon at unix:///Users/brentcurtis/.docker/run/docker.sock`),
+so `supabase test db` never reached a local Postgres (`LegacyDbConnectError`). Not
+worked around, and the last-known figure is deliberately not restated as though it
+were reproduced. This chunk adds no migration, so the gate is a regression check
+here rather than a proof of new behaviour.
+
+### What this round does NOT close
+
+- **[A10] contradicts plan §14 on cleanup, and [A10] was implemented.** §14 (PLAN.md
+  line 292) says the kill switch "stops *new meetings and joins*, never cleanup" and
+  names `meeting_delete` among the jobs that continue with the master flag off. [A10]
+  requires no enqueue at any of the four points when the flag is off. Both cannot
+  hold. The consequence is real and one-directional: with the flag off during an
+  incident, a session cancelled in that window leaves a live meeting on a booked host
+  — the exact failure this chunk exists to fix. It is one line
+  (`checkCleanupGate`'s flag check) either way. **PM ruling needed.**
+- **No handler has ever run against a real Zoom tenant.** Everything here is the fake.
+- **No production verification, and no reconcile.** A `meeting_sync` that dead-letters
+  leaves the row ahead of Zoom with nothing to repair it; reconcile-driven repair is
+  explicitly out of scope for this chunk.
+- **`sync_host_busy` has no automatic remedy.** A reschedule onto a window the host
+  already occupies fails terminally with both intervals in `evidence`; host
+  reassignment is a later phase, so the operator's only lever is moving the other
+  meeting.
+- Notifications, iCal and reminders still describe the OLD time after a reschedule —
+  Z2-4.

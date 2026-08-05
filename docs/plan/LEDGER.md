@@ -1485,3 +1485,25 @@ Entry format (§2.2 of the SOP):
 - **NO MERGE RECOMMENDATION. Awaiting Sol.** I said last round I would not put my verification up against Sol's on this file again, and that holds even though my numbers are clean: my numbers were clean at r5 too.
 - BACKLOG ADDED: none
 - OPEN AFTER THIS ROUND: Sol closure on r6. Merge word only after it returns PASS.
+
+### 2026-08-04 — Sol round 5: guard confirmed correct, evidence not durable; r7 staged — Fable (PM)
+- CONTEXT PRESSURE: comfortable
+- ACTION: **Sol found no functional defect in the guard this round** — HEAD catches every separator, its independent span audit found zero attribution losses across all 928 cases, production scan clean. I checked the load-bearing claim a third way: **derived the ECMAScript whitespace set from the engine** (`/\s/` over the BMP) rather than trusting any hand-list — **25 code points, HEAD misses none**. Sol's S2 reproduces: a TTL `1000` near an FX URL's `EUR` fires `priced-amount`.
+- r7 is therefore about the **evidence**, not the scanner. Two things would let a future regression through: (B1) the corpus lists 18 of 25 separators; (B2) its oracle reduces findings to a **set of check ids**, so `€120 €70` stays green if the first figure stops firing while the second yields the same id — **the exact attribution failure that hid r5's damage**, where `€1 560 7` fired on the nested `560` rather than the fee.
+- **Hand-enumerating the separator dimension has now been wrong three times by three authors**: the r4 grammar, the executor's corpus (18), and **my own generator (21 — I missed U+2004–U+2007 and reported "0 losses" on an incomplete axis)**. r7 requires the set to be *derived at test time with an asserted size*, because adding the missing seven repeats the method that keeps failing.
+- COMMITS: this commit
+- TESTS: PM engine-derived whitespace check (25 code points, 0 misses at HEAD and `ca8e024`); S2 fragment reproduced
+- FINDINGS RAISED: none. Sol's corrected counts (154 losses at `2158c44`, not 112; 231 id changes, not 182) are consistent with an under-enumerated axis and introduce no new functional loss.
+- DECISIONS: B1/B2 accepted as blocking despite the guard being functionally correct — B2 especially, because a suite that cannot detect the r5 failure class is not a regression suite for the thing that actually went wrong. S1/S2 folded in as should-fix; S2 must not weaken the mutant proof, and keeping the over-firing as a pinned known limit is acceptable.
+- **RECOMMENDATION: r7 should be the last round.** The page has been finished and untouched for five rounds; the guard is confirmed correct by Sol, by the executor's generator and by my engine-derived check. If round 6 returns only further evidence-completeness findings against a guard confirmed sound, ship it — the corpus can keep improving on `main` without holding the phase.
+- OPEN AFTER THIS ROUND: dispatch `/exec INSPIRA A6a r7`, then Sol closure.
+
+### 2026-08-05 — Working checkout destroyed by iCloud eviction; rebuilt outside sync — Fable (PM)
+- CONTEXT PRESSURE: comfortable
+- ACTION: `~/Documents/fne-lms-working` was rendered unusable — macOS evicted its git internals to iCloud placeholders under disk pressure (92% full). `.git/packed-refs`, `.git/index`, `FETCH_HEAD`, **every loose ref including `refs/heads/main`**, and **400 of 400 sampled objects** were `dataless`, and iCloud had no content to restore: direct reads returned zero bytes even after the owner disabled "Optimize Mac Storage". Worktrees `wt-a6ar2`, `fne-inspira`, `fne-zoom` were deleted outright; `fne-lms-pm` was gutted to a bare `docs/`.
+- **Deliberately did NOT attempt repo surgery.** Deleting the unreadable `packed-refs` was the obvious move and would have been wrong: `.git/index`, the loose refs and the object store were equally evicted, so it would have destroyed refs without fixing anything. The repository was not corrupt, it was hollow.
+- Nothing lost. All work was on origin (`main` `6eba26e`, `phase/a6a-page` `8382df8`). `.env.local` — the one thing not in git — was still readable and was preserved before it could evict, then restored. The uncommitted r7 prompt survived on disk and is committed here.
+- Rebuilt at **`~/dev/fne-lms`**, outside the iCloud sync path. Git repositories must not live under `~/Documents` on this machine: sync races corrupt `.git` independently of eviction, and this incident is the second time the OS has reclaimed a worktree mid-session (the first cost stray commits on `phase/a5-lead-api`).
+- **Owner action still open:** disk remains at 92%; disabling "Optimize Mac Storage" makes iCloud pull the full Drive down locally, which pushes the wrong way. The old checkout and dead worktree directories are left in place for the owner to delete once satisfied.
+- COMMITS: this commit
+- OPEN: dispatch `/exec INSPIRA A6a r7` — executors must use the new path, not `~/Documents`.

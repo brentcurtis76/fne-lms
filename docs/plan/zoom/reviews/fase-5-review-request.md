@@ -1020,3 +1020,159 @@ which this round closes. Plus:
   the PM as backlog, and deliberately not fixed here — it is a new lifecycle point, not the
   ruling. Note that the ruling makes this gap slightly wider in one respect: the delete that
   path fails to enqueue would now fire regardless of either flag.
+
+---
+
+## Chunk Z2-5 — the hours-consumer audit — round r10 · **FINDINGS, no source change**
+
+**Branch head unchanged: `118a9db8`.** `git diff 118a9db8` is empty for all source. This
+round delivers the §11 inventory (S5) and stops on S2 — the school-report retarget rests on
+a premise that is false against the repo, and repairing it needs a decision the prompt does
+not authorise.
+
+### The blocking finding — `lib/services/school-hours-report.ts` cannot return sessions
+
+The session query at `:149-166` selects **two columns that do not exist** on
+`consultor_sessions`, and orders by one of them:
+
+| Line | Reference | Reality |
+|---|---|---|
+| `:154` | `scheduled_date` | no such column — the table has `session_date` |
+| `:156` | `planned_duration_minutes` | no such column — the table has `scheduled_duration_minutes` (generated) and `actual_duration_minutes` |
+| `:165` | `.order('scheduled_date', …)` | same phantom column, in the order key |
+
+PostgREST rejects an unknown column in `select` (and in `order`) with `42703`. The route
+destructures the error away — `const { data: sessionRows } = await …` — so `sessionRows` is
+`null`, `typedRows` is `[]`, and **every bucket's `sessions` array is empty**. The drill-down
+under each hour bucket renders nothing.
+
+**Evidence, and its one limit.** Three independent strands:
+
+1. `supabase/migrations/00000000000000_baseline.sql:7700-7742` is the full `consultor_sessions`
+   definition and carries neither column; `grep -rn 'planned_duration_minutes\|scheduled_date' supabase/`
+   returns **zero** hits across all 12 migrations.
+2. That baseline dump is itself current: it carries `blocks.payload`, `blocks.lesson_id` and
+   `blocks.is_visible` exactly as the live table is known to have them, so it is not a stale
+   snapshot.
+3. `pages/api/admin/bulk-tag-sessions.ts:131` does `scheduled_date: s.session_date` — an
+   explicit alias "for frontend compat", written by someone who knew the real column name.
+
+*Limit:* this was **not** executed against a live PostgREST. `test:db` cannot connect (below)
+and production is off-limits per `CLAUDE.md`. The conclusion rests on the schema record plus
+PostgREST's documented behaviour, not on an observed 400.
+
+**Why no test caught it.** `fetchSchoolReportData` has **no** direct coverage: both suites that
+name it — `__tests__/api/hour-tracking/school-report.test.ts:53` and `school-report-pdf.test.ts:52`
+— `vi.mock` the module out entirely and assert against a hand-built return value. 15 tests
+pass green over a function whose main query cannot succeed. Introduced in `94312a76`
+("Phase 6 — Polish + Badges…").
+
+### Why this stops S2 rather than being fixed inside it
+
+- §1's anchor table says `:200-202` is "the offending derivation, **feeding `hours` at `:214`**".
+  The text matches, but the claim does not: with `typedRows` always empty, that derivation
+  never runs on a real row, and this consumer displays no hours at all — it is not
+  mis-presenting `actual_duration_minutes`, it is presenting nothing.
+- S2 says "extend the ledger select it **already makes** at `:178-181`". That query is inside
+  `if (sessionIds.length > 0)`, which never holds. **S2's whole retarget is unreachable code**
+  until the phantom columns are repaired.
+- Repairing them means renaming a **display** field (`scheduled_date` → `session_date`, feeding
+  `date` at `:212`) and an **order key** — neither is an hours concern, and the repair would
+  take the school report's drill-down from "always empty" to "populated" on a report that goes
+  to schools. That is a visible product change no acceptance criterion covers and §4 excludes.
+  §2 S5 is explicit: *"do not silently widen scope to fix it."*
+
+### What the PM has to decide
+
+**Option A — repair first, retarget second (recommended).** A separate chunk fixes the three
+phantom references and lands the first real unit test for `fetchSchoolReportData`; Z2-5's
+retarget then follows on a query that works and can be asserted end to end. Costs a round,
+keeps the visible change reviewable on its own.
+
+**Option B — one chunk, explicitly widened.** Authorise the column repair inside Z2-5 and
+state the drill-down going live as an expected outcome, so the reviewer is not surprised.
+
+Either way `hours` cannot be derived from `planned_duration_minutes`; the fallback source
+must become `scheduled_duration_minutes`.
+
+### Design work already settled (so the next round does not redo it)
+
+- **S1 helper — `resolveBillableHours(ledgerRow, plannedMinutes)`** in `lib/services/hour-tracking.ts`,
+  returning `{ hours, source }` where `source ∈ ledger | ledger_non_billable | planned_fallback`.
+  The `source` is what lets a test tell "read the ledger" from "fell back" when the two
+  numbers coincide.
+- **Ruling 3 (no ledger row) → the session's approved planned duration, never a silent 0**,
+  sourced `planned_fallback`. It is the number both consumers already display for those
+  sessions today, since `actual_duration_minutes` stays NULL until finalize.
+- **Ruling 4 → `devuelta` = 0 (`ledger_non_billable`), `penalizada` = its `hours`.** This is not
+  a judgement call; two existing sources fix it:
+  - `get_bucket_summary` (baseline `:2781-2823`) rolls `('consumida','penalizada')` into
+    `consumed_hours` and excludes `devuelta` from the bucket entirely. That bucket header
+    renders directly above the per-session drill-down, so a `penalizada` row reading 0 h would
+    contradict the total above it.
+  - `pages/api/consultant-earnings/[consultant_id].ts:170` sums ledger `hours` filtered to
+    `('consumida','penalizada')` — penalizada already **pays the consultant**.
+- **Z7 seam:** helper reads `hours` today; when `effective_minutes` lands, the only change is
+  preferring `effective_minutes / 60` for a billable row plus the column in two `select()`
+  strings.
+
+### §11 hours-consumer inventory (S5 — the deliverable)
+
+**How I searched.** Four repo-wide greps over `*.ts|*.tsx|*.js`, excluding `node_modules`
+and `.next`: `actual_duration_minutes`, `scheduled_duration_minutes`, `planned_minutes_snapshot`,
+`contract_hours_ledger`. For the ledger I read every `select()` that follows a
+`.from('contract_hours_ledger')` to separate rows that carry `hours` from rows that carry only
+`status`/`admin_override`. Every hit was then opened to decide whether the value reaches a
+human. Test files and fixtures are excluded from the verdict table and listed separately.
+
+| # | Site | Reads | Presented to a human? | Verdict |
+|---|---|---|---|---|
+| 1 | `lib/services/school-hours-report.ts:201` | `actual_duration_minutes ?? planned_duration_minutes` | **No — unreachable** (finding above) | **BLOCKED** — retarget deferred pending the PM decision |
+| 2 | `pages/api/sessions/reports/analytics.ts:327` | `actual_duration_minutes` → `total_hours_actual` | Yes, in the API body — but see #3 | **To retarget** (S3); design settled, not landed this round |
+| 3 | `pages/consultor/sessions/reports.tsx:57` | `total_hours_actual` | **No.** Declared on the KPI interface and **never rendered** — the only KPI card in that block is `total_hours_scheduled` at `:541` | **Already correct** — and ruling 2's premise needs amending: there is **no UI label** claiming "real"/"actual" elapsed time to fix, because nothing renders the field |
+| 4 | `pages/api/sessions/[id]/finalize.ts:96,108` | writes `actual_duration_minutes ?? scheduled_duration_minutes` | No | **Deliberately left** — the compatibility writer §2 S4 keeps |
+| 5 | `pages/api/sessions/index.ts:230` | writes `actual_duration_minutes: null` | No | **Deliberately left** — creation default |
+| 6 | `pages/admin/sessions/[id].tsx:847` | `scheduled_duration_minutes` → `({n} min)` | Yes | **Already correct** — planned duration, presented as planned |
+| 7 | `pages/api/sessions/reports/analytics.ts:323` | `scheduled_duration_minutes` → `total_hours_scheduled` | Yes | **Already correct** — named and used as scheduled |
+| 8 | `pages/api/consultant-earnings/[consultant_id].ts:156,181` | ledger `hours`, status ∈ `('consumida','penalizada')` | Yes — consultant payment | **Already correct** — reads the ledger, the §11 source of truth |
+| 9 | `pages/api/contracts/[id]/hours/ledger/index.ts:112` | ledger `select('*')` incl. `hours` | Yes — admin ledger view | **Already correct** |
+| 10 | `pages/api/contracts/[id]/hours/ledger/csv.ts:97` | ledger `hours` | Yes — CSV export | **Already correct** |
+| 11 | `lib/services/hour-tracking.ts:283` (`createReservation`) | derives `hours` from `scheduled_duration_minutes` | No — it is the writer | **Already correct** — this is where ledger `hours` comes from |
+| 12 | `components/workspace/WorkspaceSessionsTab.tsx:104`; `pages/admin/sessions/index.tsx:746`; `pages/consultor/sessions/index.tsx:98` | ledger `session_id, status, admin_override` — **no `hours`** | Status badge only | **Already correct** — not hours readers |
+| 13 | `pages/api/admin/consultant-rates/[id].ts:176,208` | ledger existence check, selects `id` only | No | **Already correct** — not an hours reader |
+| 14 | `lib/zoom/{provisioning-intent,jobs/meeting-sync,jobs/meeting-provision}.ts` | `scheduled_duration_minutes` → Zoom meeting length | Yes, as meeting duration | **Already correct** — meeting length, not billed hours; sealed chunks |
+| 15 | `planned_minutes_snapshot` | written at `lib/services/hour-tracking.ts:328`, updated by the Z2-3a RPC | **No reader anywhere** outside tests | **Deliberately left** — Z7 consumes it for the comparison UI |
+
+**Third offender found: none.** Every ledger-`hours` reader outside the two named consumers
+(#8, #9, #10) already reads the §11 source of truth. The one genuinely broken site is #1, and
+it is broken in a way §11 did not anticipate — not "shows the wrong number" but "shows no
+sessions at all".
+
+**Test-only occurrences** (no verdict needed, but #2's fixtures at
+`__tests__/api/sessions/session-reports-analytics.test.ts:77,88` must move to ledger rows when
+S3 lands, and `session-notification-recipients.test.ts:335` merely sets the column NULL).
+
+### Gates
+
+No source changed, so nothing could fall: `git status` clean and `git diff 118a9db8 --stat`
+empty prove the tree is byte-identical to the PM's measured baseline. The four gates were
+therefore not re-run — re-measuring an unmodified checkout of an already-measured commit
+proves nothing the diff does not. The suites covering the affected area were run:
+
+```
+✓ __tests__/api/sessions/session-reports-analytics.test.ts  (11 tests)
+✓ __tests__/api/hour-tracking/school-report.test.ts  (11 tests)
+✓ __tests__/api/hour-tracking/school-report-pdf.test.ts  (4 tests)
+✓ __tests__/api/hour-tracking/reservation.test.ts  (10 tests)
+Test Files  4 passed (4)     Tests  36 passed (36)
+```
+
+Note what that green means for `school-report*`: 15 of those 36 pass over a mocked-out
+service, which is exactly how the finding survived.
+
+`npm run test:db` — **NOT RUN**, real error:
+
+```
+Connecting to local database...
+{"_tag":"Error","error":{"code":"LegacyDbConnectError","message":"failed to connect to postgres: effect/sql/SqlError: PgClient: Failed to connect","suggestion":"Make sure your local IP is allowed in Network Restrictions and Network Bans.\nhttps://supabase.com/dashboard/project/_/database/settings"}}
+```

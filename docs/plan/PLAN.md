@@ -209,6 +209,10 @@ to check.
 **Out of scope:** `contact.ts` (A7b).
 **Acceptance criteria:** v2 A7 [A1] verbatim (all PASANTÍAS links → `/pasantias`; both INSPIRA flipbooks removed → links; Directivos flipbooks keep, "Abril 2026" dropped; greps prove it) + e2e nav assertion; gates + leak green.
 
+**Added 2026-08-05 (owner approved) — two one-line asset swaps in `pages/index.tsx`, which this phase already edits:**
+- [A2] Replace `/barcelona-innovation.jpg` in the Barcelona collage with `/images/pasantias/educadores-biblioteca.jpg`. The current file is **generic stock of identifiable children and is not Barcelona** — the brand manual prohibits generic stock, and identifiable minors need image-use authorisation on file. It was removed from `/pasantias` in A6r; this is the same file's last live use.
+- [A3] Repoint `/barcelona-skyline.jpg` (**9.4 MB, 7551×5034**) to `/images/pasantias/bcn-skyline.jpg` (1.5 MB, 2400×1350, same photograph). ~8 MB off the homepage; the page targets older school hardware. Check for other references before deleting the original.
+
 ## Phase A7b — contact.ts transport swap
 
 **Scope:** `pages/api/contact.ts`; `__tests__/api/contact.test.ts`.

@@ -11,7 +11,7 @@
  * The registry, the helper, the recipient union and the changed-fields comparison are
  * all the real thing, so a change to any of them shows up here.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 
 const ADMIN_ID = '11111111-1111-4111-8111-111111111111';
@@ -137,6 +137,12 @@ interface ClientState {
   editRequest: Record<string, unknown> | null;
   /** Every `update()` payload, in order, keyed by table. */
   updates: { table: string; payload: Record<string, unknown> }[];
+  /**
+   * Per-table read failure, for the r15 [B7] cases. A Supabase read that errors yields
+   * `{ data: null, error }` — which is exactly what an empty table also looks like if
+   * you only ever destructure `data`, and that conflation is the defect [B7] guards.
+   */
+  readErrors: Partial<Record<'session_facilitators' | 'session_attendees', { message: string }>>;
 }
 
 function makeState(overrides: Partial<ClientState> = {}): ClientState {
@@ -146,6 +152,7 @@ function makeState(overrides: Partial<ClientState> = {}): ClientState {
     attendees: [{ user_id: BOTH_ID }, { user_id: ATTENDEE_ONLY_ID }],
     editRequest: null,
     updates: [],
+    readErrors: {},
     ...overrides,
   };
 }
@@ -210,8 +217,13 @@ function createClient(state: ClientState) {
           : { data: null, error: { message: 'not found' } };
       },
       maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
-      then: (onFulfilled: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) =>
-        Promise.resolve({ data: rows(), error: null }).then(onFulfilled, onRejected),
+      then: (onFulfilled: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) => {
+        const readError = state.readErrors[table as keyof typeof state.readErrors];
+        const result = readError
+          ? { data: null, error: readError }
+          : { data: rows(), error: null };
+        return Promise.resolve(result).then(onFulfilled, onRejected);
+      },
     });
 
     return api;
@@ -597,6 +609,240 @@ describe('[A3] POST /api/sessions/series/[groupId]/cancel emits per cancelled se
         ...((call[1] as any).attendee_ids || []),
       ]);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// [B4] + [B5] a DURATION-ONLY reschedule is a reschedule (r15 ruling)
+//
+// r14 excluded `end_time` from the comparison. It is overruled: 09:00–10:30 →
+// 09:00–11:30 re-bills the school through the reschedule RPC and extends the Zoom
+// meeting, so the participant who now owes an extra hour has to be told. Asserted
+// through BOTH reschedule routes, and asserted on the RENDERED copy — the reason
+// `end_time` was excluded was that start-only copy would have shown the same thing
+// twice, so proving the emit without proving the copy would miss the point.
+// ---------------------------------------------------------------------------
+
+/** The "Antes" and "Ahora" halves of the rendered reschedule description. */
+function renderRescheduleHalves(payload: Record<string, any>) {
+  const description = getEventConfig('session_rescheduled').defaultDescription(payload as any);
+  const antes = description.split('Antes: ')[1]?.split('. Ahora: ')[0];
+  const ahora = description.split('. Ahora: ')[1]?.split('. Actualice')[0];
+  return { description, antes, ahora };
+}
+
+describe('[B4] a duration-only change emits session_rescheduled', () => {
+  it('PUT /api/sessions/[id]: end_time moves, date and start do not', async () => {
+    const state = makeState();
+    mockCreateServiceRoleClient.mockReturnValue(createClient(state));
+
+    const { req, res } = mocked('PUT', {
+      query: { id: SESSION_ID },
+      body: { end_time: '11:30:00' },
+    });
+    await sessionDetailHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const payload = payloadFor('session_rescheduled');
+    expect(payload).not.toBeNull();
+    // The move really is duration-only: start and date are untouched.
+    expect(payload!.session.previous_time).toBe('09:00');
+    expect(payload!.session.time).toBe('09:00');
+    expect(payload!.session.previous_date).toBe(payload!.session.date);
+    expect(payload!.session.previous_end_time).toBe('10:30');
+    expect(payload!.session.end_time).toBe('11:30');
+    expectDedupedRecipients(recipientsFor('session_rescheduled'));
+    expect(JSON.stringify(payload)).not.toContain(RAW_MEETING_LINK);
+  });
+
+  it('PUT /api/sessions/edit-requests/[eid]: an approved end_time-only change set', async () => {
+    const state = makeState({
+      editRequest: {
+        id: EDIT_REQUEST_ID,
+        session_id: SESSION_ID,
+        status: 'pending',
+        requested_by: FACILITATOR_ONLY_ID,
+        changes: { end_time: { old: '10:30:00', new: '11:30:00' } },
+        consultor_sessions: { title: 'Sesión de acompañamiento' },
+      },
+    });
+    mockCreateServiceRoleClient.mockReturnValue(createClient(state));
+
+    const { req, res } = mocked('PUT', {
+      query: { eid: EDIT_REQUEST_ID },
+      body: { action: 'approve' },
+    });
+    await editRequestHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const payload = payloadFor('session_rescheduled');
+    expect(payload).not.toBeNull();
+    // This route rebuilds the row as `{ ...session, ...sessionUpdate }` rather than
+    // re-reading it, so the assertion that `end_time` actually REACHED the comparison
+    // on this path is the load-bearing one.
+    expect(payload!.session.previous_end_time).toBe('10:30');
+    expect(payload!.session.end_time).toBe('11:30');
+    expect(payload!.session.time).toBe('09:00');
+    expectDedupedRecipients(recipientsFor('session_rescheduled'));
+  });
+});
+
+describe('[B5] the rendered copy distinguishes before from after on a duration-only move', () => {
+  it('PUT /api/sessions/[id]: the two halves cannot read identically', async () => {
+    const state = makeState();
+    mockCreateServiceRoleClient.mockReturnValue(createClient(state));
+
+    const { req, res } = mocked('PUT', {
+      query: { id: SESSION_ID },
+      body: { end_time: '11:30:00' },
+    });
+    await sessionDetailHandler(req as any, res as any);
+
+    const { description, antes, ahora } = renderRescheduleHalves(payloadFor('session_rescheduled')!);
+
+    expect(antes).toBeTruthy();
+    expect(ahora).toBeTruthy();
+    // The whole point: start and date are identical, so only the range can carry the
+    // change. An identical before/after fails here.
+    expect(antes).not.toBe(ahora);
+    expect(antes).toContain('de 09:00 a 10:30');
+    expect(ahora).toContain('de 09:00 a 11:30');
+    expect(description).not.toContain('undefined');
+    expect(description).not.toContain('null');
+  });
+
+  it('edit-requests: the two halves cannot read identically', async () => {
+    const state = makeState({
+      editRequest: {
+        id: EDIT_REQUEST_ID,
+        session_id: SESSION_ID,
+        status: 'pending',
+        requested_by: FACILITATOR_ONLY_ID,
+        changes: { end_time: { old: '10:30:00', new: '11:30:00' } },
+        consultor_sessions: { title: 'Sesión de acompañamiento' },
+      },
+    });
+    mockCreateServiceRoleClient.mockReturnValue(createClient(state));
+
+    const { req, res } = mocked('PUT', {
+      query: { eid: EDIT_REQUEST_ID },
+      body: { action: 'approve' },
+    });
+    await editRequestHandler(req as any, res as any);
+
+    const { antes, ahora } = renderRescheduleHalves(payloadFor('session_rescheduled')!);
+
+    expect(antes).not.toBe(ahora);
+    expect(antes).toContain('de 09:00 a 10:30');
+    expect(ahora).toContain('de 09:00 a 11:30');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// [B7] a failed recipient read is not an empty session
+// ---------------------------------------------------------------------------
+
+describe('[B7] a failed recipient read is distinguishable from an empty session', () => {
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    errorSpy.mockRestore();
+  });
+
+  /** Everything this module logged, flattened — the diagnosability surface [B7] is about. */
+  function loggedText(): string {
+    return errorSpy.mock.calls.map((c) => c.map((a) => String(a)).join(' ')).join('\n');
+  }
+
+  /**
+   * The CANCEL route, deliberately — it is the only lifecycle route that reads neither
+   * `session_facilitators` nor `session_attendees` for its own purposes, so a read error
+   * injected on those tables reaches the notification module and nothing else. Through
+   * `approve` the same injection would only prove that `approve`'s own facilitator query
+   * 500s, which is that route's contract and not this module's.
+   */
+  async function cancelWith(state: ClientState) {
+    mockCreateServiceRoleClient.mockReturnValue(createClient(state));
+    const { req, res } = mocked('POST', {
+      query: { id: SESSION_ID },
+      body: { cancellation_reason: 'El colegio suspendió las clases.' },
+    });
+    await cancelHandler(req as any, res as any);
+    return res;
+  }
+
+  it('a failed facilitator read is logged by name, and still notifies who was found', async () => {
+    const res = await cancelWith(
+      makeState({
+        sessions: [baseSession()],
+        readErrors: { session_facilitators: { message: 'connection reset' } },
+      })
+    );
+
+    // Invariant 3: the approval succeeded, so the request must not become an error.
+    expect(res._getStatusCode()).toBe(200);
+    expect(loggedText()).toContain('session_facilitators READ FAILED');
+    expect(loggedText()).not.toContain('session_attendees READ FAILED');
+
+    // Partial read still notifies the people it DID resolve — the attendees.
+    const recipients = recipientsFor('session_cancelled');
+    expect(recipients).toHaveLength(2);
+    expect(new Set(recipients)).toEqual(new Set([BOTH_ID, ATTENDEE_ONLY_ID]));
+  });
+
+  it('a failed attendee read is logged by name, and still notifies who was found', async () => {
+    const res = await cancelWith(
+      makeState({
+        sessions: [baseSession()],
+        readErrors: { session_attendees: { message: 'statement timeout' } },
+      })
+    );
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(loggedText()).toContain('session_attendees READ FAILED');
+    expect(loggedText()).not.toContain('session_facilitators READ FAILED');
+
+    const recipients = recipientsFor('session_cancelled');
+    expect(recipients).toHaveLength(2);
+    expect(new Set(recipients)).toEqual(new Set([BOTH_ID, FACILITATOR_ONLY_ID]));
+  });
+
+  it('when BOTH reads fail nothing is sent, and the log says why', async () => {
+    const res = await cancelWith(
+      makeState({
+        sessions: [baseSession()],
+        readErrors: {
+          session_facilitators: { message: 'connection reset' },
+          session_attendees: { message: 'connection reset' },
+        },
+      })
+    );
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(mockTriggerNotification).not.toHaveBeenCalled();
+    expect(loggedText()).toContain('NOT notifying');
+    expect(loggedText()).toContain('failed query, not an empty session');
+  });
+
+  it('a genuinely empty session logs none of that — this is what makes the two distinguishable', async () => {
+    const res = await cancelWith(
+      makeState({
+        sessions: [baseSession()],
+        facilitators: [],
+        attendees: [],
+      })
+    );
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(mockTriggerNotification).not.toHaveBeenCalled();
+    expect(loggedText()).not.toContain('READ FAILED');
+    expect(loggedText()).not.toContain('NOT notifying');
   });
 });
 

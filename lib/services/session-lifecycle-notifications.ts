@@ -55,6 +55,7 @@ export interface LifecycleSessionRow {
   title?: string | null;
   session_date?: string | null;
   start_time?: string | null;
+  end_time?: string | null;
   meeting_link?: string | null;
 }
 
@@ -62,6 +63,7 @@ export interface LifecycleSessionRow {
 export interface SessionSchedule {
   session_date?: string | null;
   start_time?: string | null;
+  end_time?: string | null;
 }
 
 type RequestLike = { headers?: { host?: string | string[] } } | null | undefined;
@@ -84,9 +86,14 @@ export interface NotifySessionLifecycleInput {
  * session's existing date is not a reschedule, and telling participants a session moved
  * "de 09:00 a 09:00" is worse than saying nothing.
  *
- * `end_time` is deliberately NOT part of the comparison. It changes the duration, not
- * when the reader has to be somewhere, and the notification renders only the start — so
- * an end-time-only edit would render an identical before and after.
+ * `end_time` COUNTS (r15 ruling, reversing r14). A session moved 09:00–10:30 → 09:00–11:30
+ * is the worked example in `pages/api/sessions/[id]/index.ts` for why chunk Z2-3a exists:
+ * that edit re-bills the school through the reschedule RPC and extends the Zoom meeting
+ * via `meeting_sync`. Leaving it out meant the ledger changed, Zoom changed, and the
+ * participant who now owes an extra hour was told nothing — the exact defect this module
+ * was created to close, surviving in the duration-only case. The copy renders a RANGE
+ * (see `session_rescheduled` in `lib/notificationEvents.ts`) precisely so this case does
+ * not render an identical before and after.
  */
 export function hasScheduleChanged(
   previous: SessionSchedule | null | undefined,
@@ -95,17 +102,38 @@ export function hasScheduleChanged(
   if (!previous || !next) return false;
   return (
     previous.session_date !== next.session_date ||
-    previous.start_time !== next.start_time
+    previous.start_time !== next.start_time ||
+    previous.end_time !== next.end_time
   );
 }
 
-/** `"lunes 5 de agosto"` / `"09:00"`, or nulls when the row has no usable schedule. */
+/**
+ * `"lunes 5 de agosto"` / `"09:00"` / `"10:30"`, or nulls when the row has no usable
+ * schedule.
+ *
+ * `endTime` is formatted independently of the other two: a row may legitimately carry a
+ * malformed or absent `end_time` while its start is fine, and losing the whole rendering
+ * over the end of the range would be worse than rendering the start alone.
+ */
 function formatSchedule(schedule: SessionSchedule | null | undefined): {
   date: string | null;
   time: string | null;
+  endTime: string | null;
 } {
   if (!schedule?.session_date || !schedule.start_time) {
-    return { date: null, time: null };
+    return { date: null, time: null, endTime: null };
+  }
+
+  let endTime: string | null = null;
+
+  if (schedule.end_time) {
+    try {
+      endTime = format(getSessionDateTime(schedule.session_date, schedule.end_time), 'HH:mm', {
+        locale: es,
+      });
+    } catch {
+      endTime = null;
+    }
   }
 
   try {
@@ -113,22 +141,40 @@ function formatSchedule(schedule: SessionSchedule | null | undefined): {
     return {
       date: format(dateTime, "EEEE d 'de' MMMM", { locale: es }),
       time: format(dateTime, 'HH:mm', { locale: es }),
+      endTime,
     };
   } catch {
     // `getSessionDateTime` throws on a malformed date or time. A notification is not
     // worth failing over a row shape that is already wrong elsewhere.
-    return { date: null, time: null };
+    return { date: null, time: null, endTime: null };
   }
 }
 
-/** The deduplicated union of the session's facilitators and attendees. */
+/** What `collectParticipantIds` found, and which of the two reads failed getting there. */
+interface ParticipantLookup {
+  userIds: string[];
+  /** Non-null when the `session_facilitators` read errored — NOT when it returned zero rows. */
+  facilitatorsError: unknown;
+  /** Non-null when the `session_attendees` read errored — NOT when it returned zero rows. */
+  attendeesError: unknown;
+}
+
+/**
+ * The deduplicated union of the session's facilitators and attendees.
+ *
+ * Both errors are returned rather than discarded (r15 finding 3). Destructuring only
+ * `data` made a failed read indistinguishable from an empty session: the caller saw an
+ * empty union and returned silently, so a database error looked exactly like "nobody is
+ * on this session". That is the defect class round r11 was dispatched to repair, and it
+ * does not get to ship in new code written after that ruling.
+ */
 async function collectParticipantIds(
   client: SupabaseClient,
   sessionId: string
-): Promise<string[]> {
+): Promise<ParticipantLookup> {
   const userIdSet = new Set<string>();
 
-  const { data: facilitators } = await client
+  const { data: facilitators, error: facilitatorsError } = await client
     .from('session_facilitators')
     .select('user_id')
     .eq('session_id', sessionId);
@@ -139,7 +185,7 @@ async function collectParticipantIds(
     }
   }
 
-  const { data: attendees } = await client
+  const { data: attendees, error: attendeesError } = await client
     .from('session_attendees')
     .select('user_id')
     .eq('session_id', sessionId);
@@ -150,7 +196,11 @@ async function collectParticipantIds(
     }
   }
 
-  return Array.from(userIdSet);
+  return {
+    userIds: Array.from(userIdSet),
+    facilitatorsError: facilitatorsError ?? null,
+    attendeesError: attendeesError ?? null,
+  };
 }
 
 /**
@@ -170,13 +220,47 @@ export async function notifySessionLifecycle({
   try {
     if (!session?.id) return;
 
-    const userIds = await collectParticipantIds(client, session.id);
+    const { userIds, facilitatorsError, attendeesError } = await collectParticipantIds(
+      client,
+      session.id
+    );
+
+    // A failed read is logged on its own line, naming the table, so an under-notification
+    // is diagnosable from the logs instead of being invisible. Invariant 3 still holds:
+    // nothing here is thrown back at the caller.
+    if (facilitatorsError) {
+      console.error(
+        `[session-lifecycle] ${event} ${session.id}: session_facilitators READ FAILED — the recipient list is incomplete:`,
+        facilitatorsError
+      );
+    }
+
+    if (attendeesError) {
+      console.error(
+        `[session-lifecycle] ${event} ${session.id}: session_attendees READ FAILED — the recipient list is incomplete:`,
+        attendeesError
+      );
+    }
 
     if (userIds.length === 0) {
+      if (facilitatorsError || attendeesError) {
+        // Distinct from the silent return below ON PURPOSE: this session may well have
+        // people on it and we could not read them. Not notifying is not "normal" here.
+        console.error(
+          `[session-lifecycle] ${event} ${session.id}: NOT notifying — recipients could not be read. This is a failed query, not an empty session.`
+        );
+        return;
+      }
+
       // A session with nobody on it is a normal state (drafts, series skeletons), not a
       // failure — the reminder cron skips it the same way.
       return;
     }
+
+    // A PARTIAL read still notifies whoever was found. The people we did resolve are
+    // genuinely on this session and genuinely need to know it moved; withholding from
+    // them too, because the other table was unreachable, converts a partial failure into
+    // a total one. The logged lines above are what makes the shortfall diagnosable.
 
     const current = formatSchedule(session);
     const before = event === 'session_rescheduled' ? formatSchedule(previous) : null;
@@ -189,8 +273,10 @@ export async function notifySessionLifecycle({
         title: session.title,
         date: current.date,
         time: current.time,
+        end_time: current.endTime,
         previous_date: before?.date ?? null,
         previous_time: before?.time ?? null,
+        previous_end_time: before?.endTime ?? null,
         // Invariant 2: the platform surface, never `meeting_link`.
         join_url: session.meeting_link
           ? buildAbsoluteUrl(buildSessionJoinPath(session.id), req)

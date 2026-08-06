@@ -1784,3 +1784,164 @@ should be re-run before the phase closes.
 - Untouched and unruled, as instructed: `bucketError` `continue`
   (`lib/services/school-hours-report.ts:139-142`), the `SESSION_STATUS_FALLBACK` mismatch
   (`:57-63`), and `total_hours_actual`'s now-inaccurate name.
+
+---
+
+## Chunk Z2-4a — round r15 — remediation, and a correction to the r14 text above
+
+**Everything in the r14 section stays as written; this section corrects it where r15
+supersedes it.** Two of the three dispatched findings produced source changes. The third
+— the one the round was built around — did not reproduce, and that is reported here as a
+finding rather than papered over with a speculative fix.
+
+Branch `feat/zoom-sess`, on top of `7315ec85`. No SQL, no migration, no schema or RLS
+change. Docker was still down, so `npm run test:db` was not run.
+
+### Finding 2 — `end_time` now counts as a reschedule (supersedes r14)
+
+**The r14 text above says `end_time` is deliberately excluded from `hasScheduleChanged`.
+That is now wrong and the exclusion is reversed.** A session moved 09:00–10:30 →
+09:00–11:30 re-bills the school through the reschedule RPC (Z2-3a) and extends the Zoom
+meeting through `meeting_sync` (Z2-3b). Before this round the ledger changed, Zoom
+changed, and the participant who now owed an extra hour was told nothing — the exact
+defect this chunk exists to close, surviving in the duration-only case.
+
+`SessionSchedule` and `LifecycleSessionRow` gained `end_time`; `hasScheduleChanged`
+compares it. Both callsites were checked rather than assumed: `[id]/index.ts` passes whole
+rows (`select('*')` before and after the update, and `end_time` is in `allowedFields` at
+`:357-374`), and `edit-requests/[eid].ts` builds `{ ...session, ...sessionUpdate }` where
+`sessionUpdate[key] = changes[key].new` — so an approved `end_time` change does reach the
+comparison. The edit-request assertion in `[B4]` is the one that proves it on that path.
+
+**The copy changed with it**, because r14's objection to including `end_time` was
+correct on its own terms: start-only copy would render an identical before and after.
+`session_rescheduled` now renders a **range** on both sides and carries `end_time` /
+`previous_end_time` in the payload:
+
+> `Su sesión cambió. Antes: lunes 14 de septiembre, de 09:00 a 10:30. Ahora: lunes 14 de
+> septiembre, de 09:00 a 11:30. Actualice su calendario.`
+
+The "Antes: … Ahora: …" shape replaced "se movió de X a Y" because a rendered range
+already contains "de … a …", and nesting the two is unreadable in Spanish. Degradation is
+unchanged: a missing previous schedule still renders `su horario anterior`, never
+`undefined`/`null`, and the r14 assertions covering that still pass untouched.
+
+### Finding 3 — the recipient query no longer swallows its errors
+
+`collectParticipantIds` destructured only `data`, so a failed `session_facilitators` or
+`session_attendees` read produced an empty union, and `notifySessionLifecycle` returned
+silently under the comment "a session with nobody on it is a normal state". A read error
+and an empty session were indistinguishable — the defect class r11 was dispatched to
+repair one chunk earlier.
+
+It now returns `{ userIds, facilitatorsError, attendeesError }`. Each failed read is
+logged on its own line naming the table; when the union is empty **and** a read failed,
+a separate line says `NOT notifying — recipients could not be read. This is a failed
+query, not an empty session.` A genuinely empty session logs none of it, which is what
+makes the two distinguishable in the logs.
+
+**Ruling made here, stated for the reviewer to challenge: a PARTIAL read still notifies
+whoever was found.** If facilitators are unreadable but attendees resolve, the attendees
+are notified. Those people are genuinely on the session and genuinely need to know it
+moved; withholding from them because the *other* table was unreachable converts a partial
+failure into a total one, and the logged lines are what make the shortfall diagnosable.
+Invariant 3 is untouched — nothing here reaches the caller, and `[B7]` asserts the route
+still returns 200 on every read-failure shape.
+
+### Finding 1 — the unit-gate flake did NOT reproduce; no change was made
+
+The round was dispatched on the finding that
+`__tests__/api/sessions/session-lifecycle-notifications.test.ts` destabilises `npm test`,
+observed at 2 failures in 8 runs of `7315ec85`. **It did not reproduce here in 35
+consecutive full runs of that exact tree**, and no fix was applied, because a fix without
+a mechanism is what this round was explicitly told not to deliver.
+
+What was run at `7315ec85`, unmodified (`git rev-parse HEAD` verified before starting):
+
+| Probe | Runs | Result |
+|---|---|---|
+| `npm test`, serial, warm duration cache | 20 | 20 clean, 4525 / 277 |
+| `npm test`, cold cache (`node_modules/.vitest` deleted each time) | 3 | 3 clean |
+| Forced random FILE order, 6 distinct permutations of all 277 files | 6 | 6 clean |
+| Two `npm test` processes concurrently in the same worktree | 6 | 6 clean |
+
+The forced-order probe is the one that matters for the dispatched hypothesis. The
+sequencer orders files by cached duration, so run-to-run order variation is bounded by
+that cache; the probe replaced the cache with fabricated durations to impose an exact,
+arbitrary permutation, sampling the order space far more aggressively than natural runs
+do. **Six unrelated permutations of all 277 files were clean, which is evidence against
+file-order-dependent mock leakage** — the proposed mechanism.
+
+`--sequence.shuffle` DOES produce failures (2–4 files per seed), but it shuffles tests
+*within* files as well as files, and **the identical seeds produce the identical failures
+with this chunk's test file removed** (seeds 11/22/33/44: 4/2/3/4 failed files, same
+counts both ways). Those victims — `__tests__/api/admin/delete-user.test.ts`,
+`admin/remove-role.test.ts`, `lib/services/__tests__/userAssignments.test.ts`,
+`__tests__/api/school/audit-logging.test.ts` — are **pre-existing within-file order
+dependencies, unrelated to this chunk**, and are logged below as an open item.
+
+Two candidate mechanisms were checked and ruled out rather than left as speculation:
+
+- **The process-wide rate-limit LRU** (`lib/rateLimit.ts:52`) is genuine shared mutable
+  state across all 277 files under `threads: false`, keyed `${ip}:${endpoint}` and
+  falling back to `unknown:unknown` for any suite that sends no `x-forwarded-for`. It
+  cannot be this: no route under `pages/api/sessions/` uses `withRateLimit`, so this
+  chunk's tests add nothing to that cache. It is noted because it is a real trap for a
+  future suite.
+- **The reported victim signature is inconsistent with mock leakage.** In
+  `__tests__/api/pasantias-pdf.test.ts` the guard is
+  `if (req.method !== 'GET') { handleMethodNotAllowed(res, ['GET']); return; }`
+  (`lib/pasantias/pdf/serve.ts:103-106`). A leaked `lib/api-auth` mock would have to make
+  `handleMethodNotAllowed` present-but-inert to yield 200; no test file in the repo stubs
+  that export (all 103 `api-auth` mocks either spread `importOriginal` or omit it, and an
+  omitted export would throw a `TypeError`, not return 200). That route also uses unique
+  synthetic IPs per request, so it cannot be a rate-limit victim either.
+
+**What the PM should do with this.** The two runs that failed are real observations and
+this section is not claiming otherwise; it is claiming they were not reproducible from
+the committed tree on this machine over 35 attempts across four probe designs. The
+attribution experiment's control arms (6 and 5 clean runs) are, at those sample sizes,
+equally consistent with a cause outside the tree — concurrent activity in the worktree at
+the time, or a stale `node_modules/.vite` transform cache. Re-running the original 8-run
+observation at the r15 head is the cheapest next step; a full run costs ~27s.
+
+### Acceptance criteria
+
+`[B2]` ten consecutive clean full runs and `[B9]` the four gates are recorded in the
+executor report for this round. Baseline `7315ec85` was 4525 / 277; the head of r15 is
+**4533 / 277** — eight tests added (`[B4]` ×2, `[B5]` ×2, `[B7]` ×4), none removed and
+none weakened, so `[B3]` holds. `[B6]` was already covered by the two r14 title-only
+assertions, one per reschedule route, and both still pass with `end_time` in the
+comparison.
+
+`[B8]`'s mutation probe deleted `previous.end_time !== next.end_time` from
+`hasScheduleChanged`: `[B4]` and `[B5]` failed on both routes (4 failures, 26 passed) and
+nothing else moved. The revert was verified by blob hash
+(`b30c143427a825f9631ac2f2a62597eea858dc45`) and a clean tree.
+
+### Where a reviewer should push hardest
+
+1. **The partial-read ruling.** Notifying an incomplete recipient set is a judgement
+   call, and the opposite choice is defensible. If a partially-notified reschedule is
+   worse than a silently-unnotified one for this product, this is the line to change.
+2. **`formatSchedule` degrades `end_time` independently** of date and start. A row with a
+   valid start and a malformed end renders as `..., a las 09:00` — start-only, which is
+   exactly the shape r14 objected to. It is reachable only from already-bad data, but it
+   means the range is best-effort rather than guaranteed.
+3. **Finding 1's negative result.** Thirty-five clean runs is evidence, not proof; if the
+   PM can reproduce at the r15 head, this section is wrong and the chunk needs another
+   round.
+4. **The `end_time` reach on the edit-request path.** It is asserted, but through a fake
+   client whose `update()` merges the payload — the assertion is that the value reaches
+   the comparison, not that Postgres would return that row.
+
+### Known limitations / deferred
+
+- **Pre-existing within-file test-order dependencies** in `admin/delete-user`,
+  `admin/remove-role`, `services/userAssignments` and `school/audit-logging`. Exposed by
+  `--sequence.shuffle`, present with and without this chunk. Out of scope here; worth a
+  ticket, since it means the suite would break if the runner ever randomised order.
+- `npm run test:db` not run — Docker daemon down for the whole round.
+- No iCal `SEQUENCE` (Z2-4b), no dial-in / dual-zone (Z2-4c), no send-once ledger, no
+  digest for series cancels — all still open, all still out of scope.
+- The `defaultUrl: '/consultor/sessions'` backlog item from r14 stands unchanged.

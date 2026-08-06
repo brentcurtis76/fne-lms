@@ -121,6 +121,12 @@ export interface SessionEventData extends BaseEventData {
     date?: string;
     time?: string;
     /**
+     * End of the session, pre-formatted (`"10:30"`). Carried so `session_rescheduled`
+     * can render a RANGE: a duration-only move (09:00–10:30 → 09:00–11:30) leaves the
+     * start identical, and start-only copy would show the reader the same thing twice.
+     */
+    end_time?: string | null;
+    /**
      * Absolute platform URL (`{base}/meet/session/{id}`), never the raw
      * `meeting_link`: notification payloads are persisted in the event log and
      * rendered into e-mail, so the link they carry must be one that
@@ -134,6 +140,7 @@ export interface SessionEventData extends BaseEventData {
      */
     previous_date?: string | null;
     previous_time?: string | null;
+    previous_end_time?: string | null;
   };
   requester?: {
     id?: string;
@@ -458,17 +465,29 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventConfig> = {
         ? `Sesión reprogramada: ${d.session.title}`
         : 'Sesión reprogramada',
     defaultDescription: (d) => {
-      const previousDate = d.session?.previous_date;
-      const previousTime = d.session?.previous_time;
-      const date = d.session?.date;
-      const time = d.session?.time;
-      const before = previousDate
-        ? `${previousDate}${previousTime ? ` a las ${previousTime}` : ''}`
-        : 'su horario anterior';
-      const after = date
-        ? `${date}${time ? ` a las ${time}` : ''}`
-        : 'un nuevo horario';
-      return `Su sesión se movió de ${before} a ${after}. Actualice su calendario.`;
+      // Renders a RANGE, not just the start (r15). `hasScheduleChanged` now counts
+      // `end_time`, so a duration-only move reaches this copy — and "se movió de 09:00
+      // a 09:00" would be worse than saying nothing. With both ends shown, the reader
+      // always sees what actually changed. The "Antes: … Ahora: …" shape is used rather
+      // than "de X a Y" because a range already contains "de … a …" and nesting the two
+      // reads as gibberish in Spanish.
+      const when = (
+        date?: string | null,
+        time?: string | null,
+        endTime?: string | null
+      ): string | null => {
+        if (!date) return null;
+        if (!time) return date;
+        return endTime ? `${date}, de ${time} a ${endTime}` : `${date}, a las ${time}`;
+      };
+
+      const before =
+        when(d.session?.previous_date, d.session?.previous_time, d.session?.previous_end_time) ??
+        'su horario anterior';
+      const after =
+        when(d.session?.date, d.session?.time, d.session?.end_time) ?? 'un nuevo horario';
+
+      return `Su sesión cambió. Antes: ${before}. Ahora: ${after}. Actualice su calendario.`;
     },
     defaultUrl: '/consultor/sessions',
     // `high`: the reader is holding a now-wrong time in their calendar. Reading this

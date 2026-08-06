@@ -34,9 +34,9 @@ type BucketRow = {
 type SessionRow = {
   id: string;
   title: string;
-  scheduled_date: string | null;
+  session_date: string | null;
   actual_duration_minutes: number | null;
-  planned_duration_minutes: number | null;
+  scheduled_duration_minutes: number | null;
   status: string;
   hour_type_key: string | null;
   session_facilitators: Array<{
@@ -146,14 +146,14 @@ export async function fetchSchoolReportData(
 
     for (const bucket of (bucketRows ?? []) as BucketRow[]) {
       // Fetch sessions for this contract + hour_type_key
-      const { data: sessionRows } = await serviceClient
+      const { data: sessionRows, error: sessionsError } = await serviceClient
         .from('consultor_sessions')
         .select(`
           id,
           title,
-          scheduled_date,
+          session_date,
           actual_duration_minutes,
-          planned_duration_minutes,
+          scheduled_duration_minutes,
           status,
           hour_type_key,
           session_facilitators(
@@ -162,8 +162,21 @@ export async function fetchSchoolReportData(
         `)
         .eq('contrato_id', contrato.id)
         .eq('hour_type_key', bucket.hour_type_key)
-        .order('scheduled_date', { ascending: false })
+        .order('session_date', { ascending: false })
         .limit(MAX_SESSIONS_PER_BUCKET);
+
+      // A failed sessions query must never be reported as "this bucket has no
+      // sessions": schools reconcile billable hours against this drill-down, so a
+      // silently short list is worse than a visible error. Fail the whole report.
+      if (sessionsError) {
+        console.error(
+          `[SchoolHoursReport] Sessions query failed (contrato=${contrato.id}, bucket=${bucket.hour_type_key}):`,
+          sessionsError
+        );
+        throw new Error(
+          `No se pudieron obtener las sesiones del bucket "${bucket.hour_type_key}" del contrato ${contrato.id}`
+        );
+      }
 
       const typedRows = (sessionRows ?? []) as unknown as SessionRow[];
 
@@ -197,8 +210,8 @@ export async function fetchSchoolReportData(
           ? `${facilitator.first_name ?? ''} ${facilitator.last_name ?? ''}`.trim()
           : 'Sin asignar';
 
-        // Hours: use actual_duration_minutes if available, else planned_duration_minutes
-        const durationMinutes = s.actual_duration_minutes ?? s.planned_duration_minutes ?? 0;
+        // Hours: use actual_duration_minutes if available, else scheduled_duration_minutes
+        const durationMinutes = s.actual_duration_minutes ?? s.scheduled_duration_minutes ?? 0;
         const hours = durationMinutes / 60;
 
         // Use ledger status if available, otherwise fall back to session status mapping
@@ -209,7 +222,7 @@ export async function fetchSchoolReportData(
         return {
           session_id: s.id,
           title: s.title ?? 'Sin título',
-          date: s.scheduled_date ?? '',
+          date: s.session_date ?? '',
           consultant_name: consultantName,
           hours,
           status: mappedStatus,

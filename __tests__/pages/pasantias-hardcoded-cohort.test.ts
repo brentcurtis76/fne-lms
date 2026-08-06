@@ -53,10 +53,51 @@
  * - **absent** — the output does not move at all. Named in
  *   {@link EXPECTED_GAPS} with the reason.
  *
- * Both lists are asserted in *both* directions: a declared leaf that starts
- * rendering fails here and its excuse must be deleted, and a leaf in neither
- * list must render. A new module field that nobody wires fails too, because it
- * belongs to neither list.
+ * Every list is asserted in *both* directions: a declared leaf that starts
+ * rendering fails here and its excuse must be deleted, and a leaf in no list
+ * must render. A new module field that nobody wires fails too, because it
+ * belongs to no list.
+ *
+ * ## What r5 added
+ *
+ * Two shapes the r4 contract could not see. Both were found by the reviewer and
+ * both were reproduced on the branch as it stood.
+ *
+ * 1. **Collection sizes.** The contract walks and mutates primitive *leaves*;
+ *    it never changes an array's shape. But the page publishes several facts
+ *    read off `.length` — `Las 7 escuelas`, `Los 13 objetivos`, `3 días para
+ *    Barcelona o Europa` — and each of them could be typed in as a literal with
+ *    all 21 assertions still green, because no leaf of the module moves when a
+ *    school is added or dropped. Collections are now derived beside the leaves
+ *    and each is grown by one plausible sibling, after which the page has to
+ *    print the number it became. {@link publishesCount} is where the count is
+ *    told apart from everything else an append moves, of which there is plenty.
+ *
+ *    Counting the page over is only half of it, and the half that misses the
+ *    literal the reviewer actually reported. `COHORT_SCHOOLS.length` is printed
+ *    twice; type `7` into one of them and the other still puts an `8` on the
+ *    page and still takes a `7` off it, so both count comparisons pass. The
+ *    round's first attempt at this was green against exactly that page. So the
+ *    collection is also shrunk past its present size, on a module whose prose
+ *    has been marked out of the way ({@link quietValue}), and the size it used
+ *    to have has to be gone from the page — one surviving `7` is one literal.
+ *    See {@link printsStaleSize}.
+ *
+ * 2. **A suffix cannot move a value the page compares.** `SchoolDetail`
+ *    branches on `school.tier === 'inmersion'`; marking `visita` produces
+ *    `visitazzq`, which is still not `inmersion`, so the page held still and
+ *    all five `visitSchools[*].tier` leaves were recorded as inert. They are
+ *    not — every visit card's treatment comes from that comparison. A
+ *    discriminator is now mutated *across* the boundary the page branches on
+ *    ({@link predicateAlternative}, with the boundary read out of the source
+ *    rather than listed), and the five moved to {@link UNPRINTABLE_LEAVES}.
+ *
+ * The second arrived as a wrong *reason* rather than as a missing check, which
+ * is the more expensive kind: a reason recorded as fact tells the next reader
+ * the question is settled. The immersion pair's reason was wrong on its own
+ * terms too — it said `tier` decides which schools the immersion figure is
+ * drawn from, and `uniformImmersionDays()` never reads `tier`. Every reason in
+ * every list was re-read against the code in r5, not only the ones that moved.
  *
  * `it('the contract can fail', …)` proves the mechanism rather than asserting it
  * works: a string, a number and a short value are each pinned to their original
@@ -253,6 +294,75 @@ function fieldName(segments: (string | number)[]): string {
   return String(named[named.length - 1] ?? '');
 }
 
+/** `visitSchools[3].levels` → `visitSchools..levels`. Siblings share a shape. */
+function shapeOf(segments: (string | number)[]): string {
+  return segments.map((segment) => (typeof segment === 'number' ? '' : segment)).join('.');
+}
+
+/* ------------------------------------------------------------ discriminators */
+
+/**
+ * The string literals the page tests a value *against*: `school.tier ===
+ * 'inmersion'` yields `inmersion`. Read out of the source rather than listed,
+ * so a discriminator a later design introduces is covered without anyone
+ * remembering this file exists.
+ */
+const PREDICATE_LITERALS: ReadonlySet<string> = new Set(
+  pageSources().flatMap(({ source }) =>
+    [...source.matchAll(/[=!]==\s*(?:'([^']*)'|"([^"]*)")/g)].map((match) => match[1] ?? match[2])
+  )
+);
+
+/**
+ * Every value a field takes anywhere in the module, keyed by field *name* and
+ * not by path shape. `tier` is `'inmersion'` throughout `immersionSchools` and
+ * `'visita'` throughout `visitSchools`, so each shape holds exactly one value
+ * and only their union describes the enum the page branches on.
+ */
+const VALUES_BY_FIELD = new Map<string, Set<Primitive>>();
+
+for (const leaf of LEAVES) {
+  const field = fieldName(leaf.segments);
+  VALUES_BY_FIELD.set(field, (VALUES_BY_FIELD.get(field) ?? new Set()).add(leaf.value));
+}
+
+/**
+ * The values of `field` when it is a discriminator — an enum that straddles a
+ * predicate the page branches on, with at least one value the page tests for
+ * and at least one it does not. `null` for every other field.
+ */
+function discriminatorDomain(field: string): string[] | null {
+  const values = [...(VALUES_BY_FIELD.get(field) ?? [])].filter(
+    (value): value is string => typeof value === 'string'
+  );
+
+  const straddles =
+    values.some((value) => PREDICATE_LITERALS.has(value)) &&
+    values.some((value) => !PREDICATE_LITERALS.has(value));
+
+  return straddles ? values : null;
+}
+
+/**
+ * The value that puts this leaf on the *other* side of the predicate, or `null`
+ * when the leaf is not a discriminator.
+ *
+ * This is what r5 fixes. A suffix mutation moves an enum leaf to a value that
+ * is still on its own side of the boundary — `'visita'` and `'visitazzq'` are
+ * both `!== 'inmersion'` — so the page cannot move and the leaf reads as inert
+ * when it is not. All five `visitSchools[*].tier` leaves were declared absent
+ * on exactly that evidence while `SchoolDetail` was branching on every one.
+ */
+function predicateAlternative(leaf: CohortLeaf): string | null {
+  if (typeof leaf.value !== 'string') return null;
+
+  const domain = discriminatorDomain(fieldName(leaf.segments));
+  if (domain === null) return null;
+
+  const tested = PREDICATE_LITERALS.has(leaf.value);
+  return domain.find((value) => PREDICATE_LITERALS.has(value) !== tested) ?? null;
+}
+
 /**
  * A day of the month no date in the module already uses. Derived rather than
  * picked, because the contract now asserts the mutated value *appears*: shifting
@@ -280,6 +390,12 @@ function mutateValue(leaf: CohortLeaf): Primitive {
   const { value } = leaf;
   if (typeof value === 'number') return value + 7.25;
   if (typeof value === 'boolean') return !value;
+
+  // A discriminator is mutated across the boundary the page branches on, not
+  // by suffix: see {@link predicateAlternative} for what the suffix hid.
+  const crossed = predicateAlternative(leaf);
+  if (crossed !== null) return crossed;
+
   if (ISO_DATE.test(value)) {
     return `${value.slice(0, 8)}${String(MUTATION_DAY).padStart(2, '0')}`;
   }
@@ -287,20 +403,21 @@ function mutateValue(leaf: CohortLeaf): Primitive {
   // Every token, not just the string as a whole: a page that restates one word
   // of a claim while rendering the rest would otherwise still look wired.
   //
-  // r3 mutated a field with two-to-four distinct values into another of its own
-  // values instead, because `tier` is read as `=== 'inmersion'` and a marker
-  // renders identically. Containment made that rule harmful: `levels` has four
-  // values, so mutating one school's into another's produced a string already on
-  // the page, and the leaf could not be told from a literal. Discriminators are
-  // declared in UNPRINTABLE_LEAVES now, which is what they always were.
+  // r3 applied the swap above to *any* field with two-to-four distinct values,
+  // which containment made harmful: `levels` has four, so mutating one school's
+  // into another's produced a string already on the page and the leaf could not
+  // be told from a literal. r4 narrowed it to a suffix for everything, which
+  // over-corrected — a suffix cannot move a value the page compares. The rule is
+  // now the predicate rather than the cardinality of the field: `levels` is not
+  // compared, so it is marked; `tier` is, so it is crossed.
   return value.replace(/\S+/g, (token) => `${token}${MUTATION_MARK}`);
 }
 
-function readPath(root: unknown, segments: (string | number)[]): Primitive {
+function readPath(root: unknown, segments: (string | number)[]): unknown {
   return segments.reduce<any>((node, segment) => node[segment], root);
 }
 
-function writePath(root: unknown, segments: (string | number)[], value: Primitive): void {
+function writePath(root: unknown, segments: (string | number)[], value: unknown): void {
   const parent = segments.slice(0, -1).reduce<any>((node, segment) => node[segment], root);
   parent[segments[segments.length - 1]] = value;
 }
@@ -327,9 +444,8 @@ function overrideFor(leaves: CohortLeaf[]): Overrides {
   return overrides;
 }
 
-/** `visitSchools[3].levels` → `visitSchools..levels`. Siblings share a shape. */
 function pathShape(leaf: CohortLeaf): string {
-  return leaf.segments.map((segment) => (typeof segment === 'number' ? '' : segment)).join('.');
+  return shapeOf(leaf.segments);
 }
 
 const LEAVES_BY_SHAPE = new Map<string, CohortLeaf[]>();
@@ -564,6 +680,307 @@ async function unwiredLeaves(
     .map((leaf) => leaf.path);
 }
 
+/* ----------------------------------------------------- the cardinality contract */
+
+/**
+ * A collection under `COHORT_PUBLIC`, found the same way the leaves are.
+ *
+ * The leaf walk skips a container it has already seen by identity, so `schools`
+ * contributes no leaves — it holds the very objects `immersionSchools` and
+ * `visitSchools` do. It is still a distinct array with a distinct length, and
+ * the page prints that length twice, so the array itself is collected here
+ * while its elements stay skipped.
+ */
+interface CohortCollection {
+  /** Readable path into `COHORT_PUBLIC`, e.g. `visitSchools[4].highlights`. */
+  path: string;
+  segments: (string | number)[];
+  length: number;
+  /** The element the appended one is modelled on. */
+  sample: unknown;
+}
+
+function collectCollections(root: unknown): CohortCollection[] {
+  const collections: CohortCollection[] = [];
+  const seen = new WeakSet<object>();
+
+  const walk = (node: unknown, segments: (string | number)[]) => {
+    if (node === null || node === undefined || typeof node !== 'object') return;
+    if (seen.has(node)) return;
+    seen.add(node);
+
+    if (Array.isArray(node)) {
+      if (node.length > 0) {
+        collections.push({
+          path: formatPath(segments),
+          segments,
+          length: node.length,
+          sample: node[node.length - 1],
+        });
+      }
+      node.forEach((item, index) => walk(item, [...segments, index]));
+      return;
+    }
+
+    for (const [key, value] of Object.entries(node)) walk(value, [...segments, key]);
+  };
+
+  walk(root, []);
+  return collections;
+}
+
+const COLLECTIONS = collectCollections(COHORT_PUBLIC);
+
+/** Pinned for the same reason {@link EXPECTED_LEAF_COUNT} is. */
+const EXPECTED_COLLECTION_COUNT = 21;
+
+/**
+ * The new element's version of one value: strings marked so it cannot be
+ * confused with the element it was cloned from — React keys included — and
+ * everything else carried over untouched.
+ *
+ * Numbers stay put because a collection's members feed more than its size:
+ * `uniformImmersionDays()` returns a figure only while every immersion school
+ * reports the same `immersionDays`, so an appended school with a different one
+ * would delete the "días cada una" clause and the render would move for a
+ * reason that has nothing to do with the count. Discriminators stay put for the
+ * same reason — an appended immersion school carrying a `visita` tier would
+ * flip its own card's treatment. This is what makes the append attributable.
+ */
+function plausibleValue(field: string, value: Primitive): Primitive {
+  if (typeof value !== 'string') return value;
+  if (discriminatorDomain(field) !== null) return value;
+
+  return ISO_DATE.test(value)
+    ? `${value.slice(0, 8)}${String(MUTATION_DAY).padStart(2, '0')}`
+    : `${value}${MUTATION_MARK}`;
+}
+
+/** A plausible sibling for `sample`: same shape, distinguishable content. */
+function plausibleElement(sample: unknown, field: string): unknown {
+  if (sample === null || typeof sample !== 'object') {
+    return plausibleValue(field, sample as Primitive);
+  }
+
+  const clone = structuredClone(sample) as object;
+  for (const leaf of collectLeaves(clone)) {
+    writePath(clone, leaf.segments, plausibleValue(fieldName(leaf.segments), leaf.value));
+  }
+
+  return clone;
+}
+
+/** The override that grows exactly this collection by one and nothing else. */
+function overrideForCollection(collection: CohortCollection): Overrides {
+  const [key, ...rest] = collection.segments;
+  const exportName = EXPORT_BY_KEY[key as string];
+  const grow = (current: unknown[]) => [
+    ...current,
+    plausibleElement(collection.sample, fieldName(collection.segments)),
+  ];
+
+  const root = (COHORT_PUBLIC as Record<string, unknown>)[key as string];
+  if (rest.length === 0) return { [exportName]: grow(root as unknown[]) };
+
+  const clone = structuredClone(root);
+  writePath(clone, rest, grow(readPath(clone, rest) as unknown[]));
+  return { [exportName]: clone };
+}
+
+/* ------------------------------------------------------------- the quiet module */
+
+/**
+ * A value with nothing left in it a bare-number search could mistake for a
+ * count. Every token of a string is marked and a date moves to
+ * {@link MUTATION_DAY}; numbers and booleans are left exactly as they are.
+ *
+ * The point is the digits inside the module's own prose. `COHORT_CLAIMS` holds
+ * "7 escuelas en esta cohorte" and `COHORT_HEADLINE` holds "Octubre, 5 al 16",
+ * so the page prints a bare `7` and a bare `5` and a bare `16` for reasons that
+ * have nothing to do with how many schools or visit schools there are. Marking
+ * turns them into `7zzq`, which no longer reads as a number in its own right,
+ * and leaves the sizes the page *computes* — counts and list ordinals — as the
+ * only bare numbers on it.
+ */
+function quietValue(value: Primitive): Primitive {
+  if (typeof value !== 'string') return value;
+
+  return ISO_DATE.test(value)
+    ? `${value.slice(0, 8)}${String(MUTATION_DAY).padStart(2, '0')}`
+    : value.replace(/\S+/g, (token) => `${token}${MUTATION_MARK}`);
+}
+
+function quietTree(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(quietTree);
+
+  if (node !== null && typeof node === 'object') {
+    return Object.fromEntries(Object.entries(node).map(([key, value]) => [key, quietTree(value)]));
+  }
+
+  return quietValue(node as Primitive);
+}
+
+/** Every export the page imports, quieted. Rebuilt per call; never shared. */
+function quietModule(): Overrides {
+  return Object.fromEntries(
+    Object.entries(EXPORT_BY_KEY).map(([key, exportName]) => [
+      exportName,
+      quietTree((COHORT_PUBLIC as Record<string, unknown>)[key]),
+    ])
+  );
+}
+
+/** The quiet module with exactly this collection one element shorter. */
+function quietShrinkOf(collection: CohortCollection): Overrides {
+  const overrides = quietModule();
+  const [key, ...rest] = collection.segments;
+  const exportName = EXPORT_BY_KEY[key as string];
+
+  const current = rest.length === 0 ? overrides[exportName] : readPath(overrides[exportName], rest);
+  const shrunk = (current as unknown[]).slice(0, -1);
+
+  if (rest.length === 0) overrides[exportName] = shrunk;
+  else writePath(overrides[exportName], rest, shrunk);
+
+  return overrides;
+}
+
+/**
+ * What the page *prints*, with attribute values left out — deliberately
+ * narrower than {@link renderedSurface}.
+ *
+ * Index-bearing test hooks move with a collection's length by construction:
+ * `pasantias-objective-13` appears the moment a fourteenth objective renders,
+ * `pasantias-school-inmersion-2` the moment a third school does. Every one of
+ * them carries the collection's *old* size as a number, so an attribute-wise
+ * surface would report a page that prints no count at all as publishing one.
+ */
+function printedSurface(html: string): string {
+  return decodeEntities(html.replace(/<[^>]*>/g, '\0'));
+}
+
+const printedSurfaceOf = async (overrides: Overrides): Promise<string> =>
+  printedSurface(await renderPage(overrides));
+
+/**
+ * Occurrences of `count` printed as a number in its own right. The lookarounds
+ * keep a `13` out of `2013`, out of `2,5` and out of an ordinal like `013`, so
+ * the two halves below measure the count rather than the digits the page is
+ * full of.
+ */
+function countOccurrences(surface: string, count: number): number {
+  return (surface.match(new RegExp(`(?<![\\w.,])${count}(?![\\w.,])`, 'g')) ?? []).length;
+}
+
+/**
+ * Whether the page prints this collection's size.
+ *
+ * Neither half is "the render changed", and that is the whole point. Appending
+ * a school moves a great deal — a card appears, a name appears, the immersion
+ * section grows a row, every school test hook after it shifts index — and none
+ * of it can satisfy either half. What is required is that the *new* size be
+ * printed where it was not before, and that the *old* size lose ground at the
+ * same time. A page with `7` typed into it fails the second half while
+ * everything else about it moves, which is exactly the case r5 was opened on.
+ *
+ * What this half cannot see on its own is a page that prints the same count in
+ * several places and hardcodes only some of them. `COHORT_SCHOOLS.length` is
+ * printed twice — the hero strip and the section title — and typing `7` into
+ * one of them satisfies both halves above, because the other site still puts an
+ * `8` on the page and still takes a `7` off it. That is the exact literal the
+ * reviewer raised, so counting is not where this can end:
+ * {@link printsStaleSize} is the other half.
+ */
+function publishesCount(
+  before: string,
+  after: string,
+  oldLength: number,
+  newLength: number
+): boolean {
+  return (
+    countOccurrences(after, newLength) > countOccurrences(before, newLength) &&
+    countOccurrences(after, oldLength) < countOccurrences(before, oldLength)
+  );
+}
+
+/**
+ * Whether the page still prints this collection's *present* size after the
+ * collection has shrunk past it — one literal is enough to make this true.
+ *
+ * Read on the quiet module (see {@link quietValue}), where the only bare
+ * numbers left are the ones the page computes. Shrink `COHORT_SCHOOLS` to six
+ * and a wired page has no `7` anywhere on it; a page with `Las 7 escuelas`
+ * typed into the section title has exactly one, however many other sites moved
+ * to `6` around it. That is what a per-site check buys and a count comparison
+ * cannot.
+ *
+ * Shrinking rather than growing, because growing cannot be read this way: the
+ * objectives list numbers its own items, so a fourteenth objective leaves the
+ * thirteenth's ordinal `13` on the page and a wired page would look stale.
+ * Shrinking takes the ordinal away with the element.
+ *
+ * Two limits, both stated rather than papered over. A collection of one cannot
+ * be shrunk into a size the page could print, so it is left to the counting
+ * half alone; none exists today. And this asks only whether the old size is
+ * *gone*, not which site printed it — a page that hardcodes every site of a
+ * count is caught by the counting half instead, which is where it shows up.
+ */
+async function printsStaleSize(
+  collection: CohortCollection,
+  surfaceOf: (overrides: Overrides) => Promise<string>
+): Promise<boolean> {
+  if (collection.length < 2) return false;
+
+  const shrunk = await surfaceOf(quietShrinkOf(collection));
+  return countOccurrences(shrunk, collection.length) > 0;
+}
+
+type CountProof = 'published' | 'unpublished';
+
+async function classifyCollections(
+  collections: CohortCollection[],
+  surfaceOf: (overrides: Overrides) => Promise<string> = printedSurfaceOf
+): Promise<Map<string, CountProof>> {
+  const before = await surfaceOf({});
+  const proofs = new Map<string, CountProof>();
+
+  for (const collection of collections) {
+    const after = await surfaceOf(overrideForCollection(collection));
+
+    // Both halves, and the second one only for a collection that got past the
+    // first: shrinking a collection the page destructures by position — `weeks`
+    // is read as `[immersionWeek, visitWeek]` — would throw rather than answer,
+    // and nothing is learned by asking a collection whose size is never printed
+    // whether it prints a stale one.
+    const published =
+      publishesCount(before, after, collection.length, collection.length + 1) &&
+      !(await printsStaleSize(collection, surfaceOf));
+
+    proofs.set(collection.path, published ? 'published' : 'unpublished');
+  }
+
+  return proofs;
+}
+
+let counted: Promise<Map<string, CountProof>> | null = null;
+
+function classifyAllCounts(): Promise<Map<string, CountProof>> {
+  counted ??= classifyCollections(COLLECTIONS);
+  return counted;
+}
+
+/** As {@link misclassified}, for sizes. */
+async function miscounted(
+  collections: CohortCollection[],
+  expected: CountProof
+): Promise<string[]> {
+  const proofs = await classifyAllCounts();
+
+  return collections
+    .filter((collection) => proofs.get(collection.path) !== expected)
+    .map((collection) => `${collection.path}: ${proofs.get(collection.path)}, declared ${expected}`);
+}
+
 /**
  * Leaves this page genuinely does not render, each with the reason. Anything
  * not listed here must move the rendered output when it changes.
@@ -598,15 +1015,6 @@ const EXPECTED_GAPS: { pathPrefix: string; reason: string }[] = [
     reason:
       'The long weekend is printed as a range, first free day to last, so the middle day\'s date never appears. Its label does, and is covered.',
   },
-  {
-    pathPrefix: 'visitSchools[0].tier',
-    reason:
-      "Inert on this page. The tier arrays are already split in the module, and the only place the page reads `tier` is the `=== 'inmersion'` filter behind the immersion figure — which a visit school never satisfies before or after a mutation, so nothing moves. Until r4 this leaf read as wired because the mutation swapped it to 'inmersion', which moved it into that filter: the output changed and the value was still never printed.",
-  },
-  { pathPrefix: 'visitSchools[1].tier', reason: 'As visitSchools[0].tier.' },
-  { pathPrefix: 'visitSchools[2].tier', reason: 'As visitSchools[0].tier.' },
-  { pathPrefix: 'visitSchools[3].tier', reason: 'As visitSchools[0].tier.' },
-  { pathPrefix: 'visitSchools[4].tier', reason: 'As visitSchools[0].tier.' },
 ];
 
 /**
@@ -624,12 +1032,21 @@ const UNPRINTABLE_LEAVES: { pathPrefix: string; reason: string }[] = [
   {
     pathPrefix: 'immersionSchools[0].tier',
     reason:
-      "A discriminator, compared and never shown: the page reads `=== 'inmersion'` to decide which schools the immersion figure is drawn from. Changing it moves the output — the figure stops being computed — but no form of the new value can appear.",
+      "A discriminator, compared and never shown: `SchoolDetail` reads `school.tier === 'inmersion'` (pages/pasantias.tsx:340) to give a card the dark treatment with its arrow list rather than the light one with the highlights run together. Crossing the predicate moves the output; no form of the new value can appear, because both sides of the enum are ordinary words the page already prints in its own copy. Until r5 this reason said tier decided which schools the immersion figure is drawn from. It does not: `uniformImmersionDays()` (pages/pasantias.tsx:75) maps COHORT_IMMERSION_SCHOOLS straight to `immersionDays` and never reads tier at all.",
   },
   {
     pathPrefix: 'immersionSchools[1].tier',
     reason: 'As immersionSchools[0].tier.',
   },
+  {
+    pathPrefix: 'visitSchools[0].tier',
+    reason:
+      "The same discriminator on the far side of the enum, driving the same choice: a visit school fails `=== 'inmersion'` and gets the light card. Declared an EXPECTED_GAP from r4 until r5 on the strength of a mutation that could not have moved it — appending a marker leaves `visita` and `visitazzq` both `!== 'inmersion'`, so the page held still and was recorded as never asking. It asks for all five.",
+  },
+  { pathPrefix: 'visitSchools[1].tier', reason: 'As visitSchools[0].tier.' },
+  { pathPrefix: 'visitSchools[2].tier', reason: 'As visitSchools[0].tier.' },
+  { pathPrefix: 'visitSchools[3].tier', reason: 'As visitSchools[0].tier.' },
+  { pathPrefix: 'visitSchools[4].tier', reason: 'As visitSchools[0].tier.' },
   {
     pathPrefix: 'visitSchools[0].fullDay',
     reason:
@@ -656,6 +1073,66 @@ const UNIFORM_LEAVES: { pathPrefix: string; reason: string }[] = [
   {
     pathPrefix: 'immersionSchools[1].immersionDays',
     reason: 'As immersionSchools[0].immersionDays — the other half of the same agreement.',
+  },
+];
+
+/**
+ * Collections whose size the page genuinely never prints, each with the reason.
+ * Anything not listed here must print its new size when it grows.
+ *
+ * Declared by path *shape* rather than by prefix, because a prefix cannot
+ * separate a collection from the collections inside it: `immersionSchools` is
+ * counted and `immersionSchools[0].highlights` is not, and one is a prefix of
+ * the other. A shape covers a whole sibling group in one honest sentence.
+ */
+const UNCOUNTED_COLLECTIONS: { shape: string; reason: string }[] = [
+  {
+    shape: 'weeks',
+    reason:
+      'The itinerary prints two named week cards, each as a date range. The number of weeks is copy — "Dos semanas, dos modos" — and never read off the array; a third week would render nothing.',
+  },
+  {
+    shape: 'weeks..visitDays',
+    reason:
+      'The days inside one week, which the itinerary never counts: the card prints startDate to endDate. The cohort-wide figure the page does show is COHORT_VISIT_DAY_COUNT, a number the module computes once and exports as a leaf of its own.',
+  },
+  {
+    shape: 'visitDays',
+    reason:
+      'The flat list of every visit day. Its size reaches the page only through COHORT_VISIT_DAY_COUNT, which is computed at module load from the real array, so overriding this one moves nothing at all — the same reason its leaves are an EXPECTED_GAP.',
+  },
+  {
+    shape: 'immersionSchools..highlights',
+    reason:
+      'The aspectos destacados of one school, rendered as an arrow list. The page prints every one of them and counts none — a fifth highlight appears, no figure moves.',
+  },
+  {
+    shape: 'visitSchools..highlights',
+    reason: 'As immersionSchools..highlights, run together on one line instead of listed.',
+  },
+  {
+    shape: 'experts',
+    reason:
+      'The team section renders a card per expert and heads the section with copy, not with a figure. An eighth or a ninth expert changes the grid and no number on the page.',
+  },
+  {
+    shape: 'claims',
+    reason:
+      'The figures band prints the claims themselves — each one is already a figure with its own caption — so the number of claims is never itself printed.',
+  },
+  {
+    shape: 'dayStructure',
+    reason:
+      'The día tipo prints each block as a labelled row. Three blocks or four, the section head does not say how many.',
+  },
+  {
+    shape: 'includes',
+    reason:
+      'The programme list prints its items; nothing counts them. The count would be worth printing to nobody — what is included is the fact, not how many things it is.',
+  },
+  {
+    shape: 'excludes',
+    reason: 'As includes, on the other side of the same section.',
   },
 ];
 
@@ -690,6 +1167,13 @@ const CONTRACT_LEAVES = LEAVES.filter(
 const GAP_LEAVES = LEAVES.filter((leaf) => isExpectedGap(leaf.path));
 const UNPRINTED_LEAVES = LEAVES.filter((leaf) => isUnprintable(leaf.path));
 const UNIFORM_GROUP_LEAVES = LEAVES.filter((leaf) => isUniform(leaf.path));
+
+function isUncounted(collection: CohortCollection): boolean {
+  return UNCOUNTED_COLLECTIONS.some(({ shape }) => shape === shapeOf(collection.segments));
+}
+
+const COUNTED_COLLECTIONS = COLLECTIONS.filter((collection) => !isUncounted(collection));
+const UNCOUNTED_GROUP = COLLECTIONS.filter(isUncounted);
 
 /* ------------------------------------------------------------------- the suite */
 
@@ -818,6 +1302,41 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
       expect(orphans).toEqual([]);
     });
 
+    it('collects every collection under COHORT_PUBLIC, the schools alias included', () => {
+      const paths = COLLECTIONS.map((collection) => collection.path);
+
+      expect(COLLECTIONS).toHaveLength(EXPECTED_COLLECTION_COUNT);
+      // The alias contributes no *leaves* — its elements are the two tier
+      // arrays' — but its length is its own and the page prints it twice.
+      expect(paths).toContain('schools');
+      expect(paths).toContain('visitSchools[4].highlights');
+      expect(paths).toContain('weeks[1].visitDays');
+      // And not a second copy of the aliased elements' collections.
+      expect(paths.filter((path) => path.startsWith('schools['))).toEqual([]);
+    });
+
+    it('prints the size of every collection it does not declare an exception for', async () => {
+      // Grow the collection by a plausible sibling and the page has to print
+      // the number it becomes. See `publishesCount` for why neither half of
+      // that is "the render changed": appending a school moves plenty, and a
+      // page with `7` typed into it still fails.
+      expect(await miscounted(COUNTED_COLLECTIONS, 'published')).toEqual([]);
+    }, 60_000);
+
+    it('keeps its uncounted declarations honest, in both directions', async () => {
+      // One that starts publishing a size has to lose its excuse, exactly as a
+      // gap that starts moving the output does.
+      expect(await miscounted(UNCOUNTED_GROUP, 'unpublished')).toEqual([]);
+    }, 60_000);
+
+    it('declares no uncounted exception that matches nothing', () => {
+      const orphans = UNCOUNTED_COLLECTIONS.filter(
+        ({ shape }) => !COLLECTIONS.some((collection) => shapeOf(collection.segments) === shape)
+      );
+
+      expect(orphans).toEqual([]);
+    });
+
     it('declares each exception once, in one list only', () => {
       // The three lists mean three different things about a leaf. A path in two
       // of them means one of the two is a leftover, and the honesty checks above
@@ -859,11 +1378,72 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
       return renderPage(pinned);
     };
 
-    const proofFor = async (path: string) => {
+    const leafAt = (path: string): CohortLeaf => {
       const leaf = LEAVES.find((candidate) => candidate.path === path);
       if (!leaf) throw new Error(`No such leaf: ${path}`);
-      return unwiredLeaves([leaf], renderWithHardcoded(leaf));
+      return leaf;
     };
+
+    const proofFor = async (path: string) => unwiredLeaves([leafAt(path)], renderWithHardcoded(leafAt(path)));
+
+    /** How one leaf classifies under `render` — 'consumed' against 'absent'. */
+    const classificationOf = async (path: string, render: (o: Overrides) => Promise<string>) =>
+      (await classifyLeaves([leafAt(path)], render)).get(path);
+
+    const collectionAt = (path: string): CohortCollection => {
+      const collection = COLLECTIONS.find((candidate) => candidate.path === path);
+      if (!collection) throw new Error(`No such collection: ${path}`);
+      return collection;
+    };
+
+    /**
+     * A surface that prints this collection's *old* size wherever the page
+     * prints its size — the page with a literal typed into it.
+     *
+     * Simulated on the printed text rather than in the module, because a size
+     * is derived from the collection itself: there is no value to pin the way
+     * {@link renderWithHardcoded} pins a leaf. Every standalone occurrence of
+     * the new size is put back, which is a *stronger* hardcode than a real one
+     * — a page that typed the literal into one of three sites would still
+     * update the other two — so it can only make this control harder to pass,
+     * never easier.
+     */
+    const withStaleCount =
+      (collection: CohortCollection) =>
+      async (overrides: Overrides): Promise<string> =>
+        (await printedSurfaceOf(overrides)).replace(
+          new RegExp(`(?<![\\w.,])${collection.length + 1}(?![\\w.,])`, 'g'),
+          String(collection.length)
+        );
+
+    /**
+     * A surface with the *first* site that prints this collection's size typed
+     * in as a literal, and every other site left wired — the partial hardcode
+     * {@link publishesCount} cannot see.
+     *
+     * The baseline is returned untouched, which is the whole nature of the
+     * thing being simulated: a literal is invisible while the module still
+     * agrees with it. It only shows itself once the collection moves and the
+     * literal does not, which is both other renders.
+     */
+    const withOneStaleSite =
+      (collection: CohortCollection) =>
+      async (overrides: Overrides): Promise<string> => {
+        const surface = await printedSurfaceOf(overrides);
+        if (Object.keys(overrides).length === 0) return surface;
+
+        return surface.replace(
+          new RegExp(
+            `(?<![\\w.,])(?:${collection.length + 1}|${collection.length - 1})(?![\\w.,])`
+          ),
+          String(collection.length)
+        );
+      };
+
+    const countProofFor = async (
+      path: string,
+      surfaceOf?: (overrides: Overrides) => Promise<string>
+    ) => (await classifyCollections([collectionAt(path)], surfaceOf)).get(path);
 
     it('catches a hardcoded string — a school name', async () => {
       expect(await proofFor('immersionSchools[0].name')).toEqual(['immersionSchools[0].name']);
@@ -907,6 +1487,65 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
       // `splitClaim` cuts "400+ pasantes" at the first space and renders the two
       // halves in different elements, so the value never reaches the markup whole.
       expect(await proofFor('claims[0]')).toEqual(['claims[0]']);
+    }, 30_000);
+
+    /*
+     * The two below are the r5 cases. Neither is a leaf: one is a collection's
+     * size, which no leaf mutation can reach, and the other is a value the page
+     * compares rather than prints, which no suffix mutation can move.
+     */
+
+    it('catches a hardcoded count — the seven schools the hero and the section title both print', async () => {
+      // Sol's B1. `{COHORT_SCHOOLS.length}` replaced by `7` passed all 21
+      // assertions this file had before r5, because adding or dropping a school
+      // changes no leaf of the module — only the shape of the array.
+      expect(await countProofFor('schools')).toBe('published');
+      expect(await countProofFor('schools', withStaleCount(collectionAt('schools')))).toBe(
+        'unpublished'
+      );
+    }, 30_000);
+
+    it('catches a count hardcoded at one of the two sites that print it', async () => {
+      // The literal Sol actually reported: `Las 7 escuelas` in the section
+      // title, with the hero strip beside it still reading the module. The
+      // counting half passes it — a `8` appears, a `7` leaves — and it was
+      // still green on this branch when the round that closed B1 was verified.
+      // `printsStaleSize` is what fails it.
+      expect(await countProofFor('schools', withOneStaleSite(collectionAt('schools')))).toBe(
+        'unpublished'
+      );
+      expect(
+        await countProofFor('objectives', withOneStaleSite(collectionAt('objectives')))
+      ).toBe('unpublished');
+    }, 30_000);
+
+    it('catches a hardcoded count the page also prints as an ordinal', async () => {
+      // The objectives list numbers its own items, so a fourteenth objective
+      // puts a `14` on the page whether or not the section title asks how many
+      // there are. It is the second half of `publishesCount` — the old size
+      // losing ground — that decides this one, which is why both are required.
+      expect(await countProofFor('objectives')).toBe('published');
+      expect(await countProofFor('objectives', withStaleCount(collectionAt('objectives')))).toBe(
+        'unpublished'
+      );
+    }, 30_000);
+
+    it('catches hardcoded tier handling — the dark or light card treatment', async () => {
+      // A discriminator cannot be caught the way the six cases above are:
+      // `proofFor` would name it whether the page read it or not, because it is
+      // never printed. What separates a page that asks from one that does not
+      // is the weaker proof — wired, crossing the predicate flips the card's
+      // treatment and the output moves; with the choice typed in, the page
+      // cannot move at all. Both sides of the enum, because the visit side is
+      // what r4 recorded as inert on the strength of a mutation that never
+      // crossed the boundary.
+      for (const path of ['immersionSchools[0].tier', 'visitSchools[0].tier']) {
+        expect([path, await classificationOf(path, renderPage)]).toEqual([path, 'consumed']);
+        expect([
+          path,
+          await classificationOf(path, renderWithHardcoded(leafAt(path))),
+        ]).toEqual([path, 'absent']);
+      }
     }, 30_000);
   });
 });

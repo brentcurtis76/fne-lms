@@ -2,8 +2,9 @@
 
 **Branch:** `phase/a6r-design`
 **Base:** `main` @ `b8f5c05d`
-**Commits:** 5 — the port (r1), two portraits, the FAQ swap (r2), the r2 ledger
-entry, and r3's answer to Sol's FAIL.
+**Commits:** 9 — the port (r1), two portraits, the FAQ swap (r2), r3's answer to
+Sol's first FAIL, r4's containment fix, r5's cardinality and discriminator work,
+and three ledger entries.
 
 ## Objective
 
@@ -16,71 +17,82 @@ tokens; the logo and photography assets the design references.
 **Out of scope:** the content itself, `cohort-public.ts`, the leak guard, the
 PDFs, and the lead form (A6b).
 
-## What r3 changed, and why
+## Where the rounds went
 
-Sol reviewed the branch at `9d377eec` and returned **FAIL** with three blocking
-findings. All three were PM-verified before this round started.
+The page has not changed since r3. **r4 and r5 are entirely about the guard that
+protects it** — three consecutive reviews found the guard passing a page that
+restated a cohort fact as a literal, each time through a different hole.
 
-- **B1 — the hardcoding guard was bypassable.** It scanned the page source
-  against a hand-maintained list of strings with `includes()`, so it missed
-  numbers, booleans, derived dates, composition and any field added to the module
-  later. The cases are now **derived recursively from `COHORT_PUBLIC`**, and the
-  scan is paired with a **render contract**: the page is rendered once per leaf
-  with that leaf changed, and an unchanged render means the page is not reading
-  it. See "Scrutinise these hardest" #1.
-- **B2 — the runtime image probe was not deployment-safe.** 37 `existsSync` calls
-  per request against `public/`, which is not in a Vercel function's file trace.
-  Availability is now resolved at build time from a generated, drift-tested
-  manifest.
-- **B3 — the hero eyebrow failed WCAG AA.** The veil ran at ~53 % where the
-  eyebrow sits. It now reaches 85 % under the text, and a test samples the
-  composited pixels rather than trusting axe, which files photo-backed text as
-  `incomplete`.
-- **S1 — this file and the evidence README were stale.** Both refreshed; the
-  hero and equipo captures re-rendered.
+- **r3 — the guard was a hand-maintained string list.** Sol found it incomplete,
+  which was the third hand-enumerated guard on this project to be found
+  incomplete. The cases are now **derived recursively from `COHORT_PUBLIC`**, and
+  the scan is paired with a **render contract**: the page is rendered once per
+  leaf with that leaf changed in the module.
+- **r3 also — the runtime image probe was not deployment-safe** (37 `existsSync`
+  calls per request against `public/`, which is not in a Vercel function's file
+  trace) and **the hero eyebrow failed WCAG AA**. Availability now resolves at
+  build time from a generated, drift-tested manifest; the veil reaches 85 % under
+  the text and a test samples composited pixels.
+- **r4 — "the render changed" was not proof.** The PM hardcoded `2,5` in place of
+  `{formatDays(immersionDays)}` and the guard passed 15/15: mutating one school's
+  `immersionDays` makes the two disagree, `uniformImmersionDays()` returns `null`
+  and the clause *vanishes*. The render changed by collapsing. The assertion is
+  now containment — the mutated value must be **on the page** and this leaf's copy
+  of the old value must be **off** it.
+- **r5 — two shapes the leaf walk cannot reach.** Both from Sol, both reproduced
+  before the round: collection sizes (`Las 7 escuelas` is `.length`, and no leaf
+  moves when a school is dropped), and a discriminator the page *compares*
+  (`school.tier === 'inmersion'`), which a suffix mutation cannot move because
+  `visita` and `visitazzq` are both `!== 'inmersion'`. Five leaves had been
+  declared inert on exactly that non-evidence.
+- **r5 also — one of its own answers was incomplete, and this round found it.**
+  See "Scrutinise these hardest" #1. It is the most important thing on this page.
 
 ## Files changed, grouped by risk
 
 ### Highest risk — the page itself
 - `pages/pasantias.tsx` (+842 / −456 across the branch). Every section is new;
-  every fact is read from the module. `getServerSideProps` is back to being
-  pure — it formats dates and builds two absolute URLs, nothing else.
+  every fact is read from the module. `getServerSideProps` is pure — it formats
+  dates and builds two absolute URLs, nothing else. **Byte-identical since r3**;
+  `git diff 9c3c9134 -- pages/pasantias.tsx` covers r3 only, and r4/r5 do not
+  touch it at all.
 
 ### Medium — shared surfaces touched by a page-scoped phase
-- `tailwind.config.js` (+12): two new colour keys and one `backgroundImage`
-  entry. **Additive only** — no existing key changed value.
+- `tailwind.config.js` (+12): two colour keys and one `backgroundImage` entry.
+  **Additive only** — no existing key changed value.
 - `styles/globals.css` (+3): one `@import` of the new token file.
-- `styles/fne-tokens.css` (new, 138 lines): custom-property declarations only,
-  no rules. Importing it changes no existing surface until something reads a
-  token.
+- `styles/fne-tokens.css` (new, 138 lines): custom-property declarations only.
 - `package.json` (+1): `npm run images:manifest`.
 
 ### Low — tests, generated data and assets
-- `__tests__/pages/pasantias-hardcoded-cohort.test.ts` (rewritten) — [A1].
+- `__tests__/pages/pasantias-hardcoded-cohort.test.ts` (+912 net, now **1551
+  lines**) — [A1]. The whole of r3, r4 and r5 lives here. Its size is raised as a
+  finding below.
 - `__tests__/lib/pasantias-image-manifest.test.ts` (new) — manifest drift.
 - `__tests__/styles/brand-tokens.test.ts` (new, 73 lines) — token/config drift.
 - `lib/pasantias/image-manifest.ts` (new, generated) +
   `scripts/generate-pasantias-image-manifest.mjs` (new).
-- `tests/e2e/pasantias-page.spec.ts` (+91): two contrast tests. **No existing
+- `tests/e2e/pasantias-page.spec.ts` (+117): contrast tests. **No existing
   assertion was changed or removed.**
-- `public/logos/symbol-gold.png`, `public/logos/symbol-lineal.png` (from the handoff).
-- `public/images/pasantias/equipo/*` — **eight** portraits: six copied from
-  `public/images/consultants/`, two pulled from the Supabase Equipo bucket, all
-  renamed to the slug the page derives from the expert's name.
+- `public/logos/symbol-gold.png`, `public/logos/symbol-lineal.png` (handoff).
+- `public/images/pasantias/equipo/*` — **eight** portraits, all renamed to the
+  slug the page derives from the expert's name.
 - `docs/plan/evidence/a6r/` — 54 PNGs + README.
 
 ## Test evidence
 
-At `phase/a6r-design` head, r3:
+At `phase/a6r-design` head, r5:
 
 | Gate | Result |
 |---|---|
 | `npm run type-check` | clean |
 | `npm run lint` | clean, `--max-warnings=0` |
-| `npm test` | **262 files, 6142 tests, all passing** |
+| `npm test` | **262 files, 6156 tests, all passing** |
 | `npm run build` | compiled successfully |
 | `node scripts/check-price-leak.mjs` | OK — 263 files scanned, no commercial data |
 | `CI=1 npx playwright test` (pasantias-page, footer-heading-order, smoke) | **16 passed** |
+
+The guard file alone: **29 tests** (21 at r4, 28 as r5 was first written).
 
 Measured hero-eyebrow contrast against the **lightest** pixel behind the glyphs,
 `#FBBF24` at 11 px over `bcn-skyline.jpg`:
@@ -90,100 +102,112 @@ Measured hero-eyebrow contrast against the **lightest** pixel behind the glyphs,
 | 390 × 844 | 2.98:1 | **8.72:1** | 4.5:1 |
 | 1440 × 900 | 2.88:1 | **8.55:1** | 4.5:1 |
 
-Every A6a assertion in `tests/e2e/pasantias-page.spec.ts` still passes against
-markup it never saw — the testids, the school-card `li` structure, the
-thirteen-objective count, the `Día completo — fuera de Barcelona` string, the
-20-Tab CTA reachability, the D-02 price patterns, axe.
+Sol re-measured both independently at 8.682:1 and 8.519:1.
+
+### Negative controls run this round, against the page itself
+
+Each mutation was applied to `pages/pasantias.tsx`, the guard run, and the page
+restored with `git checkout` — the page is byte-identical to `bcfa1b71`
+afterwards, and `git diff bcfa1b71 -- pages/pasantias.tsx` is empty.
+
+| Mutation | Before this round | After |
+|---|---|---|
+| `Las ${COHORT_SCHOOLS.length} escuelas` → `Las 7 escuelas` | **28/28 passed** | 2 failed, naming `schools` |
+| `· {COHORT_SCHOOLS.length} escuelas` → `· 7 escuelas` (hero) | not run | 2 failed, naming `schools` |
+| both school sites at once | 2 failed | 2 failed |
+| `Los ${COHORT_OBJECTIVES.length} objetivos` → `Los 13 objetivos` | 2 failed | 2 failed |
+| `school.tier === 'inmersion'` → `school.immersionDays !== undefined` | 2 failed, naming 7 tier leaves | same |
 
 ## Scrutinise these hardest
 
-1. **The render contract is the load-bearing new mechanism, and it is unusual.**
-   `__tests__/pages/pasantias-hardcoded-cohort.test.ts` mocks `cohort-public` as
-   getters over a mutable store, so a single leaf can be changed and the page
-   re-rendered without re-importing it. 150 leaves, one render each, ~300 ms. It
-   assumes Vitest compiles named imports into namespace property accesses — true
-   today, and the three `the contract can fail` proofs would go green-on-broken
-   if it ever stopped being true. Worth asking whether that assumption should be
-   asserted directly rather than relied on.
+1. **The r5 answer to B1 did not close B1, and this is how it was found.** The
+   round's own evidence — the PM's and the first executor's — was the pair
+   mutation `Las 7 escuelas` **and** `Los 13 objetivos`, run together, which
+   failed two tests. Run apart, **both failures come from the objectives half**.
+   The schools literal, which is the one Sol reported, passed 28/28. The cause is
+   structural: `COHORT_SCHOOLS.length` is printed at two sites, and
+   `publishesCount` compares *totals*, so one site still moving satisfies both of
+   its halves. The helper's own docstring declared this unresolvable. It is not:
+   `printsStaleSize` now shrinks the collection past its present size on a module
+   whose prose has been marked out of the way, and requires the old size to be
+   **gone**. One surviving `7` is one literal. Shrinking rather than growing
+   because the objectives list numbers its own items, so growing leaves a `13` on
+   the page for an innocent reason. **Ask whether the quiet module is honest** —
+   it marks every string leaf, so the only bare numbers left are the ones the page
+   computes, and if that assumption is wrong the clause reads a coincidence as a
+   literal (loudly — it fails, it does not pass).
 
-2. **The contract's mutation strategy decides what it can see.** Strings get every
-   token suffixed; numbers shift; booleans flip; ISO dates shift the *day*,
-   because the page prints day and month and a year change would render
-   identically. Enum-ish fields (two to four distinct values at the same field
-   name, e.g. `tier`) mutate to another of their own values — appending a suffix
-   to `'visita'` renders identically, since the page reads it as
-   `=== 'inmersion'`. All derived, none listed, but each rule is a judgment about
-   what "changed" means.
+2. **A wrong reason was recorded as fact for a full round, and every reason has
+   now been re-verified.** `visitSchools[*].tier` sat in `EXPECTED_GAPS` calling
+   itself inert while `SchoolDetail` branched on all five, and the r4 ledger
+   entry endorsed that classification as "right". The immersion pair's reason was
+   wrong on its own terms too — it claimed `tier` decides which schools the
+   immersion figure is drawn from, and `uniformImmersionDays()`
+   (`pages/pasantias.tsx:75`) reads only `immersionDays`. All 27 declared reasons
+   across the four lists were re-read against the code this round, each against a
+   file and line; the r5 executor report carries the list. The argument to have is
+   whether a prose reason is the right carrier for a claim this load-bearing.
 
-3. **Six leaves are declared as expected gaps rather than covered.** `id`,
-   `dateLabel`, all of `visitDays` (top-level and per week) and
-   `freeDays[1].date` — each with a reason in `EXPECTED_GAPS`. They are asserted
-   to *stay* uncovered, so one that starts rendering fails the suite. The
-   argument to have is whether any of them should be rendered instead of excused.
+3. **The guard is 1551 lines for one test file, and it is now larger than the
+   page it guards** (1151). Raised as a finding below rather than acted on.
 
-4. **The source scan still has a 12-character floor.** Sol was right that it
-   leaves `Codocencia` and `Cenas` unchecked. The floor is kept because
-   "Barcelona" and "ESO" are ordinary Spanish, and those values are now covered
-   by the render contract instead — which the `lodgingArea` proof demonstrates on
-   a nine-character value the scan cannot see. Two mechanisms with different
-   blind spots, rather than one mechanism claiming to be complete.
+4. **Six leaves are declared expected gaps rather than covered.** `id`,
+   `dateLabel`, all of `visitDays` (top-level and per week) and `freeDays[1].date`
+   — each with a reason, each asserted to *stay* uncovered. The argument to have
+   is whether any should be rendered instead of excused.
 
-5. **The veil is anchored in pixels from the bottom, not in percent.** The text
-   block is bottom-aligned, so the eyebrow sits ~440–460 px above the hero's lower
-   edge at every width, while its *fraction* of the hero swings from 0.17 to 0.41
-   with the window's height. A percentage stop passes at one window size and fails
-   at another. 480 px is chosen to clear the eyebrow at all of them, and the e2e
-   measures two of them — it does not measure a short-and-wide window.
+5. **The source scan still has a 12-character floor**, so `Codocencia` and `Cenas`
+   are unscanned. They are covered by the render contract instead, which the
+   `lodgingArea` proof demonstrates on a nine-character value. Two mechanisms with
+   different blind spots, rather than one claiming to be complete.
 
-6. **The 85 % veil exceeds the range the repo's own brand distillation states.**
-   `docs/plan/design/a6r-handoff/design-system-readme.md` says "a black veil of at
-   least 40 % when text sits on top" and "black at 40–55 % as a photo veil";
-   `tokens/colors.css` carries `--veil-photo: rgba(10,10,10,.4)` as the *minimum*.
-   The r3 prompt states the manual specifies 85 % under the text. Both cannot be
-   right, and I cannot read the manual itself from here. A flat veil inside
-   40–55 % cannot carry `#FBBF24` at 11 px to 4.5:1 — it needs ~65 % — so the
-   shipped page has always exceeded that range (r1/r2 already ended at 80 %). I
-   implemented what the prompt specifies and am raising the discrepancy rather
-   than picking a side quietly. **This is the one thing in r3 that wants an
-   owner's word.**
-
-7. **Two colour palettes still exist in the repo.** `styles/fne-tokens.css` and
-   `tailwind.config.js` both carry the brand hexes. Collapsing the config onto
-   `var(--fne-*)` is the true single source but silently breaks every existing
-   `bg-brand_*/40` opacity modifier app-wide, which is not an A6r-sized change.
-   `__tests__/styles/brand-tokens.test.ts` pins the two together instead. The
-   gold gradient — the only genuinely new token — *is* single-sourced: the config
-   reads it through `var()`.
-
-8. **I kept a section the delivered design does not have.** The mockup replaces
-   A6a's "Por qué Barcelona" prose with the stats strip. The e2e requires
-   `pasantias-barcelona` to be visible, and the plan puts content out of scope,
-   so deleting two paragraphs of owner-visible copy was not mine to make.
+6. **The veil figure is settled and the branch inherits the correction.** 40 % is
+   the manual's minimum for the white **logo** over photography (p.6); 85 % is the
+   **text** veil (p.15). The handoff readme and `tokens/colors.css` were corrected
+   on `main`; this branch predates those commits. Nothing here re-litigates it.
 
 ## Known limitations / deferred
 
+- **The guard file is too large.** 1551 lines, four declaration lists, five
+  classification outcomes and three mutation strategies. Every piece of it was
+  added in answer to a demonstrated false pass, so none of it is speculative — but
+  it is now the largest single artifact of a phase whose scope is a page redesign,
+  and reading it is a prerequisite to reviewing it. **Suggested cut, for the PM and
+  Sol rather than for a remediation round:** the mechanism (leaf walk, mutation
+  strategies, collection walk, quiet module, classification) is ~700 lines and
+  belongs in `__tests__/support/cohort-contract.ts`; the declarations and the
+  suite are the part a reader of this phase needs. That is a move, not a rewrite,
+  and it should not happen inside a round that is also changing behaviour.
+- **A count hardcoded at *every* site it is printed at** is caught by the counting
+  half, not by `printsStaleSize` — which asks whether the old size is gone, not
+  which site printed it. Both halves are required and both are proved by their own
+  negative controls.
+- **A collection of one cannot be shrunk** into a size the page could print, so it
+  falls back to the counting half alone. None exists in `COHORT_PUBLIC` today.
+- **`uniformImmersionDays` is proved as a field, not as an index.** Siblings
+  holding the same value are indistinguishable once moved together, so the contract
+  proves the figure is read from the module, not which of the two schools it came
+  from. Declared in `UNIFORM_LEAVES`.
 - **Two photo slots are unfilled** (`barcelona-calle`, `barcelona-tarde`) and
-  render nothing at all rather than a placeholder band. All eight portraits now
-  resolve. Real Barcelona photography remains the owner's critical path.
-- **The `og:image` is now conditional.** It points at the hero, falls back to
-  `bcn-skyline.jpg`, and if neither is in the manifest the `og:image`,
-  `og:image:alt` and `twitter:image` tags are omitted and `twitter:card` drops to
-  `summary`. An unfurl pointing at a 404 is worse than no image; today both
-  candidates ship, so the tags are present.
+  render nothing rather than a placeholder band. Real Barcelona photography remains
+  the owner's critical path.
+- **The `og:image` is conditional.** It points at the hero, falls back to
+  `bcn-skyline.jpg`, and if neither is in the manifest the image tags are omitted
+  and `twitter:card` drops to `summary`. Today both candidates ship.
 - **`barcelona-innovation.jpg` is off `/pasantias` but still live on
   `pages/index.tsx:374`.** The file is not deleted because the homepage would
-  break. A7a [A2] now owns the swap.
-- **`styles/globals.css:1` still imports Inter from the Google Fonts CDN**, and
-  the app shell loads Font Awesome from `cdnjs`. Both are pre-existing and global
-  to every page. Nothing new from a CDN was added by this round.
-- **The objectives expander was not ported.** The mockup shows four of thirteen
-  behind a toggle. The A6a spec counts thirteen `li` in that section, and a
-  collapsed item is a zero-box element to Playwright, so the toggle would have
-  meant weakening a guard for a presentation preference. All thirteen render.
-- **Header WhatsApp button removed.** `pasantias-header-whatsapp` no longer
-  exists — the replicated site header has no room for it and no spec depended on
-  it. WhatsApp survives as the closing CTA (`pasantias-cta-whatsapp`).
-- **The week testids are now derived** — `` `pasantias-week-${week.id}` `` rather
-  than the literal `pasantias-week-semana-1`. The rendered value is unchanged, so
-  the e2e that navigates by it was not touched; the literal was a restatement of
-  `weeks[].id` and the render contract flagged it as one.
+  break. A7a [A2] owns the swap.
+- **`styles/globals.css:1` still imports Inter from the Google Fonts CDN**, and the
+  app shell loads Font Awesome from `cdnjs`. Both pre-existing and app-wide;
+  nothing new from a CDN was added.
+- **There is no `prebuild` step for the image manifest**, so a stale manifest fails
+  `npm test` but a bare `npm run build` succeeds with it. Sol's observation, in the
+  ledger backlog.
+- **The objectives expander was not ported.** The A6a spec counts thirteen `li`,
+  and a collapsed item is a zero-box element to Playwright.
+- **Header WhatsApp button removed.** `pasantias-header-whatsapp` no longer exists;
+  WhatsApp survives as the closing CTA (`pasantias-cta-whatsapp`).
+- **The week testids are derived** — `` `pasantias-week-${week.id}` `` rather than
+  the literal. The rendered value is unchanged.
+</content>
+</invoke>

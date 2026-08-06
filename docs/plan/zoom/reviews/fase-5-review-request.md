@@ -1945,3 +1945,102 @@ nothing else moved. The revert was verified by blob hash
 - No iCal `SEQUENCE` (Z2-4b), no dial-in / dual-zone (Z2-4c), no send-once ledger, no
   digest for series cancels — all still open, all still out of scope.
 - The `defaultUrl: '/consultor/sessions'` backlog item from r14 stands unchanged.
+
+---
+
+## Chunk Z2-4b — round r16
+
+**Branch** `feat/zoom-sess`, base `ea2b4556` (Z2-4a sealed). One commit.
+
+**Objective.** Emit RFC 5545 `SEQUENCE` on every .ics the platform produces, so a
+rescheduled or cancelled session is recognised by a calendar client as a *revision* of
+the event it already holds rather than as a duplicate to be ignored. Since r15 the
+platform tells a participant their session moved while their calendar keeps the old
+time; `lib/utils/session-ical.ts` emitted no `SEQUENCE`, so every .ics we have ever
+produced is, to a client, the first and final revision of its event.
+
+### Files
+
+| File | Risk | Change |
+|---|---|---|
+| `lib/utils/session-ical.ts` | medium | `created_at`/`updated_at` on `ICalSessionInput`; `deriveSequence()`; `sequence` on `ICalEventData` |
+| `pages/api/sessions/series/[groupId]/ical.ts` | medium | explicit projection widened by two columns + pass-through |
+| `pages/api/sessions/ical.ts` | low | pass-through (`select('*')` already returned them) |
+| `pages/api/sessions/[id]/ical.ts` | low | pass-through (`select('*')` already returned them) |
+| `lib/utils/__tests__/session-ical.test.ts` | low | +12 tests |
+| `__tests__/api/sessions/ical-sequence.test.ts` | low | new, 10 tests, per-endpoint |
+
+### What was verified about `updated_at`, before any code was written
+
+- `consultor_sessions` declares both columns as
+  `timestamp with time zone DEFAULT now() NOT NULL`
+  (`supabase/migrations/00000000000000_baseline.sql:7734-7735`). Neither is nullable, so
+  a row read from this table always carries both.
+- `trg_consultor_sessions_updated_at BEFORE UPDATE ON public.consultor_sessions FOR EACH
+  ROW EXECUTE FUNCTION public.set_updated_at()` (`:15376`), and `set_updated_at()` is
+  `NEW.updated_at = NOW()` (`:4597-4604`). The bump is unconditional and does not depend
+  on any code path remembering to do it.
+- The cancel path is a plain `UPDATE … SET status='cancelada'` on that table
+  (`pages/api/sessions/[id]/cancel.ts:186-195`), so it fires the same trigger. That is
+  what makes a cancellation a revision rather than an ignored tombstone; it is asserted
+  in both test files rather than assumed.
+
+### What each endpoint selects
+
+- `pages/api/sessions/ical.ts:60` and `pages/api/sessions/[id]/ical.ts:45` both use
+  `select('*', …)` — the two columns were already arriving and only needed mapping.
+- `pages/api/sessions/series/[groupId]/ical.ts:41` **projects columns explicitly**. It
+  did not select either timestamp, so the projection was widened. Had this been assumed
+  rather than checked, that surface would silently have emitted `SEQUENCE:0` forever —
+  the exact failure mode ruling 2 warns about.
+
+### Test evidence
+
+Four gates green from the worktree: type-check 0 · lint 0 (`--max-warnings=0`) ·
+`npm test` **4555 passed / 278 files** · build 0. Baseline `ea2b4556` was 4533 / 277;
+the delta is exactly the 22 tests added here and nothing fell.
+
+Mutation probe: `deriveSequence` pinned to `return 0`. 10 tests failed across both
+files, including the two that carry the chunk's whole point — "keeps the UID stable and
+raises SEQUENCE across two exports" (`expected 0 to be greater than 0`) and "raises
+SEQUENCE when the session is cancelled" (same). Reverted; blob hash
+`16d555c6cf6ca9f546965dd825756313906c92ed` before and after, clean tree.
+
+### Where a reviewer should push hardest
+
+1. **`SEQUENCE` = seconds between `created_at` and `updated_at`** is a proxy for a
+   revision counter, not a revision counter. Two updates inside the same second produce
+   the same sequence, and the second one would be ignored by a client that already
+   holds the first. Real reschedules are minutes apart, but a script or a double-submit
+   is not. A dedicated `revision` column would not have this property; it needs a
+   migration, which this chunk was ruled out of carrying.
+2. **The degradation to `SEQUENCE:0` is silent.** `created_at`/`updated_at` are optional
+   on `ICalSessionInput` so a malformed pair cannot break an export — but that is also
+   what would hide a future endpoint that forgets to pass them. The cross-surface
+   consistency test is the only thing standing between that mistake and a shipped
+   regression; a fourth .ics surface added later gets no such protection automatically.
+3. **No .ics produced by this branch has been opened by a real calendar client.** Not
+   Google Calendar, not Apple Calendar, not Outlook. Every assertion here is against the
+   serialized text and RFC 5545 as read. Whether these clients actually honour a
+   `SEQUENCE` bump on a `METHOD`-less .ics *downloaded* (rather than delivered by iMIP
+   e-mail invitation) is unverified, and is the single largest gap in this chunk.
+4. **Endpoint tests use a proxy-based Supabase stub**, inherited from
+   `ical-attendee-disclosure.test.ts`. It returns the same rows for any query shape, so
+   the series test proves the handler *maps* `created_at`/`updated_at` — it cannot prove
+   the widened `select()` string is accepted by PostgREST. That is a build-time-untested
+   string.
+
+### Known limitations / deferred
+
+- `npm run test:db` not run — the Docker daemon is still down (fourth consecutive
+  round). This chunk adds no migration and no SQL, so no RLS surface changed.
+- **`METHOD:REQUEST` / iMIP is out of scope and may be required.** `SEQUENCE` is
+  necessary for a client to treat an export as a revision; for some clients it is not
+  sufficient without an e-mailed invitation carrying `METHOD:REQUEST`. Flagged, not
+  built — see NOT DONE in the round report.
+- Sub-second updates floor to 0 (asserted). `updated_at` earlier than `created_at`
+  clamps to 0 rather than going negative (asserted).
+- Untouched, still open: dial-in / dual-zone (Z2-4c), the send-once notification ledger,
+  series-cancel batching, the `defaultUrl` backlog item, `bucketError` `continue`,
+  `SESSION_STATUS_FALLBACK`, `total_hours_actual`'s name, and the four suites with
+  pre-existing within-file order dependencies found in r15.

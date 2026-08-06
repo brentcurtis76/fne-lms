@@ -115,6 +115,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ? buildAbsoluteUrl(buildSessionJoinPath(session.id), req)
         : undefined,
       status: session.status,
+      // Row timestamps drive SEQUENCE; without them a client ignores every revision
+      created_at: session.created_at || undefined,
+      updated_at: session.updated_at || undefined,
       school_name: session.schools?.name || undefined,
       growth_community_name: session.growth_communities?.name || undefined,
       facilitators: (facilitators || []).map((f: unknown) => {

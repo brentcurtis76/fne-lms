@@ -38,7 +38,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: sessions, error: queryError } = await serviceClient
       .from('consultor_sessions')
       .select(
-        'id, title, description, objectives, session_date, start_time, end_time, status, location, meeting_link, schools!consultor_sessions_school_id_fkey(name), growth_communities(name), session_facilitators(profiles(first_name, last_name, email))'
+        // created_at/updated_at drive SEQUENCE — this endpoint projects columns
+        // explicitly, so they have to be named or the revision never rises.
+        'id, title, description, objectives, session_date, start_time, end_time, status, location, meeting_link, created_at, updated_at, schools!consultor_sessions_school_id_fkey(name), growth_communities(name), session_facilitators(profiles(first_name, last_name, email))'
       )
       .eq('recurrence_group_id', groupId)
       .eq('is_active', true)
@@ -79,6 +81,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ? buildAbsoluteUrl(buildSessionJoinPath(s.id as string), req)
           : undefined,
         status: s.status as SessionStatus,
+        created_at: (s.created_at as string | null) || undefined,
+        updated_at: (s.updated_at as string | null) || undefined,
         school_name: ((s.schools as Record<string, unknown> | null)?.name as string | null) || undefined,
         growth_community_name: (
           (s.growth_communities as Record<string, unknown> | null)?.name as string | null

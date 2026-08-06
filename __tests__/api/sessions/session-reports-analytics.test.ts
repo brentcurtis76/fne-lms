@@ -543,12 +543,17 @@ describe('Session Reports Analytics API', () => {
     const S_SIN_LEDGER = '77777777-7777-4777-8777-000000000005';
     const S_OVERRIDE = '77777777-7777-4777-8777-000000000006';
 
-    function ledgerSession(id: string, day: string, scheduledMinutes: number): Row {
+    function ledgerSession(
+      id: string,
+      day: string,
+      scheduledMinutes: number,
+      status = 'completada'
+    ): Row {
       return {
         id,
         title: `Sesion ${day}`,
         session_date: `2026-06-${day}`,
-        status: 'completada',
+        status,
         modality: 'online',
         school_id: 1,
         growth_community_id: GC_ID,
@@ -594,24 +599,34 @@ describe('Session Reports Analytics API', () => {
     it('counts consumida and penalizada, and excludes reservada and devuelta', async () => {
       const kpis = await kpisFor(statusMatrix);
 
-      // 2.25 (consumida) + 0.75 (penalizada) + 1.5 (no ledger row → 90 min)
-      // + 1.1 (override) = 5.6. The reservada 3h and devuelta 4h contribute nothing.
-      expect(kpis.total_hours_actual).toBe(5.6);
+      // 2.25 (consumida) + 0.75 (penalizada) + 1.1 (override) = 4.1. The reservada 3h and
+      // devuelta 4h contribute nothing, and neither does S_SIN_LEDGER: with no ledger row
+      // there is no billing record for this aggregate to report.
+      expect(kpis.total_hours_actual).toBe(4.1);
 
       // The scheduled KPI is untouched by this change: (240 * 5 + 90) / 60.
       expect(kpis.total_hours_scheduled).toBe(21.5);
     });
 
-    it('falls back to scheduled_duration_minutes for a session with no ledger row', async () => {
+    it('contributes 0 for an unapproved session with no ledger row', async () => {
       const kpis = await kpisFor({
-        sessions: [ledgerSession(S_SIN_LEDGER, '05', 90)],
+        sessions: [ledgerSession(S_SIN_LEDGER, '05', 90, 'borrador')],
         ledger: [],
         attendees: [],
         facilitators: [],
       });
 
-      // Never zero by omission: the session still reports its 1.5 scheduled hours.
-      expect(kpis.total_hours_actual).toBe(1.5);
+      // STEP 2's query filters on is_active, school, date and consultant — there is no
+      // status filter — so borrador and pendiente_aprobacion sessions reach this KPI. They
+      // have no billing record, so the ledger-derived aggregate must not claim the school
+      // was charged for them. A `reservada` session, which at least reached approval,
+      // already returns 0; a borrador one cannot honestly return more.
+      expect(kpis.total_hours_actual).toBe(0);
+
+      // The fixture's scheduled duration is non-zero, so the 0 above is the mode's answer
+      // and not an artefact of an empty fixture. total_hours_scheduled is not ledger-
+      // derived and still counts it.
+      expect(kpis.total_hours_scheduled).toBe(1.5);
     });
 
     it('passes an admin_override row through with its adjusted hours', async () => {

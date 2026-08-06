@@ -64,11 +64,21 @@ function isChargedStatus(status: LedgerEntryStatus | string): boolean {
  * Hours billed for one session.
  *
  * `entry` is the session's `contract_hours_ledger` row, or null/undefined when it has
- * none — legacy sessions predating the ledger, and sessions that were never approved.
- * Those fall back to `scheduledDurationMinutes`, which is behaviour-preserving (the old
- * `actual_duration_minutes` read was a copy of the scheduled value anyway) and keeps them
- * from silently dropping out of a school's report. A report that quietly under-reports is
- * worse than one that errors.
+ * none — legacy sessions predating the ledger, and sessions that were never approved
+ * (`borrador`, `pendiente_aprobacion`). The two modes answer that case differently,
+ * because they are answering different questions:
+ *
+ * - `charged_total` → **0**. The aggregate answers "what does our billing record say this
+ *   school was charged". A session with no ledger row has no billing record — it was never
+ *   reserved and certainly never charged — so the ledger-derived KPI must not claim it was.
+ *   Anything else contradicts this module's own treatment of `reservada`, which returns 0
+ *   for a session that at least reached approval. In this mode, only a ledger row with a
+ *   charged status ever contributes.
+ * - `per_session_display` → `scheduledDurationMinutes`. The drill-down renders one row per
+ *   session and must show something meaningful for a session that is not ledgered yet. The
+ *   fallback is behaviour-preserving there (the old `actual_duration_minutes` read was a
+ *   copy of the scheduled value anyway) and keeps those rows from silently dropping out of
+ *   a school's report.
  */
 export function billableHours(
   entry: BillableLedgerEntry | null | undefined,
@@ -76,6 +86,9 @@ export function billableHours(
   mode: BillableHoursMode
 ): number {
   if (!entry) {
+    if (mode === 'charged_total') {
+      return 0;
+    }
     return (scheduledDurationMinutes ?? 0) / 60;
   }
 

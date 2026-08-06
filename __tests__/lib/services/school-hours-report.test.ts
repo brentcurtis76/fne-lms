@@ -519,7 +519,9 @@ describe('fetchSchoolReportData', () => {
 
     const [april, march, legacy] = bucket.sessions;
 
-    // No ledger entry → falls back to scheduled_duration_minutes (120 → 2h).
+    // No ledger entry → falls back to scheduled_duration_minutes (120 → 2h). This is the
+    // `per_session_display` half of the r13 mode split: the drill-down keeps the fallback
+    // (the aggregate dropped it). If this ever yields 0, display behaviour has drifted.
     expect(april).toMatchObject({
       session_id: SESSION_APRIL,
       title: 'Sesión de seguimiento',

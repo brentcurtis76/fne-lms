@@ -1521,3 +1521,75 @@ the pre-Docker-outage number is expected, not inherited.
   none carries the defect this chunk fixes, but none routes through `billableHours` either.
 - **Not executed against a live PostgREST.** Both doubles reproduce PostgREST's documented
   behaviour; production is off-limits and `test:db` covers RLS, not these queries.
+
+---
+
+## Chunk Z2-5b — round r13 — correction to the r12 text above
+
+**Everything above stays as written; this section corrects it.** r12's no-ledger-row
+ruling was wrong for the aggregate, and the r12 text above states that wrong behaviour as
+intended. Three lines of logic changed; nothing else r12 shipped moved.
+
+### What was wrong
+
+`billableHours` returned the no-ledger-row fallback **before** the mode check, so
+`charged_total` gave an un-ledgered session its full scheduled duration. The module's own
+doc defines that mode as "only statuses in `CHARGED_LEDGER_STATUSES` contribute", and it
+correctly returns 0 for `reservada` ("the session has not happened. NOT charged"). A
+`borrador` session — not even approved — therefore counted for **more** than an approved
+one. The less-committed session weighed more.
+
+`pages/api/sessions/reports/analytics.ts` filters sessions by `is_active`, school, date
+range and consultant, with **no status filter**, so this was not a legacy-data edge case:
+every unapproved session in the range inflated `total_hours_actual`, a money-adjacent KPI.
+Before the chunk they contributed 0, because `actual_duration_minutes` is NULL until
+finalize.
+
+### The corrected ruling
+
+In `charged_total`, a session with no ledger row contributes **0** — including a legacy
+session that was delivered but never linked to a contract. It was not charged through the
+ledger, so a ledger-derived KPI must not claim it was. In `per_session_display` the
+fallback to `scheduled_duration_minutes` **stands unchanged**: the drill-down renders one
+row per session and must show something for a session that is not ledgered yet.
+
+The status table at "Status semantics" above is corrected in its last row only:
+
+| Status | Per-session display (school drill-down) | `total_hours_actual` aggregate |
+|---|---|---|
+| *(no ledger row)* | `scheduled_duration_minutes / 60` | **0** — no billing record |
+
+The four ledger-status rows are unchanged. The module is now internally consistent: in
+`charged_total`, **only a ledger row with a charged status ever contributes**.
+
+### Which r12 claims above this supersedes
+
+- **"The no-ledger-row fallback"** section — its reasoning holds for the drill-down only.
+  Its closing note that "this makes the aggregate *larger* than before for tenants with
+  many un-ledgered sessions" described the defect. The aggregate is no longer larger on
+  that account: un-ledgered sessions contribute 0, as they did before the chunk.
+- **"Test evidence"** — the analytics four-status matrix now sums to **4.1h**, not 5.6h
+  (the 1.5h from the un-ledgered session is gone). The `no-row fallback` test in that suite
+  is now a `borrador`-contributes-0 test asserted end to end through the handler. The
+  `school-hours-report` legacy no-row fallback (scheduled 90 → 1.5h) is **unchanged** and
+  still asserted — display behaviour did not drift.
+
+### r13 files
+
+| File | What |
+|---|---|
+| `lib/services/billable-hours.ts` | `!entry` branch made mode-aware; function doc states both behaviours and why they differ. |
+| `pages/api/sessions/reports/analytics.ts` | Comment only — it stated the superseded fallback. No logic, no query change. |
+| `__tests__/lib/services/billable-hours.test.ts` (new) | Direct 2×2: `{row, no row}` × `{per_session_display, charged_total}`, plus the invariant and the reservada-vs-borrador ordering. |
+| `__tests__/api/sessions/session-reports-analytics.test.ts` | Matrix total 5.6 → 4.1; no-row test inverted to a `borrador` session with a non-zero scheduled duration contributing 0. |
+| `__tests__/lib/services/school-hours-report.test.ts` | Comment only — names the display half of the split so a future drift to 0 is caught by intent, not just by number. |
+
+No migration, no UI, no rename of `total_hours_actual`. The two defects r11 logged
+(`bucketError` `continue`; `SESSION_STATUS_FALLBACK`) remain untouched and unruled.
+
+### r13 verification
+
+Rather than a fail-on-old — the behaviour was deliberately reversed, so the old source is
+the thing under repair — a **mutation probe**: the mode-blind `!entry` return was restored,
+the new assertions were shown failing, then reverted and checked byte-identical by blob
+hash. Figures are in the r13 ledger row.

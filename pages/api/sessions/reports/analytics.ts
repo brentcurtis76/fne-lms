@@ -349,8 +349,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     ) / 10;
 
     // What the schools were actually charged: ledger hours for the statuses that bill
-    // (consumida, penalizada), the scheduled duration for sessions with no ledger row.
-    // See lib/services/billable-hours.ts — `actual_duration_minutes` is not read here.
+    // (consumida, penalizada), and 0 for a session with no ledger row — it has no billing
+    // record. See lib/services/billable-hours.ts — `actual_duration_minutes` is not read here.
     const totalHoursActual = Math.round(
       sessions.reduce(
         (sum, s) =>

@@ -2479,3 +2479,175 @@ school.**
   item, the send-once notification ledger, series-cancel batching, `create.tsx`'s
   UTC-vs-Chile date `min`, and the four suites with pre-existing within-file order
   dependencies.
+
+---
+
+# Sol remediation — round r21 (items 1 and 2)
+
+Branch `feat/zoom-sess`, forked at `62da7925`. Sol items **1 and 2 only**; the other
+ten are separate rounds and nothing here touches them.
+
+## Item 1 — the `DROP` is gone, and no schema change replaced it
+
+`supabase/migrations/20260805120000_reschedule_hours_rpc.sql` lost its entire
+constraint block. The migration now performs **no DDL on any pre-existing object**: it
+creates one function and grants EXECUTE on it.
+
+The revision row moved to Sol's primary remedy — an already-allowed `action` plus a
+typed discriminator. The exact change inside `reschedule_session_hours`:
+
+```sql
+        INSERT INTO public.session_activity_log (session_id, user_id, action, details)
+        VALUES (
+            p_session_id,
+            p_actor_id,
+            'edited',                                   -- was: 'hours_revised'
+            jsonb_build_object(
+                'event_type',        'hours_revised',   -- new: the discriminator
+                'ledger_entry_id',   v_ledger_id,
+                …unchanged…
+            )
+        );
+```
+
+**Replay proof — done by resetting, not by reasoning.** `npx supabase db reset`
+replayed every migration from the baseline, then the allowlist was read straight out of
+the catalog:
+
+```
+CHECK ((action = ANY (ARRAY['created'::text, 'viewed'::text, 'edited'::text,
+ 'status_changed'::text, 'materials_uploaded'::text, 'materials_deleted'::text,
+ 'report_filed'::text, 'report_updated'::text, 'attendance_recorded'::text,
+ 'attendance_updated'::text, 'communication_added'::text, 'edit_requested'::text,
+ 'edit_approved'::text, 'edit_rejected'::text, 'cancelled'::text, 'finalized'::text])))
+```
+
+Sixteen values, character-identical to the baseline at
+`00000000000000_baseline.sql:10793`. No `hours_revised`. `013-session-reschedule-atomic.sql`
+[B2] pins both facts from the catalog rather than from the migration text, so a future
+widening fails the suite.
+
+`grep -rin drop supabase/migrations/20260805120000*.sql` and the same over the new
+migration return only comment lines that mention the word.
+
+**The divergence the prompt named, and what it means in practice.** A developer's
+existing local database still carries the widened 17-value constraint and the old
+function body; a fresh replay produces 16 and the new body. Both accept everything this
+round writes, and `npm run test:db` resets before it runs, so CI and any real gate run
+sees the replayed state. Production has never had either version.
+
+## Item 2 — one transactional RPC, and the atomicity proof
+
+`supabase/migrations/20260808120000_session_reschedule_atomic.sql` adds
+`public.apply_session_reschedule(p_session_id uuid, p_actor_id uuid, p_updates jsonb,
+p_if_updated_at timestamptz DEFAULT NULL) RETURNS jsonb`, `SECURITY DEFINER`,
+`SET search_path = ''`, REVOKE-then-narrow-GRANT to `service_role` by signature.
+
+In one transaction it: validates the caller's column map against an allowlist and fails
+closed; locks the session `FOR UPDATE`; applies the optimistic guard (returning
+`{conflict:true,current}` having written nothing); applies the update through
+`jsonb_populate_record`, so the table's own column types do the coercion; and, for a
+duration-relevant change on a `programada` row, calls the **unchanged**
+`reschedule_session_hours` for the ledger hours, the planned snapshot, the ledger date,
+the over-budget state and the revision row.
+
+`reschedule_session_hours` is left in place — not dropped, not overloaded, no signature
+change — and is still exercised on its own by suite 012. Calling it rather than
+reimplementing it is what keeps the hours arithmetic a single implementation.
+
+**ATOMICITY PROOF ([B4]).** A `BEFORE INSERT` trigger rejects the revision row, which
+the inner function writes last — precisely the window that used to leave the session
+moved and the ledger stale, because the route's `.update()` had already committed on its
+own connection. Both tables are then compared against their pre-call state:
+
+```
+ok 14 - B4: a ledger failure propagates out of the RPC instead of being swallowed
+ok 15 - B4: THE SESSION DID NOT MOVE — the source update rolled back with the ledger
+ok 16 - B4: the ledger row is byte-identical to its pre-call state
+ok 17 - B4: no revision row survived the rollback
+```
+
+**MUTATION PROBE.** The re-raise was replaced with a swallow — `v_hours :=
+jsonb_build_object('applied', false)` — i.e. the source update commits independently of
+the ledger write. Replayed and re-run:
+
+```
+# Failed test 14: "B4: a ledger failure propagates out of the RPC instead of being swallowed"
+#       caught: no exception
+# Failed test 15: "B4: THE SESSION DID NOT MOVE — the source update rolled back with the ledger"
+#         have: 2026-09-10 09:00:00-11:00:00 / 120
+#         want: 2026-09-10 09:00:00-10:30:00 / 90
+# Failed test 30: "B9: a 0 h recomputation raises with the inner function's own SQLSTATE"
+# Failed test 31: "B9: the session kept its old times — the refusal rolled the update back"
+Files=10, Tests=427, Result: FAIL
+```
+
+`have: … 11:00:00 / 120` is Sol's defect, reproduced on demand: the session at the new
+time, the ledger at the old duration. Reverted; blob hash `1cf004006af1dbc8ea…`
+identical before and after; tree clean.
+
+## Behaviour ordering that MOVED — the PM must re-rule it
+
+On **both** routes the `meeting_sync` enqueue and the `session_rescheduled` notification
+used to run **before** the hours sync. That placement was ruled in earlier rounds with an
+explicit reason: the hours sync could return 500 on a path where the times had already
+moved, so an enqueue after it would leave Zoom holding the old time.
+
+**That reason no longer exists.** The hours work is now inside the same transaction as
+the update, so a failed reconciliation means the times did not move either. Both calls
+now run **after** the whole transaction commits. `session-reschedule-zoom-sync.test.ts`
+carries the inverted case explicitly: the test formerly named "STILL enqueues when the
+hours RPC fails after the times moved" now asserts the opposite and checks the row is
+untouched.
+
+Two consequences of the same change:
+
+- **The 500 copy had to change.** "La sesión se actualizó, pero no se pudieron
+  recalcular las horas…" is now false. Both routes say the session was **not** modified,
+  and the tests assert the row really is untouched so the copy is not a claim the code
+  cannot back.
+- **The edit-request route's `scheduled_duration_minutes: null` workaround is gone.** It
+  existed because `{...session, ...sessionUpdate}` cannot recompute a STORED generated
+  column; the RPC's `RETURNING to_jsonb(t)` returns the real recomputed row.
+
+## What moved from the route into the database
+
+- **The optimistic guard.** The admin PUT's `.eq('updated_at', if_updated_at)` is now a
+  comparison under `FOR UPDATE` inside the RPC — strictly stronger, and on the same side
+  of the transaction boundary as the ledger. The non-reschedule branch keeps the
+  PostgREST guard it always had.
+- **The `programada` ledger gate.** The routes used to decide whether the ledger should
+  follow. They no longer do — the caller is not the security boundary. The two unit
+  assertions that used to say "does NOT call the RPC once the session is under way" now
+  say the RPC is still called and the gate is the RPC's; the behaviour they protected (no
+  ledger write, session edit still allowed, 200) is asserted in 013 [B7].
+
+## Deliberately NOT routed through the RPC
+
+A PUT or an approval that touches nothing duration-relevant keeps its plain
+`.update()`. It has no ledger consequence, so wrapping it buys no atomicity, and doing it
+anyway would have rewritten every non-reschedule write path and the mocks of some
+thirteen suites. Both **reschedule** flows converge on the one RPC, which is the finding.
+
+## Evidence
+
+- type-check 0 · lint 0 · **4622 passed / 281 files** (was 4617) · build 0
+- `npm run test:db` — **Files=10, Tests=427** (was 9 / 393), Result: PASS
+- New: `supabase/tests/013-session-reschedule-atomic.sql` (32 assertions).
+  `012` gained 2 (36 → 38) for the new revision-row shape.
+
+## Known limitations
+
+- **The atomicity proof is a local Postgres, not production.** Nothing in this round has
+  been applied to the production database, and the two migrations join the four already
+  unapplied there.
+- **The column allowlist is a hand-maintained copy** of the admin PUT's `allowedFields`
+  ∪ `STRUCTURAL_FIELDS`. Nothing forces the three to stay in step; a field added to the
+  route and not to the migration fails closed (the request 500s) rather than silently
+  writing, which is the safe direction, but it is still a copy.
+- **The edit-request route passes no `if_updated_at`.** Its stale-value guard is still
+  the JS old-value comparison it always had, run before the RPC. Closing that race by
+  passing `session.updated_at` would have been free, and was left alone as out of scope.
+- `'edit_approval_blocked'` at `pages/api/sessions/edit-requests/[eid].ts:195` is **not
+  in the action allowlist** and would violate the CHECK if that branch ever fired. It
+  predates this round and is untouched.

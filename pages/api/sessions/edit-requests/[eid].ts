@@ -10,8 +10,8 @@ import {
 import { Validators } from '../../../../lib/types/api-auth.types';
 import { SessionActivityLogInsert } from '../../../../lib/types/consultor-sessions.types';
 import {
+  applySessionReschedule,
   isDurationRelevantChange,
-  syncRescheduleHours,
 } from '../../../../lib/services/hour-tracking';
 import { enqueueSessionMeetingSync } from '../../../../lib/zoom/provisioning-intent';
 import type { ProvisionSessionRow } from '../../../../lib/zoom/jobs/meeting-provision';
@@ -212,86 +212,94 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, editRequestI
         }
       }
 
-      // Apply changes to session
-      const { error: sessionUpdateError } = await serviceClient
-        .from('consultor_sessions')
-        .update(sessionUpdate)
-        .eq('id', sessionId);
+      // Apply changes to session.
+      //
+      // r21 (Sol item 2): this is the second reschedule path, and like the admin PUT it
+      // used to write the session through PostgREST and reconcile the ledger in a
+      // SEPARATE call — a failure between the two left the session moved and the ledger
+      // billing the old duration. A duration-relevant change set now goes through
+      // `apply_session_reschedule`, which does the session write and the ledger write in
+      // ONE transaction. The same RPC the admin PUT calls: one implementation, no drift.
+      // Everything else keeps the plain update — it has no ledger consequence.
+      const isReschedule = isDurationRelevantChange(Object.keys(changes));
 
-      if (sessionUpdateError) {
-        console.error('Database error updating session:', sessionUpdateError);
-        return sendAuthError(res, 'Error al aplicar cambios a la sesión', 500, sessionUpdateError.message);
+      let updatedSession: any;
+
+      if (isReschedule) {
+        const applied = await applySessionReschedule(
+          serviceClient,
+          sessionId,
+          user!.id,
+          sessionUpdate
+        );
+
+        if (!applied.ok) {
+          // The edit request stays `pending` (it is marked approved only below) and,
+          // now, so does the session itself: nothing was written to either table.
+          console.error(
+            applied.hoursFailure
+              ? 'Error syncing reschedule hours:'
+              : 'Database error updating session:',
+            applied.error
+          );
+
+          return sendAuthError(
+            res,
+            applied.hoursFailure
+              ? 'No se pudieron recalcular las horas del contrato, así que los cambios no se aplicaron a la sesión. Revise el libro de horas antes de reintentar.'
+              : 'Error al aplicar cambios a la sesión',
+            500,
+            applied.error
+          );
+        }
+
+        updatedSession = applied.session;
+      } else {
+        const { error: sessionUpdateError } = await serviceClient
+          .from('consultor_sessions')
+          .update(sessionUpdate)
+          .eq('id', sessionId);
+
+        if (sessionUpdateError) {
+          console.error('Database error updating session:', sessionUpdateError);
+          return sendAuthError(res, 'Error al aplicar cambios a la sesión', 500, sessionUpdateError.message);
+        }
+
+        // This branch updates without a `.select()`, so the post-update row is the
+        // merge — the reconstruction this route has always used.
+        updatedSession = { ...session, ...sessionUpdate };
       }
 
-      // Z2-3b (plan §8): the second reschedule path tells Zoom too. Same placement
-      // rationale as the admin PUT — after the session update commits, before the
-      // hours sync, whose failure path returns 500 over times that already moved.
+      // Z2-3b (plan §8): the second reschedule path tells Zoom too.
       //
-      // The session row is reconstructed the same way `effectiveStatus` is: this route
-      // updates without a `.select()`, so `{ ...session, ...sessionUpdate }` is what the
-      // row now holds. The gate and the dedupe key both read from it.
+      // r21: the enqueue used to sit BEFORE the hours sync, because that sync could
+      // return 500 over times that had already moved. It now runs after the whole
+      // transaction has committed — a reschedule whose ledger failed did not happen, so
+      // there is nothing to tell Zoom about.
       //
-      // With ONE correction. `scheduled_duration_minutes` is a STORED generated column,
-      // so the value on `session` is the one computed for the OLD times and the merge
-      // cannot recompute it. Nulling it makes the enqueue derive the duration from the
-      // new `start_time`/`end_time` — which are the authoritative values here — instead
-      // of keying a moved session on the duration it used to have.
-      if (isDurationRelevantChange(Object.keys(changes))) {
+      // The row handed over is the RPC's own `RETURNING to_jsonb(t)` on the reschedule
+      // path, so `scheduled_duration_minutes` is the STORED generated column recomputed
+      // for the NEW times. The previous code merged `{ ...session, ...sessionUpdate }`
+      // and nulled that column precisely because a merge cannot recompute it; the real
+      // row makes the workaround unnecessary and the dedupe key exact.
+      if (isReschedule) {
         await enqueueSessionMeetingSync({
-          session: {
-            ...session,
-            ...sessionUpdate,
-            scheduled_duration_minutes: null,
-          } as ProvisionSessionRow,
+          session: updatedSession as ProvisionSessionRow,
         });
       }
 
       // Z2-4a (plan §15): the second reschedule path owes the participants the same
       // notice as the admin PUT, gated the same way — on VALUES, so an approved change
       // set that carries a date field holding the date the session already had does not
-      // announce a move from a time to itself. This route updates without `.select()`,
-      // so the post-update row is `{ ...session, ...sessionUpdate }`, exactly as
-      // `effectiveStatus` below reconstructs it.
-      {
-        const rescheduled = { ...session, ...sessionUpdate };
-
-        if (hasScheduleChanged(session, rescheduled)) {
-          await notifySessionLifecycle({
-            client: serviceClient,
-            session: rescheduled,
-            event: 'session_rescheduled',
-            req,
-            previous: session,
-          });
-        }
-      }
-
-      // Z2-3a (plan §11): an approved edit request is the second reschedule path, and
-      // it never touched the ledger either. Same rule as the admin PUT — the hour
-      // reservation, the planned snapshot and the revision row move together or not
-      // at all. Gated on the status the session HAS after the update, since that is
-      // what the RPC reads.
-      const effectiveStatus =
-        (sessionUpdate.status as string | undefined) ?? (session.status as string);
-
-      if (
-        effectiveStatus === 'programada' &&
-        isDurationRelevantChange(Object.keys(changes))
-      ) {
-        const hoursSync = await syncRescheduleHours(serviceClient, sessionId, user!.id);
-
-        if (!hoursSync.ok) {
-          // The edit request stays `pending` (it is marked approved only below), so a
-          // failed recomputation leaves the request retryable rather than closing it
-          // over a stale ledger.
-          console.error('Error syncing reschedule hours:', hoursSync.error);
-          return sendAuthError(
-            res,
-            'Los cambios se aplicaron a la sesión, pero no se pudieron recalcular las horas del contrato. Revise el libro de horas antes de continuar.',
-            500,
-            hoursSync.error
-          );
-        }
+      // announce a move from a time to itself.
+      if (hasScheduleChanged(session, updatedSession)) {
+        await notifySessionLifecycle({
+          client: serviceClient,
+          session: updatedSession,
+          event: 'session_rescheduled',
+          req,
+          previous: session,
+        });
       }
 
       // Now mark edit request as approved

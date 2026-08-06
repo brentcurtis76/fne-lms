@@ -42,7 +42,6 @@ const {
   mockValidateFacilitatorIntegrity,
   mockCreateReservation,
   mockExecuteCancellation,
-  mockSyncRescheduleHours,
 } = vi.hoisted(() => ({
   mockTriggerNotification: vi.fn(),
   mockCheckIsAdmin: vi.fn(),
@@ -53,7 +52,6 @@ const {
   mockValidateFacilitatorIntegrity: vi.fn(),
   mockCreateReservation: vi.fn(),
   mockExecuteCancellation: vi.fn(),
-  mockSyncRescheduleHours: vi.fn(),
 }));
 
 vi.mock('../../../lib/notificationService', () => ({
@@ -79,14 +77,16 @@ vi.mock('../../../lib/utils/facilitator-validation', () => ({
   validateFacilitatorIntegrity: mockValidateFacilitatorIntegrity,
 }));
 
-// `isDurationRelevantChange` stays REAL — it gates the reschedule paths.
+// `isDurationRelevantChange` and `applySessionReschedule` stay REAL — the first gates
+// the reschedule paths, and the second is now the only write path a reschedule takes,
+// so faking it would stop these routes from producing a session row at all. Its RPC is
+// doubled at the client seam instead (see `createClient` below).
 vi.mock('../../../lib/services/hour-tracking', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,
     createReservation: mockCreateReservation,
     executeCancellation: mockExecuteCancellation,
-    syncRescheduleHours: mockSyncRescheduleHours,
   };
 });
 
@@ -229,7 +229,29 @@ function createClient(state: ClientState) {
     return api;
   }
 
-  return { from: vi.fn((table: string) => builder(table)) };
+  return {
+    from: vi.fn((table: string) => builder(table)),
+    // r21: a duration-relevant session write now goes through
+    // `apply_session_reschedule`, which performs the session UPDATE and the ledger
+    // reconciliation in ONE transaction and returns the updated row. Modelled with the
+    // same non-persisting merge the `update` branch above uses, so the notification
+    // assertions still see exactly the row the route receives.
+    rpc: vi.fn(async (fn: string, args: Record<string, any> = {}) => {
+      if (fn !== 'apply_session_reschedule') return { data: null, error: null };
+
+      const updates = (args.p_updates || {}) as Record<string, unknown>;
+      state.updates.push({ table: 'consultor_sessions', payload: updates });
+
+      return {
+        data: {
+          conflict: false,
+          session: { ...state.sessions[0], ...updates },
+          hours: { applied: true, revision_written: true },
+        },
+        error: null,
+      };
+    }),
+  };
 }
 
 /** The event payload the handler produced for `eventType`. */
@@ -279,7 +301,6 @@ beforeEach(() => {
   mockValidateFacilitatorIntegrity.mockResolvedValue({ valid: true, errors: [] });
   mockCreateReservation.mockResolvedValue({ skipped: true, error: null });
   mockExecuteCancellation.mockResolvedValue({ success: true, clause_result: null });
-  mockSyncRescheduleHours.mockResolvedValue({ ok: true });
 });
 
 // ---------------------------------------------------------------------------

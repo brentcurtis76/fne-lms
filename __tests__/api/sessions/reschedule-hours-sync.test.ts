@@ -1,16 +1,24 @@
 // @vitest-environment node
 /**
- * Z2-3a [A6] — both reschedule paths keep the hour reservation in step (plan §11).
+ * Z2-3a [A6] / r21 — both reschedule paths move the session AND the ledger, in ONE
+ * transaction, through ONE RPC.
  *
- * Until this chunk NEITHER path touched `contract_hours_ledger`: moving a session
- * from 09:00–10:30 to 09:00–11:30 still billed 1.5 h, and one ledger value drives
- * both what the school pays and what the consultant is paid. These tests assert BOTH
- * directions on BOTH routes — the RPC is called when the planned duration (or the
- * session date) actually moves, and is NOT called otherwise.
+ * Until Z2-3a NEITHER path touched `contract_hours_ledger` at all: moving a session
+ * from 09:00–10:30 to 09:00–11:30 still billed 1.5 h. Z2-3a closed that with a second
+ * call, and Sol found the hole that left — a failure between the session write and the
+ * ledger write left the session moved and the ledger stale, with nothing to roll back.
+ * r21 replaces both call pairs with `apply_session_reschedule`.
  *
- * The RPC's own behaviour — atomicity, the pre-execution guard, the hours > 0
- * refusal — is asserted in the database, in supabase/tests/012-reschedule-hours-rpc.sql.
- * A mock cannot prove a transaction.
+ * What this file owns is the WIRING: that a schedule-moving request goes through that
+ * one RPC on both routes and carries the whole column map to it, that a request with no
+ * ledger consequence does not, and that a refusal is reported in es-CL without the
+ * session having moved.
+ *
+ * What it CANNOT own is the transaction. Atomicity under an injected failure, the
+ * optimistic guard writing nothing, the `programada` ledger gate and the hours
+ * arithmetic are all asserted in the database, in
+ * supabase/tests/013-session-reschedule-atomic.sql and 012-reschedule-hours-rpc.sql.
+ * A mock cannot prove a rollback.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
@@ -45,17 +53,19 @@ vi.mock('../../../lib/notificationService', () => ({
 const SESSION_ID = '123e4567-e89b-12d3-a456-426614174000';
 const EDIT_REQUEST_ID = '99999999-8888-4777-8666-555544443333';
 const ADMIN_ID = '22222222-2222-4222-8222-222222222222';
+const RPC_NAME = 'apply_session_reschedule';
 
 type RpcCall = { fn: string; args: Record<string, any> };
 
 type MockState = {
   row: Record<string, any>;
   editRequest: Record<string, any>;
+  /** Writes that reached `.update()` — i.e. did NOT go through the RPC. */
   updates: Array<Record<string, any>>;
   editRequestUpdates: Array<Record<string, any>>;
   rpcCalls: RpcCall[];
   /** When set, the reschedule RPC reports this error instead of succeeding. */
-  rpcError: string | null;
+  rpcError: { message: string; hint?: string } | null;
 };
 
 function createMockClient(state: MockState) {
@@ -111,12 +121,29 @@ function createMockClient(state: MockState) {
   };
 
   return {
-    rpc: vi.fn(async (fn: string, args: Record<string, any>) => {
+    rpc: vi.fn(async (fn: string, args: Record<string, any> = {}) => {
       state.rpcCalls.push({ fn, args });
-      if (fn === 'reschedule_session_hours' && state.rpcError) {
-        return { data: null, error: { message: state.rpcError } };
+
+      if (fn !== RPC_NAME) return { data: null, error: null };
+
+      // A failure inside the RPC rolls BOTH writes back, so the double leaves its row
+      // exactly as it was — the point of the whole round.
+      if (state.rpcError) return { data: null, error: state.rpcError };
+
+      if (args.p_if_updated_at && args.p_if_updated_at !== state.row.updated_at) {
+        return { data: { conflict: true, current: { ...state.row } }, error: null };
       }
-      return { data: { applied: true, revision_written: true }, error: null };
+
+      state.row = { ...state.row, ...(args.p_updates || {}) };
+
+      return {
+        data: {
+          conflict: false,
+          session: { ...state.row },
+          hours: { applied: true, revision_written: true },
+        },
+        error: null,
+      };
     }),
     from: vi.fn((table: string) => {
       if (table === 'consultor_sessions') return sessionsBuilder();
@@ -186,8 +213,7 @@ function approveEditRequest() {
   });
 }
 
-const rescheduleCalls = (state: MockState) =>
-  state.rpcCalls.filter((c) => c.fn === 'reschedule_session_hours');
+const rescheduleCalls = (state: MockState) => state.rpcCalls.filter((c) => c.fn === RPC_NAME);
 
 let state: MockState;
 
@@ -216,8 +242,8 @@ beforeEach(async () => {
   (getHighestRole as any).mockReturnValue('admin');
 });
 
-describe('PUT /api/sessions/[id] — reschedule keeps the ledger in step [A6]', () => {
-  it('calls the RPC when end_time moves the planned duration', async () => {
+describe('PUT /api/sessions/[id] — reschedule is one transaction [A6]', () => {
+  it('routes an end_time move through the RPC, carrying the whole column map', async () => {
     const { req, res } = put({ end_time: '11:00:00' });
     await putHandler(req as any, res as any);
 
@@ -226,26 +252,47 @@ describe('PUT /api/sessions/[id] — reschedule keeps the ledger in step [A6]', 
     expect(rescheduleCalls(state)[0].args).toEqual({
       p_session_id: SESSION_ID,
       p_actor_id: ADMIN_ID,
+      p_updates: { end_time: '11:00:00' },
+      p_if_updated_at: null,
     });
+    // The session write went through the RPC and NOWHERE else: two write paths for one
+    // reschedule is the defect this round closed.
+    expect(state.updates).toHaveLength(0);
   });
 
-  it('calls the RPC when start_time moves the planned duration', async () => {
+  it('routes a start_time move through the RPC', async () => {
     const { req, res } = put({ start_time: '08:00:00' });
     await putHandler(req as any, res as any);
 
     expect(res._getStatusCode()).toBe(200);
     expect(rescheduleCalls(state)).toHaveLength(1);
+    expect(state.updates).toHaveLength(0);
   });
 
-  it('calls the RPC on a session_date-only move, so the ledger date follows [A7]', async () => {
+  it('routes a session_date-only move through the RPC, so the ledger date follows [A7]', async () => {
     const { req, res } = put({ session_date: '2026-09-24' });
     await putHandler(req as any, res as any);
 
     expect(res._getStatusCode()).toBe(200);
     expect(rescheduleCalls(state)).toHaveLength(1);
+    expect(rescheduleCalls(state)[0].args.p_updates).toEqual({ session_date: '2026-09-24' });
   });
 
-  it('does NOT call the RPC on a title-only PUT', async () => {
+  it('carries the other changed fields into the SAME transaction as the times', async () => {
+    // A PUT that renames AND moves must not split into two writes: the title would land
+    // even when the reschedule is rolled back.
+    const { req, res } = put({ title: 'Nuevo título', end_time: '11:00:00' });
+    await putHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(rescheduleCalls(state)[0].args.p_updates).toEqual({
+      title: 'Nuevo título',
+      end_time: '11:00:00',
+    });
+    expect(state.updates).toHaveLength(0);
+  });
+
+  it('does NOT use the RPC on a title-only PUT — it has no ledger consequence', async () => {
     const { req, res } = put({ title: 'Nuevo título' });
     await putHandler(req as any, res as any);
 
@@ -254,7 +301,7 @@ describe('PUT /api/sessions/[id] — reschedule keeps the ledger in step [A6]', 
     expect(rescheduleCalls(state)).toHaveLength(0);
   });
 
-  it('does NOT call the RPC on an unrelated multi-field PUT', async () => {
+  it('does NOT use the RPC on an unrelated multi-field PUT', async () => {
     const { req, res } = put({ description: 'Notas', objectives: 'Objetivos', location: 'Sala 2' });
     await putHandler(req as any, res as any);
 
@@ -262,41 +309,83 @@ describe('PUT /api/sessions/[id] — reschedule keeps the ledger in step [A6]', 
     expect(rescheduleCalls(state)).toHaveLength(0);
   });
 
-  it('does NOT call the RPC once the session is under way — planned values are frozen', async () => {
-    state.row = sessionRow({ status: 'en_progreso' });
+  it.each([
+    ['under way', 'en_progreso'],
+    ['not yet approved', 'borrador'],
+  ])(
+    'still routes a time edit through the RPC when the session is %s — the ledger gate is the RPC\'s',
+    async (_label, status) => {
+      // The route used to decide whether the ledger should follow. It no longer does:
+      // the caller is not the security boundary, so the `programada` gate lives inside
+      // `apply_session_reschedule` and is asserted in pgTAP [B7]. The session edit is
+      // still allowed, and still returns 200.
+      state.row = sessionRow({ status });
 
-    const { req, res } = put({ end_time: '11:00:00' });
-    await putHandler(req as any, res as any);
+      const { req, res } = put({ end_time: '11:00:00' });
+      await putHandler(req as any, res as any);
 
-    expect(res._getStatusCode()).toBe(200);
-    expect(rescheduleCalls(state)).toHaveLength(0);
-  });
+      expect(res._getStatusCode()).toBe(200);
+      expect(rescheduleCalls(state)).toHaveLength(1);
+      expect(state.updates).toHaveLength(0);
+    }
+  );
 
-  it('does NOT call the RPC before approval — no reservation exists yet', async () => {
-    state.row = sessionRow({ status: 'borrador' });
-
-    const { req, res } = put({ end_time: '11:00:00' });
-    await putHandler(req as any, res as any);
-
-    expect(res._getStatusCode()).toBe(200);
-    expect(rescheduleCalls(state)).toHaveLength(0);
-  });
-
-  it('fails loudly with 500 in es-CL when the recomputation errors — never silently stale', async () => {
-    state.rpcError = 'las horas planificadas están congeladas';
+  it('fails loudly with 500 in es-CL when the recomputation errors — and says the session did NOT move', async () => {
+    state.rpcError = {
+      message: 'las horas planificadas están congeladas',
+      hint: 'reschedule_hours',
+    };
 
     const { req, res } = put({ end_time: '11:00:00' });
     await putHandler(req as any, res as any);
 
     expect(res._getStatusCode()).toBe(500);
     expect(JSON.parse(res._getData()).error).toBe(
-      'La sesión se actualizó, pero no se pudieron recalcular las horas del contrato. Revise el libro de horas antes de continuar.'
+      'No se pudieron recalcular las horas del contrato, así que la sesión no se modificó. Revise el libro de horas antes de reintentar.'
     );
+    // The copy is not a claim the code cannot back: the row really is untouched.
+    expect(state.row.end_time).toBe('10:30:00');
+  });
+
+  it('reports a plain update failure as an update failure, not as an hours failure', async () => {
+    // No `reschedule_hours` hint — a constraint violation on the session write itself.
+    state.rpcError = { message: 'invalid input value for enum' };
+
+    const { req, res } = put({ end_time: '11:00:00' });
+    await putHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(JSON.parse(res._getData()).error).toBe('Error al actualizar sesión');
+  });
+
+  it('rejects a stale if_updated_at with 409 and the row the RPC returned', async () => {
+    const { req, res } = put({
+      end_time: '11:00:00',
+      if_updated_at: '2020-01-01T00:00:00.000Z',
+    });
+    await putHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(409);
+    const body = JSON.parse(res._getData());
+    expect(body.code).toBe('SESSION_CONFLICT');
+    expect(body.current.end_time).toBe('10:30:00');
+    expect(state.row.end_time).toBe('10:30:00');
+  });
+
+  it('passes a matching if_updated_at into the RPC rather than guarding outside it', async () => {
+    const { req, res } = put({
+      end_time: '11:00:00',
+      if_updated_at: '2026-08-05T10:00:00.000Z',
+    });
+    await putHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(rescheduleCalls(state)[0].args.p_if_updated_at).toBe('2026-08-05T10:00:00.000Z');
   });
 });
 
-describe('PUT /api/sessions/edit-requests/[eid] — approve keeps the ledger in step [A6]', () => {
-  it('calls the RPC when the approved change moves the planned duration', async () => {
+describe('PUT /api/sessions/edit-requests/[eid] — approve is one transaction [A6]', () => {
+  it('routes an approved duration change through the SAME RPC', async () => {
     state.editRequest = editRequestRow({
       end_time: { old: '10:30:00', new: '11:00:00' },
     });
@@ -309,10 +398,13 @@ describe('PUT /api/sessions/edit-requests/[eid] — approve keeps the ledger in 
     expect(rescheduleCalls(state)[0].args).toEqual({
       p_session_id: SESSION_ID,
       p_actor_id: ADMIN_ID,
+      p_updates: { end_time: '11:00:00' },
+      p_if_updated_at: null,
     });
+    expect(state.updates).toHaveLength(0);
   });
 
-  it('calls the RPC when the approved change is a session_date move [A7]', async () => {
+  it('routes an approved session_date move through the RPC [A7]', async () => {
     state.editRequest = editRequestRow({
       session_date: { old: '2026-09-10', new: '2026-09-24' },
     });
@@ -324,7 +416,7 @@ describe('PUT /api/sessions/edit-requests/[eid] — approve keeps the ledger in 
     expect(rescheduleCalls(state)).toHaveLength(1);
   });
 
-  it('does NOT call the RPC when the approved change is title-only', async () => {
+  it('does NOT use the RPC when the approved change is title-only', async () => {
     state.editRequest = editRequestRow({
       title: { old: 'Sesión de acompañamiento', new: 'Sesión reprogramada' },
     });
@@ -333,10 +425,14 @@ describe('PUT /api/sessions/edit-requests/[eid] — approve keeps the ledger in 
     await editRequestHandler(req as any, res as any);
 
     expect(res._getStatusCode()).toBe(200);
+    // Not asserted through `state.updates`: this route's plain-update branch awaits the
+    // builder without `.select()`, which this double does not resolve (as it never did).
+    // `session-reschedule-zoom-sync.test.ts` owns the thenable variant.
     expect(rescheduleCalls(state)).toHaveLength(0);
   });
 
-  it('does NOT call the RPC when the session is already under way', async () => {
+  it('still routes through the RPC when the session is already under way', async () => {
+    // As on the admin PUT: the `programada` ledger gate is the RPC's, not the route's.
     state.row = sessionRow({ status: 'completada' });
     state.editRequest = editRequestRow({
       end_time: { old: '10:30:00', new: '11:00:00' },
@@ -346,24 +442,42 @@ describe('PUT /api/sessions/edit-requests/[eid] — approve keeps the ledger in 
     await editRequestHandler(req as any, res as any);
 
     expect(res._getStatusCode()).toBe(200);
-    expect(rescheduleCalls(state)).toHaveLength(0);
+    expect(rescheduleCalls(state)).toHaveLength(1);
   });
 
-  it('fails with 500 and leaves the request unapproved when the recomputation errors', async () => {
+  it('fails with 500, leaves the request unapproved AND leaves the session unmoved', async () => {
     state.editRequest = editRequestRow({
       end_time: { old: '10:30:00', new: '11:00:00' },
     });
-    state.rpcError = 'no se pudo recalcular';
+    state.rpcError = { message: 'no se pudo recalcular', hint: 'reschedule_hours' };
 
     const { req, res } = approveEditRequest();
     await editRequestHandler(req as any, res as any);
 
     expect(res._getStatusCode()).toBe(500);
     expect(JSON.parse(res._getData()).error).toBe(
-      'Los cambios se aplicaron a la sesión, pero no se pudieron recalcular las horas del contrato. Revise el libro de horas antes de continuar.'
+      'No se pudieron recalcular las horas del contrato, así que los cambios no se aplicaron a la sesión. Revise el libro de horas antes de reintentar.'
     );
-    // The request stays retryable rather than closing over a stale ledger.
+    // The request stays retryable rather than closing over a stale ledger…
     expect(state.editRequestUpdates).toHaveLength(0);
     expect(state.editRequest.status).toBe('pending');
+    // …and, new in r21, the session did not move either.
+    expect(state.row.end_time).toBe('10:30:00');
+  });
+});
+
+describe('one implementation, two callsites', () => {
+  it('both routes reach the ledger through the same RPC name', async () => {
+    const first = put({ end_time: '11:00:00' });
+    await putHandler(first.req as any, first.res as any);
+
+    state.row = sessionRow();
+    state.editRequest = editRequestRow({ end_time: { old: '10:30:00', new: '11:00:00' } });
+
+    const second = approveEditRequest();
+    await editRequestHandler(second.req as any, second.res as any);
+
+    const names = state.rpcCalls.map((c) => c.fn);
+    expect(names).toEqual([RPC_NAME, RPC_NAME]);
   });
 });

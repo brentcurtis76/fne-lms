@@ -22,58 +22,24 @@
 -- following supabase/migrations/20260731120000_zoom_provision_rpcs.sql:250-268.
 -- The only callers are service-role API routes.
 --
--- ADDITIVE ONLY: no DROP TABLE, no TRUNCATE, no destructive ALTER, no RLS change,
--- and no grant beyond this function's own narrow GRANT EXECUTE.
+-- ADDITIVE ONLY: this migration performs NO DDL on any pre-existing object. It
+-- creates one function and grants EXECUTE on it — nothing else. No DROP of any
+-- kind, no TRUNCATE, no ALTER, no RLS change.
+--
+-- r21 (Sol item 1): this file originally widened `session_activity_log`'s `action`
+-- CHECK allowlist with a new 'hours_revised' value, which forced
+-- `ALTER TABLE … DROP CONSTRAINT` — the mechanism PostgreSQL requires for a CHECK
+-- widening. CLAUDE.md states "NEVER DROP, TRUNCATE, or destructive ALTER" with no
+-- mechanism exemption, and a hard rule that yields to a good argument is not a hard
+-- rule. The whole block is gone and the allowlist stays at its 16 baseline values.
+-- The revision row now uses the ALREADY-ALLOWED 'edited' action and carries a typed
+-- `details.event_type = 'hours_revised'` discriminator, so the revision history is
+-- still queryable on its own — the only thing a distinct action bought.
 -- =============================================================================
 
 
 -- -----------------------------------------------------------------------------
--- 1. Admit the revision action on session_activity_log.
---
--- The revision row's `action` must be new and specific rather than a reused
--- 'edited', so the revision history is queryable on its own (plan §11: "every
--- historical approved value remains reconstructible"). `action` carries a CHECK
--- allowlist, so a new value needs the allowlist widened.
---
--- This is ADDITIVE IN EFFECT: the new list is a strict SUPERSET of the old one.
--- Every value that was legal is still legal, no capability is removed, and no
--- existing row can fail the new constraint. PostgreSQL has no "add a value to a
--- CHECK" verb, so a widening is mechanically DROP + ADD — that mechanism is not a
--- destructive ALTER.
---
--- Ordering is the production-safe one: DROP and the NOT VALID ADD are catalog-only,
--- and VALIDATE takes SHARE UPDATE EXCLUSIVE instead of blocking readers and writers
--- of an audit table that only ever grows. The re-scan is a formality — every row
--- already satisfies a superset of the constraint it was written under.
--- -----------------------------------------------------------------------------
-ALTER TABLE public.session_activity_log
-  DROP CONSTRAINT IF EXISTS session_activity_log_action_check;
-
-ALTER TABLE public.session_activity_log
-  ADD CONSTRAINT session_activity_log_action_check
-  CHECK (action = ANY (ARRAY[
-    -- the 16 pre-existing values, verbatim
-    'created', 'viewed', 'edited', 'status_changed',
-    'materials_uploaded', 'materials_deleted',
-    'report_filed', 'report_updated',
-    'attendance_recorded', 'attendance_updated',
-    'communication_added',
-    'edit_requested', 'edit_approved', 'edit_rejected',
-    'cancelled', 'finalized',
-    -- Z2-3a: the pre-execution reschedule revision entry
-    'hours_revised'
-  ]::text[]))
-  NOT VALID;
-
-ALTER TABLE public.session_activity_log
-  VALIDATE CONSTRAINT session_activity_log_action_check;
-
-COMMENT ON CONSTRAINT session_activity_log_action_check ON public.session_activity_log IS
-  'Action allowlist. Widened by Z2-3a with ''hours_revised'' (append-only planned-hours revision history, plan §11). Widen additively only — never narrow.';
-
-
--- -----------------------------------------------------------------------------
--- 2. The transactional reschedule.
+-- 1. The transactional reschedule.
 --
 -- Reads the session's NEW planned duration from `scheduled_duration_minutes`
 -- (GENERATED ALWAYS STORED from end_time - start_time), so the figure billed is
@@ -256,13 +222,21 @@ BEGIN
     -- Ruling 3: append-only. A prior entry is never updated or deleted; a duration
     -- change adds one row. A date-only move writes NO revision row — there is no
     -- duration revision to record.
+    --
+    -- r21 (Sol item 1): the row carries the pre-existing 'edited' action plus a typed
+    -- `details.event_type`. The revision history is queryable on the discriminator
+    -- ALONE — `WHERE details ->> 'event_type' = 'hours_revised'` selects exactly these
+    -- rows and nothing else, because no other writer of session_activity_log sets
+    -- `event_type` at all. That keeps plan §11's "every historical approved value
+    -- remains reconstructible" without touching the action CHECK allowlist.
     IF v_minutes_changed THEN
         INSERT INTO public.session_activity_log (session_id, user_id, action, details)
         VALUES (
             p_session_id,
             p_actor_id,
-            'hours_revised',
+            'edited',
             jsonb_build_object(
+                'event_type',        'hours_revised',
                 'ledger_entry_id',   v_ledger_id,
                 'old_minutes',       v_old_minutes,
                 'new_minutes',       v_new_minutes,
@@ -291,11 +265,11 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.reschedule_session_hours(uuid, uuid) IS
-  'Z2-3a (plan §11): atomically recompute contract_hours_ledger.hours + planned_minutes_snapshot + session_date and append one hours_revised revision row for a pre-execution reschedule. Refuses en_progreso/pendiente_informe/completada/cancelada and any non-reservada ledger row. Never yields hours <= 0. Service-role only.';
+  'Z2-3a (plan §11): atomically recompute contract_hours_ledger.hours + planned_minutes_snapshot + session_date and append one revision row (action ''edited'', details.event_type ''hours_revised'') for a pre-execution reschedule. Refuses en_progreso/pendiente_informe/completada/cancelada and any non-reservada ledger row. Never yields hours <= 0. Service-role only. Called by public.apply_session_reschedule (r21), which wraps it together with the source-schedule UPDATE in one transaction.';
 
 
 -- -----------------------------------------------------------------------------
--- 3. Grants — REVOKE then narrow GRANT, per 20260731120000_zoom_provision_rpcs.sql.
+-- 2. Grants — REVOKE then narrow GRANT, per 20260731120000_zoom_provision_rpcs.sql.
 -- -----------------------------------------------------------------------------
 REVOKE EXECUTE ON FUNCTION public.reschedule_session_hours(uuid, uuid)
   FROM PUBLIC, anon, authenticated;

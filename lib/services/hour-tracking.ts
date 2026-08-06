@@ -17,7 +17,8 @@ import {
   BucketSummary,
   LedgerEntryStatus,
   RescheduleHoursPayload,
-  RescheduleHoursResult,
+  ApplySessionRescheduleResult,
+  SessionRescheduleUpdates,
 } from '../types/hour-tracking.types';
 import { ConsultorSession } from '../types/consultor-sessions.types';
 import { getSessionDateTime } from '../utils/session-timezone';
@@ -555,36 +556,67 @@ export function isDurationRelevantChange(fieldsChanged: readonly string[]): bool
 }
 
 /**
- * Keep the hour reservation in step with a PRE-EXECUTION reschedule.
+ * Apply a reschedule — the session write AND the ledger write — in ONE transaction.
  *
- * Delegates to the `reschedule_session_hours` RPC
- * (supabase/migrations/20260805120000_reschedule_hours_rpc.sql), which recomputes
- * the ledger `hours`, updates `planned_minutes_snapshot` and `session_date`, and
- * appends one `hours_revised` revision row — all three in ONE transaction, or none.
+ * This is the single entry point for BOTH reschedule flows: the admin PUT
+ * (`pages/api/sessions/[id]/index.ts`) and the edit-request approval
+ * (`pages/api/sessions/edit-requests/[eid].ts`). One implementation, so the two
+ * cannot drift.
  *
- * It is an RPC rather than three calls from the route because the routes' activity
- * logging is deliberately best-effort: a route-level sequence could leave the ledger
- * updated with no revision trail (plan §11).
+ * Before r21 each route updated `consultor_sessions` through PostgREST and then
+ * called `reschedule_session_hours` as a SECOND call. A failure between the two left
+ * the session moved and the ledger billing the old duration, with nothing to roll
+ * back. `apply_session_reschedule`
+ * (supabase/migrations/20260808120000_session_reschedule_atomic.sql) does the source
+ * update, the optimistic-concurrency guard and — through the unchanged
+ * `reschedule_session_hours` — the ledger hours, the planned snapshot, the ledger
+ * date, the over-budget state and the append-only revision row, or none of it.
  *
- * Callers gate on the session being `programada`; the RPC re-checks that itself and
- * refuses anything at `en_progreso` or beyond, because the caller is not the security
- * boundary.
+ * `ok: false` therefore means NOTHING was written. `hoursFailure` says the failure
+ * was the ledger reconciliation rather than the update itself, which the routes turn
+ * into different Spanish copy.
  */
-export async function syncRescheduleHours(
+export async function applySessionReschedule(
   serviceClient: SupabaseClient,
   sessionId: string,
-  userId: string
-): Promise<RescheduleHoursResult> {
-  const { data, error } = await serviceClient.rpc('reschedule_session_hours', {
+  userId: string,
+  updates: SessionRescheduleUpdates,
+  ifUpdatedAt?: string | null
+): Promise<ApplySessionRescheduleResult> {
+  const { data, error } = await serviceClient.rpc('apply_session_reschedule', {
     p_session_id: sessionId,
     p_actor_id: userId,
+    p_updates: updates,
+    p_if_updated_at: ifUpdatedAt ?? null,
   });
 
   if (error) {
-    return { ok: false, error: error.message };
+    return {
+      ok: false,
+      error: error.message,
+      // The RPC re-raises anything thrown by the ledger reconciliation under this
+      // hint; a plain update failure (constraint, bad value) carries no hint.
+      hoursFailure: (error as { hint?: string }).hint === 'reschedule_hours',
+    };
   }
 
-  return { ok: true, result: data as RescheduleHoursPayload };
+  const payload = (data || {}) as {
+    conflict?: boolean;
+    current?: Record<string, any> | null;
+    session?: Record<string, any>;
+    hours?: RescheduleHoursPayload | null;
+  };
+
+  if (payload.conflict) {
+    return { ok: true, conflict: true, current: payload.current ?? null };
+  }
+
+  return {
+    ok: true,
+    conflict: false,
+    session: payload.session,
+    hours: payload.hours ?? null,
+  };
 }
 
 // ============================================================

@@ -24,7 +24,7 @@
 
 BEGIN;
 
-SELECT plan(36);
+SELECT plan(38);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures
@@ -181,21 +181,40 @@ SELECT is(
 SELECT is(
   (SELECT count(*)::int FROM public.session_activity_log
     WHERE session_id = 'eeeeeeee-0000-0000-0000-000000000001'
-      AND action = 'hours_revised'),
+      AND details ->> 'event_type' = 'hours_revised'),
   1, 'A2: exactly one hours_revised revision row');
+
+-- r21 (Sol item 1): the revision row carries an ALREADY-ALLOWED action plus a typed
+-- discriminator, so recording it needed no change to the action CHECK allowlist.
+SELECT is(
+  (SELECT action FROM public.session_activity_log
+    WHERE session_id = 'eeeeeeee-0000-0000-0000-000000000001'
+      AND details ->> 'event_type' = 'hours_revised'),
+  'edited', 'A2: the revision row reuses the pre-existing ''edited'' action');
+
+-- …and the discriminator alone still selects exactly the revision history: this
+-- session also has NO other row carrying `event_type`, so a query that knows only
+-- about `details ->> 'event_type'` reconstructs the same set the old dedicated
+-- action did (plan §11).
+SELECT is(
+  (SELECT count(*)::int FROM public.session_activity_log
+    WHERE session_id = 'eeeeeeee-0000-0000-0000-000000000001'
+      AND details ? 'event_type'
+      AND details ->> 'event_type' <> 'hours_revised'),
+  0, 'A2: no other event_type shares the discriminator on this session');
 
 SELECT is(
   (SELECT (details ->> 'old_minutes') || '→' || (details ->> 'new_minutes') || ' / ' ||
           (details ->> 'old_hours')   || '→' || (details ->> 'new_hours')
      FROM public.session_activity_log
     WHERE session_id = 'eeeeeeee-0000-0000-0000-000000000001'
-      AND action = 'hours_revised'),
+      AND details ->> 'event_type' = 'hours_revised'),
   '90→120 / 1.50→2.00', 'A2: the revision row records old and new minutes and hours');
 
 SELECT is(
   (SELECT user_id FROM public.session_activity_log
     WHERE session_id = 'eeeeeeee-0000-0000-0000-000000000001'
-      AND action = 'hours_revised'),
+      AND details ->> 'event_type' = 'hours_revised'),
   tests.get_supabase_uid('h_admin'), 'A2: the revision row records the actor');
 
 -- Append-only: a second reschedule ADDS a row and leaves the first untouched.
@@ -206,13 +225,13 @@ SELECT public.reschedule_session_hours(
 SELECT is(
   (SELECT count(*)::int FROM public.session_activity_log
     WHERE session_id = 'eeeeeeee-0000-0000-0000-000000000001'
-      AND action = 'hours_revised'),
+      AND details ->> 'event_type' = 'hours_revised'),
   2, 'A2: a second revision APPENDS — the history is never rewritten');
 
 SELECT is(
   (SELECT count(*)::int FROM public.session_activity_log
     WHERE session_id = 'eeeeeeee-0000-0000-0000-000000000001'
-      AND action = 'hours_revised'
+      AND details ->> 'event_type' = 'hours_revised'
       AND (details ->> 'old_minutes')::int = 90
       AND (details ->> 'new_minutes')::int = 120),
   1, 'A2: the first revision row survives the second reschedule verbatim');
@@ -238,7 +257,7 @@ $$;
 
 CREATE TRIGGER zz_block_revision
   BEFORE INSERT ON public.session_activity_log
-  FOR EACH ROW WHEN (NEW.action = 'hours_revised')
+  FOR EACH ROW WHEN (NEW.details ->> 'event_type' = 'hours_revised')
   EXECUTE FUNCTION pg_temp.block_revision();
 
 SELECT throws_ok(
@@ -364,7 +383,7 @@ SELECT is(
 SELECT is(
   (SELECT count(*)::int FROM public.session_activity_log
     WHERE session_id = 'eeeeeeee-0000-0000-0000-000000000008'
-      AND action = 'hours_revised'),
+      AND details ->> 'event_type' = 'hours_revised'),
   0, 'A7: a date-only move writes no spurious duration revision');
 
 -- -----------------------------------------------------------------------------

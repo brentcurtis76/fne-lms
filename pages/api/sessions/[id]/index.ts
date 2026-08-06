@@ -15,8 +15,8 @@ import {
   STRUCTURAL_FIELDS,
 } from '../../../../lib/types/consultor-sessions.types';
 import {
+  applySessionReschedule,
   isDurationRelevantChange,
-  syncRescheduleHours,
 } from '../../../../lib/services/hour-tracking';
 import {
   enqueueSessionMeetingDelete,
@@ -406,47 +406,108 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
     const ifUpdatedAt =
       typeof req.body?.if_updated_at === 'string' ? req.body.if_updated_at : null;
 
-    let updateQuery = serviceClient
-      .from('consultor_sessions')
-      .update(updateData)
-      .eq('id', sessionId);
+    // ---------------------------------------------------------------------
+    // r21 (Sol item 2): a RESCHEDULE is ONE transaction.
+    //
+    // When the update touches anything the hour ledger has to follow, the session
+    // write and the ledger write go through `apply_session_reschedule` together —
+    // optimistic guard included, because the guard has to sit on the same side of the
+    // transaction boundary as the ledger. Before this, the two were separate PostgREST
+    // calls and a failure between them left the session MOVED and the ledger billing
+    // the OLD duration, with nothing to roll back.
+    //
+    // Any other PUT keeps the plain update: it has no ledger consequence, so routing
+    // it through the RPC would buy no atomicity and would rewrite every non-reschedule
+    // write path in this route.
+    // ---------------------------------------------------------------------
+    let updatedSession: any = null;
 
-    if (ifUpdatedAt) {
-      updateQuery = updateQuery.eq('updated_at', ifUpdatedAt);
-    }
+    if (isDurationRelevantChange(fieldsChanged)) {
+      const applied = await applySessionReschedule(
+        serviceClient,
+        sessionId,
+        user.id,
+        updateData,
+        ifUpdatedAt
+      );
 
-    const { data: updatedSession, error: updateError } = ifUpdatedAt
-      ? await updateQuery.select('*').maybeSingle()
-      : await updateQuery.select('*').single();
+      if (!applied.ok) {
+        if (applied.hoursFailure) {
+          // Loud, never silent — but the sentence has changed with the fix: the
+          // session did NOT move, because the ledger could not follow it.
+          console.error('Error syncing reschedule hours:', applied.error);
+          return sendAuthError(
+            res,
+            'No se pudieron recalcular las horas del contrato, así que la sesión no se modificó. Revise el libro de horas antes de reintentar.',
+            500,
+            applied.error
+          );
+        }
 
-    if (updateError) {
-      console.error('Database error updating session:', updateError);
-      return sendAuthError(res, 'Error al actualizar sesión', 500, updateError.message);
-    }
+        console.error('Database error updating session:', applied.error);
+        return sendAuthError(res, 'Error al actualizar sesión', 500, applied.error);
+      }
 
-    // Guard matched zero rows — someone else modified the session in between
-    if (ifUpdatedAt && !updatedSession) {
-      const { data: currentSession } = await serviceClient
+      // Guard did not match — someone else modified the session in between. The RPC
+      // returns the row as it actually stands, so no second read is needed.
+      if (applied.conflict) {
+        return res.status(409).json({
+          error:
+            'La sesión fue modificada por otro usuario. Recarga para ver los últimos cambios.',
+          code: 'SESSION_CONFLICT',
+          current: applied.current,
+        });
+      }
+
+      updatedSession = applied.session;
+    } else {
+      let updateQuery = serviceClient
         .from('consultor_sessions')
-        .select('*')
-        .eq('id', sessionId)
-        .maybeSingle();
+        .update(updateData)
+        .eq('id', sessionId);
 
-      return res.status(409).json({
-        error:
-          'La sesión fue modificada por otro usuario. Recarga para ver los últimos cambios.',
-        code: 'SESSION_CONFLICT',
-        current: currentSession,
-      });
+      if (ifUpdatedAt) {
+        updateQuery = updateQuery.eq('updated_at', ifUpdatedAt);
+      }
+
+      const { data: plainUpdated, error: updateError } = ifUpdatedAt
+        ? await updateQuery.select('*').maybeSingle()
+        : await updateQuery.select('*').single();
+
+      if (updateError) {
+        console.error('Database error updating session:', updateError);
+        return sendAuthError(res, 'Error al actualizar sesión', 500, updateError.message);
+      }
+
+      // Guard matched zero rows — someone else modified the session in between
+      if (ifUpdatedAt && !plainUpdated) {
+        const { data: currentSession } = await serviceClient
+          .from('consultor_sessions')
+          .select('*')
+          .eq('id', sessionId)
+          .maybeSingle();
+
+        return res.status(409).json({
+          error:
+            'La sesión fue modificada por otro usuario. Recarga para ver los últimos cambios.',
+          code: 'SESSION_CONFLICT',
+          current: currentSession,
+        });
+      }
+
+      updatedSession = plainUpdated;
     }
 
     // ---------------------------------------------------------------------
-    // Z2-3b (plan §8): tell Zoom. Placed HERE — after the update has committed and
-    // before the hours sync — for two reasons. The update is what makes the change
-    // real, so nothing is enqueued for a change that did not land; and the hours sync
-    // below can return 500, on a path where the session times DID move, so an enqueue
-    // after it would leave Zoom holding the old time on exactly the case an admin is
-    // being told to go and check.
+    // Z2-3b (plan §8): tell Zoom. Placed HERE — after the update has committed — so
+    // that nothing is enqueued for a change that did not land.
+    //
+    // r21: this used to sit BEFORE the hours sync, because that sync could return 500
+    // on a path where the session times HAD already moved, and an enqueue after it
+    // would have left Zoom holding the old time. That reason is gone: the hours work
+    // now happens inside the same transaction as the update, so a failed
+    // reconciliation means the times did not move either and there is nothing to tell
+    // Zoom about. The enqueue therefore runs strictly AFTER the ledger commits.
     //
     // Neither call can throw and neither can change the response: both gate on the §14
     // flags and swallow their own errors, so every branch below returns byte-identical
@@ -468,9 +529,8 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
     // Z2-4a (plan §15): and tell the people. Z2-3b converged the Zoom meeting on a
     // reschedule while the participants were never told, which is the defect this
     // closes. Placed with the enqueues above and for the same reason: the update is
-    // what makes the move real, and the hours sync below can return 500 on a path
-    // where the times DID move — notifying after it would leave participants holding
-    // the old time on exactly the case that needs the warning.
+    // what makes the move real. Same r21 note as the enqueue — it now runs after the
+    // ledger has committed, because a reschedule whose ledger failed did not happen.
     //
     // Gated on VALUES, not on which keys the body carried: a PUT that only changes the
     // title, or that resubmits the same date, is not a reschedule.
@@ -482,34 +542,6 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
         req,
         previous: session,
       });
-    }
-
-    // Z2-3a (plan §11): a PRE-EXECUTION reschedule must carry the hour reservation
-    // with it. Until now this path never touched the ledger, so moving a session
-    // 09:00–10:30 → 09:00–11:30 still billed 1.5 h.
-    //
-    // Gated on the status the row HAS AFTER the update, because that is the status
-    // the RPC will read. Post-execution time edits stay allowed at the session level
-    // and simply do not reach the RPC — the RPC refuses them on its own for any
-    // other caller (it is the security boundary; this gate is only about not
-    // provoking a refusal on a path that is legitimately allowed to edit times).
-    if (
-      updatedSession?.status === 'programada' &&
-      isDurationRelevantChange(fieldsChanged)
-    ) {
-      const hoursSync = await syncRescheduleHours(serviceClient, sessionId, user.id);
-
-      if (!hoursSync.ok) {
-        // Loud, never silent: the session times moved but the ledger did not, and a
-        // stale ledger is the exact billing bug this chunk exists to close.
-        console.error('Error syncing reschedule hours:', hoursSync.error);
-        return sendAuthError(
-          res,
-          'La sesión se actualizó, pero no se pudieron recalcular las horas del contrato. Revise el libro de horas antes de continuar.',
-          500,
-          hoursSync.error
-        );
-      }
     }
 
     // Insert activity log

@@ -175,8 +175,36 @@ function createMockClient() {
   };
 
   return {
-    rpc: vi.fn(async (fn: string) => {
+    rpc: vi.fn(async (fn: string, args: Record<string, any> = {}) => {
       state.rpcCalls.push(fn);
+
+      // r21: a reschedule's session write now happens INSIDE
+      // `apply_session_reschedule` (20260808120000), in the same transaction as the
+      // ledger write, so the double applies the column map itself.
+      // `scheduled_duration_minutes` is recomputed here for the same reason the
+      // `.update()` path recomputes it — it is a STORED generated column and the
+      // dedupe key reads it.
+      if (fn === 'apply_session_reschedule') {
+        if (args.p_if_updated_at && args.p_if_updated_at !== state.row.updated_at) {
+          return { data: { conflict: true, current: { ...state.row } }, error: null };
+        }
+
+        state.row = { ...state.row, ...(args.p_updates || {}) };
+        state.row.scheduled_duration_minutes = durationOf(
+          state.row.start_time,
+          state.row.end_time
+        );
+
+        return {
+          data: {
+            conflict: false,
+            session: { ...state.row },
+            hours: { applied: true, revision_written: true },
+          },
+          error: null,
+        };
+      }
+
       return { data: { applied: true, revision_written: true }, error: null };
     }),
     from: vi.fn((table: string) => {
@@ -384,7 +412,7 @@ describe('PUT /api/sessions/[id] — Zoom reschedule sync [A7] [A8] [A10]', () =
     expect(body.data.session.end_time).toBe('13:00:00');
     // The session's own state change still committed, and the ledger still moved.
     expect(state.row.start_time).toBe('11:00:00');
-    expect(state.rpcCalls).toContain('reschedule_session_hours');
+    expect(state.rpcCalls).toContain('apply_session_reschedule');
     consoleError.mockRestore();
   });
 
@@ -498,13 +526,22 @@ describe('PUT /api/sessions/[id] — Zoom reschedule sync [A7] [A8] [A10]', () =
     expect(mockEnqueue).not.toHaveBeenCalled();
   });
 
-  it('STILL enqueues when the hours RPC fails after the times moved', async () => {
+  it('does NOT enqueue when the hours reconciliation fails — the times never moved', async () => {
+    // r21 INVERTS this case. It used to assert the opposite ("STILL enqueues"), and the
+    // reason was sound while the session update and the ledger update were two separate
+    // calls: the times HAD moved, so Zoom had to be told even though the ledger failed.
+    // `apply_session_reschedule` makes them one transaction, so a failed reconciliation
+    // rolls the session back too — there is no new time to tell Zoom about, and telling
+    // it would move the meeting away from where the session actually still is.
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockCreateServiceRoleClient.mockImplementation(() => {
       const client = createMockClient();
       client.rpc = vi.fn(async (fn: string) => {
         state.rpcCalls.push(fn);
-        return { data: null, error: { message: 'ledger locked' } };
+        return {
+          data: null,
+          error: { message: 'ledger locked', hint: 'reschedule_hours' },
+        };
       }) as any;
       return client;
     });
@@ -512,10 +549,11 @@ describe('PUT /api/sessions/[id] — Zoom reschedule sync [A7] [A8] [A10]', () =
     const { req, res } = put({ start_time: '11:00:00', end_time: '13:00:00' });
     await putHandler(req as any, res as any);
 
-    // The admin is told to go and check the ledger — and the meeting still moved, which
-    // is why the enqueue sits before the hours sync rather than after it.
     expect(res._getStatusCode()).toBe(500);
-    expect(mockEnqueue).toHaveBeenCalledTimes(1);
+    expect(mockEnqueue).not.toHaveBeenCalled();
+    // The double's row was never touched, mirroring the transaction rollback.
+    expect(state.row.start_time).toBe('09:00:00');
+    expect(state.row.end_time).toBe('10:30:00');
     consoleError.mockRestore();
   });
 });

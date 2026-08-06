@@ -252,6 +252,16 @@ describe('Session Notifications', () => {
           }
           return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: null, error: null }) };
         }) as any,
+        // r21: a schedule-moving approval applies the session update and the ledger
+        // reconciliation through ONE transactional RPC, which returns the updated row.
+        rpc: vi.fn(async (_fn: string, args: Record<string, any> = {}) => ({
+          data: {
+            conflict: false,
+            session: { ...mockSession, ...(args.p_updates || {}) },
+            hours: { applied: true, revision_written: true },
+          },
+          error: null,
+        })),
       };
 
       vi.mocked(createServiceRoleClient).mockReturnValue(mockSupabaseClient as any);

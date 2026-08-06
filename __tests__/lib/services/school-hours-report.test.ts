@@ -79,7 +79,16 @@ const BASE_SCHEMA: Record<string, TableDef> = {
     relations: { profiles: 'profiles' },
   },
   profiles: { columns: ['id', 'first_name', 'last_name'] },
-  contract_hours_ledger: { columns: ['session_id', 'status', 'is_over_budget'] },
+  contract_hours_ledger: {
+    columns: [
+      'session_id',
+      'status',
+      'is_over_budget',
+      'hours',
+      'admin_override',
+      'planned_minutes_snapshot',
+    ],
+  },
 };
 
 // ============================================================
@@ -341,6 +350,7 @@ const PROGRAMA_ID = 'prg-33333333-3333-4333-8333-333333333333';
 const SESSION_MARCH = 'ses-44444444-4444-4444-8444-444444444444';
 const SESSION_APRIL = 'ses-55555555-5555-4555-8555-555555555555';
 const SESSION_OTHER_BUCKET = 'ses-66666666-6666-4666-8666-666666666666';
+const SESSION_LEGACY = 'ses-77777777-7777-4777-8777-777777777777';
 
 const BUCKET_KEY = 'acompanamiento';
 const OTHER_BUCKET_KEY = 'diagnostico';
@@ -378,6 +388,20 @@ const sessionFixtures: Row[] = [
     hour_type_key: OTHER_BUCKET_KEY,
     contrato_id: CONTRATO_ID,
     session_facilitators: [{ profiles: { first_name: 'Luis', last_name: 'Pérez' } }],
+  },
+  // Legacy: finalized long before the ledger existed, so it has no entry. Its
+  // actual_duration_minutes (30) disagrees with its scheduled duration (90), which is
+  // what makes it prove the fallback reads the schedule and not the deprecated column.
+  {
+    id: SESSION_LEGACY,
+    title: 'Sesión heredada sin libro de horas',
+    session_date: '2026-02-01',
+    actual_duration_minutes: 30,
+    scheduled_duration_minutes: 90,
+    status: 'completada',
+    hour_type_key: BUCKET_KEY,
+    contrato_id: CONTRATO_ID,
+    session_facilitators: [{ profiles: { first_name: 'Sofía', last_name: 'Muñoz' } }],
   },
 ];
 
@@ -421,9 +445,23 @@ function baseOptions(overrides: Partial<ClientOptions> = {}): ClientOptions {
       },
     ],
     sessions: sessionFixtures,
+    // Ledger hours deliberately disagree with actual_duration_minutes/60 (1.5h and
+    // 0.75h): the billed figure is the ledger's, not the session column's.
     ledger: [
-      { session_id: SESSION_MARCH, status: 'consumida', is_over_budget: false },
-      { session_id: SESSION_OTHER_BUCKET, status: 'consumida', is_over_budget: true },
+      {
+        session_id: SESSION_MARCH,
+        status: 'consumida',
+        is_over_budget: false,
+        hours: 1.25,
+        admin_override: false,
+      },
+      {
+        session_id: SESSION_OTHER_BUCKET,
+        status: 'consumida',
+        is_over_budget: true,
+        hours: 0.5,
+        admin_override: false,
+      },
     ],
     buckets: { [CONTRATO_ID]: bucketFixtures },
     ...overrides,
@@ -460,10 +498,14 @@ describe('fetchSchoolReportData', () => {
 
     // The drill-down is the thing that has been empty in production.
     const bucket = contract.buckets.find((b) => b.hour_type_key === BUCKET_KEY)!;
-    expect(bucket.sessions).toHaveLength(2);
+    expect(bucket.sessions).toHaveLength(3);
 
     // `.order('session_date', { ascending: false })` — newest first.
-    expect(bucket.sessions.map((s) => s.session_id)).toEqual([SESSION_APRIL, SESSION_MARCH]);
+    expect(bucket.sessions.map((s) => s.session_id)).toEqual([
+      SESSION_APRIL,
+      SESSION_MARCH,
+      SESSION_LEGACY,
+    ]);
 
     // The sessions query ran against a real column, so the ledger sub-query ran too.
     expect(log.some((entry) => entry.table === 'contract_hours_ledger')).toBe(true);
@@ -475,9 +517,9 @@ describe('fetchSchoolReportData', () => {
       (b) => b.hour_type_key === BUCKET_KEY
     )!;
 
-    const [april, march] = bucket.sessions;
+    const [april, march, legacy] = bucket.sessions;
 
-    // actual_duration_minutes is null → falls back to scheduled_duration_minutes (120 → 2h).
+    // No ledger entry → falls back to scheduled_duration_minutes (120 → 2h).
     expect(april).toMatchObject({
       session_id: SESSION_APRIL,
       title: 'Sesión de seguimiento',
@@ -488,15 +530,24 @@ describe('fetchSchoolReportData', () => {
       is_over_budget: false,
     });
 
-    // actual_duration_minutes present (90 → 1.5h); ledger entry is authoritative.
+    // The ledger row is authoritative for BOTH the status and the hours: 1.25 billed,
+    // not the 1.5h that actual_duration_minutes (90) would have shown.
     expect(march).toMatchObject({
       session_id: SESSION_MARCH,
       title: 'Taller de planificación',
       date: '2026-03-10',
       consultant_name: 'Ana Rojas',
-      hours: 1.5,
+      hours: 1.25,
       status: 'consumida',
       is_over_budget: false,
+    });
+
+    // Legacy session, no ledger row: scheduled 90 → 1.5h. actual_duration_minutes (30)
+    // would have shown 0.5h.
+    expect(legacy).toMatchObject({
+      session_id: SESSION_LEGACY,
+      hours: 1.5,
+      status: 'consumida', // no ledger entry → fallback from `completada`
     });
   });
 
@@ -509,8 +560,9 @@ describe('fetchSchoolReportData', () => {
 
     expect(acompanamiento.sessions.map((s) => s.session_id)).not.toContain(SESSION_OTHER_BUCKET);
     expect(diagnostico.sessions.map((s) => s.session_id)).toEqual([SESSION_OTHER_BUCKET]);
-    // is_over_budget is read per session, not per bucket.
+    // is_over_budget and hours are read per session from the same ledger row.
     expect(diagnostico.sessions[0].is_over_budget).toBe(true);
+    expect(diagnostico.sessions[0].hours).toBe(0.5);
   });
 
   it('asks consultor_sessions only for columns it has', async () => {
@@ -523,9 +575,130 @@ describe('fetchSchoolReportData', () => {
     for (const entry of sessionQueries) {
       expect(entry.select).not.toMatch(/scheduled_date/);
       expect(entry.select).not.toMatch(/planned_duration_minutes/);
+      // The deprecated column is no longer read: hours come from the ledger.
+      expect(entry.select).not.toMatch(/actual_duration_minutes/);
       expect(entry.order).toBe('session_date');
       expect(validateSelect(BASE_SCHEMA, 'consultor_sessions', entry.select)).toBeNull();
     }
+  });
+
+  it('reads hours from the ledger sub-query it already makes, without a second round trip', async () => {
+    const log: QueryLog[] = [];
+    await fetchSchoolReportData(clientFor(baseOptions(), log), SCHOOL_ID);
+
+    const ledgerQueries = log.filter((entry) => entry.table === 'contract_hours_ledger');
+
+    // Two buckets, one pre-existing sub-query each — the retarget added no round trip.
+    expect(ledgerQueries).toHaveLength(2);
+
+    for (const entry of ledgerQueries) {
+      expect(splitTopLevel(entry.select)).toEqual([
+        'session_id',
+        'status',
+        'is_over_budget',
+        'hours',
+      ]);
+      expect(entry.filters).toEqual([
+        expect.objectContaining({ column: 'session_id', kind: 'in' }),
+      ]);
+      expect(validateSelect(BASE_SCHEMA, 'contract_hours_ledger', entry.select)).toBeNull();
+    }
+  });
+
+  // ============================================================
+  // Ledger status semantics — the drill-down renders the status beside the number,
+  // so every status shows its own row's `hours` verbatim (Zoom plan §11).
+  // ============================================================
+
+  describe('per-session hours by ledger status', () => {
+    const STATUS_BUCKET_KEY = 'estados';
+
+    const S_RESERVADA = 'ses-a1000000-0000-4000-8000-000000000001';
+    const S_CONSUMIDA = 'ses-a2000000-0000-4000-8000-000000000002';
+    const S_DEVUELTA = 'ses-a3000000-0000-4000-8000-000000000003';
+    const S_PENALIZADA = 'ses-a4000000-0000-4000-8000-000000000004';
+    const S_SIN_LEDGER = 'ses-a5000000-0000-4000-8000-000000000005';
+    const S_OVERRIDE = 'ses-a6000000-0000-4000-8000-000000000006';
+
+    /** Every session carries actual_duration_minutes 240 (= 4h) so that any reading of
+     * the deprecated column is immediately visible in the assertions below. */
+    function statusSession(id: string, date: string, scheduledMinutes: number): Row {
+      return {
+        id,
+        title: `Sesión ${id.slice(4, 6)}`,
+        session_date: date,
+        actual_duration_minutes: 240,
+        scheduled_duration_minutes: scheduledMinutes,
+        status: 'completada',
+        hour_type_key: STATUS_BUCKET_KEY,
+        contrato_id: CONTRATO_ID,
+        session_facilitators: [],
+      };
+    }
+
+    const statusOptions = baseOptions({
+      sessions: [
+        statusSession(S_RESERVADA, '2026-06-01', 240),
+        statusSession(S_CONSUMIDA, '2026-06-02', 240),
+        statusSession(S_DEVUELTA, '2026-06-03', 240),
+        statusSession(S_PENALIZADA, '2026-06-04', 240),
+        statusSession(S_SIN_LEDGER, '2026-06-05', 90),
+        statusSession(S_OVERRIDE, '2026-06-06', 240),
+      ],
+      ledger: [
+        { session_id: S_RESERVADA, status: 'reservada', is_over_budget: false, hours: 1.5, admin_override: false },
+        { session_id: S_CONSUMIDA, status: 'consumida', is_over_budget: false, hours: 2.25, admin_override: false },
+        // executeCancellation rewrites only the status — a devuelta row still holds the
+        // full originally-reserved amount.
+        { session_id: S_DEVUELTA, status: 'devuelta', is_over_budget: false, hours: 3, admin_override: false },
+        { session_id: S_PENALIZADA, status: 'penalizada', is_over_budget: false, hours: 0.75, admin_override: false },
+        // S_SIN_LEDGER deliberately has no row.
+        { session_id: S_OVERRIDE, status: 'consumida', is_over_budget: false, hours: 1.1, admin_override: true },
+      ],
+      buckets: {
+        [CONTRATO_ID]: [
+          {
+            hour_type_key: STATUS_BUCKET_KEY,
+            display_name: 'Estados',
+            allocated_hours: 20,
+            reserved_hours: 1.5,
+            consumed_hours: 4.1,
+            available_hours: 14.4,
+            is_fixed_allocation: false,
+            annex_hours: 0,
+          },
+        ],
+      },
+    });
+
+    async function hoursById(): Promise<Map<string, { hours: number; status: string }>> {
+      const result = await fetchSchoolReportData(clientFor(statusOptions), SCHOOL_ID);
+      const bucket = result!.programs[0].contracts[0].buckets[0];
+      return new Map(bucket.sessions.map((s) => [s.session_id, { hours: s.hours, status: s.status }]));
+    }
+
+    it('shows each of the four ledger statuses with its own hours verbatim', async () => {
+      const byId = await hoursById();
+
+      expect(byId.get(S_RESERVADA)).toEqual({ hours: 1.5, status: 'reservada' });
+      expect(byId.get(S_CONSUMIDA)).toEqual({ hours: 2.25, status: 'consumida' });
+      expect(byId.get(S_DEVUELTA)).toEqual({ hours: 3, status: 'devuelta' });
+      expect(byId.get(S_PENALIZADA)).toEqual({ hours: 0.75, status: 'penalizada' });
+    });
+
+    it('falls back to scheduled_duration_minutes when a session has no ledger row', async () => {
+      const byId = await hoursById();
+
+      // 90 scheduled minutes → 1.5h. Never 0 by omission, and never the 4h that
+      // actual_duration_minutes holds.
+      expect(byId.get(S_SIN_LEDGER)!.hours).toBe(1.5);
+    });
+
+    it('passes an admin_override row through with its adjusted hours', async () => {
+      const byId = await hoursById();
+
+      expect(byId.get(S_OVERRIDE)!.hours).toBe(1.1);
+    });
   });
 
   it('fails loudly when the sessions query errors instead of reporting an empty bucket', async () => {

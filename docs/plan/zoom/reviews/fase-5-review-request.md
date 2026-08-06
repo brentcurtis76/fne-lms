@@ -1388,3 +1388,136 @@ Two consequences worth naming before this reaches a school:
 - Not executed against a live PostgREST — `test:db` cannot connect and production is
   off-limits. The fix rests on the schema record; the double reproduces PostgREST's documented
   `42703`, not an observed one.
+
+---
+
+## Chunk Z2-5b — the retarget onto ledger hours — round r12
+
+### Branch and commits
+
+`feat/zoom-sess`, base `8c350fa7` (r11's head). One commit on top. No migration, no schema
+change, no RPC touched.
+
+### What moved
+
+`consultor_sessions.actual_duration_minutes` is named for a measurement nobody takes. Its
+only two writes are `pages/api/sessions/index.ts:230` (NULL at creation) and
+`pages/api/sessions/[id]/finalize.ts:108` (`actual_duration_minutes ??
+scheduled_duration_minutes`). It therefore only ever held the *scheduled* value, for
+sessions that reached finalize — and both hour consumers reported it, one of them under
+the response key `total_hours_actual`.
+
+Both now read `contract_hours_ledger` through one helper.
+
+### Files, by risk
+
+| File | Risk | What |
+|---|---|---|
+| `lib/services/billable-hours.ts` (new, 99 lines) | **The whole judgment call** | The single derivation. Status semantics, the no-ledger-row fallback, and the Z7 seam all live here. |
+| `pages/api/sessions/reports/analytics.ts` | High — new query on a hot path | Ledger `.in()` added to the existing `Promise.all`; `total_hours_actual` re-derived; `actual_duration_minutes` dropped from the select. |
+| `lib/services/school-hours-report.ts` | Medium | Existing ledger sub-query extended with `hours`; two parallel maps collapsed to one row map; `actual_duration_minutes` dropped from the select. |
+| `lib/types/consultor-sessions.types.ts` | Low | `@deprecated` block on the column. No behaviour. |
+| `__tests__/api/sessions/session-reports-analytics.test.ts` | Medium | Double rebuilt schema-faithful; 5 tests added. |
+| `__tests__/lib/services/school-hours-report.test.ts` | Low | Extends r11's double; 4 tests added. |
+
+### Status semantics — the one thing to scrutinise hardest
+
+`executeCancellation` (`lib/services/hour-tracking.ts:471-482`) updates only `status`, the
+cancellation fields and the override fields. **It never rewrites `hours`.** A `devuelta`
+row therefore still holds the full originally-reserved amount even though those hours went
+back to the school. So the two consumers deliberately treat status differently:
+
+| Status | Per-session display (school drill-down) | `total_hours_actual` aggregate |
+|---|---|---|
+| `reservada` | row's `hours` verbatim | **excluded** — reserved, not consumed |
+| `consumida` | row's `hours` verbatim | **counted** |
+| `devuelta` | row's `hours` verbatim | **excluded** — counting it would bill returned hours |
+| `penalizada` | row's `hours` verbatim | **counted** — the school pays |
+| *(no ledger row)* | `scheduled_duration_minutes / 60` | `scheduled_duration_minutes / 60` |
+
+The display is verbatim-by-status because the drill-down renders the status beside the
+number; the aggregate has no such column to disambiguate it.
+
+Independent corroboration, not touched by this chunk:
+`pages/api/consultant-earnings/[consultant_id].ts:170` already filters
+`.in('status', ['consumida', 'penalizada'])` in SQL for the consultant-payment side. Same
+two statuses, arrived at separately. It answers a different question (payment, not school
+billing) and is outside §11's two named consumers, so it was left alone — but if a future
+chunk unifies it, it should call `billableHours` rather than repeat the list.
+
+### The no-ledger-row fallback
+
+Legacy sessions and never-approved sessions have no ledger entry. A naive retarget would
+silently drop them to zero — the school report would under-report, and nothing would
+error. The fallback to `scheduled_duration_minutes` is behaviour-preserving for exactly
+those rows (`actual_duration_minutes` was a copy of that value anyway) while the ledger
+path is corrective for the rest. It is asserted in both consumers.
+
+Reviewer's question to ask: this makes the aggregate *larger* than before for tenants with
+many un-ledgered sessions, because those sessions used to contribute 0. That is the
+intended direction per the PM ruling, but it is a visible number change.
+
+### The Z7 seam
+
+`lib/services/billable-hours.ts:86-98` carries a named `SEAM: Z7-EFFECTIVE-MINUTES` block.
+§11's end state is `coalesce(effective_minutes / 60.0, hours)`; `effective_minutes` is
+Z7's additive column and **does not exist today**. One `return` changes when it lands;
+nothing else in the module does. No migration was added or proposed.
+
+### Test evidence
+
+`__tests__/lib/services/school-hours-report.test.ts` — 7 → **11 tests**:
+ledger `hours` beat `actual_duration_minutes` on the same fixture (1.25 vs 1.5); the
+sub-query shape is asserted (`session_id, status, is_over_budget, hours`, one `.in()` per
+bucket, **2 queries for 2 buckets — no added round trip**); all four statuses verbatim; the
+legacy no-row fallback (scheduled 90 → 1.5h, not the 0.5h `actual_duration_minutes` holds);
+an `admin_override` row passing through at 1.1h.
+
+`__tests__/api/sessions/session-reports-analytics.test.ts` — 11 → **16 tests**. The double
+was table-name-keyed (the exact anti-pattern §6 warns about: same canned rows regardless of
+select or filter). It now mirrors the baseline column lists, applies `eq`/`in`/`gte`/`lte`,
+and answers an unknown column with PostgREST's `42703`. All 11 pre-existing tests pass
+against it unchanged. New: the four-status matrix summing to 5.6h (reservada 3h and
+devuelta 4h contributing nothing), the no-row fallback, the override passthrough, the query
+shape, and a 500 when the ledger read errors.
+
+### Fail-on-old
+
+Each consumer was reverted to its `8c350fa7` content **alone**, its suite re-run, then
+restored and checked by blob hash.
+
+- `lib/services/school-hours-report.ts` → **7 of 11 failed**, including
+  `expected { hours: 4, status: 'reservada' } to deeply equal { hours: 1.5, ... }` and
+  `expected '…' not to match /actual_duration_minutes/`. Restored:
+  `14d24f2873f9588607ef6c75ac42239b447e8427`, byte-identical.
+- `pages/api/sessions/reports/analytics.ts` → **5 of 16 failed**, including
+  `expected +0 to be 5.6` and `expected [] to have a length of 1`. Restored:
+  `3271173f4bf1841310863c7c8f4b807303bfb350`, byte-identical.
+
+### Gates at this head
+
+`npm run type-check && npm run lint && npm test && npm run build` — chain exit **0**.
+Unit: **275 files, 4495 tests passed** (PM baseline 275/4486; +9 = 4 + 5 added). Build
+compiled successfully.
+
+`npm run test:db` — **ran for the first time in six rounds**; Docker is back up. Exit 0,
+`Files=9, Tests=374, Result: PASS`. This chunk adds no migration, so the figure matching
+the pre-Docker-outage number is expected, not inherited.
+
+### What this chunk does NOT close
+
+- **`total_hours_actual` keeps its name.** `pages/consultor/sessions/reports.tsx:57`
+  declares it; only what feeds it changed. PM-verified that nothing renders it (the only
+  hours KPI card is `total_hours_scheduled` at `:541`), so there is no visible label saying
+  "actual" over ledger-derived data — but the key is still a lie by name, and Z7 or a later
+  chunk should rename it together with the page.
+- **`actual_duration_minutes` still exists and `finalize.ts` still writes it.** Deprecated
+  in the type only. No column drop, per ruling 6.
+- **The two defects r11 logged are untouched** — the `bucketError` `continue` at `:139-142`
+  and the `SESSION_STATUS_FALLBACK` mismatch at `:57-63`. Both still awaiting a PM ruling.
+- **The other ledger readers were not audited against the helper** —
+  `consultant-earnings`, `contracts/[id]/hours/ledger/*`, `admin/sessions/index.tsx`,
+  `consultor/sessions/index.tsx`. None reads `actual_duration_minutes` (grep-verified), so
+  none carries the defect this chunk fixes, but none routes through `billableHours` either.
+- **Not executed against a live PostgREST.** Both doubles reproduce PostgREST's documented
+  behaviour; production is off-limits and `test:db` covers RLS, not these queries.

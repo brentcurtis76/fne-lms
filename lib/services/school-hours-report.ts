@@ -12,6 +12,7 @@ import type {
   SessionDetail,
   ContractSummary,
 } from '../types/hour-tracking.types';
+import { billableHours } from './billable-hours';
 
 // Max sessions returned per bucket (DoS prevention)
 const MAX_SESSIONS_PER_BUCKET = 500;
@@ -35,13 +36,20 @@ type SessionRow = {
   id: string;
   title: string;
   session_date: string | null;
-  actual_duration_minutes: number | null;
   scheduled_duration_minutes: number | null;
   status: string;
   hour_type_key: string | null;
   session_facilitators: Array<{
     profiles: { first_name: string | null; last_name: string | null } | null;
   }> | null;
+};
+
+/** The `contract_hours_ledger` columns the drill-down reads for a session. */
+type LedgerRow = {
+  session_id: string;
+  status: string;
+  is_over_budget: boolean | null;
+  hours: number | null;
 };
 
 type ContratoRow = {
@@ -152,7 +160,6 @@ export async function fetchSchoolReportData(
           id,
           title,
           session_date,
-          actual_duration_minutes,
           scheduled_duration_minutes,
           status,
           hour_type_key,
@@ -180,25 +187,21 @@ export async function fetchSchoolReportData(
 
       const typedRows = (sessionRows ?? []) as unknown as SessionRow[];
 
-      // Fetch authoritative ledger statuses for these sessions
+      // Fetch the authoritative ledger row for these sessions. One round trip carries
+      // everything the drill-down needs about a session's hours: the billed `hours`, the
+      // status displayed beside it, and the over-budget flag.
       const sessionIds = typedRows.map((s) => s.id);
-      let ledgerMap = new Map<string, SessionDetail['status']>();
-
-      // Map from session_id → { status, is_over_budget }
-      let overBudgetMap = new Map<string, boolean>();
+      const ledgerBySession = new Map<string, LedgerRow>();
 
       if (sessionIds.length > 0) {
         const { data: ledgerEntries } = await serviceClient
           .from('contract_hours_ledger')
-          .select('session_id, status, is_over_budget')
+          .select('session_id, status, is_over_budget, hours')
           .in('session_id', sessionIds);
 
-        if (ledgerEntries) {
-          for (const entry of ledgerEntries as { session_id: string; status: string; is_over_budget: boolean }[]) {
-            if (entry.session_id) {
-              ledgerMap.set(entry.session_id, entry.status as SessionDetail['status']);
-              overBudgetMap.set(entry.session_id, entry.is_over_budget ?? false);
-            }
+        for (const entry of (ledgerEntries ?? []) as LedgerRow[]) {
+          if (entry.session_id) {
+            ledgerBySession.set(entry.session_id, entry);
           }
         }
       }
@@ -210,14 +213,22 @@ export async function fetchSchoolReportData(
           ? `${facilitator.first_name ?? ''} ${facilitator.last_name ?? ''}`.trim()
           : 'Sin asignar';
 
-        // Hours: use actual_duration_minutes if available, else scheduled_duration_minutes
-        const durationMinutes = s.actual_duration_minutes ?? s.scheduled_duration_minutes ?? 0;
-        const hours = durationMinutes / 60;
+        const ledgerEntry = ledgerBySession.get(s.id);
+
+        // Hours come from the ledger, which is what the school was billed. The status is
+        // rendered beside this number, so every status shows its row's `hours` verbatim;
+        // a session with no ledger row falls back to its scheduled duration. See
+        // lib/services/billable-hours.ts — `actual_duration_minutes` is not read here.
+        const hours = billableHours(
+          ledgerEntry,
+          s.scheduled_duration_minutes,
+          'per_session_display'
+        );
 
         // Use ledger status if available, otherwise fall back to session status mapping
-        const ledgerStatus = ledgerMap.get(s.id);
         const mappedStatus: SessionDetail['status'] =
-          ledgerStatus ?? (SESSION_STATUS_FALLBACK[s.status] ?? 'reservada');
+          (ledgerEntry?.status as SessionDetail['status'] | undefined) ??
+          (SESSION_STATUS_FALLBACK[s.status] ?? 'reservada');
 
         return {
           session_id: s.id,
@@ -226,7 +237,7 @@ export async function fetchSchoolReportData(
           consultant_name: consultantName,
           hours,
           status: mappedStatus,
-          is_over_budget: overBudgetMap.get(s.id) ?? false,
+          is_over_budget: ledgerEntry?.is_over_budget ?? false,
           attendance: null,
         };
       });

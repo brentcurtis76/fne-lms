@@ -95,6 +95,20 @@ export interface ConsultorSession {
   start_time: string; // TIME
   end_time: string; // TIME
   scheduled_duration_minutes: number; // GENERATED COLUMN - read-only
+  /**
+   * @deprecated Never display this as "actual" — nothing measures a session.
+   *
+   * It has two writes: `pages/api/sessions/index.ts` sets it NULL at creation, and
+   * `pages/api/sessions/[id]/finalize.ts` writes `actual_duration_minutes ??
+   * scheduled_duration_minutes` at finalize. So it only ever holds the SCHEDULED value,
+   * and only for sessions that reached finalize.
+   *
+   * Kept for compatibility — `finalize.ts` still reads and writes it, and the column
+   * stays in the schema. But billable hours now come from `contract_hours_ledger` via
+   * `lib/services/billable-hours.ts` (Zoom plan §11): neither hour consumer
+   * (`lib/services/school-hours-report.ts`, `pages/api/sessions/reports/analytics.ts`)
+   * reads this column any more.
+   */
   actual_duration_minutes: number | null;
   modality: SessionModality;
   meeting_link: string | null;

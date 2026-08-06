@@ -237,12 +237,31 @@ function arrange(scenario: Scenario = {}) {
   });
 }
 
-/** A fully provisioned, joinable meeting — secrets and all. */
+/** A fully provisioned, joinable meeting — secrets and all. NO audio plan. */
 const provisionedMeeting = {
   status: 'provisioned',
   join_url: JOIN_URL,
   passcode: PASSCODE,
   zoom_meeting_number: MEETING_NUMBER,
+};
+
+/**
+ * Z2-4e: synthetic dial-in entries, in Chile's reserved-for-fiction 55xx block. The
+ * second carries a field this code does not know (`quality`) and the third carries no
+ * usable number at all — both are the whitelist's job.
+ */
+const DIAL_IN_NUMBER_A = '+56 2 5555 0130';
+const DIAL_IN_NUMBER_B = '+56 32 5555 0131';
+const UNKNOWN_PASSENGER = 'SYNTHETIC_UNKNOWN_FIELD';
+
+/** The same meeting on a tenant that DOES have an audio plan. */
+const dialInMeeting = {
+  ...provisionedMeeting,
+  dial_in_numbers: [
+    { country: 'CL', country_name: 'Chile', city: 'Santiago', number: DIAL_IN_NUMBER_A, type: 'toll' },
+    { country_name: 'Chile', number: DIAL_IN_NUMBER_B, quality: UNKNOWN_PASSENGER },
+    { country_name: 'Chile', city: 'Concepción' },
+  ],
 };
 
 function actAs(userId: string, roles: Record<string, unknown>[], highestRole: string | null) {
@@ -584,6 +603,174 @@ describe('POST /api/meet/session/[id]/join — the reads are bound to their filt
 
     expect(res._getStatusCode()).toBe(403);
     expect(res._getData()).not.toContain(JOIN_URL);
+  });
+});
+
+/**
+ * Z2-4e [G2] [G3] [G4] — the dial-in widening.
+ *
+ * Ruling 1 permits the dial-in set, the meeting number and the passcode to leave
+ * through THIS opening, because it already returns the passcode-embedded `join_url`
+ * to exactly the caller entitled to join. The claim these tests carry is that the
+ * widening reached the SUCCESSFUL response and nothing else.
+ */
+describe('POST /api/meet/session/[id]/join — dial-in on the link payload [G2]', () => {
+  it('carries the numbers, the meeting number and the passcode to an authorized caller', async () => {
+    arrange({ meeting: dialInMeeting });
+    asAdmin();
+
+    const res = await post();
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(JSON.parse(res._getData())).toEqual({
+      data: {
+        mode: 'link',
+        join_url: JOIN_URL,
+        role: 'host',
+        dial_in: {
+          numbers: [
+            { number: DIAL_IN_NUMBER_A, country_name: 'Chile', city: 'Santiago', type: 'toll' },
+            { number: DIAL_IN_NUMBER_B, country_name: 'Chile' },
+          ],
+          meeting_number: String(MEETING_NUMBER),
+          passcode: PASSCODE,
+        },
+      },
+    });
+  });
+
+  it('an expected attendee gets it too — it is the join policy that decides, not the role', async () => {
+    arrange({ isExpectedAttendee: true, meeting: dialInMeeting });
+    asAttendee();
+
+    const res = await post();
+
+    expect(res._getStatusCode()).toBe(200);
+    const payload = JSON.parse(res._getData()).data;
+    expect(payload.role).toBe('participant');
+    expect(payload.dial_in.numbers[0].number).toBe(DIAL_IN_NUMBER_A);
+  });
+
+  it('drops an entry with no dialable number, and every field the whitelist does not name', async () => {
+    arrange({ meeting: dialInMeeting });
+    asAdmin();
+
+    const res = await post();
+    const body = res._getData();
+
+    // The third fixture entry (Concepción, no number) would render as a blank line.
+    expect(JSON.parse(body).data.dial_in.numbers).toHaveLength(3 - 1);
+    expect(body).not.toContain('Concepción');
+    // A field Zoom added that nobody has read must not travel: `zoom_meetings.
+    // dial_in_numbers` holds the array verbatim and the client parses with no
+    // whitelist, so this is the only place it can be stopped.
+    expect(body).not.toContain(UNKNOWN_PASSENGER);
+    expect(body).not.toContain('quality');
+  });
+
+  it("never appears on a 'pending' answer, whatever the row holds [G4]", async () => {
+    arrange({ meeting: { ...dialInMeeting, status: 'error' } });
+    asAdmin();
+
+    const res = await post();
+
+    expect(JSON.parse(res._getData())).toEqual({ data: { mode: 'pending' } });
+    expect(res._getData()).not.toContain(DIAL_IN_NUMBER_A);
+  });
+});
+
+describe('POST /api/meet/session/[id]/join — no audio plan still joins [G4]', () => {
+  for (const [label, column] of [
+    ['a NULL dial_in_numbers (no audio plan)', null],
+    ['an empty array', []],
+    ['entries that carry no usable number', [{ country_name: 'Chile' }]],
+  ] as Array<[string, unknown]>) {
+    it(`${label} → a normal successful join with no dial_in key at all`, async () => {
+      arrange({ meeting: { ...provisionedMeeting, dial_in_numbers: column } });
+      asAdmin();
+
+      const res = await post();
+
+      expect(res._getStatusCode()).toBe(200);
+      expect(JSON.parse(res._getData())).toEqual({
+        data: { mode: 'link', join_url: JOIN_URL, role: 'host' },
+      });
+      // Absent, not `null` and not `[]` — the page renders nothing off an absent key.
+      expect(Object.keys(JSON.parse(res._getData()).data)).not.toContain('dial_in');
+    });
+  }
+
+  it('a meeting with numbers but no meeting number withholds the whole block', async () => {
+    // Half a dial-in is a phone call that reaches a prompt the caller cannot answer.
+    arrange({ meeting: { ...dialInMeeting, zoom_meeting_number: null } });
+    asAdmin();
+
+    const res = await post();
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(JSON.parse(res._getData()).data.dial_in).toBeUndefined();
+    expect(res._getData()).not.toContain(DIAL_IN_NUMBER_A);
+  });
+});
+
+/**
+ * [G3] — the criterion that proves ruling 1 was implemented as a widening of the
+ * SUCCESSFUL response only.
+ *
+ * Each refusal is produced twice against the very same scenario: once with a meeting
+ * row that has no audio plan, once with the dial-in row. The bytes are compared
+ * against EACH OTHER, so the assertion is the property itself — a refused caller
+ * cannot tell whether this meeting has dial-in data, let alone read it.
+ */
+describe('POST /api/meet/session/[id]/join — every refusal is byte-identical [G3]', () => {
+  const refusals: Array<[string, () => void, Scenario]> = [
+    ['404 — other-school caller', asOtherSchoolUser, {}],
+    ['403 — growth-community member', asGcMember, {}],
+    ['403 — same-school non-facilitator consultor', asSameSchoolConsultor, {}],
+    [
+      '410 — cancelled projection, admin',
+      asAdmin,
+      { projection: { meeting_status: 'cancelled' } },
+    ],
+    ['410 — ended projection, facilitator', asFacilitator, {
+      isFacilitator: true,
+      projection: { meeting_status: 'ended' },
+    }],
+    ['500 — projection read failure', asAdmin, { projectionError: { message: 'boom' } }],
+  ];
+
+  for (const [label, persona, scenario] of refusals) {
+    it(`${label} is the same status and the same bytes with and without dial-in data`, async () => {
+      arrange({ ...scenario, meeting: provisionedMeeting });
+      persona();
+      const before = await post();
+      const beforeStatus = before._getStatusCode();
+      const beforeBody = before._getData();
+
+      arrange({ ...scenario, meeting: dialInMeeting });
+      persona();
+      const after = await post();
+
+      expect(after._getStatusCode()).toBe(beforeStatus);
+      expect(after._getData()).toBe(beforeBody);
+      expect(after._getData()).not.toContain(DIAL_IN_NUMBER_A);
+      expect(after._getData()).not.toContain(DIAL_IN_NUMBER_B);
+      expect(after._getData()).not.toContain(PASSCODE);
+      expect(after._getData()).not.toContain(String(MEETING_NUMBER));
+    });
+  }
+
+  it('the 503 kill switch and the 405 are unreachable by any meeting state', async () => {
+    // Both answer before a client is built, so a dial-in row cannot reach them at all.
+    arrange({ meeting: dialInMeeting });
+    process.env.FEATURE_ZOOM_MEETINGS = 'false';
+    asAdmin();
+
+    const res = await post();
+
+    expect(res._getStatusCode()).toBe(503);
+    expect(res._getData()).not.toContain(DIAL_IN_NUMBER_A);
+    expect(tablesRead).toEqual([]);
   });
 });
 

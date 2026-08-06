@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import { ExternalLink, Loader2 } from 'lucide-react';
+import MeetingDialIn from './MeetingDialIn';
+import type { JoinDialIn } from '../../lib/utils/meeting-dial-in';
 
 /**
  * The join control for a platform-managed (Zoom) session on the meeting
@@ -18,6 +20,20 @@ import { ExternalLink, Loader2 } from 'lucide-react';
  * preparación" wording while provisioning is still in flight. `401`/`404` are
  * the two answers the page itself already knows how to handle, so they are
  * handed back to those same destinations rather than being re-explained here.
+ *
+ * ## Why the dial-in block renders HERE and not in the page (Z2-4e)
+ *
+ * `pages/meet/session/[id].tsx` is the surface ruling 2 names, and this component is
+ * how that surface reaches the join opening — the page's own `getServerSideProps`
+ * deliberately never touches `zoom_internal`. The dial-in details are the same
+ * credentials `join_url` is, so they arrive on the same per-click round trip and are
+ * rendered from state, never from props. Putting them in the page's props instead
+ * would put them in the served HTML before anyone clicked anything: exactly the leak
+ * Z1a existed to close.
+ *
+ * The block survives a successful join on purpose. The link opens in a new tab and
+ * this tab stays behind holding the number, which is the only place a participant can
+ * read it back from once the meeting is running.
  */
 
 interface JoinMeetingButtonProps {
@@ -30,6 +46,36 @@ const PENDING_MESSAGE = 'Enlace en preparación';
 /** Network/parse failure — the only copy this component authors itself. */
 const REQUEST_FAILED_MESSAGE = 'No pudimos preparar el acceso a la reunión. Intenta nuevamente.';
 
+/**
+ * Narrow the wire's `dial_in` before it reaches the renderer. The server already
+ * whitelists it (`buildJoinDialIn`); this is the client half of the same rule, so a
+ * response shape that drifts renders nothing rather than `undefined` on the screen a
+ * participant is reading into a phone keypad.
+ */
+function readDialIn(value: unknown): JoinDialIn | null {
+  if (typeof value !== 'object' || value === null) return null;
+
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate.meeting_number !== 'string' || !Array.isArray(candidate.numbers)) {
+    return null;
+  }
+
+  const numbers = candidate.numbers.filter(
+    (entry): entry is JoinDialIn['numbers'][number] =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      typeof (entry as Record<string, unknown>).number === 'string'
+  );
+
+  if (numbers.length === 0) return null;
+
+  return {
+    numbers,
+    meeting_number: candidate.meeting_number,
+    ...(typeof candidate.passcode === 'string' ? { passcode: candidate.passcode } : {}),
+  };
+}
+
 type JoinOutcome =
   | { kind: 'idle' }
   | { kind: 'pending' }
@@ -39,10 +85,15 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<JoinOutcome>({ kind: 'idle' });
+  const [dialIn, setDialIn] = useState<JoinDialIn | null>(null);
 
   const handleJoin = async () => {
     setBusy(true);
     setOutcome({ kind: 'idle' });
+    // Cleared before every attempt: a block left over from an earlier answer must
+    // never outlive the decision that produced it (a meeting that has since been
+    // cancelled now answers 410, and the number on screen would be stale).
+    setDialIn(null);
 
     try {
       const response = await fetch(`/api/meet/session/${sessionId}/join`, { method: 'POST' });
@@ -74,6 +125,7 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
       const payload = body?.data;
 
       if (payload?.mode === 'link' && typeof payload.join_url === 'string') {
+        setDialIn(readDialIn(payload.dial_in));
         window.open(payload.join_url, '_blank', 'noopener,noreferrer');
         setOutcome({ kind: 'idle' });
         return;
@@ -127,6 +179,8 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
       <p className="mt-3 text-xs text-gray-500">
         La reunión se abre en un servicio externo a GENERA, en una pestaña nueva.
       </p>
+
+      <MeetingDialIn dialIn={dialIn} />
     </div>
   );
 };

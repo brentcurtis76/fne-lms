@@ -31,6 +31,17 @@ import {
  * to render, so the join goes through `JoinMeetingButton`, which fetches the URL
  * per click from the §5 opening. Nothing about that path reaches the props — see
  * the component. The legacy branches below are untouched by it.
+ *
+ * This is also the surface that carries the school-outage audio fallback (plan §187,
+ * chunk Z2-4e): the dial-in numbers, meeting number and passcode render inside
+ * `JoinMeetingButton`, from that same per-click response, for the same reason the
+ * link does. They are deliberately NOT props — `getServerSideProps` below reads
+ * nothing from `zoom_internal` and must stay that way.
+ *
+ * NOTE the tension this does not resolve: the rationale for dial-in is a school
+ * internet outage, and a participant whose internet is down cannot load this page to
+ * read the number. Getting it to them beforehand would mean a notification or an .ics,
+ * both of which are forbidden for these values. Open product question, not a defect.
  */
 
 type MeetSessionPageProps = {

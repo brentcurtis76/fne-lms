@@ -2316,3 +2316,166 @@ to the pre-probe hash.
 - Rows provisioned BEFORE this migration keep `dial_in_numbers` NULL while their
   `effective_settings` may hold the numbers. No backfill was in scope; the column is
   nullable and a backfill would be a separate, additive round.
+
+---
+
+## Chunk Z2-4e — round r20
+
+**Branch** `feat/zoom-sess`, base `978e68a1` (Z2-4d sealed). **This is the last build
+chunk of phase Z2.**
+
+Z2-4d gave `zoom_internal.zoom_meetings` a named `dial_in_numbers` column and proved
+both provisioning paths populate it. Nothing read it. This chunk carries it to a human,
+under PM ruling 1 (the join endpoint may return it, nothing else may) and ruling 2
+(render it on `/meet/session/[id]`).
+
+### Files
+
+| File | What |
+|---|---|
+| `supabase/migrations/20260807120000_backfill_zoom_dial_in_numbers.sql` | new; one guarded `UPDATE`, DML only |
+| `supabase/tests/002-zoom-internal-isolation.sql` | new section F, `plan(113)` → `plan(117)` |
+| `lib/utils/meeting-dial-in.ts` | new; the whitelist + the response type |
+| `pages/api/meet/session/[id]/join.ts` | widened read (`:167`) and the `mode: 'link'` response only |
+| `components/sessions/MeetingDialIn.tsx` | new; the rendered block |
+| `components/sessions/JoinMeetingButton.tsx` | holds the block in state, renders it |
+| `pages/meet/session/[id].tsx` | header comment only — no code change |
+| `__tests__/api/meet/session-join.test.ts` | G2/G3/G4 |
+| `__tests__/components/sessions/JoinMeetingButton.test.tsx` | G5 |
+| `__tests__/lib/zoom/dial-in-forbidden-surfaces.test.ts` | new; G6 |
+
+### The exact response-shape change
+
+`POST /api/meet/session/[id]/join`, outcome 7 only:
+
+```
+BEFORE  { mode: 'link', join_url, role }
+AFTER   { mode: 'link', join_url, role, dial_in? }
+
+dial_in = {
+  numbers: [{ number, country_name?, city?, type? }, …],   // ≥ 1, each with a number
+  meeting_number: string,                                   // digits, never a JSON number
+  passcode?: string,                                        // omitted when the meeting has none
+}
+```
+
+The key is **absent**, never `null` and never `{}`, whenever `buildJoinDialIn()` returns
+`null` — no audio plan (the common case), no entry carrying a usable `number`, or no
+meeting number. Half a dial-in is a phone call that reaches a prompt the caller cannot
+answer, so the block is withheld whole rather than shown partial.
+
+`numbers` is whitelisted to four fields. `dial_in_numbers` holds Zoom's array VERBATIM
+and `lib/zoom/client.ts` parses the wire with no field whitelist, so whatever Zoom adds
+tomorrow is already in that column today; spreading it would publish fields nobody has
+read. The fixture in `session-join.test.ts` carries a deliberate unknown passenger
+(`quality`) and asserts it does not survive.
+
+### How I proved refusals are unchanged [G3]
+
+Not by comparing against literals. Each refusal — 404 other-school, both 403s, 410 over
+a cancelled projection, 410 over an ended one, 500 on a projection read failure — is
+produced **twice against the same scenario**: once with a meeting row that has no audio
+plan, once with the dial-in row. The two responses are compared to **each other**, status
+and raw body. The property asserted is that a refused caller cannot tell whether this
+meeting has dial-in data, let alone read it. The 503 kill switch is asserted separately
+with `tablesRead` empty, since it answers before a client is built.
+
+The pre-existing `[A7]` assertions (`Object.keys(data)` is exactly
+`['mode','join_url','role']`) were **not edited** and still pass: the shared
+`provisionedMeeting` fixture has no audio plan, so the widening is invisible to them.
+That is deliberate — an untouched baseline is worth more than an updated one.
+
+### The migration
+
+```sql
+UPDATE zoom_internal.zoom_meetings
+   SET dial_in_numbers = effective_settings -> 'global_dial_in_numbers'
+ WHERE dial_in_numbers IS NULL
+   AND effective_settings ? 'global_dial_in_numbers';
+```
+
+No DDL, no DROP, no grant or RLS change, no new function. `dial_in_numbers IS NULL` is
+the guard that makes it idempotent and makes it incapable of overwriting a correction.
+
+**Scrutinise this:** on a fresh replay the statement matches **zero rows**, because
+`zoom_meetings` is empty at migration time. So the replay proves only that it parses and
+applies. The three outcomes are asserted in pgTAP section F against seeded fixtures — by
+a **hand-copy of the same UPDATE**. That is the device Z2-4d used for the two SECURITY
+DEFINER bodies and it carries the same weakness: nothing mechanically ties the copy to
+the migration. Diff them; do not trust them.
+
+### The §2 product tension, in my own words
+
+The plan asks for dial-in as a **school internet outage** fallback. What ships here does
+not survive that scenario. The numbers render on `/meet/session/[id]`, which is a web
+page, fetched over the internet, after a click. A participant whose internet is down
+cannot load it. For the number to be useful during an outage it would have to have
+reached them *before* it — and the two channels that do that, a notification payload and
+an .ics file, are exactly the two ruling 1 forbids for these values, for good reasons
+that have not changed.
+
+So this chunk is correct against ruling 2 and still leaves the motivating scenario open.
+The honest reading is that this surface serves a **different, real** case: a participant
+whose *audio or video* is failing, or whose device cannot run the client, while the page
+still loads. Whether the outage case needs a channel of its own — a printed card, an
+SMS, a school-office poster, something outside this system entirely — is Brent's call.
+I did not invent one.
+
+### That no real tenant has ever returned these numbers
+
+Stated plainly, because both the shape and the rendering rest on it: **no real Zoom
+tenant has ever returned dial-in numbers to this code.** CI runs `ZOOM_MODE=mock`; the
+fake in `lib/zoom/fake.ts` is the only producer, and a fake cannot confirm a wire shape
+it was told. `ZoomDialInNumber` comes from Zoom's documentation. Everything downstream —
+the whitelist's four field names, the assumption that `number` is a dialable string, the
+assumption that `global_dial_in_numbers` is an array of objects, the labels the page
+renders — inherits that. The whitelist degrades safely (an entry without a string
+`number` is dropped, an unknown field is not forwarded), but "degrades safely" is not
+"verified". **Validate against a real audio-plan tenant in staging before this reaches a
+school.**
+
+### What a reviewer should scrutinise hardest
+
+1. **The hand-copied UPDATE in pgTAP section F.** See above. It is the only proof the
+   backfill does what its three criteria say, and it is a copy.
+2. **`dial_in` renders in `JoinMeetingButton`, not in `pages/meet/session/[id].tsx`.**
+   S3 names the page; the page's only change is its header comment. My reasoning: these
+   are the same credentials `join_url` is, and the page's `getServerSideProps`
+   deliberately never touches `zoom_internal` — putting them in props would put them in
+   the served HTML before anyone clicked, which is the leak Z1a closed. Ruling 2 itself
+   cites `JoinMeetingButton` at `:31`/`:83`. Judge whether that reading is right.
+3. **The block survives a successful join, and is cleared before every new attempt.**
+   It stays because the link opens in a new tab and this tab is where the number can be
+   read back from. It is cleared at the top of `handleJoin` so a block from an earlier
+   answer cannot outlive the decision that produced it (asserted: a 410 on the second
+   click removes it). Judge whether "survives the join" is the right default.
+4. **No cap and no ordering on `numbers`.** A tenant with a large multi-country audio
+   plan would render a long list, and Chile's own number is not necessarily first.
+   Ordering is a product decision I was not given, so I passed Zoom's array through in
+   its own order. This is the most likely thing to need a follow-up.
+5. **[G6] passes objects carrying fields their types do not declare.** Both the .ics
+   builder and the notification emitter are handed the session row WITH the dial-in
+   columns attached, exactly as an over-broad `select` would deliver them, and asserted
+   to emit none of them. Well-typed inputs would have proved only that TypeScript
+   compiled. Judge whether the cast is honest or whether it tests a scenario that cannot
+   occur.
+
+### Known limitations / deferred
+
+- **The outage scenario is not solved.** See §2 above. Open, and Brent's.
+- **The wire shape is unvalidated against a real tenant.** See above. This is now
+  load-bearing for a rendered surface, not just for a column.
+- **Admin and consultor session-detail pages carry no dial-in** — out of scope per
+  ruling 2. If the plan wants it there, it is a new round.
+- **No ordering, no cap, no country preference** on the rendered number list.
+- **No e2e coverage.** The dial-in path is asserted at the handler and at the component;
+  `tests/e2e/zoom-join-authz.spec.ts` was not extended, because the seeded synthetic
+  tenant provisions through the fake with no audio plan by default and giving it one
+  would change what every other assertion in that spec runs against.
+- **Nothing tells a participant the number exists before they click join.** The block
+  only appears after a successful join response.
+- The standing unruled items are untouched: `bucketError` `continue`,
+  `SESSION_STATUS_FALLBACK`, `total_hours_actual`'s name, the notification `defaultUrl`
+  item, the send-once notification ledger, series-cancel batching, `create.tsx`'s
+  UTC-vs-Chile date `min`, and the four suites with pre-existing within-file order
+  dependencies.

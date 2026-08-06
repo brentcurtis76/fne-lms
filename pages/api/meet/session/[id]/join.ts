@@ -23,7 +23,13 @@
  *   -- authorization resolved; only past this line may meeting state be read --
  *   5. projection cancelled/ended   → 410, for EVERY persona including admin
  *   6. no joinable meeting row yet  → 200 { mode: 'pending' }
- *   7. otherwise                    → 200 { mode: 'link', join_url, role }
+ *   7. otherwise                    → 200 { mode: 'link', join_url, role, dial_in? }
+ *
+ * `dial_in` (Z2-4e) is the ONLY widening this route has taken, and it is a widening
+ * of outcome 7 alone: every refusal above is byte-identical to what it was before.
+ * See `lib/utils/meeting-dial-in.ts` for why the meeting number and passcode may
+ * leave through THIS opening and nowhere else. It is absent — not empty, not an
+ * error — whenever the tenant has no audio plan, which is the common case.
  *
  * Step 6 is a 200 on purpose. Approve enqueues provisioning and the projection
  * row lands seconds later (§8); the UI shows "Enlace en preparación" in that
@@ -53,6 +59,7 @@ import { sendSessionNotFound } from '../../../../../lib/utils/session-denials';
 import { authorizeMeetingJoin } from '../../../../../lib/utils/meeting-join-policy';
 import { isFeatureEnabled, FeatureFlags } from '../../../../../lib/featureFlags';
 import { createZoomServiceClient, zoomInternalSchema } from '../../../../../lib/zoom/service-client';
+import { buildJoinDialIn } from '../../../../../lib/utils/meeting-dial-in';
 
 /** §14: the master kill switch answers 503 on the join route. */
 export const FEATURE_DISABLED_MESSAGE = 'Las videollamadas están temporalmente deshabilitadas';
@@ -157,7 +164,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: meeting, error: meetingError } = await internal
       .from('zoom_meetings')
-      .select('status, join_url')
+      .select('status, join_url, passcode, zoom_meeting_number, dial_in_numbers')
       .eq('surface_type', 'consultor_session')
       .eq('surface_id', decision.sessionId)
       .maybeSingle();
@@ -175,10 +182,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendApiResponse(res, { mode: 'pending' });
     }
 
+    // Built ONLY here, past every gate, and only for the successful outcome. `null`
+    // (no audio plan, unusable entries, no meeting number) omits the key entirely
+    // rather than sending an empty one — see the header.
+    const dialIn = buildJoinDialIn(meeting);
+
     return sendApiResponse(res, {
       mode: 'link',
       join_url: joinUrl,
       role: decision.role,
+      ...(dialIn ? { dial_in: dialIn } : {}),
     });
   } catch (error: unknown) {
     // Names only — a Zoom config failure must never echo a value.

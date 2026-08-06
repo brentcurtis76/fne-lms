@@ -18,7 +18,7 @@
 
 BEGIN;
 
-SELECT plan(113);
+SELECT plan(117);
 
 -- =============================================================================
 -- A. Schema / grants / RLS isolation (38 asserts)
@@ -785,6 +785,81 @@ SELECT is(zoom_internal.sync_projection_from_meeting(
   'missing', 'sync reports a missing internal row instead of publishing');
 
 RESET ROLE;
+
+-- =============================================================================
+-- F. Z2-4e: the dial_in_numbers BACKFILL (4 asserts).
+--
+-- 20260807120000 is DML over rows that already existed, so on a fresh replay it
+-- matches nothing and the replay proves only that it parses and applies. The three
+-- outcomes it must have are asserted here against seeded fixtures.
+--
+-- ⚠ THE STATEMENT BELOW IS A HAND-COPY of the migration's single UPDATE. It is the
+-- same device Z2-4d used for the two SECURITY DEFINER bodies, and it carries the same
+-- caveat: nothing mechanically ties the two together, so a change to the migration
+-- must be mirrored here by hand or this section starts proving a statement that no
+-- longer ships. Diff them, do not trust them.
+--
+-- Hosts are NULL so these fixtures cannot collide with section C's EXCLUDE constraint.
+-- =============================================================================
+
+INSERT INTO zoom_internal.zoom_meetings
+  (id, surface_type, surface_id, school_id, host_zoom_user_id, zoom_meeting_number,
+   status, starts_at, duration_minutes, effective_settings, dial_in_numbers)
+VALUES
+  -- (a) the row the backfill exists for: numbers inside the blob, column still NULL
+  ('bbbbbbbb-0000-0000-0000-000000000001', 'consultor_session',
+   'bbbbbbbb-1111-0000-0000-000000000001', 9901, NULL, 82000003001, 'provisioned',
+   '2026-11-01T14:00:00Z', 60,
+   '{"auto_recording":"none","global_dial_in_numbers":[{"country":"CL","country_name":"Chile","city":"Santiago","number":"+56 2 5555 0120","type":"toll"}]}',
+   NULL),
+  -- (b) a row already named by the Z2-4d RPCs — must survive untouched
+  ('bbbbbbbb-0000-0000-0000-000000000002', 'consultor_session',
+   'bbbbbbbb-1111-0000-0000-000000000002', 9901, NULL, 82000003002, 'provisioned',
+   '2026-11-02T14:00:00Z', 60,
+   '{"auto_recording":"none","global_dial_in_numbers":[{"number":"+56 2 5555 0121"}]}',
+   '[{"number":"+56 2 5555 0199"}]'),
+  -- (c) a no-audio-plan row: Zoom omitted the key, so there is nothing to name
+  ('bbbbbbbb-0000-0000-0000-000000000003', 'consultor_session',
+   'bbbbbbbb-1111-0000-0000-000000000003', 9901, NULL, 82000003003, 'provisioned',
+   '2026-11-03T14:00:00Z', 60,
+   '{"auto_recording":"none"}',
+   NULL);
+
+UPDATE zoom_internal.zoom_meetings
+   SET dial_in_numbers = effective_settings -> 'global_dial_in_numbers'
+ WHERE dial_in_numbers IS NULL
+   AND effective_settings ? 'global_dial_in_numbers';
+
+SELECT is(
+  (SELECT dial_in_numbers FROM zoom_internal.zoom_meetings
+    WHERE id = 'bbbbbbbb-0000-0000-0000-000000000001'),
+  '[{"country":"CL","country_name":"Chile","city":"Santiago","number":"+56 2 5555 0120","type":"toll"}]'::jsonb,
+  'backfill names the dial-in set of a pre-Z2-4d row whose column was NULL');
+
+SELECT is(
+  (SELECT dial_in_numbers FROM zoom_internal.zoom_meetings
+    WHERE id = 'bbbbbbbb-0000-0000-0000-000000000002'),
+  '[{"number":"+56 2 5555 0199"}]'::jsonb,
+  'backfill never overwrites a dial_in_numbers that already has a value');
+
+SELECT ok(
+  (SELECT dial_in_numbers IS NULL FROM zoom_internal.zoom_meetings
+    WHERE id = 'bbbbbbbb-0000-0000-0000-000000000003'),
+  'backfill leaves a row whose effective_settings lacks the key NULL, not JSON null');
+
+-- Idempotence: the guard means a replay matches nothing, so nothing changes again.
+WITH replay AS (
+  UPDATE zoom_internal.zoom_meetings
+     SET dial_in_numbers = effective_settings -> 'global_dial_in_numbers'
+   WHERE dial_in_numbers IS NULL
+     AND effective_settings ? 'global_dial_in_numbers'
+     AND id IN ('bbbbbbbb-0000-0000-0000-000000000001',
+                'bbbbbbbb-0000-0000-0000-000000000002',
+                'bbbbbbbb-0000-0000-0000-000000000003')
+  RETURNING 1
+)
+SELECT is((SELECT count(*)::int FROM replay), 0,
+  'a second run of the backfill matches zero rows — it is idempotent');
 
 SELECT * FROM finish();
 

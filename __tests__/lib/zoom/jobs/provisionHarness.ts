@@ -63,10 +63,26 @@ export interface StoredMeeting {
   passcode: string | null;
   join_url: string | null;
   effective_settings: Record<string, unknown> | null;
+  /**
+   * Optional so the many hand-written seed literals across the provisioning suites stay
+   * valid: a row this harness itself creates ALWAYS has it (null or the derived value),
+   * and only rows minted by the two RPC doubles are asserted on.
+   */
+  dial_in_numbers?: unknown;
   status: ZoomMeetingStatus;
   starts_at: string;
   duration_minutes: number;
   last_error: string | null;
+}
+
+/**
+ * `p_effective_settings -> 'global_dial_in_numbers'` in TypeScript. A second
+ * implementation on purpose, like PUBLIC_STATUS_FOR_MEETING below: if the SQL and this
+ * drift, the pgTAP asserts and these unit tests disagree, which is the alarm we want.
+ * `->` yields SQL NULL when the key is absent, hence `?? null`.
+ */
+function deriveDialInNumbers(effectiveSettings: Record<string, unknown> | null): unknown {
+  return effectiveSettings?.global_dial_in_numbers ?? null;
 }
 
 function windowOf(startsAtIso: string, durationMinutes: number): [number, number] {
@@ -250,6 +266,7 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
         passcode: null,
         join_url: null,
         effective_settings: null,
+        dial_in_numbers: null,
         status: 'pending',
         starts_at: row.starts_at,
         duration_minutes: row.duration_minutes,
@@ -338,6 +355,9 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
         row.passcode = patch.passcode;
         row.join_url = patch.join_url;
         row.effective_settings = patch.effective_settings;
+        // The `dial_in_numbers = p_effective_settings -> 'global_dial_in_numbers'`
+        // line the SQL RPCs carry — same UPDATE, so it cannot drift from its source.
+        row.dial_in_numbers = deriveDialInNumbers(patch.effective_settings);
         row.status = 'provisioned';
         row.last_error = null;
         publishScheduled(row, patch.growth_community_id);
@@ -360,6 +380,9 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
         row.passcode = patch.passcode;
         row.join_url = patch.join_url;
         row.effective_settings = patch.effective_settings;
+        // The `dial_in_numbers = p_effective_settings -> 'global_dial_in_numbers'`
+        // line the SQL RPCs carry — same UPDATE, so it cannot drift from its source.
+        row.dial_in_numbers = deriveDialInNumbers(patch.effective_settings);
         row.status = 'provisioned';
         row.last_error = null;
         publishScheduled(row, patch.growth_community_id);

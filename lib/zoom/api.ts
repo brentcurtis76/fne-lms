@@ -35,6 +35,25 @@ import { createZoomFake } from './fake';
 /** Zoom's cloud-recording switch. Provisioning always sends `'none'` (plan §8). */
 export type ZoomAutoRecording = 'none' | 'local' | 'cloud';
 
+/**
+ * One entry of Zoom's `settings.global_dial_in_numbers` — a phone number a participant
+ * can call instead of joining over the network, for the school hardware that cannot.
+ *
+ * ⚠ THIS SHAPE COMES FROM ZOOM'S DOCUMENTATION, NOT FROM AN OBSERVED TENANT RESPONSE.
+ * No real Zoom tenant has ever returned dial-in numbers to this code — CI runs
+ * `ZOOM_MODE=mock`, so the fake is the only producer, and a fake cannot confirm a wire
+ * shape it was told. Validate against a real audio-plan tenant in staging before any
+ * surface renders these (Z2-4d, NOT DONE).
+ */
+export interface ZoomDialInNumber {
+  country?: string;
+  country_name?: string;
+  city?: string;
+  number?: string;
+  type?: string;
+  [key: string]: unknown;
+}
+
 /** The subset of Zoom meeting settings this integration sets or reads. */
 export interface ZoomMeetingSettings {
   join_before_host?: boolean;
@@ -42,6 +61,12 @@ export interface ZoomMeetingSettings {
   auto_recording?: ZoomAutoRecording;
   mute_upon_entry?: boolean;
   meeting_authentication?: boolean;
+  /**
+   * Present only for accounts with an audio plan. Named here so it stops travelling as
+   * an anonymous passenger through the index signature: it is already persisted inside
+   * `effective_settings`, and `zoom_meetings.dial_in_numbers` now derives from it.
+   */
+  global_dial_in_numbers?: ZoomDialInNumber[];
   [key: string]: unknown;
 }
 
@@ -67,6 +92,12 @@ export interface ZoomMeeting {
   passcode: string;
   /** EFFECTIVE settings as Zoom reports them, not what was requested. */
   settings: ZoomMeetingSettings;
+  /**
+   * `settings.global_dial_in_numbers`, lifted out by name. `null` when the tenant has
+   * no audio plan and Zoom omits the field — never an error: a meeting without dial-in
+   * numbers is a perfectly usable meeting, so nothing here may fail a provision.
+   */
+  dialInNumbers: ZoomDialInNumber[] | null;
   status?: string;
 }
 
@@ -182,6 +213,11 @@ export function mapMeeting(raw: ZoomMeetingRaw): ZoomMeeting {
     joinUrl: raw.join_url,
     passcode: raw.password ?? '',
     settings: raw.settings ?? {},
+    // Array-guarded rather than cast: `settings` reaches here off an unvalidated
+    // `JSON.parse`, so a non-array under this key would otherwise be typed as one.
+    dialInNumbers: Array.isArray(raw.settings?.global_dial_in_numbers)
+      ? raw.settings.global_dial_in_numbers
+      : null,
     status: raw.status,
   };
 }
@@ -215,6 +251,11 @@ export function mapMeeting(raw: ZoomMeetingRaw): ZoomMeeting {
  *    "clean run". So `settings` must also carry an EXPLICIT string `auto_recording`:
  *    the drift signal is only meaningful when Zoom actually stated the value, and a
  *    silence that reads as compliance is worse than a refusal a human can see.
+ *
+ * NOT checked, and deliberately so: `settings.global_dial_in_numbers`. It is OPTIONAL —
+ * Zoom returns numbers only for accounts holding an audio plan, so requiring it would
+ * turn "this school has no dial-in plan" into a failed provision. Absence lands as a
+ * NULL `zoom_meetings.dial_in_numbers` and nothing else.
  *
  * NOT checked: `uuid`, `host_id`, `topic`, `start_time`, `duration`, `timezone`. The
  * provisioner deliberately persists none of them (`zoom_meeting_uuid` stays NULL — see

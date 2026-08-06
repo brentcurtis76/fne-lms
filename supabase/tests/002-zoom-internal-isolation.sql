@@ -18,10 +18,10 @@
 
 BEGIN;
 
-SELECT plan(98);
+SELECT plan(113);
 
 -- =============================================================================
--- A. Schema / grants / RLS isolation (29 asserts)
+-- A. Schema / grants / RLS isolation (38 asserts)
 --
 -- The count above is maintained by hand and had gone stale: it still said 20
 -- after Z1b-sol5 added 6 provisioning-RPC privilege asserts (Sol R6 ④). 26 was
@@ -125,6 +125,65 @@ SELECT is(has_function_privilege('authenticated',
 SELECT is(has_function_privilege('service_role',
   'zoom_internal.sync_projection_from_meeting(uuid, uuid)',
   'EXECUTE'), true, 'service_role can execute sync_projection_from_meeting');
+
+-- -----------------------------------------------------------------------------
+-- Z2-4d: dial_in_numbers lives INSIDE this isolation proof, and the two RPCs that
+-- populate it were amended IN PLACE (9 asserts).
+--
+-- The column carries no secret by itself, but a dial-in is only usable together with
+-- the meeting number and the passcode, which is why it sits on this side of the
+-- schema — so it must be covered by the same denial the rest of the table is.
+--
+-- The identity-argument asserts are the load-bearing ones: this round amended both
+-- functions with CREATE OR REPLACE, and an accidental 7th parameter would have made a
+-- NEW function, leaving the six positional calls in section D ambiguous while the
+-- signature-based grant asserts above kept passing against a stale definition that
+-- silently wrote NULL forever.
+-- -----------------------------------------------------------------------------
+
+SELECT has_column('zoom_internal', 'zoom_meetings', 'dial_in_numbers',
+  'zoom_meetings.dial_in_numbers exists');
+SELECT col_type_is('zoom_internal', 'zoom_meetings', 'dial_in_numbers', 'jsonb',
+  'zoom_meetings.dial_in_numbers is jsonb — it holds Zoom''s array verbatim');
+SELECT col_is_null('zoom_internal', 'zoom_meetings', 'dial_in_numbers',
+  'zoom_meetings.dial_in_numbers is nullable — a tenant with no audio plan still provisions');
+
+SELECT is(has_column_privilege('anon',
+  'zoom_internal.zoom_meetings', 'dial_in_numbers', 'SELECT'), false,
+  'anon cannot read zoom_meetings.dial_in_numbers');
+SELECT is(has_column_privilege('authenticated',
+  'zoom_internal.zoom_meetings', 'dial_in_numbers', 'SELECT'), false,
+  'authenticated cannot read zoom_meetings.dial_in_numbers');
+
+SELECT is(
+  (SELECT oidvectortypes(p.proargtypes)
+     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'zoom_internal' AND p.proname = 'recover_provisioned_meeting'),
+  'uuid, bigint, text, text, jsonb, uuid',
+  'recover_provisioned_meeting still has exactly the 6-argument identity');
+SELECT is(
+  (SELECT oidvectortypes(p.proargtypes)
+     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'zoom_internal' AND p.proname = 'adopt_checkpoint_meeting'),
+  'uuid, bigint, text, text, jsonb, uuid',
+  'adopt_checkpoint_meeting still has exactly the 6-argument identity');
+
+-- ...and exactly ONE definition each: an overload would satisfy the asserts above
+-- through the surviving row while making section D's positional calls ambiguous.
+SELECT is(
+  (SELECT count(*)::int FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'zoom_internal'
+      AND p.proname IN ('recover_provisioned_meeting', 'adopt_checkpoint_meeting')),
+  2, 'the two provisioning RPCs have no overloads (CREATE OR REPLACE, never a new signature)');
+
+-- The Z2-4d boundary, asserted at schema level so a later round cannot quietly cross
+-- it: dial-in data NEVER reaches the student-readable projection. Matched by pattern,
+-- not by exact name, so a differently-named crossing is caught too.
+SELECT is(
+  (SELECT count(*)::int FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'session_meetings_public'
+      AND column_name ILIKE '%dial%'),
+  0, 'session_meetings_public exposes no dial-in column (Z2-4d ruling 1)');
 
 -- =============================================================================
 -- B. Job-queue behavior (26 asserts). Fixtures use dedicated job_types so the
@@ -369,7 +428,7 @@ SELECT lives_ok(
   'meetings without an assigned host never conflict (reservation starts at assignment)');
 
 -- =============================================================================
--- D. Atomic provision transitions (18 asserts). These are behavior tests because
+-- D. Atomic provision transitions (24 asserts). These are behavior tests because
 -- the CAS filters moved from the TypeScript/PostgREST wire into SQL in sol5.
 -- Calls run AS service_role, matching the production client and proving the grants.
 -- =============================================================================
@@ -395,7 +454,16 @@ VALUES
    '2026-09-05T14:00:00Z', 60, 'adopt-miss-marker'),
   ('ffffffff-0000-0000-0000-000000000006', 'consultor_session',
    'ffffffff-1111-0000-0000-000000000006', 9901, NULL, 'pending',
-   '2026-09-06T14:00:00Z', 60, 'adopt-backward-marker');
+   '2026-09-06T14:00:00Z', 60, 'adopt-backward-marker'),
+  -- Z2-4d: one row per RPC path for the dial-in capture. Both paths were amended, so
+  -- both are exercised; the rows above carry NO dial-in key and are the no-audio-plan
+  -- half of the same proof.
+  ('ffffffff-0000-0000-0000-000000000007', 'consultor_session',
+   'ffffffff-1111-0000-0000-000000000007', 9901, 82000001007, 'pending',
+   '2026-09-07T14:00:00Z', 60, 'dialin-recover-marker'),
+  ('ffffffff-0000-0000-0000-000000000008', 'consultor_session',
+   'ffffffff-1111-0000-0000-000000000008', 9901, NULL, 'pending',
+   '2026-09-08T14:00:00Z', 60, 'dialin-adopt-marker');
 
 INSERT INTO public.session_meetings_public
   (surface_type, surface_id, school_id, meeting_status, starts_at, ends_at)
@@ -502,6 +570,50 @@ SELECT ok((SELECT meeting_status = 'live'
              FROM public.session_meetings_public
             WHERE surface_id = 'ffffffff-1111-0000-0000-000000000006'),
   'adoption never moves a live projection backward or rewrites its window');
+
+-- -----------------------------------------------------------------------------
+-- Z2-4d: the dial-in set is captured by BOTH amended RPCs, and its absence is not an
+-- error (6 asserts). Read back off the row — asserting the call returned true would
+-- prove nothing about the column.
+--
+-- The synthetic numbers below are `+56 2 5555 xxxx`, inside Chile's reserved-for-
+-- fiction 55xx block. Never put a real phone number in a fixture.
+-- -----------------------------------------------------------------------------
+
+SELECT is(zoom_internal.recover_provisioned_meeting(
+  'ffffffff-0000-0000-0000-000000000007', 82000001007, 'recover77',
+  'https://example-synthetic.test/j/82000001007',
+  '{"auto_recording":"none","global_dial_in_numbers":[{"country":"CL","country_name":"Chile","city":"Santiago","number":"+56 2 5555 0100","type":"toll"}]}',
+  NULL),
+  true, 'recovery applies for an audio-plan tenant');
+SELECT is(
+  (SELECT dial_in_numbers FROM zoom_internal.zoom_meetings
+    WHERE id = 'ffffffff-0000-0000-0000-000000000007'),
+  '[{"country":"CL","country_name":"Chile","city":"Santiago","number":"+56 2 5555 0100","type":"toll"}]'::jsonb,
+  'recovery captures global_dial_in_numbers into dial_in_numbers');
+
+SELECT is(zoom_internal.adopt_checkpoint_meeting(
+  'ffffffff-0000-0000-0000-000000000008', 82000001008, 'adopt888',
+  'https://example-synthetic.test/j/82000001008',
+  '{"auto_recording":"none","global_dial_in_numbers":[{"country":"CL","country_name":"Chile","city":"Valparaíso","number":"+56 32 5555 0101","type":"toll"}]}',
+  NULL),
+  true, 'adoption applies for an audio-plan tenant');
+SELECT is(
+  (SELECT dial_in_numbers FROM zoom_internal.zoom_meetings
+    WHERE id = 'ffffffff-0000-0000-0000-000000000008'),
+  '[{"country":"CL","country_name":"Chile","city":"Valparaíso","number":"+56 32 5555 0101","type":"toll"}]'::jsonb,
+  'adoption captures global_dial_in_numbers into dial_in_numbers');
+
+-- No audio plan: Zoom omits the key, `->` yields NULL, and the row still provisioned
+-- above. These read the rows the earlier asserts already drove to `provisioned`.
+SELECT ok((SELECT status = 'provisioned' AND dial_in_numbers IS NULL
+             FROM zoom_internal.zoom_meetings
+            WHERE id = 'ffffffff-0000-0000-0000-000000000001'),
+  'recovery without a dial-in key provisions with a NULL dial_in_numbers');
+SELECT ok((SELECT status = 'provisioned' AND dial_in_numbers IS NULL
+             FROM zoom_internal.zoom_meetings
+            WHERE id = 'ffffffff-0000-0000-0000-000000000004'),
+  'adoption without a dial-in key provisions with a NULL dial_in_numbers');
 
 RESET ROLE;
 

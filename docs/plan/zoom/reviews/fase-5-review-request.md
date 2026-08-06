@@ -2156,3 +2156,163 @@ España)`. Reverted; `git hash-object lib/utils/session-timezone.ts` returns
   those disagree. Unrelated to this chunk; not touched.
 - The `create.tsx` suite emits `act(...)` warnings from mount effects, inherited from the
   existing `create-zoom-managed` suite's scaffolding. Pre-existing, not introduced here.
+
+---
+
+## Chunk Z2-4d — round r19
+
+**Branch** `feat/zoom-sess`, base `f92c2bcb` (r18 committed nothing). One commit on top.
+
+### What r18 found — carried forward, because r18 wrote no code
+
+Round r18 stopped at design time with `STATUS: FINDINGS` and committed nothing, so its
+two findings survive only here and in the ledger. The PM verified both against the code
+before ruling.
+
+**Finding 1 — dial-in numbers were ALREADY persisted, unnamed.** `lib/zoom/client.ts:264`
+does `JSON.parse(raw) as T` with no field whitelist; `ZoomMeetingSettings` carries
+`[key: string]: unknown`; `mapMeeting` does `settings: raw.settings ?? {}`, a whole-object
+passthrough; and the provisioner writes `effective_settings: created.settings` verbatim
+(`meeting-provision.ts:2323`). A tenant with an audio plan has therefore been writing its
+dial-in set into `zoom_internal.zoom_meetings.effective_settings` all along. What was
+missing was a NAME, not the data.
+
+**Finding 2 — the provisioner does not write the row; two SECURITY DEFINER RPCs do.**
+`zoom_internal.recover_provisioned_meeting` and `zoom_internal.adopt_checkpoint_meeting`,
+both 6-argument. A 7th parameter is a NEW function in Postgres, so it needs either a
+`DROP` (RED-tier forbidden by `CLAUDE.md`) or a defaulted overload — and an overload would
+make `supabase/tests/002-zoom-internal-isolation.sql`'s six POSITIONAL calls ambiguous
+(42725) while its signature-based grant asserts kept passing against a stale function that
+silently wrote NULL forever. A green gate proving nothing.
+
+### The ruling implemented (Option A)
+
+Add the column; derive it INSIDE the two existing RPCs at their unchanged 6-argument
+signature via `CREATE OR REPLACE`. The argument that makes a derived column safe here is
+that `effective_settings` has exactly TWO writers in the codebase, and both are the
+`UPDATE … SET` inside those two functions — so a column set in the SAME statement cannot
+drift from its source. That property ends the moment a third writer appears, which is why
+the column `COMMENT` says so in capitals.
+
+### Exact DDL
+
+```sql
+ALTER TABLE zoom_internal.zoom_meetings
+  ADD COLUMN IF NOT EXISTS dial_in_numbers jsonb;
+
+COMMENT ON COLUMN zoom_internal.zoom_meetings.dial_in_numbers IS '…derived from
+effective_settings -> ''global_dial_in_numbers'' inside the two provisioning RPCs… ANY
+FUTURE WRITER OF effective_settings MUST SET THIS COLUMN TOO…';
+```
+
+plus `CREATE OR REPLACE FUNCTION` for both RPCs at the identical signature
+`(uuid, bigint, text, text, jsonb, uuid)`, each gaining one line:
+
+```sql
+           dial_in_numbers = p_effective_settings -> 'global_dial_in_numbers',
+```
+
+No `DROP`, no overload, no signature change, no RLS change. The trailing `REVOKE`/`GRANT`
+pair is re-asserted for the two amended signatures only — deliberately NOT the ancestor
+migration's blanket `REVOKE ALL ON ALL FUNCTIONS IN SCHEMA zoom_internal`, which here would
+strip every other RPC's grants.
+
+### Diff of each `CREATE OR REPLACE` body against the original
+
+Mechanically diffed against `20260731120000_zoom_provision_rpcs.sql`:
+
+```
+--- orig/recover_provisioned_meeting        --- orig/adopt_checkpoint_meeting
++++ new/recover_provisioned_meeting         +++ new/adopt_checkpoint_meeting
+            join_url = p_join_url,                      join_url = p_join_url,
+            effective_settings = …,                     effective_settings = …,
++           dial_in_numbers = p_effective…    +          dial_in_numbers = p_effective…
+            status = 'provisioned',                     status = 'provisioned',
+```
+
+One added line each; every other byte of both bodies, including `SECURITY DEFINER` and
+`SET search_path = ''`, is unchanged.
+
+### How the from-scratch replay was proved
+
+`npx supabase db reset` (drops and recreates the local database, then replays all 13
+migrations in order) — run three times: once to establish the baseline, once for the
+mutation probe, once after the revert. The log line
+`Applying migration 20260806120000_zoom_dial_in_numbers.sql...` appears in each, and
+`npm run test:db` is green after the first and third.
+
+Note for the PM's post-merge checklist: this is a LOCAL proof only. The production schema
+still needs the column and both function replacements applied by Brent, and verified with
+read-only queries afterwards (the Z1b lesson).
+
+### The wire shape is DOCUMENTATION-BASED — read this before approving
+
+**No real Zoom tenant has ever returned dial-in numbers to this code.** CI runs
+`ZOOM_MODE=mock`, so `lib/zoom/fake.ts` is the only producer any assertion here has seen,
+and a fake cannot confirm a shape it was told. `settings.global_dial_in_numbers` with
+`country`/`country_name`/`city`/`number`/`type` comes from Zoom's API documentation. CI
+cannot retire this risk; only a staging run against a real audio-plan tenant can. It is
+recorded under NOT DONE and carried in the `ZoomDialInNumber` doc comment.
+
+### Files
+
+| File | Risk | What changed |
+|---|---|---|
+| `supabase/migrations/20260806120000_zoom_dial_in_numbers.sql` | **high** | new: column, comment, both RPCs amended in place |
+| `supabase/tests/002-zoom-internal-isolation.sql` | **high** | +15 asserts: column shape/denial, signature identity, no-overload, projection boundary, dial-in capture on both RPC paths |
+| `lib/zoom/api.ts` | medium | `ZoomDialInNumber`; named in `ZoomMeetingSettings`; `dialInNumbers` on `ZoomMeeting` via `mapMeeting` (array-guarded); create-check header documents the field as deliberately optional |
+| `lib/zoom/fake.ts` | medium | synthetic dial-in set by default + `setDialInNumbers(null)` to model a no-audio-plan tenant |
+| `__tests__/lib/zoom/jobs/provisionHarness.ts` | medium | the double mirrors the SQL derivation (second implementation on purpose) |
+| `__tests__/lib/zoom/jobs/meeting-provision.test.ts` | low | 4 tests: both RPC paths × audio plan / no audio plan, read back off the row |
+| `__tests__/lib/zoom/fake.test.ts` | low | 6 tests: fake fidelity, `mapMeeting` guard, create-check optionality and unchanged rejections |
+
+### Mutation probe
+
+Deleted the `dial_in_numbers = …` line from `adopt_checkpoint_meeting` ONLY, replayed from
+scratch, and got exactly one failure — the adoption assert — while the recovery capture
+stayed green, proving the two paths are distinguished:
+
+```
+# Failed test 90: "adoption captures global_dial_in_numbers into dial_in_numbers"
+#         have: NULL
+#         want: [{"city": "Valparaíso", … "number": "+56 32 5555 0101", …}]
+# Looks like you failed 1 test of 113
+```
+
+Reverted; `git hash-object` returns `47ad349c505e27a264751c4f778f5a225a2518af`, identical
+to the pre-probe hash.
+
+### Gates
+
+`npm run type-check` 0 · `npm run lint` 0 (`--max-warnings=0`) · `npm test` **4589 passed /
+280 files** (was 4579) · `npm run build` 0 · `npm run test:db` **Files=9, Tests=389, PASS**
+(was 374).
+
+### What a reviewer should scrutinise hardest
+
+1. **The 6-argument identity assert.** My first version used
+   `pg_get_function_identity_arguments`, which on this Postgres returns parameter NAMES
+   too, and it failed. It now uses `oidvectortypes(p.proargtypes)`. Check that this really
+   is the type list and would still catch a 7th parameter — it is the assert standing
+   between this round and finding 2's failure mode.
+2. **`dial_in_numbers` is OPTIONAL on `StoredMeeting`** in the test harness, to avoid
+   editing a dozen unrelated seed literals. Rows the harness itself mints always set it;
+   nothing else is asserted on. Judge whether that weakens the F4 `toBeNull()` assertions.
+3. **The array guard in `mapMeeting`.** `settings` arrives off an unvalidated `JSON.parse`,
+   so a non-array under this key is reachable from the wire; the guard yields `null`
+   instead of a lying type. But `effective_settings` — and therefore the COLUMN — still
+   stores whatever Zoom sent, guard or no guard. The column can hold a non-array.
+4. **The default-on fake.** Every existing test now provisions with dial-in numbers in
+   `effective_settings`. Nothing asserted on `effective_settings` broke, but the reviewer
+   should confirm no suite was silently made less specific by the extra key.
+5. **`meeting-provision.ts` is untouched** — per the ruling. Confirm the diff really
+   contains no edit to it.
+
+### Known limitations / deferred
+
+- No UI, no join-endpoint payload, no `session_meetings_public` column — Z2-4e, and the
+  projection boundary is now asserted at schema level so it cannot be crossed quietly.
+- The wire shape is unvalidated against a real tenant (see above).
+- Rows provisioned BEFORE this migration keep `dial_in_numbers` NULL while their
+  `effective_settings` may hold the numbers. No backfill was in scope; the column is
+  nullable and a backfill would be a separate, additive round.

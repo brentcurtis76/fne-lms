@@ -3394,3 +3394,128 @@ describe('meeting_provision · meeting.started captures the occurrence uuid', ()
     expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('ended');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Z2-4d — the dial-in set reaches the row, through BOTH provisioning RPCs
+//
+// Dial-in numbers were already being persisted, unnamed, inside `effective_settings`;
+// this chunk names them in a column derived inside the two RPCs' single `UPDATE`. The
+// handler itself is UNCHANGED — which is precisely why these tests read the stored ROW
+// rather than asserting a call was made. A test that asserted "the RPC was called with
+// the settings" would have passed before the migration existed.
+//
+// Both paths are covered because both functions were amended: an amendment applied to
+// one and not the other is the failure the mutation probe reproduces.
+// ---------------------------------------------------------------------------
+
+describe('meeting_provision · Z2-4d dial-in capture', () => {
+  const DIAL_IN = [
+    { country: 'CL', country_name: 'Chile', city: 'Santiago', number: '+56 2 5555 0100', type: 'toll' },
+  ];
+
+  /** Resolution path 1's fixture, as the operator leaves it: number only. */
+  function operatorResolvedRow(zoomMeetingNumber: number): StoredMeeting {
+    return {
+      id: 'meeting-dialin-recovery',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+      zoom_meeting_number: zoomMeetingNumber,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'pending',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: ambiguousCreateMarker('synthetic-zm-request-id-0009', 'lost response'),
+    };
+  }
+
+  it('ADOPTION path: a fresh create on an audio-plan tenant lands the numbers on the row', async () => {
+    const fake = seedFake();
+    fake.setDialInNumbers(DIAL_IN);
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+
+    await createMeetingProvisionHandler({ api: fake, store: harness.store })(context());
+
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('provisioned');
+    expect(row.dial_in_numbers).toEqual(DIAL_IN);
+    // Derived, never independently supplied: the column and its source agree by
+    // construction because the SQL sets both in one UPDATE.
+    expect(row.effective_settings?.global_dial_in_numbers).toEqual(row.dial_in_numbers);
+    expect(harness.store.adoptCheckpointMeeting).toHaveBeenCalledTimes(1);
+  });
+
+  it('RECOVERY path: a resolved park on an audio-plan tenant lands the numbers on the row', async () => {
+    const fake = seedFake();
+    fake.setDialInNumbers(DIAL_IN);
+    const discovered = await fake.createMeeting({
+      hostZoomUserId: HOST_POOL_A.zoom_user_id,
+      topic: SESSION.title,
+      startTime: '2026-08-05T15:00:00',
+      durationMinutes: 90,
+      timezone: 'America/Santiago',
+      passcode: 'rec0very77',
+    });
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [operatorResolvedRow(discovered.id)],
+    });
+
+    await createMeetingProvisionHandler({ api: fake, store: harness.store })(context());
+
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('provisioned');
+    expect(row.dial_in_numbers).toEqual(DIAL_IN);
+    expect(row.effective_settings?.global_dial_in_numbers).toEqual(row.dial_in_numbers);
+    expect(harness.store.recoverProvisionedMeeting).toHaveBeenCalledTimes(1);
+  });
+
+  it('ADOPTION path: a tenant with NO audio plan still provisions, with a null column', async () => {
+    // The failure that must never happen: a school without a dial-in plan cannot be
+    // refused a meeting over a field Zoom simply does not send.
+    const fake = seedFake();
+    fake.setDialInNumbers(null);
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+
+    const result = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context()
+    );
+
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('provisioned');
+    expect(row.dial_in_numbers).toBeNull();
+    expect(row.effective_settings).not.toHaveProperty('global_dial_in_numbers');
+    expect(row.join_url).toContain(String(row.zoom_meeting_number));
+    expect(result).toMatchObject({ created: true });
+  });
+
+  it('RECOVERY path: a tenant with NO audio plan still provisions, with a null column', async () => {
+    const fake = seedFake();
+    fake.setDialInNumbers(null);
+    const discovered = await fake.createMeeting({
+      hostZoomUserId: HOST_POOL_A.zoom_user_id,
+      topic: SESSION.title,
+      startTime: '2026-08-05T15:00:00',
+      durationMinutes: 90,
+      timezone: 'America/Santiago',
+      passcode: 'rec0very77',
+    });
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [operatorResolvedRow(discovered.id)],
+    });
+
+    await createMeetingProvisionHandler({ api: fake, store: harness.store })(context());
+
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('provisioned');
+    expect(row.dial_in_numbers).toBeNull();
+    expect(row.effective_settings).not.toHaveProperty('global_dial_in_numbers');
+  });
+});

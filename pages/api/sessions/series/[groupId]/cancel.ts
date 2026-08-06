@@ -11,6 +11,7 @@ import { Validators } from '../../../../../lib/types/api-auth.types';
 import { SessionActivityLogInsert } from '../../../../../lib/types/consultor-sessions.types';
 import { enqueueSessionMeetingDelete } from '../../../../../lib/zoom/provisioning-intent';
 import type { ProvisionSessionRow } from '../../../../../lib/zoom/jobs/meeting-provision';
+import { notifySessionLifecycle } from '../../../../../lib/services/session-lifecycle-notifications';
 
 type CancelScope = 'all_future' | 'remaining';
 
@@ -128,6 +129,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // enqueues; none of them can throw or change what is returned.
     for (const cancelled of updatedSessions ?? sessionsToCancel) {
       await enqueueSessionMeetingDelete({ session: cancelled as ProvisionSessionRow });
+    }
+
+    // Z2-4a (plan §15): one `session_cancelled` per session this batch actually
+    // cancelled, to that session's own participants. Iterated for the same reason as
+    // the enqueues — the recipient set is per-session, and a series does not share one.
+    for (const cancelled of updatedSessions ?? sessionsToCancel) {
+      await notifySessionLifecycle({
+        client: serviceClient,
+        session: cancelled,
+        event: 'session_cancelled',
+        req,
+      });
     }
 
     return sendApiResponse(res, {

@@ -22,6 +22,10 @@ import {
   enqueueSessionMeetingDelete,
   enqueueSessionMeetingSync,
 } from '../../../../lib/zoom/provisioning-intent';
+import {
+  hasScheduleChanged,
+  notifySessionLifecycle,
+} from '../../../../lib/services/session-lifecycle-notifications';
 import { canViewSession, SessionAccessContext } from '../../../../lib/utils/session-policy';
 import { sendSessionNotFound } from '../../../../lib/utils/session-denials';
 import {
@@ -459,6 +463,25 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
       await enqueueSessionMeetingDelete({ session: updatedSession });
     } else if (updatedSession && isDurationRelevantChange(fieldsChanged)) {
       await enqueueSessionMeetingSync({ session: updatedSession });
+    }
+
+    // Z2-4a (plan §15): and tell the people. Z2-3b converged the Zoom meeting on a
+    // reschedule while the participants were never told, which is the defect this
+    // closes. Placed with the enqueues above and for the same reason: the update is
+    // what makes the move real, and the hours sync below can return 500 on a path
+    // where the times DID move — notifying after it would leave participants holding
+    // the old time on exactly the case that needs the warning.
+    //
+    // Gated on VALUES, not on which keys the body carried: a PUT that only changes the
+    // title, or that resubmits the same date, is not a reschedule.
+    if (updatedSession && hasScheduleChanged(session, updatedSession)) {
+      await notifySessionLifecycle({
+        client: serviceClient,
+        session: updatedSession,
+        event: 'session_rescheduled',
+        req,
+        previous: session,
+      });
     }
 
     // Z2-3a (plan §11): a PRE-EXECUTION reschedule must carry the hour reservation

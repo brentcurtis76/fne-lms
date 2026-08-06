@@ -15,6 +15,10 @@ import {
 } from '../../../../lib/services/hour-tracking';
 import { enqueueSessionMeetingSync } from '../../../../lib/zoom/provisioning-intent';
 import type { ProvisionSessionRow } from '../../../../lib/zoom/jobs/meeting-provision';
+import {
+  hasScheduleChanged,
+  notifySessionLifecycle,
+} from '../../../../lib/services/session-lifecycle-notifications';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-edit-request-detail');
@@ -240,6 +244,26 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, editRequestI
             scheduled_duration_minutes: null,
           } as ProvisionSessionRow,
         });
+      }
+
+      // Z2-4a (plan §15): the second reschedule path owes the participants the same
+      // notice as the admin PUT, gated the same way — on VALUES, so an approved change
+      // set that carries a date field holding the date the session already had does not
+      // announce a move from a time to itself. This route updates without `.select()`,
+      // so the post-update row is `{ ...session, ...sessionUpdate }`, exactly as
+      // `effectiveStatus` below reconstructs it.
+      {
+        const rescheduled = { ...session, ...sessionUpdate };
+
+        if (hasScheduleChanged(session, rescheduled)) {
+          await notifySessionLifecycle({
+            client: serviceClient,
+            session: rescheduled,
+            event: 'session_rescheduled',
+            req,
+            previous: session,
+          });
+        }
       }
 
       // Z2-3a (plan §11): an approved edit request is the second reschedule path, and

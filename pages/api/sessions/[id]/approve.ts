@@ -12,6 +12,7 @@ import { SessionActivityLogInsert } from '../../../../lib/types/consultor-sessio
 import { validateFacilitatorIntegrity } from '../../../../lib/utils/facilitator-validation';
 import { createReservation } from '../../../../lib/services/hour-tracking';
 import { enqueueSessionProvision } from '../../../../lib/zoom/provisioning-intent';
+import { notifySessionLifecycle } from '../../../../lib/services/session-lifecycle-notifications';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-approve');
@@ -142,6 +143,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // eligibility and swallows its own errors, so the response below is byte-identical
     // whether the job was enqueued, deduped, gated off, or errored.
     await enqueueSessionProvision({ session: updatedSession, approvedAt });
+
+    // Z2-4a (plan §15): approval — not creation — is when a session becomes real to its
+    // participants. `pages/api/sessions/index.ts:225` creates every session as
+    // `borrador`, which is not participant-visible, so `session_created` belongs here.
+    // Emitted after the update commits, and it can neither throw nor change the response.
+    await notifySessionLifecycle({
+      client: serviceClient,
+      session: updatedSession,
+      event: 'session_created',
+      req,
+    });
 
     return sendApiResponse(res, { session: updatedSession });
   } catch (error: any) {

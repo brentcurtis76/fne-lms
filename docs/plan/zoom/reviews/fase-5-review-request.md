@@ -1593,3 +1593,194 @@ Rather than a fail-on-old — the behaviour was deliberately reversed, so the ol
 the thing under repair — a **mutation probe**: the mode-blind `!entry` return was restored,
 the new assertions were shown failing, then reverted and checked byte-identical by blob
 hash. Figures are in the r13 ledger row.
+
+---
+
+## Chunk Z2-4a — session lifecycle notifications — round r14
+
+### Branch and commits
+
+Branch `feat/zoom-sess`, on top of `24be1034`. One commit; see the ledger row for the SHA.
+
+### The defect this closes
+
+`lib/types/consultor-sessions.types.ts:26,32,33` declared `session_created`,
+`session_rescheduled` and `session_cancelled`. None of the three had a config in
+`NOTIFICATION_EVENTS` and none had an emitter anywhere in `lib/` or `pages/` — they were
+declarations with nothing behind them. **A reschedule notified nobody.** Z2-3b sharpened
+this rather than milder: since that chunk a reschedule converges the Zoom meeting to the
+new time, so the platform was silently moving a meeting the participants still had at the
+old time in their calendars.
+
+### What the three events say, and to whom
+
+All three go to the **deduplicated union of the session's own facilitators and attendees**
+and to nobody else — no admins, no consultants-by-school, no growth-community members.
+These are people already on the session, so no disclosure boundary moves. An empty union
+emits nothing and is not an error (the same rule the reminder cron applies).
+
+| Event | Copy (es-CL) | Importance | Why that importance |
+|---|---|---|---|
+| `session_created` | "Sesión agendada: …" / "Su sesión quedó agendada para el {fecha} a las {hora}." | `normal` | The session is typically days out and nothing is required of the reader now — this is the confirmation, not a call to act. |
+| `session_rescheduled` | "Sesión reprogramada: …" / "Su sesión se movió de {antes} a {después}. Actualice su calendario." | `high` | The reader is holding a now-wrong time. Reading it late means arriving at the wrong moment. |
+| `session_cancelled` | "Sesión cancelada: …" / "Su sesión del {fecha} a las {hora} fue cancelada. No necesita conectarse." | `high` | Same shape — without it the reader shows up to a meeting that no longer exists. |
+
+`SessionEventData.session` gained two optional fields, `previous_date` and
+`previous_time`. Optional and additive: the interface is shared with the edit-request and
+reminder events and was not reshaped.
+
+### Ruling 1, as verified rather than assumed
+
+`session_created` fires at **approval**, not creation. Verified directly:
+`pages/api/sessions/index.ts:225` sets `status: 'borrador' as const` unconditionally —
+there is no branch on that route that creates a session in any other status. A `borrador`
+session is not participant-visible, so a create-time emitter would notify people about
+something they cannot see. Approval is also where Z2-1 enqueues Zoom provisioning, so it
+is the single moment the session becomes real in both senses. `pages/api/sessions/index.ts`
+gained no emitter.
+
+### The changed-fields comparison, and the judgment call inside it
+
+`hasScheduleChanged(previous, next)` compares **values**, not which keys a request
+happened to carry:
+
+```
+previous.session_date !== next.session_date || previous.start_time !== next.start_time
+```
+
+Two consequences a reviewer should weigh:
+
+1. **`end_time` is deliberately excluded.** It changes the duration, not when the reader
+   has to be somewhere, and the notification renders only the start — so an end-time-only
+   edit would render an identical "before" and "after" ("se movió de X a X"). The prompt's
+   wording is "the date or time actually changed", which I read as the start. **This is
+   the one place I would most expect a PM to overrule me**: a participant whose session was
+   extended by an hour arguably wants to know, and today they are not told. Logged as open
+   below rather than decided unilaterally in either direction.
+
+2. **The edit-request route also gates on values, where the prompt said "includes a date
+   or time field".** Declared as a deviation below. Value comparison is a strict subset of
+   key-presence: it never notifies where key-presence would not, and it differs only in
+   the degenerate case where an approved change set carries a date field holding the date
+   the session already had — where the notification would announce a move from a time to
+   itself. One comparison rule for both reschedule paths also means they cannot drift.
+
+### Files, by risk
+
+| File | Risk | What |
+|---|---|---|
+| `lib/services/session-lifecycle-notifications.ts` (new) | **High** — the whole derivation | The single emitter: recipient union, schedule formatting, platform-URL build, trigger call, swallow-and-log. Also exports `hasScheduleChanged`. |
+| `lib/notificationEvents.ts` | Medium | Three registry configs + two optional fields on `SessionEventData.session`. No existing config touched. |
+| `lib/notificationService.ts` | Medium | Three `case` labels added to the existing facilitators+attendees recipient branch. Without this the events resolve to the `default:` branch, which warns and returns **zero** recipients — the wiring is load-bearing, not cosmetic. |
+| `pages/api/sessions/[id]/approve.ts` | Low | One call after `enqueueSessionProvision`. |
+| `pages/api/sessions/bulk-approve.ts` | Low | One call per approved session, in its own loop beside the Zoom loop. |
+| `pages/api/sessions/[id]/index.ts` (PUT) | Medium | One guarded call beside the Zoom enqueues. |
+| `pages/api/sessions/edit-requests/[eid].ts` | Medium | One guarded call beside the Zoom sync; post-update row reconstructed as `{...session, ...sessionUpdate}`, the same way `effectiveStatus` does. |
+| `pages/api/sessions/[id]/cancel.ts` | Low | **Two** calls — the clause path and the legacy path both reach `cancelada`. |
+| `pages/api/sessions/series/[groupId]/cancel.ts` | Low | One call per cancelled session. |
+| `__tests__/api/sessions/session-lifecycle-notifications.test.ts` (new) | — | 22 tests, all six routes driven through the real handlers. |
+
+### Placement, and the one case where it is arguable
+
+Every call sits **after the write that makes the change real has committed**, and every
+call is wrapped so it cannot throw (the helper owns the `try/catch`; callers add none).
+
+The arguable case: in both reschedule routes the emit is placed **before** the hours sync,
+which can return 500. So a request that ends 500 may still have notified. That is
+deliberate and follows the reasoning already written into those files for the Zoom
+enqueues — the session row genuinely moved, and the 500 tells an admin to go check the
+ledger, not that the reschedule was undone. Notifying after the sync would leave
+participants holding the old time in exactly the case that most needs the warning.
+
+### Test evidence
+
+`__tests__/api/sessions/session-lifecycle-notifications.test.ts` — 22 tests. Only the
+notification service, the Zoom queue and the hour-tracking writes are faked; the registry,
+the helper, the recipient union and the comparison are all real, driven through the six
+handlers.
+
+- **[A1]** All three resolve through `hasEventConfig`/`getEventConfig` and are compared
+  against the fallback config so a missing registration cannot pass.
+- **[A2]** `session_rescheduled`'s description asserted to contain all four of the old
+  date, old time, new date and new time — a dropped field fails. Plus a degradation test
+  that the copy never renders `undefined`/`null`.
+- **[A3]** All six routes, each asserting the recipient set through
+  `expectDedupedRecipients`: **length 3 first**, then identity, then the both-roles user
+  exactly once. The fixture puts one user in *both* the facilitator and attendee lists.
+  Length-before-identity matters: a `Set` comparison alone silently dedups a broken
+  derivation, which is exactly what the mutation probe exposed.
+- **[A4]** The fixture link is a synthetic passcode-bearing Zoom URL. Asserted that the
+  payload's `join_url` contains `/meet/session/{id}`, and that the **serialized whole
+  payload** contains neither that string nor `pwd=` — not just the field I happen to know
+  about. Plus: `join_url` is `null` when the session has no meeting.
+- **[A5]** Two cases on the PUT (title-only; date resubmitted unchanged) and one on the
+  edit-request route (title-only change set) — each asserting a 200 **and** no emission,
+  so an early 4xx cannot be mistaken for correct silence.
+- **[A6]** With the trigger rejecting, approve, cancel and the reschedule PUT each still
+  return 200, and the assertions check the trigger *was* called and the response body
+  still carries the new status — so the guarantee is proven, not merely survived.
+
+### [A7] Mutation probes — two, both bit
+
+1. **Dedup broken** in `collectParticipantIds` (facilitator ids re-appended after the
+   `Set`): initially only **1** test failed, because the other routes' assertions used
+   `new Set(...)` which silently re-dedups. That finding is itself worth recording — the
+   probe caught weak tests, not just weak code. The assertions were strengthened to check
+   length first, and the same mutation then failed **7** tests across all six routes.
+2. **`hasScheduleChanged` forced to `true`**: **3** tests failed — both [A5] PUT cases and
+   the edit-request title-only case.
+
+Both reverted; `lib/services/session-lifecycle-notifications.ts` verified byte-identical by
+`git hash-object` (`3f7f9200b08a65382153b3a32a099676009e51f7` before and after each probe),
+tree clean.
+
+### Gates at this head
+
+`npm run type-check && npm run lint && npm test && npm run build` — all four green.
+Unit: **4525 passed / 277 files** (baseline `24be1034`: 4503 / 276; +22 tests, +1 file,
+nothing fell).
+
+`npm run test:db` **could not run — the Docker daemon is down on this host**
+(`docker info` fails). This round adds no SQL, no migration and no RLS change, so the
+pgTAP suite exercises nothing this chunk touched; the PM-verified `Files=9, Tests=374,
+Result: PASS` two commits back is the last known state. **This is unverified by me** and
+should be re-run before the phase closes.
+
+### What I did NOT verify
+
+- **`test:db` / pgTAP** — see above. Not run at all.
+- **Anything past `triggerNotification`.** The notification service is mocked, so this
+  chunk proves the event is emitted with the right type, recipients and payload. It does
+  **not** prove a notification row is written, an e-mail renders, or that quiet-hours and
+  per-user preferences behave. The three events are new to `getRecipients`, so their
+  end-to-end delivery has never actually executed anywhere.
+- **The DB-template path.** `triggerNotification` prefers a DB trigger row over the code
+  defaults; with no `notification_triggers` row for these three types it uses the registry.
+  I did not check production for rows of these types, and I cannot — no production access.
+- **Real rendering of the es-CL copy.** The strings are asserted as strings. Nobody has
+  seen them in the in-app notification UI or in an e-mail.
+- **`buildAbsoluteUrl` origin in production.** Tests run with a `Host` header. The
+  standing Z1a ops item — `NEXT_PUBLIC_BASE_URL` must be set in Vercel prod — now has a
+  third consumer.
+- **Volume.** A series cancel emits one notification per session; a 30-session series
+  produces 30 notifications per recipient, sequentially. No batching, no digest, no rate
+  limit. Not in scope, but it is the first place this will hurt.
+
+### Not done / open
+
+- **iCal `SEQUENCE` — out of scope by the prompt (chunk Z2-4b).** `lib/utils/session-ical.ts`
+  emits no `SEQUENCE`, so an already-imported calendar event never updates on reschedule.
+  The participant now gets a notification saying the session moved while their calendar
+  entry still shows the old time. **This chunk narrows that gap but does not close it, and
+  arguably makes the inconsistency more visible.**
+- **Dial-in capture/column/display** — Z2-4c, needs a migration.
+- **Dual-zone / Madrid-preview scheduler** — Z2-4c.
+- **`end_time`-only edits send no notification** — the judgment call above, offered for a
+  PM ruling.
+- **No reminder-style send-once ledger.** The reminder cron records sends in
+  `session_notifications` and checks before sending; these lifecycle emits do not. Two
+  approvals of the same session (not currently reachable — approve rejects a `programada`
+  session) would notify twice. Flagged, not fixed: it would need a schema decision.
+- Untouched and unruled, as instructed: `bucketError` `continue`
+  (`lib/services/school-hours-report.ts:139-142`), the `SESSION_STATUS_FALLBACK` mismatch
+  (`:57-63`), and `total_hours_actual`'s now-inaccurate name.

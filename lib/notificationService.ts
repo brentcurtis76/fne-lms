@@ -584,6 +584,9 @@ class NotificationService {
           }
           break;
 
+        case 'session_created':
+        case 'session_rescheduled':
+        case 'session_cancelled':
         case 'session_reminder_24h':
         case 'session_reminder_1h':
           // Recipients: all facilitators + attendees (deduplicated)

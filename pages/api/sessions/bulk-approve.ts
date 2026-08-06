@@ -11,6 +11,7 @@ import { SessionActivityLogInsert } from '../../../lib/types/consultor-sessions.
 import { validateFacilitatorIntegrity } from '../../../lib/utils/facilitator-validation';
 import { createReservation } from '../../../lib/services/hour-tracking';
 import { enqueueSessionProvision } from '../../../lib/zoom/provisioning-intent';
+import { notifySessionLifecycle } from '../../../lib/services/session-lifecycle-notifications';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-bulk-approve');
@@ -197,6 +198,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // opens N concurrent writes against the queue.
     for (const session of updatedSessions || []) {
       await enqueueSessionProvision({ session, approvedAt: now });
+    }
+
+    // Z2-4a (plan §15): same rule as the single-session route — one `session_created`
+    // per session this batch actually approved, to that session's own participants.
+    // Iterated because the recipient set is per-session; none of these can throw.
+    for (const session of updatedSessions || []) {
+      await notifySessionLifecycle({
+        client: serviceClient,
+        session,
+        event: 'session_created',
+        req,
+      });
     }
 
     return sendApiResponse(res, {

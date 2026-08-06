@@ -19,6 +19,8 @@ describe('session-ical utilities', () => {
     end_time: '10:00:00',
     location: 'Sala de Conferencias A',
     status: 'programada',
+    created_at: null,
+    updated_at: null,
     school_name: 'Escuela Los Pinos',
     growth_community_name: 'Comunidad Sur',
     facilitators: [
@@ -41,6 +43,8 @@ describe('session-ical utilities', () => {
     school_name: 'Escuela Central',
     growth_community_name: 'Comunidad Centro',
     status: 'en_progreso',
+    created_at: null,
+    updated_at: null,
   };
 
   const mockCancelledSession: ICalSessionInput = {
@@ -50,6 +54,8 @@ describe('session-ical utilities', () => {
     start_time: '10:00:00',
     end_time: '11:00:00',
     status: 'cancelada',
+    created_at: null,
+    updated_at: null,
   };
 
   it('creates valid iCal calendar with single session', () => {
@@ -212,6 +218,8 @@ describe('session-ical utilities', () => {
       start_time: '09:00',
       end_time: '10:00',
       status: 'programada',
+      created_at: null,
+      updated_at: null,
     };
 
     const cal = createSessionCalendar([minimalSession]);
@@ -250,6 +258,8 @@ describe('session-ical utilities', () => {
       end_time: '12:00:00',
       location: 'Aula 301',
       status: 'programada',
+      created_at: null,
+      updated_at: null,
     };
 
     const cal = createSessionCalendar([presencialSession]);
@@ -269,6 +279,8 @@ describe('session-ical utilities', () => {
       location: 'Sala 202',
       join_url: 'https://genera.test/meet/session/cccccccc-cccc-4ccc-8ccc-cccccccccccc',
       status: 'programada',
+      created_at: null,
+      updated_at: null,
     };
 
     const cal = createSessionCalendar([hybridSession]);
@@ -375,7 +387,10 @@ describe('session-ical utilities', () => {
         { created_at: '2026-05-05T10:00:00.000Z', updated_at: '2026-05-01T10:00:00.000Z' },
       ],
     ])('degrades to SEQUENCE:0 when %s, and still generates', (_label, overrides) => {
-      const withoutTimestamps = { ...baseSeqSession };
+      // Partial so the two keys can still be *removed* entirely: the interface
+      // now requires them, and 'both timestamps missing' is precisely the shape
+      // that requirement forbids a real callsite from producing.
+      const withoutTimestamps: Partial<ICalSessionInput> = { ...baseSeqSession };
       delete withoutTimestamps.created_at;
       delete withoutTimestamps.updated_at;
       const ics = render({ ...withoutTimestamps, ...overrides } as ICalSessionInput);
@@ -384,6 +399,27 @@ describe('session-ical utilities', () => {
       expect(ics).toContain('BEGIN:VEVENT');
       expect(ics).toContain('END:VCALENDAR');
       expect(ics).not.toMatch(/SEQUENCE:(-|NaN)/);
+    });
+
+    it('will not compile without the timestamps at all (Z2-4c)', () => {
+      // The degrade-to-0 cases above are all *values*. This is the shape a new
+      // .ics surface would produce by simply never projecting the two columns —
+      // it used to compile clean and emit SEQUENCE:0 for every event, silently
+      // reintroducing the stale-calendar bug SEQUENCE exists to fix. Now the
+      // omission is a type error, which is what @ts-expect-error asserts here:
+      // this test fails to compile if the fields ever go optional again.
+      // @ts-expect-error created_at/updated_at are required (nullable) on ICalSessionInput
+      const forgotten: ICalSessionInput = {
+        id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+        title: 'Sesion Sin Timestamps',
+        session_date: '2026-05-01',
+        start_time: '09:00',
+        end_time: '10:00',
+        status: 'programada',
+      };
+
+      // Passing null is still allowed, and still degrades to 0.
+      expect(readSequence(render({ ...forgotten, created_at: null, updated_at: null }))).toBe(0);
     });
 
     it('sub-second updates floor to 0 rather than to a fraction', () => {

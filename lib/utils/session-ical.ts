@@ -35,11 +35,18 @@ export interface ICalSessionInput {
    * The session row's `created_at` / `updated_at`, verbatim. They exist here
    * only to derive SEQUENCE — see {@link deriveSequence}. Both are
    * `timestamptz NOT NULL` on `consultor_sessions`, so a caller reading the
-   * row always has them; they are optional on this interface so an unparseable
-   * or absent pair degrades to `SEQUENCE:0` instead of throwing mid-export.
+   * row always has them.
+   *
+   * Required but nullable, deliberately. A null or unparseable value still
+   * degrades to `SEQUENCE:0` rather than throwing mid-export — but the field
+   * cannot be *forgotten*. Optional (`?:`) meant a new .ics surface that never
+   * projected these columns compiled clean and silently emitted `SEQUENCE:0`
+   * for every event: exactly the stale-calendar bug SEQUENCE was added to fix,
+   * reintroduced without a type error. Now omitting them fails to compile and
+   * passing `null` is a deliberate choice.
    */
-  created_at?: string | null;
-  updated_at?: string | null;
+  created_at: string | null;
+  updated_at: string | null;
   school_name?: string | null;
   growth_community_name?: string | null;
   facilitators?: Array<{

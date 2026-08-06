@@ -10,6 +10,7 @@ import { Calendar, Save, Send, Plus, X, AlertTriangle } from 'lucide-react';
 import { RecurrencePattern, RecurrenceFrequency } from '../../../lib/types/consultor-sessions.types';
 import { generateRecurrenceDates } from '../../../lib/utils/recurrence';
 import { isFeatureEnabled, FeatureFlags } from '../../../lib/featureFlags';
+import { formatSessionRangeForConsultant } from '../../../lib/utils/session-timezone';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -753,6 +754,13 @@ const SessionCreatePage: React.FC = () => {
   // conditional below (managed intent is online/híbrida only, per POST /api/sessions).
   const zoomManagedAvailable = isFeatureEnabled(FeatureFlags.ZOOM_MEETINGS);
 
+  // Null until a date and both times are set — see formatSessionRangeForConsultant.
+  const spainTimePreview = formatSessionRangeForConsultant(
+    formData.session_date,
+    formData.start_time,
+    formData.end_time
+  );
+
   return (
     <MainLayout
       user={user}
@@ -1104,7 +1112,8 @@ const SessionCreatePage: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hora de inicio <span className="text-red-500">*</span>
+                  Hora de inicio <span className="text-gray-500 font-normal">(hora Chile)</span>{' '}
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="time"
@@ -1118,7 +1127,8 @@ const SessionCreatePage: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hora de término <span className="text-red-500">*</span>
+                  Hora de término <span className="text-gray-500 font-normal">(hora Chile)</span>{' '}
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="time"
@@ -1130,6 +1140,22 @@ const SessionCreatePage: React.FC = () => {
                 />
               </div>
             </div>
+
+            {/*
+              Spain preview: the session is scheduled in Chile time but partly
+              delivered from Spain, and the offset shifts twice a year in each
+              hemisphere. Read-only and derived on every render — nothing about
+              Spain is stored or submitted. Renders only once a date is chosen,
+              because without one there is no offset to be right about.
+            */}
+            {spainTimePreview && (
+              <p
+                data-testid="create-session-spain-preview"
+                className="text-sm text-gray-600 -mt-2"
+              >
+                En España: <span className="font-medium">{spainTimePreview}</span>
+              </p>
+            )}
 
             {/* Row 6: Recurrence Toggle */}
             <fieldset>

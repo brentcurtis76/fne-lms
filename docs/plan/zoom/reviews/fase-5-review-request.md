@@ -2044,3 +2044,115 @@ SEQUENCE when the session is cancelled" (same). Reverted; blob hash
   series-cancel batching, the `defaultUrl` backlog item, `bucketError` `continue`,
   `SESSION_STATUS_FALLBACK`, `total_hours_actual`'s name, and the four suites with
   pre-existing within-file order dependencies found in r15.
+
+---
+
+## Chunk Z2-4c — round r17
+
+**Branch** `feat/zoom-sess`, base `3685644c` (chunk Z2-4b sealed). One commit.
+
+### Objective and scope
+
+§15's dual-zone requirement: *"dual-zone (`hora Chile` inputs + Madrid preview) wiring"*.
+Sessions are scheduled by people in Chile and delivered in part from Spain; every stored
+time is Chile time and neither scheduling form said so. This chunk changes what two forms
+**show**. Nothing stored, submitted, sent or exported changed timezone.
+
+Carried over from Z2-4b: `ICalSessionInput.created_at`/`updated_at` were optional, which
+r16 itself flagged — a future .ics surface that forgot them compiled clean and silently
+emitted `SEQUENCE:0`, reintroducing the exact bug r16 removed. They are now
+required-but-nullable.
+
+**Out of scope, untouched:** dial-in (Z2-4d), `METHOD`/iMIP and the subscribable-feed gap,
+any change to stored data / API payloads / notifications / .ics timezones, and all the
+standing unruled items.
+
+### Files by risk
+
+| Risk | File | Why |
+|---|---|---|
+| Medium | `lib/utils/session-ical.ts` | type tightening on a shipped export; `deriveSequence` logic unchanged |
+| Medium | `pages/api/sessions/ical.ts`, `series/[groupId]/ical.ts`, `[id]/ical.ts` | three callsites `\|\| undefined` → `?? null` |
+| Low | `lib/utils/session-timezone.ts` | one added exported helper, `formatSessionRangeForConsultant` |
+| Low | `pages/admin/sessions/create.tsx`, `components/sessions/EditRequestModal.tsx` | two labels + one derived read-only `<p>` each |
+| Low | four test files (two new) | evidence |
+
+### The two DST fixtures, and why
+
+`2027-01-15` and `2027-07-15`, both with Chile 09:00–10:30.
+
+- **January** — Chile on summer time (UTC−3), Spain on winter time (UTC+1) → **+4h**,
+  `13:00 a 14:30 (hora España)`.
+- **July** — Chile on winter time (UTC−4), Spain on summer time (UTC+2) → **+6h**,
+  `15:00 a 16:30 (hora España)`.
+
+Chosen because the two hemispheres shift in opposite directions, so the offset is not a
+constant and the two expected strings are mutually exclusive: **no fixed offset can
+satisfy both.** A test asserts that directly (`the two fixtures above disagree`). Dates are
+in 2027 so they sit in the future relative to the form's `min` attribute rather than
+relying on jsdom ignoring it. Both dates are far from a transition boundary — this suite
+does not probe the changeover weekends themselves.
+
+### Evidence
+
+Five gates green at the commit: type-check 0 · lint 0 (`--max-warnings=0`) ·
+**4579 passed / 280 files** (baseline 4555/278; +24 tests, +2 files, none fell) ·
+build 0 · `test:db` **Files=9, Tests=374, Result: PASS** — byte-identical to the PM's
+baseline, as expected for a round with no SQL.
+
+Mutation probe: replacing `CONSULTANT_TIMEZONE` with `SESSION_TIMEZONE` in
+`formatSessionTimeForConsultant` (a zero-offset stub) failed **9 tests across all three
+new/extended suites**, including both DST fixtures collapsing to `09:00 a 10:30 (hora
+España)`. Reverted; `git hash-object lib/utils/session-timezone.ts` returns
+`c2177b9aaf63233b71f4276e7ba217390279479b` before and after.
+
+### Scrutinise hardest
+
+1. **The `substring(0, 5)` in `formatSessionRangeForConsultant`.** The range is built by
+   slicing the time out of `formatSessionTimeForConsultant`'s formatted string rather than
+   by re-deriving it. That honours the one-module ruling and cannot drift from the single
+   conversion — but it is coupled to that function's exact `"HH:MM (hora España)"` output
+   shape. Change the format and the range silently loses its label. Asserted by value, not
+   by construction.
+2. **`?? null` at the three .ics callsites is a real behaviour change at the boundary, not
+   just a type change.** `|| undefined` also converted the empty string to `undefined`;
+   `?? null` passes `''` through. `deriveSequence` treats both identically (`Date.parse('')`
+   is `NaN` → 0), and the r16 `empty strings` case asserts it — but the reasoning is worth
+   checking rather than taking from me.
+3. **The single-module guard strips comments before scanning.** Three unrelated files
+   legitimately mention `Europe/Madrid` in prose (`lib/pasantias/pdf/format.ts` and two
+   hour-tracking suites explaining the three-TZ matrix). The guard would have failed on
+   them, so it now reads code only. A regex comment-stripper is approximate — a
+   `Europe/Madrid` inside a string containing `*/` would slip past it.
+4. **`EditRequestModal`'s preview tracks edited state, and the test that proves it is the
+   date-change one.** The other assertions would also pass against stored values, since
+   the modal seeds its state from the session. Only the fixture where the proposed date
+   crosses the hemisphere divergence distinguishes the two.
+5. **`Partial<ICalSessionInput>` in the r16 degrade suite.** The `both timestamps missing`
+   case needs a shape the interface now forbids, so the fixture is widened to `Partial` to
+   keep `delete` legal. Every r16 assertion is unchanged in value; the type of one local
+   is not. A reviewer should confirm this did not weaken what that suite proves.
+
+### Not verified
+
+- **No browser, no real device, no visual check.** The previews were never rendered in a
+  browser at any width. The prompt requires the result to stay usable on low-end school
+  hardware and small screens; what I can say is that each preview is a single `<p>` of body
+  text in normal flow below the fields, with no fixed width, no grid placement and no
+  media query — but "it does not break the layout at 320px" is asserted by construction,
+  not observed.
+- **No screen-reader check.** The Chile marker is inside the `<label>` text, so it is read
+  with the field; the Spain preview is a sibling `<p>` with no `aria-describedby` linking
+  it to the inputs. That is a defensible omission for a derived hint, not a verified one.
+- Nothing about the DST changeover weekends themselves, in either hemisphere.
+
+### Looked wrong, out of scope
+
+- `EditRequestModal`'s diff preview reads `(session as any)[field]` (line ~185) to pull the
+  old value. It works, and the `any` predates this chunk, but it is the one place in that
+  file the narrowed `Pick<...>` prop type buys nothing.
+- `pages/admin/sessions/create.tsx` computes `min={new Date().toISOString()...}` inline in
+  the date input, so the floor is UTC "today", not Chile today. For a few hours each day
+  those disagree. Unrelated to this chunk; not touched.
+- The `create.tsx` suite emits `act(...)` warnings from mount effects, inherited from the
+  existing `create-zoom-managed` suite's scaffolding. Pre-existing, not introduced here.

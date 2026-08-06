@@ -218,8 +218,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           : undefined,
         status: s.status as SessionStatus,
         // Row timestamps drive SEQUENCE; without them a client ignores every revision
-        created_at: (s.created_at as string | null) || undefined,
-        updated_at: (s.updated_at as string | null) || undefined,
+        created_at: (s.created_at as string | null) ?? null,
+        updated_at: (s.updated_at as string | null) ?? null,
         school_name: ((s.schools as Record<string, unknown> | null)?.name as string | null) || undefined,
         growth_community_name: (
           (s.growth_communities as Record<string, unknown> | null)?.name as string | null

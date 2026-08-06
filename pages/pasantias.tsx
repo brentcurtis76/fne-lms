@@ -77,6 +77,50 @@ function uniformImmersionDays(): number | null {
   return distinct.size === 1 ? [...distinct][0] : null;
 }
 
+/**
+ * How many weeks the itinerary section is built to render.
+ *
+ * The section is two cards with two different treatments — the immersion week is
+ * lived in one place, the visit week moves — and {@link COHORT_WEEKS} is
+ * destructured by position to build them, so a third week would render nothing
+ * at all. That silent drop is the reason this is a constant rather than a
+ * sentence in a comment: it is exported so
+ * `__tests__/pages/pasantias-hardcoded-cohort.test.ts` can fail the moment the
+ * module stops agreeing with it.
+ *
+ * The copy below still reads `COHORT_WEEKS.length` rather than this constant, so
+ * the two cannot converge silently: the number the page prints comes from the
+ * module, and this constant is what the design is allowed to render.
+ */
+export const DESIGNED_WEEK_COUNT = 2;
+
+/**
+ * es-CL number words for the cardinalities this page's copy can state. The
+ * sentences say "Dos semanas", not "2 semanas", so a count that appears in prose
+ * reaches the reader as a word; past the list the digit is printed rather than a
+ * word being invented for it.
+ */
+const COUNT_WORDS_ES = ['cero', 'una', 'dos', 'tres', 'cuatro', 'cinco', 'seis'] as const;
+
+function countWord(count: number): string {
+  return COUNT_WORDS_ES[count] ?? String(count);
+}
+
+/** The word a sentence starts with carries its initial capital. */
+function capitalizeWord(word: string): string {
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+/**
+ * How many weeks the cohort runs, as the word the copy states it with. A
+ * function rather than a constant because it has to be read at render time: the
+ * guard suite swaps the module underneath a render, and a value computed when
+ * this file was first imported would not move with it.
+ */
+function weekCountWord(): string {
+  return countWord(COHORT_WEEKS.length);
+}
+
 /** Appendix A-11. `wa.me` wants the number with no punctuation. */
 const WHATSAPP_NUMBER = '56941623577';
 const WHATSAPP_DISPLAY = '+56 9 4162 3577';
@@ -93,11 +137,24 @@ const PROGRAMA_MAILTO = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
 
 const PAGE_PATH = '/pasantias';
 const PAGE_TITLE = `Pasantías INSPIRA Barcelona · ${COHORT_HEADLINE} | Fundación Nueva Educación`;
-const PAGE_DESCRIPTION = `Dos semanas viviendo escuelas de vanguardia en Barcelona: ${COHORT_VISIT_DAY_COUNT} días de visitas en ${
-  COHORT_SCHOOLS.length
-} escuelas, con inmersión completa en ${COHORT_IMMERSION_SCHOOLS.map((school) => school.name).join(
-  ' y '
-)}.`;
+/**
+ * The `<meta description>` and both social descriptions, which say how many
+ * weeks the cohort runs before any of the page's own sections do.
+ *
+ * A function for the same reason {@link weekCountWord} is one, and exported for
+ * a second: `next/head` contributes nothing to a static render, so this sentence
+ * is invisible to a guard that reads the markup. The guard reads it from here
+ * instead, which is why the metadata is covered at all.
+ */
+export function buildMetaDescription(): string {
+  return `${capitalizeWord(
+    weekCountWord()
+  )} semanas viviendo escuelas de vanguardia en Barcelona: ${COHORT_VISIT_DAY_COUNT} días de visitas en ${
+    COHORT_SCHOOLS.length
+  } escuelas, con inmersión completa en ${COHORT_IMMERSION_SCHOOLS.map(
+    (school) => school.name
+  ).join(' y ')}.`;
+}
 
 /**
  * The site header, replicated so `/pasantias` reads as part of
@@ -387,6 +444,8 @@ export default function PasantiasPage({
   const portraits = PORTRAITS;
   const [immersionWeek, visitWeek] = COHORT_WEEKS;
   const immersionDays = uniformImmersionDays();
+  const weekCount = weekCountWord();
+  const metaDescription = buildMetaDescription();
   const [menuOpen, setMenuOpen] = React.useState(false);
 
   const faqs: FaqItem[] = [
@@ -426,9 +485,9 @@ export default function PasantiasPage({
       question: '¿Qué pasa el fin de semana largo?',
       answer: (
         <>
-          Entre ambas semanas quedan {COHORT_FREE_DAYS.length} días libres. El{' '}
-          {freeDayDates[freeDayDates.length - 1]} es Fiesta Nacional de España y los colegios están
-          cerrados: es tiempo para descansar, recorrer Barcelona o conocer Europa.
+          Entre ambas semanas quedan {COHORT_FREE_DAYS.length} días libres, del {freeDayDates[0]} al{' '}
+          {freeDayDates[freeDayDates.length - 1]}: tiempo para descansar, recorrer Barcelona o
+          conocer Europa.
         </>
       ),
     },
@@ -463,7 +522,7 @@ export default function PasantiasPage({
     <>
       <Head>
         <title>{PAGE_TITLE}</title>
-        <meta name="description" content={PAGE_DESCRIPTION} />
+        <meta name="description" content={metaDescription} />
         <meta name="theme-color" content="#0a0a0a" />
         <link rel="canonical" href={canonicalUrl} />
 
@@ -471,7 +530,7 @@ export default function PasantiasPage({
         <meta property="og:site_name" content="Fundación Nueva Educación" />
         <meta property="og:locale" content="es_CL" />
         <meta property="og:title" content={PAGE_TITLE} />
-        <meta property="og:description" content={PAGE_DESCRIPTION} />
+        <meta property="og:description" content={metaDescription} />
         <meta property="og:url" content={canonicalUrl} />
         {/* Omitted rather than guessed when no share image is guaranteed to
             ship — an unfurl pointing at a 404 is worse than no image at all. */}
@@ -484,7 +543,7 @@ export default function PasantiasPage({
 
         <meta name="twitter:card" content={ogImageUrl ? 'summary_large_image' : 'summary'} />
         <meta name="twitter:title" content={PAGE_TITLE} />
-        <meta name="twitter:description" content={PAGE_DESCRIPTION} />
+        <meta name="twitter:description" content={metaDescription} />
         {ogImageUrl && <meta name="twitter:image" content={ogImageUrl} />}
       </Head>
 
@@ -692,7 +751,7 @@ export default function PasantiasPage({
         >
           <SectionHeader
             eyebrow="El programa"
-            title="Dos semanas, dos modos"
+            title={`${capitalizeWord(weekCount)} semanas, ${weekCount} modos`}
             titleId="modos-title"
           />
           <p className="mt-6 max-w-[768px] text-[17px] leading-[1.65] text-brand_gray_dark">
@@ -861,9 +920,6 @@ export default function PasantiasPage({
               </li>
             ))}
           </ul>
-          <p className="mt-6 text-[13px] italic text-brand_gray_medium">
-            El orden de las visitas puede variar y está sujeto a la disponibilidad de las escuelas.
-          </p>
         </section>
 
         <PhotoBreak id="equipo-foto" src={photos.equipoConversando} />
@@ -1046,7 +1102,7 @@ export default function PasantiasPage({
               />
               <p className="mt-6 max-w-[44ch] text-white/80">
                 Escríbenos y te enviamos el programa detallado de la pasantía, con el itinerario de
-                las dos semanas, las escuelas y las condiciones de participación.
+                las {weekCount} semanas, las escuelas y las condiciones de participación.
               </p>
             </div>
 

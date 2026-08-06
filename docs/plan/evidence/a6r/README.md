@@ -78,8 +78,19 @@ header doing its job during `scrollIntoViewIfNeeded`, not a layout fault — see
 
 r1 rendered the whole set. r2 re-rendered `14-faq*`. r3 re-rendered `00-full-*`
 (page-level, so it carries the new hero), `02-hero-*` (the veil) and `10-equipo-*`
-(the two portraits that landed after r1's capture). Everything else is r1's and
-still current — nothing below the hero changed in r3.
+(the two portraits that landed after r1's capture). r4 and r5 touched only the
+[A1] guard, so neither re-rendered anything.
+
+**r6 re-rendered `00-full-*`, `08-escuelas-*` and both `14-faq*` sets** — the
+first page change since r3, and the only captures its two copy edits move.
+`14-faq` and `14-faq-open` carry the rewritten long-weekend answer, which now
+prints the free-day range and leaves the Fiesta Nacional to the yellow card in
+`05-modos`, which already states it in full. `08-escuelas` lost the italic note
+under the school grid: the week-2 summary two sections above already says the
+visit order can vary, and the note restated it. `05-modos` and `13-programa` are
+**not** re-rendered — their week-count sentences now read `COHORT_WEEKS.length`
+through an es-CL number word instead of a literal, and at two weeks the rendered
+text is byte-identical to what r1 captured.
 
 ## Size
 

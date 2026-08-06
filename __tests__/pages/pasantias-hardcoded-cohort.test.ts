@@ -99,6 +99,37 @@
  * drawn from, and `uniformImmersionDays()` never reads `tier`. Every reason in
  * every list was re-read against the code in r5, not only the ones that moved.
  *
+ * ## What r6 added
+ *
+ * Two more shapes, both reported by the reviewer against the page as it stood
+ * after r5 and both reproduced here before anything was changed.
+ *
+ * 1. **A fragment of a string, restated at one site while another renders the
+ *    whole of it.** The page said "Fiesta Nacional de España" in a FAQ answer
+ *    and "El orden de las visitas puede variar" in an italic note, both taken
+ *    out of module values that also render in full a few hundred pixels away.
+ *    The source scan looks for the complete leaf; {@link provesRendered} asks
+ *    the complete leaf to lose an occurrence, and it did — at the wired site.
+ *    So the question is asked the other way round now: the page is rendered
+ *    against a module whose every string has had every token marked, and any
+ *    run of the module's own words still on it was typed into the page. See
+ *    {@link survivingFragments}. The floor is {@link MIN_SCANNED_LENGTH} and two
+ *    whole tokens, both of which are the source scan's own threshold and its own
+ *    reason rather than a number tuned until this went green — the legitimate
+ *    overlaps it surfaces are classified in {@link EXPECTED_FRAGMENTS} instead.
+ *
+ * 2. **A cardinality stated in words.** The page says how many weeks the cohort
+ *    runs in four places, and the cardinality contract cannot see any of them:
+ *    it counts digits, and "Dos semanas" is not a digit. The `weeks` exception
+ *    said as much and called the number copy, which made a hardcoded fact look
+ *    like a declared one. All four sites now read `COHORT_WEEKS.length` through
+ *    an es-CL number word, and {@link weekCountSurface} grows the cohort by a
+ *    week and requires the old word to be gone — one site left pinned fails
+ *    while the rest stay wired. The design's own two-card structure is a
+ *    separate matter and is pinned separately: `DESIGNED_WEEK_COUNT` in the page
+ *    is what the two cards can render, and a third week fails
+ *    `renders every week the cohort has` rather than silently not appearing.
+ *
  * `it('the contract can fail', …)` proves the mechanism rather than asserting it
  * works: a string, a number and a short value are each pinned to their original
  * value while the module changes underneath — exactly what a hardcoded literal
@@ -139,8 +170,17 @@ vi.mock('../../lib/pasantias/cohort-public', async () => {
   return mocked;
 });
 
-import { COHORT_OBJECTIVES, COHORT_PUBLIC, COHORT_SCHOOLS } from '../../lib/pasantias/cohort-public';
-import PasantiasPage, { getServerSideProps } from '../../pages/pasantias';
+import {
+  COHORT_OBJECTIVES,
+  COHORT_PUBLIC,
+  COHORT_SCHOOLS,
+  COHORT_WEEKS,
+} from '../../lib/pasantias/cohort-public';
+import PasantiasPage, {
+  DESIGNED_WEEK_COUNT,
+  buildMetaDescription,
+  getServerSideProps,
+} from '../../pages/pasantias';
 
 const REPO_ROOT = join(__dirname, '..', '..');
 const PAGE_PATH = join(REPO_ROOT, 'pages', 'pasantias.tsx');
@@ -454,17 +494,24 @@ for (const leaf of LEAVES) {
   LEAVES_BY_SHAPE.set(pathShape(leaf), [...(LEAVES_BY_SHAPE.get(pathShape(leaf)) ?? []), leaf]);
 }
 
-async function renderPage(overrides: Overrides): Promise<string> {
+/** Runs `body` with the module swapped underneath it, then puts the real one back. */
+async function withCohort<T>(overrides: Overrides, body: () => Promise<T> | T): Promise<T> {
   cohortStore.overrides = overrides;
   try {
+    return await body();
+  } finally {
+    cohortStore.overrides = {};
+  }
+}
+
+async function renderPage(overrides: Overrides): Promise<string> {
+  return withCohort(overrides, async () => {
     const result = (await getServerSideProps({
       req: { headers: { host: 'localhost:3000' } },
     } as never)) as { props: Record<string, unknown> };
 
     return renderToStaticMarkup(React.createElement(PasantiasPage as never, result.props));
-  } finally {
-    cohortStore.overrides = {};
-  }
+  });
 }
 
 /* ------------------------------------------------------- what the page shows */
@@ -845,6 +892,190 @@ function quietShrinkOf(collection: CohortCollection): Overrides {
   return overrides;
 }
 
+/** The quiet module with exactly this collection grown to `length` elements. */
+function quietGrowthOf(collection: CohortCollection, length: number): Overrides {
+  const overrides = quietModule();
+  const [key, ...rest] = collection.segments;
+  const exportName = EXPORT_BY_KEY[key as string];
+
+  const current = (
+    rest.length === 0 ? overrides[exportName] : readPath(overrides[exportName], rest)
+  ) as unknown[];
+  const sample = current[current.length - 1];
+  const field = fieldName(collection.segments);
+  const grown = [...current];
+  while (grown.length < length) grown.push(plausibleElement(sample, field));
+
+  if (rest.length === 0) overrides[exportName] = grown;
+  else writePath(overrides[exportName], rest, grown);
+
+  return overrides;
+}
+
+/* --------------------------------------------------- the fragment rule (r6/B2) */
+
+/**
+ * Everything the page publishes, as one string: the markup's text and content
+ * attributes, plus the `<meta description>`.
+ *
+ * The metadata is appended rather than read off the markup because `next/head`
+ * contributes nothing to a static render — `renderToStaticMarkup` of this page
+ * emits no `<meta>` at all — so a guard that only reads the markup cannot see
+ * the sentence the search result shows. `buildMetaDescription` is read under the
+ * same override as the render, which is what makes it move with the module.
+ *
+ * Whitespace is collapsed because JSX keeps the source's line breaks and
+ * indentation inside a text node, so a phrase that is contiguous on the page is
+ * not contiguous in the markup. Tag boundaries stay NUL: a phrase split across
+ * two elements is deliberately *not* matched, which can only make this miss a
+ * restatement, never invent one.
+ */
+async function publishedSurface(overrides: Overrides): Promise<string> {
+  return withCohort(overrides, async () => {
+    const result = (await getServerSideProps({
+      req: { headers: { host: 'localhost:3000' } },
+    } as never)) as { props: Record<string, unknown> };
+
+    const html = renderToStaticMarkup(React.createElement(PasantiasPage as never, result.props));
+
+    return `${renderedSurface(html)}\0${buildMetaDescription()}`.replace(/\s+/g, ' ');
+  });
+}
+
+/**
+ * How much of a module string has to survive before it is a restatement rather
+ * than ordinary Spanish.
+ *
+ * Both halves are the source scan's own floor, for the source scan's own reason.
+ * {@link MIN_SCANNED_LENGTH} decides when a *whole* value is long enough that
+ * finding it in the page cannot be a coincidence; a run of the same value's own
+ * words is the same kind of evidence and gets the same threshold rather than a
+ * second number tuned until the suite went green. The token floor is the other
+ * half of that sentence: one token is a word, and the module and ordinary es-CL
+ * copy share plenty of words — "Barcelona", "escuelas", "aprendizaje" — while a
+ * run of two or more is a phrase somebody typed.
+ */
+const MIN_FRAGMENT_TOKENS = 2;
+
+/**
+ * Occurrences of `phrase` as whole words.
+ *
+ * Not {@link countUnmutated}, which is a substring count with the mutation mark
+ * excluded: "días de visita" is a substring of the page's own "días de visitas"
+ * and that is a different phrase, not a restatement of this one. The boundaries
+ * also subsume the mutation mark — "Barcelonazzq" ends in letters — so a marked
+ * value cannot match either.
+ */
+function countPhrase(surface: string, phrase: string): number {
+  return (
+    surface.match(
+      new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(phrase)}(?![\\p{L}\\p{N}])`, 'gu')
+    ) ?? []
+  ).length;
+}
+
+/**
+ * The longest runs of this leaf's own words that are still on `surface`.
+ *
+ * Read against the page rendered on the **quiet module** (see
+ * {@link quietValue}), where every string the module publishes has had every one
+ * of its tokens marked. A wired page therefore prints none of the module's
+ * words; anything of the original left on it was typed into the page.
+ *
+ * This is the string analogue of {@link printsStaleSize}, and it exists for the
+ * same reason. {@link provesRendered} mutates one leaf and asks whether the old
+ * value lost an occurrence, so a page that restates *part* of a leaf at one site
+ * while another site renders the whole of it passes: the whole leaf did lose an
+ * occurrence, at the wired site. Quieting the module removes the wired site from
+ * the comparison entirely, so the partial copy has nothing left to hide behind.
+ *
+ * Only maximal runs are reported: a run that is inside another one is the same
+ * restatement said twice.
+ */
+function survivingFragments(leaf: CohortLeaf, surface: string): string[] {
+  if (typeof leaf.value !== 'string') return [];
+
+  const tokens = leaf.value.split(/\s+/).filter(Boolean);
+  const longest: string[] = [];
+
+  for (let start = 0; start + MIN_FRAGMENT_TOKENS <= tokens.length; start += 1) {
+    let survivor: string | null = null;
+
+    for (let end = start + MIN_FRAGMENT_TOKENS; end <= tokens.length; end += 1) {
+      const run = tokens.slice(start, end).join(' ');
+      // A longer run contains this one, so once a run is gone so is every
+      // extension of it.
+      if (countPhrase(surface, run) === 0) break;
+      survivor = run;
+    }
+
+    if (survivor !== null && survivor.length >= MIN_SCANNED_LENGTH) longest.push(survivor);
+  }
+
+  return longest.filter((run) => !longest.some((other) => other !== run && other.includes(run)));
+}
+
+interface RestatedFragment {
+  /** The leaf the run belongs to. */
+  path: string;
+  /** The run of that leaf's words still on the page. */
+  fragment: string;
+}
+
+/** `leafPath: "fragment"` — how a failure names one. */
+function formatFragment(found: RestatedFragment): string {
+  return `${found.path}: ${JSON.stringify(found.fragment)}`;
+}
+
+let quietSurface: Promise<string> | null = null;
+
+function quietPublishedSurface(): Promise<string> {
+  quietSurface ??= publishedSurface(quietModule());
+  return quietSurface;
+}
+
+async function restatedFragments(
+  surfaceOf: () => Promise<string> = quietPublishedSurface
+): Promise<RestatedFragment[]> {
+  const surface = await surfaceOf();
+
+  return LEAVES.flatMap((leaf) =>
+    survivingFragments(leaf, surface).map((fragment) => ({ path: leaf.path, fragment }))
+  );
+}
+
+/* -------------------------------------------------- the week-count rule (r6/B1) */
+
+/**
+ * The es-CL number words the page's copy can state a small cardinality with,
+ * written out here rather than imported from the page for the same reason
+ * {@link renderedForms} is: borrowing the page's own words would let a page that
+ * derives nothing still satisfy this.
+ */
+const COUNT_WORDS_ES = ['cero', 'una', 'dos', 'tres', 'cuatro', 'cinco', 'seis'];
+
+/** Standalone occurrences of `word` — "modos" and "todos" are not "dos". */
+function countWordOccurrences(surface: string, word: string): number {
+  return (
+    surface.match(new RegExp(`(?<!\\p{L})${escapeRegExp(word)}(?!\\p{L})`, 'giu')) ?? []
+  ).length;
+}
+
+/**
+ * The page published with the cohort grown to `weekCount` weeks, on the quiet
+ * module.
+ *
+ * Quiet because the module states a cardinality of its own in its prose —
+ * `weeks[1].summary` says "una o dos escuelas por día" — and the count this
+ * proves is the page's, not the module's.
+ */
+function weekCountSurface(weekCount: number): Promise<string> {
+  const weeks = COLLECTIONS.find((collection) => collection.path === 'weeks');
+  if (!weeks) throw new Error('COHORT_PUBLIC no longer has a weeks collection');
+
+  return publishedSurface(quietGrowthOf(weeks, weekCount));
+}
+
 /**
  * What the page *prints*, with attribute values left out — deliberately
  * narrower than {@link renderedSurface}.
@@ -1089,7 +1320,7 @@ const UNCOUNTED_COLLECTIONS: { shape: string; reason: string }[] = [
   {
     shape: 'weeks',
     reason:
-      'The itinerary prints two named week cards, each as a date range. The number of weeks is copy — "Dos semanas, dos modos" — and never read off the array; a third week would render nothing.',
+      'The itinerary prints one named week card per week, each as a date range, and states how many there are in four places — the meta description, the section heading, the long-weekend FAQ and the CTA paragraph. Every one of them says it in words ("Dos semanas, dos modos"), and this mechanism counts digits, so it can only ever read the size as unpublished. The word is proved instead by `states how many weeks the cohort runs by reading the module, at every site` and the design\'s own cardinality is pinned by `renders every week the cohort has, or fails rather than dropping one` — so a third week fails the suite instead of rendering nothing. This exception is the limit of the digit mechanism, not permission to type the number in.',
   },
   {
     shape: 'weeks..visitDays',
@@ -1133,6 +1364,79 @@ const UNCOUNTED_COLLECTIONS: { shape: string; reason: string }[] = [
   {
     shape: 'excludes',
     reason: 'As includes, on the other side of the same section.',
+  },
+];
+
+/**
+ * Runs of the module's words that survive the quiet render for a reason that is
+ * not a restatement — declared by the run itself, because the run is what the
+ * page and the module share and several leaves can contribute the same one.
+ *
+ * A declaration here is a classification, not a waiver. Every one of these is
+ * ordinary Spanish — function words around a common noun, the foundation's own
+ * name, the name of the movement — and each reason names the page text it comes
+ * from, checked against the source. None of them is a cohort fact: no date, no
+ * school, no level, no highlight, no expert, no claim, no objective.
+ *
+ * The thing not to do here is raise {@link MIN_FRAGMENT_TOKENS} or
+ * {@link MIN_SCANNED_LENGTH} until the list empties. That is how the
+ * hand-maintained phrase list this guard replaced got its holes: the floor stops
+ * being a stated reason and becomes whatever number made the suite green.
+ */
+const EXPECTED_FRAGMENTS: { fragment: string; reason: string }[] = [
+  {
+    fragment: 'de la escuela',
+    reason:
+      'The eyebrow of the "Dentro de la escuela" section (pages/pasantias.tsx:834) — the page\'s own name for what a visit day is like. The module\'s uses are inside an objective and one school\'s highlight, both of which render in full.',
+  },
+  {
+    fragment: 'del programa',
+    reason:
+      'Two FAQ answers: "Las sesiones del programa se desarrollan en español" (pages/pasantias.tsx:469) and "va aparte del programa" (pages/pasantias.tsx:479). The module\'s use is a job title, "Directora del programa INSPIRA".',
+  },
+  {
+    fragment: 'de Barcelona',
+    reason:
+      'The visit-day label "Día completo — fuera de Barcelona" (pages/pasantias.tsx:917), which says where a school is rather than naming one. The module\'s use is inside the claim "12 escuelas de Barcelona en la red", which the figures band renders whole.',
+  },
+  {
+    fragment: 'escuelas de vanguardia en',
+    reason:
+      'The meta description, "semanas viviendo escuelas de vanguardia en Barcelona" (buildMetaDescription, pages/pasantias.tsx:152). "Escuelas de vanguardia" is the movement\'s name and the page\'s positioning sentence, not a fact about this cohort.',
+  },
+  {
+    fragment: 'escuelas de vanguardia',
+    reason: 'The same meta description sentence, one token shorter, from another objective.',
+  },
+  {
+    fragment: 'estudiantes y',
+    reason:
+      '"entrevistar a estudiantes y docentes" in the hero-adjacent programme paragraph (pages/pasantias.tsx:740) — two words of the page\'s own description of a visit day.',
+  },
+  {
+    fragment: 'las escuelas',
+    reason:
+      'Two page sentences: "En las escuelas vas a escuchar una mezcla de catalán y español" (pages/pasantias.tsx:470) and "las escuelas y las condiciones de participación" in the #programa CTA (pages/pasantias.tsx:1105). Neither names a school; the seven names come from the module and are covered leaf by leaf.',
+  },
+  {
+    fragment: 'en la autonomía y',
+    reason:
+      "The site-wide Footer mission sentence, \"una Nueva Educación basada en la autonomía y la colaboración\" (components/Footer.tsx:39). The Footer renders inside this page and is not part of A6r's scope at all.",
+  },
+  {
+    fragment: 'procesos de cambio',
+    reason:
+      'The FAQ answer describing who the pasantía is for: "que están conduciendo procesos de cambio en sus colegios" (pages/pasantias.tsx:457).',
+  },
+  {
+    fragment: 'Nueva Educación',
+    reason:
+      "The foundation's own name — the page title (pages/pasantias.tsx:139), og:site_name (:530), the logo's alt text (:557) and the Footer. It reaches the module only because two objectives name the movement the foundation is named after.",
+  },
+  {
+    fragment: 'y el equipo de',
+    reason:
+      'The FAQ answer "y el equipo de FNE acompaña las visitas" (pages/pasantias.tsx:471). Four function words and the module\'s use is inside the honorarios inclusion, which the programme list renders whole.',
   },
 ];
 
@@ -1315,6 +1619,20 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
       expect(paths.filter((path) => path.startsWith('schools['))).toEqual([]);
     });
 
+    it('counts no collection the per-site proof cannot read', () => {
+      // S1. `printsStaleSize` returns false below two elements — a collection of
+      // one cannot be shrunk into a size the page could print — and the count
+      // then rests on the aggregate half alone, which is exactly the half that
+      // misses a literal at one of several sites. No collection has that shape
+      // today; this fails the day one does, rather than the guard quietly
+      // weakening underneath it.
+      expect(
+        COUNTED_COLLECTIONS.filter((collection) => collection.length < 2).map(
+          (collection) => collection.path
+        )
+      ).toEqual([]);
+    });
+
     it('prints the size of every collection it does not declare an exception for', async () => {
       // Grow the collection by a plausible sibling and the page has to print
       // the number it becomes. See `publishesCount` for why neither half of
@@ -1347,6 +1665,86 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
 
       expect(duplicated).toEqual([]);
     });
+  });
+
+  /**
+   * Sol's B2. The two mechanisms above both read a whole leaf: the source scan
+   * looks for the complete value, and the render proof asks the complete value
+   * to lose an occurrence. A page that restates *part* of a module string at one
+   * site while another site renders the whole of it satisfies both, because the
+   * whole did lose an occurrence — at the wired site. This asks the question the
+   * other way round: with every string in the module marked, nothing of the
+   * module's own wording should be left on the page.
+   */
+  describe('the fragment rule', () => {
+    it("restates no run of the module's own words", async () => {
+      const declared = new Set(EXPECTED_FRAGMENTS.map(({ fragment }) => fragment));
+
+      expect(
+        (await restatedFragments())
+          .filter((found) => !declared.has(found.fragment))
+          .map(formatFragment)
+      ).toEqual([]);
+    }, 30_000);
+
+    it('declares no fragment that no longer survives', async () => {
+      // A declaration outlives the copy it explained exactly as an EXPECTED_GAP
+      // outlives a field, and reads as coverage that was thought about.
+      const surviving = new Set((await restatedFragments()).map((found) => found.fragment));
+      const orphans = EXPECTED_FRAGMENTS.map(({ fragment }) => fragment).filter(
+        (fragment) => !surviving.has(fragment)
+      );
+
+      expect(orphans).toEqual([]);
+    }, 30_000);
+  });
+
+  /**
+   * Sol's B1. How many weeks the cohort runs is a cohort fact, and the page
+   * states it in words rather than digits, which is why the cardinality contract
+   * above cannot see it. Two things are required and they are different: the
+   * number the page prints has to come from the module, and the design — two
+   * cards with two treatments, built by destructuring `COHORT_WEEKS` by position
+   * — has to be a checked invariant rather than a sentence in a comment.
+   */
+  describe('the two-week design', () => {
+    it('renders every week the cohort has, or fails rather than dropping one', async () => {
+      expect(COHORT_WEEKS).toHaveLength(DESIGNED_WEEK_COUNT);
+
+      // And this is why the assertion above is not decoration. The itinerary
+      // reads `const [immersionWeek, visitWeek] = COHORT_WEEKS`, so a third week
+      // produces no third card and no error either — the page would simply stop
+      // showing part of the programme. The line above is what turns that silent
+      // drop into a red suite.
+      const grown = await renderPage(
+        overrideForCollection(
+          COLLECTIONS.find((collection) => collection.path === 'weeks') as CohortCollection
+        )
+      );
+
+      expect(grown.match(/data-testid="pasantias-week-/g) ?? []).toHaveLength(DESIGNED_WEEK_COUNT);
+    }, 30_000);
+
+    it('states how many weeks the cohort runs by reading the module, at every site', async () => {
+      const stale = COUNT_WORDS_ES[DESIGNED_WEEK_COUNT];
+      const grown = COUNT_WORDS_ES[DESIGNED_WEEK_COUNT + 1];
+
+      // Not vacuous: the page does state the count, in words, more than once.
+      expect(
+        countWordOccurrences(await weekCountSurface(DESIGNED_WEEK_COUNT), stale)
+      ).toBeGreaterThan(0);
+
+      // And with a week added, every one of those sites has to have moved. One
+      // site left pinned to the old word fails here while the others stay wired,
+      // which is the negative control the aggregate half of the cardinality
+      // contract cannot give: `dos` is not a digit and nothing counts it.
+      const surface = await weekCountSurface(DESIGNED_WEEK_COUNT + 1);
+
+      expect([stale, countWordOccurrences(surface, stale)]).toEqual([stale, 0]);
+      // The other direction: the sites did not merely stop saying "dos", they
+      // say the number the module now has.
+      expect([grown, countWordOccurrences(surface, grown) > 0]).toEqual([grown, true]);
+    }, 30_000);
   });
 
   /**
@@ -1528,6 +1926,44 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
       expect(await countProofFor('objectives', withStaleCount(collectionAt('objectives')))).toBe(
         'unpublished'
       );
+    }, 30_000);
+
+    /*
+     * The two below are the r6 cases. One is part of a string the page also
+     * renders whole somewhere else; the other is a count the page states as a
+     * word, which no mechanism that counts digits can reach.
+     */
+
+    it('catches a partial restatement while another site renders the leaf in full', async () => {
+      // Sol's B2 shape. The planted run is taken off the leaf rather than typed
+      // here, so this control cannot drift from the value it is a fragment of,
+      // and it is a *proper* fragment — the whole leaf is what the source scan
+      // and the render proof already cover.
+      const leaf = leafAt('weeks[1].summary');
+      const planted = String(leaf.value).split(/\s+/).slice(1).join(' ');
+
+      expect(planted).not.toEqual(leaf.value);
+      expect(
+        (await restatedFragments(async () => `${await quietPublishedSurface()} ${planted}`)).map(
+          formatFragment
+        )
+      ).toContain(formatFragment({ path: leaf.path, fragment: planted }));
+    }, 30_000);
+
+    it('catches a week count typed in beside the sites that read the module', async () => {
+      // Sol's B1 shape, simulated the way `withOneStaleSite` simulates a count:
+      // one site's word is put back to what it was while the rest follow the
+      // module. A page that hardcoded every site would fail the same assertion
+      // harder, so this is the weaker of the two cases and the one that matters.
+      const stale = COUNT_WORDS_ES[DESIGNED_WEEK_COUNT];
+      const grown = COUNT_WORDS_ES[DESIGNED_WEEK_COUNT + 1];
+
+      const oneSitePinned = (await weekCountSurface(DESIGNED_WEEK_COUNT + 1)).replace(
+        new RegExp(`(?<!\\p{L})${grown}(?!\\p{L})`, 'iu'),
+        stale
+      );
+
+      expect(countWordOccurrences(oneSitePinned, stale)).toBeGreaterThan(0);
     }, 30_000);
 
     it('catches hardcoded tier handling — the dark or light card treatment', async () => {

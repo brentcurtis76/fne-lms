@@ -2,9 +2,9 @@
 
 **Branch:** `phase/a6r-design`
 **Base:** `main` @ `b8f5c05d`
-**Commits:** 9 — the port (r1), two portraits, the FAQ swap (r2), r3's answer to
+**Commits:** 11 — the port (r1), two portraits, the FAQ swap (r2), r3's answer to
 Sol's first FAIL, r4's containment fix, r5's cardinality and discriminator work,
-and three ledger entries.
+r6's answer to Sol's second FAIL, and four ledger entries.
 
 ## Objective
 
@@ -47,6 +47,16 @@ restated a cohort fact as a literal, each time through a different hole.
   declared inert on exactly that non-evidence.
 - **r5 also — one of its own answers was incomplete, and this round found it.**
   See "Scrutinise these hardest" #1. It is the most important thing on this page.
+- **r6 — the first page change since r3, and two more guard holes.** Sol's second
+  FAIL was two blocking findings, both about [A1]. The page restated *fragments*
+  of module strings at sites where another site rendered the whole value — the
+  Fiesta Nacional clause in a FAQ answer, the visit-order note under the school
+  grid — which every whole-leaf mechanism passes by construction. And it stated
+  the cohort's week count as a literal at four buyer-visible sites, blessed by a
+  `weeks` exception whose reason described the hardcoding rather than preventing
+  it. The two copy edits are owner decisions; the week count now reads
+  `COHORT_WEEKS.length` through an es-CL number word, and the two-card design's
+  own cardinality is a checked invariant rather than prose.
 
 ## Files changed, grouped by risk
 
@@ -65,9 +75,10 @@ restated a cohort fact as a literal, each time through a different hole.
 - `package.json` (+1): `npm run images:manifest`.
 
 ### Low — tests, generated data and assets
-- `__tests__/pages/pasantias-hardcoded-cohort.test.ts` (+912 net, now **1551
-  lines**) — [A1]. The whole of r3, r4 and r5 lives here. Its size is raised as a
-  finding below.
+- `__tests__/pages/pasantias-hardcoded-cohort.test.ts` (+1348 net, now **1987
+  lines**) — [A1]. The whole of r3, r4, r5 and r6 lives here. Its size is raised
+  as a finding below, and the move Sol proposed is backlogged rather than done in
+  a correctness round.
 - `__tests__/lib/pasantias-image-manifest.test.ts` (new) — manifest drift.
 - `__tests__/styles/brand-tokens.test.ts` (new, 73 lines) — token/config drift.
 - `lib/pasantias/image-manifest.ts` (new, generated) +
@@ -81,18 +92,18 @@ restated a cohort fact as a literal, each time through a different hole.
 
 ## Test evidence
 
-At `phase/a6r-design` head, r5:
+At `phase/a6r-design` head, r6:
 
 | Gate | Result |
 |---|---|
 | `npm run type-check` | clean |
 | `npm run lint` | clean, `--max-warnings=0` |
-| `npm test` | **262 files, 6156 tests, all passing** |
+| `npm test` | **262 files, 6163 tests, all passing** |
 | `npm run build` | compiled successfully |
 | `node scripts/check-price-leak.mjs` | OK — 263 files scanned, no commercial data |
 | `CI=1 npx playwright test` (pasantias-page, footer-heading-order, smoke) | **16 passed** |
 
-The guard file alone: **29 tests** (21 at r4, 28 as r5 was first written).
+The guard file alone: **36 tests** (21 at r4, 29 at r5).
 
 Measured hero-eyebrow contrast against the **lightest** pixel behind the glyphs,
 `#FBBF24` at 11 px over `bcn-skyline.jpg`:
@@ -118,7 +129,39 @@ afterwards, and `git diff bcfa1b71 -- pages/pasantias.tsx` is empty.
 | `Los ${COHORT_OBJECTIVES.length} objetivos` → `Los 13 objetivos` | 2 failed | 2 failed |
 | `school.tier === 'inmersion'` → `school.immersionDays !== undefined` | 2 failed, naming 7 tier leaves | same |
 
+### Negative controls run in r6, against the page and the module
+
+Each was applied, the guard run, and the source restored; the tree is clean
+afterwards.
+
+| Mutation | Before r6 | After r6 |
+|---|---|---|
+| Sol's B2 #1 — `Fiesta Nacional de España` back in the FAQ answer | **29/29 passed** | 1 failed: `freeDays[2].label: "Fiesta Nacional de"` |
+| Sol's B2 #2 — the italic visit-order note restored verbatim | **29/29 passed** | 1 failed: `weeks[1].summary: "El orden de las visitas puede"` (+2 more runs) |
+| Sol's B1 — the `#programa` CTA pinned to `las dos semanas` | **29/29 passed** | 1 failed: `dos` still on the page at 3 weeks |
+| the same, pinned in `buildMetaDescription` instead | **29/29 passed** | 1 failed, same assertion — this is the site `next/head` hides from the markup |
+| the same, pinned in the `Dos semanas, dos modos` heading | **29/29 passed** | 1 failed, same assertion |
+| a third week added to `COHORT_WEEKS` | rendered nothing, **29/29 passed** | `renders every week the cohort has` fails, naming the count |
+
 ## Scrutinise these hardest
+
+0. **The fragment rule surfaced eleven overlaps that are not restatements, and
+   all eleven are declared rather than fixed.** `EXPECTED_FRAGMENTS` holds runs
+   like `las escuelas`, `de Barcelona`, `Nueva Educación` and `en la autonomía y`
+   — ordinary Spanish the page's own copy and the Footer share with module prose.
+   Each reason names the page line it comes from and was checked against the
+   source. The floor was deliberately **not** raised to make them disappear: it
+   is `MIN_SCANNED_LENGTH` and two whole tokens, both borrowed from the source
+   scan's stated reason. The argument to have is whether any of the eleven is
+   really a restatement wearing a reason, and whether a declared *run* (rather
+   than a declared leaf-and-run pair) waives too much.
+
+0b. **`weeks` keeps an exception, with a different reason.** Sol's B1 offered two
+   closures and this takes the second: the count is rendered as a **word**, and
+   the cardinality mechanism counts digits, so it can only ever read `weeks` as
+   unpublished. The word is proved by its own control instead. Judge whether the
+   new reason describes an enforced invariant or merely a different hardcoding —
+   that is exactly the distinction the old reason failed.
 
 1. **The r5 answer to B1 did not close B1, and this is how it was found.** The
    round's own evidence — the PM's and the first executor's — was the pair
@@ -168,7 +211,24 @@ afterwards, and `git diff bcfa1b71 -- pages/pasantias.tsx` is empty.
 
 ## Known limitations / deferred
 
-- **The guard file is too large.** 1551 lines, four declaration lists, five
+- **The fragment rule cannot see a phrase split across two elements.** Tag
+  boundaries stay NUL in the surface, so a restatement typed as
+  `<span>Fiesta</span> Nacional` would not match. This makes the rule miss, never
+  invent, and no such split exists on the page today.
+- **`buildMetaDescription` is exported from the page for the guard to read.**
+  `next/head` contributes nothing to `renderToStaticMarkup`, so the metadata was
+  invisible to every mechanism in this file until r6. Exporting it is how the
+  four-site week-count proof reaches the `<meta description>` at all; the
+  alternative was leaving one of Sol's four sites unproved.
+- **`DESIGNED_WEEK_COUNT` is an assertion, not a runtime guard.** A third week
+  fails the suite; it does not throw in production. Making the page throw would
+  take the whole marketing page down for a content change, which is worse than a
+  red build.
+- **The `weeks` collection is still shrink-unsafe.** `printsStaleSize` is never
+  reached for it — the page destructures `[immersionWeek, visitWeek]` and a
+  one-element `COHORT_WEEKS` would throw — which is why the invariant test exists
+  beside it.
+- **The guard file is too large.** Now 1987 lines, five declaration lists, five
   classification outcomes and three mutation strategies. Every piece of it was
   added in answer to a demonstrated false pass, so none of it is speculative — but
   it is now the largest single artifact of a phase whose scope is a page redesign,
@@ -209,5 +269,13 @@ afterwards, and `git diff bcfa1b71 -- pages/pasantias.tsx` is empty.
   WhatsApp survives as the closing CTA (`pasantias-cta-whatsapp`).
 - **The week testids are derived** — `` `pasantias-week-${week.id}` `` rather than
   the literal. The rendered value is unchanged.
+- **`id="dos-semanas"` and the section comment above it still say "dos".** Neither
+  is buyer-visible; the anchor is deliberately untouched because A7a rewires site
+  navigation and a renamed anchor fails silently by scrolling to the top.
+- **The rewritten long-weekend answer prints the month twice** — "del 10 de
+  octubre al 12 de octubre" — because `freeDayDates` holds full day-and-month
+  strings. It is the owner's specified wording and it matches the finde card,
+  which has read the same way since r1. Proposal, not applied: a range formatter
+  that drops the first month when both dates share one.
 </content>
 </invoke>

@@ -1176,3 +1176,215 @@ service, which is exactly how the finding survived.
 Connecting to local database...
 {"_tag":"Error","error":{"code":"LegacyDbConnectError","message":"failed to connect to postgres: effect/sql/SqlError: PgClient: Failed to connect","suggestion":"Make sure your local IP is allowed in Network Restrictions and Network Bans.\nhttps://supabase.com/dashboard/project/_/database/settings"}}
 ```
+
+---
+
+## Chunk Z2-5a — the school-report drill-down repair — round r11
+
+The repair r10 declined to make. Scope is the phantom-column fix plus its first real test
+coverage; the hours retarget is untouched and stays with Z2-5b.
+
+### Branch and commits
+
+- **Branch:** `feat/zoom-sess` (base for this round: `68b08ab6`)
+- **Files changed:** `lib/services/school-hours-report.ts`,
+  `__tests__/lib/services/school-hours-report.test.ts` (new)
+- **No migration.** The columns were always fine; the query was wrong.
+
+### [S1] The three phantom references
+
+| Line (pre) | Was | Now |
+|---|---|---|
+| `:37` | `SessionRow.scheduled_date` | `session_date` |
+| `:39` | `SessionRow.planned_duration_minutes` | `scheduled_duration_minutes` |
+| `:154` | `select(… scheduled_date …)` | `session_date` |
+| `:156` | `select(… planned_duration_minutes …)` | `scheduled_duration_minutes` |
+| `:165` | `.order('scheduled_date', …)` | `.order('session_date', …)` |
+| `:201` | `s.planned_duration_minutes` fallback | `s.scheduled_duration_minutes` |
+| `:212` | `date: s.scheduled_date ?? ''` | `date: s.session_date ?? ''` |
+
+[A1] proof — the file no longer names either column:
+
+```
+$ grep -n "scheduled_date\|planned_duration_minutes" lib/services/school-hours-report.ts
+$ echo $?
+1
+```
+
+Independently re-verified against the schema record before touching anything:
+`00000000000000_baseline.sql:7714` carries `session_date` (date, NOT NULL) and
+`scheduled_duration_minutes` (integer, `GENERATED ALWAYS AS ((end_time - start_time)/60)
+STORED`); no migration adds `scheduled_date` or `planned_duration_minutes`.
+`pages/api/admin/bulk-tag-sessions.ts:131` still aliases `scheduled_date: s.session_date`
+"for frontend compat" — the same tell r10 found.
+
+### [S2] The swallowed error — the report now FAILS rather than degrades
+
+`:149` captured only `data`. It now captures `error` and, on error, logs the bucket
+identity and throws:
+
+```ts
+if (sessionsError) {
+  console.error(
+    `[SchoolHoursReport] Sessions query failed (contrato=${contrato.id}, bucket=${bucket.hour_type_key}):`,
+    sessionsError
+  );
+  throw new Error(
+    `No se pudieron obtener las sesiones del bucket "${bucket.hour_type_key}" del contrato ${contrato.id}`
+  );
+}
+```
+
+**Why fail, not degrade.** Schools reconcile billable hours against this drill-down. A
+silently short list is a worse outcome than a visible error: an empty section reads as
+"there were no sessions", which is a factual claim the code cannot support when the query
+failed — that indistinguishability is the entire bug being repaired here, and degrading
+quietly would rebuild it. A throw is also cheap to surface: both callers already wrap the
+call in `try/catch` and return a Spanish 500
+(`pages/api/school-hours-report/[school_id]/index.ts:87-90` and `.../pdf.ts`), so nothing
+crashes and no caller changes.
+
+**A deliberate asymmetry the reviewer should rule on.** The `bucketError` branch at
+`:139-142` still does the opposite — it `continue`s past a contract whose bucket RPC failed,
+under the comment "Skip this contract rather than failing the whole report". That is
+arguably the same silent-omission class, on a coarser unit (a whole contract). It is
+pre-existing, outside this chunk's scope, and left byte-unchanged. Flagged, not fixed.
+
+### [S3] First real coverage — `__tests__/lib/services/school-hours-report.test.ts`
+
+7 tests that **execute** `fetchSchoolReportData`. The client is a constructor parameter, so
+nothing about the module is mocked — there is no `vi.mock` of the service anywhere in the
+file.
+
+Per the §3.4 ruling, the Supabase double is **schema-faithful, not table-name-keyed**. It
+parses the `select()` string (including the `session_facilitators(profiles(…))` and
+`programas(…)` embeds), the `.eq()`/`.in()` filters and the `.order()` column against a
+column list mirrored from the baseline dump, and answers an unknown column the way PostgREST
+does — `42703 column ... does not exist`. Rows are resolved by matching the recorded filter
+arguments, sorted by the recorded order column, and projected to the selected columns only.
+**A double that ignored the select string would pass against the broken query**, which is the
+whole reason this one does not.
+
+| Test | What it pins |
+|---|---|
+| drill-down is populated | 2 sessions under the bucket; ledger sub-query actually runs |
+| maps each session | date/hours/status/consultant per row; `actual ?? scheduled` fallback |
+| bucket isolation | a `diagnostico` session never leaks into `acompanamiento` |
+| asks only for real columns | select/order carry no phantom column; select validates clean |
+| **fails loudly** | with the column absent, the call **rejects** and logs contract+bucket |
+| school not found | `null` |
+| no active contracts | empty program list |
+
+### [A4] Fail-on-old proof
+
+Source alone reverted to `68b08ab6` (test file kept), suite re-run:
+
+```
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  ... > returns buckets whose session drill-down is populated
+AssertionError: expected [] to have a length of 2 but got +0
+ FAIL  ... > maps each session from the columns the table actually has
+AssertionError: expected undefined to match object { …(7) }
+ FAIL  ... > keeps each bucket to its own hour_type_key
+AssertionError: expected [] to deeply equal [ Array(1) ]
+ FAIL  ... > asks consultor_sessions only for columns it has
+AssertionError: expected '\n          id,\n          title,\n  …' not to match /scheduled_date/
+ FAIL  ... > fails loudly when the sessions query errors instead of reporting an empty bucket
+AssertionError: promise resolved "{ school_id: 77, …(2) }" instead of rejecting
+      Tests  5 failed | 2 passed (7)
+```
+
+The last line is the production bug reproduced verbatim: the pre-fix function **resolves
+successfully with an empty drill-down** where it should reject.
+
+Revert proven byte-identical by blob hash:
+
+```
+FIXED BLOB (before revert):  1649f8ae54f6dc0c44d0a749537a7c606fc680e8
+REVERTED BLOB:               807869fab496f06f6e86b668ffa141599ca67ca7
+PRE-FIX BLOB AT 68b08ab6:    807869fab496f06f6e86b668ffa141599ca67ca7
+RESTORED BLOB:               1649f8ae54f6dc0c44d0a749537a7c606fc680e8   ← MATCH
+```
+
+### [A5] The hours derivation
+
+`:200-202` is **not retargeted**. The structure is identical — `actual_duration_minutes ??
+<fallback> ?? 0`, then `/ 60`; `const hours = durationMinutes / 60;` is byte-unchanged. The
+only edit is the renamed identifier (and its comment), which [A1] compels: leaving
+`s.planned_duration_minutes` there would both fail type-check against the renamed
+`SessionRow` and leave the banned string in the file. **This is a literal conflict between
+[A1] and [A5]'s "byte-unchanged", resolved in favour of the narrowest reading that satisfies
+both — rename only, semantics untouched.** Z2-5b's retarget onto the ledger is untouched and
+unblocked. Called out for an explicit PM ruling.
+
+### [A6] Existing suites
+
+Both suites that mock the module out are unchanged and still pass:
+
+```
+✓ __tests__/lib/services/school-hours-report.test.ts  (7 tests)
+✓ __tests__/api/hour-tracking/school-report-pdf.test.ts  (4 tests)
+✓ __tests__/api/hour-tracking/school-report.test.ts  (11 tests)
+Test Files  3 passed (3)     Tests  22 passed (22)
+```
+
+### [A7] Gates
+
+```
+( npm run type-check && npm run lint && npm test && npm run build )
+GATES_EXIT=0
+```
+
+- `tsc --noEmit` — 0
+- `eslint --ext .js,.jsx,.ts,.tsx --max-warnings=0 .` — 0
+- `Test Files  275 passed (275)` · `Tests  4486 passed (4486)`
+- `next build` — `✓ Compiled successfully`, `✓ Generating static pages (156/156)`
+
+Against the PM baseline of **274 files / 4479 tests**: +1 file, +7 tests — exactly this
+chunk's new suite. Nothing fell.
+
+`npm run test:db` — **NOT RUN**, real error (Docker daemon down, fifth round running):
+
+```
+Connecting to local database...
+{"_tag":"Error","error":{"code":"LegacyDbConnectError","message":"failed to connect to postgres: effect/sql/SqlError: PgClient: Failed to connect","suggestion":"Make sure your local IP is allowed in Network Restrictions and Network Bans.\nhttps://supabase.com/dashboard/project/_/database/settings"}}
+
+$ docker info; echo $?
+Cannot connect to the Docker daemon at unix:///Users/brentcurtis/.docker/run/docker.sock. Is the docker daemon running?
+1
+```
+
+This chunk adds no migration, so no pgTAP coverage changed.
+
+### What schools will now see
+
+The per-bucket session drill-down in the school hours report — JSON and PDF — goes from
+**always empty** to listing that bucket's sessions, newest first: title, date, consultant
+name (or "Sin asignar"), hours, and status (`consumida` / `reservada` / `penalizada` /
+`devuelta`, taken from the ledger where an entry exists, otherwise mapped from the session
+status). Bucket totals, contract totals and every hours figure are unchanged — those come
+from `get_bucket_summary` and never depended on this query. The visible change is additive:
+a section that rendered nothing now renders rows. Nothing that was displayed before is
+removed or altered.
+
+Two consequences worth naming before this reaches a school:
+
+1. **The per-session `hours` figure is still derived the old way** (`actual_duration_minutes
+   ?? scheduled_duration_minutes`), which Z2-5 identified as the wrong source and Z2-5b will
+   retarget onto the ledger. Until then, a session's listed hours can disagree with the
+   bucket totals above it. This chunk makes that disagreement *visible* for the first time —
+   it does not create it.
+2. **Only the first facilitator is named.** Co-facilitated sessions will show one consultant.
+   Pre-existing at `:195`, untouched.
+
+### Not done / open
+
+- The `bucketError` `continue` at `:139-142` (silent contract omission) — flagged above.
+- `SESSION_STATUS_FALLBACK` at `:57-63` maps `aprobada`, `reservada` and `en_curso`, none of
+  which are in the `consultor_sessions_status_check` constraint
+  (`borrador`, `pendiente_aprobacion`, `programada`, `en_progreso`, `pendiente_informe`,
+  `completada`, `cancelada`); `programada` and `pendiente_informe` are absent from the map and
+  fall through to `reservada`. Dead entries plus unmapped real ones. Out of scope, untouched.
+- Not executed against a live PostgREST — `test:db` cannot connect and production is
+  off-limits. The fix rests on the schema record; the double reproduces PostgREST's documented
+  `42703`, not an observed one.

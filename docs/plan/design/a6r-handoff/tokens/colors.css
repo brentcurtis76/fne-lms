@@ -54,5 +54,9 @@
   --accent-rule:var(--fne-gold-gradient);
   --accent-bar:var(--fne-yellow);
   --focus-ring:var(--fne-yellow);
+  /* PM correction 2026-08-05: 40% is the manual's minimum for the white LOGO over
+   photography (p.6), NOT the text veil. The canonical text treatment (p.15) puts the
+   veil at 85% under the text. A flat 40% leaves #FBBF24 at 11px near 3.3:1, below the
+   4.5:1 the manual itself demands for text over an image. /pasantias uses 85%. */
   --veil-photo:rgba(10,10,10,.4); /* minimum veil under text on photography */
 }

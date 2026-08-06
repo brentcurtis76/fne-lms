@@ -1,0 +1,324 @@
+# Fase 5 (Zoom phase Z2) — PM dossier for independent review
+
+> Written by the PM per `docs/plan/zoom/PLAN.md` §0.2 step 2. This is the independent
+> reviewer's map of the phase. It is a **lead, never a boundary** — review the diff.
+
+---
+
+## 1. Identity
+
+| | |
+|---|---|
+| **Phase** | **Z2 — Link-mode session MVP** (Zoom plan §15). Review-request numbering `fase-5`. |
+| **Branch** | `feat/zoom-sess` |
+| **Base** | `main` at the merge-base; the branch is **30 commits** ahead |
+| **Head at review** | `2f0e5385` |
+| **PR** | **NONE OPEN at the time of writing.** The last Zoom PR was #42 (Z1c). Opening it is Brent's call; if it is open by the time you read this, review against it and tell us if its contents differ from `main...feat/zoom-sess`. |
+| **Diff size** | **75 files, +16,741 / −139** |
+| **Migrations** | **4** (see §6) |
+| **Rounds** | 20 (r1–r20). Six ended `FINDINGS` with nothing committed — see §9. |
+
+Repo root is `/Users/brentcurtis/dev/fne-lms` (moved out of `~/Documents` on 2026-08-05
+after iCloud evicted the shared `.git`; never put a checkout under `~/Documents`).
+
+---
+
+## 2. Scope — authoritative for your scope-fidelity check
+
+This phase is **not in the GENERA itinerary**. The authority is `PLAN.md` §15's Z2 row plus
+the per-chunk scopes below.
+
+**§15 Z2 row, verbatim:** *Provision-at-approve hooks (+bulk, reschedule sync + atomic
+pre-execution reschedule→reservation+snapshot update, cancel, series); `/meet/session/[id]`
+SSR page + join API (link-out mode); JoinMeetingButton in detail pages + workspace Sesiones
+tab; notifications `session_created/rescheduled/cancelled` + reminders w/ platform link;
+dual-zone ("hora Chile" inputs + Madrid preview) wiring; dial-in display; v2.1:
+hours-consumer audit (school-hours-report + analytics off `actual_duration_minutes`, onto
+ledger/snapshot).*
+
+**§15 exit criteria:** *Staging: approve → join via platform link works per persona matrix;
+cancel kills join; no consumer displays non-ledger hours.*
+
+### 2.1 Chunk → commit map
+
+| Chunk | What it delivered | Sealing commit |
+|---|---|---|
+| Z2-1 | Durable managed intent + provision-at-approve enqueue (+ migration) | `42ecdf6` |
+| Z2-2a | Join policy + join API | `6c71eda` |
+| Z2-2b | `/meet/session/[id]` SSR + JoinMeetingButton + scheduler control | `c2be4ec9` |
+| Z2-3a | Atomic pre-execution reschedule → reservation + snapshot RPC (+ migration) | `334de02a` |
+| Z2-3b | Zoom convergence: `meeting_sync` / `meeting_delete`, cancel/series/modality-flip | `118a9db8` |
+| Z2-5a | School-hours-report drill-down repair (two phantom columns) | `8c350fa7` |
+| Z2-5b | §11 hours retarget: both consumers bill from the ledger | `24be1034` |
+| Z2-4a | `session_created` / `session_rescheduled` / `session_cancelled` notifications | `ea2b4556` |
+| Z2-4b | RFC 5545 `SEQUENCE` on every .ics surface | `3685644c` |
+| Z2-4c | Dual-zone: Chile-marked inputs + Spain preview | `f92c2bcb` |
+| Z2-4d | `dial_in_numbers` column + RPC derivation (+ migration) | `978e68a1` |
+| Z2-4e | Dial-in through the join opening + rendering (+ migration) | `2f0e5385` |
+
+**Chunk numbering is not contiguous and that is deliberate:** Z2-2/3/5 were each split, and
+**Z2-4 was lost by an earlier PM and recovered mid-phase** (§9, finding 4), which is why the
+4-series sealed after the 5-series.
+
+### 2.2 Explicitly OUT of scope (do not report as missing)
+
+- **Meeting SDK embed / Component View** — phase Z3.
+- **Attendance ingestion, hours comparison, override UI** — phase Z7.
+- **Recording, transcripts, sanitizer, AI minuta** — later phases; recording is provisioned
+  OFF and only enabled by the consent-gated PATCH.
+- `METHOD`/iMIP and any subscribable calendar feed — open, unowned (§8, item 1).
+- Admin/consultor session-detail dial-in rendering — PM ruling, Z2-4e.
+
+---
+
+## 3. File inventory by risk
+
+### 3.1 HIGHEST RISK — money, authorization, or a trust boundary
+
+| File | Purpose |
+|---|---|
+| `lib/services/billable-hours.ts` **(new)** | The ONE derivation of "how many hours does this session bill". Two modes; `charged_total` counts only `consumida`/`penalizada`, and an un-ledgered session contributes **0**. |
+| `pages/api/sessions/reports/analytics.ts` | `total_hours_actual` retargeted off `actual_duration_minutes` onto the ledger. Money-adjacent KPI. |
+| `lib/services/school-hours-report.ts` | Drill-down retargeted; also repaired two columns the query never had. |
+| `supabase/migrations/20260805120000_reschedule_hours_rpc.sql` | Atomic reschedule → reservation + snapshot. 304 lines of SECURITY DEFINER SQL. |
+| `pages/api/meet/session/[id]/join.ts` **(new)** | **The single authorized opening through the zoom_internal trust boundary.** Seven documented outcomes; Z2-4e widened outcome 7 only. |
+| `lib/utils/meeting-join-policy.ts` **(new)** | Join authorization decision. |
+| `lib/utils/meeting-dial-in.ts` **(new)** | Whitelist that builds the dial-in payload. Decides what credential-shaped data leaves the boundary. |
+| `supabase/migrations/20260806120000_zoom_dial_in_numbers.sql` | Adds `dial_in_numbers`; **re-issues two SECURITY DEFINER RPCs by hand-copy** at identical signatures. |
+| `lib/zoom/jobs/meeting-provision.ts` | Amended in Z2-1 only; untouched by Z2-4d/4e. Its CAS/atomicity was settled over four earlier review rounds. |
+
+### 3.2 MEDIUM — behaviour visible to users
+
+`lib/services/session-lifecycle-notifications.ts` (new) · `lib/notificationEvents.ts` ·
+`lib/notificationService.ts` · `lib/utils/session-ical.ts` · `lib/utils/session-timezone.ts` ·
+`lib/zoom/jobs/meeting-sync.ts` (new) · `lib/zoom/jobs/meeting-delete.ts` (new) ·
+`lib/zoom/provisioning-intent.ts` (new) · `pages/api/sessions/[id]/index.ts` ·
+`pages/api/sessions/edit-requests/[eid].ts` · `pages/api/sessions/[id]/{approve,cancel}.ts` ·
+`pages/api/sessions/bulk-approve.ts` · `pages/api/sessions/series/[groupId]/cancel.ts` ·
+the three `ical.ts` endpoints · `pages/meet/session/[id].tsx` ·
+`components/sessions/{JoinMeetingButton,MeetingDialIn,EditRequestModal}.tsx` ·
+`pages/admin/sessions/create.tsx`
+
+### 3.3 LOWER — types, flags, fake, migrations, tests
+
+`lib/zoom/{api,fake,jobs/registry}.ts` · `lib/featureFlags.ts` · `lib/types/*` ·
+`supabase/migrations/20260804120000_zoom_managed_intent.sql` ·
+`supabase/migrations/20260807120000_backfill_zoom_dial_in_numbers.sql` (DML only) ·
+`supabase/tests/{002,011,012}*.sql` · 28 test files.
+
+---
+
+## 4. Invariants, with entry points for verifying each
+
+1. **The raw `join_url` never leaves the trust boundary except through the join route.**
+   `pages/api/meet/session/[id]/join.ts:26` (outcome table), `:164` (the internal read),
+   `:182-195` (the only response carrying it). Negative side:
+   `lib/utils/session-ical.ts:16-20`, `lib/services/session-lifecycle-notifications.ts`
+   (invariant 2 in its header), `__tests__/lib/zoom/dial-in-forbidden-surfaces.test.ts`.
+2. **Dial-in credentials leave through the same single opening and nowhere else.**
+   `lib/utils/meeting-dial-in.ts:1-28` (the ruling and the whitelist rationale),
+   `buildJoinDialIn` at `:69`.
+3. **`public.session_meetings_public` carries zero secret fields.**
+   `supabase/migrations/20260729120300_session_meetings_public.sql:44` (the table COMMENT);
+   asserted at schema level in `supabase/tests/002-zoom-internal-isolation.sql` (Z2-4d `[F7]`).
+4. **Billing hours come from the ledger, never from `actual_duration_minutes`.**
+   `lib/services/billable-hours.ts:63-100`; consumers at `school-hours-report.ts:222`
+   (`per_session_display`) and `analytics.ts:358` (`charged_total`) — **the only two
+   callsites in the tree**.
+5. **`charged_total` counts only a ledger row with a charged status.**
+   `billable-hours.ts:41-58` (`CHARGED_LEDGER_STATUSES` and the `devuelta` trap),
+   `:86-92` (the un-ledgered ⇒ 0 branch).
+6. **A reschedule is told to Zoom, to the ledger and to the participants.**
+   `pages/api/sessions/[id]/index.ts` (PUT: sync enqueue, notification, hours RPC) and
+   `pages/api/sessions/edit-requests/[eid].ts` (the second path).
+7. **Notification payloads never carry `meeting_link` or credentials.**
+   `lib/services/session-lifecycle-notifications.ts` header invariant 2; recipients are the
+   session's own facilitators + attendees only.
+8. **The cleanup gate is ungated by both §14 flags** (Z2-3b's `[A10]` ruling) — a kill switch
+   must not strand live Zoom meetings.
+9. **Every table in `public` has RLS.** `supabase/tests/001-rls-enabled.sql`; the four
+   migrations add no `public` table and no RLS change.
+
+---
+
+## 5. What the PM verified — and what it did NOT
+
+### 5.1 Verified, by the PM, at the head `2f0e5385`
+
+```bash
+npm run type-check && npm run lint && npm test && npm run build
+npm run test:db
+```
+
+**type-check 0 · lint 0 · 4617 passed / 281 files · build 0 · `test:db` Files=9, Tests=393,
+Result: PASS.** Run unpiped with per-gate exit codes captured to files (never through
+`tail`, which has twice masked a failure on this workstream).
+
+Also verified by the PM directly, not through the tests that assert them:
+- Both provisioning RPCs report `uuid, bigint, text, text, jsonb, uuid` via
+  `oidvectortypes`, and **exactly two functions exist with those names — no overloads**.
+- `public.session_meetings_public` has **0** columns matching `%dial%`.
+- `has_column_privilege('anon', 'zoom_internal.zoom_meetings', 'dial_in_numbers', 'SELECT')`
+  is **false**.
+- The two hand-copied SECURITY DEFINER bodies in `20260806120000` differ from their
+  originals in `20260731120000` by **exactly one line each** (diffed programmatically).
+- The backfill's pgTAP hand-copy (`002-zoom-internal-isolation.sql:828-831`) is
+  **character-identical** to the migration's statement.
+- `billableHours` has exactly two callsites in the tree.
+- `Europe/Madrid` / `CONSULTANT_TIMEZONE` appear only in `lib/utils/session-timezone.ts`.
+
+**PM-run mutation probes** (each reverted with blob-hash proof of byte-identity):
+mode-blind `!entry` in `billableHours` → 5 fail; `end_time` dropped from
+`hasScheduleChanged` → 4 fail; iCal sequence pinned to a **nonzero** constant → 10 fail;
+Spain pinned to a **fixed UTC+1** zone → 6 fail (passes January, fails July); the dial-in
+derivation deleted from **`recover_provisioned_meeting`** → pgTAP test 88 only (the mirror
+of the executor's, which killed 90 only); the dial-in **whitelist bypassed** → caught;
+`dial_in` made unconditional → 8 fail, including the `[A7]` payload-shape assertions.
+
+### 5.2 NOT verified — your highest-yield hunting ground
+
+1. **Nothing has run against a real Zoom tenant.** Every handler test uses
+   `createZoomFake()`; CI runs `ZOOM_MODE=mock`. **The dial-in wire shape
+   (`settings.global_dial_in_numbers`) comes from Zoom's documentation, not an observed
+   response** — the fake is the only producer these assertions have ever seen.
+2. **Nothing has been applied to production.** All four migrations are unapplied there.
+   Local green proves code, not deployment — Z1b shipped six unapplied migrations and broke
+   session approval in production after ten green review rounds.
+3. **No browser, no device, no viewport.** The dual-zone previews and the dial-in block were
+   never rendered in a real browser. No screen-reader check; the Spain preview has no
+   `aria-describedby`.
+4. **No e2e coverage for dial-in.** The seeded synthetic tenant provisions without an audio
+   plan, and giving it one would change what every other assertion in
+   `tests/e2e/zoom-join-authz.spec.ts` runs against.
+5. **Supabase doubles, not PostgREST.** The analytics and school-report suites use
+   hand-built doubles; the widened `select()` in `series/[groupId]/ical.ts` is not proven
+   against real PostgREST.
+6. **Two hand-copies are the structural weak points** — the two RPC bodies and the backfill
+   statement. The PM diffed both mechanically (§5.1), but a diff proves sameness, not
+   correctness of the original.
+7. **The unit suite flaked twice, unexplained.** Two failures in early runs at `7315ec85`
+   (`pasantias-pdf` method guards returning 200; `api-auth` at file level), then **47 clean
+   runs** across two sessions at the same tree. The PM's attribution to a new test file was
+   **wrong and was overturned by the executor's investigation**. Cause unknown. Watch CI.
+8. Four suites carry pre-existing within-file order dependencies, exposed under
+   `--sequence.shuffle` with and without this branch.
+
+---
+
+## 6. Migrations — all four unapplied in production
+
+| File | Kind | Notes |
+|---|---|---|
+| `20260804120000_zoom_managed_intent.sql` | additive columns | Z2-1 |
+| `20260805120000_reschedule_hours_rpc.sql` | new SECURITY DEFINER RPC (304 lines) | Z2-3a; pgTAP `012-` (451 lines) |
+| `20260806120000_zoom_dial_in_numbers.sql` | additive column + **two RPCs re-issued in place** | Z2-4d; no DROP, signatures unchanged |
+| `20260807120000_backfill_zoom_dial_in_numbers.sql` | **DML only** | Z2-4e; guarded, idempotent |
+
+No `DROP`, no destructive `ALTER`, no RLS change, no `public` table added.
+
+**Required before merge is considered complete** (Brent-authorized, read-only): confirm in
+production the Z2-1 columns, the reschedule RPC, `zoom_internal.zoom_meetings.dial_in_numbers`,
+both provisioning RPC signatures — **and** count `consultor_sessions` with
+`status='completada'` that have no `contract_hours_ledger` row, which sizes the visible
+`total_hours_actual` drop when the retarget ships (see §8 item 3).
+
+---
+
+## 7. Accepted deviations — challenge any of these
+
+The PM ruled on each; none was ruled by Brent. If you think a ruling is wrong, file it at
+the severity it deserves.
+
+1. **`end_time` counts as a reschedule** (r15). The PM's earlier prompt omitted it; the
+   executor excluded it and flagged the exclusion; the PM **overruled itself** — extending a
+   session re-bills the school and extends the Zoom meeting, so silence was wrong.
+2. **`charged_total` + no ledger row ⇒ 0** (r13). A behaviour change: a *finalized* session
+   with no ledger row used to contribute its scheduled duration and now contributes nothing.
+   Deliberate; unmeasured in production (§5.2 item 2, §8 item 3).
+3. **Dial-in rendering lives in `JoinMeetingButton`, not the page** (r20). The PM's prompt
+   named the page; the executor moved it because `getServerSideProps` never reads
+   `zoom_internal` and props would have put the passcode in served HTML before any click.
+   **Accepted as better than the ruling.**
+4. **Dial-in credentials may leave through the join route** (r20 ruling 1). The reasoning is
+   that the route already returns the passcode-embedded `join_url` to the same caller. **This
+   is the single most consequential PM ruling of the phase — scrutinise it.**
+5. **Value-based reschedule comparison** rather than key-presence, in the edit-request path.
+6. **Emit notifications before the hours sync**, which can 500 — so a 500 response may still
+   have notified. The update has committed, so the move is real.
+7. **A partial recipient read still notifies whoever was found**, with the shortfall logged.
+8. **Grants re-asserted per signature** in `20260806120000` rather than repeating the
+   ancestor's blanket revoke. PM logged the stated rationale as imprecise but the action
+   correct.
+9. **`test:db` did not run for four rounds** (Docker down); r14–r16 shipped without it. None
+   touched SQL, and the gate was green before and after.
+
+---
+
+## 8. Open items and residual risks
+
+1. **`SEQUENCE` narrows the stale-calendar problem; it does not close it.** All three .ics
+   endpoints serve `Content-Disposition: attachment` and there is **no subscription surface**,
+   so a revision only reaches someone who re-downloads and re-imports. The two real remedies
+   — a subscribable feed, or `METHOD:REQUEST` by e-mail — are **product decisions, unowned**.
+2. **Dial-in does not survive the outage that motivates it.** `PLAN.md:187` justifies dial-in
+   as a school-internet-outage fallback, but a participant with no internet cannot load the
+   page that shows the number, and the disclosure rules forbid notifications and .ics for
+   these values. What ships serves a different real case (failing A/V, or a device that
+   cannot run the client, while the page still loads). **Brent's call.**
+3. **`total_hours_actual` will visibly drop** for any tenant with finalized-but-un-ledgered
+   sessions. Unquantified — see §6.
+4. `total_hours_actual` keeps a name that is now inaccurate.
+5. Four other ledger readers do not route through `billableHours` (none reads
+   `actual_duration_minutes`, so none carries the defect).
+6. Two unruled defects logged in r11: `bucketError` `continue`
+   (`lib/services/school-hours-report.ts:139-142`) and the `SESSION_STATUS_FALLBACK`
+   mismatch (`:57-63`).
+7. No send-once ledger for lifecycle notifications; a 30-session series cancel emits 30
+   sequential notifications with no batching.
+8. `create.tsx` computes the date input's `min` from UTC "today", not Chile today — an
+   off-by-one-day trap for a late-evening Chilean scheduler.
+9. Notification `defaultUrl` is `/consultor/sessions` for all three lifecycle events, though
+   an attendee may not be a consultor (pre-existing pattern).
+10. Rendered dial-in numbers have no ordering, cap or country preference.
+11. A dead-lettered `meeting_sync` leaves the row ahead of Zoom until reconcile;
+    `sync_host_busy` has no automatic remedy.
+12. Local env: this host's Docker registry path is wedged, so the Homebrew `supabase` CLI
+    hangs on `db reset`; use `npx supabase` (2.111.0).
+
+---
+
+## 9. How this phase was built — context for judging it
+
+Twenty rounds. **Six ended `STATUS: FINDINGS` with nothing committed, and every one of the
+six was a PM error**, caught by the executor refusing to build on a bad instruction:
+
+1. r2 — a prompt required a transition the frozen plan forbids.
+2. r9 — an acceptance criterion contradicted §14; the executor escalated instead of choosing.
+3. r10 — a chunk was told to build on a query referencing two columns that never existed.
+4. r12 — two PM rulings contradicted each other, inflating a money KPI.
+5. **r18 — the PM asked for a `DROP` the repo forbids RED-tier**, on two SECURITY DEFINER
+   RPCs whose 6-arg signature the pgTAP suite asserts by literal string.
+6. r15 — the PM's blocking finding (a test file destabilising the unit gate) was **wrong**;
+   the executor's 35-run investigation overturned it and the PM's own 12-run replication
+   confirmed the reversal.
+
+Two PM naming slips also reached prompts (`assertCreateResponse` for
+`findUnusableCreateFields`; a stale review-path). **The dossier's §5.2 and §7 are where a
+seventh PM error is most likely to be hiding.**
+
+---
+
+## 10. Gate commands
+
+From a worktree of `feat/zoom-sess` at `2f0e5385`, with `node_modules` installed and
+`.env.local` present (gitignored, carries real keys — copy it, never print or commit it):
+
+```bash
+npm run type-check && npm run lint && npm test && npm run build
+```
+
+```bash
+npm run test:db
+```
+
+Docker must be up for `test:db`; if `supabase db reset` hangs, use `npx supabase`.

@@ -154,6 +154,41 @@
  * at r3, `tier` at r4, `weeks` here. The mechanisms have held since r5. Every
  * reason in every list was re-read against the code again.
  *
+ * ## What r8 added
+ *
+ * **A value printed at two sites and typed in at one of them.** Every rule
+ * above asks a fact to lose *ground* — an occurrence, a size, a run of words —
+ * and none of them asks it to be **gone**. `provesRendered` is the plainest
+ * case: it required this leaf's old value to become *rarer*, so a fact rendered
+ * at one site and hardcoded at another passed on the wired site's own change.
+ * `freeDayRange` is built from two dates and printed twice, at the long-weekend
+ * FAQ answer and at the finde card; pinning either site to "10 al 12 de
+ * octubre" left all 38 assertions green.
+ *
+ * "Gone" is not available where the question was being asked. Sibling leaves
+ * legitimately share values — El Puig and Les Vinyes both hold "Infantil,
+ * primaria y ESO" — so a value's last occurrence leaving the page is not
+ * something a correct page can be asked for while the rest of the module is
+ * standing. It is available on the **quiet module**, which r5 and r6 already
+ * built for the same difficulty in two narrower forms: with every leaf moved at
+ * once there is no sibling and no wired site left to supply the value, and
+ * anything of it still on the page was typed there. {@link restatementsOn} asks
+ * that for every leaf, in every form the page can print it in.
+ *
+ * That makes this the general case of {@link printsStaleSize} (a collection's
+ * size) and {@link survivingFragments} (part of a string), which is the point:
+ * the same shape has now been found three times and each fix was written for
+ * the value type in front of it. It reads one **site** rather than the whole
+ * page, because a page-wide search cannot tell the objectives list's ordinal
+ * `10` from a date, and it matches a form token by token, because a formatted
+ * value never reaches the page contiguously — "10 al 12 de octubre" contains
+ * neither "10 de octubre" nor "12 de octubre" as a run.
+ *
+ * Its two stated limits are {@link isRestatable} (short strings are ordinary
+ * Spanish, at the source scan's own floor and for the source scan's own reason)
+ * and {@link EXPECTED_RESTATEMENTS}, which is declared per *site count* so a
+ * coincidence excuses the site it lives at and not the leaf.
+ *
  * `it('the contract can fail', …)` proves the mechanism rather than asserting it
  * works: a string, a number and a short value are each pinned to their original
  * value while the module changes underneath — exactly what a hardcoded literal
@@ -352,6 +387,13 @@ type Overrides = Record<string, unknown>;
 /** A token suffix that survives HTML escaping and collides with nothing. */
 const MUTATION_MARK = 'zzq';
 
+/**
+ * How far a number moves when it is mutated or quieted. Fractional on purpose:
+ * a moved number can then never land on a size the page computes, so the
+ * mechanisms that read bare numbers off the page keep reading counts.
+ */
+const NUMBER_SHIFT = 7.25;
+
 /** The last named segment of a path — `visitSchools[3].tier` → `tier`. */
 function fieldName(segments: (string | number)[]): string {
   const named = segments.filter((segment) => typeof segment === 'string');
@@ -452,7 +494,7 @@ const MUTATION_DAY = (() => {
  */
 function mutateValue(leaf: CohortLeaf): Primitive {
   const { value } = leaf;
-  if (typeof value === 'number') return value + 7.25;
+  if (typeof value === 'number') return value + NUMBER_SHIFT;
   if (typeof value === 'boolean') return !value;
 
   // A discriminator is mutated across the boundary the page branches on, not
@@ -651,9 +693,17 @@ function provesRendered(leaf: CohortLeaf, baseline: string, output: string): boo
 
   if (!appeared) return false;
 
-  // And this leaf's copy of the old value has to leave the page. A page that
-  // renders the module *and* restates the same fact as a stale literal would
-  // otherwise satisfy the containment half on the live copy alone.
+  // And this leaf's copy of the old value has to lose ground on the page.
+  //
+  // Ground, not existence, and until r8 this comment claimed otherwise — it
+  // said a page that renders the module and restates the same fact could not
+  // satisfy containment, which is exactly what `<` allows: two occurrences
+  // become one, one is fewer than two, and the literal sits there going stale.
+  // Requiring zero here is not the fix, because a sibling leaf may hold the
+  // same value legitimately and its copy would still be on the page. The
+  // question is asked where the confounder is gone instead — see
+  // {@link restatementsOn}, which is this half done on a module that holds none
+  // of its own values.
   return renderedForms(leaf.value)
     .filter((form) => countUnmutated(baseline, form) > 0)
     .every((form) => countUnmutated(output, form) < countUnmutated(baseline, form));
@@ -861,9 +911,9 @@ function overrideForCollection(collection: CohortCollection): Overrides {
 /* ------------------------------------------------------------- the quiet module */
 
 /**
- * A value with nothing left in it a bare-number search could mistake for a
- * count. Every token of a string is marked and a date moves to
- * {@link MUTATION_DAY}; numbers and booleans are left exactly as they are.
+ * A value the page cannot echo. Every token of a string is marked, a date moves
+ * to {@link MUTATION_DAY} and a number moves by {@link NUMBER_SHIFT}; booleans
+ * are left as they are, having no printable form to quiet.
  *
  * The point is the digits inside the module's own prose. `COHORT_CLAIMS` holds
  * "7 escuelas en esta cohorte" and `COHORT_HEADLINE` holds "Octubre, 5 al 16",
@@ -872,8 +922,16 @@ function overrideForCollection(collection: CohortCollection): Overrides {
  * turns them into `7zzq`, which no longer reads as a number in its own right,
  * and leaves the sizes the page *computes* — counts and list ordinals — as the
  * only bare numbers on it.
+ *
+ * Numeric leaves move for the same reason and did not until r8, when quieting
+ * stopped being only the counting rules' scaffolding: {@link restatementsOn}
+ * asks whether a value the module no longer holds is still on the page, and a
+ * number the module still held would have answered yes for a wired page. The
+ * shift is fractional, so a moved number lands on nothing the page counts —
+ * `9` becomes `16,25`, never another collection's size.
  */
 function quietValue(value: Primitive): Primitive {
+  if (typeof value === 'number') return value + NUMBER_SHIFT;
   if (typeof value !== 'string') return value;
 
   return ISO_DATE.test(value)
@@ -953,8 +1011,17 @@ function quietGrowthOf(collection: CohortCollection, length: number): Overrides 
  * not contiguous in the markup. Tag boundaries stay NUL: a phrase split across
  * two elements is deliberately *not* matched, which can only make this miss a
  * restatement, never invent one.
+ *
+ * `extract` is which of the two surfaces to read. The fragment rule takes the
+ * default, attributes included, because a leaf an element consumes is still
+ * published. {@link restatementsOn} takes {@link printedSurface} instead, for
+ * the same reason the counting rules do: index-bearing test hooks end in the
+ * bare numbers it matches on.
  */
-async function publishedSurface(overrides: Overrides): Promise<string> {
+async function publishedSurface(
+  overrides: Overrides,
+  extract: (html: string) => string = renderedSurface
+): Promise<string> {
   return withCohort(overrides, async () => {
     const result = (await getServerSideProps({
       req: { headers: { host: 'localhost:3000' } },
@@ -962,7 +1029,7 @@ async function publishedSurface(overrides: Overrides): Promise<string> {
 
     const html = renderToStaticMarkup(React.createElement(PasantiasPage as never, result.props));
 
-    return `${renderedSurface(html)}\0${buildMetaDescription()}`.replace(/\s+/g, ' ');
+    return `${extract(html)}\0${buildMetaDescription()}`.replace(/\s+/g, ' ');
   });
 }
 
@@ -1068,6 +1135,134 @@ async function restatedFragments(
   );
 }
 
+/* ------------------------------------------------ the restatement rule (r8/B1) */
+
+/**
+ * The sites a surface is made of — one per text node, since
+ * {@link renderedSurface} and {@link printedSurface} both turn every tag into a
+ * NUL and {@link publishedSurface} appends the metadata as one more.
+ *
+ * A site is the unit this rule reasons about because the page-wide one cannot:
+ * the objectives list prints a bare `10` as an ordinal, so "is `10` on the
+ * page" is always yes and says nothing about whether a date was typed in.
+ */
+function surfaceSites(surface: string): string[] {
+  return surface.split('\0');
+}
+
+/**
+ * Whether one site restates `form` — every one of the form's tokens on it, as
+ * whole words.
+ *
+ * Contiguity is deliberately not required, and that is what makes this see a
+ * *formatted* value. `formatDayMonthRange` prints two dates as "10 al 12 de
+ * octubre", in which neither "10 de octubre" nor "12 de octubre" appears
+ * contiguously; both are there token by token. This is the same two readings
+ * {@link appearsNewly} uses on the way in, narrowed from the whole page to one
+ * site, which is what keeps the ordinal `10` from answering for the date: that
+ * site carries no "octubre".
+ *
+ * A token that starts with a digit is matched on {@link countOccurrences}'s
+ * boundaries rather than {@link countPhrase}'s, for that function's own reason:
+ * a decimal is one number and not two, so the `9` at the head of "9,75" is not
+ * a nine the page printed.
+ */
+function restatesForm(site: string, form: string): boolean {
+  return form
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((token) =>
+      /^\d/.test(token) ? countOccurrences(site, token) > 0 : countPhrase(site, token) > 0
+    );
+}
+
+/**
+ * Whether this form of this leaf is evidence at all.
+ *
+ * The floor is {@link isScannable}'s, for {@link isScannable}'s reason and not
+ * a second one tuned here: below it a string is as likely to be ordinary
+ * Spanish as a planted fact, and that function names "Barcelona" and "visita"
+ * as its own examples — which are exactly the two the page's copy publishes
+ * while `lodgingArea` and the `tier` enum hold them. A date is exempt at any
+ * length there and here, because a calendar date on a page is never a
+ * coincidence, and a number is checked whatever its length: `9` is short and
+ * `visitDayCount` is still a cohort fact.
+ *
+ * This is the limit of the rule, stated rather than papered over. A short
+ * string restated at one of several sites is not visible here; it is visible to
+ * the render contract, weakly, and to nothing else — the same hole the source
+ * scan and the fragment rule already carry for the same stated reason.
+ */
+function isRestatable(leaf: CohortLeaf, form: string): boolean {
+  if (typeof leaf.value !== 'string') return true;
+  return ISO_DATE.test(leaf.value) || form.length >= MIN_SCANNED_LENGTH;
+}
+
+interface Restatement {
+  /** The leaf whose value is still on the page. */
+  path: string;
+  /** The form of it that survived — a value can have more than one. */
+  form: string;
+  /** How many sites publish it. Declared, so a second one is a failure. */
+  sites: number;
+}
+
+/** `leafPath: "form" at N site(s)` — how a failure names one. */
+function formatRestatement(found: Restatement): string {
+  return `${found.path}: ${JSON.stringify(found.form)} at ${found.sites}`;
+}
+
+/**
+ * Every leaf value still published on `surface`, which is read on the quiet
+ * module (see {@link quietValue}) — a module that holds none of these values
+ * any more. Whatever is left was typed into the page.
+ *
+ * This is the r8 finding, and it is the generalisation of the two rules above
+ * rather than a third special case. {@link provesRendered} asks a mutated
+ * leaf's old value to become **rarer** on the page, not to be **gone**, so a
+ * fact printed at two sites and hardcoded at one passes: the baseline had two
+ * occurrences, the wired site drops its own, one is fewer than two.
+ * `freeDayRange` is printed at the FAQ answer and at the finde card, and
+ * pinning either one to "10 al 12 de octubre" left the whole suite green.
+ *
+ * "Rarer" was there because "gone" is wrong on its own terms — sibling leaves
+ * legitimately share a value, and El Puig and Les Vinyes both hold "Infantil,
+ * primaria y ESO", so mutating one leaves the other's copy standing. Quieting
+ * the module is what makes "gone" the right question: with every leaf moved at
+ * once there is no sibling left to supply the value, and the same move that
+ * removes the confounder removes the wired site too.
+ *
+ * The same shape has now been found three times — counts at two sites (r5),
+ * a fragment beside a whole leaf (r6), a formatted value at two sites (r8) —
+ * and each fix was written for the value type in front of it.
+ * {@link printsStaleSize} is this question for a collection's size and
+ * {@link survivingFragments} is it for part of a string; this asks it for the
+ * value itself, in every form the page can print it in, for every leaf.
+ */
+function restatementsOn(surface: string): Restatement[] {
+  const sites = surfaceSites(surface);
+
+  return LEAVES.flatMap((leaf) =>
+    renderedForms(leaf.value)
+      .filter((form, index, forms) => forms.indexOf(form) === index)
+      .filter((form) => isRestatable(leaf, form))
+      .map((form) => ({
+        path: leaf.path,
+        form,
+        sites: sites.filter((site) => restatesForm(site, form)).length,
+      }))
+      .filter((found) => found.sites > 0)
+  );
+}
+
+let quietPrinted: Promise<string> | null = null;
+
+/** The printed surface of the quiet module. One render, read by three tests. */
+function quietPrintedSurface(): Promise<string> {
+  quietPrinted ??= publishedSurface(quietModule(), printedSurface);
+  return quietPrinted;
+}
+
 /* -------------------------------------------------- the week-count rule (r6/B1) */
 
 /**
@@ -1167,9 +1362,15 @@ const printedSurfaceOf = async (overrides: Overrides): Promise<string> =>
  * keep a `13` out of `2013`, out of `2,5` and out of an ordinal like `013`, so
  * the two halves below measure the count rather than the digits the page is
  * full of.
+ *
+ * Takes a string as well as a number because {@link restatesForm} counts a
+ * leaf's own figures — `2,5` is a number the page prints and not a number
+ * JavaScript writes that way.
  */
-function countOccurrences(surface: string, count: number): number {
-  return (surface.match(new RegExp(`(?<![\\w.,])${count}(?![\\w.,])`, 'g')) ?? []).length;
+function countOccurrences(surface: string, count: number | string): number {
+  return (
+    surface.match(new RegExp(`(?<![\\w.,])${escapeRegExp(String(count))}(?![\\w.,])`, 'g')) ?? []
+  ).length;
 }
 
 /**
@@ -1509,6 +1710,36 @@ const EXPECTED_FRAGMENTS: { fragment: string; reason: string }[] = [
   },
 ];
 
+/**
+ * Leaf values still published on the quiet page for a reason that is not a
+ * restatement — declared per leaf, per form, and per **number of sites**.
+ *
+ * The site count is what keeps this from being a blanket excuse, and it is the
+ * difference between this list and {@link EXPECTED_FRAGMENTS}. A coincidence
+ * lives at the site it lives at; a literal typed in beside it is a second site,
+ * and a declaration that names one fails when there are two. So the leaf below
+ * stays covered against the very shape this rule exists for, rather than being
+ * written off because the page happens to publish its digit somewhere else.
+ *
+ * The count is deliberately not a site *pattern*: several of these surfaces are
+ * quieted module prose, whose text moves with {@link MUTATION_DAY} and the
+ * mutation mark, so pinning the wording would pin things that are not the page.
+ *
+ * The thing not to do is widen {@link restatesForm} or raise
+ * {@link isRestatable}'s floor until the list empties. That turns a stated
+ * reason into whatever made the suite green, which is how the phrase list this
+ * guard replaced got its holes.
+ */
+const EXPECTED_RESTATEMENTS: { path: string; form: string; sites: number; reason: string }[] = [
+  {
+    path: 'visitDayCount',
+    form: '9',
+    sites: 1,
+    reason:
+      'The WhatsApp number the contact block prints — WHATSAPP_DISPLAY, "+56 9 4162 3577" (pages/pasantias.tsx:126, rendered at :1226), whose mobile prefix stands alone between two spaces and is a bare 9 that has nothing to do with how many visit days the cohort has. Declared as one site rather than as an excuse for the leaf: COHORT_VISIT_DAY_COUNT is printed at the hero strip (:705) and in buildMetaDescription (:152), and a 9 typed into either of them makes this two sites and fails here.',
+  },
+];
+
 function matchesPrefix(path: string, pathPrefix: string): boolean {
   return path === pathPrefix || path.startsWith(`${pathPrefix}.`) || path.startsWith(`${pathPrefix}[`);
 }
@@ -1765,6 +1996,41 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
       );
 
       expect(orphans).toEqual([]);
+    }, 30_000);
+  });
+
+  /**
+   * The PM's r8 finding. The two rules above and the render contract all ask a
+   * value to lose *ground* — an occurrence, a size, a run of words. None of them
+   * asks it to be gone, so a fact printed at two sites and hardcoded at one
+   * walks through every one of them. On the quiet module the module holds none
+   * of its own values, so "gone" is the right question and a survivor is a
+   * literal.
+   */
+  describe('the restatement rule', () => {
+    it('publishes no value the module no longer holds', async () => {
+      // Reported with the site count on both sides, so a declared coincidence
+      // that has gained a site says so instead of reading as covered.
+      const declared = new Set(EXPECTED_RESTATEMENTS.map(formatRestatement));
+
+      expect(
+        restatementsOn(await quietPrintedSurface())
+          .map(formatRestatement)
+          .filter((found) => !declared.has(found))
+      ).toEqual([]);
+    }, 30_000);
+
+    it('declares no restatement that no longer survives', async () => {
+      // As the fragment rule's orphan check, and for the same reason: a
+      // declaration outlives the copy it explained and reads as coverage that
+      // was thought about.
+      const surviving = new Set(restatementsOn(await quietPrintedSurface()).map(formatRestatement));
+
+      expect(
+        EXPECTED_RESTATEMENTS.map(formatRestatement).filter(
+          (declared) => !surviving.has(declared)
+        )
+      ).toEqual([]);
     }, 30_000);
   });
 
@@ -2068,6 +2334,46 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
       const restored = `${await weekCountSurface(grownCount)} Entre ambas semanas quedan 3 días libres`;
 
       expect(staleCardinalityWords(restored, grownCount)).toEqual(['ambas']);
+    }, 30_000);
+
+    /*
+     * The r8 case, and the one every mechanism above walks past: a value the
+     * page prints at two sites, typed in at one of them.
+     */
+
+    it('catches a date hardcoded at one of the two sites that print it', async () => {
+      // The PM's finding. `freeDayRange` is built from COHORT_FREE_DAYS[0].date
+      // and [2].date and printed twice — the FAQ answer (pages/pasantias.tsx:517)
+      // and the finde card (:822). Pinning *either* one to "10 al 12 de octubre"
+      // left all 38 assertions green, because `provesRendered` asks the old value
+      // to become rarer rather than to go, and the other site obliged.
+      //
+      // The pin is simulated by putting a real page site back onto the quiet
+      // surface, one site at a time, so this control cannot drift from the page:
+      // the text planted is whatever the page renders there, never a string typed
+      // in here. One site restated, the other still wired — which is the case,
+      // and the only one, that the counting and fragment rules cannot express.
+      const leaf = leafAt('freeDays[0].date');
+      const form = dayMonthEsCl(String(leaf.value));
+      const sites = surfaceSites(await publishedSurface({}, printedSurface)).filter((site) =>
+        restatesForm(site, form)
+      );
+
+      // Not vacuous: the page does print this date at two sites, which is what
+      // makes one of them a hiding place.
+      expect(sites).toHaveLength(2);
+
+      for (const site of sites) {
+        const pinned = `${await quietPrintedSurface()}\0${site}`;
+        // Named, rather than named at a particular site count: a page that had
+        // pinned both sites would still be caught here, and the weaker case is
+        // the one this control is for.
+        const named = restatementsOn(pinned).some(
+          (found) => found.path === leaf.path && found.form === form
+        );
+
+        expect([site, named]).toEqual([site, true]);
+      }
     }, 30_000);
 
     it('catches hardcoded tier handling — the dark or light card treatment', async () => {

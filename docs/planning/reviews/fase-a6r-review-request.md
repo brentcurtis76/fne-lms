@@ -2,15 +2,17 @@
 
 **Branch:** `phase/a6r-design`
 **Base:** `main` @ `b8f5c05d`
-**Commits:** 12 — the port (r1), two portraits, the FAQ swap (r2), r3's answer to
+**Commits:** 13 — the port (r1), two portraits, the FAQ swap (r2), r3's answer to
 Sol's first FAIL, r4's containment fix, r5's cardinality and discriminator work,
-r6's answer to Sol's second FAIL, r7's answer to its third, **three** standalone
-ledger commits (r2, r3, r4 — r5's, r6's and r7's entries are folded into their
-code commits), and Sol's own `REVIEW-A6R-R2.md` commit.
+r6's answer to Sol's second FAIL, r7's answer to its third, r8's answer to the
+PM's containment finding, **three** standalone ledger commits (r2, r3, r4 —
+r5's, r6's, r7's and r8's entries are folded into their code commits), and Sol's
+own `REVIEW-A6R-R2.md` commit.
 
 Sol's S1 at the R2 review was that these two numbers were wrong: this file said
 11 commits and four ledger entries against a branch that had 10 and three. They
-are recomputed here against the branch as it stands with r7 on it, not copied.
+are recomputed here against the branch as it stands with r8 on it, not copied
+(`git rev-list --count b8f5c05d..HEAD`).
 
 ## Objective
 
@@ -76,6 +78,21 @@ proof, rather than as a missing mechanism.
   determiners is what keeps it that way, and the `weeks` exception's reason —
   which had claimed the per-site proof covered all four sites — is rewritten to
   what the two mechanisms actually prove.
+- **r8 — containment accepted "fewer", not "gone".** The PM's finding, raised
+  after r7 landed and not yet seen by Sol. `provesRendered` required a mutated
+  leaf's old value to become *rarer* on the page (`countUnmutated(output, form)
+  < countUnmutated(baseline, form)`), so a fact printed at two sites and typed
+  in at one of them classified as `rendered`: the wired site dropped its
+  occurrence and one is fewer than two. `freeDayRange` is printed at the
+  long-weekend FAQ answer and at the finde card; pinning **either** left the
+  suite 38/38 green, reproduced here before anything was changed. The comment
+  directly above that line had described the stronger rule for four rounds. This
+  is the third appearance of one shape — counts at two sites (r5), a fragment
+  beside a whole leaf (r6), a formatted value at two sites (r8) — so the round
+  generalises it rather than fixing the value type: `restatementsOn` asks
+  **every** leaf, in every form the page can print it in, whether anything of it
+  survives on the quiet module, where no sibling and no wired site is left to
+  supply it.
 
 ## Files changed, grouped by risk
 
@@ -96,8 +113,8 @@ proof, rather than as a missing mechanism.
 - `package.json` (+1): `npm run images:manifest`.
 
 ### Low — tests, generated data and assets
-- `__tests__/pages/pasantias-hardcoded-cohort.test.ts` (+1452 net, now **2091
-  lines**) — [A1]. The whole of r3–r7 lives here. Its size is raised
+- `__tests__/pages/pasantias-hardcoded-cohort.test.ts` (+1758 net, now **2397
+  lines**) — [A1]. The whole of r3–r8 lives here. Its size is raised
   as a finding below, and the move Sol proposed is backlogged rather than done in
   a correctness round.
 - `__tests__/lib/pasantias-image-manifest.test.ts` (new) — manifest drift.
@@ -113,18 +130,18 @@ proof, rather than as a missing mechanism.
 
 ## Test evidence
 
-At `phase/a6r-design` head, r7:
+At `phase/a6r-design` head, r8:
 
 | Gate | Result |
 |---|---|
 | `npm run type-check` | clean |
 | `npm run lint` | clean, `--max-warnings=0` |
-| `npm test` | **262 files, 6165 tests, all passing** |
+| `npm test` | **262 files, 6168 tests, all passing** |
 | `npm run build` | compiled successfully |
 | `node scripts/check-price-leak.mjs` | OK — 263 files scanned, no commercial data |
 | `CI=1 npx playwright test` (pasantias-page, footer-heading-order, smoke) | **16 passed** |
 
-The guard file alone: **38 tests** (21 at r4, 29 at r5, 36 at r6).
+The guard file alone: **41 tests** (21 at r4, 29 at r5, 36 at r6, 38 at r7).
 
 Measured hero-eyebrow contrast against the **lightest** pixel behind the glyphs,
 `#FBBF24` at 11 px over `bcn-skyline.jpg`:
@@ -181,7 +198,58 @@ The last three are re-run rather than inherited: the point of B1 is that a
 declaration about these sites went unchecked for a round, so the other three
 derived sites were each pinned again against the round's own code.
 
+### Negative controls run in r8, against the page itself
+
+Each was applied to `pages/pasantias.tsx`, the guard run, and the page restored;
+`git diff -- pages/pasantias.tsx` is empty afterwards and the page is
+byte-identical to `7c5b642a`.
+
+| Mutation | Before r8 | After r8 |
+|---|---|---|
+| the FAQ answer's `{freeDayRange}` → `10 al 12 de octubre` (`:517`) | **38/38 passed** | 2 failed: `publishes no value the module no longer holds`, naming `freeDays[0].date: "10 de octubre"` and `freeDays[2].date: "12 de octubre"` |
+| the finde card's `{freeDayRange}` → `10 al 12 de octubre` (`:822`) | **38/38 passed** | 2 failed, naming the same two leaves |
+
+The "before" column is the committed guard at `7c5b642a`, re-run against each
+mutated page rather than taken from the PM's report.
+
 ## Scrutinise these hardest
+
+0a. **The restatement rule's floor is where its coverage stops, and the floor is
+   inherited rather than chosen.** Applied to every leaf, the rule first named
+   seven survivors on a correct page: `visitDayCount: "9"`, five
+   `visitSchools[*].tier: "visita"`, and `lodgingArea: "Barcelona"`. Six of the
+   seven are short strings the page's own copy publishes — "Escuelas de visita"
+   (`:921`), `{COHORT_VISIT_SCHOOLS.length} escuelas de visita` (`:846`), "Por
+   qué Barcelona" (`:755`), "fuera de Barcelona" (`:945`), "recorrer Barcelona"
+   (`:518`) — and they are excluded by `isRestatable`, which reuses
+   `MIN_SCANNED_LENGTH` and its stated reason (below it a string is as likely to
+   be ordinary Spanish as a planted fact; that function names *Barcelona* and
+   *visita* as its own two examples). Dates are exempt from the floor at any
+   length, as they are in `isScannable`, and numbers are checked whatever their
+   length. The argument to have is whether borrowing that floor is the same act
+   as tuning one, and whether a short string restated at one of several sites is
+   acceptably left to the render contract alone. It is written down as the
+   rule's limit rather than left to be discovered.
+
+0d. **`EXPECTED_RESTATEMENTS` holds one entry and it is declared by site
+   *count*.** `visitDayCount: "9"` survives because the contact block prints the
+   WhatsApp number `+56 9 4162 3577` (`WHATSAPP_DISPLAY`, `:126`, rendered at
+   `:1226`), whose mobile prefix is a bare 9 between two spaces. The declaration
+   says **one** site, not "this leaf is excused": `COHORT_VISIT_DAY_COUNT` is
+   printed at the hero strip (`:705`) and in `buildMetaDescription` (`:152`), and
+   a `9` typed into either makes it two sites and fails. Judge whether a count is
+   a strong enough anchor — the alternative considered and rejected was pinning
+   the site's text, which for these surfaces is quieted module prose that moves
+   with `MUTATION_DAY` and the mutation mark.
+
+0e. **`quietValue` now moves numbers, which changes machinery three older rules
+   read.** Quieting was the counting rules' scaffolding and deliberately left
+   numbers alone so the page's computed sizes were the only bare numbers on the
+   surface; the restatement rule needs the module to hold none of its own values,
+   so numeric leaves shift by a fractional `NUMBER_SHIFT` (`9` → `16,25`), which
+   can land on no size the page counts. `printsStaleSize`, `weekCountSurface` and
+   the fragment rule all read a quiet surface and all stayed green, but the
+   change is theirs as much as this rule's and should be read as such.
 
 0. **The fragment rule surfaced eleven overlaps that are not restatements, and
    all eleven are declared rather than fixed.** `EXPECTED_FRAGMENTS` holds runs

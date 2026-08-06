@@ -113,6 +113,14 @@ Nothing else moved. No other section is re-rendered, and the **week cards in
 applied to the long weekend only, which is the scope the owner set, so the two
 date treatments on that screen are deliberately different.
 
+## r8 — nothing re-rendered
+
+r8 is test-only. `pages/pasantias.tsx` is byte-identical to `7c5b642a`, and
+`git diff 7c5b642a -- pages/pasantias.tsx` is empty; the round changed
+`__tests__/pages/pasantias-hardcoded-cohort.test.ts` alone. Re-shooting the set
+would have produced 54 identical PNGs, so the captures above stand as r7 left
+them.
+
 ## Size
 
 19 MB across 54 PNGs. The photography-bearing captures are most of it. The set

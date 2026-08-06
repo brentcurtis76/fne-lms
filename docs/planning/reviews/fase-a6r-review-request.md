@@ -2,9 +2,15 @@
 
 **Branch:** `phase/a6r-design`
 **Base:** `main` @ `b8f5c05d`
-**Commits:** 11 — the port (r1), two portraits, the FAQ swap (r2), r3's answer to
+**Commits:** 12 — the port (r1), two portraits, the FAQ swap (r2), r3's answer to
 Sol's first FAIL, r4's containment fix, r5's cardinality and discriminator work,
-r6's answer to Sol's second FAIL, and four ledger entries.
+r6's answer to Sol's second FAIL, r7's answer to its third, **three** standalone
+ledger commits (r2, r3, r4 — r5's, r6's and r7's entries are folded into their
+code commits), and Sol's own `REVIEW-A6R-R2.md` commit.
+
+Sol's S1 at the R2 review was that these two numbers were wrong: this file said
+11 commits and four ledger entries against a branch that had 10 and three. They
+are recomputed here against the branch as it stands with r7 on it, not copied.
 
 ## Objective
 
@@ -19,9 +25,11 @@ PDFs, and the lead form (A6b).
 
 ## Where the rounds went
 
-The page has not changed since r3. **r4 and r5 are entirely about the guard that
-protects it** — three consecutive reviews found the guard passing a page that
-restated a cohort fact as a literal, each time through a different hole.
+**r4 and r5 are entirely about the guard**; r3, r6 and r7 also changed the page.
+Four consecutive reviews found the guard passing a page that restated a cohort
+fact as a literal, each time through a different hole — and the last two of them
+found it as a *declaration* that was true of the code it described and false as a
+proof, rather than as a missing mechanism.
 
 - **r3 — the guard was a hand-maintained string list.** Sol found it incomplete,
   which was the third hand-enumerated guard on this project to be found
@@ -57,15 +65,28 @@ restated a cohort fact as a literal, each time through a different hole.
   it. The two copy edits are owner decisions; the week count now reads
   `COHORT_WEEKS.length` through an es-CL number word, and the two-card design's
   own cardinality is a checked invariant rather than prose.
+- **r7 — the fourth site was a word, not a number, and r6 declared it covered.**
+  Sol's third FAIL was one blocking finding: the long-weekend FAQ opened *"Entre
+  ambas semanas"*, which asserts exactly two and which nothing in the suite could
+  see — `COUNT_WORDS_ES` holds number words, so the per-site proof can only ask
+  whether `dos` left and `tres` arrived. r6 called that site covered by
+  `DESIGNED_WEEK_COUNT`; it is not, because an intentional three-card redesign
+  updates that invariant *by design* and leaves the sentence stale. The sentence
+  is now count-neutral by owner decision, a declared set of es-CL cardinality
+  determiners is what keeps it that way, and the `weeks` exception's reason —
+  which had claimed the per-site proof covered all four sites — is rewritten to
+  what the two mechanisms actually prove.
 
 ## Files changed, grouped by risk
 
 ### Highest risk — the page itself
-- `pages/pasantias.tsx` (+842 / −456 across the branch). Every section is new;
-  every fact is read from the module. `getServerSideProps` is pure — it formats
-  dates and builds two absolute URLs, nothing else. **Byte-identical since r3**;
-  `git diff 9c3c9134 -- pages/pasantias.tsx` covers r3 only, and r4/r5 do not
-  touch it at all.
+- `pages/pasantias.tsx` (+908 / −456 across the branch, now **1235 lines**).
+  Every section is new; every fact is read from the module. `getServerSideProps`
+  is pure — it formats dates and builds two absolute URLs, nothing else. r4 and
+  r5 do not touch it at all; r6 changed two copy sites and wired the week count;
+  r7 changes the long-weekend FAQ answer, folds the repeated month into a range
+  formatter and replaces the `freeDayDates` prop with the `freeDayRange` it now
+  prints at both surfaces.
 
 ### Medium — shared surfaces touched by a page-scoped phase
 - `tailwind.config.js` (+12): two colour keys and one `backgroundImage` entry.
@@ -75,8 +96,8 @@ restated a cohort fact as a literal, each time through a different hole.
 - `package.json` (+1): `npm run images:manifest`.
 
 ### Low — tests, generated data and assets
-- `__tests__/pages/pasantias-hardcoded-cohort.test.ts` (+1348 net, now **1987
-  lines**) — [A1]. The whole of r3, r4, r5 and r6 lives here. Its size is raised
+- `__tests__/pages/pasantias-hardcoded-cohort.test.ts` (+1452 net, now **2091
+  lines**) — [A1]. The whole of r3–r7 lives here. Its size is raised
   as a finding below, and the move Sol proposed is backlogged rather than done in
   a correctness round.
 - `__tests__/lib/pasantias-image-manifest.test.ts` (new) — manifest drift.
@@ -92,18 +113,18 @@ restated a cohort fact as a literal, each time through a different hole.
 
 ## Test evidence
 
-At `phase/a6r-design` head, r6:
+At `phase/a6r-design` head, r7:
 
 | Gate | Result |
 |---|---|
 | `npm run type-check` | clean |
 | `npm run lint` | clean, `--max-warnings=0` |
-| `npm test` | **262 files, 6163 tests, all passing** |
+| `npm test` | **262 files, 6165 tests, all passing** |
 | `npm run build` | compiled successfully |
 | `node scripts/check-price-leak.mjs` | OK — 263 files scanned, no commercial data |
 | `CI=1 npx playwright test` (pasantias-page, footer-heading-order, smoke) | **16 passed** |
 
-The guard file alone: **36 tests** (21 at r4, 29 at r5).
+The guard file alone: **38 tests** (21 at r4, 29 at r5, 36 at r6).
 
 Measured hero-eyebrow contrast against the **lightest** pixel behind the glyphs,
 `#FBBF24` at 11 px over `bcn-skyline.jpg`:
@@ -143,6 +164,23 @@ afterwards.
 | the same, pinned in the `Dos semanas, dos modos` heading | **29/29 passed** | 1 failed, same assertion |
 | a third week added to `COHORT_WEEKS` | rendered nothing, **29/29 passed** | `renders every week the cohort has` fails, naming the count |
 
+### Negative controls run in r7, against the page itself
+
+Each was applied to `pages/pasantias.tsx`, the guard run, and the page restored;
+`git diff` is empty afterwards.
+
+| Mutation | Before r7 | After r7 |
+|---|---|---|
+| Sol's B1 — `Entre ambas semanas` restored verbatim in the FAQ answer | **36/36 passed** | 1 failed: `states the count in no word a number word cannot replace`, naming `ambas` at 3 weeks |
+| the first free day pinned to `'2026-10-10'` in the range formatter | not run | 2 failed, naming `freeDays[0].date` — the fold does not cost the range its per-end proof |
+| the `#programa` CTA pinned to `las dos semanas` | 1 failed | 1 failed, same assertion |
+| the same, pinned in `buildMetaDescription` | 1 failed | 1 failed, same assertion |
+| the same, pinned in the `Dos semanas, dos modos` heading | 1 failed | 1 failed, same assertion |
+
+The last three are re-run rather than inherited: the point of B1 is that a
+declaration about these sites went unchecked for a round, so the other three
+derived sites were each pinned again against the round's own code.
+
 ## Scrutinise these hardest
 
 0. **The fragment rule surfaced eleven overlaps that are not restatements, and
@@ -156,12 +194,26 @@ afterwards.
    really a restatement wearing a reason, and whether a declared *run* (rather
    than a declared leaf-and-run pair) waives too much.
 
-0b. **`weeks` keeps an exception, with a different reason.** Sol's B1 offered two
-   closures and this takes the second: the count is rendered as a **word**, and
-   the cardinality mechanism counts digits, so it can only ever read `weeks` as
-   unpublished. The word is proved by its own control instead. Judge whether the
-   new reason describes an enforced invariant or merely a different hardcoding —
-   that is exactly the distinction the old reason failed.
+0b. **`weeks` keeps an exception, and its reason has now been wrong twice.** The
+   digit mechanism can only ever read `weeks` as unpublished, because the count
+   is rendered as a **word**. At r6 the reason said the per-site proof covered
+   all four sites that state it; at r7 Sol showed it covered three, and the
+   fourth said `ambas`. The reason now names the three sites it proves, says what
+   `DESIGNED_WEEK_COUNT` does **and does not** protect, and points at the
+   separate mechanism that covers a cardinality asserted in a non-number word.
+   The argument to have is whether that reason is now a description of enforced
+   invariants or a third sentence that reads as coverage — read it against the
+   two tests it names rather than on its own.
+
+0c. **`CARDINALITY_WORDS_ES` is a declared list, in a phase burned three times by
+   declared lists.** It holds `ambos`/`ambas` and the argument for it is that the
+   set is closed by the language rather than by the page: es-CL has one
+   productive family of determiners that fix a count with no number in them, and
+   it does not grow when the copy does. That is the distinction the file argues;
+   judge whether it holds, and whether the check being run only against the grown
+   surface (where asserting two is stale by construction) is the right scope or
+   an evasion. Its own limit is stated where it is declared: it cannot tell what
+   the determiner governs, so a future legitimate "ambos modos" would fail it.
 
 1. **The r5 answer to B1 did not close B1, and this is how it was found.** The
    round's own evidence — the PM's and the first executor's — was the pair
@@ -191,8 +243,8 @@ afterwards.
    file and line; the r5 executor report carries the list. The argument to have is
    whether a prose reason is the right carrier for a claim this load-bearing.
 
-3. **The guard is 1551 lines for one test file, and it is now larger than the
-   page it guards** (1151). Raised as a finding below rather than acted on.
+3. **The guard is 2091 lines for one test file, and it is now larger than the
+   page it guards** (1235). Raised as a finding below rather than acted on.
 
 4. **Six leaves are declared expected gaps rather than covered.** `id`,
    `dateLabel`, all of `visitDays` (top-level and per week) and `freeDays[1].date`
@@ -228,7 +280,7 @@ afterwards.
   reached for it — the page destructures `[immersionWeek, visitWeek]` and a
   one-element `COHORT_WEEKS` would throw — which is why the invariant test exists
   beside it.
-- **The guard file is too large.** Now 1987 lines, five declaration lists, five
+- **The guard file is too large.** Now 2091 lines, five declaration lists, five
   classification outcomes and three mutation strategies. Every piece of it was
   added in answer to a demonstrated false pass, so none of it is speculative — but
   it is now the largest single artifact of a phase whose scope is a page redesign,
@@ -272,10 +324,16 @@ afterwards.
 - **`id="dos-semanas"` and the section comment above it still say "dos".** Neither
   is buyer-visible; the anchor is deliberately untouched because A7a rewires site
   navigation and a renamed anchor fails silently by scrolling to the top.
-- **The rewritten long-weekend answer prints the month twice** — "del 10 de
-  octubre al 12 de octubre" — because `freeDayDates` holds full day-and-month
-  strings. It is the owner's specified wording and it matches the finde card,
-  which has read the same way since r1. Proposal, not applied: a range formatter
-  that drops the first month when both dates share one.
+- **The week cards still print their month twice** — "5 de octubre al 9 de
+  octubre" — while the long weekend now reads "10 al 12 de octubre". r7's range
+  formatter was applied to the two long-weekend surfaces only, which is the scope
+  the owner set; applying it to `weekRanges` would change a third rendered
+  surface and three more captures. The two treatments are visibly different in
+  `05-modos-*`, deliberately.
+- **`CARDINALITY_WORDS_ES` is checked only on the grown surface.** A word
+  asserting two is not stale on a two-week page, so the check has nothing to say
+  about the page as it ships; it fails when the module grows and the word does
+  not. That is the same shape as every other proof in the file, and it means a
+  cardinality word about something *other* than weeks would still fail it.
 </content>
 </invoke>

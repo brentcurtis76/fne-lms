@@ -92,6 +92,27 @@ visit order can vary, and the note restated it. `05-modos` and `13-programa` are
 through an es-CL number word instead of a literal, and at two weeks the rendered
 text is byte-identical to what r1 captured.
 
+**r7 re-rendered `00-full-*`, `05-modos-*` and `14-faq-open-*`, at all three
+widths.** Two rendered sentences moved. The long-weekend FAQ answer now opens
+*"El fin de semana largo suma 3 días libres, del 10 al 12 de octubre"*: it used
+to open *"Entre ambas semanas"*, which states the two-week shape as flatly as a
+number would and which the [A1] guard could not see, because `ambas` is not a
+number word — Sol's third FAIL. And both surfaces that print the long weekend
+fold the repeated month, so the yellow card's heading in `05-modos` reads `10 al
+12 de octubre` rather than `10 de octubre al 12 de octubre`.
+
+`14-faq-*` — the accordion as it loads, with only the first answer open — is
+**byte-identical** after re-rendering at all three widths: the question that
+changed is the fourth, and only its heading is visible there. It is left as r6
+rendered it. The captures the prompt named were 390 and 1280; 1440 was rendered
+too, because leaving it would have left three captures showing a sentence the
+page no longer contains.
+
+Nothing else moved. No other section is re-rendered, and the **week cards in
+`05-modos` still read `5 de octubre al 9 de octubre`** — the range formatter was
+applied to the long weekend only, which is the scope the owner set, so the two
+date treatments on that screen are deliberately different.
+
 ## Size
 
 19 MB across 54 PNGs. The photography-bearing captures are most of it. The set

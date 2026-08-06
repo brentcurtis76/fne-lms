@@ -201,8 +201,8 @@ interface PasantiasPageProps {
   ogImageUrl: string | null;
   /** es-CL date range per week of {@link COHORT_WEEKS}, same order. */
   weekRanges: string[];
-  /** es-CL date of each free day of {@link COHORT_FREE_DAYS}, same order. */
-  freeDayDates: string[];
+  /** es-CL range from the first free day of {@link COHORT_FREE_DAYS} to the last. */
+  freeDayRange: string;
 }
 
 /**
@@ -218,6 +218,32 @@ function formatDayMonth(isoDate: string): string {
     day: 'numeric',
     month: 'long',
   }).format(new Date(Date.UTC(year, month - 1, day)));
+}
+
+/**
+ * The same two dates as one range, with the month printed once when both dates
+ * share it: `10 al 12 de octubre` rather than `10 de octubre al 12 de octubre`.
+ * A long weekend that straddled two months would still read `30 de octubre al 2
+ * de noviembre`, so nothing is dropped that the reader needs.
+ *
+ * Used for the long weekend only — the finde card and the FAQ answer about it,
+ * which is why the two surfaces can be read side by side without one looking
+ * like an edit of the other. **The week cards are deliberately left alone.**
+ * Their ranges also share a month today (`5 de octubre al 9 de octubre`), so
+ * applying this there would change a third rendered surface; that was not the
+ * decision taken, and a range that names its month twice is not wrong, only
+ * longer.
+ *
+ * Both ends stay derived: this reformats the module's dates, it does not choose
+ * them.
+ */
+function formatDayMonthRange(startIsoDate: string, endIsoDate: string): string {
+  const sharesMonth = startIsoDate.slice(0, 7) === endIsoDate.slice(0, 7);
+  const start = sharesMonth
+    ? String(Number(startIsoDate.slice(8, 10)))
+    : formatDayMonth(startIsoDate);
+
+  return `${start} al ${formatDayMonth(endIsoDate)}`;
 }
 
 /**
@@ -316,7 +342,10 @@ export const getServerSideProps: GetServerSideProps<PasantiasPageProps> = async 
       weekRanges: COHORT_WEEKS.map(
         (week) => `${formatDayMonth(week.startDate)} al ${formatDayMonth(week.endDate)}`
       ),
-      freeDayDates: COHORT_FREE_DAYS.map((freeDay) => formatDayMonth(freeDay.date)),
+      freeDayRange: formatDayMonthRange(
+        COHORT_FREE_DAYS[0].date,
+        COHORT_FREE_DAYS[COHORT_FREE_DAYS.length - 1].date
+      ),
     },
   };
 };
@@ -438,7 +467,7 @@ export default function PasantiasPage({
   canonicalUrl,
   ogImageUrl,
   weekRanges,
-  freeDayDates,
+  freeDayRange,
 }: PasantiasPageProps) {
   const photos = PHOTOS;
   const portraits = PORTRAITS;
@@ -485,9 +514,8 @@ export default function PasantiasPage({
       question: '¿Qué pasa el fin de semana largo?',
       answer: (
         <>
-          Entre ambas semanas quedan {COHORT_FREE_DAYS.length} días libres, del {freeDayDates[0]} al{' '}
-          {freeDayDates[freeDayDates.length - 1]}: tiempo para descansar, recorrer Barcelona o
-          conocer Europa.
+          El fin de semana largo suma {COHORT_FREE_DAYS.length} días libres, del {freeDayRange}:
+          tiempo para descansar, recorrer Barcelona o conocer Europa.
         </>
       ),
     },
@@ -791,7 +819,7 @@ export default function PasantiasPage({
             >
               <span className={`${EYEBROW} text-brand_primary`}>Fin de semana largo</span>
               <h3 className="m-0 text-[20px] font-bold leading-[1.25] text-brand_primary">
-                {freeDayDates[0]} al {freeDayDates[freeDayDates.length - 1]}
+                {freeDayRange}
               </h3>
               <ul className="space-y-1.5 text-[15px] leading-[1.5] text-brand_primary">
                 {COHORT_FREE_DAYS.map((freeDay, index) => (

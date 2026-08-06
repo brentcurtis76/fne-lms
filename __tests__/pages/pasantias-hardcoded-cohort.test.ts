@@ -130,6 +130,30 @@
  *    is what the two cards can render, and a third week fails
  *    `renders every week the cohort has` rather than silently not appearing.
  *
+ * ## What r7 added
+ *
+ * **A cardinality asserted in a word that is not a number.** The long-weekend
+ * FAQ opened "Entre ambas semanas", and every mechanism above was blind to it:
+ * the source scan looks for module values, the render contract mutates leaves,
+ * and r6's week-count proof compares the indexed number words `dos` and `tres`.
+ * `ambas` is none of those and it asserts exactly two, so a three-week surface
+ * left it standing and the suite was green with a hardcoded cardinality on the
+ * page. r6 had declared that site covered by `DESIGNED_WEEK_COUNT`; it is not —
+ * that constant stops a *module-only* third week, and an intentional three-card
+ * redesign updates it by design and walks away leaving the sentence stale. The
+ * invariant forces attention, it does not make the fact come from the module.
+ *
+ * The sentence is now count-neutral, anchored on the long weekend it answers,
+ * so there is no week cardinality left in it to derive.
+ * {@link CARDINALITY_WORDS_ES} is what keeps it that way, and the reason it is
+ * a declared set of es-CL determiners rather than a list of this page's
+ * sentences is argued where it is declared.
+ *
+ * This is the third round running in which the finding was a **declaration**
+ * that was true of the code it described and false as a proof — `immersionDays`
+ * at r3, `tier` at r4, `weeks` here. The mechanisms have held since r5. Every
+ * reason in every list was re-read against the code again.
+ *
  * `it('the contract can fail', …)` proves the mechanism rather than asserting it
  * works: a string, a number and a short value are each pinned to their original
  * value while the module changes underneath — exactly what a hardcoded literal
@@ -1062,6 +1086,51 @@ function countWordOccurrences(surface: string, word: string): number {
 }
 
 /**
+ * es-CL words that assert a cardinality **without naming a number**.
+ *
+ * This is the r7 finding and it is a different shape from the one above.
+ * {@link COUNT_WORDS_ES} indexes number words by the number they are, so the
+ * per-site proof can ask whether "dos" left and "tres" arrived. `ambas` is not
+ * in that list and cannot be: it is not the name of a number, it is a
+ * determiner whose meaning *fixes* one. "Entre ambas semanas" states the
+ * two-week shape as flatly as "Dos semanas" does, and survived a three-week
+ * surface untouched because nothing here could see it.
+ *
+ * Why a declared set is acceptable where a phrase list is not — this phase has
+ * been burned three times by hand-enumerated guards, so the distinction has to
+ * hold up. A list of *this page's sentences* is open-ended: it grows with every
+ * paragraph anyone writes and is incomplete the moment it is written, which is
+ * how the leak scanner's separator list was wrong three times. This set is
+ * closed by the language instead of by the page. es-CL has one productive
+ * family of determiners that assert a count on their own — `ambos`/`ambas`,
+ * exactly two — and it does not acquire members when the copy changes. Nothing
+ * about the page is encoded here.
+ *
+ * Two limits, stated rather than assumed:
+ *
+ * - The set is checked only against the *grown* surface, where a word asserting
+ *   two is stale by construction. It cannot tell **what** the word counts, so a
+ *   future sentence that legitimately says "ambos modos" on a three-week page
+ *   would fail this. That is the trade taken deliberately: the alternative is
+ *   parsing what the determiner governs, and a guard nobody can read is worse
+ *   than one that occasionally asks for a rewrite.
+ * - It is asserted, not assumed. `catches a cardinality asserted as a word
+ *   rather than a number` restores the real `Entre ambas semanas` phrase onto a
+ *   three-week surface and requires this to name it.
+ */
+const CARDINALITY_WORDS_ES: { word: string; asserts: number }[] = [
+  { word: 'ambos', asserts: 2 },
+  { word: 'ambas', asserts: 2 },
+];
+
+/** Every word on `surface` that asserts a cardinality other than `count`. */
+function staleCardinalityWords(surface: string, count: number): string[] {
+  return CARDINALITY_WORDS_ES.filter(
+    ({ word, asserts }) => asserts !== count && countWordOccurrences(surface, word) > 0
+  ).map(({ word }) => word);
+}
+
+/**
  * The page published with the cohort grown to `weekCount` weeks, on the quiet
  * module.
  *
@@ -1320,7 +1389,7 @@ const UNCOUNTED_COLLECTIONS: { shape: string; reason: string }[] = [
   {
     shape: 'weeks',
     reason:
-      'The itinerary prints one named week card per week, each as a date range, and states how many there are in four places — the meta description, the section heading, the long-weekend FAQ and the CTA paragraph. Every one of them says it in words ("Dos semanas, dos modos"), and this mechanism counts digits, so it can only ever read the size as unpublished. The word is proved instead by `states how many weeks the cohort runs by reading the module, at every site` and the design\'s own cardinality is pinned by `renders every week the cohort has, or fails rather than dropping one` — so a third week fails the suite instead of rendering nothing. This exception is the limit of the digit mechanism, not permission to type the number in.',
+      'The itinerary prints one named week card per week, each as a date range, and states how many there are in three places — the meta description, the section heading and the CTA paragraph. All three say it in words ("Dos semanas, dos modos"), and this mechanism counts digits, so it can only ever read the size as unpublished. Those three are the ones `states how many weeks the cohort runs by reading the module, at every site` proves, and it proves them leaf-by-leaf: grown to three weeks, no site may still say "dos" and some site must say "tres", so one pinned site fails while the others stay wired. A fourth site used to state the count as `Entre ambas semanas` and that proof could not see it — `ambas` is not a number word — which is Sol\'s r7 B1. The FAQ now anchors on the long weekend and states no week cardinality at all; `states the count in no word a number word cannot replace` is what keeps it that way, and it is a separate mechanism from the number-word proof because it has to catch a word that names no number. Cardinality of the *design* is pinned by `renders every week the cohort has, or fails rather than dropping one`, which fails a third week rather than dropping the card — but note what that does and does not do: an intentional three-card redesign updates DESIGNED_WEEK_COUNT by design, so it is not what protects any of these sentences. This exception is the limit of the digit mechanism, not permission to type the number in.',
   },
   {
     shape: 'weeks..visitDays',
@@ -1745,6 +1814,23 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
       // say the number the module now has.
       expect([grown, countWordOccurrences(surface, grown) > 0]).toEqual([grown, true]);
     }, 30_000);
+
+    it('states the count in no word a number word cannot replace', async () => {
+      // Sol's r7 B1. The proof above can only ever ask whether one number word
+      // left and another arrived, so a cardinality asserted as `ambas` walked
+      // through it: the FAQ said "Entre ambas semanas" on a page whose other
+      // four sites were wired, and all 36 assertions were green.
+      //
+      // The page now anchors that sentence on the long weekend it answers and
+      // states no week cardinality at all, which is why there is nothing left
+      // here to derive. This is what keeps it that way — see
+      // {@link CARDINALITY_WORDS_ES} for why a declared set of es-CL
+      // determiners is not the hand-maintained phrase list this phase keeps
+      // being burned by.
+      const grownCount = DESIGNED_WEEK_COUNT + 1;
+
+      expect(staleCardinalityWords(await weekCountSurface(grownCount), grownCount)).toEqual([]);
+    }, 30_000);
   });
 
   /**
@@ -1874,10 +1960,10 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
     }, 30_000);
 
     it('catches a hardcoded date read through a length expression', async () => {
-      // The last free day is printed as `freeDayDates[freeDayDates.length - 1]`,
-      // twice — once in the long-weekend range and once in the Fiesta Nacional
-      // sentence. Nothing about that read prints the date unless the page asks
-      // it to.
+      // The last free day is the far end of the long-weekend range, which the
+      // page builds from `COHORT_FREE_DAYS[COHORT_FREE_DAYS.length - 1].date`
+      // and prints at two surfaces — the finde card and the FAQ answer.
+      // Nothing about that read prints the date unless the page asks it to.
       expect(await proofFor('freeDays[2].date')).toEqual(['freeDays[2].date']);
     }, 30_000);
 
@@ -1964,6 +2050,24 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
       );
 
       expect(countWordOccurrences(oneSitePinned, stale)).toBeGreaterThan(0);
+    }, 30_000);
+
+    it('catches a cardinality asserted as a word rather than a number', async () => {
+      // Sol's r7 B1, put back exactly as the page carried it at 073f0051 and
+      // planted the way the fragment control above plants a restatement: the
+      // sentence is gone from the page, so there is no leaf to pin and no
+      // module value to move — what is being proved is that the mechanism can
+      // *see* a cardinality stated in a word that is not a number, which is the
+      // one thing the "at every site" proof could not do.
+      //
+      // The word is restored onto the three-week surface, where asserting two
+      // is stale. Its own count word is left out on purpose: `ambas` is the
+      // whole finding, and a plant that also carried "dos" would be caught by
+      // the older mechanism and prove nothing about this one.
+      const grownCount = DESIGNED_WEEK_COUNT + 1;
+      const restored = `${await weekCountSurface(grownCount)} Entre ambas semanas quedan 3 días libres`;
+
+      expect(staleCardinalityWords(restored, grownCount)).toEqual(['ambas']);
     }, 30_000);
 
     it('catches hardcoded tier handling — the dark or light card treatment', async () => {

@@ -184,10 +184,42 @@
  * value never reaches the page contiguously — "10 al 12 de octubre" contains
  * neither "10 de octubre" nor "12 de octubre" as a run.
  *
- * Its two stated limits are {@link isRestatable} (short strings are ordinary
- * Spanish, at the source scan's own floor and for the source scan's own reason)
- * and {@link EXPECTED_RESTATEMENTS}, which is declared per *site count* so a
- * coincidence excuses the site it lives at and not the leaf.
+ * It applies at **every length** since r9, when Sol showed that the twelve
+ * characters it had inherited from the source scan left `COHORT_LODGING_AREA` —
+ * "Barcelona", printed at three sites — hardcodable at one of them with the
+ * whole guard green. Its one stated limit is now {@link EXPECTED_RESTATEMENTS},
+ * declared per *site count* so a coincidence excuses the site it lives at and
+ * not the leaf, at the price {@link restatementsOn} states: ordinary copy that
+ * gains or loses one of those words moves a count and reds the suite.
+ *
+ * ## What r9 added
+ *
+ * **A short value printed at several sites, typed in at one of them.** r8's rule
+ * was right and its floor was not. `COHORT_LODGING_AREA` is "Barcelona" — nine
+ * characters — printed at three sites, and replacing one of them with the
+ * literal left all 41 assertions green: the source scan and the fragment rule
+ * share the twelve-character floor, `provesRendered` only asks for rarer, and the
+ * restatement rule had inherited the floor along with the wording of its reason.
+ *
+ * The reason did not survive being re-read. A floor protects a **substring
+ * search over source text**, where a short value matches any sentence containing
+ * the word and nothing separates the two. The restatement rule is not that
+ * search: it asks whether a value the module **no longer holds** is still
+ * published, and it counts sites — so ordinary copy sharing the word is a fixed,
+ * declarable number and one more site is a literal. It was also accepted at r1
+ * on the strength of render-contract cover that r8 itself disproved for
+ * multi-site facts. The floor is gone from {@link restatementsOn}; the source
+ * scan and the fragment rule keep theirs, where the reason is still true.
+ *
+ * Removing it put single words in front of the rule for the first time and
+ * exposed a second defect in the quieting itself: the mark was appended per
+ * non-space token, so `Barcelona.` at the end of a module sentence became
+ * `Barcelona.zzq` and left `Barcelona` standing as a whole word on a module that
+ * held nothing. {@link markTokens} marks the word rather than the token. Both the
+ * fix and the removal are proved by `catches the lodging area hardcoded at one
+ * site while the others stay wired`, which pins each of the three real wired
+ * sites in turn onto the quiet surface and requires the leaf **and the site
+ * count** to be named.
  *
  * `it('the contract can fail', …)` proves the mechanism rather than asserting it
  * works: a string, a number and a short value are each pinned to their original
@@ -339,10 +371,18 @@ const EXPORT_BY_KEY: Record<string, string> = {
 
 /**
  * Below this, a string is as likely to be ordinary Spanish as it is to be a
- * planted cohort fact — "Barcelona", "ESO", "Cenas", "visita". Those are not
- * left uncovered: they are exactly what the render contract below is for. ISO
+ * planted cohort fact — "Barcelona", "ESO", "Cenas", "visita". The floor belongs
+ * to this scan and to {@link survivingFragments}, both of which search source or
+ * page text for a value and have nothing to tell a coincidence from a plant. ISO
  * dates are checked at any length because a calendar date typed into a page is
  * never a coincidence.
+ *
+ * What covers the short values is {@link restatementsOn}, which asks a different
+ * question — is a value the module no longer holds still published, and at how
+ * many sites — and so carries no floor at all. This comment used to name the
+ * render contract instead, and that was wrong twice over: r8 showed the render
+ * contract does not cover a value printed at several sites, and r9 found
+ * `COHORT_LODGING_AREA` hardcodable at one of its three sites underneath it.
  */
 const MIN_SCANNED_LENGTH = 12;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -386,6 +426,26 @@ type Overrides = Record<string, unknown>;
 
 /** A token suffix that survives HTML escaping and collides with nothing. */
 const MUTATION_MARK = 'zzq';
+
+/**
+ * Every word of a string marked, so none of it reads as itself any more.
+ *
+ * The mark goes after each run of **letters and digits**, not after each run of
+ * non-space. That distinction is the r9 finding and it is not cosmetic: a token
+ * is `Barcelona.` with its sentence-ending period, and `Barcelona.${MARK}`
+ * leaves `Barcelona` standing between a space and a period — whole word by any
+ * boundary rule this file has. `dayStructure[2].description` ends in "barrio de
+ * Eixample, Barcelona." (lib/pasantias/cohort-public.ts:344) and it answered a
+ * search for the lodging area on a module that was supposed to hold nothing.
+ *
+ * Nothing saw it while the restatement rule had a length floor, because every
+ * form long enough to be checked spanned more than one token and so contained a
+ * mark somewhere. Removing the floor is what put single words in front of it,
+ * and the honest fix is to mark the word rather than to declare the artifact.
+ */
+function markTokens(value: string): string {
+  return value.replace(/[\p{L}\p{N}]+/gu, (word) => `${word}${MUTATION_MARK}`);
+}
 
 /**
  * How far a number moves when it is mutated or quieted. Fractional on purpose:
@@ -516,7 +576,7 @@ function mutateValue(leaf: CohortLeaf): Primitive {
   // over-corrected — a suffix cannot move a value the page compares. The rule is
   // now the predicate rather than the cardinality of the field: `levels` is not
   // compared, so it is marked; `tier` is, so it is crossed.
-  return value.replace(/\S+/g, (token) => `${token}${MUTATION_MARK}`);
+  return markTokens(value);
 }
 
 function readPath(root: unknown, segments: (string | number)[]): unknown {
@@ -936,7 +996,7 @@ function quietValue(value: Primitive): Primitive {
 
   return ISO_DATE.test(value)
     ? `${value.slice(0, 8)}${String(MUTATION_DAY).padStart(2, '0')}`
-    : value.replace(/\S+/g, (token) => `${token}${MUTATION_MARK}`);
+    : markTokens(value);
 }
 
 function quietTree(node: unknown): unknown {
@@ -1176,28 +1236,6 @@ function restatesForm(site: string, form: string): boolean {
     );
 }
 
-/**
- * Whether this form of this leaf is evidence at all.
- *
- * The floor is {@link isScannable}'s, for {@link isScannable}'s reason and not
- * a second one tuned here: below it a string is as likely to be ordinary
- * Spanish as a planted fact, and that function names "Barcelona" and "visita"
- * as its own examples — which are exactly the two the page's copy publishes
- * while `lodgingArea` and the `tier` enum hold them. A date is exempt at any
- * length there and here, because a calendar date on a page is never a
- * coincidence, and a number is checked whatever its length: `9` is short and
- * `visitDayCount` is still a cohort fact.
- *
- * This is the limit of the rule, stated rather than papered over. A short
- * string restated at one of several sites is not visible here; it is visible to
- * the render contract, weakly, and to nothing else — the same hole the source
- * scan and the fragment rule already carry for the same stated reason.
- */
-function isRestatable(leaf: CohortLeaf, form: string): boolean {
-  if (typeof leaf.value !== 'string') return true;
-  return ISO_DATE.test(leaf.value) || form.length >= MIN_SCANNED_LENGTH;
-}
-
 interface Restatement {
   /** The leaf whose value is still on the page. */
   path: string;
@@ -1238,6 +1276,33 @@ function formatRestatement(found: Restatement): string {
  * {@link printsStaleSize} is this question for a collection's size and
  * {@link survivingFragments} is it for part of a string; this asks it for the
  * value itself, in every form the page can print it in, for every leaf.
+ *
+ * **Every form, at every length — there is no floor here, and that is Sol's
+ * r9 finding.** Until r9 this rule inherited {@link isScannable}'s twelve
+ * characters, on {@link isScannable}'s reason: below it a string is as likely to
+ * be ordinary Spanish as a planted fact. That reason belongs to a **substring
+ * search over source text**, where a short value matches any sentence
+ * containing the word and nothing can tell the two apart. This rule is not that
+ * search. It asks whether a value the module **no longer holds** is still
+ * published, and it counts the **sites** that publish it — so ordinary copy
+ * sharing the word is not indistinguishable noise, it is a fixed number of
+ * sites declared in {@link EXPECTED_RESTATEMENTS}, and a literal typed in beside
+ * it is one site more.
+ *
+ * The floor also outlived its premise. It was accepted at r1 because the render
+ * contract was believed to cover what the scan could not, and r8 established
+ * that the render contract does **not** cover a value printed at several sites —
+ * which is exactly the shape a short value has here. `COHORT_LODGING_AREA` is
+ * "Barcelona", nine characters, printed at `pages/pasantias.tsx:508`, `:892` and
+ * `:1087`; hardcoding one of the three left this whole guard green while the
+ * floor stood. `catches the lodging area hardcoded at one site while the others
+ * stay wired` is that exact attack, now committed.
+ *
+ * The price is real and is not tuned away: each declaration below carries a
+ * site count that ordinary copy moves, so a future sentence that says
+ * "Barcelona" reds this suite until someone updates the count. The two cheaper
+ * exits — restoring a floor, or exempting `lodgingArea` by path — are the ones
+ * that let a live cohort fact through.
  */
 function restatementsOn(surface: string): Restatement[] {
   const sites = surfaceSites(surface);
@@ -1245,7 +1310,6 @@ function restatementsOn(surface: string): Restatement[] {
   return LEAVES.flatMap((leaf) =>
     renderedForms(leaf.value)
       .filter((form, index, forms) => forms.indexOf(form) === index)
-      .filter((form) => isRestatable(leaf, form))
       .map((form) => ({
         path: leaf.path,
         form,
@@ -1725,10 +1789,28 @@ const EXPECTED_FRAGMENTS: { fragment: string; reason: string }[] = [
  * quieted module prose, whose text moves with {@link MUTATION_DAY} and the
  * mutation mark, so pinning the wording would pin things that are not the page.
  *
- * The thing not to do is widen {@link restatesForm} or raise
- * {@link isRestatable}'s floor until the list empties. That turns a stated
+ * The thing not to do is widen {@link restatesForm} or put a length floor back
+ * in front of {@link restatementsOn} until the list empties. That turns a stated
  * reason into whatever made the suite green, which is how the phrase list this
  * guard replaced got its holes.
+ *
+ * **What these counts cost, stated once here rather than discovered later.**
+ * Since r9 the rule reads short values too, so the entries below are counts over
+ * *ordinary page copy* and two ordinary things move them:
+ *
+ * - a copy edit that adds or removes the word — a new sentence containing
+ *   "Barcelona" makes the lodging-area count ten and reds this suite until
+ *   someone updates the number;
+ * - a **cohort data** change, on the one count whose sites are per-card. The
+ *   visit-school labels at `pages/pasantias.tsx:945` print one "Barcelona" per
+ *   card, so a sixth visit school moves the lodging-area count as surely as a
+ *   copy edit does.
+ *
+ * Both are the price of the count being falsifiable at all: the number is what
+ * makes "a coincidence lives where it lives" checkable, and a mechanism that
+ * tolerated a moving count would tolerate the literal too. The failure is loud,
+ * names the leaf and the number, and the fix is one digit — but it will land on
+ * someone who only edited a sentence, and that is worth knowing before it does.
  */
 const EXPECTED_RESTATEMENTS: { path: string; form: string; sites: number; reason: string }[] = [
   {
@@ -1738,6 +1820,26 @@ const EXPECTED_RESTATEMENTS: { path: string; form: string; sites: number; reason
     reason:
       'The WhatsApp number the contact block prints — WHATSAPP_DISPLAY, "+56 9 4162 3577" (pages/pasantias.tsx:126, rendered at :1226), whose mobile prefix stands alone between two spaces and is a bare 9 that has nothing to do with how many visit days the cohort has. Declared as one site rather than as an excuse for the leaf: COHORT_VISIT_DAY_COUNT is printed at the hero strip (:705) and in buildMetaDescription (:152), and a 9 typed into either of them makes this two sites and fails here.',
   },
+  {
+    path: 'lodgingArea',
+    form: 'Barcelona',
+    sites: 9,
+    reason:
+      'The city\'s name in the page\'s own copy, which is not the same thing as the cohort\'s lodging area even though the two strings are identical. Nine sites, each checked against the line: buildMetaDescription\'s positioning sentence "semanas viviendo escuelas de vanguardia en Barcelona" (pages/pasantias.tsx:152); the FAQ\'s "tiempo para descansar, recorrer Barcelona o conocer Europa" (:518); the section eyebrow "Por qué Barcelona" (:755); the finde card\'s "días para Barcelona o Europa" (:832); and the five visit-school cards, whose label is "Día completo — fuera de Barcelona" or "Visita en Barcelona" per card (:945, two full-day and three not). Declared as nine rather than as an excuse for the leaf: COHORT_LODGING_AREA is printed at the alojamiento FAQ answer (:508), the escuelas eyebrow (:892) and the programme card (:1087), and "Barcelona" typed into any one of those three makes this ten sites and fails here — which is what `catches the lodging area hardcoded at one site while the others stay wired` plants. The count also moves if a visit school is added or a sentence gains the word; see this list\'s note.',
+  },
+  // The five visit schools each hold `tier: 'visita'`, and each is declared on
+  // its own path at its own count. Written index by index rather than derived
+  // from COHORT_VISIT_SCHOOLS on purpose: a declaration generated from the
+  // module is satisfied by whatever the module says, which is the failure this
+  // phase keeps producing. A sixth visit school is undeclared and fails; a fifth
+  // removed leaves an orphan declaration and fails.
+  ...[0, 1, 2, 3, 4].map((index) => ({
+    path: `visitSchools[${index}].tier`,
+    form: 'visita',
+    sites: 2,
+    reason:
+      'Not the discriminator itself, but the page\'s own word for the category of school: "escuelas de visita" under the visit-week card (pages/pasantias.tsx:846) and the "Escuelas de visita" heading above the cards (:921). Both are lowercase "visita" in ordinary prose. The tier value reaches the page only as a branch — school.tier === \'inmersion\' (:426) — and is never printed, so a third site carrying the bare word is a literal and fails all five of these. The leaf keeps its stronger cover regardless: the render contract mutates a discriminator by crossing it to the other tier rather than by marking it (see predicateAlternative), so a card that stopped reading its tier is caught there.',
+  })),
 ];
 
 function matchesPrefix(path: string, pathPrefix: string): boolean {
@@ -2373,6 +2475,57 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
         );
 
         expect([site, named]).toEqual([site, true]);
+      }
+    }, 30_000);
+
+    it('catches the lodging area hardcoded at one site while the others stay wired', async () => {
+      // Sol's r9 B1, and the reason the restatement rule no longer has a length
+      // floor. COHORT_LODGING_AREA is "Barcelona" — nine characters — and while
+      // the floor stood, replacing one of the three wired sites with the literal
+      // left all 41 assertions green: the source scan and the fragment rule
+      // share the floor, and `provesRendered` only asked the value to get rarer,
+      // which the two remaining wired sites obliged.
+      //
+      // Pinned the way the date control above pins: a real page site is put back
+      // onto the quiet surface, one at a time, so nothing here is a string typed
+      // in this file. What makes it a hardcode is that the module no longer
+      // holds the value while that one site still prints it.
+      const leaf = leafAt('lodgingArea');
+      const form = String(leaf.value);
+
+      const live = surfaceSites(await publishedSurface({}, printedSurface));
+      // The same page with this one export quieted and nothing else touched, so
+      // every site the page writes without reading it comes out character for
+      // character the same.
+      const withoutLodging = surfaceSites(
+        await publishedSurface({ COHORT_LODGING_AREA: markTokens(form) }, printedSurface)
+      );
+
+      // A wired site is therefore one that prints the value and stops being
+      // itself when the module stops holding it — precisely the three sites that
+      // read COHORT_LODGING_AREA (pages/pasantias.tsx:508, :892, :1087). The
+      // nine others are the page's own copy, print "Barcelona" either way, and
+      // are declared rather than caught.
+      const wired = live.filter(
+        (site) => restatesForm(site, form) && !withoutLodging.includes(site)
+      );
+      expect(wired).toHaveLength(3);
+
+      const quiet = surfaceSites(await quietPrintedSurface());
+
+      const declared = new Set(EXPECTED_RESTATEMENTS.map(formatRestatement));
+      // Ten, not "some": the declaration says nine, and the whole point of the
+      // count is that one site more is a failure. A page that hardcoded all
+      // three would fail this harder; one site is the weak case that got through.
+      const expected = formatRestatement({ path: leaf.path, form, sites: 9 + 1 });
+
+      for (const site of wired) {
+        const pinned = `${quiet.join('\0')}\0${site}`;
+        const undeclared = restatementsOn(pinned)
+          .map(formatRestatement)
+          .filter((found) => !declared.has(found));
+
+        expect([site, undeclared.includes(expected)]).toEqual([site, true]);
       }
     }, 30_000);
 

@@ -39,12 +39,12 @@
  * and gate 5 is what makes that true now rather than eventually.
  *
  * `dial_in` (Z2-4e) is the ONLY widening this route has taken, and it is a widening
- * of outcome 7 alone: every refusal above is byte-identical to what it was before.
+ * of outcome 8 alone: every refusal above is byte-identical to what it was before.
  * See `lib/utils/meeting-dial-in.ts` for why the meeting number and passcode may
  * leave through THIS opening and nowhere else. It is absent — not empty, not an
  * error — whenever the tenant has no audio plan, which is the common case.
  *
- * Step 6 is a 200 on purpose. Approve enqueues provisioning and the projection
+ * Step 7 is a 200 on purpose. Approve enqueues provisioning and the projection
  * row lands seconds later (§8); the UI shows "Enlace en preparación" in that
  * window. "Not yet" is a legitimate answer to "how do I join", in the same
  * `mode` vocabulary §5 already uses — a 4xx would make the normal path look

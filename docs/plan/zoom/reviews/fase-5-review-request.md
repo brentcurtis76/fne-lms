@@ -2854,3 +2854,174 @@ values and not just agreement.
 - `SET search_path TO 'public'` on `get_bucket_summary` also makes it non-inlinable by the
   planner. Its callers all pass a single contract id and the plan is trivial; no measurable
   cost, but it is a real change to how the function is planned.
+
+---
+
+# Sol remediation — round r23 (items 4 and 9)
+
+**Branch** `feat/zoom-sess`, base `5d32a364`. Two items were dispatched together on the
+premise that they are one concern. **Item 4 is implemented. Item 9 is NOT — it is returned
+as a FINDINGS** with the evidence below, because the ruling as written reverses a
+deliberate, mandatory-CI-gated invariant in both directions and its blast radius lands
+entirely outside the five gates this round was told to run.
+
+## Item 4 — the source of truth closes the join · IMPLEMENTED
+
+### The closed set, and why
+
+`authorizeMeetingJoin` already reads the `consultor_sessions` row to answer the school and
+community questions. It now selects `status` and `modality` from that same row and carries
+them out on the `authorized` result as `source`. The route gates on them **immediately after
+authorization** — before the projection read, and before `zoom_internal` is addressed at all.
+No extra round trip.
+
+**Status — a `Record<SessionStatus, boolean>`, not a list.** This is a security boundary, so
+adding a value to `SessionStatus` must fail type-check until somebody classifies it rather
+than defaulting to whichever side is convenient.
+
+| Status | Closes join | Why |
+|---|---|---|
+| `borrador` | no | Pre-approval. §8: creating a session makes no Zoom call, so there is nothing provisioned yet. Must keep reaching `mode: 'pending'` — **"not yet" is not "no longer"**, and a draft told "Esta reunión ya no está disponible" is a lie. |
+| `pendiente_aprobacion` | no | Same. |
+| `programada` | no | Approved and scheduled — the normal join. |
+| `en_progreso` | no | Under way. The single most important status NOT to close, and the reason `PROVISION_ELIGIBLE_SESSION_STATUSES` (`['programada']`) could not simply be reused. |
+| `pendiente_informe` | **yes** | Surfaced to consultores as *"Sesión finalizada. Debe completar el informe y la asistencia."* The call is over; only paperwork remains. |
+| `completada` | **yes** | Over. |
+| `cancelada` | **yes** | The round's reason to exist. |
+
+**Modality — an allowlist, `['online', 'hibrida']`.** `presencial` is the only value that has
+nothing to join today, but an unrecognised modality must **refuse** rather than fall through
+to the credentials, so it is written as "not in the eligible set" rather than "in a closed
+set". `hibrida` is IN: a hybrid session has attendees joining remotely and is exactly as
+entitled to a link as an online one.
+
+It is a **separate constant** from `PROVISION_ELIGIBLE_MODALITIES` rather than an import —
+provisioning eligibility must be free to tighten without silently tightening who may join a
+meeting that already exists — and their equality is held by a contract test
+(`meeting-join-policy.test.ts`, "shares the provisioner vocabulary for modality") so the two
+cannot drift unnoticed. Importing `lib/zoom/jobs/meeting-provision.ts` into the route would
+also have pulled the whole provisioning pipeline into that function's bundle.
+
+### The ordering proof
+
+The claim is *credentials are not READ*, which a body assertion cannot prove. Three
+independent pieces:
+
+1. **A double that detonates on contact.** `zoomInternalSchema()` is stubbed to return a
+   client whose `from()` throws. On the cancelled-session path the route answers **410**; had
+   it addressed `zoom_internal`, the route's own `catch` would have turned the throw into a
+   500. 410 *is* the proof.
+2. **A negative control for that double** — the same throwing client on the joinable path
+   yields the 500, so the assertion above is not passing because the double is inert.
+3. **`tablesRead` is exactly `['consultor_sessions']`** on the refusal path: not
+   `zoom_meetings`, and not even `session_meetings_public`.
+
+### Ordering vs. the frozen denial semantics
+
+The gate runs **after** `authorizeMeetingJoin`, exactly where the projection check runs, so it
+cannot convert a 403/404 into a 410. Asserted directly: an other-school caller asking about a
+**cancelled** session still gets 404, and the GC member and same-school consultor still get
+their two distinct 403s. A second test compares each pre-existing refusal's **bytes** against
+the same persona on a live session and requires them equal.
+
+The seven documented outcomes are unchanged — the new gate shares the existing 410. The
+header's gate list was renumbered (5 → source of truth, 6 → projection, 7 → pending, 8 →
+link) and the two in-header references to the old numbers were updated with it.
+
+### Mutation probe
+
+- **Mutation A — gate moved to after the internal read.** `[K3]` fails: `expected 500 to be
+  410` (the throwing double fired). `[K1]`/`[K2]` still pass, correctly — moving the gate
+  changes *when the credentials are fetched*, not what the body carries. That the two
+  mutations fail different criteria is the point.
+- **Mutation B — gate deleted.** 8 failures: `[K1]` ×4 (`expected 200 to be 410` — the
+  original bug, an authorized caller getting a live link for a cancelled session),
+  `[K2]` ×3, `[K3]` ×1.
+- **Revert:** `git hash-object` on the route is `bc404414…` before and after; `git status
+  --porcelain` empty; both suites green again.
+
+## Item 9 — one policy across route and SSR · NOT IMPLEMENTED (FINDINGS)
+
+The ruling is grounded: PLAN §5 says in as many words that `authorizeMeetingJoin()` is *"used
+by both the join API and the `/meet` pages' getServerSideProps"*, and §14 lists `/meet` SSR as
+a kill-switch enforcement point. The problem is not the direction. It is that the change is
+**not the contained delegation the prompt models**, and the one suite that would catch what it
+actually does is not in this round's gates.
+
+`resolveMeetSessionAccess` gates on `canViewSession` — "may this user OPEN the session".
+`authorizeMeetingJoin` gates on the §5 join list — `session_attendees(expected) ∪
+session_facilitators ∪ admins`. Neither is a subset of the other, so swapping one for the
+other moves personas **in both directions**.
+
+`tests/e2e/zoom-join-authz.spec.ts` is a **mandatory** spec (`scripts/ci/e2e-mandatory.mjs`
+fails the gate if it is skipped) whose persona tiers are built on `canViewSession`. Against
+the seeded fixtures (`scripts/ci/e2e-fixtures.json`: `session` …501 has a facilitator and no
+attendees; `linkedSession` …502 has facilitator `consultorAssigned` and expected attendees
+`gcLeader` and `docente`):
+
+| Persona | Session | Today | Under the ruling | |
+|---|---|---|---|---|
+| `docente` (tier DENIED) | linked | 404 | **200 + the raw `meeting_link`** | expected attendee ⇒ authorized |
+| `gcLeader` (tier VIEW_ONLY) | unlinked | 200 | **404** | GC member, no attendee row ⇒ forbidden ⇒ notFound |
+| `consultorGlobal` (tier PRIVILEGED) | both | 200 | **404** | global consultor, not a facilitator ⇒ forbidden |
+| `admin`, `consultorAssigned` | both | 200 | 200 | unchanged |
+
+Three things make this more than a test update:
+
+1. **A spec exists whose entire purpose is to assert the opposite.** `"meet interstitial — an
+   attendee row is not view access"` — *"docente attends the linked session yet cannot open
+   it… A regression that started consulting attendance would show up here and nowhere else in
+   this suite."* The ruling makes an attendee row exactly the thing that grants access. That
+   test cannot be updated; it can only be deleted or inverted, and inverting it is a product
+   decision, not a refactor.
+2. **A persona classified DENIED newly receives a raw legacy meeting link.** `linkedSession`
+   carries `meetingProvider: 'otro'` — a hand-managed link, not a Zoom meeting. Applying §5's
+   *Zoom* join matrix to a non-Zoom surface is the category error underneath both directions
+   of movement: the interstitial serves the Z1a legacy link **and** the managed join, and the
+   join matrix was written for the second only.
+3. **A global consultor loses the interstitial**, for both a Zoom session and a legacy one.
+
+Item 9 also, as specified, silently reverses a Z1a product decision recorded in that spec's
+header — *"a GC leader who is denied the raw link in an API payload still gets it here,
+because here the access is re-checked server-side on every visit"* — and would ship it behind
+five gates none of which run Playwright. `[K10]` names five gates; e2e is not among them.
+
+### What I would propose instead
+
+Keep `canViewSession` as the gate on **page access** (it answers the page's question, and the
+e2e persona matrix stays true), and put `authorizeMeetingJoin` on the **join affordance**: the
+page renders `JoinMeetingButton` only when the join policy authorizes the caller, and renders
+the §14 disabled state when `FeatureFlags.ZOOM_MEETINGS` is off. That satisfies what item 9 is
+actually protecting — nothing Zoom-join-shaped is offered server-side to somebody the one join
+policy refuses, and the kill switch is enforced on SSR — while preserving all three behaviours
+§2 of the prompt says must survive, without re-tiering a legacy surface or touching a
+mandatory gate. It leaves two helpers, but they answer two genuinely different questions, and
+`lib/utils/meeting-join-policy.ts`'s own header argues at length that they must.
+
+If the PM's ruling stands as written instead, the round needs to be re-scoped to include
+`tests/e2e/zoom-join-authz.spec.ts`, `tests/e2e/helpers/session-personas.ts` and a Playwright
+gate, plus an explicit decision on whether the legacy `meeting_link` interstitial is governed
+by the Zoom join list.
+
+## Evidence
+
+- `npm run type-check && npm run lint && npm test && npm run build` — 0 · 0 ·
+  **4648 passed / 281 files** (was 4622 / 281; +26, none lost) · 0
+- `npm run test:db` — **Files=11, Tests=464**, Result: PASS (unchanged, as required — this
+  round adds no SQL)
+
+## Known limitations / open
+
+- **Item 9 not done.** `[K6]` `[K7]` `[K8]` not met — see above.
+- **The SSR page still does not enforce the kill switch**, which is the half of item 9 that
+  carries no persona-tier consequence at all and could have shipped alone. It is left with the
+  rest of the item rather than split, so the PM rules on one thing.
+- The interstitial does **not** get the source-of-truth 410 treatment. Out of this round's
+  criteria (`[K1]`–`[K5]` are all route-level), and unnecessary in practice: the page renders
+  no meeting facts, and `JoinMeetingButton` fetches per click from the route, which now
+  refuses. Worth a ruling if the page should stop rendering the button at all for a cancelled
+  session.
+- `authorizeMeetingJoin`'s `source` is the first non-authorization data the module carries
+  out. Deliberate and documented in its header — `status`/`modality` are two more columns of
+  the row it already reads, and the *gate* stays in the route — but it is a boundary a
+  reviewer should look at rather than take on trust.

@@ -66,7 +66,7 @@ Improve communication and sales of Pasantías INSPIRA Barcelona for the **Octobe
 | A6b | LeadForm (split consent) + wiring + e2e + a11y | **DONE 2026-08-07** (Sol PASS r2, zero findings; code head `20daf432`, 2 executor rounds, 2 Sol reviews) | `phase/a6b-form` | A5, A6r, T2 |
 | A7a | Site link rewiring + both INSPIRA flipbooks | TODO | `phase/a7a-links` | A6b |
 | A7b | contact.ts transport swap (Formspree→Resend) | **DONE 2026-07-31** (Codex PASS, zero findings; code `5e1940d`, PR #29) | `phase/a7b-contact` | — |
-| A8 | Admin leads triage (transition-enforced via API) | **IN PROGRESS** (r1 dispatched 2026-08-07) | `phase/a8-leads-ui` | A5, T2 |
+| A8 | Admin leads triage (transition-enforced via API) | **IN REVIEW** (PM clean after r2 2026-08-07; head `fd33706c`; awaiting Sol) | `phase/a8-leads-ui` | A5, T2 |
 | A9 | Track A release verification (integration e2e + evidence) | TODO | `phase/a9-verify` | A6b, A7a, A7b, A8 |
 | B1a | Expense-report mail moved server-side (recipients derived server-side) | **DONE 2026-07-31** (Codex PASS; code `f29c1ce`, PR #30) | `phase/b1a-expmail` | — |
 | B1b | Relay removal (`send-email.ts`, `test-email.ts`, sendgrid dep) | **DONE 2026-08-02** (Sol PASS r3; head `07ae6b1`, PR #32) | `phase/b1b-relay` | B1a |

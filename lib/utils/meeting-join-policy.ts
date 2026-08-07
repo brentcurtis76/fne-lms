@@ -40,12 +40,20 @@
  * learns anything about the meeting, or the join endpoint becomes an existence
  * oracle for meetings — so the ordering lives in the route, and this module is
  * the half that answers first.
+ *
+ * The `source` it carries out on an authorization is the one exception, and it
+ * is deliberately NOT meeting state: `status` and `modality` are two more
+ * columns of the `consultor_sessions` row this module already reads to decide
+ * the school and community questions. They travel with the decision so the
+ * route can gate on the source of truth without a second round trip — the
+ * decision stays here, the gate stays there. See `joinIsClosedBySource`.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getUserRoles, getHighestRole } from '../../utils/roleUtils';
 import { getConsultorAccess } from './session-policy';
 import { Validators } from '../types/api-auth.types';
+import type { SessionModality, SessionStatus } from '../types/consultor-sessions.types';
 
 /** How the caller joins. Descriptive only — never a credential. See header. */
 export type MeetingJoinRole = 'host' | 'participant';
@@ -68,14 +76,89 @@ export const NOT_IN_ATTENDEES_MESSAGE =
 export const CONSULTOR_NOT_FACILITATOR_MESSAGE =
   'No tienes acceso para unirte a esta reunión.';
 
+/**
+ * The two `consultor_sessions` columns that decide whether the session is still
+ * something one can join at all, carried out with an authorization. Typed as
+ * plain strings, not the unions: these are database values, and a row that has
+ * drifted from the enum must be describable rather than unrepresentable.
+ */
+export interface MeetingJoinSource {
+  status: string;
+  modality: string;
+}
+
 export type MeetingJoinAuthorization =
   | { kind: 'unauthenticated' }
   | { kind: 'not-found' }
   | { kind: 'forbidden'; reason: MeetingJoinDenialReason; message: string }
-  | { kind: 'authorized'; sessionId: string; role: MeetingJoinRole };
+  | {
+      kind: 'authorized';
+      sessionId: string;
+      role: MeetingJoinRole;
+      source: MeetingJoinSource;
+    };
 
 /** Single shared value so every not-found path is byte-identical. */
 const NOT_FOUND: MeetingJoinAuthorization = { kind: 'not-found' };
+
+/**
+ * Which `consultor_sessions.status` values close the join, exhaustively.
+ *
+ * A `Record<SessionStatus, …>` rather than a list on purpose: this is a
+ * security boundary, and adding a value to `SessionStatus` must fail
+ * type-check here until somebody classifies it, instead of silently landing on
+ * whichever side the default happens to be.
+ */
+export const SESSION_STATUS_CLOSES_JOIN: Record<SessionStatus, boolean> = {
+  // Pre-approval. §8 is explicit that creating a session makes no Zoom call, so
+  // there is nothing provisioned to join yet — and "not yet" is a different
+  // answer from "no longer". These stay open so the route keeps reaching its
+  // `mode: 'pending'` outcome rather than telling a draft it has expired.
+  borrador: false,
+  pendiente_aprobacion: false,
+  // The two states a meeting is legitimately joined from: approved and
+  // scheduled, and under way.
+  programada: false,
+  en_progreso: false,
+  // At or past the end. `pendiente_informe` is surfaced to consultores as
+  // "Sesión finalizada. Debe completar el informe y la asistencia." — the call
+  // is over and only the paperwork is left, so a live link is as wrong here as
+  // it is for a completed one.
+  pendiente_informe: true,
+  completada: true,
+  cancelada: true,
+};
+
+/**
+ * Modalities with a remote leg. Deliberately the same set as
+ * `PROVISION_ELIGIBLE_MODALITIES` (lib/zoom/jobs/meeting-provision.ts) — what
+ * may be provisioned is exactly what may be joined, and the two are held equal
+ * by a contract test rather than by a shared import, so the join gate cannot be
+ * moved by an unrelated change to provisioning eligibility.
+ *
+ * An allowlist, not a denylist: `presencial` is the only value that has nothing
+ * to join today, but an unrecognised modality must refuse rather than fall
+ * through to the credentials.
+ */
+export const JOIN_ELIGIBLE_MODALITIES: readonly SessionModality[] = ['online', 'hibrida'];
+
+/**
+ * Does the SOURCE OF TRUTH say this session can no longer be joined?
+ *
+ * Cancelling a session writes `consultor_sessions` and *enqueues*
+ * `meeting_delete`; a modality flip to `presencial` does the same. Both the
+ * `session_meetings_public` projection and `zoom_internal.zoom_meetings`
+ * converge after the fact, so a gate built on them alone leaves a window in
+ * which the session is over and the credentials are still live. §15's exit
+ * criterion is "cancel kills join", not "cancel kills join eventually".
+ */
+export function joinIsClosedBySource(source: MeetingJoinSource): boolean {
+  if (SESSION_STATUS_CLOSES_JOIN[source.status as SessionStatus] === true) {
+    return true;
+  }
+
+  return !(JOIN_ELIGIBLE_MODALITIES as readonly string[]).includes(source.modality);
+}
 
 /**
  * Resolve join authorization for a consultor session, per the §5 matrix.
@@ -102,13 +185,20 @@ export async function authorizeMeetingJoin(params: {
 
   const { data: session, error } = await service
     .from('consultor_sessions')
-    .select('id, school_id, growth_community_id, is_active')
+    .select('id, school_id, growth_community_id, is_active, status, modality')
     .eq('id', sessionId)
     .maybeSingle();
 
   if (error || !session) {
     return NOT_FOUND;
   }
+
+  // Both columns are NOT NULL on the table (`modality` additionally CHECKed to
+  // the three-value vocabulary), so this is a read, not a defaulting.
+  const source: MeetingJoinSource = {
+    status: String(session.status),
+    modality: String(session.modality),
+  };
 
   const userRoles = await getUserRoles(service, userId);
   const highestRole = getHighestRole(userRoles);
@@ -118,7 +208,7 @@ export async function authorizeMeetingJoin(params: {
   }
 
   if (highestRole === 'admin') {
-    return { kind: 'authorized', sessionId, role: 'host' };
+    return { kind: 'authorized', sessionId, role: 'host', source };
   }
 
   // Same is_active rule as the interstitial and GET /api/sessions/[id]: only
@@ -137,7 +227,7 @@ export async function authorizeMeetingJoin(params: {
 
   // Facilitator is checked before attendee: someone who is both runs the call.
   if (facilitatorRow) {
-    return { kind: 'authorized', sessionId, role: 'host' };
+    return { kind: 'authorized', sessionId, role: 'host', source };
   }
 
   const { data: attendeeRow } = await service
@@ -149,7 +239,7 @@ export async function authorizeMeetingJoin(params: {
     .maybeSingle();
 
   if (attendeeRow) {
-    return { kind: 'authorized', sessionId, role: 'participant' };
+    return { kind: 'authorized', sessionId, role: 'participant', source };
   }
 
   // Active member of this session's growth community, but not on the roster.

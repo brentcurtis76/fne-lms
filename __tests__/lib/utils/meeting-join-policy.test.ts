@@ -29,9 +29,13 @@ vi.mock('../../../utils/roleUtils', async (importOriginal) => {
 
 import {
   authorizeMeetingJoin,
+  joinIsClosedBySource,
+  JOIN_ELIGIBLE_MODALITIES,
+  SESSION_STATUS_CLOSES_JOIN,
   NOT_IN_ATTENDEES_MESSAGE,
   CONSULTOR_NOT_FACILITATOR_MESSAGE,
 } from '../../../lib/utils/meeting-join-policy';
+import { PROVISION_ELIGIBLE_MODALITIES } from '../../../lib/zoom/jobs/meeting-provision';
 
 const SESSION_ID = '3f1c5f5e-0f1a-4d3e-9a11-2b6c8f0d1e22';
 const MISSING_SESSION_ID = '4a2d6060-1020-4e4f-8b22-3c7d9e1f2a33';
@@ -47,12 +51,22 @@ const GC_USER_ID = 'u-gc-member-0001';
 const CONSULTOR_USER_ID = 'u-consultor-0001';
 const OUTSIDER_USER_ID = 'u-outsider-0001';
 
+/**
+ * A live, joinable session. `status` and `modality` are NOT NULL columns the
+ * policy reads and carries out to the route's source-of-truth gate (Sol item
+ * 4), so a fixture without them would describe a row Postgres cannot hold.
+ */
 const sessionRow = {
   id: SESSION_ID,
   school_id: SCHOOL_ID,
   growth_community_id: COMMUNITY_ID,
   is_active: true,
+  status: 'programada',
+  modality: 'online',
 };
+
+/** What every authorization below carries out of the live fixture. */
+const LIVE_SOURCE = { status: 'programada', modality: 'online' };
 
 /**
  * A seeded row: the column values it actually carries (`match` — what Postgres
@@ -208,7 +222,7 @@ describe('authorizeMeetingJoin — the §5 persona matrix [A1]', () => {
       highestRole: 'admin',
     });
 
-    expect(result).toEqual({ kind: 'authorized', sessionId: SESSION_ID, role: 'host' });
+    expect(result).toEqual({ kind: 'authorized', sessionId: SESSION_ID, role: 'host', source: LIVE_SOURCE });
   });
 
   it('assigned facilitator → authorized, host', async () => {
@@ -219,7 +233,7 @@ describe('authorizeMeetingJoin — the §5 persona matrix [A1]', () => {
       isFacilitator: true,
     });
 
-    expect(result).toEqual({ kind: 'authorized', sessionId: SESSION_ID, role: 'host' });
+    expect(result).toEqual({ kind: 'authorized', sessionId: SESSION_ID, role: 'host', source: LIVE_SOURCE });
   });
 
   it('expected attendee → authorized, participant', async () => {
@@ -230,7 +244,7 @@ describe('authorizeMeetingJoin — the §5 persona matrix [A1]', () => {
       isExpectedAttendee: true,
     });
 
-    expect(result).toEqual({ kind: 'authorized', sessionId: SESSION_ID, role: 'participant' });
+    expect(result).toEqual({ kind: 'authorized', sessionId: SESSION_ID, role: 'participant', source: LIVE_SOURCE });
   });
 
   it('active GC member NOT in attendees → 403 naming the attendee list', async () => {
@@ -397,7 +411,7 @@ describe('authorizeMeetingJoin — edges', () => {
       highestRole: 'admin',
       session: archived,
     });
-    expect(admin).toEqual({ kind: 'authorized', sessionId: SESSION_ID, role: 'host' });
+    expect(admin).toEqual({ kind: 'authorized', sessionId: SESSION_ID, role: 'host', source: LIVE_SOURCE });
   });
 
   it('a facilitator who is also an expected attendee joins as host', async () => {
@@ -409,7 +423,7 @@ describe('authorizeMeetingJoin — edges', () => {
       isExpectedAttendee: true,
     });
 
-    expect(result).toEqual({ kind: 'authorized', sessionId: SESSION_ID, role: 'host' });
+    expect(result).toEqual({ kind: 'authorized', sessionId: SESSION_ID, role: 'host', source: LIVE_SOURCE });
   });
 
   it('a global consultor (school_id NULL) gets the consultor 403, not a 404', async () => {
@@ -513,7 +527,7 @@ describe('authorizeMeetingJoin — the roster lookups are bound to their filters
       highestRole: 'docente',
       attendee: { userId: ATTENDEE_USER_ID },
     });
-    expect(attendee).toEqual({ kind: 'authorized', sessionId: SESSION_ID, role: 'participant' });
+    expect(attendee).toEqual({ kind: 'authorized', sessionId: SESSION_ID, role: 'participant', source: LIVE_SOURCE });
 
     const facilitator = await run({
       userId: FACILITATOR_USER_ID,
@@ -521,6 +535,78 @@ describe('authorizeMeetingJoin — the roster lookups are bound to their filters
       highestRole: 'consultor',
       facilitator: { userId: FACILITATOR_USER_ID },
     });
-    expect(facilitator).toEqual({ kind: 'authorized', sessionId: SESSION_ID, role: 'host' });
+    expect(facilitator).toEqual({ kind: 'authorized', sessionId: SESSION_ID, role: 'host', source: LIVE_SOURCE });
+  });
+});
+
+/**
+ * Sol item 4 — the closed set the route's source-of-truth gate is built on.
+ *
+ * Asserted at the vocabulary level, exhaustively over `SessionStatus`, because
+ * the route can only be as correct as this classification is: a status that
+ * silently lands on the wrong side is a live `join_url` for a session that is
+ * over, and no route-level test would name it.
+ */
+describe('joinIsClosedBySource — the closed set [item 4]', () => {
+  const ONLINE = 'online';
+
+  it('classifies every SessionStatus, and the partition is the documented one', () => {
+    // Object.keys over the Record is the exhaustiveness check with teeth: the
+    // type forces a new enum value to be classified, and this forces the test
+    // to notice it was.
+    expect(Object.keys(SESSION_STATUS_CLOSES_JOIN).sort()).toEqual(
+      [
+        'borrador',
+        'cancelada',
+        'completada',
+        'en_progreso',
+        'pendiente_aprobacion',
+        'pendiente_informe',
+        'programada',
+      ].sort()
+    );
+
+    const closed = Object.entries(SESSION_STATUS_CLOSES_JOIN)
+      .filter(([, isClosed]) => isClosed)
+      .map(([status]) => status)
+      .sort();
+
+    expect(closed).toEqual(['cancelada', 'completada', 'pendiente_informe']);
+  });
+
+  for (const [status, isClosed] of Object.entries(SESSION_STATUS_CLOSES_JOIN)) {
+    it(`status '${status}' ${isClosed ? 'closes' : 'does not close'} the join`, () => {
+      expect(joinIsClosedBySource({ status, modality: ONLINE })).toBe(isClosed);
+    });
+  }
+
+  it('refuses every modality without a remote leg, and admits the two that have one', () => {
+    expect(joinIsClosedBySource({ status: 'programada', modality: 'online' })).toBe(false);
+    expect(joinIsClosedBySource({ status: 'programada', modality: 'hibrida' })).toBe(false);
+    expect(joinIsClosedBySource({ status: 'programada', modality: 'presencial' })).toBe(true);
+  });
+
+  it('refuses an unrecognised modality rather than falling through to the credentials', () => {
+    // The column is CHECKed to three values, so this is drift insurance: the
+    // modality half is an allowlist precisely so a value nobody classified
+    // cannot end up handing out a link.
+    expect(joinIsClosedBySource({ status: 'programada', modality: 'SYNTHETIC_UNKNOWN' })).toBe(true);
+    expect(joinIsClosedBySource({ status: 'programada', modality: '' })).toBe(true);
+  });
+
+  it('closes on status even when the modality is impeccable, and vice versa', () => {
+    expect(joinIsClosedBySource({ status: 'cancelada', modality: 'online' })).toBe(true);
+    expect(joinIsClosedBySource({ status: 'programada', modality: 'presencial' })).toBe(true);
+    expect(joinIsClosedBySource({ status: 'cancelada', modality: 'presencial' })).toBe(true);
+  });
+
+  /**
+   * The join gate and the provisioner must agree on what "has a remote leg"
+   * means. They are separate constants on purpose — provisioning eligibility is
+   * allowed to tighten without silently tightening who may join a meeting that
+   * already exists — so their equality is asserted rather than assumed.
+   */
+  it('shares the provisioner vocabulary for modality', () => {
+    expect([...JOIN_ELIGIBLE_MODALITIES].sort()).toEqual([...PROVISION_ELIGIBLE_MODALITIES].sort());
   });
 });

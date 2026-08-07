@@ -21,9 +21,22 @@
  *                                     must not reveal anything either)
  *   4. `authorizeMeetingJoin()`     → 404 / 403 per the §5 matrix
  *   -- authorization resolved; only past this line may meeting state be read --
- *   5. projection cancelled/ended   → 410, for EVERY persona including admin
- *   6. no joinable meeting row yet  → 200 { mode: 'pending' }
- *   7. otherwise                    → 200 { mode: 'link', join_url, role, dial_in? }
+ *   5. source of truth says the     → 410, for EVERY persona including admin,
+ *      session is over or is no        BEFORE any meeting row is touched
+ *      longer online
+ *   6. projection cancelled/ended   → 410, for EVERY persona including admin
+ *   7. no joinable meeting row yet  → 200 { mode: 'pending' }
+ *   8. otherwise                    → 200 { mode: 'link', join_url, role, dial_in? }
+ *
+ * Gate 5 shares gate 6's outcome — the seven outcomes are unchanged, and 410 is
+ * still the one answer for a meeting that is gone. What is new is WHERE it can
+ * be reached from: `consultor_sessions` is written synchronously by cancel and
+ * by a modality flip, while both gate 6's projection and gate 7's
+ * `zoom_internal` row converge afterwards. Gating on those alone left a window
+ * in which an AUTHORIZED caller — a real facilitator, not an intruder — was
+ * handed a live `join_url`, passcode and dial-in set for a session the platform
+ * already considered cancelled. §15's exit criterion is "cancel kills join",
+ * and gate 5 is what makes that true now rather than eventually.
  *
  * `dial_in` (Z2-4e) is the ONLY widening this route has taken, and it is a widening
  * of outcome 7 alone: every refusal above is byte-identical to what it was before.
@@ -56,7 +69,10 @@ import {
 } from '../../../../../lib/api-auth';
 import { HttpStatus } from '../../../../../lib/types/api-auth.types';
 import { sendSessionNotFound } from '../../../../../lib/utils/session-denials';
-import { authorizeMeetingJoin } from '../../../../../lib/utils/meeting-join-policy';
+import {
+  authorizeMeetingJoin,
+  joinIsClosedBySource,
+} from '../../../../../lib/utils/meeting-join-policy';
 import { isFeatureEnabled, FeatureFlags } from '../../../../../lib/featureFlags';
 import { createZoomServiceClient, zoomInternalSchema } from '../../../../../lib/zoom/service-client';
 import { buildJoinDialIn } from '../../../../../lib/utils/meeting-dial-in';
@@ -143,6 +159,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // ---- authorization resolved. Meeting state may now be read. ----
+
+    // The source of truth answers FIRST. `decision.source` is the `status` and
+    // `modality` of the `consultor_sessions` row the policy already read, so
+    // this costs no round trip — and it runs before the projection read and, the
+    // part that matters, before `zoom_internal` is addressed at all. Credentials
+    // for a session that is over must not be FETCHED, never mind returned.
+    if (joinIsClosedBySource(decision.source)) {
+      return sendAuthError(res, MEETING_CLOSED_MESSAGE, 410);
+    }
 
     const { data: projection, error: projectionError } = await service
       .from('session_meetings_public')

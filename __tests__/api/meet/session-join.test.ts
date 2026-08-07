@@ -49,6 +49,7 @@ vi.mock('../../../lib/zoom/service-client', () => ({
 }));
 
 import handler from '../../../pages/api/meet/session/[id]/join';
+import { SESSION_STATUS_CLOSES_JOIN } from '../../../lib/utils/meeting-join-policy';
 
 const SESSION_ID = '3f1c5f5e-0f1a-4d3e-9a11-2b6c8f0d1e22';
 const MISSING_SESSION_ID = '4a2d6060-1020-4e4f-8b22-3c7d9e1f2a33';
@@ -70,11 +71,18 @@ const JOIN_URL = 'https://example.test/j/900000001?pwd=SYNTHETIC_PWD';
 const PASSCODE = 'SYNTHETIC_PWD';
 const MEETING_NUMBER = 900000001;
 
+/**
+ * A live, joinable session. `status` and `modality` are NOT NULL columns the
+ * route now gates on before it touches any meeting row (item 4); a fixture
+ * without them would describe a row Postgres cannot hold.
+ */
 const sessionRow = {
   id: SESSION_ID,
   school_id: SCHOOL_ID,
   growth_community_id: COMMUNITY_ID,
   is_active: true,
+  status: 'programada',
+  modality: 'online',
 };
 
 const gcRole = {
@@ -792,5 +800,230 @@ describe('POST /api/meet/session/[id]/join — read failures never become a link
     const res = await post();
 
     expect(res._getStatusCode()).toBe(500);
+  });
+});
+
+/**
+ * Sol item 4 — the source of truth is what closes the join.
+ *
+ * The window this closes: cancelling a session writes `consultor_sessions` and
+ * ENQUEUES `meeting_delete`. Until that job runs, `session_meetings_public`
+ * still says `scheduled` and `zoom_internal.zoom_meetings` still holds a live
+ * `join_url`, passcode, meeting number and dial-in set. Every scenario below
+ * reproduces exactly that state — the projection stale, the credentials intact
+ * — and the caller is an AUTHORIZED one, because an intruder was never the
+ * problem here.
+ */
+describe('POST /api/meet/session/[id]/join — the source of truth closes the join [item 4]', () => {
+  /** The projection saying "joinable" while the source row says otherwise. */
+  const STALE_PROJECTION = { meeting_status: 'scheduled' };
+
+  /** Every authorized persona, since a cancelled session is gone for all of them. */
+  const authorizedPersonas: Array<[string, () => void, Scenario]> = [
+    ['admin', asAdmin, {}],
+    ['assigned facilitator', asFacilitator, { isFacilitator: true }],
+    ['expected attendee', asAttendee, { isExpectedAttendee: true }],
+  ];
+
+  for (const [label, persona, extra] of authorizedPersonas) {
+    it(`[K1] a CANCELLED session refuses ${label} while the projection still says joinable`, async () => {
+      arrange({
+        ...extra,
+        session: { ...sessionRow, status: 'cancelada' },
+        projection: STALE_PROJECTION,
+        meeting: dialInMeeting,
+      });
+      persona();
+
+      const res = await post();
+      const body = res._getData();
+
+      expect(res._getStatusCode()).toBe(410);
+      expect(JSON.parse(body).error).toBe('Esta reunión ya no está disponible');
+
+      // The four values the stale internal row is still holding. Asserted on the
+      // serialized body, so a leak through an unexpected key is caught too.
+      expect(body).not.toContain(JOIN_URL);
+      expect(body).not.toContain(PASSCODE);
+      expect(body).not.toContain(String(MEETING_NUMBER));
+      expect(body).not.toContain(DIAL_IN_NUMBER_A);
+      expect(body).not.toContain(DIAL_IN_NUMBER_B);
+    });
+
+    it(`[K2] a flip to 'presencial' refuses ${label} on the same stale state`, async () => {
+      arrange({
+        ...extra,
+        session: { ...sessionRow, modality: 'presencial' },
+        projection: STALE_PROJECTION,
+        meeting: dialInMeeting,
+      });
+      persona();
+
+      const res = await post();
+      const body = res._getData();
+
+      expect(res._getStatusCode()).toBe(410);
+      expect(body).not.toContain(JOIN_URL);
+      expect(body).not.toContain(PASSCODE);
+      expect(body).not.toContain(String(MEETING_NUMBER));
+      expect(body).not.toContain(DIAL_IN_NUMBER_A);
+    });
+  }
+
+  it('[K1] every status the closed set names refuses, and the open ones do not', async () => {
+    for (const [status, isClosed] of Object.entries(SESSION_STATUS_CLOSES_JOIN)) {
+      arrange({
+        session: { ...sessionRow, status },
+        projection: STALE_PROJECTION,
+        meeting: provisionedMeeting,
+      });
+      asAdmin();
+
+      const res = await post();
+
+      expect(res._getStatusCode(), `status '${status}'`).toBe(isClosed ? 410 : 200);
+      if (isClosed) {
+        expect(res._getData(), `status '${status}'`).not.toContain(JOIN_URL);
+      }
+    }
+  });
+
+  it('[K3] the credentials are not READ on the refusal path, not merely not returned', async () => {
+    arrange({
+      session: { ...sessionRow, status: 'cancelada' },
+      projection: STALE_PROJECTION,
+      meeting: dialInMeeting,
+    });
+    // A double that detonates on contact. `mockInternalClient` is what
+    // `zoomInternalSchema()` hands the route, so this fails the test if the
+    // route addresses `zoom_internal` at all — the ordering claim is that the
+    // refusal is reachable with the internal row fully populated and untouched.
+    mockInternalClient = {
+      from: (table: string) => {
+        tablesRead.push(table);
+        throw new Error(`zoom_internal.${table} was addressed on a refusal path`);
+      },
+    };
+    asAdmin();
+
+    const res = await post();
+
+    expect(res._getStatusCode()).toBe(410);
+    // Not a 500: had the throwing double been reached, the route's catch would
+    // have turned it into one. 410 is the proof it was never called.
+    expect(tablesRead).not.toContain('zoom_meetings');
+    // And the gate runs before the projection read too, so the whole tail of
+    // the route is unreached.
+    expect(tablesRead).not.toContain('session_meetings_public');
+    expect(tablesRead).toEqual(['consultor_sessions']);
+  });
+
+  it('[K3] the same throwing double DOES detonate on the joinable path — it is not inert', async () => {
+    // The negative control for the assertion above: if the double could never
+    // fire, `expect(410)` would prove nothing about ordering.
+    arrange({ projection: STALE_PROJECTION, meeting: dialInMeeting });
+    mockInternalClient = {
+      from: (table: string) => {
+        tablesRead.push(table);
+        throw new Error(`zoom_internal.${table} was addressed on a refusal path`);
+      },
+    };
+    asAdmin();
+
+    const res = await post();
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(tablesRead).toContain('zoom_meetings');
+  });
+
+  it('[K4] a refusal that already existed does not become a 410', async () => {
+    // The order rule: the source-of-truth gate runs AFTER authorization, so it
+    // can never convert a 403/404 into a 410 — the other-school caller must not
+    // learn that this session was cancelled, which is a fact about a session
+    // they may not know exists.
+    for (const [label, persona, expected] of [
+      ['other-school', asOtherSchoolUser, 404],
+      ['growth-community member', asGcMember, 403],
+      ['same-school consultor', asSameSchoolConsultor, 403],
+    ] as Array<[string, () => void, number]>) {
+      arrange({
+        session: { ...sessionRow, status: 'cancelada' },
+        projection: STALE_PROJECTION,
+        meeting: dialInMeeting,
+      });
+      persona();
+
+      const res = await post();
+
+      expect(res._getStatusCode(), label).toBe(expected);
+      expect(res._getData(), label).not.toContain(JOIN_URL);
+    }
+  });
+
+  it('[K4] every pre-existing refusal is byte-identical to itself on a live session', async () => {
+    // The baseline is the suite's own live fixture: the same persona, the same
+    // scenario, once with the session live and once with it cancelled. The
+    // bytes are compared against each other, so this fails if the new gate
+    // moved a single character of an existing denial.
+    for (const [label, persona] of [
+      ['other-school', asOtherSchoolUser],
+      ['growth-community member', asGcMember],
+      ['same-school consultor', asSameSchoolConsultor],
+    ] as Array<[string, () => void]>) {
+      arrange({ meeting: dialInMeeting });
+      persona();
+      const live = await post();
+      const liveStatus = live._getStatusCode();
+      const liveBody = live._getData();
+
+      arrange({
+        session: { ...sessionRow, status: 'cancelada' },
+        projection: STALE_PROJECTION,
+        meeting: dialInMeeting,
+      });
+      persona();
+      const cancelled = await post();
+
+      expect(cancelled._getStatusCode(), label).toBe(liveStatus);
+      expect(cancelled._getData(), label).toBe(liveBody);
+    }
+  });
+
+  it('[K5] the happy path is untouched — a live online session still yields the link', async () => {
+    arrange({ meeting: dialInMeeting });
+    asAdmin();
+
+    const res = await post();
+
+    expect(res._getStatusCode()).toBe(200);
+    const payload = JSON.parse(res._getData()).data;
+    expect(payload.mode).toBe('link');
+    expect(payload.join_url).toBe(JOIN_URL);
+    expect(payload.role).toBe('host');
+    expect(payload.dial_in.meeting_number).toBe(String(MEETING_NUMBER));
+  });
+
+  it("[K5] a 'hibrida' session is as joinable as an online one", async () => {
+    arrange({ session: { ...sessionRow, modality: 'hibrida' }, meeting: provisionedMeeting });
+    asAdmin();
+
+    const res = await post();
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(JSON.parse(res._getData()).data.mode).toBe('link');
+  });
+
+  it("a draft session still answers 'pending', not 410 — 'not yet' is not 'no longer'", async () => {
+    arrange({
+      session: { ...sessionRow, status: 'borrador' },
+      projection: null,
+      meeting: null,
+    });
+    asAdmin();
+
+    const res = await post();
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(JSON.parse(res._getData())).toEqual({ data: { mode: 'pending' } });
   });
 });

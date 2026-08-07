@@ -17,6 +17,7 @@ import '@testing-library/jest-dom';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { LEAD_STATUSES, canTransitionLead } from '../../../lib/pasantias/leads';
+import { formatDateTime } from '../../../lib/signups';
 import {
   LEAD_STATUS_LABELS,
   PasantiaLeadCard,
@@ -25,6 +26,12 @@ import {
 } from '../../../components/admin/PasantiaLeadCard';
 
 const LEAD_ID = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+
+/** Shared by the source-level assertions ([A-new-3], r2 B1/S1). */
+const pageSource = readFileSync(
+  join(__dirname, '..', '..', '..', 'pages', 'admin', 'pasantia-leads.tsx'),
+  'utf8'
+);
 
 function makeLead(overrides: Partial<PasantiaLead> = {}): PasantiaLead {
   return {
@@ -193,11 +200,6 @@ describe('attribution ([A-new-2])', () => {
 });
 
 describe('CSV export path ([A-new-3])', () => {
-  const pageSource = readFileSync(
-    join(__dirname, '..', '..', '..', 'pages', 'admin', 'pasantia-leads.tsx'),
-    'utf8'
-  );
-
   it('exports through lib/exportUtils', () => {
     expect(pageSource).toMatch(/from '\.\.\/\.\.\/lib\/exportUtils'/);
     expect(pageSource).toContain('ReportExporter.exportToCSV');
@@ -211,5 +213,88 @@ describe('CSV export path ([A-new-3])', () => {
     expect(pageSource).not.toMatch(/new Blob\(/);
     expect(pageSource).not.toContain('text/csv');
     expect(pageSource).not.toContain('createObjectURL');
+  });
+});
+
+describe('brochure_sent_at label (r2 B1)', () => {
+  it('says "Programa enviado" in all three places, byte-identical, and never "Ficha"', () => {
+    // The label names the document the auto-reply actually mails — the priced
+    // programme — never the price-free ficha the visitor downloads themselves.
+    // Capitalized "Ficha" is what a UI label would carry; the common noun in
+    // comments stays lowercase.
+    expect(pageSource).not.toContain('Ficha');
+
+    // Export row key, table header and EMPTY_EXPORT_ROW: exactly three
+    // occurrences of the same quoted literal. `ReportExporter.exportToCSV`
+    // uses headers as both printed text and row-key path, so the three must
+    // stay byte-identical or the CSV silently exports a blank column.
+    expect(pageSource.match(/'Programa enviado'/g)).toHaveLength(3);
+  });
+});
+
+describe('single set of ids per lead (r2 S1)', () => {
+  it('the page namespaces its two always-mounted layouts', () => {
+    // Tailwind hides one layout with CSS; it does not unmount it. Distinct
+    // prefixes are what keep htmlFor bound to the *visible* control.
+    expect(pageSource).toContain('domPrefix="desktop-"');
+    expect(pageSource).toContain('domPrefix="mobile-"');
+  });
+
+  it('two mounts with the page prefixes emit unique ids and testids', () => {
+    const lead = makeLead();
+    const { container } = render(
+      <div>
+        <PasantiaLeadCard
+          lead={lead}
+          domPrefix="desktop-"
+          onStatusChange={vi.fn()}
+          onNotesSave={vi.fn()}
+        />
+        <PasantiaLeadCard
+          lead={lead}
+          domPrefix="mobile-"
+          onStatusChange={vi.fn()}
+          onNotesSave={vi.fn()}
+        />
+      </div>
+    );
+
+    const ids = Array.from(container.querySelectorAll('[id]')).map((el) => el.id);
+    expect(ids.length).toBeGreaterThan(0);
+    expect(new Set(ids).size).toBe(ids.length);
+
+    const testIds = Array.from(container.querySelectorAll('[data-testid]')).map((el) =>
+      el.getAttribute('data-testid')
+    );
+    expect(testIds.length).toBeGreaterThan(0);
+    expect(new Set(testIds).size).toBe(testIds.length);
+
+    // Every label points at exactly one control — the one beside it.
+    const labels = Array.from(container.querySelectorAll('label')) as HTMLLabelElement[];
+    expect(labels.length).toBeGreaterThan(0);
+    for (const label of labels) {
+      expect(label.htmlFor).toBeTruthy();
+      expect(container.querySelectorAll(`[id="${label.htmlFor}"]`)).toHaveLength(1);
+    }
+  });
+});
+
+describe('programme-sent timestamp on the shared card (r2 S2)', () => {
+  it('renders the sent timestamp under "Programa enviado"', () => {
+    const sentAt = '2026-08-05T15:30:00.000Z';
+    renderCard(makeLead({ brochure_sent_at: sentAt }));
+
+    expect(screen.getByText('Programa enviado')).toBeInTheDocument();
+    // Exact textContent, not toHaveTextContent: the es-CL formatter emits a
+    // narrow no-break space that whitespace normalization would mangle.
+    expect(screen.getByTestId(`lead-brochure-sent-${LEAD_ID}`).textContent).toBe(
+      formatDateTime(sentAt)
+    );
+  });
+
+  it('shows the — empty state when nothing has been sent', () => {
+    renderCard(makeLead({ brochure_sent_at: null }));
+
+    expect(screen.getByTestId(`lead-brochure-sent-${LEAD_ID}`)).toHaveTextContent('—');
   });
 });

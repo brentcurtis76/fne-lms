@@ -137,6 +137,13 @@ function Field({
 export interface PasantiaLeadCardProps {
   lead: PasantiaLead;
   busy?: boolean;
+  /**
+   * Namespaces every `id` and `data-testid` this card emits. The admin page
+   * mounts the card in BOTH its layouts (Tailwind hides one with CSS, it does
+   * not unmount it), so each mount must pass a distinct prefix or the document
+   * ends up with duplicate ids and `htmlFor` binds to the hidden one.
+   */
+  domPrefix?: string;
   onStatusChange: (lead: PasantiaLead, next: LeadStatus) => void;
   onNotesSave: (lead: PasantiaLead, notes: string) => void;
 }
@@ -144,6 +151,7 @@ export interface PasantiaLeadCardProps {
 export function PasantiaLeadCard({
   lead,
   busy = false,
+  domPrefix = '',
   onStatusChange,
   onNotesSave,
 }: PasantiaLeadCardProps) {
@@ -154,13 +162,14 @@ export function PasantiaLeadCard({
     setNotes(lead.notes ?? '');
   }, [lead.id, lead.notes]);
 
+  const dom = (name: string) => `${domPrefix}${name}-${lead.id}`;
   const transitions = allowedLeadTransitions(lead.status);
   const repeatsUtm = sourcePathRepeatsUtm(lead);
 
   return (
     <div className="space-y-4 border-t border-gray-100 bg-gray-50 p-4 text-sm">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Field label="Mensaje" value={lead.message} testId={`lead-message-${lead.id}`} />
+        <Field label="Mensaje" value={lead.message} testId={dom('lead-message')} />
         <Field label="Cargo" value={lead.role_title} />
         <Field label="Participantes" value={lead.num_people ?? null} />
         <Field label="Cohorte" value={lead.cohort} />
@@ -173,7 +182,7 @@ export function PasantiaLeadCard({
                 }`
               : null
           }
-          testId={`lead-consent-${lead.id}`}
+          testId={dom('lead-consent')}
         />
         <Field
           label="Marketing"
@@ -183,6 +192,17 @@ export function PasantiaLeadCard({
               : 'No'
           }
         />
+        {/*
+          "Programa enviado", not the ficha: the timestamp is stamped by the
+          auto-reply that mails the priced programme (`sendLeadAutoReply` →
+          BROCHURE_PATH). The ficha is the price-free public download and is
+          never emailed (D-02).
+        */}
+        <Field
+          label="Programa enviado"
+          value={formatDateTime(lead.brochure_sent_at)}
+          testId={dom('lead-brochure-sent')}
+        />
       </div>
 
       <div className="border-t border-gray-200 pt-4">
@@ -190,12 +210,12 @@ export function PasantiaLeadCard({
           Atribución
         </div>
         <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="UTM source" value={lead.utm_source} testId={`lead-utm-source-${lead.id}`} />
-          <Field label="UTM medium" value={lead.utm_medium} testId={`lead-utm-medium-${lead.id}`} />
+          <Field label="UTM source" value={lead.utm_source} testId={dom('lead-utm-source')} />
+          <Field label="UTM medium" value={lead.utm_medium} testId={dom('lead-utm-medium')} />
           <Field
             label="UTM campaign"
             value={lead.utm_campaign}
-            testId={`lead-utm-campaign-${lead.id}`}
+            testId={dom('lead-utm-campaign')}
           />
           {/*
             Text, never a link: the value is stored exactly as the browser
@@ -204,7 +224,7 @@ export function PasantiaLeadCard({
           <Field
             label="Ruta de origen"
             value={lead.source_path}
-            testId={`lead-source-path-${lead.id}`}
+            testId={dom('lead-source-path')}
           />
         </div>
         <p className="mt-2 text-xs text-gray-500">
@@ -212,7 +232,7 @@ export function PasantiaLeadCard({
           enlace.
         </p>
         {repeatsUtm && (
-          <p className="mt-1 text-xs text-gray-500" data-testid={`lead-attribution-shared-${lead.id}`}>
+          <p className="mt-1 text-xs text-gray-500" data-testid={dom('lead-attribution-shared')}>
             Esta ruta ya incluye los mismos parámetros UTM: es una sola observación anotada dos
             veces, no dos señales de atribución distintas.
           </p>
@@ -223,20 +243,20 @@ export function PasantiaLeadCard({
         <div>
           <label
             className="text-xs uppercase tracking-wide text-gray-500"
-            htmlFor={`lead-status-${lead.id}`}
+            htmlFor={dom('lead-status')}
           >
             Cambiar estado
           </label>
           {transitions.length === 0 ? (
             <div
               className="mt-1 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-600"
-              data-testid={`lead-status-final-${lead.id}`}
+              data-testid={dom('lead-status-final')}
             >
               Estado final: no admite más cambios.
             </div>
           ) : (
             <select
-              id={`lead-status-${lead.id}`}
+              id={dom('lead-status')}
               value=""
               disabled={busy}
               onChange={(event) => {
@@ -245,7 +265,7 @@ export function PasantiaLeadCard({
                   onStatusChange(lead, next);
                 }
               }}
-              data-testid={`lead-status-select-${lead.id}`}
+              data-testid={dom('lead-status-select')}
               className="mt-1 min-h-[40px] w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-[#0a0a0a] focus:ring-2 focus:ring-[#fbbf24]/70 disabled:opacity-50"
             >
               <option value="">Selecciona un estado</option>
@@ -261,25 +281,25 @@ export function PasantiaLeadCard({
         <div>
           <label
             className="text-xs uppercase tracking-wide text-gray-500"
-            htmlFor={`lead-notes-${lead.id}`}
+            htmlFor={dom('lead-notes')}
           >
             Notas internas
           </label>
           <textarea
-            id={`lead-notes-${lead.id}`}
+            id={dom('lead-notes')}
             value={notes}
             maxLength={2000}
             rows={3}
             disabled={busy}
             onChange={(event) => setNotes(event.target.value)}
-            data-testid={`lead-notes-${lead.id}`}
+            data-testid={dom('lead-notes')}
             className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-[#0a0a0a] focus:ring-2 focus:ring-[#fbbf24]/70 disabled:opacity-50"
           />
           <button
             type="button"
             onClick={() => onNotesSave(lead, notes)}
             disabled={busy}
-            data-testid={`lead-notes-save-${lead.id}`}
+            data-testid={dom('lead-notes-save')}
             className="mt-2 inline-flex items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? (

@@ -91,3 +91,27 @@ Also worth a look, lower stakes: the `[A-new-3]` source guard lives in the card 
 - **Notes save is a button, not autosave**, and the page refetches after every PATCH rather than patching state in place. Simple and correct; slightly chatty.
 - **No pagination.** The list renders everything the API returns. At lead volumes this is right; it is the first thing that will need revisiting.
 - Out-of-scope defects left alone: `pages/api/admin/users.ts:295` (backlogged) and the pre-existing `lint:testid` baseline.
+
+---
+
+# r2 — remediation round (B1 + S1 + S2)
+
+**Branch:** `phase/a8-leads-ui`, one commit on top of r1's `2448322a`. The r1 section above still describes the bulk of the phase; r2 changed three files: `pages/admin/pasantia-leads.tsx`, `components/admin/PasantiaLeadCard.tsx`, `__tests__/components/admin/pasantia-lead-card.test.tsx`. Everything the r1 review cleared — the API route, transition enforcement, the search sanitizer, the counts query, the CSV neutralization path, the seeder, the e2e spec — is untouched.
+
+## What changed and why
+
+- **B1 (BLOCKING) — the label named the wrong document.** `brochure_sent_at` was labelled "Ficha enviada", but the *ficha* is the price-free public download (`pages/pasantias.tsx` → `/api/pasantias/ficha`, price-free by construction, D-02) and nothing stamps a column when it is downloaded. The column is stamped by the auto-reply that mails **the priced programme** (`sendLeadAutoReply` → `BROCHURE_PATH`, body: "Descargar el programa"). Renamed to **`Programa enviado`** in all three places — CSV export row key, table header, `EMPTY_EXPORT_ROW` — which must stay byte-identical because `ReportExporter.exportToCSV` uses headers as both printed text and row-key path. Pinned by a source-level test: zero occurrences of capitalized "Ficha" in the page, exactly three of the quoted literal `'Programa enviado'`.
+- **S1 — both layouts mount, so the card rendered twice.** The desktop table (`hidden md:block`) and mobile list (`md:hidden`) are both in the DOM; an expanded lead mounted `PasantiaLeadCard` twice, duplicating every `id` and `data-testid`, and `htmlFor` bound to the hidden desktop control — on a phone the visible labels focused nothing. **Shape chosen: a `domPrefix` prop** (`"desktop-"` / `"mobile-"`), not the single-mount-outside-both-containers option. Reason: both layouts expand *in place*, adjacent to the tapped "Detalle" control; a single card rendered after both containers would land below the entire list — offscreen on exactly the small-screen hardware `CLAUDE.md` names. That is the "layout fights you" case the prompt carved out. Default `''` keeps every r1 test byte-identical. Pinned by tests: the page passes both prefixes (source-level), and two mounts with those prefixes emit zero duplicate `id`s/`data-testid`s, with every `label.htmlFor` resolving to exactly one element.
+- **S2 — an [A2] column was unreachable on a phone.** `brochure_sent_at` appeared only in the desktop table. Added a `Programa enviado` field to the shared card (in the Consentimiento/Marketing group), `formatDateTime` + the `—` empty state `Field` already provides. Pinned by tests for both the populated and null cases.
+
+## What the reviewer should scrutinise in r2
+
+1. **The `domPrefix` choice over single-mount.** The duplication is now namespaced, not structurally impossible. If you think the placement regression of single-mount was acceptable, this is the disagreement to have. Note the two mounts also mean two independent notes-draft `useState`s; only one is ever visible, so a draft is only lost on a mid-edit viewport resize.
+2. **The B1 test's shape.** "No capitalized `Ficha`" plus "exactly 3 × `'Programa enviado'`" is a source-level pin, not a behavioural one; comments deliberately use the lowercase common noun "ficha" to stay out of its way. A count of 3 will need updating if a column is ever legitimately added to all three structures — that is the pin working, not breaking.
+3. **Future e2e selectors must now pick a prefix** (`desktop-`/`mobile-`). The r1 spec is unaffected (it selects on institution text and page-level testids, which are unprefixed).
+
+## Test evidence (r2)
+
+- Targeted: `npx vitest run __tests__/api/admin/pasantia-leads.test.ts __tests__/components/admin/pasantia-lead-card.test.tsx` — **43/43** (r1: 38; +5 new, none removed).
+- Full gates re-run: see the ledger r2 entry for counts.
+- E2E: still not executed locally (same shared-stack constraint as r1); the card testid changes do not touch anything the spec selects.

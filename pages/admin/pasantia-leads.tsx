@@ -165,7 +165,10 @@ export default function PasantiaLeadsAdminPage() {
         Cargo: lead.role_title ?? '',
         Participantes: lead.num_people ?? '',
         Estado: LEAD_STATUS_LABELS[lead.status as LeadStatus] ?? lead.status,
-        'Ficha enviada': formatDateTime(lead.brochure_sent_at),
+        // "Programa enviado", never the ficha: `brochure_sent_at` is stamped
+        // by the auto-reply that mails the PRICED programme; the ficha is the
+        // price-free public download and is never emailed (D-02).
+        'Programa enviado': formatDateTime(lead.brochure_sent_at),
         Mensaje: lead.message ?? '',
         'UTM source': lead.utm_source ?? '',
         'UTM medium': lead.utm_medium ?? '',
@@ -314,7 +317,7 @@ export default function PasantiaLeadsAdminPage() {
                         'Cargo',
                         'Personas',
                         'Estado',
-                        'Ficha enviada',
+                        'Programa enviado',
                         '',
                       ].map((label, index) => (
                         <th
@@ -370,9 +373,16 @@ export default function PasantiaLeadsAdminPage() {
                         {expandedId === lead.id && (
                           <tr>
                             <td colSpan={10} className="p-0">
+                              {/*
+                                Both layouts stay mounted (Tailwind only hides
+                                one with CSS), so each mount namespaces its ids
+                                and testids or `htmlFor` binds to the hidden
+                                desktop control.
+                              */}
                               <PasantiaLeadCard
                                 lead={lead}
                                 busy={saving}
+                                domPrefix="desktop-"
                                 onStatusChange={handleStatusChange}
                                 onNotesSave={handleNotesSave}
                               />
@@ -425,6 +435,7 @@ export default function PasantiaLeadsAdminPage() {
                       <PasantiaLeadCard
                         lead={lead}
                         busy={saving}
+                        domPrefix="mobile-"
                         onStatusChange={handleStatusChange}
                         onNotesSave={handleNotesSave}
                       />
@@ -450,7 +461,7 @@ const EMPTY_EXPORT_ROW = {
   Cargo: '',
   Participantes: '',
   Estado: '',
-  'Ficha enviada': '',
+  'Programa enviado': '',
   Mensaje: '',
   'UTM source': '',
   'UTM medium': '',

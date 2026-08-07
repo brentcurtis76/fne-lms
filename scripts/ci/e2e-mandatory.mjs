@@ -32,6 +32,10 @@ export const MANDATORY_SPECS = [
   // its heading levels are a cross-page contract. CI runs only the specs on this
   // list, which means a guard that is not on it is a guard that never runs.
   'tests/e2e/footer-heading-order.spec.ts',
+  // A6b — the lead form: what the browser posts (strict boolean consent, no
+  // marketing opt-in unless clicked), that a failed client validation sends
+  // nothing, and that a server error loses none of the visitor's answers.
+  'tests/e2e/pasantias-form.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

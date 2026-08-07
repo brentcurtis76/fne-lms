@@ -24,6 +24,7 @@ import type { GetServerSideProps } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
 import Footer from '../components/Footer';
+import LeadForm from '../components/pasantias/LeadForm';
 import { getAppBaseUrl } from '../lib/utils/app-url';
 import { PASANTIAS_IMAGE_PATHS } from '../lib/pasantias/image-manifest';
 import type { CohortSchool } from '../lib/pasantias/cohort-public';
@@ -128,12 +129,6 @@ const WHATSAPP_MESSAGE = `Hola, quiero información sobre las Pasantías INSPIRA
 const WHATSAPP_HREF = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;
 
 const FICHA_HREF = '/api/pasantias/ficha';
-
-const PROGRAMA_MAILTO = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
-  `Programa completo — Pasantías INSPIRA Barcelona ${COHORT_LABEL}`
-)}&body=${encodeURIComponent(
-  'Hola:\n\nQuiero recibir el programa completo de las Pasantías INSPIRA Barcelona.\n\nNombre:\nColegio o institución:\nCargo:\nTeléfono:\n'
-)}`;
 
 const PAGE_PATH = '/pasantias';
 const PAGE_TITLE = `Pasantías INSPIRA Barcelona · ${COHORT_HEADLINE} | Fundación Nueva Educación`;
@@ -1091,15 +1086,13 @@ export default function PasantiasPage({
         </section>
 
         {/*
-          ============ #programa — INTERIM PANEL, REPLACED IN A6b ============
-          The delivered design puts a full request form in this column. A6b owns
-          the form's behaviour — the lead table, the split consent evidence and
-          the API route are all its scope — so this round ports the section's
-          treatment and keeps A6a's interim mailto. Shipping inputs that look
-          live and submit nowhere would be worse than the panel.
-          A6b swaps the right-hand column for `components/pasantias/LeadForm.tsx`
-          and keeps the `id="programa"` anchor and the section boundary intact so
-          the hero CTA and every other link keep working across that swap.
+          ============ #programa ============
+          A6b replaced A6a's interim mailto panel with the real request form.
+          `components/pasantias/LeadForm.tsx` owns everything about the
+          submission; this section owns only where it sits. The `id="programa"`
+          anchor, the section boundary and the ficha CTA all survived that swap
+          — the ficha moved into the left column so it stays reachable while the
+          right column is showing the form's own confirmation.
         */}
         <section
           id="programa"
@@ -1132,22 +1125,14 @@ export default function PasantiasPage({
                 Escríbenos y te enviamos el programa detallado de la pasantía, con el itinerario de
                 las {weekCount} semanas, las escuelas y las condiciones de participación.
               </p>
-            </div>
-
-            <div className={`${CARD_DARK} border border-white/20 lg:self-start`}>
-              <p className="text-[15px] leading-[1.6] text-white/80">
-                Mientras habilitamos el formulario, la vía directa es el correo del equipo. Cuéntanos
-                quién eres, tu colegio y cuántas personas viajarían.
-              </p>
-              <div className="mt-7 flex flex-col gap-3">
-                <a href={PROGRAMA_MAILTO} className={BUTTON_ACCENT} data-testid="pasantias-cta-mailto">
-                  Escríbenos a {CONTACT_EMAIL}
-                </a>
+              <div className="mt-7">
                 <a href={FICHA_HREF} className={BUTTON_GHOST_DARK} data-testid="pasantias-cta-ficha-programa">
                   Descarga la ficha (PDF)
                 </a>
               </div>
             </div>
+
+            <LeadForm />
           </div>
         </section>
 

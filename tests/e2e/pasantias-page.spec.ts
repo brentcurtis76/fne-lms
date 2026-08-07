@@ -222,10 +222,16 @@ test.describe('pasantías landing page', () => {
     const whatsappHref = await page.getByTestId('pasantias-cta-whatsapp').getAttribute('href');
     expect(whatsappHref).toContain('https://wa.me/56941623577');
 
-    // The interim panel A6b replaces: a mailto to the FNE inbox, at #programa.
+    // A6b replaced the interim mailto panel with the real form. The hero CTA
+    // still points at the section, and the section now holds the form; the
+    // ficha CTA that shared the panel survived the swap into the left column.
     await expect(page.getByTestId('pasantias-cta-programa')).toHaveAttribute('href', '#programa');
-    const mailtoHref = await page.getByTestId('pasantias-cta-mailto').getAttribute('href');
-    expect(mailtoHref).toContain('mailto:info@nuevaeducacion.org');
+    await expect(page.getByTestId('pasantias-lead-form')).toBeVisible();
+    await expect(page.getByTestId('pasantias-cta-mailto')).toHaveCount(0);
+    await expect(page.getByTestId('pasantias-cta-ficha-programa')).toHaveAttribute(
+      'href',
+      '/api/pasantias/ficha'
+    );
   });
 
   test('no price token appears anywhere in the rendered page (D-02)', async ({ page }) => {

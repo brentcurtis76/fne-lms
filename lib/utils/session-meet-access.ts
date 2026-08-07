@@ -22,6 +22,13 @@
  * provider the scheduler happened to pick. A persona who may view but may not
  * join now gets the same answer for both providers.
  *
+ * The SESSION-STATE rule is the same shape and was the half left unfinished: a
+ * cancelled session, or one flipped to `presencial`, answers 410 on the join
+ * route — while this page went on rendering the pasted link for it to an
+ * authorized persona. `joinIsClosedBySource()` (the join route's own gate 5) now
+ * decides that here too, so both providers close at the same moment for the same
+ * reason, and one closed set governs the route and the page alike.
+ *
  * The link is therefore withheld from the PROPS, not merely from the markup:
  * page props are serialised into `__NEXT_DATA__`, so a conditional render would
  * ship the URL to the very persona it is withheld from.
@@ -30,7 +37,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getUserRoles, getHighestRole } from '../../utils/roleUtils';
 import { canViewSession, SessionAccessContext } from './session-policy';
-import { authorizeMeetingJoin } from './meeting-join-policy';
+import {
+  authorizeMeetingJoin,
+  joinIsClosedBySource,
+  MEETING_CLOSED_MESSAGE,
+} from './meeting-join-policy';
 import { isFeatureEnabled, FeatureFlags } from '../featureFlags';
 import { Validators } from '../types/api-auth.types';
 
@@ -39,12 +50,18 @@ import { Validators } from '../types/api-auth.types';
  *
  *  - `allowed`  — `authorizeMeetingJoin()` authorized them.
  *  - `denied`   — they may open the page and may not join, either provider.
+ *  - `closed`   — the SOURCE OF TRUTH says this session is over or is no longer
+ *    online (cancelled, finished, flipped to `presencial`). About the session,
+ *    not about the viewer: the join route already answers 410 here for every
+ *    persona, and until now the page still handed the same persona a pasted
+ *    link for the same session. Reached only past authorization, so it discloses
+ *    nothing to anyone the join list refused.
  *  - `disabled` — §14's master kill switch is off, so there is no Zoom join to
  *    offer. Strictly narrower than `denied`: it is only ever reached by a
  *    viewer who WOULD be allowed, so the flag's state is never disclosed to a
  *    persona the join list already refused.
  */
-export type MeetJoinAccess = 'allowed' | 'denied' | 'disabled';
+export type MeetJoinAccess = 'allowed' | 'denied' | 'closed' | 'disabled';
 
 /**
  * Shown to a viewer the join list refuses for a reason that carries no remedy.
@@ -78,7 +95,7 @@ export interface MeetSessionView {
   is_zoom_managed: boolean;
   /** §5 join list, resolved for this viewer against THIS session. */
   join_access: MeetJoinAccess;
-  /** es-CL copy for the refusal; set iff `join_access` is `denied`. */
+  /** es-CL copy for the refusal; set iff `join_access` is `denied` or `closed`. */
   join_denial_message: string | null;
 }
 
@@ -168,12 +185,20 @@ export async function resolveMeetSessionAccess(params: {
   // AFTER authorization — see `MeetJoinAccess` — and only for the managed path:
   // the flag governs Zoom, and a school's pasted Meet or Teams link is not a
   // Zoom capability to switch off.
+  //
+  // The source-of-truth close sits between the two: it is the join route's own
+  // gate 5, applied to the page from the SAME predicate rather than a second
+  // copy of the closed set. Ordered after `denied` because a viewer the join
+  // list refuses learns nothing further about the session, and before
+  // `disabled` because a cancelled session is closed whatever the flag says.
   const joinAccess: MeetJoinAccess =
     joinDecision.kind !== 'authorized'
       ? 'denied'
-      : isZoomManaged && !isFeatureEnabled(FeatureFlags.ZOOM_MEETINGS)
-        ? 'disabled'
-        : 'allowed';
+      : joinIsClosedBySource(joinDecision.source)
+        ? 'closed'
+        : isZoomManaged && !isFeatureEnabled(FeatureFlags.ZOOM_MEETINGS)
+          ? 'disabled'
+          : 'allowed';
 
   return {
     kind: 'ok',
@@ -187,14 +212,16 @@ export async function resolveMeetSessionAccess(params: {
       is_zoom_managed: isZoomManaged,
       join_access: joinAccess,
       join_denial_message:
-        joinAccess !== 'denied'
-          ? null
-          : // §5 gives the GC member who is not on the roster their remedy (a
-            // facilitator adds them); everyone else gets the copy with no
-            // remedy in it.
-            joinDecision.kind === 'forbidden'
-            ? joinDecision.message
-            : JOIN_NOT_AUTHORIZED_MESSAGE,
+        joinAccess === 'closed'
+          ? MEETING_CLOSED_MESSAGE
+          : joinAccess !== 'denied'
+            ? null
+            : // §5 gives the GC member who is not on the roster their remedy (a
+              // facilitator adds them); everyone else gets the copy with no
+              // remedy in it.
+              joinDecision.kind === 'forbidden'
+              ? joinDecision.message
+              : JOIN_NOT_AUTHORIZED_MESSAGE,
     },
   };
 }

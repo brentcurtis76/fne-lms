@@ -240,3 +240,55 @@ describe('/meet/session/[id] — unmanaged sessions are untouched', () => {
     expect(screen.queryByTestId('meet-join-button')).toBeNull();
   });
 });
+
+/**
+ * [N6] r26 — the session the source of truth has closed. The resolver has
+ * already decided this and already stripped the link (see
+ * `session-meet-access.test.ts`); what is asserted here is that the page renders
+ * that decision, and offers no way in for EITHER provider.
+ */
+describe('/meet/session/[id] — a session the source of truth closed', () => {
+  const joinClosed: MeetSessionView = {
+    ...unmanagedWithLink,
+    meeting_link: null,
+    join_access: 'closed',
+    join_denial_message: 'Esta reunión ya no está disponible',
+  };
+
+  it('renders the closed notice instead of the legacy anchor', () => {
+    render(<MeetSessionPage session={joinClosed} />);
+
+    expect(screen.getByTestId('meet-join-closed')).toHaveTextContent(
+      'Esta reunión ya no está disponible'
+    );
+    expect(screen.queryByTestId('meet-join-link')).toBeNull();
+    expect(screen.queryByTestId('meet-join-button')).toBeNull();
+    expect(screen.queryByTestId('meet-no-link')).toBeNull();
+  });
+
+  it('renders the same answer for a managed session', () => {
+    render(<MeetSessionPage session={{ ...joinClosed, is_zoom_managed: true }} />);
+
+    expect(screen.getByTestId('meet-join-closed')).toBeInTheDocument();
+    expect(screen.queryByTestId('meet-join-button')).toBeNull();
+    expect(screen.queryByTestId('meet-join-link')).toBeNull();
+  });
+
+  it('still shows the session, and no URL of any kind', () => {
+    const { container } = render(<MeetSessionPage session={joinClosed} />);
+
+    expect(screen.getByText('Sesión sintética')).toBeInTheDocument();
+    expect(container.innerHTML).not.toContain(MEETING_LINK);
+    expect(container.querySelector('a[href^="http"]')).toBeNull();
+  });
+
+  it('the link is absent from what getServerSideProps serialises', async () => {
+    mockResolveMeetSessionAccess.mockResolvedValue({ kind: 'ok', session: joinClosed });
+
+    const result = await getServerSideProps(context());
+    const serialized = JSON.stringify('props' in result ? result.props : {});
+
+    expect(serialized).not.toContain(MEETING_LINK);
+    expect(serialized).not.toMatch(/https?:\/\//);
+  });
+});

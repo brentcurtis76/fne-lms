@@ -72,6 +72,7 @@ import { sendSessionNotFound } from '../../../../../lib/utils/session-denials';
 import {
   authorizeMeetingJoin,
   joinIsClosedBySource,
+  MEETING_CLOSED_MESSAGE,
 } from '../../../../../lib/utils/meeting-join-policy';
 import { isFeatureEnabled, FeatureFlags } from '../../../../../lib/featureFlags';
 import { createZoomServiceClient, zoomInternalSchema } from '../../../../../lib/zoom/service-client';
@@ -80,8 +81,12 @@ import { buildJoinDialIn } from '../../../../../lib/utils/meeting-dial-in';
 /** §14: the master kill switch answers 503 on the join route. */
 export const FEATURE_DISABLED_MESSAGE = 'Las videollamadas están temporalmente deshabilitadas';
 
-/** §5: a cancelled or ended meeting is gone for everyone, admins included. */
-export const MEETING_CLOSED_MESSAGE = 'Esta reunión ya no está disponible';
+/**
+ * §5: a cancelled or ended meeting is gone for everyone, admins included. Owned
+ * by the join policy — the interstitial says the same sentence — and re-exported
+ * here because this route's existing importers name it at this path.
+ */
+export { MEETING_CLOSED_MESSAGE };
 
 const READ_FAILED_MESSAGE = 'Error al preparar el acceso a la reunión';
 

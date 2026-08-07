@@ -14,6 +14,7 @@ import {
   MeetSessionView,
   resolveMeetSessionAccess,
 } from '../../../lib/utils/session-meet-access';
+import { MEETING_CLOSED_MESSAGE } from '../../../lib/utils/meeting-join-policy';
 
 /**
  * Meeting interstitial — the single platform surface that reveals a session's
@@ -45,6 +46,12 @@ import {
  * pasted link alike. A viewer the join list refuses reaches this page and finds no way
  * into the meeting — the link is not in the props, so it is not in the document either.
  * `resolveMeetSessionAccess` makes that decision; the branches below only render it.
+ *
+ * WHEN there is still something to join is the second half of the same rule: a session
+ * the source of truth says is over — cancelled, finished, or no longer online — offers
+ * no way in of either kind, which is the answer the join route already gave. Same
+ * predicate, same sentence, and the pasted link is absent from the props exactly as it
+ * is for a refused persona.
  *
  * NOTE the tension this does not resolve: the rationale for dial-in is a school
  * internet outage, and a participant whose internet is down cannot load this page to
@@ -104,6 +111,10 @@ const MeetSessionPage: React.FC<MeetSessionPageProps> = ({ session }) => {
           {session.join_access === 'denied' ? (
             <div data-testid="meet-join-denied" className={NOTICE_CLASSNAME}>
               {session.join_denial_message ?? JOIN_NOT_AUTHORIZED_MESSAGE}
+            </div>
+          ) : session.join_access === 'closed' ? (
+            <div data-testid="meet-join-closed" className={NOTICE_CLASSNAME}>
+              {session.join_denial_message ?? MEETING_CLOSED_MESSAGE}
             </div>
           ) : session.join_access === 'disabled' ? (
             <div data-testid="meet-join-disabled" className={NOTICE_CLASSNAME}>

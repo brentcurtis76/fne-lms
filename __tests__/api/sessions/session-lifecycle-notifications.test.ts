@@ -407,8 +407,11 @@ describe('[A3] POST /api/sessions/[id]/approve emits session_created', () => {
   });
 
   it('passes null join_url when the session has no meeting', async () => {
+    // r26: "no meeting" is now neither a pasted link NOR managed intent.
+    // `baseSession` is managed, and a managed session with a null `meeting_link`
+    // is the normal case that DOES get the platform link — see [N1] below.
     const state = makeState({
-      sessions: [baseSession({ status: 'borrador', meeting_link: null })],
+      sessions: [baseSession({ status: 'borrador', meeting_link: null, is_zoom_managed: false })],
     });
     mockCreateServiceRoleClient.mockReturnValue(createClient(state));
 
@@ -915,5 +918,98 @@ describe('[A6] a notification failure does not fail the request', () => {
 
     expect(mockTriggerNotification).toHaveBeenCalled();
     expect(res._getStatusCode()).toBe(200);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// [N1]–[N4] r26 — a MANAGED session has no `meeting_link` by design (§8), and
+// every one of these payloads used to test that column alone. So for exactly the
+// sessions this phase exists to serve, the notification announced a session and
+// offered no way to reach it.
+// ---------------------------------------------------------------------------
+
+describe('[N1]–[N4] the platform link is offered for managed sessions too', () => {
+  /** Managed: no raw link on the row, ever (`pages/api/sessions/[id]/index.ts:394`). */
+  const managed = (overrides: Record<string, unknown> = {}) =>
+    baseSession({ is_zoom_managed: true, meeting_link: null, ...overrides });
+
+  /** The legacy shape: a pasted provider link, not managed. */
+  const pasted = (overrides: Record<string, unknown> = {}) =>
+    baseSession({ is_zoom_managed: false, meeting_link: RAW_MEETING_LINK, ...overrides });
+
+  /** Neither: a presencial or not-yet-linked session. */
+  const linkless = (overrides: Record<string, unknown> = {}) =>
+    baseSession({ is_zoom_managed: false, meeting_link: null, ...overrides });
+
+  async function approve(row: Record<string, unknown>) {
+    const state = makeState({ sessions: [row] });
+    mockCreateServiceRoleClient.mockReturnValue(createClient(state));
+    const { req, res } = mocked('POST', { query: { id: SESSION_ID } });
+    await approveHandler(req as any, res as any);
+    return res;
+  }
+
+  async function reschedule(row: Record<string, unknown>) {
+    const state = makeState({ sessions: [row] });
+    mockCreateServiceRoleClient.mockReturnValue(createClient(state));
+    const { req, res } = mocked('PUT', {
+      query: { id: SESSION_ID },
+      body: { session_date: '2026-09-17' },
+    });
+    await sessionDetailHandler(req as any, res as any);
+    return res;
+  }
+
+  it('[N1] session_created carries the platform link for a managed session', async () => {
+    const res = await approve(managed({ status: 'borrador' }));
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(payloadFor('session_created')!.session.join_url).toContain(
+      `/meet/session/${SESSION_ID}`
+    );
+  });
+
+  it('[N1] session_rescheduled carries the platform link for a managed session', async () => {
+    const res = await reschedule(managed());
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(payloadFor('session_rescheduled')!.session.join_url).toContain(
+      `/meet/session/${SESSION_ID}`
+    );
+  });
+
+  it('[N4] and nothing from zoom_internal reaches the payload', async () => {
+    // A managed session's real join URL never touches `consultor_sessions`; if it
+    // ever did, this row is what the emitter would be reading.
+    await approve(
+      managed({
+        status: 'borrador',
+        meeting_link: null,
+        zoom_join_url: 'https://us06web.zoom.us/j/00000000000?pwd=NeVeRlEaVeSzOoMiNtErNaL',
+      })
+    );
+
+    const serialized = JSON.stringify(payloadFor('session_created'));
+    expect(serialized).not.toContain('NeVeRlEaVeSzOoMiNtErNaL');
+    expect(serialized).not.toContain('zoom.us');
+    expect(serialized).not.toContain('pwd=');
+  });
+
+  it('[N2] an unmanaged pasted-link session is unchanged — link offered, raw URL absent', async () => {
+    await approve(pasted({ status: 'borrador' }));
+
+    const payload = payloadFor('session_created')!;
+    expect(payload.session.join_url).toContain(`/meet/session/${SESSION_ID}`);
+
+    const serialized = JSON.stringify(payload);
+    expect(serialized).not.toContain(RAW_MEETING_LINK);
+    expect(serialized).not.toContain('pwd=');
+  });
+
+  it('[N3] a session with neither still emits no link, and nothing throws', async () => {
+    const res = await approve(linkless({ status: 'borrador' }));
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(payloadFor('session_created')!.session.join_url).toBeNull();
   });
 });

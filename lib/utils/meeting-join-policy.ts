@@ -151,6 +151,10 @@ export const JOIN_ELIGIBLE_MODALITIES: readonly SessionModality[] = ['online', '
  * converge after the fact, so a gate built on them alone leaves a window in
  * which the session is over and the credentials are still live. §15's exit
  * criterion is "cancel kills join", not "cancel kills join eventually".
+ *
+ * The join route answers 410 with `MEETING_CLOSED_MESSAGE` when this is true;
+ * the interstitial renders the same sentence and offers no way in. One
+ * predicate, one closed set — see the constant below.
  */
 export function joinIsClosedBySource(source: MeetingJoinSource): boolean {
   if (SESSION_STATUS_CLOSES_JOIN[source.status as SessionStatus] === true) {
@@ -159,6 +163,13 @@ export function joinIsClosedBySource(source: MeetingJoinSource): boolean {
 
   return !(JOIN_ELIGIBLE_MODALITIES as readonly string[]).includes(source.modality);
 }
+
+/**
+ * What a caller is told when `joinIsClosedBySource` is true. Declared here
+ * rather than in the join route because the interstitial owes the same answer,
+ * and two surfaces describing one state in two sentences is how they drift.
+ */
+export const MEETING_CLOSED_MESSAGE = 'Esta reunión ya no está disponible';
 
 /**
  * Resolve join authorization for a consultor session, per the §5 matrix.

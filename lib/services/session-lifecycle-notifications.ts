@@ -40,7 +40,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getSessionDateTime } from '../utils/session-timezone';
-import { buildSessionJoinPath } from '../utils/session-disclosure';
+import { buildSessionJoinPath, sessionOffersPlatformJoin } from '../utils/session-disclosure';
 import { buildAbsoluteUrl } from '../utils/app-url';
 
 /** The three session lifecycle events this module emits. */
@@ -57,6 +57,12 @@ export interface LifecycleSessionRow {
   start_time?: string | null;
   end_time?: string | null;
   meeting_link?: string | null;
+  /**
+   * Durable managed intent (plan §8). A managed session carries NO
+   * `meeting_link` — read together with it by `sessionOffersPlatformJoin`, or
+   * the sessions this phase exists to serve get a notification with no way in.
+   */
+  is_zoom_managed?: boolean | null;
 }
 
 /** The schedule a session held BEFORE a reschedule, for the "moved from → to" copy. */
@@ -277,8 +283,9 @@ export async function notifySessionLifecycle({
         previous_date: before?.date ?? null,
         previous_time: before?.time ?? null,
         previous_end_time: before?.endTime ?? null,
-        // Invariant 2: the platform surface, never `meeting_link`.
-        join_url: session.meeting_link
+        // Invariant 2: the platform surface, never `meeting_link` — and offered
+        // for a managed session too, which has no `meeting_link` to test.
+        join_url: sessionOffersPlatformJoin(session)
           ? buildAbsoluteUrl(buildSessionJoinPath(session.id), req)
           : null,
       },

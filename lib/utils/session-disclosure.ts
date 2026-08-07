@@ -112,6 +112,40 @@ export function buildSessionJoinPath(sessionId: string): string {
 }
 
 /**
+ * Does this session have a meeting to reach at all — whatever provider it uses?
+ *
+ * The one derivation behind every "offer the platform link" decision:
+ * notifications, reminders, all three .ics endpoints and the workspace list.
+ * It exists because those five sites each tested `meeting_link` alone, and a
+ * Zoom-managed session keeps `meeting_link` NULL BY DESIGN (plan §8 — the real
+ * join URL lives in `zoom_internal` and never touches `consultor_sessions`). So
+ * for exactly the sessions this phase exists to serve, every one of those
+ * surfaces announced a session and offered no way to reach it.
+ *
+ * What gets offered is always the platform surface — `/meet/session/{id}`,
+ * which re-authorizes per click and resolves the current state. This predicate
+ * decides WHETHER to offer it, never WHAT to offer, so nothing here widens what
+ * a caller may hold.
+ *
+ * `has_meeting` is accepted alongside `meeting_link` because a client-side row
+ * has been through `applySessionMeetingDisclosure` and may legitimately have had
+ * the raw link stripped; the boolean is what survives that.
+ */
+export function sessionOffersPlatformJoin(row: {
+  meeting_link?: string | null;
+  has_meeting?: boolean | null;
+  is_zoom_managed?: boolean | null;
+}): boolean {
+  if (row.is_zoom_managed === true) {
+    return true;
+  }
+  if (row.has_meeting === true) {
+    return true;
+  }
+  return Boolean(row.meeting_link);
+}
+
+/**
  * Meeting fields every caller receives, privileged or not.
  *
  * `has_meeting` lets a UI decide whether to render a join affordance without

@@ -3305,3 +3305,96 @@ and the tree is clean apart from this round's five files.
   `disabled` branch and `meet-join-button` are unit-tested only. Unchanged from r23's note.
 - **`session-personas.ts` is untouched.** The view tiers are the same three; the join tiers
   live in the spec that uses them, per session, because that is what they are.
+
+---
+
+# Sol remediation — round r26 (items 6, 7, and the r25 completion)
+
+**Branch** `feat/zoom-sess` · **base** `b9e5af0f` · **commits** 1
+
+## Objective and scope
+
+Three defects, all of them "the platform tells you about a session and gives you no way to
+reach it":
+
+- **Item 6** — every platform-link site gated on `meeting_link` being truthy, and a
+  Zoom-managed session keeps `meeting_link` NULL by design (§8). So for exactly the sessions
+  this phase provisions, `session_created`/`session_rescheduled`, both reminders and all three
+  `.ics` endpoints carried no join URL at all.
+- **Item 7** — §15 names the join control on the detail pages *and* the workspace Sesiones
+  tab. The tab had none.
+- **The r25 completion** — r25 made the PERSONA rule consistent across providers; the
+  SESSION-STATE rule was not. `joinIsClosedBySource` gated the join route (410) while the page
+  still rendered a pasted link for a cancelled or `presencial` session to an authorized
+  persona.
+
+Out of scope and untouched: Sol items 8/10/11/12, page visibility tiers, and every standing
+unruled item.
+
+## Files, grouped by risk
+
+**Decision surfaces (highest):**
+- `lib/utils/session-disclosure.ts` — new `sessionOffersPlatformJoin()`, the ONE derivation
+  behind every "offer the platform link" decision. It decides *whether* to offer the platform
+  surface, never *what* is offered, so it cannot widen disclosure.
+- `lib/utils/session-meet-access.ts` — new `closed` value on `MeetJoinAccess`, decided by
+  `joinIsClosedBySource` (imported, not re-implemented) and ordered after `denied`, before
+  `disabled`. The link stays out of the props exactly as it does for a refused persona.
+- `lib/utils/meeting-join-policy.ts` — `MEETING_CLOSED_MESSAGE` moved here beside the
+  predicate that forces it; `pages/api/meet/session/[id]/join.ts` re-exports it so existing
+  importers are unaffected. No behaviour change on the route.
+
+**Emitters (medium):** `lib/services/session-lifecycle-notifications.ts`,
+`pages/api/cron/session-reminders.ts`, `pages/api/sessions/ical.ts`,
+`pages/api/sessions/[id]/ical.ts`, `pages/api/sessions/series/[groupId]/ical.ts` — each swaps
+its `meeting_link` truthiness test for the shared predicate; the cron and the series `.ics`
+additionally add `is_zoom_managed` to their explicit column lists.
+
+**UI (medium):** `pages/meet/session/[id].tsx` (the `closed` notice),
+`components/workspace/WorkspaceSessionsTab.tsx` (the join control).
+
+**Tests:** five files extended, one added
+(`__tests__/components/workspace/WorkspaceSessionsTab.join.test.tsx`).
+
+## Evidence
+
+- `npm run type-check` 0 · `npm run lint` 0 · **`npm test` 4706 passed / 282 files** (from
+  4676/281) · `npm run build` 0 · **`npm run test:db` Files=11, Tests=464, PASS** (unchanged).
+- **Mandatory e2e run** (not one of the five gates): `76 passed`, and
+  `e2e-mandatory.mjs --check` reports 6 specs ran with no skips. Run against the local stack
+  with `.env.local` temporarily re-pointed and then restored.
+- **Mutation probe**: deleting the `is_zoom_managed` half of `sessionOffersPlatformJoin` kills
+  **9 tests across all five surfaces plus the tab**; reverted, blob `d281593b…` identical.
+
+## Scrutinize hardest
+
+1. **`sessionOffersPlatformJoin` accepts three fields** (`meeting_link`, `has_meeting`,
+   `is_zoom_managed`) so one predicate serves both server rows and disclosure-stripped client
+   rows. That is a convenience, and a reviewer should check it cannot be fed a row where
+   `has_meeting` is stale relative to the link.
+2. **`session_cancelled` notifications now carry a join URL for managed sessions.** The ruling
+   is unconditional and [N2] forbids changing the pasted-link case, so cancellation notices
+   were left on the same rule. The link resolves to the `closed` page, which is arguably the
+   right answer — but it is a link in a cancellation e-mail, and it is a judgment call.
+3. **`applySessionMeetingDisclosure` was NOT changed.** `has_meeting` still means "a raw link
+   exists", so an API payload for a managed session still reports `has_meeting: false` with a
+   null `join_path`. The workspace tab compensates by reading `is_zoom_managed` directly. That
+   inconsistency is real and deliberately out of this round's scope — item 6 named five
+   surfaces and this is a sixth.
+4. **The workspace control is an anchor, not `JoinMeetingButton`.** The ruling requires
+   navigation to `/meet/session/{id}`; `JoinMeetingButton` POSTs to the join opening and opens
+   a new tab, which is the interstitial's job, not a list row's. Reusing it would have put a
+   credential-fetching control in a list. The row-click interaction (`stopPropagation` on a
+   nested interactive element inside a `role="button"` card) is the part to check.
+5. **The tab now imports `meeting-join-policy` into a client bundle.** Only the pure predicate
+   is used; `roleUtils`/`session-policy` were already reachable from client components. Worth
+   a look for anyone tracking bundle weight on school hardware.
+
+## Known limitations / open
+
+- **Still no e2e for the managed affordance, the `closed` state or the kill switch.** Both
+  seeded sessions are `programada`/`online` and unmanaged (`is_zoom_managed` defaults to false
+  and the seeder does not set it), so none of this round's new branches is reachable from a
+  mandatory spec — which is also why the e2e run above passes unchanged.
+- **`SESSION_STATUS_FALLBACK`, `total_hours_actual`, `create.tsx`'s UTC-vs-Chile `min`, the
+  four order-dependent suites and `'edit_approval_blocked'`** remain unruled and untouched.

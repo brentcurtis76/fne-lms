@@ -25,7 +25,9 @@ vi.mock('../../../utils/roleUtils', async (importOriginal) => {
 import { resolveMeetSessionAccess } from '../../../lib/utils/session-meet-access';
 import {
   CONSULTOR_NOT_FACILITATOR_MESSAGE,
+  MEETING_CLOSED_MESSAGE,
   NOT_IN_ATTENDEES_MESSAGE,
+  SESSION_STATUS_CLOSES_JOIN,
 } from '../../../lib/utils/meeting-join-policy';
 
 const SESSION_ID = '3f1c5f5e-0f1a-4d3e-9a11-2b6c8f0d1e22';
@@ -50,6 +52,10 @@ const sessionRow = {
   meeting_link: MEETING_LINK,
   is_zoom_managed: false,
   school_id: SCHOOL_ID,
+  // r26: the join policy reads `status` + `modality` off this same row and the
+  // page now gates on both, so the fixture has to carry a real modality — an
+  // unrecognised one is closed by the §5 allowlist, which is the correct default.
+  modality: 'online',
   growth_community_id: COMMUNITY_ID,
   status: 'programada',
   is_active: true,
@@ -482,5 +488,92 @@ describe('resolveMeetSessionAccess — the join capability is not page visibilit
       expect(denied).toEqual({ kind: 'not-found' });
       expect(JSON.stringify(denied)).toBe(JSON.stringify(missing));
     });
+  });
+});
+
+/**
+ * [N6]/[N7] r26 — the session-state half of the source-of-truth rule.
+ *
+ * r23 gave the join ROUTE `joinIsClosedBySource`, so a cancelled or `presencial`
+ * session answers 410 there. The PAGE went on handing the same authorized
+ * persona the pasted link for the same session. These assert the page now closes
+ * from the SAME predicate, for both providers, with the link out of the props —
+ * not merely out of the markup, since props are serialised into `__NEXT_DATA__`.
+ */
+describe('[N6] a session the source of truth has closed offers no join path', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  /** Authorized beyond doubt: an expected attendee of this very session. */
+  const authorized = {
+    roles: activeGcRole,
+    highestRole: 'lider_comunidad',
+    isAttendee: true,
+  };
+
+  it('a cancelled session: no affordance, no raw link in the props', async () => {
+    const access = await run({
+      ...authorized,
+      session: { ...sessionRow, status: 'cancelada' },
+    });
+
+    expect(access.kind).toBe('ok');
+    expect(access.kind === 'ok' && access.session.join_access).toBe('closed');
+    expect(access.kind === 'ok' && access.session.meeting_link).toBeNull();
+    expect(JSON.stringify(access)).not.toContain(MEETING_LINK);
+  });
+
+  it('a presencial session: same answer, same absent link', async () => {
+    const access = await run({
+      ...authorized,
+      session: { ...sessionRow, modality: 'presencial' },
+    });
+
+    expect(access.kind).toBe('ok');
+    expect(access.kind === 'ok' && access.session.join_access).toBe('closed');
+    expect(access.kind === 'ok' && access.session.meeting_link).toBeNull();
+    expect(JSON.stringify(access)).not.toContain(MEETING_LINK);
+  });
+
+  it('a MANAGED session closes identically — one rule, both providers', async () => {
+    const access = await run({
+      ...authorized,
+      session: { ...sessionRow, meeting_link: null, is_zoom_managed: true, status: 'cancelada' },
+    });
+
+    expect(access.kind === 'ok' && access.session.join_access).toBe('closed');
+  });
+
+  it('carries the same sentence the join route answers 410 with', async () => {
+    const access = await run({
+      ...authorized,
+      session: { ...sessionRow, status: 'cancelada' },
+    });
+
+    expect(access.kind === 'ok' && access.session.join_denial_message).toBe(
+      MEETING_CLOSED_MESSAGE
+    );
+  });
+
+  it('[N7] every status the closed set closes, closes the page too', async () => {
+    // Driven off the exported record rather than a list retyped here: a new
+    // SessionStatus classified as closing must close the page without anyone
+    // remembering to add a case.
+    for (const [status, closes] of Object.entries(SESSION_STATUS_CLOSES_JOIN)) {
+      const access = await run({ ...authorized, session: { ...sessionRow, status } });
+
+      expect(access.kind).toBe('ok');
+      expect(access.kind === 'ok' && access.session.join_access).toBe(
+        closes ? 'closed' : 'allowed'
+      );
+    }
+  });
+
+  it('a live session is untouched — this is what makes the assertions above mean something', async () => {
+    const access = await run(authorized);
+
+    expect(access.kind === 'ok' && access.session.join_access).toBe('allowed');
+    expect(access.kind === 'ok' && access.session.meeting_link).toBe(MEETING_LINK);
   });
 });

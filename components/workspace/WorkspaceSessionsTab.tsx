@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
-import { Calendar, Clock, MapPin, Users, RefreshCw, CalendarX } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, RefreshCw, CalendarX, Video } from 'lucide-react';
 import { format, parseISO, isAfter, isBefore, startOfToday, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
@@ -8,6 +8,33 @@ import { CommunityWorkspace, WorkspaceAccess } from '../../utils/workspaceUtils'
 import { SessionStatus } from '../../lib/types/consultor-sessions.types';
 import { getStatusBadge, formatTime, getModalityIcon, getCancellationSubBadge } from '../../lib/utils/session-ui-helpers';
 import { supabase } from '../../lib/supabase';
+import {
+  buildSessionJoinPath,
+  sessionOffersPlatformJoin,
+} from '../../lib/utils/session-disclosure';
+import { joinIsClosedBySource } from '../../lib/utils/meeting-join-policy';
+
+/**
+ * §15 names the join control on the detail pages AND on this tab; only the
+ * detail pages had one, so a participant who lives in the workspace had to open
+ * a session to find out there was a meeting at all.
+ *
+ * It points at `/meet/session/{id}` — the platform surface, which re-authorizes
+ * per click — and NEVER at a raw provider URL. This list never holds one: the
+ * API strips `meeting_link` from unprivileged payloads (`applySessionMeetingDisclosure`)
+ * and a Zoom-managed session has none to strip.
+ *
+ * Scoped, not unconditional: a session with nothing to join gets no control, and
+ * neither does one the source of truth already closed — the same predicate the
+ * join route and the interstitial use, so the three cannot disagree about which
+ * sessions are over.
+ */
+function sessionHasJoinControl(session: SessionListItem): boolean {
+  if (!sessionOffersPlatformJoin(session)) {
+    return false;
+  }
+  return !joinIsClosedBySource({ status: session.status, modality: session.modality });
+}
 
 interface WorkspaceSessionsTabProps {
   workspace: CommunityWorkspace | null;
@@ -28,6 +55,12 @@ interface SessionListItem {
   session_facilitators: { user_id: string }[];
   session_number: number | null;
   recurrence_group_id: string | null;
+  /**
+   * Disclosure output, not the raw link: `has_meeting` says a pasted link exists
+   * without carrying it, and a managed session has no link to carry at all.
+   */
+  has_meeting?: boolean | null;
+  is_zoom_managed?: boolean | null;
 }
 
 const WorkspaceSessionsTab: React.FC<WorkspaceSessionsTabProps> = ({
@@ -259,6 +292,23 @@ const WorkspaceSessionsTab: React.FC<WorkspaceSessionsTabProps> = ({
             </div>
           )}
         </div>
+
+        {sessionHasJoinControl(session) && (
+          <div className="mt-3">
+            <a
+              href={buildSessionJoinPath(session.id)}
+              // The card is itself a button: without this the click would also
+              // navigate the row, and the row would win the race.
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+              data-testid="workspace-session-join"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand_primary px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-brand_gray_dark focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2"
+            >
+              <Video className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+              Unirse a la reunión
+            </a>
+          </div>
+        )}
       </div>
     );
   };

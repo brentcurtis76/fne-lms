@@ -322,3 +322,130 @@ npm run test:db
 ```
 
 Docker must be up for `test:db`; if `supabase db reset` hangs, use `npx supabase`.
+
+---
+
+# ADDENDUM — remediation of Sol's `REQUEST CHANGES`, rounds r21–r28
+
+> Appended by the PM after the twelve-item verdict. Everything above still stands as the
+> map of the phase; this section is the record of what changed since, and it is what the
+> re-review should be scoped against.
+
+## A1. Identity at re-review
+
+| | |
+|---|---|
+| **Head** | **`ea60941e`** (the dossier commit sits on top and is docs-only) |
+| **Was** | `2f0e5385` at first review |
+| **Rounds** | r21–r28, eight remediation rounds |
+| **Gates at head, PM-verified** | type-check 0 · lint 0 · **4726 passed / 283 files** · build 0 · **`test:db` Files=11, Tests=466, PASS** · **mandatory e2e list 88 passed, 7 specs, no-skip guard green** |
+| **Migrations** | **6** (four at first review, plus `20260808120000_session_reschedule_atomic`, `20260809120000_fix_bucket_summary_fanout`, `20260809120100_reschedule_rpc_uses_bucket_summary`, and the `20260805120000` rewrite) — **none applied to production** |
+
+## A2. The twelve items
+
+| # | What it was | Closed by |
+|---|---|---|
+| 1 | `DROP CONSTRAINT` in the reschedule migration — a RED-tier rule break | r21 — block deleted; revision now uses an allowed `action` + typed `details.event_type`; allowlist back to its 16 baseline values, **PM-verified in the catalog** |
+| 2 | Two reschedule flows, schedule and ledger written separately | r21 — one service-role `apply_session_reschedule`; atomicity proved by injected failure; optimistic guard moved inside |
+| 3 | `get_bucket_summary` multiplied allocations by ledger rows | r22 — allocations and ledger aggregated separately. **A live production defect, not a Z2 regression** |
+| 4 | Join route trusted a projection that can be stale | r23 — source `status`/`modality` refuse **before `zoom_internal` is read at all** |
+| 5 | `meeting_provision` / `meeting_delete` uncoordinated per surface | r24 — post-create re-check + explicit compensation; failure parks loudly |
+| 6 | Managed sessions got no platform link anywhere | r26 — one predicate across notifications, both reminders, all three .ics |
+| 7 | Workspace tab had no join control | r26 |
+| 8 | Failed ledger read read as "no hours" | r27 — fails instead; a second, worse instance found and fixed |
+| 9 | Join policy not enforced on `/meet` SSR | r25 — **after a plan amendment; see A3** |
+| 10 | Backfill proved by a retyped copy of the migration | r27 — replays the migration's own recorded statements; proved by editing the file only |
+| 11 | `PROJECT_STATE.md` | r28 |
+| 12a | Full gate re-run | r28 |
+| **12b** | **Staging against a real audio-plan Zoom tenant** | ❌ **NOT DONE — owner's, needs real credentials** |
+
+## A3. The plan was amended — read this before reviewing item 9
+
+`PLAN.md` §5 said `authorizeMeetingJoin()` governs the `/meet` page's `getServerSideProps`.
+**Round r23 refused to implement it and was right.** `canViewSession` and the §5 join list are
+not nested, so substituting one for the other re-tiers four roles; and the page renders a raw
+pasted `meeting_link` for `google_meet`/`teams`/`otro` sessions, so widening page visibility
+widens who can join those. A **mandatory** e2e spec encoded the opposite.
+
+**Amended by owner decision**, recorded in `PLAN.md` §5 with full rationale: page visibility
+keeps `canViewSession`; **`authorizeMeetingJoin()` governs the join CAPABILITY** — the Zoom
+affordance *and* the raw pasted link; the §14 kill switch is enforced in `/meet` SSR.
+
+A second owner ruling followed: the mandatory spec asserted that view-only personas **do**
+receive the raw pasted link. **Owner ruled "make it consistent"** — view-only means the same
+for every provider, and those assertions were inverted deliberately.
+
+**Both were owner decisions, not PM ones.** Challenge them if you disagree, but do not read
+them as a PM ignoring the plan.
+
+## A4. What the PM verified at re-review — and what it did not
+
+**Verified independently at `ea60941e`:** all five gates, re-run unpiped with per-gate exit
+codes. **The new e2e spec re-run by the PM itself** against a freshly seeded local stack —
+**12 passed**. The seeded fixtures read directly from the database: three sessions, two
+unmanaged, **one managed with a NULL `meeting_link`** — added, never flipped. The `ci.yml`
+change is exactly two `echo` lines with their rationale. The backfill hand-copy is gone.
+
+**Eight PM mutation probes across these rounds**, each deliberately different from the
+round's own, each reverted with blob-hash proof: neutralising the optimistic guard (writes
+**both** tables); `SUM(DISTINCT …)` — the plausible wrong fix, which passes the fan-out case
+and dies on the equal-allocations case; reopening **only** `cancelada`; disabling **only**
+the second coordination point (exactly one test fell); leaking the link into props while the
+UI still denies; widening live job statuses so an anomaly defers silently.
+
+**NOT verified, and this is the re-review's highest-yield ground:**
+
+1. **Nothing has run against a real Zoom tenant. Item 12b is not done.** Everything green is
+   green against the fake adapter.
+2. **Nothing is applied to production.** Six migrations wait, including a `get_bucket_summary`
+   replacement that changes numbers every hours dashboard shows.
+3. **`mode: 'link'` and the dial-in block have no e2e coverage** — the synthetic tenant seeds
+   no `zoom_internal` row, so the opening answers `pending`.
+4. **The §14 OFF branch has no e2e coverage** — one Playwright run has one server, so the flag
+   has one value per run. Unit-tested only.
+5. **The e2e tenant now runs with the Zoom master flag ON**, which is not the production-safe
+   default. Whether that should be the default, or whether two jobs are warranted, is
+   unresolved.
+6. **r24's deferral rests on r24's compensation being unconditional** — read off the module
+   header and its two compensation sites, not proved in r27. The r27 round flagged this as its
+   own top scrutiny item.
+7. **The migration-statements replay asserts what ran, not what is on disk.** They coincide in
+   CI, which resets every run; locally they require `db reset` in the loop.
+
+## A5. New accepted deviations — challenge these too
+
+1. **r21** — only duration-relevant updates route through the new RPC, so the optimistic guard
+   now exists in two places.
+2. **r22** — `SET search_path TO 'public'` added to `get_bucket_summary` so the RPC can call
+   it. Function is invoker-rights, so this is a hardening, not a privilege change.
+3. **r26** — a `session_cancelled` notification now carries a link that resolves to the closed
+   page. Suppressing it needed a special case the criteria forbade.
+4. **r27** — the fix extended to a second query Sol did not name, whose error was never
+   captured at all.
+5. **r28** — `FEATURE_ZOOM_MEETINGS` turned ON for the e2e tenant. Forced: with it off there is
+   no affordance to assert.
+6. **r28** — `PROJECT_STATE.md` updated in Spanish, matching the existing document rather than
+   `CLAUDE.md`'s English-for-technical-docs rule.
+
+## A6. Standing items deliberately left unruled
+
+`SESSION_STATUS_FALLBACK` mismatch · `total_hours_actual`'s now-inaccurate name ·
+`create.tsx`'s date `min` computed from UTC rather than Chile time ·
+four suites with pre-existing within-file order dependencies (visible under
+`--sequence.shuffle`, present with and without this branch) ·
+`'edit_approval_blocked'` at `pages/api/sessions/edit-requests/[eid].ts:195`, **which is not in
+the `session_activity_log` action allowlist and would throw if that branch fired** —
+pre-existing, unrelated to Zoom, and its fix must follow r21's pattern rather than widening the
+allowlist.
+
+## A7. The PM's own errors, for calibration
+
+The first review found nine PM errors; remediation added more. Items **1** and **8** were both
+**PM failures of ruling** — a `DROP` approved without grepping the migration, then forbidden
+two rounds later; and a defect logged "unruled" across three rounds and never ruled. Item
+**9** was a PM ruling that would have shipped a disclosure regression, refused by an executor.
+And during r26 the PM nearly filed a finding against a correct test suite on the strength of
+its own bad patch, catching it only by re-checking the instrument.
+
+**Six rounds across this phase ended `FINDINGS` with nothing committed, and every one traced
+to the PM.** Where this dossier and the code disagree, the code is more likely right.

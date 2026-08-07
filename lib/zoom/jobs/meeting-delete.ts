@@ -29,7 +29,7 @@
  * treats the same status as a terminal failure, and that asymmetry is the point: there,
  * a missing meeting means we have lost track of one; here, it means the work is done.
  *
- * ## The one row it refuses to release
+ * ## The two rows it refuses to release
  *
  * A `zoom_meetings` row with NO meeting number that is parked under
  * `ambiguous_create_outcome` is not an empty reservation — it is a reservation held
@@ -38,6 +38,22 @@
  * release such a row for that reason, and so does this handler: releasing it would free a
  * host that may genuinely be occupied. It fails non-retryably instead, and the resolution
  * is the one already documented on the park — a human reconciles against Zoom.
+ *
+ * The second is `compensation_failed` (Sol item 5). There the meeting number is KNOWN —
+ * a provisioner created a meeting, found the surface retained underneath it, tried to
+ * delete it at Zoom and could not. Same rule, sharper reason: the host is occupied by a
+ * meeting we can name, and retiring the row would both free that host and overwrite the
+ * marker that names it.
+ *
+ * ## This handler is one half of a coordination (Sol item 5)
+ *
+ * `claim_zoom_jobs` leases with `FOR UPDATE SKIP LOCKED`, which stops two tickers taking
+ * the same job ROW and says nothing about a `meeting_provision` for the same SURFACE
+ * running at the same time. The other half of the fix lives in `meeting-provision.ts`:
+ * it re-reads the source session after `createMeeting` returns and before it persists,
+ * and it treats a persist CAS lost to a RETIRED row the same way — in both cases it
+ * deletes the meeting it just created. Nothing in THIS handler changed for that; it is
+ * the provisioner that yields, because it is the one holding an unpersisted meeting.
  *
  * ## Idempotent by construction (§12)
  *
@@ -51,6 +67,7 @@ import { createZoomServiceClient, zoomInternalSchema } from '../service-client';
 import { ZoomJobLeaseLostError, type ZoomJobHandler } from './types';
 import {
   isAmbiguousCreateMarker,
+  parseCompensationFailedMarker,
   type ProjectionSyncOutcome,
   type ProvisionMeetingRow,
   type ProvisionSessionRow,
@@ -156,6 +173,32 @@ export class ZoomDeleteProjectionAnomalyError extends ZoomNonRetryableError {
       zoom_meeting_number: zoomMeetingNumber,
       sync_outcome: outcome,
     };
+  }
+}
+
+/** The `reason` a delete against a failed-compensation park is refused under. */
+export const COMPENSATION_PARK_REASON = 'delete_compensation_parked';
+
+/**
+ * The row is a numberless reservation parked because `meeting_provision`'s COMPENSATING
+ * delete failed (Sol item 5): a meeting IS standing at Zoom under the number in the
+ * marker, and the reservation is deliberately still holding that host.
+ *
+ * The same rule as the ambiguous park, for a sharper reason — here the meeting number is
+ * KNOWN. Retiring the row would free a host a live meeting occupies, and would replace
+ * the one durable record naming that meeting with a clean `deleted`. Terminal, writes
+ * NOTHING, and its evidence carries the number a human cancels at Zoom.
+ */
+export class ZoomDeleteCompensationParkedError extends ZoomNonRetryableError {
+  readonly reason = COMPENSATION_PARK_REASON;
+  readonly evidence: { meeting_id: string; zoom_meeting_number: number };
+
+  constructor(meetingId: string, zoomMeetingNumber: number) {
+    super(
+      `meeting_delete refused zoom_meetings ${meetingId}: a failed provisioning compensation left zoom meeting ${zoomMeetingNumber} standing, and this reservation is holding its host. Cancel that meeting AT ZOOM, then clear the row's last_error.`,
+      { operation: OPERATION }
+    );
+    this.evidence = { meeting_id: meetingId, zoom_meeting_number: zoomMeetingNumber };
   }
 }
 
@@ -357,9 +400,18 @@ export function createMeetingDeleteHandler(deps: MeetingDeleteDeps = {}): ZoomJo
     const row = await store.findMeetingBySurface(surfaceType, surfaceId);
     if (row === null) throw new ZoomDeleteMeetingRowMissingError(surfaceId);
 
-    // The one reservation this handler must not free. See the module header.
+    // The two reservations this handler must not free. See the module header.
     if (row.zoom_meeting_number === null && isAmbiguousCreateMarker(row.last_error)) {
       throw new ZoomDeleteAmbiguousParkedError(row.id);
+    }
+    if (row.zoom_meeting_number === null) {
+      const compensationPark = parseCompensationFailedMarker(row.last_error);
+      if (compensationPark !== null) {
+        throw new ZoomDeleteCompensationParkedError(
+          row.id,
+          compensationPark.zoom_meeting_number
+        );
+      }
     }
 
     // Everything above is reads; a worker that has lost its lease writes nothing.

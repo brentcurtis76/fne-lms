@@ -362,6 +362,61 @@
  *
  * Until §16's `docs/runbooks/zoom.md` exists, all three are a human reading
  * `zoom_jobs.last_error` — `.reason`, `.detail` and `.evidence` — directly.
+ *
+ * ### Cancellation can land WHILE we are at Zoom (Sol item 5)
+ *
+ * Every guard above coordinates this handler with ANOTHER PROVISIONER, or with lifecycle.
+ * None of them coordinates it with `meeting_delete`. `claim_zoom_jobs` leases with
+ * `FOR UPDATE SKIP LOCKED`, which guarantees two tickers never take the same job ROW and
+ * guarantees nothing about two DIFFERENT jobs for the same surface — and Vercel crons
+ * overlap by design, as that migration's own header says. So:
+ *
+ *  1. the eligibility gate passes — the session is `programada`;
+ *  2. the session is cancelled: the source row flips to `cancelada`, the hours
+ *     reservation is released, and `meeting_delete` is enqueued;
+ *  3. that delete runs, finds no `zoom_meeting_number` because nothing has been created
+ *     yet, retires what it finds, and completes. It is not coming back;
+ *  4. this handler creates at Zoom and persists — a live meeting on a cancelled session.
+ *
+ * The coordination is a RE-CHECK PLUS COMPENSATION, chosen over the alternatives because
+ * the acceptance condition is an end state and the alternatives buy a weaker one at a
+ * higher cost. A surface-level advisory lock cannot be held across this handler's
+ * PostgREST calls — there is no stable database session behind them — so it would have to
+ * become a lock row with its own lease and expiry, i.e. a second queue. Excluding
+ * conflicting job types at claim time coordinates the CLAIMS, not the WORK: a provisioner
+ * whose lease expires mid-`createMeeting` still walks into the same window, and the change
+ * lands in the one RPC four rounds of review have hardened. The re-check sits inside the
+ * process that holds the unpersisted meeting, which is the only place that can still
+ * undo it.
+ *
+ * Two places re-check, and they close the window between them:
+ *
+ *  - **After `createMeeting`, before the persist CAS.** The source session is re-read and
+ *    put through the SAME `checkSessionEligibility` gate. Refused ⇒ delete the meeting at
+ *    Zoom, release the reservation, publish the retired projection, and COMPLETE with
+ *    `MeetingProvisionCompensatedResult`.
+ *  - **On a persist CAS miss whose winner is a RETIRED row.** A cancellation committing
+ *    after that re-check lets `meeting_delete` retire the row while we are between the
+ *    two; a retired row is numberless, so the CAS could never match. `possible_orphan`
+ *    would be the wrong answer — this miss IS explained — so it compensates too, leaving
+ *    the row alone because the writer that retired it owns it.
+ *
+ * There is no third window. A delete that finds NO row must have read before the
+ * reservation INSERT, which happens before `createMeeting` — so that cancellation is
+ * already visible to the first re-check. A delete that runs after the CAS finds the row
+ * carrying the number and removes the meeting through its own ordinary path.
+ *
+ * The same compensation runs at the ELIGIBILITY GATE when the job carries a live
+ * post-create checkpoint on a numberless reservation. That is the crash-shaped version of
+ * the same end state: a previous attempt created at Zoom, died before persisting, and the
+ * session became ineligible in between. Refusing and walking away left that meeting
+ * standing.
+ *
+ * **A compensation that FAILS is loud, not silent.** The job fails terminally under
+ * `compensation_failed` with the meeting number in `evidence`, and the row is parked under
+ * the same reason with the same number while KEEPING its `pending` status — so the §9
+ * EXCLUDE constraint goes on blocking that host, and `meeting_delete` refuses to release
+ * it. A human cancels the meeting at Zoom and clears `last_error`.
  */
 import { randomInt } from 'crypto';
 import { getSessionDateTime, SESSION_TIMEZONE } from '../../utils/session-timezone';
@@ -984,6 +1039,130 @@ export function parseAmbiguousCreateMarker(
 /** Is this row's `last_error` an unresolved ambiguous create? */
 export function isAmbiguousCreateMarker(lastError: string | null): boolean {
   return parseAmbiguousCreateMarker(lastError) !== null;
+}
+
+// ---------------------------------------------------------------------------
+// Cancellation racing provisioning (Sol item 5)
+// ---------------------------------------------------------------------------
+
+/**
+ * The statuses a surface's row is left in once it has been RETIRED — by
+ * `meeting_delete`'s terminal transition (`deleted`) or by a reservation release
+ * (`cancelled`). Both are outside `ZOOM_MEETING_ACTIVE_STATUSES`, so neither holds a
+ * host any more, and both mean the same thing to a provisioner that is still in flight:
+ * somebody decided this surface is not getting a meeting.
+ *
+ * Deliberately NOT `error`. That status is also inactive, but it is a provisioner's own
+ * definite-failure record, not a decision about the surface — a create that lands on top
+ * of one is the `possible_orphan` case and must stay it.
+ */
+export const RETIRED_MEETING_STATUSES = [
+  'cancelled',
+  'deleted',
+] as const satisfies readonly ZoomMeetingStatus[];
+
+/** Has this row been retired by a delete or a release? */
+export function isRetiredMeetingStatus(status: ZoomMeetingStatus): boolean {
+  return (RETIRED_MEETING_STATUSES as readonly string[]).includes(status);
+}
+
+/**
+ * Why a meeting that had already been created at Zoom had to be taken back off it.
+ * Either an eligibility check now refuses the source session, the session row is gone,
+ * or the surface's row was retired underneath us while we were at Zoom.
+ */
+export type CompensationTrigger = SessionEligibilityCheck | 'session_missing' | 'surface_retired';
+
+/** The `reason` a failed compensating delete is recorded and fails under. */
+export const COMPENSATION_FAILED_REASON = 'compensation_failed';
+
+/**
+ * The compensating DELETE failed, so a meeting this job created is still standing at
+ * Zoom for a surface that will never use it (Sol item 5).
+ *
+ * Terminal, and LOUD in two places on purpose — the ruling is that a compensation path
+ * is acceptable but silence is not. The job fails with `evidence` naming the meeting
+ * number, and (when the reservation is still ours to mark) the ROW is parked under
+ * `compensation_failed` with the same number, keeping its `pending` status so the §9
+ * EXCLUDE constraint goes on blocking that host. `meeting_delete` refuses to release a
+ * row parked that way, exactly as it refuses an `ambiguous_create_outcome` park: freeing
+ * the host while a live meeting occupies it is the one move that makes this worse.
+ */
+export class ZoomCompensationFailedError extends ZoomNonRetryableError {
+  readonly reason = COMPENSATION_FAILED_REASON;
+  /** WHAT retired the surface, so triage sees why the meeting was unwanted. */
+  readonly detail: CompensationTrigger;
+  readonly evidence: {
+    meeting_id: string;
+    /** The meeting still standing at Zoom. The one to cancel by hand. */
+    created_zoom_meeting_number: number;
+    trigger: CompensationTrigger;
+  };
+
+  constructor(
+    message: string,
+    evidence: { meetingId: string; createdNumber: number; trigger: CompensationTrigger }
+  ) {
+    super(message, { operation: 'meeting_provision' });
+    this.detail = evidence.trigger;
+    this.evidence = {
+      meeting_id: evidence.meetingId,
+      created_zoom_meeting_number: evidence.createdNumber,
+      trigger: evidence.trigger,
+    };
+  }
+}
+
+/** The parsed shape of the marker a failed compensation leaves on a row. */
+export interface CompensationFailedMarker {
+  reason: typeof COMPENSATION_FAILED_REASON;
+  /** The meeting still at Zoom. Structural, so a human never has to read a sentence. */
+  zoom_meeting_number: number;
+  trigger: string;
+  message: string;
+}
+
+/** Structural, like `ambiguousCreateMarker` — parsed by field, never matched as text. */
+export function compensationFailedMarker(
+  zoomMeetingNumber: number,
+  trigger: CompensationTrigger,
+  message: string
+): string {
+  return JSON.stringify({
+    reason: COMPENSATION_FAILED_REASON,
+    zoom_meeting_number: zoomMeetingNumber,
+    trigger,
+    message: message.slice(0, 300),
+  });
+}
+
+/**
+ * The marker's contents, or `null` for anything else. Total and defensive for the same
+ * rationale as `parseAmbiguousCreateMarker`: `last_error` is free text a previous deploy
+ * wrote. A record without a usable meeting number is NOT a compensation park — there
+ * would be nothing for a reader to act on.
+ */
+export function parseCompensationFailedMarker(
+  lastError: string | null
+): CompensationFailedMarker | null {
+  if (lastError === null) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(lastError);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  const record = parsed as Record<string, unknown>;
+  if (record.reason !== COMPENSATION_FAILED_REASON) return null;
+  const number = record.zoom_meeting_number;
+  if (typeof number !== 'number' || !Number.isFinite(number)) return null;
+  return {
+    reason: COMPENSATION_FAILED_REASON,
+    zoom_meeting_number: number,
+    trigger: typeof record.trigger === 'string' ? record.trigger : 'unknown',
+    message: typeof record.message === 'string' ? record.message : '',
+  };
 }
 
 /**
@@ -1715,6 +1894,29 @@ export interface MeetingProvisionCreateSupersededResult extends Record<string, u
   orphan_risk: false;
 }
 
+/**
+ * The surface was RETIRED while this attempt was at Zoom, and the meeting it had already
+ * created has been taken back off Zoom (Sol item 5).
+ *
+ * A completion, on the same reading as the three `superseded` shapes: the world is
+ * exactly right afterwards — no meeting at Zoom, no reservation, a cancelled projection —
+ * and there is nothing for a human to do. A FAILURE here would put a resolved race on the
+ * §18 panel next to the parks that genuinely need somebody. The distinct shape is what
+ * keeps a compensated run from ever being read as a provisioned one, and `trigger` is
+ * what a health query buckets on.
+ */
+export interface MeetingProvisionCompensatedResult extends Record<string, unknown> {
+  meeting_id: string;
+  /** The meeting this attempt minted — and then deleted. */
+  zoom_meeting_number: number;
+  persisted: false;
+  compensated: true;
+  /** WHAT retired the surface: an eligibility check, a missing session, a retired row. */
+  trigger: CompensationTrigger;
+  /** Zoom answered 404 to the compensating DELETE: it was already gone. Still success. */
+  zoom_missing: boolean;
+}
+
 interface ProvisionPayload {
   surface_type: ZoomSurfaceType;
   surface_id: string;
@@ -1810,6 +2012,92 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
     const store = openStore();
     const api = deps.api ?? getZoomApi(env);
 
+    /**
+     * Take a meeting THIS job is responsible for back off Zoom, because the surface it
+     * was created for has been retired (Sol item 5).
+     *
+     * Zoom FIRST, then the row — the same ordering `meeting_delete` uses and for the same
+     * reason: releasing the reservation before the meeting is gone would let a second
+     * meeting be booked onto a host that is still genuinely occupied.
+     *
+     * The reservation is only retired if it is STILL ACTIVE when the Zoom delete comes
+     * back. A `meeting_delete` that got there first has already retired it and published
+     * its own projection; re-writing the row would replace that writer's honest record
+     * with ours and republish over it for no gain.
+     */
+    const compensateOrphanedMeeting = async (args: {
+      meetingId: string;
+      createdNumber: number;
+      trigger: CompensationTrigger;
+      growthCommunityId: string | null;
+    }): Promise<{ zoomMissing: boolean }> => {
+      let zoomMissing = false;
+      try {
+        await api.deleteMeeting(args.createdNumber);
+      } catch (error: unknown) {
+        // A 404 IS the state being asked for — `meeting_delete` rules the same way.
+        if (isZoomError(error) && error.status === 404) {
+          zoomMissing = true;
+        } else {
+          const message = error instanceof Error ? error.message : String(error);
+          // The reservation MUST go on blocking the host: a live meeting occupies it. The
+          // park is what makes that survive this process, and what stops `meeting_delete`
+          // from freeing the host underneath the standing meeting. `recordLastError`
+          // leaves the status alone, so the reservation is kept, not re-armed.
+          // A store failure here loses the row marker but not the record — the job's own
+          // `last_error` carries the number either way.
+          try {
+            await store.recordLastError(
+              args.meetingId,
+              compensationFailedMarker(args.createdNumber, args.trigger, message)
+            );
+          } catch {
+            /* fall through: the terminal failure below is the durable record */
+          }
+          console.warn(
+            `[meeting-provision] COMPENSATION FAILED for meeting ${args.meetingId}: zoom meeting ${args.createdNumber} is still standing for a retired surface (${args.trigger}).`
+          );
+          throw new ZoomCompensationFailedError(
+            `consultor_session ${surfaceId} was retired (${args.trigger}) while this attempt was at Zoom, and the compensating DELETE of zoom meeting ${args.createdNumber} FAILED: ${message.slice(0, 200)} That meeting is still standing for a surface nobody will use — CANCEL IT AT ZOOM; the reservation is parked and keeps blocking its host until you do.`,
+            {
+              meetingId: args.meetingId,
+              createdNumber: args.createdNumber,
+              trigger: args.trigger,
+            }
+          );
+        }
+      }
+
+      // Zoom no longer holds the meeting, so freeing the host is safe — but only if the
+      // reservation is still ours to free.
+      const held = await store.findMeetingBySurface(surfaceType, surfaceId);
+      if (
+        held !== null &&
+        held.id === args.meetingId &&
+        (ZOOM_MEETING_ACTIVE_STATUSES as readonly string[]).includes(held.status)
+      ) {
+        // `cancelled` is outside ZOOM_MEETING_ACTIVE_STATUSES, so the host slot is freed.
+        await store.releaseReservation(
+          args.meetingId,
+          `cancelled_mid_provision:${args.trigger}`
+        );
+        const synced = await store.syncProjectionFromMeeting(
+          args.meetingId,
+          args.growthCommunityId
+        );
+        if (synced === 'missing' || synced === 'not_publishable') {
+          // Not terminal: the orphan — the thing this round exists to prevent — is already
+          // gone from Zoom and the reservation is released. A projection that could not be
+          // published is a lesser and separately-healing problem.
+          console.warn(
+            `[meeting-provision] compensated meeting ${args.meetingId} but the projection sync returned '${synced}'; the meeting is deleted at Zoom and the reservation is released.`
+          );
+        }
+      }
+
+      return { zoomMissing };
+    };
+
     const session = await store.readSession(surfaceId);
     if (session === null) {
       throw new ZoomNonRetryableError(
@@ -1834,6 +2122,32 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
       // job's. Same for a live post-create checkpoint.
       const held = await store.findMeetingBySurface(surfaceType, surfaceId);
       const checkpointHere = readCreatedCheckpoint(ctx.job.stage_state);
+
+      // ...and a live checkpoint on a numberless reservation is the OTHER way this job
+      // can leave a meeting standing for a session nobody will attend (Sol item 5): a
+      // previous attempt created at Zoom and died before persisting, and the session has
+      // become ineligible since. Refusing and walking away here left that meeting alive.
+      // Take it off Zoom FIRST, then the release below frees the host like any other.
+      const strandedCheckpoint =
+        held !== null &&
+        held.zoom_meeting_number === null &&
+        (ZOOM_MEETING_ACTIVE_STATUSES as readonly string[]).includes(held.status) &&
+        checkpointHere !== null &&
+        checkpointHere.meetingId === held.id &&
+        // An unresolved ambiguous park still outranks everything: its reservation is
+        // protecting a host against a meeting nobody could name, and this checkpoint
+        // does not name it either.
+        !isAmbiguousCreateMarker(held.last_error);
+
+      if (strandedCheckpoint) {
+        await compensateOrphanedMeeting({
+          meetingId: (held as ProvisionMeetingRow).id,
+          createdNumber: (checkpointHere as CreatedMeetingCheckpoint).number,
+          trigger: ineligible,
+          growthCommunityId: session.growth_community_id,
+        });
+      }
+
       const isBareReservation =
         held !== null &&
         held.zoom_meeting_number === null &&
@@ -2293,6 +2607,46 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
       });
       if (!stillLeased) throw new ZoomJobLeaseLostError(ctx.job.id);
 
+      // --- THE COORDINATION POINT (Sol item 5) ----------------------------
+      // `claim_zoom_jobs` guarantees two tickers never lease the same job ROW. It
+      // guarantees nothing about a `meeting_delete` for the same SURFACE, and Vercel
+      // crons overlap by design — so a cancellation can land after the eligibility gate
+      // above and its delete can run and finish while this attempt is at Zoom, finding
+      // no meeting number because none exists yet. The delete then never comes back, and
+      // the write below would attach a live meeting to a cancelled session.
+      //
+      // Re-read the source and re-run the SAME gate. Deliberately AFTER the checkpoint
+      // heartbeat: the meeting is durably named before anything else is attempted, so a
+      // crash inside the compensation still leaves a human the number.
+      //
+      // There is no window left underneath this. If the cancellation commits after this
+      // read, its delete can only be claimed after that commit, and by then the row is
+      // either already carrying the number (so the delete finds it and removes the
+      // meeting properly) or the delete retires the row first and the CAS below misses —
+      // which the miss branch resolves, also by compensating. The reservation INSERT
+      // happens before `createMeeting`, so a delete that finds NO row at all must have
+      // read before that insert, which puts the cancellation before this very read.
+      const current = await store.readSession(surfaceId);
+      const retired: CompensationTrigger | null =
+        current === null ? 'session_missing' : checkSessionEligibility(current);
+      if (retired !== null) {
+        const { zoomMissing } = await compensateOrphanedMeeting({
+          meetingId,
+          createdNumber: created.id,
+          trigger: retired,
+          growthCommunityId: session.growth_community_id,
+        });
+        const compensated: MeetingProvisionCompensatedResult = {
+          meeting_id: meetingId,
+          zoom_meeting_number: created.id,
+          persisted: false,
+          compensated: true,
+          trigger: retired,
+          zoom_missing: zoomMissing,
+        };
+        return compensated;
+      }
+
       // Read the RESPONSE, never the request: Zoom reflects EFFECTIVE settings on a
       // capability mismatch (§20) rather than refusing.
       effectiveAutoRecording = readAutoRecording(created.settings);
@@ -2368,6 +2722,35 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
             orphan_risk: false,
           };
           return superseded;
+        }
+
+        // The SECOND benign miss, and the residual half of Sol item 5. A cancellation
+        // that commits between the re-check above and this CAS lets `meeting_delete`
+        // retire the row — `deleted`, or `cancelled` from an eligibility release — and a
+        // retired row is numberless, so the CAS could never have matched. That is not an
+        // unexplained orphan a human has to chase: it is a decision about this surface,
+        // and the meeting we just minted is exactly what it decided against. Take it off
+        // Zoom. The row itself is left alone — the writer that retired it owns it, and
+        // published its own projection.
+        if (winner !== null && winnerNumber === null && isRetiredMeetingStatus(winner.status)) {
+          const { zoomMissing } = await compensateOrphanedMeeting({
+            meetingId,
+            createdNumber: created.id,
+            trigger: 'surface_retired',
+            growthCommunityId: session.growth_community_id,
+          });
+          console.warn(
+            `[meeting-provision] fresh-create persistence lost to a RETIREMENT for meeting ${meetingId} (zoom ${created.id}): the surface's row is '${winner.status}', so the meeting was deleted at Zoom rather than left standing.`
+          );
+          const compensated: MeetingProvisionCompensatedResult = {
+            meeting_id: meetingId,
+            zoom_meeting_number: created.id,
+            persisted: false,
+            compensated: true,
+            trigger: 'surface_retired',
+            zoom_missing: zoomMissing,
+          };
+          return compensated;
         }
 
         const cause: PossibleOrphanCause = readFailed

@@ -3025,3 +3025,133 @@ by the Zoom join list.
   out. Deliberate and documented in its header — `status`/`modality` are two more columns of
   the row it already reads, and the *gate* stays in the route — but it is a boundary a
   reviewer should look at rather than take on trust.
+
+---
+
+# Sol remediation — round r24 (item 5)
+
+**Branch** `feat/zoom-sess` · **fork point** `f8bf88ab` · **1 commit**
+
+Sol item 5: `meeting_provision` and `meeting_delete` are not coordinated per surface, so a
+cancellation landing mid-provision can leave a live Zoom meeting for a cancelled session.
+Item 9 is untouched — it is with Brent as a plan conflict.
+
+## The mechanism, and why this one
+
+**A source re-check at the persist point, plus an explicit compensating delete.** No SQL, no
+migration, no change to `claim_zoom_jobs`.
+
+Two coordination points in `lib/zoom/jobs/meeting-provision.ts`:
+
+1. **After `createMeeting` returns and after the post-create checkpoint heartbeat, before the
+   persist CAS**, the handler re-reads `consultor_sessions` and re-runs the SAME
+   `checkSessionEligibility` gate. Refused ⇒ DELETE the meeting at Zoom, release the
+   reservation, republish the retired projection, and COMPLETE with a distinct
+   `MeetingProvisionCompensatedResult`.
+2. **On a persist CAS miss whose winner is a RETIRED row** (numberless, `cancelled` or
+   `deleted`), the same compensation runs. That miss is *explained* — a `meeting_delete`
+   retired the row — so it is no longer reported as `possible_orphan`. The row itself is left
+   alone: the writer that retired it owns the record and published its own projection.
+
+**Why not the alternatives.** A surface-level advisory lock cannot be held across this
+handler's PostgREST calls — there is no stable database session behind them — so it would have
+to become a lock row with its own lease and expiry, i.e. a second queue with a second set of
+expiry races. Excluding conflicting job types at claim time coordinates the CLAIMS, not the
+WORK: a provisioner whose lease expires mid-`createMeeting` still walks into the same window,
+and the change would land in the one RPC four review rounds have hardened. The re-check sits
+inside the process that is *holding the unpersisted meeting*, which is the only place that can
+still undo it.
+
+**Why the two points close the window between them.** The reservation INSERT happens before
+`createMeeting`. So a `meeting_delete` that finds NO row at all must have read before that
+INSERT; its job is only claimable after the cancel commits; therefore the cancel is already
+visible to re-check #1. A delete that runs after the CAS finds the row carrying the number and
+removes the meeting through its own ordinary path. The only remaining ordering — a cancel that
+commits between re-check #1 and the CAS — is exactly what point #2 catches.
+
+**A third site, same helper.** The eligibility gate now compensates when the job carries a
+live post-create checkpoint on a numberless reservation. That is the crash-shaped version of
+the same end state (a previous attempt created at Zoom, died before persisting, session
+cancelled in between); refusing and walking away left that meeting standing. The job outcome is
+unchanged — still terminal `session_ineligible` — only the meeting is removed first. An
+UNRESOLVED `ambiguous_create_outcome` park still outranks it and is left completely untouched.
+
+**Compensation failure is loud, on both surfaces.** The job fails terminally under
+`compensation_failed` with `evidence.created_zoom_meeting_number`, AND the row is parked under
+the same reason with the same number while KEEPING its `pending` status — so the §9 EXCLUDE
+constraint goes on blocking a host a live meeting occupies. `meeting-delete.ts` gained one
+guard for that: it refuses to release a compensation-parked row, on the exact
+`ambiguous_create_outcome` precedent (`delete_compensation_parked`, evidence carrying the
+number). Nothing else in that handler changed; it is the provisioner that yields, because it is
+the one holding an unpersisted meeting.
+
+## How the interleaving was forced
+
+Never `Promise.all` and hope. The cancellation and its `meeting_delete` job are driven **from
+inside a seam of the provisioner's own call sequence**, so the ordering is identical on every
+run and every machine:
+
+| Ordering | Seam |
+|---|---|
+| Sol's named one — delete runs before any row exists | wrap `store.insertReservation` |
+| delete retires an existing bare reservation mid-create | wrap `api.createMeeting` |
+| the residual — delete lands between re-check and CAS | wrap `store.adoptCheckpointMeeting` |
+
+In each the wrapper flips `consultor_sessions.status` to `cancelada` and runs the REAL
+`createMeetingDeleteHandler` against the SAME shared harness rows, then delegates. Its outcome
+is asserted, not swallowed: the named interleaving asserts the delete really did die terminally
+under `no_meeting_row` — Sol's step 3, and the reason it is not coming back.
+
+## Files changed
+
+- `lib/zoom/jobs/meeting-provision.ts` — the two coordination points, the eligibility-gate
+  site, the shared compensation helper, `ZoomCompensationFailedError`, the row marker, the
+  compensated result shape, module header.
+- `lib/zoom/jobs/meeting-delete.ts` — the compensation-park refusal + module header.
+- `__tests__/lib/zoom/jobs/meeting-provision.test.ts` — 11 tests under
+  `Sol item 5 — a cancellation racing a provision`.
+
+## Test evidence
+
+- `npm run type-check && npm run lint && npm test && npm run build` — 0 · 0 ·
+  **4659 passed / 281 files** (was 4648 / 281; +11, none lost) · 0
+- `npm run test:db` — **Files=11, Tests=464**, Result: PASS (unchanged — no SQL this round)
+- **Mutation probe [L6]**: neutralising BOTH coordination points (the re-check forced to
+  `null`, the CAS-miss retirement branch disabled) killed **6 of the 11** tests, and `[L1]`
+  failed with the orphan itself — `expected [ { id: 82000000001, … } ] to deeply equal []`, a
+  live meeting at the fake for a cancelled session. Reverted; blob
+  `417f8ee8318f9cfefecc4690dc96d2718ec9a6e5` identical; suite back to green; tree clean.
+
+## Scrutinise hardest
+
+1. **The claim that there is no window left.** It rests on "a delete that finds no row must
+   have read before the reservation INSERT". That is an argument about commit visibility, not a
+   test — no in-process double can prove it, and it is the load-bearing step.
+2. **Compensating with a Zoom DELETE for a meeting we may not have persisted.** The number
+   comes from the create response and from the job's own checkpoint, so it is ours; but the
+   delete is irreversible and runs before any row records it.
+3. **The eligibility-gate change** is the one behaviour a previous round deliberately settled
+   the other way ("a live post-create checkpoint is left alone"). It is now compensated. Same
+   job state, same error, different world.
+4. **The compensation park keeps a `pending` row forever** until a human acts. That is the
+   ambiguous-park precedent, but it adds a second reason a host can stay blocked.
+5. **`releaseReservation` is skipped when the row is no longer active.** One extra
+   `findMeetingBySurface` decides it; between that read and the release the row could move
+   again. The consequence of losing that race is a row written by us instead of by the delete —
+   both retired, both projecting `cancelled` — so it is a fidelity question, not a safety one.
+
+## Known limitations / open
+
+- **A lease lost between `createMeeting` and the re-check still strands a meeting.** The
+  pre-existing RESIDUAL in the module header is unchanged: the checkpoint names it, a human
+  cancels it. This round narrows the cancelled-session case, not the crash case in general.
+- **The compensation is not itself atomic.** Zoom DELETE, then release, then republish are
+  three calls; a crash between them leaves a released reservation with a stale projection
+  (self-healing — the delete job republishes) or, before the release, a parked-looking row with
+  the meeting already gone.
+- **`meeting_delete` still fails terminally under `no_meeting_row`** in the named interleaving.
+  That is a red job for a race the system now handles correctly. Out of this round's scope; it
+  wants a ruling on whether "no row yet" should be a completion.
+- **Modality flips are covered by construction, not by a dedicated test.** The re-check runs
+  the whole `checkSessionEligibility` gate, so a flip to `presencial` mid-provision compensates
+  the same way; only `cancelada` is asserted.

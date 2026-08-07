@@ -5,17 +5,54 @@
  * legacy manual meeting link. Extracted from the page so the authorization
  * decisions are unit-testable without rendering React.
  *
- * Authorization is `canViewSession()` — the people who can open the session can
- * reach its meeting through the interstitial. Everything that is not an
- * authorized view collapses to one indistinguishable `not-found` result: a
- * caller must not be able to tell "this session exists but is not yours" from
- * "no such session" (no existence oracle).
+ * ## Two decisions, not one (plan §5, amended 2026-08-06 by owner decision)
+ *
+ * PAGE VISIBILITY is `canViewSession()` — the same rule every other session
+ * surface uses. Everything that is not an authorized view collapses to one
+ * indistinguishable `not-found` result: a caller must not be able to tell "this
+ * session exists but is not yours" from "no such session" (no existence oracle).
+ *
+ * The JOIN CAPABILITY on that page is `authorizeMeetingJoin()` — the §5 join
+ * list, which is strictly narrower (*viewing ≠ sitting in*). It governs BOTH
+ * ways into the meeting this page can offer: the managed Zoom affordance and the
+ * raw pasted `meeting_link` a `google_meet`/`teams`/`otro` session carries.
+ * Whoever holds that URL can enter the meeting, so it is a capability, not
+ * information — gating it by page visibility while the Zoom path is gated by the
+ * join list meant two ways in under two different rules, chosen by whichever
+ * provider the scheduler happened to pick. A persona who may view but may not
+ * join now gets the same answer for both providers.
+ *
+ * The link is therefore withheld from the PROPS, not merely from the markup:
+ * page props are serialised into `__NEXT_DATA__`, so a conditional render would
+ * ship the URL to the very persona it is withheld from.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getUserRoles, getHighestRole } from '../../utils/roleUtils';
 import { canViewSession, SessionAccessContext } from './session-policy';
+import { authorizeMeetingJoin } from './meeting-join-policy';
+import { isFeatureEnabled, FeatureFlags } from '../featureFlags';
 import { Validators } from '../types/api-auth.types';
+
+/**
+ * Whether this viewer may use the page's join capability.
+ *
+ *  - `allowed`  — `authorizeMeetingJoin()` authorized them.
+ *  - `denied`   — they may open the page and may not join, either provider.
+ *  - `disabled` — §14's master kill switch is off, so there is no Zoom join to
+ *    offer. Strictly narrower than `denied`: it is only ever reached by a
+ *    viewer who WOULD be allowed, so the flag's state is never disclosed to a
+ *    persona the join list already refused.
+ */
+export type MeetJoinAccess = 'allowed' | 'denied' | 'disabled';
+
+/**
+ * Shown to a viewer the join list refuses for a reason that carries no remedy.
+ * Deliberately the same copy as §5's non-assigned-consultor 403: it says
+ * nothing about the attendee roster, which would describe the contents of a
+ * session the viewer is not part of.
+ */
+export const JOIN_NOT_AUTHORIZED_MESSAGE = 'No tienes acceso para unirte a esta reunión.';
 
 /**
  * The only session fields the interstitial needs. Deliberately narrow: this
@@ -27,6 +64,11 @@ export interface MeetSessionView {
   session_date: string;
   start_time: string;
   end_time: string;
+  /**
+   * The raw pasted link of a legacy/manual session — present ONLY when
+   * `join_access` is `allowed`. See the header: withholding it from the markup
+   * alone would still serialise it into `__NEXT_DATA__`.
+   */
   meeting_link: string | null;
   /**
    * Durable managed intent (plan §8). A managed session never carries a raw
@@ -34,6 +76,10 @@ export interface MeetSessionView {
    * instead — so the page needs this to pick which control to render.
    */
   is_zoom_managed: boolean;
+  /** §5 join list, resolved for this viewer against THIS session. */
+  join_access: MeetJoinAccess;
+  /** es-CL copy for the refusal; set iff `join_access` is `denied`. */
+  join_denial_message: string | null;
 }
 
 export type MeetSessionAccess =
@@ -108,6 +154,27 @@ export async function resolveMeetSessionAccess(params: {
     return NOT_FOUND;
   }
 
+  // Page visibility is settled. The join capability is a SECOND, narrower
+  // decision, and it is the join policy's to make — this module reuses it
+  // rather than reimplementing it, so the page and the join API can never
+  // disagree about who may enter a meeting. It costs a second pass over rows
+  // this function has already read; the alternative is a private copy of the
+  // §5 matrix, which is the failure mode the policy module exists to prevent.
+  const joinDecision = await authorizeMeetingJoin({ sessionId, userId, service });
+  const isZoomManaged = session.is_zoom_managed === true;
+
+  // §14: the master kill switch is enforced here as well as on the join route,
+  // so the page stops offering a join it knows would answer 503. It is checked
+  // AFTER authorization — see `MeetJoinAccess` — and only for the managed path:
+  // the flag governs Zoom, and a school's pasted Meet or Teams link is not a
+  // Zoom capability to switch off.
+  const joinAccess: MeetJoinAccess =
+    joinDecision.kind !== 'authorized'
+      ? 'denied'
+      : isZoomManaged && !isFeatureEnabled(FeatureFlags.ZOOM_MEETINGS)
+        ? 'disabled'
+        : 'allowed';
+
   return {
     kind: 'ok',
     session: {
@@ -116,8 +183,18 @@ export async function resolveMeetSessionAccess(params: {
       session_date: session.session_date,
       start_time: session.start_time,
       end_time: session.end_time,
-      meeting_link: session.meeting_link ?? null,
-      is_zoom_managed: session.is_zoom_managed === true,
+      meeting_link: joinAccess === 'allowed' ? (session.meeting_link ?? null) : null,
+      is_zoom_managed: isZoomManaged,
+      join_access: joinAccess,
+      join_denial_message:
+        joinAccess !== 'denied'
+          ? null
+          : // §5 gives the GC member who is not on the roster their remedy (a
+            // facilitator adds them); everyone else gets the copy with no
+            // remedy in it.
+            joinDecision.kind === 'forbidden'
+            ? joinDecision.message
+            : JOIN_NOT_AUTHORIZED_MESSAGE,
     },
   };
 }

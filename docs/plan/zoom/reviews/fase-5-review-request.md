@@ -3155,3 +3155,153 @@ under `no_meeting_row` — Sol's step 3, and the reason it is not coming back.
 - **Modality flips are covered by construction, not by a dedicated test.** The re-check runs
   the whole `checkSessionEligibility` gate, so a flip to `presencial` mid-provision compensates
   the same way; only `cancelada` is asserted.
+
+# Sol remediation — round r25 (item 9)
+
+**Branch** `feat/zoom-sess` · **fork point** `f2c22a74` · **1 commit**
+
+Sol item 9 — *one policy across route and SSR* — which r23 refused in its original form and
+was right to refuse. This round implements it in the sharpened form the owner ruled.
+
+## The two rulings this round executes
+
+Both are **owner decisions (Brent)**, not executor judgement.
+
+**RULING A — recorded in `PLAN.md` §5 (amendment dated 2026-08-06).** The plan line that read
+"…used by both the join API and the `/meet` pages' getServerSideProps" was read as making
+`authorizeMeetingJoin()` the PAGE-VISIBILITY gate. Implementing that literally re-tiers four
+roles as a side effect of a security fix. The amendment keeps the intent and moves it:
+
+1. Page visibility keeps `canViewSession`. No tier moves.
+2. `authorizeMeetingJoin()` governs the join CAPABILITY wherever it appears on that page —
+   the Zoom affordance **and** the raw pasted `meeting_link`.
+3. The §14 kill switch is enforced in `/meet` SSR, as §14 already required.
+
+**RULING B — owner, this round.** (2) collides with `tests/e2e/zoom-join-authz.spec.ts`, a
+MANDATORY spec (`scripts/ci/e2e-mandatory.mjs`), which asserted that view-only personas reach
+`meet-join-link` with the raw link as its `href`. That spec documented the inconsistency (2)
+removes: "view-only" meant *no credentials* for a Zoom session and *here is the link* for a
+pasted-link session. **The owner ruled: make it consistent.** Those assertions are inverted in
+this round, and the reason is written into the spec's header so the next reader sees a
+decision rather than a weakened assertion.
+
+## What the code does now
+
+`resolveMeetSessionAccess` makes two decisions instead of one. Page visibility is unchanged —
+same `canViewSession`, same single shared `NOT_FOUND`. After it passes, the resolver calls
+`authorizeMeetingJoin()` (the policy module, not a copy of it) and publishes
+`join_access: 'allowed' | 'denied' | 'disabled'` plus an es-CL `join_denial_message`.
+
+**The link is withheld from the PROPS, not from the markup.** Page props are serialised into
+`__NEXT_DATA__`, so a conditional render would have shipped the URL to the very persona it is
+withheld from. `meeting_link` is `null` unless `join_access === 'allowed'`.
+
+The page renders that decision and nothing else: `meet-join-denied` for a refused viewer (no
+affordance, no link, and not the `meet-no-link` state either — whether the session HAS a link
+is part of the capability), `meet-join-disabled` for the kill switch, and the three existing
+branches otherwise, byte-identical (the frozen-markup test at `6c71eda` still passes unedited).
+
+## §14 — what the page does with the flag off, and why
+
+With `FEATURE_ZOOM_MEETINGS` off the join route answers 503. The page therefore stops offering
+the join it knows would fail, and shows the same sentence the route answers with. Two ordering
+decisions, both deliberate:
+
+- **Authorization is resolved first, the flag second.** A viewer the join list already refused
+  gets `denied`, never `disabled` — so the flag's state is not disclosed to someone with no
+  join to lose. The route checks the flag *before* authorization for the opposite reason (its
+  503 must not become an oracle); on the page, page visibility has already been resolved
+  before either check, so no denial path is touched: a non-entitled viewer still gets the one
+  shared `not-found`, byte-identical to a nonexistent session (asserted, flag off).
+- **The flag suppresses the MANAGED path only.** `FEATURE_ZOOM_MEETINGS` is Zoom's master
+  switch (§14: "stops *new meetings and joins*"). A school's pasted Google Meet or Teams link
+  is not a Zoom capability, and taking it away when Zoom is switched off would be an outage
+  GENERA has no reason to cause.
+
+## Tier table — before and after
+
+Page access is unchanged in every row. Only the join columns move.
+
+| Persona | Page (before → after) | Join affordance (before → after) | Raw link (before → after) |
+|---|---|---|---|
+| `admin` | 200 → 200 | yes → yes | yes → yes |
+| `consultorAssigned` (lead facilitator of both) | 200 → 200 | yes → yes | yes → yes |
+| `consultorGlobal` | 200 → 200 | yes → **no** | yes → **no** |
+| `gcLeader` | 200 → 200 | yes → yes | yes → yes |
+| `docente` | 404 → 404 | — | no → no |
+| `consultorOtherSchool` | 404 → 404 | — | no → no |
+| `inactiveConsultor` | 404 → 404 | — | no → no |
+
+`consultorGlobal` is the whole change: privileged for DISCLOSURE (they receive the raw link in
+API payloads — `session-disclosure.spec.ts`, unchanged) and refused by the §5 join list, which
+has no branch for an unassigned consultor. Before this round the Zoom path refused them and
+the pasted-link path handed them the URL.
+
+**`gcLeader` is a fixture fact worth recording**: they are an EXPECTED ATTENDEE of both
+seeded sessions, so they may join both. The fixture file lists them on the linked session
+only — the second row is written by the `trg_sync_session_attendees_on_gc_change` trigger
+(`00000000000000_baseline.sql`), which enrols an active GC member into every FUTURE
+`programada` session of their community. A first run of this spec was authored from the
+fixture JSON alone and failed on exactly that persona; the correction is in the spec's own
+comment so the next reader does not repeat it.
+
+## Files changed
+
+- `lib/utils/session-meet-access.ts` (+91/−6) — the second decision, the withheld link, §14.
+- `pages/meet/session/[id].tsx` (+29/−4) — two refusal panels; authorized branches untouched.
+- `__tests__/lib/utils/session-meet-access.test.ts` (+190/−7) — the join matrix and §14.
+- `__tests__/pages/meet/session-managed-join.test.tsx` (+97/−0) — what the refused viewer sees.
+- `tests/e2e/zoom-join-authz.spec.ts` (+112/−24) — ruling B, with its reason in the file.
+
+## Test evidence
+
+Five gates at this head, from `/Users/brentcurtis/dev/wt/zoom-sess`:
+
+`npm run type-check && npm run lint && npm test && npm run build` → exit 0;
+**4676 passed / 281 files** (baseline 4659 / 281 — 17 new, none lost).
+`npm run test:db` → `Files=11, Tests=464`, `Result: PASS` — unchanged.
+
+**The mandatory e2e actually ran**: `npx playwright test tests/e2e/zoom-join-authz.spec.ts`
+→ **20 passed**, against a freshly `supabase db reset` local stack seeded by
+`scripts/ci/seed-e2e.mjs`. `.env.local` was pointed at that stack for the run and restored
+afterwards (sha256 verified identical). This spec is not one of the five gates — it is
+mandatory in CI only, which is exactly how r23's trap stayed invisible.
+
+**Mutation probe.** Replacing the whole `joinAccess` computation with the constant `'allowed'`
+(the gate removed) fails 6 of the new unit tests — including `expected
+'https://meet.example.test/abc-def' to be null` — and both `consultorGlobal` e2e tests. The
+file was restored from a pre-probe copy; `git hash-object` is `57ae3837…` before and after,
+and the tree is clean apart from this round's five files.
+
+## Scrutinise hardest
+
+1. **The join policy is now called twice per page load** — once by the page, once by the join
+   route when the user clicks. `resolveMeetSessionAccess` re-reads the session row, the roles
+   and the facilitator row it had already read, because the policy owns its own lookups. The
+   alternative was a prefetch parameter on a security module three rounds have sealed. Cost,
+   not correctness — but it is a real cost on a page whose stated virtue is being light.
+2. **The refused viewer no longer sees `meet-no-link`.** Whether a session has a link is now
+   part of the capability, so a refused viewer gets the refusal on a linked and an unlinked
+   session alike. That is deliberate (it is the one place the two could be told apart) and it
+   is a copy change for `gcLeader`-shaped users who previously saw "no tiene enlace".
+3. **`is_zoom_managed` still reaches the props of a refused viewer.** They learn the provider
+   is Zoom and nothing else; the page does not use it on that branch. Removing it churns the
+   frozen-markup fixtures for no security gain, but it is the one field that survives a refusal.
+4. **The §14 scope call is mine to defend** (§ above): the flag suppresses the managed path
+   only. If the reviewer reads §14 as "no joins at all", the pasted-link branch is wrong.
+5. **`JOIN_AUTHORIZED` in the e2e spec is a hand-derived table**, not something read from the
+   database. It is guarded (it must be a subset of the view tier and strictly narrower), and
+   the trigger that made it non-obvious is documented, but a fixture change could still make
+   it silently wrong in the permissive direction — it would show up as an unexpected pass.
+
+## Known limitations / open
+
+- **The page does not apply `joinIsClosedBySource`.** A cancelled or `presencial` session with
+  a pasted link still shows that link to an authorized persona, while the managed path answers
+  410. The persona rule is consistent now; the session-STATE rule is not. Out of this round's
+  scope (r21–r24 sealed the route's source gate) and the natural next item.
+- **No e2e covers the managed affordance or the kill switch.** Both seeded sessions are
+  unmanaged (`is_zoom_managed` defaults to false and the seeder does not set it), so the
+  `disabled` branch and `meet-join-button` are unit-tested only. Unchanged from r23's note.
+- **`session-personas.ts` is untouched.** The view tiers are the same three; the join tiers
+  live in the spec that uses them, per session, because that is what they are.

@@ -10,6 +10,7 @@ import { createServiceRoleClient } from '../../../lib/api-auth';
 import JoinMeetingButton from '../../../components/sessions/JoinMeetingButton';
 import { formatTime } from '../../../lib/utils/session-ui-helpers';
 import {
+  JOIN_NOT_AUTHORIZED_MESSAGE,
   MeetSessionView,
   resolveMeetSessionAccess,
 } from '../../../lib/utils/session-meet-access';
@@ -38,6 +39,13 @@ import {
  * link does. They are deliberately NOT props — `getServerSideProps` below reads
  * nothing from `zoom_internal` and must stay that way.
  *
+ * WHO gets a way in is not who gets the page (plan §5, amended 2026-08-06 by owner
+ * decision): page visibility is `canViewSession`, the join capability is
+ * `authorizeMeetingJoin`, and the second governs the managed affordance and the raw
+ * pasted link alike. A viewer the join list refuses reaches this page and finds no way
+ * into the meeting — the link is not in the props, so it is not in the document either.
+ * `resolveMeetSessionAccess` makes that decision; the branches below only render it.
+ *
  * NOTE the tension this does not resolve: the rationale for dial-in is a school
  * internet outage, and a participant whose internet is down cannot load this page to
  * read the number. Getting it to them beforehand would mean a notification or an .ics,
@@ -47,6 +55,16 @@ import {
 type MeetSessionPageProps = {
   session: MeetSessionView;
 };
+
+/**
+ * §14, same wording the join route answers its 503 with — one kill switch, one
+ * sentence, whichever surface the user happens to be on.
+ */
+const JOIN_DISABLED_MESSAGE = 'Las videollamadas están temporalmente deshabilitadas';
+
+/** The two refusal panels share the neutral card the no-link state already uses. */
+const NOTICE_CLASSNAME =
+  'mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700';
 
 const MeetSessionPage: React.FC<MeetSessionPageProps> = ({ session }) => {
   const dateLabel = format(parseISO(session.session_date), "EEEE d 'de' MMMM 'de' yyyy", {
@@ -83,7 +101,15 @@ const MeetSessionPage: React.FC<MeetSessionPageProps> = ({ session }) => {
             </div>
           </dl>
 
-          {session.is_zoom_managed ? (
+          {session.join_access === 'denied' ? (
+            <div data-testid="meet-join-denied" className={NOTICE_CLASSNAME}>
+              {session.join_denial_message ?? JOIN_NOT_AUTHORIZED_MESSAGE}
+            </div>
+          ) : session.join_access === 'disabled' ? (
+            <div data-testid="meet-join-disabled" className={NOTICE_CLASSNAME}>
+              {JOIN_DISABLED_MESSAGE}
+            </div>
+          ) : session.is_zoom_managed ? (
             <JoinMeetingButton sessionId={session.id} />
           ) : session.meeting_link ? (
             <div className="mt-6">
@@ -102,10 +128,7 @@ const MeetSessionPage: React.FC<MeetSessionPageProps> = ({ session }) => {
               </p>
             </div>
           ) : (
-            <div
-              data-testid="meet-no-link"
-              className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700"
-            >
+            <div data-testid="meet-no-link" className={NOTICE_CLASSNAME}>
               Esta sesión no tiene enlace de reunión.
             </div>
           )}

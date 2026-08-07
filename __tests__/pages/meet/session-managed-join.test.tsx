@@ -55,12 +55,28 @@ const unmanagedWithLink: MeetSessionView = {
   end_time: '10:30:00',
   meeting_link: MEETING_LINK,
   is_zoom_managed: false,
+  join_access: 'allowed',
+  join_denial_message: null,
 };
 
 const unmanagedNoLink: MeetSessionView = { ...unmanagedWithLink, meeting_link: null };
 
 /** §8: a managed session's source row never carries the link. */
 const managed: MeetSessionView = { ...unmanagedWithLink, meeting_link: null, is_zoom_managed: true };
+
+/**
+ * The viewer the §5 join list refuses. `resolveMeetSessionAccess` has already
+ * stripped the link — the page never sees it, which is the point.
+ */
+const joinDenied: MeetSessionView = {
+  ...unmanagedWithLink,
+  meeting_link: null,
+  join_access: 'denied',
+  join_denial_message: 'No tienes acceso para unirte a esta reunión.',
+};
+
+/** §14 kill switch: a viewer who WOULD be allowed, on a managed session. */
+const joinDisabled: MeetSessionView = { ...managed, join_access: 'disabled' };
 
 /** Frozen at 6c71eda — see the module header. */
 const LEGACY_WITH_LINK_MARKUP =
@@ -123,8 +139,89 @@ describe('/meet/session/[id] — managed sessions', () => {
         end_time: '10:30:00',
         meeting_link: null,
         is_zoom_managed: true,
+        join_access: 'allowed',
+        join_denial_message: null,
       },
     });
+  });
+});
+
+/**
+ * The join capability is not page visibility (plan §5, amended 2026-08-06 by owner
+ * decision). These render the page for a viewer who HAS it and may not join: they
+ * get the session's date and time and no way into the meeting, whichever provider
+ * the scheduler picked.
+ */
+describe('/meet/session/[id] — a viewer the join list refuses', () => {
+  it('renders no join control on a pasted-link session', () => {
+    render(<MeetSessionPage session={joinDenied} />);
+
+    expect(screen.getByTestId('meet-join-denied')).toBeInTheDocument();
+    expect(screen.queryByTestId('meet-join-link')).toBeNull();
+    expect(screen.queryByTestId('meet-join-button')).toBeNull();
+    // Not the no-link state either: whether the session HAS a link is part of
+    // the capability, not something a refused viewer gets to learn.
+    expect(screen.queryByTestId('meet-no-link')).toBeNull();
+  });
+
+  it('renders no join control on a Zoom-managed session — the same answer', () => {
+    render(<MeetSessionPage session={{ ...joinDenied, is_zoom_managed: true }} />);
+
+    expect(screen.getByTestId('meet-join-denied')).toBeInTheDocument();
+    expect(screen.queryByTestId('meet-join-button')).toBeNull();
+    expect(screen.queryByTestId('meet-join-link')).toBeNull();
+  });
+
+  it('still shows the session itself — page visibility did not move', () => {
+    render(<MeetSessionPage session={joinDenied} />);
+
+    expect(screen.getByText('Sesión sintética')).toBeInTheDocument();
+    expect(screen.getByTestId('meet-back-link')).toBeInTheDocument();
+  });
+
+  it('carries the §5 refusal copy in es-CL', () => {
+    render(
+      <MeetSessionPage
+        session={{
+          ...joinDenied,
+          join_denial_message:
+            'No estás en la lista de asistentes de esta sesión. Pídele a un facilitador que te agregue.',
+        }}
+      />
+    );
+
+    expect(screen.getByTestId('meet-join-denied')).toHaveTextContent(
+      'No estás en la lista de asistentes de esta sesión.'
+    );
+  });
+
+  it('puts no URL of any kind in the document', () => {
+    const { container } = render(<MeetSessionPage session={joinDenied} />);
+
+    expect(container.innerHTML).not.toContain(MEETING_LINK);
+    expect(container.querySelector('a[href^="http"]')).toBeNull();
+  });
+
+  it('is what getServerSideProps serialises — the link is absent from __NEXT_DATA__', async () => {
+    mockResolveMeetSessionAccess.mockResolvedValue({ kind: 'ok', session: joinDenied });
+
+    const result = await getServerSideProps(context());
+    const serialized = JSON.stringify('props' in result ? result.props : {});
+
+    expect(serialized).not.toContain(MEETING_LINK);
+    expect(serialized).not.toMatch(/https?:\/\//);
+  });
+});
+
+describe('/meet/session/[id] — §14 kill switch', () => {
+  it('replaces the managed join control with the disabled notice', () => {
+    render(<MeetSessionPage session={joinDisabled} />);
+
+    expect(screen.getByTestId('meet-join-disabled')).toHaveTextContent(
+      'Las videollamadas están temporalmente deshabilitadas'
+    );
+    expect(screen.queryByTestId('meet-join-button')).toBeNull();
+    expect(screen.queryByTestId('meet-join-link')).toBeNull();
   });
 });
 

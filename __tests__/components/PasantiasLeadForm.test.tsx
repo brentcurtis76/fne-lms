@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
@@ -11,7 +11,7 @@ import {
   PRIVACY_POLICY_LINK_LABEL,
   PRIVACY_POLICY_PATH,
 } from '../../lib/pasantias/consent';
-import { LEAD_VALIDATION_MESSAGES } from '../../lib/pasantias/leads';
+import { LEAD_FIELD_LIMITS, LEAD_VALIDATION_MESSAGES } from '../../lib/pasantias/leads';
 
 /**
  * The lead form's client behaviour. Every expectation about copy or field names
@@ -241,6 +241,27 @@ describe('PasantiasLeadForm', () => {
     expect(screen.getByTestId('pasantias-lead-phone')).toHaveValue('912345678');
     expect(screen.getByTestId('pasantias-consent')).toBeChecked();
     expect(screen.getByTestId('pasantias-marketing-optin')).toBeChecked();
+  });
+
+  it('caps the message without a maxlength attribute (the D-02 collision)', async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch(jsonResponse(200, { success: true }));
+    render(<LeadForm />);
+
+    // `maxlength="1000"` in the markup is the retired €1.000 fee as far as the
+    // page's D-02 scan is concerned, so the attribute is deliberately absent and
+    // the validator carries the cap alone. This test is what keeps that honest.
+    const message = screen.getByTestId('pasantias-lead-message');
+    expect(message).not.toHaveAttribute('maxlength');
+
+    await fillRequired(user);
+    fireEvent.change(message, { target: { value: 'a'.repeat(LEAD_FIELD_LIMITS.message + 1) } });
+    await user.click(screen.getByTestId('pasantias-lead-submit'));
+
+    expect(screen.getByTestId('pasantias-lead-error-message')).toHaveTextContent(
+      LEAD_VALIDATION_MESSAGES.tooLong(LEAD_FIELD_LIMITS.message)
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('disables the submit control while the request is in flight', async () => {

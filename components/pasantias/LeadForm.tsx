@@ -476,11 +476,21 @@ export default function LeadForm() {
         </Field>
 
         <Field id="message" label="Mensaje" optional full error={errors.message}>
+          {/*
+            No `maxLength` here, deliberately, and it is the one control without
+            one. `LEAD_FIELD_LIMITS.message` is 1000, and a `maxlength="1000"`
+            attribute puts the digit string `1000` into the rendered HTML, which
+            is the retired €1.000 programme fee that
+            `tests/e2e/pasantias-page.spec.ts`'s D-02 scan refuses to let reach
+            this page. The cap is not lost: `validateLeadSubmission` enforces it
+            on both sides and renders `LEAD_VALIDATION_MESSAGES.tooLong(1000)`
+            against this field. Weakening the D-02 pattern to buy back an
+            attribute was the alternative and was not taken.
+          */}
           <textarea
             id="message"
             name="message"
             rows={3}
-            maxLength={LEAD_FIELD_LIMITS.message}
             value={form.message}
             onChange={(event) => updateField('message', event.target.value)}
             className={controlClasses(Boolean(errors.message))}

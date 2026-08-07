@@ -3247,11 +3247,11 @@ comment so the next reader does not repeat it.
 
 ## Files changed
 
-- `lib/utils/session-meet-access.ts` (+91/−6) — the second decision, the withheld link, §14.
-- `pages/meet/session/[id].tsx` (+29/−4) — two refusal panels; authorized branches untouched.
-- `__tests__/lib/utils/session-meet-access.test.ts` (+190/−7) — the join matrix and §14.
+- `lib/utils/session-meet-access.ts` (+84/−7) — the second decision, the withheld link, §14.
+- `pages/meet/session/[id].tsx` (+28/−5) — two refusal panels; authorized branches untouched.
+- `__tests__/lib/utils/session-meet-access.test.ts` (+193/−4) — the join matrix and §14.
 - `__tests__/pages/meet/session-managed-join.test.tsx` (+97/−0) — what the refused viewer sees.
-- `tests/e2e/zoom-join-authz.spec.ts` (+112/−24) — ruling B, with its reason in the file.
+- `tests/e2e/zoom-join-authz.spec.ts` (+116/−20) — ruling B, with its reason in the file.
 
 ## Test evidence
 

@@ -106,6 +106,12 @@ export interface ProvisionHarnessSeed {
   facilitators?: SessionFacilitatorRow[];
   hosts: ProvisionHostRow[];
   meetings?: StoredMeeting[];
+  /**
+   * `meeting_provision` jobs the queue holds for this surface, as `meeting_delete` reads
+   * them when it finds no `zoom_meetings` row (r27). Only non-terminal statuses belong
+   * here — the store returns the first, or `null`.
+   */
+  liveProvisionJobs?: { id: string; status: string }[];
   /** Runs after the in-memory atomic transaction commits, before the RPC returns. */
   afterAtomicProvision?: (
     kind: 'recovery' | 'adoption',
@@ -500,6 +506,11 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
   const deleteStore: MeetingDeleteStore = {
     readSession: store.readSession,
     findMeetingBySurface: store.findMeetingBySurface,
+
+    findLiveProvisionJob: vi.fn(async (_surfaceType: ZoomSurfaceType, surfaceId: string) => {
+      if (surfaceId !== seed.session.id) return null;
+      return (seed.liveProvisionJobs ?? [])[0] ?? null;
+    }),
 
     markMeetingDeleted: vi.fn(async (meetingId: string, lastError: string | null) => {
       const row = meetings.find((candidate) => candidate.id === meetingId);

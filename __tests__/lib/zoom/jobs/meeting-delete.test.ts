@@ -18,6 +18,7 @@ import { describeJobFailure } from '../../../../lib/zoom/jobs/runner';
 import {
   AMBIGUOUS_PARK_REASON,
   createMeetingDeleteHandler,
+  LIVE_JOB_STATUSES,
   NO_MEETING_ROW_REASON,
 } from '../../../../lib/zoom/jobs/meeting-delete';
 import {
@@ -293,6 +294,122 @@ describe('meeting_delete — row states [A5]', () => {
     const record = describeJobFailure(error);
     expect(record.kind).toBe('non_retryable');
     expect(record.reason).toBe(NO_MEETING_ROW_REASON);
+  });
+
+  // -------------------------------------------------------------------------
+  // Sol S1 (r27) — a missing row is TWO facts, and only one of them is an anomaly.
+  //
+  // r24 made `meeting_provision` compensate its own meeting when the surface is retired
+  // underneath it. A delete that finds no row read before that run's reservation INSERT,
+  // so the provisioner is still in flight and the end state will be correct — a
+  // dead-letter for it is noise that teaches people to ignore dead-letters.
+  // -------------------------------------------------------------------------
+
+  describe('the no-row split [Sol S1]', () => {
+    function harnessWithLiveProvision(status: 'pending' | 'leased') {
+      return createMemoryProvisionStore({
+        session: CANCELLED,
+        hosts: [{ zoom_user_id: HOST, profile_id: null }],
+        meetings: [],
+        liveProvisionJobs: [{ id: 'job-provision-9', status }],
+      });
+    }
+
+    it.each(['leased', 'pending'] as const)(
+      'completes without dead-lettering when a %s meeting_provision run still owns the surface',
+      async (status) => {
+        const fake = await seedFakeWithMeeting();
+        const harness = harnessWithLiveProvision(status);
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+        const result = await createMeetingDeleteHandler({
+          api: fake,
+          store: harness.deleteStore,
+        })(context());
+
+        expect(result).toEqual({
+          meeting_id: null,
+          zoom_meeting_number: null,
+          deleted: false,
+          zoom_missing: false,
+          projection: null,
+          deferred_to_provisioner: true,
+          provision_job_id: 'job-provision-9',
+          provision_job_status: status,
+        });
+
+        // It removed nothing and it wrote nothing — the provisioner owns both.
+        expect(harness.deleteStore.markMeetingDeleted).not.toHaveBeenCalled();
+        expect(fake.listMeetings()).toHaveLength(1);
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('job-provision-9'));
+
+        warnSpy.mockRestore();
+      }
+    );
+
+    it('still dead-letters when nothing is in flight to explain the missing row', async () => {
+      // The anomaly the check exists for: a delete enqueued for a surface that never had
+      // a meeting and never will. Same seed as the deferral above, minus the live job.
+      const fake = await seedFakeWithMeeting();
+      const harness = harnessFor(CANCELLED, []);
+
+      const error = await createMeetingDeleteHandler({ api: fake, store: harness.deleteStore })(
+        context()
+      ).catch((e: unknown) => e);
+
+      const record = describeJobFailure(error);
+      expect(record.kind).toBe('non_retryable');
+      expect(record.reason).toBe(NO_MEETING_ROW_REASON);
+    });
+
+    it.each(['done', 'failed', 'dead'] as const)(
+      'does not defer to a %s provision job — it will not run again',
+      async (status) => {
+        // A terminal job can no longer produce a row, so it cannot explain a missing one.
+        // The harness only ever holds live jobs, so a terminal status is modelled the way
+        // the store's `status IN (pending, leased)` filter answers it: nothing found.
+        const fake = await seedFakeWithMeeting();
+        const harness = harnessFor(CANCELLED, []);
+        harness.deleteStore.findLiveProvisionJob = vi.fn(async () => {
+          expect(LIVE_JOB_STATUSES).not.toContain(status);
+          return null;
+        });
+
+        const error = await createMeetingDeleteHandler({
+          api: fake,
+          store: harness.deleteStore,
+        })(context()).catch((e: unknown) => e);
+
+        expect(describeJobFailure(error).reason).toBe(NO_MEETING_ROW_REASON);
+      }
+    );
+
+    it('fails rather than deferring when the provision-job lookup itself errors', async () => {
+      // Not knowing is not the same as knowing there is no provisioner, and the benign
+      // answer is the one that must never be reached by default.
+      const fake = await seedFakeWithMeeting();
+      const harness = harnessFor(CANCELLED, []);
+      harness.deleteStore.findLiveProvisionJob = vi.fn(async () => {
+        throw new Error('zoom_jobs provision lookup failed: connection reset');
+      });
+
+      const error = await createMeetingDeleteHandler({ api: fake, store: harness.deleteStore })(
+        context()
+      ).catch((e: unknown) => e);
+
+      expect((error as Error).message).toMatch(/zoom_jobs provision lookup failed/);
+      expect(harness.deleteStore.markMeetingDeleted).not.toHaveBeenCalled();
+    });
+
+    it('never consults the queue when the row IS there', async () => {
+      const fake = await seedFakeWithMeeting();
+      const harness = harnessFor();
+      seedProjection(harness);
+
+      await createMeetingDeleteHandler({ api: fake, store: harness.deleteStore })(context());
+
+      expect(harness.deleteStore.findLiveProvisionJob).not.toHaveBeenCalled();
+    });
   });
 
   it('refuses a session that has vanished, non-retryably', async () => {

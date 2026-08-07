@@ -291,6 +291,85 @@ describe('applySessionMeetingDisclosure', () => {
     expect(input.meeting_link).toBe(row.meeting_link);
     expect(input.meeting_transcript).toBe(row.meeting_transcript);
   });
+
+  // ------------------------------------------------------------------
+  // Sol r26 item — the sixth surface (r27).
+  //
+  // A Zoom-managed session keeps `meeting_link` NULL BY DESIGN (plan §8), so deciding
+  // from the raw link alone told every API caller `has_meeting: false, join_path: null`
+  // for exactly the sessions this phase exists to serve. r26 routed five surfaces
+  // through `sessionOffersPlatformJoin`; this is the sixth, with the same root cause.
+  // ------------------------------------------------------------------
+
+  describe('a managed session, whose meeting_link is NULL by design', () => {
+    const managed = {
+      id: 'sess-managed-1',
+      title: 'Sesión gestionada por la plataforma',
+      meeting_link: null,
+      is_zoom_managed: true,
+    };
+
+    it('reports has_meeting=true and a join_path for a GC member', () => {
+      const out = applySessionMeetingDisclosure(managed, gcMember);
+
+      expect(out.has_meeting).toBe(true);
+      expect(out.join_path).toBe('/meet/session/sess-managed-1');
+      expect(out).not.toHaveProperty('meeting_link');
+    });
+
+    it('reports has_meeting=true for an admin without inventing a link to carry', () => {
+      const out = applySessionMeetingDisclosure(managed, buildContext({ highestRole: 'admin' }));
+
+      expect(out.has_meeting).toBe(true);
+      expect(out.join_path).toBe('/meet/session/sess-managed-1');
+      // Privileged callers keep the column, and the column is genuinely NULL.
+      expect(out.meeting_link).toBeNull();
+    });
+
+    it('never lets the real Zoom URL into the payload of an unentitled caller', () => {
+      // A managed session's real join URL lives in `zoom_internal` and must never reach
+      // `consultor_sessions`. This asserts the invariant end to end with a distinctive
+      // synthetic value: if a future change routed the raw link through the disclosure,
+      // this marker would appear somewhere in the serialized payload.
+      const MARKER = 'https://zoom.test/j/89999999999?pwd=SYNTHETIC-R27-MARKER';
+      const out = applySessionMeetingDisclosure(
+        { ...managed, meeting_link: MARKER },
+        gcMember
+      );
+
+      expect(out.has_meeting).toBe(true);
+      expect(out.join_path).toBe('/meet/session/sess-managed-1');
+      expect(JSON.stringify(out)).not.toContain('SYNTHETIC-R27-MARKER');
+      expect(JSON.stringify(out)).not.toContain('zoom.test');
+    });
+
+    it('answers exactly as before for an unmanaged session with no link', () => {
+      const out = applySessionMeetingDisclosure(
+        { id: 'sess-plain', meeting_link: null, is_zoom_managed: false },
+        buildContext({ highestRole: 'admin' })
+      );
+
+      expect(out.has_meeting).toBe(false);
+      expect(out.join_path).toBeNull();
+    });
+
+    it('ignores a has_meeting the caller put on the input row', () => {
+      // `sessionOffersPlatformJoin` accepts `has_meeting` so a client-side row that has
+      // already been through this helper can be re-tested. Feeding it back in HERE would
+      // let a payload assert its own answer, so only the two source fields are passed.
+      const out = applySessionMeetingDisclosure(
+        { id: 'sess-liar', meeting_link: null, has_meeting: true } as {
+          id: string;
+          meeting_link: string | null;
+          has_meeting: boolean;
+        },
+        buildContext({ highestRole: 'admin' })
+      );
+
+      expect(out.has_meeting).toBe(false);
+      expect(out.join_path).toBeNull();
+    });
+  });
 });
 
 describe('redactProfileEmails', () => {

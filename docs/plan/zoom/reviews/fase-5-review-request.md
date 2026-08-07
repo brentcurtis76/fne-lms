@@ -3398,3 +3398,168 @@ additionally add `is_zoom_managed` to their explicit column lists.
   mandatory spec — which is also why the e2e run above passes unchanged.
 - **`SESSION_STATUS_FALLBACK`, `total_hours_actual`, `create.tsx`'s UTC-vs-Chile `min`, the
   four order-dependent suites and `'edit_approval_blocked'`** remain unruled and untouched.
+
+---
+
+# Sol remediation — round r27 (items 8, 10, and two PM-ruled carry-overs)
+
+**Branch** `feat/zoom-sess` · **base** `c6702698` · **commits** 1
+
+## Objective and scope
+
+Four defects, one concern: **the system tells the truth about failure and about state.**
+
+- **Item 8** — a failed ledger read rendered as "no hours".
+- **Item 10** — the backfill's proof was a hand-copy of the thing it proved.
+- **S1 (from r24)** — `meeting_delete` dead-lettered on a race r24 taught the system to
+  handle correctly.
+- **S2 (from r26)** — the sixth surface that computed `has_meeting` from the raw link alone.
+
+Out of scope and untouched: items 11 and 12 (`PROJECT_STATE.md`, the final gate run, the
+e2e seeder's missing managed session, the staging checklist), everything r21–r26 sealed,
+the page-visibility tiers, and the five standing unruled items.
+
+## Files, grouped by risk
+
+**Behaviour (4)**
+
+| File | What changed |
+|---|---|
+| `lib/services/school-hours-report.ts` | Both swallowed reads now throw: the `get_bucket_summary` `continue`, and the `contract_hours_ledger` query whose `error` was never destructured. |
+| `lib/zoom/jobs/meeting-delete.ts` | `no_meeting_row` split into a deferral and the anomaly; new `findLiveProvisionJob` store method + its production PostgREST query. |
+| `lib/utils/session-disclosure.ts` | `applySessionMeetingDisclosure` routes `has_meeting`/`join_path` through `sessionOffersPlatformJoin`. |
+| `components/workspace/WorkspaceSessionsTab.tsx` | Dropped `is_zoom_managed` from `SessionListItem` — the compensation the API now makes unnecessary. |
+
+**Tests (5)** — `supabase/tests/002-zoom-internal-isolation.sql` (section F rewritten,
+`plan(117)` → `plan(119)`), three suites extended, one added
+(`__tests__/lib/zoom/jobs/meeting-delete-store.test.ts`), harness seam in
+`provisionHarness.ts`.
+
+## How the school-hours report signals failure
+
+**It throws**, and that was not a free choice: the sessions query eleven lines below already
+throws with a `console.error` naming contract and bucket, so a second convention in the same
+loop would be the drift. Both new throws copy that shape verbatim — `console.error` with the
+PostgREST error object, then an es-CL message naming the contract (and the bucket, where one
+is in scope). The two API routes wrap `fetchSchoolReportData` in `try/catch` and answer 500,
+unchanged.
+
+The bucket-summary fix is what the prompt named. **The ledger query at the old `:197` was
+fixed too**, and the ruling is why: "the scheduled fallback is used only after a successful
+query proves a session genuinely has no row." That fallback is a per-session one, and its
+error path was worse than the bucket summary's — the `error` was never destructured at all,
+so a failed read produced an empty map and every session in the bucket silently took the
+schedule as its billed figure. Both are the same defect class named in the item title.
+
+## How the test executes the real migration, and the proof it is not a copy
+
+**`\i` does not work in this harness, and the alternative is not a second copy.**
+
+What was tried: `supabase test db` runs pg_prove in a container that bind-mounts **only the
+directory of each path argument**, at its identical host path. `\ir
+../migrations/20260807120000_…sql` therefore resolves to the correct absolute path and psql
+answers `No such file or directory` — `supabase/tests` is mounted, `supabase/migrations` is
+not. Passing the migration as a *second* path argument does mount it (verified by
+`docker inspect`), but pg_prove then also runs the migration as a test file: it carries no
+plan, so the run fails, and it would apply outside any transaction. The db container holds no
+copy either — the CLI applies migrations over a connection rather than mounting them.
+
+**The mechanism used instead:** `supabase_migrations.schema_migrations.statements` — the
+statement array the Supabase CLI recorded when it **read and applied the file**. Section F
+replays every element of that array in order through a `pg_temp` function. `supabase db start`
+(CI gate 3) and `supabase db reset` (local) rebuild that row from `supabase/migrations` on
+every run, so what executes is regenerated from the file and cannot be edited independently
+of it. A guard assert requires the row to exist with at least one statement, so a renamed,
+reverted or unapplied migration fails loudly instead of replaying nothing.
+
+**The proof.** The migration's load-bearing `WHERE dial_in_numbers IS NULL` guard was deleted
+— **the migration file only** — then `supabase db reset && npm run test:db`:
+
+```
+# Failed test 116: "backfill never overwrites a dial_in_numbers that already has a value"
+#         have: [{"number": "+56 2 5555 0121"}]
+#         want: [{"number": "+56 2 5555 0199"}]
+# Looks like you failed 1 test of 119
+```
+
+That is the property a hand-copy can never have. Reverted; blob
+`8855bb1696f9d5d0f54c4cc1db284585f926de43` identical, `test:db` back to PASS.
+
+The hand-copy is gone, and so is the hand-written replay: idempotence is now asserted on
+**values** (a temp snapshot after the first run, compared after a second real run) rather than
+on a matched-row count, which would have passed for a statement that rewrote a row to the same
+value. A fourth fixture with `effective_settings` NULL was added — the migration header claims
+`?` never matches there and nothing asserted it.
+
+## The dead-letter distinction
+
+The question a `meeting_delete` with no row has to answer is **"will a row ever exist for this
+surface?"**, and the queue answers it. `findLiveProvisionJob` looks for a `meeting_provision`
+job whose payload matches this surface **whole** (`payload @> {surface_type, surface_id}`) and
+whose status is `pending` or `leased`.
+
+- **Found ⇒ handled correctly.** r24's own module header proves the tie: *a delete that finds
+  no row must have read before the reservation INSERT*, which happens inside a provisioning
+  run — so that run is still in flight, and r24 taught it to compensate its own meeting when
+  the surface is retired underneath it. Nothing is left standing and no human is needed. The
+  job completes with `deferred_to_provisioner: true` and the job id/status, so an operator can
+  still see it removed nothing. It writes nothing — not the row, not Zoom.
+- **Not found ⇒ genuine anomaly.** Nothing will create a row and none exists: the delete was
+  enqueued for a surface that never had a meeting and never will, or its row went away under
+  us. `ZoomDeleteMeetingRowMissingError` exactly as before.
+
+`done`, `failed` and `dead` are deliberately excluded — a job in a terminal status will not run
+again, so it can no longer explain the missing row. A **failed lookup throws**: not knowing is
+not the same as knowing there is no provisioner, and the benign branch must never be reached by
+default.
+
+## Evidence
+
+- `npm run type-check` 0 · `npm run lint` 0 · **`npm test` 4726 passed / 283 files** (from
+  4706/282) · `npm run build` 0 · **`npm run test:db` Files=11, Tests=466, PASS** (from 464).
+- **Mandatory e2e** (`session-disclosure.ts` was touched): `76 passed`, and
+  `e2e-mandatory.mjs --check` reports 6 specs ran with no skips. Run against the local
+  ephemeral stack via process env only — `.env.local` points at the remote project and was
+  never written to.
+- **Mutation probe [P7]**: restoring `continue` on the bucket-summary error path resolves the
+  report instead of rejecting (`promise resolved "{ school_id: 77, …(2) }" instead of
+  rejecting`) — the defect verbatim. The zero-buckets test kept passing, which is what makes
+  it a fix to the error path and not to the feature. Reverted; blob
+  `14acc37c76eb3364d428348a0101ce3e230545ab` identical, tree clean.
+
+## Scrutinize hardest
+
+1. **The deferral is a policy change to a job's success semantics.** `meeting_delete` can now
+   return success having deleted nothing. The claim that this is safe rests entirely on r24's
+   compensation actually being unconditional — if a provisioning path exists that leaves a
+   meeting standing without a row, this converts a red job into a green one. That inference is
+   read off `meeting-provision.ts`'s module header and its two compensation sites, not proved
+   here.
+2. **`findLiveProvisionJob` is a read across a race it does not hold a lock over.** Between the
+   `findMeetingBySurface` miss and this lookup, the provisioner can finish. That widens the
+   deferral window (a just-finished `done` job reads as "no live job" and dead-letters, which
+   is the conservative direction), but a reviewer should confirm there is no ordering where it
+   fails the other way.
+3. **The pgTAP replay trusts the migration-history table.** If someone edits a migration and
+   does *not* re-apply it, the test exercises the applied version. CI resets from
+   `supabase/migrations` every run, so this is honest there; locally it means `db reset` is
+   part of the loop. Whether "what actually ran" or "what is on disk" is the right thing to
+   assert is a judgment call worth challenging.
+4. **The ledger-query throw was not in the prompt's file:line.** The prompt quoted `:143`
+   (`get_bucket_summary`); `:197` (`contract_hours_ledger`) was fixed on the strength of the
+   ruling's own wording. That is an expansion beyond the quoted anchor, deliberately made and
+   flagged here rather than hidden.
+5. **`applySessionMeetingDisclosure` deliberately does not forward the input row's
+   `has_meeting`** into `sessionOffersPlatformJoin`, though the predicate accepts it — a
+   payload must not assert its own answer. Asserted, but it is a subtle asymmetry with the
+   five client-side call sites that *do* pass it.
+
+## Known limitations / open
+
+- **No e2e reaches the managed-session disclosure.** The seeder's sessions are unmanaged
+  (item 11's missing managed session), so the new `has_meeting: true` branch is unit-tested
+  only. The mandatory specs pass unchanged for that reason.
+- **`createSupabaseMeetingDeleteStore`'s other three methods still have no store test.** r27
+  added one only for the query it introduced.
+- **`SESSION_STATUS_FALLBACK`, `total_hours_actual`'s name, `create.tsx`'s UTC-vs-Chile `min`,
+  the four order-dependent suites and `'edit_approval_blocked'`** remain unruled and untouched.

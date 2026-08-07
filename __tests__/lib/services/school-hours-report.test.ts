@@ -192,6 +192,8 @@ type ClientOptions = {
   buckets?: Record<string, Row[]>;
   /** Per-table column-list overrides, for reproducing a table that lacks a column. */
   schemaOverrides?: Record<string, TableDef>;
+  /** Makes `get_bucket_summary` fail — the RPC has no select string to break. */
+  bucketError?: PgError;
 };
 
 function buildClient(options: ClientOptions, log: QueryLog[]) {
@@ -323,6 +325,9 @@ function buildClient(options: ClientOptions, log: QueryLog[]) {
             data: null,
             error: pgError('42883', `function public.${fn} does not exist`),
           });
+        }
+        if (options.bucketError) {
+          return resolve({ data: null, error: options.bucketError });
         }
         const key = String(params.p_contrato_id);
         return resolve({ data: (options.buckets ?? {})[key] ?? [], error: null });
@@ -723,6 +728,80 @@ describe('fetchSchoolReportData', () => {
       expect.stringContaining(`contrato=${CONTRATO_ID}, bucket=${BUCKET_KEY}`),
       expect.objectContaining({ code: '42703' })
     );
+  });
+
+  // ============================================================
+  // Sol item 8 — a failed read is never a zero (r27).
+  //
+  // The bucket summary used to `continue` on error, dropping the contract from the
+  // report. What a school then sees is a report with no hours under that contract —
+  // pixel-identical to a contract that genuinely has none, and it is the figure an
+  // invoice is reconciled against.
+  // ============================================================
+
+  describe('a failed ledger read fails the report instead of reading as "no hours"', () => {
+    it('throws when get_bucket_summary errors, instead of skipping the contract', async () => {
+      const options = baseOptions({
+        bucketError: pgError('57014', 'canceling statement due to statement timeout'),
+      });
+
+      await expect(fetchSchoolReportData(clientFor(options), SCHOOL_ID)).rejects.toThrow(
+        new RegExp(`No se pudo obtener el resumen de horas del contrato ${CONTRATO_ID}`)
+      );
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`contrato=${CONTRATO_ID}`),
+        expect.objectContaining({ code: '57014' })
+      );
+    });
+
+    it('reports a contract with genuinely zero buckets as zero, not as a failure', async () => {
+      // The other half of the same fix: a SUCCESSFUL summary that returns no rows is a
+      // contract with no hours, and it must still render. This is what makes the failure
+      // above distinguishable — the two outcomes no longer look alike.
+      const result = await fetchSchoolReportData(
+        clientFor(baseOptions({ buckets: { [CONTRATO_ID]: [] } })),
+        SCHOOL_ID
+      );
+
+      const contract = result!.programs[0].contracts[0];
+      expect(contract.contrato_id).toBe(CONTRATO_ID);
+      expect(contract.buckets).toEqual([]);
+      expect(contract.total_reserved).toBe(0);
+      expect(contract.total_consumed).toBe(0);
+    });
+
+    it('throws when the ledger query errors, instead of billing every session from its schedule', async () => {
+      // The scheduled fallback exists for a session with no ledger row. A failed read
+      // produced an empty map, so EVERY session in the bucket took that fallback at once
+      // and the report showed synthesised hours as though they were billed ones.
+      const options = baseOptions({
+        schemaOverrides: {
+          contract_hours_ledger: { columns: ['session_id', 'status', 'is_over_budget'] },
+        },
+      });
+
+      await expect(fetchSchoolReportData(clientFor(options), SCHOOL_ID)).rejects.toThrow(
+        /No se pudieron obtener las horas registradas del bucket "acompanamiento"/
+      );
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`contrato=${CONTRATO_ID}, bucket=${BUCKET_KEY}`),
+        expect.objectContaining({ code: '42703' })
+      );
+    });
+
+    it('still uses the scheduled fallback when a SUCCESSFUL ledger query returns no row', async () => {
+      // The criterion that proves the error path was fixed and the feature was not: the
+      // legacy session has no ledger row and still reports its scheduled 90 min as 1.5h.
+      const result = await fetchSchoolReportData(clientFor(baseOptions()), SCHOOL_ID);
+      const bucket = result!.programs[0].contracts[0].buckets.find(
+        (b) => b.hour_type_key === BUCKET_KEY
+      )!;
+
+      expect(bucket.sessions.find((s) => s.session_id === SESSION_LEGACY)!.hours).toBe(1.5);
+      expect(bucket.sessions.find((s) => s.session_id === SESSION_APRIL)!.hours).toBe(2);
+    });
   });
 
   it('returns null for a school that does not exist', async () => {

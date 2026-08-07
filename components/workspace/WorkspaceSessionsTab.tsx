@@ -56,11 +56,12 @@ interface SessionListItem {
   session_number: number | null;
   recurrence_group_id: string | null;
   /**
-   * Disclosure output, not the raw link: `has_meeting` says a pasted link exists
-   * without carrying it, and a managed session has no link to carry at all.
+   * Disclosure output, not the raw link: `has_meeting` says the session has a
+   * meeting to reach without carrying the way to reach it. It now answers TRUE for
+   * a Zoom-managed session too (r27), so this tab no longer reads `is_zoom_managed`
+   * itself to compensate — the API's own predicate already accounts for it.
    */
   has_meeting?: boolean | null;
-  is_zoom_managed?: boolean | null;
 }
 
 const WorkspaceSessionsTab: React.FC<WorkspaceSessionsTabProps> = ({

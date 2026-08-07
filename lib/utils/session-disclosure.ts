@@ -160,6 +160,12 @@ type MeetingRow = {
   id?: unknown;
   meeting_link?: unknown;
   meeting_transcript?: unknown;
+  /**
+   * Read, never emitted differently: it is the other half of `sessionOffersPlatformJoin`'s
+   * input. A `select()` that never asked for it leaves it `undefined`, which the predicate
+   * reads as "not managed" — the pre-r27 answer, unchanged.
+   */
+  is_zoom_managed?: unknown;
 };
 
 function hasMeetingLink(value: unknown): boolean {
@@ -194,7 +200,20 @@ export function applySessionMeetingDisclosure<T extends MeetingRow>(
     out.meeting_transcript = rawTranscript ?? null;
   }
 
-  const present = hasMeetingLink(rawLink);
+  // The SAME predicate the notifications, the reminders, the three .ics endpoints and the
+  // workspace list use (r26 fixed those five; this was the sixth surface with the same root
+  // cause). Deciding from the raw link alone reported `has_meeting: false` and a null
+  // `join_path` for a Zoom-managed session, whose `meeting_link` is NULL BY DESIGN — i.e.
+  // for exactly the sessions this phase exists to serve.
+  //
+  // The disclosure invariant is untouched: what widens is WHETHER a join is offered, never
+  // WHAT is handed over. `join_path` is still the platform surface, and the raw link is
+  // still governed by `canViewRawMeetingLink` above. `has_meeting` is deliberately NOT
+  // forwarded from the input row — a payload must not be able to assert its own answer.
+  const present = sessionOffersPlatformJoin({
+    meeting_link: hasMeetingLink(rawLink) ? String(rawLink) : null,
+    is_zoom_managed: row.is_zoom_managed === true,
+  });
   out.has_meeting = present;
   out.join_path = present && row.id ? buildSessionJoinPath(String(row.id)) : null;
 

@@ -18,7 +18,7 @@
 
 BEGIN;
 
-SELECT plan(117);
+SELECT plan(119);
 
 -- =============================================================================
 -- A. Schema / grants / RLS isolation (38 asserts)
@@ -787,20 +787,45 @@ SELECT is(zoom_internal.sync_projection_from_meeting(
 RESET ROLE;
 
 -- =============================================================================
--- F. Z2-4e: the dial_in_numbers BACKFILL (4 asserts).
+-- F. Z2-4e: the dial_in_numbers BACKFILL (6 asserts).
 --
 -- 20260807120000 is DML over rows that already existed, so on a fresh replay it
 -- matches nothing and the replay proves only that it parses and applies. The three
 -- outcomes it must have are asserted here against seeded fixtures.
 --
--- ⚠ THE STATEMENT BELOW IS A HAND-COPY of the migration's single UPDATE. It is the
--- same device Z2-4d used for the two SECURITY DEFINER bodies, and it carries the same
--- caveat: nothing mechanically ties the two together, so a change to the migration
--- must be mirrored here by hand or this section starts proving a statement that no
--- longer ships. Diff them, do not trust them.
+-- WHAT RUNS BELOW IS THE MIGRATION ITSELF, not a copy of it (Sol item 10). Until r27
+-- this section re-typed the migration's UPDATE, and a diff between the two proved
+-- sameness rather than that the shipped file is what executes: edit one and not the
+-- other and these asserts go on passing against a statement nobody deploys.
+--
+-- The mechanism is `supabase_migrations.schema_migrations.statements` — the statement
+-- array the Supabase CLI recorded when it READ AND APPLIED the file. `supabase db
+-- start` (CI gate 3) and `supabase db reset` (local) rebuild that row from
+-- supabase/migrations on every run, so what executes here is regenerated from the file
+-- and cannot be edited independently of it.
+--
+-- `\i` on the migration's own path was tried first and does not work in this harness:
+-- `supabase test db` runs pg_prove in a container that bind-mounts ONLY the directory
+-- of each path argument, so supabase/tests is present at its host path and
+-- supabase/migrations is absent — `\ir ../migrations/<file>` resolves to the correct
+-- absolute path and psql answers "No such file or directory". Passing the migration as
+-- a second path argument does mount it, but pg_prove then also RUNS the migration as a
+-- test file: it carries no plan, so the run fails, and it would apply outside any
+-- transaction. The db container has no copy either — the CLI applies migrations over a
+-- connection rather than mounting them.
 --
 -- Hosts are NULL so these fixtures cannot collide with section C's EXCLUDE constraint.
 -- =============================================================================
+
+-- The migration has to BE there. Without this, a renamed, reverted or unapplied
+-- migration would leave the replay below with nothing to execute and every outcome
+-- assert would still pass — the same blindness the hand-copy had.
+SELECT is(
+  (SELECT count(*)::int FROM supabase_migrations.schema_migrations
+    WHERE version = '20260807120000'
+      AND statements IS NOT NULL
+      AND cardinality(statements) > 0),
+  1, 'the Z2-4e backfill migration is recorded as applied, with statements to replay');
 
 INSERT INTO zoom_internal.zoom_meetings
   (id, surface_type, surface_id, school_id, host_zoom_user_id, zoom_meeting_number,
@@ -823,12 +848,35 @@ VALUES
    'bbbbbbbb-1111-0000-0000-000000000003', 9901, NULL, 82000003003, 'provisioned',
    '2026-11-03T14:00:00Z', 60,
    '{"auto_recording":"none"}',
+   NULL),
+  -- (d) a row with NO effective_settings at all — a numberless reservation is stored
+  -- this way before its provisioner returns. The migration header claims `?` yields
+  -- NULL here and therefore never matches; nothing asserted that until r27.
+  ('bbbbbbbb-0000-0000-0000-000000000004', 'consultor_session',
+   'bbbbbbbb-1111-0000-0000-000000000004', 9901, NULL, 82000003004, 'provisioned',
+   '2026-11-04T14:00:00Z', 60,
+   NULL,
    NULL);
 
-UPDATE zoom_internal.zoom_meetings
-   SET dial_in_numbers = effective_settings -> 'global_dial_in_numbers'
- WHERE dial_in_numbers IS NULL
-   AND effective_settings ? 'global_dial_in_numbers';
+-- Replays the recorded statements of 20260807120000, in order. Every statement, not
+-- just the first: a migration that grows a second one must be replayed whole or this
+-- section silently stops covering it.
+CREATE OR REPLACE FUNCTION pg_temp.replay_backfill_z2_4e() RETURNS void
+LANGUAGE plpgsql AS $replay$
+DECLARE
+  v_statement text;
+BEGIN
+  FOR v_statement IN
+    SELECT unnest(statements)
+      FROM supabase_migrations.schema_migrations
+     WHERE version = '20260807120000'
+  LOOP
+    EXECUTE v_statement;
+  END LOOP;
+END
+$replay$;
+
+SELECT pg_temp.replay_backfill_z2_4e();
 
 SELECT is(
   (SELECT dial_in_numbers FROM zoom_internal.zoom_meetings
@@ -847,19 +895,31 @@ SELECT ok(
     WHERE id = 'bbbbbbbb-0000-0000-0000-000000000003'),
   'backfill leaves a row whose effective_settings lacks the key NULL, not JSON null');
 
--- Idempotence: the guard means a replay matches nothing, so nothing changes again.
-WITH replay AS (
-  UPDATE zoom_internal.zoom_meetings
-     SET dial_in_numbers = effective_settings -> 'global_dial_in_numbers'
-   WHERE dial_in_numbers IS NULL
-     AND effective_settings ? 'global_dial_in_numbers'
-     AND id IN ('bbbbbbbb-0000-0000-0000-000000000001',
-                'bbbbbbbb-0000-0000-0000-000000000002',
-                'bbbbbbbb-0000-0000-0000-000000000003')
-  RETURNING 1
-)
-SELECT is((SELECT count(*)::int FROM replay), 0,
-  'a second run of the backfill matches zero rows — it is idempotent');
+SELECT ok(
+  (SELECT dial_in_numbers IS NULL FROM zoom_internal.zoom_meetings
+    WHERE id = 'bbbbbbbb-0000-0000-0000-000000000004'),
+  'backfill leaves a row with NULL effective_settings alone — `?` on NULL never matches');
+
+-- Idempotence, asserted on VALUES rather than on a matched-row count: running the real
+-- migration a second time must leave all three fixtures exactly as the first run did.
+-- A count-based check would pass for a statement that rewrote a row to the same value;
+-- this one also catches a lost guard that re-derives (b) from its stale settings blob.
+CREATE TEMP TABLE backfill_after_first_run AS
+SELECT id, dial_in_numbers
+  FROM zoom_internal.zoom_meetings
+ WHERE id IN ('bbbbbbbb-0000-0000-0000-000000000001',
+              'bbbbbbbb-0000-0000-0000-000000000002',
+              'bbbbbbbb-0000-0000-0000-000000000003',
+              'bbbbbbbb-0000-0000-0000-000000000004');
+
+SELECT pg_temp.replay_backfill_z2_4e();
+
+SELECT is(
+  (SELECT count(*)::int
+     FROM backfill_after_first_run f
+     JOIN zoom_internal.zoom_meetings m USING (id)
+    WHERE m.dial_in_numbers IS DISTINCT FROM f.dial_in_numbers),
+  0, 'a second run of the real migration changes nothing — it is idempotent');
 
 SELECT * FROM finish();
 

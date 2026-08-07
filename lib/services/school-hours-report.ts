@@ -144,9 +144,18 @@ export async function fetchSchoolReportData(
       p_contrato_id: contrato.id,
     });
 
+    // A failed bucket summary must never be skipped. `continue` dropped the contract from
+    // the report entirely, which renders exactly like a contract that genuinely has no
+    // hours — and the reader cannot tell the two apart. These are the figures a school
+    // reconciles an invoice against, so the same rule the sessions query below already
+    // follows applies here: fail, do not degrade. The scheduled fallback further down is
+    // reached only after a SUCCESSFUL query proves a session has no ledger row.
     if (bucketError) {
-      // Skip this contract rather than failing the whole report
-      continue;
+      console.error(
+        `[SchoolHoursReport] Bucket summary failed (contrato=${contrato.id}):`,
+        bucketError
+      );
+      throw new Error(`No se pudo obtener el resumen de horas del contrato ${contrato.id}`);
     }
 
     // Build buckets with sessions
@@ -194,10 +203,25 @@ export async function fetchSchoolReportData(
       const ledgerBySession = new Map<string, LedgerRow>();
 
       if (sessionIds.length > 0) {
-        const { data: ledgerEntries } = await serviceClient
+        const { data: ledgerEntries, error: ledgerError } = await serviceClient
           .from('contract_hours_ledger')
           .select('session_id, status, is_over_budget, hours')
           .in('session_id', sessionIds);
+
+        // The `billableHours` fallback below is only honest once a SUCCESSFUL read has
+        // proved a session has no ledger row. A failed read left this map empty and sent
+        // every session in the bucket through that fallback, synthesising a billable
+        // figure out of the schedule for all of them at once — silently, and for exactly
+        // the number a school is invoiced against.
+        if (ledgerError) {
+          console.error(
+            `[SchoolHoursReport] Ledger query failed (contrato=${contrato.id}, bucket=${bucket.hour_type_key}):`,
+            ledgerError
+          );
+          throw new Error(
+            `No se pudieron obtener las horas registradas del bucket "${bucket.hour_type_key}" del contrato ${contrato.id}`
+          );
+        }
 
         for (const entry of (ledgerEntries ?? []) as LedgerRow[]) {
           if (entry.session_id) {

@@ -55,6 +55,31 @@
  * deletes the meeting it just created. Nothing in THIS handler changed for that; it is
  * the provisioner that yields, because it is the one holding an unpersisted meeting.
  *
+ * ## A missing row is TWO different facts (Sol S1, r27)
+ *
+ * `meeting_delete` finding no `zoom_meetings` row used to be one terminal failure. r24's
+ * own module header explains why it is two: a delete that finds NO row must have read
+ * before the reservation INSERT, which happens inside a `meeting_provision` run that is
+ * therefore STILL IN FLIGHT. That provisioner re-reads the source session after
+ * `createMeeting` and compensates — it deletes the meeting at Zoom and releases or leaves
+ * the row alone. The end state is already correct, and dead-lettering over it produces a
+ * red job for a race the system handles. Dead-letters that mean nothing train people to
+ * ignore the ones that do.
+ *
+ * So the check is not removed, it is SPLIT, on the one observable that answers "will a row
+ * ever exist for this surface?":
+ *
+ *  - **A `meeting_provision` job for the same surface is still `pending` or `leased`** ⇒
+ *    that run owns this surface's meeting and will not leave one standing. Nothing here to
+ *    remove and nothing for a human to do: complete, with `deferred_to_provisioner`.
+ *  - **No such job** ⇒ nothing is going to create a row and none exists. That is the
+ *    anomaly the original check is for — a delete enqueued for a surface that never had a
+ *    meeting and never will, or one whose row was removed under us. Still terminal, still
+ *    dead-lettered, unchanged.
+ *
+ * `done`, `failed` and `dead` are deliberately NOT deferred to: a job in one of those
+ * states will not run again, so it can no longer explain the missing row.
+ *
  * ## Idempotent by construction (§12)
  *
  * Everything here converges: DELETE on an already-deleted meeting answers 404 (success),
@@ -104,13 +129,16 @@ export class ZoomDeleteSessionMissingError extends ZoomNonRetryableError {
 export const NO_MEETING_ROW_REASON = 'no_meeting_row';
 
 /**
- * There is no internal row for this surface (PM ruling 6). Terminal, and it writes
- * nothing.
+ * There is no internal row for this surface, and nothing is coming that would create one
+ * (PM ruling 6, narrowed in r27). Terminal, and it writes nothing.
  *
  * Not silently treated as "already clean": a cancel enqueues this job only for a session
- * whose durable managed intent is set, so a missing row means either the provisioner
- * never ran or the row was removed under us. Both are worth a human seeing, and neither
- * is improved by a retry.
+ * whose durable managed intent is set, so a missing row with no provisioner still to run
+ * means either the provisioner never ran at all or the row was removed under us. Both are
+ * worth a human seeing, and neither is improved by a retry.
+ *
+ * The case this NO LONGER covers is the one r27 split out — see
+ * `MeetingDeleteDeferredResult`.
  */
 export class ZoomDeleteMeetingRowMissingError extends ZoomNonRetryableError {
   readonly reason = NO_MEETING_ROW_REASON;
@@ -206,12 +234,30 @@ export class ZoomDeleteCompensationParkedError extends ZoomNonRetryableError {
 // Store seam
 // ---------------------------------------------------------------------------
 
+/**
+ * The `zoom_jobs` statuses from which a job will still run. `pending` is queued or backing
+ * off, `leased` is running now; `done`, `failed` and `dead` are terminal and can no longer
+ * explain a missing `zoom_meetings` row. Mirrors the CHECK constraint in
+ * `supabase/migrations/20260729120100_zoom_internal_tables.sql`.
+ */
+export const LIVE_JOB_STATUSES = ['pending', 'leased'] as const;
+
 export interface MeetingDeleteStore {
   readSession(surfaceId: string): Promise<ProvisionSessionRow | null>;
   findMeetingBySurface(
     surfaceType: ZoomSurfaceType,
     surfaceId: string
   ): Promise<ProvisionMeetingRow | null>;
+  /**
+   * The id of a `meeting_provision` job for this surface that has not reached a terminal
+   * status, or `null`. Read ONLY to tell an in-flight provisioner apart from an
+   * unexplained missing row — never to coordinate with one, which is what the
+   * provisioner's own re-check and compensation are for.
+   */
+  findLiveProvisionJob(
+    surfaceType: ZoomSurfaceType,
+    surfaceId: string
+  ): Promise<{ id: string; status: string } | null>;
   /**
    * Moves the row to `deleted`. Outside `ZOOM_MEETING_ACTIVE_STATUSES`, so the §9 EXCLUDE
    * predicate stops covering it and the host slot is freed. Never raises 23P01: leaving a
@@ -244,23 +290,22 @@ export interface MeetingDeletePublicClient {
   };
 }
 
+/** The filter chain both internal reads use. Structural, like every other seam here. */
+interface MeetingDeleteInternalQuery {
+  eq(column: string, value: string | number): MeetingDeleteInternalQuery;
+  in(column: string, values: readonly string[]): MeetingDeleteInternalQuery;
+  contains(column: string, value: Record<string, unknown>): MeetingDeleteInternalQuery;
+  limit(count: number): MeetingDeleteInternalQuery;
+  maybeSingle(): PostgrestResult<Record<string, unknown>>;
+}
+
 export interface MeetingDeleteInternalClient {
   rpc(
     fn: string,
     args: Record<string, unknown>
   ): PromiseLike<{ data: unknown; error: PostgrestError | null }>;
   from(table: string): {
-    select(columns: string): {
-      eq(
-        column: string,
-        value: string | number
-      ): {
-        eq(
-          column: string,
-          value: string | number
-        ): { maybeSingle(): PostgrestResult<Record<string, unknown>> };
-      };
-    };
+    select(columns: string): MeetingDeleteInternalQuery;
     update(values: Record<string, unknown>): {
       eq(column: string, value: string | number): PromiseLike<{ error: PostgrestError | null }>;
     };
@@ -295,6 +340,24 @@ export function createSupabaseMeetingDeleteStore(
         .maybeSingle();
       if (error) throw new Error(`zoom_meetings lookup failed: ${error.message}`);
       return (data as unknown as ProvisionMeetingRow) ?? null;
+    },
+
+    async findLiveProvisionJob(surfaceType, surfaceId) {
+      // `@>` on the payload, not two arrow filters: the payload IS the surface identity a
+      // provision job carries, and matching it whole cannot half-match one of the pair.
+      const { data, error } = await internalClient
+        .from('zoom_jobs')
+        .select('id, status')
+        .eq('job_type', 'meeting_provision')
+        .contains('payload', { surface_type: surfaceType, surface_id: surfaceId })
+        .in('status', LIVE_JOB_STATUSES)
+        .limit(1)
+        .maybeSingle();
+      // A failed read is NOT "no provisioner": it is not knowing, and not knowing must not
+      // be spent on the benign answer. Throw and let the job retry.
+      if (error) throw new Error(`zoom_jobs provision lookup failed: ${error.message}`);
+      if (data === null) return null;
+      return { id: String(data.id), status: String(data.status) };
     },
 
     async markMeetingDeleted(meetingId, lastError) {
@@ -360,6 +423,25 @@ export interface MeetingDeleteResult extends Record<string, unknown> {
   projection: ProjectionSyncOutcome;
 }
 
+/**
+ * The surface has no row yet because a `meeting_provision` run is still in flight, and
+ * that run — not this one — owns the meeting it is holding (see the module header). A
+ * SUCCESS: nothing was left standing and nothing needs a human. Distinguishable from an
+ * ordinary delete by `deferred_to_provisioner`, so an operator reading job results can
+ * still see that this job removed nothing.
+ */
+export interface MeetingDeleteDeferredResult extends Record<string, unknown> {
+  meeting_id: null;
+  zoom_meeting_number: null;
+  deleted: false;
+  zoom_missing: false;
+  projection: null;
+  deferred_to_provisioner: true;
+  /** The in-flight job that explains the missing row, for triage from the result alone. */
+  provision_job_id: string;
+  provision_job_status: string;
+}
+
 interface DeletePayload {
   surface_type: ZoomSurfaceType;
   surface_id: string;
@@ -398,7 +480,28 @@ export function createMeetingDeleteHandler(deps: MeetingDeleteDeps = {}): ZoomJo
     if (session === null) throw new ZoomDeleteSessionMissingError(surfaceId);
 
     const row = await store.findMeetingBySurface(surfaceType, surfaceId);
-    if (row === null) throw new ZoomDeleteMeetingRowMissingError(surfaceId);
+    if (row === null) {
+      // The check is not skipped, it is qualified — see the module header. Only an
+      // in-flight provisioner explains a missing row; anything else is still the anomaly
+      // this failure was written for.
+      const inFlight = await store.findLiveProvisionJob(surfaceType, surfaceId);
+      if (inFlight === null) throw new ZoomDeleteMeetingRowMissingError(surfaceId);
+
+      console.warn(
+        `[meeting-delete] consultor_session ${surfaceId} has no zoom_meetings row yet because meeting_provision job ${inFlight.id} is still '${inFlight.status}'. That run compensates its own meeting for a retired surface, so nothing is left standing and this job removes nothing.`
+      );
+      const deferred: MeetingDeleteDeferredResult = {
+        meeting_id: null,
+        zoom_meeting_number: null,
+        deleted: false,
+        zoom_missing: false,
+        projection: null,
+        deferred_to_provisioner: true,
+        provision_job_id: inFlight.id,
+        provision_job_status: inFlight.status,
+      };
+      return deferred;
+    }
 
     // The two reservations this handler must not free. See the module header.
     if (row.zoom_meeting_number === null && isAmbiguousCreateMarker(row.last_error)) {

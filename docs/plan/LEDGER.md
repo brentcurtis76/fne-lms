@@ -2230,3 +2230,11 @@ Entry format (§2.2 of the SOP):
 - VERDICT: **A6b r1 is clean. No BLOCKING finding, so no remediation round. The phase is ready for Codex Sol final review**, with S1 put in front of Sol deliberately rather than filed quietly, and S2 in front of Brent as a merge precondition. The phase is not Done until Sol passes it.
 - COMMITS: this commit (this entry)
 - OPEN AFTER THIS ROUND: Sol final review of A6b. Then S2 resolved before any merge. Three docs commits now sit unpushed on local `main` (`6a69e673`, `9f6756c6`) and this branch; A6a-followup and the stale `fase-a6r-review-request.md` remain in the backlog.
+
+### 2026-08-06 — Sol's A6b final-review prompt written — Fable (PM)
+- SESSION: `SESSION: INSPIRA · A6b · PM`
+- ACTION: `prompts/a6b-sol.md` committed. Written as a brief rather than the SOP's bare §3.6 template, matching the four A6r Sol prompts: it states what the PM already re-ran so Sol does not spend its round re-proving green gates, and spends its length on the three places the PM is least confident. **S1 — the `1000` collision — is put in front of Sol as a position to be overruled, with the PM's reasoning stated and the sentence "if you think that reasoning is too comfortable, say so" left in on purpose.** Sol has overturned this PM on this file's guards repeatedly and was right each time.
+- ALSO PUT IN FRONT OF SOL, because the PM checked them shallowly and said so: the **client bundle** now carries `validateLeadSubmission` and its import chain (`leads.ts` → `signups.ts` → `api-auth.types.ts`) — no secrets on that path, but no size audit either, and the alternative is duplicated rules and drifting messages; and the **a11y shapes axe passes and screen readers dislike** — a focusable honeypot inside `aria-hidden`, and focus moved onto a `role="status"` panel.
+- S2 (the stray `43218fcb` Z2 commit) is named in the prompt as merge hygiene Sol does not need to rule on, so it is not discovered mid-review as an anomaly.
+- COMMITS: this commit (`prompts/a6b-sol.md` + this entry)
+- OPEN AFTER THIS ROUND: Sol's verdict → `docs/plan/reviews/REVIEW-A6B.md`. On PASS, phase close (SOP §3.8) and S2 resolved before merge. On FAIL, PM triage then a fresh executor round.

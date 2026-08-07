@@ -428,10 +428,11 @@ SELECT is(
     WHERE id = 'eeeeeeee-1111-0000-0000-000000000010'),
   '3.00/false', 'A8: the same stretch inside budget does NOT flag is_over_budget');
 
--- ANTI-DRIFT PIN. The RPC restates get_bucket_summary's available_hours inline —
--- that function pins no search_path of its own, so it cannot be called from a
--- hardened one. These two cases assert the restatement still agrees with the real
--- function.
+-- ANTI-DRIFT PIN. Until r22 the RPC restated get_bucket_summary's available_hours
+-- inline, because that function pinned no search_path of its own and so could not be
+-- called from a hardened one. r22 (Sol item 3) pinned it and the RPC now CALLS it,
+-- so these two cases pin the caller against the function it reads rather than against
+-- a copy. They stay: they are what fails if either side stops agreeing again.
 --
 -- The RPC's predicate is `(availability_including_this_row + its_old_hours) < new`.
 -- Substituting availability = allocated − reserved − consumed and cancelling the

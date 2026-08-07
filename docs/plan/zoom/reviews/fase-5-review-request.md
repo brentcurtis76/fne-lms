@@ -2651,3 +2651,206 @@ thirteen suites. Both **reschedule** flows converge on the one RPC, which is the
 - `'edit_approval_blocked'` at `pages/api/sessions/edit-requests/[eid].ts:195` is **not
   in the action allowlist** and would violate the CHECK if that branch ever fired. It
   predates this round and is untouched.
+
+---
+
+# Sol remediation — round r22 (item 3)
+
+**Branch** `feat/zoom-sess`, base `374cdbac`. Scope: **Sol item 3 only** — the fan-out in
+`public.get_bucket_summary`. The other ten items are separate rounds and were not touched.
+
+## The bug
+
+`get_bucket_summary` (`supabase/migrations/00000000000000_baseline.sql:2781-2820`) is
+**live in production** and predates Zoom entirely; Z2 only found it, because the reschedule
+RPC pinned its own availability expression against it.
+
+The single query joins the ledger and then aggregates the allocations over the joined set:
+
+```sql
+-- OLD (baseline:2799-2820)
+SELECT
+  ht.key AS hour_type_key,
+  ht.display_name,
+  SUM(ea.allocated_hours) AS allocated_hours,
+  COALESCE(SUM(CASE WHEN chl.status = 'reservada' THEN chl.hours END), 0) AS reserved_hours,
+  COALESCE(SUM(CASE WHEN chl.status IN ('consumida', 'penalizada') THEN chl.hours END), 0) AS consumed_hours,
+  SUM(ea.allocated_hours)
+    - COALESCE(SUM(CASE WHEN chl.status = 'reservada' THEN chl.hours END), 0)
+    - COALESCE(SUM(CASE WHEN chl.status IN ('consumida', 'penalizada') THEN chl.hours END), 0)
+  AS available_hours,
+  BOOL_OR(ea.is_fixed_allocation) AS is_fixed_allocation,
+  COALESCE(SUM(ea.allocated_hours) FILTER (WHERE ea.is_annex), 0) AS annex_hours
+FROM effective_allocations ea
+JOIN hour_types ht ON ht.id = ea.hour_type_id
+LEFT JOIN contract_hours_ledger chl ON chl.allocation_id = ea.id
+  AND chl.status IN ('reservada', 'consumida', 'penalizada')
+GROUP BY ht.key, ht.display_name, ht.sort_order
+ORDER BY ht.sort_order;
+```
+
+The `LEFT JOIN` fans out: one allocation with N counted ledger rows becomes N rows, so
+`SUM(ea.allocated_hours)` counts that allocation N times. `allocated_hours`,
+`available_hours` and `annex_hours` are inflated by the ledger row count.
+`reserved_hours`/`consumed_hours` were already correct — they sum `chl.hours`, and the
+fan-out gives each ledger row exactly once.
+
+## The fix
+
+`supabase/migrations/20260809120000_fix_bucket_summary_fanout.sql` —
+`CREATE OR REPLACE FUNCTION` at the identical signature, no `DROP`, no `ALTER`, no
+`GRANT`/`REVOKE`. `effective_allocations` is unchanged; the aggregation is split in two
+and the results joined (PM ruling 1 — no `SUM(DISTINCT …)`):
+
+```sql
+-- NEW
+allocation_totals AS (          -- allocations only; the ledger cannot reach this sum
+  SELECT ea.hour_type_id,
+         SUM(ea.allocated_hours) AS allocated_hours,
+         BOOL_OR(ea.is_fixed_allocation) AS is_fixed_allocation,
+         COALESCE(SUM(ea.allocated_hours) FILTER (WHERE ea.is_annex), 0) AS annex_hours
+    FROM effective_allocations ea
+   GROUP BY ea.hour_type_id
+),
+ledger_totals AS (              -- ledger only; each row counted exactly once
+  SELECT ea.hour_type_id,
+         COALESCE(SUM(chl.hours) FILTER (WHERE chl.status = 'reservada'), 0) AS reserved_hours,
+         COALESCE(SUM(chl.hours) FILTER (WHERE chl.status IN ('consumida','penalizada')), 0) AS consumed_hours
+    FROM effective_allocations ea
+    JOIN contract_hours_ledger chl ON chl.allocation_id = ea.id
+     AND chl.status IN ('reservada', 'consumida', 'penalizada')
+   GROUP BY ea.hour_type_id
+)
+SELECT ht.key, ht.display_name,
+       alloc.allocated_hours,
+       COALESCE(led.reserved_hours, 0),
+       COALESCE(led.consumed_hours, 0),
+       alloc.allocated_hours - COALESCE(led.reserved_hours, 0) - COALESCE(led.consumed_hours, 0),
+       alloc.is_fixed_allocation,
+       alloc.annex_hours
+  FROM allocation_totals alloc
+  JOIN hour_types ht ON ht.id = alloc.hour_type_id
+  LEFT JOIN ledger_totals led ON led.hour_type_id = alloc.hour_type_id
+ ORDER BY ht.sort_order;
+```
+
+Grouping moved from `ht.key, ht.display_name, ht.sort_order` to `ea.hour_type_id`, which is
+equivalent: `hour_types.key` is UNIQUE (`baseline.sql:12317`), so one key is one row either
+way. Return shape, argument name, `STABLE`, invoker-rights and the three EXECUTE grants are
+all asserted unchanged in pgTAP ([J6], 8 assertions).
+
+## The RPC now CALLS it — one formula, not a proven-equivalent copy
+
+`supabase/migrations/20260809120100_reschedule_rpc_uses_bucket_summary.sql` replaces
+`public.reschedule_session_hours` with a body **identical to the r21 version except for the
+availability block**, which is now:
+
+```sql
+SELECT b.available_hours
+  INTO v_available
+  FROM public.get_bucket_summary(v_contrato_id) b
+ WHERE b.hour_type_key = v_hour_type_key;
+```
+
+r21 could not do this — `get_bucket_summary` pinned no `search_path`, so calling it from a
+`SET search_path = ''` SECURITY DEFINER function failed on name resolution. **The repair
+pins `SET search_path TO 'public'` on `get_bucket_summary`**, which removes the obstacle.
+That is the one change in this round beyond the aggregation itself; it alters name
+resolution only — the function stays invoker-rights, so inside the SECURITY DEFINER RPC it
+executes in exactly the privilege context the inline query did. Two pgTAP assertions read
+`pg_proc.prosrc` directly to prove the RPC names `get_bucket_summary` and that no
+`effective_allocations` copy survives in it.
+
+## Blast radius — every reader of `get_bucket_summary`
+
+All of these show the **same downward correction**: available/allocated/annex hours fall to
+their true values wherever an allocation carries more than one ledger row. Reserved and
+consumed figures do not move.
+
+| Surface | File | Effect |
+|---|---|---|
+| Admin + equipo_directivo hours dashboard | `pages/api/contracts/[id]/hours/index.ts:102` | allocated/available/annex drop to true values |
+| Hour-tracking service | `lib/services/hour-tracking.ts:221` | same, for every caller of `getBucketSummary` |
+| School hours report | `lib/services/school-hours-report.ts:143` | report totals drop to true values |
+| Reallocation guard | `pages/api/contracts/[id]/hours/reallocate.ts:132,217` | **behaviour change**: a reallocation that today passes on inflated availability can now be refused — correctly |
+| Session creation budget hint | `pages/admin/sessions/create.tsx:337` | the availability shown while booking drops |
+| Reschedule `is_over_budget` | `20260809120100…` (was inline) | flags over-budget cases that were previously missed |
+
+`lib/services/billable-hours.ts` and both hours consumers read the ledger directly and are
+unaffected. `lib/types/hour-tracking.types.ts:131` needs no change — the shape is identical.
+
+**Brent-facing note:** after this is applied in production, schools' *available hours* will
+drop. Nothing was consumed; the previous figure was inflated by the number of sessions
+booked against each allocation. No UI copy was touched and no compatibility path was added
+(PM ruling 5).
+
+## Tests
+
+`supabase/tests/014-bucket-summary-fanout.sql` — new file, 37 assertions, synthetic
+fixtures only (`@test.local`, invented school 9932 / contracts `CT-BUCKETS-*`), whole file
+rolls back.
+
+- **[J1]** 100 h allocation × 3 counted ledger rows → `allocated_hours` 100 (was 300),
+  `available_hours` 83 (was 283), one row per hour type, `is_fixed_allocation` passthrough.
+- **[J2]** direct 100 + annex 100 on one hour type → 200 allocated. This is the assertion a
+  `DISTINCT`-based non-fix fails.
+- **[J3]** annex adds (40 + 50 = 90) and `annex_hours` = 50 with two ledger rows on the
+  annex (was 140 / 100).
+- **[J4]** consumption to exactly 0 available, and past it to −2.00, both reported
+  arithmetically.
+- **[J5]** reserved/consumed asserted literally AND against a hand-computed `SUM` over the
+  ledger; a `devuelta` row stays excluded.
+- **[J7]** the RPC bucket: 10 allocated, 8 consumed over two rows, this session's 1.50 h
+  reservation as the third row → 0.50 available; stretching to 3.00 h flags
+  `is_over_budget = true`. **Under the old formula the same case gives 20.50 available and
+  `false`** — this is precisely where the two copies disagreed.
+- `012`'s A8 anti-drift pins are kept (comment updated: they now pin the caller against the
+  function it reads, not against a restatement).
+
+No unit tests changed: this round changes no TypeScript behaviour, only the numbers the DB
+returns, and the dashboard suites assert pass-through of whatever the RPC returns.
+
+## Mutation probe
+
+Restoring the fan-out (the old `SUM(ea.allocated_hours)` over the joined set) inside the new
+migration and re-running `supabase db reset && npm run test:db` fails **15 of 37** assertions
+in `014`, including every [J1] and [J7] number:
+
+```
+# Failed test 9: "J1: one 100 h allocation with three ledger rows reports 100 allocated, not 300"
+#         have: 300.00   want: 100
+# Failed test 31: "J7: the RPC bucket has 0.50 h available before the reschedule"
+#         have: 20.50    want: 0.50
+# Failed test 32: "J7: the RPC flags over budget — the fanned-out formula would have said false"
+#         have: false    want: true
+Failed tests:  9-10, 15-16, 18-24, 31-34
+Result: FAIL
+```
+
+Reverted; `git hash-object` on the migration returns `c0b7296028ac3d72348b34826e343a02a35d0cfc`
+before and after, and the tree is clean apart from this round's own files.
+
+Note for the reviewer: assertion 35 (`available_hours < 0` equals the flag the RPC wrote)
+**passes under the mutation too** — with the RPC calling the function, both sides move
+together. The explicit numbers are what catch the regression, which is why [J1]/[J7] assert
+values and not just agreement.
+
+## Evidence
+
+- type-check 0 · lint 0 · **4622 passed / 281 files** (unchanged — no TS touched) · build 0
+- `npm run test:db` — **Files=11, Tests=464** (was 10 / 427), Result: PASS
+
+## Known limitations
+
+- **Not applied to production.** These two migrations join the ones already unapplied there.
+  Until they are, the dashboards keep showing inflated availability.
+- **No backfill and none needed** — the function is a read-time aggregation; no stored value
+  was ever wrong.
+- **Pre-existing, untouched, out of scope:** an allocation that is BOTH a direct allocation
+  of the contract AND points at another allocation of the same contract via
+  `adds_to_allocation_id` appears twice in `effective_allocations` and is counted twice. That
+  is exactly what the old function did; this round preserves it deliberately rather than
+  changing a second behaviour under cover of the fan-out fix. Worth its own ruling.
+- `SET search_path TO 'public'` on `get_bucket_summary` also makes it non-inlinable by the
+  planner. Its callers all pass a single contract id and the plan is trivial; no measurable
+  cost, but it is a real change to how the function is planned.

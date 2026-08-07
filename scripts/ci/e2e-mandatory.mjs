@@ -27,6 +27,11 @@ export const MANDATORY_SPECS = [
   // running server on the fake adapter, with negative controls showing the proof fails
   // without it and that neither failure path can emit an outbound Zoom request.
   'tests/e2e/zoom-mock-mode.spec.ts',
+  // Z2-S8 — the PLATFORM-MANAGED session, the case this phase exists to serve and the one
+  // no e2e could reach while the seeder left `is_zoom_managed` at its default. Mandatory
+  // for the same reason the others are: the managed branches it defends are precisely the
+  // ones four rounds changed without any spec being able to observe the change.
+  'tests/e2e/zoom-managed-join.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

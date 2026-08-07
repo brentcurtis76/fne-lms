@@ -26,7 +26,18 @@
     "                 get has_meeting/join_path and NOT the raw link. It carries the attendees",
     "                 and the two report visibilities too, so one GET exercises all three tier-2",
     "                 assertions (no e-mail, no raw link, no facilitators_only report) at once.",
-    "The link host is example.net — RFC 2606 reserved, like the addresses. No real meeting."
+    "The link host is example.net — RFC 2606 reserved, like the addresses. No real meeting.",
+    "",
+    "Z2-S8 (r28) — a THIRD session, added because both of the above are unmanaged:",
+    "  managedSession is_zoom_managed true — the case this whole phase exists to serve, and",
+    "                 the one no e2e had ever exercised. `is_zoom_managed` is NOT NULL DEFAULT",
+    "                 false and the seeder never wrote it, so every seeded session was",
+    "                 unmanaged and the managed branches of the interstitial, of the .ics",
+    "                 endpoints and of the disclosure layer had only ever run in unit tests.",
+    "  ADDED, NEVER FLIPPED. `session` and `linkedSession` keep is_zoom_managed false, so",
+    "  every assertion already written against them holds unchanged. A managed session carries",
+    "  NO meetingLink by design (plan §8: the join URL lives in zoom_internal and never touches",
+    "  consultor_sessions) — that is the property under test, not a gap in the fixture."
   ],
   "school": {
     "id": 990001,
@@ -106,6 +117,32 @@
           "reportType": "session_report",
           "visibility": "all_participants",
           "content": "Informe sintetico visible para todos los participantes. Contenido de prueba, sin datos reales."
+        }
+      ]
+    },
+    "managedSession": {
+      "id": "e2e00000-0000-4000-8000-000000000503",
+      "title": "Sesion Sintetica E2E - gestionada por la plataforma",
+      "description": "Sesion sintetica gestionada por la plataforma (Zoom). No corresponde a ninguna sesion real.",
+      "sessionDate": "2030-06-26",
+      "startTime": "11:00:00",
+      "endTime": "12:30:00",
+      "modality": "online",
+      "status": "programada",
+      "meetingProvider": "zoom",
+      "isZoomManaged": true,
+      "createdBy": "admin",
+      "facilitators": [
+        {
+          "user": "consultorAssigned",
+          "facilitatorRole": "consultor_externo",
+          "isLead": true
+        }
+      ],
+      "attendees": [
+        {
+          "user": "gcLeader",
+          "expected": true
         }
       ]
     }

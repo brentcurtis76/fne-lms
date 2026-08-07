@@ -141,15 +141,31 @@ interface E2eZoomFixtures {
     attendees: { user: FixtureKey }[];
     reports: { id: string; author: FixtureKey; reportType: string; visibility: string }[];
   };
+  /**
+   * Z2-S8 — the platform-managed session. `isZoomManaged` is typed as the literal `true`
+   * rather than `boolean`: this fixture exists ONLY to be managed, and a JSON edit that
+   * set it false would otherwise type-check clean and silently delete the only end-to-end
+   * coverage the managed surfaces have.
+   *
+   * It carries no `meetingLink` — the type says so by omission, and plan §8 says so by
+   * design: a managed session's join URL lives in `zoom_internal` and reaches the browser
+   * only through `POST /api/meet/session/[id]/join`.
+   */
+  managedSession: E2eFixtureSession & {
+    isZoomManaged: true;
+    facilitators: { user: FixtureKey }[];
+    attendees: { user: FixtureKey }[];
+  };
 }
 
 /**
  * The Zoom domain graph seeded by scripts/ci/seed-e2e-zoom.mjs.
  *
  * `session` has no meeting link; `linkedSession` carries a legacy manual one, plus the
- * attendees and the two report visibilities. Same school and same growth community, so the
- * persona tiers are identical across the pair and any difference a spec observes between
- * them is attributable to the link, not to authorization.
+ * attendees and the two report visibilities; `managedSession` is `is_zoom_managed` with no
+ * link of any kind. Same school and same growth community across all three, so the persona
+ * tiers are identical and any difference a spec observes between them is attributable to
+ * the link and to the managed flag, not to authorization.
  */
 export const E2E_ZOOM: E2eZoomFixtures = fixtures.zoom as unknown as E2eZoomFixtures;
 

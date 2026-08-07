@@ -3563,3 +3563,245 @@ default.
   added one only for the query it introduced.
 - **`SESSION_STATUS_FALLBACK`, `total_hours_actual`'s name, `create.tsx`'s UTC-vs-Chile `min`,
   the four order-dependent suites and `'edit_approval_blocked'`** remain unruled and untouched.
+
+---
+
+# Sol remediation — round r28 (items 11 and 12a, plus the e2e coverage gap)
+
+**Branch** `feat/zoom-sess` · **base** `3e33968d` · **commits** 1
+
+**This is the last code round of phase Z2.** Item 12b — the staging checklist against a real
+audio-plan Zoom tenant — is the owner's, was not attempted, was not stubbed, and is not done.
+
+## Objective and scope
+
+Three things, one concern: **make the phase's state legible to whoever reads it next.**
+
+- **The coverage gap** that r23, r25, r26 and r27 each recorded and none was scoped to fix.
+- **Item 11** — `PROJECT_STATE.md`, truthfully.
+- **Item 12a** — the complete gate run at the final commit.
+
+Out of scope and untouched: item 12b; everything r21–r27 sealed (page-visibility tiers, the
+closed set, the disclosure predicate, every authorization rule); the five standing unruled
+items (`SESSION_STATUS_FALLBACK`, `total_hours_actual`'s name, `create.tsx`'s UTC-vs-Chile
+`min`, the four order-dependent suites, `'edit_approval_blocked'`). No production code was
+changed this round — the diff is fixtures, seeder, one new spec, CI env, and docs.
+
+## The coverage gap, stated plainly
+
+`consultor_sessions.is_zoom_managed` is `NOT NULL DEFAULT false`. `scripts/ci/seed-e2e-zoom.mjs`
+never wrote it. Therefore **every seeded session was unmanaged, and no e2e test had ever
+exercised a Zoom-managed session** — not the join affordance, not §14, not r26's managed
+platform links, not r27's managed disclosure.
+
+That is why the mandatory specs kept passing unchanged through four consecutive rounds that
+changed managed behaviour. Those rounds are unit-tested and integration-tested. Until this
+round they had never been exercised end to end.
+
+## Added, not flipped
+
+A **third** session — `zoom.managedSession`, `e2e00000-…-000000000503` — sits alongside the two
+existing fixtures in the same school and the same growth community. `zoom.session` and
+`zoom.linkedSession` keep `is_zoom_managed = false`; the seeder now writes the column for all
+three rows, so what was defaulted is now stated. Verified against the seeded database:
+
+```
+                  id                  | is_zoom_managed |                     meeting_link                     | meeting_provider |   status
+--------------------------------------+-----------------+------------------------------------------------------+------------------+------------
+ e2e00000-0000-4000-8000-000000000501 | f               |                                                      | zoom             | programada
+ e2e00000-0000-4000-8000-000000000502 | f               | https://meet.example.net/e2e-sintetica-enlace-manual | otro             | programada
+ e2e00000-0000-4000-8000-000000000503 | t               |                                                      | zoom             | programada
+```
+
+The managed row's `meeting_link` is NULL by design (plan §8), not by omission. Its facilitator
+is `consultorAssigned` and its expected attendee is `gcLeader` — seeded explicitly, though
+`trg_sync_session_attendees_on_gc_change` would enrol the latter anyway, so the join list is
+readable off the fixture JSON without knowing the trigger exists.
+
+The seeder's local-only refusal is untouched: `seed-e2e-zoom.mjs` still has no connection path
+of its own and still operates on the client `resolveConfig()` (`scripts/ci/seed-e2e.mjs`:41-58)
+hands it, which throws on any non-local Supabase host and has no override flag.
+
+## What the managed session now proves end to end
+
+`tests/e2e/zoom-managed-join.spec.ts`, added to `MANDATORY_SPECS`. 12 tests:
+
+| Persona | Page | Join opening (`POST /api/meet/session/[id]/join`) |
+|---|---|---|
+| `admin`, `consultorAssigned`, `gcLeader` | 200, `meet-join-button` visible, and `meet-join-link` / `meet-no-link` / `meet-join-disabled` / `meet-join-denied` all absent | 200 `{ mode: 'pending' }`, no `join_url`, no `dial_in` |
+| `consultorGlobal` (may view, may not join) | 200, `meet-join-denied` with §5's exact copy, no join control of any kind, nothing meeting-shaped in the document | **403** with the same es-CL message |
+| `consultorOtherSchool`, `docente`, `inactiveConsultor` | 404, no control of any kind — not even the refusal panel | — |
+
+`meet-no-link` being asserted ABSENT is the load-bearing one: a managed session's
+`meeting_link` is NULL, and deciding from that column alone is exactly the defect class r26
+fixed on five surfaces and r27 on a sixth. This is the first assertion anywhere that can see
+it on the interstitial.
+
+The `403` on the opening is what makes the missing button non-cosmetic: without it, "no button
+on the page" is satisfied by a page that merely failed to render one while the opening behind
+it still answered anyone who posted at it directly.
+
+## What it still does NOT prove
+
+- **`mode: 'link'` and the dial-in block have no e2e coverage.** No `zoom_internal.zoom_meetings`
+  row and no `session_meetings_public` projection are seeded, so the opening answers
+  `mode: 'pending'` — §8's provisioning window. That is asserted rather than tolerated (a
+  `link` outcome would mean a credential appeared out of a tenant that has none), but it means
+  the successful join, the `join_url` hand-off and `buildJoinDialIn` remain unit-tested only.
+- **"No raw link in the document" is a weaker assertion here than on the pasted-link session.**
+  A managed session has no link on its own row to leak, so what the helper can prove is that
+  the page invents none: no Zoom host, no other session's link, no non-null `meeting_link`
+  anywhere in `__NEXT_DATA__`. It does not prove a *provisioned* `join_url` would be withheld —
+  nothing in the synthetic tenant has one.
+- **The §14 kill switch's OFF branch is not covered.** See below.
+
+## §14 — what a single e2e run can and cannot prove
+
+`FEATURE_ZOOM_MEETINGS` is read from `process.env` on every request (`lib/featureFlags.ts`:6),
+so it has one value for the lifetime of the server Playwright starts, and a Playwright run has
+one server. The e2e environment now sets it **on** (`.github/workflows/ci.yml`, the `.env.local`
+step, both the server and the `NEXT_PUBLIC_` name so the two readers cannot disagree inside one
+render) — **with it off there is no managed join affordance to assert the existence of at all**,
+so criterion [Q2] is unsatisfiable in an environment where the flag is off.
+
+The ON side is therefore covered end to end, and `meet-join-disabled` is asserted absent so a
+silently-off flag fails the gate rather than passing as "no button, no problem".
+
+**The OFF side is unreachable within one gate run, and no assertion pretends otherwise.** It
+was nevertheless *exercised* this round, as a throwaway probe rather than as coverage — the
+same spec re-run with `FEATURE_ZOOM_MEETINGS` unset:
+
+```
+  ✘ managed interstitial — admin (may join) › reaches the managed join affordance …
+      expect(locator).toBeVisible() failed / Expected: visible / element(s) not found
+  ✘ managed join opening — admin (may join) …
+      Error: admin was refused the managed join opening   Expected: 200   Received: 503
+  ✘ managed join opening — consultorGlobal (may view, may not join) …
+      Error: consultorGlobal was let into the managed join opening   Expected: 403   Received: 503
+  7 failed / 5 passed
+```
+
+The third line is worth reading twice: with the flag off, the persona who would otherwise get
+403 gets **503** — the kill switch fires at gate 3, before authorization, exactly as the route's
+header claims. That is real evidence about the OFF branch; it is **not** permanent coverage,
+because reproducing it means re-running the gate with different env.
+
+Making it permanent would take a **second Playwright `webServer` on another port with the flag
+unset**, plus a spec that addresses that origin. That is a real mechanism and it was declined
+for this round: adding a second production server to the e2e harness on the phase's last code
+round is a larger change to the gate than the coverage is worth right now. Recorded as a debt
+in `PROJECT_STATE.md`. Today the OFF branch is covered by
+`__tests__/lib/utils/session-meet-access.test.ts`:429-467 and
+`__tests__/api/meet/session-join.test.ts`:341-356, and by nothing else.
+
+## Mutation probe — the gap was real
+
+`is_zoom_managed` set to `false` on the seeded row (i.e. exactly what the pre-r28 seeder
+produced), spec re-run:
+
+```
+  ✘ managed interstitial — admin (may join) › reaches the managed join affordance, and no other join control
+  ✘ managed interstitial — consultorAssigned (may join) › reaches the managed join affordance, and no other join control
+  ✘ managed interstitial — gcLeader (may join) › reaches the managed join affordance, and no other join control
+      expect(locator).toBeVisible() failed / Expected: visible / element(s) not found
+```
+
+The affordance is not there, because on an unmanaged session it never was. Restored by
+re-running the seeder; the row reads `t` again.
+
+Note what did NOT fail in that probe: the suite's own fixture guard, which reads the JSON
+rather than the database. It guards a different lever (a fixture edit that dropped the flag)
+and is honest about that.
+
+## Files changed
+
+**Fixtures and seeding (3)**
+
+| File | What changed |
+|---|---|
+| `scripts/ci/e2e-fixtures.json` | `zoom.managedSession` added; `_comment` explains added-not-flipped. |
+| `scripts/ci/seed-e2e-zoom.mjs` | `is_zoom_managed` written for all three sessions; the third seeded through the same `seedSession` path as the other two. |
+| `scripts/ci/seed-e2e.mjs` | Header: two sessions → three. |
+
+**Tests and gate wiring (3)**
+
+| File | What changed |
+|---|---|
+| `tests/e2e/zoom-managed-join.spec.ts` | New. 12 tests. |
+| `scripts/ci/e2e-mandatory.mjs` | The new spec added to `MANDATORY_SPECS`. |
+| `tests/e2e/helpers/auth.ts` | `E2eZoomFixtures.managedSession`, with `isZoomManaged` typed as the literal `true`. |
+
+**CI (1)** — `.github/workflows/ci.yml`: `FEATURE_ZOOM_MEETINGS` and
+`NEXT_PUBLIC_FEATURE_ZOOM_MEETINGS` added to the e2e job's `.env.local` step.
+
+**Docs (2)** — `PROJECT_STATE.md` (item 11), this file.
+
+**No production code was changed.** No migration, no API route, no page, no component, no lib
+module.
+
+## Scrutinize hardest
+
+1. **Turning `FEATURE_ZOOM_MEETINGS` on in CI is a behaviour change to the e2e environment, and
+   it is mine.** The prompt did not name it. It is forced by [Q2] — the affordance cannot appear
+   with the flag off — but it means the e2e gate no longer runs with the production-safe default,
+   and it silently enables the provisioning gate and the scheduler's Zoom toggle for any future
+   spec. Nothing in the mandatory list exercises either today. A reviewer should decide whether
+   the e2e tenant running "flag on" is the right default or whether the two states deserve two
+   jobs.
+2. **`NEXT_PUBLIC_FEATURE_ZOOM_MEETINGS` was set alongside it, and that is a judgment call.**
+   `lib/featureFlags.ts` reads a different variable on the server (`FEATURE_ZOOM_MEETINGS`) than
+   in the browser (`NEXT_PUBLIC_…`), so setting only the first makes `pages/admin/sessions/create.tsx`
+   compute one answer during SSR and the other after hydration. No spec covers that page, so this
+   is prophylaxis, not a fix — and the underlying two-variables-one-switch design is untouched.
+3. **The managed session is seeded but never provisioned.** Every assertion about the join
+   opening is an assertion about the `pending` outcome. If a reviewer believes the phase's
+   central claim is "a facilitator gets a working Zoom link", note that no automated test at any
+   level drives that against anything but a fake — which is item 12b's whole point.
+4. **`gcLeader` is seeded as an explicit attendee AND would be enrolled by the trigger.** Belt
+   and braces, deliberately, so the join list is derivable from the JSON. But it means the spec
+   would still pass if the trigger regressed, and `zoom-join-authz.spec.ts` — which relies on the
+   trigger for the same persona on the other two sessions — is where that would surface.
+5. **`PROJECT_STATE.md` is written in Spanish and I kept it that way.** `CLAUDE.md` puts technical
+   docs in English; this file has been Spanish since Fase 0 and rewriting it would have been a far
+   larger change than item 11 asked for. Matching the document beat matching the rule; flagged
+   rather than hidden.
+
+## Known limitations / open
+
+- **Item 12b is NOT done.** No code in this phase has ever run against a real Zoom tenant. It
+  needs real credentials and is the owner's.
+- **The dial-in wire shape is documentation-based.** No real audio-plan response has been
+  inspected. It fails closed (renders nothing) if the shape differs, but the code is unproven.
+- **The four Z2 migrations are not applied to production**, and per the permanent rule from Z1b's
+  closing defect the phase is not closed until the production schema is verified directly.
+- **`mode: 'link'` and the dial-in block have no e2e coverage**; the §14 OFF branch has none
+  either. Both are unit-tested only. See above for what each would cost.
+- **`npm run e2e` (bare) is not the phase's evidence and does not pass.** `tests/e2e/` also holds
+  legacy QA specs (`reservation`, `completion`, `cancellation`, the proposal flows) that need a
+  different seed script, have never run in CI, and are untouched by this phase. The gate is the
+  mandatory list, which is what CI runs and what is pasted below.
+- **`SESSION_STATUS_FALLBACK`, `total_hours_actual`'s name, `create.tsx`'s UTC-vs-Chile `min`,
+  the four order-dependent suites and `'edit_approval_blocked'`** remain unruled and untouched.
+- **`createSupabaseMeetingDeleteStore`'s other three methods still have no store test** (carried
+  from r27, not addressed here).
+
+## Evidence — item 12a, the complete gate run at the final commit
+
+Local, macOS, against a freshly `supabase db reset` local stack. `.env.local` in this worktree
+points at the REMOTE project and was **never written to**: the e2e run gets the local stack and
+the two feature-flag values through process env only, mirroring the CI job's `.env.local` step.
+
+| Gate | Command | Result |
+|---|---|---|
+| 1 | `npm run type-check` | clean |
+| 2 | `npm run lint` (`--max-warnings=0`) | clean |
+| 3 | `npm test` | **4726 passed / 283 files** (unchanged — this round adds no unit test) |
+| 4 | `npm run build` | OK |
+| 5 | `npm run test:db` | **PASS — Files=11, Tests=466** |
+| e2e | `npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **88 passed** (from 76) |
+| guard | `node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json` | `OK — 7 mandatory spec(s) ran with no skips` (from 6) |
+
+Nothing fell. The only figures that moved are the two this round is supposed to move: the
+mandatory e2e count (+12, all from the new spec) and the mandatory spec count (+1).
+
+The verbatim tails are in the executor report for round r28.

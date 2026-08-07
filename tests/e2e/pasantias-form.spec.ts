@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 import { COHORT_ID } from '../../lib/pasantias/cohort-public';
-import { LEAD_VALIDATION_MESSAGES } from '../../lib/pasantias/leads';
+import { LEAD_FIELD_LIMITS, LEAD_VALIDATION_MESSAGES } from '../../lib/pasantias/leads';
 
 /**
  * A6b — the `/pasantias` lead form, on the real page.
@@ -196,5 +196,23 @@ test.describe('pasantias lead form', () => {
     expect(posted[0].utmSource).toBe('newsletter');
     expect(posted[0].utmMedium).toBe('email');
     expect(posted[0].utmCampaign).toBe('inspira');
+  });
+
+  test('an over-limit utm_source costs the attribution, never the lead', async ({ page }) => {
+    const posted = await interceptLead(page, 200);
+
+    // Sol's r1 reproduction, pinned: 141 characters against a cap of 140 used to
+    // produce an error with no control to render it, so the submit did nothing —
+    // no request, no message, no focus change.
+    const overCap = 'a'.repeat(LEAD_FIELD_LIMITS.utm + 1);
+    await page.goto(`/pasantias?utm_source=${overCap}&utm_medium=email`);
+    await fillRequired(page);
+    await page.getByTestId('pasantias-consent').check();
+    await page.getByTestId('pasantias-lead-submit').click();
+
+    await expect(page.getByTestId('pasantias-lead-success')).toBeVisible();
+    expect(posted).toHaveLength(1);
+    expect(posted[0].utmSource === undefined || posted[0].utmSource === '').toBe(true);
+    expect(posted[0].utmMedium).toBe('email');
   });
 });

@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-import LeadForm from '../../components/pasantias/LeadForm';
+import LeadForm, { GENERIC_ERROR, UNRENDERABLE_ERROR } from '../../components/pasantias/LeadForm';
 import { COHORT_ID } from '../../lib/pasantias/cohort-public';
 import {
   CONSENT_PROCESSING_TEXT,
@@ -69,6 +69,9 @@ describe('PasantiasLeadForm', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    // The component reads `window.location.search` on mount, so a test that set
+    // a query string must not leak it into the next one.
+    window.history.replaceState({}, '', '/pasantias');
   });
 
   it('renders both consents as separate controls, both unchecked on first render', () => {
@@ -286,5 +289,134 @@ describe('PasantiasLeadForm', () => {
     resolveRequest(jsonResponse(500, { error: 'Error al guardar la solicitud' }));
 
     await waitFor(() => expect(screen.getByTestId('pasantias-lead-submit')).not.toBeDisabled());
+  });
+
+  /* ------------------------------------------------------- r2: no dead form */
+
+  const OVER_CAP_UTM = 'a'.repeat(LEAD_FIELD_LIMITS.utm + 1);
+
+  it('drops an over-limit utm_source instead of stranding the lead', async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch(jsonResponse(200, { success: true }));
+    window.history.replaceState({}, '', `/pasantias?utm_source=${OVER_CAP_UTM}`);
+    render(<LeadForm />);
+
+    await fillRequired(user);
+    await user.click(screen.getByTestId('pasantias-lead-submit'));
+
+    // The lead is what matters: exactly one POST and the confirmation panel.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(await screen.findByTestId('pasantias-lead-success')).toBeInTheDocument();
+
+    const body = postedBody(fetchMock);
+    expect(body.utmSource === undefined || body.utmSource === '').toBe(true);
+  });
+
+  it('drops only the unusable utm value and keeps the other two intact', async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch(jsonResponse(200, { success: true }));
+    window.history.replaceState(
+      {},
+      '',
+      `/pasantias?utm_source=${OVER_CAP_UTM}&utm_medium=email&utm_campaign=inspira`
+    );
+    render(<LeadForm />);
+
+    await fillRequired(user);
+    await user.click(screen.getByTestId('pasantias-lead-submit'));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const body = postedBody(fetchMock);
+    expect(body.utmSource === undefined || body.utmSource === '').toBe(true);
+    expect(body.utmMedium).toBe('email');
+    expect(body.utmCampaign).toBe('inspira');
+  });
+
+  it('shows the form-level error for a 400 whose only key is cohort', async () => {
+    const user = userEvent.setup();
+    mockFetch(
+      jsonResponse(400, {
+        error: 'Revisa los datos del formulario.',
+        fields: { cohort: LEAD_VALIDATION_MESSAGES.cohortInvalid },
+      })
+    );
+    render(<LeadForm />);
+
+    await fillRequired(user);
+    await user.click(screen.getByTestId('pasantias-lead-submit'));
+
+    // `cohort` has no control on this form, so without the fallback the visitor
+    // would be left with a button that did nothing at all.
+    expect(await screen.findByTestId('pasantias-lead-form-error')).toHaveTextContent(
+      UNRENDERABLE_ERROR
+    );
+    expect(screen.getByTestId('pasantias-lead-form')).toBeInTheDocument();
+    expect(screen.getByTestId('pasantias-lead-submit')).not.toBeDisabled();
+    expect(screen.getByTestId('pasantias-lead-email')).toHaveValue(VALID.email);
+  });
+
+  /**
+   * The class, not the two instances: every key `validateLeadSubmission` can put
+   * in `errors` must either render against its own control or raise the
+   * form-level message. Derived from the frozen modules, so a key added in a
+   * later phase is covered without anyone remembering to add a case here.
+   */
+  const VALIDATOR_ERROR_KEYS = Array.from(
+    new Set([
+      ...Object.entries(LEAD_VALIDATION_MESSAGES)
+        .filter(([, message]) => typeof message === 'string')
+        .map(([key]) => key.replace(/(Required|Invalid)$/, '')),
+      // `tooLong` is a function shared by every capped field, so the fields it
+      // can key on come from the limits. `utm` is the one limit that fans out.
+      ...Object.keys(LEAD_FIELD_LIMITS).flatMap((key) =>
+        key === 'utm' ? ['utmSource', 'utmMedium', 'utmCampaign'] : [key]
+      ),
+    ])
+  );
+
+  it.each(VALIDATOR_ERROR_KEYS)('never holds %s as an invisible error', async (key) => {
+    const user = userEvent.setup();
+    mockFetch(jsonResponse(400, { error: 'ignorado', fields: { [key]: 'Mensaje del servidor.' } }));
+    render(<LeadForm />);
+
+    await fillRequired(user);
+    await user.click(screen.getByTestId('pasantias-lead-submit'));
+
+    await waitFor(() => {
+      const fieldError = screen.queryByTestId(`pasantias-lead-error-${key}`);
+      const formLevel = screen.queryByTestId('pasantias-lead-form-error');
+      expect(
+        Boolean(fieldError) || Boolean(formLevel),
+        `an error keyed "${key}" is rendered nowhere: no control shows it and the form-level fallback did not fire`
+      ).toBe(true);
+    });
+  });
+
+  it('renders its own generic sentence on a 500, not the server string', async () => {
+    const user = userEvent.setup();
+    const serverString = 'Detalle interno que jamas debe llegar a la pagina';
+    mockFetch(jsonResponse(500, { error: serverString }));
+    render(<LeadForm />);
+
+    await fillRequired(user);
+    await user.click(screen.getByTestId('pasantias-lead-submit'));
+
+    const error = await screen.findByTestId('pasantias-lead-form-error');
+    expect(error).toHaveTextContent(GENERIC_ERROR);
+    expect(error.textContent).not.toContain(serverString);
+  });
+
+  it('renders its own generic sentence on a 429, not the server string', async () => {
+    const user = userEvent.setup();
+    const serverString = 'Too many requests from this address';
+    mockFetch(jsonResponse(429, { error: serverString }));
+    render(<LeadForm />);
+
+    await fillRequired(user);
+    await user.click(screen.getByTestId('pasantias-lead-submit'));
+
+    const error = await screen.findByTestId('pasantias-lead-form-error');
+    expect(error).toHaveTextContent(GENERIC_ERROR);
+    expect(error.textContent).not.toContain(serverString);
   });
 });

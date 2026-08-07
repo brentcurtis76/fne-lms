@@ -133,4 +133,78 @@ The hardcoded-cohort guard was **not** edited: no declaration changed.
 - **No client-side rate-limit feedback beyond the generic sentence.** A `429` renders
   the route's own `error` string when it sends one, and the generic es-CL sentence
   otherwise. A dedicated "espera un momento" state was not in scope.
+  *(Superseded by r2 / S1 below: a `429` now always renders the component's own sentence.)*
 - **No analytics event on submit.** Out of scope for this phase.
+
+---
+
+# ROUND r2 — remediation of Codex Sol's FAIL
+
+Base: r1 as reviewed. Diff: 3 files, no new files, no frozen file touched.
+`components/pasantias/LeadForm.tsx`, `__tests__/components/PasantiasLeadForm.test.tsx`,
+`tests/e2e/pasantias-form.spec.ts`.
+
+## What changed, and which finding each change closes
+
+1. **`usableUtm()` — Finding 1 / [B1].** The three `utm_*` values are filtered as they
+   are read from the query string on mount: a value whose `normalizeText` length exceeds
+   `LEAD_FIELD_LIMITS.utm` becomes `''` and is simply not posted. Not truncated — a cut
+   campaign name is a wrong attribution recorded as if it were right. This is A5's
+   ratified `sanitizeSourcePath` rule applied client-side to the other three fields
+   nobody types. Each value is judged on its own, so one bad parameter cannot cost the
+   other two. The length test runs on the normalized string because that is what the
+   validator measures; the value posted is the raw one, byte for byte.
+
+2. **`RENDERED_ERROR_FIELDS` + `hasUnrenderableError()` + `applyFieldErrors()` —
+   Finding 2 / [B2] [B3].** Field errors now reach state through exactly one function,
+   used by both the client-validation path and the 400 path. If any key in the set has
+   no rendered control, the form-level error is raised alongside the field errors, with
+   a new es-CL sentence (`UNRENDERABLE_ERROR`) whose remedy is *recargar la página* —
+   the actual fix for the case that reaches it in practice, a cached page posting
+   against a retired cohort. The submit can no longer be a no-op under any error set.
+
+3. **`setFormError(GENERIC_ERROR)` — Finding 3 / [S1].** The server's `error` string is
+   no longer rendered for 429/500/503/unparseable/network. The 400 `fields` payload is
+   the only server-supplied copy the component still shows, which is the contract.
+
+`GENERIC_ERROR` and `UNRENDERABLE_ERROR` are now exported so the tests assert against
+the copy itself rather than a retyped duplicate of it, matching how the suite already
+imports every other user-facing string from the frozen modules.
+
+## Test evidence
+
+`__tests__/components/PasantiasLeadForm.test.tsx` — **30 passed** (11 from r1, all
+unmodified, plus 5 new cases and a 14-case enumeration):
+
+- over-limit `utm_source` → exactly one POST, success panel, `utmSource` empty;
+- the same submission keeps a valid `utm_medium` / `utm_campaign` intact;
+- `400 {fields:{cohort:…}}` → the form-level sentence is visible and the form stays
+  interactive;
+- **the enumeration for [B3]**: `VALIDATOR_ERROR_KEYS` is derived from
+  `LEAD_VALIDATION_MESSAGES` (suffixes stripped) unioned with `LEAD_FIELD_LIMITS` (with
+  `utm` fanned out to its three body keys), never hand-written. Each key is driven
+  through a real 400 and must produce either its own `pasantias-lead-error-<key>`
+  element or the form-level fallback. A future validator key that satisfies neither
+  fails here without anyone remembering to add a case;
+- `500` and `429` each render `GENERIC_ERROR` and **not** the server's string (the
+  fixtures use deliberately distinguishable strings).
+
+`tests/e2e/pasantias-form.spec.ts` — **7 tests**, the 6 from r1 unmodified plus Sol's
+reproduction pinned: `/pasantias?utm_source=<141 chars>&utm_medium=email` → exactly one
+intercepted POST, success panel visible, `utmSource` empty, `utmMedium` still `email`.
+
+Gates: `type-check` clean · `lint` clean (0 warnings) · `npm test` **6199 passed /
+263 files** · `build` clean · `check-price-leak` OK (267 files, no commercial data) ·
+`__tests__/pages/pasantias-hardcoded-cohort.test.ts` **42/42 with
+`EXPECTED_RESTATEMENTS` unedited** · Playwright `pasantias-form` + `pasantias-page` +
+`footer-heading-order` **21 passed**.
+
+## What r2 deliberately did not do
+
+- **Did not touch `lib/pasantias/leads.ts`.** The server half of Finding 1 is real — the
+  frozen route still 400s on an over-cap UTM value that no form can render, which is the
+  opposite of what it does for `source_path` — but it is a plan-level item for a later
+  phase, not this round's.
+- **Did not restore `maxLength` on the textarea.** Pending the owner's ruling on the
+  price-vs-character-count distinction.
+- No redesign, no refactor of anything r1 shipped.

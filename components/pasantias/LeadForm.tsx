@@ -33,6 +33,7 @@ import {
   LEAD_NUM_PEOPLE_MIN,
   validateLeadSubmission,
 } from '../../lib/pasantias/leads';
+import { normalizeText } from '../../lib/signups';
 
 const LEAD_ENDPOINT = '/api/pasantias/lead';
 const BROCHURE_HREF = '/api/pasantias/brochure';
@@ -57,6 +58,40 @@ type TextField = (typeof TEXT_FIELDS)[number];
  * focus when every text field above it is fine.
  */
 const FOCUS_ORDER: readonly string[] = [...TEXT_FIELDS, 'consent'];
+
+/**
+ * Every validation key this form can actually SHOW. A key outside this list has
+ * no control, no `<p id="…-error">` and no entry in `FOCUS_ORDER`, so setting it
+ * alone would leave a visitor pressing a button that does nothing at all.
+ * `hasUnrenderableError` is what stops that from being possible.
+ */
+const RENDERED_ERROR_FIELDS: readonly string[] = [...TEXT_FIELDS, 'consent'];
+
+/**
+ * Whether these errors contain at least one key the form cannot render. True
+ * for anything the visitor never typed — the `utm_*` values, `sourcePath`, and
+ * `cohort` as it arrives from the route when a cached page posts against a
+ * retired cohort.
+ */
+function hasUnrenderableError(fieldErrors: Record<string, string>): boolean {
+  return Object.keys(fieldErrors).some((field) => !RENDERED_ERROR_FIELDS.includes(field));
+}
+
+/**
+ * Attribution the validator would refuse is DROPPED rather than posted, exactly
+ * as A5's `sanitizeSourcePath` drops an unusable `source_path`: nobody TYPES a
+ * `utm_*` value, so an error against one reaches a form with nowhere to render
+ * it. Over the cap is unusable. Not truncated — a cut campaign name is a wrong
+ * attribution recorded as if it were right. Losing one lead's attribution is the
+ * cheap failure; losing the lead is not.
+ *
+ * The length test runs on `normalizeText`'d input because that is what the
+ * validator measures; the value itself is passed through untouched so the server
+ * still sees exactly what the URL carried.
+ */
+function usableUtm(value: string): string {
+  return normalizeText(value).length > LEAD_FIELD_LIMITS.utm ? '' : value;
+}
 
 interface FormState extends Record<TextField, string> {
   consent: boolean;
@@ -88,8 +123,18 @@ interface UtmParams {
 
 const NO_UTM: UtmParams = { utmSource: '', utmMedium: '', utmCampaign: '' };
 
-const GENERIC_ERROR =
+/* Exported so the tests assert against the copy itself rather than a retyped
+   copy of it. */
+export const GENERIC_ERROR =
   'No pudimos enviar tu solicitud. Intenta nuevamente en unos minutos o escríbenos por WhatsApp.';
+
+/**
+ * Shown when the form holds an error it cannot attach to any control. Recargar
+ * is the actual remedy for the case that reaches this in practice: a cached page
+ * posting against a cohort that is no longer running.
+ */
+export const UNRENDERABLE_ERROR =
+  'No pudimos procesar tu solicitud. Recarga la página e inténtalo nuevamente; si el problema persiste, escríbenos por WhatsApp.';
 
 /* --------------------------------------------------------------- styling */
 /* Dark-on-brand_primary, matching the tokens `pages/pasantias.tsx` uses for
@@ -193,10 +238,12 @@ export default function LeadForm() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
+    // Each value is judged on its own: one unusable parameter must not cost the
+    // other two.
     setUtm({
-      utmSource: params.get('utm_source') ?? '',
-      utmMedium: params.get('utm_medium') ?? '',
-      utmCampaign: params.get('utm_campaign') ?? '',
+      utmSource: usableUtm(params.get('utm_source') ?? ''),
+      utmMedium: usableUtm(params.get('utm_medium') ?? ''),
+      utmCampaign: usableUtm(params.get('utm_campaign') ?? ''),
     });
   }, []);
 
@@ -215,6 +262,17 @@ export default function LeadForm() {
     if (first) {
       document.getElementById(first)?.focus();
     }
+  };
+
+  /**
+   * The one way field errors are ever applied, from client validation and from
+   * a 400 alike: no error may be invisible, so anything this form cannot render
+   * also raises the form-level message.
+   */
+  const applyFieldErrors = (fieldErrors: Record<string, string>) => {
+    setErrors(fieldErrors);
+    setFormError(hasUnrenderableError(fieldErrors) ? UNRENDERABLE_ERROR : '');
+    focusFirstInvalid(fieldErrors);
   };
 
   const buildBody = () => ({
@@ -251,9 +309,7 @@ export default function LeadForm() {
     // one are the same sentence. Nothing is posted until it passes.
     const result = validateLeadSubmission(body);
     if (!result.ok) {
-      setFormError('');
-      setErrors(result.errors);
-      focusFirstInvalid(result.errors);
+      applyFieldErrors(result.errors);
       return;
     }
 
@@ -278,14 +334,16 @@ export default function LeadForm() {
       }
 
       if (response.status === 400 && payload.fields && Object.keys(payload.fields).length > 0) {
-        setErrors(payload.fields);
-        focusFirstInvalid(payload.fields);
+        applyFieldErrors(payload.fields);
         return;
       }
 
-      // 429 / 500 / 503 and anything else: one generic sentence, and every
+      // 429 / 500 / 503, an unparseable body and anything else: the component's
+      // own sentence, never the route's. The route returns generic es-CL strings
+      // today, but the contract gives these statuses to the component, and
+      // rendering the server's copy would leave that true only by luck. Every
       // value the person typed stays exactly where it is.
-      setFormError(payload.error || GENERIC_ERROR);
+      setFormError(GENERIC_ERROR);
     } catch {
       setFormError(GENERIC_ERROR);
     } finally {

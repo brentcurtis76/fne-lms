@@ -515,3 +515,34 @@ scripts/ci/seed-e2e.mjs
 **PM RULING on ③ — deliberately do nothing, and stop spending.** The dial-in code is built, reviewed, Sol-approved and harmless; removing it now is its own change with its own risk for no gain. **But no further investment is warranted:** do not configure Chilean dial-in countries in the Zoom account, do not act on "where should dial-in reach people", and treat the US-only finding as a footnote rather than a defect to fix. **This closes three open items the ledger had been carrying** — the §2 delivery-channel tension, the US-number problem, and the r26 backlog item about the rendered list having no ordering or country preference. Recorded here so a later phase, or Sol, does not re-open them as unfinished threads.
 
 **Still open and unchanged:** the seven-migration production apply with read-only verification (§0.1(d)) — the last of the three close items, and the only one left.
+
+## ✅ **PRODUCTION MIGRATIONS APPLIED AND VERIFIED — 2026-08-08. The third and last close item is done.**
+
+**Executed by Brent, one migration at a time, in the Supabase SQL editor; verified after each by the PM with READ-ONLY queries (§0.1(d)). The PM wrote nothing to production.**
+
+**`supabase db push` was UNUSABLE and the CLI's own suggested fix was dangerous.** `db push --dry-run` refused with *"Remote migration versions not found in local migrations directory"* and proposed `supabase migration repair --status reverted <34 versions>` plus `supabase db pull`. **Neither was run.** The cause is benign: this repo squashed its history into a `00000000000000` baseline while production still lists the original 34 rows individually, so the schemas agree and only the bookkeeping differs. **Running the suggested repair would have written into production's history that 34 applied migrations were REVERTED** — a false record that a later push could act on. Recorded here because the CLI will suggest it again to the next person who links a checkout.
+
+**A NON-Z2 MIGRATION WAS PENDING AND THE DRY RUN IS WHAT SURFACED IT.** `20260803170000_add_email_marketing_tables` (INSPIRA **B3**, commit `0df19ad5`, merged via PR #41) has never been applied to production — **the same defect class as Z1b's, from a different workstream, still open.** `db push` would have applied it alongside ours. Because the manual route applies one file at a time, **the choice was restored and the PM recommended leaving it to its own workstream**: it is not Z2's, nothing calls it yet (its own header says the tables are dormant until B4a/B4b), and bundling it into this close would have hidden it. **It remains pending and is INSPIRA's to apply.**
+
+**The procedure**, following the precedent `PROJECT_STATE.md:13` records from Z1b's repair: each migration wrapped `BEGIN; <file>; INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES (…); COMMIT;` so **either the whole migration commits with its history row or nothing does**. PM pre-checked all seven wrappers: one `BEGIN`, one `COMMIT`, one history row, **zero `DROP` statements**.
+
+**PM verification after each step, read-only, against production:**
+1. `is_zoom_managed` — present, `NOT NULL`, default `false`, **0 existing sessions marked managed** (correct — none are).
+2. `reschedule_session_hours` — `(uuid, uuid)`, `SECURITY DEFINER`, `search_path=""`, **and the `session_activity_log` allowlist was NOT widened** — confirming the `DROP` Sol found never reached production.
+3. `dial_in_numbers` `jsonb`; **both re-issued functions have exactly ONE definition each** at the identical 6-arg signature — no overload, which was the hazard r18 identified — and `anon` still cannot execute them.
+4. Backfill matched **0 rows** (production has no Zoom meetings), and **0 rows were left behind** with the key present and the column null.
+5. `apply_session_reschedule(uuid, uuid, jsonb, timestamptz)` — `SECURITY DEFINER`, `search_path=""`, grants exactly **anon NO / authenticated NO / service_role YES**.
+6. `get_bucket_summary` — **one** definition, identical arguments, **all eight return columns unchanged**, invoker-rights preserved, **and all three baseline EXECUTE grants intact**. This is the one that changes numbers users see, downward, because the old figure was inflated.
+7. `reschedule_session_hours` now calls `get_bucket_summary` — one formula, verified by reading `prosrc` in production.
+
+**Final sweep, all green:** seven versions recorded · both columns present · three public functions · two internal functions with no overloads · the RPC calling the shared formula · **the forbidden allowlist widening absent** · **zero dial-in columns on `public.session_meetings_public`**, so the §6/§7 trust boundary holds in production exactly as it does locally.
+
+## ⚠️ **A FINDING THE SWEEP TURNED UP THAT IS NOT Z2's — 22 `public` tables have RLS DISABLED in production.**
+
+`CLAUDE.md` states **"Every table in `public` has RLS enabled."** Production disagrees, and **Z2 added no table to `public`, so this predates this phase entirely**: `answers`, `assignments`, `course_prerequisites`, `deleted_blocks`, `deleted_courses`, `deleted_lessons`, `deleted_modules`, `group_assignment_discussions`, `growth_community_transformation_access`, `instructors`, `learning_path_courses`, `learning_paths`, `menu_permissions`, `metadata_sync_log`, `modules`, `profiles_role_backup`, `propuesta_rate_limits`, `qa_tester_time_logs`, `questions`, `quizzes`, `student_answers`, `submissions`.
+
+**Stated carefully, because the PM has not investigated it and will not guess:** RLS disabled does **not** by itself mean the data is reachable — that depends on what `anon` and `authenticated` are granted on each table, which was **not** checked. But `student_answers`, `submissions`, `assignments` and `answers` are student work, i.e. the legally protected minor data (Ley 21.719) this project's hard rules exist to protect, and `profiles_role_backup` is a role table. **It deserves a real answer rather than an inference at the end of a long session.**
+
+**PM ruling: NOT folded into Z2.** The phase is approved and closed on its own scope; widening it now to chase a pre-existing platform-wide question would be exactly the scope drift this workstream has refused nine times. **Recorded as its own finding, for its own investigation, with the first question already framed: what are `anon` and `authenticated` actually granted on those 22 tables?**
+
+**ALL THREE CLOSE ITEMS ARE NOW DONE: PR #45 open and green on CI · item 12b staging run against the real tenant · seven migrations applied and verified in production. The phase is ready to merge, and the merge is Brent's.**

@@ -349,7 +349,7 @@ export default function NosotrosPage() {
               
               {/* Desktop Navigation */}
               <nav className="hidden lg:flex items-center space-x-7 xl:space-x-9">
-                <Link href="/#pasantias" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</Link>
+                <Link href="/pasantias" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</Link>
                 <Link href="/programas" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">PROGRAMAS</Link>
                 <Link href="/noticias" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS Y EVENTOS</Link>
                 <Link href="/nosotros" className="text-sm font-medium text-black font-semibold">NOSOTROS</Link>
@@ -385,7 +385,7 @@ export default function NosotrosPage() {
               </button>
             </div>
             <nav className="flex flex-col space-y-6">
-              <Link href="/#pasantias" className="text-xl font-medium">PASANTÍAS</Link>
+              <Link href="/pasantias" className="text-xl font-medium">PASANTÍAS</Link>
               <Link href="/programas" className="text-xl font-medium">PROGRAMAS</Link>
               <Link href="/noticias" className="text-xl font-medium">NOTICIAS Y EVENTOS</Link>
               <Link href="/nosotros" className="text-xl font-medium">NOSOTROS</Link>

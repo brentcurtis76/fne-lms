@@ -149,7 +149,6 @@ const programs: Program[] = [
 export default function ProgramasPage() {
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
   const [activeTab, setActiveTab] = useState<'objectives' | 'activities' | 'results'>('objectives');
-  const [showFlipbook, setShowFlipbook] = useState(false);
   const [showDirectivesFlipbook, setShowDirectivesFlipbook] = useState(false);
 
   const handleProgramClick = (program: Program) => {
@@ -251,7 +250,7 @@ export default function ProgramasPage() {
               
               {/* Desktop Navigation */}
               <nav className="hidden lg:flex items-center space-x-7 xl:space-x-9">
-                <a href="/#pasantias" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</a>
+                <Link href="/pasantias" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</Link>
                 <Link href="/programas" className="text-sm font-medium text-black">PROGRAMAS</Link>
                 <Link href="/noticias" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS Y EVENTOS</Link>
                 <Link href="/nosotros" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">NOSOTROS</Link>
@@ -287,7 +286,7 @@ export default function ProgramasPage() {
               </button>
             </div>
             <nav className="flex flex-col space-y-6">
-              <a href="/#pasantias" className="text-xl font-medium">PASANTÍAS</a>
+              <Link href="/pasantias" className="text-xl font-medium">PASANTÍAS</Link>
               <Link href="/programas" className="text-xl font-medium">PROGRAMAS</Link>
               <Link href="/noticias" className="text-xl font-medium">NOTICIAS Y EVENTOS</Link>
               <Link href="/nosotros" className="text-xl font-medium">NOSOTROS</Link>
@@ -530,15 +529,16 @@ export default function ProgramasPage() {
                 {/* Program Buttons for INSPIRA */}
                 {selectedProgram.id === 'inspira' && (
                   <div className="mt-8 space-y-3">
-                    <button 
-                      onClick={() => setShowFlipbook(true)}
+                    <Link
+                      href="/pasantias"
+                      data-testid="inspira-pasantias-cta"
                       className="flex items-center justify-center bg-black text-white rounded-full px-6 py-3 font-medium hover:bg-gray-800 transition-all duration-300 transform hover:scale-105 w-full"
                     >
-                      <span>Programa para líderes pedagógicos</span>
+                      <span>Conoce las Pasantías en Barcelona</span>
                       <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                       </svg>
-                    </button>
+                    </Link>
                     <button 
                       onClick={() => setShowDirectivesFlipbook(true)}
                       className="flex items-center justify-center bg-black text-white rounded-full px-6 py-3 font-medium hover:bg-gray-800 transition-all duration-300 transform hover:scale-105 w-full"
@@ -647,32 +647,6 @@ export default function ProgramasPage() {
             </div>
           </div>
         </section>
-
-        {/* Flipbook Modal */}
-        {showFlipbook && (
-          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg w-full max-w-6xl h-[85vh] relative">
-              <button
-                onClick={() => setShowFlipbook(false)}
-                className="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 transition-colors"
-              >
-                <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-              </button>
-              <iframe 
-                src="https://heyzine.com/flip-book/fef3878d3c.html" 
-                width="100%" 
-                height="100%" 
-                frameBorder="0"
-                scrolling="no"
-                seamless={true}
-                allowFullScreen={true}
-                className="rounded-lg"
-              ></iframe>
-            </div>
-          </div>
-        )}
 
         {/* Directives Flipbook Modal */}
         {showDirectivesFlipbook && (

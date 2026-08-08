@@ -439,3 +439,86 @@ test.describe('pasantías landing page', () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * A7a — the site's own links reach this page.
+ *
+ * `/pasantias` shipped finished and orphaned: every "PASANTÍAS" nav entry and the
+ * footer link still pointed at `#pasantias`, the homepage teaser, and the INSPIRA
+ * programme was still "explained" by a Heyzine flipbook of the retired Abril 2026
+ * brochure. A7a made this page the destination and took the flipbook off the site.
+ *
+ * These live in this spec rather than a new one because `scripts/ci/e2e-mandatory.mjs`
+ * runs a fixed list, and a spec that is not on the list is a spec CI never runs.
+ *
+ * Every assertion lands on `/pasantias` itself — the URL *and* the page's `h1` —
+ * rather than on the anchor's `href`. An href is what
+ * `__tests__/pages/pasantias-site-links.test.ts` proves statically; what a browser
+ * proves is that following it arrives somewhere real.
+ */
+test.describe('the marketing site links to /pasantias', () => {
+  const PASANTIAS_URL = /\/pasantias(?:[?#].*)?$/;
+
+  /** The homepage's INSPIRA flipbook modal, by the class its iframe carried. */
+  const FLIPBOOK_IFRAME = 'iframe.fp-iframe';
+
+  async function expectLanded(page: import('@playwright/test').Page) {
+    await expect(page).toHaveURL(PASANTIAS_URL);
+    await expect(page.locator('h1')).toHaveCount(1);
+    await expect(page.locator('h1')).toBeVisible();
+  }
+
+  test('the homepage nav "PASANTÍAS" lands on the page', async ({ page }) => {
+    await page.goto('/');
+
+    // Scoped to the header: the mobile menu holds a second link with this name.
+    await page.locator('header').getByRole('link', { name: 'PASANTÍAS' }).click();
+    await expectLanded(page);
+  });
+
+  test('the footer "Pasantías" link lands on the page', async ({ page }) => {
+    await page.goto('/');
+
+    const footerLink = page.locator('footer').getByRole('link', { name: 'Pasantías' });
+    await expect(footerLink).toBeVisible();
+    await footerLink.click();
+    await expectLanded(page);
+  });
+
+  test('the /programas nav "PASANTÍAS" lands on the page', async ({ page }) => {
+    await page.goto('/programas');
+
+    await page.locator('header').getByRole('link', { name: 'PASANTÍAS' }).click();
+    await expectLanded(page);
+  });
+
+  test('the homepage INSPIRA CTA lands on the page instead of opening a flipbook', async ({
+    page,
+  }) => {
+    await page.goto('/');
+
+    const cta = page.getByTestId('inspira-pasantias-cta');
+    await expect(cta).toBeVisible();
+    await expect(cta).toHaveText('Conoce las Pasantías en Barcelona');
+
+    // The retired brochure is gone from the page, not merely unlinked: neither
+    // the modal nor its iframe exists before the click or after the landing.
+    await expect(page.locator(FLIPBOOK_IFRAME)).toHaveCount(0);
+    await cta.click();
+    await expectLanded(page);
+    await expect(page.locator(FLIPBOOK_IFRAME)).toHaveCount(0);
+  });
+
+  /**
+   * The control for the assertion above. "No flipbook iframe appeared" is also
+   * what a page with no flipbook mechanism at all would report, so the Directivos
+   * CTA — which A7a deliberately left alone — is required to still open one. If
+   * this goes red, the count-0 assertion above has stopped meaning anything.
+   */
+  test('the Directivos CTA still opens its flipbook', async ({ page }) => {
+    await page.goto('/');
+
+    await page.getByRole('button', { name: 'Programa Estratégico para Directivos' }).click();
+    await expect(page.locator(FLIPBOOK_IFRAME)).toHaveCount(1);
+  });
+});

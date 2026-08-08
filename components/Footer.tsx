@@ -88,7 +88,7 @@ export default function Footer({ className = '' }: FooterProps) {
               */}
               <h2 className="text-lg font-bold mb-6">Navegación</h2>
               <ul className="space-y-3">
-                <li><Link href="/#pasantias" className="text-white/70 hover:text-white transition-colors">Pasantías</Link></li>
+                <li><Link href="/pasantias" className="text-white/70 hover:text-white transition-colors">Pasantías</Link></li>
                 <li><Link href="/programas" className="text-white/70 hover:text-white transition-colors">Programas</Link></li>
                 <li><Link href="/noticias" className="text-white/70 hover:text-white transition-colors">Noticias y Eventos</Link></li>
                 <li><Link href="/nosotros" className="text-white/70 hover:text-white transition-colors">Nosotros</Link></li>

@@ -11,7 +11,6 @@ const Footer = dynamic(() => import('../components/Footer'), {
 });
 
 export default function HomePage() {
-  const [showFlipbook, setShowFlipbook] = React.useState(false);
   const [showDirectivesFlipbook, setShowDirectivesFlipbook] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitMessage, setSubmitMessage] = React.useState('');
@@ -186,7 +185,7 @@ export default function HomePage() {
               
               {/* Desktop Navigation */}
               <nav className="hidden lg:flex items-center space-x-7 xl:space-x-9">
-                <a href="#pasantias" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</a>
+                <Link href="/pasantias" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</Link>
                 <Link href="/programas" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">PROGRAMAS</Link>
                 <Link href="/noticias" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS Y EVENTOS</Link>
                 <Link href="/nosotros" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">NOSOTROS</Link>
@@ -222,7 +221,7 @@ export default function HomePage() {
               </button>
             </div>
             <nav className="flex flex-col space-y-6">
-              <a href="#pasantias" className="text-xl font-medium">PASANTÍAS</a>
+              <Link href="/pasantias" className="text-xl font-medium">PASANTÍAS</Link>
               <Link href="/programas" className="text-xl font-medium">PROGRAMAS</Link>
               <Link href="/noticias" className="text-xl font-medium">NOTICIAS Y EVENTOS</Link>
               <Link href="/nosotros" className="text-xl font-medium">NOSOTROS</Link>
@@ -371,7 +370,7 @@ export default function HomePage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-4">
                       <div className="relative overflow-hidden rounded-2xl shadow-xl transform hover:scale-105 transition-transform duration-300">
-                        <img src="/barcelona-innovation.jpg" alt="Innovación Educativa" className="w-full h-48 object-cover" loading="lazy" decoding="async" />
+                        <img src="/images/pasantias/educadores-biblioteca.jpg" alt="Educadores en la biblioteca de una escuela en Barcelona" className="w-full h-48 object-cover" loading="lazy" decoding="async" />
                       </div>
                       <div className="relative overflow-hidden rounded-2xl shadow-xl transform hover:scale-105 transition-transform duration-300">
                         <img src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/images/Screenshot%202025-08-16%20at%2011.38.12%20AM.png" alt="Estudiantes trabajando con microscopio" className="w-full h-64 object-cover" loading="lazy" decoding="async" />
@@ -379,7 +378,7 @@ export default function HomePage() {
                     </div>
                     <div className="space-y-4 pt-8">
                       <div className="relative overflow-hidden rounded-2xl shadow-xl transform hover:scale-105 transition-transform duration-300">
-                        <img src="/barcelona-skyline.jpg" alt="Barcelona Skyline" className="w-full h-64 object-cover" loading="lazy" decoding="async" />
+                        <img src="/images/pasantias/bcn-skyline.jpg" alt="Barcelona Skyline" className="w-full h-64 object-cover" loading="lazy" decoding="async" />
                       </div>
                       <div className="relative overflow-hidden rounded-2xl shadow-xl transform hover:scale-105 transition-transform duration-300">
                         <img src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/images/Screenshot%202025-08-16%20at%2011.37.26%20AM.png" alt="Aula de aprendizaje con trabajos estudiantiles" className="w-full h-48 object-cover" loading="lazy" decoding="async" />
@@ -395,15 +394,16 @@ export default function HomePage() {
 
                   {/* CTA Buttons */}
                   <div className="flex flex-col gap-4 mt-6">
-                    <button 
-                      onClick={() => setShowFlipbook(true)}
+                    <Link
+                      href="/pasantias"
+                      data-testid="inspira-pasantias-cta"
                       className="inline-flex items-center justify-center bg-black text-white rounded-full px-8 py-4 font-medium hover:bg-gray-800 transition-all duration-300 transform hover:scale-105 w-full"
                     >
-                      <span>Programa para líderes pedagógicos</span>
+                      <span>Conoce las Pasantías en Barcelona</span>
                       <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                       </svg>
-                    </button>
+                    </Link>
                     <button 
                       onClick={() => setShowDirectivesFlipbook(true)}
                       className="inline-flex items-center justify-center bg-black text-white rounded-full px-8 py-4 font-medium hover:bg-gray-800 transition-all duration-300 transform hover:scale-105 w-full"
@@ -1069,63 +1069,13 @@ export default function HomePage() {
           </section>
         </main>
 
-        {/* Flipbook Modal */}
-        {showFlipbook && (
-          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg w-full max-w-6xl h-[85vh] relative">
-              {/* Modal Header */}
-              <div className="absolute top-0 left-0 right-0 bg-white rounded-t-lg border-b border-gray-200 p-4 flex items-center justify-between z-10">
-                <h3 className="text-lg font-bold">Programa de Pasantías Barcelona Abril 2026</h3>
-                <button 
-                  onClick={() => setShowFlipbook(false)}
-                  className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"
-                  aria-label="Cerrar"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                  </svg>
-                </button>
-              </div>
-              
-              {/* Iframe Container */}
-              <div className="pt-16 h-full">
-                <iframe 
-                  allowFullScreen
-                  allow="clipboard-write" 
-                  scrolling="no" 
-                  className="fp-iframe" 
-                  style={{ 
-                    border: '1px solid lightgray', 
-                    width: '100%', 
-                    height: '100%',
-                    borderRadius: '0 0 0.5rem 0.5rem'
-                  }}
-                  src="https://heyzine.com/flip-book/fef3878d3c.html"
-                />
-              </div>
-              
-              {/* External Link Option */}
-              <div className="absolute bottom-4 left-4">
-                <a 
-                  href="https://heyzine.com/flip-book/fb8cf2cfb1.html" 
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-gray-600 hover:text-black underline"
-                >
-                  Abrir en nueva pestaña →
-                </a>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Directives Flipbook Modal */}
         {showDirectivesFlipbook && (
           <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
             <div className="bg-white rounded-lg w-full max-w-6xl h-[85vh] relative">
               {/* Modal Header */}
               <div className="absolute top-0 left-0 right-0 bg-white rounded-t-lg border-b border-gray-200 p-4 flex items-center justify-between z-10">
-                <h3 className="text-lg font-bold">Programa Estratégico Para Directivos - Abril 2026</h3>
+                <h3 className="text-lg font-bold">Programa Estratégico Para Directivos</h3>
                 <button 
                   onClick={() => setShowDirectivesFlipbook(false)}
                   className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"

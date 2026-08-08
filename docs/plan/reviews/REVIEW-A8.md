@@ -169,3 +169,70 @@ schema, rolled back traceless ✓. The e2e specs themselves remain unexecuted lo
 three of us for the same good reason (the shared stack belongs to the live A7a session); with
 the seeder tuple now proven against the real DDL, the residual gate-4 risk is confined to
 plumbing every prior phase already exercises.
+
+---
+
+# CODEX REVIEW — A8 r3 targeted re-check
+
+VERDICT: PASS
+
+This verdict covers only `git diff fd33706c 0cb0cf58`. The original PASS at `fd33706c` remains
+closed. The r3 compare-and-set closes S-01 in the required single-`.eq` shape; the decoded,
+per-key UTM comparison closes S-02 without restoring either substring false positive; and the
+terminal branch no longer emits a dangling `htmlFor`. No BLOCKING finding. One non-blocking API
+contract issue should be resolved before any future client consumes the new conflict metadata;
+it does not affect the current page, which reads only `error` on a 409 and tells the admin to
+reload.
+
+BLOCKING:
+
+- None.
+
+SHOULD-FIX:
+
+- **R3-S-01 — the 409 field named `status` is not the current status, and D-07 does not make it
+  one.** `pages/api/admin/pasantia-leads/index.ts:295–304` returns the failed guard value — the
+  status read *before* the winning concurrent transition — under the unqualified name `status`.
+  D-07's campaign rule is a semantic requirement (the body carries the campaign's current
+  status), not a generic 409 response shape into which any status may be placed. The objection
+  that a re-read is also racy does not change that: every returned row is a snapshot, while this
+  value is known already to be superseded. Do not let a future client update its model or choose
+  an action from this field. Before such a consumer exists, either omit it, rename it to
+  `expected_status`/`guard_status`, or re-read and return the post-conflict row if the field must
+  remain `status`. Non-blocking now because `pages/admin/pasantia-leads.tsx:119–128` ignores it
+  and surfaces only the reload instruction.
+
+RULINGS ON THE REFERRED QUESTIONS:
+
+- **Notes-only PATCH guard: ACCEPTED.** This is a status compare-and-set, not full row-level
+  optimistic locking: it prevents a note from landing when a status transition interleaves
+  between this request's read and write, but it does not prevent note-vs-note last-write-wins or
+  detect a stale browser view whose status changed before the server-side read. Within those
+  precise limits, applying the same status precondition to the whole PATCH is a defensible,
+  conservative granularity. The `converted` notes-only test is the right regression pin: it
+  proves the guard is not accidentally narrowed to `hasStatus` and that terminality does not
+  prohibit notes.
+
+- **Nullable `currentStatus`: ACCEPTED WITH A NIT.** The live column is protected by both `NOT
+  NULL` and the four-value CHECK, so `null` is not a reachable database state. Failing closed is
+  the safe direction. If this route is hardened later, an explicit `isLeadStatus(currentStatus)`
+  invariant check returning 500 would diagnose corruption or a malformed data double more
+  honestly than the present 409 "cambió mientras lo editabas" response. This is not a defect in
+  a reachable A8 path.
+
+- **Fragment false negative: NOTE only.** The shipped form records
+  `window.location.pathname + window.location.search`; `location.search` excludes the fragment,
+  so `x#frag` cannot arise from the genuine browser capture path. A hand-crafted accepted
+  `source_path` can still contain `#`, making the backlogged parser hardening legitimate, but it
+  does not reopen this targeted diff.
+
+EVIDENCE:
+
+- Read the complete six-file diff and the binding D-03/D-04/D-07 decisions. `git diff --check
+  fd33706c 0cb0cf58` is clean.
+- Independently re-ran the two targeted suites at `0cb0cf58`: **56/56** (25 API + 31 component),
+  both files green. Per the request, I did not duplicate the already-reported full suite,
+  type-check, lint, lint:testid, or build runs.
+
+Final r3 ruling: PASS, zero BLOCKING. The branch is mergeable; R3-S-01 is a forward-contract
+cleanup, not a reason to re-plan A8 or spend a nonexistent r4.

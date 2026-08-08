@@ -16,6 +16,9 @@ import {
   FxRateResponse,
   BucketSummary,
   LedgerEntryStatus,
+  RescheduleHoursPayload,
+  ApplySessionRescheduleResult,
+  SessionRescheduleUpdates,
 } from '../types/hour-tracking.types';
 import { ConsultorSession } from '../types/consultor-sessions.types';
 import { getSessionDateTime } from '../utils/session-timezone';
@@ -420,11 +423,30 @@ export async function executeCancellation(
   // Get modality from hour_types table if hour_type_key is set
   let modality: string = 'online';
   if (session.hour_type_key) {
-    const { data: hourType } = await serviceClient
+    const { data: hourType, error: hourTypeError } = await serviceClient
       .from('hour_types')
       .select('modality')
       .eq('key', session.hour_type_key)
       .single();
+
+    // r29 (Sol R-C): this read used to swallow its error, and `modality` then stayed at
+    // its `'online'` initialiser — so a PRESENCIAL session cancelled 120 h out was
+    // evaluated under online thresholds and written to the ledger as `devuelta`
+    // (consultant unpaid) instead of `penalizada` (consultant paid). A durably wrong
+    // MONEY status, produced by a transient failure and indistinguishable afterwards
+    // from a correct one. Nothing has been written at this point, so failing here costs
+    // the caller a 500 and costs the ledger nothing. A key with no row is still not an
+    // error: `hourType` stays null and the pre-existing fallback below applies.
+    if (hourTypeError && hourTypeError.code !== 'PGRST116') {
+      console.error(
+        `[HourTracking] hour_types lookup failed (session=${session.id}, key=${session.hour_type_key}):`,
+        hourTypeError
+      );
+      throw new Error(
+        `No se pudo determinar la modalidad de la hora (${session.hour_type_key}); la cancelación no se aplicó.`
+      );
+    }
+
     if (hourType) {
       // Map hour_types.modality ('presencial'|'online'|'both') to session modality logic
       modality = hourType.modality === 'both' ? session.modality : hourType.modality;
@@ -527,6 +549,92 @@ export async function executeCancellation(
     success: true,
     clause_result: clauseResult,
     cancelled_notice_hours: noticeHours,
+  };
+}
+
+// ============================================================
+// PRE-EXECUTION RESCHEDULE (Z2-3a, plan §11)
+// ============================================================
+
+/**
+ * The session fields whose change can move the billed duration or the ledger's
+ * `session_date`. `start_time`/`end_time` drive `scheduled_duration_minutes`;
+ * `session_date` moves the date the ledger row carries but not the duration.
+ */
+export const DURATION_RELEVANT_SESSION_FIELDS = [
+  'session_date',
+  'start_time',
+  'end_time',
+] as const;
+
+/** True when a reschedule touched anything the ledger row has to follow. */
+export function isDurationRelevantChange(fieldsChanged: readonly string[]): boolean {
+  return fieldsChanged.some((field) =>
+    (DURATION_RELEVANT_SESSION_FIELDS as readonly string[]).includes(field)
+  );
+}
+
+/**
+ * Apply a reschedule — the session write AND the ledger write — in ONE transaction.
+ *
+ * This is the single entry point for BOTH reschedule flows: the admin PUT
+ * (`pages/api/sessions/[id]/index.ts`) and the edit-request approval
+ * (`pages/api/sessions/edit-requests/[eid].ts`). One implementation, so the two
+ * cannot drift.
+ *
+ * Before r21 each route updated `consultor_sessions` through PostgREST and then
+ * called `reschedule_session_hours` as a SECOND call. A failure between the two left
+ * the session moved and the ledger billing the old duration, with nothing to roll
+ * back. `apply_session_reschedule`
+ * (supabase/migrations/20260808120000_session_reschedule_atomic.sql) does the source
+ * update, the optimistic-concurrency guard and — through the unchanged
+ * `reschedule_session_hours` — the ledger hours, the planned snapshot, the ledger
+ * date, the over-budget state and the append-only revision row, or none of it.
+ *
+ * `ok: false` therefore means NOTHING was written. `hoursFailure` says the failure
+ * was the ledger reconciliation rather than the update itself, which the routes turn
+ * into different Spanish copy.
+ */
+export async function applySessionReschedule(
+  serviceClient: SupabaseClient,
+  sessionId: string,
+  userId: string,
+  updates: SessionRescheduleUpdates,
+  ifUpdatedAt?: string | null
+): Promise<ApplySessionRescheduleResult> {
+  const { data, error } = await serviceClient.rpc('apply_session_reschedule', {
+    p_session_id: sessionId,
+    p_actor_id: userId,
+    p_updates: updates,
+    p_if_updated_at: ifUpdatedAt ?? null,
+  });
+
+  if (error) {
+    return {
+      ok: false,
+      error: error.message,
+      // The RPC re-raises anything thrown by the ledger reconciliation under this
+      // hint; a plain update failure (constraint, bad value) carries no hint.
+      hoursFailure: (error as { hint?: string }).hint === 'reschedule_hours',
+    };
+  }
+
+  const payload = (data || {}) as {
+    conflict?: boolean;
+    current?: Record<string, any> | null;
+    session?: Record<string, any>;
+    hours?: RescheduleHoursPayload | null;
+  };
+
+  if (payload.conflict) {
+    return { ok: true, conflict: true, current: payload.current ?? null };
+  }
+
+  return {
+    ok: true,
+    conflict: false,
+    session: payload.session,
+    hours: payload.hours ?? null,
   };
 }
 

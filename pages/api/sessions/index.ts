@@ -72,6 +72,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     recurrence,
     hour_type_key,
     contrato_id,
+    is_zoom_managed,
   } = req.body;
 
   // Validate required fields
@@ -107,8 +108,25 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     return sendAuthError(res, 'modality debe ser presencial, online, o hibrida', 400);
   }
 
+  // Zoom plan §8: durable managed intent. The link does not exist yet at creation time —
+  // the meeting is provisioned asynchronously at approval — so a managed session is
+  // exempt from the meeting_link requirement below and stores a NULL link on purpose.
+  if (is_zoom_managed !== undefined && typeof is_zoom_managed !== 'boolean') {
+    return sendAuthError(res, 'is_zoom_managed debe ser un booleano', 400);
+  }
+
+  const isZoomManaged = is_zoom_managed === true;
+
+  if (isZoomManaged && modality !== 'online' && modality !== 'hibrida') {
+    return sendAuthError(
+      res,
+      'Solo las sesiones online o híbridas pueden usar una reunión Zoom gestionada por la plataforma',
+      400
+    );
+  }
+
   // Conditional validation
-  if ((modality === 'online' || modality === 'hibrida') && !meeting_link) {
+  if (!isZoomManaged && (modality === 'online' || modality === 'hibrida') && !meeting_link) {
     return sendAuthError(res, 'meeting_link es requerido para modalidad online o hibrida', 400);
   }
 
@@ -120,6 +138,11 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
   let finalMeetingProvider: MeetingProvider | null = meeting_provider || null;
   if (meeting_link && !finalMeetingProvider) {
     finalMeetingProvider = detectMeetingProvider(meeting_link);
+  }
+  // Managed intent forces the provider: §8/ledger item 21 spells it `'zoom'` — the live
+  // CHECK constraint has no 'zoom_managed' value and must not grow one.
+  if (isZoomManaged) {
+    finalMeetingProvider = 'zoom';
   }
 
   // Validate and process recurrence if provided
@@ -193,8 +216,10 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
       start_time,
       end_time,
       modality,
-      meeting_link: meeting_link || null,
+      // §8: a managed session never carries a raw Zoom link on the source row.
+      meeting_link: isZoomManaged ? null : (meeting_link || null),
       meeting_provider: finalMeetingProvider,
+      is_zoom_managed: isZoomManaged,
       location: location || null,
       program_enrollment_id: program_enrollment_id || null,
       status: 'borrador' as const,

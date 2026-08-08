@@ -16,20 +16,30 @@ import { runZoomTick } from '../../../../lib/zoom/jobs/runner';
 import { createZoomJobRegistry } from '../../../../lib/zoom/jobs/registry';
 import {
   ambiguousCreateMarker,
+  COMPENSATION_FAILED_REASON,
   createMeetingProvisionHandler,
   deriveDurationMinutes,
   generateMeetingPasscode,
   isTerminalAnomalyResolved,
   orderHostCandidates,
+  parseCompensationFailedMarker,
   PUBLISHABLE_MEETING_STATUSES,
+  readCreatedCheckpoint,
   reservationOverlapBounds,
   toZoomWallClock,
   ZoomNoHostAvailableError,
+  type AtomicProvisionPatch,
   type CreatedMeetingCheckpoint,
   type ProvisionHostRow,
   type ProvisionMeetingRow,
   type ProvisionSessionRow,
+  type ReservationInsert,
 } from '../../../../lib/zoom/jobs/meeting-provision';
+import {
+  COMPENSATION_PARK_REASON,
+  createMeetingDeleteHandler,
+  NO_MEETING_ROW_REASON,
+} from '../../../../lib/zoom/jobs/meeting-delete';
 import { ZoomNonRetryableError, ZoomRetryableError } from '../../../../lib/zoom/errors';
 import { createLiveZoomApi, type ZoomApi } from '../../../../lib/zoom/api';
 import { createZoomClient } from '../../../../lib/zoom/client';
@@ -38,7 +48,11 @@ import { describeJobFailure, serializeJobFailure } from '../../../../lib/zoom/jo
 import { createZoomFake, type ZoomFake } from '../../../../lib/zoom/fake';
 import { applyWebhookLifecycle } from '../../../../lib/zoom/webhook-lifecycle';
 import { ZoomJobLeaseLostError, type ZoomJobContext } from '../../../../lib/zoom/jobs/types';
-import type { ZoomJobRow, ZoomMeetingStatus } from '../../../../lib/zoom/db-types';
+import {
+  ZOOM_MEETING_ACTIVE_STATUSES,
+  type ZoomJobRow,
+  type ZoomMeetingStatus,
+} from '../../../../lib/zoom/db-types';
 import {
   LIFECYCLE_ENDED_APPLIES_FROM,
   LIFECYCLE_STARTED_APPLIES_FROM,
@@ -78,6 +92,11 @@ const SESSION: ProvisionSessionRow = {
   is_active: true,
   modality: 'online',
   meeting_provider: 'zoom',
+  // Z2-1: durable managed intent. This fixture is the session the whole file provisions
+  // for, and only a session the scheduler marked "Generar reunión Zoom" is ever
+  // provisioned for — so the ONE happy-path fixture is legitimately managed. Every
+  // refusal case below derives from it by patch, so nothing else needed changing.
+  is_zoom_managed: true,
 };
 
 const EXPECTED_STARTS_AT = '2026-08-05T19:00:00.000Z';
@@ -3055,6 +3074,14 @@ describe('meeting_provision · §8 source-state eligibility', () => {
     { name: 'presencial', patch: { modality: 'presencial' }, check: 'modality' },
     { name: 'another provider', patch: { meeting_provider: 'google_meet' }, check: 'meeting_provider' },
     { name: 'no provider intent', patch: { meeting_provider: null }, check: 'meeting_provider' },
+    // Z2-1: the closed seam. `meeting_provider = 'zoom'` alone is NOT managed intent —
+    // a hand-scheduled Zoom link is exactly that shape.
+    { name: 'not managed by the platform', patch: { is_zoom_managed: false }, check: 'is_zoom_managed' },
+    {
+      name: 'pre-migration row with no flag at all',
+      patch: { is_zoom_managed: undefined as unknown as boolean },
+      check: 'is_zoom_managed',
+    },
   ];
 
   for (const { name, patch, check } of INELIGIBLE) {
@@ -3379,5 +3406,1054 @@ describe('meeting_provision · meeting.started captures the occurrence uuid', ()
     });
     expect(row.status).toBe('ended');
     expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('ended');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Z2-4d — the dial-in set reaches the row, through BOTH provisioning RPCs
+//
+// Dial-in numbers were already being persisted, unnamed, inside `effective_settings`;
+// this chunk names them in a column derived inside the two RPCs' single `UPDATE`. The
+// handler itself is UNCHANGED — which is precisely why these tests read the stored ROW
+// rather than asserting a call was made. A test that asserted "the RPC was called with
+// the settings" would have passed before the migration existed.
+//
+// Both paths are covered because both functions were amended: an amendment applied to
+// one and not the other is the failure the mutation probe reproduces.
+// ---------------------------------------------------------------------------
+
+describe('meeting_provision · Z2-4d dial-in capture', () => {
+  const DIAL_IN = [
+    { country: 'CL', country_name: 'Chile', city: 'Santiago', number: '+56 2 5555 0100', type: 'toll' },
+  ];
+
+  /** Resolution path 1's fixture, as the operator leaves it: number only. */
+  function operatorResolvedRow(zoomMeetingNumber: number): StoredMeeting {
+    return {
+      id: 'meeting-dialin-recovery',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_POOL_A.zoom_user_id,
+      zoom_meeting_number: zoomMeetingNumber,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'pending',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: ambiguousCreateMarker('synthetic-zm-request-id-0009', 'lost response'),
+    };
+  }
+
+  it('ADOPTION path: a fresh create on an audio-plan tenant lands the numbers on the row', async () => {
+    const fake = seedFake();
+    fake.setDialInNumbers(DIAL_IN);
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+
+    await createMeetingProvisionHandler({ api: fake, store: harness.store })(context());
+
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('provisioned');
+    expect(row.dial_in_numbers).toEqual(DIAL_IN);
+    // Derived, never independently supplied: the column and its source agree by
+    // construction because the SQL sets both in one UPDATE.
+    expect(row.effective_settings?.global_dial_in_numbers).toEqual(row.dial_in_numbers);
+    expect(harness.store.adoptCheckpointMeeting).toHaveBeenCalledTimes(1);
+  });
+
+  it('RECOVERY path: a resolved park on an audio-plan tenant lands the numbers on the row', async () => {
+    const fake = seedFake();
+    fake.setDialInNumbers(DIAL_IN);
+    const discovered = await fake.createMeeting({
+      hostZoomUserId: HOST_POOL_A.zoom_user_id,
+      topic: SESSION.title,
+      startTime: '2026-08-05T15:00:00',
+      durationMinutes: 90,
+      timezone: 'America/Santiago',
+      passcode: 'rec0very77',
+    });
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [operatorResolvedRow(discovered.id)],
+    });
+
+    await createMeetingProvisionHandler({ api: fake, store: harness.store })(context());
+
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('provisioned');
+    expect(row.dial_in_numbers).toEqual(DIAL_IN);
+    expect(row.effective_settings?.global_dial_in_numbers).toEqual(row.dial_in_numbers);
+    expect(harness.store.recoverProvisionedMeeting).toHaveBeenCalledTimes(1);
+  });
+
+  it('ADOPTION path: a tenant with NO audio plan still provisions, with a null column', async () => {
+    // The failure that must never happen: a school without a dial-in plan cannot be
+    // refused a meeting over a field Zoom simply does not send.
+    const fake = seedFake();
+    fake.setDialInNumbers(null);
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+
+    const result = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context()
+    );
+
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('provisioned');
+    expect(row.dial_in_numbers).toBeNull();
+    expect(row.effective_settings).not.toHaveProperty('global_dial_in_numbers');
+    expect(row.join_url).toContain(String(row.zoom_meeting_number));
+    expect(result).toMatchObject({ created: true });
+  });
+
+  it('RECOVERY path: a tenant with NO audio plan still provisions, with a null column', async () => {
+    const fake = seedFake();
+    fake.setDialInNumbers(null);
+    const discovered = await fake.createMeeting({
+      hostZoomUserId: HOST_POOL_A.zoom_user_id,
+      topic: SESSION.title,
+      startTime: '2026-08-05T15:00:00',
+      durationMinutes: 90,
+      timezone: 'America/Santiago',
+      passcode: 'rec0very77',
+    });
+    const harness = createMemoryProvisionStore({
+      session: SESSION,
+      hosts: [HOST_POOL_A],
+      meetings: [operatorResolvedRow(discovered.id)],
+    });
+
+    await createMeetingProvisionHandler({ api: fake, store: harness.store })(context());
+
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('provisioned');
+    expect(row.dial_in_numbers).toBeNull();
+    expect(row.effective_settings).not.toHaveProperty('global_dial_in_numbers');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sol item 5 — `meeting_provision` and `meeting_delete` racing on one surface
+// ---------------------------------------------------------------------------
+
+/**
+ * `claim_zoom_jobs` leases with `FOR UPDATE SKIP LOCKED`, which stops two tickers taking
+ * the same job ROW and says nothing about two DIFFERENT jobs for the same surface. Vercel
+ * crons overlap by design, so a `meeting_delete` can run to completion inside a
+ * `meeting_provision`'s create→persist window.
+ *
+ * Every test below DRIVES the ordering rather than hoping for it: the cancellation and
+ * its delete job are executed from inside a seam of the provisioner's own call sequence,
+ * so the interleaving is the same on every run and on every machine. The assertions are
+ * the END STATE — no live meeting at the fake, no active reservation, a cancelled
+ * projection — never the mechanism.
+ */
+describe('meeting_provision · Sol item 5 — a cancellation racing a provision', () => {
+  function deleteContext(): ZoomJobContext {
+    return {
+      job: jobRow({ id: 'job-delete-1', job_type: 'meeting_delete' }),
+      workerId: 'worker-2',
+      heartbeat: vi.fn(async () => true),
+    };
+  }
+
+  /**
+   * A scheduled session mid-provision, plus the lever that cancels it. `session` is a
+   * MUTABLE copy: the harness's `readSession` reads it on every call, so flipping
+   * `status` here is exactly what a cancel commit looks like to a re-read.
+   */
+  function racing(meetings?: StoredMeeting[]) {
+    const session: ProvisionSessionRow = { ...SESSION };
+    const harness = createMemoryProvisionStore({
+      session,
+      facilitators: [{ user_id: LEAD_PROFILE, is_lead: true }],
+      hosts: [HOST_LEAD],
+      meetings,
+    });
+    const fake = seedFake();
+
+    /**
+     * The cancellation as the product performs it: the source row flips to `cancelada`
+     * and the `meeting_delete` it enqueues is RUN TO COMPLETION. Its outcome is returned
+     * rather than swallowed — Sol's step 3 is a delete that finds nothing and dies
+     * terminally, and the test has to be able to assert that it really did.
+     */
+    async function cancelAndRunDelete(): Promise<{ outcome: string; reason?: string }> {
+      session.status = 'cancelada';
+      try {
+        await createMeetingDeleteHandler({ api: fake, store: harness.deleteStore })(
+          deleteContext()
+        );
+        return { outcome: 'completed' };
+      } catch (error) {
+        return { outcome: 'failed', reason: describeJobFailure(error).reason };
+      }
+    }
+
+    return { session, harness, fake, cancelAndRunDelete };
+  }
+
+  /**
+   * Sol m1 (round 3). The failure copy used to branch on what the caller knew about the
+   * row BEFORE awaiting the Zoom DELETE — and a concurrent `meeting_delete` can retire a
+   * numberless row while that request is in flight, so "keeps blocking its host" could be
+   * read by an operator after it stopped being true. Re-reading the row would only move
+   * the staleness, so the sentence is state-NEUTRAL instead: the Zoom meeting number and
+   * the one required action, which hold whatever the row is doing, and no claim about the
+   * host slot at all. Applied to both call shapes, which is why this is a shared helper.
+   */
+  function expectStateNeutralCompensationCopy(error: Error, zoomNumber: number): void {
+    expect(error.message).toContain(`CANCEL ZOOM MEETING ${zoomNumber} AT ZOOM`);
+    // The vocabulary of the two removed clauses. A regression that reintroduces either
+    // branch fails here rather than in a reviewer's reading of the diff.
+    expect(error.message).not.toMatch(/blocking|bookable|reservation|host/i);
+  }
+
+  it('[L1] THE NAMED INTERLEAVING: the delete runs before any row exists and never returns', async () => {
+    const { harness, fake, cancelAndRunDelete } = racing();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    const deleteSpy = vi.spyOn(fake, 'deleteMeeting');
+
+    let deleteOutcome: { outcome: string; reason?: string } | null = null;
+
+    // THE DEVICE. The cancellation and its delete are driven from inside the
+    // provisioner's own `insertReservation` — after the eligibility gate has passed and
+    // before any row exists for the delete to find. That is Sol's step 2 and step 3,
+    // executed in the one place that reproduces them exactly.
+    const store = {
+      ...harness.store,
+      insertReservation: async (row: ReservationInsert) => {
+        deleteOutcome = await cancelAndRunDelete();
+        return harness.store.insertReservation(row);
+      },
+    };
+
+    const result = await createMeetingProvisionHandler({ api: fake, store })(context());
+
+    // Step 3, verbatim: the delete found nothing to delete and failed TERMINALLY. It is
+    // not coming back, which is what makes step 4 unrecoverable without this fix.
+    expect(deleteOutcome).toEqual({ outcome: 'failed', reason: NO_MEETING_ROW_REASON });
+    // Step 4 really happened — the provisioner did reach Zoom. A test where the create
+    // never ran would prove nothing.
+    expect(createSpy).toHaveBeenCalledTimes(1);
+
+    // --- THE END STATE ---------------------------------------------------
+    // No live Zoom meeting: `listMeetings()` excludes deleted ones, so this is the
+    // orphan assertion.
+    expect(fake.listMeetings()).toEqual([]);
+    expect(deleteSpy).toHaveBeenCalledTimes(1);
+
+    // No active hours reservation: `cancelled` is outside the §9 EXCLUDE predicate, so
+    // the host is free.
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('cancelled');
+    expect(ZOOM_MEETING_ACTIVE_STATUSES).not.toContain(row.status);
+    expect(row.zoom_meeting_number).toBeNull();
+
+    // A cancelled projection.
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('cancelled');
+
+    // And the job is a COMPLETION carrying the number it minted and then removed.
+    expect(result).toMatchObject({
+      persisted: false,
+      compensated: true,
+      trigger: 'status',
+      zoom_missing: false,
+    });
+    expect(harness.store.adoptCheckpointMeeting).not.toHaveBeenCalled();
+  });
+
+  it('[L1] and with the reservation ALREADY placed: the delete retires the row mid-create', async () => {
+    const { harness, fake, cancelAndRunDelete } = racing();
+    const deleteSpy = vi.spyOn(fake, 'deleteMeeting');
+
+    let deleteOutcome: { outcome: string; reason?: string } | null = null;
+
+    // The same race one step later: the reservation exists, so the delete finds a
+    // NUMBERLESS row, retires it and completes GREEN — still believing it has nothing to
+    // remove at Zoom, because at that instant it does not.
+    const realCreate = fake.createMeeting.bind(fake);
+    const api: ZoomApi = {
+      ...fake,
+      createMeeting: async (input) => {
+        const created = await realCreate(input);
+        deleteOutcome = await cancelAndRunDelete();
+        return created;
+      },
+    };
+
+    const result = await createMeetingProvisionHandler({ api, store: harness.store })(
+      context()
+    );
+
+    expect(deleteOutcome).toEqual({ outcome: 'completed' });
+
+    expect(fake.listMeetings()).toEqual([]);
+    expect(deleteSpy).toHaveBeenCalledTimes(1);
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    // Left as the DELETE wrote it — that writer got there first and owns the record.
+    expect(row.status).toBe('deleted');
+    expect(ZOOM_MEETING_ACTIVE_STATUSES).not.toContain(row.status);
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('cancelled');
+    expect(result).toMatchObject({ compensated: true, trigger: 'status' });
+  });
+
+  it('[L1] THE RESIDUAL WINDOW: the delete lands between the re-check and the persist CAS', async () => {
+    const { harness, fake, cancelAndRunDelete } = racing();
+    const deleteSpy = vi.spyOn(fake, 'deleteMeeting');
+
+    // The narrowest ordering there is: the cancellation commits AFTER the post-create
+    // re-check has already read a `programada` session, and its delete retires the row
+    // before the compare-and-set reaches it. The row is then numberless AND inactive, so
+    // the CAS can never match — a miss that used to be reported as `possible_orphan`.
+    const store = {
+      ...harness.store,
+      adoptCheckpointMeeting: async (id: string, patch: AtomicProvisionPatch) => {
+        await cancelAndRunDelete();
+        return harness.store.adoptCheckpointMeeting(id, patch);
+      },
+    };
+
+    const result = await createMeetingProvisionHandler({ api: fake, store })(context());
+
+    expect(fake.listMeetings()).toEqual([]);
+    expect(deleteSpy).toHaveBeenCalledTimes(1);
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('deleted');
+    expect(row.zoom_meeting_number).toBeNull();
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('cancelled');
+    // Resolved as a retirement, NOT as an unexplained orphan a human has to chase.
+    expect(result).toMatchObject({ compensated: true, trigger: 'surface_retired' });
+  });
+
+  it('[L2] the REVERSE order is equally safe: delete first, provision second', async () => {
+    // A crashed-pre-create attempt left a bare reservation; the cancel and its delete run
+    // to completion FIRST, and the provisioner is claimed afterwards.
+    const reservation: StoredMeeting = {
+      id: 'meeting-1',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_LEAD.zoom_user_id,
+      zoom_meeting_number: null,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'pending',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+    };
+    const { harness, fake, cancelAndRunDelete } = racing([reservation]);
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+
+    expect(await cancelAndRunDelete()).toEqual({ outcome: 'completed' });
+
+    const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context()
+    ).catch((caught) => caught);
+
+    // The eligibility gate refuses before a host is even resolved: nothing is created, so
+    // there is nothing to compensate.
+    expect(describeJobFailure(error).reason).toBe('session_ineligible');
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(fake.listMeetings()).toEqual([]);
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('deleted');
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('cancelled');
+  });
+
+  it('[L3] the happy path is untouched: no cancellation, one create, one provisioned row', async () => {
+    const { harness, fake } = racing();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    const deleteSpy = vi.spyOn(fake, 'deleteMeeting');
+
+    const result = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context()
+    );
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(deleteSpy).not.toHaveBeenCalled();
+    expect(fake.listMeetings()).toHaveLength(1);
+    expect(result.created).toBe(true);
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('provisioned');
+    expect(row.zoom_meeting_number).toBe(result.zoom_meeting_number);
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('scheduled');
+  });
+
+  it('[L3] and a normal cancel of a PROVISIONED meeting still deletes it at Zoom', async () => {
+    const { harness, fake, cancelAndRunDelete } = racing();
+
+    await createMeetingProvisionHandler({ api: fake, store: harness.store })(context());
+    expect(fake.listMeetings()).toHaveLength(1);
+
+    // No race at all — the ordinary cancel, after the provision has fully landed.
+    expect(await cancelAndRunDelete()).toEqual({ outcome: 'completed' });
+
+    expect(fake.listMeetings()).toEqual([]);
+    expect(harness.meetingFor(SESSION_ID)?.status).toBe('deleted');
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('cancelled');
+  });
+
+  it('[L4] both workers terminate and the loser does not spin', async () => {
+    const { harness, fake, cancelAndRunDelete } = racing();
+    let deleteOutcome: { outcome: string; reason?: string } | null = null;
+
+    const store = {
+      ...harness.store,
+      insertReservation: async (row: ReservationInsert) => {
+        deleteOutcome = await cancelAndRunDelete();
+        return harness.store.insertReservation(row);
+      },
+    };
+
+    // Through the REAL runner and registry, because "does not spin" is a claim about the
+    // JOB, not about the handler: a retryable failure would leave it `pending` for the
+    // next tick to pick up, forever, since no backoff turns a cancelled session into a
+    // scheduled one.
+    const queueHarness = createMemoryJobQueue();
+    await queueHarness.queue.enqueue({
+      job_type: 'meeting_provision',
+      payload: { surface_type: 'consultor_session', surface_id: SESSION_ID },
+    });
+
+    const tick = await runZoomTick({
+      queue: queueHarness.queue,
+      registry: createZoomJobRegistry({ api: fake, meetingProvisionStore: store }),
+      workerId: 'worker-1',
+      now: oneBatchClock(),
+    });
+
+    // The delete worker terminated (terminally, having found nothing)...
+    expect(deleteOutcome).toEqual({ outcome: 'failed', reason: NO_MEETING_ROW_REASON });
+    // ...and so did the provisioner, as a COMPLETION. Not `failed`, so nothing is
+    // dead-lettered; not `pending`, so nothing re-claims it.
+    expect(tick).toEqual({ claimed: 1, completed: 1, failed: 0 });
+    expect(queueHarness.jobFor('meeting_provision')?.status).toBe('done');
+    expect(queueHarness.queue.fail).not.toHaveBeenCalled();
+    expect(fake.listMeetings()).toEqual([]);
+  });
+
+  it('[L5] a compensating delete that FAILS is durable, visible, and keeps blocking the host', async () => {
+    const { harness, fake, cancelAndRunDelete } = racing();
+
+    // Sol's named interleaving again — the delete runs before any row exists, so the
+    // reservation this provisioner is about to place is still ACTIVE and still ours when
+    // the compensation runs. That is the case where keeping the host blocked matters.
+    const store = {
+      ...harness.store,
+      insertReservation: async (row: ReservationInsert) => {
+        await cancelAndRunDelete();
+        return harness.store.insertReservation(row);
+      },
+    };
+
+    // Zoom refuses the compensating DELETE with something that is NOT a 404 — so we
+    // cannot conclude the meeting is gone, and it is not.
+    const api: ZoomApi = {
+      ...fake,
+      deleteMeeting: async () => {
+        throw new ZoomNonRetryableError('Zoom 500 on DELETE /meetings/…', {
+          status: 500,
+          operation: 'DELETE /meetings',
+        });
+      },
+    };
+
+    const error = await createMeetingProvisionHandler({ api, store })(
+      context()
+    ).catch((caught) => caught);
+
+    const ourNumber = fake.listMeetings()[0].id;
+    const record = describeJobFailure(error);
+    expect(record.kind).toBe('non_retryable');
+    expect(record.reason).toBe(COMPENSATION_FAILED_REASON);
+    expect(record.detail).toBe('status');
+    // The durable half, structurally, in what the runner writes to zoom_jobs.last_error.
+    expect(record.evidence).toEqual({
+      meeting_id: 'meeting-1',
+      created_zoom_meeting_number: ourNumber,
+      trigger: 'status',
+    });
+    expect(JSON.parse(serializeJobFailure(record)).evidence.created_zoom_meeting_number).toBe(
+      ourNumber
+    );
+
+    // Sol m1 (round 3): the operator sentence names the meeting and the one required
+    // action and claims NOTHING about the host slot. Asserted here on the STILL-ACTIVE
+    // path and again on the already-retired one below, so one sentence serves both
+    // truthfully.
+    expectStateNeutralCompensationCopy(error as Error, ourNumber);
+
+    // The meeting really is still standing — the failure is not decorative.
+    expect(fake.listMeetings()).toHaveLength(1);
+
+    // The row is PARKED, not released: it keeps `pending`, so the §9 EXCLUDE constraint
+    // goes on blocking a host a live meeting occupies, and the marker names that meeting.
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('pending');
+    expect(ZOOM_MEETING_ACTIVE_STATUSES).toContain(row.status);
+    expect(parseCompensationFailedMarker(row.last_error)).toMatchObject({
+      reason: COMPENSATION_FAILED_REASON,
+      zoom_meeting_number: ourNumber,
+      trigger: 'status',
+    });
+
+    // And `meeting_delete` REFUSES to free that host, exactly as it refuses an
+    // ambiguous-create park. Without this, the next delete would release the reservation
+    // and overwrite the one marker naming the standing meeting.
+    const refused = await createMeetingDeleteHandler({
+      api: fake,
+      store: harness.deleteStore,
+    })(deleteContext()).catch((caught) => caught);
+    const refusal = describeJobFailure(refused);
+    expect(refusal.reason).toBe(COMPENSATION_PARK_REASON);
+    expect(refusal.evidence).toEqual({ meeting_id: 'meeting-1', zoom_meeting_number: ourNumber });
+    expect(harness.meetingFor(SESSION_ID)?.status).toBe('pending');
+    expect(fake.listMeetings()).toHaveLength(1);
+  });
+
+  it('[L5b] the ALREADY-RETIRED path gets that same sentence, which is why it can be true', async () => {
+    // The r29 window with the compensating DELETE failing. `meeting_delete` got there
+    // first: the row is `deleted` and numberless, so it holds no §9 reservation — this is
+    // exactly where the old copy's "keeps blocking its host" branch was false, and where
+    // a caller that read the row a moment earlier would have said it anyway.
+    const fake = seedFake();
+    const minted = await fake.createMeeting({
+      hostZoomUserId: HOST_LEAD.zoom_user_id,
+      topic: SESSION.title,
+      startTime: '2026-08-05T15:00:00',
+      durationMinutes: 90,
+      timezone: 'America/Santiago',
+      passcode: 'retired111',
+    });
+    const retiredRow: StoredMeeting = {
+      id: 'meeting-1',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_LEAD.zoom_user_id,
+      zoom_meeting_number: null,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'deleted',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+    };
+    const harness = createMemoryProvisionStore({
+      session: { ...SESSION, status: 'cancelada' },
+      hosts: [HOST_LEAD],
+      meetings: [retiredRow],
+    });
+
+    // Not a 404, so the meeting cannot be concluded gone — and it is not.
+    const api: ZoomApi = {
+      ...fake,
+      deleteMeeting: async () => {
+        throw new ZoomNonRetryableError('Zoom 500 on DELETE /meetings/…', {
+          status: 500,
+          operation: 'DELETE /meetings',
+        });
+      },
+    };
+
+    const error = await createMeetingProvisionHandler({ api, store: harness.store })(
+      context(
+        jobRow({
+          stage_state: {
+            stage: 'created',
+            meeting_id: 'meeting-1',
+            meeting: {
+              number: minted.id,
+              passcode: minted.passcode,
+              join_url: minted.joinUrl,
+              settings: minted.settings,
+            },
+          },
+        })
+      )
+    ).catch((caught) => caught);
+
+    const record = describeJobFailure(error);
+    expect(record.reason).toBe(COMPENSATION_FAILED_REASON);
+    expect(record.evidence).toEqual({
+      meeting_id: 'meeting-1',
+      created_zoom_meeting_number: minted.id,
+      trigger: 'status',
+    });
+
+    // The same sentence [L5] asserts on the still-active row. One copy, both states.
+    expectStateNeutralCompensationCopy(error as Error, minted.id);
+
+    // The durable marker still names the standing meeting, and the retiring writer's
+    // status is left exactly where it put it — `recordLastError` touches neither.
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('deleted');
+    expect(parseCompensationFailedMarker(row.last_error)).toMatchObject({
+      reason: COMPENSATION_FAILED_REASON,
+      zoom_meeting_number: minted.id,
+      trigger: 'status',
+    });
+    expect(fake.listMeetings()).toHaveLength(1);
+  });
+
+  it('a compensating delete that answers 404 is success: the meeting was already gone', async () => {
+    const { harness, fake, cancelAndRunDelete } = racing();
+
+    const store = {
+      ...harness.store,
+      insertReservation: async (row: ReservationInsert) => {
+        await cancelAndRunDelete();
+        return harness.store.insertReservation(row);
+      },
+    };
+    const realCreate = fake.createMeeting.bind(fake);
+    const api: ZoomApi = {
+      ...fake,
+      createMeeting: async (input) => {
+        const created = await realCreate(input);
+        // Somebody removed it at Zoom in between — the state we were about to ask for.
+        await fake.deleteMeeting(created.id);
+        return created;
+      },
+    };
+
+    const result = await createMeetingProvisionHandler({ api, store })(context());
+
+    expect(result).toMatchObject({ compensated: true, zoom_missing: true });
+    expect(fake.listMeetings()).toEqual([]);
+    expect(harness.meetingFor(SESSION_ID)?.status).toBe('cancelled');
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('cancelled');
+  });
+
+  it('a STRANDED post-create checkpoint on an ineligible session is taken off Zoom too', async () => {
+    // The crash-shaped version of the same end state: a previous attempt created at Zoom
+    // and died before persisting, and the session was cancelled in between. The
+    // eligibility gate used to refuse and walk away, leaving that meeting standing.
+    const fake = seedFake();
+    const minted = await fake.createMeeting({
+      hostZoomUserId: HOST_LEAD.zoom_user_id,
+      topic: SESSION.title,
+      startTime: '2026-08-05T15:00:00',
+      durationMinutes: 90,
+      timezone: 'America/Santiago',
+      passcode: 'stranded11',
+    });
+    const reservation: StoredMeeting = {
+      id: 'meeting-1',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_LEAD.zoom_user_id,
+      zoom_meeting_number: null,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'pending',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+    };
+    const harness = createMemoryProvisionStore({
+      session: { ...SESSION, status: 'cancelada' },
+      facilitators: [{ user_id: LEAD_PROFILE, is_lead: true }],
+      hosts: [HOST_LEAD],
+      meetings: [reservation],
+    });
+    const checkpoint: CreatedMeetingCheckpoint = {
+      meetingId: 'meeting-1',
+      number: minted.id,
+      passcode: minted.passcode,
+      joinUrl: minted.joinUrl,
+      settings: minted.settings as Record<string, unknown>,
+    };
+
+    const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context(
+        jobRow({
+          stage_state: {
+            stage: 'created',
+            meeting_id: checkpoint.meetingId,
+            meeting: {
+              number: checkpoint.number,
+              passcode: checkpoint.passcode,
+              join_url: checkpoint.joinUrl,
+              settings: checkpoint.settings,
+            },
+          },
+        })
+      )
+    ).catch((caught) => caught);
+
+    // Same terminal outcome as before — the job state did not change.
+    expect(describeJobFailure(error).reason).toBe('session_ineligible');
+    // ...but the meeting no longer stands, and the host is free.
+    expect(fake.listMeetings()).toEqual([]);
+    expect(harness.meetingFor(SESSION_ID)?.status).toBe('cancelled');
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('cancelled');
+  });
+
+  it('leaves an UNRESOLVED ambiguous park alone: it still refuses rather than compensating', async () => {
+    // The ambiguous park outranks the checkpoint: its reservation is protecting a host
+    // against a meeting nobody could name, and the checkpoint does not name it either.
+    const fake = seedFake();
+    const parked: StoredMeeting = {
+      id: 'meeting-1',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_LEAD.zoom_user_id,
+      zoom_meeting_number: null,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'pending',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: ambiguousCreateMarker('req-abc', 'gateway timeout'),
+    };
+    const harness = createMemoryProvisionStore({
+      session: { ...SESSION, status: 'cancelada' },
+      hosts: [HOST_LEAD],
+      meetings: [parked],
+    });
+    const deleteSpy = vi.spyOn(fake, 'deleteMeeting');
+
+    const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context()
+    ).catch((caught) => caught);
+
+    expect(describeJobFailure(error).reason).toBe('session_ineligible');
+    expect(deleteSpy).not.toHaveBeenCalled();
+    // The reservation is UNCHANGED — still pending, still blocking, still parked.
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('pending');
+    expect(row.last_error).toBe(parked.last_error);
+  });
+
+  // -------------------------------------------------------------------------
+  // r29 · Sol R-A — the THIRD window: the delete gets there first and greens out
+  // -------------------------------------------------------------------------
+
+  /**
+   * A job row that OUTLIVES one attempt, plus the heartbeat contract that makes the
+   * checkpoint durable: `heartbeat_zoom_job` COALESCEs a NULL `p_stage_state`, so an
+   * argumentless call extends the lease and leaves `stage_state` alone, and a call with
+   * a payload REPLACES it. `fail_zoom_job` never touches the column, which is exactly
+   * why a checkpoint survives a failed attempt and is available to the retry.
+   */
+  function resumableContext(): { job: ZoomJobRow; ctx: ZoomJobContext } {
+    const job = jobRow();
+    const ctx: ZoomJobContext = {
+      job,
+      workerId: 'worker-1',
+      heartbeat: vi.fn(async (stageState?: Record<string, unknown>) => {
+        if (stageState !== undefined) job.stage_state = stageState;
+        return true;
+      }),
+    };
+    return { job, ctx };
+  }
+
+  it('[R1] THE THIRD WINDOW: a checkpointed meeting survives a delete that retired the bare reservation', async () => {
+    const { session, harness, fake } = racing();
+
+    // --- ATTEMPT 1: reserve, create, checkpoint, then die RETRYABLY --------
+    // The death is `readSession` throwing on the post-create re-check — the cheapest
+    // shape of "the process did not get to the persist", and retryable, so the job comes
+    // back. Everything before it really happened: the row is reserved, Zoom holds a
+    // meeting, and the job's `stage_state` names it.
+    const { job, ctx } = resumableContext();
+    let reads = 0;
+    const attemptOneStore = {
+      ...harness.store,
+      readSession: async (surfaceId: string) => {
+        reads += 1;
+        if (reads === 2) throw new ZoomRetryableError('connection reset by peer');
+        return harness.store.readSession(surfaceId);
+      },
+    };
+
+    const crash = await createMeetingProvisionHandler({ api: fake, store: attemptOneStore })(
+      ctx
+    ).catch((caught) => caught);
+    expect(describeJobFailure(crash).kind).toBe('retryable');
+
+    // The checkpoint LANDED, and it names the meeting Zoom is holding.
+    const created = fake.listMeetings();
+    expect(created).toHaveLength(1);
+    const checkpoint = readCreatedCheckpoint(job.stage_state);
+    expect(checkpoint?.number).toBe(created[0].id);
+
+    const reserved = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(reserved.status).toBe('pending');
+    expect(reserved.zoom_meeting_number).toBeNull();
+    expect(checkpoint?.meetingId).toBe(reserved.id);
+
+    // --- THE CANCELLATION, and the REAL delete ----------------------------
+    // Not a stand-in: `createMeetingDeleteHandler` over the shared rows. It finds the
+    // NUMBERLESS row, so it skips the Zoom call entirely — there is nothing it can name —
+    // marks the row `deleted`, CLEARS `last_error`, publishes `cancelled`, and completes
+    // GREEN. That greenness is the whole problem: nothing anywhere says a meeting is
+    // still standing.
+    const deleteSpy = vi.spyOn(fake, 'deleteMeeting');
+    session.status = 'cancelada';
+    const deleteResult = await createMeetingDeleteHandler({
+      api: fake,
+      store: harness.deleteStore,
+    })(deleteContext());
+
+    expect(deleteResult).toMatchObject({ deleted: false, zoom_missing: false });
+    expect(deleteSpy).not.toHaveBeenCalled();
+    const retired = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(retired.status).toBe('deleted');
+    expect(retired.last_error).toBeNull();
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('cancelled');
+    // ...and the meeting is STILL LIVE at Zoom. This is the state the retry inherits.
+    expect(fake.listMeetings()).toHaveLength(1);
+
+    // --- ATTEMPT 2: the retry, carrying the checkpoint ---------------------
+    // Snapshot the writes that must NOT happen: the row belongs to the delete now.
+    const releasesBefore = (harness.store.releaseReservation as ReturnType<typeof vi.fn>).mock
+      .calls.length;
+    const syncsBefore = (harness.store.syncProjectionFromMeeting as ReturnType<typeof vi.fn>)
+      .mock.calls.length;
+
+    const retry = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      ctx
+    ).catch((caught) => caught);
+
+    // The job still terminates the same way — this round changes what it CLEANS UP, not
+    // what it decides.
+    expect(describeJobFailure(retry).reason).toBe('session_ineligible');
+
+    // --- THE END STATE: the fake holds NO live meeting --------------------
+    // Asserted FIRST and on the fake's own inventory, so a regression prints the
+    // standing meeting rather than a call count that has to be interpreted.
+    expect(fake.listMeetings()).toEqual([]);
+    expect(deleteSpy).toHaveBeenCalledTimes(1);
+    expect(deleteSpy).toHaveBeenCalledWith(created[0].id);
+
+    // The already-retired row is left exactly as its writer left it: no release, no
+    // republish, no marker.
+    const after = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(after.status).toBe('deleted');
+    expect(after.last_error).toBeNull();
+    expect(
+      (harness.store.releaseReservation as ReturnType<typeof vi.fn>).mock.calls.length
+    ).toBe(releasesBefore);
+    expect(
+      (harness.store.syncProjectionFromMeeting as ReturnType<typeof vi.fn>).mock.calls.length
+    ).toBe(syncsBefore);
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('cancelled');
+  });
+
+  it('[R3] the ambiguous park still outranks the checkpoint on a RETIRED row too', async () => {
+    // The precedence this round must not disturb. An unresolved ambiguous marker means
+    // we never learned whether a meeting exists, and the checkpoint on the job names a
+    // DIFFERENT question — so widening the status set must not let it decide this row.
+    const fake = seedFake();
+    const minted = await fake.createMeeting({
+      hostZoomUserId: HOST_LEAD.zoom_user_id,
+      topic: SESSION.title,
+      startTime: '2026-08-05T15:00:00',
+      durationMinutes: 90,
+      timezone: 'America/Santiago',
+      passcode: 'ambiguous1',
+    });
+    const parkedAndRetired: StoredMeeting = {
+      id: 'meeting-1',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_LEAD.zoom_user_id,
+      zoom_meeting_number: null,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'cancelled',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: ambiguousCreateMarker('req-xyz', 'gateway timeout'),
+    };
+    const harness = createMemoryProvisionStore({
+      session: { ...SESSION, status: 'cancelada' },
+      hosts: [HOST_LEAD],
+      meetings: [parkedAndRetired],
+    });
+    const deleteSpy = vi.spyOn(fake, 'deleteMeeting');
+
+    const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context(
+        jobRow({
+          stage_state: {
+            stage: 'created',
+            meeting_id: 'meeting-1',
+            meeting: {
+              number: minted.id,
+              passcode: minted.passcode,
+              join_url: minted.joinUrl,
+              settings: minted.settings,
+            },
+          },
+        })
+      )
+    ).catch((caught) => caught);
+
+    expect(describeJobFailure(error).reason).toBe('session_ineligible');
+    expect(deleteSpy).not.toHaveBeenCalled();
+    expect(fake.listMeetings()).toHaveLength(1);
+    const row = harness.meetingFor(SESSION_ID) as StoredMeeting;
+    expect(row.status).toBe('cancelled');
+    expect(row.last_error).toBe(parkedAndRetired.last_error);
+  });
+
+  it('[R3] and an `error` row is still NOT compensable: it is a provisioner record, not a retirement', async () => {
+    // `RETIRED_MEETING_STATUSES` deliberately excludes `error`. A numberless `error` row
+    // is a definite pre-create failure this handler wrote itself — nothing retired the
+    // surface — so widening to retired statuses must not sweep it in.
+    const fake = seedFake();
+    const minted = await fake.createMeeting({
+      hostZoomUserId: HOST_LEAD.zoom_user_id,
+      topic: SESSION.title,
+      startTime: '2026-08-05T15:00:00',
+      durationMinutes: 90,
+      timezone: 'America/Santiago',
+      passcode: 'errorrow11',
+    });
+    const erroredRow: StoredMeeting = {
+      id: 'meeting-1',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_LEAD.zoom_user_id,
+      zoom_meeting_number: null,
+      zoom_meeting_uuid: null,
+      passcode: null,
+      join_url: null,
+      effective_settings: null,
+      status: 'error',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: 'Zoom 400 on POST /users/…/meetings',
+    };
+    const harness = createMemoryProvisionStore({
+      session: { ...SESSION, status: 'cancelada' },
+      hosts: [HOST_LEAD],
+      meetings: [erroredRow],
+    });
+    const deleteSpy = vi.spyOn(fake, 'deleteMeeting');
+
+    const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context(
+        jobRow({
+          stage_state: {
+            stage: 'created',
+            meeting_id: 'meeting-1',
+            meeting: {
+              number: minted.id,
+              passcode: minted.passcode,
+              join_url: minted.joinUrl,
+              settings: minted.settings,
+            },
+          },
+        })
+      )
+    ).catch((caught) => caught);
+
+    expect(describeJobFailure(error).reason).toBe('session_ineligible');
+    expect(deleteSpy).not.toHaveBeenCalled();
+    expect(harness.meetingFor(SESSION_ID)?.status).toBe('error');
+  });
+
+  it('[R4] THE NEGATIVE CONTROL: a retired row CARRYING a number is not this process to compensate', async () => {
+    // The ownership boundary `held.zoom_meeting_number === null` draws, and the one thing
+    // [R1] cannot prove. A retired NUMBERLESS row is the row whose retirement PROVES
+    // `meeting_delete` skipped the Zoom call, so this process still owns the meeting. A
+    // retired row WITH a number was retired by a writer that DID call Zoom — that meeting
+    // is not ours, and compensating it would have this job issue a DELETE against a
+    // meeting another writer already owns and already published a projection for.
+    const fake = seedFake();
+    const minted = await fake.createMeeting({
+      hostZoomUserId: HOST_LEAD.zoom_user_id,
+      topic: SESSION.title,
+      startTime: '2026-08-05T15:00:00',
+      durationMinutes: 90,
+      timezone: 'America/Santiago',
+      passcode: 'numbered11',
+    });
+    const provisioned: StoredMeeting = {
+      id: 'meeting-1',
+      surface_type: 'consultor_session',
+      surface_id: SESSION_ID,
+      school_id: 77,
+      host_zoom_user_id: HOST_LEAD.zoom_user_id,
+      zoom_meeting_number: minted.id,
+      zoom_meeting_uuid: null,
+      passcode: minted.passcode,
+      join_url: minted.joinUrl,
+      effective_settings: minted.settings,
+      status: 'provisioned',
+      starts_at: EXPECTED_STARTS_AT,
+      duration_minutes: 90,
+      last_error: null,
+    };
+    const harness = createMemoryProvisionStore({
+      session: { ...SESSION, status: 'cancelada' },
+      hosts: [HOST_LEAD],
+      meetings: [provisioned],
+    });
+
+    // The OTHER writer, run for real: it finds the number, calls Zoom, retires the row and
+    // publishes `cancelled`. Everything after this belongs to it.
+    const deleteSpy = vi.spyOn(fake, 'deleteMeeting');
+    await createMeetingDeleteHandler({ api: fake, store: harness.deleteStore })(deleteContext());
+    expect(deleteSpy).toHaveBeenCalledTimes(1);
+    expect(fake.listMeetings()).toEqual([]);
+
+    const afterDelete = { ...(harness.meetingFor(SESSION_ID) as StoredMeeting) };
+    expect(afterDelete.status).toBe('deleted');
+    expect(afterDelete.zoom_meeting_number).toBe(minted.id);
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('cancelled');
+
+    // Now the provision retry arrives carrying a checkpoint naming the SAME row and the
+    // SAME meeting — the [R1] shape in every respect except the number on the row.
+    const error = await createMeetingProvisionHandler({ api: fake, store: harness.store })(
+      context(
+        jobRow({
+          stage_state: {
+            stage: 'created',
+            meeting_id: 'meeting-1',
+            meeting: {
+              number: minted.id,
+              passcode: minted.passcode,
+              join_url: minted.joinUrl,
+              settings: minted.settings,
+            },
+          },
+        })
+      )
+    ).catch((caught) => caught);
+
+    expect(describeJobFailure(error).reason).toBe('session_ineligible');
+
+    // NO second DELETE — asserted on the call count, because the fake would answer a
+    // second one with a 404 and the job would green out over it.
+    expect(deleteSpy).toHaveBeenCalledTimes(1);
+
+    // ...and the row and the projection are byte-for-byte as the delete left them: no
+    // release, no marker, no republish.
+    expect({ ...(harness.meetingFor(SESSION_ID) as StoredMeeting) }).toEqual(afterDelete);
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('cancelled');
   });
 });

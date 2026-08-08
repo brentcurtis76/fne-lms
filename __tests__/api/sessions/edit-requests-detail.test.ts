@@ -239,6 +239,20 @@ describe('/api/sessions/edit-requests/[eid]', () => {
             single: vi.fn().mockResolvedValue({ data: null, error: null }),
           };
         }),
+        // r21: an approved change set that moves the schedule applies the session
+        // update and the ledger reconciliation through ONE transactional RPC.
+        rpc: vi.fn(async (_fn: string, args: Record<string, any> = {}) => ({
+          data: {
+            conflict: false,
+            session: {
+              id: 'session-123',
+              session_date: '2026-03-01',
+              ...(args.p_updates || {}),
+            },
+            hours: { applied: true, revision_written: true },
+          },
+          error: null,
+        })),
       };
 
       (createServiceRoleClient as any).mockReturnValue(mockClient);

@@ -8,7 +8,10 @@ import {
 } from '../../../../../lib/api-auth';
 import { Validators } from '../../../../../lib/types/api-auth.types';
 import { createSessionCalendar, generateExportFilename, ICalSessionInput } from '../../../../../lib/utils/session-ical';
-import { buildSessionJoinPath } from '../../../../../lib/utils/session-disclosure';
+import {
+  buildSessionJoinPath,
+  sessionOffersPlatformJoin,
+} from '../../../../../lib/utils/session-disclosure';
 import { buildAbsoluteUrl } from '../../../../../lib/utils/app-url';
 import type { SessionStatus } from '../../../../../lib/types/consultor-sessions.types';
 
@@ -38,7 +41,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: sessions, error: queryError } = await serviceClient
       .from('consultor_sessions')
       .select(
-        'id, title, description, objectives, session_date, start_time, end_time, status, location, meeting_link, schools!consultor_sessions_school_id_fkey(name), growth_communities(name), session_facilitators(profiles(first_name, last_name, email))'
+        // created_at/updated_at drive SEQUENCE — this endpoint projects columns
+        // explicitly, so they have to be named or the revision never rises.
+        'id, title, description, objectives, session_date, start_time, end_time, status, location, meeting_link, is_zoom_managed, created_at, updated_at, schools!consultor_sessions_school_id_fkey(name), growth_communities(name), session_facilitators(profiles(first_name, last_name, email))'
       )
       .eq('recurrence_group_id', groupId)
       .eq('is_active', true)
@@ -74,11 +79,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         start_time: s.start_time as string,
         end_time: s.end_time as string,
         location: (s.location as string | null) || undefined,
-        // Platform link only — the raw meeting_link never leaves in an .ics
-        join_url: (s.meeting_link as string | null)
+        // Platform link only — the raw meeting_link never leaves in an .ics,
+        // and a managed session has no meeting_link to test (§8).
+        join_url: sessionOffersPlatformJoin({
+          meeting_link: s.meeting_link as string | null,
+          is_zoom_managed: s.is_zoom_managed as boolean | null,
+        })
           ? buildAbsoluteUrl(buildSessionJoinPath(s.id as string), req)
           : undefined,
         status: s.status as SessionStatus,
+        created_at: (s.created_at as string | null) ?? null,
+        updated_at: (s.updated_at as string | null) ?? null,
         school_name: ((s.schools as Record<string, unknown> | null)?.name as string | null) || undefined,
         growth_community_name: (
           (s.growth_communities as Record<string, unknown> | null)?.name as string | null

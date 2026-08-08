@@ -9,6 +9,8 @@ import { getUserPrimaryRole } from '../../../utils/roleUtils';
 import { Calendar, Save, Send, Plus, X, AlertTriangle } from 'lucide-react';
 import { RecurrencePattern, RecurrenceFrequency } from '../../../lib/types/consultor-sessions.types';
 import { generateRecurrenceDates } from '../../../lib/utils/recurrence';
+import { isFeatureEnabled, FeatureFlags } from '../../../lib/featureFlags';
+import { formatSessionRangeForConsultant } from '../../../lib/utils/session-timezone';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -89,6 +91,9 @@ const SessionCreatePage: React.FC = () => {
     modality: 'presencial' as 'presencial' | 'online' | 'hibrida',
     meeting_link: '',
     meeting_provider: '' as '' | 'zoom' | 'google_meet' | 'teams' | 'otro',
+    // Zoom plan §8: durable managed intent. Off by default — an unchecked box
+    // creates exactly the session this form has always created.
+    is_zoom_managed: false,
     location: '',
   });
 
@@ -368,12 +373,15 @@ const SessionCreatePage: React.FC = () => {
 
   const handleModalityChange = (modality: 'presencial' | 'online' | 'hibrida') => {
     setFormData((prev) => {
-      const updates: Record<string, string> = { modality };
+      const updates: Record<string, string | boolean> = { modality };
 
       // Clear conditional fields based on modality
       if (modality === 'presencial') {
         updates.meeting_link = '';
         updates.meeting_provider = '' as '';
+        // The managed-meeting box is hidden for presencial; clearing it stops a
+        // box checked while online from submitting invisibly.
+        updates.is_zoom_managed = false;
       } else if (modality === 'online') {
         updates.location = '';
       }
@@ -474,8 +482,12 @@ const SessionCreatePage: React.FC = () => {
       return false;
     }
 
+    // A managed session has no link to enter — the platform creates the meeting
+    // at approval — and POST /api/sessions exempts it from the same rule. The
+    // client must agree, or the form blocks a request the API would accept.
     if (
       (formData.modality === 'online' || formData.modality === 'hibrida') &&
+      !formData.is_zoom_managed &&
       !formData.meeting_link
     ) {
       toast.error('Debe ingresar un enlace de reunión para modalidad online o híbrida');
@@ -547,6 +559,7 @@ const SessionCreatePage: React.FC = () => {
         modality: formData.modality,
         meeting_link: formData.meeting_link || null,
         meeting_provider: formData.meeting_provider || null,
+        is_zoom_managed: formData.is_zoom_managed,
         location: formData.location || null,
         facilitators,
         hour_type_key: selectedHourTypeKey || null,
@@ -633,6 +646,7 @@ const SessionCreatePage: React.FC = () => {
         modality: formData.modality,
         meeting_link: formData.meeting_link || null,
         meeting_provider: formData.meeting_provider || null,
+        is_zoom_managed: formData.is_zoom_managed,
         location: formData.location || null,
         facilitators,
         hour_type_key: selectedHourTypeKey || null,
@@ -734,6 +748,18 @@ const SessionCreatePage: React.FC = () => {
       </div>
     );
   }
+
+  // §14 master kill switch. Off ⇒ the box never appears and the form behaves
+  // exactly as it did before this chunk. The modality gate is the enclosing
+  // conditional below (managed intent is online/híbrida only, per POST /api/sessions).
+  const zoomManagedAvailable = isFeatureEnabled(FeatureFlags.ZOOM_MEETINGS);
+
+  // Null until a date and both times are set — see formatSessionRangeForConsultant.
+  const spainTimePreview = formatSessionRangeForConsultant(
+    formData.session_date,
+    formData.start_time,
+    formData.end_time
+  );
 
   return (
     <MainLayout
@@ -1086,7 +1112,8 @@ const SessionCreatePage: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hora de inicio <span className="text-red-500">*</span>
+                  Hora de inicio <span className="text-gray-500 font-normal">(hora Chile)</span>{' '}
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="time"
@@ -1100,7 +1127,8 @@ const SessionCreatePage: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hora de término <span className="text-red-500">*</span>
+                  Hora de término <span className="text-gray-500 font-normal">(hora Chile)</span>{' '}
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="time"
@@ -1112,6 +1140,22 @@ const SessionCreatePage: React.FC = () => {
                 />
               </div>
             </div>
+
+            {/*
+              Spain preview: the session is scheduled in Chile time but partly
+              delivered from Spain, and the offset shifts twice a year in each
+              hemisphere. Read-only and derived on every render — nothing about
+              Spain is stored or submitted. Renders only once a date is chosen,
+              because without one there is no offset to be right about.
+            */}
+            {spainTimePreview && (
+              <p
+                data-testid="create-session-spain-preview"
+                className="text-sm text-gray-600 -mt-2"
+              >
+                En España: <span className="font-medium">{spainTimePreview}</span>
+              </p>
+            )}
 
             {/* Row 6: Recurrence Toggle */}
             <fieldset>
@@ -1281,38 +1325,70 @@ const SessionCreatePage: React.FC = () => {
 
             {/* Row 7: Conditional - Meeting Link + Provider */}
             {(formData.modality === 'online' || formData.modality === 'hibrida') && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Enlace de reunión <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="url"
-                    name="meeting_link"
-                    value={formData.meeting_link}
-                    onChange={handleInputChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
-                    placeholder="https://zoom.us/j/123456789"
-                  />
-                </div>
+              <div className="space-y-4">
+                {zoomManagedAvailable && (
+                  <div>
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="is_zoom_managed"
+                        data-testid="session-zoom-managed"
+                        checked={formData.is_zoom_managed}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, is_zoom_managed: e.target.checked }))
+                        }
+                        className="w-4 h-4 text-brand_accent border-gray-300 rounded focus:ring-brand_accent mr-2"
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        Generar reunión Zoom
+                      </span>
+                    </label>
+                    {formData.is_zoom_managed && (
+                      <p
+                        data-testid="session-zoom-managed-help"
+                        className="mt-2 text-xs text-gray-500"
+                      >
+                        GENERA crea la reunión y su enlace cuando se apruebe la sesión.
+                      </p>
+                    )}
+                  </div>
+                )}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Proveedor de reunión
-                  </label>
-                  <select
-                    name="meeting_provider"
-                    value={formData.meeting_provider}
-                    onChange={handleInputChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
-                  >
-                    <option value="">Auto-detectar</option>
-                    <option value="zoom">Zoom</option>
-                    <option value="google_meet">Google Meet</option>
-                    <option value="teams">Microsoft Teams</option>
-                    <option value="otro">Otro</option>
-                  </select>
-                </div>
+                {!formData.is_zoom_managed && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Enlace de reunión <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="url"
+                        name="meeting_link"
+                        value={formData.meeting_link}
+                        onChange={handleInputChange}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                        placeholder="https://zoom.us/j/123456789"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Proveedor de reunión
+                      </label>
+                      <select
+                        name="meeting_provider"
+                        value={formData.meeting_provider}
+                        onChange={handleInputChange}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                      >
+                        <option value="">Auto-detectar</option>
+                        <option value="zoom">Zoom</option>
+                        <option value="google_meet">Google Meet</option>
+                        <option value="teams">Microsoft Teams</option>
+                        <option value="otro">Otro</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

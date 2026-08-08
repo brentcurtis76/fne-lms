@@ -546,3 +546,25 @@ scripts/ci/seed-e2e.mjs
 **PM ruling: NOT folded into Z2.** The phase is approved and closed on its own scope; widening it now to chase a pre-existing platform-wide question would be exactly the scope drift this workstream has refused nine times. **Recorded as its own finding, for its own investigation, with the first question already framed: what are `anon` and `authenticated` actually granted on those 22 tables?**
 
 **ALL THREE CLOSE ITEMS ARE NOW DONE: PR #45 open and green on CI · item 12b staging run against the real tenant · seven migrations applied and verified in production. The phase is ready to merge, and the merge is Brent's.**
+
+## 🎉 **PHASE Z2 — ✅ DONE. Merged to `main` 2026-08-08 by Brent, PR #45, merge commit `34ea4cb6`.**
+
+**§0.2 step 5 satisfied in full: Sol's `APPROVE WITH NOTES` **and** Brent's merge. The row flips to DONE.**
+
+**PM pre-merge verification, run immediately before the merge and not taken on trust:** PR head still `ea48f2c4` — **the exact commit CI verified**, unmoved since; **all six gates green** plus Vercel; `origin/feat/zoom-sess` tip matching; the zoom worktree and the main clone both clean; no other worktree on this branch. **`mergeable` came back `UNKNOWN` on the first read and the PM refused to merge on it** — GitHub recomputes asynchronously, `main` had moved **12 commits** since the branch merged it, and the honest answer was to poll rather than assume. It resolved to **`MERGEABLE / CLEAN`**, and only then did the merge run.
+
+**Merged with a MERGE COMMIT, deliberately — not squashed.** This ledger, `fase-5-pm-dossier.md` and its three addenda reference individual round SHAs throughout (`42ecdf6`, `6c71eda`, `c2be4ec9`, `334de02a`, `118a9db8`, `8c350fa7`, `24be1034`, `ea2b4556`, `3685644c`, `f92c2bcb`, `978e68a1`, `2f0e5385`, and every remediation commit after). **A squash would have orphaned every one of those references and made thirty-one rounds of recorded reasoning unfollowable.** The record only has value if its citations resolve.
+
+**What Z2 shipped:** approving a consultor session provisions a real Zoom meeting; participants join through `/meet/session/{id}` behind a per-click authorization check, never a raw link; cancelling kills the join immediately and deletes the meeting at Zoom; rescheduling moves the meeting, the ledger and the participants in one transaction; notifications, reminders and all three .ics surfaces carry a working platform link **including for managed sessions**; dual-zone scheduling; dial-in through the single authorized opening. **And two money defects fixed** — both hour consumers moved off `actual_duration_minutes` onto the ledger, and `get_bucket_summary` stopped multiplying a school's allocated hours by the number of sessions booked against them, **a bug live in production since long before this phase**.
+
+**The full close, all three items:** PR #45 open and **green on CI** — the first CI this branch ever had, after thirty rounds of laptop-only green · **item 12b done**, a real meeting created, joined and confirmed deleted against the live FNE tenant, with the dial-in wire shape verified field-for-field against an assumption built from documentation alone · **seven migrations applied to production and verified read-only**, per §0.1(d), one at a time.
+
+**Thirty-one rounds. Six ended `FINDINGS` with nothing committed, and every one of those six was the PM's error** — an inverted cleanup gate, a self-contradicting hours ruling, a wrong un-ledgered-session ruling, a lost chunk, a `DROP` the repo forbids, and a validator named after a symbol that does not exist. Two independent review passes found four more, including one the PM had logged as "unruled" three times without ruling it. **The loop worked because executors refused to build on bad instructions rather than guessing, and because nothing was believed until it was re-run.**
+
+**Carried forward, not closed by this merge:**
+- **INSPIRA `20260803170000_add_email_marketing_tables` is STILL unapplied in production** — merged in PR #41, same defect class as Z1b's. Not Z2's to apply; **it needs its owners.**
+- **The 22-table RLS allowlist** — an approved, documented 2026-07-08 exception whose stated goal is to be emptied and which nobody has emptied. **A parallel `RLS` workstream is being planned for it**, with the two genuinely open questions framed: what `anon`/`authenticated` are actually granted on those tables, and whether *"ninguna contiene datos de menores"* still holds as the GENERA phases introduce real minor data.
+- The A6 standing items, the §14 OFF-branch and `mode:'link'` e2e gaps, and `METHOD`/iMIP — all recorded and unowned.
+- **Dial-in: built, shipped, and the owner knows nobody who uses it.** Ruled: leave it, spend nothing further on it.
+
+**Next in the Zoom plan: Z3 — embedded experience, gated on the hardware/network spike. Ten phases remain (Z3–Z12).**

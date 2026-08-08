@@ -4030,3 +4030,93 @@ fail, 16 pass), so each read's assertion bites on its own read.
 - **Item 12b** (staging against a real Zoom tenant with an audio plan) is unchanged and still
   blocks phase close. Nothing in this round was exercised against a live tenant.
 - **`main` is not merged into this branch** — see m6 above for where the §5 amendment lives.
+
+---
+
+# Sol round-3 notes — round r30 (MINOR 1, MINOR 2)
+
+Branch `feat/zoom-sess`, base `796294cc`, one commit. Two files:
+`lib/zoom/jobs/meeting-provision.ts`, `__tests__/lib/zoom/jobs/meeting-provision.test.ts`.
+Phase Z2 is already APPROVED WITH NOTES; this closes the two MINORs the PM ruled fix-now.
+
+## MINOR 1 — the failed-compensation message no longer claims a host slot
+
+Sol's option B, the state-neutral one. `holdsReservation` recorded what the caller knew
+*before* awaiting the Zoom DELETE, and a concurrent `meeting_delete` can retire the numberless
+row while that request is in flight — so "keeps blocking its host" could be read after it
+stopped being true. The failure copy now names the Zoom meeting number and the one required
+action and asserts nothing about the host slot:
+
+- **before:** `… — CANCEL IT AT ZOOM; the reservation is parked and keeps blocking its host
+  until you do.` / `… the row was ALREADY retired, so NOTHING is blocking that host — the
+  marker names the meeting but the slot is bookable now.`
+- **after:** `… — CANCEL ZOOM MEETING <n> AT ZOOM. That is the whole action: no database
+  change is needed, and this job will not retry it.`
+
+**`holdsReservation` was REMOVED**, parameter and all three call sites. It was read in exactly
+one place — the ternary above — so with a state-neutral sentence nothing reads it, and the
+round prompt rules that out over leaving a dead parameter. No re-read was added on the error
+path: it would move the staleness rather than remove it.
+
+Behaviour is unchanged: the park, the preserved status, the durable marker, `meeting_delete`'s
+refusal to release a parked row and the ambiguous-park precedence all still hold, and are
+asserted rather than assumed ([L5], [L5b]).
+
+New test **[L5b]** puts the already-retired row through a FAILED compensation, so the one
+sentence is asserted on both paths. The shared helper
+`expectStateNeutralCompensationCopy` asserts the number-and-action clause is present and that
+`/blocking|bookable|reservation|host/i` appears nowhere in the message — a regression that
+reintroduces either branch fails there rather than in a reviewer's reading of the diff.
+
+## MINOR 2 — the numberless precondition now has a negative control
+
+New test **[R4]**: an ineligible session, a retired row **carrying** `zoom_meeting_number`, and
+a matching created checkpoint. It is built by running the REAL `meeting_delete` handler first
+(it finds the number, calls Zoom, retires the row, publishes `cancelled`), so the "other
+writer that did call Zoom" is an actual writer rather than a seeded literal, and the projection
+asserted unchanged is one something really published. The provision retry then arrives with the
+[R1] checkpoint and must issue **no** second DELETE, leaving row and projection as the delete
+left them.
+
+**Mutation probe.** Deleting `held.zoom_meeting_number === null` from the `strandedCheckpoint`
+predicate previously passed all 116 tests in this suite. It now fails, and fails only [R4]:
+
+```
+AssertionError: expected "deleteMeeting" to be called 1 times, but got 2 times
+ FAIL  __tests__/lib/zoom/jobs/meeting-provision.test.ts > [R4] THE NEGATIVE CONTROL …
+ Test Files  1 failed (1)
+      Tests  1 failed | 117 passed (118)
+```
+
+Reverted by restoring the pre-mutation copy; `git hash-object` on the file returns
+`b0540c71e6c597f37f659ca526a0136e48ced6c7` before and after, and the tree carries only the two
+intended files.
+
+## What a reviewer should scrutinise
+
+1. **The `not.toMatch(/blocking|bookable|reservation|host/i)` assertion.** It also constrains
+   the interpolated Zoom error text (`message.slice(0, 200)`), which is a real Zoom string in
+   production. It is fixed in these tests, so the assertion is about our copy — but a future
+   test whose fake error mentions a host would fail here for the wrong reason.
+2. **[R4]'s reliance on the real `meeting_delete`.** It buys a genuine projection and a genuine
+   retirement, at the cost of coupling this test to that handler. If `meeting_delete` ever stops
+   preserving `zoom_meeting_number` on retirement, [R4] stops testing what it says.
+3. **Removing `holdsReservation` rather than keeping it.** Nothing reads it now, but it also
+   removes the only place the two triggers were distinguished at the call site. If a future
+   round wants that distinction back it must re-derive it.
+4. **The e2e gate needed a rebuild against the local stack.** `zoom-mock-mode`'s negative
+   controls spawn `next start` on 3101 and reuse the gate's production build; the local
+   Playwright config serves the dev server, which clobbers `.next`. Run with `CI=1` (as CI
+   does) or that spec fails for environmental reasons. Not a code finding — recorded so the
+   next executor does not chase it.
+
+## Gates
+
+type-check 0 · lint 0 · **4742 passed / 284 files** (+2, baseline 4740/284) · build ✓ ·
+`test:db` **Files=11, Tests=466, PASS** · mandatory e2e **88 passed, 7 specs**, no-skip guard
+OK. Suite `meeting-provision.test.ts`: 116 → 118.
+
+## Known limitations
+
+- Nothing else in §3's out-of-scope list was touched, and no defect was found in passing.
+- No migration, no SQL, nothing run against any non-local database.

@@ -2047,19 +2047,21 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
      * its own projection; re-writing the row would replace that writer's honest record
      * with ours and republish over it for no gain.
      *
-     * `holdsReservation` is what the CALLER last knew about the row: `true` when it was
-     * still one of `ZOOM_MEETING_ACTIVE_STATUSES`, `false` when it had already been
-     * retired. It changes no behaviour — only what a FAILED compensation is allowed to
-     * claim about the host slot (Sol m1), because a `cancelled`/`deleted` row holds no
-     * §9 reservation and telling triage otherwise sends it looking for a block that is
-     * not there.
+     * A FAILED compensation says NOTHING about the host slot (Sol m1, round 3). What the
+     * caller knew about the row before awaiting the Zoom DELETE is not what is true after
+     * it: a concurrent `meeting_delete` can retire a numberless row while that request is
+     * in flight, so "the reservation keeps blocking its host" can be false by the time an
+     * operator reads it — and a signal a human must act on has to be true, or it trains
+     * people to distrust the channel (the r27 `no_meeting_row` ruling, same principle).
+     * Re-reading the row here would only move the staleness, so the copy is state-NEUTRAL
+     * instead: it names the Zoom meeting number and the one required action, both of which
+     * hold whatever the row is doing.
      */
     const compensateOrphanedMeeting = async (args: {
       meetingId: string;
       createdNumber: number;
       trigger: CompensationTrigger;
       growthCommunityId: string | null;
-      holdsReservation: boolean;
     }): Promise<{ zoomMissing: boolean }> => {
       let zoomMissing = false;
       try {
@@ -2076,12 +2078,11 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
           // meeting. `recordLastError` leaves the status alone, so the reservation is
           // kept, not re-armed.
           //
-          // On an ALREADY-RETIRED row (`holdsReservation === false` — the CAS-miss and
-          // eligibility-gate retirement triggers) the marker is still written, because it
-          // names the standing meeting, but it buys no host block: the row left the
-          // EXCLUDE predicate when its retiring writer moved it. Sol m1 — the claim was
-          // true for the active trigger and false for the others, and it was written
-          // unconditionally in all of them.
+          // On an ALREADY-RETIRED row (the CAS-miss and eligibility-gate triggers) the
+          // marker is still written, because it names the standing meeting, but it buys no
+          // host block: the row left the EXCLUDE predicate when its retiring writer moved
+          // it. Which of the two it is, is exactly what the message below refuses to
+          // guess.
           //
           // A store failure here loses the row marker but not the record — the job's own
           // `last_error` carries the number either way.
@@ -2097,11 +2098,7 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
             `[meeting-provision] COMPENSATION FAILED for meeting ${args.meetingId}: zoom meeting ${args.createdNumber} is still standing for a retired surface (${args.trigger}).`
           );
           throw new ZoomCompensationFailedError(
-            `consultor_session ${surfaceId} was retired (${args.trigger}) while this attempt was at Zoom, and the compensating DELETE of zoom meeting ${args.createdNumber} FAILED: ${message.slice(0, 200)} That meeting is still standing for a surface nobody will use — CANCEL IT AT ZOOM; ${
-              args.holdsReservation
-                ? 'the reservation is parked and keeps blocking its host until you do.'
-                : 'the row was ALREADY retired, so NOTHING is blocking that host — the marker names the meeting but the slot is bookable now.'
-            }`,
+            `consultor_session ${surfaceId} was retired (${args.trigger}) while this attempt was at Zoom, and the compensating DELETE of zoom meeting ${args.createdNumber} FAILED: ${message.slice(0, 200)} That meeting is still standing for a surface nobody will use — CANCEL ZOOM MEETING ${args.createdNumber} AT ZOOM. That is the whole action: no database change is needed, and this job will not retry it.`,
             {
               meetingId: args.meetingId,
               createdNumber: args.createdNumber,
@@ -2209,11 +2206,6 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
           createdNumber: (checkpointHere as CreatedMeetingCheckpoint).number,
           trigger: ineligible,
           growthCommunityId: session.growth_community_id,
-          // A row already `cancelled`/`deleted` holds no §9 reservation, so a FAILED
-          // compensation cannot claim it keeps blocking the host (Sol m1).
-          holdsReservation: (ZOOM_MEETING_ACTIVE_STATUSES as readonly string[]).includes(
-            (held as ProvisionMeetingRow).status
-          ),
         });
       }
 
@@ -2704,9 +2696,6 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
           createdNumber: created.id,
           trigger: retired,
           growthCommunityId: session.growth_community_id,
-          // This attempt holds the reservation — it placed it, and nothing since has
-          // moved it — so a failed compensation really does keep the host blocked.
-          holdsReservation: true,
         });
         const compensated: MeetingProvisionCompensatedResult = {
           meeting_id: meetingId,
@@ -2810,9 +2799,6 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
             createdNumber: created.id,
             trigger: 'surface_retired',
             growthCommunityId: session.growth_community_id,
-            // The winner RETIRED this row, so it is out of the EXCLUDE predicate: a
-            // failed compensation leaves the meeting standing with no host block.
-            holdsReservation: false,
           });
           console.warn(
             `[meeting-provision] fresh-create persistence lost to a RETIREMENT for meeting ${meetingId} (zoom ${created.id}): the surface's row is '${winner.status}', so the meeting was deleted at Zoom rather than left standing.`

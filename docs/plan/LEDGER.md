@@ -2640,7 +2640,7 @@ Entry format (§2.2 of the SOP):
   - **[A-new-4]** `git diff --stat 7c7059ff..HEAD -- pages components lib` is **empty**. No product code, and A8's two deferred SHOULD-FIX items are untouched.
   - **[A-new-5]** both A7a gaps **closed**, each proven by a mutation and reverted (below).
   - **[A2]** `docs/plan/evidence/a9/release-checklist.md`: 8 rows PASS against production with the `curl` transcripts quoted, 5 PENDING CI, 4 OWNER-RUN — PENDING with per-step instructions. Nothing blank, nothing PASS on inference.
-- COMMITS: `dc75034c` — 5 files, +665/−19.
+- COMMITS: `82bc0e7b` (the round: 5 files, +665/−19) + `<this commit>` (ledger SHA correction — the first was amended after the entry was written, which renamed it).
 - TESTS:
   - `npx vitest run __tests__/pages/pasantias-site-links.test.ts` → **8 passed**
   - `npm run type-check` → clean · `npm run lint` → clean · `npm test` → **266 files / 6263 tests passed** · `npm run build` → compiled successfully · `node scripts/check-price-leak.mjs` → `OK — scanned 269 file(s)`

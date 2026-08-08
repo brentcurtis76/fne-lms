@@ -645,3 +645,94 @@ describe('getZoomApi — the ZOOM_MODE switch (§14)', () => {
     expect(created.settings.auto_recording).toBe('none');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Z2-4d — dial-in numbers: named on the wire, optional on create
+//
+// ⚠ THE WIRE SHAPE HERE IS DOCUMENTATION-BASED. No real Zoom tenant has ever returned
+// dial-in numbers to this code — CI runs ZOOM_MODE=mock, so the fake below is the only
+// producer these assertions have ever seen. That makes staging validation against a
+// real audio-plan tenant a genuine open item, not a formality.
+// ---------------------------------------------------------------------------
+
+describe('Z2-4d — global_dial_in_numbers', () => {
+  it('the fake models an audio-plan tenant, and mapMeeting lifts the field out by name', async () => {
+    const zoom = createZoomFake();
+    const created = await zoom.createMeeting(provisionInput());
+
+    // In the settings object (which is what gets persisted as effective_settings)...
+    expect(created.settings.global_dial_in_numbers).toEqual(
+      expect.arrayContaining([expect.objectContaining({ country: 'CL' })])
+    );
+    // ...and lifted onto the domain object under its own name.
+    expect(created.dialInNumbers).toEqual(created.settings.global_dial_in_numbers);
+    // Synthetic only: Chile's reserved-for-fiction 55xx block, never a reachable number.
+    for (const entry of created.dialInNumbers ?? []) {
+      expect(entry.number).toMatch(/5555 \d{4}$/);
+    }
+  });
+
+  it('the fake also models a tenant with NO audio plan: the key is absent, not null', async () => {
+    // Absent, because that is how Zoom reports it — and `->` on a missing jsonb key is
+    // what yields the NULL column. A fake that wrote `null` would test a different path.
+    const zoom = createZoomFake();
+    zoom.setDialInNumbers(null);
+    const created = await zoom.createMeeting(provisionInput());
+
+    expect(created.settings).not.toHaveProperty('global_dial_in_numbers');
+    expect(created.dialInNumbers).toBeNull();
+  });
+
+  it('reset() restores the audio-plan default so suites do not leak the no-plan tenant', async () => {
+    const zoom = createZoomFake();
+    zoom.setDialInNumbers(null);
+    zoom.reset();
+
+    expect((await zoom.createMeeting(provisionInput())).dialInNumbers).not.toBeNull();
+  });
+
+  it('mapMeeting refuses to type a non-array as a dial-in list', () => {
+    // `settings` reaches mapMeeting off an unvalidated JSON.parse, so this is reachable
+    // from the wire: without the guard, `dialInNumbers.map(...)` would explode downstream.
+    expect(
+      mapMeeting({
+        ...RAW_MEETING,
+        settings: { ...RAW_MEETING.settings, global_dial_in_numbers: 'not-an-array' },
+      }).dialInNumbers
+    ).toBeNull();
+  });
+
+  it('a create response WITHOUT dial-in numbers is accepted — no audio plan is not a failure', () => {
+    // The whole point of the field being optional. A school on a plan without dial-in
+    // must still get a meeting.
+    expect(
+      findUnusableCreateFields({
+        id: 82000000042,
+        join_url: 'https://x.test/j/1',
+        password: '246813',
+        settings: { auto_recording: 'none' },
+      })
+    ).toEqual([]);
+  });
+
+  it('and the create checks still reject everything they rejected before', () => {
+    // Adding an optional field must not have widened what a create can get away with:
+    // the same body, now carrying dial-in numbers, is refused for the same four reasons.
+    expect(
+      findUnusableCreateFields({
+        id: 0,
+        join_url: '   ',
+        password: '',
+        settings: { global_dial_in_numbers: [{ number: '+56 2 5555 0100' }] },
+      })
+    ).toEqual([
+      'id is not a positive integer meeting number',
+      'join_url is missing or empty',
+      'password is missing or not a non-empty string',
+      'settings.auto_recording is missing or not a string',
+    ]);
+    expect(findUnusableCreateFields({ global_dial_in_numbers: [] })).toContain(
+      'settings is missing or not an object'
+    );
+  });
+});

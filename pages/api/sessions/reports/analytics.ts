@@ -10,6 +10,7 @@ import {
 import { Validators } from '../../../../lib/types/api-auth.types';
 import { getUserRoles, getHighestRole } from '../../../../utils/roleUtils';
 import { SessionStatus } from '../../../../lib/types/consultor-sessions.types';
+import { billableHours } from '../../../../lib/services/billable-hours';
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -96,7 +97,13 @@ interface SessionRow {
   school_id: number;
   growth_community_id: string;
   scheduled_duration_minutes: number | null;
-  actual_duration_minutes: number | null;
+}
+
+/** The `contract_hours_ledger` columns the hours KPI reads. */
+interface LedgerHoursRow {
+  session_id: string;
+  status: string;
+  hours: number | null;
 }
 
 interface AttendeeRow {
@@ -230,7 +237,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ============================================================
     let sessionsQuery = serviceClient
       .from('consultor_sessions')
-      .select('id, title, session_date, status, modality, school_id, growth_community_id, scheduled_duration_minutes, actual_duration_minutes')
+      .select('id, title, session_date, status, modality, school_id, growth_community_id, scheduled_duration_minutes')
       .eq('is_active', true);
 
     if (sessionIdFilter) {
@@ -273,7 +280,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const uniqueSchoolIds = [...new Set(sessions.map((s) => s.school_id).filter(Boolean))];
     const uniqueGCIds = [...new Set(sessions.map((s) => s.growth_community_id).filter(Boolean))];
 
-    const [attendeesResult, facilitatorsResult, schoolsResult, gcsResult] = await Promise.all([
+    const [attendeesResult, facilitatorsResult, schoolsResult, gcsResult, ledgerResult] = await Promise.all([
       // Attendees
       serviceClient
         .from('session_attendees')
@@ -298,7 +305,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       uniqueGCIds.length > 0
         ? serviceClient.from('growth_communities').select('id, name').in('id', uniqueGCIds)
         : Promise.resolve({ data: [] as GCRow[], error: null }),
+
+      // Hours ledger for the sessions already loaded — the billing record that
+      // `actual_duration_minutes` only ever approximated (Zoom plan §11).
+      serviceClient
+        .from('contract_hours_ledger')
+        .select('session_id, status, hours')
+        .in('session_id', allSessionIds),
     ]);
+
+    // The hours KPI is reconciled against invoices, so a ledger read that failed must not
+    // be reported as "these sessions billed nothing" — every session would silently fall
+    // back to its scheduled duration.
+    if (ledgerResult.error) {
+      return sendAuthError(res, 'Error al obtener el libro de horas', 500);
+    }
 
     const attendees: AttendeeRow[] = (attendeesResult.data || []) as AttendeeRow[];
     const facilitators: FacilitatorRow[] = (facilitatorsResult.data || []) as FacilitatorRow[];
@@ -306,6 +327,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     ((schoolsResult.data || []) as SchoolRow[]).forEach((s) => schoolsMap.set(s.id, s.name));
     const gcsMap = new Map<string, string>();
     ((gcsResult.data || []) as GCRow[]).forEach((g) => gcsMap.set(g.id, g.name));
+    const ledgerBySession = new Map<string, LedgerHoursRow>();
+    ((ledgerResult.data || []) as LedgerHoursRow[]).forEach((entry) => {
+      if (entry.session_id) ledgerBySession.set(entry.session_id, entry);
+    });
 
     // ============================================================
     // STEP 4: Compute KPIs
@@ -323,8 +348,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       sessions.reduce((sum, s) => sum + (s.scheduled_duration_minutes || 0), 0) / 60 * 10
     ) / 10;
 
+    // What the schools were actually charged: ledger hours for the statuses that bill
+    // (consumida, penalizada), and 0 for a session with no ledger row — it has no billing
+    // record. See lib/services/billable-hours.ts — `actual_duration_minutes` is not read here.
     const totalHoursActual = Math.round(
-      sessions.reduce((sum, s) => sum + (s.actual_duration_minutes || 0), 0) / 60 * 10
+      sessions.reduce(
+        (sum, s) =>
+          sum +
+          billableHours(ledgerBySession.get(s.id), s.scheduled_duration_minutes, 'charged_total'),
+        0
+      ) * 10
     ) / 10;
 
     const sessionsPendingReport = sessions.filter((s) => s.status === 'pendiente_informe').length;

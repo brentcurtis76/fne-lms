@@ -56,8 +56,8 @@ async function ensureGrowthCommunity(supabase, community, schoolId) {
  * a modality with a remote leg, and `meeting_provider = 'zoom'` as the managed-intent
  * signal.
  *
- * `meeting_link` comes from the fixture and is NULL when absent. The two seeded sessions
- * take the two branches deliberately:
+ * `meeting_link` comes from the fixture and is NULL when absent. The three seeded sessions
+ * take the branches deliberately:
  *   `zoom.session`        NULL — a provisionable session that has not been provisioned yet
  *                         has no link. No meeting row is created for it: seeding
  *                         zoom_internal.zoom_meetings and deriving the public projection
@@ -67,6 +67,12 @@ async function ensureGrowthCommunity(supabase, community, schoolId) {
  *   `zoom.linkedSession`  a legacy MANUAL link, provider `otro`. Nothing in Z1c can prove
  *                         the disclosure layer strips a raw link without a row that has
  *                         one to strip, and a NULL link makes every such assertion vacuous.
+ *   `zoom.managedSession` Z2-S8 — `is_zoom_managed` TRUE and no link at all. Added because
+ *                         the column is NOT NULL DEFAULT false and this seeder never wrote
+ *                         it, so every seeded session was unmanaged and no e2e had ever
+ *                         reached a managed one. `is_zoom_managed` is written for ALL three
+ *                         rows now (false for the first two — the value they already had),
+ *                         so the column is stated by the fixture rather than defaulted.
  *
  * `sessionDate` is a fixed far-future date, not a date computed from "now": a relative
  * date would make the seeder's second run write a different row, which is exactly the
@@ -87,6 +93,7 @@ async function ensureSession(supabase, session, { schoolId, communityId, created
       status: session.status,
       meeting_provider: session.meetingProvider,
       meeting_link: session.meetingLink ?? null,
+      is_zoom_managed: session.isZoomManaged === true,
       created_by: createdBy,
       is_active: true,
     },
@@ -179,7 +186,8 @@ async function seedSession(supabase, session, { schoolId, communityId, userIds, 
   await ensureSession(supabase, session, { schoolId, communityId, createdBy });
   console.log(
     `[seed-e2e-zoom] ${label} ${session.id} ready — ${session.status}/${session.modality}, ` +
-      `provider ${session.meetingProvider}, ${session.meetingLink ? 'legacy meeting_link' : 'no meeting_link'}`
+      `provider ${session.meetingProvider}, ${session.meetingLink ? 'legacy meeting_link' : 'no meeting_link'}, ` +
+      `${session.isZoomManaged === true ? 'PLATFORM-MANAGED' : 'unmanaged'}`
   );
 
   for (const facilitator of session.facilitators ?? []) {
@@ -220,16 +228,18 @@ async function seedSession(supabase, session, { schoolId, communityId, userIds, 
  * @param {Record<string, string>} params.userIds  fixture key -> auth user id
  */
 export async function seedZoomFixtures({ supabase, fixtures, userIds }) {
-  const { community, session, linkedSession } = fixtures.zoom;
+  const { community, session, linkedSession, managedSession } = fixtures.zoom;
   const schoolId = fixtures.school.id;
 
   await ensureGrowthCommunity(supabase, community, schoolId);
   console.log(`[seed-e2e-zoom] growth community ${community.id} "${community.name}" ready`);
 
-  // Both sessions live in the SAME school and growth community on purpose: the persona
-  // tiers are then identical across the pair, so a difference the specs observe between
-  // them is attributable to the meeting link and nothing else.
+  // All three sessions live in the SAME school and growth community on purpose: the
+  // persona tiers are then identical across them, so a difference the specs observe
+  // between two of them is attributable to the meeting link and to the managed flag,
+  // and to nothing else.
   const ctx = { schoolId, communityId: community.id, userIds };
   await seedSession(supabase, session, { ...ctx, label: 'session' });
   await seedSession(supabase, linkedSession, { ...ctx, label: 'linkedSession' });
+  await seedSession(supabase, managedSession, { ...ctx, label: 'managedSession' });
 }

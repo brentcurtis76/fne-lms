@@ -31,6 +31,22 @@ export interface ICalSessionInput {
   /** Absolute platform URL for the meeting, or omitted when there is none */
   join_url?: string | null;
   status: SessionStatus;
+  /**
+   * The session row's `created_at` / `updated_at`, verbatim. They exist here
+   * only to derive SEQUENCE — see {@link deriveSequence}. Both are
+   * `timestamptz NOT NULL` on `consultor_sessions`, so a caller reading the
+   * row always has them.
+   *
+   * Required but nullable, deliberately. A null or unparseable value still
+   * degrades to `SEQUENCE:0` rather than throwing mid-export — but the field
+   * cannot be *forgotten*. Optional (`?:`) meant a new .ics surface that never
+   * projected these columns compiled clean and silently emitted `SEQUENCE:0`
+   * for every event: exactly the stale-calendar bug SEQUENCE was added to fix,
+   * reintroduced without a type error. Now omitting them fails to compile and
+   * passing `null` is a deliberate choice.
+   */
+  created_at: string | null;
+  updated_at: string | null;
   school_name?: string | null;
   growth_community_name?: string | null;
   facilitators?: Array<{
@@ -52,6 +68,36 @@ function mapStatusToICalStatus(status: SessionStatus): ICalEventStatus {
     return ICalEventStatus.CONFIRMED;
   }
   return ICalEventStatus.TENTATIVE;
+}
+
+/**
+ * Derive the RFC 5545 §3.8.7.4 SEQUENCE for a session's VEVENT.
+ *
+ * Without it every .ics we emit is, to a calendar client, the first and final
+ * revision of its event: the client matches the incoming VEVENT to one it
+ * already holds by UID, compares SEQUENCE, and ignores anything that is not
+ * strictly greater. So a rescheduled session would notify the participant
+ * while their calendar kept the old time — the whole reason this exists.
+ *
+ * The value is whole seconds between the row's `created_at` and `updated_at`.
+ * `updated_at` is maintained by a database trigger
+ * (`trg_consultor_sessions_updated_at` → `set_updated_at()`), so it rises on
+ * every write to the row — reschedule, cancel, anything — with no code having
+ * to remember to bump a counter. Seconds-since-creation is monotonic per
+ * session, is 0 for a never-updated row, and stays far below the int32 ceiling
+ * some clients enforce (raw epoch seconds would not).
+ *
+ * Degrades to 0 — never negative, never NaN — when either timestamp is absent
+ * or unparseable, since a malformed SEQUENCE would break the export outright.
+ */
+function deriveSequence(session: ICalSessionInput): number {
+  const createdMs = Date.parse(session.created_at ?? '');
+  const updatedMs = Date.parse(session.updated_at ?? '');
+
+  if (!Number.isFinite(createdMs) || !Number.isFinite(updatedMs)) return 0;
+
+  const seconds = Math.floor((updatedMs - createdMs) / 1000);
+  return seconds > 0 ? seconds : 0;
 }
 
 /**
@@ -207,6 +253,7 @@ export function createSessionCalendar(
       location: buildEventLocation(session),
       url: session.join_url || undefined,
       status: mapStatusToICalStatus(session.status),
+      sequence: deriveSequence(session),
       timezone: SESSION_TIMEZONE,
       alarms: [
         {

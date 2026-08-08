@@ -11,6 +11,8 @@ import { Validators } from '../../../../lib/types/api-auth.types';
 import { SessionActivityLogInsert } from '../../../../lib/types/consultor-sessions.types';
 import { validateFacilitatorIntegrity } from '../../../../lib/utils/facilitator-validation';
 import { createReservation } from '../../../../lib/services/hour-tracking';
+import { enqueueSessionProvision } from '../../../../lib/zoom/provisioning-intent';
+import { notifySessionLifecycle } from '../../../../lib/services/session-lifecycle-notifications';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-approve');
@@ -89,13 +91,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendAuthError(res, reservationResult.error, 400);
     }
 
+    // Hoisted, not inlined: the Zoom provisioning dedupe key below is built from the
+    // exact `approved_at` this route writes (see `provisionDedupeKey`).
+    const approvedAt = new Date().toISOString();
+
     // Update session to programada
     const { data: updatedSession, error: updateError } = await serviceClient
       .from('consultor_sessions')
       .update({
         status: 'programada',
         approved_by: user!.id,
-        approved_at: new Date().toISOString(),
+        approved_at: approvedAt,
       })
       .eq('id', id)
       .select('*')
@@ -131,6 +137,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error('Error inserting activity log:', logError);
       // Don't fail the request
     }
+
+    // Zoom plan §8: approval enqueues the meeting provisioning job, and NEVER fails
+    // because of Zoom. `enqueueSessionProvision` gates on the §14 flags plus source-state
+    // eligibility and swallows its own errors, so the response below is byte-identical
+    // whether the job was enqueued, deduped, gated off, or errored.
+    await enqueueSessionProvision({ session: updatedSession, approvedAt });
+
+    // Z2-4a (plan §15): approval — not creation — is when a session becomes real to its
+    // participants. `pages/api/sessions/index.ts:225` creates every session as
+    // `borrador`, which is not participant-visible, so `session_created` belongs here.
+    // Emitted after the update commits, and it can neither throw nor change the response.
+    await notifySessionLifecycle({
+      client: serviceClient,
+      session: updatedSession,
+      event: 'session_created',
+      req,
+    });
 
     return sendApiResponse(res, { session: updatedSession });
   } catch (error: any) {

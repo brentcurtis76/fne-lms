@@ -29,6 +29,8 @@ import {
   RESERVATION_LEAD_MINUTES,
   RESERVATION_TRAIL_MINUTES,
 } from '../../../../lib/zoom/jobs/meeting-provision';
+import type { MeetingSyncStore } from '../../../../lib/zoom/jobs/meeting-sync';
+import type { MeetingDeleteStore } from '../../../../lib/zoom/jobs/meeting-delete';
 import type {
   ClaimZoomJobsArgs,
   CompleteZoomJobArgs,
@@ -61,10 +63,26 @@ export interface StoredMeeting {
   passcode: string | null;
   join_url: string | null;
   effective_settings: Record<string, unknown> | null;
+  /**
+   * Optional so the many hand-written seed literals across the provisioning suites stay
+   * valid: a row this harness itself creates ALWAYS has it (null or the derived value),
+   * and only rows minted by the two RPC doubles are asserted on.
+   */
+  dial_in_numbers?: unknown;
   status: ZoomMeetingStatus;
   starts_at: string;
   duration_minutes: number;
   last_error: string | null;
+}
+
+/**
+ * `p_effective_settings -> 'global_dial_in_numbers'` in TypeScript. A second
+ * implementation on purpose, like PUBLIC_STATUS_FOR_MEETING below: if the SQL and this
+ * drift, the pgTAP asserts and these unit tests disagree, which is the alarm we want.
+ * `->` yields SQL NULL when the key is absent, hence `?? null`.
+ */
+function deriveDialInNumbers(effectiveSettings: Record<string, unknown> | null): unknown {
+  return effectiveSettings?.global_dial_in_numbers ?? null;
 }
 
 function windowOf(startsAtIso: string, durationMinutes: number): [number, number] {
@@ -88,6 +106,12 @@ export interface ProvisionHarnessSeed {
   facilitators?: SessionFacilitatorRow[];
   hosts: ProvisionHostRow[];
   meetings?: StoredMeeting[];
+  /**
+   * `meeting_provision` jobs the queue holds for this surface, as `meeting_delete` reads
+   * them when it finds no `zoom_meetings` row (r27). Only non-terminal statuses belong
+   * here — the store returns the first, or `null`.
+   */
+  liveProvisionJobs?: { id: string; status: string }[];
   /** Runs after the in-memory atomic transaction commits, before the RPC returns. */
   afterAtomicProvision?: (
     kind: 'recovery' | 'adoption',
@@ -248,6 +272,7 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
         passcode: null,
         join_url: null,
         effective_settings: null,
+        dial_in_numbers: null,
         status: 'pending',
         starts_at: row.starts_at,
         duration_minutes: row.duration_minutes,
@@ -336,6 +361,9 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
         row.passcode = patch.passcode;
         row.join_url = patch.join_url;
         row.effective_settings = patch.effective_settings;
+        // The `dial_in_numbers = p_effective_settings -> 'global_dial_in_numbers'`
+        // line the SQL RPCs carry — same UPDATE, so it cannot drift from its source.
+        row.dial_in_numbers = deriveDialInNumbers(patch.effective_settings);
         row.status = 'provisioned';
         row.last_error = null;
         publishScheduled(row, patch.growth_community_id);
@@ -358,6 +386,9 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
         row.passcode = patch.passcode;
         row.join_url = patch.join_url;
         row.effective_settings = patch.effective_settings;
+        // The `dial_in_numbers = p_effective_settings -> 'global_dial_in_numbers'`
+        // line the SQL RPCs carry — same UPDATE, so it cannot drift from its source.
+        row.dial_in_numbers = deriveDialInNumbers(patch.effective_settings);
         row.status = 'provisioned';
         row.last_error = null;
         publishScheduled(row, patch.growth_community_id);
@@ -436,8 +467,67 @@ export function createMemoryProvisionStore(seed: ProvisionHarnessSeed) {
     }),
   };
 
+  // -------------------------------------------------------------------------
+  // Z2-3b: the reschedule/cleanup stores, over the SAME rows and projection
+  // -------------------------------------------------------------------------
+  //
+  // Sharing the state is the point. `meeting_sync` moving a reservation has to meet the
+  // same EXCLUDE model `insertReservation` does — otherwise the host-busy path would
+  // assert nothing — and a delete has to be visible to the projection map the join
+  // endpoint's badge is derived from.
+
+  const syncStore: MeetingSyncStore = {
+    readSession: store.readSession,
+    findMeetingBySurface: store.findMeetingBySurface,
+
+    updateMeetingSchedule: vi.fn(
+      async (meetingId: string, startsAt: string, durationMinutes: number) => {
+        const row = meetings.find((candidate) => candidate.id === meetingId);
+        if (!row) throw new Error(`no such meeting ${meetingId}`);
+        // The row is ACTIVE, so moving its interval re-enters the EXCLUDE predicate and
+        // can be refused exactly as Postgres refuses it: 23P01 → `false`.
+        if (
+          row.host_zoom_user_id !== null &&
+          isActive(row.status) &&
+          conflicts(row.host_zoom_user_id, startsAt, durationMinutes, meetingId)
+        ) {
+          return false;
+        }
+        row.starts_at = startsAt;
+        row.duration_minutes = durationMinutes;
+        return true;
+      }
+    ),
+
+    syncProjectionFromMeeting: store.syncProjectionFromMeeting,
+    recordLastError: store.recordLastError,
+  };
+
+  const deleteStore: MeetingDeleteStore = {
+    readSession: store.readSession,
+    findMeetingBySurface: store.findMeetingBySurface,
+
+    findLiveProvisionJob: vi.fn(async (_surfaceType: ZoomSurfaceType, surfaceId: string) => {
+      if (surfaceId !== seed.session.id) return null;
+      return (seed.liveProvisionJobs ?? [])[0] ?? null;
+    }),
+
+    markMeetingDeleted: vi.fn(async (meetingId: string, lastError: string | null) => {
+      const row = meetings.find((candidate) => candidate.id === meetingId);
+      if (!row) throw new Error(`no such meeting ${meetingId}`);
+      // `deleted` is outside ZOOM_MEETING_ACTIVE_STATUSES, so `conflicts()` stops
+      // counting this row — the host slot is freed, which is half the point of the job.
+      row.status = 'deleted';
+      row.last_error = lastError;
+    }),
+
+    syncProjectionFromMeeting: store.syncProjectionFromMeeting,
+  };
+
   return {
     store,
+    syncStore,
+    deleteStore,
     meetings,
     projection,
     /** The single row for a surface, or undefined. */

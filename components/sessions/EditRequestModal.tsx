@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, AlertCircle } from 'lucide-react';
 import { STRUCTURAL_FIELDS, ConsultorSession, SessionModality } from '../../lib/types/consultor-sessions.types';
+import { formatSessionRangeForConsultant } from '../../lib/utils/session-timezone';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -103,6 +104,12 @@ const EditRequestModal: React.FC<EditRequestModalProps> = ({
     return value as string;
   };
 
+  // Tracks the values being edited, not the session's stored ones: the point of
+  // the preview is to tell the consultant what the *proposed* move means in
+  // Spain. Null until date and both times are usable — the offset depends on the
+  // date, so there is nothing honest to render without one.
+  const spainTimePreview = formatSessionRangeForConsultant(sessionDate, startTime, endTime);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -142,7 +149,9 @@ const EditRequestModal: React.FC<EditRequestModalProps> = ({
 
           {/* Hora de inicio */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Hora de inicio</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Hora de inicio <span className="text-gray-500 font-normal">(hora Chile)</span>
+            </label>
             <input
               type="time"
               value={startTime}
@@ -153,7 +162,9 @@ const EditRequestModal: React.FC<EditRequestModalProps> = ({
 
           {/* Hora de término */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Hora de término</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Hora de término <span className="text-gray-500 font-normal">(hora Chile)</span>
+            </label>
             <input
               type="time"
               value={endTime}
@@ -161,6 +172,13 @@ const EditRequestModal: React.FC<EditRequestModalProps> = ({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
             />
           </div>
+
+          {/* Read-only Spain equivalent of the proposed times — never an input. */}
+          {spainTimePreview && (
+            <p data-testid="edit-request-spain-preview" className="text-sm text-gray-600 -mt-3">
+              En España: <span className="font-medium">{spainTimePreview}</span>
+            </p>
+          )}
 
           {/* Modalidad */}
           <div>

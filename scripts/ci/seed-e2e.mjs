@@ -7,9 +7,10 @@
  *     consultor can be assigned somewhere OTHER than the session's school),
  *   - one auth user + profile + role row per entry in `e2e-fixtures.json`,
  *   - (A8) one Pasantías interest lead, for the admin triage surface,
- *   - (Z1c) the Zoom domain graph — growth community, two sessions (one unprovisioned,
- *     one carrying a legacy manual meeting link), their facilitators, attendees and
- *     reports — via `scripts/ci/seed-e2e-zoom.mjs`.
+ *   - (Z1c, extended by Z2-S8) the Zoom domain graph — growth community, three sessions
+ *     (one unprovisioned, one carrying a legacy manual meeting link, one PLATFORM-MANAGED
+ *     with no link at all), their facilitators, attendees and reports — via
+ *     `scripts/ci/seed-e2e-zoom.mjs`.
  *
  * Ordering is load-bearing and is why the users are seeded in two passes:
  *   schools -> auth users + profiles -> zoom domain -> role rows

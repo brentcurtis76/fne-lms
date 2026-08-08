@@ -71,3 +71,35 @@ export function formatSessionTimeForConsultant(
   const minutes = String(barcelonaDT.getMinutes()).padStart(2, '0');
   return `${hours}:${minutes} (hora España)`;
 }
+
+/**
+ * Format a Chile session time range as the consultant's local time (Barcelona).
+ * Returns "13:00 a 14:00 (hora España)".
+ *
+ * Derived entirely from {@link formatSessionTimeForConsultant} — this module is
+ * the only place the Chile→Spain conversion lives, so scheduling forms that want
+ * a live preview call this instead of computing an offset of their own.
+ *
+ * Returns `null` — never a guess — when the inputs are not yet a real moment:
+ * the offset is not constant (Chile and Spain observe DST in opposite
+ * hemispheres, so the same 09:00 is 13:00 in January and 15:00 in July), so
+ * without a date there is nothing truthful to show. A half-filled scheduling
+ * form is the normal case, not an error, hence `null` rather than a throw.
+ */
+export function formatSessionRangeForConsultant(
+  sessionDate: string,
+  startTime: string,
+  endTime: string
+): string | null {
+  if (!sessionDate || !startTime || !endTime) return null;
+  try {
+    // "13:00 (hora España)" → "13:00"; the label is carried once, on the end.
+    const start = formatSessionTimeForConsultant(sessionDate, startTime).substring(0, 5);
+    const end = formatSessionTimeForConsultant(sessionDate, endTime);
+    return `${start} a ${end}`;
+  } catch {
+    // getSessionDateTime throws on a malformed date or time — a partially typed
+    // input, not a bug worth taking the form down for.
+    return null;
+  }
+}

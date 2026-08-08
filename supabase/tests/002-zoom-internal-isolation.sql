@@ -18,10 +18,10 @@
 
 BEGIN;
 
-SELECT plan(98);
+SELECT plan(119);
 
 -- =============================================================================
--- A. Schema / grants / RLS isolation (29 asserts)
+-- A. Schema / grants / RLS isolation (38 asserts)
 --
 -- The count above is maintained by hand and had gone stale: it still said 20
 -- after Z1b-sol5 added 6 provisioning-RPC privilege asserts (Sol R6 ④). 26 was
@@ -125,6 +125,65 @@ SELECT is(has_function_privilege('authenticated',
 SELECT is(has_function_privilege('service_role',
   'zoom_internal.sync_projection_from_meeting(uuid, uuid)',
   'EXECUTE'), true, 'service_role can execute sync_projection_from_meeting');
+
+-- -----------------------------------------------------------------------------
+-- Z2-4d: dial_in_numbers lives INSIDE this isolation proof, and the two RPCs that
+-- populate it were amended IN PLACE (9 asserts).
+--
+-- The column carries no secret by itself, but a dial-in is only usable together with
+-- the meeting number and the passcode, which is why it sits on this side of the
+-- schema — so it must be covered by the same denial the rest of the table is.
+--
+-- The identity-argument asserts are the load-bearing ones: this round amended both
+-- functions with CREATE OR REPLACE, and an accidental 7th parameter would have made a
+-- NEW function, leaving the six positional calls in section D ambiguous while the
+-- signature-based grant asserts above kept passing against a stale definition that
+-- silently wrote NULL forever.
+-- -----------------------------------------------------------------------------
+
+SELECT has_column('zoom_internal', 'zoom_meetings', 'dial_in_numbers',
+  'zoom_meetings.dial_in_numbers exists');
+SELECT col_type_is('zoom_internal', 'zoom_meetings', 'dial_in_numbers', 'jsonb',
+  'zoom_meetings.dial_in_numbers is jsonb — it holds Zoom''s array verbatim');
+SELECT col_is_null('zoom_internal', 'zoom_meetings', 'dial_in_numbers',
+  'zoom_meetings.dial_in_numbers is nullable — a tenant with no audio plan still provisions');
+
+SELECT is(has_column_privilege('anon',
+  'zoom_internal.zoom_meetings', 'dial_in_numbers', 'SELECT'), false,
+  'anon cannot read zoom_meetings.dial_in_numbers');
+SELECT is(has_column_privilege('authenticated',
+  'zoom_internal.zoom_meetings', 'dial_in_numbers', 'SELECT'), false,
+  'authenticated cannot read zoom_meetings.dial_in_numbers');
+
+SELECT is(
+  (SELECT oidvectortypes(p.proargtypes)
+     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'zoom_internal' AND p.proname = 'recover_provisioned_meeting'),
+  'uuid, bigint, text, text, jsonb, uuid',
+  'recover_provisioned_meeting still has exactly the 6-argument identity');
+SELECT is(
+  (SELECT oidvectortypes(p.proargtypes)
+     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'zoom_internal' AND p.proname = 'adopt_checkpoint_meeting'),
+  'uuid, bigint, text, text, jsonb, uuid',
+  'adopt_checkpoint_meeting still has exactly the 6-argument identity');
+
+-- ...and exactly ONE definition each: an overload would satisfy the asserts above
+-- through the surviving row while making section D's positional calls ambiguous.
+SELECT is(
+  (SELECT count(*)::int FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'zoom_internal'
+      AND p.proname IN ('recover_provisioned_meeting', 'adopt_checkpoint_meeting')),
+  2, 'the two provisioning RPCs have no overloads (CREATE OR REPLACE, never a new signature)');
+
+-- The Z2-4d boundary, asserted at schema level so a later round cannot quietly cross
+-- it: dial-in data NEVER reaches the student-readable projection. Matched by pattern,
+-- not by exact name, so a differently-named crossing is caught too.
+SELECT is(
+  (SELECT count(*)::int FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'session_meetings_public'
+      AND column_name ILIKE '%dial%'),
+  0, 'session_meetings_public exposes no dial-in column (Z2-4d ruling 1)');
 
 -- =============================================================================
 -- B. Job-queue behavior (26 asserts). Fixtures use dedicated job_types so the
@@ -369,7 +428,7 @@ SELECT lives_ok(
   'meetings without an assigned host never conflict (reservation starts at assignment)');
 
 -- =============================================================================
--- D. Atomic provision transitions (18 asserts). These are behavior tests because
+-- D. Atomic provision transitions (24 asserts). These are behavior tests because
 -- the CAS filters moved from the TypeScript/PostgREST wire into SQL in sol5.
 -- Calls run AS service_role, matching the production client and proving the grants.
 -- =============================================================================
@@ -395,7 +454,16 @@ VALUES
    '2026-09-05T14:00:00Z', 60, 'adopt-miss-marker'),
   ('ffffffff-0000-0000-0000-000000000006', 'consultor_session',
    'ffffffff-1111-0000-0000-000000000006', 9901, NULL, 'pending',
-   '2026-09-06T14:00:00Z', 60, 'adopt-backward-marker');
+   '2026-09-06T14:00:00Z', 60, 'adopt-backward-marker'),
+  -- Z2-4d: one row per RPC path for the dial-in capture. Both paths were amended, so
+  -- both are exercised; the rows above carry NO dial-in key and are the no-audio-plan
+  -- half of the same proof.
+  ('ffffffff-0000-0000-0000-000000000007', 'consultor_session',
+   'ffffffff-1111-0000-0000-000000000007', 9901, 82000001007, 'pending',
+   '2026-09-07T14:00:00Z', 60, 'dialin-recover-marker'),
+  ('ffffffff-0000-0000-0000-000000000008', 'consultor_session',
+   'ffffffff-1111-0000-0000-000000000008', 9901, NULL, 'pending',
+   '2026-09-08T14:00:00Z', 60, 'dialin-adopt-marker');
 
 INSERT INTO public.session_meetings_public
   (surface_type, surface_id, school_id, meeting_status, starts_at, ends_at)
@@ -502,6 +570,50 @@ SELECT ok((SELECT meeting_status = 'live'
              FROM public.session_meetings_public
             WHERE surface_id = 'ffffffff-1111-0000-0000-000000000006'),
   'adoption never moves a live projection backward or rewrites its window');
+
+-- -----------------------------------------------------------------------------
+-- Z2-4d: the dial-in set is captured by BOTH amended RPCs, and its absence is not an
+-- error (6 asserts). Read back off the row — asserting the call returned true would
+-- prove nothing about the column.
+--
+-- The synthetic numbers below are `+56 2 5555 xxxx`, inside Chile's reserved-for-
+-- fiction 55xx block. Never put a real phone number in a fixture.
+-- -----------------------------------------------------------------------------
+
+SELECT is(zoom_internal.recover_provisioned_meeting(
+  'ffffffff-0000-0000-0000-000000000007', 82000001007, 'recover77',
+  'https://example-synthetic.test/j/82000001007',
+  '{"auto_recording":"none","global_dial_in_numbers":[{"country":"CL","country_name":"Chile","city":"Santiago","number":"+56 2 5555 0100","type":"toll"}]}',
+  NULL),
+  true, 'recovery applies for an audio-plan tenant');
+SELECT is(
+  (SELECT dial_in_numbers FROM zoom_internal.zoom_meetings
+    WHERE id = 'ffffffff-0000-0000-0000-000000000007'),
+  '[{"country":"CL","country_name":"Chile","city":"Santiago","number":"+56 2 5555 0100","type":"toll"}]'::jsonb,
+  'recovery captures global_dial_in_numbers into dial_in_numbers');
+
+SELECT is(zoom_internal.adopt_checkpoint_meeting(
+  'ffffffff-0000-0000-0000-000000000008', 82000001008, 'adopt888',
+  'https://example-synthetic.test/j/82000001008',
+  '{"auto_recording":"none","global_dial_in_numbers":[{"country":"CL","country_name":"Chile","city":"Valparaíso","number":"+56 32 5555 0101","type":"toll"}]}',
+  NULL),
+  true, 'adoption applies for an audio-plan tenant');
+SELECT is(
+  (SELECT dial_in_numbers FROM zoom_internal.zoom_meetings
+    WHERE id = 'ffffffff-0000-0000-0000-000000000008'),
+  '[{"country":"CL","country_name":"Chile","city":"Valparaíso","number":"+56 32 5555 0101","type":"toll"}]'::jsonb,
+  'adoption captures global_dial_in_numbers into dial_in_numbers');
+
+-- No audio plan: Zoom omits the key, `->` yields NULL, and the row still provisioned
+-- above. These read the rows the earlier asserts already drove to `provisioned`.
+SELECT ok((SELECT status = 'provisioned' AND dial_in_numbers IS NULL
+             FROM zoom_internal.zoom_meetings
+            WHERE id = 'ffffffff-0000-0000-0000-000000000001'),
+  'recovery without a dial-in key provisions with a NULL dial_in_numbers');
+SELECT ok((SELECT status = 'provisioned' AND dial_in_numbers IS NULL
+             FROM zoom_internal.zoom_meetings
+            WHERE id = 'ffffffff-0000-0000-0000-000000000004'),
+  'adoption without a dial-in key provisions with a NULL dial_in_numbers');
 
 RESET ROLE;
 
@@ -673,6 +785,141 @@ SELECT is(zoom_internal.sync_projection_from_meeting(
   'missing', 'sync reports a missing internal row instead of publishing');
 
 RESET ROLE;
+
+-- =============================================================================
+-- F. Z2-4e: the dial_in_numbers BACKFILL (6 asserts).
+--
+-- 20260807120000 is DML over rows that already existed, so on a fresh replay it
+-- matches nothing and the replay proves only that it parses and applies. The three
+-- outcomes it must have are asserted here against seeded fixtures.
+--
+-- WHAT RUNS BELOW IS THE MIGRATION ITSELF, not a copy of it (Sol item 10). Until r27
+-- this section re-typed the migration's UPDATE, and a diff between the two proved
+-- sameness rather than that the shipped file is what executes: edit one and not the
+-- other and these asserts go on passing against a statement nobody deploys.
+--
+-- The mechanism is `supabase_migrations.schema_migrations.statements` — the statement
+-- array the Supabase CLI recorded when it READ AND APPLIED the file. `supabase db
+-- start` (CI gate 3) and `supabase db reset` (local) rebuild that row from
+-- supabase/migrations on every run, so what executes here is regenerated from the file
+-- and cannot be edited independently of it.
+--
+-- `\i` on the migration's own path was tried first and does not work in this harness:
+-- `supabase test db` runs pg_prove in a container that bind-mounts ONLY the directory
+-- of each path argument, so supabase/tests is present at its host path and
+-- supabase/migrations is absent — `\ir ../migrations/<file>` resolves to the correct
+-- absolute path and psql answers "No such file or directory". Passing the migration as
+-- a second path argument does mount it, but pg_prove then also RUNS the migration as a
+-- test file: it carries no plan, so the run fails, and it would apply outside any
+-- transaction. The db container has no copy either — the CLI applies migrations over a
+-- connection rather than mounting them.
+--
+-- Hosts are NULL so these fixtures cannot collide with section C's EXCLUDE constraint.
+-- =============================================================================
+
+-- The migration has to BE there. Without this, a renamed, reverted or unapplied
+-- migration would leave the replay below with nothing to execute and every outcome
+-- assert would still pass — the same blindness the hand-copy had.
+SELECT is(
+  (SELECT count(*)::int FROM supabase_migrations.schema_migrations
+    WHERE version = '20260807120000'
+      AND statements IS NOT NULL
+      AND cardinality(statements) > 0),
+  1, 'the Z2-4e backfill migration is recorded as applied, with statements to replay');
+
+INSERT INTO zoom_internal.zoom_meetings
+  (id, surface_type, surface_id, school_id, host_zoom_user_id, zoom_meeting_number,
+   status, starts_at, duration_minutes, effective_settings, dial_in_numbers)
+VALUES
+  -- (a) the row the backfill exists for: numbers inside the blob, column still NULL
+  ('bbbbbbbb-0000-0000-0000-000000000001', 'consultor_session',
+   'bbbbbbbb-1111-0000-0000-000000000001', 9901, NULL, 82000003001, 'provisioned',
+   '2026-11-01T14:00:00Z', 60,
+   '{"auto_recording":"none","global_dial_in_numbers":[{"country":"CL","country_name":"Chile","city":"Santiago","number":"+56 2 5555 0120","type":"toll"}]}',
+   NULL),
+  -- (b) a row already named by the Z2-4d RPCs — must survive untouched
+  ('bbbbbbbb-0000-0000-0000-000000000002', 'consultor_session',
+   'bbbbbbbb-1111-0000-0000-000000000002', 9901, NULL, 82000003002, 'provisioned',
+   '2026-11-02T14:00:00Z', 60,
+   '{"auto_recording":"none","global_dial_in_numbers":[{"number":"+56 2 5555 0121"}]}',
+   '[{"number":"+56 2 5555 0199"}]'),
+  -- (c) a no-audio-plan row: Zoom omitted the key, so there is nothing to name
+  ('bbbbbbbb-0000-0000-0000-000000000003', 'consultor_session',
+   'bbbbbbbb-1111-0000-0000-000000000003', 9901, NULL, 82000003003, 'provisioned',
+   '2026-11-03T14:00:00Z', 60,
+   '{"auto_recording":"none"}',
+   NULL),
+  -- (d) a row with NO effective_settings at all — a numberless reservation is stored
+  -- this way before its provisioner returns. The migration header claims `?` yields
+  -- NULL here and therefore never matches; nothing asserted that until r27.
+  ('bbbbbbbb-0000-0000-0000-000000000004', 'consultor_session',
+   'bbbbbbbb-1111-0000-0000-000000000004', 9901, NULL, 82000003004, 'provisioned',
+   '2026-11-04T14:00:00Z', 60,
+   NULL,
+   NULL);
+
+-- Replays the recorded statements of 20260807120000, in order. Every statement, not
+-- just the first: a migration that grows a second one must be replayed whole or this
+-- section silently stops covering it.
+CREATE OR REPLACE FUNCTION pg_temp.replay_backfill_z2_4e() RETURNS void
+LANGUAGE plpgsql AS $replay$
+DECLARE
+  v_statement text;
+BEGIN
+  FOR v_statement IN
+    SELECT unnest(statements)
+      FROM supabase_migrations.schema_migrations
+     WHERE version = '20260807120000'
+  LOOP
+    EXECUTE v_statement;
+  END LOOP;
+END
+$replay$;
+
+SELECT pg_temp.replay_backfill_z2_4e();
+
+SELECT is(
+  (SELECT dial_in_numbers FROM zoom_internal.zoom_meetings
+    WHERE id = 'bbbbbbbb-0000-0000-0000-000000000001'),
+  '[{"country":"CL","country_name":"Chile","city":"Santiago","number":"+56 2 5555 0120","type":"toll"}]'::jsonb,
+  'backfill names the dial-in set of a pre-Z2-4d row whose column was NULL');
+
+SELECT is(
+  (SELECT dial_in_numbers FROM zoom_internal.zoom_meetings
+    WHERE id = 'bbbbbbbb-0000-0000-0000-000000000002'),
+  '[{"number":"+56 2 5555 0199"}]'::jsonb,
+  'backfill never overwrites a dial_in_numbers that already has a value');
+
+SELECT ok(
+  (SELECT dial_in_numbers IS NULL FROM zoom_internal.zoom_meetings
+    WHERE id = 'bbbbbbbb-0000-0000-0000-000000000003'),
+  'backfill leaves a row whose effective_settings lacks the key NULL, not JSON null');
+
+SELECT ok(
+  (SELECT dial_in_numbers IS NULL FROM zoom_internal.zoom_meetings
+    WHERE id = 'bbbbbbbb-0000-0000-0000-000000000004'),
+  'backfill leaves a row with NULL effective_settings alone — `?` on NULL never matches');
+
+-- Idempotence, asserted on VALUES rather than on a matched-row count: running the real
+-- migration a second time must leave all three fixtures exactly as the first run did.
+-- A count-based check would pass for a statement that rewrote a row to the same value;
+-- this one also catches a lost guard that re-derives (b) from its stale settings blob.
+CREATE TEMP TABLE backfill_after_first_run AS
+SELECT id, dial_in_numbers
+  FROM zoom_internal.zoom_meetings
+ WHERE id IN ('bbbbbbbb-0000-0000-0000-000000000001',
+              'bbbbbbbb-0000-0000-0000-000000000002',
+              'bbbbbbbb-0000-0000-0000-000000000003',
+              'bbbbbbbb-0000-0000-0000-000000000004');
+
+SELECT pg_temp.replay_backfill_z2_4e();
+
+SELECT is(
+  (SELECT count(*)::int
+     FROM backfill_after_first_run f
+     JOIN zoom_internal.zoom_meetings m USING (id)
+    WHERE m.dial_in_numbers IS DISTINCT FROM f.dial_in_numbers),
+  0, 'a second run of the real migration changes nothing — it is idempotent');
 
 SELECT * FROM finish();
 

@@ -9,6 +9,16 @@ import {
 } from '../../../../lib/api-auth';
 import { Validators } from '../../../../lib/types/api-auth.types';
 import { SessionActivityLogInsert } from '../../../../lib/types/consultor-sessions.types';
+import {
+  applySessionReschedule,
+  isDurationRelevantChange,
+} from '../../../../lib/services/hour-tracking';
+import { enqueueSessionMeetingSync } from '../../../../lib/zoom/provisioning-intent';
+import type { ProvisionSessionRow } from '../../../../lib/zoom/jobs/meeting-provision';
+import {
+  hasScheduleChanged,
+  notifySessionLifecycle,
+} from '../../../../lib/services/session-lifecycle-notifications';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-edit-request-detail');
@@ -202,15 +212,114 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, editRequestI
         }
       }
 
-      // Apply changes to session
-      const { error: sessionUpdateError } = await serviceClient
-        .from('consultor_sessions')
-        .update(sessionUpdate)
-        .eq('id', sessionId);
+      // Apply changes to session.
+      //
+      // r21 (Sol item 2): this is the second reschedule path, and like the admin PUT it
+      // used to write the session through PostgREST and reconcile the ledger in a
+      // SEPARATE call — a failure between the two left the session moved and the ledger
+      // billing the old duration. A duration-relevant change set now goes through
+      // `apply_session_reschedule`, which does the session write and the ledger write in
+      // ONE transaction. The same RPC the admin PUT calls: one implementation, no drift.
+      // Everything else keeps the plain update — it has no ledger consequence.
+      const isReschedule = isDurationRelevantChange(Object.keys(changes));
 
-      if (sessionUpdateError) {
-        console.error('Database error updating session:', sessionUpdateError);
-        return sendAuthError(res, 'Error al aplicar cambios a la sesión', 500, sessionUpdateError.message);
+      let updatedSession: any;
+
+      if (isReschedule) {
+        // r29 (Sol m4): the RPC's optimistic guard used to be left unused on this path,
+        // so the only protection against a concurrent edit was the old-value comparison
+        // above — a JS check made against a row read some statements earlier, with the
+        // whole facilitator revalidation in between. `session.updated_at` is the value
+        // the guard was built for, and it is enforced INSIDE the same transaction as the
+        // session write and the ledger write, which is where the check has to sit.
+        const applied = await applySessionReschedule(
+          serviceClient,
+          sessionId,
+          user!.id,
+          sessionUpdate,
+          (session as { updated_at?: string | null }).updated_at ?? null
+        );
+
+        if (!applied.ok) {
+          // The edit request stays `pending` (it is marked approved only below) and,
+          // now, so does the session itself: nothing was written to either table.
+          console.error(
+            applied.hoursFailure
+              ? 'Error syncing reschedule hours:'
+              : 'Database error updating session:',
+            applied.error
+          );
+
+          return sendAuthError(
+            res,
+            applied.hoursFailure
+              ? 'No se pudieron recalcular las horas del contrato, así que los cambios no se aplicaron a la sesión. Revise el libro de horas antes de reintentar.'
+              : 'Error al aplicar cambios a la sesión',
+            500,
+            applied.error
+          );
+        }
+
+        // The guard did not match — the session moved under us between the read above and
+        // the write. Nothing was written to either table, and the edit request stays
+        // `pending`. Answered exactly as the admin PUT answers it: 409, `SESSION_CONFLICT`,
+        // and the row as the RPC found it, so the reviewer can see what changed.
+        if (applied.conflict) {
+          return res.status(409).json({
+            error:
+              'La sesión fue modificada por otro usuario. Recarga para ver los últimos cambios.',
+            code: 'SESSION_CONFLICT',
+            current: applied.current,
+          });
+        }
+
+        updatedSession = applied.session;
+      } else {
+        const { error: sessionUpdateError } = await serviceClient
+          .from('consultor_sessions')
+          .update(sessionUpdate)
+          .eq('id', sessionId);
+
+        if (sessionUpdateError) {
+          console.error('Database error updating session:', sessionUpdateError);
+          return sendAuthError(res, 'Error al aplicar cambios a la sesión', 500, sessionUpdateError.message);
+        }
+
+        // This branch updates without a `.select()`, so the post-update row is the
+        // merge — the reconstruction this route has always used.
+        updatedSession = { ...session, ...sessionUpdate };
+      }
+
+      // Z2-3b (plan §8): the second reschedule path tells Zoom too.
+      //
+      // r21: the enqueue used to sit BEFORE the hours sync, because that sync could
+      // return 500 over times that had already moved. It now runs after the whole
+      // transaction has committed — a reschedule whose ledger failed did not happen, so
+      // there is nothing to tell Zoom about.
+      //
+      // The row handed over is the RPC's own `RETURNING to_jsonb(t)` on the reschedule
+      // path, so `scheduled_duration_minutes` is the STORED generated column recomputed
+      // for the NEW times. The previous code merged `{ ...session, ...sessionUpdate }`
+      // and nulled that column precisely because a merge cannot recompute it; the real
+      // row makes the workaround unnecessary and the dedupe key exact.
+      if (isReschedule) {
+        await enqueueSessionMeetingSync({
+          session: updatedSession as ProvisionSessionRow,
+        });
+      }
+
+      // Z2-4a (plan §15): the second reschedule path owes the participants the same
+      // notice as the admin PUT, gated the same way — on VALUES, so an approved change
+      // set that carries a date field holding the date the session already had does not
+      // announce a move from a time to itself.
+      if (hasScheduleChanged(session, updatedSession)) {
+        await notifySessionLifecycle({
+          client: serviceClient,
+          session: updatedSession,
+          event: 'session_rescheduled',
+          req,
+          previous: session,
+        });
       }
 
       // Now mark edit request as approved

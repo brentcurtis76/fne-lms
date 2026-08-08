@@ -420,7 +420,48 @@ describe('PATCH /api/admin/pasantia-leads', () => {
     expect(body.lead.status).toBe('contacted');
     expect(updates).toHaveLength(1);
     expect(updates[0].payload).toEqual({ status: 'contacted' });
-    expect(updates[0].filters).toEqual({ id: LEAD_ID });
+    // Both filters: the id AND the status the transition was validated against.
+    // Without the second one PostgreSQL evaluates nothing on our behalf and two
+    // admins can walk a lead out of `converted`, which D-03 makes terminal.
+    expect(updates[0].filters).toEqual({ id: LEAD_ID, status: 'new' });
+  });
+
+  it('answers 409 when the lead moved between the read and the write', async () => {
+    asAdmin();
+    // The guarded UPDATE matched no row: somebody else committed a transition
+    // from the same snapshot first.
+    const { updates } = createSupabase({
+      current: { data: { id: LEAD_ID, status: 'contacted' }, error: null },
+      updated: { data: null, error: null },
+    });
+
+    const { status, body } = await run({
+      method: 'PATCH',
+      body: { id: LEAD_ID, status: 'dismissed' },
+    });
+
+    expect(status).toBe(409);
+    expect(body.status).toBe('contacted');
+    expect(body.lead).toBeUndefined();
+    expect(updates[0].filters).toEqual({ id: LEAD_ID, status: 'contacted' });
+  });
+
+  it('keeps a notes-only PATCH working, and still guarded by the status', async () => {
+    asAdmin();
+    const { updates } = createSupabase({
+      current: { data: { id: LEAD_ID, status: 'converted' }, error: null },
+    });
+
+    const { status } = await run({
+      method: 'PATCH',
+      body: { id: LEAD_ID, notes: 'Llamar el lunes' },
+    });
+
+    // A terminal lead still takes notes — the guard is a concurrency
+    // precondition, not a second transition check.
+    expect(status).toBe(200);
+    expect(updates[0].payload).toEqual({ notes: 'Llamar el lunes' });
+    expect(updates[0].filters).toEqual({ id: LEAD_ID, status: 'converted' });
   });
 
   it('writes exactly { notes } when only the notes change', async () => {

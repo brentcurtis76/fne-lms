@@ -182,6 +182,53 @@ describe('attribution ([A-new-2])', () => {
     expect(screen.queryByTestId(`lead-attribution-shared-${LEAD_ID}`)).toBeNull();
   });
 
+  /**
+   * r3 item 2. The `utm_*` columns store DECODED values, the query string in
+   * `source_path` stores them ENCODED, and `sanitizeSourcePath` refuses any
+   * stored path containing whitespace — so a substring test can never match a
+   * multi-word UTM value, and the banner was dead for that whole class of lead.
+   */
+  it.each([
+    ['%20', '/pasantias?utm_campaign=pasantias%20e2e'],
+    ['+', '/pasantias?utm_campaign=pasantias+e2e'],
+  ])('flags a repeated multi-word UTM value encoded with %s', (_encoding, sourcePath) => {
+    renderCard(makeLead({ source_path: sourcePath, utm_campaign: 'pasantias e2e' }));
+
+    expect(screen.getByTestId(`lead-attribution-shared-${LEAD_ID}`)).toHaveTextContent(
+      'una sola observación anotada dos veces'
+    );
+  });
+
+  it('does not claim a repeat when the UTM value merely appears inside the path', () => {
+    // `/pasantias` contains the string `pasantias`, but the path carries no
+    // `utm_source` at all — the two fields really are independent here.
+    renderCard(makeLead({ source_path: '/pasantias', utm_source: 'pasantias' }));
+
+    expect(screen.queryByTestId(`lead-attribution-shared-${LEAD_ID}`)).toBeNull();
+  });
+
+  it('does not claim a repeat when the path carries a different value under that key', () => {
+    renderCard(
+      makeLead({ source_path: '/pasantias?utm_source=facebook', utm_source: 'newsletter' })
+    );
+
+    expect(screen.queryByTestId(`lead-attribution-shared-${LEAD_ID}`)).toBeNull();
+  });
+
+  it('does not match a UTM value stored under a different key', () => {
+    renderCard(
+      makeLead({ source_path: '/pasantias?utm_medium=newsletter', utm_source: 'newsletter' })
+    );
+
+    expect(screen.queryByTestId(`lead-attribution-shared-${LEAD_ID}`)).toBeNull();
+  });
+
+  it.each([null, '/pasantias'])('neither throws nor flags for source_path %s', (sourcePath) => {
+    renderCard(makeLead({ source_path: sourcePath, utm_source: 'newsletter' }));
+
+    expect(screen.queryByTestId(`lead-attribution-shared-${LEAD_ID}`)).toBeNull();
+  });
+
   it('never frames the two fields as corroborating each other', () => {
     const { container } = renderCard(
       makeLead({
@@ -276,6 +323,31 @@ describe('single set of ids per lead (r2 S1)', () => {
       expect(label.htmlFor).toBeTruthy();
       expect(container.querySelectorAll(`[id="${label.htmlFor}"]`)).toHaveLength(1);
     }
+  });
+
+  /**
+   * r3 item 3. The assertion above renders one `new` lead, so it never sees the
+   * terminal branch — where the <select> is replaced by a <div> and the label
+   * above it used to keep pointing at an id no longer in the document.
+   */
+  it.each(LEAD_STATUSES)('every label[for] resolves for a %s lead', (status) => {
+    const { container } = render(
+      <PasantiaLeadCard
+        lead={makeLead({ status })}
+        onStatusChange={vi.fn()}
+        onNotesSave={vi.fn()}
+      />
+    );
+
+    const labels = Array.from(container.querySelectorAll('label')) as HTMLLabelElement[];
+    expect(labels.length).toBeGreaterThan(0);
+    for (const label of labels) {
+      expect(label.htmlFor).toBeTruthy();
+      expect(container.querySelectorAll(`[id="${label.htmlFor}"]`)).toHaveLength(1);
+    }
+
+    // The caption is still on screen for a terminal lead; it just is not a label.
+    expect(within(container).getByText('Cambiar estado')).toBeInTheDocument();
   });
 });
 

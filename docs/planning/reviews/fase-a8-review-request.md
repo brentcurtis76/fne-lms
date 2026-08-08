@@ -115,3 +115,83 @@ Also worth a look, lower stakes: the `[A-new-3]` source guard lives in the card 
 - Targeted: `npx vitest run __tests__/api/admin/pasantia-leads.test.ts __tests__/components/admin/pasantia-lead-card.test.tsx` — **43/43** (r1: 38; +5 new, none removed).
 - Full gates re-run: see the ledger r2 entry for counts.
 - E2E: still not executed locally (same shared-stack constraint as r1); the card testid changes do not touch anything the spec selects.
+
+---
+
+# r3 — pre-merge cleanup (three non-blocking items, after Sol's PASS)
+
+**This round lands AFTER Codex Sol's PASS on A8 (zero BLOCKING).** Nothing here reopens the
+phase: Sol needs to re-check **this diff only**. Everything Sol cleared — the API's auth,
+filters, counts, search sanitizer, the CSV path, the seeder, the fixtures, the e2e spec — is
+byte-identical.
+
+**Branch:** `phase/a8-leads-ui`, one commit on top of r2's `fd33706c`. Four files:
+`pages/api/admin/pasantia-leads/index.ts`, `components/admin/PasantiaLeadCard.tsx` and the two
+test files. No migration, no RLS change, no SQL.
+
+## What changed and why
+
+- **Item 1 — the PATCH was read-then-write, and two admins could breach D-03.** The route read
+  the lead's status, validated the move with `canTransitionLead` against that snapshot, then
+  issued the UPDATE filtered on `id` alone. Nothing held the row between the two statements, so
+  two admin sessions on one `contacted` lead could each validate against `contacted` and commit
+  `converted` and `dismissed` in turn — leaving the table on a move **out of `converted`**, which
+  D-03 makes terminal. D-04 puts this invariant at the API boundary and nowhere else (the table's
+  CHECK constrains the *set* of statuses, never the *moves*), so that was the only guard and it
+  could be walked past. The UPDATE now carries `.eq('status', currentStatus)`, so PostgreSQL
+  evaluates the precondition against the row it has locked. `.eq`, not `.or` — Decision Log
+  2026-08-03 is binding, and this is the same atomic-claim shape `claimAutoReplyWindow`
+  (`pages/api/pasantias/lead.ts`) already uses. A lost race now answers **409** with an es-CL
+  message and the guard status in the body, never a 200 with a null `lead`; notes-only PATCHes
+  carry the same guard and still succeed, including on a terminal lead.
+- **Item 2 — `sourcePathRepeatsUtm` was dead code for multi-word UTM values.** r1's review-request
+  flagged the `String.includes` shape as *imprecise*; it was worse than that. The `utm_*` columns
+  store **decoded** values (`pasantias e2e`) while `source_path` stores the query string with the
+  same value **percent-encoded** (`pasantias%20e2e`), and `sanitizeSourcePath` refuses any stored
+  path containing whitespace — so the decoded form can never appear there and the substring test
+  could never match. [A-new-2]'s banner silently never rendered for that whole class of lead. The
+  opposite bug rode along: a short value (`utm_source=pasantias` against `/pasantias`) matched
+  incidentally and claimed a repeat that was not one. Now the stored path's query string is parsed
+  with `URLSearchParams` (from the substring after the first `?`, since this is a path and not an
+  absolute URL) and compared **per key on decoded values**, which kills both classes at once. The
+  function stays exported and pure; the banner copy is unchanged.
+- **Item 3 — the terminal-state card had a label pointing at nothing.** When `transitions.length
+  === 0` the `<select id={dom('lead-status')}>` is replaced by a `<div>`, but the
+  `<label htmlFor={dom('lead-status')}>` above it still rendered, pointing at an id absent from the
+  document. **Shape chosen: the label moved inside the non-terminal branch**, and the terminal
+  branch renders the same caption as a plain `<div>` with the same classes. (The alternative — keep
+  one label and strip `htmlFor` conditionally — was rejected as the more fragile of the two: the
+  branch boundary now *is* the guarantee.) r2's own `htmlFor`-resolution guard passed only because
+  it never rendered a terminal lead.
+
+## What the reviewer should scrutinise in r3
+
+1. **The 409 body's `status` is the guard value, not a re-read.** It is what the lead held when
+   this request was validated — after a lost race the row's *actual* current status is by
+   definition unknown to us, and re-reading would be one more racy round trip. The page already
+   surfaces `json.error` as a toast for any non-ok response, so no page change was needed; if you
+   want the client to show the true post-race status, that is a deliberate second query and a
+   different decision.
+2. **`currentStatus` is typed `string | null`** (the row cast is defensive; the column is
+   `NOT NULL`). If it were ever null, `.eq('status', null)` would match nothing and the write would
+   answer 409 rather than commit — a safe failure direction, but it is a failure direction, so it
+   is stated rather than hidden.
+3. **`sourcePathRepeatsUtm` does not strip a `#` fragment.** A stored `/pasantias?utm_source=x#frag`
+   would parse the last param's value as `x#frag` and not match. Left alone deliberately: it is
+   untested behaviour and this round's whole risk is scope drift. Worth a backlog line, not a fix
+   here.
+
+## Test evidence (r3)
+
+- Targeted: `npx vitest run __tests__/api/admin/pasantia-leads.test.ts __tests__/components/admin/pasantia-lead-card.test.tsx` — **56/56** (r2: 43; +13 new, none removed).
+- Item 2's tests were written **before** the fix and failed 4/4 as predicted: the two encoded
+  multi-word cases (`%20`, `+`) did not render the banner, and the incidental-substring and
+  wrong-key cases rendered it falsely.
+- One existing assertion changed rather than being added to: the allowed-transition test's
+  `updates[0].filters` moved from `{ id }` to `{ id, status: 'new' }`, which is the point of Item 1.
+- Full gates: `npm run type-check && npm run lint && npm test && npm run build` — all green,
+  6255/6255 unit tests across 265 files.
+- **E2E still not executed locally.** The local stack (`supabase_*_sxlogxqzmarhqsblxmtj`, up 12h)
+  is the A7a session's, and both worktrees resolve to the same `project_id`, so running it here
+  would seed over a live session. Same call as r1 and r2. **CI gate 4 is the evidence.** Nothing in
+  this diff touches a selector the spec uses.

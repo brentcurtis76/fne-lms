@@ -235,6 +235,8 @@ async function handlePatch(
     return res.status(404).json({ error: 'No encontramos este lead.' });
   }
 
+  const currentStatus = (current as { status: string | null }).status;
+
   // Exactly two columns, listed by hand. Spreading the request body into a
   // service-role update is a write-anything primitive; `updated_at` is the
   // trigger's and is never written here.
@@ -244,12 +246,10 @@ async function handlePatch(
     const next = body.status as LeadStatus;
     // D-03. `canTransitionLead(s, s)` is false by design, so re-sending the
     // status a lead already has is a denied transition, not a no-op success.
-    if (!canTransitionLead((current as { status: string | null }).status, next)) {
+    if (!canTransitionLead(currentStatus, next)) {
       return res.status(400).json({
         error: 'Ese cambio de estado no está permitido para este lead.',
-        allowed: LEAD_STATUSES.filter((candidate) =>
-          canTransitionLead((current as { status: string | null }).status, candidate)
-        ),
+        allowed: LEAD_STATUSES.filter((candidate) => canTransitionLead(currentStatus, candidate)),
       });
     }
     update.status = next;
@@ -259,10 +259,28 @@ async function handlePatch(
     update.notes = notes;
   }
 
+  // The status this write was validated against travels INTO the write, so
+  // PostgreSQL evaluates D-03's precondition against the row it has locked
+  // rather than against what this route read a moment ago. Without it two admins
+  // on one `contacted` lead can commit `contacted→converted` and
+  // `contacted→dismissed` from the same snapshot, and the table lands on a move
+  // out of `converted` — which D-03 gives no outgoing edges at all. This
+  // boundary is the only place that invariant exists (D-04: the table's CHECK
+  // constrains the set of statuses, never the moves).
+  //
+  // `.eq`, never `.or`: PostgREST accepts `or=()` on SELECT but REJECTS it on
+  // UPDATE for non-PK columns, so an `or`-shaped guard passes every mocked test
+  // and fails only in production (Decision Log 2026-08-03; the incident note on
+  // `lib/bots/store.ts:claimSessionTransition`). It is the same atomic-claim
+  // shape `claimAutoReplyWindow` uses in `pages/api/pasantias/lead.ts`.
+  //
+  // A notes-only PATCH carries the guard too: `currentStatus` is still the value
+  // the row must still hold for this write to be the one we decided on.
   const { data: updated, error: updateError } = await supabase
     .from(TABLE)
     .update(update)
     .eq('id', id)
+    .eq('status', currentStatus)
     .select(LEAD_COLUMNS)
     .maybeSingle();
 
@@ -274,7 +292,19 @@ async function handlePatch(
     return res.status(500).json({ error: 'Error al guardar los cambios' });
   }
 
-  return res.status(200).json({ lead: updated ?? null });
+  if (!updated) {
+    // The row exists — we read it — so no match means somebody moved it between
+    // our read and our write. Never a 200 with a null body, and never a retry:
+    // the decision this request carried was made against a status the lead no
+    // longer has. `status` is that guard value, i.e. what the lead held when
+    // this request was validated (the D-07 409 shape).
+    return res.status(409).json({
+      error: 'Este lead cambió mientras lo editabas. Recarga la página e inténtalo de nuevo.',
+      status: currentStatus,
+    });
+  }
+
+  return res.status(200).json({ lead: updated });
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

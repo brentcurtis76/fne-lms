@@ -105,14 +105,34 @@ export function leadFullName(lead: PasantiaLead): string {
 /**
  * Whether the stored landing path already carries this lead's UTM values —
  * i.e. whether the two fields are one observation written down twice.
+ *
+ * The comparison is per key on DECODED values, never a substring scan of the
+ * whole path. Substring was wrong in both directions: the `utm_*` columns store
+ * the decoded value (`pasantias e2e`) while the path stores the encoded one
+ * (`pasantias%20e2e`) — and `sanitizeSourcePath` refuses any stored path
+ * carrying whitespace, so the decoded form can never appear there and the check
+ * was structurally dead for every multi-word value. In the other direction a
+ * short value (`utm_source=pasantias` against `/pasantias`) matched incidentally
+ * and claimed a repeat that was not one.
+ *
+ * `source_path` is a path and not an absolute URL, so the params come from the
+ * substring after the first `?` rather than from `new URL()`. No `?` means no
+ * params, which is `false` and not a throw.
  */
 export function sourcePathRepeatsUtm(lead: PasantiaLead): boolean {
   const path = lead.source_path;
   if (!path) return false;
 
-  return [lead.utm_source, lead.utm_medium, lead.utm_campaign].some(
-    (value) => Boolean(value) && path.includes(value as string)
-  );
+  const queryStart = path.indexOf('?');
+  if (queryStart === -1) return false;
+
+  const params = new URLSearchParams(path.slice(queryStart + 1));
+
+  return ([
+    ['utm_source', lead.utm_source],
+    ['utm_medium', lead.utm_medium],
+    ['utm_campaign', lead.utm_campaign],
+  ] as const).some(([key, value]) => Boolean(value) && params.get(key) === value);
 }
 
 function Field({
@@ -241,40 +261,51 @@ export function PasantiaLeadCard({
 
       <div className="grid gap-4 border-t border-gray-200 pt-4 sm:grid-cols-2">
         <div>
-          <label
-            className="text-xs uppercase tracking-wide text-gray-500"
-            htmlFor={dom('lead-status')}
-          >
-            Cambiar estado
-          </label>
+          {/*
+            The caption is a <label htmlFor> only in the branch that renders the
+            control it names. A terminal lead has no <select>, so a label there
+            would point at an id that is not in the document and a screen reader
+            would announce a control that does not exist.
+          */}
           {transitions.length === 0 ? (
-            <div
-              className="mt-1 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-600"
-              data-testid={dom('lead-status-final')}
-            >
-              Estado final: no admite más cambios.
-            </div>
+            <>
+              <div className="text-xs uppercase tracking-wide text-gray-500">Cambiar estado</div>
+              <div
+                className="mt-1 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-600"
+                data-testid={dom('lead-status-final')}
+              >
+                Estado final: no admite más cambios.
+              </div>
+            </>
           ) : (
-            <select
-              id={dom('lead-status')}
-              value=""
-              disabled={busy}
-              onChange={(event) => {
-                const next = event.target.value;
-                if (isKnownLeadStatus(next)) {
-                  onStatusChange(lead, next);
-                }
-              }}
-              data-testid={dom('lead-status-select')}
-              className="mt-1 min-h-[40px] w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-[#0a0a0a] focus:ring-2 focus:ring-[#fbbf24]/70 disabled:opacity-50"
-            >
-              <option value="">Selecciona un estado</option>
-              {transitions.map((candidate) => (
-                <option key={candidate} value={candidate}>
-                  {LEAD_STATUS_LABELS[candidate]}
-                </option>
-              ))}
-            </select>
+            <>
+              <label
+                className="text-xs uppercase tracking-wide text-gray-500"
+                htmlFor={dom('lead-status')}
+              >
+                Cambiar estado
+              </label>
+              <select
+                id={dom('lead-status')}
+                value=""
+                disabled={busy}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  if (isKnownLeadStatus(next)) {
+                    onStatusChange(lead, next);
+                  }
+                }}
+                data-testid={dom('lead-status-select')}
+                className="mt-1 min-h-[40px] w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-[#0a0a0a] focus:ring-2 focus:ring-[#fbbf24]/70 disabled:opacity-50"
+              >
+                <option value="">Selecciona un estado</option>
+                {transitions.map((candidate) => (
+                  <option key={candidate} value={candidate}>
+                    {LEAD_STATUS_LABELS[candidate]}
+                  </option>
+                ))}
+              </select>
+            </>
           )}
         </div>
 

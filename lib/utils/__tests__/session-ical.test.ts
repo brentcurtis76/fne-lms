@@ -19,6 +19,8 @@ describe('session-ical utilities', () => {
     end_time: '10:00:00',
     location: 'Sala de Conferencias A',
     status: 'programada',
+    created_at: null,
+    updated_at: null,
     school_name: 'Escuela Los Pinos',
     growth_community_name: 'Comunidad Sur',
     facilitators: [
@@ -41,6 +43,8 @@ describe('session-ical utilities', () => {
     school_name: 'Escuela Central',
     growth_community_name: 'Comunidad Centro',
     status: 'en_progreso',
+    created_at: null,
+    updated_at: null,
   };
 
   const mockCancelledSession: ICalSessionInput = {
@@ -50,6 +54,8 @@ describe('session-ical utilities', () => {
     start_time: '10:00:00',
     end_time: '11:00:00',
     status: 'cancelada',
+    created_at: null,
+    updated_at: null,
   };
 
   it('creates valid iCal calendar with single session', () => {
@@ -212,6 +218,8 @@ describe('session-ical utilities', () => {
       start_time: '09:00',
       end_time: '10:00',
       status: 'programada',
+      created_at: null,
+      updated_at: null,
     };
 
     const cal = createSessionCalendar([minimalSession]);
@@ -250,6 +258,8 @@ describe('session-ical utilities', () => {
       end_time: '12:00:00',
       location: 'Aula 301',
       status: 'programada',
+      created_at: null,
+      updated_at: null,
     };
 
     const cal = createSessionCalendar([presencialSession]);
@@ -269,6 +279,8 @@ describe('session-ical utilities', () => {
       location: 'Sala 202',
       join_url: 'https://genera.test/meet/session/cccccccc-cccc-4ccc-8ccc-cccccccccccc',
       status: 'programada',
+      created_at: null,
+      updated_at: null,
     };
 
     const cal = createSessionCalendar([hybridSession]);
@@ -280,5 +292,143 @@ describe('session-ical utilities', () => {
     expect(unfolded).toContain(
       'https://genera.test/meet/session/cccccccc-cccc-4ccc-8ccc-cccccccccccc'
     );
+  });
+
+  /**
+   * SEQUENCE (Z2-4b). RFC 5545 §3.8.7.4: a client replaces an event it already
+   * holds only when the incoming VEVENT carries the same UID and a strictly
+   * greater SEQUENCE. Assertions read the serialized .ics text, never an
+   * intermediate object, because the .ics is what the client actually sees.
+   */
+  describe('SEQUENCE — revision tracking', () => {
+    const SEQ_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+
+    /** Pull SEQUENCE out of the serialized calendar; null when absent. */
+    function readSequence(ics: string): number | null {
+      const match = ics.replace(/\r\n /g, '').match(/^SEQUENCE:(-?\d+)$/m);
+      return match ? Number(match[1]) : null;
+    }
+
+    const baseSeqSession: ICalSessionInput = {
+      id: SEQ_ID,
+      title: 'Sesion con Revisiones',
+      session_date: '2026-05-04',
+      start_time: '11:00:00',
+      end_time: '12:00:00',
+      status: 'programada',
+      created_at: '2026-05-01T10:00:00.000Z',
+      updated_at: '2026-05-01T10:00:00.000Z',
+    };
+
+    const render = (session: ICalSessionInput) => createSessionCalendar([session]).toString();
+
+    it('emits SEQUENCE:0 for a session that was never updated', () => {
+      const ics = render(baseSeqSession);
+
+      expect(ics.replace(/\r\n /g, '')).toContain('SEQUENCE:0');
+      expect(readSequence(ics)).toBe(0);
+    });
+
+    it('emits a SEQUENCE above zero once the session has been updated', () => {
+      const ics = render({
+        ...baseSeqSession,
+        updated_at: '2026-05-01T10:01:30.000Z', // 90 s after creation
+      });
+
+      expect(readSequence(ics)).toBe(90);
+    });
+
+    it('keeps the UID stable and raises SEQUENCE across two exports of the same session', () => {
+      // The property the whole chunk exists for: the second export must be
+      // recognisable as a revision of the first, not as a different event.
+      const firstIcs = render({
+        ...baseSeqSession,
+        updated_at: '2026-05-01T10:00:10.000Z',
+      });
+      const secondIcs = render({
+        ...baseSeqSession,
+        start_time: '15:00:00', // rescheduled
+        end_time: '16:00:00',
+        updated_at: '2026-05-02T10:00:00.000Z',
+      });
+
+      const uidOf = (ics: string) => ics.replace(/\r\n /g, '').match(/^UID:(.+)$/m)?.[1];
+
+      expect(uidOf(firstIcs)).toBe(`${SEQ_ID}@genera.fne.cl`);
+      expect(uidOf(secondIcs)).toBe(uidOf(firstIcs));
+      expect(readSequence(secondIcs)!).toBeGreaterThan(readSequence(firstIcs)!);
+    });
+
+    it('raises SEQUENCE when the session is cancelled, alongside STATUS:CANCELLED', () => {
+      // A tombstone whose SEQUENCE did not move is a tombstone the client ignores.
+      const beforeIcs = render({
+        ...baseSeqSession,
+        updated_at: '2026-05-01T10:00:20.000Z',
+      });
+      const cancelledIcs = render({
+        ...baseSeqSession,
+        status: 'cancelada',
+        updated_at: '2026-05-03T09:00:00.000Z',
+      });
+
+      expect(cancelledIcs.replace(/\r\n /g, '')).toContain('STATUS:CANCELLED');
+      expect(readSequence(cancelledIcs)!).toBeGreaterThan(readSequence(beforeIcs)!);
+    });
+
+    it.each([
+      ['both timestamps missing', {}],
+      ['created_at missing', { updated_at: '2026-05-02T10:00:00.000Z' }],
+      ['updated_at missing', { created_at: '2026-05-01T10:00:00.000Z' }],
+      ['null timestamps', { created_at: null, updated_at: null }],
+      ['unparseable timestamps', { created_at: 'no-es-fecha', updated_at: 'tampoco' }],
+      ['empty strings', { created_at: '', updated_at: '' }],
+      [
+        'updated_at before created_at',
+        { created_at: '2026-05-05T10:00:00.000Z', updated_at: '2026-05-01T10:00:00.000Z' },
+      ],
+    ])('degrades to SEQUENCE:0 when %s, and still generates', (_label, overrides) => {
+      // Partial so the two keys can still be *removed* entirely: the interface
+      // now requires them, and 'both timestamps missing' is precisely the shape
+      // that requirement forbids a real callsite from producing.
+      const withoutTimestamps: Partial<ICalSessionInput> = { ...baseSeqSession };
+      delete withoutTimestamps.created_at;
+      delete withoutTimestamps.updated_at;
+      const ics = render({ ...withoutTimestamps, ...overrides } as ICalSessionInput);
+
+      expect(readSequence(ics)).toBe(0);
+      expect(ics).toContain('BEGIN:VEVENT');
+      expect(ics).toContain('END:VCALENDAR');
+      expect(ics).not.toMatch(/SEQUENCE:(-|NaN)/);
+    });
+
+    it('will not compile without the timestamps at all (Z2-4c)', () => {
+      // The degrade-to-0 cases above are all *values*. This is the shape a new
+      // .ics surface would produce by simply never projecting the two columns —
+      // it used to compile clean and emit SEQUENCE:0 for every event, silently
+      // reintroducing the stale-calendar bug SEQUENCE exists to fix. Now the
+      // omission is a type error, which is what @ts-expect-error asserts here:
+      // this test fails to compile if the fields ever go optional again.
+      // @ts-expect-error created_at/updated_at are required (nullable) on ICalSessionInput
+      const forgotten: ICalSessionInput = {
+        id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+        title: 'Sesion Sin Timestamps',
+        session_date: '2026-05-01',
+        start_time: '09:00',
+        end_time: '10:00',
+        status: 'programada',
+      };
+
+      // Passing null is still allowed, and still degrades to 0.
+      expect(readSequence(render({ ...forgotten, created_at: null, updated_at: null }))).toBe(0);
+    });
+
+    it('sub-second updates floor to 0 rather than to a fraction', () => {
+      const ics = render({
+        ...baseSeqSession,
+        updated_at: '2026-05-01T10:00:00.400Z',
+      });
+
+      expect(readSequence(ics)).toBe(0);
+    });
   });
 });

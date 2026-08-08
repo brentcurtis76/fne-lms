@@ -9,7 +9,10 @@ import {
   getSessionDateTime,
   getHoursUntilSession,
 } from '../../../lib/utils/session-timezone';
-import { buildSessionJoinPath } from '../../../lib/utils/session-disclosure';
+import {
+  buildSessionJoinPath,
+  sessionOffersPlatformJoin,
+} from '../../../lib/utils/session-disclosure';
 import { buildAbsoluteUrl } from '../../../lib/utils/app-url';
 
 /**
@@ -57,7 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: sessions, error: sessionsError } = await serviceClient
       .from('consultor_sessions')
       .select(`
-        id, title, session_date, start_time, end_time, modality, meeting_link,
+        id, title, session_date, start_time, end_time, modality, meeting_link, is_zoom_managed,
         session_facilitators(user_id),
         session_attendees(user_id)
       `)
@@ -106,7 +109,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Notification payloads are persisted and rendered into e-mail, so they
       // carry the platform surface, never the raw meeting link.
-      const joinUrl = session.meeting_link
+      // A managed session has no `meeting_link` by design (§8), and a reminder
+      // an hour before the call that offers no way to reach it is the defect.
+      const joinUrl = sessionOffersPlatformJoin(session)
         ? buildAbsoluteUrl(buildSessionJoinPath(session.id), req)
         : null;
 

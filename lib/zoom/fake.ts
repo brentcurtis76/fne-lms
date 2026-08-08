@@ -34,6 +34,7 @@ import type {
   PatchMeetingInput,
   ZoomApi,
   ZoomAutoRecording,
+  ZoomDialInNumber,
   ZoomMeeting,
   ZoomMeetingRaw,
   ZoomMeetingSettings,
@@ -41,6 +42,22 @@ import type {
 } from './api';
 
 const VALID_AUTO_RECORDING: readonly ZoomAutoRecording[] = ['none', 'local', 'cloud'];
+
+/**
+ * The dial-in set an audio-plan tenant reports (§ Z2-4d). SYNTHETIC NUMBERS ONLY —
+ * `+56 2 5555 xxxx` is inside Chile's reserved-for-fiction 55xx block and reaches
+ * nobody; never put a real phone number in a fixture (Ley 21.719 discipline applies to
+ * every identifier, not only student PII).
+ *
+ * Default-on because the blocking CI path runs `ZOOM_MODE=mock`: a fake that returned
+ * nothing here would leave the capture exercised by no test that gates a merge. Tenants
+ * WITHOUT an audio plan are the other half of the truth — model them with
+ * `setDialInNumbers(null)`.
+ */
+const SYNTHETIC_DIAL_IN_NUMBERS: readonly ZoomDialInNumber[] = [
+  { country: 'CL', country_name: 'Chile', city: 'Santiago', number: '+56 2 5555 0100', type: 'toll' },
+  { country: 'CL', country_name: 'Chile', city: 'Valparaíso', number: '+56 32 5555 0101', type: 'toll' },
+];
 
 interface FakeMeeting {
   id: number;
@@ -69,6 +86,12 @@ export interface ZoomFakeControls {
    */
   startOccurrence(meetingNumber: number): { occurrenceUuid: string; previousUuid: string };
   endOccurrence(meetingNumber: number): void;
+  /**
+   * Models the tenant's audio plan: the dial-in set every subsequent `createMeeting`
+   * reports under `settings.global_dial_in_numbers`. Pass `null` for a tenant with no
+   * audio plan — Zoom then omits the key entirely, which must still provision.
+   */
+  setDialInNumbers(numbers: ZoomDialInNumber[] | null): void;
   /** Everything currently held, for assertions. */
   listMeetings(): ZoomMeeting[];
 }
@@ -80,6 +103,7 @@ export function createZoomFake(): ZoomFake {
   let users: ZoomUser[] = [];
   let meetingCounter = 0;
   let uuidCounter = 0;
+  let dialInNumbers: ZoomDialInNumber[] | null = [...SYNTHETIC_DIAL_IN_NUMBERS];
 
   /**
    * Deterministic, and deliberately carries `+` and `/`. Zoom's real UUIDs contain
@@ -168,6 +192,11 @@ export function createZoomFake(): ZoomFake {
       joinUrl: meeting.joinUrl,
       passcode: meeting.passcode,
       settings: { ...meeting.settings },
+      // Derived from `settings` exactly as `mapMeeting` derives it from the wire, so a
+      // consumer cannot pass here and fail against the real client.
+      dialInNumbers: Array.isArray(meeting.settings.global_dial_in_numbers)
+        ? [...meeting.settings.global_dial_in_numbers]
+        : null,
       status: meeting.status,
     };
   }
@@ -194,6 +223,12 @@ export function createZoomFake(): ZoomFake {
           join_before_host: false,
           waiting_room: false,
           auto_recording: 'none',
+          // Omitted entirely, not set to null, when the tenant has no audio plan —
+          // that is how Zoom reports it, and the difference is what the NULL-column
+          // path is tested against.
+          ...(dialInNumbers === null
+            ? {}
+            : { global_dial_in_numbers: dialInNumbers.map((entry) => ({ ...entry })) }),
         },
         status: 'waiting',
         deleted: false,
@@ -264,10 +299,15 @@ export function createZoomFake(): ZoomFake {
       users = [];
       meetingCounter = 0;
       uuidCounter = 0;
+      dialInNumbers = [...SYNTHETIC_DIAL_IN_NUMBERS];
     },
 
     setUsers(next: ZoomUser[]) {
       users = [...next];
+    },
+
+    setDialInNumbers(next: ZoomDialInNumber[] | null) {
+      dialInNumbers = next === null ? null : next.map((entry) => ({ ...entry }));
     },
 
     startOccurrence(meetingNumber: number) {

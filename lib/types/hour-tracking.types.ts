@@ -213,6 +213,62 @@ export interface LedgerEntryOverride {
 }
 
 /**
+ * RescheduleHoursPayload — the `reschedule_session_hours` RPC return value
+ * (Z2-3a, plan §11).
+ *
+ * `applied: false` is a legitimate no-op, not a failure: the session is not yet
+ * approved (`not_reserved_yet`), carries no reservation (`no_ledger_entry`), or
+ * nothing duration-relevant actually moved (`no_change`). A refusal — a session at
+ * `en_progreso` or beyond, a finalized ledger row, or a recomputation that would
+ * yield 0 h — raises inside the RPC and surfaces as an error instead.
+ */
+export interface RescheduleHoursPayload {
+  applied: boolean;
+  reason?: 'not_reserved_yet' | 'no_ledger_entry' | 'no_change';
+  status?: string;
+  ledger_entry_id?: string;
+  old_minutes?: number;
+  new_minutes?: number;
+  hours?: number;
+  is_over_budget?: boolean;
+  session_date?: string;
+  revision_written?: boolean;
+}
+
+/**
+ * The column map a reschedule route hands to `apply_session_reschedule` — exactly
+ * the `updateData` the route used to pass to `.update()`. The RPC validates the keys
+ * against its own allowlist and fails closed on anything else.
+ */
+export type SessionRescheduleUpdates = Record<string, any>;
+
+/**
+ * ApplySessionRescheduleResult — the result of the ONE transactional RPC both
+ * reschedule routes call (r21, Sol item 2).
+ *
+ * `ok: false` means NOTHING was written — neither `consultor_sessions` nor
+ * `contract_hours_ledger`. `hoursFailure` separates a failed ledger reconciliation
+ * (the RPC re-raises those with `HINT = 'reschedule_hours'`) from a failed session
+ * update, because the two owe the user different Spanish copy.
+ *
+ * `conflict: true` is the optimistic-lock miss: the caller's `if_updated_at` did not
+ * match and, again, nothing was written. `current` is the row as it actually stands.
+ *
+ * Flat rather than a discriminated union: this project compiles with
+ * `strict: false`, where narrowing a union on a boolean discriminant does not hold,
+ * and callers would have to cast at every use.
+ */
+export interface ApplySessionRescheduleResult {
+  ok: boolean;
+  error?: string;
+  hoursFailure?: boolean;
+  conflict?: boolean;
+  current?: Record<string, any> | null;
+  session?: Record<string, any>;
+  hours?: RescheduleHoursPayload | null;
+}
+
+/**
  * CancelSessionRequest — For POST /api/sessions/[id]/cancel (extended)
  */
 export interface CancelSessionRequest {

@@ -680,3 +680,125 @@ describe('GET /api/sessions/series/[groupId]/ical', () => {
     expect(res._getStatusCode()).toBe(405);
   });
 });
+
+/**
+ * [N1]–[N4] r26 — every .ics endpoint gated its URL on `meeting_link`, and a
+ * Zoom-managed session keeps that column NULL (§8). So the calendar entry for
+ * exactly the sessions this phase provisions carried no way to reach them.
+ *
+ * What is emitted is the platform surface, never anything Zoom-side: the
+ * managed fixture below carries a distinctive would-be internal URL precisely so
+ * its absence from the file proves the invariant rather than assuming it.
+ */
+describe('managed sessions in .ics exports (r26 [N1]–[N4])', () => {
+  const MANAGED_ID = '88888888-8888-4888-8888-888888888888';
+  const ZOOM_INTERNAL_URL = 'https://us06web.zoom.us/j/11111111111?pwd=NeVeRlEaVeSzOoMiNtErNaL';
+  const MANAGED_PLATFORM_LINK = `https://genera.test/meet/session/${MANAGED_ID}`;
+
+  const managedSession = {
+    ...mockSession1,
+    id: MANAGED_ID,
+    title: 'Sesion Gestionada',
+    // §8: NULL by design, and never a substitute for "there is no meeting".
+    meeting_link: null,
+    is_zoom_managed: true,
+    zoom_join_url: ZOOM_INTERNAL_URL,
+  };
+
+  /** Same row, unmanaged and linkless: [N3]'s "neither" case. */
+  const linklessSession = { ...managedSession, is_zoom_managed: false, zoom_join_url: null };
+
+  function expectManagedCalendar(content: string) {
+    expect(content).toContain(MANAGED_PLATFORM_LINK);
+    // [N4]: nothing from zoom_internal, in any form.
+    expect(content).not.toContain('NeVeRlEaVeSzOoMiNtErNaL');
+    expect(content).not.toContain('zoom.us');
+    expect(content).not.toContain('pwd=');
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_ID }, error: null });
+    mockGetUserRoles.mockResolvedValue([
+      { role_type: 'admin', community_id: null, school_id: null },
+    ]);
+    mockGetHighestRole.mockReturnValue('admin');
+    mockCheckIsAdmin.mockResolvedValue({ isAdmin: true, user: { id: ADMIN_ID }, error: null });
+  });
+
+  it('[N1] GET /api/sessions/[id]/ical carries the platform link', async () => {
+    mockCreateServiceRoleClient.mockReturnValue({
+      from: vi.fn((table: string) =>
+        table === 'consultor_sessions' ? buildChainableQuery([managedSession]) : buildChainableQuery([])
+      ),
+    });
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { id: MANAGED_ID },
+      headers: { host: 'genera.test' },
+    });
+
+    await singleHandler(req, res);
+
+    expect(res._getStatusCode()).toBe(200);
+    expectManagedCalendar(unfold(res._getData()));
+  });
+
+  it('[N1] GET /api/sessions/ical carries the platform link', async () => {
+    mockCreateServiceRoleClient.mockReturnValue({
+      from: vi.fn(() => buildChainableQuery([managedSession])),
+    });
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: {},
+      headers: { host: 'genera.test' },
+    });
+
+    await batchHandler(req, res);
+
+    expect(res._getStatusCode()).toBe(200);
+    expectManagedCalendar(unfold(res._getData()));
+  });
+
+  it('[N1] GET /api/sessions/series/[groupId]/ical carries the platform link', async () => {
+    mockCreateServiceRoleClient.mockReturnValue({
+      from: vi.fn(() =>
+        buildChainableQuery([
+          { ...managedSession, recurrence_group_id: GROUP_ID, session_number: 1 },
+        ])
+      ),
+    });
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { groupId: GROUP_ID },
+      headers: { host: 'genera.test' },
+    });
+
+    await seriesHandler(req, res);
+
+    expect(res._getStatusCode()).toBe(200);
+    expectManagedCalendar(unfold(res._getData()));
+  });
+
+  it('[N3] a session with neither a link nor managed intent still gets no URL', async () => {
+    mockCreateServiceRoleClient.mockReturnValue({
+      from: vi.fn(() => buildChainableQuery([linklessSession])),
+    });
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: {},
+      headers: { host: 'genera.test' },
+    });
+
+    await batchHandler(req, res);
+
+    expect(res._getStatusCode()).toBe(200);
+    const content = unfold(res._getData());
+    expect(content).toContain('BEGIN:VCALENDAR');
+    expect(content).not.toContain(`/meet/session/${MANAGED_ID}`);
+  });
+});

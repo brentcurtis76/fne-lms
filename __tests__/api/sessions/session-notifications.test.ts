@@ -252,6 +252,16 @@ describe('Session Notifications', () => {
           }
           return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: null, error: null }) };
         }) as any,
+        // r21: a schedule-moving approval applies the session update and the ledger
+        // reconciliation through ONE transactional RPC, which returns the updated row.
+        rpc: vi.fn(async (_fn: string, args: Record<string, any> = {}) => ({
+          data: {
+            conflict: false,
+            session: { ...mockSession, ...(args.p_updates || {}) },
+            hours: { applied: true, revision_written: true },
+          },
+          error: null,
+        })),
       };
 
       vi.mocked(createServiceRoleClient).mockReturnValue(mockSupabaseClient as any);
@@ -604,5 +614,136 @@ describe('Session Notifications', () => {
 
       process.env.CRON_API_KEY = originalKey;
     });
+  });
+});
+
+/**
+ * [N1]–[N4] r26 — the reminder an hour before a MANAGED session used to offer no
+ * way to reach it: the cron tested `meeting_link`, and §8 keeps that column NULL
+ * for exactly those sessions. The link offered is always the platform surface.
+ */
+describe('Session Reminder Cron — managed sessions (r26 [N1]–[N4])', () => {
+  const MANAGED_SESSION_ID = '88888888-8888-4888-8888-888888888888';
+
+  /** Distinctive enough that its absence from a payload proves something. */
+  const ZOOM_INTERNAL_URL = 'https://us06web.zoom.us/j/11111111111?pwd=NeVeRlEaVeSzOoMiNtErNaL';
+
+  function clientWith(sessions: Record<string, unknown>[]) {
+    return {
+      from: vi.fn((table: string) => {
+        if (table === 'consultor_sessions') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                in: vi.fn().mockReturnValue({
+                  gte: vi.fn().mockReturnValue({
+                    lte: vi.fn().mockResolvedValue({ data: sessions, error: null }),
+                  }),
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'session_notifications') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  in: vi.fn().mockReturnValue({
+                    limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+                  }),
+                }),
+              }),
+            }),
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() };
+      }) as any,
+    };
+  }
+
+  async function runCron(sessions: Record<string, unknown>[]) {
+    const { createServiceRoleClient } = await import('../../../lib/api-auth');
+    vi.mocked(createServiceRoleClient).mockReturnValue(clientWith(sessions) as any);
+
+    const originalKey = process.env.CRON_API_KEY;
+    process.env.CRON_API_KEY = 'test-key';
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      headers: { 'x-cron-key': 'test-key' },
+    });
+
+    await cronHandler(req as any, res as any);
+
+    process.env.CRON_API_KEY = originalKey;
+    return res;
+  }
+
+  function payloadFor(eventType: string) {
+    const call = mockTriggerNotification.mock.calls.find(([type]) => type === eventType);
+    return call ? (call[1] as Record<string, any>) : null;
+  }
+
+  const managedSession = (overrides: Record<string, unknown> = {}) => ({
+    id: MANAGED_SESSION_ID,
+    title: 'Sesión gestionada',
+    session_date: '2026-02-18',
+    start_time: '10:00:00',
+    end_time: '11:30:00',
+    modality: 'online',
+    // §8: NULL on the source row by design — the real URL lives in zoom_internal.
+    meeting_link: null,
+    is_zoom_managed: true,
+    session_facilitators: [{ user_id: FACILITATOR_ID }],
+    session_attendees: [{ user_id: ADMIN_ID_1 }],
+    ...overrides,
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('[N1] the 24h reminder carries the platform link', async () => {
+    mockGetHoursUntilSession.mockReturnValue(24);
+
+    const res = await runCron([managedSession()]);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(payloadFor('session_reminder_24h')!.session.join_url).toContain(
+      `/meet/session/${MANAGED_SESSION_ID}`
+    );
+  });
+
+  it('[N1] the 1h reminder carries the platform link', async () => {
+    mockGetHoursUntilSession.mockReturnValue(1);
+
+    const res = await runCron([managedSession()]);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(payloadFor('session_reminder_1h')!.session.join_url).toContain(
+      `/meet/session/${MANAGED_SESSION_ID}`
+    );
+  });
+
+  it('[N4] and never anything Zoom-side, even if the row carried it', async () => {
+    mockGetHoursUntilSession.mockReturnValue(1);
+
+    await runCron([managedSession({ zoom_join_url: ZOOM_INTERNAL_URL })]);
+
+    const serialized = JSON.stringify(payloadFor('session_reminder_1h'));
+    expect(serialized).not.toContain('NeVeRlEaVeSzOoMiNtErNaL');
+    expect(serialized).not.toContain('zoom.us');
+    expect(serialized).not.toContain('pwd=');
+  });
+
+  it('[N3] a session with neither a link nor managed intent still gets no join_url', async () => {
+    mockGetHoursUntilSession.mockReturnValue(1);
+
+    const res = await runCron([managedSession({ is_zoom_managed: false })]);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(payloadFor('session_reminder_1h')!.session.join_url).toBeNull();
   });
 });

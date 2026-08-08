@@ -10,6 +10,8 @@ import {
 import { SessionActivityLogInsert } from '../../../lib/types/consultor-sessions.types';
 import { validateFacilitatorIntegrity } from '../../../lib/utils/facilitator-validation';
 import { createReservation } from '../../../lib/services/hour-tracking';
+import { enqueueSessionProvision } from '../../../lib/zoom/provisioning-intent';
+import { notifySessionLifecycle } from '../../../lib/services/session-lifecycle-notifications';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-bulk-approve');
@@ -188,6 +190,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (logError) {
       console.error('Error inserting activity logs:', logError);
       // Don't fail the request
+    }
+
+    // Zoom plan §8, same contract as the single-session route: one gated, deduped
+    // `meeting_provision` job per approved session, and the response is unaffected by
+    // every possible Zoom outcome. Sequential rather than `Promise.all` so a batch never
+    // opens N concurrent writes against the queue.
+    for (const session of updatedSessions || []) {
+      await enqueueSessionProvision({ session, approvedAt: now });
+    }
+
+    // Z2-4a (plan §15): same rule as the single-session route — one `session_created`
+    // per session this batch actually approved, to that session's own participants.
+    // Iterated because the recipient set is per-session; none of these can throw.
+    for (const session of updatedSessions || []) {
+      await notifySessionLifecycle({
+        client: serviceClient,
+        session,
+        event: 'session_created',
+        req,
+      });
     }
 
     return sendApiResponse(res, {

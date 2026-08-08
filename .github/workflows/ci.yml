@@ -165,6 +165,26 @@ jobs:
             # A6a r1 shipped a page that fell back to Host to keep this job green;
             # that fallback was removed in r3 and this key is what replaces it.
             echo "NEXT_PUBLIC_BASE_URL=http://localhost:3000"
+            # Z2-S8: §14's master kill switch, ON for the e2e tenant. It defaults OFF
+            # (lib/featureFlags.ts — "all flags default to false for production safety"),
+            # and with it off `resolveMeetSessionAccess` answers `disabled` for every
+            # managed session, so tests/e2e/zoom-managed-join.spec.ts would have no join
+            # affordance to assert the existence of. That spec asserts `meet-join-disabled`
+            # is ABSENT, so this line going missing fails the gate loudly rather than
+            # quietly turning the managed coverage into "no button, no problem".
+            #
+            # Both names, because they are one switch with two readers: the server reads
+            # FEATURE_ZOOM_MEETINGS (the join route, /meet SSR, the provisioning gate) and
+            # the browser reads NEXT_PUBLIC_FEATURE_ZOOM_MEETINGS (lib/featureFlags.ts:18,
+            # the create-session toggle). Setting only the first makes those two disagree
+            # inside a single page render. NEXT_PUBLIC_* is inlined at build time and this
+            # step precedes the build, as it must.
+            #
+            # WHAT THIS CANNOT COVER: the flag is process env, and a Playwright run has one
+            # server, so the OFF branch (503 on the join route, `meet-join-disabled` on the
+            # page) is unreachable end to end. It is unit-tested only — see the spec header.
+            echo "FEATURE_ZOOM_MEETINGS=true"
+            echo "NEXT_PUBLIC_FEATURE_ZOOM_MEETINGS=true"
           } > .env.local
 
       - name: Install Playwright browsers

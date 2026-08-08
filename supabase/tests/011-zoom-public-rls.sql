@@ -14,11 +14,18 @@
 -- Fixtures are synthetic (@test.local via tests.create_supabase_user) and the
 -- whole file rolls back. This suite grows per phase as later Zoom public
 -- tables land (PM ruling — Z1b ships only session_meetings_public).
+--
+-- Z2-1 appends the column shape of `consultor_sessions.is_zoom_managed` (plan §8
+-- durable managed intent). It lives here rather than in 010 because 010 owns the
+-- consultor_sessions PERSONA matrix and this is a Zoom schema assertion; the
+-- default in particular is load-bearing — every pre-existing session must read
+-- as unmanaged, or the provisioner's eligibility gate would open on rows nobody
+-- marked.
 -- =============================================================================
 
 BEGIN;
 
-SELECT plan(15);
+SELECT plan(18);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures
@@ -221,6 +228,22 @@ SELECT throws_ok(
   'GC member (authenticated): INSERT is blocked — writes are service-role only');
 
 RESET ROLE;
+
+-- -----------------------------------------------------------------------------
+-- Z2-1 — consultor_sessions.is_zoom_managed column shape (plan §8)
+-- -----------------------------------------------------------------------------
+
+SELECT has_column(
+  'public', 'consultor_sessions', 'is_zoom_managed',
+  'consultor_sessions.is_zoom_managed exists — durable managed intent (§8)');
+
+SELECT col_not_null(
+  'public', 'consultor_sessions', 'is_zoom_managed',
+  'consultor_sessions.is_zoom_managed is NOT NULL — intent is never unknown');
+
+SELECT col_default_is(
+  'public', 'consultor_sessions', 'is_zoom_managed', false,
+  'consultor_sessions.is_zoom_managed defaults to false — every legacy row is unmanaged');
 
 SELECT * FROM finish();
 

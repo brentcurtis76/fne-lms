@@ -121,12 +121,26 @@ export interface SessionEventData extends BaseEventData {
     date?: string;
     time?: string;
     /**
+     * End of the session, pre-formatted (`"10:30"`). Carried so `session_rescheduled`
+     * can render a RANGE: a duration-only move (09:00–10:30 → 09:00–11:30) leaves the
+     * start identical, and start-only copy would show the reader the same thing twice.
+     */
+    end_time?: string | null;
+    /**
      * Absolute platform URL (`{base}/meet/session/{id}`), never the raw
      * `meeting_link`: notification payloads are persisted in the event log and
      * rendered into e-mail, so the link they carry must be one that
      * re-authorizes the reader.
      */
     join_url?: string | null;
+    /**
+     * The schedule a `session_rescheduled` event is moving AWAY from, pre-formatted
+     * for display. Optional — only that event carries them: a reader holding the old
+     * time in their calendar needs to see what changed, not just what it is now.
+     */
+    previous_date?: string | null;
+    previous_time?: string | null;
+    previous_end_time?: string | null;
   };
   requester?: {
     id?: string;
@@ -420,6 +434,85 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventConfig> = {
   // ============================================
   // CONSULTOR SESSION EVENTS
   // ============================================
+
+  // Lifecycle events (Zoom plan §15, chunk Z2-4a). Emitted by
+  // `lib/services/session-lifecycle-notifications.ts`, never inline in a route.
+  // Recipients are the session's own facilitators and attendees.
+
+  session_created: {
+    defaultTitle: (d) =>
+      d.session?.title
+        ? `Sesión agendada: ${d.session.title}`
+        : 'Nueva sesión agendada',
+    defaultDescription: (d) => {
+      const date = d.session?.date;
+      const time = d.session?.time;
+      const when = date
+        ? `el ${date}${time ? ` a las ${time}` : ''}`
+        : 'en una fecha por confirmar';
+      return `Su sesión quedó agendada para ${when}.`;
+    },
+    defaultUrl: '/consultor/sessions',
+    // `normal`: the session is typically days away and nothing is required of the
+    // reader right now — this is the confirmation, not a call to act.
+    importance: 'normal',
+    category: 'sessions',
+  },
+
+  session_rescheduled: {
+    defaultTitle: (d) =>
+      d.session?.title
+        ? `Sesión reprogramada: ${d.session.title}`
+        : 'Sesión reprogramada',
+    defaultDescription: (d) => {
+      // Renders a RANGE, not just the start (r15). `hasScheduleChanged` now counts
+      // `end_time`, so a duration-only move reaches this copy — and "se movió de 09:00
+      // a 09:00" would be worse than saying nothing. With both ends shown, the reader
+      // always sees what actually changed. The "Antes: … Ahora: …" shape is used rather
+      // than "de X a Y" because a range already contains "de … a …" and nesting the two
+      // reads as gibberish in Spanish.
+      const when = (
+        date?: string | null,
+        time?: string | null,
+        endTime?: string | null
+      ): string | null => {
+        if (!date) return null;
+        if (!time) return date;
+        return endTime ? `${date}, de ${time} a ${endTime}` : `${date}, a las ${time}`;
+      };
+
+      const before =
+        when(d.session?.previous_date, d.session?.previous_time, d.session?.previous_end_time) ??
+        'su horario anterior';
+      const after =
+        when(d.session?.date, d.session?.time, d.session?.end_time) ?? 'un nuevo horario';
+
+      return `Su sesión cambió. Antes: ${before}. Ahora: ${after}. Actualice su calendario.`;
+    },
+    defaultUrl: '/consultor/sessions',
+    // `high`: the reader is holding a now-wrong time in their calendar. Reading this
+    // late means arriving at the wrong moment.
+    importance: 'high',
+    category: 'sessions',
+  },
+
+  session_cancelled: {
+    defaultTitle: (d) =>
+      d.session?.title
+        ? `Sesión cancelada: ${d.session.title}`
+        : 'Sesión cancelada',
+    defaultDescription: (d) => {
+      const date = d.session?.date;
+      const time = d.session?.time;
+      const when = date ? ` del ${date}${time ? ` a las ${time}` : ''}` : '';
+      return `Su sesión${when} fue cancelada. No necesita conectarse.`;
+    },
+    defaultUrl: '/consultor/sessions',
+    // `high`: same reason as the reschedule — without it the reader shows up to a
+    // meeting that no longer exists.
+    importance: 'high',
+    category: 'sessions',
+  },
 
   session_edit_request_submitted: {
     defaultTitle: (d) =>

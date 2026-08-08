@@ -12,6 +12,7 @@ import { createSessionCalendar, generateSessionExportFilename, ICalSessionInput 
 import {
   buildSessionJoinPath,
   canViewParticipantEmails,
+  sessionOffersPlatformJoin,
 } from '../../../../lib/utils/session-disclosure';
 import { canViewSession, SessionAccessContext } from '../../../../lib/utils/session-policy';
 import { sendSessionNotFound } from '../../../../lib/utils/session-denials';
@@ -110,11 +111,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       start_time: session.start_time,
       end_time: session.end_time,
       location: session.location,
-      // Platform link only — the raw meeting_link never leaves in an .ics
-      join_url: session.meeting_link
+      // Platform link only — the raw meeting_link never leaves in an .ics,
+      // and a managed session has no meeting_link to test (§8).
+      join_url: sessionOffersPlatformJoin(session)
         ? buildAbsoluteUrl(buildSessionJoinPath(session.id), req)
         : undefined,
       status: session.status,
+      // Row timestamps drive SEQUENCE; without them a client ignores every revision
+      created_at: session.created_at ?? null,
+      updated_at: session.updated_at ?? null,
       school_name: session.schools?.name || undefined,
       growth_community_name: session.growth_communities?.name || undefined,
       facilitators: (facilitators || []).map((f: unknown) => {

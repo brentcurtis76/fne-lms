@@ -39,6 +39,12 @@ export const MANDATORY_SPECS = [
   // A8 — the admin triage surface over pasantias_leads: that an admin reaches it
   // and sees a lead, and that both halves of the /admin/* gate still deny.
   'tests/e2e/pasantias-leads-admin.spec.ts',
+  // A9 — the same lead path with nothing mocked: a real submission through the
+  // browser, read back through the admin API as a persisted row. It is the only
+  // spec that proves browser, route and database work as one thing, and the only
+  // place D-12's split consent and the auto-reply claim-and-release contract are
+  // asserted against real columns rather than a payload or a fake.
+  'tests/e2e/pasantias-flow.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

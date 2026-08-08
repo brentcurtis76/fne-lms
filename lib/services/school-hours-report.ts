@@ -81,20 +81,41 @@ export async function fetchSchoolReportData(
   serviceClient: ReturnType<typeof createServiceRoleClient>,
   schoolId: number
 ): Promise<SchoolReportData | null> {
+  // r29 (Sol R-B): the three reads below used to destructure only `data`, so a FAILED
+  // read was indistinguishable from an empty one — `clientes` erroring coalesced to `[]`
+  // and returned `{ programs: [] }`, a 200 whose whole-school report shows zero contracts
+  // and zero hours, pixel-identical to a school with nothing billed; `schools` erroring
+  // became a 404 for a school that exists. Same rule as the bucket summary and the
+  // sessions query below: these are the figures a school reconciles an invoice against,
+  // so fail, do not degrade. A LEGITIMATE empty still returns a valid empty report — the
+  // emptiness has to be proven by a successful query, not assumed from a failed one.
+
   // Fetch school name
-  const { data: schoolData } = await serviceClient
+  const { data: schoolData, error: schoolError } = await serviceClient
     .from('schools')
     .select('id, name')
     .eq('id', schoolId)
     .single();
 
+  // `.single()` answers a genuinely absent school with PGRST116, which is the honest
+  // 404 this function has always returned. Anything else is a failed read.
+  if (schoolError && schoolError.code !== 'PGRST116') {
+    console.error(`[SchoolHoursReport] School lookup failed (school=${schoolId}):`, schoolError);
+    throw new Error(`No se pudieron obtener los datos del colegio ${schoolId}`);
+  }
+
   if (!schoolData) return null;
 
   // Step 1: Get cliente_ids for this school
-  const { data: clientesData } = await serviceClient
+  const { data: clientesData, error: clientesError } = await serviceClient
     .from('clientes')
     .select('id')
     .eq('school_id', schoolId);
+
+  if (clientesError) {
+    console.error(`[SchoolHoursReport] Clientes lookup failed (school=${schoolId}):`, clientesError);
+    throw new Error(`No se pudieron obtener los clientes del colegio ${schoolData.name}`);
+  }
 
   const clienteIds = (clientesData ?? []).map((c: { id: string }) => c.id);
   if (clienteIds.length === 0) {
@@ -102,7 +123,7 @@ export async function fetchSchoolReportData(
   }
 
   // Step 2: Fetch active contracts with program info
-  const { data: contratos } = await serviceClient
+  const { data: contratos, error: contratosError } = await serviceClient
     .from('contratos')
     .select(`
       id,
@@ -114,6 +135,14 @@ export async function fetchSchoolReportData(
     `)
     .in('cliente_id', clienteIds)
     .eq('estado', 'activo');
+
+  if (contratosError) {
+    console.error(
+      `[SchoolHoursReport] Contratos lookup failed (school=${schoolId}):`,
+      contratosError
+    );
+    throw new Error(`No se pudieron obtener los contratos del colegio ${schoolData.name}`);
+  }
 
   const contratoList = (contratos ?? []) as unknown as ContratoRow[];
 

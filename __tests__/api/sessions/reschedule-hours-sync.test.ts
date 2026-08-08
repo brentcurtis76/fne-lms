@@ -399,7 +399,10 @@ describe('PUT /api/sessions/edit-requests/[eid] — approve is one transaction [
       p_session_id: SESSION_ID,
       p_actor_id: ADMIN_ID,
       p_updates: { end_time: '11:00:00' },
-      p_if_updated_at: null,
+      // r29 (Sol m4): was `null` — this route left the RPC's optimistic guard unused and
+      // relied on a JS old-value comparison made outside the transaction. It now sends
+      // the row it read, and the guard runs where the writes run.
+      p_if_updated_at: '2026-08-05T10:00:00.000Z',
     });
     expect(state.updates).toHaveLength(0);
   });
@@ -463,6 +466,73 @@ describe('PUT /api/sessions/edit-requests/[eid] — approve is one transaction [
     expect(state.editRequest.status).toBe('pending');
     // …and, new in r21, the session did not move either.
     expect(state.row.end_time).toBe('10:30:00');
+  });
+
+  // -------------------------------------------------------------------------
+  // r29 · Sol m4 — the approval path uses the RPC's own guard [R7]
+  //
+  // This route passed NO `if_updated_at`, so its only protection against a concurrent
+  // edit was the JS old-value comparison it makes against a row read several statements
+  // earlier — with the whole facilitator revalidation in between — while the RPC's
+  // purpose-built, pgTAP-proven guard sat unused. The guard is enforced INSIDE the same
+  // transaction as the session write and the ledger write, which is where it belongs.
+  // -------------------------------------------------------------------------
+
+  it("[R7] passes the session's updated_at into the RPC", async () => {
+    state.editRequest = editRequestRow({
+      end_time: { old: '10:30:00', new: '11:00:00' },
+    });
+
+    const { req, res } = approveEditRequest();
+    await editRequestHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(rescheduleCalls(state)[0].args.p_if_updated_at).toBe('2026-08-05T10:00:00.000Z');
+  });
+
+  it('[R7] rejects a stale guard with 409 and writes NOTHING', async () => {
+    state.editRequest = editRequestRow({
+      end_time: { old: '10:30:00', new: '11:00:00' },
+    });
+
+    // The race, driven rather than hoped for: a concurrent writer commits in the gap
+    // between this route reading the session and the RPC running. The JS comparison above
+    // it saw the OLD row and waved the approval through; only the in-transaction guard
+    // can still catch it.
+    const { createServiceRoleClient } = await import('../../../lib/api-auth');
+    (createServiceRoleClient as any).mockImplementation(() => {
+      const client = createMockClient(state);
+      const from = client.from;
+      return {
+        ...client,
+        from: (table: string) => {
+          const builder: any = from(table);
+          if (table !== 'consultor_sessions') return builder;
+          const read = builder.single;
+          builder.single = vi.fn(async () => {
+            const result = await read();
+            state.row = { ...state.row, updated_at: '2026-08-06T09:00:00.000Z' };
+            return result;
+          });
+          return builder;
+        },
+      };
+    });
+
+    const { req, res } = approveEditRequest();
+    await editRequestHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(409);
+    const body = JSON.parse(res._getData());
+    expect(body.code).toBe('SESSION_CONFLICT');
+    expect(body.current.end_time).toBe('10:30:00');
+
+    // Nothing written: not the session, not the ledger (the RPC is one transaction), and
+    // not the edit request — which stays `pending`, so the reviewer can retry it.
+    expect(state.row.end_time).toBe('10:30:00');
+    expect(state.updates).toHaveLength(0);
+    expect(state.editRequestUpdates).toHaveLength(0);
+    expect(state.editRequest.status).toBe('pending');
   });
 });
 

@@ -804,7 +804,87 @@ describe('fetchSchoolReportData', () => {
     });
   });
 
+  // ============================================================
+  // Sol R-B (r29) — the same defect, one step ABOVE the reads r27 fixed.
+  //
+  // `schools`, `clientes` and `contratos` destructured only `data`. A failed `clientes`
+  // read coalesced to `[]` and returned `{ programs: [] }` — a 200 whose whole-school
+  // report shows zero contracts and zero hours, pixel-identical to a school with nothing
+  // billed. A failed `schools` read became a 404 for a school that exists. Asserted PER
+  // READ, because one test over the three cannot say which is still swallowing.
+  // ============================================================
+
+  describe('a failed read at the TOP of the report fails the request, per read', () => {
+    it('throws when the `schools` read errors, instead of 404-ing a school that exists', async () => {
+      const options = baseOptions({ schemaOverrides: { schools: { columns: ['id'] } } });
+
+      await expect(fetchSchoolReportData(clientFor(options), SCHOOL_ID)).rejects.toThrow(
+        new RegExp(`No se pudieron obtener los datos del colegio ${SCHOOL_ID}`)
+      );
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`school=${SCHOOL_ID}`),
+        expect.objectContaining({ code: '42703' })
+      );
+    });
+
+    it('throws when the `clientes` read errors, instead of reporting zero contracts', async () => {
+      const options = baseOptions({ schemaOverrides: { clientes: { columns: ['id'] } } });
+
+      await expect(fetchSchoolReportData(clientFor(options), SCHOOL_ID)).rejects.toThrow(
+        new RegExp(`No se pudieron obtener los clientes del colegio ${SCHOOL_NAME}`)
+      );
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`school=${SCHOOL_ID}`),
+        expect.objectContaining({ code: '42703' })
+      );
+    });
+
+    it('throws when the `contratos` read errors, instead of reporting zero hours', async () => {
+      // Every column the select names is still there; the `estado` FILTER is what fails,
+      // so this is a genuine read failure and not a broken select string.
+      const options = baseOptions({
+        schemaOverrides: {
+          contratos: {
+            columns: [
+              'id',
+              'numero_contrato',
+              'is_annexo',
+              'horas_contratadas',
+              'programa_id',
+              'cliente_id',
+            ],
+            relations: { programas: 'programas' },
+          },
+        },
+      });
+
+      await expect(fetchSchoolReportData(clientFor(options), SCHOOL_ID)).rejects.toThrow(
+        new RegExp(`No se pudieron obtener los contratos del colegio ${SCHOOL_NAME}`)
+      );
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`school=${SCHOOL_ID}`),
+        expect.objectContaining({ code: '42703' })
+      );
+    });
+
+    it('a school with genuinely NO clientes still returns a valid empty report', async () => {
+      // The other half, and what makes the failure above distinguishable: emptiness
+      // proven by a SUCCESSFUL query still renders, exactly as it did before.
+      const result = await fetchSchoolReportData(
+        clientFor(baseOptions({ clientes: [] })),
+        SCHOOL_ID
+      );
+
+      expect(result).toEqual({ school_id: SCHOOL_ID, school_name: SCHOOL_NAME, programs: [] });
+    });
+  });
+
   it('returns null for a school that does not exist', async () => {
+    // PGRST116 — `.single()` over zero rows — is NOT a failed read. It is the honest 404
+    // this function has always returned, and R-B must not turn it into a 500.
     const result = await fetchSchoolReportData(clientFor(baseOptions({ schools: [] })), SCHOOL_ID);
     expect(result).toBeNull();
   });

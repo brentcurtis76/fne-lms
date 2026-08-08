@@ -423,11 +423,30 @@ export async function executeCancellation(
   // Get modality from hour_types table if hour_type_key is set
   let modality: string = 'online';
   if (session.hour_type_key) {
-    const { data: hourType } = await serviceClient
+    const { data: hourType, error: hourTypeError } = await serviceClient
       .from('hour_types')
       .select('modality')
       .eq('key', session.hour_type_key)
       .single();
+
+    // r29 (Sol R-C): this read used to swallow its error, and `modality` then stayed at
+    // its `'online'` initialiser — so a PRESENCIAL session cancelled 120 h out was
+    // evaluated under online thresholds and written to the ledger as `devuelta`
+    // (consultant unpaid) instead of `penalizada` (consultant paid). A durably wrong
+    // MONEY status, produced by a transient failure and indistinguishable afterwards
+    // from a correct one. Nothing has been written at this point, so failing here costs
+    // the caller a 500 and costs the ledger nothing. A key with no row is still not an
+    // error: `hourType` stays null and the pre-existing fallback below applies.
+    if (hourTypeError && hourTypeError.code !== 'PGRST116') {
+      console.error(
+        `[HourTracking] hour_types lookup failed (session=${session.id}, key=${session.hour_type_key}):`,
+        hourTypeError
+      );
+      throw new Error(
+        `No se pudo determinar la modalidad de la hora (${session.hour_type_key}); la cancelación no se aplicó.`
+      );
+    }
+
     if (hourType) {
       // Map hour_types.modality ('presencial'|'online'|'both') to session modality logic
       modality = hourType.modality === 'both' ? session.modality : hourType.modality;

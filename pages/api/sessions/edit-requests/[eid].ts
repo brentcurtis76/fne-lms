@@ -226,11 +226,18 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, editRequestI
       let updatedSession: any;
 
       if (isReschedule) {
+        // r29 (Sol m4): the RPC's optimistic guard used to be left unused on this path,
+        // so the only protection against a concurrent edit was the old-value comparison
+        // above — a JS check made against a row read some statements earlier, with the
+        // whole facilitator revalidation in between. `session.updated_at` is the value
+        // the guard was built for, and it is enforced INSIDE the same transaction as the
+        // session write and the ledger write, which is where the check has to sit.
         const applied = await applySessionReschedule(
           serviceClient,
           sessionId,
           user!.id,
-          sessionUpdate
+          sessionUpdate,
+          (session as { updated_at?: string | null }).updated_at ?? null
         );
 
         if (!applied.ok) {
@@ -251,6 +258,19 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, editRequestI
             500,
             applied.error
           );
+        }
+
+        // The guard did not match — the session moved under us between the read above and
+        // the write. Nothing was written to either table, and the edit request stays
+        // `pending`. Answered exactly as the admin PUT answers it: 409, `SESSION_CONFLICT`,
+        // and the row as the RPC found it, so the reviewer can see what changed.
+        if (applied.conflict) {
+          return res.status(409).json({
+            error:
+              'La sesión fue modificada por otro usuario. Recarga para ver los últimos cambios.',
+            code: 'SESSION_CONFLICT',
+            current: applied.current,
+          });
         }
 
         updatedSession = applied.session;

@@ -3805,3 +3805,228 @@ Nothing fell. The only figures that moved are the two this round is supposed to 
 mandatory e2e count (+12, all from the new spec) and the mandatory spec count (+1).
 
 The verbatim tails are in the executor report for round r28.
+
+---
+
+# Sol re-review remediation — round r29 (M1–M4, m1, m4, m6)
+
+Sol's second pass returned `REQUEST CHANGES`, narrowly: nine of twelve items closed, **four
+MAJOR** and six MINOR outstanding. The PM verified all four MAJORs against the code before
+dispatching; every one held. This round closes the four MAJORs plus three MINORs (m1, m4, m6).
+`getAvailableHours` (m2) and the five standing unruled items — including
+`'edit_approval_blocked'`, which swallows its audit-insert error in the same class as R-C — are
+**ticketed, not fixed here**, by explicit PM ruling.
+
+Branch `feat/zoom-sess`, on top of `bf7e7043`. No migration; no schema change.
+
+## R-A / M1 — the THIRD window: a checkpointed meeting survives a green delete
+
+**The chain, exactly as Sol described it and as the code confirms.** Reservation INSERT →
+`createMeeting` succeeds → the post-create checkpoint lands → the attempt dies **retryably** →
+the session is cancelled → `meeting_delete` claims, finds the **numberless** `pending` row, and
+because `row.zoom_meeting_number !== null && …` is false it **skips the Zoom call entirely**,
+marks the row `deleted`, **clears `last_error`** and completes **green** → the provision retry
+reaches the eligibility gate, where `strandedCheckpoint` required
+`ZOOM_MEETING_ACTIVE_STATUSES.includes(held.status)` and the row is now `deleted`. False. The
+job walked away terminal under `session_ineligible` — a reason that reads as *handled*.
+
+End state before this round: **cancelled session, live Zoom meeting, green delete job, green
+provision job, no loud marker anywhere.** That is the item-5 harm verbatim, in exactly the
+crash-shaped case the third compensation site was added to close. It also disproves r27's
+stated premise that r24's compensation is unconditional.
+
+**The fix** (`lib/zoom/jobs/meeting-provision.ts`, eligibility gate). The status predicate is
+widened from ACTIVE-only to ACTIVE **or** `RETIRED_MEETING_STATUSES` (`cancelled`/`deleted`):
+
+- A **numberless** row retired by a delete is the row whose retirement *proves* Zoom was never
+  called — the delete had nothing it could name. The checkpoint is then the only record of the
+  meeting, and this retry is the last process that can act on it.
+- The compensating Zoom DELETE is issued. **The release/republish is not**: the existing
+  re-read inside `compensateOrphanedMeeting` only retires a row that is still ACTIVE, so an
+  already-retired row is left exactly as its writer left it. Asserted, not assumed — the test
+  pins `releaseReservation` and `syncProjectionFromMeeting` call counts across the retry.
+- `error` is deliberately still excluded: it is a provisioner's own definite-failure record,
+  not a decision about the surface, and a create landing on one stays `possible_orphan`.
+- **Ambiguous-park precedence is unchanged.** `!isAmbiguousCreateMarker(held.last_error)`
+  still gates the whole branch, now asserted on a RETIRED row as well as a `pending` one.
+
+**The module header's "There is no third window" claim was false and is corrected.** It now
+says what is true: the two in-attempt re-checks close the window *within* an attempt and do not
+close it *across* attempts, and the eligibility gate is the third site for exactly that reason.
+
+## R-B / M2+m3 — three more swallowed reads, in the function r27 repaired
+
+`lib/services/school-hours-report.ts` destructured only `data` on three reads above the ones
+r27 fixed: `schools`, `clientes`, `contratos`. A failed `clientes` read coalesced to `[]` and
+returned `{ programs: [] }` — **a 200 whose whole-school report shows zero contracts and zero
+hours, pixel-identical to a school with nothing billed.** A failed `schools` read became a 404
+"Escuela no encontrada" for a school that exists.
+
+All three now destructure `.error` and throw, copying the convention the function already uses
+(`console.error` with the PostgREST object, es-CL message naming the school). One deliberate
+exception, called out because it is a judgment call: on `schools` the `.single()` **PGRST116**
+(zero rows) is *not* treated as a failed read — it is the honest 404 this function has always
+returned, and turning it into a 500 would be a behaviour change nobody asked for.
+
+Legitimate-empty still works and is asserted: a school with genuinely no clientes, and one with
+no contratos, both return a valid empty report.
+
+**The framing Sol is right about:** the PM's r27 prompt quoted specific line anchors and the
+round stayed on them. That is the PM's error, not r27's.
+
+## R-C / M3 — a failed read gave a session the wrong MONEY status
+
+`lib/services/hour-tracking.ts` read `hour_types.modality` without `.error`. On a failed read
+`modality` stayed at its `'online'` initialiser, so a **`presencial`** session cancelled 120 h
+out was evaluated under online thresholds — **clause 1 (`devuelta`, consultant unpaid) instead
+of clause 4 (`penalizada`, consultant paid)** — and that status was written durably to the
+ledger row, indistinguishable afterwards from a correct one.
+
+PM ruling, which Sol explicitly asked to be made explicitly: **fixed now**, not ticketed.
+Pre-existing is not a defence when the harm is a wrong billing status persisted to a ledger
+row. The read now throws; nothing has been written at that point, so the caller gets a 500 (the
+route wraps the whole handler in try/catch) and the ledger gets nothing.
+
+Same PGRST116 carve-out as R-B, and for the same reason: a key with no matching row keeps the
+pre-existing fallback. That path is unchanged and is pinned by a test so the next reader can
+see it was left alone on purpose.
+
+`getAvailableHours` (m2) is **untouched**, per the prompt.
+
+## R-D / M4 — `PROJECT_STATE.md` said four migrations; the branch carries seven
+
+`git diff --name-only main...HEAD -- supabase/migrations/` returns seven. `PROJECT_STATE.md`
+said "cuatro migraciones" in the phase summary, the deploy-blocking debt and the phase-close
+checklist. **An operator following that checklist applies four and misses
+`apply_session_reschedule` and both bucket-summary functions. Production code then calls RPCs
+that do not exist there, and every duration-relevant reschedule 500s.** The Z1b closing defect,
+re-armed by the very document that records the permanent rule against it.
+
+Every occurrence is corrected, and — per Sol, and the PM agrees — **the count is replaced with
+an explicit per-file manifest** in the deploy-blocking debt, as a checklist that is ticked file
+by file, with `git diff --name-only main...feat/zoom-sess -- supabase/migrations/` named as the
+source of truth for verifying it stays complete. A count drifts silently; a list of filenames
+does not.
+
+DoD verified: `grep -c "20260808\|20260809" PROJECT_STATE.md` = **3** (≥ 3), and the manifest
+diffs **byte-identically** against the git output.
+
+## R-E — the three MINORs closed
+
+- **m1** — the "a failed compensation keeps `pending`, so the §9 EXCLUDE keeps blocking the
+  host" claim was **true for one trigger and false for the others**: on a CAS-miss-on-retired-row
+  (and now on the new eligibility-gate retirement) the row is already `cancelled`/`deleted`, so
+  no host is blocked while a possibly-live meeting stands. The claim is **qualified where it is
+  written** — module header, `ZoomCompensationFailedError`'s doc, and the operator-facing
+  message itself, which now says which of the two situations it is. The parking is **not**
+  restructured: the mechanism is unchanged, and the only new input is a `holdsReservation`
+  boolean that selects the honest sentence.
+- **m4** — `pages/api/sessions/edit-requests/[eid].ts` passed no `if_updated_at`, leaving the
+  RPC's purpose-built, pgTAP-proven guard unused while the path relied on a racy JS old-value
+  comparison made against a row read several statements earlier (the whole facilitator
+  revalidation sits in between). It now passes `session.updated_at` and handles the conflict
+  **exactly as the admin PUT does**: 409, `code: 'SESSION_CONFLICT'`, and the row the RPC
+  returned. One pre-existing r21 assertion (`p_if_updated_at: null`) encoded the gap and is
+  updated with a comment saying why.
+- **m6 — WHERE THE §5 AMENDMENT LIVES, for a branch-only reader.** Six shipped artifacts on
+  this branch cite "plan §5, amended 2026-08-06 by owner decision":
+  `lib/utils/session-meet-access.ts:8`, `pages/meet/session/[id].tsx:43`,
+  `tests/e2e/zoom-managed-join.spec.ts:223`, `tests/e2e/zoom-join-authz.spec.ts:126`,
+  `__tests__/lib/utils/session-meet-access.test.ts:323`,
+  `__tests__/pages/meet/session-managed-join.test.tsx:150` — plus this file (§ RULING A) and
+  `fase-5-pm-dossier.md:370`. **The amendment itself is NOT on this branch.** The branch copy
+  of `docs/plan/zoom/PLAN.md:137` still carries the pre-amendment sentence ("…and the `/meet`
+  pages' getServerSideProps"); the amended line and its full rationale block, and the r1–r28
+  ledger, are on `main` (`git show main:docs/plan/zoom/PLAN.md`, around line 137).
+  **PM ruling: `main` is deliberately NOT merged into the branch this round** — it would muddy
+  the fix diff Sol re-reviews. Merging brings the amendment with it. A reviewer reading only
+  this branch should treat `git show main:docs/plan/zoom/PLAN.md` as the authoritative §5.
+
+## Files changed
+
+| File | Δ | Why |
+|---|---|---|
+| `lib/zoom/jobs/meeting-provision.ts` | +98/−23 | R-A widened predicate; header "no third window" corrected; m1 qualification + `holdsReservation` |
+| `lib/services/school-hours-report.ts` | +32/−3 | R-B: three reads throw on `.error` |
+| `lib/services/hour-tracking.ts` | +20/−1 | R-C: `hour_types` read throws on `.error` |
+| `pages/api/sessions/edit-requests/[eid].ts` | +21/−1 | m4: `if_updated_at` + 409 conflict handling |
+| `PROJECT_STATE.md` | +12/−4 | R-D: seven-file manifest replaces the count, in all four places |
+| `__tests__/lib/zoom/jobs/meeting-provision.test.ts` | +237 | R1 interleaving, R3 precedence ×2 |
+| `__tests__/lib/services/school-hours-report.test.ts` | +80 | R4, per read + legitimate-empty |
+| `__tests__/lib/services/hour-tracking-cancellation.test.ts` | +274 (new) | R5, the first suite to execute `executeCancellation` |
+| `__tests__/api/sessions/reschedule-hours-sync.test.ts` | +71/−1 | R7 |
+
+## Evidence — the complete gate run
+
+Local, macOS. **Unlike r28, `.env.local` WAS written** for the e2e gate: it was backed up,
+replaced with the CI job's local-stack block verbatim, and restored afterwards (`diff` against
+the backup: identical, confirmed before commit). The local stack already had every migration
+applied — `supabase db reset` was **not** run, and `scripts/ci/seed-e2e.mjs` is idempotent and
+hard-refuses a non-local host. Production was never touched.
+
+| Gate | Command | Result |
+|---|---|---|
+| 1 | `npm run type-check` | clean (exit 0) |
+| 2 | `npm run lint` (`--max-warnings=0`) | clean (exit 0) |
+| 3 | `npm test` | **4740 passed / 284 files** (from 4726 / 283 — **+14 / +1**, nothing fell) |
+| 4 | `npm run build` | OK (exit 0) |
+| 5 | `npm run test:db` | **PASS — Files=11, Tests=466** (unchanged; no pgTAP added) |
+| e2e | `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **88 passed** (unchanged) |
+| guard | `node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json` | `OK — 7 mandatory spec(s) ran with no skips` |
+
+The +14 is exactly this round's tests: 3 provision, 4 school-hours-report, 5 hour-tracking
+(new file), 2 reschedule-hours-sync.
+
+### Mutation probe on R-A (the criterion that makes R1 mean something)
+
+Restored the ACTIVE-only guard (`heldStatusCompensable` back to
+`ZOOM_MEETING_ACTIVE_STATUSES.includes(held.status)`) and re-ran R1 alone:
+
+```
+AssertionError: expected [ { id: 82000000001, …(11) } ] to deeply equal []
+- Array []
++ Array [ Object { "id": 82000000001, "topic": "Sesión de acompañamiento — Ciclo 2", … } ]
+```
+
+The failure prints **the live Zoom meeting the fake is still holding** — the harm itself, not a
+call count. Reverted; `git hash-object lib/zoom/jobs/meeting-provision.ts` is
+`6d05ac5aa8c05ea28c76d6b1463bc86a2491865f` **before and after**, so the revert is byte-identical.
+
+The R-B guards were probed the same way (all three disabled at once ⇒ exactly those 3 tests
+fail, 16 pass), so each read's assertion bites on its own read.
+
+## What a reviewer should scrutinise hardest
+
+1. **The widened predicate's blast radius.** `cancelled` and `deleted` now reach
+   `compensateOrphanedMeeting` from the eligibility gate. The claim is that a **numberless**
+   retired row plus a checkpoint naming *that* row can only mean "a delete retired a
+   reservation Zoom never heard about". Look for a fourth way a row reaches
+   `cancelled`/`deleted` with a NULL number while a checkpoint for it is live — the release
+   inside `compensateOrphanedMeeting` itself is the one worth chasing.
+2. **The PGRST116 carve-outs in R-B and R-C.** Both are deliberate and both are behaviour
+   preservation, not fix avoidance. If you think a `hour_type_key` with no matching row should
+   also fail the cancellation, that is a real finding — it just is not this one.
+3. **m4 and the JS old-value comparison.** The guard now runs inside the transaction, but the
+   JS comparison above it was left in place. Two overlapping guards with different failure
+   copy (409 "el valor actual de X ha cambiado" vs 409 `SESSION_CONFLICT`) is a UX seam worth a
+   ruling.
+4. **`holdsReservation` is what the caller LAST KNEW.** At the post-create re-check it is
+   passed `true` because this attempt placed the reservation and nothing since has moved it —
+   but a delete could retire the row between that read and a failed compensation. The value is
+   the best knowledge available at the call, not a re-read, and it only selects a message.
+5. **The manifest in `PROJECT_STATE.md`.** It is now the operator's checklist. Verify it
+   against `git diff --name-only main...feat/zoom-sess -- supabase/migrations/` yourself rather
+   than trusting the DoD line above.
+
+## Known limitations / deferred
+
+- **`getAvailableHours` (`hour-tracking.ts:223`, Sol m2)** — untouched by ruling; display-only,
+  does not change billed amounts; standing backlog.
+- **`'edit_approval_blocked'`** — its audit insert swallows its error, the same class as R-C.
+  **Ticketed, not fixed here**, by explicit PM ruling in the round prompt.
+- The five standing unruled items (`SESSION_STATUS_FALLBACK`, `total_hours_actual`'s name,
+  `create.tsx`'s UTC-vs-Chile `min`, the four order-dependent suites, and the above) remain
+  unruled and untouched, as do `createSupabaseMeetingDeleteStore`'s three untested methods.
+- **Item 12b** (staging against a real Zoom tenant with an audio plan) is unchanged and still
+  blocks phase close. Nothing in this round was exercised against a live tenant.
+- **`main` is not merged into this branch** — see m6 above for where the §5 amendment lives.

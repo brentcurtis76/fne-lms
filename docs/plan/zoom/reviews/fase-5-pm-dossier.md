@@ -490,3 +490,27 @@ Round r29 closed them in one pass.
 a real Zoom tenant**; seven migrations are unapplied in production; `mode:'link'`, the dial-in
 block and the §14 OFF branch have no e2e coverage; the A6 standing items remain deliberately
 unruled.
+
+---
+
+# ADDENDUM 3 — Sol round-3 notes closed, round r30
+
+**Head: `7ab2b72d`.** Sol's round-3 verdict was **`APPROVE WITH NOTES`** — all four MAJORs
+verified closed, two MINORs outstanding. The PM ruled both **fix-now**; r30 closed them.
+
+| Finding | Fix | PM verification |
+|---|---|---|
+| **MINOR 1** — `holdsReservation` was captured *before* awaiting the Zoom DELETE, so a concurrent `meeting_delete` could retire the row mid-flight and the failure copy would still claim the reservation "keeps blocking its host" | Copy made **state-neutral**: names the Zoom meeting number and the required action, asserts nothing about the host slot. `holdsReservation` removed entirely — the ternary was its only reader. **Sol's option B, not A**: no re-read was added on the error path, since that answer can be stale again by the time it lands | PM grep: `holdsReservation` has **zero** occurrences; the only surviving "keeps blocking its host" is inside a comment explaining why the claim was removed. **PM probe: reintroducing a host-slot claim kills BOTH `[S1]` assertions** — active path and retired path — so neutrality is pinned on both, not just one |
+| **MINOR 2** — the numberless precondition had no negative control; removing it passed all 116 tests (found by PM probe in r29, reproduced by Sol) | `[R4]` added: an ineligible session, a retired row **carrying** `zoom_meeting_number`, and a matching checkpoint ⇒ **no second Zoom DELETE**, row and projection unchanged. Built on a **real** `meeting_delete` retirement, so the projection asserted unchanged is one something actually published | The round's probe removing the precondition now fails `[R4]` and only `[R4]` — `deleteMeeting` called **twice** instead of once, which is the ownership violation stated as a call count |
+
+**Gates at `7ab2b72d`, PM-re-run:** type-check 0 · lint 0 · **4742 passed / 284 files** · build 0 · **`test:db` Files=11, Tests=466, PASS**. The round also ran the mandatory e2e list (88 passed, 7 specs, guard green). `.env.local` was written for the e2e gate and **PM-verified restored** — zero localhost references, production host back.
+
+**One NIT, recorded not fixed:** `[L5]`'s test title still reads *"…and keeps blocking the host"*, describing behaviour this round removed. The assertions are correct; only the name drifted. Cosmetic, and this workstream has corrected that class of drift before rather than let it accumulate.
+
+**Nothing else changed.** The round found no defect in passing, and touched nothing on the out-of-scope list.
+
+## What remains, and none of it is an executor's
+
+1. **No PR, therefore no CI.** A binding rule adopted on `main` on 2026-08-08 states that every phase opens a PR before merge, because `.github/workflows/ci.yml` triggers on `pull_request` and `push: [main]` **only**. `feat/zoom-sess` has been pushed for thirty rounds with **zero CI runs** — every figure in this dossier is local: the PM's, the executors', and Sol's own re-runs. No artifact in this phase has ever cited CI as evidence, and the identity row has said "PR: NONE OPEN" throughout, but the gap is now a close blocker.
+2. **Item 12b — the staging run against a real audio-plan Zoom tenant.** Still the phase's largest unknown: **no code here has ever run against a real Zoom account.** The dial-in wire shape remains documentation-based.
+3. **Seven migrations unapplied in production**, with the read-only schema verification §0.1(d) requires — the rule that exists because the previous phase broke session approval in production after ten green review rounds.

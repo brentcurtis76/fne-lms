@@ -466,3 +466,27 @@ Another workstream's PM established, and recorded in `docs/plan/PLAN.md`'s Decis
 3. **Apply the seven migrations to production and verify the schema read-only** (§0.1(d)) — the rule that exists because Z1b broke session approval in production after ten green review rounds. The manifest is in `PROJECT_STATE.md` as filenames rather than a count, precisely so this is ticked off per file. Worth folding in the r13 residual-risk count in the same session: `consultor_sessions` with `status='completada'` and no `contract_hours_ledger` row.
 
 **Standing items deliberately left unruled and recorded for whoever picks up Z3**: `SESSION_STATUS_FALLBACK` · `total_hours_actual`'s now-inaccurate name · `create.tsx`'s UTC-vs-Chile date `min` · four suites with pre-existing within-file order dependencies · `'edit_approval_blocked'` (not in the action allowlist, and its audit insert swallows its error — r21's discriminator pattern is the fix shape) · `getAvailableHours` conflating a failed read with "no data" · `createSupabaseMeetingDeleteStore`'s three untested methods · `[L5]`'s stale test title · the §14 OFF branch, `mode:'link'` and the dial-in block having no e2e coverage · `METHOD`/iMIP and a subscribable calendar feed, still unowned.
+
+## 🔴 **PR #45 OPENED 2026-08-08 — AND CI CANNOT RUN: the PR is `CONFLICTING`. The rule earned its keep on day one.**
+
+Brent opened **[PR #45](https://github.com/brentcurtis76/fne-lms/pull/45)** per the binding rule adopted the same day. **GitHub Actions did not start a single check**, and the reason is not a flake: `gh pr view` reports `mergeable: CONFLICTING`, `mergeStateStatus: DIRTY`, and GitHub does not run `pull_request` workflows when it cannot compute a merge commit. Vercel's preview built (it does not need one); **the six real gates never began.**
+
+**`main` has moved 136 commits since `feat/zoom-sess` forked.** PM-computed with `git merge-tree --write-tree` — a read-only merge simulation that mutated nothing — the conflicts are exactly three files, and all three are **shared CI fixtures**:
+
+```
+scripts/ci/e2e-fixtures.json
+scripts/ci/e2e-mandatory.mjs
+scripts/ci/seed-e2e.mjs
+```
+
+`.github/workflows/ci.yml` auto-merges clean. **Both workstreams added to the same three files**: Z2's r28 added the managed-session fixture and registered `zoom-managed-join.spec.ts` as mandatory; the pasantías/A8 workstream added its admin-leads fixtures and registered `pasantias-leads-admin.spec.ts`.
+
+**This is precisely the class of problem thirty rounds of local green could never surface**, and it appeared within minutes of the first PR. Two teams had been editing the same CI seed files for days with no way to notice.
+
+**PM RULING — the resolution is a UNION, never a choice**, and the risk is asymmetric: **`e2e-mandatory.mjs` is the list of specs that MUST run**, built so a green gate cannot mean "the specs were skipped". A resolution keeping only one side leaves a file that still parses, still runs and **still reports green** while another team's required coverage has silently vanished — the exact failure that guard exists to prevent, reintroduced by a merge. `[T2]` therefore demands both spec names printed, and `[T5]` demands the whole list actually run, so the union is proved by execution rather than by reading.
+
+**`[T6]` protects the approved work**: the Z2 feature diff against `4be9f7d6` must be **empty** across `lib/zoom/**`, the meeting utils, the four services, `pages/api/meet/**`, `pages/meet/**` and `supabase/migrations/**`. A merge round may resolve conflicts; it may not move the diff Sol approved.
+
+**The merge also closes Sol's m6** by bringing `PLAN.md` §5's owner-authored amendment (`50c28855`) onto the branch, where six shipped artifacts already cite it.
+
+| Z2-S11 · r31 | Z2 | `feat/zoom-sess` | — | 🔵 DISPATCHED 2026-08-08 | Prompt at `docs/plan/zoom/prompts/Z2-r31.md`. Fork point `4be9f7d6`. **The one round permitted to merge — `origin/main` INTO the feature branch, never the reverse**, with `main` explicitly off limits and PR #45 not to be opened, closed, re-targeted or merged. Union resolution ruled for all three files; a genuine semantic clash is a `FINDINGS` stop rather than a winner being picked. `[T7]` closes the loop the round exists for: after the push, PR #45 must report mergeable **and GitHub Actions must have started a run** — the first CI this branch has ever had. |

@@ -6,6 +6,7 @@
  *   - two school rows (the org rows the fixtures hang off; the second exists so a
  *     consultor can be assigned somewhere OTHER than the session's school),
  *   - one auth user + profile + role row per entry in `e2e-fixtures.json`,
+ *   - (A8) one Pasantías interest lead, for the admin triage surface,
  *   - (Z1c, extended by Z2-S8) the Zoom domain graph — growth community, three sessions
  *     (one unprovisioned, one carrying a legacy manual meeting link, one PLATFORM-MANAGED
  *     with no link at all), their facilitators, attendees and reports — via
@@ -170,6 +171,63 @@ async function ensureRole(supabase, userId, email, spec) {
  * pages/api/admin/create-user.ts:146-159 both preserve the caller's school_id verbatim
  * (or its absence) precisely so that scoped and global consultors stay distinguishable.
  */
+/**
+ * A8 — one Pasantías interest lead, for the admin triage surface.
+ *
+ * Look-before-insert on the table's own unique key `(email_normalized, cohort)`,
+ * and an existing row is left EXACTLY as it is: the specs read the lead but
+ * never triage it, so a re-seed must not reset a status a human moved while
+ * looking at the page either.
+ *
+ * `email_normalized` has to equal `lower(btrim(email))` or the CHECK rejects the
+ * row; `consent_accepted_at` / `consent_notice_version` are NOT NULL with no
+ * default; `marketing_opt_in` is all-or-nothing with its two companion columns,
+ * so the false case writes none of them and takes the defaults.
+ */
+async function ensurePasantiasLead(supabase, lead) {
+  const emailNormalized = lead.email.trim().toLowerCase();
+
+  const { data: existing, error: selectError } = await supabase
+    .from('pasantias_leads')
+    .select('id, status')
+    .eq('email_normalized', emailNormalized)
+    .eq('cohort', lead.cohort)
+    .limit(1);
+  if (selectError) throw new Error(`pasantias_leads select failed: ${selectError.message}`);
+
+  if (existing && existing.length > 0) {
+    console.log(`[seed-e2e] pasantias lead reused — id ${existing[0].id}, status ${existing[0].status}`);
+    return;
+  }
+
+  const { data: inserted, error } = await supabase
+    .from('pasantias_leads')
+    .insert({
+      cohort: lead.cohort,
+      first_name: lead.firstName,
+      last_name: lead.lastName,
+      email: lead.email,
+      email_normalized: emailNormalized,
+      institution: lead.institution,
+      phone: lead.phone,
+      role_title: lead.roleTitle,
+      num_people: lead.numPeople,
+      message: lead.message,
+      source_path: lead.sourcePath,
+      utm_source: lead.utmSource,
+      utm_medium: lead.utmMedium,
+      utm_campaign: lead.utmCampaign,
+      status: lead.status,
+      consent_accepted_at: lead.consentAcceptedAt,
+      consent_notice_version: lead.consentNoticeVersion,
+    })
+    .select('id')
+    .limit(1);
+  if (error) throw new Error(`pasantias_leads insert failed: ${error.message}`);
+
+  console.log(`[seed-e2e] pasantias lead created — id ${inserted?.[0]?.id ?? 'unknown'}`);
+}
+
 function resolveSchoolId(fixtures, name) {
   return name === 'secondary' ? fixtures.schoolSecondary.id : fixtures.school.id;
 }
@@ -229,6 +287,9 @@ async function main() {
       );
     }
   }
+
+  // Independent of the persona graph — the leads table has no FK to any of it.
+  await ensurePasantiasLead(supabase, FIXTURES.pasantiasLead);
 
   console.log('[seed-e2e] done');
 }

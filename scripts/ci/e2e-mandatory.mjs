@@ -32,6 +32,18 @@ export const MANDATORY_SPECS = [
   // for the same reason the others are: the managed branches it defends are precisely the
   // ones four rounds changed without any spec being able to observe the change.
   'tests/e2e/zoom-managed-join.spec.ts',
+  'tests/e2e/pasantias-page.spec.ts',
+  // A6a r3: `components/Footer.tsx` is shared by every public marketing page, so
+  // its heading levels are a cross-page contract. CI runs only the specs on this
+  // list, which means a guard that is not on it is a guard that never runs.
+  'tests/e2e/footer-heading-order.spec.ts',
+  // A6b — the lead form: what the browser posts (strict boolean consent, no
+  // marketing opt-in unless clicked), that a failed client validation sends
+  // nothing, and that a server error loses none of the visitor's answers.
+  'tests/e2e/pasantias-form.spec.ts',
+  // A8 — the admin triage surface over pasantias_leads: that an admin reaches it
+  // and sees a lead, and that both halves of the /admin/* gate still deny.
+  'tests/e2e/pasantias-leads-admin.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

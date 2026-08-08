@@ -1,0 +1,138 @@
+/**
+ * FNE design-system tokens — A6r.
+ *
+ * Ported from `docs/plan/design/a6r-handoff/tokens/*.css` (colors, typography,
+ * spacing, surfaces, motion), which is itself derived from the FNE brand manual
+ * (dic 2025). The handoff's `fonts.css` is deliberately NOT ported: `globals.css`
+ * already declares the full Mont face set against `public/fonts/`, and a second
+ * set of `@font-face` rules pointing at a different path would double-load the
+ * family.
+ *
+ * RELATIONSHIP TO `tailwind.config.js`. The config already carries the same
+ * palette under the same names (`brand_primary`, `brand_accent`, …) and is used
+ * by every other surface in the app, so it stays the source Tailwind reads.
+ * Rewriting those entries as `var(--fne-*)` would silently break every existing
+ * `bg-brand_primary/40`-style opacity modifier, which is not an A6r-sized risk.
+ * Instead the two are pinned to each other by
+ * `__tests__/styles/brand-tokens.test.ts`, which fails if either side drifts.
+ *
+ * The gold gradient and its two stops are NEW — the config has no equivalent, so
+ * they are declared here once and read by the config through `var()`.
+ */
+:root {
+  /* Primary — mirrored in tailwind.config.js, pinned by the token test. */
+  --fne-black: #0a0a0a;
+  --fne-yellow: #fbbf24;
+  --fne-white: #ffffff;
+
+  /* Gold gradient. New in A6r; declared here only, read by tailwind.config.js. */
+  --fne-gold-light: #fdb833;
+  --fne-gold-dark: #b47410;
+  --fne-gold-gradient: linear-gradient(135deg, var(--fne-gold-light) 0%, var(--fne-gold-dark) 100%);
+
+  /* Support — mirrored in tailwind.config.js, pinned by the token test. */
+  --fne-amber: #f59e0b;
+  --fne-yellow-light: #fcd34d;
+  --fne-gray-dark: #1f1f1f;
+  --fne-gray-medium: #6b7280;
+  /* The only amber legible as TEXT on white (5.02:1). --fne-yellow and
+     --fne-amber are surface colours and must never carry small text on light. */
+  --fne-amber-text: #b45309;
+
+  /* Interface / document greys. */
+  --fne-gray-50: #f9fafb;
+  --fne-gray-100: #f3f4f6;
+  --fne-gray-200: #e5e7eb;
+  --fne-gray-300: #d1d5db;
+  --fne-gray-400: #9ca3af;
+  --fne-gray-700: #374151;
+
+  /* Semantic aliases. */
+  --surface-page: var(--fne-white);
+  --surface-card: var(--fne-white);
+  --surface-sunken: var(--fne-gray-50);
+  --surface-inverse: var(--fne-black);
+  --surface-accent: var(--fne-yellow);
+
+  --text-title: var(--fne-black);
+  --text-body: var(--fne-gray-dark);
+  --text-secondary: var(--fne-gray-medium);
+  --text-on-inverse: var(--fne-white);
+  --text-on-accent: var(--fne-black);
+  --text-accent: var(--fne-amber-text);
+
+  --border-default: var(--fne-gray-200);
+  --border-strong: var(--fne-gray-300);
+  --border-inverse: rgba(255, 255, 255, 0.2);
+
+  --accent-rule: var(--fne-gold-gradient);
+  --focus-ring: var(--fne-yellow);
+  /* Minimum veil under text set over photography. */
+  --veil-photo: rgba(10, 10, 10, 0.4);
+
+  /* Type. Mont only; scale and tracking from the brand manual. */
+  --font-core: 'Mont', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --weight-light: 300;
+  --weight-book: 400;
+  --weight-regular: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-heavy: 800;
+  --weight-black: 900;
+
+  --size-display: 44px;
+  --size-h1: 32px;
+  --size-h2: 24px;
+  --size-h3: 18px;
+  --size-body: 15px;
+  --size-small: 13px;
+  --size-eyebrow: 11px;
+
+  --leading-display: 1.05;
+  --leading-title: 1.2;
+  --leading-body: 1.6;
+
+  --tracking-signature: 0.2em;
+  --tracking-descriptor: 0.15em;
+  --tracking-eyebrow: 0.08em;
+  --tracking-display: -0.02em;
+
+  /* Spacing. 4 px base; the manual fixes no screen scale, so this mirrors the
+     Tailwind scale the platform already uses. */
+  --gutter-page: 32px;
+  --gutter-page-sm: 16px;
+  --content-max: 1280px;
+  --content-narrow: 768px;
+  --topbar-height: 80px;
+
+  /* Surfaces. Flat white cards, 1 px grey border, generous radius; shadow is
+     for dialogs and toasts, not content cards. */
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 999px;
+
+  --shadow-card: 0 1px 2px rgba(10, 10, 10, 0.04);
+  --shadow-raised: 0 4px 6px rgba(10, 10, 10, 0.1), 0 1px 3px rgba(10, 10, 10, 0.08);
+  --ring-focus: 0 0 0 2px var(--fne-white), 0 0 0 4px var(--fne-yellow);
+
+  /* Filete dorado under section titles. */
+  --rule-height: 4px;
+  --rule-width: 56px;
+  /* Símbolo lineal as a watermark — this is the manual's maximum. */
+  --watermark-opacity: 0.12;
+
+  /* Motion. Short and functional: colour and opacity only, no bounce, no
+     parallax, no decorative movement. */
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+  }
+}

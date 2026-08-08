@@ -19,7 +19,7 @@ it carries true state and open items.
 
 The PM conversation is DISPOSABLE by design: every decision, accepted deviation, and open item lives in this ledger, the `docs/plan/zoom/reviews/fase-<N>-review-request.md` files, and git/PR state — never only in a chat. To rotate PMs (recommended at each phase boundary, or sooner if review quality degrades), start a fresh Claude conversation (Fable 5) with exactly this:
 
-> You are the PM for the Zoom integration in the GENERA repo (`/Users/brentcurtis/Documents/fne-lms-working`). You never write code. Executors are separate Claude Code sessions (Opus 5) that receive self-contained chunk prompts from you and return reports in a format you stipulate.
+> You are the PM for the Zoom integration in the GENERA repo (`/Users/brentcurtis/dev/fne-lms` — moved out of `~/Documents` on 2026-08-05 after iCloud evicted the shared `.git`; never put a checkout under `~/Documents`). You never write code. Executors are separate Claude Code sessions (Opus 5) that receive self-contained chunk prompts from you and return reports in a format you stipulate.
 >
 > Reconstruct state, in this order: (1) `docs/plan/zoom/LEDGER.md` — the execution ledger, read it FIRST (true state + open items), then `docs/plan/zoom/PLAN.md` (§15 phases, §16 gates; all decisions are SETTLED — never re-litigate). `/pm-boot ZOOM` does this step for you; (2) `CLAUDE.md` + `PROJECT_STATE.md`; (3) the newest `docs/plan/zoom/reviews/fase-*-review-request.md` files; (4) verify the ledger against reality: `git log --oneline -15 main`, `git branch -a`, `gh pr list --state all --limit 5` — if they disagree, trust git/GitHub and flag the drift to Brent.
 >
@@ -39,7 +39,7 @@ PM approval of the last chunk does NOT close a phase. The closing sequence is:
 
 **Standard reviewer prompt** (paste into a fresh Codex session, replacing `<N>`):
 
-> You are Sol, the independent reviewer for phase `<N>` of the Zoom integration in the GENERA repo (`/Users/brentcurtis/Documents/fne-lms-working`). You have no stake in this code: you did not write it and you will not fix it.
+> You are Sol, the independent reviewer for phase `<N>` of the Zoom integration in the GENERA repo (`/Users/brentcurtis/dev/fne-lms` — moved out of `~/Documents` on 2026-08-05 after iCloud evicted the shared `.git`; never put a checkout under `~/Documents`). You have no stake in this code: you did not write it and you will not fix it.
 >
 > Your standing instructions are `docs/planning/review-protocol.md` — follow them exactly: read-only (no edits, no commits, findings only), the mandatory reading order, the full checklist, the verdict format.
 >
@@ -134,7 +134,20 @@ The revised plan keeps the spine, adds a trust boundary with a single authorized
 
 **Community meetings**: join list = active membership in the meeting's community (`user_roles.community_id`, `is_active`) + admins + the school's assigned consultants; everyone joins `role:0` (Zoom-host powers stay with FNE identities); `join_before_host:true`. Non-member 403; other-school 404.
 
-Single source of truth: `authorizeMeetingJoin()` in a new `lib/utils/meeting-join-policy.ts`, used by both the join API and the `/meet` pages' getServerSideProps.
+Single source of truth: `authorizeMeetingJoin()` in a new `lib/utils/meeting-join-policy.ts`, used by both the join API and the `/meet` pages.
+
+> **AMENDED 2026-08-06 by owner decision (Brent), after Sol's Z2 review item 9 and executor round r23.** This line previously read *"…and the `/meet` pages' getServerSideProps"*, which was read — by Sol, by the PM, and correctly — as an instruction to make `authorizeMeetingJoin()` the **page-visibility** gate. Implementing that literally is wrong, and r23 stopped rather than ship it:
+>
+> - `canViewSession` and the §5 join list are **not nested**, so substituting one for the other moves personas in **both** directions. `docente` — currently denied — becomes an authorized attendee; `gcLeader` and `consultorGlobal` **lose** access they have today. A security refactor must not re-tier roles as a side effect.
+> - `pages/meet/session/[id].tsx` renders a **raw pasted `meeting_link`** for non-Zoom sessions (`google_meet`, `teams`, `otro`), which the scheduler still supports. Widening page visibility therefore widens who can join those meetings. This is not a legacy artifact — it is a live, supported path.
+> - `tests/e2e/zoom-join-authz.spec.ts` (a **mandatory** spec) asserts the current tiers. Inverting it is a product decision, not a refactor.
+>
+> **The intent stands and is sharpened: ONE authorization decision governs JOINING — not page visibility.** Concretely:
+> 1. **Page visibility keeps `canViewSession`**, the same rule every other session surface uses. One special case on one page is how authorization models drift apart.
+> 2. **`authorizeMeetingJoin()` governs the join CAPABILITY wherever it appears on that page** — the Zoom join affordance **and** the raw pasted link, which is today ungated and is the same capability by another name. Two join paths under two different rules, decided by which provider the scheduler happened to pick, is the actual defect §5 was reaching for.
+> 3. **The §14 kill switch is enforced in `/meet` SSR** as §14 already requires — it has no persona-tier consequence and is unaffected by this amendment.
+>
+> Neither §5's guarantee (`PLAN.md` §5: *"No page props … ever carries a Zoom secret"*) nor §14's is weakened: a Zoom-managed session's `meeting_link` is NULL by design, and Zoom credentials still leave only through the join route's single per-request opening.
 
 **Residual risk (accepted, documented)**: an authorized attendee can extract mn+passcode from devtools and share; irreducible in SDK mode. Mitigations: per-meeting auto-generated passcodes (leak scoped to one live meeting); consultor sessions get `join_before_host:false, waiting_room:false` (facilitator present, roster visible, expel available); community meetings `join_before_host:true, waiting_room:false` (waiting room would strand host-less meetings — why it's not the global answer); passcode rotation job available on suspicion; participant_joined visibility after the fact. Escalation dial if abuse observed: waiting room ON for consultor sessions. Never enable Zoom "authenticated users only" — it blocks our license-free SDK guests (verified).
 

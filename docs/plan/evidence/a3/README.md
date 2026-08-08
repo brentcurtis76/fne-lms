@@ -20,6 +20,16 @@ was the only page of the twelve that changed. `BROCHURE_VERSION` stays
 `2026-10-v3`: the D-05 cache key was already bumped for this round's brochure
 and no cached object was ever served from it.
 
+**Re-rendered again by A6a r2 and r3**, both times because the Appendix A-6
+expert titles reached `cohort-public.ts` late and both PDFs print `expert.role`
+verbatim. A6a r2 fixed experts 5–8 (`brochure-07`, `brochure-10`;
+`BROCHURE_VERSION` → `2026-10-v4`, ficha untouched because it prints only the
+first four). **A6a r3** added A-6's `INSPIRA` suffix to Coral Regí and Mora del
+Fresno — who *are* in the ficha's first four — so this time three pages moved:
+`brochure-07`, `brochure-10` (`BROCHURE_VERSION` → `2026-10-v5`) and `ficha-2`
+(`FICHA_VERSION` → `2026-10-v2`, its first bump). The other nine pages came back
+byte-identical, verified by `git status` after the render rather than by eye.
+
 | File | Document | Page |
 |---|---|---|
 | `brochure-01.png` | Brochure | Portada |

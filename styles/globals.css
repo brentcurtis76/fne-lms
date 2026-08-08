@@ -1,6 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
 @import './tiptap.css';
 @import './tour.css';
+/* FNE design-system custom properties (A6r). Declarations only — no rules — so
+   importing it changes nothing until a surface reads a token. */
+@import './fne-tokens.css';
 
 /* Mont (Fontfabric) — the Genera brand typeface. Full weight range used across the
    brand surfaces (e.g. the Líderes Generación Tractor registration page). */

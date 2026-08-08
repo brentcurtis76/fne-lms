@@ -1,0 +1,14 @@
+/* Motion · short, functional. Colour and opacity transitions; no bounce, no
+   parallax, no decorative motion. */
+:root{
+  --duration-fast:150ms; /* @kind other */
+  --duration-base:200ms; /* @kind other */
+  --duration-slow:300ms; /* @kind other */
+  --ease-standard:cubic-bezier(.4,0,.2,1); /* @kind other */
+  --ease-out:cubic-bezier(0,0,.2,1); /* @kind other */
+  --transition-colors:color var(--duration-base) var(--ease-standard),background-color var(--duration-base) var(--ease-standard),border-color var(--duration-base) var(--ease-standard);
+  --transition-opacity:opacity var(--duration-base) var(--ease-standard);
+}
+@media (prefers-reduced-motion:reduce){:root{--duration-fast:0ms; /* @kind other */
+--duration-base:0ms; /* @kind other */
+--duration-slow:0ms /* @kind other */}}

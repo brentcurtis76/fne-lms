@@ -1,0 +1,29 @@
+/* Spacing · 4 px base. The manual fixes no screen spacing scale; this is the
+   scale the platform code already uses (Tailwind's), kept as an addition. */
+:root{
+  --space-1:4px;
+  --space-2:8px;
+  --space-3:12px;
+  --space-4:16px;
+  --space-5:20px;
+  --space-6:24px;
+  --space-8:32px;
+  --space-10:40px;
+  --space-12:48px;
+  --space-16:64px;
+  --space-20:80px;
+
+  --gutter-page:32px;      /* px-8 at desktop */
+  --gutter-page-sm:16px;
+  --content-max:1280px;
+  --content-narrow:768px;
+  --sidebar-width:320px;   /* w-80 */
+  --sidebar-collapsed:80px;/* w-20 */
+  --topbar-height:80px;    /* h-20 */
+
+  /* Logo clear space = 1x, x being the cap height of "FUNDACIÓN" in the firma */
+  --logo-clearspace:1em;
+  --logo-min-vertical:96px;
+  --logo-min-horizontal:140px;
+  --logo-min-symbol:32px;
+}

@@ -166,6 +166,20 @@ describe('generateBrochure — cohort content (Appendix A)', () => {
     expect(brochureText).toContain('Encargada de Innovación');
   });
 
+  /**
+   * The A-6 amendment of 2026-08-02 took two days to reach `cohort-public.ts`,
+   * and the brochure prints whatever that module holds — so a PDF shipping the
+   * placeholder is the same bug one surface further out. Asserted on the rendered
+   * text rather than on the module, because that is what a reader receives.
+   */
+  it('prints no placeholder title, and the corrected A-6 roles', () => {
+    expect(brochureText).not.toMatch(/experto invitado/i);
+    expect(brochureCompact).not.toContain(compact('Experto invitado'));
+    expect(brochureText).toContain('Consultor en transformación pedagógica');
+    expect(brochureText).toContain('co-autor de «Educación Relacional»');
+    expect(brochureText).toContain('fundador del Institut Angeleta Ferrer');
+  });
+
   it('renders what the programme includes and excludes', () => {
     // Terms replaced by the owner on 2026-08-02 with the canonical brochure:
     // week-1 lunches are the whole of the meals inclusion, and week-2 meals,
@@ -377,6 +391,14 @@ describe('generateFicha — open content, no prices (D-02)', () => {
   it('never mentions Madrid', () => {
     expect(fichaText).not.toMatch(/madrid/i);
     expect(fichaCompact).not.toMatch(/madrid/i);
+  });
+
+  it('prints no placeholder title either', () => {
+    // The ficha features only the first four of A-6, none of which was ever a
+    // placeholder — which is exactly why this assertion is worth having: it is
+    // the one that would catch a future slice() widening past a bad row.
+    expect(fichaText).not.toMatch(/experto invitado/i);
+    expect(fichaCompact).not.toContain(compact('Experto invitado'));
   });
 });
 

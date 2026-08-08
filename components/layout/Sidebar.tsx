@@ -415,6 +415,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         adminOnly: true
       },
       {
+        id: 'pasantia-leads',
+        label: 'Pasantías',
+        href: '/admin/pasantia-leads',
+        icon: BriefcaseIcon,
+        description: 'Interesados en Pasantías INSPIRA',
+        adminOnly: true
+      },
+      {
         id: 'schools',
         label: 'Escuelas',
         href: '/admin/schools',

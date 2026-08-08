@@ -37,7 +37,13 @@
     "  ADDED, NEVER FLIPPED. `session` and `linkedSession` keep is_zoom_managed false, so",
     "  every assertion already written against them holds unchanged. A managed session carries",
     "  NO meetingLink by design (plan §8: the join URL lives in zoom_internal and never touches",
-    "  consultor_sessions) — that is the property under test, not a gap in the fixture."
+    "  consultor_sessions) — that is the property under test, not a gap in the fixture.",
+    "",
+    "A8 — `pasantiasLead` is one row of public.pasantias_leads for the admin triage surface.",
+    "It is a TOP-LEVEL block on purpose: a key under `users` would break",
+    "assertFixtureRosterComplete() in tests/e2e/helpers/auth.ts, which requires `users` and",
+    "DECLARED_FIXTURE_KEYS to be set-equal. The specs only ever READ it — the fixture is not",
+    "reset between local runs, so a spec that triaged it would pass once and fail forever after."
   ],
   "school": {
     "id": 990001,
@@ -146,6 +152,24 @@
         }
       ]
     }
+  },
+  "pasantiasLead": {
+    "cohort": "octubre-2026",
+    "email": "e2e-pasantias-lead@example.com",
+    "firstName": "Interesada",
+    "lastName": "Sintetica",
+    "institution": "Instituto Sintetico Pasantias E2E",
+    "phone": "+56 9 0000 0000",
+    "roleTitle": "Directora",
+    "numPeople": 3,
+    "message": "Mensaje sintetico de prueba para las pruebas e2e. No corresponde a ninguna persona real.",
+    "sourcePath": "/pasantias?utm_source=e2e",
+    "utmSource": "e2e",
+    "utmMedium": "sintetico",
+    "utmCampaign": "pasantias-e2e",
+    "status": "new",
+    "consentAcceptedAt": "2026-01-15T12:00:00.000Z",
+    "consentNoticeVersion": "e2e-sintetico"
   },
   "users": {
     "admin": {

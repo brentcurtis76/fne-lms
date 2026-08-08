@@ -1,0 +1,62 @@
+/* Colour · exact values from the FNE brand manual (dic 2025).
+   Three colours do 95 % of the work: negro, amarillo, blanco. */
+:root{
+  /* Primary */
+  --fne-black:#0A0A0A;
+  --fne-yellow:#FBBF24;
+  --fne-white:#FFFFFF;
+  --fne-gold-light:#FDB833;
+  --fne-gold-dark:#B47410;
+  --fne-gold-gradient:linear-gradient(135deg,#FDB833 0%,#B47410 100%); /* @kind color */
+
+  /* Support */
+  --fne-amber:#F59E0B;
+  --fne-yellow-light:#FCD34D;
+  --fne-gray-dark:#1F1F1F;
+  --fne-gray-medium:#6B7280;
+  /* Amber that is legible as TEXT on white (5.02:1). --fne-yellow and
+     --fne-amber are surface colours and must never carry small text on light. */
+  --fne-amber-text:#B45309;
+
+  /* Interface / document greys */
+  --fne-gray-50:#F9FAFB;
+  --fne-gray-100:#F3F4F6;
+  --fne-gray-200:#E5E7EB;
+  --fne-gray-300:#D1D5DB;
+  --fne-gray-400:#9CA3AF;
+  --fne-gray-700:#374151;
+
+  /* Functional — interface only, never in brand pieces */
+  --fne-success:#16A34A;
+  --fne-error:#DC2626;
+  --fne-info:#2563EB;
+
+  /* Semantic aliases */
+  --surface-page:var(--fne-white);
+  --surface-card:var(--fne-white);
+  --surface-sunken:var(--fne-gray-50);
+  --surface-inverse:var(--fne-black);
+  --surface-accent:var(--fne-yellow);
+  --surface-hover:var(--fne-gray-50);
+
+  --text-title:var(--fne-black);
+  --text-body:var(--fne-gray-dark);
+  --text-secondary:var(--fne-gray-medium);
+  --text-muted:var(--fne-gray-400);
+  --text-on-inverse:var(--fne-white);
+  --text-on-accent:var(--fne-black);
+  --text-accent:var(--fne-amber-text);
+
+  --border-default:var(--fne-gray-200);
+  --border-strong:var(--fne-gray-300);
+  --border-inverse:rgba(255,255,255,.2);
+
+  --accent-rule:var(--fne-gold-gradient);
+  --accent-bar:var(--fne-yellow);
+  --focus-ring:var(--fne-yellow);
+  /* PM correction 2026-08-05: 40% is the manual's minimum for the white LOGO over
+   photography (p.6), NOT the text veil. The canonical text treatment (p.15) puts the
+   veil at 85% under the text. A flat 40% leaves #FBBF24 at 11px near 3.3:1, below the
+   4.5:1 the manual itself demands for text over an image. /pasantias uses 85%. */
+  --veil-photo:rgba(10,10,10,.4); /* minimum veil under text on photography */
+}

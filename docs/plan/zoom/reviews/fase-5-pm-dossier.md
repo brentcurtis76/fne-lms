@@ -339,7 +339,7 @@ Docker must be up for `test:db`; if `supabase db reset` hangs, use `npx supabase
 | **Was** | `2f0e5385` at first review |
 | **Rounds** | r21–r28, eight remediation rounds |
 | **Gates at head, PM-verified** | type-check 0 · lint 0 · **4726 passed / 283 files** · build 0 · **`test:db` Files=11, Tests=466, PASS** · **mandatory e2e list 88 passed, 7 specs, no-skip guard green** |
-| **Migrations** | **6** (four at first review, plus `20260808120000_session_reschedule_atomic`, `20260809120000_fix_bucket_summary_fanout`, `20260809120100_reschedule_rpc_uses_bucket_summary`, and the `20260805120000` rewrite) — **none applied to production** |
+| **Migrations** | **SEVEN** — `20260804120000_zoom_managed_intent`, `20260805120000_reschedule_hours_rpc` (rewritten in r21), `20260806120000_zoom_dial_in_numbers`, `20260807120000_backfill_zoom_dial_in_numbers`, `20260808120000_session_reschedule_atomic`, `20260809120000_fix_bucket_summary_fanout`, `20260809120100_reschedule_rpc_uses_bucket_summary` — **none applied to production**. *(ERRATUM: this line said "6" at re-review while enumerating seven. Sol's m5. The count was wrong in the document written to be the reviewer's map, on the same axis as M4. `PROJECT_STATE.md` now carries a filename manifest instead of a count, and so does this row.)* |
 
 ## A2. The twelve items
 
@@ -449,3 +449,44 @@ its own bad patch, catching it only by re-checking the instrument.
 
 **Six rounds across this phase ended `FINDINGS` with nothing committed, and every one traced
 to the PM.** Where this dossier and the code disagree, the code is more likely right.
+
+---
+
+# ADDENDUM 2 — Sol round-2 remediation, round r29
+
+**Head: `c453cee3`.** Sol's round-2 verdict was `REQUEST CHANGES` (narrow): four MAJOR, six
+MINOR. **The PM verified all four MAJORs against the code before dispatching; every one held.**
+Round r29 closed them in one pass.
+
+| Finding | Fix | PM verification |
+|---|---|---|
+| **M1** — a checkpointed meeting survives when `meeting_delete` retires the bare reservation first: numberless row ⇒ delete skips Zoom, marks `deleted`, clears `last_error`, completes green ⇒ the provisioner's compensation cannot fire because it required an ACTIVE status ⇒ terminal `session_ineligible` and a **live meeting** | Compensation predicate widened to ACTIVE **or** retired (`cancelled`/`deleted`), keeping the numberless precondition — a retired numberless row is the row whose retirement proves Zoom was never called. Module header's false "no third window" claim corrected | Interleaving driven deterministically with the **real** `meeting_delete`; end state asserts the fake holds no meeting. Round's probe restoring ACTIVE-only fails it with the live-meeting diff printed first |
+| **M2** — `schools`/`clientes`/`contratos` reads swallowed `.error`, so a failed read returned **200 with an empty whole-school report** | All three destructure and throw; PGRST116 still the honest 404 | Asserted per read; legitimate-empty still returns a valid empty report |
+| **M3** — `hour_types` read swallowed, so a `presencial` cancellation evaluated under online thresholds ⇒ **wrong durable money status** | Throws on `.error`. **PM ruled fix-now** rather than deferring: pre-existing is not a defence when the harm is a wrong billing status on a ledger row | Successful `presencial`/`online`/`both` still classify exactly as before |
+| **M4** — `PROJECT_STATE.md` said four migrations; the branch carries **seven**. The Z1b closing defect re-armed by the document recording the rule against it | Every occurrence corrected and **the count replaced by a seven-file tick-off manifest** | PM ran both DoD greps: `grep -c` = 3, and the manifest **diffs identically** against `git diff --name-only main...HEAD -- supabase/migrations/` |
+
+**MINORs closed:** m1 (compensation-loudness claim qualified where written — it was true for two of three triggers), m4 (`if_updated_at` now passed on the edit-request path; a stale value returns 409 with nothing written), m6 (the §5 amendment's location recorded in the review file; `main` deliberately **not** merged so the fix diff stays clean for re-review). m2 and the `'edit_approval_blocked'` audit insert are ticketed, by explicit PM ruling.
+
+**Gates at `c453cee3`, PM-re-run:** type-check 0 · lint 0 · **4740 passed / 284 files** · build 0 · **`test:db` Files=11, Tests=466, PASS** · mandatory e2e 88 passed, 7 specs, guard green.
+
+**PM-verified beyond the gates:** `.env.local` restored (zero localhost references, production host back) after the round wrote it for the e2e run; the manifest matches git exactly; the widened predicate keeps its numberless precondition and the ambiguous-park precedence.
+
+## New, for this re-review
+
+1. **One PM probe survived, and it is a COVERAGE observation, not a defect.** Dropping the
+   `held.zoom_meeting_number === null` precondition from the widened predicate passes all 116
+   tests in that suite. **The code is right** — the comment explains that a retired *numberless*
+   row is the one whose retirement proves Zoom was never called — **but nothing pins that
+   precondition.** A future edit could drop it silently. Worth a test; not worth a round on its
+   own. Recorded rather than fixed, because this round was scoped to the findings.
+2. **Two overlapping concurrency guards** now exist on the edit-request path — the pre-existing
+   JS old-value comparison and the RPC's `SESSION_CONFLICT` — with different 409 copy. The round
+   flagged it and did not change it. Wants a ruling.
+3. **The branch still does not contain the §5 amendment** (m6, accepted): it lives on `main`, and
+   merging was deliberately deferred so this fix diff stays reviewable. A branch-only reader sees
+   the pre-amendment sentence; merging resolves it.
+
+**Unchanged and still true:** item 12b is not done — **no code in this phase has ever run against
+a real Zoom tenant**; seven migrations are unapplied in production; `mode:'link'`, the dial-in
+block and the §14 OFF branch have no e2e coverage; the A6 standing items remain deliberately
+unruled.

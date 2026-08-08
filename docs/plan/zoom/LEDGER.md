@@ -568,3 +568,39 @@ scripts/ci/seed-e2e.mjs
 - **Dial-in: built, shipped, and the owner knows nobody who uses it.** Ruled: leave it, spend nothing further on it.
 
 **Next in the Zoom plan: Z3 — embedded experience, gated on the hardware/network spike. Ten phases remain (Z3–Z12).**
+
+## ⛔ **Z3 CANNOT OPEN — its blocking gate has never been run. Found at PM boot 2026-08-08, before any prompt was written.**
+
+**Fresh PM session booted on Z3 (`/pm-boot ZOOM Z3`). Z3 was NOT dispatched, and no executor prompt was written, because the phase's own precondition is unmet.** The plan is not wrong here — reality simply has not met it, so §0.1(c) applies: stop and surface.
+
+**The gate, quoted from the plan rather than paraphrased:**
+- §15 names the phase **"Z3 — Embedded experience *(only if Z0B passes)*"**, effort **"5–8 d (0 if no-go)"**.
+- §15 dependencies: **"Z3 needs Z0B-pass + Z2."**
+- §16: **"Hardware/network embed verdict | Blocking spike (for Z3 only — Z2 link mode ships regardless) | Brent + consultores | Z3 start."** Needed by *start*, not by rollout.
+
+**The evidence that it has not been run** — `docs/planning/zoom-spike-results.md` §7, the section the protocol and §15 both point at by number: *"Still awaiting school visits — this section is filled by consultores executing `docs/planning/zoom-hw-protocol.md`, and no visit has happened. The device × browser × network matrix from §17 and the embed go/no-go for Z3 both live here."* The Z0B-2 row above says the same in its own words (*"Not delivered, declared: … embed field verdict (school visits pending)"*), and so does the Z0B close (*"embed verdict pending school field visits (instrument + protocol ready)"*). A repo-wide sweep for a recorded verdict returns only the three places that say it is open. **There is no verdict, positive or negative, anywhere in the repo.**
+
+**What Z0B did settle, so the field visits are cheap and narrow:** the SDK app's Embed capability works (three real SDK joins), and joins landed at **3.6–4.2 s against a 20 s threshold** on good hardware. Part B of the protocol is unblocked — `/meet/diag` carries a working test-join block and a licensed host can mint `PRUEBA SPIKE` meetings on demand. **What only the field can answer is the whole point of the gate:** 4 GB dual-core Windows 10, Chromebooks, Android tablets, a bad school network, CPU under load, audio with a real human. The plan prices a no-go at **zero days** — dispatching Z3 blind risks 5–8 agent-days against a verdict that may kill the phase outright.
+
+**PM ruling: Z3 stays closed until the verdict exists.** The one Z3 hazard already on file, for whoever eventually runs it: **`@zoom/meetingsdk` pins `peer react@18.2.0` and this repo runs 18.3.1** — Z0B routed that finding to Z3 deliberately and worked around it with a CDN load rather than a `package.json` change.
+
+**What IS ready instead, checked gate by gate rather than assumed:**
+- **Z7 — attendance + hours comparison + override UI** — needs Z2 (✅ DONE) and the **customerKey verdict, which PASSED definitively** in Z0B-2 (sole identity field populated for license-free guests). **Every dependency satisfied, every gate cleared. The only phase for which that is true.**
+- **Z4 — recording transfer** — buildable (Z1b ✅, round trip PASS), but **G1 FAILED (Pro tier, no disclaimer-customization entitlement) and G2 FAILED definitively (no consent events retrievable, 13 endpoints probed)**. §16 says that without them "link-out recording stays off and unidentified participants void transfers" — the disclaimer backstop is closed, and that is an owner design decision, not an executor task.
+- **Z6 — community meetings** — needs Z2 (✅) but §16 carries an open **blocking decision: license inventory + pool host creation (N hosts), owner Brent, needed by Z6 start.** Not cleared.
+
+## ⚠️ **REPO-STATE HAZARD FOUND AT THE SAME BOOT: the Z2 close record is committed locally and NEVER PUSHED.**
+
+`origin/main` is **`34ea4cb6`** — the Z2 merge itself. The local clone's `main` is **`7239efd6`**, **5 ahead / 49 behind**, and those 5 are docs commits that exist nowhere else:
+
+| SHA | Subject | Workstream |
+|---|---|---|
+| `7239efd6` | docs(z2): PHASE Z2 DONE — merged to main at 34ea4cb6 | ZOOM |
+| `3dea1ebe` | docs(z2): production migrations applied and verified | ZOOM |
+| `7c7059ff` | docs(z2): item 12b DONE — the live Zoom run | ZOOM |
+| `af06d6e9` | docs(a9): base the r1 worktree on local main | INSPIRA |
+| `01e0e18c` | docs(a9): r1 prompt | INSPIRA |
+
+`git diff --cached origin/main` differs in exactly **three files**: `docs/plan/LEDGER.md`, `docs/plan/zoom/LEDGER.md`, `docs/plan/prompts/a9-1.md`. **`git show origin/main:docs/plan/zoom/LEDGER.md | grep -c "PHASE Z2 — ✅ DONE"` returns `0`** — the record that Z2 closed, that item 12b ran against the live tenant, and that seven migrations were applied and verified in production **is not on the remote**. The working tree is otherwise current with `origin/main`; the 100 entries `git status` reports are Z2's own files, current in the tree, showing as staged only because the local branch pointer never fast-forwarded past the merge.
+
+**This is the exact failure mode the workstream registry warns about** ("an uncommitted file does not exist there — the round will stall on a missing prompt"), one step further along: here it is committed but unpushed, so a fresh PM in any other worktree would reconstruct state from a ledger that still shows Z2 mid-flight. **The PM did not push it** — §0.1(e)'s detached-worktree push-by-SHA writes to `main`, and that is Brent's authority to give, not a boot session's to assume. **Flagged for Brent's decision; the two INSPIRA commits in the same stack belong to that workstream's owner.**

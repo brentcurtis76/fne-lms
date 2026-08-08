@@ -4120,3 +4120,92 @@ OK. Suite `meeting-provision.test.ts`: 116 → 118.
 
 - Nothing else in §3's out-of-scope list was touched, and no defect was found in passing.
 - No migration, no SQL, nothing run against any non-local database.
+
+---
+
+# Merge with `main` — round r31
+
+Phase Z2 was already code-complete and Sol-approved at `4be9f7d6`. PR #45 could not be
+tested by CI at all, because GitHub reported it `CONFLICTING`: `main` had moved 136 commits
+since the branch forked. This round merges `origin/main` into `feat/zoom-sess` and resolves
+the conflicts. **No feature behaviour changed** — the only hand-written lines in the merge
+are the three resolutions below.
+
+Merge commit: `44f503bb` (`origin/main` = `781ae16d`, merge-base `e796646d`).
+
+## The three resolutions — all unions, no side dropped
+
+All three conflicts are in shared CI fixtures that both workstreams appended to, at the same
+place in each file. None was a semantic clash, so none required picking a winner.
+
+1. **`scripts/ci/e2e-mandatory.mjs`** — Z2's r28 added `zoom-managed-join.spec.ts`; the
+   pasantías/A6/A8 workstream added `pasantias-page`, `footer-heading-order`,
+   `pasantias-form` and `pasantias-leads-admin`. Both sides' entries kept, Zoom's first so
+   it stays adjacent to the other Zoom specs, each with its original explanatory comment.
+   The list went 7 → 11 entries; nothing was renumbered or reordered away.
+2. **`scripts/ci/e2e-fixtures.json`** — the only conflicting region was the `_comment`
+   preamble. Both notes kept, separated by a blank line. The data blocks themselves did not
+   conflict and both survive: Z2's `zoom.managedSession` (`isZoomManaged: true`) and A8's
+   top-level `pasantiasLead`. A8's comment explains why its block must stay top-level rather
+   than under `users` (`assertFixtureRosterComplete()` requires `users` and
+   `DECLARED_FIXTURE_KEYS` to be set-equal) — that constraint is preserved.
+3. **`scripts/ci/seed-e2e.mjs`** — conflict confined to the header docblock's inventory
+   list. Kept A8's "one Pasantías interest lead" bullet **and** Z2's rewording of the Zoom
+   bullet from two sessions to three. A8's `ensurePasantiasLead()` and its call site landed
+   in non-conflicting regions and were not touched. The script's hard refusal to run against
+   a non-local Supabase host is unchanged (`LOCAL_HOSTS`, seed-e2e.mjs:41-56).
+
+`.github/workflows/ci.yml` auto-merged cleanly, as the PM predicted.
+
+## Final mandatory spec list (11)
+
+```
+tests/e2e/smoke.spec.ts
+tests/e2e/ci-fixture.spec.ts
+tests/e2e/zoom-join-authz.spec.ts
+tests/e2e/session-disclosure.spec.ts
+tests/e2e/session-ical.spec.ts
+tests/e2e/zoom-mock-mode.spec.ts
+tests/e2e/zoom-managed-join.spec.ts
+tests/e2e/pasantias-page.spec.ts
+tests/e2e/footer-heading-order.spec.ts
+tests/e2e/pasantias-form.spec.ts
+tests/e2e/pasantias-leads-admin.spec.ts
+```
+
+## Gates on the merged tree
+
+type-check 0 · lint 0 · **6773 passed / 290 files** (baseline 4742/284 — the rise is
+`main`'s own tests; nothing that passed before fails) · build ✓ · `test:db` **Files=11,
+Tests=466, PASS** (identical to baseline) · mandatory e2e **112 passed / 11 specs**
+(baseline 88/7), no-skip guard **OK — 11 mandatory spec(s) ran with no skips**.
+
+The guard's exit code was captured directly rather than piped through `tail`, per the
+standing rule that `cmd | tail; echo $?` reports tail's status.
+
+## Feature diff unchanged
+
+`git diff 4be9f7d6 HEAD` over `lib/zoom/**`, `lib/utils/meeting-*`,
+`lib/services/{billable-hours,session-lifecycle-notifications,school-hours-report,hour-tracking}.ts`,
+`pages/api/meet/**`, `pages/meet/**` and `supabase/migrations/**` is **empty**. The diff Sol
+reviewed has not moved. The merge brought in **no** migrations (0 files under
+`supabase/migrations/`).
+
+## Anything unexpected the merge brought
+
+Nothing that changed behaviour. Two things worth recording:
+
+- **`PLAN.md` §5's owner-authored amendment (`50c28855`) arrived as expected**, which is what
+  closes Sol's **m6** — the branch's code headers already cited it.
+- **The local Supabase stack needed no `db reset`.** `supabase migration list` showed every
+  one of the 17 migrations already applied, and the merge added none, so the schema the specs
+  ran against is exactly what `supabase/migrations` declares. CI still does a full
+  `db reset`; this is a local shortcut only, taken to avoid destroying local data.
+
+## Known limitations
+
+- `main`'s 136 commits of pasantías/A6/A7/A8 work were neither reviewed nor adjusted — out of
+  scope for this round by instruction.
+- Nothing was run against any non-local database. No migration was written or applied.
+- `.env.local` was rebuilt the way `ci.yml` does for the e2e gate, then restored; the restore
+  is verified by sha256 against the pre-round value. It was never printed or committed.

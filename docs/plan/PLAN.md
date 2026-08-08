@@ -312,6 +312,10 @@ As v2 B2 (locked batch shapes incl. error-as-value, headers, idempotency stance;
 
 As v2 B5 under D-04 posture (all writes via service-role in adminGuard-ed routes; **no delete endpoint of any kind**; erasure = anonymize RPC with es-CL permanence confirm; "Anonimizado" state rendered from `anonymized_at`). v2 criteria stand; e2e uses both T2 fixtures (admin CRUD path; docente denied).
 
+**Added 2026-08-08 — two A8 debts rehomed here, because B5 opens these exact files anyway (backlog items that name no phase do not get done):**
+- [B5-new-1] **Replace A8's `domPrefix` with `React.useId()` for the `id`/`htmlFor` pairs BEFORE cloning the card shape**, keeping `domPrefix` for `data-testid`s only. Sol's reasoning at A8's close: a required prop buys a compile nudge, not the invariant — a future call site can pass `""` twice as easily as omit it, whereas `useId` is unique per mount by construction. B5 is the phase Sol named, because it is the one that clones `PasantiaLeadCard`'s double-mount shape; cloning it first and fixing it after doubles the work.
+- [B5-new-2] **Fix the unfiltered-count cap, in both A8 and B5.** `supabase/config.toml` sets `max_rows = 1000`, so A8's `select('status')` counts query silently undercounts past 1000 leads and its list truncates — wrong numbers, not a slow page. B5's contacts admin needs the identical "counts over every row, never the filtered set" behaviour and would inherit the identical bug. Solve it once for both (`count: 'exact', head: true` per status, or a grouped count RPC) rather than twice. Inert at today's volumes, which is why A8 shipped without it.
+
 ## Phase B6 — Imports: CSV + platform sources with per-row attestation
 
 As v2 B6 plus R2-S-02 remediation:
@@ -369,6 +373,7 @@ As v2 B8 plus D-02's composer warning:
 - [A1] `send`: draft → validate (subject/body/estimate>0 client-side hint only) → `queue_campaign_sends`; **queued=0 → 422 es-CL, campaign stays draft**; queued>0 → 200 with **queued snapshot count** (authoritative); **non-draft → 409 with current status (tested for `sending` and terminal)**.
 - [A2] `retry`: `sent_with_errors` only (else 409); calls RPC; returns new pending count. `process`: adminGuard-ed manual invocation of the B10a core (same bounds).
 - [A3] `vercel.json` cron entry per B2 findings; if B2 found cron unavailable/coarse, this phase must not start until the PM re-plans the invoker (FINDINGS gate).
+- [A4] **Added 2026-08-08 — settle the 409 body shape once, for this route AND A8's.** This phase is where D-07's "409 with current status" first becomes real code, so it is where the shape gets decided. A8's PATCH currently returns the *failed guard* value under the unqualified name `status` — a value known to be superseded, since the empty update result is itself the proof it changed (Sol A8 r3 R3-S-01). Decide the contract here (omit / rename to `expectedStatus` / re-read the true current value), then **apply the same decision to `pages/api/admin/pasantia-leads/index.ts` in this phase**. A8's field is harmless only until something reads it; this is the phase that would teach a client to.
 - [A4] State-matrix tests across send/retry/process (draft/sending/sent/sent_with_errors × each endpoint); queue-0 path; gates green.
 
 ## Phase B11a — Send/progress/metrics UI + campaign e2e

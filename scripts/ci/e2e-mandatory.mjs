@@ -36,6 +36,9 @@ export const MANDATORY_SPECS = [
   // marketing opt-in unless clicked), that a failed client validation sends
   // nothing, and that a server error loses none of the visitor's answers.
   'tests/e2e/pasantias-form.spec.ts',
+  // A8 — the admin triage surface over pasantias_leads: that an admin reaches it
+  // and sees a lead, and that both halves of the /admin/* gate still deny.
+  'tests/e2e/pasantias-leads-admin.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

@@ -8,7 +8,8 @@ on this branch is documentation — the ledger, this file, the checklist, the CI
 round prompts. Stated this way on purpose: the total moves with each docs commit (it was 4 across
 `7c7059ff..9b1ed1dd`, the range Sol reviewed, and 6 at r2's start), so the reviewable surface is
 named rather than counted.
-**Round:** r1 (documentation corrected at r2)
+**Round:** r1 for the code; this file's text has been corrected in each documentation round since.
+Named rather than numbered for the same reason as the commit count above — the number moves.
 
 ---
 
@@ -58,7 +59,7 @@ Two holes existed that only A9 could close:
 
 - **`tests/e2e/pasantias-flow.spec.ts`** (new, 259 lines). Four tests. It is the only spec in the
   suite that inserts rows through a public route, and it is now mandatory, so a flake in it
-  blocks every future PR. It has **not run anywhere yet** — see Limitations.
+  blocks every future PR. It has **run only in CI gate 4**, never locally — see Limitations.
 - **`scripts/ci/e2e-mandatory.mjs`** (+6/−0). One list entry plus a comment in the existing
   style. Small, but it is what converts the spec from "exists" to "gates".
 
@@ -110,15 +111,22 @@ Both reverted; `git status` shows no modification under `pages/`.
 
 ## Where an independent reviewer should push hardest
 
-1. **The new e2e spec has never executed.** This is the honest headline. A local run would have
-   written synthetic leads into the *production* Supabase project (`npm run dev:unsafe` loads
-   `.env.local`), and the prompt's fallback — a local ephemeral stack — was excluded by its own
-   precondition, since a Supabase stack for another worktree was already running on the shared
-   project ref. So every assertion in it is reasoned from source, not observed. **Read it as
-   unverified code and check the reasoning, particularly the `brochure_sent_at === null`
-   assertion**, which depends on a three-step inference: CI sets no `RESEND_API_KEY` →
-   `sendLeadAutoReply` returns `failure:'not_configured'` → `canReleaseAutoReplyClaim` is true →
-   the claim is restored. If any link is wrong the test goes red on the first PR.
+1. **The new e2e spec has executed only in CI, and only ever against one version of the code.**
+   That is the honest headline. It has run in gate 4 and passed every time — all four tests, zero
+   retries, anti-skip guard clean, on a freshly created seeded ephemeral Supabase stack each time —
+   so it is no longer unverified code, and the `brochure_sent_at === null` assertion is an
+   **observed** contract rather than an inference: the claim-and-release path in
+   `lib/pasantias/emails.ts` (CI sets no `RESEND_API_KEY` → `sendLeadAutoReply` returns
+   `failure:'not_configured'` → `canReleaseAutoReplyClaim` is true → the claim is restored) actually
+   executed. It has still **never run locally** and will not: a local run loads `.env.local` via
+   `npm run dev:unsafe` and would write synthetic leads into the *production* Supabase project, and
+   the fallback — a local ephemeral stack — was excluded by its own precondition, since a Supabase
+   stack for another worktree was already running on the shared project ref. What those clean runs
+   prove is **determinism**: no dependence on leftover state, ordering or timing. What they do
+   **not** prove is robustness to change — every one of them ran the same code against the same
+   seeded fixtures. And the spec is on `MANDATORY_SPECS`, so if a future change made it flaky that
+   is every PR's problem, not just A9's. **Check the reasoning behind the assertions anyway**: one
+   that holds against a single fixture set is not thereby right.
 
 2. **I replaced a test rather than adding one.** `it('the scan can see hrefs at all')` — A7a's
    anti-vacuity check, which asserted at least one `/pasantias` href in three named files — is

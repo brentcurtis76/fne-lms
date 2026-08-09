@@ -35,7 +35,8 @@
 
 export const SDK_VERSION = '6.2.0';
 
-const SDK_BASE = `https://source.zoom.us/${SDK_VERSION}`;
+/** Exported for `zoom-client-view-loader.ts`, so the two views cannot drift apart. */
+export const SDK_BASE = `https://source.zoom.us/${SDK_VERSION}`;
 
 /** The Component View bundle. Loaded LAST — see the header. */
 export const SDK_SRC = `${SDK_BASE}/zoom-meeting-embedded-${SDK_VERSION}.min.js`;
@@ -95,12 +96,16 @@ function readSdkGlobal(): ZoomEmbeddedGlobal | undefined {
 }
 
 /**
- * Appends one classic script and resolves on load, reusing a tag this module already
+ * Appends one classic script and resolves on load, reusing a tag this surface already
  * appended. The `data-zoom-embed-src` marker is what makes the reuse safe across two
  * joins in one page life — and it is deliberately a different attribute from the one
  * `/meet/diag` uses, so neither page can adopt the other's half-loaded tag.
+ *
+ * Exported for `zoom-client-view-loader.ts` (Z3-4): Client View loads different bundles
+ * through the same rules, and the two views share the vendor React pair, so one marker
+ * across both is what makes reuse correct rather than a collision.
  */
-function loadScript(src: string): Promise<void> {
+export function loadZoomCdnScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const existing = document.querySelector<HTMLScriptElement>(
       `script[data-zoom-embed-src="${src}"]`
@@ -144,9 +149,9 @@ export async function loadMeetingSdk(): Promise<ZoomEmbeddedGlobal> {
 
   // Sequential on purpose — see the header. `for await` rather than `Promise.all`.
   for (const src of SDK_VENDOR_SRCS) {
-    await loadScript(src);
+    await loadZoomCdnScript(src);
   }
-  await loadScript(SDK_SRC);
+  await loadZoomCdnScript(SDK_SRC);
 
   const sdk = readSdkGlobal();
   if (!sdk) throw new Error(SDK_ABSENT_MESSAGE);

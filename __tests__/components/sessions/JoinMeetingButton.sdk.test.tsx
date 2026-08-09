@@ -348,23 +348,30 @@ describe('JoinMeetingButton — the ruling ② fallback [C4]', () => {
   });
 });
 
+/**
+ * [C9] — Component View is desktop only.
+ *
+ * Z3-4 kept the claim and changed the destination. Both cases below used to assert that
+ * a refused browser "takes the link"; since Client View landed, it takes Client View
+ * instead, and only a browser that can run neither view takes the link (asserted in
+ * `JoinMeetingButton.clientview.test.tsx` [D5]). What [C9] is actually about — that the
+ * 3.7 MB Component View bundle is never fetched on a machine that cannot render it — is
+ * unchanged and asserted harder here, against the loader rather than the DOM.
+ */
 describe('JoinMeetingButton — Component View is desktop only [C9]', () => {
-  it('a narrow viewport takes the link and never mounts the embed', async () => {
+  it('a narrow viewport never mounts the embed or fetches its bundle', async () => {
     setViewport(375);
     serve(ok(sdkPayload()));
     render(<JoinMeetingButton sessionId={SESSION_ID} />);
 
     clickJoin();
 
-    await waitFor(() =>
-      expect(mockOpen).toHaveBeenCalledWith(JOIN_URL, '_blank', 'noopener,noreferrer')
-    );
-    expect(screen.queryByTestId('meet-prejoin-check')).toBeNull();
+    await screen.findByTestId('meet-prejoin-check');
     expect(screen.queryByTestId('meet-embed-root')).toBeNull();
     expect(mockLoadMeetingSdk).not.toHaveBeenCalled();
   });
 
-  it('a mobile user agent takes the link even on a wide screen', async () => {
+  it('a mobile user agent is refused even on a wide screen', async () => {
     setUserAgent(
       'Mozilla/5.0 (Linux; Android 13; SM-A536B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36'
     );
@@ -374,8 +381,9 @@ describe('JoinMeetingButton — Component View is desktop only [C9]', () => {
 
     clickJoin();
 
-    await waitFor(() => expect(mockOpen).toHaveBeenCalled());
-    expect(screen.queryByTestId('meet-prejoin-check')).toBeNull();
+    await screen.findByTestId('meet-prejoin-check');
+    expect(screen.queryByTestId('meet-embed-root')).toBeNull();
+    expect(mockLoadMeetingSdk).not.toHaveBeenCalled();
   });
 });
 
@@ -468,6 +476,7 @@ describe('the meeting surface never reads a feature flag in the browser [C11]', 
   const SURFACES = [
     'components/sessions',
     'lib/meet/zoom-sdk-loader.ts',
+    'lib/meet/zoom-client-view-loader.ts',
     'lib/meet/embed-capabilities.ts',
   ];
 
@@ -483,7 +492,8 @@ describe('the meeting surface never reads a feature flag in the browser [C11]', 
     const files = SURFACES.flatMap(filesUnder);
 
     // Guard the guard: a glob that silently matched nothing would pass forever.
-    expect(files.length).toBeGreaterThanOrEqual(8);
+    // Raised from 8 to 9 in Z3-4, with `zoom-client-view-loader.ts` above [D8].
+    expect(files.length).toBeGreaterThanOrEqual(9);
 
     const offenders = files.filter((file) => {
       const source = readFileSync(file, 'utf8');

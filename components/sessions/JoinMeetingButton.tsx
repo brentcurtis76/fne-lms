@@ -4,12 +4,19 @@ import { ExternalLink, Loader2 } from 'lucide-react';
 import MeetingDialIn from './MeetingDialIn';
 import PreJoinCheck from './PreJoinCheck';
 import type { JoinDialIn } from '../../lib/utils/meeting-dial-in';
-import { supportsComponentView } from '../../lib/meet/embed-capabilities';
+import { selectEmbedView, type EmbeddedView } from '../../lib/meet/embed-capabilities';
 import {
   loadMeetingSdk,
   SDK_LANGUAGE,
   type ZoomEmbeddedClient,
 } from '../../lib/meet/zoom-sdk-loader';
+import {
+  awaitClientViewCall,
+  CLIENT_VIEW_LIB_BASE,
+  CLIENT_VIEW_LIB_DIR,
+  CLIENT_VIEW_ROOT_ID,
+  loadClientView,
+} from '../../lib/meet/zoom-client-view-loader';
 
 /**
  * The join control for a platform-managed (Zoom) session on the meeting
@@ -68,8 +75,18 @@ import {
  * Nothing renders them, nothing logs them, and a later click fetches fresh ones rather
  * than reusing what is gone (§5: "fetched at start-click, never persisted").
  *
- * Component View is desktop-only (plan §2, verified in Z0B); mobile takes the link
- * until the Client View route lands (chunk Z3-4).
+ * ## Two views, one join (Z3-4)
+ *
+ * Zoom ships the web SDK as two products and this component reaches both. Component
+ * View renders inside the page and is desktop-only; Client View takes the page over and
+ * is what Zoom supports on mobile, on tablets and on Firefox. `selectEmbedView()` picks
+ * one, ONCE, from the response — so only one bundle is ever downloaded on a given
+ * machine and only one root element is ever mounted. A browser that can run neither
+ * takes the same `{ fallback: 'link' }` path every other embed failure takes; there is
+ * no third server surface.
+ *
+ * The rules above hold identically on both: the same single §5 opening, the same
+ * payload, the same ref that is emptied by the call that consumes it.
  */
 
 interface JoinMeetingButtonProps {
@@ -82,13 +99,19 @@ const PENDING_MESSAGE = 'Enlace en preparación';
 /** Network/parse failure — the only copy this component authors itself. */
 const REQUEST_FAILED_MESSAGE = 'No pudimos preparar el acceso a la reunión. Intenta nuevamente.';
 
+/** The retry control's label — deliberately the same words as the preflight's escape hatch. */
+const USE_LINK_LABEL = 'Abrir Zoom en otra pestaña';
+
 /**
  * The fallback path's popup is further from the click than the primary one — a failed
  * embed spends seconds on the CDN first — so a browser is likelier to refuse it. Only
  * that path checks, and it says what to press rather than exposing the URL.
+ *
+ * The control it names re-runs the FALLBACK, not the embed: pressing «Unirse a la
+ * reunión» again would spend another failed embed attempt before arriving back at the
+ * same blocked popup, which is the wrong thing to do twice.
  */
-const POPUP_BLOCKED_MESSAGE =
-  'Tu navegador bloqueó la ventana nueva. Presiona «Unirse a la reunión» otra vez para abrirla.';
+const POPUP_BLOCKED_MESSAGE = `Tu navegador bloqueó la ventana nueva. Presiona «${USE_LINK_LABEL}» para intentarlo de nuevo.`;
 
 /** Shown while the SDK downloads and connects. */
 const EMBED_CONNECTING_MESSAGE = 'Conectando a la reunión…';
@@ -182,14 +205,22 @@ function readSdkCredentials(value: unknown): EmbedCredentials | null {
 type JoinOutcome =
   | { kind: 'idle' }
   | { kind: 'pending' }
-  | { kind: 'denied'; message: string }
+  /** `retry` renders the ruling-③ control: it re-runs the fallback, not the embed. */
+  | { kind: 'denied'; message: string; retry?: 'fallback' }
   /** Credentials in hand, preflight on screen, nothing mounted yet. */
-  | { kind: 'preflight' }
-  | { kind: 'joining' }
-  | { kind: 'joined' };
+  | { kind: 'preflight'; view: EmbeddedView }
+  | { kind: 'joining'; view: EmbeddedView }
+  | { kind: 'joined'; view: EmbeddedView };
 
-/** The three states in which the SDK owns a mounted root element in this tree. */
-const EMBED_OUTCOMES = ['preflight', 'joining', 'joined'];
+/**
+ * The view whose root element this tree owns right now, or `null` when it owns none.
+ * Exactly one of the two roots is ever mounted, and only in these three states.
+ */
+function embeddedView(outcome: JoinOutcome): EmbeddedView | null {
+  return outcome.kind === 'preflight' || outcome.kind === 'joining' || outcome.kind === 'joined'
+    ? outcome.view
+    : null;
+}
 
 const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
   const router = useRouter();
@@ -204,6 +235,8 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
   const credentialsRef = useRef<EmbedCredentials | null>(null);
   const sdkRootRef = useRef<HTMLDivElement | null>(null);
   const clientRef = useRef<ZoomEmbeddedClient | null>(null);
+  /** Client View is bootstrapped once per page life, exactly as `clientRef` is. */
+  const clientViewReadyRef = useRef(false);
 
   /**
    * Turns one join response into what the user sees.
@@ -248,7 +281,7 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
       setOutcome(
         allowEmbed || opened
           ? { kind: 'idle' }
-          : { kind: 'denied', message: POPUP_BLOCKED_MESSAGE }
+          : { kind: 'denied', message: POPUP_BLOCKED_MESSAGE, retry: 'fallback' }
       );
       return;
     }
@@ -260,17 +293,20 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
       }
 
       const credentials = readSdkCredentials(payload);
+      // Decided once, here: everything downstream — which bundle is downloaded, which
+      // root element mounts, which join is called — follows from this one answer.
+      const view = selectEmbedView();
 
-      // Ruling ④: Component View is desktop-only, and a malformed payload is not
-      // worth guessing at. Both take the one fallback.
-      if (!credentials || !supportsComponentView()) {
+      // A browser that can run neither view, and a malformed payload that is not worth
+      // guessing at, take the same one fallback.
+      if (!credentials || view === 'none') {
         await requestLinkFallback();
         return;
       }
 
       setDialIn(readDialIn(payload.dial_in));
       credentialsRef.current = credentials;
-      setOutcome({ kind: 'preflight' });
+      setOutcome({ kind: 'preflight', view });
       return;
     }
 
@@ -316,54 +352,109 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
     }
   };
 
-  /**
-   * Mount Component View and join. Every failure between here and a joined meeting —
-   * the CDN, an absent global, `init`, `join` — ends in the same place: the link the
-   * server will hand over on request.
-   */
-  const startEmbeddedMeeting = async () => {
-    // Read and cleared in the same breath. From this line on there is no copy of the
-    // signature, the passcode or the ZAK anywhere but the local `credentials`.
-    const credentials = credentialsRef.current;
-    credentialsRef.current = null;
+  /** Mount Component View into this page's own root element and join. */
+  const joinWithComponentView = async (credentials: EmbedCredentials) => {
     const root = sdkRootRef.current;
+    if (!root) throw new Error('embed context missing');
 
-    setBusy(true);
-    setOutcome({ kind: 'joining' });
+    const sdk = await loadMeetingSdk();
+    const client = clientRef.current ?? sdk.createClient();
 
-    try {
-      if (!credentials || !root) {
-        throw new Error('embed context missing');
-      }
+    // `init` once per client; a second join in the same page life reuses it, exactly
+    // as it reuses the already-downloaded bundle.
+    if (!clientRef.current) {
+      await client.init({
+        zoomAppRoot: root,
+        // §20: the SDK ships es-ES. Every string GENERA writes stays es-CL.
+        language: SDK_LANGUAGE,
+        patchJsMedia: true,
+        leaveOnPageUnload: true,
+      });
+      clientRef.current = client;
+    }
 
-      const sdk = await loadMeetingSdk();
-      const client = clientRef.current ?? sdk.createClient();
+    await client.join({
+      sdkKey: credentials.sdkKey,
+      signature: credentials.signature,
+      meetingNumber: credentials.meetingNumber,
+      userName: credentials.userName,
+      password: credentials.passcode,
+      customerKey: credentials.customerKey,
+      // Absent — not empty — for a participant, and for a host §9 refused.
+      ...(credentials.zak ? { zak: credentials.zak } : {}),
+    });
+  };
 
-      // `init` once per client; a second join in the same page life reuses it, exactly
-      // as it reuses the already-downloaded bundle.
-      if (!clientRef.current) {
-        await client.init({
-          zoomAppRoot: root,
-          // §20: the SDK ships es-ES. Every string GENERA writes stays es-CL.
-          language: SDK_LANGUAGE,
+  /**
+   * Hand the page to Client View and join. The bootstrap sequence and the callback
+   * shape are Zoom's, not a choice — see `zoom-client-view-loader.ts`.
+   */
+  const joinWithClientView = async (credentials: EmbedCredentials) => {
+    const sdk = await loadClientView();
+
+    if (!clientViewReadyRef.current) {
+      sdk.setZoomJSLib(CLIENT_VIEW_LIB_BASE, CLIENT_VIEW_LIB_DIR);
+      sdk.preLoadWasm();
+      sdk.prepareWebSDK();
+      // §20: the SDK ships es-ES. Every string GENERA writes stays es-CL.
+      sdk.i18n.load(SDK_LANGUAGE);
+
+      await awaitClientViewCall((callbacks) =>
+        sdk.init({
+          // Leaving the meeting returns the user to this same interstitial, which is
+          // where the dial-in details are. The path carries nothing Zoom-shaped.
+          leaveUrl: window.location.href,
           patchJsMedia: true,
           leaveOnPageUnload: true,
-        });
-        clientRef.current = client;
-      }
+          ...callbacks,
+        })
+      );
+      clientViewReadyRef.current = true;
+    }
 
-      await client.join({
+    await awaitClientViewCall((callbacks) =>
+      sdk.join({
         sdkKey: credentials.sdkKey,
         signature: credentials.signature,
         meetingNumber: credentials.meetingNumber,
         userName: credentials.userName,
-        password: credentials.passcode,
+        // Client View spells the passcode `passWord`; Component View spells it
+        // `password`. Same value, two vendor APIs.
+        passWord: credentials.passcode,
         customerKey: credentials.customerKey,
         // Absent — not empty — for a participant, and for a host §9 refused.
         ...(credentials.zak ? { zak: credentials.zak } : {}),
-      });
+        ...callbacks,
+      })
+    );
+  };
 
-      setOutcome({ kind: 'joined' });
+  /**
+   * Join through whichever view the response's browser check chose. Every failure
+   * between here and a joined meeting — the CDN, an absent global, `init`, `join` —
+   * ends in the same place: the link the server will hand over on request.
+   */
+  const startEmbeddedMeeting = async (view: EmbeddedView) => {
+    // Read and cleared in the same breath. From this line on there is no copy of the
+    // signature, the passcode or the ZAK anywhere but the local `credentials`.
+    const credentials = credentialsRef.current;
+    credentialsRef.current = null;
+
+    setBusy(true);
+    setOutcome({ kind: 'joining', view });
+
+    try {
+      if (!credentials) {
+        throw new Error('embed context missing');
+      }
+
+      if (view === 'client') {
+        await joinWithClientView(credentials);
+      } else {
+        await joinWithComponentView(credentials);
+      }
+
+      setOutcome({ kind: 'joined', view });
     } catch {
       // Nothing is logged. The only values in scope are the ones §5 exists to contain.
       await requestLinkFallback();
@@ -381,7 +472,8 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
     }
   };
 
-  const embedActive = EMBED_OUTCOMES.includes(outcome.kind);
+  const activeView = embeddedView(outcome);
+  const embedActive = activeView !== null;
 
   return (
     <div className="mt-6">
@@ -404,7 +496,11 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
       )}
 
       {outcome.kind === 'preflight' && (
-        <PreJoinCheck onContinue={startEmbeddedMeeting} onUseLink={handleUseLink} busy={busy} />
+        <PreJoinCheck
+          onContinue={() => startEmbeddedMeeting(outcome.view)}
+          onUseLink={handleUseLink}
+          busy={busy}
+        />
       )}
 
       {outcome.kind === 'joining' && (
@@ -438,17 +534,43 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
       )}
 
       {/*
-        The SDK renders itself into this element. Mounted from the preflight onward so
-        the node exists before `init` is called, and kept mounted across a second join
-        in the same page life. Empty in every other state — it holds nothing of ours.
+        Ruling ③: the retry the blocked-popup message names re-runs the FALLBACK. The
+        join button above would restart the embed and spend a second failed attempt
+        before arriving back here.
       */}
-      {embedActive && (
+      {outcome.kind === 'denied' && outcome.retry === 'fallback' && (
+        <button
+          type="button"
+          onClick={handleUseLink}
+          disabled={busy}
+          data-testid="meet-join-retry-link"
+          className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2 disabled:opacity-50"
+        >
+          {USE_LINK_LABEL}
+        </button>
+      )}
+
+      {/*
+        Component View renders itself into this element. Mounted from the preflight
+        onward so the node exists before `init` is called, and kept mounted across a
+        second join in the same page life. Empty in every other state — it holds nothing
+        of ours.
+      */}
+      {activeView === 'component' && (
         <div
           ref={sdkRootRef}
           data-testid="meet-embed-root"
           className="mt-3 w-full overflow-hidden rounded-lg"
         />
       )}
+
+      {/*
+        Client View's root, which it looks up by Zoom's own id rather than being handed.
+        Mounted only on the Client View path, so the two roots can never coexist — and
+        left unstyled, because the SDK takes the page over with its own CSS once the
+        bundle is in.
+      */}
+      {activeView === 'client' && <div id={CLIENT_VIEW_ROOT_ID} data-testid="meet-client-root" />}
 
       {!embedActive && (
         <p className="mt-3 text-xs text-gray-500">

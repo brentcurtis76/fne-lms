@@ -605,3 +605,164 @@ describe('POST /api/meet/session/[id]/join — the SDK secret never leaves [A9]'
     }
   });
 });
+
+/**
+ * Z3-3 [C5] [C6] — the client's link-fallback intent (ruling ②).
+ *
+ * §5 forbids `join_url` in an SDK payload, so a browser whose embed failed cannot fall
+ * back to something it already holds: it has to ask. The whole contract of that ask is
+ * that it can only ever get LESS — the payload this same persona received before Z3
+ * existed — so the two claims below are (a) the answer is byte-identical to Z2's and
+ * (b) the intent moves no gate above outcome 8.
+ */
+async function postFallback(sessionId: string = SESSION_ID, fallback: unknown = 'link') {
+  const { req, res } = createMocks({
+    method: 'POST',
+    query: { id: sessionId },
+    body: { fallback },
+  });
+  await handler(req as never, res as never);
+  return res;
+}
+
+describe('POST /api/meet/session/[id]/join — the link fallback intent [C5]', () => {
+  it('answers a participant with the byte-identical Z2 link payload', async () => {
+    arrange({ isExpectedAttendee: true, meeting: provisionedMeeting });
+    asAttendee();
+
+    const res = await postFallback();
+
+    expect(res._getStatusCode()).toBe(200);
+    // The same expected object the Z2 suite asserts, written out rather than derived.
+    expect(JSON.parse(res._getData())).toEqual({
+      data: { mode: 'link', join_url: JOIN_URL, role: 'participant' },
+    });
+  });
+
+  it('is byte-for-byte the answer the flag-off route gives, not merely equivalent', async () => {
+    arrange({ isExpectedAttendee: true, meeting: provisionedMeeting });
+    asAttendee();
+    const withIntent = (await postFallback())._getData();
+
+    process.env.FEATURE_ZOOM_EMBED = 'false';
+    arrange({ isExpectedAttendee: true, meeting: provisionedMeeting });
+    asAttendee();
+    const withFlagOff = (await post())._getData();
+
+    expect(withIntent).toBe(withFlagOff);
+  });
+
+  it('skips the SDK branch entirely rather than building a payload and discarding it', async () => {
+    arrange({ isExpectedAttendee: true, meeting: provisionedMeeting });
+    asAttendee();
+
+    await postFallback();
+
+    // `buildSdkJoinPayload` is the only thing on this route that reads `profiles`.
+    expect(tablesRead).not.toContain('profiles');
+  });
+
+  it('gives a host the link too, and never asks Zoom for a ZAK', async () => {
+    arrange({ isFacilitator: true, meeting: provisionedMeeting });
+    asFacilitator();
+
+    const res = await postFallback();
+
+    expect(JSON.parse(res._getData())).toEqual({
+      data: { mode: 'link', join_url: JOIN_URL, role: 'host' },
+    });
+    // The §9 path reads `zoom_hosts` before it issues anything; it was never entered.
+    expect(tablesRead).not.toContain('zoom_hosts');
+  });
+
+  it('keeps the dial-in block, which the intent has nothing to do with', async () => {
+    arrange({ isExpectedAttendee: true, meeting: dialInMeeting });
+    asAttendee();
+
+    const body = payloadOf(await postFallback());
+
+    expect(body.mode).toBe('link');
+    expect(body.dial_in).toBeDefined();
+  });
+
+  it('ignores a value it does not recognise instead of failing the join', async () => {
+    for (const value of ['sdk', '', 'LINK', 42, null, { nested: 'link' }]) {
+      arrange({ isExpectedAttendee: true, meeting: provisionedMeeting });
+      asAttendee();
+
+      const body = payloadOf(await postFallback(SESSION_ID, value));
+
+      // Anything but the one recognised value leaves the route exactly as it was.
+      expect(body.mode).toBe('sdk');
+    }
+  });
+
+  it('a pending meeting is still pending, intent or no intent', async () => {
+    arrange({ isExpectedAttendee: true, meeting: { status: 'pending', join_url: null } });
+    asAttendee();
+
+    expect(payloadOf(await postFallback())).toEqual({ mode: 'pending' });
+  });
+});
+
+describe('POST /api/meet/session/[id]/join — the intent cannot escalate [C6]', () => {
+  it('the other-school caller is still 404, byte-identical to a nonexistent session', async () => {
+    asOtherSchoolUser();
+    const denied = await postFallback();
+
+    arrange({ session: null });
+    asOtherSchoolUser();
+    const absent = await postFallback(MISSING_SESSION_ID);
+
+    expect(denied._getStatusCode()).toBe(404);
+    expect(denied._getStatusCode()).toBe(absent._getStatusCode());
+    expect(denied._getData()).toBe(absent._getData());
+  });
+
+  it('the GC non-attendee is still the 403 that names the attendee list', async () => {
+    arrange({ meeting: provisionedMeeting });
+    asGcMember();
+
+    const res = await postFallback();
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(JSON.parse(res._getData()).error).toContain('lista de asistentes');
+  });
+
+  it('the master kill switch still wins: 503 with no lookup at all', async () => {
+    process.env.FEATURE_ZOOM_MEETINGS = 'false';
+    asAttendee();
+
+    const res = await postFallback();
+
+    expect(res._getStatusCode()).toBe(503);
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+    expect(tablesRead).toEqual([]);
+  });
+
+  it('a closed meeting is still 410, and still carries no credential', async () => {
+    arrange({
+      isExpectedAttendee: true,
+      projection: { meeting_status: 'cancelled' },
+      meeting: provisionedMeeting,
+    });
+    asAttendee();
+
+    const res = await postFallback();
+
+    expect(res._getStatusCode()).toBe(410);
+    expect(res._getData()).not.toContain(JOIN_URL);
+    expect(res._getData()).not.toContain(PASSCODE);
+  });
+
+  it('is not a method: the intent on a GET is still 405', async () => {
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { id: SESSION_ID },
+      body: { fallback: 'link' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(405);
+  });
+});

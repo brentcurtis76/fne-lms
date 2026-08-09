@@ -78,6 +78,14 @@
  *  - **Every SDK failure degrades to link mode**, never to an error: an embed
  *    misconfiguration must not deny a join that link mode could have served.
  *
+ * ## The client's fallback intent (Z3-3)
+ *
+ * The browser half can fail where the server cannot see it — an unreachable CDN, a
+ * bundle that never assigns its global, an `init` or `join` that rejects, a device that
+ * cannot run Component View at all. §5 forbids `join_url` in an SDK payload, so the
+ * client cannot hold a fallback in reserve; it re-POSTs with `{ fallback: 'link' }` and
+ * this route skips the SDK branch and nothing else. See `wantsLinkFallback`.
+ *
  * ## Host credentials (Z3-2)
  *
  * `decision.role === 'host'` covers admins AND assigned facilitators, and §9 gives
@@ -157,6 +165,27 @@ const JOINABLE_MEETING_STATUSES = ['provisioned', 'started'];
  * nobody. es-CL, because every other participant sees it.
  */
 const SDK_FALLBACK_USER_NAME = 'Participante';
+
+/**
+ * Ruling ② (Z3-3): the client's explicit request to be given LESS than it could
+ * receive — the link payload instead of the SDK one — sent after the embed failed in
+ * the browser. §5 forbids `join_url` in an SDK payload, so a fallback cannot be
+ * pre-loaded; it has to be asked for.
+ *
+ * Deliberately the narrowest widening of the wire contract that can work:
+ *
+ *  - It is read at ONE place, immediately above the SDK branch, and the only thing it
+ *    can influence is whether that branch is considered. Every gate above outcome 8 —
+ *    405, 401, 503, 404, 403, both 410s, pending — runs identically, so this cannot
+ *    escalate anything. What it asks for is what this same caller received before Z3
+ *    existed.
+ *  - An unrecognised value is IGNORED, never an error: a body that means nothing to
+ *    this route must not turn a joinable meeting into a failure.
+ */
+function wantsLinkFallback(body: unknown): boolean {
+  if (typeof body !== 'object' || body === null) return false;
+  return (body as Record<string, unknown>).fallback === 'link';
+}
 
 /**
  * `zoom_meetings.zoom_meeting_number` is a bigint: the driver may hand it back as
@@ -576,7 +605,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Outcome 8, embed variant. Reachable ONLY from here — past every gate. Anything
     // missing or malformed falls through to the link payload below rather than
     // failing the join.
-    if (isFeatureEnabled(FeatureFlags.ZOOM_EMBED)) {
+    //
+    // The body is read HERE and nowhere else, so the one thing a caller can say on the
+    // wire is "skip this branch" — see `wantsLinkFallback`.
+    if (!wantsLinkFallback(req.body) && isFeatureEnabled(FeatureFlags.ZOOM_EMBED)) {
       const isHost = decision.role === 'host';
 
       // Signed BEFORE any credential is requested, so a payload that cannot be built

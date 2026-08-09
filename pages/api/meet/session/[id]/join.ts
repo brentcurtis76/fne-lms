@@ -57,29 +57,48 @@
  * `mode` vocabulary §5 already uses — a 4xx would make the normal path look
  * like a failure.
  *
- * ## The SDK outcome (Z3-1)
+ * ## The SDK outcome (Z3-1, extended by Z3-2)
  *
- * With `FEATURE_ZOOM_EMBED` on, a caller the §5 matrix resolved to
- * `participant` receives an SDK payload instead of a link, so a school user
- * joins inside GENERA without a Zoom account. Four properties hold it in place:
+ * With `FEATURE_ZOOM_EMBED` on, a caller the §5 matrix authorized receives an SDK
+ * payload instead of a link, so a school user joins inside GENERA without a Zoom
+ * account. Four properties hold it in place:
  *
  *  - **`join_url` is absent from that payload** — not null, not empty: absent
  *    (§5, "`join_url` — never sent in SDK mode").
  *  - **The numeric role never reaches the wire.** `role` stays the descriptive
- *    `'host' | 'participant'` the UI already reads; `role: 0` lives inside the
- *    signed JWT and nowhere else, because a numeric role on the wire is a value
- *    a client could try to echo back and §5 ignores client-supplied roles.
- *  - **`host` keeps getting a link.** §9 provisions with `join_before_host:
- *    false`, so a host joining `role:1` without a ZAK cannot start the meeting —
- *    issuing one here would hand the person the meeting depends on a join that
- *    fails. ZAK, `role:1` and the §9.4 per-identity rule are Z3-2.
+ *    `'host' | 'participant'` the UI already reads; `role: 0`/`role: 1` lives
+ *    inside the signed JWT and nowhere else, because a numeric role on the wire
+ *    is a value a client could try to echo back and §5 ignores client-supplied
+ *    roles.
+ *  - **A host is signed `role: 1` only WITH a ZAK.** §9 provisions with
+ *    `join_before_host: false`, so `role: 1` without a ZAK is a join that cannot
+ *    start the meeting — worse than the link that works. The two therefore travel
+ *    together or not at all, and a host the §9 rule refuses falls back to link
+ *    mode exactly as every other SDK failure does.
  *  - **Every SDK failure degrades to link mode**, never to an error: an embed
  *    misconfiguration must not deny a join that link mode could have served.
  *
- * ## What this route does NOT do
+ * ## Host credentials (Z3-2)
  *
- * No ZAK and no `role:1` issuance — that is chunk Z3-2. `role` in the payload is
- * descriptive metadata for the UI, not a credential.
+ * `decision.role === 'host'` covers admins AND assigned facilitators, and §9 gives
+ * them different answers depending on the identity the meeting is hosted on. That
+ * rule — who may receive a ZAK, for whose identity — lives in
+ * `lib/utils/meeting-zak-policy.ts`; this route supplies its facts, fetches the
+ * credential when it says yes, and writes the `zak_issued` audit row §9 requires.
+ *
+ * Three orderings in `issueHostCredential` are load-bearing:
+ *
+ *  1. **The rule runs before Zoom is called at all.** A refusal must not even ASK
+ *     for a credential — "the ZAK client method was not called" is the assertion,
+ *     not "the payload lacks one".
+ *  2. **The audit write is the last thing before the token is handed over**, so a
+ *     row exists exactly when a credential left the server. An audit that logged
+ *     the intent would record issuances that never happened.
+ *  3. **A failed audit write withholds the ZAK.** The log is a precondition of the
+ *     rule, not a side effect of it; without it the caller gets link mode.
+ *
+ * The ZAK itself is never persisted, logged or echoed anywhere but the host's own
+ * SDK payload (§5: "fetched at start-click, never persisted").
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
@@ -101,7 +120,14 @@ import {
 import { isFeatureEnabled, FeatureFlags } from '../../../../../lib/featureFlags';
 import { createZoomServiceClient, zoomInternalSchema } from '../../../../../lib/zoom/service-client';
 import { buildJoinDialIn } from '../../../../../lib/utils/meeting-dial-in';
-import { signZoomSdkJwt } from '../../../../../lib/zoom/signer';
+import { signZoomSdkJwt, type ZoomSdkRole } from '../../../../../lib/zoom/signer';
+import {
+  resolveZakIssuance,
+  type ZakHostIdentity,
+  type ZakPersonaBranch,
+} from '../../../../../lib/utils/meeting-zak-policy';
+import { getZoomApi } from '../../../../../lib/zoom/api';
+import { getUserRoles, getHighestRole } from '../../../../../utils/roleUtils';
 
 /** §14: the master kill switch answers 503 on the join route. */
 export const FEATURE_DISABLED_MESSAGE = 'Las videollamadas están temporalmente deshabilitadas';
@@ -177,7 +203,34 @@ interface JoinInternalClient {
   };
 }
 
-/** The SDK half of the join payload — everything except `role` and `dial_in`. */
+/**
+ * The `zoom_internal` surface the ZAK path uses: a single-filter read of
+ * `zoom_hosts`, and the ONE write this route makes — the §9 audit row.
+ *
+ * A second interface rather than a widened `JoinInternalClient`, per the idiom
+ * `service-client.ts` sets: each consumer declares its own minimal shape, because
+ * one type covering every PostgREST surface would be a bigger lie than two small
+ * honest ones. It also keeps the fact visible that this route is read-only except
+ * for exactly this insert.
+ */
+interface ZakInternalClient {
+  from(table: string): {
+    select(columns: string): {
+      eq(
+        column: string,
+        value: string
+      ): {
+        maybeSingle(): PromiseLike<{
+          data: Record<string, unknown> | null;
+          error: { message: string } | null;
+        }>;
+      };
+    };
+    insert(row: Record<string, unknown>): PromiseLike<{ error: { message: string } | null }>;
+  };
+}
+
+/** The SDK half of the join payload — everything except `zak`, `role` and `dial_in`. */
 interface SdkJoinPayload {
   signature: string;
   sdk_key: string;
@@ -187,21 +240,64 @@ interface SdkJoinPayload {
   customer_key: string;
 }
 
+/** A ZAK the §9 rule authorized, with the clause that authorized it. */
+interface HostCredential {
+  /** Bearer credential. Goes into the response and nowhere else — never a log, never a row. */
+  zak: string;
+  persona: ZakPersonaBranch;
+}
+
 /**
- * Mints the SDK credentials for a participant, or returns `null` so the caller
- * answers with the link payload instead.
+ * Normalises a `zoom_hosts` row into the shape §9 is expressed over, or `null`
+ * when the row cannot be read with confidence.
+ *
+ * Fail-closed on `profile_id` specifically, and that is the whole reason this is a
+ * function rather than a cast: `profile_id === null` MEANS "organization pool
+ * host", which is the value that lets an admin through. Coercing an absent or
+ * unexpectedly-typed column to `null` would turn a malformed row into a pool host.
+ * A value that is neither a string nor literally `null` is an unreadable row, and
+ * an unreadable row issues nothing.
+ */
+function toHostIdentity(row: Record<string, unknown> | null): ZakHostIdentity | null {
+  if (!row) return null;
+
+  const zoomUserId = row.zoom_user_id;
+  if (typeof zoomUserId !== 'string' || zoomUserId === '') return null;
+
+  const profileId = typeof row.profile_id === 'string' ? row.profile_id : null;
+  // Anything that is not a string and not literally `null` did not come back as a
+  // mapping OR as a pool host — it is a row we cannot read, so nothing is issued.
+  if (profileId === null && row.profile_id !== null) return null;
+
+  return {
+    zoom_user_id: zoomUserId,
+    profile_id: profileId,
+    // Only a literal `true` is org-owned; the column is NOT NULL DEFAULT false.
+    org_owned: row.org_owned === true,
+  };
+}
+
+/**
+ * Mints the SDK credentials for an authorized caller, or returns `null` so the
+ * caller answers with the link payload instead.
  *
  * `null` is the whole error vocabulary on purpose: absent SDK env, a meeting
- * number the signer refuses, a signer that throws for any other reason. An embed
- * misconfiguration must never deny a join link mode could have served, so this is
- * the fail-safe direction and it is deliberate. Failures are logged by name only
- * — a Zoom config failure must never echo a value.
+ * number the signer refuses, a missing passcode, a signer that throws for any
+ * other reason. An embed misconfiguration must never deny a join link mode could
+ * have served, so this is the fail-safe direction and it is deliberate. Failures
+ * are logged by name only — a Zoom config failure must never echo a value.
+ *
+ * `role` is the NUMERIC SDK role and it is the caller's decision (§5: decided
+ * server-side, client-supplied roles ignored). It never appears in the returned
+ * payload — only inside the signature.
  */
 async function buildSdkJoinPayload(input: {
   service: ReturnType<typeof createServiceRoleClient>;
   userId: string;
   meetingNumber: string | null;
-  passcode: string;
+  /** Straight off the row: validated here rather than coerced at the call site. */
+  passcode: unknown;
+  role: ZoomSdkRole;
 }): Promise<SdkJoinPayload | null> {
   const sdkKey = process.env.ZOOM_SDK_CLIENT_ID;
   const sdkSecret = process.env.ZOOM_SDK_CLIENT_SECRET;
@@ -213,14 +309,28 @@ async function buildSdkJoinPayload(input: {
     return null;
   }
 
+  // A missing or blank passcode is a REFUSAL, not a default. The web SDK requires
+  // the plaintext passcode; joining with an empty one fails at Zoom with an opaque
+  // error and no fallback, where link mode would have worked — the opposite of the
+  // direction every other branch here takes. `provisioned` rows always carry one
+  // (`readCreatedCheckpoint` refuses a checkpoint without it), so this is a
+  // defensive default that used to point the wrong way, not a live bug.
+  //
+  // Trim is the emptiness TEST only: the value shipped is the stored one, because
+  // a credential is not this route's to normalise.
+  const passcode = typeof input.passcode === 'string' ? input.passcode : '';
+  if (passcode.trim() === '') {
+    console.error('[meet-session-join] SDK mode unavailable: meeting has no passcode');
+    return null;
+  }
+
   let signature: string;
   try {
     signature = signZoomSdkJwt({
       sdkKey,
       sdkSecret,
       meetingNumber: input.meetingNumber,
-      // §5: decided server-side. Z3-1 issues participants only.
-      role: 0,
+      role: input.role,
     });
   } catch (error: unknown) {
     console.error(
@@ -254,10 +364,113 @@ async function buildSdkJoinPayload(input: {
     signature,
     sdk_key: sdkKey,
     meeting_number: input.meetingNumber,
-    passcode: input.passcode,
+    passcode,
     user_name: userName,
     customer_key: toCustomerKey(input.userId),
   };
+}
+
+/**
+ * The §9 issuance path: resolve the rule, and only then fetch and log a ZAK.
+ *
+ * Every `null` here is "no host credential", which the caller turns into link
+ * mode. Nothing about a refusal is an error — §9's answer to a host who may not
+ * receive one is host-reassignment, not an escalation from this route.
+ *
+ * The ordering is the security property (see the file header): the rule decides
+ * BEFORE Zoom is asked for anything, and the audit row is written last so a row
+ * exists exactly when a credential is about to leave the server. A failed audit
+ * write withholds the credential — §9 makes the log part of the rule, not a
+ * report about it.
+ */
+async function issueHostCredential(input: {
+  service: ReturnType<typeof createServiceRoleClient>;
+  zoomServiceClient: ReturnType<typeof createZoomServiceClient>;
+  userId: string;
+  sessionId: string;
+  meetingId: unknown;
+  meetingHostZoomUserId: unknown;
+}): Promise<HostCredential | null> {
+  const hostZoomUserId =
+    typeof input.meetingHostZoomUserId === 'string' && input.meetingHostZoomUserId !== ''
+      ? input.meetingHostZoomUserId
+      : null;
+  const meetingId = typeof input.meetingId === 'string' && input.meetingId !== '' ? input.meetingId : null;
+
+  // No assigned host identity, or no row to reference from the audit log: there is
+  // nothing to issue FOR, and an issuance §9 cannot be audited against is one that
+  // does not happen.
+  if (!hostZoomUserId || !meetingId) {
+    return null;
+  }
+
+  const internal = zoomInternalSchema<ZakInternalClient>(input.zoomServiceClient);
+
+  const { data: hostRow, error: hostError } = await internal
+    .from('zoom_hosts')
+    .select('zoom_user_id, profile_id, org_owned')
+    .eq('zoom_user_id', hostZoomUserId)
+    .maybeSingle();
+
+  if (hostError) {
+    console.error('[meet-session-join] host identity read failed:', hostError.message);
+    return null;
+  }
+
+  // The two persona facts §9 keys on, read here rather than inferred from
+  // `decision.role` — which resolves admins and assigned facilitators to the same
+  // value and would collapse the two personas the rule separates.
+  const [facilitator, userRoles] = await Promise.all([
+    input.service
+      .from('session_facilitators')
+      .select('id')
+      .eq('session_id', input.sessionId)
+      .eq('user_id', input.userId)
+      .maybeSingle(),
+    getUserRoles(input.service, input.userId),
+  ]);
+
+  const persona = resolveZakIssuance({
+    profileId: input.userId,
+    isAssignedFacilitator: Boolean(facilitator.data),
+    isAdmin: getHighestRole(userRoles) === 'admin',
+    meetingHostZoomUserId: hostZoomUserId,
+    host: toHostIdentity(hostRow),
+  });
+
+  // Refused. Zoom is never asked — a rule that declined to authorize must not have
+  // requested the credential it declined.
+  if (!persona) {
+    return null;
+  }
+
+  let zak: string;
+  try {
+    zak = await getZoomApi().getUserZak(hostZoomUserId);
+  } catch (error: unknown) {
+    // Names only. The failure body of this endpoint is Zoom's error JSON, but its
+    // SUCCESS body is a credential, and no log here distinguishes the two for free.
+    console.error(
+      '[meet-session-join] ZAK request refused:',
+      error instanceof Error ? error.name : 'unknown'
+    );
+    return null;
+  }
+
+  const { error: auditError } = await internal.from('zoom_zak_issuances').insert({
+    profile_id: input.userId,
+    meeting_id: meetingId,
+    zoom_user_id: hostZoomUserId,
+    persona,
+    // No ZAK column exists and none may be added — §5: never persisted.
+  });
+
+  if (auditError) {
+    console.error('[meet-session-join] zak_issued audit write failed:', auditError.message);
+    return null;
+  }
+
+  return { zak, persona };
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -328,11 +541,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendAuthError(res, MEETING_CLOSED_MESSAGE, 410);
     }
 
-    const internal = zoomInternalSchema<JoinInternalClient>(createZoomServiceClient());
+    // Built once and cast twice: the ZAK path declares its own narrow shape over
+    // the same connection rather than opening a second one.
+    const zoomServiceClient = createZoomServiceClient();
+    const internal = zoomInternalSchema<JoinInternalClient>(zoomServiceClient);
 
     const { data: meeting, error: meetingError } = await internal
       .from('zoom_meetings')
-      .select('status, join_url, passcode, zoom_meeting_number, dial_in_numbers')
+      // `id` and `host_zoom_user_id` are the §9 path's: which row the audit
+      // references, and whose identity the meeting runs on.
+      .select('id, status, join_url, passcode, zoom_meeting_number, dial_in_numbers, host_zoom_user_id')
       .eq('surface_type', 'consultor_session')
       .eq('surface_id', decision.sessionId)
       .maybeSingle();
@@ -355,26 +573,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // rather than sending an empty one — see the header.
     const dialIn = buildJoinDialIn(meeting);
 
-    // Outcome 8, embed variant. Reachable ONLY from here — past every gate — and
-    // only for a participant, per the header. Anything missing or malformed falls
-    // through to the link payload below rather than failing the join.
-    if (isFeatureEnabled(FeatureFlags.ZOOM_EMBED) && decision.role === 'participant') {
+    // Outcome 8, embed variant. Reachable ONLY from here — past every gate. Anything
+    // missing or malformed falls through to the link payload below rather than
+    // failing the join.
+    if (isFeatureEnabled(FeatureFlags.ZOOM_EMBED)) {
+      const isHost = decision.role === 'host';
+
+      // Signed BEFORE any credential is requested, so a payload that cannot be built
+      // costs neither a Zoom call nor an audit row that describes an issuance the
+      // caller never received.
       const sdkPayload = await buildSdkJoinPayload({
         service,
         userId: user.id,
         meetingNumber: normalizeMeetingNumber(meeting.zoom_meeting_number),
-        passcode: typeof meeting.passcode === 'string' ? meeting.passcode : '',
+        passcode: meeting.passcode,
+        // §5: decided server-side. 1 = host, 0 = participant; only §9 makes a
+        // `role: 1` signature usable, and `credential` below is that gate.
+        role: isHost ? 1 : 0,
       });
 
       if (sdkPayload) {
-        return sendApiResponse(res, {
-          mode: 'sdk',
-          ...sdkPayload,
-          // Descriptive metadata, exactly as in link mode. The numeric role is
-          // inside the signature and stays there.
-          role: decision.role,
-          ...(dialIn ? { dial_in: dialIn } : {}),
-        });
+        const credential = isHost
+          ? await issueHostCredential({
+              service,
+              zoomServiceClient,
+              userId: user.id,
+              sessionId: decision.sessionId,
+              meetingId: meeting.id,
+              meetingHostZoomUserId: meeting.host_zoom_user_id,
+            })
+          : null;
+
+        // A host the §9 rule refused takes the link, which works. `role: 1` without
+        // a ZAK is an embed that cannot start a `join_before_host: false` meeting —
+        // strictly worse than the path Z2 already ships for them.
+        if (!isHost || credential) {
+          return sendApiResponse(res, {
+            mode: 'sdk',
+            ...sdkPayload,
+            // Absent — not empty — for a participant. The one place a ZAK appears.
+            ...(credential ? { zak: credential.zak } : {}),
+            // Descriptive metadata, exactly as in link mode. The numeric role is
+            // inside the signature and stays there.
+            role: decision.role,
+            ...(dialIn ? { dial_in: dialIn } : {}),
+          });
+        }
       }
     }
 

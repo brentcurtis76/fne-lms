@@ -736,3 +736,117 @@ describe('Z2-4d — global_dial_in_numbers', () => {
     );
   });
 });
+
+describe('fake — trap 4: a ZAK is a perishable bearer credential (Z3-2)', () => {
+  let zoom: ZoomFake;
+  beforeEach(() => {
+    zoom = createZoomFake();
+  });
+
+  it('mints a FRESH token per call, as Zoom does per request', async () => {
+    const first = await zoom.getUserZak(HOST);
+    const second = await zoom.getUserZak(HOST);
+
+    // A fake that answered with one stable per-host string would let a consumer
+    // cache it and still pass — and §5 says fetched at start-click, never persisted.
+    expect(first).not.toBe(second);
+    expect(zoom.isZakLive(first)).toBe(true);
+    expect(zoom.isZakLive(second)).toBe(true);
+  });
+
+  it('expireZaks() makes every token handed out so far stale', async () => {
+    const cached = await zoom.getUserZak(HOST);
+    expect(zoom.isZakLive(cached)).toBe(true);
+
+    zoom.expireZaks();
+
+    // The string is unchanged and still looks perfectly good — which is exactly how
+    // an expired ZAK behaves at join time.
+    expect(zoom.isZakLive(cached)).toBe(false);
+    expect(zoom.isZakLive(await zoom.getUserZak(HOST))).toBe(true);
+  });
+
+  it('setZak(id, null) models an identity Zoom will not issue for', async () => {
+    zoom.setZak(BASIC_HOST, null);
+
+    const error = (await zoom.getUserZak(BASIC_HOST).catch((caught) => caught)) as ZoomError;
+
+    expect(isZoomError(error)).toBe(true);
+    expect(error.kind).toBe('non_retryable');
+    expect(error.status).toBe(404);
+    // A refusal for one identity says nothing about another.
+    expect(typeof (await zoom.getUserZak(HOST))).toBe('string');
+  });
+
+  it('setZak(id, value) pins a fixture token for assertions', async () => {
+    zoom.setZak(HOST, 'Fk+PinnedSyntheticZak==');
+
+    expect(await zoom.getUserZak(HOST)).toBe('Fk+PinnedSyntheticZak==');
+    expect(zoom.isZakLive('Fk+PinnedSyntheticZak==')).toBe(true);
+  });
+
+  it('reset() forgets overrides and outstanding tokens', async () => {
+    zoom.setZak(BASIC_HOST, null);
+    const before = await zoom.getUserZak(HOST);
+
+    zoom.reset();
+
+    expect(zoom.isZakLive(before)).toBe(false);
+    expect(typeof (await zoom.getUserZak(BASIC_HOST))).toBe('string');
+  });
+});
+
+describe('live adapter — ZAK wire shape (Z3-2)', () => {
+  it('GETs /users/{id}/token?type=zak and returns the token', async () => {
+    const { api, calls } = liveApi([{ status: 200, body: { token: 'SYNTHETIC_ZAK_VALUE' } }]);
+
+    const zak = await api.getUserZak(HOST);
+
+    expect(zak).toBe('SYNTHETIC_ZAK_VALUE');
+    expect(calls[0].method).toBe('GET');
+    expect(calls[0].url).toContain(`/users/${HOST}/token`);
+    expect(calls[0].url).toContain('type=zak');
+  });
+
+  it('encodes an e-mail host id into the path segment', async () => {
+    const { api, calls } = liveApi([{ status: 200, body: { token: 'SYNTHETIC_ZAK_VALUE' } }]);
+
+    await api.getUserZak('reuniones1@fne.test');
+
+    expect(calls[0].url).toContain('/users/reuniones1%40fne.test/token');
+  });
+
+  it('refuses a 2xx that carries no usable token, naming no body', async () => {
+    for (const body of [{}, { token: '' }, { token: '   ' }, { token: 42 }]) {
+      const { api } = liveApi([{ status: 200, body }]);
+
+      const error = (await api.getUserZak(HOST).catch((caught) => caught)) as ZoomError;
+
+      expect(isZoomError(error)).toBe(true);
+      expect(error.kind).toBe('non_retryable');
+      // A GET creates nothing, so there is no ambiguous second write to guard against.
+      expect(error.outcome).toBe('not_executed');
+    }
+  });
+
+  it('surfaces a missing-scope 4xx as non_retryable — no backoff creates a scope', async () => {
+    const { api } = liveApi([
+      { status: 400, body: { code: 4711, message: 'Invalid access token, does not contain scopes' } },
+    ]);
+
+    const error = (await api.getUserZak(HOST).catch((caught) => caught)) as ZoomError;
+
+    expect(error).toBeInstanceOf(ZoomNonRetryableError);
+    expect(error.zoomCode).toBe(4711);
+  });
+
+  it('honours a 429 Retry-After and then returns the token', async () => {
+    const { api, calls } = liveApi([
+      { status: 429, body: { message: 'rate limited' }, headers: { 'retry-after': '1' } },
+      { status: 200, body: { token: 'SYNTHETIC_ZAK_VALUE' } },
+    ]);
+
+    expect(await api.getUserZak(HOST)).toBe('SYNTHETIC_ZAK_VALUE');
+    expect(calls).toHaveLength(2);
+  });
+});

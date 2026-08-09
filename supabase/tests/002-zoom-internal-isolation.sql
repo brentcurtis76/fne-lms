@@ -18,7 +18,7 @@
 
 BEGIN;
 
-SELECT plan(119);
+SELECT plan(137);
 
 -- =============================================================================
 -- A. Schema / grants / RLS isolation (38 asserts)
@@ -48,11 +48,14 @@ SELECT is(
 
 SELECT tests.rls_enabled('zoom_internal');
 
+-- 7 Z1b tables + the Z3-2 `zak_issued` audit log. The count is the guard that keeps
+-- `tests.rls_enabled` above non-vacuous, so it moves with every added table — and a
+-- table added WITHOUT moving it fails here rather than slipping past the RLS sweep.
 SELECT is(
   (SELECT count(*)::int FROM pg_class pc
      JOIN pg_namespace pn ON pn.oid = pc.relnamespace
     WHERE pn.nspname = 'zoom_internal' AND pc.relkind = 'r'),
-  7, 'zoom_internal holds exactly the 7 Z1b tables (RLS check above is not vacuous)');
+  8, 'zoom_internal holds exactly the 7 Z1b tables + zoom_zak_issuances (RLS check above is not vacuous)');
 
 -- Job RPCs: EXECUTE revoked from anon/authenticated, granted to service_role
 SELECT is(has_function_privilege('anon',
@@ -920,6 +923,133 @@ SELECT is(
      JOIN zoom_internal.zoom_meetings m USING (id)
     WHERE m.dial_in_numbers IS DISTINCT FROM f.dial_in_numbers),
   0, 'a second run of the real migration changes nothing — it is idempotent');
+
+-- =============================================================================
+-- G. Z3-2: `zoom_zak_issuances`, the §9 `zak_issued` audit log (18 asserts).
+--
+-- Two things are proved here and they are different claims. The first is that the
+-- new table sits INSIDE the §6 lockdown — a table holding "who was handed host
+-- credentials for which meeting" is exactly the kind of row that must not become
+-- readable from a browser, and default-privilege inheritance is not evidence, so
+-- the grants are asserted directly.
+--
+-- The second is that the table CANNOT hold a ZAK. §5 says the credential is never
+-- persisted; the enforcement of that is the absence of a column to put it in, and
+-- an absence is only enforced if something asserts it. The column-set assert pins
+-- the whole shape, and the pattern assert names the intent so a later `zak_value`
+-- or `token` column fails with a message that says why.
+--
+-- Hosts and windows below are dedicated so section C's EXCLUDE constraint cannot
+-- reach them.
+-- =============================================================================
+
+SELECT has_table('zoom_internal', 'zoom_zak_issuances',
+  'the §9 zak_issued audit table exists');
+
+SELECT is(
+  (SELECT pc.relrowsecurity FROM pg_class pc
+     JOIN pg_namespace pn ON pn.oid = pc.relnamespace
+    WHERE pn.nspname = 'zoom_internal' AND pc.relname = 'zoom_zak_issuances'),
+  true, 'zoom_zak_issuances has RLS enabled');
+
+SELECT is(
+  (SELECT count(*)::int FROM pg_policies
+    WHERE schemaname = 'zoom_internal' AND tablename = 'zoom_zak_issuances'),
+  0, 'zoom_zak_issuances carries zero policies — service_role bypasses, nobody else arrives');
+
+SELECT is(has_table_privilege('anon', 'zoom_internal.zoom_zak_issuances', 'SELECT'), false,
+  'anon cannot read the ZAK issuance log');
+SELECT is(has_table_privilege('authenticated', 'zoom_internal.zoom_zak_issuances', 'SELECT'), false,
+  'authenticated cannot read the ZAK issuance log');
+SELECT is(has_table_privilege('anon', 'zoom_internal.zoom_zak_issuances', 'INSERT'), false,
+  'anon cannot write the ZAK issuance log');
+SELECT is(has_table_privilege('authenticated', 'zoom_internal.zoom_zak_issuances', 'INSERT'), false,
+  'authenticated cannot write the ZAK issuance log');
+SELECT is(has_table_privilege('service_role', 'zoom_internal.zoom_zak_issuances', 'SELECT'), true,
+  'service_role can read the ZAK issuance log');
+SELECT is(has_table_privilege('service_role', 'zoom_internal.zoom_zak_issuances', 'INSERT'), true,
+  'service_role can write the ZAK issuance log');
+
+SELECT is(
+  (SELECT string_agg(column_name, ',' ORDER BY column_name)
+     FROM information_schema.columns
+    WHERE table_schema = 'zoom_internal' AND table_name = 'zoom_zak_issuances'),
+  'event_type,id,issued_at,meeting_id,persona,profile_id,zoom_user_id',
+  'zoom_zak_issuances holds exactly the audit columns — and no column for the credential');
+
+SELECT is(
+  (SELECT count(*)::int FROM information_schema.columns
+    WHERE table_schema = 'zoom_internal' AND table_name = 'zoom_zak_issuances'
+      AND (column_name ILIKE '%zak%' OR column_name ILIKE '%token%' OR column_name ILIKE '%secret%')),
+  0, 'no credential-shaped column on the audit table (§5: a ZAK is never persisted)');
+
+INSERT INTO zoom_internal.zoom_hosts (zoom_user_id, email, org_owned)
+VALUES ('zhost_zak_pool', 'pool-zak@test.local', true);
+
+INSERT INTO zoom_internal.zoom_meetings
+  (id, surface_type, surface_id, school_id, host_zoom_user_id, status, starts_at, duration_minutes)
+VALUES
+  ('cccccccc-0000-0000-0000-000000000001', 'consultor_session',
+   'cccccccc-1111-0000-0000-000000000001', 9901, 'zhost_zak_pool', 'provisioned',
+   '2027-01-01T14:00:00Z', 60);
+
+SELECT lives_ok(
+  $$ INSERT INTO zoom_internal.zoom_zak_issuances
+       (profile_id, meeting_id, zoom_user_id, persona)
+     VALUES ('cccccccc-2222-0000-0000-000000000001',
+             'cccccccc-0000-0000-0000-000000000001', 'zhost_zak_pool', 'admin_pool_host') $$,
+  'a complete issuance row inserts, defaulting event_type and issued_at');
+
+-- All three §9 branches are storable. A CHECK that rejected one would silently turn
+-- that persona's issuances into a 500 in production and an unlogged issuance here.
+SELECT lives_ok(
+  $$ INSERT INTO zoom_internal.zoom_zak_issuances
+       (profile_id, meeting_id, zoom_user_id, persona)
+     VALUES ('cccccccc-2222-0000-0000-000000000002',
+             'cccccccc-0000-0000-0000-000000000001', 'zhost_zak_pool', 'facilitator_own_host'),
+            ('cccccccc-2222-0000-0000-000000000003',
+             'cccccccc-0000-0000-0000-000000000001', 'zhost_zak_pool', 'admin_org_owned_host') $$,
+  'the other two §9 persona branches insert as well');
+
+SELECT throws_ok(
+  $$ INSERT INTO zoom_internal.zoom_zak_issuances
+       (profile_id, meeting_id, zoom_user_id, persona)
+     VALUES ('cccccccc-2222-0000-0000-000000000004',
+             'cccccccc-0000-0000-0000-000000000001', 'zhost_zak_pool', 'anyone_who_asks') $$,
+  '23514', NULL,
+  'a persona outside the three §9 branches is rejected by CHECK');
+
+SELECT throws_ok(
+  $$ INSERT INTO zoom_internal.zoom_zak_issuances
+       (event_type, profile_id, meeting_id, zoom_user_id, persona)
+     VALUES ('start_url_issued', 'cccccccc-2222-0000-0000-000000000005',
+             'cccccccc-0000-0000-0000-000000000001', 'zhost_zak_pool', 'admin_pool_host') $$,
+  '23514', NULL,
+  'an event_type other than zak_issued is rejected by CHECK');
+
+SELECT throws_ok(
+  $$ INSERT INTO zoom_internal.zoom_zak_issuances
+       (profile_id, meeting_id, zoom_user_id, persona)
+     VALUES ('cccccccc-2222-0000-0000-000000000006',
+             'cccccccc-0000-0000-0000-000000000001', 'zhost_zak_pool', NULL) $$,
+  '23502', NULL,
+  'an issuance with no persona is rejected — the authorizing branch is not optional');
+
+SELECT throws_ok(
+  $$ INSERT INTO zoom_internal.zoom_zak_issuances
+       (profile_id, meeting_id, zoom_user_id, persona)
+     VALUES ('cccccccc-2222-0000-0000-000000000007',
+             'cccccccc-0000-0000-0000-0000000000ff', 'zhost_zak_pool', 'admin_pool_host') $$,
+  '23503', NULL,
+  'an issuance cannot name a meeting that does not exist');
+
+SELECT throws_ok(
+  $$ INSERT INTO zoom_internal.zoom_zak_issuances
+       (profile_id, meeting_id, zoom_user_id, persona)
+     VALUES ('cccccccc-2222-0000-0000-000000000008',
+             'cccccccc-0000-0000-0000-000000000001', 'zhost_never_synced', 'admin_pool_host') $$,
+  '23503', NULL,
+  'an issuance cannot name a host identity that is not in the inventory');
 
 SELECT * FROM finish();
 

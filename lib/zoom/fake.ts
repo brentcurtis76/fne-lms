@@ -24,6 +24,13 @@
  * a host that is not Licensed yields `'none'` in the create response, because cloud
  * recording requires a Licensed host (§9) and Zoom reflects the effective value on a
  * capability mismatch (§20). The caller must read the response, not its own input.
+ *
+ * **4. A ZAK is a perishable bearer credential, not a per-host constant** (Z3-2). A
+ * fake that answered `getUserZak` with the same happy string forever would let a
+ * consumer cache one — and §5 says fetched at start-click, never persisted. So this
+ * one mints a FRESH token per call, `expireZaks()` makes every token handed out so
+ * far stale, `isZakLive()` is the oracle that tells a cached one from a fresh one,
+ * and `setZak(id, null)` models the identity Zoom refuses to issue for at all.
  */
 import { UNVERIFIABLE_SETTINGS_FIELDS, type ZoomReadBack, type ZoomSettingsDrift } from './client';
 import { ZoomNonRetryableError } from './errors';
@@ -92,6 +99,21 @@ export interface ZoomFakeControls {
    * audio plan — Zoom then omits the key entirely, which must still provision.
    */
   setDialInNumbers(numbers: ZoomDialInNumber[] | null): void;
+  /**
+   * Pins what `getUserZak` answers for one host identity. A string is a fixed
+   * fixture token; `null` models the identity Zoom will not issue for at all (not
+   * a Zoom user, or one this app cannot read a token for) and makes the call throw
+   * the same 404 class the live client raises.
+   */
+  setZak(zoomUserId: string, zak: string | null): void;
+  /**
+   * Models the ~2 h expiry (trap 4): every ZAK handed out so far is now stale.
+   * Nothing about the strings changes — `isZakLive` is what stops recognising
+   * them, exactly as Zoom stops accepting a token that still looks fine.
+   */
+  expireZaks(): void;
+  /** Is this a ZAK this fake handed out AND has it not been expired since? */
+  isZakLive(zak: string): boolean;
   /** Everything currently held, for assertions. */
   listMeetings(): ZoomMeeting[];
 }
@@ -104,6 +126,11 @@ export function createZoomFake(): ZoomFake {
   let meetingCounter = 0;
   let uuidCounter = 0;
   let dialInNumbers: ZoomDialInNumber[] | null = [...SYNTHETIC_DIAL_IN_NUMBERS];
+  /** Per-identity override; a `null` VALUE is "Zoom refuses", absent is "mint one". */
+  const zakOverrides = new Map<string, string | null>();
+  /** Tokens handed out and not yet expired — the whole of `isZakLive`'s knowledge. */
+  const liveZaks = new Set<string>();
+  let zakCounter = 0;
 
   /**
    * Deterministic, and deliberately carries `+` and `/`. Zoom's real UUIDs contain
@@ -114,6 +141,16 @@ export function createZoomFake(): ZoomFake {
     uuidCounter += 1;
     const seed = String(uuidCounter).padStart(4, '0');
     return `Fk+SyntheticUuid/${seed}==`;
+  }
+
+  /**
+   * Deterministic and OBVIOUSLY synthetic. A real ZAK is an opaque ~1 kB blob; the
+   * point of this shape is that a leak into a log, a fixture or an audit row is
+   * greppable in a way a random-looking string is not.
+   */
+  function mintZak(): string {
+    zakCounter += 1;
+    return `Fk+SyntheticZak/${String(zakCounter).padStart(4, '0')}==`;
   }
 
   function mintMeetingNumber(): number {
@@ -293,6 +330,24 @@ export function createZoomFake(): ZoomFake {
       return { users: users.filter((user) => user.status === status) };
     },
 
+    async getUserZak(zoomUserId: string) {
+      const override = zakOverrides.get(zoomUserId);
+      if (override === null) {
+        // The live client turns Zoom's "user does not exist / no token for you" into
+        // exactly this class; 1001 is Zoom's numeric code for it.
+        throw new ZoomNonRetryableError(`Zoom cannot issue a ZAK for this user.`, {
+          status: 404,
+          zoomCode: 1001,
+          operation: 'GET /users/{id}/token',
+        });
+      }
+      // Trap 4: fresh per call, as Zoom mints one per request. An override is a fixed
+      // fixture token and is re-registered as live so a test can pin the value.
+      const zak = override ?? mintZak();
+      liveZaks.add(zak);
+      return zak;
+    },
+
     // ---- Controls ---------------------------------------------------------
     reset() {
       meetings.clear();
@@ -300,6 +355,21 @@ export function createZoomFake(): ZoomFake {
       meetingCounter = 0;
       uuidCounter = 0;
       dialInNumbers = [...SYNTHETIC_DIAL_IN_NUMBERS];
+      zakOverrides.clear();
+      liveZaks.clear();
+      zakCounter = 0;
+    },
+
+    setZak(zoomUserId: string, zak: string | null) {
+      zakOverrides.set(zoomUserId, zak);
+    },
+
+    expireZaks() {
+      liveZaks.clear();
+    },
+
+    isZakLive(zak: string) {
+      return liveZaks.has(zak);
     },
 
     setUsers(next: ZoomUser[]) {

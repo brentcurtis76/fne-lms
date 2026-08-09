@@ -412,3 +412,36 @@ export function createZoomClient(deps: ZoomClientDeps = {}): ZoomClient {
 export function encodeMeetingUuid(uuid: string): string {
   return encodeURIComponent(encodeURIComponent(uuid));
 }
+
+// ---------------------------------------------------------------------------
+// ZAK — the host start credential (plan §5, §9; Z3-2)
+// ---------------------------------------------------------------------------
+
+/**
+ * The account-level scope `GET /users/{userId}/token?type=zak` requires. A tenant
+ * whose S2S app lacks it answers 4xx with Zoom code 4711, which this client raises
+ * as a `ZoomNonRetryableError` — a missing scope is a configuration fact, and no
+ * amount of backoff creates one.
+ */
+export const ZOOM_ZAK_SCOPE = 'user:read:token:admin';
+
+/**
+ * §5, verbatim: "ZAK (host credential, 2h) — fetched at start-click, **never
+ * persisted**". Documentation for callers rather than a value Zoom reports: the
+ * response carries `token` and no expiry at all, so nothing may derive a cache
+ * lifetime from a wire field that does not exist. A ZAK is fetched per start-click
+ * and dropped.
+ */
+export const ZOOM_ZAK_TTL_SECONDS = 2 * 3600;
+
+/**
+ * The ZAK path for one host identity. `{userId}` is `zoom_hosts.zoom_user_id`,
+ * which Zoom also accepts as an e-mail — so it is a path segment that must be
+ * encoded, exactly as `createMeeting` encodes its host id.
+ *
+ * The credential rides in the RESPONSE BODY of this call. Nothing in this module
+ * logs a success body, and no error message here may carry one.
+ */
+export function zoomZakPath(zoomUserId: string): string {
+  return `/users/${encodeURIComponent(zoomUserId)}/token`;
+}

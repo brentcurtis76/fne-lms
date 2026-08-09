@@ -743,3 +743,38 @@ Both are shared-module/global state escaping between test files under parallel w
 3. **Sol's independent review**, entry points `fase-6-review-request.md` + the PM dossier, per §0.2.
 
 **NEXT PM ACTION: write `docs/plan/zoom/reviews/fase-6-pm-dossier.md`** (§0.2 step 2) — the one write besides this ledger the PM makes — then hand it and the review-request to Brent for Sol. **The phase is NOT Done and the ledger row does not flip until Sol approves AND Brent merges.**
+
+## ✅ **PRODUCTION MIGRATION APPLIED AND VERIFIED — 2026-08-08. §0.1(d) satisfied for Z3.**
+
+**Applied by Brent** (authorized and executed by the owner; the PM wrote the snippet and ran nothing against production). One migration only — `20260810120000_zoom_zak_issuances.sql`. The PM checked first that the branch adds exactly one: `20260809120100` was already on `main`, applied during the Z2 close, so there was no second migration hiding behind it.
+
+Applied as a single transaction with its `schema_migrations` row inside the same `BEGIN/COMMIT`, the pattern the Z1b broken-approval incident bought. Owner reported `Success. No rows returned`.
+
+**PM verification of the PRODUCTION schema, read-only, three queries, run by the PM and not taken on report:**
+
+| Check | Result |
+|---|---|
+| `zoom_zak_issuances` present | ✅ 1 |
+| RLS enabled | ✅ `true` |
+| Policies on it | ✅ **0** — service_role bypasses, nobody else arrives |
+| Column set | ✅ `event_type, id, issued_at, meeting_id, persona, profile_id, zoom_user_id` — **no column for the credential** |
+| CHECK constraints / FKs / indexes | ✅ 2 / 2 / 4 |
+| `schema_migrations` version row | ✅ `20260810120000` recorded |
+| `zoom_internal` table count | ✅ **8** (the 7 from Z1b + this one) |
+| `anon` / `authenticated` schema USAGE | ✅ **false / false** |
+| `anon` / `authenticated` SELECT + INSERT on the table | ✅ **all false** |
+| `service_role` SELECT + INSERT | ✅ true / true |
+
+**And the check that actually needed making, because the migration's tail re-runs the blanket REVOKE/GRANT across the WHOLE schema rather than the one new table** — a statement that could in principle have re-tiered the seven tables Z1b shipped. **It did not.** Across all of `zoom_internal` in production: **8 tables, 0 readable by `anon` or `authenticated`, 0 unreadable by `service_role`, 0 without RLS; 9 functions, 0 executable by `anon` or `authenticated`, 0 not executable by `service_role`.** The §6 lockdown is intact exactly as Z1b left it.
+
+*(One PM query returned an empty set on the first attempt — a stray `from pg_class where false` in the final clause. Caught by the PM, rewritten, re-run. Recorded because a verification query that silently returns nothing is indistinguishable from a passing one if nobody reads it.)*
+
+## 🔵 **PR [#47](https://github.com/brentcurtis76/fne-lms/pull/47) OPENED 2026-08-08 — the first CI this branch has ever had.**
+
+Opened by the PM on Brent's explicit instruction (*"you do it"*). Head `18441936`, base `main`, **`MERGEABLE`**. Branch was already pushed and in sync before opening.
+
+First results in: **RLS migration guard SUCCESS** — the CI check that fails a PR carrying `DISABLE ROW LEVEL SECURITY`, which is the one gate a new `zoom_internal` table most needs to clear. Vercel preview SUCCESS. Gates 1, 1b, 2, 3 and 4 running.
+
+**Two of the three close conditions are now met** (migration applied + verified; PR open). **The third is Sol.** The reviewer prompt has been handed to Brent, with `fase-6-pm-dossier.md` and `fase-6-review-request.md` as entry points.
+
+**Watch item on this CI run, called in advance so a red gate is read correctly:** the PM measured a **pre-existing cross-file Vitest state leak** at 1-in-3 on this branch's own base commit and 0-in-4 on its head (two signatures: a `vi.mock` registry leak on `@/lib/api-auth`, and a `process.env.VERCEL_ENV` leak reaching `pasantias-pdf.test.ts`). `ci.yml` gives `retries: 2` to **Playwright only**, so a Vitest flake reds Gate 2 outright. **If Gate 2 fails on a file this branch does not touch, that is the cause, and a green re-run is evidence about the flake — not about the code. It must be recorded as such rather than quietly re-run until green.**

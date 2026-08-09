@@ -59,6 +59,51 @@ export const SDK_DOWNLOAD_FAILED_MESSAGE =
 
 const SDK_ABSENT_MESSAGE = 'El componente de video se descargó pero no quedó disponible.';
 
+/**
+ * Deadlines (Z3-r5, Sol M3).
+ *
+ * Every transition between "the user pressed continue" and "the meeting is on screen"
+ * used to be unbounded, and the link fallback only starts from a thrown error — so a
+ * download that stalled, or an SDK that called neither callback, left the UI busy
+ * forever with no way out. On a school network that is the LIKELY path, not the exotic
+ * one, and it is precisely what the fallback exists to cover.
+ *
+ * The numbers are generous on purpose: they are a floor under a hang, not a performance
+ * budget. Anything slower than these has already lost the meeting, and the link — which
+ * opens Zoom's own client — is the better answer by then.
+ */
+export const SDK_DOWNLOAD_TIMEOUT_MS = 30_000;
+
+/** One deadline for every SDK call: `i18n.load`, `init`, `join`, and the callback wait. */
+export const SDK_CALL_TIMEOUT_MS = 45_000;
+
+/** es-CL, and deliberately the same sentence a refused join gets: same remedy. */
+export const SDK_TIMEOUT_MESSAGE = 'La reunión no respondió a tiempo en esta página.';
+
+/**
+ * Rejects `work` if it has not settled within `ms`.
+ *
+ * The timer is cleared on either settlement, so a call that finishes normally leaves
+ * nothing pending. Losing the race does NOT cancel the underlying work — nothing here
+ * can cancel a Zoom `join` — it only stops the UI waiting on it, which is the whole
+ * point: the caller falls back to the link while Zoom keeps doing whatever it is doing.
+ */
+export function withTimeout<T>(work: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    work.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
+
 /** Everything the SDK's `join` takes from us. `zak` only ever for an authorized host. */
 export interface ZoomEmbeddedJoinOptions {
   sdkKey: string;
@@ -96,18 +141,29 @@ function readSdkGlobal(): ZoomEmbeddedGlobal | undefined {
 }
 
 /**
- * Appends one classic script and resolves on load, reusing a tag this surface already
- * appended. The `data-zoom-embed-src` marker is what makes the reuse safe across two
- * joins in one page life — and it is deliberately a different attribute from the one
- * `/meet/diag` uses, so neither page can adopt the other's half-loaded tag.
+ * Appends one classic script into `doc` and resolves on load, reusing a tag this
+ * surface already loaded there. The `data-zoom-embed-src` marker is what makes the
+ * reuse safe across two joins in one page life — and it is deliberately a different
+ * attribute from the one `/meet/diag` uses, so neither page can adopt the other's
+ * half-loaded tag.
  *
- * Exported for `zoom-client-view-loader.ts` (Z3-4): Client View loads different bundles
- * through the same rules, and the two views share the vendor React pair, so one marker
- * across both is what makes reuse correct rather than a collision.
+ * `doc` defaults to this page's document. Client View passes the isolated frame's
+ * document instead (Z3-r5, Sol M4), which is why every read and write below goes
+ * through the parameter rather than the global — a tag appended to the wrong document
+ * loads a bundle whose globals the caller cannot reach.
+ *
+ * ## Only a LOADED tag is reused (Z3-r5, Sol M3)
+ *
+ * The previous version reused any tag it found. A script element that has already
+ * fired `error` never fires again, so a retry that adopted one waited on a promise
+ * that could not settle — the exact hang the link fallback exists to prevent, in the
+ * exact place a school network produces it. A tag that is not known-loaded is dropped
+ * and re-created, and both failure edges — `error` and the deadline — remove the node
+ * so the NEXT attempt starts from a clean document too.
  */
-export function loadZoomCdnScript(src: string): Promise<void> {
+export function loadZoomCdnScript(src: string, doc: Document = document): Promise<void> {
   return new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(
+    const existing = doc.querySelector<HTMLScriptElement>(
       `script[data-zoom-embed-src="${src}"]`
     );
     if (existing?.dataset.loaded === 'true') {
@@ -115,24 +171,32 @@ export function loadZoomCdnScript(src: string): Promise<void> {
       return;
     }
 
-    const script = existing ?? document.createElement('script');
+    existing?.remove();
+
+    const script = doc.createElement('script');
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const fail = () => {
+      clearTimeout(timer);
+      script.remove();
+      reject(new Error(SDK_DOWNLOAD_FAILED_MESSAGE));
+    };
+
     script.addEventListener(
       'load',
       () => {
+        clearTimeout(timer);
         script.dataset.loaded = 'true';
         resolve();
       },
       { once: true }
     );
-    script.addEventListener('error', () => reject(new Error(SDK_DOWNLOAD_FAILED_MESSAGE)), {
-      once: true,
-    });
+    script.addEventListener('error', fail, { once: true });
+    timer = setTimeout(fail, SDK_DOWNLOAD_TIMEOUT_MS);
 
-    if (!existing) {
-      script.src = src;
-      script.dataset.zoomEmbedSrc = src;
-      document.head.appendChild(script);
-    }
+    script.src = src;
+    script.dataset.zoomEmbedSrc = src;
+    doc.head.appendChild(script);
   });
 }
 

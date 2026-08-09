@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Reunión</title>
+    <!--
+      Z3-r5 (Sol M4) — the CSS boundary for Zoom's Client View.
+
+      This file is deliberately NOT a Next.js page. Next only permits a global
+      stylesheet to be imported from `pages/_app.tsx`, and `_app` wraps every page, so
+      no route in this router can avoid `styles/globals.css` — Tailwind Preflight and
+      all. Zoom's import guidance warns that global framework CSS conflicts with Client
+      View, and `init`/`join` can SUCCEED with a broken layout, which is a failure the
+      catch-based link fallback cannot detect. A static document under `public/` is
+      served without the app pipeline, so the app's CSS never reaches it.
+
+      Three rules hold this file to its job:
+        1. NO stylesheet and NO style rules of ours. Zoom's own CSS is appended at
+           runtime by `lib/meet/zoom-client-view-loader.ts`, from the pinned CDN
+           version, and it is the only CSS this document ever carries. The one
+           declaration below is on the element itself: the SDK expects the full
+           viewport and a default 8px body margin would letterbox it.
+        2. NO script. The parent page drives everything from typed, tested TypeScript
+           across the same-origin boundary — the bootstrap does not fork into an
+           untested copy living in `public/`.
+        3. NO credential and NO session identifier, here or in the URL. This document
+           is a constant: it reveals nothing and it is the same bytes for everyone.
+
+      It lives under `/meet/` because `next.config.js` grants
+      `camera=(self), microphone=(self), display-capture=(self)` to that prefix and
+      denies them everywhere else.
+    -->
+  </head>
+  <body style="margin: 0">
+    <!-- Zoom looks this element up by id. The id is theirs and cannot be renamed. -->
+    <div id="zmmtg-root"></div>
+  </body>
+</html>

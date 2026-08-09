@@ -108,8 +108,11 @@ beforeEach(() => {
   mockAsPath.value = `/meet/session/${SESSION_ID}`;
   vi.stubGlobal('fetch', mockFetch);
   vi.stubGlobal('open', mockOpen);
-  // A browser that lets a new tab through; one test below takes the other answer.
-  mockOpen.mockReturnValue({} as Window);
+  // What a real browser returns from `window.open(..., 'noopener,noreferrer')`: `null`,
+  // whether or not the tab was created (HTML standard; Sol reproduced it in Chromium).
+  // The previous double returned `{}`, a value no browser produces under `noopener`,
+  // and it hid a fallback that reported every success as a blocked popup.
+  mockOpen.mockReturnValue(null);
 
   mockInit.mockResolvedValue(undefined);
   mockJoin.mockResolvedValue(undefined);
@@ -330,9 +333,13 @@ describe('JoinMeetingButton — the ruling ② fallback [C4]', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
-  it('says what to press when the browser blocks the fallback tab', async () => {
+  /**
+   * Sol M1 — `window.open` under `noopener` returns `null` on success too, so the old
+   * fallback reported EVERY successful open as a blocked popup and offered a retry that
+   * could spawn a second Zoom tab. Nothing is inferred from that value any more.
+   */
+  it('never reports a block, and leaves a working link behind instead', async () => {
     mockJoin.mockRejectedValue(new Error('join'));
-    mockOpen.mockReturnValue(null);
     serve(ok(sdkPayload()));
     render(<JoinMeetingButton sessionId={SESSION_ID} />);
 
@@ -340,11 +347,34 @@ describe('JoinMeetingButton — the ruling ② fallback [C4]', () => {
     await screen.findByTestId('meet-prejoin-check');
     clickContinue();
 
-    expect(await screen.findByTestId('meet-join-error')).toHaveTextContent(
-      'Tu navegador bloqueó la ventana nueva'
-    );
-    // The URL is still not in the document — the message names the button, not the link.
+    const link = await screen.findByTestId('meet-join-open-link');
+    // The tab was asked for exactly once, and `null` came back — as it always does.
+    expect(mockOpen).toHaveBeenCalledTimes(1);
+    expect(mockOpen).toHaveReturnedWith(null);
+    expect(screen.queryByTestId('meet-join-error')).toBeNull();
+
+    // The security properties are retained on the escape hatch, not traded for a signal.
+    expect(link).toHaveAttribute('href', JOIN_URL);
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    // Still not READABLE anywhere: the control is labelled, the URL is not on screen.
     expect(screen.queryByText(JOIN_URL)).toBeNull();
+    expect(link).toHaveTextContent('Abrir Zoom en otra pestaña');
+  });
+
+  it('leaves the primary link path exactly as Z2 shipped it — no link block, no error', async () => {
+    serve(ok(linkPayload));
+    render(<JoinMeetingButton sessionId={SESSION_ID} />);
+
+    clickJoin();
+
+    await waitFor(() =>
+      expect(mockOpen).toHaveBeenCalledWith(JOIN_URL, '_blank', 'noopener,noreferrer')
+    );
+    // One request, one tab, and none of the fallback's furniture.
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('meet-join-link')).toBeNull();
+    expect(screen.queryByTestId('meet-join-error')).toBeNull();
   });
 });
 
@@ -473,12 +503,12 @@ describe('JoinMeetingButton — the credentials leave no trace [C7]', () => {
 describe('the meeting surface never reads a feature flag in the browser [C11]', () => {
   const ROOT = path.resolve(__dirname, '../../..');
 
-  const SURFACES = [
-    'components/sessions',
-    'lib/meet/zoom-sdk-loader.ts',
-    'lib/meet/zoom-client-view-loader.ts',
-    'lib/meet/embed-capabilities.ts',
-  ];
+  /**
+   * Directories, not a file list (Z3-r5): a named-file guard has to be remembered every
+   * time the surface grows, and this round grew it. A directory covers whatever lands
+   * in it next.
+   */
+  const SURFACES = ['components/sessions', 'lib/meet'];
 
   function filesUnder(target: string): string[] {
     const absolute = path.join(ROOT, target);
@@ -492,8 +522,9 @@ describe('the meeting surface never reads a feature flag in the browser [C11]', 
     const files = SURFACES.flatMap(filesUnder);
 
     // Guard the guard: a glob that silently matched nothing would pass forever.
-    // Raised from 8 to 9 in Z3-4, with `zoom-client-view-loader.ts` above [D8].
-    expect(files.length).toBeGreaterThanOrEqual(9);
+    // 8 → 9 in Z3-4 (`zoom-client-view-loader.ts`), → 11 in Z3-r5 when the list became
+    // the two directories and picked up the rest of `lib/meet` with them.
+    expect(files.length).toBeGreaterThanOrEqual(11);
 
     const offenders = files.filter((file) => {
       const source = readFileSync(file, 'utf8');

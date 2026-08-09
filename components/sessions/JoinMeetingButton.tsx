@@ -7,14 +7,18 @@ import type { JoinDialIn } from '../../lib/utils/meeting-dial-in';
 import { selectEmbedView, type EmbeddedView } from '../../lib/meet/embed-capabilities';
 import {
   loadMeetingSdk,
+  SDK_CALL_TIMEOUT_MS,
   SDK_LANGUAGE,
+  SDK_TIMEOUT_MESSAGE,
+  withTimeout,
   type ZoomEmbeddedClient,
 } from '../../lib/meet/zoom-sdk-loader';
 import {
   awaitClientViewCall,
+  awaitClientViewFrame,
+  CLIENT_VIEW_FRAME_SRC,
   CLIENT_VIEW_LIB_BASE,
   CLIENT_VIEW_LIB_DIR,
-  CLIENT_VIEW_ROOT_ID,
   loadClientView,
 } from '../../lib/meet/zoom-client-view-loader';
 
@@ -87,6 +91,24 @@ import {
  *
  * The rules above hold identically on both: the same single §5 opening, the same
  * payload, the same ref that is emptied by the call that consumes it.
+ *
+ * ## Client View runs in its own document (Z3-r5, Sol M4)
+ *
+ * Client View takes the page over, and Zoom warns that global framework CSS conflicts
+ * with it. This app's `styles/globals.css` is imported by `pages/_app.tsx`, which wraps
+ * every page — and Next's Pages Router permits a global stylesheet in `_app` and nowhere
+ * else, so no route can opt out. A dedicated page would satisfy plan §15's wording
+ * ("Client View route") while leaving the actual defect in place: `init` and `join` can
+ * SUCCEED against a broken layout, which is a failure class the catch-based fallback
+ * cannot see at all.
+ *
+ * So Client View renders inside a same-origin frame whose document
+ * (`CLIENT_VIEW_FRAME_SRC`) is a static file, served without the app pipeline and
+ * carrying none of the app's CSS. Nothing else about the path changes: the same one §5
+ * opening, the same credentials read from a ref and dropped by the call that consumes
+ * them — they cross into the frame as arguments to a function call, never as a URL, a
+ * prop, an attribute or a message payload — and the same `{fallback:'link'}` on any
+ * failure.
  */
 
 interface JoinMeetingButtonProps {
@@ -99,19 +121,24 @@ const PENDING_MESSAGE = 'Enlace en preparación';
 /** Network/parse failure — the only copy this component authors itself. */
 const REQUEST_FAILED_MESSAGE = 'No pudimos preparar el acceso a la reunión. Intenta nuevamente.';
 
-/** The retry control's label — deliberately the same words as the preflight's escape hatch. */
+/** The escape hatch's label — deliberately the same words as the preflight's. */
 const USE_LINK_LABEL = 'Abrir Zoom en otra pestaña';
 
 /**
- * The fallback path's popup is further from the click than the primary one — a failed
- * embed spends seconds on the CDN first — so a browser is likelier to refuse it. Only
- * that path checks, and it says what to press rather than exposing the URL.
+ * What the fallback says once it has asked for a tab (Z3-r5, Sol M1).
  *
- * The control it names re-runs the FALLBACK, not the embed: pressing «Unirse a la
- * reunión» again would spend another failed embed attempt before arriving back at the
- * same blocked popup, which is the wrong thing to do twice.
+ * It does NOT claim the tab was blocked, because this page cannot know. Per the HTML
+ * standard `window.open()` returns `null` whenever `noopener` is set — successfully or
+ * not — so the previous version inferred "blocked" from a value that carries no
+ * information, and told EVERY user of the fallback that their popup had been refused.
+ *
+ * The value is not made informative by dropping `noopener,noreferrer`; a security
+ * property is not a detection signal to trade away. So detection is abandoned and the
+ * user gets Sol's other shape instead: a real link, right here. Its activation is a
+ * genuine user gesture, which is what a popup blocker keys on — so unlike the old retry
+ * button, it cannot itself be refused.
  */
-const POPUP_BLOCKED_MESSAGE = `Tu navegador bloqueó la ventana nueva. Presiona «${USE_LINK_LABEL}» para intentarlo de nuevo.`;
+const LINK_OPENED_MESSAGE = 'Abrimos Zoom en una pestaña nueva. Si no la ves, usa el enlace:';
 
 /** Shown while the SDK downloads and connects. */
 const EMBED_CONNECTING_MESSAGE = 'Conectando a la reunión…';
@@ -205,8 +232,13 @@ function readSdkCredentials(value: unknown): EmbedCredentials | null {
 type JoinOutcome =
   | { kind: 'idle' }
   | { kind: 'pending' }
-  /** `retry` renders the ruling-③ control: it re-runs the fallback, not the embed. */
-  | { kind: 'denied'; message: string; retry?: 'fallback' }
+  /**
+   * The fallback asked for a tab and cannot know whether it got one, so it keeps the
+   * URL on screen as a link. Only the FALLBACK reaches this state — the primary link
+   * path stays exactly the `idle` it has been since Z2.
+   */
+  | { kind: 'link'; url: string }
+  | { kind: 'denied'; message: string }
   /** Credentials in hand, preflight on screen, nothing mounted yet. */
   | { kind: 'preflight'; view: EmbeddedView }
   | { kind: 'joining'; view: EmbeddedView }
@@ -235,8 +267,19 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
   const credentialsRef = useRef<EmbedCredentials | null>(null);
   const sdkRootRef = useRef<HTMLDivElement | null>(null);
   const clientRef = useRef<ZoomEmbeddedClient | null>(null);
-  /** Client View is bootstrapped once per page life, exactly as `clientRef` is. */
+  /** Client View is bootstrapped once per FRAME, exactly as `clientRef` is per client. */
   const clientViewReadyRef = useRef(false);
+  const clientFrameRef = useRef<HTMLIFrameElement | null>(null);
+  /** The frame's window, once its document has loaded. Waiting for it twice is pointless. */
+  const clientHostRef = useRef<Window | null>(null);
+  /**
+   * Whether the isolated Client View document is mounted. Separate from `outcome`
+   * because the frame must outlive the states around a join: it is mounted at the
+   * preflight so its document loads early, and it holds a bootstrapped `ZoomMtg` that a
+   * second join in the same page life reuses. It comes down only when the user leaves
+   * the meeting, which takes the bootstrap with it.
+   */
+  const [clientFrameOpen, setClientFrameOpen] = useState(false);
 
   /**
    * Turns one join response into what the user sees.
@@ -274,15 +317,12 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
 
     if (payload?.mode === 'link' && typeof payload.join_url === 'string') {
       setDialIn(readDialIn(payload.dial_in));
-      const opened = window.open(payload.join_url, '_blank', 'noopener,noreferrer');
-      // The primary path is byte-for-byte what Z2 shipped and stays that way. Only
-      // the fallback — seconds after the click, past a failed CDN fetch — reports a
-      // blocked popup, because only there is the block likely.
-      setOutcome(
-        allowEmbed || opened
-          ? { kind: 'idle' }
-          : { kind: 'denied', message: POPUP_BLOCKED_MESSAGE, retry: 'fallback' }
-      );
+      // Return value deliberately unread: under `noopener` it is `null` either way.
+      window.open(payload.join_url, '_blank', 'noopener,noreferrer');
+      // The primary path is byte-for-byte what Z2 shipped and stays that way. Only the
+      // fallback — seconds after the click, past a failed CDN fetch, where a browser is
+      // likeliest to refuse the tab — keeps the link on screen afterwards.
+      setOutcome(allowEmbed ? { kind: 'idle' } : { kind: 'link', url: payload.join_url });
       return;
     }
 
@@ -306,6 +346,10 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
 
       setDialIn(readDialIn(payload.dial_in));
       credentialsRef.current = credentials;
+      // Mounted from here, so the isolated document is already loading while the user
+      // reads the preflight — and kept mounted across a second join in the same page
+      // life, exactly as the bootstrap it holds is.
+      if (view === 'client') setClientFrameOpen(true);
       setOutcome({ kind: 'preflight', view });
       return;
     }
@@ -361,49 +405,85 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
     const client = clientRef.current ?? sdk.createClient();
 
     // `init` once per client; a second join in the same page life reuses it, exactly
-    // as it reuses the already-downloaded bundle.
+    // as it reuses the already-downloaded bundle. Both calls are bounded (Sol M3): an
+    // SDK that answers neither way used to leave this promise pending forever, and the
+    // fallback below only starts from a rejection.
     if (!clientRef.current) {
-      await client.init({
-        zoomAppRoot: root,
-        // §20: the SDK ships es-ES. Every string GENERA writes stays es-CL.
-        language: SDK_LANGUAGE,
-        patchJsMedia: true,
-        leaveOnPageUnload: true,
-      });
+      await withTimeout(
+        client.init({
+          zoomAppRoot: root,
+          // §20: the SDK ships es-ES. Every string GENERA writes stays es-CL.
+          language: SDK_LANGUAGE,
+          patchJsMedia: true,
+          leaveOnPageUnload: true,
+        }),
+        SDK_CALL_TIMEOUT_MS,
+        SDK_TIMEOUT_MESSAGE
+      );
       clientRef.current = client;
     }
 
-    await client.join({
-      sdkKey: credentials.sdkKey,
-      signature: credentials.signature,
-      meetingNumber: credentials.meetingNumber,
-      userName: credentials.userName,
-      password: credentials.passcode,
-      customerKey: credentials.customerKey,
-      // Absent — not empty — for a participant, and for a host §9 refused.
-      ...(credentials.zak ? { zak: credentials.zak } : {}),
-    });
+    await withTimeout(
+      client.join({
+        sdkKey: credentials.sdkKey,
+        signature: credentials.signature,
+        meetingNumber: credentials.meetingNumber,
+        userName: credentials.userName,
+        password: credentials.passcode,
+        customerKey: credentials.customerKey,
+        // Absent — not empty — for a participant, and for a host §9 refused.
+        ...(credentials.zak ? { zak: credentials.zak } : {}),
+      }),
+      SDK_CALL_TIMEOUT_MS,
+      SDK_TIMEOUT_MESSAGE
+    );
   };
 
   /**
-   * Hand the page to Client View and join. The bootstrap sequence and the callback
-   * shape are Zoom's, not a choice — see `zoom-client-view-loader.ts`.
+   * The meeting is over. The frame goes, and the bootstrap goes with it: `ZoomMtg`
+   * lived on that window, so a later join must mount a fresh frame and bootstrap again.
+   */
+  const handleClientViewLeave = () => {
+    clientViewReadyRef.current = false;
+    clientHostRef.current = null;
+    setClientFrameOpen(false);
+    setOutcome({ kind: 'idle' });
+  };
+
+  /**
+   * Hand the isolated frame to Client View and join. The bootstrap sequence and the
+   * callback shape are Zoom's, not a choice — see `zoom-client-view-loader.ts`.
    */
   const joinWithClientView = async (credentials: EmbedCredentials) => {
-    const sdk = await loadClientView();
+    const frame = clientFrameRef.current;
+    if (!frame) throw new Error('embed context missing');
+
+    // Everything below runs against the frame's window and document, not this page's.
+    const host = clientHostRef.current ?? (await awaitClientViewFrame(frame));
+    clientHostRef.current = host;
+    const sdk = await loadClientView(host);
 
     if (!clientViewReadyRef.current) {
       sdk.setZoomJSLib(CLIENT_VIEW_LIB_BASE, CLIENT_VIEW_LIB_DIR);
       sdk.preLoadWasm();
       sdk.prepareWebSDK();
       // §20: the SDK ships es-ES. Every string GENERA writes stays es-CL.
-      sdk.i18n.load(SDK_LANGUAGE);
+      //
+      // AWAITED, and before `init` (Sol M2): Zoom's localization loads the language
+      // resources asynchronously, and an `init` that starts first initialises the SDK
+      // in en-US, switching to es-ES only if the load happens to settle in time.
+      await withTimeout(
+        Promise.resolve(sdk.i18n.load(SDK_LANGUAGE)),
+        SDK_CALL_TIMEOUT_MS,
+        SDK_TIMEOUT_MESSAGE
+      );
 
       await awaitClientViewCall((callbacks) =>
         sdk.init({
-          // Leaving the meeting returns the user to this same interstitial, which is
-          // where the dial-in details are. The path carries nothing Zoom-shaped.
-          leaveUrl: window.location.href,
+          // Leaving the meeting returns the FRAME to its own empty document, which is
+          // how this page learns the meeting is over (see the mount below). The path
+          // carries nothing Zoom-shaped and no session identifier.
+          leaveUrl: host.location.href,
           patchJsMedia: true,
           leaveOnPageUnload: true,
           ...callbacks,
@@ -427,6 +507,11 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
         ...callbacks,
       })
     );
+
+    // From here the frame's next `load` means one thing: Zoom navigated it to
+    // `leaveUrl` because the user left. Attached only after a join succeeded, so the
+    // frame's own first load — which this join waited on — cannot trigger it.
+    frame.addEventListener('load', handleClientViewLeave, { once: true });
   };
 
   /**
@@ -534,20 +619,30 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
       )}
 
       {/*
-        Ruling ③: the retry the blocked-popup message names re-runs the FALLBACK. The
-        join button above would restart the embed and spend a second failed attempt
-        before arriving back here.
+        Sol M1: the fallback's escape hatch, and the reason nothing here claims to know
+        whether the tab opened. An anchor rather than the old retry button, because the
+        old one re-ran the fallback through a fetch — landing outside the user's gesture
+        again, where the same browser could refuse it again, forever. Activating a link
+        is the gesture, so this one always works.
       */}
-      {outcome.kind === 'denied' && outcome.retry === 'fallback' && (
-        <button
-          type="button"
-          onClick={handleUseLink}
-          disabled={busy}
-          data-testid="meet-join-retry-link"
-          className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2 disabled:opacity-50"
+      {outcome.kind === 'link' && (
+        <div
+          data-testid="meet-join-link"
+          role="status"
+          className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700"
         >
-          {USE_LINK_LABEL}
-        </button>
+          <p>{LINK_OPENED_MESSAGE}</p>
+          <a
+            href={outcome.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="meet-join-open-link"
+            className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2"
+          >
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+            {USE_LINK_LABEL}
+          </a>
+        </div>
       )}
 
       {/*
@@ -565,12 +660,31 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
       )}
 
       {/*
-        Client View's root, which it looks up by Zoom's own id rather than being handed.
-        Mounted only on the Client View path, so the two roots can never coexist — and
-        left unstyled, because the SDK takes the page over with its own CSS once the
-        bundle is in.
+        Sol M4: Client View's document, and the CSS boundary this app cannot give it any
+        other way. Zoom's root element lives INSIDE it — this page never mounts one — so
+        the two views still cannot coexist, and now the app's global stylesheet cannot
+        reach the one that takes the page over.
+
+        `allow` is what lets the frame ask for a camera and a microphone at all: the
+        parent route is granted `camera=(self), microphone=(self), display-capture=(self)`
+        by `next.config.js`, and a nested context gets only what it is explicitly passed.
+        Full-viewport from `joining` onward — before that it is mounted but hidden, so
+        its document loads while the user is still reading the preflight.
       */}
-      {activeView === 'client' && <div id={CLIENT_VIEW_ROOT_ID} data-testid="meet-client-root" />}
+      {clientFrameOpen && (
+        <iframe
+          ref={clientFrameRef}
+          src={CLIENT_VIEW_FRAME_SRC}
+          title="Reunión de Zoom"
+          data-testid="meet-client-root"
+          allow="camera; microphone; display-capture; autoplay; fullscreen"
+          className={
+            activeView === 'client' && outcome.kind !== 'preflight'
+              ? 'fixed inset-0 z-50 h-full w-full border-0'
+              : 'hidden'
+          }
+        />
+      )}
 
       {!embedActive && (
         <p className="mt-3 text-xs text-gray-500">

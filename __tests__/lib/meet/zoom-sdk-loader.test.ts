@@ -14,6 +14,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   loadMeetingSdk,
   SDK_DOWNLOAD_FAILED_MESSAGE,
+  SDK_DOWNLOAD_TIMEOUT_MS,
   SDK_SRC,
   SDK_VENDOR_SRCS,
 } from '../../../lib/meet/zoom-sdk-loader';
@@ -89,7 +90,9 @@ describe('loadMeetingSdk [C3]', () => {
       return node;
     }) as typeof document.head.appendChild);
 
-    void loadMeetingSdk();
+    // The rejection is swallowed on purpose: nothing ever answers this load, so it now
+    // rejects at its deadline (Z3-r5) long after this test has made its point.
+    void loadMeetingSdk().catch(() => {});
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     // Parallel loading would have appended all three by now, and the bundle would be
@@ -126,6 +129,53 @@ describe('loadMeetingSdk [C3]', () => {
     primeCdn({ assignGlobal: false });
 
     await expect(loadMeetingSdk()).rejects.toThrow(/no quedó disponible/);
+  });
+
+  /**
+   * Sol M3 — the two ways this loader used to hang forever.
+   *
+   * Nothing downstream can recover from a promise that never settles: the link fallback
+   * starts from the `catch` in `JoinMeetingButton`, so a load that neither resolves nor
+   * rejects leaves the UI busy with no way out. On a school network — the scenario the
+   * fallback exists for — a stalled download is the likely path, not the exotic one.
+   */
+  it('stops waiting on a script that never answers, and drops the dead node', async () => {
+    vi.useFakeTimers();
+    try {
+      // Appended and never answered: a proxy that accepts the connection and stalls.
+      vi.spyOn(document.head, 'appendChild').mockImplementation(((node: Node) => {
+        const script = node as HTMLScriptElement;
+        appended.push(script.dataset.zoomEmbedSrc ?? '');
+        return HTMLElement.prototype.appendChild.call(document.head, script);
+      }) as typeof document.head.appendChild);
+
+      const settled = expect(loadMeetingSdk()).rejects.toThrow(SDK_DOWNLOAD_FAILED_MESSAGE);
+      await vi.advanceTimersByTimeAsync(SDK_DOWNLOAD_TIMEOUT_MS);
+      await settled;
+
+      expect(appended).toEqual([SDK_VENDOR_SRCS[0]]);
+      // Removed, so the retry below starts from a clean document.
+      expect(document.head.querySelector('script[data-zoom-embed-src]')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('replaces a script that already failed, so a retry can make progress', async () => {
+    primeCdn({ failOn: SDK_VENDOR_SRCS[0] });
+    await expect(loadMeetingSdk()).rejects.toThrow(SDK_DOWNLOAD_FAILED_MESSAGE);
+    expect(appended).toEqual([SDK_VENDOR_SRCS[0]]);
+
+    vi.restoreAllMocks();
+    appended = [];
+    primeCdn();
+
+    // The previous version reused the tag it found. A script element that has already
+    // fired `error` never fires again, so the retry waited on a promise that could not
+    // settle — and the second attempt, the one made once the network came back, was the
+    // one guaranteed to hang.
+    await expect(loadMeetingSdk()).resolves.toBe(SDK_GLOBAL);
+    expect(appended).toEqual([...SDK_VENDOR_SRCS, SDK_SRC]);
   });
 
   it('does not re-append a tag it already loaded when asked again after a reset', async () => {

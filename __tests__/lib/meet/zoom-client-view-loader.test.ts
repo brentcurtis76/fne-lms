@@ -13,6 +13,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   awaitClientViewCall,
   CLIENT_VIEW_SRC,
+  CLIENT_VIEW_STYLE_HREFS,
   CLIENT_VIEW_VENDOR_SRCS,
   loadClientView,
   SDK_DOWNLOAD_FAILED_MESSAGE,
@@ -36,6 +37,10 @@ function primeCdn(options: { failOn?: string; assignGlobal?: boolean } = {}) {
 
   vi.spyOn(document.head, 'appendChild').mockImplementation(((node: Node) => {
     const script = node as HTMLScriptElement;
+    // Zoom's own stylesheets go through here too since Z3-r5; only scripts are
+    // sequenced, and only scripts are what the ordering claims below are about.
+    if (script.tagName !== 'SCRIPT') return originalAppend.call(document.head, script);
+
     const src = script.dataset.zoomEmbedSrc ?? '';
     appended.push(src);
     const result = originalAppend.call(document.head, script);
@@ -59,8 +64,8 @@ beforeEach(() => {
   appended = [];
   delete (window as ClientViewWindow).ZoomMtg;
   document.head
-    .querySelectorAll('script[data-zoom-embed-src]')
-    .forEach((script) => script.remove());
+    .querySelectorAll('script[data-zoom-embed-src], link[rel="stylesheet"]')
+    .forEach((node) => node.remove());
 });
 
 afterEach(() => {
@@ -86,7 +91,7 @@ describe('loadClientView [D2]', () => {
   it('loads the four vendor files first, in order, and the bundle last', async () => {
     primeCdn();
 
-    await expect(loadClientView()).resolves.toBe(CLIENT_VIEW_GLOBAL);
+    await expect(loadClientView(window)).resolves.toBe(CLIENT_VIEW_GLOBAL);
 
     expect(appended).toEqual([...CLIENT_VIEW_VENDOR_SRCS, CLIENT_VIEW_SRC]);
   });
@@ -95,11 +100,14 @@ describe('loadClientView [D2]', () => {
     // No events at all: whatever is appended first is all that can be appended.
     vi.spyOn(document.head, 'appendChild').mockImplementation(((node: Node) => {
       const script = node as HTMLScriptElement;
-      appended.push(script.dataset.zoomEmbedSrc ?? '');
+      // Zoom's stylesheets are not sequenced and are not what this claim is about.
+      if (script.tagName === 'SCRIPT') appended.push(script.dataset.zoomEmbedSrc ?? '');
       return node;
     }) as typeof document.head.appendChild);
 
-    void loadClientView();
+    // Swallowed on purpose: nothing answers this load, so it now rejects at its
+    // deadline (Z3-r5) long after this test has made its point.
+    void loadClientView(window).catch(() => {});
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     // Parallel loading would race the bundle against the globals it declares external.
@@ -109,17 +117,17 @@ describe('loadClientView [D2]', () => {
   it('a second join reuses the loaded SDK and appends no further script tags', async () => {
     primeCdn();
 
-    await loadClientView();
+    await loadClientView(window);
     expect(appended).toHaveLength(5);
 
-    await expect(loadClientView()).resolves.toBe(CLIENT_VIEW_GLOBAL);
+    await expect(loadClientView(window)).resolves.toBe(CLIENT_VIEW_GLOBAL);
     expect(appended).toHaveLength(5);
   });
 
   it('rejects with the school-facing message when the CDN is unreachable [D5]', async () => {
     primeCdn({ failOn: CLIENT_VIEW_VENDOR_SRCS[0] });
 
-    await expect(loadClientView()).rejects.toThrow(SDK_DOWNLOAD_FAILED_MESSAGE);
+    await expect(loadClientView(window)).rejects.toThrow(SDK_DOWNLOAD_FAILED_MESSAGE);
     // The bundle is never asked for once a vendor file failed.
     expect(appended).toEqual([CLIENT_VIEW_VENDOR_SRCS[0]]);
   });
@@ -127,15 +135,45 @@ describe('loadClientView [D2]', () => {
   it('rejects when the bundle loads but never assigns its global [D5]', async () => {
     primeCdn({ assignGlobal: false });
 
-    await expect(loadClientView()).rejects.toThrow(/no quedó disponible/);
+    await expect(loadClientView(window)).rejects.toThrow(/no quedó disponible/);
   });
 
   it('never appends the Component View bundle [D4]', async () => {
     primeCdn();
 
-    await loadClientView();
+    await loadClientView(window);
 
     expect(appended).not.toContain(SDK_SRC);
+  });
+
+  /**
+   * Z3-r5 (Sol M4): the isolated document ships with no CSS at all, which is right for
+   * OURS and wrong for THEIRS — Zoom's sample app loads these next to the bundle. They
+   * go into the same document the scripts do, and are not awaited: a stylesheet that
+   * 404s must not cost the meeting.
+   */
+  it('puts Zoom’s own stylesheets in the same document, from the pinned version', async () => {
+    primeCdn();
+
+    await loadClientView(window);
+
+    const hrefs = Array.from(document.head.querySelectorAll('link[rel="stylesheet"]')).map(
+      (link) => link.getAttribute('href')
+    );
+    expect(hrefs).toEqual(CLIENT_VIEW_STYLE_HREFS);
+    for (const href of hrefs) expect(href).toContain(`/${SDK_VERSION}/`);
+  });
+
+  it('does not append the stylesheets twice for a second join', async () => {
+    primeCdn();
+
+    await loadClientView(window);
+    delete (window as ClientViewWindow).ZoomMtg;
+    await expect(loadClientView(window)).rejects.toThrow(/no quedó disponible/);
+
+    expect(document.head.querySelectorAll('link[rel="stylesheet"]')).toHaveLength(
+      CLIENT_VIEW_STYLE_HREFS.length
+    );
   });
 });
 

@@ -202,3 +202,139 @@ revert, confirm byte-identity by `shasum -a 256`):
    after are quoted in the Z3-4 executor report.
 7. **`FEATURE_ZOOM_EMBED` is still off.** Nothing in this phase reaches a user until the
    flag flips, and the flag is server-side only — the client never reads it (`[C11]`).
+
+---
+
+# Round 5 — remediation of Sol's five MAJOR findings (2026-08-08)
+
+Branch `feat/zoom-embed`, base `18441936` (the head Sol reviewed, PR #47, six gates green).
+No migration, no `package.json` change, `tests/e2e/` untouched.
+
+**Read this section against the five findings, not against the chunk list above.** Two of
+the five were the PM's errors, not the executor's, and the record says so: `M1`'s logic was
+read line by line and approved at r3, and `M4` was built exactly as the r4 prompt specified
+— against `PLAN.md` §15.
+
+## M1 — the fallback reported every success as a blocked popup
+
+`window.open()` returns `null` whenever `noopener` is set, per the HTML standard, so on the
+fallback path the old ternary was reading a value that carries no information: every user
+was told their popup had been refused, and offered a retry that could open a second Zoom tab.
+
+**Detection is abandoned rather than repaired**, because it cannot be repaired without
+giving up `noopener,noreferrer` — which is not a trade worth making for a signal. Of Sol's
+two shapes this takes the first, the explicit user-facing link:
+
+- the call is unchanged and its return value is now unread;
+- the **primary** path (`allowEmbed === true`) still resolves to `idle`, byte-identical to Z2;
+- the **fallback** path resolves to a new `{ kind: 'link', url }` that renders a neutral
+  status line and an `<a target="_blank" rel="noopener noreferrer">`. Activating a link IS a
+  user gesture, which is what popup blockers key on, so this escape hatch cannot itself be
+  refused — unlike the old retry button, which re-POSTed and landed out-of-gesture again;
+- `POPUP_BLOCKED_MESSAGE`, the `retry: 'fallback'` outcome and `meet-join-retry-link` are gone;
+- **every stub of `window.open` in the SDK suites now returns `null`.** The old `{}` was a
+  value no browser produces under `noopener`, and it is what let the defect ship.
+
+Sol's second shape — a synchronously-opened placeholder navigated later — was rejected on
+the prompt's own instruction: holding a handle to the new tab means not passing `noopener`,
+and `tab.opener = null` approximates only half of what is being given up (`noreferrer` is
+not recoverable that way at all).
+
+**Where this leaves `[R2]`, and it is a disagreement worth naming:** a genuinely blocked
+popup can no longer be *reported*, because under `noopener` nothing observable distinguishes
+it from a successful one. It is *covered* instead — the link is on screen either way. Any
+criterion that asks for detection here is asking for the `noopener` trade back.
+
+## M2 — Client View initialised before Spanish had loaded
+
+`i18n.load` is typed `Promise<unknown>` and awaited before `init`, inside the same deadline
+as every other SDK call. The old `void` return type is why nothing could warn. A test holds
+the load promise open and asserts `init` and `join` are both still uncalled, then releases it.
+
+## M3 — a stalled load or a failed retry could hang forever
+
+The link fallback starts from a `catch`, so anything that never settles never falls back.
+Four unbounded transitions are now bounded, and one reuse bug is fixed:
+
+| what | bound |
+|---|---|
+| each CDN script download | `SDK_DOWNLOAD_TIMEOUT_MS` = 30 s |
+| `i18n.load`, Component View `init`/`join`, the Client View callback wait, the frame's own load | `SDK_CALL_TIMEOUT_MS` = 45 s |
+
+`loadZoomCdnScript` now reuses **only** a tag marked `loaded`, and removes the node on both
+failure edges. The old version adopted a script element that had already fired `error` — an
+element that never fires again — so the retry made once the network came back was the one
+guaranteed to hang.
+
+New `__tests__/components/sessions/JoinMeetingButton.timeouts.test.tsx` drives the **real**
+loaders under fake timers (no module mocks: a stalled download is jsdom's own behaviour, and
+a silent SDK is a global assigned in advance). Six cases — stalled CDN, silent Component View
+`init`, silent Component View `join`, silent Client View callbacks, a localization load that
+never settles, a frame document that never arrives — each asserting the `{fallback:'link'}`
+POST fires and the busy state clears.
+
+## M4 — Client View now runs behind a real CSS boundary
+
+**The PM's framing was right about the defect and, on this router, wrong about the remedy
+being a route.** Next's Pages Router permits a global stylesheet to be imported from
+`pages/_app.tsx` and nowhere else, and `_app` wraps every page — so **no Next page in this
+app can be a CSS boundary**, and a new `/meet/client/[id]` would have satisfied §15's wording
+while leaving the defect exactly where it was. The prompt's own alternative is what shipped:
+the vendor-supported iframe.
+
+Client View renders inside a same-origin frame whose document is
+`public/meet/zoom-client-view.html` — a static file served without the app pipeline. It has
+no stylesheet, no `<style>`, no `<script>`, no class attribute, and holds nothing but
+`#zmmtg-root`. Zoom's own two stylesheets are appended into it at runtime from the pinned
+6.2.0 CDN, so the only CSS in that document is the vendor's.
+
+The loaders became document-aware (`loadZoomCdnScript(src, doc)`, `loadClientView(host)`) so
+the bootstrap stays in typed, tested TypeScript instead of forking into a copy living in
+`public/`. Credentials cross into the frame as **function arguments** — not a URL, not a
+prop, not an attribute, not a `postMessage` payload — so §5's discipline is unchanged.
+
+Two consequences worth reviewing:
+
+- `leaveUrl` is now the frame's own document. Zoom navigating the frame there is how the page
+  learns the meeting ended; the frame is then unmounted and the bootstrap discarded, so a
+  later join mounts a fresh frame and re-bootstraps. Without this the user would be left
+  staring at a blank full-screen box.
+- The frame carries `allow="camera; microphone; display-capture; autoplay; fullscreen"`.
+  `next.config.js` grants those to `/meet/:path*` only, which is why the shell lives there.
+  `middleware.ts` also gates `/meet/:path*` on a session, so the shell is behind auth too.
+
+**The boundary is measured, not asserted** — `__tests__/lib/meet/client-view-boundary.test.ts`
+checks the bytes on disk (including a positive control that `_app.tsx` still carries
+`globals.css`, and that no Next page shadows the shell), and it was confirmed in a real
+browser at 375×812 mobile emulation:
+
+| | app page `/login` | the isolated shell |
+|---|---|---|
+| `document.styleSheets.length` | 10 | **0** |
+| Tailwind Preflight rule present | yes | **no** |
+| `box-sizing` | `border-box` | `content-box` |
+| body `font-family` | `Inter, ui-sans-serif…` | `Times` |
+| body `background-color` | `rgb(255,255,255)` | `rgba(0,0,0,0)` |
+
+## M5 — still nobody has watched this run: BLOCKED
+
+No `ZOOM_SDK_CLIENT_ID`, no `ZOOM_SDK_CLIENT_SECRET`, no `ZOOM_DIAG_MEETING_IDS` in this
+worktree's `.env.local` or the main checkout's, and no sandbox meeting. Every instrument Z0B
+left is present and unusable without them. **No join was attempted and none is claimed.**
+School hardware/network validation **remains waived and deferred** — not passed.
+
+## Amendments to the sections above
+
+- **Scrutiny item 5** — `[C11]`'s file list is no longer hand-maintained: `SURFACES` is now
+  the two directories `components/sessions` and `lib/meet`, floor raised 9 → 11, so a module
+  added to either is covered without anyone remembering to add it.
+- **Known limitation 1** — still true of the SDK, now false of the layout boundary: the CSS
+  isolation was verified in a real browser (table above). No meeting has been joined.
+- **Known limitation 3** — `leaveUrl` changed meaning; the other init options are still
+  Zoom's defaults and still an unmade product decision.
+
+## What r5 did not touch
+
+`meeting-join-policy.ts`, `meeting-zak-policy.ts`, the join route's gate order, the §9
+issuance rule, the audit write and its ordering, the `zak_issued` migration,
+`supabase/tests/`, `tests/e2e/`, `pages/meet/diag.tsx`, `pages/api/meet/diag-signature.ts`.

@@ -43,7 +43,11 @@ vi.mock('../../../lib/meet/zoom-client-view-loader', async (importOriginal) => {
 });
 
 import JoinMeetingButton from '../../../components/sessions/JoinMeetingButton';
-import { CLIENT_VIEW_LIB_BASE, CLIENT_VIEW_ROOT_ID } from '../../../lib/meet/zoom-client-view-loader';
+import {
+  CLIENT_VIEW_FRAME_SRC,
+  CLIENT_VIEW_LIB_BASE,
+  CLIENT_VIEW_ROOT_ID,
+} from '../../../lib/meet/zoom-client-view-loader';
 
 const SESSION_ID = '3f1c5f5e-0f1a-4d3e-9a11-2b6c8f0d1e22';
 const JOIN_ENDPOINT = `/api/meet/session/${SESSION_ID}/join`;
@@ -142,7 +146,8 @@ beforeEach(() => {
   mockAsPath.value = `/meet/session/${SESSION_ID}`;
   vi.stubGlobal('fetch', mockFetch);
   vi.stubGlobal('open', mockOpen);
-  mockOpen.mockReturnValue({} as Window);
+  // `null` is what a real browser returns under `noopener`, opened or blocked (Sol M1).
+  mockOpen.mockReturnValue(null);
 
   mockComponentInit.mockResolvedValue(undefined);
   mockComponentJoin.mockResolvedValue(undefined);
@@ -156,6 +161,9 @@ beforeEach(() => {
   // Client View answers through callbacks, not promises.
   mockClientInit.mockImplementation((options: { success: () => void }) => options.success());
   mockClientJoin.mockImplementation((options: { success: () => void }) => options.success());
+  // `i18n.load` IS a promise in the real 6.2.0 bundle (Sol M2). The old double returned
+  // `undefined`, which is what let an un-awaited call look correct.
+  mockI18nLoad.mockResolvedValue(undefined);
   mockLoadClientView.mockResolvedValue({
     setZoomJSLib: mockSetZoomJSLib,
     preLoadWasm: mockPreLoadWasm,
@@ -173,7 +181,27 @@ afterEach(() => {
 });
 
 const clickJoin = () => fireEvent.click(screen.getByTestId('meet-join-button'));
-const clickContinue = () => fireEvent.click(screen.getByTestId('meet-prejoin-continue'));
+
+/**
+ * Deliver the isolated document (Sol M4).
+ *
+ * jsdom starts navigating the frame and never finishes — there is no server behind
+ * `CLIENT_VIEW_FRAME_SRC` in a unit test — so `readyState` stays `loading` and `load`
+ * never fires on its own. In a real browser this event IS the static file arriving.
+ * Delivered once per frame: a second `load` on the same element means the user LEFT the
+ * meeting, which is a different thing entirely and has its own test below.
+ */
+function deliverFrameDocument() {
+  const frame = screen.queryByTestId('meet-client-root') as HTMLIFrameElement | null;
+  if (!frame || frame.dataset.testDelivered === 'true') return;
+  frame.dataset.testDelivered = 'true';
+  fireEvent.load(frame);
+}
+
+const clickContinue = () => {
+  fireEvent.click(screen.getByTestId('meet-prejoin-continue'));
+  deliverFrameDocument();
+};
 
 /** Click through to a joined Client View meeting. */
 async function joinClientView(payload: Record<string, unknown> = sdkPayload()) {
@@ -219,7 +247,7 @@ describe('JoinMeetingButton — mobile joins through Client View [D2]', () => {
     expect(options.passWord).toBe(PASSCODE);
   });
 
-  it('bootstraps the SDK in es-ES, from the pinned CDN lib, and leaves back to this page', async () => {
+  it('bootstraps the SDK in es-ES, from the pinned CDN lib, and leaves back to its own document', async () => {
     await joinClientView();
 
     expect(mockSetZoomJSLib).toHaveBeenCalledWith(CLIENT_VIEW_LIB_BASE, '/av');
@@ -231,17 +259,94 @@ describe('JoinMeetingButton — mobile joins through Client View [D2]', () => {
     expect(mockClientInit).toHaveBeenCalledTimes(1);
     const options = mockClientInit.mock.calls[0][0] as Record<string, unknown>;
     expect(options).toMatchObject({
-      leaveUrl: window.location.href,
       patchJsMedia: true,
       leaveOnPageUnload: true,
     });
+    // Leaving returns the FRAME to its own empty document — which is how this page
+    // learns the meeting is over. It carries no session id and nothing Zoom-shaped.
+    expect(options.leaveUrl).toContain(CLIENT_VIEW_FRAME_SRC);
+    expect(options.leaveUrl).not.toContain(SESSION_ID);
   });
 
-  it('mounts the root Client View looks up by Zoom’s own id', async () => {
+  /**
+   * Sol M4's other half: a frame that took the whole viewport must be able to come
+   * down, or leaving the meeting strands the user on a blank full-screen box.
+   */
+  it('takes the frame down when the user leaves, and re-bootstraps on the next join', async () => {
+    await joinClientView();
+    const frame = screen.getByTestId('meet-client-root');
+
+    // Zoom navigates the frame to `leaveUrl`; its second load is the user leaving.
+    fireEvent.load(frame);
+
+    await waitFor(() => expect(screen.queryByTestId('meet-client-root')).toBeNull());
+    expect(screen.getByTestId('meet-join-button')).toBeEnabled();
+
+    serve(ok(sdkPayload()));
+    clickJoin();
+    await screen.findByTestId('meet-prejoin-check');
+    clickContinue();
+    await waitFor(() => expect(mockClientJoin).toHaveBeenCalledTimes(2));
+
+    // A fresh frame is a fresh window: the bootstrap that lived on the old one is gone.
+    expect(mockClientInit).toHaveBeenCalledTimes(2);
+    expect(mockPrepareWebSDK).toHaveBeenCalledTimes(2);
+  });
+
+  /**
+   * Sol M2 — Zoom's localization loads asynchronously, and their docs require the
+   * language resources to be in place BEFORE initialization. r4 called `load()` without
+   * awaiting it (and the type said `void`, so nothing could warn), which left es-ES a
+   * race the SDK usually lost: Sol saw the language stay `en-US` through `init`.
+   */
+  it('will not initialise until the Spanish resources have finished loading', async () => {
+    let releaseLanguage = () => {};
+    mockI18nLoad.mockReturnValue(
+      new Promise<void>((resolve) => {
+        releaseLanguage = resolve;
+      })
+    );
+
+    serve(ok(sdkPayload()));
+    render(<JoinMeetingButton sessionId={SESSION_ID} />);
+
+    clickJoin();
+    await screen.findByTestId('meet-prejoin-check');
+    clickContinue();
+
+    await waitFor(() => expect(mockI18nLoad).toHaveBeenCalledWith('es-ES'));
+    // Held. Everything downstream of the language is still waiting on it.
+    expect(mockClientInit).not.toHaveBeenCalled();
+    expect(mockClientJoin).not.toHaveBeenCalled();
+
+    releaseLanguage();
+
+    await waitFor(() => expect(mockClientJoin).toHaveBeenCalledTimes(1));
+    expect(mockClientInit).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Sol M4 — the root Client View looks up by id now lives in the isolated document,
+   * not in this one. That IS the boundary: `styles/globals.css` is imported by
+   * `_app.tsx`, which wraps every page, so anything mounted in THIS document inherits
+   * Tailwind Preflight no matter which route it is on.
+   */
+  it('renders into the isolated frame, and mounts nothing of Zoom’s in this document', async () => {
     await joinClientView();
 
-    expect(screen.getByTestId('meet-client-root')).toBeInTheDocument();
-    expect(document.getElementById(CLIENT_VIEW_ROOT_ID)).not.toBeNull();
+    const frame = screen.getByTestId('meet-client-root') as HTMLIFrameElement;
+    expect(frame.tagName).toBe('IFRAME');
+    expect(frame).toHaveAttribute('src', CLIENT_VIEW_FRAME_SRC);
+    // Without it the frame is refused the camera and the microphone outright: a nested
+    // context gets only what the parent explicitly passes it.
+    expect(frame.getAttribute('allow')).toContain('camera');
+    expect(frame.getAttribute('allow')).toContain('microphone');
+
+    // The app's document never holds Zoom's root — the frame's does.
+    expect(document.getElementById(CLIENT_VIEW_ROOT_ID)).toBeNull();
+    // And the SDK was loaded against the frame's window, not this page's.
+    expect(mockLoadClientView).toHaveBeenCalledWith(frame.contentWindow);
+    expect(mockLoadClientView).not.toHaveBeenCalledWith(window);
   });
 
   it('shows the preflight first, and downloads nothing until asked', async () => {
@@ -368,8 +473,8 @@ describe('JoinMeetingButton — the two views are mutually exclusive [D4]', () =
     const rootsMounted = () =>
       [
         screen.queryByTestId('meet-embed-root'),
-        // Zoom looks the Client View root up by id, so count that rather than our testid.
-        document.getElementById(CLIENT_VIEW_ROOT_ID),
+        // Client View's surface in THIS document is the frame; its root is inside it.
+        screen.queryByTestId('meet-client-root'),
       ].filter(Boolean).length;
 
     expect(rootsMounted()).toBe(0);
@@ -413,74 +518,58 @@ describe('JoinMeetingButton — a browser that can run neither view [D5]', () =>
 });
 
 /**
- * [D6] — ruling ③. r3's message told the user to press «Unirse a la reunión» again,
- * but that control restarts the SDK flow: another CDN download, another failed embed,
- * and only then the same blocked popup. The retry has to re-run the fallback.
+ * [D6], as Sol M1 leaves it.
+ *
+ * r4's version of this block asserted a blocked-popup report and a retry button. Both
+ * are gone: `window.open` under `noopener` returns `null` whether or not the tab was
+ * created, so the report was fired at every user of the fallback, and the retry it
+ * offered went back through a fetch — landing outside the user's gesture again, where
+ * the same browser could refuse it again. What is left is a real link, which is a
+ * gesture by definition and therefore cannot be refused.
  */
-describe('JoinMeetingButton — the blocked-popup retry re-runs the fallback [D6]', () => {
-  async function reachBlockedPopup() {
+describe('JoinMeetingButton — the fallback leaves a link, not a verdict [D6] [M1]', () => {
+  async function reachFallback() {
     onDesktopChrome();
     mockComponentJoin.mockRejectedValue(new Error('join'));
-    mockOpen.mockReturnValue(null);
     serve(ok(sdkPayload()));
     render(<JoinMeetingButton sessionId={SESSION_ID} />);
 
     clickJoin();
     await screen.findByTestId('meet-prejoin-check');
     clickContinue();
-    await screen.findByTestId('meet-join-error');
+    await screen.findByTestId('meet-join-link');
   }
 
-  it('names the control it actually renders', async () => {
-    await reachBlockedPopup();
+  it('states what it actually knows, and offers the link', async () => {
+    await reachFallback();
 
-    expect(screen.getByTestId('meet-join-error')).toHaveTextContent(
-      'Tu navegador bloqueó la ventana nueva. Presiona «Abrir Zoom en otra pestaña» para intentarlo de nuevo.'
+    expect(screen.getByTestId('meet-join-link')).toHaveTextContent(
+      'Abrimos Zoom en una pestaña nueva. Si no la ves, usa el enlace:'
     );
-    expect(screen.getByTestId('meet-join-retry-link')).toHaveTextContent(
-      'Abrir Zoom en otra pestaña'
-    );
-    // The URL is still not in the document — the message names the button, not the link.
+    const link = screen.getByTestId('meet-join-open-link');
+    expect(link).toHaveTextContent('Abrir Zoom en otra pestaña');
+    expect(link).toHaveAttribute('href', JOIN_URL);
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    // Nothing claims a block, because nothing can know.
+    expect(screen.queryByTestId('meet-join-error')).toBeNull();
+    // The URL is offered, never displayed.
     expect(screen.queryByText(JOIN_URL)).toBeNull();
   });
 
-  it('asks the server for the link again, and does not spend a second embed attempt', async () => {
-    await reachBlockedPopup();
+  it('spends no second request and no second embed attempt to offer it', async () => {
+    await reachFallback();
+
+    // One embed attempt, one fallback request — and the link needs no third thing.
     expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(mockLoadMeetingSdk).toHaveBeenCalledTimes(1);
-
-    mockOpen.mockReturnValue({} as Window);
-    fireEvent.click(screen.getByTestId('meet-join-retry-link'));
-
-    await waitFor(() =>
-      expect(mockOpen).toHaveBeenLastCalledWith(JOIN_URL, '_blank', 'noopener,noreferrer')
-    );
-
-    expect(mockFetch).toHaveBeenCalledTimes(3);
-    expect(mockFetch.mock.calls[2]).toEqual([
-      JOIN_ENDPOINT,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fallback: 'link' }),
-      },
-    ]);
-    // The embed was not restarted: no second download, no second join attempt.
-    expect(mockLoadMeetingSdk).toHaveBeenCalledTimes(1);
     expect(mockComponentJoin).toHaveBeenCalledTimes(1);
+    expect(mockOpen).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('meet-prejoin-check')).toBeNull();
+    // The control the old design offered — a retry that re-POSTed — is gone.
+    expect(screen.queryByTestId('meet-join-retry-link')).toBeNull();
   });
 
-  it('stays offerable when the browser blocks the retry too', async () => {
-    await reachBlockedPopup();
-
-    fireEvent.click(screen.getByTestId('meet-join-retry-link'));
-
-    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(3));
-    expect(await screen.findByTestId('meet-join-retry-link')).toBeInTheDocument();
-  });
-
-  it('is absent from every other denial', async () => {
+  it('is absent from every denial, and from the primary link path', async () => {
     onMobile();
     mockFetch.mockResolvedValue({
       ok: false,
@@ -492,7 +581,8 @@ describe('JoinMeetingButton — the blocked-popup retry re-runs the fallback [D6
     clickJoin();
 
     await screen.findByTestId('meet-join-error');
-    expect(screen.queryByTestId('meet-join-retry-link')).toBeNull();
+    expect(screen.queryByTestId('meet-join-link')).toBeNull();
+    expect(screen.queryByTestId('meet-join-open-link')).toBeNull();
   });
 });
 

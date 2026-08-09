@@ -809,3 +809,31 @@ Run [31291550337](https://github.com/brentcurtis76/fne-lms/actions/runs/31291550
 **The ledger row does NOT flip to ✅ DONE until 3 and 4 are both done.** PM approval of four chunks and six green gates is not a phase close — that is the whole point of §0.2, and Z2 needed **two** Sol rounds after being in exactly this state.
 
 **What Sol should be pointed at, restated here so it is in the ledger and not only in the dossier:** nothing in this phase has run against the real Zoom SDK or a real browser; **the hardware/network gate Z3 was originally conditioned on was WAIVED by owner decision, not cleared**; and one vendor citation about Component View on Firefox could not be reproduced by the PM — the resulting behaviour is safe under both readings, but it is a safe choice under uncertainty rather than settled fact, and the dossier says so.
+
+## ⛔ **SOL VERDICT ON PHASE Z3: `REQUEST CHANGES` — five MAJOR, zero BLOCKER, zero MINOR (2026-08-08).**
+
+**All five findings were independently verified by the PM against the code before being accepted. All five are valid. Two of them are the PM's fault, not the executor's, and one more is a stale artifact the PM wrote — recorded here rather than left for the next PM to trip over.**
+
+| # | Finding | PM verification |
+|---|---|---|
+| M1 | `window.open(..., 'noopener,noreferrer')` returns `null` **even on success** (HTML spec), so the fallback's `const opened = …` check at `JoinMeetingButton.tsx:277-285` reports **every successful fallback as popup-blocked** | ✅ **CONFIRMED, and the masking mock is exactly where Sol said**: `JoinMeetingButton.sdk.test.tsx:112` does `mockOpen.mockReturnValue({} as Window)` — a return value no real browser produces under `noopener` |
+| M2 | `sdk.i18n.load('es-ES')` is **not awaited** before `init` (`JoinMeetingButton.tsx:400`), and the local type declares it `void` (`zoom-client-view-loader.ts:109`), so TypeScript cannot warn | ✅ **CONFIRMED in code.** Sol additionally reproduced it against the real 6.2.0 CDN bundle: `load()` returns a promise and the language stayed `en-US` through `init` |
+| M3 | No download timeout; a **failed script element is left in the DOM** and `loadZoomCdnScript` reuses it (`existing ?? createElement`), so a retry attaches listeners to a node that will never fire again — plus no deadline on init/join | ✅ **CONFIRMED** at `zoom-sdk-loader.ts:108-125`. On a degraded school network the UI can stay busy forever instead of degrading to the link |
+| M4 | §15 specifies a Client View **route**; it is mounted into the existing session page, which inherits `_app.tsx`'s global Tailwind — Zoom's own import guidance warns about exactly this, and `init`/`join` can succeed with a broken layout, so the catch-based fallback cannot detect it | ✅ **CONFIRMED**: `pages/meet/` contains only `diag.tsx` and `session/[id].tsx`. **No Client View route exists** |
+| M5 | The core runtime DoD is unverified — nobody has watched an embedded meeting render | ✅ **CONFIRMED**, and **the PM now adopts Sol's distinction, which is sharper than the PM's own §4b framing**: the owner waived **school-hardware/network validation**, not **basic runtime proof against the real SDK in a supported browser**. Those are different things and the PM had blurred them |
+
+### **THREE PM ERRORS, stated plainly.**
+
+**① The PM approved M1 at r3 after reading the exact lines.** The r3 ledger entry says *"the one line that looked like a behaviour change was chased and is not one"* — the PM traced `allowEmbed || opened`, satisfied itself that the primary path short-circuits, and **never asked whether `opened` carries information at all under `noopener`.** It does not. The PM verified the half that was fine and stopped at the half that was broken. Sol found it in one pass.
+
+**② M4 is the PM's instruction, not an executor deviation.** The r4 prompt's scope item 1 says *"the `/meet/session/[id]` surface renders Client View where Component View is unsupported"* — **the PM directed the placement §15 forbids**, having read §15's "Client View route (mobile)" and paraphrased it into the surface that already existed. The executor built what it was told. **Any severity here attaches to the prompt.**
+
+**③ Sol's closing paragraph is stale, and that is the PM's artifact.** Sol wrote *"the phase still cannot close until branch CI runs successfully and Brent applies and independently verifies the production migration"* — **both were already done** (PR #47 six gates green; migration applied and PM-verified read-only) at the time of review. Sol read `fase-6-pm-dossier.md` §8, which the PM wrote before either happened **and never updated after they did**. The reviewer prompt carried the current state, the dossier contradicted it, and a document that disagrees with itself is worth less than one that says less. **Dossier §8 corrected in the same commit as this entry.**
+
+### **Triage: all five to a remediation round (r5). Nothing ticketed, nothing deferred.**
+
+No finding here is a matter of taste. M1 breaks the fallback **on every use**, and the fallback is the sole mitigation for the waived hardware gate. M3 breaks it in the exact scenario — a degraded school network — the mitigation exists for. M2 fails a settled §15 scope item. M4 fails plan fidelity and hides a failure class the error handling cannot see. M5 is the DoD.
+
+**Dependency flagged in advance, because it can block M5 and is nobody's fault:** the r3 report recorded that the worktree's `.env.local` **carries no `ZOOM_SDK_*` entries**. A real-SDK join needs them plus a sandbox meeting. The r5 prompt instructs the executor to attempt M5 and, if credentials are absent, report that item **BLOCKED with the reason** — never to simulate it and never to describe the hardware gate as passed.
+
+**Round-cap note:** the generic SOP caps a phase at 3 executor rounds; this is round 5. The Zoom plan's §0.2 defines its own remediation loop (Sol findings → remediation → PM re-review → Sol re-review) and **Z2 closed after thirty-one rounds and two Sol passes**. The plan governs this workstream. r5 is the **first** remediation round after a first Sol pass, which is exactly the shape §0.2 describes — not a fourth attempt at work that will not converge.

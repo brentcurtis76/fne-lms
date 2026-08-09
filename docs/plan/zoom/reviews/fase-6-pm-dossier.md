@@ -223,10 +223,24 @@ npm run lint:testid      # advisory; 2668-problem baseline is pre-existing, this
 
 ## 8. Blocking before this phase can close
 
-1. **PR opened and CI green** — six gates, on the branch. Never yet run. If the Vitest flake
-   above reds it, a re-run that goes green is evidence about the flake, not the code, and must
-   be recorded as such.
-2. **`20260810120000_zoom_zak_issuances.sql` applied to production** by Brent, then verified
-   read-only by the PM (§0.1(d)).
-3. **Sol's `APPROVE` / `APPROVE WITH NOTES`**, then Brent's merge (§0.2 step 5). Only then does
-   the ledger row flip to ✅ DONE.
+> **UPDATED 2026-08-08, after Sol's first review.** Items 1 and 2 were written before either
+> happened and were still worded as pending when Sol read this file — Sol's verdict repeats
+> that stale wording back. Both are now **done**. The correction is the PM's, and it is
+> recorded in the ledger rather than quietly overwritten.
+
+1. ✅ **PR opened and CI green** — [#47](https://github.com/brentcurtis76/fne-lms/pull/47),
+   head `18441936`, **all six gates SUCCESS on the first run**
+   ([31291550337](https://github.com/brentcurtis76/fne-lms/actions/runs/31291550337)),
+   `MERGEABLE / CLEAN`. The documented Vitest flake did **not** fire — which is a data point,
+   not an acquittal: the PM measured it at 1-in-3 on this branch's base, and one green run is
+   what that looks like two times in three.
+2. ✅ **`20260810120000_zoom_zak_issuances.sql` applied to production** by Brent and
+   **verified read-only by the PM** (§0.1(d)): table present, RLS on, zero policies, no
+   credential column, version row recorded, and the schema-wide `REVOKE`/`GRANT` tail
+   confirmed not to have re-tiered Z1b's 7 tables or 9 functions (0 readable by
+   `anon`/`authenticated`, 0 without RLS, 0 functions executable by either).
+3. ⬜ **Sol's `APPROVE` / `APPROVE WITH NOTES`** — first pass returned **`REQUEST CHANGES`,
+   five MAJOR**, all five PM-verified as valid; remediation round r5 dispatched. Two of the
+   five (M1's `noopener` logic, M4's Client View placement) trace to PM errors, not executor
+   deviations — see the ledger.
+4. ⬜ **Brent's merge** (§0.2 step 5). Only then does the ledger row flip to ✅ DONE.

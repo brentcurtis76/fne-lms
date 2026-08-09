@@ -778,3 +778,34 @@ First results in: **RLS migration guard SUCCESS** — the CI check that fails a 
 **Two of the three close conditions are now met** (migration applied + verified; PR open). **The third is Sol.** The reviewer prompt has been handed to Brent, with `fase-6-pm-dossier.md` and `fase-6-review-request.md` as entry points.
 
 **Watch item on this CI run, called in advance so a red gate is read correctly:** the PM measured a **pre-existing cross-file Vitest state leak** at 1-in-3 on this branch's own base commit and 0-in-4 on its head (two signatures: a `vi.mock` registry leak on `@/lib/api-auth`, and a `process.env.VERCEL_ENV` leak reaching `pasantias-pdf.test.ts`). `ci.yml` gives `retries: 2` to **Playwright only**, so a Vitest flake reds Gate 2 outright. **If Gate 2 fails on a file this branch does not touch, that is the cause, and a green re-run is evidence about the flake — not about the code. It must be recorded as such rather than quietly re-run until green.**
+
+## ✅ **PR #47 IS GREEN — ALL SIX GATES PASS ON THE FIRST RUN (2026-08-08).**
+
+Run [31291550337](https://github.com/brentcurtis76/fne-lms/actions/runs/31291550337), head `18441936`:
+
+| Check | Result | Time |
+|---|---|---|
+| RLS migration guard | ✅ SUCCESS | 8s |
+| Gate 1 — Typecheck | ✅ SUCCESS | 1m45s |
+| Gate 1b — Lint | ✅ SUCCESS | 1m05s |
+| Gate 2 — Unit (Vitest) | ✅ SUCCESS | 1m55s |
+| Gate 3 — RLS pgTAP (`supabase test db`) | ✅ SUCCESS | 2m11s |
+| Gate 4 — E2E (Playwright, seeded local Supabase) | ✅ SUCCESS | 7m37s |
+| Vercel + Preview Comments | ✅ SUCCESS | — |
+
+**Gate 2 passed on the first attempt, so the flake did not bite — and that is a data point, not an acquittal.** The PM measured the cross-file Vitest leak at **1-in-3 on this branch's own base commit**; one green run is exactly what a 1-in-3 flake looks like two times out of three. **The finding stands unchanged and still needs its own investigation.** What this run does establish is that the leak did not fire here, so **every green gate below is evidence about the code**, which is the thing that was in question.
+
+**`mergeable` read `UNKNOWN` on the first poll and the PM did not report it as green on that basis** — GitHub recomputes asynchronously, and `main` had moved two commits (`ff7393a2`, `0737a78d`, both PM docs) since the PR was opened. Re-polled: **`MERGEABLE` / `mergeStateStatus: CLEAN`**. Same discipline as the Z2 close, where the identical `UNKNOWN` appeared and the PM refused to act on it.
+
+## 🟡 **PHASE Z3 — CODE-COMPLETE, CI-GREEN, PRODUCTION-VERIFIED. ONE THING LEFT, AND IT IS NOT THE PM's.**
+
+**Close conditions from §0.2, status:**
+
+1. ✅ **PR open and green** — #47, all six gates, first run, `MERGEABLE / CLEAN`.
+2. ✅ **Migration applied to production and PM-verified read-only** — §0.1(d) satisfied: table present, RLS on, zero policies, no credential column, version recorded, and the schema-wide REVOKE/GRANT tail confirmed not to have re-tiered Z1b's 7 tables or 9 functions.
+3. ⬜ **Sol's independent review** — prompt handed to Brent; entry points `fase-6-pm-dossier.md` + `fase-6-review-request.md`.
+4. ⬜ **Brent's merge.**
+
+**The ledger row does NOT flip to ✅ DONE until 3 and 4 are both done.** PM approval of four chunks and six green gates is not a phase close — that is the whole point of §0.2, and Z2 needed **two** Sol rounds after being in exactly this state.
+
+**What Sol should be pointed at, restated here so it is in the ledger and not only in the dossier:** nothing in this phase has run against the real Zoom SDK or a real browser; **the hardware/network gate Z3 was originally conditioned on was WAIVED by owner decision, not cleared**; and one vendor citation about Component View on Firefox could not be reproduced by the PM — the resulting behaviour is safe under both readings, but it is a safe choice under uncertainty rather than settled fact, and the dossier says so.

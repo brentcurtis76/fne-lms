@@ -1,6 +1,6 @@
 # A9 — Track A release checklist
 
-**Phase:** A9 — Track A release verification · round r1
+**Phase:** A9 — Track A release verification · executed at round r1, CI rows flipped at round r2
 **Branch:** `phase/a9-verify` · base `7c7059ff`
 **Executed:** 2026-08-08, 19:54 UTC (`date: Sat, 08 Aug 2026 19:54:47 GMT` on the `/pasantias` response)
 **Target:** `https://www.nuevaeducacion.org` — production, Vercel, auto-deployed from `main`.
@@ -41,14 +41,17 @@ browser or to the owner, never to a grep.
 
 | # | Row | Result | Evidence |
 |---|---|---|---|
-| A2-7a | A real browser submission persists a lead row with correct split-consent evidence | **PENDING CI — first execution is this branch's CI run** | `tests/e2e/pasantias-flow.spec.ts`, test 1. Unmocked end to end: the form is filled and submitted on `/pasantias`, then the row is read back through `GET /api/admin/pasantia-leads` as the admin fixture (D-04: the table grants no authenticated write, and the public POST answers `200 {"success":true}` on both the insert and the update path, so it cannot be the evidence). Asserts `status='new'`, `cohort='octubre-2026'`, `consent_accepted_at` parseable, `consent_notice_version === PRIVACY_NOTICE_VERSION`, `marketing_opt_in === false` with `marketing_opt_in_at === null`, and `brochure_sent_at === null`. **This spec has not been run locally** — see §D. |
-| A2-7b | The optional marketing opt-in is recorded only when clicked | **PENDING CI** | Same spec, test 2: a second unique address with the box ticked → `marketing_opt_in === true`, `marketing_opt_in_at` non-null and parseable. Tests 1 and 2 together are the only place both branches of D-12 are proven against a real row. |
-| A2-7c | The auto-reply claim is released rather than left standing when no mail can go out | **PENDING CI** | Same spec, test 1, `brochure_sent_at === null`. CI has no `RESEND_API_KEY` (the string appears nowhere in `.github/workflows/ci.yml`), so `sendLeadAutoReply` returns `{sent:false, failure:'not_configured'}`, `canReleaseAutoReplyClaim` is true, and `runAutoReply` restores the previous value. `lib/pasantias/emails.ts` states the intent in prose — a missing key must not silently mark a lead "brochure sent" for a day when nobody was mailed — and this is the first time that sentence executes end to end. |
-| A2-7d | A9's spec leaves A8's seeded fixture exactly as seeded | **PENDING CI** | Same spec, test 3: `status` and `consent_notice_version` of `fixtures.pasantiasLead` still equal the values in `scripts/ci/e2e-fixtures.json`, read from the JSON rather than retyped. |
-| A2-4/6 (CI) | Ficha and brochure serve real PDFs from a cold cache | **PENDING CI** | Same spec, test 4: unauthenticated GETs on both routes assert `200`, `content-type: application/pdf`, and a body beginning `%PDF`. This is the CI-side counterpart to A2-4 and A2-6 above, which were executed against production. |
+| A2-7a | A real browser submission persists a lead row with correct split-consent evidence | **PASS** | `tests/e2e/pasantias-flow.spec.ts`, test 1 — `a real submission persists with split consent evidence and no false brochure stamp`, **674 ms**, run [`31276283612`](ci-run-31276283612.md) gate 4 (pass, 7m25s). Unmocked end to end: the form is filled and submitted on `/pasantias`, then the row is read back through `GET /api/admin/pasantia-leads` as the admin fixture (D-04: the table grants no authenticated write, and the public POST answers `200 {"success":true}` on both the insert and the update path, so it cannot be the evidence). Asserts `status='new'`, `cohort='octubre-2026'`, `consent_accepted_at` parseable, `consent_notice_version === PRIVACY_NOTICE_VERSION`, `marketing_opt_in === false` with `marketing_opt_in_at === null`, and `brochure_sent_at === null`. **Still never run locally** — see §D. |
+| A2-7b | The optional marketing opt-in is recorded only when clicked | **PASS** | Same spec, test 2 — `the optional marketing opt-in is recorded only when the visitor clicks it`, **652 ms**, run [`31276283612`](ci-run-31276283612.md) gate 4: a second unique address with the box ticked → `marketing_opt_in === true`, `marketing_opt_in_at` non-null and parseable. Tests 1 and 2 together are the only place both branches of D-12 are proven against a real row. |
+| A2-7c | The auto-reply claim is released rather than left standing when no mail can go out | **PASS** | Same spec, test 1 (674 ms), run [`31276283612`](ci-run-31276283612.md) gate 4: **the claim-and-release contract executed for the first time, and `brochure_sent_at` came back `null` as the design requires.** CI has no `RESEND_API_KEY` (the string appears nowhere in `.github/workflows/ci.yml`), so `sendLeadAutoReply` returns `{sent:false, failure:'not_configured'}`, `canReleaseAutoReplyClaim` is true, and `runAutoReply` restores the previous value. `lib/pasantias/emails.ts` states the intent in prose — a missing key must not silently mark a lead "brochure sent" for a day when nobody was mailed — and this run is the first time that sentence executed end to end rather than being asserted about. |
+| A2-7d | A9's spec leaves A8's seeded fixture exactly as seeded | **PASS** | Same spec, test 3 — `A8's seeded lead is untouched by this spec`, **17 ms**, run [`31276283612`](ci-run-31276283612.md) gate 4: `status` and `consent_notice_version` of `fixtures.pasantiasLead` still equal the values in `scripts/ci/e2e-fixtures.json`, read from the JSON rather than retyped. A8's own three `pasantias-leads-admin.spec.ts` tests ran green in the same job, so the two phases do not interfere. |
+| A2-4/6 (CI) | Ficha and brochure serve real PDFs from a cold cache | **PASS** | Same spec, test 4 — `the ficha and the brochure both serve a real PDF`, **1.4 s**, run [`31276283612`](ci-run-31276283612.md) gate 4: unauthenticated GETs on both routes assert `200`, `content-type: application/pdf`, and a body beginning `%PDF`. This is the CI-side counterpart to A2-4 and A2-6 above, which were executed against production. |
 
 All five are registered in `MANDATORY_SPECS` (`scripts/ci/e2e-mandatory.mjs`), so CI's anti-skip
-guard fails the job if the spec is absent from the report or any of its tests is skipped.
+guard fails the job if the spec is absent from the report or any of its tests is skipped. In run
+`31276283612` the guard reported `[e2e-mandatory] OK — 12 mandatory spec(s) ran with no skips`, so
+these five rows are proven by tests that genuinely executed rather than by a job that passed
+because they were skipped. **Full run evidence: [`ci-run-31276283612.md`](ci-run-31276283612.md).**
 
 ## C. OWNER-RUN — PENDING
 
@@ -115,8 +118,12 @@ that looks perfect and links nowhere, and only this row would catch it.
 
 ## D. How the e2e spec was executed — stated plainly
 
-**`tests/e2e/pasantias-flow.spec.ts` was not run locally. Its CI run on `phase/a9-verify` is its
-first execution.**
+**`tests/e2e/pasantias-flow.spec.ts` was not run locally, and still has not been. Its first — and
+so far only — execution anywhere was CI run [`31276283612`](ci-run-31276283612.md) on
+`phase/a9-verify`'s PR (#46), where it passed: all four tests green, 121 e2e tests in the job, zero
+retries, zero flakes, and the anti-skip guard reporting `12 mandatory spec(s) ran with no skips`.
+That is evidence the spec works. It is not yet evidence it is stable under repetition — one green
+run proves one green run.**
 
 Local Playwright runs `npm run dev:unsafe`, which loads `.env.local`, which points at the real
 shared GENERA Supabase project. This spec POSTs leads, so a local run would write synthetic rows
@@ -134,11 +141,14 @@ report: `type-check`, `lint`, `npm test` (266 files / 6263 tests), `npm run buil
 
 ## E. Status of this checklist
 
-Per [A3], the phase closes only when the checklist is fully green. It is not green yet:
+Per [A3], the phase closes only when the checklist is fully green. **It is not green yet:**
 
-- **8 rows PASS** (A2-1 to A2-6, A2-8, A2-10 — executed here against production).
-- **5 rows PENDING CI** (A2-7a to A2-7d and the CI counterpart of A2-4/6) — they turn green with
-  the CI run on this branch's PR, and red is a finding, not something to weaken the assertion for.
-- **4 rows OWNER-RUN — PENDING** (A2-9, A2-11, A2-12, A2-13).
+- **13 rows PASS** — the 8 executed here against production (A2-1 to A2-6, A2-8, A2-10) plus the 5
+  proven by CI run [`31276283612`](ci-run-31276283612.md) (A2-7a to A2-7d and the CI counterpart of
+  A2-4/6), which were still awaiting their CI run at r1 and were flipped at r2 once it existed.
+- **0 rows still awaiting CI.**
+- **4 rows OWNER-RUN — PENDING** (A2-9, A2-11, A2-12, A2-13) — they need a real mailbox, a real
+  handset, or production credentials, so they are Brent's to run. **`[A3]` therefore does not close
+  the phase at r2.**
 
-Pending owner rows are the expected end state of round r1 and are not a defect in it.
+Pending owner rows were the expected end state of round r1 and remain the only open rows after r2.

@@ -3,8 +3,12 @@
 **Branch:** `phase/a9-verify`
 **Base SHA:** `7c7059ff` (local `main`; the prompt named `01e0e18c`, which a Z2 docs commit had
 already moved past)
-**Commits:** 1
-**Round:** r1
+**Commits:** exactly **one code-bearing commit, `82bc0e7b`** (6 files, +692/−19); every other commit
+on this branch is documentation — the ledger, this file, the checklist, the CI evidence and the
+round prompts. Stated this way on purpose: the total moves with each docs commit (it was 4 across
+`7c7059ff..9b1ed1dd`, the range Sol reviewed, and 6 at r2's start), so the reviewable surface is
+named rather than counted.
+**Round:** r1 (documentation corrected at r2)
 
 ---
 
@@ -84,7 +88,7 @@ Two holes existed that only A9 could close:
 | Production build | `npm run build` | compiled successfully |
 | D-01 price-leak guard | `node scripts/check-price-leak.mjs` | `OK — scanned 269 file(s) under .next/static, no commercial data found.` |
 | testid lint (advisory) | `npm run lint:testid` | 43 errors / 2625 warnings — **entirely the inherited baseline**; grepping the output for this phase's files returns nothing (A9 adds no interactive elements) |
-| e2e | `npx playwright test tests/e2e/pasantias-flow.spec.ts` | **NOT RUN** — see Limitations |
+| e2e | CI gate 4 (Playwright, seeded ephemeral Supabase) — run [`31276283612`](../../plan/evidence/a9/ci-run-31276283612.md) | **pass, 7m25s.** 121 tests, zero retries, `[e2e-mandatory] OK — 12 mandatory spec(s) ran with no skips`. All four A9 tests by name: split-consent submission **674 ms** · marketing opt-in **652 ms** · A8 fixture untouched **17 ms** · ficha + brochure PDFs **1.4 s**. Never run locally — see Limitations |
 | `npm run test:db` | — | not applicable, A9 adds no migration |
 
 ### Mutation proofs for [A-new-5]
@@ -149,8 +153,14 @@ Both reverted; `git status` shows no modification under `pages/`.
 
 ## Known limitations and deferred items
 
-- **`tests/e2e/pasantias-flow.spec.ts` has not been executed.** CI on this branch's PR is its
-  first run. Reported the same way in the checklist (§D) and in the executor report.
+- **`tests/e2e/pasantias-flow.spec.ts` has now been executed exactly once, and it passed.** CI on
+  this branch's PR (#46) was its first run anywhere: run
+  [`31276283612`](../../plan/evidence/a9/ci-run-31276283612.md), gate 4 green, all four tests by
+  name, zero retries. The residue is worth stating rather than dropping: **one green run is
+  evidence the spec works, not evidence it is stable under repetition** — and the spec is now on
+  `MANDATORY_SPECS`, so its flakiness would be every future PR's problem, not just A9's. It still
+  has never run locally, and §D of the checklist says why (a local run writes to the live GENERA
+  Supabase project).
 - **Four checklist rows are OWNER-RUN — PENDING** (A2-9 WhatsApp unfurl on a named device, A2-11
   auto-reply to a test mailbox, A2-12 internal notification, A2-13 the brochure link inside the
   received email). They need a real mailbox, a real handset, or production credentials. Per [A3]

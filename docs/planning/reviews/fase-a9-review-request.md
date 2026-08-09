@@ -88,7 +88,7 @@ Two holes existed that only A9 could close:
 | Production build | `npm run build` | compiled successfully |
 | D-01 price-leak guard | `node scripts/check-price-leak.mjs` | `OK — scanned 269 file(s) under .next/static, no commercial data found.` |
 | testid lint (advisory) | `npm run lint:testid` | 43 errors / 2625 warnings — **entirely the inherited baseline**; grepping the output for this phase's files returns nothing (A9 adds no interactive elements) |
-| e2e | CI gate 4 (Playwright, seeded ephemeral Supabase) — run [`31276283612`](../../plan/evidence/a9/ci-run-31276283612.md) | **pass, 7m25s.** 121 tests, zero retries, `[e2e-mandatory] OK — 12 mandatory spec(s) ran with no skips`. All four A9 tests by name: split-consent submission **674 ms** · marketing opt-in **652 ms** · A8 fixture untouched **17 ms** · ficha + brochure PDFs **1.4 s**. Never run locally — see Limitations |
+| e2e | CI gate 4 (Playwright, seeded ephemeral Supabase) — the **code-bearing** run [`31276283612`](../../plan/evidence/a9/ci-run-31276283612.md) | **pass, 7m25s.** 121 tests, zero retries, `[e2e-mandatory] OK — 12 mandatory spec(s) ran with no skips`. All four A9 tests by name: split-consent submission **674 ms** · marketing opt-in **652 ms** · A8 fixture untouched **17 ms** · ficha + brochure PDFs **1.4 s**. Later docs-only pushes re-ran gate 4 against byte-identical code and agree; the stamped list is in the evidence file. Never run locally — see Limitations |
 | `npm run test:db` | — | not applicable, A9 adds no migration |
 
 ### Mutation proofs for [A-new-5]
@@ -153,14 +153,18 @@ Both reverted; `git status` shows no modification under `pages/`.
 
 ## Known limitations and deferred items
 
-- **`tests/e2e/pasantias-flow.spec.ts` has now been executed exactly once, and it passed.** CI on
-  this branch's PR (#46) was its first run anywhere: run
-  [`31276283612`](../../plan/evidence/a9/ci-run-31276283612.md), gate 4 green, all four tests by
-  name, zero retries. The residue is worth stating rather than dropping: **one green run is
-  evidence the spec works, not evidence it is stable under repetition** — and the spec is now on
-  `MANDATORY_SPECS`, so its flakiness would be every future PR's problem, not just A9's. It still
-  has never run locally, and §D of the checklist says why (a local run writes to the live GENERA
-  Supabase project).
+- **`tests/e2e/pasantias-flow.spec.ts` has still never run locally.** Every execution it has ever
+  had was CI gate 4 on a freshly created, seeded, ephemeral Supabase stack, and it has passed in
+  every run it was part of, with zero retries and the anti-skip guard clean each time. The
+  code-bearing run is [`31276283612`](../../plan/evidence/a9/ci-run-31276283612.md) on this branch's
+  PR (#46) — gate 4 green, all four tests by name; every later run is a docs-only commit against
+  byte-identical code, and **how many there are is a function of how many times the branch was
+  pushed, not a property of the phase** (as of `5f35bc37`, six — the stamped list is in the evidence
+  file, and later pushes add to it). The residue worth stating rather than dropping: repeated clean
+  runs on fresh stacks are evidence of **determinism**, not of robustness to change, because they
+  all executed the same code against the same seeded fixtures — and the spec is now on
+  `MANDATORY_SPECS`, so its flakiness would be every future PR's problem, not just A9's. §D of the
+  checklist says why a local run is forbidden (it writes to the live GENERA Supabase project).
 - **Four checklist rows are OWNER-RUN — PENDING** (A2-9 WhatsApp unfurl on a named device, A2-11
   auto-reply to a test mailbox, A2-12 internal notification, A2-13 the brochure link inside the
   received email). They need a real mailbox, a real handset, or production credentials. Per [A3]

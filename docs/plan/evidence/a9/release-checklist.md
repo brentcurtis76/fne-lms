@@ -47,11 +47,13 @@ browser or to the owner, never to a grep.
 | A2-7d | A9's spec leaves A8's seeded fixture exactly as seeded | **PASS** | Same spec, test 3 — `A8's seeded lead is untouched by this spec`, **17 ms**, run [`31276283612`](ci-run-31276283612.md) gate 4: `status` and `consent_notice_version` of `fixtures.pasantiasLead` still equal the values in `scripts/ci/e2e-fixtures.json`, read from the JSON rather than retyped. A8's own three `pasantias-leads-admin.spec.ts` tests ran green in the same job, so the two phases do not interfere. |
 | A2-4/6 (CI) | Ficha and brochure serve real PDFs from a cold cache | **PASS** | Same spec, test 4 — `the ficha and the brochure both serve a real PDF`, **1.4 s**, run [`31276283612`](ci-run-31276283612.md) gate 4: unauthenticated GETs on both routes assert `200`, `content-type: application/pdf`, and a body beginning `%PDF`. This is the CI-side counterpart to A2-4 and A2-6 above, which were executed against production. |
 
-All five are registered in `MANDATORY_SPECS` (`scripts/ci/e2e-mandatory.mjs`), so CI's anti-skip
-guard fails the job if the spec is absent from the report or any of its tests is skipped. In run
-`31276283612` the guard reported `[e2e-mandatory] OK — 12 mandatory spec(s) ran with no skips`, so
-these five rows are proven by tests that genuinely executed rather than by a job that passed
-because they were skipped. **Full run evidence: [`ci-run-31276283612.md`](ci-run-31276283612.md).**
+One spec file — `tests/e2e/pasantias-flow.spec.ts`, carrying four tests — is registered in
+`MANDATORY_SPECS` (`scripts/ci/e2e-mandatory.mjs`), and those four tests are what support all five
+rows above. CI's anti-skip guard therefore fails the job if that spec is absent from the report or
+any of its tests is skipped. Every run the spec has been part of reported
+`[e2e-mandatory] OK — 12 mandatory spec(s) ran with no skips`, so these five rows are proven by
+tests that genuinely executed rather than by a job that passed because they were skipped.
+**Full run evidence: [`ci-run-31276283612.md`](ci-run-31276283612.md).**
 
 ## C. OWNER-RUN — PENDING
 
@@ -118,22 +120,38 @@ that looks perfect and links nowhere, and only this row would catch it.
 
 ## D. How the e2e spec was executed — stated plainly
 
-**`tests/e2e/pasantias-flow.spec.ts` was not run locally, and still has not been. Its first — and
-so far only — execution anywhere was CI run [`31276283612`](ci-run-31276283612.md) on
-`phase/a9-verify`'s PR (#46), where it passed: all four tests green, 121 e2e tests in the job, zero
-retries, zero flakes, and the anti-skip guard reporting `12 mandatory spec(s) ran with no skips`.
-That is evidence the spec works. It is not yet evidence it is stable under repetition — one green
-run proves one green run.**
+**`tests/e2e/pasantias-flow.spec.ts` has never run locally, and still has not. Every execution it
+has ever had was CI gate 4** — Playwright against a production build on a freshly created, seeded,
+ephemeral Supabase stack that is destroyed with the runner. **It has passed in every run it has
+been part of: all four tests green, zero retries, zero flakes, and the anti-skip guard reporting
+`12 mandatory spec(s) ran with no skips` each time.**
 
-Local Playwright runs `npm run dev:unsafe`, which loads `.env.local`, which points at the real
-shared GENERA Supabase project. This spec POSTs leads, so a local run would write synthetic rows
-straight into the production leads table — the thing `CLAUDE.md` forbids outright.
+Why it has never run locally: local Playwright starts `npm run dev:unsafe`, which loads
+`.env.local`, which points at the real shared GENERA Supabase project. This spec POSTs leads, so a
+local run would write synthetic rows straight into the production leads table — the thing
+`CLAUDE.md` forbids outright.
 
-The prompt's second option, a local ephemeral stack, was checked and is **excluded by its own
+The second option, a local ephemeral stack, was checked at r1 and is **excluded by its own
 precondition**: a local Supabase stack is already running for another worktree (11 containers on
 the shared project ref `sxlogxqzmarhqsblxmtj` — all worktrees of this repo share
 `supabase/config.toml` and therefore the same containers). `supabase db reset` plus a re-seed
 would have destroyed that session's state.
+
+**The code-bearing run is [`31276283612`](ci-run-31276283612.md) @ `b0cc9728`**, which contains the
+code commit `82bc0e7b`. Every later run is a documentation-only commit against **byte-identical
+code** — `git diff --stat b0cc9728..HEAD -- . ':!docs'` is empty. **How many runs there have been
+is a function of how many times this branch was pushed, not a property of the phase:** every push
+re-runs gate 4, so any tally is provisional by construction and later pushes add to it. As of
+`5f35bc37` gate 4 had succeeded six times; the full stamped list, including the runs that were
+cancelled by a superseding push and must not be read as failures, is in
+[`ci-run-31276283612.md`](ci-run-31276283612.md).
+
+**What that repetition proves, precisely.** Repeated clean runs on freshly created stacks, with
+zero retries, are meaningful evidence of **determinism** — the spec does not depend on leftover
+state, on ordering, or on timing luck. They are **not** evidence of robustness to change: every one
+of those runs executed the **same code** against the **same seeded fixture set**. The spec is now
+on `MANDATORY_SPECS`, so a future change that made it flaky would be every PR's problem, not just
+A9's.
 
 Everything else in the gate set **was** run locally and is quoted verbatim in the executor
 report: `type-check`, `lint`, `npm test` (266 files / 6263 tests), `npm run build`,

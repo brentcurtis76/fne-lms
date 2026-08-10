@@ -31,7 +31,8 @@ phase, 5–8 agent-days. **Nine rounds of evidence say they are different kinds 
 | | Component View | Client View |
 |---|---|---|
 | What it is | a **widget** you mount in your own element | an **app takeover** that owns the page |
-| Findings against it, two Sol passes | **zero** | M4 (r5), then 3 of Sol's 4 new MAJOR |
+| Findings **still open at `fc8a564d`** | **none** | M4 (r5), then 3 of Sol's 4 new MAJOR |
+| First-pass findings (since closed) | partly cross-cutting: M1 fallback, M3 loader/deadline, M5 runtime proof | the same, plus its own |
 | Defects found in-flight | none | CSS 403 (r7), `about:blank` race (r8), the `join` deadline (r7→r8) |
 | Real-browser status | **joins in 4.2–6.1 s, proven r6/r7/r8** | joins, but only after a chain of fixes, and the state machine is still wrong |
 | Field-testable today | yes (desktop, in the office) | **no** — mobile/tablet, and the hardware gate is waived |
@@ -85,15 +86,19 @@ issuance rule and its audit table; the credential discipline; the flag; the link
 | Sol m2 | `join.ts:4` — correct "Nothing here writes" to disclose the conditional audit write |
 | Sol m1 | Rebuild both review artifacts from measurement, not memory |
 | r2 backlog | The §9-facts-read-twice cleanup, if it is cheap once the route is open |
-| — | Remove or feature-gate the Client View path so it ships inert, and state that plainly |
+| Sol MAJOR 2 | **Make Client View structurally unreachable** — link mode requested *before* any bundle, iframe, SDK/media worker or Client View join starts; no ZAK minted and no audit row written for a credential that will be discarded; blocking tests on mobile, tablet and Firefox. **This is a DoD item, not a note — and Sol M3 may move to Z3b only once it is proven** |
 
 **Sol M1, M2 and M3 leave Z3 with the Client View path.** They are not waived — they move.
 
 ### 2.2 New phase — "Z3b: Client View (mobile/Firefox embed)"
 
-**Dependency: the §16 hardware/network verdict, CLEARED — not waived.** This is the amendment's
-one hard sequencing claim. Client View's audience is exactly the population the protocol
-measures, and nine rounds have shown that laptop simulation does not substitute.
+**Dependency, as corrected by Sol (MAJOR 1):** Z3b needs Z3. **Implementation may BEGIN behind an
+off-by-default gate; Z3b may not CLOSE or default-on until a REVISED, Client-View-specific
+protocol clears against the final build.** The PM's original wording blocked Z3b *start* on the
+existing §16 verdict, and that was wrong twice over: **the existing protocol drives Component
+View through `/meet/diag` and its verdict is decided on P0 desktop machines**, so it cannot
+clear Client View at all — and a visit run against the old, defective implementation could not
+have cleared the eventual build regardless.
 
 **Scope carried in:** Sol M1 (the three-state machine: bounded → human → bounded), M2 (a signal
 that proves *usability*, not a layout rectangle), M3 (one abandonment path used by both manual
@@ -120,12 +125,20 @@ strongest argument for the split.**
 | **Z8–Z11** | Need Z5/Z2 | **None** |
 | **Z12** hardening | Health panel + runbooks | Gains one item: Z3b's status |
 
-**No phase in the plan depends on Z3 at all.** §15's dependency line reads *"Z3 needs Z0B-pass
-+ Z2"* and nothing needs Z3. Deferring Client View costs **no** downstream sequencing — it
-changes only what mobile users get in the interim, and that is the Z2 link they get today.
+**No pre-existing implementation phase Z4–Z12 is structurally blocked on Z3 or Z3b.** §15's
+dependency line reads *"Z3 needs Z0B-pass + Z2"* and nothing needs Z3. **The deferral costs no
+downstream *sequencing*.**
 
-**What it does cost, stated honestly:** §15's Z3 DoD — *"School user joins embedded w/o Zoom
-account"* — is met on **desktop only** until Z3b ships. Mobile school users keep the link.
+**But it is NOT product-neutral, and the PM's original "only cost" claim was false** — Sol
+re-review MAJOR 3, accepted. **§12 disables recording in link-out mode** (consent capture cannot
+be guaranteed on a shareable URL) and **G1 failed definitively**, so the disclaimer backstop
+stays closed. **Mobile/tablet/Firefox sessions that stay on the Z2 link therefore do not receive
+the full Z4 recording workflow, and contribute no Z5 transcript or Z8 minuta input**, until
+Client View or another consent-safe path ships. It belongs in Z4's rollout expectations. It does
+not create a hard Z4→Z3b dependency.
+
+**And §15's Z3 DoD** — *"School user joins embedded w/o Zoom account"* — is met on **desktop
+only** until Z3b ships.
 
 ---
 

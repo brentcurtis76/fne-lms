@@ -1135,3 +1135,24 @@ Third pass on this code, and the first with nothing to report. **No BLOCKER, no 
 5. **Z3b needs planning**, including its **revised, Client-View-specific** field protocol — the existing one drives Component View through `/meet/diag` and is decided on P0 desktop, so it cannot clear Z3b.
 
 **Unowned findings this phase surfaced and did not fix, carried forward:** the Vitest cross-file state pollution (two signatures, measured 1-in-3 on one commit, corroborated independently at r9 — and CI's Vitest gate has **no retries**); the 22-table production RLS allowlist; and INSPIRA's unapplied `20260803170000_add_email_marketing_tables`.
+
+## 🎉 **PHASE Z3 (DESKTOP) — ✅ DONE. Merged to `main` 2026-08-10, PR [#47](https://github.com/brentcurtis76/fne-lms/pull/47), merge commit `9972093d`.**
+
+**§0.2 step 5 satisfied in full: Sol's `APPROVE` with zero findings, and the merge.** The row flips.
+
+**PM pre-merge verification, re-run immediately before the merge and not carried over from the earlier check:** approved head **`2a459a33` unchanged** on the remote and unmoved since review · PR **OPEN / MERGEABLE / `CLEAN`** · **all 8 checks SUCCESS** · both trees clean · the zoom-embed worktree the only one on the branch.
+
+**Merged with a MERGE COMMIT, and a fast-forward was checked for first and was impossible** — `main` had advanced with this phase's own ledger, plan and prompt commits, so `origin/main` is not an ancestor of the branch. **It was also the right choice on its own merits, for the same reason Z2 refused a squash:** this ledger and the dossier cite **ten individual round SHAs**, and a squash would have orphaned every one. **Verified after the merge rather than assumed — all ten (`5c3bbea1`, `09d32643`, `db9fc6c7`, `18441936`, `1d259a72`, `15981fbc`, `137a6120`, `fc8a564d`, `6ca38a38`, `2a459a33`) are reachable from `main`.** Every citation in ten rounds of recorded reasoning still resolves.
+
+**What Z3 shipped:** a desktop school user joins a Zoom meeting **inside GENERA**, without a Zoom account, in Spanish, ~1.1 s to first render — with a device preflight that names what is broken instead of showing a black rectangle, and an automatic fall back to the Z2 link whenever any of it cannot run. Hosts additionally receive a ZAK and `role:1`, but **only** where §9's rule allows it, every issuance audited in `zoom_zak_issuances`, and **never a consultant's personal identity to an admin**. `join_url` never appears in an SDK payload; the numeric role lives only inside the signed JWT; the request-path ZAK is bounded at 8 s and degrades to link mode rather than hanging. **And every non-Component browser — mobile, tablet, Firefox and a narrow desktop window — takes the platform link without fetching a byte of SDK.** All of it behind `FEATURE_ZOOM_EMBED`, **default OFF**: nothing changed for users at merge.
+
+**Ten rounds, three independent review passes, nine recorded PM errors.** Passes ran 5 MAJOR → 4 MAJOR + 2 MINOR → **APPROVE, zero findings**. Three defects were found that nobody had raised: Client View's stylesheets 403'ing silently at the pinned CDN path, an iframe race that appended Zoom to a discarded `about:blank` document, and a deadline applied to a step that waits for a person. **Executors caught most of the PM's errors and one falsified a PM ruling outright with a single experiment.** The loop worked; what it was originally pointed at was too big, which is what the split fixed.
+
+**Still open and now formally carried forward:**
+- **Z3b** — Client View, holding Sol's M1/M2/M3, gated on a **revised Client-View-specific** field protocol. **Needs planning.** The 11 parked `[Z3b, PARKED]` tests are its entry criterion, and `/Users/brentcurtis/dev/wt/zoom-embed` **must not be cleaned up** — Z3b starts from that code.
+- **`PROJECT_STATE.md` phase-close entry** — required by `CLAUDE.md`, **outside the PM's write permissions**, needs Brent or an executor.
+- **§16's hardware verdict** — waived for desktop, **re-instated as blocking for Z3b's close/default-on**.
+- **Unowned, surfaced by this phase:** the Vitest cross-file state pollution (two signatures, 1-in-3 on one commit, corroborated independently at r9 — and **CI's Vitest gate has no retries**); the 22-table production RLS allowlist; INSPIRA's unapplied `20260803170000_add_email_marketing_tables`.
+- **Product cost of the split, stated because the PM first got it wrong:** §12 keeps recording off in link-out mode and G1 failed, so mobile/tablet/Firefox users on the link get **no Z4 recording workflow** and contribute **no Z5/Z8 input** until Z3b ships.
+
+**Next in the Zoom plan: Z3b, or Z4/Z6/Z7 — none of which depends on Z3 or Z3b.**

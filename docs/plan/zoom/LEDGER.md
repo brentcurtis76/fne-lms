@@ -1009,3 +1009,23 @@ All four MAJOR are real and none is a matter of taste. But **three of the four a
 **That is the pattern worth naming rather than working around: Client View is an app-takeover SDK being driven as a widget inside an iframe, on a path nobody can field-test because the hardware gate is waived. Every round has found a real defect one layer deeper — r5 shipped it, r6 found it stalled, r7 found the CSS starved and the stall device-independent, r8 found the `about:blank` race and fixed the deadline, and Sol now finds the deadline fix incomplete, the signal soft, and the teardown asymmetric.** Component View, over the same eight rounds, has produced zero findings and a 4.2 s join.
 
 **PM ruling: this is a scope decision for the owner, not another remediation to dispatch reflexively.** Round 9 against an SOP cap of 3; the PM flagged the change of character at r7 and the owner chose to continue; **an independent reviewer has now found four more MAJOR on the same surface.** Both paths forward are legitimate and the PM is putting them up rather than choosing.
+
+## 🛑 **EXECUTION STOPPED. RE-PLAN PROPOSAL WRITTEN (owner decision, 2026-08-08).**
+
+Brent chose **re-plan** over a ninth remediation round or a scope narrowing decided by the PM. `docs/plan/zoom/reviews/fase-6-replan-proposal.md`, written to SOP §3.9's five points. **The PM proposes and amends nothing** — §0.1 makes plan decisions settled and owner-owned.
+
+**Nothing here is blocked on broken code.** `fc8a564d` is green on all five local gates and all six CI gates, the migration is applied and PM-verified in production, and the branch is `MERGEABLE`. **The problem is scope, not quality.**
+
+**The proposal, in one line: split Z3 — desktop closes now, Client View becomes Z3b behind the hardware verdict it always depended on.**
+
+**Its central evidence** is a table nine rounds paid for: across two Sol passes, **Component View has zero findings and a 4.2–6.1 s real join**; Client View has M4 plus three of Sol's four new MAJOR, three defects nobody had found (CSS 403, the `about:blank` race, the `join` deadline), and a state machine still wrong after being fixed twice. **The mismatch is structural** — Client View is an app-takeover SDK being promise-wrapped and deadlined as if it were a widget, and Sol's M1 is that error reappearing one step later than r8 fixed it.
+
+**And the feedback loop that would have caught it early does not exist:** §16's verdict was **waived**, Client View's entire audience is mobile/tablet/Firefox, so **every finding since r5 has come from a laptop with fake devices. We have been hardening a path against a simulation of its own users.** The PM recommended that waiver and still thinks it was right *for Component View* — it is Client View that needed the field.
+
+**§15's "Client View route (mobile)" is retired as unimplementable in this router**, verified at r4 and proved at r5: Next permits a global stylesheet only in `pages/_app.tsx`, and `_app` wraps every page, so **no route here can be a CSS boundary**. The iframe was the PM's substitute and is itself the source of two of Sol's findings.
+
+**The dependency claim was verified rather than asserted, and it is the strongest argument in the proposal:** `grep` over §15's dependency line returns `Z2 needs Z1b+Z1c` · `Z3 needs Z0B-pass + Z2` · `Z4 needs Z1b…` · `Z5 needs Z4` · `Z6 needs Z2` · `Z7 needs Z2` · `Z8 needs Z5`. **No phase in the plan depends on Z3.** Deferring Client View costs **zero** downstream sequencing. The only cost is stated plainly in the proposal: §15's DoD is met on desktop only until Z3b ships, and mobile school users keep the Z2 link they already have in production.
+
+**Remaining for an amended, desktop-only Z3:** Sol **M4** (request-scoped budget + `AbortSignal` on the ZAK path; exhaustion returns the existing 200 link payload and writes no audit row), **m2** (`join.ts:4`'s false "Nothing here writes"), **m1** (both artifacts rebuilt from measurement), and shipping the Client View path inert. **Sol M1/M2/M3 are not waived — they move to Z3b with the code they belong to.**
+
+**NEXT: owner decision on the proposal, then a reviewer sign-off on the AMENDMENT ITSELF before any further execution** (§3.9 step 5). The phase does not close, and the ledger row does not flip, on a PM proposal.

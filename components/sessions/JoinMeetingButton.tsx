@@ -80,18 +80,37 @@ import {
  * Nothing renders them, nothing logs them, and a later click fetches fresh ones rather
  * than reusing what is gone (§5: "fetched at start-click, never persisted").
  *
- * ## Two views, one join (Z3-4)
+ * ## One view on this phase: Component View, and NOTHING ELSE IS REACHABLE (Z3-r9)
  *
- * Zoom ships the web SDK as two products and this component reaches both. Component
- * View renders inside the page and is desktop-only; Client View takes the page over and
- * is what Zoom supports on mobile, on tablets and on Firefox. `selectEmbedView()` picks
- * one, ONCE, from the response — so only one bundle is ever downloaded on a given
- * machine and only one root element is ever mounted. A browser that can run neither
- * takes the same `{ fallback: 'link' }` path every other embed failure takes; there is
- * no third server surface.
+ * Zoom ships the web SDK as two products. Z3 was split on 2026-08-08 (plan §15.1) and
+ * ships **Component View, desktop only**; Client View becomes **Z3b**, behind a
+ * Client-View-specific field protocol that does not exist yet. Its code below is kept
+ * compiling as Z3b's starting point and is deliberately made **unreachable**, which is
+ * a stronger claim than "hidden" and a different one from "falls back after startup".
  *
- * The rules above hold identically on both: the same single §5 opening, the same
- * payload, the same ref that is emptied by the call that consumes it.
+ * **The decision moved to the click, and that is the whole mechanism.** `handleJoin`
+ * asks `selectEmbedView()` BEFORE it posts. If the answer is anything but `component`,
+ * the very first request carries the `{ fallback: 'link' }` intent this file already
+ * used after a failure — so the server never enters its SDK branch, never signs a
+ * payload, and for a host **never mints a ZAK and never writes a `zoom_zak_issuances`
+ * row** for a credential that would have been discarded. Nothing downstream is reached
+ * because nothing downstream is ever asked for.
+ *
+ * **The population is NOT "mobile, tablet and Firefox".** `supportsComponentView()`
+ * also refuses any viewport under 768 px, so a split-screen desktop window, a
+ * low-resolution school monitor and a restored-down browser are on this path too.
+ * Three user-agent cases would have missed all three of those; the standing proof is a
+ * truth table over every branch of `selectEmbedView()`
+ * (`__tests__/components/sessions/JoinMeetingButton.clientview.test.tsx`).
+ *
+ * **No wire-contract change.** `{ fallback: 'link' }` is Z3-3's ruling ②, unchanged in
+ * field, value and meaning — "give me LESS than you could". Only WHEN it is sent moved.
+ * PM ruling ① from r3 also stands: this component still never reads `FEATURE_ZOOM_EMBED`
+ * in either half. What it reads is its own browser, which is not the server's to know —
+ * the server is never told which view was chosen.
+ *
+ * The rules above hold identically: the same single §5 opening, the same payload, the
+ * same ref that is emptied by the call that consumes it.
  *
  * ## Client View runs in its own document (Z3-r5, Sol M4)
  *
@@ -335,11 +354,22 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
   /**
    * Turns one join response into what the user sees.
    *
-   * `allowEmbed` is false for the fallback request and is what makes the fallback
-   * terminal: a second `mode: 'sdk'` there would be the server answering the very
-   * request that asked to be spared it, so it ends the attempt instead of looping.
+   * `allowEmbed` is false for every request that already asked for link mode — the
+   * post-failure fallback, and since Z3-r9 the FIRST request from a browser that cannot
+   * host Component View. It is what makes those requests terminal: a `mode: 'sdk'` in
+   * answer to a request that asked to be spared it is the server contradicting the one
+   * thing the client said, so it ends the attempt instead of looping.
+   *
+   * `keepLinkOnScreen` is a separate question and only the FALLBACK answers it yes. A
+   * browser that asked for the link up front is on the primary path, seconds after a
+   * click, and gets byte-for-byte what Z2 shipped it; the fallback lands past a failed
+   * embed, where a browser is likeliest to have refused the tab, and leaves the URL
+   * on screen as a real link.
    */
-  const handleJoinResponse = async (response: Response, allowEmbed: boolean) => {
+  const handleJoinResponse = async (
+    response: Response,
+    { allowEmbed, keepLinkOnScreen }: { allowEmbed: boolean; keepLinkOnScreen: boolean }
+  ) => {
     // Same destinations getServerSideProps uses for the same two answers:
     // carry the current path across the login bounce, and let a session the
     // caller may not know about stay a 404.
@@ -370,10 +400,11 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
       setDialIn(readDialIn(payload.dial_in));
       // Return value deliberately unread: under `noopener` it is `null` either way.
       window.open(payload.join_url, '_blank', 'noopener,noreferrer');
-      // The primary path is byte-for-byte what Z2 shipped and stays that way. Only the
-      // fallback — seconds after the click, past a failed CDN fetch, where a browser is
-      // likeliest to refuse the tab — keeps the link on screen afterwards.
-      setOutcome(allowEmbed ? { kind: 'idle' } : { kind: 'link', url: payload.join_url });
+      // The primary path is byte-for-byte what Z2 shipped and stays that way — for the
+      // Component-View-capable browser AND for the one that asked for the link up front.
+      // Only the fallback — past a failed CDN fetch, where a browser is likeliest to
+      // refuse the tab — keeps the link on screen afterwards.
+      setOutcome(keepLinkOnScreen ? { kind: 'link', url: payload.join_url } : { kind: 'idle' });
       return;
     }
 
@@ -384,30 +415,21 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
       }
 
       const credentials = readSdkCredentials(payload);
-      // Decided once, here: everything downstream — which bundle is downloaded, which
-      // root element mounts, which join is called — follows from this one answer.
+      // Asked AGAIN, after the round trip. `handleJoin` already refused to request an
+      // embed this browser cannot host, so on this line the answer is normally the same
+      // one — but a window can be resized while the request is in flight, and Z3 ships
+      // Component View or nothing. Anything else here takes the link.
       const view = selectEmbedView();
 
-      // A browser that can run neither view, and a malformed payload that is not worth
-      // guessing at, take the same one fallback.
-      if (!credentials || view === 'none') {
+      // A browser that is no longer a Component View browser, and a malformed payload
+      // that is not worth guessing at, take the same one fallback.
+      if (!credentials || view !== 'component') {
         await requestLinkFallback();
         return;
       }
 
       setDialIn(readDialIn(payload.dial_in));
       credentialsRef.current = credentials;
-
-      // Z3-r8 ①/②: Client View has no preflight of ours, because Zoom's own pre-join
-      // screen is one. The frame opens now and the effect below joins through it as soon
-      // as React has committed the element; it stays mounted across a second join in the
-      // same page life, exactly as the bootstrap it holds does.
-      if (view === 'client') {
-        pendingClientJoinRef.current = true;
-        setClientFrameOpen(true);
-        setOutcome({ kind: 'joining', view });
-        return;
-      }
 
       // Component View is a widget with no preview screen — r3's gap, and where the
       // preflight still earns its place.
@@ -432,7 +454,7 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fallback: LINK_FALLBACK_INTENT }),
       });
-      await handleJoinResponse(response, false);
+      await handleJoinResponse(response, { allowEmbed: false, keepLinkOnScreen: true });
     } catch {
       setOutcome({ kind: 'denied', message: REQUEST_FAILED_MESSAGE });
     }
@@ -447,9 +469,29 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
     setDialIn(null);
     credentialsRef.current = null;
 
+    // Z3-r9: asked BEFORE the request, not after it. This is the whole unreachability
+    // mechanism — a browser Component View cannot serve asks for link mode on its FIRST
+    // request, so no SDK payload is signed for it, no ZAK is minted for a host on it,
+    // no `zoom_zak_issuances` row is written, and nothing on the Client View path is
+    // reached because nothing ever asks it for anything.
+    const canHostComponentView = selectEmbedView() === 'component';
+
     try {
-      const response = await fetch(`/api/meet/session/${sessionId}/join`, { method: 'POST' });
-      await handleJoinResponse(response, true);
+      const response = await fetch(
+        `/api/meet/session/${sessionId}/join`,
+        canHostComponentView
+          ? { method: 'POST' }
+          : {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fallback: LINK_FALLBACK_INTENT }),
+            }
+      );
+      await handleJoinResponse(response, {
+        allowEmbed: canHostComponentView,
+        // Still the primary path for these browsers, and it stays what Z2 shipped.
+        keepLinkOnScreen: false,
+      });
     } catch {
       setOutcome({ kind: 'denied', message: REQUEST_FAILED_MESSAGE });
     } finally {
@@ -514,6 +556,12 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
   /**
    * Hand the isolated frame to Client View and join. The bootstrap sequence and the
    * callback shape are Zoom's, not a choice — see `zoom-client-view-loader.ts`.
+   *
+   * ⚠ **Z3b. Unreachable on this phase and kept compiling on purpose** (see the file
+   * header): nothing sets `pendingClientJoinRef`, so the effect that would call this
+   * never fires and `runEmbeddedJoin` never receives `'client'`. Do not re-admit a
+   * caller here without the Client-View-specific field protocol §16 now requires — the
+   * open findings this code carries (Sol M1/M2/M3) moved to Z3b WITH it.
    */
   const joinWithClientView = async (credentials: EmbedCredentials) => {
     const frame = clientFrameRef.current;
@@ -603,6 +651,9 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
         throw new Error('embed context missing');
       }
 
+      // `'client'` is Z3b's branch and is unreachable on this phase — the only two
+      // callers pass `'component'` (the preflight) or are themselves unreachable (the
+      // effect below). Left in place because it is where Z3b resumes.
       if (view === 'client') {
         await joinWithClientView(credentials);
       } else {
@@ -630,6 +681,10 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
    * `joinWithClientView` reads `clientFrameRef`, which React populates at commit — so
    * with the preflight gone there is no longer a user gesture standing between the state
    * change that mounts the frame and the code that uses it, and this effect is that gap.
+   *
+   * ⚠ **Z3b. Never fires on this phase**: its three guards are `pendingClientJoinRef`,
+   * a `'client'` outcome and a mounted frame, and since Z3-r9 nothing produces any of
+   * the three. It is Z3b's entry point, not live code.
    */
   useEffect(() => {
     if (!pendingClientJoinRef.current) return;
@@ -815,6 +870,10 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
       )}
 
       {/*
+        ⚠ Z3b. NEVER MOUNTED on this phase: `clientFrameOpen` is only ever set true by
+        the Client View branch of the response handler, which Z3-r9 removed. Kept so
+        Z3b resumes from a working boundary rather than rebuilding one.
+
         Sol M4: Client View's document, and the CSS boundary this app cannot give it any
         other way. Zoom's root element lives INSIDE it — this page never mounts one — so
         the two views still cannot coexist, and now the app's global stylesheet cannot

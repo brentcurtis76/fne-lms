@@ -43,6 +43,29 @@
  * 401 means the request was rejected at the auth boundary and never executed, so
  * replaying it after a forced token refresh cannot double-apply. Without that,
  * every S2S token rotation would fail an in-flight provision.
+ *
+ * ## 4. The retry policy above is written for a WORKER, so a request must bring a budget
+ *
+ * Everything in §3 assumes the caller is a cron job that can afford to wait: three
+ * attempts, exponential backoff, and up to two 60 s `Retry-After` sleeps honoured
+ * inline. Z3-2 put this client on the HTTP request path (`getUserZak`, from the join
+ * route), where that same policy has no upper bound a user is willing to sit through —
+ * and `fetch` itself has no default timeout, so a transport that never answers left the
+ * request pending until the hosting platform killed it. A route that promises "every SDK
+ * failure degrades to link mode" cannot keep that promise from inside a call that never
+ * returns (Sol M4).
+ *
+ * So `ZoomRequestOptions.signal` bounds a call's TOTAL lifetime — not one attempt.
+ * It reaches three places, and all three are needed:
+ *
+ *  - the `fetch` itself, so an unanswered socket is dropped rather than waited on;
+ *  - `tokens.getToken()`, so a stalled OAuth grant cannot consume the budget either;
+ *  - every backoff and `Retry-After` sleep, so a worker-sized wait is cut short instead
+ *    of being served to somebody who clicked a button.
+ *
+ * A caller that passes no signal gets exactly the behaviour it had before: the worker
+ * policy, unchanged. The budget is the REQUEST path's to set, because only it knows how
+ * long its own lifetime is.
  */
 import {
   isZoomError,
@@ -72,7 +95,20 @@ export type ZoomHttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export type ZoomQuery = Record<string, string | number | boolean | undefined | null>;
 
-export interface ZoomRequestOptions {
+/** What a caller on a bounded lifetime hands down. See header §4. */
+export interface ZoomCallOptions {
+  /**
+   * Bounds the call's TOTAL lifetime, retries and sleeps included — not one attempt.
+   * Aborting raises a retryable `ZoomError` whose outcome is `ambiguous`, because a
+   * request abandoned in flight may still have reached Zoom.
+   *
+   * Omitted by every worker caller, deliberately: the job layer reschedules, so it
+   * wants the unbounded-but-retrying policy this client was written for.
+   */
+  signal?: AbortSignal;
+}
+
+export interface ZoomRequestOptions extends ZoomCallOptions {
   method: ZoomHttpMethod;
   /** Path below `/v2`, already encoded. Meeting UUIDs need DOUBLE encoding. */
   path: string;
@@ -119,8 +155,15 @@ export interface ZoomReadBack<T> {
 export interface ZoomClientDeps {
   tokenProvider?: ZoomTokenProvider;
   fetchImpl?: typeof fetch;
-  /** Injected so backoff is instant in tests and real in production. */
-  sleep?: (ms: number) => Promise<void>;
+  /**
+   * Injected so backoff is instant in tests and real in production.
+   *
+   * The `signal` is passed so an implementation can STOP EARLY and clear its timer:
+   * a request-scoped caller must not be held by a 60 s `Retry-After` it will never
+   * outlive, and a timer left running would outlive the process's interest in it.
+   * Resolving early is enough — `request` re-checks the signal after every sleep.
+   */
+  sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
   baseUrl?: string;
   /** Total attempts for a retryable failure on an idempotent verb. */
   maxAttempts?: number;
@@ -136,7 +179,12 @@ export interface ZoomClientDeps {
 
 export interface ZoomClient {
   request<T>(options: ZoomRequestOptions): Promise<ZoomResponse<T>>;
-  get<T>(path: string, query?: ZoomQuery): Promise<ZoomResponse<T>>;
+  /**
+   * `options` carries the caller's budget (header §4). It is on `get` alone because
+   * `get` is the only verb a request-path caller reaches today — the ZAK read — and a
+   * signal on the write verbs would suggest a bound the job layer does not want.
+   */
+  get<T>(path: string, query?: ZoomQuery, options?: ZoomCallOptions): Promise<ZoomResponse<T>>;
   post<T>(path: string, body?: unknown): Promise<ZoomResponse<T>>;
   patch<T>(path: string, body?: unknown): Promise<ZoomResponse<T>>;
   put<T>(path: string, body?: unknown): Promise<ZoomResponse<T>>;
@@ -175,6 +223,51 @@ interface ParsedFailure {
   zoomCode?: number;
 }
 
+/**
+ * What an exhausted budget raises (header §4).
+ *
+ * `ambiguous` rather than `not_executed`, for the same reason a transport throw is:
+ * abandoning a request says nothing about whether Zoom received it. The message names
+ * the operation and never a value — this client's ZAK path has a credential in its
+ * success body.
+ */
+function budgetExhausted(operation: string): ZoomRetryableError {
+  return new ZoomRetryableError(
+    `Zoom request abandoned before ${operation} settled: the caller's budget expired.`,
+    { operation, outcome: 'ambiguous' }
+  );
+}
+
+/**
+ * Await `work`, but stop waiting if the budget expires first.
+ *
+ * Used for the ONE await this client makes that it cannot cancel: `tokens.getToken()`
+ * is single-flight and shared, so a burst of callers rides one grant and this caller's
+ * budget is not the shared grant's to end. Stopping the WAIT is bounded and correct;
+ * aborting the grant would fail somebody else's request.
+ */
+async function withBudget<T>(
+  work: Promise<T>,
+  signal: AbortSignal | undefined,
+  operation: string
+): Promise<T> {
+  if (!signal) return work;
+  if (signal.aborted) throw budgetExhausted(operation);
+
+  let onAbort = () => {};
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_, reject) => {
+        onAbort = () => reject(budgetExhausted(operation));
+        signal.addEventListener('abort', onAbort, { once: true });
+      }),
+    ]);
+  } finally {
+    signal.removeEventListener('abort', onAbort);
+  }
+}
+
 function parseFailureBody(raw: string): ParsedFailure {
   if (!raw) return { message: 'empty response body' };
   try {
@@ -196,7 +289,24 @@ function parseFailureBody(raw: string): ParsedFailure {
 export function createZoomClient(deps: ZoomClientDeps = {}): ZoomClient {
   const fetchImpl = deps.fetchImpl ?? fetch;
   const baseUrl = deps.baseUrl ?? ZOOM_API_BASE_URL;
-  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const sleep =
+    deps.sleep ??
+    ((ms: number, signal?: AbortSignal) =>
+      new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, ms);
+        if (!signal) return;
+        // Resolve, not reject: `request` decides what an expired budget means, and a
+        // rejection from here would need catching at every call site. Clearing the
+        // timer is the point — an abandoned 60 s wait must not keep the loop alive.
+        signal.addEventListener(
+          'abort',
+          () => {
+            clearTimeout(timer);
+            resolve();
+          },
+          { once: true }
+        );
+      }));
   const maxAttempts = deps.maxAttempts ?? 3;
   const baseBackoffMs = deps.baseBackoffMs ?? 500;
   const maxBackoffMs = deps.maxBackoffMs ?? 8000;
@@ -238,8 +348,14 @@ export function createZoomClient(deps: ZoomClientDeps = {}): ZoomClient {
           ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
         },
         ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
+        // The budget on the wire itself (header §4). `fetch` has no default timeout,
+        // so without this a socket that never answers is waited on forever.
+        ...(options.signal ? { signal: options.signal } : {}),
       });
     } catch (cause) {
+      // An expired budget reaches here as `fetch`'s own AbortError. Name it for what it
+      // is rather than reporting a transport failure that did not happen.
+      if (options.signal?.aborted) throw budgetExhausted(operation);
       // AMBIGUOUS, explicitly: `fetch` rejects for a connection that was never made AND
       // for one that sent every byte and lost the response. There is no status to
       // derive it from, and guessing "not executed" is the guess that creates a second
@@ -303,14 +419,26 @@ export function createZoomClient(deps: ZoomClientDeps = {}): ZoomClient {
     // A 401 never executed, so replaying it is safe even for a POST.
     let authRetryUsed = false;
     let attemptNumber = 0;
+    const operation = `${options.method} ${options.path}`;
+    const { signal } = options;
 
     for (;;) {
       attemptNumber += 1;
-      const accessToken = await tokens.getToken();
+      if (signal?.aborted) throw budgetExhausted(operation);
+      // Bounded even when the grant is not: see `withBudget`.
+      const accessToken = await withBudget(tokens.getToken({ signal }), signal, operation);
 
       try {
-        return await attempt<T>(options, accessToken);
+        // Bounded twice, deliberately. The signal goes INTO `fetch`, which is what
+        // actually drops the socket; this outer bound is the guarantee that holds even
+        // if the injected transport ignores it, and a `fetchImpl` that ignores a signal
+        // is exactly the never-settling case this whole budget exists for.
+        return await withBudget(attempt<T>(options, accessToken), signal, operation);
       } catch (caught) {
+        // Terminal, before any classification: retrying is the thing the budget exists
+        // to prevent, and every failure shape below would otherwise sleep and try again.
+        if (signal?.aborted) throw budgetExhausted(operation);
+
         // A non-Zoom throw is a bug in this module, not a transport condition.
         if (!isZoomError(caught)) throw caught;
         const error = caught;
@@ -319,7 +447,7 @@ export function createZoomClient(deps: ZoomClientDeps = {}): ZoomClient {
           if (authRetryUsed) throw error;
           authRetryUsed = true;
           attemptNumber -= 1; // does not count against the retryable budget
-          await tokens.forceRefresh(accessToken);
+          await withBudget(tokens.forceRefresh(accessToken, { signal }), signal, operation);
           continue;
         }
 
@@ -333,11 +461,18 @@ export function createZoomClient(deps: ZoomClientDeps = {}): ZoomClient {
           // Honour Zoom's own number when it gave one; refuse to hold a function
           // warm for a long one and let the job layer reschedule instead.
           if (retryAfter !== undefined && retryAfter > maxRetryAfterSeconds) throw error;
-          await sleep(retryAfter !== undefined ? retryAfter * 1000 : backoffFor(attemptNumber));
+          await sleep(
+            retryAfter !== undefined ? retryAfter * 1000 : backoffFor(attemptNumber),
+            signal
+          );
+          // A worker-sized wait is not a request lifetime: the sleep resolves early on
+          // abort and the budget is what ends the call, not the next attempt.
+          if (signal?.aborted) throw budgetExhausted(operation);
           continue;
         }
 
-        await sleep(backoffFor(attemptNumber));
+        await sleep(backoffFor(attemptNumber), signal);
+        if (signal?.aborted) throw budgetExhausted(operation);
       }
     }
   }
@@ -395,7 +530,7 @@ export function createZoomClient(deps: ZoomClientDeps = {}): ZoomClient {
 
   return {
     request,
-    get: (path, query) => request({ method: 'GET', path, query }),
+    get: (path, query, options) => request({ method: 'GET', path, query, ...options }),
     post: (path, body) => request({ method: 'POST', path, body }),
     patch: (path, body) => request({ method: 'PATCH', path, body }),
     put: (path, body) => request({ method: 'PUT', path, body }),

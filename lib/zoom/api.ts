@@ -24,7 +24,13 @@
  * never at provision. So the field is called `uuidAtRead`, and
  * `zoom_meetings.zoom_meeting_uuid` must never be assigned from it.
  */
-import { createZoomClient, zoomZakPath, type ZoomClient, type ZoomReadBack } from './client';
+import {
+  createZoomClient,
+  zoomZakPath,
+  type ZoomCallOptions,
+  type ZoomClient,
+  type ZoomReadBack,
+} from './client';
 import { ZoomConfigError, ZoomUnusableSuccessError } from './errors';
 import { createZoomFake } from './fake';
 
@@ -185,8 +191,15 @@ export interface ZoomApi {
    *
    * Throws the usual taxonomy: a missing scope or an unknown user is
    * `non_retryable`, a 429 is honoured by the client's `Retry-After` handling.
+   *
+   * **This is the only operation on this interface that runs on the HTTP REQUEST
+   * path** (the join route's start-click), so it is the only one that takes a
+   * budget: `options.signal` bounds the WHOLE call — token, fetch, retries and
+   * `Retry-After` sleeps — rather than one attempt. Without it the route inherits
+   * the worker retry policy and can outlive the request it is serving (Sol M4).
+   * Omitting it keeps the worker behaviour exactly as it was.
    */
-  getUserZak(zoomUserId: string): Promise<string>;
+  getUserZak(zoomUserId: string, options?: ZoomCallOptions): Promise<string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -471,10 +484,14 @@ export function createLiveZoomApi(client: ZoomClient = createZoomClient()): Zoom
       };
     },
 
-    async getUserZak(zoomUserId) {
-      const response = await client.get<{ token?: unknown }>(zoomZakPath(zoomUserId), {
-        type: 'zak',
-      });
+    async getUserZak(zoomUserId, options) {
+      // The caller's budget goes down to the transport, not around it: `client.get`
+      // hands it to the token wait, to `fetch` and to every retry sleep.
+      const response = await client.get<{ token?: unknown }>(
+        zoomZakPath(zoomUserId),
+        { type: 'zak' },
+        options
+      );
       const token = typeof response.data?.token === 'string' ? response.data.token.trim() : '';
       if (!token) {
         // `ZoomConfigError` matches `readMeeting`'s treatment of an unusable GET body:

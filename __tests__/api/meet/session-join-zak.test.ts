@@ -63,7 +63,7 @@ vi.mock('../../../lib/zoom/api', async (importOriginal) => {
   return { ...actual, getZoomApi: mockGetZoomApi };
 });
 
-import handler from '../../../pages/api/meet/session/[id]/join';
+import handler, { ZAK_REQUEST_BUDGET_MS } from '../../../pages/api/meet/session/[id]/join';
 
 const SESSION_ID = '3f1c5f5e-0f1a-4d3e-9a11-2b6c8f0d1e22';
 const MISSING_SESSION_ID = '4a2d6060-1020-4e4f-8b22-3c7d9e1f2a33';
@@ -310,6 +310,21 @@ async function post(sessionId: string = SESSION_ID) {
   return res;
 }
 
+/**
+ * The same request carrying the client's link-mode intent (Z3-3 ruling ②) — which since
+ * Z3-r9 is what a browser that cannot host Component View sends on its FIRST request,
+ * not only after an embed failed. [B12] is the server half of that claim.
+ */
+async function postAskingForLink(sessionId: string = SESSION_ID) {
+  const { req, res } = createMocks({
+    method: 'POST',
+    query: { id: sessionId },
+    body: { fallback: 'link' },
+  });
+  await handler(req as never, res as never);
+  return res;
+}
+
 function payloadOf(res: ReturnType<typeof createMocks>['res']) {
   return JSON.parse(res._getData()).data as Record<string, unknown>;
 }
@@ -427,7 +442,10 @@ describe('[B2] the assigned facilitator, on their OWN mapped host', () => {
     expect(body.zak).toBe(SYNTHETIC_ZAK);
     expect(body.role).toBe('host');
     expect(zoomApiDouble.getUserZak).toHaveBeenCalledOnce();
-    expect(zoomApiDouble.getUserZak).toHaveBeenCalledWith(FACILITATOR_HOST);
+    // Z3-r9: the second argument is the request budget (Sol M4) — see [B11].
+    expect(zoomApiDouble.getUserZak).toHaveBeenCalledWith(FACILITATOR_HOST, {
+      signal: expect.any(AbortSignal),
+    });
 
     // The Z3-1 shape, plus `zak`, and still no `join_url` KEY at all (§5).
     expect(Object.keys(body)).toEqual([
@@ -512,7 +530,9 @@ describe('[B4] admins, on organization-controlled identities', () => {
     expect(body.zak).toBe(SYNTHETIC_ZAK);
     expect(decodeJwtClaims(body.signature as string).role).toBe(1);
     expect(zoomApiDouble.getUserZak).toHaveBeenCalledOnce();
-    expect(zoomApiDouble.getUserZak).toHaveBeenCalledWith(POOL_HOST);
+    expect(zoomApiDouble.getUserZak).toHaveBeenCalledWith(POOL_HOST, {
+      signal: expect.any(AbortSignal),
+    });
     expect(auditRows()[0].row.persona).toBe('admin_pool_host');
   });
 
@@ -901,5 +921,171 @@ describe('[B9] ZOOM_MODE=mock serves the whole matrix with no Zoom S2S secrets',
     // §5: fetched at start-click, never persisted. A route that cached one would
     // hand out a token that has been ageing since the first click.
     expect(first).not.toBe(second);
+  });
+});
+
+/**
+ * Z3-r9 [B11] (Sol M4) — the ZAK call is on a request budget, and exhausting it is an
+ * ordinary §9 refusal.
+ *
+ * The defect: `getUserZak` runs on the HTTP request path over a client written for the
+ * cron worker — three attempts, exponential backoff, two 60 s `Retry-After` sleeps, and
+ * a `fetch` with no default timeout. A call that never settles never reaches this
+ * route's link response, so the platform's timeout answers with an error instead —
+ * contradicting the route's own promise that every SDK failure degrades to link mode.
+ *
+ * The transport-level proof that the signal reaches `fetch`, the token wait and every
+ * retry sleep is `__tests__/lib/zoom/client-request-budget.test.ts`. What is asserted
+ * HERE is the route's half: that a budget is handed down at all, and that exhausting it
+ * produces the 200 link payload **and no audit row**. A row for a credential that never
+ * arrived would be the §9 log describing an issuance that did not happen.
+ */
+describe('[B11] the ZAK call carries a request budget', () => {
+  beforeEach(() => {
+    arrange({ isFacilitator: true, meeting: provisionedMeeting, host: facilitatorOwnHostRow });
+    asFacilitator();
+  });
+
+  it('hands `getUserZak` a live AbortSignal, and cancels it once the call has answered', async () => {
+    let captured: AbortSignal | undefined;
+    zoomApiDouble.getUserZak.mockImplementation(
+      async (_host: string, options?: { signal?: AbortSignal }) => {
+        captured = options?.signal;
+        // Live WHILE the call is in flight — a signal already aborted here would mean
+        // the budget was never really the call's.
+        expect(captured?.aborted).toBe(false);
+        return SYNTHETIC_ZAK;
+      }
+    );
+
+    expect(payloadOf(await post()).zak).toBe(SYNTHETIC_ZAK);
+    expect(captured).toBeInstanceOf(AbortSignal);
+    // Still not aborted after a fast answer: the timer is cleared rather than left to
+    // fire for the rest of the budget on a function this platform keeps warm.
+    expect(captured?.aborted).toBe(false);
+  });
+
+  it('the budget is a stated number, not an implicit one', () => {
+    // [V1] asks for a STATED budget. It is a module constant so this assertion and the
+    // clock below are talking about the same value the route ships.
+    expect(ZAK_REQUEST_BUDGET_MS).toBe(8_000);
+  });
+
+  it('a never-settling ZAK ends in the 200 link payload, and writes NO audit row', async () => {
+    // The transport never answers on its own — the route may only escape through the
+    // budget it set. Zoom's own clock is faked so this costs no wall time; the real
+    // timing proof is at the transport layer.
+    zoomApiDouble.getUserZak.mockImplementation(
+      (_host: string, options?: { signal?: AbortSignal }) =>
+        new Promise<string>((_, reject) => {
+          options?.signal?.addEventListener(
+            'abort',
+            () => reject(new Error('synthetic budget exhaustion')),
+            { once: true }
+          );
+        })
+    );
+
+    vi.useFakeTimers();
+    let res: Awaited<ReturnType<typeof post>>;
+    try {
+      const pending = post();
+      // One tick short of the budget the request is still waiting; the assertion that
+      // matters is that it does not wait a millisecond longer.
+      await vi.advanceTimersByTimeAsync(ZAK_REQUEST_BUDGET_MS - 1);
+      expect(auditRows()).toEqual([]);
+      await vi.advanceTimersByTimeAsync(1);
+      res = await pending;
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(res._getStatusCode()).toBe(200);
+    const body = payloadOf(res);
+    expect(body).toEqual({ mode: 'link', join_url: JOIN_URL, role: 'host' });
+    expect(Object.keys(body)).not.toContain('zak');
+    // The whole point: a credential that never arrived was never issued.
+    expect(auditRows()).toEqual([]);
+  });
+
+  it('a repeatedly rate-limited ZAK ends the same way — link, no row', async () => {
+    // What the transport surfaces once its own budget has run out under repeated
+    // 429/`Retry-After`; the timing of that is asserted at the client layer.
+    zoomApiDouble.getUserZak.mockRejectedValue(
+      Object.assign(new Error('Zoom rate limit on GET /users/{id}/token'), {
+        name: 'ZoomRateLimitError',
+      })
+    );
+
+    const body = payloadOf(await post());
+
+    expect(body).toEqual({ mode: 'link', join_url: JOIN_URL, role: 'host' });
+    expect(auditRows()).toEqual([]);
+  });
+});
+
+/**
+ * Z3-r9 [B12] (plan §15, Sol re-review MAJOR 2) — the server half of structural
+ * unreachability.
+ *
+ * Z3 ships Component View on desktop only. Every other browser — mobile, tablet,
+ * Firefox, AND a desktop window narrower than 768 px — now sends `{fallback:'link'}` on
+ * its FIRST request rather than after an embed failed. The claim this file can make is
+ * the one that matters most for §9: on that request a host **mints no ZAK and writes no
+ * `zoom_zak_issuances` row**, because the SDK branch is never entered at all.
+ *
+ * Asserted as a NON-CALL. "The payload has no zak" is satisfied by a route that
+ * requested a credential and then dropped it, and that is precisely the discard §15's
+ * Z3 row forbids.
+ */
+describe('[B12] a first request that asks for link mode mints nothing', () => {
+  it('the assigned facilitator on their own host: no ZAK requested, no audit row', async () => {
+    arrange({ isFacilitator: true, meeting: provisionedMeeting, host: facilitatorOwnHostRow });
+    asFacilitator();
+
+    const body = payloadOf(await postAskingForLink());
+
+    expect(body).toEqual({ mode: 'link', join_url: JOIN_URL, role: 'host' });
+    expect(zoomApiDouble.getUserZak).not.toHaveBeenCalled();
+    expect(auditRows()).toEqual([]);
+  });
+
+  it('the admin on a pool host — the other persona §9 would have issued to', async () => {
+    arrange({ meeting: meetingOn(POOL_HOST), host: poolHostRow });
+    asAdmin();
+
+    const body = payloadOf(await postAskingForLink());
+
+    expect(body.mode).toBe('link');
+    expect(Object.keys(body)).not.toContain('zak');
+    expect(zoomApiDouble.getUserZak).not.toHaveBeenCalled();
+    expect(auditRows()).toEqual([]);
+  });
+
+  it('a participant gets the link and no SDK payload is signed for them either', async () => {
+    arrange({ isExpectedAttendee: true, meeting: provisionedMeeting });
+    asAttendee();
+
+    expect(payloadOf(await postAskingForLink())).toEqual({
+      mode: 'link',
+      join_url: JOIN_URL,
+      role: 'participant',
+    });
+  });
+
+  it('changes nothing about the gates above outcome 8 — a cancelled session is still 410', async () => {
+    arrange({
+      isFacilitator: true,
+      session: { ...sessionRow, status: 'cancelada' },
+      meeting: provisionedMeeting,
+      host: facilitatorOwnHostRow,
+    });
+    asFacilitator();
+
+    const res = await postAskingForLink();
+
+    expect(res._getStatusCode()).toBe(410);
+    expect(zoomApiDouble.getUserZak).not.toHaveBeenCalled();
+    expect(auditRows()).toEqual([]);
   });
 });

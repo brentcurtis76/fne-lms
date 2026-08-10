@@ -391,7 +391,14 @@ describe('JoinMeetingButton — the ruling ② fallback [C4]', () => {
  * Z3-r8 moved the landmark once more, for the same kind of reason. Both cases used to
  * wait for OUR preflight as proof the flow had got that far; on the Client View path
  * there is no longer one, because Zoom's own pre-join screen is it. The isolated frame
- * is now what says "this browser was routed to Client View". The claim is untouched.
+ * became what said "this browser was routed to Client View".
+ *
+ * Z3-r9 moves it a third and last time, and the reason is the phase split: there is no
+ * Client View to be routed TO any more (plan §15.1), so the landmark is the link itself.
+ * The [C9] claim — the 3.7 MB bundle is never fetched on a machine that cannot render
+ * it — is unchanged in all three versions, and it is what these two assert. The
+ * per-branch table that this browser reaches link mode WITHOUT touching Client View
+ * lives in `JoinMeetingButton.clientview.test.tsx`.
  */
 describe('JoinMeetingButton — Component View is desktop only [C9]', () => {
   it('a narrow viewport never mounts the embed or fetches its bundle', async () => {
@@ -401,7 +408,7 @@ describe('JoinMeetingButton — Component View is desktop only [C9]', () => {
 
     clickJoin();
 
-    await screen.findByTestId('meet-client-root');
+    await waitFor(() => expect(mockOpen).toHaveBeenCalled());
     expect(screen.queryByTestId('meet-embed-root')).toBeNull();
     expect(mockLoadMeetingSdk).not.toHaveBeenCalled();
   });
@@ -416,7 +423,7 @@ describe('JoinMeetingButton — Component View is desktop only [C9]', () => {
 
     clickJoin();
 
-    await screen.findByTestId('meet-client-root');
+    await waitFor(() => expect(mockOpen).toHaveBeenCalled());
     expect(screen.queryByTestId('meet-embed-root')).toBeNull();
     expect(mockLoadMeetingSdk).not.toHaveBeenCalled();
   });

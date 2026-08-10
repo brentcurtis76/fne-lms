@@ -4,7 +4,16 @@
  * This is the ONE per-request opening through which anything Zoom-credential-
  * shaped leaves the server. Everything else about a managed meeting reaches the
  * UI through `public.session_meetings_public`, which has zero secret fields by
- * construction. Nothing here writes.
+ * construction.
+ *
+ * **This route makes exactly ONE write, and it is conditional** (Z3-2, corrected here
+ * in Z3-r9 — the header said "Nothing here writes" for four rounds after the write
+ * landed): the §9 `zoom_internal.zoom_zak_issuances` audit row, inserted in
+ * `issueHostCredential` and ONLY on the branch where a host credential is about to
+ * leave the server. Every other path — every refusal, `pending`, link mode, and the
+ * whole participant embed — is read-only. Nothing else may be added: this header is
+ * the operator contract for what this opening does, and a write it does not describe
+ * is a trust-boundary defect whether or not it is tested.
  *
  * ## The order of the gates IS the security property
  *
@@ -107,6 +116,22 @@
  *
  * The ZAK itself is never persisted, logged or echoed anywhere but the host's own
  * SDK payload (§5: "fetched at start-click, never persisted").
+ *
+ * ## The ZAK call is on a request budget (Z3-r9, Sol M4)
+ *
+ * `getUserZak` is the one outbound Zoom call this route makes, and `lib/zoom/client.ts`
+ * was written for the cron worker: three attempts, exponential backoff, and up to two
+ * 60 s `Retry-After` sleeps honoured inline, over a `fetch` that has no default timeout
+ * at all. On a request that is a promise this route cannot keep — the fourth property
+ * above says every SDK failure degrades to link mode, and a call that never settles
+ * never reaches the link response, so the platform's own timeout answers instead with
+ * an error.
+ *
+ * So the call carries `ZAK_REQUEST_BUDGET_MS` as an `AbortSignal`, which bounds the
+ * whole call rather than one attempt (see that file's header §4). **Exhaustion is a
+ * refusal like any other §9 refusal: `null`, link mode, and NO audit row** — a
+ * credential that never arrived was never issued, and a row claiming otherwise would
+ * be the §9 log describing an issuance that did not happen.
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
@@ -165,6 +190,22 @@ const JOINABLE_MEETING_STATUSES = ['provisioned', 'started'];
  * nobody. es-CL, because every other participant sees it.
  */
 const SDK_FALLBACK_USER_NAME = 'Participante';
+
+/**
+ * The total lifetime the §9 ZAK call may spend, retries and `Retry-After` sleeps
+ * included (Sol M4; `lib/zoom/client.ts` header §4).
+ *
+ * 8 s, chosen against what is on the other end rather than against a platform limit:
+ * a person has clicked "Unirse a la reunión" and is watching a spinner, and the answer
+ * this budget protects — link mode — is the one they received before the embed existed.
+ * Waiting longer to maybe get an embed is a worse trade than opening Zoom in a tab now.
+ *
+ * It bounds ONE call — a single `GET /users/{id}/token` — so it is not a division of a
+ * platform timeout among stages, and nothing else on this route is budgeted by it. If a
+ * healthy tenant is ever measured near this number, the number is wrong; it is not a
+ * substitute for the field measurement, which has not been taken on this endpoint.
+ */
+export const ZAK_REQUEST_BUDGET_MS = 8_000;
 
 /**
  * Ruling ② (Z3-3): the client's explicit request to be given LESS than it could
@@ -473,17 +514,26 @@ async function issueHostCredential(input: {
     return null;
   }
 
+  // The request budget (see the header). Cleared on every exit, so a fast answer does
+  // not leave a timer holding the function warm for the rest of the budget.
+  const budget = new AbortController();
+  const budgetTimer = setTimeout(() => budget.abort(), ZAK_REQUEST_BUDGET_MS);
+
   let zak: string;
   try {
-    zak = await getZoomApi().getUserZak(hostZoomUserId);
+    zak = await getZoomApi().getUserZak(hostZoomUserId, { signal: budget.signal });
   } catch (error: unknown) {
     // Names only. The failure body of this endpoint is Zoom's error JSON, but its
     // SUCCESS body is a credential, and no log here distinguishes the two for free.
+    // An exhausted budget arrives here as an ordinary refusal, which is the point:
+    // there is one degradation path and it is the one every other failure takes.
     console.error(
       '[meet-session-join] ZAK request refused:',
       error instanceof Error ? error.name : 'unknown'
     );
     return null;
+  } finally {
+    clearTimeout(budgetTimer);
   }
 
   const { error: auditError } = await internal.from('zoom_zak_issuances').insert({

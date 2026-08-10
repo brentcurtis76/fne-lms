@@ -213,23 +213,7 @@ async function reachZoomPreJoinScreen() {
   return { frame, enter: () => enterTheMeeting() };
 }
 
-describe('JoinMeetingButton — Zoom’s screen is the preflight on Client View [U5]', () => {
-  it('never renders ours, from the click through to a joined meeting', async () => {
-    const { enter } = await reachZoomPreJoinScreen();
-
-    expect(screen.queryByTestId('meet-prejoin-check')).toBeNull();
-    expect(screen.queryByTestId('meet-prejoin-continue')).toBeNull();
-    // One click of ours, and the SDK was already asked to join.
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(mockClientJoin).toHaveBeenCalledTimes(1);
-
-    enter();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(0);
-    });
-    expect(screen.queryByTestId('meet-prejoin-check')).toBeNull();
-  });
-
+describe('JoinMeetingButton — our preflight is still Component View’s [U5]', () => {
   it('keeps ours on Component View, where Zoom has no preview screen at all', async () => {
     setBrowser(DESKTOP_CHROME_UA, 1280);
     render(<JoinMeetingButton sessionId={SESSION_ID} />);
@@ -245,7 +229,40 @@ describe('JoinMeetingButton — Zoom’s screen is the preflight on Client View 
   });
 });
 
-describe('JoinMeetingButton — the user takes as long as they like [U1]', () => {
+/**
+ * ⚠ **Z3b, PARKED BY THE 2026-08-08 SPLIT — not deleted, and not passing either.**
+ *
+ * Everything below is r8's owner ruling about ZOOM'S OWN pre-join screen, which only
+ * exists on Client View. Z3-r9 made Client View structurally unreachable from this
+ * component (plan §15.1; the truth table is `JoinMeetingButton.clientview.test.tsx`), so
+ * these cases have no path to the state they assert about. Re-admitting one for the
+ * tests' benefit is precisely the reachability [V3] forbids.
+ *
+ * `skip`ped rather than removed because this is the behaviour Z3b resumes from — r7 and
+ * r8 spent two rounds and a real-browser measurement establishing it. **A skipped test
+ * proves nothing: treat this as absent coverage until Z3b unparks it.** The deadline
+ * itself remains covered against the module in
+ * `__tests__/lib/meet/client-view-join-deadline.test.ts`.
+ */
+describe.skip('[Z3b, PARKED] Zoom’s screen is the preflight on Client View [U5]', () => {
+  it('never renders ours, from the click through to a joined meeting', async () => {
+    const { enter } = await reachZoomPreJoinScreen();
+
+    expect(screen.queryByTestId('meet-prejoin-check')).toBeNull();
+    expect(screen.queryByTestId('meet-prejoin-continue')).toBeNull();
+    // One click of ours, and the SDK was already asked to join.
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockClientJoin).toHaveBeenCalledTimes(1);
+
+    enter();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.queryByTestId('meet-prejoin-check')).toBeNull();
+  });
+});
+
+describe.skip('[Z3b, PARKED] the user takes as long as they like [U1]', () => {
   it('joins after a deliberation far longer than the old 45 s bound, with no fallback', async () => {
     const { enter } = await reachZoomPreJoinScreen();
 
@@ -273,7 +290,7 @@ describe('JoinMeetingButton — the user takes as long as they like [U1]', () =>
   });
 });
 
-describe('JoinMeetingButton — an SDK that never renders is still bounded [U2]', () => {
+describe.skip('[Z3b, PARKED] an SDK that never renders is still bounded [U2]', () => {
   it('reaches the link when the bundle loads, the join is called and no screen appears', async () => {
     // Everything upstream succeeds: the frame arrives, the bundle is there, `init`
     // answers, `join` is called. Then nothing — no screen, no callback. The failure the
@@ -313,7 +330,7 @@ describe('JoinMeetingButton — an SDK that never renders is still bounded [U2]'
   });
 });
 
-describe('JoinMeetingButton — a GENERA way out, while Zoom holds the viewport [U4]', () => {
+describe.skip('[Z3b, PARKED] a GENERA way out, while Zoom holds the viewport [U4]', () => {
   it('offers the link over the frame, and is never disabled by the join it interrupts', async () => {
     await reachZoomPreJoinScreen();
 

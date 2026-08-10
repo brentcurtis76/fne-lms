@@ -240,6 +240,29 @@ describe('JoinMeetingButton — a silent SDK reaches the link [M3]', () => {
     expectFellBackToLink();
   });
 
+});
+
+/**
+ * ⚠ **Z3b, PARKED BY THE 2026-08-08 SPLIT — not deleted, and not passing either.**
+ *
+ * These three drive their deadlines THROUGH `JoinMeetingButton`, and Z3-r9 made Client
+ * View structurally unreachable from that component (plan §15.1; the truth table is
+ * `JoinMeetingButton.clientview.test.tsx`). There is no honest way to keep them running:
+ * a test-only door back into the Client View path is exactly the reachability [V3]
+ * forbids, and the assertions are about the component's flow, so they cannot be moved to
+ * the loader's own suite either.
+ *
+ * They are `skip`ped rather than removed because the behaviour they pin is Z3b's
+ * starting point and re-deriving it from the ledger would cost more than it saves. **A
+ * skipped test proves nothing — treat this block as absent coverage until Z3b unparks
+ * it**, at which point the deadlines themselves are also up for redesign (Sol M1/M2/M3
+ * moved to Z3b with this code).
+ *
+ * Still live, and unaffected by the parking: `__tests__/lib/meet/zoom-client-view-loader.test.ts`,
+ * `client-view-join-deadline.test.ts` and `client-view-boundary.test.ts`, which test the
+ * same deadlines against the module directly.
+ */
+describe.skip('[Z3b, PARKED] Client View’s deadlines, through the component', () => {
   it('gives up on a Client View that calls neither callback', async () => {
     setBrowser(ANDROID_UA, 390);
     (window as SdkWindow).ZoomMtg = {

@@ -939,3 +939,22 @@ Everything else is consistent with that and nothing contradicts it: devices pres
 **PM recommendation: A.** It is the smallest change, it is the only one that treats the vendor's UX as the vendor's, and it makes the product *better* rather than merely fixed — r3 built `PreJoinCheck` because school machines need to know their camera works, and Zoom's preview screen is that, natively. **B trades a real user affordance for the appearance of speed. C is the honest fallback if the owner decides Z3 has consumed enough calendar.**
 
 **ROUND CAP, stated plainly:** the generic SOP caps a phase at 3 executor rounds and this is **round 7**. The Zoom plan's §0.2 runs its own loop and Z2 closed at 31 rounds, so the count alone is not disqualifying — but the *character* has changed. r1–r4 were build chunks, r5–r6 were remediation converging on Sol's findings, and **r7 has surfaced a design assumption the phase was built on and that is false.** That is the condition under which the PM is supposed to stop and put the ruling up rather than dispatch another round. **Stopping here.**
+
+## ✅ **OWNER RULING ON DEFECT A — Option A (Brent, 2026-08-08): Zoom's pre-join screen IS the intended UX. r8 dispatched.**
+
+Not a workaround and not a concession — **the vendor's device-check screen is better than the one this phase built.** r3 shipped `PreJoinCheck` because school machines need to know their camera works before joining; Zoom's Client View does that natively, in the meeting's own context, with the controls that actually govern the join. Mobile and Firefox users will see it, press «Entrar», and join embedded. **§15's DoD — *"School user joins embedded w/o Zoom account"* — is met on every path.** Options B (drive «Entrar» programmatically) and C (ship desktop-only) were declined.
+
+**r8's central instruction is a PROPERTY, not a mechanism, and deliberately so: the PM has been wrong about this mechanism twice and is not naming a third.** The contract, both halves and neither optional:
+
+- **A machine failure still degrades to the link within a bounded time** — script hangs, an SDK that never renders, callbacks that never fire. Everything M3 and r6/r7 bought stays bought.
+- **A human deliberating in front of a rendered, interactive Zoom UI is never interrupted** — no deadline, no teardown, no yank, for as long as they want.
+
+The executor finds the signal that separates the two, **and must evidence that it is reliable rather than assume it**; if no trustworthy signal exists, the prompt requires FINDINGS rather than an approximation dressed up as a longer timeout. `[U1]` demands a demonstration with a deliberate pause **longer than 45 s** before clicking — the old bound — so the fix is proven against the exact failure it replaces.
+
+**Two consequences of the ruling are folded in rather than left to drift:**
+
+**① The full-viewport dead end becomes permanent unless it is fixed now.** r7 surfaced it and correctly left it out of scope: Zoom's screen occupies the viewport with no GENERA affordance, so a user who would rather just open the link cannot reach it. That lasted 45 seconds while the deadline existed; **with the deadline gone it lasts forever.** r8 requires a persistent es-CL control that reaches the link through the existing `{fallback:'link'}` path — no new server surface.
+
+**② `PreJoinCheck` now double-gates the Client View path.** Two device checks and two clicks to join one meeting is worse than one. **Ruled: on Client View, Zoom's screen IS the preflight and ours does not render; on Component View `PreJoinCheck` stays exactly as it is**, because Component View is a widget with no preview screen and that is the gap r3 built it for. The prompt tells the executor to report FINDINGS rather than force it if it collides with r3's stated contract.
+
+**Prompt committed at `docs/plan/zoom/prompts/Z3-r8.md`**, base `137a6120`, anchors re-verified against the branch, zero occurrences of the meeting passcode. `[U6]` requires re-verifying everything r6 and r7 proved rather than assuming it survived — including the CSS 200s, the blocked-stylesheet warning, both mobile triggers, and es-ES before render on both views.

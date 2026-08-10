@@ -352,6 +352,39 @@ Every phase: one PR, branch ≤20 chars, 6 CI gates green, review-request file f
 
 Full reasoning and evidence: `docs/plan/zoom/reviews/fase-6-replan-proposal.md`; round-by-round record in `LEDGER.md`.
 
+### 15.2 The revised field protocol Z3b needs — required scope, settled 2026-08-10
+
+**Written now so Z3b inherits the spec; DRAFTED LATER, against the built implementation.** The
+reviewer's ruling is that the protocol clears Z3b's close *"against the final Z3b
+implementation"* — a field protocol is a test, and a test written before the code is a test
+written for something else. **That is exactly how the existing protocol came to be cited for a
+gate it cannot clear.** So: this section fixes WHAT it must cover; the document itself is
+authored when Z3b is built and before it is enabled by default.
+
+**What it must exercise, and what disqualifies it:**
+
+1. **The real `/meet/session/[id]` path** — the surface a school user actually reaches.
+   **`/meet/diag` results do not clear this gate**: diag drives **Component View**, which is the
+   defect in the current protocol.
+2. **Client View specifically**, on **representative mobile, tablet and Firefox devices**. The
+   existing protocol's verdict is decided on **P0 desktop** machines (`zoom-hw-protocol.md`, the
+   *Criterio de decisión* section) — desktop results are irrelevant here.
+3. **The three-state machine's user-visible behaviour**, which is Z3b's whole design and cannot
+   be inferred from a join time: that a person may deliberate on Zoom's pre-join screen **as
+   long as they like** without being interrupted; that a machine failure **before** the screen
+   and **after** «Entrar» both reach the link within their bound; and that a GENERA way out is
+   reachable throughout.
+4. **Abandonment** — that leaving, or failing, leaves no live SDK or media worker behind, and
+   that a second attempt starts clean. This is the reviewer's M3, and it is invisible to a
+   join-time measurement.
+5. **A partial or degraded render** on a slow school network — the case where a control appears
+   but is not usable. This is the reviewer's M2, and it is the reason a laptop on office
+   Wi-Fi cannot stand in.
+
+**Owner: Brent + consultores**, as the existing protocol. **Prerequisite: Z3b built and
+behind its off-by-default gate.** Until it exists and clears, Z3b may be implemented but not
+closed and not enabled by default (§15's Z3b row, §16).
+
 ## 16. Blocking vs non-blocking human decisions
 
 | Item | Class | Owner | Needed by |

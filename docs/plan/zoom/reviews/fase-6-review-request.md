@@ -338,3 +338,146 @@ School hardware/network validation **remains waived and deferred** — not passe
 `meeting-join-policy.ts`, `meeting-zak-policy.ts`, the join route's gate order, the §9
 issuance rule, the audit write and its ordering, the `zak_issued` migration,
 `supabase/tests/`, `tests/e2e/`, `pages/meet/diag.tsx`, `pages/api/meet/diag-signature.ts`.
+
+---
+
+# Round 6 — Sol M5: the runtime proof (2026-08-10)
+
+r5 reported M5 BLOCKED for want of credentials and was right to. Brent supplied them, and
+this round did the one thing M5 asks for: **watched this code render a real meeting.**
+
+**School hardware/network validation REMAINS WAIVED AND DEFERRED — not passed.** Nothing
+below was run on school hardware, on a school network, or on any of the §17 device
+profiles. What was established is the narrower thing Sol distinguished: that the code works
+once, against the real SDK, in a supported browser.
+
+## How it was run
+
+- **Surface: the app's own**, `/meet/session/[id]` → `JoinMeetingButton`. **Not** `/meet/diag`
+  — the diag probe has its own inline loader and only reaches Component View, so it cannot
+  speak to r5's Client View frame at all.
+- **Browser: real Google Chrome** (`channel: 'chrome'`, headed), driven by a scratchpad
+  Playwright harness. Nothing was added to `tests/`.
+- **Data: 100% synthetic.** Persona `gcLeader` from `scripts/ci/e2e-fixtures.json`, session
+  `…000503` (the Z2-S8 managed fixture), against the **local** Supabase stack. One
+  `zoom_internal.zoom_meetings` row was seeded locally pointing at the disposable spike
+  meeting; the passcode came from `.env.local` and was never written to a file or a log.
+  `.env.local` points at PRODUCTION Supabase, so every process was started with the local
+  URL/keys exported in the shell — that file was never edited and production was never read.
+- **The meeting had to be started.** §9 provisions `join_before_host: false`, so the first
+  attempt came back `{"errorCode":3008,"reason":"Meeting has not started"}` — which already
+  proves the signature and passcode were *accepted*. A scratchpad host-starter then joined
+  role 1 with a ZAK for the licensed host (S2S → `/users/{id}/token?type=zak`), exactly the
+  credential pair the join route mints for the host persona.
+- **Nothing was transmitted into the meeting.** No camera or microphone permission was
+  granted to any context, host or participant. The meeting was left, not deleted; its
+  topic, `join_before_host` and `waiting_room` were re-read afterwards and are unchanged.
+
+## What was observed
+
+### Component View — a real join (S1)
+
+`init` resolved with `language: "es-ES"`, then `join` resolved in **4.4 s**:
+
+```
+1269ms  component.init:call  {"language":"es-ES","patchJsMedia":true,"leaveOnPageUnload":true}
+1269ms  component.init:resolved
+1269ms  component.join:call  {"meetingNumber":"81229544181","userName":"Lider Comunidad Sintetico",
+                              "hasSignature":true,"hasPasscode":true,"hasZak":false,"hasCustomerKey":true}
+5631ms  component.join:resolved
+```
+
+The embed rendered **inside the interstitial**, showing the host's tile, a participant count
+of **2**, and Zoom's chrome in Spanish. Evidence: `evidence/z3-r6/01-component-view-joined.png`
+(the video tile is blacked out — with the camera off Zoom renders the licensed host's
+profile photo, which is a real person and does not belong in this repo).
+
+### Client View in the r5 iframe — it runs, and it does NOT complete (S2)
+
+**The iframe question is answered: yes, Zoom's Client View runs in a framed, same-origin
+document.** All three of r5's named unknowns came back positive:
+
+- the WASM media engine and its workers initialise in the frame (`preLoadWasm` resolved;
+  `js_media`, `tp.wasm`, `net.wasm`, `video.simd.wasm` all fetched 200 into the frame);
+- `allow="camera; microphone; …"` is sufficient — Zoom reached the device layer and reported
+  *"No se detecta la cámara"*, which is the answer for a browser with no permission, not for
+  a blocked context;
+- `SharedArrayBuffer`'s absence changed nothing observable.
+
+`i18n.load('es-ES')` resolved **before** `init` was called, and `ZoomMtg.i18n.getCurrentLang()`
+read back **`es-ES`** inside the frame. M2's fix is confirmed at runtime.
+
+**But the join never completes on its own.** Zoom renders its OWN pre-join screen inside the
+frame — «Silenciar / Parar el vídeo / Fondos / **Entrar**» — and holds there. Sampled at 5 s,
+12 s, 25 s and 40 s the frame was byte-stable (`innerHTML.length` 18109, same six buttons).
+`join`'s `success` callback never fires, so M3's 45 s `withTimeout` rejects and **every
+Client View user is pushed to the link fallback after a 45-second wait**. Measured three
+times: fallback at 46 s, 46 s, 47 s.
+
+Pressing Zoom's own «Entrar» from inside the frame settles it immediately:
+
+```
+[harness] clicked Zoom's own "Entrar" inside the frame at 4s
+[harness] app left 'joining' without falling back at 8s → joined
+```
+
+Evidence: `evidence/z3-r6/02-client-view-prejoin-in-frame.png` (the screen it sits on) and
+`evidence/z3-r6/03-client-view-joined-in-frame.png` (in the meeting, Zoom Workplace chrome,
+Spanish toolbar, inside the frame).
+
+So the trade r5 made holds only halfway. The PM accepted M4 on the argument that it moves an
+undetectable failure to a detectable one — and the fallback **does** fire, cleanly, which is
+the half that is true. What it costs is that the Client View path, as shipped, never
+succeeds: mobile, tablet and Firefox users wait 45 seconds and then get a link.
+
+### es-ES before render (S3)
+
+Component View: `init({language:'es-ES'})` resolved before `join` was called. Client View:
+`i18n.load` resolved at 849 ms, `init` after it, `getCurrentLang() === 'es-ES'`, and every
+string Zoom rendered in the frame was Spanish. Both views confirmed.
+
+### SDK failure → link (S4)
+
+`source.zoom.us` blocked at the network layer. The first vendor script failed
+(`net::ERR_FAILED`), the catch fired, the client re-POSTed `{fallback:'link'}`, the server
+answered `mode=link`, a tab opened on the real meeting and the M1 anchor rendered with a
+working `href`. Evidence: `evidence/z3-r6/04-sdk-failure-link-fallback.png`.
+
+### `FEATURE_ZOOM_EMBED` off → link (S5)
+
+Server restarted with the flag unset. The join answered `mode=link` on the first request, no
+preflight rendered, no SDK byte was fetched, a tab opened. Byte-for-byte the Z2 path.
+
+## Two defects this exposed — reported, NOT fixed (M1–M4 are sealed)
+
+1. **`CLIENT_VIEW_STYLE_HREFS` are dead links.** Both
+   `https://source.zoom.us/6.2.0/css/bootstrap.css` and `…/css/react-select.css` answer
+   **HTTP 403** (`content-type: text/plain`, `nosniff`), so Chrome refuses them
+   (`net::ERR_BLOCKED_BY_ORB`). The isolated document therefore carries **no CSS at all** —
+   not Zoom's either. The loader appends them without awaiting, deliberately, so this fails
+   silently and always has. Client View still renders (its bundle injects its own styles),
+   but the pre-join screen visibly overlaps its own text. This is r5/M4 territory and is
+   left alone.
+2. **The 45-second dead end above.** Also M4 territory. Whether the answer is Zoom's
+   `init({ disablePreview })`-style option, treating the pre-join screen as the intended UX
+   and dropping the promise-shaped `join`, or reverting to a Client View route, is a PM/Sol
+   ruling with evidence now in hand — not something to invent under time pressure.
+
+## Gates at this head
+
+| gate | result |
+|---|---|
+| `npm run type-check` | exit 0 |
+| `npm run lint` | exit 0 |
+| `npm test` | exit 0 — **7004 passed / 302 files** |
+| `npm run build` | exit 0 |
+| `npm run test:db` | exit 0 — **484 tests, 11 files, PASS** |
+
+**No test was added.** This round's output is evidence, not code; the only files it changes
+are this document and four screenshots.
+
+## What r6 did not touch
+
+No source file, no migration, no `package.json`. `tests/e2e/` is untouched
+(`git diff --stat origin/main..HEAD -- tests/e2e/` is empty). All of M1–M4 left as sealed.
+The harness lives in the session scratchpad and is not committed.

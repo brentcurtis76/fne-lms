@@ -894,3 +894,20 @@ r5's `BLOCKED` on M5 was real and is now cleared by the owner, not by engineerin
 **NOT-DONE items carried into r7:** the mobile-emulation trigger (Android UA + touch) is unexercised — Client View was reached via a narrow viewport, the same code path but not the same entry condition; and school hardware/network validation **remains waived and deferred**, correctly stated as such in the review-request file.
 
 **PROCESS NOTE:** the executor's `git push` was refused by a permission classifier and they reported it as an open item rather than working around it. **The PM pushed after inspecting all four PNGs** — the right division: the executor surfaced the block, the PM checked the artifacts before they went to a remote.
+
+## 🔵 **r7 DISPATCHED — diagnose before fixing, because the diagnosis decides what the fix is.**
+
+Prompt committed at `docs/plan/zoom/prompts/Z3-r7.md`, base `15981fbc`. Anchors re-verified against the branch; the prompt carries zero occurrences of the meeting passcode.
+
+**Part 1 is a diagnosis with a hard stop, and it is ordered first on purpose.** The single Chrome flag pair `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream` settles whether Client View's success callback fires when devices are present — no real hardware, nothing transmitted. **The prompt names both outcomes in advance so the executor is not deciding scope under pressure:**
+
+- **Branch A — callback fires with devices.** The defect narrows to device-less machines. **Still a real defect**, and the prompt says so explicitly: a school lab with a broken webcam is exactly this project's population, and 45 seconds of nothing is not an acceptable answer for them. Fix = dismiss/handle the confirm dialog, or detect the state and fall back promptly. **"Do not silently accept a 45-second wait as working."**
+- **Branch B — callback does not fire even with devices.** Then M4's architecture is the problem, not a patch site. **STOP and report FINDINGS.** The prompt forbids redesigning M4 on the executor's own initiative — the PM and Sol must rule, and *"a third architecture invented under time pressure is how this gets worse."*
+
+**Part 2 fixes the CSS with the URL the PM found**, and adds the thing whose absence let this survive a full review round: **a failed stylesheet load must become observable.** It need not block the join — CSS is cosmetic relative to joining — but it must not fail silently twice. The float trade (JS pinned at 6.2.0, CSS unversioned) goes in the code comments and the review-request, not just in this ledger.
+
+**And the boundary assertion gets corrected rather than left to pass for the wrong reason:** after the fix `document.styleSheets.length` inside the frame should be **2**, not 0, so the test must assert the app's CSS is **absent** *and* Zoom's is **present**. r5's test asserted only the first half, which is why a zero read as success.
+
+**Also carried:** the mobile-emulation trigger (Android UA + touch points) has still never been exercised — r6 reached Client View through a narrow viewport, the same code path but not the same entry condition.
+
+**Standing environment facts inlined so r7 does not rediscover them:** `.env.local` points at **production** Supabase and must not be edited (export local keys in-shell instead); the fne-lms stack is `supabase_db_sxlogxqzmarhqsblxmtj` on 54322 with a casa-web stack sharing the daemon; the meeting needs starting because `join_before_host:false`; and **the executor's `git push` may be refused by the permission classifier as it was at r6** — commit anyway, report it, the PM pushes.

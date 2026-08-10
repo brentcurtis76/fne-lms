@@ -1099,3 +1099,17 @@ Brent chose **re-plan** over a ninth remediation round or a scope narrowing deci
 **What Z3 ships:** a desktop school user joins a Zoom meeting **inside GENERA** without a Zoom account, in Spanish, in ~1.1 s to first render; hosts additionally receive a ZAK and `role:1` but **only** where §9 allows it, every issuance audited, never a consultant's personal identity to an admin; and **every** non-Component browser — mobile, tablet, Firefox, and a narrow desktop window — takes the Z2 platform link **without fetching a byte of SDK**.
 
 **NEXT: the PM rebuilds `fase-6-pm-dossier.md` from the executor's measurements** (merge-base `65c8114b`, 10 commits, 49 files, +9492/−83; code-only 30 files, +8626/−83) — **and this time by measuring, after five staleness failures** — then Sol's final review, then Brent's merge. **The ledger row does not flip to ✅ DONE until both.**
+
+## 📋 **`fase-6-pm-dossier.md` REBUILT FROM MEASUREMENT (2026-08-08).**
+
+**Every figure measured at `2a459a33` before a word was written**, not carried forward: merge-base `65c8114b5acf7b3242c5c78d8ec7466332045e26` · **10 commits** · **49 files, +9548/−83** · excluding `docs/`: 30 files, +8626/−83 · tests 15 files, +5515/−0 · **zero files deleted anywhere in the phase** · `tests/e2e/` diff empty · per-file churn taken from `git diff --numstat` rather than recalled · invariant anchors re-read at their current lines (`join.ts:208/:524/:539`, `meeting-zak-policy.ts:93/:126`, `embed-capabilities.ts:109`) · 7060 passed / 11 skipped / 305 files · pgTAP 484 · six CI gates SUCCESS.
+
+**The file now opens by stating that the PM shipped a stale version of it five times** — three on a reviewer's entry document, once in the ledger — that a verdict once repeated a stale claim back, and that **a measurement disagreeing with this file should be trusted over it and filed.** A document that admits its own failure mode is worth more than one that quietly repeats it.
+
+**Two things the rebuild changed beyond the numbers.** A new **Tier 4** names `zoom-client-view-loader.ts` (+506) and the boundary document as **Z3b's starting point, shipped unreachable** — previously they read as ordinary Tier 2 code, which would have misled a reviewer about what this phase actually delivers. And **§4b now leads with the honest consequence of r9**: no Client View path has been exercised since r8 because it is unreachable, **11 component-level tests are parked, and a skipped test proves nothing — so if unreachability is imperfect, that coverage is gone and the defect is live.**
+
+**Deviation 7 was marked MOOT rather than deleted:** desktop Firefox routing to Client View was accepted at r4 and is now unreachable under I10. Deleting it would have hidden a ruling the reviewer may still want to challenge; leaving it unqualified would have been false.
+
+**§8 closes on the one question that decides the review** — *is Client View genuinely unreachable?* If it is, M1/M2/M3 belong to Z3b and the phase is done. If it is not, they are live defects in shipped code and it is not.
+
+**PHASE Z3 (DESKTOP) IS READY FOR SOL'S FINAL REVIEW.** Both entry documents are current and measured; the branch is green locally and on CI; the migration is in production and verified. **The ledger row does not flip until Sol approves and Brent merges.**

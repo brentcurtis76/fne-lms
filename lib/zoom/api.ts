@@ -24,7 +24,13 @@
  * never at provision. So the field is called `uuidAtRead`, and
  * `zoom_meetings.zoom_meeting_uuid` must never be assigned from it.
  */
-import { createZoomClient, type ZoomClient, type ZoomReadBack } from './client';
+import {
+  createZoomClient,
+  zoomZakPath,
+  type ZoomCallOptions,
+  type ZoomClient,
+  type ZoomReadBack,
+} from './client';
 import { ZoomConfigError, ZoomUnusableSuccessError } from './errors';
 import { createZoomFake } from './fake';
 
@@ -171,6 +177,29 @@ export interface ZoomApi {
     settings: ZoomMeetingSettings
   ): Promise<ZoomReadBack<ZoomMeetingRaw>>;
   listUsers(options?: ListUsersOptions): Promise<ListUsersResult>;
+  /**
+   * The ZAK for one host identity — the credential that lets an SDK join actually
+   * START the meeting rather than wait for a host (§9 provisions
+   * `join_before_host: false`).
+   *
+   * Returns the token itself, because that is all Zoom sends: the body is
+   * `{ "token": "…" }` with no expiry field. **The return value is a bearer
+   * credential.** §5: fetched at start-click, never persisted — not to a table, a
+   * log, a cache or a job row. Who may receive one is the §9 issuance rule, and it
+   * is enforced upstream of this call (`lib/utils/meeting-zak-policy.ts`); nothing
+   * here authorizes anything.
+   *
+   * Throws the usual taxonomy: a missing scope or an unknown user is
+   * `non_retryable`, a 429 is honoured by the client's `Retry-After` handling.
+   *
+   * **This is the only operation on this interface that runs on the HTTP REQUEST
+   * path** (the join route's start-click), so it is the only one that takes a
+   * budget: `options.signal` bounds the WHOLE call — token, fetch, retries and
+   * `Retry-After` sleeps — rather than one attempt. Without it the route inherits
+   * the worker retry policy and can outlive the request it is serving (Sol M4).
+   * Omitting it keeps the worker behaviour exactly as it was.
+   */
+  getUserZak(zoomUserId: string, options?: ZoomCallOptions): Promise<string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -453,6 +482,26 @@ export function createLiveZoomApi(client: ZoomClient = createZoomClient()): Zoom
         // Zoom sends an empty string rather than omitting the field on the last page.
         nextPageToken: response.data?.next_page_token || undefined,
       };
+    },
+
+    async getUserZak(zoomUserId, options) {
+      // The caller's budget goes down to the transport, not around it: `client.get`
+      // hands it to the token wait, to `fetch` and to every retry sleep.
+      const response = await client.get<{ token?: unknown }>(
+        zoomZakPath(zoomUserId),
+        { type: 'zak' },
+        options
+      );
+      const token = typeof response.data?.token === 'string' ? response.data.token.trim() : '';
+      if (!token) {
+        // `ZoomConfigError` matches `readMeeting`'s treatment of an unusable GET body:
+        // non_retryable, and `not_executed` rather than the ambiguous outcome the
+        // create path uses — a GET creates nothing, so there is no second write to
+        // guard against. The message names the OPERATION and never the body, because
+        // the body of a successful call to this endpoint IS the credential.
+        throw new ZoomConfigError('Zoom returned no usable ZAK for GET /users/{id}/token.');
+      }
+      return token;
     },
   };
 }

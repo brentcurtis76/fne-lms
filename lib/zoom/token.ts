@@ -89,15 +89,33 @@ export interface ZoomTokenProviderDeps {
   now?: () => number;
 }
 
+/**
+ * A caller's budget, honoured as a bound on ITS OWN WAIT and never on the grant.
+ *
+ * The grant is single-flight and shared (see the header): a burst of concurrent
+ * callers rides one Zoom request. So a request-path caller with an 8 s budget may not
+ * abort the fetch — a cron job that joined the same grant would fail with it. What it
+ * may do is stop waiting, which is the property that bounds a request lifetime. The
+ * grant then finishes for whoever else is on it, and its result still populates the
+ * memo for the next caller.
+ */
+export interface ZoomTokenWait {
+  signal?: AbortSignal;
+}
+
+/** Raised when a caller's budget expired before the grant it was waiting on landed. */
+export const TOKEN_WAIT_ABANDONED_MESSAGE =
+  'Zoom OAuth token wait abandoned: the caller’s budget expired before the grant landed.';
+
 export interface ZoomTokenProvider {
   /** Cached token, refreshed transparently inside the margin. */
-  getToken(): Promise<string>;
+  getToken(wait?: ZoomTokenWait): Promise<string>;
   /**
    * Discard `staleToken` and obtain a different one. Returns immediately with the
    * current token if somebody already rotated past `staleToken` — that is what
    * collapses a burst of concurrent 401s onto a single grant.
    */
-  forceRefresh(staleToken: string): Promise<string>;
+  forceRefresh(staleToken: string, wait?: ZoomTokenWait): Promise<string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -350,22 +368,48 @@ export function createZoomTokenProvider(deps: ZoomTokenProviderDeps): ZoomTokenP
     return pending;
   }
 
-  // Declared as functions rather than object methods so a destructured
-  // `const { forceRefresh } = provider` keeps working.
-  async function getToken(): Promise<string> {
-    if (memo && isUsable(memo)) return memo.accessToken;
-    return (await ensureGrant()).accessToken;
+  /**
+   * Wait for `grant`, or give up when the caller's budget expires — whichever comes
+   * first. The grant itself is untouched either way; see `ZoomTokenWait`.
+   */
+  async function waitFor(grant: Promise<ZoomTokenGrant>, wait?: ZoomTokenWait): Promise<ZoomTokenGrant> {
+    const signal = wait?.signal;
+    if (!signal) return grant;
+    if (signal.aborted) throw new ZoomRetryableError(TOKEN_WAIT_ABANDONED_MESSAGE, { operation: 'POST /oauth/token' });
+
+    let onAbort = () => {};
+    try {
+      return await Promise.race([
+        grant,
+        new Promise<never>((_, reject) => {
+          onAbort = () =>
+            reject(
+              new ZoomRetryableError(TOKEN_WAIT_ABANDONED_MESSAGE, { operation: 'POST /oauth/token' })
+            );
+          signal.addEventListener('abort', onAbort, { once: true });
+        }),
+      ]);
+    } finally {
+      signal.removeEventListener('abort', onAbort);
+    }
   }
 
-  async function forceRefresh(staleToken: string): Promise<string> {
+  // Declared as functions rather than object methods so a destructured
+  // `const { forceRefresh } = provider` keeps working.
+  async function getToken(wait?: ZoomTokenWait): Promise<string> {
+    if (memo && isUsable(memo)) return memo.accessToken;
+    return (await waitFor(ensureGrant(), wait)).accessToken;
+  }
+
+  async function forceRefresh(staleToken: string, wait?: ZoomTokenWait): Promise<string> {
     // Join whatever is already happening first. If somebody rotated past the dead
     // token while this caller was waiting on its 401, reuse their result — that is
     // what stops N simultaneous 401s from minting N tokens.
-    const current = await getToken();
+    const current = await getToken(wait);
     if (current !== staleToken) return current;
 
     if (memo?.accessToken === staleToken) memo = null;
-    return (await ensureGrant(staleToken)).accessToken;
+    return (await waitFor(ensureGrant(staleToken), wait)).accessToken;
   }
 
   return { getToken, forceRefresh };

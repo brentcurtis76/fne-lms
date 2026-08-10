@@ -1029,3 +1029,20 @@ Brent chose **re-plan** over a ninth remediation round or a scope narrowing deci
 **Remaining for an amended, desktop-only Z3:** Sol **M4** (request-scoped budget + `AbortSignal` on the ZAK path; exhaustion returns the existing 200 link payload and writes no audit row), **m2** (`join.ts:4`'s false "Nothing here writes"), **m1** (both artifacts rebuilt from measurement), and shipping the Client View path inert. **Sol M1/M2/M3 are not waived — they move to Z3b with the code they belong to.**
 
 **NEXT: owner decision on the proposal, then a reviewer sign-off on the AMENDMENT ITSELF before any further execution** (§3.9 step 5). The phase does not close, and the ledger row does not flip, on a PM proposal.
+
+## ✅ **OWNER ACCEPTED THE SPLIT (Brent, 2026-08-08). `PLAN.md` AMENDED.**
+
+**Decision log entry, as proposed and now accepted:**
+
+> **2026-08-08 — Z3 split.** Z3 becomes **desktop-only** (Component View) and closes with Sol **M4 + m1 + m2** remediated. Client View moves to a new phase **Z3b** (`feat/zoom-client`), carrying Sol's **M1/M2/M3**, sequenced behind §16's hardware/network verdict being **CLEARED rather than waived** — because its audience is mobile/tablet/Firefox and nine rounds established that laptop simulation does not stand in for it. §15's *"Client View route (mobile)"* wording is **retired as unimplementable in this router** (Next permits global CSS only in `pages/_app.tsx`, which wraps every page). **No later phase depends on Z3 or Z3b**, verified against §15's dependency line, so the deferral has zero downstream sequencing cost. Owner decision: **ACCEPTED**. Reviewer sign-off on the amendment: `<pending>`.
+
+**What changed in `PLAN.md`, four edits, all traceable:**
+
+1. **§15's Z3 row** → *"Z3 — Embedded experience, DESKTOP"*: Component View, PreJoinCheck, es-ES, SDK-failure fallback. Client View struck through and pointed at Z3b; DoD narrowed to *"**Desktop** school user joins embedded"*; mobile/tablet/Firefox explicitly receive the Z2 platform link.
+2. **A new §15 row — Z3b**, branch `feat/zoom-client`, 4–7 d, human/external column naming the hardware protocol run. Its scope is Sol's M1/M2/M3 stated as design work rather than patches: the three-state machine, a readiness signal that proves **usability** rather than a layout rectangle, and **one** abandonment path shared by manual and automatic failure.
+3. **§15's dependency line** → `Z3b needs Z3 + the §16 hardware/network verdict CLEARED (not waived) — nothing else in the plan depends on Z3 or Z3b`.
+4. **§16's hardware row** → **WAIVED for Z3 (desktop) · RE-INSTATED AS BLOCKING for Z3b.** The waiver keeps the scope it was actually granted for and stops covering the path it was never argued for.
+
+**Plus §15.1**, a new subsection carrying the reasoning so no future session re-derives it: the widget-vs-app-takeover category error, the two Sol passes' asymmetry (zero findings vs seven), the three defects nobody had raised, why a Next route cannot be a CSS boundary, and the verified zero-downstream-cost claim.
+
+**The PM did not amend `PLAN.md` until the owner decided** — §0.1 makes plan decisions settled and owner-owned, and the proposal said so explicitly. **The amendment now itself goes to an independent reviewer before any further execution** (§3.9 step 5); r9 is NOT dispatched until that sign-off returns.

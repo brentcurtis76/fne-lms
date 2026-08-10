@@ -980,3 +980,32 @@ The executor finds the signal that separates the two, **and must evidence that i
 **What the PM still has NOT verified, unchanged and restated for the reviewer:** school hardware and network validation **remains waived, not cleared** (§16, owner decision 2026-08-08) — nothing here has run on 4 GB dual-core Windows 10, a Chromebook, or a bad school network. And **nobody has measured what an abandoned pre-join screen costs**: with the deadline correctly removed, a tab left open holds the frame, the bootstrapped SDK and a page-lifetime `leaveOnPageUnload` indefinitely. That is the ruling working as intended, and it is unmeasured on a low-end machine.
 
 **NEXT: Sol re-review**, per §0.2's re-review loop, then Brent's merge. **The ledger row does not flip to ✅ DONE until both.**
+
+## ⛔ **SOL RE-REVIEW (round 2) ON PHASE Z3: `REQUEST CHANGES` — 4 MAJOR + 2 MINOR (2026-08-08).**
+
+**PM verified each finding against the code before accepting it. All six are valid.** Sol re-ran all five gates independently and got the same numbers (304 files / 7030 tests, pgTAP 484), changed nothing, and committed nothing.
+
+| # | Finding | PM verification |
+|---|---|---|
+| **M1** | «Entrar» is treated as a **completed** join. `awaitClientViewJoin` resolves on Zoom's success callback → `setOutcome({kind:'joined'})` → the escape hatch is removed. But r7 established that callback fires **when the person presses «Entrar», not when the connection completes** — so there is an **unbounded machine phase after the human acts**, with no deadline and no way out | ✅ **CONFIRMED** at `JoinMeetingButton.tsx:556` → `:612`. **This is the r8 guarantee falsified on its own terms** |
+| **M2** | `clientViewIsInteractive` cancels the deadline **permanently** on any control with a layout rect. `getClientRects()` does not prove usability — disabled, inert, `aria-disabled`, `visibility:hidden`, transparent, off-screen and partially-rendered controls all have rects | ✅ **CONFIRMED** at `:410`. A false positive converts a genuine pre-screen machine failure into an **infinite wait** |
+| **M3** | Automatic fallback **hides** the failed iframe (`className="hidden"`) without abandoning it — no ref reset, `clientFrameOpen` stays true, SDK/media/workers keep running, and a later attempt reuses a frame whose prior `join()` may still be live. **Manual escape does tear down; automatic does not** | ✅ **CONFIRMED** — `clientFrameOpen` gates rendering at `:832` and the catch path calls `requestLinkFallback()` without teardown |
+| **M4** | The request-path ZAK call has **no bounded failure path**: no `AbortSignal`, no deadline, and it inherits the worker-oriented retry policy (3 attempts, up to two 60 s `Retry-After` waits) **inside an HTTP request**. A never-settling call means the route never reaches its link response, and the platform timeout produces an error — contradicting `join.ts`'s own documented "every SDK failure degrades to link mode" | ✅ **CONFIRMED DECISIVELY**: `grep -cE "AbortSignal\|AbortController\|signal:" lib/zoom/client.ts lib/zoom/api.ts` returns **0 and 0** |
+| **m1** | Both review artifacts are stale and self-contradictory: 8 commits not 4; **15 changed test files / 5,227 insertions**, not the dossier's "10 files / ~3,700 lines"; and later sections still say no real SDK run, CI never ran, migration unapplied — contradicting the file's own updated header | ✅ **CONFIRMED** |
+| **m2** | `join.ts:4` says *"Nothing here writes"* while authorized host issuance inserts into `zoom_zak_issuances` | ✅ **CONFIRMED** at `:4` vs `:489` |
+
+### **THREE MORE PM ERRORS. That is eight across the phase.**
+
+**⑥ The PM approved r8 having verified the half r8 was about.** The 75-second-pause proof establishes that the **human** phase is correctly unbounded. It says **nothing** about what happens after the click — and the PM never asked. **This is the same shape as the r3 `noopener` miss**: trace the half that is fine, stop at the half that is broken. M1 is the original M3 defect relocated one step later, and it survived a PM approval and a full round of PM probing.
+
+**⑦ The PM's "matches too early" probe was the obvious mutant, and Sol said so.** Forcing `clientViewIsInteractive` to return `true` the instant the root exists fails six tests — which proves the *extreme* is caught and **not** the case that matters: a slow-network partial render containing a control that has a rectangle but is not usable. **The realistic middle is exactly what the PM did not construct**, and it is the one that turns a machine failure into an infinite wait.
+
+**⑧ Third staleness failure on the same file.** After Sol's first pass repeated a stale §8 back in a verdict, the PM updated the header, the chunk table and §4's gate block — **and left §2's inventory, §4b and §6 contradicting them.** Patching what was remembered instead of re-reading the file. **Sol had to measure the diff to discover that its own entry point was wrong, twice.**
+
+### **Triage and the shape of the problem**
+
+All four MAJOR are real and none is a matter of taste. But **three of the four are Client View** — M1 (post-«Entrar» state), M2 (the interactivity signal), M3 (iframe teardown) — and **M4 is small, older (Z3-2), and affects both paths.** **No finding in either Sol pass has been against Component View.**
+
+**That is the pattern worth naming rather than working around: Client View is an app-takeover SDK being driven as a widget inside an iframe, on a path nobody can field-test because the hardware gate is waived. Every round has found a real defect one layer deeper — r5 shipped it, r6 found it stalled, r7 found the CSS starved and the stall device-independent, r8 found the `about:blank` race and fixed the deadline, and Sol now finds the deadline fix incomplete, the signal soft, and the teardown asymmetric.** Component View, over the same eight rounds, has produced zero findings and a 4.2 s join.
+
+**PM ruling: this is a scope decision for the owner, not another remediation to dispatch reflexively.** Round 9 against an SOP cap of 3; the PM flagged the change of character at r7 and the owner chose to continue; **an independent reviewer has now found four more MAJOR on the same surface.** Both paths forward are legitimate and the PM is putting them up rather than choosing.

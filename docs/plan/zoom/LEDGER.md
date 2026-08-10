@@ -1156,3 +1156,41 @@ Third pass on this code, and the first with nothing to report. **No BLOCKER, no 
 - **Product cost of the split, stated because the PM first got it wrong:** §12 keeps recording off in link-out mode and G1 failed, so mobile/tablet/Firefox users on the link get **no Z4 recording workflow** and contribute **no Z5/Z8 input** until Z3b ships.
 
 **Next in the Zoom plan: Z3b, or Z4/Z6/Z7 — none of which depends on Z3 or Z3b.**
+
+## 🔬 **THE VITEST FLAKE IS DIAGNOSED — ONE BUG, NOT TWO. And the PM's characterisation of it was WRONG (2026-08-10).**
+
+Investigated on `fix/test-leak` (diagnosis only, no commits). **PM reproduced both signatures independently, on stock unpatched Vitest, first try.**
+
+**The mechanism, proven from the shipped source and by reproduction:** `vitest.config.ts` sets `threads: false`, but **`mockMap` IS correctly isolated** — `entry.js` clears it and invalidates the module cache before every file. **What is not cleared is `VitestMocker.pendingIds`, a static array.** `vi.mock()` only *queues* onto it; the queue is drained lazily by `resolveMocks()`, called the next time anything resolves a module, and `mockPath()` then reads the filepath **at drain time**. **So a file that calls `vi.mock()` and never resolves another module leaves its factory in a static queue, and the next file to resolve a module inherits it.**
+
+**The donor is `pages/api/qa/__tests__/scenarios.completion-filter.test.ts`.** PM confirmed its only imports are `vitest` (internal, not routed through the mocker) and a **type-only** `import type … from 'next'` (erased at transform). **It mocks `@/lib/api-auth` and never imports the route it claims to test** — it asserts against a Supabase mock it builds itself. Its queue never drains.
+
+| | PM's own run |
+|---|---|
+| victim **alone** | `1 passed / 6 tests` ✅ |
+| **donor + victim** | `FAIL … Error: [vitest] No "checkIsAdminOrEquipoDirectivo" export is defined on the "@/lib/api-auth" mock` |
+| **donor + pasantias**, `--sequence.seed=3` | the eight `expected 200 to be 405` |
+
+**The fingerprint the PM missed for three rounds: the error names `"@/lib/api-auth"` — the DONOR's specifier — while the victim imports `../api-auth`.** That mismatch was visible in the very first failure output and says "this factory came from somewhere else".
+
+### **PM ERROR #10, and it is a mechanism asserted from symptoms without testing either.**
+
+The ledger has recorded this since r6 as *"cross-file state pollution, TWO signatures — a `vi.mock` registry leak and a `process.env` leak"*. **Both halves are wrong in the detail that matters:**
+
+- **It is ONE bug with two victims**, not two bugs.
+- **The registry does not leak** — `mockMap` is correctly isolated. The leak is a lazily-drained *queue*, which is a different thing and has a different fix.
+- **`pasantias-pdf.test.ts`'s `VERCEL_ENV` manipulation, which the PM fingered by name, is a RED HERRING** — that suite snapshots and restores it correctly. The real cause is the leaked no-op `handleMethodNotAllowed`: `serve.ts:104` calls it and returns, the bare `vi.fn()` sets no status, and `node-mocks-http` defaults to 200. **4 methods × 2 documents = exactly 8 assertions.**
+
+The PM saw two symptoms, inferred two mechanisms, wrote them into the ledger as fact, and repeated them in a dossier and three prompts. **The executor tested instead.**
+
+### **⚠️ THE FINDING THAT MATTERS MOST: CI is green by coincidence of byte counts.**
+
+`BaseSequencer.sort` orders files **failed-first then by descending duration** when `node_modules/.vitest/results.json` exists, and **by descending file size** when it does not. **`npm ci` wipes `node_modules`, so CI has no results cache — CI ordering is deterministic and size-based.** Today the donor (6884 B) happens to be followed by a file that survives the leak; the api-auth victim sits six slots down. **Editing the SIZE of any file in the 6487–6807 B band — `weight-removal` (6807), `session-optimistic-lock` (6712), `reports` (6611), `zoom-reconcile` (6539), `templates` (6487) — or adding any file in that band, can slide the victim into the slot after the donor and RED THE GATE PERMANENTLY.** And locally the results cache plus millisecond duration jitter is the entire "1 in 3": **the flake was never random.**
+
+**Marked INFERRED by the executor and the PM agrees:** the CI-ordering consequence follows from the sequencer source and an observed cold-cache run locally, **but neither of us ran CI to confirm it.**
+
+**A second donor and a latent third**, both found by instrumentation: `__tests__/api/admin/assign-role.test.ts:1803`'s `afterEach` calls `vi.doUnmock` on `roleUtils` and `lib/api-auth` — **simultaneously dead where intended and live where not**, landing on `update-user.test.ts`; because `resolveMocks()` drains via `Promise.all`, whether it lands before or after the victim's own `vi.mock` is a race that could silently run the REAL module. And `__tests__/utils/meetingUtils.test.ts` only drains because its first test happens to `await import(...)` — **skip or reorder that test and it becomes a donor.**
+
+**Separately confirmed and unrelated to the above:** `session-notifications.test.ts` leaves `CRON_API_KEY === "undefined"` — the string — for the rest of the run, and **"undefined" is truthy**, which would defeat the fail-closed branch in `lib/zoom/cron-auth.ts:64` if any later file exercised it. Plus five files leaking jsdom globals via `Object.defineProperty`, which `vi.unstubAllGlobals()` does **not** revert.
+
+**NEXT: a fix round, scoped to removing the two donors and containing the rest. NOT `threads: true`, and NOT a Vitest upgrade** — 0.34.6's `pendingIds` design changed in 1.x so the upgrade is the durable answer, but it is a big-bang change that must not ride along with a flake fix.

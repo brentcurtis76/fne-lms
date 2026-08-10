@@ -4,15 +4,20 @@
 > Companion: `fase-6-review-request.md` (executor-authored). **Both are leads, never the
 > boundary** — review the actual diff.
 
-**Branch** `feat/zoom-embed` · **base** `65c8114b` · **head** `18441936` · **4 commits**
-**Diff to review:** `git diff 65c8114b..18441936`
+**Branch** `feat/zoom-embed` · **base** `65c8114b` · **head** `fc8a564d` · **8 commits**
+**Diff to review:** `git diff 65c8114b..fc8a564d`
 
 > ⚠️ **Do not diff against `origin/main` directly.** The PM's ledger and prompt commits
 > landed on `main` after this branch was cut, so `git diff origin/main..HEAD` shows them as
 > spurious deletions. Use the merge-base above.
 
-**PR:** not yet opened at the time of writing. CI has **never run on this branch** — every
-gate result below is local. See "Blocking before close".
+**PR:** [#47](https://github.com/brentcurtis76/fne-lms/pull/47), **all six CI gates SUCCESS at
+`fc8a564d`**, `MERGEABLE`. The migration is applied to production and PM-verified read-only.
+
+> **This file was written at `18441936` (4 commits) and updated at `fc8a564d` (8).** Rounds
+> r5–r8 closed all five of Sol's findings and fixed three defects that were nobody's finding.
+> Sections 1–7 below describe the phase as a whole; where a number is round-specific it says
+> which round. **§8 carries the current close status and §4/§4b the current verification.**
 
 ---
 
@@ -37,6 +42,10 @@ row is the scope authority** (§0.2 step 3).
 | Z3-2 | `09d32643` | ZAK retrieval; the §9 issuance rule; the `zak_issued` audit table; `role:1` for hosts |
 | Z3-3 | `db9fc6c7` | Component View embed, CDN loader, `PreJoinCheck`, es-ES, link fallback |
 | Z3-4 | `18441936` | Client View for mobile + Firefox; popup-retry fix; `fase-6-review-request.md` |
+| r5 | `1d259a72` | Sol M1–M4 remediation: the `noopener` fix, awaited i18n, bounded transitions, the Client View iframe |
+| r6 | `15981fbc` | M5 runtime proof (evidence only). Found: Client View stalling, and the CSS 403 |
+| r7 | `137a6120` | Falsified the device hypothesis; fixed the CSS via Zoom's unversioned root; made a failed stylesheet observable |
+| r8 | `fc8a564d` | **Owner ruling A**: bound the machine, never the person. Closed M5. Fixed a latent `about:blank` iframe race |
 
 **Explicitly OUT of scope, and why** — challenge any of these you think is wrong:
 
@@ -104,18 +113,20 @@ row is the scope authority** (§0.2 step 3).
 ## 4. What the PM verified independently — commands and results
 
 Every gate was re-run by the PM in the executor's worktree at **every chunk head**, unpiped,
-per-gate exit codes. At the final head `18441936`:
+per-gate exit codes. At the final head `fc8a564d`:
 
 ```
 npm run type-check   → 0
 npm run lint         → 0
-npm test             → 0   ·  6985 passed / 300 files  (×3 consecutive clean runs)
+npm test             → 0   ·  7030 passed / 304 files
 npm run test:db      → 0   ·  Files=11, Tests=484, Result: PASS
 npm run build        → 0   ·  ✓ Compiled successfully
 ```
 
-Baseline arithmetic closed at every round: 6781/291 → 6804/292 → 6875/294 → 6939/298 →
-6985/300.
+**And on CI, at this head: all six gates SUCCESS**, first run.
+
+Baseline arithmetic closed at every one of eight rounds: 6781/291 → 6804/292 → 6875/294 →
+6939/298 → 6985/300 → 7004/302 → 7008/302 → **7030/304**.
 
 **Eleven PM mutation probes across four rounds**, each distinct from the executor's and each
 proving a criterion is load-bearing rather than decorative — among them: breaking

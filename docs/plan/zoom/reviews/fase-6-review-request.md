@@ -1,219 +1,275 @@
 # Fase 6 (Zoom Z3) — review request
 
-> Executor self-report for **Z3 — Embedded experience**, covering all four chunks
-> (Z3-1 … Z3-4). Written at the close of Z3-4 per `CLAUDE.md` Executor Rule 6 and
-> PLAN §15. This is a lead for the independent reviewer, never the boundary of the
-> review: the diff is the artifact.
+> Executor self-report for **Z3 — Embedded experience, DESKTOP**, at the close of the
+> phase. Written per `CLAUDE.md` Executor Rule 6 and PLAN §15. This is a lead for the
+> independent reviewer, never the boundary of the review: the diff is the artifact.
+>
+> **REBUILT FROM MEASUREMENT at Z3-r9 (2026-08-10).** Every number below was taken by
+> running the command shown, at the head named, on the day of writing — none is carried
+> forward from an earlier draft. The previous version of this file was written at the
+> close of **r4** and then appended to for r5–r8 without its top matter being re-measured,
+> so its commit count, file counts, scope and test numbers described a branch five rounds
+> old. That is the fifth staleness error of this phase, and the reason this section now
+> states its provenance. **Everything from *ROUND HISTORY* onward is preserved verbatim as
+> the record written at the time; where it disagrees with this head, this head is current
+> and that text is history.**
 
-## Branch, base and commits
+## Branch, base and head
 
-| | |
-|---|---|
-| Branch | `feat/zoom-embed` |
-| Base (merge-base with `origin/main`) | `65c8114b5acf7b3242c5c78d8ec7466332045e26` |
-| Commits | **4** |
-| Worktree | `/Users/brentcurtis/dev/wt/zoom-embed` |
+| | Measured value | Command |
+|---|---|---|
+| Branch | `feat/zoom-embed` | `git rev-parse --abbrev-ref HEAD` |
+| Worktree | `/Users/brentcurtis/dev/wt/zoom-embed` | `git worktree list` |
+| Merge-base with `origin/main` | `65c8114b5acf7b3242c5c78d8ec7466332045e26` | `git merge-base origin/main HEAD` |
+| Head at writing | `6ca38a38` | `git log --oneline -1` |
+| Commits since the merge-base | **9** | `git rev-list --count 65c8114b..HEAD` |
 
-| # | SHA | Chunk | Subject |
+| # | SHA | Round | Subject |
 |---|---|---|---|
 | 1 | `5c3bbea1` | Z3-1 | `feat(zoom): mint an SDK join payload for participants behind FEATURE_ZOOM_EMBED` |
 | 2 | `09d32643` | Z3-2 | `feat(zoom): issue a ZAK and role:1 to hosts under the §9 rule` |
 | 3 | `db9fc6c7` | Z3-3 | `feat(zoom): render the embedded meeting, with a preflight and a link fallback` |
-| 4 | *(this commit)* | Z3-4 | `feat(zoom): join through Client View where Component View cannot run` |
+| 4 | `18441936` | Z3-4 | `feat(zoom): join through Client View where Component View cannot run` |
+| 5 | `1d259a72` | Z3-r5 | `fix(zoom): bound every SDK transition, and give Client View its own document` |
+| 6 | `15981fbc` | Z3-r6 | `docs(zoom): Z3-r6 — Sol M5 runtime proof, and what it exposed` |
+| 7 | `137a6120` | Z3-r7 | `fix(zoom): give Client View Zoom's CSS, and stop the stall guessing` |
+| 8 | `fc8a564d` | Z3-r8 | `fix(zoom): bound the machine, never the person, on Client View's join` |
+| 9 | `6ca38a38` | Z3-r9 | `fix(zoom): bound the ZAK call, and close Client View off from the join` |
 
-**One diff artifact to expect and discount.** `git diff --stat origin/main..HEAD` shows
-`docs/plan/zoom/LEDGER.md` and `docs/plan/zoom/prompts/Z3-r{2,3,4}.md` as *deletions*.
-Nothing on this branch deleted them: the PM committed them to `main` after this branch
-was cut, so they exist ahead of the merge-base and not on it. Compare against the
-merge-base (`git diff 65c8114b..HEAD`) rather than `origin/main..HEAD` when reading the
-docs half of the diff.
+**Diff artifact to expect and discount.** `git diff --stat origin/main..HEAD` shows
+`docs/plan/zoom/LEDGER.md` and several `docs/plan/zoom/prompts/*.md` as *deletions*.
+Nothing on this branch deleted them: the PM commits them to `main` after this branch was
+cut, so they exist ahead of the merge-base and not on it. Read the docs half of the diff
+against the merge-base (`git diff 65c8114b..HEAD`).
 
-## Objective and scope (PLAN §15, Z3 row — copied)
+## What is in Z3 and what moved to Z3b
 
-> **Z3 — Embedded experience** ~~(only if Z0B passes)~~ — **field gate WAIVED by owner
-> decision 2026-08-08, see §16**; the per-route Permissions-Policy listed below
-> **already shipped in Z0B** (`next.config.js:57-81`) · branch `feat/zoom-embed` ·
-> `@zoom/meetingsdk` Component View (desktop) + Client View route (mobile);
-> PreJoinCheck; per-route Permissions-Policy; es-ES i18n; SDK-failure auto-fallback to
-> link · **DoD:** School user joins embedded w/o Zoom account; fallback flag flips
-> cleanly · 5–8 d
+**Z3 was split by owner decision on 2026-08-08** (PLAN §15.1, and the amendment was
+independently reviewed and approved). The row this branch now answers to is the **DESKTOP**
+row.
 
-### Scope IN, by chunk
+| | In **Z3** — this branch, this review | Moved to **Z3b** — a later phase |
+|---|---|---|
+| View | **Component View**, desktop only | Client View (mobile / tablet / Firefox / narrow) |
+| Preflight | `PreJoinCheck` (r3) — Zoom has no preview screen on this view | Zoom's own pre-join screen (r8's owner ruling) |
+| Open findings carried | none | Sol M1, M2, M3 — they moved **with the code they belong to** |
+| Field gate | **WAIVED** for this row (§16, 2026-08-08) | a **revised, Client-View-specific** protocol, and it blocks Z3b's close |
+| Code on this branch | live | **present, compiling, and structurally unreachable** — see below |
 
-- **Z3-1** — a second success shape on `POST /api/meet/session/[id]/join`: `mode: 'sdk'`
-  carrying `signature`, `sdk_key`, `meeting_number`, `passcode`, `user_name`,
-  `customer_key`, `role`, behind `FEATURE_ZOOM_EMBED`. Never a `join_url` (§5).
-  Participants only — hosts stayed on link mode until Z3-2 existed.
-- **Z3-2** — hosts additionally receive `zak` and a `role: 1` signature, but only where
-  §9 allows it (facilitator on their own mapped host; admin on org-owned pool
-  identities), fresh at start-click, with a `zak_issued` audit row in
-  `zoom_internal.zoom_zak_issuances`.
-- **Z3-3** — the desktop embed: the CDN loader for Component View, the browser-capability
-  reads, `PreJoinCheck`, and `JoinMeetingButton`'s SDK branch with a link fallback via a
-  second POST carrying `{ fallback: 'link' }`.
-- **Z3-4** — Client View for every browser Component View cannot serve (mobile, tablets,
-  **Firefox**), the two-view support matrix, and the popup-blocked retry that re-runs the
-  fallback instead of the embed.
+**The Client View code is NOT deleted.** It is Z3b's starting point: three rounds and a
+real-browser measurement went into the CSS boundary, the frame race and the
+bounded/unbounded join split. What r9 did was make it **unreachable**, which is a stronger
+claim than "hidden" and a different one from "falls back after startup".
 
-### Scope OUT — declared, and not touched
+## Objective and DoD (PLAN §15, Z3 row — copied at 2026-08-10)
 
-- `lib/utils/meeting-join-policy.ts` and `lib/utils/meeting-zak-policy.ts` — sealed after
-  their own chunks; Z3-3 and Z3-4 changed neither.
-- The join route's authorization gates — unchanged by Z3-3 and Z3-4. The §5 opening was
-  widened exactly once, in Z3-1, and once more in Z3-2 for the ZAK.
-- `tests/e2e/zoom-join-authz.spec.ts` and everything under `tests/e2e/` — CI Gate 4 is
-  untouched by this phase. `git diff --stat origin/main..HEAD -- tests/e2e/` is empty.
+> **Z3 — Embedded experience, DESKTOP** — **SPLIT by owner decision 2026-08-08 (see
+> §15.1); Client View moved to Z3b.** Field gate WAIVED for this row only, see §16; the
+> per-route Permissions-Policy **already shipped in Z0B** (`next.config.js:57-81`) ·
+> `feat/zoom-embed` · `@zoom/meetingsdk` **Component View (desktop)**; PreJoinCheck; es-ES
+> i18n; SDK-failure auto-fallback to link. ~~Client View route (mobile)~~ → **Z3b**.
+> Mobile/tablet/Firefox receive the Z2 platform link · **DoD:** **Desktop** school user
+> joins embedded w/o Zoom account; fallback flag flips cleanly. **AND (Sol re-review
+> MAJOR 2): Client View is STRUCTURALLY UNREACHABLE while Z3 is the active phase** — on
+> mobile, tablet and Firefox the join opening requests link mode **before any Client View
+> bundle, iframe, SDK/media worker or Client View join is started**; a host on that path
+> mints **no ZAK** and writes **no `zoom_zak_issuances` row** for a credential that will
+> be discarded. Blocking tests cover all three. **Sol M3 moves to Z3b only once this is
+> proven** — hiding the frame or falling back after startup would require M3 here · 5–8 d
+
+### Scope OUT — declared, and measured as untouched
+
+- `lib/utils/meeting-join-policy.ts`, `lib/utils/meeting-zak-policy.ts`, the join route's
+  gate order, the §9 rule, the audit write's ordering — sealed after their own rounds.
+- **`tests/e2e/` — `git diff --stat origin/main..HEAD -- tests/e2e/` is empty.** CI Gate 4
+  is untouched by this entire phase.
+- `next.config.js`, `package.json` — no change. The phase's only migration is Z3-2's
+  (`supabase/migrations/20260810120000_zoom_zak_issuances.sql`); r5–r9 added none.
 - `pages/meet/diag.tsx` and `pages/api/meet/diag-signature.ts` — the consultores' field
-  instrument for the hardware protocol, live and deliberately not refactored to share
-  Z3-3's loader (see *Known limitations*).
-- `next.config.js`, `package.json`. Z3-4 adds no migration; the phase's only migration is
-  Z3-2's.
+  instrument, live and deliberately NOT refactored onto `lib/meet/zoom-sdk-loader.ts`
+  (see *Known limitations*).
 
 ## Files, grouped by risk
 
-### Highest risk — the credential opening and the ZAK rule
+Measured: `git diff --numstat 65c8114b..HEAD -- . ':(exclude)docs/'`.
+**Totals — 30 code files, +8626 / −83.** Including docs and evidence: 49 files, +9492 / −83.
 
-| File | Chunk | Purpose |
+### Highest risk — the credential opening and what bounds it
+
+| File | +/− | Why it is here |
 |---|---|---|
-| `pages/api/meet/session/[id]/join.ts` (+461/−…) | Z3-1/2/3 | The single §5 opening. Now mints three outcomes (link, SDK-participant, SDK-host-with-ZAK) and honours the `{ fallback: 'link' }` intent. Every authorization gate ahead of outcome selection is Z2's, unchanged. |
-| `lib/utils/meeting-zak-policy.ts` (+135) | Z3-2 | Pure §9 rule: who may receive a ZAK, for which host identity. No I/O, no session, no DB. |
-| `supabase/migrations/20260810120000_zoom_zak_issuances.sql` (+66) | Z3-2 | `zoom_internal.zoom_zak_issuances` audit table. Additive, RLS on. |
-| `lib/zoom/api.ts` (+34/−…), `lib/zoom/client.ts` (+33) | Z3-2 | `GET /users/{id}/token?type=zak`. |
+| `pages/api/meet/session/[id]/join.ts` | +500 / −13 | The ONE §5 opening. Gained the `mode:'sdk'` outcome, the §9 ZAK issuance and its audit row, and (r9) an 8 s request budget on the ZAK call. **The route's only write lives here and it is conditional.** |
+| `lib/utils/meeting-zak-policy.ts` | +135 / −0 | The §9 rule: who may receive a ZAK, for whose identity. Pure, and sealed since Z3-2. |
+| `lib/zoom/client.ts` | +179 / −11 | r9: `signal` bounds a call's TOTAL lifetime and reaches the `fetch`, the token wait and every retry sleep. **This file is on the worker path too** — a caller that passes no signal must be byte-for-byte unchanged. |
+| `lib/zoom/token.ts` | +51 / −7 | r9: a caller's budget bounds ITS OWN WAIT on the shared single-flight grant, and deliberately not the grant. |
+| `lib/zoom/api.ts` | +50 / −1 | `getUserZak`, and (r9) the optional budget it forwards. |
+| `supabase/migrations/20260810120000_zoom_zak_issuances.sql` | +66 / −0 | The audit table. Additive; RLS on; pgTAP matrix extended. |
 
 ### High risk — what runs in the browser holding a signature
 
-| File | Chunk | Purpose |
+| File | +/− | Why it is here |
 |---|---|---|
-| `components/sessions/JoinMeetingButton.tsx` (+370/−…, and again in Z3-4) | Z3-3/4 | The client half of the whole phase: the per-click POST, the credentials-in-a-ref discipline, the view branch, both roots, the fallback and the retry. |
-| `lib/meet/embed-capabilities.ts` (+98, +Z3-4) | Z3-3/4 | The support matrix — `supportsComponentView`, `supportsClientView`, `selectEmbedView` — plus the non-intrusive permission reads. |
-| `lib/meet/zoom-sdk-loader.ts` (+154, +Z3-4) | Z3-3/4 | Component View CDN loader, sequential vendor React before the bundle. Z3-4 exported `SDK_BASE` and `loadZoomCdnScript` from it. |
-| `lib/meet/zoom-client-view-loader.ts` (new, Z3-4) | Z3-4 | Client View CDN loader (four vendor files), the `ZoomMtg` surface, and the callback→promise wrapper. |
+| `components/sessions/JoinMeetingButton.tsx` | +777 / −48 | Holds the credentials for one call. **r9 moved the view decision to before the request**, which is the whole unreachability mechanism. Also holds the Client View code that must now be unreachable. |
+| `lib/meet/embed-capabilities.ts` | +150 / −0 | `selectEmbedView()` — the support matrix, and the 768 px floor whose consequences r9's truth table exists for. |
+| `lib/meet/zoom-sdk-loader.ts` | +233 / −0 | Component View's CDN loader and its deadlines. |
+| `lib/meet/zoom-client-view-loader.ts` | +506 / −0 | **Z3b's.** Live module, fully tested, no live caller. |
+| `public/meet/zoom-client-view.html` | +40 / −0 | **Z3b's** CSS boundary document. Served, unreferenced. |
+| `components/sessions/PreJoinCheck.tsx` | +214 / −0 | Component View's preflight. Unchanged since r3. |
+| `lib/featureFlags.ts` | +8 / −1 | `FEATURE_ZOOM_EMBED`, default off. |
 
 ### Lower risk
 
-| File | Chunk | Purpose |
+`lib/zoom/fake.ts` (+70), `supabase/tests/002-zoom-internal-isolation.sql` (+132 / −2).
+
+### Tests — 14 files added, one modified
+
+| File | + | Covers |
 |---|---|---|
-| `components/sessions/PreJoinCheck.tsx` (+214) | Z3-3 | Advisory preflight. Reads nothing that can block a join. |
-| `lib/featureFlags.ts` (+9/−…) | Z3-1 | `FEATURE_ZOOM_EMBED`, server-side only. |
-| `lib/zoom/fake.ts` (+70) | Z3-2 | Test double for the ZAK endpoint. |
+| `__tests__/api/meet/session-join-zak.test.ts` | 1091 | §9 issuance matrix, the audit row, and (r9) `[B11]` the request budget + `[B12]` no ZAK on a link-intent request |
+| `__tests__/api/meet/session-join-sdk.test.ts` | 768 | the `mode:'sdk'` payload and ruling ② |
+| `__tests__/components/sessions/JoinMeetingButton.clientview.test.tsx` | 610 | **r9: the truth table over `selectEmbedView()`** |
+| `__tests__/components/sessions/JoinMeetingButton.sdk.test.tsx` | 548 | Component View's join, credentials hygiene, `[C9]` desktop-only |
+| `__tests__/components/sessions/JoinMeetingButton.prejoin-screen.test.tsx` | 412 | r8's rulings — **8 of its 9 tests are now parked, see below** |
+| `__tests__/components/sessions/JoinMeetingButton.timeouts.test.tsx` | 312 | SDK deadlines — **3 of its 6 parked** |
+| `__tests__/lib/meet/embed-capabilities.test.ts` | 262 | the selector as a pure function, branch by branch |
+| `__tests__/lib/meet/zoom-client-view-loader.test.ts` | 261 | Z3b's loader — **live and green** |
+| `__tests__/lib/utils/meeting-zak-policy.test.ts` | 233 | the §9 rule |
+| `__tests__/lib/zoom/client-request-budget.test.ts` | 238 | **r9: the budget at the transport layer** |
+| `__tests__/lib/meet/client-view-join-deadline.test.ts` | 225 | Z3b's bounded/unbounded split — **live and green** |
+| `__tests__/lib/meet/zoom-sdk-loader.test.ts` | 193 | Component View's loader |
+| `__tests__/lib/meet/client-view-boundary.test.ts` | 122 | Z3b's CSS boundary, against the bytes on disk — **live and green** |
+| `__tests__/components/sessions/PreJoinCheck.test.tsx` | 126 | the preflight |
+| `__tests__/lib/zoom/fake.test.ts` | +114 | the fake's ZAK behaviour |
 
-### Tests
+## Test evidence at this head (`6ca38a38`)
 
-`__tests__/api/meet/session-join-sdk.test.ts` (768) · `session-join-zak.test.ts` (905) ·
-`__tests__/lib/utils/meeting-zak-policy.test.ts` (233) · `__tests__/lib/zoom/fake.test.ts`
-(114) · `__tests__/components/sessions/JoinMeetingButton.sdk.test.tsx` (495) ·
-`JoinMeetingButton.clientview.test.tsx` (new, Z3-4) · `PreJoinCheck.test.tsx` (126) ·
-`__tests__/lib/meet/embed-capabilities.test.ts` · `zoom-sdk-loader.test.ts` (143) ·
-`zoom-client-view-loader.test.ts` (new, Z3-4) · `supabase/tests/002-zoom-internal-isolation.sql`
-(+134).
-
-## Test evidence at this head
+Every command below was run in the worktree, unpiped, with its exit code read.
 
 | Gate | Command | Result |
 |---|---|---|
-| Type-check | `npm run type-check` | exit 0 |
-| Lint | `npm run lint` (`--max-warnings=0`) | exit 0 |
-| Unit/integration | `npm test` | **300 files / 6985 tests passed**, exit 0 |
-| Build | `npm run build` | exit 0 |
-| pgTAP / RLS | `npm run test:db` | `Files=11, Tests=484, Result: PASS`, exit 0 |
-| testid (advisory) | `npm run lint:testid` | 2668 problems — the pre-existing baseline; **0 in this phase's files** |
+| Type-check | `npm run type-check` | **exit 0** |
+| Lint | `npm run lint` (`--max-warnings=0`) | **exit 0** |
+| Unit | `npm test` | **7060 passed, 11 skipped, across 305 files** — exit 0 |
+| Build | `npm run build` | **exit 0** |
+| RLS | `npm run test:db` | **Files=11, Tests=484, Result: PASS** |
 
-Phase-relevant suites, by name and count:
-`JoinMeetingButton.test.tsx` 19 · `JoinMeetingButton.sdk.test.tsx` 23 ·
-`JoinMeetingButton.clientview.test.tsx` 21 · `PreJoinCheck.test.tsx` 7 ·
-`embed-capabilities.test.ts` 30 · `zoom-sdk-loader.test.ts` 7 ·
-`zoom-client-view-loader.test.ts` 10.
+Baseline at `fc8a564d` (the r8 head, PM-verified) was **7030 tests / 304 files**; r9 adds
+one file and a net **+30** tests.
 
-**Fail-on-old probes run in Z3-4** (each: break the invariant, confirm a non-zero exit,
-revert, confirm byte-identity by `shasum -a 256`):
+**All 11 skipped tests are r9's, and they are the phase's one deliberate coverage
+withdrawal.** They are the five `describe.skip('[Z3b, PARKED] …')` blocks in
+`JoinMeetingButton.prejoin-screen.test.tsx` and `JoinMeetingButton.timeouts.test.tsx`.
+Enumerate them with:
 
-- Re-admitting Firefox to Component View (deleting one line from `supportsComponentView`)
-  → **6 tests failed, exit 1**. Reverted; `embed-capabilities.ts` back to
-  `8abd07ed…60d8eafc`.
-- Mounting both roots together (both render guards changed to `embedActive`) →
-  **3 tests failed, exit 1**. Reverted; `JoinMeetingButton.tsx` back to
-  `23d8aef6…b4798cd4`.
+```
+grep -rn "describe.skip" __tests__
+```
+
+They drove Client View's behaviour **through `JoinMeetingButton`**, and r9 removed that
+path on purpose. They were parked rather than deleted because they are Z3b's starting
+point, and rather than re-admitted because a test-only door into the Client View path is
+exactly the reachability the DoD forbids. **A skipped test proves nothing; treat that block
+as absent coverage until Z3b unparks it.** The Client View *module* suites
+(`zoom-client-view-loader`, `client-view-join-deadline`, `client-view-boundary`) are
+untouched and green.
+
+### CI
+
+PR [#47](https://github.com/brentcurtis76/fne-lms/pull/47), head `fc8a564d` (the r8 head —
+**r9's commit is not yet pushed at the time of writing**). Measured with `gh pr checks 47`:
+
+| Check | Status |
+|---|---|
+| Gate 1 — Typecheck | pass (1m59s) |
+| Gate 1b — Lint | pass (1m18s) |
+| Gate 2 — Unit (Vitest) | pass (2m6s) |
+| Gate 3 — RLS pgTAP | pass (2m13s) |
+| Gate 4 — E2E (Playwright) | pass (7m9s) |
+| RLS migration guard | pass (10s) |
+| Vercel | pass |
+
+`gh pr view 47` reports `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`.
+
+### Runtime proof, in a real browser (r9)
+
+Chromium via Playwright, `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream`
+— no real camera or microphone is opened and nothing is transmitted. Local Supabase stack,
+synthetic fixtures (`scripts/ci/e2e-fixtures.json`), the real spike meeting `81229544181`.
+Screenshots in `docs/plan/zoom/reviews/evidence/z3-r9/`.
+
+| Browser | Result |
+|---|---|
+| Chromium, 1440 px | Preflight rendered unchanged (three checks green, es-CL); after «Entrar a la reunión» the embed root filled in **1.1 s** and settled into Zoom's own toolbar **in the page**, in Spanish. No Client View iframe, no fallback, no error. One `zoom_zak_issuances` row written, `persona = admin_pool_host`. |
+| Chromium, **700 px** (narrow desktop — the branch three UA tests would miss) | ONE request, body `{"fallback":"link"}`; Zoom opened in a new tab; **no Client View iframe, no Component root, no preflight**; issuance count **unchanged**. |
+| Android UA, 390 px | identical to the above, same single link-intent request, issuance count unchanged. |
 
 ## Where an independent reviewer should push hardest
 
-1. **`supportsClientView()` is thin, and it is the only thing standing between a browser
-   and a 3.7 MB download.** It refuses on SSR and on a missing WebAssembly and nothing
-   else — so it says yes to any browser with a media engine, including ones Zoom's matrix
-   has never been tested against (in-app webviews, Android 8 stock browsers, kiosk
-   shells). I chose breadth deliberately: Zoom documents Client View as supported on all
-   four desktop browsers and both mobile ones, and the failure mode is the link fallback,
-   not a dead end. But the asymmetry with `supportsComponentView` — which refuses on four
-   separate readings — is real, and if you think the honest answer is a positive support
-   test rather than a negative one, say so. Entry point:
-   `lib/meet/embed-capabilities.ts:78-111`.
+These are the round's own judgment calls, ranked by how much rests on them.
 
-2. **Component View is gated on WebAssembly and Client View is — deliberately
-   inconsistently — not.** `selectEmbedView` tries Component View first and that function
-   does *not* read `supportsWebAssembly()`, so a desktop Chrome with the engine missing
-   still selects Component View and fails into the link, exactly as it did in Z3-3. I left
-   it that way because `PreJoinCheck` documents "nothing it reads can BLOCK the join", and
-   moving the engine test up would make its `Motor de video → No compatible` row
-   unreachable. The cost is that the `'none'` branch is only reachable from the Client View
-   side. This is my judgement call and the one I would most expect to be overruled.
+1. **`lib/zoom/client.ts` is shared with the cron worker, and r9 changed its retry loop.**
+   The claim is that a caller passing no `signal` behaves exactly as before. Three edits
+   could break that: the abort check before each attempt, the `withBudget` wrapper around
+   `attempt()`, and the new `signal` argument to `sleep`. `client.test.ts` (44 tests) is the
+   standing proof and was not modified this round — but it is the assertion most worth
+   re-deriving from the code rather than from the green.
 
-3. **The credentials discipline on the Client View path is asserted, not structural.**
-   `passWord`/`zak`/`signature` go into `sdk.join(...)` from a local `const` read out of a
-   ref that was emptied in the same breath — the same shape Z3-3 shipped — but Client View
-   then takes the whole page over with vendor code we do not control, and jsdom cannot
-   prove what that code does with what it was handed. `[D7]` proves our markup and our
-   console stay clean; it does not prove Zoom's do. `components/sessions/JoinMeetingButton.tsx`
-   `joinWithClientView`.
+2. **The budget bounds a caller's WAIT on the token grant, not the grant itself** — a
+   deliberate asymmetry, documented in `lib/zoom/token.ts`. The reasoning: `getToken` is
+   single-flight and shared, so a request-path caller's 8 s budget may not abort a fetch a
+   cron job has joined. The consequence is that a stalled OAuth grant is abandoned by this
+   caller and keeps running for the others. **If that is the wrong trade, this is where to
+   say so** — the alternative is a per-grant deadline independent of callers, which would
+   change worker behaviour and was judged out of this round's scope.
 
-4. **Two chunks widened the §5 opening, and only the second one is guarded by a policy
-   module.** Z3-1's SDK payload is assembled inline in the route; Z3-2's ZAK goes through
-   `meeting-zak-policy.ts`. Worth checking that the participant payload has no path that
-   can reach a value the §9 rule would have refused — particularly `customer_key` and
-   `user_name`, which come from `profiles` rather than from the policy layer.
+3. **"Structurally unreachable" is a claim about a code path, and the proof is a test
+   suite.** The mechanism is one line in `handleJoin` plus one changed condition in
+   `handleJoinResponse`; everything else is annotation. Read whether anything else could
+   set `pendingClientJoinRef`, `clientFrameOpen`, or a `'client'` outcome — and whether
+   the truth table's rows actually cover every branch of `selectEmbedView()` rather than
+   the six that are easy to name.
 
-5. **`[C11]` guards by reading source files off disk, and its file list is hand-maintained.**
-   It now covers `components/sessions/*`, both loaders and `embed-capabilities.ts`, with a
-   floor of 9 files. A new client module added outside those paths would not be checked —
-   the guard is only as good as its list, and the list is the thing to distrust.
+4. **The 8 s budget is a number nobody measured.** `ZAK_REQUEST_BUDGET_MS` was chosen
+   against what a person clicking a button will tolerate, not against a measured p99 of
+   `GET /users/{id}/token` on this tenant — the comment says so. The single real-browser
+   join above completed well inside it, which is one sample, not a distribution.
+
+5. **Parking eight tests is a coverage withdrawal, and it is the largest one in the
+   phase.** Judge whether `describe.skip` with a marker was the right call against the two
+   alternatives (delete them, or re-admit Client View behind a test-only flag), and whether
+   the Client View module suites really carry what the parked component suites carried.
 
 ## Known limitations and deferred items
 
-1. **No real-browser verification of either view.** Every assertion in this phase is
-   jsdom or Node. Nobody has watched a meeting render — the PLAN §16 hardware/network
-   verdict was **waived, not cleared** (amended 2026-08-08), so the field protocol may
-   still be run. Z3-4 confirmed Zoom's *documented* browser matrix and confirmed all six
-   CDN URLs return 200; it verified no runtime behaviour.
-2. **`pages/meet/diag.tsx` duplicates the Component View loader on purpose.** It is the
-   consultores' field instrument and the protocol is live. Recorded debt, not an oversight;
-   Z3-4 was explicitly told not to collapse it, and it did not.
-3. **Client View's own init options are minimally configured.** `leaveUrl`, `patchJsMedia`,
-   `leaveOnPageUnload` and the es-ES i18n load, and nothing else. Zoom exposes ~30 further
-   `init` options (chat, breakout, recording UI, `disableInvite`); none is set, so the
-   surface a student sees is Zoom's default. That is a product decision nobody has made yet.
-4. **`sdkKey` is passed to `ZoomMtg.join` although Zoom's reference marks it deprecated for
-   `joinOptions` since v4.0.0** ("you can just use signature"). It is kept for symmetry with
-   the Component View call and because Zoom's own current samples still pass it. Harmless,
-   but it is a guess about a deprecated-not-removed parameter.
-5. **The §9-facts-read-twice backlog item** (r2 SHOULD-FIX ①) is still open. It wants a
-   sealed module's return type widened and was deliberately excluded from Z3-3 and Z3-4.
-6. **`[C9]`'s two assertions were rewritten in Z3-4**, because the chunk reverses their
-   destination: a refused browser now takes Client View, not the link. The claim they
-   guard — that the Component View bundle is never fetched on a machine that cannot render
-   it — is unchanged and is now asserted against the loader rather than the DOM. Before and
-   after are quoted in the Z3-4 executor report.
-7. **`FEATURE_ZOOM_EMBED` is still off.** Nothing in this phase reaches a user until the
-   flag flips, and the flag is server-side only — the client never reads it (`[C11]`).
+- **No code in this phase has ever run against a school machine.** §16's hardware verdict
+  is WAIVED for this row (owner decision, 2026-08-08) and the field visits have not
+  happened. Every runtime measurement in this file is a developer laptop with fake devices.
+- **Z3b's field gate is not waived**, and the existing protocol cannot clear it: it drives
+  Component View through `/meet/diag` and its verdict is decided on P0 desktop machines
+  (§15.1, Sol re-review MAJOR 1).
+- **The split has a real product cost, and it is not neutral.** §12 disables recording in
+  link-out mode and G1 failed definitively, so mobile/tablet/Firefox sessions that stay on
+  the Z2 link produce no Z4 recording, no Z5 transcript and no Z8 minuta until Z3b or
+  another consent-safe path ships (§15.1, Sol re-review MAJOR 3).
+- **`pages/meet/diag.tsx` still carries its own inline copy of the Component View loader**
+  and was not refactored onto `lib/meet/zoom-sdk-loader.ts`. Two loaders for one SDK is a
+  real duplication; unifying them would change the consultores' field instrument mid-phase.
+- **`ZOOM_MODE=mock` in CI means no e2e test has ever reached a real Zoom call.** Gate 4
+  covers the authorization matrix, not the embed.
+- **The parked tests above.**
+- **`FEATURE_ZOOM_EMBED` is off by default.** Nothing in this phase is live until it flips.
 
 ---
 
-# Round 5 — remediation of Sol's five MAJOR findings (2026-08-08)
+# ROUND HISTORY
 
-Branch `feat/zoom-embed`, base `18441936` (the head Sol reviewed, PR #47, six gates green).
-No migration, no `package.json` change, `tests/e2e/` untouched.
-
-**Read this section against the five findings, not against the chunk list above.** Two of
-the five were the PM's errors, not the executor's, and the record says so: `M1`'s logic was
-read line by line and approved at r3, and `M4` was built exactly as the r4 prompt specified
-— against `PLAN.md` §15.
+**Everything below this line is preserved verbatim as it was written at the close of each
+round (r4 → r8).** It is the record of what was found and fixed when, and it is deliberately
+NOT edited to match the current head: several of its statements describe a branch state that
+later rounds superseded — most importantly, **its Client View sections describe a path that
+r9 made unreachable and the 2026-08-08 split moved to Z3b**, and its per-round "gates at
+this head" figures are that round's, not this head's. Where it disagrees with the sections
+above, the sections above are current.
 
 ## M1 — the fallback reported every success as a blocked popup
 

@@ -239,8 +239,19 @@ npm run lint:testid      # advisory; 2668-problem baseline is pre-existing, this
    credential column, version row recorded, and the schema-wide `REVOKE`/`GRANT` tail
    confirmed not to have re-tiered Z1b's 7 tables or 9 functions (0 readable by
    `anon`/`authenticated`, 0 without RLS, 0 functions executable by either).
-3. ⬜ **Sol's `APPROVE` / `APPROVE WITH NOTES`** — first pass returned **`REQUEST CHANGES`,
-   five MAJOR**, all five PM-verified as valid; remediation round r5 dispatched. Two of the
-   five (M1's `noopener` logic, M4's Client View placement) trace to PM errors, not executor
-   deviations — see the ledger.
+3. 🔄 **Sol's `APPROVE` / `APPROVE WITH NOTES`** — first pass returned **`REQUEST CHANGES`,
+   five MAJOR**, all five PM-verified as valid. **All five are now closed** across rounds
+   r5–r8; head is **`fc8a564d`**, and **CI is green on all six gates at that head**. Two of
+   the five (M1's `noopener` logic, M4's Client View placement) traced to PM errors rather
+   than executor deviations, and r7 falsified a third PM ruling — see the ledger. **Ready
+   for re-review.**
 4. ⬜ **Brent's merge** (§0.2 step 5). Only then does the ledger row flip to ✅ DONE.
+
+> **Note for the re-review — three defects surfaced that were nobody's finding**: the Client
+> View stylesheets 403'd silently at the pinned CDN path (r7); the iframe appended Zoom to a
+> discarded `about:blank` document (r8); and M3's own deadline was applied to `join`, a step
+> that waits for a **person** (r7 diagnosis → r8 fix, owner-ruled). The last of these means
+> **the bounded/unbounded split is now the thing most worth attacking**: machine failures
+> stay bounded at 45 s, a deliberating human is never interrupted, and the signal that
+> separates them is a DOM reading — deliberately generic, evidenced over five real runs at a
+> 15× margin, and PM-probed for the "matches too early" direction.

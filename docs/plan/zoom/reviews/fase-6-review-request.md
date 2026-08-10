@@ -678,3 +678,189 @@ migration, no `package.json` change, no feature work. `tests/e2e/` is untouched 
 `git diff --stat origin/main..HEAD -- tests/e2e/` is empty.
 
 School hardware/network validation **remains waived and deferred**, unchanged from r6.
+
+---
+
+# Z3 · r8 — the owner ruling: Zoom's pre-join screen IS the UX
+
+Round 8 implements Brent's ruling on Defect A (Option A). r7 proved the diagnosis and
+falsified the PM's mechanism; this round changes what the code does about it.
+
+> **The ruling.** Zoom's Client View shows its own pre-join screen and waits for the user
+> to press «Entrar». That is not a defect to work around — it is the vendor's device
+> check, in the meeting's own context, with the controls that actually govern the join,
+> and it is better than the one this phase built. Mobile and Firefox users see it, press
+> «Entrar», and join embedded.
+
+## The bounded / unbounded split, stated plainly
+
+Everything on this path is still bounded **except one thing**, and that one thing is the
+step that waits for a person.
+
+| Step | Bounded? | By what |
+|---|---|---|
+| CDN script downloads (both views) | **yes** | `SDK_DOWNLOAD_TIMEOUT_MS` = 30 s, per script |
+| The isolated frame's own document arriving | **yes** | `SDK_CALL_TIMEOUT_MS` = 45 s |
+| `i18n.load` (Client View) | **yes** | `SDK_CALL_TIMEOUT_MS` = 45 s |
+| `init` (both views) | **yes** | `SDK_CALL_TIMEOUT_MS` = 45 s |
+| Component View `join` | **yes** | `SDK_CALL_TIMEOUT_MS` = 45 s — the machine both starts and finishes it (4.2–6.1 s measured across r6/r7/r8) |
+| Client View `join` → **Zoom renders a screen** | **yes** | `SDK_CALL_TIMEOUT_MS` = 45 s |
+| Client View **screen up → the person presses «Entrar»** | **no, deliberately** | nothing. The time is theirs |
+
+**The signal that separates them** is `clientViewIsInteractive(doc)`
+(`lib/meet/zoom-client-view-loader.ts`): Zoom's root element holds a control from the
+generic interactive set (`button, [role="button"], a[href], input, select, textarea`)
+that is not `aria-hidden` and has a layout box. `awaitClientViewJoin` polls it every
+250 ms while its deadline runs, and **cancels the deadline the moment it reads true**.
+`error` is honoured throughout, before and after — a refused join is the machine
+answering and still lands in the link fallback.
+
+Two properties make the signal trustworthy rather than merely plausible:
+
+- **It cannot be satisfied by us.** `#zmmtg-root` lives in `CLIENT_VIEW_FRAME_SRC`, a
+  static constant document whose only content is that one empty div, and this app writes
+  nothing into it. Anything the predicate matches was put there by Zoom.
+- **It is not a Zoom class name.** The vendor's markup is theirs to change between bundle
+  versions. What cannot change without the screen ceasing to be a screen is that it
+  offers something to press. A spinner-only shell does **not** satisfy it, and the
+  deadline keeps running — asserted.
+
+### Evidence that it is reliable, not assumed
+
+Five real-browser runs against the real SDK and a real started meeting, through the app's
+own surface (`/meet/session/[id]` → `JoinMeetingButton`), local Supabase, synthetic
+persona. Time is from the click on «Unirse a la reunión».
+
+| Run | Signal first true | What it matched |
+|---|---|---|
+| narrow-viewport Android UA (`u3`) | **3.01 s** | «Silenciar», «Iniciar el vídeo», «Entrar», … |
+| narrow-viewport Android UA (`u1`) | **2.87 s** | same |
+| narrow-viewport Android UA (`u4`) | **2.85 s** | same |
+| Pixel 7 full emulation (`mobile`) | **2.17 s** | same |
+| Zoom CSS blocked (`nocss`) | **2.93 s** | same |
+
+It reads Zoom's own es-ES pre-join controls, at ~2–3 s, against a 45 s bound — a 15×
+margin. It then **held true for 63 s of watching with the frame still mounted and no link
+offered**, and in the `u1`/`mobile` runs through a deliberate 75 s pause.
+
+It is also false in exactly the cases it must be: the isolated frame's `#zmmtg-root` is
+present and empty before Zoom renders (observed, `controls: 0`), and it never became true
+in the pre-fix run where the SDK had been loaded into the wrong document.
+
+## A defect this round FOUND and fixed, because removing the preflight exposed it
+
+`awaitClientViewFrame` short-circuited on `frame.contentDocument.readyState === 'complete'`.
+A freshly mounted `<iframe src="…">` holds **`about:blank` first** — a real, same-origin,
+already-`complete` document — and only then navigates to its `src`. Until r8 the preflight
+hid this: the frame was mounted while the user read *our* device check, so the real
+document had long since arrived by the time they pressed continue. With Zoom's screen as
+the preflight the join starts in the same tick as the mount, and **the placeholder is what
+is there.**
+
+Observed on the first framed run of r8: the frame's document had `#zmmtg-root`, **no
+scripts and no stylesheets at all**, the render signal never became true, and the join
+fell back to the link at the deadline. Zoom's four vendor files, its bundle and its two
+stylesheets had all been appended to a document the browser then discarded.
+
+The readiness test is now the one thing that tells the two documents apart: the root
+element `CLIENT_VIEW_FRAME_SRC` exists to provide. `about:blank` never has it. This also
+changed the unit-test helpers, which had been simulating a `load` event on the
+placeholder — i.e. asserting against the bug.
+
+**Reviewer note:** this was a latent defect in r5's work, not one r8 introduced. It was
+unreachable while a human click stood between the mount and the join.
+
+## What changed, file by file
+
+| File | Change |
+|---|---|
+| `lib/meet/zoom-client-view-loader.ts` | `clientViewIsInteractive`, `awaitClientViewJoin`, `CLIENT_VIEW_RENDER_POLL_MS`; `awaitClientViewFrame` rewritten around the root-element readiness test; `awaitClientViewCall` narrowed to `init` in its own doc comment |
+| `components/sessions/JoinMeetingButton.tsx` | no `PreJoinCheck` on Client View; the join is started by an effect once React has committed the frame; an attempt counter so an abandoned join cannot speak for the page; the persistent es-CL escape hatch |
+| `__tests__/lib/meet/client-view-join-deadline.test.ts` | **new** — 13 tests, the signal and the split |
+| `__tests__/components/sessions/JoinMeetingButton.prejoin-screen.test.tsx` | **new** — 9 tests, [U1] [U2] [U4] [U5] at the component level |
+| `JoinMeetingButton.{clientview,sdk,timeouts}.test.tsx` | landmarks moved off the preflight on the Client View path; the frame helper now models the document arriving |
+
+## Acceptance criteria
+
+- **[U1] met.** `u1` run: signal at 2.87 s → **deliberate 75 s pause** (old bound 45 s) →
+  at 77.9 s the frame is still mounted, no link offered, still connecting → «Entrar»
+  pressed at 78.1 s → **joined at 81.2 s**. Repeated under full Pixel 7 emulation: 77.4 s
+  pause, joined at 80.6 s. Screenshots 01–03, 06.
+- **[U2] met.** Bound stated: **45 s** (`SDK_CALL_TIMEOUT_MS`), measured from `join()` to
+  Zoom rendering a screen. Fake-timer tested at the unit level (an SDK that calls neither
+  callback and renders nothing; a root that never appears; a shell with no control) and
+  at the component level (bundle loads, `join` called, nothing rendered → the link, with
+  the `{fallback:'link'}` body asserted).
+- **[U3] met.** See the table above — five runs, plus the negative cases.
+- **[U4] met.** `meet-embed-use-link`, es-CL («¿Prefieres abrir Zoom aparte?» / «Abrir
+  Zoom en otra pestaña»), `fixed … z-[60]` over the frame's `z-50`, never disabled by the
+  join it interrupts. `u4` run: visible over Zoom at 2.9 s, pressed, **link offered at
+  3.1 s with the frame gone**. Same `{fallback:'link'}` request, no new server surface.
+  Screenshots 01, 04.
+- **[U5] met.** `meet-prejoin-check` count is **0** on every Client View run and **1** on
+  the Component View run, which then joins in 5.4–6.1 s through r3's preflight unchanged.
+  Screenshot 05.
+- **[U6] met, re-verified rather than assumed.** Component View joins (5.4 s / 6.1 s);
+  es-ES before render on both views — Client View's controls read «Silenciar / Iniciar el
+  vídeo / Entrar», Component View's chrome reads «Ver aplicaciones que están accediendo
+  al contenido de su reunión»; SDK failure → link at **0.8 s** with **zero**
+  `source.zoom.us` responses; flag off → a new tab, no preflight, no frame, no embed
+  root, **zero** `source.zoom.us` responses; both Zoom stylesheets **`data-loaded="true"`**
+  on every unblocked run; blocked stylesheets → **both warnings fired** and the join
+  still completed (81.5 s including the 75 s pause); both mobile triggers reach Client
+  View (narrow-viewport Android UA, and full Pixel 7 emulation).
+- **[U7] met.** Five gates green; **7029 tests / 304 files** against a 7008/302 baseline;
+  pgTAP **484**; no credential in the diff.
+- **[U8] met.** This section.
+- **[U9] met.** `git diff --stat origin/main..HEAD -- tests/e2e/` is empty.
+
+## Known limitations, stated rather than left to be found
+
+1. **The escape hatch lives in `joining`, not in `joined`.** Once the person has entered
+   the meeting, Zoom's own «Salir» owns that state, and a GENERA button that tore down a
+   live meeting on a mis-click would be a hazard rather than a way out. The defect r7
+   surfaced — a viewport with no GENERA affordance on it — is entirely inside `joining`,
+   which is the state that is now unbounded. **This is an interpretation of [U4]'s
+   wording ("while the embed is mounted") and the reviewer may disagree with it.**
+2. **The signal is a DOM reading, and DOM readings are the vendor's to break.** It is
+   deliberately generic, and the failure mode is safe in one direction only: if a future
+   bundle rendered a screen with nothing matching, the deadline would run and the user
+   would get the link at 45 s — the pre-r8 behaviour, not a hang. If it matched something
+   too early, a machine failure after that point would hang instead of falling back.
+   Nothing observed in five runs suggests either.
+3. **Zoom's `error` callback is the only thing bounding a screen the user never answers.**
+   If Zoom renders a pre-join screen for a meeting that is dead, the user presses «Entrar»
+   and gets the error path. Until they press, nothing happens — which is the ruling.
+4. **School hardware/network validation remains waived and deferred**, unchanged from
+   r6 and r7.
+
+## How the runtime work was set up, and what it did not touch
+
+- `.env.local` points at **PRODUCTION Supabase** and was **not edited**. Every process ran
+  with the local URL and keys exported in the shell. **Production was never read or
+  written.**
+- The `zoom_internal` rows r7 seeded on the **local** stack were reused as they stood.
+  `npx supabase db reset` was never run.
+- §9 provisions `join_before_host: false`, so the meeting had to be started: a scratchpad
+  host-starter joined role 1 with a ZAK for the licensed host, **no camera and no
+  microphone**, nothing transmitted. **It had to press Zoom's «Entrar» itself** — which is
+  one more independent confirmation of r7's diagnosis. The meeting was **left, not
+  deleted**, and re-read afterwards: topic, `join_before_host`, `waiting_room` and
+  `meeting_authentication` all unchanged.
+- Real Google Chrome (`channel: 'chrome'`, headed) with
+  `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream`. The harness lives
+  in the session scratchpad and is not committed. Nothing was added to `tests/`.
+- **PII:** all six committed screenshots inspected by eye before committing. Synthetic
+  personas only («Lider Comunidad …», «Anfitrion Sintetico»), name cards rather than
+  profile photos on every tile, synthetic session dated 2030, no passcode, no signature,
+  no ZAK. An exact-value scan of every `.env.local` value plus a JWT-shape regex over all
+  changed files returned three hits, all the same false positive r7 recorded:
+  `NEXT_PUBLIC_STORAGE_BUCKET` is the literal word `resources`.
+
+## What r8 did not touch
+
+`lib/utils/meeting-join-policy.ts`, `lib/utils/meeting-zak-policy.ts`, the join route's
+gate order, the §9 rule, the audit write, the migration, `supabase/tests/`,
+`public/meet/zoom-client-view.html`, `components/sessions/PreJoinCheck.tsx` (unchanged —
+it is only rendered on a different set of paths now). No migration, no `package.json`
+change, no new feature work.

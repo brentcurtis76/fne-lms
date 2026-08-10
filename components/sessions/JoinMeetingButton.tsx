@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { ExternalLink, Loader2 } from 'lucide-react';
 import MeetingDialIn from './MeetingDialIn';
@@ -16,6 +16,7 @@ import {
 import {
   awaitClientViewCall,
   awaitClientViewFrame,
+  awaitClientViewJoin,
   CLIENT_VIEW_FRAME_SRC,
   CLIENT_VIEW_LIB_BASE,
   CLIENT_VIEW_LIB_DIR,
@@ -109,6 +110,33 @@ import {
  * them — they cross into the frame as arguments to a function call, never as a URL, a
  * prop, an attribute or a message payload — and the same `{fallback:'link'}` on any
  * failure.
+ *
+ * ## Zoom's pre-join screen IS the preflight, on Client View (Z3-r8, owner ruling)
+ *
+ * Client View answers `join`'s success callback only after a person presses Zoom's own
+ * «Entrar». r7 proved that three ways — devices present or absent makes no difference,
+ * `disablePreview` does not suppress the screen, and a human click settles the join in
+ * 5.9 s — and the owner ruled that the screen is the intended UX rather than a defect:
+ * it is the vendor's device check, in the meeting's own context, with the controls that
+ * actually govern the join.
+ *
+ * Three things follow, and all three are in this file:
+ *
+ * **① No `PreJoinCheck` on this path.** Two device checks and two clicks to join one
+ * meeting is worse than one, and Zoom's is the better of the two. Component View is a
+ * widget with no preview screen at all — the gap r3 built `PreJoinCheck` for — so there
+ * it renders exactly as it did.
+ *
+ * **② The join is started by the render, not by a click.** With no preflight there is no
+ * user gesture between "credentials arrived" and "mount the frame", and
+ * `joinWithClientView` needs a frame React has already committed. So the response opens
+ * the frame and an effect below starts the join once the element exists.
+ *
+ * **③ A GENERA way out, for as long as Zoom's screen is up.** That screen takes the
+ * whole viewport and carries nothing of ours, so without this a user who would rather
+ * just open the link has nowhere to press — permanently, now that no deadline ends the
+ * wait. It is the same `{fallback:'link'}` second request the preflight's escape hatch
+ * makes; there is no new server surface.
  */
 
 interface JoinMeetingButtonProps {
@@ -142,6 +170,15 @@ const LINK_OPENED_MESSAGE = 'Abrimos Zoom en una pestaña nueva. Si no la ves, u
 
 /** Shown while the SDK downloads and connects. */
 const EMBED_CONNECTING_MESSAGE = 'Conectando a la reunión…';
+
+/**
+ * What the escape hatch says while Zoom's own screen is up (Z3-r8).
+ *
+ * Short because on Client View it sits on top of the vendor's viewport-filling UI and
+ * has to be readable at a glance without competing with it. es-CL, like every string
+ * this app authors.
+ */
+const EMBED_USE_LINK_HINT = '¿Prefieres abrir Zoom aparte?';
 
 /** Ruling ②: the one value the server recognises on the wire. */
 const LINK_FALLBACK_INTENT = 'link';
@@ -270,6 +307,20 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
   /** Client View is bootstrapped once per FRAME, exactly as `clientRef` is per client. */
   const clientViewReadyRef = useRef(false);
   const clientFrameRef = useRef<HTMLIFrameElement | null>(null);
+  /**
+   * Which join attempt is current (Z3-r8).
+   *
+   * A Client View join is no longer bounded by a deadline, so it can still be in flight
+   * when the user abandons it through the escape hatch. The attempt that was abandoned
+   * must not later resolve into a joined meeting, and its failure must not fire a SECOND
+   * link fallback on top of the one the user already asked for.
+   */
+  const attemptRef = useRef(0);
+  /**
+   * A Client View join waiting for React to commit the frame it needs (Z3-r8, ②). Set
+   * by the response, consumed once by the effect below.
+   */
+  const pendingClientJoinRef = useRef(false);
   /** The frame's window, once its document has loaded. Waiting for it twice is pointless. */
   const clientHostRef = useRef<Window | null>(null);
   /**
@@ -346,10 +397,20 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
 
       setDialIn(readDialIn(payload.dial_in));
       credentialsRef.current = credentials;
-      // Mounted from here, so the isolated document is already loading while the user
-      // reads the preflight — and kept mounted across a second join in the same page
-      // life, exactly as the bootstrap it holds is.
-      if (view === 'client') setClientFrameOpen(true);
+
+      // Z3-r8 ①/②: Client View has no preflight of ours, because Zoom's own pre-join
+      // screen is one. The frame opens now and the effect below joins through it as soon
+      // as React has committed the element; it stays mounted across a second join in the
+      // same page life, exactly as the bootstrap it holds does.
+      if (view === 'client') {
+        pendingClientJoinRef.current = true;
+        setClientFrameOpen(true);
+        setOutcome({ kind: 'joining', view });
+        return;
+      }
+
+      // Component View is a widget with no preview screen — r3's gap, and where the
+      // preflight still earns its place.
       setOutcome({ kind: 'preflight', view });
       return;
     }
@@ -492,7 +553,9 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
       clientViewReadyRef.current = true;
     }
 
-    await awaitClientViewCall((callbacks) =>
+    // Z3-r8: the ONE call on this path that finishes when a person acts. Its deadline
+    // bounds Zoom putting a screen up, and stops there — see `awaitClientViewJoin`.
+    await awaitClientViewJoin(host, (callbacks) =>
       sdk.join({
         sdkKey: credentials.sdkKey,
         signature: credentials.signature,
@@ -518,15 +581,22 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
    * Join through whichever view the response's browser check chose. Every failure
    * between here and a joined meeting — the CDN, an absent global, `init`, `join` —
    * ends in the same place: the link the server will hand over on request.
+   *
+   * The attempt number is captured before anything is awaited: a Client View join has no
+   * deadline any more, so it can still be running when the user abandons it, and neither
+   * its success nor its failure may speak for the page once that has happened.
    */
-  const startEmbeddedMeeting = async (view: EmbeddedView) => {
+  const runEmbeddedJoin = async (view: EmbeddedView) => {
     // Read and cleared in the same breath. From this line on there is no copy of the
     // signature, the passcode or the ZAK anywhere but the local `credentials`.
     const credentials = credentialsRef.current;
     credentialsRef.current = null;
 
+    attemptRef.current += 1;
+    const attempt = attemptRef.current;
+    const current = () => attemptRef.current === attempt;
+
     setBusy(true);
-    setOutcome({ kind: 'joining', view });
 
     try {
       if (!credentials) {
@@ -539,16 +609,64 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
         await joinWithComponentView(credentials);
       }
 
-      setOutcome({ kind: 'joined', view });
+      if (current()) setOutcome({ kind: 'joined', view });
     } catch {
       // Nothing is logged. The only values in scope are the ones §5 exists to contain.
+      if (current()) await requestLinkFallback();
+    } finally {
+      if (current()) setBusy(false);
+    }
+  };
+
+  /** The preflight's continue button — Component View only, since Z3-r8. */
+  const startEmbeddedMeeting = async (view: EmbeddedView) => {
+    setOutcome({ kind: 'joining', view });
+    await runEmbeddedJoin(view);
+  };
+
+  /**
+   * Z3-r8 ②: the Client View join, started once the frame it needs is in the document.
+   *
+   * `joinWithClientView` reads `clientFrameRef`, which React populates at commit — so
+   * with the preflight gone there is no longer a user gesture standing between the state
+   * change that mounts the frame and the code that uses it, and this effect is that gap.
+   */
+  useEffect(() => {
+    if (!pendingClientJoinRef.current) return;
+    if (outcome.kind !== 'joining' || outcome.view !== 'client') return;
+    if (!clientFrameRef.current) return;
+
+    pendingClientJoinRef.current = false;
+    void runEmbeddedJoin('client');
+    // Deliberately keyed on the outcome alone: the effect is a one-shot guarded by the
+    // ref above, not a subscription to every value the join closes over.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outcome]);
+
+  const handleUseLink = async () => {
+    setBusy(true);
+    try {
       await requestLinkFallback();
     } finally {
       setBusy(false);
     }
   };
 
-  const handleUseLink = async () => {
+  /**
+   * Z3-r8 ③: leave the embed for the link, from underneath Zoom's own screen.
+   *
+   * It abandons the in-flight join rather than waiting for it — the whole point is that
+   * nothing is waiting on a deadline any more — so the attempt counter moves first and
+   * the frame comes down with the bootstrap that lived on its window. What follows is
+   * the same one `{fallback:'link'}` request the preflight's escape hatch makes.
+   */
+  const handleLeaveEmbedForLink = async () => {
+    attemptRef.current += 1;
+    pendingClientJoinRef.current = false;
+    clientViewReadyRef.current = false;
+    clientHostRef.current = null;
+    setClientFrameOpen(false);
+
     setBusy(true);
     try {
       await requestLinkFallback();
@@ -562,8 +680,12 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
 
   return (
     <div className="mt-6">
-      {/* Hidden only while the preflight owns the controls — it has its own two. */}
-      {outcome.kind !== 'preflight' && (
+      {/*
+        Hidden while something else owns the controls: the preflight has its own two, and
+        a join in flight has the escape hatch below. Offering "Unirse a la reunión" on top
+        of Zoom's own pre-join screen would start a second attempt over the first.
+      */}
+      {outcome.kind !== 'preflight' && outcome.kind !== 'joining' && (
         <button
           type="button"
           onClick={handleJoin}
@@ -596,6 +718,39 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
         >
           {EMBED_CONNECTING_MESSAGE}
         </p>
+      )}
+
+      {/*
+        Z3-r8 ③ — the GENERA affordance that survives Zoom taking the viewport.
+
+        It lives in the `joining` state, which is now the unbounded one: from the moment
+        the embed starts until the person enters the meeting, however long that is. On
+        Client View it has to float ABOVE the frame's `z-50`, because that frame is the
+        whole screen and this is the only thing on it that is ours. On Component View the
+        embed is a widget in the page, so it sits in the flow like everything else.
+
+        Never disabled by `busy` — a control that is only reachable during a join, and is
+        switched off for the duration of that join, is not a way out.
+      */}
+      {outcome.kind === 'joining' && (
+        <div
+          className={
+            outcome.view === 'client'
+              ? 'fixed right-3 top-3 z-[60] flex flex-wrap items-center justify-end gap-2 rounded-lg border border-gray-300 bg-white/95 p-2 shadow-lg'
+              : 'mt-2 flex flex-wrap items-center gap-2'
+          }
+        >
+          <span className="text-xs text-gray-600">{EMBED_USE_LINK_HINT}</span>
+          <button
+            type="button"
+            onClick={handleLeaveEmbedForLink}
+            data-testid="meet-embed-use-link"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2"
+          >
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+            {USE_LINK_LABEL}
+          </button>
+        </div>
       )}
 
       {outcome.kind === 'pending' && (
@@ -668,8 +823,11 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
         `allow` is what lets the frame ask for a camera and a microphone at all: the
         parent route is granted `camera=(self), microphone=(self), display-capture=(self)`
         by `next.config.js`, and a nested context gets only what it is explicitly passed.
-        Full-viewport from `joining` onward — before that it is mounted but hidden, so
-        its document loads while the user is still reading the preflight.
+
+        Full-viewport whenever Client View is the active view — which since Z3-r8 is from
+        the moment the credentials arrive, because there is no preflight of ours in front
+        of it any more. It stays mounted and hidden after the user leaves a meeting and
+        before the next join, which is what lets a second join reuse the bootstrap.
       */}
       {clientFrameOpen && (
         <iframe
@@ -679,7 +837,7 @@ const JoinMeetingButton: React.FC<JoinMeetingButtonProps> = ({ sessionId }) => {
           data-testid="meet-client-root"
           allow="camera; microphone; display-capture; autoplay; fullscreen"
           className={
-            activeView === 'client' && outcome.kind !== 'preflight'
+            activeView === 'client'
               ? 'fixed inset-0 z-50 h-full w-full border-0'
               : 'hidden'
           }

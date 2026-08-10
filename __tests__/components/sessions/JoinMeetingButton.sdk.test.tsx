@@ -387,6 +387,11 @@ describe('JoinMeetingButton — the ruling ② fallback [C4]', () => {
  * `JoinMeetingButton.clientview.test.tsx` [D5]). What [C9] is actually about — that the
  * 3.7 MB Component View bundle is never fetched on a machine that cannot render it — is
  * unchanged and asserted harder here, against the loader rather than the DOM.
+ *
+ * Z3-r8 moved the landmark once more, for the same kind of reason. Both cases used to
+ * wait for OUR preflight as proof the flow had got that far; on the Client View path
+ * there is no longer one, because Zoom's own pre-join screen is it. The isolated frame
+ * is now what says "this browser was routed to Client View". The claim is untouched.
  */
 describe('JoinMeetingButton — Component View is desktop only [C9]', () => {
   it('a narrow viewport never mounts the embed or fetches its bundle', async () => {
@@ -396,7 +401,7 @@ describe('JoinMeetingButton — Component View is desktop only [C9]', () => {
 
     clickJoin();
 
-    await screen.findByTestId('meet-prejoin-check');
+    await screen.findByTestId('meet-client-root');
     expect(screen.queryByTestId('meet-embed-root')).toBeNull();
     expect(mockLoadMeetingSdk).not.toHaveBeenCalled();
   });
@@ -411,7 +416,7 @@ describe('JoinMeetingButton — Component View is desktop only [C9]', () => {
 
     clickJoin();
 
-    await screen.findByTestId('meet-prejoin-check');
+    await screen.findByTestId('meet-client-root');
     expect(screen.queryByTestId('meet-embed-root')).toBeNull();
     expect(mockLoadMeetingSdk).not.toHaveBeenCalled();
   });

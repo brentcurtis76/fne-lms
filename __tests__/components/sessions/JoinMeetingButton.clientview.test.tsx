@@ -16,7 +16,7 @@
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 const { mockReplace, mockAsPath, mockLoadMeetingSdk, mockLoadClientView } = vi.hoisted(() => ({
   mockReplace: vi.fn(),
@@ -183,34 +183,54 @@ afterEach(() => {
 const clickJoin = () => fireEvent.click(screen.getByTestId('meet-join-button'));
 
 /**
- * Deliver the isolated document (Sol M4).
+ * Deliver the isolated document (Sol M4; reshaped in Z3-r8).
  *
  * jsdom starts navigating the frame and never finishes — there is no server behind
- * `CLIENT_VIEW_FRAME_SRC` in a unit test — so `readyState` stays `loading` and `load`
- * never fires on its own. In a real browser this event IS the static file arriving.
- * Delivered once per frame: a second `load` on the same element means the user LEFT the
- * meeting, which is a different thing entirely and has its own test below.
+ * `CLIENT_VIEW_FRAME_SRC` in a unit test — so what sits in `contentDocument` is the
+ * `about:blank` placeholder every real browser also puts there first.
+ *
+ * That distinction is now load-bearing, so this helper models the static file ARRIVING
+ * rather than an event announcing it: the root element `CLIENT_VIEW_FRAME_SRC` exists to
+ * provide is what `awaitClientViewFrame` waits for, and it is the one thing the
+ * placeholder never has. A test that skips this is testing the placeholder — which is
+ * exactly the defect r8 found in a real browser.
  */
-function deliverFrameDocument() {
-  const frame = screen.queryByTestId('meet-client-root') as HTMLIFrameElement | null;
-  if (!frame || frame.dataset.testDelivered === 'true') return;
-  frame.dataset.testDelivered = 'true';
-  fireEvent.load(frame);
+async function deliverFrameDocument() {
+  const frame = (await screen.findByTestId('meet-client-root')) as HTMLIFrameElement;
+  const doc = frame.contentDocument as Document;
+  // Already delivered: a second join in the same page life reuses this very document and
+  // the window built from it, so there is nothing left to arrive.
+  if (doc.getElementById(CLIENT_VIEW_ROOT_ID)) return frame;
+
+  const root = doc.createElement('div');
+  root.id = CLIENT_VIEW_ROOT_ID;
+  // jsdom's placeholder has no `body` and not even a `documentElement`; the lookup is by
+  // id and does not care which ancestor holds it.
+  const documentElement =
+    doc.documentElement ?? (doc.appendChild(doc.createElement('html')) as HTMLElement);
+  documentElement.appendChild(root);
+
+  // The watcher polls, so this waits for it to notice rather than announcing it.
+  const before = mockLoadClientView.mock.calls.length;
+  await waitFor(() => expect(mockLoadClientView.mock.calls.length).toBeGreaterThan(before));
+  return frame;
 }
 
-const clickContinue = () => {
-  fireEvent.click(screen.getByTestId('meet-prejoin-continue'));
-  deliverFrameDocument();
-};
+/** Component View's preflight, which Z3-r8 left exactly where r3 put it. */
+const clickContinue = () => fireEvent.click(screen.getByTestId('meet-prejoin-continue'));
 
-/** Click through to a joined Client View meeting. */
+/**
+ * Click through to a joined Client View meeting.
+ *
+ * One click, since Z3-r8: Zoom's own pre-join screen is the preflight on this path, so
+ * there is no «Entrar a la reunión» of ours between the response and the join.
+ */
 async function joinClientView(payload: Record<string, unknown> = sdkPayload()) {
   serve(ok(payload));
   const view = render(<JoinMeetingButton sessionId={SESSION_ID} />);
 
   clickJoin();
-  await screen.findByTestId('meet-prejoin-check');
-  clickContinue();
+  await deliverFrameDocument();
   await waitFor(() => expect(mockClientJoin).toHaveBeenCalled());
 
   return view;
@@ -284,8 +304,7 @@ describe('JoinMeetingButton — mobile joins through Client View [D2]', () => {
 
     serve(ok(sdkPayload()));
     clickJoin();
-    await screen.findByTestId('meet-prejoin-check');
-    clickContinue();
+    await deliverFrameDocument();
     await waitFor(() => expect(mockClientJoin).toHaveBeenCalledTimes(2));
 
     // A fresh frame is a fresh window: the bootstrap that lived on the old one is gone.
@@ -311,8 +330,7 @@ describe('JoinMeetingButton — mobile joins through Client View [D2]', () => {
     render(<JoinMeetingButton sessionId={SESSION_ID} />);
 
     clickJoin();
-    await screen.findByTestId('meet-prejoin-check');
-    clickContinue();
+    await deliverFrameDocument();
 
     await waitFor(() => expect(mockI18nLoad).toHaveBeenCalledWith('es-ES'));
     // Held. Everything downstream of the language is still waiting on it.
@@ -349,15 +367,12 @@ describe('JoinMeetingButton — mobile joins through Client View [D2]', () => {
     expect(mockLoadClientView).not.toHaveBeenCalledWith(window);
   });
 
-  it('shows the preflight first, and downloads nothing until asked', async () => {
+  it('downloads nothing until the user has asked to join', async () => {
     serve(ok(sdkPayload()));
     render(<JoinMeetingButton sessionId={SESSION_ID} />);
 
-    clickJoin();
-
-    await screen.findByTestId('meet-prejoin-check');
     expect(mockLoadClientView).not.toHaveBeenCalled();
-    expect(mockClientJoin).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('meet-client-root')).toBeNull();
     expect(mockOpen).not.toHaveBeenCalled();
   });
 
@@ -366,8 +381,7 @@ describe('JoinMeetingButton — mobile joins through Client View [D2]', () => {
 
     serve(ok(sdkPayload()));
     clickJoin();
-    await screen.findByTestId('meet-prejoin-check');
-    clickContinue();
+    await deliverFrameDocument();
     await waitFor(() => expect(mockClientJoin).toHaveBeenCalledTimes(2));
 
     expect(mockClientInit).toHaveBeenCalledTimes(1);
@@ -392,8 +406,7 @@ describe('JoinMeetingButton — mobile joins through Client View [D2]', () => {
     render(<JoinMeetingButton sessionId={SESSION_ID} />);
 
     clickJoin();
-    await screen.findByTestId('meet-prejoin-check');
-    clickContinue();
+    await deliverFrameDocument();
 
     await waitFor(() =>
       expect(mockOpen).toHaveBeenCalledWith(JOIN_URL, '_blank', 'noopener,noreferrer')
@@ -423,10 +436,9 @@ describe('JoinMeetingButton — desktop Firefox never loads the Component View b
     render(<JoinMeetingButton sessionId={SESSION_ID} />);
 
     clickJoin();
-    await screen.findByTestId('meet-prejoin-check');
+    await deliverFrameDocument();
     expect(mockLoadMeetingSdk).not.toHaveBeenCalled();
 
-    clickContinue();
     await waitFor(() => expect(mockClientJoin).toHaveBeenCalled());
 
     // Past a completed join, and still never asked for.
@@ -457,8 +469,10 @@ describe('JoinMeetingButton — the two views are mutually exclusive [D4]', () =
     render(<JoinMeetingButton sessionId={SESSION_ID} />);
 
     clickJoin();
+    // Component View keeps r3's preflight — Zoom's preview screen exists on the other
+    // path only, so this is still the one place a school machine is checked.
     await screen.findByTestId('meet-prejoin-check');
-    clickContinue();
+    fireEvent.click(screen.getByTestId('meet-prejoin-continue'));
     await waitFor(() => expect(mockComponentJoin).toHaveBeenCalled());
 
     expect(screen.queryByTestId('meet-client-root')).toBeNull();
@@ -466,7 +480,7 @@ describe('JoinMeetingButton — the two views are mutually exclusive [D4]', () =
     expect(mockLoadClientView).not.toHaveBeenCalled();
   });
 
-  it('never has both roots in the document at the same time, from preflight to joined', async () => {
+  it('never has both roots in the document at the same time, from idle to joined', async () => {
     serve(ok(sdkPayload()));
     render(<JoinMeetingButton sessionId={SESSION_ID} />);
 
@@ -480,10 +494,9 @@ describe('JoinMeetingButton — the two views are mutually exclusive [D4]', () =
     expect(rootsMounted()).toBe(0);
 
     clickJoin();
-    await screen.findByTestId('meet-prejoin-check');
+    await deliverFrameDocument();
     expect(rootsMounted()).toBe(1);
 
-    clickContinue();
     await waitFor(() => expect(mockClientJoin).toHaveBeenCalled());
     expect(rootsMounted()).toBe(1);
   });
@@ -596,11 +609,10 @@ describe('JoinMeetingButton — the credentials leave no trace on Client View ei
     for (const secret of secrets) expect(container.innerHTML).not.toContain(secret);
 
     clickJoin();
-    await screen.findByTestId('meet-prejoin-check');
-    // Holding credentials, showing the preflight — the moment they are most alive.
+    // Holding credentials, mounting the frame — the moment they are most alive.
+    await deliverFrameDocument();
     for (const secret of secrets) expect(container.innerHTML).not.toContain(secret);
 
-    clickContinue();
     await waitFor(() => expect(mockClientJoin).toHaveBeenCalled());
     for (const secret of secrets) expect(container.innerHTML).not.toContain(secret);
     // Client View's root is Zoom's to fill; nothing of ours is written into it.
@@ -620,8 +632,7 @@ describe('JoinMeetingButton — the credentials leave no trace on Client View ei
       render(<JoinMeetingButton sessionId={SESSION_ID} />);
 
       clickJoin();
-      await screen.findByTestId('meet-prejoin-check');
-      clickContinue();
+      await deliverFrameDocument();
       await waitFor(() => expect(mockOpen).toHaveBeenCalled());
 
       const written = spies

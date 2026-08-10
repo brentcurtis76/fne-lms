@@ -40,6 +40,10 @@ import {
   SDK_CALL_TIMEOUT_MS,
   SDK_DOWNLOAD_TIMEOUT_MS,
 } from '../../../lib/meet/zoom-sdk-loader';
+import {
+  CLIENT_VIEW_RENDER_POLL_MS,
+  CLIENT_VIEW_ROOT_ID,
+} from '../../../lib/meet/zoom-client-view-loader';
 
 const SESSION_ID = '3f1c5f5e-0f1a-4d3e-9a11-2b6c8f0d1e22';
 const JOIN_ENDPOINT = `/api/meet/session/${SESSION_ID}/join`;
@@ -115,6 +119,8 @@ afterEach(() => {
 /**
  * Click through to the preflight on real timers, then hand the clock over. `findBy*`
  * polls, so it cannot run under a clock nothing is advancing.
+ *
+ * Component View only, since Z3-r8 — see `reachClientJoin` for the other path.
  */
 async function reachPreflight() {
   render(<JoinMeetingButton sessionId={SESSION_ID} />);
@@ -124,10 +130,38 @@ async function reachPreflight() {
   fireEvent.click(screen.getByTestId('meet-prejoin-continue'));
 }
 
-/** Deliver the isolated document — jsdom never finishes navigating it. See M4. */
-function deliverFrameDocument() {
-  const frame = screen.queryByTestId('meet-client-root');
-  if (frame) fireEvent.load(frame);
+/**
+ * The Client View equivalent (Z3-r8): one click, no preflight of ours, and the isolated
+ * document delivered by hand because jsdom never finishes navigating the frame (see M4).
+ *
+ * `deliver: false` leaves the `about:blank` placeholder every browser puts in a fresh
+ * frame first — which is what a document that never arrives actually looks like.
+ */
+async function reachClientJoin({ deliver = true } = {}) {
+  render(<JoinMeetingButton sessionId={SESSION_ID} />);
+  // The clock is handed over BEFORE the click here, unlike the preflight helper: with no
+  // preflight in the way, every deadline under test is armed by the effect that the
+  // click sets off, and a deadline armed on the real clock cannot be advanced.
+  vi.useFakeTimers();
+  fireEvent.click(screen.getByTestId('meet-join-button'));
+  // The response, the render it causes, and the effect that starts the join.
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
+
+  if (!deliver) return;
+
+  const frame = screen.getByTestId('meet-client-root') as HTMLIFrameElement;
+  const doc = frame.contentDocument as Document;
+  const root = doc.createElement('div');
+  root.id = CLIENT_VIEW_ROOT_ID;
+  const documentElement =
+    doc.documentElement ?? (doc.appendChild(doc.createElement('html')) as HTMLElement);
+  documentElement.appendChild(root);
+
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(CLIENT_VIEW_RENDER_POLL_MS + 50);
+  });
 }
 
 async function runOutTheClock(ms: number) {
@@ -218,8 +252,7 @@ describe('JoinMeetingButton — a silent SDK reaches the link [M3]', () => {
       join: () => {},
     };
 
-    await reachPreflight();
-    deliverFrameDocument();
+    await reachClientJoin();
     await runOutTheClock(SDK_CALL_TIMEOUT_MS);
 
     expectFellBackToLink();
@@ -237,8 +270,7 @@ describe('JoinMeetingButton — a silent SDK reaches the link [M3]', () => {
       join: (options: { success: () => void }) => options.success(),
     };
 
-    await reachPreflight();
-    deliverFrameDocument();
+    await reachClientJoin();
     await runOutTheClock(SDK_CALL_TIMEOUT_MS);
 
     expectFellBackToLink();
@@ -247,8 +279,9 @@ describe('JoinMeetingButton — a silent SDK reaches the link [M3]', () => {
   it('gives up on an isolated frame whose document never arrives', async () => {
     setBrowser(ANDROID_UA, 390);
 
-    // No `deliverFrameDocument()`: jsdom's own never-completing navigation IS the case.
-    await reachPreflight();
+    // The frame's `load` is deliberately never delivered: jsdom's own never-completing
+    // navigation IS the case under test.
+    await reachClientJoin({ deliver: false });
     await runOutTheClock(SDK_CALL_TIMEOUT_MS);
 
     expectFellBackToLink();

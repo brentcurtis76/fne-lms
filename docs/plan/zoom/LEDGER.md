@@ -1030,7 +1030,7 @@ Brent chose **re-plan** over a ninth remediation round or a scope narrowing deci
 
 **NEXT: owner decision on the proposal, then a reviewer sign-off on the AMENDMENT ITSELF before any further execution** (§3.9 step 5). The phase does not close, and the ledger row does not flip, on a PM proposal.
 
-## ✅ **OWNER ACCEPTED THE SPLIT (Brent, 2026-08-08). `PLAN.md` AMENDED.**
+## ⚠️ ~~**OWNER ACCEPTED THE SPLIT (Brent, 2026-08-08). `PLAN.md` AMENDED.**~~ — **SUPERSEDED, see the correction below this entry.** The amendment it describes was reviewed and returned `REQUEST CHANGES` (4 MAJOR + 3 MINOR); five of the claims in this entry are wrong and are listed and corrected in the next section. Kept unedited as the record of what was decided at the time.
 
 **Decision log entry, as proposed and now accepted:**
 
@@ -1046,3 +1046,27 @@ Brent chose **re-plan** over a ninth remediation round or a scope narrowing deci
 **Plus §15.1**, a new subsection carrying the reasoning so no future session re-derives it: the widget-vs-app-takeover category error, the two Sol passes' asymmetry (zero findings vs seven), the three defects nobody had raised, why a Next route cannot be a CSS boundary, and the verified zero-downstream-cost claim.
 
 **The PM did not amend `PLAN.md` until the owner decided** — §0.1 makes plan decisions settled and owner-owned, and the proposal said so explicitly. **The amendment now itself goes to an independent reviewer before any further execution** (§3.9 step 5); r9 is NOT dispatched until that sign-off returns.
+
+## ⛔➡️✅ **AMENDMENT REVIEW, TWO PASSES — and a FIFTH PM staleness failure, this time in this ledger (2026-08-08).**
+
+**Pass 1 on the amendment: `REQUEST CHANGES`, 4 MAJOR + 3 MINOR. Pass 2, after correction: `APPROVE WITH NOTES` — execution of r9 released.** The reviewer changed nothing and committed nothing in either pass.
+
+**The five claims in the superseded entry above that were WRONG, corrected here:**
+
+| Superseded claim | Correction |
+|---|---|
+| *"zero findings against Component View"* | Overstated. The **first**-pass findings were partly cross-cutting (M1 shared fallback, M3 shared loader/deadline, M5 required runtime proof of both views) and were closed before `fc8a564d`. What holds — and all the split needs — is that **no finding still open at `fc8a564d` touches Component View** |
+| *"remaining for Z3: M4 + m1 + m2"* | **Incomplete.** Z3 also carries **structural unreachability** as a DoD clause with blocking tests — and **Sol M3 may defer only once that is proven** |
+| *the §16 verdict sequences Z3b generally* | **Wrong twice.** The existing protocol drives **Component View** via `/meet/diag` and its verdict is decided on **P0 desktop**, so it cannot clear Z3b at all; and it now blocks **Z3b close / default-on**, not Z3b start |
+| *"zero downstream cost"* | **False.** §12 disables recording in link-out mode and G1 failed definitively, so mobile/tablet/Firefox on the Z2 link receive **no Z4 recording workflow** and contribute **no Z5 transcript or Z8 minuta input** |
+| *"four `PLAN.md` edits"* | **Six**, plus §15.1, plus four more in the corrected pass |
+
+**FIFTH STALENESS FAILURE, and it is the PM's.** After correcting `PLAN.md` and the proposal, the PM **did not return to the ledger entry that recorded the original amendment** — so the workstream's own record still asserted five claims the reviewer had rejected. Sol found it. **Four of the previous four were on the reviewer's entry documents; this one is on the normative record itself.** The pattern is now unambiguous: **the PM corrects the document it is looking at and not the others that state the same thing.** Recorded here rather than quietly patched, because the next PM needs to know it is a habit and not an accident.
+
+**Reviewer's Note 1 — the one that changes r9, and the PM verified it:** *"structurally unreachable" must be interpreted across the complete capability fact space.* `selectEmbedView()` is `component → client → none`, and `supportsComponentView()` rejects viewports under 768 px — so **a narrow DESKTOP window also selects Client View**, not just mobile/tablet/Firefox. On school hardware a low-resolution or split-screen window is not hypothetical. **The three named populations are minimum coverage, not the definition. r9 must prove that EVERY non-Component outcome takes link mode before the SDK request, and a truth table over the selector beats three isolated UA tests. If any branch can still start Client View, M3 has not moved.**
+
+**Reviewer Notes 3 and 4, both accepted and fixed in the same commit as this entry:** the proposal's phase table still said Z4/Z5 suffer "None" while its corrected text below said otherwise; its decision entry omitted structural unreachability; it said "nothing against Component View" a third time. And in `PLAN.md`, **§17** still called the old Component View protocol *"the embed gate"* though it cannot clear Z3b, and **§19** still claimed link mode ships *"full business value regardless"*, contradicting §15.1's accepted recording limitation.
+
+**Totals, resolved:** the reviewer conceded the PM's figure — **85.5–121**, and 81.5–114 without Z3b, which is why the plan previously read 82–114. Their first-pass arithmetic had omitted Z9 and one of the Z10/Z11 rows.
+
+**r9 IS RELEASED**, scoped to: **Sol M4** (request-scoped budget + `AbortSignal` on the ZAK path) · **structural unreachability** with a selector truth table as its blocking test · **m2** (`join.ts:4`'s false "Nothing here writes") · **m1** (both artifacts rebuilt from measurement).

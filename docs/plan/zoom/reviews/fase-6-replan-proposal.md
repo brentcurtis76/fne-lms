@@ -118,8 +118,8 @@ strongest argument for the split.**
 
 | Phase | Depends on Z3? | Effect |
 |---|---|---|
-| **Z4** recording | No — needs Z1b, Z0B numbers, consent capture | **None** |
-| **Z5** transcription | No — needs Z4 | **None** |
+| **Z4** recording | No — needs Z1b, Z0B numbers, consent capture | **Not blocked, but DEGRADED**: §12 keeps recording off in link-out mode and G1 failed, so mobile/tablet/Firefox sessions get no Z4 workflow until Z3b |
+| **Z5** transcription | No — needs Z4 | **Not blocked, but DEGRADED**: no Z4 recording for that population ⇒ no transcript, and no Z8 minuta input |
 | **Z6** community meetings | Needs Z2 only | **None** |
 | **Z7** attendance + hours | Needs Z2 + the customerKey verdict (PASS) | **None** |
 | **Z8–Z11** | Need Z5/Z2 | **None** |
@@ -145,7 +145,10 @@ only** until Z3b ships.
 ## 4. Decision Log entry (proposed)
 
 > **2026-08-08 — Z3 split, proposed by the PM after Sol's second `REQUEST CHANGES`.**
-> Z3 becomes desktop-only (Component View) and closes with Sol M4 + m1 + m2 remediated.
+> Z3 becomes desktop-only (Component View) and closes with Sol **M4 + m1 + m2 remediated AND
+> structural unreachability proven** — link mode chosen before any Client View bundle, iframe,
+> SDK/media worker, join, ZAK or issuance audit, across **every** non-Component branch of
+> `selectEmbedView()` including narrow desktop, not merely the three named populations.
 > Client View moves to a new phase **Z3b**, carrying Sol M1/M2/M3, and is sequenced behind
 > §16's hardware/network verdict being **CLEARED rather than waived** — because its audience is
 > mobile/tablet/Firefox and nine rounds established that laptop simulation does not stand in
@@ -163,7 +166,8 @@ hardening a path against a simulation of its own users, and returns Client View 
 dependency it always had.
 
 **It is not a retreat from the embed.** Component View is the surface most GENERA users are on,
-it joins in 4.2 s, and two independent reviews found nothing against it.
+it joins in 4.2 s, and **no finding still open at `fc8a564d` touches it** — the accurate form of
+a claim this document twice overstated as "nothing against it".
 
 **It is not a criticism of the executors.** Eight of this phase's findings were the PM's error;
 executors caught four and falsified a PM ruling with an experiment. The loop worked. What it

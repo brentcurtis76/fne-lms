@@ -1113,3 +1113,25 @@ Brent chose **re-plan** over a ninth remediation round or a scope narrowing deci
 **§8 closes on the one question that decides the review** — *is Client View genuinely unreachable?* If it is, M1/M2/M3 belong to Z3b and the phase is done. If it is not, they are live defects in shipped code and it is not.
 
 **PHASE Z3 (DESKTOP) IS READY FOR SOL'S FINAL REVIEW.** Both entry documents are current and measured; the branch is green locally and on CI; the migration is in production and verified. **The ledger row does not flip until Sol approves and Brent merges.**
+
+## ✅ **SOL FINAL VERDICT ON PHASE Z3 (DESKTOP): `APPROVE` — ZERO FINDINGS (2026-08-08).**
+
+Third pass on this code, and the first with nothing to report. **No BLOCKER, no MAJOR, no MINOR.** The reviewer re-ran all five gates at `2a459a33` and got the PM's numbers exactly — 305 files, 7,060 passed, 11 documented skips, pgTAP 484, type-check/lint/build clean — confirmed PR #47 open and mergeable at the exact reviewed head with all six CI gates passed, and left the worktree clean with no edits and no commits.
+
+**On the question the whole review turned on — is Client View genuinely unreachable — the answer is YES, on five independent grounds:** capability selection happens **before** the initial request and every non-Component result sends `{fallback:'link'}` immediately (`JoinMeetingButton.tsx:477`); the response handler proceeds only when `view === 'component'` (`:426`); **Client View activation state is never set, so its remaining effect and iframe cannot mount**; the server skips SDK credentials, ZAK retrieval and audit creation on link intent (`join.ts:661`); and **the current capability branches are completely represented by the truth table.** The missing exhaustiveness enforcement is accepted as appropriately deferred to Z3b. The 8-second ZAK budget is confirmed to bound token waiting, transport, retries and sleeps, with the shared-grant behaviour matching the accepted Z12 deferral.
+
+**So M1, M2 and M3 legitimately belong to Z3b.** The split holds on the reviewer's own examination, not on the PM's assurance.
+
+**PM pre-merge verification, run immediately before handing over and not taken on trust:** branch head `2a459a33` **local and remote identical** and unmoved since review · PR **OPEN / MERGEABLE / `mergeStateStatus: CLEAN`** · **all eight checks SUCCESS** (six gates + Vercel + preview) · the zoom-embed worktree **clean**, and the **only** worktree on this branch. *(A first count query reported one non-SUCCESS check; it was the PM's jq missing a `.state` fallback for the Vercel row, not a failing check — verified by listing them rather than trusting the count.)*
+
+**PHASE Z3 (DESKTOP) IS CLEARED FOR MERGE. THE MERGE IS BRENT'S** — §0.2 step 5, and the PM does not merge to `main`. **The ledger row flips to ✅ DONE only after it lands.**
+
+**Post-merge checklist, so nothing is rediscovered:**
+
+1. **The migration is ALREADY applied and PM-verified in production** (`20260810120000_zoom_zak_issuances.sql`, applied 2026-08-08 ahead of merge on the owner's instruction). **§0.1(d) is satisfied for this phase — nothing to apply after merging.**
+2. **`PROJECT_STATE.md` needs its phase-close entry.** `CLAUDE.md` requires it and it is **outside the PM's write permissions** (PLAN.md and LEDGER.md only), so it needs Brent or an executor. It should record: Z3 desktop-only, what shipped, that Z3b exists and why, and that §16's verdict is waived for desktop and re-instated for Z3b.
+3. **`FEATURE_ZOOM_EMBED` is default-OFF.** Nothing changes for users on merge. Turning it on is a separate, deliberate act — and note it needs **both** `FEATURE_ZOOM_EMBED` (server) and `NEXT_PUBLIC_FEATURE_ZOOM_EMBED` (browser).
+4. **Worktree cleanup** (`/Users/brentcurtis/dev/wt/zoom-embed`) — **not yet**: Z3b starts from this code, and the 11 parked tests live there.
+5. **Z3b needs planning**, including its **revised, Client-View-specific** field protocol — the existing one drives Component View through `/meet/diag` and is decided on P0 desktop, so it cannot clear Z3b.
+
+**Unowned findings this phase surfaced and did not fix, carried forward:** the Vitest cross-file state pollution (two signatures, measured 1-in-3 on one commit, corroborated independently at r9 — and CI's Vitest gate has **no retries**); the 22-table production RLS allowlist; and INSPIRA's unapplied `20260803170000_add_email_marketing_tables`.

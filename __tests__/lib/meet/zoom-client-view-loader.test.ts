@@ -13,6 +13,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   awaitClientViewCall,
   CLIENT_VIEW_SRC,
+  CLIENT_VIEW_STYLE_FAILED_MESSAGE,
   CLIENT_VIEW_STYLE_HREFS,
   CLIENT_VIEW_VENDOR_SRCS,
   loadClientView,
@@ -151,8 +152,13 @@ describe('loadClientView [D2]', () => {
    * OURS and wrong for THEIRS — Zoom's sample app loads these next to the bundle. They
    * go into the same document the scripts do, and are not awaited: a stylesheet that
    * 404s must not cost the meeting.
+   *
+   * Z3-r7: and NOT from the pinned version, which is what this assertion used to
+   * require. `${SDK_BASE}/css/*.css` is HTTP 403 at every version — the reason the
+   * isolated document carried no CSS at all from r5 until r7 — and Zoom publishes these
+   * two under the bare origin only.
    */
-  it('puts Zoom’s own stylesheets in the same document, from the pinned version', async () => {
+  it('puts Zoom’s own stylesheets in the same document, from the UNVERSIONED root', async () => {
     primeCdn();
 
     await loadClientView(window);
@@ -161,7 +167,65 @@ describe('loadClientView [D2]', () => {
       (link) => link.getAttribute('href')
     );
     expect(hrefs).toEqual(CLIENT_VIEW_STYLE_HREFS);
-    for (const href of hrefs) expect(href).toContain(`/${SDK_VERSION}/`);
+    // The versioned path is the 403. A href that carries the version is the r5 defect
+    // coming back, and it must fail here rather than at a school on a Tuesday.
+    for (const href of hrefs) expect(href).not.toContain(`/${SDK_VERSION}/`);
+    for (const href of hrefs) expect(href).toMatch(/^https:\/\/source\.zoom\.us\/css\//);
+  });
+
+  /**
+   * Z3-r7 — the silence is the defect, not the 403.
+   *
+   * These were dead links for three rounds and nothing said so: appended, never
+   * awaited, no listener of any kind. It need not block the join, and does not; it must
+   * not fail invisibly a second time.
+   */
+  it('says so, by name, when a stylesheet does not load [r7]', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    primeCdn();
+
+    await loadClientView(window);
+    const link = document.head.querySelector<HTMLLinkElement>(
+      `link[href="${CLIENT_VIEW_STYLE_HREFS[0]}"]`
+    );
+    link?.dispatchEvent(new Event('error'));
+
+    expect(warn).toHaveBeenCalledWith(
+      CLIENT_VIEW_STYLE_FAILED_MESSAGE,
+      CLIENT_VIEW_STYLE_HREFS[0]
+    );
+    expect(link?.dataset.loaded).toBe('false');
+  });
+
+  it('records a stylesheet that DID load, so the state is readable either way [r7]', async () => {
+    primeCdn();
+
+    await loadClientView(window);
+    const link = document.head.querySelector<HTMLLinkElement>(
+      `link[href="${CLIENT_VIEW_STYLE_HREFS[1]}"]`
+    );
+    // Pending until the browser answers — neither loaded nor failed, and distinguishable.
+    expect(link?.dataset.loaded).toBeUndefined();
+
+    link?.dispatchEvent(new Event('load'));
+
+    expect(link?.dataset.loaded).toBe('true');
+  });
+
+  it('a failed stylesheet does not cost the meeting [r7]', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    primeCdn();
+
+    // Both stylesheets fail the moment they are in the document — they are appended
+    // synchronously, before the first `await` — and the bundle still resolves. CSS is
+    // cosmetic relative to joining and must never reach the catch that turns a join
+    // into a link.
+    const loading = loadClientView(window);
+    document.head
+      .querySelectorAll('link[rel="stylesheet"]')
+      .forEach((link) => link.dispatchEvent(new Event('error')));
+
+    await expect(loading).resolves.toBe(CLIENT_VIEW_GLOBAL);
   });
 
   it('does not append the stylesheets twice for a second join', async () => {

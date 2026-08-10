@@ -35,8 +35,18 @@
 
 export const SDK_VERSION = '6.2.0';
 
+/**
+ * Zoom's CDN origin, WITHOUT the version.
+ *
+ * Everything executable is served from `SDK_BASE` below, which is pinned. This bare
+ * origin exists for the one family of assets Zoom does not publish under a version at
+ * all — Client View's stylesheets, see `CLIENT_VIEW_STYLE_HREFS` and the trade recorded
+ * there. Nothing else may reach for it without the same justification.
+ */
+export const SDK_ORIGIN = 'https://source.zoom.us';
+
 /** Exported for `zoom-client-view-loader.ts`, so the two views cannot drift apart. */
-export const SDK_BASE = `https://source.zoom.us/${SDK_VERSION}`;
+export const SDK_BASE = `${SDK_ORIGIN}/${SDK_VERSION}`;
 
 /** The Component View bundle. Loaded LAST — see the header. */
 export const SDK_SRC = `${SDK_BASE}/zoom-meeting-embedded-${SDK_VERSION}.min.js`;

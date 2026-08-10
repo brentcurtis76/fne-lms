@@ -36,6 +36,7 @@
 
 import {
   SDK_BASE,
+  SDK_ORIGIN,
   SDK_CALL_TIMEOUT_MS,
   SDK_DOWNLOAD_FAILED_MESSAGE,
   SDK_TIMEOUT_MESSAGE,
@@ -67,17 +68,40 @@ export const CLIENT_VIEW_SRC = `${SDK_BASE}/zoom-meeting-${SDK_VERSION}.min.js`;
 export const CLIENT_VIEW_FRAME_SRC = '/meet/zoom-client-view.html';
 
 /**
- * Zoom's own stylesheets for Client View, from the pinned version.
+ * Zoom's own stylesheets for Client View, from the UNVERSIONED CDN root.
  *
  * The isolated document ships with no CSS at all, which is correct for OURS and wrong
- * for THEIRS: Zoom's sample app loads these two next to the bundle. Appended without
- * awaiting — a stylesheet that 404s must not cost the meeting, and nothing below reads
- * them — so this is the one load on this path that is allowed to fail silently.
+ * for THEIRS: Zoom's sample app loads these two next to the bundle.
+ *
+ * ## Why the version is missing here, and why that is a real trade
+ *
+ * Until Z3-r7 these pointed at `${SDK_BASE}/css/*.css` — the pinned path every other
+ * asset on this page uses — and BOTH answer **HTTP 403** (`text/plain`, so Chrome
+ * refuses them outright). Zoom serves these files from the bare origin only:
+ * `https://source.zoom.us/css/bootstrap.css` is 200 `text/css`, as is
+ * `…/css/react-select.css`. There is no versioned URL that answers, and Zoom's own
+ * samples load them exactly this way.
+ *
+ * So the JS stays pinned at `SDK_VERSION` while the CSS floats. That is a dependency
+ * that can change under us between one page load and the next, with no release note
+ * and no way to hold it still. It is recorded here rather than discovered later, and
+ * it is the reason a failure to load them must now be VISIBLE — see
+ * `appendClientViewStyles`.
  */
 export const CLIENT_VIEW_STYLE_HREFS = [
-  `${SDK_BASE}/css/bootstrap.css`,
-  `${SDK_BASE}/css/react-select.css`,
+  `${SDK_ORIGIN}/css/bootstrap.css`,
+  `${SDK_ORIGIN}/css/react-select.css`,
 ];
+
+/**
+ * What a stylesheet that did not arrive says, by name.
+ *
+ * Exported so a test asserts on a value rather than on prose, and so the string is
+ * greppable from a support ticket. It carries the href and nothing else — this path
+ * holds a signature and a passcode, and neither is ever within reach of a log line.
+ */
+export const CLIENT_VIEW_STYLE_FAILED_MESSAGE =
+  '[zoom-client-view] Zoom stylesheet did not load:';
 
 /** Zoom's own React/Redux vendor set. Loaded first, in this order, one at a time. */
 export const CLIENT_VIEW_VENDOR_SRCS = [
@@ -170,6 +194,44 @@ function readClientViewGlobal(host: Window): ZoomClientViewGlobal | undefined {
 }
 
 /**
+ * Puts Zoom's two stylesheets into `doc`, once, and makes either one's failure
+ * OBSERVABLE (Z3-r7).
+ *
+ * Still not awaited, and that part is deliberate and unchanged: CSS is cosmetic
+ * relative to joining, nothing below reads these, and a stylesheet the school's proxy
+ * swallows must not cost the meeting. What changed is that "not awaited" no longer
+ * means "not noticed" — until r7 these had been **403 on every join since r5** and
+ * nothing anywhere said so, because nobody was listening.
+ *
+ * `data-loaded` is the state a runtime probe can read (`'true'` / `'false'` /
+ * absent-while-pending) without waiting on an event it may already have missed; the
+ * warning is what a support ticket can grep for. Neither carries anything but the
+ * constant href.
+ */
+export function appendClientViewStyles(doc: Document): void {
+  for (const href of CLIENT_VIEW_STYLE_HREFS) {
+    if (doc.querySelector(`link[href="${href}"]`)) continue;
+
+    const link = doc.createElement('link');
+    link.rel = 'stylesheet';
+
+    link.addEventListener('load', () => {
+      link.dataset.loaded = 'true';
+    }, { once: true });
+
+    link.addEventListener('error', () => {
+      link.dataset.loaded = 'false';
+      // Not an exception: this must not reach the caller's catch and turn a cosmetic
+      // failure into a link fallback. It is a signal, and the point is that it exists.
+      console.warn(CLIENT_VIEW_STYLE_FAILED_MESSAGE, href);
+    }, { once: true });
+
+    link.href = href;
+    doc.head.appendChild(link);
+  }
+}
+
+/**
  * Resolves with the Client View global belonging to `host`, downloading it there on
  * first use.
  *
@@ -187,13 +249,7 @@ export async function loadClientView(host: Window): Promise<ZoomClientViewGlobal
 
   const doc = host.document;
 
-  for (const href of CLIENT_VIEW_STYLE_HREFS) {
-    if (doc.querySelector(`link[href="${href}"]`)) continue;
-    const link = doc.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = href;
-    doc.head.appendChild(link);
-  }
+  appendClientViewStyles(doc);
 
   // Sequential on purpose — see the header.
   for (const src of CLIENT_VIEW_VENDOR_SRCS) {

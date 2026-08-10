@@ -481,3 +481,200 @@ are this document and four screenshots.
 No source file, no migration, no `package.json`. `tests/e2e/` is untouched
 (`git diff --stat origin/main..HEAD -- tests/e2e/` is empty). All of M1–M4 left as sealed.
 The harness lives in the session scratchpad and is not committed.
+
+---
+
+# Round 7 — the Client View diagnosis, and Zoom's CSS (2026-08-10)
+
+r6 found two defects inside sealed M1–M4 work and fixed neither, by design. This round
+**diagnosed the first before touching anything** and **fixed the second**. The diagnosis
+came back negative for the hypothesis it was sent to test, so the first defect is
+reported and NOT patched — see the branch call below.
+
+## PART 1 — the answer is **BRANCH B**
+
+**The question:** does Client View's `join` success callback fire when devices are
+present? The PM's reading of r6's screenshots was that the join completes and only the
+*callback* is stuck, behind a «¿Está seguro de que no quiere audio ni vídeo?» confirm
+dialog raised because the test machine had no camera and no microphone.
+
+**How it was tested.** Real Google Chrome (`channel: 'chrome'`, headed), launched with
+`--use-fake-device-for-media-stream --use-fake-ui-for-media-stream` — a synthetic test
+pattern and tone inside Chrome, no real hardware, nothing transmitted — driven through
+the app's OWN surface (`/meet/session/[id]` → `JoinMeetingButton`, not `/meet/diag`)
+against the local Supabase stack and the disposable spike meeting.
+
+**What happened, three runs:**
+
+| | with fake devices |
+|---|---|
+| «¿Está seguro de que no quiere audio ni vídeo?» modal | **never appears** |
+| what the frame shows instead | Zoom's own pre-join screen: «Silenciar / Iniciar el vídeo», «Su audio está activado», a blue **«Entrar»** |
+| `join` success callback | **never fires** |
+| M3's 45 s deadline | **reached, every time** |
+| link fallback measured at | **46.6 s · 46.5 s · 46.7 s** |
+
+Evidence: `evidence/z3-r7/01-branch-b-prejoin-with-devices.png`, taken at 20 s into a
+join. The microphone control is green and unmuted and the camera control is live — the
+devices are there and Zoom knows it — and there is no confirm dialog anywhere on screen.
+There is a button waiting for a human.
+
+**So the device hypothesis is falsified.** The confirm dialog r6's screenshots show is a
+*consequence* of that machine having no devices, not the cause of the stall. The cause is
+Zoom's pre-join screen, which is device-independent and which nothing in this codebase
+completes.
+
+**A counterfactual was run before concluding, and it also came back negative.**
+`init({ disablePreview: true })` was forced onto the app's own `init` call at runtime, by
+wrapping `window.ZoomMtg` the moment the bundle assigns it — a Playwright init script, no
+repo change of any kind. The preview screen still rendered and the fallback still fired at
+**46.3 s**. Whatever removes that screen, this is not it.
+
+**And the wiring underneath is sound.** Pressing Zoom's own «Entrar» inside the frame
+settles the join at **5.9 s** with the success callback firing normally
+(`evidence/z3-r7/02-client-view-joined-css-loaded.png`). r6 measured 8 s for the same
+thing. Nothing is broken between the app and the SDK; what is missing is anything that
+completes the pre-join screen.
+
+**Per the round's own rule, this is where Part 1 stops.** No fix was written for it. The
+remedy — treat the pre-join screen as the intended UX and stop promise-wrapping `join`,
+drive Zoom's control, or revert to a Client View route — is a PM/Sol ruling, and a third
+architecture invented under time pressure is how this gets worse.
+
+## PART 2 — Zoom's CSS, and the silence around it
+
+`CLIENT_VIEW_STYLE_HREFS` now points at the **unversioned** CDN root.
+
+```
+https://source.zoom.us/6.2.0/css/bootstrap.css     403  text/plain
+https://source.zoom.us/6.2.0/css/react-select.css  403  text/plain
+https://source.zoom.us/css/bootstrap.css           200  text/css  119,494 b
+https://source.zoom.us/css/react-select.css        200  text/css    8,941 b
+```
+
+`SDK_ORIGIN` was added next to `SDK_BASE` in `zoom-sdk-loader.ts` so the split is visible
+in one place: **everything executable stays pinned at `SDK_VERSION`; only the CSS floats.**
+That trade is real — Zoom can change those two files under us between one page load and
+the next, with no release note and no versioned URL that answers — and it is written into
+the constant's own comment, not left to be rediscovered.
+
+**Runtime, inside the frame, after the fix:**
+
+```
+200 text/css https://source.zoom.us/css/bootstrap.css
+200 text/css https://source.zoom.us/css/react-select.css
+zoomLinks: [ { bootstrap.css, loaded: "true" }, { react-select.css, loaded: "true" } ]
+```
+
+Before the fix those two URLs produced **no response event at all** — Chrome refuses a
+403 `text/plain` stylesheet outright. The visible difference is in the screenshots: r6's
+pre-join screen had its own text overlapping; `01-branch-b-prejoin-with-devices.png` is
+laid out.
+
+### The silence is the defect, and it is closed
+
+`appendClientViewStyles()` still does **not** await — a stylesheet a school's proxy
+swallows must not cost the meeting, and that property is unchanged and tested. What it
+now does is listen:
+
+- `load` → `data-loaded="true"` on the link element;
+- `error` → `data-loaded="false"` **and** `console.warn('[zoom-client-view] Zoom
+  stylesheet did not load:', href)`. The href is a module constant; nothing else is
+  logged, on a path that holds a signature and a passcode.
+
+Proven at runtime by blocking `https://source.zoom.us/css/*` at the network layer:
+
+```
+139ms  [zoom-client-view] Zoom stylesheet did not load: https://source.zoom.us/css/bootstrap.css
+139ms  [zoom-client-view] Zoom stylesheet did not load: https://source.zoom.us/css/react-select.css
+       zoomLinks: both loaded:"false"
+7412ms app LEFT 'joining' with no fallback → the join completed anyway
+```
+
+### What `document.styleSheets.length` actually reads, and why the test does not assert 2
+
+The round asked for **2**. It is not 2, and the number is not a usable signal:
+
+- **Before the fix** it read **5** — and the two 403 hrefs were *in the list*. Chrome
+  keeps a `CSSStyleSheet` entry for an ORB-refused cross-origin link, so r5's `0` and this
+  `5` are both artefacts of *when* they were sampled, not of whether Zoom's CSS arrived.
+- **After the fix, in a joined meeting**, it reads **10–11**, because Zoom's own bundle
+  injects several more (`ui/zoom-meetingsdk.css`, an emoji sprite sheet, a whiteboard
+  sheet, inline blocks).
+- `cssRules` is unreadable on every one of them — they are cross-origin, so a rule count
+  cannot distinguish an empty sheet from a full one either.
+
+So the assertion is built on the two signals that *do* answer: the constants point at the
+URLs that return 200 (unit-asserted, fail-on-old proven), and the link elements report
+`data-loaded` at runtime (unit-asserted **and** exercised in the browser both ways above).
+`client-view-boundary.test.ts` now states both halves of the claim — the app's CSS is
+absent **and** Zoom's is what fills the gap — so the absence test can no longer pass for
+the wrong reason.
+
+## The mobile-emulation trigger, exercised at last
+
+r6 reached Client View through a narrow viewport, which is `selectEmbedView()`'s *last*
+refusal, not its mobile one. Both mobile paths were run this round:
+
+| run | facts the page reported | view chosen | result |
+|---|---|---|---|
+| Android UA at a **desktop** viewport | `Pixel 7` UA, `innerWidth: 1280` | **client** | joined at 6.9 s |
+| full Pixel 7 emulation | `Pixel 7` UA, `maxTouchPoints: 1`, `innerWidth: 412` | **client** | joined at 6.4 s |
+
+The first isolates the discriminator: at 1280 px the viewport floor cannot explain the
+choice, so the user agent is what selected Client View. Evidence:
+`evidence/z3-r7/03-mobile-trigger-client-view.png`.
+
+## Everything r6 proved, re-verified rather than assumed
+
+| | this round |
+|---|---|
+| **Component View joins** | `join` resolved at **4.2 s**, embed rendered inside the GENERA card, participant count 5, session synthetic. `evidence/z3-r7/04-component-view-joined.png` |
+| **es-ES before render** | Component View: `component.init {"keys":["language","leaveOnPageUnload","patchJsMedia","zoomAppRoot"],"language":"es-ES",…}` **resolved at 459 ms, `join` called at 460 ms** — after it, not racing it. Client View: `load success …/lib/lang/es-ES.json` at 733 ms, before `init`. |
+| **SDK failure → link** | `source.zoom.us/**` blocked at the network layer: link fallback rendered at **0.7 s**. |
+| **`FEATURE_ZOOM_EMBED` off → link** | server restarted with the flag unset: no preflight, no embed root mounted, **0 responses from `source.zoom.us`**, and a tab opened on the real meeting. Byte-for-byte the Z2 path (the primary link path leaves the button `idle` and renders no on-screen affordance — that one is the *fallback's*, Sol M1). |
+
+The `init`/`join` option capture above is a read-only Playwright shim over
+`ZoomMtgEmbedded.createClient`; it logs **key names, the language and two booleans**, never
+a value. No signature, passcode, ZAK or customer key was written anywhere.
+
+## Gates at this head
+
+| gate | result |
+|---|---|
+| `npm run type-check` | exit 0 |
+| `npm run lint` | exit 0 |
+| `npm test` | exit 0 — **7008 passed / 302 files** (r6 baseline 7004/302, **+4**) |
+| `npm run build` | exit 0 |
+| `npm run test:db` | exit 0 — **Files=11, Tests=484**, `Result: PASS` |
+
+**Fail-on-old for the CSS claim.** The hrefs were pointed back at `${SDK_BASE}/css/*.css`
+and the two new assertions failed —
+`expected 'https://source.zoom.us/6.2.0/css/boot…' to not include '/6.2.0/'` in both
+`client-view-boundary.test.ts:84` and `zoom-client-view-loader.test.ts:172`. Reverted, and
+`lib/meet/zoom-client-view-loader.ts` re-hashed byte-identical:
+`416c4c677bd4fa0bb908fd58ce74f688a8a86d2f82699898f7cab0a0da5ecd34`.
+
+## How the runtime work was set up, and what it did not touch
+
+- `.env.local` points at **PRODUCTION Supabase** and was **not edited**. The dev server and
+  every script ran with the local URL and keys exported in the shell; Next gives real env
+  vars precedence. **Production was never read or written.**
+- One `zoom_internal.zoom_meetings` row (and the `zoom_hosts` row its foreign key needs)
+  was seeded on the **local** stack for the Z2-S8 managed fixture session. `npx supabase
+  db reset` was never run.
+- §9 provisions `join_before_host: false`, so the meeting had to be started: a scratchpad
+  host-starter joined role 1 with a ZAK for the licensed host, **no camera and no
+  microphone in that context**. The meeting was **left, not deleted**, and re-read
+  afterwards — topic, `join_before_host` and `waiting_room` unchanged.
+- The harness lives in the session scratchpad and is not committed.
+
+## What r7 did not touch
+
+`lib/utils/meeting-join-policy.ts`, `lib/utils/meeting-zak-policy.ts`, the join route's
+gate order, the §9 rule, the audit write, the migration, `supabase/tests/`,
+`components/sessions/JoinMeetingButton.tsx`, `public/meet/zoom-client-view.html`. No
+migration, no `package.json` change, no feature work. `tests/e2e/` is untouched —
+`git diff --stat origin/main..HEAD -- tests/e2e/` is empty.
+
+School hardware/network validation **remains waived and deferred**, unchanged from r6.

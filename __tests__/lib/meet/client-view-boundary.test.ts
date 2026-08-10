@@ -21,7 +21,10 @@ import path from 'path';
 import {
   CLIENT_VIEW_FRAME_SRC,
   CLIENT_VIEW_ROOT_ID,
+  CLIENT_VIEW_STYLE_FAILED_MESSAGE,
+  CLIENT_VIEW_STYLE_HREFS,
 } from '../../../lib/meet/zoom-client-view-loader';
+import { SDK_VERSION } from '../../../lib/meet/zoom-sdk-loader';
 
 const ROOT = path.resolve(__dirname, '../../..');
 const SHELL_PATH = path.join(ROOT, 'public', CLIENT_VIEW_FRAME_SRC);
@@ -58,6 +61,34 @@ describe('the Client View document is a real CSS boundary [M4]', () => {
     expect(markup).not.toMatch(/\bclass=/i);
     expect(markup).not.toContain('globals.css');
     expect(markup).not.toContain('tailwind');
+  });
+
+  /**
+   * Z3-r7 — the other half of the same claim, and the reason r5's proof was not proof.
+   *
+   * r5 measured `document.styleSheets.length` at 0 inside the frame against 10 on
+   * `/login` and read it as "the app's CSS cannot reach here". It was equally evidence
+   * that ZOOM's CSS was not arriving either: both hrefs pointed at
+   * `https://source.zoom.us/6.2.0/css/*.css`, which is HTTP 403 — so the isolated
+   * document carried no CSS AT ALL from r5 until r7, and an absence test kept passing
+   * for the wrong reason.
+   *
+   * An assertion that ours is gone therefore has to say whose is supposed to be there.
+   */
+  it('is a boundary, not a void: Zoom’s own CSS is what fills it [r7]', () => {
+    expect(CLIENT_VIEW_STYLE_HREFS).toHaveLength(2);
+    for (const href of CLIENT_VIEW_STYLE_HREFS) {
+      expect(href.startsWith('https://source.zoom.us/')).toBe(true);
+      // NOT the pinned path — that one 403s. See the constant's own comment for the
+      // trade this buys: the JS stays pinned, the CSS floats.
+      expect(href).not.toContain(`/${SDK_VERSION}/`);
+    }
+    expect(CLIENT_VIEW_STYLE_HREFS).toContain('https://source.zoom.us/css/bootstrap.css');
+    expect(CLIENT_VIEW_STYLE_HREFS).toContain('https://source.zoom.us/css/react-select.css');
+
+    // And a failure to fetch them is no longer silent — the half of this that a static
+    // document cannot state, asserted in `zoom-client-view-loader.test.ts`.
+    expect(CLIENT_VIEW_STYLE_FAILED_MESSAGE).toContain('stylesheet');
   });
 
   it('carries no script — the bootstrap stays in typed, tested code', () => {

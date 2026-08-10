@@ -8,6 +8,17 @@
 > gates are green at this head**, and the migration is applied and PM-verified in production.
 > **Nothing here is blocked on broken code.** The problem is scope.
 
+> **AMENDED 2026-08-08 after Sol's review of this proposal — `REQUEST CHANGES`, 4 MAJOR + 3
+> MINOR, all accepted.** Two claims below were wrong as written and are corrected in place:
+> "zero findings against Component View" (overstated — the *first*-pass findings were partly
+> cross-cutting; what holds is that no **second**-pass finding touches it), and "zero
+> downstream cost" (false — §12 keeps recording disabled in link-out mode, so deferring
+> Client View withholds the Z4 recording workflow from mobile/Firefox users). Sol also
+> established that **the existing hardware protocol cannot clear Z3b** — it drives Component
+> View via `/meet/diag` and is decided on P0 desktop — and that **"ships inert" was not an
+> executable requirement**, which was the hole the PM flagged as likeliest. `PLAN.md` carries
+> the corrected amendment; this file is kept as the reasoning trail.
+
 ---
 
 ## 1. What the plan got wrong, and the evidence

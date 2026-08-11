@@ -1366,3 +1366,62 @@ ESCAPED DEFECT: n/a
 | Chunk | Phase | Branch | Commits | Status | Evidence |
 |---|---|---|---|---|---|
 | Z7-1 · r1 | Z7 | `feat/zoom-hours` | — | 🔵 DISPATCHED 2026-08-11 | Base `43999499`. Contract §15.3. C6 refuted → additive `actual_started_at`/`actual_ended_at` ruled by the PM, not left to the executor. `[A0]` requires jsdom to be proven working before any `npm test` count is reported — the base checkout's suite is green while skipping 51 files. |
+
+### **Z7-1 · attempt 1 — executor report returned 2026-08-11. Candidate at `0e29d53b`, awaiting Codex.**
+
+Per the r1 prompt §11.2 this metrics block is written by the executor; the rest of this
+ledger stays PM-maintained.
+
+```text
+STARTED: 2026-08-11T22:04:47Z
+ENDED:   2026-08-11T22:30:15Z
+ATTEMPT: 1 (cumulative for Z7)
+RISK: HIGH
+HANDOFFS: 1 (PM → executor)
+GATES: npm run type-check PASS · npm run lint PASS · npm test PASS (306 files / 7069
+       passed, 11 skipped) · npm run build PASS · npm run test:db PASS (11 files /
+       517 tests) — all five re-run at HEAD 0e29d53b, none piped through tail
+CODEX: pending
+ESCAPED DEFECT: n/a
+```
+
+**`[A0]` settled the ledger's own open finding, in this worktree.** After `npm ci`,
+`node -e "require('jsdom')"` initialises and
+`npx vitest run __tests__/lib/meet/embed-capabilities.test.ts` reports **30 passed** with
+`environment 119ms`. The full-suite baseline measured here before any Z7 change is
+**305 files / 7059 passed, 11 skipped (7070), `environment 242ms`** — the ~305/~7059
+figure this ledger predicted, not `SOP-PILOT.md`'s 6,575. **The base checkout
+`/Users/brentcurtis/dev/fne-lms` still needs `npm rebuild canvas`; nothing in this
+chunk touches it.**
+
+**The C6 amendment landed as ruled, with one mechanism the PM did not specify.**
+`actual_started_at` / `actual_ended_at` are additive and nullable, written by the
+existing guarded transition — but the COALESCE is a `BEFORE UPDATE` trigger rather than
+the UPDATE's SET list, because the writer is PostgREST and PostgREST sends literal
+values. It fires inside the same statement, so the ordering property is the one asked
+for. **Consequence, flagged rather than buried: the two columns are now write-once for
+every writer, so §11's "(reconcile-corrected)" needs an explicit path in Z7-3.**
+
+**Fail-on-old, both probes reverted and re-proved by hash.** Dropping the COALESCE on
+`actual_started_at` fails pgTAP 48 and 51 (`have: 2001-01-01`, `want: 2026-07-29
+23:55:56`), exit 1. Widening the facilitator predicate from `session_facilitators` to
+school scope fails pgTAP 24 and 25 (`have: 2 / 1`, `want: 0`), exit 1.
+
+**`[A7]` is PARTIAL and the executor says so rather than claiming it.** Two
+`toHaveBeenCalledWith` assertions in `__tests__/api/zoom/webhook.test.ts` pin the exact
+argument list of `setMeetingStatus`, which this chunk widens by one argument; the value
+is non-`undefined` in both, so they could not pass unedited. They were strengthened (the
+instants are now pinned end-to-end through the real route), not loosened. No other
+existing test was touched.
+
+**Three items the executor left open, all in the safe direction:** community-meeting
+attendance is admin-only until a `community_meetings.facilitator_id` policy lands
+(Z7-5); an `equipo_interno` facilitator with no consultor role at that school is
+covered by no fixture; and `meeting.ended` carries `start_time` that is deliberately
+not read, so the out-of-order case leaves `actual_started_at` NULL.
+
+Review request: `docs/plan/zoom/reviews/fase-7-review-request.md`.
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-1 · r1 | Z7 | `feat/zoom-hours` | `0e29d53b` | 🟡 CANDIDATE 2026-08-11 — awaiting Codex | 5/5 gates green at `0e29d53b`. Baseline corrected to 305 files / 7059 tests. `[A7]` partial (2 assertions widened, documented). Open: reconcile correction of `actual_*` blocked by the write-once trigger; community-meeting facilitator policy deferred to Z7-5. |

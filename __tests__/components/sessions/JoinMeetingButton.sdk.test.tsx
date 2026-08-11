@@ -37,6 +37,7 @@ vi.mock('../../../lib/meet/zoom-sdk-loader', async (importOriginal) => {
 });
 
 import JoinMeetingButton from '../../../components/sessions/JoinMeetingButton';
+import { restoreBrowserFacts } from '../../helpers/browser-facts';
 
 const SESSION_ID = '3f1c5f5e-0f1a-4d3e-9a11-2b6c8f0d1e22';
 const JOIN_ENDPOINT = `/api/meet/session/${SESSION_ID}/join`;
@@ -126,6 +127,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  restoreBrowserFacts();
   vi.unstubAllGlobals();
 });
 

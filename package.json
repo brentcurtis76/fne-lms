@@ -182,6 +182,7 @@
     "cross-env": "^10.1.0",
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.5",
+    "eslint-plugin-mock-hygiene": "file:tools/eslint-plugin-mock-hygiene",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "node-fetch": "^2.7.0",

@@ -9,6 +9,7 @@
  * jsdom presents.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { restoreBrowserFacts } from '../../helpers/browser-facts';
 import {
   MIN_EMBED_VIEWPORT_WIDTH,
   readDevicePermission,
@@ -37,6 +38,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  restoreBrowserFacts();
   vi.restoreAllMocks();
   // Z3-4: the `'none'` cases below take WebAssembly away from the whole environment.
   vi.unstubAllGlobals();

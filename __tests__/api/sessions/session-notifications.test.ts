@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 import { NOTIFICATION_EVENTS } from '../../../lib/notificationEvents';
 
@@ -42,6 +42,29 @@ vi.mock('../../../lib/utils/session-timezone', async (importOriginal) => {
 import editRequestsHandler from '../../../pages/api/sessions/[id]/edit-requests';
 import editRequestDetailHandler from '../../../pages/api/sessions/edit-requests/[eid]';
 import cronHandler from '../../../pages/api/cron/session-reminders';
+
+/**
+ * `CRON_API_KEY` is set by the cron cases below and must not survive this file.
+ *
+ * vitest runs with `threads: false`, so every suite in the run shares one
+ * `process.env`. This file used to snapshot and restore the key inside each
+ * test with `process.env.CRON_API_KEY = originalKey`, which is wrong twice
+ * over. Assigning `undefined` to a process.env key stores the literal STRING
+ * "undefined" — truthy, and therefore enough to defeat the fail-closed branch
+ * in `lib/zoom/cron-auth.ts` for every file that runs afterwards. And an inline
+ * restore is skipped altogether when an assertion above it throws, which is
+ * exactly when the suite is already in trouble. Restore by DELETING when the
+ * variable was absent, the same idiom `tests/setup.ts` uses.
+ */
+const ORIGINAL_CRON_API_KEY = process.env.CRON_API_KEY;
+
+afterEach(() => {
+  if (ORIGINAL_CRON_API_KEY === undefined) {
+    delete process.env.CRON_API_KEY;
+  } else {
+    process.env.CRON_API_KEY = ORIGINAL_CRON_API_KEY;
+  }
+});
 
 // Valid UUIDs for test data
 const SESSION_ID = '11111111-1111-4111-8111-111111111111';
@@ -352,7 +375,6 @@ describe('Session Notifications', () => {
 
   describe('Session Reminder Cron', () => {
     it('should reject requests without valid CRON_API_KEY', async () => {
-      const originalKey = process.env.CRON_API_KEY;
       process.env.CRON_API_KEY = 'secret-key';
 
       const { req, res } = createMocks({
@@ -365,7 +387,6 @@ describe('Session Notifications', () => {
       expect(res._getStatusCode()).toBe(401);
       expect(res._getJSONData()).toEqual({ error: 'Unauthorized' });
 
-      process.env.CRON_API_KEY = originalKey;
     });
 
     it('should send 24h reminders for sessions 24h away', async () => {
@@ -423,7 +444,6 @@ describe('Session Notifications', () => {
 
       vi.mocked(createServiceRoleClient).mockReturnValue(mockSupabaseClient as any);
 
-      const originalKey = process.env.CRON_API_KEY;
       process.env.CRON_API_KEY = 'test-key';
 
       const { req, res } = createMocks({
@@ -450,7 +470,6 @@ describe('Session Notifications', () => {
       expect(payload.session).not.toHaveProperty('meeting_link');
       expect(JSON.stringify(payload)).not.toContain('zoom.us');
 
-      process.env.CRON_API_KEY = originalKey;
     });
 
     it('should send 1h reminders for sessions 1h away', async () => {
@@ -510,7 +529,6 @@ describe('Session Notifications', () => {
 
       vi.mocked(createServiceRoleClient).mockReturnValue(mockSupabaseClient as any);
 
-      const originalKey = process.env.CRON_API_KEY;
       process.env.CRON_API_KEY = 'test-key';
 
       const { req, res } = createMocks({
@@ -535,7 +553,6 @@ describe('Session Notifications', () => {
       expect(payload.session).not.toHaveProperty('meeting_link');
       expect(JSON.stringify(payload)).not.toContain('zoom.us');
 
-      process.env.CRON_API_KEY = originalKey;
     });
 
     it('should not send duplicate reminders', async () => {
@@ -595,7 +612,6 @@ describe('Session Notifications', () => {
 
       vi.mocked(createServiceRoleClient).mockReturnValue(mockSupabaseClient as any);
 
-      const originalKey = process.env.CRON_API_KEY;
       process.env.CRON_API_KEY = 'test-key';
 
       const { req, res } = createMocks({
@@ -612,7 +628,6 @@ describe('Session Notifications', () => {
       expect(data.reminders24h).toBe(0);
       expect(mockTriggerNotification).not.toHaveBeenCalledWith('session_reminder_24h', expect.anything());
 
-      process.env.CRON_API_KEY = originalKey;
     });
   });
 });
@@ -667,7 +682,6 @@ describe('Session Reminder Cron — managed sessions (r26 [N1]–[N4])', () => {
     const { createServiceRoleClient } = await import('../../../lib/api-auth');
     vi.mocked(createServiceRoleClient).mockReturnValue(clientWith(sessions) as any);
 
-    const originalKey = process.env.CRON_API_KEY;
     process.env.CRON_API_KEY = 'test-key';
 
     const { req, res } = createMocks({
@@ -677,7 +691,6 @@ describe('Session Reminder Cron — managed sessions (r26 [N1]–[N4])', () => {
 
     await cronHandler(req as any, res as any);
 
-    process.env.CRON_API_KEY = originalKey;
     return res;
   }
 

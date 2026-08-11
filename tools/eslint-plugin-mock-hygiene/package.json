@@ -1,0 +1,8 @@
+{
+  "name": "eslint-plugin-mock-hygiene",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local ESLint rules protecting the Vitest suite from cross-file mock leakage.",
+  "main": "index.js",
+  "license": "UNLICENSED"
+}

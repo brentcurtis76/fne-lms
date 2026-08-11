@@ -74,6 +74,14 @@ vi.mock('../../lib/supabase-wrapper', () => ({
 vi.mock('react-hot-toast', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('../../utils/workspaceUtils', () => ({ logWorkspaceActivity: vi.fn() }));
 
+// Statically imported, not `await import()`ed per test. vitest hoists the
+// vi.mock calls above this line, so the mocks still apply — and a static import
+// is what drains this file's mock queue inside this file. A dynamic import in a
+// test body only drains the queue if that test actually runs; skip or filter it
+// and the queue spills into whichever file the sequencer places next. See
+// tools/eslint-plugin-mock-hygiene/drain-mock-queue.js.
+import { getMeetings } from '../../utils/meetingUtils';
+
 describe('getMeetings — myDrafts filter', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -90,7 +98,6 @@ describe('getMeetings — myDrafts filter', () => {
     });
     swapClient(harness.client);
 
-    const { getMeetings } = await import('../../utils/meetingUtils');
     const result = await getMeetings('ws-1', { myDrafts: true, status: [] } as any, undefined, null);
 
     expect(result).toEqual([{ id: 'm1', status: 'programada' }]);
@@ -107,7 +114,6 @@ describe('getMeetings — myDrafts filter', () => {
     });
     swapClient(harness.client);
 
-    const { getMeetings } = await import('../../utils/meetingUtils');
     await getMeetings('ws-1', { myDrafts: true, status: [] } as any, undefined, 'user-123');
 
     const meetingsCall = harness.log.find((c) => c.table === 'community_meetings');
@@ -138,7 +144,6 @@ describe('getMeetings — myDrafts filter', () => {
     });
     swapClient(harness.client);
 
-    const { getMeetings } = await import('../../utils/meetingUtils');
     await getMeetings('ws-1', { myDrafts: true, status: [] } as any, undefined, 'user-456');
 
     // Attendee lookup issued with correct filters.
@@ -168,7 +173,6 @@ describe('getMeetings — myDrafts filter', () => {
     });
     swapClient(harness.client);
 
-    const { getMeetings } = await import('../../utils/meetingUtils');
     await getMeetings(
       'ws-1',
       { myDrafts: true, status: ['programada'] } as any,

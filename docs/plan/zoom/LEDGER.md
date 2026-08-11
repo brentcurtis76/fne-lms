@@ -1194,3 +1194,33 @@ The PM saw two symptoms, inferred two mechanisms, wrote them into the ledger as 
 **Separately confirmed and unrelated to the above:** `session-notifications.test.ts` leaves `CRON_API_KEY === "undefined"` — the string — for the rest of the run, and **"undefined" is truthy**, which would defeat the fail-closed branch in `lib/zoom/cron-auth.ts:64` if any later file exercised it. Plus five files leaking jsdom globals via `Object.defineProperty`, which `vi.unstubAllGlobals()` does **not** revert.
 
 **NEXT: a fix round, scoped to removing the two donors and containing the rest. NOT `threads: true`, and NOT a Vitest upgrade** — 0.34.6's `pendingIds` design changed in 1.x so the upgrade is the durable answer, but it is a big-bang change that must not ride along with a flake fix.
+
+## ✅ **THE VITEST LEAK IS FIXED — and the round found three things nobody asked for (2026-08-10).**
+
+Branch `fix/test-leak`, three commits as requested (`8d18f460` donors · `1b578b19` guard · `6da2131d` containment). **PM verified independently**: full suite **305 files / 7059 passed / 11 skipped, exit 0**; `npm run lint` exit 0.
+
+**The guard was tested by the PM, not accepted on report.** Restoring the donor verbatim from `0c1e0a6e` makes `npm run lint` — **the actual CI gate** — exit **1**, and the rule's message explains the mechanism *and* warns that a dynamic `await import()` does not count. That last clause is exactly the latent third donor the round found. Tree restored clean afterwards.
+
+**`[W2]`'s arithmetic closes and was not padded.** 305 → 305 files; 7060 → **7059** tests: **−12** (the deleted donor) **+11** (the rule's contract suite). Every other touched file has an identical per-file count before and after. **They said explicitly they did not pad the rule suite to make the numbers come out even** — after a phase in which the PM was caught five times shipping numbers it had not measured, that is the right instinct stated out loud.
+
+**Donor 1 was DELETED, not repaired, and the justification is the finding.** All 12 tests asserted against literals built in the same test body — a re-implementation of the route's filter logic asserted against itself, `Array.prototype.join`, and `expect(isAdmin).toBe(false)` after `const isAdmin = false`. The mocked helpers and the `mockReq`/`mockRes`/`mockSupabaseClient` fixtures were referenced by **no test**. It never imported `pages/api/qa/scenarios.ts`. **So `pages/api/qa/scenarios.ts` has no test coverage and never did — the deleted file removed no coverage, only the appearance of it.** The PM's prompt anticipated the test might go red once it tested something; the truth was worse and simpler.
+
+### **Three things the round found that were not asked for**
+
+**① Their own containment was incomplete, and their own probe caught it.** The first attempt derived the browser-facts list by **grep**. A full-run probe then showed `mediaDevices` and `permissions` still leaking — set through a `setNavigator(values)` loop whose keys no grep for `defineProperty(navigator, '<name>')` can see. **They rewrote the helper to snapshot-and-diff `navigator`'s own properties rather than trust a list**, and added a sixth file the PM's prompt had not named. *Measuring instead of enumerating is the lesson this phase paid nine PM errors to learn.*
+
+**② A third donor.** `__tests__/utils/meetingUtils.test.ts` drained its queue only via `await import()` inside its first test — **fine until that test is skipped or filtered.** Converted to a static import.
+
+**③ Shuffled order fails, and it is PRE-EXISTING and a different bug.** All 10 seeds red (10–20 tests across `remove-role`, `delete-user`, `audit-logging`, `userAssignments`). **PM confirmed independently on unfixed `main` at `0c1e0a6e`: `remove-role.test.ts` fails under `--sequence.shuffle` and passes without it.** Not the mock queue — **within-file test-order coupling**, a second and unrelated way this suite is order-dependent. *(PM's count at seed 3 was 1 failed/15 passed against their 7/9; the qualitative claim is confirmed, the exact count differs — shuffle seeding depends on the file set. Recorded rather than reconciled.)* **CI does not shuffle, so this is latent, not live. It needs its own investigation.**
+
+### **The inference is CONFIRMED, with a correction that matters**
+
+Ordering is **descending by size within each environment group**, not globally — the pre-fix cold-cache run matched byte order with exactly one inversion, at the node→jsdom boundary. And `cache: npm` in CI caches `~/.npm`, **not** `node_modules`, which `npm ci` recreates — **so `results.json` never exists on CI.** Donor at slot **170** (6884 B), victim at slot **176** (6447 B): **exactly six slots, five files between them.** Any file added or resized into the 6487–6807 B band, or any of those five shrunk below 6447 B, **would have moved the victim into the slot after the donor and red-lined CI permanently. CI was green by byte count, not by correctness.**
+
+### **Residuals, reported not fixed — correctly**
+
+`navigator.clipboard` survives a full run, installed by **`@testing-library/user-event`**, not repo code. **They declined to delete a third-party helper's property behind its back and named it instead** — the right call. And `npm run build` fails in a fresh worktree with no `.env.local` (gitignored, only in the main clone); compiles fine, dies at page-data collection. **Belongs in the worktree setup notes.**
+
+**Scheduled, not done, and the PM agrees:** the **Vitest 0.34.6 → 1.x/2.x upgrade** is the durable answer — `pendingIds` is redesigned there and this bug class disappears rather than being guarded against. **Its own phase, its own gates, not carried on a flake fix.** `threads`, the sequencer, file order and production code were all left untouched.
+
+**NEXT: this needs a PR and a merge — it is a repo-wide fix with no plan of its own.** The `[W5]` caveat they raised themselves is the honest frame for its evidence: **ten cold-cache runs vary timing, not order**, so they are weaker than they look; the load-bearing proof is the guard firing and the mechanism being understood.

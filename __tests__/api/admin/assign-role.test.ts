@@ -1799,9 +1799,16 @@ describe('admin/assign-role — hypothetical non-school-scoped ED-assignable rol
     vi.clearAllMocks();
   });
 
+  // No `vi.doUnmock` here, deliberately. `vi.mock`/`vi.doMock`/`vi.doUnmock` only
+  // PUSH onto `VitestMocker.pendingIds`, a static array drained the next time
+  // anything resolves a module — and the drain registers each entry against
+  // whichever file is current at that moment. Nothing in this file resolves a
+  // module after this hook, so the two doUnmock calls that used to live here never
+  // took effect where they were aimed, and were instead applied to whichever file
+  // ran next, deleting ITS `lib/api-auth` mock. `resetModules()` is the part that
+  // actually does the work: it drops the doMock'd modules from the cache, and
+  // `isolate` clears the whole mock registry at the file boundary regardless.
   afterEach(() => {
-    vi.doUnmock('../../../utils/roleUtils');
-    vi.doUnmock('../../../lib/api-auth');
     vi.resetModules();
   });
 

@@ -20,6 +20,10 @@ export const LIFECYCLE_EVENT_TYPES = ['meeting.started', 'meeting.ended'] as con
 export interface ZoomWebhookObject {
   id?: unknown;
   uuid?: unknown;
+  /** `meeting.started` — the instant the occurrence actually began. */
+  start_time?: unknown;
+  /** `meeting.ended` — the instant it actually finished. */
+  end_time?: unknown;
 }
 
 /**
@@ -41,6 +45,38 @@ export function readMeetingNumber(raw: unknown): number | null {
 
 export function readOccurrenceUuid(raw: unknown): string | null {
   return typeof raw === 'string' && raw.length > 0 ? raw : null;
+}
+
+/**
+ * The observed instant for a lifecycle event, as an ISO-8601 string (§11 quantity
+ * (3), stored by the C6 amendment on `zoom_meetings.actual_*`).
+ *
+ * `preferred` is `payload.object.start_time` / `end_time` — Zoom's own statement of
+ * when the occurrence began or ended, and the only value that describes the meeting
+ * rather than the delivery. The committed fixtures carry
+ * `"2026-07-29T23:55:56Z"` / `"2026-07-30T00:03:26Z"`.
+ *
+ * `eventTsMs` is the body's `event_ts`, used only when the preferred field is absent
+ * or unparseable. It is in MILLISECONDS (`1785369356750` in the same fixtures) while
+ * the `x-zm-request-timestamp` HEADER is in SECONDS — an asymmetry Z0B recorded after
+ * it had already produced one committed defect. The header value is never passed in
+ * here, and that is structural rather than a convention: this function's callers hand
+ * it the parsed body and nothing else.
+ *
+ * Anything else yields null, which the store reads as "write no instant". Failing
+ * toward a NULL column is the correct direction — a missing comparison value shows as
+ * a missing panel column, whereas a fabricated one would be presented to an admin as
+ * evidence about a consultant's billable presence.
+ */
+export function readLifecycleInstant(preferred: unknown, eventTsMs: unknown): string | null {
+  if (typeof preferred === 'string' && preferred.length > 0) {
+    const parsed = Date.parse(preferred);
+    if (Number.isFinite(parsed)) return new Date(parsed).toISOString();
+  }
+  if (typeof eventTsMs === 'number' && Number.isSafeInteger(eventTsMs) && eventTsMs > 0) {
+    return new Date(eventTsMs).toISOString();
+  }
+  return null;
 }
 
 /**
@@ -79,11 +115,24 @@ export function readOccurrenceUuid(raw: unknown): string | null {
  * `scheduled` forever. It is updated here, from the surface keys the guarded UPDATE
  * returns, and only when the internal transition actually applied — so a late `started`
  * can no more resurrect an `ended` projection row than it can an `ended` meeting.
+ *
+ * ## The observed instants ride the SAME guarded UPDATE (Z7-1, C6 amendment)
+ *
+ * `meeting.started` records `actual_started_at` and `meeting.ended` records
+ * `actual_ended_at` — §11 quantity (3), which had no storage until this phase. They
+ * are handed to the same `setMeetingStatus` call rather than written separately,
+ * because a second statement would be a second chance to lose the ordering argument
+ * above: an instant written outside the status guard could land for a transition the
+ * guard refused. Write-once is enforced one level lower still, by the migration's
+ * COALESCE trigger, so no writer — not this one, not a future one — can overwrite an
+ * instant already recorded.
  */
 export async function applyWebhookLifecycle(
   store: ZoomWebhookStore,
   eventType: string,
-  object: ZoomWebhookObject | undefined
+  object: ZoomWebhookObject | undefined,
+  /** The body's `event_ts`, in milliseconds. The fallback, never the header value. */
+  eventTsMs?: unknown
 ): Promise<void> {
   if (eventType !== 'meeting.started' && eventType !== 'meeting.ended') return;
 
@@ -97,8 +146,20 @@ export async function applyWebhookLifecycle(
   // `meeting.ended` carries the same occurrence uuid, but `started` already captured
   // it; passing null there means a malformed/absent uuid can never blank the column.
   const occurrenceUuid = status === 'started' ? readOccurrenceUuid(object?.uuid) : null;
+  // Each event records its OWN instant. `meeting.ended` also carries `start_time`, but
+  // reading it here would make the ended event a second writer of a column the started
+  // event owns — see the review request for why that is left to the Z7-3 reconcile.
+  const actualInstant = readLifecycleInstant(
+    status === 'started' ? object?.start_time : object?.end_time,
+    eventTsMs
+  );
 
-  const transition = await store.setMeetingStatus(meetingId, status, occurrenceUuid);
+  const transition = await store.setMeetingStatus(
+    meetingId,
+    status,
+    occurrenceUuid,
+    actualInstant
+  );
   // Refused: the row is already past this status. Nothing moved, and nothing downstream
   // may move either — the projection stays wherever the winning event left it.
   if (!transition.applied || transition.surface === null) return;

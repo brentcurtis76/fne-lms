@@ -127,13 +127,21 @@ export interface ZoomWebhookStore {
    * `occurrenceUuid` is written ONLY when non-null, so an event that omits it cannot
    * blank a uuid an earlier event captured.
    *
+   * `actualInstant` (Z7-1, C6 amendment) follows the same rule and lands in
+   * `actual_started_at` or `actual_ended_at` according to `status` — the observed
+   * elapsed time §11 quantity (3) needs. It rides THIS update rather than a second one
+   * so it can never be written for a transition the guard refused; and the migration's
+   * COALESCE trigger makes it write-once, so a swept replay cannot overwrite it.
+   * Optional so the existing three-argument test doubles remain valid.
+   *
    * Returns the row's surface keys when (and only when) the transition applied, so the
    * caller can move the projection with it without a second lookup.
    */
   setMeetingStatus(
     meetingId: string,
     status: ZoomLifecycleStatus,
-    occurrenceUuid: string | null
+    occurrenceUuid: string | null,
+    actualInstant?: string | null
   ): Promise<LifecycleTransition>;
   /**
    * Moves `public.session_meetings_public.meeting_status` under the same monotonic
@@ -369,7 +377,7 @@ export function createSupabaseWebhookStore(
       return data ? (data as MeetingIdRow).id : null;
     },
 
-    async setMeetingStatus(meetingId, status, occurrenceUuid) {
+    async setMeetingStatus(meetingId, status, occurrenceUuid, actualInstant) {
       const patch: Record<string, unknown> = {
         status,
         updated_at: new Date().toISOString(),
@@ -378,6 +386,13 @@ export function createSupabaseWebhookStore(
       // erase the occurrence uuid `meeting.started` captured.
       if (occurrenceUuid !== null) {
         patch.zoom_meeting_uuid = occurrenceUuid;
+      }
+      // Same rule for the observed instant, and for the same reason: an event that
+      // carried no parseable time must not blank one an earlier delivery recorded.
+      // PostgREST sends literal values, so the COALESCE that makes this write-once
+      // lives in the migration's BEFORE UPDATE trigger, not here.
+      if (actualInstant) {
+        patch[status === 'started' ? 'actual_started_at' : 'actual_ended_at'] = actualInstant;
       }
 
       // The `.in(...)` IS the monotonicity guard, and it is evaluated by Postgres

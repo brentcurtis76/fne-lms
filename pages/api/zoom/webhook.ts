@@ -93,11 +93,20 @@ const BODY_TOO_LARGE = Symbol('body_too_large');
 /** Shape of the slice of a Zoom event body this route reads. */
 interface ZoomWebhookBody {
   event?: unknown;
+  /**
+   * Zoom's own delivery timestamp, in MILLISECONDS — the `x-zm-request-timestamp`
+   * HEADER is in seconds, and the two are never interchangeable (Z0B finding). Only
+   * the body value reaches the lifecycle, as the fallback for a missing
+   * `start_time`/`end_time`.
+   */
+  event_ts?: unknown;
   payload?: {
     plainToken?: unknown;
     object?: {
       id?: unknown;
       uuid?: unknown;
+      start_time?: unknown;
+      end_time?: unknown;
     };
   };
 }
@@ -303,7 +312,7 @@ export async function handleZoomWebhook(
       // Recorded but never applied — the first delivery died mid-flight. Finish it.
     }
 
-    await applyWebhookLifecycle(store, eventType, object);
+    await applyWebhookLifecycle(store, eventType, object, body.event_ts);
     await store.markProcessed(verification.dedupeKey, new Date(now()).toISOString());
   } catch (error) {
     // Zoom retries any non-2xx; the dedupe ledger absorbs the replayed body and the

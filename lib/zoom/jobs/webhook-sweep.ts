@@ -81,6 +81,8 @@ export interface WebhookSweepResult extends Record<string, unknown> {
 /** The slice of a stored `raw_payload` the lifecycle needs. */
 interface StoredPayload {
   event?: unknown;
+  /** Milliseconds. The stored body's own value — never the header's seconds. */
+  event_ts?: unknown;
   payload?: { object?: ZoomWebhookObject };
 }
 
@@ -125,7 +127,12 @@ export function createWebhookSweepHandler(deps: WebhookSweepDeps = {}): ZoomJobH
       }
 
       const stored = row.raw_payload as StoredPayload;
-      await applyWebhookLifecycle(store, readEventType(row, stored), stored.payload?.object);
+      await applyWebhookLifecycle(
+        store,
+        readEventType(row, stored),
+        stored.payload?.object,
+        stored.event_ts
+      );
       await store.markProcessed(row.dedupe_key, new Date(now()).toISOString());
       applied += 1;
     }

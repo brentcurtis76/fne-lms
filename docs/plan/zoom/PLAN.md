@@ -327,7 +327,7 @@ Every phase: one PR, branch ≤20 chars, 6 CI gates green, review-request file f
 | **Z4 — Recording transfer + playback + consent** | `feat/zoom-rec` | recording.completed handler; staged transfer job (S3 multipart, verify, trash, permanent-delete schedule); `session_recordings` + playback endpoint (signed URL 300s) + UI chip; storage limit ops; retention job (incl. 12-month creation ceilings); **v2.1: `recording_consents` table + RLS + pre-join/scheduling capture + decline/withdrawal behavior. Real recordings stored only once consent evidence + EIPD reference exist (Z0A output)** — until then, synthetic/test-account recordings only | Real 1h meeting lands in Supabase, Zoom copy trashed→deleted, playback facilitator-only, consent rows present | 7–9 d | Consent copy (in-house, Z0A) |
 | **Z5 — Transcription (quarantined + sanitization)** | `feat/zoom-txn` | Transcode job (Opus), transcribe job (es), `zoom_internal.zoom_transcripts` (+`sanitized_text`) + `session_transcripts` metadata; **automated sanitizer** (attendee-allowlist + Spanish NER + role patterns → `sanitized_text`, golden-fixture tests) + flag heuristic + manual-edit escape hatch for flagged cases; prompt-builder contract test (throws on raw-only input); real audio flows once consent mechanism works (legal gate removed 2026-07-28) | Transcript flows end-to-end; sanitizer produces sanitized_text + correct sanitized/flagged/reviewed transitions; §6-predicate refusal tests green | 6–8 d | — |
 | **Z6 — Community meetings** | `feat/zoom-comm` | Attach/resync/remove endpoints; membership-gated join; join_before_host pool policy; drift reconcile; meeting reminders cron + dedupe table | Líder creates meeting w/ Zoom; members join license-free; client-side edit converges ≤1h | 5–7 d | — |
-| **Z7 — Attendance + hours comparison + override UI** | `feat/zoom-hours` | `zoom_attendance` ingestion (webhooks + report reconcile, customerKey/email/name hierarchy per Z0B verdict); attendance-suggestion panel (facilitator applies to `session_attendees`); planned-vs-Zoom comparison UI; `session_hour_overrides` table + append-only trigger + transactional apply/reverse RPC + additive `effective_minutes` zero-waiver + reason_category semantics; the §11 test list (snapshot/reschedule tests already green since Z1b/Z2) | All §11 tests green under 3-TZ matrix; trigger rejects UPDATE/DELETE; suggestions match reality in staging | 6–8 d | — |
+| **Z7 — Attendance + hours comparison + override UI** | `feat/zoom-hours` | `zoom_attendance` ingestion (webhooks + report reconcile, customerKey/email/name hierarchy per Z0B verdict); attendance-suggestion panel (facilitator applies to `session_attendees`); planned-vs-Zoom comparison UI; `session_hour_overrides` table + append-only trigger + transactional apply/reverse RPC + additive `effective_minutes` zero-waiver + reason_category semantics; the §11 test list (snapshot/reschedule tests already green since Z1b/Z2) | All §11 tests green under 3-TZ matrix; trigger rejects UPDATE/DELETE; suggestions match reality in staging | 6–8 d | **expanded to a self-contained contract in §15.3 (2026-08-11)** |
 | **Z8 — AI minuta (shadow)** | `feat/minuta-core` | Requires Z5 sanitizer operational (§6 predicate). Generation service + versioned prompt + zod contract; `ai_minutas` family tables + pgTAP; manual trigger; sweeper retries; shadow mode (no notifications) | Mora rates ≥5 real minutas vs her gem; go/adjust verdict | 4–6 d | Mora evaluation ~1 wk elapsed |
 | **Z9 — Review loop + publish** | `feat/minuta-flow` | Consultant review page + list; approve/request-changes/edit/regenerate routes (state machine, race guards); admin queue + publish transaction (idempotent, attribution rules); Resend templates; 48h/7d reminders | Full chain e2e-mock green; publish satisfies finalize gate | 6–8 d | — |
 | **Z10 — Seguimiento dashboard** | `feat/seguimiento` | Aggregate endpoint + board + drill-down + CSV; `schools.city` admin edit; filters (Año, red) | Numbers cross-check vs Mora's spreadsheet | 4–6 d | — |
@@ -384,6 +384,145 @@ authored when Z3b is built and before it is enabled by default.
 **Owner: Brent + consultores**, as the existing protocol. **Prerequisite: Z3b built and
 behind its off-by-default gate.** Until it exists and clears, Z3b may be implemented but not
 closed and not enabled by default (§15's Z3b row, §16).
+
+### 15.3 Phase Z7 — self-contained contract (written 2026-08-11, lean overlay)
+
+**Why this section exists.** `~/.claude/agent-workflow/LEAN-WORKFLOW.md` activated for this repo
+on 2026-08-11 and requires the phase being dispatched to be a complete contract in its own right:
+no "as v2", no criteria that live only in an old commit, and every load-bearing factual claim
+carrying its evidence. Z7 is the first FNE phase dispatched under it. The §15 row above and §11
+remain normative; this section resolves them against the repository as it actually stands at
+`main` @ `43999499`. **Future phases stay outlines — nothing below re-plans Z3b or Z4–Z12.**
+
+**RISK TIER: `HIGH`.** Migrations, new RLS surface, attendance data that names real people, and a
+path that changes what a school is billed and what a consultant is paid. Under the overlay a
+`HIGH` phase gets the contract-falsification pass recorded below before dispatch.
+
+**BRANCH / BASE.** `feat/zoom-hours`, cut from `main` @ `4399949942bfcf49dfa8de40cbf7edbf40f0490e`.
+Authoritative checkout `/Users/brentcurtis/dev/wt/zoom-hours`. **`/Users/brentcurtis/dev/wt/zoom-embed`
+is NOT this phase's worktree and must not be touched** — it is Z3b's starting point (§15.1) and
+holds the 11 `[Z3b, PARKED]` tests.
+
+#### 15.3.1 Contract falsification — the `HIGH` pass, run 2026-08-11
+
+| # | Claim | Check | Result |
+|---|---|---|---|
+| C1 | `contract_hours_ledger.effective_minutes` does **not** exist yet, and `lib/services/billable-hours.ts` carries the single seam that has to change | `grep -rln effective_minutes supabase/migrations lib` → three migrations *mentioning* it in comments; `billable-hours.ts` carries `// ── SEAM: Z7-EFFECTIVE-MINUTES ──` around its one `return entry.hours ?? 0` | **supported** |
+| C2 | `public.session_hour_overrides` does not exist | `grep -rln session_hour_overrides supabase lib pages __tests__` → one hit, a comment in `20260729120400_planned_minutes_snapshot.sql` | **supported** |
+| C3 | `public.zoom_attendance` does not exist in any form | same grep → zero hits repo-wide | **supported** |
+| C4 | `contract_hours_ledger.planned_minutes_snapshot` exists and is written at reservation time | migration `20260729120400`; `lib/services/hour-tracking.ts:329` writes `planned_minutes_snapshot: durationMins` | **supported** |
+| C5 | Participant webhook events are received and ledgered but never applied | `lib/zoom/webhook-lifecycle.ts:17` — `LIFECYCLE_EVENT_TYPES = ['meeting.started','meeting.ended']`, and `:88` returns early for anything else. Signed fixtures already exist: `__tests__/lib/zoom/fixtures/webhooks/meeting-participant_joined.json` and `…_left.json` | **supported** |
+| C6 | §11 quantity (3), *"Zoom meeting elapsed — `zoom_meetings` started/ended webhook instants"*, can be read from the schema today | `grep -n "started_at\|ended_at\|occurred_at\|event_ts" supabase/migrations/20260729120100_zoom_internal_tables.sql lib/zoom/webhook-store.ts` → **zero** instant columns. `zoom_meetings` has only `starts_at`, `duration_minutes` and the generated `ends_at`, all **planned** values, plus `status` | **REFUTED — plan amendment below** |
+| C7 | `customer_key` reaches Zoom for real participants | `pages/api/meet/session/[id]/join.ts:439` sets `customer_key: toCustomerKey(input.userId)` — **only on the `mode:'sdk'` payload**. `mode:'link'` (`:708`) carries no identity field, and `FEATURE_ZOOM_EMBED` is **default OFF** in production | **supported, with the blind spot in §15.3.5** |
+| C8 | `contract_hours_ledger` already carries the override columns the §11 RPC writes | baseline `00000000000000_baseline.sql:7869-7870` — `admin_override boolean NOT NULL DEFAULT false`, `admin_override_reason text`; `hours numeric(6,2)` with `CHECK (hours > 0)` at `:7876` | **supported** |
+| C9 | An hourly reconcile job exists and is the right place to hang report reconciliation | `pages/api/cron/zoom-reconcile.ts` enqueues only (`planReconcileJobs`), and its own header lists the later drift checks as "another enqueue in `planReconcileJobs()`" | **supported** |
+
+**AMENDMENT forced by C6 (Decision Log entry below).** §11's quantity (3) is not readable from the
+schema, so Z7 must persist it. **Ruling: two additive nullable columns on
+`zoom_internal.zoom_meetings` — `actual_started_at timestamptz` and `actual_ended_at timestamptz`
+— written by the existing guarded lifecycle transition in `lib/zoom/webhook-lifecycle.ts`, never
+by provisioning.** Rationale: the alternative (recovering instants from
+`zoom_internal.zoom_webhook_events.raw_payload`) is not available — §6 nulls `raw_payload` at 30
+days, so the comparison panel would silently lose its "Zoom" column for any session older than a
+month. The columns are additive, nullable and confined to the private schema, so nothing outside
+the workers can read them. **They inherit the lifecycle's monotonic guard**: a late or swept
+`meeting.started` must not overwrite an instant already recorded for an occurrence that ended.
+
+#### 15.3.2 Scope — five chunks, one branch, one executor conversation
+
+Sequential commits on `feat/zoom-hours`; the same executor conversation carries all five (overlay
+§4.2). Attempt numbers are cumulative for the phase and never reset.
+
+- **Z7-1 — attendance schema + the actual-elapsed instants.** Migration creating
+  `public.zoom_attendance` per §6 (school_id NOT NULL, surface keys, per-person interval rows,
+  identity columns `user_id` nullable / `customer_key` / `display_name` / `transient_email`,
+  `matched_by` enum) with RLS per §7 (admin all; consultor only if facilitator; facilitator of
+  that surface; **nobody else, and no authenticated write policy at all**); the two additive
+  `zoom_meetings.actual_*` columns from the C6 amendment plus their guarded lifecycle writes;
+  pgTAP appended to `supabase/tests/011-zoom-public-rls.sql` in that file's existing 010 style.
+- **Z7-2 — participant ingestion.** `meeting.participant_joined` / `meeting.participant_left`
+  applied through `webhook-lifecycle.ts`, the identity-matching hierarchy as a **pure module**
+  (`customer_key` → `profiles.id` first, then registrant/e-mail, then display name — never the
+  reverse order), and interval merge/rejoin de-duplication as a **pure module**. Both pure so the
+  §11 "reconnect intervals don't double-count" test is a unit test, not an integration guess.
+- **Z7-3 — report reconciliation.** The Zoom participant-report read added to `lib/zoom/api.ts`
+  (+ the fake), a `attendance_reconcile` job, and its enqueue in `planReconcileJobs()`. **§11 is
+  explicit that the reconcile report is authoritative over webhooks** — the merge must therefore
+  overwrite webhook-derived intervals rather than union with them.
+- **Z7-4 — the override machinery.** `public.session_hour_overrides` exactly per §11's
+  data-integrity list; the BEFORE UPDATE OR DELETE trigger; the additive
+  `contract_hours_ledger.effective_minutes integer CHECK (effective_minutes >= 0)`; the single
+  `SECURITY DEFINER` apply/reverse RPC deriving its actor from `auth.uid()` inside the function;
+  the `billable-hours.ts` seam closed to `coalesce(effective_minutes/60.0, hours)`; pgTAP for the
+  trigger, the grants and the non-admin-authenticated rejection.
+- **Z7-5 — the surfaces.** Admin comparison panel and «Ajustar horas descontadas» on
+  `pages/admin/sessions/[id].tsx`, and the facilitator attendance-suggestion panel that writes
+  `public.session_attendees` (`attended`, `arrival_status` — baseline `:10804`). es-CL copy.
+
+#### 15.3.3 Out of scope — explicit
+
+Recording, transcription, minutas, consent (Z4/Z5/Z8/Z12) · Client View and anything under
+`__tests__/components/sessions/JoinMeetingButton.*` or `lib/meet/*` (Z3b) · `tests/e2e/` — the
+Z1c blocking spec stays sealed, as it has since Z2-2b · the 22-table production RLS allowlist and
+INSPIRA's unrecorded `20260803170000` migration (both real, both live, **neither is Z7's**, see
+the ledger's 2026-08-10 measurement) · the Vitest 1.x upgrade · leadership aggregates, which
+PROJECT_STATE's macro invariant keeps out of `zoom_attendance` entirely.
+
+#### 15.3.4 Acceptance criteria — phase level
+
+- [Z7-A1] Every §11 "Required tests" line is a named, executing test. The list is normative and
+  is not paraphrased into something easier.
+- [Z7-A2] All hours tests run under the 3-TZ matrix (`TZ=UTC`, `TZ=America/Santiago`,
+  `TZ=Europe/Madrid`) and assert identical business results, per §10.
+- [Z7-A3] The append-only trigger rejects UPDATE **and** DELETE on `session_hour_overrides`,
+  proven in pgTAP — not by convention.
+- [Z7-A4] The override RPC has **no service-side caller**: `auth.uid()` null aborts, and a
+  non-admin authenticated caller is rejected. Both asserted in pgTAP.
+- [Z7-A5] The chain `60 → 45 → 30`, reverse-second → 45, reverse-first → NULL/planned, in exactly
+  that sequence (§11's sharpest case).
+- [Z7-A6] No Zoom-derived number ever writes `contract_hours_ledger.hours` or `effective_minutes`.
+  A mutation probe proving the comparison path cannot reach the ledger is required evidence.
+- [Z7-A7] `zoom_attendance` grants and RLS: no authenticated write policy exists on the table, and
+  a GC member reading another person's attendance row gets nothing.
+- [Z7-A8] `git diff --stat main..HEAD -- tests/e2e/` is empty.
+- [Z7-A9] The full repo gate set is green at the reviewed head: `npm run type-check`,
+  `npm run lint`, `npm test`, `npm run build`, `npm run test:db`. Never piped through `tail`.
+
+#### 15.3.5 Blind spots and the direction each fails
+
+1. **`customer_key` is only sent on the SDK path, which is default-OFF in production** (C7). Until
+   `FEATURE_ZOOM_EMBED` is on, every real participant joins by link and Zoom reports no
+   `customer_key`, so matching falls to e-mail and then display name. §15's row already prices
+   this ("customerKey/email/name hierarchy"), but the DoD phrase *"suggestions match reality in
+   staging"* cannot be met on the customer_key branch with production-shaped traffic.
+   **Direction of failure: toward `matched_by = 'unmatched'` and a suggestion the facilitator must
+   confirm by hand — never toward a wrong person being marked present.** That direction is a
+   requirement, not an observation: an unmatched row is correct behaviour, a mis-matched one is a
+   defect.
+2. **Display-name matching touches student-adjacent data.** Attendance names are real people. They
+   stay out of logs, fixtures and any AI prompt (`CLAUDE.md`, Ley 21.719). Fixtures are synthetic.
+3. **`test:db` and `e2e` both need Docker + the Supabase CLI**, and `npm run build` needs a
+   `.env.local` that is gitignored and exists only in the primary clone (ledger, 2026-08-10). A
+   fresh worktree fails the build at page-data collection until it is copied in.
+4. **Not measured by anything Z7 builds:** whether Zoom's participant report and its webhooks ever
+   disagree on a real session. The reconcile is written to the documented contract, and Z0B's
+   capture is the only evidence behind it.
+
+#### 15.3.6 Rollback
+
+Every migration is additive; no column is dropped or rewritten. `effective_minutes` NULL on every
+existing row means `coalesce(effective_minutes/60.0, hours)` returns exactly today's answer, so
+reverting the branch restores current behaviour without a down-migration. `zoom_attendance` and
+`session_hour_overrides` are new tables with no readers outside this phase. **Per §0.1(d) the
+phase is not closed until the production schema is verified read-only after Brent applies the
+migrations — local and CI green say nothing about deployment.**
+
+#### 15.3.7 Decision log entries for this phase
+
+| Date | Decision | Rationale | Raised by |
+|---|---|---|---|
+| 2026-08-11 | `zoom_internal.zoom_meetings` gains additive `actual_started_at` / `actual_ended_at`, written by the lifecycle | §11 quantity (3) has no storage today (C6), and `zoom_webhook_events.raw_payload` is nulled at 30 d by §6, so the comparison column would vanish for older sessions | PM, Z7 falsification pass |
+| 2026-08-11 | Z7 executes as five chunks on one branch in one durable executor conversation | §15 prices it at 6–8 agent-days; SOP §1.3 caps a chunk at ~10 files / ~600 net lines, and the overlay keeps the conversation rather than the chunk as the unit | PM, lean overlay §4.2 |
 
 ## 16. Blocking vs non-blocking human decisions
 

@@ -1259,3 +1259,110 @@ The ledger has carried *"`20260803170000_add_email_marketing_tables` is STILL un
 | Pre-Zoom `PROJECT_STATE` cleanup | No. Tidiness |
 
 **Neither of the top two is a Zoom item and neither has a plan. They are recorded here because this is where they were surfaced — they need owners.**
+
+## 🟢 **PHASE Z7 — Attendance + hours comparison + override UI · OPENED 2026-08-11. First FNE phase under the lean overlay.**
+
+**PM boot `/pm-boot ZOOM Z7`.** `~/.claude/agent-workflow/LEAN-WORKFLOW.md` is **ACTIVE** — the
+registry maps `/Users/brentcurtis/dev/fne-lms/.git` to *canonical SOP + lean overlay*, and the
+common-directory check confirms every worktree of this repo is in scope. `docs/plan/AGENT-WORKFLOW.md`
+in this tree is historical, not the source of truth.
+
+**Z7 was chosen because it is the only phase whose gates are all clear**, re-checked at this boot
+rather than carried from the 2026-08-08 entry that first said so: Z2 ✅ DONE (`34ea4cb6`), the
+**customerKey verdict PASSED definitively** in Z0B-2, and Z3 (desktop) ✅ DONE (`9972093d`) though
+Z7 never depended on it. Z3b is unplanned; Z4 is held by the owner decision behind G1/G2's failure;
+Z6 is held by the license-inventory decision. `PROJECT_STATE.md` line 30 agrees: **no Zoom phase
+was open.**
+
+**Branch `feat/zoom-hours` cut from `main` @ `43999499`, worktree `/Users/brentcurtis/dev/wt/zoom-hours`.**
+`/Users/brentcurtis/dev/wt/zoom-embed` is deliberately untouched — it is Z3b's starting point and
+holds the 11 `[Z3b, PARKED]` tests.
+
+### **The phase contract is now self-contained — `PLAN.md` §15.3.**
+
+Per overlay §3 the dispatched phase must stand on its own with evidence attached to every factual
+claim. §15.3 carries the falsification table, the five-chunk decomposition, out-of-scope, the
+phase-level criteria, blind spots, rollback and two Decision Log entries. §11 and the §15 row stay
+normative; §15.3 resolves them against the tree as it actually is. **Future phases were left as
+outlines.**
+
+### **🔴 The falsification pass REFUTED one plan claim, and it is a real gap.**
+
+**§11 quantity (3) — *"Zoom meeting elapsed — `zoom_meetings` started/ended webhook instants"* —
+has nowhere to live.** `grep -n "started_at\|ended_at\|occurred_at\|event_ts"` over
+`20260729120100_zoom_internal_tables.sql` and `lib/zoom/webhook-store.ts` returns **zero** instant
+columns: `zoom_meetings` carries `starts_at`, `duration_minutes` and the generated `ends_at`, all
+**planned** values, plus `status`. The lifecycle moves the status and captures the occurrence uuid;
+it records no time. **So the comparison panel's "Zoom" column had no source.**
+
+**Ruling: two additive nullable `timestamptz` columns (`actual_started_at`, `actual_ended_at`) on
+`zoom_internal.zoom_meetings`, written by the existing guarded lifecycle transition.** The
+alternative — recovering the instants from `zoom_webhook_events.raw_payload` — is **not
+available**: §6 nulls `raw_payload` at 30 days, so the panel would silently lose its Zoom column
+for any session older than a month. Recorded as a Decision Log entry in §15.3.7 rather than left
+as an executor discovery.
+
+**The other eight claims were supported, each with the command and the file:line in §15.3.1** —
+including the two that decide the phase's shape: `billable-hours.ts` carries an explicit
+`// ── SEAM: Z7-EFFECTIVE-MINUTES ──` block naming the exact line Z7 changes, and the signed
+participant fixtures (`meeting-participant_joined.json`, `…_left.json`) already exist from Z0B
+while `webhook-lifecycle.ts:17` still handles only `meeting.started`/`meeting.ended`.
+
+### **⚠️ FINDING, outside Z7 and worth more than Z7's own boot: `npm test` in the base checkout is GREEN while silently skipping 51 files.**
+
+Measured, not inferred. In `/Users/brentcurtis/dev/fne-lms`:
+
+```
+npm test  →  Test Files 254 passed (254) · Tests 6575 passed (6575) · EXIT 0
+             Duration ... environment 0ms
+```
+
+**304 `*.test.ts(x)` files exist on disk and match the config's include/exclude.** The 51 that did
+not run are exactly the jsdom ones — every `JoinMeetingButton.*`, every `lib/meet/*`, every
+component and page suite. `npx vitest run __tests__/lib/meet/embed-capabilities.test.ts` reports
+**"no tests"** and exits **0**.
+
+**Root cause, reproduced directly:** `node -e "require('jsdom')"` throws in that checkout, with a
+`requireStack` running `jsdom/lib/jsdom/utils.js → canvas/index.js → canvas/lib/bindings.js` — the
+**`canvas` native binding fails to load**, jsdom cannot initialise, and Vitest 0.34 drops every
+jsdom file **without a warning and without a non-zero exit**. The same file in
+`/Users/brentcurtis/dev/wt/zoom-embed`, which has its own `node_modules`, runs **30 tests green**
+with `environment 444ms`.
+
+**Consequence for the pilot's own paperwork:** `docs/plan/SOP-PILOT.md`'s *Starting gate baseline*
+records *"6,575 unit tests"* passing at `43999499` as the verified FNE baseline. **That is the
+broken run.** The true baseline at this base is the ~305-file / ~7,059-test figure the test-leak
+round and Sol both measured two days earlier. **A Z7 executor handed 6,575 would have measured
+against a number 51 files short and reported a green gate that never ran the component suites.**
+
+**Fix is Brent's to run in the base checkout, not the PM's:** `npm rebuild canvas` (or `npm ci`).
+**Required of the Z7 executor either way:** prove jsdom initialises in its own worktree *before*
+trusting any `npm test` number — the prompt makes it criterion `[A0]`.
+
+**This is the second time in four days that this repo's Vitest gate has been green by accident**
+(the first was the cross-file mock leak, green by byte-count ordering). Same class, different
+mechanism: **a Vitest gate that cannot fail loudly is not a gate.** No owner, recorded here.
+
+### **Chunking ruled: five chunks, one branch, ONE durable executor conversation.**
+
+§15 prices Z7 at 6–8 agent-days and SOP §1.3 caps a chunk at ~10 files / ~600 net lines, so the
+phase cannot be one session — but under overlay §4.2 the **conversation**, not the chunk, is the
+unit, and it stays open through Codex remediation. Z7-1 schema + actual instants · Z7-2 participant
+ingestion + identity matching + interval merge · Z7-3 report reconciliation · Z7-4 override
+machinery · Z7-5 admin + facilitator surfaces. Full scopes in §15.3.2.
+
+**Dispatched: Z7-1, prompt at `docs/plan/zoom/prompts/Z7-r1.md`, committed to this branch.**
+
+```text
+STARTED: 2026-08-11T21:20:00-03:00
+ATTEMPT: 1 (cumulative for Z7; re-planning never resets it)
+RISK: HIGH — migrations, new RLS surface, attendance PII, and the path that decides billing
+HANDOFFS: 1 (PM → executor)
+GATES: not yet run — dispatch
+CODEX: pending
+ESCAPED DEFECT: n/a
+```
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-1 · r1 | Z7 | `feat/zoom-hours` | — | 🔵 DISPATCHED 2026-08-11 | Base `43999499`. Contract §15.3. C6 refuted → additive `actual_started_at`/`actual_ended_at` ruled by the PM, not left to the executor. `[A0]` requires jsdom to be proven working before any `npm test` count is reported — the base checkout's suite is green while skipping 51 files. |

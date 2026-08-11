@@ -1,8 +1,8 @@
 # RLS · public allowlist · r1 — diagnosis
 
-**Branch** `fix/rls-public` from `main` @ `43999499` · **Date** 2026-08-11 · **Round** r1 (DIAGNOSIS — no migration, no code change)
+**Branch** `fix/rls-public` from `main` @ `43999499` · **Date** 2026-08-11 · **Round** r1 corrected after independent review (DIAGNOSIS — no migration, no code change)
 **Target** production project `sxlogxqzmarhqsblxmtj` (PG 15.8, 251 tables in `public`, 22 without RLS)
-**Method** read-only SQL over the MCP (catalog only) + count-only REST probes (`limit=0`, `Prefer: count=exact`) + static call-site analysis. No writes, no DDL, no row reads.
+**Method** read-only SQL over the MCP (catalog only) + count-only REST probes (`limit=0`, `Prefer: count=exact`) + read-only GET probes of candidate RPCs + static call-site analysis. No writes, no DDL, no row reads. All probe identifiers were synthetic.
 
 ---
 
@@ -10,7 +10,7 @@
 
 `public` is exposed over PostgREST, and all 22 tables answer to the publishable key that ships in every browser.
 
-Probe: `GET /rest/v1/<table>?select=count&limit=0` with `apikey: sb_publishable_KtPTno9UnIssvCB7x54d8g_rw67xYCM`, no `Authorization` header — i.e. an unauthenticated visitor.
+Probe: `GET /rest/v1/<table>?select=count&limit=0` with the production publishable key and no `Authorization` header — i.e. an unauthenticated visitor.
 
 | result | tables |
 |---|---|
@@ -30,6 +30,18 @@ Supabase's own security advisor independently reports 22 × `rls_disabled_in_pub
 
 **Not proven, inferred:** write reachability. Confirming an anon INSERT lands would require a write to production, which is out of scope. It follows from the grants + RLS-off + proven REST reachability, and PostgREST honours table grants exactly as measured, but it is inference.
 
+### Adjacent RPC exposure discovered during review — PROVEN
+
+The table audit exposed a separate, more urgent write surface. `public` functions are PostgREST RPC endpoints, so a function with effective anonymous `EXECUTE` is a caller even when no repository code calls it.
+
+- `GET /rest/v1/rpc/submit_quiz` with synthetic zero UUIDs and empty JSON reached the function and returned PostgreSQL `25006 cannot execute INSERT in a read-only transaction` (HTTP 405). The function is therefore present in the REST schema and anonymously executable in production. The read-only GET transaction prevented the insert.
+- `GET /rest/v1/rpc/cleanup_propuesta_rate_limits` similarly returned `25006 cannot execute DELETE in a read-only transaction` (HTTP 405). It is also anonymously executable in production; the delete did not run.
+- A synthetic nonexistent RPC returned `PGRST202` / HTTP 404, proving that the probes discriminate schema-cache presence and permission from a missing function.
+
+`submit_quiz` is `SECURITY DEFINER`, accepts caller-controlled `p_student_id`, `p_answers`, and `p_quiz_data`, performs no `auth.uid()` or enrollment check, and inserts into the RLS-protected `quiz_submissions` table as its owner. The baseline grants it to `anon` and `authenticated`; the local catalog also shows the default `PUBLIC` execute grant. This is not a dependency of the legacy `answers` or `questions` tables: those words occur only in JSON parameters/fields. It is an independent anonymous write vulnerability and an authenticated integrity vulnerability because scoring inputs are caller-controlled.
+
+The fix round must revoke function execution from `PUBLIC` and `anon` explicitly. Merely revoking table grants or enabling RLS on the 22 tables does not constrain a `SECURITY DEFINER` function. Preserving legitimate quiz submission also requires redesign: bind the student to `auth.uid()`, authorize course/lesson access, and derive or validate scoring data against trusted server-side content. That work needs its own migration/application design and pgTAP coverage; it must not be smuggled into the mechanical 22-table lockdown.
+
 ---
 
 ## 2. The 2026-07-08 exception
@@ -43,7 +55,7 @@ Recorded in two places, both found and read:
 Two claims in the exception need correcting:
 
 1. **"Sin datos de menores"** — true today and still true. The six tables that will hold student work (`student_answers`, `submissions`, `answers`, `assignments`, `quizzes`, `questions`) are all empty. That is the whole opportunity: they are wired for exposure before the data arrives.
-2. **"no habilitar RLS sin policies — rompería producción"** — **this is false for 15 of the 22.** It was a reasonable blanket assumption in the absence of a call-site audit; the audit says otherwise. Fifteen of these tables have no `anon`/`authenticated` reader at all, and for those, `REVOKE` + `ENABLE ROW LEVEL SECURITY` with zero policies breaks nothing. The premise that made this a large, risky, deferred piece of work does not hold for two-thirds of it.
+2. **"no habilitar RLS sin policies — rompería producción"** — **this is false for 15 of the 22 and repairably false for one more.** Fourteen tables are dead; one is service-role-only. Those 15 need `REVOKE` + `ENABLE ROW LEVEL SECURITY` with zero policies. `qa_tester_time_logs` has a live but already-broken attempted reader that should be removed before it receives the same treatment. Only six tables need user-facing policies. The premise that made all 22 one large, risky, deferred piece of work does not hold.
 
 No per-table reasoning was recorded in the exception — it was a blanket allowlist of whatever the 2026-07-08 baseline scan found. So there is no table-specific rationale to re-evaluate; the audit below is the first one.
 
@@ -53,34 +65,45 @@ No per-table reasoning was recorded in the exception — it was a blanket allowl
 
 Client identification, established by reading the factories:
 
-- `lib/api-auth.ts:16-28` — `createApiSupabaseClient()` → `createServerSupabaseClient({req,res})` = **user context, runs as `authenticated`**. Not service role, despite the name appearing in API routes.
+- `lib/api-auth.ts:16-28` — `createApiSupabaseClient()` → `createServerSupabaseClient({req,res})` = publishable-key client whose session is restored from cookies. It runs as **`authenticated` only when the Supabase cookie is present; otherwise it runs as `anon`**. `getApiUser()` separately accepts an `Authorization: Bearer` token, but this factory does not forward that header. Current in-repo callers of the affected routes use same-origin fetches and therefore cookies; bearer-only external callers remain an inferred compatibility risk that policy tests must settle.
 - `lib/api-auth.ts:32-46` — `createServiceRoleClient()` → `SUPABASE_SERVICE_ROLE_KEY`. Bypasses RLS.
 - `lib/supabase.ts` → `lib/supabase-wrapper.ts:11` → `createPagesBrowserClient()` = **browser, publishable key**.
 - `useSupabaseClient()` (auth-helpers-react) = **browser, publishable key**.
 
-### Group A — pure `REVOKE` + `ENABLE ROW LEVEL SECURITY`, no policy needed (15)
+### Group A1 — dead tables: pure `REVOKE` + `ENABLE ROW LEVEL SECURITY`, no policy (14)
 
-Nothing reaches these with the `anon` or `authenticated` key.
+No working application, function, trigger, or view reads or writes these tables. Function-source matches for `answers`, `assignments`, `questions`, and `submissions` are comments, CTE names, or JSON/column identifiers referring to different tables; they are not dependencies on these legacy relations.
 
 | table | rows | evidence |
 |---|---|---|
-| `answers` | 0 | Only `public.submit_quiz` **[SECURITY DEFINER]**, called via `lib/services/quizSubmissions.js:75`. SECDEF runs as `postgres` — immune to grants and RLS. The `grade_quiz_feedback` catalog hit is a **comment** (`-- Update the submission answers with feedback`); its body touches only `quiz_submissions`. |
-| `assignments` | 0 | 7 SECDEF functions. **All six apparent app call sites are the storage bucket, not the table** — `supabase.storage.from('assignments')` in `components/assignments/GroupSubmissionModalV2.tsx:218,225`, `SimpleGroupSubmissionModal.tsx:59,66`, `CollaborativeSubmissionModal.tsx:158,165`. The table has zero application readers. |
+| `answers` | 0 | Zero table references. `submit_quiz` uses a JSON parameter/column named `answers` and writes `quiz_submissions`; `grade_quiz_feedback` has only a comment match. The exposed RPC finding is separate (§1). |
+| `assignments` | 0 | Function-source matches use “assignments” in comments/CTE names and operate on other relations. **All six apparent app call sites are the storage bucket, not the table** — `supabase.storage.from('assignments')` in `components/assignments/GroupSubmissionModalV2.tsx:218,225`, `SimpleGroupSubmissionModal.tsx:59,66`, `CollaborativeSubmissionModal.tsx:158,165`. |
 | `course_prerequisites` | 0 | Zero references outside the baseline, `types/supabase.ts`, and the allowlist test. No function references it. |
 | `deleted_blocks` | 0 | Same — baseline + generated types only. |
 | `deleted_courses` | **12** | Same. |
 | `deleted_lessons` | 0 | Same. |
 | `deleted_modules` | 0 | Same. |
 | `menu_permissions` | **104** | Zero references anywhere in the repo outside the baseline and the allowlist test. No function, no view. Orphaned — menu gating lives in code now. |
-| `metadata_sync_log` | 0 | Sole writer is `public.log_metadata_sync_needed`, which is **attached to no trigger** (`pg_trigger` empty for it). Dead writer, dead table. |
+| `metadata_sync_log` | 0 | The only SQL body that writes it is trigger function `public.log_metadata_sync_needed`, which is **attached to no trigger** (`pg_trigger` empty for it). PostgreSQL trigger functions are not a legitimate application RPC path. Dead writer, dead table. |
 | `profiles_role_backup` | **25** | See §4. |
-| `propuesta_rate_limits` | **9** | Written through `lib/propuestas-web/access-rate-limit.ts`, which takes an injected `SupabaseClient`; every caller injects a service-role client — `pages/api/propuestas/web/[slug]/verify.ts:9` (`createServiceRoleClient`) and `lib/propuestas-web/download-access.ts:23` (parameter named `serviceClient`). `cleanup_propuesta_rate_limits` has no caller in the repo. |
-| `questions` | 0 | Only `public.submit_quiz` **[SECDEF]**. |
+| `questions` | 0 | Zero table references. `submit_quiz` iterates a caller-provided JSON property named `questions`; it does not query this relation. The exposed RPC finding is separate (§1). |
 | `quizzes` | 0 | Zero references. |
 | `student_answers` | 0 | Zero references. |
 | `submissions` | 0 | The `cascade_lesson_submission_updates` catalog hit is a **comment**; the body operates entirely on `lesson_assignment_submissions`, a different table. No app call site. |
 
-### Group B — needs RLS policies designed (7)
+### Group A2 — service-role only: pure `REVOKE` + `ENABLE ROW LEVEL SECURITY`, no policy (1)
+
+| table | rows | evidence |
+|---|---|---|
+| `propuesta_rate_limits` | **9** | `lib/propuestas-web/access-rate-limit.ts` takes an injected client; every runtime caller injects a service-role client (`pages/api/propuestas/web/[slug]/verify.ts`, and the `serviceClient` passed into `lib/propuestas-web/download-access.ts`). The dead `cleanup_propuesta_rate_limits` function is nevertheless anonymously executable over RPC today (§1); revoke its `EXECUTE` from `PUBLIC`, `anon`, and `authenticated` while preserving service-role table access. |
+
+### Group A3 — broken attempted reader; retire the dependency before lockdown (1)
+
+| table | rows | evidence |
+|---|---|---|
+| `qa_tester_time_logs` | 0 | `pages/api/qa/time-tracking.ts:78-128` attempts to use it through a cookie-backed user client, but the query cannot succeed. Production and the baseline expose `id,date,total_seconds,test_runs_count,scenarios_completed,created_at,updated_at`; the route queries nonexistent `log_date,total_active_seconds,tests_started,tests_completed,tests_passed,tests_failed`. A count-free production schema probe returned HTTP 400 / `42703 column ... log_date does not exist`. The same route already contains a `qa_test_runs` fallback. Do not switch this broken branch to service role; remove/retire it (or deliberately map the real schema) and then lock the empty table down without policies. |
+
+### Group B — legitimately user-facing; needs RLS policies designed (6)
 
 Each is genuinely read (or written) with a browser or user-context key. Revoking would break production.
 
@@ -92,9 +115,8 @@ Each is genuinely read (or written) with a browser or user-context key. Revoking
 | `learning_path_courses` | **22** | 14 sites, same split: `pages/api/learning-paths/session/{start,activity}.ts`, `user/[userId].ts`, `[id]/enhanced-progress.ts`, `analytics.ts` — all `createApiSupabaseClient` (= `authenticated`). |
 | `growth_community_transformation_access` | **7** | `lib/transformation/accessControl.ts:34,83,160,269` (injected client); callers pass `createPagesServerClient` — `pages/api/transformation/assessments.ts`, `pages/api/admin/transformation/{assign,revoke}-access.ts`. Browser: `pages/admin/transformation.tsx:86`. Also read by `has_transformation_access` [SECDEF], which is unaffected either way. |
 | `group_assignment_discussions` | 0 | **Live code path despite zero rows.** `lib/services/groupAssignments.js:210,267` and `groupAssignmentsV2.js:1048`, both importing the browser client from `lib/supabase-wrapper`, reached from `pages/community/workspace/assignments/[id]/{groups,discussion}.tsx` and `components/assignments/GroupSubmissionModalV2.tsx`. (`groupAssignmentsCorrected.js:306,339` has no importer — dead file, but the other two are live.) |
-| `qa_tester_time_logs` | 0 | `pages/api/qa/time-tracking.ts:79,88` via `createApiSupabaseClient` — i.e. `authenticated`, not service role, despite being an admin-gated route. Looks internal, **is not**: it is read with the user's key. Cheapest fix is to switch the route to `createServiceRoleClient()` and then treat it as Group A. |
 
-Cross-checks that came back clean: no view in any schema depends on any of the 22 (`pg_depend`/`pg_rewrite` — so no read path hides behind a `security_definer` view); no raw `fetch()` to `/rest/v1/<table>` anywhere in the codebase.
+Cross-checks that came back clean: no view in any schema depends on any of the 22 (`pg_depend`/`pg_rewrite` — so no read path hides behind a view); no raw `fetch()` to `/rest/v1/<table>` anywhere in the codebase. The function audit now distinguishes relation access from comments and JSON/column-name matches and separately records effective RPC exposure.
 
 ---
 
@@ -109,17 +131,23 @@ The exposure is what matters, and `REVOKE` + `ENABLE RLS` closes it completely w
 
 ---
 
-## 5. Proposed remedy order (r2 — one additive migration, pgTAP-covered)
+## 5. Proposed remedy order
 
-**Step 1 — the sharp one, alone.** `profiles_role_backup`. `REVOKE ALL ... FROM anon, authenticated` + `ENABLE ROW LEVEL SECURITY`, no policy. Zero readers, so zero blast radius, and it removes the role map from the internet. Shipping it by itself makes the rollback trivial if anything unexpected surfaces.
+These are separate change sets. Ordering statements inside one transaction does not create independent containment or rollback points.
 
-**Step 2 — the empty student tables, before the data arrives.** `student_answers`, `submissions`, `answers`, `assignments`, `quizzes`, `questions`. Same treatment: revoke + enable, no policy. `submit_quiz` is SECDEF and keeps working. This is the Ley 21.719 item, and it costs nothing today precisely because the tables are empty; every week of delay raises the price. Do it before Fase 2 writes the first row.
+**Step 0 — urgent adjacent RPC workstream.** Verify the expected legitimate quiz flow, then close `submit_quiz`: revoke `EXECUTE` from `PUBLIC` and `anon`, enforce caller identity and enrollment/scope, stop trusting caller-supplied scoring truth, set a safe `search_path`, and cover anonymous/authenticated/service behavior in pgTAP plus an application test. The production read-only probe already proves effective anonymous execution; no write probe is needed. Revoke dead `cleanup_propuesta_rate_limits` execution from `PUBLIC`, `anon`, and `authenticated` in the proposal-rate-limit change set.
 
-**Step 3 — the rest of Group A.** `menu_permissions`, `metadata_sync_log`, `propuesta_rate_limits`, `course_prerequisites`, `deleted_blocks`, `deleted_courses`, `deleted_lessons`, `deleted_modules`. Same mechanical treatment. Steps 1–3 are 15 tables and one pattern.
+The trusted quiz source already exists: `blocks.id` is the UUID passed as `p_block_id`, and `blocks.payload` contains the `QuizBlockPayload` that the browser currently sends back as `p_quiz_data`. A backward-compatible `CREATE OR REPLACE FUNCTION` can retain the current signature while ignoring caller-supplied identity/scoring truth: derive the actor from `auth.uid()`, load and validate the visible quiz block plus its lesson/course relationship, require an authorized course enrollment under an explicit status rule, score against the stored payload, and insert with the derived actor. This avoids destructive function replacement and lets the existing client keep working while its redundant parameters are deprecated.
 
-**Step 4 — `qa_tester_time_logs`, after a one-line route change.** Switch `pages/api/qa/time-tracking.ts` to `createServiceRoleClient()` (the route already gates on `checkIsAdmin`), then it joins Group A. Small code change, so it belongs in its own commit with the route's test.
+**Step 1 — `profiles_role_backup`, independently.** `REVOKE ALL ... FROM anon, authenticated` + `ENABLE ROW LEVEL SECURITY`, no policy. Zero readers, so minimal application blast radius, and it removes the live role map from the internet. Do not describe rollback as disabling RLS or restoring public grants; both would restore the vulnerability and conflict with project rules.
 
-**Step 5 — Group B, one table per PR, policies designed.** Real work, real risk, and no reason to hold steps 1–4 behind it.
+**Step 2 — the six empty legacy student tables, before data arrives.** `student_answers`, `submissions`, `answers`, `assignments`, `quizzes`, `questions`. Same table treatment: revoke + enable, no policy. They are dead relations; `submit_quiz` uses `quiz_submissions`, not these tables. This is the Ley 21.719 item, and it costs nothing today precisely because the tables are empty. Do it before Fase 2 writes the first row.
+
+**Step 3 — the remaining dead/service-only tables.** `menu_permissions`, `metadata_sync_log`, `propuesta_rate_limits`, `course_prerequisites`, `deleted_blocks`, `deleted_courses`, `deleted_lessons`, `deleted_modules`. Same table treatment. Include a positive service-role test for `propuesta_rate_limits` and negative function-EXECUTE tests for its cleanup RPC. Before shipping, Brent must confirm no out-of-repo consumer for the live `menu_permissions` or `deleted_courses` rows.
+
+**Step 4 — retire the broken `qa_tester_time_logs` branch, then lock the table down.** Prefer making the route use its existing `qa_test_runs` path explicitly; switching the broken relation to service role only guarantees that its invalid-column query continues to fail. Add an admin-route regression test, then revoke + enable RLS on the empty table with no policy.
+
+**Step 5 — Group B, one table or coupled pair per PR, policies designed.** Six tables remain. Real work, real risk, and no reason to hold steps 1–4 behind it.
 
 Suggested order by difficulty:
 1. `instructors` — smallest surface; likely one `SELECT TO authenticated` policy, admin-only write.
@@ -130,7 +158,7 @@ Suggested order by difficulty:
 
 **One trap worth recording for step 5.** `validate_assignment_instance_course` is an **invoker-rights** trigger on `assignment_instances` that `SELECT`s from `modules`; if it reads nothing it raises `'Template not found'`. Under RLS that read is filtered by the caller's policies. It is safe **today** because the only writer to `assignment_instances` is `pages/api/admin/growth-communities/[id]/index.ts:113` using `createServiceRoleClient()`, which bypasses RLS. It stops being safe the moment any non-service-role path writes that table. Either make the function `SECURITY DEFINER` in the same migration or pin the invariant with a pgTAP test.
 
-**Ordering note.** Each step removes its tables from the `001-rls-enabled.sql` allowlist in the same migration, so the pgTAP suite tracks the shrinking list and the allowlist can never silently regrow. It reaches `{}` when step 5 finishes.
+**Ordering note.** Each change set removes its tables from the `001-rls-enabled.sql` source allowlist in the same commit as its migration and pgTAP role × table × operation coverage. The allowlist reaches `{}` when step 5 finishes. Source-test edits do not occur “inside” a migration.
 
 ---
 
@@ -144,10 +172,13 @@ Suggested order by difficulty:
 - No view depends on any of the 22.
 - `log_metadata_sync_needed` is attached to no trigger.
 - `cascade_lesson_submission_updates` and `grade_quiz_feedback` do not touch `submissions` / `answers` — read from `pg_proc.prosrc`.
+- Anonymous read-only GET reaches `submit_quiz` and `cleanup_propuesta_rate_limits` in production and is rejected only when each function attempts its write (`25006`, HTTP 405); a nonexistent RPC control returns `PGRST202`, HTTP 404. No write occurred.
+- Production `qa_tester_time_logs` exposes the baseline column set and rejects the route's `log_date` projection with `42703`; the existing route branch cannot succeed against production's schema.
 - `modules` carries exactly three policies, all `TO authenticated`, with the predicates quoted above.
 - The 2026-07-08 exception's text, in the two files cited.
 
 **Inferred** (sound, but not directly measured):
 - That anon can *write* these tables. Follows from the grants and RLS-off; verifying it would require writing to production.
-- That the Group A tables have no reader. This is exhaustive static analysis — `.from()`/`.rpc()` across `.ts`/`.tsx`/`.js`, `pg_proc.prosrc`, `pg_trigger`, `pg_depend`, and raw REST — but static analysis cannot see a caller outside this repository (an external script, a Retool/Metabase dashboard, a Supabase Dashboard-authored function, a manual query). **Before step 3, confirm with Brent that nothing outside this repo reads `menu_permissions` (104 rows) or `deleted_courses` (12 rows)** — those two are the plausible candidates for an out-of-band consumer. The empty tables carry no such risk.
+- That the 14 dead tables have no out-of-repo reader. The repository/database-object audit is exhaustive for visible code — `.from()`/`.rpc()` across `.ts`/`.tsx`/`.js`, function bodies, triggers, dependencies, and raw REST — but it cannot see an external script, Retool/Metabase dashboard, or manual query. **Before step 3, confirm with Brent that nothing outside this repo reads `menu_permissions` (104 rows) or `deleted_courses` (12 rows)** — those two are the plausible candidates. The empty tables carry no such risk.
+- That bearer-only external clients rely on the affected API routes. The code path is real (`getApiUser()` accepts the header while `createApiSupabaseClient()` restores only cookies), but every in-repo caller found uses a same-origin cookie-bearing request. Policy integration tests must make the supported transport explicit.
 - That the existing `modules` policies would break non-teaching roles. The predicates plainly do not cover them, but which roles actually load course structure in the browser was not enumerated per-role. Step 5 must test it rather than reason about it.

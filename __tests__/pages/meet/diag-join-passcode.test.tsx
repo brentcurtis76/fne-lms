@@ -12,8 +12,9 @@
  * the UI" is the claim.
  */
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { restoreBrowserFacts } from '../../helpers/browser-facts';
 
 // The page's capability probes read a pile of browser APIs on mount. jsdom supplies
 // most; these are the ones it does not, and an absent API is a legitimate 'fail'
@@ -24,6 +25,15 @@ beforeEach(() => {
     configurable: true,
     value: { getUserMedia: vi.fn(), enumerateDevices: vi.fn().mockResolvedValue([]) },
   });
+});
+
+// Both installs above have to come back out, and they need different tools:
+// `vi.unstubAllGlobals()` reverts `vi.stubGlobal` and nothing else, so it cannot
+// touch the `defineProperty`'d `mediaDevices`. Every jsdom suite in the run
+// shares one `window`, so anything left here is inherited by the next file.
+afterEach(() => {
+  vi.unstubAllGlobals();
+  restoreBrowserFacts();
 });
 
 import MeetDiagPage from '../../../pages/meet/diag';

@@ -55,6 +55,7 @@ import {
   CLIENT_VIEW_ROOT_ID,
 } from '../../../lib/meet/zoom-client-view-loader';
 import { SDK_CALL_TIMEOUT_MS } from '../../../lib/meet/zoom-sdk-loader';
+import { restoreBrowserFacts } from '../../helpers/browser-facts';
 
 const SESSION_ID = '3f1c5f5e-0f1a-4d3e-9a11-2b6c8f0d1e22';
 const JOIN_ENDPOINT = `/api/meet/session/${SESSION_ID}/join`;
@@ -172,6 +173,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  restoreBrowserFacts();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });

@@ -36,6 +36,7 @@ vi.mock('next/router', () => ({
 }));
 
 import JoinMeetingButton from '../../../components/sessions/JoinMeetingButton';
+import { restoreBrowserFacts } from '../../helpers/browser-facts';
 import {
   SDK_CALL_TIMEOUT_MS,
   SDK_DOWNLOAD_TIMEOUT_MS,
@@ -112,6 +113,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  restoreBrowserFacts();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });

@@ -67,6 +67,7 @@ vi.mock('../../../lib/meet/zoom-client-view-loader', async (importOriginal) => {
 });
 
 import JoinMeetingButton from '../../../components/sessions/JoinMeetingButton';
+import { restoreBrowserFacts } from '../../helpers/browser-facts';
 import { CLIENT_VIEW_ROOT_ID } from '../../../lib/meet/zoom-client-view-loader';
 import { MIN_EMBED_VIEWPORT_WIDTH, selectEmbedView } from '../../../lib/meet/embed-capabilities';
 
@@ -132,37 +133,6 @@ function serve(whenEmbedAllowed: unknown, whenAskedForLink: unknown = ok(linkPay
   mockFetch.mockImplementation((_url: string, init?: RequestInit) =>
     Promise.resolve(asksForLink(init) ? whenAskedForLink : whenEmbedAllowed)
   );
-}
-
-/**
- * The browser facts this file rewrites, captured before anything touches them.
- *
- * `vitest.config.ts` sets `threads: false`, so every jsdom suite in the run shares one
- * global — a user agent or a viewport left behind here is inherited by whichever file
- * runs next, and the suites that assert the plain link path do not set their own. This
- * file redefines four properties per row, so it puts all four back.
- */
-const BROWSER_FACTS: Array<[object, string]> = [
-  [window, 'innerWidth'],
-  [window.navigator, 'userAgent'],
-  [window.navigator, 'platform'],
-  [window.navigator, 'maxTouchPoints'],
-];
-
-const ORIGINAL_BROWSER_FACTS = BROWSER_FACTS.map(([target, property]) => ({
-  target,
-  property,
-  descriptor: Object.getOwnPropertyDescriptor(target, property),
-}));
-
-function restoreBrowserFacts() {
-  for (const { target, property, descriptor } of ORIGINAL_BROWSER_FACTS) {
-    if (descriptor) {
-      Object.defineProperty(target, property, descriptor);
-    } else {
-      delete (target as Record<string, unknown>)[property];
-    }
-  }
 }
 
 function setViewport(width: number) {

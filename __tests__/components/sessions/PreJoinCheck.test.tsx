@@ -14,6 +14,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 import PreJoinCheck from '../../../components/sessions/PreJoinCheck';
+import { restoreBrowserFacts } from '../../helpers/browser-facts';
 
 function setNavigator(values: Record<string, unknown>) {
   for (const [key, value] of Object.entries(values)) {
@@ -37,6 +38,10 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  // `setNavigator` installs own properties on the shared jsdom `navigator`
+  // (`mediaDevices`, `permissions`), and every jsdom suite in the run shares it.
+  // `vi.restoreAllMocks()` restores spies, not `Object.defineProperty`.
+  restoreBrowserFacts();
 });
 
 describe('PreJoinCheck [C8]', () => {

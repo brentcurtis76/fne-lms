@@ -17,5 +17,14 @@
     "@next/next/no-sync-scripts": "off",
     "@next/next/no-page-custom-font": "off",
     "jsx-a11y/alt-text": "off"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx"],
+      "plugins": ["mock-hygiene"],
+      "rules": {
+        "mock-hygiene/drain-mock-queue": "error"
+      }
+    }
+  ]
 }

@@ -1224,3 +1224,38 @@ Ordering is **descending by size within each environment group**, not globally �
 **Scheduled, not done, and the PM agrees:** the **Vitest 0.34.6 → 1.x/2.x upgrade** is the durable answer — `pendingIds` is redesigned there and this bug class disappears rather than being guarded against. **Its own phase, its own gates, not carried on a flake fix.** `threads`, the sequencer, file order and production code were all left untouched.
 
 **NEXT: this needs a PR and a merge — it is a repo-wide fix with no plan of its own.** The `[W5]` caveat they raised themselves is the honest frame for its evidence: **ten cold-cache runs vary timing, not order**, so they are weaker than they look; the load-bearing proof is the guard firing and the mechanism being understood.
+
+## 🔴 **THE TWO CARRIED-FORWARD FINDINGS ARE NOW MEASURED IN PRODUCTION, AND BOTH ARE WORSE THAN RECORDED (2026-08-10).**
+
+Read-only queries against production. The Z2 close framed both and answered neither; the owner asked what must be done before moving on, so the PM measured instead of recommending.
+
+### **① The 22-table RLS gap: the grants ARE there. The Z2 entry's careful hedge is resolved, and the answer is the bad one.**
+
+Z2 recorded: *"RLS disabled does not by itself mean the data is reachable — that depends on what `anon` and `authenticated` are granted, **which was not checked**."* **Now checked. On all 22 tables: `anon` holds SELECT and INSERT; `authenticated` holds SELECT and UPDATE.** RLS off **plus** grants present means the rows are reachable with the publishable key that ships in every browser.
+
+**What saves it today, and it is luck rather than design — the student tables are EMPTY:** `student_answers` 0 · `submissions` 0 · `answers` 0 · `assignments` 0 · `quizzes` 0 · `questions` 0. **No minor data is exposed right now.**
+
+**What is live:** `profiles_role_backup` holds **25 rows** with columns `id, role, created_at` — **a user-id → role map, readable by anon, and anon can INSERT into it.** Also `instructors` (17) and `modules` (71).
+
+**Why this is urgent rather than tidy: the empty tables are exactly where GENERA's coming phases put real student work.** Ley 21.719 takes effect 2026-12-01 and `CLAUDE.md` names student data as legally protected minor data. **The protection is off and the data has not arrived yet. That ordering is the entire opportunity — fix it before students arrive, not after.**
+
+### **② INSPIRA's migration is NOT "unapplied". It is APPLIED BUT UNRECORDED — which is a different bug with the opposite fix.**
+
+The ledger has carried *"`20260803170000_add_email_marketing_tables` is STILL unapplied in production"* since the Z2 close. **Production disagrees:** all five tables exist — `email_campaigns`, `email_contacts`, `email_campaign_sends`, `email_suppression`, `email_webhook_events` — **each with RLS enabled**. But `supabase_migrations.schema_migrations` has **no row for `20260803170000`**.
+
+**So the CLI believes it is pending.** The next `supabase db push` or any flow keying on `schema_migrations` will try to **re-create tables that already exist** and fail — a deploy landmine, not a missing feature. **"Just apply it" is the wrong fix and would break.**
+
+**One signal the PM is flagging without over-claiming:** each table carries **exactly one policy**, where the B3 phase described *"per-op RLS, 142 pgTAP asserts"*. One policy per table may be by design, or the migration may have applied **partially**. **Not established — it needs whoever owns INSPIRA to compare production against the migration file before anything is re-run.**
+
+### **PM assessment of the remaining backlog, against the owner's actual question ("I don't want bugs later")**
+
+| Item | Causes product bugs? |
+|---|---|
+| **22-table RLS** | **Yes — and the window to fix it cheaply is now, while the student tables are empty** |
+| **INSPIRA migration record** | **Yes — a latent deploy failure, plus an unverified partial-apply** |
+| Shuffled-order test coupling | No. Produces false CI signals; CI does not shuffle, so latent |
+| Vitest 1.x upgrade | No. Removes a bug *class*; durable, not urgent |
+| Z3b | No. Unbuilt feature work |
+| Pre-Zoom `PROJECT_STATE` cleanup | No. Tidiness |
+
+**Neither of the top two is a Zoom item and neither has a plan. They are recorded here because this is where they were surfaced — they need owners.**

@@ -4,6 +4,7 @@ import path from 'path';
 import { describe, it, expect } from 'vitest';
 import {
   identityToken,
+  identityTokens,
   matchByDisplayName,
   matchParticipantIdentity,
   normalizeDisplayName,
@@ -261,7 +262,44 @@ describe('e-mail ambiguity — profiles.email is NOT database-unique (Codex ruli
   });
 });
 
-describe('identityToken — the fallback interval key ([R3])', () => {
+describe('identityTokens — every presented rank (re-review BLOCKER)', () => {
+  it('lists all presented ranks, strongest first', () => {
+    expect(
+      identityTokens({ customerKey: 'ABCD', email: 'A@Test.Local', displayName: '  Ana  Pérez ' })
+    ).toEqual(['ck:abcd', 'em:a@test.local', 'nm:ana pérez']);
+  });
+
+  it('omits the ranks the participant did not present', () => {
+    expect(identityTokens({ customerKey: null, email: null, displayName: 'Ana' })).toEqual([
+      'nm:ana',
+    ]);
+    expect(identityTokens({ customerKey: null, email: null, displayName: null })).toEqual([]);
+  });
+
+  it('THE COUNTEREXAMPLE: a downgraded leave still shares a token with its own join', () => {
+    // A joins with a key and a name; a leave that omits the key searches with `nm:ana`.
+    // The join's token LIST contains `nm:ana`, so the leave finds its own row — which the
+    // single-primary-token design could not do, and which is why it closed a namesake.
+    const join = identityTokens({ customerKey: 'A', email: null, displayName: 'Ana' });
+    const downgradedLeave = identityToken({ customerKey: null, email: null, displayName: 'Ana' });
+    expect(join).toEqual(['ck:a', 'nm:ana']);
+    expect(downgradedLeave).toBe('nm:ana');
+    expect(join).toContain(downgradedLeave);
+
+    // ...and a namesake who presented ONLY the name shares that same weak token, which is
+    // precisely why the applier refuses to close when both match.
+    expect(identityTokens({ customerKey: null, email: null, displayName: 'Ana' })).toContain(
+      downgradedLeave
+    );
+  });
+
+  it('identityToken is exactly the first element of identityTokens', () => {
+    const identity = { customerKey: 'ABCD', email: 'a@test.local', displayName: 'Ana' };
+    expect(identityToken(identity)).toBe(identityTokens(identity)[0]);
+  });
+});
+
+describe('identityToken — the leave\'s search key ([R3])', () => {
   it('follows the same descending confidence as the match hierarchy', () => {
     expect(
       identityToken({ customerKey: 'ABCD', email: 'a@test.local', displayName: 'Ana' })

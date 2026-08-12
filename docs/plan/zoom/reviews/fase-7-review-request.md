@@ -539,3 +539,110 @@ of the design rather than of the double's scheduling.
    pgTAP (single connection, as `002`'s header records).
 3. **`identity_token` embeds an e-mail or a name**, so it is PII of the same grade as the
    columns beside it. Covered by the same SELECT-only RLS; called out in the migration.
+
+---
+
+## Z7-2 re-review — Codex `FAIL` #2, and the lean overlay §5 hypothesis change
+
+Codex returned `FAIL` on `43999499..3e852828` with one BLOCKER, and it is the **second
+consecutive failure in the identity/pairing category**. Overlay §5 therefore applied: the
+"one primary token per event is sufficient" hypothesis had to change before more code.
+**It has. This section states the new hypothesis explicitly, because that is what §5
+requires and what an override is not.**
+
+### The defect — reproduced before it was fixed
+
+`identityToken()` recomputed the strongest token independently on every event, while the
+row stored only that one token. Zoom does not present the same fields on every event for
+the same person, so a leave arriving with FEWER fields DOWNGRADES to a weaker rank that
+belongs to somebody else:
+
+```
+A joins with customer_key=A and name "Ana"  → stored ck:a
+B joins with only the name "Ana"            → stored nm:ana
+A leaves, Zoom omits customer_key           → recomputed nm:ana
+→ the exact lookup returns B, and B's interval is closed.
+```
+
+**Reproduced against the applier before changing anything**, and the output is the point:
+
+```
+CLOSES: [{"id":"row-2","leftAt":"2026-07-30T00:10:00.000Z"}]
+```
+
+`row-2` is B. My own review request had claimed this case "fails open, the interval stays
+open". That was **wrong** — it failed onto the wrong person, which is the single outcome
+[R6] exists to prevent. The namesake test I had written could not detect it because it
+gave both participants a `customer_key`, so neither ever downgraded.
+
+### The hypothesis change
+
+**Old:** one prioritised token per event is sufficient to pair a leave with its join.
+**Refuted** — the token is a property of the EVENT, not of the person, so it is not stable
+across events for one participant.
+
+**New:** a join is findable by **any evidence it actually presented**; the leave still
+searches with **its own strongest token only**; and **ambiguity is resolved by refusing to
+close, never by choosing.**
+
+The asymmetry is deliberate and is the whole design:
+
+| | Widened | Unchanged |
+|---|---|---|
+| **Storage** — `identity_tokens text[]`, every presented rank, strongest first | ✅ | |
+| **Search key** — the leave's own strongest token | | ✅ — matching a strong-evidence leave by name would discard the evidence that makes the pair trustworthy |
+| **Resolution** — exactly one match closes; zero or many close nothing | | ✅ new, replacing "latest wins" on the fallback path |
+
+Under it, the counterexample resolves: A's downgraded leave searches `nm:ana`, which now
+matches **both** rows (A carries it at a weaker rank), so the applier closes **nothing** and
+both intervals stay open for the Z7-3 reconcile — which §11 already makes authoritative
+over webhooks, so the unresolved case has a designated owner rather than being a silent gap.
+
+The uuid path is untouched: `participant_uuid` is unambiguous, so "latest open interval"
+still applies there.
+
+### What changed
+
+| File | Change |
+|---|---|
+| `supabase/migrations/20260812120000_…` | `identity_token text` → `identity_tokens text[]`, GIN-indexed for containment. `source_event_key` and its partial UNIQUE index **untouched** — that remediation passed review. |
+| `lib/zoom/attendance-identity.ts` | New `identityTokens()` (all ranks, strongest first); `identityToken()` is now exactly its first element. |
+| `lib/zoom/attendance-store.ts` | Fallback lookup is `identity_tokens=cs.{token}` (array containment) instead of `identity_token=eq.…`. |
+| `lib/zoom/participant-lifecycle.ts` | Persists all ranks; **`participantUuid === null && open.length > 1` ⇒ `no_open_interval`**, before any "latest" selection. |
+| `__tests__/lib/zoom/participant-lifecycle.test.ts` | Codex's regression verbatim (A ck+name, B name-only, A leaves without ck ⇒ **neither closed**), plus the unambiguous-downgrade case and the strong-leave-never-matched-by-name case. |
+| `__tests__/lib/zoom/attendance-identity.test.ts` | The counterexample as a pure-module assertion. |
+| `__tests__/lib/zoom/attendance-store.test.ts` | Wire assertion is now containment, and `identity_token` equality is asserted **absent** — the refuted model cannot come back unnoticed. |
+| `supabase/tests/011-zoom-public-rls.sql` | `plan(91)` → `plan(93)`: the two-namesake rows at the database, the strong-token lookup returning one, the downgraded lookup returning **two**, and an assert that keying on `identity_tokens[1]` alone would have found only the namesake — the refuted model, pinned as a live refutation. |
+
+### Evidence
+
+| Gate | Result |
+|---|---|
+| jsdom proof | `JSDOM OK ok`; 30 passed, `environment 241ms` |
+| `npm run type-check` / `npm run lint` | PASS / PASS, zero warnings |
+| `npm test` | **310 files / 7,168 passed + 11 skipped (7,179)** |
+| `npm run build` | PASS |
+| `supabase db reset` + `npm run test:db` | 11 files / **559 tests**, PASS |
+
+**Fail-on-old** (reverted, byte identity re-proved — `eed7b403…` identity,
+`11618108…` applier):
+
+- **Probe (v)** — restore the single-primary-token storage: **5 tests fail**, exit 1,
+  including *"a DOWNGRADED leave closes nobody, not a namesake"* and the pure-module
+  counterexample. The refuted hypothesis can no longer pass.
+- **Probe (vi)** — remove the ambiguity guard so the fallback picks "latest" again:
+  **1 test fails**, exit 1 — the Codex regression itself.
+
+### What I get wrong under this design, stated plainly
+
+1. **Two people who present only a shared display name can never be paired at all.** Their
+   leaves close nothing and both intervals stay open. That is the intended trade — no close
+   beats a wrong close — but it means uuid-less same-name participants produce open
+   intervals that only Z7-3 can resolve.
+2. **A person with two genuinely open intervals** (a rejoin whose first leave was never
+   delivered) also hits the ambiguity rule and closes neither. Same trade, same owner.
+3. **`identity_tokens` embeds an e-mail and a display name.** Same PII grade as the columns
+   beside it, same SELECT-only RLS, called out in the migration.
+4. **This is the third pairing design in three attempts.** If the reviewer finds a fourth
+   counterexample, the honest read is that webhook-only pairing cannot be made safe for
+   uuid-less participants, and the pairing should move wholesale to Z7-3's report.

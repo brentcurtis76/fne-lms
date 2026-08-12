@@ -25,7 +25,7 @@
 
 BEGIN;
 
-SELECT plan(91);
+SELECT plan(93);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures
@@ -901,8 +901,8 @@ SELECT is(
 -- Postgres regardless of interleaving.
 -- =============================================================================
 
-SELECT has_column('public', 'zoom_attendance', 'identity_token',
-  'zoom_attendance.identity_token exists — the single prioritised fallback key');
+SELECT has_column('public', 'zoom_attendance', 'identity_tokens',
+  'zoom_attendance.identity_tokens exists — EVERY presented rank, not just the strongest');
 SELECT has_column('public', 'zoom_attendance', 'source_event_key',
   'zoom_attendance.source_event_key exists — delivery-level idempotency');
 
@@ -914,50 +914,71 @@ SELECT ok(
       AND indexname = 'zoom_attendance_source_event_key'),
   'source_event_key carries a PARTIAL UNIQUE index — Z7-3 report rows stay NULL and excluded');
 
--- P1-1, at the database: two DIFFERENT people, SAME display name, no participant_uuid,
--- distinct customer keys. Their tokens differ because customer_key outranks the name.
+SELECT ok(
+  (SELECT indexdef LIKE '%USING gin%'
+     FROM pg_indexes
+    WHERE schemaname = 'public'
+      AND indexname = 'zoom_attendance_identity_tokens_idx'),
+  'identity_tokens is GIN-indexed — the pairing lookup is array containment, not equality');
+
+-- The re-review counterexample, at the database. A presented a customer_key AND the
+-- shared name, so A's row carries BOTH ranks; B presented only the name.
 INSERT INTO public.zoom_attendance
   (id, surface_type, surface_id, school_id, zoom_meeting_uuid,
    participant_uuid, customer_key, display_name, matched_by, joined_at,
-   identity_token, source_event_key, source)
+   identity_tokens, source_event_key, source)
 VALUES
   ('a7a7a7a7-6666-0000-0000-000000000001', 'consultor_session',
    'a7a7a7a7-0000-0000-0000-000000000001', 9901, 'z7Synthetic/Occurrence/T==',
    NULL, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1', 'Ana Perez Sintetica', 'unmatched',
-   '2026-07-29T23:55:00Z', 'ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1', 'delivery-t-1', 'webhook'),
+   '2026-07-29T23:55:00Z',
+   ARRAY['ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1', 'nm:ana perez sintetica'],
+   'delivery-t-1', 'webhook'),
   ('a7a7a7a7-6666-0000-0000-000000000002', 'consultor_session',
    'a7a7a7a7-0000-0000-0000-000000000001', 9901, 'z7Synthetic/Occurrence/T==',
-   NULL, 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb2', 'Ana Perez Sintetica', 'unmatched',
-   '2026-07-29T23:56:00Z', 'ck:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb2', 'delivery-t-2', 'webhook');
+   NULL, NULL, 'Ana Perez Sintetica', 'unmatched',
+   '2026-07-29T23:56:00Z',
+   ARRAY['nm:ana perez sintetica'],
+   'delivery-t-2', 'webhook');
 
--- The query the store now issues for person ONE's leave: exact equality on the token.
+-- A's leave WITH its customer_key: the strong token belongs to exactly one row.
 SELECT is(
   (SELECT string_agg(id::text, ',' ORDER BY id) FROM public.zoom_attendance
     WHERE zoom_meeting_uuid = 'z7Synthetic/Occurrence/T=='
       AND left_at IS NULL
-      AND identity_token = 'ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1'),
+      AND identity_tokens @> ARRAY['ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1']),
   'a7a7a7a7-6666-0000-0000-000000000001',
-  'P1-1: the token lookup returns ONLY that person''s interval, not their namesake''s');
+  'a strong leave token matches exactly its own interval');
 
--- ...and the shape the OLD code produced: an OR over display_name matched BOTH, which is
--- how a leave closed a stranger's interval. Asserted so the regression is visible here
--- and not only in the unit suite.
+-- A's leave DOWNGRADED (Zoom omitted the customer_key): the weak token now matches BOTH,
+-- because A's row carries it at a weaker rank. Under the single-primary-token design it
+-- matched ONLY B — which is how B's interval got closed. Two rows is the ambiguity the
+-- applier is required to refuse to resolve.
 SELECT is(
   (SELECT count(*)::int FROM public.zoom_attendance
     WHERE zoom_meeting_uuid = 'z7Synthetic/Occurrence/T=='
       AND left_at IS NULL
-      AND display_name = 'Ana Perez Sintetica'),
-  2, 'P1-1: matching on the shared display name alone would have matched BOTH people');
+      AND identity_tokens @> ARRAY['nm:ana perez sintetica']),
+  2, 'a DOWNGRADED leave token matches both people — ambiguous, so the applier closes nothing');
+
+-- The refutation of the old model, kept as a live assert: A's PRIMARY token is not the
+-- weak one, so a query keyed on "the primary token" would have returned only B.
+SELECT is(
+  (SELECT count(*)::int FROM public.zoom_attendance
+    WHERE zoom_meeting_uuid = 'z7Synthetic/Occurrence/T=='
+      AND left_at IS NULL
+      AND identity_tokens[1] = 'nm:ana perez sintetica'),
+  1, 'keyed on the PRIMARY token alone the downgraded leave finds only the namesake — the refuted model');
 
 -- P1-2, at the database: the same delivery key cannot produce a second row, even though
 -- both rows are uuid-less and the participant_uuid index therefore does not apply.
 SELECT throws_ok(
   $$ INSERT INTO public.zoom_attendance
        (surface_type, surface_id, school_id, zoom_meeting_uuid,
-        participant_uuid, matched_by, joined_at, identity_token, source_event_key, source)
+        participant_uuid, matched_by, joined_at, identity_tokens, source_event_key, source)
      VALUES ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
              'z7Synthetic/Occurrence/T==', NULL, 'unmatched', '2026-07-29T23:55:00Z',
-             'ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1', 'delivery-t-1', 'webhook') $$,
+             ARRAY['ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1'], 'delivery-t-1', 'webhook') $$,
   '23505',
   NULL,
   'P1-2: a uuid-less redelivery is refused by the source_event_key unique index');
@@ -967,17 +988,17 @@ SELECT throws_ok(
 SELECT lives_ok(
   $$ INSERT INTO public.zoom_attendance
        (surface_type, surface_id, school_id, zoom_meeting_uuid,
-        participant_uuid, matched_by, joined_at, identity_token, source_event_key, source)
+        participant_uuid, matched_by, joined_at, identity_tokens, source_event_key, source)
      VALUES ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
              'z7Synthetic/Occurrence/T==', NULL, 'unmatched', '2026-07-30T00:10:00Z',
-             'ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1', 'delivery-t-3', 'webhook') $$,
+             ARRAY['ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1'], 'delivery-t-3', 'webhook') $$,
   'a genuine rejoin carries a different delivery key and opens a new interval');
 
 -- Rows with no delivery key (Z7-3's report path) are excluded by the partial predicate.
 SELECT lives_ok(
   $$ INSERT INTO public.zoom_attendance
        (surface_type, surface_id, school_id, zoom_meeting_uuid,
-        participant_uuid, matched_by, joined_at, identity_token, source_event_key, source)
+        participant_uuid, matched_by, joined_at, identity_tokens, source_event_key, source)
      VALUES ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
              'z7Synthetic/Occurrence/U==', NULL, 'unmatched', '2026-07-30T00:20:00Z',
              NULL, NULL, 'report'),

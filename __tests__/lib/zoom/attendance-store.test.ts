@@ -74,7 +74,10 @@ function interceptedStore(
 }
 
 describe('listOpenIntervals · ONE key, exact equality (Codex P1-1)', () => {
-  it('pairs on identity_token when Zoom omitted participant_uuid', async () => {
+  it('matches the leave token against EVERY stored rank, by array containment', async () => {
+    // The re-review fix. `identity_tokens=cs.{token}` is `@> ARRAY[token]`, so a leave
+    // that downgraded to `nm:` still finds a join that recorded `nm:` at a weaker rank —
+    // instead of finding only the namesake whose PRIMARY token happened to be `nm:`.
     const { store, requests } = interceptedStore([{ rows: [] }]);
 
     await store.listOpenIntervals({
@@ -85,16 +88,17 @@ describe('listOpenIntervals · ONE key, exact equality (Codex P1-1)', () => {
 
     const [request] = requests;
     expect(request.url.pathname).toBe('/rest/v1/zoom_attendance');
-    expect(request.url.searchParams.get('identity_token')).toBe(
-      'eq.ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1'
+    expect(request.url.searchParams.get('identity_tokens')).toBe(
+      'cs.{ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1}'
     );
     expect(request.url.searchParams.get('zoom_meeting_uuid')).toBe(`eq.${OCCURRENCE}`);
     expect(request.url.searchParams.get('left_at')).toBe('is.null');
 
-    // THE REGRESSION. Any of these would re-open the wrong-person defect: an `or=(...)`
-    // widens the match, and a `display_name` or `customer_key` filter means pairing is
-    // keyed on something other than the single prioritised token.
+    // THE REGRESSION, both generations of it. An `or=(...)` widens the match (first
+    // FAIL); an `identity_token` equality filter is the single-primary-token model the
+    // re-review refuted; and a raw identity-column filter is neither.
     expect(request.url.searchParams.get('or')).toBeNull();
+    expect(request.url.searchParams.get('identity_token')).toBeNull();
     expect(request.url.searchParams.get('display_name')).toBeNull();
     expect(request.url.searchParams.get('customer_key')).toBeNull();
     expect(request.url.searchParams.get('transient_email')).toBeNull();
@@ -113,7 +117,7 @@ describe('listOpenIntervals · ONE key, exact equality (Codex P1-1)', () => {
     expect(request.url.searchParams.get('participant_uuid')).toBe(
       'eq.364B3A17-05C0-6B63-F4FA-2180DCC26971'
     );
-    expect(request.url.searchParams.get('identity_token')).toBeNull();
+    expect(request.url.searchParams.get('identity_tokens')).toBeNull();
     expect(request.url.searchParams.get('or')).toBeNull();
   });
 
@@ -149,7 +153,7 @@ describe('insertInterval · both idempotency keys reach the wire (Codex P1-2)', 
       transientEmail: null,
       matchedBy: 'unmatched',
       joinedAt: '2026-07-29T23:55:00.000Z',
-      identityToken: 'ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1',
+      identityTokens: ['ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1', 'nm:ana perez sintetica'],
       sourceEventKey: 'sha256-of-the-raw-body',
     });
 
@@ -157,7 +161,7 @@ describe('insertInterval · both idempotency keys reach the wire (Codex P1-2)', 
     expect(request.method).toBe('POST');
     expect(request.url.pathname).toBe('/rest/v1/zoom_attendance');
     expect(request.body).toMatchObject({
-      identity_token: 'ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1',
+      identity_tokens: ['ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1', 'nm:ana perez sintetica'],
       source_event_key: 'sha256-of-the-raw-body',
       source: 'webhook',
       matched_by: 'unmatched',
@@ -188,7 +192,7 @@ describe('insertInterval · both idempotency keys reach the wire (Codex P1-2)', 
         transientEmail: null,
         matchedBy: 'unmatched',
         joinedAt: '2026-07-29T23:55:00.000Z',
-        identityToken: null,
+        identityTokens: [],
         sourceEventKey: 'sha256-of-the-raw-body',
       })
     ).resolves.toBe('duplicate');

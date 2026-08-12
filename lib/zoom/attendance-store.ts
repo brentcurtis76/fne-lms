@@ -53,8 +53,8 @@ export interface AttendanceIntervalInsert {
   transientEmail: string | null;
   matchedBy: string;
   joinedAt: string;
-  /** The single prioritised fallback pairing key ([R3]). Null = unpairable. */
-  identityToken: string | null;
+  /** EVERY fallback rank this participant presented, strongest first ([R3]). */
+  identityTokens: string[];
   /** The ledger dedupe_key of the delivery that produced this row. UNIQUE. */
   sourceEventKey: string | null;
 }
@@ -65,16 +65,20 @@ export type AttendanceInsertResult = 'inserted' | 'duplicate';
 /**
  * How to find the open intervals a `participant_left` might close.
  *
- * Exactly TWO keys, tried in [R3]'s order, each by exact equality. There is deliberately
- * no way to express "match any of these identity columns": OR-ing them was Codex P1-1 —
- * two uuid-less participants sharing a display name both matched, and the latest-joined
- * one got closed, which is the wrong-person failure this design exists to prevent.
+ * Exactly TWO keys, in [R3]'s order. There is deliberately no way to express "match any
+ * of these identity columns" — OR-ing them was the first Codex `FAIL`.
+ *
+ * `identityToken` is the LEAVE's own strongest token, and it is matched against the
+ * stored `identity_tokens` ARRAY by containment. The asymmetry is the fix for the second
+ * `FAIL`: widening what a join is findable BY (every rank it presented) lets a leave that
+ * presented fewer fields still find its own row, while keeping the leave's own search key
+ * at its strongest rank so a strong-evidence leave is never matched by name.
  */
 export interface OpenIntervalQuery {
   zoomMeetingUuid: string;
   /** Preferred key when Zoom supplied one ([R3]). */
   participantUuid: string | null;
-  /** The single prioritised fallback token, used only when `participantUuid` is null. */
+  /** The LEAVE's strongest token; matched against the stored array by containment. */
   identityToken: string | null;
 }
 
@@ -180,6 +184,22 @@ export interface AttendancePublicClient {
               error: PostgrestError | null;
             }>;
           };
+          /**
+           * `identity_tokens @> ARRAY[token]`. The fallback pairing lookup — still ONE
+           * search key, matched against every rank the join recorded.
+           */
+          contains(
+            column: string,
+            value: string[]
+          ): {
+            order(
+              column: string,
+              options: { ascending: boolean }
+            ): PromiseLike<{
+              data: OpenIntervalRow[] | null;
+              error: PostgrestError | null;
+            }>;
+          };
         };
       };
       ilike(
@@ -220,6 +240,10 @@ const EXPECTED_ATTENDEE_SOURCE: Record<
   consultor_session: { table: 'session_attendees', surfaceColumn: 'session_id' },
   community_meeting: { table: 'meeting_attendees', surfaceColumn: 'meeting_id' },
 };
+
+function toStoredInterval(row: OpenIntervalRow): StoredInterval {
+  return { id: row.id, joinedAt: row.joined_at, leftAt: row.left_at };
+}
 
 function readCandidateName(row: AttendeeRow): string | null {
   const joined = row.profiles;
@@ -327,7 +351,7 @@ export function createSupabaseAttendanceStore(
         transient_email: row.transientEmail,
         matched_by: row.matchedBy,
         joined_at: row.joinedAt,
-        identity_token: row.identityToken,
+        identity_tokens: row.identityTokens.length > 0 ? row.identityTokens : null,
         source_event_key: row.sourceEventKey,
         source: 'webhook',
       });
@@ -346,30 +370,41 @@ export function createSupabaseAttendanceStore(
     },
 
     async listOpenIntervals(query) {
-      // Exactly one key, by exact equality. `participant_uuid` when Zoom gave one,
-      // otherwise the persisted `identity_token` — and NOTHING when the participant
-      // presented no identity, because "match on whatever fields happen to be present"
-      // is how a shared display name closes a stranger's interval (Codex P1-1).
-      const keyColumn = query.participantUuid !== null ? 'participant_uuid' : 'identity_token';
-      const keyValue = query.participantUuid ?? query.identityToken;
-      if (keyValue === null) return [];
+      // ONE search key, and NOTHING when the participant presented no identity — "match
+      // on whatever fields happen to be present" is how a shared display name closes a
+      // stranger's interval (Codex P1-1).
+      //
+      // The uuid path is exact equality. The fallback path is array CONTAINMENT: the
+      // leave's strongest token against every rank the join recorded, which is what lets
+      // a downgraded leave find its own row instead of a namesake's (Codex re-review).
+      if (query.participantUuid !== null) {
+        const { data, error } = await publicClient
+          .from('zoom_attendance')
+          .select('id, joined_at, left_at')
+          .eq('zoom_meeting_uuid', query.zoomMeetingUuid)
+          .is('left_at', null)
+          .eq('participant_uuid', query.participantUuid)
+          .order('joined_at', { ascending: false });
+        if (error) {
+          throw new Error(`zoom_attendance open-interval lookup failed: ${error.message}`);
+        }
+        return (data ?? []).map(toStoredInterval);
+      }
+
+      if (query.identityToken === null) return [];
 
       const { data, error } = await publicClient
         .from('zoom_attendance')
         .select('id, joined_at, left_at')
         .eq('zoom_meeting_uuid', query.zoomMeetingUuid)
         .is('left_at', null)
-        .eq(keyColumn, keyValue)
+        .contains('identity_tokens', [query.identityToken])
         .order('joined_at', { ascending: false });
 
       if (error) {
         throw new Error(`zoom_attendance open-interval lookup failed: ${error.message}`);
       }
-      return (data ?? []).map((row) => ({
-        id: row.id,
-        joinedAt: row.joined_at,
-        leftAt: row.left_at,
-      }));
+      return (data ?? []).map(toStoredInterval);
     },
 
     async closeInterval(intervalId, leftAt) {

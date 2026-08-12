@@ -61,36 +61,52 @@ ALTER TABLE public.zoom_attendance
   CHECK (left_at IS NULL OR left_at >= joined_at);
 
 -- -----------------------------------------------------------------------------
--- identity_token — the ONE fallback key, persisted (Codex Z7-2 P1-1).
+-- identity_tokens — every fallback rank the participant presented (Codex P1-1, then
+-- the re-review BLOCKER that refuted the first fix).
 --
--- [R3] defines a single prioritised fallback token: `customer_key`, else e-mail, else
--- normalised display name. The first implementation computed that token but queried
--- with an OR over every identity column it happened to have, which is a DIFFERENT and
--- much weaker rule: two uuid-less participants with the SAME display name and DIFFERENT
--- customer keys both matched a leave query, and the latest-joined one was closed —
--- closing the wrong person's interval, which is precisely the highest-cost failure this
--- design exists to prevent.
+-- [R3] defines a prioritised fallback token: `customer_key`, else e-mail, else
+-- normalised display name. Two designs have now failed against that rule:
 --
--- Persisting the token turns the lookup into exact equality on one column. A weaker
--- field can no longer widen a match after a stronger one has already decided.
+--  1. **OR-ing the identity columns** at query time (first `FAIL`). Two uuid-less
+--     participants sharing a display name both matched a leave, and the latest-joined
+--     was closed.
+--  2. **Storing only the single strongest token** (second `FAIL`). Zoom does not present
+--     the same fields on every event for the same person, so a leave can arrive with
+--     FEWER fields than its join did and the recomputed token DOWNGRADES to a weaker
+--     rank that belongs to somebody else:
 --
--- Nullable: a participant who presented no identity at all has no token, and no join and
--- no leave can ever be paired for them. That row is still a real observation and still
--- gets stored — it simply cannot be closed by anything.
+--        A joins with customer_key=A and name "Ana"  → stored ck:a
+--        B joins with only the name "Ana"            → stored nm:ana
+--        A leaves, Zoom omits customer_key           → recomputed nm:ana
+--        → the exact lookup returns B, and B's interval is closed.
 --
--- PII note (Ley 21.719): the token can embed an e-mail or a display name, so it is no
--- more sensitive than the columns beside it and is covered by the same SELECT-only RLS.
+--     Reproduced against the applier before this change. It did not fail open; it failed
+--     onto the wrong person, which is the outcome [R6] exists to prevent.
+--
+-- **The hypothesis this column encodes (lean overlay §5 change):** a join is findable by
+-- ANY evidence it actually presented, and ambiguity is resolved by refusing to close
+-- rather than by choosing. Storage widens; the QUERY does not. A leave still searches
+-- with its own strongest token only — matching a strong-evidence leave by name would
+-- throw away the very evidence that makes the pair trustworthy — but it now finds the
+-- row that carried that token at ANY rank, so a downgraded leave finds its own join.
+--
+-- Array order IS the precedence, strongest first, so `identity_tokens[1]` remains the
+-- primary key for anything that wants one (Z7-3).
+--
+-- PII note (Ley 21.719): the tokens embed an e-mail and a display name, so they are no
+-- more sensitive than the columns beside them and are covered by the same SELECT-only RLS.
 -- -----------------------------------------------------------------------------
 
 ALTER TABLE public.zoom_attendance
-  ADD COLUMN identity_token text;
+  ADD COLUMN identity_tokens text[];
 
-COMMENT ON COLUMN public.zoom_attendance.identity_token IS
-  'The single prioritised fallback identity key ([R3]): ck:<customer_key> | em:<email> | nm:<normalised name>, first non-empty wins. Used to pair a participant_left with its join when Zoom omitted participant_uuid, by EXACT equality — never by OR-ing several identity columns, which would let a shared display name close a different person''s interval. NULL when the participant presented no identity at all.';
+COMMENT ON COLUMN public.zoom_attendance.identity_tokens IS
+  'Every fallback identity token this participant presented at join, strongest rank first: ck:<customer_key>, em:<email>, nm:<normalised name>. A uuid-less leave searches with ITS OWN strongest token and matches any row carrying that token at ANY rank — which is what keeps a leave that presented fewer fields than its join from matching a different person who happens to share the weaker one. When more than one open interval matches, the applier closes NOTHING (§11 leaves it to the Z7-3 reconcile).';
 
-CREATE INDEX zoom_attendance_identity_token_idx
-  ON public.zoom_attendance (zoom_meeting_uuid, identity_token)
-  WHERE identity_token IS NOT NULL;
+-- GIN, because the lookup is array containment (`identity_tokens @> ARRAY[token]`).
+CREATE INDEX zoom_attendance_identity_tokens_idx
+  ON public.zoom_attendance USING gin (identity_tokens)
+  WHERE identity_tokens IS NOT NULL;
 
 -- -----------------------------------------------------------------------------
 -- source_event_key — delivery-level idempotency, enforced by the DATABASE (Codex P1-2).

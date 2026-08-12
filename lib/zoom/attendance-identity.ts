@@ -174,16 +174,44 @@ export function matchParticipantIdentity(
 }
 
 /**
- * The fallback interval key, used only when Zoom omitted `participant_uuid` ([R3]).
+ * EVERY fallback identity token this participant presented, strongest rank first.
  *
- * Same descending confidence as the match hierarchy, and normalised the same way, so
- * that a rejoin by the same person lands on the same token. Null when the participant
- * offered nothing at all — at which point the applier has no way to pair a leave with a
- * join and says so rather than guessing.
+ * ## Why a list, and not the one strongest token (Codex re-review BLOCKER)
+ *
+ * The previous design stored only the strongest token and recomputed it independently on
+ * every event. Zoom does not present the same fields on every event for the same person,
+ * so a leave can arrive with FEWER fields than its join did — and the recomputed token
+ * then DOWNGRADES to a weaker rank that belongs to somebody else:
+ *
+ *   A joins with `customer_key=A` and the name "Ana"  → stored `ck:a`
+ *   B joins with only the name "Ana"                  → stored `nm:ana`
+ *   A leaves, Zoom omits `customer_key`               → recomputed `nm:ana`
+ *   → the exact lookup returns B, and B's interval is closed.
+ *
+ * That was reproduced against the applier before this change: A's leave closed B's row.
+ * The claim that it failed open was simply wrong — it failed onto the wrong person, which
+ * is the one outcome [R6] exists to prevent.
+ *
+ * Persisting every rank means a join is findable by any evidence it actually presented,
+ * so a downgraded leave still finds ITS OWN row. Precedence survives as the array order;
+ * ambiguity is then resolved by the applier refusing to close, never by picking one.
+ */
+export function identityTokens(identity: ParticipantIdentity): string[] {
+  const tokens: string[] = [];
+  if (identity.customerKey !== null) tokens.push(`ck:${identity.customerKey.toLowerCase()}`);
+  if (identity.email !== null) tokens.push(`em:${identity.email.toLowerCase()}`);
+  const name = normalizeDisplayName(identity.displayName);
+  if (name !== null) tokens.push(`nm:${name}`);
+  return tokens;
+}
+
+/**
+ * The STRONGEST token this participant presented — the one a leave searches with ([R3]).
+ *
+ * Still the strongest rank, deliberately: a leave that presents a `customer_key` must not
+ * be matched by name, because the strong evidence is the whole reason to trust the pair.
+ * The weakening is on the STORAGE side (`identityTokens`), not the query side.
  */
 export function identityToken(identity: ParticipantIdentity): string | null {
-  if (identity.customerKey !== null) return `ck:${identity.customerKey.toLowerCase()}`;
-  if (identity.email !== null) return `em:${identity.email.toLowerCase()}`;
-  const name = normalizeDisplayName(identity.displayName);
-  return name === null ? null : `nm:${name}`;
+  return identityTokens(identity)[0] ?? null;
 }

@@ -29,6 +29,7 @@
  */
 import {
   identityToken,
+  identityTokens,
   matchParticipantIdentity,
   profileIdFromCustomerKey,
   readParticipantField,
@@ -204,7 +205,7 @@ export async function applyParticipantEvent(
       transientEmail: identity.email,
       matchedBy: match.matchedBy,
       joinedAt,
-      identityToken: token,
+      identityTokens: identityTokens(identity),
       sourceEventKey: sourceEventKey ?? null,
     });
     return result === 'duplicate' ? 'interval_duplicate' : 'interval_opened';
@@ -225,6 +226,18 @@ export async function applyParticipantEvent(
     participantUuid,
     identityToken: token,
   });
+
+  // ## Ambiguity is resolved by NOT closing, never by choosing (Codex re-review)
+  //
+  // On the uuid path the key is unambiguous, so the ordinary "latest open interval" rule
+  // applies — a rejoin means the earlier one was already over in reality.
+  //
+  // On the FALLBACK path it does not. Two open intervals matching one token means two
+  // people we cannot tell apart, and picking the latest is exactly how a leave closed a
+  // namesake's row. Closing NOTHING is the correct answer: the intervals stay open, and
+  // §11 makes the Z7-3 reconcile report authoritative over webhooks precisely so that a
+  // gap the webhook path cannot resolve has somewhere to be resolved.
+  if (participantUuid === null && open.length > 1) return 'no_open_interval';
 
   const target = selectIntervalToClose(open, leftAt);
   // [R4] and [R7] converge here: nothing to close — because the join was never seen, or

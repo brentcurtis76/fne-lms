@@ -84,7 +84,7 @@ function storeDouble(options: DoubleOptions = {}) {
   const openQueries: OpenIntervalQuery[] = [];
   const rows: (StoredInterval & {
     participantUuid?: string | null;
-    identityToken?: string | null;
+    identityTokens?: string[];
     sourceEventKey?: string | null;
   })[] = [...(options.rows ?? [])];
   const closes: { id: string; leftAt: string }[] = [];
@@ -127,20 +127,24 @@ function storeDouble(options: DoubleOptions = {}) {
         joinedAt: row.joinedAt,
         leftAt: null,
         participantUuid: row.participantUuid,
-        identityToken: row.identityToken,
+        identityTokens: row.identityTokens,
         sourceEventKey: row.sourceEventKey,
       });
       return 'inserted' as const;
     }),
     listOpenIntervals: vi.fn(async (query: OpenIntervalQuery) => {
       openQueries.push(query);
-      // ONE key, exact equality — never an OR over the identity columns.
-      const keyOf = (row: (typeof rows)[number]) =>
-        query.participantUuid !== null ? row.participantUuid ?? null : row.identityToken ?? null;
-      const wanted = query.participantUuid ?? query.identityToken;
-      if (wanted === null) return [];
+      // ONE search key. uuid → exact equality; otherwise the leave's strongest token
+      // matched against EVERY rank the join recorded (`identity_tokens @> ARRAY[token]`),
+      // which is what lets a downgraded leave find its own row rather than a namesake's.
+      const matches = (row: (typeof rows)[number]) =>
+        query.participantUuid !== null
+          ? row.participantUuid === query.participantUuid
+          : (row.identityTokens ?? []).includes(query.identityToken as string);
+      if (query.participantUuid === null && query.identityToken === null) return [];
       return rows
-        .filter((row) => row.leftAt === null && keyOf(row) === wanted)
+        .filter((row) => row.leftAt === null && matches(row))
+        .sort((a, b) => Date.parse(b.joinedAt) - Date.parse(a.joinedAt))
         .map(({ id, joinedAt, leftAt }) => ({ id, joinedAt, leftAt }));
     }),
     closeInterval: vi.fn(async (id: string, leftAt: string) => {
@@ -206,9 +210,13 @@ describe('participant_joined — [B2] by value from the committed capture', () =
       transientEmail: 'host-1213@example-synthetic.test',
       matchedBy: 'customer_key',
       joinedAt: '2026-07-29T23:55:56.000Z',
-      // The prioritised fallback key, persisted so a uuid-less leave can pair by exact
-      // equality rather than by OR-ing whatever identity columns happen to be present.
-      identityToken: 'ck:47d97a107c8f4c348519b4c77ed439d9',
+      // EVERY rank this participant presented, strongest first — so a leave that arrives
+      // with fewer fields still finds THIS row rather than a namesake's.
+      identityTokens: [
+        'ck:47d97a107c8f4c348519b4c77ed439d9',
+        'em:host-1213@example-synthetic.test',
+        'nm:anfitrion spike',
+      ],
       // The ledger dedupe_key, whose UNIQUE index is the delivery-level idempotency.
       sourceEventKey: 'sha256-of-the-raw-body',
     });
@@ -350,6 +358,124 @@ describe('participant_joined — [B2] by value from the committed capture', () =
     ]);
   });
 
+  it('[RE-REVIEW BLOCKER] a DOWNGRADED leave closes nobody, not a namesake', async () => {
+    // Codex's counterexample, verbatim, and it was REPRODUCED against the previous
+    // implementation before this test existed: A's leave closed B's row.
+    //
+    //   A joins with customer_key AND the shared name → tokens [ck:a, nm:ana]
+    //   B joins with ONLY the shared name            → tokens [nm:ana]
+    //   A leaves and Zoom omits customer_key         → searches with nm:ana
+    //
+    // Under the old single-token design the search found ONLY B and closed B. Now the
+    // search finds BOTH (A carries nm:ana at a weaker rank), which is ambiguous — so the
+    // applier closes NOTHING and both intervals stay open for the Z7-3 reconcile.
+    const base = { uuid: OCCURRENCE, id: String(MEETING_NUMBER) };
+    const { store, rows, closes } = storeDouble({ existingProfiles: [] });
+
+    await applyParticipantEvent(
+      store,
+      'meeting.participant_joined',
+      {
+        ...base,
+        participant: {
+          customer_key: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1',
+          user_name: 'Ana',
+          join_time: '2026-07-29T23:55:00Z',
+        },
+      },
+      undefined,
+      'd1'
+    );
+    await applyParticipantEvent(
+      store,
+      'meeting.participant_joined',
+      { ...base, participant: { user_name: 'Ana', join_time: '2026-07-29T23:56:00Z' } },
+      undefined,
+      'd2'
+    );
+    expect(rows).toHaveLength(2);
+
+    const outcome = await applyParticipantEvent(
+      store,
+      'meeting.participant_left',
+      { ...base, participant: { user_name: 'Ana', leave_time: '2026-07-30T00:10:00Z' } },
+      undefined,
+      'd3'
+    );
+
+    // NEITHER row is closed — the assertion Codex specified.
+    expect(outcome).toBe('no_open_interval');
+    expect(closes).toEqual([]);
+    expect(rows[0].leftAt).toBeNull();
+    expect(rows[1].leftAt).toBeNull();
+  });
+
+  it('[RE-REVIEW BLOCKER] a downgraded leave DOES close its own row when unambiguous', async () => {
+    // The other half: widening storage must not stop a legitimate downgraded leave from
+    // pairing. Only A is present, so nm:ana matches exactly one open interval — A's own.
+    const base = { uuid: OCCURRENCE, id: String(MEETING_NUMBER) };
+    const { store, closes } = storeDouble({ existingProfiles: [] });
+
+    await applyParticipantEvent(
+      store,
+      'meeting.participant_joined',
+      {
+        ...base,
+        participant: {
+          customer_key: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1',
+          user_name: 'Ana',
+          join_time: '2026-07-29T23:55:00Z',
+        },
+      },
+      undefined,
+      'd1'
+    );
+    const outcome = await applyParticipantEvent(
+      store,
+      'meeting.participant_left',
+      { ...base, participant: { user_name: 'Ana', leave_time: '2026-07-30T00:10:00Z' } },
+      undefined,
+      'd2'
+    );
+
+    expect(outcome).toBe('interval_closed');
+    expect(closes).toEqual([{ id: 'row-1', leftAt: '2026-07-30T00:10:00.000Z' }]);
+  });
+
+  it('[RE-REVIEW BLOCKER] a strong leave is never matched by name — the query key stays strongest', async () => {
+    // The asymmetry: storage widened, the SEARCH key did not. A leave presenting a
+    // customer_key searches with ck:, so it cannot be paired to a name-only namesake even
+    // though that namesake shares the display name.
+    const base = { uuid: OCCURRENCE, id: String(MEETING_NUMBER) };
+    const { store, rows, closes } = storeDouble({ existingProfiles: [] });
+
+    await applyParticipantEvent(
+      store,
+      'meeting.participant_joined',
+      { ...base, participant: { user_name: 'Ana', join_time: '2026-07-29T23:56:00Z' } },
+      undefined,
+      'd1'
+    );
+    const outcome = await applyParticipantEvent(
+      store,
+      'meeting.participant_left',
+      {
+        ...base,
+        participant: {
+          customer_key: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1',
+          user_name: 'Ana',
+          leave_time: '2026-07-30T00:10:00Z',
+        },
+      },
+      undefined,
+      'd2'
+    );
+
+    expect(outcome).toBe('no_open_interval');
+    expect(closes).toEqual([]);
+    expect(rows[0].leftAt).toBeNull();
+  });
+
   it('[P1-1] a shared display name alone cannot pair two DIFFERENT people', async () => {
     // No customer_key, no e-mail: the token IS the name for both, so they are genuinely
     // indistinguishable to Zoom and to us. The leave closes the latest — which is the
@@ -365,7 +491,7 @@ describe('participant_joined — [B2] by value from the committed capture', () =
       undefined,
       'e1'
     );
-    expect(inserted[0].identityToken).toBe('nm:ana pérez');
+    expect(inserted[0].identityTokens).toEqual(['nm:ana pérez']);
   });
 
   it('[B5] the GUEST capture: four empty-string fields, and none of them matches', async () => {

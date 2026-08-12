@@ -1686,3 +1686,68 @@ callers' key-propagation assertions, exit 1.
 | Chunk | Phase | Branch | Commits | Status | Evidence |
 |---|---|---|---|---|---|
 | Z7-2 · r2 a3 | Z7 | `feat/zoom-hours` | `6177ad5e` + remediation | 🟡 CANDIDATE 2026-08-12 — awaiting Codex re-review | 5/5 gates green. 310 files / 7,161 tests; pgTAP 557 (011 plans 91). Both P1s fixed at the database: exact-equality `identity_token`, partial-UNIQUE `source_event_key`. New wire-level store suite closes the evidence gap that hid P1-1. Carried to Z7-5: open intervals must render as a state, not a number. |
+
+### **Z7-2 · attempt 4 — Codex `FAIL` #2 (same category). Lean overlay §5 hypothesis change made and recorded.**
+
+**⚠️ Second consecutive `FAIL` in the identity/pairing category.** Overlay §5: *"Two
+consecutive Codex failures in the same defect category require a hypothesis change or
+phase split before more code."* Codex named the trigger explicitly and prescribed the
+change. **The hypothesis changed; this is not a re-attempt of the same one.** Recorded
+here in full because §5 requires the change to be named, and "try again" is not an override.
+
+```text
+STARTED: 2026-08-12T20:35:00Z
+ENDED:   2026-08-12T21:08:40Z
+ATTEMPT: 4 (cumulative for Z7)
+RISK: HIGH
+HANDOFFS: 1 (Codex → Brent → executor, same conversation)
+GATES: jsdom proof (30 passed, environment 241ms) · type-check PASS · lint PASS ·
+       npm test PASS (310 files / 7,168 passed, 11 skipped) · build PASS ·
+       supabase db reset + test:db PASS (11 files / 559; 011 plans 93)
+CODEX: FAIL(1 BLOCKER) on 43999499..3e852828 → hypothesis changed, re-review pending
+ESCAPED DEFECT: none (caught before any close)
+```
+
+**The defect, reproduced before it was fixed.** `identityToken()` recomputed the strongest
+token per EVENT while the row stored only that one token — and Zoom does not present the
+same fields on every event for the same person. A leave with fewer fields DOWNGRADES to a
+weaker rank belonging to someone else: A joins with `customer_key`+name "Ana" (`ck:a`), B
+joins name-only (`nm:ana`), A leaves without the key (`nm:ana`) → **the lookup returns B
+and closes B**. The executor's repro printed
+`CLOSES: [{"id":"row-2",...}]` — row-2 is B. **The review request's claim that this case
+"fails open" was wrong**: it failed onto the wrong person, the one outcome [R6] exists to
+prevent. The executor's own namesake test could not see it because it gave both
+participants a customer_key, so neither ever downgraded.
+
+**HYPOTHESIS CHANGE (the §5 requirement).**
+*Old:* one prioritised token per event is sufficient to pair a leave with its join.
+**Refuted** — the token is a property of the EVENT, not the person, and is not stable
+across events for one participant.
+*New:* **a join is findable by any evidence it actually presented; the leave still searches
+with its own strongest token only; and ambiguity is resolved by refusing to close, never by
+choosing.** Storage widens to `identity_tokens text[]` (GIN, containment lookup); the
+SEARCH key stays at the strongest rank so a strong-evidence leave is never matched by name;
+and `open.length > 1` on the fallback path closes nothing, replacing "latest wins". The
+uuid path is untouched — `participant_uuid` is unambiguous.
+
+Unresolved pairs are not lost: §11 already makes the Z7-3 reconcile report authoritative
+over webhooks, so the ambiguous case has a designated owner rather than being a silent gap.
+
+**`source_event_key` and its partial UNIQUE index were left untouched** — Codex confirmed
+that half of the remediation passed review.
+
+**Fail-on-old, both probes reverted and re-proved by hash.** (v) restoring
+single-primary-token storage fails 5 tests including the counterexample; (vi) removing the
+ambiguity guard so the fallback picks "latest" fails the Codex regression itself.
+
+**Three costs the executor states rather than discovers later:** two people presenting only
+a shared display name can never be paired at all (both intervals stay open for Z7-3); a
+person with two genuinely open intervals hits the same rule; and **this is the third
+pairing design in three attempts — if a fourth counterexample lands, the honest read is
+that webhook-only pairing cannot be made safe for uuid-less participants and pairing should
+move wholesale to Z7-3's report.** That is a phase-shape question for the PM, not another
+patch.
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-2 · r2 a4 | Z7 | `feat/zoom-hours` | `3e852828` + hypothesis change | 🟡 CANDIDATE 2026-08-12 — awaiting Codex re-review | 5/5 gates green. 310 files / 7,168 tests; pgTAP 559 (011 plans 93). §5 hypothesis change recorded: multi-rank evidence, strongest-rank search, ambiguity ⇒ no close. Open: same-name uuid-less pairs are unpairable by design; a fourth counterexample means moving pairing to Z7-3. |

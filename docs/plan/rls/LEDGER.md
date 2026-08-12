@@ -221,3 +221,71 @@ Append-only, one entry per round. Plan: `docs/plan/rls/PLAN.md`.
      proposed.
   3. Owner answers Q1–Q4 (none blocks R1). Q5 has a default and blocks nothing.
   4. `fix/rls-public` still has no upstream and exists on no remote — now 6 commits.
+
+---
+
+### 2026-08-12 — plan — r3 CODEX REVIEW + PM amendment + an R1 defect found in the process
+
+- SESSION: `RLS · plan · REVIEW · r3` (Codex) → `RLS · plan · PM`
+- ATTEMPT: 4 (cumulative, planning)
+- RISK: DISCOVERY → plan
+- HANDOFFS: 2 (prompt out, review back) + 1 owner decision
+- CODEX: **FINDINGS** — 5 BLOCKING, 2 SHOULD-FIX, 0 NITs. r2 disposition: 8 of 10 fully fixed.
+  Rulings A, B, C, D, F PASS; **E FAIL** (A15's expected-set source). Codex changed no files and
+  did not access production.
+- CONVERGENCE ANALYSIS (the PM had committed to calling re-plan on a third FINDINGS):
+  R1's own contract passed 5 of 6 rulings and had exactly one open defect (A15/B3+B4, now fixed).
+  **Every other blocking item was in R11 or the Surface DoD** — a section one round old, on its
+  first review. Re-planning R1–R10 would have discarded work that survived three adversarial
+  reviews, so the commitment was reported as firing on the letter and not the substance.
+  Brent chose to fully specify R11 and go to r4.
+- **DEFECT FOUND IN R1 WHILE WRITING R11's CONTRACT — would have broken production:**
+  `has_transformation_access(uuid)` has **zero repository callers and seven RLS-policy callers**:
+  `members_insert/update_transformation_assessments`,
+  `members_insert/update/delete_transformation_results`,
+  `members_insert/delete_transformation_conversation_messages`. **All seven carry no `TO` clause**,
+  so they default to `TO PUBLIC`. Policy expressions evaluate with the invoking role's privileges,
+  so R1's planned `REVOKE … FROM authenticated` would have raised `42501` on every authenticated
+  INSERT/UPDATE/DELETE against those three live tables.
+  - **The discovery document's third error**, and the first that would have caused an outage.
+  - Missed by the discovery document, by this plan's r1 caller audit, and by the Codex r1 and r2
+    reviews *of* that audit — all four used the same grep-over-`.rpc()` method.
+  - A first-line `grep` over `CREATE POLICY` found only 4 of the 7; whole-statement extraction
+    found all seven. Multi-line policy bodies defeat naive greps.
+  - Fix: `has_transformation_access` moves to the keep-`authenticated` group. Full-revoke group
+    3 → 2 (`get_available_assignment_templates`, `cleanup_propuesta_rate_limits`, both confirmed
+    zero-dependency). Keep group 7 → 8. A8 gains criterion (a), which **must fail** if the revoke
+    returns. D-3 qualified. Falsification CLAIM 1 recorded as refuted-then-repaired rather than
+    silently rewritten.
+- SUPPORTING MEASUREMENT: 634 policies in the baseline, **420 with no `TO` clause** (= `TO
+  PUBLIC`). 15+ distinct helper functions appear in policy bodies on a first-line sweep alone,
+  including `auth_is_course_teacher` (7) and `auth_is_school_directivo` (7).
+- ACTION — `PLAN.md` amended:
+  - **r3 B1** → inventory is by `regprocedure`, never by name; the two SECURITY DEFINER overloads
+    of `mark_notification_read` (`baseline.sql:4334`, `:4350`) had been merged by a name-based
+    count. Corrected to 91 signatures / 89 anon-granted / 80 outside the audit / 71 non-trigger.
+  - **r3 B2** → Surface DoD narrowed to anon-granted `SECURITY DEFINER` signatures; the previous
+    wording covered hundreds of invoker-rights functions R11 could never audit. "RPC-callable" →
+    "non-trigger RPC candidates", since reachability is what R11 measures.
+  - **r3 B3** → A15 names its expected-set source: `vitest.config.ts:7-18` has `exclude` and no
+    `include`, so the effective set is `configDefaults.include` + that exclude, loaded through a
+    real config loader. Second failure of this criterion.
+  - **r3 B4** → R1 scope was internally impossible (A15 requires a `.mjs` checker while
+    out-of-scope said "no TypeScript or JavaScript"). Nine files; exclusion narrowed to
+    application code.
+  - **r3 B5** → R11 gains the six-class dependency inventory (policies, function bodies, triggers,
+    views/rules, defaults/generated expressions, constraints), catalog-sourced not grep-sourced,
+    plus effective-role derivation and the `TO`-clause semantics. D-3 qualified to match.
+  - **r3 S1** → pre-expansion sequencing prose swept.
+  - **r3 S2** → R11 bounded as three checkpointed units: R11a bulk dependency sweep (six queries,
+    all 80 at once), R11b per-signature classification in four batches of 20 with artifacts
+    appended per batch, R11c consolidation. R11 is not closed until R11c lands; no R12 may be
+    dispatched from a partial classification.
+- GATES: none run — planning round, no source touched.
+- DECISIONS: 5 appended to `PLAN.md` § Decision log.
+- BACKLOG ADDED: none.
+- OPEN AFTER THIS ROUND:
+  1. **Codex plan review r4.** Plan still **not frozen**. r4 must re-check R1, not only R11 —
+     R1's caller table changed materially this round.
+  2. Owner answers Q1–Q4 (none blocks R1). Q5 has a default.
+  3. `fix/rls-public` still has no upstream and exists on no remote — now 9 commits.

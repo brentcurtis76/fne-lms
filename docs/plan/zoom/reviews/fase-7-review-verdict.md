@@ -194,3 +194,16 @@ pgTAP **11 files / 559 tests** PASS · worktree clean.
 because that contract is unsatisfiable.** As reproduced immediately above, the code at
 `a530aafb` can close a stranger's interval and stamp it with the wrong `leave_time`.
 Nothing is merged, nothing is applied to production, and no chunk is closed.
+
+### Documentation correction — `PASS` at `9120bb34`
+
+The corrective commit was reviewed and passed on 2026-08-12: all three inaccurate claims
+corrected faithfully; only the ledger and verdict file changed; application code and tests
+untouched since `a530aafb`; worktree clean; no gate rerun necessary.
+
+**Reviewer ruling: do NOT amend `e24bf9b9`.** The corrective commit is an adequate and
+immutable audit trail, and the wrong claim in `e24bf9b9`'s message stands as part of that
+record rather than being rewritten out of it.
+
+**This `PASS` covers the documentation receipt only. Z7-2 itself remains `FINDINGS` and
+BLOCKED pending the contract replan** — the verdict above is unchanged.

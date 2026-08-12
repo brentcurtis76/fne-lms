@@ -1823,3 +1823,26 @@ index (idempotency, already passed review), the persisted identity evidence, the
 | Chunk | Phase | Branch | Commits | Status | Evidence |
 |---|---|---|---|---|---|
 | Z7-2 · r2 | Z7 | `feat/zoom-hours` | `a530aafb` | 🔴 **BLOCKED — CONTRACT REPLAN REQUIRED** 2026-08-12 | Codex `FINDINGS`: [R3] and [R4] are jointly unsatisfiable for uuid-less homonyms. Reproduced. Executor stopped per overlay §5 + explicit reviewer instruction. Awaiting PM decision on the Z7-2/Z7-3 boundary and on `customer_key` eligibility (needs new Zoom evidence). |
+
+### **Z7-2 · documentation receipt — Codex `PASS` at `9120bb34`. Z7-2 ITSELF REMAINS BLOCKED.**
+
+Scope of this `PASS`: the corrective commit only. **It is not a chunk close and not a
+phase close.** Z7-2's verdict is still `FINDINGS`; nothing in `lib/` has changed since
+`a530aafb`, no migration is applied, and no chunk is DONE.
+
+Verified by the reviewer: all three claims corrected faithfully · only the ledger and
+verdict file changed · application code and tests untouched since `a530aafb` · worktree
+clean · no gate rerun necessary.
+
+**Ruling recorded: `e24bf9b9` is NOT to be amended.** The corrective commit is the audit
+trail; the wrong claim in the original message stays part of the record rather than being
+rewritten out of it. The executor had offered to amend and was told not to.
+
+**Executor lesson, recorded because it caused all three defects:** every one was a claim
+about the executor's *own work* — its status, its history, its scope — asserted without
+checking, while the claims about the *code* in the same document were reproduced and
+verified. Self-description was held to a lower evidentiary standard than code description.
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-2 · docs receipt | Z7 | `feat/zoom-hours` | `9120bb34` | ✅ correction verified 2026-08-12 | Codex `PASS`, docs-only scope confirmed. **Z7-2 remains 🔴 BLOCKED under `FINDINGS`.** |

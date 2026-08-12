@@ -65,6 +65,8 @@ error this plan has been catching in others; R11 must define its inventory by si
 | …covered by R1's nine DEFINER signatures | 9 |
 | **…outside the audit so far** | **80** — 9 return `trigger`, **71 are non-trigger RPC candidates** |
 
+**These counts are defined HERE and nowhere else (D-9 layer 3).** Later text refers to "the R11 population" (80 signatures = 71 non-trigger + 9 trigger). If R0 or R11 revises them, this table is the single place to edit and every restatement elsewhere is a defect the D-9 sweep must catch.
+
 "**RPC candidates**", not "RPC-callable" *(Codex r3, B2)*: PostgREST reachability is precisely what
 R11 must measure. Asserting it in the input count would state as fact the thing the phase exists
 to establish.
@@ -80,8 +82,8 @@ the baseline file. Reachability and exploitability of those 71 are UNMEASURED.**
 document probed only the functions it named. 71 is a sizing figure, not 71 confirmed
 vulnerabilities — establishing which is R11's job and the reason R11 is `DISCOVERY`.
 
-R1 is the only phase whose contract is fully specified. Execution order is the `Order` column in
-the phase index.
+`R0` and `R1` are the phases with full contracts; everything after them is a bounded outline
+by design (overlay §3). Execution order is the `Order` column in the phase index.
 
 ## Non-goals
 
@@ -143,15 +145,32 @@ No phase may violate these without a Decision Log entry.
   read-only** (columns, grants, RLS, function `EXECUTE`). Local and CI green prove code
   correctness and nothing about deployment — `docs/plan/zoom/PLAN.md:26` §0.1(d), written after
   Z1b shipped six unapplied migrations and broke session approval despite ten green rounds.
+  **That verification is BRENT's, never an executor's.** `AGENTS.md:37` and `CLAUDE.md` Database
+  Safety forbid an agent touching the production database at all, with **no read-only exception**.
+  A phase contract may require the check; it must never instruct an agent to perform it. The
+  executor's job is to state precisely which facts Brent needs to confirm.
+  *(Clarified after Codex r5, B1 — the ambiguity was already being acted on in R0's contract.)*
 - **D-9 — Every amendment ends with a mechanical consistency sweep of the active text.** Correcting
   a statement without correcting the prose that quotes it has now happened **five times** across
   four review rounds — D-4's rollback prose, the five-vs-six form count, six-vs-eight files, the
   Q5 gate label, and the Test plan's three-dead/seven-live counts, which would have shipped an
   executor a test plan that omitted the outage regression. The pattern is the amendment process,
-  not any one miss. So: after amending, `grep` the active text (everything above the Decision Log,
-  which is append-only history and stays as written) for every count, phase ordinal, group name
-  and guard claim the amendment touched, and record the sweep in the ledger. A reviewer finding
-  a stale cross-reference means the sweep was not run.
+  not any one miss — and at r5 it happened a **sixth** time, eight live contradictions at once,
+  in a round where the sweep *had been run*.
+  **The control is therefore DIFF-DRIVEN, not pattern-guessed** *(rewritten after Codex r5, S1 and
+  ruling F: a guessed pattern list passed clean over eight real contradictions, so the first
+  version of this rule was itself the wrong control)*. Three layers, all required:
+  1. **Enumerate every fact and identifier the amendment changed — old form and new form — and
+     search the active text for BOTH.** Record a disposition for every hit. The old-form search is
+     what a pattern list cannot replace: it finds the sentences that never contained the new
+     wording and so never matched a forward-looking pattern.
+  2. **Structural check.** Compare the phase index's risk / status / dependencies / order against
+     each phase's own header and body. Any disagreement is a defect.
+  3. **Centralize volatile counts** wherever possible, so a number lives in one place and prose
+     refers to it instead of restating it.
+  Active text is everything above the Decision Log, which is append-only history and stays as
+  written. **A reviewer finding a stale cross-reference means this control failed** — not that it
+  was skipped. Record the sweep, its three layers, and its dispositions in the ledger.
 - **D-8 — Codex is the reviewer, never the implementer.** Codex authored the diagnosis
   (`reviews/rls-public-allowlist-r1-findings.md`), so separation of duties makes it the
   independent reviewer of this plan and of every phase. Implementation is a fresh Claude Code
@@ -181,14 +200,15 @@ them. Execution order is the `Order` column, which the Codex r1 review changed (
 | 13 | **R11** | **DISCOVERY** — audit the remaining 80 anon-granted DEFINER signatures | **DISCOVERY** | OUTLINE | 0 | R1 | none |
 | 14+ | R12… | Remediation phases, **defined by R11's output** — not invented here | HIGH | UNDEFINED | 0 | R11 | TBD by R11 |
 
-Every phase except R11 is `HIGH` under overlay §3 — they touch RLS/grants or ship a migration.
+Every phase except `R0` and `R11` is `HIGH` under overlay §3 — they touch RLS/grants or ship a
+migration. `R0` and `R11` are `DISCOVERY`. That is an honest classification, not inflation.
 R11 is `DISCOVERY`: the evidence needed to write a safe implementation contract for the 71 does
 not exist yet, and per overlay §3 a `DISCOVERY` phase produces evidence and a revised contract
 without smuggling implementation into research. **R12+ are deliberately left undefined.** Writing
 phase contracts for 71 signatures whose reachability is unmeasured would be inventing requirements
 from guesses — the exact thing the overlay forbids.
 
-**Dependency graph.** R1 is the root and blocks nothing structurally — R2…R9 could each run
+**Dependency graph.** `R0` is the root and blocks R1. R1 in turn blocks nothing structurally — R2…R9 could each run
 without it — but it runs first because it is the largest risk reduction per line available and
 changes no behaviour for any known in-repository caller. R1b follows immediately: R1 revokes
 `anon` on `has_global_workspace_access` but leaves an authenticated oracle standing, and that item
@@ -256,8 +276,17 @@ every claim. For **each of the ten signatures**, keyed by `regprocedure`:
 2. **Effective ACL** — `aclexplode(COALESCE(proacl, acldefault('f', proowner)))`, per grantee,
    including `PUBLIC` as oid `0`.
 3. **Security mode and configuration** — `prosecdef`, `proconfig`, `prolang`, owner.
-4. **Application callers** — `.rpc()` across `*.ts`/`*.tsx`/`*.js`, each with its client factory
-   and the role that factory produces.
+4. **Application callers — exhaustive, across ALL tracked sources.** Start from an exact-name
+   search over every file `git ls-files` reports, with **exclusions listed and justified** rather
+   than assumed. `.rpc()` in `.ts`/`.tsx`/`.js` is one channel among several: `.jsx`, `.mjs`,
+   `.cjs`, raw `fetch()` to `/rest/v1/rpc/...`, wrapper helpers that take a function name as a
+   variable, SQL in scripts, and any other tracked reference all count. Then classify each hit by
+   channel (`.rpc()` / raw REST / indirection), by client factory, by the **set of roles that
+   factory can produce at runtime**, and by the auth precondition that decides which.
+   *(Amended after Codex r5, B2. The previous wording restricted discovery to three extensions and
+   one call form — the same "wrong population" error r4 caught, one layer up. And "the role that
+   factory produces" was too strong: a browser factory yields `anon` or `authenticated` depending
+   on session state at call time, which is a set, not a value.)*
 5. **Database-side dependencies — start from an UNFILTERED reverse `pg_depend` sweep**, so a
    catalog class nobody thought of cannot vanish by construction. Only then add textual analysis
    for the places PostgreSQL records no procedural dependency: `pg_policy.polqual`/`polwithcheck`,
@@ -271,8 +300,15 @@ every claim. For **each of the ten signatures**, keyed by `regprocedure`:
 
 ## Explicitly out of scope
 
-- **Any migration, grant change, or source edit.** R0 ships evidence, nothing else
-  (overlay §3: a DISCOVERY phase must not smuggle implementation into research).
+- **No application, database, migration, or test-source edit.** R0 changes no grant, ships no
+  migration, and writes no test (overlay §3: a DISCOVERY phase must not smuggle implementation
+  into research). *(Wording corrected after Codex r5, S2 — the old blanket "no source edit" was
+  ambiguous against R0's own requirement to amend `PLAN.md`.)*
+- **R0's documentation outputs, which ARE in scope**, are exactly these five:
+  `docs/plan/rls/evidence/R0-ten-signature-inventory.md` (the artifact); the amendment to
+  `PLAN.md`; the `LEDGER.md` entry including its D-9 sweep record;
+  `docs/planning/reviews/fase-R0-review-request.md` (canonical path, `CLAUDE.md:43` /
+  `AGENTS.md:32`); and an optional one-line pointer under `docs/plan/rls/reviews/`.
 - Re-auditing the 22 tables, or anything about `profiles_role_backup` beyond confirming its
   `relacl` and `relrowsecurity`.
 - The other 80 signatures — that is R11.
@@ -285,7 +321,14 @@ every claim. For **each of the ten signatures**, keyed by `regprocedure`:
       other overloads of that name exist and how the target was disambiguated.
 - [ ] **AR0-3** The dependency sweep **starts** from an unfiltered reverse `pg_depend` query whose
       output is recorded in full — including classes expected to be empty — followed by the
-      textual analyses for the classes `pg_depend` does not record.
+      textual analyses for the classes `pg_depend` does not record. **Every returned
+      `(classid, objid, objsubid)` is resolved to a human-readable object** with
+      `pg_identify_object`, so no dependency is recorded as an opaque triple. *(Codex r5, B2: raw
+      catalog output nobody can interpret is not evidence.)*
+- [ ] **AR0-3b** **Dynamic SQL is inventoried and dispositioned, not merely disclaimed.** List
+      every `public` function body containing `EXECUTE format(…)` or equivalent, and for each say
+      whether it could reach one of the ten. Unresolvable cases are named individually and marked
+      `UNVERIFIED` — a blanket "textual analysis cannot prove absence" is not a disposition.
 - [ ] **AR0-4** Expression indexes and partition-key expressions are covered, and their results
       recorded even when empty.
 - [ ] **AR0-5** Every dependent policy is listed with its `polroles`, `TO`-clause interpretation,
@@ -294,24 +337,57 @@ every claim. For **each of the ten signatures**, keyed by `regprocedure`:
       reliably resolve overloaded calls and cannot prove the absence of dynamic SQL
       (`EXECUTE format(...)`); those limits are stated, and anything they touch is marked
       `UNVERIFIED` or conservatively attributed rather than asserted.
-- [ ] **AR0-7** An explicit **diff against R1's current contract**: every place R1's caller table,
-      grouping, criteria, or test plan disagrees with the rebuilt evidence. "No disagreement" is
-      a valid result and must be stated positively rather than by silence.
-- [ ] **AR0-8** Evidence is gathered **read-only**. Any local probe runs inside a transaction that
-      is rolled back, with the rollback verified. **No production writes.**
+- [ ] **AR0-7** An explicit **diff against R1's current contract** — every place R1's caller
+      table, grouping, criteria, test plan or fixtures disagree with the rebuilt evidence. "No
+      disagreement" is a valid result and must be stated positively rather than by silence.
+      **This criterion now also owns A8(a)**: R0 must derive, per policy-carrying operation, the
+      qualifying actor, the expected denial form (raised vs filtered-to-zero-rows), and the
+      complete fixture set including `transformation_rubric` — then rewrite A8(a) and the
+      `r1_transformation_member_matrix` test group from that derivation. *(Codex r5, B3 and
+      ruling D: three attempts to write this matrix from the dump have each been wrong, so it is
+      moved behind the evidence phase rather than guessed a fourth time.)*
+- [ ] **AR0-8** **The executor never connects to production, for any purpose, reads included.**
+      All evidence comes from the **local** stack; any local probe runs inside a transaction that
+      is rolled back, with the rollback verified. Where a fact can only come from production, it
+      is either **supplied by Brent** and attributed to him, or recorded `UNVERIFIED`. Neither is
+      a defect in R0's output.
+      *(Amended after Codex r5, B1. The previous wording — "gathered read-only under D-7's rules"
+      — instructed an executor to break `AGENTS.md:37`, inside a plan whose own precedence list
+      puts repo hard rules first. That the r1 discovery was produced against production does not
+      license an executor to do the same: that was owner-run.)*
 
 ## Test plan
 
 R0 writes no tests — it is discovery. Its verification is that a reader can re-run every recorded
 command and obtain the recorded output.
 
-**Where to run it.** Prefer the local Supabase stack (`supabase db start` + `supabase db reset`),
-which reflects the committed migrations. Where a claim must be true of *production*, it is
-gathered read-only under D-7's rules and labelled as such. Local and production PostgreSQL differ
-(17.x vs 15.8, see the Test plan note in R1), so version-sensitive results carry their server
-version.
+**Exact commands.** R0 touches no application, test or migration source, so the code gates cannot
+regress; run them once anyway to prove that, and to leave the tree demonstrably green:
+
+```bash
+supabase db start && supabase db reset \
+  && bash scripts/ci/check-rls-migrations.sh \
+  && npm run type-check \
+  && npm run lint
+```
+
+`npm test`, `npm run build` and `npm run e2e` are **not** required — R0 changes no source, and
+A15's suite-completeness checker does not exist until R1. If R0 somehow produces a source diff,
+that is a scope violation, not a reason to add gates.
+
+**Where to run it.** The **local** Supabase stack (`supabase db start` + `supabase db reset`),
+which reflects the committed migrations — and nowhere else. Per AR0-8 and D-7 the executor never
+connects to production, reads included. Where a claim can only be true of production, R0 states
+exactly what Brent should confirm and marks it `UNVERIFIED` until he does. Local and production
+PostgreSQL differ (17.x vs 15.8, see the Test plan note in R1), so every version-sensitive result
+carries its server version.
 
 ## Definition of done
+
+All five documentation outputs listed under "Explicitly out of scope" exist and are committed;
+the gates above are green; the D-9 sweep has been run and recorded in the ledger; and an
+independent Codex review of R0 has passed — so that a *wrong* fold-back into R1 cannot close R0
+either. *(Closure contract completed after Codex r5, B1 and ruling C.)*
 
 The artifact exists, is committed, satisfies AR0-1 … AR0-8, and R1's contract has been amended
 from it — including its caller table, group membership, acceptance criteria and test plan. **R0
@@ -334,7 +410,7 @@ correct outcome is a plan amendment, not a workaround.
 
 ---
 
-# Phase R1 — Close the anonymous reach
+# Phase R1 — Close the anonymous reach · BLOCKED on R0
 
 **Risk: HIGH** (RLS/grants, migration, security). **Status: TODO.** **Depends on: nothing.**
 
@@ -574,18 +650,28 @@ Each independently checkable by running something. `<fn>` below means all ten fu
       `SELECT public.has_global_workspace_access('…'::uuid)` each raise `42501`
       (`throws_ok`). These three need no fixtures and perform no write.
 - [ ] **A8** **Both policy-invoked helpers still work for `authenticated`.**
-      **(a)** `has_transformation_access` — an authenticated community member can still perform
-      the **seven operations that actually carry policies**: INSERT/UPDATE on
-      `transformation_assessments`; INSERT/UPDATE/DELETE on `transformation_results`;
-      INSERT/DELETE on `transformation_conversation_messages`. *(There is no UPDATE policy on
-      `transformation_conversation_messages` — Codex r4, B2.)* **This positive member matrix is
-      the control that catches the outage: it fails outright if `EXECUTE` disappears.**
-      For the negative case, **assert on the error message, not on SQLSTATE** — PostgreSQL raises
-      `42501` for *both* an RLS policy violation and `permission denied for function`, so
-      SQLSTATE alone cannot distinguish a correct denial from the regression. Match
-      `permission denied for function` to detect the failure mode and the row-level-security
-      message to confirm the correct one. *(Codex r4, B2 — the earlier "not `42501`" assertion was
-      invalid on its face.)*
+      **(a)** `has_transformation_access` — **the positive matrix is the control that catches the
+      outage: it fails outright if `EXECUTE` disappears.** Its exact shape is delegated to
+      **R0 (AR0-7)**, which must derive the per-operation qualifying actor, the expected denial
+      form, and the fixture set, because three attempts at writing it from the dump have each been
+      wrong. What R0 must resolve, all found by Codex r5 (B3):
+      - **The actor differs per operation.** A generic community member cannot perform all seven:
+        `members_delete_transformation_results` additionally requires
+        `role_type IN ('admin','consultor')` (`baseline.sql:20989-20994`). One "member" fixture
+        cannot drive the whole matrix.
+      - **The denial form differs per command.** `throws_ok` with an exact message fits
+        INSERT / `WITH CHECK` failures only; a non-member's UPDATE and DELETE are **filtered to
+        zero rows**, not raised — which is `CLAUDE.md`'s own documented convention ("Blocked
+        `INSERT` throws; blocked `UPDATE` returns empty — assert accordingly"), and this plan got
+        it wrong anyway. Use empty `RETURNING` for the filtered cases.
+      - **The fixtures are incomplete.** `rubric_item_id` is `NOT NULL` on both
+        `transformation_results` and `transformation_conversation_messages`
+        (`baseline.sql:11154`, `:11183`), so a `transformation_rubric` fixture is required and was
+        absent.
+      The message-vs-SQLSTATE point stands and is not delegated: PostgreSQL raises `42501` for
+      *both* an RLS violation and `permission denied for function`, so **assert on the error
+      message**, never on SQLSTATE alone. Match `permission denied for function` to detect the
+      regression and the row-level-security message to confirm a correct denial.
       **(b)** `has_global_workspace_access` still returns `true` for an active `admin` and an
       active `consultor`, and `false` for a `docente`, called as `authenticated` — the
       `search_path` pin did not change resolution. This keeps the three `community_meetings`
@@ -883,7 +969,7 @@ closed rather than substituting.
 
 Its own phase rather than part of R1 because it is a **body** change needing a behavioural matrix,
 and R1 is already at the 15-criterion cap (§1.3: criteria that don't fit are two phases). Its own
-phase rather than deferred into R10 because an unowned security item at the end of a twelve-phase
+phase rather than deferred into R10 because an unowned security item at the end of a thirteen-phase
 workstream is exactly the §1.4 failure this plan is supposed to avoid. Small — one function, one
 migration, one pgTAP file. Allowlist unchanged at 21.
 
@@ -936,7 +1022,7 @@ predicate or a non-recursive helper. Revocation is `UPDATE`, not `DELETE`. Allow
 One phase, not two: read as a pair across ~31 sites, and `learning_path_courses` must inherit
 authorization from its parent `learning_paths` row rather than exposing every path whose course is
 visible. Inserts stamp `created_by = auth.uid()`. Allowlist 4 → 2.
-The global-vs-scoped management ruling is now **Q5**, an owner gate rather than an open question
+The global-vs-scoped management ruling is now **Q5**, a ruling-with-default rather than an open question
 buried in the outline (Codex r1, S3). If Q5 goes unanswered, R7 ships preserving today's
 effectively-global behaviour as explicitly recorded debt.
 
@@ -1022,7 +1108,7 @@ behaviour rather than privileges: a signature-compatible replacement is what bou
 **Added 2026-08-12 by Brent's ruling on Codex r2 B5**; contract completed after Codex r3 B5 and
 S2. Codex proposed narrowing the Function DoD to the ten audited signatures; Brent chose to expand
 the workstream instead. The PM flagged that expansion risks delaying R1 and strains sizing; Brent
-took that tradeoff knowingly. R1 is unaffected — it still ships first, and R11 runs after it.
+took that tradeoff knowingly. R1 is unaffected in substance; `R0` now precedes it, and R11 runs last.
 
 **This phase has already paid for itself.** Writing its dependency contract is what surfaced the
 `has_transformation_access` outage in R1, after a grep-based caller audit had survived three
@@ -1047,7 +1133,11 @@ For each of the 80, keyed by `regprocedure`:
 2. **Actor derivation** — does it use `auth.uid()`, or accept a caller-supplied subject
    (`p_user_id`, `user_uuid`, `check_user_id`, …)? At least 20 are in the second class.
 3. **Data touched** — does it read or write a table with RLS enabled, and which.
-4. **Repository callers** — `.rpc()` across `*.ts`/`*.tsx`/`*.js`, with the client factory per hit.
+4. **Repository callers — exhaustive, on R0's rules.** Exact-name search over every file
+   `git ls-files` reports, with exclusions listed and justified; then classify by channel
+   (`.rpc()`, raw `fetch()` to `/rest/v1/rpc/...`, name-as-variable indirection), by client
+   factory, and by the **set** of runtime roles that factory can produce. Restricting this to
+   `.rpc()` in three extensions is the population error r4 and r5 both caught.
 5. **PostgREST reachability** — present in the REST schema cache and anonymously executable, or
    not. Measured, not assumed. This is why the input says "candidates".
 
@@ -1111,13 +1201,13 @@ any later phase revokes anything.
 
 #### Bounded execution — S2
 
-Per-signature analysis of 80 signatures across six dependency classes does not fit one durable
+Per-signature analysis of 80 signatures across the full dependency sweep does not fit one durable
 session. R11 runs as three checkpointed units, each committing its artifact before the next
 begins, so an exhausted session resumes from a file rather than from conversation:
 
 | unit | work | artifact | why it is bounded |
 |---|---|---|---|
-| **R11a** | The dependency and role-requirement sweep. Six catalog queries covering all 80 at once, plus the policy `TO`-clause classification. | `evidence/R11a-dependency-map.md` | **Bulk, not per-signature.** Six queries, one pass, whole population. This is the cheap half and it is what protects every later phase. |
+| **R11a** | The dependency and role-requirement sweep. One unfiltered reverse `pg_depend` pass over the whole population, `pg_identify_object` resolution of every returned row, the eight textual-analysis classes, the dynamic-SQL inventory, and the policy `TO`-clause classification. | `evidence/R11a-dependency-map.md` | **Bulk, not per-signature.** Six queries, one pass, whole population. This is the cheap half and it is what protects every later phase. |
 | **R11b** | Per-signature classification (the five points above), consuming R11a's map. **Batched in fours of twenty**, alphabetical by `regprocedure`, each batch appended to its artifact as it completes. | `evidence/R11b-classification.md` | Resumable at a 20-signature boundary. Batch identity is mechanical, so no judgment is needed to know where to restart. |
 | **R11c** | Consolidation: the proven-vs-inferred split, and a proposed phase decomposition grouped by **defect class** — revoke-only / actor-binding-required / policy-helper-keep-authenticated / already-safe — sized to the ≤10-file rule. | `reviews/R11-findings.md` | One document, written once, from two committed inputs. |
 
@@ -1178,3 +1268,7 @@ Stated per overlay §3 instead of claiming completeness.
 | 2026-08-12 | A8(a)'s negative assertion corrected: match the **error message**, not SQLSTATE. | PostgreSQL raises `42501` for both an RLS policy violation and `permission denied for function`, so the original "not `42501`" test could never distinguish a correct denial from the regression it exists to catch. Also removed a non-existent UPDATE policy on `transformation_conversation_messages`. | Codex r4, B2 |
 | 2026-08-12 | The outage description was **overstated and is corrected**: it is the `PUBLIC`+`authenticated` combination that breaks it, not the `authenticated` revoke alone, and it affects the seven policy-carrying operations when a row reaches the predicate — not every DML statement on all three tables. | The mechanism and the fix were right; the blast radius was not. Recorded rather than quietly narrowed. | Codex r4, S1 |
 | 2026-08-12 | **New frozen decision D-9** — every amendment ends with a mechanical consistency sweep of the active text, recorded in the ledger. | Five stale cross-references across four rounds, the worst being a Test plan that still described three-dead/seven-live functions and would have handed an executor a plan omitting the outage regression. The failure is the amendment process, not any single miss. | PM |
+| 2026-08-12 | **Codex plan review r5: FINDINGS.** 3 BLOCKING, 2 SHOULD-FIX. `IS R0 DISPATCHABLE: no`; `SHOULD THE PLAN FREEZE NOW: no` — but with an explicit, bounded freeze checklist rather than a new class of problem. | r4 disposition: B1/B3 PARTIAL, B2 NOT FULLY FIXED, S1 FIXED, S2 NOT FIXED, S3 FIXED. | Codex plan review r5 |
+| 2026-08-12 | **HARD-RULE VIOLATION IN THE PLAN'S OWN TEXT, corrected.** R0's contract told an executor to gather production facts read-only. `AGENTS.md:37` and `CLAUDE.md` Database Safety forbid an agent touching the production database **with no read-only exception**. | The plan's own precedence list puts repo hard rules first, and it violated one. AR0-8 now forbids any production connection; D-7 is clarified so the production verification it requires is **Brent's, never an executor's**. That the r1 discovery ran against production does not license an executor — that was owner-run. | Codex r5, B1 |
+| 2026-08-12 | **A8(a)'s test matrix delegated to R0 (AR0-7)** rather than guessed a fourth time. | Three attempts to write it from the dump were each wrong. Codex r5 B3 showed why: the qualifying actor differs per operation (`members_delete_transformation_results` also requires `admin`/`consultor`), the denial form differs per command (filtered-to-zero-rows for UPDATE/DELETE — **`CLAUDE.md`'s own documented convention**, which this plan contradicted), and `rubric_item_id NOT NULL` requires a `transformation_rubric` fixture that was absent. | Codex r5, B3 |
+| 2026-08-12 | **D-9 rewritten from pattern-guessed to diff-driven** after it failed on its first use. | The sweep ran at r4 and still passed eight live contradictions, because a guessed pattern list cannot match sentences that never contained the new wording. Now three required layers: search **both old and new forms** of every changed fact; structurally compare the phase index against each phase header; centralize volatile counts. A later stale reference means the control failed, not that it was skipped. | Codex r5, S1 + ruling F |

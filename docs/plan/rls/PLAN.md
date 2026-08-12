@@ -32,9 +32,14 @@ Three completion conditions:
 2. **Named-function DoD** — none of the **ten functions this workstream has audited** can be
    executed by `anon`/`PUBLIC`, and none derives its acting user or its authorization from a
    caller-supplied parameter. Delivered by R1, R1b and R10.
-3. **Surface DoD** — the remaining `public` functions carrying an `anon` grant are audited, and
-   each is either revoked, hardened, or recorded as deliberately safe with evidence. Delivered by
-   R11 and whatever phases R11's discovery produces.
+3. **Surface DoD** — every remaining **`SECURITY DEFINER` signature in `public` carrying an `anon`
+   grant** is audited, and each is either revoked, hardened, or recorded as deliberately safe with
+   evidence. The nine that return `trigger` are audited too and dispositioned as
+   not-RPC-reachable-by-construction. Delivered by R11 and whatever phases its discovery produces.
+   *(Population narrowed after Codex r3, B2. The earlier wording said "the remaining `public`
+   functions carrying an `anon` grant", which is **hundreds** of functions once invoker-rights
+   ones are included — R11 could never have satisfied it. Invoker-rights functions carry no
+   definer-privilege escalation and are deliberately out of this workstream.)*
 
 **Condition 3 is new (Codex r2, B5) and it is a scope expansion, not a narrowed claim.** Codex's
 proposed remedy was to shrink the DoD to the ten audited functions; Brent's ruling on
@@ -42,22 +47,33 @@ proposed remedy was to shrink the DoD to the ten audited functions; Brent's ruli
 "no `public` function … can bypass RLS" wording was **already false** at the moment it was written.
 Measured from `supabase/migrations/00000000000000_baseline.sql`:
 
+**All inventory arithmetic is by `regprocedure` signature, never by function name.**
+*(Codex r3, B1: the first count used unique names, which silently merged the two `SECURITY
+DEFINER` overloads of `mark_notification_read` — `(notification_id uuid)` at `baseline.sql:4334`
+and `(p_notification_id uuid, p_user_id uuid)` at `:4350`, both granted `anon` at `:24107` and
+`:24113`. That dropped one audit subject. Overload-collapsing is the same class of measurement
+error this plan has been catching in others; R11 must define its inventory by signature.)*
+
 | | count |
 |---|---|
-| `SECURITY DEFINER` functions in `public` | 90 |
-| …carrying a `GRANT … TO anon` | 88 |
-| …covered by R1's ten | 9 |
-| **…outside the audit so far** | **79** — 9 return `trigger`, **70 are RPC-callable** |
+| `SECURITY DEFINER` **signatures** in `public` | 91 |
+| …carrying a `GRANT … TO anon` | 89 |
+| …covered by R1's nine DEFINER signatures | 9 |
+| **…outside the audit so far** | **80** — 9 return `trigger`, **71 are non-trigger RPC candidates** |
+
+"**RPC candidates**", not "RPC-callable" *(Codex r3, B2)*: PostgREST reachability is precisely what
+R11 must measure. Asserting it in the input count would state as fact the thing the phase exists
+to establish.
 
 `get_unread_notification_count(p_user_id uuid)` (`baseline.sql:3660-3672`, granted `anon` at
 `:23825`) is the worked example: `SECURITY DEFINER`, unqualified `FROM user_notifications`,
-caller-supplied subject, no `auth.uid()` check. At least 20 of the 70 take a caller-supplied user
+caller-supplied subject, no `auth.uid()` check. At least 20 of the 71 take a caller-supplied user
 identifier, including `create_notification`, `create_user_notification`,
 `award_course_completion_badge`, `get_user_admin_status` and `get_effective_user_role`.
 
 **Stated precisely, because the distinction is the whole point of §6: the grants are proven from
-the baseline file. Reachability and exploitability of those 70 are UNMEASURED.** The discovery
-document probed only the functions it named. 70 is a sizing figure, not 70 confirmed
+the baseline file. Reachability and exploitability of those 71 are UNMEASURED.** The discovery
+document probed only the functions it named. 71 is a sizing figure, not 71 confirmed
 vulnerabilities — establishing which is R11's job and the reason R11 is `DISCOVERY`.
 
 R1 is the only phase whose contract is fully specified. Execution order is the `Order` column in
@@ -141,14 +157,14 @@ them. Execution order is the `Order` column, which the Codex r1 review changed (
 | 9 | **R10** | Actor-derivation redesign of `submit_quiz` + 5 learning-path RPCs | HIGH | OUTLINE | 2 | R1, R7 | Q5 *(default)* |
 | 10 | R8 | `group_assignment_discussions` policy | HIGH | OUTLINE | 1 | R1 | none |
 | 11 | R9 | `modules` — riskiest, last of the tables | HIGH | OUTLINE | **0** | R1–R8 | **Q4** |
-| 12 | **R11** | **DISCOVERY** — audit the remaining 70 anon-granted RPC-callable functions | **DISCOVERY** | OUTLINE | 0 | R1 | none |
+| 12 | **R11** | **DISCOVERY** — audit the remaining 80 anon-granted DEFINER signatures | **DISCOVERY** | OUTLINE | 0 | R1 | none |
 | 13+ | R12… | Remediation phases, **defined by R11's output** — not invented here | HIGH | UNDEFINED | 0 | R11 | TBD by R11 |
 
 Every phase except R11 is `HIGH` under overlay §3 — they touch RLS/grants or ship a migration.
-R11 is `DISCOVERY`: the evidence needed to write a safe implementation contract for the 70 does
+R11 is `DISCOVERY`: the evidence needed to write a safe implementation contract for the 71 does
 not exist yet, and per overlay §3 a `DISCOVERY` phase produces evidence and a revised contract
 without smuggling implementation into research. **R12+ are deliberately left undefined.** Writing
-phase contracts for 70 functions whose reachability is unmeasured would be inventing requirements
+phase contracts for 71 signatures whose reachability is unmeasured would be inventing requirements
 from guesses — the exact thing the overlay forbids.
 
 **Dependency graph.** R1 is the root and blocks nothing structurally — R2…R9 could each run
@@ -295,10 +311,12 @@ pin exists to close. [A5] enforces the explicit two-element form.
   *(Amended after Codex r1, B5 — the original plan relocated it by decision log. Repo hard rules
   outrank the plan, including this one; the overlay's own precedence list says so.)*
 - **Write** `docs/plan/rls/evidence/R1-gates.md` — raw command output, including A15's two counts.
-- **Write** the A1 statement-allowlist checker as a committed script.
+- **Write** two committed checker scripts: `scripts/ci/check-r1-migration.sh` (A1's exact-multiset
+  check) and `scripts/ci/check-suite-complete.mjs` (A15's suite-completeness check). Both are
+  invoked by A14's gate command.
 - **Append** the round entry to `docs/plan/rls/LEDGER.md`.
 
-**Sizing.** Eight files — within the ≤10 rule. The ≤600-net-line guidance **will be exceeded** and
+**Sizing.** Nine files — within the ≤10 rule *(Codex r3, B4: the count omitted A15's checker)*. The ≤600-net-line guidance **will be exceeded** and
 that is accepted here rather than glossed: the pgTAP file alone will approach the 502-line
 precedent, before ~40 migration statements, the checker script, and three documentation artifacts.
 The cap is a proxy for "one durable executor conversation", and R1 meets the real constraint — the
@@ -316,7 +334,9 @@ being written long-hand, not that the phase is too big.
   privileges only. Actor derivation, enrollment checks and trusted scoring are R10.
 - `search_path` on any function other than `has_global_workspace_access`.
 - Any of the other 21 allowlist tables.
-- Any application, route, component, or service file. **R1 touches no TypeScript or JavaScript.**
+- Any application, route, component, or service file. **R1 touches no application TypeScript or
+  JavaScript; `scripts/ci/check-suite-complete.mjs` is the sole JavaScript deliverable.**
+  *(Codex r3, B4 — the earlier blanket exclusion made A15's own checker impossible to ship.)*
 - Adding `REVOKE`s for functions not in the ten-row table above, however tempting the adjacent
   `grep` hit.
 
@@ -389,8 +409,13 @@ Each independently checkable by running something. `<fn>` below means all ten fu
       reporter emits the **executed** set only — a file dropped at collection is absent from the
       JSON and from the totals, so the JSON alone can never prove discovery completeness. Ship
       `scripts/ci/check-suite-complete.mjs` that:
-      (a) derives the **expected** file set independently, by applying the `include`/`exclude`
-      globs from `vitest.config.ts` to the working tree;
+      (a) derives the **expected** file set independently. **`vitest.config.ts` defines `exclude`
+      but no `include`** (`vitest.config.ts:7-18`), so the effective discovery set is
+      `configDefaults.include` from `vitest/config` combined with that file's `exclude`. The
+      checker must resolve the effective config through a real config loader — plain Node cannot
+      import a TypeScript config file. *(Amended after Codex r3, B3 / ruling E: the r2 remedy said
+      "derive from include/exclude" against a config that has no `include`, leaving the expected
+      set undefined. Second failure of this same criterion.)*
       (b) runs `npm test -- --reporter=json` and reads `testResults[].name`;
       (c) compares the two as **normalized absolute path sets** and fails on any difference in
       either direction, printing the missing files by name;
@@ -584,8 +609,9 @@ session). D-7's post-apply check covers the function's `proconfig`, not schema-l
 
 **CLAIM 7** — R1 fits one durable executor conversation.
 COUNTEREXAMPLE — the pgTAP matrix is large enough to exhaust context.
-CHECK — eight files (matching the amended Scope, not the original six — Codex r2, N2); one
-migration of roughly 40 statements; two committed checker scripts; one pgTAP file modelled
+CHECK — nine files (matching the amended Scope; six at r1, eight at r2, nine after Codex r3 B4
+added A15's checker to the count); one migration of roughly 40 statements; two committed checker
+scripts; one pgTAP file modelled
 line-for-line on the 502-line `030-pasantias-leads-rls.sql`, which a single session produced.
 RESULT — **supported**, with the caveat that A15's `npm ci` must happen at the start, not after
 the diff is written.
@@ -767,7 +793,7 @@ to the ten audited functions; Brent chose to expand the workstream instead. The 
 expansion risks delaying R1 and strains the sizing rules; Brent took that tradeoff knowingly. R1
 is unaffected — it still ships first, and R11 runs after it.
 
-**Input.** 70 RPC-callable `public` functions carrying a `GRANT … TO anon` in the baseline and
+**Input.** 71 non-trigger `SECURITY DEFINER` signatures in `public` carrying a `GRANT … TO anon`, plus the 9 trigger-returning ones, all identified by `regprocedure` and
 outside the ten this workstream has audited. See the Goal's table for the derivation.
 
 **This phase is `DISCOVERY` and must not smuggle implementation into research** (overlay §3). It
@@ -775,7 +801,7 @@ produces evidence and a revised contract; it ships no migration.
 
 Bounded output:
 
-1. **A classification of all 70**, per function: is it reachable as `anon` over PostgREST at all;
+1. **A classification of all 80 signatures**, per signature: is it reachable as `anon` over PostgREST at all;
    does it read or write RLS-protected data; does it derive its actor from `auth.uid()` or from a
    caller-supplied parameter; does it have a repository caller and under which client. Same
    method and same evidence standard the r1 discovery used — **read-only, no writes to
@@ -786,7 +812,7 @@ Bounded output:
    certainly grouped by defect class (revoke-only / actor-binding / already-safe) rather than
    one phase per function.
 
-**R12+ are deliberately undefined until R11 lands.** Writing contracts for 70 functions whose
+**R12+ are deliberately undefined until R11 lands.** Writing contracts for 71 signatures whose
 reachability is unmeasured would invent requirements from guesses.
 
 **Known trap:** the 70 include the `auth_*` helper family — `auth_is_admin`,

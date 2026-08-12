@@ -3,6 +3,8 @@ import path from 'path';
 import { describe, it, expect } from 'vitest';
 import {
   applyWebhookLifecycle,
+  MAX_PLAUSIBLE_INSTANT_MS,
+  MIN_PLAUSIBLE_INSTANT_MS,
   readLifecycleInstant,
 } from '../../../lib/zoom/webhook-lifecycle';
 import {
@@ -119,6 +121,50 @@ describe('readLifecycleInstant', () => {
 
   it('falls back to `event_ts`, read as MILLISECONDS', () => {
     expect(readLifecycleInstant(undefined, 1785369356750)).toBe('2026-07-29T23:55:56.750Z');
+  });
+
+  it('[B1] REJECTS a header-seconds value, which used to become a 1970 instant', () => {
+    // The reviewer's own probe, as a named case. `x-zm-request-timestamp` is 1785368934
+    // SECONDS; the old `Number.isSafeInteger(x) && x > 0` accepted it and produced
+    // 1970-01-21 — silently, as a fact about a 2026 meeting, on the surface an admin
+    // compares against planned hours.
+    const headerSeconds = 1785368934;
+    expect(new Date(headerSeconds).toISOString()).toBe('1970-01-21T15:56:08.934Z');
+    expect(readLifecycleInstant(undefined, headerSeconds)).toBeNull();
+  });
+
+  it('[B1] REJECTS Number.MAX_SAFE_INTEGER, which used to throw RangeError', () => {
+    // The reviewer's other probe. The old guard passed it to `new Date(...)`, whose
+    // `toISOString()` threw out of a webhook route — a 500, and Zoom retrying the same
+    // malformed body forever against an endpoint that can never accept it.
+    expect(() => new Date(Number.MAX_SAFE_INTEGER).toISOString()).toThrow(RangeError);
+    expect(readLifecycleInstant(undefined, Number.MAX_SAFE_INTEGER)).toBeNull();
+    expect(readLifecycleInstant(undefined, -Number.MAX_SAFE_INTEGER)).toBeNull();
+  });
+
+  it('[B1] applies the same band to the ISO path — Date.parse accepts year 275760', () => {
+    expect(Number.isFinite(Date.parse('+275760-09-13T00:00:00Z'))).toBe(true);
+    expect(readLifecycleInstant('+275760-09-13T00:00:00Z', undefined)).toBeNull();
+    expect(readLifecycleInstant('1970-01-01T00:00:00Z', undefined)).toBeNull();
+  });
+
+  it('[B1] the band is wide enough that every real value still passes unchanged', () => {
+    // Existing behaviour for the fixtures' real values is the other half of the criterion.
+    expect(readLifecycleInstant('2026-07-29T23:55:56Z', undefined)).toBe(
+      '2026-07-29T23:55:56.000Z'
+    );
+    expect(readLifecycleInstant(undefined, 1785369356750)).toBe('2026-07-29T23:55:56.750Z');
+    expect(readLifecycleInstant(new Date(MIN_PLAUSIBLE_INSTANT_MS).toISOString(), undefined)).toBe(
+      '2000-01-01T00:00:00.000Z'
+    );
+    expect(readLifecycleInstant(undefined, MIN_PLAUSIBLE_INSTANT_MS)).toBe(
+      '2000-01-01T00:00:00.000Z'
+    );
+    expect(readLifecycleInstant(undefined, MAX_PLAUSIBLE_INSTANT_MS)).toBe(
+      '2100-01-01T00:00:00.000Z'
+    );
+    expect(readLifecycleInstant(undefined, MIN_PLAUSIBLE_INSTANT_MS - 1)).toBeNull();
+    expect(readLifecycleInstant(undefined, MAX_PLAUSIBLE_INSTANT_MS + 1)).toBeNull();
   });
 
   it('yields null rather than a fabricated instant when neither is usable', () => {

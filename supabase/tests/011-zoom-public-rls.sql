@@ -25,7 +25,7 @@
 
 BEGIN;
 
-SELECT plan(71);
+SELECT plan(83);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures
@@ -763,6 +763,129 @@ SELECT ok(
   'after the refused replay the row still holds both EXACT fixture instants, unchanged');
 
 RESET ROLE;
+
+-- =============================================================================
+-- Z7-2 — participant_uuid, the partial unique index, and the interval-order CHECK.
+--
+-- Three claims, and the second is the one that has to be proved in Postgres rather
+-- than in the applier: a redelivered `participant_joined` is absorbed by the DATABASE.
+-- Zoom retries and `webhook_sweep` deliberately replays events minutes later, so "the
+-- applier checks first" is a race, not a guarantee.
+--
+-- The index is PARTIAL on purpose. A participant whose uuid Zoom omitted must still get
+-- a row: a total unique index would collapse every anonymous guest of one occurrence
+-- into a single interval, which is the double-count in reverse.
+-- =============================================================================
+
+SELECT has_column('public', 'zoom_attendance', 'participant_uuid',
+  'zoom_attendance.participant_uuid exists — the [R3] interval key');
+SELECT col_is_null('public', 'zoom_attendance', 'participant_uuid',
+  'participant_uuid is nullable — Zoom omits it, and the applier falls back to identity');
+
+-- The index exists, is UNIQUE, and is PARTIAL. All three matter; a total unique index
+-- would pass the first two and be wrong.
+SELECT is(
+  (SELECT count(*)::int FROM pg_indexes
+    WHERE schemaname = 'public'
+      AND tablename = 'zoom_attendance'
+      AND indexname = 'zoom_attendance_participant_occurrence_key'),
+  1, 'the participant/occurrence unique index exists');
+
+SELECT ok(
+  (SELECT indexdef LIKE 'CREATE UNIQUE INDEX%' AND indexdef LIKE '%WHERE (participant_uuid IS NOT NULL)%'
+     FROM pg_indexes
+    WHERE schemaname = 'public'
+      AND indexname = 'zoom_attendance_participant_occurrence_key'),
+  'the index is UNIQUE and PARTIAL on participant_uuid IS NOT NULL');
+
+-- Fixtures for the behavioural half. Reuses School A's session from the Z7-1 block.
+INSERT INTO public.zoom_attendance
+  (id, surface_type, surface_id, school_id, zoom_meeting_uuid,
+   participant_uuid, matched_by, joined_at, source)
+VALUES
+  ('a7a7a7a7-5555-0000-0000-000000000001', 'consultor_session',
+   'a7a7a7a7-0000-0000-0000-000000000001', 9901, 'z7Synthetic/Occurrence/P==',
+   '364B3A17-05C0-6B63-F4FA-2180DCC26971', 'customer_key',
+   '2026-07-29T23:55:56Z', 'webhook');
+
+-- THE REDELIVERY, at the database. Same occurrence, same participant_uuid.
+SELECT throws_ok(
+  $$ INSERT INTO public.zoom_attendance
+       (surface_type, surface_id, school_id, zoom_meeting_uuid,
+        participant_uuid, matched_by, joined_at, source)
+     VALUES ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
+             'z7Synthetic/Occurrence/P==', '364B3A17-05C0-6B63-F4FA-2180DCC26971',
+             'customer_key', '2026-07-29T23:55:56Z', 'webhook') $$,
+  '23505',
+  NULL,
+  'a redelivered participant_joined is refused by the partial unique index');
+
+-- The SAME participant in a DIFFERENT occurrence is a different interval.
+SELECT lives_ok(
+  $$ INSERT INTO public.zoom_attendance
+       (surface_type, surface_id, school_id, zoom_meeting_uuid,
+        participant_uuid, matched_by, joined_at, source)
+     VALUES ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
+             'z7Synthetic/Occurrence/Q==', '364B3A17-05C0-6B63-F4FA-2180DCC26971',
+             'customer_key', '2026-07-30T10:00:00Z', 'webhook') $$,
+  'the same participant_uuid in another occurrence inserts cleanly');
+
+-- ...and TWO uuid-less rows in ONE occurrence both survive, which is what the PARTIAL
+-- predicate buys. A total unique index would reject the second and lose a guest.
+SELECT lives_ok(
+  $$ INSERT INTO public.zoom_attendance
+       (surface_type, surface_id, school_id, zoom_meeting_uuid,
+        participant_uuid, display_name, matched_by, joined_at, source)
+     VALUES ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
+             'z7Synthetic/Occurrence/P==', NULL, 'Invitada Sintetica Una',
+             'unmatched', '2026-07-29T23:57:00Z', 'webhook'),
+            ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
+             'z7Synthetic/Occurrence/P==', NULL, 'Invitada Sintetica Dos',
+             'unmatched', '2026-07-29T23:58:00Z', 'webhook') $$,
+  'two uuid-less participants in one occurrence both get a row (the index is PARTIAL)');
+
+-- The interval-order CHECK. The applier is what keeps a malformed leave from ever
+-- reaching this constraint ([R7]); the constraint is what refuses a future writer that
+-- skips that reasoning.
+SELECT throws_ok(
+  $$ INSERT INTO public.zoom_attendance
+       (surface_type, surface_id, school_id, zoom_meeting_uuid,
+        matched_by, joined_at, left_at, source)
+     VALUES ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
+             'z7Synthetic/Occurrence/R==', 'unmatched',
+             '2026-07-30T00:05:00Z', '2026-07-29T23:55:00Z', 'webhook') $$,
+  '23514',
+  NULL,
+  'a left_at BEFORE joined_at is refused by zoom_attendance_interval_order');
+
+SELECT lives_ok(
+  $$ INSERT INTO public.zoom_attendance
+       (surface_type, surface_id, school_id, zoom_meeting_uuid,
+        matched_by, joined_at, left_at, source)
+     VALUES ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
+             'z7Synthetic/Occurrence/S==', 'unmatched',
+             '2026-07-29T23:55:00Z', '2026-07-29T23:55:00Z', 'webhook') $$,
+  'a zero-length interval is allowed — Zoom reports whole seconds and it really happens');
+
+SELECT lives_ok(
+  $$ UPDATE public.zoom_attendance
+        SET left_at = '2026-07-30T00:05:00Z'
+      WHERE id = 'a7a7a7a7-5555-0000-0000-000000000001' $$,
+  'closing an open interval forward is allowed');
+
+SELECT throws_ok(
+  $$ UPDATE public.zoom_attendance
+        SET left_at = '2026-07-29T00:00:00Z'
+      WHERE id = 'a7a7a7a7-5555-0000-0000-000000000001' $$,
+  '23514',
+  NULL,
+  'the CHECK also refuses a backwards close, not only a bad INSERT');
+
+-- Z7-1's write denial still holds for the new column: no non-SELECT policy appeared.
+SELECT is(
+  (SELECT count(*)::int FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'zoom_attendance' AND cmd <> 'SELECT'),
+  0, 'zoom_attendance still carries no non-SELECT policy after the Z7-2 migration');
 
 SELECT * FROM finish();
 

@@ -1,13 +1,14 @@
-# Fase 7 (Z7) — review request · chunk Z7-1, attempt 2
+# Fase 7 (Z7) — review request · chunks Z7-1 and Z7-2
 
-> Written by the executor per `CLAUDE.md` executor rule 6 and the Z7-r1 prompt §11.
-> This file covers **chunk Z7-1 only**. Z7-2 … Z7-5 append to it as they land; the
-> phase is not reviewable as a whole until they do.
+> Written by the executor per `CLAUDE.md` executor rule 6 and the Z7-r1/r2 prompts.
+> This file is the reviewer's entry document for the **cumulative** diff and now covers
+> **Z7-1 and Z7-2**. Z7-3 … Z7-5 append to it as they land; the phase is not reviewable
+> as a whole until they do.
 >
-> **Attempt 2 supersedes attempt 1.** Attempt 1's self-report nominated five areas for
-> scrutiny; Brent's remediation directive addressed three of them at the root. What
-> changed is summarised in "What attempt 2 changed and why" below — read that first if
-> you reviewed attempt 1.
+> **Z7-1 is CLOSED** — Codex `PASS` on `43999499..e5b5a26d`, verdict saved at
+> `fase-7-review-verdict.md`, close record at `PLAN.md` §15.3.8. Its sections below are
+> retained because the reviewer reads the cumulative diff, not just the newest chunk.
+> **Z7-2 is the new work; its own section is at the end and that is where to start.**
 
 ## Branch, base, commits
 
@@ -16,9 +17,10 @@
 | Worktree | `/Users/brentcurtis/dev/wt/zoom-hours` (git common dir `/Users/brentcurtis/dev/fne-lms/.git`) |
 | Branch | `feat/zoom-hours` |
 | Base | `main` @ `4399949942bfcf49dfa8de40cbf7edbf40f0490e` |
-| Commits | `ba82884e` (PM contract + prompt) · `0e29d53b` (attempt 1) · `c2cf4ed2` (attempt-1 ledger) · this remediation commit |
-| Phase contract | `docs/plan/zoom/PLAN.md` §15.3; §11, §6, §7, §10 normative |
-| Executor prompt | `docs/plan/zoom/prompts/Z7-r1.md` |
+| Commits | `ba82884e` (PM contract + r1 prompt) · `0e29d53b` (Z7-1 a1) · `c2cf4ed2` (a1 ledger) · `e5b5a26d` (**Z7-1 a2 — the reviewed and PASSED head**) · `ac573883` (PM close record + r2 prompt) · `e9bb5ce9` (verdict + chunk close) · this Z7-2 commit |
+| Phase contract | `docs/plan/zoom/PLAN.md` §15.3 (+ §15.3.8 close record); §11, §6, §7, §10 normative |
+| Executor prompts | `docs/plan/zoom/prompts/Z7-r1.md`, `docs/plan/zoom/prompts/Z7-r2.md` |
+| Diff to review | `git diff 43999499..<head>` — cumulative, both chunks |
 
 ## Objective and scope (copied from §15.3.2, Z7-1)
 
@@ -261,3 +263,176 @@ All three files restored and re-hashed to the values above before the final gate
   co-facilitator has no second reader; §7 does not define one, and no table models it.
 - **`.env.local`** was copied into the worktree for `npm run build`, is gitignored
   (`git check-ignore -v .env.local`), and appears in no commit.
+
+---
+
+# Chunk Z7-2 — participant ingestion
+
+**Start here.** Everything above is Z7-1, already reviewed and PASSED at `e5b5a26d`; it
+is retained only because the cumulative diff includes it.
+
+## Objective and scope (copied from §15.3.2, Z7-2)
+
+**Z7-2 — participant ingestion.** `meeting.participant_joined` /
+`meeting.participant_left` applied through the webhook path, the identity-matching
+hierarchy as a **pure module** (`customer_key` → `profiles.id` first, then
+registrant/e-mail, then display name — never the reverse order), and interval
+merge/rejoin de-duplication as a **pure module**. Both pure so the §11 "reconnect
+intervals don't double-count" test is a unit test, not an integration guess.
+
+**Out of scope and untouched:** the participant report and `attendance_reconcile` (Z7-3)
+· `session_hour_overrides`, `effective_minutes`, the override RPC, the
+`billable-hours.ts` seam (Z7-4) · every UI surface (Z7-5) · `tests/e2e/` · `lib/meet/*`
+and `JoinMeetingButton.*` (Z3b) · **`public.has_global_workspace_access`** — a real,
+live, pre-existing baseline defect that Z7 does not close over (§15.3.8 item 2, needs an
+owner) · the 22-table RLS allowlist.
+
+## Files, grouped by risk
+
+### HIGH — the identity decision, because a wrong match is the defect this design exists to prevent
+
+| File | Purpose |
+|---|---|
+| `lib/zoom/attendance-identity.ts` (new, pure) | `readParticipantField` (the single `""`→null chokepoint), `readParticipantIdentity`, `profileIdFromCustomerKey` (inverse of `toCustomerKey`), `normalizeDisplayName`, `matchByDisplayName` (ambiguity ⇒ null), `matchParticipantIdentity` (the fixed hierarchy), `identityToken` (the fallback interval key). No I/O. |
+
+### HIGH — additive schema plus the uniqueness the Z7-1 review deferred here
+
+| File | Purpose |
+|---|---|
+| `supabase/migrations/20260812120000_zoom_attendance_participant_uuid.sql` | `participant_uuid text`, the **partial** unique index on `(zoom_meeting_uuid, participant_uuid) WHERE participant_uuid IS NOT NULL`, and `CHECK (left_at IS NULL OR left_at >= joined_at)`. |
+
+### MEDIUM — ingestion and its persistence seam
+
+| File | Purpose |
+|---|---|
+| `lib/zoom/participant-lifecycle.ts` (new) | `PARTICIPANT_EVENT_TYPES` (separate from `LIFECYCLE_EVENT_TYPES`), surface resolution, and `applyParticipantEvent` returning a typed outcome. |
+| `lib/zoom/attendance-store.ts` (new) | `ZoomAttendanceStore` + the Supabase implementation. **Has no method that can write `zoom_meetings`** — that is the [B8] enforcement. |
+| `lib/zoom/attendance-intervals.ts` (new, pure) | `isClosableBy`, `mergeIntervals`, `totalPresenceSeconds`, `selectIntervalToClose`. |
+| `lib/zoom/webhook-lifecycle.ts` | `[B1]`: `readLifecycleInstant` gains the plausible-epoch band; `MIN/MAX_PLAUSIBLE_INSTANT_MS` exported. |
+| `pages/api/zoom/webhook.ts`, `lib/zoom/jobs/webhook-sweep.ts` | Both dispatch participant events to the **same** applier; both gained a lazily-built `attendanceStore` dep. |
+
+### LOW — tests
+
+| File | Purpose |
+|---|---|
+| `__tests__/lib/zoom/attendance-identity.test.ts` (new) | 23 tests. |
+| `__tests__/lib/zoom/attendance-intervals.test.ts` (new) | 19 tests — the §11 no-double-count table. |
+| `__tests__/lib/zoom/participant-lifecycle.test.ts` (new) | 23 tests, fixture-driven. |
+| `supabase/tests/011-zoom-public-rls.sql` | `plan(71)` → `plan(83)`. |
+| `__tests__/lib/zoom/webhook-lifecycle-instants.test.ts` | +4 tests for `[B1]`. |
+| `__tests__/api/zoom/webhook.test.ts`, `__tests__/lib/zoom/jobs/webhook-sweep.test.ts` | Route/sweep dispatch. **Two existing route tests changed subject — see Deviations.** |
+
+## Test evidence
+
+| Suite | Command | Result |
+|---|---|---|
+| jsdom proof `[B0]` | `node -e "…require('jsdom')…"` | `JSDOM OK ok` |
+| jsdom proof `[B0]` | `npx vitest run __tests__/lib/meet/embed-capabilities.test.ts` | 30 passed, `environment 111ms` |
+| Full | `npm test` | **309 files / 7,145 passed + 11 skipped (7,156)**, `environment 290ms` |
+| pgTAP | `npm run test:db` | 11 files / **549 tests**, `Result: PASS` |
+
+### Fail-on-old — two probes, each reverted and re-proved by hash
+
+```
+8095b28340ade88171b561615853a265cbde83c80554535e4a360efdb6fda0b8  lib/zoom/attendance-identity.ts
+839a358685e3c5b4ba03a75326095097a3775722d0c79c7b6c080bea041f8e03  20260812120000_zoom_attendance_participant_uuid.sql
+```
+
+**Probe (i) — let the identity matcher accept `""`** (`readParticipantField` returns
+`raw.trim()` instead of collapsing empty to null). **6 tests fail, exit 1**, including
+`[B5]`'s two: *"the committed GUEST capture has four empty-string fields, and none
+becomes a value"* and *"[B5] the GUEST capture … none of them matches"*.
+
+**Probe (ii) — drop `UNIQUE` from the partial index.** **pgTAP 75 and 76 fail, exit 1**:
+the index-shape assert, and *"a redelivered participant_joined is refused by the partial
+unique index"* with `caught: no exception / wanted: 23505`.
+
+## The areas to scrutinise hardest
+
+1. **`participant_uuid` pairing stability is UNVERIFIED and I could not settle it.** The
+   two committed captures are **different people** (`customer_key`
+   `47d97…d9` vs `38a57…77`; `Anfitrion Spike` vs `Invitada Spike`), so they are not a
+   joined→left pair and nothing about pairing can be inferred from them. [R3] told me to
+   build both paths and return `FINDINGS` if a fixture or Zoom's documented semantics
+   contradicted the ruling. **Neither did — there is simply no evidence either way**, so I
+   built both and did not raise `FINDINGS`. Judge whether that was the right call, or
+   whether "no evidence" should itself have been a `FINDINGS`. If the uuid does change
+   between join and leave, the fallback identity path is what keeps intervals closing, and
+   it is tested.
+2. **The uuid-less dedupe is applier-side only, and it is weaker than the index.** With
+   `participant_uuid` NULL there is no partial index to lean on, so redelivery is caught
+   by "same identity + identical `joined_at` on an open interval". That is a
+   read-then-write, i.e. a race that two concurrent deliveries could lose. I accepted it
+   because the alternative — a total unique index — would collapse every anonymous guest
+   of one occurrence into a single interval, which is a worse and permanent error. **Judge
+   whether the race is acceptable, and whether a narrower unique index (e.g. including
+   `joined_at`) would close it without the collapse.**
+3. **Email matching is a repo-wide `profiles` lookup, not scoped to the surface.** [R6]
+   constrains *name* matching to the expected attendees; I read e-mail as safe to match
+   globally because it is unique and identifying, so a consultant from another school who
+   joins is still correctly identified with `matched_by='email'`. **That is my reading of
+   a rule that only spoke about names** — if e-mail was also meant to be attendee-scoped,
+   this is a finding.
+4. **`totalPresenceSeconds` returns 0 for an open interval, by design.** An interval with
+   no `participant_left` has no observed duration, and anchoring it on `now()` would
+   fabricate the number §11 compares against planned hours. Z7-5 has to render the open
+   case as a state rather than a number — **if it instead sums this helper, a live meeting
+   reads as zero presence.** Nothing in this chunk enforces that.
+5. **The store double models the partial unique index and the close guard.** Both are
+   database behaviours, so the double is a model, and a drifted model would keep the unit
+   suite green while production diverged. pgTAP asserts both independently against a real
+   database — **verify the two really cover the same claims.**
+
+## Criteria
+
+| ID | Status | Evidence |
+|---|---|---|
+| B0 | met | `JSDOM OK ok`; 30 passed, `environment 111ms`. |
+| B1 | met | Both reviewer probes as named cases: header-seconds `1785368934` (asserted to have produced `1970-01-21T15:56:08.934Z`) and `Number.MAX_SAFE_INTEGER` (asserted to throw `RangeError`) both now return null; the band is applied to the ISO path too; the fixtures' real values are unchanged, and both band edges are pinned. |
+| B2 | met | `participant-lifecycle.test.ts` asserts the whole insert by value: surface, `schoolId 9901`, occurrence uuid, `joinedAt '2026-07-29T23:55:56.000Z'`, `matchedBy 'customer_key'`, `userId` the decoded profile. |
+| B3 | met | The actual duplicate delivery, twice through the applier → `interval_opened` then `interval_duplicate`, one row. Plus the uuid-less variant, plus pgTAP `23505` at the database. Probe (ii) proves the DB half fails without `UNIQUE`. |
+| B4 | met | Pair closes the open interval; the committed guest `participant_left` (whose join was never seen) writes no row, calls no insert, and returns `no_open_interval`. |
+| B5 | met | Guest fixture's four `""` fields asserted individually; identity resolves to `unmatched`/NULL; `findProfileIdByEmail` never called. Probe (i) fails this. |
+| B6 | met | Two candidates for one normalised name ⇒ `unmatched`, `user_id` NULL — in the pure module and through the applier. |
+| B7 | met | 19 interval tests: disjoint, overlapping, adjacent, contained, still-open, order-independence, malformed-dropped, three-way chain, no-mutation. |
+| B8 | met | Structurally: the attendance store's key set is asserted to be exactly the eight methods, with no `setMeetingStatus`/`setProjectionStatus`/`insertMeeting`. Behaviourally: route and sweep both assert those lifecycle methods are never called and the meeting/projection statuses are unchanged. |
+| B9 | met | Out-of-order leave → interval stays open, no close recorded, nothing thrown; pgTAP proves the CHECK still refuses a directly-offered bad row on INSERT **and** on UPDATE. |
+| B10 | met | `git diff main..HEAD -- lib/services/billable-hours.ts lib/services/hour-tracking.ts` is empty. |
+| B11 | met | `git diff --stat main..HEAD -- tests/e2e/` is empty. |
+| B12 | met | All five gates green; see the executor report. |
+
+## Deviations and accepted trade-offs
+
+1. **Two existing route tests changed subject.** `__tests__/api/zoom/webhook.test.ts`
+   drove the participant fixture and asserted *"Z1b-3 does not look up meetings for events
+   it does not apply"* — that comment named Z7 as the future owner, and this is that
+   chunk. The route now applies the event, so those tests inject an attendance double and
+   assert the **dispatch** plus the unchanged `[B8]` claim (no `setMeetingStatus`, no
+   `setProjectionStatus`). Without an injected store the route builds the real
+   Supabase-backed one and answers 500 on a config error, so the edit was forced by real
+   behaviour, not by convenience. No assertion was weakened.
+2. **No `FINDINGS` raised on `participant_uuid` pairing.** See scrutiny point 1: the
+   ruling is unverifiable rather than contradicted, and [R3] pre-authorised building both
+   paths. Flagged rather than silently accepted.
+3. **E-mail matching is repo-wide.** See scrutiny point 3 — my reading of a rule that
+   constrained names only.
+4. **`identityToken` is used as a pairability guard, not as a stored key.** [R3] describes
+   the fallback key; the store realises it as an OR over the identity columns, and the
+   token itself decides whether a leave is pairable at all (`unpairable_leave`). Same
+   information, one fewer stored column.
+
+## Known limitations and blind spots
+
+- **Nothing here has run against a real recorded session.** Z0B's capture is the only
+  evidence behind every fixture shape, and it cannot supply a joined→left pair.
+- **Local and CI green say nothing about deployment.** Three migrations are now unapplied
+  in production; §0.1(d) keeps the phase open until Brent applies them and the schema is
+  verified read-only.
+- **`matched_by='name'` depends on the surface having expected attendees.** A community
+  meeting with an empty `meeting_attendees` can never match by name — correct
+  (fail-closed), but it means the name branch is effectively dead for surfaces nobody
+  populated.
+- **`has_global_workspace_access` is still unowned** (§15.3.8 item 2) and deliberately
+  untouched.
+- **No `attendance_reconcile` yet**, so a webhook Zoom never delivered leaves a gap that
+  nothing currently repairs. That is Z7-3's whole job.

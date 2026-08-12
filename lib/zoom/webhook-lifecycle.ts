@@ -71,13 +71,44 @@ export function readOccurrenceUuid(raw: unknown): string | null {
  * toward a NULL column is the correct direction — a missing comparison value shows as
  * a missing panel column, whereas a fabricated one would be presented to an admin as
  * evidence about a consultant's billable presence.
+ *
+ * ## The range band (Z7-2 `[B1]`; Z7-1 review item ①)
+ *
+ * `Number.isSafeInteger(x) && x > 0` was not a range check, and the reviewer probed both
+ * ends of it directly. A header timestamp in SECONDS (`1785368934`) passed and became
+ * **1970-01-21**, silently, as a fact about a 2026 meeting. `Number.MAX_SAFE_INTEGER`
+ * also passed and then threw `RangeError` out of `toISOString()` — from inside a webhook
+ * route, where the throw becomes a 500 and Zoom retries the same malformed body forever.
+ *
+ * Neither was reachable in production (callers pass only body `event_ts`), which is why
+ * it was non-blocking rather than a defect. It is closed here because this chunk parses
+ * `join_time` / `leave_time` through the same helper family, and an unreachable trap in
+ * a helper that just gained two new callers is a trap with a shorter fuse.
+ *
+ * The band is deliberately wide and deliberately finite: any instant this system can
+ * legitimately observe about a Zoom meeting falls inside it, and both probes fall
+ * outside. It is applied to the ISO path as well — `Date.parse` accepts year 275760,
+ * which is inside `Date`'s range and nowhere near a plausible session.
  */
+
+/** 2000-01-01T00:00:00Z. Below this, an epoch-milliseconds value is a unit error. */
+export const MIN_PLAUSIBLE_INSTANT_MS = Date.UTC(2000, 0, 1);
+/** 2100-01-01T00:00:00Z. Above this, likewise — and far short of `Date`'s ±8.64e15. */
+export const MAX_PLAUSIBLE_INSTANT_MS = Date.UTC(2100, 0, 1);
+
+/** Inside the plausible band, and therefore also inside `Date`'s representable range. */
+function isPlausibleInstantMs(ms: number): boolean {
+  return (
+    Number.isFinite(ms) && ms >= MIN_PLAUSIBLE_INSTANT_MS && ms <= MAX_PLAUSIBLE_INSTANT_MS
+  );
+}
+
 export function readLifecycleInstant(preferred: unknown, eventTsMs: unknown): string | null {
   if (typeof preferred === 'string' && preferred.length > 0) {
     const parsed = Date.parse(preferred);
-    if (Number.isFinite(parsed)) return new Date(parsed).toISOString();
+    if (isPlausibleInstantMs(parsed)) return new Date(parsed).toISOString();
   }
-  if (typeof eventTsMs === 'number' && Number.isSafeInteger(eventTsMs) && eventTsMs > 0) {
+  if (typeof eventTsMs === 'number' && isPlausibleInstantMs(eventTsMs)) {
     return new Date(eventTsMs).toISOString();
   }
   return null;

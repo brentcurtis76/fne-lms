@@ -364,3 +364,105 @@ describe('webhook_sweep', () => {
     expect(harness.projection?.meeting_status).toBe('ended');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Z7-2 — the sweep dispatches participant events to the SAME applier the route uses
+// ---------------------------------------------------------------------------
+
+describe('webhook_sweep · participant events ([R1])', () => {
+  /**
+   * This is the drift test, and it is the reason both appliers were extracted rather
+   * than inlined at their call sites. The sweep exists to re-apply events the route
+   * recorded but never applied, so if the route grew participant handling and the sweep
+   * did not, the gap would be invisible: it would only ever show up for events whose
+   * first delivery died mid-flight, i.e. exactly the ones nobody is watching.
+   */
+  function participantLedgerRow(): LedgerRow {
+    return {
+      dedupe_key: 'sweep-participant-1',
+      event_type: 'meeting.participant_joined',
+      raw_payload: {
+        event: 'meeting.participant_joined',
+        event_ts: 1785369357392,
+        payload: {
+          object: {
+            id: String(MEETING_NUMBER),
+            uuid: OCCURRENCE_UUID,
+            participant: {
+              customer_key: '47d97a107c8f4c348519b4c77ed439d9',
+              user_name: 'Anfitrion Spike',
+              email: 'host-1213@example-synthetic.test',
+              join_time: '2026-07-29T23:55:56Z',
+              participant_uuid: '364B3A17-05C0-6B63-F4FA-2180DCC26971',
+            },
+          },
+        },
+      },
+      received_at: '2026-08-05T11:00:00.000Z',
+      processed_at: null,
+    };
+  }
+
+  function attendanceDouble() {
+    const inserted: unknown[] = [];
+    const store = {
+      findSurfaceByOccurrence: vi.fn(async () => ({
+        surfaceType: 'consultor_session' as const,
+        surfaceId: SURFACE_ID,
+        schoolId: 9901,
+        zoomMeetingUuid: OCCURRENCE_UUID,
+      })),
+      findSurfaceByMeetingNumber: vi.fn(async () => null),
+      profileExists: vi.fn(async () => false),
+      findProfileIdByEmail: vi.fn(async () => null),
+      listExpectedAttendees: vi.fn(async () => []),
+      insertInterval: vi.fn(async (row: unknown) => {
+        inserted.push(row);
+        return 'inserted' as const;
+      }),
+      listOpenIntervals: vi.fn(async () => []),
+      closeInterval: vi.fn(async () => true),
+    };
+    return { store, inserted };
+  }
+
+  it('applies a swept participant_joined through the attendance store', async () => {
+    const harness = createMemorySweepStore([participantLedgerRow()]);
+    const attendance = attendanceDouble();
+
+    const result = await createWebhookSweepHandler({
+      store: harness.store,
+      attendanceStore: attendance.store,
+      now: () => NOW_MS,
+    })(context());
+
+    expect(result).toMatchObject({ scanned: 1, applied: 1 });
+    expect(attendance.inserted).toHaveLength(1);
+    expect(attendance.inserted[0]).toMatchObject({
+      surfaceId: SURFACE_ID,
+      schoolId: 9901,
+      zoomMeetingUuid: OCCURRENCE_UUID,
+      joinedAt: '2026-07-29T23:55:56.000Z',
+      matchedBy: 'unmatched',
+      userId: null,
+    });
+    // ...and the row is marked processed, so it does not reappear in every later sweep.
+    expect(harness.rows[0].processed_at).not.toBeNull();
+  });
+
+  it('never touches the meeting status or the projection while doing it ([B8])', async () => {
+    const harness = createMemorySweepStore([participantLedgerRow()]);
+
+    await createWebhookSweepHandler({
+      store: harness.store,
+      attendanceStore: attendanceDouble().store,
+      now: () => NOW_MS,
+    })(context());
+
+    expect(harness.store.setMeetingStatus).not.toHaveBeenCalled();
+    expect(harness.store.setProjectionStatus).not.toHaveBeenCalled();
+    expect(harness.store.findMeetingIdByNumber).not.toHaveBeenCalled();
+    expect(harness.meetings.get(MEETING_NUMBER)?.status).toBe('provisioned');
+    expect(harness.projection?.meeting_status).toBe('scheduled');
+  });
+});

@@ -34,6 +34,7 @@ import {
 import meetingStartedFixture from '../../lib/zoom/fixtures/webhooks/meeting-started.json';
 import meetingEndedFixture from '../../lib/zoom/fixtures/webhooks/meeting-ended.json';
 import participantJoinedFixture from '../../lib/zoom/fixtures/webhooks/meeting-participant_joined.json';
+import type { ZoomAttendanceStore } from '../../../lib/zoom/attendance-store';
 
 const FIXTURE_SECRET = 'fixture-secret-token-not-a-real-secret';
 
@@ -168,7 +169,45 @@ interface InvokeOptions {
   headers?: Record<string, string>;
   env?: NodeJS.ProcessEnv;
   store?: ZoomWebhookStore;
+  /**
+   * Z7-2. Participant events now reach an applier, and the route builds the real
+   * (Supabase-backed) store when this is absent — so any test that drives a participant
+   * fixture has to inject one or the route answers 500 on a config error.
+   */
+  attendanceStore?: ZoomAttendanceStore;
   nowMs?: number;
+}
+
+/**
+ * The attendance store, recording rather than acting. Its SHAPE is the point: it has no
+ * `setMeetingStatus`, so a participant event physically cannot move a meeting's status
+ * from here ([B8]).
+ */
+function createFakeAttendanceStore() {
+  const calls: { method: string; args: unknown[] }[] = [];
+  const record = (method: string) =>
+    vi.fn(async (...args: unknown[]) => {
+      calls.push({ method, args });
+      return undefined as never;
+    });
+
+  const store: ZoomAttendanceStore = {
+    findSurfaceByOccurrence: vi.fn(async (uuid: string) => {
+      calls.push({ method: 'findSurfaceByOccurrence', args: [uuid] });
+      return null;
+    }),
+    findSurfaceByMeetingNumber: vi.fn(async (n: number) => {
+      calls.push({ method: 'findSurfaceByMeetingNumber', args: [n] });
+      return null;
+    }),
+    profileExists: record('profileExists'),
+    findProfileIdByEmail: record('findProfileIdByEmail'),
+    listExpectedAttendees: record('listExpectedAttendees'),
+    insertInterval: record('insertInterval'),
+    listOpenIntervals: record('listOpenIntervals'),
+    closeInterval: record('closeInterval'),
+  };
+  return { store, calls };
 }
 
 /**
@@ -187,6 +226,7 @@ async function invoke(options: InvokeOptions) {
   const pending = handleZoomWebhook(req, res, {
     env: options.env ?? CONFIGURED_ENV,
     store: options.store,
+    attendanceStore: options.attendanceStore,
     now: () => options.nowMs ?? FIXTURE_NOW_MS,
   });
 
@@ -378,6 +418,7 @@ describe('/api/zoom/webhook — ledger', () => {
     const { store, ledger } = createFakeStore();
     const res = await invoke({
       store,
+      attendanceStore: createFakeAttendanceStore().store,
       rawBody: participantJoinedFixture.rawBody,
       headers: fixtureHeaders(participantJoinedFixture),
     });
@@ -573,17 +614,22 @@ describe('/api/zoom/webhook — lifecycle application (§15 rows only)', () => {
       },
     });
 
+    const attendance = createFakeAttendanceStore();
     const res = await invoke({
       store,
+      attendanceStore: attendance.store,
       rawBody: participantJoinedFixture.rawBody,
       headers: fixtureHeaders(participantJoinedFixture),
     });
 
     expect(res._getStatusCode()).toBe(200);
-    // Z1b-3 does not look up meetings for events it does not apply, and enqueues
-    // nothing — participant handling is Z7, recordings are Z4.
+    // Z7-2 CHANGED this test's subject. A participant event is now applied — but to the
+    // attendance store, never the lifecycle one: the meeting-status seam stays untouched
+    // ([R2]/[B8]), and a `started` write here would re-enter the §9 EXCLUDE active set.
+    expect(attendance.store.findSurfaceByOccurrence).toHaveBeenCalledWith(FIXTURE_OCCURRENCE_UUID);
     expect(store.findMeetingIdByNumber).not.toHaveBeenCalled();
     expect(store.setMeetingStatus).not.toHaveBeenCalled();
+    expect(store.setProjectionStatus).not.toHaveBeenCalled();
     expect(ledger.get(sha256Hex(participantJoinedFixture.rawBody))?.processed_at).not.toBeNull();
   });
 });

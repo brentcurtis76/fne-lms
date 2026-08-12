@@ -1553,3 +1553,72 @@ schema is verified read-only.
 | Chunk | Phase | Branch | Commits | Status | Evidence |
 |---|---|---|---|---|---|
 | Z7-1 · r1 | Z7 | `feat/zoom-hours` | `0e29d53b`, `c2cf4ed2`, `e5b5a26d` | ✅ **APPROVED 2026-08-12** | Codex `PASS` on `43999499..e5b5a26d`, no blocking defects. Reviewer's own gates: 306/7,074 + 11 skipped (env 205 ms), build 156 pages, test:db 537/11. Two carried items: `[B1]` → Z7-2; `has_global_workspace_access` → needs an owner, not Z7's. |
+
+### **Z7-2 · attempt 2 — participant ingestion. Candidate awaiting Codex on the cumulative diff.**
+
+Same durable executor conversation, same branch. Attempt numbering is cumulative for the
+phase (overlay §4.2) and Z7-2 is the second unit of work inside attempt 2 — Z7-1's
+remediation was the first. **Z7 remains open: Z7-3 … Z7-5 follow.**
+
+```text
+STARTED: 2026-08-12T13:58:57Z
+ENDED:   2026-08-12T14:19:47Z
+ATTEMPT: 2 (cumulative for Z7)
+RISK: HIGH
+HANDOFFS: 1 (Brent → executor, same conversation)
+GATES: npm run type-check PASS · npm run lint PASS · npm test PASS (309 files / 7,145
+       passed, 11 skipped) · npm run build PASS · supabase db reset + npm run test:db
+       PASS (11 files / 549 tests; 011 now plans 83) — none piped through tail
+CODEX: pending
+ESCAPED DEFECT: n/a
+```
+
+**Two pure modules, which is the whole shape of the chunk.**
+`lib/zoom/attendance-identity.ts` owns the fixed hierarchy (`customer_key` → `email` →
+`display_name` → `unmatched`) and `lib/zoom/attendance-intervals.ts` owns the arithmetic,
+so §11's *"reconnect intervals don't double-count"* is a unit test over 19 interval cases
+rather than an integration guess. `participant.user_id` is read nowhere and has no
+parameter — Z0B's recorded per-occurrence trap.
+
+**`[B1]` closed the carried Z7-1 item ①.** `readLifecycleInstant` now bounds instants to a
+2000–2100 epoch band. Both reviewer probes are named test cases: header **seconds**
+`1785368934` (which used to become `1970-01-21T15:56:08.934Z`, silently, as a fact about a
+2026 meeting) and `Number.MAX_SAFE_INTEGER` (which used to throw `RangeError` out of the
+webhook route, i.e. a 500 and Zoom retrying a malformed body forever). The band is applied
+to the ISO path too, since `Date.parse` happily accepts year 275760.
+
+**Item ② `has_global_workspace_access` was NOT touched.** Still unowned, still
+pre-existing, named in Z7-2's out-of-scope list so no executor "fixes it while in there".
+
+**Fail-on-old, both probes reverted and re-proved by hash.** (i) Letting the matcher accept
+`""` fails 6 tests including both `[B5]` cases — the guest capture has FOUR empty-string
+fields and a matcher that takes them matches every anonymous guest to one phantom person.
+(ii) Dropping `UNIQUE` from the partial index fails pgTAP 75–76 (`caught: no exception /
+wanted: 23505`).
+
+**Three judgment calls the executor flagged rather than buried, for the reviewer to rule
+on:**
+
+1. **`participant_uuid` pairing stability stays UNVERIFIED and no `FINDINGS` was raised.**
+   The two committed captures are DIFFERENT PEOPLE, so they are not a joined→left pair and
+   cannot settle it. [R3] pre-authorised building both paths and reserved `FINDINGS` for a
+   contradiction; there is no evidence either way, which is not the same thing. Both paths
+   are built and tested.
+2. **The uuid-less dedupe is applier-side only** — "same identity + identical `joined_at`
+   on an open interval", i.e. a read-then-write that two concurrent deliveries could lose.
+   Accepted because a TOTAL unique index would collapse every anonymous guest of one
+   occurrence into a single interval, a worse and permanent error.
+3. **E-mail matching is a repo-wide `profiles` lookup.** [R6] scoped only NAME matching to
+   the expected attendees; an e-mail is unique and identifying, so a consultant from
+   another school is still the right person. That is the executor's reading of a rule that
+   spoke about names.
+
+**Two existing route tests changed subject.** They drove the participant fixture and
+asserted *"Z1b-3 does not look up meetings for events it does not apply"* — a comment that
+named Z7 as the future owner. They now inject an attendance double and assert the dispatch
+plus the unchanged `[B8]` claim. Without the injection the route builds the real
+Supabase-backed store and answers 500, so the edit was forced by behaviour.
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-2 · r2 | Z7 | `feat/zoom-hours` | this commit | 🟡 CANDIDATE 2026-08-12 — awaiting Codex on `43999499..<head>` | 5/5 gates green. 309 files / 7,145 tests; pgTAP 549 (011 plans 83). New: `participant_uuid` + partial unique index + interval-order CHECK; two pure modules; one applier called by BOTH route and sweep. `[B1]` closed. Open for the reviewer: uuid pairing unverified, uuid-less dedupe is a read-then-write, e-mail matching is repo-wide. |

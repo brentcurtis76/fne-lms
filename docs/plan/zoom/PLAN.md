@@ -523,6 +523,33 @@ migrations — local and CI green say nothing about deployment.**
 |---|---|---|---|
 | 2026-08-11 | `zoom_internal.zoom_meetings` gains additive `actual_started_at` / `actual_ended_at`, written by the lifecycle | §11 quantity (3) has no storage today (C6), and `zoom_webhook_events.raw_payload` is nulled at 30 d by §6, so the comparison column would vanish for older sessions | PM, Z7 falsification pass |
 | 2026-08-11 | Z7 executes as five chunks on one branch in one durable executor conversation | §15 prices it at 6–8 agent-days; SOP §1.3 caps a chunk at ~10 files / ~600 net lines, and the overlay keeps the conversation rather than the chunk as the unit | PM, lean overlay §4.2 |
+| 2026-08-12 | A `participant_left` that matches no open interval writes **no** attendance row — ledger-only, and not an error | `joined_at` is `NOT NULL`, so the alternatives all fabricate: `joined_at = leave_time` invents a zero-length interval that understates presence, `joined_at = actual_started_at` invents presence nobody observed. Z7-3's report is authoritative (§11) and supplies the true interval. Same direction-of-failure rule Z7-1 set for the instants: a missing value shows as missing, a fabricated one is shown to an admin as evidence about billable presence | PM, Z7-2 dispatch |
+| 2026-08-12 | Participant events resolve their surface from `zoom_meetings`, never create one, and never move `meeting_status` | `zoom_attendance` needs `surface_type`/`surface_id`/`school_id`, which only `zoom_meetings` holds. A participant event is not a lifecycle transition, and the §9 EXCLUDE reservation keys on status — letting a participant event touch it would re-acquire a host | PM, Z7-2 dispatch |
+
+#### 15.3.8 Chunk close record
+
+| Chunk | Head | Codex | Closed |
+|---|---|---|---|
+| **Z7-1** — attendance data plane + actual-elapsed instants | `e5b5a26d` (3 commits from `43999499`) | **PASS**, no blocking defects, cumulative diff reviewed | 2026-08-12 |
+
+**Z7-1 gates, independently re-run by the reviewer:** type-check PASS · lint PASS, zero warnings ·
+`npm test` **306 files / 7,074 passed + 11 skipped, jsdom `environment` 205 ms** (so `[A0]` held —
+the run was real, not the base checkout's silently-skipped 254/6,575) · build PASS, 156 static
+pages · clean `supabase db reset` · `npm run test:db` **537 tests / 11 files**. Sealed surfaces
+confirmed untouched: `tests/e2e/`, Z3b, the billing ledger and the override files.
+
+**Two reviewer probes went beyond the executor's own**, and both mattered: the surface-type
+mutation failed exactly tests 26–29 and 45, and a repaired INVOKER probe — retaining a usable
+search path rather than relying on the incidental `has_global_workspace_access` error — failed
+only the globally-scoped facilitator test and the explicit `SECURITY DEFINER` assertion. **That is
+what makes the definer predicate load-bearing rather than incidentally load-bearing.**
+
+**Non-blocking items, each given one of §1.4's three states rather than "the backlog":**
+
+| # | Item | State |
+|---|---|---|
+| 1 | `readLifecycleInstant` (`lib/zoom/webhook-lifecycle.ts:75`) accepts any safe integer as an epoch: header seconds silently become a 1970 instant, `Number.MAX_SAFE_INTEGER` throws `RangeError`. Unreachable today — production callers pass only body `event_ts` | **(b) assigned to Z7-2**, whose scope already owns that file and which parses `join_time`/`leave_time` through the same family. Named criterion `[B1]` |
+| 2 | `public.has_global_workspace_access` (`00000000000000_baseline.sql:3987`) is `SECURITY DEFINER` with an unqualified `user_roles` reference and no fixed `search_path` — a pre-existing latent defect in the baseline | **NO STATE YET — needs an owner (Brent).** Not Z7's: it predates the phase and is repo-wide. Recommended home is the RLS workstream that the 2026-08-10 measurement already calls for. **Z7 does not close over it** |
 
 ## 16. Blocking vs non-blocking human decisions
 

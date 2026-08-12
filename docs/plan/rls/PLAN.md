@@ -110,11 +110,18 @@ No phase may violate these without a Decision Log entry.
   `aclexplode(pg_proc.proacl)`, never `information_schema.role_table_grants`. The
   `information_schema` views report only SQL-standard privileges, which is exactly how an earlier
   pin missed PostgreSQL 17's `MAINTAIN` (`supabase/tests/030-pasantias-leads-rls.sql:13-26`).
-- **D-3 — `PUBLIC` is revoked explicitly on every function.** PostgreSQL grants `EXECUTE` to
-  `PUBLIC` by default. Only three functions in the entire baseline carry an explicit
-  `REVOKE … FROM PUBLIC` (`00000000000000_baseline.sql:22315`, `:22368`, `:24046`) and **none of
-  the ten in scope is one of them**. `REVOKE … FROM anon` alone therefore leaves an inherited
-  `PUBLIC` grant standing and closes nothing.
+- **D-3 — `PUBLIC` is revoked explicitly on every function selected for lockdown.** PostgreSQL
+  grants `EXECUTE` to `PUBLIC` by default. Only three functions in the entire baseline carry an
+  explicit `REVOKE … FROM PUBLIC` (`00000000000000_baseline.sql:22315`, `:22368`, `:24046`) and
+  **none of the ten in scope is one of them**. `REVOKE … FROM anon` alone therefore leaves an
+  inherited `PUBLIC` grant standing and closes nothing.
+  **Qualification (Codex r3, B5):** this applies to functions *selected for lockdown*, not to
+  functions proven to require `PUBLIC` execution as RLS policy helpers. A policy written without
+  a `TO` clause defaults to `TO PUBLIC` — **420 of the baseline's 634 policies are in that form** —
+  so revoking `PUBLIC`/`anon` on a helper such a policy invokes converts an anonymous query from
+  *filtered to zero rows* into *permission denied*. Every phase must classify a function's policy
+  role before revoking, and record the resulting failure-mode change. Never infer that "no
+  repository caller" means "no caller".
 - **D-4 — Rollback is never "disable RLS" or "restore the grants."** Both restore the
   vulnerability. **Only the first is mechanically blocked** — `scripts/hooks/block-rls-disable.sh`
   and `scripts/ci/check-rls-migrations.sh` match the phrase that disables RLS and nothing else;
@@ -208,7 +215,7 @@ no application redesign**.
 
 **Behaviour-change promise, stated precisely** (Codex r1, S1). R1 changes no behaviour for any
 **known in-repository authenticated caller**. It is not "no behaviour change for any
-authenticated caller": three zero-caller RPCs lose `authenticated` `EXECUTE` outright, so an
+authenticated caller": two zero-dependency RPCs lose `authenticated` `EXECUTE` outright, so an
 out-of-repo authenticated integration calling them would break. That is a deliberate, bounded
 risk — see Risk 2 and Rollback.
 
@@ -226,22 +233,63 @@ actor-derivation redesign of six SECURITY DEFINER functions. Those have wildly d
 are split here: the mechanical half is R1, the redesign is R10. The caller audit that makes the
 split clean was run on `main` @ `43999499` and re-verified on this branch at `c1dcf314`:
 
-| Function (signature for `REVOKE`) | Repository callers | R1 action |
-|---|---|---|
-| `has_transformation_access(uuid)` | **none** (grep over `*.ts`/`*.tsx`/`*.js`, excluding `types/supabase.ts`, `node_modules`) | revoke `PUBLIC` + `anon` + `authenticated` |
-| `get_available_assignment_templates(uuid)` | **none** | revoke `PUBLIC` + `anon` + `authenticated` |
-| `cleanup_propuesta_rate_limits()` | **none** | revoke `PUBLIC` + `anon` + `authenticated` |
-| `has_global_workspace_access(uuid)` | **none** in app code; **three live policies** (below) | revoke `PUBLIC` + `anon`; keep `authenticated`; pin `search_path` |
-| `submit_quiz(uuid, text, uuid, uuid, jsonb, jsonb, integer)` | `lib/services/quizSubmissions.js:75` | revoke `PUBLIC` + `anon` only |
-| `create_full_learning_path(text, text, uuid[], uuid)` | `lib/services/learningPathsService.ts:69` | revoke `PUBLIC` + `anon` only |
-| `update_full_learning_path(uuid, text, text, uuid[], uuid)` | `lib/services/learningPathsService.ts:256` | revoke `PUBLIC` + `anon` only |
-| `batch_assign_learning_path(uuid, uuid[], uuid[], uuid)` | `lib/services/learningPathsService.ts:313` | revoke `PUBLIC` + `anon` only |
-| `start_learning_path_session(uuid, uuid, uuid, character varying)` | `pages/api/learning-paths/session/start.ts:86` | revoke `PUBLIC` + `anon` only |
-| `end_learning_path_session(uuid)` | `pages/api/learning-paths/session/end.ts:49` | revoke `PUBLIC` + `anon` only |
+| Function (signature for `REVOKE`) | Repository callers | **Policy callers** | R1 action |
+|---|---|---|---|
+| `has_transformation_access(uuid)` | none | **SEVEN** — see correction below | revoke `PUBLIC` + `anon` only; **`authenticated` MUST be kept** |
+| `get_available_assignment_templates(uuid)` | **none** | **0** | revoke `PUBLIC` + `anon` + `authenticated` |
+| `cleanup_propuesta_rate_limits()` | **none** | **0** | revoke `PUBLIC` + `anon` + `authenticated` |
+| `has_global_workspace_access(uuid)` | none in app code | **3**, all `TO authenticated` | revoke `PUBLIC` + `anon`; keep `authenticated`; pin `search_path` |
+| `submit_quiz(uuid, text, uuid, uuid, jsonb, jsonb, integer)` | `lib/services/quizSubmissions.js:75` | 0 | revoke `PUBLIC` + `anon` only |
+| `create_full_learning_path(text, text, uuid[], uuid)` | `lib/services/learningPathsService.ts:69` | 0 | revoke `PUBLIC` + `anon` only |
+| `update_full_learning_path(uuid, text, text, uuid[], uuid)` | `lib/services/learningPathsService.ts:256` | 0 | revoke `PUBLIC` + `anon` only |
+| `batch_assign_learning_path(uuid, uuid[], uuid[], uuid)` | `lib/services/learningPathsService.ts:313` | 0 | revoke `PUBLIC` + `anon` only |
+| `start_learning_path_session(uuid, uuid, uuid, character varying)` | `pages/api/learning-paths/session/start.ts:86` | 0 | revoke `PUBLIC` + `anon` only |
+| `end_learning_path_session(uuid)` | `pages/api/learning-paths/session/end.ts:49` | 0 | revoke `PUBLIC` + `anon` only |
 
 Two corrections to the inherited table, both verified: `update_full_learning_path` is at
 `learningPathsService.ts:256` (not unspecified), and `end_learning_path_session` is at
 `pages/api/learning-paths/session/end.ts:49` — it does have a named call site.
+
+### THE CORRECTION THAT WOULD HAVE BROKEN PRODUCTION — `has_transformation_access`
+
+Found 2026-08-12 while writing R11's dependency contract, which Codex r3 B5 required. R1 was
+otherwise ready to dispatch.
+
+Every prior analysis — the discovery document, this plan's r1 caller audit, and the Codex r1 and
+r2 reviews *of* that audit — established callers by grepping `.rpc()` across `*.ts`/`*.tsx`/`*.js`.
+That method cannot see a **database-side** caller. `has_transformation_access(uuid)` has none in
+the repository and **seven inside live RLS policies**:
+
+| policy | table | command | `TO` clause |
+|---|---|---|---|
+| `members_insert_transformation_assessments` | `transformation_assessments` | INSERT | **none → `PUBLIC`** |
+| `members_update_transformation_assessments` | `transformation_assessments` | UPDATE | **none → `PUBLIC`** |
+| `members_insert_transformation_results` | `transformation_results` | INSERT | **none → `PUBLIC`** |
+| `members_update_transformation_results` | `transformation_results` | UPDATE | **none → `PUBLIC`** |
+| `members_delete_transformation_results` | `transformation_results` | DELETE | **none → `PUBLIC`** |
+| `members_insert_transformation_conversation_messages` | `transformation_conversation_messages` | INSERT | **none → `PUBLIC`** |
+| `members_delete_transformation_conversation_messages` | `transformation_conversation_messages` | DELETE | **none → `PUBLIC`** |
+
+RLS policy expressions evaluate with the **invoking** role's privileges. Revoking `authenticated`
+`EXECUTE` — which the plan said to do through r2 — would make every authenticated
+INSERT / UPDATE / DELETE against those three tables raise `42501` instead of evaluating the
+policy. **That is an outage in the live transformation feature, shipped by a phase whose stated
+promise is that it changes no behaviour for known in-repository callers.**
+
+`has_transformation_access` therefore moves into the keep-`authenticated` group. The full-revoke
+group drops to **two** — `get_available_assignment_templates` and `cleanup_propuesta_rate_limits`,
+both confirmed to have zero policy, function-body and trigger dependencies. The keep-group grows
+to **eight**.
+
+Revoking `anon` on it stays correct and is retained. Because those seven policies carry no `TO`
+clause they nominally apply to `PUBLIC`, so an `anon` attempt changes from *policy evaluates and
+denies the row* to *permission denied on the function*. Both are denials, these are writes `anon`
+has no business performing, and the stricter failure is the safer one — but it is a behaviour
+change, recorded here rather than discovered in production.
+
+**This is the discovery document's third error and the first that would have caused an outage.**
+It is also the strongest available argument for R11's dependency inventory: a grep-based caller
+audit survived three adversarial reviews and was still wrong.
 
 `submit_quiz`'s live path is a **browser** client, which is why keeping `authenticated` preserves
 the student quiz flow: `components/quiz/QuizTaker.tsx:6,31,114` and
@@ -293,7 +341,7 @@ pin exists to close. [A5] enforces the explicit two-element form.
 - **One new migration**, `supabase/migrations/<UTC timestamp>_rls_r1_revoke_anon_execute.sql`.
   Content, in the D-1 grant-list form only:
   - `REVOKE ALL ON FUNCTION … FROM PUBLIC;` + `FROM anon;` for all ten functions.
-  - `REVOKE ALL … FROM authenticated;` for the three zero-caller RPCs.
+  - `REVOKE ALL … FROM authenticated;` for the TWO zero-dependency RPCs only (`get_available_assignment_templates`, `cleanup_propuesta_rate_limits`) — never for `has_transformation_access`.
   - `REVOKE ALL … FROM authenticated;` then `GRANT EXECUTE … TO authenticated;` for the six
     live RPCs and `has_global_workspace_access`.
   - `ALTER FUNCTION public.has_global_workspace_access(uuid) SET search_path = public, pg_temp;`
@@ -349,7 +397,7 @@ Each independently checkable by running something. `<fn>` below means all ten fu
       migration's executable statements are **exactly** the expected multiset — every statement
       matched on its *operation, target and grantee together*:
       `REVOKE ALL ON FUNCTION <sig> FROM PUBLIC|anon` for all ten named signatures;
-      `REVOKE ALL … FROM authenticated` for the three zero-caller signatures only;
+      `REVOKE ALL … FROM authenticated` for the TWO zero-dependency signatures only;
       `REVOKE ALL … FROM authenticated` + `GRANT EXECUTE … TO authenticated` for the seven others;
       `ALTER FUNCTION public.has_global_workspace_access(uuid) SET search_path = public, pg_temp`;
       `REVOKE ALL ON public.profiles_role_backup FROM anon|authenticated`;
@@ -365,11 +413,11 @@ Each independently checkable by running something. `<fn>` below means all ten fu
       any case, **including in comments** — `scripts/ci/check-rls-migrations.sh` greps
       `-rniE 'disable[[:space:]]+row[[:space:]]+level[[:space:]]+security'` across all migration
       text. `bash scripts/ci/check-rls-migrations.sh` exits 0.
-- [ ] **A3** For the three zero-caller RPCs, the **effective** ACL —
+- [ ] **A3** For the TWO zero-dependency RPCs (`get_available_assignment_templates`, `cleanup_propuesta_rate_limits`), the **effective** ACL —
       `aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner)))` — carries **no entry** for
       `PUBLIC` (grantee oid `0`), `anon`, or `authenticated`. Back it with
       `NOT has_function_privilege('anon', <oid>, 'EXECUTE')` for each.
-- [ ] **A4** For the six live RPCs and `has_global_workspace_access`, the same effective-ACL
+- [ ] **A4** For the EIGHT keep-`authenticated` signatures — the six live RPCs, `has_global_workspace_access`, and `has_transformation_access` — the same effective-ACL
       expression carries exactly `{EXECUTE}` for `authenticated` and **no entry** for `PUBLIC` or
       `anon`.
       *(A3/A4 amended after Codex r1, S2: raw `aclexplode(NULL)` returns zero rows even though the
@@ -384,10 +432,16 @@ Each independently checkable by running something. `<fn>` below means all ten fu
       `SELECT public.has_transformation_access('…'::uuid)` and
       `SELECT public.has_global_workspace_access('…'::uuid)` each raise `42501`
       (`throws_ok`). These three need no fixtures and perform no write.
-- [ ] **A8** `has_global_workspace_access` still returns `true` for an active `admin` and an
+- [ ] **A8** **Both policy-invoked helpers still work for `authenticated`.**
+      **(a)** `has_transformation_access` — an authenticated community member can still INSERT and
+      UPDATE `transformation_assessments`, and INSERT/UPDATE/DELETE `transformation_results` and
+      `transformation_conversation_messages`; a non-member gets a policy denial (zero rows / RLS
+      violation), **not `42501`**. This is the criterion that catches the outage described above:
+      **it must fail if `authenticated` `EXECUTE` is revoked on that function.**
+      **(b)** `has_global_workspace_access` still returns `true` for an active `admin` and an
       active `consultor`, and `false` for a `docente`, called as `authenticated` — the
-      `search_path` pin did not change resolution. This is what keeps the three
-      `community_meetings` policies working.
+      `search_path` pin did not change resolution. This keeps the three `community_meetings`
+      policies working.
 - [ ] **A9** `profiles_role_backup`: `tests.rls_enabled('public','profiles_role_backup')` passes,
       and `pg_policies` returns **zero** rows for it.
 - [ ] **A10** `profiles_role_backup`: `aclexplode(pg_class.relacl)` carries no entry for `anon`
@@ -503,7 +557,7 @@ PASS on the branch is necessary and not sufficient.
    jsdom files under Vitest 0.34 with exit 0. **A15 exists because of this and is not optional.**
    A test count reported without A15's executed-vs-discovered counts is not evidence — and note
    that `require('jsdom')` alone does **not** discharge it (Codex r1, B4).
-2. **The three zero-caller RPCs lose `authenticated` too, and an out-of-repo caller is invisible.**
+2. **The two zero-dependency RPCs lose `authenticated` too, and an out-of-repo caller is invisible.**
    Same blind spot class as Q1. Failure direction is **safe** — denial, not exposure — and the
    forward fix is a new migration re-granting `EXECUTE` **to `authenticated` only** on the single
    named function. That is not "restoring the grants": `PUBLIC` and `anon` stay revoked.
@@ -530,9 +584,14 @@ other times; the r3 review exists to catch a fourth.)*
 
 - **Before production apply:** revert the commits on `fix/rls-public`. The migration has never
   run against production; reverting is a no-op there.
-- **After production apply, if a zero-caller RPC turns out to have an external authenticated
-  consumer:** a new forward migration granting `EXECUTE` on that one named function to
-  `authenticated` only. Never to `PUBLIC` or `anon`.
+- **After production apply, if one of the two zero-dependency RPCs turns out to have an external
+  authenticated consumer:** a new forward migration granting `EXECUTE` on that one named function
+  to `authenticated` only. Never to `PUBLIC` or `anon`.
+- **If any authenticated path raises `42501` on a function after apply**, the cause is a
+  policy-invoked helper whose `authenticated` grant was revoked — the `has_transformation_access`
+  failure mode. Forward fix: re-grant `EXECUTE` to `authenticated` on that named function only,
+  then add the missing dependency to R11's inventory. This is the one rollback scenario R1 has a
+  realistic chance of hitting.
 - **A live RPC breaking for authenticated users is impossible by construction** — they keep
   `EXECUTE`. If observed, the cause is elsewhere; investigate before changing any grant.
 - **`profiles_role_backup` has zero readers**, so there is no rollback scenario. If one surfaced,
@@ -551,10 +610,19 @@ CHECK — `grep -rn '<fn>' --include='*.ts' --include='*.tsx' --include='*.js'` 
 excluding `node_modules` and `types/supabase.ts`; then the client factory for each hit
 (`components/quiz/QuizTaker.tsx:31`, `LearningQuizTaker.tsx:33` → `useSupabaseClient()`;
 `scripts/seed-qa-phase2.js:12,20` → `SUPABASE_SERVICE_ROLE_KEY`).
-RESULT — **supported.** Every live caller is browser-authenticated or service-role. All six live
-RPCs keep `authenticated`.
-BLIND SPOT — an out-of-repo caller. Grep cannot see a Retool board, a partner integration, or a
-manual script. Failure direction is denial, which is safe.
+RESULT — **REFUTED at r3, then repaired.** The check was the wrong check: it establishes
+*repository* callers and says nothing about **database-side** callers.
+`has_transformation_access` has seven RLS-policy callers and would have broken production. The
+corrected check adds a full-body sweep of `pg_policy` (`polqual`/`polwithcheck`), function bodies,
+triggers, views, rules, defaults and constraints — run here against the baseline dump, and
+required of every later phase. Re-run under the corrected check: **supported**, with
+`has_transformation_access` moved to the keep-`authenticated` group and the other nine unchanged.
+BLIND SPOT — the *original* blind spot was recorded as "an out-of-repo caller", and that framing
+is what let this through: it named the exotic risk while missing the ordinary one sitting in the
+same database. Grep still cannot see a Retool board or a partner integration, and that remains
+true. But the lesson worth carrying is narrower and sharper — **a caller audit that only reads
+application code is not a caller audit.** Multi-line policy bodies also defeat a first-line grep:
+the first sweep found 4 of the 7, and only whole-statement extraction found all seven.
 
 **CLAIM 2** — `REVOKE … FROM anon` alone is insufficient; `PUBLIC` must be revoked explicitly.
 COUNTEREXAMPLE — the baseline already revoked `PUBLIC` on these functions, making it redundant.
@@ -786,42 +854,102 @@ behaviour rather than privileges: a signature-compatible replacement is what bou
 
 ---
 
-### R11 — Audit the remaining anon-granted public functions · **DISCOVERY** · after R1
+### R11 — Audit the remaining anon-granted `SECURITY DEFINER` surface · **DISCOVERY** · after R1
 
-**Added 2026-08-12 by Brent's ruling on Codex r2 B5.** Codex proposed narrowing the Function DoD
-to the ten audited functions; Brent chose to expand the workstream instead. The PM flagged that
-expansion risks delaying R1 and strains the sizing rules; Brent took that tradeoff knowingly. R1
-is unaffected — it still ships first, and R11 runs after it.
+**Added 2026-08-12 by Brent's ruling on Codex r2 B5**; contract completed after Codex r3 B5 and
+S2. Codex proposed narrowing the Function DoD to the ten audited signatures; Brent chose to expand
+the workstream instead. The PM flagged that expansion risks delaying R1 and strains sizing; Brent
+took that tradeoff knowingly. R1 is unaffected — it still ships first, and R11 runs after it.
 
-**Input.** 71 non-trigger `SECURITY DEFINER` signatures in `public` carrying a `GRANT … TO anon`, plus the 9 trigger-returning ones, all identified by `regprocedure` and
-outside the ten this workstream has audited. See the Goal's table for the derivation.
+**This phase has already paid for itself.** Writing its dependency contract is what surfaced the
+`has_transformation_access` outage in R1, after a grep-based caller audit had survived three
+adversarial reviews. See R1's correction section.
+
+**Input.** 80 `SECURITY DEFINER` signatures in `public` carrying a `GRANT … TO anon`, outside the
+ten this workstream has audited: **71 non-trigger** signatures plus **9 that return `trigger`**.
+All identified by `regprocedure`, never by name — see the Goal's arithmetic note.
 
 **This phase is `DISCOVERY` and must not smuggle implementation into research** (overlay §3). It
-produces evidence and a revised contract; it ships no migration.
+produces evidence and a revised contract. **It ships no migration and changes no grant.**
 
-Bounded output:
+**Evidence rules, inherited from the r1 discovery.** Read-only. No writes to production. Synthetic
+identifiers only. Every claim carries its command and output, a file and line, or an authoritative
+source. Anything unmeasured is labelled `UNVERIFIED` and stays that way.
 
-1. **A classification of all 80 signatures**, per signature: is it reachable as `anon` over PostgREST at all;
-   does it read or write RLS-protected data; does it derive its actor from `auth.uid()` or from a
-   caller-supplied parameter; does it have a repository caller and under which client. Same
-   method and same evidence standard the r1 discovery used — **read-only, no writes to
-   production, synthetic identifiers only**.
-2. **A proven-vs-inferred split**, as §6 does. The grants are proven from the baseline; nothing
-   about reachability may be asserted without a probe or a catalog read.
-3. **A proposed phase decomposition** for the remediation, sized to the ≤10-file rule — almost
-   certainly grouped by defect class (revoke-only / actor-binding / already-safe) rather than
-   one phase per function.
+#### Per-signature classification — what must be recorded
 
-**R12+ are deliberately undefined until R11 lands.** Writing contracts for 71 signatures whose
-reachability is unmeasured would invent requirements from guesses.
+For each of the 80, keyed by `regprocedure`:
 
-**Known trap:** the 71 include the `auth_*` helper family — `auth_is_admin`,
-`auth_is_course_student`, `auth_is_course_teacher`, `auth_is_superadmin`,
-`auth_user_community_ids` and others — which RLS policies across the schema call inside `USING`
-clauses. **`authenticated` must retain `EXECUTE` on those or policies break schema-wide.** R11
-must identify every policy-invoked function before any later phase revokes anything, or the
-remediation will take production down. This is the single most likely way the expanded scope
-causes damage, and it is why R11 is discovery rather than a revoke sweep.
+1. **Definer status and `proconfig`** — is `search_path` pinned, and to what.
+2. **Actor derivation** — does it use `auth.uid()`, or accept a caller-supplied subject
+   (`p_user_id`, `user_uuid`, `check_user_id`, …)? At least 20 are in the second class.
+3. **Data touched** — does it read or write a table with RLS enabled, and which.
+4. **Repository callers** — `.rpc()` across `*.ts`/`*.tsx`/`*.js`, with the client factory per hit.
+5. **PostgREST reachability** — present in the REST schema cache and anonymously executable, or
+   not. Measured, not assumed. This is why the input says "candidates".
+
+#### Database-object dependency inventory — B5, and the reason R1 nearly shipped an outage
+
+A caller audit that reads only application code is not a caller audit. For every one of the 80,
+sweep **all** of these, from the catalog rather than by grepping the dump:
+
+| dependency class | source of truth |
+|---|---|
+| RLS policies | `pg_policy.polqual` and `polwithcheck` via `pg_get_expr(…, polrelid)` |
+| other function bodies | `pg_proc.prosrc` across all `public` functions |
+| triggers | `pg_trigger` joined to `pg_proc` |
+| views and rules | `pg_rewrite.ev_action`, `pg_depend` |
+| column defaults and generated expressions | `pg_attrdef.adbin` via `pg_get_expr` |
+| check constraints | `pg_constraint.conbin` via `pg_get_expr` |
+
+**Grepping the migration dump is explicitly insufficient and the plan has the scar to prove it.**
+A first-line `grep` over `CREATE POLICY` found 4 of `has_transformation_access`'s 7 policy
+callers; only whole-statement extraction found all seven, and the catalog is more reliable than
+either. Policy bodies routinely span many lines.
+
+#### Effective-role derivation — the second half of B5
+
+For every dependency found, record **which role actually needs `EXECUTE`**, not which role seems
+plausible:
+
+- **A policy with no `TO` clause defaults to `TO PUBLIC`.** In this schema that is **420 of 634
+  policies** — the common case, not the exception. Revoking `PUBLIC`/`anon` on a helper such a
+  policy invokes converts an anonymous query from *filtered to zero rows* into *permission
+  denied*. That may be acceptable; it is never acceptable to discover it in production.
+- A policy `TO authenticated` never evaluates for `anon`, so revoking `anon` is free.
+- Output per signature: the minimum grant set that preserves every dependency, and the
+  failure-mode change for every role being revoked.
+
+**Known trap, and the most likely way this workstream causes an outage.** The 80 include the
+`auth_*` helper family — `auth_is_admin`, `auth_is_course_student`, `auth_is_course_teacher`,
+`auth_is_school_directivo`, `auth_is_superadmin`, `auth_user_community_ids` and others — which
+policies across the schema invoke inside `USING`/`WITH CHECK`. A first-pass sweep already shows
+`auth_is_course_teacher` in 7 policies and `auth_is_school_directivo` in 7, and that sweep
+undercounts for the multi-line reason above. **`authenticated` must retain `EXECUTE` on every one
+of these or policies break schema-wide.** R11 must produce the complete policy-helper set *before*
+any later phase revokes anything.
+
+#### Bounded execution — S2
+
+Per-signature analysis of 80 signatures across six dependency classes does not fit one durable
+session. R11 runs as three checkpointed units, each committing its artifact before the next
+begins, so an exhausted session resumes from a file rather than from conversation:
+
+| unit | work | artifact | why it is bounded |
+|---|---|---|---|
+| **R11a** | The dependency and role-requirement sweep. Six catalog queries covering all 80 at once, plus the policy `TO`-clause classification. | `evidence/R11a-dependency-map.md` | **Bulk, not per-signature.** Six queries, one pass, whole population. This is the cheap half and it is what protects every later phase. |
+| **R11b** | Per-signature classification (the five points above), consuming R11a's map. **Batched in fours of twenty**, alphabetical by `regprocedure`, each batch appended to its artifact as it completes. | `evidence/R11b-classification.md` | Resumable at a 20-signature boundary. Batch identity is mechanical, so no judgment is needed to know where to restart. |
+| **R11c** | Consolidation: the proven-vs-inferred split, and a proposed phase decomposition grouped by **defect class** — revoke-only / actor-binding-required / policy-helper-keep-authenticated / already-safe — sized to the ≤10-file rule. | `reviews/R11-findings.md` | One document, written once, from two committed inputs. |
+
+**R11 is not closed until R11c lands.** R11a and R11b are checkpoints, not deliverables — no R12
+phase may be dispatched from a partial classification. **R12+ stay undefined until R11c exists**;
+writing contracts for 71 signatures whose reachability is unmeasured would invent requirements
+from guesses, which is what the overlay forbids and what this workstream has now been burned by
+three times.
+
+**Rollback.** R11 changes nothing, so there is nothing to roll back. If its evidence contradicts
+this plan — as the r1 discovery's did, three times — the correct outcome is a plan amendment, not
+a workaround.
 
 ## Blind spots — whole workstream
 
@@ -860,3 +988,8 @@ Stated per overlay §3 instead of claiming completeness.
 | 2026-08-12 | **Round cap reached and overridden by Brent** — a third Codex review is authorized, scoped to the amendments only rather than the whole plan. | §1.5 caps the loop at 2 and routes the decision to Brent. The override names its evidence: r2 caught 4 stale cross-references left by the r1 amendment, so freezing without a check has a demonstrated, not theoretical, failure rate. | Brent |
 | 2026-08-12 | **B5 resolved by EXPANDING scope, not by narrowing the claim** — new `DISCOVERY` phase R11 covering the 70 remaining anon-granted RPC-callable functions; the Goal gains a third completion condition. | Codex's proposed remedy was to shrink the Function DoD to the ten audited functions. Brent ruled the other way. The PM flagged that expansion risks delaying R1 and strains sizing; Brent took the tradeoff. R1 is unaffected and still ships first. **This is a different remedy than the reviewer proposed and r3 must rule on whether it satisfies B5.** | Brent, over Codex r2 B5 |
 | 2026-08-12 | Q5 reclassified from **gate** to **ruling with a default** | Calling it a gate while its unanswered branch still shipped was a contradiction. The default — preserve today's effectively-global management — does not widen access and is narrowable later by backfill plus `ALTER POLICY`. | Codex r2, S2 |
+| 2026-08-12 | **Codex plan review r3: FINDINGS.** 5 BLOCKING, 2 SHOULD-FIX, 0 NITs — all accepted. r2 disposition: 8 of 10 fully fixed; rulings A, B, C, D, F PASS, E FAIL. | Every r3 blocking item was in the expanded scope (R11 / Surface DoD) or in A15 — R1's own contract passed 5 of 6 rulings. | Codex plan review r3 |
+| 2026-08-12 | **R1 AMENDED BEFORE DISPATCH — `has_transformation_access` keeps `authenticated`.** It has 7 RLS-policy callers, all on policies with no `TO` clause. Revoking `authenticated` would have raised `42501` on every authenticated write to `transformation_assessments`, `transformation_results` and `transformation_conversation_messages`. | Found while writing R11's B5 dependency contract. **The discovery document's third error, and the first that would have caused a production outage.** A grep-based caller audit survived three adversarial reviews and was still wrong. Full-revoke group drops 3 → 2; keep-`authenticated` group grows 7 → 8; A8 gains the criterion that catches it. | PM, from Codex r3 B5's requirement |
+| 2026-08-12 | **D-3 qualified**: blanket `PUBLIC` revocation applies to functions *selected for lockdown*, not to functions proven to be RLS policy helpers. | 420 of the baseline's 634 policies carry no `TO` clause and therefore default to `TO PUBLIC`. Revoking a helper they invoke converts an anonymous query from filtered-to-zero-rows into permission-denied. | Codex r3, B5 |
+| 2026-08-12 | Falsification **CLAIM 1 flipped supported → REFUTED, then repaired.** Its check established repository callers only; its recorded blind spot named out-of-repo callers while missing database-side ones in the same database. | Kept in the plan as a refuted-then-repaired record rather than quietly rewritten, because the framing error is the transferable lesson: a caller audit that reads only application code is not a caller audit. | PM |
+| 2026-08-12 | **R11 fully specified** rather than left an outline: dependency inventory across six catalog classes, effective-role derivation, and a three-unit checkpointed execution shape (R11a sweep / R11b batches of 20 / R11c consolidation). | Brent's ruling on the r3 freeze path. Overlay §3 would have allowed R11 to stay a bounded outline, but the `has_transformation_access` find is evidence that its dependency work protects phases that dispatch *before* it. | Brent |

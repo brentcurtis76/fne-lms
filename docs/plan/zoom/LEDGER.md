@@ -1751,3 +1751,72 @@ patch.
 | Chunk | Phase | Branch | Commits | Status | Evidence |
 |---|---|---|---|---|---|
 | Z7-2 · r2 a4 | Z7 | `feat/zoom-hours` | `3e852828` + hypothesis change | 🟡 CANDIDATE 2026-08-12 — awaiting Codex re-review | 5/5 gates green. 310 files / 7,168 tests; pgTAP 559 (011 plans 93). §5 hypothesis change recorded: multi-rank evidence, strongest-rank search, ambiguity ⇒ no close. Open: same-name uuid-less pairs are unpairable by design; a fourth counterexample means moving pairing to Z7-3. |
+
+### **🔴 Z7-2 · attempt 4 — Codex `FINDINGS`. PHASE CONTRACT UNSATISFIABLE. Executor STOPPED; replan is the PM's.**
+
+Not a `FAIL` and not remediable by the executor. **The contract requires two different
+outcomes from observationally identical state**, so no implementation can satisfy it.
+Verdict saved to `docs/plan/zoom/reviews/fase-7-review-verdict.md` (Z7-2 section).
+
+```text
+STARTED: 2026-08-12T21:35:00Z
+ENDED:   2026-08-12T21:44:01Z
+ATTEMPT: 4 (cumulative for Z7) — verdict received, no implementation attempted
+RISK: HIGH
+HANDOFFS: 1 (Codex → Brent → executor)
+GATES: not re-run — no source change was made in response to this verdict.
+       Reviewer's independent gates at a530aafb: type-check, lint, build,
+       310 files / 7,168 passed, pgTAP 11 files / 559, worktree clean.
+CODEX: FINDINGS on 43999499..a530aafb
+ESCAPED DEFECT: none — nothing merged, nothing applied, no chunk closed
+```
+
+**The indistinguishability, reproduced by the executor before accepting the finding:**
+
+```
+H1 (B joins as Ana, B leaves as Ana)          → tokens ["nm:ana"] → CLOSES row-1
+H2 (B joins as Ana, A's join LOST, A leaves)  → tokens ["nm:ana"] → CLOSES row-1
+```
+
+Same state, same input, same output. History 2's close is wrong twice: it closes a
+stranger's interval **and** stamps B's interval with A's `leave_time`. Attempt 4's
+ambiguity guard only fires at `open.length > 1`; with exactly one homonym open it closes.
+The attempt-4 regression covered only History 1, which is why the suite was green.
+
+**The two contract lines in conflict**, both from `prompts/Z7-r2.md`:
+**[R3]** (`:87`) mandates fallback pairing on the identity token when `participant_uuid`
+is absent. **[R4]** (`:94`) mandates writing no row when a leave matches no open interval
+of its own. In the uuid-less homonym case those are the same observation.
+
+**This is the fourth pairing design and the third consecutive identity/pairing verdict.**
+The executor's attempt-4 report predicted this outcome in writing — *"if a fourth
+counterexample lands, webhook-only pairing cannot be made safe for uuid-less participants
+and pairing should move wholesale to Z7-3"* — and the reviewer reached the same conclusion
+independently and formally.
+
+**STOP RULES IN FORCE. No fourth patch cycle was started.**
+Overlay §5's same-category stop remains triggered, and the reviewer's instruction is
+explicit: *"Do not start a fourth identity-pairing patch cycle; replan the phase
+boundary."* The executor validated, recorded, and stopped. **`lib/` is untouched by this
+attempt** — the only changes are this entry, the verdict file and the review request.
+
+**Decisions the PM/Brent must make before any further Z7-2 work** (reviewer's replan block,
+items 5 and 6 are the ones that are not code):
+
+1. Whether webhook fallback pairing is abandoned entirely — name and e-mail become
+   reconciliation evidence, never authority for a destructive close.
+2. Whether `customer_key` stays eligible for webhook closure. **That needs evidence this
+   phase does not have**: proof of its uniqueness and of its joined→left stability. Z0B
+   never captured a real joined→left pair (the two committed fixtures are different
+   people), so this may require a new capture.
+3. **How Z7-3 supersedes or merges open webhook intervals** — the Z7-2/Z7-3 boundary,
+   which has to be specified before either is implemented.
+4. Whether Z7-2 is re-scoped (ingestion without closure) or merged into Z7-3.
+
+**What survives regardless, per the reviewer:** `source_event_key` and its partial UNIQUE
+index (idempotency, already passed review), the persisted identity evidence, the
+`participant_uuid` path, the pure interval module, `[B1]`, and the whole Z7-1 chunk.
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-2 · r2 | Z7 | `feat/zoom-hours` | `a530aafb` | 🔴 **BLOCKED — CONTRACT REPLAN REQUIRED** 2026-08-12 | Codex `FINDINGS`: [R3] and [R4] are jointly unsatisfiable for uuid-less homonyms. Reproduced. Executor stopped per overlay §5 + explicit reviewer instruction. Awaiting PM decision on the Z7-2/Z7-3 boundary and on `customer_key` eligibility (needs new Zoom evidence). |

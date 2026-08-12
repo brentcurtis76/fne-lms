@@ -98,3 +98,97 @@ specifically so no executor "fixes it while in there".
 - **Nothing about real Zoom traffic.** Z0B's capture is the only evidence behind the
   fixture shapes (§15.3.5).
 - **It closes the chunk, not the phase.** Z7-2 … Z7-5 remain.
+
+---
+
+# Fase 7 (Z7) — verdict · chunk Z7-2
+
+| | |
+|---|---|
+| Chunk | **Z7-2** — participant ingestion |
+| Reviewed | cumulative diff `43999499..a530aafb` |
+| Verdict history | `FAIL`(2 × P1) on `6177ad5e` → `FAIL`(1 BLOCKER) on `3e852828` → **`FINDINGS`** on `a530aafb` |
+| Current verdict | **`FINDINGS` — the phase contract is unsatisfiable, not merely unimplemented** |
+| Date | 2026-08-12 |
+| Reviewer | Codex, independent, read-only, under `docs/planning/review-protocol.md` + lean overlay §4.3 |
+
+> **Provenance:** relayed by Brent, as with the Z7-1 verdict above. Attributed, not a transcript.
+
+## The finding
+
+**UUID-less webhook pairing is not safely decidable.** Two histories produce *identical*
+webhook input and *identical* database state, yet the contract requires opposite outcomes:
+
+| | History 1 | History 2 |
+|---|---|---|
+| What happened | B joins as "Ana"; **B** leaves as "Ana" | B joins as "Ana"; **A's join webhook is never delivered**; **A** leaves as "Ana" |
+| DB before the leave | one open row, `identity_tokens = ["nm:ana"]` | one open row, `identity_tokens = ["nm:ana"]` |
+| Leave event | name "Ana" | name "Ana" |
+| Contract requires | close B ([R3] fallback pairing) | close **nobody** ([R4]: a leave matching no open interval of its own writes no row) |
+
+No implementation can satisfy both, because nothing observable distinguishes them.
+
+## Independently reproduced by the executor before accepting
+
+```
+H1 DB-STATE-BEFORE-LEAVE: one open row, tokens ["nm:ana"]
+H1 CLOSES: [{"id":"row-1","leftAt":"2026-07-30T00:10:00.000Z"}]
+H2 DB-STATE-BEFORE-LEAVE: one open row, tokens ["nm:ana"]
+H2 CLOSES: [{"id":"row-1","leftAt":"2026-07-30T00:10:00.000Z"}]
+```
+
+Identical state, identical input, identical output. History 2's close is wrong twice over:
+it closes a stranger's interval, and it stamps B's interval with A's `leave_time`.
+
+Attempt 4's ambiguity guard only fires at `open.length > 1`
+(`lib/zoom/participant-lifecycle.ts:240`); with exactly **one** homonym open it closes that
+row. The attempt-4 regression at `participant-lifecycle.test.ts:413` covers only History 1,
+which is why the suite was green.
+
+## Contract lines in conflict
+
+- **[R3]** (`docs/plan/zoom/prompts/Z7-r2.md:87`) — *"The interval key is
+  `participant.participant_uuid` when non-empty, **falling back to the identity token**."*
+- **[R4]** (`:94`) — *"A `participant_left` that matches **no open interval** writes NO row …
+  Z7-3's report is authoritative (§11) and supplies the truth."*
+
+[R3] mandates fallback pairing; [R4] mandates not closing when the leave's own join was never
+seen. In the uuid-less homonym case those are the same observation.
+
+## The reviewer's replan block — for the PM, not the executor
+
+```
+Z7-2 CONTRACT REPLAN
+
+1. Stop closing UUID-less attendance intervals from webhook fallback identity.
+2. Treat name and email tokens as reconciliation evidence only, never sufficient
+   authority for a destructive close.
+3. Default all UUID-less pairing/closure to Z7-3's authoritative participant report.
+4. Retain source_event_key and the persisted identity evidence for idempotency and
+   reconciliation.
+5. If customer_key remains eligible for webhook closure, first document and prove its
+   uniqueness and joined→left stability; otherwise route it to reconciliation too.
+6. Specify how Z7-3 supersedes or merges open webhook intervals before implementation.
+7. Add the missing-join/homonym regression: one open namesake row plus another person's
+   name-only leave must close nothing.
+```
+
+**Items 5 and 6 are contract decisions, not code**: item 5 requires evidence about Zoom's
+`customer_key` semantics that this phase does not have, and item 6 defines the Z7-2/Z7-3
+boundary. That is why this is `FINDINGS` and not `FAIL`.
+
+## Stop rules in force
+
+- Overlay §5's **same-category stop remains triggered** (two consecutive `FAIL`s on
+  identity/pairing, now a `FINDINGS` on the same axis).
+- The reviewer's instruction is explicit: **"Do not start a fourth identity-pairing patch
+  cycle; replan the phase boundary."**
+- The executor has stopped. No pairing code was written in response to this verdict.
+
+## Gates at `a530aafb`, independently re-run by the reviewer
+
+type-check PASS · lint PASS · build PASS · `npm test` **310 files / 7,168 passed** ·
+pgTAP **11 files / 559 tests** PASS · worktree clean.
+
+**The code is not broken — it is correct against an unsatisfiable contract.** Nothing is
+merged, nothing is applied to production, and no chunk is closed.

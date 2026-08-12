@@ -1788,7 +1788,10 @@ The attempt-4 regression covered only History 1, which is why the suite was gree
 is absent. **[R4]** (`:94`) mandates writing no row when a leave matches no open interval
 of its own. In the uuid-less homonym case those are the same observation.
 
-**This is the fourth pairing design and the third consecutive identity/pairing verdict.**
+**This is the fourth counterexample against the third pairing design, and the third
+consecutive identity/pairing verdict.** The three designs were: (1) OR-ed identity
+columns, (2) a single primary token, (3) multi-rank evidence with an ambiguity guard —
+attempt 4 introduced the third, and this receipt records the counterexample that refutes it.
 The executor's attempt-4 report predicted this outcome in writing — *"if a fourth
 counterexample lands, webhook-only pairing cannot be made safe for uuid-less participants
 and pairing should move wholesale to Z7-3"* — and the reviewer reached the same conclusion
@@ -1798,7 +1801,7 @@ independently and formally.
 Overlay §5's same-category stop remains triggered, and the reviewer's instruction is
 explicit: *"Do not start a fourth identity-pairing patch cycle; replan the phase
 boundary."* The executor validated, recorded, and stopped. **`lib/` is untouched by this
-attempt** — the only changes are this entry, the verdict file and the review request.
+receipt; the only changed files are the ledger and verdict file.**
 
 **Decisions the PM/Brent must make before any further Z7-2 work** (reviewer's replan block,
 items 5 and 6 are the ones that are not code):

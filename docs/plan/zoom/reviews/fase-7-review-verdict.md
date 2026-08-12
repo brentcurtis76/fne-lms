@@ -190,5 +190,7 @@ boundary. That is why this is `FINDINGS` and not `FAIL`.
 type-check PASS · lint PASS · build PASS · `npm test` **310 files / 7,168 passed** ·
 pgTAP **11 files / 559 tests** PASS · worktree clean.
 
-**The code is not broken — it is correct against an unsatisfiable contract.** Nothing is
-merged, nothing is applied to production, and no chunk is closed.
+**The implementation satisfies the current contract in some histories, but is unsafe
+because that contract is unsatisfiable.** As reproduced immediately above, the code at
+`a530aafb` can close a stranger's interval and stamp it with the wrong `leave_time`.
+Nothing is merged, nothing is applied to production, and no chunk is closed.

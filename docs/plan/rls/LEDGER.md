@@ -289,3 +289,65 @@ Append-only, one entry per round. Plan: `docs/plan/rls/PLAN.md`.
      R1's caller table changed materially this round.
   2. Owner answers Q1–Q4 (none blocks R1). Q5 has a default.
   3. `fix/rls-public` still has no upstream and exists on no remote — now 9 commits.
+
+---
+
+### 2026-08-12 — plan — r4 CODEX REVIEW + R1 split behind a DISCOVERY phase
+
+- SESSION: `RLS · plan · REVIEW · r4` (Codex) → `RLS · plan · PM`
+- ATTEMPT: 5 (cumulative, planning)
+- RISK: DISCOVERY → plan
+- HANDOFFS: 2
+- CODEX: **FINDINGS** — 3 BLOCKING, 3 SHOULD-FIX, 0 NITs. r3 disposition: B1–B4 FIXED,
+  B5 PARTIAL, S1 NOT FIXED, S2 FIXED. Rulings: A PASS-with-qualification, B current-facts-PASS
+  /method-FAIL, C FAIL, D PASS, E MIXED, F PASS, G FAIL.
+- **IS R1 DISPATCHABLE: NO.** The PM had put that question to Codex directly and undertaken to
+  act on the answer. Codex's reasoning: R1's actions are substantively correct — it independently
+  swept the three dependency classes the PM had declared as unswept and found no additional
+  caller — but the evidence-producing method has failed in four independent ways, and the plan
+  claimed a six-class check it admits was never run.
+- CODEX'S INDEPENDENT VERIFICATION (stronger than the PM's own): reproduced 91/89/80/71 and both
+  `mark_notification_read` overloads; confirmed exactly seven policies depend on
+  `has_transformation_access`, all with `polroles = {0}` (PUBLIC); confirmed by **local probe**
+  that revoking PUBLIC+anon+authenticated yields `42501 permission denied for function`. The
+  probe ran inside a transaction that was rolled back, with the rollback verified. No production
+  access.
+- ACTION — `PLAN.md` amended:
+  - **r4 B1** → **new `DISCOVERY` phase `R0`**, order 1, blocking R1. Rebuilds the ten-signature
+    inventory from authoritative sources with 8 acceptance criteria: `regprocedure` identity and
+    overload disambiguation, effective ACLs, security mode/config, application callers with
+    client roles, **unfiltered reverse `pg_depend` first** then textual analyses, policy
+    `polroles`, proven-vs-inferred split naming the `prosrc` overload and dynamic-SQL limits, and
+    an explicit diff against R1's current contract. R0 closes only when R1 has been amended from
+    it. R1 status → **BLOCKED on R0**.
+  - **r4 B2** → A8(a) rewritten. The negative assertion was invalid: PostgreSQL raises `42501`
+    for **both** an RLS policy violation and `permission denied for function`, so "not 42501"
+    could never distinguish a correct denial from the regression. Now matches on error message.
+    Removed a non-existent UPDATE policy on `transformation_conversation_messages` (that table
+    has INSERT/DELETE/SELECT policies only). **Test plan rewritten** — it was still at
+    three-dead/seven-live, tested only workspace access under A8, and supplied no transformation
+    fixtures, so an executor following it would have omitted the outage regression entirely.
+    New assertion group `r1_transformation_member_matrix` plus the fixtures it needs.
+  - **r4 B3** → R11 starts from an **unfiltered** reverse `pg_depend` sweep so unimagined catalog
+    classes cannot vanish by construction; adds **expression indexes** (`pg_index.indexprs`/
+    `indpred`) and **partition-key expressions**, both of which execute functions during writes;
+    states that `prosrc` matching cannot resolve overloads or prove absence of dynamic SQL.
+  - **r4 S1** → outage description corrected: it is the PUBLIC+authenticated **combination**, not
+    the authenticated revoke alone, and it affects the seven policy-carrying operations when a
+    row reaches the predicate — not every DML statement on three tables.
+  - **r4 S2** → stale sequencing prose swept (META, R9-is-last, eleven-phase, R7/R10 Q5 labels).
+  - **r4 S3** → A1 names its seven normalization targets explicitly and states that
+    `has_transformation_access` receives no `authenticated` ACL statement, which is why A4's
+    keep-group is eight while A1's list is seven.
+  - **New D-9** — mandatory mechanical consistency sweep after every amendment.
+- **D-9 SWEEP RUN THIS ROUND** (the first under the new rule): 20 patterns checked against active
+  text above the Decision Log. Two hits, both correct usage — "six live RPCs" (there are six
+  *application* RPCs inside the eight-signature keep-group) and "SECURITY DEFINER surface" (the
+  sentence explaining why the plan no longer uses that phrase). **No stale references found.**
+- FINDINGS RAISED BY PM: none new.
+- DECISIONS: 5 appended to `PLAN.md` § Decision log.
+- COMMITS: `2654e2b2`. Branch **pushed** — `origin/fix/rls-public` now exists and tracks.
+- OPEN AFTER THIS ROUND:
+  1. **Codex plan review r5.** Plan still **not frozen**.
+  2. **R0 is the next phase to dispatch, not R1.** R0 is DISCOVERY; it ships no migration.
+  3. Owner answers Q1–Q4 (none blocks R0 or R1). Q5 has a default.

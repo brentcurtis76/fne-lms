@@ -815,7 +815,7 @@ Bounded output:
 **R12+ are deliberately undefined until R11 lands.** Writing contracts for 71 signatures whose
 reachability is unmeasured would invent requirements from guesses.
 
-**Known trap:** the 70 include the `auth_*` helper family — `auth_is_admin`,
+**Known trap:** the 71 include the `auth_*` helper family — `auth_is_admin`,
 `auth_is_course_student`, `auth_is_course_teacher`, `auth_is_superadmin`,
 `auth_user_community_ids` and others — which RLS policies across the schema call inside `USING`
 clauses. **`authenticated` must retain `EXECUTE` on those or policies break schema-wide.** R11

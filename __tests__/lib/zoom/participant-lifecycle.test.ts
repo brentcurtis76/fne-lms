@@ -66,16 +66,30 @@ interface DoubleOptions {
   profilesByEmail?: Record<string, string>;
   expectedAttendees?: AttendeeCandidate[];
   rows?: StoredInterval[];
+  barrier?: Promise<void>;
 }
 
-/** Models the table's partial unique index and the close guard. */
+/**
+ * Models BOTH partial unique indexes and the close guard.
+ *
+ * The uniqueness checks are synchronous inside `insertInterval`, exactly as Postgres
+ * resolves them inside one statement — that is what makes the concurrency test below
+ * meaningful rather than a test of this double's scheduling. `listOpenIntervals`
+ * filters by ONE key with exact equality, matching the store's query after Codex P1-1;
+ * the previous double returned every uuid-less open row regardless of identity, which
+ * is why the wrong-person defect survived its own suite.
+ */
 function storeDouble(options: DoubleOptions = {}) {
   const inserted: AttendanceIntervalInsert[] = [];
   const openQueries: OpenIntervalQuery[] = [];
-  const rows: (StoredInterval & { participantUuid?: string | null })[] = [
-    ...(options.rows ?? []),
-  ];
+  const rows: (StoredInterval & {
+    participantUuid?: string | null;
+    identityToken?: string | null;
+    sourceEventKey?: string | null;
+  })[] = [...(options.rows ?? [])];
   const closes: { id: string; leftAt: string }[] = [];
+  /** Lets a test interleave two appliers at a chosen point. */
+  const gate: { barrier: Promise<void> | null } = { barrier: options.barrier ?? null };
 
   const store: ZoomAttendanceStore = {
     findSurfaceByOccurrence: vi.fn(async () =>
@@ -90,10 +104,20 @@ function storeDouble(options: DoubleOptions = {}) {
     ),
     listExpectedAttendees: vi.fn(async () => options.expectedAttendees ?? []),
     insertInterval: vi.fn(async (row: AttendanceIntervalInsert) => {
-      // The partial unique index: (zoom_meeting_uuid, participant_uuid) WHERE uuid NOT NULL.
+      if (gate.barrier) await gate.barrier;
+      // From here to the push is SYNCHRONOUS — one statement, as Postgres resolves it.
+      // (zoom_meeting_uuid, participant_uuid) WHERE participant_uuid IS NOT NULL:
       if (
         row.participantUuid !== null &&
         rows.some((existing) => existing.participantUuid === row.participantUuid)
+      ) {
+        return 'duplicate' as const;
+      }
+      // source_event_key WHERE source_event_key IS NOT NULL — the delivery-level index
+      // that covers the uuid-less case a read-then-insert could not (Codex P1-2).
+      if (
+        row.sourceEventKey !== null &&
+        rows.some((existing) => existing.sourceEventKey === row.sourceEventKey)
       ) {
         return 'duplicate' as const;
       }
@@ -103,16 +127,20 @@ function storeDouble(options: DoubleOptions = {}) {
         joinedAt: row.joinedAt,
         leftAt: null,
         participantUuid: row.participantUuid,
+        identityToken: row.identityToken,
+        sourceEventKey: row.sourceEventKey,
       });
       return 'inserted' as const;
     }),
     listOpenIntervals: vi.fn(async (query: OpenIntervalQuery) => {
       openQueries.push(query);
+      // ONE key, exact equality — never an OR over the identity columns.
+      const keyOf = (row: (typeof rows)[number]) =>
+        query.participantUuid !== null ? row.participantUuid ?? null : row.identityToken ?? null;
+      const wanted = query.participantUuid ?? query.identityToken;
+      if (wanted === null) return [];
       return rows
-        .filter((row) => row.leftAt === null)
-        .filter((row) =>
-          query.participantUuid !== null ? row.participantUuid === query.participantUuid : true
-        )
+        .filter((row) => row.leftAt === null && keyOf(row) === wanted)
         .map(({ id, joinedAt, leftAt }) => ({ id, joinedAt, leftAt }));
     }),
     closeInterval: vi.fn(async (id: string, leftAt: string) => {
@@ -160,7 +188,8 @@ describe('participant_joined — [B2] by value from the committed capture', () =
       store,
       'meeting.participant_joined',
       body.payload?.object,
-      body.event_ts
+      body.event_ts,
+      'sha256-of-the-raw-body'
     );
 
     expect(outcome).toBe('interval_opened');
@@ -177,6 +206,11 @@ describe('participant_joined — [B2] by value from the committed capture', () =
       transientEmail: 'host-1213@example-synthetic.test',
       matchedBy: 'customer_key',
       joinedAt: '2026-07-29T23:55:56.000Z',
+      // The prioritised fallback key, persisted so a uuid-less leave can pair by exact
+      // equality rather than by OR-ing whatever identity columns happen to be present.
+      identityToken: 'ck:47d97a107c8f4c348519b4c77ed439d9',
+      // The ledger dedupe_key, whose UNIQUE index is the delivery-level idempotency.
+      sourceEventKey: 'sha256-of-the-raw-body',
     });
   });
 
@@ -219,24 +253,119 @@ describe('participant_joined — [B2] by value from the committed capture', () =
     expect(rows).toHaveLength(1);
   });
 
-  it('[B3] dedupes a uuid-less redelivery in the applier, where no index can help', async () => {
-    // A participant whose `participant_uuid` Zoom omitted gets no partial-index
-    // protection, so the applier's identity + identical-instant check is the only dedupe
-    // there is. Without it every anonymous guest's retry would open a second interval.
+  it('[B3] a uuid-less redelivery is deduped by source_event_key, in the DATABASE', async () => {
+    // Codex P1-2. The applier used to defend this with a read-then-insert, which two
+    // concurrent deliveries can both lose. Dedupe now keys on the ledger's dedupe_key,
+    // whose UNIQUE index resolves inside Postgres. Same body ⇒ same sha256 ⇒ same key.
     const body = loadBody('meeting-participant_joined.json');
     const object = body.payload?.object as Record<string, unknown>;
     const participant = { ...(object.participant as Record<string, unknown>) };
     delete participant.participant_uuid;
     const uuidless = { ...object, participant };
+    const DELIVERY = 'sha256-of-the-raw-body';
 
     const { store, inserted } = storeDouble();
-    expect(await applyParticipantEvent(store, 'meeting.participant_joined', uuidless, body.event_ts)).toBe(
-      'interval_opened'
-    );
-    expect(await applyParticipantEvent(store, 'meeting.participant_joined', uuidless, body.event_ts)).toBe(
-      'interval_duplicate'
-    );
+    expect(
+      await applyParticipantEvent(store, 'meeting.participant_joined', uuidless, body.event_ts, DELIVERY)
+    ).toBe('interval_opened');
+    expect(
+      await applyParticipantEvent(store, 'meeting.participant_joined', uuidless, body.event_ts, DELIVERY)
+    ).toBe('interval_duplicate');
     expect(inserted).toHaveLength(1);
+    expect(inserted[0].sourceEventKey).toBe(DELIVERY);
+    // ...and the applier no longer reads before inserting, so there is no race to lose.
+    expect(store.listOpenIntervals).not.toHaveBeenCalled();
+  });
+
+  it('[B3] CONCURRENT uuid-less redeliveries still write one row (barrier probe)', async () => {
+    // The exact probe Codex ran against the previous version, which produced
+    // {"result":["interval_opened","interval_opened"],"insertCount":2}. Both appliers are
+    // held at the insert until released, so they interleave the way two concurrent
+    // webhook deliveries do; the unique check is then resolved atomically, as Postgres
+    // resolves it inside one statement. A sequential replay test does not defend this.
+    const body = loadBody('meeting-participant_joined.json');
+    const object = body.payload?.object as Record<string, unknown>;
+    const participant = { ...(object.participant as Record<string, unknown>) };
+    delete participant.participant_uuid;
+    const uuidless = { ...object, participant };
+    const DELIVERY = 'sha256-of-the-raw-body';
+
+    let release: () => void = () => undefined;
+    const barrier = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { store, inserted } = storeDouble({ barrier });
+
+    const both = Promise.all([
+      applyParticipantEvent(store, 'meeting.participant_joined', uuidless, body.event_ts, DELIVERY),
+      applyParticipantEvent(store, 'meeting.participant_joined', uuidless, body.event_ts, DELIVERY),
+    ]);
+    // Both are now parked inside insertInterval. Let them through together.
+    await Promise.resolve();
+    release();
+    const outcomes = await both;
+
+    expect(outcomes.sort()).toEqual(['interval_duplicate', 'interval_opened']);
+    expect(inserted).toHaveLength(1);
+  });
+
+  it('[P1-1] two SAME-NAMED participants with different customer keys never cross-close', async () => {
+    // Codex P1-1's regression. Both are uuid-less, so pairing falls to the identity
+    // token — which is `ck:<customer_key>` for each, because customer_key outranks the
+    // shared display name. Under the old OR-ed filter both leaves matched both joins and
+    // selectIntervalToClose closed the latest, i.e. the wrong person.
+    const shared = { user_name: 'Ana Pérez', join_time: '2026-07-29T23:55:00Z' };
+    const one = { ...shared, customer_key: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1' };
+    const two = { ...shared, customer_key: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb2', join_time: '2026-07-29T23:56:00Z' };
+    const base = { uuid: OCCURRENCE, id: String(MEETING_NUMBER) };
+
+    const { store, rows, closes } = storeDouble({ existingProfiles: [] });
+    await applyParticipantEvent(store, 'meeting.participant_joined', { ...base, participant: one }, undefined, 'd1');
+    await applyParticipantEvent(store, 'meeting.participant_joined', { ...base, participant: two }, undefined, 'd2');
+    expect(rows).toHaveLength(2);
+
+    // The SECOND person leaves. Their interval is the later one, so a wrong-person close
+    // would be invisible to a naive assertion — this pins the row id explicitly.
+    await applyParticipantEvent(
+      store,
+      'meeting.participant_left',
+      { ...base, participant: { ...two, leave_time: '2026-07-30T00:10:00Z' } },
+      undefined,
+      'd3'
+    );
+    expect(closes).toEqual([{ id: 'row-2', leftAt: '2026-07-30T00:10:00.000Z' }]);
+    expect(rows[0].leftAt).toBeNull();
+
+    // ...and the FIRST person's leave closes theirs, not the already-closed one.
+    await applyParticipantEvent(
+      store,
+      'meeting.participant_left',
+      { ...base, participant: { ...one, leave_time: '2026-07-30T00:20:00Z' } },
+      undefined,
+      'd4'
+    );
+    expect(closes).toEqual([
+      { id: 'row-2', leftAt: '2026-07-30T00:10:00.000Z' },
+      { id: 'row-1', leftAt: '2026-07-30T00:20:00.000Z' },
+    ]);
+  });
+
+  it('[P1-1] a shared display name alone cannot pair two DIFFERENT people', async () => {
+    // No customer_key, no e-mail: the token IS the name for both, so they are genuinely
+    // indistinguishable to Zoom and to us. The leave closes the latest — which is the
+    // honest outcome for two people we cannot tell apart, and is why the token is
+    // PRIORITISED rather than OR-ed: a stronger key, when present, always decides first.
+    const base = { uuid: OCCURRENCE, id: String(MEETING_NUMBER) };
+    const { store, inserted } = storeDouble({ existingProfiles: [] });
+
+    await applyParticipantEvent(
+      store,
+      'meeting.participant_joined',
+      { ...base, participant: { user_name: 'Ana Pérez', join_time: '2026-07-29T23:55:00Z' } },
+      undefined,
+      'e1'
+    );
+    expect(inserted[0].identityToken).toBe('nm:ana pérez');
   });
 
   it('[B5] the GUEST capture: four empty-string fields, and none of them matches', async () => {

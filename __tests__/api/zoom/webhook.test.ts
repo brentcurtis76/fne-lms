@@ -435,6 +435,47 @@ describe('/api/zoom/webhook — ledger', () => {
     expect(row?.processed_at).not.toBeNull();
   });
 
+  it('hands the participant applier the LEDGER dedupe key as the row idempotency key', async () => {
+    // Codex P1-2. The unique index on `source_event_key` is only worth anything if the
+    // value reaching it is the same sha256 the ledger deduped on — otherwise a retry
+    // produces a different key and a second interval.
+    const { store } = createFakeStore({
+      meetings: {
+        [FIXTURE_MEETING_NUMBER]: { id: MEETING_ROW_ID, status: 'started', zoom_meeting_uuid: null },
+      },
+    });
+    const inserted: Record<string, unknown>[] = [];
+    const attendanceStore: ZoomAttendanceStore = {
+      findSurfaceByOccurrence: vi.fn(async () => ({
+        surfaceType: 'consultor_session' as const,
+        surfaceId: DEFAULT_SURFACE_ID,
+        schoolId: 9901,
+        zoomMeetingUuid: FIXTURE_OCCURRENCE_UUID,
+      })),
+      findSurfaceByMeetingNumber: vi.fn(async () => null),
+      profileExists: vi.fn(async () => false),
+      findProfileIdByEmail: vi.fn(async () => null),
+      listExpectedAttendees: vi.fn(async () => []),
+      insertInterval: vi.fn(async (row: Record<string, unknown>) => {
+        inserted.push(row);
+        return 'inserted' as const;
+      }),
+      listOpenIntervals: vi.fn(async () => []),
+      closeInterval: vi.fn(async () => true),
+    } as unknown as ZoomAttendanceStore;
+
+    const res = await invoke({
+      store,
+      attendanceStore,
+      rawBody: participantJoinedFixture.rawBody,
+      headers: fixtureHeaders(participantJoinedFixture),
+    });
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(inserted).toHaveLength(1);
+    expect(inserted[0].sourceEventKey).toBe(sha256Hex(participantJoinedFixture.rawBody));
+  });
+
   it('absorbs a Zoom retry: 200, no second insert, no second application', async () => {
     const { store, ledger, meetings } = createFakeStore({
       meetings: {

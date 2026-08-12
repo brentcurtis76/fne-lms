@@ -25,7 +25,7 @@
 
 BEGIN;
 
-SELECT plan(83);
+SELECT plan(91);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures
@@ -886,6 +886,105 @@ SELECT is(
   (SELECT count(*)::int FROM pg_policies
     WHERE schemaname = 'public' AND tablename = 'zoom_attendance' AND cmd <> 'SELECT'),
   0, 'zoom_attendance still carries no non-SELECT policy after the Z7-2 migration');
+
+-- =============================================================================
+-- Z7-2 remediation — identity_token and source_event_key (Codex P1-1 / P1-2).
+--
+-- P1-1: the fallback pairing key is now ONE persisted column matched by exact
+-- equality. The previous lookup OR-ed every identity column it had, so two uuid-less
+-- participants sharing a display name both matched a leave and the latest-joined one
+-- was closed — the wrong person's interval. The rows below are exactly that scenario.
+--
+-- P1-2: uuid-less redelivery had no database constraint at all and was defended by a
+-- read-then-insert, which two concurrent deliveries can both lose. `source_event_key`
+-- is the ledger's sha256 dedupe_key, UNIQUE, so the second delivery is refused inside
+-- Postgres regardless of interleaving.
+-- =============================================================================
+
+SELECT has_column('public', 'zoom_attendance', 'identity_token',
+  'zoom_attendance.identity_token exists — the single prioritised fallback key');
+SELECT has_column('public', 'zoom_attendance', 'source_event_key',
+  'zoom_attendance.source_event_key exists — delivery-level idempotency');
+
+SELECT ok(
+  (SELECT indexdef LIKE 'CREATE UNIQUE INDEX%'
+      AND indexdef LIKE '%WHERE (source_event_key IS NOT NULL)%'
+     FROM pg_indexes
+    WHERE schemaname = 'public'
+      AND indexname = 'zoom_attendance_source_event_key'),
+  'source_event_key carries a PARTIAL UNIQUE index — Z7-3 report rows stay NULL and excluded');
+
+-- P1-1, at the database: two DIFFERENT people, SAME display name, no participant_uuid,
+-- distinct customer keys. Their tokens differ because customer_key outranks the name.
+INSERT INTO public.zoom_attendance
+  (id, surface_type, surface_id, school_id, zoom_meeting_uuid,
+   participant_uuid, customer_key, display_name, matched_by, joined_at,
+   identity_token, source_event_key, source)
+VALUES
+  ('a7a7a7a7-6666-0000-0000-000000000001', 'consultor_session',
+   'a7a7a7a7-0000-0000-0000-000000000001', 9901, 'z7Synthetic/Occurrence/T==',
+   NULL, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1', 'Ana Perez Sintetica', 'unmatched',
+   '2026-07-29T23:55:00Z', 'ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1', 'delivery-t-1', 'webhook'),
+  ('a7a7a7a7-6666-0000-0000-000000000002', 'consultor_session',
+   'a7a7a7a7-0000-0000-0000-000000000001', 9901, 'z7Synthetic/Occurrence/T==',
+   NULL, 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb2', 'Ana Perez Sintetica', 'unmatched',
+   '2026-07-29T23:56:00Z', 'ck:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb2', 'delivery-t-2', 'webhook');
+
+-- The query the store now issues for person ONE's leave: exact equality on the token.
+SELECT is(
+  (SELECT string_agg(id::text, ',' ORDER BY id) FROM public.zoom_attendance
+    WHERE zoom_meeting_uuid = 'z7Synthetic/Occurrence/T=='
+      AND left_at IS NULL
+      AND identity_token = 'ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1'),
+  'a7a7a7a7-6666-0000-0000-000000000001',
+  'P1-1: the token lookup returns ONLY that person''s interval, not their namesake''s');
+
+-- ...and the shape the OLD code produced: an OR over display_name matched BOTH, which is
+-- how a leave closed a stranger's interval. Asserted so the regression is visible here
+-- and not only in the unit suite.
+SELECT is(
+  (SELECT count(*)::int FROM public.zoom_attendance
+    WHERE zoom_meeting_uuid = 'z7Synthetic/Occurrence/T=='
+      AND left_at IS NULL
+      AND display_name = 'Ana Perez Sintetica'),
+  2, 'P1-1: matching on the shared display name alone would have matched BOTH people');
+
+-- P1-2, at the database: the same delivery key cannot produce a second row, even though
+-- both rows are uuid-less and the participant_uuid index therefore does not apply.
+SELECT throws_ok(
+  $$ INSERT INTO public.zoom_attendance
+       (surface_type, surface_id, school_id, zoom_meeting_uuid,
+        participant_uuid, matched_by, joined_at, identity_token, source_event_key, source)
+     VALUES ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
+             'z7Synthetic/Occurrence/T==', NULL, 'unmatched', '2026-07-29T23:55:00Z',
+             'ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1', 'delivery-t-1', 'webhook') $$,
+  '23505',
+  NULL,
+  'P1-2: a uuid-less redelivery is refused by the source_event_key unique index');
+
+-- A different delivery for the same person IS a new row — a genuine rejoin must not be
+-- swallowed by the idempotency key.
+SELECT lives_ok(
+  $$ INSERT INTO public.zoom_attendance
+       (surface_type, surface_id, school_id, zoom_meeting_uuid,
+        participant_uuid, matched_by, joined_at, identity_token, source_event_key, source)
+     VALUES ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
+             'z7Synthetic/Occurrence/T==', NULL, 'unmatched', '2026-07-30T00:10:00Z',
+             'ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1', 'delivery-t-3', 'webhook') $$,
+  'a genuine rejoin carries a different delivery key and opens a new interval');
+
+-- Rows with no delivery key (Z7-3's report path) are excluded by the partial predicate.
+SELECT lives_ok(
+  $$ INSERT INTO public.zoom_attendance
+       (surface_type, surface_id, school_id, zoom_meeting_uuid,
+        participant_uuid, matched_by, joined_at, identity_token, source_event_key, source)
+     VALUES ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
+             'z7Synthetic/Occurrence/U==', NULL, 'unmatched', '2026-07-30T00:20:00Z',
+             NULL, NULL, 'report'),
+            ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
+             'z7Synthetic/Occurrence/U==', NULL, 'unmatched', '2026-07-30T00:21:00Z',
+             NULL, NULL, 'report') $$,
+  'two rows with a NULL source_event_key both insert — the index is PARTIAL for Z7-3');
 
 SELECT * FROM finish();
 

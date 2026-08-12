@@ -147,7 +147,14 @@ export async function applyParticipantEvent(
   eventType: string,
   object: ZoomParticipantObject | undefined,
   /** The body's `event_ts`, in milliseconds. The fallback, never the header value. */
-  eventTsMs?: unknown
+  eventTsMs?: unknown,
+  /**
+   * The webhook ledger's `dedupe_key` — `sha256(raw body)` — for the delivery being
+   * applied. It becomes the row's `source_event_key`, whose UNIQUE index is what makes
+   * a redelivery idempotent inside Postgres instead of inside a read-then-insert the
+   * applier could lose a race on (Codex P1-2). Both callers pass it.
+   */
+  sourceEventKey?: string | null
 ): Promise<ParticipantApplyOutcome> {
   if (!isParticipantEventType(eventType)) return 'ignored_event_type';
 
@@ -177,21 +184,12 @@ export async function applyParticipantEvent(
     // anything else would fabricate the interval this table exists to observe.
     if (joinedAt === null) return 'no_instant';
 
-    // Redelivery of a uuid-bearing join is absorbed by the partial unique index, in
-    // Postgres, where a concurrent route and sweep cannot both win. Without a uuid there
-    // is no index to lean on, so the applier checks — and an identical `joined_at` on an
-    // already-open interval for the same identity IS the redelivery.
-    if (participantUuid === null && token !== null) {
-      const open = await store.listOpenIntervals({
-        zoomMeetingUuid: occurrenceUuid,
-        participantUuid: null,
-        customerKey: identity.customerKey,
-        transientEmail: identity.email,
-        displayName: identity.displayName,
-      });
-      if (open.some((interval) => interval.joinedAt === joinedAt)) return 'interval_duplicate';
-    }
-
+    // NO read-then-insert dedupe here, deliberately. Idempotency is the database's job:
+    // `(zoom_meeting_uuid, participant_uuid)` catches a uuid-bearing redelivery and
+    // `source_event_key` catches every redelivery including the uuid-less one. A check
+    // in this process would be a race two concurrent deliveries can both lose — a
+    // barrier probe against the previous version produced two `interval_opened` outcomes
+    // and two rows (Codex P1-2).
     const match = await resolveMatch(store, surface, identity);
 
     const result = await store.insertInterval({
@@ -206,6 +204,8 @@ export async function applyParticipantEvent(
       transientEmail: identity.email,
       matchedBy: match.matchedBy,
       joinedAt,
+      identityToken: token,
+      sourceEventKey: sourceEventKey ?? null,
     });
     return result === 'duplicate' ? 'interval_duplicate' : 'interval_opened';
   }
@@ -217,12 +217,13 @@ export async function applyParticipantEvent(
   // causes stay legible in a log: this one is a participant Zoom told us nothing about.
   if (participantUuid === null && token === null) return 'unpairable_leave';
 
+  // ONE key, in [R3]'s order. The store matches it by exact equality; there is no way
+  // to ask it to OR the weaker identity columns, which is what let a shared display name
+  // close a stranger's interval (Codex P1-1).
   const open = await store.listOpenIntervals({
     zoomMeetingUuid: occurrenceUuid,
     participantUuid,
-    customerKey: identity.customerKey,
-    transientEmail: identity.email,
-    displayName: identity.displayName,
+    identityToken: token,
   });
 
   const target = selectIntervalToClose(open, leftAt);

@@ -336,7 +336,8 @@ export async function handleZoomWebhook(
         deps.attendanceStore ?? defaultZoomAttendanceStore(env),
         eventType,
         object,
-        body.event_ts
+        body.event_ts,
+        verification.dedupeKey
       );
     } else {
       await applyWebhookLifecycle(store, eventType, object, body.event_ts);

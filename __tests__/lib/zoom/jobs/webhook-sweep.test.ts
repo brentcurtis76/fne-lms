@@ -445,6 +445,12 @@ describe('webhook_sweep · participant events ([R1])', () => {
       joinedAt: '2026-07-29T23:55:56.000Z',
       matchedBy: 'unmatched',
       userId: null,
+      // Codex P1-2: the row carries the LEDGER's dedupe_key, so the sweep replaying an
+      // event the route already applied conflicts on the unique index instead of
+      // opening a second interval. The sweep and the route must supply the SAME key —
+      // that is what makes "the same ingestion" true for idempotency too, not just for
+      // the applier's code path.
+      sourceEventKey: 'sweep-participant-1',
     });
     // ...and the row is marked processed, so it does not reappear in every later sweep.
     expect(harness.rows[0].processed_at).not.toBeNull();

@@ -53,20 +53,29 @@ export interface AttendanceIntervalInsert {
   transientEmail: string | null;
   matchedBy: string;
   joinedAt: string;
+  /** The single prioritised fallback pairing key ([R3]). Null = unpairable. */
+  identityToken: string | null;
+  /** The ledger dedupe_key of the delivery that produced this row. UNIQUE. */
+  sourceEventKey: string | null;
 }
 
 /** `'duplicate'` = the partial unique index absorbed a redelivery. Never an error. */
 export type AttendanceInsertResult = 'inserted' | 'duplicate';
 
-/** How to find the open intervals a `participant_left` might close. */
+/**
+ * How to find the open intervals a `participant_left` might close.
+ *
+ * Exactly TWO keys, tried in [R3]'s order, each by exact equality. There is deliberately
+ * no way to express "match any of these identity columns": OR-ing them was Codex P1-1 —
+ * two uuid-less participants sharing a display name both matched, and the latest-joined
+ * one got closed, which is the wrong-person failure this design exists to prevent.
+ */
 export interface OpenIntervalQuery {
   zoomMeetingUuid: string;
   /** Preferred key when Zoom supplied one ([R3]). */
   participantUuid: string | null;
-  /** Fallback identity columns, used only when `participantUuid` is null. */
-  customerKey: string | null;
-  transientEmail: string | null;
-  displayName: string | null;
+  /** The single prioritised fallback token, used only when `participantUuid` is null. */
+  identityToken: string | null;
 }
 
 export interface ZoomAttendanceStore {
@@ -156,13 +165,20 @@ export interface AttendancePublicClient {
           column: string,
           value: null
         ): {
-          order(
+          // No `or(...)` member, and that absence is deliberate: the open-interval
+          // lookup must be exact equality on ONE key (Codex P1-1), so the type does not
+          // offer a way to widen it.
+          eq(
             column: string,
-            options: { ascending: boolean }
-          ): PromiseLike<{ data: OpenIntervalRow[] | null; error: PostgrestError | null }> & {
-            or(
-              filter: string
-            ): PromiseLike<{ data: OpenIntervalRow[] | null; error: PostgrestError | null }>;
+            value: string
+          ): {
+            order(
+              column: string,
+              options: { ascending: boolean }
+            ): PromiseLike<{
+              data: OpenIntervalRow[] | null;
+              error: PostgrestError | null;
+            }>;
           };
         };
       };
@@ -170,7 +186,10 @@ export interface AttendancePublicClient {
         column: string,
         value: string
       ): {
-        maybeSingle(): PromiseLike<{ data: IdRow | null; error: PostgrestError | null }>;
+        limit(count: number): PromiseLike<{
+          data: IdRow[] | null;
+          error: PostgrestError | null;
+        }>;
       };
     };
     insert(values: Record<string, unknown>): PromiseLike<{ error: PostgrestError | null }>;
@@ -260,16 +279,23 @@ export function createSupabaseAttendanceStore(
     async findProfileIdByEmail(email) {
       // `ilike` without wildcards is an exact case-insensitive compare. Zoom lower-cases
       // inconsistently across events, and an e-mail is the same identity either way.
+      //
+      // `profiles.email` is NOT database-unique (Codex ruling), so this takes two rows
+      // and treats two as AMBIGUOUS — the same rule the name branch applies, and for the
+      // same reason: picking one of two people is a coin flip presented to an admin as
+      // evidence. `.maybeSingle()` would instead THROW on the duplicate, which from
+      // inside the webhook route is a 500 and a Zoom retry loop against a body that can
+      // never succeed.
       const { data, error } = await publicClient
         .from('profiles')
         .select('id')
         .ilike('email', email)
-        .maybeSingle();
+        .limit(2);
 
       if (error) {
         throw new Error(`profiles e-mail lookup failed: ${error.message}`);
       }
-      return data ? data.id : null;
+      return (data ?? []).length === 1 ? data![0].id : null;
     },
 
     async listExpectedAttendees(surface) {
@@ -301,12 +327,18 @@ export function createSupabaseAttendanceStore(
         transient_email: row.transientEmail,
         matched_by: row.matchedBy,
         joined_at: row.joinedAt,
+        identity_token: row.identityToken,
+        source_event_key: row.sourceEventKey,
         source: 'webhook',
       });
 
       if (error) {
-        // The partial unique index doing its job: Zoom redelivered, or the sweep
-        // replayed. Absorbed, exactly like the webhook ledger's own conflict path.
+        // EITHER partial unique index doing its job — `(zoom_meeting_uuid,
+        // participant_uuid)` for a uuid-bearing redelivery, or `source_event_key` for
+        // any redelivery at all, including the uuid-less one that used to rely on a
+        // read-then-insert (Codex P1-2). Both resolve inside Postgres, so two concurrent
+        // deliveries cannot both win. Absorbed, exactly like the webhook ledger's own
+        // conflict path.
         if (error.code === UNIQUE_VIOLATION) return 'duplicate';
         throw new Error(`zoom_attendance insert failed: ${error.message}`);
       }
@@ -314,18 +346,21 @@ export function createSupabaseAttendanceStore(
     },
 
     async listOpenIntervals(query) {
-      const rows = publicClient
+      // Exactly one key, by exact equality. `participant_uuid` when Zoom gave one,
+      // otherwise the persisted `identity_token` — and NOTHING when the participant
+      // presented no identity, because "match on whatever fields happen to be present"
+      // is how a shared display name closes a stranger's interval (Codex P1-1).
+      const keyColumn = query.participantUuid !== null ? 'participant_uuid' : 'identity_token';
+      const keyValue = query.participantUuid ?? query.identityToken;
+      if (keyValue === null) return [];
+
+      const { data, error } = await publicClient
         .from('zoom_attendance')
         .select('id, joined_at, left_at')
         .eq('zoom_meeting_uuid', query.zoomMeetingUuid)
         .is('left_at', null)
+        .eq(keyColumn, keyValue)
         .order('joined_at', { ascending: false });
-
-      // Preferred key when Zoom gave one; otherwise the identity columns, OR-ed because
-      // a rejoin may present a different subset of them than the original join did.
-      const { data, error } = query.participantUuid !== null
-        ? await rows.or(`participant_uuid.eq.${query.participantUuid}`)
-        : await rows.or(identityFilter(query));
 
       if (error) {
         throw new Error(`zoom_attendance open-interval lookup failed: ${error.message}`);
@@ -354,22 +389,6 @@ export function createSupabaseAttendanceStore(
       return (data ?? []).length > 0;
     },
   };
-}
-
-/**
- * PostgREST `or=(...)` over whatever identity columns this participant actually
- * presented. Empty-string fields never reach here — `readParticipantField` turned them
- * into nulls — so this cannot degenerate into `customer_key.eq.`, which would match
- * every anonymous guest of the occurrence.
- */
-export function identityFilter(query: OpenIntervalQuery): string {
-  const clauses: string[] = [];
-  if (query.customerKey !== null) clauses.push(`customer_key.eq.${query.customerKey}`);
-  if (query.transientEmail !== null) clauses.push(`transient_email.eq.${query.transientEmail}`);
-  if (query.displayName !== null) clauses.push(`display_name.eq.${query.displayName}`);
-  // No identity at all: match nothing rather than everything. `id` is a uuid column, so
-  // this compares against a value it can never hold.
-  return clauses.length > 0 ? clauses.join(',') : 'participant_uuid.eq.__no_identity__';
 }
 
 /** Lazily builds the production store. Never called at module scope. */

@@ -241,6 +241,26 @@ describe('matchParticipantIdentity — the hierarchy, in order and no other ([R5
   });
 });
 
+describe('e-mail ambiguity — profiles.email is NOT database-unique (Codex ruling)', () => {
+  it('two profiles holding one e-mail is UNMATCHED, the same rule the name branch applies', () => {
+    // The store resolves this by taking two rows and returning null on two, rather than
+    // `.maybeSingle()` — which THROWS on the duplicate, and from inside the webhook route
+    // a throw is a 500 and a Zoom retry loop against a body that can never succeed.
+    // Here the pure matcher's contract is pinned: a null lookup means no match, and the
+    // hierarchy falls through to the name branch exactly as if the e-mail were absent.
+    expect(
+      matchParticipantIdentity(
+        { customerKey: null, email: 'shared@test.local', displayName: 'Ana Pérez' },
+        {
+          customerKeyProfileId: null,
+          emailProfileId: null,
+          expectedAttendees: [{ userId: 'user-ana', name: 'Ana Pérez' }],
+        }
+      )
+    ).toEqual({ userId: 'user-ana', matchedBy: 'name' });
+  });
+});
+
 describe('identityToken — the fallback interval key ([R3])', () => {
   it('follows the same descending confidence as the match hierarchy', () => {
     expect(

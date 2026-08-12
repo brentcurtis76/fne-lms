@@ -151,7 +151,8 @@ export function createWebhookSweepHandler(deps: WebhookSweepDeps = {}): ZoomJobH
           deps.attendanceStore ?? defaultZoomAttendanceStore(env),
           storedEventType,
           stored.payload?.object,
-          stored.event_ts
+          stored.event_ts,
+          row.dedupe_key
         );
       } else {
         await applyWebhookLifecycle(

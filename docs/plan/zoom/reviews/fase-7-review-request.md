@@ -436,3 +436,106 @@ unique index"* with `caught: no exception / wanted: 23505`.
   untouched.
 - **No `attendance_reconcile` yet**, so a webhook Zoom never delivered leaves a gap that
   nothing currently repairs. That is Z7-3's whole job.
+
+---
+
+## Z7-2 remediation — Codex `FAIL`, two blocking defects, both fixed
+
+Codex returned `FAIL` on `43999499..6177ad5e` with two `[P1]` defects. **Both accepted
+without argument; neither was a judgment call I had flagged.** What follows is what
+changed and, more importantly, why my own evidence had not caught either.
+
+### P1-1 — the uuid-less fallback could close the wrong participant's interval
+
+`identityToken()` chose ONE key in priority order, but `identityFilter()` turned every
+available identity column into an `or=(...)`. Two uuid-less participants with different
+`customer_key` values and the **same display name** both matched a leave query, and
+`selectIntervalToClose()` then closed whichever joined latest. That is the wrong-person
+match the whole chunk is built to prevent.
+
+**Fix (Codex's own smallest correction, taken as written):** persist the normalised token
+on the row as `identity_token` and query it with **exact equality**. `identityFilter` is
+deleted, and the structural client type no longer has an `or(...)` member at all — the
+widened query is now unexpressible rather than merely unused.
+
+### P1-2 — concurrent uuid-less redeliveries bypassed `[B3]`
+
+The uuid-less dedupe was a read-then-insert while the partial unique index excludes
+`participant_uuid IS NULL`, so there was no database constraint behind it. Codex's
+barrier probe produced `{"result":["interval_opened","interval_opened"],"insertCount":2}`.
+Reachable through two concurrent deliveries, because duplicate ledger rows with
+`processed_at = NULL` are not atomically claimed before both requests invoke the applier.
+
+**Fix:** the row now carries `source_event_key` — the ledger's `dedupe_key`, i.e.
+`sha256(raw body)` — under a partial UNIQUE index. Zoom's retry and the sweep's replay
+carry the same bytes and therefore the same key, so the second is refused **inside
+Postgres**, where interleaving cannot change the outcome. The read-then-insert is deleted
+outright; a genuine rejoin is a different body, a different key, and correctly a new row.
+
+### Why my evidence missed both, which matters more than the fixes
+
+**I had no test of the real store's query.** The applier suite drives a double, and my
+`storeDouble` returned every uuid-less open row without filtering by identity — the exact
+weakness Codex named. I proved this rather than assumed it: a probe re-pointing the real
+`listOpenIntervals` at `display_name` **passed the entire applier suite, exit 0**.
+
+`__tests__/lib/zoom/attendance-store.test.ts` is the missing half — real `supabase-js`,
+real `createSupabaseAttendanceStore`, intercepted `fetch`, filters read off the wire. It
+is the same pattern `webhook-store.test.ts` already established for the lifecycle, and I
+should have written it when I created a second store. The same probe now **fails**.
+
+The double was also fixed: it filters by one key with exact equality, models **both**
+partial unique indexes, and resolves them synchronously inside `insertInterval` the way
+Postgres resolves them inside one statement — which is what makes the barrier test a test
+of the design rather than of the double's scheduling.
+
+### Codex's non-blocking rulings, all actioned
+
+| Ruling | What I did |
+|---|---|
+| `profiles.email` is **not** database-unique, so my "unique and identifying" rationale was overstated, and `.maybeSingle()` fails closed by **throwing** | Changed to `.limit(2)` and "two rows ⇒ unmatched", the same ambiguity rule the name branch uses. A throw here is a 500 from the webhook route and a Zoom retry loop against a body that can never succeed. Asserted on the wire and in the pure matcher. |
+| `participant_uuid` pairing: Zoom's schema gives it on both events and says it is assigned at join and valid for that meeting, but does not guarantee persistence across a disconnect/rejoin — a validation gap, not a `FINDINGS` | Recorded as a known limitation with the citation. The fallback path is what covers it and is tested. |
+| Zero for open intervals is acceptable **provided Z7-5 renders the open state** rather than presenting it as final presence | Recorded as an explicit Z7-5 precondition here and in the ledger. |
+| No Z7-1 regression; the saved verdict is clearly labelled a relay | No action. |
+
+### Evidence after the fix
+
+| Gate | Result |
+|---|---|
+| `npm run type-check` / `npm run lint` | PASS / PASS, zero warnings |
+| `npm test` | **310 files / 7,161 passed + 11 skipped (7,172)**, `environment 290ms` |
+| `npm run build` | PASS |
+| `supabase db reset` + `npm run test:db` | 11 files / **557 tests**, PASS (`011` now `plan(91)`) |
+
+**Fail-on-old, both probes targeting the fixed defects** (reverted, byte identity re-proved
+— `9d19bce0…` store, `8095b283…` identity, `cc9d5760…` migration):
+
+- **P1-1 probe** — re-point `listOpenIntervals` at `display_name`: **fails**
+  `attendance-store.test.ts` *"pairs on identity_token when Zoom omitted participant_uuid"*,
+  exit 1. (The same probe passed before this file existed.)
+- **P1-2 probe** — stop persisting `source_event_key`: **5 tests fail**, exit 1, including
+  the concurrent barrier test and both callers' key-propagation assertions.
+
+### New and changed files
+
+| File | Purpose |
+|---|---|
+| `__tests__/lib/zoom/attendance-store.test.ts` (new, 11 tests) | The wire-level suite that was missing. |
+| `supabase/migrations/20260812120000_…_participant_uuid.sql` | `identity_token` + its lookup index; `source_event_key` + partial UNIQUE index. Amended in place — still unapplied everywhere, same upheld precedent. |
+| `lib/zoom/attendance-store.ts` | Exact-equality lookup; `identityFilter` deleted; `or(...)` removed from the client type; e-mail ambiguity. |
+| `lib/zoom/participant-lifecycle.ts` | Read-then-insert deleted; takes and persists the delivery key; passes one pairing key. |
+| `pages/api/zoom/webhook.ts`, `lib/zoom/jobs/webhook-sweep.ts` | Both pass their ledger dedupe key, asserted end-to-end in both suites. |
+| `supabase/tests/011-zoom-public-rls.sql` | `plan(83)` → `plan(91)`: both columns, the partial UNIQUE index, the two-namesakes scenario at the database, and the rejoin/report-row cases. |
+
+### What to scrutinise now
+
+1. **`source_event_key` keys on the DELIVERY, not the person.** Two byte-different bodies
+   describing the same logical join produce two rows; only the `participant_uuid` index
+   catches that, and uuid-less participants have no such protection. I judged this
+   correct — a genuine rejoin must not be swallowed — but it is a deliberate limit.
+2. **The barrier test still runs against a double.** It models both indexes atomically,
+   which is the property under test, but it is not Postgres. The pgTAP section asserts the
+   same uniqueness against a real database; the concurrency itself is not reproducible in
+   pgTAP (single connection, as `002`'s header records).
+3. **`identity_token` embeds an e-mail or a name**, so it is PII of the same grade as the
+   columns beside it. Covered by the same SELECT-only RLS; called out in the migration.

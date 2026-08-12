@@ -1622,3 +1622,67 @@ Supabase-backed store and answers 500, so the edit was forced by behaviour.
 | Chunk | Phase | Branch | Commits | Status | Evidence |
 |---|---|---|---|---|---|
 | Z7-2 · r2 | Z7 | `feat/zoom-hours` | this commit | 🟡 CANDIDATE 2026-08-12 — awaiting Codex on `43999499..<head>` | 5/5 gates green. 309 files / 7,145 tests; pgTAP 549 (011 plans 83). New: `participant_uuid` + partial unique index + interval-order CHECK; two pure modules; one applier called by BOTH route and sweep. `[B1]` closed. Open for the reviewer: uuid pairing unverified, uuid-less dedupe is a read-then-write, e-mail matching is repo-wide. |
+
+### **Z7-2 · attempt 3 — Codex `FAIL` (2 × P1) remediated. Awaiting re-review.**
+
+First Codex `FAIL` of the phase. Cumulative attempt 3; same executor conversation, same
+branch (overlay §4.2). **Both defects accepted without argument, and neither was one of
+the three judgment calls the executor had flagged** — they were in code it had reported as
+met.
+
+```text
+STARTED: 2026-08-12T18:45:00Z
+ENDED:   2026-08-12T19:08:24Z
+ATTEMPT: 3 (cumulative for Z7)
+RISK: HIGH
+HANDOFFS: 1 (Codex → Brent → executor, same conversation)
+GATES: type-check PASS · lint PASS · npm test PASS (310 files / 7,161 passed, 11 skipped)
+       · build PASS · supabase db reset + test:db PASS (11 files / 557; 011 plans 91)
+CODEX: FAIL(2) on 43999499..6177ad5e → remediated, re-review pending
+ESCAPED DEFECT: none (both caught before any close)
+```
+
+**P1-1 — the uuid-less fallback could close the WRONG participant's interval.**
+`identityToken()` picked one key in priority order but `identityFilter()` OR-ed every
+identity column, so two uuid-less participants sharing a display name both matched a leave
+and the latest-joined was closed. Fixed exactly as Codex specified: the normalised token
+is persisted as `identity_token` and queried by **exact equality**. `identityFilter` is
+deleted and the structural client type no longer has an `or(...)` member — the widened
+query is now unexpressible, not merely unused.
+
+**P1-2 — concurrent uuid-less redeliveries bypassed `[B3]`.** The dedupe was a
+read-then-insert with no database constraint behind it (the partial index excludes
+`participant_uuid IS NULL`). Codex's barrier probe produced two `interval_opened` outcomes
+and two rows. Fixed with `source_event_key` — the ledger's `sha256(raw body)` — under a
+partial UNIQUE index, so a redelivery is refused inside Postgres regardless of
+interleaving. The read-then-insert is deleted.
+
+**🔴 The finding under the findings, and it is the one worth carrying forward: the
+executor had no test of the real store's query.** The applier suite drives a double, and
+that double returned every uuid-less open row without checking identity — so P1-1 lived
+in code whose own suite was green. **Proved rather than assumed:** a probe re-pointing the
+real `listOpenIntervals` at `display_name` PASSED the entire applier suite, exit 0.
+`__tests__/lib/zoom/attendance-store.test.ts` now supplies the missing half (real
+supabase-js over an intercepted fetch, filters read off the wire) and the same probe fails.
+**This is the second store in `lib/zoom/` and the pattern already existed** —
+`webhook-store.test.ts` was written for exactly this reason after Sol F1. It should have
+been written with the store, not after a reviewer found the defect it was there to catch.
+
+**Codex's non-blocking rulings, all actioned rather than noted:** `profiles.email` is not
+database-unique, so the executor's "unique and identifying" rationale was overstated and
+`.maybeSingle()` fails closed by THROWING — a 500 out of the webhook route and a Zoom
+retry loop. Changed to `.limit(2)` with two-rows ⇒ unmatched, the same ambiguity rule the
+name branch uses. Zoom's schema documents `participant_uuid` on both events, assigned at
+join and valid for that meeting, but does not guarantee persistence across a rejoin — a
+recorded validation gap, not a `FINDINGS`. Zero-for-open-intervals stands **conditionally:
+Z7-5 must render the open state rather than present that value as final presence** — now
+an explicit Z7-5 precondition.
+
+**Fail-on-old, both probes aimed at the fixed defects, reverted and re-proved by hash.**
+P1-1: pairing on `display_name` again fails the new wire test, exit 1. P1-2: not
+persisting the delivery key fails 5 tests including the concurrent barrier test and both
+callers' key-propagation assertions, exit 1.
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-2 · r2 a3 | Z7 | `feat/zoom-hours` | `6177ad5e` + remediation | 🟡 CANDIDATE 2026-08-12 — awaiting Codex re-review | 5/5 gates green. 310 files / 7,161 tests; pgTAP 557 (011 plans 91). Both P1s fixed at the database: exact-equality `identity_token`, partial-UNIQUE `source_event_key`. New wire-level store suite closes the evidence gap that hid P1-1. Carried to Z7-5: open intervals must render as a state, not a number. |

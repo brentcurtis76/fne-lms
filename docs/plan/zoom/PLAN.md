@@ -572,8 +572,9 @@ A token may authorise **webhook-time interval closure** only if all three hold:
 
 1. **Zoom mints it, the client cannot assert it.** A value the joining client chooses is an
    identity *claim*, not an identity.
-2. **It is unique to one participant-connection by construction** — not merely unique in the
-   sample we happen to hold.
+2. **It is unique to one participant within the occurrence** — not merely unique in the sample
+   we happen to hold, and *not* "unique per connection", which contradicts the rejoin model
+   below (Codex, 2026-08-12).
 3. **It matches exactly one OPEN row in that occurrence.** Zero or more than one ⇒ close
    nothing.
 
@@ -582,7 +583,7 @@ Z7-5's facilitator suggestion, and never sufficient authority for a destructive 
 
 | Token | Zoom-minted? | Unique by construction? | Ruling | Evidence |
 |---|---|---|---|---|
-| `participant_uuid` | **yes** — we never send it | **yes**, a per-connection UUID | **AUTHORISES closure**, subject to rule 3 | present on both committed fixtures (`…joined.json`, `…left.json`) |
+| `participant_uuid` | **yes** — we never send it | **yes, within the occurrence** | **AUTHORISES closure**, subject to rule 3 | Zoom's webhook reference defines it as *"the participant's UUID for this specific meeting and any breakout rooms created in this meeting"*, **assigned when the participant joins** and valid only for that meeting's duration ([Zoom meeting events](https://developers.zoom.us/docs/api/meetings/events/), PM-verified 2026-08-12). The committed fixtures prove **presence only** — they are two different people and establish nothing about uniqueness |
 | `customer_key` | **no** — minted by us at `pages/api/meet/session/[id]/join.ts:439` and handed to the browser SDK, which sends it to Zoom | yes *if* unforged | **RECONCILIATION ONLY** | see the ruling below |
 | `email` | yes | no, and **`""` for exactly the population that matters** | **RECONCILIATION ONLY** | `zoom-spike-results.md` §6.2 — empty for every signed-out guest; §6.3 rung 3, *"do not rely on it"* |
 | `display_name` | no — attacker/typo-controlled | **no** | **RECONCILIATION ONLY** | this is the H1/H2 defect; §6.3 rung 4 already required it be *"a suggestion requiring facilitator confirmation"* |
@@ -624,13 +625,42 @@ supersession rule) that would make one oversized chunk.
 
 - `participant_joined` opens a row and persists **all** identity evidence.
 - `participant_left` closes a row **only** via `participant_uuid` matching exactly one open
-  row in that occurrence. Every other leave is recorded as a **leave observation** — durable,
-  auditable, never discarded — and closes nothing.
-- No retroactive pairing: a leave observation is never re-applied to a join that arrives later.
-- The `(zoom_meeting_uuid, participant_uuid)` partial unique index **must widen to include
-  `joined_at`**. As it stands it permits at most one row per uuid per occurrence, so if Zoom
-  reuses a `participant_uuid` across a rejoin the second join violates it. Widening handles
-  both stability hypotheses; closure still targets the single *open* row.
+  row in that occurrence. Closing nothing is the normal, correct outcome.
+- No retroactive pairing: an observation is never re-applied to a join that arrives later.
+- The `(zoom_meeting_uuid, participant_uuid)` partial unique index **widens to include
+  `joined_at`**. As it stands it permits at most one row per uuid per occurrence, so a rejoin
+  that reuses a `participant_uuid` — which Zoom's meeting-scoped definition permits — violates
+  it. **Amend `20260812120000_zoom_attendance_participant_uuid.sql` in place**: it is unmerged
+  and unapplied, so the existing `CREATE UNIQUE INDEX` definition is edited directly. **No
+  `DROP INDEX`, no replacement migration** — `CLAUDE.md` prohibits `DROP`, and the PM's earlier
+  claim that index replacement is exempt was wrong (Codex, 2026-08-12). That migration's
+  comments at `:7` and `:103` still document the withdrawn fallback contract and must be
+  rewritten in the same edit.
+
+**Leave observations — specified here, not delegated.** Every `participant_left` is recorded,
+whether or not it closed anything. Delegating this shape to the executor is what produced the
+`[R3]`/`[R4]` conflict, and it is not repeated.
+
+- **Table: `zoom_internal.zoom_attendance_observations`.** The private schema, not `public` —
+  it is an operational event log, not business data, and §6's `zoom_internal` lockdown
+  (REVOKE from `anon`/`authenticated`, `service_role` only, RLS on with zero policies) is a
+  strictly stronger guarantee than any public-table policy set, while making the row shape
+  structurally unreadable as an attendance interval. It sits beside `zoom_webhook_events`,
+  which is the same class of record.
+- **Why it exists at all, given `zoom_webhook_events` already stores the raw body:** §6 nulls
+  `raw_payload` at 30 days. A distilled, retained observation survives that horizon — the same
+  reasoning that forced the C6 amendment for the lifecycle instants.
+- Columns: `school_id NOT NULL`, occurrence uuid, event type, `source_event_key`, observed
+  instant, the identity evidence as persisted on intervals, and the applier's outcome
+  (`interval_closed` / `no_open_interval` / `unpairable_leave` / `no_instant`) so the log
+  records *what was decided*, not only what arrived.
+- **`source_event_key` UNIQUE.** Delivery-level idempotency for observations, enforced by the
+  database exactly as it is for intervals.
+- **One transaction.** Recording the observation and any eligible interval close commit
+  together or not at all. Route and sweep both call the applier concurrently, so without this
+  one application can close the interval while the other records the same event as unmatched —
+  two contradictory records of one delivery.
+- Synthetic fixtures only; these rows name real people (Ley 21.719).
 
 #### New Z7-3 authority and merge semantics — supersession, never row matching
 
@@ -642,15 +672,34 @@ replan removes, so the contract forbids it outright.
   each row arrives with `join_time`, `leave_time` and `duration` **already paired by Zoom** —
   the pairing problem is solved by the provider, not by us. §6.2 also shows the report row set
   does **not** carry `participant_uuid`, so no report key may depend on it.
-- **Ingestion.** Every row of a successful fetch is inserted as `source='report'` carrying a
-  `report_batch_id` and `report_fetched_at`.
-- **Authority rule, single and stateable.** The effective interval set for an occurrence is the
-  report rows of the newest `report_fetched_at`; if none exists, the webhook rows. Nothing else.
+- **A batch is authoritative only if it is COMPLETE, and completeness is defined, not assumed**
+  (Codex BLOCKER, 2026-08-12). Zoom's list endpoints are paginated — a response carries
+  `page_size`, `page_count`, `total_records` and `next_page_token`, and an **empty**
+  `next_page_token` is the only end-of-data signal ([Zoom pagination](https://developers.zoom.us/docs/api/pagination/),
+  PM-verified 2026-08-12); heavy-data endpoints cap a page at 30–100 rows. A single fetch of a
+  31-person meeting therefore returns page one. **The earlier contract promoted it wholesale
+  and would have suppressed participant 31.**
+- **Complete batch =** every page traversed with **unchanged query parameters** until
+  `next_page_token` is empty, **and** accumulated row count `== total_records`, **and**
+  metadata consistent across pages.
+- **Any page error, expired or rejected token, count drift, or an invalid interval rejects the
+  ENTIRE candidate batch.** A rejected batch is never promoted and never partially visible.
+- **Promotion is a DB-owned pointer, not a client clock.** A `zoom_internal` batch row carries
+  its own database-assigned monotonic sequence and a status (`pending` → `complete` |
+  `rejected`); **batch completion is represented independently of its participant rows**, and
+  the effective set is the rows of the highest-sequence `complete` batch. `report_fetched_at`
+  is retained for audit but never decides authority — two batches can tie or arrive out of
+  order on a client timestamp.
+- **A later partial fetch cannot displace an earlier complete one.** The prior complete batch
+  stays effective until a *new complete* batch is promoted. If no complete batch has ever
+  existed, the webhook rows remain effective.
+- **Promotion is atomic**: the last page's rows and the batch's flip to `complete` commit in
+  one transaction, so no reader ever sees a half-promoted batch win.
 - **Webhook rows are never edited, closed or deleted by reconcile.** Provenance and audit are
   preserved by retention, not by rewriting.
-- **Idempotency.** A replayed or retried fetch writes a new batch; only the newest is
-  effective, so replay is harmless without any row-level dedupe. Job-level dedupe stays on
-  `zoom_jobs` as for every other pipeline.
+- **Idempotency.** A replayed or retried fetch builds a new candidate batch; only a complete,
+  higher-sequence batch becomes effective, so replay is harmless without any row-level dedupe.
+  Job-level dedupe stays on `zoom_jobs` as for every other pipeline.
 - **Reconnects.** Multiple report rows for one person are multiple intervals; presence totals
   come from the existing pure merge, which is why that module survives.
 - **Delay, absence, retry.** Until a report exists the webhook rows are effective and **must be
@@ -674,8 +723,12 @@ replan removes, so the contract forbids it outright.
 | 7 | byte-different duplicate logical event | uuid path: caught by the widened partial unique index. **Uuid-less path: a duplicate row is possible and is accepted** — the report supersedes it. Stated as a limitation, not solved by a heuristic |
 | 8 | reconnect, multiple intervals | one row per join; each closes by its own uuid, or none do |
 | 9 | leave preceding join | closes nothing; never applied retroactively |
-| 10 | report contradicts webhooks | report batch becomes effective; webhook rows retained, unedited |
+| 10 | report contradicts webhooks | the **complete** batch becomes effective; webhook rows retained, unedited |
 | 11 | report delayed or unavailable | webhook rows stay effective and render provisional; retry, dead-letter, health panel; nothing fabricated |
+| 12 | occurrence with **more rows than one page** (>30) | every page traversed to an empty `next_page_token`; accumulated count `== total_records`; **one** complete batch promoted |
+| 13 | page 2 fails, or its token is rejected | **entire candidate batch rejected**; the prior complete batch stays effective; if none exists, webhook rows do |
+| 14 | accumulated count ≠ `total_records`, or metadata drifts between pages | batch rejected; same preservation rule as row 13 |
+| 15 | duplicate/concurrent application of one leave delivery | the observation's `source_event_key` UNIQUE admits one record, and observation + any close share one transaction — **no delivery can be both closed and logged unmatched** |
 
 **Controlling safety invariant: no wrong-person closure.** Ambiguity is never resolved by
 choosing the latest, the strongest-looking, or the only weak match.
@@ -697,10 +750,12 @@ at `participant-lifecycle.test.ts:413`, which covered only H1, replaced by the m
 
 #### Blind spots
 
-1. **`participant_uuid` pairing stability is still unmeasured.** It is now *safe* to be wrong
-   about (it degrades to no-closure) but it decides how much the webhook path can close before
-   the report lands. If it proves unstable, Z7-2 closes almost nothing and Z7-3 does all the
-   work — which is a performance property, not a correctness one.
+1. **`participant_uuid` pairing behaviour across a rejoin is still unmeasured.** Zoom documents
+   it as meeting-scoped and assigned at join, which is what rule 2 now rests on; whether a
+   rejoin reuses the value or mints a new one is not documented and was not observed. It is
+   now *safe* to be wrong about — either way it degrades to no-closure — but it decides how
+   much the webhook path can close before the report lands. A performance property, not a
+   correctness one.
 2. **Uuid-less duplicate joins can double-count until the report arrives.** Matrix row 7.
    Accepted deliberately over any matching heuristic.
 3. **The report's own completeness is unmeasured.** §6.2 observed four participants across

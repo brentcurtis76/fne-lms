@@ -1957,3 +1957,91 @@ ESCAPED DEFECT: n/a — caught before any merge or production application
 | Chunk | Phase | Branch | Commits | Status | Evidence |
 |---|---|---|---|---|---|
 | Z7-2 · contract replan | Z7 | `feat/zoom-hours` | this commit | ✅ **REPLANNED 2026-08-12 — ready to dispatch as attempt 5** | `[R3]`/`[R4]` superseded by `PLAN.md` §15.3.9. Eligibility rule = Zoom-minted + construction-unique + exactly-one-open-match. `customer_key` barred from closure by rule 1, not by the evidence gap. Z7-3 = wholesale supersession, zero cross-source matching. Z7-1 index defect found and routed. Prompt: `prompts/Z7-r5.md`. Next review boundary `43999499..<head>` against §15.3.9. |
+
+## 🔴 **CODEX `FAIL` ON THE REPLAN ITSELF (2026-08-12). Three BLOCKERs, one MAJOR — all accepted, all corrected. `Z7-r5` was NOT dispatched.**
+
+The reviewer reviewed the *contract*, not code, and found three gaps that would have shipped as
+defects. **Two of the four are PM errors of exactly the kind this phase has already paid for.**
+
+### **① BLOCKER — an incomplete report page could become authoritative. Accepted.**
+
+§15.3.9 promoted "every row of a successful fetch" and selected "the newest
+`report_fetched_at`". **Neither clause defines what a *complete* fetch is.** Zoom's list
+endpoints are paginated: a response carries `page_size`, `page_count`, `total_records` and
+`next_page_token`, an **empty** token is the only end-of-data signal, and heavy-data endpoints
+cap a page at 30–100 rows — **PM-verified against
+`https://developers.zoom.us/docs/api/pagination/`, not taken from the review.** So a 31-person
+meeting returns page one, and the old rule would have **promoted it wholesale and suppressed
+participant 31.** Worse, "newest wins" let a later *partial* fetch displace an earlier
+*complete* one.
+
+**Corrected:** a batch is authoritative only when every page is traversed with unchanged
+parameters to an empty token, accumulated rows `== total_records`, and metadata is consistent;
+any page error, rejected token, count drift or invalid interval **rejects the entire candidate
+batch**; the prior complete batch stays effective, and webhook rows do if none exists.
+**Promotion is a DB-owned monotonic sequence plus a batch status, not a client timestamp** —
+completion is represented independently of the participant rows and the last page's insert
+commits with the flip to `complete` in one transaction. Matrix rows 12–14 added.
+
+### **② BLOCKER — leave-observation persistence was delegated to the executor. Accepted; this one is the repeat offence.**
+
+§15.3.9 said observations must be durable; `Z7-r5` said *"choose the storage shape and say why
+in the review request."* **Delegating a contract decision to the executor is precisely what
+produced the `[R3]`/`[R4]` conflict**, and the PM did it again in the document written to fix
+it. The reviewer also found the concurrency hole it hid: route and sweep call the applier
+concurrently, so one application can close the interval while the other records the same
+delivery as unmatched, and `[C6]` checked only duplicate rows and closes.
+
+**Corrected, fully specified in §15.3.9:** `zoom_internal.zoom_attendance_observations` —
+**the private schema**, which is a strictly stronger guarantee than any public RLS matrix and
+makes the shape structurally unreadable as an attendance interval; `school_id NOT NULL`,
+identity evidence, **the applier's outcome**, `source_event_key` UNIQUE; every leave recorded
+whether or not it closed anything; **observation and close in ONE transaction**. New `[C6b]`
+asserts the transaction boundary under concurrent application, not just the end state.
+
+### **③ BLOCKER — the index instruction risked a prohibited `DROP`. Accepted; also a PM error.**
+
+`Z7-r5` called the widening "additive" and declared that *"replacing an index is not a
+destructive schema change under `CLAUDE.md`."* **The PM ruled a repository hard rule
+inapplicable.** It is not the PM's to rule on, and the reviewer's fix is better anyway:
+`20260812120000_zoom_attendance_participant_uuid.sql` is **unmerged and unapplied**, so the
+existing `CREATE UNIQUE INDEX` is amended **in place** — no `DROP`, no replacement migration.
+Its comments at `:7` and `:103` still document the withdrawn fallback contract and are rewritten
+in the same edit. New `[C14]` greps the diff for an added `DROP`; new `[C15]` requires no
+comment anywhere still to describe fallback closure as live.
+
+### **④ MAJOR — "unique participant-connection" contradicted the rejoin model. Accepted.**
+
+Rule 2 said *"unique to one participant-connection"* while the index widening exists precisely
+because a rejoin may **reuse** the uuid. Both cannot hold. **PM-verified against
+`https://developers.zoom.us/docs/api/meetings/events/`:** Zoom defines `participant_uuid` as
+*"the participant's UUID for this specific meeting and any breakout rooms created in this
+meeting"*, **assigned when the participant joins**, valid only for that meeting. **Meeting-scoped,
+not connection-scoped.** Rule 2 now reads *"unique to one participant within the occurrence"*,
+with exactly-one-open-row remaining the interval-selection gate. The evidence cell that
+previously cited the two fixtures now says what they actually prove: **presence, and nothing
+about uniqueness.**
+
+**Also accepted:** `Z7-r5`'s opening line said the implementation *"was not the defect"*. It was
+unsafe — it can close a stranger's interval — and an executor about to delete that code needs
+the accurate sentence. Replaced verbatim with the reviewer's.
+
+**Upheld unchanged:** docs-only scope, ancestry, clean worktree, the `customer_key` ruling, and
+keeping Z7-2 a separate chunk.
+
+**Nothing was pushed back on. Four findings, four accepted** — and the two external facts the
+corrections rest on were verified by the PM against Zoom's documentation rather than relayed.
+
+```text
+STARTED: 2026-08-12
+ATTEMPT: 4 → replan round 2 (cumulative count unchanged; next implementation attempt is still 5)
+RISK: HIGH
+HANDOFFS: 2 (Codex FINDINGS → PM → Codex FAIL → PM)
+GATES: none run — documentation-only round
+CODEX: FAIL(3 BLOCKER + 1 MAJOR) on the contract → corrected
+ESCAPED DEFECT: n/a — caught before dispatch, before merge, before production
+```
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-2 · contract replan r2 | Z7 | `feat/zoom-hours` | this commit | ✅ **CORRECTED 2026-08-12 — ready to dispatch as attempt 5** | All 4 Codex findings accepted. Complete-batch definition + DB-owned promotion pointer (matrix 12–14); `zoom_internal.zoom_attendance_observations` fully specified incl. one-transaction rule (`[C6b]`); migration amended in place, no `DROP` (`[C14]`, `[C15]`); rule 2 restated as occurrence-scoped on Zoom's own documented semantics, PM-verified. Prompt: `prompts/Z7-r5.md`. |

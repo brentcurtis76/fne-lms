@@ -729,3 +729,25 @@ proves nothing, which is exactly how attempt 4 stayed green.
 5. **Z7-3's semantics are fixed but unbuilt** (§15.3.9): wholesale supersession per occurrence,
    **no cross-source row matching at all**, newest `report_fetched_at` batch wins, webhook rows
    never edited or deleted.
+
+## Replan round 2 — Codex `FAIL` on the contract, all four findings accepted (2026-08-12)
+
+The first replan was itself reviewed and failed: 3 BLOCKER + 1 MAJOR, **none of them in code**.
+Corrections, in the order a reviewer should re-check them:
+
+| # | Finding | Correction |
+|---|---|---|
+| 1 | An incomplete report **page** could become authoritative; a later partial fetch could displace an earlier complete one | §15.3.9 now defines a **complete batch** (all pages to an empty `next_page_token`, rows `== total_records`, consistent metadata); any page error/token rejection/count drift **rejects the whole candidate**; promotion is a **DB-owned monotonic sequence + batch status**, atomic with the last page; prior complete batch preserved. Matrix rows 12–14 |
+| 2 | Leave-observation storage was **delegated to the executor**, hiding a route/sweep concurrency hole | `zoom_internal.zoom_attendance_observations` fully specified: private schema, `school_id NOT NULL`, applier outcome recorded, `source_event_key` UNIQUE, **observation + close in one transaction**. New `[C6b]` asserts the boundary under concurrent application |
+| 3 | The index instruction risked a prohibited `DROP`, and the PM had declared the hard rule inapplicable | The **unapplied** `20260812120000_*.sql` is amended **in place**; no `DROP`, no replacement migration; its `:7`/`:103` comments rewritten. New `[C14]` greps the diff for an added `DROP`; `[C15]` requires no comment anywhere to still describe fallback closure as live |
+| 4 | *"unique to one participant-connection"* contradicted the accepted rejoin model | Rule 2 restated as **"unique to one participant within the occurrence"**, on Zoom's documented semantics — `participant_uuid` is *"the participant's UUID for this specific meeting and any breakout rooms created in this meeting"*, assigned at join. The fixtures are now cited for what they prove: **presence only** |
+
+**Both external facts were PM-verified against Zoom's documentation** rather than relayed from
+the review: [pagination](https://developers.zoom.us/docs/api/pagination/) and
+[meeting events](https://developers.zoom.us/docs/api/meetings/events/).
+
+`Z7-r5`'s opening line was also replaced: the implementation *was* unsafe, and an executor about
+to delete it needs that stated accurately.
+
+**Unchanged and upheld:** docs-only scope, ancestry, clean worktree, the `customer_key` ruling,
+and keeping Z7-2 a separate chunk.

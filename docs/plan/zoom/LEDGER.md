@@ -1425,3 +1425,76 @@ Review request: `docs/plan/zoom/reviews/fase-7-review-request.md`.
 | Chunk | Phase | Branch | Commits | Status | Evidence |
 |---|---|---|---|---|---|
 | Z7-1 · r1 | Z7 | `feat/zoom-hours` | `0e29d53b` | 🟡 CANDIDATE 2026-08-11 — awaiting Codex | 5/5 gates green at `0e29d53b`. Baseline corrected to 305 files / 7059 tests. `[A7]` partial (2 assertions widened, documented). Open: reconcile correction of `actual_*` blocked by the write-once trigger; community-meeting facilitator policy deferred to Z7-5. |
+
+### **Z7-1 · attempt 2 — Brent's remediation directive, applied 2026-08-12. Awaiting Codex.**
+
+Not a Codex verdict: Brent directed three fixes after reading attempt 1's self-report,
+which had nominated the first two as the diff's weakest points. Counted as cumulative
+attempt 2 in the same executor conversation (overlay §4.2).
+
+```text
+STARTED: 2026-08-12T12:44:00Z
+ENDED:   2026-08-12T13:06:44Z
+ATTEMPT: 2 (cumulative for Z7)
+RISK: HIGH
+HANDOFFS: 1 (Brent → executor, same conversation)
+GATES: npm run type-check PASS · npm run lint PASS · npm test PASS (306 files / 7074
+       passed, 11 skipped) · npm run build PASS · supabase db reset + npm run test:db
+       PASS (11 files / 537 tests) — none piped through tail
+CODEX: pending
+ESCAPED DEFECT: n/a
+```
+
+**① The inline facilitator predicate was a real defect, not just an untested blind
+spot.** An RLS policy's subquery is subject to the referenced table's RLS, and
+`session_facilitators` only carries `facilitators_consultor_select` (which requires
+`ur.school_id = cs.school_id`). So a facilitator who is `equipo_interno`, or a consultor
+whose `user_roles.school_id` is NULL, **could not read their own facilitator row and saw
+no attendance for a session they run.** Replaced by
+`public.is_zoom_surface_facilitator(text, uuid)` — SECURITY DEFINER, STABLE,
+`SET search_path = ''`, `auth.uid()` read inside, EXECUTE revoked from PUBLIC/anon and
+granted to `authenticated` only. Its second branch covers `community_meeting` via
+`community_meetings.facilitator_id`, closing the admin-only gap attempt 1 deferred to
+Z7-5. New pgTAP personas: a globally scoped consultor facilitator, a named
+community-meeting facilitator, and a **consultor_session and community_meeting sharing
+one uuid** — the fixture that makes `surface_type` load-bearing rather than decorative.
+
+**② The write-once trigger is gone.** It applied COALESCE to every writer, which would
+have walled off §11's "(reconcile-corrected)" for Z7-3. Replaced by
+`zoom_internal.apply_meeting_lifecycle` — one atomic guarded statement, SECURITY
+INVOKER, EXECUTE service_role only. Fill-while-NULL is now scoped to the replay-prone
+webhook path, and a plain service-role UPDATE still corrects either column. **The
+applies-from set moved from SQL into a parameter** so `lib/zoom/webhook-store.ts` stays
+the single definition of the monotonicity rule — this repo already carries one drift
+warning about SQL twins of that rule and a third copy was not worth it.
+
+**③ `meeting.ended` now supplies `actual_started_at` as well**, so the out-of-order pair
+records BOTH instants instead of leaving the start NULL forever. The `event_ts` fallback
+is deliberately asymmetric on that branch: it may back `end_time`, never `start_time`,
+because the ended event is delivered when the meeting finished. The out-of-order test no
+longer expects NULL — it asserts both exact fixture instants, in Vitest and against a
+real database.
+
+**Fail-on-old, three probes, all reverted and re-proved by hash.** (i) Dropping SECURITY
+DEFINER → 51/71 fail; the error is instructive — as INVOKER the predicate evaluates
+`community_meetings`' RLS, whose `has_global_workspace_access` reads `user_roles`
+unqualified and breaks under `search_path = ''`. (ii) Ignoring `surface_type` → tests
+26–29 and 45 fail (the uuid collision, both directions). (iii) Dropping the COALESCE →
+test 66 fails.
+
+**One behaviour change worth flagging to whoever reads this next: `anon` now gets 42501
+from `zoom_attendance` rather than an empty set**, because the predicate is not
+executable by anon. Stricter, asserted, and different from every other table here.
+
+**`[A7]` is still PARTIAL and got wider.** Attempt 2 also rewrote the `setMeetingStatus`
+wire assertions in `__tests__/lib/zoom/webhook-store.test.ts`: moving the transition onto
+an RPC changes the wire contract that file exists to pin. Same sets, still pinned
+literally, nothing weakened. Three existing test files edited in total.
+
+**Both migrations were amended in place** rather than superseded — unapplied everywhere,
+branch unmerged, and a follow-up would have had to DROP a policy and a trigger. Flagged
+for the reviewer to overrule if the convention is append-only pre-merge.
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-1 · r1 a2 | Z7 | `feat/zoom-hours` | `0e29d53b` + remediation | 🟡 CANDIDATE 2026-08-12 — awaiting Codex | 5/5 gates green. pgTAP 71 asserts in 011 (537 total). Facilitator predicate now SECURITY DEFINER covering both surfaces; lifecycle RPC replaces the trigger; correction path for Z7-3 proved open. Open: anon now errors instead of reading empty; applies-from set is caller-supplied. |

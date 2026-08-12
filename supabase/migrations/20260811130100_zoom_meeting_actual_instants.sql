@@ -3,11 +3,11 @@
 -- amendment (plan §15.3.1 / §15.3.7 Decision Log; Z7-1).
 --
 -- §11 quantity (3) is "Zoom meeting elapsed — zoom_meetings started/ended webhook
--- instants". The falsification pass found it had nowhere to live: the table carries
--- `starts_at`, `duration_minutes` and the generated `ends_at`, which are all PLANNED
--- values, plus `status`. The lifecycle moved the status and captured the occurrence
--- uuid; it recorded no time at all, so the Z7-5 comparison panel's "Zoom" column had
--- no source.
+-- instants (reconcile-corrected)". The falsification pass found it had nowhere to
+-- live: the table carries `starts_at`, `duration_minutes` and the generated
+-- `ends_at`, which are all PLANNED values, plus `status`. The lifecycle moved the
+-- status and captured the occurrence uuid; it recorded no time at all, so the Z7-5
+-- comparison panel's "Zoom" column had no source.
 --
 -- Recovering the instants from zoom_internal.zoom_webhook_events.raw_payload was the
 -- alternative and it is not available: §6 nulls `raw_payload` at 30 days, so the panel
@@ -25,48 +25,87 @@ ALTER TABLE zoom_internal.zoom_meetings
   ADD COLUMN actual_ended_at timestamptz;
 
 COMMENT ON COLUMN zoom_internal.zoom_meetings.actual_started_at IS
-  'The instant the occurrence actually began, from meeting.started''s payload.object.start_time (event_ts, in MILLISECONDS, as fallback). NULL until that event arrives. Provisioning NEVER writes this — starts_at is the planned value and this is the observed one. Write-once: the trigger below coalesces, so a swept or out-of-order replay cannot overwrite it.';
+  'The instant the occurrence actually began: meeting.started''s payload.object.start_time (event_ts, in MILLISECONDS, as fallback), or meeting.ended''s start_time when started never landed. NULL until one of them arrives. Provisioning NEVER writes this — starts_at is the planned value and this is the observed one. The lifecycle RPC fills it only while NULL; a deliberate correction (Z7-3 reconcile) writes it directly.';
 COMMENT ON COLUMN zoom_internal.zoom_meetings.actual_ended_at IS
-  'The instant the occurrence actually ended, from meeting.ended''s payload.object.end_time (event_ts, in MILLISECONDS, as fallback). NULL until that event arrives. Provisioning NEVER writes this. Write-once under the same trigger.';
+  'The instant the occurrence actually ended, from meeting.ended''s payload.object.end_time (event_ts, in MILLISECONDS, as fallback). NULL until that event arrives. Provisioning NEVER writes this. Same fill-while-NULL rule under the lifecycle RPC, same direct correction path for reconcile.';
 
 -- -----------------------------------------------------------------------------
--- The monotonic guard, in SQL for the same reason the status guard is (§8, and
--- lib/zoom/webhook-store.ts's header): `webhook_sweep` deliberately replays events
--- fifteen minutes or more after they were received and Zoom does not order its
--- deliveries, so a second `meeting.started` for the same occurrence is reachable in
--- normal operation. An in-process "read the row, decide, write it" check would be a
--- TOCTOU race between the route and a concurrent sweep; expressing it as COALESCE
--- inside the UPDATE itself makes both converge no matter which one runs first.
+-- The lifecycle transition, as ONE atomic guarded statement.
 --
--- A BEFORE UPDATE trigger rather than the UPDATE's SET list because the writer is
--- PostgREST (`serviceClient.schema('zoom_internal')`), which sends literal values and
--- cannot express an expression over the existing row. This way the rule holds for
--- EVERY writer, including ones that do not exist yet.
+-- ## Why this function exists at all
 --
--- No-op for every other write: an UPDATE that does not mention these columns has
--- NEW.col = OLD.col already, and COALESCE(OLD, OLD) is OLD.
+-- Until Z7-1 the transition was a PostgREST `UPDATE ... WHERE id = $1 AND status IN
+-- (...)`, and the `.in(...)` filter WAS the monotonicity guard — evaluated by Postgres
+-- inside the UPDATE, so a route and a concurrent `webhook_sweep` racing on the same
+-- meeting cannot both win (Sol F1). That property is preserved here exactly.
 --
--- CONSEQUENCE, stated so it is not discovered later: this makes the two columns
--- write-once. A future authoritative correction — §11's "(reconcile-corrected)" —
--- cannot go through a plain UPDATE and will need its own explicit path.
+-- What PostgREST cannot express is a SET list that reads the existing row.
+-- `webhook_sweep` deliberately replays events fifteen minutes or more after they
+-- arrive, and Zoom does not order its deliveries, so a second `meeting.started` for
+-- the same occurrence is normal operation — and a literal assignment would let it
+-- overwrite an instant already recorded. `COALESCE(m.actual_started_at, p_…)` is the
+-- fix, and it has to live in SQL, in the same statement as the guard.
+--
+-- ## Why a function and not a BEFORE UPDATE trigger
+--
+-- A trigger would apply the same COALESCE to EVERY writer, which makes the columns
+-- write-once for the whole system — including the Z7-3 reconcile, whose participant
+-- report §11 makes AUTHORITATIVE over webhooks. Scoping the rule to this function
+-- keeps fill-while-NULL where it belongs (the replay-prone webhook path) and leaves a
+-- plain service-role UPDATE as the explicit correction path reconciliation needs.
+-- pgTAP 011 asserts both halves: this function cannot overwrite, and a direct UPDATE
+-- can.
+--
+-- ## Why the applies-from set is a PARAMETER
+--
+-- `lib/zoom/webhook-store.ts` exports `LIFECYCLE_STARTED_APPLIES_FROM` /
+-- `LIFECYCLE_ENDED_APPLIES_FROM` and its suite pins them literally. Hard-coding them
+-- here too would create a third SQL twin of a rule that already carries one drift
+-- warning in this codebase (`sync_projection_from_meeting`). Passing the set in keeps
+-- TypeScript the single source of truth and makes this function a mechanism rather
+-- than a second copy of the policy. `__tests__/lib/zoom/webhook-store.test.ts` reads
+-- the array back off the wire, so a dropped or widened guard still fails there.
+--
+-- SECURITY INVOKER (the default) on purpose, unlike the provisioning RPCs: the caller
+-- is already service_role, which holds the table rights and bypasses RLS, so DEFINER
+-- would add privilege this function does not need. Zero rows returned = the guard
+-- refused, which is an ordinary outcome and not an error.
 -- -----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION zoom_internal.preserve_actual_instants()
-RETURNS trigger
+CREATE OR REPLACE FUNCTION zoom_internal.apply_meeting_lifecycle(
+  p_meeting_id uuid,
+  p_status text,
+  p_applies_from text[],
+  p_occurrence_uuid text,
+  p_actual_started_at timestamptz,
+  p_actual_ended_at timestamptz
+) RETURNS TABLE (surface_type text, surface_id uuid)
 LANGUAGE plpgsql
 SET search_path = ''
 AS $$
 BEGIN
-  NEW.actual_started_at := COALESCE(OLD.actual_started_at, NEW.actual_started_at);
-  NEW.actual_ended_at := COALESCE(OLD.actual_ended_at, NEW.actual_ended_at);
-  RETURN NEW;
+  RETURN QUERY
+  UPDATE zoom_internal.zoom_meetings AS m
+     SET status = p_status,
+         -- Unchanged rule: an event that omits the uuid must not blank the one
+         -- `meeting.started` captured, and `meeting.ended` never supplies one.
+         zoom_meeting_uuid = COALESCE(p_occurrence_uuid, m.zoom_meeting_uuid),
+         -- Fill-while-NULL, both columns. First writer wins; the replay is inert.
+         actual_started_at = COALESCE(m.actual_started_at, p_actual_started_at),
+         actual_ended_at = COALESCE(m.actual_ended_at, p_actual_ended_at),
+         updated_at = now()
+   WHERE m.id = p_meeting_id
+     AND m.status = ANY (p_applies_from)
+  RETURNING m.surface_type, m.surface_id;
 END
 $$;
 
-REVOKE EXECUTE ON FUNCTION zoom_internal.preserve_actual_instants()
-  FROM PUBLIC, anon, authenticated;
+COMMENT ON FUNCTION zoom_internal.apply_meeting_lifecycle(uuid, text, text[], text, timestamptz, timestamptz) IS
+  'The §8 lifecycle transition as one atomic guarded UPDATE: the applies-from set is the monotonicity guard (caller-supplied; source of truth lib/zoom/webhook-store.ts), and the observed instants are filled only while NULL so a swept or out-of-order replay cannot overwrite one. Returns the row surface keys when the guard applied, zero rows when it refused. NOT the correction path — Z7-3 reconcile writes the columns directly.';
 
-CREATE TRIGGER zoom_meetings_preserve_actual_instants
-  BEFORE UPDATE ON zoom_internal.zoom_meetings
-  FOR EACH ROW
-  EXECUTE FUNCTION zoom_internal.preserve_actual_instants();
+REVOKE EXECUTE ON FUNCTION zoom_internal.apply_meeting_lifecycle(
+  uuid, text, text[], text, timestamptz, timestamptz)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION zoom_internal.apply_meeting_lifecycle(
+  uuid, text, text[], text, timestamptz, timestamptz)
+  TO service_role;

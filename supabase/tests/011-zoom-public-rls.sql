@@ -25,7 +25,7 @@
 
 BEGIN;
 
-SELECT plan(51);
+SELECT plan(71);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures
@@ -246,32 +246,60 @@ SELECT col_default_is(
   'consultor_sessions.is_zoom_managed defaults to false — every legacy row is unmanaged');
 
 -- =============================================================================
--- Z7-1 — public.zoom_attendance persona matrix and write denial (16 asserts).
+-- Z7-1 — public.zoom_attendance persona matrix and write denial.
 --
 -- The §7 row is narrower than the projection table's above: admin sees all, the
 -- FACILITATOR of that surface sees its rows, and a consultor reaches them ONLY by
 -- being that facilitator. No GC member, no other school, no anon — leadership gets
 -- API-computed aggregates and never these rows (PROJECT_STATE macro invariant).
 --
--- `z_cons_a` is the discriminating persona and it is why this section adds a user:
--- z_fac_a and z_cons_a are BOTH active consultors at School A, and the only thing
--- that separates them is the session_facilitators row. A predicate that leaked
--- school scope into this table would pass every other assert here and fail that one.
+-- Four personas carry the weight, and each exists because a plausible predicate
+-- passes without it:
+--
+--  - `z_cons_a` is the discriminator. It and `z_fac_a` are BOTH active consultors at
+--    School A; only the session_facilitators row separates them. A predicate that let
+--    school scope leak into this table passes every other assert here and fails this.
+--  - `z_fac_glb` is a consultor with **school_id NULL** who IS the assigned
+--    facilitator. Under the inline-EXISTS predicate this persona was BROKEN: the
+--    policy's subquery is itself subject to `session_facilitators` RLS, whose
+--    `facilitators_consultor_select` requires `ur.school_id = cs.school_id`, so a
+--    globally scoped facilitator could not read their OWN facilitator row and saw
+--    nothing for a session they run. `public.is_zoom_surface_facilitator` is SECURITY
+--    DEFINER precisely so the membership lookup no longer depends on that.
+--  - `z_fac_cm` is the NAMED facilitator of a community meeting
+--    (`community_meetings.facilitator_id`) — the other half of §7's `Fac` column, which
+--    `session_facilitators` cannot express.
+--  - The collision fixture gives a consultor_session and a community_meeting the SAME
+--    uuid (separate tables, separate PKs, so this is reachable in production). It is
+--    what makes `surface_type` load-bearing rather than decorative: without the switch
+--    each surface's facilitator reads the other's attendance.
 --
 -- Fixtures stay synthetic (@test.local, Ley 21.719 — attendance rows name real
 -- people in production and never in a test).
 -- =============================================================================
 
 SELECT tests.create_supabase_user('z_fac_a');
+SELECT tests.create_supabase_user('z_fac_glb');
+SELECT tests.create_supabase_user('z_fac_cm');
+SELECT tests.create_supabase_user('z_fac_col');
 
 INSERT INTO public.profiles (id, email, name, approval_status)
-VALUES (tests.get_supabase_uid('z_fac_a'), 'z_fac_a@test.local', 'z_fac_a', 'approved')
+SELECT tests.get_supabase_uid(x.ident), x.ident || '@test.local', x.ident, 'approved'
+FROM (VALUES ('z_fac_a'), ('z_fac_glb'), ('z_fac_cm'), ('z_fac_col')) AS x(ident)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.user_roles (user_id, role_type, school_id, community_id, is_active) VALUES
-  (tests.get_supabase_uid('z_fac_a'), 'consultor', 9901, NULL, true);
+  (tests.get_supabase_uid('z_fac_a'),   'consultor', 9901, NULL, true),
+  -- No school scope at all: facilitation is this persona's ONLY path to a row.
+  (tests.get_supabase_uid('z_fac_glb'), 'consultor', NULL, NULL, true),
+  (tests.get_supabase_uid('z_fac_col'), 'consultor', 9901, NULL, true),
+  -- A plain community member. Being named facilitator of the meeting is what grants.
+  (tests.get_supabase_uid('z_fac_cm'),  'docente',   9901,
+   'cccccccc-2222-0000-0000-000000000001', true);
 
--- Two sessions, one per school. S1 is facilitated by z_fac_a; S2 by nobody.
+-- S1 (School A, facilitated by z_fac_a AND z_fac_glb) · S2 (School B, nobody) ·
+-- COLLIDE (School A, facilitated by z_fac_col) whose id is reused by a community
+-- meeting below.
 INSERT INTO public.consultor_sessions
   (id, school_id, growth_community_id, title, session_date, start_time, end_time,
    modality, status, is_active, created_by)
@@ -283,15 +311,37 @@ VALUES
   ('a7a7a7a7-0000-0000-0000-000000000002', 9902,
    'cccccccc-2222-0000-0000-000000000002', 'Z7 RLS Session B', CURRENT_DATE,
    '11:00:00', '12:00:00', 'online', 'programada', true,
+   tests.get_supabase_uid('z_admin')),
+  ('a7a7a7a7-c011-0000-0000-000000000001', 9901,
+   'cccccccc-2222-0000-0000-000000000001', 'Z7 RLS Collision Session', CURRENT_DATE,
+   '13:00:00', '14:00:00', 'online', 'programada', true,
    tests.get_supabase_uid('z_admin'));
 
 INSERT INTO public.session_facilitators (session_id, user_id, facilitator_role, is_lead)
-VALUES ('a7a7a7a7-0000-0000-0000-000000000001', tests.get_supabase_uid('z_fac_a'),
-        'consultor_externo', true);
+VALUES
+  ('a7a7a7a7-0000-0000-0000-000000000001', tests.get_supabase_uid('z_fac_a'),
+   'consultor_externo', true),
+  ('a7a7a7a7-0000-0000-0000-000000000001', tests.get_supabase_uid('z_fac_glb'),
+   'consultor_externo', false),
+  ('a7a7a7a7-c011-0000-0000-000000000001', tests.get_supabase_uid('z_fac_col'),
+   'consultor_externo', true);
 
--- Three attendance rows: two on School A's session, one on School B's. The second
--- School A row is the `unmatched` shape the §15.3.5 blind spot requires to be
--- storable — a link-join participant Zoom gave no identity field for.
+-- The collision: a community meeting whose PRIMARY KEY equals the session's above.
+INSERT INTO public.community_workspaces (id, community_id, name)
+VALUES ('a7a7a7a7-4444-0000-0000-000000000001',
+        'cccccccc-2222-0000-0000-000000000001', 'Z7 RLS Workspace');
+
+INSERT INTO public.community_meetings
+  (id, workspace_id, title, meeting_date, created_by, facilitator_id, is_active)
+VALUES
+  ('a7a7a7a7-c011-0000-0000-000000000001',
+   'a7a7a7a7-4444-0000-0000-000000000001', 'Z7 RLS Collision Meeting',
+   now() + interval '1 day', tests.get_supabase_uid('z_admin'),
+   tests.get_supabase_uid('z_fac_cm'), true);
+
+-- Five attendance rows. ATT2 is the `unmatched` shape the §15.3.5 blind spot requires
+-- to be storable — a link-join participant Zoom gave no identity field for. ATT4/ATT5
+-- share a surface_id and differ only by surface_type.
 INSERT INTO public.zoom_attendance
   (id, surface_type, surface_id, school_id, zoom_meeting_uuid,
    user_id, customer_key, display_name, transient_email, matched_by,
@@ -308,7 +358,15 @@ VALUES
   ('a7a7a7a7-1111-0000-0000-000000000003', 'consultor_session',
    'a7a7a7a7-0000-0000-0000-000000000002', 9902, 'z7Synthetic/Occurrence/B==',
    NULL, NULL, NULL, 'z_cons_b@test.local',
-   'email', now() - interval '40 min', now() - interval '10 min', 'report');
+   'email', now() - interval '40 min', now() - interval '10 min', 'report'),
+  ('a7a7a7a7-1111-0000-0000-000000000004', 'consultor_session',
+   'a7a7a7a7-c011-0000-0000-000000000001', 9901, 'z7Synthetic/Occurrence/C==',
+   NULL, NULL, 'Asistente Sintetico Sesion', NULL,
+   'name', now() - interval '30 min', NULL, 'webhook'),
+  ('a7a7a7a7-1111-0000-0000-000000000005', 'community_meeting',
+   'a7a7a7a7-c011-0000-0000-000000000001', 9901, 'z7Synthetic/Occurrence/D==',
+   NULL, NULL, 'Asistente Sintetico Reunion', NULL,
+   'name', now() - interval '20 min', NULL, 'webhook');
 
 SELECT tests.rls_enabled('public', 'zoom_attendance');
 
@@ -320,22 +378,16 @@ SELECT col_not_null(
 SELECT tests.authenticate_as('z_admin');
 
 SELECT is(
-  (SELECT count(*)::int FROM public.zoom_attendance
-    WHERE id IN ('a7a7a7a7-1111-0000-0000-000000000001',
-                 'a7a7a7a7-1111-0000-0000-000000000002',
-                 'a7a7a7a7-1111-0000-0000-000000000003')),
-  3, 'admin: sees all 3 attendance rows regardless of school');
+  (SELECT count(*)::int FROM public.zoom_attendance),
+  5, 'admin: sees all 5 attendance rows regardless of school or surface');
 
 RESET ROLE;
 
--- the facilitator of that surface: its rows, and only its rows -------------------
+-- (d) the school-scoped facilitator: its rows, and only its rows -----------------
 SELECT tests.authenticate_as('z_fac_a');
 
 SELECT is(
-  (SELECT count(*)::int FROM public.zoom_attendance
-    WHERE id IN ('a7a7a7a7-1111-0000-0000-000000000001',
-                 'a7a7a7a7-1111-0000-0000-000000000002',
-                 'a7a7a7a7-1111-0000-0000-000000000003')),
+  (SELECT count(*)::int FROM public.zoom_attendance),
   2, 'facilitator: sees exactly the 2 rows of the session they facilitate');
 
 SELECT is_empty(
@@ -345,52 +397,94 @@ SELECT is_empty(
 
 RESET ROLE;
 
--- consultor at the SAME school who is not the facilitator: nothing ---------------
+-- (a) a GLOBALLY SCOPED consultor who is the assigned facilitator ----------------
+-- school_id IS NULL, so no school predicate can reach these rows and the persona
+-- cannot read its own session_facilitators row under that table's own RLS. It sees
+-- the session's attendance anyway, which is the SECURITY DEFINER predicate working.
+SELECT tests.authenticate_as('z_fac_glb');
+
+SELECT is(
+  (SELECT count(*)::int FROM public.zoom_attendance),
+  2, 'globally scoped consultor who IS the facilitator: sees the session''s 2 rows');
+
+SELECT is_empty(
+  $$ SELECT 1 FROM public.zoom_attendance
+      WHERE id IN ('a7a7a7a7-1111-0000-0000-000000000003',
+                   'a7a7a7a7-1111-0000-0000-000000000004') $$,
+  'globally scoped facilitator: facilitation grants THAT session only, not a global read');
+
+RESET ROLE;
+
+-- (b) the NAMED community-meeting facilitator ------------------------------------
+-- (c) ...and the collision: same uuid, different surface_type, different reader.
+SELECT tests.authenticate_as('z_fac_cm');
+
+SELECT is(
+  (SELECT count(*)::int FROM public.zoom_attendance),
+  1, 'community-meeting facilitator: sees exactly their meeting''s attendance row');
+
+SELECT is_empty(
+  $$ SELECT 1 FROM public.zoom_attendance
+      WHERE id = 'a7a7a7a7-1111-0000-0000-000000000004' $$,
+  'COLLISION: the community facilitator cannot read the SESSION row sharing that uuid');
+
+RESET ROLE;
+
+SELECT tests.authenticate_as('z_fac_col');
+
+SELECT is(
+  (SELECT count(*)::int FROM public.zoom_attendance),
+  1, 'session facilitator at the collided uuid: sees exactly their session''s row');
+
+SELECT is_empty(
+  $$ SELECT 1 FROM public.zoom_attendance
+      WHERE id = 'a7a7a7a7-1111-0000-0000-000000000005' $$,
+  'COLLISION: the session facilitator cannot read the COMMUNITY row sharing that uuid');
+
+RESET ROLE;
+
+-- (d) consultor at the SAME school who is not the facilitator: nothing -----------
 SELECT tests.authenticate_as('z_cons_a');
 
 SELECT is(
-  (SELECT count(*)::int FROM public.zoom_attendance
-    WHERE id IN ('a7a7a7a7-1111-0000-0000-000000000001',
-                 'a7a7a7a7-1111-0000-0000-000000000002',
-                 'a7a7a7a7-1111-0000-0000-000000000003')),
+  (SELECT count(*)::int FROM public.zoom_attendance),
   0, 'consultor A (School A, NOT the facilitator): sees nothing — school scope grants nothing here');
 
 RESET ROLE;
 
--- another school: nothing --------------------------------------------------------
+-- (d) another school: nothing -----------------------------------------------------
 SELECT tests.authenticate_as('z_cons_b');
 
 SELECT is(
-  (SELECT count(*)::int FROM public.zoom_attendance
-    WHERE id IN ('a7a7a7a7-1111-0000-0000-000000000001',
-                 'a7a7a7a7-1111-0000-0000-000000000002',
-                 'a7a7a7a7-1111-0000-0000-000000000003')),
+  (SELECT count(*)::int FROM public.zoom_attendance),
   0, 'consultor B (School B): sees nothing, including their own school''s row');
 
 RESET ROLE;
 
--- GC member: nothing (unlike the projection table, which they DO read) -----------
+-- (d) GC member: nothing (unlike the projection table, which they DO read) --------
 SELECT tests.authenticate_as('z_gc_mem');
 
 SELECT is(
-  (SELECT count(*)::int FROM public.zoom_attendance
-    WHERE id IN ('a7a7a7a7-1111-0000-0000-000000000001',
-                 'a7a7a7a7-1111-0000-0000-000000000002',
-                 'a7a7a7a7-1111-0000-0000-000000000003')),
+  (SELECT count(*)::int FROM public.zoom_attendance),
   0, 'active GC member: sees no attendance rows — this table is not community-readable');
 
 RESET ROLE;
 
--- anon: nothing ------------------------------------------------------------------
+-- anon: nothing, and HARDER than nothing -----------------------------------------
+-- Unlike session_meetings_public above, anon does not get an empty result here — it
+-- gets 42501. `is_zoom_surface_facilitator` is EXECUTE-revoked from PUBLIC and anon,
+-- so the policy cannot even be evaluated for an unauthenticated caller. That is a
+-- stricter denial than an empty set (anon cannot probe "is anyone the facilitator of
+-- surface X"), and it is asserted rather than assumed because the failure MODE
+-- changed: a future reader that expects `[]` from PostgREST will see an error instead.
 SELECT set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
 SELECT set_config('role', 'anon', true);
 
-SELECT is(
-  (SELECT count(*)::int FROM public.zoom_attendance
-    WHERE id IN ('a7a7a7a7-1111-0000-0000-000000000001',
-                 'a7a7a7a7-1111-0000-0000-000000000002',
-                 'a7a7a7a7-1111-0000-0000-000000000003')),
-  0, 'anon: sees no attendance rows');
+SELECT throws_ok(
+  $$ SELECT count(*) FROM public.zoom_attendance $$,
+  '42501',
+  NULL,
+  'anon: cannot read attendance at all — the facilitator predicate is not executable by anon');
 
 RESET ROLE;
 
@@ -456,7 +550,43 @@ SELECT is(
   0, 'zoom_attendance carries no non-SELECT policy for any role (§7 frozen decision)');
 
 -- =============================================================================
--- Z7-1 — the C6 amendment: zoom_internal.zoom_meetings.actual_* (12 asserts).
+-- Z7-1 — the facilitator predicate itself.
+--
+-- It is SECURITY DEFINER, so its grants are the whole of its blast radius. It
+-- returns one boolean and no rows, so an accidental grant leaks a membership bit
+-- rather than data — but `anon` must still not be able to probe "is user X the
+-- facilitator of surface Y", and PUBLIC must not hold it by default.
+-- =============================================================================
+
+SELECT is(has_function_privilege('anon',
+  'public.is_zoom_surface_facilitator(text, uuid)', 'EXECUTE'), false,
+  'anon cannot execute is_zoom_surface_facilitator');
+SELECT is(has_function_privilege('authenticated',
+  'public.is_zoom_surface_facilitator(text, uuid)', 'EXECUTE'), true,
+  'authenticated can execute is_zoom_surface_facilitator — the policy is evaluated as them');
+
+SELECT is(
+  (SELECT p.prosecdef FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public' AND p.proname = 'is_zoom_surface_facilitator'),
+  true, 'is_zoom_surface_facilitator is SECURITY DEFINER — the membership lookup bypasses the caller''s RLS');
+
+SELECT is(
+  (SELECT count(*)::int FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public' AND p.proname = 'is_zoom_surface_facilitator'),
+  1, 'is_zoom_surface_facilitator has no overload — one definition, one predicate');
+
+-- An unknown surface type denies rather than inheriting somebody else's grant.
+SELECT tests.authenticate_as('z_fac_a');
+
+SELECT is(
+  public.is_zoom_surface_facilitator('some_future_surface',
+    'a7a7a7a7-0000-0000-0000-000000000001'), false,
+  'an unrecognised surface_type falls through to false, never to another branch''s answer');
+
+RESET ROLE;
+
+-- =============================================================================
+-- Z7-1 — the C6 amendment: zoom_internal.zoom_meetings.actual_*.
 --
 -- The columns are the storage §11 quantity (3) never had. They live in the private
 -- schema, so the §6 lockdown must still hold after the migration — a new column is
@@ -501,43 +631,82 @@ SELECT is(
   0, 'the §6 lockdown survives the Z7-1 migration — still zero table grants for authenticated');
 
 -- =============================================================================
--- Z7-1 — the instants are WRITE-ONCE, enforced in SQL (5 asserts).
+-- Z7-1 — zoom_internal.apply_meeting_lifecycle: the guard, the fill-while-NULL
+-- rule, and the correction path Z7-3 still needs.
 --
--- `webhook_sweep` replays events fifteen minutes or more after they arrive and Zoom
--- does not order its deliveries, so a second `meeting.started` for the same
--- occurrence is normal operation, not a fault. The writer is PostgREST, which sends
--- literal values and cannot express COALESCE in its SET list — so the rule is a
--- BEFORE UPDATE trigger and holds for every writer, including ones that do not exist
--- yet. This is the database half of [A6]; the out-of-order half (an `ended` followed
--- by a swept `started`, refused by the status guard) is asserted in
--- `__tests__/lib/zoom/webhook-lifecycle-instants.test.ts`.
+-- These are behaviour tests against a real database because the properties live in
+-- SQL: `__tests__/lib/zoom/webhook-store.test.ts` proves the store SENDS the
+-- applies-from set, and `webhook-lifecycle-instants.test.ts` proves the lifecycle
+-- offers the right instants — neither can prove Postgres honours either rule.
 --
--- host_zoom_user_id is NULL so this fixture cannot collide with the §9 EXCLUDE
--- reservation.
+-- Calls run AS service_role, matching the production client and proving the grant is
+-- what the runner actually calls through. host_zoom_user_id is NULL so these fixtures
+-- cannot collide with the §9 EXCLUDE reservation.
 -- =============================================================================
+
+SELECT is(has_function_privilege('anon',
+  'zoom_internal.apply_meeting_lifecycle(uuid, text, text[], text, timestamptz, timestamptz)',
+  'EXECUTE'), false, 'anon cannot execute apply_meeting_lifecycle');
+SELECT is(has_function_privilege('authenticated',
+  'zoom_internal.apply_meeting_lifecycle(uuid, text, text[], text, timestamptz, timestamptz)',
+  'EXECUTE'), false, 'authenticated cannot execute apply_meeting_lifecycle');
+SELECT is(has_function_privilege('service_role',
+  'zoom_internal.apply_meeting_lifecycle(uuid, text, text[], text, timestamptz, timestamptz)',
+  'EXECUTE'), true, 'service_role can execute apply_meeting_lifecycle');
+
+SELECT is(
+  (SELECT p.prosecdef FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'zoom_internal' AND p.proname = 'apply_meeting_lifecycle'),
+  false, 'apply_meeting_lifecycle is SECURITY INVOKER — the caller is already service_role, so DEFINER would add privilege it does not need');
+
+SELECT is(
+  (SELECT oidvectortypes(p.proargtypes)
+     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'zoom_internal' AND p.proname = 'apply_meeting_lifecycle'),
+  'uuid, text, text[], text, timestamp with time zone, timestamp with time zone',
+  'apply_meeting_lifecycle has exactly the 6-argument identity the store calls');
 
 INSERT INTO zoom_internal.zoom_meetings
   (id, surface_type, surface_id, school_id, host_zoom_user_id, zoom_meeting_number,
    status, starts_at, duration_minutes)
 VALUES
+  -- M1: the in-order path — started, replay, then a deliberate correction.
   ('a7a7a7a7-2222-0000-0000-000000000001', 'consultor_session',
    'a7a7a7a7-3333-0000-0000-000000000001', 9901, NULL, 86084701483,
+   'provisioned', '2026-07-29T23:30:00Z', 60),
+  -- M2: the OUT-OF-ORDER path — ended first, then a swept started.
+  ('a7a7a7a7-2222-0000-0000-000000000002', 'consultor_session',
+   'a7a7a7a7-3333-0000-0000-000000000002', 9901, NULL, 86084701484,
    'provisioned', '2026-07-29T23:30:00Z', 60);
 
-UPDATE zoom_internal.zoom_meetings
-   SET status = 'started', actual_started_at = '2026-07-29T23:55:56Z'
- WHERE id = 'a7a7a7a7-2222-0000-0000-000000000001';
+SET LOCAL ROLE service_role;
 
+-- M1(a) the ordinary first delivery.
 SELECT is(
-  (SELECT actual_started_at FROM zoom_internal.zoom_meetings
-    WHERE id = 'a7a7a7a7-2222-0000-0000-000000000001'),
-  '2026-07-29T23:55:56Z'::timestamptz,
-  'the first meeting.started write records actual_started_at');
+  (SELECT count(*)::int FROM zoom_internal.apply_meeting_lifecycle(
+     'a7a7a7a7-2222-0000-0000-000000000001', 'started',
+     ARRAY['pending', 'provisioned', 'started'], 'z7Occurrence/M1==',
+     '2026-07-29T23:55:56Z', NULL)),
+  1, 'apply_meeting_lifecycle returns the surface row when the guard applies');
 
--- The replay: same occurrence, a different value. The sweep sends this.
-UPDATE zoom_internal.zoom_meetings
-   SET status = 'started', actual_started_at = '2001-01-01T00:00:00Z'
- WHERE id = 'a7a7a7a7-2222-0000-0000-000000000001';
+SELECT ok(
+  (SELECT status = 'started'
+          AND zoom_meeting_uuid = 'z7Occurrence/M1=='
+          AND actual_started_at = '2026-07-29T23:55:56Z'::timestamptz
+          AND actual_ended_at IS NULL
+     FROM zoom_internal.zoom_meetings
+    WHERE id = 'a7a7a7a7-2222-0000-0000-000000000001'),
+  'meeting.started records status, the occurrence uuid and actual_started_at in one statement');
+
+-- M1(b) the sweep replays the same event minutes later, with a different value.
+-- `started` is in its own applies-from set, so this APPLIES — the fill-while-NULL
+-- COALESCE, not the guard, is what protects the recorded instant.
+SELECT is(
+  (SELECT count(*)::int FROM zoom_internal.apply_meeting_lifecycle(
+     'a7a7a7a7-2222-0000-0000-000000000001', 'started',
+     ARRAY['pending', 'provisioned', 'started'], 'z7Occurrence/M1==',
+     '2001-01-01T00:00:00Z', NULL)),
+  1, 'a replayed meeting.started still applies — duplicate deliveries are not errors');
 
 SELECT is(
   (SELECT actual_started_at FROM zoom_internal.zoom_meetings
@@ -545,38 +714,55 @@ SELECT is(
   '2026-07-29T23:55:56Z'::timestamptz,
   'a REPLAYED meeting.started cannot overwrite an instant already recorded');
 
+-- M1(c) THE CORRECTION PATH Z7-3 needs. §11 makes the reconcile participant report
+-- authoritative over webhooks, so the fill-while-NULL rule must be scoped to the
+-- lifecycle function and NOT to the table. A direct service-role UPDATE still wins.
 UPDATE zoom_internal.zoom_meetings
-   SET status = 'ended', actual_ended_at = '2026-07-30T00:03:26Z'
+   SET actual_started_at = '2026-07-29T23:56:30Z'
  WHERE id = 'a7a7a7a7-2222-0000-0000-000000000001';
 
 SELECT is(
-  (SELECT actual_ended_at FROM zoom_internal.zoom_meetings
+  (SELECT actual_started_at FROM zoom_internal.zoom_meetings
     WHERE id = 'a7a7a7a7-2222-0000-0000-000000000001'),
-  '2026-07-30T00:03:26Z'::timestamptz,
-  'meeting.ended records actual_ended_at on the same row');
+  '2026-07-29T23:56:30Z'::timestamptz,
+  'a deliberate service-role UPDATE CAN correct an instant — the Z7-3 reconcile path stays open');
 
-UPDATE zoom_internal.zoom_meetings
-   SET status = 'ended', actual_ended_at = '2002-02-02T00:00:00Z'
- WHERE id = 'a7a7a7a7-2222-0000-0000-000000000001';
-
+-- M2(a) OUT OF ORDER: `meeting.ended` arrives first. Its payload states when the
+-- occurrence began as well as when it finished, so both columns land here.
 SELECT is(
-  (SELECT actual_ended_at FROM zoom_internal.zoom_meetings
-    WHERE id = 'a7a7a7a7-2222-0000-0000-000000000001'),
-  '2026-07-30T00:03:26Z'::timestamptz,
-  'a REPLAYED meeting.ended cannot overwrite actual_ended_at either');
-
--- The trigger is inert for every other writer: an UPDATE naming neither column
--- carries NEW.col = OLD.col, and COALESCE(OLD, OLD) is OLD.
-UPDATE zoom_internal.zoom_meetings
-   SET last_error = 'z7-unrelated-write'
- WHERE id = 'a7a7a7a7-2222-0000-0000-000000000001';
+  (SELECT count(*)::int FROM zoom_internal.apply_meeting_lifecycle(
+     'a7a7a7a7-2222-0000-0000-000000000002', 'ended',
+     ARRAY['pending', 'provisioned', 'started', 'ended', 'error'], NULL,
+     '2026-07-29T23:55:56Z', '2026-07-30T00:03:26Z')),
+  1, 'meeting.ended applies over provisioned — the ended set is the wider one');
 
 SELECT ok(
   (SELECT actual_started_at = '2026-07-29T23:55:56Z'::timestamptz
-      AND actual_ended_at = '2026-07-30T00:03:26Z'::timestamptz
+          AND actual_ended_at = '2026-07-30T00:03:26Z'::timestamptz
+          AND zoom_meeting_uuid IS NULL
      FROM zoom_internal.zoom_meetings
-    WHERE id = 'a7a7a7a7-2222-0000-0000-000000000001'),
-  'an unrelated UPDATE leaves both instants exactly as they were');
+    WHERE id = 'a7a7a7a7-2222-0000-0000-000000000002'),
+  'an out-of-order meeting.ended records BOTH exact instants — and still captures no occurrence uuid');
+
+-- M2(b) ...and the swept `meeting.started` fifteen minutes later is refused by the
+-- guard, so it can neither overwrite the instants nor resurrect a finished meeting.
+SELECT is(
+  (SELECT count(*)::int FROM zoom_internal.apply_meeting_lifecycle(
+     'a7a7a7a7-2222-0000-0000-000000000002', 'started',
+     ARRAY['pending', 'provisioned', 'started'], 'z7Occurrence/M2==',
+     '2001-01-01T00:00:00Z', NULL)),
+  0, 'a swept meeting.started over an ended meeting matches zero rows — the guard refuses it');
+
+SELECT ok(
+  (SELECT status = 'ended'
+          AND actual_started_at = '2026-07-29T23:55:56Z'::timestamptz
+          AND actual_ended_at = '2026-07-30T00:03:26Z'::timestamptz
+          AND zoom_meeting_uuid IS NULL
+     FROM zoom_internal.zoom_meetings
+    WHERE id = 'a7a7a7a7-2222-0000-0000-000000000002'),
+  'after the refused replay the row still holds both EXACT fixture instants, unchanged');
+
+RESET ROLE;
 
 SELECT * FROM finish();
 

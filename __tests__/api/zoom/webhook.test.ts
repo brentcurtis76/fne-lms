@@ -504,14 +504,15 @@ describe('/api/zoom/webhook — lifecycle application (§15 rows only)', () => {
     // provision-time value it replaced is gone.
     expect(row?.zoom_meeting_uuid).toBe(FIXTURE_OCCURRENCE_UUID);
     expect(row?.zoom_meeting_uuid).not.toBe(PROVISION_TIME_UUID);
-    // Z7-1 widened this call by one argument: the observed instant rides the SAME
-    // guarded UPDATE as the status, so the route hands it down here rather than
-    // issuing a second write. The value is the fixture's own `payload.object.start_time`.
+    // Z7-1 widened this call by one argument: the observed instants ride the SAME
+    // guarded statement as the status, so the route hands them down here rather than
+    // issuing a second write. The value is the fixture's own `payload.object.start_time`,
+    // and `meeting.started` offers no end instant.
     expect(store.setMeetingStatus).toHaveBeenCalledWith(
       MEETING_ROW_ID,
       'started',
       FIXTURE_OCCURRENCE_UUID,
-      '2026-07-29T23:55:56.000Z'
+      { actualStartedAt: '2026-07-29T23:55:56.000Z', actualEndedAt: null }
     );
   });
 
@@ -535,14 +536,14 @@ describe('/api/zoom/webhook — lifecycle application (§15 rows only)', () => {
     expect(res._getStatusCode()).toBe(200);
     expect(meetings.get(FIXTURE_MEETING_NUMBER)?.status).toBe('ended');
     expect(meetings.get(FIXTURE_MEETING_NUMBER)?.zoom_meeting_uuid).toBe(FIXTURE_OCCURRENCE_UUID);
-    // Z7-1: `end_time` from the same fixture, and still no uuid — `ended` never
-    // rewrites the occurrence uuid `started` captured.
-    expect(store.setMeetingStatus).toHaveBeenCalledWith(
-      MEETING_ROW_ID,
-      'ended',
-      null,
-      '2026-07-30T00:03:26.000Z'
-    );
+    // Z7-1: `ended` offers BOTH instants from the same fixture — its payload states
+    // when the occurrence began as well as when it finished, and the RPC fills each
+    // column only while NULL. Still no uuid: `ended` never rewrites the occurrence
+    // uuid `started` captured.
+    expect(store.setMeetingStatus).toHaveBeenCalledWith(MEETING_ROW_ID, 'ended', null, {
+      actualStartedAt: '2026-07-29T23:55:56.000Z',
+      actualEndedAt: '2026-07-30T00:03:26.000Z',
+    });
   });
 
   it('an unknown meeting number is a row-only 200 (normal until provisioning exists)', async () => {

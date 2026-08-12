@@ -11,7 +11,11 @@
  * (`pages/api/zoom/webhook.ts`) and the job (`lib/zoom/jobs/webhook-sweep.ts`) can
  * import it without either importing the other.
  */
-import { PROJECTION_STATUS_FOR, type ZoomWebhookStore } from './webhook-store';
+import {
+  PROJECTION_STATUS_FOR,
+  type LifecycleInstants,
+  type ZoomWebhookStore,
+} from './webhook-store';
 
 /** The only two event types that move a row. Everything else is ledger-only. */
 export const LIFECYCLE_EVENT_TYPES = ['meeting.started', 'meeting.ended'] as const;
@@ -118,14 +122,14 @@ export function readLifecycleInstant(preferred: unknown, eventTsMs: unknown): st
  *
  * ## The observed instants ride the SAME guarded UPDATE (Z7-1, C6 amendment)
  *
- * `meeting.started` records `actual_started_at` and `meeting.ended` records
- * `actual_ended_at` — §11 quantity (3), which had no storage until this phase. They
- * are handed to the same `setMeetingStatus` call rather than written separately,
- * because a second statement would be a second chance to lose the ordering argument
- * above: an instant written outside the status guard could land for a transition the
- * guard refused. Write-once is enforced one level lower still, by the migration's
- * COALESCE trigger, so no writer — not this one, not a future one — can overwrite an
- * instant already recorded.
+ * §11 quantity (3) had no storage until this phase. Both instants are handed to the
+ * same `setMeetingStatus` call rather than written separately, because a second
+ * statement would be a second chance to lose the ordering argument above: an instant
+ * written outside the status guard could land for a transition the guard refused.
+ * `zoom_internal.apply_meeting_lifecycle` fills each column only while it is NULL, so
+ * a replayed or out-of-order delivery cannot overwrite one — while a deliberate
+ * correction (the Z7-3 reconcile, whose report §11 makes authoritative) still can,
+ * because that rule is scoped to this function rather than to the table.
  */
 export async function applyWebhookLifecycle(
   store: ZoomWebhookStore,
@@ -146,20 +150,27 @@ export async function applyWebhookLifecycle(
   // `meeting.ended` carries the same occurrence uuid, but `started` already captured
   // it; passing null there means a malformed/absent uuid can never blank the column.
   const occurrenceUuid = status === 'started' ? readOccurrenceUuid(object?.uuid) : null;
-  // Each event records its OWN instant. `meeting.ended` also carries `start_time`, but
-  // reading it here would make the ended event a second writer of a column the started
-  // event owns — see the review request for why that is left to the Z7-3 reconcile.
-  const actualInstant = readLifecycleInstant(
-    status === 'started' ? object?.start_time : object?.end_time,
-    eventTsMs
-  );
 
-  const transition = await store.setMeetingStatus(
-    meetingId,
-    status,
-    occurrenceUuid,
-    actualInstant
-  );
+  // `meeting.ended` offers BOTH instants, because its payload states when the
+  // occurrence began as well as when it finished. That is not a second writer racing
+  // `started`: the RPC fills each column only while NULL, so when `started` already
+  // landed the offered value is discarded, and when `started` has NOT landed — the
+  // out-of-order case, where the `started` that follows is refused by the guard — this
+  // is the only chance the row gets to record when the meeting actually began.
+  //
+  // The `event_ts` fallback is deliberately asymmetric. On the `ended` branch it may
+  // stand in for `end_time` (both describe the end of the occurrence) but NEVER for
+  // `start_time`: this event was delivered when the meeting finished, so using its
+  // timestamp as a start would record a zero-length meeting as fact.
+  const instants: LifecycleInstants =
+    status === 'started'
+      ? { actualStartedAt: readLifecycleInstant(object?.start_time, eventTsMs), actualEndedAt: null }
+      : {
+          actualStartedAt: readLifecycleInstant(object?.start_time, undefined),
+          actualEndedAt: readLifecycleInstant(object?.end_time, eventTsMs),
+        };
+
+  const transition = await store.setMeetingStatus(meetingId, status, occurrenceUuid, instants);
   // Refused: the row is already past this status. Nothing moved, and nothing downstream
   // may move either — the projection stays wherever the winning event left it.
   if (!transition.applied || transition.surface === null) return;

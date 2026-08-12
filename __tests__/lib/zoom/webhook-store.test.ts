@@ -97,6 +97,17 @@ function statusFilterOf(request: RecordedRequest, column: string): string {
   return (request.url.searchParams.get(column) ?? '').replace(/"/g, '');
 }
 
+/**
+ * Z7-1 moved the lifecycle transition onto `zoom_internal.apply_meeting_lifecycle`, so
+ * the guard now travels in the RPC's JSON body instead of a `?status=in.(...)` query
+ * filter. The property under test is unchanged and so is this file's reason to exist:
+ * a dropped or widened applies-from set is a silent, total loss of the ordering
+ * guarantee, and every other suite would stay green through it.
+ */
+function rpcArgsOf(request: RecordedRequest): Record<string, unknown> {
+  return request.body as Record<string, unknown>;
+}
+
 describe('createSupabaseWebhookStore · the guard is on the wire (Sol R2 ③)', () => {
   it('applies `ended` and returns the surface keys the projection needs', async () => {
     const { store, requests } = interceptedStore([
@@ -110,19 +121,20 @@ describe('createSupabaseWebhookStore · the guard is on the wire (Sol R2 ③)', 
       surface: { surfaceType: 'consultor_session', surfaceId: SURFACE_ID },
     });
 
-    // The surface keys come from the UPDATE's own RETURNING — one round trip, no
-    // second lookup that a concurrent writer could interleave with.
+    // The surface keys come from the UPDATE's own RETURNING, inside the function — one
+    // round trip, no second lookup a concurrent writer could interleave with.
     const [request] = requests;
-    expect(request.method).toBe('PATCH');
-    expect(request.url.pathname).toBe('/rest/v1/zoom_meetings');
-    expect(request.url.searchParams.get('select')).toBe('surface_type,surface_id');
-    expect(request.body).toMatchObject({
-      status: 'ended',
-      zoom_meeting_uuid: 'Fk+SyntheticUuid/0001==',
+    expect(request.method).toBe('POST');
+    expect(request.url.pathname).toBe('/rest/v1/rpc/apply_meeting_lifecycle');
+    expect(request.headers.get('content-profile')).toBe('zoom_internal');
+    expect(rpcArgsOf(request)).toMatchObject({
+      p_meeting_id: MEETING_ID,
+      p_status: 'ended',
+      p_occurrence_uuid: 'Fk+SyntheticUuid/0001==',
     });
   });
 
-  it('a LATER `started` carries the started applies-from filter and reports applied=false', async () => {
+  it('a LATER `started` carries the started applies-from set and reports applied=false', async () => {
     // The ordering bug in one call: a delayed or swept `meeting.started` arriving after
     // `meeting.ended`. Postgres matches zero rows because `ended` is not in the started
     // set, so the store must report the refusal rather than treat it as an error.
@@ -132,17 +144,23 @@ describe('createSupabaseWebhookStore · the guard is on the wire (Sol R2 ③)', 
 
     expect(result).toEqual({ applied: false, surface: null });
 
-    const [request] = requests;
-    expect(statusFilterOf(request, 'status')).toBe(inFilter(LIFECYCLE_STARTED_APPLIES_FROM));
+    const args = rpcArgsOf(requests[0]);
+    expect(args.p_applies_from).toEqual([...LIFECYCLE_STARTED_APPLIES_FROM]);
     // Pinned literally as well, so mutating the exported set cannot quietly relabel
     // what this test proves.
-    expect(statusFilterOf(request, 'status')).toBe('in.(pending,provisioned,started)');
-    expect(statusFilterOf(request, 'status')).not.toContain('ended');
+    expect(args.p_applies_from).toEqual(['pending', 'provisioned', 'started']);
+    expect(args.p_applies_from).not.toContain('ended');
 
-    // A `started` that omits the uuid must not blank the one an earlier event captured.
-    expect(request.body).toEqual({
-      status: 'started',
-      updated_at: expect.any(String),
+    // A `started` that omits the uuid must not blank the one an earlier event captured,
+    // and an absent instant is offered as null rather than not offered at all — the
+    // function COALESCEs, so null can never blank a recorded value.
+    expect(args).toEqual({
+      p_meeting_id: MEETING_ID,
+      p_status: 'started',
+      p_applies_from: ['pending', 'provisioned', 'started'],
+      p_occurrence_uuid: null,
+      p_actual_started_at: null,
+      p_actual_ended_at: null,
     });
   });
 
@@ -150,13 +168,35 @@ describe('createSupabaseWebhookStore · the guard is on the wire (Sol R2 ③)', 
     const { store, requests } = interceptedStore([{ rows: [] }]);
     await store.setMeetingStatus(MEETING_ID, 'ended', null);
 
-    expect(statusFilterOf(requests[0], 'status')).toBe(inFilter(LIFECYCLE_ENDED_APPLIES_FROM));
-    expect(statusFilterOf(requests[0], 'status')).toBe(
-      'in.(pending,provisioned,started,ended,error)'
-    );
+    const args = rpcArgsOf(requests[0]);
+    expect(args.p_applies_from).toEqual([...LIFECYCLE_ENDED_APPLIES_FROM]);
+    expect(args.p_applies_from).toEqual([
+      'pending',
+      'provisioned',
+      'started',
+      'ended',
+      'error',
+    ]);
     // Neither set may reopen an operator's decision.
-    expect(statusFilterOf(requests[0], 'status')).not.toContain('cancelled');
-    expect(statusFilterOf(requests[0], 'status')).not.toContain('deleted');
+    expect(args.p_applies_from).not.toContain('cancelled');
+    expect(args.p_applies_from).not.toContain('deleted');
+  });
+
+  it('offers both instants on the wire, so `ended` can fill a start that never landed', async () => {
+    // Z7-1: the out-of-order case. `meeting.ended` states when the occurrence began as
+    // well as when it finished, and the function fills each column only while NULL — so
+    // sending both is what lets a refused `started` stop being a permanent data loss.
+    const { store, requests } = interceptedStore([{ rows: [] }]);
+
+    await store.setMeetingStatus(MEETING_ID, 'ended', null, {
+      actualStartedAt: '2026-07-29T23:55:56.000Z',
+      actualEndedAt: '2026-07-30T00:03:26.000Z',
+    });
+
+    expect(rpcArgsOf(requests[0])).toMatchObject({
+      p_actual_started_at: '2026-07-29T23:55:56.000Z',
+      p_actual_ended_at: '2026-07-30T00:03:26.000Z',
+    });
   });
 
   it('projection `live` cannot overwrite `ended`', async () => {
@@ -212,9 +252,9 @@ describe('createSupabaseWebhookStore · the guard is on the wire (Sol R2 ③)', 
     );
 
     const [internal, projection] = requests;
-    expect(internal.url.pathname).toBe('/rest/v1/zoom_meetings');
+    expect(internal.url.pathname).toBe('/rest/v1/rpc/apply_meeting_lifecycle');
     expect(internal.headers.get('content-profile')).toBe('zoom_internal');
-    expect(internal.url.searchParams.get('id')).toBe(`eq.${MEETING_ID}`);
+    expect(rpcArgsOf(internal).p_meeting_id).toBe(MEETING_ID);
 
     expect(projection.url.pathname).toBe('/rest/v1/session_meetings_public');
     expect(projection.headers.get('content-profile')).not.toBe('zoom_internal');

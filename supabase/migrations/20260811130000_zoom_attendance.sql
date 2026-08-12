@@ -82,6 +82,69 @@ COMMENT ON COLUMN public.zoom_attendance.matched_by IS
 COMMENT ON COLUMN public.zoom_attendance.source IS
   'webhook | report. §11 makes the reconcile participant report authoritative over webhooks rather than additive, so Z7-3 needs to know which rows a report supersedes.';
 
+-- -----------------------------------------------------------------------------
+-- "Is the caller the facilitator of this surface?" — the §7 `Fac` column, as one
+-- least-privilege predicate covering BOTH surface types.
+--
+-- Why a function rather than two inline EXISTS clauses:
+--
+--  1. **The inline form was wrong for a real persona.** An RLS policy's subquery is
+--     itself subject to the referenced table's RLS. `session_facilitators` carries
+--     `facilitators_consultor_select` (school-scoped consultor) and
+--     `facilitators_gc_member_select` (community member) and nothing else, so a
+--     facilitator with `facilitator_role = 'equipo_interno'` and no consultor role at
+--     that school could not read their OWN facilitator row — and would therefore see
+--     no attendance for a session they run. SECURITY DEFINER makes the membership
+--     lookup independent of that, which is the whole reason it is used here.
+--  2. **`community_meetings` needs a different predicate** (`facilitator_id`), and a
+--     policy that switched on `surface_type` inline would have to reach two more
+--     tables under two more sets of policies.
+--
+-- Least privilege, and each clause earns its keep:
+--  - `auth.uid()` is read INSIDE the function, so the caller cannot supply an
+--    identity. SECURITY DEFINER does not change session GUCs, so this is still the
+--    authenticated caller's own uid — and NULL for anon, which matches nothing.
+--  - The function answers exactly one boolean question and returns no rows, so an
+--    accidental EXECUTE grant leaks a membership bit, never a row of data.
+--  - `STABLE`, not `VOLATILE`: it writes nothing and is re-evaluated per statement.
+--  - `SET search_path = ''` — every reference is schema-qualified, so a caller cannot
+--    shadow `session_facilitators` with a temp table and vote themselves in.
+--  - Unknown surface types fall to `false`. A new surface type must add its branch
+--    here deliberately rather than inherit somebody else's grant.
+-- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.is_zoom_surface_facilitator(
+  p_surface_type text,
+  p_surface_id uuid
+) RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT CASE p_surface_type
+    WHEN 'consultor_session' THEN EXISTS (
+      SELECT 1 FROM public.session_facilitators sf
+       WHERE sf.session_id = p_surface_id
+         AND sf.user_id = auth.uid()
+    )
+    WHEN 'community_meeting' THEN EXISTS (
+      SELECT 1 FROM public.community_meetings cm
+       WHERE cm.id = p_surface_id
+         AND cm.facilitator_id = auth.uid()
+    )
+    ELSE false
+  END
+$$;
+
+COMMENT ON FUNCTION public.is_zoom_surface_facilitator(text, uuid) IS
+  'The §7 `Fac` predicate for Zoom public tables: is auth.uid() the facilitator of this surface? consultor_session via session_facilitators, community_meeting via community_meetings.facilitator_id, anything else false. SECURITY DEFINER so the membership lookup does not depend on the caller being able to read those tables under their own RLS — an equipo_interno facilitator cannot read their own session_facilitators row.';
+
+REVOKE EXECUTE ON FUNCTION public.is_zoom_surface_facilitator(text, uuid)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_zoom_surface_facilitator(text, uuid)
+  TO authenticated;
+
 ALTER TABLE public.zoom_attendance ENABLE ROW LEVEL SECURITY;
 
 -- SELECT: admin — all rows ----------------------------------------------------
@@ -93,20 +156,18 @@ CREATE POLICY "zoom_attendance_admin_select" ON public.zoom_attendance
        AND user_roles.is_active = true
   ));
 
--- SELECT: the facilitator of that consultor session ---------------------------
--- Follows the baseline `attendees_consultor_select` predicate exactly, and this is
--- also the whole of the consultor row in the §7 matrix: a consultor reaches these
--- rows only by being the facilitator, never by school scope. The surface_type
--- equality is load-bearing — without it a community_meeting row whose surface_id
--- collided with a consultor_session id would be readable by that session's
--- facilitator.
+-- SELECT: the facilitator of that surface -------------------------------------
+-- This is also the whole of the consultor row in the §7 matrix: a consultor reaches
+-- these rows only by being the facilitator, never by school scope. `surface_type` is
+-- load-bearing and stays load-bearing inside the function — a consultor_session and a
+-- community_meeting may carry the SAME uuid (separate tables, separate PKs), and
+-- without the switch each surface's facilitator would read the other's attendance.
+-- pgTAP 011 seeds exactly that collision.
 CREATE POLICY "zoom_attendance_facilitator_select" ON public.zoom_attendance
   FOR SELECT USING (
-    zoom_attendance.surface_type = 'consultor_session'
-    AND EXISTS (
-      SELECT 1 FROM public.session_facilitators sf
-       WHERE sf.session_id = zoom_attendance.surface_id
-         AND sf.user_id = auth.uid()
+    public.is_zoom_surface_facilitator(
+      zoom_attendance.surface_type,
+      zoom_attendance.surface_id
     )
   );
 
@@ -115,9 +176,3 @@ CREATE POLICY "zoom_attendance_facilitator_select" ON public.zoom_attendance
 -- consultant action or AI process may write attendance from an authenticated
 -- session. pgTAP 011 asserts the denial per persona AND asserts structurally that
 -- this table carries no non-SELECT policy at all.
---
--- DELIBERATE GAP, recorded rather than papered over: community_meeting rows are
--- readable by admins only. The §7 "Fac" column applies to that surface too — via
--- community_meetings.facilitator_id, a different predicate from session_facilitators
--- — but Z7-1's scope names session_facilitators alone, and under-granting is the
--- safe direction. The policy belongs with Z7-5's facilitator panel.

@@ -1846,3 +1846,114 @@ verified. Self-description was held to a lower evidentiary standard than code de
 | Chunk | Phase | Branch | Commits | Status | Evidence |
 |---|---|---|---|---|---|
 | Z7-2 · docs receipt | Z7 | `feat/zoom-hours` | `9120bb34` | ✅ correction verified 2026-08-12 | Codex `PASS`, docs-only scope confirmed. **Z7-2 remains 🔴 BLOCKED under `FINDINGS`.** |
+
+## 🔧 **Z7-2 CONTRACT REPLANNED (2026-08-12). [R3] and [R4] withdrawn; the pairing rule is now `PLAN.md` §15.3.9.**
+
+PM contract-repair round on Codex's `FINDINGS`. **No application code, tests, migrations or
+production state touched.** Worktree `/Users/brentcurtis/dev/wt/zoom-hours`, branch
+`feat/zoom-hours`, base `main` @ `43999499`, clean. *(Correction to the task brief: HEAD at the
+start of this round was `9d6c2513`, not `9120bb34` — one further docs commit had landed. The
+reviewed implementation head is `a530aafb`, as stated.)*
+
+### **The replan does not pick a better heuristic. It changes what may authorise a close.**
+
+**A token may authorise webhook-time closure only if Zoom mints it (the client cannot assert
+it), it is unique to one participant-connection by construction, and it matches exactly one
+open row in the occurrence.** Everything else is reconciliation evidence — persisted, used by
+Z7-3 and by the facilitator suggestion, never sufficient for a destructive write.
+
+**Why this ends the cycle rather than continuing it:** unproven joined→left stability stops
+being a blocker. Under rule 3 an unstable token matches nothing, the row stays open, and Z7-3
+closes it — **instability degrades to no-closure, which is safe.** Closing a *stranger's*
+interval would require a value collision between two people in one occurrence, which
+construction-uniqueness forbids. The contract therefore needs no evidence the phase does not
+have, and the reviewer's item 5 is answered without a discovery task.
+
+### **`customer_key` — RECONCILIATION ONLY, and the evidence is decisive against closure.**
+
+The reviewer asked for proof of uniqueness and joined→left stability. **The available evidence
+proves the wrong half, and a second objection makes the missing half moot.**
+
+`docs/planning/zoom-spike-results.md` §6.2 measured
+`GET /report/meetings/{uuid}/participants` and found `customer_key` returned *"exact value as
+sent"* for four participants across three meetings, signed-in and signed-out. **That is a
+REPORT round-trip result, not a webhook joined→left pairing result** — the right evidence for
+*matching a row to a person*, the wrong evidence for *closing an interval*. The committed
+webhook fixtures are two different people and cannot settle pairing either.
+
+**The decisive objection is rule 1, not the evidence gap.** We mint `customer_key`
+(`pages/api/meet/session/[id]/join.ts:439`) and hand it to the browser, which passes it to Zoom
+in the SDK `join()` call. A client that substitutes another user's value joins under that
+identity and Zoom reports it faithfully. **Proving stability would not have made it eligible.**
+It stays the top rung of the §15 identity hierarchy for matching, and gains an explicit
+downstream prohibition: nothing may treat it as authenticated identity.
+
+**Same test applied to the others:** `email` is Zoom-minted but `""` for every signed-out guest
+(§6.2) — the exact population that matters; `display_name` is neither minted nor unique, and is
+the H1/H2 defect itself.
+
+### **Z7-3's semantics are now fixed, and they contain no cross-source matching at all.**
+
+**The report is authoritative wholesale, per occurrence. No row is ever matched between a
+webhook row and a report row** — cross-source matching is precisely where the
+indistinguishability would return, so the contract forbids it.
+
+Two facts from §6.2 shape this and were checked rather than assumed: report rows arrive with
+`join_time`, `leave_time` and `duration` **already paired by Zoom** (the pairing problem is the
+provider's, not ours), and the observed report row set carries **no `participant_uuid`** — so
+no report key may depend on one. Ingestion inserts a batch (`report_batch_id`,
+`report_fetched_at`); the effective set for an occurrence is the newest batch, else the webhook
+rows; webhook rows are never edited, closed or deleted. Replay is harmless because only the
+newest batch is effective, so no row-level dedupe is needed. One batch, one transaction.
+
+### **A defect in Z7-1's own migration, found while writing this contract.**
+
+The partial unique index `(zoom_meeting_uuid, participant_uuid) WHERE participant_uuid IS NOT
+NULL` permits **at most one row per uuid per occurrence**. If Zoom reuses a `participant_uuid`
+across a rejoin, the second join violates it. **It must widen to include `joined_at`**, which is
+correct under both stability hypotheses. This survived a Codex `PASS` and three review rounds
+because every test to date exercised one interval per participant.
+
+### **Boundary ruling: Z7-2 stays a separate chunk.**
+
+Merging it into Z7-3 was considered and rejected. As re-scoped Z7-2 is mostly *deletion*, and
+Z7-3 is a genuinely different architectural concern — an external authoritative source, a job,
+a supersession rule — so merging would produce one oversized chunk after a phase that has
+already paid for oversized units.
+
+### **What survives `a530aafb`, and what goes.**
+
+**Survives:** `source_event_key` + its partial UNIQUE index · persisted identity evidence
+(`identity_tokens`, GIN index, `matched_by`) · the `participant_uuid` closure path ·
+`attendance-intervals.ts` · `[B1]` · `PARTICIPANT_EVENT_TYPES` and the single applier shared by
+route and sweep · all approved Z7-1 work. **Goes:** the `identityToken` arm of
+`listOpenIntervals`, `identityToken()` as a closure input, the `open.length > 1` guard
+(`participant-lifecycle.ts:240`, moot under rule 3), and the attempt-4 regression at
+`participant-lifecycle.test.ts:413` — **it covered only H1, which is why a green suite sat on
+top of a live defect.**
+
+### **The eleven-row falsification matrix is in §15.3.9 and becomes attempt 5's criteria**, with
+`[C4]` — H1 and H2 through the same applier, required to produce identical empty close sets —
+being the case the old contract could not express. Fail-on-old is specified as restoring the
+fallback arm and showing `[C4]` fails, because a probe that does not fail on the old code
+proves nothing.
+
+**Blind spots carried forward, stated rather than closed:** `participant_uuid` pairing
+stability is still unmeasured (now a *performance* property — how much closes before the report
+lands — not a correctness one); uuid-less duplicate joins can double-count until the report
+arrives, accepted deliberately over any heuristic; and the report's completeness is unmeasured
+beyond §6.2's four participants across three meetings.
+
+```text
+STARTED: 2026-08-12
+ATTEMPT: 4 → replan (cumulative count is NOT reset; next implementation attempt is 5)
+RISK: HIGH
+HANDOFFS: 1 (Codex FINDINGS → PM)
+GATES: none run — documentation-only round
+CODEX: FINDINGS (received and acted on)
+ESCAPED DEFECT: n/a — caught before any merge or production application
+```
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-2 · contract replan | Z7 | `feat/zoom-hours` | this commit | ✅ **REPLANNED 2026-08-12 — ready to dispatch as attempt 5** | `[R3]`/`[R4]` superseded by `PLAN.md` §15.3.9. Eligibility rule = Zoom-minted + construction-unique + exactly-one-open-match. `customer_key` barred from closure by rule 1, not by the evidence gap. Z7-3 = wholesale supersession, zero cross-source matching. Z7-1 index defect found and routed. Prompt: `prompts/Z7-r5.md`. Next review boundary `43999499..<head>` against §15.3.9. |

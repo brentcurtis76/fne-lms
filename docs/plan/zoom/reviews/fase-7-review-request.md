@@ -646,3 +646,86 @@ still applies there.
 4. **This is the third pairing design in three attempts.** If the reviewer finds a fourth
    counterexample, the honest read is that webhook-only pairing cannot be made safe for
    uuid-less participants, and the pairing should move wholesale to Z7-3's report.
+
+---
+
+# Z7-2 — CONTRACT SUPERSEDED. This document's Z7-2 sections above describe a withdrawn contract.
+
+> **Reviewer: read this section before anything above it about pairing.** Codex returned
+> `FINDINGS` on `43999499..a530aafb` — the contract was unsatisfiable, not merely unimplemented.
+> The PM replanned on 2026-08-12. Everything above under *Chunk Z7-2* is retained as the record
+> of how the phase got here, **not as a statement of the current contract.** Nothing has been
+> rewritten out of it.
+
+## What was superseded
+
+`prompts/Z7-r2.md` `[R3]` (interval key falls back to the identity token) and `[R4]` (a leave
+matching no open interval writes no row) are **withdrawn, not amended.** They are jointly
+unsatisfiable: *B joins as "Ana" and B leaves* and *B joins as "Ana", A's join is lost, and A
+leaves* produce identical events and identical database state while the two rules demand
+opposite outcomes. The executor reproduced both histories returning the same close before
+accepting the finding.
+
+**The governing pairing contract is now `PLAN.md` §15.3.9.** Review against that section, not
+against `Z7-r2.md`.
+
+## The new scope
+
+A token may authorise webhook-time closure only if **Zoom mints it** (the client cannot assert
+it), it is **unique to one participant-connection by construction**, and it **matches exactly
+one open row** in that occurrence. `participant_uuid` qualifies. `customer_key`, `email` and
+`display_name` are reconciliation evidence only.
+
+`customer_key` is barred by the *first* rule rather than by missing evidence: we mint it at
+`pages/api/meet/session/[id]/join.ts:439` and hand it to the browser, so it is an identity
+claim. Z0B `zoom-spike-results.md` §6.2's byte-identical result measured the **report** round
+trip, not webhook joined→left pairing — the right evidence for matching a row to a person, the
+wrong evidence for closing an interval.
+
+Attempt 5 is therefore mostly **deletion**: remove the fallback closure path, record leave
+observations as durable evidence instead of discarding them, widen the partial unique index,
+and replace the H1-only regression with the eleven-row falsification matrix.
+
+## Surviving implementation from `a530aafb`
+
+`source_event_key` and its partial UNIQUE index · persisted identity evidence
+(`identity_tokens`, GIN index, `matched_by`) · the `participant_uuid` closure path ·
+`lib/zoom/attendance-intervals.ts` · `[B1]`'s `readLifecycleInstant` hardening ·
+`PARTICIPANT_EVENT_TYPES` and the one applier shared by the route and the sweep · every
+approved Z7-1 artefact.
+
+## Code that must be removed or changed
+
+| Anchor | Change |
+|---|---|
+| `lib/zoom/attendance-store.ts` — `listOpenIntervals`' `identityToken` arm | removed; it is the fallback closure key |
+| `lib/zoom/attendance-identity.ts:215` `identityToken()` | no longer a closure input; the plural `identityTokens()` evidence function stays |
+| `lib/zoom/participant-lifecycle.ts:240` — the `open.length > 1` guard | deleted, made moot by the exactly-one-match rule; leaving it would be a second, weaker gate beside the real one |
+| `selectIntervalToClose` | narrowed to uuid-matched rows only |
+| `supabase/migrations/20260812120000_*` partial unique index | **widened to `(zoom_meeting_uuid, participant_uuid, joined_at)`** — see the limitation below |
+| `__tests__/lib/zoom/participant-lifecycle.test.ts:413` | replaced; it covered only History 1, which is why a green suite sat on a live defect |
+
+## Acceptance and falsification cases
+
+The eleven-row matrix in `PLAN.md` §15.3.9 is the criteria, carried into `prompts/Z7-r5.md` as
+`[C1]`–`[C10]`. **`[C4]` is the case the old contract could not express**: H1 and H2 run through
+the same applier must produce identical, empty close sets. Fail-on-old is specified as restoring
+the fallback arm and showing `[C4]` fails — a probe that does not fail against the old code
+proves nothing, which is exactly how attempt 4 stayed green.
+
+## Unresolved evidence and limitations
+
+1. **A Z7-1 index defect found during the replan, not by review.** The partial unique index
+   `(zoom_meeting_uuid, participant_uuid)` permits at most one row per uuid per occurrence, so a
+   rejoin reusing a `participant_uuid` would violate it. It passed a Codex `PASS` and three
+   review rounds because every test to date exercised one interval per participant.
+2. **`participant_uuid` joined→left stability remains unmeasured.** It is now safe to be wrong
+   about — instability degrades to no-closure — so it determines *how much* the webhook path can
+   close before the report lands, not whether the result is correct.
+3. **Uuid-less duplicate joins can double-count until the report supersedes them.** Accepted
+   deliberately over any matching heuristic.
+4. **The report's completeness is unmeasured** beyond §6.2's four participants across three
+   meetings; nothing establishes behaviour for a large or long meeting.
+5. **Z7-3's semantics are fixed but unbuilt** (§15.3.9): wholesale supersession per occurrence,
+   **no cross-source row matching at all**, newest `report_fetched_at` batch wins, webhook rows
+   never edited or deleted.

@@ -524,6 +524,9 @@ migrations — local and CI green say nothing about deployment.**
 | 2026-08-11 | `zoom_internal.zoom_meetings` gains additive `actual_started_at` / `actual_ended_at`, written by the lifecycle | §11 quantity (3) has no storage today (C6), and `zoom_webhook_events.raw_payload` is nulled at 30 d by §6, so the comparison column would vanish for older sessions | PM, Z7 falsification pass |
 | 2026-08-11 | Z7 executes as five chunks on one branch in one durable executor conversation | §15 prices it at 6–8 agent-days; SOP §1.3 caps a chunk at ~10 files / ~600 net lines, and the overlay keeps the conversation rather than the chunk as the unit | PM, lean overlay §4.2 |
 | 2026-08-12 | A `participant_left` that matches no open interval writes **no** attendance row — ledger-only, and not an error | `joined_at` is `NOT NULL`, so the alternatives all fabricate: `joined_at = leave_time` invents a zero-length interval that understates presence, `joined_at = actual_started_at` invents presence nobody observed. Z7-3's report is authoritative (§11) and supplies the true interval. Same direction-of-failure rule Z7-1 set for the instants: a missing value shows as missing, a fabricated one is shown to an admin as evidence about billable presence | PM, Z7-2 dispatch |
+| 2026-08-12 | **[R3] and [R4] are SUPERSEDED by §15.3.9.** Webhook-time closure requires a Zoom-minted, construction-unique token matching exactly one open row; everything else is reconciliation evidence | The two rules are jointly unsatisfiable for uuid-less homonyms, reproduced by the executor and confirmed by Codex `FINDINGS`. A fourth pairing heuristic would repeat the same class of error | PM, Z7-2 contract replan |
+| 2026-08-12 | **`customer_key` is barred from authorising closure** and stays the top *reconciliation* rung | It is minted by us and passed through the browser, so it is a client-assertable claim (rule 1). Z0B §6.2's byte-identical result measured the REPORT round trip, not webhook joined→left pairing — the right evidence for matching, the wrong evidence for closing | PM, Z7-2 contract replan |
+| 2026-08-12 | **Z7-3 supersedes wholesale per occurrence; no row is ever matched across sources** | Cross-source matching would re-introduce the indistinguishability being removed. §6.2 confirms report rows arrive already paired by Zoom and carry no `participant_uuid`, so no cross-source key exists to match on anyway | PM, Z7-2 contract replan |
 | 2026-08-12 | Participant events resolve their surface from `zoom_meetings`, never create one, and never move `meeting_status` | `zoom_attendance` needs `surface_type`/`surface_id`/`school_id`, which only `zoom_meetings` holds. A participant event is not a lifecycle transition, and the §9 EXCLUDE reservation keys on status — letting a participant event touch it would re-acquire a host | PM, Z7-2 dispatch |
 
 #### 15.3.8 Chunk close record
@@ -550,6 +553,158 @@ what makes the definer predicate load-bearing rather than incidentally load-bear
 |---|---|---|
 | 1 | `readLifecycleInstant` (`lib/zoom/webhook-lifecycle.ts:75`) accepts any safe integer as an epoch: header seconds silently become a 1970 instant, `Number.MAX_SAFE_INTEGER` throws `RangeError`. Unreachable today — production callers pass only body `event_ts` | **(b) assigned to Z7-2**, whose scope already owns that file and which parses `join_time`/`leave_time` through the same family. Named criterion `[B1]` |
 | 2 | `public.has_global_workspace_access` (`00000000000000_baseline.sql:3987`) is `SECURITY DEFINER` with an unqualified `user_roles` reference and no fixed `search_path` — a pre-existing latent defect in the baseline | **NO STATE YET — needs an owner (Brent).** Not Z7's: it predates the phase and is repo-wide. Recommended home is the RLS workstream that the 2026-08-10 measurement already calls for. **Z7 does not close over it** |
+
+### 15.3.9 Z7-2 / Z7-3 contract replan — supersedes [R3] and [R4] (2026-08-12)
+
+**Status of the old contract: SUPERSEDED, not amended.** `prompts/Z7-r2.md` `[R3]` (*"the
+interval key is `participant_uuid` … falling back to the identity token"*) and `[R4]` (*"a
+`participant_left` that matches no open interval writes NO row"*) are jointly unsatisfiable
+and are withdrawn. Nothing in Z7-r2 governs pairing any more; this section does.
+
+**Why, in one line:** *B joins as "Ana" and B leaves* and *B joins as "Ana", A's join is lost,
+and A leaves* produce identical events and identical database state, yet [R3] requires closing
+a row and [R4] requires closing nothing. The reviewer reproduced both histories returning the
+same close. No further heuristic can separate them, because nothing observable separates them.
+
+#### The eligibility rule that replaces the fallback ladder
+
+A token may authorise **webhook-time interval closure** only if all three hold:
+
+1. **Zoom mints it, the client cannot assert it.** A value the joining client chooses is an
+   identity *claim*, not an identity.
+2. **It is unique to one participant-connection by construction** — not merely unique in the
+   sample we happen to hold.
+3. **It matches exactly one OPEN row in that occurrence.** Zero or more than one ⇒ close
+   nothing.
+
+Everything else is **reconciliation evidence**: persisted on the row, used by Z7-3 and by
+Z7-5's facilitator suggestion, and never sufficient authority for a destructive write.
+
+| Token | Zoom-minted? | Unique by construction? | Ruling | Evidence |
+|---|---|---|---|---|
+| `participant_uuid` | **yes** — we never send it | **yes**, a per-connection UUID | **AUTHORISES closure**, subject to rule 3 | present on both committed fixtures (`…joined.json`, `…left.json`) |
+| `customer_key` | **no** — minted by us at `pages/api/meet/session/[id]/join.ts:439` and handed to the browser SDK, which sends it to Zoom | yes *if* unforged | **RECONCILIATION ONLY** | see the ruling below |
+| `email` | yes | no, and **`""` for exactly the population that matters** | **RECONCILIATION ONLY** | `zoom-spike-results.md` §6.2 — empty for every signed-out guest; §6.3 rung 3, *"do not rely on it"* |
+| `display_name` | no — attacker/typo-controlled | **no** | **RECONCILIATION ONLY** | this is the H1/H2 defect; §6.3 rung 4 already required it be *"a suggestion requiring facilitator confirmation"* |
+
+**Why unproven joined→left stability is no longer a blocker.** Under rule 3, a token that
+changed between join and leave simply matches nothing, so the interval stays open and Z7-3
+closes it. Instability **degrades to no-closure, which is safe.** The only way an eligible
+token closes the *wrong person's* interval is a value collision between two people in one
+occurrence — impossible for a Zoom-minted UUID. That is why rules 1 and 2 are the criteria
+and stability is not; and it is why this contract needs no evidence we do not have.
+
+#### `customer_key` ruling — RECONCILIATION ONLY, and the evidence is decisive against closure
+
+The Z0B evidence proves the **wrong half**. `zoom-spike-results.md` §6.2 measured
+`GET /report/meetings/{uuid}/participants` and found `customer_key` *"exact value as sent"*
+for all four participants across three meetings, signed-in and signed-out. **That is a
+report-round-trip result, not a webhook joined→left pairing result**, and §6.3 states the
+verdict in those terms. The committed webhook fixtures are two different people and cannot
+settle pairing either.
+
+But the decisive objection is not the missing evidence — it is rule 1. **We mint
+`customer_key` and hand it to the browser**, which passes it to Zoom in the SDK `join()` call.
+A client that substitutes another user's value joins under that identity, and Zoom will report
+it faithfully. Proving stability would therefore not make it eligible. Two consequences worth
+stating plainly:
+
+- `customer_key` remains the **strongest reconciliation evidence** and stays the top rung of
+  the §15 identity hierarchy for *matching a row to a person*. It is barred only from
+  *closing* an interval.
+- Attendance is comparison/audit only (§11) and facilitator-confirmed, so a forged claim
+  misstates a suggestion, never an hour. **Nothing downstream may treat `customer_key` as
+  authenticated identity.**
+
+#### New Z7-2 scope — ingestion, no UUID-less closure
+
+Z7-2 stays a separate chunk; it is not merged into Z7-3. As narrowed it is mostly deletion,
+and Z7-3 is a distinct architectural concern (an external authoritative source, a job, a
+supersession rule) that would make one oversized chunk.
+
+- `participant_joined` opens a row and persists **all** identity evidence.
+- `participant_left` closes a row **only** via `participant_uuid` matching exactly one open
+  row in that occurrence. Every other leave is recorded as a **leave observation** — durable,
+  auditable, never discarded — and closes nothing.
+- No retroactive pairing: a leave observation is never re-applied to a join that arrives later.
+- The `(zoom_meeting_uuid, participant_uuid)` partial unique index **must widen to include
+  `joined_at`**. As it stands it permits at most one row per uuid per occurrence, so if Zoom
+  reuses a `participant_uuid` across a rejoin the second join violates it. Widening handles
+  both stability hypotheses; closure still targets the single *open* row.
+
+#### New Z7-3 authority and merge semantics — supersession, never row matching
+
+**The report is authoritative wholesale, per occurrence, and no row is ever matched across
+sources.** Cross-source matching would re-introduce exactly the indistinguishability this
+replan removes, so the contract forbids it outright.
+
+- **Source and keys.** `GET /report/meetings/{occurrence_uuid}/participants`. §6.2 confirms
+  each row arrives with `join_time`, `leave_time` and `duration` **already paired by Zoom** —
+  the pairing problem is solved by the provider, not by us. §6.2 also shows the report row set
+  does **not** carry `participant_uuid`, so no report key may depend on it.
+- **Ingestion.** Every row of a successful fetch is inserted as `source='report'` carrying a
+  `report_batch_id` and `report_fetched_at`.
+- **Authority rule, single and stateable.** The effective interval set for an occurrence is the
+  report rows of the newest `report_fetched_at`; if none exists, the webhook rows. Nothing else.
+- **Webhook rows are never edited, closed or deleted by reconcile.** Provenance and audit are
+  preserved by retention, not by rewriting.
+- **Idempotency.** A replayed or retried fetch writes a new batch; only the newest is
+  effective, so replay is harmless without any row-level dedupe. Job-level dedupe stays on
+  `zoom_jobs` as for every other pipeline.
+- **Reconnects.** Multiple report rows for one person are multiple intervals; presence totals
+  come from the existing pure merge, which is why that module survives.
+- **Delay, absence, retry.** Until a report exists the webhook rows are effective and **must be
+  rendered as provisional** (Z7-5). Bounded retries, then dead-letter and the §18 health panel.
+  **Never fabricate an interval to fill the gap.**
+- **Contradiction.** The report wins, wholesale and silently; the superseded webhook rows stay
+  queryable for audit.
+- **Transaction boundary.** One batch, one transaction: all rows of a fetch commit together or
+  none do, so no reader ever sees half a batch win the authority rule.
+
+#### Falsification matrix — the contract's expected outcomes
+
+| # | History | Expected |
+|---|---|---|
+| 1 | stable uuid join → leave | row opens, then closes on the uuid match |
+| 2 | missing join, then leave | **closes nothing**; leave observation recorded; report supplies the interval |
+| 3 | two uuid-less homonyms | two open rows; neither leave closes anything |
+| 4 | one open homonym + another person's missing join (**H1/H2**) | **identical, safe behaviour in both** — closes nothing. The contract no longer needs to distinguish them |
+| 5 | identity downgrade between join and leave | no eligible token on the leave ⇒ closes nothing |
+| 6 | duplicate byte-identical delivery | `source_event_key` unique index ⇒ no second row, no second close |
+| 7 | byte-different duplicate logical event | uuid path: caught by the widened partial unique index. **Uuid-less path: a duplicate row is possible and is accepted** — the report supersedes it. Stated as a limitation, not solved by a heuristic |
+| 8 | reconnect, multiple intervals | one row per join; each closes by its own uuid, or none do |
+| 9 | leave preceding join | closes nothing; never applied retroactively |
+| 10 | report contradicts webhooks | report batch becomes effective; webhook rows retained, unedited |
+| 11 | report delayed or unavailable | webhook rows stay effective and render provisional; retry, dead-letter, health panel; nothing fabricated |
+
+**Controlling safety invariant: no wrong-person closure.** Ambiguity is never resolved by
+choosing the latest, the strongest-looking, or the only weak match.
+
+#### What survives from `a530aafb`
+
+**Survives:** `source_event_key` + its partial UNIQUE index · persisted identity evidence
+(`identity_tokens`, the GIN index, `matched_by`) · the `participant_uuid` closure path ·
+`attendance-intervals.ts` (`mergeIntervals`, `totalPresenceSeconds`, `isClosableBy`) ·
+`[B1]`'s `readLifecycleInstant` hardening · `PARTICIPANT_EVENT_TYPES` and the single applier
+called by both the route and the sweep · every approved Z7-1 artefact.
+
+**Removed or changed:** the `identityToken` arm of `listOpenIntervals` — the fallback closure
+key — and `attendance-identity.ts:215 identityToken()` as a *closure* input (the plural
+`identityTokens()` evidence function stays) · the `open.length > 1` guard at
+`participant-lifecycle.ts:240`, made moot by rule 3 · `selectIntervalToClose` narrowed to
+uuid-matched rows · the partial unique index widened by `joined_at` · the attempt-4 regression
+at `participant-lifecycle.test.ts:413`, which covered only H1, replaced by the matrix above.
+
+#### Blind spots
+
+1. **`participant_uuid` pairing stability is still unmeasured.** It is now *safe* to be wrong
+   about (it degrades to no-closure) but it decides how much the webhook path can close before
+   the report lands. If it proves unstable, Z7-2 closes almost nothing and Z7-3 does all the
+   work — which is a performance property, not a correctness one.
+2. **Uuid-less duplicate joins can double-count until the report arrives.** Matrix row 7.
+   Accepted deliberately over any matching heuristic.
+3. **The report's own completeness is unmeasured.** §6.2 observed four participants across
+   three meetings; nothing establishes behaviour for a large or long meeting.
 
 ## 16. Blocking vs non-blocking human decisions
 

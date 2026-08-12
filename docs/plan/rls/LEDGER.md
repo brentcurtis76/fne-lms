@@ -92,3 +92,66 @@ Append-only, one entry per round. Plan: `docs/plan/rls/PLAN.md`.
   2. Owner answers Q1–Q4 (none blocks R1).
   3. Codex to rule on the review-request path deviation (`docs/plan/rls/reviews/R<n>-…` vs
      `CLAUDE.md` Executor Rule 6's `docs/planning/reviews/fase-<N>-…`).
+
+---
+
+### 2026-08-12 — plan — r1 CODEX REVIEW + PM amendment
+
+- SESSION: `RLS · plan · REVIEW` (Codex) → `RLS · plan · PM` (amendment)
+- ATTEMPT: 2 (cumulative, planning)
+- RISK: DISCOVERY → plan
+- HANDOFFS: 2 (prompt out to Codex, review back)
+- CODEX: **FINDINGS** — 5 BLOCKING, 6 SHOULD-FIX, 1 NIT. Codex confirmed the ten signatures,
+  the three function-using `community_meetings` policies, and the three baseline `PUBLIC`
+  revokes match the repository; it changed no files and did not access production.
+- PM INDEPENDENT VERIFICATION before accepting (a review is a claim, not evidence):
+  - **B2 — CONFIRMED.** `assignment_instances_teacher_manage` (`baseline.sql:19758`) has no
+    `FOR` clause, so `FOR ALL`, `TO authenticated`, `USING`/`WITH CHECK`
+    `((created_by = auth.uid()) OR auth_is_course_teacher(course_id))`. RLS is on at `:19747`;
+    the trigger is `BEFORE INSERT OR UPDATE` at `:15684`. Any authenticated user can therefore
+    write directly over PostgREST. **The discovery document's §5 "sole writer is service-role"
+    claim is false at the database boundary** — its second error.
+  - **N1 — CONFIRMED.** `cleanup_propuesta_rate_limits()` is `LANGUAGE sql` with no
+    `SECURITY DEFINER` (`baseline.sql:1882-1884`). Nine of the ten are DEFINER, not ten.
+    Revoking it stays urgent: as invoker-rights it runs with the caller's privileges, and `anon`
+    holds `arwdDxt` on `propuesta_rate_limits`, so anonymous execution deletes rows for real.
+  - **B1 — premise CONFIRMED.** `user_roles` is absent from the allowlist, so its RLS is on and
+    the SECURITY DEFINER function does bypass it.
+- TRIAGE: all 5 BLOCKING accepted, all 6 SHOULD-FIX accepted, the NIT accepted. **No finding
+  disputed.** One accepted with a different remedy than Codex proposed — see DECISIONS.
+- ACTION — `PLAN.md` amended:
+  - **B1** → new phase **R1b** (bind `has_global_workspace_access` to `auth.uid()`), running
+    directly after R1. R1's headline no longer implies it closes the authenticated oracle.
+  - **B2** → R9's trap rewritten: "pin the sole-writer invariant" removed as an option because it
+    would pin a false claim. R9 must make the trigger `SECURITY DEFINER` with a pinned
+    `search_path` (or repair the policy) and test direct authenticated INSERT/UPDATE.
+  - **B3** → A1 becomes a mechanically checked statement allowlist shipped as a committed script;
+    A12 no longer claims a `SELECT` proves row preservation.
+  - **B4** → A15 becomes an executed-vs-discovered file-count assertion from
+    `--reporter=json`; `require('jsdom')` demoted to a necessary-not-sufficient precondition.
+  - **B5** → review-request artifact moves to the canonical
+    `docs/planning/reviews/fase-R1-review-request.md`; the earlier decision-log override is
+    struck through rather than deleted.
+  - **S1** → behaviour-change promise narrowed to known in-repository callers.
+  - **S2** → A3/A4 read `aclexplode(COALESCE(proacl, acldefault('f', proowner)))`.
+  - **S3** → new owner question **Q5** (learning-path global-vs-scoped management), gating R7
+    and R10.
+  - **S4** → **R10 resequenced** from 11th to 9th of 11. Phase IDs kept stable; the index gained
+    an `Order` column.
+  - **S5** → sizing claim corrected: ≤600 net lines **will** be exceeded; bounded instead by a
+    data-driven-assertion instruction and a ~350-line pgTAP signal.
+  - **S6** → D-4 corrected: only the RLS-disable phrase is guard-blocked; restoring a grant is
+    prohibited by plan and review, not by a script.
+  - **N1** → nine SECURITY DEFINER + one invoker-rights, stated with why it still matters.
+- GATES: none run — planning round, no source touched.
+- FINDINGS RAISED BY PM: none new.
+- DECISIONS: 3 appended to `PLAN.md` § Decision log, including the reversal of the review-request
+  path. **Deviation from Codex's proposed remedy on B1:** Codex offered "add to R1 or schedule in
+  R10"; the amendment takes neither, creating R1b instead — R1 is at its 15-criterion cap so
+  §1.3 forces a split, and deferring an unowned security item to 9th of 11 phases is the §1.4
+  failure mode. Flagged for the r2 review to rule on.
+- BACKLOG ADDED: none — every accepted finding landed in a named phase or criterion this round.
+- OPEN AFTER THIS ROUND:
+  1. **Codex plan review r2.** The plan is still **not frozen**.
+  2. Owner answers Q1–Q5 (none blocks R1).
+  3. `fix/rls-public` still has no upstream and exists on no remote.

@@ -1498,3 +1498,58 @@ for the reviewer to overrule if the convention is append-only pre-merge.
 | Chunk | Phase | Branch | Commits | Status | Evidence |
 |---|---|---|---|---|---|
 | Z7-1 · r1 a2 | Z7 | `feat/zoom-hours` | `0e29d53b` + remediation | 🟡 CANDIDATE 2026-08-12 — awaiting Codex | 5/5 gates green. pgTAP 71 asserts in 011 (537 total). Facilitator predicate now SECURITY DEFINER covering both surfaces; lifecycle RPC replaces the trigger; correction path for Z7-3 proved open. Open: anon now errors instead of reading empty; applies-from set is caller-supplied. |
+
+### **Z7-1 · ✅ APPROVED 2026-08-12 at `e5b5a26d` — Codex `PASS`, no blocking defects.**
+
+Chunk close only. **Z7 is NOT done — Z7-2 … Z7-5 remain.** Verdict saved to
+`docs/plan/zoom/reviews/fase-7-review-verdict.md`; the PM's close record is `PLAN.md`
+§15.3.8 (`ac573883`).
+
+**Provenance caveat, recorded rather than smoothed over:** the reviewer's verbatim message
+was not supplied to the executor. The verdict file is a faithful record of the verdict as
+relayed by Brent and cross-checked against §15.3.8, and it says so at the top. Replace its
+Verdict/Rulings sections with the raw Codex output if that output is still available.
+
+**Gate figures below are THE REVIEWER'S OWN measurements, independently re-run** — not the
+executor's restated:
+
+```text
+type-check PASS · lint PASS (zero warnings)
+npm test    306 files / 7,074 passed + 11 skipped · jsdom environment 205 ms
+build       PASS, 156 static pages
+supabase db reset  clean
+npm run test:db    537 tests / 11 files
+sealed surfaces confirmed untouched: tests/e2e/, Z3b, billing ledger, override files
+```
+
+**Two reviewer probes went past the executor's three, and the second one matters.** The
+surface-type mutation failed exactly tests 26–29 and 45, reproducing the executor's
+measurement independently. Then the reviewer **repaired** the executor's INVOKER probe —
+which had produced 51/71 failures by way of the incidental `has_global_workspace_access`
+error, and which the executor had itself flagged as possibly proving "the function breaks"
+rather than "the persona is denied". Retaining a usable search path, the repaired probe
+failed **only** the globally-scoped facilitator test and the explicit `SECURITY DEFINER`
+assertion. **That is what makes the definer predicate load-bearing rather than
+incidentally load-bearing** — the executor's weakest self-evidence was replaced with a
+stronger measurement.
+
+**Every ruling the executor asked to be weighed was upheld:** `[A7]` partial accepted;
+both migrations amended in place accepted while unmerged and unapplied; `anon` returning
+42501 accepted as the intended stricter posture; the caller-supplied applies-from set
+accepted with the wire assertions as sufficient protection; no named correction RPC
+accepted, leaving the semantics to Z7-3.
+
+**Two non-blocking items, each with the PM's assigned state (§15.3.8) — not a backlog:**
+
+| # | Item | State |
+|---|---|---|
+| 1 | `readLifecycleInstant` accepts any safe integer as an epoch (header seconds → 1970; `MAX_SAFE_INTEGER` → `RangeError`). Unreachable today | **(b) assigned to Z7-2**, criterion `[B1]` |
+| 2 | `public.has_global_workspace_access` (`00000000000000_baseline.sql:3987`) — SECURITY DEFINER, unqualified `user_roles`, no fixed `search_path` | **NO STATE YET — needs an owner (Brent).** Pre-existing, repo-wide, **Z7 does not close over it**; carried forward untouched and named in Z7-2's out-of-scope list |
+
+**Still not established by this PASS:** anything about deployment. Both migrations are
+unapplied in production and §0.1(d) keeps the phase open until Brent applies them and the
+schema is verified read-only.
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-1 · r1 | Z7 | `feat/zoom-hours` | `0e29d53b`, `c2cf4ed2`, `e5b5a26d` | ✅ **APPROVED 2026-08-12** | Codex `PASS` on `43999499..e5b5a26d`, no blocking defects. Reviewer's own gates: 306/7,074 + 11 skipped (env 205 ms), build 156 pages, test:db 537/11. Two carried items: `[B1]` → Z7-2; `has_global_workspace_access` → needs an owner, not Z7's. |

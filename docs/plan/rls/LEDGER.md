@@ -351,3 +351,52 @@ Append-only, one entry per round. Plan: `docs/plan/rls/PLAN.md`.
   1. **Codex plan review r5.** Plan still **not frozen**.
   2. **R0 is the next phase to dispatch, not R1.** R0 is DISCOVERY; it ships no migration.
   3. Owner answers Q1–Q4 (none blocks R0 or R1). Q5 has a default.
+
+---
+
+### 2026-08-12 — plan — r5 CODEX REVIEW + PM amendment
+
+- SESSION: `RLS · plan · REVIEW · r5` (Codex) → `RLS · plan · PM`
+- ATTEMPT: 6 (cumulative, planning)
+- CODEX: **FINDINGS** — 3 BLOCKING, 2 SHOULD-FIX, 0 NITs. `IS R0 DISPATCHABLE: no`.
+  `SHOULD THE PLAN FREEZE NOW: no` — but with a bounded freeze checklist, not a new problem class.
+  r4 disposition: B1 PARTIAL, B2 NOT FULLY FIXED, B3 PARTIAL, S1 FIXED, S2 NOT FIXED, S3 FIXED.
+- PM VERIFICATION before accepting:
+  - **B1 — CONFIRMED, and it is a hard-rule violation in the plan's own text.** `AGENTS.md:37`
+    reads "never touch prod DB directly" with **no read-only exception**; R0's contract said
+    production facts "gathered read-only under D-7's rules". The plan's own precedence list puts
+    repo hard rules above the plan, and the plan broke one.
+  - **B3 — CONFIRMED on all three counts.** `members_delete_transformation_results`
+    (`baseline.sql:20989-20994`) additionally requires `role_type IN ('admin','consultor')`, so a
+    generic member cannot drive the matrix. `rubric_item_id` is `NOT NULL` on both dependent
+    tables (`:11154`, `:11183`), so a `transformation_rubric` fixture is required and was absent.
+    Non-member UPDATE/DELETE filter to zero rows rather than raising — **which `CLAUDE.md` itself
+    documents** ("Blocked `INSERT` throws; blocked `UPDATE` returns empty — assert accordingly")
+    and which this plan contradicted anyway.
+- ACTION — `PLAN.md` amended: AR0-8 forbids any executor production connection; D-7 clarified so
+  the production verification is Brent's; R0 gains exact gates, the canonical
+  `docs/planning/reviews/fase-R0-review-request.md`, its five named documentation outputs, and an
+  independent Codex review in its closure; AR0-3 requires `pg_identify_object` resolution; new
+  AR0-3b inventories and dispositions dynamic SQL; application discovery becomes exhaustive over
+  all tracked sources with runtime role *sets*; AR0-7 absorbs the A8(a) derivation; R0's
+  out-of-scope wording fixed; the eight stale references fixed; R11a's "six catalog queries"
+  corrected.
+- **D-9 REWRITTEN — the control failed on its first use.** It ran at r4 and still passed eight
+  live contradictions, because a guessed pattern list cannot match sentences that never contained
+  the new wording. Now diff-driven, three required layers: (1) search **both old and new forms**
+  of every changed fact, dispositioning every hit; (2) structural comparison of the phase index
+  against each phase header; (3) centralize volatile counts. A later stale reference means the
+  control failed, not that it was skipped.
+- **D-9 SWEEP UNDER THE NEW RULES:** layer 1 flagged 5 candidates, of which **2 were genuinely
+  stale** — R0's "Where to run it" still routed evidence to production (line 378), and R11's
+  per-signature point 4 still restricted callers to `.rpc()` in three extensions (line 1133), the
+  exact B2 error one layer over. Both fixed. Three were the amendment quoting old wording, which
+  is correct. Layer 2 (index vs headers) clean. Layer 3 found the counts restated in 13 places and
+  R11a's stale "six catalog queries"; a centralization anchor now defines them once. **The new
+  control caught what the old one could not, on its first run.**
+- COMMITS: `62687c8a`. Pushed.
+- OPEN AFTER THIS ROUND:
+  1. **Codex plan review r6.** Plan still **not frozen**.
+  2. R0 remains the next phase to dispatch. It ships nothing — its blast radius is wasted effort,
+     never production damage.
+  3. Owner answers Q1–Q4; Q5 has a default.

@@ -155,3 +155,69 @@ Append-only, one entry per round. Plan: `docs/plan/rls/PLAN.md`.
   1. **Codex plan review r2.** The plan is still **not frozen**.
   2. Owner answers Q1–Q5 (none blocks R1).
   3. `fix/rls-public` still has no upstream and exists on no remote.
+
+---
+
+### 2026-08-12 — plan — r2 CODEX REVIEW + PM amendment + scope expansion
+
+- SESSION: `RLS · plan · REVIEW · r2` (Codex) → `RLS · plan · PM` (amendment)
+- ATTEMPT: 3 (cumulative, planning)
+- RISK: DISCOVERY → plan
+- HANDOFFS: 2 (prompt out to Codex, review back) + 1 owner decision
+- CODEX: **FINDINGS** — 5 BLOCKING, 2 SHOULD-FIX, 3 NITs. Disposition of r1: 6 fixed, 4 not
+  fixed or partially fixed, 2 fixed with stale prose left behind. Codex changed no files and
+  did not access production.
+- CODEX ANSWERED ALL THREE OPEN PM QUESTIONS:
+  - (A) R1b is the right split, but silently ignoring the parameter is wrong — must fail closed.
+  - (B) A15 is implementable on Vitest 0.34 **only** with a separate expected-file-set checker;
+    JSON alone cannot prove discovery completeness. This confirmed the PM's own doubt.
+  - (C) A privileged integrity-only trigger is acceptable, **and** the `FOR ALL` policy must be
+    repaired independently — they are not alternatives.
+- PM INDEPENDENT VERIFICATION before accepting B5 (the one finding asserting new facts):
+  - `get_unread_notification_count(p_user_id uuid)` — CONFIRMED. `baseline.sql:3660-3672`,
+    SECURITY DEFINER, unqualified `FROM user_notifications`, caller-supplied subject, granted
+    `anon` at `:23825`.
+  - Sized the surface rather than accepting the single example: **90** SECURITY DEFINER functions
+    in `public`, **88** granted to `anon`, **9** covered by R1's ten, **79** outside the audit —
+    of which 9 return `trigger` and **70 are RPC-callable**. At least 20 of the 70 take a
+    caller-supplied user identifier.
+  - **Recorded as UNMEASURED, not as 70 vulnerabilities**: the grants are proven from the
+    baseline file; reachability and exploitability are not. Promoting them would repeat exactly
+    the error §6 exists to prevent.
+- TRIAGE: all 10 findings accepted, none disputed. **Four were the PM's own stale cross-references
+  from the r1 amendment** (S1, N1, N2, N3) — the primary statement was corrected and the prose
+  quoting it was not. Named as a pattern in the plan text, not just fixed.
+- OWNER DECISIONS (Brent, at the §1.5 round cap):
+  1. **Amend all 10, then a narrow r3** — the cap is overridden, with the override naming its
+     evidence: the r1 amendment left 4 stale contradictions, so freezing unchecked has a
+     demonstrated failure rate. r3 reviews the amendments only, not the whole plan.
+  2. **Expand the RLS workstream to cover the 70** rather than narrowing the DoD as Codex
+     proposed. The PM flagged that this risks delaying R1 and strains the sizing rules; Brent
+     took the tradeoff knowingly. R1 is unaffected and still ships first.
+- ACTION — `PLAN.md` amended:
+  - **r2 B1** → A1 becomes an exact-multiset check (operation × target × grantee), not a
+    syntactic category check; its invocation is now inside A14's gate command.
+  - **r2 B2** → A15 becomes a committed `scripts/ci/check-suite-complete.mjs` that derives the
+    expected set from the Vitest include/exclude globs and diffs it against `testResults[].name`.
+  - **r2 B3** → R9 must do trigger hardening **and** policy repair; they are no longer alternatives.
+  - **r2 B4** → R1b fails closed: mismatch with `auth.uid()` returns `false`, plus a negative test.
+  - **r2 B5** → resolved by **expansion**: new `DISCOVERY` phase **R11**, third completion
+    condition in the Goal, R12+ deliberately undefined until R11 lands.
+  - **r2 S1** → stale rollback prose corrected. **S2** → Q5 reclassified gate → ruling-with-default.
+  - **r2 N1/N2/N3** → five-vs-six form count, six-vs-eight files in Claim 7, and "SECURITY DEFINER
+    surface" → "public RPC bypass surface" in the Goal.
+- NEW RISK RECORDED IN R11: the 70 include the `auth_*` helper family (`auth_is_admin`,
+  `auth_is_course_student`, `auth_is_course_teacher`, `auth_is_superadmin`,
+  `auth_user_community_ids`) which RLS policies call inside `USING` clauses. `authenticated` must
+  retain `EXECUTE` or policies break schema-wide. This is the most likely way the expanded scope
+  causes production damage, and it is why R11 is DISCOVERY rather than a revoke sweep.
+- GATES: none run — planning round, no source touched.
+- DECISIONS: 4 appended to `PLAN.md` § Decision log, including the round-cap override and the
+  B5 remedy divergence.
+- BACKLOG ADDED: none — every accepted finding landed in a named phase, criterion, or decision.
+- OPEN AFTER THIS ROUND:
+  1. **Codex plan review r3**, scoped to the amendments. Plan still **not frozen**.
+  2. r3 must rule on whether expanding scope satisfies B5, since that is not the remedy Codex
+     proposed.
+  3. Owner answers Q1–Q4 (none blocks R1). Q5 has a default and blocks nothing.
+  4. `fix/rls-public` still has no upstream and exists on no remote — now 6 commits.

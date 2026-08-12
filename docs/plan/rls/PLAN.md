@@ -7,7 +7,10 @@ META
 - BRANCH CONVENTION: all phases land on `fix/rls-public` as sequential commits (≤20 chars, Vercel preview DNS — `CLAUDE.md` Executor Rule 1). One PR per phase.
 - **THIS PLAN LIVES ONLY ON `fix/rls-public`.** It is not on `main`. Read it with
   `git show fix/rls-public:docs/plan/rls/PLAN.md` or work in the worktree above.
-- PLAN FROZEN: **not yet** — pending one independent Codex plan review.
+- PLAN FROZEN: **not yet** — Codex r1 FINDINGS (12 items, all accepted), Codex r2 FINDINGS
+  (10 items, all accepted). Pending **r3**, scoped to the amendments only. The §1.5 two-round cap
+  was reached and explicitly overridden by Brent on 2026-08-12 — see the Decision Log for the
+  evidence that override names.
 - WORKFLOW: canonical SOP + `~/.claude/agent-workflow/LEAN-WORKFLOW.md` (rolling wave; only the next executable phase is a full contract).
 
 ---
@@ -16,20 +19,49 @@ META
 
 Empty the legacy allowlist in `supabase/tests/001-rls-enabled.sql:58-66` — 22 `public` tables
 that carry no RLS and hold direct `arwdDxt` grants to `anon` and `authenticated` — **and** close
-the SECURITY DEFINER RPC surface that would otherwise bypass whatever policies those tables get.
+the **public RPC bypass surface** that would otherwise bypass whatever policies those tables get.
+"RPC bypass surface" rather than "SECURITY DEFINER surface": nine of the ten functions in R1 are
+`SECURITY DEFINER`, but `cleanup_propuesta_rate_limits()` is invoker-rights and is exposed for the
+opposite reason — it runs with the *caller's* privileges over a table `anon` can already write.
+*(Codex r2, N3.)*
 
-Two completion conditions, in this order:
+Three completion conditions:
 
 1. **Table DoD** — the allowlist array reaches `{}` and `tests.rls_enabled('public')` passes with
    no exception. Reached at the end of R9.
-2. **Function DoD** — no `public` function reachable by `anon`/`PUBLIC`, and no function reachable
-   by `authenticated`, can write or disclose data that table RLS is supposed to govern. Table RLS
-   is *not* complete while a `SECURITY DEFINER` function bypasses it — that is why R1b and R10
-   exist rather than being dropped as scope creep.
+2. **Named-function DoD** — none of the **ten functions this workstream has audited** can be
+   executed by `anon`/`PUBLIC`, and none derives its acting user or its authorization from a
+   caller-supplied parameter. Delivered by R1, R1b and R10.
+3. **Surface DoD** — the remaining `public` functions carrying an `anon` grant are audited, and
+   each is either revoked, hardened, or recorded as deliberately safe with evidence. Delivered by
+   R11 and whatever phases R11's discovery produces.
 
-Both are complete when R9 finishes, which is last in execution order. R1 is the only phase whose
-contract is fully specified; see the `Order` column in the phase index, which the Codex r1 review
-changed.
+**Condition 3 is new (Codex r2, B5) and it is a scope expansion, not a narrowed claim.** Codex's
+proposed remedy was to shrink the DoD to the ten audited functions; Brent's ruling on
+2026-08-12 was to expand the workstream instead. The finding stands either way: the previous
+"no `public` function … can bypass RLS" wording was **already false** at the moment it was written.
+Measured from `supabase/migrations/00000000000000_baseline.sql`:
+
+| | count |
+|---|---|
+| `SECURITY DEFINER` functions in `public` | 90 |
+| …carrying a `GRANT … TO anon` | 88 |
+| …covered by R1's ten | 9 |
+| **…outside the audit so far** | **79** — 9 return `trigger`, **70 are RPC-callable** |
+
+`get_unread_notification_count(p_user_id uuid)` (`baseline.sql:3660-3672`, granted `anon` at
+`:23825`) is the worked example: `SECURITY DEFINER`, unqualified `FROM user_notifications`,
+caller-supplied subject, no `auth.uid()` check. At least 20 of the 70 take a caller-supplied user
+identifier, including `create_notification`, `create_user_notification`,
+`award_course_completion_badge`, `get_user_admin_status` and `get_effective_user_role`.
+
+**Stated precisely, because the distinction is the whole point of §6: the grants are proven from
+the baseline file. Reachability and exploitability of those 70 are UNMEASURED.** The discovery
+document probed only the functions it named. 70 is a sizing figure, not 70 confirmed
+vulnerabilities — establishing which is R11's job and the reason R11 is `DISCOVERY`.
+
+R1 is the only phase whose contract is fully specified. Execution order is the `Order` column in
+the phase index.
 
 ## Non-goals
 
@@ -105,13 +137,19 @@ them. Execution order is the `Order` column, which the Codex r1 review changed (
 | 5 | R4 | Retire the broken `qa_tester_time_logs` reader, then lock it down | HIGH | OUTLINE | 6 | R1 | none |
 | 6 | R5 | `instructors` policy | HIGH | OUTLINE | 5 | R1 | **Q2** |
 | 7 | R6 | `growth_community_transformation_access` policy | HIGH | OUTLINE | 4 | R1 | **Q3** |
-| 8 | R7 | `learning_paths` + `learning_path_courses` (coupled) | HIGH | OUTLINE | 2 | R1 | **Q5** |
-| 9 | **R10** | Actor-derivation redesign of `submit_quiz` + 5 learning-path RPCs | HIGH | OUTLINE | 2 | R1, R7 | **Q5** |
+| 8 | R7 | `learning_paths` + `learning_path_courses` (coupled) | HIGH | OUTLINE | 2 | R1 | Q5 *(default)* |
+| 9 | **R10** | Actor-derivation redesign of `submit_quiz` + 5 learning-path RPCs | HIGH | OUTLINE | 2 | R1, R7 | Q5 *(default)* |
 | 10 | R8 | `group_assignment_discussions` policy | HIGH | OUTLINE | 1 | R1 | none |
 | 11 | R9 | `modules` — riskiest, last of the tables | HIGH | OUTLINE | **0** | R1–R8 | **Q4** |
+| 12 | **R11** | **DISCOVERY** — audit the remaining 70 anon-granted RPC-callable functions | **DISCOVERY** | OUTLINE | 0 | R1 | none |
+| 13+ | R12… | Remediation phases, **defined by R11's output** — not invented here | HIGH | UNDEFINED | 0 | R11 | TBD by R11 |
 
-Every phase is `HIGH` under overlay §3: all eleven touch RLS/grants or ship a migration. That is
-an honest classification, not inflation — there is no `STANDARD` work in this workstream.
+Every phase except R11 is `HIGH` under overlay §3 — they touch RLS/grants or ship a migration.
+R11 is `DISCOVERY`: the evidence needed to write a safe implementation contract for the 70 does
+not exist yet, and per overlay §3 a `DISCOVERY` phase produces evidence and a revised contract
+without smuggling implementation into research. **R12+ are deliberately left undefined.** Writing
+phase contracts for 70 functions whose reachability is unmeasured would be inventing requirements
+from guesses — the exact thing the overlay forbids.
 
 **Dependency graph.** R1 is the root and blocks nothing structurally — R2…R9 could each run
 without it — but it runs first because it is the largest risk reduction per line available and
@@ -140,7 +178,7 @@ answered in time.
 | **Q2** | Are all 17 `instructors` rows publishable profiles, or are some internal-only? | R5 | R5 cannot ship. A policy cannot infer publication from a parent course when the table is queried directly; if some rows are internal, an explicit publication flag is needed first (an additive column, so still within hard rules). |
 | **Q3** | May `consultor` assign/revoke transformation access? `isUserAdmin()` treats `consultor` as admin while the route copy says "solo admins". | R6 | R6 ships read-only policies and defers the write policy, or holds entirely. Encoding the wrong answer silently grants or removes a real capability. |
 | **Q4** | Enrollment status semantics: do `paused` / `dropped` / `expired` / `completed` enrollments retain `modules` access? | R9 | R9 cannot ship. `auth_is_course_student()` checks that *any* enrollment exists and ignores status entirely, so the answer decides whether activating the existing policy is a no-op or a lockout. |
-| **Q5** | Learning-path management scope: do `admin`, `equipo_directivo` and `consultor` keep **global** management of every learning path, or is management **scoped** to the manager's school/generation? Rows can carry null `school_id`/`generation_id` today, so a scoped rule needs a backfill first. | R7 **and R10** | Both ship preserving today's effectively-global behaviour, explicitly recorded as deferred debt rather than as a design decision. Narrowing later is a policy change, not a migration rewrite. *(Added after Codex plan review r1, S3 — R7 carried this ruling with no owner gate.)* |
+| **Q5** *(ruling with a default — **not** a gate)* | Learning-path management scope: do `admin`, `equipo_directivo` and `consultor` keep **global** management of every learning path, or is management **scoped** to the manager's school/generation? Rows can carry null `school_id`/`generation_id` today, so a scoped rule needs a backfill first. | R7 and R10 — **neither is blocked** | **Default applies: both ship preserving today's effectively-global management**, recorded as explicit debt. That default does not widen access beyond today's behaviour, and narrowing later is a backfill plus `ALTER POLICY`, not a migration rewrite. *(Added r1 S3; reclassified from gate to ruling-with-default after Codex r2, S2 — calling it a gate while its unanswered branch still ships was a contradiction.)* |
 
 ---
 
@@ -286,16 +324,23 @@ being written long-hand, not that the phase is too big.
 
 Each independently checkable by running something. `<fn>` below means all ten functions.
 
-- [ ] **A1** **Statement allowlist, mechanically checked.** Strip comments, then every executable
-      statement in the migration matches one of exactly five permitted forms:
-      `REVOKE ALL ON FUNCTION …`, `GRANT EXECUTE ON FUNCTION …`,
-      `ALTER FUNCTION … SET search_path = public, pg_temp`,
-      `REVOKE ALL ON public.profiles_role_backup …`,
-      `ALTER TABLE public.profiles_role_backup ENABLE ROW LEVEL SECURITY`, or `COMMENT ON …`.
-      Any statement not matching — including any `INSERT`/`UPDATE`/`DELETE`, any other `ALTER`,
-      any `CREATE`, and `DROP`/`TRUNCATE` — fails the criterion. Ship the checker as a committed
-      script so the check is repeatable rather than a reviewer's eyeball.
-      *(Codex r1, B3 — a `drop|truncate` grep cannot see destructive `ALTER` or DML.)*
+- [ ] **A1** **Exact-multiset migration check, not a syntactic category check.** A committed
+      script (`scripts/ci/check-r1-migration.sh` or equivalent) strips comments and asserts the
+      migration's executable statements are **exactly** the expected multiset — every statement
+      matched on its *operation, target and grantee together*:
+      `REVOKE ALL ON FUNCTION <sig> FROM PUBLIC|anon` for all ten named signatures;
+      `REVOKE ALL … FROM authenticated` for the three zero-caller signatures only;
+      `REVOKE ALL … FROM authenticated` + `GRANT EXECUTE … TO authenticated` for the seven others;
+      `ALTER FUNCTION public.has_global_workspace_access(uuid) SET search_path = public, pg_temp`;
+      `REVOKE ALL ON public.profiles_role_backup FROM anon|authenticated`;
+      `ALTER TABLE public.profiles_role_backup ENABLE ROW LEVEL SECURITY`; and `COMMENT ON TABLE
+      public.profiles_role_backup`. **Any extra statement fails, any missing statement fails, and
+      any statement naming a function, table, or role outside this list fails.** The script's
+      invocation appears in A14's gate command, not merely in prose.
+      *(Amended after Codex r2, B1: the r1 remedy allowed the right *kinds* of statement against
+      the wrong targets — an unrelated `GRANT EXECUTE … TO PUBLIC` on some other function passed
+      the form check and escaped A3–A6, which only inspect the ten. A control that admits
+      out-of-scope privilege changes while looking rigorous is worse than the grep it replaced.)*
 - [ ] **A2** The migration file does **not** contain the phrase `disable row level security` in
       any case, **including in comments** — `scripts/ci/check-rls-migrations.sh` greps
       `-rniE 'disable[[:space:]]+row[[:space:]]+level[[:space:]]+security'` across all migration
@@ -337,19 +382,26 @@ Each independently checkable by running something. `<fn>` below means all ten fu
       database has no rows to count. *(Codex r1, B3.)*
 - [ ] **A13** `supabase/tests/001-rls-enabled.sql` allowlist has exactly 21 entries,
       `profiles_role_backup` absent, and the `:46-50` comment says 21 rather than 22.
-- [ ] **A14** All required gates green, with the jsdom proof in A15 satisfied first:
-      `npm run type-check && npm run lint && npm test && npm run build`, plus
-      `npm run test:db`. E2E is not required — no UI file is touched.
-- [ ] **A15** **Suite-completeness proof, mandatory before any test count is reported as
-      evidence.** Run `npm test -- --reporter=json`, then assert from the JSON that the number of
-      test files **executed** equals the number **discovered** on disk, and that no file was
-      dropped at collection. Separately assert that every file declaring
-      `@vitest-environment jsdom` appears in the executed set, by name. Record both numbers in
-      `evidence/R1-gates.md`.
-      *(Amended after Codex r1, B4. `node -e "require('jsdom')"` proves only that the package
-      resolves, and Vitest reports non-zero `environment` time for plain Node environments too —
-      so the original A15 could have blessed the exact silent 51-file loss it existed to catch.
-      Keep the `require('jsdom')` check as a fast precondition; it is necessary, not sufficient.)*
+- [ ] **A14** All required gates green, **with both committed checkers invoked in the command
+      itself** — see "Exact commands" below. E2E is not required; no UI file is touched.
+      *(Codex r2, B1 and B2: a checker that exists but is never run by the gate is prose.)*
+- [ ] **A15** **Suite-completeness proof via a committed external checker.** Vitest 0.34's JSON
+      reporter emits the **executed** set only — a file dropped at collection is absent from the
+      JSON and from the totals, so the JSON alone can never prove discovery completeness. Ship
+      `scripts/ci/check-suite-complete.mjs` that:
+      (a) derives the **expected** file set independently, by applying the `include`/`exclude`
+      globs from `vitest.config.ts` to the working tree;
+      (b) runs `npm test -- --reporter=json` and reads `testResults[].name`;
+      (c) compares the two as **normalized absolute path sets** and fails on any difference in
+      either direction, printing the missing files by name;
+      (d) separately asserts every file declaring `@vitest-environment jsdom` is present in the
+      executed set.
+      Its invocation appears in A14's gate command. Both counts land in `evidence/R1-gates.md`.
+      `node -e "require('jsdom')"` stays as a fast precondition — necessary, never sufficient.
+      *(Amended after Codex r2, B2. The r1 remedy said "executed equals discovered" without
+      saying where "discovered" comes from, which on this reporter is unobtainable — it replaced
+      one unverifiable check with another. This criterion gates every test count in the
+      workstream, so it is the one that most needed to become executable.)*
 
 ## Test plan
 
@@ -377,7 +429,14 @@ following `030-pasantias-leads-rls.sql:178-198`. The file runs inside `BEGIN …
 **Exact commands:**
 
 ```bash
-node -e "require('jsdom')" && npm run type-check && npm run lint && npm test && npm run build && npm run test:db
+node -e "require('jsdom')" \
+  && bash scripts/ci/check-rls-migrations.sh \
+  && bash scripts/ci/check-r1-migration.sh \
+  && npm run type-check \
+  && npm run lint \
+  && node scripts/ci/check-suite-complete.mjs \
+  && npm run build \
+  && npm run test:db
 ```
 
 To run the new pgTAP file alone during implementation:
@@ -437,8 +496,12 @@ PASS on the branch is necessary and not sufficient.
 
 ## Rollback
 
-Not "disable RLS" and not "restore the grants" — both restore the vulnerability and both are
-blocked by `scripts/hooks/block-rls-disable.sh` and `scripts/ci/check-rls-migrations.sh` (D-4).
+Not "disable RLS" and not "restore the grants" — both restore the vulnerability. Per D-4, **only
+the first is mechanically blocked**; restoring a grant is prohibited by this plan and by review,
+and a reviewer has to check for it by hand.
+*(Codex r2, S1 — this paragraph still repeated the claim D-4 was corrected to drop. Amending the
+decision without amending the prose that quotes it is the same miss the r1 amendment made three
+other times; the r3 review exists to catch a fourth.)*
 
 - **Before production apply:** revert the commits on `fix/rls-public`. The migration has never
   run against production; reverting is a no-op there.
@@ -521,8 +584,9 @@ session). D-7's post-apply check covers the function's `proconfig`, not schema-l
 
 **CLAIM 7** — R1 fits one durable executor conversation.
 COUNTEREXAMPLE — the pgTAP matrix is large enough to exhaust context.
-CHECK — six files; one migration of roughly 40 statements; one pgTAP file modelled line-for-line
-on the 502-line `030-pasantias-leads-rls.sql`, which a single session produced.
+CHECK — eight files (matching the amended Scope, not the original six — Codex r2, N2); one
+migration of roughly 40 statements; two committed checker scripts; one pgTAP file modelled
+line-for-line on the 502-line `030-pasantias-leads-rls.sql`, which a single session produced.
 RESULT — **supported**, with the caveat that A15's `npm ci` must happen at the start, not after
 the diff is written.
 BLIND SPOT — none material. If context does run short, the split point is clean: functions first,
@@ -543,12 +607,22 @@ leaves an **authenticated** one: the function is `SECURITY DEFINER`, takes a cal
 caller can ask whether an arbitrary UUID is an active `admin`/`consultor`. That is the same
 privileged-role disclosure R1 closes for `profiles_role_backup`, reachable by a different door.
 
-Fix: backward-compatible `CREATE OR REPLACE FUNCTION` keeping the signature, deriving the subject
-from `auth.uid()` and ignoring the parameter. All three call sites already pass `auth.uid()`
-(`baseline.sql:18196`, `:18203`, `:18210`), and there are zero repository callers, so behaviour is
-identical everywhere it is actually used. Criteria must include: the three `community_meetings`
-policies still admit an active admin, an active `consultor` and a community member and still deny
-a `docente`; and a foreign UUID no longer changes the answer.
+Fix: backward-compatible `CREATE OR REPLACE FUNCTION` keeping the signature, which **fails closed
+on a mismatch** — if `check_user_id` is distinct from `auth.uid()`, return `false`; otherwise
+answer for `auth.uid()`. It must **not** silently ignore the parameter.
+
+*(Amended after Codex r2, B4, which answered a question the PM had flagged as genuinely open.
+Silently substituting the security subject is its own trap: an admin passing a foreign UUID would
+get `true` **about themselves**, and a later caller could read that as authorization for the
+supplied subject. Returning `false` rather than raising keeps the function composable inside a
+policy `USING` clause, where an exception would break the query rather than deny the row.)*
+
+All three call sites already pass `auth.uid()` (`baseline.sql:18196`, `:18203`, `:18210`) and
+there are zero repository callers, so the mismatch branch is unreachable from anything that
+exists today. Criteria must include: the three `community_meetings` policies still admit an active
+admin, an active `consultor` and a community member and still deny a `docente`; **and an active
+admin passing another user's UUID receives `false`** — the negative test that proves it fails
+closed rather than substituting.
 
 Its own phase rather than part of R1 because it is a **body** change needing a behavioural matrix,
 and R1 is already at the 15-criterion cap (§1.3: criteria that don't fit are two phases). Its own
@@ -642,11 +716,25 @@ on (`baseline.sql:19747`) and carries `assignment_instances_teacher_manage`
 PostgREST without being a teacher**, and that write fires the invoker-rights trigger.
 
 So "pin the sole-writer invariant with pgTAP" is **not a valid option** — it would pin a claim
-that is already false. R9 **must** make `validate_assignment_instance_course` `SECURITY DEFINER`
-with a pinned `search_path` (or repair the table policy), and its test matrix must include a
-**direct authenticated INSERT and UPDATE**, not only the service-role route. This is the second
-error found in the discovery document; treat its remaining §5 call-site claims as needing the same
-boundary check before they become criteria.
+that is already false.
+
+**R9 must do BOTH of the following. They are not alternatives** *(Codex r2, B3 — the r1 amendment
+wrongly wrote them as an either/or, which would have left a confirmed authenticated write
+vulnerability live)*:
+
+1. **Harden the trigger.** Make `validate_assignment_instance_course` `SECURITY DEFINER` with a
+   pinned `search_path` and **fully qualified relation references**, scoped to integrity
+   validation only. This stops `modules` RLS from breaking integrity checking. It deliberately
+   lets the trigger read `modules` outside RLS — acceptable because its only output is
+   validate-or-raise, not data. Codex ruled this an acceptable integrity boundary (r2, ruling C).
+2. **Repair the policy, independently.** `assignment_instances_teacher_manage` lets any
+   authenticated user INSERT or UPDATE by setting `created_by = auth.uid()`. That is a live
+   vulnerability today, unrelated to the trigger and unfixed by hardening it. R9's matrix must
+   include **direct negative tests for an ordinary authenticated user** — not only the
+   service-role route.
+
+This is the second error found in the discovery document; treat its remaining §5 call-site claims
+as needing the same boundary check before they become criteria.
 
 **Allowlist reaches `{}` here.**
 
@@ -671,6 +759,43 @@ The UNVERIFIED out-of-repo-caller question becomes load-bearing here, because R1
 behaviour rather than privileges: a signature-compatible replacement is what bounds the risk.
 
 ---
+
+### R11 — Audit the remaining anon-granted public functions · **DISCOVERY** · after R1
+
+**Added 2026-08-12 by Brent's ruling on Codex r2 B5.** Codex proposed narrowing the Function DoD
+to the ten audited functions; Brent chose to expand the workstream instead. The PM flagged that
+expansion risks delaying R1 and strains the sizing rules; Brent took that tradeoff knowingly. R1
+is unaffected — it still ships first, and R11 runs after it.
+
+**Input.** 70 RPC-callable `public` functions carrying a `GRANT … TO anon` in the baseline and
+outside the ten this workstream has audited. See the Goal's table for the derivation.
+
+**This phase is `DISCOVERY` and must not smuggle implementation into research** (overlay §3). It
+produces evidence and a revised contract; it ships no migration.
+
+Bounded output:
+
+1. **A classification of all 70**, per function: is it reachable as `anon` over PostgREST at all;
+   does it read or write RLS-protected data; does it derive its actor from `auth.uid()` or from a
+   caller-supplied parameter; does it have a repository caller and under which client. Same
+   method and same evidence standard the r1 discovery used — **read-only, no writes to
+   production, synthetic identifiers only**.
+2. **A proven-vs-inferred split**, as §6 does. The grants are proven from the baseline; nothing
+   about reachability may be asserted without a probe or a catalog read.
+3. **A proposed phase decomposition** for the remediation, sized to the ≤10-file rule — almost
+   certainly grouped by defect class (revoke-only / actor-binding / already-safe) rather than
+   one phase per function.
+
+**R12+ are deliberately undefined until R11 lands.** Writing contracts for 70 functions whose
+reachability is unmeasured would invent requirements from guesses.
+
+**Known trap:** the 70 include the `auth_*` helper family — `auth_is_admin`,
+`auth_is_course_student`, `auth_is_course_teacher`, `auth_is_superadmin`,
+`auth_user_community_ids` and others — which RLS policies across the schema call inside `USING`
+clauses. **`authenticated` must retain `EXECUTE` on those or policies break schema-wide.** R11
+must identify every policy-invoked function before any later phase revokes anything, or the
+remediation will take production down. This is the single most likely way the expanded scope
+causes damage, and it is why R11 is discovery rather than a revoke sweep.
 
 ## Blind spots — whole workstream
 
@@ -705,3 +830,7 @@ Stated per overlay §3 instead of claiming completeness.
 | 2026-08-12 | **Amendment round after Codex plan review r1: FINDINGS.** 5 BLOCKING and 6 SHOULD-FIX accepted in full; 1 NIT accepted. New phase **R1b**; new owner question **Q5**; **R10 resequenced** to run 9th of 11; criteria A1, A3, A4, A12, A15 rewritten; D-4 corrected. | Two findings asserted new facts and were independently verified before acceptance — B2 (direct authenticated writes to `assignment_instances`) and N1 (`cleanup_propuesta_rate_limits` is invoker-rights). Both held. | Codex plan review r1 |
 | 2026-08-12 | The discovery document has now been **wrong twice**. §5's "sole writer is service-role" for `assignment_instances` is false at the database boundary. | Its remaining §5 call-site claims describe repository code, not the RLS boundary. Any phase promoting one to a criterion must re-check it against policies, not only against `grep`. | Codex plan review r1 (B2), verified by PM |
 | 2026-08-12 | Retiring `profiles_role_backup` is an owner decision, not a phase | `CLAUDE.md` Database Safety forbids `DROP`; 25 rows of historical role state may have audit value | Discovery §4 |
+| 2026-08-12 | **Codex plan review r2: FINDINGS.** 5 BLOCKING, 2 SHOULD-FIX, 3 NITs — all accepted, none disputed. | r2 fixed 6 of the 12 r1 items outright; the rest were "the control does not do what it claims", not directional disagreement. Codex answered all three questions the PM had flagged as genuinely open (A, B, C). | Codex plan review r2 |
+| 2026-08-12 | **Round cap reached and overridden by Brent** — a third Codex review is authorized, scoped to the amendments only rather than the whole plan. | §1.5 caps the loop at 2 and routes the decision to Brent. The override names its evidence: r2 caught 4 stale cross-references left by the r1 amendment, so freezing without a check has a demonstrated, not theoretical, failure rate. | Brent |
+| 2026-08-12 | **B5 resolved by EXPANDING scope, not by narrowing the claim** — new `DISCOVERY` phase R11 covering the 70 remaining anon-granted RPC-callable functions; the Goal gains a third completion condition. | Codex's proposed remedy was to shrink the Function DoD to the ten audited functions. Brent ruled the other way. The PM flagged that expansion risks delaying R1 and strains sizing; Brent took the tradeoff. R1 is unaffected and still ships first. **This is a different remedy than the reviewer proposed and r3 must rule on whether it satisfies B5.** | Brent, over Codex r2 B5 |
+| 2026-08-12 | Q5 reclassified from **gate** to **ruling with a default** | Calling it a gate while its unanswered branch still shipped was a contradiction. The default — preserve today's effectively-global management — does not widen access and is narrowable later by backfill plus `ALTER POLICY`. | Codex r2, S2 |

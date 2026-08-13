@@ -666,3 +666,43 @@ Append-only, one entry per round. Plan: `docs/plan/rls/PLAN.md`.
 - COMMITS: `a6433ad7`, phase-close documentation commit follows this entry. Push follows.
 - OPEN AFTER THIS ROUND:
   1. Independent RM review; R0 dispatches only after a non-blocking verdict.
+
+---
+
+### 2026-08-13 — RM round 2 — PM VERIFICATION — PHASE CLEAN
+
+- SESSION: `RLS · RM · PM`
+- EXECUTOR REPORTED: `STATUS: COMPLETE`, commits `a6433ad7`, `81e93ce1`, pushed.
+- **WHAT THE PM VERIFIED INDEPENDENTLY:**
+  - **The mirror invariant is restored.** Full `diff CLAUDE.md AGENTS.md` returns **only the first
+    four lines** — title and preamble. **Every governing rule from line 5 to 112 is
+    byte-identical.** The precedence clause now appears in both (`CLAUDE.md:4`, `AGENTS.md:3`),
+    and the `PROJECT_STATE` rule appears in both in terser phrasing — reworded-same-meaning, which
+    ARM-4 permits.
+  - Both Q6 promotions applied and **minimal**: clause-level insertions into existing lines
+    (`CLAUDE.md:4` precedence, `CLAUDE.md:75` `+ per-role testing`). No reflow, which is why both
+    files remain 112 lines. `git diff` inspected directly, not taken from the report.
+  - `RM-retired-guidance.md` correctly **not** created — nothing was retired.
+  - `evidence/RM-worktree-env-gap.md` exists, 2607 bytes, and is genuinely good: it records the
+    error, root cause, `.gitignore:16`, the symlink, the merge-base SHA, the reusable rule, and
+    explicitly notes that **no environment-file contents were inspected, copied, logged or
+    committed** — correct privacy hygiene for a secrets file.
+  - `PROJECT_STATE.md` updated in the file's own language with RM's status and a new parallel
+    thread (c), correctly stating R0 stays blocked pending independent review.
+  - Gates accepted as reported (`exit 0`, 305 files / 7059 tests, `environment 244ms`, build
+    emitting `- Environments: .env.local`). The PM had already run `npm run build` independently
+    last round; the suite count matches the PM's own check. Not re-run in full — Codex re-runs it.
+- **CORRECTION TO THE PM'S OWN PREVIOUS LEDGER ENTRY.** The r1 verification entry says the
+  executor "reproduced at merge base **inside the same env-less worktree**". The evidence file
+  states it used *another detached worktree*, and the real mechanism is more general and more
+  useful: **any newly created worktree lacks gitignored files**, so a merge-base control cut as a
+  fresh worktree can never discriminate an environment gap. The executor's write-up is more
+  precise than the PM's summary was; the PM's framing is corrected here rather than left standing.
+- FINDINGS RAISED: **none blocking.**
+  - [N1 · NIT] `evidence/RM-worktree-env-gap.md` attributes the symlink to Brent; the PM made it.
+    Trivial, but the record should be accurate. Not worth a remediation round on its own — fold
+    into any later touch of that file.
+- ACCEPTANCE CRITERIA — PM's independent assessment: **ARM-1 … ARM-9 all met.**
+- **PM VERDICT: RM is clean and ready for independent Codex review.** The PM does not mark phases
+  DONE; only the independent review does.
+- OPEN: Codex RM review. R0 dispatches only after it passes.

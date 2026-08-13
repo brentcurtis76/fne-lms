@@ -541,3 +541,39 @@ Append-only, one entry per round. Plan: `docs/plan/rls/PLAN.md`.
   1. Brent instructed dispatch after r8; r8 returned FINDINGS including one category (i), all now
      fixed. **Decision needed: dispatch RM, or run r9.**
   2. Plan still **not frozen**. `RM` is next; `Q6` gates its close.
+
+---
+
+### 2026-08-13 — RM — round 1 executor · BLOCKED checkpoint
+
+- SESSION: `RLS · RM · EXEC`
+- ATTEMPT: 1 (phase RM)
+- BASE / START: `fix/rls-public` @ `4db6a37f`; merge base `main` @ `43999499`.
+- ACTION: installed the worktree dependencies with `npm ci`, then reconciled every canonical
+  `CLAUDE.md` section into `AGENTS.md` without changing rule substance. Commit `20149faa` carries
+  the common branch. Both files are now 112 lines.
+- VERIFIED DIVERGENCE AFTER COMMON RECONCILIATION: only the agent-specific title/preamble and two
+  Q6 rule candidates remain: (1) `CLAUDE.md` precedence plus same-PR remediation; (2) mandatory
+  per-role testing for middleware/RBAC changes. The rest of the former Auth Middleware Warning
+  already exists canonically in `CLAUDE.md`.
+- Q6: **OPEN; RM CANNOT CLOSE.** Approval adds those rules to canonical `CLAUDE.md`; rejection
+  removes them from governing `AGENTS.md` and records them in
+  `evidence/RM-retired-guidance.md`. No executor choice was made.
+- GATES: type-check PASS; lint PASS; Vitest PASS (**305 files, 7,059 passed, 11 skipped**); build
+  compiled successfully and then FAILED because `NEXT_PUBLIC_SUPABASE_URL` and
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY` are absent. Reproduced identically at merge base `43999499` in
+  a clean temporary detached worktree after `npm ci`; classified as a base/environment failure,
+  not an RM regression. Temporary worktree removed. No test:db/e2e because RM touches no DB/UI.
+- CLOSE ARTIFACTS: canonical review request created as a **blocked checkpoint**.
+  `PROJECT_STATE.md` intentionally unchanged because the phase has not ended.
+- **D-9 SWEEP:** no `PLAN.md` amendment occurred. Layer 1: classified every `AGENTS.md` diff hunk
+  against the three allowed edit classes and searched the post-change files for old compact and
+  new canonical forms; no silently dropped rule found, with the two unique rules explicitly
+  dispositioned to Q6. Layer 2: phase index/header/metadata were untouched. Layer 3: no volatile
+  plan count changed. `git diff --check` clean.
+- OPEN AFTER THIS ROUND:
+  1. Brent rules separately or jointly on the two Q6 candidates.
+  2. Apply the selected terminating branch, update `PROJECT_STATE.md`, rerun gates, and request
+     independent review before closing RM.
+  3. Decide whether the verified base build environment failure is acceptable evidence for this
+     documentation-only phase or requires an owner-supplied non-secret local build environment.

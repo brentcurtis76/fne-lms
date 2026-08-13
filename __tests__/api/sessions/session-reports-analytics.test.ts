@@ -79,7 +79,15 @@ const BASE_SCHEMA: Record<string, TableDef> = {
   growth_communities: { columns: ['id', 'school_id', 'name'] },
   profiles: { columns: ['id', 'first_name', 'last_name'] },
   contract_hours_ledger: {
-    columns: ['id', 'session_id', 'status', 'hours', 'is_over_budget', 'admin_override'],
+    columns: [
+      'id',
+      'session_id',
+      'status',
+      'hours',
+      'is_over_budget',
+      'admin_override',
+      'effective_minutes',
+    ],
   },
 };
 
@@ -647,7 +655,7 @@ describe('Session Reports Analytics API', () => {
 
       const ledgerQueries = log.filter((entry) => entry.table === 'contract_hours_ledger');
       expect(ledgerQueries).toHaveLength(1);
-      expect(ledgerQueries[0].select).toBe('session_id, status, hours');
+      expect(ledgerQueries[0].select).toBe('session_id, status, hours, effective_minutes');
       expect(ledgerQueries[0].filters).toEqual([
         {
           column: 'session_id',

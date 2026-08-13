@@ -108,4 +108,63 @@ describe('billableHours', () => {
     expect(unledgered).toBe(0);
     expect(unledgered).toBeLessThanOrEqual(reserved);
   });
+
+  // ============================================================
+  // Z7-4 — the §11 coalesce: effective_minutes governs when set.
+  // ============================================================
+  describe('effective_minutes (§11 override, Z7-4)', () => {
+    const overridden = (minutes: number | null): BillableLedgerEntry => ({
+      status: 'consumida',
+      hours: 1,
+      effective_minutes: minutes,
+    });
+
+    it('planned 60 / no override → 60 discounted, in both modes', () => {
+      // The §11 required lines "planned 60/Zoom 45 → 60" and "planned 60/Zoom 90 → 60"
+      // are THIS fact: Zoom data has no input here at all — only an admin-written
+      // effective_minutes can move the figure, and absent one the planned value governs.
+      expect(billableHours(overridden(null), 60, 'per_session_display')).toBe(1);
+      expect(billableHours(overridden(null), 60, 'charged_total')).toBe(1);
+      expect(
+        billableHours({ status: 'consumida', hours: 1 }, 60, 'charged_total')
+      ).toBe(1);
+    });
+
+    it('an override to 45 minutes bills 0.75 — the adjusted value, both modes', () => {
+      expect(billableHours(overridden(45), 60, 'per_session_display')).toBe(0.75);
+      expect(billableHours(overridden(45), 60, 'charged_total')).toBe(0.75);
+    });
+
+    it('a ZERO waiver bills 0 — `!= null`, never truthiness', () => {
+      expect(billableHours(overridden(0), 60, 'charged_total')).toBe(0);
+      expect(billableHours(overridden(0), 60, 'per_session_display')).toBe(0);
+    });
+
+    it('applies the §11 "one rounding rule": minutes/60 to two decimals, half-up', () => {
+      // Same rule as calculateHours and as the SQL twin in get_bucket_summary
+      // (round(effective_minutes/60.0, 2)) — 50 min is 0.83, never 0.8333….
+      expect(billableHours(overridden(50), 60, 'charged_total')).toBe(0.83);
+      expect(billableHours(overridden(70), 60, 'charged_total')).toBe(1.17);
+    });
+
+    it('charged_total still ignores non-charged statuses, override or not', () => {
+      expect(
+        billableHours(
+          { status: 'devuelta', hours: 1, effective_minutes: 45 },
+          60,
+          'charged_total'
+        )
+      ).toBe(0);
+    });
+
+    it('a penalizada row with an override reads the adjusted value', () => {
+      expect(
+        billableHours(
+          { status: 'penalizada', hours: 1, effective_minutes: 30 },
+          60,
+          'charged_total'
+        )
+      ).toBe(0.5);
+    });
+  });
 });

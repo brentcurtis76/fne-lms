@@ -164,8 +164,18 @@ No phase may violate these without a Decision Log entry.
      search the active text for BOTH.** Record a disposition for every hit. The old-form search is
      what a pattern list cannot replace: it finds the sentences that never contained the new
      wording and so never matched a forward-looking pattern.
-  2. **Structural check.** Compare the phase index's risk / status / dependencies / order against
-     each phase's own header and body. Any disagreement is a defect.
+  2. **Structural check — index row vs header vs the METADATA LINE BENEATH IT.** Compare the
+     phase index's risk / status / dependencies / order against each phase's header **and against
+     the `**Risk:** … **Status:** … **Depends on:** …` line under it**. *(Codex r6, S1: at r5 the
+     check compared index rows to headers only, so R1's header correctly read "BLOCKED on R0"
+     while the line directly below it still said "Status: TODO. Depends on: nothing." The check
+     passed clean over a contradiction two lines apart.)* Any disagreement is a defect.
+     **This layer should become a committed checker rather than a procedure** — Codex has now
+     ruled twice that mechanically comparable facts should not ride on a human sweep. The PM
+     cannot add one (SOP §1.1: the PM writes `PLAN.md` and `LEDGER.md` only), so it is R0's to
+     deliver under `docs/plan/rls/tools/`, which is documentation machinery and therefore outside
+     R0's "no application, database, migration, or test-source edit" boundary. Until it exists,
+     run all three comparisons by hand and say so in the ledger.
   3. **Centralize volatile counts** wherever possible, so a number lives in one place and prose
      refers to it instead of restating it.
   Active text is everything above the Decision Log, which is append-only history and stays as
@@ -283,6 +293,10 @@ every claim. For **each of the ten signatures**, keyed by `regprocedure`:
    variable, SQL in scripts, and any other tracked reference all count. Then classify each hit by
    channel (`.rpc()` / raw REST / indirection), by client factory, by the **set of roles that
    factory can produce at runtime**, and by the auth precondition that decides which.
+   **Generic sinks too** *(Codex r6, S2)*: inventory every `.rpc(<variable>)` and every raw-RPC
+   call whose function name is assembled from a variable, a config value or string fragments, and
+   trace the possible inputs — an exact-name search cannot see a name that is never written out.
+   "No constructed call reaches the ten" is reported as a positive finding, never by silence.
    *(Amended after Codex r5, B2. The previous wording restricted discovery to three extensions and
    one call form — the same "wrong population" error r4 caught, one layer up. And "the role that
    factory produces" was too strong: a browser factory yields `anon` or `authenticated` depending
@@ -304,11 +318,11 @@ every claim. For **each of the ten signatures**, keyed by `regprocedure`:
   migration, and writes no test (overlay §3: a DISCOVERY phase must not smuggle implementation
   into research). *(Wording corrected after Codex r5, S2 — the old blanket "no source edit" was
   ambiguous against R0's own requirement to amend `PLAN.md`.)*
-- **R0's documentation outputs, which ARE in scope**, are exactly these five:
+- **R0's documentation outputs, which ARE in scope** — **five required** plus one optional (Codex r6, N1):
   `docs/plan/rls/evidence/R0-ten-signature-inventory.md` (the artifact); the amendment to
   `PLAN.md`; the `LEDGER.md` entry including its D-9 sweep record;
   `docs/planning/reviews/fase-R0-review-request.md` (canonical path, `CLAUDE.md:43` /
-  `AGENTS.md:32`); and an optional one-line pointer under `docs/plan/rls/reviews/`.
+  `AGENTS.md:32`); and **`docs/plan/rls/tools/check-plan-consistency.sh`**, the D-9 layer-2 checker (documentation machinery, not application/database/migration/test source, so it sits inside R0's boundary). Optionally, a one-line pointer under `docs/plan/rls/reviews/`.
 - Re-auditing the 22 tables, or anything about `profiles_role_backup` beyond confirming its
   `relacl` and `relrowsecurity`.
 - The other 80 signatures — that is R11.
@@ -326,9 +340,12 @@ every claim. For **each of the ten signatures**, keyed by `regprocedure`:
       `pg_identify_object`, so no dependency is recorded as an opaque triple. *(Codex r5, B2: raw
       catalog output nobody can interpret is not evidence.)*
 - [ ] **AR0-3b** **Dynamic SQL is inventoried and dispositioned, not merely disclaimed.** List
-      every `public` function body containing `EXECUTE format(…)` or equivalent, and for each say
-      whether it could reach one of the ten. Unresolvable cases are named individually and marked
-      `UNVERIFIED` — a blanket "textual analysis cannot prove absence" is not a disposition.
+      every function body containing `EXECUTE format(…)` or equivalent **across all user-defined
+      schemas, not only `public`** — this repository also has `zoom_internal`
+      (`supabase/migrations/20260729120000_zoom_internal_schema.sql`) *(Codex r6, S2)* — and for
+      each say whether it could reach one of the ten. Unresolvable cases are named individually
+      and marked `UNVERIFIED`; a blanket "textual analysis cannot prove absence" is not a
+      disposition.
 - [ ] **AR0-4** Expression indexes and partition-key expressions are covered, and their results
       recorded even when empty.
 - [ ] **AR0-5** Every dependent policy is listed with its `polroles`, `TO`-clause interpretation,
@@ -351,6 +368,16 @@ every claim. For **each of the ten signatures**, keyed by `regprocedure`:
       is rolled back, with the rollback verified. Where a fact can only come from production, it
       is either **supplied by Brent** and attributed to him, or recorded `UNVERIFIED`. Neither is
       a defect in R0's output.
+      **But every production-only uncertainty must be classified LOAD-BEARING or not**, and any
+      load-bearing one becomes a named **R1 pre-dispatch owner gate** requiring Brent's read-only
+      confirmation before R1 is dispatched. Load-bearing means the fact concerns a production ACL,
+      grant, policy or dependency that R1 changes or relies on. Non-load-bearing items may remain
+      recorded risks.
+      *(Added after Codex r6, B2. Without this, R0 could close and unblock R1 with unresolved
+      uncertainty about exactly the production state R1 modifies — and D-7's production check
+      happens **after** the migration is applied, which is too late to prevent an outage. R1's
+      whole reason for existing is that anon reaches these functions in production; "we could not
+      check production" is therefore not a neutral note on that class of fact.)*
       *(Amended after Codex r5, B1. The previous wording — "gathered read-only under D-7's rules"
       — instructed an executor to break `AGENTS.md:37`, inside a plan whose own precedence list
       puts repo hard rules first. That the r1 discovery was produced against production does not
@@ -361,19 +388,33 @@ every claim. For **each of the ten signatures**, keyed by `regprocedure`:
 R0 writes no tests — it is discovery. Its verification is that a reader can re-run every recorded
 command and obtain the recorded output.
 
-**Exact commands.** R0 touches no application, test or migration source, so the code gates cannot
-regress; run them once anyway to prove that, and to leave the tree demonstrably green:
+**Exact commands.** `AGENTS.md:30` requires type-check, lint, **unit tests and build** before any
+phase is reported complete, with **no documentation-only exception**. R0 runs all four:
 
 ```bash
-supabase db start && supabase db reset \
+supabase db start && supabase db reset --local \
   && bash scripts/ci/check-rls-migrations.sh \
   && npm run type-check \
-  && npm run lint
+  && npm run lint \
+  && npm test \
+  && npm run build
 ```
 
-`npm test`, `npm run build` and `npm run e2e` are **not** required — R0 changes no source, and
-A15's suite-completeness checker does not exist until R1. If R0 somehow produces a source diff,
-that is a scope violation, not a reason to add gates.
+*(Amended after Codex r6, B1. The previous version waived `npm test` and `npm run build` because
+R0 changes no source and the gates therefore cannot regress. That is sound engineering and the
+repo rule does not permit it — this plan's own precedence list puts repo hard rules above the
+plan. **This is the second hard-rule violation to reach a phase contract in this plan**, after
+r5's production-access one; both were reasonable-looking judgment calls overriding an absolute
+rule.)*
+
+`test:db` and `e2e` remain unnecessary — R0 touches no DB or UI source. `--local` is explicit
+defence-in-depth per Codex r6 ruling B: `supabase db reset` already defaults to local unless
+`--linked`/`--db-url` is given, and spelling it makes the intent unmistakable.
+
+**What `npm test` proves here, and what it does not.** It runs because the repo requires it, not
+as evidence of suite completeness — A15's checker does not exist until R1, and the jsdom hazard
+means a green summary may still be silently dropping 51 files. **R0 must not cite a test count as
+evidence of anything.**
 
 **Where to run it.** The **local** Supabase stack (`supabase db start` + `supabase db reset`),
 which reflects the committed migrations — and nowhere else. Per AR0-8 and D-7 the executor never
@@ -384,12 +425,13 @@ carries its server version.
 
 ## Definition of done
 
-All five documentation outputs listed under "Explicitly out of scope" exist and are committed;
+All **five required** documentation outputs exist and are committed (the workstream-directory
+pointer is optional — Codex r6, N1);
 the gates above are green; the D-9 sweep has been run and recorded in the ledger; and an
 independent Codex review of R0 has passed — so that a *wrong* fold-back into R1 cannot close R0
 either. *(Closure contract completed after Codex r5, B1 and ruling C.)*
 
-The artifact exists, is committed, satisfies AR0-1 … AR0-8, and R1's contract has been amended
+The artifact exists, is committed, satisfies all nine criteria AR0-1 … AR0-8 including AR0-3b (Codex r6, N2), and R1's contract has been amended
 from it — including its caller table, group membership, acceptance criteria and test plan. **R0
 closes only when R1 has been updated to match**, because an artifact nobody folded back in is
 exactly the failure mode that produced this phase.
@@ -412,7 +454,7 @@ correct outcome is a plan amendment, not a workaround.
 
 # Phase R1 — Close the anonymous reach · BLOCKED on R0
 
-**Risk: HIGH** (RLS/grants, migration, security). **Status: TODO.** **Depends on: nothing.**
+**Risk: HIGH** (RLS/grants, migration, security). **Status: BLOCKED on `R0`.** **Depends on: `R0`.**
 
 Largest risk reduction per line available in this workstream. It closes every *proven* anonymous
 write path and removes the privileged-role roster from the internet, with **no policy design and
@@ -1121,7 +1163,7 @@ All identified by `regprocedure`, never by name — see the Goal's arithmetic no
 **This phase is `DISCOVERY` and must not smuggle implementation into research** (overlay §3). It
 produces evidence and a revised contract. **It ships no migration and changes no grant.**
 
-**Evidence rules, inherited from the r1 discovery.** Read-only. No writes to production. Synthetic
+**Evidence rules.** Local stack only — per AR0-8 and D-7 the executor never connects to production, reads included. Synthetic
 identifiers only. Every claim carries its command and output, a file and line, or an authoritative
 source. Anything unmeasured is labelled `UNVERIFIED` and stays that way.
 
@@ -1207,7 +1249,7 @@ begins, so an exhausted session resumes from a file rather than from conversatio
 
 | unit | work | artifact | why it is bounded |
 |---|---|---|---|
-| **R11a** | The dependency and role-requirement sweep. One unfiltered reverse `pg_depend` pass over the whole population, `pg_identify_object` resolution of every returned row, the eight textual-analysis classes, the dynamic-SQL inventory, and the policy `TO`-clause classification. | `evidence/R11a-dependency-map.md` | **Bulk, not per-signature.** Six queries, one pass, whole population. This is the cheap half and it is what protects every later phase. |
+| **R11a** | The dependency and role-requirement sweep. One unfiltered reverse `pg_depend` pass over the whole population, `pg_identify_object` resolution of every returned row, the eight textual-analysis classes, the dynamic-SQL inventory, and the policy `TO`-clause classification. | `evidence/R11a-dependency-map.md` | **Bulk, not per-signature.** One catalog pass over the whole population, not 80 separate investigations. This is the cheap half and it is what protects every later phase. |
 | **R11b** | Per-signature classification (the five points above), consuming R11a's map. **Batched in fours of twenty**, alphabetical by `regprocedure`, each batch appended to its artifact as it completes. | `evidence/R11b-classification.md` | Resumable at a 20-signature boundary. Batch identity is mechanical, so no judgment is needed to know where to restart. |
 | **R11c** | Consolidation: the proven-vs-inferred split, and a proposed phase decomposition grouped by **defect class** — revoke-only / actor-binding-required / policy-helper-keep-authenticated / already-safe — sized to the ≤10-file rule. | `reviews/R11-findings.md` | One document, written once, from two committed inputs. |
 
@@ -1226,7 +1268,7 @@ a workaround.
 Stated per overlay §3 instead of claiming completeness.
 
 1. **Out-of-repo consumers are invisible.** The audit covers `.from()`/`.rpc()` across
-   `.ts`/`.tsx`/`.js`, function bodies, triggers, view dependencies, and raw REST. It cannot see a
+   all tracked sources on R0's exhaustive rule, resolved catalog dependencies, and raw REST. It cannot see a
    Retool board, a Metabase query, a partner integration, or a manual script. Q1 asks about the
    two plausible candidates. **Failure direction is safe in every phase: denial, never exposure.**
 2. **Write reachability stays inferred.** §6's one inferred claim. Verifying it needs a write to
@@ -1272,3 +1314,7 @@ Stated per overlay §3 instead of claiming completeness.
 | 2026-08-12 | **HARD-RULE VIOLATION IN THE PLAN'S OWN TEXT, corrected.** R0's contract told an executor to gather production facts read-only. `AGENTS.md:37` and `CLAUDE.md` Database Safety forbid an agent touching the production database **with no read-only exception**. | The plan's own precedence list puts repo hard rules first, and it violated one. AR0-8 now forbids any production connection; D-7 is clarified so the production verification it requires is **Brent's, never an executor's**. That the r1 discovery ran against production does not license an executor — that was owner-run. | Codex r5, B1 |
 | 2026-08-12 | **A8(a)'s test matrix delegated to R0 (AR0-7)** rather than guessed a fourth time. | Three attempts to write it from the dump were each wrong. Codex r5 B3 showed why: the qualifying actor differs per operation (`members_delete_transformation_results` also requires `admin`/`consultor`), the denial form differs per command (filtered-to-zero-rows for UPDATE/DELETE — **`CLAUDE.md`'s own documented convention**, which this plan contradicted), and `rubric_item_id NOT NULL` requires a `transformation_rubric` fixture that was absent. | Codex r5, B3 |
 | 2026-08-12 | **D-9 rewritten from pattern-guessed to diff-driven** after it failed on its first use. | The sweep ran at r4 and still passed eight live contradictions, because a guessed pattern list cannot match sentences that never contained the new wording. Now three required layers: search **both old and new forms** of every changed fact; structurally compare the phase index against each phase header; centralize volatile counts. A later stale reference means the control failed, not that it was skipped. | Codex r5, S1 + ruling F |
+| 2026-08-13 | **Codex plan review r6: FINDINGS.** 2 BLOCKING, 2 SHOULD-FIX, 2 NITs. `IS R0 DISPATCHABLE: no` — but "no broader redesign is needed". r5 checklist: 2 satisfied, 1 substantially satisfied, 1 not. | The two blockers were narrow and named: a waived repo gate, and a path for load-bearing production uncertainty to unblock R1. | Codex plan review r6 |
+| 2026-08-13 | **SECOND HARD-RULE VIOLATION IN A PHASE CONTRACT, corrected.** R0 waived `npm test` and `npm run build` on the reasoning that it changes no source so the gates cannot regress. `AGENTS.md:30` requires all four gates before any phase is reported complete, with no documentation-only exception. | Sound engineering that the repo rule does not permit — the same shape as r5's production-access violation: a reasonable-looking judgment call overriding an absolute rule. Both times the plan's own precedence list already said which wins. R0 now runs all four, and records that `npm test` is run because the repo requires it, **not** as evidence of suite completeness. | Codex r6, B1 |
+| 2026-08-13 | **AR0-8 gains a load-bearing classification and an R1 pre-dispatch owner gate.** | Without it, R0 could close and unblock R1 while a production-only fact about the very ACLs R1 changes sat merely labelled `UNVERIFIED` — and D-7's production check happens *after* the migration is applied, too late to prevent an outage. Load-bearing uncertainty now becomes a named gate requiring Brent's read-only confirmation before R1 dispatches. | Codex r6, B2 |
+| 2026-08-13 | **D-9 layer 2 corrected and slated to become a committed checker.** | At r5 the structural check compared index rows to phase *headers* only — so R1's header correctly read "BLOCKED on R0" while the metadata line two lines below still said "Status: TODO. Depends on: nothing." Layer 2 now compares index → header → metadata line. Codex has ruled twice that mechanically comparable facts should not ride on a human sweep, so `docs/plan/rls/tools/check-plan-consistency.sh` becomes an R0 deliverable — documentation machinery, inside R0's boundary. | Codex r6, S1 + "IS D-9 NOW SUFFICIENT: no" |

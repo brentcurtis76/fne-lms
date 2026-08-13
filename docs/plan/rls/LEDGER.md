@@ -577,3 +577,56 @@ Append-only, one entry per round. Plan: `docs/plan/rls/PLAN.md`.
      independent review before closing RM.
   3. Decide whether the verified base build environment failure is acceptable evidence for this
      documentation-only phase or requires an owner-supplied non-secret local build environment.
+
+---
+
+### 2026-08-13 — RM round 1 — PM VERIFICATION of the executor report
+
+- SESSION: `RLS · RM · PM`
+- ATTEMPT: 1 (RM), cumulative
+- RISK: HIGH
+- EXECUTOR REPORTED: `STATUS: BLOCKED` on a "verified base build-environment failure",
+  commits `20149faa`, `6e698ef1`.
+- **WHAT THE PM VERIFIED INDEPENDENTLY** (a report is a claim, not evidence):
+  - **The build failure was MISDIAGNOSED. It is not a base failure.** `/Users/brentcurtis/dev/fne-lms/.env.local`
+    exists (2289 bytes); this worktree had **no `.env*` at all**. `.gitignore:16` means
+    `git worktree add` never copies it. PM symlinked it (no second copy of secrets on disk) and
+    **`npm run build` completes successfully** — full route table emitted, middleware 73.7 kB.
+    **ARM-9 is met.**
+  - ARM-3 verified byte-for-byte: `(+ \`test:db\`/\`e2e\` when DB/UI touched)` is **identical** in
+    both files at line 40.
+  - ARM-2 verified: all four hard rules present in `AGENTS.md` with canonical content —
+    NO DEPLOYMENTS, Database Safety (5 bullets incl. the RLS hook/CI clause), Privacy Ley 21.719
+    (4 bullets), Memory Discipline.
+  - ARM-1 verified structurally: `diff` of section headers shows **one** difference, the title
+    line, which is presentation not a governing rule — the executor's stated assumption, and it is
+    correct.
+  - ARM-6 verified: both files 112 lines; under 200.
+  - Q6 inventory verified by full `diff`: exactly the two items reported, nothing else.
+  - **The jsdom hazard did NOT materialise.** 305 files / 7059 tests with `environment 365ms`.
+    The plan's documented base is 254 files with 51 jsdom files silently dropped; **254 + 51 = 305**,
+    so the full suite ran. Recorded because every later phase's A15 reasoning depends on it.
+- FINDINGS RAISED:
+  - **[B1 · BLOCKING-as-method, not as code] The base-failure control could not discriminate what
+    it claimed.** Reproducing at merge base **inside the same env-less worktree** proves only that
+    both fail identically — it cannot separate a code regression from a missing environment. The
+    correct control is a checkout that *has* the environment. Consequence: the report routed
+    toward an unnecessary overlay §5 stabilization phase. **Same shape as defects this plan has
+    hit repeatedly: a control that cannot distinguish the thing it exists to distinguish.** No
+    code defect; the diff is sound.
+  - **[S1 · SHOULD-FIX] Overlay §5's evidence record was not written.** `evidence/` is empty. A
+    red required gate must be recorded there with base SHA, environment, command and counts. What
+    belongs there now is the **worktree setup gap**, so the next executor does not lose a round to
+    it.
+  - **[S2 · SHOULD-FIX] The two Q6 candidates are presented as symmetric and are not.** Retiring
+    candidate 1 would delete the mirror invariant that RM exists to restore — its reject branch is
+    self-defeating. Also, `CLAUDE.md:4` already carries a partial form of that statement
+    ("`AGENTS.md` mirrors this file"), so candidate 1 is a *partial* divergence — the missing part
+    is the precedence-and-same-PR clause, not the whole rule.
+- DECISIONS: none by the PM. **Q6 is Brent's and is the only thing now blocking RM.**
+- GATES RE-RUN BY PM: `npm run build` → **PASS** (after env symlink). Executor's type-check, lint
+  and Vitest results accepted as reported and consistent with the PM's own suite-count check.
+- ENVIRONMENT CHANGE MADE BY PM: symlinked `.env.local` into the worktree. Gitignored, not
+  committed, no secrets duplicated.
+- OPEN: Q6 ruling; then apply the branch, update `PROJECT_STATE.md`, re-run gates, push, and send
+  to Codex for RM's independent review.

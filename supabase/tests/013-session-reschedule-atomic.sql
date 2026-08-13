@@ -25,7 +25,7 @@
 
 BEGIN;
 
-SELECT plan(32);
+SELECT plan(50);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures — an ample bucket only; the budget boundary is 012's subject, not this
@@ -387,6 +387,115 @@ SELECT is(
   pg_temp.ledger_state('ffffffff-1111-0000-0000-000000000007'),
   '1.50 / 90 / 2026-09-10 / false',
   'B9: and the ledger is unchanged');
+
+-- -----------------------------------------------------------------------------
+-- [R6] The additive identical-signature replacement validates the real summary
+-- result inside the transaction. Four dependency corruptions must all roll back
+-- the already-attempted session write, ledger write, and revision append.
+-- -----------------------------------------------------------------------------
+SELECT ok(
+  position('v_bucket_count <> 1' in pg_get_functiondef(
+    'public.reschedule_session_hours(uuid,uuid)'::regprocedure)) > 0,
+  'R6: the live identical-signature function enforces exactly one bucket');
+SELECT ok(
+  position('v_available <> v_allocated - v_reserved - v_consumed' in pg_get_functiondef(
+    'public.reschedule_session_hours(uuid,uuid)'::regprocedure)) > 0,
+  'R6: the live function enforces coherent bucket arithmetic');
+
+CREATE OR REPLACE FUNCTION public.get_bucket_summary(p_contrato_id uuid)
+RETURNS TABLE(
+  hour_type_key text, display_name text, allocated_hours numeric,
+  reserved_hours numeric, consumed_hours numeric, available_hours numeric,
+  is_fixed_allocation boolean, annex_hours numeric
+)
+LANGUAGE plpgsql STABLE SET search_path = public AS $$
+DECLARE v_mode text := current_setting('z7.bucket_mode', true);
+BEGIN
+  IF v_mode = 'missing' THEN RETURN; END IF;
+  IF v_mode = 'duplicate' THEN
+    RETURN QUERY SELECT 'acomp_atomic'::text, 'duplicate'::text, 500::numeric,
+      1.5::numeric, 0::numeric, 498.5::numeric, false, 0::numeric
+      FROM generate_series(1, 2);
+    RETURN;
+  END IF;
+  IF v_mode = 'malformed' THEN
+    RETURN QUERY SELECT 'acomp_atomic'::text, 'malformed'::text, NULL::numeric,
+      1.5::numeric, 0::numeric, 498.5::numeric, false, 0::numeric;
+    RETURN;
+  END IF;
+  IF v_mode = 'incoherent' THEN
+    RETURN QUERY SELECT 'acomp_atomic'::text, 'incoherent'::text, 500::numeric,
+      1.5::numeric, 0::numeric, 499::numeric, false, 0::numeric;
+    RETURN;
+  END IF;
+  RETURN QUERY SELECT 'acomp_atomic'::text, 'valid'::text, 500::numeric,
+    1.5::numeric, 0::numeric, 498.5::numeric, false, 0::numeric;
+END;
+$$;
+
+SELECT pg_temp.seed_session(
+  'ffffffff-0000-0000-0000-000000000008', 'ffffffff-1111-0000-0000-000000000008');
+SELECT set_config('z7.bucket_mode', 'missing', true);
+SELECT throws_ok(
+  $$ SELECT public.apply_session_reschedule(
+       'ffffffff-0000-0000-0000-000000000008', tests.get_supabase_uid('ra_admin'),
+       '{"end_time":"11:00:00"}'::jsonb) $$,
+  'P0001', NULL, 'R6 missing: the tracked bucket is required');
+SELECT is(pg_temp.session_state('ffffffff-0000-0000-0000-000000000008'),
+  '2026-09-10 09:00:00-10:30:00 / 90', 'R6 missing: session fingerprint is unchanged');
+SELECT is(pg_temp.ledger_state('ffffffff-1111-0000-0000-000000000008'),
+  '1.50 / 90 / 2026-09-10 / false', 'R6 missing: ledger fingerprint is unchanged');
+SELECT is((SELECT count(*)::int FROM public.session_activity_log
+  WHERE session_id='ffffffff-0000-0000-0000-000000000008'), 0,
+  'R6 missing: no revision exists');
+
+SELECT pg_temp.seed_session(
+  'ffffffff-0000-0000-0000-000000000009', 'ffffffff-1111-0000-0000-000000000009');
+SELECT set_config('z7.bucket_mode', 'duplicate', true);
+SELECT throws_ok(
+  $$ SELECT public.apply_session_reschedule(
+       'ffffffff-0000-0000-0000-000000000009', tests.get_supabase_uid('ra_admin'),
+       '{"end_time":"11:00:00"}'::jsonb) $$,
+  'P0001', NULL, 'R6 duplicate: exactly one tracked bucket is required');
+SELECT is(pg_temp.session_state('ffffffff-0000-0000-0000-000000000009'),
+  '2026-09-10 09:00:00-10:30:00 / 90', 'R6 duplicate: session fingerprint is unchanged');
+SELECT is(pg_temp.ledger_state('ffffffff-1111-0000-0000-000000000009'),
+  '1.50 / 90 / 2026-09-10 / false', 'R6 duplicate: ledger fingerprint is unchanged');
+SELECT is((SELECT count(*)::int FROM public.session_activity_log
+  WHERE session_id='ffffffff-0000-0000-0000-000000000009'), 0,
+  'R6 duplicate: no revision exists');
+
+SELECT pg_temp.seed_session(
+  'ffffffff-0000-0000-0000-000000000010', 'ffffffff-1111-0000-0000-000000000010');
+SELECT set_config('z7.bucket_mode', 'malformed', true);
+SELECT throws_ok(
+  $$ SELECT public.apply_session_reschedule(
+       'ffffffff-0000-0000-0000-000000000010', tests.get_supabase_uid('ra_admin'),
+       '{"end_time":"11:00:00"}'::jsonb) $$,
+  'P0001', NULL, 'R6 malformed: null financial metadata is refused');
+SELECT is(pg_temp.session_state('ffffffff-0000-0000-0000-000000000010'),
+  '2026-09-10 09:00:00-10:30:00 / 90', 'R6 malformed: session fingerprint is unchanged');
+SELECT is(pg_temp.ledger_state('ffffffff-1111-0000-0000-000000000010'),
+  '1.50 / 90 / 2026-09-10 / false', 'R6 malformed: ledger fingerprint is unchanged');
+SELECT is((SELECT count(*)::int FROM public.session_activity_log
+  WHERE session_id='ffffffff-0000-0000-0000-000000000010'), 0,
+  'R6 malformed: no revision exists');
+
+SELECT pg_temp.seed_session(
+  'ffffffff-0000-0000-0000-000000000011', 'ffffffff-1111-0000-0000-000000000011');
+SELECT set_config('z7.bucket_mode', 'incoherent', true);
+SELECT throws_ok(
+  $$ SELECT public.apply_session_reschedule(
+       'ffffffff-0000-0000-0000-000000000011', tests.get_supabase_uid('ra_admin'),
+       '{"end_time":"11:00:00"}'::jsonb) $$,
+  'P0001', NULL, 'R6 incoherent: contradictory arithmetic is refused');
+SELECT is(pg_temp.session_state('ffffffff-0000-0000-0000-000000000011'),
+  '2026-09-10 09:00:00-10:30:00 / 90', 'R6 incoherent: session fingerprint is unchanged');
+SELECT is(pg_temp.ledger_state('ffffffff-1111-0000-0000-000000000011'),
+  '1.50 / 90 / 2026-09-10 / false', 'R6 incoherent: ledger fingerprint is unchanged');
+SELECT is((SELECT count(*)::int FROM public.session_activity_log
+  WHERE session_id='ffffffff-0000-0000-0000-000000000011'), 0,
+  'R6 incoherent: no revision exists');
 
 SELECT * FROM finish();
 ROLLBACK;

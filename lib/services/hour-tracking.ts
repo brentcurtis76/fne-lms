@@ -149,6 +149,19 @@ export function calculateHours(durationMinutes: number): number {
   return Math.round((durationMinutes / 60) * 100) / 100;
 }
 
+/** Convert an already-canonical two-decimal hour value to exact integer hundredths. */
+function canonicalHourHundredths(value: unknown, min: number, max: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) {
+    throw new Error('hour_availability_invalid_numeric_range');
+  }
+  const scaled = value * 100;
+  const rounded = Math.round(scaled);
+  if (!Number.isSafeInteger(rounded) || Math.abs(scaled - rounded) > 1e-7) {
+    throw new Error('hour_availability_excess_precision');
+  }
+  return rounded;
+}
+
 /**
  * Calculate notice hours between now and the session's scheduled start.
  *
@@ -223,6 +236,7 @@ export async function getAvailableHours(
       allocated_hours: number;
       reserved_hours: number;
       consumed_hours: number;
+      available_hundredths: number;
     }
   | { kind: 'missing' }
 > {
@@ -236,26 +250,47 @@ export async function getAvailableHours(
     throw new Error('hour_availability_invalid_response');
   }
 
-  const bucket = (summary as BucketSummary[]).find(
-    (b) => b.hour_type_key === hourTypeKey
-  );
+  const seenKeys = new Set<string>();
+  const matchingBuckets: Array<BucketSummary & { available_hundredths: number }> = [];
+  for (const candidate of summary) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+      throw new Error('hour_availability_invalid_row');
+    }
+    const bucket = candidate as BucketSummary;
+    if (typeof bucket.hour_type_key !== 'string' || bucket.hour_type_key.length === 0) {
+      throw new Error('hour_availability_invalid_key');
+    }
+    if (seenKeys.has(bucket.hour_type_key)) {
+      throw new Error('hour_availability_duplicate_bucket');
+    }
+    seenKeys.add(bucket.hour_type_key);
 
-  if (!bucket) {
+    const allocated = canonicalHourHundredths(bucket.allocated_hours, 0, 999_999.99);
+    const reserved = canonicalHourHundredths(bucket.reserved_hours, 0, 99_999_999.99);
+    const consumed = canonicalHourHundredths(bucket.consumed_hours, 0, 99_999_999.99);
+    const available = canonicalHourHundredths(
+      bucket.available_hours,
+      -99_999_999.99,
+      999_999.99
+    );
+    if (available !== allocated - reserved - consumed) {
+      throw new Error('hour_availability_incoherent_arithmetic');
+    }
+    if (bucket.hour_type_key === hourTypeKey) {
+      matchingBuckets.push({ ...bucket, available_hundredths: available });
+    }
+  }
+
+  if (matchingBuckets.length === 0) {
     // A successful empty result is a legitimate answer for a contract/type with no
     // allocation. createReservation separately proves an allocation exists first;
     // at that boundary this same result is therefore an inconsistent dependency.
     return { kind: 'missing' };
   }
-
-  const numericValues = [
-    bucket.available_hours,
-    bucket.allocated_hours,
-    bucket.reserved_hours,
-    bucket.consumed_hours,
-  ];
-  if (!numericValues.every((value) => typeof value === 'number' && Number.isFinite(value))) {
-    throw new Error('hour_availability_invalid_response');
+  if (matchingBuckets.length !== 1) {
+    throw new Error('hour_availability_duplicate_bucket');
   }
+  const bucket = matchingBuckets[0];
 
   return {
     kind: 'available',
@@ -263,6 +298,7 @@ export async function getAvailableHours(
     allocated_hours: bucket.allocated_hours,
     reserved_hours: bucket.reserved_hours,
     consumed_hours: bucket.consumed_hours,
+    available_hundredths: bucket.available_hundredths,
   };
 }
 
@@ -275,6 +311,8 @@ type ReservationAllocation = {
 
 /** Generic API-safe copy for availability dependency failures. */
 export const HOUR_AVAILABILITY_ERROR_ES = 'No se pudo verificar la disponibilidad de horas.';
+export const HOUR_TRACKING_PAIR_ERROR_ES =
+  'El contrato y el tipo de hora deben configurarse juntos.';
 
 export type ReservationPreparation =
   | { kind: 'skipped' }
@@ -283,7 +321,8 @@ export type ReservationPreparation =
       allocation: ReservationAllocation;
       durationMins: number;
       hours: number;
-      availableHours: number;
+      hoursHundredths: number;
+      availableHundredths: number;
       isOverBudget: boolean;
     }
   | {
@@ -301,10 +340,21 @@ export async function prepareReservation(
   serviceClient: SupabaseClient,
   session: ConsultorSession
 ): Promise<ReservationPreparation> {
-  // Sessions outside hour tracking are the only legitimate successful-empty path.
-  // They predate contract allocation and intentionally approve without a ledger row.
-  if (!session.hour_type_key || !session.contrato_id) {
+  // BOTH absent is the only legitimate legacy form. An XOR pair would otherwise
+  // approve a partially tracked session without a ledger reservation.
+  const hourTypeAbsent = session.hour_type_key == null;
+  const contractAbsent = session.contrato_id == null;
+  const hasHourType = typeof session.hour_type_key === 'string' && session.hour_type_key.trim().length > 0;
+  const hasContract = typeof session.contrato_id === 'string' && session.contrato_id.length > 0;
+  if (hourTypeAbsent && contractAbsent) {
     return { kind: 'skipped' };
+  }
+  if (!hasHourType || !hasContract) {
+    return {
+      kind: 'error',
+      error: HOUR_TRACKING_PAIR_ERROR_ES,
+      error_kind: 'validation',
+    };
   }
 
   if (!session.start_time || !session.end_time) {
@@ -333,10 +383,11 @@ export async function prepareReservation(
   }
 
   const hours = calculateHours(durationMins);
+  const hoursHundredths = Math.round((durationMins * 100) / 60);
   const allocation = await findMatchingAllocation(
     serviceClient,
     session.contrato_id,
-    session.hour_type_key
+    session.hour_type_key.trim()
   );
   if (!allocation) {
     return {
@@ -350,7 +401,7 @@ export async function prepareReservation(
     const budgetInfo = await getAvailableHours(
       serviceClient,
       session.contrato_id,
-      session.hour_type_key
+      session.hour_type_key.trim()
     );
     if (budgetInfo.kind === 'missing') {
       // findMatchingAllocation just proved this bucket exists. A summary that omits
@@ -366,8 +417,9 @@ export async function prepareReservation(
       allocation,
       durationMins,
       hours,
-      availableHours: budgetInfo.available_hours,
-      isOverBudget: budgetInfo.available_hours < hours,
+      hoursHundredths,
+      availableHundredths: budgetInfo.available_hundredths,
+      isOverBudget: budgetInfo.available_hundredths < hoursHundredths,
     };
   } catch {
     return {
@@ -380,7 +432,7 @@ export async function prepareReservation(
 
 /**
  * Create a reservation (ledger entry with status='reservada') when a session is approved.
- * Backward compatible: if hour_type_key or contrato_id is null, returns { skipped: true }.
+ * Backward compatible only for the genuine legacy form where both tracking fields are null.
  * Sequential with compensating logic (no PL/pgSQL).
  */
 export async function createReservation(

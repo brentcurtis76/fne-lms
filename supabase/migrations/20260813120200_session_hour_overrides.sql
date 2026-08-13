@@ -524,3 +524,34 @@ $$;
 
 COMMENT ON FUNCTION public.get_consultant_earnings(uuid, date, date) IS
   'Returns consultant earnings by hour type/rate using the canonical §11 billable value: round(effective_minutes/60.0, 2) when adjusted, otherwise historical hours. NULL rate_eur means no rate is configured.';
+
+-- -----------------------------------------------------------------------------
+-- 6. Column authority: even RLS-bypassing service_role cannot write the audited
+-- value directly. Remove table-level UPDATE (which overrides column revocation),
+-- then restore every lifecycle column except effective_minutes. The SECURITY
+-- DEFINER override RPC executes as its owner and remains the sole writer.
+-- -----------------------------------------------------------------------------
+REVOKE UPDATE ON TABLE public.contract_hours_ledger
+  FROM PUBLIC, anon, authenticated, service_role;
+
+DO $grant_lifecycle_columns$
+DECLARE
+  v_columns text;
+BEGIN
+  SELECT string_agg(quote_ident(a.attname), ', ' ORDER BY a.attnum)
+    INTO v_columns
+    FROM pg_catalog.pg_attribute a
+   WHERE a.attrelid = 'public.contract_hours_ledger'::regclass
+     AND a.attnum > 0
+     AND NOT a.attisdropped
+     AND a.attname <> 'effective_minutes';
+
+  EXECUTE format(
+    'GRANT UPDATE (%s) ON TABLE public.contract_hours_ledger TO authenticated, service_role',
+    v_columns
+  );
+END
+$grant_lifecycle_columns$;
+
+COMMENT ON COLUMN public.contract_hours_ledger.effective_minutes IS
+  'Admin-overridden billable minutes (§11). NULL = planned hours; 0 = full waiver. Table UPDATE privilege is revoked for authenticated/service_role and deliberately not re-granted for this column; only the owner-executed audited apply_session_hour_override RPC may change it.';

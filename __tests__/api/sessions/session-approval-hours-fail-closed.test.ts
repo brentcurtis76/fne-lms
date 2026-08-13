@@ -6,6 +6,8 @@ import { createMocks } from 'node-mocks-http';
 const ADMIN_ID = '11111111-1111-4111-8111-111111111111';
 const SESSION_A = '55555555-5555-4555-8555-555555555551';
 const SESSION_B = '55555555-5555-4555-8555-555555555552';
+const SESSION_C = '55555555-5555-4555-8555-555555555553';
+const SESSION_D = '55555555-5555-4555-8555-555555555554';
 const CONTRACT_ID = '77777777-7777-4777-8777-777777777777';
 const GENERIC_ERROR = 'No se pudo verificar la disponibilidad de horas.';
 
@@ -156,7 +158,7 @@ function bucket(availableHours: number): RpcResult {
       hour_type_key: 'asesoria_tecnica_presencial',
       available_hours: availableHours,
       allocated_hours: 10,
-      reserved_hours: 0,
+      reserved_hours: 10 - availableHours,
       consumed_hours: 0,
     }],
     error: null,
@@ -265,5 +267,85 @@ describe('session approval financial availability', () => {
     expect(res._getStatusCode()).toBe(200);
     expect(current.ledgerInserts.map((row) => row.is_over_budget)).toEqual([false, true]);
     expect(current.sessionUpdates).toHaveLength(2);
+  });
+
+  it('uses exact hundredths for a shared 0.60-hour balance', async () => {
+    const sessions = [SESSION_A, SESSION_B, SESSION_C, SESSION_D]
+      .map((id) => trackedSession(id, { scheduled_duration_minutes: 12 }));
+    const current = state(sessions, sessions.map(() => bucket(0.6)));
+    mockCreateServiceRoleClient.mockReturnValue(createClient(current));
+    const { req, res } = createMocks({ method: 'POST', body: { session_ids: sessions.map(({ id }) => id) } });
+
+    await bulkHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(current.ledgerInserts.map((row) => row.is_over_budget)).toEqual([false, false, false, true]);
+  });
+
+  it.each([
+    ['contradictory arithmetic', [{ hour_type_key: 'asesoria_tecnica_presencial', allocated_hours: 10, reserved_hours: 1, consumed_hours: 1, available_hours: 9 }]],
+    ['duplicate bucket', [bucket(1).data[0], bucket(1).data[0]]],
+    ['malformed row', [null]],
+    ['fractional hundredths', [{ hour_type_key: 'asesoria_tecnica_presencial', allocated_hours: 10, reserved_hours: 9.999, consumed_hours: 0, available_hours: 0.001 }]],
+    ['negative consumed total', [{ hour_type_key: 'asesoria_tecnica_presencial', allocated_hours: 10, reserved_hours: 11, consumed_hours: -1, available_hours: 0 }]],
+  ])('single rejects %s with generic 500 and zero mutations', async (_label, data) => {
+    const current = state([trackedSession(SESSION_A)], [{ data, error: null }]);
+    mockCreateServiceRoleClient.mockReturnValue(createClient(current));
+    const { req, res } = createMocks({ method: 'POST', query: { id: SESSION_A } });
+
+    await singleHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(JSON.parse(res._getData())).toEqual({ error: GENERIC_ERROR });
+    expect(current.ledgerInserts).toEqual([]);
+    expect(current.sessionUpdates).toEqual([]);
+  });
+
+  it('bulk rejects an invalid bucket before every mutation', async () => {
+    const invalid = { ...bucket(1), data: [bucket(1).data[0], bucket(1).data[0]] };
+    const current = state([trackedSession(SESSION_A), trackedSession(SESSION_B)], [bucket(2), invalid]);
+    mockCreateServiceRoleClient.mockReturnValue(createClient(current));
+    const { req, res } = createMocks({ method: 'POST', body: { session_ids: [SESSION_A, SESSION_B] } });
+
+    await bulkHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(current.ledgerInserts).toEqual([]);
+    expect(current.sessionUpdates).toEqual([]);
+  });
+
+  it('accepts a coherent negative bucket and marks it over budget', async () => {
+    const current = state([trackedSession(SESSION_A)], [bucket(-0.2)]);
+    mockCreateServiceRoleClient.mockReturnValue(createClient(current));
+    const { req, res } = createMocks({ method: 'POST', query: { id: SESSION_A } });
+
+    await singleHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(current.ledgerInserts[0].is_over_budget).toBe(true);
+  });
+
+  it.each([
+    [{ contrato_id: null }, 'single'],
+    [{ hour_type_key: null }, 'single'],
+    [{ hour_type_key: 42, contrato_id: 42 }, 'single'],
+  ])('single rejects an XOR tracking pair with zero mutations', async (overrides) => {
+    const current = state([trackedSession(SESSION_A, overrides)], []);
+    mockCreateServiceRoleClient.mockReturnValue(createClient(current));
+    const { req, res } = createMocks({ method: 'POST', query: { id: SESSION_A } });
+    await singleHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(400);
+    expect(current.ledgerInserts).toEqual([]);
+    expect(current.sessionUpdates).toEqual([]);
+  });
+
+  it('bulk rejects an XOR pair before mutating an earlier valid session', async () => {
+    const current = state([trackedSession(SESSION_A), trackedSession(SESSION_B, { contrato_id: null })], [bucket(2)]);
+    mockCreateServiceRoleClient.mockReturnValue(createClient(current));
+    const { req, res } = createMocks({ method: 'POST', body: { session_ids: [SESSION_A, SESSION_B] } });
+    await bulkHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(400);
+    expect(current.ledgerInserts).toEqual([]);
+    expect(current.sessionUpdates).toEqual([]);
   });
 });

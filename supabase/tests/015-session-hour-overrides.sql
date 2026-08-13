@@ -20,7 +20,7 @@
 
 BEGIN;
 
-SELECT plan(59);
+SELECT plan(65);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures
@@ -527,6 +527,42 @@ SELECT is(
   'F3: `hours` still holds the historical value — the waiver never rewrites it');
 
 RESET ROLE;
+
+-- -----------------------------------------------------------------------------
+-- G2. The audited RPC is the sole authority for effective_minutes. Even roles
+-- that can legitimately update other lifecycle columns cannot touch it directly.
+-- -----------------------------------------------------------------------------
+SELECT ok(
+  NOT has_column_privilege('authenticated', 'public.contract_hours_ledger', 'effective_minutes', 'UPDATE'),
+  'G2: authenticated has no direct effective_minutes UPDATE privilege');
+SELECT ok(
+  NOT has_column_privilege('service_role', 'public.contract_hours_ledger', 'effective_minutes', 'UPDATE'),
+  'G2: service_role has no direct effective_minutes UPDATE privilege');
+
+SELECT tests.authenticate_as('o_admin');
+SELECT throws_ok(
+  $$ UPDATE public.contract_hours_ledger SET effective_minutes = 17
+      WHERE id = 'eeeeeeee-0002-0000-0000-000000000001' $$,
+  '42501', NULL,
+  'G2: authenticated admin cannot bypass the audited override RPC');
+RESET ROLE;
+
+SET LOCAL ROLE service_role;
+SELECT throws_ok(
+  $$ UPDATE public.contract_hours_ledger SET effective_minutes = 18
+      WHERE id = 'eeeeeeee-0002-0000-0000-000000000001' $$,
+  '42501', NULL,
+  'G2: service role cannot bypass the audited override RPC');
+SELECT lives_ok(
+  $$ UPDATE public.contract_hours_ledger SET status = status
+      WHERE id = 'eeeeeeee-0002-0000-0000-000000000001' $$,
+  'G2: service-role lifecycle writes to allowed columns remain available');
+RESET ROLE;
+
+SELECT is(
+  (SELECT effective_minutes FROM public.contract_hours_ledger
+    WHERE id = 'eeeeeeee-0002-0000-0000-000000000001'),
+  0, 'G2: both forbidden direct attempts left the audited value unchanged');
 
 -- -----------------------------------------------------------------------------
 -- H. The ledger CHECKs stay intact.

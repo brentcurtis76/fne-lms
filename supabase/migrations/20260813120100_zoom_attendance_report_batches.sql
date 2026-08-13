@@ -80,6 +80,10 @@ LANGUAGE plpgsql
 SET search_path = ''
 AS $$
 BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'attendance report batches are append-only: DELETE is not permitted'
+      USING ERRCODE = 'P0409';
+  END IF;
   IF OLD.status <> 'pending' OR NEW.status NOT IN ('complete', 'rejected') THEN
     RAISE EXCEPTION 'attendance report batches resolve exactly once: pending -> complete|rejected'
       USING ERRCODE = 'P0409';
@@ -89,11 +93,11 @@ END
 $$;
 
 CREATE TRIGGER zoom_attendance_report_batches_terminal
-BEFORE UPDATE ON zoom_internal.zoom_attendance_report_batches
+BEFORE UPDATE OR DELETE ON zoom_internal.zoom_attendance_report_batches
 FOR EACH ROW EXECUTE FUNCTION zoom_internal.enforce_attendance_report_batch_transition();
 
 COMMENT ON FUNCTION zoom_internal.enforce_attendance_report_batch_transition() IS
-  'Database boundary for §15.3.9 batch terminality: the only UPDATE is pending→complete or pending→rejected. Complete/rejected rows are immutable, including same-status rewrites.';
+  'Database boundary for §15.3.9 append-only batch evidence: DELETE always raises; the only UPDATE is pending→complete or pending→rejected. Complete/rejected rows are immutable, including same-status rewrites.';
 
 -- Conditional rejection lives beside promotion so callers cannot accidentally
 -- overwrite a terminal result after an ambiguous transport outcome.

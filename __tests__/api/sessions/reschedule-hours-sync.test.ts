@@ -64,6 +64,8 @@ type MockState = {
   updates: Array<Record<string, any>>;
   editRequestUpdates: Array<Record<string, any>>;
   rpcCalls: RpcCall[];
+  ledgerFingerprint: string;
+  revisionCount: number;
   /** When set, the reschedule RPC reports this error instead of succeeding. */
   rpcError: { message: string; hint?: string } | null;
 };
@@ -225,6 +227,8 @@ beforeEach(async () => {
     updates: [],
     editRequestUpdates: [],
     rpcCalls: [],
+    ledgerFingerprint: '1.50/90/2026-09-10/false',
+    revisionCount: 0,
     rpcError: null,
   };
 
@@ -345,6 +349,8 @@ describe('PUT /api/sessions/[id] — reschedule is one transaction [A6]', () => 
     );
     // The copy is not a claim the code cannot back: the row really is untouched.
     expect(state.row.end_time).toBe('10:30:00');
+    expect(state.ledgerFingerprint).toBe('1.50/90/2026-09-10/false');
+    expect(state.revisionCount).toBe(0);
   });
 
   it('reports a plain update failure as an update failure, not as an hours failure', async () => {
@@ -466,6 +472,8 @@ describe('PUT /api/sessions/edit-requests/[eid] — approve is one transaction [
     expect(state.editRequest.status).toBe('pending');
     // …and, new in r21, the session did not move either.
     expect(state.row.end_time).toBe('10:30:00');
+    expect(state.ledgerFingerprint).toBe('1.50/90/2026-09-10/false');
+    expect(state.revisionCount).toBe(0);
   });
 
   // -------------------------------------------------------------------------

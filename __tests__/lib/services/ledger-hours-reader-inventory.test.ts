@@ -4,25 +4,18 @@
  * New roots, table touches, RPCs/views/functions, SQL aliases, or dependency edges must
  * be explicitly classified here before the suite returns green.
  */
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 type UseClass = 'billable' | 'aggregate' | 'status-only' | 'write' | 'historical';
 
 const ROOT = process.cwd();
-const PRODUCTION_TS_ROOTS = [
-  'components',
-  'config',
-  'constants',
-  'contexts',
-  'hooks',
-  'lib',
-  'pages',
-  'src',
-  'types',
-  'utils',
-] as const;
+const NON_PRODUCTION_ROOTS = new Set([
+  '.git', '.next', '__mocks__', '__tests__', 'coverage', 'docs', 'node_modules',
+  'playwright-report', 'public', 'scripts', 'styles', 'supabase', 'test-results', 'tests',
+]);
 
 function filesBelow(directory: string): string[] {
   if (!existsSync(directory)) return [];
@@ -32,22 +25,91 @@ function filesBelow(directory: string): string[] {
   });
 }
 
-function productionTypescriptFiles(): string[] {
-  const rootFiles = readdirSync(ROOT, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && /\.tsx?$/.test(entry.name))
-    .map((entry) => join(ROOT, entry.name));
-  return [
-    ...rootFiles,
-    ...PRODUCTION_TS_ROOTS.flatMap((directory) => filesBelow(join(ROOT, directory))),
-  ].filter((path) =>
+function productionTypescriptFiles(root = ROOT): string[] {
+  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    if (entry.isDirectory() && !NON_PRODUCTION_ROOTS.has(entry.name)) {
+      return filesBelow(join(root, entry.name));
+    }
+    return entry.isFile() ? [join(root, entry.name)] : [];
+  }).filter((path) =>
     /\.tsx?$/.test(path) &&
     !path.includes('/__tests__/') &&
-    !/\.test\.[^.]+$/.test(path)
+    !/\.(?:test|spec)\.[^.]+$/.test(path)
   );
 }
 
+type DiscoveredCall = { method: 'from' | 'rpc'; target?: string; unsupported?: string };
+
+function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCall[] {
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true,
+    file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const strings = new Map<string, string>();
+  const aliases = new Map<string, 'from' | 'rpc'>();
+
+  function resolve(node: ts.Expression | undefined): string | undefined {
+    if (!node) return undefined;
+    if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
+    if (ts.isIdentifier(node)) return strings.get(node.text);
+    return undefined;
+  }
+
+  function collect(node: ts.Node): void {
+    if (ts.isVariableDeclaration(node)) {
+      if (ts.isIdentifier(node.name)) {
+        const value = resolve(node.initializer);
+        if (value !== undefined) strings.set(node.name.text, value);
+      } else if (ts.isObjectBindingPattern(node.name)) {
+        for (const element of node.name.elements) {
+          const sourceName = element.propertyName && ts.isIdentifier(element.propertyName)
+            ? element.propertyName.text
+            : ts.isIdentifier(element.name) ? element.name.text : '';
+          if ((sourceName === 'from' || sourceName === 'rpc') && ts.isIdentifier(element.name)) {
+            aliases.set(element.name.text, sourceName);
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, collect);
+  }
+  collect(sf);
+
+  const calls: DiscoveredCall[] = [];
+  const likelySupabaseReceiver = (expression: ts.Expression): boolean =>
+    /(?:supabase|client|service|database|\bdb\b)/i.test(expression.getText(sf)) &&
+    !/\.storage\b/i.test(expression.getText(sf));
+  function visit(node: ts.Node): void {
+    if (ts.isCallExpression(node)) {
+      let method: 'from' | 'rpc' | undefined;
+      if (ts.isPropertyAccessExpression(node.expression) &&
+          (node.expression.name.text === 'from' || node.expression.name.text === 'rpc')) {
+        method = node.expression.name.text;
+      } else if (ts.isElementAccessExpression(node.expression)) {
+        const name = resolve(node.expression.argumentExpression);
+        if (name === 'from' || name === 'rpc') method = name;
+        else if (name === undefined && likelySupabaseReceiver(node.expression.expression)) {
+          calls.push({ method: 'from', unsupported: 'dynamic callable name' });
+        }
+      } else if (ts.isIdentifier(node.expression)) {
+        method = aliases.get(node.expression.text);
+      }
+      if (method) {
+        const target = resolve(node.arguments[0]);
+        const receiverLikely = !ts.isPropertyAccessExpression(node.expression) ||
+          likelySupabaseReceiver(node.expression.expression);
+        calls.push(target === undefined
+          ? receiverLikely ? { method, unsupported: 'dynamic target' } : { method }
+          : { method, target });
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(sf);
+  return calls;
+}
+
 function directTableTouchCount(source: string): number {
-  return source.match(/\.from\s*\(\s*['"]contract_hours_ledger['"]\s*\)/g)?.length ?? 0;
+  return discoverSupabaseCalls(source).filter((call) =>
+    call.method === 'from' && call.target === 'contract_hours_ledger').length;
 }
 
 const DIRECT_TS_TOUCHES: Record<string, UseClass[]> = {
@@ -115,12 +177,8 @@ function ledgerObjectNames(definitions: SqlObjectDefinition[]): Set<string> {
 }
 
 function indirectCalls(source: string, targets: Set<string>): string[] {
-  const calls: string[] = [];
-  const pattern = /\.(?:rpc|from)\s*\(\s*(['"])([A-Za-z_][\w]*)\1/g;
-  for (const match of source.matchAll(pattern)) {
-    if (targets.has(match[2])) calls.push(match[2]);
-  }
-  return calls;
+  return discoverSupabaseCalls(source)
+    .flatMap((call) => call.target && targets.has(call.target) ? [call.target] : []);
 }
 
 /** Source-order role + authority; `non-authoritative` means no financial write trusts it. */
@@ -147,6 +205,15 @@ const INDIRECT_TS_CONSUMERS: Record<string, string[]> = {
   ],
 };
 
+const DYNAMIC_NON_LEDGER_CALLS: Record<string, string> = {
+  'lib/propuestas/scripts/seed-db.ts:from:dynamic target':
+    'local seed loop over a closed proposal-table literal list',
+  'lib/zoom/attendance-store.ts:from:dynamic target':
+    'closed attendance identity-source descriptor; never a financial table',
+  'utils/meetingUtils.ts:from:dynamic target':
+    'closed meeting-child table selector; never a financial table',
+};
+
 function stripSqlComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--.*$/gm, '');
 }
@@ -155,13 +222,20 @@ function stripSqlComments(source: string): string {
 function sqlDirectHoursUseCount(source: string): number {
   const sql = stripSqlComments(source);
   const aliases = new Set<string>();
-  const aliasPattern = /\b(?:FROM|JOIN)\s+(?:"?public"?\.)?"?contract_hours_ledger"?\s+(?:AS\s+)?"?([A-Za-z_][\w]*)"?/gi;
-  for (const match of sql.matchAll(aliasPattern)) aliases.add(match[1]);
+  const aliasPattern = /\b(?:FROM|JOIN)\s+(?:"?public"?\.)?"?contract_hours_ledger"?(?:\s+(?:AS\s+)?("[^"]+"|[A-Za-z_][\w]*))?/gi;
+  const reserved = new Set(['where', 'join', 'left', 'right', 'inner', 'outer', 'cross', 'on', 'group', 'order', 'limit', 'union']);
+  for (const match of sql.matchAll(aliasPattern)) {
+    const raw = match[1];
+    if (raw && !reserved.has(raw.replaceAll('"', '').toLowerCase())) aliases.add(raw);
+  }
 
   let count = 0;
   for (const alias of aliases) {
-    count += sql.match(new RegExp(`\\b${alias}\\.hours\\b`, 'gi'))?.length ?? 0;
+    const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const bounded = alias.startsWith('"') ? escaped : `\\b${escaped}\\b`;
+    count += sql.match(new RegExp(`${bounded}\\s*\\.\\s*"?hours"?`, 'gi'))?.length ?? 0;
   }
+  count += sql.match(/(?:\bcontract_hours_ledger\b|"contract_hours_ledger")\s*\.\s*"?hours"?/gi)?.length ?? 0;
   const updatePattern = /\bUPDATE\s+(?:"?public"?\.)?"?contract_hours_ledger"?(?:\s+(?:AS\s+)?"?[A-Za-z_][\w]*"?)?\s+SET\s+([\s\S]*?)(?:\bWHERE\b|;)/gi;
   for (const match of sql.matchAll(updatePattern)) {
     count += match[1].match(/\bhours\s*=/gi)?.length ?? 0;
@@ -174,16 +248,19 @@ const SQL_DIRECT_HOURS_USES: Record<string, UseClass[]> = {
     'historical', 'historical', 'historical', 'historical', 'historical', 'historical',
   ],
   'supabase/migrations/20260805120000_reschedule_hours_rpc.sql': [
-    'historical', 'historical', 'historical', 'historical',
+    'historical', 'historical', 'historical', 'historical', 'historical',
   ],
   'supabase/migrations/20260809120000_fix_bucket_summary_fanout.sql': [
     'historical', 'historical',
   ],
   'supabase/migrations/20260809120100_reschedule_rpc_uses_bucket_summary.sql': [
-    'historical', 'write',
+    'historical', 'historical', 'write',
   ],
   'supabase/migrations/20260813120200_session_hour_overrides.sql': [
     'aggregate', 'aggregate', 'billable',
+  ],
+  'supabase/migrations/20260813120300_reschedule_availability_guard.sql': [
+    'historical', 'write',
   ],
 };
 
@@ -209,6 +286,9 @@ const SQL_LEDGER_OBJECTS: Record<string, string[]> = {
     'get_bucket_summary:aggregate/direct',
     'get_consultant_earnings:billable/direct',
   ],
+  'supabase/migrations/20260813120300_reschedule_availability_guard.sql': [
+    'reschedule_session_hours:write/fail-closed/direct',
+  ],
 };
 
 function expectExactCounts(actual: Record<string, number>, expected: Record<string, unknown[]>): void {
@@ -233,6 +313,16 @@ describe('contract_hours_ledger production consumer inventory', () => {
       if (count > 0) actual[relative(ROOT, path)] = count;
     }
     expectExactCounts(actual, DIRECT_TS_TOUCHES);
+  });
+
+  it('fails closed on every unsupported dynamic callable or target in production', () => {
+    const unsupported = productionTypescriptFiles().flatMap((path) =>
+      discoverSupabaseCalls(readFileSync(path, 'utf8'), path)
+        .filter((call) => call.unsupported)
+        .map((call) => `${relative(ROOT, path)}:${call.method}:${call.unsupported}`)
+    );
+    expect(unsupported).toEqual(Object.keys(DYNAMIC_NON_LEDGER_CALLS));
+    expect(Object.values(DYNAMIC_NON_LEDGER_CALLS).every(Boolean)).toBe(true);
   });
 
   it('classifies every direct or transitive SQL function/view consumer', () => {
@@ -276,8 +366,26 @@ describe('contract_hours_ledger production consumer inventory', () => {
     expectExactCounts(actual, SQL_DIRECT_HOURS_USES);
   });
 
-  it('mutation probes bite on direct, multiline RPC, alternate alias, and view/function edges', () => {
+  it('mutation probes bite on all supported TS forms, SQL aliases, and dependency edges', () => {
     expect(directTableTouchCount("client.from ( 'contract_hours_ledger' ).select('*')")).toBe(1);
+
+    const syntaxForms = `
+      const TABLE = 'contract_hours_ledger';
+      const RPC = 'get_bucket_summary';
+      const METHOD = 'from';
+      client.from(TABLE);
+      client[METHOD]('contract_hours_ledger');
+      client['from']<LedgerRow>('contract_hours_ledger');
+      const { from: readTable, rpc } = client;
+      readTable('contract_hours_ledger');
+      rpc(RPC);
+    `;
+    const discovered = discoverSupabaseCalls(syntaxForms);
+    expect(discovered.filter((call) => call.target === 'contract_hours_ledger')).toHaveLength(4);
+    expect(discovered.some((call) => call.target === 'get_bucket_summary')).toBe(true);
+    expect(discovered.filter((call) => call.unsupported)).toEqual([]);
+    expect(discoverSupabaseCalls('client[method](target)')[0].unsupported).toBe('dynamic callable name');
+    expect(discoverSupabaseCalls('client.from(target)')[0].unsupported).toBe('dynamic target');
 
     const multilineRpc = `
       const { data, error } = await client
@@ -291,6 +399,12 @@ describe('contract_hours_ledger production consumer inventory', () => {
       SELECT ledger_rows.hours
       FROM public.contract_hours_ledger AS ledger_rows;`;
     expect(sqlDirectHoursUseCount(alternateAlias)).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      'SELECT contract_hours_ledger.hours FROM public.contract_hours_ledger;'
+    )).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      'SELECT "ledger rows"."hours" FROM "public"."contract_hours_ledger" AS "ledger rows";'
+    )).toBe(1);
 
     const syntheticSql = `
       CREATE VIEW public.synthetic_ledger_view AS
@@ -316,5 +430,18 @@ describe('contract_hours_ledger production consumer inventory', () => {
     expect(INDIRECT_TS_CONSUMERS['pages/synthetic.ts']).toBeUndefined();
     expect(SQL_DIRECT_HOURS_USES['supabase/migrations/synthetic.sql']).toBeUndefined();
     expect(SQL_LEDGER_OBJECTS['supabase/migrations/synthetic.sql']).toBeUndefined();
+  });
+
+  it('discovers a newly introduced production TypeScript root', () => {
+    const probeRoot = join(ROOT, 'future_z7_inventory_probe');
+    const probeFile = join(probeRoot, 'consumer.ts');
+    try {
+      mkdirSync(probeRoot);
+      writeFileSync(probeFile, "client.from('contract_hours_ledger').select('hours');\n");
+      expect(productionTypescriptFiles()).toContain(probeFile);
+      expect(directTableTouchCount(readFileSync(probeFile, 'utf8'))).toBe(1);
+    } finally {
+      rmSync(probeRoot, { recursive: true, force: true });
+    }
   });
 });

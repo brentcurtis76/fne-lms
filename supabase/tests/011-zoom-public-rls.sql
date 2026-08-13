@@ -25,7 +25,7 @@
 
 BEGIN;
 
-SELECT plan(146);
+SELECT plan(153);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures
@@ -1460,6 +1460,57 @@ SELECT is(
   'batch_not_pending',
   '[Z7-R2.2] a rejected batch cannot be promoted later');
 RESET ROLE;
+
+-- B5b — every lifecycle state is append-only. A privileged writer cannot erase
+-- the evidence, including an authoritative empty complete report.
+INSERT INTO zoom_internal.zoom_attendance_report_batches
+  (id, school_id, surface_type, surface_id, zoom_meeting_uuid, status)
+VALUES
+  ('a7a7a7a7-8888-0000-0000-000000000005', 9901, 'consultor_session',
+   'a7a7a7a7-0000-0000-0000-000000000001', 'z7Synthetic/Occurrence/E==', 'pending');
+SELECT is(
+  zoom_internal.promote_attendance_report_batch(
+    'a7a7a7a7-8888-0000-0000-000000000005', '[]'::jsonb, 100, 1, 0,
+    '2026-07-30T04:00:00Z'),
+  'promoted', '[Z7-R6.2] a valid zero-participant report remains authoritative complete');
+SELECT ok(
+  (SELECT status = 'complete' AND total_records = 0 AND row_count = 0
+     AND NOT EXISTS (SELECT 1 FROM public.zoom_attendance a WHERE a.report_batch_id = b.id)
+   FROM zoom_internal.zoom_attendance_report_batches b
+   WHERE b.id = 'a7a7a7a7-8888-0000-0000-000000000005'),
+  '[Z7-R6.2] the authoritative empty complete report is represented explicitly');
+SELECT throws_ok(
+  $$ DELETE FROM zoom_internal.zoom_attendance_report_batches
+      WHERE id = 'a7a7a7a7-8888-0000-0000-000000000005' $$,
+  'P0409', NULL,
+  '[Z7-R6.2] an authoritative empty complete report cannot be deleted');
+SELECT throws_ok(
+  $$ DELETE FROM zoom_internal.zoom_attendance_report_batches
+      WHERE id = 'a7a7a7a7-8888-0000-0000-000000000001' $$,
+  'P0409', NULL,
+  '[Z7-R6.2] a complete attendance batch cannot be deleted');
+SELECT throws_ok(
+  $$ DELETE FROM zoom_internal.zoom_attendance_report_batches
+      WHERE id = 'a7a7a7a7-8888-0000-0000-000000000002' $$,
+  'P0409', NULL,
+  '[Z7-R6.2] a rejected attendance batch cannot be deleted');
+INSERT INTO zoom_internal.zoom_attendance_report_batches
+  (id, school_id, surface_type, surface_id, zoom_meeting_uuid, status)
+VALUES
+  ('a7a7a7a7-8888-0000-0000-000000000004', 9901, 'consultor_session',
+   'a7a7a7a7-0000-0000-0000-000000000001', 'z7Synthetic/Occurrence/D==', 'pending');
+SELECT throws_ok(
+  $$ DELETE FROM zoom_internal.zoom_attendance_report_batches
+      WHERE id = 'a7a7a7a7-8888-0000-0000-000000000004' $$,
+  'P0409', NULL,
+  '[Z7-R6.2] a pending attendance batch cannot be deleted');
+SELECT is(
+  (SELECT count(*)::int FROM zoom_internal.zoom_attendance_report_batches
+    WHERE id IN ('a7a7a7a7-8888-0000-0000-000000000001',
+                 'a7a7a7a7-8888-0000-0000-000000000002',
+                 'a7a7a7a7-8888-0000-0000-000000000003',
+                 'a7a7a7a7-8888-0000-0000-000000000004')),
+  4, '[Z7-R6.2] all terminal and pending batch evidence remains present');
 
 -- B6 — DB-owned authority order: seq is monotonic in creation order, so the
 -- effective-set rule ("highest-seq complete") needs no client clock.

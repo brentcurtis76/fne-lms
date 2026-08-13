@@ -267,4 +267,32 @@ describe('POST /api/sessions — Facilitator Validation', () => {
     expect(data.data.sessions).toBeDefined();
     expect(data.data.sessions.length).toBe(1);
   });
+
+  it.each([
+    { hour_type_key: 'asesoria_tecnica_presencial', contrato_id: null },
+    { hour_type_key: null, contrato_id: '77777777-7777-4777-8777-777777777777' },
+  ])('rejects an XOR hour-tracking pair before any database mutation', async (tracking) => {
+    mockCheckIsAdmin.mockResolvedValueOnce({ isAdmin: true, user: { id: ADMIN_ID }, error: null });
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: {
+        school_id: SCHOOL_ID,
+        growth_community_id: GROWTH_COMMUNITY_ID,
+        title: 'Test Session',
+        session_date: '2026-03-15',
+        start_time: '09:00:00',
+        end_time: '10:00:00',
+        modality: 'presencial',
+        location: 'Sala 1',
+        facilitators: [{ user_id: CONSULTANT_ID_1, is_lead: true }],
+        ...tracking,
+      },
+    });
+
+    await handler(req, res);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(JSON.parse(res._getData()).error).toContain('configurarse juntos');
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
 });

@@ -71,7 +71,7 @@ describe('createReservation — backward compatibility', () => {
     expect(result.error).toBeUndefined();
   });
 
-  it('should skip if contrato_id is null even with hour_type_key set', async () => {
+  it('rejects an XOR tracking pair instead of silently treating it as legacy', async () => {
     const mockClient = {} as any;
     const session = {
       id: 'session-2',
@@ -85,7 +85,7 @@ describe('createReservation — backward compatibility', () => {
     } as any;
 
     const result = await createReservation(mockClient, session, 'user-1');
-    expect(result.skipped).toBe(true);
+    expect(result).toMatchObject({ skipped: false, error_kind: 'validation' });
   });
 });
 
@@ -269,6 +269,29 @@ describe('createReservation — with hour tracking', () => {
 
     await expect(getAvailableHours(client, 'contract-1', 'missing-type')).resolves.toEqual({
       kind: 'missing',
+    });
+  });
+
+  it.each([
+    ['contradictory arithmetic', [{ hour_type_key: 'target', allocated_hours: 10, reserved_hours: 1, consumed_hours: 1, available_hours: 9 }]],
+    ['duplicate keys', [
+      { hour_type_key: 'target', allocated_hours: 1, reserved_hours: 0, consumed_hours: 0, available_hours: 1 },
+      { hour_type_key: 'target', allocated_hours: 1, reserved_hours: 0, consumed_hours: 0, available_hours: 1 },
+    ]],
+    ['null row', [null]],
+    ['fractional hundredths', [{ hour_type_key: 'target', allocated_hours: 1, reserved_hours: 0.999, consumed_hours: 0, available_hours: 0.001 }]],
+  ])('rejects %s summary metadata', async (_label, data) => {
+    const client = { rpc: vi.fn().mockResolvedValue({ data, error: null }) } as any;
+    await expect(getAvailableHours(client, 'contract-1', 'target')).rejects.toThrow(/^hour_availability_/);
+  });
+
+  it('accepts a coherent negative bucket as valid availability', async () => {
+    const client = { rpc: vi.fn().mockResolvedValue({
+      data: [{ hour_type_key: 'target', allocated_hours: 1, reserved_hours: 1.2, consumed_hours: 0, available_hours: -0.2 }],
+      error: null,
+    }) } as any;
+    await expect(getAvailableHours(client, 'contract-1', 'target')).resolves.toMatchObject({
+      kind: 'available', available_hours: -0.2, available_hundredths: -20,
     });
   });
 

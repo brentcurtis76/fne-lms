@@ -15,6 +15,7 @@ import { createReservation } from '../../../lib/services/hour-tracking';
 /** Builds a mock service client that records the contract_hours_ledger insert payload. */
 function makeMockClient(options?: { availableHours?: number }) {
   const inserted: Record<string, unknown>[] = [];
+  const availableHours = options?.availableHours ?? 50;
 
   const client = {
     from: vi.fn((table: string) => {
@@ -57,9 +58,9 @@ function makeMockClient(options?: { availableHours?: number }) {
       data: [
         {
           hour_type_key: 'asesoria_tecnica_presencial',
-          available_hours: options?.availableHours ?? 50,
+          available_hours: availableHours,
           allocated_hours: 100,
-          reserved_hours: 50,
+          reserved_hours: 100 - availableHours,
           consumed_hours: 0,
         },
       ],

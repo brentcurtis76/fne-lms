@@ -1,211 +1,254 @@
-# Zoom phase Z7 — independent review request
+# Zoom phase Z7 — cumulative independent review request
 
-## 1. Authoritative control record
+## Control record
 
-- Review state requested: `REVIEW READY` (builder evidence only; never an acceptance verdict)
-- Canonical branch: `feat/zoom-hours`
-- Immutable cumulative review base: `4399949942bfcf49dfa8de40cbf7edbf40f0490e`
-- Rejected canonical round-one head: `dd7836eb9d6c2a2d4d46c7ba43205bc694450578`
-- Rejected-tree equivalent detached base: `a5f7aa37` (tree `1d32b45c8dcd954e2caaa4b1980a4fdb1127c21f`)
-- Canonical implementation head: `1317f6a225553d78d55746a5f690d05cca0e0780`
-- Canonical cumulative count through implementation: `24`
-- Canonical evidence commit: `841c97f95007d2eed54c167f21c2b12a6e447ff3`
-- Canonical cumulative count through evidence: `25`
-- Final review target: the live `feat/zoom-hours` HEAD verified by the reviewer at
-  dispatch. A commit cannot truthfully contain its own SHA, so any later
-  orchestrator-only evidence reconciliation commit is identified by the branch ref
-  and review dispatch record rather than a recursive placeholder.
-- Detached implementation evidence head: `2070e892cf4cfe194468d2d090090374680658d3`
-- Detached cumulative count through implementation: `24`
-- Review boundary: cumulative `4399949942bfcf49dfa8de40cbf7edbf40f0490e..HEAD`
+- Builder state: `REVIEW READY`; this document is evidence, not an acceptance verdict.
+- Canonical branch: `feat/zoom-hours`.
+- Immutable cumulative base: `4399949942bfcf49dfa8de40cbf7edbf40f0490e`.
+- Rejected round-two canonical head: `c9cbdafd63927c6ae38e7fe649bc816676220d46`.
+- Stable canonical implementation through round two:
+  `1317f6a225553d78d55746a5f690d05cca0e0780` (24 commits from the base).
+- Stable canonical round-two evidence:
+  `841c97f95007d2eed54c167f21c2b12a6e447ff3` (25 commits).
+- Stable canonical bookkeeping head:
+  `c9cbdafd63927c6ae38e7fe649bc816676220d46` (26 commits).
+- Stable canonical round-three contract:
+  `6b065975d1469db28a1b8f34aa37970662bb773f` (27 commits).
+- Detached round-three implementation:
+  `828d3403a0918f3d5db99ea975e0ec4c938f397f` (28 commits).
+- Detached project-state reconciliation:
+  `4344adadc0bbd5180db85c9be0e92f8f660c4b47` (29 commits).
+- This evidence document is the 30th cumulative detached commit. Its detached SHA is supplied
+  in the builder handoff; the external review dispatch supplies the integrated live review HEAD.
+- Review boundary: `4399949942bfcf49dfa8de40cbf7edbf40f0490e..HEAD`.
 
-The implementation and builder evidence are integrated at the canonical identities above.
-Cherry-picking changes commit IDs; detached IDs below are ordering evidence, not canonical
-identities.
+There is no recursive HEAD placeholder in this artifact. A commit cannot contain its own SHA,
+and cherry-picking changes detached commit identities. All embedded SHAs above are already stable
+objects with counts verified by `git rev-list --count 43999499..<sha>`.
 
-Ordered detached commits after `a5f7aa37`:
+Ordered detached commits after `a1f73ab2b2cb24d6c0a5b5a883aef1d7af779b18`:
 
-1. `b394a2177d0fcc8795e8fef7a41a674e0f83051c` — `docs(z7): record round-two review findings`
-2. `2070e892cf4cfe194468d2d090090374680658d3` — `fix(z7): close round-two integrity gaps`
-3. `a1f73ab2b2cb24d6c0a5b5a883aef1d7af779b18` — detached review-evidence
-   commit, integrated canonically as `841c97f95007d2eed54c167f21c2b12a6e447ff3`.
+1. `088ec1c72812dcdb619dd943b99623477a2df203` — canonical bookkeeping cherry-pick.
+2. `1a5d639b6a67bdf5f23c7d06cfb2a2888f314f03` — round-three contract cherry-pick.
+3. `828d3403a0918f3d5db99ea975e0ec4c938f397f` — malformed participant repair/tests.
+4. `4344adadc0bbd5180db85c9be0e92f8f660c4b47` — project-state reconciliation.
+5. This evidence commit — exact detached SHA in the builder handoff.
 
-## 2. Objective and scope
+## Objective, delivered scope, and current status
 
-The governing objective remains PLAN §11: planned/approved time is the default billed and paid
-value; Zoom elapsed and facilitator presence are comparison evidence only; a post-execution admin
-override is the sole path to change `effective_minutes`; the same adjusted value drives school
-consumption and consultant payment; overrides are append-only and reversible without erasing
-history.
+PLAN §11 remains the governing objective: planned time is billed and paid unless an authenticated
+admin explicitly writes an audited override; Zoom elapsed/presence is comparison evidence only;
+the same effective minutes feed school consumption and consultant payment. PLAN §15.3 delivered
+the attendance schema and lifecycle instants, participant ingestion, authoritative report
+reconciliation, append-only override machinery, comparison/override UI, and facilitator
+attendance suggestions.
 
-PLAN §15.3.2 scope, retained:
+Z7 is implemented on the feature branch but remains in independent remediation/re-review. It is
+not accepted, merged, deployed, or production-verified. All six Z7 migrations have been replayed
+only against the local Supabase stack; production application and read-only verification remain a
+human-controlled post-merge step.
 
-- **Z7-1 — attendance schema + actual-elapsed instants:** public attendance rows, RLS, actual
-  lifecycle instants, and pgTAP.
-- **Z7-2 — participant ingestion:** webhook join/leave ingestion, pure identity hierarchy, and
-  reconnect-safe interval arithmetic.
-- **Z7-3 — report reconciliation:** participant-report adapter/fake/job; a complete report is
-  authoritative over provisional webhooks.
-- **Z7-4 — override machinery:** append-only overrides, additive `effective_minutes`, one
-  authenticated admin RPC, canonical billable derivation, and DB enforcement.
-- **Z7-5 — surfaces:** admin comparison/override UI plus facilitator attendance suggestions.
+Out of scope remains recording/transcription/minutas/consent, Z3b Client View, unrelated RLS
+remediation, the Vitest upgrade, leadership aggregates, deployments, production data/schema, and
+unrelated refactors.
 
-PLAN §15.3.3 out of scope, retained: recording, transcription, minutas, and consent; Z3b Client
-View; changes under `tests/e2e/`; the unrelated production RLS allowlist and INSPIRA migration;
-the Vitest upgrade; and leadership aggregates. This remediation also excluded deployment,
-production/remote DB access, real data, destructive schema work, and unrelated refactors.
+## Finding disposition
 
-## 3. Round-two finding disposition
+### Round three
 
-| Finding | Disposition and executable evidence |
+| Finding | Disposition and evidence |
 |---|---|
-| Z7-R2.1 | Lifecycle SQL now uses existing-first UUID fill. pgTAP 011 proves ended-before-started fill, later differing replays/refused starts preserve identity, and the occurrence remains a reconciliation candidate. An exact old-expression reset made assertion 67 fail with `Different/Occurrence==`; restored code returns 146/146. |
-| Z7-R2.2 | A PostgreSQL trigger permits only pending→complete/rejected; both terminal states are immutable. Conditional reject RPC cannot demote a committed batch. The job reads durable status after ambiguous promotion failure. pgTAP covers terminal transitions and effective authority; Vitest simulates post-commit response loss. |
-| Z7-R2.3 | PostgreSQL stores and compares canonical normalized JSONB under the request-ID advisory lock. The caller hash is audit evidence only. pgTAP changes every payload field under one forged hash; the real two-connection proof repeats every field sequentially and concurrently and observes `P0409`, never `23505`. |
-| Z7-R2.4 | The live adapter requires a string `next_page_token`; only explicit `''` terminates. Adapter/job tests cover absent, null, numeric, and object tokens. Restoring exact old coercion produced 4 failures in 96 focused assertions; restored code produced 96/96. |
-| Z7-R2.5 | Consultant earnings fails closed on `hour_types`; consultant CSV fails closed on facilitator lookup and emits no successful CSV. Existing override/reversal consumer assertions preserve 0.75/7.50 and 1.00/10.00. |
-| Z7-R2.6 | Three named executable planned-60 scenarios cover Zoom 45, Zoom 90, and no Zoom. A source-boundary test inventories every comparison write/RPC path and the sole override RPC. Inserting an actual comparison-route ledger update made 2/4 isolation assertions fail; exact removal restored 4/4. |
-| Z7-R2.7 | Route validation rejects invalid session UUID, invalid reversal UUID, and values above PostgreSQL `integer` max with 400 before RPC. Unknown DB failures remain generic 500. |
-| Z7-R2.8 | Page cap has a distinct error type and one catch-owned resolution; the test observes exactly one `page_cap_exceeded` rejection and no promotion. |
-| Z7-R2.9 | This file replaces, rather than appends to, the rejected artifact. It contains one control record, one gate table, current findings, and explicit integration placeholders. |
+| Z7-R3.1 | The live API rejects every non-null-object participant element, including `null`, primitives, and arrays. `validateReportBatch` independently performs the same runtime guard and returns `malformed_participant_row` rather than throwing. The job maps that error to exactly one terminal batch rejection and zero promotion. Three focused files execute 121 tests. Reverting both guards produced 12 failures / 109 passes, including the original uncaught null `TypeError`; restoration returned 121/121. |
+| Z7-R3.2 | This artifact is cumulative rather than round-specific. It records all stable canonical/detached identities available without self-reference and inventories all 79 paths in `git diff --name-only 43999499..HEAD`. The mechanical comparison below returns no lines and count 79/79. |
+| Z7-R3.3 | `PROJECT_STATE.md` now states Z7 is implemented but remains `REVIEW READY` in remediation/re-review. It summarizes delivered invariants, local-only migrations, current gates, and explicitly denies acceptance, merge, deployment, and production verification. |
 
-## 4. Round-one remediation status after round two
+### Earlier rounds retained cumulatively
 
-The round-one repairs remain present in the cumulative tree: financial consumers use the
-effective-minute derivation; lifecycle writes are atomic; report promotion is batch-atomic;
-comparison dependencies fail closed; retryable fetch failures reject batches; and request-ID
-application is advisory-lock serialized. Round two supersedes two earlier claims: occurrence UUID
-identity is now proven against real SQL, and override replay equality is now database-derived
-rather than caller-hash-derived. No earlier claim that conflicts with those facts survives here.
+- R1 financial consumers all use the effective-minute derivation, lifecycle/report mutations are
+  database-atomic, comparison dependencies fail closed, retryable report candidates resolve, and
+  override request IDs serialize at PostgreSQL.
+- R2 occurrence UUIDs fill only while missing; report batches resolve once; canonical override
+  payload equality is database-derived; pagination metadata is strict; financial lookups fail
+  closed; comparison paths are mutation-sensitive and billing-isolated; override inputs validate
+  UUID/integer bounds; and page-cap candidates reject once.
+- The round-three participant guard closes the last reviewed path that could bypass terminal batch
+  resolution after a syntactically valid but runtime-malformed Zoom response.
 
-## 5. Files created or modified in round two
+## Mechanically complete cumulative file inventory
 
-### Highest risk — database authority and transaction semantics
+The following inventory has exactly one entry for every path changed from the immutable base.
+Risk grouping describes review priority, not ownership.
 
+<!-- CUMULATIVE_INVENTORY_START -->
+
+### Highest risk — schema, RLS, database state machines, and concurrency
+
+- `scripts/ci/override-concurrency-proof.mjs`
+- `supabase/migrations/20260811130000_zoom_attendance.sql`
 - `supabase/migrations/20260811130100_zoom_meeting_actual_instants.sql`
+- `supabase/migrations/20260812120000_zoom_attendance_participant_uuid.sql`
+- `supabase/migrations/20260813120000_zoom_attendance_observations.sql`
 - `supabase/migrations/20260813120100_zoom_attendance_report_batches.sql`
 - `supabase/migrations/20260813120200_session_hour_overrides.sql`
+- `supabase/tests/002-zoom-internal-isolation.sql`
 - `supabase/tests/011-zoom-public-rls.sql`
 - `supabase/tests/015-session-hour-overrides.sql`
-- `scripts/ci/override-concurrency-proof.mjs`
 
-### High risk — report state machine and Zoom wire validation
+### Highest risk — Zoom ingestion, report authority, and lifecycle runtime
 
 - `lib/zoom/api.ts`
+- `lib/zoom/attendance-effective.ts`
+- `lib/zoom/attendance-identity.ts`
+- `lib/zoom/attendance-intervals.ts`
 - `lib/zoom/attendance-report-store.ts`
+- `lib/zoom/attendance-report.ts`
+- `lib/zoom/attendance-store.ts`
+- `lib/zoom/fake.ts`
 - `lib/zoom/jobs/attendance-reconcile.ts`
-- `__tests__/lib/zoom/fake.test.ts`
-- `__tests__/lib/zoom/jobs/attendance-reconcile.test.ts`
+- `lib/zoom/jobs/registry.ts`
+- `lib/zoom/jobs/webhook-sweep.ts`
+- `lib/zoom/participant-lifecycle.ts`
+- `lib/zoom/webhook-lifecycle.ts`
+- `lib/zoom/webhook-store.ts`
 
-### Medium risk — financial/API boundaries
+### High risk — billing consumers, APIs, and product surfaces
 
+- `components/sessions/AttendanceSuggestionsPanel.tsx`
+- `components/sessions/HoursComparisonPanel.tsx`
+- `lib/services/billable-hours.ts`
+- `lib/services/school-hours-report.ts`
+- `lib/types/consultor-sessions.types.ts`
+- `pages/admin/sessions/[id].tsx`
 - `pages/api/admin/sessions/[id]/hour-override.ts`
+- `pages/api/admin/sessions/[id]/hours-comparison.ts`
 - `pages/api/consultant-earnings/[consultant_id].ts`
 - `pages/api/contracts/[id]/hours/ledger/csv.ts`
+- `pages/api/cron/zoom-reconcile.ts`
+- `pages/api/sessions/[id]/attendance-suggestions.ts`
+- `pages/api/sessions/[id]/attendees.ts`
+- `pages/api/sessions/reports/analytics.ts`
+- `pages/api/zoom/webhook.ts`
+- `pages/consultor/sessions/[id].tsx`
+
+### Executable regression and integration coverage
+
 - `__tests__/api/admin/hour-override.test.ts`
+- `__tests__/api/admin/hours-comparison.test.ts`
+- `__tests__/api/cron/zoom-reconcile.test.ts`
+- `__tests__/api/hour-tracking/earnings-pdf.test.ts`
 - `__tests__/api/hour-tracking/earnings.test.ts`
 - `__tests__/api/hour-tracking/ledger-csv.test.ts`
-
-### Contract/isolation tests and evidence
-
+- `__tests__/api/sessions/attendance-suggestions.test.ts`
+- `__tests__/api/sessions/attendees.test.ts`
+- `__tests__/api/sessions/session-reports-analytics.test.ts`
+- `__tests__/api/zoom/webhook.test.ts`
+- `__tests__/components/sessions/AttendanceSuggestionsPanel.test.tsx`
+- `__tests__/components/sessions/HoursComparisonPanel.test.tsx`
 - `__tests__/lib/services/billable-hours.test.ts`
-- `__tests__/lib/services/comparison-billing-isolation.test.ts` (new)
-- `docs/plan/zoom/remediation/Z7-review-2.md` (contract commit)
+- `__tests__/lib/services/comparison-billing-isolation.test.ts`
+- `__tests__/lib/services/school-hours-report.test.ts`
+- `__tests__/lib/zoom/attendance-effective.test.ts`
+- `__tests__/lib/zoom/attendance-identity.test.ts`
+- `__tests__/lib/zoom/attendance-intervals.test.ts`
+- `__tests__/lib/zoom/attendance-report-store.test.ts`
+- `__tests__/lib/zoom/attendance-report.test.ts`
+- `__tests__/lib/zoom/attendance-store.test.ts`
+- `__tests__/lib/zoom/fake.test.ts`
+- `__tests__/lib/zoom/jobs/attendance-reconcile.test.ts`
+- `__tests__/lib/zoom/jobs/webhook-sweep.test.ts`
+- `__tests__/lib/zoom/participant-lifecycle.test.ts`
+- `__tests__/lib/zoom/webhook-lifecycle-instants.test.ts`
+- `__tests__/lib/zoom/webhook-store.test.ts`
+
+### Governance, contracts, prompts, state, and review evidence
+
+- `PROJECT_STATE.md`
+- `docs/plan/zoom/LEDGER.md`
+- `docs/plan/zoom/PLAN.md`
+- `docs/plan/zoom/prompts/Z7-r1.md`
+- `docs/plan/zoom/prompts/Z7-r2.md`
+- `docs/plan/zoom/prompts/Z7-r5.md`
+- `docs/plan/zoom/remediation/Z7-review-1.md`
+- `docs/plan/zoom/remediation/Z7-review-2.md`
+- `docs/plan/zoom/remediation/Z7-review-3.md`
 - `docs/plan/zoom/reviews/fase-7-review-request.md`
+- `docs/plan/zoom/reviews/fase-7-review-verdict.md`
 
-The audit was not limited to cited files. Direct ledger/effective-minute readers and comparison
-write/RPC paths were searched across `lib/`, `pages/`, and `scripts/`. The canonical billing helper
-still reads only ledger fields; the comparison GET has no write/RPC; its panel has one comparison
-read and one explicit override POST; and the override endpoint calls only
-`apply_session_hour_override`, never the ledger table directly.
+### Build/test configuration
 
-## 6. Gate evidence
+- `package.json`
 
-All supported gates used the local Supabase stack and synthetic fixtures only. No command was
+<!-- CUMULATIVE_INVENTORY_END -->
+
+Mechanical proof command, run after staging this document and again after committing it:
+
+```bash
+comm -3 \
+  <(git diff --name-only 4399949942bfcf49dfa8de40cbf7edbf40f0490e..HEAD | sort) \
+  <(sed -n '/CUMULATIVE_INVENTORY_START/,/CUMULATIVE_INVENTORY_END/p' \
+      docs/plan/zoom/reviews/fase-7-review-request.md \
+    | sed -n 's/^- `\(.*\)`$/\1/p' | sort)
+```
+
+Result: no output. Counts: cumulative diff **79**, inventory **79**, duplicates **0**.
+
+## Gate and fail-on-old evidence
+
+All database/browser runs used the local Supabase stack and synthetic fixtures. No command was
 piped through `tail`.
 
-| Command | Exact result | Exit |
+| Command | Result | Exit |
 |---|---|---:|
-| Focused round-two Vitest set | 8 files, **155 passed** | 0 |
-| Pagination old-behavior probe: exact old coercion + `npx vitest run __tests__/lib/zoom/fake.test.ts __tests__/lib/zoom/jobs/attendance-reconcile.test.ts` | **4 failed / 92 passed**; all four malformed-token cases resolved instead of rejecting | 1 expected |
-| Restored pagination focused recheck | 2 files, **96 passed** | 0 |
-| Billing mutation probe: actual comparison-route `.update({ hours: 0 })` + isolation test | **2 failed / 2 passed**; exact removal then **4/4 passed** | 1 expected, then 0 |
-| Old-SQL probe: exact incoming-first UUID expression → `supabase db reset && npm run test:db` | **1 failed / 670 passed**; pgTAP 011 assertion 67 observed overwrite | 1 expected |
-| Restored fresh SQL replay + `npm run test:db` | 12 files, **671 passed** (011: 146; 015: 59) | 0 |
+| `npx vitest run __tests__/lib/zoom/fake.test.ts __tests__/lib/zoom/attendance-report.test.ts __tests__/lib/zoom/jobs/attendance-reconcile.test.ts` | 3 files, **121 passed** | 0 |
+| Same focused command with both participant guards temporarily removed | **12 failed / 109 passed**; null leaked `TypeError`, live rows resolved instead of rejecting, and stable taxonomy was absent | 1 expected |
+| Same focused command after exact restoration | 3 files, **121 passed** | 0 |
 | `npm run type-check` | no diagnostics | 0 |
 | `npm run lint` | zero warnings | 0 |
-| `bash scripts/ci/check-rls-migrations.sh` | no migration disables RLS | 0 |
-| `npm test` | 320 files, **7,277 passed / 11 skipped** | 0 |
-| `npm run build` | production build, **156/156 static pages** | 0 |
-| `npm run test:override-concurrency` | identical race apply+replay; differing race `P0409`; sequential replay; every canonical field forged-hash sequential/concurrent `P0409`; no `23505` | 0 |
-| Fresh reset → synthetic seed → `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **117/117 passed**, one worker | 0 |
+| `bash scripts/ci/check-rls-migrations.sh` | no RLS disablement | 0 |
+| `npm test` | 320 files, **7,289 passed / 11 skipped** | 0 |
+| `npm run build` | production build; **156/156 static pages** | 0 |
+| `npm run test:db` | 12 files, **671 assertions** | 0 |
+| `npm run test:override-concurrency` | identical race apply+replay; forged/different payloads `P0409` sequentially and concurrently; no `23505` | 0 |
+| Fresh `supabase db reset`; `node scripts/ci/seed-e2e.mjs`; `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **117/117 passed**, one worker | 0 |
 | `node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json` | 11 mandatory specs ran with no skips | 0 |
-| `TZ=UTC npm test` | 320 files, **7,277 passed / 11 skipped** | 0 |
-| `TZ=America/Santiago npm test` | 320 files, **7,277 passed / 11 skipped** | 0 |
-| `TZ=Europe/Madrid npm test` | **7,269 passed / 8 failed / 11 skipped**; all failures are inherited `lib/__tests__/businessDays.test.ts` | 1 inherited |
-| `npm run lint:testid` | inherited advisory: **44 errors / 2,625 warnings** | 1 advisory |
+| `TZ=UTC npm test` | 320 files, **7,289 passed / 11 skipped** | 0 |
+| `TZ=America/Santiago npm test` | 320 files, **7,289 passed / 11 skipped** | 0 |
+| `TZ=Europe/Madrid npm test` | **7,281 passed / 8 failed / 11 skipped**; all 8 are inherited `lib/__tests__/businessDays.test.ts` | 1 inherited |
 
-The first mandatory-E2E setup attempt was invalid because the ignored local environment omitted
-`CRON_SECRET` and `NEXT_PUBLIC_BASE_URL`; it was stopped, the local-only file was corrected, the
-production build was rerun, and the authoritative fresh result is 117/117 plus the no-skip guard.
+Round-two fail-on-old/mutation evidence remains part of the cumulative record: old UUID SQL
+failed pgTAP 011; old token coercion failed all four malformed-token cases; and a real comparison
+route ledger mutation made the isolation suite fail.
 
-## 7. Time-zone and billing result
+## Explicit inherited deviations
 
-The three named Z7-A6 scenarios execute in `billable-hours.test.ts` and return one billed hour in
-all three matrix runs:
+- Advisory `npm run lint:testid` remains the round-two measured repository baseline of **44 errors
+  / 2,625 warnings**. Round three adds no interactive UI.
+- Madrid's eight `businessDays.test.ts` failures are the previously reproduced out-of-scope
+  licitación defect. All Z7/hours tests are green in all three zones.
+- The broad `npm run e2e` inherited round-one result remains **160 passed / 27 skipped / 1 did not
+  run / 62 failed (250 total)**. Round three changes no `tests/e2e/` path; the supported mandatory
+  selector was rerun fresh at 117/117.
 
-- planned 60 / Zoom 45 → billed 60;
-- planned 60 / Zoom 90 → billed 60;
-- planned 60 / no Zoom data → billed 60.
+None of these deviations is represented as a green gate.
 
-All Z7 and hours suites are green in Madrid. Its eight failures are the already-recorded,
-out-of-scope licitación business-day date-construction defect and reproduce independently of Z7.
+## Independent reviewer focus and residual risks
 
-## 8. Inherited deviations and broad-suite record
+1. Re-run malformed participant values through the real live adapter and job; verify one reject,
+   zero promotion, stable reason, and no pending batch/`TypeError` escape.
+2. Re-run the inventory comparison against the integrated live HEAD and independently verify the
+   stable canonical counts above.
+3. Re-check batch terminality and ambiguous promotion recovery at the PostgreSQL boundary.
+4. Re-check canonical override replay equality, all forged-hash fields, and the absence of `23505`.
+5. Re-check comparison-to-billing isolation and all school/payment/export consumers.
 
-- `lint:testid` is advisory and unchanged in character: 44 missing-rule errors and 2,625
-  repository-wide warnings. Round two adds no interactive component.
-- The Madrid matrix retains exactly eight failures in `lib/__tests__/businessDays.test.ts`; this
-  was reproduced on the immutable phase start in round one and remains outside Zoom scope.
-- The exact broad `npm run e2e` was run in round one and recorded **160 passed / 27 skipped /
-  1 did not run / 62 failed (250 total)**. Those failures are the inherited legacy inventory
-  (principally proposal/QA credentials absent from the supported synthetic seeder, legacy
-  reservation logins, and one full-run-only mock-port race). Round two did not change
-  `tests/e2e/`; the supported mandatory selector was rerun fresh at 117/117.
+Residual risks: a wider database outage may delay the durable batch-status read but cannot demote
+a complete batch; advisory-lock hash collision may serialize unrelated request IDs but cannot
+merge their canonical payloads; real Zoom webhook/report divergence remains unmeasured; and local
+gates do not prove production migration state.
 
-These deviations are not described as green and are not acceptance claims.
-
-## 9. Independent reviewer focus
-
-1. **Batch terminality and ambiguous commits.** Exercise table-privileged writes as well as the
-   reject/promote RPCs; the database trigger, not TypeScript, must remain the last boundary.
-2. **Canonical override equality.** Inspect normalization, JSONB null semantics, advisory-lock
-   ordering, and the reversal-target forged-hash cases; no unique violation may escape.
-3. **Occurrence identity and candidate selection.** Re-run the ended-before-started path against
-   real PostgreSQL and confirm a later UUID can neither overwrite nor remove candidacy.
-4. **Financial dependency failure direction.** Confirm earnings and consultant CSV errors cannot
-   become zero-valued JSON or header-only success, and verify 45-minute override/reversal totals
-   across school and consultant consumers.
-5. **Executable comparison isolation.** Add another real write/RPC mutation to each comparison
-   path and verify the source-boundary test turns red without relying on comments or doubles.
-
-## 10. Known limitations and residual risks
-
-- Local/CI success says nothing about deployment. Brent must apply migrations and perform the
-  PLAN read-only production-schema verification after merge; this task neither accessed nor
-  changed production.
-- A durable status read can itself fail during a wider database outage. That preserves safety
-  (it cannot demote `complete`) but retries the job until the database is readable.
-- The batch state trigger intentionally makes terminal rows wholly immutable, including
-  `updated_at` and rejection-reason rewrites. Operational annotations must live elsewhere.
-- PostgreSQL advisory locking uses a 64-bit hash. A collision may serialize unrelated request
-  IDs but canonical request-ID/payload comparison prevents them from merging.
-- Real Zoom report/webhook divergence remains an operational blind spot already documented in
-  PLAN §15.3.5; no live Zoom or real participant data was used here.
-
-## 11. Prohibitions and handoff
+## Handoff constraints
 
 No merge, push, deploy, Vercel call, production/remote DB access, real data, RLS disablement,
-test weakening, or destructive migration occurred. The builder is not the acceptor. Independent
-review must use the cumulative boundary and issue its own verdict after the orchestrator replaces
-the canonical placeholders.
+destructive migration, or test weakening occurred. Independent review must use the cumulative
+boundary and issue its own verdict. Production migration application and read-only verification
+remain explicitly outside this builder handoff.

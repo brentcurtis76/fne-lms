@@ -452,3 +452,50 @@ Append-only, one entry per round. Plan: `docs/plan/rls/PLAN.md`.
   2. R0 remains next to dispatch. It ships no migration, no grant change, no application/test
      source — worst case is a wasted session.
   3. Owner answers Q1–Q4; Q5 has a default.
+
+---
+
+### 2026-08-13 — plan — r7 CODEX REVIEW + PM amendment + new phase RM
+
+- SESSION: `RLS · plan · REVIEW · r7` (Codex) → `RLS · plan · PM`
+- ATTEMPT: 8 (cumulative, planning)
+- CODEX: **FINDINGS** — 4 BLOCKING, 2 SHOULD-FIX, 0 NITs. **"No category (i) defect remains"** —
+  R0's evidence workflow and production boundary are dispatchable *in substance*; every blocker
+  was category (ii), a repo-rule breach. `THIRD HARD-RULE RELAXATION: found`.
+- **THE PM ASKED CODEX TO HUNT ITS OWN FAILURE MODE, AND IT FOUND ONE.** The r7 prompt directed
+  Codex to read `AGENTS.md`/`CLAUDE.md` as the specification and the plan as the thing under
+  test, on the grounds that two instances of "reasonable judgment overrides an absolute rule" is
+  a pattern. Result — a third instance plus two adjacent conflicts:
+  | round | rule | how the plan narrowed it |
+  |---|---|---|
+  | r5 | "never touch prod DB directly" | read in a read-only exception |
+  | r6 | four gates before reporting complete | waived unit/build since no source changes |
+  | r7 | `test:db` "when DB/UI **touched**" | narrowed "touched" to "source changed" |
+  All three caught by review, none by the PM. Recorded in `PLAN.md` as the pattern rather than
+  quietly fixed.
+- PM VERIFICATION: B1 confirmed (`AGENTS.md:30` says "touched"; R0 starts, resets and queries the
+  DB). B2 confirmed (`AGENTS.md:32`/`CLAUDE.md:43` require test evidence *with counts*, which
+  R0's absolute prohibition made unsatisfiable). B3 confirmed (`CLAUDE.md:4`/`AGENTS.md:4` require
+  `PROJECT_STATE.md` on phase end). B4 confirmed as a *finding*: 112 vs 73 lines with material
+  section differences both ways.
+- ACTION: `test:db` and the consistency checker added to R0's gate chain; the test-count
+  prohibition replaced with report-but-bound; `PROJECT_STATE.md` added as a sixth required
+  output; the checker gained an executable acceptance contract (forms parsed, mismatch → non-zero
+  exit, invoked in the chain); R11 stopped restating the population counts.
+- **ONE REMEDY DISPUTED — the first in eight rounds.** B4's finding was accepted; its remedy was
+  not. The PM held that reconciling two repo-wide instruction files is not a ten-signature
+  discovery phase's to own — they govern ZOOM, INSPIRA and every other workstream, and the PM
+  cannot edit source (SOP §1.1). Codex read `AGENTS.md:3`'s "fix the divergence in the same PR"
+  as binding on this PR; the PM read it as binding on the PR that *causes* divergence.
+  **Brent ruled: fix it now, before R0, as its own phase.** New phase **`RM`** at order 1, HIGH,
+  nine criteria, with an asymmetry rule forbidding deletion of guidance unique to `AGENTS.md`.
+  R0 becomes BLOCKED on RM. Dispatch order is now `RM` → `R0` → `R1`.
+- **D-9 SWEEP:** layer 1 flagged 4 candidates across two passes; **2 were genuinely stale** — the
+  full-contract phase list (fixed to `RM`/`R0`/`R1`) and "thirteen-phase" (→ fourteen). Two were
+  the amendment quoting old wording. Layer 2 clean: RM, R0 and R1 each agree across index row,
+  header and metadata line. Layer 3 clean — counts live only at the Goal anchor.
+- COMMITS: `bcfb6292`, `52080f5d`. Pushed.
+- OPEN AFTER THIS ROUND:
+  1. **Codex plan review r8**, then dispatch — Brent's ruling. Plan still **not frozen**.
+  2. `RM` is next to dispatch, not R0.
+  3. Owner answers Q1–Q4; Q5 has a default.

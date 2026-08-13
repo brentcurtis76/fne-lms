@@ -54,7 +54,9 @@ PM verification after the symlink:
 - No stabilization phase was needed because no code defect caused the red gate.
 
 RM round 2 reruns the complete required chain with the environment present. Its raw final output
-and counts are recorded in `docs/planning/reviews/fase-RM-review-request.md` and the RLS ledger.
+and counts are recorded in `docs/planning/reviews/fase-RM-review-request.md` and the RLS ledger:
+305 files passed, 7,059 tests passed, 11 skipped, 156/156 static pages generated, and middleware
+reported at 73.4 kB. The full chain exited successfully.
 
 For later worktree phases, verify required ignored local prerequisites before classifying a red
 gate. A merge-base comparison is meaningful only when the control differs in the dimension under

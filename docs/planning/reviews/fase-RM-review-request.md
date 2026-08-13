@@ -4,8 +4,8 @@
 |---|---|
 | **Branch** | `fix/rls-public` |
 | **Base** | `main` @ `43999499` |
-| **Commits** | 24 from base after the blocked-checkpoint documentation commit; implementation commit `20149faa` |
-| **Status** | **BLOCKED on owner gate Q6** — this is a reviewable checkpoint, not a phase-close claim |
+| **Commits** | 28 from base including the round-2 phase-close documentation commit; executor implementation commits `20149faa`, `a6433ad7`, plus the phase-close commit |
+| **Status** | **EXECUTION COMPLETE — ready for independent review; R0 remains blocked on that verdict** |
 | **Date** | 2026-08-13 |
 
 ## Objective and scope
@@ -14,8 +14,8 @@ Restore the invariant stated by `AGENTS.md`: it mirrors canonical `CLAUDE.md`, a
 either file receives the same governing rules.
 
 In scope: reconcile `AGENTS.md` toward `CLAUDE.md`; route content unique to `AGENTS.md` through
-owner gate Q6; create this canonical review request and the RLS ledger entry; update
-`PROJECT_STATE.md` only when the phase actually ends.
+owner gate Q6; apply Brent's ruling; create this canonical review request, the RLS ledger entry,
+and the worktree-environment evidence record; update `PROJECT_STATE.md` at execution end.
 
 Out of scope: changing any rule's substance; application, database, migration, test, RLS,
 function, or allowlist work; deployment; any production-database access.
@@ -24,7 +24,7 @@ function, or allowlist work; deployment; any production-database access.
 
 | `CLAUDE.md` section | `AGENTS.md` section | Shape and disposition |
 |---|---|---|
-| Preamble | Preamble + Project Context / Architecture | Reworded-same-meaning agent preamble; the project facts are carried in Architecture. Two rules unique to the `AGENTS.md` form remain Q6 candidates below. |
+| Preamble | Preamble + Project Context / Architecture | Reworded-same-meaning agent preamble; project facts are carried in Architecture. Q6 promoted the precedence/remediation rule into canonical `CLAUDE.md`; file-perspective wording remains presentation only. |
 | Who Are You? | Who Are You? | Missing-from-AGENTS: added from canonical text. |
 | Bridge Workflow | Bridge Workflow | Missing-from-AGENTS: added from canonical text. |
 | Commands | Commands | Reworded-same-meaning toward canonical command descriptions. |
@@ -34,14 +34,15 @@ function, or allowlist work; deployment; any production-database access.
 | Hard Rules / Database Safety | Hard Rules / Database Safety | Reworded-same-meaning with all five canonical rules present. |
 | Hard Rules / Privacy — Ley 21.719 | Hard Rules / Privacy — Ley 21.719 | Reworded-same-meaning with all four canonical rules present. |
 | Hard Rules / Memory Discipline | Hard Rules / Memory Discipline | Missing-from-AGENTS: added verbatim. |
-| Project Context / Architecture | Project Context / Architecture | Missing-from-AGENTS as a section: added from canonical text. The unique per-role middleware rule is preserved pending Q6. |
+| Project Context / Architecture | Project Context / Architecture | Missing-from-AGENTS as a section: added from canonical text. Q6 promoted per-role middleware testing into canonical `CLAUDE.md`; the two Architecture rules now match. |
 | API Route Pattern | API Route Pattern | Reworded-same-meaning to canonical heading and example. |
 | Page Pattern | Page Pattern | Reworded-same-meaning to canonical heading and example. |
 | RBAC Roles | RBAC Roles | Reworded-same-meaning to canonical role descriptions and future-type wording. |
 | Testing Conventions | Testing Conventions | Reworded-same-meaning to canonical four-item form. |
 
-After the common reconciliation, both files have 112 lines. A line comparison finds only the
-agent-specific title/preamble and the two Q6 candidates below; the remainder is identical.
+After Q6, both files have 112 lines. A section-header comparison finds only the agent-specific
+title. The remaining preamble text differences express file perspective and locate the shared
+project summary differently; they do not change any governing rule.
 
 ## Edit classification (ARM-4)
 
@@ -55,43 +56,37 @@ Every edit fits one of the contract's three permitted classes:
 
 No rule was rewritten as a new fourth category, softened, or tightened by executor judgment.
 
-## Q6 — content unique to `AGENTS.md` (ARM-5)
+## Q6 — both candidates promoted (ARM-5)
 
 Verification narrowed the prompt's section-level example to two actual governing-rule deltas:
 
-1. `AGENTS.md:3` says that if the files diverge, `CLAUDE.md` wins and the divergence must be fixed
-   in the same PR. `CLAUDE.md:4` says only that `AGENTS.md` mirrors it; it does not carry the
-   precedence/remediation rule.
+1. `AGENTS.md:3` said that if the files diverge, `CLAUDE.md` wins and the divergence must be fixed
+   in the same PR. `CLAUDE.md:4` previously said only that `AGENTS.md` mirrors it.
 2. The former Auth Middleware Warning is mostly canonical already: both files call middleware/RBAC
    the most bug-prone area and require extra scrutiny plus session-invalidation checks. Only
-   **per-role testing on any middleware/RBAC change** exists uniquely in `AGENTS.md`; it is now
-   preserved in the corresponding Architecture bullet.
+   **per-role testing on any middleware/RBAC change** existed uniquely in `AGENTS.md`.
 
-Both contract branches are prepared, but neither has been selected:
-
-- **APPROVE**: add both rules to `CLAUDE.md` as canonical and keep them mirrored in `AGENTS.md`.
-- **REJECT**: remove both from `AGENTS.md` as governing guidance and create
-  `docs/plan/rls/evidence/RM-retired-guidance.md` recording their text, rejection reason, and date.
-
-Brent must select one branch (or rule separately on the two candidates). Until then, the mirror
-invariant remains deliberately unresolved and RM cannot close.
+Brent promoted both. `CLAUDE.md:4` now carries the precedence and same-PR remediation rule, and
+`CLAUDE.md:75` now requires per-role testing. `AGENTS.md` carries the same rules from its own file
+perspective. Nothing was retired, so `RM-retired-guidance.md` does not exist.
 
 ## Files created or modified, grouped by risk
 
 ### High — repository-wide governing instructions
 
-- `AGENTS.md` — common reconciliation; Q6-only content preserved.
+- `AGENTS.md` — common reconciliation, including both rules later promoted by Q6.
+- `CLAUDE.md` — the two Brent-approved Q6 promotions only.
 
 ### Medium — phase handoff and audit trail
 
-- `docs/planning/reviews/fase-RM-review-request.md` — this blocked-checkpoint review request.
-- `docs/plan/rls/LEDGER.md` — round-1 execution record and D-9 disposition.
+- `docs/planning/reviews/fase-RM-review-request.md` — canonical phase-close handoff.
+- `docs/plan/rls/LEDGER.md` — round-1, PM-verification, and round-2 records.
+- `PROJECT_STATE.md` — execution end and independent-review queue.
+- `docs/plan/rls/evidence/RM-worktree-env-gap.md` — required red-gate/setup evidence.
 
-### Not modified because RM is not closed
+### Deliberately not created
 
-- `CLAUDE.md` — awaits Q6 approval branch only.
-- `PROJECT_STATE.md` — phase-end update awaits actual phase end.
-- `docs/plan/rls/evidence/RM-retired-guidance.md` — rejection branch only.
+- `docs/plan/rls/evidence/RM-retired-guidance.md` — both candidates were promoted; nothing was retired.
 
 ## Test evidence (ARM-9)
 
@@ -105,29 +100,51 @@ npm run type-check && npm run lint && npm test && npm run build
 |---|---|
 | TypeScript | Passed, `tsc --noEmit`. |
 | ESLint | Passed with `--max-warnings=0`. |
-| Vitest | **305 files passed; 7,059 tests passed; 11 skipped (7,070 total)**. This proves the mandated command ran; it does not prove suite-discovery completeness. |
-| Next.js build | Compilation passed, then page generation failed because `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are absent. The same command at merge base `43999499`, in a clean detached worktree after `npm ci`, failed identically. Verified base/environment failure; no credentials or configuration were invented. |
+| Vitest | **305 files passed; 7,059 tests passed; 11 skipped (7,070 total)** in 38.73s; environment 244ms. This proves the mandated command ran; it does not prove suite-discovery completeness. |
+| Next.js build | **Passed** with the existing main-checkout `.env.local` linked into this worktree; 156/156 static pages and the full route table emitted; middleware 73.4 kB. The prior red result was a worktree setup gap, not a base/code failure. |
 
-`npm ci` succeeded before the gates. `test:db` and e2e were not run: RM edits documentation,
+The 305-file Vitest result also resolves the documented jsdom hazard for this run: the known
+silent-drop baseline was 254 files plus 51 jsdom files, and 254 + 51 = 305; non-zero environment
+time was reported. The count is evidence for this specific discovery check, not a permanent
+guarantee for future runs.
+
+Verbatim terminal summary from the round-2 chain:
+
+```text
+ Test Files  305 passed (305)
+      Tests  7059 passed | 11 skipped (7070)
+   Start at  11:46:37
+   Duration  38.73s (transform 2.08s, setup 3.09s, collect 8.35s, tests 22.90s, environment 244ms, prepare 109ms)
+
+ ✓ Compiled successfully
+ ✓ Collecting page data
+ ✓ Generating static pages (156/156)
+ ✓ Collecting build traces
+ ✓ Finalizing page optimization
+
+ƒ Middleware                                                                                          73.4 kB
+```
+
+`npm ci` succeeded before round 1. `test:db` and e2e were not run: RM edits documentation,
 starts no database, runs no query, and renders no UI, so the conditional DB/UI rule is not met.
 
 ## Areas for independent review
 
-1. **Q6 inventory boundary** — confirm that the precedence/remediation sentence and per-role
-   middleware testing are the only substantive rules still unique to `AGENTS.md`.
+1. **Q6 implementation** — confirm that the precedence/remediation sentence and per-role
+   middleware testing are now canonical without changing either rule's substance.
 2. **Hard-rule force** — compare NO DEPLOYMENTS, Database Safety, Privacy, and Memory Discipline
    line by line; this workstream has repeatedly narrowed rules through reasonable-sounding prose.
 3. **Executor sequence** — verify the exact conditional phrase `+ test:db/e2e when DB/UI touched`
    and the canonical bridge/report ordering survived unchanged.
-4. **Agent-specific preamble** — confirm that differing titles/preamble labels are presentation,
-   while their governing-rule differences are fully captured by Q6.
-5. **Base build classification** — confirm the branch and merge-base failures share the same
-   missing-variable cause and that RM did not touch runtime files.
+4. **Agent-specific preamble** — confirm that differing titles/preamble labels are presentation
+   and both files now state the same precedence/remediation rule.
+5. **Environment-gap correction** — scrutinize why the round-1 merge-base control was
+   non-discriminating and whether the new evidence prevents recurrence without exposing secrets.
 
 ## Known limitations and deferred items
 
-- Q6 is unanswered, so ARM-1/ARM-5 and the mirror invariant are only partially satisfied.
-- `PROJECT_STATE.md` is intentionally not updated: the phase-end condition has not occurred.
-- The build gate is red from a reproduced base/environment failure. Resolving repository build
-  configuration or supplying environment credentials is outside RM's documentation-only scope.
-- Independent review has not yet occurred; this checkpoint does not claim phase completion.
+- The ignored `.env.local` symlink is local worktree setup and is intentionally not committed.
+- Independent review has not yet occurred; execution is complete, but R0 stays blocked until the
+  reviewer returns no blocking finding.
+- RM changes instructions and documentation only; it includes no application, database,
+  migration, test-source, deployment, or production-database change.

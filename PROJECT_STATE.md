@@ -27,9 +27,10 @@
   - **Migración aplicada a producción ANTES del merge**: `supabase/migrations/20260810120000_zoom_zak_issuances.sql`, verificada por el PM. Es la regla permanente que dejó el defecto de cierre de Z1b (ver arriba), cumplida esta vez en orden
   - **SPLIT de la fase (2026-08-08, decisión del dueño)**: **Client View se movió a una fase nueva, Z3b**, arrastrando **tres hallazgos del reviewer**, y queda condicionada a un **protocolo de terreno revisado, específico de Client View, que todavía no existe**. El razonamiento está en `docs/plan/zoom/PLAN.md` §15.1
   - **Veredicto de hardware §16**: sigue **waived para escritorio** (esta fase, por la misma decisión del dueño) y es **BLOQUEANTE para Z3b** — cierre y encendido por defecto
-- **Fase en curso: NINGUNA.** En el plan Zoom no hay fase abierta: Z2 cerró el 2026-08-08 y Z3 (escritorio) el 2026-08-10. **Z3b existe pero NO ha comenzado** — necesita planificación, arrastra los hallazgos M1/M2/M3 de Sol y está condicionada a un **protocolo de terreno revisado, específico de Client View, que todavía no existe** (alcance requerido en `docs/plan/zoom/PLAN.md` §15.2, fijado 2026-08-10; razonamiento del split en §15.1). Su criterio de entrada son los **11 tests `[Z3b, PARKED]`**, y el worktree `/Users/brentcurtis/dev/wt/zoom-embed` **no debe limpiarse**: Z3b parte de ese código. Lo siguiente en el plan Zoom es **Z3b, o bien Z4/Z6/Z7 — ninguna depende de Z3 ni de Z3b**. En el itinerario GENERA, **Fase 1 sigue sin abrirse** (ver *Next phase*)
-- Date: **2026-08-10** — fecha de esta actualización de estado (cierre de Z3 en escritorio). Las dos fases anteriores cerraron el 2026-08-08
-- Model used: Claude Opus 5 (ejecución directa; PM = sesión Fable sobre el plan Zoom)
+- **RLS RM — reconciliación `AGENTS.md` / `CLAUDE.md`: EJECUCIÓN COMPLETADA (2026-08-13), EN COLA DE REVISIÓN INDEPENDIENTE.** `AGENTS.md` ahora refleja todas las secciones y reglas canónicas; Brent promovió a `CLAUDE.md` tanto la precedencia (`CLAUDE.md` gana y la divergencia se corrige en el mismo PR) como las pruebas por rol para cambios de middleware/RBAC. Ambos archivos quedan en 112 líneas. El hueco local de `.env.local` que volvió rojo el primer build está documentado en `docs/plan/rls/evidence/RM-worktree-env-gap.md`; fue un problema de preparación del worktree, no de código. **R0 sigue bloqueada hasta que la revisión independiente de RM pase.**
+- **Fase en curso: RM en revisión independiente.** En el plan Zoom no hay fase abierta: Z2 cerró el 2026-08-08 y Z3 (escritorio) el 2026-08-10. **Z3b existe pero NO ha comenzado** — necesita planificación, arrastra los hallazgos M1/M2/M3 de Sol y está condicionada a un **protocolo de terreno revisado, específico de Client View, que todavía no existe** (alcance requerido en `docs/plan/zoom/PLAN.md` §15.2, fijado 2026-08-10; razonamiento del split en §15.1). Su criterio de entrada son los **11 tests `[Z3b, PARKED]`**, y el worktree `/Users/brentcurtis/dev/wt/zoom-embed` **no debe limpiarse**: Z3b parte de ese código. Lo siguiente en el plan Zoom es **Z3b, o bien Z4/Z6/Z7 — ninguna depende de Z3 ni de Z3b**. En el itinerario GENERA, **Fase 1 sigue sin abrirse** (ver *Next phase*)
+- Date: **2026-08-13** — ejecución de RLS RM completada y enviada a revisión independiente
+- Model used: Codex (ejecutor RM; revisión independiente todavía pendiente) · Claude Opus 5 (ejecución Zoom; PM = sesión Fable)
 - Commit SHA (`main` al cierre de Z3): **`9972093d`**, el merge-commit de PR #47. Lo posterior en `main` es solo documentación. **Los SHA de cada fase viven en su propia entrada, arriba**; los dos campos siguientes son el residuo de cuando este archivo llevaba un único "head actual", y se conservan como registro histórico de Z1a y Z0B en lugar de reescribirse
 - Commit SHA (Z1a): `fix/sess-leak` — base `959c1fe` → `edc1714` (Z1a-1..3) → `2ef3a9e` (docs) → `5d117ca` (Z1a-4, remediación de las 6 observaciones del reviewer) → `62a448d` (Z1a-5, los 2 MAJOR de la re-review R2). 22 commits, 61 archivos, +7427/−769
 - Commit SHA (Z0B): `feat/zoom-spike` — base `2786fa8`, **42 commits** en total, verificado con `git rev-list --count`. Desglose que cuadra con el ledger de §0 y con el dossier del PM:
@@ -261,7 +262,7 @@ Al cierre de Z1a (`62a448d`, local, macOS):
 - Eliminado: script roto `test:db:supervisor` (apuntaba a archivo inexistente); `test:db` ahora = `supabase test db`
 
 ## Next phase
-Dos hilos en paralelo, con dueños distintos:
+Tres hilos en paralelo, con dueños distintos:
 
 **(a) Plan Zoom — sin fase abierta; lo siguiente es una elección** (ver `docs/plan/zoom/PLAN.md` §15 y `docs/plan/zoom/LEDGER.md`)
 - **Z2 cerró el 2026-08-08 y Z3 (escritorio) el 2026-08-10. Ninguna fase Zoom está en curso**, y **ninguna de las candidatas depende de Z3 ni de Z3b**
@@ -275,6 +276,10 @@ Dos hilos en paralelo, con dueños distintos:
 - Files likely touched: `/supabase/migrations/*`, `/lib/auth/roles.ts`, `/supabase/tests/002-rls-core.sql`, `/scripts/seed-test.ts`
 - Dependencies: Fase 0 verde · Context budget ~200K · Model: Opus-class (schema + RLS correctness)
 - DoD: matriz pgTAP rol×tabla×operación verde (~40–60 asserts); toda tabla nueva con RLS + columnas de policies indexadas; `seed:test` idempotente
+
+**(c) Workstream RLS — revisión independiente de RM, luego R0**
+- RM terminó su ejecución: espejo de reglas restaurado, Q6 resuelta con ambas promociones y artefactos de cierre escritos
+- **R0 no se despacha hasta que RM obtenga veredicto independiente sin hallazgos bloqueantes**; después reconstruye la evidencia de las diez firmas antes de cualquier migración
 
 ## Human-review queue (batched)
 - ~~**Z2: re-review independiente de Sol sobre las rondas r21–r28**~~ — **CERRADA. Sol `APPROVE WITH NOTES` el 2026-08-07** tras r21–r30 (los doce ítems más 4 MAJOR + 6 MINOR de las dos pasadas siguientes), y **el ítem 12b se corrió el 2026-08-08** contra el tenant Zoom real. El mapa ítem → ronda → prueba quedó en `docs/plan/zoom/reviews/fase-5-review-request.md`

@@ -630,3 +630,39 @@ Append-only, one entry per round. Plan: `docs/plan/rls/PLAN.md`.
   committed, no secrets duplicated.
 - OPEN: Q6 ruling; then apply the branch, update `PROJECT_STATE.md`, re-run gates, push, and send
   to Codex for RM's independent review.
+
+---
+
+### 2026-08-13 — RM — round 2 executor · COMPLETE, awaiting independent review
+
+- SESSION: `RLS · RM · EXEC`
+- ATTEMPT: 2 (phase RM)
+- START: `fix/rls-public` @ `53b4dafa`; merge base `main` @ `43999499`.
+- Q6 RULING APPLIED: Brent promoted both candidates. `CLAUDE.md` now carries the precedence and
+  same-PR remediation rule plus mandatory per-role testing for middleware/RBAC changes;
+  `AGENTS.md` states the same rules from its own file perspective. Nothing was retired, so
+  `evidence/RM-retired-guidance.md` was not created.
+- ARM-8: `PROJECT_STATE.md` now records RM execution complete and queued for independent review.
+  This is not a reviewer verdict: R0 remains blocked until RM passes that review.
+- RED-GATE RECORD: created `evidence/RM-worktree-env-gap.md` with the exact round-1 error, ignored
+  environment-file cause, local symlink remedy, base SHA and the non-discriminating-control
+  lesson. The ignored `.env.local` symlink remains local and uncommitted; no secret content was
+  inspected or recorded.
+- CORRECTED DIAGNOSIS: reproducing the merge-base build inside another env-less worktree could
+  not distinguish code from environment. With the existing main-checkout `.env.local` linked,
+  no stabilization phase is needed and the build passes.
+- GATES: exact chain
+  `npm run type-check && npm run lint && npm test && npm run build` exited 0. Type-check PASS;
+  lint PASS; Vitest PASS (**305 files, 7,059 passed, 11 skipped, 38.73s, environment 244ms**);
+  build PASS (**156/156 static pages**, full route table, middleware **73.4 kB**). The jsdom hazard
+  did not materialize: the documented 254 non-jsdom files plus 51 jsdom files equal the 305
+  discovered here. No test:db/e2e because RM touched no DB/UI, started no database, ran no query
+  and rendered no UI.
+- ARM-6: `CLAUDE.md` and `AGENTS.md` remain 112 lines each, under the 200-line ceiling.
+- **D-9 SWEEP:** no `PLAN.md` amendment occurred. Layer 1 compared both instruction files after
+  Q6, re-enumerated the allowed edit classes and found only title/preamble presentation deltas;
+  the governing rules match. Layer 2 phase index/header/metadata were untouched. Layer 3 no
+  volatile plan count changed. `git diff --check` clean; the ignored symlink is absent from Git.
+- COMMITS: `a6433ad7`, phase-close documentation commit follows this entry. Push follows.
+- OPEN AFTER THIS ROUND:
+  1. Independent RM review; R0 dispatches only after a non-blocking verdict.

@@ -8,10 +8,12 @@ META
 - **THIS PLAN LIVES ONLY ON `fix/rls-public`.** It is not on `main`. Read it with
   `git show fix/rls-public:docs/plan/rls/PLAN.md` or work in the worktree above.
 - PLAN FROZEN: **not yet** — Codex r1 FINDINGS (12), r2 FINDINGS (10), r3 FINDINGS (7), r4
-  FINDINGS (6). All 35 accepted; none disputed. Pending **r5**. The §1.5 two-round cap was
+  FINDINGS (6), r5 FINDINGS (5), r6 FINDINGS (6), r7 FINDINGS (6). All 52 findings accepted on their merits; **one remedy disputed** — r7 B4, where the PM held that a repo-wide instruction reconciliation was not this workstream's to own and Brent ruled it should be fixed first as phase `RM`. Pending **r8**. The §1.5 two-round cap was
   reached at r2 and overridden by Brent; see the Decision Log for the evidence each override
   names.
-- **R1 IS NOT DISPATCHABLE until `R0` lands.** Codex r4 ruled that R1's *actions* are
+- **DISPATCH ORDER: `RM` → `R0` → `R1`.** `RM` repairs the repo's own `AGENTS.md`/`CLAUDE.md`
+  mirror invariant, broken and unowned before this workstream existed (Codex r7 B4; Brent ruled
+  on 2026-08-13 to fix it first). **R1 is not dispatchable until `R0` lands.** Codex r4 ruled that R1's *actions* are
   substantively correct but its evidence-producing method has failed in four independent ways,
   and the plan claimed a six-class dependency check that had only ever covered three. `R0`
   rebuilds that evidence from authoritative sources; R1 is then amended from R0's artifact.
@@ -82,7 +84,7 @@ the baseline file. Reachability and exploitability of those 71 are UNMEASURED.**
 document probed only the functions it named. 71 is a sizing figure, not 71 confirmed
 vulnerabilities — establishing which is R11's job and the reason R11 is `DISCOVERY`.
 
-`R0` and `R1` are the phases with full contracts; everything after them is a bounded outline
+`RM`, `R0` and `R1` are the phases with full contracts; everything after them is a bounded outline
 by design (overlay §3). Execution order is the `Order` column in the phase index.
 
 ## Non-goals
@@ -195,22 +197,23 @@ them. Execution order is the `Order` column, which the Codex r1 review changed (
 
 | Order | ID | Name | Risk | Status | Allowlist after | Depends on | Owner gate |
 |---|----|------|------|--------|-----------------|-----------|------------|
-| 1 | **R0** | **DISCOVERY** — rebuild R1's ten-signature evidence from authoritative sources | **DISCOVERY** | **TODO — next to dispatch** | 22 | — | none |
-| 2 | R1 | Close the anonymous reach — 10 function `EXECUTE` revocations + `profiles_role_backup` | HIGH | **BLOCKED on R0** — contract below, to be amended from R0's artifact | 21 | **R0** | none |
-| 3 | R1b | Bind `has_global_workspace_access` to `auth.uid()` | HIGH | OUTLINE | 21 | R1 | none |
-| 4 | R2 | Six empty legacy student tables (Ley 21.719) | HIGH | OUTLINE | 15 | R1 | none |
-| 5 | R3 | Remaining dead / service-only tables | HIGH | OUTLINE | 7 | R1 | **Q1** |
-| 6 | R4 | Retire the broken `qa_tester_time_logs` reader, then lock it down | HIGH | OUTLINE | 6 | R1 | none |
-| 7 | R5 | `instructors` policy | HIGH | OUTLINE | 5 | R1 | **Q2** |
-| 8 | R6 | `growth_community_transformation_access` policy | HIGH | OUTLINE | 4 | R1 | **Q3** |
-| 9 | R7 | `learning_paths` + `learning_path_courses` (coupled) | HIGH | OUTLINE | 2 | R1 | Q5 *(default)* |
-| 10 | **R10** | Actor-derivation redesign of `submit_quiz` + 5 learning-path RPCs | HIGH | OUTLINE | 2 | R1, R7 | Q5 *(default)* |
-| 11 | R8 | `group_assignment_discussions` policy | HIGH | OUTLINE | 1 | R1 | none |
-| 12 | R9 | `modules` — riskiest, last of the tables | HIGH | OUTLINE | **0** | R1–R8 | **Q4** |
-| 13 | **R11** | **DISCOVERY** — audit the remaining 80 anon-granted DEFINER signatures | **DISCOVERY** | OUTLINE | 0 | R1 | none |
-| 14+ | R12… | Remediation phases, **defined by R11's output** — not invented here | HIGH | UNDEFINED | 0 | R11 | TBD by R11 |
+| 1 | **RM** | Reconcile `AGENTS.md` to `CLAUDE.md` — repo mirror invariant | HIGH | **TODO — next to dispatch** | 22 | — | none |
+| 2 | **R0** | **DISCOVERY** — rebuild R1's ten-signature evidence from authoritative sources | **DISCOVERY** | BLOCKED on RM | 22 | **RM** | none |
+| 3 | R1 | Close the anonymous reach — 10 function `EXECUTE` revocations + `profiles_role_backup` | HIGH | **BLOCKED on R0** — contract below, to be amended from R0's artifact | 21 | **R0** | none |
+| 4 | R1b | Bind `has_global_workspace_access` to `auth.uid()` | HIGH | OUTLINE | 21 | R1 | none |
+| 5 | R2 | Six empty legacy student tables (Ley 21.719) | HIGH | OUTLINE | 15 | R1 | none |
+| 6 | R3 | Remaining dead / service-only tables | HIGH | OUTLINE | 7 | R1 | **Q1** |
+| 7 | R4 | Retire the broken `qa_tester_time_logs` reader, then lock it down | HIGH | OUTLINE | 6 | R1 | none |
+| 8 | R5 | `instructors` policy | HIGH | OUTLINE | 5 | R1 | **Q2** |
+| 9 | R6 | `growth_community_transformation_access` policy | HIGH | OUTLINE | 4 | R1 | **Q3** |
+| 10 | R7 | `learning_paths` + `learning_path_courses` (coupled) | HIGH | OUTLINE | 2 | R1 | Q5 *(default)* |
+| 11 | **R10** | Actor-derivation redesign of `submit_quiz` + 5 learning-path RPCs | HIGH | OUTLINE | 2 | R1, R7 | Q5 *(default)* |
+| 12 | R8 | `group_assignment_discussions` policy | HIGH | OUTLINE | 1 | R1 | none |
+| 13 | R9 | `modules` — riskiest, last of the tables | HIGH | OUTLINE | **0** | R1–R8 | **Q4** |
+| 14 | **R11** | **DISCOVERY** — audit the remaining 80 anon-granted DEFINER signatures | **DISCOVERY** | OUTLINE | 0 | R1 | none |
+| 15+ | R12… | Remediation phases, **defined by R11's output** — not invented here | HIGH | UNDEFINED | 0 | R11 | TBD by R11 |
 
-Every phase except `R0` and `R11` is `HIGH` under overlay §3 — they touch RLS/grants or ship a
+Every phase except `R0` and `R11` is `HIGH` under overlay §3 — they touch RLS/grants, ship a
 migration. `R0` and `R11` are `DISCOVERY`. That is an honest classification, not inflation.
 R11 is `DISCOVERY`: the evidence needed to write a safe implementation contract for the 71 does
 not exist yet, and per overlay §3 a `DISCOVERY` phase produces evidence and a revised contract
@@ -249,9 +252,114 @@ answered in time.
 
 ---
 
+# Phase RM — Reconcile `AGENTS.md` to `CLAUDE.md`
+
+**Risk: HIGH.** **Status: TODO — next to dispatch.** **Depends on: nothing.** **Blocks: R0.**
+
+## Why this phase exists, and why it is in this plan
+
+`AGENTS.md:3` states: *"Mirror of CLAUDE.md for Codex-family agents. If the two ever diverge,
+CLAUDE.md wins — fix the divergence in the same PR."* The two have materially diverged —
+`CLAUDE.md` is 112 lines, `AGENTS.md` is 73 — so the repo's own mirror invariant is broken.
+
+Codex r7 (B4) raised it as blocking on this workstream. **The PM disagreed with the remedy**,
+holding that a repo-wide instruction reconciliation is not a ten-signature discovery phase's to
+own, and routed the choice to Brent. **Brent ruled on 2026-08-13 to fix it now, before R0**, as a
+small dedicated phase. It is tracked here rather than left as an untracked task so that it has
+acceptance criteria and a review — §1.4's rule that an item needs a home.
+
+**Risk is HIGH despite editing only Markdown.** These two files are the instruction set every
+agent in this repository reads, across every workstream — ZOOM, INSPIRA and the rest. Getting a
+hard rule wrong here misdirects all of them, including on database safety and deployment.
+
+## Scope
+
+- **`AGENTS.md` only.** Bring it into faithful correspondence with `CLAUDE.md`.
+- **`CLAUDE.md` wins on any conflict**, per its own instruction — but see the asymmetry rule
+  below, which is the one judgment call this phase contains.
+
+**The asymmetry rule.** Divergence has three shapes and they are handled differently:
+
+| shape | handling |
+|---|---|
+| The two **conflict** on the same rule | `CLAUDE.md` wins. Amend `AGENTS.md`. |
+| Content is in `CLAUDE.md` and **missing** from `AGENTS.md` | Add it to `AGENTS.md`. |
+| Content is in `AGENTS.md` and **missing** from `CLAUDE.md` (e.g. its `Auth Middleware Warning`) | **Do NOT delete it.** That is a gap in `CLAUDE.md`, not a conflict. Propose adding it to `CLAUDE.md` and flag it for Brent's approval in the review request; land it in `CLAUDE.md` only if he approves. Deleting live guidance because the mirror is shorter would destroy knowledge under cover of a sync. |
+
+## Explicitly out of scope
+
+- **Changing the substance of any rule.** RM is a reconciliation, not a rewrite. If a rule looks
+  wrong, outdated or unwise, that is a **finding for the review request** — not an edit.
+- Any file other than `AGENTS.md`, plus `CLAUDE.md` only where the asymmetry rule's third row
+  applies and Brent has approved.
+- Any application, database, migration or test source.
+- Any RLS, function or allowlist work. This phase is a prerequisite, not part of the audit.
+
+## Acceptance criteria
+
+- [ ] **ARM-1** Every section of `CLAUDE.md` has a corresponding section in `AGENTS.md` conveying
+      the same rules. A committed **section-correspondence table** in the review request maps each
+      one and names the shape (conflict / missing-from-AGENTS / missing-from-CLAUDE).
+- [ ] **ARM-2** Every **Hard Rule** in `CLAUDE.md` — NO DEPLOYMENTS, Database Safety, Privacy
+      (Ley 21.719), Memory Discipline — is present in `AGENTS.md` with identical force. No hard
+      rule is softened, conditioned, or summarised into ambiguity. **Given this plan's own record
+      of three narrowed rules, the reviewer should read these four hardest.**
+- [ ] **ARM-3** The four-gate CI rule and the executor-rule sequence match, including the
+      conditional wording `+ test:db/e2e when DB/UI touched` **verbatim** — that exact phrase is
+      what three separate review rounds turned on.
+- [ ] **ARM-4** No rule's substance changed. The review request lists every edit as
+      *added / reworded-same-meaning / conflict-resolved-toward-CLAUDE*, with no fourth category.
+- [ ] **ARM-5** Content unique to `AGENTS.md` is preserved, and any proposal to move it into
+      `CLAUDE.md` is listed for Brent's decision rather than applied unilaterally.
+- [ ] **ARM-6** `CLAUDE.md` stays **under 200 lines** (its own Memory Discipline rule), and
+      `AGENTS.md` does not exceed it.
+- [ ] **ARM-7** `docs/planning/reviews/fase-RM-review-request.md` exists with the content
+      `CLAUDE.md:43` / `AGENTS.md:32` require.
+- [ ] **ARM-8** `PROJECT_STATE.md` updated for the phase end (`CLAUDE.md:4`, `AGENTS.md:4`).
+- [ ] **ARM-9** Gates green — see below.
+
+## Test plan and exact commands
+
+RM writes no tests; it edits documentation. The repo-required gates still run:
+
+```bash
+npm run type-check && npm run lint && npm test && npm run build
+```
+
+**Why `test:db` and `e2e` are not in that list, stated explicitly so a reviewer can check the
+reasoning rather than take it on trust.** `AGENTS.md:30` requires them *"when DB/UI touched"*. RM
+edits two Markdown files: it starts no database, resets none, runs no query, and renders no UI.
+The condition is not met. **This plan has narrowed a conditional rule three times (r5, r6, r7), so
+treat this paragraph as the thing to attack first** — if the reviewer reads "touched" more broadly,
+add both gates rather than argue.
+
+## Definition of done
+
+ARM-1 … ARM-9 satisfied; gates green; review request and `PROJECT_STATE.md` committed; ledger
+entry appended with its D-9 sweep; no BLOCKING Codex finding. **`AGENTS.md:3`'s invariant holds
+again** — a reader can open either file and get the same rules.
+
+## Risks
+
+1. **Silent rule change.** The main hazard: a reconciliation that "tidies" a hard rule into
+   weaker wording. ARM-2 and ARM-4 exist for this, and the four hard rules deserve line-by-line
+   reading rather than a skim.
+2. **Deleting live guidance.** `AGENTS.md` carries at least one section `CLAUDE.md` lacks. The
+   asymmetry rule forbids deleting it; ARM-5 pins that.
+3. **Scope creep into a rewrite.** Both files have accumulated drift that may deserve editing.
+   That is not this phase. Findings go in the review request.
+
+## Rollback
+
+Revert the commit. These are documentation files with no runtime effect; nothing is applied to
+production and no schema changes. Unlike every later phase, rollback here is genuinely just
+`git revert` — worth stating plainly because it is the only phase in this plan where that is true.
+
+---
+
 # Phase R0 — Rebuild R1's evidence · **DISCOVERY**
 
-**Risk: DISCOVERY.** **Status: TODO — next to dispatch.** **Depends on: nothing.**
+**Risk: DISCOVERY.** **Status: BLOCKED on `RM`.** **Depends on: `RM`.**
 **Blocks: R1.**
 
 ## Why this phase exists
@@ -1025,7 +1133,7 @@ closed rather than substituting.
 
 Its own phase rather than part of R1 because it is a **body** change needing a behavioural matrix,
 and R1 is already at the 15-criterion cap (§1.3: criteria that don't fit are two phases). Its own
-phase rather than deferred into R10 because an unowned security item at the end of a thirteen-phase
+phase rather than deferred into R10 because an unowned security item at the end of a fourteen-phase
 workstream is exactly the §1.4 failure this plan is supposed to avoid. Small — one function, one
 migration, one pgTAP file. Allowlist unchanged at 21.
 
@@ -1340,3 +1448,5 @@ Stated per overlay §3 instead of claiming completeness.
 | 2026-08-13 | R0's absolute "must not cite a test count as evidence of anything" **removed** — it contradicted `AGENTS.md:32` / `CLAUDE.md:43`, which require the review request to carry test evidence with suite names and counts. R0 now reports the count as proof the mandated command ran, while stating it does not prove suite-discovery completeness. | An unsatisfiable contract: two mandatory requirements in direct conflict. | Codex r7, B2 |
 | 2026-08-13 | **`PROJECT_STATE.md` added as a required R0 output** (six required, one optional). | `CLAUDE.md:4` and `AGENTS.md:4` both require it updated when a phase ends, and R0 ends a phase. The output list had enumerated "exactly five" and omitted it. | Codex r7, B3 |
 | 2026-08-13 | The D-9 layer-2 checker gains an **executable acceptance contract** — which forms it parses, what constitutes a mismatch, non-zero exit, and invocation inside R0's gate chain. | Previously the executor was told to create it but not what it must do, so an inadequate checker would have passed silently. | Codex r7, S1 |
+| 2026-08-13 | **Codex r7 B4 — finding accepted, remedy DISPUTED, resolved by Brent.** New phase **`RM`** at order 1 reconciles `AGENTS.md` to `CLAUDE.md`; `R0` becomes BLOCKED on it. | `AGENTS.md:3` requires the mirror to hold and the files have materially diverged (112 vs 73 lines; CLAUDE.md carries `Who Are You?`, `Bridge Workflow`, `Memory Discipline`, `Architecture` and split hard-rule sections that AGENTS.md lacks; AGENTS.md carries an `Auth Middleware Warning` CLAUDE.md lacks). **The PM disputed making it R0's deliverable** — it is repo-wide, governs every workstream including ZOOM and INSPIRA, and the PM cannot edit source (SOP §1.1). Codex read "fix the divergence in the same PR" as binding on this PR; the PM read it as binding on the PR that *causes* divergence. **Brent ruled: fix it now, before R0, as its own phase.** Tracked here rather than left untracked so it has criteria and a review (§1.4). | Codex r7 B4 → Brent |
+| 2026-08-13 | RM carries an **asymmetry rule**: content unique to `AGENTS.md` is never deleted to satisfy the mirror. It is proposed for `CLAUDE.md` and needs Brent's approval. | "CLAUDE.md wins" governs *conflicts*. Content the mirror has and the source lacks is a gap, not a conflict — deleting live guidance because the shorter file lacks it would destroy knowledge under cover of a sync. | PM |

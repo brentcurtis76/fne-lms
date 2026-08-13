@@ -20,7 +20,7 @@
 
 BEGIN;
 
-SELECT plan(65);
+SELECT plan(94);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures
@@ -67,7 +67,9 @@ INSERT INTO public.hour_types (id, key, display_name, modality) VALUES
   ('eeeeeeee-6666-0000-0000-000000000001', 'ovr_general',
    'Acompañamiento overrides (prueba)', 'online'),
   ('eeeeeeee-6666-0000-0000-000000000002', 'ovr_ajeno',
-   'Acompañamiento contrato ajeno (prueba)', 'online')
+   'Acompañamiento contrato ajeno (prueba)', 'online'),
+  ('eeeeeeee-6666-0000-0000-000000000003', 'ovr_poison',
+   'Acompañamiento idempotencia (prueba)', 'online')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.contract_hour_allocations
@@ -76,7 +78,9 @@ VALUES
   ('eeeeeeee-7777-0000-0000-000000000001', 'eeeeeeee-5555-0000-0000-000000000001',
    'eeeeeeee-6666-0000-0000-000000000001', 100, tests.get_supabase_uid('o_admin')),
   ('eeeeeeee-7777-0000-0000-000000000002', 'eeeeeeee-5555-0000-0000-000000000002',
-   'eeeeeeee-6666-0000-0000-000000000002', 100, tests.get_supabase_uid('o_admin'))
+   'eeeeeeee-6666-0000-0000-000000000002', 100, tests.get_supabase_uid('o_admin')),
+  ('eeeeeeee-7777-0000-0000-000000000003', 'eeeeeeee-5555-0000-0000-000000000001',
+   'eeeeeeee-6666-0000-0000-000000000003', 100, tests.get_supabase_uid('o_admin'))
 ON CONFLICT (id) DO NOTHING;
 
 -- Session + ledger seeds. S1 = the finalized session the chain runs on
@@ -124,6 +128,9 @@ SELECT pg_temp.seed_override_session(
 SELECT pg_temp.seed_override_session(
   'eeeeeeee-0001-0000-0000-000000000004', 'eeeeeeee-0002-0000-0000-000000000004',
   'completada', 'consumida', 'eeeeeeee-7777-0000-0000-000000000002');
+SELECT pg_temp.seed_override_session(
+  'eeeeeeee-0001-0000-0000-000000000005', 'eeeeeeee-0002-0000-0000-000000000005',
+  'completada', 'consumida', 'eeeeeeee-7777-0000-0000-000000000003');
 
 -- The payment consumer for S1. A €10 rate makes the assertions transparent:
 -- 1.00 h → €10.00, override 45 min → 0.75 h → €7.50, reversal → €10.00.
@@ -191,6 +198,34 @@ SELECT is(
       AND tgname = 'session_hour_overrides_no_update_delete'),
   1, '[Z7-A3] the append-only trigger is installed');
 
+SELECT ok(
+  has_table_privilege('authenticated', 'public.session_hour_overrides', 'SELECT'),
+  'R7: authenticated retains SELECT; the admin-only RLS policy remains authoritative');
+SELECT ok(
+  has_table_privilege('service_role', 'public.session_hour_overrides', 'SELECT'),
+  'R7: service_role retains required SELECT access');
+
+SELECT ok(
+  NOT has_table_privilege(role_name, 'public.session_hour_overrides', privilege_name),
+  format('R7: %s has no direct %s privilege on the override audit', role_name, privilege_name)
+)
+FROM unnest(ARRAY['anon', 'authenticated', 'service_role']) AS roles(role_name)
+CROSS JOIN unnest(ARRAY['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'TRIGGER'])
+  AS privileges(privilege_name);
+
+SELECT is_empty(
+  $$
+    SELECT privilege_type
+      FROM pg_class c
+      CROSS JOIN LATERAL aclexplode(
+        COALESCE(c.relacl, acldefault('r', c.relowner))
+      ) acl
+     WHERE c.oid = 'public.session_hour_overrides'::regclass
+       AND acl.grantee = 0
+       AND acl.privilege_type IN ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'TRIGGER')
+  $$,
+  'R7: PUBLIC has no mutation or trigger privilege on the override audit');
+
 -- -----------------------------------------------------------------------------
 -- C. Actor binding ([Z7-A4])
 -- -----------------------------------------------------------------------------
@@ -224,6 +259,79 @@ SELECT throws_ok(
   'P0403', NULL,
   '§11: a consultor cannot override — 403 at the database');
 RESET ROLE;
+
+-- R7 blocker: every exposed role is denied a valid direct event. The service-role
+-- payload is deliberately canonical: if this insert ever lands, it reserves the
+-- request ID and makes the later owner RPC falsely replay without moving the ledger.
+SELECT set_config('test.r7_admin_uid', tests.get_supabase_uid('o_admin')::text, true);
+SET LOCAL ROLE anon;
+SELECT throws_ok(
+  $$ INSERT INTO public.session_hour_overrides
+       (school_id, session_id, ledger_id, previous_minutes, new_minutes,
+        planned_minutes_snapshot, reason, reason_category, request_id, payload_hash,
+        request_payload, created_by)
+     VALUES (9941, 'eeeeeeee-0001-0000-0000-000000000005',
+       'eeeeeeee-0002-0000-0000-000000000005', NULL, 45, 60, 'anon poison', 'other',
+       'req-anon-poison', 'hash-anon-poison',
+       jsonb_build_object('session_id', 'eeeeeeee-0001-0000-0000-000000000005'::uuid,
+         'new_minutes', 45, 'reason', 'anon poison', 'reason_category', 'other',
+         'reverses_override_id', NULL), current_setting('test.r7_admin_uid')::uuid) $$,
+  '42501', NULL, 'R7: anon cannot forge an audit event');
+RESET ROLE;
+
+SELECT tests.authenticate_as('o_admin');
+SELECT throws_ok(
+  $$ INSERT INTO public.session_hour_overrides
+       (school_id, session_id, ledger_id, previous_minutes, new_minutes,
+        planned_minutes_snapshot, reason, reason_category, request_id, payload_hash,
+        request_payload, created_by)
+     VALUES (9941, 'eeeeeeee-0001-0000-0000-000000000005',
+       'eeeeeeee-0002-0000-0000-000000000005', NULL, 45, 60, 'admin direct', 'other',
+       'req-admin-direct', 'hash-admin-direct',
+       jsonb_build_object('session_id', 'eeeeeeee-0001-0000-0000-000000000005'::uuid,
+         'new_minutes', 45, 'reason', 'admin direct', 'reason_category', 'other',
+         'reverses_override_id', NULL), current_setting('test.r7_admin_uid')::uuid) $$,
+  '42501', NULL, 'R7: authenticated admin cannot forge an audit event directly');
+RESET ROLE;
+
+SET LOCAL ROLE service_role;
+SELECT throws_ok(
+  $$ INSERT INTO public.session_hour_overrides
+       (school_id, session_id, ledger_id, previous_minutes, new_minutes,
+        planned_minutes_snapshot, reason, reason_category, request_id, payload_hash,
+        request_payload, created_by)
+     VALUES (9941, 'eeeeeeee-0001-0000-0000-000000000005',
+       'eeeeeeee-0002-0000-0000-000000000005', NULL, 45, 60,
+       'Poison canónico', 'other', 'req-service-poison', 'hash-service-poison',
+       jsonb_build_object('session_id', 'eeeeeeee-0001-0000-0000-000000000005'::uuid,
+         'new_minutes', 45, 'reason', 'Poison canónico', 'reason_category', 'other',
+         'reverses_override_id', NULL), current_setting('test.r7_admin_uid')::uuid) $$,
+  '42501', NULL, 'R7: service_role cannot reserve an idempotency key with forged audit data');
+RESET ROLE;
+
+SELECT is(
+  (SELECT count(*)::int FROM public.session_hour_overrides
+    WHERE request_id = 'req-service-poison'),
+  0, 'R7: the failed service poisoning attempt left the request ID unreserved');
+
+SELECT tests.authenticate_as('o_admin');
+SELECT is(
+  (SELECT (public.apply_session_hour_override(
+    'eeeeeeee-0001-0000-0000-000000000005', 45, 'Poison canónico', 'other',
+    'req-service-poison', 'hash-service-poison'))->>'applied'),
+  'true', 'R7: the later authenticated-admin RPC applies instead of replaying poison');
+RESET ROLE;
+
+SELECT is(
+  (SELECT effective_minutes FROM public.contract_hours_ledger
+    WHERE id = 'eeeeeeee-0002-0000-0000-000000000005'),
+  45, 'R7: the legitimate RPC moved the ledger to 45 minutes');
+SELECT is(
+  (SELECT count(*)::int FROM public.session_hour_overrides
+    WHERE request_id = 'req-service-poison'
+      AND created_by = tests.get_supabase_uid('o_admin')
+      AND new_minutes = 45),
+  1, 'R7: exactly one actor-bound audit event owns the formerly poisoned request ID');
 
 -- -----------------------------------------------------------------------------
 -- D. Apply (§11) — as the admin
@@ -608,6 +716,29 @@ SELECT tests.authenticate_as('o_docente');
 SELECT is_empty(
   $$ SELECT 1 FROM public.session_hour_overrides $$,
   'I: docente reads nothing');
+RESET ROLE;
+
+-- R7 table-level denial covers every mutation class, not only INSERT. These are
+-- real statements under the RLS-bypassing role. On the old grants, UPDATE/DELETE
+-- reached the append-only trigger, TRUNCATE erased rows, and CREATE TRIGGER lived.
+CREATE FUNCTION public.r7_noop_override_trigger() RETURNS trigger
+LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$;
+GRANT EXECUTE ON FUNCTION public.r7_noop_override_trigger() TO service_role;
+SET LOCAL ROLE service_role;
+SELECT throws_ok(
+  $$ UPDATE public.session_hour_overrides SET reason = reason $$,
+  '42501', NULL, 'R7: service_role direct UPDATE is denied at privilege boundary');
+SELECT throws_ok(
+  $$ DELETE FROM public.session_hour_overrides $$,
+  '42501', NULL, 'R7: service_role direct DELETE is denied at privilege boundary');
+SELECT throws_ok(
+  $$ TRUNCATE TABLE public.session_hour_overrides $$,
+  '42501', NULL, 'R7: service_role direct TRUNCATE is denied');
+SELECT throws_ok(
+  $$ CREATE TRIGGER r7_forged_override_trigger
+       BEFORE INSERT ON public.session_hour_overrides
+       FOR EACH ROW EXECUTE FUNCTION public.r7_noop_override_trigger() $$,
+  '42501', NULL, 'R7: service_role cannot attach a forged audit trigger');
 RESET ROLE;
 
 SELECT * FROM finish();

@@ -25,7 +25,7 @@
 
 BEGIN;
 
-SELECT plan(50);
+SELECT plan(80);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures — an ample bucket only; the budget boundary is 012's subject, not this
@@ -95,6 +95,24 @@ BEGIN
     (p_ledger_id, 'cccccccc-7777-0000-0000-000000000001', p_id,
      1.50, 'reservada', DATE '2026-09-10',
      tests.get_supabase_uid('ra_admin'), 90);
+END;
+$$;
+
+CREATE FUNCTION pg_temp.seed_no_ledger_session(
+  p_id uuid,
+  p_contrato_id uuid,
+  p_hour_type_key text
+) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  INSERT INTO public.consultor_sessions
+    (id, school_id, growth_community_id, title, session_date,
+     start_time, end_time, modality, status, created_by,
+     contrato_id, hour_type_key)
+  VALUES
+    (p_id, 9941, 'cccccccc-3333-0000-0000-000000000001',
+     'Sesión sin libro', DATE '2026-09-10', TIME '09:00', TIME '10:30',
+     'online', 'programada', tests.get_supabase_uid('ra_admin'),
+     p_contrato_id, p_hour_type_key);
 END;
 $$;
 
@@ -496,6 +514,150 @@ SELECT is(pg_temp.ledger_state('ffffffff-1111-0000-0000-000000000011'),
 SELECT is((SELECT count(*)::int FROM public.session_activity_log
   WHERE session_id='ffffffff-0000-0000-0000-000000000011'), 0,
   'R6 incoherent: no revision exists');
+
+-- -----------------------------------------------------------------------------
+-- [R7] `no_ledger_entry` is a legacy result, never an escape hatch for a tracked
+-- or XOR session. The direct function probes include the attempted source UPDATE
+-- in the same statement; the wrapper probes exercise the production transaction.
+-- Every refusal leaves the complete session fingerprint, ledger cardinality, and
+-- revision cardinality byte-identical.
+-- -----------------------------------------------------------------------------
+SELECT ok(
+  position('v_contrato_id IS NULL AND v_hour_type_key IS NULL' in pg_get_functiondef(
+    'public.reschedule_session_hours(uuid,uuid)'::regprocedure)) > 0,
+  'R7: live replacement permits no_ledger_entry only for the both-null pair');
+SELECT ok(
+  position('requiere una entrada en el libro' in pg_get_functiondef(
+    'public.reschedule_session_hours(uuid,uuid)'::regprocedure)) > 0,
+  'R7: live replacement raises for inconsistent no-ledger tracking');
+
+SELECT pg_temp.seed_no_ledger_session(
+  'ffffffff-0000-0000-0000-000000000012',
+  'cccccccc-5555-0000-0000-000000000001', 'acomp_atomic');
+SELECT throws_ok(
+  $$ DO $direct$
+     BEGIN
+       UPDATE public.consultor_sessions SET end_time = TIME '11:00'
+        WHERE id = 'ffffffff-0000-0000-0000-000000000012';
+       PERFORM public.reschedule_session_hours(
+         'ffffffff-0000-0000-0000-000000000012', tests.get_supabase_uid('ra_admin'));
+     END $direct$ $$,
+  'P0001', NULL, 'R7 direct tracked: missing ledger raises');
+SELECT is(pg_temp.session_state('ffffffff-0000-0000-0000-000000000012'),
+  '2026-09-10 09:00:00-10:30:00 / 90', 'R7 direct tracked: session is byte-identical');
+SELECT is((SELECT count(*)::int FROM public.contract_hours_ledger
+  WHERE session_id='ffffffff-0000-0000-0000-000000000012'), 0,
+  'R7 direct tracked: ledger cardinality remains zero');
+SELECT is((SELECT count(*)::int FROM public.session_activity_log
+  WHERE session_id='ffffffff-0000-0000-0000-000000000012'), 0,
+  'R7 direct tracked: revision cardinality remains zero');
+
+SELECT pg_temp.seed_no_ledger_session(
+  'ffffffff-0000-0000-0000-000000000013',
+  'cccccccc-5555-0000-0000-000000000001', NULL);
+SELECT throws_ok(
+  $$ DO $direct$
+     BEGIN
+       UPDATE public.consultor_sessions SET end_time = TIME '11:00'
+        WHERE id = 'ffffffff-0000-0000-0000-000000000013';
+       PERFORM public.reschedule_session_hours(
+         'ffffffff-0000-0000-0000-000000000013', tests.get_supabase_uid('ra_admin'));
+     END $direct$ $$,
+  'P0001', NULL, 'R7 direct contract-only XOR: missing ledger raises');
+SELECT is(pg_temp.session_state('ffffffff-0000-0000-0000-000000000013'),
+  '2026-09-10 09:00:00-10:30:00 / 90', 'R7 direct contract-only XOR: session is byte-identical');
+SELECT is((SELECT count(*)::int FROM public.contract_hours_ledger
+  WHERE session_id='ffffffff-0000-0000-0000-000000000013'), 0,
+  'R7 direct contract-only XOR: ledger cardinality remains zero');
+SELECT is((SELECT count(*)::int FROM public.session_activity_log
+  WHERE session_id='ffffffff-0000-0000-0000-000000000013'), 0,
+  'R7 direct contract-only XOR: revision cardinality remains zero');
+
+SELECT pg_temp.seed_no_ledger_session(
+  'ffffffff-0000-0000-0000-000000000014', NULL, 'acomp_atomic');
+SELECT throws_ok(
+  $$ DO $direct$
+     BEGIN
+       UPDATE public.consultor_sessions SET end_time = TIME '11:00'
+        WHERE id = 'ffffffff-0000-0000-0000-000000000014';
+       PERFORM public.reschedule_session_hours(
+         'ffffffff-0000-0000-0000-000000000014', tests.get_supabase_uid('ra_admin'));
+     END $direct$ $$,
+  'P0001', NULL, 'R7 direct type-only XOR: missing ledger raises');
+SELECT is(pg_temp.session_state('ffffffff-0000-0000-0000-000000000014'),
+  '2026-09-10 09:00:00-10:30:00 / 90', 'R7 direct type-only XOR: session is byte-identical');
+SELECT is((SELECT count(*)::int FROM public.contract_hours_ledger
+  WHERE session_id='ffffffff-0000-0000-0000-000000000014'), 0,
+  'R7 direct type-only XOR: ledger cardinality remains zero');
+SELECT is((SELECT count(*)::int FROM public.session_activity_log
+  WHERE session_id='ffffffff-0000-0000-0000-000000000014'), 0,
+  'R7 direct type-only XOR: revision cardinality remains zero');
+
+SELECT pg_temp.seed_no_ledger_session(
+  'ffffffff-0000-0000-0000-000000000015',
+  'cccccccc-5555-0000-0000-000000000001', 'acomp_atomic');
+SELECT throws_ok(
+  $$ SELECT public.apply_session_reschedule(
+       'ffffffff-0000-0000-0000-000000000015', tests.get_supabase_uid('ra_admin'),
+       '{"end_time":"11:00:00"}'::jsonb) $$,
+  'P0001', NULL, 'R7 wrapper tracked: missing ledger raises');
+SELECT is(pg_temp.session_state('ffffffff-0000-0000-0000-000000000015'),
+  '2026-09-10 09:00:00-10:30:00 / 90', 'R7 wrapper tracked: session is byte-identical');
+SELECT is((SELECT count(*)::int FROM public.contract_hours_ledger
+  WHERE session_id='ffffffff-0000-0000-0000-000000000015'), 0,
+  'R7 wrapper tracked: ledger cardinality remains zero');
+SELECT is((SELECT count(*)::int FROM public.session_activity_log
+  WHERE session_id='ffffffff-0000-0000-0000-000000000015'), 0,
+  'R7 wrapper tracked: revision cardinality remains zero');
+
+SELECT pg_temp.seed_no_ledger_session(
+  'ffffffff-0000-0000-0000-000000000016',
+  'cccccccc-5555-0000-0000-000000000001', NULL);
+SELECT throws_ok(
+  $$ SELECT public.apply_session_reschedule(
+       'ffffffff-0000-0000-0000-000000000016', tests.get_supabase_uid('ra_admin'),
+       '{"end_time":"11:00:00"}'::jsonb) $$,
+  'P0001', NULL, 'R7 wrapper contract-only XOR: missing ledger raises');
+SELECT is(pg_temp.session_state('ffffffff-0000-0000-0000-000000000016'),
+  '2026-09-10 09:00:00-10:30:00 / 90', 'R7 wrapper contract-only XOR: session is byte-identical');
+SELECT is((SELECT count(*)::int FROM public.contract_hours_ledger
+  WHERE session_id='ffffffff-0000-0000-0000-000000000016'), 0,
+  'R7 wrapper contract-only XOR: ledger cardinality remains zero');
+SELECT is((SELECT count(*)::int FROM public.session_activity_log
+  WHERE session_id='ffffffff-0000-0000-0000-000000000016'), 0,
+  'R7 wrapper contract-only XOR: revision cardinality remains zero');
+
+SELECT pg_temp.seed_no_ledger_session(
+  'ffffffff-0000-0000-0000-000000000017', NULL, 'acomp_atomic');
+SELECT throws_ok(
+  $$ SELECT public.apply_session_reschedule(
+       'ffffffff-0000-0000-0000-000000000017', tests.get_supabase_uid('ra_admin'),
+       '{"end_time":"11:00:00"}'::jsonb) $$,
+  'P0001', NULL, 'R7 wrapper type-only XOR: missing ledger raises');
+SELECT is(pg_temp.session_state('ffffffff-0000-0000-0000-000000000017'),
+  '2026-09-10 09:00:00-10:30:00 / 90', 'R7 wrapper type-only XOR: session is byte-identical');
+SELECT is((SELECT count(*)::int FROM public.contract_hours_ledger
+  WHERE session_id='ffffffff-0000-0000-0000-000000000017'), 0,
+  'R7 wrapper type-only XOR: ledger cardinality remains zero');
+SELECT is((SELECT count(*)::int FROM public.session_activity_log
+  WHERE session_id='ffffffff-0000-0000-0000-000000000017'), 0,
+  'R7 wrapper type-only XOR: revision cardinality remains zero');
+
+SELECT pg_temp.seed_no_ledger_session(
+  'ffffffff-0000-0000-0000-000000000018', NULL, NULL);
+SELECT is(
+  (SELECT public.apply_session_reschedule(
+    'ffffffff-0000-0000-0000-000000000018', tests.get_supabase_uid('ra_admin'),
+    '{"end_time":"11:00:00"}'::jsonb) -> 'hours' ->> 'reason'),
+  'no_ledger_entry', 'R7 legacy: both-null no-ledger retains its explicit result');
+SELECT is(pg_temp.session_state('ffffffff-0000-0000-0000-000000000018'),
+  '2026-09-10 09:00:00-11:00:00 / 120', 'R7 legacy: both-null session still moves');
+SELECT is((SELECT count(*)::int FROM public.contract_hours_ledger
+  WHERE session_id='ffffffff-0000-0000-0000-000000000018'), 0,
+  'R7 legacy: no ledger row is synthesized');
+SELECT is((SELECT count(*)::int FROM public.session_activity_log
+  WHERE session_id='ffffffff-0000-0000-0000-000000000018'), 0,
+  'R7 legacy: no duration revision is synthesized');
 
 SELECT * FROM finish();
 ROLLBACK;

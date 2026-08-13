@@ -255,3 +255,170 @@ checkpoint commits each passed type-check/lint/full-unit/test:db at their head.
    report batch, `no_data` under provisional webhook data. This is product-visible
    direction-of-failure; check the tri-state against §15.3.5's "never toward a wrong
    person marked present" and the copy in `AttendanceSuggestionsPanel`.
+
+---
+
+## 12. Independent-review remediation round 1 (Z7-R1…Z7-R7)
+
+This appendix supersedes any contrary evidence above for the repaired tree. It records
+the builder response to `docs/plan/zoom/remediation/Z7-review-1.md`; it is not an
+acceptance verdict.
+
+### 12.1 Identity and boundary
+
+- Canonical branch: `feat/zoom-hours` (the repair was made on the orchestrator-provided
+  detached task worktree and must be cherry-picked onto that branch).
+- Cumulative independent-review boundary: `43999499..HEAD`.
+- Remediation starting HEAD: `0a5d2684c0a2c0cd91eca0cbdc032793b0c598b6`.
+- Repair implementation: `51c80b0c66691869e2f0d5775b3af5285b0bfdac`.
+- This evidence appendix is a second detached-head commit on top of the implementation;
+  exact final HEAD is reported in the builder handoff. After that commit the cumulative
+  boundary contains 22 commits.
+
+The objective was to resolve all seven review findings without changing Z7's governing
+invariants: authoritative report replacement, conservative provisional attendance,
+append-only override audit, one adjusted value for consumption and payment, deterministic
+idempotency, and no production or real-Zoom access. Scope was limited to the affected Z7
+SQL, jobs, routes, UI typing/submission semantics, billing consumers, and regression
+infrastructure. No merge, push, deployment, production access, real student data, RLS
+weakening, or destructive schema operation occurred.
+
+### 12.2 Finding disposition
+
+| Finding | Repair | Regression evidence |
+|---|---|---|
+| Z7-R1 | Audited every ledger/bucket/earnings reference, replaced `get_consultant_earnings` at the identical signature with `effective_minutes` fallback semantics, and converted the direct earnings breakdown and ledger CSV to the canonical `billableHours` seam. Earnings breakdown now fails closed instead of retrying without consultant scope. | Cross-module unit coverage pins breakdown, CSV, and RPC-backed PDF to 45 minutes / 0.75 hours / 7.50 at a 10.00 rate. pgTAP 015 pins pre-override 1.00/10.00, override 0.75/7.50, replay unchanged, and reversal 1.00/10.00. |
+| Z7-R2 | `meeting.started` and `meeting.ended` both forward the occurrence UUID. The SQL's `COALESCE` fills a missing UUID but never overwrites an existing one. | Lifecycle, webhook-route, and pgTAP out-of-order tests require the ended-before-started row to retain the UUID. |
+| Z7-R3 | Candidate loading now scans deterministic 100-row pages (`updated_at DESC, id ASC`) until it fills the unresolved limit or exhausts the bounded result set. | The regression puts 200 complete candidates ahead of the unresolved 201st and requires that 201st row to be returned; a second test pins deterministic limiting. |
+| Z7-R4 | Attendance suggestion fields are optional and nullable. The route constructs a partial update: omission preserves existing metadata; explicit `null` (and the UI's explicit empty note) clears it. | Route tests independently pin omitted preservation and explicit clear. |
+| Z7-R5 | The comparison route checks all four concurrent query errors and returns only a generic internal error. | A four-source matrix independently fails session, ledger, attendance, and override reads and requires 500 for each. |
+| Z7-R6 | Every terminal report-page failure rejects the batch before rethrow/conversion; deliberate lease loss remains the only path that does not let the old worker mutate batch state. | A retry-exhausted `ZoomRetryableError` must reject the batch and must not promote it. |
+| Z7-R7 | `apply_session_hour_override` takes a transaction advisory lock derived from `p_request_id` before its request precheck. | A repeatable local-only two-connection script proves identical concurrent calls yield one apply + one replay + one audit row; different payloads yield one apply + one `P0409`, never `23505`; sequential replay remains a no-op. |
+
+### 12.3 Billing-consumer audit (not just the cited files)
+
+The audit searched every SQL, library, API, page, and test reference to
+`contract_hours_ledger`, `get_bucket_summary`, and `get_consultant_earnings`.
+
+Canonical billing/consumption readers after repair:
+
+- `get_bucket_summary` — already uses `COALESCE(effective_minutes / 60, hours)` for
+  reserved/consumed arithmetic.
+- school-hours report and session-report analytics — already read `effective_minutes`
+  through the canonical billable-hours helper.
+- `get_consultant_earnings` — repaired in the existing unapplied Z7 migration; signature,
+  return shape, and grants are preserved.
+- consultant-earnings direct breakdown, earnings PDF (RPC result), and ledger CSV — now
+  all carry adjusted hours/amounts; the direct path also retains consultant scope on every
+  outcome.
+
+Intentional historical/non-billing readers left unchanged:
+
+- The raw ledger GET returns audit evidence (`select *`) and does not calculate a payment.
+- The comparison panel deliberately exposes both historical planned `ledger.hours` and the
+  adjusted value; collapsing them would destroy the comparison it exists to show.
+- Session/admin status badges, consultant-rate guards, approval/allocation/reallocation,
+  and hour-tracking CRUD readers use status/identity/availability rather than independently
+  calculating a billable amount. Availability remains owned by the canonical bucket RPC.
+
+### 12.4 Honest fail-on-old evidence
+
+The focused regression set was first run against the old implementation. Seven of eight
+files failed: **13 failed / 61 passed (74 total)**. The failures covered direct earnings,
+CSV, omitted-vs-clear metadata, each of the four comparison query sources, retryable batch
+rejection, both occurrence-UUID expectations, and both candidate pagination assertions.
+The PDF test passed because the old mocked RPC result was already canonical; its repaired
+test now verifies the rendered 0.75/7.50 table output instead of pretending it killed old
+code.
+
+The old SQL was also exercised through two real local Postgres connections with a barrier
+that held the target session row until both callers passed the old request precheck. In the
+identical-request race, the losing caller surfaced unique-key SQLSTATE **23505**. This is
+the concrete fail-on-old for the advisory-lock repair, not a mocked approximation.
+
+On the repair commit the broadened focused set is **9 files / 96 tests, all green**.
+
+### 12.5 Files in the remediation commit, grouped by risk
+
+**Highest risk — database, money, and concurrency**
+
+- `supabase/migrations/20260813120200_session_hour_overrides.sql`
+- `supabase/tests/015-session-hour-overrides.sql`
+- `scripts/ci/override-concurrency-proof.mjs`
+- `package.json`
+- `pages/api/consultant-earnings/[consultant_id].ts`
+- `pages/api/contracts/[id]/hours/ledger/csv.ts`
+- earnings/CSV/PDF regression files under `__tests__/api/hour-tracking/`
+
+**High risk — attendance lifecycle, report authority, and request failure semantics**
+
+- `lib/zoom/attendance-report-store.ts`
+- `lib/zoom/jobs/attendance-reconcile.ts`
+- `lib/zoom/webhook-lifecycle.ts`
+- `pages/api/sessions/[id]/attendees.ts`
+- `supabase/tests/011-zoom-public-rls.sql`
+- corresponding route/job/store/lifecycle/webhook tests under `__tests__/`
+
+**Medium risk — comparison error handling and UI metadata contract**
+
+- `pages/api/admin/sessions/[id]/hours-comparison.ts`
+- `lib/types/consultor-sessions.types.ts`
+- `pages/consultor/sessions/[id].tsx`
+- `__tests__/api/admin/hours-comparison.test.ts`
+
+### 12.6 Gate and time-zone evidence
+
+Evidence below was collected on the repair tree; the only later tracked change is this
+documentation appendix.
+
+| Command | Result |
+|---|---|
+| focused 9-file Vitest command listed in the remediation | 9 files, **96/96** |
+| `npm run type-check` | exit 0 |
+| `npm run lint` | exit 0, zero warnings |
+| `bash scripts/ci/check-rls-migrations.sh` | exit 0; no migration disables RLS |
+| `npm test` | 319 files, **7254 passed / 11 skipped**, exit 0 |
+| `npm run build` | exit 0; 156 static pages generated, using local-only `.env.local` |
+| `npm run test:db` | 12 files, **653 tests**, exit 0 |
+| `npm run test:override-concurrency` | all three real two-connection proofs green |
+| `supabase db reset` | all migrations through `20260813120200` replayed locally |
+| fresh reset → local e2e seed → `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **117/117**, one worker, no skips |
+| `TZ=UTC npm test` | 319 files, **7254 passed / 11 skipped**, exit 0 |
+| `TZ=America/Santiago npm test` | 319 files, **7254 passed / 11 skipped**, exit 0 |
+| `TZ=Europe/Madrid npm test` | **7246 passed / 8 failed / 11 skipped**, exit 1; all 8 are `lib/__tests__/businessDays.test.ts` |
+
+Required deviations are not hidden:
+
+- `npm run lint:testid` reports **2669 problems (44 errors, 2625 warnings)**. The exact
+  same counts reproduce at immutable start `0a5d2684`; this advisory is repo-wide and no
+  remediation file introduces an interactive control.
+- The eight Madrid failures reproduce on immutable start `0a5d2684` with the targeted
+  business-days suite (**8 failed / 15 passed**). This is the already-recorded licitaciones
+  time-zone defect, outside Zoom remediation scope.
+- The exact broad `npm run e2e` completed with **160 passed / 27 skipped / 1 did not run /
+  62 failed (250 total)**. Failures are the inherited broad legacy inventory (principally
+  proposal/QA suites whose legacy credentials are absent from the supported synthetic
+  seeder, plus legacy reservation logins and one full-run-only mock-port readiness race).
+  No Z7 remediation spec failed. The supported fresh-stack mandatory CI selector above is
+  fully green at 117/117. This round did not weaken, skip, or delete any e2e test.
+
+### 12.7 Residual risks and independent-review focus
+
+1. **Money aggregation and grants.** Re-check the replacement RPC's identical signature,
+   preserved grants, rate grouping/rounding, and the complete consumer inventory. The raw
+   historical views are intentionally not rewritten.
+2. **Advisory-lock domain.** The lock hashes a caller-provided request ID; hash collision is
+   safe but serializing, while correctness still depends on every override entering through
+   this RPC. Review the barrier proof and the lock-before-precheck ordering together.
+3. **Candidate scan cost.** Paging is bounded and deterministic but can scan a large complete
+   prefix to find a small unresolved tail. Correctness is pinned; an index/query redesign is
+   a future performance option if production cardinality warrants it.
+4. **Omission versus explicit clear.** The API and UI now distinguish these cases. Check any
+   future client does not serialize absent fields as `null` unintentionally.
+5. **Batch terminality and lease loss.** All ordinary terminal page failures reject the
+   batch; lease loss deliberately leaves authority to the winning worker. Inspect that
+   exception before changing catch ordering.
+
+No governing-contract conflict was found. Remaining external limits from §8 still apply:
+no real Zoom tenant and no production migration/application evidence exist in this builder
+round.

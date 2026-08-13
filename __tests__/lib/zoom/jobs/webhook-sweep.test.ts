@@ -420,8 +420,7 @@ describe('webhook_sweep · participant events ([R1])', () => {
         inserted.push(row);
         return 'inserted' as const;
       }),
-      listOpenIntervals: vi.fn(async () => []),
-      closeInterval: vi.fn(async () => true),
+      applyLeave: vi.fn(async () => 'no_open_interval' as const),
     };
     return { store, inserted };
   }

@@ -25,7 +25,7 @@
 
 BEGIN;
 
-SELECT plan(93);
+SELECT plan(116);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures
@@ -778,12 +778,13 @@ RESET ROLE;
 -- =============================================================================
 
 SELECT has_column('public', 'zoom_attendance', 'participant_uuid',
-  'zoom_attendance.participant_uuid exists — the [R3] interval key');
+  'zoom_attendance.participant_uuid exists — the ONLY token that may authorise closure (§15.3.9)');
 SELECT col_is_null('public', 'zoom_attendance', 'participant_uuid',
-  'participant_uuid is nullable — Zoom omits it, and the applier falls back to identity');
+  'participant_uuid is nullable — Zoom omits it, and such rows close only via the Z7-3 report');
 
--- The index exists, is UNIQUE, and is PARTIAL. All three matter; a total unique index
--- would pass the first two and be wrong.
+-- The index exists, is UNIQUE, is PARTIAL, and includes joined_at. All four matter: a
+-- total unique index would collapse anonymous guests; a two-column key would refuse a
+-- genuine rejoin that reuses the meeting-scoped uuid.
 SELECT is(
   (SELECT count(*)::int FROM pg_indexes
     WHERE schemaname = 'public'
@@ -792,11 +793,13 @@ SELECT is(
   1, 'the participant/occurrence unique index exists');
 
 SELECT ok(
-  (SELECT indexdef LIKE 'CREATE UNIQUE INDEX%' AND indexdef LIKE '%WHERE (participant_uuid IS NOT NULL)%'
+  (SELECT indexdef LIKE 'CREATE UNIQUE INDEX%'
+      AND indexdef LIKE '%(zoom_meeting_uuid, participant_uuid, joined_at)%'
+      AND indexdef LIKE '%WHERE (participant_uuid IS NOT NULL)%'
      FROM pg_indexes
     WHERE schemaname = 'public'
       AND indexname = 'zoom_attendance_participant_occurrence_key'),
-  'the index is UNIQUE and PARTIAL on participant_uuid IS NOT NULL');
+  'the index is UNIQUE, PARTIAL, and widened by joined_at — a rejoin reusing the uuid is a new row');
 
 -- Fixtures for the behavioural half. Reuses School A's session from the Z7-1 block.
 INSERT INTO public.zoom_attendance
@@ -808,7 +811,8 @@ VALUES
    '364B3A17-05C0-6B63-F4FA-2180DCC26971', 'customer_key',
    '2026-07-29T23:55:56Z', 'webhook');
 
--- THE REDELIVERY, at the database. Same occurrence, same participant_uuid.
+-- THE REDELIVERY, at the database. Same occurrence, same participant_uuid, same
+-- joined_at — the same join event delivered again.
 SELECT throws_ok(
   $$ INSERT INTO public.zoom_attendance
        (surface_type, surface_id, school_id, zoom_meeting_uuid,
@@ -819,6 +823,18 @@ SELECT throws_ok(
   '23505',
   NULL,
   'a redelivered participant_joined is refused by the partial unique index');
+
+-- ...but a REJOIN that reuses the uuid at a LATER instant is a genuinely new interval.
+-- Zoom's participant_uuid is meeting-scoped, not connection-scoped, so this is exactly
+-- what the widening by joined_at exists to admit.
+SELECT lives_ok(
+  $$ INSERT INTO public.zoom_attendance
+       (surface_type, surface_id, school_id, zoom_meeting_uuid,
+        participant_uuid, matched_by, joined_at, source)
+     VALUES ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
+             'z7Synthetic/Occurrence/P==', '364B3A17-05C0-6B63-F4FA-2180DCC26971',
+             'customer_key', '2026-07-30T00:10:00Z', 'webhook') $$,
+  'a rejoin reusing the participant_uuid at a later joined_at inserts cleanly');
 
 -- The SAME participant in a DIFFERENT occurrence is a different interval.
 SELECT lives_ok(
@@ -888,21 +904,23 @@ SELECT is(
   0, 'zoom_attendance still carries no non-SELECT policy after the Z7-2 migration');
 
 -- =============================================================================
--- Z7-2 remediation — identity_token and source_event_key (Codex P1-1 / P1-2).
+-- Z7-2 — identity_tokens as reconciliation evidence, and source_event_key.
 --
--- P1-1: the fallback pairing key is now ONE persisted column matched by exact
--- equality. The previous lookup OR-ed every identity column it had, so two uuid-less
--- participants sharing a display name both matched a leave and the latest-joined one
--- was closed — the wrong person's interval. The rows below are exactly that scenario.
+-- identity_tokens persists EVERY rank a participant presented. Under §15.3.9 it is
+-- reconciliation evidence only — Z7-3 and the facilitator suggestion consume it, and
+-- nothing closes on it. The containment demonstrations below are kept because they
+-- PROVE the ambiguity the replan rests on: a weak token is shared between two people
+-- in ways no storage design can repair, which is why closure now requires a
+-- Zoom-minted participant_uuid.
 --
--- P1-2: uuid-less redelivery had no database constraint at all and was defended by a
--- read-then-insert, which two concurrent deliveries can both lose. `source_event_key`
+-- source_event_key: uuid-less redelivery had no database constraint at all and was
+-- defended by a read-then-insert, which two concurrent deliveries can both lose. It
 -- is the ledger's sha256 dedupe_key, UNIQUE, so the second delivery is refused inside
 -- Postgres regardless of interleaving.
 -- =============================================================================
 
 SELECT has_column('public', 'zoom_attendance', 'identity_tokens',
-  'zoom_attendance.identity_tokens exists — EVERY presented rank, not just the strongest');
+  'zoom_attendance.identity_tokens exists — EVERY presented rank, as evidence');
 SELECT has_column('public', 'zoom_attendance', 'source_event_key',
   'zoom_attendance.source_event_key exists — delivery-level idempotency');
 
@@ -919,10 +937,10 @@ SELECT ok(
      FROM pg_indexes
     WHERE schemaname = 'public'
       AND indexname = 'zoom_attendance_identity_tokens_idx'),
-  'identity_tokens is GIN-indexed — the pairing lookup is array containment, not equality');
+  'identity_tokens is GIN-indexed — evidence lookups are array containment, not equality');
 
--- The re-review counterexample, at the database. A presented a customer_key AND the
--- shared name, so A's row carries BOTH ranks; B presented only the name.
+-- The ambiguity that forced the replan, at the database. A presented a customer_key
+-- AND the shared name, so A's row carries BOTH ranks; B presented only the name.
 INSERT INTO public.zoom_attendance
   (id, surface_type, surface_id, school_id, zoom_meeting_uuid,
    participant_uuid, customer_key, display_name, matched_by, joined_at,
@@ -941,34 +959,34 @@ VALUES
    ARRAY['nm:ana perez sintetica'],
    'delivery-t-2', 'webhook');
 
--- A's leave WITH its customer_key: the strong token belongs to exactly one row.
+-- A strong token names exactly one row — good enough to SUGGEST who a row is about.
 SELECT is(
   (SELECT string_agg(id::text, ',' ORDER BY id) FROM public.zoom_attendance
     WHERE zoom_meeting_uuid = 'z7Synthetic/Occurrence/T=='
       AND left_at IS NULL
       AND identity_tokens @> ARRAY['ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1']),
   'a7a7a7a7-6666-0000-0000-000000000001',
-  'a strong leave token matches exactly its own interval');
+  'a strong evidence token names exactly one interval — usable as a suggestion');
 
--- A's leave DOWNGRADED (Zoom omitted the customer_key): the weak token now matches BOTH,
--- because A's row carries it at a weaker rank. Under the single-primary-token design it
--- matched ONLY B — which is how B's interval got closed. Two rows is the ambiguity the
--- applier is required to refuse to resolve.
+-- The weak token matches BOTH people, because A carries it at a weaker rank. This is
+-- the indistinguishability §15.3.9 rests on: no query over client-assertable evidence
+-- can pick one of these rows safely, which is why closure requires a Zoom-minted
+-- participant_uuid and everything here is evidence for humans and the report.
 SELECT is(
   (SELECT count(*)::int FROM public.zoom_attendance
     WHERE zoom_meeting_uuid = 'z7Synthetic/Occurrence/T=='
       AND left_at IS NULL
       AND identity_tokens @> ARRAY['nm:ana perez sintetica']),
-  2, 'a DOWNGRADED leave token matches both people — ambiguous, so the applier closes nothing');
+  2, 'a weak evidence token matches both people — the ambiguity no heuristic can resolve');
 
--- The refutation of the old model, kept as a live assert: A's PRIMARY token is not the
--- weak one, so a query keyed on "the primary token" would have returned only B.
+-- The refutation of the withdrawn single-primary-token model, kept as a live assert:
+-- keyed on "the primary token" the downgraded evidence names ONLY the namesake.
 SELECT is(
   (SELECT count(*)::int FROM public.zoom_attendance
     WHERE zoom_meeting_uuid = 'z7Synthetic/Occurrence/T=='
       AND left_at IS NULL
       AND identity_tokens[1] = 'nm:ana perez sintetica'),
-  1, 'keyed on the PRIMARY token alone the downgraded leave finds only the namesake — the refuted model');
+  1, 'keyed on the PRIMARY token alone the downgraded evidence names only the namesake — the refuted model');
 
 -- P1-2, at the database: the same delivery key cannot produce a second row, even though
 -- both rows are uuid-less and the participant_uuid index therefore does not apply.
@@ -1006,6 +1024,217 @@ SELECT lives_ok(
              'z7Synthetic/Occurrence/U==', NULL, 'unmatched', '2026-07-30T00:21:00Z',
              NULL, NULL, 'report') $$,
   'two rows with a NULL source_event_key both insert — the index is PARTIAL for Z7-3');
+
+-- =============================================================================
+-- Z7-2 — zoom_internal.apply_participant_leave: the §15.3.9 close rule and the
+-- one-transaction observation, proved against the real function.
+--
+-- The vitest matrix drives the applier over a store DOUBLE; this section is the half
+-- a double cannot supply — that Postgres itself enforces the rule and the boundary:
+--
+--   · closure requires participant_uuid matching EXACTLY ONE open row (zero, two,
+--     uuid-less and out-of-order all close nothing);
+--   · every leave records an observation carrying the decided outcome;
+--   · a duplicate delivery does NOTHING AT ALL — including the [C6b] probe, where a
+--     pre-seeded observation key makes the function's own close ROLL BACK, which is
+--     the transaction boundary itself, not just the end state.
+--
+-- Calls run AS service_role, matching the production client.
+-- =============================================================================
+
+SELECT is(has_function_privilege('anon',
+  'zoom_internal.apply_participant_leave(integer, text, text, timestamptz, text, text, text, text, text[])',
+  'EXECUTE'), false, 'anon cannot execute apply_participant_leave');
+SELECT is(has_function_privilege('authenticated',
+  'zoom_internal.apply_participant_leave(integer, text, text, timestamptz, text, text, text, text, text[])',
+  'EXECUTE'), false, 'authenticated cannot execute apply_participant_leave');
+SELECT is(has_function_privilege('service_role',
+  'zoom_internal.apply_participant_leave(integer, text, text, timestamptz, text, text, text, text, text[])',
+  'EXECUTE'), true, 'service_role can execute apply_participant_leave');
+
+SELECT is(
+  (SELECT p.prosecdef FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'zoom_internal' AND p.proname = 'apply_participant_leave'),
+  false, 'apply_participant_leave is SECURITY INVOKER — the caller is already service_role');
+
+-- Fixtures: one occurrence, the histories the matrix names. Seeded as postgres.
+INSERT INTO public.zoom_attendance
+  (id, surface_type, surface_id, school_id, zoom_meeting_uuid,
+   participant_uuid, display_name, matched_by, joined_at, identity_tokens, source)
+VALUES
+  -- L1: exactly one open row for its uuid — the closable case.
+  ('a7a7a7a7-7777-0000-0000-000000000001', 'consultor_session',
+   'a7a7a7a7-0000-0000-0000-000000000001', 9901, 'z7Synthetic/Occurrence/L==',
+   'LEAVE-UUID-ONE', 'Cierre Limpio', 'unmatched', '2026-07-29T23:50:00Z',
+   ARRAY['nm:cierre limpio'], 'webhook'),
+  -- L5: TWO open rows under one uuid (the first leave was lost).
+  ('a7a7a7a7-7777-0000-0000-000000000002', 'consultor_session',
+   'a7a7a7a7-0000-0000-0000-000000000001', 9901, 'z7Synthetic/Occurrence/L==',
+   'LEAVE-UUID-TWO', 'Doble Abierta', 'unmatched', '2026-07-29T23:51:00Z',
+   NULL, 'webhook'),
+  ('a7a7a7a7-7777-0000-0000-000000000003', 'consultor_session',
+   'a7a7a7a7-0000-0000-0000-000000000001', 9901, 'z7Synthetic/Occurrence/L==',
+   'LEAVE-UUID-TWO', 'Doble Abierta', 'unmatched', '2026-07-30T00:02:00Z',
+   NULL, 'webhook'),
+  -- L4: a uuid-less open row whose evidence a uuid-less leave will match.
+  ('a7a7a7a7-7777-0000-0000-000000000004', 'consultor_session',
+   'a7a7a7a7-0000-0000-0000-000000000001', 9901, 'z7Synthetic/Occurrence/L==',
+   NULL, 'Ana Homonima', 'unmatched', '2026-07-29T23:52:00Z',
+   ARRAY['nm:ana homonima'], 'webhook'),
+  -- L7: an open row whose join the leave will PRECEDE.
+  ('a7a7a7a7-7777-0000-0000-000000000005', 'consultor_session',
+   'a7a7a7a7-0000-0000-0000-000000000001', 9901, 'z7Synthetic/Occurrence/L==',
+   'LEAVE-UUID-LATE', 'Se Fue Antes', 'unmatched', '2026-07-30T00:30:00Z',
+   NULL, 'webhook'),
+  -- L3: the transaction-boundary probe's open row.
+  ('a7a7a7a7-7777-0000-0000-000000000006', 'consultor_session',
+   'a7a7a7a7-0000-0000-0000-000000000001', 9901, 'z7Synthetic/Occurrence/L==',
+   'LEAVE-UUID-TXN', 'Frontera Transaccional', 'unmatched', '2026-07-29T23:53:00Z',
+   NULL, 'webhook');
+
+-- L3's pre-seeded observation: the delivery was already applied by "the other" caller.
+INSERT INTO zoom_internal.zoom_attendance_observations
+  (school_id, zoom_meeting_uuid, event_type, source_event_key, observed_at,
+   participant_uuid, outcome)
+VALUES
+  (9901, 'z7Synthetic/Occurrence/L==', 'meeting.participant_left', 'obs-txn-1',
+   '2026-07-30T00:05:00Z', 'LEAVE-UUID-TXN', 'interval_closed');
+
+SET LOCAL ROLE service_role;
+
+-- L1 — the closable case: exactly one open row, instant after the join.
+SELECT is(
+  zoom_internal.apply_participant_leave(
+    9901, 'z7Synthetic/Occurrence/L==', 'obs-l1-1', '2026-07-30T00:05:00Z',
+    'LEAVE-UUID-ONE', NULL, 'Cierre Limpio', NULL, ARRAY['nm:cierre limpio']),
+  'interval_closed',
+  'L1: a uuid matching exactly one open row closes it');
+
+SELECT is(
+  (SELECT left_at FROM public.zoom_attendance
+    WHERE id = 'a7a7a7a7-7777-0000-0000-000000000001'),
+  '2026-07-30T00:05:00Z'::timestamptz,
+  'L1: the interval is closed at the observed instant');
+
+SELECT ok(
+  (SELECT school_id = 9901
+          AND event_type = 'meeting.participant_left'
+          AND observed_at = '2026-07-30T00:05:00Z'::timestamptz
+          AND participant_uuid = 'LEAVE-UUID-ONE'
+          AND display_name = 'Cierre Limpio'
+          AND identity_tokens = ARRAY['nm:cierre limpio']
+          AND outcome = 'interval_closed'
+     FROM zoom_internal.zoom_attendance_observations
+    WHERE source_event_key = 'obs-l1-1'),
+  'L1: the observation records the evidence AND the decided outcome');
+
+-- L2 — the same delivery again: nothing happens, and only one observation exists.
+SELECT is(
+  zoom_internal.apply_participant_leave(
+    9901, 'z7Synthetic/Occurrence/L==', 'obs-l1-1', '2026-07-30T00:05:00Z',
+    'LEAVE-UUID-ONE', NULL, 'Cierre Limpio', NULL, ARRAY['nm:cierre limpio']),
+  'observation_duplicate',
+  'L2: a duplicate delivery reports observation_duplicate');
+
+SELECT is(
+  (SELECT count(*)::int FROM zoom_internal.zoom_attendance_observations
+    WHERE source_event_key = 'obs-l1-1'),
+  1, 'L2: the UNIQUE key admits exactly one observation for the delivery');
+
+-- L3 — THE TRANSACTION BOUNDARY ([C6b]). The observation for 'obs-txn-1' already
+-- exists, so this call's INSERT conflicts — and the conflict must roll back the close
+-- the call just performed. If observation and close were two transactions, the row
+-- would now be closed with no record of who closed it.
+SELECT is(
+  zoom_internal.apply_participant_leave(
+    9901, 'z7Synthetic/Occurrence/L==', 'obs-txn-1', '2026-07-30T00:06:00Z',
+    'LEAVE-UUID-TXN', NULL, 'Frontera Transaccional', NULL, NULL),
+  'observation_duplicate',
+  'L3: a delivery another application already recorded reports observation_duplicate');
+
+SELECT is(
+  (SELECT left_at FROM public.zoom_attendance
+    WHERE id = 'a7a7a7a7-7777-0000-0000-000000000006'),
+  NULL,
+  'L3: the close ROLLED BACK with the observation conflict — one transaction, provably');
+
+-- L4 — a uuid-less leave, whatever evidence it carries, closes nothing. This is the
+-- H1/H2 safety at the SQL level: the open homonym row stays open.
+SELECT is(
+  zoom_internal.apply_participant_leave(
+    9901, 'z7Synthetic/Occurrence/L==', 'obs-l4-1', '2026-07-30T00:07:00Z',
+    NULL, NULL, 'Ana Homonima', NULL, ARRAY['nm:ana homonima']),
+  'unpairable_leave',
+  'L4: a uuid-less leave is unpairable — evidence never authorises a close');
+
+SELECT is(
+  (SELECT left_at FROM public.zoom_attendance
+    WHERE id = 'a7a7a7a7-7777-0000-0000-000000000004'),
+  NULL,
+  'L4: the matching-evidence open row STAYS OPEN');
+
+SELECT ok(
+  (SELECT outcome = 'unpairable_leave' AND identity_tokens = ARRAY['nm:ana homonima']
+     FROM zoom_internal.zoom_attendance_observations
+    WHERE source_event_key = 'obs-l4-1'),
+  'L4: the observation still records the leave and its evidence');
+
+-- L5 — two open rows under one uuid: rule 3 closes NOTHING.
+SELECT is(
+  zoom_internal.apply_participant_leave(
+    9901, 'z7Synthetic/Occurrence/L==', 'obs-l5-1', '2026-07-30T00:08:00Z',
+    'LEAVE-UUID-TWO', NULL, 'Doble Abierta', NULL, NULL),
+  'no_open_interval',
+  'L5: more than one open match closes nothing');
+
+SELECT is(
+  (SELECT count(*)::int FROM public.zoom_attendance
+    WHERE participant_uuid = 'LEAVE-UUID-TWO' AND left_at IS NULL),
+  2, 'L5: both ambiguous rows stay open for the report to resolve');
+
+-- L6 — no usable instant: recorded as such, nothing fabricated.
+SELECT is(
+  zoom_internal.apply_participant_leave(
+    9901, 'z7Synthetic/Occurrence/L==', 'obs-l6-1', NULL,
+    'LEAVE-UUID-ONE', NULL, 'Cierre Limpio', NULL, NULL),
+  'no_instant',
+  'L6: a leave with no instant closes nothing and reports no_instant');
+
+SELECT ok(
+  (SELECT observed_at IS NULL AND outcome = 'no_instant'
+     FROM zoom_internal.zoom_attendance_observations
+    WHERE source_event_key = 'obs-l6-1'),
+  'L6: the observation records the missing instant as missing');
+
+-- L7 — a leave that PRECEDES the only open join closes nothing ([C9]).
+SELECT is(
+  zoom_internal.apply_participant_leave(
+    9901, 'z7Synthetic/Occurrence/L==', 'obs-l7-1', '2026-07-30T00:20:00Z',
+    'LEAVE-UUID-LATE', NULL, 'Se Fue Antes', NULL, NULL),
+  'no_open_interval',
+  'L7: a leave preceding the open join closes nothing');
+
+SELECT is(
+  (SELECT left_at FROM public.zoom_attendance
+    WHERE id = 'a7a7a7a7-7777-0000-0000-000000000005'),
+  NULL,
+  'L7: the out-of-order row stays open rather than violating the CHECK');
+
+-- L8 — a uuid that matches ZERO open rows: the missing-join history ([C2]).
+SELECT is(
+  zoom_internal.apply_participant_leave(
+    9901, 'z7Synthetic/Occurrence/L==', 'obs-l8-1', '2026-07-30T00:09:00Z',
+    'LEAVE-UUID-NEVER-JOINED', NULL, 'Sin Entrada', NULL, NULL),
+  'no_open_interval',
+  'L8: a leave whose join was never seen closes nothing');
+
+SELECT ok(
+  (SELECT outcome = 'no_open_interval'
+     FROM zoom_internal.zoom_attendance_observations
+    WHERE source_event_key = 'obs-l8-1'),
+  'L8: ...and its observation is still durably recorded');
+
+RESET ROLE;
 
 SELECT * FROM finish();
 

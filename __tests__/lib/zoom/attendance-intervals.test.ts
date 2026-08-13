@@ -3,14 +3,12 @@ import { describe, it, expect } from 'vitest';
 import {
   isClosableBy,
   mergeIntervals,
-  selectIntervalToClose,
   totalPresenceSeconds,
   type AttendanceInterval,
-  type StoredInterval,
 } from '../../../lib/zoom/attendance-intervals';
 
 /**
- * Interval arithmetic (Z7-2 [R7]/[R8]; plan §11).
+ * Interval arithmetic (Z7-2; plan §11).
  *
  * §11's requirement is verbatim: *"reconnect intervals don't double-count"*. This file is
  * that requirement, as a unit test over a pure function, which is the reason the module is
@@ -160,36 +158,6 @@ describe('mergeIntervals — the §11 no-double-count table', () => {
   });
 });
 
-describe('selectIntervalToClose — which open interval a participant_left closes', () => {
-  const open: StoredInterval[] = [
-    { id: 'older', joinedAt: '2026-07-29T23:55:00Z', leftAt: null },
-    { id: 'newer', joinedAt: '2026-07-30T00:10:00Z', leftAt: null },
-  ];
-
-  it('closes the LATEST-joined open interval', () => {
-    // A rejoin means the earlier interval was already over in reality even if Zoom never
-    // said so; closing the older one would attribute the gap to presence.
-    expect(selectIntervalToClose(open, '2026-07-30T00:20:00Z')?.id).toBe('newer');
-  });
-
-  it('falls back to an older interval when the leave predates the newer join', () => {
-    expect(selectIntervalToClose(open, '2026-07-30T00:05:00Z')?.id).toBe('older');
-  });
-
-  it('returns null when NO open interval can absorb the instant — the [R7] case', () => {
-    // Out of order: the leave precedes every open join. The applier must leave the
-    // interval open and record ledger-only rather than offer the CHECK a bad row.
-    expect(selectIntervalToClose(open, '2026-07-29T23:00:00Z')).toBeNull();
-  });
-
-  it('ignores already-closed intervals', () => {
-    const closed: StoredInterval[] = [
-      { id: 'closed', joinedAt: '2026-07-29T23:55:00Z', leftAt: '2026-07-30T00:05:00Z' },
-    ];
-    expect(selectIntervalToClose(closed, '2026-07-30T00:20:00Z')).toBeNull();
-  });
-
-  it('returns null on an empty set — a leave whose join was never seen ([R4])', () => {
-    expect(selectIntervalToClose([], '2026-07-30T00:20:00Z')).toBeNull();
-  });
-});
+// `selectIntervalToClose` and its suite were removed with the fallback-closure path
+// (§15.3.9): the close decision now lives inside `zoom_internal.apply_participant_leave`
+// and is exercised by the participant-lifecycle matrix and by pgTAP 011.

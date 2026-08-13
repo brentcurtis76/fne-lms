@@ -1,5 +1,5 @@
 /**
- * Attendance interval arithmetic — a PURE module (plan §11; Z7-2 [R7]/[R8]).
+ * Attendance interval arithmetic — a PURE module (plan §11; Z7-2).
  *
  * §11 requires, verbatim, that *"reconnect intervals don't double-count"*. That is a
  * property of interval arithmetic, not of the database, so it lives here as plain
@@ -42,14 +42,15 @@ function toMs(iso: string): number {
 
 /**
  * True when `leftAt` is a usable close for `joinedAt` — same rule as the table's
- * `zoom_attendance_interval_order` CHECK.
+ * `zoom_attendance_interval_order` CHECK and as `apply_participant_leave`'s
+ * `p_observed_at >= joined_at` guard.
  *
  * Equality is allowed: Zoom reports whole seconds, and a participant who joins and
  * leaves inside the same second is a zero-length interval that really happened. It is
- * the NEGATIVE case that is malformed, and [R7] requires the applier to leave such an
- * interval open rather than offer the database a row it will refuse — a constraint
- * violation raised out of the webhook route becomes a 500, and Zoom retries a malformed
- * body forever against an endpoint that can never accept it.
+ * the NEGATIVE case that is malformed, and the applier must leave such an interval
+ * open rather than offer the database a row it will refuse — a constraint violation
+ * raised out of the webhook route becomes a 500, and Zoom retries a malformed body
+ * forever against an endpoint that can never accept it.
  */
 export function isClosableBy(interval: AttendanceInterval, leftAt: string): boolean {
   const joined = toMs(interval.joinedAt);
@@ -125,22 +126,7 @@ export function totalPresenceSeconds(intervals: AttendanceInterval[]): number {
   }, 0);
 }
 
-/**
- * Picks the open interval a `participant_left` should close: the latest-joined open one
- * that the leave instant can legally close.
- *
- * Latest-joined because a rejoin means the earlier interval was already closed in
- * reality even if Zoom never said so, and closing the older one would attribute the
- * gap to presence. `isClosableBy` is what keeps [R7]'s out-of-order case from producing
- * a row the CHECK would refuse: when no open interval can absorb the instant, this
- * returns null and the applier records ledger-only.
- */
-export function selectIntervalToClose(
-  open: StoredInterval[],
-  leftAt: string
-): StoredInterval | null {
-  const closable = open
-    .filter((interval) => interval.leftAt === null && isClosableBy(interval, leftAt))
-    .sort((a, b) => toMs(b.joinedAt) - toMs(a.joinedAt));
-  return closable[0] ?? null;
-}
+// `selectIntervalToClose` was removed with the fallback-closure path (§15.3.9): the
+// close decision now happens inside `zoom_internal.apply_participant_leave`, in the
+// same transaction as the observation, where "exactly one open row" cannot race a
+// concurrent applier. This module keeps the read-time arithmetic only.

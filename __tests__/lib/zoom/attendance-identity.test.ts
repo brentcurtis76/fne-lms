@@ -3,7 +3,6 @@ import { readFileSync } from 'fs';
 import path from 'path';
 import { describe, it, expect } from 'vitest';
 import {
-  identityToken,
   identityTokens,
   matchByDisplayName,
   matchParticipantIdentity,
@@ -15,7 +14,7 @@ import {
 } from '../../../lib/zoom/attendance-identity';
 
 /**
- * Identity matching (Z7-2 [R5]/[R6]/[R8]).
+ * Identity matching (Z7-2 under §15.3.9 — reconciliation evidence, never closure).
  *
  * The claim under test is not "matching works" — it is that **matching refuses to guess**.
  * A row matched to the wrong person silently asserts that someone attended a session they
@@ -262,7 +261,7 @@ describe('e-mail ambiguity — profiles.email is NOT database-unique (Codex ruli
   });
 });
 
-describe('identityTokens — every presented rank (re-review BLOCKER)', () => {
+describe('identityTokens — every presented rank, as reconciliation evidence', () => {
   it('lists all presented ranks, strongest first', () => {
     expect(
       identityTokens({ customerKey: 'ABCD', email: 'A@Test.Local', displayName: '  Ana  Pérez ' })
@@ -276,49 +275,26 @@ describe('identityTokens — every presented rank (re-review BLOCKER)', () => {
     expect(identityTokens({ customerKey: null, email: null, displayName: null })).toEqual([]);
   });
 
-  it('THE COUNTEREXAMPLE: a downgraded leave still shares a token with its own join', () => {
-    // A joins with a key and a name; a leave that omits the key searches with `nm:ana`.
-    // The join's token LIST contains `nm:ana`, so the leave finds its own row — which the
-    // single-primary-token design could not do, and which is why it closed a namesake.
+  it('tokens are shared across events that present overlapping evidence', () => {
+    // A join with a key and a name, and a later event carrying only the name, share
+    // `nm:ana` — which is what lets Z7-3 and the facilitator suggestion RELATE the two
+    // as evidence about the same person. Nothing may CLOSE on that overlap: a namesake
+    // who presented only the name produces the identical weak token, and telling the
+    // two apart is exactly what §15.3.9 established to be impossible.
     const join = identityTokens({ customerKey: 'A', email: null, displayName: 'Ana' });
-    const downgradedLeave = identityToken({ customerKey: null, email: null, displayName: 'Ana' });
     expect(join).toEqual(['ck:a', 'nm:ana']);
-    expect(downgradedLeave).toBe('nm:ana');
-    expect(join).toContain(downgradedLeave);
-
-    // ...and a namesake who presented ONLY the name shares that same weak token, which is
-    // precisely why the applier refuses to close when both match.
-    expect(identityTokens({ customerKey: null, email: null, displayName: 'Ana' })).toContain(
-      downgradedLeave
-    );
+    expect(identityTokens({ customerKey: null, email: null, displayName: 'Ana' })).toEqual([
+      'nm:ana',
+    ]);
+    expect(join).toContain('nm:ana');
   });
 
-  it('identityToken is exactly the first element of identityTokens', () => {
-    const identity = { customerKey: 'ABCD', email: 'a@test.local', displayName: 'Ana' };
-    expect(identityToken(identity)).toBe(identityTokens(identity)[0]);
-  });
-});
-
-describe('identityToken — the leave\'s search key ([R3])', () => {
-  it('follows the same descending confidence as the match hierarchy', () => {
-    expect(
-      identityToken({ customerKey: 'ABCD', email: 'a@test.local', displayName: 'Ana' })
-    ).toBe('ck:abcd');
-    expect(identityToken({ customerKey: null, email: 'A@Test.Local', displayName: 'Ana' })).toBe(
-      'em:a@test.local'
-    );
-    expect(identityToken({ customerKey: null, email: null, displayName: '  Ana  Pérez ' })).toBe(
-      'nm:ana pérez'
-    );
-  });
-
-  it('is null when the participant presented nothing pairable at all', () => {
-    expect(identityToken({ customerKey: null, email: null, displayName: null })).toBeNull();
-  });
-
-  it('is prefixed per branch, so a name can never collide with a key', () => {
-    expect(identityToken({ customerKey: 'ana', email: null, displayName: null })).not.toBe(
-      identityToken({ customerKey: null, email: null, displayName: 'ana' })
-    );
+  it('is prefixed per rank, so a name can never collide with a key', () => {
+    expect(identityTokens({ customerKey: 'ana', email: null, displayName: null })).toEqual([
+      'ck:ana',
+    ]);
+    expect(identityTokens({ customerKey: null, email: null, displayName: 'ana' })).toEqual([
+      'nm:ana',
+    ]);
   });
 });

@@ -204,8 +204,10 @@ function createFakeAttendanceStore() {
     findProfileIdByEmail: record('findProfileIdByEmail'),
     listExpectedAttendees: record('listExpectedAttendees'),
     insertInterval: record('insertInterval'),
-    listOpenIntervals: record('listOpenIntervals'),
-    closeInterval: record('closeInterval'),
+    applyLeave: vi.fn(async (...args: unknown[]) => {
+      calls.push({ method: 'applyLeave', args });
+      return 'no_open_interval' as const;
+    }),
   };
   return { store, calls };
 }
@@ -460,8 +462,7 @@ describe('/api/zoom/webhook — ledger', () => {
         inserted.push(row);
         return 'inserted' as const;
       }),
-      listOpenIntervals: vi.fn(async () => []),
-      closeInterval: vi.fn(async () => true),
+      applyLeave: vi.fn(async () => 'no_open_interval' as const),
     } as unknown as ZoomAttendanceStore;
 
     const res = await invoke({

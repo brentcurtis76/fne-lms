@@ -1,5 +1,6 @@
 /**
- * Identity matching for Zoom participants — a PURE module (plan §11; Z7-2 [R5]/[R6]/[R8]).
+ * Identity matching for Zoom participants — a PURE module (plan §11/§15; Z7-2 under
+ * §15.3.9).
  *
  * Pure so that the one behaviour this design exists to prevent is a unit test rather
  * than an integration guess. **A row matched to the wrong person is the defect; an
@@ -8,7 +9,17 @@
  * attended a session they were never in, on a surface an admin uses to compare a
  * consultant's billable presence.
  *
- * ## The hierarchy is fixed and its order is the whole point ([R5])
+ * ## What this module decides — and what it may NOT
+ *
+ * Everything here is RECONCILIATION EVIDENCE (§15.3.9): it proposes WHO a row is about
+ * (`user_id` + `matched_by`, a suggestion a facilitator confirms). No output of this
+ * module ever authorises interval closure — that requires a Zoom-minted
+ * `participant_uuid` matching exactly one open row, decided inside
+ * `zoom_internal.apply_participant_leave`. Every token below is client-assertable
+ * (we mint `customer_key` and hand it to the browser; a display name is typed into a
+ * join box), which is precisely why it may suggest and never close.
+ *
+ * ## The hierarchy is fixed and its order is the whole point
  *
  *   `customer_key` → `email` → `display_name` → `unmatched`
  *
@@ -44,7 +55,7 @@ export interface ParticipantIdentity {
 
 /**
  * One person who is EXPECTED at this surface — the only pool a display name may be
- * matched against ([R6]). Supplied by the caller as plain data.
+ * matched against. Supplied by the caller as plain data.
  */
 export interface AttendeeCandidate {
   userId: string;
@@ -55,8 +66,8 @@ export interface AttendeeCandidate {
  * Pre-resolved lookups the caller performs; this module does no I/O.
  *
  * `customerKeyProfileId` / `emailProfileId` are non-null only when a `profiles` row was
- * actually found. That is what keeps `user_id` a valid FK and keeps the promise in
- * [R5]: a decoded key that names nobody is not a match.
+ * actually found. That is what keeps `user_id` a valid FK and keeps the hierarchy's
+ * promise: a decoded key that names nobody is not a match.
  */
 export interface IdentityLookups {
   customerKeyProfileId: string | null;
@@ -129,7 +140,7 @@ export function normalizeDisplayName(raw: string | null): string | null {
 
 /**
  * Exact-after-normalisation match against the expected attendees, and **two candidates
- * mean no match** ([R6]).
+ * mean no match**.
  *
  * Ambiguity is the whole reason this returns null rather than a first hit: two people
  * named "Ana Pérez" in one growth community is ordinary, and picking either would be a
@@ -174,27 +185,19 @@ export function matchParticipantIdentity(
 }
 
 /**
- * EVERY fallback identity token this participant presented, strongest rank first.
+ * EVERY identity token this participant presented, strongest rank first.
  *
- * ## Why a list, and not the one strongest token (Codex re-review BLOCKER)
+ * RECONCILIATION EVIDENCE ONLY (§15.3.9). These tokens are persisted on interval rows
+ * and on leave observations so that Z7-3 and the Z7-5 facilitator suggestion can
+ * propose who a row belongs to — they never participate in interval closure. Two
+ * closure designs were refuted against exactly these tokens before the contract was
+ * replanned (OR-ing the columns closed a namesake's row; single-strongest-token
+ * storage let a leave that presented fewer fields than its join close a stranger's),
+ * and the replan's answer is categorical: no client-assertable token may authorise a
+ * destructive write, however it is stored or queried.
  *
- * The previous design stored only the strongest token and recomputed it independently on
- * every event. Zoom does not present the same fields on every event for the same person,
- * so a leave can arrive with FEWER fields than its join did — and the recomputed token
- * then DOWNGRADES to a weaker rank that belongs to somebody else:
- *
- *   A joins with `customer_key=A` and the name "Ana"  → stored `ck:a`
- *   B joins with only the name "Ana"                  → stored `nm:ana`
- *   A leaves, Zoom omits `customer_key`               → recomputed `nm:ana`
- *   → the exact lookup returns B, and B's interval is closed.
- *
- * That was reproduced against the applier before this change: A's leave closed B's row.
- * The claim that it failed open was simply wrong — it failed onto the wrong person, which
- * is the one outcome [R6] exists to prevent.
- *
- * Persisting every rank means a join is findable by any evidence it actually presented,
- * so a downgraded leave still finds ITS OWN row. Precedence survives as the array order;
- * ambiguity is then resolved by the applier refusing to close, never by picking one.
+ * Array order is the §15 confidence hierarchy, strongest first, so `tokens[0]`
+ * remains the primary evidence rank for anything that wants one.
  */
 export function identityTokens(identity: ParticipantIdentity): string[] {
   const tokens: string[] = [];
@@ -203,15 +206,4 @@ export function identityTokens(identity: ParticipantIdentity): string[] {
   const name = normalizeDisplayName(identity.displayName);
   if (name !== null) tokens.push(`nm:${name}`);
   return tokens;
-}
-
-/**
- * The STRONGEST token this participant presented — the one a leave searches with ([R3]).
- *
- * Still the strongest rank, deliberately: a leave that presents a `customer_key` must not
- * be matched by name, because the strong evidence is the whole reason to trust the pair.
- * The weakening is on the STORAGE side (`identityTokens`), not the query side.
- */
-export function identityToken(identity: ParticipantIdentity): string | null {
-  return identityTokens(identity)[0] ?? null;
 }

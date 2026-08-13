@@ -1,59 +1,71 @@
 -- =============================================================================
--- zoom_attendance.participant_uuid + interval integrity (plan §6/§11; Z7-2).
+-- zoom_attendance.participant_uuid + interval integrity (plan §6/§11; Z7-2,
+-- governed by §15.3.9 — the replanned pairing contract).
 --
 -- Additive: one nullable column, one partial unique index, one CHECK. Nothing is
 -- dropped or rewritten, and every existing row reads NULL.
 --
--- ## participant_uuid — the interval key (ruling [R3])
+-- ## participant_uuid — the ONLY token that may authorise webhook-time closure
 --
--- Zoom's `payload.object.participant.participant_uuid` is the per-participant handle
--- for an occurrence, and it is the only field on the committed captures that is
--- populated for BOTH a licensed host and a license-free guest
--- (`364B3A17-05C0-6B63-F4FA-2180DCC26971` and
--- `73823734-9301-A7E5-36F4-684DEEF79FE5`). Every other candidate key is empty string
--- on the guest's event: `email`, `participant_user_id`, `id` and `registrant_id` are
--- all `""`.
+-- §15.3.9's eligibility rule: a token may close an open interval only if Zoom mints
+-- it (the client cannot assert it), it is unique to one participant within the
+-- occurrence, and it matches EXACTLY ONE open row in that occurrence. Zoom defines
+-- `payload.object.participant.participant_uuid` as "the participant's UUID for this
+-- specific meeting", assigned at join and valid only for that meeting — Zoom-minted
+-- and occurrence-scoped, so it satisfies rules 1 and 2. Every other identity field
+-- (`customer_key`, `email`, `display_name`) is RECONCILIATION EVIDENCE: persisted on
+-- the row, used by Z7-3's authoritative report and by Z7-5's facilitator suggestion,
+-- and never sufficient authority for a destructive close. `customer_key` is minted by
+-- US and handed to the browser, so it is a claim, not an identity; `email` is `""`
+-- for every signed-out guest; `display_name` is attacker/typo-controlled.
 --
--- **Its stability across a joined→left pair is UNVERIFIED and the fixtures cannot
--- settle it**: the two committed captures are two DIFFERENT people (different
--- customer_key, different user_name), so they are not a pair and no pairing can be
--- inferred from them. The interval matcher therefore treats participant_uuid as the
--- PREFERRED key and falls back to the identity token, and both paths are tested. If a
--- real recorded session ever shows the uuid changing between join and leave, the
--- fallback is what keeps intervals closing.
+-- Whether a rejoin reuses the uuid or mints a new one is undocumented and unmeasured
+-- — and it is now SAFE to be wrong about: an unstable token matches nothing, the
+-- interval stays open, and Z7-3's report closes it. Instability degrades to
+-- no-closure. The only way an eligible token closes the WRONG person's interval is a
+-- value collision between two people in one occurrence, which Zoom's own uniqueness
+-- forbids.
 --
 -- ## The partial unique index
 --
--- `(zoom_meeting_uuid, participant_uuid) WHERE participant_uuid IS NOT NULL` is the
--- uniqueness the Z7-1 review deferred to this chunk. It is what makes a redelivered
--- `participant_joined` a no-op at the DATABASE, not merely in the applier — Zoom
--- retries, and `webhook_sweep` deliberately replays events minutes later, so "the
--- applier checks first" is a race and not a guarantee.
+-- `(zoom_meeting_uuid, participant_uuid, joined_at) WHERE participant_uuid IS NOT
+-- NULL` makes a redelivered `participant_joined` a no-op at the DATABASE, not merely
+-- in the applier — Zoom retries, and `webhook_sweep` deliberately replays events
+-- minutes later, so "the applier checks first" is a race and not a guarantee.
 --
--- PARTIAL rather than total, because a participant whose uuid Zoom omitted must still
--- produce a row: a total unique index would collapse every anonymous guest of one
--- occurrence into a single interval, which is exactly the double-count-in-reverse that
--- §11's presence metric cannot survive. For those rows the applier's identity+instant
--- check is the only dedupe there is, and it says so.
+-- `joined_at` is part of the key because Zoom's definition is meeting-scoped, NOT
+-- connection-scoped: a rejoin may legitimately REUSE the uuid, and a two-column key
+-- would refuse the second interval of a participant who dropped and rejoined —
+-- collapsing real presence into one row. A redelivery of the SAME join carries the
+-- same instant and still collides; a genuine rejoin carries a later instant and does
+-- not.
 --
--- ## The interval-order CHECK (ruling [R7])
+-- PARTIAL rather than total, because a participant whose uuid Zoom omitted must
+-- still produce a row: a total unique index would collapse every anonymous guest of
+-- one occurrence into a single interval. For those rows `source_event_key` (below)
+-- is the only database dedupe there is, and a byte-DIFFERENT duplicate of a uuid-less
+-- join is accepted as a duplicate row — stated in §15.3.9's matrix (row 7) as a
+-- limitation, resolved by the authoritative report, never by a matching heuristic.
+--
+-- ## The interval-order CHECK
 --
 -- `left_at >= joined_at` is a data-integrity floor, not the applier's error handling.
 -- An out-of-order `leave_time` must NOT raise out of the webhook route — Zoom would
 -- retry a malformed event forever against an endpoint that can never accept it — so
--- the applier leaves such an interval OPEN and records ledger-only. The CHECK exists
--- so that a future writer which skips that reasoning is refused by Postgres instead of
--- silently storing a negative interval that §11's presence sum would subtract.
+-- the applier closes nothing in that case and records the leave as an observation.
+-- The CHECK exists so that a future writer which skips that reasoning is refused by
+-- Postgres instead of silently storing a negative interval that §11's presence sum
+-- would subtract.
 -- =============================================================================
 
 ALTER TABLE public.zoom_attendance
   ADD COLUMN participant_uuid text;
 
 COMMENT ON COLUMN public.zoom_attendance.participant_uuid IS
-  'Zoom''s per-participant handle for this occurrence (payload.object.participant.participant_uuid). The preferred interval key: it is the only identity-ish field populated for BOTH a licensed host and a license-free guest. NULL when Zoom omitted it, in which case the applier falls back to the identity token. Stability across a joined→left pair is UNVERIFIED — the committed fixtures are two different people and cannot settle it.';
+  'Zoom''s per-participant handle for this occurrence (payload.object.participant.participant_uuid). Under §15.3.9 it is the ONLY token that may authorise webhook-time interval closure — Zoom-minted, occurrence-scoped, and required to match exactly one open row. NULL when Zoom omitted it, in which case the interval can only be closed by Z7-3''s authoritative report. Rejoin reuse of the value is undocumented; either behaviour degrades to no-closure, never to a wrong-person close.';
 
 CREATE UNIQUE INDEX zoom_attendance_participant_occurrence_key
-  ON public.zoom_attendance (zoom_meeting_uuid, participant_uuid)
+  ON public.zoom_attendance (zoom_meeting_uuid, participant_uuid, joined_at)
   WHERE participant_uuid IS NOT NULL;
 
 ALTER TABLE public.zoom_attendance
@@ -61,55 +73,37 @@ ALTER TABLE public.zoom_attendance
   CHECK (left_at IS NULL OR left_at >= joined_at);
 
 -- -----------------------------------------------------------------------------
--- identity_tokens — every fallback rank the participant presented (Codex P1-1, then
--- the re-review BLOCKER that refuted the first fix).
+-- identity_tokens — every identity rank the participant presented, strongest first.
 --
--- [R3] defines a prioritised fallback token: `customer_key`, else e-mail, else
--- normalised display name. Two designs have now failed against that rule:
+-- RECONCILIATION EVIDENCE ONLY (§15.3.9). Two closure designs failed against these
+-- tokens before the contract was replanned — OR-ing the identity columns closed a
+-- namesake's row, and single-strongest-token storage let a downgraded leave close a
+-- stranger's — and the replan's answer is that NO client-assertable token ever
+-- authorises a close. The column survives because the evidence itself is valuable:
+-- Z7-3 and Z7-5's facilitator suggestion consume it to propose (never assert) who a
+-- row belongs to, and `matched_by` records which rank answered.
 --
---  1. **OR-ing the identity columns** at query time (first `FAIL`). Two uuid-less
---     participants sharing a display name both matched a leave, and the latest-joined
---     was closed.
---  2. **Storing only the single strongest token** (second `FAIL`). Zoom does not present
---     the same fields on every event for the same person, so a leave can arrive with
---     FEWER fields than its join did and the recomputed token DOWNGRADES to a weaker
---     rank that belongs to somebody else:
+-- Array order is the §15 confidence hierarchy, strongest first, so
+-- `identity_tokens[1]` remains the primary evidence rank for anything that wants one.
 --
---        A joins with customer_key=A and name "Ana"  → stored ck:a
---        B joins with only the name "Ana"            → stored nm:ana
---        A leaves, Zoom omits customer_key           → recomputed nm:ana
---        → the exact lookup returns B, and B's interval is closed.
---
---     Reproduced against the applier before this change. It did not fail open; it failed
---     onto the wrong person, which is the outcome [R6] exists to prevent.
---
--- **The hypothesis this column encodes (lean overlay §5 change):** a join is findable by
--- ANY evidence it actually presented, and ambiguity is resolved by refusing to close
--- rather than by choosing. Storage widens; the QUERY does not. A leave still searches
--- with its own strongest token only — matching a strong-evidence leave by name would
--- throw away the very evidence that makes the pair trustworthy — but it now finds the
--- row that carried that token at ANY rank, so a downgraded leave finds its own join.
---
--- Array order IS the precedence, strongest first, so `identity_tokens[1]` remains the
--- primary key for anything that wants one (Z7-3).
---
--- PII note (Ley 21.719): the tokens embed an e-mail and a display name, so they are no
--- more sensitive than the columns beside them and are covered by the same SELECT-only RLS.
+-- PII note (Ley 21.719): the tokens embed an e-mail and a display name, so they are
+-- no more sensitive than the columns beside them and are covered by the same
+-- SELECT-only RLS.
 -- -----------------------------------------------------------------------------
 
 ALTER TABLE public.zoom_attendance
   ADD COLUMN identity_tokens text[];
 
 COMMENT ON COLUMN public.zoom_attendance.identity_tokens IS
-  'Every fallback identity token this participant presented at join, strongest rank first: ck:<customer_key>, em:<email>, nm:<normalised name>. A uuid-less leave searches with ITS OWN strongest token and matches any row carrying that token at ANY rank — which is what keeps a leave that presented fewer fields than its join from matching a different person who happens to share the weaker one. When more than one open interval matches, the applier closes NOTHING (§11 leaves it to the Z7-3 reconcile).';
+  'Every identity token this participant presented at join, strongest rank first: ck:<customer_key>, em:<email>, nm:<normalised name>. Reconciliation evidence only (§15.3.9) — consumed by Z7-3 and by the Z7-5 facilitator suggestion, never by interval closure, which requires a Zoom-minted participant_uuid matching exactly one open row.';
 
--- GIN, because the lookup is array containment (`identity_tokens @> ARRAY[token]`).
+-- GIN, because evidence lookups are array containment (`identity_tokens @> ARRAY[t]`).
 CREATE INDEX zoom_attendance_identity_tokens_idx
   ON public.zoom_attendance USING gin (identity_tokens)
   WHERE identity_tokens IS NOT NULL;
 
 -- -----------------------------------------------------------------------------
--- source_event_key — delivery-level idempotency, enforced by the DATABASE (Codex P1-2).
+-- source_event_key — delivery-level idempotency, enforced by the DATABASE.
 --
 -- The partial unique index above only covers rows that HAVE a participant_uuid, so a
 -- uuid-less join had no database constraint at all and the applier defended it with a
@@ -125,8 +119,8 @@ CREATE INDEX zoom_attendance_identity_tokens_idx
 -- cannot be lost. A genuine rejoin is a different body, a different key, and a new row —
 -- which is correct, and is why this is keyed on the delivery rather than on the person.
 --
--- PARTIAL because Z7-3's reconcile rows come from a report rather than a webhook and
--- have no dedupe key; they will carry NULL and are excluded, exactly as the
+-- PARTIAL because Z7-3's report rows come from the participant report rather than a
+-- webhook and have no dedupe key; they carry NULL and are excluded, exactly as the
 -- participant_uuid index excludes uuid-less rows.
 -- -----------------------------------------------------------------------------
 

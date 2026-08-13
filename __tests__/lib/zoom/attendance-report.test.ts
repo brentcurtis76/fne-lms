@@ -139,6 +139,25 @@ describe('validateReportBatch — the complete-batch rule (matrix 12–14)', () 
       reason: 'invalid_interval_instant',
     });
   });
+
+  it.each([
+    ['null', null],
+    ['number', 7],
+    ['string', 'not-a-row'],
+    ['array', []],
+  ])(
+    '[Z7-R3.1] is total over a %s participant runtime value',
+    (_label, participant) => {
+      const malformed = page({ totalRecords: 1 });
+      malformed.participants = [participant] as unknown as ZoomReportParticipantsPage['participants'];
+
+      expect(() => validateReportBatch([malformed])).not.toThrow();
+      expect(validateReportBatch([malformed])).toEqual({
+        ok: false,
+        reason: 'malformed_participant_row',
+      });
+    }
+  );
 });
 
 describe('readReportIdentity — the report field names, and "" is absent', () => {

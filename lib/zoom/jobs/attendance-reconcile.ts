@@ -35,7 +35,7 @@
  * complete batch, and a rejected batch never becomes one.
  */
 import type { ZoomApi, ZoomReportParticipantsPage } from '../api';
-import { getZoomApi } from '../api';
+import { getZoomApi, MALFORMED_REPORT_PARTICIPANT_REASON } from '../api';
 import { identityTokens } from '../attendance-identity';
 import { validateReportBatch } from '../attendance-report';
 import {
@@ -48,7 +48,12 @@ import {
   resolveParticipantMatch,
   type ParticipantMatchLookups,
 } from '../participant-lifecycle';
-import { ZoomError, ZoomNonRetryableError, ZoomRetryableError } from '../errors';
+import {
+  ZoomConfigError,
+  ZoomError,
+  ZoomNonRetryableError,
+  ZoomRetryableError,
+} from '../errors';
 import { ZoomJobLeaseLostError, type ZoomJobHandler } from './types';
 
 /**
@@ -91,6 +96,17 @@ function readMeetingIdFromPayload(payload: Record<string, unknown>): string {
 /** Zoom's "no report (yet)" — a timing fact, not a terminal one. */
 function isReportNotReady(error: unknown): boolean {
   return error instanceof ZoomError && error.status === 404;
+}
+
+function reportFetchRejectionReason(error: unknown): string {
+  if (
+    error instanceof ZoomConfigError &&
+    error.message === MALFORMED_REPORT_PARTICIPANT_REASON
+  ) {
+    return MALFORMED_REPORT_PARTICIPANT_REASON;
+  }
+  if (error instanceof ReportPageCapExceededError) return 'page_cap_exceeded';
+  return `page_fetch_failed: ${error instanceof Error ? error.message : String(error)}`;
 }
 
 class ReportPageCapExceededError extends ZoomRetryableError {
@@ -152,9 +168,7 @@ export function createAttendanceReconcileHandler(
       // a NEW candidate each attempt — and dead-letters onto the health panel.
       await store.rejectBatch(
         batchId,
-        error instanceof ReportPageCapExceededError
-          ? 'page_cap_exceeded'
-          : `page_fetch_failed: ${error instanceof Error ? error.message : String(error)}`
+        reportFetchRejectionReason(error)
       );
       if (isReportNotReady(error)) {
         // Zoom generates the report minutes after the meeting ends; 404 now is a

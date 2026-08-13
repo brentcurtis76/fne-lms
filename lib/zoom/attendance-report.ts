@@ -19,7 +19,12 @@
  * fabricated or implausible instant must reject the batch rather than become a row
  * an admin reads as billable-presence evidence.
  */
-import type { ZoomReportParticipantRaw, ZoomReportParticipantsPage } from './api';
+import {
+  isZoomReportParticipantRaw,
+  MALFORMED_REPORT_PARTICIPANT_REASON,
+  type ZoomReportParticipantRaw,
+  type ZoomReportParticipantsPage,
+} from './api';
 import { readParticipantField, type ParticipantIdentity } from './attendance-identity';
 import { readLifecycleInstant } from './webhook-lifecycle';
 
@@ -98,6 +103,12 @@ export function validateReportBatch(pages: ZoomReportParticipantsPage[]): Report
 
   const rows: ReportInterval[] = [];
   for (const raw of rawRows) {
+    // Keep this pure validator total even if a non-live adapter or future caller
+    // bypasses the API boundary's element guard. Runtime evidence is never trusted
+    // merely because TypeScript declared the array's element type.
+    if (!isZoomReportParticipantRaw(raw)) {
+      return { ok: false, reason: MALFORMED_REPORT_PARTICIPANT_REASON };
+    }
     const joinedAt = readLifecycleInstant(raw.join_time, undefined);
     const leftAt = readLifecycleInstant(raw.leave_time, undefined);
     // §6.2: report rows arrive already paired. A row missing either instant, or

@@ -7,7 +7,10 @@ import {
 } from '../../../../lib/zoom/jobs/attendance-reconcile';
 import { ZoomJobLeaseLostError, type ZoomJobContext } from '../../../../lib/zoom/jobs/types';
 import { createZoomFake } from '../../../../lib/zoom/fake';
+import { createLiveZoomApi } from '../../../../lib/zoom/api';
+import { createZoomClient } from '../../../../lib/zoom/client';
 import { ZoomConfigError, ZoomRetryableError } from '../../../../lib/zoom/errors';
+import type { ZoomTokenProvider } from '../../../../lib/zoom/token';
 import type {
   PromoteBatchInput,
   PromoteBatchResult,
@@ -114,6 +117,25 @@ function seedReport(count: number) {
   return api;
 }
 
+function liveReportApi(participant: unknown) {
+  const tokens: ZoomTokenProvider = {
+    async getToken() { return 'synthetic-token'; },
+    async forceRefresh() { return 'synthetic-refreshed-token'; },
+  };
+  const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+    participants: [participant],
+    next_page_token: '',
+    page_size: REPORT_PAGE_SIZE,
+    page_count: 1,
+    total_records: 1,
+  }), { status: 200 })) as unknown as typeof fetch;
+  return createLiveZoomApi(createZoomClient({
+    tokenProvider: tokens,
+    fetchImpl,
+    sleep: async () => {},
+  }));
+}
+
 describe('attendance_reconcile — the complete-batch capture', () => {
   it('traverses EVERY page with unchanged parameters and promotes once, whole', async () => {
     // 230 rows at page size 100 = 3 pages. One promotion, all rows, no per-page write.
@@ -214,6 +236,37 @@ describe('attendance_reconcile — the complete-batch capture', () => {
         batchId: 'batch-1',
         reason: `page_fetch_failed: synthetic malformed ${shape} next_page_token`,
       }]);
+    }
+  );
+
+  it.each([
+    ['null', null],
+    ['number', 7],
+    ['string', 'not-a-row'],
+    ['array', []],
+  ])(
+    '[Z7-R3.1] live %s participant rejects exactly once with no promotion or TypeError',
+    async (_label, participant) => {
+      const { store, promotions, rejections } = fakeReportStore();
+      const handler = createAttendanceReconcileHandler({
+        api: liveReportApi(participant),
+        reportStore: store,
+        matchLookups: fakeLookups(),
+      });
+
+      const failure = await handler(context()).then(
+        () => null,
+        (error: unknown) => error
+      );
+
+      expect(failure).toBeInstanceOf(ZoomConfigError);
+      expect(failure).not.toBeInstanceOf(TypeError);
+      expect(promotions).toEqual([]);
+      expect(rejections).toEqual([{
+        batchId: 'batch-1',
+        reason: 'malformed_participant_row',
+      }]);
+      expect(store.rejectBatch).toHaveBeenCalledTimes(1);
     }
   );
 

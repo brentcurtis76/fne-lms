@@ -442,6 +442,28 @@ describe('live adapter — wire shapes', () => {
     });
   });
 
+  it.each([
+    ['null', null],
+    ['number', 7],
+    ['string', 'not-a-row'],
+    ['array', []],
+  ])(
+    '[Z7-R3.1] rejects a %s participant runtime value at the live boundary',
+    async (_label, participant) => {
+      const { api } = liveApi([{ status: 200, body: {
+        participants: [participant],
+        next_page_token: '',
+        page_size: 100,
+        page_count: 1,
+        total_records: 1,
+      } }]);
+
+      await expect(api.listReportParticipants('Synthetic/Occurrence==')).rejects.toThrow(
+        'malformed_participant_row'
+      );
+    }
+  );
+
   it('deletes through the meeting endpoint', async () => {
     const { api, calls } = liveApi([{ status: 204 }]);
     await api.deleteMeeting(82000000042);

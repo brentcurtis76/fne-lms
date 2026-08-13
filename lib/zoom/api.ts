@@ -179,6 +179,14 @@ export interface ZoomReportParticipantRaw extends Record<string, unknown> {
   duration?: number;
 }
 
+/** Stable candidate-rejection reason for a non-object participant report row. */
+export const MALFORMED_REPORT_PARTICIPANT_REASON = 'malformed_participant_row';
+
+/** Runtime boundary for values inside Zoom's otherwise-valid participants array. */
+export function isZoomReportParticipantRaw(value: unknown): value is ZoomReportParticipantRaw {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 /**
  * One page of the participant report, with the §15.3.9 completeness metadata: an
  * EMPTY `nextPageToken` is the only end-of-data signal, and `totalRecords` is what
@@ -598,9 +606,12 @@ export function createLiveZoomApi(client: ZoomClient = createZoomClient()): Zoom
           'Zoom returned an unusable body for GET /report/meetings/{uuid}/participants.'
         );
       }
+      if (!data.participants.every(isZoomReportParticipantRaw)) {
+        throw new ZoomConfigError(MALFORMED_REPORT_PARTICIPANT_REASON);
+      }
 
       return {
-        participants: data.participants as ZoomReportParticipantRaw[],
+        participants: data.participants,
         nextPageToken: data.next_page_token,
         pageSize: data.page_size,
         pageCount: data.page_count,

@@ -25,7 +25,7 @@
 
 BEGIN;
 
-SELECT plan(153);
+SELECT plan(175);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures
@@ -1089,12 +1089,32 @@ SELECT is(has_function_privilege('authenticated',
   'EXECUTE'), false, 'authenticated cannot execute apply_participant_leave');
 SELECT is(has_function_privilege('service_role',
   'zoom_internal.apply_participant_leave(integer, text, text, timestamptz, text, text, text, text, text[])',
-  'EXECUTE'), true, 'service_role can execute apply_participant_leave');
+  'EXECUTE'), false, 'service_role cannot execute the obsolete leave function without surface authority');
+
+SELECT is(has_function_privilege('anon',
+  'zoom_internal.apply_participant_leave(text, uuid, integer, text, text, timestamptz, text, text, text, text, text[])',
+  'EXECUTE'), false, 'anon cannot execute occurrence-authoritative apply_participant_leave');
+SELECT is(has_function_privilege('authenticated',
+  'zoom_internal.apply_participant_leave(text, uuid, integer, text, text, timestamptz, text, text, text, text, text[])',
+  'EXECUTE'), false, 'authenticated cannot execute occurrence-authoritative apply_participant_leave');
+SELECT is(has_function_privilege('service_role',
+  'zoom_internal.apply_participant_leave(text, uuid, integer, text, text, timestamptz, text, text, text, text, text[])',
+  'EXECUTE'), true, 'service_role can execute occurrence-authoritative apply_participant_leave');
 
 SELECT is(
   (SELECT p.prosecdef FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'zoom_internal' AND p.proname = 'apply_participant_leave'),
-  false, 'apply_participant_leave is SECURITY INVOKER — the caller is already service_role');
+    WHERE n.nspname = 'zoom_internal' AND p.proname = 'apply_participant_leave'
+      AND oidvectortypes(p.proargtypes) =
+        'text, uuid, integer, text, text, timestamp with time zone, text, text, text, text, text[]'),
+  true, 'the occurrence-authoritative leave RPC is owner-executed after validating the exact surface');
+
+INSERT INTO zoom_internal.zoom_meetings
+  (id, surface_type, surface_id, school_id, zoom_meeting_number, zoom_meeting_uuid,
+   status, starts_at, duration_minutes)
+VALUES
+  ('a7a7a7a7-2222-0000-0000-000000000003', 'consultor_session',
+   'a7a7a7a7-0000-0000-0000-000000000001', 9901, 86084701485,
+   'z7Synthetic/Occurrence/L==', 'started', '2026-07-29T23:30:00Z', 60);
 
 -- Fixtures: one occurrence, the histories the matrix names. Seeded as postgres.
 INSERT INTO public.zoom_attendance
@@ -1144,6 +1164,7 @@ SET LOCAL ROLE service_role;
 -- L1 — the closable case: exactly one open row, instant after the join.
 SELECT is(
   zoom_internal.apply_participant_leave(
+    'consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001',
     9901, 'z7Synthetic/Occurrence/L==', 'obs-l1-1', '2026-07-30T00:05:00Z',
     'LEAVE-UUID-ONE', NULL, 'Cierre Limpio', NULL, ARRAY['nm:cierre limpio']),
   'interval_closed',
@@ -1170,6 +1191,7 @@ SELECT ok(
 -- L2 — the same delivery again: nothing happens, and only one observation exists.
 SELECT is(
   zoom_internal.apply_participant_leave(
+    'consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001',
     9901, 'z7Synthetic/Occurrence/L==', 'obs-l1-1', '2026-07-30T00:05:00Z',
     'LEAVE-UUID-ONE', NULL, 'Cierre Limpio', NULL, ARRAY['nm:cierre limpio']),
   'observation_duplicate',
@@ -1186,6 +1208,7 @@ SELECT is(
 -- would now be closed with no record of who closed it.
 SELECT is(
   zoom_internal.apply_participant_leave(
+    'consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001',
     9901, 'z7Synthetic/Occurrence/L==', 'obs-txn-1', '2026-07-30T00:06:00Z',
     'LEAVE-UUID-TXN', NULL, 'Frontera Transaccional', NULL, NULL),
   'observation_duplicate',
@@ -1201,6 +1224,7 @@ SELECT is(
 -- H1/H2 safety at the SQL level: the open homonym row stays open.
 SELECT is(
   zoom_internal.apply_participant_leave(
+    'consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001',
     9901, 'z7Synthetic/Occurrence/L==', 'obs-l4-1', '2026-07-30T00:07:00Z',
     NULL, NULL, 'Ana Homonima', NULL, ARRAY['nm:ana homonima']),
   'unpairable_leave',
@@ -1221,6 +1245,7 @@ SELECT ok(
 -- L5 — two open rows under one uuid: rule 3 closes NOTHING.
 SELECT is(
   zoom_internal.apply_participant_leave(
+    'consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001',
     9901, 'z7Synthetic/Occurrence/L==', 'obs-l5-1', '2026-07-30T00:08:00Z',
     'LEAVE-UUID-TWO', NULL, 'Doble Abierta', NULL, NULL),
   'no_open_interval',
@@ -1234,6 +1259,7 @@ SELECT is(
 -- L6 — no usable instant: recorded as such, nothing fabricated.
 SELECT is(
   zoom_internal.apply_participant_leave(
+    'consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001',
     9901, 'z7Synthetic/Occurrence/L==', 'obs-l6-1', NULL,
     'LEAVE-UUID-ONE', NULL, 'Cierre Limpio', NULL, NULL),
   'no_instant',
@@ -1248,6 +1274,7 @@ SELECT ok(
 -- L7 — a leave that PRECEDES the only open join closes nothing ([C9]).
 SELECT is(
   zoom_internal.apply_participant_leave(
+    'consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001',
     9901, 'z7Synthetic/Occurrence/L==', 'obs-l7-1', '2026-07-30T00:20:00Z',
     'LEAVE-UUID-LATE', NULL, 'Se Fue Antes', NULL, NULL),
   'no_open_interval',
@@ -1262,6 +1289,7 @@ SELECT is(
 -- L8 — a uuid that matches ZERO open rows: the missing-join history ([C2]).
 SELECT is(
   zoom_internal.apply_participant_leave(
+    'consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001',
     9901, 'z7Synthetic/Occurrence/L==', 'obs-l8-1', '2026-07-30T00:09:00Z',
     'LEAVE-UUID-NEVER-JOINED', NULL, 'Sin Entrada', NULL, NULL),
   'no_open_interval',
@@ -1272,6 +1300,126 @@ SELECT ok(
      FROM zoom_internal.zoom_attendance_observations
     WHERE source_event_key = 'obs-l8-1'),
   'L8: ...and its observation is still durably recorded');
+
+RESET ROLE;
+
+-- =============================================================================
+-- Z7-R8.1 — occurrence authority at the real write boundary.
+--
+-- R8-J is the legitimate pre-start path: the meeting row is still NULL and the first
+-- participant event atomically claims it. R8-C is the forced-stale lookup challenge:
+-- model the application having read the row while NULL, establish another occurrence,
+-- then submit the stale event. The RPC must observe the current row and write nothing.
+-- =============================================================================
+
+SELECT is(has_function_privilege('service_role',
+  'zoom_internal.claim_participant_occurrence(text, uuid, integer, text)', 'EXECUTE'),
+  false, 'the occurrence CAS helper is owner-only, not an exposed service RPC');
+SELECT is(has_function_privilege('anon',
+  'zoom_internal.apply_participant_join(text, uuid, integer, text, text, uuid, text, text, text, text, timestamptz, text[], text)',
+  'EXECUTE'), false, 'anon cannot execute apply_participant_join');
+SELECT is(has_function_privilege('authenticated',
+  'zoom_internal.apply_participant_join(text, uuid, integer, text, text, uuid, text, text, text, text, timestamptz, text[], text)',
+  'EXECUTE'), false, 'authenticated cannot execute apply_participant_join');
+SELECT is(has_function_privilege('service_role',
+  'zoom_internal.apply_participant_join(text, uuid, integer, text, text, uuid, text, text, text, text, timestamptz, text[], text)',
+  'EXECUTE'), true, 'service_role can execute apply_participant_join');
+SELECT is(
+  (SELECT p.prosecdef FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'zoom_internal' AND p.proname = 'apply_participant_join'),
+  true, 'apply_participant_join is owner-executed behind its exact occurrence CAS');
+
+INSERT INTO zoom_internal.zoom_meetings
+  (id, surface_type, surface_id, school_id, zoom_meeting_number, zoom_meeting_uuid,
+   status, starts_at, duration_minutes)
+VALUES
+  ('a8a8a8a8-2222-0000-0000-000000000001', 'consultor_session',
+   'a8a8a8a8-0000-0000-0000-000000000001', 9901, 88084701001,
+   NULL, 'provisioned', '2026-08-13T10:00:00Z', 60),
+  ('a8a8a8a8-2222-0000-0000-000000000002', 'consultor_session',
+   'a8a8a8a8-0000-0000-0000-000000000002', 9901, 88084701002,
+   'established-occurrence', 'started', '2026-08-13T10:00:00Z', 60);
+
+SET LOCAL ROLE service_role;
+
+SELECT is(
+  zoom_internal.apply_participant_join(
+    'consultor_session', 'a8a8a8a8-0000-0000-0000-000000000001', 9901,
+    'pre-start-occurrence', 'R8-PARTICIPANT-1', NULL, NULL, 'Pre Start', NULL,
+    'unmatched', '2026-08-13T10:01:00Z', ARRAY['nm:pre start'], 'r8-join-1'),
+  'interval_opened',
+  'R8-J1: a pre-start participant join claims a NULL occurrence and opens an interval');
+SELECT is(
+  (SELECT zoom_meeting_uuid FROM zoom_internal.zoom_meetings
+    WHERE id = 'a8a8a8a8-2222-0000-0000-000000000001'),
+  'pre-start-occurrence',
+  'R8-J1: the NULL meeting occurrence is filled once with the event UUID');
+SELECT is(
+  (SELECT count(*)::int FROM public.zoom_attendance WHERE source_event_key = 'r8-join-1'),
+  1, 'R8-J1: exactly one interval is present');
+
+SELECT is(
+  zoom_internal.apply_participant_join(
+    'consultor_session', 'a8a8a8a8-0000-0000-0000-000000000001', 9901,
+    'pre-start-occurrence', 'R8-PARTICIPANT-2', NULL, NULL, 'Matching', NULL,
+    'unmatched', '2026-08-13T10:02:00Z', ARRAY['nm:matching'], 'r8-join-2'),
+  'interval_opened',
+  'R8-J2: the matching established UUID remains a valid participant join');
+SELECT is(
+  (SELECT count(*)::int FROM public.zoom_attendance
+    WHERE surface_id = 'a8a8a8a8-0000-0000-0000-000000000001'),
+  2, 'R8-J2: both legitimate intervals remain on the claimed occurrence');
+
+-- Forced stale lookup: the caller's earlier NULL snapshot is represented by this
+-- already-established row. The write boundary sees the current conflicting value.
+SELECT is(
+  zoom_internal.apply_participant_join(
+    'consultor_session', 'a8a8a8a8-0000-0000-0000-000000000002', 9901,
+    'foreign-occurrence', 'R8-FOREIGN', NULL, NULL, 'Foreign', NULL,
+    'unmatched', '2026-08-13T10:03:00Z', ARRAY['nm:foreign'], 'r8-stale-join'),
+  'occurrence_mismatch',
+  'R8-C1: a stale number-fallback join cannot cross the established UUID');
+SELECT is(
+  (SELECT count(*)::int FROM public.zoom_attendance
+    WHERE source_event_key = 'r8-stale-join'),
+  0, 'R8-C1: the conflicting join creates no interval');
+SELECT is(
+  (SELECT zoom_meeting_uuid FROM zoom_internal.zoom_meetings
+    WHERE id = 'a8a8a8a8-2222-0000-0000-000000000002'),
+  'established-occurrence',
+  'R8-C1: the conflicting join leaves the meeting occurrence unchanged');
+
+SELECT is(
+  zoom_internal.apply_participant_leave(
+    'consultor_session', 'a8a8a8a8-0000-0000-0000-000000000002', 9901,
+    'foreign-occurrence', 'r8-stale-leave', '2026-08-13T10:04:00Z',
+    'R8-FOREIGN', NULL, 'Foreign', NULL, ARRAY['nm:foreign']),
+  'occurrence_mismatch',
+  'R8-C2: a stale number-fallback leave cannot cross the established UUID');
+SELECT is(
+  (SELECT count(*)::int FROM zoom_internal.zoom_attendance_observations
+    WHERE source_event_key = 'r8-stale-leave'),
+  0, 'R8-C2: the conflicting leave creates no observation');
+SELECT is(
+  (SELECT count(*)::int FROM public.zoom_attendance
+    WHERE surface_id = 'a8a8a8a8-0000-0000-0000-000000000002' AND left_at IS NOT NULL),
+  0, 'R8-C2: the conflicting leave closes no interval');
+
+SELECT is(
+  zoom_internal.apply_participant_leave(
+    'consultor_session', 'a8a8a8a8-0000-0000-0000-000000000001', 9901,
+    'pre-start-occurrence', 'r8-matching-leave', '2026-08-13T10:05:00Z',
+    'R8-PARTICIPANT-1', NULL, 'Pre Start', NULL, ARRAY['nm:pre start']),
+  'interval_closed',
+  'R8-L1: a matching occurrence leave retains the ordinary close path');
+SELECT is(
+  (SELECT count(*)::int FROM zoom_internal.zoom_attendance_observations
+    WHERE source_event_key = 'r8-matching-leave' AND outcome = 'interval_closed'),
+  1, 'R8-L1: the matching leave records exactly one observation');
+SELECT is(
+  (SELECT left_at FROM public.zoom_attendance WHERE source_event_key = 'r8-join-1'),
+  '2026-08-13T10:05:00Z'::timestamptz,
+  'R8-L1: the matching leave closes the intended interval');
 
 RESET ROLE;
 

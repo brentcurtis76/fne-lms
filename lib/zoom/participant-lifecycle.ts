@@ -83,6 +83,7 @@ export interface ZoomParticipantObject {
 export type ParticipantApplyOutcome =
   | 'ignored_event_type'
   | 'unresolved_surface'
+  | 'occurrence_mismatch'
   | 'no_occurrence_uuid'
   | 'no_instant'
   | 'unpairable_leave'
@@ -113,7 +114,16 @@ async function resolveSurface(
   }
   const meetingNumber = readMeetingNumber(object?.id);
   if (meetingNumber === null) return null;
-  return store.findSurfaceByMeetingNumber(meetingNumber);
+  const byNumber = await store.findSurfaceByMeetingNumber(meetingNumber);
+  if (
+    byNumber !== null &&
+    occurrenceUuid !== null &&
+    byNumber.zoomMeetingUuid !== null &&
+    byNumber.zoomMeetingUuid !== occurrenceUuid
+  ) {
+    return null;
+  }
+  return byNumber;
 }
 
 /** The read slice the identity resolver needs — no write member reaches it. */
@@ -237,6 +247,7 @@ export async function applyParticipantEvent(
       identityTokens: identityTokens(identity),
       sourceEventKey: sourceEventKey ?? null,
     });
+    if (result === 'occurrence_mismatch') return 'occurrence_mismatch';
     return result === 'duplicate' ? 'interval_duplicate' : 'interval_opened';
   }
 
@@ -254,6 +265,8 @@ export async function applyParticipantEvent(
 
   const leftAt = readLifecycleInstant(participant.leave_time, eventTsMs);
   return store.applyLeave({
+    surfaceType: surface.surfaceType,
+    surfaceId: surface.surfaceId,
     schoolId: surface.schoolId,
     zoomMeetingUuid: occurrenceUuid,
     sourceEventKey,

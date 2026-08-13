@@ -39,13 +39,56 @@ function productionSourceFiles(root = ROOT): string[] {
 }
 
 type MethodName = 'from' | 'rpc';
-type Binding = { stringValue?: string; method?: MethodName; declared: true };
 type DiscoveredCall = {
   method: MethodName | 'unknown';
   target?: string;
+  targets?: string[];
   unsupported?: 'dynamic callable name' | 'dynamic target';
   expression?: string;
+  dynamicKind?: 'callable' | 'target';
+  dynamicValues?: string[];
 };
+
+interface AbstractValue {
+  strings: Set<string>;
+  methods: Set<MethodName>;
+  properties: Map<string, AbstractValue>;
+  elements?: AbstractValue;
+  external: boolean;
+  callableCandidate: boolean;
+}
+
+function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
+  return {
+    strings: partial.strings ?? new Set(),
+    methods: partial.methods ?? new Set(),
+    properties: partial.properties ?? new Map(),
+    elements: partial.elements,
+    external: partial.external ?? false,
+    callableCandidate: partial.callableCandidate ?? false,
+  };
+}
+
+function unionValues(...values: AbstractValue[]): AbstractValue {
+  const result = valueOf();
+  for (const value of values) {
+    value.strings.forEach((entry) => result.strings.add(entry));
+    value.methods.forEach((entry) => result.methods.add(entry));
+    for (const [name, property] of value.properties) {
+      result.properties.set(name, result.properties.has(name)
+        ? unionValues(result.properties.get(name)!, property)
+        : property);
+    }
+    if (value.elements) {
+      result.elements = result.elements
+        ? unionValues(result.elements, value.elements)
+        : value.elements;
+    }
+    result.external ||= value.external;
+    result.callableCandidate ||= value.callableCandidate;
+  }
+  return result;
+}
 
 function readPropertyName(node: ts.PropertyName | undefined): string | undefined {
   if (!node) return undefined;
@@ -58,10 +101,11 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     file.endsWith('.jsx') ? ts.ScriptKind.JSX
       : file.endsWith('.js') ? ts.ScriptKind.JS
         : file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
-  const scopes: Array<Map<string, Binding>> = [new Map()];
+  const scopes: Array<Map<string, AbstractValue>> = [new Map()];
   const calls: DiscoveredCall[] = [];
+  const knownCallableAliases = new Set<string>();
 
-  function binding(name: string): Binding | undefined {
+  function binding(name: string): AbstractValue | undefined {
     for (let index = scopes.length - 1; index >= 0; index -= 1) {
       const found = scopes[index].get(name);
       if (found) return found;
@@ -69,36 +113,129 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     return undefined;
   }
 
-  function resolveString(node: ts.Expression | undefined): string | undefined {
-    if (!node) return undefined;
-    if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
-    if (ts.isIdentifier(node)) return binding(node.text)?.stringValue;
-    return undefined;
+  function unwrap(node: ts.Expression): ts.Expression {
+    if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) ||
+        ts.isTypeAssertionExpression(node) || ts.isNonNullExpression(node)) {
+      return unwrap(node.expression);
+    }
+    return node;
   }
 
-  function declareName(name: ts.BindingName, initializer?: ts.Expression): void {
+  function resolveValue(input: ts.Expression | undefined): AbstractValue {
+    if (!input) return valueOf({ external: true });
+    const node = unwrap(input);
+    if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+      return valueOf({ strings: new Set([node.text]) });
+    }
+    if (ts.isIdentifier(node)) return binding(node.text) ?? valueOf({ external: true });
+    if (ts.isConditionalExpression(node)) {
+      return unionValues(resolveValue(node.whenTrue), resolveValue(node.whenFalse));
+    }
+    if (ts.isArrayLiteralExpression(node)) {
+      return valueOf({
+        elements: unionValues(...node.elements.map((entry) =>
+          ts.isSpreadElement(entry) ? resolveValue(entry.expression) : resolveValue(entry)
+        )),
+      });
+    }
+    if (ts.isObjectLiteralExpression(node)) {
+      const properties = new Map<string, AbstractValue>();
+      for (const property of node.properties) {
+        if (!ts.isPropertyAssignment(property)) continue;
+        const name = readPropertyName(property.name);
+        if (name) properties.set(name, resolveValue(property.initializer));
+      }
+      return valueOf({ properties });
+    }
+    if (ts.isPropertyAccessExpression(node)) {
+      const property = node.name.text;
+      if (property === 'from' || property === 'rpc') {
+        if (receiverExcluded(node.expression)) return valueOf();
+        return valueOf({ methods: new Set([property]), callableCandidate: true });
+      }
+      const base = resolveValue(node.expression);
+      return base.properties.get(property) ?? valueOf({ external: true });
+    }
+    if (ts.isElementAccessExpression(node)) {
+      if (receiverExcluded(node.expression)) return valueOf();
+      const base = resolveValue(node.expression);
+      const key = resolveValue(node.argumentExpression);
+      if (!key.external && key.strings.size > 0) {
+        const selected = [...key.strings].map((name) => {
+          if (name === 'from' || name === 'rpc') {
+            return valueOf({ methods: new Set([name]), callableCandidate: true });
+          }
+          return base.properties.get(name) ?? valueOf({ external: true });
+        });
+        return unionValues(...selected);
+      }
+      if (base.elements) return base.elements;
+      if (base.properties.size > 0) return unionValues(...base.properties.values());
+      return valueOf({ external: true, callableCandidate: true });
+    }
+    return valueOf({ external: true });
+  }
+
+  function propertyNames(name: ts.PropertyName | undefined): AbstractValue {
+    if (!name) return valueOf({ external: true });
+    if (ts.isIdentifier(name) || ts.isStringLiteralLike(name)) {
+      return valueOf({ strings: new Set([name.text]) });
+    }
+    if (ts.isComputedPropertyName(name)) return resolveValue(name.expression);
+    return valueOf({ external: true });
+  }
+
+  function declareName(
+    name: ts.BindingName,
+    initializer?: ts.Expression,
+    explicitValue?: AbstractValue
+  ): void {
     const scope = scopes[scopes.length - 1];
     if (ts.isIdentifier(name)) {
-      scope.set(name.text, {
-        declared: true,
-        stringValue: resolveString(initializer),
-      });
+      const resolved = explicitValue ?? resolveValue(initializer);
+      if (resolved.methods.size > 0) knownCallableAliases.add(name.text);
+      scope.set(name.text, knownCallableAliases.has(name.text) && resolved.external
+        ? unionValues(resolved, valueOf({ callableCandidate: true }))
+        : resolved);
       return;
     }
+    const source = explicitValue ?? resolveValue(initializer);
     for (const element of name.elements) {
       if (!ts.isBindingElement(element) || element.dotDotDotToken ||
           !ts.isIdentifier(element.name)) continue;
-      const sourceName = readPropertyName(element.propertyName) ?? element.name.text;
-      scope.set(element.name.text, {
-        declared: true,
-        method: sourceName === 'from' || sourceName === 'rpc' ? sourceName : undefined,
+      const names = element.propertyName
+        ? propertyNames(element.propertyName)
+        : valueOf({ strings: new Set([element.name.text]) });
+      if (names.external || names.strings.size === 0) {
+        scope.set(element.name.text, valueOf({ external: true, callableCandidate: true }));
+        continue;
+      }
+      const selected = [...names.strings].map((sourceName) => {
+        if (sourceName === 'from' || sourceName === 'rpc') {
+          return valueOf({ methods: new Set([sourceName]), callableCandidate: true });
+        }
+        return source.properties.get(sourceName) ?? valueOf({ external: true });
       });
+      const resolved = unionValues(...selected);
+      if (resolved.methods.size > 0) knownCallableAliases.add(element.name.text);
+      scope.set(element.name.text, resolved);
     }
+  }
+
+  function assign(name: string, value: AbstractValue): void {
+    for (let index = scopes.length - 1; index >= 0; index -= 1) {
+      if (scopes[index].has(name)) {
+        scopes[index].set(name, unionValues(scopes[index].get(name)!, value));
+        return;
+      }
+    }
+    scopes[scopes.length - 1].set(name, valueOf({ external: true }));
   }
 
   function receiverExcluded(expression: ts.Expression): boolean {
     const text = expression.getText(sf);
-    return text === 'Array' || text === 'Buffer' || /\.storage\b/.test(text);
+    return text === 'Array' || text === 'Buffer' ||
+      /\.storage\b/.test(text) || /\.registry\b/.test(text);
   }
 
   function withScope(run: () => void): void {
@@ -113,8 +250,32 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     }
     if (ts.isFunctionLike(node)) {
       withScope(() => {
-        node.parameters.forEach((parameter) => declareName(parameter.name));
+        node.parameters.forEach((parameter) =>
+          declareName(parameter.name, undefined, valueOf({ external: true }))
+        );
         if (node.body) visit(node.body);
+      });
+      return;
+    }
+    if (ts.isForOfStatement(node)) {
+      visit(node.expression);
+      const iterable = resolveValue(node.expression);
+      withScope(() => {
+        if (ts.isVariableDeclarationList(node.initializer)) {
+          for (const declaration of node.initializer.declarations) {
+            declareName(
+              declaration.name,
+              undefined,
+              unionValues(
+                iterable.elements ?? valueOf(),
+                valueOf({ external: iterable.external })
+              )
+            );
+          }
+        } else if (ts.isIdentifier(node.initializer)) {
+          assign(node.initializer.text, iterable.elements ?? valueOf({ external: true }));
+        }
+        visit(node.statement);
       });
       return;
     }
@@ -124,18 +285,43 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       declareName(node.name, node.initializer);
       return;
     }
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+        ts.isIdentifier(node.left)) {
+      visit(node.right);
+      assign(node.left.text, resolveValue(node.right));
+      return;
+    }
     if (ts.isCallExpression(node)) {
-      let method: MethodName | undefined;
+      let callable = valueOf();
       let receiver: ts.Expression | undefined;
       if (ts.isPropertyAccessExpression(node.expression) &&
           (node.expression.name.text === 'from' || node.expression.name.text === 'rpc')) {
-        method = node.expression.name.text;
+        callable = valueOf({
+          methods: new Set([node.expression.name.text]),
+          callableCandidate: true,
+        });
         receiver = node.expression.expression;
       } else if (ts.isElementAccessExpression(node.expression)) {
         receiver = node.expression.expression;
-        const name = resolveString(node.expression.argumentExpression);
-        if (name === 'from' || name === 'rpc') method = name;
-        else if (name === undefined && node.arguments.length > 0 && !receiverExcluded(receiver)) {
+        const names = resolveValue(node.expression.argumentExpression);
+        if (names.external || names.strings.size === 0) {
+          callable = valueOf({ external: true, callableCandidate: true });
+        } else {
+          const methods = [...names.strings].filter(
+            (name): name is MethodName => name === 'from' || name === 'rpc'
+          );
+          if (methods.length === names.strings.size) {
+            callable = valueOf({ methods: new Set(methods), callableCandidate: true });
+          } else {
+            calls.push({
+              method: 'unknown',
+              expression: node.expression.argumentExpression?.getText(sf) ?? '<missing>',
+              dynamicKind: 'callable',
+              dynamicValues: [...names.strings].sort(),
+            });
+          }
+        }
+        if (callable.external && node.arguments.length > 0 && !receiverExcluded(receiver)) {
           calls.push({
             method: 'unknown',
             unsupported: 'dynamic callable name',
@@ -143,17 +329,37 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           });
         }
       } else if (ts.isIdentifier(node.expression)) {
-        method = binding(node.expression.text)?.method;
+        callable = binding(node.expression.text) ?? valueOf();
       }
-      if (method && (!receiver || !receiverExcluded(receiver))) {
-        const target = resolveString(node.arguments[0]);
-        calls.push(target === undefined
-          ? {
+      if (callable.callableCandidate && callable.external &&
+          !ts.isElementAccessExpression(node.expression)) {
+        calls.push({
+          method: 'unknown',
+          unsupported: 'dynamic callable name',
+          expression: node.expression.getText(sf),
+        });
+      }
+      if (callable.methods.size > 0 && (!receiver || !receiverExcluded(receiver))) {
+        const targetValue = resolveValue(node.arguments[0]);
+        for (const method of callable.methods) {
+          if (targetValue.external || targetValue.strings.size === 0) {
+            calls.push({
               method,
               unsupported: 'dynamic target',
               expression: node.arguments[0]?.getText(sf) ?? '<missing>',
-            }
-          : { method, target });
+            });
+          } else if (targetValue.strings.size === 1) {
+            calls.push({ method, target: [...targetValue.strings][0] });
+          } else {
+            calls.push({
+              method,
+              targets: [...targetValue.strings].sort(),
+              expression: node.arguments[0]?.getText(sf) ?? '<missing>',
+              dynamicKind: 'target',
+              dynamicValues: [...targetValue.strings].sort(),
+            });
+          }
+        }
       }
     }
     ts.forEachChild(node, visit);
@@ -164,7 +370,9 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
 
 function directTableTouchCount(source: string): number {
   return discoverSupabaseCalls(source).filter((call) =>
-    call.method === 'from' && call.target === 'contract_hours_ledger').length;
+    call.method === 'from' &&
+    (call.target === 'contract_hours_ledger' ||
+      call.targets?.includes('contract_hours_ledger'))).length;
 }
 
 const DIRECT_TS_TOUCHES: Record<string, UseClass[]> = {
@@ -214,7 +422,8 @@ function sqlObjectDefinitions(source: string, file: string): SqlObjectDefinition
 function ledgerObjectNames(definitions: SqlObjectDefinition[]): Set<string> {
   const names = new Set(
     definitions
-      .filter((definition) => /\bcontract_hours_ledger\b/i.test(definition.body))
+      .filter((definition) => tokenizeSql(definition.body)
+        .some((token) => token.kind === 'word' && token.value === 'contract_hours_ledger'))
       .map((definition) => definition.name)
   );
   let changed = true;
@@ -222,7 +431,10 @@ function ledgerObjectNames(definitions: SqlObjectDefinition[]): Set<string> {
     changed = false;
     for (const definition of definitions) {
       if (names.has(definition.name)) continue;
-      if ([...names].some((name) => new RegExp(`\\b${name}\\b`, 'i').test(definition.body))) {
+      const identifiers = new Set(tokenizeSql(definition.body)
+        .filter((token) => token.kind === 'word')
+        .map((token) => token.value));
+      if ([...names].some((name) => identifiers.has(name))) {
         names.add(definition.name);
         changed = true;
       }
@@ -233,7 +445,10 @@ function ledgerObjectNames(definitions: SqlObjectDefinition[]): Set<string> {
 
 function indirectCalls(source: string, targets: Set<string>): string[] {
   return discoverSupabaseCalls(source)
-    .flatMap((call) => call.target && targets.has(call.target) ? [call.target] : []);
+    .flatMap((call) => {
+      const resolved = call.target ? [call.target] : call.targets ?? [];
+      return resolved.filter((target) => targets.has(target));
+    });
 }
 
 /** Source-order role + authority; `non-authoritative` means no financial write trusts it. */
@@ -261,15 +476,12 @@ const INDIRECT_TS_CONSUMERS: Record<string, string[]> = {
 };
 
 interface DynamicAllowance {
-  symbol: string;
-  property?: string;
   allowedValues: string[];
   justification: string;
 }
 
 const DYNAMIC_NON_LEDGER_CALLS: Record<string, DynamicAllowance> = {
-  'lib/propuestas/scripts/seed-db.ts:from:dynamic target:t': {
-    symbol: 'tables',
+  'lib/propuestas/scripts/seed-db.ts:from:target:t': {
     allowedValues: [
       'propuesta_fichas_servicio', 'propuesta_consultores',
       'propuesta_documentos_biblioteca', 'propuesta_contenido_bloques',
@@ -277,184 +489,287 @@ const DYNAMIC_NON_LEDGER_CALLS: Record<string, DynamicAllowance> = {
     ],
     justification: 'closed proposal seed-table literal list',
   },
-  'lib/zoom/attendance-store.ts:from:dynamic target:source.table': {
-    symbol: 'EXPECTED_ATTENDEE_SOURCE',
-    property: 'table',
+  'lib/zoom/attendance-store.ts:from:target:source.table': {
     allowedValues: ['meeting_attendees', 'session_attendees'],
     justification: 'closed attendance identity-source descriptor',
   },
-  'utils/meetingUtils.ts:from:dynamic target:tableName': {
-    symbol: 'tableName',
+  'utils/meetingUtils.ts:from:target:tableName': {
     allowedValues: ['meeting_commitments', 'meeting_tasks'],
     justification: 'closed meeting-child selector',
   },
-  'hooks/useUrlState.ts:unknown:dynamic callable name:method': {
-    symbol: 'method',
+  'hooks/useUrlState.ts:unknown:callable:method': {
     allowedValues: ['push', 'replace'],
     justification: 'closed Next router method selector, not a database callable',
   },
 };
 
-function finiteDynamicValues(source: string, file: string, allowance: DynamicAllowance): string[] {
-  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true,
-    file.endsWith('.jsx') ? ts.ScriptKind.JSX
-      : file.endsWith('.js') ? ts.ScriptKind.JS
-        : file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
-  const values = new Set<string>();
+function dynamicCallKey(file: string, call: DiscoveredCall): string {
+  return `${file}:${call.method}:${call.dynamicKind}:${call.expression}`;
+}
 
-  function stringsBelow(node: ts.Node): void {
-    if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
-      values.add(node.text);
-      return;
-    }
-    if (ts.isConditionalExpression(node)) {
-      stringsBelow(node.whenTrue);
-      stringsBelow(node.whenFalse);
-      return;
-    }
-    ts.forEachChild(node, stringsBelow);
-  }
+interface SqlToken {
+  kind: 'word' | 'symbol';
+  value: string;
+}
 
-  function visit(node: ts.Node): void {
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) &&
-        node.name.text === allowance.symbol && node.initializer) {
-      if (!allowance.property) {
-        stringsBelow(node.initializer);
-      } else {
-        function propertiesBelow(candidate: ts.Node): void {
-          if (ts.isPropertyAssignment(candidate) &&
-              readPropertyName(candidate.name) === allowance.property) {
-            stringsBelow(candidate.initializer);
-            return;
-          }
-          ts.forEachChild(candidate, propertiesBelow);
-        }
-        propertiesBelow(node.initializer);
+interface SqlAnalysis {
+  count: number;
+  backed: boolean;
+  relations: Set<string>;
+  unsupported: string[];
+}
+
+/** PostgreSQL-aware lexical floor: comments and literals disappear; identifiers survive. */
+function tokenizeSql(source: string): SqlToken[] {
+  const tokens: SqlToken[] = [];
+  let index = 0;
+  let bodyDelimiter: string | null = null;
+
+  while (index < source.length) {
+    if (bodyDelimiter && source.startsWith(bodyDelimiter, index)) {
+      index += bodyDelimiter.length;
+      bodyDelimiter = null;
+      continue;
+    }
+    if (/\s/.test(source[index])) { index += 1; continue; }
+    if (source.startsWith('--', index)) {
+      index = source.indexOf('\n', index + 2);
+      if (index < 0) break;
+      continue;
+    }
+    if (source.startsWith('/*', index)) {
+      let depth = 1;
+      index += 2;
+      while (index < source.length && depth > 0) {
+        if (source.startsWith('/*', index)) { depth += 1; index += 2; }
+        else if (source.startsWith('*/', index)) { depth -= 1; index += 2; }
+        else index += 1;
       }
+      continue;
     }
-    ts.forEachChild(node, visit);
-  }
-  visit(sf);
-  return [...values].sort();
-}
-
-function stripSqlComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--.*$/gm, '');
-}
-
-function unqualifiedHoursIn(selectList: string): number {
-  const withoutStrings = selectList.replace(/'(?:''|[^'])*'/g, "''");
-  let count = 0;
-  for (const match of withoutStrings.matchAll(/"hours"|\bhours\b/gi)) {
-    const before = withoutStrings.slice(0, match.index).trimEnd();
-    if (before.endsWith('.')) continue;
-    if (/\bAS$/i.test(before)) continue;
-    count += 1;
-  }
-  return count;
-}
-
-function ledgerBackedCteNames(sql: string): Set<string> {
-  const definitions: Array<{ name: string; body: string }> = [];
-  const startPattern = /\b("[^"]+"|[A-Za-z_][\w]*)\s+AS\s*\(/gi;
-  for (const match of sql.matchAll(startPattern)) {
-    const open = (match.index ?? 0) + match[0].lastIndexOf('(');
-    let depth = 1;
-    let quote: "'" | '"' | null = null;
-    let index = open + 1;
-    for (; index < sql.length && depth > 0; index += 1) {
-      const char = sql[index];
-      if (quote) {
-        if (char === quote) {
-          if (sql[index + 1] === quote) index += 1;
-          else quote = null;
+    if (source[index] === "'") {
+      index += 1;
+      while (index < source.length) {
+        if (source[index] === "'" && source[index + 1] === "'") { index += 2; continue; }
+        if (source[index] === "'") { index += 1; break; }
+        index += 1;
+      }
+      continue;
+    }
+    if (source[index] === '$') {
+      const delimiter = source.slice(index).match(/^\$[A-Za-z_]*\$/)?.[0];
+      if (delimiter) {
+        const previous = tokens.at(-1)?.value;
+        if (previous === 'as' || previous === 'do') {
+          bodyDelimiter = delimiter;
+          index += delimiter.length;
+        } else {
+          const close = source.indexOf(delimiter, index + delimiter.length);
+          index = close < 0 ? source.length : close + delimiter.length;
         }
         continue;
       }
-      if (char === "'" || char === '"') { quote = char; continue; }
-      if (char === '(') depth += 1;
-      else if (char === ')') depth -= 1;
     }
-    if (depth === 0) {
-      definitions.push({
-        name: match[1].replaceAll('"', ''),
-        body: sql.slice(open + 1, index - 1),
-      });
-    }
-  }
-
-  const backed = new Set<string>();
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const definition of definitions) {
-      if (backed.has(definition.name)) continue;
-      const dependencies = ['contract_hours_ledger', ...backed];
-      if (dependencies.some((name) => new RegExp(
-        `\\b(?:FROM|JOIN)\\s+(?:"?public"?\\.)?"?${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"?(?![\\w"])`,
-        'i'
-      ).test(definition.body))) {
-        backed.add(definition.name);
-        changed = true;
+    if (source[index] === '"') {
+      let value = '';
+      index += 1;
+      while (index < source.length) {
+        if (source[index] === '"' && source[index + 1] === '"') {
+          value += '"'; index += 2; continue;
+        }
+        if (source[index] === '"') { index += 1; break; }
+        value += source[index];
+        index += 1;
       }
+      tokens.push({ kind: 'word', value: value.toLowerCase() });
+      continue;
     }
+    const word = source.slice(index).match(/^[A-Za-z_][A-Za-z0-9_$]*/)?.[0];
+    if (word) {
+      tokens.push({ kind: 'word', value: word.toLowerCase() });
+      index += word.length;
+      continue;
+    }
+    tokens.push({ kind: 'symbol', value: source[index] });
+    index += 1;
   }
-  return backed;
+  return tokens;
 }
 
-/** Qualified, unqualified, and write uses inside a direct ledger query scope. */
-function sqlDirectHoursUseCount(source: string): number {
-  const sql = stripSqlComments(source);
-  const aliases = new Set<string>();
-  const aliasPattern = /\b(?:FROM|JOIN)\s+(?:"?public"?\.)?"?contract_hours_ledger"?(?:\s+(?:AS\s+)?("[^"]+"|[A-Za-z_][\w]*))?/gi;
-  const reserved = new Set(['where', 'join', 'left', 'right', 'inner', 'outer', 'cross', 'on', 'group', 'order', 'limit', 'union']);
-  for (const match of sql.matchAll(aliasPattern)) {
-    const raw = match[1];
-    if (raw && !reserved.has(raw.replaceAll('"', '').toLowerCase())) aliases.add(raw);
-  }
-
-  const backedRelations = ledgerBackedCteNames(sql);
-  const localDefinitions = sqlObjectDefinitions(sql, 'inline.sql');
-  for (const name of ledgerObjectNames(localDefinitions)) backedRelations.add(name);
-  for (const name of backedRelations) {
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const relationPattern = new RegExp(
-      `\\b(?:FROM|JOIN)\\s+(?:"?public"?\\.)?"?${escaped}"?(?:\\s+(?:AS\\s+)?("[^"]+"|[A-Za-z_][\\w]*))?`,
-      'gi'
-    );
-    for (const match of sql.matchAll(relationPattern)) {
-      const raw = match[1];
-      if (raw && !reserved.has(raw.replaceAll('"', '').toLowerCase())) aliases.add(raw);
-      else aliases.add(name);
+function matchingParens(tokens: SqlToken[]): Map<number, number> {
+  const stack: number[] = [];
+  const pairs = new Map<number, number>();
+  tokens.forEach((token, index) => {
+    if (token.value === '(') stack.push(index);
+    if (token.value === ')') {
+      const open = stack.pop();
+      if (open !== undefined) pairs.set(open, index);
     }
+  });
+  return pairs;
+}
+
+const SQL_RESERVED = new Set([
+  'as', 'where', 'join', 'left', 'right', 'inner', 'outer', 'cross', 'full', 'on',
+  'group', 'order', 'limit', 'offset', 'union', 'returning', 'set', 'values', 'using',
+]);
+
+function sqlHoursAnalysis(source: string): SqlAnalysis {
+  const tokens = tokenizeSql(source);
+  const pairs = matchingParens(tokens);
+  const definitions = sqlObjectDefinitions(source, 'inline.sql');
+  const knownBacked = ledgerObjectNames(definitions);
+
+  function analyze(start: number, end: number, inherited: Set<string>): SqlAnalysis {
+    const ctes = new Map<string, { open: number; close: number }>();
+    for (let index = start; index < end; index += 1) {
+      if (tokens[index]?.kind !== 'word' || tokens[index + 1]?.value !== 'as' ||
+          tokens[index + 2]?.value !== '(') continue;
+      const close = pairs.get(index + 2);
+      if (close !== undefined && close < end) ctes.set(tokens[index].value, { open: index + 2, close });
+    }
+
+    const backedNames = new Set(inherited);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const [name, range] of ctes) {
+        if (backedNames.has(name)) continue;
+        const result = analyze(range.open + 1, range.close, backedNames);
+        if (result.backed) { backedNames.add(name); changed = true; }
+      }
+    }
+
+    const childRanges = new Map<number, { close: number; analysis: SqlAnalysis }>();
+    for (let index = start; index < end; index += 1) {
+      if (tokens[index]?.value !== '(') continue;
+      const close = pairs.get(index);
+      if (close === undefined || close >= end) continue;
+      const first = tokens[index + 1]?.value;
+      if (first === 'select' || first === 'with' || first === 'update' || first === 'insert') {
+        childRanges.set(index, { close, analysis: analyze(index + 1, close, backedNames) });
+        index = close;
+      }
+    }
+
+    const aliases = new Set<string>();
+    const relations = new Set<string>();
+    let localBacked = false;
+    const atTop = (position: number): boolean => {
+      for (const [open, child] of childRanges) {
+        if (position > open && position < child.close) return false;
+      }
+      return true;
+    };
+
+    for (let index = start; index < end; index += 1) {
+      if (!atTop(index)) continue;
+      const keyword = tokens[index]?.value;
+      if (keyword !== 'from' && keyword !== 'join' && keyword !== 'update' &&
+          !(keyword === 'into' && tokens.slice(start, index).some((token) => token.value === 'insert'))) {
+        continue;
+      }
+      let cursor = index + 1;
+      if (tokens[cursor]?.value === '(' && childRanges.has(cursor)) {
+        const child = childRanges.get(cursor)!;
+        cursor = child.close + 1;
+        if (tokens[cursor]?.value === 'as') cursor += 1;
+        const alias = tokens[cursor]?.kind === 'word' ? tokens[cursor].value : undefined;
+        if (child.analysis.backed && alias) { aliases.add(alias); localBacked = true; }
+        continue;
+      }
+      if (tokens[cursor]?.kind !== 'word') continue;
+      let relation = tokens[cursor].value;
+      if (tokens[cursor + 1]?.value === '.' && tokens[cursor + 2]?.kind === 'word') {
+        relation = tokens[cursor + 2].value;
+        cursor += 2;
+      }
+      relations.add(relation);
+      const relationBacked = relation === 'contract_hours_ledger' || backedNames.has(relation);
+      cursor += 1;
+      if (tokens[cursor]?.value === '(') cursor = (pairs.get(cursor) ?? cursor) + 1;
+      if (tokens[cursor]?.value === 'as') cursor += 1;
+      const possibleAlias = tokens[cursor]?.kind === 'word' && !SQL_RESERVED.has(tokens[cursor].value)
+        ? tokens[cursor].value : undefined;
+      if (relationBacked) {
+        localBacked = true;
+        aliases.add(relation);
+        if (possibleAlias) aliases.add(possibleAlias);
+      }
+    }
+
+    let queryStart = end;
+    for (let index = start; index < end; index += 1) {
+      if (!atTop(index)) continue;
+      if (['select', 'update', 'insert', 'with'].includes(tokens[index]?.value)) {
+        queryStart = index;
+        break;
+      }
+    }
+
+    let count = 0;
+    if (localBacked) {
+      for (let index = queryStart; index < end; index += 1) {
+        if (!atTop(index) || tokens[index]?.value !== 'hours') continue;
+        if (tokens[index - 1]?.value === 'as') continue;
+        if (tokens[index - 1]?.value === '.') {
+          const qualifier = tokens[index - 2]?.value;
+          if (qualifier && aliases.has(qualifier)) count += 1;
+        } else {
+          count += 1;
+        }
+      }
+    }
+
+    const unsupported: string[] = [];
+    for (const child of childRanges.values()) {
+      count += child.analysis.count;
+      child.analysis.unsupported.forEach((entry) => unsupported.push(entry));
+      child.analysis.relations.forEach((entry) => relations.add(entry));
+    }
+    const hasLedgerWord = tokens.slice(start, end).some((token) =>
+      token.kind === 'word' && token.value === 'contract_hours_ledger'
+    );
+    const schemaLead = new Set([
+      'alter', 'comment', 'create', 'drop', 'grant', 'revoke',
+    ]);
+    const hasDml = !schemaLead.has(tokens[start]?.value) &&
+      tokens.slice(start, end).some((token) =>
+        ['select', 'update', 'insert', 'delete', 'merge', 'with', 'table', 'copy']
+          .includes(token.value)
+      );
+    if (hasLedgerWord && hasDml && !localBacked && count === 0) {
+      unsupported.push('ledger-relevant statement could not be classified');
+    }
+    return {
+      count,
+      backed: localBacked || [...childRanges.values()].some((child) => child.analysis.backed),
+      relations,
+      unsupported,
+    };
   }
 
   let count = 0;
-  for (const alias of aliases) {
-    const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const bounded = alias.startsWith('"') ? escaped : `\\b${escaped}\\b`;
-    count += sql.match(new RegExp(`${bounded}\\s*\\.\\s*"?hours"?`, 'gi'))?.length ?? 0;
+  const relations = new Set<string>();
+  const unsupported: string[] = [];
+  let start = 0;
+  for (let index = 0; index <= tokens.length; index += 1) {
+    if (index < tokens.length && tokens[index].value !== ';') continue;
+    const result = analyze(start, index, knownBacked);
+    count += result.count;
+    result.relations.forEach((entry) => relations.add(entry));
+    result.unsupported.forEach((entry) => unsupported.push(entry));
+    start = index + 1;
   }
-  count += sql.match(/(?:\bcontract_hours_ledger\b|"contract_hours_ledger")\s*\.\s*"?hours"?/gi)?.length ?? 0;
-  const directSelectPattern = /\bSELECT\b([\s\S]*?)\b(?:FROM|JOIN)\s+(?:"?public"?\.)?"?contract_hours_ledger"?(?![\w"])/gi;
-  for (const match of sql.matchAll(directSelectPattern)) {
-    count += unqualifiedHoursIn(match[1]);
+  return { count, backed: count > 0, relations, unsupported };
+}
+
+function sqlDirectHoursUseCount(source: string): number {
+  const analysis = sqlHoursAnalysis(source);
+  if (analysis.unsupported.length > 0) {
+    throw new Error(analysis.unsupported.join('; '));
   }
-  for (const name of backedRelations) {
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const selectPattern = new RegExp(
-      `\\bSELECT\\b([\\s\\S]*?)\\b(?:FROM|JOIN)\\s+(?:"?public"?\\.)?"?${escaped}"?(?![\\w"])`,
-      'gi'
-    );
-    for (const match of sql.matchAll(selectPattern)) {
-      count += unqualifiedHoursIn(match[1]);
-    }
-  }
-  const updatePattern = /\bUPDATE\s+(?:"?public"?\.)?"?contract_hours_ledger"?(?:\s+(?:AS\s+)?"?[A-Za-z_][\w]*"?)?\s+SET\s+([\s\S]*?)(?:\bWHERE\b|;)/gi;
-  for (const match of sql.matchAll(updatePattern)) {
-    count += match[1].match(/\bhours\s*=/gi)?.length ?? 0;
-  }
-  return count;
+  return analysis.count;
 }
 
 const SQL_DIRECT_HOURS_USES: Record<string, UseClass[]> = {
@@ -474,10 +789,10 @@ const SQL_DIRECT_HOURS_USES: Record<string, UseClass[]> = {
     'aggregate', 'aggregate', 'billable', 'billable', 'billable',
   ],
   'supabase/migrations/20260813120300_reschedule_availability_guard.sql': [
-    'historical', 'write',
+    'historical', 'write', 'historical',
   ],
   'supabase/migrations/20260813120500_reschedule_tracking_pair_guard.sql': [
-    'historical', 'write',
+    'historical', 'write', 'historical',
   ],
 };
 
@@ -536,21 +851,24 @@ describe('contract_hours_ledger production consumer inventory', () => {
   });
 
   it('fails closed on every unsupported dynamic callable or target in production', () => {
-    const unsupported = productionSourceFiles().flatMap((path) => {
+    const dynamic = productionSourceFiles().flatMap((path) => {
       const source = readFileSync(path, 'utf8');
       return discoverSupabaseCalls(source, path)
-        .filter((call) => call.unsupported)
-        .map((call) => `${relative(ROOT, path)}:${call.method}:${call.unsupported}:${call.expression}`);
+        .filter((call) => call.unsupported || call.dynamicKind)
+        .map((call) => ({ file: relative(ROOT, path), call }));
     });
-    expect(unsupported.sort()).toEqual(Object.keys(DYNAMIC_NON_LEDGER_CALLS).sort());
+    expect(dynamic.filter(({ call }) => call.unsupported)).toEqual([]);
+    expect(dynamic.map(({ file, call }) => dynamicCallKey(file, call)).sort())
+      .toEqual(Object.keys(DYNAMIC_NON_LEDGER_CALLS).sort());
 
-    for (const [key, allowance] of Object.entries(DYNAMIC_NON_LEDGER_CALLS)) {
-      const path = key.slice(0, key.indexOf(':'));
-      const values = finiteDynamicValues(readFileSync(join(ROOT, path), 'utf8'), path, allowance);
-      expect(values, `${key}: ${allowance.justification}`).toEqual(
+    for (const { file, call } of dynamic) {
+      const key = dynamicCallKey(file, call);
+      const allowance = DYNAMIC_NON_LEDGER_CALLS[key];
+      expect(call.dynamicValues, `${key}: ${allowance.justification}`).toEqual(
         [...allowance.allowedValues].sort()
       );
-      expect(values).not.toContain('contract_hours_ledger');
+      expect(call.dynamicValues).not.toContain('contract_hours_ledger');
+      expect(call.dynamicValues?.some((value) => objectNames.has(value))).toBe(false);
     }
   });
 
@@ -558,7 +876,8 @@ describe('contract_hours_ledger production consumer inventory', () => {
     const actual: Record<string, number> = {};
     const directNames = new Set(
       definitions
-        .filter((definition) => /\bcontract_hours_ledger\b/i.test(definition.body))
+        .filter((definition) => tokenizeSql(definition.body)
+          .some((token) => token.kind === 'word' && token.value === 'contract_hours_ledger'))
         .map((definition) => definition.name)
     );
     for (const definition of definitions.filter((candidate) => objectNames.has(candidate.name))) {
@@ -589,7 +908,12 @@ describe('contract_hours_ledger production consumer inventory', () => {
   it('discovers active raw-hours SQL under arbitrary aliases, excluding comments', () => {
     const actual: Record<string, number> = {};
     for (const path of migrationFiles) {
-      const count = sqlDirectHoursUseCount(readFileSync(path, 'utf8'));
+      let count: number;
+      try {
+        count = sqlDirectHoursUseCount(readFileSync(path, 'utf8'));
+      } catch (error) {
+        throw new Error(`${relative(ROOT, path)}: ${(error as Error).message}`);
+      }
       if (count > 0) actual[relative(ROOT, path)] = count;
     }
     expectExactCounts(actual, SQL_DIRECT_HOURS_USES);
@@ -626,6 +950,34 @@ describe('contract_hours_ledger production consumer inventory', () => {
     expect(directTableTouchCount(
       "const {'from': readTable} = s; readTable('contract_hours_ledger')"
     )).toBe(1);
+    expect(directTableTouchCount(
+      "const METHOD = 'from'; const {[METHOD]: read} = s; read('contract_hours_ledger')"
+    )).toBe(1);
+    expect(directTableTouchCount(
+      "const read = s.from; read<Ledger>('contract_hours_ledger')"
+    )).toBe(1);
+    expect(directTableTouchCount(
+      "const METHOD = 'from'; const read = s[METHOD]; read('contract_hours_ledger')"
+    )).toBe(1);
+    expect(indirectCalls(
+      "const METHOD = 'rpc'; const {[METHOD]: call} = s; call<Row>('get_bucket_summary')",
+      objectNames
+    )).toEqual(['get_bucket_summary']);
+    expect(discoverSupabaseCalls(
+      "const {[externalMethod]: call} = s; call('contract_hours_ledger')"
+    )).toContainEqual(expect.objectContaining({
+      method: 'unknown', unsupported: 'dynamic callable name', expression: 'call',
+    }));
+
+    const nestedAliases = `
+      const METHOD = 'from';
+      const read = client[METHOD];
+      { const read = external; read('contract_hours_ledger'); }
+      read('contract_hours_ledger');
+    `;
+    expect(directTableTouchCount(nestedAliases)).toBe(1);
+    expect(discoverSupabaseCalls(nestedAliases)
+      .filter((call) => call.target === 'contract_hours_ledger')).toHaveLength(1);
 
     const shadowed = discoverSupabaseCalls(`
       const TABLE = 'contract_hours_ledger';
@@ -665,6 +1017,27 @@ describe('contract_hours_ledger production consumer inventory', () => {
       )
       SELECT hours FROM ledger_rows;
     `)).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      'SELECT q.hours FROM (SELECT * FROM public.contract_hours_ledger) q;'
+    )).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      'SELECT outer_q.hours FROM (SELECT q.* FROM (SELECT * FROM public.contract_hours_ledger) q) outer_q;'
+    )).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      'UPDATE public.contract_hours_ledger SET "hours" = 1;'
+    )).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      'UPDATE public.contract_hours_ledger AS l SET ("hours", status) = (1, \'reservada\');'
+    )).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      "SELECT 'contract_hours_ledger.hours' AS note; -- SELECT hours FROM contract_hours_ledger\n"
+    )).toBe(0);
+    expect(() => sqlDirectHoursUseCount(
+      'MERGE INTO contract_hours_ledger USING incoming ON true WHEN MATCHED THEN UPDATE SET hours = 1;'
+    )).toThrow(/could not be classified/);
+    expect(sqlDirectHoursUseCount(
+      'SELECT l.status FROM contract_hours_ledger l; SELECT q.hours FROM (SELECT * FROM contract_hours_ledger) q;'
+    )).toBe(1);
 
     const syntheticSql = `
       CREATE VIEW public.synthetic_ledger_view AS
@@ -700,23 +1073,61 @@ describe('contract_hours_ledger production consumer inventory', () => {
     expect(SQL_LEDGER_OBJECTS['supabase/migrations/synthetic.sql']).toBeUndefined();
   });
 
-  it('validates every finite dynamic allowlist against ledger-value mutations', () => {
+  it('traces finite dynamic values through live bindings and every resolved branch', () => {
+    const liveValues = (source: string): string[] => discoverSupabaseCalls(source)
+      .flatMap((call) => call.dynamicValues ?? []);
+
+    expect(liveValues(`
+      const oldTables = ['safe_a', 'safe_b'];
+      const tables = process.argv.slice(2);
+      for (const t of tables) client.from(t);
+    `)).toEqual([]);
+    expect(discoverSupabaseCalls(`
+      const oldTables = ['safe_a', 'safe_b'];
+      const tables = process.argv.slice(2);
+      for (const t of tables) client.from(t);
+    `)).toContainEqual(expect.objectContaining({
+      method: 'from', unsupported: 'dynamic target', expression: 't',
+    }));
+
+    const branches = discoverSupabaseCalls(`
+      const tables = flag ? ['safe_a', 'contract_hours_ledger'] : ['safe_b'];
+      for (const t of tables) client.from(t);
+    `);
+    expect(branches[0].dynamicValues).toEqual([
+      'contract_hours_ledger', 'safe_a', 'safe_b',
+    ]);
+    expect(directTableTouchCount(`
+      const tables = flag ? ['safe_a', 'contract_hours_ledger'] : ['safe_b'];
+      for (const t of tables) client.from(t);
+    `)).toBe(1);
+
+    expect(discoverSupabaseCalls(`
+      let tables = ['safe_a'];
+      tables = process.argv;
+      for (const t of tables) client.from(t);
+    `)).toContainEqual(expect.objectContaining({ unsupported: 'dynamic target' }));
+    expect(discoverSupabaseCalls(`
+      function read(table) { client.from(table); }
+      read('safe_a');
+    `)).toContainEqual(expect.objectContaining({ unsupported: 'dynamic target' }));
+    expect(discoverSupabaseCalls(`
+      const tables = ['safe_a'];
+      { const tables = process.argv; for (const t of tables) client.from(t); }
+    `)).toContainEqual(expect.objectContaining({ unsupported: 'dynamic target' }));
+    expect(indirectCalls(`
+      const names = ['safe_rpc', 'get_bucket_summary'];
+      for (const name of names) client.rpc(name);
+    `, objectNames)).toEqual(['get_bucket_summary']);
+
     for (const [key, allowance] of Object.entries(DYNAMIC_NON_LEDGER_CALLS)) {
       const path = key.slice(0, key.indexOf(':'));
       const source = readFileSync(join(ROOT, path), 'utf8');
-      const candidate = allowance.allowedValues[0];
-      const symbolIndex = source.indexOf(`const ${allowance.symbol}`);
-      expect(symbolIndex, `${key}: finite declaration must exist`).toBeGreaterThanOrEqual(0);
-      const candidateIndex = source.indexOf(`'${candidate}'`, symbolIndex);
-      expect(candidateIndex, `${key}: finite source literal must exist`).toBeGreaterThanOrEqual(0);
-      const mutated = source.slice(0, candidateIndex) + "'contract_hours_ledger'" +
-        source.slice(candidateIndex + candidate.length + 2);
-      expect(mutated, `${key}: mutation fixture must change source`).not.toBe(source);
-      const values = finiteDynamicValues(mutated, path, allowance);
-      expect(values, `${key}: ledger mutation must be visible`).toContain('contract_hours_ledger');
-      expect(values, `${key}: exact finite allowlist must reject mutation`).not.toEqual(
-        [...allowance.allowedValues].sort()
-      );
+      const calls = discoverSupabaseCalls(source, path)
+        .filter((call) => call.dynamicKind && dynamicCallKey(path, call) === key);
+      expect(calls, key).toHaveLength(1);
+      expect(calls[0].dynamicValues, allowance.justification)
+        .toEqual([...allowance.allowedValues].sort());
     }
   });
 

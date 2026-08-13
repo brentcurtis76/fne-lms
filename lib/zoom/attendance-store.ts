@@ -27,8 +27,11 @@
  *
  * ## The leave path is ONE store call, because it is ONE transaction (§15.3.9)
  *
- * `applyLeave` maps onto `zoom_internal.apply_participant_leave`, which records the
- * observation and performs any eligible close inside a single database transaction.
+ * `insertInterval` and `applyLeave` map onto occurrence-authoritative database RPCs.
+ * Each atomically claims a NULL meeting occurrence or matches the established value
+ * before writing, closing the meeting-number lookup/write race without moving status.
+ * `applyLeave` then records the observation and performs any eligible close inside a
+ * single database transaction.
  * The decision itself — close only via a Zoom-minted `participant_uuid` matching
  * exactly one open row — lives in that function, next to the row locks that make it
  * race-proof. There is deliberately no `listOpenIntervals`/`closeInterval` pair here
@@ -68,8 +71,8 @@ export interface AttendanceIntervalInsert {
   sourceEventKey: string | null;
 }
 
-/** `'duplicate'` = a unique index absorbed a redelivery. Never an error. */
-export type AttendanceInsertResult = 'inserted' | 'duplicate';
+/** Database outcomes for one occurrence-authoritative participant join. */
+export type AttendanceInsertResult = 'inserted' | 'duplicate' | 'occurrence_mismatch';
 
 /**
  * One `participant_left` delivery, handed to the database whole. Everything the
@@ -77,6 +80,8 @@ export type AttendanceInsertResult = 'inserted' | 'duplicate';
  * the instant and the only token that may authorise it.
  */
 export interface LeaveApplication {
+  surfaceType: ZoomSurfaceType;
+  surfaceId: string;
   schoolId: number;
   zoomMeetingUuid: string;
   /** The delivery's ledger dedupe_key. The observation's UNIQUE idempotency key. */
@@ -101,7 +106,8 @@ export type LeaveApplyOutcome =
   | 'no_open_interval'
   | 'unpairable_leave'
   | 'no_instant'
-  | 'observation_duplicate';
+  | 'observation_duplicate'
+  | 'occurrence_mismatch';
 
 const LEAVE_APPLY_OUTCOMES: readonly LeaveApplyOutcome[] = [
   'interval_closed',
@@ -109,6 +115,7 @@ const LEAVE_APPLY_OUTCOMES: readonly LeaveApplyOutcome[] = [
   'unpairable_leave',
   'no_instant',
   'observation_duplicate',
+  'occurrence_mismatch',
 ];
 
 export interface ZoomAttendanceStore {
@@ -140,9 +147,6 @@ interface PostgrestError {
   message: string;
   code?: string;
 }
-
-/** Postgres `unique_violation`. A partial index reporting an absorbed redelivery. */
-const UNIQUE_VIOLATION = '23505';
 
 interface MeetingSurfaceRow {
   surface_type: ZoomSurfaceType;
@@ -210,7 +214,6 @@ export interface AttendancePublicClient {
         }>;
       };
     };
-    insert(values: Record<string, unknown>): PromiseLike<{ error: PostgrestError | null }>;
   };
 }
 
@@ -317,38 +320,35 @@ export function createSupabaseAttendanceStore(
     },
 
     async insertInterval(row) {
-      const { error } = await publicClient.from('zoom_attendance').insert({
-        surface_type: row.surfaceType,
-        surface_id: row.surfaceId,
-        school_id: row.schoolId,
-        zoom_meeting_uuid: row.zoomMeetingUuid,
-        participant_uuid: row.participantUuid,
-        user_id: row.userId,
-        customer_key: row.customerKey,
-        display_name: row.displayName,
-        transient_email: row.transientEmail,
-        matched_by: row.matchedBy,
-        joined_at: row.joinedAt,
-        identity_tokens: row.identityTokens.length > 0 ? row.identityTokens : null,
-        source_event_key: row.sourceEventKey,
-        source: 'webhook',
+      const { data, error } = await internalClient.rpc('apply_participant_join', {
+        p_surface_type: row.surfaceType,
+        p_surface_id: row.surfaceId,
+        p_school_id: row.schoolId,
+        p_zoom_meeting_uuid: row.zoomMeetingUuid,
+        p_participant_uuid: row.participantUuid,
+        p_user_id: row.userId,
+        p_customer_key: row.customerKey,
+        p_display_name: row.displayName,
+        p_transient_email: row.transientEmail,
+        p_matched_by: row.matchedBy,
+        p_joined_at: row.joinedAt,
+        p_identity_tokens: row.identityTokens.length > 0 ? row.identityTokens : null,
+        p_source_event_key: row.sourceEventKey,
       });
 
       if (error) {
-        // EITHER partial unique index doing its job — `(zoom_meeting_uuid,
-        // participant_uuid, joined_at)` for a uuid-bearing redelivery, or
-        // `source_event_key` for any redelivery at all, including the uuid-less one
-        // that used to rely on a read-then-insert. Both resolve inside Postgres, so
-        // two concurrent deliveries cannot both win. Absorbed, exactly like the
-        // webhook ledger's own conflict path.
-        if (error.code === UNIQUE_VIOLATION) return 'duplicate';
-        throw new Error(`zoom_attendance insert failed: ${error.message}`);
+        throw new Error(`apply_participant_join failed: ${error.message}`);
       }
-      return 'inserted';
+      if (data === 'interval_opened') return 'inserted';
+      if (data === 'interval_duplicate') return 'duplicate';
+      if (data === 'occurrence_mismatch') return 'occurrence_mismatch';
+      throw new Error(`apply_participant_join returned an unknown outcome: ${String(data)}`);
     },
 
     async applyLeave(leave) {
       const { data, error } = await internalClient.rpc('apply_participant_leave', {
+        p_surface_type: leave.surfaceType,
+        p_surface_id: leave.surfaceId,
         p_school_id: leave.schoolId,
         p_zoom_meeting_uuid: leave.zoomMeetingUuid,
         p_source_event_key: leave.sourceEventKey,

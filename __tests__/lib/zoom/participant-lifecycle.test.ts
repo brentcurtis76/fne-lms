@@ -90,7 +90,7 @@ interface DoubleOptions {
 }
 
 interface RecordedObservation extends LeaveApplication {
-  outcome: Exclude<LeaveApplyOutcome, 'observation_duplicate'>;
+  outcome: Exclude<LeaveApplyOutcome, 'observation_duplicate' | 'occurrence_mismatch'>;
 }
 
 /**
@@ -1070,6 +1070,54 @@ describe('surface resolution — it reads zoom_meetings and nothing else', () =>
     expect(store.findSurfaceByMeetingNumber).toHaveBeenCalledWith(86084701483);
     // The row still carries the occurrence uuid — the event's own, not the meeting row's.
     expect(inserted[0].zoomMeetingUuid).toBe(OCCURRENCE);
+  });
+
+  it('accepts meeting-number fallback when the established uuid matches', async () => {
+    const body = loadBody('meeting-participant_joined.json');
+    const { store, inserted } = storeDouble({
+      surface: null,
+      surfaceByNumber: { ...SURFACE, zoomMeetingUuid: OCCURRENCE },
+    });
+
+    await expect(applyParticipantEvent(
+      store,
+      'meeting.participant_joined',
+      body.payload?.object,
+      body.event_ts,
+      nextKey()
+    )).resolves.toBe('interval_opened');
+
+    expect(inserted).toHaveLength(1);
+  });
+
+  it.each([
+    'meeting.participant_joined',
+    'meeting.participant_left',
+  ] as const)('rejects a conflicting occurrence on number fallback for %s', async (eventType) => {
+    const body = loadBody(eventType === 'meeting.participant_joined'
+      ? 'meeting-participant_joined.json'
+      : 'meeting-participant_left.json');
+    const established = { ...SURFACE, zoomMeetingUuid: 'established-occurrence' };
+    const { store, inserted, observations, closes } = storeDouble({
+      surface: null,
+      surfaceByNumber: established,
+    });
+
+    const outcome = await applyParticipantEvent(
+      store,
+      eventType,
+      { ...body.payload?.object, uuid: 'foreign-occurrence' },
+      body.event_ts,
+      nextKey()
+    );
+
+    expect(outcome).toBe('unresolved_surface');
+    expect(inserted).toHaveLength(0);
+    expect(observations).toHaveLength(0);
+    expect(closes).toHaveLength(0);
+    expect(store.insertInterval).not.toHaveBeenCalled();
+    expect(store.applyLeave).not.toHaveBeenCalled();
+    expect(established.zoomMeetingUuid).toBe('established-occurrence');
   });
 
   it('an unresolved surface is ledger-only and NOT an error', async () => {

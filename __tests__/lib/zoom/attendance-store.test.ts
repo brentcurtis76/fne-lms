@@ -75,6 +75,8 @@ function interceptedStore(
 
 describe('applyLeave · one RPC, one transaction (§15.3.9)', () => {
   const LEAVE = {
+    surfaceType: 'consultor_session' as const,
+    surfaceId: 'a7a7a7a7-0000-0000-0000-000000000001',
     schoolId: 9901,
     zoomMeetingUuid: OCCURRENCE,
     sourceEventKey: 'sha256-of-the-raw-body',
@@ -98,6 +100,8 @@ describe('applyLeave · one RPC, one transaction (§15.3.9)', () => {
     // The zoom_internal profile header — the function lives in the private schema.
     expect(request.headers.get('content-profile')).toBe('zoom_internal');
     expect(request.body).toEqual({
+      p_surface_type: 'consultor_session',
+      p_surface_id: 'a7a7a7a7-0000-0000-0000-000000000001',
       p_school_id: 9901,
       p_zoom_meeting_uuid: OCCURRENCE,
       p_source_event_key: 'sha256-of-the-raw-body',
@@ -142,6 +146,7 @@ describe('applyLeave · one RPC, one transaction (§15.3.9)', () => {
       'unpairable_leave',
       'no_instant',
       'observation_duplicate',
+      'occurrence_mismatch',
     ]) {
       const { store } = interceptedStore([{ body: outcome as never }]);
       await expect(store.applyLeave(LEAVE)).resolves.toBe(outcome);
@@ -161,9 +166,9 @@ describe('applyLeave · one RPC, one transaction (§15.3.9)', () => {
   });
 });
 
-describe('insertInterval · both idempotency keys reach the wire (Codex P1-2)', () => {
-  it('sends identity_token, source_event_key and source=webhook', async () => {
-    const { store, requests } = interceptedStore([{ status: 201 }]);
+describe('insertInterval · occurrence-authoritative RPC', () => {
+  it('sends surface authority, identity evidence, and both idempotency keys', async () => {
+    const { store, requests } = interceptedStore([{ body: 'interval_opened' as never }]);
 
     await store.insertInterval({
       surfaceType: 'consultor_session',
@@ -183,25 +188,22 @@ describe('insertInterval · both idempotency keys reach the wire (Codex P1-2)', 
 
     const [request] = requests;
     expect(request.method).toBe('POST');
-    expect(request.url.pathname).toBe('/rest/v1/zoom_attendance');
+    expect(request.url.pathname).toBe('/rest/v1/rpc/apply_participant_join');
+    expect(request.headers.get('content-profile')).toBe('zoom_internal');
     expect(request.body).toMatchObject({
-      identity_tokens: ['ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1', 'nm:ana perez sintetica'],
-      source_event_key: 'sha256-of-the-raw-body',
-      source: 'webhook',
-      matched_by: 'unmatched',
-      user_id: null,
+      p_surface_type: 'consultor_session',
+      p_surface_id: 'a7a7a7a7-0000-0000-0000-000000000001',
+      p_school_id: 9901,
+      p_zoom_meeting_uuid: OCCURRENCE,
+      p_identity_tokens: ['ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1', 'nm:ana perez sintetica'],
+      p_source_event_key: 'sha256-of-the-raw-body',
+      p_matched_by: 'unmatched',
+      p_user_id: null,
     });
   });
 
-  it('reports a unique violation as `duplicate`, never as an error', async () => {
-    // Either partial index can raise it — the participant_uuid one or source_event_key.
-    // Both mean "Zoom redelivered, or the sweep replayed", which is normal operation.
-    const { store } = interceptedStore([
-      {
-        status: 409,
-        body: { code: '23505', message: 'duplicate key value violates unique constraint' },
-      },
-    ]);
+  it('maps the RPC duplicate outcome without exposing a database exception', async () => {
+    const { store } = interceptedStore([{ body: 'interval_duplicate' as never }]);
 
     await expect(
       store.insertInterval({
@@ -220,6 +222,25 @@ describe('insertInterval · both idempotency keys reach the wire (Codex P1-2)', 
         sourceEventKey: 'sha256-of-the-raw-body',
       })
     ).resolves.toBe('duplicate');
+  });
+
+  it('propagates occurrence_mismatch without inventing an interval', async () => {
+    const { store } = interceptedStore([{ body: 'occurrence_mismatch' as never }]);
+    await expect(store.insertInterval({
+      surfaceType: 'consultor_session',
+      surfaceId: 'a7a7a7a7-0000-0000-0000-000000000001',
+      schoolId: 9901,
+      zoomMeetingUuid: 'foreign-occurrence',
+      participantUuid: null,
+      userId: null,
+      customerKey: null,
+      displayName: null,
+      transientEmail: null,
+      matchedBy: 'unmatched',
+      joinedAt: '2026-07-29T23:55:00.000Z',
+      identityTokens: [],
+      sourceEventKey: 'sha256-foreign',
+    })).resolves.toBe('occurrence_mismatch');
   });
 });
 

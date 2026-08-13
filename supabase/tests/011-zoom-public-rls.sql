@@ -25,7 +25,7 @@
 
 BEGIN;
 
-SELECT plan(134);
+SELECT plan(146);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures
@@ -713,7 +713,7 @@ SELECT ok(
 SELECT is(
   (SELECT count(*)::int FROM zoom_internal.apply_meeting_lifecycle(
      'a7a7a7a7-2222-0000-0000-000000000001', 'started',
-     ARRAY['pending', 'provisioned', 'started'], 'z7Occurrence/M1==',
+     ARRAY['pending', 'provisioned', 'started'], 'Different/Occurrence==',
      '2001-01-01T00:00:00Z', NULL)),
   1, 'a replayed meeting.started still applies — duplicate deliveries are not errors');
 
@@ -722,6 +722,12 @@ SELECT is(
     WHERE id = 'a7a7a7a7-2222-0000-0000-000000000001'),
   '2026-07-29T23:55:56Z'::timestamptz,
   'a REPLAYED meeting.started cannot overwrite an instant already recorded');
+
+SELECT is(
+  (SELECT zoom_meeting_uuid FROM zoom_internal.zoom_meetings
+    WHERE id = 'a7a7a7a7-2222-0000-0000-000000000001'),
+  'z7Occurrence/M1==',
+  '[Z7-R2.1] an applying replay with a DIFFERENT UUID cannot overwrite established occurrence identity');
 
 -- M1(c) THE CORRECTION PATH Z7-3 needs. §11 makes the reconcile participant report
 -- authoritative over webhooks, so the fill-while-NULL rule must be scoped to the
@@ -758,7 +764,7 @@ SELECT ok(
 SELECT is(
   (SELECT count(*)::int FROM zoom_internal.apply_meeting_lifecycle(
      'a7a7a7a7-2222-0000-0000-000000000002', 'started',
-     ARRAY['pending', 'provisioned', 'started'], 'z7Occurrence/M2==',
+     ARRAY['pending', 'provisioned', 'started'], 'Different/Occurrence==',
      '2001-01-01T00:00:00Z', NULL)),
   0, 'a swept meeting.started over an ended meeting matches zero rows — the guard refuses it');
 
@@ -770,6 +776,19 @@ SELECT ok(
      FROM zoom_internal.zoom_meetings
     WHERE id = 'a7a7a7a7-2222-0000-0000-000000000002'),
   'after the refused replay the row still holds both instants and occurrence identity unchanged');
+
+SELECT is(
+  (SELECT count(*)::int
+     FROM zoom_internal.zoom_meetings m
+    WHERE m.status = 'ended'
+      AND m.zoom_meeting_uuid = 'z7Occurrence/M2=='
+      AND NOT EXISTS (
+        SELECT 1 FROM zoom_internal.zoom_attendance_report_batches b
+         WHERE b.zoom_meeting_uuid = m.zoom_meeting_uuid
+           AND b.status = 'complete'
+      )),
+  1,
+  '[Z7-R2.1] the ended-before-started occurrence remains eligible for report reconciliation');
 
 RESET ROLE;
 
@@ -1288,7 +1307,9 @@ VALUES
   ('a7a7a7a7-8888-0000-0000-000000000001', 9901, 'consultor_session',
    'a7a7a7a7-0000-0000-0000-000000000001', 'z7Synthetic/Occurrence/B==', 'pending'),
   ('a7a7a7a7-8888-0000-0000-000000000002', 9901, 'consultor_session',
-   'a7a7a7a7-0000-0000-0000-000000000001', 'z7Synthetic/Occurrence/B==', 'pending');
+   'a7a7a7a7-0000-0000-0000-000000000001', 'z7Synthetic/Occurrence/B==', 'pending'),
+  ('a7a7a7a7-8888-0000-0000-000000000003', 9901, 'consultor_session',
+   'a7a7a7a7-0000-0000-0000-000000000001', 'z7Synthetic/Occurrence/C==', 'pending');
 
 SET LOCAL ROLE service_role;
 
@@ -1353,6 +1374,39 @@ SELECT is(
   'batch_not_pending',
   'B3: promoting a complete batch again is refused, not re-run');
 
+SELECT is(
+  zoom_internal.reject_attendance_report_batch(
+    'a7a7a7a7-8888-0000-0000-000000000001', 'post_commit_transport_failure'),
+  'batch_not_pending',
+  '[Z7-R2.2] rejection after a committed promotion cannot demote COMPLETE');
+
+SELECT ok(
+  (SELECT status = 'complete' AND rejection_reason IS NULL
+     FROM zoom_internal.zoom_attendance_report_batches
+    WHERE id = 'a7a7a7a7-8888-0000-0000-000000000001'),
+  '[Z7-R2.2] the complete batch remains complete after ambiguous-outcome rejection');
+
+SELECT is(
+  (SELECT id FROM zoom_internal.zoom_attendance_report_batches
+    WHERE zoom_meeting_uuid = 'z7Synthetic/Occurrence/B==' AND status = 'complete'
+    ORDER BY seq DESC LIMIT 1),
+  'a7a7a7a7-8888-0000-0000-000000000001'::uuid,
+  '[Z7-R2.2/R2.4] the previous complete batch remains the effective authority');
+
+SELECT throws_ok(
+  $$ UPDATE zoom_internal.zoom_attendance_report_batches
+        SET status = 'rejected', rejection_reason = 'illegal demotion'
+      WHERE id = 'a7a7a7a7-8888-0000-0000-000000000001' $$,
+  'P0409', NULL,
+  '[Z7-R2.2] the database refuses complete→rejected even to a table-privileged writer');
+
+SELECT throws_ok(
+  $$ UPDATE zoom_internal.zoom_attendance_report_batches
+        SET updated_at = now()
+      WHERE id = 'a7a7a7a7-8888-0000-0000-000000000001' $$,
+  'P0409', NULL,
+  '[Z7-R2.2] COMPLETE is terminal: even a same-status rewrite is refused');
+
 -- B4 — an unknown batch id.
 SELECT is(
   zoom_internal.promote_attendance_report_batch(
@@ -1373,6 +1427,38 @@ SELECT is(
     'a7a7a7a7-8888-0000-0000-000000000002', '[]'::jsonb, 100, 1, 0, '2026-07-30T03:00:00Z'),
   'batch_not_pending',
   'B5: a rejected candidate can never become authoritative');
+RESET ROLE;
+
+SELECT throws_ok(
+  $$ UPDATE zoom_internal.zoom_attendance_report_batches
+        SET status = 'complete', total_records = 0, row_count = 0
+      WHERE id = 'a7a7a7a7-8888-0000-0000-000000000002' $$,
+  'P0409', NULL,
+  '[Z7-R2.2] the database refuses rejected→complete');
+
+SELECT throws_ok(
+  $$ UPDATE zoom_internal.zoom_attendance_report_batches
+        SET rejection_reason = 'rewritten reason'
+      WHERE id = 'a7a7a7a7-8888-0000-0000-000000000002' $$,
+  'P0409', NULL,
+  '[Z7-R2.2] REJECTED is terminal: its reason cannot be rewritten');
+
+SET LOCAL ROLE service_role;
+SELECT is(
+  zoom_internal.reject_attendance_report_batch(
+    'a7a7a7a7-8888-0000-0000-000000000003', 'page_fetch_failed'),
+  'rejected',
+  '[Z7-R2.2] a pending fetch failure resolves once to rejected');
+SELECT is(
+  zoom_internal.reject_attendance_report_batch(
+    'a7a7a7a7-8888-0000-0000-000000000003', 'second reason'),
+  'batch_not_pending',
+  '[Z7-R2.2] a second rejection is refused instead of rewriting the terminal batch');
+SELECT is(
+  zoom_internal.promote_attendance_report_batch(
+    'a7a7a7a7-8888-0000-0000-000000000003', '[]'::jsonb, 100, 1, 0, '2026-07-30T03:00:00Z'),
+  'batch_not_pending',
+  '[Z7-R2.2] a rejected batch cannot be promoted later');
 RESET ROLE;
 
 -- B6 — DB-owned authority order: seq is monotonic in creation order, so the

@@ -53,10 +53,11 @@ CREATE TABLE public.session_hour_overrides (
     reason text NOT NULL CHECK (btrim(reason) <> ''),
     reason_category text NOT NULL CHECK (reason_category IN
       ('consultant_shortfall', 'school_request', 'technical_failure', 'other')),
-    -- Idempotency with tamper detection (§11): replaying the same request_id with
-    -- the same payload_hash is a no-op; a different hash is refused.
+    -- The caller hash is retained as audit evidence, but PostgreSQL owns replay
+    -- equality through request_payload below; the caller cannot forge equivalence.
     request_id text NOT NULL UNIQUE,
     payload_hash text NOT NULL,
+    request_payload jsonb NOT NULL,
     -- The admin, bound to auth.uid() inside the RPC — never caller-supplied.
     created_by uuid NOT NULL REFERENCES public.profiles(id),
     created_at timestamptz NOT NULL DEFAULT now(),
@@ -152,6 +153,7 @@ DECLARE
     v_cliente_school integer;
     v_next_effective integer;
     v_override_id uuid;
+    v_request_payload jsonb;
 BEGIN
     -- Actor bound to the authenticated identity, INSIDE the function (§11 v2.1.1).
     v_actor := auth.uid();
@@ -183,12 +185,22 @@ BEGIN
         RAISE EXCEPTION 'Categoría de motivo inválida'
             USING ERRCODE = 'P0400';
     END IF;
+    -- Canonical normalized intent, derived INSIDE PostgreSQL. `p_payload_hash` is
+    -- never a security boundary: a caller may forge or reuse it, while jsonb
+    -- equality below compares every operation field under the request-id lock.
+    v_request_payload := jsonb_build_object(
+      'session_id', p_session_id,
+      'new_minutes', p_new_minutes,
+      'reason', btrim(p_reason),
+      'reason_category', p_reason_category,
+      'reverses_override_id', p_reverses_override_id
+    );
 
     -- Serialize ownership of the idempotency key BEFORE checking it (Z7-R7).
     -- The old precheck ran before the session/ledger row locks, so two transactions
     -- could both see no row and the loser surfaced the UNIQUE constraint as 23505.
     -- A hash collision only serializes unrelated requests; it cannot merge them,
-    -- because the exact request_id + payload_hash check below still decides replay.
+    -- because exact canonical-payload equality below still decides replay.
     PERFORM pg_catalog.pg_advisory_xact_lock(
       pg_catalog.hashtextextended(p_request_id, 0)
     );
@@ -201,7 +213,7 @@ BEGIN
       FROM public.session_hour_overrides
      WHERE request_id = p_request_id;
     IF FOUND THEN
-        IF v_existing.payload_hash = p_payload_hash THEN
+        IF v_existing.request_payload = v_request_payload THEN
             RETURN jsonb_build_object(
                 'applied', false,
                 'replay', true,
@@ -212,6 +224,11 @@ BEGIN
         END IF;
         RAISE EXCEPTION 'request_id ya utilizado con un contenido distinto'
             USING ERRCODE = 'P0409';
+    END IF;
+
+    IF p_reverses_override_id IS NOT NULL AND p_new_minutes IS NOT NULL THEN
+        RAISE EXCEPTION 'Una reversión no acepta minutos'
+            USING ERRCODE = 'P0400';
     END IF;
 
     -- Lock the session, then its ledger row: every chain mutation serialises on
@@ -315,11 +332,11 @@ BEGIN
     INSERT INTO public.session_hour_overrides
       (school_id, session_id, ledger_id, previous_minutes, new_minutes,
        planned_minutes_snapshot, reason, reason_category, request_id,
-       payload_hash, created_by, reverses_override_id)
+       payload_hash, request_payload, created_by, reverses_override_id)
     VALUES
       (v_school_id, p_session_id, v_ledger_id, v_ledger_effective, v_next_effective,
        v_planned_snapshot, p_reason, p_reason_category, p_request_id,
-       p_payload_hash, v_actor, p_reverses_override_id)
+       p_payload_hash, v_request_payload, v_actor, p_reverses_override_id)
     RETURNING id INTO v_override_id;
 
     UPDATE public.contract_hours_ledger
@@ -341,7 +358,7 @@ END
 $$;
 
 COMMENT ON FUNCTION public.apply_session_hour_override(uuid, integer, text, text, text, text, uuid) IS
-  'The ONE path that adjusts a finalized session''s billable minutes (§11): apply (p_reverses_override_id NULL, p_new_minutes >= 0, 0 = zero waiver) or reverse (restores the reversed event''s previous_minutes; NULL back to planned). Actor = auth.uid() inside — NULL aborts, non-admin aborts — so no webhook, job, service client or AI process can reach it. Insert + ledger update are one transaction; request_id ownership is transaction-advisory-locked before the replay/tamper check.';
+  'The ONE path that adjusts a finalized session''s billable minutes (§11): apply (p_reverses_override_id NULL, p_new_minutes >= 0, 0 = zero waiver) or reverse (restores the reversed event''s previous_minutes; NULL back to planned). Actor = auth.uid() inside — NULL aborts, non-admin aborts — so no webhook, job, service client or AI process can reach it. Insert + ledger update are one transaction; request_id ownership is transaction-advisory-locked before PostgreSQL compares the canonical normalized request payload. The caller hash is audit evidence only.';
 
 -- service_role is revoked EXPLICITLY: Supabase's default privileges grant new
 -- public functions to anon/authenticated/service_role, and §11 requires the

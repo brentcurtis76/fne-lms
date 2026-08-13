@@ -87,9 +87,10 @@ BEGIN
   RETURN QUERY
   UPDATE zoom_internal.zoom_meetings AS m
      SET status = p_status,
-         -- Unchanged rule: an event that omits the uuid must not blank the one
-         -- `meeting.started` captured, and `meeting.ended` never supplies one.
-         zoom_meeting_uuid = COALESCE(p_occurrence_uuid, m.zoom_meeting_uuid),
+         -- Fill only while missing. Once either lifecycle delivery establishes the
+         -- occurrence identity, a replay carrying a different UUID cannot retarget
+         -- this meeting's report/attendance authority.
+         zoom_meeting_uuid = COALESCE(m.zoom_meeting_uuid, p_occurrence_uuid),
          -- Fill-while-NULL, both columns. First writer wins; the replay is inert.
          actual_started_at = COALESCE(m.actual_started_at, p_actual_started_at),
          actual_ended_at = COALESCE(m.actual_ended_at, p_actual_ended_at),
@@ -101,7 +102,7 @@ END
 $$;
 
 COMMENT ON FUNCTION zoom_internal.apply_meeting_lifecycle(uuid, text, text[], text, timestamptz, timestamptz) IS
-  'The §8 lifecycle transition as one atomic guarded UPDATE: the applies-from set is the monotonicity guard (caller-supplied; source of truth lib/zoom/webhook-store.ts), and the observed instants are filled only while NULL so a swept or out-of-order replay cannot overwrite one. Returns the row surface keys when the guard applied, zero rows when it refused. NOT the correction path — Z7-3 reconcile writes the columns directly.';
+  'The §8 lifecycle transition as one atomic guarded UPDATE: the applies-from set is the monotonicity guard (caller-supplied; source of truth lib/zoom/webhook-store.ts), and the occurrence UUID plus observed instants are filled only while NULL so a swept or out-of-order replay cannot overwrite established identity/evidence. Returns the row surface keys when the guard applied, zero rows when it refused. NOT the correction path — Z7-3 reconcile writes the instant columns directly.';
 
 REVOKE EXECUTE ON FUNCTION zoom_internal.apply_meeting_lifecycle(
   uuid, text, text[], text, timestamptz, timestamptz)

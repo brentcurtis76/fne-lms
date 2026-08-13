@@ -589,6 +589,7 @@ export function createLiveZoomApi(client: ZoomClient = createZoomClient()): Zoom
       if (
         !data ||
         !Array.isArray(data.participants) ||
+        typeof data.next_page_token !== 'string' ||
         typeof data.total_records !== 'number' ||
         typeof data.page_size !== 'number' ||
         typeof data.page_count !== 'number'
@@ -600,7 +601,7 @@ export function createLiveZoomApi(client: ZoomClient = createZoomClient()): Zoom
 
       return {
         participants: data.participants as ZoomReportParticipantRaw[],
-        nextPageToken: typeof data.next_page_token === 'string' ? data.next_page_token : '',
+        nextPageToken: data.next_page_token,
         pageSize: data.page_size,
         pageCount: data.page_count,
         totalRecords: data.total_records,

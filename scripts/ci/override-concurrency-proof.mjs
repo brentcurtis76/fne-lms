@@ -48,6 +48,8 @@ const ids = {
   sessionConflict: crypto.randomUUID(),
   ledgerSame: crypto.randomUUID(),
   ledgerConflict: crypto.randomUUID(),
+  tamperSessions: Array.from({ length: 6 }, () => crypto.randomUUID()),
+  tamperLedgers: Array.from({ length: 6 }, () => crypto.randomUUID()),
 };
 const ident = `z7_override_concurrency_${process.pid}_${Date.now()}`;
 const requestSame = `z7-concurrent-same-${crypto.randomUUID()}`;
@@ -125,6 +127,11 @@ async function seed(admin) {
   for (const [sessionId, ledgerId, title] of [
     [ids.sessionSame, ids.ledgerSame, 'Idempotencia concurrente idéntica'],
     [ids.sessionConflict, ids.ledgerConflict, 'Idempotencia concurrente conflictiva'],
+    ...ids.tamperSessions.map((sessionId, index) => [
+      sessionId,
+      ids.tamperLedgers[index],
+      `Idempotencia canónica campo ${index + 1}`,
+    ]),
   ]) {
     await admin.query(
       `INSERT INTO public.consultor_sessions
@@ -154,14 +161,15 @@ async function runOverride(client, actorId, input) {
     await client.query(`SELECT set_config('request.jwt.claim.role', 'authenticated', true)`);
     await client.query('SET LOCAL ROLE authenticated');
     const { rows } = await client.query(
-      `SELECT public.apply_session_hour_override($1, $2, $3, $4, $5, $6) AS result`,
+      `SELECT public.apply_session_hour_override($1, $2, $3, $4, $5, $6, $7) AS result`,
       [
         input.sessionId,
         input.minutes,
         input.reason,
-        'other',
+        input.category ?? 'other',
         input.requestId,
         input.payloadHash,
+        input.reversesOverrideId ?? null,
       ]
     );
     await client.query('COMMIT');
@@ -194,7 +202,7 @@ async function waitForBothBlocked(observer, applicationNames) {
   throw new Error(`concurrency barrier did not block both callers: ${applicationNames.join(', ')}`);
 }
 
-async function runRace({ observer, actorId, sessionId, requestId, inputs, label }) {
+async function runRace({ observer, actorId, sessionId, requestId, inputs, label, ordered = false }) {
   const control = new Client({ connectionString: DB_URL, application_name: `${label}-control` });
   const nameA = `${label}-a`;
   const nameB = `${label}-b`;
@@ -204,18 +212,20 @@ async function runRace({ observer, actorId, sessionId, requestId, inputs, label 
 
   try {
     await control.query('BEGIN');
+    const lockedSessions = [...new Set(inputs.map((input) => input.sessionId ?? sessionId))];
     await control.query(
-      'SELECT id FROM public.consultor_sessions WHERE id = $1 FOR UPDATE',
-      [sessionId]
+      'SELECT id FROM public.consultor_sessions WHERE id = ANY($1::uuid[]) FOR UPDATE',
+      [lockedSessions]
     );
 
     const pendingA = runOverride(callerA, actorId, {
-      sessionId,
+      sessionId: inputs[0].sessionId ?? sessionId,
       requestId,
       ...inputs[0],
     });
+    if (ordered) await waitForBothBlocked(observer, [nameA]);
     const pendingB = runOverride(callerB, actorId, {
-      sessionId,
+      sessionId: inputs[1].sessionId ?? sessionId,
       requestId,
       ...inputs[1],
     });
@@ -303,9 +313,72 @@ async function main() {
     assert(sequential.replay === true && sequential.applied === false,
       `sequential replay was not idempotent: ${JSON.stringify(sequential)}`);
 
+    const canonicalScenarios = [
+      {
+        field: 'session_id',
+        baseSession: ids.tamperSessions[0],
+        original: { minutes: 45, reason: 'Payload canónico', payloadHash: 'forged-shared' },
+        changed: { sessionId: ids.tamperSessions[1], minutes: 45, reason: 'Payload canónico', payloadHash: 'forged-shared' },
+      },
+      {
+        field: 'new_minutes',
+        baseSession: ids.tamperSessions[2],
+        original: { minutes: 45, reason: 'Payload canónico', payloadHash: 'forged-shared' },
+        changed: { minutes: 30, reason: 'Payload canónico', payloadHash: 'forged-shared' },
+      },
+      {
+        field: 'reason',
+        baseSession: ids.tamperSessions[3],
+        original: { minutes: 45, reason: 'Payload canónico', payloadHash: 'forged-shared' },
+        changed: { minutes: 45, reason: 'Motivo cambiado', payloadHash: 'forged-shared' },
+      },
+      {
+        field: 'reason_category',
+        baseSession: ids.tamperSessions[4],
+        original: { minutes: 45, reason: 'Payload canónico', category: 'other', payloadHash: 'forged-shared' },
+        changed: { minutes: 45, reason: 'Payload canónico', category: 'school_request', payloadHash: 'forged-shared' },
+      },
+      {
+        field: 'reverses_override_id',
+        baseSession: ids.tamperSessions[5],
+        original: { minutes: 45, reason: 'Payload canónico', payloadHash: 'forged-shared' },
+        changed: { minutes: 45, reason: 'Payload canónico', payloadHash: 'forged-shared', reversesOverrideId: crypto.randomUUID() },
+      },
+    ];
+
+    for (const scenario of canonicalScenarios) {
+      const requestId = `z7-canonical-${scenario.field}-${crypto.randomUUID()}`;
+      const raced = await runRace({
+        observer,
+        actorId,
+        sessionId: scenario.baseSession,
+        requestId,
+        label: `z7-canonical-${scenario.field.replaceAll('_', '-')}`,
+        inputs: [scenario.original, scenario.changed],
+        ordered: true,
+      });
+      assert(raced[0].status === 'fulfilled' && raced[0].value.applied === true,
+        `${scenario.field} race did not apply the original payload: ${JSON.stringify(raced)}`);
+      assert(raced[1].status === 'rejected' && raced[1].reason?.code === 'P0409',
+        `${scenario.field} concurrent forged-hash change was not P0409: ${JSON.stringify(raced)}`);
+      assert(raced[1].reason?.code !== '23505', `${scenario.field} leaked 23505`);
+
+      const sequentialChanged = await runOverride(replay, actorId, {
+        sessionId: scenario.changed.sessionId ?? scenario.baseSession,
+        requestId,
+        ...scenario.changed,
+      }).then(
+        () => ({ code: 'unexpected-success' }),
+        (error) => ({ code: error.code })
+      );
+      assert(sequentialChanged.code === 'P0409',
+        `${scenario.field} sequential forged-hash change returned ${sequentialChanged.code}`);
+    }
+
     console.log('✓ identical request race: one apply + one replay, one audit row');
     console.log('✓ different payload race: one apply + one P0409 conflict, never 23505');
     console.log('✓ sequential replay remains a no-op');
+    console.log('✓ every canonical payload field rejects forged-hash changes sequentially and concurrently');
   } finally {
     await Promise.all([admin.end(), observer.end(), replay.end()]);
   }

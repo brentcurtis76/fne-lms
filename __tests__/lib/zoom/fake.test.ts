@@ -409,6 +409,39 @@ describe('live adapter — wire shapes', () => {
     expect(result.users.filter(isLicensedHost)).toHaveLength(1);
   });
 
+  it.each([
+    ['absent', undefined],
+    ['null', null],
+    ['numeric', 42],
+    ['object', { token: 'next' }],
+  ])(
+    '[Z7-R2.4] rejects a %s participant-report next_page_token',
+    async (_label, nextPageToken) => {
+      const body: Record<string, unknown> = {
+        participants: [],
+        page_size: 100,
+        page_count: 1,
+        total_records: 0,
+      };
+      if (nextPageToken !== undefined) body.next_page_token = nextPageToken;
+      const { api } = liveApi([{ status: 200, body }]);
+
+      await expect(api.listReportParticipants('Synthetic/Occurrence==')).rejects.toThrow(
+        ZoomConfigError
+      );
+    }
+  );
+
+  it('[Z7-R2.4] accepts explicit empty next_page_token as the only terminal signal', async () => {
+    const { api } = liveApi([{ status: 200, body: {
+      participants: [], next_page_token: '', page_size: 100, page_count: 1, total_records: 0,
+    } }]);
+
+    await expect(api.listReportParticipants('Synthetic/Occurrence==')).resolves.toMatchObject({
+      nextPageToken: '', totalRecords: 0,
+    });
+  });
+
   it('deletes through the meeting endpoint', async () => {
     const { api, calls } = liveApi([{ status: 204 }]);
     await api.deleteMeeting(82000000042);

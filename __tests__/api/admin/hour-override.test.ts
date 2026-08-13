@@ -39,10 +39,10 @@ function mockRpc(result: { data?: unknown; error?: { code?: string; message: str
   return rpc;
 }
 
-async function invoke(body: Record<string, unknown>, method = 'POST') {
+async function invoke(body: Record<string, unknown>, method = 'POST', sessionId = SESSION_ID) {
   const { req, res } = createMocks<NextApiRequest, NextApiResponse>({
     method: method as 'POST',
-    query: { id: SESSION_ID },
+    query: { id: sessionId },
     body,
   });
   await handler(req, res);
@@ -83,6 +83,11 @@ describe('/api/admin/sessions/[id]/hour-override — auth and method', () => {
 });
 
 describe('validation (§11)', () => {
+  it('400s a nonempty invalid session UUID before creating the RPC client', async () => {
+    const res = await invoke(VALID_APPLY, 'POST', 'not-a-session-uuid');
+    expect(res._getStatusCode()).toBe(400);
+    expect(mockCreateApiSupabaseClient).not.toHaveBeenCalled();
+  });
   it('400s an override without a reason', async () => {
     const res = await invoke({ ...VALID_APPLY, reason: '   ' });
     expect(res._getStatusCode()).toBe(400);
@@ -102,6 +107,23 @@ describe('validation (§11)', () => {
     expect((await invoke({ ...VALID_APPLY, new_minutes: 45.5 }))._getStatusCode()).toBe(400);
     expect((await invoke({ ...VALID_APPLY, new_minutes: -1 }))._getStatusCode()).toBe(400);
     expect((await invoke({ ...VALID_APPLY, new_minutes: '45' }))._getStatusCode()).toBe(400);
+  });
+
+  it('400s PostgreSQL integer overflow before calling the RPC', async () => {
+    const res = await invoke({ ...VALID_APPLY, new_minutes: 2_147_483_648 });
+    expect(res._getStatusCode()).toBe(400);
+    expect(mockCreateApiSupabaseClient).not.toHaveBeenCalled();
+  });
+
+  it('400s a nonempty invalid reversal UUID before calling the RPC', async () => {
+    const res = await invoke({
+      reason: 'Reversión sintética',
+      reason_category: 'other',
+      request_id: 'req-invalid-reversal',
+      reverses_override_id: 'not-an-override-uuid',
+    });
+    expect(res._getStatusCode()).toBe(400);
+    expect(mockCreateApiSupabaseClient).not.toHaveBeenCalled();
   });
 
   it('400s a reversal that also supplies minutes', async () => {

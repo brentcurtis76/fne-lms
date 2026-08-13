@@ -68,6 +68,77 @@ COMMENT ON TABLE zoom_internal.zoom_attendance_report_batches IS
 
 ALTER TABLE zoom_internal.zoom_attendance_report_batches ENABLE ROW LEVEL SECURITY;
 
+-- Batch resolution is a one-way state machine owned by PostgreSQL. Service-role
+-- table privileges are intentionally broad inside zoom_internal, so a TypeScript
+-- WHERE clause is not a sufficient terminality boundary: any writer must be unable
+-- to demote a committed COMPLETE batch or resurrect a REJECTED one.
+CREATE OR REPLACE FUNCTION zoom_internal.enforce_attendance_report_batch_transition()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  IF OLD.status <> 'pending' OR NEW.status NOT IN ('complete', 'rejected') THEN
+    RAISE EXCEPTION 'attendance report batches resolve exactly once: pending -> complete|rejected'
+      USING ERRCODE = 'P0409';
+  END IF;
+  RETURN NEW;
+END
+$$;
+
+CREATE TRIGGER zoom_attendance_report_batches_terminal
+BEFORE UPDATE ON zoom_internal.zoom_attendance_report_batches
+FOR EACH ROW EXECUTE FUNCTION zoom_internal.enforce_attendance_report_batch_transition();
+
+COMMENT ON FUNCTION zoom_internal.enforce_attendance_report_batch_transition() IS
+  'Database boundary for §15.3.9 batch terminality: the only UPDATE is pending→complete or pending→rejected. Complete/rejected rows are immutable, including same-status rewrites.';
+
+-- Conditional rejection lives beside promotion so callers cannot accidentally
+-- overwrite a terminal result after an ambiguous transport outcome.
+CREATE OR REPLACE FUNCTION zoom_internal.reject_attendance_report_batch(
+  p_batch_id uuid,
+  p_reason text
+) RETURNS text
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+DECLARE
+  v_status text;
+BEGIN
+  IF p_reason IS NULL OR btrim(p_reason) = '' THEN
+    RAISE EXCEPTION 'attendance report batch rejection requires a reason'
+      USING ERRCODE = 'P0400';
+  END IF;
+
+  UPDATE zoom_internal.zoom_attendance_report_batches
+     SET status = 'rejected',
+         rejection_reason = p_reason,
+         updated_at = now()
+   WHERE id = p_batch_id
+     AND status = 'pending'
+  RETURNING status INTO v_status;
+  IF FOUND THEN
+    RETURN 'rejected';
+  END IF;
+
+  SELECT status INTO v_status
+    FROM zoom_internal.zoom_attendance_report_batches
+   WHERE id = p_batch_id;
+  IF NOT FOUND THEN
+    RETURN 'batch_not_found';
+  END IF;
+  RETURN 'batch_not_pending';
+END
+$$;
+
+COMMENT ON FUNCTION zoom_internal.reject_attendance_report_batch(uuid, text) IS
+  'Conditionally resolves pending→rejected and returns rejected, batch_not_pending, or batch_not_found. It never rewrites a complete/rejected row.';
+
+REVOKE EXECUTE ON FUNCTION zoom_internal.reject_attendance_report_batch(uuid, text)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION zoom_internal.reject_attendance_report_batch(uuid, text)
+  TO service_role;
+
 -- -----------------------------------------------------------------------------
 -- public.zoom_attendance.report_batch_id — which batch a report row belongs to.
 --

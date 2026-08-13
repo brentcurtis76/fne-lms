@@ -51,6 +51,8 @@ export interface PromoteBatchInput {
 }
 
 export type PromoteBatchResult = 'promoted' | 'batch_not_pending' | 'batch_not_found';
+export type RejectBatchResult = 'rejected' | 'batch_not_pending' | 'batch_not_found';
+export type ReportBatchStatus = 'pending' | 'complete' | 'rejected';
 
 /** An occurrence whose report has not yet been captured as a complete batch. */
 export interface ReconcileCandidate {
@@ -72,8 +74,10 @@ export interface ZoomAttendanceReportStore {
     surfaceId: string;
     zoomMeetingUuid: string;
   }): Promise<string>;
-  /** Marks a candidate rejected, with the §15.3.9 clause that failed. */
-  rejectBatch(batchId: string, reason: string): Promise<void>;
+  /** Conditionally resolves pending→rejected; complete/rejected are terminal. */
+  rejectBatch(batchId: string, reason: string): Promise<RejectBatchResult>;
+  /** Durable state used to reconcile an ambiguous promotion transport outcome. */
+  readBatchStatus(batchId: string): Promise<ReportBatchStatus | null>;
   /** The atomic promotion — rows + flip in one transaction, via the RPC. */
   promoteBatch(input: PromoteBatchInput): Promise<PromoteBatchResult>;
   /**
@@ -105,6 +109,10 @@ interface BatchIdRow {
   id: string;
 }
 
+interface BatchStatusRow {
+  status: ReportBatchStatus;
+}
+
 interface CandidateMeetingRow {
   id: string;
   zoom_meeting_uuid: string | null;
@@ -124,7 +132,10 @@ interface CandidateRangeChain {
 }
 
 interface ReportSelectChain {
-  maybeSingle(): PromiseLike<{ data: MeetingRow | null; error: PostgrestError | null }>;
+  maybeSingle(): PromiseLike<{
+    data: MeetingRow | BatchStatusRow | null;
+    error: PostgrestError | null;
+  }>;
   in(
     column: string,
     values: string[]
@@ -146,9 +157,6 @@ export interface ReportInternalClient {
         single(): PromiseLike<{ data: BatchIdRow | null; error: PostgrestError | null }>;
       };
     };
-    update(values: Record<string, unknown>): {
-      eq(column: string, value: string): PromiseLike<{ error: PostgrestError | null }>;
-    };
   };
   rpc(
     fn: string,
@@ -158,6 +166,11 @@ export interface ReportInternalClient {
 
 const PROMOTE_RESULTS: readonly PromoteBatchResult[] = [
   'promoted',
+  'batch_not_pending',
+  'batch_not_found',
+];
+const REJECT_RESULTS: readonly RejectBatchResult[] = [
+  'rejected',
   'batch_not_pending',
   'batch_not_found',
 ];
@@ -178,7 +191,7 @@ export function createSupabaseAttendanceReportStore(
       if (error) {
         throw new Error(`zoom_meetings reconcile read failed: ${error.message}`);
       }
-      if (!data) return null;
+      if (!data || !('id' in data)) return null;
       return {
         meetingId: data.id,
         surfaceType: data.surface_type,
@@ -208,13 +221,33 @@ export function createSupabaseAttendanceReportStore(
     },
 
     async rejectBatch(batchId, reason) {
-      const { error } = await internalClient
-        .from('zoom_attendance_report_batches')
-        .update({ status: 'rejected', rejection_reason: reason, updated_at: new Date().toISOString() })
-        .eq('id', batchId);
+      const { data, error } = await internalClient.rpc('reject_attendance_report_batch', {
+        p_batch_id: batchId,
+        p_reason: reason,
+      });
       if (error) {
         throw new Error(`report batch reject failed: ${error.message}`);
       }
+      if (typeof data !== 'string' || !(REJECT_RESULTS as readonly string[]).includes(data)) {
+        throw new Error(`reject_attendance_report_batch returned an unknown result: ${String(data)}`);
+      }
+      return data as RejectBatchResult;
+    },
+
+    async readBatchStatus(batchId) {
+      const { data, error } = await internalClient
+        .from('zoom_attendance_report_batches')
+        .select('status')
+        .eq('id', batchId)
+        .maybeSingle();
+      if (error) {
+        throw new Error(`report batch status read failed: ${error.message}`);
+      }
+      if (!data || !('status' in data)) return null;
+      if (!['pending', 'complete', 'rejected'].includes(data.status)) {
+        throw new Error(`report batch status read returned unknown state: ${data.status}`);
+      }
+      return data.status as ReportBatchStatus;
     },
 
     async promoteBatch(input) {

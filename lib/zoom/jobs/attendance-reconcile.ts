@@ -93,6 +93,15 @@ function isReportNotReady(error: unknown): boolean {
   return error instanceof ZoomError && error.status === 404;
 }
 
+class ReportPageCapExceededError extends ZoomRetryableError {
+  constructor() {
+    super(
+      `attendance_reconcile: pagination did not terminate within ${REPORT_MAX_PAGES} pages.`,
+      { operation: 'attendance_reconcile' }
+    );
+  }
+}
+
 export function createAttendanceReconcileHandler(
   deps: AttendanceReconcileDeps = {}
 ): ZoomJobHandler {
@@ -125,11 +134,7 @@ export function createAttendanceReconcileHandler(
       let nextPageToken: string | undefined;
       do {
         if (pages.length >= REPORT_MAX_PAGES) {
-          await store.rejectBatch(batchId, 'page_cap_exceeded');
-          throw new ZoomRetryableError(
-            `attendance_reconcile: pagination did not terminate within ${REPORT_MAX_PAGES} pages.`,
-            { operation: 'attendance_reconcile' }
-          );
+          throw new ReportPageCapExceededError();
         }
         const page = await api.listReportParticipants(occurrenceUuid, {
           pageSize: REPORT_PAGE_SIZE,
@@ -147,7 +152,9 @@ export function createAttendanceReconcileHandler(
       // a NEW candidate each attempt — and dead-letters onto the health panel.
       await store.rejectBatch(
         batchId,
-        `page_fetch_failed: ${error instanceof Error ? error.message : String(error)}`
+        error instanceof ReportPageCapExceededError
+          ? 'page_cap_exceeded'
+          : `page_fetch_failed: ${error instanceof Error ? error.message : String(error)}`
       );
       if (isReportNotReady(error)) {
         // Zoom generates the report minutes after the meeting ends; 404 now is a
@@ -208,20 +215,27 @@ export function createAttendanceReconcileHandler(
         reportFetchedAt: new Date(now()).toISOString(),
       });
     } catch (error) {
-      // The function aborted — count mismatch or a constraint refused a row. The
-      // batch is still pending; mark it rejected so the candidate is closed out.
-      await store.rejectBatch(
-        batchId,
-        `promotion_failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-      throw error instanceof ZoomError
-        ? error
-        : new ZoomRetryableError(
-            `attendance_reconcile: promotion failed (${
-              error instanceof Error ? error.message : String(error)
-            }).`,
-            { operation: 'attendance_reconcile' }
-          );
+      // The RPC can commit and then lose its response. Reconcile that ambiguous
+      // outcome from durable state before deciding whether this was a failure.
+      // Rejection is conditional at the DB boundary, so even a second transport
+      // failure cannot demote a committed COMPLETE batch.
+      const durableStatus = await store.readBatchStatus(batchId);
+      if (durableStatus === 'complete') {
+        promoted = 'promoted';
+      } else {
+        await store.rejectBatch(
+          batchId,
+          `promotion_failed: ${error instanceof Error ? error.message : String(error)}`
+        );
+        throw error instanceof ZoomError
+          ? error
+          : new ZoomRetryableError(
+              `attendance_reconcile: promotion failed (${
+                error instanceof Error ? error.message : String(error)
+              }).`,
+              { operation: 'attendance_reconcile' }
+            );
+      }
     }
 
     if (promoted === 'batch_not_found') {

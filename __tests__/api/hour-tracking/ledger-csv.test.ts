@@ -253,4 +253,49 @@ describe('GET /api/contracts/[id]/hours/ledger/csv', () => {
     expect(body).toContain('Horas');
     expect(body).toContain('Estado');
   });
+
+  it('[Z7-R2.5] consultant export fails closed when facilitator lookup fails', async () => {
+    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
+    mockGetUserRoles.mockResolvedValue([{ role: 'consultor' }]);
+    mockGetHighestRole.mockReturnValue('consultor');
+
+    const mockClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'contract_hour_allocations') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockResolvedValue({
+              data: [{ id: 'alloc-1', hour_types: { display_name: 'Online' } }],
+              error: null,
+            }),
+          };
+        }
+        if (table === 'session_facilitators') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'synthetic facilitator failure' },
+            }),
+          };
+        }
+        if (table === 'contract_hours_ledger') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            in: vi.fn().mockReturnThis(),
+            order: vi.fn().mockResolvedValue({ data: [], error: null }),
+          };
+        }
+        throw new Error(`unexpected table ${table}`);
+      }),
+    };
+    mockCreateServiceRoleClient.mockReturnValue(mockClient);
+
+    const { req, res } = createMocks({ method: 'GET', query: { id: CONTRACT_UUID } });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(res.getHeader('Content-Type')).not.toContain('text/csv');
+    expect(res._getJSONData()).toEqual({ error: 'Error al obtener sesiones del consultor' });
+  });
 });

@@ -17,6 +17,9 @@
 import { createHash } from 'crypto';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdmin, createApiSupabaseClient } from '../../../../../lib/api-auth';
+import { Validators } from '../../../../../lib/types/api-auth.types';
+
+const POSTGRES_INTEGER_MAX = 2_147_483_647;
 
 export const OVERRIDE_REASON_CATEGORIES = [
   'consultant_shortfall',
@@ -78,7 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const sessionId = req.query.id;
-  if (typeof sessionId !== 'string' || sessionId.length === 0) {
+  if (typeof sessionId !== 'string' || !Validators.isUUID(sessionId)) {
     return res.status(400).json({ error: 'Identificador de sesión inválido' });
   }
 
@@ -103,6 +106,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     typeof body.reverses_override_id === 'string' && body.reverses_override_id.length > 0
       ? body.reverses_override_id
       : null;
+  if (reversesOverrideId !== null && !Validators.isUUID(reversesOverrideId)) {
+    return res.status(400).json({ error: 'Identificador de ajuste a revertir inválido' });
+  }
 
   let newMinutes: number | null = null;
   if (reversesOverrideId === null) {
@@ -110,7 +116,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (
       typeof body.new_minutes !== 'number' ||
       !Number.isInteger(body.new_minutes) ||
-      body.new_minutes < 0
+      body.new_minutes < 0 ||
+      body.new_minutes > POSTGRES_INTEGER_MAX
     ) {
       return res
         .status(400)

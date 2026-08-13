@@ -2,11 +2,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   createAttendanceReconcileHandler,
+  REPORT_MAX_PAGES,
   REPORT_PAGE_SIZE,
 } from '../../../../lib/zoom/jobs/attendance-reconcile';
 import { ZoomJobLeaseLostError, type ZoomJobContext } from '../../../../lib/zoom/jobs/types';
 import { createZoomFake } from '../../../../lib/zoom/fake';
-import { ZoomRetryableError } from '../../../../lib/zoom/errors';
+import { ZoomConfigError, ZoomRetryableError } from '../../../../lib/zoom/errors';
 import type {
   PromoteBatchInput,
   PromoteBatchResult,
@@ -43,6 +44,7 @@ function fakeReportStore(options: {
   meeting?: ReconcileMeeting | null;
   promoteResult?: PromoteBatchResult;
   promoteError?: Error;
+  durableStatus?: 'pending' | 'complete' | 'rejected' | null;
 } = {}) {
   const rejections: { batchId: string; reason: string }[] = [];
   const promotions: PromoteBatchInput[] = [];
@@ -56,7 +58,9 @@ function fakeReportStore(options: {
     }),
     rejectBatch: vi.fn(async (batchId: string, reason: string) => {
       rejections.push({ batchId, reason });
+      return 'rejected' as const;
     }),
+    readBatchStatus: vi.fn(async () => options.durableStatus ?? 'pending'),
     promoteBatch: vi.fn(async (input: PromoteBatchInput) => {
       if (options.promoteError) throw options.promoteError;
       promotions.push(input);
@@ -194,6 +198,25 @@ describe('attendance_reconcile — the complete-batch capture', () => {
     ]);
   });
 
+  it.each(['absent', 'null', 'numeric', 'object'])(
+    '[Z7-R2.4] malformed %s next_page_token rejects the candidate and promotes nothing',
+    async (shape) => {
+      const api = createZoomFake();
+      api.listReportParticipants = vi.fn(async () => {
+        throw new ZoomConfigError(`synthetic malformed ${shape} next_page_token`);
+      });
+      const { store, promotions, rejections } = fakeReportStore();
+      const handler = createAttendanceReconcileHandler({ api, reportStore: store, matchLookups: fakeLookups() });
+
+      await expect(handler(context())).rejects.toThrow(ZoomConfigError);
+      expect(promotions).toEqual([]);
+      expect(rejections).toEqual([{
+        batchId: 'batch-1',
+        reason: `page_fetch_failed: synthetic malformed ${shape} next_page_token`,
+      }]);
+    }
+  );
+
   it('[matrix 14] count drift rejects the candidate with the failed clause named', async () => {
     const api = seedReport(50);
     api.driftReportTotal(OCCURRENCE, 51);
@@ -277,6 +300,41 @@ describe('attendance_reconcile — the complete-batch capture', () => {
     expect(rejections[0].reason).toMatch(/^promotion_failed/);
   });
 
+  it('[Z7-R2.2] a post-commit transport failure reconciles COMPLETE and never rejects it', async () => {
+    const api = seedReport(3);
+    const { store, rejections } = fakeReportStore({
+      promoteError: new Error('synthetic response lost after commit'),
+      durableStatus: 'complete',
+    });
+    const handler = createAttendanceReconcileHandler({
+      api,
+      reportStore: store,
+      matchLookups: fakeLookups(),
+    });
+
+    await expect(handler(context())).resolves.toMatchObject({ batch: 'promoted', rows: 3 });
+    expect(store.readBatchStatus).toHaveBeenCalledWith('batch-1');
+    expect(rejections).toEqual([]);
+  });
+
+  it('[Z7-R2.8] a nonterminating token sequence rejects once as page_cap_exceeded', async () => {
+    const api = createZoomFake();
+    api.listReportParticipants = vi.fn(async () => ({
+      participants: [],
+      nextPageToken: 'never-ends',
+      pageSize: REPORT_PAGE_SIZE,
+      pageCount: REPORT_MAX_PAGES + 1,
+      totalRecords: 0,
+    }));
+    const { store, promotions, rejections } = fakeReportStore();
+    const handler = createAttendanceReconcileHandler({ api, reportStore: store, matchLookups: fakeLookups() });
+
+    await expect(handler(context())).rejects.toThrow(/did not terminate/);
+    expect(api.listReportParticipants).toHaveBeenCalledTimes(REPORT_MAX_PAGES);
+    expect(promotions).toEqual([]);
+    expect(rejections).toEqual([{ batchId: 'batch-1', reason: 'page_cap_exceeded' }]);
+  });
+
   it('a lost lease stops the work without marking the candidate rejected', async () => {
     const api = seedReport(230);
     const { store, rejections } = fakeReportStore();
@@ -301,6 +359,7 @@ describe('attendance_reconcile — the complete-batch capture', () => {
       'createPendingBatch',
       'listReconcileCandidates',
       'promoteBatch',
+      'readBatchStatus',
       'readMeeting',
       'rejectBatch',
     ]);

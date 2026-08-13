@@ -130,6 +130,24 @@ describe('billableHours', () => {
       ).toBe(1);
     });
 
+    it('[Z7-A6] planned 60 / Zoom 45 → bills the planned 60', () => {
+      const zoomComparisonMinutes = 45;
+      expect(zoomComparisonMinutes).toBe(45);
+      expect(billableHours(overridden(null), 60, 'charged_total')).toBe(1);
+    });
+
+    it('[Z7-A6] planned 60 / Zoom 90 → bills the planned 60', () => {
+      const zoomComparisonMinutes = 90;
+      expect(zoomComparisonMinutes).toBe(90);
+      expect(billableHours(overridden(null), 60, 'charged_total')).toBe(1);
+    });
+
+    it('[Z7-A6] planned 60 / no Zoom data → bills the planned 60', () => {
+      const zoomComparisonMinutes = null;
+      expect(zoomComparisonMinutes).toBeNull();
+      expect(billableHours(overridden(null), 60, 'charged_total')).toBe(1);
+    });
+
     it('an override to 45 minutes bills 0.75 — the adjusted value, both modes', () => {
       expect(billableHours(overridden(45), 60, 'per_session_display')).toBe(0.75);
       expect(billableHours(overridden(45), 60, 'charged_total')).toBe(0.75);

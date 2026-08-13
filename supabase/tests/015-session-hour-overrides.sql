@@ -20,7 +20,7 @@
 
 BEGIN;
 
-SELECT plan(53);
+SELECT plan(59);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures
@@ -182,6 +182,8 @@ SELECT has_column('public', 'contract_hours_ledger', 'effective_minutes',
   'A: contract_hours_ledger.effective_minutes exists — the additive §11 column');
 SELECT col_is_null('public', 'contract_hours_ledger', 'effective_minutes',
   'A: effective_minutes is nullable — NULL means the planned value governs');
+SELECT has_column('public', 'session_hour_overrides', 'request_payload',
+  '[Z7-R2.3] the database stores its canonical replay payload');
 
 SELECT is(
   (SELECT count(*)::int FROM pg_trigger
@@ -309,13 +311,50 @@ SELECT is(
   0.75::numeric,
   '[Z7-R1] an idempotent replay does not pay the 45-minute override twice');
 
--- D7: tamper — same request_id, DIFFERENT payload.
+SELECT is(
+  (SELECT (public.apply_session_hour_override(
+     'eeeeeeee-0001-0000-0000-000000000001', 45, '  Presencia parcial del consultor  ',
+     'consultant_shortfall', 'req-apply-45', 'FORGED-DIFFERENT-HASH'))->>'replay'),
+  'true',
+  '[Z7-R2.3] identical normalized payload replays even when the caller hash differs');
+
+-- D7: tamper — every canonical payload field is compared inside PostgreSQL. Each
+-- probe reuses the ORIGINAL caller hash, so none can rely on hash honesty.
 SELECT throws_ok(
   $$ SELECT public.apply_session_hour_override(
        'eeeeeeee-0001-0000-0000-000000000001', 30, 'Presencia parcial del consultor',
-       'consultant_shortfall', 'req-apply-45', 'hash-DIFFERENT') $$,
+       'consultant_shortfall', 'req-apply-45', 'hash-apply-45') $$,
   'P0409', NULL,
-  'D7: the same request_id with different content is refused');
+  '[Z7-R2.3] forged hash cannot hide changed minutes');
+
+SELECT throws_ok(
+  $$ SELECT public.apply_session_hour_override(
+       'eeeeeeee-0001-0000-0000-000000000002', 45, 'Presencia parcial del consultor',
+       'consultant_shortfall', 'req-apply-45', 'hash-apply-45') $$,
+  'P0409', NULL,
+  '[Z7-R2.3] forged hash cannot hide changed session');
+
+SELECT throws_ok(
+  $$ SELECT public.apply_session_hour_override(
+       'eeeeeeee-0001-0000-0000-000000000001', 45, 'Otro motivo válido',
+       'consultant_shortfall', 'req-apply-45', 'hash-apply-45') $$,
+  'P0409', NULL,
+  '[Z7-R2.3] forged hash cannot hide changed reason');
+
+SELECT throws_ok(
+  $$ SELECT public.apply_session_hour_override(
+       'eeeeeeee-0001-0000-0000-000000000001', 45, 'Presencia parcial del consultor',
+       'other', 'req-apply-45', 'hash-apply-45') $$,
+  'P0409', NULL,
+  '[Z7-R2.3] forged hash cannot hide changed reason category');
+
+SELECT throws_ok(
+  $$ SELECT public.apply_session_hour_override(
+       'eeeeeeee-0001-0000-0000-000000000001', 45, 'Presencia parcial del consultor',
+       'consultant_shortfall', 'req-apply-45', 'hash-apply-45',
+       'eeeeeeee-9999-0000-0000-000000000001') $$,
+  'P0409', NULL,
+  '[Z7-R2.3] forged hash cannot hide changed reversal target');
 
 -- D8/D9: validation.
 SELECT throws_ok(

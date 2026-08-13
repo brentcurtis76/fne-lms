@@ -205,9 +205,18 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, consultantId
     }
 
     // Fetch hour_types to resolve hour_type_key → hour_type_id for breakdown merge
-    const { data: allHourTypes } = await serviceClient
+    const { data: allHourTypes, error: hourTypesError } = await serviceClient
       .from('hour_types')
       .select('id, key');
+
+    if (hourTypesError) {
+      return sendAuthError(
+        res,
+        'Error al obtener el desglose de ganancias del consultor',
+        500,
+        hourTypesError.message
+      );
+    }
 
     const htKeyToId = new Map(
       (allHourTypes ?? []).map((ht: { id: string; key: string }) => [ht.key, ht.id])

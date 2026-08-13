@@ -118,10 +118,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Consultor: only their sessions
     if (highestRole === 'consultor') {
-      const { data: facilitatedSessionIds } = await serviceClient
+      const { data: facilitatedSessionIds, error: facilitatorError } = await serviceClient
         .from('session_facilitators')
         .select('session_id')
         .eq('user_id', user.id);
+
+      if (facilitatorError) {
+        return sendAuthError(res, 'Error al obtener sesiones del consultor', 500);
+      }
 
       const sessionIds = (facilitatedSessionIds ?? []).map((f: { session_id: string }) => f.session_id);
       if (sessionIds.length === 0) {

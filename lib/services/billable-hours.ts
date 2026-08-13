@@ -1,7 +1,8 @@
 /**
- * Billable hours — the ONE derivation of "how many hours does this session bill",
- * shared by every consumer that reports session hours to a school or to FNE
- * (Zoom plan §11, hours-consumer audit).
+ * Billable hours — the shared TypeScript derivation for production consumers that
+ * calculate "how many hours does this session bill" (Zoom plan §11,
+ * hours-consumer audit). Status-only queries, lifecycle writes, and raw historical
+ * admin displays are intentionally outside that calculation.
  *
  * ## Why this module exists
  *

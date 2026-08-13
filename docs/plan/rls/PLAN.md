@@ -163,12 +163,17 @@ No phase may violate these without a Decision Log entry.
   ruling F: a guessed pattern list passed clean over eight real contradictions, so the first
   version of this rule was itself the wrong control)*. Three layers, all required:
   1. **Enumerate every fact and identifier the amendment changed — old form and new form — and
-     search the active text for BOTH.** Record a disposition for every hit. The old-form search is
+     search the active text for BOTH.** **When an amendment changes a CLASS of fact — renumbering
+     every Order value, renaming a phase, recounting a population — enumerate the class by
+     pattern, never by listing the instances you happen to remember.** *(Codex r8, S3: inserting
+     `RM` shifted every Order value, and the hand-written old-form list missed R10's "10th of 13".
+     That is the third D-9 escape, and all three were layer-1 enumeration gaps rather than layer-2
+     comparison gaps.)* Record a disposition for every hit. The old-form search is
      what a pattern list cannot replace: it finds the sentences that never contained the new
      wording and so never matched a forward-looking pattern.
   2. **Structural check — index row vs header vs the METADATA LINE BENEATH IT.** Compare the
      phase index's risk / status / dependencies / order against each phase's header **and against
-     the `**Risk:** … **Status:** … **Depends on:** …` line under it**. *(Codex r6, S1: at r5 the
+     the `**Risk:** … **Status:** … **Depends on:** … **Order:** …` line under it**. *(Codex r6, S1: at r5 the
      check compared index rows to headers only, so R1's header correctly read "BLOCKED on R0"
      while the line directly below it still said "Status: TODO. Depends on: nothing." The check
      passed clean over a contradiction two lines apart.)* Any disagreement is a defect.
@@ -197,7 +202,7 @@ them. Execution order is the `Order` column, which the Codex r1 review changed (
 
 | Order | ID | Name | Risk | Status | Allowlist after | Depends on | Owner gate |
 |---|----|------|------|--------|-----------------|-----------|------------|
-| 1 | **RM** | Reconcile `AGENTS.md` to `CLAUDE.md` — repo mirror invariant | HIGH | **TODO — next to dispatch** | 22 | — | none |
+| 1 | **RM** | Reconcile `AGENTS.md` to `CLAUDE.md` — repo mirror invariant | HIGH | **TODO — next to dispatch** | 22 | — | **Q6** |
 | 2 | **R0** | **DISCOVERY** — rebuild R1's ten-signature evidence from authoritative sources | **DISCOVERY** | BLOCKED on RM | 22 | **RM** | none |
 | 3 | R1 | Close the anonymous reach — 10 function `EXECUTE` revocations + `profiles_role_backup` | HIGH | **BLOCKED on R0** — contract below, to be amended from R0's artifact | 21 | **R0** | none |
 | 4 | R1b | Bind `has_global_workspace_access` to `auth.uid()` | HIGH | OUTLINE | 21 | R1 | none |
@@ -213,7 +218,7 @@ them. Execution order is the `Order` column, which the Codex r1 review changed (
 | 14 | **R11** | **DISCOVERY** — audit the remaining 80 anon-granted DEFINER signatures | **DISCOVERY** | OUTLINE | 0 | R1 | none |
 | 15+ | R12… | Remediation phases, **defined by R11's output** — not invented here | HIGH | UNDEFINED | 0 | R11 | TBD by R11 |
 
-Every phase except `R0` and `R11` is `HIGH` under overlay §3 — they touch RLS/grants, ship a
+Every phase except `R0` and `R11` is `HIGH` under overlay §3. Most touch RLS/grants or ship a
 migration. `R0` and `R11` are `DISCOVERY`. That is an honest classification, not inflation.
 R11 is `DISCOVERY`: the evidence needed to write a safe implementation contract for the 71 does
 not exist yet, and per overlay §3 a `DISCOVERY` phase produces evidence and a revised contract
@@ -221,7 +226,7 @@ without smuggling implementation into research. **R12+ are deliberately left und
 phase contracts for 71 signatures whose reachability is unmeasured would be inventing requirements
 from guesses — the exact thing the overlay forbids.
 
-**Dependency graph.** `R0` is the root and blocks R1. R1 in turn blocks nothing structurally — R2…R9 could each run
+**Dependency graph.** `RM` is the root and blocks `R0`, which blocks R1. *(Codex r8, S2 — this said `R0` was the root after RM was inserted ahead of it.)* R1 in turn blocks nothing structurally — R2…R9 could each run
 without it — but it runs first because it is the largest risk reduction per line available and
 changes no behaviour for any known in-repository caller. R1b follows immediately: R1 revokes
 `anon` on `has_global_workspace_access` but leaves an authenticated oracle standing, and that item
@@ -248,13 +253,14 @@ answered in time.
 | **Q2** | Are all 17 `instructors` rows publishable profiles, or are some internal-only? | R5 | R5 cannot ship. A policy cannot infer publication from a parent course when the table is queried directly; if some rows are internal, an explicit publication flag is needed first (an additive column, so still within hard rules). |
 | **Q3** | May `consultor` assign/revoke transformation access? `isUserAdmin()` treats `consultor` as admin while the route copy says "solo admins". | R6 | R6 ships read-only policies and defers the write policy, or holds entirely. Encoding the wrong answer silently grants or removes a real capability. |
 | **Q4** | Enrollment status semantics: do `paused` / `dropped` / `expired` / `completed` enrollments retain `modules` access? | R9 | R9 cannot ship. `auth_is_course_student()` checks that *any* enrollment exists and ignores status entirely, so the answer decides whether activating the existing policy is a no-op or a lockout. |
+| **Q6** | For each rule that exists in `AGENTS.md` but not `CLAUDE.md` (e.g. the `Auth Middleware Warning`): promote it into `CLAUDE.md` as canonical, or retire it as governing guidance? | **RM** | **RM cannot close.** Both branches restore `AGENTS.md:3`'s invariant — approval mirrors it, rejection relocates it to a non-governing record — but only Brent can choose, because one of them removes live guidance. *(Added after Codex r8, B1.)* |
 | **Q5** *(ruling with a default — **not** a gate)* | Learning-path management scope: do `admin`, `equipo_directivo` and `consultor` keep **global** management of every learning path, or is management **scoped** to the manager's school/generation? Rows can carry null `school_id`/`generation_id` today, so a scoped rule needs a backfill first. | R7 and R10 — **neither is blocked** | **Default applies: both ship preserving today's effectively-global management**, recorded as explicit debt. That default does not widen access beyond today's behaviour, and narrowing later is a backfill plus `ALTER POLICY`, not a migration rewrite. *(Added r1 S3; reclassified from gate to ruling-with-default after Codex r2, S2 — calling it a gate while its unanswered branch still ships was a contradiction.)* |
 
 ---
 
 # Phase RM — Reconcile `AGENTS.md` to `CLAUDE.md`
 
-**Risk: HIGH.** **Status: TODO — next to dispatch.** **Depends on: nothing.** **Blocks: R0.**
+**Risk: HIGH.** **Status: TODO — next to dispatch.** **Depends on: nothing.** **Order: 1.** **Blocks: R0.**
 
 ## Why this phase exists, and why it is in this plan
 
@@ -284,16 +290,35 @@ hard rule wrong here misdirects all of them, including on database safety and de
 |---|---|
 | The two **conflict** on the same rule | `CLAUDE.md` wins. Amend `AGENTS.md`. |
 | Content is in `CLAUDE.md` and **missing** from `AGENTS.md` | Add it to `AGENTS.md`. |
-| Content is in `AGENTS.md` and **missing** from `CLAUDE.md` (e.g. its `Auth Middleware Warning`) | **Do NOT delete it.** That is a gap in `CLAUDE.md`, not a conflict. Propose adding it to `CLAUDE.md` and flag it for Brent's approval in the review request; land it in `CLAUDE.md` only if he approves. Deleting live guidance because the mirror is shorter would destroy knowledge under cover of a sync. |
+| Content is in `AGENTS.md` and **missing** from `CLAUDE.md` (e.g. its `Auth Middleware Warning`) | **Do NOT silently delete it**, and **do not leave it unresolved either.** Propose it to Brent as **Q6**, with two closing branches that RM must carry to completion — see below. |
+
+**Q6's two branches — both must terminate with the invariant restored** *(Codex r8, B1: the
+earlier rule defined only the approval branch, so a rejected proposal left `AGENTS.md:3` violated
+forever and RM could never close. A rule with one exit is not a rule.)*:
+
+- **Brent APPROVES** → the content is added to `CLAUDE.md` as canonical and mirrored into
+  `AGENTS.md`. Invariant restored, knowledge preserved.
+- **Brent REJECTS** → it is removed from `AGENTS.md` as *governing guidance* and **relocated to a
+  non-governing record** — `docs/plan/rls/evidence/RM-retired-guidance.md` — with the reason and
+  the date. Invariant restored, knowledge still preserved, but it no longer instructs agents.
+
+**Neither branch permits leaving the divergence in place.** Q6 is a real owner gate and appears
+as one in the phase index and the owner-decisions table, not as prose inside this phase.
 
 ## Explicitly out of scope
 
 - **Changing the substance of any rule.** RM is a reconciliation, not a rewrite. If a rule looks
   wrong, outdated or unwise, that is a **finding for the review request** — not an edit.
-- Any file other than `AGENTS.md`, plus `CLAUDE.md` only where the asymmetry rule's third row
-  applies and Brent has approved.
 - Any application, database, migration or test source.
 - Any RLS, function or allowlist work. This phase is a prerequisite, not part of the audit.
+
+**Files RM MAY write** *(Codex r8, B2 — the previous out-of-scope excluded every file except
+`AGENTS.md`, while ARM-7/ARM-8 and the DoD required three others, making the contract
+unsatisfiable. Same structural error already fixed once in R0 at r6 and reproduced here.)*:
+`AGENTS.md`; `CLAUDE.md` under Q6's approval branch; `docs/plan/rls/evidence/RM-retired-guidance.md`
+under its rejection branch; and the three repo-required close artifacts —
+`docs/planning/reviews/fase-RM-review-request.md`, `PROJECT_STATE.md`, and
+`docs/plan/rls/LEDGER.md`.
 
 ## Acceptance criteria
 
@@ -359,7 +384,7 @@ production and no schema changes. Unlike every later phase, rollback here is gen
 
 # Phase R0 — Rebuild R1's evidence · **DISCOVERY**
 
-**Risk: DISCOVERY.** **Status: BLOCKED on `RM`.** **Depends on: `RM`.**
+**Risk: DISCOVERY.** **Status: BLOCKED on `RM`.** **Depends on: `RM`.** **Order: 2.**
 **Blocks: R1.**
 
 ## Why this phase exists
@@ -430,7 +455,16 @@ every claim. For **each of the ten signatures**, keyed by `regprocedure`:
   `docs/plan/rls/evidence/R0-ten-signature-inventory.md` (the artifact); the amendment to
   `PLAN.md`; the `LEDGER.md` entry including its D-9 sweep record;
   `docs/planning/reviews/fase-R0-review-request.md` (canonical path, `CLAUDE.md:43` /
-  `AGENTS.md:32`); and **`docs/plan/rls/tools/check-plan-consistency.sh`**, the D-9 layer-2 checker (documentation machinery, not application/database/migration/test source, so it sits inside R0's boundary — Codex r7 ruling C confirms the boundary). **Its acceptance contract, so the executor need not guess it** *(Codex r7, S1)*: for every phase carrying a full contract, parse the phase-index row, the `# Phase <ID> — …` heading, and the `**Risk:** … **Status:** … **Depends on:** …` metadata line beneath it; compare ID, status and dependencies across all three; **exit non-zero on any mismatch**, printing each mismatch with its line numbers; exit zero otherwise. It is invoked in R0's exact command chain above, so an inadequate checker fails the gate rather than passing silently. **`PROJECT_STATE.md`**, updated for the phase end — `CLAUDE.md:4` and `AGENTS.md:4` both require it ("evolving state ... update it when a phase ends") and R0 ends a phase *(Codex r7, B3)*. Optionally, a one-line pointer under `docs/plan/rls/reviews/`.
+  `AGENTS.md:32`); and **`docs/plan/rls/tools/check-plan-consistency.sh`**, the D-9 layer-2 checker (documentation machinery, not application/database/migration/test source, so it sits inside R0's boundary — Codex r7 ruling C confirms the boundary). **Its acceptance contract, so the executor need not guess it** *(Codex r7 S1, corrected at r8 B3)*. For every phase carrying a full contract, parse three forms and compare **only the fields each form actually carries** — the earlier version demanded status and dependencies from the heading, which carries neither, so it was unimplementable and would have produced permanent false failures:
+
+  | compared between | fields |
+  |---|---|
+  | index row ↔ `# Phase <ID> — …` heading | phase **ID** and **name** |
+  | index row ↔ `**Risk:** … **Status:** … **Depends on:** … **Order:** …` metadata line | **risk**, **status**, **dependencies**, **order** |
+
+  **Order is comparable because every full-contract phase's metadata line now carries an explicit `**Order: N.**` field** — document position cannot serve, since R10 sits after R9 in the text but executes before it. Outline phases (`### …`) have no metadata line and are out of the checker's scope; that limit is stated rather than left implicit.
+
+  **Exit non-zero on any mismatch**, printing each with its line numbers; exit zero otherwise. Invoked in R0's exact command chain above, so an inadequate checker fails the gate rather than passing silently. **`PROJECT_STATE.md`**, updated for the phase end — `CLAUDE.md:4` and `AGENTS.md:4` both require it ("evolving state ... update it when a phase ends") and R0 ends a phase *(Codex r7, B3)*. Optionally, a one-line pointer under `docs/plan/rls/reviews/`.
 - Re-auditing the 22 tables, or anything about `profiles_role_backup` beyond confirming its
   `relacl` and `relrowsecurity`.
 - The other 80 signatures — that is R11.
@@ -576,7 +610,7 @@ correct outcome is a plan amendment, not a workaround.
 
 # Phase R1 — Close the anonymous reach · BLOCKED on R0
 
-**Risk: HIGH** (RLS/grants, migration, security). **Status: BLOCKED on `R0`.** **Depends on: `R0`.**
+**Risk: HIGH** (RLS/grants, migration, security). **Status: BLOCKED on `R0`.** **Depends on: `R0`.** **Order: 3.**
 
 Largest risk reduction per line available in this workstream. It closes every *proven* anonymous
 write path and removes the privileged-role roster from the internet, with **no policy design and
@@ -1247,7 +1281,7 @@ as needing the same boundary check before they become criteria.
 
 ### R10 — Actor-derivation redesign · HIGH · **runs directly after R7** · Q5 applies as a ruling-with-default, not a gate
 
-*(Listed here for historical ID stability; executed 10th of 13 — order is the index's `Order` column.
+*(Listed here for historical ID stability; executed **11th of 14** — order is the index's `Order` column.
 Moved forward on Codex r1, S4: R10 is not structurally dependent on R7's migration, only on the
 same authorization decisions, and authenticated identity/scoring forgery stays live after R1.
 Waiting behind R8 and R9 bought nothing.)*
@@ -1450,3 +1484,8 @@ Stated per overlay §3 instead of claiming completeness.
 | 2026-08-13 | The D-9 layer-2 checker gains an **executable acceptance contract** — which forms it parses, what constitutes a mismatch, non-zero exit, and invocation inside R0's gate chain. | Previously the executor was told to create it but not what it must do, so an inadequate checker would have passed silently. | Codex r7, S1 |
 | 2026-08-13 | **Codex r7 B4 — finding accepted, remedy DISPUTED, resolved by Brent.** New phase **`RM`** at order 1 reconciles `AGENTS.md` to `CLAUDE.md`; `R0` becomes BLOCKED on it. | `AGENTS.md:3` requires the mirror to hold and the files have materially diverged (112 vs 73 lines; CLAUDE.md carries `Who Are You?`, `Bridge Workflow`, `Memory Discipline`, `Architecture` and split hard-rule sections that AGENTS.md lacks; AGENTS.md carries an `Auth Middleware Warning` CLAUDE.md lacks). **The PM disputed making it R0's deliverable** — it is repo-wide, governs every workstream including ZOOM and INSPIRA, and the PM cannot edit source (SOP §1.1). Codex read "fix the divergence in the same PR" as binding on this PR; the PM read it as binding on the PR that *causes* divergence. **Brent ruled: fix it now, before R0, as its own phase.** Tracked here rather than left untracked so it has criteria and a review (§1.4). | Codex r7 B4 → Brent |
 | 2026-08-13 | RM carries an **asymmetry rule**: content unique to `AGENTS.md` is never deleted to satisfy the mirror. It is proposed for `CLAUDE.md` and needs Brent's approval. | "CLAUDE.md wins" governs *conflicts*. Content the mirror has and the source lacks is a gap, not a conflict — deleting live guidance because the shorter file lacks it would destroy knowledge under cover of a sync. | PM |
+| 2026-08-13 | **Codex plan review r8: FINDINGS.** 3 BLOCKING, 3 SHOULD-FIX. One category (i) — the consistency checker's contract demanded fields the parsed forms do not carry. | r7 disposition: B1/B2/B3 FIXED, B4 PARTIAL, S1 NOT FIXED, S2 FIXED. | Codex plan review r8 |
+| 2026-08-13 | **RM's asymmetry rule ruled INCORRECT and replaced with two terminating branches, gated as `Q6`.** | The PM's version defined only the approval branch: if Brent rejected a proposed promotion, RM forbade deleting the rule and offered no alternative, so `AGENTS.md:3` stayed violated forever and RM could never close. **A rule with one exit is not a rule.** Rejection now relocates the guidance to a non-governing record (`evidence/RM-retired-guidance.md`) — invariant restored, knowledge preserved, no longer instructing agents. Q6 is a real owner gate in the index, not prose. | Codex r8, B1 |
+| 2026-08-13 | RM's file scope corrected — closure artifacts carved explicitly into scope. | Out-of-scope excluded every file but `AGENTS.md` while ARM-7/ARM-8 and the DoD required the review request, `PROJECT_STATE.md` and `LEDGER.md`. **The same structural error already fixed in R0 at r6 and reproduced verbatim in a new phase** — evidence that a fixed defect does not stay fixed across phases unless the contract template carries it. | Codex r8, B2 |
+| 2026-08-13 | The D-9 checker's comparison contract corrected: fields are compared **only between forms that carry them** — ID/name between index and heading, risk/status/dependencies/order between index and metadata line — and every full-contract phase's metadata line gains an explicit `**Order: N.**` field so order is comparable at all. | The r7 version demanded status and dependencies from the heading, which carries neither, so it was unimplementable and would have produced permanent false failures. Document position cannot stand in for order: R10 sits after R9 in the text but executes before it. | Codex r8, B3 (category (i)) |
+| 2026-08-13 | **D-9 layer 1 upgraded to CLASS enumeration.** When an amendment changes a class of fact — renumbering every Order value, renaming a phase, recounting a population — the class is enumerated **by pattern**, never by listing remembered instances. | Third D-9 escape, and all three were layer-1 enumeration gaps rather than layer-2 comparison gaps: inserting `RM` shifted every Order value and the hand-written old-form list missed R10's "10th of 13". | Codex r8, S3 |

@@ -51,10 +51,11 @@
  *
  * ## Scope (§15, Z1b-3)
  *
- * Rows-only lifecycle. `meeting.started` / `meeting.ended` move
- * `zoom_internal.zoom_meetings.status`; every other event type is recorded and
- * nothing else. Recording and participant handling arrive in Z4/Z7, and **nothing
- * here enqueues a job** — the queue is driven by the ticker and the reconciler.
+ * `meeting.started` / `meeting.ended` move the meeting lifecycle and projection.
+ * `meeting.participant_joined` / `meeting.participant_left` apply provisional
+ * attendance intervals through the Z7 participant lifecycle. Other verified event
+ * types are ledger-only here (recording handling arrives in Z4). This route enqueues
+ * no jobs; authoritative report candidates are planned by the reconciler.
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
 import {

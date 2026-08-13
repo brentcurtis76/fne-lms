@@ -12,11 +12,12 @@
  *
  * ## What is here now
  *
- * Two jobs, each deduped on the UTC hour — `host_sync:<hour>` and
- * `webhook_sweep:<hour>`. Against the UNIQUE index that means an hour enqueues each
- * exactly once, no matter how many times the endpoint fires — Vercel crons can
- * double-fire, and an operator can always `curl` it. A second call in the same hour is
- * a `'duplicate'` and a clean 200.
+ * Two GLOBAL jobs are deduped on the UTC hour — `host_sync:<hour>` and
+ * `webhook_sweep:<hour>` — plus one `attendance_reconcile` candidate job per ended
+ * occurrence without a complete report batch. Candidate keys include occurrence UUID
+ * and hour. Against the UNIQUE index that means the same pass enqueues each exactly
+ * once even if Vercel double-fires or an operator calls the endpoint again; the next
+ * hour may retry a still-unresolved candidate.
  *
  * The hour is taken in UTC, deliberately: the key must be stable regardless of the
  * invoking region's local time, and America/Santiago's DST transitions would
@@ -24,8 +25,8 @@
  *
  * ## What is deliberately NOT here yet
  *
- * The §8/§9 drift checks land in later chunks and each becomes another enqueue in
- * `planReconcileJobs()` below:
+ * The remaining §8/§9 drift checks land in later chunks and each becomes another
+ * enqueue in `planReconcileJobs()` below:
  *
  *  - **Stalled lifecycle** (§8): `zoom_meetings` rows still `provisioned` well past
  *    `ends_at`, i.e. a `meeting.ended` webhook that never arrived.

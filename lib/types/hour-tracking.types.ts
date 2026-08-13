@@ -155,6 +155,9 @@ export interface ReservationResult {
   hours?: number;
   is_over_budget?: boolean;
   allocation_id?: string;
+  /** Lets API boundaries distinguish caller/business failures from dependency outages. */
+  error?: string;
+  error_kind?: 'validation' | 'dependency' | 'write';
 }
 
 /**

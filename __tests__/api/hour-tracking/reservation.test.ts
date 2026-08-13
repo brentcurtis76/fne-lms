@@ -9,6 +9,7 @@ import {
   calculateHours,
   calculateNoticeHours,
   createReservation,
+  getAvailableHours,
 } from '../../../lib/services/hour-tracking';
 
 describe('calculateHours', () => {
@@ -261,5 +262,101 @@ describe('createReservation — with hour tracking', () => {
     const result = await createReservation(mockClient, session, 'user-1');
     expect(result.is_over_budget).toBe(true);
     expect(result.error).toBeUndefined();
+  });
+
+  it('[Z7-R5.1] returns a typed successful-missing result for a genuinely absent bucket', async () => {
+    const client = { rpc: vi.fn().mockResolvedValue({ data: [], error: null }) } as any;
+
+    await expect(getAvailableHours(client, 'contract-1', 'missing-type')).resolves.toEqual({
+      kind: 'missing',
+    });
+  });
+
+  it('[Z7-R5.1] an availability RPC error writes no ledger row', async () => {
+    const ledgerInsert = vi.fn();
+    const mockClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'hour_types') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({ data: { id: 'ht-1' }, error: null }),
+          };
+        }
+        if (table === 'contract_hour_allocations') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: { id: 'alloc-1', contrato_id: 'contract-1', hour_type_id: 'ht-1', allocated_hours: 5 },
+              error: null,
+            }),
+          };
+        }
+        if (table === 'contract_hours_ledger') return { insert: ledgerInsert };
+        throw new Error(`unexpected table ${table}`);
+      }),
+      rpc: vi.fn().mockResolvedValue({ data: null, error: { message: 'connection lost' } }),
+    } as any;
+    const session = {
+      id: 'session-fail-closed',
+      hour_type_key: 'asesoria_tecnica_presencial',
+      contrato_id: 'contract-1',
+      session_date: '2026-03-01',
+      start_time: '09:00:00',
+      end_time: '10:00:00',
+      scheduled_duration_minutes: 60,
+    } as any;
+
+    const result = await createReservation(mockClient, session, 'user-1');
+
+    expect(result).toMatchObject({
+      skipped: false,
+      error: 'No se pudo verificar la disponibilidad de horas.',
+      error_kind: 'dependency',
+    });
+    expect(ledgerInsert).not.toHaveBeenCalled();
+  });
+
+  it('[Z7-R5.1] an allocated bucket omitted by a successful summary is inconsistent', async () => {
+    const ledgerInsert = vi.fn();
+    const mockClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'hour_types') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({ data: { id: 'ht-1' }, error: null }),
+          };
+        }
+        if (table === 'contract_hour_allocations') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: { id: 'alloc-1', contrato_id: 'contract-1', hour_type_id: 'ht-1', allocated_hours: 5 },
+              error: null,
+            }),
+          };
+        }
+        if (table === 'contract_hours_ledger') return { insert: ledgerInsert };
+        throw new Error(`unexpected table ${table}`);
+      }),
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    } as any;
+    const session = {
+      id: 'session-missing-bucket',
+      hour_type_key: 'asesoria_tecnica_presencial',
+      contrato_id: 'contract-1',
+      session_date: '2026-03-01',
+      start_time: '09:00:00',
+      end_time: '10:00:00',
+      scheduled_duration_minutes: 60,
+    } as any;
+
+    const result = await createReservation(mockClient, session, 'user-1');
+
+    expect(result.error_kind).toBe('dependency');
+    expect(ledgerInsert).not.toHaveBeenCalled();
   });
 });

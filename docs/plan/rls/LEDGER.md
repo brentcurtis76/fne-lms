@@ -400,3 +400,55 @@ Append-only, one entry per round. Plan: `docs/plan/rls/PLAN.md`.
   2. R0 remains the next phase to dispatch. It ships nothing — its blast radius is wasted effort,
      never production damage.
   3. Owner answers Q1–Q4; Q5 has a default.
+
+---
+
+### 2026-08-13 — plan — r6 CODEX REVIEW + PM amendment
+
+- SESSION: `RLS · plan · REVIEW · r6` (Codex) → `RLS · plan · PM`
+- ATTEMPT: 7 (cumulative, planning)
+- CODEX: **FINDINGS** — 2 BLOCKING, 2 SHOULD-FIX, 2 NITs. `IS R0 DISPATCHABLE: no`, with
+  "no broader redesign is needed". r5 checklist: no-production **SATISFIED**, A8 path
+  **SATISFIED**, population rules **SUBSTANTIALLY SATISFIED**, command/closure contract
+  **NOT SATISFIED**.
+- PM VERIFICATION: **B1 CONFIRMED** — `AGENTS.md:30` requires
+  `type-check && lint && test && build` before reporting any phase complete, with no
+  documentation-only exception. R0's contract waived `npm test` and `npm run build`.
+  **This is the second hard-rule violation to reach a phase contract in this plan**, after r5's
+  production-access one. Both were reasonable-looking engineering judgments overriding an
+  absolute rule; both times the plan's own precedence list already said which wins. Worth naming
+  as a pattern: the PM's failure mode is *optimizing a contract against a rule it has read*.
+- ACTION — `PLAN.md` amended:
+  - **r6 B1** → all four gates restored, plus `--local` on `supabase db reset` as
+    defence-in-depth (Codex ruling B). Recorded that `npm test` runs because the repo requires
+    it, **not** as evidence of suite completeness — A15's checker does not exist until R1 and the
+    jsdom hazard is live, so R0 may not cite a test count as evidence.
+  - **r6 B2** → AR0-8 must classify every production-only uncertainty **load-bearing or not**;
+    load-bearing ones become a named **R1 pre-dispatch owner gate** for Brent's read-only
+    confirmation. Closes the path by which R0 could unblock R1 with unresolved uncertainty about
+    the exact production ACLs R1 modifies, given D-7's check runs only after apply.
+  - **r6 S1** → four more stale references fixed: R1's metadata line (`Status: TODO. Depends on:
+    nothing.`), R11's "no writes to production" evidence rule, R11a's "Six queries", and the
+    whole-workstream blind spot's three-extension description.
+  - **r6 S2** → generic `.rpc(<variable>)` and constructed-name sinks must be inventoried and
+    traced; dynamic-SQL analysis covers **all user-defined schemas**, not only `public`
+    (`zoom_internal` exists).
+  - **r6 N1/N2** → outputs recounted as five required plus one optional; closure cites all nine
+    criteria including AR0-3b.
+- **D-9 LAYER 2 CORRECTED — the control's second failure, and its diagnosis.** At r5 it compared
+  index rows to phase *headers* only. R1's header correctly read "BLOCKED on R0" while the
+  metadata line **two lines below** still said "Status: TODO. Depends on: nothing." The check
+  passed clean over a contradiction two lines apart. Layer 2 now compares
+  index → header → metadata line. Per Codex ("mechanically comparable facts should not ride on a
+  human sweep"), `docs/plan/rls/tools/check-plan-consistency.sh` becomes an **R0 deliverable** —
+  documentation machinery, so inside R0's no-source boundary. The PM cannot write it (SOP §1.1).
+- **D-9 SWEEP THIS ROUND, under the corrected layer 2:** layer 1 flagged 2 candidates, **both
+  the amendment quoting old wording** — 0 real stale hits. Layer 2 clean: R0 index
+  "TODO — next to dispatch" ↔ header ↔ metadata; R1 index "BLOCKED on R0" ↔ header ↔ metadata.
+  Layer 3 counts still centralized at the Goal anchor.
+- COMMITS: `4db2e5b8`. Pushed (first attempt hit a GitHub 500; retried successfully).
+- OPEN AFTER THIS ROUND:
+  1. **Codex plan review r7.** Plan still **not frozen**.
+  2. R0 remains next to dispatch. It ships no migration, no grant change, no application/test
+     source — worst case is a wasted session.
+  3. Owner answers Q1–Q4; Q5 has a default.

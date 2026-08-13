@@ -380,8 +380,10 @@ export type SessionMaterialInsert = Omit<SessionMaterial, 'id' | 'created_at'>;
 export interface AttendanceUpdatePayload {
   user_id: string;
   attended: boolean;
-  arrival_status?: ArrivalStatus;
-  notes?: string;
+  /** Omitted preserves the stored value; null explicitly clears it. */
+  arrival_status?: ArrivalStatus | null;
+  /** Omitted preserves the stored value; null explicitly clears it. */
+  notes?: string | null;
 }
 
 // ============================================================

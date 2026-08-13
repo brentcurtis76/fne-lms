@@ -20,7 +20,7 @@
 
 BEGIN;
 
-SELECT plan(49);
+SELECT plan(53);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures
@@ -80,7 +80,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Session + ledger seeds. S1 = the finalized session the chain runs on
--- (planned 90 min / 1.50 h). S2 = reservada. S3 = devuelta (cancellation flow).
+-- (planned 60 min / 1.00 h). S2 = reservada. S3 = devuelta (cancellation flow).
 -- S4 = cross-tenant: the session names contrato 1 but its ledger row hangs off
 -- contrato 2's allocation.
 CREATE FUNCTION pg_temp.seed_override_session(
@@ -98,7 +98,7 @@ BEGIN
   VALUES
     (p_id, 9941, 'eeeeeeee-3333-0000-0000-000000000001',
      'Sesión de prueba overrides', DATE '2026-07-10',
-     TIME '09:00', TIME '10:30', 'online', p_session_status,
+     TIME '09:00', TIME '10:00', 'online', p_session_status,
      tests.get_supabase_uid('o_admin'),
      'eeeeeeee-5555-0000-0000-000000000001', 'ovr_general');
 
@@ -107,8 +107,8 @@ BEGIN
      recorded_by, planned_minutes_snapshot)
   VALUES
     (p_ledger_id, p_allocation_id, p_id,
-     1.50, p_ledger_status, DATE '2026-07-10',
-     tests.get_supabase_uid('o_admin'), 90);
+     1.00, p_ledger_status, DATE '2026-07-10',
+     tests.get_supabase_uid('o_admin'), 60);
 END;
 $$;
 
@@ -124,6 +124,20 @@ SELECT pg_temp.seed_override_session(
 SELECT pg_temp.seed_override_session(
   'eeeeeeee-0001-0000-0000-000000000004', 'eeeeeeee-0002-0000-0000-000000000004',
   'completada', 'consumida', 'eeeeeeee-7777-0000-0000-000000000002');
+
+-- The payment consumer for S1. A €10 rate makes the assertions transparent:
+-- 1.00 h → €10.00, override 45 min → 0.75 h → €7.50, reversal → €10.00.
+INSERT INTO public.session_facilitators
+  (session_id, user_id, facilitator_role, is_lead)
+VALUES
+  ('eeeeeeee-0001-0000-0000-000000000001', tests.get_supabase_uid('o_consultor'),
+   'consultor_externo', true);
+
+INSERT INTO public.consultant_rates
+  (consultant_id, hour_type_id, rate_eur, effective_from, effective_to, created_by)
+VALUES
+  (tests.get_supabase_uid('o_consultor'), 'eeeeeeee-6666-0000-0000-000000000001',
+   10.00, DATE '2026-01-01', NULL, tests.get_supabase_uid('o_admin'));
 
 -- -----------------------------------------------------------------------------
 -- A. Shape and security posture
@@ -212,10 +226,23 @@ RESET ROLE;
 -- -----------------------------------------------------------------------------
 -- D. Apply (§11) — as the admin
 -- -----------------------------------------------------------------------------
+SELECT set_config(
+  'test.override_consultant_uid',
+  tests.get_supabase_uid('o_consultor')::text,
+  true
+);
 SELECT tests.authenticate_as('o_admin');
 
--- D1/D2/D3: planned 90 → override to 45 minutes. D1 runs with role=authenticated
+-- D1/D2/D3: planned 60 → override to 45 minutes. D1 runs with role=authenticated
 -- AND the admin claims — the grant and the internal check exercised together.
+SELECT ok(
+  (SELECT total_hours = 1.00::numeric AND total_eur = 10.00::numeric
+     FROM public.get_consultant_earnings(
+       current_setting('test.override_consultant_uid')::uuid,
+       DATE '2026-07-01', DATE '2026-07-31')
+    WHERE hour_type_key = 'ovr_general'),
+  '[Z7-R1] consultant earnings starts from the planned 60 minutes');
+
 SELECT is(
   (SELECT (public.apply_session_hour_override(
      'eeeeeeee-0001-0000-0000-000000000001', 45, 'Presencia parcial del consultor',
@@ -235,7 +262,7 @@ SELECT ok(
 
 SELECT ok(
   (SELECT previous_minutes IS NULL AND new_minutes = 45
-          AND planned_minutes_snapshot = 90
+          AND planned_minutes_snapshot = 60
           AND created_by = tests.get_supabase_uid('o_admin')
           AND reverses_override_id IS NULL
      FROM public.session_hour_overrides
@@ -245,16 +272,23 @@ SELECT ok(
 SELECT is(
   (SELECT hours FROM public.contract_hours_ledger
     WHERE id = 'eeeeeeee-0002-0000-0000-000000000001'),
-  1.50::numeric(6,2),
+  1.00::numeric(6,2),
   'D4: `hours` is untouched — it stays the historical reserved value (§11)');
 
 -- D5: "override 60→45 updates aggregates once" — the bucket summary reads the
--- §11 coalesce, so consumed drops from 1.50 to round(45/60, 2) = 0.75.
+-- §11 coalesce, so consumed drops from 1.00 to round(45/60, 2) = 0.75.
 SELECT is(
   (SELECT consumed_hours FROM public.get_bucket_summary('eeeeeeee-5555-0000-0000-000000000001')
     WHERE hour_type_key = 'ovr_general'),
   0.75::numeric,
   'D5: get_bucket_summary consumed reflects the override-adjusted value');
+
+SELECT ok(
+  (SELECT total_hours = 0.75::numeric AND total_eur = 7.50::numeric
+     FROM public.get_consultant_earnings(
+       tests.get_supabase_uid('o_consultor'), DATE '2026-07-01', DATE '2026-07-31')
+    WHERE hour_type_key = 'ovr_general'),
+  '[Z7-R1] the same 45-minute value drives consultant earnings and payment');
 
 -- D6: idempotent replay — same request_id, same payload_hash.
 SELECT is(
@@ -267,6 +301,13 @@ SELECT is(
   (SELECT count(*)::int FROM public.session_hour_overrides
     WHERE request_id = 'req-apply-45'),
   1, 'D6: the replay wrote no second row');
+
+SELECT is(
+  (SELECT total_hours FROM public.get_consultant_earnings(
+     tests.get_supabase_uid('o_consultor'), DATE '2026-07-01', DATE '2026-07-31')
+    WHERE hour_type_key = 'ovr_general'),
+  0.75::numeric,
+  '[Z7-R1] an idempotent replay does not pay the 45-minute override twice');
 
 -- D7: tamper — same request_id, DIFFERENT payload.
 SELECT throws_ok(
@@ -330,7 +371,7 @@ SELECT throws_ok(
   '[Z7-A3] DELETE on an override row is refused by the trigger');
 
 -- -----------------------------------------------------------------------------
--- E. The chain ([Z7-A5]): 90-planned, 45, 30 — reverse-second → 45,
+-- E. The chain ([Z7-A5]): 60-planned, 45, 30 — reverse-second → 45,
 -- reverse-first → NULL/planned. Exactly that sequence.
 -- -----------------------------------------------------------------------------
 
@@ -406,8 +447,15 @@ SELECT ok(
 SELECT is(
   (SELECT consumed_hours FROM public.get_bucket_summary('eeeeeeee-5555-0000-0000-000000000001')
     WHERE hour_type_key = 'ovr_general'),
-  1.50::numeric,
+  1.00::numeric,
   'E6: the aggregate is restored with the reversal (§11 "reversal restores aggregate")');
+
+SELECT ok(
+  (SELECT total_hours = 1.00::numeric AND total_eur = 10.00::numeric
+     FROM public.get_consultant_earnings(
+       tests.get_supabase_uid('o_consultor'), DATE '2026-07-01', DATE '2026-07-31')
+    WHERE hour_type_key = 'ovr_general'),
+  '[Z7-R1] reversal restores the planned consultant payment');
 
 -- E7: a REVERSAL row can never itself be reversed.
 SELECT throws_ok(
@@ -436,7 +484,7 @@ SELECT is(
 SELECT is(
   (SELECT hours FROM public.contract_hours_ledger
     WHERE id = 'eeeeeeee-0002-0000-0000-000000000001'),
-  1.50::numeric(6,2),
+  1.00::numeric(6,2),
   'F3: `hours` still holds the historical value — the waiver never rewrites it');
 
 RESET ROLE;

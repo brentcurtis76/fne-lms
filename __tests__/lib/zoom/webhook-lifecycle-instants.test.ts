@@ -88,7 +88,9 @@ function storeOver(row: MeetingRow): {
 
       // ...and the SET list, including the fill-while-NULL COALESCE.
       row.status = status;
-      if (occurrenceUuid !== null) row.zoom_meeting_uuid = occurrenceUuid;
+      if (row.zoom_meeting_uuid === null && occurrenceUuid !== null) {
+        row.zoom_meeting_uuid = occurrenceUuid;
+      }
       row.actual_started_at = row.actual_started_at ?? instants?.actualStartedAt ?? null;
       row.actual_ended_at = row.actual_ended_at ?? instants?.actualEndedAt ?? null;
 
@@ -206,6 +208,7 @@ describe('applyWebhookLifecycle — observed instants, by value from the committ
 
     expect(row.actual_ended_at).toBe('2026-07-30T00:03:26.000Z');
     expect(row.status).toBe('ended');
+    expect(row.zoom_meeting_uuid).toBe('de+IDqR9f3hhT9D8/NA/J1==');
   });
 
   it('`meeting.ended` cannot overwrite an actual_started_at that `started` recorded', async () => {
@@ -222,18 +225,31 @@ describe('applyWebhookLifecycle — observed instants, by value from the committ
     expect(row.actual_ended_at).toBe('2026-07-30T00:03:26.000Z');
   });
 
-  it('`meeting.ended` never captures the occurrence uuid', async () => {
-    // Unchanged Z0B rule, re-asserted because Z7-1 widened this call: the uuid belongs
-    // to `meeting.started`, and an `ended` that carries one must still not write it.
+  it('`meeting.ended` fills a missing occurrence uuid but cannot overwrite one already established', async () => {
+    // Ended-before-started is supported. The later start is refused by the lifecycle
+    // guard, so ended is the only event that can make the occurrence report-eligible.
+    // The SQL COALESCE still makes an established identity immutable on replay.
     const { body } = loadCapture('meeting-ended.json');
     expect(body.payload?.object?.uuid).toBe('de+IDqR9f3hhT9D8/NA/J1==');
 
-    const row = freshRow({ status: 'started', zoom_meeting_uuid: 'ProvisionTime/Uuid==' });
-    const { store } = storeOver(row);
+    const missing = freshRow({ status: 'started' });
+    await applyWebhookLifecycle(
+      storeOver(missing).store,
+      'meeting.ended',
+      body.payload?.object,
+      body.event_ts
+    );
+    expect(missing.zoom_meeting_uuid).toBe('de+IDqR9f3hhT9D8/NA/J1==');
+
+    const established = freshRow({
+      status: 'started',
+      zoom_meeting_uuid: 'Established/Occurrence==',
+    });
+    const { store } = storeOver(established);
 
     await applyWebhookLifecycle(store, 'meeting.ended', body.payload?.object, body.event_ts);
 
-    expect(row.zoom_meeting_uuid).toBe('ProvisionTime/Uuid==');
+    expect(established.zoom_meeting_uuid).toBe('Established/Occurrence==');
   });
 
   it('`event_ts` may stand in for end_time but NEVER for start_time on the ended branch', async () => {
@@ -351,9 +367,9 @@ describe('applyWebhookLifecycle — observed instants, by value from the committ
     expect(row.status).toBe('ended');
     expect(row.actual_started_at).toBe('2026-07-29T23:55:56.000Z');
     expect(row.actual_ended_at).toBe('2026-07-30T00:03:26.000Z');
-    // The refused `started` is what makes the ended-supplied start load-bearing: it
-    // never got to write anything, including the occurrence uuid.
-    expect(row.zoom_meeting_uuid).toBeNull();
+    // The refused `started` cannot repair this row later. The ended delivery therefore
+    // has to persist its occurrence UUID immediately so report reconciliation is eligible.
+    expect(row.zoom_meeting_uuid).toBe('de+IDqR9f3hhT9D8/NA/J1==');
   });
 
   it('a participant event still moves nothing — Z7-1 adds no new applied event type', async () => {

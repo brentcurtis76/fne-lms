@@ -184,9 +184,19 @@ BEGIN
             USING ERRCODE = 'P0400';
     END IF;
 
+    -- Serialize ownership of the idempotency key BEFORE checking it (Z7-R7).
+    -- The old precheck ran before the session/ledger row locks, so two transactions
+    -- could both see no row and the loser surfaced the UNIQUE constraint as 23505.
+    -- A hash collision only serializes unrelated requests; it cannot merge them,
+    -- because the exact request_id + payload_hash check below still decides replay.
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended(p_request_id, 0)
+    );
+
     -- Idempotency with tamper detection (§11): the same request replayed is a
     -- no-op that answers with the original event; the same id with a DIFFERENT
-    -- payload is refused.
+    -- payload is refused. This check now runs while this transaction owns the
+    -- request-id advisory lock, so concurrent callers observe the same contract.
     SELECT * INTO v_existing
       FROM public.session_hour_overrides
      WHERE request_id = p_request_id;
@@ -331,7 +341,7 @@ END
 $$;
 
 COMMENT ON FUNCTION public.apply_session_hour_override(uuid, integer, text, text, text, text, uuid) IS
-  'The ONE path that adjusts a finalized session''s billable minutes (§11): apply (p_reverses_override_id NULL, p_new_minutes >= 0, 0 = zero waiver) or reverse (restores the reversed event''s previous_minutes; NULL back to planned). Actor = auth.uid() inside — NULL aborts, non-admin aborts — so no webhook, job, service client or AI process can reach it. Insert + ledger update are one transaction; request_id is idempotent with tamper detection.';
+  'The ONE path that adjusts a finalized session''s billable minutes (§11): apply (p_reverses_override_id NULL, p_new_minutes >= 0, 0 = zero waiver) or reverse (restores the reversed event''s previous_minutes; NULL back to planned). Actor = auth.uid() inside — NULL aborts, non-admin aborts — so no webhook, job, service client or AI process can reach it. Insert + ledger update are one transaction; request_id ownership is transaction-advisory-locked before the replay/tamper check.';
 
 -- service_role is revoked EXPLICITLY: Supabase's default privileges grant new
 -- public functions to anon/authenticated/service_role, and §11 requires the
@@ -438,3 +448,62 @@ AS $$
   LEFT JOIN ledger_totals led ON led.hour_type_id = alloc.hour_type_id
   ORDER BY ht.sort_order;
 $$;
+
+-- -----------------------------------------------------------------------------
+-- 5. Consultant payment reads the SAME override-adjusted value (Z7-R1).
+--
+-- The baseline RPC still summed `chl.hours`, so an override reduced school
+-- consumption while continuing to pay/report the historical planned amount.
+-- Replace at the IDENTICAL signature and return shape. CREATE OR REPLACE preserves
+-- the existing anon/authenticated/service_role grants and owner; `hours` remains
+-- available as historical evidence but is no longer the billable derivation.
+-- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.get_consultant_earnings(
+  p_consultant_id uuid,
+  p_from date,
+  p_to date
+) RETURNS TABLE(
+  hour_type_key text,
+  display_name text,
+  total_hours numeric,
+  rate_eur numeric,
+  total_eur numeric
+)
+LANGUAGE sql
+STABLE
+AS $$
+  WITH billable AS (
+    SELECT
+      ht.key AS hour_type_key,
+      ht.display_name,
+      ht.sort_order,
+      cr.rate_eur,
+      COALESCE(round(chl.effective_minutes::numeric / 60, 2), chl.hours) AS hours
+    FROM public.contract_hours_ledger chl
+    JOIN public.consultor_sessions cs ON cs.id = chl.session_id
+    JOIN public.session_facilitators sf ON sf.session_id = cs.id
+      AND sf.user_id = p_consultant_id
+    JOIN public.contract_hour_allocations cha ON cha.id = chl.allocation_id
+    JOIN public.hour_types ht ON ht.id = cha.hour_type_id
+    LEFT JOIN public.consultant_rates cr ON cr.consultant_id = p_consultant_id
+      AND cr.hour_type_id = cha.hour_type_id
+      AND chl.session_date >= cr.effective_from
+      AND (cr.effective_to IS NULL OR chl.session_date < cr.effective_to)
+    WHERE chl.session_date BETWEEN p_from AND p_to
+      AND chl.status IN ('consumida', 'penalizada')
+  )
+  SELECT
+    billable.hour_type_key,
+    billable.display_name,
+    SUM(billable.hours) AS total_hours,
+    billable.rate_eur,
+    SUM(billable.hours) * billable.rate_eur AS total_eur
+  FROM billable
+  GROUP BY billable.hour_type_key, billable.display_name,
+           billable.rate_eur, billable.sort_order
+  ORDER BY billable.sort_order;
+$$;
+
+COMMENT ON FUNCTION public.get_consultant_earnings(uuid, date, date) IS
+  'Returns consultant earnings by hour type/rate using the canonical §11 billable value: round(effective_minutes/60.0, 2) when adjusted, otherwise historical hours. NULL rate_eur means no rate is configured.';

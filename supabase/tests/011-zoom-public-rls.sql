@@ -741,17 +741,17 @@ SELECT is(
 SELECT is(
   (SELECT count(*)::int FROM zoom_internal.apply_meeting_lifecycle(
      'a7a7a7a7-2222-0000-0000-000000000002', 'ended',
-     ARRAY['pending', 'provisioned', 'started', 'ended', 'error'], NULL,
+     ARRAY['pending', 'provisioned', 'started', 'ended', 'error'], 'z7Occurrence/M2==',
      '2026-07-29T23:55:56Z', '2026-07-30T00:03:26Z')),
   1, 'meeting.ended applies over provisioned — the ended set is the wider one');
 
 SELECT ok(
   (SELECT actual_started_at = '2026-07-29T23:55:56Z'::timestamptz
           AND actual_ended_at = '2026-07-30T00:03:26Z'::timestamptz
-          AND zoom_meeting_uuid IS NULL
+          AND zoom_meeting_uuid = 'z7Occurrence/M2=='
      FROM zoom_internal.zoom_meetings
     WHERE id = 'a7a7a7a7-2222-0000-0000-000000000002'),
-  'an out-of-order meeting.ended records BOTH exact instants — and still captures no occurrence uuid');
+  'an out-of-order meeting.ended records BOTH exact instants and the report occurrence uuid');
 
 -- M2(b) ...and the swept `meeting.started` fifteen minutes later is refused by the
 -- guard, so it can neither overwrite the instants nor resurrect a finished meeting.
@@ -766,10 +766,10 @@ SELECT ok(
   (SELECT status = 'ended'
           AND actual_started_at = '2026-07-29T23:55:56Z'::timestamptz
           AND actual_ended_at = '2026-07-30T00:03:26Z'::timestamptz
-          AND zoom_meeting_uuid IS NULL
+          AND zoom_meeting_uuid = 'z7Occurrence/M2=='
      FROM zoom_internal.zoom_meetings
     WHERE id = 'a7a7a7a7-2222-0000-0000-000000000002'),
-  'after the refused replay the row still holds both EXACT fixture instants, unchanged');
+  'after the refused replay the row still holds both instants and occurrence identity unchanged');
 
 RESET ROLE;
 

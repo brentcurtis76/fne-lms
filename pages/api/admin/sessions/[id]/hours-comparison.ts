@@ -126,7 +126,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (sessionError) throw new Error(sessionError.message);
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
 
-    const [{ data: ledger }, { data: facilitators }, { data: meeting }, { data: overrides }] =
+    const [ledgerResult, facilitatorsResult, meetingResult, overridesResult] =
       await Promise.all([
         serviceClient
           .from('contract_hours_ledger')
@@ -152,6 +152,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .eq('session_id', sessionId)
           .order('seq', { ascending: true }),
       ]);
+
+    // Absence is meaningful only after a successful read. A failed dependency must
+    // never be flattened into “no ledger/facilitator/meeting/history” (Z7-R5).
+    if (
+      ledgerResult.error ||
+      facilitatorsResult.error ||
+      meetingResult.error ||
+      overridesResult.error
+    ) {
+      throw new Error('hours comparison dependency read failed');
+    }
+    const ledger = ledgerResult.data;
+    const facilitators = facilitatorsResult.data;
+    const meeting = meetingResult.data;
+    const overrides = overridesResult.data;
 
     const zoomState: HoursComparisonPayload['zoom']['state'] =
       meeting === null || meeting === undefined

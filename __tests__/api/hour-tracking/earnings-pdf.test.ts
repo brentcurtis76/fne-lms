@@ -11,12 +11,19 @@ const CONSULTOR_UUID = '550e8400-e29b-41d4-a716-446655440002';
 const OTHER_UUID = '550e8400-e29b-41d4-a716-446655440003';
 
 // Hoisted mocks
-const { mockGetApiUser, mockCreateServiceRoleClient, mockGetUserRoles, mockGetHighestRole } =
+const {
+  mockGetApiUser,
+  mockCreateServiceRoleClient,
+  mockGetUserRoles,
+  mockGetHighestRole,
+  mockAutoTable,
+} =
   vi.hoisted(() => ({
     mockGetApiUser: vi.fn(),
     mockCreateServiceRoleClient: vi.fn(),
     mockGetUserRoles: vi.fn(),
     mockGetHighestRole: vi.fn(),
+    mockAutoTable: vi.fn(),
   }));
 
 vi.mock('../../../lib/api-auth', () => ({
@@ -68,7 +75,7 @@ vi.mock('jspdf', () => {
     rect: vi.fn(),
     text: vi.fn(),
     addImage: vi.fn(),
-    autoTable: vi.fn(),
+    autoTable: mockAutoTable,
     setPage: vi.fn(),
     output: vi.fn().mockReturnValue(new ArrayBuffer(100)),
     lastAutoTable: { finalY: 50 },
@@ -198,6 +205,45 @@ describe('GET /api/consultant-earnings/[consultant_id]/pdf', () => {
     await handler(req as never, res as never);
     expect(res._getStatusCode()).toBe(200);
     expect(res.getHeader('Content-Type')).toBe('application/pdf');
+  });
+
+  it('[Z7-R1] renders the override-adjusted RPC hours and payment in the PDF', async () => {
+    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
+    mockGetUserRoles.mockResolvedValue([{ role_type: 'admin', school_id: null }]);
+    mockGetHighestRole.mockReturnValue('admin');
+
+    const mockClient = makeConsultorClient();
+    mockClient.rpc.mockResolvedValue({
+      data: [
+        {
+          hour_type_key: 'asesoria_online',
+          display_name: 'Asesoría sintética',
+          total_hours: 0.75,
+          rate_eur: 10,
+          total_eur: 7.5,
+        },
+      ],
+      error: null,
+    });
+    mockCreateServiceRoleClient.mockReturnValue(mockClient);
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { consultant_id: CONSULTOR_UUID, from: '2026-01-01', to: '2026-03-31' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const breakdownCall = mockAutoTable.mock.calls.find(
+      ([options]) => Array.isArray(options?.head) && options.head[0]?.[0] === 'Tipo de Hora'
+    );
+    expect(breakdownCall?.[0].body[0]).toEqual([
+      'Asesoría sintética',
+      '0.75',
+      '€10.00',
+      '€7.50',
+      '$7.875',
+    ]);
   });
 
   it('returns 400 for invalid consultant_id (not UUID)', async () => {

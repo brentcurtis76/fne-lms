@@ -42,26 +42,34 @@ const OTHER_FAC_ID = 'facadfac-0002-4000-8000-000000000002';
 const ADMIN = { id: 'ad111111-1111-4111-8111-111111111111' };
 
 /** Chainable thenable: every filter returns itself; awaiting resolves the result. */
-function tableResult(data: unknown) {
+function tableResult(data: unknown, error: { message: string } | null = null) {
   const self: Record<string, unknown> = {};
-  const resolved = { data, error: null };
+  const resolved = { data, error };
   for (const method of ['select', 'eq', 'order']) {
     self[method] = vi.fn(() => self);
   }
   self.maybeSingle = vi.fn(async () => ({
     data: Array.isArray(data) ? (data[0] ?? null) : data,
-    error: null,
+    error,
   }));
   self.then = (resolve: (value: unknown) => unknown) => resolve(resolved);
   return self;
 }
 
-function fakeServiceClient(tables: Record<string, unknown>) {
-  const from = vi.fn((table: string) => tableResult(tables[table] ?? null));
+function fakeServiceClient(
+  tables: Record<string, unknown>,
+  errors: Record<string, { message: string }> = {}
+) {
+  const from = vi.fn((table: string) => tableResult(tables[table] ?? null, errors[table] ?? null));
   return {
     from,
     schema: vi.fn(() => ({
-      from: vi.fn((table: string) => tableResult(tables[`zoom_internal.${table}`] ?? null)),
+      from: vi.fn((table: string) =>
+        tableResult(
+          tables[`zoom_internal.${table}`] ?? null,
+          errors[`zoom_internal.${table}`] ?? null
+        )
+      ),
     })),
   };
 }
@@ -268,5 +276,22 @@ describe('the comparison payload', () => {
         reverses_override_id: null,
       },
     ]);
+  });
+
+  it.each([
+    'contract_hours_ledger',
+    'session_facilitators',
+    'zoom_internal.zoom_meetings',
+    'session_hour_overrides',
+  ])('[Z7-R5] fails closed when the %s read fails', async (source) => {
+    mockCreateServiceRoleClient.mockReturnValue(
+      fakeServiceClient(BASE_TABLES(), { [source]: { message: `synthetic ${source} failure` } })
+    );
+    fakeEffective([], 'webhook');
+
+    const res = await invoke();
+    expect(res._getStatusCode()).toBe(500);
+    expect(res._getJSONData()).toEqual({ error: 'Error interno' });
+    expect(res._getData()).not.toContain('synthetic');
   });
 });

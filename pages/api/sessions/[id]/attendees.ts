@@ -24,8 +24,8 @@ import { sendSessionNotFound } from '../../../../lib/utils/session-denials';
 const attendeeSchema = z.object({
   user_id: z.string().uuid({ message: 'user_id inválido en payload' }),
   attended: z.boolean({ invalid_type_error: 'attended debe ser booleano' }),
-  arrival_status: z.enum(['on_time', 'late', 'left_early']).optional(),
-  notes: z.string().max(500, { message: 'notes excede 500 caracteres' }).optional(),
+  arrival_status: z.enum(['on_time', 'late', 'left_early']).nullable().optional(),
+  notes: z.string().max(500, { message: 'notes excede 500 caracteres' }).nullable().optional(),
 });
 
 const attendeesPayloadSchema = z.object({
@@ -235,19 +235,27 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
     }
 
     // Update each attendee record (NOT upsert to avoid creating phantom rows)
-    const updatePromises = attendees.map((att: AttendanceUpdatePayload) =>
-      serviceClient
+    const updatePromises = attendees.map((att: AttendanceUpdatePayload) => {
+      const update: Record<string, unknown> = {
+        attended: att.attended,
+        marked_by: user.id,
+        marked_at: new Date().toISOString(),
+      };
+      // Omitted means preserve. Explicit null (or an explicitly empty note from an
+      // older client) means clear. The merge happens in the UPDATE statement, after
+      // the one authorization decision above — no client read/merge/write race.
+      if (Object.prototype.hasOwnProperty.call(att, 'arrival_status')) {
+        update.arrival_status = att.arrival_status ?? null;
+      }
+      if (Object.prototype.hasOwnProperty.call(att, 'notes')) {
+        update.notes = att.notes ? att.notes : null;
+      }
+      return serviceClient
         .from('session_attendees')
-        .update({
-          attended: att.attended,
-          arrival_status: att.arrival_status || null,
-          notes: att.notes || null,
-          marked_by: user.id,
-          marked_at: new Date().toISOString(),
-        })
+        .update(update)
         .eq('session_id', sessionId)
-        .eq('user_id', att.user_id)
-    );
+        .eq('user_id', att.user_id);
+    });
 
     const results = await Promise.all(updatePromises);
 

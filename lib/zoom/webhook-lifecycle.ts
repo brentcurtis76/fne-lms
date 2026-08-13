@@ -178,9 +178,12 @@ export async function applyWebhookLifecycle(
   if (meetingId === null) return;
 
   const status = eventType === 'meeting.started' ? 'started' : 'ended';
-  // `meeting.ended` carries the same occurrence uuid, but `started` already captured
-  // it; passing null there means a malformed/absent uuid can never blank the column.
-  const occurrenceUuid = status === 'started' ? readOccurrenceUuid(object?.uuid) : null;
+  // Both lifecycle events carry the occurrence uuid. `ended` must offer it too:
+  // when ended arrives first, the later started transition is correctly refused,
+  // so this is the only chance to make the occurrence report-eligible (Z7-R2).
+  // The SQL COALESCE fills only a missing value and cannot overwrite an established
+  // occurrence identity; a malformed/absent uuid therefore still cannot blank it.
+  const occurrenceUuid = readOccurrenceUuid(object?.uuid);
 
   // `meeting.ended` offers BOTH instants, because its payload states when the
   // occurrence began as well as when it finished. That is not a second writer racing

@@ -169,6 +169,31 @@ describe('attendance_reconcile — the complete-batch capture', () => {
     expect(rejections[0].reason).toMatch(/^page_fetch_failed/);
   });
 
+  it('[Z7-R6] an exhausted retryable page failure still rejects the pending batch', async () => {
+    const api = createZoomFake();
+    api.listReportParticipants = vi.fn(async () => {
+      throw new ZoomRetryableError('synthetic transport retries exhausted', {
+        status: 503,
+        operation: 'list_report_participants',
+      });
+    });
+    const { store, promotions, rejections } = fakeReportStore();
+    const handler = createAttendanceReconcileHandler({
+      api,
+      reportStore: store,
+      matchLookups: fakeLookups(),
+    });
+
+    await expect(handler(context())).rejects.toThrow(ZoomRetryableError);
+    expect(promotions).toEqual([]);
+    expect(rejections).toEqual([
+      {
+        batchId: 'batch-1',
+        reason: 'page_fetch_failed: synthetic transport retries exhausted',
+      },
+    ]);
+  });
+
   it('[matrix 14] count drift rejects the candidate with the failed clause named', async () => {
     const api = seedReport(50);
     api.driftReportTotal(OCCURRENCE, 51);

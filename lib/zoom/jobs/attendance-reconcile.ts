@@ -145,12 +145,10 @@ export function createAttendanceReconcileHandler(
       // §15.3.9: any page error or rejected token rejects the ENTIRE candidate. The
       // batch is marked so the failure is visible, then the job retries bounded —
       // a NEW candidate each attempt — and dead-letters onto the health panel.
-      if (!(error instanceof ZoomRetryableError)) {
-        await store.rejectBatch(
-          batchId,
-          `page_fetch_failed: ${error instanceof Error ? error.message : String(error)}`
-        );
-      }
+      await store.rejectBatch(
+        batchId,
+        `page_fetch_failed: ${error instanceof Error ? error.message : String(error)}`
+      );
       if (isReportNotReady(error)) {
         // Zoom generates the report minutes after the meeting ends; 404 now is a
         // timing fact. Terminal-failing here would dead-letter every prompt enqueue.

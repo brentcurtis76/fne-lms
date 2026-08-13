@@ -621,9 +621,9 @@ describe('/api/zoom/webhook — lifecycle application (§15 rows only)', () => {
     expect(meetings.get(FIXTURE_MEETING_NUMBER)?.zoom_meeting_uuid).toBe(FIXTURE_OCCURRENCE_UUID);
     // Z7-1: `ended` offers BOTH instants from the same fixture — its payload states
     // when the occurrence began as well as when it finished, and the RPC fills each
-    // column only while NULL. Still no uuid: `ended` never rewrites the occurrence
-    // uuid `started` captured.
-    expect(store.setMeetingStatus).toHaveBeenCalledWith(MEETING_ROW_ID, 'ended', null, {
+    // column only while NULL. `ended` offers the same UUID too; the store's COALESCE
+    // preserves the identity `started` already captured.
+    expect(store.setMeetingStatus).toHaveBeenCalledWith(MEETING_ROW_ID, 'ended', FIXTURE_OCCURRENCE_UUID, {
       actualStartedAt: '2026-07-29T23:55:56.000Z',
       actualEndedAt: '2026-07-30T00:03:26.000Z',
     });

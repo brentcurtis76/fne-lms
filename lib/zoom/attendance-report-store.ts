@@ -115,6 +115,14 @@ interface CompleteBatchRow {
 }
 
 /** The three read chains this store issues, all hanging off one `eq` filter. */
+interface CandidateRangeChain {
+  order(column: string, options: { ascending: boolean }): CandidateRangeChain;
+  range(from: number, to: number): PromiseLike<{
+    data: CandidateMeetingRow[] | null;
+    error: PostgrestError | null;
+  }>;
+}
+
 interface ReportSelectChain {
   maybeSingle(): PromiseLike<{ data: MeetingRow | null; error: PostgrestError | null }>;
   in(
@@ -124,12 +132,7 @@ interface ReportSelectChain {
   gte(
     column: string,
     value: string
-  ): {
-    limit(count: number): PromiseLike<{
-      data: CandidateMeetingRow[] | null;
-      error: PostgrestError | null;
-    }>;
-  };
+  ): CandidateRangeChain;
 }
 
 /** The narrow `zoom_internal` surface this store speaks. */
@@ -158,6 +161,9 @@ const PROMOTE_RESULTS: readonly PromoteBatchResult[] = [
   'batch_not_pending',
   'batch_not_found',
 ];
+
+/** Bounded PostgREST page; scanning may continue, but history is never loaded whole. */
+export const RECONCILE_CANDIDATE_PAGE_SIZE = 100;
 
 export function createSupabaseAttendanceReportStore(
   internalClient: ReportInternalClient
@@ -244,42 +250,60 @@ export function createSupabaseAttendanceReportStore(
     },
 
     async listReconcileCandidates(receivedAfterIso, limit) {
-      // Two reads and a diff, rather than a cross-table NOT EXISTS PostgREST cannot
-      // express: ended meetings in the window, minus occurrences that already hold a
-      // complete batch. Re-listing an occurrence whose batches are all rejected is
-      // the DESIRED behaviour — that is the §15.3.9 retry path. Rows with no
-      // occurrence uuid are filtered below rather than in the query — there is
-      // nothing to reconcile without the report key.
-      const { data: meetings, error: meetingsError } = await internalClient
-        .from('zoom_meetings')
-        .select('id, zoom_meeting_uuid')
-        .eq('status', 'ended')
-        .gte('updated_at', receivedAfterIso)
-        .limit(limit);
-      if (meetingsError) {
-        throw new Error(`reconcile candidate read failed: ${meetingsError.message}`);
-      }
-      const candidates = (meetings ?? []).filter(
-        (row): row is CandidateMeetingRow & { zoom_meeting_uuid: string } =>
-          row.zoom_meeting_uuid !== null
-      );
-      if (candidates.length === 0) return [];
+      if (limit <= 0) return [];
 
-      const { data: complete, error: batchesError } = await internalClient
-        .from('zoom_attendance_report_batches')
-        .select('zoom_meeting_uuid')
-        .eq('status', 'complete')
-        .in(
-          'zoom_meeting_uuid',
-          candidates.map((row) => row.zoom_meeting_uuid)
+      // PostgREST cannot express the cross-table NOT EXISTS here, so scan bounded,
+      // deterministic pages until the requested UNRESOLVED limit is filled. Limiting
+      // the meeting query before filtering complete batches starves every occurrence
+      // behind a full first page of completed work (Z7-R3).
+      const unresolved: ReconcileCandidate[] = [];
+      let offset = 0;
+
+      while (unresolved.length < limit) {
+        const { data: meetings, error: meetingsError } = await internalClient
+          .from('zoom_meetings')
+          .select('id, zoom_meeting_uuid')
+          .eq('status', 'ended')
+          .gte('updated_at', receivedAfterIso)
+          .order('updated_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(offset, offset + RECONCILE_CANDIDATE_PAGE_SIZE - 1);
+        if (meetingsError) {
+          throw new Error(`reconcile candidate read failed: ${meetingsError.message}`);
+        }
+
+        const page = meetings ?? [];
+        const candidates = page.filter(
+          (row): row is CandidateMeetingRow & { zoom_meeting_uuid: string } =>
+            row.zoom_meeting_uuid !== null
         );
-      if (batchesError) {
-        throw new Error(`reconcile batch read failed: ${batchesError.message}`);
+
+        if (candidates.length > 0) {
+          const { data: complete, error: batchesError } = await internalClient
+            .from('zoom_attendance_report_batches')
+            .select('zoom_meeting_uuid')
+            .eq('status', 'complete')
+            .in(
+              'zoom_meeting_uuid',
+              candidates.map((row) => row.zoom_meeting_uuid)
+            );
+          if (batchesError) {
+            throw new Error(`reconcile batch read failed: ${batchesError.message}`);
+          }
+          const done = new Set((complete ?? []).map((row) => row.zoom_meeting_uuid));
+          for (const row of candidates) {
+            if (!done.has(row.zoom_meeting_uuid)) {
+              unresolved.push({ meetingId: row.id, zoomMeetingUuid: row.zoom_meeting_uuid });
+              if (unresolved.length === limit) break;
+            }
+          }
+        }
+
+        if (page.length < RECONCILE_CANDIDATE_PAGE_SIZE) break;
+        offset += RECONCILE_CANDIDATE_PAGE_SIZE;
       }
-      const done = new Set((complete ?? []).map((row) => row.zoom_meeting_uuid));
-      return candidates
-        .filter((row) => !done.has(row.zoom_meeting_uuid))
-        .map((row) => ({ meetingId: row.id, zoomMeetingUuid: row.zoom_meeting_uuid }));
+
+      return unresolved;
     },
   };
 }

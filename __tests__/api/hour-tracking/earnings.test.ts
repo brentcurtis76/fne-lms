@@ -339,12 +339,14 @@ describe('GET /api/consultant-earnings/[consultant_id] — business logic', () =
     const ledgerRows = [
       {
         status: 'consumida',
-        hours: 3,
+        hours: 1,
+        effective_minutes: 45,
         contract_hour_allocations: { hour_type_id: 'ht-1' },
       },
       {
         status: 'penalizada',
         hours: 2,
+        effective_minutes: null,
         contract_hour_allocations: { hour_type_id: 'ht-1' },
       },
     ];
@@ -361,7 +363,7 @@ describe('GET /api/consultant-earnings/[consultant_id] — business logic', () =
     const body = res._getJSONData();
 
     expect(body.data.by_hour_type[0].total_hours).toBe(5);
-    expect(body.data.by_hour_type[0].executed_hours).toBe(3);
+    expect(body.data.by_hour_type[0].executed_hours).toBe(0.75);
     expect(body.data.by_hour_type[0].penalized_hours).toBe(2);
     expect(body.data.totals.total_eur).toBe(225);
   });

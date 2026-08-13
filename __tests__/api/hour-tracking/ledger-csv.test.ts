@@ -125,7 +125,8 @@ describe('GET /api/contracts/[id]/hours/ledger/csv', () => {
       {
         allocation_id: 'alloc-1',
         session_id: 'sess-1',
-        hours: 2.5,
+        hours: 1,
+        effective_minutes: 45,
         status: 'consumida',
         session_date: '2026-02-01',
         is_manual: false,
@@ -166,6 +167,9 @@ describe('GET /api/contracts/[id]/hours/ledger/csv', () => {
     await handler(req as never, res as never);
     expect(res._getStatusCode()).toBe(200);
     expect(res.getHeader('Content-Type')).toContain('text/csv');
+    const body = res._getData() as string;
+    expect(body).toContain(',0.75,consumida');
+    expect(body).not.toContain(',1.00,consumida');
   });
 
   it('equipo_directivo user gets 200 for own school contract', async () => {

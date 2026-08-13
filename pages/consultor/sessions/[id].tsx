@@ -197,8 +197,8 @@ const SessionDetailPage: React.FC = () => {
       attendees.map((a: SessionAttendee) => ({
         user_id: a.user_id,
         attended: a.attended ?? false,
-        arrival_status: a.arrival_status || undefined,
-        notes: a.notes || undefined,
+        arrival_status: a.arrival_status ?? null,
+        notes: a.notes ?? null,
       }))
     );
 
@@ -301,7 +301,7 @@ const SessionDetailPage: React.FC = () => {
     return texts[status] || '';
   };
 
-  const handleAttendanceChange = (userId: string, field: keyof AttendanceUpdatePayload, value: string | boolean | undefined) => {
+  const handleAttendanceChange = (userId: string, field: keyof AttendanceUpdatePayload, value: string | boolean | null) => {
     setAttendanceData((prev) =>
       prev.map((a) => (a.user_id === userId ? { ...a, [field]: value } : a))
     );
@@ -780,7 +780,7 @@ const SessionDetailPage: React.FC = () => {
                                   handleAttendanceChange(
                                     attendee.user_id,
                                     'arrival_status',
-                                    e.target.value || undefined
+                                    e.target.value || null
                                   )
                                 }
                                 className="text-sm border border-gray-300 rounded px-2 py-1"
@@ -800,7 +800,7 @@ const SessionDetailPage: React.FC = () => {
                                 type="text"
                                 value={attData?.notes || ''}
                                 onChange={(e) =>
-                                  handleAttendanceChange(attendee.user_id, 'notes', e.target.value || undefined)
+                                  handleAttendanceChange(attendee.user_id, 'notes', e.target.value || null)
                                 }
                                 placeholder="Notas opcionales"
                                 className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
@@ -877,7 +877,7 @@ const SessionDetailPage: React.FC = () => {
                               handleAttendanceChange(
                                 attendee.user_id,
                                 'arrival_status',
-                                e.target.value || undefined
+                                e.target.value || null
                               )
                             }
                             className="w-full text-sm border border-gray-300 rounded px-3 py-2 min-h-[44px]"
@@ -900,7 +900,7 @@ const SessionDetailPage: React.FC = () => {
                             type="text"
                             value={attData?.notes || ''}
                             onChange={(e) =>
-                              handleAttendanceChange(attendee.user_id, 'notes', e.target.value || undefined)
+                              handleAttendanceChange(attendee.user_id, 'notes', e.target.value || null)
                             }
                             placeholder="Notas opcionales"
                             className="w-full text-sm border border-gray-300 rounded px-3 py-2 min-h-[44px]"

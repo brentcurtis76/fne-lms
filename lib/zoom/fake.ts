@@ -45,6 +45,7 @@ import type {
   ZoomMeeting,
   ZoomMeetingRaw,
   ZoomMeetingSettings,
+  ZoomReportParticipantRaw,
   ZoomUser,
 } from './api';
 
@@ -116,6 +117,24 @@ export interface ZoomFakeControls {
   isZakLive(zak: string): boolean;
   /** Everything currently held, for assertions. */
   listMeetings(): ZoomMeeting[];
+  /**
+   * Seeds the participant report for one occurrence (Z7-3). The fake then serves it
+   * PAGINATED exactly as Zoom does — `page_size`-bounded slices, an empty
+   * `next_page_token` as the only end signal — because single-fetch consumers are
+   * precisely the defect §15.3.9's completeness rule exists to catch.
+   */
+  setReportParticipants(occurrenceUuid: string, participants: ZoomReportParticipantRaw[]): void;
+  /**
+   * Makes the fetch of one page (0-based index) of that occurrence's report throw a
+   * retryable-shaped error — the mid-pagination failure that must reject the whole
+   * candidate batch.
+   */
+  failReportPage(occurrenceUuid: string, pageIndex: number): void;
+  /**
+   * Overrides the `total_records` the report claims, without changing the rows —
+   * models the count drift that must also reject the batch.
+   */
+  driftReportTotal(occurrenceUuid: string, totalRecords: number): void;
 }
 
 export type ZoomFake = ZoomApi & ZoomFakeControls;
@@ -131,6 +150,15 @@ export function createZoomFake(): ZoomFake {
   /** Tokens handed out and not yet expired — the whole of `isZakLive`'s knowledge. */
   const liveZaks = new Set<string>();
   let zakCounter = 0;
+  /** Z7-3: the seeded participant report per occurrence, plus its failure knobs. */
+  const reports = new Map<
+    string,
+    {
+      participants: ZoomReportParticipantRaw[];
+      failPages: Set<number>;
+      totalRecordsOverride: number | null;
+    }
+  >();
 
   /**
    * Deterministic, and deliberately carries `+` and `/`. Zoom's real UUIDs contain
@@ -348,6 +376,49 @@ export function createZoomFake(): ZoomFake {
       return zak;
     },
 
+    async listReportParticipants(occurrenceUuid, options = {}) {
+      const report = reports.get(occurrenceUuid);
+      if (!report) {
+        // The live client turns Zoom's "no report for this meeting" into this class.
+        throw new ZoomNonRetryableError(`Zoom has no participant report for this occurrence.`, {
+          status: 404,
+          zoomCode: 3001,
+          operation: 'GET /report/meetings/{uuid}/participants',
+        });
+      }
+
+      const pageSize = options.pageSize ?? 100;
+      // The token is opaque to callers; this fake's shape is `pg:<index>`.
+      const pageIndex = options.nextPageToken
+        ? Number(options.nextPageToken.replace(/^pg:/, ''))
+        : 0;
+
+      if (report.failPages.has(pageIndex)) {
+        throw new ZoomNonRetryableError(`Synthetic page failure for page ${pageIndex}.`, {
+          status: 400,
+          zoomCode: 300,
+          operation: 'GET /report/meetings/{uuid}/participants',
+        });
+      }
+
+      const totalRecords = report.totalRecordsOverride ?? report.participants.length;
+      const pageCount = Math.max(1, Math.ceil(report.participants.length / pageSize));
+      const start = pageIndex * pageSize;
+      const participants = report.participants
+        .slice(start, start + pageSize)
+        .map((participant) => ({ ...participant }));
+      const hasMore = start + pageSize < report.participants.length;
+
+      return {
+        participants,
+        // The empty string IS the end-of-data signal, exactly as Zoom sends it.
+        nextPageToken: hasMore ? `pg:${pageIndex + 1}` : '',
+        pageSize,
+        pageCount,
+        totalRecords,
+      };
+    },
+
     // ---- Controls ---------------------------------------------------------
     reset() {
       meetings.clear();
@@ -358,6 +429,7 @@ export function createZoomFake(): ZoomFake {
       zakOverrides.clear();
       liveZaks.clear();
       zakCounter = 0;
+      reports.clear();
     },
 
     setZak(zoomUserId: string, zak: string | null) {
@@ -395,6 +467,24 @@ export function createZoomFake(): ZoomFake {
 
     listMeetings() {
       return [...meetings.values()].filter((meeting) => !meeting.deleted).map(toDomain);
+    },
+
+    setReportParticipants(occurrenceUuid, participants) {
+      reports.set(occurrenceUuid, {
+        participants: participants.map((participant) => ({ ...participant })),
+        failPages: new Set(),
+        totalRecordsOverride: null,
+      });
+    },
+
+    failReportPage(occurrenceUuid, pageIndex) {
+      const report = reports.get(occurrenceUuid);
+      if (report) report.failPages.add(pageIndex);
+    },
+
+    driftReportTotal(occurrenceUuid, totalRecords) {
+      const report = reports.get(occurrenceUuid);
+      if (report) report.totalRecordsOverride = totalRecords;
     },
   };
 }

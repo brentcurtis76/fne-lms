@@ -14,6 +14,7 @@
  * The handler contract itself lives in `./types` — this module imports handlers, so
  * it must not be what handlers import.
  */
+import { createAttendanceReconcileHandler } from './attendance-reconcile';
 import { createHostSyncHandler, type ZoomHostStore } from './host-sync';
 import { createMeetingDeleteHandler, type MeetingDeleteStore } from './meeting-delete';
 import {
@@ -23,6 +24,8 @@ import {
 import { createMeetingSyncHandler, type MeetingSyncStore } from './meeting-sync';
 import { createWebhookSweepHandler } from './webhook-sweep';
 import type { ZoomApi } from '../api';
+import type { ZoomAttendanceReportStore } from '../attendance-report-store';
+import type { ParticipantMatchLookups } from '../participant-lifecycle';
 import type { ZoomWebhookSweepStore } from '../webhook-store';
 import type { ZoomJobHandler, ZoomJobRegistry } from './types';
 
@@ -58,6 +61,8 @@ export interface ZoomJobRegistryDeps {
   meetingSyncStore?: MeetingSyncStore;
   meetingDeleteStore?: MeetingDeleteStore;
   webhookSweepStore?: ZoomWebhookSweepStore;
+  attendanceReportStore?: ZoomAttendanceReportStore;
+  attendanceMatchLookups?: ParticipantMatchLookups;
   env?: NodeJS.ProcessEnv;
 }
 
@@ -90,6 +95,14 @@ export function createZoomJobRegistry(deps: ZoomJobRegistryDeps = {}): ZoomJobRe
       env: deps.env,
     }),
     webhook_sweep: createWebhookSweepHandler({ store: deps.webhookSweepStore, env: deps.env }),
+    // Z7-3, registered in the SAME commit as its first enqueue (the sequencing rule
+    // above): the authoritative participant-report capture per occurrence.
+    attendance_reconcile: createAttendanceReconcileHandler({
+      api: deps.api,
+      reportStore: deps.attendanceReportStore,
+      matchLookups: deps.attendanceMatchLookups,
+      env: deps.env,
+    }),
     noop: noopJobHandler,
   };
 }

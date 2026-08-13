@@ -25,7 +25,7 @@
 
 BEGIN;
 
-SELECT plan(116);
+SELECT plan(134);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures
@@ -341,32 +341,41 @@ VALUES
 
 -- Five attendance rows. ATT2 is the `unmatched` shape the §15.3.5 blind spot requires
 -- to be storable — a link-join participant Zoom gave no identity field for. ATT4/ATT5
--- share a surface_id and differ only by surface_type.
+-- share a surface_id and differ only by surface_type. ATT3 is a REPORT row, which
+-- since Z7-3 must name its batch and be closed — the fixture batch here satisfies
+-- the reference; the promotion machinery has its own section below.
+INSERT INTO zoom_internal.zoom_attendance_report_batches
+  (id, school_id, surface_type, surface_id, zoom_meeting_uuid, status)
+VALUES
+  ('a7a7a7a7-8888-0000-0000-000000000098', 9902, 'consultor_session',
+   'a7a7a7a7-0000-0000-0000-000000000002', 'z7Synthetic/Occurrence/B==', 'pending');
+
 INSERT INTO public.zoom_attendance
   (id, surface_type, surface_id, school_id, zoom_meeting_uuid,
    user_id, customer_key, display_name, transient_email, matched_by,
-   joined_at, left_at, source)
+   joined_at, left_at, source, report_batch_id)
 VALUES
   ('a7a7a7a7-1111-0000-0000-000000000001', 'consultor_session',
    'a7a7a7a7-0000-0000-0000-000000000001', 9901, 'z7Synthetic/Occurrence/A==',
    tests.get_supabase_uid('z_fac_a'), '47d97a107c8f4c348519b4c77ed439d9', NULL, NULL,
-   'customer_key', now() - interval '55 min', now() - interval '5 min', 'webhook'),
+   'customer_key', now() - interval '55 min', now() - interval '5 min', 'webhook', NULL),
   ('a7a7a7a7-1111-0000-0000-000000000002', 'consultor_session',
    'a7a7a7a7-0000-0000-0000-000000000001', 9901, 'z7Synthetic/Occurrence/A==',
    NULL, NULL, 'Asistente Sintetico Uno', NULL,
-   'unmatched', now() - interval '50 min', NULL, 'webhook'),
+   'unmatched', now() - interval '50 min', NULL, 'webhook', NULL),
   ('a7a7a7a7-1111-0000-0000-000000000003', 'consultor_session',
    'a7a7a7a7-0000-0000-0000-000000000002', 9902, 'z7Synthetic/Occurrence/B==',
    NULL, NULL, NULL, 'z_cons_b@test.local',
-   'email', now() - interval '40 min', now() - interval '10 min', 'report'),
+   'email', now() - interval '40 min', now() - interval '10 min', 'report',
+   'a7a7a7a7-8888-0000-0000-000000000098'),
   ('a7a7a7a7-1111-0000-0000-000000000004', 'consultor_session',
    'a7a7a7a7-c011-0000-0000-000000000001', 9901, 'z7Synthetic/Occurrence/C==',
    NULL, NULL, 'Asistente Sintetico Sesion', NULL,
-   'name', now() - interval '30 min', NULL, 'webhook'),
+   'name', now() - interval '30 min', NULL, 'webhook', NULL),
   ('a7a7a7a7-1111-0000-0000-000000000005', 'community_meeting',
    'a7a7a7a7-c011-0000-0000-000000000001', 9901, 'z7Synthetic/Occurrence/D==',
    NULL, NULL, 'Asistente Sintetico Reunion', NULL,
-   'name', now() - interval '20 min', NULL, 'webhook');
+   'name', now() - interval '20 min', NULL, 'webhook', NULL);
 
 SELECT tests.rls_enabled('public', 'zoom_attendance');
 
@@ -1012,17 +1021,28 @@ SELECT lives_ok(
              ARRAY['ck:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1'], 'delivery-t-3', 'webhook') $$,
   'a genuine rejoin carries a different delivery key and opens a new interval');
 
--- Rows with no delivery key (Z7-3's report path) are excluded by the partial predicate.
+-- Rows with no delivery key (Z7-3's report path) are excluded by the partial
+-- predicate. Report rows must name a batch and be closed (Z7-3 CHECKs), so the
+-- fixture batch below exists only to satisfy the FK — its status is irrelevant here.
+INSERT INTO zoom_internal.zoom_attendance_report_batches
+  (id, school_id, surface_type, surface_id, zoom_meeting_uuid, status)
+VALUES
+  ('a7a7a7a7-8888-0000-0000-000000000099', 9901, 'consultor_session',
+   'a7a7a7a7-0000-0000-0000-000000000001', 'z7Synthetic/Occurrence/U==', 'pending');
+
 SELECT lives_ok(
   $$ INSERT INTO public.zoom_attendance
        (surface_type, surface_id, school_id, zoom_meeting_uuid,
-        participant_uuid, matched_by, joined_at, identity_tokens, source_event_key, source)
+        participant_uuid, matched_by, joined_at, left_at, identity_tokens,
+        source_event_key, source, report_batch_id)
      VALUES ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
              'z7Synthetic/Occurrence/U==', NULL, 'unmatched', '2026-07-30T00:20:00Z',
-             NULL, NULL, 'report'),
+             '2026-07-30T00:40:00Z', NULL, NULL, 'report',
+             'a7a7a7a7-8888-0000-0000-000000000099'),
             ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
              'z7Synthetic/Occurrence/U==', NULL, 'unmatched', '2026-07-30T00:21:00Z',
-             NULL, NULL, 'report') $$,
+             '2026-07-30T00:41:00Z', NULL, NULL, 'report',
+             'a7a7a7a7-8888-0000-0000-000000000099') $$,
   'two rows with a NULL source_event_key both insert — the index is PARTIAL for Z7-3');
 
 -- =============================================================================
@@ -1235,6 +1255,169 @@ SELECT ok(
   'L8: ...and its observation is still durably recorded');
 
 RESET ROLE;
+
+-- =============================================================================
+-- Z7-3 — zoom_internal.promote_attendance_report_batch: atomic promotion, the
+-- completeness re-check, and the report-row CHECKs.
+--
+-- The job's suite proves the traversal/rejection discipline over doubles; this
+-- section is the half only Postgres can supply — that a batch's rows and its flip
+-- to `complete` are ONE transaction, so a candidate the database refuses leaves the
+-- batch pending and ZERO rows visible, never a half-promoted winner.
+-- =============================================================================
+
+SELECT is(has_function_privilege('anon',
+  'zoom_internal.promote_attendance_report_batch(uuid, jsonb, integer, integer, integer, timestamptz)',
+  'EXECUTE'), false, 'anon cannot execute promote_attendance_report_batch');
+SELECT is(has_function_privilege('authenticated',
+  'zoom_internal.promote_attendance_report_batch(uuid, jsonb, integer, integer, integer, timestamptz)',
+  'EXECUTE'), false, 'authenticated cannot execute promote_attendance_report_batch');
+SELECT is(has_function_privilege('service_role',
+  'zoom_internal.promote_attendance_report_batch(uuid, jsonb, integer, integer, integer, timestamptz)',
+  'EXECUTE'), true, 'service_role can execute promote_attendance_report_batch');
+
+SELECT is(
+  (SELECT p.prosecdef FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'zoom_internal' AND p.proname = 'promote_attendance_report_batch'),
+  false, 'promote_attendance_report_batch is SECURITY INVOKER — the caller is already service_role');
+
+-- Fixtures: two pending candidate batches for one occurrence. Seeded as postgres.
+INSERT INTO zoom_internal.zoom_attendance_report_batches
+  (id, school_id, surface_type, surface_id, zoom_meeting_uuid, status)
+VALUES
+  ('a7a7a7a7-8888-0000-0000-000000000001', 9901, 'consultor_session',
+   'a7a7a7a7-0000-0000-0000-000000000001', 'z7Synthetic/Occurrence/B==', 'pending'),
+  ('a7a7a7a7-8888-0000-0000-000000000002', 9901, 'consultor_session',
+   'a7a7a7a7-0000-0000-0000-000000000001', 'z7Synthetic/Occurrence/B==', 'pending');
+
+SET LOCAL ROLE service_role;
+
+-- B1 — the happy promotion: rows in, batch complete, one transaction.
+SELECT is(
+  zoom_internal.promote_attendance_report_batch(
+    'a7a7a7a7-8888-0000-0000-000000000001',
+    '[{"display_name": "Reporte Uno", "matched_by": "unmatched",
+       "joined_at": "2026-07-29T23:56:00Z", "left_at": "2026-07-30T00:30:00Z",
+       "identity_tokens": ["nm:reporte uno"]},
+      {"display_name": "Reporte Dos", "matched_by": "unmatched",
+       "joined_at": "2026-07-29T23:57:00Z", "left_at": "2026-07-30T00:31:00Z"}]'::jsonb,
+    100, 1, 2, '2026-07-30T02:00:00Z'),
+  'promoted',
+  'B1: a complete candidate promotes');
+
+SELECT ok(
+  (SELECT status = 'complete' AND row_count = 2 AND total_records = 2
+     FROM zoom_internal.zoom_attendance_report_batches
+    WHERE id = 'a7a7a7a7-8888-0000-0000-000000000001'),
+  'B1: the batch is complete with agreeing counts');
+
+SELECT is(
+  (SELECT count(*)::int FROM public.zoom_attendance
+    WHERE report_batch_id = 'a7a7a7a7-8888-0000-0000-000000000001'),
+  2, 'B1: exactly the promoted rows exist for the batch');
+
+SELECT ok(
+  (SELECT bool_and(source = 'report' AND left_at IS NOT NULL AND participant_uuid IS NULL
+                   AND source_event_key IS NULL AND school_id = 9901)
+     FROM public.zoom_attendance
+    WHERE report_batch_id = 'a7a7a7a7-8888-0000-0000-000000000001'),
+  'B1: report rows are closed, batch-scoped, school-scoped, and carry NO participant_uuid or delivery key');
+
+-- B2 — THE TRANSACTION BOUNDARY: a candidate whose row count does not match
+-- total_records aborts WHOLE — the batch stays pending and zero rows land.
+SELECT throws_ok(
+  $$ SELECT zoom_internal.promote_attendance_report_batch(
+       'a7a7a7a7-8888-0000-0000-000000000002',
+       '[{"display_name": "Solo Una", "matched_by": "unmatched",
+          "joined_at": "2026-07-29T23:56:00Z", "left_at": "2026-07-30T00:30:00Z"}]'::jsonb,
+       100, 1, 2, '2026-07-30T02:00:00Z') $$,
+  'P0001',
+  NULL,
+  'B2: a count mismatch raises — the completeness re-check lives inside the transaction');
+
+SELECT ok(
+  (SELECT status = 'pending' AND row_count IS NULL
+     FROM zoom_internal.zoom_attendance_report_batches
+    WHERE id = 'a7a7a7a7-8888-0000-0000-000000000002'),
+  'B2: the refused batch is still pending — the flip rolled back');
+
+SELECT is(
+  (SELECT count(*)::int FROM public.zoom_attendance
+    WHERE report_batch_id = 'a7a7a7a7-8888-0000-0000-000000000002'),
+  0, 'B2: ZERO rows exist for the refused batch — rows and flip are one transaction');
+
+-- B3 — a completed batch cannot be promoted twice.
+SELECT is(
+  zoom_internal.promote_attendance_report_batch(
+    'a7a7a7a7-8888-0000-0000-000000000001', '[]'::jsonb, 100, 1, 0, '2026-07-30T03:00:00Z'),
+  'batch_not_pending',
+  'B3: promoting a complete batch again is refused, not re-run');
+
+-- B4 — an unknown batch id.
+SELECT is(
+  zoom_internal.promote_attendance_report_batch(
+    'a7a7a7a7-8888-0000-0000-00000000dead', '[]'::jsonb, 100, 1, 0, '2026-07-30T03:00:00Z'),
+  'batch_not_found',
+  'B4: an unknown candidate is batch_not_found');
+
+RESET ROLE;
+
+-- B5 — a rejected batch stays rejected: promotion refuses it too.
+UPDATE zoom_internal.zoom_attendance_report_batches
+   SET status = 'rejected', rejection_reason = 'row_count_mismatch'
+ WHERE id = 'a7a7a7a7-8888-0000-0000-000000000002';
+
+SET LOCAL ROLE service_role;
+SELECT is(
+  zoom_internal.promote_attendance_report_batch(
+    'a7a7a7a7-8888-0000-0000-000000000002', '[]'::jsonb, 100, 1, 0, '2026-07-30T03:00:00Z'),
+  'batch_not_pending',
+  'B5: a rejected candidate can never become authoritative');
+RESET ROLE;
+
+-- B6 — DB-owned authority order: seq is monotonic in creation order, so the
+-- effective-set rule ("highest-seq complete") needs no client clock.
+SELECT ok(
+  (SELECT b2.seq > b1.seq
+     FROM zoom_internal.zoom_attendance_report_batches b1,
+          zoom_internal.zoom_attendance_report_batches b2
+    WHERE b1.id = 'a7a7a7a7-8888-0000-0000-000000000001'
+      AND b2.id = 'a7a7a7a7-8888-0000-0000-000000000002'),
+  'B6: batch seq is database-assigned and monotonic — authority never reads report_fetched_at');
+
+-- B7 — the report-row CHECKs: source and batch reference agree by construction.
+SELECT throws_ok(
+  $$ INSERT INTO public.zoom_attendance
+       (surface_type, surface_id, school_id, zoom_meeting_uuid, matched_by,
+        joined_at, left_at, source, report_batch_id)
+     VALUES ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
+             'z7Synthetic/Occurrence/B==', 'unmatched',
+             '2026-07-29T23:56:00Z', '2026-07-30T00:30:00Z', 'report', NULL) $$,
+  '23514',
+  NULL,
+  'B7: a report row without its batch is refused');
+
+SELECT throws_ok(
+  $$ INSERT INTO public.zoom_attendance
+       (surface_type, surface_id, school_id, zoom_meeting_uuid, matched_by,
+        joined_at, source, report_batch_id)
+     VALUES ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
+             'z7Synthetic/Occurrence/B==', 'unmatched',
+             '2026-07-29T23:56:00Z', 'webhook', 'a7a7a7a7-8888-0000-0000-000000000001') $$,
+  '23514',
+  NULL,
+  'B7: a webhook row claiming a batch is refused');
+
+SELECT throws_ok(
+  $$ INSERT INTO public.zoom_attendance
+       (surface_type, surface_id, school_id, zoom_meeting_uuid, matched_by,
+        joined_at, left_at, source, report_batch_id)
+     VALUES ('consultor_session', 'a7a7a7a7-0000-0000-0000-000000000001', 9901,
+             'z7Synthetic/Occurrence/B==', 'unmatched',
+             '2026-07-29T23:56:00Z', NULL, 'report', 'a7a7a7a7-8888-0000-0000-000000000001') $$,
+  '23514',
+  NULL,
+  'B7: an OPEN report row is refused — the report arrives paired (§6.2)');
 
 SELECT * FROM finish();
 

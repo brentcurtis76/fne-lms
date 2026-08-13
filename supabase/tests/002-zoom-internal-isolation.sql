@@ -48,15 +48,15 @@ SELECT is(
 
 SELECT tests.rls_enabled('zoom_internal');
 
--- 7 Z1b tables + the Z3-2 `zak_issued` audit log + Z7-2's leave-observation log. The
--- count is the guard that keeps `tests.rls_enabled` above non-vacuous, so it moves
--- with every added table — and a table added WITHOUT moving it fails here rather than
--- slipping past the RLS sweep.
+-- 7 Z1b tables + the Z3-2 `zak_issued` audit log + the two Z7 tables (Z7-2's
+-- leave-observation log, Z7-3's report batches). The count is the guard that keeps
+-- `tests.rls_enabled` above non-vacuous, so it moves with every added table — and a
+-- table added WITHOUT moving it fails here rather than slipping past the RLS sweep.
 SELECT is(
   (SELECT count(*)::int FROM pg_class pc
      JOIN pg_namespace pn ON pn.oid = pc.relnamespace
     WHERE pn.nspname = 'zoom_internal' AND pc.relkind = 'r'),
-  9, 'zoom_internal holds exactly the 7 Z1b tables + zoom_zak_issuances + zoom_attendance_observations (RLS check above is not vacuous)');
+  10, 'zoom_internal holds exactly the 7 Z1b tables + zoom_zak_issuances + the 2 Z7 tables (RLS check above is not vacuous)');
 
 -- Job RPCs: EXECUTE revoked from anon/authenticated, granted to service_role
 SELECT is(has_function_privilege('anon',

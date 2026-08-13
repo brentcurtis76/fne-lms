@@ -8,11 +8,17 @@ import { createMocks } from 'node-mocks-http';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 import {
+  ATTENDANCE_RECONCILE_MAX_CANDIDATES,
+  ATTENDANCE_RECONCILE_WINDOW_DAYS,
   handleZoomReconcile,
   planReconcileJobs,
   utcHourKey,
 } from '../../../pages/api/cron/zoom-reconcile';
 import type { EnqueueResult, ZoomJobQueue } from '../../../lib/zoom/jobs/queue';
+import type {
+  ReconcileCandidate,
+  ZoomAttendanceReportStore,
+} from '../../../lib/zoom/attendance-report-store';
 import type { ZoomJobInsert } from '../../../lib/zoom/db-types';
 
 const CRON_SECRET = 'synthetic-vercel-cron-secret';
@@ -38,11 +44,24 @@ function createFakeQueue() {
   return { queue, enqueued };
 }
 
+/** Records the window the route asked for, and answers with seeded candidates. */
+function createFakeReportStore(candidates: ReconcileCandidate[] = []) {
+  const calls: { receivedAfterIso: string; limit: number }[] = [];
+  const store = {
+    async listReconcileCandidates(receivedAfterIso: string, limit: number) {
+      calls.push({ receivedAfterIso, limit });
+      return candidates;
+    },
+  } as unknown as ZoomAttendanceReportStore;
+  return { store, calls };
+}
+
 async function invokeReconcile(options: {
   method?: string;
   headers?: Record<string, string>;
   env?: NodeJS.ProcessEnv;
   queue?: ZoomJobQueue;
+  reportStore?: ZoomAttendanceReportStore;
   nowMs?: number;
 }) {
   const { req, res } = createMocks<NextApiRequest, NextApiResponse>({
@@ -52,6 +71,7 @@ async function invokeReconcile(options: {
   await handleZoomReconcile(req, res, {
     env: options.env ?? ENV,
     queue: options.queue ?? createFakeQueue().queue,
+    reportStore: options.reportStore ?? createFakeReportStore().store,
     now: () => options.nowMs ?? NOON_UTC,
   });
   return res;
@@ -158,7 +178,7 @@ describe('reconcile plan', () => {
     expect(utcHourKey(Date.parse('2026-07-31T04:00:00.000Z'))).toBe('2026-07-31T04');
   });
 
-  it('plans exactly the two jobs this phase owns — the rest are later chunks', () => {
+  it('plans the two hourly jobs when there are no attendance candidates', () => {
     const jobs = planReconcileJobs(NOON_UTC);
     expect(jobs.map((job) => job.job_type)).toEqual(['host_sync', 'webhook_sweep']);
   });
@@ -169,5 +189,77 @@ describe('reconcile plan', () => {
     expect(keys).toEqual(['host_sync:2026-07-30T12', 'webhook_sweep:2026-07-30T12']);
     // Distinct keys, or one job's enqueue would suppress the other's.
     expect(new Set(keys).size).toBe(jobs.length);
+  });
+
+  it('plans one attendance_reconcile per candidate, keyed per occurrence AND hour', () => {
+    const jobs = planReconcileJobs(NOON_UTC, [
+      { meetingId: 'a7a7a7a7-2222-0000-0000-000000000001', zoomMeetingUuid: 'z7Occ/One==' },
+      { meetingId: 'a7a7a7a7-2222-0000-0000-000000000002', zoomMeetingUuid: 'z7Occ/Two==' },
+    ]);
+
+    const attendance = jobs.filter((job) => job.job_type === 'attendance_reconcile');
+    expect(attendance).toEqual([
+      {
+        job_type: 'attendance_reconcile',
+        payload: {
+          source: 'reconcile',
+          meeting_id: 'a7a7a7a7-2222-0000-0000-000000000001',
+          occurrence_uuid: 'z7Occ/One==',
+        },
+        dedupe_key: 'attendance_reconcile:z7Occ/One==:2026-07-30T12',
+      },
+      {
+        job_type: 'attendance_reconcile',
+        payload: {
+          source: 'reconcile',
+          meeting_id: 'a7a7a7a7-2222-0000-0000-000000000002',
+          occurrence_uuid: 'z7Occ/Two==',
+        },
+        dedupe_key: 'attendance_reconcile:z7Occ/Two==:2026-07-30T12',
+      },
+    ]);
+    // Per-hour, not forever: a candidate whose batches keep getting REJECTED is
+    // retried next pass — the §15.3.9 retry path — instead of never again.
+    const nextHour = planReconcileJobs(Date.parse('2026-07-30T13:00:00.000Z'), [
+      { meetingId: 'a7a7a7a7-2222-0000-0000-000000000001', zoomMeetingUuid: 'z7Occ/One==' },
+    ]);
+    expect(nextHour[2].dedupe_key).toBe('attendance_reconcile:z7Occ/One==:2026-07-30T13');
+  });
+});
+
+describe('/api/cron/zoom-reconcile — attendance candidates', () => {
+  it('asks the store for the bounded window and enqueues each candidate once', async () => {
+    const { queue, enqueued } = createFakeQueue();
+    const { store, calls } = createFakeReportStore([
+      { meetingId: 'a7a7a7a7-2222-0000-0000-000000000001', zoomMeetingUuid: 'z7Occ/One==' },
+    ]);
+
+    const res = await invokeReconcile({ queue, reportStore: store });
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(JSON.parse(res._getData())).toEqual({ enqueued: 3 });
+    expect(calls).toEqual([
+      {
+        receivedAfterIso: new Date(
+          NOON_UTC - ATTENDANCE_RECONCILE_WINDOW_DAYS * 24 * 60 * 60 * 1000
+        ).toISOString(),
+        limit: ATTENDANCE_RECONCILE_MAX_CANDIDATES,
+      },
+    ]);
+    expect(enqueued[2]).toMatchObject({
+      job_type: 'attendance_reconcile',
+      payload: { meeting_id: 'a7a7a7a7-2222-0000-0000-000000000001' },
+    });
+  });
+
+  it('answers 500 when the candidate read fails — nothing is half-enqueued silently', async () => {
+    const store = {
+      async listReconcileCandidates() {
+        throw new Error('zoom_meetings unreachable');
+      },
+    } as unknown as ZoomAttendanceReportStore;
+
+    const res = await invokeReconcile({ reportStore: store });
+    expect(res._getStatusCode()).toBe(500);
   });
 });

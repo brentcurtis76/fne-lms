@@ -116,6 +116,12 @@ async function resolveSurface(
   return store.findSurfaceByMeetingNumber(meetingNumber);
 }
 
+/** The read slice the identity resolver needs — no write member reaches it. */
+export type ParticipantMatchLookups = Pick<
+  ZoomAttendanceStore,
+  'profileExists' | 'findProfileIdByEmail' | 'listExpectedAttendees'
+>;
+
 /**
  * Fills the lookups the pure matcher needs, short-circuiting as the hierarchy allows: a
  * `customer_key` hit means the e-mail and attendee queries are never issued.
@@ -125,9 +131,13 @@ async function resolveSurface(
  * is `participant_uuid`-only (§15.3.9). The pure matcher still applies the precedence
  * itself, so this function cannot change the ORDER of the hierarchy by changing what
  * it resolves — only how much work it does.
+ *
+ * Exported because Z7-3's report reconciliation matches report rows to people under
+ * EXACTLY this hierarchy — a second copy would drift, and the copy that drifted
+ * would be the authoritative source's.
  */
-async function resolveMatch(
-  store: ZoomAttendanceStore,
+export async function resolveParticipantMatch(
+  store: ParticipantMatchLookups,
   surface: AttendanceSurface,
   identity: ParticipantIdentity
 ) {
@@ -210,7 +220,7 @@ export async function applyParticipantEvent(
     // uuid-less one. A check in this process would be a race two concurrent deliveries
     // can both lose — a barrier probe against the previous version produced two
     // `interval_opened` outcomes and two rows.
-    const match = await resolveMatch(store, surface, identity);
+    const match = await resolveParticipantMatch(store, surface, identity);
 
     const result = await store.insertInterval({
       surfaceType: surface.surfaceType,

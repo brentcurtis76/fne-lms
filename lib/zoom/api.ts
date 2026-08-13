@@ -158,6 +158,58 @@ export function isLicensedHost(user: ZoomUser): boolean {
   return user.licenseType === 2 && user.status === 'active';
 }
 
+// ---------------------------------------------------------------------------
+// Participant report (Z7-3, §15.3.9)
+// ---------------------------------------------------------------------------
+
+/**
+ * One row of `GET /report/meetings/{occurrence_uuid}/participants`, as it comes off
+ * the wire. §6.2 (Z0B): `join_time`, `leave_time` and `duration` arrive ALREADY
+ * PAIRED by Zoom — the pairing problem is the provider's — and the row set carries
+ * NO `participant_uuid`, so nothing downstream may key on one.
+ */
+export interface ZoomReportParticipantRaw extends Record<string, unknown> {
+  id?: string;
+  user_id?: string;
+  name?: string;
+  user_email?: string;
+  customer_key?: string;
+  join_time?: string;
+  leave_time?: string;
+  duration?: number;
+}
+
+/**
+ * One page of the participant report, with the §15.3.9 completeness metadata: an
+ * EMPTY `nextPageToken` is the only end-of-data signal, and `totalRecords` is what
+ * the accumulated row count must equal for the batch to be complete.
+ */
+export interface ZoomReportParticipantsPage {
+  participants: ZoomReportParticipantRaw[];
+  /** `''` on the last page — Zoom sends the empty string rather than omitting it. */
+  nextPageToken: string;
+  pageSize: number;
+  pageCount: number;
+  totalRecords: number;
+}
+
+export interface ListReportParticipantsOptions {
+  pageSize?: number;
+  nextPageToken?: string;
+}
+
+/**
+ * Path-encodes an occurrence uuid per Zoom's documented rule: DOUBLE-encode when the
+ * uuid begins with `/` or contains `//`, single-encode otherwise. Zoom mints uuids
+ * containing `/`, `+` and `=`, all of which are unsafe in a path segment.
+ */
+export function encodeOccurrenceUuid(occurrenceUuid: string): string {
+  const once = encodeURIComponent(occurrenceUuid);
+  return occurrenceUuid.startsWith('/') || occurrenceUuid.includes('//')
+    ? encodeURIComponent(once)
+    : once;
+}
+
 export interface ZoomApi {
   createMeeting(input: CreateMeetingInput): Promise<ZoomMeeting>;
   /** The read-back operation. Also the only way to confirm a settings PATCH. */
@@ -200,6 +252,19 @@ export interface ZoomApi {
    * Omitting it keeps the worker behaviour exactly as it was.
    */
   getUserZak(zoomUserId: string, options?: ZoomCallOptions): Promise<string>;
+  /**
+   * One page of the post-meeting participant report for an occurrence (Z7-3).
+   *
+   * The CALLER owns the §15.3.9 completeness contract — traversing every page with
+   * unchanged parameters to an empty token and validating the counts. This method
+   * only fetches and shape-checks a single page; it deliberately has no "fetch all"
+   * variant, because a batch is only meaningful with the metadata of every page in
+   * hand.
+   */
+  listReportParticipants(
+    occurrenceUuid: string,
+    options?: ListReportParticipantsOptions
+  ): Promise<ZoomReportParticipantsPage>;
 }
 
 // ---------------------------------------------------------------------------
@@ -502,6 +567,44 @@ export function createLiveZoomApi(client: ZoomClient = createZoomClient()): Zoom
         throw new ZoomConfigError('Zoom returned no usable ZAK for GET /users/{id}/token.');
       }
       return token;
+    },
+
+    async listReportParticipants(occurrenceUuid, options = {}) {
+      const response = await client.get<{
+        participants?: unknown;
+        next_page_token?: unknown;
+        page_size?: unknown;
+        page_count?: unknown;
+        total_records?: unknown;
+      }>(`/report/meetings/${encodeOccurrenceUuid(occurrenceUuid)}/participants`, {
+        page_size: options.pageSize ?? 100,
+        next_page_token: options.nextPageToken,
+      });
+
+      const data = response.data;
+      // The §15.3.9 completeness rule consumes this metadata, so a page missing it is
+      // unusable — and silently defaulting `total_records` to the rows in hand would
+      // manufacture a "complete" batch out of whatever arrived, which is exactly the
+      // suppressed-participant defect the contract exists to prevent.
+      if (
+        !data ||
+        !Array.isArray(data.participants) ||
+        typeof data.total_records !== 'number' ||
+        typeof data.page_size !== 'number' ||
+        typeof data.page_count !== 'number'
+      ) {
+        throw new ZoomConfigError(
+          'Zoom returned an unusable body for GET /report/meetings/{uuid}/participants.'
+        );
+      }
+
+      return {
+        participants: data.participants as ZoomReportParticipantRaw[],
+        nextPageToken: typeof data.next_page_token === 'string' ? data.next_page_token : '',
+        pageSize: data.page_size,
+        pageCount: data.page_count,
+        totalRecords: data.total_records,
+      };
     },
   };
 }

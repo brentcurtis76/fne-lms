@@ -4,6 +4,7 @@ import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
+import AttendanceSuggestionsPanel from '../../../components/sessions/AttendanceSuggestionsPanel';
 import EditRequestModal from '../../../components/sessions/EditRequestModal';
 import AudioReportUploader from '../../../components/sessions/AudioReportUploader';
 import AudioPlayer from '../../../components/sessions/AudioPlayer';
@@ -664,6 +665,13 @@ const SessionDetailPage: React.FC = () => {
 
             {/* Attendance Section */}
             <div>
+              {/* Z7-5: Zoom suggestions — the panel proposes, the facilitator confirms.
+                  Applying writes through the same PUT /attendees this page saves with,
+                  and the panel removes itself for anyone who is not facilitator/admin. */}
+              <AttendanceSuggestionsPanel
+                sessionId={session.id}
+                onApplied={() => void fetchSession()}
+              />
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-semibold text-gray-900">
                   Asistencia ({session.attendees.length})

@@ -5,6 +5,7 @@ import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
+import HoursComparisonPanel from '../../../components/sessions/HoursComparisonPanel';
 import { getUserPrimaryRole } from '../../../utils/roleUtils';
 import { Calendar, CheckCircle, XCircle, Link2, ChevronDown, ChevronUp, Eye, CalendarPlus, Play } from 'lucide-react';
 import { SessionWithRelations, SessionStatus } from '../../../lib/types/consultor-sessions.types';
@@ -1036,6 +1037,9 @@ const SessionDetailPage: React.FC = () => {
               )}
             </div>
           </div>
+
+          {/* Z7-5: planned vs Zoom comparison + «Ajustar horas descontadas» (§11). */}
+          <HoursComparisonPanel sessionId={session.id} />
         </div>
 
       {/* Cancel Modal */}

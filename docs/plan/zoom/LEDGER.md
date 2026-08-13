@@ -2045,3 +2045,106 @@ ESCAPED DEFECT: n/a — caught before dispatch, before merge, before production
 | Chunk | Phase | Branch | Commits | Status | Evidence |
 |---|---|---|---|---|---|
 | Z7-2 · contract replan r2 | Z7 | `feat/zoom-hours` | this commit | ✅ **CORRECTED 2026-08-12 — ready to dispatch as attempt 5** | All 4 Codex findings accepted. Complete-batch definition + DB-owned promotion pointer (matrix 12–14); `zoom_internal.zoom_attendance_observations` fully specified incl. one-transaction rule (`[C6b]`); migration amended in place, no `DROP` (`[C14]`, `[C15]`); rule 2 restated as occurrence-scoped on Zoom's own documented semantics, PM-verified. Prompt: `prompts/Z7-r5.md`. |
+
+## **Z7 · attempt 5 — the four remaining chunks, one continuous run (2026-08-13). Candidate for cumulative review at `8ccc64b3`.**
+
+Executed under the replanned contract: **`PLAN.md` §15.3.9 governs pairing and
+reconciliation; `Z7-r2.md` [R3]/[R4] stay withdrawn.** One executor conversation,
+four checkpoint commits, each green on type-check/lint/full-unit/test:db at its head.
+
+### Chunk log
+
+- **Z7-2 (re-scoped) @ `4c1b11e2`** — the fallback-closure ladder is deleted; a
+  `participant_left` closes only via Zoom-minted `participant_uuid` matching exactly
+  one open row. Every leave lands in `zoom_internal.zoom_attendance_observations`
+  (identity evidence + decided outcome), and observation + eligible close commit in
+  ONE transaction (`apply_participant_leave`; a delivery-key conflict rolls back the
+  loser's close entirely). The unapplied `20260812120000` migration was amended IN
+  PLACE — index widened to `(zoom_meeting_uuid, participant_uuid, joined_at)`, the
+  withdrawn-contract comments rewritten; no `DROP` anywhere ([C14] grep clean, [C15]
+  sweep clean). The falsification matrix is the suite: [C1]–[C10] incl. [C4] (H1/H2
+  through one history builder, identical empty close sets) and [C6b] (concurrent
+  route×sweep application, exactly one persisted outcome).
+- **Z7-3 @ `349f13d1`** — `listReportParticipants` on `ZoomApi` (+ the fake, which
+  PAGINATES exactly as Zoom does — the empty token is the only end signal);
+  `validateReportBatch` (pure) enforcing complete-batch = every page, unchanged
+  params, count == total_records, consistent metadata; candidate batches in
+  `zoom_internal.zoom_attendance_report_batches` with DB-assigned monotonic `seq` and
+  pending→complete|rejected; `promote_attendance_report_batch` inserts all rows and
+  flips to complete in ONE transaction with the count re-checked inside; effective
+  set = highest-seq complete batch, else webhook rows rendered PROVISIONAL
+  (`attendance-effective.ts`) — wholesale supersession, zero cross-source matching,
+  webhook rows structurally untouchable (the report store has no interval-write
+  member). `attendance_reconcile` registered + enqueued hourly per uncaptured ended
+  occurrence (7-day window, per-occurrence-per-hour dedupe).
+- **Z7-4 @ `0d5bd910`** — `session_hour_overrides` exactly per §11's integrity list
+  (append-only trigger, request_id UNIQUE + payload_hash tamper detection,
+  reverses_override_id UNIQUE, seq for chain order); additive
+  `contract_hours_ledger.effective_minutes CHECK (>= 0)`; ONE SECURITY DEFINER
+  apply/reverse RPC — actor from `auth.uid()` INSIDE, NULL aborts, non-admin aborts,
+  EXECUTE revoked from anon AND **service_role explicitly** (Supabase default
+  privileges would otherwise grant it — found by pgTAP, fixed at the migration);
+  consumida-only; cross-tenant session/contract/allocation equality; reversal only of
+  the latest unreversed apply, restoring ITS OWN previous_minutes. The §11 coalesce
+  (`round(minutes/60, 2)`, one rounding rule) closed in `billable-hours.ts` AND in
+  `get_bucket_summary` (CREATE OR REPLACE at identical signature, the `20260809120000`
+  mechanism) so aggregates move with overrides and a zero waiver returns hours to
+  availability. Admin route `POST /api/admin/sessions/[id]/hour-override` calls the
+  RPC with the ADMIN'S OWN client; SQLSTATE P0400/03/04/09 → HTTP.
+- **Z7-5 @ `8ccc64b3`** — `GET .../hours-comparison` (admin) and
+  `GET /api/sessions/[id]/attendance-suggestions` (§7-gated: admin or THIS session's
+  facilitator; everyone else the sessions' own not-found); `HoursComparisonPanel` on
+  the admin session page (invariant banner, ≥15% review highlight, «Sesión eximida»,
+  override form + history + reversal) and `AttendanceSuggestionsPanel` on the
+  consultor session page (proposes; applies through the EXISTING `PUT /attendees` —
+  one authorization decision). Open intervals, provisional webhook data and live
+  occurrences render as es-CL STATES, never numbers; `absent` is suggested only under
+  a complete report batch. All new interactive elements carry data-testid
+  (lint:testid: zero hits in phase files; count unchanged vs main).
+
+### Gates at the reviewed head (unpiped; details + exact tails in the review request)
+
+type-check **0** · lint **0** (zero warnings) · `npm test` **318 files / 7,244
+passed + 11 skipped**, jsdom `environment` 246–268 ms (real collection) · build **0**
+(twice: real env, and CI-style for e2e) · `supabase db reset` clean +
+`npm run test:db` **12 files / 649 tests** (011 = 134 · 015 = 49) · **e2e (CI
+recipe): 117 passed, exit 0, no-skip guard "11 mandatory spec(s) ran with no
+skips"** · 3-TZ matrix: UTC and Santiago identical 7,244; Madrid carries **8
+pre-existing failures in `lib/__tests__/businessDays.test.ts`** — byte-identical to
+main, licitación scope, fails on main under Madrid too; routed out as its own task.
+Every Z7/hours suite passes under all three TZs.
+
+### Adversarial evidence (details §7 of the review request)
+
+Fail-on-old at BOTH layers: the restored fallback arm fails [C3]/[C4]/[C5] in vitest
+AND exactly the three L4 asserts in pgTAP against the real function (transient
+CREATE OR REPLACE, restored by db reset). Transaction boundaries proven on real SQL:
+011 **L3** (pre-seeded observation key rolls back the close) and 011 **B2** (count
+mismatch leaves the batch pending with ZERO rows). Authorization: pgTAP 015 [Z7-A4]
+incl. the service_role no-EXECUTE closure.
+
+### Accepted deviations & carried findings
+
+Recorded in the review request §9/§10 — headline items: `selectIntervalToClose`
+deleted rather than narrowed (decision moved inside the DB transaction);
+`get_bucket_summary` replaced at identical signature (required by §11's own test
+list); consumer select-pins gained `effective_minutes`; role-visibility "end to end"
+covered at route+component+pgTAP layers because `tests/e2e/` is sealed ([Z7-A8]).
+Carried, not Z7's: `businessDays` Madrid-TZ failures (pre-existing, task filed);
+`has_global_workspace_access` (still needs an owner).
+
+```text
+STARTED: 2026-08-13
+ATTEMPT: 5 (cumulative; Z7-2 re-scope through Z7-5 in one run)
+RISK: HIGH
+HANDOFFS: 0 (no review between checkpoints, per the autonomous dispatch)
+GATES: type-check 0 · lint 0 · unit 318f/7244p+11s (jsdom real) · build 0 ·
+       db reset clean · test:db 649/12f · e2e 117p exit 0 (no skips) ·
+       3-TZ: hours suites identical ×3 (businessDays Madrid = pre-existing, routed)
+CODEX: pending — next boundary 43999499..<head> against PLAN.md §15.3 + §15.3.9
+ESCAPED DEFECT: n/a — nothing merged, nothing applied to production
+```
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-2 … Z7-5 · attempt 5 | Z7 | `feat/zoom-hours` | `4c1b11e2`, `349f13d1`, `0d5bd910`, `8ccc64b3` + this docs commit | 🟡 **CANDIDATE 2026-08-13 — awaiting Codex on the cumulative diff** | All four chunks implemented under §15.3.9; all gates green incl. e2e (CI recipe) and clean-DB replay; fail-on-old proven at vitest AND SQL layers; observation/close and batch promotion transaction boundaries proven on real SQL; override path closed to service/jobs at the grant. Review request rewritten for the full phase. |

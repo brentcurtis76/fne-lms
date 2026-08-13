@@ -499,3 +499,45 @@ Append-only, one entry per round. Plan: `docs/plan/rls/PLAN.md`.
   1. **Codex plan review r8**, then dispatch — Brent's ruling. Plan still **not frozen**.
   2. `RM` is next to dispatch, not R0.
   3. Owner answers Q1–Q4; Q5 has a default.
+
+---
+
+### 2026-08-13 — plan — r8 CODEX REVIEW + PM amendment
+
+- SESSION: `RLS · plan · REVIEW · r8` (Codex) → `RLS · plan · PM`
+- ATTEMPT: 9 (cumulative, planning)
+- CODEX: **FINDINGS** — 3 BLOCKING, 3 SHOULD-FIX, 0 NITs. `IS RM DISPATCHABLE: no`.
+  **One category (i)** — the consistency-checker contract. r7 disposition: B1/B2/B3 FIXED,
+  B4 PARTIAL, S1 NOT FIXED, S2 FIXED.
+- RULINGS: asymmetry rule **incorrect**; RM's `test:db`/`e2e` omission **correct**.
+- PM ASSESSMENT — all three blockers accepted without dispute:
+  - **B1 is the sharpest.** The PM's asymmetry rule had **one exit**. It forbade deleting a rule
+    unique to `AGENTS.md` and required proposing it to Brent — but defined no behaviour if Brent
+    said no. That branch leaves `AGENTS.md:3` violated permanently and RM unable to close, in a
+    phase whose entire purpose is restoring that invariant. Fixed with two terminating branches;
+    rejection relocates the guidance to a non-governing record, so knowledge survives without
+    instructing agents. Promoted to owner gate **Q6** in the index rather than buried in prose.
+  - **B2 is a repeat of a defect already fixed.** RM's out-of-scope excluded every file but
+    `AGENTS.md` while ARM-7/ARM-8 and its DoD required three others — **the identical structural
+    error Codex found in R0 at r6 and the PM fixed there, reproduced verbatim when writing a new
+    phase.** A fixed defect does not stay fixed across phases unless the contract template
+    carries it forward.
+  - **B3, category (i):** the checker contract demanded status and dependencies from the phase
+    *heading*, which carries neither — unimplementable, and would have produced permanent false
+    failures or a checker weaker than D-9. Fields are now compared only between forms that carry
+    them, and every full-contract phase gained an explicit `**Order: N.**` metadata field, since
+    document position cannot stand in for order (R10 sits after R9 but executes before it).
+- **D-9 ESCAPED A THIRD TIME, and the diagnosis is now consistent.** S3 caught R10's stale
+  "10th of 13" after RM's insertion shifted every Order value. All three escapes (r5, r6, r8) were
+  **layer-1 enumeration gaps, never layer-2 comparison gaps** — the hand-written old-form list
+  keeps missing facts the PM did not think to list. Layer 1 now requires enumerating a changed
+  **class** by pattern (every ordinal, every count, every phase name) rather than by memory.
+- **D-9 SWEEP UNDER THE NEW RULE:** class-enumerated every `Nth of M` and `<word>-phase` claim in
+  active text. Two hits, both correct after fixing (R10 → "11th of 14"; "fourteen-phase" verified
+  against 14 defined index rows plus the `R12…` placeholder). Layer 2 clean — index Order 1/2/3
+  match metadata `Order:` 1/2/3 for RM/R0/R1. Layer 3 clean.
+- COMMITS: `bbedda06`. Pushed.
+- OPEN AFTER THIS ROUND:
+  1. Brent instructed dispatch after r8; r8 returned FINDINGS including one category (i), all now
+     fixed. **Decision needed: dispatch RM, or run r9.**
+  2. Plan still **not frozen**. `RM` is next; `Q6` gates its close.

@@ -1,7 +1,7 @@
 # GENERA (FNE-LMS) — Project Rules
 
 > Learning platform for Fundación Nueva Educación. Next.js (Pages Router) + TypeScript strict + Tailwind/shadcn + Supabase.
-> Durable conventions live HERE. Evolving state lives in `PROJECT_STATE.md` (read it first, update it when a phase ends). `AGENTS.md` mirrors this file for Codex-family agents.
+> Durable conventions live HERE. Evolving state lives in `PROJECT_STATE.md` (read it first, update it when a phase ends). `AGENTS.md` mirrors this file for Codex-family agents. If the two ever diverge, CLAUDE.md wins — fix the divergence in the same PR.
 
 ---
 
@@ -72,7 +72,7 @@ Keep this file under 200 lines. Guardrails that MUST hold belong in hooks/CI, no
 ### Architecture
 - **Framework**: Next.js Pages Router with `getServerSideProps` (no App Router)
 - **Language**: TypeScript strict
-- **DB/Auth**: Supabase (dedicated instance), role-based access via `middleware.ts` — the most bug-prone area; extra scrutiny + session-invalidation checks on any change
+- **DB/Auth**: Supabase (dedicated instance), role-based access via `middleware.ts` — the most bug-prone area; extra scrutiny + per-role testing + session-invalidation checks on any change
 - **Hosting**: Vercel (auto-deploy on push to `main`)
 - **UI**: Tailwind 3 + shadcn/ui; must work on older school hardware (low-end browsers, small screens)
 - **Data fetching**: raw `fetch()` in `getServerSideProps` and API routes — NOT TanStack Query or SWR

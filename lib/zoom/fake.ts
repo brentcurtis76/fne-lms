@@ -402,7 +402,9 @@ export function createZoomFake(): ZoomFake {
       }
 
       const totalRecords = report.totalRecordsOverride ?? report.participants.length;
-      const pageCount = Math.max(1, Math.ceil(report.participants.length / pageSize));
+      // Zoom's participant-report endpoint declares page_count=0 for an empty
+      // result, even though this initial response envelope was fetched.
+      const pageCount = Math.ceil(report.participants.length / pageSize);
       const start = pageIndex * pageSize;
       const participants = report.participants
         .slice(start, start + pageSize)

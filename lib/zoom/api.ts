@@ -182,6 +182,13 @@ export interface ZoomReportParticipantRaw extends Record<string, unknown> {
 /** Stable candidate-rejection reason for a non-object participant report row. */
 export const MALFORMED_REPORT_PARTICIPANT_REASON = 'malformed_participant_row';
 
+/** Stable candidate-rejection reasons for unusable/contradictory page metadata. */
+export const INVALID_REPORT_PAGINATION_REASON = 'invalid_pagination_metadata';
+export const CONTRADICTORY_REPORT_PAGINATION_REASON = 'contradictory_pagination_metadata';
+
+/** This HEAVY endpoint accepts at most 100 rows per response. */
+export const MAX_REPORT_PAGE_SIZE = 100;
+
 /** Runtime boundary for values inside Zoom's otherwise-valid participants array. */
 export function isZoomReportParticipantRaw(value: unknown): value is ZoomReportParticipantRaw {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -199,6 +206,44 @@ export interface ZoomReportParticipantsPage {
   pageSize: number;
   pageCount: number;
   totalRecords: number;
+}
+
+/** Numeric wire constraints shared by the live boundary and pure batch validator. */
+export function hasValidReportPaginationNumbers(page: {
+  pageSize: unknown;
+  pageCount: unknown;
+  totalRecords: unknown;
+}): page is { pageSize: number; pageCount: number; totalRecords: number } {
+  return (
+    typeof page.pageSize === 'number' &&
+    Number.isFinite(page.pageSize) &&
+    Number.isInteger(page.pageSize) &&
+    page.pageSize >= 1 &&
+    page.pageSize <= MAX_REPORT_PAGE_SIZE &&
+    typeof page.pageCount === 'number' &&
+    Number.isFinite(page.pageCount) &&
+    Number.isInteger(page.pageCount) &&
+    page.pageCount >= 0 &&
+    typeof page.totalRecords === 'number' &&
+    Number.isFinite(page.totalRecords) &&
+    Number.isInteger(page.totalRecords) &&
+    page.totalRecords >= 0
+  );
+}
+
+/**
+ * Zoom reports zero rows as zero pages even though the initial request returned one
+ * response envelope. Non-empty reports use the ordinary ceil(total/page_size)
+ * count. This check catches internally contradictory metadata before traversal.
+ */
+export function hasConsistentReportPageCount(page: {
+  pageSize: number;
+  pageCount: number;
+  totalRecords: number;
+}): boolean {
+  const expectedPageCount =
+    page.totalRecords === 0 ? 0 : Math.ceil(page.totalRecords / page.pageSize);
+  return page.pageCount === expectedPageCount;
 }
 
 export interface ListReportParticipantsOptions {
@@ -590,6 +635,11 @@ export function createLiveZoomApi(client: ZoomClient = createZoomClient()): Zoom
       });
 
       const data = response.data;
+      const metadata = {
+        pageSize: data?.page_size,
+        pageCount: data?.page_count,
+        totalRecords: data?.total_records,
+      };
       // The §15.3.9 completeness rule consumes this metadata, so a page missing it is
       // unusable — and silently defaulting `total_records` to the rows in hand would
       // manufacture a "complete" batch out of whatever arrived, which is exactly the
@@ -597,25 +647,33 @@ export function createLiveZoomApi(client: ZoomClient = createZoomClient()): Zoom
       if (
         !data ||
         !Array.isArray(data.participants) ||
-        typeof data.next_page_token !== 'string' ||
-        typeof data.total_records !== 'number' ||
-        typeof data.page_size !== 'number' ||
-        typeof data.page_count !== 'number'
+        typeof data.next_page_token !== 'string'
       ) {
         throw new ZoomConfigError(
           'Zoom returned an unusable body for GET /report/meetings/{uuid}/participants.'
         );
       }
+      if (!hasValidReportPaginationNumbers(metadata)) {
+        throw new ZoomConfigError(INVALID_REPORT_PAGINATION_REASON);
+      }
       if (!data.participants.every(isZoomReportParticipantRaw)) {
         throw new ZoomConfigError(MALFORMED_REPORT_PARTICIPANT_REASON);
+      }
+
+      if (
+        !hasConsistentReportPageCount(metadata) ||
+        data.participants.length > metadata.pageSize ||
+        data.participants.length > metadata.totalRecords ||
+        (metadata.totalRecords === 0 &&
+          (data.participants.length !== 0 || data.next_page_token !== ''))
+      ) {
+        throw new ZoomConfigError(CONTRADICTORY_REPORT_PAGINATION_REASON);
       }
 
       return {
         participants: data.participants,
         nextPageToken: data.next_page_token,
-        pageSize: data.page_size,
-        pageCount: data.page_count,
-        totalRecords: data.total_records,
+        ...metadata,
       };
     },
   };

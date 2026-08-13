@@ -20,6 +20,9 @@
  * an admin reads as billable-presence evidence.
  */
 import {
+  hasConsistentReportPageCount,
+  hasValidReportPaginationNumbers,
+  INVALID_REPORT_PAGINATION_REASON,
   isZoomReportParticipantRaw,
   MALFORMED_REPORT_PARTICIPANT_REASON,
   type ZoomReportParticipantRaw,
@@ -74,6 +77,9 @@ export function validateReportBatch(pages: ZoomReportParticipantsPage[]): Report
 
   const [first] = pages;
   for (const page of pages) {
+    if (!hasValidReportPaginationNumbers(page)) {
+      return { ok: false, reason: INVALID_REPORT_PAGINATION_REASON };
+    }
     if (
       page.pageSize !== first.pageSize ||
       page.pageCount !== first.pageCount ||
@@ -81,6 +87,10 @@ export function validateReportBatch(pages: ZoomReportParticipantsPage[]): Report
     ) {
       return { ok: false, reason: 'metadata_drift_across_pages' };
     }
+  }
+
+  if (!hasConsistentReportPageCount(first)) {
+    return { ok: false, reason: 'page_count_mismatch' };
   }
 
   const last = pages[pages.length - 1];
@@ -96,9 +106,27 @@ export function validateReportBatch(pages: ZoomReportParticipantsPage[]): Report
     }
   }
 
+  // Zoom's zero-result response is one fetched envelope declaring page_count=0.
+  // Otherwise page_count is the number of response pages the token traversal must
+  // have fetched. A terminal token cannot suppress a declared later page.
+  const expectedFetchedPages = first.totalRecords === 0 ? 1 : first.pageCount;
+  if (pages.length !== expectedFetchedPages) {
+    return { ok: false, reason: 'page_count_mismatch' };
+  }
+
   const rawRows = pages.flatMap((page) => page.participants);
   if (rawRows.length !== first.totalRecords) {
     return { ok: false, reason: 'row_count_mismatch' };
+  }
+
+  for (const [index, page] of pages.entries()) {
+    const expectedRows =
+      first.totalRecords === 0
+        ? 0
+        : Math.min(first.pageSize, first.totalRecords - index * first.pageSize);
+    if (page.participants.length !== expectedRows) {
+      return { ok: false, reason: 'participant_count_mismatch' };
+    }
   }
 
   const rows: ReportInterval[] = [];

@@ -14,9 +14,11 @@
  *
  * `contract_hours_ledger` is the real record. Its `hours` is what the school was billed:
  * already adjusted when an admin overrode a cancellation, and updated in place by the
- * pre-execution reschedule RPC. Both hour consumers — the school hours report drill-down
- * and the session-analytics KPIs — read billable time through this module and nowhere
- * else.
+ * pre-execution reschedule RPC. Production consumers use this derivation for school
+ * drill-downs, session analytics, consultant earnings breakdowns, and ledger CSV
+ * exports. SQL aggregates use the identical `COALESCE(round(effective_minutes / 60,
+ * 2), hours)` expression. Administrative ledger/comparison surfaces may still expose
+ * raw `hours` deliberately as historical planned evidence beside `effective_minutes`.
  */
 
 import type { LedgerEntryStatus } from '../types/hour-tracking.types';

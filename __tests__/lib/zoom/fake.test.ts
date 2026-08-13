@@ -434,7 +434,7 @@ describe('live adapter — wire shapes', () => {
 
   it('[Z7-R2.4] accepts explicit empty next_page_token as the only terminal signal', async () => {
     const { api } = liveApi([{ status: 200, body: {
-      participants: [], next_page_token: '', page_size: 100, page_count: 1, total_records: 0,
+      participants: [], next_page_token: '', page_size: 100, page_count: 0, total_records: 0,
     } }]);
 
     await expect(api.listReportParticipants('Synthetic/Occurrence==')).resolves.toMatchObject({
@@ -463,6 +463,47 @@ describe('live adapter — wire shapes', () => {
       );
     }
   );
+
+  it.each([
+    ['negative page_size', { page_size: -1, page_count: 1, total_records: 1 }],
+    ['fractional page_size', { page_size: 1.5, page_count: 1, total_records: 1 }],
+    ['negative page_count', { page_size: 100, page_count: -1, total_records: 1 }],
+    ['fractional page_count', { page_size: 100, page_count: 1.5, total_records: 1 }],
+    ['negative total_records', { page_size: 100, page_count: 1, total_records: -1 }],
+    ['fractional total_records', { page_size: 100, page_count: 1, total_records: 1.5 }],
+  ])('[Z7-R4.1] live adapter rejects %s', async (_label, metadata) => {
+    const { api } = liveApi([{ status: 200, body: {
+      participants: [{
+        name: 'Sintética',
+        join_time: '2026-07-29T23:56:00Z',
+        leave_time: '2026-07-30T00:30:00Z',
+      }],
+      next_page_token: '',
+      ...metadata,
+    } }]);
+
+    await expect(api.listReportParticipants('Synthetic/Occurrence==')).rejects.toThrow(
+      'invalid_pagination_metadata'
+    );
+  });
+
+  it('[Z7-R4.1] live adapter rejects internally contradictory page_count', async () => {
+    const { api } = liveApi([{ status: 200, body: {
+      participants: [{
+        name: 'Sintética',
+        join_time: '2026-07-29T23:56:00Z',
+        leave_time: '2026-07-30T00:30:00Z',
+      }],
+      next_page_token: '',
+      page_size: 100,
+      page_count: 2,
+      total_records: 1,
+    } }]);
+
+    await expect(api.listReportParticipants('Synthetic/Occurrence==')).rejects.toThrow(
+      'contradictory_pagination_metadata'
+    );
+  });
 
   it('deletes through the meeting endpoint', async () => {
     const { api, calls } = liveApi([{ status: 204 }]);

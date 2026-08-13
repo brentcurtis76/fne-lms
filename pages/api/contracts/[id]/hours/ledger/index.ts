@@ -106,7 +106,33 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, contratoId: 
     const pageSizeNum = Math.min(200, Math.max(1, parseInt(String(page_size), 10) || 50));
     const offset = (pageNum - 1) * pageSizeNum;
 
-    // Step 2: Query ledger entries filtered by allocation IDs
+    // Consultor: only sessions they facilitated
+    let facilitatedSessionIds: string[] | null = null;
+    if (highestRole === 'consultor') {
+      if (consultant_id && consultant_id !== user.id) {
+        return sendAuthError(res, 'Acceso denegado: solo puede ver sus propias entradas', 403);
+      }
+      const { data: facilitatedSessions, error: facilitatorError } = await serviceClient
+        .from('session_facilitators')
+        .select('session_id')
+        .eq('user_id', user.id);
+
+      // Financial scope must fail closed. A failed authorization lookup is not the
+      // same fact as a successful lookup returning no facilitated sessions.
+      if (facilitatorError) {
+        return sendAuthError(res, 'Error al obtener libro de horas', 500);
+      }
+      facilitatedSessionIds = (facilitatedSessions || []).map(
+        (f: { session_id: string }) => f.session_id
+      );
+      if (facilitatedSessionIds.length === 0) {
+        return sendApiResponse(res, { ledger: [], total: 0, page: pageNum, page_size: pageSizeNum });
+      }
+    }
+
+    // Step 2: construct the ledger query only after consultant scope was resolved
+    // successfully. In particular, a failed facilitator lookup cannot become an
+    // unscoped or successful-empty financial response.
     let query = serviceClient
       .from('contract_hours_ledger')
       .select(
@@ -123,22 +149,10 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, contratoId: 
       )
       .in('allocation_id', allocationIds);
 
-    // Consultor: only sessions they facilitated
-    if (highestRole === 'consultor') {
-      if (consultant_id && consultant_id !== user.id) {
-        return sendAuthError(res, 'Acceso denegado: solo puede ver sus propias entradas', 403);
-      }
-      query = query.not('session_id', 'is', null);
-      const { data: facilitatedSessionIds } = await serviceClient
-        .from('session_facilitators')
-        .select('session_id')
-        .eq('user_id', user.id);
-
-      const sessionIds = (facilitatedSessionIds || []).map((f: { session_id: string }) => f.session_id);
-      if (sessionIds.length === 0) {
-        return sendApiResponse(res, { ledger: [], total: 0, page: pageNum, page_size: pageSizeNum });
-      }
-      query = query.in('session_id', sessionIds);
+    if (facilitatedSessionIds !== null) {
+      query = query
+        .not('session_id', 'is', null)
+        .in('session_id', facilitatedSessionIds);
     }
 
     // Optional filters

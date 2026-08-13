@@ -23,8 +23,10 @@
 --
 -- `pending` (created when a fetch starts; a crash leaves it here, visible)
 --   → `complete` (promote_attendance_report_batch: rows + flip, ONE transaction)
---   → `rejected` (any page error, token rejection, count drift, invalid interval;
---      carries the reason for the §18 health panel).
+--   | `rejected` (any page error, token rejection, count drift, invalid interval;
+--     carries the reason for the §18 health panel).
+-- Both branches are terminal: complete cannot become rejected, rejected cannot
+-- become complete, and neither terminal row may be rewritten.
 -- Rows exist in `public.zoom_attendance` for a batch IF AND ONLY IF it is
 -- `complete` — a rejected or pending batch is never partially visible.
 -- =============================================================================

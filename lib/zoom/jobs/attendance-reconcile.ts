@@ -35,7 +35,12 @@
  * complete batch, and a rejected batch never becomes one.
  */
 import type { ZoomApi, ZoomReportParticipantsPage } from '../api';
-import { getZoomApi, MALFORMED_REPORT_PARTICIPANT_REASON } from '../api';
+import {
+  CONTRADICTORY_REPORT_PAGINATION_REASON,
+  getZoomApi,
+  INVALID_REPORT_PAGINATION_REASON,
+  MALFORMED_REPORT_PARTICIPANT_REASON,
+} from '../api';
 import { identityTokens } from '../attendance-identity';
 import { validateReportBatch } from '../attendance-report';
 import {
@@ -101,9 +106,13 @@ function isReportNotReady(error: unknown): boolean {
 function reportFetchRejectionReason(error: unknown): string {
   if (
     error instanceof ZoomConfigError &&
-    error.message === MALFORMED_REPORT_PARTICIPANT_REASON
+    [
+      MALFORMED_REPORT_PARTICIPANT_REASON,
+      INVALID_REPORT_PAGINATION_REASON,
+      CONTRADICTORY_REPORT_PAGINATION_REASON,
+    ].includes(error.message)
   ) {
-    return MALFORMED_REPORT_PARTICIPANT_REASON;
+    return error.message;
   }
   if (error instanceof ReportPageCapExceededError) return 'page_cap_exceeded';
   return `page_fetch_failed: ${error instanceof Error ? error.message : String(error)}`;

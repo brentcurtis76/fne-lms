@@ -103,12 +103,44 @@ describe('validateReportBatch — the complete-batch rule (matrix 12–14)', () 
   });
 
   it('an occurrence with genuinely zero participants IS a valid complete batch', () => {
-    // total_records 0, one page, no rows: complete, and it supersedes the webhook
-    // rows with an empty set — the report saying "nobody attended" is data.
+    // Zoom declares page_count 0 while still returning the initial response
+    // envelope. That empty complete set supersedes webhook evidence.
     const result = validateReportBatch([
-      page({ names: [], totalRecords: 0 }),
+      page({ names: [], pageCount: 0, totalRecords: 0 }),
     ]);
     expect(result).toMatchObject({ ok: true, totalRecords: 0 });
+  });
+
+  it.each([
+    ['negative page_size', { pageSize: -1 }],
+    ['zero page_size', { pageSize: 0 }],
+    ['oversized page_size', { pageSize: 101 }],
+    ['fractional page_size', { pageSize: 1.5 }],
+    ['non-finite page_size', { pageSize: Number.POSITIVE_INFINITY }],
+    ['negative page_count', { pageCount: -1 }],
+    ['fractional page_count', { pageCount: 1.5 }],
+    ['non-finite page_count', { pageCount: Number.POSITIVE_INFINITY }],
+    ['negative total_records', { totalRecords: -1 }],
+    ['fractional total_records', { totalRecords: 1.5 }],
+    ['non-finite total_records', { totalRecords: Number.POSITIVE_INFINITY }],
+  ])('[Z7-R4.1] rejects %s with stable taxonomy', (_label, metadata) => {
+    expect(validateReportBatch([page({ ...metadata })])).toEqual({
+      ok: false,
+      reason: 'invalid_pagination_metadata',
+    });
+  });
+
+  it('[Z7-R4.1] rejects a terminal one-page fetch that declares a second page', () => {
+    expect(validateReportBatch([
+      page({ names: ['P1'], pageSize: 1, pageCount: 2, totalRecords: 2 }),
+    ])).toEqual({ ok: false, reason: 'page_count_mismatch' });
+  });
+
+  it('[Z7-R4.1] rejects a short nonterminal page even when aggregate metadata agrees', () => {
+    expect(validateReportBatch([
+      page({ names: ['P1'], nextPageToken: 'pg:1', pageSize: 2, pageCount: 2, totalRecords: 3 }),
+      page({ names: ['P2', 'P3'], pageSize: 2, pageCount: 2, totalRecords: 3 }),
+    ])).toEqual({ ok: false, reason: 'participant_count_mismatch' });
   });
 
   it('a row missing either instant rejects the WHOLE batch', () => {

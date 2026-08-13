@@ -51,27 +51,34 @@ function fakeReportStore(options: {
 } = {}) {
   const rejections: { batchId: string; reason: string }[] = [];
   const promotions: PromoteBatchInput[] = [];
+  const statuses = new Map<string, 'pending' | 'complete' | 'rejected'>([
+    ['prior-complete-batch', 'complete'],
+  ]);
   let batchCounter = 0;
 
   const store: ZoomAttendanceReportStore = {
     readMeeting: vi.fn(async () => (options.meeting === undefined ? MEETING : options.meeting)),
     createPendingBatch: vi.fn(async () => {
       batchCounter += 1;
-      return `batch-${batchCounter}`;
+      const batchId = `batch-${batchCounter}`;
+      statuses.set(batchId, 'pending');
+      return batchId;
     }),
     rejectBatch: vi.fn(async (batchId: string, reason: string) => {
       rejections.push({ batchId, reason });
+      if (statuses.get(batchId) === 'pending') statuses.set(batchId, 'rejected');
       return 'rejected' as const;
     }),
     readBatchStatus: vi.fn(async () => options.durableStatus ?? 'pending'),
     promoteBatch: vi.fn(async (input: PromoteBatchInput) => {
       if (options.promoteError) throw options.promoteError;
       promotions.push(input);
+      statuses.set(input.batchId, 'complete');
       return options.promoteResult ?? 'promoted';
     }),
     listReconcileCandidates: vi.fn(async () => []),
   };
-  return { store, rejections, promotions };
+  return { store, rejections, promotions, statuses };
 }
 
 function fakeLookups(options: { profiles?: string[]; byEmail?: Record<string, string> } = {}) {
@@ -117,23 +124,29 @@ function seedReport(count: number) {
   return api;
 }
 
-function liveReportApi(participant: unknown) {
+function liveReportApiBody(body: Record<string, unknown>) {
   const tokens: ZoomTokenProvider = {
     async getToken() { return 'synthetic-token'; },
     async forceRefresh() { return 'synthetic-refreshed-token'; },
   };
-  const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
-    participants: [participant],
-    next_page_token: '',
-    page_size: REPORT_PAGE_SIZE,
-    page_count: 1,
-    total_records: 1,
-  }), { status: 200 })) as unknown as typeof fetch;
+  const fetchImpl = vi.fn(async () => new Response(JSON.stringify(body), {
+    status: 200,
+  })) as unknown as typeof fetch;
   return createLiveZoomApi(createZoomClient({
     tokenProvider: tokens,
     fetchImpl,
     sleep: async () => {},
   }));
+}
+
+function liveReportApi(participant: unknown) {
+  return liveReportApiBody({
+    participants: [participant],
+    next_page_token: '',
+    page_size: REPORT_PAGE_SIZE,
+    page_count: 1,
+    total_records: 1,
+  });
 }
 
 describe('attendance_reconcile — the complete-batch capture', () => {
@@ -269,6 +282,88 @@ describe('attendance_reconcile — the complete-batch capture', () => {
       expect(store.rejectBatch).toHaveBeenCalledTimes(1);
     }
   );
+
+  it.each([
+    [
+      'contradictory page_count',
+      { page_size: REPORT_PAGE_SIZE, page_count: 2, total_records: 1 },
+      'contradictory_pagination_metadata',
+    ],
+    [
+      'negative page_size',
+      { page_size: -1, page_count: 1, total_records: 1 },
+      'invalid_pagination_metadata',
+    ],
+    [
+      'fractional page_size',
+      { page_size: 1.5, page_count: 1, total_records: 1 },
+      'invalid_pagination_metadata',
+    ],
+    [
+      'negative page_count',
+      { page_size: REPORT_PAGE_SIZE, page_count: -1, total_records: 1 },
+      'invalid_pagination_metadata',
+    ],
+    [
+      'fractional page_count',
+      { page_size: REPORT_PAGE_SIZE, page_count: 1.5, total_records: 1 },
+      'invalid_pagination_metadata',
+    ],
+    [
+      'negative total_records',
+      { page_size: REPORT_PAGE_SIZE, page_count: 1, total_records: -1 },
+      'invalid_pagination_metadata',
+    ],
+    [
+      'fractional total_records',
+      { page_size: REPORT_PAGE_SIZE, page_count: 1, total_records: 1.5 },
+      'invalid_pagination_metadata',
+    ],
+  ])(
+    '[Z7-R4.1] live %s rejects once, promotes nothing, and preserves prior COMPLETE',
+    async (_label, metadata, reason) => {
+      const api = liveReportApiBody({
+        participants: [{
+          name: 'Sintética',
+          join_time: '2026-07-29T23:56:00Z',
+          leave_time: '2026-07-30T00:30:00Z',
+        }],
+        next_page_token: '',
+        ...metadata,
+      });
+      const { store, promotions, rejections, statuses } = fakeReportStore();
+      const handler = createAttendanceReconcileHandler({
+        api,
+        reportStore: store,
+        matchLookups: fakeLookups(),
+      });
+
+      await expect(handler(context())).rejects.toThrow(ZoomConfigError);
+
+      expect(promotions).toEqual([]);
+      expect(rejections).toEqual([{ batchId: 'batch-1', reason }]);
+      expect(store.rejectBatch).toHaveBeenCalledTimes(1);
+      expect(statuses.get('batch-1')).toBe('rejected');
+      expect(statuses.get('prior-complete-batch')).toBe('complete');
+    }
+  );
+
+  it('[Z7-R4.1] preserves Zoom zero-result semantics and promotes an empty authority', async () => {
+    const api = seedReport(0);
+    const { store, promotions, rejections } = fakeReportStore();
+    const handler = createAttendanceReconcileHandler({
+      api,
+      reportStore: store,
+      matchLookups: fakeLookups(),
+    });
+
+    await expect(handler(context())).resolves.toMatchObject({
+      batch: 'promoted', pages: 1, rows: 0,
+    });
+    expect(rejections).toEqual([]);
+    expect(promotions).toHaveLength(1);
+    expect(promotions[0]).toMatchObject({ pageCount: 0, totalRecords: 0, rows: [] });
+  });
 
   it('[matrix 14] count drift rejects the candidate with the failed clause named', async () => {
     const api = seedReport(50);

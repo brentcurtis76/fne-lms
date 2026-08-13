@@ -169,6 +169,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
     }
 
+    // Preflight intentionally performs no ledger writes, so repeated sessions for
+    // one allocation see the same pre-batch balance. Debit that balance in memory
+    // in source order to preserve the sequential over-budget semantics without
+    // reopening the partial-write failure window.
+    const preparedHoursByAllocation = new Map<string, number>();
+    for (const preparation of preparations) {
+      if (preparation.kind !== 'ready') continue;
+      const priorHours = preparedHoursByAllocation.get(preparation.allocation.id) ?? 0;
+      preparation.isOverBudget =
+        preparation.isOverBudget || preparation.availableHours - priorHours < preparation.hours;
+      preparedHoursByAllocation.set(preparation.allocation.id, priorHours + preparation.hours);
+    }
+
     // Hour tracking: all availability reads are already known-good; create the
     // reservation rows without re-querying the RPC.
     const reservationErrors: string[] = [];

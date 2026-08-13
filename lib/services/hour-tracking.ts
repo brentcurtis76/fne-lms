@@ -283,6 +283,7 @@ export type ReservationPreparation =
       allocation: ReservationAllocation;
       durationMins: number;
       hours: number;
+      availableHours: number;
       isOverBudget: boolean;
     }
   | {
@@ -365,6 +366,7 @@ export async function prepareReservation(
       allocation,
       durationMins,
       hours,
+      availableHours: budgetInfo.available_hours,
       isOverBudget: budgetInfo.available_hours < hours,
     };
   } catch {

@@ -248,4 +248,22 @@ describe('session approval financial availability', () => {
     });
     expect(current.sessionUpdates).toHaveLength(2);
   });
+
+  it('bulk debits a shared preflight balance before classifying later reservations', async () => {
+    const current = state(
+      [trackedSession(SESSION_A), trackedSession(SESSION_B)],
+      [bucket(1.5), bucket(1.5)]
+    );
+    mockCreateServiceRoleClient.mockReturnValue(createClient(current));
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { session_ids: [SESSION_A, SESSION_B] },
+    });
+
+    await bulkHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(current.ledgerInserts.map((row) => row.is_over_budget)).toEqual([false, true]);
+    expect(current.sessionUpdates).toHaveLength(2);
+  });
 });

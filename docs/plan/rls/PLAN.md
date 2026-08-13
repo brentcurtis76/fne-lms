@@ -318,11 +318,11 @@ every claim. For **each of the ten signatures**, keyed by `regprocedure`:
   migration, and writes no test (overlay §3: a DISCOVERY phase must not smuggle implementation
   into research). *(Wording corrected after Codex r5, S2 — the old blanket "no source edit" was
   ambiguous against R0's own requirement to amend `PLAN.md`.)*
-- **R0's documentation outputs, which ARE in scope** — **five required** plus one optional (Codex r6, N1):
+- **R0's documentation outputs, which ARE in scope** — **six required** plus one optional (Codex r6 N1, r7 B3):
   `docs/plan/rls/evidence/R0-ten-signature-inventory.md` (the artifact); the amendment to
   `PLAN.md`; the `LEDGER.md` entry including its D-9 sweep record;
   `docs/planning/reviews/fase-R0-review-request.md` (canonical path, `CLAUDE.md:43` /
-  `AGENTS.md:32`); and **`docs/plan/rls/tools/check-plan-consistency.sh`**, the D-9 layer-2 checker (documentation machinery, not application/database/migration/test source, so it sits inside R0's boundary). Optionally, a one-line pointer under `docs/plan/rls/reviews/`.
+  `AGENTS.md:32`); and **`docs/plan/rls/tools/check-plan-consistency.sh`**, the D-9 layer-2 checker (documentation machinery, not application/database/migration/test source, so it sits inside R0's boundary — Codex r7 ruling C confirms the boundary). **Its acceptance contract, so the executor need not guess it** *(Codex r7, S1)*: for every phase carrying a full contract, parse the phase-index row, the `# Phase <ID> — …` heading, and the `**Risk:** … **Status:** … **Depends on:** …` metadata line beneath it; compare ID, status and dependencies across all three; **exit non-zero on any mismatch**, printing each mismatch with its line numbers; exit zero otherwise. It is invoked in R0's exact command chain above, so an inadequate checker fails the gate rather than passing silently. **`PROJECT_STATE.md`**, updated for the phase end — `CLAUDE.md:4` and `AGENTS.md:4` both require it ("evolving state ... update it when a phase ends") and R0 ends a phase *(Codex r7, B3)*. Optionally, a one-line pointer under `docs/plan/rls/reviews/`.
 - Re-auditing the 22 tables, or anything about `profiles_role_backup` beyond confirming its
   `relacl` and `relrowsecurity`.
 - The other 80 signatures — that is R11.
@@ -397,7 +397,9 @@ supabase db start && supabase db reset --local \
   && npm run type-check \
   && npm run lint \
   && npm test \
-  && npm run build
+  && npm run build \
+  && npm run test:db \
+  && bash docs/plan/rls/tools/check-plan-consistency.sh
 ```
 
 *(Amended after Codex r6, B1. The previous version waived `npm test` and `npm run build` because
@@ -407,14 +409,26 @@ plan. **This is the second hard-rule violation to reach a phase contract in this
 r5's production-access one; both were reasonable-looking judgment calls overriding an absolute
 rule.)*
 
-`test:db` and `e2e` remain unnecessary — R0 touches no DB or UI source. `--local` is explicit
-defence-in-depth per Codex r6 ruling B: `supabase db reset` already defaults to local unless
-`--linked`/`--db-url` is given, and spelling it makes the intent unmistakable.
+**`test:db` IS required.** `AGENTS.md:30` says "+ `test:db`/`e2e` when DB/UI **touched**" — not
+"when DB source changes". R0 starts, resets and interrogates the database, so the database is
+touched. *(Amended after Codex r7, B1. **This is the third instance of the same failure**: a
+reasonable engineering interpretation narrowing an absolute repository rule, after r5's
+production-access reading and r6's unit/build waiver. The PM's demonstrated failure mode is
+optimizing a contract against a rule it has already read; all three were caught by review, none
+by the PM.)* `e2e` remains unnecessary — R0 touches no UI.
 
-**What `npm test` proves here, and what it does not.** It runs because the repo requires it, not
-as evidence of suite completeness — A15's checker does not exist until R1, and the jsdom hazard
-means a green summary may still be silently dropping 51 files. **R0 must not cite a test count as
-evidence of anything.**
+`--local` is explicit defence-in-depth per Codex r6 ruling B: `supabase db reset` already defaults
+to local unless `--linked`/`--db-url` is given, and spelling it makes the intent unmistakable.
+
+**What the test count proves here, and what it does not.** `AGENTS.md:32` / `CLAUDE.md:43` require
+the review-request artifact to carry **test evidence with suite names and counts**, so R0 **must**
+report the Vitest count — as evidence that the mandated command ran and passed. In the same breath
+it must state that the count **does not prove suite-discovery completeness**: A15's checker does
+not exist until R1, and the jsdom hazard means a green summary may still be silently dropping 51
+files. So the count is reported and its meaning is bounded; it is never cited as evidence about
+coverage.
+*(Amended after Codex r7, B2 — the previous absolute "must not cite a test count as evidence of
+anything" contradicted a mandatory artifact and made R0's contract unsatisfiable as written.)*
 
 **Where to run it.** The **local** Supabase stack (`supabase db start` + `supabase db reset`),
 which reflects the committed migrations — and nowhere else. Per AR0-8 and D-7 the executor never
@@ -425,7 +439,7 @@ carries its server version.
 
 ## Definition of done
 
-All **five required** documentation outputs exist and are committed (the workstream-directory
+All **six required** documentation outputs exist and are committed (the workstream-directory
 pointer is optional — Codex r6, N1);
 the gates above are green; the D-9 sweep has been run and recorded in the ledger; and an
 independent Codex review of R0 has passed — so that a *wrong* fold-back into R1 cannot close R0
@@ -1156,9 +1170,12 @@ took that tradeoff knowingly. R1 is unaffected in substance; `R0` now precedes i
 `has_transformation_access` outage in R1, after a grep-based caller audit had survived three
 adversarial reviews. See R1's correction section.
 
-**Input.** 80 `SECURITY DEFINER` signatures in `public` carrying a `GRANT … TO anon`, outside the
-ten this workstream has audited: **71 non-trigger** signatures plus **9 that return `trigger`**.
-All identified by `regprocedure`, never by name — see the Goal's arithmetic note.
+**Input.** **The R11 population as defined in the Goal's count table** — the `SECURITY DEFINER`
+signatures in `public` carrying a `GRANT … TO anon` that lie outside the ten this workstream has
+audited, split into non-trigger signatures and trigger-returning ones. All identified by
+`regprocedure`, never by name. **The numbers live in that table and are deliberately not restated
+here** *(Codex r7, S2 — D-9 layer 3 said counts are centralized, and this paragraph was still
+restating them, which is exactly the drift the anchor exists to prevent)*.
 
 **This phase is `DISCOVERY` and must not smuggle implementation into research** (overlay §3). It
 produces evidence and a revised contract. **It ships no migration and changes no grant.**
@@ -1318,3 +1335,8 @@ Stated per overlay §3 instead of claiming completeness.
 | 2026-08-13 | **SECOND HARD-RULE VIOLATION IN A PHASE CONTRACT, corrected.** R0 waived `npm test` and `npm run build` on the reasoning that it changes no source so the gates cannot regress. `AGENTS.md:30` requires all four gates before any phase is reported complete, with no documentation-only exception. | Sound engineering that the repo rule does not permit — the same shape as r5's production-access violation: a reasonable-looking judgment call overriding an absolute rule. Both times the plan's own precedence list already said which wins. R0 now runs all four, and records that `npm test` is run because the repo requires it, **not** as evidence of suite completeness. | Codex r6, B1 |
 | 2026-08-13 | **AR0-8 gains a load-bearing classification and an R1 pre-dispatch owner gate.** | Without it, R0 could close and unblock R1 while a production-only fact about the very ACLs R1 changes sat merely labelled `UNVERIFIED` — and D-7's production check happens *after* the migration is applied, too late to prevent an outage. Load-bearing uncertainty now becomes a named gate requiring Brent's read-only confirmation before R1 dispatches. | Codex r6, B2 |
 | 2026-08-13 | **D-9 layer 2 corrected and slated to become a committed checker.** | At r5 the structural check compared index rows to phase *headers* only — so R1's header correctly read "BLOCKED on R0" while the metadata line two lines below still said "Status: TODO. Depends on: nothing." Layer 2 now compares index → header → metadata line. Codex has ruled twice that mechanically comparable facts should not ride on a human sweep, so `docs/plan/rls/tools/check-plan-consistency.sh` becomes an R0 deliverable — documentation machinery, inside R0's boundary. | Codex r6, S1 + "IS D-9 NOW SUFFICIENT: no" |
+| 2026-08-13 | **Codex plan review r7: FINDINGS.** 4 BLOCKING, 2 SHOULD-FIX, 0 NITs. **"No category (i) defect remains"** — R0's evidence workflow and production boundary are dispatchable in substance; every blocker is category (ii), a repo-rule breach. | The PM asked Codex to hunt for a third instance of its own failure mode. It found one, plus two adjacent repo-rule conflicts. | Codex plan review r7 |
+| 2026-08-13 | **THIRD hard-rule relaxation, corrected: `test:db` restored.** `AGENTS.md:30` says "+ `test:db`/`e2e` when DB/UI **touched**", and R0 starts, resets and interrogates the database. The plan had narrowed "touched" to "source changed". | Third instance of one pattern — r5 read a read-only exception into "never touch prod DB", r6 waived unit/build because no source changes, r7 narrowed "DB touched". **The PM's failure mode is optimizing a contract against a rule it has already read.** All three were caught by review, none by the PM. Recorded here rather than quietly fixed, because the pattern is the finding. | Codex r7, B1 |
+| 2026-08-13 | R0's absolute "must not cite a test count as evidence of anything" **removed** — it contradicted `AGENTS.md:32` / `CLAUDE.md:43`, which require the review request to carry test evidence with suite names and counts. R0 now reports the count as proof the mandated command ran, while stating it does not prove suite-discovery completeness. | An unsatisfiable contract: two mandatory requirements in direct conflict. | Codex r7, B2 |
+| 2026-08-13 | **`PROJECT_STATE.md` added as a required R0 output** (six required, one optional). | `CLAUDE.md:4` and `AGENTS.md:4` both require it updated when a phase ends, and R0 ends a phase. The output list had enumerated "exactly five" and omitted it. | Codex r7, B3 |
+| 2026-08-13 | The D-9 layer-2 checker gains an **executable acceptance contract** — which forms it parses, what constitutes a mismatch, non-zero exit, and invocation inside R0's gate chain. | Previously the executor was told to create it but not what it must do, so an inadequate checker would have passed silently. | Codex r7, S1 |

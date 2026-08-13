@@ -883,6 +883,10 @@ describe('contract_hours_ledger production consumer inventory', () => {
     for (const definition of definitions.filter((candidate) => objectNames.has(candidate.name))) {
       const path = definition.file;
       actual[path] = (actual[path] ?? 0) + 1;
+      expect(
+        sqlHoursAnalysis(definition.body).unsupported,
+        `${path}:${definition.name} contains unsupported ledger-relevant SQL`
+      ).toEqual([]);
       expect(SQL_LEDGER_OBJECTS[path]?.some((entry) =>
         entry.startsWith(`${definition.name}:`) &&
         entry.endsWith(directNames.has(definition.name) ? '/direct' : '/transitive')
@@ -1035,6 +1039,15 @@ describe('contract_hours_ledger production consumer inventory', () => {
     expect(() => sqlDirectHoursUseCount(
       'MERGE INTO contract_hours_ledger USING incoming ON true WHEN MATCHED THEN UPDATE SET hours = 1;'
     )).toThrow(/could not be classified/);
+    const unsupportedFunction = sqlObjectDefinitions(`
+      CREATE FUNCTION public.synthetic_ledger_merge() RETURNS void
+      LANGUAGE sql AS $body$
+        MERGE INTO contract_hours_ledger USING incoming ON true
+        WHEN MATCHED THEN UPDATE SET hours = 1
+      $body$;
+    `, 'synthetic.sql')[0];
+    expect(() => sqlDirectHoursUseCount(unsupportedFunction.body))
+      .toThrow(/could not be classified/);
     expect(sqlDirectHoursUseCount(
       'SELECT l.status FROM contract_hours_ledger l; SELECT q.hours FROM (SELECT * FROM contract_hours_ledger) q;'
     )).toBe(1);

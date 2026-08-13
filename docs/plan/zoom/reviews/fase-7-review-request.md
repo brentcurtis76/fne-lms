@@ -1,424 +1,205 @@
-# Fase 7 (Z7) — review request · FULL PHASE (Z7-1 … Z7-5)
+# Zoom phase Z7 — independent review request
 
-> Supersedes every earlier revision of this file (which tracked Z7-2 attempts 2–4
-> under the withdrawn contract). The review boundary is the **cumulative diff
-> `43999499..HEAD`**, judged against `PLAN.md` §15.3 with **§15.3.9 as the governing
-> pairing/reconciliation contract** — not against `Z7-r2.md`, whose [R3]/[R4] are
-> withdrawn.
+## 1. Authoritative control record
 
-| | |
+- Review state requested: `REVIEW READY` (builder evidence only; never an acceptance verdict)
+- Canonical branch: `feat/zoom-hours`
+- Immutable cumulative review base: `4399949942bfcf49dfa8de40cbf7edbf40f0490e`
+- Rejected canonical round-one head: `dd7836eb9d6c2a2d4d46c7ba43205bc694450578`
+- Rejected-tree equivalent detached base: `a5f7aa37` (tree `1d32b45c8dcd954e2caaa4b1980a4fdb1127c21f`)
+- Canonical repair HEAD: `CANONICAL_HEAD_PENDING_INTEGRATION`
+- Canonical cumulative commit count (`git rev-list --count 43999499..HEAD`):
+  `CANONICAL_COMMIT_COUNT_PENDING_INTEGRATION`
+- Detached implementation evidence head: `2070e892cf4cfe194468d2d090090374680658d3`
+- Detached cumulative count through implementation: `24`
+- Review boundary: cumulative `4399949942bfcf49dfa8de40cbf7edbf40f0490e..HEAD`
+
+The orchestrator must replace both canonical placeholders with the integrated full SHA and exact
+count, then commit that reconciliation before independent review. Cherry-picking changes commit
+IDs; detached IDs below are ordering evidence, not canonical identities.
+
+Ordered detached commits after `a5f7aa37`:
+
+1. `b394a2177d0fcc8795e8fef7a41a674e0f83051c` — `docs(z7): record round-two review findings`
+2. `2070e892cf4cfe194468d2d090090374680658d3` — `fix(z7): close round-two integrity gaps`
+3. This review-evidence commit (use the detached SHA returned by the builder).
+
+## 2. Objective and scope
+
+The governing objective remains PLAN §11: planned/approved time is the default billed and paid
+value; Zoom elapsed and facilitator presence are comparison evidence only; a post-execution admin
+override is the sole path to change `effective_minutes`; the same adjusted value drives school
+consumption and consultant payment; overrides are append-only and reversible without erasing
+history.
+
+PLAN §15.3.2 scope, retained:
+
+- **Z7-1 — attendance schema + actual-elapsed instants:** public attendance rows, RLS, actual
+  lifecycle instants, and pgTAP.
+- **Z7-2 — participant ingestion:** webhook join/leave ingestion, pure identity hierarchy, and
+  reconnect-safe interval arithmetic.
+- **Z7-3 — report reconciliation:** participant-report adapter/fake/job; a complete report is
+  authoritative over provisional webhooks.
+- **Z7-4 — override machinery:** append-only overrides, additive `effective_minutes`, one
+  authenticated admin RPC, canonical billable derivation, and DB enforcement.
+- **Z7-5 — surfaces:** admin comparison/override UI plus facilitator attendance suggestions.
+
+PLAN §15.3.3 out of scope, retained: recording, transcription, minutas, and consent; Z3b Client
+View; changes under `tests/e2e/`; the unrelated production RLS allowlist and INSPIRA migration;
+the Vitest upgrade; and leadership aggregates. This remediation also excluded deployment,
+production/remote DB access, real data, destructive schema work, and unrelated refactors.
+
+## 3. Round-two finding disposition
+
+| Finding | Disposition and executable evidence |
 |---|---|
-| Branch | `feat/zoom-hours` (worktree `/Users/brentcurtis/dev/wt/zoom-hours`) |
-| Base | `main` @ `4399949942bfcf49dfa8de40cbf7edbf40f0490e` |
-| Implementation head | `8ccc64b3` (this docs commit rides on top; review the cumulative diff) |
-| Commits from base | 19 = 18 at `8ccc64b3` (1 phase-open docs · 5 Z7-1 incl. its dispatch/close docs · 8 Z7-2 attempt/replan history · 4 implementation checkpoints `4c1b11e2`→`8ccc64b3`) + this docs commit |
-| Executor | Claude (single durable conversation, overlay §4.2; cumulative attempt 5) |
-| Reviewer protocol | `docs/planning/review-protocol.md` + lean overlay §4.3 |
+| Z7-R2.1 | Lifecycle SQL now uses existing-first UUID fill. pgTAP 011 proves ended-before-started fill, later differing replays/refused starts preserve identity, and the occurrence remains a reconciliation candidate. An exact old-expression reset made assertion 67 fail with `Different/Occurrence==`; restored code returns 146/146. |
+| Z7-R2.2 | A PostgreSQL trigger permits only pending→complete/rejected; both terminal states are immutable. Conditional reject RPC cannot demote a committed batch. The job reads durable status after ambiguous promotion failure. pgTAP covers terminal transitions and effective authority; Vitest simulates post-commit response loss. |
+| Z7-R2.3 | PostgreSQL stores and compares canonical normalized JSONB under the request-ID advisory lock. The caller hash is audit evidence only. pgTAP changes every payload field under one forged hash; the real two-connection proof repeats every field sequentially and concurrently and observes `P0409`, never `23505`. |
+| Z7-R2.4 | The live adapter requires a string `next_page_token`; only explicit `''` terminates. Adapter/job tests cover absent, null, numeric, and object tokens. Restoring exact old coercion produced 4 failures in 96 focused assertions; restored code produced 96/96. |
+| Z7-R2.5 | Consultant earnings fails closed on `hour_types`; consultant CSV fails closed on facilitator lookup and emits no successful CSV. Existing override/reversal consumer assertions preserve 0.75/7.50 and 1.00/10.00. |
+| Z7-R2.6 | Three named executable planned-60 scenarios cover Zoom 45, Zoom 90, and no Zoom. A source-boundary test inventories every comparison write/RPC path and the sole override RPC. Inserting an actual comparison-route ledger update made 2/4 isolation assertions fail; exact removal restored 4/4. |
+| Z7-R2.7 | Route validation rejects invalid session UUID, invalid reversal UUID, and values above PostgreSQL `integer` max with 400 before RPC. Unknown DB failures remain generic 500. |
+| Z7-R2.8 | Page cap has a distinct error type and one catch-owned resolution; the test observes exactly one `page_cap_exceeded` rejection and no promotion. |
+| Z7-R2.9 | This file replaces, rather than appends to, the rejected artifact. It contains one control record, one gate table, current findings, and explicit integration placeholders. |
 
-## 1. Phase objective and scope
+## 4. Round-one remediation status after round two
 
-**Objective (§15 row + §11 + §15.3.9):** persist Zoom attendance evidence per §6/§7,
-capture the authoritative participant report per occurrence, build the §11 override
-machinery (the ONLY path that changes billed hours), and surface planned-vs-Zoom
-comparison + facilitator attendance suggestions — with Zoom data **comparison/audit
-only, never billing** (nothing Zoom-derived can write `contract_hours_ledger`).
+The round-one repairs remain present in the cumulative tree: financial consumers use the
+effective-minute derivation; lifecycle writes are atomic; report promotion is batch-atomic;
+comparison dependencies fail closed; retryable fetch failures reject batches; and request-ID
+application is advisory-lock serialized. Round two supersedes two earlier claims: occurrence UUID
+identity is now proven against real SQL, and override replay equality is now database-derived
+rather than caller-hash-derived. No earlier claim that conflicts with those facts survives here.
 
-**In scope / delivered:** Z7-1 attendance data plane (approved earlier, untouched) ·
-Z7-2 corrected ingestion under §15.3.9 · Z7-3 report reconciliation · Z7-4 override
-machinery · Z7-5 admin comparison/override panel + facilitator suggestions panel.
+## 5. Files created or modified in round two
 
-**Out of scope, confirmed untouched (§15.3.3):** recording/transcription/minutas/
-consent (Z4/Z5/Z8/Z12) · Client View / `lib/meet/*` / `JoinMeetingButton.*` (Z3b) ·
-`tests/e2e/` (sealed since Z2-2b — `git diff --stat main...HEAD -- tests/e2e/` is
-empty) · the production RLS allowlist and `20260803170000` · the Vitest 1.x upgrade ·
-leadership aggregates · `has_global_workspace_access` (pre-existing, needs an owner).
+### Highest risk — database authority and transaction semantics
 
-## 2. Chunk-to-commit map
-
-| Chunk | Commit | Content |
-|---|---|---|
-| Z7-1 (approved 2026-08-12) | `0e29d53b`, `c2cf4ed2`, `e5b5a26d` | attendance schema, actual-elapsed instants, SECURITY DEFINER facilitator predicate, lifecycle RPC — Codex `PASS` |
-| Z7-2 history (superseded impl + replan docs) | `6177ad5e` … `a08370aa` | attempts 2–4 and the §15.3.9 contract replan; the unsafe fallback implementation these introduced is REMOVED at `4c1b11e2` |
-| **Z7-2 (re-scoped, attempt 5)** | `4c1b11e2` | uuid-only closure; `zoom_internal.zoom_attendance_observations`; one-transaction leave applier; index widened in place |
-| **Z7-3** | `349f13d1` | report page read + fake pagination; complete-batch validation; DB-owned batch promotion; `attendance_reconcile` job + hourly enqueue; effective-set resolver |
-| **Z7-4** | `0d5bd910` | `session_hour_overrides` + trigger; `effective_minutes`; apply/reverse RPC; §11 coalesce closed in every consumer incl. `get_bucket_summary` |
-| **Z7-5** | `8ccc64b3` | hours-comparison + attendance-suggestions endpoints; `HoursComparisonPanel` (admin) + `AttendanceSuggestionsPanel` (facilitator); es-CL copy + data-testids |
-
-## 3. The governing contract, in five sentences
-
-A `participant_left` may close an interval ONLY via a Zoom-minted `participant_uuid`
-matching exactly one open row in the occurrence; name/e-mail/`customer_key` are
-reconciliation evidence and never authorise a destructive write. Every leave lands as
-a durable private observation, committed in ONE transaction with any eligible close.
-The participant report becomes authoritative only as a COMPLETE batch (every page,
-unchanged parameters, count == `total_records`, consistent metadata), promoted
-atomically under a DB-owned monotonic sequence; a complete batch supersedes webhook
-attendance WHOLESALE per occurrence, and no row is ever matched across sources.
-Billed hours change only through the admin override RPC (actor = `auth.uid()` inside;
-zero-waiver additive `effective_minutes`; append-only audit). Everything uncertain —
-open intervals, provisional webhook data, live occurrences — is rendered as a STATE,
-never a fabricated number.
-
-## 4. Files by risk
-
-**HIGH — billing and destructive-write authority**
-- `supabase/migrations/20260813120200_session_hour_overrides.sql` — the override
-  table + trigger + `apply_session_hour_override` + the `get_bucket_summary`
-  replacement (identical signature; the only formula change is the §11 coalesce)
-- `lib/services/billable-hours.ts` — the §11 coalesce with the one rounding rule
-- `pages/api/admin/sessions/[id]/hour-override.ts` — the admin mutation route
-- `supabase/migrations/20260813120000_zoom_attendance_observations.sql` —
-  `apply_participant_leave`: the only webhook-time interval-close path
-- `supabase/migrations/20260812120000_zoom_attendance_participant_uuid.sql` —
-  amended IN PLACE (unmerged/unapplied): index widened, withdrawn-contract comments
-  rewritten
-
-**MEDIUM — reconciliation and ingestion correctness**
-- `supabase/migrations/20260813120100_zoom_attendance_report_batches.sql` — batch
-  table + atomic `promote_attendance_report_batch` + report-row CHECKs
-- `lib/zoom/participant-lifecycle.ts`, `lib/zoom/attendance-store.ts` — the applier
-  and its one-call leave path
-- `lib/zoom/attendance-report.ts`, `lib/zoom/jobs/attendance-reconcile.ts`,
-  `lib/zoom/attendance-report-store.ts` — complete-batch fetch/validate/promote
-- `lib/zoom/attendance-effective.ts` — read-time supersession
-- `pages/api/cron/zoom-reconcile.ts` — candidate listing + hourly enqueue
-- `lib/zoom/api.ts`, `lib/zoom/fake.ts` — the paginated report read (+ the fake that
-  paginates exactly as Zoom does)
-
-**LOW — read surfaces and UI**
-- `pages/api/admin/sessions/[id]/hours-comparison.ts`,
-  `pages/api/sessions/[id]/attendance-suggestions.ts` (read-only; the §7 gate)
-- `components/sessions/HoursComparisonPanel.tsx`,
-  `components/sessions/AttendanceSuggestionsPanel.tsx` + the two page mounts
-- `lib/services/school-hours-report.ts`, `pages/api/sessions/reports/analytics.ts`
-  (select `effective_minutes`; derivation unchanged otherwise)
-- `lib/zoom/attendance-identity.ts`, `lib/zoom/attendance-intervals.ts` (evidence/
-  arithmetic modules; closure inputs removed)
-
-## 5. Gates — exact commands, counts, exit codes
-
-All run in the worktree at the final head, unpiped (tails recorded from full runs).
-
-| Gate | Command | Result | Exit |
-|---|---|---|---|
-| Type-check | `npm run type-check` | PASS, no output | 0 |
-| Lint | `npm run lint` | PASS, zero warnings (`--max-warnings=0`) | 0 |
-| Unit | `npm test` | **318 files / 7,244 passed + 11 skipped (7,255)** · jsdom `environment` 246–268 ms (real collection — the base checkout's silent-skip regression did not recur) | 0 |
-| Build | `npm run build` | PASS (production; 156/156 static pages) — run twice: once against the real `.env.local`, once CI-style against the local stack for e2e | 0 |
-| pgTAP | `supabase db reset` then `npm run test:db` | clean replay of ALL migrations from scratch · **12 files / 649 tests** (011 = 134 · 015 = 49 · 002 = 137) | 0 |
-| E2E | CI recipe: CI-style `.env.local` → `npm run build` → `node scripts/ci/seed-e2e.mjs` → `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **see §5.1** | — |
-| 3-TZ matrix | `TZ=UTC npm test` · `TZ=America/Santiago npm test` · `TZ=Europe/Madrid npm test` | UTC and Santiago: **identical 7,244 passed**. Madrid: 7,236 passed + **8 pre-existing failures in `lib/__tests__/businessDays.test.ts`** — byte-identical to `main`, licitación scope, fails on `main` under Madrid too; **not Z7's** (carried finding, §10). Every Z7/hours suite passes under all three TZs | see note |
-| lint:testid | `npm run lint:testid` | advisory — **zero hits in any file this phase adds**; total warning count unchanged vs `main` (2,625 vs 2,626 baseline; the delta is measurement noise in pre-existing files, not a new element) | n/a (advisory) |
-
-### 5.1 E2E result
-
-**117 passed (1.1 m), exit 0**, followed by the no-skip guard:
-`node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json` →
-"OK — 11 mandatory spec(s) ran with no skips". Run exactly as CI runs it: CI-style
-`.env.local` built from `supabase status` (local stack, `ZOOM_MODE=mock`, synthetic
-cron secret), fresh `supabase db reset`, production build with those values inlined,
-`node scripts/ci/seed-e2e.mjs`, then
-`CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list)
---project=chromium` against `npm run start`. The real `.env.local` was backed up
-first and restored after; `tests/e2e/` itself is untouched ([Z7-A8]).
-
-## 6. Critical invariants — entry points for the reviewer
-
-| Invariant | Enforced at |
-|---|---|
-| Closure requires Zoom-minted uuid × exactly one open row | `supabase/migrations/20260813120000_zoom_attendance_observations.sql:115` (`apply_participant_leave`); TS single-call path `lib/zoom/participant-lifecycle.ts:256` |
-| Observation + close = ONE transaction; duplicate delivery does nothing at all | same function — the `EXCEPTION WHEN unique_violation` rollback; proven in pgTAP 011 **L3** (pre-seeded key makes the close roll back) and vitest `[C6b]` |
-| Rejoin admissible / redelivery refused | widened partial index `supabase/migrations/20260812120000_zoom_attendance_participant_uuid.sql:67` `(zoom_meeting_uuid, participant_uuid, joined_at)` |
-| Batch authoritative only when COMPLETE; promotion atomic; DB-owned order | `supabase/migrations/20260813120100_zoom_attendance_report_batches.sql:123` (`promote_attendance_report_batch`, count re-check INSIDE the txn); completeness rule `lib/zoom/attendance-report.ts:65`; job rejection paths `lib/zoom/jobs/attendance-reconcile.ts:166` |
-| Wholesale supersession, never cross-source matching; webhook rows never edited | `lib/zoom/attendance-effective.ts:61` (read-time rule; the report store has no interval-write member at all) |
-| Report rows: batch-scoped, closed, no `participant_uuid`, no delivery key | paired CHECKs in the batches migration (`zoom_attendance_report_batch_source`, `zoom_attendance_report_rows_closed`) + promote RPC inserts |
-| Overrides append-only at the database | trigger `supabase/migrations/20260813120200_session_hour_overrides.sql:93`; pgTAP 015 [Z7-A3] |
-| Override path unreachable by service/jobs/Zoom | `apply_session_hour_override` (`...20260813120200...sql:127`): actor from `auth.uid()` inside, NULL aborts, non-admin aborts, **EXECUTE revoked from `service_role` explicitly** (Supabase default privileges grant it otherwise); pgTAP 015 [Z7-A4] |
-| The exact §11 chain | pgTAP 015 [Z7-A5]: 90-planned → 45 → 30 → reverse-second = 45 → reverse-first = NULL/planned, plus refusals (reverse-non-latest, double-reverse, reverse-a-reversal) |
-| One billable derivation, one rounding rule | `lib/services/billable-hours.ts:116` and the same `round(effective_minutes/60.0, 2)` in `get_bucket_summary` — §11 "a single adjusted value flows to both consumption and payment" |
-| Zoom data never reaches billing | `git diff main...HEAD -- lib/services/hour-tracking.ts` **empty**; `billable-hours.ts` reads only ledger columns; the ONLY `effective_minutes` writer is the admin RPC (grep `effective_minutes` across `lib/`, `pages/` — no other writer) |
-| Uncertainty is a state, never a number | `totalPresenceSeconds` counts CLOSED intervals only (`lib/zoom/attendance-intervals.ts`); both endpoints emit `state`/`has_open_interval(s)` flags; both panels render es-CL states (component suites pin the copy) |
-
-## 7. Adversarial / fail-on-old evidence
-
-1. **Vitest fail-on-old (identity closure).** Restoring the withdrawn fallback-closure
-   arm (token-containment close for uuid-less leaves) into the store double fails
-   exactly `[C3]`, `[C4]` (H1/H2) and `[C5]` — 3 failed / 31 passed. The attempt-4
-   suite was green over this defect; this one is not.
-2. **SQL fail-on-old (identity closure).** The same fallback arm written into the REAL
-   `apply_participant_leave` (transient `CREATE OR REPLACE` on the local stack, never
-   committed) fails pgTAP 011 at exactly the three **L4** asserts ("a uuid-less leave
-   is unpairable", "the matching-evidence open row STAYS OPEN", evidence recording) —
-   3 failed of 134. Function restored by `supabase db reset`; the committed migration
-   was never altered.
-3. **Transaction-boundary probes on real SQL.** 011 **L3**: a pre-seeded observation
-   key makes `apply_participant_leave` report `observation_duplicate` AND leaves the
-   interval OPEN — the close rolled back with the conflict. 011 **B2**: a promote
-   whose row count ≠ `total_records` raises, and afterwards the batch is still
-   `pending` with ZERO attendance rows — rows and flip are one transaction.
-4. **Authorization probes.** pgTAP 015: NULL `auth.uid()` aborts (P0403); authenticated
-   docente and consultor rejected; `service_role` holds no EXECUTE at all; UPDATE and
-   DELETE on the audit table refused by trigger; authenticated INSERT refused by RLS
-   (42501). Route tests: 401/403/400/409 taxonomy.
-5. **Completeness matrix (12–14).** Unit: the exact suppressed-participant candidate
-   (page one of a 31-person meeting) is rejected `pagination_not_exhausted`; count
-   drift and metadata drift rejected; mid-pagination page failure rejects the WHOLE
-   candidate with nothing promoted (job suite, against the fake that paginates).
-
-## 8. What was verified — and what was NOT
-
-**Verified locally:** everything in §5–§7; migrations replay from scratch; the four
-checkpoint commits each passed type-check/lint/full-unit/test:db at their head.
-
-**NOT verified — external, honestly stated:**
-- **No real Zoom traffic.** Fixture shapes rest on the committed Z0B captures; the
-  report's own completeness behaviour beyond §6.2's four participants across three
-  meetings is unmeasured (§15.3.9 blind spot 3). `participant_uuid` rejoin reuse is
-  undocumented — either behaviour degrades to no-closure (a performance property,
-  not correctness).
-- **Nothing about production.** No push, no PR, no merge, no deploy, no production
-  access of any kind (not even read). All six Z7 migrations are unapplied outside
-  local Docker; per §0.1(d) the phase is not closed until Brent applies them and the
-  production schema is verified.
-- **True cross-connection concurrency** is exercised at the semantics level (pgTAP
-  sequential conflict probes + single-transaction structure + barrier-released vitest
-  doubles), not with two live Postgres sessions racing — same posture 002 documents
-  for the job queue.
-
-## 9. Accepted deviations
-
-1. **`selectIntervalToClose` was DELETED, not "narrowed"** (§15.3.9 what-survives list
-   said narrowed): the close decision moved inside `apply_participant_leave`, where
-   "exactly one open row" cannot race a concurrent applier — the same replan, stronger
-   form. `isClosableBy` survives as the SQL guard's TS twin; `mergeIntervals`/
-   `totalPresenceSeconds` survive as the read-time arithmetic.
-2. **`get_bucket_summary` is replaced at its identical signature** (not named in
-   §15.3.2's Z7-4 row). Required by §11's own test list — "override 60→45 updates
-   aggregates once" and "reversal restores aggregate" are false without it — and by
-   "a single adjusted value flows to both consumption and payment". Mechanism follows
-   the repo-approved precedent (`20260809120000`), grants and return shape preserved.
-3. **The observation outcome enum is exactly §15.3.9's four values**; zero-or-many
-   open matches both record `no_open_interval` (rule 3 treats them identically). The
-   distinction lives in the row data (`participant_uuid` present or not).
-4. **Consumer select-string pins updated** (`school-hours-report.test.ts`,
-   `session-reports-analytics.test.ts`): the pinned column lists gained
-   `effective_minutes` — the intentional Z7-4 change those pins exist to notice, not
-   a weakening (the schema-validation harnesses still refuse unknown columns).
-5. **`[C11]` held at the Z7-2 checkpoint** (`4c1b11e2`: billing files untouched);
-   Z7-4 then closed the `billable-hours.ts` seam as its own contract requires.
-   `hour-tracking.ts` is untouched across the whole phase.
-6. **Role-visibility "end to end" is covered by route + component + pgTAP layers**,
-   not Playwright: `tests/e2e/` is sealed by [Z7-A8]/§15.3.3, which this phase may
-   not override. The §7 gate is asserted at the database (RLS/pgTAP), at the route
-   (401/403/404-no-oracle tests) and in the DOM (panel self-removal on 404).
-
-## 10. Known limitations and carried findings
-
-- **Uuid-less duplicate joins can double-count until the report lands** (§15.3.9
-  matrix row 7) — accepted deliberately over any matching heuristic; the report
-  supersedes wholesale. Rendered provisional until then.
-- **Webhook-only occurrences whose report never materialises** stay provisional
-  forever (visible state; rejected batches + dead-lettered jobs surface on the §18
-  panel when Z12 builds it).
-- **Attendance suggestions cannot distinguish "left the meeting" from "connection
-  died"** — arrival_status (`late`/`left_early`) is left to the facilitator; the
-  panel applies only present/absent.
-- **Pre-existing, NOT Z7's:** `lib/__tests__/businessDays.test.ts` fails 8 tests
-  under `TZ=Europe/Madrid` on `main` too (licitación scope; flagged as a separate
-  task). `public.has_global_workspace_access` remains carried with no owner.
-- **`docs/plan/LEDGER.md` at the primary checkout** carries uncommitted lean-pilot
-  edits outside this worktree — not this branch's to commit.
-
-## 11. Hardest areas for an independent reviewer
-
-1. **The one-transaction leave applier** (`apply_participant_leave`) — the FOR UPDATE
-   candidate lock, the whole-body EXCEPTION rollback, and whether any interleaving of
-   route × sweep can produce a closed interval with an unmatched observation (the
-   [C6b] property). The pgTAP L-probes are sequential; judge whether the argument
-   from single-function atomicity closes the true-concurrency gap.
-2. **Batch authority ordering** — `seq` is minted at PENDING-batch creation (fetch
-   start), so of two overlapping fetches that both complete, the LATER-STARTED wins
-   even if it finished first. Both are complete snapshots and the rule is
-   deterministic and clock-free, but check it against §15.3.9's "later partial can
-   never displace earlier complete" (it cannot: rejected/pending batches never win).
-3. **The reversal chain semantics** in `apply_session_hour_override` — "latest
-   unreversed non-reversal" selection (`ORDER BY seq DESC`), the restore of the
-   TARGET's `previous_minutes`, and the ledger flag resets when the chain empties.
-   The §11 sequence is pinned in pgTAP 015 E1–E7; hunt for a chain state those seven
-   cases miss (e.g. apply-after-reversal then reverse again — previous_minutes
-   snapshots make it consistent, but verify).
-4. **The §11 coalesce in `get_bucket_summary`** — applied to BOTH the reservada and
-   consumida sums (uniform rule; effective_minutes only ever exists on consumida
-   rows). Confirm no consumer still derives hours from `chl.hours` directly
-   (`school-hours-report`, `analytics`, reschedule RPC availability math).
-5. **The suggestions endpoint's absence semantics** — `absent` only under a complete
-   report batch, `no_data` under provisional webhook data. This is product-visible
-   direction-of-failure; check the tri-state against §15.3.5's "never toward a wrong
-   person marked present" and the copy in `AttendanceSuggestionsPanel`.
-
----
-
-## 12. Independent-review remediation round 1 (Z7-R1…Z7-R7)
-
-This appendix supersedes any contrary evidence above for the repaired tree. It records
-the builder response to `docs/plan/zoom/remediation/Z7-review-1.md`; it is not an
-acceptance verdict.
-
-### 12.1 Identity and boundary
-
-- Canonical branch: `feat/zoom-hours` (the repair was made on the orchestrator-provided
-  detached task worktree and must be cherry-picked onto that branch).
-- Cumulative independent-review boundary: `43999499..HEAD`.
-- Remediation starting HEAD: `0a5d2684c0a2c0cd91eca0cbdc032793b0c598b6`.
-- Repair implementation: `51c80b0c66691869e2f0d5775b3af5285b0bfdac`.
-- This evidence appendix is a second detached-head commit on top of the implementation;
-  exact final HEAD is reported in the builder handoff. After that commit the cumulative
-  boundary contains 22 commits.
-
-The objective was to resolve all seven review findings without changing Z7's governing
-invariants: authoritative report replacement, conservative provisional attendance,
-append-only override audit, one adjusted value for consumption and payment, deterministic
-idempotency, and no production or real-Zoom access. Scope was limited to the affected Z7
-SQL, jobs, routes, UI typing/submission semantics, billing consumers, and regression
-infrastructure. No merge, push, deployment, production access, real student data, RLS
-weakening, or destructive schema operation occurred.
-
-### 12.2 Finding disposition
-
-| Finding | Repair | Regression evidence |
-|---|---|---|
-| Z7-R1 | Audited every ledger/bucket/earnings reference, replaced `get_consultant_earnings` at the identical signature with `effective_minutes` fallback semantics, and converted the direct earnings breakdown and ledger CSV to the canonical `billableHours` seam. Earnings breakdown now fails closed instead of retrying without consultant scope. | Cross-module unit coverage pins breakdown, CSV, and RPC-backed PDF to 45 minutes / 0.75 hours / 7.50 at a 10.00 rate. pgTAP 015 pins pre-override 1.00/10.00, override 0.75/7.50, replay unchanged, and reversal 1.00/10.00. |
-| Z7-R2 | `meeting.started` and `meeting.ended` both forward the occurrence UUID. The SQL's `COALESCE` fills a missing UUID but never overwrites an existing one. | Lifecycle, webhook-route, and pgTAP out-of-order tests require the ended-before-started row to retain the UUID. |
-| Z7-R3 | Candidate loading now scans deterministic 100-row pages (`updated_at DESC, id ASC`) until it fills the unresolved limit or exhausts the bounded result set. | The regression puts 200 complete candidates ahead of the unresolved 201st and requires that 201st row to be returned; a second test pins deterministic limiting. |
-| Z7-R4 | Attendance suggestion fields are optional and nullable. The route constructs a partial update: omission preserves existing metadata; explicit `null` (and the UI's explicit empty note) clears it. | Route tests independently pin omitted preservation and explicit clear. |
-| Z7-R5 | The comparison route checks all four concurrent query errors and returns only a generic internal error. | A four-source matrix independently fails session, ledger, attendance, and override reads and requires 500 for each. |
-| Z7-R6 | Every terminal report-page failure rejects the batch before rethrow/conversion; deliberate lease loss remains the only path that does not let the old worker mutate batch state. | A retry-exhausted `ZoomRetryableError` must reject the batch and must not promote it. |
-| Z7-R7 | `apply_session_hour_override` takes a transaction advisory lock derived from `p_request_id` before its request precheck. | A repeatable local-only two-connection script proves identical concurrent calls yield one apply + one replay + one audit row; different payloads yield one apply + one `P0409`, never `23505`; sequential replay remains a no-op. |
-
-### 12.3 Billing-consumer audit (not just the cited files)
-
-The audit searched every SQL, library, API, page, and test reference to
-`contract_hours_ledger`, `get_bucket_summary`, and `get_consultant_earnings`.
-
-Canonical billing/consumption readers after repair:
-
-- `get_bucket_summary` — already uses `COALESCE(effective_minutes / 60, hours)` for
-  reserved/consumed arithmetic.
-- school-hours report and session-report analytics — already read `effective_minutes`
-  through the canonical billable-hours helper.
-- `get_consultant_earnings` — repaired in the existing unapplied Z7 migration; signature,
-  return shape, and grants are preserved.
-- consultant-earnings direct breakdown, earnings PDF (RPC result), and ledger CSV — now
-  all carry adjusted hours/amounts; the direct path also retains consultant scope on every
-  outcome.
-
-Intentional historical/non-billing readers left unchanged:
-
-- The raw ledger GET returns audit evidence (`select *`) and does not calculate a payment.
-- The comparison panel deliberately exposes both historical planned `ledger.hours` and the
-  adjusted value; collapsing them would destroy the comparison it exists to show.
-- Session/admin status badges, consultant-rate guards, approval/allocation/reallocation,
-  and hour-tracking CRUD readers use status/identity/availability rather than independently
-  calculating a billable amount. Availability remains owned by the canonical bucket RPC.
-
-### 12.4 Honest fail-on-old evidence
-
-The focused regression set was first run against the old implementation. Seven of eight
-files failed: **13 failed / 61 passed (74 total)**. The failures covered direct earnings,
-CSV, omitted-vs-clear metadata, each of the four comparison query sources, retryable batch
-rejection, both occurrence-UUID expectations, and both candidate pagination assertions.
-The PDF test passed because the old mocked RPC result was already canonical; its repaired
-test now verifies the rendered 0.75/7.50 table output instead of pretending it killed old
-code.
-
-The old SQL was also exercised through two real local Postgres connections with a barrier
-that held the target session row until both callers passed the old request precheck. In the
-identical-request race, the losing caller surfaced unique-key SQLSTATE **23505**. This is
-the concrete fail-on-old for the advisory-lock repair, not a mocked approximation.
-
-On the repair commit the broadened focused set is **9 files / 96 tests, all green**.
-
-### 12.5 Files in the remediation commit, grouped by risk
-
-**Highest risk — database, money, and concurrency**
-
+- `supabase/migrations/20260811130100_zoom_meeting_actual_instants.sql`
+- `supabase/migrations/20260813120100_zoom_attendance_report_batches.sql`
 - `supabase/migrations/20260813120200_session_hour_overrides.sql`
+- `supabase/tests/011-zoom-public-rls.sql`
 - `supabase/tests/015-session-hour-overrides.sql`
 - `scripts/ci/override-concurrency-proof.mjs`
-- `package.json`
-- `pages/api/consultant-earnings/[consultant_id].ts`
-- `pages/api/contracts/[id]/hours/ledger/csv.ts`
-- earnings/CSV/PDF regression files under `__tests__/api/hour-tracking/`
 
-**High risk — attendance lifecycle, report authority, and request failure semantics**
+### High risk — report state machine and Zoom wire validation
 
+- `lib/zoom/api.ts`
 - `lib/zoom/attendance-report-store.ts`
 - `lib/zoom/jobs/attendance-reconcile.ts`
-- `lib/zoom/webhook-lifecycle.ts`
-- `pages/api/sessions/[id]/attendees.ts`
-- `supabase/tests/011-zoom-public-rls.sql`
-- corresponding route/job/store/lifecycle/webhook tests under `__tests__/`
+- `__tests__/lib/zoom/fake.test.ts`
+- `__tests__/lib/zoom/jobs/attendance-reconcile.test.ts`
 
-**Medium risk — comparison error handling and UI metadata contract**
+### Medium risk — financial/API boundaries
 
-- `pages/api/admin/sessions/[id]/hours-comparison.ts`
-- `lib/types/consultor-sessions.types.ts`
-- `pages/consultor/sessions/[id].tsx`
-- `__tests__/api/admin/hours-comparison.test.ts`
+- `pages/api/admin/sessions/[id]/hour-override.ts`
+- `pages/api/consultant-earnings/[consultant_id].ts`
+- `pages/api/contracts/[id]/hours/ledger/csv.ts`
+- `__tests__/api/admin/hour-override.test.ts`
+- `__tests__/api/hour-tracking/earnings.test.ts`
+- `__tests__/api/hour-tracking/ledger-csv.test.ts`
 
-### 12.6 Gate and time-zone evidence
+### Contract/isolation tests and evidence
 
-Evidence below was collected on the repair tree; the only later tracked change is this
-documentation appendix.
+- `__tests__/lib/services/billable-hours.test.ts`
+- `__tests__/lib/services/comparison-billing-isolation.test.ts` (new)
+- `docs/plan/zoom/remediation/Z7-review-2.md` (contract commit)
+- `docs/plan/zoom/reviews/fase-7-review-request.md`
 
-| Command | Result |
-|---|---|
-| focused 9-file Vitest command listed in the remediation | 9 files, **96/96** |
-| `npm run type-check` | exit 0 |
-| `npm run lint` | exit 0, zero warnings |
-| `bash scripts/ci/check-rls-migrations.sh` | exit 0; no migration disables RLS |
-| `npm test` | 319 files, **7254 passed / 11 skipped**, exit 0 |
-| `npm run build` | exit 0; 156 static pages generated, using local-only `.env.local` |
-| `npm run test:db` | 12 files, **653 tests**, exit 0 |
-| `npm run test:override-concurrency` | all three real two-connection proofs green |
-| `supabase db reset` | all migrations through `20260813120200` replayed locally |
-| fresh reset → local e2e seed → `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **117/117**, one worker, no skips |
-| `TZ=UTC npm test` | 319 files, **7254 passed / 11 skipped**, exit 0 |
-| `TZ=America/Santiago npm test` | 319 files, **7254 passed / 11 skipped**, exit 0 |
-| `TZ=Europe/Madrid npm test` | **7246 passed / 8 failed / 11 skipped**, exit 1; all 8 are `lib/__tests__/businessDays.test.ts` |
+The audit was not limited to cited files. Direct ledger/effective-minute readers and comparison
+write/RPC paths were searched across `lib/`, `pages/`, and `scripts/`. The canonical billing helper
+still reads only ledger fields; the comparison GET has no write/RPC; its panel has one comparison
+read and one explicit override POST; and the override endpoint calls only
+`apply_session_hour_override`, never the ledger table directly.
 
-Required deviations are not hidden:
+## 6. Gate evidence
 
-- `npm run lint:testid` reports **2669 problems (44 errors, 2625 warnings)**. The exact
-  same counts reproduce at immutable start `0a5d2684`; this advisory is repo-wide and no
-  remediation file introduces an interactive control.
-- The eight Madrid failures reproduce on immutable start `0a5d2684` with the targeted
-  business-days suite (**8 failed / 15 passed**). This is the already-recorded licitaciones
-  time-zone defect, outside Zoom remediation scope.
-- The exact broad `npm run e2e` completed with **160 passed / 27 skipped / 1 did not run /
-  62 failed (250 total)**. Failures are the inherited broad legacy inventory (principally
-  proposal/QA suites whose legacy credentials are absent from the supported synthetic
-  seeder, plus legacy reservation logins and one full-run-only mock-port readiness race).
-  No Z7 remediation spec failed. The supported fresh-stack mandatory CI selector above is
-  fully green at 117/117. This round did not weaken, skip, or delete any e2e test.
+All supported gates used the local Supabase stack and synthetic fixtures only. No command was
+piped through `tail`.
 
-### 12.7 Residual risks and independent-review focus
+| Command | Exact result | Exit |
+|---|---|---:|
+| Focused round-two Vitest set | 8 files, **155 passed** | 0 |
+| Pagination old-behavior probe: exact old coercion + `npx vitest run __tests__/lib/zoom/fake.test.ts __tests__/lib/zoom/jobs/attendance-reconcile.test.ts` | **4 failed / 92 passed**; all four malformed-token cases resolved instead of rejecting | 1 expected |
+| Restored pagination focused recheck | 2 files, **96 passed** | 0 |
+| Billing mutation probe: actual comparison-route `.update({ hours: 0 })` + isolation test | **2 failed / 2 passed**; exact removal then **4/4 passed** | 1 expected, then 0 |
+| Old-SQL probe: exact incoming-first UUID expression → `supabase db reset && npm run test:db` | **1 failed / 670 passed**; pgTAP 011 assertion 67 observed overwrite | 1 expected |
+| Restored fresh SQL replay + `npm run test:db` | 12 files, **671 passed** (011: 146; 015: 59) | 0 |
+| `npm run type-check` | no diagnostics | 0 |
+| `npm run lint` | zero warnings | 0 |
+| `bash scripts/ci/check-rls-migrations.sh` | no migration disables RLS | 0 |
+| `npm test` | 320 files, **7,277 passed / 11 skipped** | 0 |
+| `npm run build` | production build, **156/156 static pages** | 0 |
+| `npm run test:override-concurrency` | identical race apply+replay; differing race `P0409`; sequential replay; every canonical field forged-hash sequential/concurrent `P0409`; no `23505` | 0 |
+| Fresh reset → synthetic seed → `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **117/117 passed**, one worker | 0 |
+| `node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json` | 11 mandatory specs ran with no skips | 0 |
+| `TZ=UTC npm test` | 320 files, **7,277 passed / 11 skipped** | 0 |
+| `TZ=America/Santiago npm test` | 320 files, **7,277 passed / 11 skipped** | 0 |
+| `TZ=Europe/Madrid npm test` | **7,269 passed / 8 failed / 11 skipped**; all failures are inherited `lib/__tests__/businessDays.test.ts` | 1 inherited |
+| `npm run lint:testid` | inherited advisory: **44 errors / 2,625 warnings** | 1 advisory |
 
-1. **Money aggregation and grants.** Re-check the replacement RPC's identical signature,
-   preserved grants, rate grouping/rounding, and the complete consumer inventory. The raw
-   historical views are intentionally not rewritten.
-2. **Advisory-lock domain.** The lock hashes a caller-provided request ID; hash collision is
-   safe but serializing, while correctness still depends on every override entering through
-   this RPC. Review the barrier proof and the lock-before-precheck ordering together.
-3. **Candidate scan cost.** Paging is bounded and deterministic but can scan a large complete
-   prefix to find a small unresolved tail. Correctness is pinned; an index/query redesign is
-   a future performance option if production cardinality warrants it.
-4. **Omission versus explicit clear.** The API and UI now distinguish these cases. Check any
-   future client does not serialize absent fields as `null` unintentionally.
-5. **Batch terminality and lease loss.** All ordinary terminal page failures reject the
-   batch; lease loss deliberately leaves authority to the winning worker. Inspect that
-   exception before changing catch ordering.
+The first mandatory-E2E setup attempt was invalid because the ignored local environment omitted
+`CRON_SECRET` and `NEXT_PUBLIC_BASE_URL`; it was stopped, the local-only file was corrected, the
+production build was rerun, and the authoritative fresh result is 117/117 plus the no-skip guard.
 
-No governing-contract conflict was found. Remaining external limits from §8 still apply:
-no real Zoom tenant and no production migration/application evidence exist in this builder
-round.
+## 7. Time-zone and billing result
+
+The three named Z7-A6 scenarios execute in `billable-hours.test.ts` and return one billed hour in
+all three matrix runs:
+
+- planned 60 / Zoom 45 → billed 60;
+- planned 60 / Zoom 90 → billed 60;
+- planned 60 / no Zoom data → billed 60.
+
+All Z7 and hours suites are green in Madrid. Its eight failures are the already-recorded,
+out-of-scope licitación business-day date-construction defect and reproduce independently of Z7.
+
+## 8. Inherited deviations and broad-suite record
+
+- `lint:testid` is advisory and unchanged in character: 44 missing-rule errors and 2,625
+  repository-wide warnings. Round two adds no interactive component.
+- The Madrid matrix retains exactly eight failures in `lib/__tests__/businessDays.test.ts`; this
+  was reproduced on the immutable phase start in round one and remains outside Zoom scope.
+- The exact broad `npm run e2e` was run in round one and recorded **160 passed / 27 skipped /
+  1 did not run / 62 failed (250 total)**. Those failures are the inherited legacy inventory
+  (principally proposal/QA credentials absent from the supported synthetic seeder, legacy
+  reservation logins, and one full-run-only mock-port race). Round two did not change
+  `tests/e2e/`; the supported mandatory selector was rerun fresh at 117/117.
+
+These deviations are not described as green and are not acceptance claims.
+
+## 9. Independent reviewer focus
+
+1. **Batch terminality and ambiguous commits.** Exercise table-privileged writes as well as the
+   reject/promote RPCs; the database trigger, not TypeScript, must remain the last boundary.
+2. **Canonical override equality.** Inspect normalization, JSONB null semantics, advisory-lock
+   ordering, and the reversal-target forged-hash cases; no unique violation may escape.
+3. **Occurrence identity and candidate selection.** Re-run the ended-before-started path against
+   real PostgreSQL and confirm a later UUID can neither overwrite nor remove candidacy.
+4. **Financial dependency failure direction.** Confirm earnings and consultant CSV errors cannot
+   become zero-valued JSON or header-only success, and verify 45-minute override/reversal totals
+   across school and consultant consumers.
+5. **Executable comparison isolation.** Add another real write/RPC mutation to each comparison
+   path and verify the source-boundary test turns red without relying on comments or doubles.
+
+## 10. Known limitations and residual risks
+
+- Local/CI success says nothing about deployment. Brent must apply migrations and perform the
+  PLAN read-only production-schema verification after merge; this task neither accessed nor
+  changed production.
+- A durable status read can itself fail during a wider database outage. That preserves safety
+  (it cannot demote `complete`) but retries the job until the database is readable.
+- The batch state trigger intentionally makes terminal rows wholly immutable, including
+  `updated_at` and rejection-reason rewrites. Operational annotations must live elsewhere.
+- PostgreSQL advisory locking uses a 64-bit hash. A collision may serialize unrelated request
+  IDs but canonical request-ID/payload comparison prevents them from merging.
+- Real Zoom report/webhook divergence remains an operational blind spot already documented in
+  PLAN §15.3.5; no live Zoom or real participant data was used here.
+
+## 11. Prohibitions and handoff
+
+No merge, push, deploy, Vercel call, production/remote DB access, real data, RLS disablement,
+test weakening, or destructive migration occurred. The builder is not the acceptor. Independent
+review must use the cumulative boundary and issue its own verdict after the orchestrator replaces
+the canonical placeholders.

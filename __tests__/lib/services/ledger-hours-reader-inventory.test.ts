@@ -4,7 +4,7 @@
  * New roots, table touches, RPCs/views/functions, SQL aliases, or dependency edges must
  * be explicitly classified here before the suite returns green.
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
@@ -433,10 +433,9 @@ describe('contract_hours_ledger production consumer inventory', () => {
   });
 
   it('discovers a newly introduced production TypeScript root', () => {
-    const probeRoot = join(ROOT, 'future_z7_inventory_probe');
+    const probeRoot = mkdtempSync(join(ROOT, 'future_z7_inventory_probe-'));
     const probeFile = join(probeRoot, 'consumer.ts');
     try {
-      mkdirSync(probeRoot);
       writeFileSync(probeFile, "client.from('contract_hours_ledger').select('hours');\n");
       expect(productionTypescriptFiles()).toContain(probeFile);
       expect(directTableTouchCount(readFileSync(probeFile, 'utf8'))).toBe(1);

@@ -7,22 +7,28 @@
 - Immutable cumulative review base: `4399949942bfcf49dfa8de40cbf7edbf40f0490e`
 - Rejected canonical round-one head: `dd7836eb9d6c2a2d4d46c7ba43205bc694450578`
 - Rejected-tree equivalent detached base: `a5f7aa37` (tree `1d32b45c8dcd954e2caaa4b1980a4fdb1127c21f`)
-- Canonical repair HEAD: `CANONICAL_HEAD_PENDING_INTEGRATION`
-- Canonical cumulative commit count (`git rev-list --count 43999499..HEAD`):
-  `CANONICAL_COMMIT_COUNT_PENDING_INTEGRATION`
+- Canonical implementation head: `1317f6a225553d78d55746a5f690d05cca0e0780`
+- Canonical cumulative count through implementation: `24`
+- Canonical evidence commit: `841c97f95007d2eed54c167f21c2b12a6e447ff3`
+- Canonical cumulative count through evidence: `25`
+- Final review target: the live `feat/zoom-hours` HEAD verified by the reviewer at
+  dispatch. A commit cannot truthfully contain its own SHA, so any later
+  orchestrator-only evidence reconciliation commit is identified by the branch ref
+  and review dispatch record rather than a recursive placeholder.
 - Detached implementation evidence head: `2070e892cf4cfe194468d2d090090374680658d3`
 - Detached cumulative count through implementation: `24`
 - Review boundary: cumulative `4399949942bfcf49dfa8de40cbf7edbf40f0490e..HEAD`
 
-The orchestrator must replace both canonical placeholders with the integrated full SHA and exact
-count, then commit that reconciliation before independent review. Cherry-picking changes commit
-IDs; detached IDs below are ordering evidence, not canonical identities.
+The implementation and builder evidence are integrated at the canonical identities above.
+Cherry-picking changes commit IDs; detached IDs below are ordering evidence, not canonical
+identities.
 
 Ordered detached commits after `a5f7aa37`:
 
 1. `b394a2177d0fcc8795e8fef7a41a674e0f83051c` — `docs(z7): record round-two review findings`
 2. `2070e892cf4cfe194468d2d090090374680658d3` — `fix(z7): close round-two integrity gaps`
-3. This review-evidence commit (use the detached SHA returned by the builder).
+3. `a1f73ab2b2cb24d6c0a5b5a883aef1d7af779b18` — detached review-evidence
+   commit, integrated canonically as `841c97f95007d2eed54c167f21c2b12a6e447ff3`.
 
 ## 2. Objective and scope
 

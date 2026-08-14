@@ -5,32 +5,27 @@
 - Builder state: `REVIEW READY`; this document is evidence, not an acceptance verdict.
 - Canonical branch: `feat/zoom-hours`.
 - Immutable cumulative base: `4399949942bfcf49dfa8de40cbf7edbf40f0490e`.
-- Rejected round-twenty canonical head: `7eaa2feb6e5e756b3d43657611768ddb8dfd9d5c`
-  (95 commits from the base; tree `e83ae73648dcf433aed323130dffd17fade2fa91`).
-  It is a rejected review point, not acceptance evidence.
-- Detached round-twenty starting point: `2f33d96c30f62b8afae7cddb2a1a6c83742dd874`
-  (95 commits; the same tree `e83ae73648dcf433aed323130dffd17fade2fa91`).
-- Detached round-twenty contract cherry-pick: `9ac040853460dbc83372a2c12f83a3fc51e19bd8`
-  (96 commits; tree `7d1046360578f82190bb5009a6d5a51ec6e6dc94`; canonical source
-  `4f3856e4676aa5344a9ca4d4c1b2d2f52f33633f`).
-- Detached round-twenty heap/descriptor/completion implementation:
-  `fd0624d903c305dbd45cad38a009af286199a645` (97 commits; tree
-  `06da9084f639e07f56851226fa84ec22dcba068d`).
-- This evidence document is the 98th cumulative detached commit. A commit cannot truthfully embed
-  its own identity; its exact detached SHA is supplied in the builder handoff. The external review
-  dispatch must pin the post-cherry-pick canonical HEAD after ordered integration; this artifact
-  deliberately does not predict that changed identity.
+- Rejected round-twenty-one canonical head: `85b38f61df0a54c0feaf043a6bbc94ffa0c68b1b`
+  (tree `1989d9a1d219b650ea8887814cced32ad977724a`). It is a rejected review point, not
+  acceptance evidence.
+- Round-twenty-one canonical starting head: `8f4f785e5cc810a03ee47fd44dda34abe45b7371`
+  (99 commits from the base; tree `6b94efd76c0aad0616efd41fbfd28655389717e4`; adds the
+  Round 21 contract `docs/plan/zoom/remediation/Z7-review-21.md` on top of the rejected head).
+- Round-twenty-one commits, ordered directly on `feat/zoom-hours`:
+  1. `b45e6e593b1961324d6ca335d948f03b70bdbf4c` (100 commits) — analyzer bounded with the
+     R21 fail-closed hazard net plus the Round 21 probe/census/mutation suite.
+  2. `34f3fbb67f55ecaa631742bbc8d96e397f0d7791` (101 commits) — the binding Round 21 owner
+     amendment `docs/plan/zoom/remediation/Z7-review-21-owner-amendment.md`.
+  3. The state/evidence commit carrying `PROJECT_STATE.md` and this document. A commit cannot
+     truthfully embed its own identity; its exact SHA is supplied in the builder handoff.
+- Governing scope note: the Round 21 owner amendment retires interpreter-level analyzer
+  completeness as a release gate. `Z7-review-21.md` is preserved untouched as the reviewer's
+  record; the amendment artifact records the owner's binding resolution of its acceptance
+  criteria. Both are in the inventory below.
 - Review boundary: `4399949942bfcf49dfa8de40cbf7edbf40f0490e..HEAD`.
 
-There is no self-referential SHA claim in this artifact. A commit cannot contain its own SHA,
-and cherry-picking changes detached commit identities. All embedded SHAs above are already stable
-objects with counts verified by `git rev-list --count 43999499..<sha>`.
-
-Ordered detached commits after `2f33d96c30f62b8afae7cddb2a1a6c83742dd874`:
-
-1. `9ac040853460dbc83372a2c12f83a3fc51e19bd8` — round-twenty contract cherry-pick.
-2. `fd0624d903c305dbd45cad38a009af286199a645` — receiver-aware heap, descriptor inspection/conversion, descriptor-aware mutators, and completion propagation.
-3. This evidence commit — exact detached SHA in the builder handoff.
+There is no self-referential SHA claim in this artifact. All embedded SHAs above are already
+stable objects with counts verified by `git rev-list --count 43999499..<sha>`.
 
 ## Objective, delivered scope, and current status
 
@@ -41,16 +36,39 @@ the attendance schema and lifecycle instants, participant ingestion, authoritati
 reconciliation, append-only override machinery, comparison/override UI, and facilitator
 attendance suggestions.
 
-Z7 is implemented on the feature branch but remains in independent remediation/re-review. It is
-not accepted, merged, deployed, or production-verified. All fourteen Z7 migrations have been replayed
-only against the local Supabase stack; production application and read-only verification remain a
-human-controlled post-merge step.
+Z7 is implemented on the feature branch but remains in independent remediation/re-review; rounds
+19, 20, and 21 are all provisional. It is not accepted, merged, deployed, or
+production-verified. All fourteen Z7 migrations have been replayed only against the local
+Supabase stack; production application and read-only verification remain a human-controlled
+post-merge step. As of Round 21 the executable-inventory analyzer is governed by the binding
+owner amendment: it is bounded by a deterministic fail-closed hazard net rather than extended
+toward interpreter completeness, and the production hazard census is part of the guard.
 
 Out of scope remains recording/transcription/minutas/consent, Z3b Client View, unrelated RLS
 remediation, the Vitest upgrade, leadership aggregates, deployments, production data/schema, and
 unrelated refactors.
 
 ## Finding disposition
+
+### Round twenty-one
+
+Round 21's five findings are resolved under the binding owner amendment
+(`docs/plan/zoom/remediation/Z7-review-21-owner-amendment.md`), which retires interpreter-level
+completeness as a gate and replaces it with: exact discovery of supported production forms,
+mechanically proven absence of hazard forms in production ledger-authority code, and
+conservative deterministic fail-closed handling — exactly one unsupported result per hazard
+site — wherever the evaluator cannot prove what runs. The contract's runtime-oracle-equality
+acceptance lines are therefore superseded for synthetic cases; its underlying safety property
+(no silent misses of ledger authority) is enforced by a new bounded hazard net rather than by
+further runtime interpretation.
+
+| Finding | Disposition and evidence |
+|---|---|
+| Z7-R21.1 | Dormant declarations remain in the census by design — the inventory is a conservative declaration-level census of source-present ledger authority, deliberately not call-driven reachability; the dormant probe pins runtime zero beside the surfaced reference. The conditional-module probe, a silent zero/zero miss on the rejected head, now fails closed: an engine-claimed abrupt local module no longer silently discharges the downstream ledger site, which reports exactly one deterministic `unresolved ledger authority` result. Two prior-round abrupt-module probes gained the same conservative marker, documented in place; their exact censuses are unchanged. |
+| Z7-R21.2 | Production has zero switch statements with lexical clause bindings in ledger-authority files (mechanical census). The reviewer's fallthrough probe keeps its fail-closed shape — zero fabricated exact calls plus exactly one unsupported result — now pinned with an in-test runtime oracle. |
+| Z7-R21.3 | Production has zero `Reflect.*` occurrences in any root. Modeled Reflect forms keep their exact Round 20 semantics. The `Reflect.has` guard over-reports a source-present literal (documented conservative census direction, never a miss); `Reflect.construct` fails closed once; the throwing-setter `Reflect.set` probe — a silent zero/zero miss on the rejected head — now fails closed exactly once via the unreached-authority net over pruned recovery regions. One prior-round probe whose correctly pruned Reflect branch previously returned silent zero now carries the same conservative marker. |
+| Z7-R21.4 | Production has zero `Object.setPrototypeOf`; its four `sort` comparators order UI/report rows in files whose ledger touches are classified and green under the no-unsupported production gate. The inherited-index probe — a silent zero/zero miss on the rejected head — now fails closed exactly once (a reached callee with no callable interpretation naming the ledger). The comparator probe surfaces its exact runtime call and fails closed once per distinct hazard site with no duplicate per-site results. |
+| Z7-R21.5 | Production's only `Symbol` is a non-authority webhook sentinel. Symbol identity is not modeled and, under the amendment, is not required to be: the descriptor-key and computed-call hazard sites each fail closed exactly once with zero fabricated exact calls, pinned with a runtime oracle. |
 
 ### Round twenty
 
@@ -482,6 +500,8 @@ Risk grouping describes review priority, not ownership.
 - `docs/plan/zoom/remediation/Z7-review-18.md`
 - `docs/plan/zoom/remediation/Z7-review-19.md`
 - `docs/plan/zoom/remediation/Z7-review-20.md`
+- `docs/plan/zoom/remediation/Z7-review-21.md`
+- `docs/plan/zoom/remediation/Z7-review-21-owner-amendment.md`
 - `docs/plan/zoom/reviews/fase-7-review-request.md`
 - `docs/plan/zoom/reviews/fase-7-review-verdict.md`
 
@@ -501,13 +521,75 @@ comm -3 \
     | sed -n 's/^- `\(.*\)`$/\1/p' | sort)
 ```
 
-Result after the evidence commit: no output. Counts: cumulative diff **127**, inventory **127**,
-duplicates **0**.
+Result after the evidence commit: no output. Counts: cumulative diff **129**, inventory **129**,
+duplicates **0** (Round 21 adds the reviewer contract `Z7-review-21.md` and the owner amendment).
 
 ## Gate and fail-on-old evidence
 
+### Round twenty-one collection (2026-08-14, local macOS, final code state `b45e6e59`)
+
 All database/browser runs used the local Supabase stack and synthetic fixtures. No command was
 piped through `tail`.
+
+| Command | Result | Exit |
+|---|---|---:|
+| Focused Round 21 amended-boundary matrix (five category probes with runtime oracles, production hazard census, hazard mutation probe) plus the cumulative executable inventory, one file | **45 green** (7 Round 21 + 38 retained) | 0 |
+| Cumulative Z7 high-risk Vitest over every test path changed since the immutable base | 37 files, **602 green** | 0 |
+| `npm run type-check` | no diagnostics | 0 |
+| `npm run lint` | zero warnings | 0 |
+| `bash scripts/ci/check-rls-migrations.sh` | no RLS disablement | 0 |
+| `TZ=UTC npm test` | 324 files, **7,409 green / 11 skipped** | 0 |
+| `TZ=America/Santiago npm test` | 324 files, **7,409 green / 11 skipped** | 0 |
+| `TZ=Europe/Madrid npm test` | **7,401 green / 8 failed / 11 skipped** in 324 files; all 8 are the inherited `lib/__tests__/businessDays.test.ts` set, byte-for-byte the Round 20 state | 1 inherited |
+| `npm run build` | production build; **156/156 static pages** | 0 |
+| `node scripts/check-price-leak.mjs` after build | scanned **268** compiled static files; no commercial data found | 0 |
+| Fresh local `supabase db reset` | all fourteen Z7 migrations through additive `20260813121000` replayed from scratch; repeated before the Chromium leg and again afterward to remove synthetic fixtures | 0 |
+| `npm run test:db` | 16 files, **1,031 assertions green** | 0 |
+| `npm run test:override-concurrency` | identical race apply+replay; forged/different payloads `P0409` sequentially and concurrently; no `23505` | 0 |
+| `npm run test:attendance-authority-concurrency` | two different occurrence UUID claims: one `interval_opened`, one `occurrence_mismatch`, loser 0 observations/0 closes; concurrent batch promotion: one `promoted`, one `batch_not_pending`, exact empty authority | 0 |
+| E2E leg per CI Gate 4 order: fresh `supabase db reset`; CI-shape local `.env.local` written from `supabase status`; `npm run build` with the local-stack env (156/156; price guard rescan 268 clean); `node scripts/ci/seed-e2e.mjs`; `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **117/117 passed** | 0 |
+| `node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json` | **11 mandatory specs ran with no skips** | 0 |
+
+**Documented deviation (E2E environment wiring).** The collection's first Chromium attempt served
+a production build compiled against the developer `.env.local` (remote dev Supabase project), so
+every seeded-fixture login timed out — an environment-wiring defect of the run, not of the code,
+and no spec result from that attempt is claimed as evidence. The leg was re-executed exactly in
+CI Gate 4's order (local-stack env written before the build, since `NEXT_PUBLIC_*` values are
+inlined at build time), replicating `.github/workflows/ci.yml` step for step.
+The developer `.env.local` was restored byte-identical afterward (SHA-256 verified) and the
+stack was reset to remove all synthetic fixtures. All non-E2E gates above ran once, in order,
+in the single collection.
+
+Round-twenty-one fail-on-old evidence, measured at the canonical starting head `8f4f785e`
+(rejected analyzer behavior) before any Round 21 code change:
+
+- The conditional-module, throwing-setter `Reflect.set`, and inherited-index probes each
+  returned **zero exact and zero unsupported** — three silent misses reproducing the
+  contract's reported mismatches. Under the hazard net each now returns exactly one
+  deterministic `unresolved ledger authority` result, so the new Round 21 assertions fail on
+  the rejected head.
+- The dormant probe (`{exact: 1}` beside a runtime oracle of zero), the switch probe
+  (`{unsupported: 1}`, runtime one), the `Reflect.has` probe (`{exact: 1}`, runtime zero), the
+  `Reflect.construct` probe (`{unsupported: 1}`, runtime one), the comparator probe (exact one
+  plus two distinct per-site fail-closed results, runtime one), and the symbol probe (two
+  distinct per-site fail-closed results, runtime one) pin the conservative shapes the amendment
+  defines; each carries its runtime oracle in-test.
+- The hazard mutation probe writes a `setPrototypeOf`-rewired ledger consumer into a fresh
+  production root and proves it is discovered, census-flagged, and fail-closed — so the
+  production no-unsupported gate goes red if such a form ever lands.
+- Three prior-round synthetic probes changed expectation in the conservative direction only
+  (fail-closed marker added where the engine previously discharged a ledger site silently; exact
+  censuses unchanged): the two abrupt-module completion probes and one correctly-pruned
+  `Reflect.set` branch probe. Each carries an in-place comment citing the amendment. No product,
+  database, security, or financial test was weakened, deleted, skipped, or relabeled.
+- The mechanically re-walked production census is unchanged: **14 files/22 direct touches**,
+  **8 files/10 indirect calls**, **9 files/33 SQL expressions**, **8 files/13 SQL objects**,
+  **4 files/5 explicit unresolved executable sites**, zero production `exec_sql` callers, and
+  zero unexplained consumers. The production hazard census is exact: zero `Reflect.*`, zero
+  `Object.setPrototypeOf`, one non-authority `Symbol` sentinel
+  (`pages/api/zoom/webhook.ts`), and four classified UI `sort` comparators.
+
+### Round twenty collection (retained)
 
 | Command | Result | Exit |
 |---|---|---:|

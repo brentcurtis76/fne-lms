@@ -5,29 +5,33 @@
 - Builder state: `REVIEW READY`; this document is evidence, not an acceptance verdict.
 - Canonical branch: `feat/zoom-hours`.
 - Immutable cumulative base: `4399949942bfcf49dfa8de40cbf7edbf40f0490e`.
-- Rejected round-sixteen canonical head: `306dc1b946784dbbf0a5f77d16e423a4c790e272`
-  (82 commits from the base; tree `b87082d78dae151d18090fd38089cdef6d5b08f0`).
+- Rejected round-seventeen canonical head: `766c2bcf3408a4cce4de27f6fab0d441064fc5c7`
+  (85 commits from the base; tree `be9459b2f918149b3d244b774fe830d074719e3d`).
   It is a rejected review point, not acceptance evidence.
-- Detached round-sixteen starting point: `912a78da6986f5874624b4a79325895f58ed690f`
-  (82 commits; tree-equivalent to the rejected canonical head before the new contract).
-- Detached round-sixteen contract cherry-pick: `203f21a8ce2b60d483a685cf3a6cd0eed46360f7`
-  (83 commits).
-- Detached round-sixteen sequence/export implementation:
-  `b475cdfbf287b458419acf997f60565c061fab7d` (84 commits).
-- This evidence document is the 85th cumulative detached commit. A commit cannot truthfully embed
+- Detached round-seventeen starting point: `414f4668c58e459be26841f46f1ab8e8c5db39e0`
+  (85 commits; tree-equivalent to the rejected canonical head before the new contract).
+- Detached round-seventeen contract cherry-pick: `6d7f029b759f8e52be3c85a76fda4e271ca105d2`
+  (86 commits; canonical source `1609bf900ba5aa87d58740ab320023fc53420fd7`).
+- Detached corrected-alias contract cherry-pick: `dbf2c38e415474471d2b67c3e39000cc872d5cf3`
+  (87 commits; canonical source `366f54779c27a3455338d8c703bf2ece4b38c1ac`).
+- Detached round-seventeen sequence/export identity implementation:
+  `dbe9fcd6fdf490a7d23c5cf175bf1f19f3fc8dca` (88 commits).
+- This evidence document is the 89th cumulative detached commit. A commit cannot truthfully embed
   its own identity; its exact detached SHA is supplied in the builder handoff. The external review
-  dispatch must pin the post-cherry-pick canonical HEAD (`CANONICAL_HEAD_PENDING_INTEGRATION`).
+  dispatch must pin the post-cherry-pick canonical HEAD after ordered integration; this artifact
+  deliberately does not predict that changed identity.
 - Review boundary: `4399949942bfcf49dfa8de40cbf7edbf40f0490e..HEAD`.
 
-There is no recursive HEAD placeholder in this artifact. A commit cannot contain its own SHA,
+There is no self-referential SHA claim in this artifact. A commit cannot contain its own SHA,
 and cherry-picking changes detached commit identities. All embedded SHAs above are already stable
 objects with counts verified by `git rev-list --count 43999499..<sha>`.
 
-Ordered detached commits after `912a78da6986f5874624b4a79325895f58ed690f`:
+Ordered detached commits after `414f4668c58e459be26841f46f1ab8e8c5db39e0`:
 
-1. `203f21a8ce2b60d483a685cf3a6cd0eed46360f7` — round-sixteen contract cherry-pick.
-2. `b475cdfbf287b458419acf997f60565c061fab7d` — mutable-sequence transfer semantics, export alias state, and mutation matrices.
-3. This evidence commit — exact detached SHA in the builder handoff.
+1. `6d7f029b759f8e52be3c85a76fda4e271ca105d2` — round-seventeen contract cherry-pick.
+2. `dbf2c38e415474471d2b67c3e39000cc872d5cf3` — corrected may-alias contract cherry-pick.
+3. `dbe9fcd6fdf490a7d23c5cf175bf1f19f3fc8dca` — intrinsic mutation, mutable heap identity, and CommonJS export-object identity.
+4. This evidence commit — exact detached SHA in the builder handoff.
 
 ## Objective, delivered scope, and current status
 
@@ -48,6 +52,14 @@ remediation, the Vitest upgrade, leadership aggregates, deployments, production 
 unrelated refactors.
 
 ## Finding disposition
+
+### Round seventeen
+
+| Finding | Disposition and evidence |
+|---|---|
+| Z7-R17.1 | `Array.prototype` now exposes intrinsic mutable-sequence callable identities, so `push`, `pop`, `shift`, `unshift`, `splice`, `reverse`, `fill`, and `copyWithin` compose through `.call`, `.apply`, `.bind`, `Reflect.apply`, computed/destructured aliases, and nested Function adapters. The runtime receiver, bound receiver precedence, arguments, JavaScript return values, bounds, holes, and invalidation semantics flow through the existing bounded evaluator. Unknown intrinsic members/receivers/arguments preserve executable uncertainty and reject explicitly; inert generic mutations stay empty. |
+| Z7-R17.2 | Mutable sequences now retain heap alias identity independently from variable bindings. Same-object aliases share strong definite numeric/property/destructuring writes and every mutation; a definite inert overwrite erases stale database provenance. Conditional aliases of different heaps carry a may-alias set: mutations and writes weakly retain or explicitly invalidate every possible executable position. Branch bindings merge after isolated branch evaluation, while ambiguous indices/targets invalidate positional facts instead of returning silent zero. |
+| Z7-R17.3 | CommonJS locals, retained aliases, bare `exports`, and current `module.exports` now reference shared export-object maps rather than snapshots. Direct/computed writes, `Object.assign` (including assignment-return form), and static `Object.defineProperty` value/getter descriptors mutate the shared object. Bare rebinding detaches correctly; chained rebinding restores identity; replacing `module.exports` leaves old aliases inert. Explicit `__esModule` default/named/namespace consumers resolve through the existing cycle-safe module graph, while dynamic keys/descriptors remain explicit ambiguity. |
 
 ### Round sixteen
 
@@ -442,6 +454,7 @@ Risk grouping describes review priority, not ownership.
 - `docs/plan/zoom/remediation/Z7-review-14.md`
 - `docs/plan/zoom/remediation/Z7-review-15.md`
 - `docs/plan/zoom/remediation/Z7-review-16.md`
+- `docs/plan/zoom/remediation/Z7-review-17.md`
 - `docs/plan/zoom/reviews/fase-7-review-request.md`
 - `docs/plan/zoom/reviews/fase-7-review-verdict.md`
 
@@ -461,7 +474,7 @@ comm -3 \
     | sed -n 's/^- `\(.*\)`$/\1/p' | sort)
 ```
 
-Result after the evidence commit: no output. Counts: cumulative diff **123**, inventory **123**,
+Result after the evidence commit: no output. Counts: cumulative diff **124**, inventory **124**,
 duplicates **0**.
 
 ## Gate and fail-on-old evidence
@@ -471,12 +484,12 @@ piped through `tail`.
 
 | Command | Result | Exit |
 |---|---|---:|
-| Focused Round 16 executable inventory | 1 file, **22 green** | 0 |
-| Cumulative Z7 high-risk Vitest over every test path changed since the immutable base: reservation, snapshot, JSON ledger, single/bulk approval, creation, reschedule, override, inventory, billing/isolation, cron/webhook, report/store/reconcile, participant lifecycle, attendance store, lifecycle instants, UI and retirement guards | 37 files, **579 green** | 0 |
+| Focused Round 17 executable inventory | 1 file, **23 green** | 0 |
+| Cumulative Z7 high-risk Vitest over every test path changed since the immutable base: reservation, snapshot, JSON ledger, single/bulk approval, creation, reschedule, override, inventory, billing/isolation, cron/webhook, report/store/reconcile, participant lifecycle, attendance store, lifecycle instants, UI and retirement guards | 37 files, **580 green** | 0 |
 | `npm run type-check` | no diagnostics | 0 |
 | `npm run lint` | zero warnings | 0 |
 | `bash scripts/ci/check-rls-migrations.sh` | no RLS disablement | 0 |
-| `TZ=America/Santiago npm test` | 324 files, **7,386 green / 11 skipped** | 0 |
+| `TZ=America/Santiago npm test` | 324 files, **7,387 green / 11 skipped** | 0 |
 | `npm run build` | production build; **156/156 static pages** | 0 |
 | `node scripts/check-price-leak.mjs` after build | scanned **265** compiled static files; no commercial data found | 0 |
 | Fresh local `supabase db reset` | all migrations through additive `20260813121000` replayed; repeated after Chromium to remove synthetic fixtures | 0 |
@@ -485,8 +498,42 @@ piped through `tail`.
 | `npm run test:override-concurrency` | identical race apply+replay; forged/different payloads `P0409` sequentially and concurrently; no `23505` | 0 |
 | Fresh local `supabase db reset`; local-CLI URL/keys supplied to `node scripts/ci/seed-e2e.mjs`; `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **117/117 passed**, one worker | 0 |
 | `node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json` | 11 mandatory specs ran with no skips | 0 |
-| `TZ=UTC npm test` | 324 files, **7,386 green / 11 skipped** | 0 |
-| `TZ=Europe/Madrid npm test` | **7,378 green / 8 failed / 11 skipped** in 324 files; all 8 are inherited `lib/__tests__/businessDays.test.ts` | 1 inherited |
+| `TZ=UTC npm test` | 324 files, **7,387 green / 11 skipped** | 0 |
+| `TZ=Europe/Madrid npm test` | **7,379 green / 8 failed / 11 skipped** in 324 files; all 8 are inherited `lib/__tests__/businessDays.test.ts` | 1 inherited |
+
+Round-seventeen fail-on-old and mutation evidence was local/in-memory and the checked-in analyzer
+was restored before every green gate:
+
+- The checked-in Round 17 controls against the unchanged rejected evaluator produced one red test
+  container with **6 independent assertion failures / 22 prior tests green**: both supplied generic
+  `unshift` adapters returned zero discovery, the definite inert overwrite retained one stale
+  ledger call, and all three supplied retained-export-object mutations returned zero discovery.
+  The corrected conditional `slots | other` may-alias form was then added from the canonical
+  follow-up contract and is now guaranteed to produce either the live exact call or deterministic
+  explicit unsupported authority, never an empty result.
+- Removing the modeled `Array.prototype` heap made the focused Round 17 selector red with the two
+  supplied generic adapters plus an adjacent `shift.call` failure. Restoring old union-on-write
+  semantics made the definite overwrite report one false ledger call and made repeated strong
+  aliases uncertain. Removing may-alias heap links made the corrected `slots | other` probe return
+  an empty result and fail. Replacing shared `module.exports` identity with a snapshot made seven
+  static retained-alias/descriptor/interop assertions fail. Each rollback-only mutation was
+  restored; the final focused suite is **23/23**.
+- The intrinsic matrix covers all eight required exact mutators through `.call`, `.apply`, bound
+  invocation, and `Reflect.apply`, plus computed/destructured intrinsic aliases, nested Function
+  adapters, return values, repeated operations, inert values, and unresolved receiver/member
+  authority. Exact cases recover one call; unknown executable cases reject explicitly.
+- The heap matrix covers direct/computed/destructured strong writes, same-object aliases, corrected
+  same/different branch aliases, parameters/returns, ambiguous indices/targets, cycles, mixed
+  mutation, and inert overwrite controls. Shared heaps update every view; may-alias heaps retain or
+  reject every executable possibility; definitely overwritten callables stay silent.
+- The CommonJS matrix covers all three supplied alias forms, static direct/computed writes,
+  `Object.assign` as statement and assigned export value, static value/getter descriptors,
+  `__esModule` default/named/namespace/destructured consumers, chained versus bare rebinding,
+  current-export replacement versus retained old aliases, dynamic ambiguity, existing mixed
+  ESM/CommonJS cycles, inert siblings, duplicate suppression, and repeated-run termination.
+- The mechanically re-walked production census remains exactly **14 files/22 direct touches**,
+  **8 files/10 indirect calls**, **9 files/33 SQL expressions**, **8 files/13 SQL objects**, **4
+  files/5 explicit unresolved executable sites**, and zero production `exec_sql` callers.
 
 Round-sixteen fail-on-old and mutation evidence was local/in-memory and the checked-in analyzer was
 restored before every green gate:
@@ -822,25 +869,39 @@ used the exact temporary synthetic CI environment, ran 117/117, and passed the 1
 the environment file was deleted and a final reset replayed through `20260813121000`. Build retained
 the inherited Browserslist and webpack-cache advisories. No incomplete collection is gate evidence.
 
+Round 17 reused the temporary dependency link and removed it before handoff. The first build
+compiled but was discarded when page collection correctly rejected the detached worktree's absent
+local public Supabase URL/key; the valid build used only synthetic localhost values, and the final
+Chromium build used the exact temporary CI environment. The first database reset reached the local
+Docker image pull but the desktop credential helper stopped responding; it was interrupted without
+collecting evidence, then rerun with an empty temporary Docker config, downloaded the public local
+storage image, and replayed every migration successfully. The focused implementation runs and the
+three deliberate rollback-only red mutations are not counted as green gates. Chromium started from
+a fresh reset, seeded synthetic fixtures, passed 117/117 plus the manifest, and was followed by a
+final replay through `20260813121000`. The ignored environment file, dependency link, build/browser
+artifacts, and synthetic database fixtures were removed. Build retained the inherited Browserslist
+and webpack-cache advisories.
+
 ## Explicit inherited deviations
 
 - Advisory `npm run lint:testid` remains the round-two measured repository baseline of **44 errors
-  / 2,625 warnings**. Round sixteen adds no interactive UI.
+  / 2,625 warnings**. Round seventeen adds no interactive UI.
 - Madrid's eight `businessDays.test.ts` failures are the previously reproduced out-of-scope
   licitación defect. All Z7/hours tests are green in all three zones.
 - The broad `npm run e2e` inherited round-one result remains **160 passed / 27 skipped / 1 did not
-  run / 62 failed (250 total)**. Round sixteen changes no `tests/e2e/` path; the supported mandatory
+  run / 62 failed (250 total)**. Round seventeen changes no `tests/e2e/` path; the supported mandatory
   selector was rerun fresh at 117/117.
 
 None of these deviations is represented as a green gate.
 
 ## Independent reviewer focus and residual risks
 
-1. Mutate sequence transfer through every named mutator, negative/omitted/extreme bounds, return
-   values, bound/destructured methods, same-array aliases, and mixed/repeated operations. Also
-   mutate `exports`/`module.exports` identity through computed keys, objects/spreads, assignment,
-   whole-module forwarding, `export * as`, default/namespace consumers, and cycles. Recoverable
-   positions/modules must count once; invalidated or dynamic authority must reject stably.
+1. Mutate generic `Array.prototype` transfer through `.call`/`.apply`/`.bind`/`Reflect.apply`, all
+   eight exact mutators, bound/destructured methods, mutable heap aliases, strong writes, corrected
+   `slots | other` may-alias branches, and mixed/repeated operations. Also mutate retained CommonJS
+   export-object identity through aliases, `Object.assign`, descriptors, rebinding, `__esModule`
+   default/namespace consumers, and cycles. Recoverable positions/modules must count once;
+   invalidated or dynamic authority must reject stably; definite inert overwrites must stay empty.
 2. Re-audit `public.exec_sql(text)` and related exposed authority at the catalog and real-role
    boundaries. Anon, authenticated-admin, and service-role calls must all receive `42501`; the
    retired endpoint must construct no service client and issue no RPC/SQL, while fixed owner RPCs
@@ -849,7 +910,7 @@ None of these deviations is represented as a green gate.
    `EXECUTE`, procedures, composite/`RETURNS TABLE`/plain variables, triggers, rules/views,
    correlated scopes, and numbered/custom dollar tags. Inert comments/literals must stay inert;
    unresolved executable authority must fail explicitly without filename or substring allowances.
-4. Re-run both mechanical inventories against integrated HEAD: cumulative paths **123/123**;
+4. Re-run both mechanical inventories against integrated HEAD: cumulative paths **124/124**;
    classifications **14/22** direct, **8/10** indirect, **9/33** SQL expressions/writes, and
    **8/13** SQL objects, plus **4 files/5 sites** of explicit unresolved executable SQL and zero
    production `exec_sql` callers.

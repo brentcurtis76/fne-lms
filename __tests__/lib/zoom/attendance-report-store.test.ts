@@ -104,3 +104,49 @@ describe('listReconcileCandidates', () => {
     ]);
   });
 });
+
+describe('createPendingBatch · owner-executed RPC boundary', () => {
+  it('sends only meeting identity and trusts the database to mint pending state', async () => {
+    const rpc = vi.fn(async () => ({
+      data: 'a9a9a9a9-0000-4000-8000-000000000001',
+      error: null,
+    }));
+    const store = createSupabaseAttendanceReportStore({ rpc } as never);
+
+    await expect(store.createPendingBatch({
+      schoolId: 9901,
+      surfaceType: 'consultor_session',
+      surfaceId: 'a9a9a9a9-0000-4000-8000-000000000002',
+      zoomMeetingUuid: 'z9Occurrence/Exact==',
+    })).resolves.toBe('a9a9a9a9-0000-4000-8000-000000000001');
+
+    expect(rpc).toHaveBeenCalledWith('create_attendance_report_batch', {
+      p_school_id: 9901,
+      p_surface_type: 'consultor_session',
+      p_surface_id: 'a9a9a9a9-0000-4000-8000-000000000002',
+      p_zoom_meeting_uuid: 'z9Occurrence/Exact==',
+    });
+  });
+
+  it('fails closed on RPC errors or malformed identifiers', async () => {
+    const failed = createSupabaseAttendanceReportStore({
+      rpc: vi.fn(async () => ({ data: null, error: { message: 'identity mismatch' } })),
+    } as never);
+    await expect(failed.createPendingBatch({
+      schoolId: 9901,
+      surfaceType: 'consultor_session',
+      surfaceId: 'a9a9a9a9-0000-4000-8000-000000000002',
+      zoomMeetingUuid: 'foreign',
+    })).rejects.toThrow(/creation failed/);
+
+    const malformed = createSupabaseAttendanceReportStore({
+      rpc: vi.fn(async () => ({ data: 'not-a-uuid', error: null })),
+    } as never);
+    await expect(malformed.createPendingBatch({
+      schoolId: 9901,
+      surfaceType: 'consultor_session',
+      surfaceId: 'a9a9a9a9-0000-4000-8000-000000000002',
+      zoomMeetingUuid: 'exact',
+    })).rejects.toThrow(/invalid id/);
+  });
+});

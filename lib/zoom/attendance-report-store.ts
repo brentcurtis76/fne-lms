@@ -105,10 +105,6 @@ interface MeetingRow {
   status: string;
 }
 
-interface BatchIdRow {
-  id: string;
-}
-
 interface BatchStatusRow {
   status: ReportBatchStatus;
 }
@@ -151,11 +147,6 @@ export interface ReportInternalClient {
   from(table: string): {
     select(columns: string): {
       eq(column: string, value: string): ReportSelectChain;
-    };
-    insert(values: Record<string, unknown>): {
-      select(columns: string): {
-        single(): PromiseLike<{ data: BatchIdRow | null; error: PostgrestError | null }>;
-      };
     };
   };
   rpc(
@@ -203,21 +194,19 @@ export function createSupabaseAttendanceReportStore(
     },
 
     async createPendingBatch(meeting) {
-      const { data, error } = await internalClient
-        .from('zoom_attendance_report_batches')
-        .insert({
-          school_id: meeting.schoolId,
-          surface_type: meeting.surfaceType,
-          surface_id: meeting.surfaceId,
-          zoom_meeting_uuid: meeting.zoomMeetingUuid,
-          status: 'pending',
-        })
-        .select('id')
-        .single();
-      if (error || !data) {
-        throw new Error(`report batch insert failed: ${error?.message ?? 'no row returned'}`);
+      const { data, error } = await internalClient.rpc('create_attendance_report_batch', {
+        p_school_id: meeting.schoolId,
+        p_surface_type: meeting.surfaceType,
+        p_surface_id: meeting.surfaceId,
+        p_zoom_meeting_uuid: meeting.zoomMeetingUuid,
+      });
+      if (error) {
+        throw new Error(`report batch creation failed: ${error.message}`);
       }
-      return data.id;
+      if (typeof data !== 'string' || !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(data)) {
+        throw new Error(`create_attendance_report_batch returned an invalid id: ${String(data)}`);
+      }
+      return data;
     },
 
     async rejectBatch(batchId, reason) {

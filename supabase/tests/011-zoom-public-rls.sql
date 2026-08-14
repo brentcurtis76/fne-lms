@@ -510,18 +510,20 @@ SELECT throws_ok(
   NULL,
   'admin (authenticated): INSERT is blocked — attendance writes are service-role only');
 
-SELECT is_empty(
+SELECT throws_ok(
   $$ UPDATE public.zoom_attendance
         SET matched_by = 'name'
       WHERE id = 'a7a7a7a7-1111-0000-0000-000000000001'
       RETURNING id $$,
-  'admin (authenticated): UPDATE matches zero rows — no UPDATE policy exists');
+  '42501', NULL,
+  'admin (authenticated): UPDATE privilege is revoked at the table boundary');
 
-SELECT is_empty(
+SELECT throws_ok(
   $$ DELETE FROM public.zoom_attendance
       WHERE id = 'a7a7a7a7-1111-0000-0000-000000000001'
       RETURNING id $$,
-  'admin (authenticated): DELETE matches zero rows — no DELETE policy exists');
+  '42501', NULL,
+  'admin (authenticated): DELETE privilege is revoked at the table boundary');
 
 RESET ROLE;
 
@@ -536,18 +538,20 @@ SELECT throws_ok(
   NULL,
   'facilitator: INSERT is blocked — reading their own session grants no write');
 
-SELECT is_empty(
+SELECT throws_ok(
   $$ UPDATE public.zoom_attendance
         SET display_name = 'edited'
       WHERE id = 'a7a7a7a7-1111-0000-0000-000000000001'
       RETURNING id $$,
-  'facilitator: UPDATE matches zero rows even on a row they can SELECT');
+  '42501', NULL,
+  'facilitator: UPDATE privilege is revoked even on a row they can SELECT');
 
-SELECT is_empty(
+SELECT throws_ok(
   $$ DELETE FROM public.zoom_attendance
       WHERE id = 'a7a7a7a7-1111-0000-0000-000000000002'
       RETURNING id $$,
-  'facilitator: DELETE matches zero rows even on a row they can SELECT');
+  '42501', NULL,
+  'facilitator: DELETE privilege is revoked even on a row they can SELECT');
 
 RESET ROLE;
 
@@ -1446,7 +1450,7 @@ SELECT is(has_function_privilege('service_role',
 SELECT is(
   (SELECT p.prosecdef FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
     WHERE n.nspname = 'zoom_internal' AND p.proname = 'promote_attendance_report_batch'),
-  false, 'promote_attendance_report_batch is SECURITY INVOKER — the caller is already service_role');
+  true, 'promote_attendance_report_batch is owner-executed after direct attendance writes are revoked');
 
 -- Fixtures: two pending candidate batches for one occurrence. Seeded as postgres.
 INSERT INTO zoom_internal.zoom_attendance_report_batches
@@ -1545,15 +1549,15 @@ SELECT throws_ok(
   $$ UPDATE zoom_internal.zoom_attendance_report_batches
         SET status = 'rejected', rejection_reason = 'illegal demotion'
       WHERE id = 'a7a7a7a7-8888-0000-0000-000000000001' $$,
-  'P0409', NULL,
-  '[Z7-R2.2] the database refuses complete→rejected even to a table-privileged writer');
+  '42501', NULL,
+  '[Z7-R9.2] exposed service_role cannot directly attempt complete→rejected');
 
 SELECT throws_ok(
   $$ UPDATE zoom_internal.zoom_attendance_report_batches
         SET updated_at = now()
       WHERE id = 'a7a7a7a7-8888-0000-0000-000000000001' $$,
-  'P0409', NULL,
-  '[Z7-R2.2] COMPLETE is terminal: even a same-status rewrite is refused');
+  '42501', NULL,
+  '[Z7-R9.2] exposed service_role cannot directly rewrite terminal evidence');
 
 -- B4 — an unknown batch id.
 SELECT is(

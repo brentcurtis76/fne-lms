@@ -47,7 +47,7 @@ type DiscoveredCall = {
   method: MethodName | 'unknown';
   target?: string;
   targets?: string[];
-  unsupported?: 'dynamic callable name' | 'dynamic target';
+  unsupported?: 'dynamic callable name' | 'dynamic target' | 'unresolved ledger authority';
   expression?: string;
   dynamicKind?: 'callable' | 'target';
   dynamicValues?: string[];
@@ -324,6 +324,35 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   const functionStack: ts.FunctionLikeDeclaration[] = [];
   const receiverStack: AbstractValue[] = [];
   const topLevelExpressionResults = new WeakMap<ts.CallExpression, AbstractValue>();
+  // Z7-R21 amended assurance boundary: every reached call is recorded so that ledger-authority
+  // call sites the evaluator silently drops (unresolvable callees, unsoundly pruned catch
+  // recovery) fail closed with exactly one deterministic unsupported result per site instead of
+  // returning silent zero. This bounds the evaluator rather than extending its interpretation.
+  const reachedCallPositions = new Set<number>();
+  const carriesLedgerAuthorityArgument = (node: ts.CallExpression): boolean =>
+    node.arguments.some((argument) =>
+      ts.isStringLiteralLike(argument) && argument.text === 'contract_hours_ledger');
+  // The net is gated to the R21 hazard territory the evaluator does not soundly model: Reflect
+  // operations, prototype rewiring, symbol-keyed identity, and engine-claimed abrupt evaluation
+  // of a local module. Inside that territory the evaluator's own claims of unreachability or
+  // uncallability are not trusted to silently discharge ledger authority; outside it, exact
+  // modeling remains authoritative and prior-round semantics are unchanged.
+  let abruptLocalModuleEvaluation = false;
+  const sourceUsesUnmodeledHazards = (() => {
+    let found = false;
+    const scan = (node: ts.Node): void => {
+      if (found) return;
+      if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) &&
+          node.expression.text === 'Reflect') found = true;
+      else if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) &&
+          node.expression.text === 'Object' && node.name.text === 'setPrototypeOf') found = true;
+      else if (ts.isIdentifier(node) && node.text === 'Symbol') found = true;
+      ts.forEachChild(node, scan);
+    };
+    scan(sf);
+    return found;
+  })();
+  const hazardNetActive = (): boolean => sourceUsesUnmodeledHazards || abruptLocalModuleEvaluation;
   type ReceiverProvenance = NonNullable<AbstractValue['receiverProvenance']>;
   const moduleExportCache = new Map<string, Map<string, ReceiverProvenance>>();
   const activeModuleExports = new Set<string>();
@@ -1409,6 +1438,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     };
     const imported = graphValue(importedName === '*' ? '' : importedName);
     imported.alwaysThrows = graph.has('#throws');
+    if (imported.alwaysThrows && localModule) abruptLocalModuleEvaluation = true;
     return imported;
   }
 
@@ -3416,6 +3446,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       return;
     }
     if (ts.isCallExpression(node)) {
+      reachedCallPositions.add(node.pos);
       if (ts.isIdentifier(node.expression) && node.expression.text === 'require' &&
           ts.isStringLiteralLike(node.arguments[0])) {
         const result = importedValue(node.arguments[0].text, '*');
@@ -3663,6 +3694,17 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       const receiver = ts.isPropertyAccessExpression(node.expression) ||
         ts.isElementAccessExpression(node.expression)
         ? resolveValue(node.expression.expression) : undefined;
+      if (hazardNetActive() && carriesLedgerAuthorityArgument(node) &&
+          callable.functions.size === 0 && callable.methods.size === 0 &&
+          !callable.external && !callable.callableCandidate &&
+          callable.adapter === undefined && !callable.alwaysThrows) {
+        // The callee resolved to a value with no callable interpretation, yet the arguments name
+        // the ledger. The evaluator cannot prove what runs here, so the site fails closed once.
+        calls.push({
+          method: 'unknown', unsupported: 'unresolved ledger authority',
+          expression: node.expression.getText(sf), position: node.pos,
+        });
+      }
       if (ts.isElementAccessExpression(node.expression)) {
         const receiver = node.expression.expression;
         const names = resolveValue(node.expression.argumentExpression);
@@ -3703,6 +3745,27 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     return completion;
   }
   visit(sf);
+  // Z7-R21 amended assurance boundary, unreached-authority net: inside hazard territory the
+  // evaluator's reachability claims (pruned catch recovery, statements after an engine-claimed
+  // abrupt module evaluation) are not trusted to discard ledger authority. Every never-reached
+  // call site naming the ledger fails closed with one deterministic unsupported result per site.
+  if (hazardNetActive()) {
+    const reportedPositions = new Set(
+      calls.flatMap((call) => (call.position === undefined ? [] : [call.position]))
+    );
+    const flagUnreachedAuthority = (node: ts.Node): void => {
+      if (ts.isCallExpression(node) &&
+          !reachedCallPositions.has(node.pos) && !reportedPositions.has(node.pos) &&
+          carriesLedgerAuthorityArgument(node)) {
+        calls.push({
+          method: 'unknown', unsupported: 'unresolved ledger authority',
+          expression: node.expression.getText(sf), position: node.pos,
+        });
+      }
+      ts.forEachChild(node, flagUnreachedAuthority);
+    };
+    flagUnreachedAuthority(sf);
+  }
   const unique = new Map<string, DiscoveredCall>();
   for (const call of calls) {
     const key = [call.position, call.method, call.unsupported ?? '', call.dynamicKind ?? '',
@@ -7023,12 +7086,15 @@ describe('contract_hours_ledger production consumer inventory', () => {
         if (api.makeDatabase) {
           api.makeDatabase().from('contract_hours_ledger');
         }`)).toEqual({ exact: 0, unsupported: 0 });
+      // Z7-R21 owner amendment: an engine-claimed abrupt local module no longer silently
+      // discharges the downstream ledger site it prunes. The exact census is unchanged; the
+      // pruned site now carries one conservative fail-closed unsupported marker.
       expect(analyze(`try {
           const api = require('./abrupt');
           api.makeDatabase().from('contract_hours_ledger');
         } catch {}
         client.from('contract_hours_ledger');`))
-        .toEqual({ exact: 1, unsupported: 0 });
+        .toEqual({ exact: 1, unsupported: 1 });
     } finally {
       rmSync(fixtureRoot, { recursive: true, force: true });
     }
@@ -7194,7 +7260,12 @@ describe('contract_hours_ledger production consumer inventory', () => {
       const discovered = discoverSupabaseCalls(source, importer);
       expect.soft(discovered.filter((call) => call.method === 'from' &&
         call.target === 'contract_hours_ledger')).toHaveLength(0);
-      expect.soft(discovered.filter((call) => call.unsupported)).toEqual([]);
+      // Z7-R21 owner amendment: the engine-claimed abrupt module evaluation prunes the ledger
+      // site; that claim is no longer trusted to discharge it silently, so the site fails closed
+      // with exactly one deterministic unsupported result instead of returning empty.
+      expect.soft(discovered.filter((call) => call.unsupported)).toEqual([
+        expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+      ]);
     } finally {
       rmSync(fixtureRoot, { recursive: true, force: true });
     }
@@ -7252,13 +7323,18 @@ describe('contract_hours_ledger production consumer inventory', () => {
       expect.soft(analyze(source), source).toEqual({ exact: 1, unsupported: 0 });
     });
 
-    const inertCases = [
-      `const noop = () => {};
+    // Z7-R21 owner amendment: inside Reflect territory the evaluator's branch pruning is no
+    // longer trusted to silently discharge a ledger site. The correctly pruned call keeps its
+    // exact zero but now carries one conservative fail-closed unsupported marker.
+    expect.soft(analyze(`const noop = () => {};
        const target = { fn: client.from };
        const receiver = {};
        Object.defineProperty(receiver, 'fn', { value: noop });
        const success = Reflect.set(target, 'fn', client.from, receiver);
-       if (success) receiver.fn('contract_hours_ledger');`,
+       if (success) receiver.fn('contract_hours_ledger');`))
+      .toEqual({ exact: 0, unsupported: 1 });
+
+    const inertCases = [
       `const object = {};
        const descriptor = Object.getOwnPropertyDescriptor(object, 'missing');
        if (descriptor) descriptor.value('contract_hours_ledger');`,
@@ -7583,4 +7659,292 @@ describe('contract_hours_ledger production consumer inventory', () => {
       rmSync(probeRoot, { recursive: true, force: true });
     }
   });
+
+  // ──────────────────── Round 21 — owner-amended assurance boundary ────────────────────
+  // Per docs/plan/zoom/remediation/Z7-review-21-owner-amendment.md, interpreter-level
+  // completeness is no longer a release gate. The binding guarantee is threefold: supported
+  // production forms resolve exactly; unmodeled hazard territory (Reflect operations, prototype
+  // rewiring, symbol identity, engine-claimed abrupt local modules) never silently discharges
+  // ledger authority — each such site fails closed with exactly one deterministic unsupported
+  // result; and production ledger-authority code is mechanically proven free of hazard forms.
+
+  function hazardForms(source: string, path: string): string[] {
+    const sf = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true,
+      path.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+    const authority = source.includes('contract_hours_ledger');
+    const hits = new Set<string>();
+    const scan = (node: ts.Node): void => {
+      if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) &&
+          node.expression.text === 'Reflect') hits.add(`Reflect.${node.name.text}`);
+      if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) &&
+          node.expression.text === 'Object' && node.name.text === 'setPrototypeOf') {
+        hits.add('Object.setPrototypeOf');
+      }
+      if (ts.isIdentifier(node) && node.text === 'Symbol') hits.add('Symbol');
+      if (authority && ts.isSwitchStatement(node) &&
+          node.caseBlock.clauses.some((clause) => clause.statements.some((statement) =>
+            ts.isVariableStatement(statement) || ts.isFunctionDeclaration(statement)))) {
+        hits.add('switch-lexical-binding');
+      }
+      if (authority && ts.isCallExpression(node) &&
+          ts.isPropertyAccessExpression(node.expression) &&
+          node.expression.name.text === 'sort' && node.arguments.length > 0) {
+        hits.add('sort-comparator');
+      }
+      ts.forEachChild(node, scan);
+    };
+    scan(sf);
+    return [...hits].sort();
+  }
+
+  it('R21 census: production ledger-authority code carries no unmodeled hazard forms', () => {
+    const census: Record<string, string[]> = {};
+    for (const path of productionSourceFiles()) {
+      const forms = hazardForms(readFileSync(path, 'utf8'), path);
+      if (forms.length) census[relative(ROOT, path)] = forms;
+    }
+    // The exact production hazard inventory. Reflect and prototype rewiring do not exist in any
+    // production root. The single Symbol is an oversize-body sentinel in the webhook route — a
+    // file with no ledger authority. The four comparators order UI/report rows in files whose
+    // every ledger touch is already classified in DIRECT_TS_TOUCHES, and the production
+    // fail-closed suite proves none of them yields an unsupported or unexplained result.
+    expect(census).toEqual({
+      'components/workspace/WorkspaceSessionsTab.tsx': ['sort-comparator'],
+      'pages/admin/sessions/index.tsx': ['sort-comparator'],
+      'pages/api/sessions/reports/analytics.ts': ['sort-comparator'],
+      'pages/api/zoom/webhook.ts': ['Symbol'],
+      'pages/consultor/sessions/index.tsx': ['sort-comparator'],
+    });
+    expect(readFileSync(join(ROOT, 'pages/api/zoom/webhook.ts'), 'utf8'))
+      .not.toContain('contract_hours_ledger');
+    for (const file of Object.keys(census).filter((name) => name !== 'pages/api/zoom/webhook.ts')) {
+      expect(Object.keys(DIRECT_TS_TOUCHES), file).toContain(file);
+    }
+  });
+
+  it('R21.1: dormant declarations stay in the census; abrupt-module pruning fails closed', () => {
+    const analyze = (source: string, file?: string): { exact: number; unsupported: number } => {
+      const discovered = file ? discoverSupabaseCalls(source, file) : discoverSupabaseCalls(source);
+      return {
+        exact: discovered.filter((call) => call.method === 'from' &&
+          call.target === 'contract_hours_ledger').length,
+        unsupported: discovered.filter((call) => call.unsupported).length,
+      };
+    };
+    // A dormant declaration performs zero runtime calls; the census still surfaces its ledger
+    // reference. Reporting dormant authority is the documented conservative direction of the
+    // amended boundary — a declaration-level census, deliberately not call-driven reachability.
+    const dormant = `function dormant() {
+      client.from('contract_hours_ledger');
+    }`;
+    let calls = 0;
+    const client = { from(target: string) {
+      if (target === 'contract_hours_ledger') calls += 1;
+      return this;
+    } };
+    (new Function('client', dormant) as (value: typeof client) => void)(client);
+    expect(calls).toBe(0);
+    expect(analyze(dormant)).toEqual({ exact: 1, unsupported: 0 });
+
+    // The reviewer's conditional-module probe: runtime evaluates the module normally and the
+    // consumer performs one ledger read, but the evaluator claims the module evaluation is
+    // abrupt. That claim no longer silently discharges the consumer's ledger site — it fails
+    // closed with exactly one deterministic unsupported result (the rejected head returned
+    // zero exact and zero unsupported here).
+    const fixtureRoot = mkdtempSync(join(ROOT, '.z7-r21-module-'));
+    try {
+      writeFileSync(join(fixtureRoot, 'db.cjs'), `
+        const { createClient } = require('@supabase/supabase-js');
+        const makeDatabase = () =>
+          createClient('http://127.0.0.1:54321', 'synthetic-key');
+        function maybeStop(stop) {
+          if (stop) throw new Error('synthetic');
+        }
+        maybeStop(false);
+        module.exports = { makeDatabase };
+      `);
+      const consumer = `const { makeDatabase } = require('./db');
+        makeDatabase().from('contract_hours_ledger');`;
+      const discovered = discoverSupabaseCalls(consumer, join(fixtureRoot, 'consumer.cjs'));
+      expect(discovered.filter((call) => call.method === 'from' &&
+        call.target === 'contract_hours_ledger')).toHaveLength(0);
+      expect(discovered.filter((call) => call.unsupported)).toEqual([
+        expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+      ]);
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('R21.2: switch case-block bindings fail closed exactly once', () => {
+    // Runtime executes one call through fallthrough; the evaluator does not share one CaseBlock
+    // lexical environment and is not required to — the unresolved binding fails closed with
+    // exactly one deterministic unsupported result and zero fabricated exact calls.
+    const source = `switch (0) {
+      case 0:
+        const read = client.from;
+      case 1:
+        read('contract_hours_ledger');
+        break;
+    }`;
+    let calls = 0;
+    const client = { from(target: string) {
+      if (target === 'contract_hours_ledger') calls += 1;
+      return this;
+    } };
+    (new Function('client', source) as (value: typeof client) => void)(client);
+    expect(calls).toBe(1);
+    const discovered = discoverSupabaseCalls(source);
+    expect(discovered.filter((call) => call.method === 'from' &&
+      call.target === 'contract_hours_ledger')).toHaveLength(0);
+    expect(discovered.filter((call) => call.unsupported)).toHaveLength(1);
+  });
+
+  it('R21.3: unmodeled Reflect operations fail closed instead of silent zero', () => {
+    const analyze = (source: string): { exact: number; unsupported: number } => {
+      const discovered = discoverSupabaseCalls(source);
+      return {
+        exact: discovered.filter((call) => call.method === 'from' &&
+          call.target === 'contract_hours_ledger').length,
+        unsupported: discovered.filter((call) => call.unsupported).length,
+      };
+    };
+    const runtime = (source: string): number => {
+      let calls = 0;
+      const client = { from(target: string) {
+        if (target === 'contract_hours_ledger') calls += 1;
+        return this;
+      } };
+      try {
+        (new Function('client', source) as (value: typeof client) => void)(client);
+      } catch { /* abrupt completion is part of the oracle */ }
+      return calls;
+    };
+    // Reflect.has guard: runtime performs zero calls; the evaluator keeps the branch and reports
+    // the source-present ledger reference. Over-reporting a guarded-out literal is the documented
+    // conservative census direction — never a silent miss.
+    const hasProbe = `const object = { fn: client.from };
+      if (!Reflect.has(object, 'fn')) {
+        client.from('contract_hours_ledger');
+      }`;
+    expect(runtime(hasProbe)).toBe(0);
+    expect(analyze(hasProbe)).toEqual({ exact: 1, unsupported: 0 });
+    // Reflect.construct: runtime performs one call; the unresolved constructor return fails
+    // closed exactly once.
+    const constructProbe = `function Factory() {
+        return { read: client.from };
+      }
+      Reflect.construct(Factory, []).read('contract_hours_ledger');`;
+    expect(runtime(constructProbe)).toBe(1);
+    expect(analyze(constructProbe)).toEqual({ exact: 0, unsupported: 1 });
+    // Reflect.set with a throwing inherited setter: runtime reaches the catch and performs one
+    // call. The rejected head returned zero exact and zero unsupported — a silent miss. The
+    // unreached-authority net now fails the pruned catch site closed exactly once.
+    const setterProbe = `const proto = {};
+      Object.defineProperty(proto, 'slot', {
+        set() { throw new Error('setter'); },
+      });
+      const receiver = Object.create(proto);
+      try {
+        Reflect.set(proto, 'slot', client.from, receiver);
+      } catch {
+        client.from('contract_hours_ledger');
+      }`;
+    expect(runtime(setterProbe)).toBe(1);
+    expect(analyze(setterProbe)).toEqual({ exact: 0, unsupported: 1 });
+  });
+
+  it('R21.4: inherited indices and comparators fail closed per hazard site', () => {
+    const runtime = (source: string): number => {
+      let calls = 0;
+      const client = { from(target: string) {
+        if (target === 'contract_hours_ledger') calls += 1;
+        return this;
+      } };
+      (new Function('client', source) as (value: typeof client) => void)(client);
+      return calls;
+    };
+    // Prototype-inherited index: runtime performs one call through the rewired prototype chain.
+    // The rejected head returned zero exact and zero unsupported — a silent miss. The callee that
+    // resolves to no callable interpretation while naming the ledger now fails closed once.
+    const inheritedProbe = `const values = [];
+      const pop = values.pop;
+      values.length = 1;
+      const inherited = Object.create(Array.prototype, {
+        0: { value: client.from, configurable: true },
+      });
+      Object.setPrototypeOf(values, inherited);
+      const read = pop.call(values);
+      read('contract_hours_ledger');`;
+    expect(runtime(inheritedProbe)).toBe(1);
+    const inherited = discoverSupabaseCalls(inheritedProbe);
+    expect(inherited.filter((call) => call.method === 'from' &&
+      call.target === 'contract_hours_ledger')).toHaveLength(0);
+    expect(inherited.filter((call) => call.unsupported)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority', expression: 'read' }),
+    ]);
+    // Statically resolvable comparator: the runtime ledger call is surfaced exactly, and the two
+    // distinct hazard sites (the comparator, the post-sort element read) each fail closed exactly
+    // once — deterministic per-site results, not duplicates of one site.
+    const comparatorProbe = `const values = [client.from, () => null];
+      values.sort(() => 0);
+      values[0]('contract_hours_ledger');`;
+    expect(runtime(comparatorProbe)).toBe(1);
+    const comparator = discoverSupabaseCalls(comparatorProbe);
+    expect(comparator.filter((call) => call.method === 'from' &&
+      call.target === 'contract_hours_ledger')).toHaveLength(1);
+    expect(comparator.filter((call) => call.unsupported)
+      .map((call) => call.expression).sort()).toEqual(['0', 'values[0]']);
+  });
+
+  it('R21.5: symbol-keyed authority fails closed per hazard site', () => {
+    // Runtime performs one call through the symbol key. Symbol identity is not modeled and is
+    // not required to be — each of the two distinct symbol hazard sites (the computed descriptor
+    // key, the computed call) fails closed exactly once, with zero fabricated exact calls.
+    const source = `const key = Symbol('fn');
+      const object = Object.create(null, {
+        [key]: { value: client.from, enumerable: true },
+      });
+      object[key]('contract_hours_ledger');`;
+    let calls = 0;
+    const client = { from(target: string) {
+      if (target === 'contract_hours_ledger') calls += 1;
+      return this;
+    } };
+    (new Function('client', source) as (value: typeof client) => void)(client);
+    expect(calls).toBe(1);
+    const discovered = discoverSupabaseCalls(source);
+    expect(discovered.filter((call) => call.method === 'from' &&
+      call.target === 'contract_hours_ledger')).toHaveLength(0);
+    expect(discovered.filter((call) => call.unsupported)
+      .map((call) => call.expression).sort()).toEqual(['key', 'object[key]']);
+  });
+
+  it('R21 mutation: a hazard form entering a production root turns the guard red', () => {
+    const probeRoot = mkdtempSync(join(ROOT, 'future_z7_hazard_probe-'));
+    const probe = join(probeRoot, 'consumer.ts');
+    try {
+      writeFileSync(probe, `import { createClient } from '@supabase/supabase-js';
+        const client = createClient('http://127.0.0.1:54321', 'synthetic-key');
+        const values: unknown[] = [];
+        const pop = (values as { pop: () => unknown }).pop;
+        Object.setPrototypeOf(values, Object.create(Array.prototype, {
+          0: { value: client.from.bind(client), configurable: true },
+        }));
+        const read = pop.call(values) as (table: string) => unknown;
+        read('contract_hours_ledger');
+      `);
+      // The new root is discovered mechanically, its hazard form enters the census scan, and the
+      // analyzer fails closed — so both the R21 census expectation and the production
+      // no-unsupported gate would go red until the file is classified or removed.
+      expect(productionSourceFiles()).toEqual(expect.arrayContaining([probe]));
+      expect(hazardForms(readFileSync(probe, 'utf8'), probe))
+        .toContain('Object.setPrototypeOf');
+      const discovered = discoverSupabaseCalls(readFileSync(probe, 'utf8'), probe);
+      expect(discovered.filter((call) => call.unsupported)).not.toEqual([]);
+    } finally {
+      rmSync(probeRoot, { recursive: true, force: true });
+    }
+  });
 });
+

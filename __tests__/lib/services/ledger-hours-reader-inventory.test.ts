@@ -109,6 +109,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   const calls: DiscoveredCall[] = [];
   const knownCallableAliases = new Set<string>();
   const activeFunctions = new Set<ts.FunctionLikeDeclaration>();
+  const functionInputs = new Map<ts.FunctionLikeDeclaration, AbstractValue[]>();
 
   function binding(name: string): AbstractValue | undefined {
     for (let index = scopes.length - 1; index >= 0; index -= 1) {
@@ -141,19 +142,37 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     }
     if (ts.isArrayLiteralExpression(node)) {
       return valueOf({
-        elements: unionValues(...node.elements.map((entry) =>
-          ts.isSpreadElement(entry) ? resolveValue(entry.expression) : resolveValue(entry)
-        )),
+        elements: unionValues(...node.elements.map((entry) => {
+          if (!ts.isSpreadElement(entry)) return resolveValue(entry);
+          const spread = resolveValue(entry.expression);
+          return unionValues(spread.elements ?? valueOf(), valueOf({ external: spread.external }));
+        })),
       });
     }
     if (ts.isObjectLiteralExpression(node)) {
       const properties = new Map<string, AbstractValue>();
+      let external = false;
       for (const property of node.properties) {
-        if (!ts.isPropertyAssignment(property)) continue;
-        const name = readPropertyName(property.name);
-        if (name) properties.set(name, resolveValue(property.initializer));
+        if (ts.isSpreadAssignment(property)) {
+          const spread = resolveValue(property.expression);
+          external ||= spread.external;
+          for (const [name, spreadValue] of spread.properties) {
+            properties.set(name, properties.has(name)
+              ? unionValues(properties.get(name)!, spreadValue) : spreadValue);
+          }
+        } else if (ts.isPropertyAssignment(property)) {
+          const name = readPropertyName(property.name);
+          if (name) properties.set(name, resolveValue(property.initializer));
+        } else if (ts.isShorthandPropertyAssignment(property)) {
+          properties.set(property.name.text, resolveValue(property.name));
+        }
       }
-      return valueOf({ properties });
+      return valueOf({ properties, external });
+    }
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) &&
+        ts.isIdentifier(node.expression.expression) &&
+        node.expression.expression.text === 'Object' && node.expression.name.text === 'assign') {
+      return resolveValue(node.arguments[0]);
     }
     if (ts.isPropertyAccessExpression(node)) {
       const property = node.name.text;
@@ -305,6 +324,91 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     try { run(); } finally { scopes.pop(); }
   }
 
+  function valueFingerprint(value: AbstractValue, seen = new Set<AbstractValue>()): string {
+    if (seen.has(value)) return '<cycle>';
+    seen.add(value);
+    const properties = [...value.properties.entries()].sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, entry]) => `${name}:${valueFingerprint(entry, seen)}`);
+    const result = JSON.stringify({
+      strings: [...value.strings].sort(), methods: [...value.methods].sort(),
+      external: value.external, callable: value.callableCandidate,
+      functions: [...value.functions].map((entry) => entry.pos).sort((a, b) => a - b),
+      properties, elements: value.elements ? valueFingerprint(value.elements, seen) : null,
+    });
+    seen.delete(value);
+    return result;
+  }
+
+  function callArguments(
+    target: ts.FunctionLikeDeclaration,
+    args: ts.NodeArray<ts.Expression>
+  ): AbstractValue[] {
+    const expanded: AbstractValue[] = [];
+    for (const argument of args) {
+      if (!ts.isSpreadElement(argument)) {
+        expanded.push(resolveValue(argument));
+        continue;
+      }
+      const spread = resolveValue(argument.expression);
+      expanded.push(unionValues(
+        spread.elements ?? valueOf(),
+        valueOf({ external: spread.external || !spread.elements })
+      ));
+    }
+    return target.parameters.map((parameter, index) => {
+      if (parameter.dotDotDotToken) {
+        return valueOf({
+          elements: unionValues(...expanded.slice(index)),
+          external: expanded.slice(index).some((entry) => entry.external),
+        });
+      }
+      return expanded[index] ?? (parameter.initializer
+        ? resolveValue(parameter.initializer) : valueOf());
+    });
+  }
+
+  function mergeFunctionInputs(
+    target: ts.FunctionLikeDeclaration,
+    values: AbstractValue[]
+  ): boolean {
+    const prior = functionInputs.get(target) ?? [];
+    const merged = target.parameters.map((_, index) =>
+      prior[index] ? unionValues(prior[index], values[index] ?? valueOf()) : values[index] ?? valueOf()
+    );
+    const changed = merged.some((entry, index) =>
+      valueFingerprint(entry) !== valueFingerprint(prior[index] ?? valueOf())
+    );
+    if (changed || !functionInputs.has(target)) functionInputs.set(target, merged);
+    return changed;
+  }
+
+  function invokeFunction(target: ts.FunctionLikeDeclaration, values: AbstractValue[]): void {
+    mergeFunctionInputs(target, values);
+    if (activeFunctions.has(target)) return;
+    let iterations = 0;
+    let before: string;
+    do {
+      before = (functionInputs.get(target) ?? []).map((entry) => valueFingerprint(entry)).join('|');
+      withScope(() => {
+        const inputs = functionInputs.get(target) ?? [];
+        target.parameters.forEach((parameter, index) =>
+          declareName(parameter.name, parameter.initializer, inputs[index])
+        );
+        activeFunctions.add(target);
+        try { if (target.body) visit(target.body); } finally { activeFunctions.delete(target); }
+      });
+      iterations += 1;
+      if (iterations > 32) {
+        calls.push({
+          method: 'unknown', unsupported: 'dynamic callable name',
+          expression: 'non-convergent recursive callable', position: target.pos,
+        });
+        break;
+      }
+    } while (before !== (functionInputs.get(target) ?? [])
+      .map((entry) => valueFingerprint(entry)).join('|'));
+  }
+
   function visitStatements(statements: ts.NodeArray<ts.Statement>): void {
     for (const statement of statements) {
       if (ts.isFunctionDeclaration(statement) && statement.name) {
@@ -329,21 +433,11 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       scopes[scopes.length - 1].set(node.name.text, valueOf({
         functions: new Set([node]), callableCandidate: true,
       }));
-      withScope(() => {
-        node.parameters.forEach((parameter) => declareName(parameter.name, undefined, valueOf()));
-        activeFunctions.add(node);
-        try { if (node.body) visit(node.body); } finally { activeFunctions.delete(node); }
-      });
+      invokeFunction(node, node.parameters.map(() => valueOf()));
       return;
     }
     if (ts.isFunctionLike(node)) {
-      withScope(() => {
-        node.parameters.forEach((parameter) =>
-          declareName(parameter.name, undefined, valueOf())
-        );
-        activeFunctions.add(node);
-        try { if (node.body) visit(node.body); } finally { activeFunctions.delete(node); }
-      });
+      invokeFunction(node, node.parameters.map(() => valueOf()));
       return;
     }
     if (ts.isForOfStatement(node)) {
@@ -381,10 +475,71 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     }
     if (ts.isCallExpression(node)) {
       if (ts.isPropertyAccessExpression(node.expression) &&
+          ts.isIdentifier(node.expression.expression) &&
+          node.expression.expression.text === 'Object' && node.expression.name.text === 'assign') {
+        const target = resolveValue(node.arguments[0]);
+        for (const argument of node.arguments.slice(1)) {
+          const sourceValue = resolveValue(argument);
+          target.external ||= sourceValue.external;
+          for (const [name, assigned] of sourceValue.properties) {
+            target.properties.set(name, target.properties.has(name)
+              ? unionValues(target.properties.get(name)!, assigned) : assigned);
+          }
+        }
+        node.arguments.forEach(visit);
+        return;
+      }
+      if (ts.isPropertyAccessExpression(node.expression) &&
+          ts.isIdentifier(node.expression.expression) &&
+          ((node.expression.expression.text === 'Object' &&
+            node.expression.name.text === 'defineProperty') ||
+           (node.expression.expression.text === 'Reflect' && node.expression.name.text === 'set'))) {
+        const target = resolveValue(node.arguments[0]);
+        const keys = resolveValue(node.arguments[1]);
+        const rawValue = node.expression.expression.text === 'Reflect'
+          ? resolveValue(node.arguments[2])
+          : resolveValue(node.arguments[2]).properties.get('value') ??
+            valueOf({ external: true, callableCandidate: true });
+        if (keys.external || keys.strings.size === 0) {
+          target.external = true;
+          for (const [name, prior] of target.properties) {
+            target.properties.set(name, unionValues(prior,
+              valueOf({ external: true, callableCandidate: true })));
+          }
+        } else {
+          for (const key of keys.strings) {
+            target.properties.set(key, target.properties.has(key)
+              ? unionValues(target.properties.get(key)!, rawValue) : rawValue);
+          }
+        }
+        node.arguments.forEach(visit);
+        return;
+      }
+      if (ts.isPropertyAccessExpression(node.expression) &&
           node.expression.name.text === 'push') {
         const target = resolveValue(node.expression.expression);
         const pushed = unionValues(...node.arguments.map((argument) => resolveValue(argument)));
         target.elements = target.elements ? unionValues(target.elements, pushed) : pushed;
+        node.arguments.forEach(visit);
+        return;
+      }
+      if (ts.isPropertyAccessExpression(node.expression) &&
+          node.expression.name.text === 'splice') {
+        const target = resolveValue(node.expression.expression);
+        const inserted = unionValues(...node.arguments.slice(2).map((argument) => resolveValue(argument)));
+        target.elements = target.elements ? unionValues(target.elements, inserted) : inserted;
+        target.external ||= node.arguments.slice(2).some((argument) => resolveValue(argument).external);
+        node.arguments.forEach(visit);
+        return;
+      }
+      if (ts.isPropertyAccessExpression(node.expression) &&
+          ['pop', 'shift', 'unshift', 'fill', 'copyWithin', 'reverse', 'sort']
+            .includes(node.expression.name.text)) {
+        const target = resolveValue(node.expression.expression);
+        const mutations = unionValues(...node.arguments.map((argument) => resolveValue(argument)));
+        target.elements = unionValues(target.elements ?? valueOf(), mutations,
+          valueOf({ external: true }));
+        target.external = true;
         node.arguments.forEach(visit);
         return;
       }
@@ -456,17 +611,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         }
       }
       for (const target of callable.functions) {
-        if (activeFunctions.has(target)) continue;
-        withScope(() => {
-          target.parameters.forEach((parameter, index) => {
-            const argument = node.arguments[index]
-              ? resolveValue(node.arguments[index])
-              : parameter.initializer ? resolveValue(parameter.initializer) : valueOf();
-            declareName(parameter.name, undefined, argument);
-          });
-          activeFunctions.add(target);
-          try { if (target.body) visit(target.body); } finally { activeFunctions.delete(target); }
-        });
+        invokeFunction(target, callArguments(target, node.arguments));
       }
     }
     ts.forEachChild(node, visit);
@@ -501,6 +646,57 @@ function directTableTouchCount(source: string): number {
     (call.target === 'contract_hours_ledger' ||
       call.targets?.includes('contract_hours_ledger'))).length;
 }
+
+function ledgerInsertShapes(source: string, file = 'probe.ts'): string[][] {
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true,
+    file.endsWith('.jsx') ? ts.ScriptKind.JSX
+      : file.endsWith('.js') ? ts.ScriptKind.JS
+        : file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const shapes: string[][] = [];
+
+  function chainTargetsLedger(expression: ts.Expression): boolean {
+    if (!ts.isCallExpression(expression) || !ts.isPropertyAccessExpression(expression.expression)) {
+      return false;
+    }
+    if (expression.expression.name.text === 'from') {
+      return expression.arguments.length === 1 &&
+        ts.isStringLiteralLike(expression.arguments[0]) &&
+        expression.arguments[0].text === 'contract_hours_ledger';
+    }
+    return chainTargetsLedger(expression.expression.expression);
+  }
+
+  function visit(node: ts.Node): void {
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) &&
+        node.expression.name.text === 'insert' && chainTargetsLedger(node.expression.expression)) {
+      const value = node.arguments[0];
+      if (!value || !ts.isObjectLiteralExpression(value) ||
+          value.properties.some((property) => !ts.isPropertyAssignment(property) &&
+            !ts.isShorthandPropertyAssignment(property))) {
+        throw new Error(`${file}: unsupported ledger INSERT shape`);
+      }
+      shapes.push(value.properties.map((property) => {
+        const name = readPropertyName(property.name);
+        if (!name) throw new Error(`${file}: dynamic ledger INSERT column`);
+        return name;
+      }).sort());
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(sf);
+  return shapes;
+}
+
+const LEDGER_INSERT_SHAPES: Record<string, string[][]> = {
+  'lib/services/hour-tracking.ts': [[
+    'allocation_id', 'hours', 'is_manual', 'is_over_budget',
+    'planned_minutes_snapshot', 'recorded_by', 'session_date', 'session_id', 'status',
+  ]],
+  'pages/api/contracts/[id]/hours/ledger/index.ts': [[
+    'allocation_id', 'hours', 'is_manual', 'is_over_budget', 'notes',
+    'recorded_by', 'session_date', 'session_id', 'status',
+  ]],
+};
 
 const DIRECT_TS_TOUCHES: Record<string, UseClass[]> = {
   'components/workspace/WorkspaceSessionsTab.tsx': ['status-only'],
@@ -754,11 +950,15 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
     outerBackedAliases: Set<string> = new Set()
   ): SqlAnalysis {
     const ctes = new Map<string, { open: number; close: number }>();
+    const cteDeclarationPositions = new Set<number>();
     for (let index = start; index < end; index += 1) {
       if (tokens[index]?.kind !== 'word' || tokens[index + 1]?.value !== 'as' ||
           tokens[index + 2]?.value !== '(') continue;
       const close = pairs.get(index + 2);
-      if (close !== undefined && close < end) ctes.set(tokens[index].value, { open: index + 2, close });
+      if (close !== undefined && close < end) {
+        ctes.set(tokens[index].value, { open: index + 2, close });
+        cteDeclarationPositions.add(index);
+      }
     }
 
     const backedNames = new Set(inheritedObjects);
@@ -790,6 +990,7 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
     const aliases = new Set<string>();
     const allLocalAliases = new Set<string>();
     const relations = new Set<string>();
+    const relationDeclarationPositions = new Set<number>();
     let localBacked = false;
     const atTop = (position: number): boolean => {
       for (const [open, child] of childRanges) {
@@ -814,16 +1015,22 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
         cursor = child.close + 1;
         if (tokens[cursor]?.value === 'as') cursor += 1;
         const alias = tokens[cursor]?.kind === 'word' ? tokens[cursor].value : undefined;
-        if (alias) allLocalAliases.add(alias);
+        if (alias) {
+          allLocalAliases.add(alias);
+          relationDeclarationPositions.add(cursor);
+        }
         if (child.analysis.backed && alias) { aliases.add(alias); localBacked = true; }
         continue;
       }
       if (tokens[cursor]?.kind !== 'word') continue;
+      const relationPosition = cursor;
       let relation = tokens[cursor].value;
       if (tokens[cursor + 1]?.value === '.' && tokens[cursor + 2]?.kind === 'word') {
         relation = tokens[cursor + 2].value;
         cursor += 2;
       }
+      relationDeclarationPositions.add(relationPosition);
+      relationDeclarationPositions.add(cursor);
       relations.add(relation);
       const relationBacked = relation === 'contract_hours_ledger' || backedNames.has(relation);
       cursor += 1;
@@ -831,6 +1038,7 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
       if (tokens[cursor]?.value === 'as') cursor += 1;
       const possibleAlias = tokens[cursor]?.kind === 'word' && !SQL_RESERVED.has(tokens[cursor].value)
         ? tokens[cursor].value : undefined;
+      if (possibleAlias) relationDeclarationPositions.add(cursor);
       allLocalAliases.add(relation);
       if (possibleAlias) allLocalAliases.add(possibleAlias);
       if (relationBacked) {
@@ -890,6 +1098,21 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
           count += 1;
         }
       }
+
+      // A composite row is exposed without a star in SELECT l, row_to_json(l),
+      // RETURNING l, and equivalent function arguments. Relation declarations and
+      // qualifiers (l.hours) are excluded because those are classified separately.
+      for (let index = queryStart; index < end; index += 1) {
+        if (!atTop(index) || relationDeclarationPositions.has(index) ||
+            cteDeclarationPositions.has(index)) continue;
+        const name = tokens[index]?.value;
+        if (!name || tokens[index]?.kind !== 'word') continue;
+        const isBackedComposite = aliases.has(name) ||
+          (!allLocalAliases.has(name) && outerBackedAliases.has(name));
+        if (!isBackedComposite) continue;
+        if (tokens[index + 1]?.value === '.') continue;
+        count += 1;
+      }
     }
 
     const unsupported: string[] = [];
@@ -916,6 +1139,21 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
     }
     if (hasLedgerWord && hasDml && !localBacked && count === 0) {
       unsupported.push('ledger-relevant statement could not be classified');
+    }
+    const topLevelVerb = (() => {
+      if (tokens[queryStart]?.value !== 'with') return tokens[queryStart]?.value;
+      for (let index = queryStart + 1; index < end; index += 1) {
+        if (atTop(index) && ['select', 'insert', 'update', 'delete', 'merge']
+          .includes(tokens[index]?.value)) return tokens[index].value;
+      }
+      return undefined;
+    })();
+    const mutatesLedger = localBacked &&
+      ['insert', 'update', 'delete', 'merge'].includes(topLevelVerb ?? '');
+    if (mutatesLedger && count === 0 && !hasMerge) {
+      // A status-only or otherwise column-opaque ledger mutation is still a direct
+      // ledger authority touch and must change the exact production map.
+      count += 1;
     }
     return {
       count,
@@ -964,7 +1202,7 @@ const SQL_DIRECT_HOURS_USES: Record<string, UseClass[]> = {
     'historical', 'historical', 'write',
   ],
   'supabase/migrations/20260813120200_session_hour_overrides.sql': [
-    'aggregate', 'aggregate', 'billable', 'billable', 'billable',
+    'write', 'aggregate', 'aggregate', 'billable', 'billable', 'billable',
   ],
   'supabase/migrations/20260813120300_reschedule_availability_guard.sql': [
     'historical', 'write', 'historical',
@@ -1026,6 +1264,22 @@ describe('contract_hours_ledger production consumer inventory', () => {
       if (count > 0) actual[relative(ROOT, path)] = count;
     }
     expectExactCounts(actual, DIRECT_TS_TOUCHES);
+  });
+
+  it('mechanically inventories every production ledger INSERT column', () => {
+    const actual: Record<string, string[][]> = {};
+    for (const path of productionSourceFiles()) {
+      const relativePath = relative(ROOT, path);
+      const shapes = ledgerInsertShapes(readFileSync(path, 'utf8'), relativePath);
+      if (shapes.length > 0) actual[relativePath] = shapes;
+    }
+    expect(actual).toEqual(LEDGER_INSERT_SHAPES);
+    const allowedColumns = new Set(Object.values(actual).flat(2));
+    expect([...allowedColumns].sort()).toEqual([
+      'allocation_id', 'hours', 'is_manual', 'is_over_budget', 'notes',
+      'planned_minutes_snapshot', 'recorded_by', 'session_date', 'session_id', 'status',
+    ]);
+    expect(allowedColumns.has('effective_minutes')).toBe(false);
   });
 
   it('fails closed on every unsupported dynamic callable or target in production', () => {
@@ -1400,6 +1654,114 @@ describe('contract_hours_ledger production consumer inventory', () => {
       expect(calls[0].dynamicValues, allowance.justification)
         .toEqual([...allowance.allowedValues].sort());
     }
+  });
+
+  it('converges recursive calls and propagates spread, rest, defaults, and mutations', () => {
+    const directRecursive = discoverSupabaseCalls(`
+      function read(depth, table = 'safe_table') {
+        if (depth) read(0, 'contract_hours_ledger');
+        client.from(table);
+      }
+      read(1);
+    `);
+    expect(directRecursive.some((call) =>
+      call.target === 'contract_hours_ledger' ||
+      call.targets?.includes('contract_hours_ledger'))).toBe(true);
+
+    expect(directTableTouchCount(`
+      first();
+      function first(table = 'safe_table') { second('contract_hours_ledger'); }
+      function second(table) { if (flag) first(table); client.from(table); }
+    `)).toBeGreaterThan(0);
+
+    expect(directTableTouchCount(`
+      function invoke(table) { client.from(table); }
+      const args = ['contract_hours_ledger'];
+      invoke(...args);
+    `)).toBeGreaterThan(0);
+    expect(directTableTouchCount(`
+      function invoke(...tables) { for (const table of tables) client.from(table); }
+      invoke('safe_table', 'contract_hours_ledger');
+    `)).toBeGreaterThan(0);
+    expect(directTableTouchCount(`
+      function invoke(table = 'contract_hours_ledger') { client.from(table); }
+      invoke();
+    `)).toBeGreaterThan(0);
+
+    expect(directTableTouchCount(`
+      const holder = { read: externalCallable };
+      Object.assign(holder, { read: client.from });
+      holder.read('contract_hours_ledger');
+    `)).toBe(1);
+    expect(directTableTouchCount(`
+      const targets = ['safe_table'];
+      targets.splice(0, 1, 'contract_hours_ledger');
+      for (const target of targets) client.from(target);
+    `)).toBe(1);
+
+    expect(discoverSupabaseCalls(`
+      const targets = ['safe_table'];
+      targets.unshift(process.argv[2]);
+      for (const target of targets) client.from(target);
+    `)).toContainEqual(expect.objectContaining({
+      method: 'from', unsupported: 'dynamic target', expression: 'target',
+    }));
+    expect(discoverSupabaseCalls(`
+      const holder = { read: client.from };
+      Object.defineProperty(holder, 'read', { value: externalCallable });
+      holder.read('safe_table');
+    `)).toContainEqual(expect.objectContaining({
+      method: 'unknown', unsupported: 'dynamic callable name', expression: 'holder.read',
+    }));
+
+    const deterministicSource = `
+      function recurse(value = 'safe_table') {
+        if (flag) recurse('contract_hours_ledger');
+        client.from(value);
+      }
+      recurse();
+    `;
+    expect(discoverSupabaseCalls(deterministicSource))
+      .toEqual(discoverSupabaseCalls(deterministicSource));
+    expect(discoverSupabaseCalls(deterministicSource).length).toBeLessThan(10);
+  });
+
+  it('classifies composite ledger rows and column-opaque ledger DML', () => {
+    expect(sqlDirectHoursUseCount(
+      'SELECT l FROM public.contract_hours_ledger AS l;'
+    )).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      'SELECT public.contract_hours_ledger FROM public.contract_hours_ledger;'
+    )).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      'SELECT row_to_json(l) FROM public.contract_hours_ledger l;'
+    )).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      "UPDATE public.contract_hours_ledger AS l SET status = 'consumida' RETURNING l;"
+    )).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      "INSERT INTO public.contract_hours_ledger (status) VALUES ('reservada');"
+    )).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      "UPDATE public.contract_hours_ledger SET status = 'consumida';"
+    )).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      'DELETE FROM public.contract_hours_ledger WHERE false;'
+    )).toBe(1);
+    expect(() => sqlDirectHoursUseCount(
+      'MERGE INTO public.contract_hours_ledger AS l USING incoming i ON false WHEN NOT MATCHED THEN DO NOTHING;'
+    )).toThrow(/MERGE/);
+    expect(sqlDirectHoursUseCount(`
+      SELECT row_to_json(l),
+             (SELECT outer_l FROM public.contract_hours_ledger outer_l WHERE outer_l.id = l.id)
+        FROM public.contract_hours_ledger l;
+    `)).toBe(2);
+    expect(sqlDirectHoursUseCount(`
+      SELECT (SELECT l FROM safe_rows l) FROM public.contract_hours_ledger l;
+    `)).toBe(0);
+    expect(sqlDirectHoursUseCount(
+      "SELECT 'row_to_json(l) FROM contract_hours_ledger l'; -- RETURNING l\n"
+    )).toBe(0);
   });
 
   it('discovers a newly introduced production JS/JSX root', () => {

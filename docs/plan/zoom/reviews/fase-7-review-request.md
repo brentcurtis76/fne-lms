@@ -27,7 +27,17 @@
   1. `b6697c7639754e9dc130fe56e93fa3d6b8a6e594` (103 commits) — alias-carried ledger
      authority fails closed; the production hazard census becomes site-exact and derives
      authority from the executable inventory.
-  2. The state/evidence commit carrying `Z7-review-22.md`, `PROJECT_STATE.md`, and this
+  2. `14eb69de9aa3c61fb4048117305b5e566010a250` (104 commits; tree
+     `cacf82183e0884eb094376cdd1e328680ec9b507`) — the Round 22 state/evidence commit.
+- Round-twenty-three canonical starting candidate: `14eb69de9aa3c61fb4048117305b5e566010a250`
+  (104 commits; tree `cacf82183e0884eb094376cdd1e328680ec9b507`), verified clean before any
+  change. Round 23 repairs exactly one reviewer finding against that candidate (recorded in
+  `docs/plan/zoom/remediation/Z7-review-23.md`).
+- Round-twenty-three commits, ordered directly on `feat/zoom-hours`:
+  1. `e8ea58830fc2be270c29c722fa92e066da87a5f9` (105 commits) — statically constructed
+     ledger authority fails closed via a bounded static string resolver used only for
+     authority classification.
+  2. The state/evidence commit carrying `Z7-review-23.md`, `PROJECT_STATE.md`, and this
      document. A commit cannot truthfully embed its own identity; its exact SHA is supplied
      in the builder handoff.
 - Governing scope note: the Round 21 owner amendment retires interpreter-level analyzer
@@ -62,6 +72,15 @@ remediation, the Vitest upgrade, leadership aggregates, deployments, production 
 unrelated refactors.
 
 ## Finding disposition
+
+### Round twenty-three (single-finding repair)
+
+The finding was reproduced mechanically on the exact starting candidate `14eb69de` before any
+change; the full record is `docs/plan/zoom/remediation/Z7-review-23.md`.
+
+| Finding | Disposition and evidence |
+|---|---|
+| Z7-R23 — constructed ledger authority fails open inside existing hazard territory (`MAJOR`) | With a pre-existing `Symbol` hazard active, `const table = 'contract_' + 'hours_ledger'; const read = (0, client.from); read(table)` performed one runtime ledger call while the analyzer returned **[]**, both reached and pruned — `sourceNamesLedger` required the complete name in one literal, the classifier saw only the evaluator's value domain (which deliberately does not model concatenation), and the external-callee guard keyed on evaluator-visible strings; the mutation added no hazard site, so the site-exact census also stayed green. The analyzer gains a bounded, memoized, side-effect-free static string resolver used **only** for ledger-authority classification: string/template literals, wrapper unwrapping, ordinary lexical aliases via a syntactic declaration map with taint rules, finite conditional/logical/comma branches, and binary `+` over finite sets, under explicit caps (set ≤ 16, depth ≤ 32) with cycle guards — never the evaluator's value domain, so direct `client.from(constructed)` retains exactly one `dynamic target` result. A statically resolved ledger value is `authority` regardless of spelling; a finite non-ledger value is provably inert; unresolvable values keep the gated conservative `uncertain` path, whose gate now also detects constructible spellings. An externally opaque callee whose argument statically constructs the name fails closed exactly once as `unresolved ledger authority`. `R23.1` pins reached/pruned/template/finite-branch/inert/cyclic/capped/determinism/retained-uncertainty shapes with runtime oracles; the `R23 mutation` probe proves constructed authority entering the webhook hazard file turns the production no-unsupported guard red while the hazard-site census stays structurally unchanged (`['Symbol']`). All three fail-on-old probes fail at `14eb69de`. |
 
 ### Round twenty-two (human-authorized two-finding repair)
 
@@ -526,6 +545,7 @@ Risk grouping describes review priority, not ownership.
 - `docs/plan/zoom/remediation/Z7-review-21.md`
 - `docs/plan/zoom/remediation/Z7-review-21-owner-amendment.md`
 - `docs/plan/zoom/remediation/Z7-review-22.md`
+- `docs/plan/zoom/remediation/Z7-review-23.md`
 - `docs/plan/zoom/reviews/fase-7-review-request.md`
 - `docs/plan/zoom/reviews/fase-7-review-verdict.md`
 
@@ -545,12 +565,39 @@ comm -3 \
     | sed -n 's/^- `\(.*\)`$/\1/p' | sort)
 ```
 
-Result after the evidence commit: no output. Counts: cumulative diff **130**, inventory **130**,
+Result after the evidence commit: no output. Counts: cumulative diff **131**, inventory **131**,
 duplicates **0** (Round 21 added the reviewer contract `Z7-review-21.md` and the owner
-amendment; Round 22 adds the repair record `Z7-review-22.md` — its only code change is inside
-the already-inventoried `__tests__/lib/services/ledger-hours-reader-inventory.test.ts`).
+amendment; Rounds 22 and 23 add the repair records `Z7-review-22.md` and `Z7-review-23.md` —
+each round's only code change is inside the already-inventoried
+`__tests__/lib/services/ledger-hours-reader-inventory.test.ts`).
 
 ## Gate and fail-on-old evidence
+
+### Round twenty-three collection (2026-08-14, local macOS, final code state `e8ea5883`)
+
+Round 23's governing instruction required the focused suite, the cumulative selector,
+type-check, zero-warning lint, the full unit suite, the production build, and the exact
+changed-path reconciliation — not a repeat of the full database/browser matrix, which ran
+unchanged hours earlier in this same working day's Round 22 collection and whose surfaces
+this round does not touch (the only code change is inside the analyzer test file). All legs
+ran sequentially in one pass; no command was piped through `tail`.
+
+| Command | Result | Exit |
+|---|---|---:|
+| Focused inventory suite (R23 additions + all retained R21/R22 probes + cumulative executable inventory), one file | **49 green** (2 new R23 + 47 retained) | 0 |
+| Cumulative Z7 high-risk Vitest over every test path changed since the immutable base | 37 files, **606 green** | 0 |
+| `npm run type-check` | no diagnostics | 0 |
+| `npm run lint` | zero warnings | 0 |
+| `npm test` (full unit suite, machine TZ America/Santiago) | 324 files, **7,413 green / 11 skipped** | 0 |
+| `npm run build` | production build; **156/156 static pages** | 0 |
+
+Round-twenty-three fail-on-old evidence, measured at the exact starting candidate `14eb69de`
+(the fix stashed; only the new expectations applied): the reached constructed-alias probe and
+the pruned constructed-alias probe each returned **zero results** (expected one), and the
+webhook source mutated with constructed authority produced **zero unsupported results**
+(expected non-empty) — all three probes fail on the starting head and pass under the repair.
+The reproduction, acceptance shapes, and honestly stated resolver bounds are in
+`docs/plan/zoom/remediation/Z7-review-23.md`.
 
 ### Round twenty-two collection (2026-08-14, local macOS, final code state `b6697c76`)
 
@@ -1219,6 +1266,11 @@ None of these deviations is represented as a green gate.
    switch fallthrough/break, and call-driven abrupt module/callback evaluation through the shared
    ordinary/local/CJS/ESM heap. Recoverable calls must count once; inert/deleted/noncopied or
    unreachable authority must stay empty; dynamic authority must reject once and terminate stably.
+   Since Round 23, also probe the bounded static string resolver: aliased, concatenated,
+   templated, and finite-branch ledger spellings must fail closed once at opaque or pruned
+   sites; scope-blind union and taint fallbacks must stay conservative; caps and cycles must
+   terminate; and the evaluator's value domain must remain untouched (direct
+   `client.from(constructed)` stays exactly one `dynamic target`).
 2. Re-audit `public.exec_sql(text)` and related exposed authority at the catalog and real-role
    boundaries. Anon, authenticated-admin, and service-role calls must all receive `42501`; the
    retired endpoint must construct no service client and issue no RPC/SQL, while fixed owner RPCs

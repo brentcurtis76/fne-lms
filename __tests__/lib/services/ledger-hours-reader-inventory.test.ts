@@ -353,7 +353,162 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       value.prototype !== undefined;
     return known ? 'none' : 'uncertain';
   };
+  // Z7-R23: bounded static resolution of string values constructible at analysis time.
+  // Deliberately NOT part of the evaluator's value domain — direct `client.from(constructed)`
+  // must keep its dynamic-target classification — this resolver serves only ledger-authority
+  // classification in the hazard net. It is purely lexical, side-effect free, deterministic,
+  // and phase-independent: identifiers resolve through a syntactic declaration map (never live
+  // evaluator state), so a site classifies identically during evaluation and during the
+  // post-evaluation unreached-site scan, and results are memoized so each expression is
+  // resolved once and shared. Explicit finite caps guarantee termination: value sets larger
+  // than STATIC_STRING_SET_LIMIT and nesting deeper than STATIC_STRING_DEPTH_LIMIT resolve to
+  // undefined (not statically constructible), falling back to the conservative uncertain
+  // handling. Names written by any form other than a simple `name = <expression>` declaration
+  // or assignment (destructuring, parameters, catch bindings, compound assignment, ++/--,
+  // imports, function/class declarations, for-in/of targets) are tainted and never resolve.
+  const STATIC_STRING_SET_LIMIT = 16;
+  const STATIC_STRING_DEPTH_LIMIT = 32;
+  const simpleNameInitializers = new Map<string, ts.Expression[]>();
+  const rewrittenNames = new Set<string>();
+  (() => {
+    const taintPattern = (name: ts.BindingName): void => {
+      if (ts.isIdentifier(name)) {
+        rewrittenNames.add(name.text);
+        return;
+      }
+      for (const element of name.elements) {
+        if (ts.isBindingElement(element)) taintPattern(element.name);
+      }
+    };
+    const scan = (node: ts.Node): void => {
+      if (ts.isVariableDeclaration(node)) {
+        if (ts.isIdentifier(node.name) && node.initializer) {
+          const list = simpleNameInitializers.get(node.name.text) ?? [];
+          list.push(node.initializer);
+          simpleNameInitializers.set(node.name.text, list);
+        } else {
+          taintPattern(node.name);
+        }
+      } else if (ts.isBinaryExpression(node) && ts.isIdentifier(node.left) &&
+          node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+          node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) {
+        if (node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+          const list = simpleNameInitializers.get(node.left.text) ?? [];
+          list.push(node.right);
+          simpleNameInitializers.set(node.left.text, list);
+        } else {
+          rewrittenNames.add(node.left.text);
+        }
+      } else if ((ts.isPrefixUnaryExpression(node) &&
+          (node.operator === ts.SyntaxKind.PlusPlusToken ||
+           node.operator === ts.SyntaxKind.MinusMinusToken) &&
+          ts.isIdentifier(node.operand)) ||
+          (ts.isPostfixUnaryExpression(node) && ts.isIdentifier(node.operand))) {
+        rewrittenNames.add((node.operand as ts.Identifier).text);
+      } else if (ts.isParameter(node)) {
+        taintPattern(node.name);
+      } else if ((ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) && node.name) {
+        rewrittenNames.add(node.name.text);
+      } else if (ts.isCatchClause(node) && node.variableDeclaration) {
+        taintPattern(node.variableDeclaration.name);
+      } else if (ts.isImportSpecifier(node) || ts.isImportClause(node) ||
+          ts.isNamespaceImport(node)) {
+        if (node.name) rewrittenNames.add(node.name.text);
+      } else if ((ts.isForInStatement(node) || ts.isForOfStatement(node)) &&
+          ts.isIdentifier(node.initializer)) {
+        rewrittenNames.add(node.initializer.text);
+      }
+      ts.forEachChild(node, scan);
+    };
+    scan(sf);
+  })();
+  const staticStringMemo = new Map<ts.Node, ReadonlySet<string> | undefined>();
+  const staticStringValues = (
+    input: ts.Expression, nameStack: readonly string[] = [], depth = 0
+  ): ReadonlySet<string> | undefined => {
+    if (depth > STATIC_STRING_DEPTH_LIMIT) return undefined;
+    const node = unwrap(input);
+    const memoizable = nameStack.length === 0;
+    if (memoizable && staticStringMemo.has(node)) return staticStringMemo.get(node);
+    const capped = (values: Set<string>): Set<string> | undefined =>
+      values.size <= STATIC_STRING_SET_LIMIT ? values : undefined;
+    const compute = (): ReadonlySet<string> | undefined => {
+      if (ts.isStringLiteralLike(node)) return new Set([node.text]);
+      if (ts.isTemplateExpression(node)) {
+        let parts: readonly string[] = [node.head.text];
+        for (const span of node.templateSpans) {
+          const values = staticStringValues(span.expression, nameStack, depth + 1);
+          if (!values) return undefined;
+          const grown: string[] = [];
+          for (const prefix of parts) {
+            for (const value of values) grown.push(prefix + value + span.literal.text);
+          }
+          if (grown.length > STATIC_STRING_SET_LIMIT) return undefined;
+          parts = grown;
+        }
+        return new Set(parts);
+      }
+      if (ts.isConditionalExpression(node)) {
+        const whenTrue = staticStringValues(node.whenTrue, nameStack, depth + 1);
+        const whenFalse = staticStringValues(node.whenFalse, nameStack, depth + 1);
+        if (!whenTrue || !whenFalse) return undefined;
+        return capped(new Set([...whenTrue, ...whenFalse]));
+      }
+      if (ts.isBinaryExpression(node)) {
+        const operator = node.operatorToken.kind;
+        if (operator === ts.SyntaxKind.PlusToken) {
+          const left = staticStringValues(node.left, nameStack, depth + 1);
+          const right = staticStringValues(node.right, nameStack, depth + 1);
+          if (!left || !right) return undefined;
+          const combined = new Set<string>();
+          for (const prefix of left) {
+            for (const suffix of right) combined.add(prefix + suffix);
+          }
+          return capped(combined);
+        }
+        if (operator === ts.SyntaxKind.BarBarToken ||
+            operator === ts.SyntaxKind.AmpersandAmpersandToken ||
+            operator === ts.SyntaxKind.QuestionQuestionToken) {
+          const left = staticStringValues(node.left, nameStack, depth + 1);
+          const right = staticStringValues(node.right, nameStack, depth + 1);
+          if (!left || !right) return undefined;
+          return capped(new Set([...left, ...right]));
+        }
+        if (operator === ts.SyntaxKind.CommaToken) {
+          return staticStringValues(node.right, nameStack, depth + 1);
+        }
+        return undefined;
+      }
+      if (ts.isIdentifier(node)) {
+        if (rewrittenNames.has(node.text) || nameStack.includes(node.text)) return undefined;
+        const initializers = simpleNameInitializers.get(node.text);
+        if (!initializers || initializers.length === 0) return undefined;
+        const union = new Set<string>();
+        const grownStack = [...nameStack, node.text];
+        for (const initializer of initializers) {
+          const values = staticStringValues(initializer, grownStack, depth + 1);
+          if (!values) return undefined;
+          for (const value of values) union.add(value);
+          if (union.size > STATIC_STRING_SET_LIMIT) return undefined;
+        }
+        return union;
+      }
+      return undefined;
+    };
+    const result = compute();
+    if (memoizable) staticStringMemo.set(node, result);
+    return result;
+  };
   const argumentLedgerAuthority = (argument: ts.Expression): LedgerAuthority => {
+    // Z7-R23 static-first: a finite statically constructible value decides exactly —
+    // 'authority' when any constructible value is the ledger name (regardless of whether the
+    // complete spelling ever appears as one literal), 'none' when every constructible value is
+    // provably something else. Everything unresolvable falls through to the R22 value/
+    // provenance classification below.
+    const staticValues = staticStringValues(argument);
+    if (staticValues) {
+      return staticValues.has('contract_hours_ledger') ? 'authority' : 'none';
+    }
     const expression = unwrap(argument);
     if (ts.isStringLiteralLike(expression)) {
       return expression.text === 'contract_hours_ledger' ? 'authority' : 'none';
@@ -393,22 +548,30 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       const resolved = binding(expression.text);
       return resolved ? valueLedgerAuthority(resolved) : 'uncertain';
     }
-    // Spread, property/element access, calls, templates with substitutions, and every other
-    // form the resolver does not model: the value cannot be ruled out, so it fails closed.
+    // Spread, property/element access, calls, and every other form neither resolver models:
+    // the value cannot be ruled out, so it fails closed.
     return 'uncertain';
   };
-  // Static ledger authority can only enter a source through a literal that spells the table
-  // name (every resolvable binding, branch, or alias ultimately roots in one; dynamically
-  // constructed table names are handled by the separate dynamic-target fail-closed machinery).
-  // A source with no such literal has no ledger authority an uncertain value could discharge,
-  // so 'uncertain' fails closed only when the source names the ledger somewhere; 'authority'
-  // always fails closed. This keeps the net exact on authority-bearing sources and keeps
-  // hazard-territory files without ledger authority honestly out of the unresolved census.
+  // Z7-R23: static ledger authority can also enter a source through a statically
+  // CONSTRUCTIBLE value — concatenated literal fragments, templates, finite branches, and
+  // ordinary lexical aliases of those — without the complete table name ever appearing as one
+  // source literal. `sourceNamesLedger` therefore scans for any statically constructible
+  // string equal to the table name, not just a single spelled-out literal; `authority`
+  // classification (static-first, above) is shared verbatim by the reached-call net, the
+  // unreached-site net, and the external-callee guard, via one memoized resolver.
+  // A source that can neither spell nor statically construct the name has no ledger authority
+  // an uncertain value could discharge, so 'uncertain' fails closed only when this gate is
+  // true; 'authority' always fails closed. This keeps the net exact on authority-bearing
+  // sources and keeps hazard-territory files without ledger authority honestly out of the
+  // unresolved census.
   const sourceNamesLedger = (() => {
     let found = false;
     const scan = (node: ts.Node): void => {
       if (found) return;
       if (ts.isStringLiteralLike(node) && node.text === 'contract_hours_ledger') found = true;
+      else if ((ts.isBinaryExpression(node) || ts.isConditionalExpression(node) ||
+          ts.isTemplateExpression(node)) &&
+          staticStringValues(node)?.has('contract_hours_ledger')) found = true;
       ts.forEachChild(node, scan);
     };
     scan(sf);
@@ -3014,6 +3177,19 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
          (effectiveReceiver && isDatabaseCallable(effectiveReceiver)))) {
       calls.push({
         method: 'unknown', unsupported: 'dynamic callable name',
+        expression: context.expression, position: context.node.pos,
+      });
+    } else if (context.record && callable.external && hazardNetActive() &&
+        callable.methods.size === 0 && callable.functions.size === 0 &&
+        callable.adapter === undefined && !callable.alwaysThrows &&
+        (context.node.arguments ?? []).some((argument) =>
+          staticStringValues(argument)?.has('contract_hours_ledger'))) {
+      // Z7-R23: the callee is externally opaque and none of the evaluator's value-domain
+      // triggers above can see the ledger name, yet an argument statically CONSTRUCTS it
+      // (concatenated fragments, finite branches, lexical aliases). The evaluator cannot
+      // prove what runs here, so the site fails closed exactly once.
+      calls.push({
+        method: 'unknown', unsupported: 'unresolved ledger authority',
         expression: context.expression, position: context.node.pos,
       });
     }
@@ -8184,6 +8360,172 @@ describe('contract_hours_ledger production consumer inventory', () => {
     const inertLiteral = inertBinding.replace("const table = 'other_table';\n      read(table);",
       "read('other_table');");
     expect(unresolved(inertLiteral)).toEqual([]);
+  });
+
+  it('R23.1: constructed ledger authority fails closed instead of open', () => {
+    const runtime = (source: string): number => {
+      let calls = 0;
+      const client = { from(target: string) {
+        if (target === 'contract_hours_ledger') calls += 1;
+        return this;
+      } };
+      try {
+        (new Function('client', source) as (value: typeof client) => void)(client);
+      } catch { /* abrupt completion is part of the oracle */ }
+      return calls;
+    };
+    const unresolved = (source: string): DiscoveredCall[] =>
+      discoverSupabaseCalls(source).filter((call) => call.unsupported);
+    // The reviewer's probe: hazard territory is already active (the Symbol sentinel), the
+    // callee is externally opaque, and the argument statically CONSTRUCTS the ledger name
+    // from fragments — no single literal spells it. The rejected head returned zero results;
+    // the site now fails closed exactly once, deterministically.
+    const constructedAlias = `const sentinel = Symbol('existing');
+      const table = 'contract_' + 'hours_ledger';
+      const read = (0, client.from);
+      read(table);`;
+    expect(runtime(constructedAlias)).toBe(1);
+    expect(discoverSupabaseCalls(constructedAlias).filter((call) => call.method === 'from' &&
+      call.target === 'contract_hours_ledger')).toHaveLength(0);
+    expect(unresolved(constructedAlias)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority', expression: 'read' }),
+    ]);
+    expect(discoverSupabaseCalls(constructedAlias))
+      .toEqual(discoverSupabaseCalls(constructedAlias));
+    // Pruned/unreached constructed alias: the evaluator prunes the catch; the constructed
+    // binding still resolves statically at scan time and fails closed exactly once with zero
+    // fabricated exact calls.
+    const prunedConstructed = `const sentinel = Symbol('existing');
+      const table = 'contract_' + 'hours_ledger';
+      const proto = {};
+      Object.defineProperty(proto, 'slot', {
+        set() { throw new Error('setter'); },
+      });
+      try {
+        Reflect.set(proto, 'slot', client.from, Object.create(proto));
+      } catch {
+        client.from(table);
+      }`;
+    expect(runtime(prunedConstructed)).toBe(1);
+    expect(discoverSupabaseCalls(prunedConstructed).filter((call) => call.method === 'from' &&
+      call.target === 'contract_hours_ledger')).toHaveLength(0);
+    expect(unresolved(prunedConstructed)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+    ]);
+    // Direct dynamic-target behavior is retained byte-for-byte: the static resolver serves
+    // only ledger-authority classification, never the evaluator's value domain.
+    const directConstructed = `const sentinel = Symbol('existing');
+      const table = 'contract_' + 'hours_ledger';
+      client.from(table);`;
+    expect(runtime(directConstructed)).toBe(1);
+    expect(discoverSupabaseCalls(directConstructed)).toEqual([
+      { method: 'from', unsupported: 'dynamic target', expression: 'table' },
+    ]);
+    // A constructed non-ledger string is provably inert — 'none', not noise.
+    const inertConstructed = `const sentinel = Symbol('existing');
+      const table = 'contract_' + 'hours_other';
+      const read = (0, client.from);
+      read(table);`;
+    expect(runtime(inertConstructed)).toBe(0);
+    expect(unresolved(inertConstructed)).toEqual([]);
+    // Finite branching through construction preserves authority.
+    const branchedConstructed = `const sentinel = Symbol('existing');
+      const flag = [].length === 0;
+      const table = (flag ? 'contract_' : 'other_') + 'hours_ledger';
+      const read = (0, client.from);
+      read(table);`;
+    expect(runtime(branchedConstructed)).toBe(1);
+    expect(unresolved(branchedConstructed)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+    ]);
+    // Template construction resolves identically to concatenation.
+    const templateConstructed = `const sentinel = Symbol('existing');
+      const half = 'hours_ledger';
+      const read = (0, client.from);
+      read(\`contract_\${half}\`);`;
+    expect(runtime(templateConstructed)).toBe(1);
+    expect(unresolved(templateConstructed)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+    ]);
+    // Cyclic constructions cannot resolve, terminate deterministically, and stay honest: the
+    // runtime itself throws before any call (TDZ), and the source can neither spell nor
+    // construct the ledger name, so no authority exists to discharge.
+    const cyclicConstruction = `const sentinel = Symbol('existing');
+      const first = second + '_x';
+      const second = first + '_y';
+      const read = (0, client.from);
+      read(first);`;
+    expect(runtime(cyclicConstruction)).toBe(0);
+    expect(discoverSupabaseCalls(cyclicConstruction))
+      .toEqual(discoverSupabaseCalls(cyclicConstruction));
+    expect(unresolved(cyclicConstruction)).toEqual([]);
+    // The finite cap is a termination guard, not a loophole: a product beyond the cap resolves
+    // to nothing statically, and the run terminates. The composed value here is provably not
+    // the ledger name and the source cannot construct it, so silence is exact, not a miss.
+    const cappedConstruction = `const sentinel = Symbol('existing');
+      const c0 = [].length === 0 ? 'a0' : 'b0';
+      const c1 = [].length === 0 ? 'a1' : 'b1';
+      const c2 = [].length === 0 ? 'a2' : 'b2';
+      const c3 = [].length === 0 ? 'a3' : 'b3';
+      const c4 = [].length === 0 ? 'a4' : 'b4';
+      const table = c0 + c1 + c2 + c3 + c4;
+      const read = (0, client.from);
+      read(table);`;
+    expect(runtime(cappedConstruction)).toBe(0);
+    expect(unresolved(cappedConstruction)).toEqual([]);
+    // Conservative uncertainty is retained beneath the static layer: an unresolvable value in
+    // a source that names the ledger still fails closed exactly once.
+    const retainedUncertain = `const sentinel = Symbol('existing');
+      const table = 'contract_hours_ledger';
+      const proto = {};
+      Object.defineProperty(proto, 'slot', {
+        set() { throw new Error('setter'); },
+      });
+      try {
+        Reflect.set(proto, 'slot', client.from, Object.create(proto));
+      } catch {
+        client.from(globalThis.unknownTable);
+      }`;
+    expect(unresolved(retainedUncertain)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+    ]);
+  });
+
+  it('R23 mutation: constructed authority turns the guard red without a new hazard site', () => {
+    // A production hazard file (the webhook route's Symbol sentinel) gains constructed ledger
+    // authority. No new hazard site appears — the census is structurally unchanged — but the
+    // analyzer fails closed, so the production no-unsupported gate turns red. This closes the
+    // R23 blind spot where both guards stayed green.
+    const path = join(ROOT, 'pages/api/zoom/webhook.ts');
+    const source = readFileSync(path, 'utf8');
+    const baselineAuthority = executableLedgerAuthority(source, path);
+    expect(baselineAuthority).toBe(false);
+    const baselineKinds = hazardSites(source, path, baselineAuthority).map((site) => site.kind);
+    expect(baselineKinds).toEqual(['Symbol']);
+    expect(discoverSupabaseCalls(source, path).filter((call) => call.unsupported)).toEqual([]);
+    const mutated = `${source}
+const z7R23Table = 'contract_' + 'hours_ledger';
+const z7R23Read = (0, z7R23Client.from);
+z7R23Read(z7R23Table);
+`;
+    const mutatedAuthority = executableLedgerAuthority(mutated, path);
+    expect(mutatedAuthority).toBe(true);
+    expect(hazardSites(mutated, path, mutatedAuthority).map((site) => site.kind))
+      .toEqual(baselineKinds);
+    // The guard turns red: the constructed site itself fails closed exactly once, and —
+    // documented conservative consequence — ledger authority entering the file also stops the
+    // previously discharged pruned/unreached sites from passing silently. Every result is a
+    // deterministic `unresolved ledger authority` marker; none is a fabricated exact call.
+    const mutatedUnsupported = discoverSupabaseCalls(mutated, path)
+      .filter((call) => call.unsupported);
+    expect(mutatedUnsupported).not.toEqual([]);
+    expect(mutatedUnsupported.filter((call) => call.expression === 'z7R23Read')).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+    ]);
+    expect(mutatedUnsupported.every((call) =>
+      call.unsupported === 'unresolved ledger authority')).toBe(true);
+    expect(discoverSupabaseCalls(mutated, path).filter((call) => call.method === 'from' &&
+      call.target === 'contract_hours_ledger')).toHaveLength(0);
   });
 
   it('R21 mutation: a hazard form entering a production root turns the guard red', () => {

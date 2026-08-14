@@ -47,6 +47,7 @@ type DiscoveredCall = {
   expression?: string;
   dynamicKind?: 'callable' | 'target';
   dynamicValues?: string[];
+  position?: number;
 };
 
 interface AbstractValue {
@@ -56,6 +57,7 @@ interface AbstractValue {
   elements?: AbstractValue;
   external: boolean;
   callableCandidate: boolean;
+  functions: Set<ts.FunctionLikeDeclaration>;
 }
 
 function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
@@ -66,6 +68,7 @@ function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
     elements: partial.elements,
     external: partial.external ?? false,
     callableCandidate: partial.callableCandidate ?? false,
+    functions: partial.functions ?? new Set(),
   };
 }
 
@@ -74,6 +77,7 @@ function unionValues(...values: AbstractValue[]): AbstractValue {
   for (const value of values) {
     value.strings.forEach((entry) => result.strings.add(entry));
     value.methods.forEach((entry) => result.methods.add(entry));
+    value.functions.forEach((entry) => result.functions.add(entry));
     for (const [name, property] of value.properties) {
       result.properties.set(name, result.properties.has(name)
         ? unionValues(result.properties.get(name)!, property)
@@ -104,6 +108,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   const scopes: Array<Map<string, AbstractValue>> = [new Map()];
   const calls: DiscoveredCall[] = [];
   const knownCallableAliases = new Set<string>();
+  const activeFunctions = new Set<ts.FunctionLikeDeclaration>();
 
   function binding(name: string): AbstractValue | undefined {
     for (let index = scopes.length - 1; index >= 0; index -= 1) {
@@ -128,6 +133,9 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       return valueOf({ strings: new Set([node.text]) });
     }
     if (ts.isIdentifier(node)) return binding(node.text) ?? valueOf({ external: true });
+    if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
+      return valueOf({ functions: new Set([node]) });
+    }
     if (ts.isConditionalExpression(node)) {
       return unionValues(resolveValue(node.whenTrue), resolveValue(node.whenFalse));
     }
@@ -232,6 +240,60 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     scopes[scopes.length - 1].set(name, valueOf({ external: true }));
   }
 
+  function assignPattern(name: ts.Expression, value: AbstractValue): void {
+    const target = unwrap(name);
+    if (ts.isIdentifier(target)) {
+      assign(target.text, value);
+      return;
+    }
+    if (ts.isPropertyAccessExpression(target)) {
+      const base = resolveValue(target.expression);
+      const prior = base.properties.get(target.name.text);
+      base.properties.set(target.name.text, prior ? unionValues(prior, value) : value);
+      return;
+    }
+    if (ts.isElementAccessExpression(target)) {
+      const base = resolveValue(target.expression);
+      const keys = resolveValue(target.argumentExpression);
+      if (keys.external || keys.strings.size === 0) {
+        base.external = true;
+        return;
+      }
+      for (const key of keys.strings) {
+        const prior = base.properties.get(key);
+        base.properties.set(key, prior ? unionValues(prior, value) : value);
+      }
+      return;
+    }
+    if (ts.isObjectLiteralExpression(target)) {
+      for (const property of target.properties) {
+        if (ts.isPropertyAssignment(property)) {
+          const keys = propertyNames(property.name);
+          const selected = keys.external || keys.strings.size === 0
+            ? valueOf({ external: true, callableCandidate: true })
+            : unionValues(...[...keys.strings].map((key) =>
+              value.properties.get(key) ??
+              (key === 'from' || key === 'rpc'
+                ? valueOf({ methods: new Set([key]), callableCandidate: true })
+                : valueOf({ external: true }))
+            ));
+          assignPattern(property.initializer, selected);
+        } else if (ts.isShorthandPropertyAssignment(property)) {
+          assign(property.name.text,
+            value.properties.get(property.name.text) ?? valueOf({ external: true }));
+        }
+      }
+      return;
+    }
+    if (ts.isArrayLiteralExpression(target)) {
+      for (const element of target.elements) {
+        if (!ts.isOmittedExpression(element)) {
+          assignPattern(element, value.elements ?? valueOf({ external: true }));
+        }
+      }
+    }
+  }
+
   function receiverExcluded(expression: ts.Expression): boolean {
     const text = expression.getText(sf);
     return text === 'Array' || text === 'Buffer' ||
@@ -243,17 +305,44 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     try { run(); } finally { scopes.pop(); }
   }
 
+  function visitStatements(statements: ts.NodeArray<ts.Statement>): void {
+    for (const statement of statements) {
+      if (ts.isFunctionDeclaration(statement) && statement.name) {
+        scopes[scopes.length - 1].set(statement.name.text, valueOf({
+          functions: new Set([statement]), callableCandidate: true,
+        }));
+      }
+    }
+    statements.forEach(visit);
+  }
+
   function visit(node: ts.Node): void {
+    if (ts.isSourceFile(node)) {
+      visitStatements(node.statements);
+      return;
+    }
     if (ts.isBlock(node) && node !== sf) {
-      withScope(() => node.statements.forEach(visit));
+      withScope(() => visitStatements(node.statements));
+      return;
+    }
+    if (ts.isFunctionDeclaration(node) && node.name) {
+      scopes[scopes.length - 1].set(node.name.text, valueOf({
+        functions: new Set([node]), callableCandidate: true,
+      }));
+      withScope(() => {
+        node.parameters.forEach((parameter) => declareName(parameter.name, undefined, valueOf()));
+        activeFunctions.add(node);
+        try { if (node.body) visit(node.body); } finally { activeFunctions.delete(node); }
+      });
       return;
     }
     if (ts.isFunctionLike(node)) {
       withScope(() => {
         node.parameters.forEach((parameter) =>
-          declareName(parameter.name, undefined, valueOf({ external: true }))
+          declareName(parameter.name, undefined, valueOf())
         );
-        if (node.body) visit(node.body);
+        activeFunctions.add(node);
+        try { if (node.body) visit(node.body); } finally { activeFunctions.delete(node); }
       });
       return;
     }
@@ -285,51 +374,44 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       declareName(node.name, node.initializer);
       return;
     }
-    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
-        ts.isIdentifier(node.left)) {
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
       visit(node.right);
-      assign(node.left.text, resolveValue(node.right));
+      assignPattern(node.left, resolveValue(node.right));
       return;
     }
     if (ts.isCallExpression(node)) {
-      let callable = valueOf();
+      if (ts.isPropertyAccessExpression(node.expression) &&
+          node.expression.name.text === 'push') {
+        const target = resolveValue(node.expression.expression);
+        const pushed = unionValues(...node.arguments.map((argument) => resolveValue(argument)));
+        target.elements = target.elements ? unionValues(target.elements, pushed) : pushed;
+        node.arguments.forEach(visit);
+        return;
+      }
+
+      let callable = resolveValue(node.expression);
       let receiver: ts.Expression | undefined;
       if (ts.isPropertyAccessExpression(node.expression) &&
           (node.expression.name.text === 'from' || node.expression.name.text === 'rpc')) {
-        callable = valueOf({
-          methods: new Set([node.expression.name.text]),
-          callableCandidate: true,
-        });
         receiver = node.expression.expression;
       } else if (ts.isElementAccessExpression(node.expression)) {
         receiver = node.expression.expression;
         const names = resolveValue(node.expression.argumentExpression);
-        if (names.external || names.strings.size === 0) {
-          callable = valueOf({ external: true, callableCandidate: true });
-        } else {
-          const methods = [...names.strings].filter(
-            (name): name is MethodName => name === 'from' || name === 'rpc'
-          );
-          if (methods.length === names.strings.size) {
-            callable = valueOf({ methods: new Set(methods), callableCandidate: true });
-          } else {
-            calls.push({
-              method: 'unknown',
-              expression: node.expression.argumentExpression?.getText(sf) ?? '<missing>',
-              dynamicKind: 'callable',
-              dynamicValues: [...names.strings].sort(),
-            });
-          }
+        const dbMethods = [...names.strings].filter((name) => name === 'from' || name === 'rpc');
+        if (!names.external && names.strings.size > 1 && dbMethods.length === 0 &&
+            callable.methods.size === 0) {
+          calls.push({ method: 'unknown', expression: node.expression.argumentExpression.getText(sf),
+            dynamicKind: 'callable', dynamicValues: [...names.strings].sort(), position: node.pos });
         }
-        if (callable.external && node.arguments.length > 0 && !receiverExcluded(receiver)) {
+        if (callable.external && node.arguments.length > 0 && !receiverExcluded(receiver) &&
+            (names.external || names.strings.size === 0 || dbMethods.length > 0)) {
           calls.push({
             method: 'unknown',
             unsupported: 'dynamic callable name',
             expression: node.expression.argumentExpression?.getText(sf) ?? '<missing>',
+            position: node.pos,
           });
         }
-      } else if (ts.isIdentifier(node.expression)) {
-        callable = binding(node.expression.text) ?? valueOf();
       }
       if (callable.callableCandidate && callable.external &&
           !ts.isElementAccessExpression(node.expression)) {
@@ -337,7 +419,17 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           method: 'unknown',
           unsupported: 'dynamic callable name',
           expression: node.expression.getText(sf),
+          position: node.pos,
         });
+      }
+      if (callable.external && !callable.callableCandidate) {
+        const possibleTarget = resolveValue(node.arguments[0]);
+        if (possibleTarget.strings.has('contract_hours_ledger')) {
+          calls.push({
+            method: 'unknown', unsupported: 'dynamic callable name',
+            expression: node.expression.getText(sf), position: node.pos,
+          });
+        }
       }
       if (callable.methods.size > 0 && (!receiver || !receiverExcluded(receiver))) {
         const targetValue = resolveValue(node.arguments[0]);
@@ -347,9 +439,10 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
               method,
               unsupported: 'dynamic target',
               expression: node.arguments[0]?.getText(sf) ?? '<missing>',
+              position: node.pos,
             });
           } else if (targetValue.strings.size === 1) {
-            calls.push({ method, target: [...targetValue.strings][0] });
+            calls.push({ method, target: [...targetValue.strings][0], position: node.pos });
           } else {
             calls.push({
               method,
@@ -357,15 +450,49 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
               expression: node.arguments[0]?.getText(sf) ?? '<missing>',
               dynamicKind: 'target',
               dynamicValues: [...targetValue.strings].sort(),
+              position: node.pos,
             });
           }
         }
+      }
+      for (const target of callable.functions) {
+        if (activeFunctions.has(target)) continue;
+        withScope(() => {
+          target.parameters.forEach((parameter, index) => {
+            const argument = node.arguments[index]
+              ? resolveValue(node.arguments[index])
+              : parameter.initializer ? resolveValue(parameter.initializer) : valueOf();
+            declareName(parameter.name, undefined, argument);
+          });
+          activeFunctions.add(target);
+          try { if (target.body) visit(target.body); } finally { activeFunctions.delete(target); }
+        });
       }
     }
     ts.forEachChild(node, visit);
   }
   visit(sf);
-  return calls;
+  const unique = new Map<string, DiscoveredCall>();
+  for (const call of calls) {
+    const key = [call.position, call.method, call.unsupported ?? '', call.dynamicKind ?? '',
+      call.expression ?? ''].join(':');
+    const prior = unique.get(key);
+    if (!prior) {
+      unique.set(key, call);
+      continue;
+    }
+    const values = new Set([
+      ...(prior.target ? [prior.target] : prior.targets ?? prior.dynamicValues ?? []),
+      ...(call.target ? [call.target] : call.targets ?? call.dynamicValues ?? []),
+    ]);
+    if (values.size === 1 && !prior.dynamicKind) prior.target = [...values][0];
+    else if (values.size > 0) {
+      prior.target = undefined;
+      prior.targets = [...values].sort();
+      prior.dynamicValues = [...values].sort();
+    }
+  }
+  return [...unique.values()].map(({ position: _position, ...call }) => call);
 }
 
 function directTableTouchCount(source: string): number {
@@ -620,7 +747,12 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
   const definitions = sqlObjectDefinitions(source, 'inline.sql');
   const knownBacked = ledgerObjectNames(definitions);
 
-  function analyze(start: number, end: number, inherited: Set<string>): SqlAnalysis {
+  function analyze(
+    start: number,
+    end: number,
+    inheritedObjects: Set<string>,
+    outerBackedAliases: Set<string> = new Set()
+  ): SqlAnalysis {
     const ctes = new Map<string, { open: number; close: number }>();
     for (let index = start; index < end; index += 1) {
       if (tokens[index]?.kind !== 'word' || tokens[index + 1]?.value !== 'as' ||
@@ -629,13 +761,13 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
       if (close !== undefined && close < end) ctes.set(tokens[index].value, { open: index + 2, close });
     }
 
-    const backedNames = new Set(inherited);
+    const backedNames = new Set(inheritedObjects);
     let changed = true;
     while (changed) {
       changed = false;
       for (const [name, range] of ctes) {
         if (backedNames.has(name)) continue;
-        const result = analyze(range.open + 1, range.close, backedNames);
+        const result = analyze(range.open + 1, range.close, backedNames, outerBackedAliases);
         if (result.backed) { backedNames.add(name); changed = true; }
       }
     }
@@ -647,12 +779,16 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
       if (close === undefined || close >= end) continue;
       const first = tokens[index + 1]?.value;
       if (first === 'select' || first === 'with' || first === 'update' || first === 'insert') {
-        childRanges.set(index, { close, analysis: analyze(index + 1, close, backedNames) });
+        childRanges.set(index, {
+          close,
+          analysis: analyze(index + 1, close, backedNames, outerBackedAliases),
+        });
         index = close;
       }
     }
 
     const aliases = new Set<string>();
+    const allLocalAliases = new Set<string>();
     const relations = new Set<string>();
     let localBacked = false;
     const atTop = (position: number): boolean => {
@@ -666,7 +802,10 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
       if (!atTop(index)) continue;
       const keyword = tokens[index]?.value;
       if (keyword !== 'from' && keyword !== 'join' && keyword !== 'update' &&
-          !(keyword === 'into' && tokens.slice(start, index).some((token) => token.value === 'insert'))) {
+          !(keyword === 'into' && tokens.slice(start, index).some((token) =>
+            token.value === 'insert' || token.value === 'merge')) &&
+          !(keyword === 'using' && tokens.slice(start, index).some((token) =>
+            token.value === 'merge'))) {
         continue;
       }
       let cursor = index + 1;
@@ -675,6 +814,7 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
         cursor = child.close + 1;
         if (tokens[cursor]?.value === 'as') cursor += 1;
         const alias = tokens[cursor]?.kind === 'word' ? tokens[cursor].value : undefined;
+        if (alias) allLocalAliases.add(alias);
         if (child.analysis.backed && alias) { aliases.add(alias); localBacked = true; }
         continue;
       }
@@ -691,6 +831,8 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
       if (tokens[cursor]?.value === 'as') cursor += 1;
       const possibleAlias = tokens[cursor]?.kind === 'word' && !SQL_RESERVED.has(tokens[cursor].value)
         ? tokens[cursor].value : undefined;
+      allLocalAliases.add(relation);
+      if (possibleAlias) allLocalAliases.add(possibleAlias);
       if (relationBacked) {
         localBacked = true;
         aliases.add(relation);
@@ -698,24 +840,53 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
       }
     }
 
+    // A correlated child can read a ledger alias established by this scope even
+    // though its SELECT text appears before this scope's FROM clause. Local aliases
+    // shadow outer names, including when the local relation is not ledger-backed.
+    const childVisible = new Set(outerBackedAliases);
+    for (const name of allLocalAliases) childVisible.delete(name);
+    for (const name of aliases) childVisible.add(name);
+    for (const [open, child] of childRanges) {
+      child.analysis = analyze(open + 1, child.close, backedNames, childVisible);
+    }
+
     let queryStart = end;
     for (let index = start; index < end; index += 1) {
       if (!atTop(index)) continue;
-      if (['select', 'update', 'insert', 'with'].includes(tokens[index]?.value)) {
+      if (['select', 'update', 'insert', 'delete', 'merge', 'with'].includes(tokens[index]?.value)) {
         queryStart = index;
         break;
       }
     }
 
     let count = 0;
-    if (localBacked) {
+    if (localBacked || outerBackedAliases.size > 0) {
       for (let index = queryStart; index < end; index += 1) {
-        if (!atTop(index) || tokens[index]?.value !== 'hours') continue;
-        if (tokens[index - 1]?.value === 'as') continue;
-        if (tokens[index - 1]?.value === '.') {
-          const qualifier = tokens[index - 2]?.value;
-          if (qualifier && aliases.has(qualifier)) count += 1;
-        } else {
+        if (!atTop(index)) continue;
+        if (tokens[index]?.value === 'hours') {
+          if (tokens[index - 1]?.value === 'as') continue;
+          if (tokens[index - 1]?.value === '.') {
+            const qualifier = tokens[index - 2]?.value;
+            if (qualifier && (aliases.has(qualifier) ||
+                (!allLocalAliases.has(qualifier) && outerBackedAliases.has(qualifier)))) count += 1;
+          } else if (localBacked || allLocalAliases.size === 0) {
+            count += 1;
+          }
+          continue;
+        }
+        if (tokens[index]?.value !== '*') continue;
+        const qualifier = tokens[index - 1]?.value === '.' ? tokens[index - 2]?.value : undefined;
+        if (qualifier) {
+          if (aliases.has(qualifier) ||
+              (!allLocalAliases.has(qualifier) && outerBackedAliases.has(qualifier))) count += 1;
+          continue;
+        }
+        // A whole-row star begins a SELECT/RETURNING item. Arithmetic and COUNT(*)
+        // are not whole-row reads merely because they occur later in that clause.
+        const previous = tokens[index - 1]?.value;
+        const wholeRowPrefix = previous === 'select' || previous === 'distinct' ||
+          previous === 'returning' || previous === ',';
+        if (wholeRowPrefix && (localBacked || allLocalAliases.size === 0)) {
           count += 1;
         }
       }
@@ -738,6 +909,11 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
         ['select', 'update', 'insert', 'delete', 'merge', 'with', 'table', 'copy']
           .includes(token.value)
       );
+    const hasMerge = tokens.slice(start, end).some((token) => token.value === 'merge');
+    if (hasMerge && (localBacked || hasLedgerWord ||
+        [...childRanges.values()].some((child) => child.analysis.backed))) {
+      unsupported.push('ledger-relevant MERGE requires explicit classification');
+    }
     if (hasLedgerWord && hasDml && !localBacked && count === 0) {
       unsupported.push('ledger-relevant statement could not be classified');
     }
@@ -750,6 +926,7 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
   }
 
   let count = 0;
+  let backed = false;
   const relations = new Set<string>();
   const unsupported: string[] = [];
   let start = 0;
@@ -757,11 +934,12 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
     if (index < tokens.length && tokens[index].value !== ';') continue;
     const result = analyze(start, index, knownBacked);
     count += result.count;
+    backed ||= result.backed;
     result.relations.forEach((entry) => relations.add(entry));
     result.unsupported.forEach((entry) => unsupported.push(entry));
     start = index + 1;
   }
-  return { count, backed: count > 0, relations, unsupported };
+  return { count, backed, relations, unsupported };
 }
 
 function sqlDirectHoursUseCount(source: string): number {
@@ -829,7 +1007,7 @@ const SQL_LEDGER_OBJECTS: Record<string, string[]> = {
 function expectExactCounts(actual: Record<string, number>, expected: Record<string, unknown[]>): void {
   expect(Object.keys(actual).sort()).toEqual(Object.keys(expected).sort());
   for (const [path, count] of Object.entries(actual)) {
-    expect(expected[path], path).toHaveLength(count);
+    expect(expected[path], `${path}; actual census ${JSON.stringify(actual)}`).toHaveLength(count);
   }
 }
 
@@ -973,6 +1151,35 @@ describe('contract_hours_ledger production consumer inventory', () => {
       method: 'unknown', unsupported: 'dynamic callable name', expression: 'call',
     }));
 
+    expect(directTableTouchCount(`
+      const holder = { read: client.from };
+      const alias = holder.read;
+      alias<Ledger>('contract_hours_ledger');
+    `)).toBe(1);
+    expect(indirectCalls(`
+      const holder = { call: client['rpc'] };
+      holder.call('get_bucket_summary');
+    `, objectNames)).toEqual(['get_bucket_summary']);
+    expect(directTableTouchCount(`
+      function invoke(read) { read('contract_hours_ledger'); }
+      invoke(client.from);
+    `)).toBe(1);
+    expect(discoverSupabaseCalls(`
+      function invoke(read) { read('contract_hours_ledger'); }
+      invoke(externalCallable);
+    `)).toContainEqual(expect.objectContaining({
+      method: 'unknown', unsupported: 'dynamic callable name', expression: 'read',
+    }));
+    expect(directTableTouchCount(`
+      const read = flag ? client.from : client.rpc;
+      read('contract_hours_ledger');
+    `)).toBe(1);
+    expect(directTableTouchCount(`
+      let read;
+      ({ from: read } = client);
+      read('contract_hours_ledger');
+    `)).toBe(1);
+
     const nestedAliases = `
       const METHOD = 'from';
       const read = client[METHOD];
@@ -1020,13 +1227,28 @@ describe('contract_hours_ledger production consumer inventory', () => {
         SELECT * FROM public.contract_hours_ledger
       )
       SELECT hours FROM ledger_rows;
-    `)).toBe(1);
+    `)).toBe(2);
     expect(sqlDirectHoursUseCount(
       'SELECT q.hours FROM (SELECT * FROM public.contract_hours_ledger) q;'
-    )).toBe(1);
+    )).toBe(2);
     expect(sqlDirectHoursUseCount(
       'SELECT outer_q.hours FROM (SELECT q.* FROM (SELECT * FROM public.contract_hours_ledger) q) outer_q;'
+    )).toBe(3);
+    expect(sqlDirectHoursUseCount(
+      'SELECT * FROM public.contract_hours_ledger;'
     )).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      'SELECT l.* FROM public.contract_hours_ledger AS l;'
+    )).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      'SELECT (SELECT l.hours) FROM public.contract_hours_ledger AS l;'
+    )).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      'SELECT (SELECT l.*) FROM public.contract_hours_ledger AS l;'
+    )).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      'SELECT (SELECT l.hours FROM safe_rows AS l) FROM public.contract_hours_ledger AS l;'
+    )).toBe(0);
     expect(sqlDirectHoursUseCount(
       'UPDATE public.contract_hours_ledger SET "hours" = 1;'
     )).toBe(1);
@@ -1034,11 +1256,23 @@ describe('contract_hours_ledger production consumer inventory', () => {
       'UPDATE public.contract_hours_ledger AS l SET ("hours", status) = (1, \'reservada\');'
     )).toBe(1);
     expect(sqlDirectHoursUseCount(
+      "UPDATE public.contract_hours_ledger SET status = 'consumida' RETURNING *;"
+    )).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      'DELETE FROM public.contract_hours_ledger WHERE false RETURNING contract_hours_ledger.*;'
+    )).toBe(1);
+    expect(sqlDirectHoursUseCount(
+      'INSERT INTO public.contract_hours_ledger (hours) VALUES (1) RETURNING *;'
+    )).toBe(2);
+    expect(sqlDirectHoursUseCount(
       "SELECT 'contract_hours_ledger.hours' AS note; -- SELECT hours FROM contract_hours_ledger\n"
     )).toBe(0);
     expect(() => sqlDirectHoursUseCount(
       'MERGE INTO contract_hours_ledger USING incoming ON true WHEN MATCHED THEN UPDATE SET hours = 1;'
-    )).toThrow(/could not be classified/);
+    )).toThrow(/MERGE/);
+    expect(() => sqlDirectHoursUseCount(
+      'MERGE INTO safe_target USING contract_hours_ledger AS source ON true WHEN NOT MATCHED THEN DO NOTHING;'
+    )).toThrow(/MERGE/);
     const unsupportedFunction = sqlObjectDefinitions(`
       CREATE FUNCTION public.synthetic_ledger_merge() RETURNS void
       LANGUAGE sql AS $body$
@@ -1047,10 +1281,13 @@ describe('contract_hours_ledger production consumer inventory', () => {
       $body$;
     `, 'synthetic.sql')[0];
     expect(() => sqlDirectHoursUseCount(unsupportedFunction.body))
-      .toThrow(/could not be classified/);
+      .toThrow(/MERGE/);
     expect(sqlDirectHoursUseCount(
       'SELECT l.status FROM contract_hours_ledger l; SELECT q.hours FROM (SELECT * FROM contract_hours_ledger) q;'
-    )).toBe(1);
+    )).toBe(2);
+    expect(sqlDirectHoursUseCount(
+      "SELECT '$$ SELECT * FROM contract_hours_ledger $$'::text; /* SELECT l.* FROM contract_hours_ledger l */"
+    )).toBe(0);
 
     const syntheticSql = `
       CREATE VIEW public.synthetic_ledger_view AS
@@ -1075,7 +1312,7 @@ describe('contract_hours_ledger production consumer inventory', () => {
       LANGUAGE sql AS $body$
         SELECT hours FROM public.synthetic_ledger_view
       $body$;
-    `)).toBe(1);
+    `)).toBe(2);
 
     // These representative mutations are detected but intentionally absent from
     // the production classifications: the same exact-count assertions above would
@@ -1127,6 +1364,27 @@ describe('contract_hours_ledger production consumer inventory', () => {
     expect(discoverSupabaseCalls(`
       const tables = ['safe_a'];
       { const tables = process.argv; for (const t of tables) client.from(t); }
+    `)).toContainEqual(expect.objectContaining({ unsupported: 'dynamic target' }));
+    const objectMutation = discoverSupabaseCalls(`
+      const targets = { table: 'safe_a' };
+      targets.table = 'contract_hours_ledger';
+      client.from(targets.table);
+    `);
+    expect(objectMutation[0].dynamicValues).toEqual(['contract_hours_ledger', 'safe_a']);
+    expect(directTableTouchCount(`
+      const targets = { table: 'safe_a' };
+      targets.table = 'contract_hours_ledger';
+      client.from(targets.table);
+    `)).toBe(1);
+    expect(directTableTouchCount(`
+      const targets = ['safe_a'];
+      targets.push('contract_hours_ledger');
+      for (const target of targets) client.from(target);
+    `)).toBe(1);
+    expect(discoverSupabaseCalls(`
+      const targets = ['safe_a'];
+      targets.push(process.argv[2]);
+      for (const target of targets) client.from(target);
     `)).toContainEqual(expect.objectContaining({ unsupported: 'dynamic target' }));
     expect(indirectCalls(`
       const names = ['safe_rpc', 'get_bucket_summary'];

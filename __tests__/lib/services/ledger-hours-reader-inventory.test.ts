@@ -67,6 +67,8 @@ interface AbstractValue {
   adapterCallable?: AbstractValue;
   adapterConflict: boolean;
   receiverProvenance?: 'database' | 'non-database' | 'ambiguous';
+  sequenceBuilder?: 'constructor' | 'of' | 'from' | 'concat';
+  sequenceSource?: AbstractValue;
 }
 
 function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
@@ -86,6 +88,8 @@ function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
     adapterCallable: partial.adapterCallable,
     adapterConflict: partial.adapterConflict ?? false,
     receiverProvenance: partial.receiverProvenance,
+    sequenceBuilder: partial.sequenceBuilder,
+    sequenceSource: partial.sequenceSource,
   };
 }
 
@@ -179,6 +183,16 @@ function unionValues(...values: AbstractValue[]): AbstractValue {
         ? pair(left.adapterCallable, right.adapterCallable)
         : left.adapterCallable ?? right.adapterCallable;
     }
+    if (left.sequenceBuilder && right.sequenceBuilder &&
+        left.sequenceBuilder !== right.sequenceBuilder) {
+      result.external = true;
+      result.callableCandidate = true;
+    } else {
+      result.sequenceBuilder = left.sequenceBuilder ?? right.sequenceBuilder;
+      result.sequenceSource = left.sequenceSource && right.sequenceSource
+        ? pair(left.sequenceSource, right.sequenceSource)
+        : left.sequenceSource ?? right.sequenceSource;
+    }
     return result;
   }
 
@@ -206,7 +220,9 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   const functionOutputs = new Map<ts.FunctionLikeDeclaration, AbstractValue>();
   const functionClosures = new Map<ts.FunctionLikeDeclaration, Map<string, AbstractValue>>();
   const functionStack: ts.FunctionLikeDeclaration[] = [];
-  const relativeImportDatabaseCache = new Map<string, boolean>();
+  type ReceiverProvenance = NonNullable<AbstractValue['receiverProvenance']>;
+  const moduleExportCache = new Map<string, Map<string, ReceiverProvenance>>();
+  const activeModuleExports = new Set<string>();
 
   function binding(name: string): AbstractValue | undefined {
     for (let index = scopes.length - 1; index >= 0; index -= 1) {
@@ -244,6 +260,36 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     ]) });
   }
 
+  function coherentSequence(
+    tupleElements: AbstractValue[],
+    external = false,
+    extraElements?: AbstractValue
+  ): AbstractValue {
+    const properties = new Map<string, AbstractValue>();
+    tupleElements.forEach((entry, index) => properties.set(String(index), entry));
+    properties.set('length', valueOf({ numbers: new Set([tupleElements.length]) }));
+    const candidates = [...tupleElements, ...(extraElements ? [extraElements] : [])];
+    return valueOf({
+      properties,
+      tupleElements,
+      elements: candidates.length > 0 ? unionValues(...candidates) : extraElements,
+      external,
+      callableCandidate: external && candidates.some((entry) => isDatabaseCallable(entry)),
+    });
+  }
+
+  function arrayConstructorValue(): AbstractValue {
+    return valueOf({
+      sequenceBuilder: 'constructor',
+      callableCandidate: true,
+      receiverProvenance: 'non-database',
+      properties: new Map([
+        ['of', valueOf({ sequenceBuilder: 'of', callableCandidate: true })],
+        ['from', valueOf({ sequenceBuilder: 'from', callableCandidate: true })],
+      ]),
+    });
+  }
+
   function classValue(node: ts.ClassLikeDeclaration): AbstractValue {
     const properties = new Map<string, AbstractValue>();
     for (const member of node.members) {
@@ -254,101 +300,245 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     return valueOf({ properties });
   }
 
-  function relativeImportReturnsDatabase(moduleName: string, importedName: string): boolean {
-    if (!moduleName.startsWith('.')) return false;
-    const importer = file.startsWith('/') ? file : join(ROOT, file);
-    const base = join(dirname(importer), moduleName);
-    const candidates = /\.[jt]sx?$/.test(base)
-      ? [base]
-      : [
-          `${base}.ts`, `${base}.tsx`, `${base}.js`, `${base}.jsx`,
-          join(base, 'index.ts'), join(base, 'index.tsx'), join(base, 'index.js'),
-        ];
-    const targetPath = candidates.find((candidate) => existsSync(candidate));
-    if (!targetPath) return false;
-    const cacheKey = `${targetPath}:${importedName}`;
-    const cached = relativeImportDatabaseCache.get(cacheKey);
-    if (cached !== undefined) return cached;
-
-    const target = ts.createSourceFile(targetPath, readFileSync(targetPath, 'utf8'),
-      ts.ScriptTarget.Latest, true, /x$/.test(targetPath) ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
-    const databaseFactories = new Set<string>();
-    for (const statement of target.statements) {
-      if (!ts.isImportDeclaration(statement) ||
-          !ts.isStringLiteralLike(statement.moduleSpecifier) ||
-          importProvenance(statement.moduleSpecifier.text) !== 'database') continue;
-      const clause = statement.importClause;
-      if (clause?.name) databaseFactories.add(clause.name.text);
-      if (clause?.namedBindings) {
-        if (ts.isNamespaceImport(clause.namedBindings)) {
-          databaseFactories.add(clause.namedBindings.name.text);
-        } else {
-          clause.namedBindings.elements.forEach((specifier) =>
-            databaseFactories.add(specifier.name.text));
-        }
-      }
-    }
-
-    function isDatabaseFactoryCall(node: ts.Expression): boolean {
-      const expression = unwrap(node);
-      if (!ts.isCallExpression(expression)) return false;
-      const callable = unwrap(expression.expression);
-      return (ts.isIdentifier(callable) && databaseFactories.has(callable.text)) ||
-        (ts.isPropertyAccessExpression(callable) &&
-          ts.isIdentifier(callable.expression) &&
-          databaseFactories.has(callable.expression.text));
-    }
-
-    function returnsDatabase(node: ts.Node): boolean {
-      const databaseLocals = new Set<string>();
-      function collectLocals(current: ts.Node): void {
-        if (current !== node && ts.isFunctionLike(current)) return;
-        if (ts.isVariableDeclaration(current) && ts.isIdentifier(current.name) &&
-            current.initializer && isDatabaseFactoryCall(current.initializer)) {
-          databaseLocals.add(current.name.text);
-        }
-        ts.forEachChild(current, collectLocals);
-      }
-      collectLocals(node);
-
-      let returned = false;
-      function inspectReturns(current: ts.Node): void {
-        if (current !== node && ts.isFunctionLike(current)) return;
-        if (ts.isReturnStatement(current) && current.expression) {
-          const expression = unwrap(current.expression);
-          returned ||= isDatabaseFactoryCall(expression) ||
-            (ts.isIdentifier(expression) && databaseLocals.has(expression.text));
-        } else if (ts.isArrowFunction(current) && !ts.isBlock(current.body)) {
-          returned ||= isDatabaseFactoryCall(current.body) ||
-            (ts.isIdentifier(current.body) && databaseLocals.has(current.body.text));
-        }
-        if (!returned) ts.forEachChild(current, inspectReturns);
-      }
-      inspectReturns(node);
-      return returned;
-    }
-
-    let result = false;
-    for (const statement of target.statements) {
-      if (ts.isFunctionDeclaration(statement) && statement.name?.text === importedName) {
-        result = returnsDatabase(statement);
-      } else if (ts.isVariableStatement(statement)) {
-        for (const declaration of statement.declarationList.declarations) {
-          if (ts.isIdentifier(declaration.name) && declaration.name.text === importedName &&
-              declaration.initializer) result ||= returnsDatabase(declaration.initializer);
-        }
-      }
-      if (result) break;
-    }
-    relativeImportDatabaseCache.set(cacheKey, result);
-    return result;
+  function mergeProvenance(
+    left: ReceiverProvenance | undefined,
+    right: ReceiverProvenance
+  ): ReceiverProvenance {
+    return !left || left === right ? right : 'ambiguous';
   }
 
-  function importedValue(moduleName: string, importedName: string): AbstractValue {
-    const receiverProvenance = relativeImportReturnsDatabase(moduleName, importedName)
-      ? 'database'
-      : importProvenance(moduleName);
+  function resolveModulePath(moduleName: string, importerPath: string): string | undefined {
+    if (!moduleName.startsWith('.')) return undefined;
+    const base = join(dirname(importerPath), moduleName);
+    const candidates = /\.(?:[cm]?[jt]sx?)$/.test(base)
+      ? [base]
+      : [
+          `${base}.ts`, `${base}.tsx`, `${base}.js`, `${base}.jsx`, `${base}.mts`,
+          `${base}.mjs`, `${base}.cts`, `${base}.cjs`, join(base, 'index.ts'),
+          join(base, 'index.tsx'), join(base, 'index.js'), join(base, 'index.jsx'),
+          join(base, 'index.mjs'), join(base, 'index.cjs'),
+        ];
+    return candidates.find((candidate) => existsSync(candidate));
+  }
+
+  function moduleExports(moduleName: string, importerPath: string): Map<string, ReceiverProvenance> {
+    const direct = importProvenance(moduleName);
+    const targetPath = resolveModulePath(moduleName, importerPath);
+    if (!targetPath) return new Map([['*', direct], ['default', direct]]);
+    const cached = moduleExportCache.get(targetPath);
+    if (cached) return cached;
+    if (activeModuleExports.has(targetPath)) return new Map([['*', 'ambiguous']]);
+    activeModuleExports.add(targetPath);
+
+    const exports = new Map<string, ReceiverProvenance>();
+    const locals = new Map<string, ReceiverProvenance>();
+    const target = ts.createSourceFile(targetPath, readFileSync(targetPath, 'utf8'),
+      ts.ScriptTarget.Latest, true,
+      /x$/.test(targetPath) ? ts.ScriptKind.TSX
+        : /\.[cm]?js$/.test(targetPath) ? ts.ScriptKind.JS : ts.ScriptKind.TS);
+
+    const setExport = (name: string, provenance: ReceiverProvenance): void => {
+      exports.set(name, mergeProvenance(exports.get(name), provenance));
+    };
+    const moduleBinding = (
+      source: string,
+      imported: string
+    ): ReceiverProvenance => {
+      const graph = moduleExports(source, targetPath);
+      return graph.get(imported) ??
+        (resolveModulePath(source, targetPath) ? 'ambiguous' : graph.get('*') ?? importProvenance(source));
+    };
+    const expressionProvenance = (
+      expression: ts.Expression | undefined,
+      seen = new Set<ts.Node>()
+    ): ReceiverProvenance => {
+      if (!expression || seen.has(expression)) return 'ambiguous';
+      seen.add(expression);
+      const current = expression.kind === ts.SyntaxKind.ParenthesizedExpression
+        ? (expression as ts.ParenthesizedExpression).expression : expression;
+      if (ts.isIdentifier(current)) return locals.get(current.text) ?? 'ambiguous';
+      if (ts.isCallExpression(current)) return expressionProvenance(current.expression, seen);
+      if (ts.isNewExpression(current)) {
+        const argumentProvenance = (current.arguments ?? []).map((argument) =>
+          expressionProvenance(argument));
+        return argumentProvenance.includes('database')
+          ? 'database'
+          : expressionProvenance(current.expression, seen);
+      }
+      if (ts.isPropertyAccessExpression(current)) {
+        return expressionProvenance(current.expression, seen);
+      }
+      if (ts.isElementAccessExpression(current)) {
+        return expressionProvenance(current.expression, seen);
+      }
+      if (ts.isConditionalExpression(current)) {
+        return mergeProvenance(
+          expressionProvenance(current.whenTrue, new Set(seen)),
+          expressionProvenance(current.whenFalse, new Set(seen))
+        );
+      }
+      if (ts.isArrowFunction(current) || ts.isFunctionExpression(current)) {
+        return functionReturnProvenance(current);
+      }
+      if (ts.isObjectLiteralExpression(current)) {
+        let result: ReceiverProvenance | undefined;
+        for (const property of current.properties) {
+          const provenance = ts.isPropertyAssignment(property)
+            ? expressionProvenance(property.initializer)
+            : ts.isMethodDeclaration(property)
+              ? functionReturnProvenance(property)
+              : undefined;
+          if (provenance) result = mergeProvenance(result, provenance);
+        }
+        return result ?? 'non-database';
+      }
+      return 'non-database';
+    };
+    const functionReturnProvenance = (node: ts.FunctionLikeDeclaration): ReceiverProvenance => {
+      let result: ReceiverProvenance | undefined;
+      const inspect = (current: ts.Node): void => {
+        if (current !== node && ts.isFunctionLike(current)) return;
+        if (ts.isVariableDeclaration(current) && ts.isIdentifier(current.name) &&
+            current.initializer) {
+          locals.set(current.name.text, expressionProvenance(current.initializer));
+        }
+        if (ts.isBinaryExpression(current) &&
+            current.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+            ts.isIdentifier(current.left)) {
+          locals.set(current.left.text, expressionProvenance(current.right));
+        }
+        if (ts.isReturnStatement(current) && current.expression) {
+          result = mergeProvenance(result, expressionProvenance(current.expression));
+          return;
+        }
+        ts.forEachChild(current, inspect);
+      };
+      if (ts.isArrowFunction(node) && !ts.isBlock(node.body)) {
+        return expressionProvenance(node.body);
+      }
+      if (node.body) inspect(node.body);
+      return result ?? 'non-database';
+    };
+    const bindRequire = (name: ts.BindingName, source: string): void => {
+      const graph = moduleExports(source, targetPath);
+      if (ts.isIdentifier(name)) {
+        locals.set(name.text, graph.get('*') ?? importProvenance(source));
+      } else if (ts.isObjectBindingPattern(name)) {
+        for (const element of name.elements) {
+          if (!ts.isIdentifier(element.name)) continue;
+          const imported = element.propertyName &&
+            (ts.isIdentifier(element.propertyName) || ts.isStringLiteralLike(element.propertyName))
+            ? element.propertyName.text : element.name.text;
+          locals.set(element.name.text,
+            graph.get(imported) ?? graph.get('*') ?? importProvenance(source));
+        }
+      }
+    };
+
+    for (const statement of target.statements) {
+      if (ts.isImportDeclaration(statement) && ts.isStringLiteralLike(statement.moduleSpecifier)) {
+        const source = statement.moduleSpecifier.text;
+        const clause = statement.importClause;
+        if (clause?.name) locals.set(clause.name.text, moduleBinding(source, 'default'));
+        if (clause?.namedBindings) {
+          if (ts.isNamespaceImport(clause.namedBindings)) {
+            locals.set(clause.namedBindings.name.text,
+              moduleExports(source, targetPath).get('*') ?? importProvenance(source));
+          } else {
+            for (const specifier of clause.namedBindings.elements) {
+              locals.set(specifier.name.text, moduleBinding(
+                source, specifier.propertyName?.text ?? specifier.name.text
+              ));
+            }
+          }
+        }
+      }
+      if (ts.isVariableStatement(statement)) {
+        for (const declaration of statement.declarationList.declarations) {
+          const initializer = declaration.initializer;
+          if (initializer && ts.isCallExpression(initializer) &&
+              ts.isIdentifier(initializer.expression) && initializer.expression.text === 'require' &&
+              ts.isStringLiteralLike(initializer.arguments[0])) {
+            bindRequire(declaration.name, initializer.arguments[0].text);
+          } else if (initializer && ts.isIdentifier(declaration.name)) {
+            locals.set(declaration.name.text, expressionProvenance(initializer));
+          }
+        }
+      }
+      if (ts.isFunctionDeclaration(statement) && statement.name) {
+        locals.set(statement.name.text, functionReturnProvenance(statement));
+      }
+    }
+    for (const statement of target.statements) {
+      if (ts.isExportDeclaration(statement)) {
+        const source = statement.moduleSpecifier && ts.isStringLiteralLike(statement.moduleSpecifier)
+          ? statement.moduleSpecifier.text : undefined;
+        if (!statement.exportClause && source) {
+          for (const [name, provenance] of moduleExports(source, targetPath)) {
+            if (name !== 'default' && name !== '*') setExport(name, provenance);
+          }
+        } else if (statement.exportClause && ts.isNamedExports(statement.exportClause)) {
+          for (const specifier of statement.exportClause.elements) {
+            const imported = specifier.propertyName?.text ?? specifier.name.text;
+            setExport(specifier.name.text, source
+              ? moduleBinding(source, imported)
+              : locals.get(imported) ?? 'ambiguous');
+          }
+        }
+      } else if (ts.isExportAssignment(statement)) {
+        setExport('default', expressionProvenance(statement.expression));
+      } else if (ts.isFunctionDeclaration(statement) && statement.name &&
+          statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)) {
+        setExport(statement.name.text, locals.get(statement.name.text) ?? 'ambiguous');
+        if (statement.modifiers.some((modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword)) {
+          setExport('default', locals.get(statement.name.text) ?? 'ambiguous');
+        }
+      } else if (ts.isVariableStatement(statement) &&
+          statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)) {
+        for (const declaration of statement.declarationList.declarations) {
+          if (ts.isIdentifier(declaration.name)) {
+            setExport(declaration.name.text, locals.get(declaration.name.text) ?? 'ambiguous');
+          }
+        }
+      } else if (ts.isExpressionStatement(statement) && ts.isBinaryExpression(statement.expression) &&
+          statement.expression.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+        const assignment = statement.expression;
+        const text = assignment.left.getText(target);
+        const commonName = /^exports\.([A-Za-z_$][\w$]*)$/.exec(text)?.[1] ??
+          /^module\.exports\.([A-Za-z_$][\w$]*)$/.exec(text)?.[1];
+        if (commonName) setExport(commonName, expressionProvenance(assignment.right));
+        else if (text === 'module.exports') setExport('default', expressionProvenance(assignment.right));
+      }
+    }
+    const aggregate = [...exports.values()].reduce<ReceiverProvenance | undefined>(
+      (result, provenance) => mergeProvenance(result, provenance), undefined
+    );
+    exports.set('*', aggregate ?? 'ambiguous');
+    activeModuleExports.delete(targetPath);
+    moduleExportCache.set(targetPath, exports);
+    return exports;
+  }
+
+  function importedValue(
+    moduleName: string,
+    importedName: string,
+    importerPath = file.startsWith('/') ? file : join(ROOT, file)
+  ): AbstractValue {
+    const graph = moduleExports(moduleName, importerPath);
+    const localModule = Boolean(resolveModulePath(moduleName, importerPath));
+    const receiverProvenance = importedName === '*' && localModule
+      ? 'ambiguous'
+      : graph.get(importedName) ??
+        (localModule ? 'ambiguous' : graph.get('*') ?? importProvenance(moduleName));
+    const properties = importedName === '*'
+      ? new Map([...graph.entries()].filter(([name]) => name !== '*')
+          .map(([name, provenance]) => [name, valueOf({
+            receiverProvenance: provenance,
+            external: provenance === 'ambiguous',
+          })]))
+      : new Map<string, AbstractValue>();
     return valueOf({
+      properties,
       receiverProvenance,
       external: receiverProvenance === 'ambiguous',
     });
@@ -357,6 +547,19 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   function selectedProperty(base: AbstractValue, property: string): AbstractValue {
     const stored = base.properties.get(property);
     if (stored) return stored;
+    if (/^(?:0|[1-9]\d*)$/.test(property) && base.tupleElements) {
+      return base.tupleElements[Number(property)] ?? valueOf({
+        external: base.external,
+        callableCandidate: base.external,
+      });
+    }
+    if (property === 'concat' && (base.tupleElements || base.elements)) {
+      return valueOf({
+        sequenceBuilder: 'concat',
+        sequenceSource: base,
+        callableCandidate: true,
+      });
+    }
     if (property === 'call' || property === 'apply' || property === 'bind') {
       return valueOf({
         adapter: property,
@@ -409,7 +612,8 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       if (resolved) return resolved;
       if (node.text === 'Reflect') return reflectValue();
       if (node.text === 'Function') return functionConstructorValue();
-      if (node.text === 'Array' || node.text === 'Buffer') {
+      if (node.text === 'Array') return arrayConstructorValue();
+      if (node.text === 'Buffer') {
         return valueOf({ receiverProvenance: 'non-database' });
       }
       return valueOf({ external: true });
@@ -425,7 +629,20 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       return valueOf({ functions: new Set([node]) });
     }
     if (ts.isClassExpression(node)) return classValue(node);
-    if (ts.isNewExpression(node)) return resolveValue(node.expression);
+    if (ts.isNewExpression(node)) {
+      const callable = resolveValue(node.expression);
+      if (!callable.sequenceBuilder) return callable;
+      return evaluateCallable(
+        callable,
+        invocationArgumentValues(node.arguments ?? ts.factory.createNodeArray()),
+        undefined,
+        {
+          record: false,
+          node: node as unknown as ts.CallExpression,
+          expression: node.expression.getText(sf),
+        }
+      );
+    }
     if (ts.isConditionalExpression(node)) {
       return unionValues(resolveValue(node.whenTrue), resolveValue(node.whenFalse));
     }
@@ -439,10 +656,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           valueOf({ external: spread.external || !spread.elements })
         )];
       });
-      return valueOf({
-        elements: unionValues(...tupleElements),
-        tupleElements,
-      });
+      return coherentSequence(tupleElements);
     }
     if (ts.isObjectLiteralExpression(node)) {
       const properties = new Map<string, AbstractValue>();
@@ -473,6 +687,10 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       return resolveValue(node.arguments[0]);
     }
     if (ts.isCallExpression(node)) {
+      if (ts.isIdentifier(node.expression) && node.expression.text === 'require' &&
+          ts.isStringLiteralLike(node.arguments[0])) {
+        return importedValue(node.arguments[0].text, '*');
+      }
       const callable = resolveValue(node.expression);
       return evaluateCallable(
         callable,
@@ -498,7 +716,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       const key = resolveValue(node.argumentExpression);
       if (!key.external && key.numbers.size > 0 && base.tupleElements) {
         return unionValues(...[...key.numbers].map((index) =>
-          base.tupleElements?.[index] ?? valueOf({
+          base.tupleElements?.[index] ?? base.properties.get(String(index)) ?? valueOf({
             external: base.external,
             callableCandidate: base.external,
           })
@@ -533,7 +751,8 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       value.properties.size > 0 || Boolean(value.elements) || Boolean(value.tupleElements) ||
       value.external || value.callableCandidate || value.functions.size > 0 ||
       Boolean(value.boundArguments) || Boolean(value.boundReceiver) || Boolean(value.adapter) ||
-      Boolean(value.receiverProvenance);
+      Boolean(value.receiverProvenance) || Boolean(value.sequenceBuilder) ||
+      Boolean(value.sequenceSource);
   }
 
   function applyBindingDefault(
@@ -673,6 +892,21 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     scopes[scopes.length - 1].set(name, valueOf({ external: true }));
   }
 
+  function writeSequencePosition(base: AbstractValue, index: number, value: AbstractValue): void {
+    if (!Number.isInteger(index) || index < 0 || index > 4096) {
+      base.external = true;
+      base.elements = base.elements ? unionValues(base.elements, value) : value;
+      return;
+    }
+    const tuple = base.tupleElements ?? [];
+    while (tuple.length <= index) tuple.push(valueOf());
+    tuple[index] = hasAbstractFacts(tuple[index]) ? unionValues(tuple[index], value) : value;
+    base.tupleElements = tuple;
+    base.properties.set(String(index), tuple[index]);
+    base.properties.set('length', valueOf({ numbers: new Set([tuple.length]) }));
+    base.elements = base.elements ? unionValues(base.elements, value) : value;
+  }
+
   function assignPattern(name: ts.Expression, value: AbstractValue): void {
     const target = unwrap(name);
     if (ts.isBinaryExpression(target) && target.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
@@ -696,11 +930,17 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     if (ts.isElementAccessExpression(target)) {
       const base = resolveValue(target.expression);
       const keys = resolveValue(target.argumentExpression);
-      if (keys.external || keys.strings.size === 0) {
+      if (keys.external || (keys.strings.size === 0 && keys.numbers.size === 0)) {
         base.external = true;
+        base.elements = base.elements ? unionValues(base.elements, value) : value;
         return;
       }
+      for (const index of keys.numbers) writeSequencePosition(base, index, value);
       for (const key of keys.strings) {
+        if (/^(?:0|[1-9]\d*)$/.test(key)) {
+          writeSequencePosition(base, Number(key), value);
+          continue;
+        }
         const prior = base.properties.get(key);
         base.properties.set(key, prior ? unionValues(prior, value) : value);
       }
@@ -748,7 +988,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
 
   function receiverExcluded(expression: ts.Expression): boolean {
     const text = expression.getText(sf);
-    return text === 'Array' || text === 'Buffer' ||
+    return text === 'Buffer' ||
       /\.storage\b/.test(text) || /\.registry\b/.test(text) || /\.query\b/.test(text);
   }
 
@@ -774,6 +1014,8 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       adapterConflict: value.adapterConflict,
       adapterCallable: value.adapterCallable
         ? valueFingerprint(value.adapterCallable, seen) : null,
+      sequenceBuilder: value.sequenceBuilder ?? null,
+      sequenceSource: value.sequenceSource ? valueFingerprint(value.sequenceSource, seen) : null,
       properties, elements: value.elements ? valueFingerprint(value.elements, seen) : null,
       tupleElements: value.tupleElements?.map((entry) => valueFingerprint(entry, seen)) ?? null,
     });
@@ -793,6 +1035,36 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     // traversed below. Only a database callable value itself crossing an opaque
     // HOF boundary is unresolved (for example externalHof(client.from)).
     return false;
+  }
+
+  function hasExecutableProvenance(
+    value: AbstractValue,
+    seen = new Set<AbstractValue>()
+  ): boolean {
+    if (seen.has(value)) return false;
+    seen.add(value);
+    if (value.methods.size > 0 || value.callableCandidate || value.adapter ||
+        value.sequenceBuilder || value.functions.size > 0) return true;
+    if (value.adapterCallable && hasExecutableProvenance(value.adapterCallable, seen)) return true;
+    if (value.sequenceSource && hasExecutableProvenance(value.sequenceSource, seen)) return true;
+    if (value.elements && hasExecutableProvenance(value.elements, seen)) return true;
+    if (value.tupleElements?.some((entry) => hasExecutableProvenance(entry, seen))) return true;
+    return [...value.properties.values()].some((entry) => hasExecutableProvenance(entry, seen));
+  }
+
+  function isIdentityFunction(target: ts.FunctionLikeDeclaration): boolean {
+    const first = target.parameters[0];
+    if (!first || !ts.isIdentifier(first.name) || !target.body) return false;
+    if (ts.isArrowFunction(target) && !ts.isBlock(target.body)) {
+      const body = unwrap(target.body);
+      return ts.isIdentifier(body) && body.text === first.name.text;
+    }
+    if (!ts.isBlock(target.body)) return false;
+    const executable = target.body.statements.filter((statement) => !ts.isEmptyStatement(statement));
+    if (executable.length !== 1 || !ts.isReturnStatement(executable[0]) ||
+        !executable[0].expression) return false;
+    const returned = unwrap(executable[0].expression);
+    return ts.isIdentifier(returned) && returned.text === first.name.text;
   }
 
   function invocationArgumentValues(args: ts.NodeArray<ts.Expression>): AbstractValue[] {
@@ -833,6 +1105,8 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       adapterCallable: callable.adapterCallable,
       adapterConflict: callable.adapterConflict,
       receiverProvenance: callable.receiverProvenance,
+      sequenceBuilder: callable.sequenceBuilder,
+      sequenceSource: callable.sequenceSource,
     });
   }
 
@@ -915,6 +1189,74 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         appliedArguments(args[1] ?? valueOf({ external: true })),
         args[0], context, nextPath, depth + 1
       );
+    }
+
+    if (callable.sequenceBuilder) {
+      if (callable.sequenceBuilder === 'constructor') {
+        const length = args.length === 1 && !args[0].external &&
+          args[0].numbers.size === 1 && args[0].strings.size === 0 &&
+          args[0].methods.size === 0 && args[0].functions.size === 0
+          ? [...args[0].numbers][0] : undefined;
+        if (length !== undefined && Number.isInteger(length) && length >= 0 && length <= 4096) {
+          return coherentSequence(Array.from({ length }, () => valueOf()));
+        }
+        return coherentSequence(args);
+      }
+      if (callable.sequenceBuilder === 'of') return coherentSequence(args);
+      if (callable.sequenceBuilder === 'concat') {
+        const source = callable.sequenceSource ?? valueOf({ external: true });
+        const entries = [...(source.tupleElements ?? [])];
+        let external = source.external || !source.tupleElements;
+        let uncertain = source.elements;
+        for (const argument of args) {
+          if (argument.tupleElements) entries.push(...argument.tupleElements);
+          else {
+            entries.push(argument);
+            external ||= argument.external;
+            uncertain = uncertain ? unionValues(uncertain, argument) : argument;
+          }
+        }
+        return coherentSequence(entries, external, uncertain);
+      }
+
+      const source = args[0] ?? valueOf({ external: true });
+      const mapper = args[1];
+      if (!source.tupleElements) {
+        return valueOf({
+          elements: unionValues(source.elements ?? valueOf(), valueOf({
+            external: true,
+            callableCandidate: source.external ||
+              Boolean(source.elements && isDatabaseCallable(source.elements)),
+          })),
+          external: true,
+          callableCandidate: true,
+        });
+      }
+      if (!mapper) return coherentSequence(source.tupleElements, source.external, source.elements);
+      if (mapper.external || (mapper.functions.size === 0 && mapper.methods.size === 0)) {
+        return valueOf({
+          elements: unionValues(...source.tupleElements, valueOf({
+            external: true,
+            callableCandidate: source.tupleElements.some((entry) => isDatabaseCallable(entry)),
+          })),
+          external: true,
+          callableCandidate: true,
+        });
+      }
+      if (!source.tupleElements.some((entry) => isDatabaseCallable(entry))) {
+        return coherentSequence(source.tupleElements, source.external, source.elements);
+      }
+      if (mapper.functions.size > 0 && [...mapper.functions].every(isIdentityFunction)) {
+        return coherentSequence(source.tupleElements, source.external, source.elements);
+      }
+      return valueOf({
+        elements: unionValues(...source.tupleElements, valueOf({
+          external: true,
+          callableCandidate: true,
+        })),
+        external: true,
+        callableCandidate: true,
+      });
     }
 
     if (context.record && callable.methods.size > 0) {
@@ -1065,10 +1407,15 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       });
       iterations += 1;
       if (iterations > 32) {
-        calls.push({
-          method: 'unknown', unsupported: 'dynamic callable name',
-          expression: 'non-convergent recursive callable', position: target.pos,
-        });
+        const executable = [...(functionInputs.get(target) ?? []),
+          ...(functionOutputs.has(target) ? [functionOutputs.get(target)!] : [])]
+          .some((entry) => hasExecutableProvenance(entry));
+        if (executable) {
+          calls.push({
+            method: 'unknown', unsupported: 'dynamic callable name',
+            expression: 'non-convergent recursive callable', position: target.pos,
+          });
+        }
         break;
       }
     } while (before !== (functionInputs.get(target) ?? [])
@@ -1222,17 +1569,41 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       if (ts.isPropertyAccessExpression(node.expression) &&
           node.expression.name.text === 'push') {
         const target = resolveValue(node.expression.expression);
-        const pushed = unionValues(...node.arguments.map((argument) => resolveValue(argument)));
-        target.elements = target.elements ? unionValues(target.elements, pushed) : pushed;
+        const pushed = invocationArgumentValues(node.arguments);
+        if (target.tupleElements && !target.external) {
+          pushed.forEach((entry) => writeSequencePosition(
+            target, target.tupleElements?.length ?? 0, entry
+          ));
+        } else {
+          const values = unionValues(...pushed);
+          target.elements = target.elements ? unionValues(target.elements, values) : values;
+          target.external = true;
+        }
         node.arguments.forEach(visit);
         return;
       }
       if (ts.isPropertyAccessExpression(node.expression) &&
           node.expression.name.text === 'splice') {
         const target = resolveValue(node.expression.expression);
-        const inserted = unionValues(...node.arguments.slice(2).map((argument) => resolveValue(argument)));
-        target.elements = target.elements ? unionValues(target.elements, inserted) : inserted;
-        target.external ||= node.arguments.slice(2).some((argument) => resolveValue(argument).external);
+        const start = resolveValue(node.arguments[0]);
+        const remove = resolveValue(node.arguments[1]);
+        const startIndex = !start.external && start.numbers.size === 1 ? [...start.numbers][0] : undefined;
+        const removeCount = !remove.external && remove.numbers.size === 1 ? [...remove.numbers][0] : undefined;
+        if (target.tupleElements && Number.isInteger(startIndex) && Number.isInteger(removeCount) &&
+            startIndex !== undefined && removeCount !== undefined && startIndex >= 0 && removeCount >= 0) {
+          const inserted = invocationArgumentValues(ts.factory.createNodeArray(node.arguments.slice(2)));
+          target.tupleElements.splice(startIndex, removeCount, ...inserted);
+          target.properties = new Map(target.properties);
+          [...target.properties.keys()].filter((name) => /^(?:0|[1-9]\d*)$/.test(name))
+            .forEach((name) => target.properties.delete(name));
+          target.tupleElements.forEach((entry, index) => target.properties.set(String(index), entry));
+          target.properties.set('length', valueOf({ numbers: new Set([target.tupleElements.length]) }));
+          target.elements = unionValues(...target.tupleElements);
+        } else {
+          const inserted = unionValues(...node.arguments.slice(2).map((argument) => resolveValue(argument)));
+          target.elements = target.elements ? unionValues(target.elements, inserted) : inserted;
+          target.external = true;
+        }
         node.arguments.forEach(visit);
         return;
       }
@@ -3248,6 +3619,189 @@ describe('contract_hours_ledger production consumer inventory', () => {
     expect(directTableTouchCount(localOrdinary)).toBe(0);
     expect(discoverSupabaseCalls(localOrdinary)
       .filter((call) => call.unsupported)).toEqual([]);
+  });
+
+  it('preserves executable positions through finite sequence construction and mutation', () => {
+    const expectOneLedgerCall = (source: string): void => {
+      const discovered = discoverSupabaseCalls(source);
+      expect(discovered.filter((call) => call.method === 'from' &&
+        (call.target === 'contract_hours_ledger' ||
+         call.targets?.includes('contract_hours_ledger'))), source).toHaveLength(1);
+      expect(discovered.filter((call) => call.unsupported), source).toEqual([]);
+    };
+
+    for (const source of [
+      `const [fn, receiver, table] =
+         Array.of(client.from, client, 'contract_hours_ledger');
+       fn.call(receiver, table);`,
+      `const [fn, receiver, table] =
+         new Array(client.from, client, 'contract_hours_ledger');
+       fn.call(receiver, table);`,
+      `const [fn, receiver, table] =
+         Array.from([client.from, client, 'contract_hours_ledger']);
+       fn.call(receiver, table);`,
+      `const slots = [];
+       [slots[0], slots[1], slots[2]] =
+         [client.from, client, 'contract_hours_ledger'];
+       slots[0].call(slots[1], slots[2]);`,
+      `const { of: make } = Array;
+       const key = 0;
+       const slots = make(client.from, client, 'contract_hours_ledger');
+       const read = slots[key];
+       read.call(slots[1], slots[2]);`,
+      `const construct = Array;
+       const slots = new construct(...[client.from, client, 'contract_hours_ledger']);
+       slots['0'].call(slots[1], slots[2]);`,
+      `const method = 'from';
+       const make = Array[method];
+       const slots = make([client.from, client, 'contract_hours_ledger'], value => value);
+       slots[0].call(slots[1], slots[2]);`,
+      `const head = Array.of(client.from);
+       const slots = head.concat([client], Array.of('contract_hours_ledger'));
+       slots[0].call(slots[1], slots[2]);`,
+      `function parts(factory = Array.of) {
+         return factory(client.from, client, 'contract_hours_ledger');
+       }
+       const invoke = () => parts();
+       const [fn, receiver, table] = flag ? invoke() : [...invoke()];
+       fn.call(receiver, table);`,
+      `const slots = new Array(3);
+       const index = 0;
+       ({ fn: slots[index], nested: [slots[1], slots[2]] } = {
+         fn: client.from,
+         nested: [client, 'contract_hours_ledger'],
+       });
+       slots[index].call(slots[1], slots[2]);`,
+      `function invoke([fn, receiver, table, ...rest]) {
+         fn.call(receiver, table);
+       }
+       const slots = Array.of(0, client.from, client, 'contract_hours_ledger');
+       const [, ...tail] = slots;
+       invoke(tail);`,
+    ]) expectOneLedgerCall(source);
+
+    for (const source of [
+      `const slots = Array.from(externalSequence);
+       slots[0].call(slots[1], 'contract_hours_ledger');`,
+      `const slots = Array.from([client.from], externalMapper);
+       slots[0](client, 'contract_hours_ledger');`,
+      `const make = externalFactory;
+       const slots = make(client.from, client, 'contract_hours_ledger');
+       slots[0].call(slots[1], slots[2]);`,
+    ]) {
+      expect(discoverSupabaseCalls(source), source).toContainEqual(expect.objectContaining({
+        method: 'unknown', unsupported: 'dynamic callable name',
+      }));
+    }
+
+    for (const source of [
+      `function ordinary(value) { return value; }
+       const holes = new Array(3);
+       const [first = ordinary, second = ordinary] = holes;
+       first.call(null, 'contract_hours_ledger');`,
+      `function ordinary(value) { return value; }
+       const slots = Array.of(ordinary, null, 'contract_hours_ledger');
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = Array.from(['contract_hours_ledger']);
+       const value = slots[0];`,
+    ]) {
+      expect(directTableTouchCount(source), source).toBe(0);
+      expect(discoverSupabaseCalls(source).filter((call) => call.unsupported), source).toEqual([]);
+    }
+
+    const cyclic = `
+      const slots = Array.of(client.from, client, 'contract_hours_ledger');
+      slots.push(slots);
+      slots[0].call(slots[1], slots[2]);
+    `;
+    expect(discoverSupabaseCalls(cyclic)).toEqual(discoverSupabaseCalls(cyclic));
+    expectOneLedgerCall(cyclic);
+  });
+
+  it('resolves ESM and CommonJS provenance through re-export graphs', () => {
+    for (const source of [
+      `const { Readable } = require('node:stream');
+       Readable.from('contract_hours_ledger');`,
+      `const stream = require('node:stream');
+       const R = stream['Readable'];
+       R.from('contract_hours_ledger');`,
+      `const stream = require('node:stream').default;
+       const { ['Readable']: R } = stream;
+       R['from']('contract_hours_ledger');`,
+      `const make = require('node:buffer').Buffer.from;
+       make('contract_hours_ledger');`,
+    ]) {
+      expect(directTableTouchCount(source), source).toBe(0);
+      expect(discoverSupabaseCalls(source).filter((call) => call.unsupported), source).toEqual([]);
+    }
+
+    expect(directTableTouchCount(`
+      import { useSupabaseClient } from '../lib/frontend-auth-utils';
+      const database = useSupabaseClient();
+      database.from('contract_hours_ledger');
+    `, join(ROOT, 'pages/synthetic.ts'))).toBe(1);
+
+    const fixtureRoot = mkdtempSync(join(ROOT, '.z7-r15-modules-'));
+    try {
+      writeFileSync(join(fixtureRoot, 'factory.ts'), `
+        import { createClient } from '@supabase/supabase-js';
+        export const makeDatabase = () => createClient('url', 'key');
+        export default makeDatabase;
+      `);
+      writeFileSync(join(fixtureRoot, 'barrel-a.ts'), `
+        export { makeDatabase as openDatabase } from './factory';
+        export { default } from './factory';
+      `);
+      writeFileSync(join(fixtureRoot, 'barrel-b.ts'), `
+        export * from './barrel-a';
+      `);
+      writeFileSync(join(fixtureRoot, 'common.cjs'), `
+        const { createClient } = require('@supabase/supabase-js');
+        exports.makeDatabase = () => createClient('url', 'key');
+      `);
+      writeFileSync(join(fixtureRoot, 'cycle-a.ts'), `
+        export * from './cycle-b';
+        export { makeDatabase } from './factory';
+      `);
+      writeFileSync(join(fixtureRoot, 'cycle-b.ts'), `
+        export * from './cycle-a';
+      `);
+      const importer = join(fixtureRoot, 'consumer.ts');
+      for (const source of [
+        `import { openDatabase } from './barrel-a';
+         openDatabase().from('contract_hours_ledger');`,
+        `import databaseFactory from './barrel-a';
+         const database = databaseFactory();
+         database['from']('contract_hours_ledger');`,
+        `import * as factories from './barrel-b';
+         factories.openDatabase().from('contract_hours_ledger');`,
+        `const { makeDatabase: open } = require('./common');
+         open().from('contract_hours_ledger');`,
+        `import { makeDatabase } from './cycle-a';
+         makeDatabase().from('contract_hours_ledger');`,
+      ]) expect(directTableTouchCount(source, importer), source).toBe(1);
+
+      const circularUnknown = `
+        import { missing } from './cycle-b';
+        missing().from('contract_hours_ledger');
+      `;
+      expect(discoverSupabaseCalls(circularUnknown, importer))
+        .toEqual(discoverSupabaseCalls(circularUnknown, importer));
+      expect(discoverSupabaseCalls(circularUnknown, importer)).toContainEqual(
+        expect.objectContaining({ method: 'unknown', unsupported: 'dynamic callable name' })
+      );
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+
+    for (const source of [
+      `const api = require('external-api');
+       api.from('contract_hours_ledger');`,
+      `const { client } = require('external-api');
+       client['from']('contract_hours_ledger');`,
+    ]) expect(discoverSupabaseCalls(source), source).toContainEqual(expect.objectContaining({
+      method: 'unknown', unsupported: 'dynamic callable name',
+    }));
   });
 
   it('classifies composite ledger rows and column-opaque ledger DML', () => {

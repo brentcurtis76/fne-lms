@@ -5,20 +5,22 @@
 - Builder state: `REVIEW READY`; this document is evidence, not an acceptance verdict.
 - Canonical branch: `feat/zoom-hours`.
 - Immutable cumulative base: `4399949942bfcf49dfa8de40cbf7edbf40f0490e`.
-- Rejected round-nine canonical head: `1c0ce93fed6114650a32f2e70e3c2f24c5c690de`
-  (54 commits from the base; tree `95ad611ad2a44668ddee148cc5d5812150af97b4`).
+- Rejected round-ten canonical head: `47febb25cd65dff583ec516bce9022336f4a306e`
+  (59 commits from the base; tree `79643b415d5311db28069fff382b164e1424c25f`).
   It is a rejected review point, not acceptance evidence.
-- Detached round-nine starting point: `f4d784e89058ece250f8df8ac39c687a3f84e628`
-  (54 commits; tree-equivalent to the rejected canonical head before the new contract).
-- Detached round-nine contract cherry-pick: `c9ebc5c9cb1b6a51220112cc4985a05629b9cb7a`
-  (55 commits).
-- Detached round-nine attendance authority implementation:
-  `64f4724fa63d18403f6fbdaba880ab58b53175ff` (56 commits).
-- Detached round-nine executable discovery implementation:
-  `de5428556d71fd14a9a20d22069a001c38866eec` (57 commits).
-- Detached round-nine state reconciliation: `9f1f59b3666e6d33f98194b05db7e2ffdf177f7d`
-  (58 commits).
-- This evidence document is the 59th cumulative detached commit. A commit cannot truthfully embed
+- Detached round-ten starting point: `b6f38484d7931f96f075490bd2558d1ff6fbd9fc`
+  (59 commits; tree-equivalent to the rejected canonical head before the new contract).
+- Detached round-ten contract cherry-pick: `5d430ebddce774176747123e924b8e5572202b3d`
+  (60 commits).
+- Detached round-ten database authority implementation:
+  `6d79f9d225db873b6228958c517de6f0d93c92e5` (61 commits).
+- Detached round-ten executable discovery implementation:
+  `5942932d764b6d86c1cc160e401d484fd7a3f931` (62 commits).
+- Detached round-ten state reconciliation: `571bb0aeae042fd903e3941bbacf64fad8b71dae`
+  (63 commits).
+- Detached round-ten alternate-assignment audit:
+  `647e5bf00bda6b80a1056dd75779249a82da220d` (64 commits).
+- This evidence document is the 65th cumulative detached commit. A commit cannot truthfully embed
   its own identity; its exact detached SHA is supplied in the builder handoff. The external review
   dispatch must pin the post-cherry-pick canonical HEAD (`CANONICAL_HEAD_PENDING_INTEGRATION`).
 - Review boundary: `4399949942bfcf49dfa8de40cbf7edbf40f0490e..HEAD`.
@@ -27,13 +29,14 @@ There is no recursive HEAD placeholder in this artifact. A commit cannot contain
 and cherry-picking changes detached commit identities. All embedded SHAs above are already stable
 objects with counts verified by `git rev-list --count 43999499..<sha>`.
 
-Ordered detached commits after `f4d784e89058ece250f8df8ac39c687a3f84e628`:
+Ordered detached commits after `b6f38484d7931f96f075490bd2558d1ff6fbd9fc`:
 
-1. `c9ebc5c9cb1b6a51220112cc4985a05629b9cb7a` — round-nine contract cherry-pick.
-2. `64f4724fa63d18403f6fbdaba880ab58b53175ff` — attendance, observation, and report-batch RPC-only authority plus real database regressions.
-3. `de5428556d71fd14a9a20d22069a001c38866eec` — live callable/target dataflow and conservative whole-row/correlated/DML SQL discovery.
-4. `9f1f59b3666e6d33f98194b05db7e2ffdf177f7d` — round-nine project-state reconciliation.
-5. This evidence commit — exact detached SHA in the builder handoff.
+1. `5d430ebddce774176747123e924b8e5572202b3d` — round-ten contract cherry-pick.
+2. `6d79f9d225db873b6228958c517de6f0d93c92e5` — ledger INSERT and Z7 identity-sequence authority hardening plus pgTAP.
+3. `5942932d764b6d86c1cc160e401d484fd7a3f931` — convergent TypeScript analysis and composite/DML SQL discovery.
+4. `571bb0aeae042fd903e3941bbacf64fad8b71dae` — round-ten project-state reconciliation.
+5. `647e5bf00bda6b80a1056dd75779249a82da220d` — audit the sole database function assignment path and reconcile final pgTAP counts.
+6. This evidence commit — exact detached SHA in the builder handoff.
 
 ## Objective, delivered scope, and current status
 
@@ -45,7 +48,7 @@ reconciliation, append-only override machinery, comparison/override UI, and faci
 attendance suggestions.
 
 Z7 is implemented on the feature branch but remains in independent remediation/re-review. It is
-not accepted, merged, deployed, or production-verified. All eleven Z7 migrations have been replayed
+not accepted, merged, deployed, or production-verified. All twelve Z7 migrations have been replayed
 only against the local Supabase stack; production application and read-only verification remain a
 human-controlled post-merge step.
 
@@ -55,6 +58,15 @@ unrelated refactors.
 
 ## Finding disposition
 
+### Round ten
+
+| Finding | Disposition and evidence |
+|---|---|
+| Z7-R10.1 | Additive migration `20260813120800_ledger_insert_override_sequence_privileges.sql` revokes table-level ledger INSERT from every exposed role and grants authenticated/service only the mechanically audited ten-column union used by reservation and manual-entry production writers. `effective_minutes`, cancellation/update fields, and audit columns are excluded; UUID/time defaults and `RETURNING` remain functional. The executable TS inventory independently proves exactly two production INSERT shapes. pgTAP proves authenticated admin and service injection fail with zero injected rows/events, both real writer shapes succeed, and no default, identity, generated column, or BEFORE trigger can populate the override. |
+| Z7-R10.2 | The migration revokes every privilege on both Z7 identity sequences—the override ordering sequence and report-batch sequence—from `PUBLIC`, `anon`, `authenticated`, and `service_role`. Catalog tests prove USAGE/SELECT/UPDATE are false; real `nextval`, sequence read, and `setval` probes fail before mutation. The 94-assertion owner RPC chain and real concurrency proof preserve monotonic apply/reverse/replay and deterministic conflict behavior. |
+| Z7-R10.3 | The TypeScript analyzer now converges function-input values to a fixed point across direct/mutual recursion and calls before definition, with deterministic cycle bounds. It propagates spread/rest/default parameters and object spreads, models `Object.assign` and `splice`, and conservatively marks representative unmodeled object/array mutations external. Executable probes retain stale safe literals while requiring ledger discovery or explicit unsupported results; every prior TS/TSX/JS/JSX dataflow case remains green. |
+| Z7-R10.4 | The SQL walker now counts bare composite aliases, qualified composites, function consumers such as `row_to_json(alias)`, and `RETURNING alias`. Every ledger INSERT/UPDATE/DELETE without an hours token contributes a write touch; ledger MERGE remains explicit unsupported. The recomputed exact raw-SQL census is **28**, up from 27 because the audited override RPC's column-opaque ledger UPDATE is now represented. Nested/correlated/shadowed/CTE/view/function/transitive/star/comment/literal tests remain green. |
+
 ### Round nine
 
 | Finding | Disposition and evidence |
@@ -62,7 +74,7 @@ unrelated refactors.
 | Z7-R9.1 | Additive migration `20260813120700_attendance_rpc_write_boundaries.sql` revokes direct `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, and `TRIGGER` on attendance and observations from `PUBLIC`, `anon`, `authenticated`, and `service_role`, while preserving required reads and RLS. The owner-executed occurrence join/leave RPCs retain fixed empty `search_path` and are the only exposed-role writers. Catalog/role pgTAP proves every direct mutation is denied, the obsolete leave signature remains non-executable, and pre-start null claims, matching occurrences, surface/session/school matching, tenant isolation, and lifecycle writes remain green. Real two-connection evidence gives one winner for competing occurrence UUIDs; the loser returns `occurrence_mismatch`, inserts/closes no interval, and inserts no observation. |
 | Z7-R9.2 | The same migration adds owner-executed `create_attendance_report_batch`, validates meeting/surface/school/occurrence identity, and always creates `pending`; it replaces rejection/promotion with owner-definer fixed-empty-search-path definitions before revoking every direct batch mutation. Promotion alone inserts the exact validated attendance rows and completes atomically. Production `attendance-report-store` now calls the creation RPC. pgTAP covers direct pending/complete forgery denial, exact creation, mismatch, empty promotion, rejection/replay, terminality, and all exposed roles. A real concurrent promotion produces one `promoted` and one `batch_not_pending`, with one exact authoritative result. |
 | Z7-R9.3 | Source discovery now propagates callable and target abstract values through object properties/elements, callable parameters, conditional expressions, destructuring assignments, alias chains, reassignment/property mutation, arrays/`push`, and loop bindings under lexical scope. Unresolved external forms are explicit unsupported results. Mutation probes keep stale safe literals present while redirecting the live binding to a ledger table/backed RPC or external value; every TS/TSX/JS/JSX probe changes the exact map or fails closed rather than returning empty. |
-| Z7-R9.4 | The SQL token/scope walker now propagates correlated outer ledger aliases, respects nested alias shadowing, counts `*`, `alias.*`, and DML `RETURNING *`, and discovers every INSERT/UPDATE/DELETE relation while failing closed for ledger-relevant `MERGE ... USING` ambiguity. Mutation coverage includes nested/derived/CTE/function/view/transitive forms, quoted identifiers, tuple writes, multiple statements, comments/literals, whole-row reads/returns, arbitrary aliases, correlated subqueries, and DML relations. The production census remains the exact 14/22, 8/10, 7/27, and 8/11 map below: these new syntax classes expose no previously unclassified production use. |
+| Z7-R9.4 | The SQL token/scope walker now propagates correlated outer ledger aliases, respects nested alias shadowing, counts `*`, `alias.*`, and DML `RETURNING *`, and discovers every INSERT/UPDATE/DELETE relation while failing closed for ledger-relevant `MERGE ... USING` ambiguity. Mutation coverage includes nested/derived/CTE/function/view/transitive forms, quoted identifiers, tuple writes, multiple statements, comments/literals, whole-row reads/returns, arbitrary aliases, correlated subqueries, and DML relations. At the Round 9 checkpoint the census was 14/22, 8/10, 7/27, and 8/11; Round 10 supersedes the SQL-expression component with 7/28 by accounting for column-opaque DML. |
 
 ### Round eight
 
@@ -137,7 +149,9 @@ unrelated refactors.
   gaps with the conservative executable census below. Round nine removes the remaining direct
   attendance/observation/batch interfaces, routes all legitimate report-batch state through
   owner-definer RPCs, and extends discovery across live object/parameter/mutation/loop flows plus
-  whole-row, correlated, and DML SQL forms without changing the exact production census.
+  whole-row, correlated, and DML SQL forms. Round ten excludes `effective_minutes` from exposed-role
+  INSERT, makes both Z7 identity sequences owner-only, converges recursive/spread/rest/mutation
+  source analysis, and accounts for composite rows plus every ledger DML relation.
 
 ## Production `contract_hours_ledger.hours` direct-and-transitive inventory
 
@@ -161,6 +175,15 @@ irrelevant. Classifications below are in source order when a file touches the ta
 | `pages/api/sessions/[id]/approve.ts` | 1 | `write`: approval creates the reservation row. |
 | `pages/api/sessions/reports/analytics.ts` | 1 | `aggregate`: hours KPI uses `billableHours(..., 'charged_total')`. |
 | `pages/consultor/sessions/index.tsx` | 1 | `status-only`: ledger status only. |
+
+The same AST walk separately inventories ledger INSERT object literals. Exactly two production
+shapes exist: reservation in `lib/services/hour-tracking.ts` and manual entry in
+`pages/api/contracts/[id]/hours/ledger/index.ts`. Their union is exactly `allocation_id`,
+`session_id`, `hours`, `status`, `session_date`, `recorded_by`, `is_over_budget`, `is_manual`,
+`planned_minutes_snapshot`, and `notes`. Migration `20260813120800` grants only that union to
+authenticated/service roles. `effective_minutes`, cancellation/update/audit columns, dynamic
+keys/spreads, and unexplained writers are absent; any new or unsupported INSERT shape makes the
+guard red.
 
 Indirect calls are discovered from the SQL dependency graph rather than a hand-written RPC-name
 regex. `fail-closed` means an error cannot authorize a write or return an incomplete authoritative
@@ -195,7 +218,7 @@ callable/target or changed literal makes the guard red until classified.
 | `supabase/migrations/20260805120000_reschedule_hours_rpc.sql` | 5 | `historical` x5: first reschedule definition, superseded by later identical-signature replacements. |
 | `supabase/migrations/20260809120000_fix_bucket_summary_fanout.sql` | 2 | `historical` x2: intermediate bucket aggregate, superseded by the Z7 override-aware definition. |
 | `supabase/migrations/20260809120100_reschedule_rpc_uses_bucket_summary.sql` | 3 | `historical`, `historical`, `write`: superseded duration/bucket reads and its ledger update; it is retained as immutable migration history. |
-| `supabase/migrations/20260813120200_session_hour_overrides.sql` | 5 | `aggregate`, `aggregate`, `billable`, `billable`, `billable`: active school reserved/consumed aggregates and consultant-payment branches use `COALESCE(round(effective_minutes / 60, 2), hours)`. Comments are stripped before counting. |
+| `supabase/migrations/20260813120200_session_hour_overrides.sql` | 6 | `write`, `aggregate`, `aggregate`, `billable`, `billable`, `billable`: the audited owner RPC's ledger update is now represented even though it does not spell `hours`; active school reserved/consumed aggregates and consultant-payment branches use `COALESCE(round(effective_minutes / 60, 2), hours)`. Comments are stripped before counting. |
 | `supabase/migrations/20260813120300_reschedule_availability_guard.sql` | 3 | `historical`, `write`, `historical`: superseded R6 reschedule read/write/self-fallback retained as immutable migration history. |
 | `supabase/migrations/20260813120500_reschedule_tracking_pair_guard.sql` | 3 | `historical`, `write`, `historical`: active reschedule reads planned ledger hours and writes its replacement with the prior value as the date-only fallback; none is post-session Zoom billing. |
 
@@ -217,10 +240,11 @@ The only active financial formulas are the shared TypeScript `billableHours` der
 coalesce twin above. Raw admin ledger/comparison reads are intentional historical evidence, writes
 are lifecycle operations, and status-only queries do not calculate a monetary or consumption value.
 The executable maps therefore cover 14 direct production source files/22 touches, 8 indirect
-production source files/10 calls, 7 SQL files/27 uncommented raw-hours expressions, and 8 migration
+production source files/10 calls, 7 SQL files/28 direct ledger expressions/writes, and 8 migration
 files/11 ledger-backed definitions, with zero unexplained uses. Whole-row reads/returns, correlated
 outer aliases, alias shadowing, and every recognized DML relation either enter those exact maps or
-fail explicitly; the Round 9 production census introduced no hidden use and changed no count.
+fail explicitly. Round 10 adds the previously invisible column-opaque override UPDATE, yielding the
+current exact 28-touch SQL map; no production consumer remains unexplained.
 
 ## Mechanically complete cumulative file inventory
 
@@ -244,11 +268,13 @@ Risk grouping describes review priority, not ownership.
 - `supabase/migrations/20260813120500_reschedule_tracking_pair_guard.sql`
 - `supabase/migrations/20260813120600_participant_occurrence_authority.sql`
 - `supabase/migrations/20260813120700_attendance_rpc_write_boundaries.sql`
+- `supabase/migrations/20260813120800_ledger_insert_override_sequence_privileges.sql`
 - `supabase/tests/002-zoom-internal-isolation.sql`
 - `supabase/tests/011-zoom-public-rls.sql`
 - `supabase/tests/013-session-reschedule-atomic.sql`
 - `supabase/tests/015-session-hour-overrides.sql`
 - `supabase/tests/016-attendance-write-boundaries.sql`
+- `supabase/tests/017-ledger-insert-sequence-boundaries.sql`
 
 ### Highest risk — Zoom ingestion, report authority, and lifecycle runtime
 
@@ -348,6 +374,7 @@ Risk grouping describes review priority, not ownership.
 - `docs/plan/zoom/remediation/Z7-review-7.md`
 - `docs/plan/zoom/remediation/Z7-review-8.md`
 - `docs/plan/zoom/remediation/Z7-review-9.md`
+- `docs/plan/zoom/remediation/Z7-review-10.md`
 - `docs/plan/zoom/reviews/fase-7-review-request.md`
 - `docs/plan/zoom/reviews/fase-7-review-verdict.md`
 
@@ -367,7 +394,7 @@ comm -3 \
     | sed -n 's/^- `\(.*\)`$/\1/p' | sort)
 ```
 
-Result after the evidence commit: no output. Counts: cumulative diff **108**, inventory **108**,
+Result after the evidence commit: no output. Counts: cumulative diff **111**, inventory **111**,
 duplicates **0**.
 
 ## Gate and fail-on-old evidence
@@ -377,22 +404,43 @@ piped through `tail`.
 
 | Command | Result | Exit |
 |---|---|---:|
-| `npx vitest run __tests__/lib/services/ledger-hours-reader-inventory.test.ts __tests__/lib/zoom/attendance-report-store.test.ts __tests__/lib/zoom/attendance-store.test.ts __tests__/lib/zoom/participant-lifecycle.test.ts __tests__/lib/zoom/jobs/attendance-reconcile.test.ts` | Round-nine source/SQL discovery and production attendance/report focus: 5 files, **91 green** | 0 |
-| Focused inherited high-risk Vitest command over reservation, snapshot, JSON ledger, single/bulk approval, creation, reschedule, override, inventory, billable/isolation, cron/webhook, report/store/reconcile, participant lifecycle, attendance store, and lifecycle instants | 18 files, **287 green** | 0 |
-| Focused PostgreSQL setup + `011-zoom-public-rls.sql` + `016-attendance-write-boundaries.sql` after fresh replay | **286 assertions green**: 2 setup + **175** public-surface + **109** new write-boundary assertions | 0 |
+| Focused Round 10 Vitest over reservation, planned snapshot, JSON/manual ledger, override API, and executable inventory | 5 files, **53 green** | 0 |
+| Focused inherited high-risk Vitest command over reservation, snapshot, JSON ledger, single/bulk approval, creation, reschedule, override, inventory, billable/isolation, cron/webhook, report/store/reconcile, participant lifecycle, attendance store, and lifecycle instants | 18 files, **290 green** | 0 |
+| Focused PostgreSQL `017-ledger-insert-sequence-boundaries.sql` after fresh replay | **63 assertions green**: table/column/default/trigger/function/role injection, both legitimate writer shapes, exact sequence census, and direct sequence denials | 0 |
+| Focused PostgreSQL `015-session-hour-overrides.sql` | **94 assertions green**, retaining apply/reverse/replay/chain/financial authority | 0 |
 | `npm run type-check` | no diagnostics | 0 |
 | `npm run lint` | zero warnings | 0 |
 | `bash scripts/ci/check-rls-migrations.sh` | no RLS disablement | 0 |
-| `TZ=America/Santiago npm test` | 323 files, **7,367 green / 11 skipped** | 0 |
+| `TZ=America/Santiago npm test` | 323 files, **7,370 green / 11 skipped** | 0 |
 | `npm run build` | production build; **156/156 static pages** | 0 |
-| Fresh local `supabase db reset` | all migrations through additive `20260813120700` replayed; repeated after Chromium to remove synthetic fixtures | 0 |
-| `npm run test:db` | 13 files, **892 assertions green** | 0 |
+| Fresh local `supabase db reset` | all migrations through additive `20260813120800` replayed; repeated after Chromium to remove synthetic fixtures | 0 |
+| `npm run test:db` | 14 files, **955 assertions green** | 0 |
 | `npm run test:attendance-authority-concurrency` | two different occurrence UUID claims: one `interval_opened`, one `occurrence_mismatch`, loser 0 observations/0 closes; concurrent batch promotion: one `promoted`, one `batch_not_pending`, exact empty authority | 0 |
 | `npm run test:override-concurrency` | identical race apply+replay; forged/different payloads `P0409` sequentially and concurrently; no `23505` | 0 |
 | Fresh local `supabase db reset`; local-CLI URL/keys supplied to `node scripts/ci/seed-e2e.mjs`; `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **117/117 passed**, one worker | 0 |
 | `node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json` | 11 mandatory specs ran with no skips | 0 |
-| `TZ=UTC npm test` | 323 files, **7,367 green / 11 skipped** | 0 |
-| `TZ=Europe/Madrid npm test` | **7,359 green / 8 failed / 11 skipped** in 323 files; all 8 are inherited `lib/__tests__/businessDays.test.ts` | 1 inherited |
+| `TZ=UTC npm test` | 323 files, **7,370 green / 11 skipped** | 0 |
+| `TZ=Europe/Madrid npm test` | **7,362 green / 8 failed / 11 skipped** in 323 files; all 8 are inherited `lib/__tests__/businessDays.test.ts` | 1 inherited |
+
+Round-ten fail-on-old/mutation evidence was rollback-only or in-memory and the final schema was
+freshly replayed afterward:
+
+- A real local transaction temporarily restored service-role table INSERT on the ledger and all
+  override-sequence privileges. It produced `old_injected_effective_rows=1`,
+  `old_linked_audit_rows=0`, and `old_sequence_setval=4242`, then rolled back. The checked-in
+  migration makes both authenticated-admin and service-role injections fail while reservation and
+  manual-entry shapes still receive UUID/time defaults and returned rows.
+- The 63-assertion catalog/behavior suite audits the exact two production INSERT objects and their
+  ten-column union, excludes `effective_minutes`, verifies no default/identity/generated/trigger
+  or alternate-function assignment, inventories exactly two Z7 identity sequences, and rejects USAGE/SELECT/UPDATE,
+  `nextval`, reads, and `setval` for exposed roles.
+- Executable TypeScript mutations cover direct/mutual recursion, calls before definition,
+  spread/rest/default parameters, `Object.assign`, `splice`, and conservative unmodeled mutations.
+  Every probe reaches the ledger or an explicit unsupported result, terminates deterministically,
+  and retains all earlier property/parameter/conditional/loop/alias/root cases.
+- SQL mutations cover bare/qualified composites, `row_to_json`, `RETURNING` composite, and every
+  ledger DML relation with or without `hours`; MERGE stays explicit unsupported. The exact
+  production map increases by one to 28 because the override ledger UPDATE is no longer invisible.
 
 Round-nine fail-on-old/mutation evidence was rollback-only or in-memory and left the final local
 schema freshly replayed with no synthetic fixtures:
@@ -511,35 +559,44 @@ first invoked without local Supabase environment values: compilation succeeded, 
 collection failed closed because the public URL/anonymous key were absent. It was rerun after
 supplying the exact local CI URL/keys and feature flags, so public values were inlined, and produced
 156/156 static pages. No persistent test environment file remains, and a final local reset removed
-the synthetic browser fixtures.
+the synthetic browser fixtures. In Round 10 an attempted two-positional-file `supabase test db`
+focus was misparsed by the CLI/TAP harness and ran zero tests; setup and `017` were then invoked as
+separate commands. After the later clean reset, invoking `017` alone correctly failed because the
+test-helper schema is created by `000-setup.sql`; running setup first produced 63/63, followed by
+the full 955-assertion suite. The first rollback probe schema-qualified built-in `setval` as
+`public.setval`, so PostgreSQL aborted that transaction before sequence mutation; the corrected
+built-in call reproduced `setval=4242` and rolled back. None of these retries changed committed or
+persistent state.
 
 ## Explicit inherited deviations
 
 - Advisory `npm run lint:testid` remains the round-two measured repository baseline of **44 errors
-  / 2,625 warnings**. Round nine adds no interactive UI.
+  / 2,625 warnings**. Round ten adds no interactive UI.
 - Madrid's eight `businessDays.test.ts` failures are the previously reproduced out-of-scope
   licitación defect. All Z7/hours tests are green in all three zones.
 - The broad `npm run e2e` inherited round-one result remains **160 passed / 27 skipped / 1 did not
-  run / 62 failed (250 total)**. Round nine changes no `tests/e2e/` path; the supported mandatory
+  run / 62 failed (250 total)**. Round ten changes no `tests/e2e/` path; the supported mandatory
   selector was rerun fresh at 117/117.
 
 None of these deviations is represented as a green gate.
 
 ## Independent reviewer focus and residual risks
 
-1. Inspect every grant and callable signature on attendance, observations, and report batches.
-   Direct exposed-role writes must fail while owner-definer RPCs retain fixed empty `search_path`,
-   exact identity validation, RLS/tenant scope, and only the reads production needs.
-2. Race two different occurrence claims and two batch promotions on separate real connections.
-   Verify loser zero-writes, one exact report authority, terminal retry/replay, authoritative empty
-   reports, and that creation can never manufacture a terminal row.
-3. Mutate live callables/targets through properties/elements, parameters, conditionals,
-   destructuring assignment, reassignment/mutation, arrays/loops, nested shadowing, generics, and
-   TS/TSX/JS/JSX roots while stale safe literals remain. No unresolved path may disappear.
-4. Re-run both mechanical inventories against integrated HEAD: cumulative paths **108/108**;
-   classifications **14/22** direct, **8/10** indirect, **7/27** SQL expressions, and **8/11** SQL
-   objects. Mutate stars/whole rows, correlated and shadowed aliases, every DML relation,
-   MERGE/USING, CTE/view/function/transitive forms, comments, strings, and multiple statements.
+1. Re-audit every production ledger INSERT and compare its exact column union to grants. Attempt
+   authenticated-admin/service injection plus defaults, sequences, generated columns, triggers,
+   and alternate functions; only the audited override RPC may set `effective_minutes`.
+2. Exercise both Z7 identity sequences as each exposed role: no privilege, `nextval`, read, or
+   `setval` may work, while owner apply/reverse/replay and report promotion remain monotonic under
+   real concurrency.
+3. Mutate live callables/targets through direct/mutual recursion, calls before definition,
+   spread/rest/default parameters, `Object.assign`, `splice`, representative unmodeled mutation,
+   and all prior property/parameter/conditional/loop/alias/root forms. No unresolved path may
+   disappear or retain only a stale safe value, and cycles must terminate deterministically.
+4. Re-run both mechanical inventories against integrated HEAD: cumulative paths **111/111**;
+   classifications **14/22** direct, **8/10** indirect, **7/28** SQL expressions/writes, and
+   **8/11** SQL objects. Mutate composites/function consumers/RETURNING, stars/whole rows,
+   correlated and shadowed aliases, every DML relation, MERGE/USING,
+   CTE/view/function/transitive forms, comments, strings, and multiple statements.
 5. Preserve earlier availability, pair, exact-hundredths, pagination, terminal authority, UUID,
    canonical override concurrency, JSON facilitator scoping, comparison-to-billing isolation, and
    school/payment/export regressions.

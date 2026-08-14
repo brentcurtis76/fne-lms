@@ -371,7 +371,13 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   // imports, function/class declarations, for-in/of targets) are tainted and never resolve.
   const STATIC_STRING_SET_LIMIT = 16;
   const STATIC_STRING_DEPTH_LIMIT = 32;
-  const simpleNameInitializers = new Map<string, ts.Expression[]>();
+  // Z7-R25 finding 1: every recorded write carries whether it is a declaration initializer or
+  // a post-initialization assignment. A cycle whose participating edges are declarations only
+  // is a genuine temporal-dead-zone self-reference (runtime throws before any call); a cycle
+  // passing through an assignment is an ordinary re-assignment whose self-reference denotes
+  // the name's PRIOR value — never proof of unreachability or inertness.
+  interface RecordedWrite { expression: ts.Expression; viaAssignment: boolean }
+  const simpleNameInitializers = new Map<string, RecordedWrite[]>();
   const rewrittenNames = new Set<string>();
   // Function/class declaration names are not string-resolvable, but unlike genuinely tainted
   // names their value IS statically known (a callable), so the fallback classifier may still
@@ -430,7 +436,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       if (ts.isVariableDeclaration(node)) {
         if (ts.isIdentifier(node.name) && node.initializer) {
           const list = simpleNameInitializers.get(node.name.text) ?? [];
-          list.push(node.initializer);
+          list.push({ expression: node.initializer, viaAssignment: false });
           simpleNameInitializers.set(node.name.text, list);
         } else {
           taintPattern(node.name);
@@ -441,7 +447,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         if (ts.isIdentifier(node.left)) {
           if (node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
             const list = simpleNameInitializers.get(node.left.text) ?? [];
-            list.push(node.right);
+            list.push({ expression: node.right, viaAssignment: true });
             simpleNameInitializers.set(node.left.text, list);
           } else {
             rewrittenNames.add(node.left.text);
@@ -484,18 +490,27 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   //                 'contract_hours_ledger' is still decided exactly. Without a working set,
   //                 membership is excluded only by the bounded length proof (the ledger name
   //                 cannot fit min..max); otherwise it remains possible and must fail closed.
-  // - cycle:        self-referential initializers; runtime throws (TDZ) before any call.
+  // - cycle:        self-referential writes. Declaration-only cycles are genuine TDZ (runtime
+  //                 throws before any call); assignment cycles are ordinary re-assignments and
+  //                 are NEVER proof of unreachability or inertness (Z7-R25).
   // - unresolvable: tainted names or forms that are not statically string-building; falls back
   //                 to the R22 value/provenance classification.
   // All caps stay explicit and deterministic; memoization is per node at the top level only.
   const STATIC_STRING_WORKING_LIMIT = 4096;
   interface StaticStringLengths { minLength: number; maxLength: number }
+  // 'cycle' carries whether any participating edge is a post-initialization assignment
+  // (Z7-R25). Declaration-only cycles are genuine TDZ self-references; assignment cycles are
+  // ordinary re-assignments whose self-reference denotes the prior value, so in unions they
+  // are the neutral element (the fixpoint adds nothing new) and must never absorb a
+  // provably ledger-bearing sibling branch, while in concatenations they build unbounded
+  // new strings and become an unbounded string-building overflow.
   type StaticStringResolution =
     | { kind: 'finite'; values: ReadonlySet<string> }
     | ({ kind: 'overflow'; working?: ReadonlySet<string> } & StaticStringLengths)
-    | { kind: 'cycle' }
+    | { kind: 'cycle'; viaAssignment: boolean }
     | { kind: 'unresolvable' };
-  const STATIC_CYCLE: StaticStringResolution = { kind: 'cycle' };
+  const STATIC_TDZ_CYCLE: StaticStringResolution = { kind: 'cycle', viaAssignment: false };
+  const STATIC_ASSIGNMENT_CYCLE: StaticStringResolution = { kind: 'cycle', viaAssignment: true };
   const STATIC_UNRESOLVABLE: StaticStringResolution = { kind: 'unresolvable' };
   const lengthsOf = (values: ReadonlySet<string>): StaticStringLengths => {
     let minLength = Number.POSITIVE_INFINITY;
@@ -530,7 +545,15 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     if (left.kind === 'unresolvable' || right.kind === 'unresolvable') {
       return STATIC_UNRESOLVABLE;
     }
-    if (left.kind === 'cycle' || right.kind === 'cycle') return STATIC_CYCLE;
+    // Cycles are the neutral element of a union (Z7-R25): the self-reference contributes no
+    // value beyond the fixpoint's other branches, so the reachable non-cycle alternative is
+    // preserved — a cycle must never absorb a provably ledger-bearing sibling.
+    if (left.kind === 'cycle' && right.kind === 'cycle') {
+      return left.viaAssignment || right.viaAssignment
+        ? STATIC_ASSIGNMENT_CYCLE : STATIC_TDZ_CYCLE;
+    }
+    if (left.kind === 'cycle') return right;
+    if (right.kind === 'cycle') return left;
     const leftValues = concreteValues(left);
     const rightValues = concreteValues(right);
     if (leftValues && rightValues &&
@@ -551,7 +574,17 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     if (left.kind === 'unresolvable' || right.kind === 'unresolvable') {
       return STATIC_UNRESOLVABLE;
     }
-    if (left.kind === 'cycle' || right.kind === 'cycle') return STATIC_CYCLE;
+    // A declaration-only (TDZ) cycle poisons a concatenation: evaluating the operand throws
+    // before any composition, so the whole chain is dead at runtime. An assignment cycle
+    // concatenates the name's unknown prior value — an unbounded string-building overflow
+    // that can spell anything and must fail closed, never discharge (Z7-R25).
+    if ((left.kind === 'cycle' && !left.viaAssignment) ||
+        (right.kind === 'cycle' && !right.viaAssignment)) {
+      return STATIC_TDZ_CYCLE;
+    }
+    if (left.kind === 'cycle' || right.kind === 'cycle') {
+      return { kind: 'overflow', minLength: 0, maxLength: Number.POSITIVE_INFINITY };
+    }
     const leftValues = concreteValues(left);
     const rightValues = concreteValues(right);
     if (leftValues && rightValues &&
@@ -571,8 +604,12 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     };
   };
   const staticStringMemo = new Map<ts.Node, StaticStringResolution>();
+  // Each frame records the name being resolved and whether the edge into its write was a
+  // post-initialization assignment; a cycle's character is decided by the edges it actually
+  // traverses (Z7-R25).
+  interface StaticResolutionFrame { name: string; viaAssignment: boolean }
   const staticStringValues = (
-    input: ts.Expression, nameStack: readonly string[] = [], depth = 0
+    input: ts.Expression, nameStack: readonly StaticResolutionFrame[] = [], depth = 0
   ): StaticStringResolution => {
     if (depth > STATIC_STRING_DEPTH_LIMIT) {
       // Depth exhaustion is only reachable through nested string-building constructs, so the
@@ -632,17 +669,25 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         if (rewrittenNames.has(node.text) || declaredCallableNames.has(node.text)) {
           return STATIC_UNRESOLVABLE;
         }
-        if (nameStack.includes(node.text)) return STATIC_CYCLE;
-        const initializers = simpleNameInitializers.get(node.text);
-        if (!initializers || initializers.length === 0) return STATIC_UNRESOLVABLE;
-        const grownStack = [...nameStack, node.text];
+        const cycleStart = nameStack.findIndex((frame) => frame.name === node.text);
+        if (cycleStart >= 0) {
+          // The cycle's character is the character of the edges it traverses: any assignment
+          // edge makes it an ordinary re-assignment self-reference; declarations only make it
+          // a genuine TDZ self-reference.
+          return nameStack.slice(cycleStart).some((frame) => frame.viaAssignment)
+            ? STATIC_ASSIGNMENT_CYCLE : STATIC_TDZ_CYCLE;
+        }
+        const writes = simpleNameInitializers.get(node.text);
+        if (!writes || writes.length === 0) return STATIC_UNRESOLVABLE;
         let resolution: StaticStringResolution | undefined;
-        for (const initializer of initializers) {
-          const next = staticStringValues(initializer, grownStack, depth + 1);
+        for (const write of writes) {
+          // No early return on cycles: they are union-neutral, and a later or earlier
+          // non-cycle write must never be discarded by the self-reference (Z7-R25).
+          const next = staticStringValues(write.expression,
+            [...nameStack, { name: node.text, viaAssignment: write.viaAssignment }],
+            depth + 1);
           resolution = resolution ? combineUnion(resolution, next) : next;
-          if (resolution.kind === 'cycle' || resolution.kind === 'unresolvable') {
-            return resolution;
-          }
+          if (resolution.kind === 'unresolvable') return resolution;
         }
         return resolution ?? STATIC_UNRESOLVABLE;
       }
@@ -676,10 +721,16 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     // A string-building value beyond every bounded proof is 'possible' and fails closed
     // without the gate. Cycles and unresolvable forms fall through to the R22 value/
     // provenance classification below.
-    const membership = staticLedgerMembership(staticStringValues(argument));
+    const resolution = staticStringValues(argument);
+    const membership = staticLedgerMembership(resolution);
     if (membership === 'present') return 'authority';
     if (membership === 'absent') return 'none';
     if (membership === 'possible') return 'possible';
+    // Z7-R25: an assignment cycle is an ordinary re-assignment self-reference — never proof
+    // of unreachability, TDZ, or inertness — so it is uncertain by construction and must not
+    // fall through to a stale evaluator binding that would prove it 'none'. Declaration-only
+    // TDZ cycles keep their accepted fallback (runtime throws before any call).
+    if (resolution.kind === 'cycle' && resolution.viaAssignment) return 'uncertain';
     const expression = unwrap(argument);
     if (ts.isStringLiteralLike(expression)) {
       return expression.text === 'contract_hours_ledger' ? 'authority' : 'none';
@@ -3362,8 +3413,12 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         callable.methods.size === 0 && callable.functions.size === 0 &&
         callable.adapter === undefined && !callable.alwaysThrows &&
         (context.node.arguments ?? []).some((argument) => {
-          const membership = staticLedgerMembership(staticStringValues(argument));
+          const resolution = staticStringValues(argument);
+          const membership = staticLedgerMembership(resolution);
           if (membership === 'present' || membership === 'possible') return true;
+          if (resolution.kind === 'cycle' && resolution.viaAssignment && sourceNamesLedger) {
+            return true;
+          }
           const expression = unwrap(argument);
           return ts.isIdentifier(expression) && rewrittenNames.has(expression.text) &&
             sourceNamesLedger;
@@ -8860,6 +8915,159 @@ describe('contract_hours_ledger production consumer inventory', () => {
       read(table);`;
     expect(runtime(excluded)).toBe(0);
     expect(unresolved(excluded)).toEqual([]);
+  });
+
+  it('R25.1: assignment cycles never silently discharge ledger authority', () => {
+    const runtime = (source: string): number => {
+      let calls = 0;
+      const client = { from(target: string) {
+        if (target === 'contract_hours_ledger') calls += 1;
+        return this;
+      } };
+      try {
+        (new Function('client', source) as (value: typeof client) => void)(client);
+      } catch { /* abrupt completion is part of the oracle */ }
+      return calls;
+    };
+    const unresolved = (source: string): DiscoveredCall[] =>
+      discoverSupabaseCalls(source).filter((call) => call.unsupported);
+    const exact = (source: string): DiscoveredCall[] =>
+      discoverSupabaseCalls(source).filter((call) => call.method === 'from' &&
+        call.target === 'contract_hours_ledger');
+    // A — the reviewer's probe: a pruned self-assignment cycle. The self-reference denotes
+    // the name's prior value, so the union fixpoint keeps the ledger-bearing branch; the
+    // rejected head collapsed the whole union to a cycle and fell back to the stale
+    // 'other_table' binding — a silent miss.
+    const selfCycle = `let table = 'other_table';
+      const proto = {};
+      Object.defineProperty(proto, 'slot', {
+        set() { throw new Error('setter'); },
+      });
+      try {
+        Reflect.set(proto, 'slot', client.from, Object.create(proto));
+      } catch {
+        table = true ? 'contract_hours_ledger' : table;
+        client.from(table);
+      }`;
+    expect(runtime(selfCycle)).toBe(1);
+    expect(exact(selfCycle)).toHaveLength(0);
+    expect(unresolved(selfCycle)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+    ]);
+    expect(discoverSupabaseCalls(selfCycle)).toEqual(discoverSupabaseCalls(selfCycle));
+    // B — the same cycle carrying a CONSTRUCTED name, with no complete ledger literal
+    // anywhere in the source.
+    const constructedCycle = selfCycle.replace("true ? 'contract_hours_ledger' : table",
+      "true ? ('contract_' + 'hours_ledger') : table");
+    expect(constructedCycle).not.toEqual(selfCycle);
+    expect(runtime(constructedCycle)).toBe(1);
+    expect(exact(constructedCycle)).toHaveLength(0);
+    expect(unresolved(constructedCycle)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+    ]);
+    expect(discoverSupabaseCalls(constructedCycle))
+      .toEqual(discoverSupabaseCalls(constructedCycle));
+    // C — a two-name strongly connected assignment cycle resolves deterministically to the
+    // union of its non-cyclic writes.
+    const sccCycle = `let table = 'other_table';
+      let alias = 'alias_seed';
+      const proto = {};
+      Object.defineProperty(proto, 'slot', {
+        set() { throw new Error('setter'); },
+      });
+      try {
+        Reflect.set(proto, 'slot', client.from, Object.create(proto));
+      } catch {
+        table = true ? 'contract_hours_ledger' : alias;
+        alias = table;
+        client.from(table);
+      }`;
+    expect(runtime(sccCycle)).toBe(1);
+    expect(exact(sccCycle)).toHaveLength(0);
+    expect(unresolved(sccCycle)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+    ]);
+    expect(discoverSupabaseCalls(sccCycle)).toEqual(discoverSupabaseCalls(sccCycle));
+    // D — a reached externally opaque-callee variant fails closed exactly once, and the
+    // direct call keeps its evaluator classification (exactly one dynamic-target result with
+    // the union the evaluator itself derives) — the value domain is untouched.
+    const reachedCycle = `const sentinel = Symbol('existing');
+      let table = 'other_table';
+      table = true ? 'contract_hours_ledger' : table;
+      const read = (0, client.from);
+      read(table);`;
+    expect(runtime(reachedCycle)).toBe(1);
+    expect(exact(reachedCycle)).toHaveLength(0);
+    expect(unresolved(reachedCycle)).toHaveLength(1);
+    const directCycle = `const sentinel = Symbol('existing');
+      let table = 'other_table';
+      table = [].length === 0 ? 'contract_hours_ledger' : table;
+      client.from(table);`;
+    expect(runtime(directCycle)).toBe(1);
+    expect(discoverSupabaseCalls(directCycle)).toEqual([
+      expect.objectContaining({
+        method: 'from', dynamicKind: 'target',
+        dynamicValues: ['contract_hours_ledger', 'other_table'],
+      }),
+    ]);
+    // E — a declaration-only TDZ cycle keeps its accepted behavior: the runtime throws at the
+    // first declaration before any call, resolution terminates deterministically, and no
+    // ledger call is fabricated. (The retained R23.1 cyclic probe pins the same shape.)
+    const tdzCycle = `const sentinel = Symbol('existing');
+      const first = second + '_x';
+      const second = first + '_y';
+      const read = (0, client.from);
+      read(first);`;
+    expect(runtime(tdzCycle)).toBe(0);
+    expect(exact(tdzCycle)).toHaveLength(0);
+    expect(unresolved(tdzCycle)).toEqual([]);
+    expect(discoverSupabaseCalls(tdzCycle)).toEqual(discoverSupabaseCalls(tdzCycle));
+    // F — a proven non-ledger assignment cycle in a source that can neither spell nor
+    // construct the ledger name stays silent: the fixpoint union is finite and provably
+    // absent, so silence is exact, not assumed.
+    const inertCycle = `const sentinel = Symbol('existing');
+      let table = 'other_table';
+      table = [].length === 0 ? 'third_table' : table;
+      const read = (0, client.from);
+      read(table);`;
+    expect(runtime(inertCycle)).toBe(0);
+    expect(unresolved(inertCycle)).toEqual([]);
+  });
+
+  it('R25 mutation: assignment-cycle authority turns the guard red, census unchanged', () => {
+    // G — the webhook hazard file gains an assignment-cycle ledger call while keeping its
+    // existing Symbol hazard. No hazard site is added; executable authority flips true; the
+    // production no-unsupported guard turns red with exactly one unresolved marker at the
+    // mutated call site and zero fabricated exact calls.
+    const path = join(ROOT, 'pages/api/zoom/webhook.ts');
+    const source = readFileSync(path, 'utf8');
+    const baselineAuthority = executableLedgerAuthority(source, path);
+    expect(baselineAuthority).toBe(false);
+    const baselineKinds = hazardSites(source, path, baselineAuthority).map((site) => site.kind);
+    expect(baselineKinds).toEqual(['Symbol']);
+    expect(discoverSupabaseCalls(source, path).filter((call) => call.unsupported)).toEqual([]);
+    // The cycle carries a CONSTRUCTED spelling, so the evaluator's value domain never sees
+    // the name and the repaired static fixpoint alone must catch the site.
+    const mutated = `${source}
+let z7R25Table = 'other_table';
+z7R25Table = ([] as string[]).length === 0 ? ('contract_' + 'hours_ledger') : z7R25Table;
+const z7R25Read = (0, z7R25Client.from);
+z7R25Read(z7R25Table);
+`;
+    const mutatedAuthority = executableLedgerAuthority(mutated, path);
+    expect(mutatedAuthority).toBe(true);
+    expect(hazardSites(mutated, path, mutatedAuthority).map((site) => site.kind))
+      .toEqual(baselineKinds);
+    const mutatedUnsupported = discoverSupabaseCalls(mutated, path)
+      .filter((call) => call.unsupported);
+    expect(mutatedUnsupported).not.toEqual([]);
+    expect(mutatedUnsupported.filter((call) => call.expression === 'z7R25Read')).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+    ]);
+    expect(mutatedUnsupported.every((call) =>
+      call.unsupported === 'unresolved ledger authority')).toBe(true);
+    expect(discoverSupabaseCalls(mutated, path).filter((call) => call.method === 'from' &&
+      call.target === 'contract_hours_ledger')).toHaveLength(0);
   });
 
   it('R23 mutation: constructed authority turns the guard red without a new hazard site', () => {

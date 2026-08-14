@@ -2,7 +2,7 @@
 -- Synthetic fixtures only; the complete file rolls back.
 BEGIN;
 
-SELECT plan(61);
+SELECT plan(63);
 
 SELECT tests.create_supabase_user('r10_admin');
 INSERT INTO public.profiles (id, email, name, approval_status)
@@ -79,6 +79,14 @@ SELECT is((SELECT count(*)::int FROM pg_trigger
   WHERE tgrelid = 'public.contract_hours_ledger'::regclass
     AND NOT tgisinternal AND (tgtype & 2) = 2), 0,
   'no BEFORE trigger can populate effective_minutes');
+SELECT is((SELECT count(*)::int FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname IN ('public', 'zoom_internal')
+    AND p.prosrc ~* 'SET[[:space:]]+effective_minutes'), 1,
+  'exactly one database function can assign effective_minutes');
+SELECT is((SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname IN ('public', 'zoom_internal')
+    AND p.prosrc ~* 'SET[[:space:]]+effective_minutes'), 'apply_session_hour_override',
+  'the sole database assignment is the authenticated audited owner RPC');
 
 SELECT tests.authenticate_as('r10_admin');
 SELECT throws_ok($$INSERT INTO public.contract_hours_ledger

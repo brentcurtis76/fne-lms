@@ -329,9 +329,96 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   // recovery) fail closed with exactly one deterministic unsupported result per site instead of
   // returning silent zero. This bounds the evaluator rather than extending its interpretation.
   const reachedCallPositions = new Set<number>();
+  // Z7-R22 finding 1: ledger authority at a hazard-net site is determined from resolved
+  // argument values and provenance, never from direct string-literal syntax alone. The
+  // resolver is deliberately lexical and side-effect free — literals, resolvable bindings,
+  // finite branches — so the reached-call net (during evaluation) and the unreached-site net
+  // (after it) classify a site identically, deterministically, and without re-evaluating
+  // argument expressions. Three-state result: 'authority' when a value provably carries
+  // 'contract_hours_ledger'; 'none' when every interpretation is provably something else;
+  // 'uncertain' when the value cannot be ruled out — and uncertain fails closed.
+  type LedgerAuthority = 'authority' | 'uncertain' | 'none';
+  const combineLedgerAuthority = (left: LedgerAuthority, right: LedgerAuthority): LedgerAuthority =>
+    left === 'authority' || right === 'authority' ? 'authority'
+      : left === 'uncertain' || right === 'uncertain' ? 'uncertain' : 'none';
+  const valueLedgerAuthority = (value: AbstractValue): LedgerAuthority => {
+    if (value.strings.has('contract_hours_ledger')) return 'authority';
+    if (value.external) return 'uncertain';
+    const known = value.strings.size > 0 || value.numbers.size > 0 ||
+      value.primitives.size > 0 || value.functions.size > 0 || value.methods.size > 0 ||
+      value.adapter !== undefined || value.properties.size > 0 || value.descriptors.size > 0 ||
+      value.elements !== undefined || value.tupleElements !== undefined ||
+      value.receiverProvenance !== undefined || value.sequenceBuilder !== undefined ||
+      value.callableCandidate || value.alwaysThrows || value.exactShape ||
+      value.prototype !== undefined;
+    return known ? 'none' : 'uncertain';
+  };
+  const argumentLedgerAuthority = (argument: ts.Expression): LedgerAuthority => {
+    const expression = unwrap(argument);
+    if (ts.isStringLiteralLike(expression)) {
+      return expression.text === 'contract_hours_ledger' ? 'authority' : 'none';
+    }
+    if (ts.isNumericLiteral(expression) || ts.isRegularExpressionLiteral(expression) ||
+        expression.kind === ts.SyntaxKind.NullKeyword ||
+        expression.kind === ts.SyntaxKind.TrueKeyword ||
+        expression.kind === ts.SyntaxKind.FalseKeyword ||
+        ts.isArrowFunction(expression) || ts.isFunctionExpression(expression) ||
+        ts.isClassExpression(expression) || ts.isObjectLiteralExpression(expression) ||
+        ts.isArrayLiteralExpression(expression)) {
+      return 'none';
+    }
+    if (ts.isConditionalExpression(expression)) {
+      return combineLedgerAuthority(
+        argumentLedgerAuthority(expression.whenTrue),
+        argumentLedgerAuthority(expression.whenFalse)
+      );
+    }
+    if (ts.isBinaryExpression(expression)) {
+      const operator = expression.operatorToken.kind;
+      if (operator === ts.SyntaxKind.BarBarToken ||
+          operator === ts.SyntaxKind.AmpersandAmpersandToken ||
+          operator === ts.SyntaxKind.QuestionQuestionToken) {
+        return combineLedgerAuthority(
+          argumentLedgerAuthority(expression.left),
+          argumentLedgerAuthority(expression.right)
+        );
+      }
+      if (operator === ts.SyntaxKind.CommaToken) {
+        return argumentLedgerAuthority(expression.right);
+      }
+      return 'uncertain';
+    }
+    if (ts.isIdentifier(expression)) {
+      if (expression.text === 'undefined') return 'none';
+      const resolved = binding(expression.text);
+      return resolved ? valueLedgerAuthority(resolved) : 'uncertain';
+    }
+    // Spread, property/element access, calls, templates with substitutions, and every other
+    // form the resolver does not model: the value cannot be ruled out, so it fails closed.
+    return 'uncertain';
+  };
+  // Static ledger authority can only enter a source through a literal that spells the table
+  // name (every resolvable binding, branch, or alias ultimately roots in one; dynamically
+  // constructed table names are handled by the separate dynamic-target fail-closed machinery).
+  // A source with no such literal has no ledger authority an uncertain value could discharge,
+  // so 'uncertain' fails closed only when the source names the ledger somewhere; 'authority'
+  // always fails closed. This keeps the net exact on authority-bearing sources and keeps
+  // hazard-territory files without ledger authority honestly out of the unresolved census.
+  const sourceNamesLedger = (() => {
+    let found = false;
+    const scan = (node: ts.Node): void => {
+      if (found) return;
+      if (ts.isStringLiteralLike(node) && node.text === 'contract_hours_ledger') found = true;
+      ts.forEachChild(node, scan);
+    };
+    scan(sf);
+    return found;
+  })();
   const carriesLedgerAuthorityArgument = (node: ts.CallExpression): boolean =>
-    node.arguments.some((argument) =>
-      ts.isStringLiteralLike(argument) && argument.text === 'contract_hours_ledger');
+    node.arguments.some((argument) => {
+      const authority = argumentLedgerAuthority(argument);
+      return authority === 'authority' || (authority === 'uncertain' && sourceNamesLedger);
+    });
   // The net is gated to the R21 hazard territory the evaluator does not soundly model: Reflect
   // operations, prototype rewiring, symbol-keyed identity, and engine-claimed abrupt evaluation
   // of a local module. Inside that territory the evaluator's own claims of unreachability or
@@ -7668,58 +7755,132 @@ describe('contract_hours_ledger production consumer inventory', () => {
   // ledger authority — each such site fails closed with exactly one deterministic unsupported
   // result; and production ledger-authority code is mechanically proven free of hazard forms.
 
-  function hazardForms(source: string, path: string): string[] {
+  // Z7-R22 finding 2: the production hazard census is site-exact. Every hazard occurrence is
+  // identified by stable path + AST site position + hazard kind — never collapsed to one entry
+  // per file — so a second hazard of an already-listed kind landing in an already-listed file
+  // changes the census. Positions identify sites internally (deduplicating any node matched by
+  // more than one pattern at the same location); the asserted inventory is the per-file kind
+  // sequence in source order, which is stable under unrelated-line reordering.
+  interface HazardSite { kind: string; position: number }
+
+  function hazardSites(source: string, path: string, ledgerAuthority: boolean): HazardSite[] {
     const sf = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true,
       path.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
-    const authority = source.includes('contract_hours_ledger');
-    const hits = new Set<string>();
+    const seen = new Set<string>();
+    const sites: HazardSite[] = [];
+    const add = (kind: string, node: ts.Node): void => {
+      const position = node.getStart(sf);
+      const key = `${position}:${kind}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      sites.push({ kind, position });
+    };
     const scan = (node: ts.Node): void => {
       if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) &&
-          node.expression.text === 'Reflect') hits.add(`Reflect.${node.name.text}`);
+          node.expression.text === 'Reflect') add(`Reflect.${node.name.text}`, node);
       if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) &&
           node.expression.text === 'Object' && node.name.text === 'setPrototypeOf') {
-        hits.add('Object.setPrototypeOf');
+        add('Object.setPrototypeOf', node);
       }
-      if (ts.isIdentifier(node) && node.text === 'Symbol') hits.add('Symbol');
-      if (authority && ts.isSwitchStatement(node) &&
+      if (ts.isIdentifier(node) && node.text === 'Symbol') add('Symbol', node);
+      if (ledgerAuthority && ts.isSwitchStatement(node) &&
           node.caseBlock.clauses.some((clause) => clause.statements.some((statement) =>
             ts.isVariableStatement(statement) || ts.isFunctionDeclaration(statement)))) {
-        hits.add('switch-lexical-binding');
+        add('switch-lexical-binding', node);
       }
-      if (authority && ts.isCallExpression(node) &&
+      if (ledgerAuthority && ts.isCallExpression(node) &&
           ts.isPropertyAccessExpression(node.expression) &&
           node.expression.name.text === 'sort' && node.arguments.length > 0) {
-        hits.add('sort-comparator');
+        add('sort-comparator', node);
       }
       ts.forEachChild(node, scan);
     };
     scan(sf);
-    return [...hits].sort();
+    return sites.sort((left, right) =>
+      left.position - right.position || left.kind.localeCompare(right.kind));
+  }
+
+  // Ledger/database authority for the census is derived from the direct and transitive
+  // executable inventory — the analyzer's discovered table touches, the RPC/view calls that
+  // resolve into the SQL ledger dependency graph, and (fail closed) any unsupported result —
+  // never from raw source substrings.
+  function executableLedgerAuthority(source: string, path: string): boolean {
+    const discovered = discoverSupabaseCalls(source, path);
+    if (discovered.some((call) => call.unsupported)) return true;
+    if (discovered.some((call) => call.target === 'contract_hours_ledger' ||
+        call.targets?.includes('contract_hours_ledger') ||
+        call.dynamicValues?.includes('contract_hours_ledger'))) return true;
+    return indirectCalls(source, objectNames, path).length > 0;
   }
 
   it('R21 census: production ledger-authority code carries no unmodeled hazard forms', () => {
     const census: Record<string, string[]> = {};
+    const authorityByFile: Record<string, boolean> = {};
     for (const path of productionSourceFiles()) {
-      const forms = hazardForms(readFileSync(path, 'utf8'), path);
-      if (forms.length) census[relative(ROOT, path)] = forms;
+      const source = readFileSync(path, 'utf8');
+      const authority = executableLedgerAuthority(source, path);
+      const sites = hazardSites(source, path, authority);
+      if (sites.length === 0) continue;
+      const file = relative(ROOT, path);
+      census[file] = sites.map((site) => site.kind);
+      authorityByFile[file] = authority;
     }
-    // The exact production hazard inventory. Reflect and prototype rewiring do not exist in any
-    // production root. The single Symbol is an oversize-body sentinel in the webhook route — a
-    // file with no ledger authority. The four comparators order UI/report rows in files whose
-    // every ledger touch is already classified in DIRECT_TS_TOUCHES, and the production
-    // fail-closed suite proves none of them yields an unsupported or unexplained result.
+    // The exact site-exact production hazard inventory (R22 finding 2): one entry per hazard
+    // site, in source order. Reflect and prototype rewiring do not exist in any production
+    // root. The single Symbol site is an oversize-body sentinel in the webhook route — a file
+    // whose executable inventory carries no ledger authority. The ten comparator sites order
+    // UI/report rows across four files whose every ledger touch is classified in
+    // DIRECT_TS_TOUCHES, and the production fail-closed suite proves none of them yields an
+    // unsupported or unexplained result.
     expect(census).toEqual({
-      'components/workspace/WorkspaceSessionsTab.tsx': ['sort-comparator'],
+      'components/workspace/WorkspaceSessionsTab.tsx': ['sort-comparator', 'sort-comparator'],
       'pages/admin/sessions/index.tsx': ['sort-comparator'],
-      'pages/api/sessions/reports/analytics.ts': ['sort-comparator'],
+      'pages/api/sessions/reports/analytics.ts': [
+        'sort-comparator', 'sort-comparator', 'sort-comparator',
+        'sort-comparator', 'sort-comparator',
+      ],
       'pages/api/zoom/webhook.ts': ['Symbol'],
-      'pages/consultor/sessions/index.tsx': ['sort-comparator'],
+      'pages/consultor/sessions/index.tsx': ['sort-comparator', 'sort-comparator'],
     });
-    expect(readFileSync(join(ROOT, 'pages/api/zoom/webhook.ts'), 'utf8'))
-      .not.toContain('contract_hours_ledger');
-    for (const file of Object.keys(census).filter((name) => name !== 'pages/api/zoom/webhook.ts')) {
+    // Authority classification is mechanical: the four comparator files carry executable
+    // ledger authority; the webhook route provably carries none (zero direct touches, zero
+    // transitive RPC/view consumers, zero unsupported results) — an honestly classified
+    // non-authority hazard, not a substring claim.
+    expect(authorityByFile).toEqual({
+      'components/workspace/WorkspaceSessionsTab.tsx': true,
+      'pages/admin/sessions/index.tsx': true,
+      'pages/api/sessions/reports/analytics.ts': true,
+      'pages/api/zoom/webhook.ts': false,
+      'pages/consultor/sessions/index.tsx': true,
+    });
+    for (const file of Object.keys(census).filter((name) => authorityByFile[name])) {
       expect(Object.keys(DIRECT_TS_TOUCHES), file).toContain(file);
     }
+  });
+
+  it('R22 census: the site inventory is mutation-sensitive inside already-listed files', () => {
+    // Adding one more covered hazard to a file already present in the census must change the
+    // inventory — the pre-R22 census collapsed hazards to one entry per file and could not see
+    // this mutation. Site identity is AST position + kind, so reordering unrelated code cannot
+    // fabricate or duplicate sites, while a genuinely new site always lands.
+    const path = join(ROOT, 'components/workspace/WorkspaceSessionsTab.tsx');
+    const source = readFileSync(path, 'utf8');
+    const authority = executableLedgerAuthority(source, path);
+    expect(authority).toBe(true);
+    const baseline = hazardSites(source, path, authority)
+      .filter((site) => site.kind === 'sort-comparator');
+    expect(baseline).toHaveLength(2);
+    const mutated = `${source}\nexport const z7R22MutationProbe = [2, 1].sort((a, b) => a - b);\n`;
+    const grown = hazardSites(mutated, path, authority)
+      .filter((site) => site.kind === 'sort-comparator');
+    expect(grown).toHaveLength(3);
+    // Prepending a no-op statement shifts positions but neither adds, drops, nor duplicates
+    // any site: the kind sequence — the asserted census identity — is unchanged.
+    const reordered = hazardSites(`;\n${source}`, path, authority)
+      .filter((site) => site.kind === 'sort-comparator');
+    expect(reordered).toHaveLength(2);
+    expect(new Set(hazardSites(mutated, path, authority)
+      .map((site) => `${site.position}:${site.kind}`)).size).toBe(3);
   });
 
   it('R21.1: dormant declarations stay in the census; abrupt-module pruning fails closed', () => {
@@ -7920,6 +8081,111 @@ describe('contract_hours_ledger production consumer inventory', () => {
       .map((call) => call.expression).sort()).toEqual(['key', 'object[key]']);
   });
 
+  it('R22.1: alias-carried ledger authority fails closed instead of open', () => {
+    const runtime = (source: string): number => {
+      let calls = 0;
+      const client = { from(target: string) {
+        if (target === 'contract_hours_ledger') calls += 1;
+        return this;
+      } };
+      (new Function('client', source) as (value: typeof client) => void)(client);
+      return calls;
+    };
+    const unresolved = (source: string): DiscoveredCall[] =>
+      discoverSupabaseCalls(source).filter((call) => call.unsupported);
+    // Reached aliased target: the callee resolves to no callable interpretation and the
+    // argument is an ordinary resolvable binding carrying the ledger name. The rejected head
+    // returned zero results here — a fail-open alias hole; the net now fails closed exactly
+    // once, deterministically, exactly as the literal form always did.
+    const reachedAlias = `const values = [];
+      const pop = values.pop;
+      values.length = 1;
+      const inherited = Object.create(Array.prototype, {
+        0: { value: client.from, configurable: true },
+      });
+      Object.setPrototypeOf(values, inherited);
+      const read = pop.call(values);
+      const table = 'contract_hours_ledger';
+      read(table);`;
+    expect(runtime(reachedAlias)).toBe(1);
+    expect(unresolved(reachedAlias)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority', expression: 'read' }),
+    ]);
+    expect(discoverSupabaseCalls(reachedAlias)).toEqual(discoverSupabaseCalls(reachedAlias));
+    // Finite branches preserve authority: a conditional whose arms are literals resolves to a
+    // finite string union containing the ledger name.
+    const branchedAlias = `const values = [];
+      const pop = values.pop;
+      values.length = 1;
+      const inherited = Object.create(Array.prototype, {
+        0: { value: client.from, configurable: true },
+      });
+      Object.setPrototypeOf(values, inherited);
+      const read = pop.call(values);
+      const flag = [].length === 0;
+      read(flag ? 'contract_hours_ledger' : 'other_table');`;
+    expect(runtime(branchedAlias)).toBe(1);
+    expect(unresolved(branchedAlias)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority', expression: 'read' }),
+    ]);
+    // Pruned/unreached aliased target: the evaluator prunes the catch, so the ledger site is
+    // never reached; the alias binding still resolves at scan time and the site fails closed
+    // exactly once (zero exact, zero silent discharge — the rejected head returned nothing).
+    const prunedAlias = `const table = 'contract_hours_ledger';
+      const proto = {};
+      Object.defineProperty(proto, 'slot', {
+        set() { throw new Error('setter'); },
+      });
+      const receiver = Object.create(proto);
+      try {
+        Reflect.set(proto, 'slot', client.from, receiver);
+      } catch {
+        client.from(table);
+      }`;
+    expect(runtime(prunedAlias)).toBe(1);
+    const prunedResults = discoverSupabaseCalls(prunedAlias);
+    expect(prunedResults.filter((call) => call.method === 'from' &&
+      call.target === 'contract_hours_ledger')).toHaveLength(0);
+    expect(prunedResults.filter((call) => call.unsupported)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+    ]);
+    // Uncertain production-relevant value: the pruned catch declares its own alias, so no
+    // binding is resolvable at scan time. The value cannot be ruled out in a source that names
+    // the ledger — it fails closed exactly once instead of discharging silently.
+    const uncertainAlias = `const proto = {};
+      Object.defineProperty(proto, 'slot', {
+        set() { throw new Error('setter'); },
+      });
+      const receiver = Object.create(proto);
+      try {
+        Reflect.set(proto, 'slot', client.from, receiver);
+      } catch {
+        const local = 'contract_hours_ledger';
+        client.from(local);
+      }`;
+    expect(runtime(uncertainAlias)).toBe(1);
+    expect(unresolved(uncertainAlias)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+    ]);
+    // Inert controls: a resolvable binding provably carrying a different table, and a
+    // non-ledger literal, stay silent — the net remains exact, not noisy.
+    const inertBinding = `const values = [];
+      const pop = values.pop;
+      values.length = 1;
+      const inherited = Object.create(Array.prototype, {
+        0: { value: client.from, configurable: true },
+      });
+      Object.setPrototypeOf(values, inherited);
+      const read = pop.call(values);
+      const table = 'other_table';
+      read(table);`;
+    expect(runtime(inertBinding)).toBe(0);
+    expect(unresolved(inertBinding)).toEqual([]);
+    const inertLiteral = inertBinding.replace("const table = 'other_table';\n      read(table);",
+      "read('other_table');");
+    expect(unresolved(inertLiteral)).toEqual([]);
+  });
+
   it('R21 mutation: a hazard form entering a production root turns the guard red', () => {
     const probeRoot = mkdtempSync(join(ROOT, 'future_z7_hazard_probe-'));
     const probe = join(probeRoot, 'consumer.ts');
@@ -7938,10 +8204,32 @@ describe('contract_hours_ledger production consumer inventory', () => {
       // analyzer fails closed — so both the R21 census expectation and the production
       // no-unsupported gate would go red until the file is classified or removed.
       expect(productionSourceFiles()).toEqual(expect.arrayContaining([probe]));
-      expect(hazardForms(readFileSync(probe, 'utf8'), probe))
-        .toContain('Object.setPrototypeOf');
-      const discovered = discoverSupabaseCalls(readFileSync(probe, 'utf8'), probe);
-      expect(discovered.filter((call) => call.unsupported)).not.toEqual([]);
+      const literalSource = readFileSync(probe, 'utf8');
+      expect(hazardSites(literalSource, probe, executableLedgerAuthority(literalSource, probe))
+        .map((site) => site.kind)).toContain('Object.setPrototypeOf');
+      expect(discoverSupabaseCalls(literalSource, probe)
+        .filter((call) => call.unsupported)).not.toEqual([]);
+      // R22 finding 1: the same production-root mutation carrying its ledger target through an
+      // ordinary alias — not a direct literal argument — must also turn the guard red. The
+      // rejected head only went red for the literal form.
+      writeFileSync(probe, `import { createClient } from '@supabase/supabase-js';
+        const client = createClient('http://127.0.0.1:54321', 'synthetic-key');
+        const values: unknown[] = [];
+        const pop = (values as { pop: () => unknown }).pop;
+        Object.setPrototypeOf(values, Object.create(Array.prototype, {
+          0: { value: client.from.bind(client), configurable: true },
+        }));
+        const read = pop.call(values) as (table: string) => unknown;
+        const table = 'contract_hours_ledger';
+        read(table);
+      `);
+      const aliasedSource = readFileSync(probe, 'utf8');
+      expect(hazardSites(aliasedSource, probe, executableLedgerAuthority(aliasedSource, probe))
+        .map((site) => site.kind)).toContain('Object.setPrototypeOf');
+      expect(discoverSupabaseCalls(aliasedSource, probe)
+        .filter((call) => call.unsupported)).toEqual([
+        expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+      ]);
     } finally {
       rmSync(probeRoot, { recursive: true, force: true });
     }

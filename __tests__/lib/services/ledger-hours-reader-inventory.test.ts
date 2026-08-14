@@ -40,6 +40,9 @@ function productionSourceFiles(root = ROOT): string[] {
 }
 
 type MethodName = 'from' | 'rpc';
+type SequenceMutationName =
+  | 'push' | 'pop' | 'shift' | 'unshift' | 'splice'
+  | 'reverse' | 'fill' | 'copyWithin' | 'sort';
 type DiscoveredCall = {
   method: MethodName | 'unknown';
   target?: string;
@@ -69,6 +72,8 @@ interface AbstractValue {
   receiverProvenance?: 'database' | 'non-database' | 'ambiguous';
   sequenceBuilder?: 'constructor' | 'of' | 'from' | 'concat';
   sequenceSource?: AbstractValue;
+  sequenceMutation?: SequenceMutationName;
+  sequenceMutationTarget?: AbstractValue;
 }
 
 function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
@@ -90,6 +95,8 @@ function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
     receiverProvenance: partial.receiverProvenance,
     sequenceBuilder: partial.sequenceBuilder,
     sequenceSource: partial.sequenceSource,
+    sequenceMutation: partial.sequenceMutation,
+    sequenceMutationTarget: partial.sequenceMutationTarget,
   };
 }
 
@@ -192,6 +199,16 @@ function unionValues(...values: AbstractValue[]): AbstractValue {
       result.sequenceSource = left.sequenceSource && right.sequenceSource
         ? pair(left.sequenceSource, right.sequenceSource)
         : left.sequenceSource ?? right.sequenceSource;
+    }
+    if (left.sequenceMutation && right.sequenceMutation &&
+        left.sequenceMutation !== right.sequenceMutation) {
+      result.external = true;
+      result.callableCandidate = true;
+    } else {
+      result.sequenceMutation = left.sequenceMutation ?? right.sequenceMutation;
+      result.sequenceMutationTarget = left.sequenceMutationTarget && right.sequenceMutationTarget
+        ? pair(left.sequenceMutationTarget, right.sequenceMutationTarget)
+        : left.sequenceMutationTarget ?? right.sequenceMutationTarget;
     }
     return result;
   }
@@ -330,8 +347,13 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     if (activeModuleExports.has(targetPath)) return new Map([['*', 'ambiguous']]);
     activeModuleExports.add(targetPath);
 
-    const exports = new Map<string, ReceiverProvenance>();
+    let exports = new Map<string, ReceiverProvenance>();
     const locals = new Map<string, ReceiverProvenance>();
+    const localObjects = new Map<string, Map<string, ReceiverProvenance>>();
+    const localStrings = new Map<string, string>();
+    let exportsAlias = true;
+    let reboundExports = new Map<string, ReceiverProvenance>();
+    let sawCommonJsExport = false;
     const target = ts.createSourceFile(targetPath, readFileSync(targetPath, 'utf8'),
       ts.ScriptTarget.Latest, true,
       /x$/.test(targetPath) ? ts.ScriptKind.TSX
@@ -348,6 +370,78 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       return graph.get(imported) ??
         (resolveModulePath(source, targetPath) ? 'ambiguous' : graph.get('*') ?? importProvenance(source));
     };
+    const graphAggregate = (
+      graph: Map<string, ReceiverProvenance>
+    ): ReceiverProvenance => [...graph.entries()]
+      .filter(([name]) => name !== '*')
+      .reduce<ReceiverProvenance | undefined>(
+        (result, [, provenance]) => mergeProvenance(result, provenance), undefined
+      ) ?? graph.get('*') ?? 'non-database';
+    const staticName = (
+      name: ts.PropertyName | ts.Expression,
+      computed = false
+    ): string | undefined => {
+      if (ts.isIdentifier(name) || ts.isStringLiteralLike(name) || ts.isNumericLiteral(name)) {
+        return ts.isIdentifier(name) && computed
+          ? localStrings.get(name.text) : name.text;
+      }
+      if (ts.isComputedPropertyName(name)) return staticName(name.expression, true);
+      return undefined;
+    };
+    function expressionMembers(
+      expression: ts.Expression | undefined,
+      seen = new Set<ts.Node>()
+    ): Map<string, ReceiverProvenance> | undefined {
+      if (!expression || seen.has(expression)) return undefined;
+      seen.add(expression);
+      const current = ts.isParenthesizedExpression(expression) ? expression.expression : expression;
+      if (ts.isIdentifier(current)) {
+        if (current.text === 'exports') return exportsAlias ? exports : reboundExports;
+        return localObjects.get(current.text);
+      }
+      if (ts.isPropertyAccessExpression(current) &&
+          ts.isIdentifier(current.expression) && current.expression.text === 'module' &&
+          current.name.text === 'exports') return exports;
+      if (ts.isCallExpression(current) && ts.isIdentifier(current.expression) &&
+          current.expression.text === 'require' && ts.isStringLiteralLike(current.arguments[0])) {
+        return new Map(moduleExports(current.arguments[0].text, targetPath));
+      }
+      if (ts.isObjectLiteralExpression(current)) {
+        const members = new Map<string, ReceiverProvenance>();
+        for (const property of current.properties) {
+          if (ts.isSpreadAssignment(property)) {
+            const spread = expressionMembers(property.expression, new Set(seen));
+            if (!spread) members.set('*', 'ambiguous');
+            else for (const [name, provenance] of spread) {
+              if (name !== 'default') members.set(name, mergeProvenance(
+                members.get(name), provenance
+              ));
+            }
+            continue;
+          }
+          if (ts.isGetAccessorDeclaration(property) || ts.isSetAccessorDeclaration(property)) {
+            const name = staticName(property.name);
+            members.set(name ?? '*', 'ambiguous');
+            continue;
+          }
+          const name = 'name' in property ? staticName(property.name) : undefined;
+          if (!name) {
+            members.set('*', 'ambiguous');
+            continue;
+          }
+          const provenance = ts.isPropertyAssignment(property)
+            ? expressionProvenance(property.initializer)
+            : ts.isShorthandPropertyAssignment(property)
+              ? locals.get(property.name.text) ?? 'ambiguous'
+              : ts.isMethodDeclaration(property)
+                ? functionReturnProvenance(property)
+                : 'ambiguous';
+          members.set(name, mergeProvenance(members.get(name), provenance));
+        }
+        return members;
+      }
+      return undefined;
+    }
     const expressionProvenance = (
       expression: ts.Expression | undefined,
       seen = new Set<ts.Node>()
@@ -356,7 +450,10 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       seen.add(expression);
       const current = expression.kind === ts.SyntaxKind.ParenthesizedExpression
         ? (expression as ts.ParenthesizedExpression).expression : expression;
-      if (ts.isIdentifier(current)) return locals.get(current.text) ?? 'ambiguous';
+      if (ts.isIdentifier(current)) {
+        const members = expressionMembers(current);
+        return members ? graphAggregate(members) : locals.get(current.text) ?? 'ambiguous';
+      }
       if (ts.isCallExpression(current)) return expressionProvenance(current.expression, seen);
       if (ts.isNewExpression(current)) {
         const argumentProvenance = (current.arguments ?? []).map((argument) =>
@@ -366,10 +463,14 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           : expressionProvenance(current.expression, seen);
       }
       if (ts.isPropertyAccessExpression(current)) {
-        return expressionProvenance(current.expression, seen);
+        const members = expressionMembers(current.expression, new Set(seen));
+        return members?.get(current.name.text) ?? expressionProvenance(current.expression, seen);
       }
       if (ts.isElementAccessExpression(current)) {
-        return expressionProvenance(current.expression, seen);
+        const members = expressionMembers(current.expression, new Set(seen));
+        const name = staticName(current.argumentExpression, true);
+        return (name ? members?.get(name) : undefined) ??
+          expressionProvenance(current.expression, seen);
       }
       if (ts.isConditionalExpression(current)) {
         return mergeProvenance(
@@ -380,18 +481,9 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       if (ts.isArrowFunction(current) || ts.isFunctionExpression(current)) {
         return functionReturnProvenance(current);
       }
-      if (ts.isObjectLiteralExpression(current)) {
-        let result: ReceiverProvenance | undefined;
-        for (const property of current.properties) {
-          const provenance = ts.isPropertyAssignment(property)
-            ? expressionProvenance(property.initializer)
-            : ts.isMethodDeclaration(property)
-              ? functionReturnProvenance(property)
-              : undefined;
-          if (provenance) result = mergeProvenance(result, provenance);
-        }
-        return result ?? 'non-database';
-      }
+      if (ts.isObjectLiteralExpression(current)) return graphAggregate(
+        expressionMembers(current, new Set()) ?? new Map()
+      );
       return 'non-database';
     };
     const functionReturnProvenance = (node: ts.FunctionLikeDeclaration): ReceiverProvenance => {
@@ -456,6 +548,13 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       if (ts.isVariableStatement(statement)) {
         for (const declaration of statement.declarationList.declarations) {
           const initializer = declaration.initializer;
+          if (initializer && ts.isIdentifier(declaration.name)) {
+            if (ts.isStringLiteralLike(initializer)) {
+              localStrings.set(declaration.name.text, initializer.text);
+            }
+            const members = expressionMembers(initializer);
+            if (members) localObjects.set(declaration.name.text, members);
+          }
           if (initializer && ts.isCallExpression(initializer) &&
               ts.isIdentifier(initializer.expression) && initializer.expression.text === 'require' &&
               ts.isStringLiteralLike(initializer.arguments[0])) {
@@ -468,6 +567,92 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       if (ts.isFunctionDeclaration(statement) && statement.name) {
         locals.set(statement.name.text, functionReturnProvenance(statement));
       }
+    }
+    type ExportValue = {
+      provenance: ReceiverProvenance;
+      members?: Map<string, ReceiverProvenance>;
+      moduleObject?: boolean;
+    };
+    const isModuleExports = (expression: ts.Expression): boolean =>
+      ts.isPropertyAccessExpression(expression) && ts.isIdentifier(expression.expression) &&
+      expression.expression.text === 'module' && expression.name.text === 'exports';
+    const commonMemberTarget = (
+      expression: ts.Expression
+    ): { owner: 'exports' | 'module'; name?: string } | undefined => {
+      if (ts.isPropertyAccessExpression(expression)) {
+        if (ts.isIdentifier(expression.expression) && expression.expression.text === 'exports') {
+          return { owner: 'exports', name: expression.name.text };
+        }
+        if (isModuleExports(expression.expression)) {
+          return { owner: 'module', name: expression.name.text };
+        }
+      }
+      if (ts.isElementAccessExpression(expression)) {
+        if (ts.isIdentifier(expression.expression) && expression.expression.text === 'exports') {
+          return { owner: 'exports', name: staticName(expression.argumentExpression, true) };
+        }
+        if (isModuleExports(expression.expression)) {
+          return { owner: 'module', name: staticName(expression.argumentExpression, true) };
+        }
+      }
+      return undefined;
+    };
+    const exportValue = (expression: ts.Expression): ExportValue => {
+      if (ts.isBinaryExpression(expression) &&
+          expression.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+        return applyCommonAssignment(expression);
+      }
+      const members = expressionMembers(expression);
+      return {
+        provenance: members ? graphAggregate(members) : expressionProvenance(expression),
+        members,
+        moduleObject: isModuleExports(expression),
+      };
+    };
+    const replaceModuleExports = (value: ExportValue): void => {
+      exports = value.members ? new Map(value.members) : new Map();
+      exports.set('default', mergeProvenance(exports.get('default'), value.provenance));
+    };
+    const mergeStaticMembers = (
+      destination: Map<string, ReceiverProvenance>,
+      source: Map<string, ReceiverProvenance> | undefined
+    ): void => {
+      if (!source) {
+        destination.set('*', 'ambiguous');
+        return;
+      }
+      for (const [name, provenance] of source) {
+        if (name === 'default') continue;
+        destination.set(name, mergeProvenance(destination.get(name), provenance));
+      }
+    };
+    function applyCommonAssignment(assignment: ts.BinaryExpression): ExportValue {
+      const value = exportValue(assignment.right);
+      if (isModuleExports(assignment.left)) {
+        sawCommonJsExport = true;
+        replaceModuleExports(value);
+        exportsAlias = false;
+        return { ...value, members: exports, moduleObject: true };
+      }
+      if (ts.isIdentifier(assignment.left) && assignment.left.text === 'exports') {
+        sawCommonJsExport = true;
+        reboundExports = value.members ? value.members : new Map([
+          ['default', value.provenance],
+        ]);
+        exportsAlias = Boolean(value.moduleObject);
+        if (exportsAlias) reboundExports = exports;
+        return { ...value, members: reboundExports, moduleObject: exportsAlias };
+      }
+      const member = commonMemberTarget(assignment.left);
+      if (member) {
+        sawCommonJsExport = true;
+        const destination = member.owner === 'module'
+          ? exports : exportsAlias ? exports : reboundExports;
+        destination.set(member.name ?? '*', member.name
+          ? mergeProvenance(destination.get(member.name), value.provenance)
+          : 'ambiguous');
+      }
+      return value;
     }
     for (const statement of target.statements) {
       if (ts.isExportDeclaration(statement)) {
@@ -483,6 +668,15 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
             setExport(specifier.name.text, source
               ? moduleBinding(source, imported)
               : locals.get(imported) ?? 'ambiguous');
+          }
+        } else if (statement.exportClause && ts.isNamespaceExport(statement.exportClause) && source) {
+          const namespace = statement.exportClause.name.text;
+          const graph = moduleExports(source, targetPath);
+          setExport(namespace, graphAggregate(graph));
+          for (const [name, provenance] of graph) {
+            if (name !== '*' && name !== 'default') {
+              setExport(`${namespace}.${name}`, provenance);
+            }
           }
         }
       } else if (ts.isExportAssignment(statement)) {
@@ -502,12 +696,31 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         }
       } else if (ts.isExpressionStatement(statement) && ts.isBinaryExpression(statement.expression) &&
           statement.expression.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
-        const assignment = statement.expression;
-        const text = assignment.left.getText(target);
-        const commonName = /^exports\.([A-Za-z_$][\w$]*)$/.exec(text)?.[1] ??
-          /^module\.exports\.([A-Za-z_$][\w$]*)$/.exec(text)?.[1];
-        if (commonName) setExport(commonName, expressionProvenance(assignment.right));
-        else if (text === 'module.exports') setExport('default', expressionProvenance(assignment.right));
+        applyCommonAssignment(statement.expression);
+      } else if (ts.isExpressionStatement(statement) && ts.isCallExpression(statement.expression) &&
+          ts.isPropertyAccessExpression(statement.expression.expression) &&
+          ts.isIdentifier(statement.expression.expression.expression) &&
+          statement.expression.expression.expression.text === 'Object' &&
+          statement.expression.expression.name.text === 'assign') {
+        const call = statement.expression;
+        const destination = call.arguments[0];
+        const writesModule = destination && isModuleExports(destination);
+        const writesExports = destination && ts.isIdentifier(destination) &&
+          destination.text === 'exports';
+        if (writesModule || writesExports) {
+          sawCommonJsExport = true;
+          const output = writesModule ? exports : exportsAlias ? exports : reboundExports;
+          call.arguments.slice(1).forEach((argument) =>
+            mergeStaticMembers(output, expressionMembers(argument))
+          );
+        }
+      }
+    }
+    if (sawCommonJsExport) {
+      for (const [name, provenance] of [...exports]) {
+        if (name !== '*' && name !== 'default' && !name.startsWith('default.')) {
+          exports.set(`default.${name}`, provenance);
+        }
       }
     }
     const aggregate = [...exports.values()].reduce<ReceiverProvenance | undefined>(
@@ -526,22 +739,33 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   ): AbstractValue {
     const graph = moduleExports(moduleName, importerPath);
     const localModule = Boolean(resolveModulePath(moduleName, importerPath));
-    const receiverProvenance = importedName === '*' && localModule
-      ? 'ambiguous'
-      : graph.get(importedName) ??
-        (localModule ? 'ambiguous' : graph.get('*') ?? importProvenance(moduleName));
-    const properties = importedName === '*'
-      ? new Map([...graph.entries()].filter(([name]) => name !== '*')
-          .map(([name, provenance]) => [name, valueOf({
-            receiverProvenance: provenance,
-            external: provenance === 'ambiguous',
-          })]))
-      : new Map<string, AbstractValue>();
-    return valueOf({
-      properties,
-      receiverProvenance,
-      external: receiverProvenance === 'ambiguous',
-    });
+    const graphValue = (prefix: string): AbstractValue => {
+      const childNames = new Set<string>();
+      const stem = prefix ? `${prefix}.` : '';
+      for (const name of graph.keys()) {
+        if (name === '*' || (prefix === '' && name === 'default')) continue;
+        if (!name.startsWith(stem)) continue;
+        const remainder = name.slice(stem.length);
+        if (remainder) childNames.add(remainder.split('.')[0]);
+      }
+      const properties = new Map<string, AbstractValue>();
+      for (const child of childNames) {
+        const qualified = stem + child;
+        properties.set(child, graphValue(qualified));
+      }
+      const receiverProvenance = prefix === '' && localModule
+        ? graph.get('*') ?? 'ambiguous'
+        : graph.get(prefix) ??
+          ([...graph.keys()].some((name) => name.startsWith(`${prefix}.`))
+            ? 'non-database'
+            : localModule ? 'ambiguous' : graph.get('*') ?? importProvenance(moduleName));
+      return valueOf({
+        properties,
+        receiverProvenance,
+        external: receiverProvenance === 'ambiguous',
+      });
+    };
+    return graphValue(importedName === '*' ? '' : importedName);
   }
 
   function selectedProperty(base: AbstractValue, property: string): AbstractValue {
@@ -557,6 +781,17 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       return valueOf({
         sequenceBuilder: 'concat',
         sequenceSource: base,
+        callableCandidate: true,
+      });
+    }
+    if ((base.tupleElements || base.elements) &&
+        (['push', 'pop', 'shift', 'unshift', 'splice', 'reverse', 'fill',
+          'copyWithin', 'sort'] as SequenceMutationName[]).includes(
+          property as SequenceMutationName
+        )) {
+      return valueOf({
+        sequenceMutation: property as SequenceMutationName,
+        sequenceMutationTarget: base,
         callableCandidate: true,
       });
     }
@@ -603,6 +838,16 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     }
     if (ts.isNumericLiteral(node)) {
       return valueOf({ numbers: new Set([Number(node.text)]) });
+    }
+    if (ts.isPrefixUnaryExpression(node) &&
+        (node.operator === ts.SyntaxKind.MinusToken || node.operator === ts.SyntaxKind.PlusToken)) {
+      const operand = resolveValue(node.operand);
+      if (!operand.external && operand.numbers.size > 0) {
+        return valueOf({ numbers: new Set([...operand.numbers].map((number) =>
+          node.operator === ts.SyntaxKind.MinusToken ? -number : number
+        )) });
+      }
+      return valueOf({ external: true });
     }
     if (ts.isRegularExpressionLiteral(node)) {
       return valueOf({ receiverProvenance: 'non-database' });
@@ -1016,6 +1261,9 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         ? valueFingerprint(value.adapterCallable, seen) : null,
       sequenceBuilder: value.sequenceBuilder ?? null,
       sequenceSource: value.sequenceSource ? valueFingerprint(value.sequenceSource, seen) : null,
+      sequenceMutation: value.sequenceMutation ?? null,
+      sequenceMutationTarget: value.sequenceMutationTarget
+        ? valueFingerprint(value.sequenceMutationTarget, seen) : null,
       properties, elements: value.elements ? valueFingerprint(value.elements, seen) : null,
       tupleElements: value.tupleElements?.map((entry) => valueFingerprint(entry, seen)) ?? null,
     });
@@ -1044,9 +1292,11 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     if (seen.has(value)) return false;
     seen.add(value);
     if (value.methods.size > 0 || value.callableCandidate || value.adapter ||
-        value.sequenceBuilder || value.functions.size > 0) return true;
+        value.sequenceBuilder || value.sequenceMutation || value.functions.size > 0) return true;
     if (value.adapterCallable && hasExecutableProvenance(value.adapterCallable, seen)) return true;
     if (value.sequenceSource && hasExecutableProvenance(value.sequenceSource, seen)) return true;
+    if (value.sequenceMutationTarget &&
+        hasExecutableProvenance(value.sequenceMutationTarget, seen)) return true;
     if (value.elements && hasExecutableProvenance(value.elements, seen)) return true;
     if (value.tupleElements?.some((entry) => hasExecutableProvenance(entry, seen))) return true;
     return [...value.properties.values()].some((entry) => hasExecutableProvenance(entry, seen));
@@ -1107,6 +1357,8 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       receiverProvenance: callable.receiverProvenance,
       sequenceBuilder: callable.sequenceBuilder,
       sequenceSource: callable.sequenceSource,
+      sequenceMutation: callable.sequenceMutation,
+      sequenceMutationTarget: callable.sequenceMutationTarget,
     });
   }
 
@@ -1118,6 +1370,161 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   }
 
   let callableEvaluationWork = 0;
+  const sequenceMutationResults = new WeakMap<ts.CallExpression, {
+    target: AbstractValue;
+    result: AbstractValue;
+    postState: string;
+  }>();
+
+  function refreshSequence(target: AbstractValue, entries: AbstractValue[]): void {
+    const properties = new Map([...target.properties].filter(([name]) =>
+      name !== 'length' && !/^(?:0|[1-9]\d*)$/.test(name)
+    ));
+    entries.forEach((entry, index) => properties.set(String(index), entry));
+    properties.set('length', valueOf({ numbers: new Set([entries.length]) }));
+    target.properties = properties;
+    target.tupleElements = entries;
+    target.elements = entries.length > 0 ? unionValues(...entries) : undefined;
+  }
+
+  function invalidateSequence(target: AbstractValue, args: AbstractValue[]): void {
+    const candidates = [
+      ...(target.tupleElements ?? []),
+      ...(target.elements ? [target.elements] : []),
+      ...args,
+    ];
+    const executable = candidates.some((entry) => hasExecutableProvenance(entry));
+    target.properties = new Map([...target.properties].filter(([name]) =>
+      name !== 'length' && !/^(?:0|[1-9]\d*)$/.test(name)
+    ));
+    target.tupleElements = undefined;
+    const uncertainty = valueOf({ external: true, callableCandidate: executable });
+    target.elements = candidates.length > 0
+      ? unionValues(...candidates, uncertainty) : uncertainty;
+    target.external = true;
+    target.callableCandidate ||= executable;
+  }
+
+  function exactNumber(value: AbstractValue | undefined): number | undefined {
+    if (!value || value.external || value.numbers.size !== 1 || value.strings.size > 0 ||
+        value.methods.size > 0 || value.functions.size > 0) return undefined;
+    const number = [...value.numbers][0];
+    return Number.isFinite(number) ? number : undefined;
+  }
+
+  function relativeIndex(value: number, length: number): number {
+    const integer = Math.trunc(value);
+    return integer < 0 ? Math.max(length + integer, 0) : Math.min(integer, length);
+  }
+
+  function evaluateSequenceMutation(
+    callable: AbstractValue,
+    args: AbstractValue[],
+    context: InvocationContext
+  ): AbstractValue {
+    const target = callable.sequenceMutationTarget ?? valueOf({
+      external: true, callableCandidate: true,
+    });
+    const cached = sequenceMutationResults.get(context.node);
+    if (cached?.target === target && cached.postState === valueFingerprint(target)) {
+      return cached.result;
+    }
+    const method = callable.sequenceMutation!;
+    const entries = target.tupleElements ? [...target.tupleElements] : undefined;
+    let result: AbstractValue;
+
+    if (!entries || target.external) {
+      invalidateSequence(target, args);
+      result = method === 'push' || method === 'unshift'
+        ? valueOf({ external: true }) : target;
+      sequenceMutationResults.set(context.node, {
+        target, result, postState: valueFingerprint(target),
+      });
+      return result;
+    }
+
+    if (method === 'push') {
+      entries.push(...args);
+      refreshSequence(target, entries);
+      result = valueOf({ numbers: new Set([entries.length]) });
+    } else if (method === 'pop') {
+      result = entries.pop() ?? valueOf();
+      refreshSequence(target, entries);
+    } else if (method === 'shift') {
+      result = entries.shift() ?? valueOf();
+      refreshSequence(target, entries);
+    } else if (method === 'unshift') {
+      entries.unshift(...args);
+      refreshSequence(target, entries);
+      result = valueOf({ numbers: new Set([entries.length]) });
+    } else if (method === 'reverse') {
+      entries.reverse();
+      refreshSequence(target, entries);
+      result = target;
+    } else if (method === 'splice') {
+      if (args.length === 0) {
+        refreshSequence(target, entries);
+        result = coherentSequence([]);
+        sequenceMutationResults.set(context.node, {
+          target, result, postState: valueFingerprint(target),
+        });
+        return result;
+      }
+      const startNumber = exactNumber(args[0]);
+      const deleteNumber = args.length < 2 ? entries.length : exactNumber(args[1]);
+      if (startNumber === undefined || deleteNumber === undefined) {
+        invalidateSequence(target, args);
+        result = coherentSequence([], true, target.elements);
+      } else {
+        const start = relativeIndex(startNumber, entries.length);
+        const deleteCount = args.length < 2
+          ? entries.length - start
+          : Math.min(Math.max(Math.trunc(deleteNumber), 0), entries.length - start);
+        const removed = entries.splice(start, deleteCount, ...args.slice(2));
+        refreshSequence(target, entries);
+        result = coherentSequence(removed);
+      }
+    } else if (method === 'fill') {
+      const startNumber = args.length < 2 ? 0 : exactNumber(args[1]);
+      const endNumber = args.length < 3 ? entries.length : exactNumber(args[2]);
+      if (startNumber === undefined || endNumber === undefined) {
+        invalidateSequence(target, args);
+        result = target;
+      } else {
+        entries.fill(
+          args[0] ?? valueOf(),
+          relativeIndex(startNumber, entries.length),
+          relativeIndex(endNumber, entries.length)
+        );
+        refreshSequence(target, entries);
+        result = target;
+      }
+    } else if (method === 'copyWithin') {
+      const targetNumber = exactNumber(args[0]);
+      const startNumber = exactNumber(args[1]);
+      const endNumber = args.length < 3 ? entries.length : exactNumber(args[2]);
+      if (targetNumber === undefined || startNumber === undefined || endNumber === undefined) {
+        invalidateSequence(target, args);
+        result = target;
+      } else {
+        const destination = relativeIndex(targetNumber, entries.length);
+        const start = relativeIndex(startNumber, entries.length);
+        const end = relativeIndex(endNumber, entries.length);
+        const copied = entries.slice(start, Math.max(start, end));
+        copied.slice(0, Math.max(entries.length - destination, 0))
+          .forEach((entry, index) => { entries[destination + index] = entry; });
+        refreshSequence(target, entries);
+        result = target;
+      }
+    } else {
+      invalidateSequence(target, args);
+      result = target;
+    }
+    sequenceMutationResults.set(context.node, {
+      target, result, postState: valueFingerprint(target),
+    });
+    return result;
+  }
 
   function adapterStateKey(
     callable: AbstractValue,
@@ -1189,6 +1596,10 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         appliedArguments(args[1] ?? valueOf({ external: true })),
         args[0], context, nextPath, depth + 1
       );
+    }
+
+    if (callable.sequenceMutation) {
+      return evaluateSequenceMutation(callable, args, context);
     }
 
     if (callable.sequenceBuilder) {
@@ -1566,59 +1977,6 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         node.arguments.forEach(visit);
         return;
       }
-      if (ts.isPropertyAccessExpression(node.expression) &&
-          node.expression.name.text === 'push') {
-        const target = resolveValue(node.expression.expression);
-        const pushed = invocationArgumentValues(node.arguments);
-        if (target.tupleElements && !target.external) {
-          pushed.forEach((entry) => writeSequencePosition(
-            target, target.tupleElements?.length ?? 0, entry
-          ));
-        } else {
-          const values = unionValues(...pushed);
-          target.elements = target.elements ? unionValues(target.elements, values) : values;
-          target.external = true;
-        }
-        node.arguments.forEach(visit);
-        return;
-      }
-      if (ts.isPropertyAccessExpression(node.expression) &&
-          node.expression.name.text === 'splice') {
-        const target = resolveValue(node.expression.expression);
-        const start = resolveValue(node.arguments[0]);
-        const remove = resolveValue(node.arguments[1]);
-        const startIndex = !start.external && start.numbers.size === 1 ? [...start.numbers][0] : undefined;
-        const removeCount = !remove.external && remove.numbers.size === 1 ? [...remove.numbers][0] : undefined;
-        if (target.tupleElements && Number.isInteger(startIndex) && Number.isInteger(removeCount) &&
-            startIndex !== undefined && removeCount !== undefined && startIndex >= 0 && removeCount >= 0) {
-          const inserted = invocationArgumentValues(ts.factory.createNodeArray(node.arguments.slice(2)));
-          target.tupleElements.splice(startIndex, removeCount, ...inserted);
-          target.properties = new Map(target.properties);
-          [...target.properties.keys()].filter((name) => /^(?:0|[1-9]\d*)$/.test(name))
-            .forEach((name) => target.properties.delete(name));
-          target.tupleElements.forEach((entry, index) => target.properties.set(String(index), entry));
-          target.properties.set('length', valueOf({ numbers: new Set([target.tupleElements.length]) }));
-          target.elements = unionValues(...target.tupleElements);
-        } else {
-          const inserted = unionValues(...node.arguments.slice(2).map((argument) => resolveValue(argument)));
-          target.elements = target.elements ? unionValues(target.elements, inserted) : inserted;
-          target.external = true;
-        }
-        node.arguments.forEach(visit);
-        return;
-      }
-      if (ts.isPropertyAccessExpression(node.expression) &&
-          ['pop', 'shift', 'unshift', 'fill', 'copyWithin', 'reverse', 'sort']
-            .includes(node.expression.name.text)) {
-        const target = resolveValue(node.expression.expression);
-        const mutations = unionValues(...node.arguments.map((argument) => resolveValue(argument)));
-        target.elements = unionValues(target.elements ?? valueOf(), mutations,
-          valueOf({ external: true }));
-        target.external = true;
-        node.arguments.forEach(visit);
-        return;
-      }
-
       if (ts.isPropertyAccessExpression(node.expression) &&
           ['forEach', 'map', 'filter', 'some', 'every', 'find', 'findIndex']
             .includes(node.expression.name.text)) {
@@ -3802,6 +4160,226 @@ describe('contract_hours_ledger production consumer inventory', () => {
     ]) expect(discoverSupabaseCalls(source), source).toContainEqual(expect.objectContaining({
       method: 'unknown', unsupported: 'dynamic callable name',
     }));
+  });
+
+  it('keeps finite sequence mutations coherent across aliases and return values', () => {
+    const expectOneLedgerCall = (source: string): void => {
+      const discovered = discoverSupabaseCalls(source);
+      expect(discovered.filter((call) => call.method === 'from' &&
+        (call.target === 'contract_hours_ledger' ||
+         call.targets?.includes('contract_hours_ledger'))), source).toHaveLength(1);
+      expect(discovered.filter((call) => call.unsupported), source).toEqual([]);
+    };
+
+    for (const source of [
+      `const slots = [];
+       slots.unshift(client.from, client, 'contract_hours_ledger');
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = ['contract_hours_ledger', client, client.from];
+       slots.reverse()[0].call(slots[1], slots[2]);`,
+      `const slots = [ordinary, client, 'contract_hours_ledger'];
+       slots.fill(client.from, 0, 1);
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = [ordinary, client, client.from, 'contract_hours_ledger'];
+       slots.copyWithin(0, 2, 3);
+       slots[0].call(slots[1], slots[3]);`,
+      `const slots = [ordinary, ordinary, ordinary];
+       slots.splice(-3, 3, client.from, client, 'contract_hours_ledger');
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = [client.from, client, 'contract_hours_ledger'];
+       const fn = slots.shift();
+       fn.call(slots[0], slots[1]);`,
+      `const slots = [client, 'contract_hours_ledger', client.from];
+       const fn = slots.pop();
+       fn.call(slots[0], slots[1]);`,
+      `const slots = [client, 'contract_hours_ledger'];
+       slots.push(client.from);
+       const fn = slots.pop();
+       fn.call(slots[0], slots[1]);`,
+      `const slots = [ordinary, ordinary, ordinary];
+       const removed = slots.splice(0, 3, client.from, client, 'contract_hours_ledger');
+       removed.unshift(client.from, client, 'contract_hours_ledger');
+       removed[0].call(removed[1], removed[2]);`,
+      `const slots = ['contract_hours_ledger', client, client.from];
+       const same = slots;
+       const reverse = same['reverse'].bind(slots);
+       reverse();
+       slots[0].call(same[1], same[2]);`,
+      `const slots = [client.from, client, 'contract_hours_ledger'];
+       const operation = 'reverse';
+       const { reverse: reorder } = slots;
+       slots.splice();
+       reorder.call(slots);
+       slots[operation]();
+       slots[0].call(slots[1], slots[2]);`,
+      `function reorder(value) {
+         value.unshift(ordinary);
+         value.shift();
+         value.reverse();
+         return value.reverse();
+       }
+       const slots = reorder([client.from, client, 'contract_hours_ledger']);
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = [ordinary, client, 'contract_hours_ledger', client.from];
+       slots.copyWithin(0, -1, 99);
+       slots.fill(client.from, -99, -3);
+       slots.splice(99, 0);
+       slots[0].call(slots[1], slots[2]);`,
+    ]) expectOneLedgerCall(source);
+
+    for (const source of [
+      `const slots = [client.from, client, 'contract_hours_ledger'];
+       slots.sort(externalComparator);
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = [client.from, client, 'contract_hours_ledger'];
+       slots.fill(client.from, externalStart);
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = [client.from, client, 'contract_hours_ledger'];
+       slots.copyWithin(externalTarget, 0);
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = [client.from, client, 'contract_hours_ledger'];
+       slots.splice(externalStart, 1);
+       slots[0].call(slots[1], slots[2]);`,
+    ]) {
+      const discovered = discoverSupabaseCalls(source);
+      expect(discovered, source).toContainEqual(expect.objectContaining({
+        method: 'unknown', unsupported: 'dynamic callable name',
+      }));
+      expect(discovered, source).not.toEqual([]);
+    }
+
+    for (const source of [
+      `const values = [1, 2, 3];
+       values.reverse().fill(0, 0, 1);
+       values.pop();`,
+      `const values = ['a'];
+       values.unshift('b');
+       values.splice(-1, 1, 'c');`,
+    ]) expect(discoverSupabaseCalls(source), source).toEqual([]);
+
+    const cyclic = `
+      const slots = [client.from, client, 'contract_hours_ledger'];
+      slots.push(slots);
+      slots.reverse();
+      slots.reverse();
+      slots[0].call(slots[1], slots[2]);
+    `;
+    expect(discoverSupabaseCalls(cyclic)).toEqual(discoverSupabaseCalls(cyclic));
+    expectOneLedgerCall(cyclic);
+  });
+
+  it('resolves static CommonJS export state and ESM namespace re-exports', () => {
+    const fixtureRoot = mkdtempSync(join(ROOT, '.z7-r16-modules-'));
+    try {
+      writeFileSync(join(fixtureRoot, 'factory.ts'), `
+        import { createClient } from '@supabase/supabase-js';
+        export const makeDatabase = () => createClient('url', 'key');
+        export const inert = () => 'ordinary';
+      `);
+      writeFileSync(join(fixtureRoot, 'computed.cjs'), `
+        const { createClient } = require('@supabase/supabase-js');
+        const key = 'makeDatabase';
+        const makeDatabase = () => createClient('url', 'key');
+        exports[key] = makeDatabase;
+        exports.inert = () => 'ordinary';
+      `);
+      writeFileSync(join(fixtureRoot, 'object.cjs'), `
+        const { createClient } = require('@supabase/supabase-js');
+        const makeDatabase = () => createClient('url', 'key');
+        const inert = () => 'ordinary';
+        module.exports = { makeDatabase, ['inert']: inert };
+      `);
+      writeFileSync(join(fixtureRoot, 'chained.cjs'), `
+        const { createClient } = require('@supabase/supabase-js');
+        const makeDatabase = () => createClient('url', 'key');
+        exports = module.exports = { makeDatabase };
+      `);
+      writeFileSync(join(fixtureRoot, 'assigned.cjs'), `
+        const { createClient } = require('@supabase/supabase-js');
+        const makeDatabase = () => createClient('url', 'key');
+        const base = { inert: () => 'ordinary' };
+        Object.assign(exports, base, { makeDatabase });
+      `);
+      writeFileSync(join(fixtureRoot, 'spread.cjs'), `
+        const { createClient } = require('@supabase/supabase-js');
+        const base = { inert: () => 'ordinary' };
+        const makeDatabase = () => createClient('url', 'key');
+        module.exports = { ...base, ['makeDatabase']: makeDatabase };
+      `);
+      writeFileSync(join(fixtureRoot, 'forward.cjs'), `
+        module.exports = require('@supabase/supabase-js');
+      `);
+      writeFileSync(join(fixtureRoot, 'namespace.ts'), `
+        export * as factories from './factory';
+      `);
+      writeFileSync(join(fixtureRoot, 'barrel.ts'), `
+        export * from './namespace';
+      `);
+      writeFileSync(join(fixtureRoot, 'cycle-a.ts'), `
+        export * from './cycle-b';
+        export * as factories from './factory';
+      `);
+      writeFileSync(join(fixtureRoot, 'cycle-b.ts'), `
+        export * from './cycle-a';
+      `);
+      writeFileSync(join(fixtureRoot, 'bare-rebind.cjs'), `
+        const { createClient } = require('@supabase/supabase-js');
+        const makeDatabase = () => createClient('url', 'key');
+        exports = { makeDatabase };
+      `);
+      writeFileSync(join(fixtureRoot, 'dynamic.cjs'), `
+        const { createClient } = require('@supabase/supabase-js');
+        const makeDatabase = () => createClient('url', 'key');
+        exports[process.argv[2]] = makeDatabase;
+      `);
+      const importer = join(fixtureRoot, 'consumer.ts');
+      for (const source of [
+        `const api = require('./computed');
+         api['makeDatabase']().from('contract_hours_ledger');`,
+        `const { makeDatabase: open } = require('./object');
+         open().from('contract_hours_ledger');`,
+        `const api = require('./chained');
+         const { makeDatabase } = api;
+         makeDatabase().from('contract_hours_ledger');`,
+        `const api = require('./assigned');
+         api.makeDatabase().from('contract_hours_ledger');`,
+        `import api from './spread';
+         api.makeDatabase().from('contract_hours_ledger');`,
+        `const supabase = require('./forward');
+         supabase.createClient('url', 'key').from('contract_hours_ledger');`,
+        `import { factories } from './namespace';
+         factories.makeDatabase().from('contract_hours_ledger');`,
+        `import * as api from './barrel';
+         api.factories['makeDatabase']().from('contract_hours_ledger');`,
+        `import { factories } from './cycle-a';
+         factories.makeDatabase().from('contract_hours_ledger');`,
+      ]) expect(directTableTouchCount(source, importer), source).toBe(1);
+
+      for (const source of [
+        `const api = require('./bare-rebind');
+         api.makeDatabase().from('contract_hours_ledger');`,
+        `const api = require('./dynamic');
+         api.makeDatabase().from('contract_hours_ledger');`,
+      ]) expect(discoverSupabaseCalls(source, importer), source).toContainEqual(
+        expect.objectContaining({ method: 'unknown', unsupported: 'dynamic callable name' })
+      );
+
+      const inert = `
+        const api = require('./object');
+        api.inert().from('contract_hours_ledger');
+      `;
+      expect(discoverSupabaseCalls(inert, importer).filter((call) => call.unsupported)).toEqual([]);
+      expect(directTableTouchCount(inert, importer)).toBe(0);
+
+      const circular = `
+        import { factories } from './cycle-a';
+        factories.makeDatabase().from('contract_hours_ledger');
+      `;
+      expect(discoverSupabaseCalls(circular, importer))
+        .toEqual(discoverSupabaseCalls(circular, importer));
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
   });
 
   it('classifies composite ledger rows and column-opaque ledger DML', () => {

@@ -5,16 +5,16 @@
 - Builder state: `REVIEW READY`; this document is evidence, not an acceptance verdict.
 - Canonical branch: `feat/zoom-hours`.
 - Immutable cumulative base: `4399949942bfcf49dfa8de40cbf7edbf40f0490e`.
-- Rejected round-fifteen canonical head: `4d6119e765a818064ea3152f57c10008647f520a`
-  (79 commits from the base; tree `dba9ce468a32693764cf877b3832ce576ec26028`).
+- Rejected round-sixteen canonical head: `306dc1b946784dbbf0a5f77d16e423a4c790e272`
+  (82 commits from the base; tree `b87082d78dae151d18090fd38089cdef6d5b08f0`).
   It is a rejected review point, not acceptance evidence.
-- Detached round-fifteen starting point: `342d97f796bf0bcf6bc3efb31ef8fe7adc401b63`
-  (79 commits; tree-equivalent to the rejected canonical head before the new contract).
-- Detached round-fifteen contract cherry-pick: `7ac92fcf649c831ef13f02b207a9970ae4000bc0`
-  (80 commits).
-- Detached round-fifteen sequence/module implementation:
-  `ab1ae0f52d7625cb6344134c6ba449844e2de508` (81 commits).
-- This evidence document is the 82nd cumulative detached commit. A commit cannot truthfully embed
+- Detached round-sixteen starting point: `912a78da6986f5874624b4a79325895f58ed690f`
+  (82 commits; tree-equivalent to the rejected canonical head before the new contract).
+- Detached round-sixteen contract cherry-pick: `203f21a8ce2b60d483a685cf3a6cd0eed46360f7`
+  (83 commits).
+- Detached round-sixteen sequence/export implementation:
+  `b475cdfbf287b458419acf997f60565c061fab7d` (84 commits).
+- This evidence document is the 85th cumulative detached commit. A commit cannot truthfully embed
   its own identity; its exact detached SHA is supplied in the builder handoff. The external review
   dispatch must pin the post-cherry-pick canonical HEAD (`CANONICAL_HEAD_PENDING_INTEGRATION`).
 - Review boundary: `4399949942bfcf49dfa8de40cbf7edbf40f0490e..HEAD`.
@@ -23,10 +23,10 @@ There is no recursive HEAD placeholder in this artifact. A commit cannot contain
 and cherry-picking changes detached commit identities. All embedded SHAs above are already stable
 objects with counts verified by `git rev-list --count 43999499..<sha>`.
 
-Ordered detached commits after `342d97f796bf0bcf6bc3efb31ef8fe7adc401b63`:
+Ordered detached commits after `912a78da6986f5874624b4a79325895f58ed690f`:
 
-1. `7ac92fcf649c831ef13f02b207a9970ae4000bc0` — round-fifteen contract cherry-pick.
-2. `ab1ae0f52d7625cb6344134c6ba449844e2de508` — finite-sequence semantics, ESM/CommonJS module graph, and mutation matrices.
+1. `203f21a8ce2b60d483a685cf3a6cd0eed46360f7` — round-sixteen contract cherry-pick.
+2. `b475cdfbf287b458419acf997f60565c061fab7d` — mutable-sequence transfer semantics, export alias state, and mutation matrices.
 3. This evidence commit — exact detached SHA in the builder handoff.
 
 ## Objective, delivered scope, and current status
@@ -48,6 +48,13 @@ remediation, the Vitest upgrade, leadership aggregates, deployments, production 
 unrelated refactors.
 
 ## Finding disposition
+
+### Round sixteen
+
+| Finding | Disposition and evidence |
+|---|---|
+| Z7-R16.1 | Every finite sequence mutation now transfers or invalidates positional state coherently. `push`, `pop`, `shift`, `unshift`, `splice`, `reverse`, `fill`, and `copyWithin` implement JavaScript return values, chaining, omitted/positive/negative/extreme bound normalization, insertion/deletion, overlapping copies, aliases, computed/destructured/bound methods, repeated mixtures, and same-object aliases. `sort` and unresolved bounds/orders erase all tuple/numeric/length facts and retain executable uncertainty, so stale properties cannot outrank fail-closed state. Per-call post-state caching prevents duplicate evaluation while allowing a changed or different sequence target to be evaluated again. |
+| Z7-R16.2 | The cycle-bounded module graph now carries explicit CommonJS module-object state: `exports` begins aliased to `module.exports`, bare rebinding detaches it, chained rebinding restores identity, and property/object/spread/`Object.assign`/whole-`require` writes update the correct object. Constant computed keys, object shorthand and inert siblings, default/namespace/computed/destructured consumers, `export * as` namespaces, barrels, CommonJS/ESM interop, dynamic keys/getters, and circular graphs are classified without receiver-name exceptions. Static Supabase capability resolves exactly; dynamic export domains remain explicit unsupported. |
 
 ### Round fifteen
 
@@ -434,6 +441,7 @@ Risk grouping describes review priority, not ownership.
 - `docs/plan/zoom/remediation/Z7-review-13.md`
 - `docs/plan/zoom/remediation/Z7-review-14.md`
 - `docs/plan/zoom/remediation/Z7-review-15.md`
+- `docs/plan/zoom/remediation/Z7-review-16.md`
 - `docs/plan/zoom/reviews/fase-7-review-request.md`
 - `docs/plan/zoom/reviews/fase-7-review-verdict.md`
 
@@ -453,7 +461,7 @@ comm -3 \
     | sed -n 's/^- `\(.*\)`$/\1/p' | sort)
 ```
 
-Result after the evidence commit: no output. Counts: cumulative diff **122**, inventory **122**,
+Result after the evidence commit: no output. Counts: cumulative diff **123**, inventory **123**,
 duplicates **0**.
 
 ## Gate and fail-on-old evidence
@@ -463,12 +471,12 @@ piped through `tail`.
 
 | Command | Result | Exit |
 |---|---|---:|
-| Focused Round 15 executable inventory | 1 file, **20 green** | 0 |
-| Focused inherited high-risk Vitest over reservation, snapshot, JSON ledger, single/bulk approval, creation, reschedule, override, inventory, billing/isolation, cron/webhook, report/store/reconcile, participant lifecycle, attendance store, and lifecycle instants | 22 files, **351 green** | 0 |
+| Focused Round 16 executable inventory | 1 file, **22 green** | 0 |
+| Cumulative Z7 high-risk Vitest over every test path changed since the immutable base: reservation, snapshot, JSON ledger, single/bulk approval, creation, reschedule, override, inventory, billing/isolation, cron/webhook, report/store/reconcile, participant lifecycle, attendance store, lifecycle instants, UI and retirement guards | 37 files, **579 green** | 0 |
 | `npm run type-check` | no diagnostics | 0 |
 | `npm run lint` | zero warnings | 0 |
 | `bash scripts/ci/check-rls-migrations.sh` | no RLS disablement | 0 |
-| `TZ=America/Santiago npm test` | 324 files, **7,384 green / 11 skipped** | 0 |
+| `TZ=America/Santiago npm test` | 324 files, **7,386 green / 11 skipped** | 0 |
 | `npm run build` | production build; **156/156 static pages** | 0 |
 | `node scripts/check-price-leak.mjs` after build | scanned **265** compiled static files; no commercial data found | 0 |
 | Fresh local `supabase db reset` | all migrations through additive `20260813121000` replayed; repeated after Chromium to remove synthetic fixtures | 0 |
@@ -477,8 +485,35 @@ piped through `tail`.
 | `npm run test:override-concurrency` | identical race apply+replay; forged/different payloads `P0409` sequentially and concurrently; no `23505` | 0 |
 | Fresh local `supabase db reset`; local-CLI URL/keys supplied to `node scripts/ci/seed-e2e.mjs`; `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **117/117 passed**, one worker | 0 |
 | `node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json` | 11 mandatory specs ran with no skips | 0 |
-| `TZ=UTC npm test` | 324 files, **7,384 green / 11 skipped** | 0 |
-| `TZ=Europe/Madrid npm test` | **7,376 green / 8 failed / 11 skipped** in 324 files; all 8 are inherited `lib/__tests__/businessDays.test.ts` | 1 inherited |
+| `TZ=UTC npm test` | 324 files, **7,386 green / 11 skipped** | 0 |
+| `TZ=Europe/Madrid npm test` | **7,378 green / 8 failed / 11 skipped** in 324 files; all 8 are inherited `lib/__tests__/businessDays.test.ts` | 1 inherited |
+
+Round-sixteen fail-on-old and mutation evidence was local/in-memory and the checked-in analyzer was
+restored before every green gate:
+
+- The two Round 16 tests against the unchanged Round 15 evaluator produced **2 failed / 20
+  passed**. `unshift(client.from, client, table)` left a stale empty tuple and returned zero
+  discovery/unsupported evidence; `exports[constantKey] = makeDatabase` likewise failed to recover
+  the static CommonJS export. This independently reproduces one supplied form from each reviewed
+  family without a TypeScript double.
+- Removing `unshift` from the mutation-callable family made the targeted sequence test red **1/1**
+  (21 skipped). Removing constant-identifier resolution from computed export keys made the module
+  test red **1/1**. Both rollback-only mutations were immediately restored; final focused evidence
+  is 22/22.
+- The transfer matrix covers all named mutations, actual scalar/sequence return values, omitted and
+  negative `splice`, extreme/fractional bound normalization, overlapping `copyWithin`, exact
+  `fill`, aliases/computed/destructured/bound methods, repeated/mixed operations, same-sequence
+  aliases, nested functions/returns, inert arrays, dynamic bounds/order, stale-state invalidation,
+  duplicate suppression, and bounded self-references. Known results recover exactly once; unknown
+  executable positions always emit unsupported evidence.
+- The export matrix covers constant computed and dotted exports, `module.exports` object shorthand,
+  computed properties and known spreads, chained versus bare rebinding, `Object.assign`, whole-module
+  forwarding, default/named/namespace/computed/destructured consumers, `export * as`, explicit/star
+  barrels, multi-hop and circular interop, inert siblings, dynamic keys/getters, duplicate
+  suppression, and deterministic termination.
+- The mechanically re-walked production census remains exactly **14 files/22 direct touches**,
+  **8 files/10 indirect calls**, **9 files/33 SQL expressions**, **8 files/13 SQL objects**, **4
+  files/5 explicit unresolved executable sites**, and zero production `exec_sql` callers.
 
 Round-fifteen fail-on-old and mutation evidence was in-memory/rollback-only and the checked-in
 analyzer was restored before every green gate:
@@ -776,24 +811,36 @@ from a fresh post-pgTAP reset with the exact temporary synthetic CI environment,
 then the environment file was deleted and the local database was reset again through
 `20260813121000`. Build retained the inherited Browserslist and webpack-cache advisories.
 
+Round 16 reused that temporary dependency link and removed it before handoff. Two early full-suite
+invocations outlived their short command sessions and overlapped; one emitted no JSON artifact and
+the other two were stopped by their exact local test PIDs, so none is counted. A diagnostic focused
+module-provenance run filtered its output while locating an ambiguity and is also excluded. The
+three timezone suites were then rerun serially through persistent sessions and produced complete
+JSON reports. The cumulative selector was intentionally widened from the earlier 22-file sample to
+all 37 Z7 test paths changed since the immutable base. Chromium began after a fresh post-pgTAP reset,
+used the exact temporary synthetic CI environment, ran 117/117, and passed the 11-spec manifest;
+the environment file was deleted and a final reset replayed through `20260813121000`. Build retained
+the inherited Browserslist and webpack-cache advisories. No incomplete collection is gate evidence.
+
 ## Explicit inherited deviations
 
 - Advisory `npm run lint:testid` remains the round-two measured repository baseline of **44 errors
-  / 2,625 warnings**. Round fifteen adds no interactive UI.
+  / 2,625 warnings**. Round sixteen adds no interactive UI.
 - Madrid's eight `businessDays.test.ts` failures are the previously reproduced out-of-scope
   licitación defect. All Z7/hours tests are green in all three zones.
 - The broad `npm run e2e` inherited round-one result remains **160 passed / 27 skipped / 1 did not
-  run / 62 failed (250 total)**. Round fifteen changes no `tests/e2e/` path; the supported mandatory
+  run / 62 failed (250 total)**. Round sixteen changes no `tests/e2e/` path; the supported mandatory
   selector was rerun fresh at 117/117.
 
 None of these deviations is represented as a green gate.
 
 ## Independent reviewer focus and residual risks
 
-1. Mutate finite sequence construction and mutation through aliased/computed `Array.of`/`from`,
-   `new Array` overloads, concat/spread, numeric assignment, nested targets, and unknown mappers.
-   Also traverse named/default/namespace/CommonJS provenance across wrapper returns, star/explicit
-   barrels and cycles. Recoverable positions/modules must count once; uncertainty must reject stably.
+1. Mutate sequence transfer through every named mutator, negative/omitted/extreme bounds, return
+   values, bound/destructured methods, same-array aliases, and mixed/repeated operations. Also
+   mutate `exports`/`module.exports` identity through computed keys, objects/spreads, assignment,
+   whole-module forwarding, `export * as`, default/namespace consumers, and cycles. Recoverable
+   positions/modules must count once; invalidated or dynamic authority must reject stably.
 2. Re-audit `public.exec_sql(text)` and related exposed authority at the catalog and real-role
    boundaries. Anon, authenticated-admin, and service-role calls must all receive `42501`; the
    retired endpoint must construct no service client and issue no RPC/SQL, while fixed owner RPCs
@@ -802,7 +849,7 @@ None of these deviations is represented as a green gate.
    `EXECUTE`, procedures, composite/`RETURNS TABLE`/plain variables, triggers, rules/views,
    correlated scopes, and numbered/custom dollar tags. Inert comments/literals must stay inert;
    unresolved executable authority must fail explicitly without filename or substring allowances.
-4. Re-run both mechanical inventories against integrated HEAD: cumulative paths **122/122**;
+4. Re-run both mechanical inventories against integrated HEAD: cumulative paths **123/123**;
    classifications **14/22** direct, **8/10** indirect, **9/33** SQL expressions/writes, and
    **8/13** SQL objects, plus **4 files/5 sites** of explicit unresolved executable SQL and zero
    production `exec_sql` callers.

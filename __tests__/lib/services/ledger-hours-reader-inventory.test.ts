@@ -5,7 +5,8 @@
  * be explicitly classified here before the suite returns green.
  */
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { builtinModules } from 'node:module';
+import { dirname, join, relative } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
@@ -52,6 +53,7 @@ type DiscoveredCall = {
 
 interface AbstractValue {
   strings: Set<string>;
+  numbers: Set<number>;
   methods: Set<MethodName>;
   properties: Map<string, AbstractValue>;
   elements?: AbstractValue;
@@ -64,11 +66,13 @@ interface AbstractValue {
   adapter?: 'call' | 'apply' | 'bind' | 'reflectApply';
   adapterCallable?: AbstractValue;
   adapterConflict: boolean;
+  receiverProvenance?: 'database' | 'non-database' | 'ambiguous';
 }
 
 function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
   return {
     strings: partial.strings ?? new Set(),
+    numbers: partial.numbers ?? new Set(),
     methods: partial.methods ?? new Set(),
     properties: partial.properties ?? new Map(),
     elements: partial.elements,
@@ -81,7 +85,19 @@ function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
     adapter: partial.adapter,
     adapterCallable: partial.adapterCallable,
     adapterConflict: partial.adapterConflict ?? false,
+    receiverProvenance: partial.receiverProvenance,
   };
+}
+
+const NODE_BUILTIN_MODULES = new Set(builtinModules.flatMap((name) => [
+  name,
+  name.startsWith('node:') ? name : `node:${name}`,
+]));
+
+function importProvenance(moduleName: string): NonNullable<AbstractValue['receiverProvenance']> {
+  if (NODE_BUILTIN_MODULES.has(moduleName)) return 'non-database';
+  if (/(?:^|[/@_-])supabase(?:[/@_.-]|$)/i.test(moduleName)) return 'database';
+  return 'ambiguous';
 }
 
 function unionValues(...values: AbstractValue[]): AbstractValue {
@@ -102,12 +118,19 @@ function unionValues(...values: AbstractValue[]): AbstractValue {
 
     left.strings.forEach((entry) => result.strings.add(entry));
     right.strings.forEach((entry) => result.strings.add(entry));
+    left.numbers.forEach((entry) => result.numbers.add(entry));
+    right.numbers.forEach((entry) => result.numbers.add(entry));
     left.methods.forEach((entry) => result.methods.add(entry));
     right.methods.forEach((entry) => result.methods.add(entry));
     left.functions.forEach((entry) => result.functions.add(entry));
     right.functions.forEach((entry) => result.functions.add(entry));
     result.external = left.external || right.external;
     result.callableCandidate = left.callableCandidate || right.callableCandidate;
+    result.receiverProvenance = left.receiverProvenance === right.receiverProvenance
+      ? left.receiverProvenance
+      : left.receiverProvenance && right.receiverProvenance
+        ? 'ambiguous'
+        : left.receiverProvenance ?? right.receiverProvenance;
 
     const propertyNames = new Set([...left.properties.keys(), ...right.properties.keys()]);
     for (const name of propertyNames) {
@@ -159,12 +182,15 @@ function unionValues(...values: AbstractValue[]): AbstractValue {
     return result;
   }
 
-  return values.reduce((result, value) => pair(result, value), valueOf());
+  if (values.length === 0) return valueOf();
+  return values.slice(1).reduce((result, value) => pair(result, value), values[0]);
 }
 
 function readPropertyName(node: ts.PropertyName | undefined): string | undefined {
   if (!node) return undefined;
-  if (ts.isIdentifier(node) || ts.isStringLiteralLike(node)) return node.text;
+  if (ts.isIdentifier(node) || ts.isStringLiteralLike(node) || ts.isNumericLiteral(node)) {
+    return node.text;
+  }
   return undefined;
 }
 
@@ -180,6 +206,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   const functionOutputs = new Map<ts.FunctionLikeDeclaration, AbstractValue>();
   const functionClosures = new Map<ts.FunctionLikeDeclaration, Map<string, AbstractValue>>();
   const functionStack: ts.FunctionLikeDeclaration[] = [];
+  const relativeImportDatabaseCache = new Map<string, boolean>();
 
   function binding(name: string): AbstractValue | undefined {
     for (let index = scopes.length - 1; index >= 0; index -= 1) {
@@ -227,17 +254,164 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     return valueOf({ properties });
   }
 
+  function relativeImportReturnsDatabase(moduleName: string, importedName: string): boolean {
+    if (!moduleName.startsWith('.')) return false;
+    const importer = file.startsWith('/') ? file : join(ROOT, file);
+    const base = join(dirname(importer), moduleName);
+    const candidates = /\.[jt]sx?$/.test(base)
+      ? [base]
+      : [
+          `${base}.ts`, `${base}.tsx`, `${base}.js`, `${base}.jsx`,
+          join(base, 'index.ts'), join(base, 'index.tsx'), join(base, 'index.js'),
+        ];
+    const targetPath = candidates.find((candidate) => existsSync(candidate));
+    if (!targetPath) return false;
+    const cacheKey = `${targetPath}:${importedName}`;
+    const cached = relativeImportDatabaseCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+
+    const target = ts.createSourceFile(targetPath, readFileSync(targetPath, 'utf8'),
+      ts.ScriptTarget.Latest, true, /x$/.test(targetPath) ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+    const databaseFactories = new Set<string>();
+    for (const statement of target.statements) {
+      if (!ts.isImportDeclaration(statement) ||
+          !ts.isStringLiteralLike(statement.moduleSpecifier) ||
+          importProvenance(statement.moduleSpecifier.text) !== 'database') continue;
+      const clause = statement.importClause;
+      if (clause?.name) databaseFactories.add(clause.name.text);
+      if (clause?.namedBindings) {
+        if (ts.isNamespaceImport(clause.namedBindings)) {
+          databaseFactories.add(clause.namedBindings.name.text);
+        } else {
+          clause.namedBindings.elements.forEach((specifier) =>
+            databaseFactories.add(specifier.name.text));
+        }
+      }
+    }
+
+    function isDatabaseFactoryCall(node: ts.Expression): boolean {
+      const expression = unwrap(node);
+      if (!ts.isCallExpression(expression)) return false;
+      const callable = unwrap(expression.expression);
+      return (ts.isIdentifier(callable) && databaseFactories.has(callable.text)) ||
+        (ts.isPropertyAccessExpression(callable) &&
+          ts.isIdentifier(callable.expression) &&
+          databaseFactories.has(callable.expression.text));
+    }
+
+    function returnsDatabase(node: ts.Node): boolean {
+      const databaseLocals = new Set<string>();
+      function collectLocals(current: ts.Node): void {
+        if (current !== node && ts.isFunctionLike(current)) return;
+        if (ts.isVariableDeclaration(current) && ts.isIdentifier(current.name) &&
+            current.initializer && isDatabaseFactoryCall(current.initializer)) {
+          databaseLocals.add(current.name.text);
+        }
+        ts.forEachChild(current, collectLocals);
+      }
+      collectLocals(node);
+
+      let returned = false;
+      function inspectReturns(current: ts.Node): void {
+        if (current !== node && ts.isFunctionLike(current)) return;
+        if (ts.isReturnStatement(current) && current.expression) {
+          const expression = unwrap(current.expression);
+          returned ||= isDatabaseFactoryCall(expression) ||
+            (ts.isIdentifier(expression) && databaseLocals.has(expression.text));
+        } else if (ts.isArrowFunction(current) && !ts.isBlock(current.body)) {
+          returned ||= isDatabaseFactoryCall(current.body) ||
+            (ts.isIdentifier(current.body) && databaseLocals.has(current.body.text));
+        }
+        if (!returned) ts.forEachChild(current, inspectReturns);
+      }
+      inspectReturns(node);
+      return returned;
+    }
+
+    let result = false;
+    for (const statement of target.statements) {
+      if (ts.isFunctionDeclaration(statement) && statement.name?.text === importedName) {
+        result = returnsDatabase(statement);
+      } else if (ts.isVariableStatement(statement)) {
+        for (const declaration of statement.declarationList.declarations) {
+          if (ts.isIdentifier(declaration.name) && declaration.name.text === importedName &&
+              declaration.initializer) result ||= returnsDatabase(declaration.initializer);
+        }
+      }
+      if (result) break;
+    }
+    relativeImportDatabaseCache.set(cacheKey, result);
+    return result;
+  }
+
+  function importedValue(moduleName: string, importedName: string): AbstractValue {
+    const receiverProvenance = relativeImportReturnsDatabase(moduleName, importedName)
+      ? 'database'
+      : importProvenance(moduleName);
+    return valueOf({
+      receiverProvenance,
+      external: receiverProvenance === 'ambiguous',
+    });
+  }
+
+  function selectedProperty(base: AbstractValue, property: string): AbstractValue {
+    const stored = base.properties.get(property);
+    if (stored) return stored;
+    if (property === 'call' || property === 'apply' || property === 'bind') {
+      return valueOf({
+        adapter: property,
+        adapterCallable: base,
+        callableCandidate: base.callableCandidate,
+        external: base.external,
+        receiverProvenance: base.receiverProvenance,
+      });
+    }
+    if (property === 'from' || property === 'rpc') {
+      if (base.receiverProvenance === 'non-database' && !base.external) {
+        return valueOf({ receiverProvenance: 'non-database' });
+      }
+      if (base.receiverProvenance === 'ambiguous') {
+        return valueOf({
+          external: true,
+          receiverProvenance: 'ambiguous',
+        });
+      }
+      return valueOf({
+        methods: new Set([property]),
+        callableCandidate: true,
+        receiverProvenance: base.receiverProvenance,
+      });
+    }
+    if (base.receiverProvenance) {
+      const ambiguous = base.receiverProvenance === 'ambiguous';
+      return valueOf({
+        receiverProvenance: ambiguous ? 'ambiguous' : base.receiverProvenance,
+        external: ambiguous,
+      });
+    }
+    return valueOf({ external: true });
+  }
+
   function resolveValue(input: ts.Expression | undefined): AbstractValue {
     if (!input) return valueOf({ external: true });
     const node = unwrap(input);
     if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
       return valueOf({ strings: new Set([node.text]) });
     }
+    if (ts.isNumericLiteral(node)) {
+      return valueOf({ numbers: new Set([Number(node.text)]) });
+    }
+    if (ts.isRegularExpressionLiteral(node)) {
+      return valueOf({ receiverProvenance: 'non-database' });
+    }
     if (ts.isIdentifier(node)) {
       const resolved = binding(node.text);
       if (resolved) return resolved;
       if (node.text === 'Reflect') return reflectValue();
       if (node.text === 'Function') return functionConstructorValue();
+      if (node.text === 'Array' || node.text === 'Buffer') {
+        return valueOf({ receiverProvenance: 'non-database' });
+      }
       return valueOf({ external: true });
     }
     if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
@@ -257,6 +431,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     }
     if (ts.isArrayLiteralExpression(node)) {
       const tupleElements = node.elements.flatMap((entry) => {
+        if (ts.isOmittedExpression(entry)) return [valueOf()];
         if (!ts.isSpreadElement(entry)) return [resolveValue(entry)];
         const spread = resolveValue(entry.expression);
         return spread.tupleElements ?? [unionValues(
@@ -313,51 +488,31 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     }
     if (ts.isPropertyAccessExpression(node)) {
       const property = node.name.text;
-      if (property === 'call' || property === 'apply' || property === 'bind') {
-        const base = resolveValue(node.expression);
-        const stored = base.properties.get(property);
-        if (stored) return stored;
-        return valueOf({
-          adapter: property,
-          adapterCallable: base,
-          callableCandidate: base.callableCandidate,
-          external: base.external,
-        });
-      }
       const base = resolveValue(node.expression);
-      const storedProperty = base.properties.get(property);
-      if (storedProperty) return storedProperty;
-      if (property === 'from' || property === 'rpc') {
-        if (receiverExcluded(node.expression)) return valueOf({ external: true });
-        return valueOf({ methods: new Set([property]), callableCandidate: true });
-      }
-      return valueOf({ external: true });
+      if (receiverExcluded(node.expression)) return valueOf({ receiverProvenance: 'non-database' });
+      return selectedProperty(base, property);
     }
     if (ts.isElementAccessExpression(node)) {
       if (receiverExcluded(node.expression)) return valueOf();
       const base = resolveValue(node.expression);
       const key = resolveValue(node.argumentExpression);
+      if (!key.external && key.numbers.size > 0 && base.tupleElements) {
+        return unionValues(...[...key.numbers].map((index) =>
+          base.tupleElements?.[index] ?? valueOf({
+            external: base.external,
+            callableCandidate: base.external,
+          })
+        ));
+      }
       if (!key.external && key.strings.size > 0) {
-        const selected = [...key.strings].map((name) => {
-          if (name === 'from' || name === 'rpc') {
-            return valueOf({ methods: new Set([name]), callableCandidate: true });
-          }
-          const stored = base.properties.get(name);
-          if (stored) return stored;
-          if (name === 'call' || name === 'apply' || name === 'bind') {
-            return valueOf({
-              adapter: name,
-              adapterCallable: base,
-              callableCandidate: base.callableCandidate,
-              external: base.external,
-            });
-          }
-          return valueOf({ external: true });
-        });
+        const selected = [...key.strings].map((name) => selectedProperty(base, name));
         return unionValues(...selected);
       }
       if (base.elements) return base.elements;
       if (base.properties.size > 0) return unionValues(...base.properties.values());
+      if (base.receiverProvenance === 'non-database' && !base.external) {
+        return valueOf({ receiverProvenance: 'non-database' });
+      }
       return valueOf({ external: true, callableCandidate: true });
     }
     return valueOf({ external: true });
@@ -368,8 +523,136 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     if (ts.isIdentifier(name) || ts.isStringLiteralLike(name)) {
       return valueOf({ strings: new Set([name.text]) });
     }
+    if (ts.isNumericLiteral(name)) return valueOf({ numbers: new Set([Number(name.text)]) });
     if (ts.isComputedPropertyName(name)) return resolveValue(name.expression);
     return valueOf({ external: true });
+  }
+
+  function hasAbstractFacts(value: AbstractValue): boolean {
+    return value.strings.size > 0 || value.numbers.size > 0 || value.methods.size > 0 ||
+      value.properties.size > 0 || Boolean(value.elements) || Boolean(value.tupleElements) ||
+      value.external || value.callableCandidate || value.functions.size > 0 ||
+      Boolean(value.boundArguments) || Boolean(value.boundReceiver) || Boolean(value.adapter) ||
+      Boolean(value.receiverProvenance);
+  }
+
+  function applyBindingDefault(
+    selected: AbstractValue,
+    initializer: ts.Expression | undefined,
+    exactValue: boolean
+  ): AbstractValue {
+    if (!initializer) return selected;
+    if (exactValue && hasAbstractFacts(selected)) return selected;
+    const fallback = resolveValue(initializer);
+    return hasAbstractFacts(selected) ? unionValues(selected, fallback) : fallback;
+  }
+
+  function arrayElementValue(
+    source: AbstractValue,
+    index: number
+  ): { value: AbstractValue; exact: boolean } {
+    if (source.tupleElements) {
+      const positional = source.tupleElements[index] ?? valueOf();
+      return {
+        value: source.external
+          ? unionValues(positional, valueOf({
+              external: true,
+              callableCandidate: source.receiverProvenance !== 'ambiguous',
+            }))
+          : positional,
+        exact: !source.external,
+      };
+    }
+    if (source.elements) {
+      return {
+      value: unionValues(source.elements, valueOf({
+          external: source.external,
+          callableCandidate: source.external && source.receiverProvenance !== 'ambiguous',
+        })),
+        exact: false,
+      };
+    }
+    return {
+      value: valueOf({
+        external: source.external,
+        callableCandidate: source.external && source.receiverProvenance !== 'ambiguous',
+      }),
+      exact: !source.external,
+    };
+  }
+
+  function arrayRestValue(source: AbstractValue, index: number): AbstractValue {
+    const tupleElements = source.tupleElements?.slice(index);
+    const candidates = [
+      ...(tupleElements ?? []),
+      ...(source.elements ? [source.elements] : []),
+    ];
+    return valueOf({
+      tupleElements,
+      elements: candidates.length > 0 ? unionValues(...candidates) : undefined,
+      external: source.external,
+      callableCandidate: source.external && source.receiverProvenance !== 'ambiguous',
+    });
+  }
+
+  function objectPropertyValue(source: AbstractValue, names: AbstractValue): AbstractValue {
+    if (names.external || (names.strings.size === 0 && names.numbers.size === 0)) {
+      return valueOf({ external: true });
+    }
+    return unionValues(
+      ...[...names.strings].map((name) => selectedProperty(source, name)),
+      ...[...names.numbers].map((index) => {
+        if (source.tupleElements) return source.tupleElements[index] ?? valueOf();
+        return selectedProperty(source, String(index));
+      })
+    );
+  }
+
+  function bindName(
+    name: ts.BindingName,
+    source: AbstractValue,
+    initializer?: ts.Expression,
+    exactValue = true
+  ): void {
+    const resolved = applyBindingDefault(source, initializer, exactValue);
+    if (ts.isIdentifier(name)) {
+      scopes[scopes.length - 1].set(name.text, resolved);
+      return;
+    }
+    if (ts.isArrayBindingPattern(name)) {
+      name.elements.forEach((element, index) => {
+        if (ts.isOmittedExpression(element)) return;
+        if (element.dotDotDotToken) {
+          bindName(element.name, arrayRestValue(resolved, index), element.initializer, true);
+          return;
+        }
+        const selected = arrayElementValue(resolved, index);
+        bindName(element.name, selected.value, element.initializer, selected.exact);
+      });
+      return;
+    }
+
+    const consumed = new Set<string>();
+    for (const element of name.elements) {
+      if (element.dotDotDotToken) {
+        const properties = new Map([...resolved.properties]
+          .filter(([property]) => !consumed.has(property)));
+        bindName(element.name, valueOf({
+          properties,
+          external: resolved.external,
+          receiverProvenance: resolved.receiverProvenance,
+        }), element.initializer, true);
+        continue;
+      }
+      const names = element.propertyName
+        ? propertyNames(element.propertyName)
+        : ts.isIdentifier(element.name)
+          ? valueOf({ strings: new Set([element.name.text]) })
+          : valueOf({ external: true });
+      names.strings.forEach((property) => consumed.add(property));
+      bindName(element.name, objectPropertyValue(resolved, names), element.initializer,
+        !names.external);
+    }
   }
 
   function declareName(
@@ -377,35 +660,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     initializer?: ts.Expression,
     explicitValue?: AbstractValue
   ): void {
-    const scope = scopes[scopes.length - 1];
-    if (ts.isIdentifier(name)) {
-      const resolved = explicitValue ?? resolveValue(initializer);
-      scope.set(name.text, resolved);
-      return;
-    }
-    const source = explicitValue ?? resolveValue(initializer);
-    for (const element of name.elements) {
-      if (!ts.isBindingElement(element) || element.dotDotDotToken ||
-          !ts.isIdentifier(element.name)) continue;
-      const names = element.propertyName
-        ? propertyNames(element.propertyName)
-        : valueOf({ strings: new Set([element.name.text]) });
-      if (names.external || names.strings.size === 0) {
-        scope.set(element.name.text, valueOf({ external: true, callableCandidate: true }));
-        continue;
-      }
-      const selected = [...names.strings].map((sourceName) => {
-        const stored = source.properties.get(sourceName);
-        if (stored) return stored;
-        if (sourceName === 'from' || sourceName === 'rpc') {
-          if (initializer && receiverExcluded(initializer)) return valueOf({ external: true });
-          return valueOf({ methods: new Set([sourceName]), callableCandidate: true });
-        }
-        return valueOf({ external: true });
-      });
-      const resolved = unionValues(...selected);
-      scope.set(element.name.text, resolved);
-    }
+    bindName(name, explicitValue ?? (initializer ? resolveValue(initializer) : valueOf()));
   }
 
   function assign(name: string, value: AbstractValue): void {
@@ -420,6 +675,14 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
 
   function assignPattern(name: ts.Expression, value: AbstractValue): void {
     const target = unwrap(name);
+    if (ts.isBinaryExpression(target) && target.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+      assignPattern(target.left, applyBindingDefault(value, target.right, hasAbstractFacts(value)));
+      return;
+    }
+    if (ts.isSpreadElement(target)) {
+      assignPattern(target.expression, value);
+      return;
+    }
     if (ts.isIdentifier(target)) {
       assign(target.text, value);
       return;
@@ -444,31 +707,42 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       return;
     }
     if (ts.isObjectLiteralExpression(target)) {
+      const consumed = new Set<string>();
       for (const property of target.properties) {
         if (ts.isPropertyAssignment(property)) {
           const keys = propertyNames(property.name);
-          const selected = keys.external || keys.strings.size === 0
-            ? valueOf({ external: true, callableCandidate: true })
-            : unionValues(...[...keys.strings].map((key) =>
-              value.properties.get(key) ??
-              (key === 'from' || key === 'rpc'
-                ? valueOf({ methods: new Set([key]), callableCandidate: true })
-                : valueOf({ external: true }))
-            ));
+          keys.strings.forEach((key) => consumed.add(key));
+          const selected = objectPropertyValue(value, keys);
           assignPattern(property.initializer, selected);
         } else if (ts.isShorthandPropertyAssignment(property)) {
-          assign(property.name.text,
-            value.properties.get(property.name.text) ?? valueOf({ external: true }));
+          consumed.add(property.name.text);
+          const selected = selectedProperty(value, property.name.text);
+          assign(property.name.text, applyBindingDefault(
+            selected,
+            property.objectAssignmentInitializer,
+            hasAbstractFacts(selected)
+          ));
+        } else if (ts.isSpreadAssignment(property)) {
+          const properties = new Map([...value.properties]
+            .filter(([name]) => !consumed.has(name)));
+          assignPattern(property.expression, valueOf({
+            properties,
+            external: value.external,
+            receiverProvenance: value.receiverProvenance,
+          }));
         }
       }
       return;
     }
     if (ts.isArrayLiteralExpression(target)) {
-      for (const element of target.elements) {
-        if (!ts.isOmittedExpression(element)) {
-          assignPattern(element, value.elements ?? valueOf({ external: true }));
+      target.elements.forEach((element, index) => {
+        if (ts.isOmittedExpression(element)) return;
+        if (ts.isSpreadElement(element)) {
+          assignPattern(element.expression, arrayRestValue(value, index));
+          return;
         }
-      }
+        assignPattern(element, arrayElementValue(value, index).value);
+      });
     }
   }
 
@@ -489,8 +763,10 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     const properties = [...value.properties.entries()].sort(([a], [b]) => a.localeCompare(b))
       .map(([name, entry]) => `${name}:${valueFingerprint(entry, seen)}`);
     const result = JSON.stringify({
-      strings: [...value.strings].sort(), methods: [...value.methods].sort(),
+      strings: [...value.strings].sort(), numbers: [...value.numbers].sort((a, b) => a - b),
+      methods: [...value.methods].sort(),
       external: value.external, callable: value.callableCandidate,
+      receiverProvenance: value.receiverProvenance ?? null,
       functions: [...value.functions].map((entry) => entry.pos).sort((a, b) => a - b),
       boundArguments: value.boundArguments?.map((entry) => valueFingerprint(entry, seen)) ?? null,
       boundReceiver: value.boundReceiver ? valueFingerprint(value.boundReceiver, seen) : null,
@@ -556,6 +832,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       adapter: callable.adapter,
       adapterCallable: callable.adapterCallable,
       adapterConflict: callable.adapterConflict,
+      receiverProvenance: callable.receiverProvenance,
     });
   }
 
@@ -566,15 +843,40 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     targetExpression?: string;
   }
 
+  let callableEvaluationWork = 0;
+
+  function adapterStateKey(
+    callable: AbstractValue,
+    args: AbstractValue[],
+    receiver: AbstractValue | undefined
+  ): string {
+    return JSON.stringify({
+      adapter: callable.adapter,
+      callable: valueFingerprint(callable),
+      target: callable.adapterCallable ? valueFingerprint(callable.adapterCallable) : null,
+      receiver: receiver ? valueFingerprint(receiver) : null,
+      arguments: args.map((argument) => valueFingerprint(argument)),
+    });
+  }
+
   function evaluateCallable(
     initialCallable: AbstractValue,
     initialArguments: AbstractValue[],
     receiver: AbstractValue | undefined,
     context: InvocationContext,
-    adapterPath = new Set<AbstractValue>(),
+    adapterPath = new Set<string>(),
     depth = 0
   ): AbstractValue {
-    if (depth > 32 || (initialCallable.adapter && adapterPath.has(initialCallable))) {
+    if (initialCallable.adapter) callableEvaluationWork += 1;
+    const invocationArguments = initialCallable.boundArguments
+      ? [...initialCallable.boundArguments, ...initialArguments]
+      : initialArguments;
+    const invocationReceiver = receiver ?? initialCallable.boundReceiver;
+    const stateKey = initialCallable.adapter
+      ? adapterStateKey(initialCallable, invocationArguments, invocationReceiver)
+      : undefined;
+    if (depth > 64 || callableEvaluationWork > 4096 ||
+        (stateKey !== undefined && adapterPath.has(stateKey))) {
       if (context.record) {
         calls.push({
           method: 'unknown', unsupported: 'dynamic callable name',
@@ -585,12 +887,11 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     }
 
     let callable = initialCallable;
-    let args = callable.boundArguments
-      ? [...callable.boundArguments, ...initialArguments]
-      : initialArguments;
-    const effectiveReceiver = receiver ?? callable.boundReceiver;
+    let args = invocationArguments;
+    const effectiveReceiver = invocationReceiver;
     if (callable.adapter) {
-      const nextPath = new Set(adapterPath).add(callable);
+      const nextPath = new Set(adapterPath);
+      if (stateKey !== undefined) nextPath.add(stateKey);
       if (callable.adapter === 'reflectApply') {
         return evaluateCallable(
           args[0] ?? valueOf({ external: true, callableCandidate: true }),
@@ -651,10 +952,13 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       });
     }
     if (outputs.length > 0) return unionValues(...outputs);
-    if (callable.methods.size > 0) return valueOf({ external: true });
+    if (callable.methods.size > 0) {
+      return valueOf({ receiverProvenance: 'database' });
+    }
     return valueOf({
       external: callable.external,
       callableCandidate: callable.callableCandidate && callable.external,
+      receiverProvenance: callable.receiverProvenance,
     });
   }
 
@@ -678,6 +982,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       if (parameter.dotDotDotToken) {
         return valueOf({
           elements: unionValues(...expanded.slice(index)),
+          tupleElements: expanded.slice(index),
           external: expanded.slice(index).some((entry) => entry.external),
         });
       }
@@ -694,6 +999,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       if (parameter.dotDotDotToken) {
         return valueOf({
           elements: unionValues(...expanded.slice(index)),
+          tupleElements: expanded.slice(index),
           external: expanded.slice(index).some((entry) => entry.external),
         });
       }
@@ -722,7 +1028,12 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     values: AbstractValue[]
   ): AbstractValue {
     mergeFunctionInputs(target, values);
-    if (activeFunctions.has(target)) return functionOutputs.get(target) ?? valueOf();
+    if (activeFunctions.has(target)) {
+      return functionOutputs.get(target) ?? valueOf({
+        external: true,
+        callableCandidate: true,
+      });
+    }
     let iterations = 0;
     let before: string;
     do {
@@ -781,6 +1092,26 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   function visit(node: ts.Node): void {
     if (ts.isSourceFile(node)) {
       visitStatements(node.statements);
+      return;
+    }
+    if (ts.isImportDeclaration(node) && ts.isStringLiteralLike(node.moduleSpecifier)) {
+      const clause = node.importClause;
+      if (!clause) return;
+      const moduleName = node.moduleSpecifier.text;
+      const scope = scopes[scopes.length - 1];
+      if (clause.name) scope.set(clause.name.text, importedValue(moduleName, 'default'));
+      if (clause.namedBindings) {
+        if (ts.isNamespaceImport(clause.namedBindings)) {
+          scope.set(clause.namedBindings.name.text, importedValue(moduleName, '*'));
+        } else {
+          for (const specifier of clause.namedBindings.elements) {
+            scope.set(specifier.name.text, importedValue(
+              moduleName,
+              specifier.propertyName?.text ?? specifier.name.text
+            ));
+          }
+        }
+      }
       return;
     }
     if (ts.isBlock(node) && node !== sf) {
@@ -1026,8 +1357,8 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   return [...unique.values()].map(({ position: _position, ...call }) => call);
 }
 
-function directTableTouchCount(source: string): number {
-  return discoverSupabaseCalls(source).filter((call) =>
+function directTableTouchCount(source: string, file = 'probe.ts'): number {
+  return discoverSupabaseCalls(source, file).filter((call) =>
     call.method === 'from' &&
     (call.target === 'contract_hours_ledger' ||
       call.targets?.includes('contract_hours_ledger'))).length;
@@ -1229,8 +1560,8 @@ function ledgerObjectNames(definitions: SqlObjectDefinition[]): Set<string> {
   return names;
 }
 
-function indirectCalls(source: string, targets: Set<string>): string[] {
-  return discoverSupabaseCalls(source)
+function indirectCalls(source: string, targets: Set<string>, file = 'probe.ts'): string[] {
+  return discoverSupabaseCalls(source, file)
     .flatMap((call) => {
       const resolved = call.target ? [call.target] : call.targets ?? [];
       return resolved.filter((target) => targets.has(target));
@@ -2006,7 +2337,8 @@ describe('contract_hours_ledger production consumer inventory', () => {
   it('scans every production TypeScript root and classifies all direct table touches', () => {
     const actual: Record<string, number> = {};
     for (const path of productionSourceFiles()) {
-      const count = directTableTouchCount(readFileSync(path, 'utf8'));
+      const source = readFileSync(path, 'utf8');
+      const count = directTableTouchCount(source, path);
       if (count > 0) actual[relative(ROOT, path)] = count;
     }
     expectExactCounts(actual, DIRECT_TS_TOUCHES);
@@ -2095,7 +2427,7 @@ describe('contract_hours_ledger production consumer inventory', () => {
   it('classifies every production RPC/view call into the discovered SQL dependency graph', () => {
     const actual: Record<string, number> = {};
     for (const path of productionSourceFiles()) {
-      const calls = indirectCalls(readFileSync(path, 'utf8'), objectNames);
+      const calls = indirectCalls(readFileSync(path, 'utf8'), objectNames, path);
       if (calls.length === 0) continue;
       const relativePath = relative(ROOT, path);
       actual[relativePath] = calls.length;
@@ -2699,6 +3031,223 @@ describe('contract_hours_ledger production consumer inventory', () => {
     `;
     expect(discoverSupabaseCalls(cyclic)).toEqual(discoverSupabaseCalls(cyclic));
     expectOneLedgerCall(cyclic);
+  });
+
+  it('preserves positional values through declarations, assignments, parameters, and returns', () => {
+    const expectOneLedgerCall = (source: string): void => {
+      const discovered = discoverSupabaseCalls(source);
+      expect(discovered.filter((call) => call.method === 'from' &&
+        (call.target === 'contract_hours_ledger' ||
+         call.targets?.includes('contract_hours_ledger'))), source).toHaveLength(1);
+      expect(discovered.filter((call) => call.unsupported), source).toEqual([]);
+    };
+
+    for (const source of [
+      `const [read, receiver, table] =
+         [client.from, client, 'contract_hours_ledger'];
+       read.call(receiver, table);`,
+      `function invoke([fn, receiver, args]) {
+         Reflect.apply(fn, receiver, args);
+       }
+       invoke([client.from, client, ['contract_hours_ledger']]);`,
+      `let read, receiver, table;
+       [read, receiver, table] =
+         [client.from, client, 'contract_hours_ledger'];
+       read.call(receiver, table);`,
+      `function parts() {
+         return [client.from, client, ['contract_hours_ledger']];
+       }
+       const [fn, receiver, args] = parts();
+       Reflect.apply(fn, receiver, args);`,
+      `const { nested: [fn, receiver, { args: [table] }] } = {
+         nested: [client.from, client, { args: ['contract_hours_ledger'] }]
+       };
+       fn.call(receiver, table);`,
+      `const [, read = externalCallable, receiver, , table = 'safe_table'] =
+         [0, client.from, client, 0, 'contract_hours_ledger'];
+       read.call(receiver, table);`,
+      `const original = [client.from, client, 'contract_hours_ledger'];
+       const [read, ...rest] = [...original];
+       read.call(rest[0], rest[1]);`,
+      `const method = 'from';
+       const operation = 'apply';
+       const [read, invoke, receiver, args] =
+         [client[method], Reflect[operation], client, ['contract_hours_ledger']];
+       invoke(read, receiver, args);`,
+      `let read, receiver, args;
+       ({ nested: [read, receiver, args] } = {
+         nested: [client.from, client, ['contract_hours_ledger']]
+       });
+       Reflect.apply(read, receiver, args);`,
+      `function wrap(value) { return { value: [value] }; }
+       const { value: [[read, receiver, table]] } =
+         wrap([client.from, client, 'contract_hours_ledger']);
+       read.call(receiver, table);`,
+    ]) expectOneLedgerCall(source);
+
+    for (const source of [
+      `const [read, receiver] = process.argv;
+       read.call(receiver, 'contract_hours_ledger');`,
+      `function invoke([read, receiver, args]) {
+         Reflect.apply(read, receiver, args);
+       }
+       invoke(externalTuple);`,
+      `const tuple = flag
+         ? [client.from, client, ['contract_hours_ledger']]
+         : externalTuple;
+       const [read, receiver, args] = tuple;
+       Reflect.apply(read, receiver, args);`,
+    ]) {
+      expect(discoverSupabaseCalls(source), source).toContainEqual(expect.objectContaining({
+        method: 'unknown', unsupported: 'dynamic callable name',
+      }));
+    }
+
+    for (const source of [
+      `function ordinary(value) { return value; }
+       const [read, receiver, table] = [ordinary, null, 'contract_hours_ledger'];
+       read.call(receiver, table);`,
+      `const tuple = [{ from(value) { return value; } }, 'contract_hours_ledger'];
+       const [ordinary, table] = tuple;
+       ordinary.from(table);`,
+      `const [, value = 'contract_hours_ledger'] = [0, 'safe_table'];
+       String(value);`,
+    ]) {
+      expect(directTableTouchCount(source), source).toBe(0);
+      expect(discoverSupabaseCalls(source).filter((call) => call.unsupported), source).toEqual([]);
+    }
+
+    const cyclic = `
+      const tuple = [client.from, client, 'contract_hours_ledger'];
+      tuple.push(tuple);
+      const [read, receiver, table] = tuple;
+      read.call(receiver, table);
+    `;
+    expect(discoverSupabaseCalls(cyclic)).toEqual(discoverSupabaseCalls(cyclic));
+    expectOneLedgerCall(cyclic);
+  });
+
+  it('distinguishes finite intrinsic reuse from recursive adapter states', () => {
+    const expectOneLedgerCall = (source: string): void => {
+      const discovered = discoverSupabaseCalls(source);
+      expect(discovered.filter((call) => call.method === 'from' &&
+        (call.target === 'contract_hours_ledger' ||
+         call.targets?.includes('contract_hours_ledger'))), source).toHaveLength(1);
+      expect(discovered.filter((call) => call.unsupported), source).toEqual([]);
+    };
+
+    for (const source of [
+      `const c = Function.prototype.call;
+       c.call(
+         c,
+         Function.prototype.apply,
+         client.from,
+         client,
+         ['contract_hours_ledger'],
+       );`,
+      `const c = Function.prototype.call;
+       c.call(
+         c,
+         c,
+         Function.prototype.apply,
+         client.from,
+         client,
+         ['contract_hours_ledger'],
+       );`,
+      `const key = 'call';
+       const { call: c } = Function.prototype;
+       c[key](c, Function.prototype.apply, client.from, client,
+         ['contract_hours_ledger']);`,
+      `const c = Function.prototype.call;
+       const invoke = c.call.bind(c);
+       invoke(Function.prototype.apply, client.from, client,
+         ['contract_hours_ledger']);`,
+    ]) expectOneLedgerCall(source);
+
+    const duplicateBranches = `
+      const c = Function.prototype.call;
+      const invoke = flag ? c.call : c['call'];
+      invoke(c, Function.prototype.apply, client.from, client,
+        ['contract_hours_ledger']);
+    `;
+    expectOneLedgerCall(duplicateBranches);
+
+    const recursive = `
+      function recurse(adapter) { return recurse(adapter); }
+      const invoke = recurse(Function.prototype.call);
+      invoke(client.from, client, 'contract_hours_ledger');
+    `;
+    const first = discoverSupabaseCalls(recursive);
+    const second = discoverSupabaseCalls(recursive);
+    expect(first).toEqual(second);
+    expect(first).toContainEqual(expect.objectContaining({
+      method: 'unknown', unsupported: 'dynamic callable name',
+    }));
+    expect(first.length).toBeLessThan(10);
+  });
+
+  it('retains import provenance for inert, database, and ambiguous receivers', () => {
+    for (const source of [
+      `import { Readable } from 'node:stream';
+       Readable.from('contract_hours_ledger');`,
+      `import { Readable as R } from 'node:stream';
+       const Alias = R;
+       Alias['from']('contract_hours_ledger');`,
+      `import * as stream from 'node:stream';
+       stream.Readable.from('contract_hours_ledger');`,
+      `import stream from 'node:stream';
+       stream.Readable['from']('contract_hours_ledger');`,
+      `import * as stream from 'node:stream';
+       const { Readable } = stream;
+       const { ['from']: make } = Readable;
+       make('contract_hours_ledger');`,
+      `import { Buffer as ImportedBuffer } from 'node:buffer';
+       const { from: make } = ImportedBuffer;
+       make('contract_hours_ledger');`,
+    ]) {
+      expect(directTableTouchCount(source), source).toBe(0);
+      expect(discoverSupabaseCalls(source).filter((call) => call.unsupported), source).toEqual([]);
+    }
+
+    for (const source of [
+      `import { createClient } from '@supabase/supabase-js';
+       const database = createClient(url, key);
+       database.from('contract_hours_ledger');`,
+      `import database from '@supabase/supabase-js';
+       const read = database['from'];
+       read('contract_hours_ledger');`,
+    ]) expect(directTableTouchCount(source), source).toBe(1);
+    expect(discoverSupabaseCalls(`
+      import { createServiceRoleClient } from '../../lib/api-auth';
+      const database = createServiceRoleClient();
+      database.from('contract_hours_ledger');
+    `, join(ROOT, 'pages/api/synthetic.ts')).filter((call) =>
+      call.method === 'from' && call.target === 'contract_hours_ledger')).toHaveLength(1);
+
+    for (const source of [
+      `import api from 'external-api';
+       api.from('contract_hours_ledger');`,
+      `import * as api from 'external-api';
+       const read = api['from'];
+       read('contract_hours_ledger');`,
+      `import { client as api } from 'external-api';
+       const { from: read } = api;
+       read('contract_hours_ledger');`,
+    ]) {
+      const discovered = discoverSupabaseCalls(source);
+      expect(directTableTouchCount(source), source).toBe(0);
+      expect(discovered, source).toContainEqual(expect.objectContaining({
+        method: 'unknown', unsupported: 'dynamic callable name',
+      }));
+    }
+
+    const localOrdinary = `
+      const ordinary = { from(value) { return value; } };
+      ordinary.from('contract_hours_ledger');
+    `;
+    expect(directTableTouchCount(localOrdinary)).toBe(0);
+    expect(discoverSupabaseCalls(localOrdinary)
+      .filter((call) => call.unsupported)).toEqual([]);
   });
 
   it('classifies composite ledger rows and column-opaque ledger DML', () => {

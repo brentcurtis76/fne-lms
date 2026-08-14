@@ -59,7 +59,7 @@ interface AbstractValue {
   callableCandidate: boolean;
   functions: Set<ts.FunctionLikeDeclaration>;
   boundArguments?: AbstractValue[];
-  adapter?: 'call' | 'apply' | 'reflectApply';
+  adapter?: 'call' | 'apply' | 'reflectApply' | 'intrinsicCall';
   adapterCallable?: AbstractValue;
 }
 
@@ -79,45 +79,66 @@ function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
 }
 
 function unionValues(...values: AbstractValue[]): AbstractValue {
-  const result = valueOf();
-  for (const value of values) {
-    value.strings.forEach((entry) => result.strings.add(entry));
-    value.methods.forEach((entry) => result.methods.add(entry));
-    value.functions.forEach((entry) => result.functions.add(entry));
-    for (const [name, property] of value.properties) {
-      result.properties.set(name, result.properties.has(name)
-        ? unionValues(result.properties.get(name)!, property)
-        : property);
+  const memo = new WeakMap<AbstractValue, WeakMap<AbstractValue, AbstractValue>>();
+
+  function pair(left: AbstractValue, right: AbstractValue): AbstractValue {
+    if (left === right) return left;
+    const prior = memo.get(left)?.get(right);
+    if (prior) return prior;
+
+    const result = valueOf();
+    const rightMemo = memo.get(left) ?? new WeakMap<AbstractValue, AbstractValue>();
+    rightMemo.set(right, result);
+    memo.set(left, rightMemo);
+    const leftMemo = memo.get(right) ?? new WeakMap<AbstractValue, AbstractValue>();
+    leftMemo.set(left, result);
+    memo.set(right, leftMemo);
+
+    left.strings.forEach((entry) => result.strings.add(entry));
+    right.strings.forEach((entry) => result.strings.add(entry));
+    left.methods.forEach((entry) => result.methods.add(entry));
+    right.methods.forEach((entry) => result.methods.add(entry));
+    left.functions.forEach((entry) => result.functions.add(entry));
+    right.functions.forEach((entry) => result.functions.add(entry));
+    result.external = left.external || right.external;
+    result.callableCandidate = left.callableCandidate || right.callableCandidate;
+
+    const propertyNames = new Set([...left.properties.keys(), ...right.properties.keys()]);
+    for (const name of propertyNames) {
+      const leftProperty = left.properties.get(name);
+      const rightProperty = right.properties.get(name);
+      result.properties.set(name, leftProperty && rightProperty
+        ? pair(leftProperty, rightProperty)
+        : leftProperty ?? rightProperty!);
     }
-    if (value.elements) {
-      result.elements = result.elements
-        ? unionValues(result.elements, value.elements)
-        : value.elements;
+    result.elements = left.elements && right.elements
+      ? pair(left.elements, right.elements)
+      : left.elements ?? right.elements;
+
+    const boundLength = Math.max(left.boundArguments?.length ?? 0, right.boundArguments?.length ?? 0);
+    if (boundLength > 0) {
+      result.boundArguments = Array.from({ length: boundLength }, (_, index) => {
+        const leftArgument = left.boundArguments?.[index];
+        const rightArgument = right.boundArguments?.[index];
+        return leftArgument && rightArgument
+          ? pair(leftArgument, rightArgument)
+          : leftArgument ?? rightArgument!;
+      });
     }
-    result.external ||= value.external;
-    result.callableCandidate ||= value.callableCandidate;
-    if (value.boundArguments) {
-      result.boundArguments = value.boundArguments.map((entry, index) =>
-        result.boundArguments?.[index]
-          ? unionValues(result.boundArguments[index], entry)
-          : entry
-      );
+
+    if (left.adapter && right.adapter && left.adapter !== right.adapter) {
+      result.external = true;
+      result.callableCandidate = true;
+    } else {
+      result.adapter = left.adapter ?? right.adapter;
+      result.adapterCallable = left.adapterCallable && right.adapterCallable
+        ? pair(left.adapterCallable, right.adapterCallable)
+        : left.adapterCallable ?? right.adapterCallable;
     }
-    if (value.adapter) {
-      if (result.adapter && result.adapter !== value.adapter) {
-        result.external = true;
-        result.callableCandidate = true;
-        result.adapter = undefined;
-        result.adapterCallable = undefined;
-      } else {
-        result.adapter = value.adapter;
-        result.adapterCallable = result.adapterCallable && value.adapterCallable
-          ? unionValues(result.adapterCallable, value.adapterCallable)
-          : result.adapterCallable ?? value.adapterCallable;
-      }
-    }
+    return result;
   }
-  return result;
+
+  return values.reduce((result, value) => pair(result, value), valueOf());
 }
 
 function readPropertyName(node: ts.PropertyName | undefined): string | undefined {
@@ -133,7 +154,6 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         : file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const scopes: Array<Map<string, AbstractValue>> = [new Map()];
   const calls: DiscoveredCall[] = [];
-  const knownCallableAliases = new Set<string>();
   const activeFunctions = new Set<ts.FunctionLikeDeclaration>();
   const functionInputs = new Map<ts.FunctionLikeDeclaration, AbstractValue[]>();
   const functionOutputs = new Map<ts.FunctionLikeDeclaration, AbstractValue>();
@@ -156,13 +176,47 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     return node;
   }
 
+  function functionValue(target: ts.FunctionLikeDeclaration): AbstractValue {
+    return valueOf({ functions: new Set([target]), callableCandidate: true });
+  }
+
+  function reflectValue(): AbstractValue {
+    return valueOf({ properties: new Map([
+      ['apply', valueOf({ adapter: 'reflectApply', callableCandidate: true })],
+    ]) });
+  }
+
+  function functionConstructorValue(): AbstractValue {
+    return valueOf({ properties: new Map([
+      ['prototype', valueOf({ properties: new Map([
+        ['call', valueOf({ adapter: 'intrinsicCall', callableCandidate: true })],
+      ]) })],
+    ]) });
+  }
+
+  function classValue(node: ts.ClassLikeDeclaration): AbstractValue {
+    const properties = new Map<string, AbstractValue>();
+    for (const member of node.members) {
+      if (!ts.isMethodDeclaration(member)) continue;
+      const name = readPropertyName(member.name);
+      if (name) properties.set(name, functionValue(member));
+    }
+    return valueOf({ properties });
+  }
+
   function resolveValue(input: ts.Expression | undefined): AbstractValue {
     if (!input) return valueOf({ external: true });
     const node = unwrap(input);
     if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
       return valueOf({ strings: new Set([node.text]) });
     }
-    if (ts.isIdentifier(node)) return binding(node.text) ?? valueOf({ external: true });
+    if (ts.isIdentifier(node)) {
+      const resolved = binding(node.text);
+      if (resolved) return resolved;
+      if (node.text === 'Reflect') return reflectValue();
+      if (node.text === 'Function') return functionConstructorValue();
+      return valueOf({ external: true });
+    }
     if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
       const captured = functionClosures.get(node) ?? new Map<string, AbstractValue>();
       for (const scope of scopes) {
@@ -173,6 +227,8 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       functionClosures.set(node, captured);
       return valueOf({ functions: new Set([node]) });
     }
+    if (ts.isClassExpression(node)) return classValue(node);
+    if (ts.isNewExpression(node)) return resolveValue(node.expression);
     if (ts.isConditionalExpression(node)) {
       return unionValues(resolveValue(node.whenTrue), resolveValue(node.whenFalse));
     }
@@ -201,6 +257,9 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           if (name) properties.set(name, resolveValue(property.initializer));
         } else if (ts.isShorthandPropertyAssignment(property)) {
           properties.set(property.name.text, resolveValue(property.name));
+        } else if (ts.isMethodDeclaration(property)) {
+          const name = readPropertyName(property.name);
+          if (name) properties.set(name, functionValue(property));
         }
       }
       return valueOf({ properties, external });
@@ -227,10 +286,6 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     }
     if (ts.isPropertyAccessExpression(node)) {
       const property = node.name.text;
-      if (property === 'apply' && ts.isIdentifier(node.expression) &&
-          node.expression.text === 'Reflect') {
-        return valueOf({ adapter: 'reflectApply', callableCandidate: true });
-      }
       if (property === 'call' || property === 'apply') {
         const base = resolveValue(node.expression);
         const stored = base.properties.get(property);
@@ -242,12 +297,14 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           external: base.external,
         });
       }
+      const base = resolveValue(node.expression);
+      const storedProperty = base.properties.get(property);
+      if (storedProperty) return storedProperty;
       if (property === 'from' || property === 'rpc') {
-        if (receiverExcluded(node.expression)) return valueOf();
+        if (receiverExcluded(node.expression)) return valueOf({ external: true });
         return valueOf({ methods: new Set([property]), callableCandidate: true });
       }
-      const base = resolveValue(node.expression);
-      return base.properties.get(property) ?? valueOf({ external: true });
+      return valueOf({ external: true });
     }
     if (ts.isElementAccessExpression(node)) {
       if (receiverExcluded(node.expression)) return valueOf();
@@ -286,10 +343,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     const scope = scopes[scopes.length - 1];
     if (ts.isIdentifier(name)) {
       const resolved = explicitValue ?? resolveValue(initializer);
-      if (resolved.methods.size > 0) knownCallableAliases.add(name.text);
-      scope.set(name.text, knownCallableAliases.has(name.text) && resolved.external
-        ? unionValues(resolved, valueOf({ callableCandidate: true }))
-        : resolved);
+      scope.set(name.text, resolved);
       return;
     }
     const source = explicitValue ?? resolveValue(initializer);
@@ -304,13 +358,15 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         continue;
       }
       const selected = [...names.strings].map((sourceName) => {
+        const stored = source.properties.get(sourceName);
+        if (stored) return stored;
         if (sourceName === 'from' || sourceName === 'rpc') {
+          if (initializer && receiverExcluded(initializer)) return valueOf({ external: true });
           return valueOf({ methods: new Set([sourceName]), callableCandidate: true });
         }
-        return source.properties.get(sourceName) ?? valueOf({ external: true });
+        return valueOf({ external: true });
       });
       const resolved = unionValues(...selected);
-      if (resolved.methods.size > 0) knownCallableAliases.add(element.name.text);
       scope.set(element.name.text, resolved);
     }
   }
@@ -382,7 +438,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   function receiverExcluded(expression: ts.Expression): boolean {
     const text = expression.getText(sf);
     return text === 'Array' || text === 'Buffer' ||
-      /\.storage\b/.test(text) || /\.registry\b/.test(text);
+      /\.storage\b/.test(text) || /\.registry\b/.test(text) || /\.query\b/.test(text);
   }
 
   function withScope(run: () => void): void {
@@ -407,6 +463,20 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     });
     seen.delete(value);
     return result;
+  }
+
+  function isDatabaseCallable(
+    value: AbstractValue,
+    seen = new Set<AbstractValue>()
+  ): boolean {
+    if (seen.has(value)) return false;
+    seen.add(value);
+    if (value.methods.size > 0) return true;
+    if (value.adapterCallable && isDatabaseCallable(value.adapterCallable, seen)) return true;
+    // A callback which happens to contain an ordinary database call is still
+    // traversed below. Only a database callable value itself crossing an opaque
+    // HOF boundary is unresolved (for example externalHof(client.from)).
+    return false;
   }
 
   function callArguments(
@@ -495,7 +565,17 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         );
         activeFunctions.add(target);
         functionStack.push(target);
-        try { if (target.body) visit(target.body); } finally {
+        try {
+          if (target.body && ts.isArrowFunction(target) && !ts.isBlock(target.body)) {
+            const output = resolveValue(target.body);
+            functionOutputs.set(target, functionOutputs.has(target)
+              ? unionValues(functionOutputs.get(target)!, output)
+              : output);
+            visit(target.body);
+          } else if (target.body) {
+            visit(target.body);
+          }
+        } finally {
           functionStack.pop();
           activeFunctions.delete(target);
         }
@@ -519,6 +599,8 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         scopes[scopes.length - 1].set(statement.name.text, valueOf({
           functions: new Set([statement]), callableCandidate: true,
         }));
+      } else if (ts.isClassDeclaration(statement) && statement.name) {
+        scopes[scopes.length - 1].set(statement.name.text, classValue(statement));
       }
     }
     statements.forEach(visit);
@@ -538,6 +620,10 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         functions: new Set([node]), callableCandidate: true,
       }));
       invokeFunction(node, node.parameters.map(() => valueOf()));
+      return;
+    }
+    if (ts.isClassDeclaration(node) && node.name) {
+      scopes[scopes.length - 1].set(node.name.text, classValue(node));
       return;
     }
     if (ts.isFunctionLike(node)) {
@@ -659,6 +745,50 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         return;
       }
 
+      if (ts.isPropertyAccessExpression(node.expression) &&
+          ['forEach', 'map', 'filter', 'some', 'every', 'find', 'findIndex']
+            .includes(node.expression.name.text)) {
+        const collection = resolveValue(node.expression.expression);
+        const callback = resolveValue(node.arguments[0]);
+        const element = unionValues(
+          collection.elements ?? valueOf(),
+          valueOf({ external: collection.external || !collection.elements })
+        );
+        const callbackArguments = callback.boundArguments
+          ? [...callback.boundArguments, element]
+          : [element];
+        for (const method of callback.methods) {
+          const target = callbackArguments[0] ?? valueOf({ external: true });
+          if (target.external || target.strings.size === 0) {
+            calls.push({
+              method, unsupported: 'dynamic target',
+              expression: node.expression.expression.getText(sf), position: node.pos,
+            });
+          } else if (target.strings.size === 1) {
+            calls.push({ method, target: [...target.strings][0], position: node.pos });
+          } else {
+            calls.push({
+              method, targets: [...target.strings].sort(),
+              expression: node.expression.expression.getText(sf),
+              dynamicKind: 'target', dynamicValues: [...target.strings].sort(),
+              position: node.pos,
+            });
+          }
+        }
+        for (const target of callback.functions) {
+          invokeFunction(target, parameterValues(target, callbackArguments));
+        }
+        if (callback.external && callback.callableCandidate) {
+          calls.push({
+            method: 'unknown', unsupported: 'dynamic callable name',
+            expression: node.arguments[0]?.getText(sf) ?? '<missing callback>',
+            position: node.pos,
+          });
+        }
+        node.arguments.slice(1).forEach(visit);
+        return;
+      }
+
       // `bind` creates a callable value; the eventual invocation is where its
       // bound and live arguments are classified. Visiting it as an ordinary call
       // would incorrectly treat Function.prototype.bind as an unknown database method.
@@ -697,6 +827,12 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         const stored = base.properties.get(node.expression.name.text);
         if (stored) {
           callable = stored;
+        } else if (base.adapter === 'intrinsicCall' &&
+            node.expression.name.text === 'call') {
+          adapter = true;
+          callable = resolveValue(node.arguments[0]);
+          invocationArguments = invocationArguments.slice(2);
+          targetExpression = node.arguments[2]?.getText(sf) ?? '<missing intrinsic call arguments>';
         } else {
           adapter = true;
           callable = base;
@@ -750,6 +886,14 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         }
       }
 
+      if (adapter && callable.external && node.arguments.some((argument) =>
+        isDatabaseCallable(resolveValue(argument)))) {
+        calls.push({
+          method: 'unknown', unsupported: 'dynamic callable name',
+          expression: node.expression.getText(sf), position: node.pos,
+        });
+      }
+
       if (callable.boundArguments) {
         invocationArguments = [...callable.boundArguments, ...invocationArguments];
       }
@@ -787,7 +931,10 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       }
       if (callable.external && !callable.callableCandidate) {
         const possibleTarget = invocationArguments[0] ?? valueOf();
-        if (possibleTarget.strings.has('contract_hours_ledger')) {
+        const receivesDatabaseCallable = invocationArguments.some((argument) =>
+          isDatabaseCallable(argument)
+        );
+        if (possibleTarget.strings.has('contract_hours_ledger') || receivesDatabaseCallable) {
           calls.push({
             method: 'unknown', unsupported: 'dynamic callable name',
             expression: node.expression.getText(sf), position: node.pos,
@@ -984,16 +1131,21 @@ const DIRECT_TS_TOUCHES: Record<string, UseClass[]> = {
 
 interface SqlObjectDefinition {
   file: string;
-  type: 'function' | 'view' | 'materialized view';
+  type: 'function' | 'procedure' | 'view' | 'materialized view';
   name: string;
   body: string;
 }
 
 function sqlObjectDefinitions(source: string, file: string): SqlObjectDefinition[] {
   const definitions: SqlObjectDefinition[] = [];
-  const functionPattern = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:"?public"?\.)?"?([A-Za-z_][\w]*)"?[\s\S]*?\bAS\s+\$([A-Za-z_]*)\$([\s\S]*?)\$\2\$/gi;
+  const functionPattern = /CREATE\s+(?:OR\s+REPLACE\s+)?(FUNCTION|PROCEDURE)\s+(?:"?public"?\.)?"?([A-Za-z_][\w]*)"?[\s\S]*?\bAS\s+\$([A-Za-z0-9_]*)\$([\s\S]*?)\$\3\$/gi;
   for (const match of source.matchAll(functionPattern)) {
-    definitions.push({ file, type: 'function', name: match[1], body: match[3] });
+    definitions.push({
+      file,
+      type: match[1].toLowerCase() as 'function' | 'procedure',
+      name: match[2],
+      body: match[4],
+    });
   }
   const viewPattern = /CREATE\s+(?:OR\s+REPLACE\s+)?((?:MATERIALIZED\s+)?VIEW)\s+(?:"?public"?\.)?"?([A-Za-z_][\w]*)"?\s+AS\s+([\s\S]*?);/gi;
   for (const match of source.matchAll(viewPattern)) {
@@ -1016,9 +1168,10 @@ function directSqlLedgerDependency(body: string): boolean {
       return tokenizeSql(recovered).some((token) =>
         token.kind === 'word' && token.value === 'contract_hours_ledger');
     }
-    // The baseline admin diagnostic function executes caller-provided SQL and
-    // is therefore a conservative potential ledger authority, not an empty edge.
-    return expression === 'sql_query' && body.includes('result_array');
+    // An unresolved executable target may name the ledger. Treat it as a
+    // potential dependency; the caller separately requires an explicit
+    // unsupported classification rather than silently accepting it.
+    return true;
   });
 }
 
@@ -1061,14 +1214,6 @@ const INDIRECT_TS_CONSUMERS: Record<string, string[]> = {
   ],
   'lib/services/school-hours-report.ts': ['get_bucket_summary:aggregate/fail-closed'],
   'pages/admin/sessions/create.tsx': ['get_bucket_summary:financial-preview/non-authoritative'],
-  'pages/api/admin/apply-supervisor-migration.ts': [
-    'exec_sql:write/potential-dynamic/admin-only',
-    'exec_sql:write/potential-dynamic/admin-only',
-    'exec_sql:write/potential-dynamic/admin-only',
-    'exec_sql:write/potential-dynamic/admin-only',
-    'exec_sql:write/potential-dynamic/admin-only',
-    'exec_sql:write/potential-dynamic/admin-only',
-  ],
   'pages/api/admin/sessions/[id]/hour-override.ts': [
     'apply_session_hour_override:write/fail-closed-admin-db-auth',
   ],
@@ -1175,7 +1320,7 @@ function staticSqlExpression(expression: string): string | undefined {
   while (trimmed.startsWith('(') && trimmed.endsWith(')')) {
     trimmed = trimmed.slice(1, -1).trim();
   }
-  const dollar = trimmed.match(/^\$([A-Za-z_]*)\$([\s\S]*)\$\1\$$/);
+  const dollar = trimmed.match(/^\$([A-Za-z0-9_]*)\$([\s\S]*)\$\1\$$/);
   if (dollar) return dollar[2];
 
   const format = trimmed.match(/^format\s*\(([\s\S]*)\)$/i);
@@ -1254,7 +1399,7 @@ function executableSqlExpressions(source: string): string[] {
         continue;
       }
       if (source[cursor] === '$') {
-        const delimiter = source.slice(cursor).match(/^\$[A-Za-z_]*\$/)?.[0];
+        const delimiter = source.slice(cursor).match(/^\$[A-Za-z0-9_]*\$/)?.[0];
         if (delimiter) {
           const close = source.indexOf(delimiter, cursor + delimiter.length);
           cursor = close < 0 ? source.length : close + delimiter.length;
@@ -1274,29 +1419,75 @@ function executableSqlExpressions(source: string): string[] {
   return expressions;
 }
 
+function stripSqlCommentsAndStrings(source: string): string {
+  let result = '';
+  let index = 0;
+  while (index < source.length) {
+    if (source.startsWith('--', index)) {
+      const newline = source.indexOf('\n', index + 2);
+      result += newline < 0 ? ' '.repeat(source.length - index) :
+        ' '.repeat(newline - index) + '\n';
+      index = newline < 0 ? source.length : newline + 1;
+      continue;
+    }
+    if (source.startsWith('/*', index)) {
+      let depth = 1;
+      const start = index;
+      index += 2;
+      while (index < source.length && depth > 0) {
+        if (source.startsWith('/*', index)) { depth += 1; index += 2; }
+        else if (source.startsWith('*/', index)) { depth -= 1; index += 2; }
+        else index += 1;
+      }
+      result += ' '.repeat(index - start);
+      continue;
+    }
+    if (source[index] === "'") {
+      const quoted = sqlQuotedValue(source, index);
+      const end = quoted?.end ?? source.length;
+      result += ' '.repeat(end - index);
+      index = end;
+      continue;
+    }
+    result += source[index];
+    index += 1;
+  }
+  return result;
+}
+
 function schemaLedgerUnsupported(source: string): string[] {
   const unsupported: string[] = [];
+  const executableSource = stripSqlCommentsAndStrings(source);
   const ledger = '(?:"?public"?\\s*\\.\\s*)?"?contract_hours_ledger"?';
-  const functionHeaders = source.match(
-    /create\s+(?:or\s+replace\s+)?function[\s\S]*?\breturns\b/gi
+  const routineHeaders = executableSource.match(
+    /create\s+(?:or\s+replace\s+)?(?:function|procedure)[\s\S]*?(?:\breturns\b|\blanguage\b|\bas\s+\$)/gi
   ) ?? [];
-  if (functionHeaders.some((header) => new RegExp(`\\([^)]*${ledger}[^)]*\\)`, 'i').test(header)) ||
-      new RegExp(`\\breturns\\s+(?:setof\\s+)?${ledger}\\b`, 'i').test(source)) {
-    unsupported.push('ledger composite function signature requires explicit classification');
+  if (routineHeaders.some((header) => new RegExp(`\\([^)]*${ledger}[^)]*\\)`, 'i').test(header)) ||
+      new RegExp(`\\breturns\\s+(?:setof\\s+)?${ledger}\\b`, 'i').test(executableSource) ||
+      new RegExp(`\\breturns\\s+table\\s*\\([^)]*${ledger}[^)]*\\)`, 'i')
+        .test(executableSource)) {
+    unsupported.push('ledger composite routine signature requires explicit classification');
   }
-  if (new RegExp(`${ledger}\\s*%\\s*rowtype\\b`, 'i').test(source)) {
+  if (new RegExp(`${ledger}\\s*%\\s*rowtype\\b`, 'i').test(executableSource)) {
     unsupported.push('ledger %ROWTYPE dependency requires explicit classification');
   }
-  if (new RegExp(`::\\s*${ledger}\\b`, 'i').test(source)) {
+  if (new RegExp(`\\bdeclare\\b[\\s\\S]*?\\b[A-Za-z_][A-Za-z0-9_]*\\s+${ledger}\\s*(?:;|:=)`, 'i')
+      .test(executableSource)) {
+    unsupported.push('ledger composite variable requires explicit classification');
+  }
+  if (new RegExp(`::\\s*${ledger}\\b`, 'i').test(executableSource)) {
     unsupported.push('ledger composite cast requires explicit classification');
   }
-  if (new RegExp(`create\\s+(?:constraint\\s+)?trigger[^;]*?\\bon\\s+${ledger}\\b`, 'i').test(source)) {
+  if (new RegExp(
+    `create\\s+(?:or\\s+replace\\s+)?(?:constraint\\s+)?trigger[^;]*?\\bon\\s+${ledger}\\b`,
+    'i'
+  ).test(executableSource)) {
     unsupported.push('ledger trigger authority requires explicit classification');
   }
   if (new RegExp(
     `create\\s+(?:or\\s+replace\\s+)?rule[^;]*?\\bon\\s+(?:(?:select|insert|update|delete)\\s+to\\s+)?${ledger}\\b`,
     'i'
-  ).test(source)) {
+  ).test(executableSource)) {
     unsupported.push('ledger rule authority requires explicit classification');
   }
   return unsupported;
@@ -1340,7 +1531,7 @@ function tokenizeSql(source: string): SqlToken[] {
       continue;
     }
     if (source[index] === '$') {
-      const delimiter = source.slice(index).match(/^\$[A-Za-z_]*\$/)?.[0];
+      const delimiter = source.slice(index).match(/^\$[A-Za-z0-9_]*\$/)?.[0];
       if (delimiter) {
         const previous = tokens.at(-1)?.value;
         if (previous === 'as' || previous === 'do') {
@@ -1485,17 +1676,20 @@ function sqlHoursAnalysis(source: string, file = 'probe.sql'): SqlAnalysis {
       }
       if (tokens[cursor]?.kind !== 'word') continue;
       const relationPosition = cursor;
+      let relationSchema: string | undefined;
       let relation = tokens[cursor].value;
       if (tokens[cursor + 1]?.value === '.' && tokens[cursor + 2]?.kind === 'word') {
+        relationSchema = relation;
         relation = tokens[cursor + 2].value;
         cursor += 2;
       }
       relationDeclarationPositions.add(relationPosition);
       relationDeclarationPositions.add(cursor);
       relations.add(relation);
-      const relationBacked = ctes.has(relation)
+      const qualifiedLedger = relationSchema === 'public' && relation === 'contract_hours_ledger';
+      const relationBacked = qualifiedLedger || (!relationSchema && ctes.has(relation)
         ? backedNames.has(relation)
-        : relation === 'contract_hours_ledger' || backedNames.has(relation);
+        : relation === 'contract_hours_ledger' || backedNames.has(relation));
       cursor += 1;
       if (tokens[cursor]?.value === '(') cursor = (pairs.get(cursor) ?? cursor) + 1;
       if (tokens[cursor]?.value === 'as') cursor += 1;
@@ -1643,34 +1837,15 @@ function sqlHoursAnalysis(source: string, file = 'probe.sql'): SqlAnalysis {
   }
   schemaLedgerUnsupported(source).forEach((entry) => unsupported.push(entry));
   const executableExpressions = executableSqlExpressions(source);
-  for (const [executeIndex, expression] of executableExpressions.entries()) {
+  for (const expression of executableExpressions) {
     const recovered = staticSqlExpression(expression);
     if (recovered === undefined) {
-      const literalText = [...expression.matchAll(/'((?:''|[^'])*)'/g)]
-        .map((match) => match[1].replace(/''/g, "'"))
-        .join('');
-      if (/\bcontract_hours_ledger\b/i.test(literalText)) {
-        count += 1;
-        backed = true;
-        relations.add('contract_hours_ledger');
-        continue;
-      }
-      const knownSafeDynamic =
-        (file === 'supabase/migrations/00000000000000_baseline.sql' &&
-          expression === 'sql_query' &&
-          (executeIndex > 0 || !source.includes('result_array'))) ||
-        (file === 'supabase/migrations/20260803170000_add_email_marketing_tables.sql' &&
-          literalText.includes('CREATE POLICY')) ||
-        (file === 'supabase/migrations/20260808120000_session_reschedule_atomic.sql' &&
-          literalText.includes('UPDATE public.consultor_sessions'));
-      if (knownSafeDynamic) continue;
-      if (file === 'supabase/migrations/00000000000000_baseline.sql' &&
-          expression === 'sql_query' && source.includes('result_array')) {
-        count += 1;
-        backed = true;
-        relations.add('contract_hours_ledger');
-        continue;
-      }
+      // An incomplete runtime domain can always be redirected to the ledger.
+      // Count it as potential ledger authority and fail explicitly; there are no
+      // filename or literal-substring exemptions.
+      count += 1;
+      backed = true;
+      relations.add('contract_hours_ledger');
       unsupported.push(`dynamic EXECUTE target is not statically recoverable: ${expression}`);
       continue;
     }
@@ -1694,10 +1869,16 @@ function sqlDirectHoursUseCount(source: string, file = 'probe.sql'): number {
 const SQL_DIRECT_HOURS_USES: Record<string, UseClass[]> = {
   'supabase/migrations/00000000000000_baseline.sql': [
     'historical', 'historical', 'historical', 'historical', 'historical', 'historical',
+    'write', 'write',
+  ],
+  'supabase/migrations/20260803170000_add_email_marketing_tables.sql': [
     'write',
   ],
   'supabase/migrations/20260805120000_reschedule_hours_rpc.sql': [
     'historical', 'historical', 'historical', 'historical', 'historical',
+  ],
+  'supabase/migrations/20260808120000_session_reschedule_atomic.sql': [
+    'write',
   ],
   'supabase/migrations/20260809120000_fix_bucket_summary_fanout.sql': [
     'historical', 'historical',
@@ -1722,12 +1903,13 @@ const SQL_LEDGER_OBJECTS: Record<string, string[]> = {
     'exec_sql:write/potential-dynamic/direct',
     'get_bucket_summary:historical/direct',
     'get_consultant_earnings:historical/direct',
+    'migrate_assignments_to_enrollments:write/potential-dynamic/direct',
   ],
   'supabase/migrations/20260805120000_reschedule_hours_rpc.sql': [
     'reschedule_session_hours:historical/direct',
   ],
   'supabase/migrations/20260808120000_session_reschedule_atomic.sql': [
-    'apply_session_reschedule:write/fail-closed/transitive',
+    'apply_session_reschedule:write/fail-closed/direct',
   ],
   'supabase/migrations/20260809120000_fix_bucket_summary_fanout.sql': [
     'get_bucket_summary:historical/direct',
@@ -1745,6 +1927,33 @@ const SQL_LEDGER_OBJECTS: Record<string, string[]> = {
   ],
   'supabase/migrations/20260813120500_reschedule_tracking_pair_guard.sql': [
     'reschedule_session_hours:write/fail-closed/direct',
+  ],
+};
+
+/** Every unresolved executable SQL target is explicit; none is an allowed omission. */
+const SQL_UNSUPPORTED_EXECUTES: Record<string, string[]> = {
+  'supabase/migrations/00000000000000_baseline.sql': [
+    'exec_sql:caller-controlled-retired',
+    'migrate_assignments_to_enrollments:runtime-column-domain',
+  ],
+  'supabase/migrations/20260803170000_add_email_marketing_tables.sql': [
+    'email-policy:runtime-table-domain',
+  ],
+  'supabase/migrations/20260808120000_session_reschedule_atomic.sql': [
+    'apply_session_reschedule:runtime-update-shape',
+  ],
+  'supabase/migrations/20260813120200_session_hour_overrides.sql': [
+    'grant-loop:runtime-role-domain',
+  ],
+};
+
+const SQL_UNSUPPORTED_OBJECTS: Record<string, string[]> = {
+  'supabase/migrations/00000000000000_baseline.sql': [
+    'exec_sql',
+    'migrate_assignments_to_enrollments',
+  ],
+  'supabase/migrations/20260808120000_session_reschedule_atomic.sql': [
+    'apply_session_reschedule',
   ],
 };
 
@@ -1830,6 +2039,7 @@ describe('contract_hours_ledger production consumer inventory', () => {
 
   it('classifies every direct or transitive SQL function/view consumer', () => {
     const actual: Record<string, number> = {};
+    const unsupported: Record<string, string[]> = {};
     const directNames = new Set(
       definitions
         .filter((definition) => directSqlLedgerDependency(definition.body))
@@ -1838,16 +2048,17 @@ describe('contract_hours_ledger production consumer inventory', () => {
     for (const definition of definitions.filter((candidate) => objectNames.has(candidate.name))) {
       const path = definition.file;
       actual[path] = (actual[path] ?? 0) + 1;
-      expect(
-        sqlHoursAnalysis(definition.body, definition.file).unsupported,
-        `${path}:${definition.name} contains unsupported ledger-relevant SQL`
-      ).toEqual([]);
+      const analysis = sqlHoursAnalysis(definition.body, definition.file);
+      if (analysis.unsupported.length > 0) {
+        (unsupported[path] ??= []).push(definition.name);
+      }
       expect(SQL_LEDGER_OBJECTS[path]?.some((entry) =>
         entry.startsWith(`${definition.name}:`) &&
         entry.endsWith(directNames.has(definition.name) ? '/direct' : '/transitive')
       ), `${path}:${definition.name}`).toBe(true);
     }
     expectExactCounts(actual, SQL_LEDGER_OBJECTS);
+    expect(unsupported).toEqual(SQL_UNSUPPORTED_OBJECTS);
   });
 
   it('classifies every production RPC/view call into the discovered SQL dependency graph', () => {
@@ -1862,20 +2073,26 @@ describe('contract_hours_ledger production consumer inventory', () => {
       );
     }
     expectExactCounts(actual, INDIRECT_TS_CONSUMERS);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(10);
+    expect(productionSourceFiles().flatMap((path) =>
+      discoverSupabaseCalls(readFileSync(path, 'utf8'), path)
+        .filter((call) => call.method === 'rpc' &&
+          (call.target === 'exec_sql' || call.targets?.includes('exec_sql')))
+    )).toEqual([]);
   });
 
   it('discovers active raw-hours SQL under arbitrary aliases, excluding comments', () => {
     const actual: Record<string, number> = {};
+    const unsupported: Record<string, string[]> = {};
     for (const path of migrationFiles) {
-      let count: number;
-      try {
-        count = sqlDirectHoursUseCount(readFileSync(path, 'utf8'), relative(ROOT, path));
-      } catch (error) {
-        throw new Error(`${relative(ROOT, path)}: ${(error as Error).message}`);
-      }
-      if (count > 0) actual[relative(ROOT, path)] = count;
+      const relativePath = relative(ROOT, path);
+      const analysis = sqlHoursAnalysis(readFileSync(path, 'utf8'), relativePath);
+      if (analysis.count > 0) actual[relativePath] = analysis.count;
+      if (analysis.unsupported.length > 0) unsupported[relativePath] = analysis.unsupported;
     }
     expectExactCounts(actual, SQL_DIRECT_HOURS_USES);
+    expectExactCounts(Object.fromEntries(Object.entries(unsupported)
+      .map(([path, entries]) => [path, entries.length])), SQL_UNSUPPORTED_EXECUTES);
   });
 
   it('mutation probes bite on all supported TS forms, SQL aliases, and dependency edges', () => {
@@ -2272,6 +2489,21 @@ describe('contract_hours_ledger production consumer inventory', () => {
       const reflect = Reflect.apply;
       reflect(client.from, client, ['contract_hours_ledger']);
     `)).toBe(1);
+    expect(directTableTouchCount(`
+      const reflection = Reflect;
+      reflection.apply(client.from, client, ['contract_hours_ledger']);
+    `)).toBe(1);
+    expect(directTableTouchCount(`
+      const operation = 'apply';
+      Reflect[operation](client.from, client, ['contract_hours_ledger']);
+    `)).toBe(1);
+    expect(directTableTouchCount(`
+      const { ['apply']: invoke } = Reflect;
+      invoke(client.from, client, ['contract_hours_ledger']);
+    `)).toBe(1);
+    expect(directTableTouchCount(
+      "Function.prototype.call.call(client.from, client, 'contract_hours_ledger')"
+    )).toBe(1);
 
     expect(directTableTouchCount(`
       const read = client.from.bind(client);
@@ -2300,12 +2532,33 @@ describe('contract_hours_ledger production consumer inventory', () => {
       }
       recursive(client.from, ['contract_hours_ledger']);
     `)).toBeGreaterThan(0);
+    expect(directTableTouchCount(`
+      const identity = callable => callable;
+      identity(client.from)('contract_hours_ledger');
+    `)).toBe(1);
+    expect(directTableTouchCount(`
+      const wrap = callable => target => callable(target);
+      wrap(client.from)('contract_hours_ledger');
+    `)).toBeGreaterThan(0);
+    expect(directTableTouchCount(`
+      ['contract_hours_ledger'].forEach(client.from.bind(client));
+    `)).toBe(1);
+    expect(directTableTouchCount(`
+      const helper = { identity(callable) { return callable; } };
+      helper.identity(client.from)('contract_hours_ledger');
+    `)).toBe(1);
+    expect(directTableTouchCount(`
+      class Helper { identity(callable) { return callable; } }
+      new Helper().identity(client.from)('contract_hours_ledger');
+    `)).toBe(1);
 
     for (const source of [
       "client.from.apply(client, process.argv)",
       "Reflect.apply(externalCallable, client, ['contract_hours_ledger'])",
       "const read = externalCallable.bind(client); read('contract_hours_ledger')",
       "function invoke(callable) { callable('contract_hours_ledger'); } invoke(externalCallable)",
+      "opaqueHigherOrder(client.from)",
+      "const reflection = externalReflect; reflection.apply(client.from, client, ['safe_table'])",
     ]) {
       expect(discoverSupabaseCalls(source)).toContainEqual(expect.objectContaining({
         unsupported: expect.any(String),
@@ -2317,6 +2570,15 @@ describe('contract_hours_ledger production consumer inventory', () => {
       ordinary.call(null, 'contract_hours_ledger');
       Math.max.apply(null, [1, 2]);
     `).filter((call) => call.method !== 'unknown' || call.unsupported)).toEqual([]);
+
+    const cyclic = `
+      const holder = {};
+      holder.self = holder;
+      holder.read = client.from;
+      holder.self.read('contract_hours_ledger');
+    `;
+    expect(discoverSupabaseCalls(cyclic)).toEqual(discoverSupabaseCalls(cyclic));
+    expect(directTableTouchCount(cyclic)).toBe(1);
   });
 
   it('classifies composite ledger rows and column-opaque ledger DML', () => {
@@ -2418,6 +2680,11 @@ describe('contract_hours_ledger production consumer inventory', () => {
       SELECT contract_hours_ledger.hours FROM contract_hours_ledger;
     `)).toBe(0);
     expect(sqlDirectHoursUseCount(`
+      WITH contract_hours_ledger AS (SELECT 1 AS hours)
+      SELECT public.contract_hours_ledger.hours
+        FROM public.contract_hours_ledger;
+    `)).toBe(1);
+    expect(sqlDirectHoursUseCount(`
       SELECT lateral_rows.hours
         FROM safe_rows s
         CROSS JOIN LATERAL (
@@ -2437,6 +2704,32 @@ describe('contract_hours_ledger production consumer inventory', () => {
         EXECUTE $query$SELECT hours FROM public.contract_hours_ledger$query$;
       END $outer$;
     `)).toBe(1);
+    expect(sqlDirectHoursUseCount(`
+      DO $1$ BEGIN
+        EXECUTE $query2$SELECT hours FROM public.contract_hours_ledger$query2$;
+      END $1$;
+    `)).toBe(1);
+
+    for (const dependency of [
+      `CREATE PROCEDURE public.consume_ledger(row_value public.contract_hours_ledger)
+       LANGUAGE plpgsql AS $procedure$ BEGIN NULL; END $procedure$;`,
+      `CREATE FUNCTION public.ledger_table_result()
+       RETURNS TABLE (entry public.contract_hours_ledger)
+       LANGUAGE sql AS $function$ SELECT NULL $function$;`,
+      `DO $block$ DECLARE entry public.contract_hours_ledger; BEGIN NULL; END $block$;`,
+      `CREATE OR REPLACE TRIGGER ledger_guard AFTER UPDATE ON public.contract_hours_ledger
+       FOR EACH ROW EXECUTE FUNCTION public.audit_rows();`,
+    ]) {
+      expect(() => sqlDirectHoursUseCount(dependency), dependency).toThrow(/ledger/);
+    }
+    expect(sqlDirectHoursUseCount(`
+      -- CREATE OR REPLACE TRIGGER inert ON public.contract_hours_ledger
+      SELECT 'DECLARE entry public.contract_hours_ledger;';
+    `)).toBe(0);
+    expect(() => sqlDirectHoursUseCount(
+      'DO $$ BEGIN EXECUTE runtime_target; END $$;',
+      'supabase/migrations/20260803170000_add_email_marketing_tables.sql'
+    )).toThrow(/dynamic EXECUTE/);
   });
 
   it('discovers a newly introduced production JS/JSX root', () => {

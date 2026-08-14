@@ -5,18 +5,16 @@
 - Builder state: `REVIEW READY`; this document is evidence, not an acceptance verdict.
 - Canonical branch: `feat/zoom-hours`.
 - Immutable cumulative base: `4399949942bfcf49dfa8de40cbf7edbf40f0490e`.
-- Rejected round-twelve canonical head: `7f15a0ad731a8821d0012cd517af7de741da51fb`
-  (69 commits from the base; tree `f974d5ea0d2aa3701f12a240e8aa3bd1d05029a1`).
+- Rejected round-thirteen canonical head: `7d64642de042caa45077b8140fb7a8ab89635d0f`
+  (73 commits from the base; tree `57374d0e533ae53f4754748a51a2b77c8f489e37`).
   It is a rejected review point, not acceptance evidence.
-- Detached round-twelve starting point: `db55300eac20caf2e1fc84803b7d3ffba56e9797`
-  (69 commits; tree-equivalent to the rejected canonical head before the new contract).
-- Detached round-twelve contract cherry-pick: `3503b69fd17db55a297cbbd1a082092a60820da1`
-  (70 commits).
-- Detached round-twelve arbitrary-SQL retirement implementation:
-  `2d11fb9b751d9b299eaf22a50a19d7ce94385216` (71 commits).
-- Detached round-twelve executable discovery implementation:
-  `5cb70abb8e754368152b279bf657400d3d2a75fe` (72 commits).
-- This evidence document is the 73rd cumulative detached commit. A commit cannot truthfully embed
+- Detached round-thirteen starting point: `900d3194a38325d4581bdf82ec82240fe7c0c2e0`
+  (73 commits; tree-equivalent to the rejected canonical head before the new contract).
+- Detached round-thirteen contract cherry-pick: `5132824bd14579426b30eec4de1f9c504d7ec7cc`
+  (74 commits).
+- Detached round-thirteen intrinsic-adapter implementation:
+  `bcb0a900321de0bc31c58148b6b2d69226897b0a` (75 commits).
+- This evidence document is the 76th cumulative detached commit. A commit cannot truthfully embed
   its own identity; its exact detached SHA is supplied in the builder handoff. The external review
   dispatch must pin the post-cherry-pick canonical HEAD (`CANONICAL_HEAD_PENDING_INTEGRATION`).
 - Review boundary: `4399949942bfcf49dfa8de40cbf7edbf40f0490e..HEAD`.
@@ -25,12 +23,11 @@ There is no recursive HEAD placeholder in this artifact. A commit cannot contain
 and cherry-picking changes detached commit identities. All embedded SHAs above are already stable
 objects with counts verified by `git rev-list --count 43999499..<sha>`.
 
-Ordered detached commits after `db55300eac20caf2e1fc84803b7d3ffba56e9797`:
+Ordered detached commits after `900d3194a38325d4581bdf82ec82240fe7c0c2e0`:
 
-1. `3503b69fd17db55a297cbbd1a082092a60820da1` — round-twelve contract cherry-pick.
-2. `2d11fb9b751d9b299eaf22a50a19d7ce94385216` — arbitrary-SQL authority retirement plus real-role/fail-on-old pgTAP.
-3. `5cb70abb8e754368152b279bf657400d3d2a75fe` — callable-identity/cycle-safe TypeScript and qualified/dynamic SQL discovery.
-4. This evidence commit — exact detached SHA in the builder handoff.
+1. `5132824bd14579426b30eec4de1f9c504d7ec7cc` — round-thirteen contract cherry-pick.
+2. `bcb0a900321de0bc31c58148b6b2d69226897b0a` — composable `Function.prototype` intrinsic adapter analysis and mutation matrix.
+3. This evidence commit — exact detached SHA in the builder handoff.
 
 ## Objective, delivered scope, and current status
 
@@ -51,6 +48,12 @@ remediation, the Vitest upgrade, leadership aggregates, deployments, production 
 unrelated refactors.
 
 ## Finding disposition
+
+### Round thirteen
+
+| Finding | Disposition and evidence |
+|---|---|
+| Z7-R13.1 | `Function.prototype.call`, `.apply`, and `.bind` are now first-class composable callable values. Their target identity, bound receiver, positional tuple arguments, spread arguments, aliases, computed/destructured access, and nested adapter layout flow through one bounded evaluator rather than syntax-specific probe branches. The mutation matrix covers all four reviewer examples plus direct, aliased, computed, destructured, `bind.call`, `bind.apply`, bound intrinsic receivers, and two multi-level `call`/`apply` compositions; each recoverable form yields exactly one ledger call. External/dynamic compositions produce deterministic unsupported results, adapter conflicts remain fail closed, cyclic property graphs terminate stably, inert functions and ordinary non-Supabase `.from` values remain empty, and the exact production census is unchanged. |
 
 ### Round twelve
 
@@ -165,7 +168,9 @@ unrelated refactors.
   closes alternate ledger UPDATE assignments and executable callable/dynamic-SQL boundaries.
   Round twelve retires the remaining exposed arbitrary-SQL function and its production endpoint,
   makes callable analysis cycle-safe across the remaining adapter/HOF forms, and preserves schema
-  qualification while failing closed on every unresolved executable SQL domain.
+  qualification while failing closed on every unresolved executable SQL domain. Round thirteen
+  closes the neighboring nested `Function.prototype` family with one composable intrinsic
+  evaluator and exact receiver/positional-argument propagation.
 
 ## Production `contract_hours_ledger.hours` direct-and-transitive inventory
 
@@ -411,6 +416,7 @@ Risk grouping describes review priority, not ownership.
 - `docs/plan/zoom/remediation/Z7-review-10.md`
 - `docs/plan/zoom/remediation/Z7-review-11.md`
 - `docs/plan/zoom/remediation/Z7-review-12.md`
+- `docs/plan/zoom/remediation/Z7-review-13.md`
 - `docs/plan/zoom/reviews/fase-7-review-request.md`
 - `docs/plan/zoom/reviews/fase-7-review-verdict.md`
 
@@ -430,7 +436,7 @@ comm -3 \
     | sed -n 's/^- `\(.*\)`$/\1/p' | sort)
 ```
 
-Result after the evidence commit: no output. Counts: cumulative diff **119**, inventory **119**,
+Result after the evidence commit: no output. Counts: cumulative diff **120**, inventory **120**,
 duplicates **0**.
 
 ## Gate and fail-on-old evidence
@@ -440,13 +446,12 @@ piped through `tail`.
 
 | Command | Result | Exit |
 |---|---|---:|
-| Focused Round 12 endpoint + executable inventory | 2 files, **19 green** (5 endpoint + 14 inventory) | 0 |
-| Focused inherited high-risk Vitest over reservation, snapshot, JSON ledger, single/bulk approval, creation, reschedule, override, inventory, billing/isolation, cron/webhook, report/store/reconcile, participant lifecycle, attendance store, and lifecycle instants | 22 files, **334 green** | 0 |
-| Focused PostgreSQL setup + `019-exec-sql-retirement.sql` after fresh replay | **37 total assertions green**: 2 setup + **35 R12** catalog, real-role denial, rollback-only fail-on-old, bucket, override/audit, and endpoint-authority assertions | 0 |
+| Focused Round 13 executable inventory | 1 file, **15 green** | 0 |
+| Focused inherited high-risk Vitest over reservation, snapshot, JSON ledger, single/bulk approval, creation, reschedule, override, inventory, billing/isolation, cron/webhook, report/store/reconcile, participant lifecycle, attendance store, and lifecycle instants | 22 files, **335 green** | 0 |
 | `npm run type-check` | no diagnostics | 0 |
 | `npm run lint` | zero warnings | 0 |
 | `bash scripts/ci/check-rls-migrations.sh` | no RLS disablement | 0 |
-| `TZ=America/Santiago npm test` | 324 files, **7,378 green / 11 skipped** | 0 |
+| `TZ=America/Santiago npm test` | 324 files, **7,379 green / 11 skipped** | 0 |
 | `npm run build` | production build; **156/156 static pages** | 0 |
 | `node scripts/check-price-leak.mjs` after build | scanned **265** compiled static files; no commercial data found | 0 |
 | Fresh local `supabase db reset` | all migrations through additive `20260813121000` replayed; repeated after Chromium to remove synthetic fixtures | 0 |
@@ -455,8 +460,27 @@ piped through `tail`.
 | `npm run test:override-concurrency` | identical race apply+replay; forged/different payloads `P0409` sequentially and concurrently; no `23505` | 0 |
 | Fresh local `supabase db reset`; local-CLI URL/keys supplied to `node scripts/ci/seed-e2e.mjs`; `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **117/117 passed**, one worker | 0 |
 | `node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json` | 11 mandatory specs ran with no skips | 0 |
-| `TZ=UTC npm test` | 324 files, **7,378 green / 11 skipped** | 0 |
-| `TZ=Europe/Madrid npm test` | **7,370 green / 8 failed / 11 skipped** in 324 files; all 8 are inherited `lib/__tests__/businessDays.test.ts` | 1 inherited |
+| `TZ=UTC npm test` | 324 files, **7,379 green / 11 skipped** | 0 |
+| `TZ=Europe/Madrid npm test` | **7,371 green / 8 failed / 11 skipped** in 324 files; all 8 are inherited `lib/__tests__/businessDays.test.ts` | 1 inherited |
+
+Round-thirteen fail-on-old/mutation evidence was in-memory and the checked-in source was restored
+before every green gate:
+
+- Removing the first-class `Function.prototype.apply` and `.bind` identities recreated the old
+  incomplete intrinsic family. The focused suite went red **1/15** on the first reviewer form:
+  `Function.prototype.apply.call(client.from, client, ['contract_hours_ledger'])` produced zero
+  ledger calls where the assertion requires exactly one. Restoring the generic family returned
+  the suite to 15/15.
+- Fourteen positive compositions cover the four reviewer examples plus direct, aliased, computed,
+  destructured, `bind.call`, `bind.apply`, an intrinsic bound receiver, and two nested depths.
+  Each produces exactly one ledger call, so duplicate traversal is also a regression.
+- Three unresolved/dynamic variants produce an explicit unsupported result; three inert or
+  ordinary non-Supabase variants produce neither a ledger call nor unsupported noise. A cyclic
+  object/adapter graph is evaluated twice with byte-identical results and one exact ledger call.
+- The same focused suite mechanically re-walks every production TS/TSX/JS/JSX root. Its exact
+  production maps remain **14 files/22 direct touches** and **8 files/10 indirect calls**; the SQL
+  maps remain **9/33** expressions and **8/13** objects with **4 files/5** explicit unresolved
+  executable sites.
 
 Round-twelve fail-on-old/mutation evidence was rollback-only or in-memory and the final schema was
 freshly replayed afterward:
@@ -664,33 +688,39 @@ used a mistyped local anonymous key and wrote nothing; the exact CLI key then se
 fixtures successfully. The final reset replayed through `20260813121000` and removed those
 fixtures. None of these retries changed committed or persistent state.
 
+Round 13 introduced no unexpected gate retry. The deliberate intrinsic-identity removal above was
+the required fail-on-old mutation, not a green command. Chromium used a temporary ignored
+`.env.local` because the mandatory mock spec reads that file directly; it was deleted immediately
+after the 117-test run. The final local reset replayed through `20260813121000` and removed all
+synthetic browser/concurrency state.
+
 ## Explicit inherited deviations
 
 - Advisory `npm run lint:testid` remains the round-two measured repository baseline of **44 errors
-  / 2,625 warnings**. Round twelve adds no interactive UI.
+  / 2,625 warnings**. Round thirteen adds no interactive UI.
 - Madrid's eight `businessDays.test.ts` failures are the previously reproduced out-of-scope
   licitación defect. All Z7/hours tests are green in all three zones.
 - The broad `npm run e2e` inherited round-one result remains **160 passed / 27 skipped / 1 did not
-  run / 62 failed (250 total)**. Round twelve changes no `tests/e2e/` path; the supported mandatory
+  run / 62 failed (250 total)**. Round thirteen changes no `tests/e2e/` path; the supported mandatory
   selector was rerun fresh at 117/117.
 
 None of these deviations is represented as a green gate.
 
 ## Independent reviewer focus and residual risks
 
-1. Re-audit `public.exec_sql(text)` and related exposed authority at the catalog and real-role
+1. Mutate nested `Function.prototype.call`/`apply`/`bind` compositions through aliases, computed
+   and destructured access, bound receivers/arguments, and multiple nesting depths. Recoverable
+   forms must produce exactly one ledger call; external ambiguity must reject explicitly; cyclic
+   graphs must terminate; ordinary non-Supabase `.from` values must remain inert.
+2. Re-audit `public.exec_sql(text)` and related exposed authority at the catalog and real-role
    boundaries. Anon, authenticated-admin, and service-role calls must all receive `42501`; the
    retired endpoint must construct no service client and issue no RPC/SQL, while fixed owner RPCs
    and legitimate ledger writers remain functional.
-2. Mutate callables through aliased/computed/destructured `Reflect.apply`,
-   `Function.prototype.call.call`, concise identities/returned closures, bound callbacks/`forEach`,
-   recursion, and object/class/external HOFs. No database-capable target may disappear, retain only
-   a stale safe value, or make traversal/fingerprinting fail to terminate.
 3. Mutate executable SQL through qualified/unqualified CTE shadowing, static and unresolved
    `EXECUTE`, procedures, composite/`RETURNS TABLE`/plain variables, triggers, rules/views,
    correlated scopes, and numbered/custom dollar tags. Inert comments/literals must stay inert;
    unresolved executable authority must fail explicitly without filename or substring allowances.
-4. Re-run both mechanical inventories against integrated HEAD: cumulative paths **119/119**;
+4. Re-run both mechanical inventories against integrated HEAD: cumulative paths **120/120**;
    classifications **14/22** direct, **8/10** indirect, **9/33** SQL expressions/writes, and
    **8/13** SQL objects, plus **4 files/5 sites** of explicit unresolved executable SQL and zero
    production `exec_sql` callers.

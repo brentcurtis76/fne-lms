@@ -5,7 +5,7 @@
  * be explicitly classified here before the suite returns green.
  */
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { builtinModules } from 'node:module';
+import { builtinModules, createRequire } from 'node:module';
 import { dirname, join, relative } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
@@ -54,11 +54,31 @@ type DiscoveredCall = {
   position?: number;
 };
 
+interface AbstractPropertyDescriptor {
+  kind: 'data' | 'accessor';
+  value?: AbstractValue;
+  get?: AbstractValue;
+  set?: AbstractValue;
+  writable: boolean;
+  enumerable: boolean;
+  configurable: boolean;
+}
+
+type CompletionKind = 'normal' | 'throw' | 'return' | 'break' | 'continue';
+interface Completion {
+  kind: CompletionKind;
+  value?: AbstractValue;
+  label?: string;
+}
+
 interface AbstractValue {
   strings: Set<string>;
   numbers: Set<number>;
   methods: Set<MethodName>;
   properties: Map<string, AbstractValue>;
+  descriptors: Map<string, AbstractPropertyDescriptor>;
+  prototype?: AbstractValue;
+  exactShape: boolean;
   elements?: AbstractValue;
   tupleElements?: AbstractValue[];
   external: boolean;
@@ -71,12 +91,15 @@ interface AbstractValue {
   adapterConflict: boolean;
   receiverProvenance?: 'database' | 'non-database' | 'ambiguous';
   sequenceBuilder?: 'constructor' | 'of' | 'from' | 'concat';
+  sequenceBuilderConflict: boolean;
   sequenceSource?: AbstractValue;
   sequenceMutation?: SequenceMutationName;
+  sequenceMutationConflict: boolean;
   sequenceMutationTarget?: AbstractValue;
   sequenceAliases?: Set<AbstractValue>;
   primitives: Set<'null' | 'undefined' | 'true' | 'false'>;
   integrity?: 'extensible' | 'nonextensible' | 'sealed' | 'frozen';
+  alwaysThrows: boolean;
 }
 
 function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
@@ -85,6 +108,9 @@ function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
     numbers: partial.numbers ?? new Set(),
     methods: partial.methods ?? new Set(),
     properties: partial.properties ?? new Map(),
+    descriptors: partial.descriptors ?? new Map(),
+    prototype: partial.prototype,
+    exactShape: partial.exactShape ?? false,
     elements: partial.elements,
     tupleElements: partial.tupleElements,
     external: partial.external ?? false,
@@ -97,12 +123,15 @@ function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
     adapterConflict: partial.adapterConflict ?? false,
     receiverProvenance: partial.receiverProvenance,
     sequenceBuilder: partial.sequenceBuilder,
+    sequenceBuilderConflict: partial.sequenceBuilderConflict ?? false,
     sequenceSource: partial.sequenceSource,
     sequenceMutation: partial.sequenceMutation,
+    sequenceMutationConflict: partial.sequenceMutationConflict ?? false,
     sequenceMutationTarget: partial.sequenceMutationTarget,
     sequenceAliases: partial.sequenceAliases,
     primitives: partial.primitives ?? new Set(),
     integrity: partial.integrity,
+    alwaysThrows: partial.alwaysThrows ?? false,
   };
 }
 
@@ -152,6 +181,7 @@ function unionValues(...values: AbstractValue[]): AbstractValue {
         : left.receiverProvenance ?? right.receiverProvenance;
     result.integrity = left.integrity === right.integrity
       ? left.integrity : left.integrity && right.integrity ? undefined : left.integrity ?? right.integrity;
+    result.alwaysThrows = left.alwaysThrows && right.alwaysThrows;
 
     const propertyNames = new Set([...left.properties.keys(), ...right.properties.keys()]);
     for (const name of propertyNames) {
@@ -161,6 +191,38 @@ function unionValues(...values: AbstractValue[]): AbstractValue {
         ? pair(leftProperty, rightProperty)
         : leftProperty ?? rightProperty!);
     }
+    const descriptorNames = new Set([...left.descriptors.keys(), ...right.descriptors.keys()]);
+    for (const name of descriptorNames) {
+      const leftDescriptor = left.descriptors.get(name);
+      const rightDescriptor = right.descriptors.get(name);
+      if (!leftDescriptor || !rightDescriptor || leftDescriptor.kind !== rightDescriptor.kind) {
+        result.descriptors.set(name, leftDescriptor ?? rightDescriptor!);
+        continue;
+      }
+      result.descriptors.set(name, leftDescriptor.kind === 'data' ? {
+        kind: 'data',
+        value: leftDescriptor.value && rightDescriptor.value
+          ? pair(leftDescriptor.value, rightDescriptor.value)
+          : leftDescriptor.value ?? rightDescriptor.value,
+        writable: leftDescriptor.writable || rightDescriptor.writable,
+        enumerable: leftDescriptor.enumerable || rightDescriptor.enumerable,
+        configurable: leftDescriptor.configurable || rightDescriptor.configurable,
+      } : {
+        kind: 'accessor',
+        get: leftDescriptor.get && rightDescriptor.get
+          ? pair(leftDescriptor.get, rightDescriptor.get)
+          : leftDescriptor.get ?? rightDescriptor.get,
+        set: leftDescriptor.set && rightDescriptor.set
+          ? pair(leftDescriptor.set, rightDescriptor.set)
+          : leftDescriptor.set ?? rightDescriptor.set,
+        writable: false,
+        enumerable: leftDescriptor.enumerable || rightDescriptor.enumerable,
+        configurable: leftDescriptor.configurable || rightDescriptor.configurable,
+      });
+    }
+    result.prototype = left.prototype && right.prototype
+      ? pair(left.prototype, right.prototype) : left.prototype ?? right.prototype;
+    result.exactShape = left.exactShape && right.exactShape;
     result.elements = left.elements && right.elements
       ? pair(left.elements, right.elements)
       : left.elements ?? right.elements;
@@ -208,8 +270,10 @@ function unionValues(...values: AbstractValue[]): AbstractValue {
         ? pair(left.adapterCallable, right.adapterCallable)
         : left.adapterCallable ?? right.adapterCallable;
     }
-    if (left.sequenceBuilder && right.sequenceBuilder &&
-        left.sequenceBuilder !== right.sequenceBuilder) {
+    result.sequenceBuilderConflict = left.sequenceBuilderConflict || right.sequenceBuilderConflict ||
+      Boolean(left.sequenceBuilder && right.sequenceBuilder &&
+        left.sequenceBuilder !== right.sequenceBuilder);
+    if (result.sequenceBuilderConflict) {
       result.external = true;
       result.callableCandidate = true;
     } else {
@@ -218,8 +282,10 @@ function unionValues(...values: AbstractValue[]): AbstractValue {
         ? pair(left.sequenceSource, right.sequenceSource)
         : left.sequenceSource ?? right.sequenceSource;
     }
-    if (left.sequenceMutation && right.sequenceMutation &&
-        left.sequenceMutation !== right.sequenceMutation) {
+    result.sequenceMutationConflict = left.sequenceMutationConflict ||
+      right.sequenceMutationConflict || Boolean(left.sequenceMutation && right.sequenceMutation &&
+        left.sequenceMutation !== right.sequenceMutation);
+    if (result.sequenceMutationConflict) {
       result.external = true;
       result.callableCandidate = true;
     } else {
@@ -256,10 +322,17 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   const functionOutputs = new Map<ts.FunctionLikeDeclaration, AbstractValue>();
   const functionClosures = new Map<ts.FunctionLikeDeclaration, Map<string, AbstractValue>>();
   const functionStack: ts.FunctionLikeDeclaration[] = [];
+  const receiverStack: AbstractValue[] = [];
   const topLevelExpressionResults = new WeakMap<ts.CallExpression, AbstractValue>();
   type ReceiverProvenance = NonNullable<AbstractValue['receiverProvenance']>;
   const moduleExportCache = new Map<string, Map<string, ReceiverProvenance>>();
   const activeModuleExports = new Set<string>();
+  const hasUseStrict = (statements: ts.NodeArray<ts.Statement> | undefined): boolean =>
+    Boolean(statements?.some((statement) => ts.isExpressionStatement(statement) &&
+      ts.isStringLiteralLike(statement.expression) && statement.expression.text === 'use strict'));
+  const sourceStrict = ts.isExternalModule(sf) || hasUseStrict(sf.statements);
+  const strictMode = (): boolean => sourceStrict || functionStack.some((target) =>
+    Boolean(target.body && ts.isBlock(target.body) && hasUseStrict(target.body.statements)));
 
   function binding(name: string): AbstractValue | undefined {
     for (let index = scopes.length - 1; index >= 0; index -= 1) {
@@ -281,10 +354,78 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     return valueOf({ functions: new Set([target]), callableCandidate: true });
   }
 
+  function setDataDescriptor(
+    object: AbstractValue,
+    name: string,
+    value: AbstractValue,
+    attributes = { writable: true, enumerable: true, configurable: true }
+  ): void {
+    object.descriptors.set(name, { kind: 'data', value, ...attributes });
+    object.properties.set(name, value);
+  }
+
+  function setAccessorDescriptor(
+    object: AbstractValue,
+    name: string,
+    get: AbstractValue | undefined,
+    set: AbstractValue | undefined,
+    attributes = { enumerable: true, configurable: true }
+  ): void {
+    object.descriptors.set(name, {
+      kind: 'accessor', get, set, writable: false, ...attributes,
+    });
+    object.properties.delete(name);
+  }
+
+  function ownDescriptor(
+    object: AbstractValue,
+    name: string
+  ): AbstractPropertyDescriptor | undefined {
+    const descriptor = object.descriptors.get(name);
+    if (descriptor) return descriptor;
+    const legacy = object.properties.get(name);
+    if (!legacy) return undefined;
+    const synthesized: AbstractPropertyDescriptor = {
+      kind: 'data', value: legacy, writable: true, enumerable: true, configurable: true,
+    };
+    object.descriptors.set(name, synthesized);
+    return synthesized;
+  }
+
+  function inheritedDescriptor(
+    object: AbstractValue,
+    name: string,
+    seen = new Set<AbstractValue>()
+  ): { owner: AbstractValue; descriptor: AbstractPropertyDescriptor } | undefined {
+    if (seen.has(object)) return undefined;
+    seen.add(object);
+    const descriptor = ownDescriptor(object, name);
+    if (descriptor) return { owner: object, descriptor };
+    return object.prototype ? inheritedDescriptor(object.prototype, name, seen) : undefined;
+  }
+
+  function readAbstractProperty(
+    object: AbstractValue,
+    name: string,
+    receiver = object
+  ): AbstractValue | undefined {
+    const found = inheritedDescriptor(object, name);
+    if (!found) return undefined;
+    if (found.descriptor.kind === 'data') return found.descriptor.value ?? valueOf();
+    if (!found.descriptor.get) return valueOf({ primitives: new Set(['undefined']) });
+    const outputs = [...found.descriptor.get.functions]
+      .map((getter) => invokeFunction(getter, [], receiver));
+    return outputs.length > 0
+      ? unionValues(...outputs)
+      : found.descriptor.get.external
+        ? valueOf({ external: true, callableCandidate: true })
+        : valueOf({ primitives: new Set(['undefined']) });
+  }
+
   function reflectValue(): AbstractValue {
     return valueOf({ properties: new Map([
       ['apply', valueOf({ adapter: 'reflectApply', callableCandidate: true })],
-    ]) });
+    ]), exactShape: true });
   }
 
   function functionConstructorValue(): AbstractValue {
@@ -294,7 +435,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         ['apply', valueOf({ adapter: 'apply', callableCandidate: true })],
         ['bind', valueOf({ adapter: 'bind', callableCandidate: true })],
       ]) })],
-    ]) });
+    ]), exactShape: true });
   }
 
   function coherentSequence(
@@ -306,13 +447,19 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     tupleElements.forEach((entry, index) => properties.set(String(index), entry));
     properties.set('length', valueOf({ numbers: new Set([tupleElements.length]) }));
     const candidates = [...tupleElements, ...(extraElements ? [extraElements] : [])];
-    return valueOf({
+    const sequence = valueOf({
       properties,
       tupleElements,
       elements: candidates.length > 0 ? unionValues(...candidates) : extraElements,
       external,
       callableCandidate: external && candidates.some((entry) => isDatabaseCallable(entry)),
+      exactShape: !external,
     });
+    tupleElements.forEach((entry, index) => setDataDescriptor(sequence, String(index), entry));
+    setDataDescriptor(sequence, 'length', properties.get('length')!, {
+      writable: true, enumerable: false, configurable: false,
+    });
+    return sequence;
   }
 
   function arrayConstructorValue(): AbstractValue {
@@ -322,7 +469,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         method,
         valueOf({ sequenceMutation: method, callableCandidate: true }),
       ])
-    ) });
+    ), exactShape: true });
     return valueOf({
       sequenceBuilder: 'constructor',
       callableCandidate: true,
@@ -332,6 +479,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         ['from', valueOf({ sequenceBuilder: 'from', callableCandidate: true })],
         ['prototype', prototype],
       ]),
+      exactShape: true,
     });
   }
 
@@ -342,7 +490,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       const name = readPropertyName(member.name);
       if (name) properties.set(name, functionValue(member));
     }
-    return valueOf({ properties });
+    return valueOf({ properties, exactShape: true });
   }
 
   function mergeProvenance(
@@ -372,7 +520,9 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     if (!targetPath) return new Map([['*', direct], ['default', direct]]);
     const cached = moduleExportCache.get(targetPath);
     if (cached) return cached;
-    if (activeModuleExports.has(targetPath)) return new Map([['*', 'ambiguous']]);
+    if (activeModuleExports.has(targetPath)) {
+      return new Map([['*', 'ambiguous'], ['#cycle', 'ambiguous']]);
+    }
     activeModuleExports.add(targetPath);
 
     let exports = new Map<string, ReceiverProvenance>();
@@ -385,12 +535,30 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     const objectPrototypes = new Map<
       Map<string, ReceiverProvenance>, Map<string, ReceiverProvenance>
     >();
+    type ModuleDescriptor = {
+      kind: 'data' | 'accessor';
+      value?: ReceiverProvenance;
+      valueMembers?: Map<string, ReceiverProvenance>;
+      get?: ReceiverProvenance;
+      getThisProperty?: string;
+      set?: ReceiverProvenance;
+      writable: boolean;
+      enumerable: boolean;
+      configurable: boolean;
+    };
+    const objectDescriptors = new Map<
+      Map<string, ReceiverProvenance>, Map<string, ModuleDescriptor>
+    >();
     const localStrings = new Map<string, string>();
     let sawCommonJsExport = false;
     const target = ts.createSourceFile(targetPath, readFileSync(targetPath, 'utf8'),
       ts.ScriptTarget.Latest, true,
       /x$/.test(targetPath) ? ts.ScriptKind.TSX
         : /\.[cm]?js$/.test(targetPath) ? ts.ScriptKind.JS : ts.ScriptKind.TS);
+    const directThrowIndex = target.statements.findIndex(ts.isThrowStatement);
+    const moduleThrows = directThrowIndex >= 0;
+    const evaluationStatements = moduleThrows
+      ? target.statements.slice(0, directThrowIndex) : target.statements;
 
     const setExport = (name: string, provenance: ReceiverProvenance): void => {
       exports.set(name, mergeProvenance(exports.get(name), provenance));
@@ -428,6 +596,13 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     ): Map<string, ReceiverProvenance> | undefined => {
       if (seen.has(object)) return undefined;
       seen.add(object);
+      const descriptor = objectDescriptors.get(object)?.get(name);
+      if (descriptor?.kind === 'data' && descriptor.valueMembers) {
+        return descriptor.valueMembers;
+      }
+      if (descriptor?.kind === 'accessor' && descriptor.getThisProperty) {
+        return childMembers(object, descriptor.getThisProperty, new Set());
+      }
       return objectChildren.get(object)?.get(name) ??
         (objectPrototypes.get(object)
           ? childMembers(objectPrototypes.get(object)!, name, seen) : undefined);
@@ -439,6 +614,14 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     ): ReceiverProvenance | undefined => {
       if (seen.has(object)) return undefined;
       seen.add(object);
+      const descriptor = objectDescriptors.get(object)?.get(name);
+      if (descriptor?.kind === 'data') return descriptor.value;
+      if (descriptor?.kind === 'accessor') {
+        if (descriptor.getThisProperty) {
+          return memberProvenance(object, descriptor.getThisProperty, new Set());
+        }
+        return descriptor.get;
+      }
       if (object.has(name)) return object.get(name);
       const prototype = objectPrototypes.get(object);
       return prototype ? memberProvenance(prototype, name, seen) : undefined;
@@ -453,6 +636,62 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       const prototype = objectPrototypes.get(object);
       if (prototype) visibleMemberNames(prototype, seen).forEach((name) => names.add(name));
       return names;
+    };
+    const ownModuleDescriptor = (
+      object: Map<string, ReceiverProvenance>,
+      name: string
+    ): ModuleDescriptor | undefined => {
+      const descriptor = objectDescriptors.get(object)?.get(name);
+      if (descriptor) return descriptor;
+      const value = object.get(name);
+      if (!value) return undefined;
+      const synthesized: ModuleDescriptor = {
+        kind: 'data', value, valueMembers: objectChildren.get(object)?.get(name),
+        writable: true, enumerable: true, configurable: true,
+      };
+      const descriptors = objectDescriptors.get(object) ?? new Map<string, ModuleDescriptor>();
+      objectDescriptors.set(object, descriptors);
+      descriptors.set(name, synthesized);
+      return synthesized;
+    };
+    const inheritedModuleDescriptor = (
+      object: Map<string, ReceiverProvenance>,
+      name: string,
+      seen = new Set<Map<string, ReceiverProvenance>>()
+    ): ModuleDescriptor | undefined => {
+      if (seen.has(object)) return undefined;
+      seen.add(object);
+      return ownModuleDescriptor(object, name) ?? (objectPrototypes.get(object)
+        ? inheritedModuleDescriptor(objectPrototypes.get(object)!, name, seen) : undefined);
+    };
+    const setModuleData = (
+      object: Map<string, ReceiverProvenance>,
+      name: string,
+      value: ReceiverProvenance,
+      valueMembers?: Map<string, ReceiverProvenance>,
+      attributes = { writable: true, enumerable: true, configurable: true }
+    ): void => {
+      object.set(name, value);
+      const descriptors = objectDescriptors.get(object) ?? new Map<string, ModuleDescriptor>();
+      objectDescriptors.set(object, descriptors);
+      descriptors.set(name, { kind: 'data', value, valueMembers, ...attributes });
+      if (valueMembers) {
+        const children = objectChildren.get(object) ?? new Map();
+        objectChildren.set(object, children);
+        children.set(name, valueMembers);
+      } else objectChildren.get(object)?.delete(name);
+    };
+    const moduleWrite = (
+      object: Map<string, ReceiverProvenance>,
+      name: string,
+      value: ReceiverProvenance,
+      valueMembers?: Map<string, ReceiverProvenance>
+    ): boolean => {
+      const descriptor = inheritedModuleDescriptor(object, name);
+      if (descriptor?.kind === 'accessor') return Boolean(descriptor.set);
+      if (descriptor?.kind === 'data' && !descriptor.writable) return false;
+      setModuleData(object, name, value, valueMembers);
+      return true;
     };
     function flattenMembers(
       object: Map<string, ReceiverProvenance>,
@@ -557,15 +796,26 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
             const spread = expressionMembers(property.expression, new Set(seen));
             if (!spread) members.set('*', 'ambiguous');
             else for (const [name, provenance] of spread) {
-              if (name !== 'default') members.set(name, mergeProvenance(
-                members.get(name), provenance
-              ));
+              if (name !== 'default' && ownModuleDescriptor(spread, name)?.enumerable !== false) {
+                setModuleData(members, name, mergeProvenance(
+                  members.get(name), provenance
+                ), childMembers(spread, name));
+              }
             }
             continue;
           }
           if (ts.isGetAccessorDeclaration(property)) {
             const name = staticName(property.name);
-            members.set(name ?? '*', name ? functionReturnProvenance(property) : 'ambiguous');
+            if (!name) members.set('*', 'ambiguous');
+            else {
+              const descriptors = objectDescriptors.get(members) ?? new Map();
+              objectDescriptors.set(members, descriptors);
+              descriptors.set(name, {
+                kind: 'accessor', get: functionReturnProvenance(property),
+                writable: false, enumerable: true, configurable: true,
+              });
+              members.set(name, functionReturnProvenance(property));
+            }
             continue;
           }
           if (ts.isSetAccessorDeclaration(property)) {
@@ -584,13 +834,15 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
               : ts.isMethodDeclaration(property)
                 ? functionReturnProvenance(property)
                 : 'ambiguous';
-          members.set(name, mergeProvenance(members.get(name), provenance));
+          setModuleData(members, name, mergeProvenance(members.get(name), provenance));
           if (ts.isPropertyAssignment(property)) {
             const child = expressionMembers(property.initializer, new Set(seen));
             if (child) {
               const children = objectChildren.get(members) ?? new Map();
               objectChildren.set(members, children);
               children.set(name, child);
+              const descriptor = ownModuleDescriptor(members, name);
+              if (descriptor?.kind === 'data') descriptor.valueMembers = child;
             }
           }
         }
@@ -684,7 +936,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       }
     };
 
-    for (const statement of target.statements) {
+    for (const statement of evaluationStatements) {
       if (ts.isImportDeclaration(statement) && ts.isStringLiteralLike(statement.moduleSpecifier)) {
         const source = statement.moduleSpecifier.text;
         const clause = statement.importClause;
@@ -779,13 +1031,19 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       }
       for (const [name, provenance] of source) {
         if (name === 'default') continue;
-        destination.set(name, provenance);
+        const descriptor = ownModuleDescriptor(source, name);
+        if (descriptor && !descriptor.enumerable) continue;
+        moduleWrite(destination, name, provenance, childMembers(source, name));
       }
       const sourceChildren = objectChildren.get(source);
       if (sourceChildren) {
         const destinationChildren = objectChildren.get(destination) ?? new Map();
         objectChildren.set(destination, destinationChildren);
-        sourceChildren.forEach((child, name) => destinationChildren.set(name, child));
+        sourceChildren.forEach((child, name) => {
+          if (ownModuleDescriptor(source, name)?.enumerable !== false) {
+            destinationChildren.set(name, child);
+          }
+        });
       }
     }
     function applyCommonAssignment(assignment: ts.BinaryExpression): ExportValue {
@@ -807,14 +1065,8 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         sawCommonJsExport = true;
         const destination = member.owner === 'module'
           ? exports : bareExports;
-        destination.set(member.name ?? '*', member.name
-          ? value.provenance
-          : 'ambiguous');
-        if (member.name && value.members) {
-          const children = objectChildren.get(destination) ?? new Map();
-          objectChildren.set(destination, children);
-          children.set(member.name, value.members);
-        }
+        if (member.name) moduleWrite(destination, member.name, value.provenance, value.members);
+        else destination.set('*', 'ambiguous');
         return value;
       }
       const left = unwrap(assignment.left);
@@ -830,17 +1082,13 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         if (destination) {
           const name = ts.isPropertyAccessExpression(left)
             ? left.name.text : staticName(left.argumentExpression, true);
-          destination.set(name ?? '*', name ? value.provenance : 'ambiguous');
-          if (name && value.members) {
-            const children = objectChildren.get(destination) ?? new Map();
-            objectChildren.set(destination, children);
-            children.set(name, value.members);
-          }
+          if (name) moduleWrite(destination, name, value.provenance, value.members);
+          else destination.set('*', 'ambiguous');
         }
       }
       return value;
     }
-    for (const statement of target.statements) {
+    for (const statement of evaluationStatements) {
       if (ts.isExportDeclaration(statement)) {
         const source = statement.moduleSpecifier && ts.isStringLiteralLike(statement.moduleSpecifier)
           ? statement.moduleSpecifier.text : undefined;
@@ -902,8 +1150,11 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           const name = ts.isPropertyAccessExpression(targetExpression)
             ? targetExpression.name.text : staticName(targetExpression.argumentExpression, true);
           if (destination && name) {
-            destination.delete(name);
-            objectChildren.get(destination)?.delete(name);
+            if (ownModuleDescriptor(destination, name)?.configurable !== false) {
+              destination.delete(name);
+              objectChildren.get(destination)?.delete(name);
+              objectDescriptors.get(destination)?.delete(name);
+            }
           } else (destination ?? exports).set('*', 'ambiguous');
         }
       } else if (ts.isExpressionStatement(statement) && ts.isCallExpression(statement.expression) &&
@@ -924,42 +1175,133 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           ts.isPropertyAccessExpression(statement.expression.expression) &&
           ts.isIdentifier(statement.expression.expression.expression) &&
           statement.expression.expression.expression.text === 'Object' &&
+          statement.expression.expression.name.text === 'setPrototypeOf') {
+        const destination = expressionMembers(statement.expression.arguments[0]);
+        const prototype = expressionMembers(statement.expression.arguments[1]);
+        if (destination && prototype) objectPrototypes.set(destination, prototype);
+        else (destination ?? exports).set('*', 'ambiguous');
+      } else if (ts.isExpressionStatement(statement) && ts.isCallExpression(statement.expression) &&
+          ts.isPropertyAccessExpression(statement.expression.expression) &&
+          ts.isIdentifier(statement.expression.expression.expression) &&
+          statement.expression.expression.expression.text === 'Object' &&
           ['defineProperty', 'defineProperties'].includes(statement.expression.expression.name.text)) {
         const call = statement.expression;
         const destination = expressionMembers(call.arguments[0]);
         const applyDescriptor = (
           name: string | undefined,
-          descriptor: Map<string, ReceiverProvenance> | undefined
+          expression: ts.Expression | undefined
         ): void => {
-          if (!destination || !name || !descriptor) {
+          const descriptorExpression = expression && ts.isObjectLiteralExpression(
+            ts.isParenthesizedExpression(expression) ? expression.expression : expression
+          ) ? (ts.isParenthesizedExpression(expression)
+              ? expression.expression : expression) as ts.ObjectLiteralExpression
+            : undefined;
+          const aliasedDescriptor = expressionMembers(expression);
+          if (!destination || !name || (!descriptorExpression && !aliasedDescriptor)) {
             (destination ?? exports).set('*', 'ambiguous');
             return;
           }
-          const provenance = memberProvenance(descriptor, 'value') ??
-            memberProvenance(descriptor, 'get') ?? 'ambiguous';
-          destination.set(name, provenance);
-          const child = childMembers(descriptor, 'value') ?? childMembers(descriptor, 'get');
-          if (child) {
-            const children = objectChildren.get(destination) ?? new Map();
-            objectChildren.set(destination, children);
-            children.set(name, child);
+          if (!descriptorExpression && aliasedDescriptor) {
+            const value = memberProvenance(aliasedDescriptor, 'value');
+            const getter = memberProvenance(aliasedDescriptor, 'get');
+            const setter = memberProvenance(aliasedDescriptor, 'set');
+            if (getter || setter) {
+              const descriptors = objectDescriptors.get(destination) ?? new Map();
+              objectDescriptors.set(destination, descriptors);
+              descriptors.set(name, {
+                kind: 'accessor', get: getter, set: setter, writable: false,
+                enumerable: false, configurable: false,
+              });
+              destination.set(name, getter ?? 'non-database');
+            } else {
+              setModuleData(destination, name, value ?? 'ambiguous',
+                childMembers(aliasedDescriptor, 'value'), {
+                  writable: false, enumerable: false, configurable: false,
+                });
+            }
+            if (destination === exports || destination === bareExports) sawCommonJsExport = true;
+            return;
+          }
+          const literal = descriptorExpression!;
+          const field = (fieldName: string): ts.ObjectLiteralElementLike | undefined =>
+            literal.properties.find((property) =>
+              'name' in property && staticName(property.name) === fieldName);
+          const fieldExpression = (
+            property: ts.ObjectLiteralElementLike | undefined
+          ): ts.Expression | undefined => {
+            if (!property) return undefined;
+            if (ts.isPropertyAssignment(property)) return property.initializer;
+            return ts.isShorthandPropertyAssignment(property) ? property.name : undefined;
+          };
+          const booleanField = (fieldName: string): boolean | undefined => {
+            const value = fieldExpression(field(fieldName));
+            return value?.kind === ts.SyntaxKind.TrueKeyword ? true
+              : value?.kind === ts.SyntaxKind.FalseKeyword ? false : undefined;
+          };
+          const current = ownModuleDescriptor(destination, name);
+          const valueProperty = field('value');
+          const getterProperty = field('get');
+          const setterProperty = field('set');
+          const writableProperty = field('writable');
+          const enumerable = booleanField('enumerable') ?? current?.enumerable ?? false;
+          const configurable = booleanField('configurable') ?? current?.configurable ?? false;
+          if (getterProperty || setterProperty) {
+            const getterNode = getterProperty && (ts.isMethodDeclaration(getterProperty) ||
+              ts.isGetAccessorDeclaration(getterProperty)) ? getterProperty : undefined;
+            const getterExpression = fieldExpression(getterProperty);
+            const getter = getterNode ? functionReturnProvenance(getterNode)
+              : getterExpression ? expressionProvenance(getterExpression) : undefined;
+            let getThisProperty: string | undefined;
+            const getterFunction = getterNode ?? (getterExpression &&
+              (ts.isArrowFunction(getterExpression) || ts.isFunctionExpression(getterExpression))
+              ? getterExpression : undefined);
+            if (getterFunction?.body && ts.isBlock(getterFunction.body)) {
+              const returned = getterFunction.body.statements.find(ts.isReturnStatement)?.expression;
+              if (returned && ts.isPropertyAccessExpression(returned) &&
+                  returned.expression.kind === ts.SyntaxKind.ThisKeyword) {
+                getThisProperty = returned.name.text;
+              }
+            }
+            const descriptors = objectDescriptors.get(destination) ?? new Map();
+            objectDescriptors.set(destination, descriptors);
+            descriptors.set(name, {
+              kind: 'accessor', get: getter, getThisProperty,
+              set: setterProperty ? 'non-database' : undefined,
+              writable: false, enumerable, configurable,
+            });
+            destination.set(name, getThisProperty
+              ? memberProvenance(destination, getThisProperty, new Set()) ?? 'ambiguous'
+              : getter ?? 'ambiguous');
+            objectChildren.get(destination)?.delete(name);
+          } else {
+            const valueExpression = fieldExpression(valueProperty);
+            const provenance = valueExpression ? expressionProvenance(valueExpression)
+              : current?.kind === 'data' ? current.value ?? 'non-database' : 'non-database';
+            setModuleData(destination, name, provenance,
+              valueExpression ? expressionMembers(valueExpression) :
+                current?.kind === 'data' ? current.valueMembers : undefined,
+              {
+                writable: booleanField('writable') ??
+                  (current?.kind === 'data' ? current.writable : false),
+                enumerable,
+                configurable,
+              });
           }
           if (destination === exports || destination === bareExports) sawCommonJsExport = true;
         };
         if (statement.expression.expression.name.text === 'defineProperty') {
           applyDescriptor(
             call.arguments[1] ? staticName(call.arguments[1], true) : undefined,
-            expressionMembers(call.arguments[2])
+            call.arguments[2]
           );
         } else {
-          const descriptors = expressionMembers(call.arguments[1]);
+          const descriptors = call.arguments[1] && ts.isObjectLiteralExpression(call.arguments[1])
+            ? call.arguments[1] : undefined;
           if (!descriptors) applyDescriptor(undefined, undefined);
-          else {
-            const names = new Set([
-              ...descriptors.keys(), ...(objectChildren.get(descriptors)?.keys() ?? []),
-            ]);
-            names.forEach((name) => applyDescriptor(name, childMembers(descriptors, name)));
-          }
+          else descriptors.properties.forEach((property) => {
+            const name = 'name' in property ? staticName(property.name) : undefined;
+            applyDescriptor(name, ts.isPropertyAssignment(property) ? property.initializer : undefined);
+          });
         }
       }
     }
@@ -977,6 +1319,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       (result, provenance) => mergeProvenance(result, provenance), undefined
     );
     resolvedExports.set('*', aggregate ?? 'ambiguous');
+    if (moduleThrows) resolvedExports.set('#throws', 'ambiguous');
     activeModuleExports.delete(targetPath);
     moduleExportCache.set(targetPath, resolvedExports);
     return resolvedExports;
@@ -993,7 +1336,8 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       const childNames = new Set<string>();
       const stem = prefix ? `${prefix}.` : '';
       for (const name of graph.keys()) {
-        if (name === '*' || (prefix === '' && name === 'default')) continue;
+        if (name === '*' || name === '#cycle' || name === '#throws' ||
+            (prefix === '' && name === 'default')) continue;
         if (!name.startsWith(stem)) continue;
         const remainder = name.slice(stem.length);
         if (remainder) childNames.add(remainder.split('.')[0]);
@@ -1008,18 +1352,22 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         : graph.get(prefix) ??
           ([...graph.keys()].some((name) => name.startsWith(`${prefix}.`))
             ? 'non-database'
-            : localModule ? 'ambiguous' : graph.get('*') ?? importProvenance(moduleName));
+            : localModule ? graph.get('*') ?? 'ambiguous'
+              : graph.get('*') ?? importProvenance(moduleName));
       return valueOf({
         properties,
         receiverProvenance,
         external: receiverProvenance === 'ambiguous',
+        exactShape: localModule && receiverProvenance !== 'ambiguous',
       });
     };
-    return graphValue(importedName === '*' ? '' : importedName);
+    const imported = graphValue(importedName === '*' ? '' : importedName);
+    imported.alwaysThrows = graph.has('#throws');
+    return imported;
   }
 
   function selectedProperty(base: AbstractValue, property: string): AbstractValue {
-    const stored = base.properties.get(property);
+    const stored = readAbstractProperty(base, property);
     if (stored) return stored;
     if (/^(?:0|[1-9]\d*)$/.test(property) && base.tupleElements) {
       return base.tupleElements[Number(property)] ?? valueOf({
@@ -1077,6 +1425,17 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         external: ambiguous,
       });
     }
+    const closedPrototypeChain = (
+      object: AbstractValue,
+      seen = new Set<AbstractValue>()
+    ): boolean => {
+      if (seen.has(object) || object.external || !object.exactShape) return false;
+      seen.add(object);
+      return !object.prototype || closedPrototypeChain(object.prototype, seen);
+    };
+    if (closedPrototypeChain(base)) {
+      return valueOf({ primitives: new Set(['undefined']) });
+    }
     return valueOf({ external: true });
   }
 
@@ -1124,6 +1483,9 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       }
       return valueOf({ external: true });
     }
+    if (node.kind === ts.SyntaxKind.ThisKeyword) {
+      return receiverStack.at(-1) ?? valueOf({ external: true });
+    }
     if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
       const captured = functionClosures.get(node) ?? new Map<string, AbstractValue>();
       for (const scope of scopes) {
@@ -1165,35 +1527,41 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       return coherentSequence(tupleElements);
     }
     if (ts.isObjectLiteralExpression(node)) {
-      const properties = new Map<string, AbstractValue>();
+      const object = valueOf({ exactShape: true });
       let external = false;
       for (const property of node.properties) {
         if (ts.isSpreadAssignment(property)) {
           const spread = resolveValue(property.expression);
           external ||= spread.external;
-          for (const [name, spreadValue] of spread.properties) {
-            properties.set(name, properties.has(name)
-              ? unionValues(properties.get(name)!, spreadValue) : spreadValue);
+          for (const name of new Set([...spread.properties.keys(), ...spread.descriptors.keys()])) {
+            const descriptor = ownDescriptor(spread, name);
+            if (!descriptor?.enumerable) continue;
+            const spreadValue = readAbstractProperty(spread, name);
+            if (spreadValue) setDataDescriptor(object, name, spreadValue);
           }
         } else if (ts.isPropertyAssignment(property)) {
           const name = readPropertyName(property.name);
-          if (name) properties.set(name, resolveValue(property.initializer));
+          if (name) setDataDescriptor(object, name, resolveValue(property.initializer));
         } else if (ts.isShorthandPropertyAssignment(property)) {
-          properties.set(property.name.text, resolveValue(property.name));
+          setDataDescriptor(object, property.name.text, resolveValue(property.name));
         } else if (ts.isMethodDeclaration(property)) {
           const name = readPropertyName(property.name);
-          if (name) properties.set(name, functionValue(property));
+          if (name) setDataDescriptor(object, name, functionValue(property));
         } else if (ts.isGetAccessorDeclaration(property)) {
           const name = readPropertyName(property.name);
+          if (name) setAccessorDescriptor(object, name, functionValue(property), undefined);
+        } else if (ts.isSetAccessorDeclaration(property)) {
+          const name = readPropertyName(property.name);
           if (name) {
-            const returned = property.body?.statements.find(ts.isReturnStatement)?.expression;
-            properties.set(name, returned ? resolveValue(returned) : valueOf({
-              external: true, callableCandidate: true,
-            }));
+            const prior = ownDescriptor(object, name);
+            setAccessorDescriptor(object, name,
+              prior?.kind === 'accessor' ? prior.get : undefined,
+              functionValue(property));
           }
         }
       }
-      return valueOf({ properties, external });
+      object.external = external;
+      return object;
     }
     if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) &&
         ts.isIdentifier(node.expression.expression) &&
@@ -1202,12 +1570,25 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       const target = resolveValue(node.arguments[0]);
       target.integrity = node.expression.name.text === 'freeze' ? 'frozen'
         : node.expression.name.text === 'seal' ? 'sealed' : 'nonextensible';
+      if (target.integrity === 'sealed' || target.integrity === 'frozen') {
+        for (const descriptor of target.descriptors.values()) {
+          descriptor.configurable = false;
+          if (target.integrity === 'frozen' && descriptor.kind === 'data') {
+            descriptor.writable = false;
+          }
+        }
+      }
       return target;
     }
     if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) &&
         ts.isIdentifier(node.expression.expression) &&
         node.expression.expression.text === 'Object' && node.expression.name.text === 'assign') {
       return resolveValue(node.arguments[0]);
+    }
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) &&
+        ts.isIdentifier(node.expression.expression) &&
+        node.expression.expression.text === 'Object' && node.expression.name.text === 'create') {
+      return valueOf({ prototype: resolveValue(node.arguments[0]), exactShape: true });
     }
     if (ts.isCallExpression(node)) {
       if (ts.isIdentifier(node.expression) && node.expression.text === 'require' &&
@@ -1218,10 +1599,13 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         ? topLevelExpressionResults.get(node) : undefined;
       if (priorResult) return priorResult;
       const callable = resolveValue(node.expression);
+      const receiver = ts.isPropertyAccessExpression(node.expression) ||
+        ts.isElementAccessExpression(node.expression)
+        ? resolveValue(node.expression.expression) : undefined;
       return evaluateCallable(
         callable,
         invocationArgumentValues(node.arguments),
-        undefined,
+        receiver,
         {
           record: false,
           node,
@@ -1438,8 +1822,14 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     tuple[index] = weakHeapUpdateDepth > 0 && hasAbstractFacts(tuple[index])
       ? unionValues(tuple[index], value) : value;
     base.tupleElements = tuple;
+    const descriptor = ownDescriptor(base, String(index));
+    if (descriptor?.kind === 'data') descriptor.value = tuple[index];
+    else setDataDescriptor(base, String(index), tuple[index]);
     base.properties.set(String(index), tuple[index]);
-    base.properties.set('length', valueOf({ numbers: new Set([tuple.length]) }));
+    const lengthValue = valueOf({ numbers: new Set([tuple.length]) });
+    const lengthDescriptor = ownDescriptor(base, 'length');
+    if (lengthDescriptor?.kind === 'data') lengthDescriptor.value = lengthValue;
+    base.properties.set('length', lengthValue);
     base.elements = tuple.length > 0 ? unionValues(...tuple) : undefined;
   }
 
@@ -1499,16 +1889,111 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     refreshSequence(base, tuple);
   }
 
-  function writeAbstractProperty(base: AbstractValue, keys: AbstractValue, value: AbstractValue): void {
+  function exactBoolean(value: AbstractValue | undefined): boolean | undefined {
+    if (!value || value.external || value.primitives.size !== 1) return undefined;
+    const primitive = [...value.primitives][0];
+    return primitive === 'true' ? true : primitive === 'false' ? false : undefined;
+  }
+
+  function applyPropertyDescriptor(
+    target: AbstractValue,
+    name: string,
+    descriptorObject: AbstractValue
+  ): boolean {
+    const current = ownDescriptor(target, name);
+    const valueField = ownDescriptor(descriptorObject, 'value');
+    const getField = ownDescriptor(descriptorObject, 'get');
+    const setField = ownDescriptor(descriptorObject, 'set');
+    const writableField = ownDescriptor(descriptorObject, 'writable');
+    const enumerableField = ownDescriptor(descriptorObject, 'enumerable');
+    const configurableField = ownDescriptor(descriptorObject, 'configurable');
+    const data = Boolean(valueField || writableField);
+    const accessor = Boolean(getField || setField);
+    if (data && accessor) return false;
+    if (valueField?.value?.external && !hasExecutableProvenance(valueField.value)) {
+      valueField.value.callableCandidate = true;
+    }
+    if (!current && ['nonextensible', 'sealed', 'frozen'].includes(
+      target.integrity ?? 'extensible'
+    )) return false;
+    const nextKind = accessor ? 'accessor' : data ? 'data' : current?.kind ?? 'data';
+    if (current && !current.configurable) {
+      const requestedConfigurable = exactBoolean(configurableField?.value);
+      const requestedEnumerable = exactBoolean(enumerableField?.value);
+      if (requestedConfigurable === true ||
+          (requestedEnumerable !== undefined && requestedEnumerable !== current.enumerable) ||
+          nextKind !== current.kind) return false;
+      if (current.kind === 'data' && !current.writable) {
+        if (exactBoolean(writableField?.value) === true) return false;
+        if (valueField && valueField.value !== current.value) return false;
+      }
+      if (current.kind === 'accessor' &&
+          ((getField && getField.value !== current.get) ||
+           (setField && setField.value !== current.set))) return false;
+    }
+    const enumerable = exactBoolean(enumerableField?.value) ?? current?.enumerable ?? false;
+    const configurable = exactBoolean(configurableField?.value) ?? current?.configurable ?? false;
+    if (nextKind === 'accessor') {
+      setAccessorDescriptor(
+        target,
+        name,
+        getField?.value ?? (current?.kind === 'accessor' ? current.get : undefined),
+        setField?.value ?? (current?.kind === 'accessor' ? current.set : undefined),
+        { enumerable, configurable }
+      );
+    } else {
+      const nextValue = valueField?.value ??
+        (current?.kind === 'data' ? current.value : undefined) ??
+        valueOf({ primitives: new Set(['undefined']) });
+      setDataDescriptor(target, name, nextValue, {
+        writable: exactBoolean(writableField?.value) ??
+          (current?.kind === 'data' ? current.writable : false),
+        enumerable,
+        configurable,
+      });
+      if (/^(?:0|[1-9]\d*)$/.test(name) && target.tupleElements) {
+        const index = Number(name);
+        while (target.tupleElements.length <= index) target.tupleElements.push(valueOf());
+        target.tupleElements[index] = nextValue;
+        target.elements = unionValues(...target.tupleElements);
+      }
+    }
+    return true;
+  }
+
+  function descriptorNames(value: AbstractValue): string[] {
+    return [...new Set([...value.properties.keys(), ...value.descriptors.keys()])];
+  }
+
+  function writeAbstractProperty(
+    base: AbstractValue,
+    keys: AbstractValue,
+    value: AbstractValue
+  ): boolean {
     if (keys.external || (keys.strings.size === 0 && keys.numbers.size === 0)) {
       invalidateSequence(base, [value]);
-      return;
+      return false;
     }
     const names = new Set([...keys.strings, ...[...keys.numbers].map(String)]);
+    let failed = false;
     for (const name of names) {
-      const exists = base.properties.has(name);
-      if (base.integrity === 'frozen' ||
-          (!exists && (base.integrity === 'sealed' || base.integrity === 'nonextensible'))) continue;
+      const own = ownDescriptor(base, name);
+      const inherited = own ? undefined : inheritedDescriptor(base.prototype ?? valueOf(), name);
+      const descriptor = own ?? inherited?.descriptor;
+      if (descriptor?.kind === 'accessor') {
+        if (descriptor.set) {
+          descriptor.set.functions.forEach((setter) => invokeFunction(setter, [value], base));
+        } else failed = true;
+        continue;
+      }
+      if ((descriptor?.kind === 'data' && !descriptor.writable) ||
+          (!own && !descriptor && base.integrity !== undefined && base.integrity !== 'extensible') ||
+          (!own && !descriptor && ['nonextensible', 'sealed', 'frozen'].includes(
+            base.integrity ?? 'extensible'
+          ))) {
+        failed = true;
+        continue;
+      }
       if (name === 'length' && base.tupleElements) {
         const length = exactNumber(value);
         if (length === undefined) invalidateSequence(base, [value]);
@@ -1517,19 +2002,33 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         writeSequencePosition(base, Number(name), value);
       } else {
         const prior = base.properties.get(name);
-        base.properties.set(name, weakHeapUpdateDepth > 0 && prior
-          ? unionValues(prior, value) : value);
+        const next = weakHeapUpdateDepth > 0 && prior ? unionValues(prior, value) : value;
+        if (own?.kind === 'data') {
+          own.value = next;
+          base.properties.set(name, next);
+        } else {
+          setDataDescriptor(base, name, next);
+        }
       }
     }
+    return failed;
   }
 
-  function deleteAbstractProperty(base: AbstractValue, keys: AbstractValue): void {
+  function deleteAbstractProperty(
+    base: AbstractValue,
+    keys: AbstractValue
+  ): boolean {
     if (keys.external || (keys.strings.size === 0 && keys.numbers.size === 0)) {
       invalidateSequence(base, []);
-      return;
+      return false;
     }
+    let failed = false;
     for (const name of [...keys.strings, ...[...keys.numbers].map(String)]) {
-      if (base.integrity === 'frozen' || base.integrity === 'sealed') continue;
+      const descriptor = ownDescriptor(base, name);
+      if (descriptor && !descriptor.configurable) {
+        failed = true;
+        continue;
+      }
       if (weakHeapUpdateDepth > 0) {
         const prior = base.properties.get(name);
         if (prior) base.properties.set(name, unionValues(prior, valueOf()));
@@ -1537,38 +2036,36 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         continue;
       }
       base.properties.delete(name);
+      base.descriptors.delete(name);
       if (/^(?:0|[1-9]\d*)$/.test(name) && base.tupleElements) {
         base.tupleElements[Number(name)] = valueOf();
         base.elements = base.tupleElements.length > 0
           ? unionValues(...base.tupleElements) : undefined;
       }
     }
+    return failed;
   }
 
-  function assignPattern(name: ts.Expression, value: AbstractValue): void {
+  function assignPattern(name: ts.Expression, value: AbstractValue): boolean {
     const target = unwrap(name);
     if (ts.isBinaryExpression(target) && target.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
-      assignPattern(target.left, applyBindingDefault(value, target.right, hasAbstractFacts(value)));
-      return;
+      return assignPattern(target.left, applyBindingDefault(value, target.right, hasAbstractFacts(value)));
     }
     if (ts.isSpreadElement(target)) {
-      assignPattern(target.expression, value);
-      return;
+      return assignPattern(target.expression, value);
     }
     if (ts.isIdentifier(target)) {
       assign(target.text, value);
-      return;
+      return false;
     }
     if (ts.isPropertyAccessExpression(target)) {
       const base = resolveValue(target.expression);
-      writeAbstractProperty(base, valueOf({ strings: new Set([target.name.text]) }), value);
-      return;
+      return writeAbstractProperty(base, valueOf({ strings: new Set([target.name.text]) }), value);
     }
     if (ts.isElementAccessExpression(target)) {
       const base = resolveValue(target.expression);
       const keys = resolveValue(target.argumentExpression);
-      writeAbstractProperty(base, keys, value);
-      return;
+      return writeAbstractProperty(base, keys, value);
     }
     if (ts.isObjectLiteralExpression(target)) {
       const consumed = new Set<string>();
@@ -1596,7 +2093,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           }));
         }
       }
-      return;
+      return false;
     }
     if (ts.isArrayLiteralExpression(target)) {
       target.elements.forEach((element, index) => {
@@ -1608,6 +2105,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         assignPattern(element, arrayElementValue(value, index).value);
       });
     }
+    return false;
   }
 
   function receiverExcluded(expression: ts.Expression): boolean {
@@ -1616,9 +2114,9 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       /\.storage\b/.test(text) || /\.registry\b/.test(text) || /\.query\b/.test(text);
   }
 
-  function withScope(run: () => void): void {
+  function withScope<T>(run: () => T): T {
     scopes.push(new Map());
-    try { run(); } finally { scopes.pop(); }
+    try { return run(); } finally { scopes.pop(); }
   }
 
   function valueFingerprint(value: AbstractValue, seen = new Set<AbstractValue>()): string {
@@ -1626,6 +2124,14 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     seen.add(value);
     const properties = [...value.properties.entries()].sort(([a], [b]) => a.localeCompare(b))
       .map(([name, entry]) => `${name}:${valueFingerprint(entry, seen)}`);
+    const descriptors = [...value.descriptors.entries()].sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, descriptor]) => ({
+        name, kind: descriptor.kind, writable: descriptor.writable,
+        enumerable: descriptor.enumerable, configurable: descriptor.configurable,
+        value: descriptor.value ? valueFingerprint(descriptor.value, seen) : null,
+        get: descriptor.get ? valueFingerprint(descriptor.get, seen) : null,
+        set: descriptor.set ? valueFingerprint(descriptor.set, seen) : null,
+      }));
     const result = JSON.stringify({
       strings: [...value.strings].sort(), numbers: [...value.numbers].sort((a, b) => a - b),
       methods: [...value.methods].sort(),
@@ -1639,16 +2145,22 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       adapterCallable: value.adapterCallable
         ? valueFingerprint(value.adapterCallable, seen) : null,
       sequenceBuilder: value.sequenceBuilder ?? null,
+      sequenceBuilderConflict: value.sequenceBuilderConflict,
       sequenceSource: value.sequenceSource ? valueFingerprint(value.sequenceSource, seen) : null,
       sequenceMutation: value.sequenceMutation ?? null,
+      sequenceMutationConflict: value.sequenceMutationConflict,
       sequenceMutationTarget: value.sequenceMutationTarget
         ? valueFingerprint(value.sequenceMutationTarget, seen) : null,
       sequenceAliases: value.sequenceAliases
         ? [...value.sequenceAliases].map((entry) => valueFingerprint(entry, seen)).sort() : null,
       properties, elements: value.elements ? valueFingerprint(value.elements, seen) : null,
+      descriptors,
+      prototype: value.prototype ? valueFingerprint(value.prototype, seen) : null,
+      exactShape: value.exactShape,
       tupleElements: value.tupleElements?.map((entry) => valueFingerprint(entry, seen)) ?? null,
       primitives: [...value.primitives].sort(),
       integrity: value.integrity ?? null,
+      alwaysThrows: value.alwaysThrows,
     });
     seen.delete(value);
     return result;
@@ -1727,6 +2239,9 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       strings: callable.strings,
       methods: callable.methods,
       properties: callable.properties,
+      descriptors: callable.descriptors,
+      prototype: callable.prototype,
+      exactShape: callable.exactShape,
       elements: callable.elements,
       tupleElements: callable.tupleElements,
       external: callable.external,
@@ -1739,12 +2254,15 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       adapterConflict: callable.adapterConflict,
       receiverProvenance: callable.receiverProvenance,
       sequenceBuilder: callable.sequenceBuilder,
+      sequenceBuilderConflict: callable.sequenceBuilderConflict,
       sequenceSource: callable.sequenceSource,
       sequenceMutation: callable.sequenceMutation,
+      sequenceMutationConflict: callable.sequenceMutationConflict,
       sequenceMutationTarget: callable.sequenceMutationTarget,
       sequenceAliases: callable.sequenceAliases,
       primitives: callable.primitives,
       integrity: callable.integrity,
+      alwaysThrows: callable.alwaysThrows,
     });
   }
 
@@ -1769,6 +2287,13 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     entries.forEach((entry, index) => properties.set(String(index), entry));
     properties.set('length', valueOf({ numbers: new Set([entries.length]) }));
     target.properties = properties;
+    target.descriptors = new Map([...target.descriptors].filter(([name]) =>
+      name !== 'length' && !/^(?:0|[1-9]\d*)$/.test(name)
+    ));
+    entries.forEach((entry, index) => setDataDescriptor(target, String(index), entry));
+    setDataDescriptor(target, 'length', properties.get('length')!, {
+      writable: true, enumerable: false, configurable: false,
+    });
     target.tupleElements = Array.from({ length: entries.length }, (_, index) =>
       index in entries ? entries[index] : valueOf());
     const present = entries.filter((_, index) => index in entries);
@@ -1785,11 +2310,15 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     target.properties = new Map([...target.properties].filter(([name]) =>
       name !== 'length' && !/^(?:0|[1-9]\d*)$/.test(name)
     ));
+    target.descriptors = new Map([...target.descriptors].filter(([name]) =>
+      name !== 'length' && !/^(?:0|[1-9]\d*)$/.test(name)
+    ));
     target.tupleElements = undefined;
     const uncertainty = valueOf({ external: true, callableCandidate: executable });
     target.elements = candidates.length > 0
       ? unionValues(...candidates, uncertainty) : uncertainty;
     target.external = true;
+    target.exactShape = false;
     target.callableCandidate ||= executable;
   }
 
@@ -1842,10 +2371,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       return result;
     }
 
-    if (method === 'sort') {
-      invalidateSequence(target, args);
-      result = target;
-    } else {
+    {
       for (let index = 0; index < entries.length; index += 1) {
         if (!target.properties.has(String(index))) delete entries[index];
       }
@@ -1853,7 +2379,8 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         index >= args.length ? fallback : exactNumber(args[index]);
       let nativeArguments: unknown[] | undefined;
       if (method === 'push' || method === 'unshift') nativeArguments = args;
-      else if (method === 'pop' || method === 'shift' || method === 'reverse') nativeArguments = [];
+      else if (method === 'pop' || method === 'shift' || method === 'reverse' ||
+          (method === 'sort' && args.length === 0)) nativeArguments = [];
       else if (method === 'splice') {
         const start = numberArgument(0);
         const count = numberArgument(1);
@@ -1865,12 +2392,14 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         const end = numberArgument(2, entries.length);
         nativeArguments = start === undefined || end === undefined
           ? undefined : [args[0] ?? valueOf(), start, end];
-      } else {
+      } else if (method === 'copyWithin') {
         const destination = numberArgument(0);
         const start = numberArgument(1);
         const end = numberArgument(2, entries.length);
         nativeArguments = destination === undefined || start === undefined || end === undefined
           ? undefined : [destination, start, end];
+      } else {
+        nativeArguments = undefined;
       }
       if (!nativeArguments) {
         invalidateSequence(target, args);
@@ -1880,14 +2409,18 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         else if (target.integrity === 'sealed') Object.seal(entries);
         else if (target.integrity === 'nonextensible') Object.preventExtensions(entries);
         let nativeResult: unknown;
+        let threw = false;
         try {
           nativeResult = (Array.prototype[method] as (...values: unknown[]) => unknown)
             .apply(entries, nativeArguments);
         } catch {
+          threw = true;
           nativeResult = undefined;
         }
         refreshSequence(target, entries);
-        if (method === 'push' || method === 'unshift') {
+        if (threw) {
+          result = valueOf({ alwaysThrows: true });
+        } else if (method === 'push' || method === 'unshift') {
           result = typeof nativeResult === 'number'
             ? valueOf({ numbers: new Set([nativeResult]) }) : valueOf();
         } else if (method === 'pop' || method === 'shift') {
@@ -2074,7 +2607,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     }
 
     const outputs = [...callable.functions].map((target) =>
-      invokeFunction(target, parameterValues(target, args))
+      invokeFunction(target, parameterValues(target, args), effectiveReceiver)
     );
     if (context.record && callable.external &&
         (callable.callableCandidate || args[0]?.strings.has('contract_hours_ledger') ||
@@ -2163,7 +2696,8 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
 
   function invokeFunction(
     target: ts.FunctionLikeDeclaration,
-    values: AbstractValue[]
+    values: AbstractValue[],
+    receiver?: AbstractValue
   ): AbstractValue {
     mergeFunctionInputs(target, values);
     if (activeFunctions.has(target)) {
@@ -2174,9 +2708,10 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     }
     let iterations = 0;
     let before: string;
+    let abrupt: Completion | undefined;
     do {
       before = (functionInputs.get(target) ?? []).map((entry) => valueFingerprint(entry)).join('|');
-      withScope(() => {
+      abrupt = withScope(() => {
         for (const [name, value] of functionClosures.get(target) ?? []) {
           scopes[scopes.length - 1].set(name, value);
         }
@@ -2186,17 +2721,20 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         );
         activeFunctions.add(target);
         functionStack.push(target);
+        receiverStack.push(receiver ?? valueOf({ external: true }));
         try {
           if (target.body && ts.isArrowFunction(target) && !ts.isBlock(target.body)) {
             const output = resolveValue(target.body);
             functionOutputs.set(target, functionOutputs.has(target)
               ? unionValues(functionOutputs.get(target)!, output)
               : output);
-            visit(target.body);
+            return visit(target.body);
           } else if (target.body) {
-            visit(target.body);
+            return visit(target.body);
           }
+          return undefined;
         } finally {
+          receiverStack.pop();
           functionStack.pop();
           activeFunctions.delete(target);
         }
@@ -2214,12 +2752,14 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         }
         break;
       }
+      if (abrupt?.kind === 'throw') break;
     } while (before !== (functionInputs.get(target) ?? [])
       .map((entry) => valueFingerprint(entry)).join('|'));
+    if (abrupt?.kind === 'throw') return valueOf({ alwaysThrows: true });
     return functionOutputs.get(target) ?? valueOf();
   }
 
-  function visitStatements(statements: ts.NodeArray<ts.Statement>): void {
+  function visitStatements(statements: ts.NodeArray<ts.Statement>): Completion | undefined {
     for (const statement of statements) {
       if (ts.isFunctionDeclaration(statement) && statement.name) {
         scopes[scopes.length - 1].set(statement.name.text, valueOf({
@@ -2229,37 +2769,59 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         scopes[scopes.length - 1].set(statement.name.text, classValue(statement));
       }
     }
-    statements.forEach(visit);
+    for (let index = 0; index < statements.length; index += 1) {
+      const statement = statements[index];
+      const completion = visit(statement);
+      if (completion && completion.kind !== 'normal') {
+        for (const remaining of statements.slice(index + 1)) {
+          if (ts.isFunctionDeclaration(remaining) && remaining.name) {
+            invokeFunction(remaining, remaining.parameters.map(() => valueOf()));
+            functionInputs.delete(remaining);
+            functionOutputs.delete(remaining);
+          }
+        }
+        return completion;
+      }
+    }
+    return undefined;
   }
 
-  function visit(node: ts.Node): void {
+  function visit(node: ts.Node): Completion | undefined {
     if (ts.isSourceFile(node)) {
-      visitStatements(node.statements);
-      return;
+      return visitStatements(node.statements);
     }
     if (ts.isImportDeclaration(node) && ts.isStringLiteralLike(node.moduleSpecifier)) {
       const clause = node.importClause;
       if (!clause) return;
       const moduleName = node.moduleSpecifier.text;
       const scope = scopes[scopes.length - 1];
-      if (clause.name) scope.set(clause.name.text, importedValue(moduleName, 'default'));
+      let throws = false;
+      if (clause.name) {
+        const imported = importedValue(moduleName, 'default');
+        scope.set(clause.name.text, imported);
+        throws ||= imported.alwaysThrows;
+      }
       if (clause.namedBindings) {
         if (ts.isNamespaceImport(clause.namedBindings)) {
-          scope.set(clause.namedBindings.name.text, importedValue(moduleName, '*'));
+          const imported = importedValue(moduleName, '*');
+          scope.set(clause.namedBindings.name.text, imported);
+          throws ||= imported.alwaysThrows;
         } else {
           for (const specifier of clause.namedBindings.elements) {
-            scope.set(specifier.name.text, importedValue(
+            const imported = importedValue(
               moduleName,
               specifier.propertyName?.text ?? specifier.name.text
-            ));
+            );
+            scope.set(specifier.name.text, imported);
+            throws ||= imported.alwaysThrows;
           }
         }
       }
+      if (throws) return { kind: 'throw', value: valueOf({ alwaysThrows: true }) };
       return;
     }
     if (ts.isBlock(node) && node !== sf) {
-      withScope(() => visitStatements(node.statements));
-      return;
+      return withScope(() => visitStatements(node.statements));
     }
     if (ts.isFunctionDeclaration(node) && node.name) {
       scopes[scopes.length - 1].set(node.name.text, valueOf({
@@ -2281,56 +2843,127 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       return;
     }
     if (ts.isReturnStatement(node)) {
+      const output = node.expression
+        ? resolveValue(node.expression) : valueOf({ primitives: new Set(['undefined']) });
       const target = functionStack.at(-1);
-      if (target && node.expression) {
-        const output = resolveValue(node.expression);
+      if (target) {
         functionOutputs.set(target, functionOutputs.has(target)
           ? unionValues(functionOutputs.get(target)!, output)
           : output);
-        visit(node.expression);
+        if (node.expression) {
+          const expressionCompletion = visit(node.expression);
+          if (expressionCompletion?.kind === 'throw') return expressionCompletion;
+        }
       }
-      return;
+      return { kind: 'return', value: output };
+    }
+    if (ts.isThrowStatement(node)) {
+      if (node.expression) visit(node.expression);
+      return { kind: 'throw', value: resolveValue(node.expression) };
+    }
+    if (ts.isBreakStatement(node)) {
+      return { kind: 'break', label: node.label?.text };
+    }
+    if (ts.isContinueStatement(node)) {
+      return { kind: 'continue', label: node.label?.text };
+    }
+    if (ts.isTryStatement(node)) {
+      let completion = visit(node.tryBlock);
+      if (completion?.kind === 'throw' && node.catchClause) {
+        completion = withScope(() => {
+          if (node.catchClause?.variableDeclaration) {
+            declareName(node.catchClause.variableDeclaration.name, undefined,
+              completion?.value ?? valueOf({ external: true }));
+          }
+          return visit(node.catchClause!.block);
+        });
+      }
+      if (node.finallyBlock) {
+        const finalCompletion = visit(node.finallyBlock);
+        if (finalCompletion && finalCompletion.kind !== 'normal') return finalCompletion;
+      }
+      return completion;
     }
     if (ts.isIfStatement(node)) {
       visit(node.expression);
       const condition = abstractTruthiness(resolveValue(node.expression));
       if (condition === 'truthy') {
-        visit(node.thenStatement);
-        return;
+        return visit(node.thenStatement);
       }
       if (condition === 'falsy') {
-        if (node.elseStatement) visit(node.elseStatement);
-        return;
+        return node.elseStatement ? visit(node.elseStatement) : undefined;
       }
       const before = scopes.map((scope) => new Map(scope));
-      const runBranch = (branch: ts.Statement | undefined): Array<Map<string, AbstractValue>> => {
+      const runBranch = (branch: ts.Statement | undefined): {
+        scopes: Array<Map<string, AbstractValue>>;
+        completion?: Completion;
+      } => {
         scopes.splice(0, scopes.length, ...before.map((scope) => new Map(scope)));
+        let completion: Completion | undefined;
         if (branch) {
           weakHeapUpdateDepth += 1;
-          try { visit(branch); } finally { weakHeapUpdateDepth -= 1; }
+          try { completion = visit(branch); } finally { weakHeapUpdateDepth -= 1; }
         }
-        return scopes.map((scope) => new Map(scope));
+        return { scopes: scopes.map((scope) => new Map(scope)), completion };
       };
       const whenTrue = runBranch(node.thenStatement);
       const whenFalse = runBranch(node.elseStatement);
       scopes.splice(0, scopes.length, ...before.map((scope, index) => {
         const merged = new Map<string, AbstractValue>();
         const names = new Set([
-          ...scope.keys(), ...whenTrue[index].keys(), ...whenFalse[index].keys(),
+          ...scope.keys(), ...whenTrue.scopes[index].keys(), ...whenFalse.scopes[index].keys(),
         ]);
         for (const name of names) {
-          const values = [whenTrue[index].get(name), whenFalse[index].get(name)]
+          const values = [whenTrue.scopes[index].get(name), whenFalse.scopes[index].get(name)]
             .filter((value): value is AbstractValue => Boolean(value));
           merged.set(name, values.length > 1 ? unionValues(...values) : values[0] ?? valueOf());
         }
         return merged;
       }));
+      return whenTrue.completion?.kind === whenFalse.completion?.kind
+        ? whenTrue.completion : undefined;
+    }
+    if (ts.isLabeledStatement(node)) {
+      const completion = visit(node.statement);
+      return completion?.kind === 'break' && completion.label === node.label.text
+        ? undefined : completion;
+    }
+    if (ts.isWhileStatement(node) || ts.isDoStatement(node)) {
+      if (ts.isWhileStatement(node)) {
+        const conditionCompletion = visit(node.expression);
+        if (conditionCompletion?.kind === 'throw') return conditionCompletion;
+        if (abstractTruthiness(resolveValue(node.expression)) === 'falsy') return;
+      }
+      const completion = visit(node.statement);
+      if (completion?.kind === 'return' || completion?.kind === 'throw') return completion;
+      if (ts.isDoStatement(node)) {
+        const conditionCompletion = visit(node.expression);
+        if (conditionCompletion?.kind === 'throw') return conditionCompletion;
+      }
+      return;
+    }
+    if (ts.isForStatement(node)) {
+      if (node.initializer) {
+        const initializerCompletion = visit(node.initializer);
+        if (initializerCompletion?.kind === 'throw') return initializerCompletion;
+      }
+      if (node.condition) {
+        const conditionCompletion = visit(node.condition);
+        if (conditionCompletion?.kind === 'throw') return conditionCompletion;
+        if (abstractTruthiness(resolveValue(node.condition)) === 'falsy') return;
+      }
+      const completion = visit(node.statement);
+      if (completion?.kind === 'return' || completion?.kind === 'throw') return completion;
+      if (node.incrementor) {
+        const incrementCompletion = visit(node.incrementor);
+        if (incrementCompletion?.kind === 'throw') return incrementCompletion;
+      }
       return;
     }
     if (ts.isForOfStatement(node)) {
       visit(node.expression);
       const iterable = resolveValue(node.expression);
-      withScope(() => {
+      const completion = withScope(() => {
         if (ts.isVariableDeclarationList(node.initializer)) {
           for (const declaration of node.initializer.declarations) {
             declareName(
@@ -2345,13 +2978,17 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         } else if (ts.isIdentifier(node.initializer)) {
           assign(node.initializer.text, iterable.elements ?? valueOf({ external: true }));
         }
-        visit(node.statement);
+        return visit(node.statement);
       });
-      return;
+      return completion?.kind === 'return' || completion?.kind === 'throw'
+        ? completion : undefined;
     }
     if (ts.isVariableDeclaration(node)) {
       if (!node.name) return;
-      if (node.initializer) visit(node.initializer);
+      if (node.initializer) {
+        const completion = visit(node.initializer);
+        if (completion?.kind === 'throw') return completion;
+      }
       declareName(node.name, node.initializer);
       return;
     }
@@ -2373,8 +3010,11 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       const skip = node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandEqualsToken
         ? decision === 'falsy' : decision === 'skip';
       if (write) {
-        visit(node.right);
-        assignPattern(node.left, resolveValue(node.right));
+        const rightCompletion = visit(node.right);
+        if (rightCompletion?.kind === 'throw') return rightCompletion;
+        if (assignPattern(node.left, resolveValue(node.right)) && strictMode()) {
+          return { kind: 'throw', value: valueOf({ alwaysThrows: true }) };
+        }
       } else if (!skip) {
         visit(node.right);
         weakHeapUpdateDepth += 1;
@@ -2387,17 +3027,26 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         ts.SyntaxKind.FirstCompoundAssignment && node.operatorToken.kind <=
         ts.SyntaxKind.LastCompoundAssignment) {
       visit(node.right);
-      assignPattern(node.left, valueOf({ numbers: new Set([Number.NaN]) }));
+      if (assignPattern(node.left, valueOf({ numbers: new Set([Number.NaN]) })) && strictMode()) {
+        return { kind: 'throw', value: valueOf({ alwaysThrows: true }) };
+      }
       return;
     }
     if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
-      visit(node.right);
-      assignPattern(node.left, resolveValue(node.right));
+      const rightCompletion = visit(node.right);
+      if (rightCompletion?.kind === 'throw') return rightCompletion;
+      if (assignPattern(node.left, resolveValue(node.right)) && strictMode()) {
+        return { kind: 'throw', value: valueOf({ alwaysThrows: true }) };
+      }
       return;
     }
     if (ts.isDeleteExpression(node)) {
       const target = propertyKey(node.expression);
-      if (target) deleteAbstractProperty(target.base, target.keys);
+      if (target) {
+        if (deleteAbstractProperty(target.base, target.keys) && strictMode()) {
+          return { kind: 'throw', value: valueOf({ alwaysThrows: true }) };
+        }
+      }
       else if (hasExecutableProvenance(resolveValue(node.expression))) {
         calls.push({
           method: 'unknown', unsupported: 'dynamic callable name',
@@ -2418,6 +3067,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           ts.isStringLiteralLike(node.arguments[0])) {
         const result = importedValue(node.arguments[0].text, '*');
         if (functionStack.length === 0) topLevelExpressionResults.set(node, result);
+        if (result.alwaysThrows) return { kind: 'throw', value: result };
         return;
       }
       if (ts.isPropertyAccessExpression(node.expression) &&
@@ -2432,36 +3082,99 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           ts.isIdentifier(node.expression.expression) &&
           node.expression.expression.text === 'Object' && node.expression.name.text === 'assign') {
         const target = resolveValue(node.arguments[0]);
+        let failed = false;
         for (const argument of node.arguments.slice(1)) {
           const sourceValue = resolveValue(argument);
           target.external ||= sourceValue.external;
-          for (const [name, assigned] of sourceValue.properties) {
-            target.properties.set(name, target.properties.has(name)
-              ? unionValues(target.properties.get(name)!, assigned) : assigned);
+          for (const name of descriptorNames(sourceValue)) {
+            const descriptor = ownDescriptor(sourceValue, name);
+            if (!descriptor?.enumerable) continue;
+            const assigned = readAbstractProperty(sourceValue, name);
+            if (assigned) failed ||= writeAbstractProperty(target,
+              valueOf({ strings: new Set([name]) }), assigned);
           }
         }
+        if (functionStack.length === 0) topLevelExpressionResults.set(node, target);
+        node.arguments.forEach(visit);
+        if (failed) return { kind: 'throw', value: valueOf({ alwaysThrows: true }) };
+        return;
+      }
+      if (ts.isPropertyAccessExpression(node.expression) &&
+          ts.isIdentifier(node.expression.expression) &&
+          node.expression.expression.text === 'Object' &&
+          ['defineProperty', 'defineProperties'].includes(node.expression.name.text)) {
+        const target = resolveValue(node.arguments[0]);
+        let success = true;
+        let uncertain = false;
+        if (node.expression.name.text === 'defineProperty') {
+          const keys = resolveValue(node.arguments[1]);
+          const descriptor = resolveValue(node.arguments[2]);
+          const names = [...keys.strings, ...[...keys.numbers].map(String)];
+          if (keys.external || names.length === 0) {
+            uncertain = true;
+            const descriptorValue = readAbstractProperty(descriptor, 'value') ?? valueOf();
+            invalidateSequence(target, [descriptorValue]);
+          }
+          else names.forEach((name) => { success &&= applyPropertyDescriptor(target, name, descriptor); });
+        } else {
+          const descriptors = resolveValue(node.arguments[1]);
+          for (const name of descriptorNames(descriptors)) {
+            const descriptor = readAbstractProperty(descriptors, name);
+            if (!descriptor) success = false;
+            else success &&= applyPropertyDescriptor(target, name, descriptor);
+          }
+        }
+        const result = success || uncertain ? target : valueOf({ alwaysThrows: true });
+        if (functionStack.length === 0) topLevelExpressionResults.set(node, result);
+        node.arguments.forEach(visit);
+        if (!success && !uncertain) return { kind: 'throw', value: result };
+        return;
+      }
+      if (ts.isPropertyAccessExpression(node.expression) &&
+          ts.isIdentifier(node.expression.expression) &&
+          node.expression.expression.text === 'Reflect' &&
+          ['set', 'defineProperty', 'deleteProperty', 'setPrototypeOf']
+            .includes(node.expression.name.text)) {
+        const target = resolveValue(node.arguments[0]);
+        let success = true;
+        if (node.expression.name.text === 'set') {
+          success = !writeAbstractProperty(target, resolveValue(node.arguments[1]),
+            resolveValue(node.arguments[2]));
+        } else if (node.expression.name.text === 'deleteProperty') {
+          success = !deleteAbstractProperty(target, resolveValue(node.arguments[1]));
+        } else if (node.expression.name.text === 'setPrototypeOf') {
+          if (['nonextensible', 'sealed', 'frozen'].includes(target.integrity ?? 'extensible')) {
+            success = target.prototype === resolveValue(node.arguments[1]);
+          } else target.prototype = resolveValue(node.arguments[1]);
+        } else {
+          const keys = resolveValue(node.arguments[1]);
+          const descriptor = resolveValue(node.arguments[2]);
+          const names = [...keys.strings, ...[...keys.numbers].map(String)];
+          success = !keys.external && names.length > 0;
+          names.forEach((name) => { success &&= applyPropertyDescriptor(target, name, descriptor); });
+        }
+        const result = valueOf({ primitives: new Set([success ? 'true' : 'false']) });
+        if (functionStack.length === 0) topLevelExpressionResults.set(node, result);
         node.arguments.forEach(visit);
         return;
       }
       if (ts.isPropertyAccessExpression(node.expression) &&
           ts.isIdentifier(node.expression.expression) &&
-          ((node.expression.expression.text === 'Object' &&
-            node.expression.name.text === 'defineProperty') ||
-           (node.expression.expression.text === 'Reflect' && node.expression.name.text === 'set'))) {
-        const target = resolveValue(node.arguments[0]);
-        const keys = resolveValue(node.arguments[1]);
-        const rawValue = node.expression.expression.text === 'Reflect'
-          ? resolveValue(node.arguments[2])
-          : selectedProperty(resolveValue(node.arguments[2]), 'value');
-        if (rawValue.external && !hasExecutableProvenance(rawValue)) {
-          rawValue.callableCandidate = true;
-        }
-        if (keys.external || (keys.strings.size === 0 && keys.numbers.size === 0)) {
-          invalidateSequence(target, [rawValue]);
-        } else {
-          writeAbstractProperty(target, keys, rawValue);
-        }
+          node.expression.expression.text === 'Object' &&
+          ['setPrototypeOf', 'create'].includes(node.expression.name.text)) {
+        const target = node.expression.name.text === 'create'
+          ? valueOf({ exactShape: true }) : resolveValue(node.arguments[0]);
+        const prototype = resolveValue(node.arguments[
+          node.expression.name.text === 'create' ? 0 : 1
+        ]);
+        const success = node.expression.name.text === 'create' ||
+          !['nonextensible', 'sealed', 'frozen'].includes(target.integrity ?? 'extensible') ||
+          target.prototype === prototype;
+        if (success) target.prototype = prototype;
+        const result = success ? target : valueOf({ alwaysThrows: true });
+        if (functionStack.length === 0) topLevelExpressionResults.set(node, result);
         node.arguments.forEach(visit);
+        if (!success) return { kind: 'throw', value: result };
         return;
       }
       if (ts.isPropertyAccessExpression(node.expression) &&
@@ -2516,6 +3229,9 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       }
 
       const callable = resolveValue(node.expression);
+      const receiver = ts.isPropertyAccessExpression(node.expression) ||
+        ts.isElementAccessExpression(node.expression)
+        ? resolveValue(node.expression.expression) : undefined;
       if (ts.isElementAccessExpression(node.expression)) {
         const receiver = node.expression.expression;
         const names = resolveValue(node.expression.argumentExpression);
@@ -2538,7 +3254,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       const result = evaluateCallable(
         callable,
         invocationArgumentValues(node.arguments),
-        undefined,
+        receiver,
         {
           record: true,
           node,
@@ -2547,8 +3263,13 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         }
       );
       if (functionStack.length === 0) topLevelExpressionResults.set(node, result);
+      if (result.alwaysThrows) return { kind: 'throw', value: result };
     }
-    ts.forEachChild(node, visit);
+    let completion: Completion | undefined;
+    ts.forEachChild(node, (child) => {
+      if (!completion) completion = visit(child);
+    });
+    return completion;
   }
   visit(sf);
   const unique = new Map<string, DiscoveredCall>();
@@ -5439,6 +6160,444 @@ describe('contract_hours_ledger production consumer inventory', () => {
         expect.soft(exactLedgerCalls(source, importer), source).toBe(1);
         expect.soft(unsupportedCalls(source, importer), source).toEqual([]);
       }
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('matches the Round 19 descriptor and prototype runtime oracle', () => {
+    const exactLedgerCalls = (source: string): number =>
+      discoverSupabaseCalls(source).filter((call) => call.method === 'from' &&
+        (call.target === 'contract_hours_ledger' ||
+         call.targets?.includes('contract_hours_ledger'))).length;
+    const unsupportedCount = (source: string): number =>
+      discoverSupabaseCalls(source).filter((call) => call.unsupported).length;
+    const runtime = (source: string): { calls: number; thrown?: string } => {
+      let calls = 0;
+      const client = {
+        from(target: string) {
+          if (target === 'contract_hours_ledger') calls += 1;
+          return this;
+        },
+      };
+      try {
+        const run = new Function('client', 'ordinary', source) as
+          (runtimeClient: typeof client, ordinary: () => null) => void;
+        run(client, () => null);
+        return { calls };
+      } catch (error) {
+        return { calls, thrown: error instanceof Error ? error.name : String(error) };
+      }
+    };
+    const cases = [
+      `const slots = { client, target: 'contract_hours_ledger' };
+       Object.defineProperty(slots, 'read', { value: client.from });
+       slots.read = ordinary;
+       slots.read.call(slots.client, slots.target);`,
+      `const slots = { client, target: 'contract_hours_ledger' };
+       Object.defineProperty(slots, 'read', { value: client.from });
+       delete slots.read;
+       slots.read.call(slots.client, slots.target);`,
+      `const slots = [client.from, client, 'contract_hours_ledger'];
+       Reflect.deleteProperty(slots, '0');
+       if (slots[0]) slots[0].call(slots[1], slots[2]);`,
+      `const inert = () => null;
+       const slots = [client.from, client, 'contract_hours_ledger'];
+       Reflect.defineProperty(slots, '0', { value: inert });
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = [ordinary, client, 'contract_hours_ledger'];
+       Object.defineProperties(slots, {
+         0: { value: client.from }, hidden: { value: ordinary }
+       });
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = [ordinary, client, 'contract_hours_ledger'];
+       Object.defineProperty(slots, 'install', {
+         set(value) { this[0] = value; }
+       });
+       slots.install = client.from;
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = [ordinary, client, 'contract_hours_ledger'];
+       const prototype = { read: client.from };
+       Object.setPrototypeOf(slots, prototype);
+       slots.read.call(slots[1], slots[2]);`,
+    ];
+
+    for (const source of cases) {
+      const observed = runtime(source);
+      expect.soft(observed.thrown, source).toBeUndefined();
+      expect.soft(exactLedgerCalls(source), source).toBe(observed.calls);
+      expect.soft(unsupportedCount(source), source).toBe(0);
+    }
+  });
+
+  it('propagates Round 19 abrupt completions and caught integrity failures', () => {
+    const analyze = (source: string): { exact: number; unsupported: number } => {
+      const discovered = discoverSupabaseCalls(source);
+      return {
+        exact: discovered.filter((call) => call.method === 'from' &&
+          (call.target === 'contract_hours_ledger' ||
+           call.targets?.includes('contract_hours_ledger'))).length,
+        unsupported: discovered.filter((call) => call.unsupported).length,
+      };
+    };
+    const runtime = (source: string): { calls: number; thrown?: string } => {
+      let calls = 0;
+      const client = {
+        from(target: string) {
+          if (target === 'contract_hours_ledger') calls += 1;
+          return this;
+        },
+      };
+      try {
+        const run = new Function('client', 'ordinary', source) as
+          (runtimeClient: typeof client, ordinary: () => null) => void;
+        run(client, () => null);
+        return { calls };
+      } catch (error) {
+        return { calls, thrown: error instanceof Error ? error.name : String(error) };
+      }
+    };
+    const uncaught = [
+      `'use strict';
+       const slots = Object.freeze([client.from, client, 'contract_hours_ledger']);
+       slots[0] = ordinary;
+       slots[0].call(slots[1], slots[2]);`,
+      `'use strict';
+       const slots = Object.seal([client.from, client, 'contract_hours_ledger']);
+       delete slots[0];
+       slots[0].call(slots[1], slots[2]);`,
+      `'use strict';
+       const slots = Object.freeze(['contract_hours_ledger', client, client.from]);
+       slots.reverse();
+       slots[0].call(slots[1], slots[2]);`,
+    ];
+    for (const source of uncaught) {
+      const observed = runtime(source);
+      expect.soft(observed).toEqual({ calls: 0, thrown: 'TypeError' });
+      expect.soft(analyze(source), source).toEqual({ exact: 0, unsupported: 0 });
+    }
+
+    const caughtSort = `'use strict';
+      const slots = Object.freeze([client.from, client, 'contract_hours_ledger']);
+      try { slots.sort(); } catch (error) {
+        if (!(error instanceof TypeError)) throw error;
+      }
+      slots[0].call(slots[1], slots[2]);`;
+    expect.soft(runtime(caughtSort)).toEqual({ calls: 1 });
+    expect.soft(analyze(caughtSort)).toEqual({ exact: 1, unsupported: 0 });
+  });
+
+  it('matches the Round 19 runtime oracle for all nine integrity mutators', () => {
+    const analyze = (source: string): { exact: number; unsupported: number } => {
+      const discovered = discoverSupabaseCalls(source);
+      return {
+        exact: discovered.filter((call) => call.method === 'from' &&
+          call.target === 'contract_hours_ledger').length,
+        unsupported: discovered.filter((call) => call.unsupported).length,
+      };
+    };
+    const runtime = (source: string): { calls: number; thrown?: string } => {
+      let calls = 0;
+      const client = {
+        from(target: string) {
+          if (target === 'contract_hours_ledger') calls += 1;
+          return this;
+        },
+      };
+      try {
+        (new Function('client', source) as (value: typeof client) => void)(client);
+        return { calls };
+      } catch (error) {
+        return { calls, thrown: error instanceof Error ? error.name : String(error) };
+      }
+    };
+    const invocations: Record<SequenceMutationName, string> = {
+      push: 'slots.push(inert)',
+      pop: 'slots.pop()',
+      shift: 'slots.shift()',
+      unshift: 'slots.unshift(inert)',
+      splice: 'slots.splice(0, 0, inert)',
+      reverse: 'slots.reverse()',
+      fill: 'slots.fill(inert, 0, 1)',
+      copyWithin: 'slots.copyWithin(0, 1, 2)',
+      sort: 'slots.sort()',
+    };
+    for (const [method, invocation] of Object.entries(invocations)) {
+      const prefix = `'use strict'; const inert = () => null;
+        const slots = Object.freeze([client.from, client, 'contract_hours_ledger']);`;
+      const caught = `${prefix}
+        try { ${invocation}; } catch (error) {
+          if (!(error instanceof TypeError)) throw error;
+        }
+        slots[0].call(slots[1], slots[2]);`;
+      expect.soft(runtime(caught), `${method}/caught-runtime`).toEqual({ calls: 1 });
+      expect.soft(analyze(caught), `${method}/caught-analysis`)
+        .toEqual({ exact: 1, unsupported: 0 });
+
+      const uncaught = `${prefix}
+        ${invocation};
+        slots[0].call(slots[1], slots[2]);`;
+      expect.soft(runtime(uncaught), `${method}/uncaught-runtime`)
+        .toEqual({ calls: 0, thrown: 'TypeError' });
+      expect.soft(analyze(uncaught), `${method}/uncaught-analysis`)
+        .toEqual({ exact: 0, unsupported: 0 });
+    }
+
+    const writes = [
+      `const slots = Object.freeze([client.from, client, 'contract_hours_ledger']);
+       slots[0] = () => null;
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = Object.seal([client.from, client, 'contract_hours_ledger']);
+       delete slots[0];
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = Object.freeze([client.from, client, 'contract_hours_ledger']);
+       Reflect.set(slots, 0, () => null);
+       Reflect.deleteProperty(slots, 0);
+       slots[0].call(slots[1], slots[2]);`,
+    ];
+    for (const source of writes) {
+      expect.soft(runtime(source), source).toEqual({ calls: 1 });
+      expect.soft(analyze(source), source).toEqual({ exact: 1, unsupported: 0 });
+    }
+  });
+
+  it('composes Round 19 descriptor flags, accessors, prototypes, and completions', () => {
+    const exactLedgerCalls = (source: string): number =>
+      discoverSupabaseCalls(source).filter((call) => call.method === 'from' &&
+        call.target === 'contract_hours_ledger').length;
+    const unsupported = (source: string): DiscoveredCall[] =>
+      discoverSupabaseCalls(source).filter((call) => call.unsupported);
+    const exactCases = [
+      `const object = { factory: client.from };
+       Object.defineProperty(object, 'read', { value: () => null, configurable: true });
+       Object.defineProperty(object, 'read', { get() { return this.factory; } });
+       object.read.call(client, 'contract_hours_ledger');`,
+      `const object = { factory: client.from };
+       Object.defineProperty(object, 'read', {
+         get() { return () => null; }, configurable: true
+       });
+       Object.defineProperty(object, 'read', { value: client.from });
+       object.read.call(client, 'contract_hours_ledger');`,
+      `const prototype = {};
+       Object.defineProperty(prototype, 'install', {
+         set(value) { this.read = value; }
+       });
+       const object = { client, target: 'contract_hours_ledger' };
+       Object.setPrototypeOf(object, prototype);
+       object.install = client.from;
+       object.read.call(object.client, object.target);`,
+      `const prototype = { read: client.from };
+       const middle = Object.create(prototype);
+       const object = Object.create(middle);
+       object.read = () => null;
+       delete object.read;
+       object.read.call(client, 'contract_hours_ledger');`,
+      `const prototype = {};
+       Object.defineProperty(prototype, 'install', {
+         set(value) { this.read = value; }
+       });
+       const object = Object.create(prototype);
+       Object.assign(object, { install: client.from });
+       object.read.call(client, 'contract_hours_ledger');`,
+      `const source = {};
+       Object.defineProperties(source, {
+         hidden: { value: () => null },
+         read: { value: client.from, enumerable: true }
+       });
+       const copy = { ...source };
+       copy.read.call(client, 'contract_hours_ledger');`,
+      `const object = {};
+       Object.defineProperty(object, 'read', {
+         value: client.from, writable: false, configurable: false
+       });
+       try {
+         Object.defineProperties(object, {
+           inert: { value: () => null }, read: { value: () => null }
+         });
+       } catch {}
+       object.read.call(client, 'contract_hours_ledger');`,
+      `function read() {
+         for (let index = 0; index < 1; index += 1) {
+           break;
+           client.from('contract_hours_ledger');
+         }
+         try { throw new Error('synthetic'); }
+         catch { return client.from('contract_hours_ledger'); }
+         finally { const inert = true; }
+       }
+       read();`,
+      `function read() {
+         try { throw new Error('synthetic'); }
+         finally { client.from('contract_hours_ledger'); }
+       }
+       try { read(); } catch {}`,
+    ];
+    for (const source of exactCases) {
+      expect.soft(exactLedgerCalls(source), source).toBe(1);
+      expect.soft(unsupported(source), source).toEqual([]);
+    }
+
+    const inertCases = [
+      `const source = {};
+       Object.defineProperty(source, 'read', { value: client.from });
+       const copy = { ...source };
+       if (copy.read) copy.read('contract_hours_ledger');`,
+      `function read() {
+         return;
+         client.from('contract_hours_ledger');
+       }
+       read();`,
+      `try { const inert = true; }
+       finally { throw new Error('synthetic'); }
+       client.from('contract_hours_ledger');`,
+      `for (let index = 0; index < 1; index += 1) {
+         continue;
+         client.from('contract_hours_ledger');
+       }`,
+    ];
+    for (const source of inertCases) {
+      expect.soft(exactLedgerCalls(source), source).toBe(0);
+      expect.soft(unsupported(source), source).toEqual([]);
+    }
+
+    const dynamic = `const object = {};
+      Object.setPrototypeOf(object, externalPrototype);
+      object.read.call(client, 'contract_hours_ledger');`;
+    expect(exactLedgerCalls(dynamic)).toBe(0);
+    expect(unsupported(dynamic)).toHaveLength(1);
+  });
+
+  it('uses descriptor/prototype semantics across CommonJS consumers', () => {
+    const fixtureRoot = mkdtempSync(join(ROOT, '.z7-r19-modules-'));
+    const importer = join(fixtureRoot, 'consumer.cjs');
+    const exactLedgerCalls = (source: string): number =>
+      discoverSupabaseCalls(source, importer).filter((call) => call.method === 'from' &&
+        (call.target === 'contract_hours_ledger' ||
+         call.targets?.includes('contract_hours_ledger'))).length;
+    const unsupportedCount = (source: string): number =>
+      discoverSupabaseCalls(source, importer).filter((call) => call.unsupported).length;
+    const runtimeCalls = (moduleName: string, expression: string): {
+      calls: number;
+      thrown?: string;
+    } => {
+      const runtimeRequire = createRequire(importer);
+      (globalThis as { __z7R19Calls?: number }).__z7R19Calls = 0;
+      try {
+        const api = runtimeRequire(join(fixtureRoot, moduleName)) as unknown;
+        const run = new Function('api', expression) as (value: unknown) => void;
+        run(api);
+        return { calls: (globalThis as { __z7R19Calls?: number }).__z7R19Calls ?? 0 };
+      } catch (error) {
+        return {
+          calls: (globalThis as { __z7R19Calls?: number }).__z7R19Calls ?? 0,
+          thrown: error instanceof Error ? error.name : String(error),
+        };
+      } finally {
+        delete (globalThis as { __z7R19Calls?: number }).__z7R19Calls;
+      }
+    };
+    const factory = `
+      const { createClient } = require('@supabase/supabase-js');
+      const makeDatabase = () => {
+        globalThis.__z7R19Calls += 1;
+        return createClient('http://127.0.0.1:54321', 'synthetic-key');
+      };
+    `;
+    try {
+      writeFileSync(join(fixtureRoot, 'nonwritable.cjs'), `${factory}
+        const api = {};
+        Object.defineProperty(api, 'makeDatabase', { value: makeDatabase });
+        api.makeDatabase = () => null;
+        module.exports = api;
+      `);
+      writeFileSync(join(fixtureRoot, 'nonconfigurable.cjs'), `${factory}
+        const api = {};
+        Object.defineProperty(api, 'makeDatabase', { value: makeDatabase });
+        delete api.makeDatabase;
+        module.exports = api;
+      `);
+      writeFileSync(join(fixtureRoot, 'nonenumerable.cjs'), `${factory}
+        const source = {};
+        Object.defineProperty(source, 'makeDatabase', { value: makeDatabase });
+        module.exports = Object.assign({}, source);
+      `);
+      writeFileSync(join(fixtureRoot, 'getter-this.cjs'), `${factory}
+        const api = { factory: makeDatabase };
+        Object.defineProperty(api, 'makeDatabase', {
+          get() { return this.factory; }
+        });
+        module.exports = api;
+      `);
+      writeFileSync(join(fixtureRoot, 'prototype.cjs'), `${factory}
+        const api = {};
+        Object.setPrototypeOf(api, { makeDatabase });
+        module.exports = api;
+      `);
+      const cases = [
+        ['nonwritable.cjs', `api.makeDatabase().from('contract_hours_ledger');`],
+        ['nonconfigurable.cjs', `api.makeDatabase().from('contract_hours_ledger');`],
+        ['nonenumerable.cjs', `api.makeDatabase().from('contract_hours_ledger');`],
+        ['getter-this.cjs', `api.makeDatabase().from('contract_hours_ledger');`],
+        ['prototype.cjs', `api.makeDatabase().from('contract_hours_ledger');`],
+      ] as const;
+      for (const [moduleName, expression] of cases) {
+        const source = `const api = require('./${moduleName}'); ${expression}`;
+        const observed = runtimeCalls(moduleName, expression);
+        expect.soft(exactLedgerCalls(source), moduleName).toBe(observed.calls);
+        expect.soft(unsupportedCount(source), moduleName).toBe(0);
+      }
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('preserves enumerable descriptors and abrupt completion across module consumers', () => {
+    const fixtureRoot = mkdtempSync(join(ROOT, '.z7-r19-completion-modules-'));
+    const importer = join(fixtureRoot, 'consumer.cjs');
+    const analyze = (source: string): { exact: number; unsupported: number } => {
+      const discovered = discoverSupabaseCalls(source, importer);
+      return {
+        exact: discovered.filter((call) => call.method === 'from' &&
+          call.target === 'contract_hours_ledger').length,
+        unsupported: discovered.filter((call) => call.unsupported).length,
+      };
+    };
+    const factory = `
+      const { createClient } = require('@supabase/supabase-js');
+      const makeDatabase = () => createClient('http://127.0.0.1:54321', 'synthetic-key');
+    `;
+    try {
+      writeFileSync(join(fixtureRoot, 'enumerable.cjs'), `${factory}
+        const source = {};
+        Object.defineProperty(source, 'makeDatabase', {
+          value: makeDatabase, enumerable: true
+        });
+        module.exports = { ...source };
+      `);
+      writeFileSync(join(fixtureRoot, 'nonenumerable.cjs'), `${factory}
+        const source = {};
+        Object.defineProperty(source, 'makeDatabase', { value: makeDatabase });
+        module.exports = { ...source };
+      `);
+      writeFileSync(join(fixtureRoot, 'abrupt.cjs'), `${factory}
+        module.exports = { makeDatabase };
+        throw new Error('synthetic module failure');
+        module.exports.makeDatabase = () => null;
+      `);
+
+      expect(analyze(`const api = require('./enumerable');
+        api.makeDatabase().from('contract_hours_ledger');`))
+        .toEqual({ exact: 1, unsupported: 0 });
+      expect(analyze(`const api = require('./nonenumerable');
+        if (api.makeDatabase) {
+          api.makeDatabase().from('contract_hours_ledger');
+        }`)).toEqual({ exact: 0, unsupported: 0 });
+      expect(analyze(`try {
+          const api = require('./abrupt');
+          api.makeDatabase().from('contract_hours_ledger');
+        } catch {}
+        client.from('contract_hours_ledger');`))
+        .toEqual({ exact: 1, unsupported: 0 });
     } finally {
       rmSync(fixtureRoot, { recursive: true, force: true });
     }

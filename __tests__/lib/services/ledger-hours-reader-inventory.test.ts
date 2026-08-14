@@ -555,7 +555,53 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       ts.ScriptTarget.Latest, true,
       /x$/.test(targetPath) ? ts.ScriptKind.TSX
         : /\.[cm]?js$/.test(targetPath) ? ts.ScriptKind.JS : ts.ScriptKind.TS);
-    const directThrowIndex = target.statements.findIndex(ts.isThrowStatement);
+    const throwingFunctions = new Set<string>();
+    const functionDeclarations = target.statements.filter(
+      (statement): statement is ts.FunctionDeclaration =>
+        ts.isFunctionDeclaration(statement) && Boolean(statement.name)
+    );
+    let discoveredThrowingFunction = true;
+    while (discoveredThrowingFunction) {
+      discoveredThrowingFunction = false;
+      for (const declaration of functionDeclarations) {
+        if (!declaration.name || throwingFunctions.has(declaration.name.text) || !declaration.body) {
+          continue;
+        }
+        let abrupt = false;
+        const inspect = (node: ts.Node): void => {
+          if (abrupt || (node !== declaration && ts.isFunctionLike(node))) return;
+          if (ts.isThrowStatement(node) ||
+              (ts.isCallExpression(node) && ts.isIdentifier(node.expression) &&
+               throwingFunctions.has(node.expression.text))) {
+            abrupt = true;
+            return;
+          }
+          ts.forEachChild(node, inspect);
+        };
+        inspect(declaration.body);
+        if (abrupt) {
+          throwingFunctions.add(declaration.name.text);
+          discoveredThrowingFunction = true;
+        }
+      }
+    }
+    const statementAbrupt = (statement: ts.Statement): boolean => {
+      if (ts.isThrowStatement(statement)) return true;
+      if (ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) return false;
+      let abrupt = false;
+      const inspect = (node: ts.Node): void => {
+        if (abrupt || (node !== statement && ts.isFunctionLike(node))) return;
+        if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) &&
+            throwingFunctions.has(node.expression.text)) {
+          abrupt = true;
+          return;
+        }
+        ts.forEachChild(node, inspect);
+      };
+      inspect(statement);
+      return abrupt;
+    };
+    const directThrowIndex = target.statements.findIndex(statementAbrupt);
     const moduleThrows = directThrowIndex >= 0;
     const evaluationStatements = moduleThrows
       ? target.statements.slice(0, directThrowIndex) : target.statements;
@@ -1588,7 +1634,79 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) &&
         ts.isIdentifier(node.expression.expression) &&
         node.expression.expression.text === 'Object' && node.expression.name.text === 'create') {
-      return valueOf({ prototype: resolveValue(node.arguments[0]), exactShape: true });
+      const prior = functionStack.length === 0 ? topLevelExpressionResults.get(node) : undefined;
+      if (prior) return prior;
+      const created = valueOf({ prototype: resolveValue(node.arguments[0]), exactShape: true });
+      const descriptors = node.arguments[1] ? resolveValue(node.arguments[1]) : undefined;
+      if (descriptors) {
+        for (const name of descriptorNames(descriptors)) {
+          if (!ownDescriptor(descriptors, name)?.enumerable) continue;
+          const descriptor = readAbstractProperty(descriptors, name, descriptors);
+          if (!descriptor) continue;
+          const conversion = convertPropertyDescriptor(descriptor);
+          if (!conversion.valid || conversion.abrupt || conversion.uncertain ||
+              !applyPropertyDescriptor(created, name, conversion.descriptor)) {
+            return valueOf({ alwaysThrows: true });
+          }
+        }
+      }
+      return created;
+    }
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) &&
+        ts.isIdentifier(node.expression.expression) &&
+        node.expression.expression.text === 'Object' &&
+        ['getOwnPropertyDescriptor', 'getOwnPropertyDescriptors', 'getPrototypeOf']
+          .includes(node.expression.name.text)) {
+      const target = resolveValue(node.arguments[0]);
+      if (node.expression.name.text === 'getPrototypeOf') {
+        return target.prototype ?? valueOf({ primitives: new Set(['null']) });
+      }
+      if (node.expression.name.text === 'getOwnPropertyDescriptors') {
+        const descriptors = valueOf({ exactShape: target.exactShape });
+        for (const name of descriptorNames(target)) {
+          const descriptor = ownDescriptor(target, name);
+          if (descriptor) setDataDescriptor(descriptors, name, descriptorObjectValue(descriptor));
+        }
+        return descriptors;
+      }
+      const keys = resolveValue(node.arguments[1]);
+      if (keys.external || (keys.strings.size === 0 && keys.numbers.size === 0)) {
+        return valueOf({ external: true, callableCandidate: hasExecutableProvenance(target) });
+      }
+      const values = [...keys.strings, ...[...keys.numbers].map(String)].map((name) => {
+        const descriptor = ownDescriptor(target, name);
+        return descriptor ? descriptorObjectValue(descriptor) : valueOf({
+          primitives: new Set(['undefined']),
+        });
+      });
+      return unionValues(...values);
+    }
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) &&
+        ts.isIdentifier(node.expression.expression) &&
+        node.expression.expression.text === 'Reflect' &&
+        ['get', 'getOwnPropertyDescriptor', 'getPrototypeOf'].includes(node.expression.name.text)) {
+      const target = resolveValue(node.arguments[0]);
+      if (node.expression.name.text === 'getPrototypeOf') {
+        return target.prototype ?? valueOf({ primitives: new Set(['null']) });
+      }
+      const keys = resolveValue(node.arguments[1]);
+      if (keys.external || (keys.strings.size === 0 && keys.numbers.size === 0)) {
+        return valueOf({ external: true, callableCandidate: hasExecutableProvenance(target) });
+      }
+      if (node.expression.name.text === 'getOwnPropertyDescriptor') {
+        return unionValues(...[...keys.strings, ...[...keys.numbers].map(String)].map((name) => {
+          const descriptor = ownDescriptor(target, name);
+          return descriptor ? descriptorObjectValue(descriptor) : valueOf({
+            primitives: new Set(['undefined']),
+          });
+        }));
+      }
+      const receiver = node.arguments[2] ? resolveValue(node.arguments[2]) : target;
+      return unionValues(...[...keys.strings, ...[...keys.numbers].map(String)].map((name) =>
+        readAbstractProperty(target, name, receiver) ?? valueOf({
+          primitives: new Set(['undefined']),
+        })
+      ));
     }
     if (ts.isCallExpression(node)) {
       if (ts.isIdentifier(node.expression) && node.expression.text === 'require' &&
@@ -1895,6 +2013,74 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     return primitive === 'true' ? true : primitive === 'false' ? false : undefined;
   }
 
+  function descriptorObjectValue(
+    descriptor: AbstractPropertyDescriptor
+  ): AbstractValue {
+    const object = valueOf({ exactShape: true });
+    if (descriptor.kind === 'data') {
+      setDataDescriptor(object, 'value', descriptor.value ?? valueOf({
+        primitives: new Set(['undefined']),
+      }));
+      setDataDescriptor(object, 'writable', valueOf({
+        primitives: new Set([descriptor.writable ? 'true' : 'false']),
+      }));
+    } else {
+      setDataDescriptor(object, 'get', descriptor.get ?? valueOf({
+        primitives: new Set(['undefined']),
+      }));
+      setDataDescriptor(object, 'set', descriptor.set ?? valueOf({
+        primitives: new Set(['undefined']),
+      }));
+    }
+    setDataDescriptor(object, 'enumerable', valueOf({
+      primitives: new Set([descriptor.enumerable ? 'true' : 'false']),
+    }));
+    setDataDescriptor(object, 'configurable', valueOf({
+      primitives: new Set([descriptor.configurable ? 'true' : 'false']),
+    }));
+    return object;
+  }
+
+  interface DescriptorConversion {
+    descriptor: AbstractValue;
+    valid: boolean;
+    abrupt: boolean;
+    uncertain: boolean;
+  }
+
+  function convertPropertyDescriptor(
+    descriptorObject: AbstractValue
+  ): DescriptorConversion {
+    const converted = valueOf({ exactShape: true });
+    let abrupt = false;
+    let uncertain = descriptorObject.external;
+    const fields = ['enumerable', 'configurable', 'value', 'writable', 'get', 'set'] as const;
+    const present = new Set<string>();
+    for (const name of fields) {
+      if (!ownDescriptor(descriptorObject, name)) continue;
+      present.add(name);
+      const value = readAbstractProperty(descriptorObject, name, descriptorObject) ?? valueOf({
+        primitives: new Set(['undefined']),
+      });
+      abrupt ||= value.alwaysThrows;
+      if (name !== 'value') uncertain ||= value.external;
+      setDataDescriptor(converted, name, value);
+    }
+    const data = present.has('value') || present.has('writable');
+    const accessor = present.has('get') || present.has('set');
+    let valid = !(data && accessor);
+    for (const name of ['get', 'set'] as const) {
+      const value = readAbstractProperty(converted, name);
+      if (!value) continue;
+      const undefinedOnly = value.primitives.size === 1 && value.primitives.has('undefined') &&
+        !hasExecutableProvenance(value) && !value.external;
+      if (!undefinedOnly && value.functions.size === 0 && !value.adapter && !value.external) {
+        valid = false;
+      }
+    }
+    return { descriptor: converted, valid, abrupt, uncertain };
+  }
+
   function applyPropertyDescriptor(
     target: AbstractValue,
     name: string,
@@ -1968,48 +2154,72 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   function writeAbstractProperty(
     base: AbstractValue,
     keys: AbstractValue,
-    value: AbstractValue
+    value: AbstractValue,
+    receiver = base
   ): boolean {
     if (keys.external || (keys.strings.size === 0 && keys.numbers.size === 0)) {
-      invalidateSequence(base, [value]);
+      invalidateSequence(receiver, [value]);
       return false;
     }
     const names = new Set([...keys.strings, ...[...keys.numbers].map(String)]);
     let failed = false;
-    for (const name of names) {
-      const own = ownDescriptor(base, name);
-      const inherited = own ? undefined : inheritedDescriptor(base.prototype ?? valueOf(), name);
-      const descriptor = own ?? inherited?.descriptor;
-      if (descriptor?.kind === 'accessor') {
-        if (descriptor.set) {
-          descriptor.set.functions.forEach((setter) => invokeFunction(setter, [value], base));
-        } else failed = true;
-        continue;
+
+    const setOne = (
+      target: AbstractValue,
+      name: string,
+      seen = new Set<AbstractValue>()
+    ): boolean => {
+      if (seen.has(target)) return true;
+      seen.add(target);
+      let descriptor = ownDescriptor(target, name);
+      if (!descriptor && target.prototype) {
+        return setOne(target.prototype, name, seen);
       }
-      if ((descriptor?.kind === 'data' && !descriptor.writable) ||
-          (!own && !descriptor && base.integrity !== undefined && base.integrity !== 'extensible') ||
-          (!own && !descriptor && ['nonextensible', 'sealed', 'frozen'].includes(
-            base.integrity ?? 'extensible'
-          ))) {
-        failed = true;
-        continue;
+      descriptor ??= {
+        kind: 'data', value: valueOf({ primitives: new Set(['undefined']) }),
+        writable: true, enumerable: true, configurable: true,
+      };
+      if (descriptor.kind === 'accessor') {
+        if (!descriptor.set) return true;
+        const outputs = [...descriptor.set.functions]
+          .map((setter) => invokeFunction(setter, [value], receiver));
+        return outputs.some((output) => output.alwaysThrows) ||
+          (descriptor.set.external && descriptor.set.functions.size === 0);
       }
-      if (name === 'length' && base.tupleElements) {
+      if (!descriptor.writable) return true;
+
+      const receiverDescriptor = ownDescriptor(receiver, name);
+      if (receiverDescriptor?.kind === 'accessor' ||
+          (receiverDescriptor?.kind === 'data' && !receiverDescriptor.writable)) return true;
+      if (!receiverDescriptor && ['nonextensible', 'sealed', 'frozen'].includes(
+        receiver.integrity ?? 'extensible'
+      )) return true;
+
+      if (name === 'length' && receiver.tupleElements) {
         const length = exactNumber(value);
-        if (length === undefined) invalidateSequence(base, [value]);
-        else resizeSequence(base, length);
-      } else if (/^(?:0|[1-9]\d*)$/.test(name) && base.tupleElements) {
-        writeSequencePosition(base, Number(name), value);
+        if (length === undefined) invalidateSequence(receiver, [value]);
+        else resizeSequence(receiver, length);
+      } else if (/^(?:0|[1-9]\d*)$/.test(name) && receiver.tupleElements) {
+        const index = Number(name);
+        const lengthDescriptor = ownDescriptor(receiver, 'length');
+        if (index >= receiver.tupleElements.length &&
+            lengthDescriptor?.kind === 'data' && !lengthDescriptor.writable) return true;
+        writeSequencePosition(receiver, index, value);
       } else {
-        const prior = base.properties.get(name);
+        const prior = receiver.properties.get(name);
         const next = weakHeapUpdateDepth > 0 && prior ? unionValues(prior, value) : value;
-        if (own?.kind === 'data') {
-          own.value = next;
-          base.properties.set(name, next);
+        if (receiverDescriptor?.kind === 'data') {
+          receiverDescriptor.value = next;
+          receiver.properties.set(name, next);
         } else {
-          setDataDescriptor(base, name, next);
+          setDataDescriptor(receiver, name, next);
         }
       }
+      return false;
+    };
+
+    for (const name of names) {
+      failed ||= setOne(base, name);
     }
     return failed;
   }
@@ -2405,19 +2615,91 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         invalidateSequence(target, args);
         result = target;
       } else {
-        if (target.integrity === 'frozen') Object.freeze(entries);
-        else if (target.integrity === 'sealed') Object.seal(entries);
-        else if (target.integrity === 'nonextensible') Object.preventExtensions(entries);
+        const shadow: AbstractValue[] = [];
+        const accessorDescriptors = new Map<string, AbstractPropertyDescriptor>();
+        for (let index = 0; index < entries.length; index += 1) {
+          const name = String(index);
+          const descriptor = ownDescriptor(target, name);
+          if (!descriptor) continue;
+          if (descriptor.kind === 'data') {
+            Object.defineProperty(shadow, name, {
+              value: descriptor.value ?? valueOf(), writable: descriptor.writable,
+              enumerable: descriptor.enumerable, configurable: descriptor.configurable,
+            });
+          } else {
+            accessorDescriptors.set(name, descriptor);
+            Object.defineProperty(shadow, name, {
+              get: descriptor.get ? () => {
+                const output = readAbstractProperty(target, name, target) ?? valueOf();
+                if (output.alwaysThrows) throw new TypeError('abstract getter threw');
+                return output;
+              } : undefined,
+              set: descriptor.set ? (next: AbstractValue) => {
+                const outputs = [...descriptor.set!.functions]
+                  .map((setter) => invokeFunction(setter, [next], target));
+                if (outputs.some((output) => output.alwaysThrows)) {
+                  throw new TypeError('abstract setter threw');
+                }
+              } : undefined,
+              enumerable: descriptor.enumerable, configurable: descriptor.configurable,
+            });
+          }
+        }
+        const targetLength = ownDescriptor(target, 'length');
+        Object.defineProperty(shadow, 'length', {
+          value: entries.length,
+          writable: targetLength?.kind === 'data' ? targetLength.writable : true,
+          enumerable: false,
+          configurable: false,
+        });
+        if (target.integrity === 'frozen') Object.freeze(shadow);
+        else if (target.integrity === 'sealed') Object.seal(shadow);
+        else if (target.integrity === 'nonextensible') Object.preventExtensions(shadow);
         let nativeResult: unknown;
         let threw = false;
         try {
           nativeResult = (Array.prototype[method] as (...values: unknown[]) => unknown)
-            .apply(entries, nativeArguments);
+            .apply(shadow, nativeArguments);
         } catch {
           threw = true;
           nativeResult = undefined;
         }
-        refreshSequence(target, entries);
+
+        for (const name of [...target.descriptors.keys()]) {
+          if (/^(?:0|[1-9]\d*)$/.test(name)) {
+            target.descriptors.delete(name);
+            target.properties.delete(name);
+          }
+        }
+        for (const name of Object.getOwnPropertyNames(shadow)) {
+          if (!/^(?:0|[1-9]\d*)$/.test(name)) continue;
+          const descriptor = Object.getOwnPropertyDescriptor(shadow, name)!;
+          const accessor = accessorDescriptors.get(name);
+          if (accessor && !('value' in descriptor)) {
+            target.descriptors.set(name, accessor);
+            target.properties.delete(name);
+          } else {
+            const abstractValue = descriptor.value as AbstractValue;
+            setDataDescriptor(target, name, abstractValue, {
+              writable: Boolean(descriptor.writable),
+              enumerable: Boolean(descriptor.enumerable),
+              configurable: Boolean(descriptor.configurable),
+            });
+          }
+        }
+        const shadowLength = Object.getOwnPropertyDescriptor(shadow, 'length')!;
+        const lengthValue = valueOf({ numbers: new Set([shadow.length]) });
+        setDataDescriptor(target, 'length', lengthValue, {
+          writable: Boolean(shadowLength.writable), enumerable: false, configurable: false,
+        });
+        target.tupleElements = Array.from({ length: shadow.length }, (_, index) => {
+          const descriptor = ownDescriptor(target, String(index));
+          return descriptor?.kind === 'data' ? descriptor.value ?? valueOf() : valueOf();
+        });
+        const present = descriptorNames(target).filter((name) =>
+          /^(?:0|[1-9]\d*)$/.test(name)
+        ).map((name) => readAbstractProperty(target, name, target) ?? valueOf());
+        target.elements = present.length > 0 ? unionValues(...present) : undefined;
         if (threw) {
           result = valueOf({ alwaysThrows: true });
         } else if (method === 'push' || method === 'unshift') {
@@ -2923,6 +3205,77 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       return whenTrue.completion?.kind === whenFalse.completion?.kind
         ? whenTrue.completion : undefined;
     }
+    if (ts.isSwitchStatement(node)) {
+      const expressionCompletion = visit(node.expression);
+      if (expressionCompletion?.kind === 'throw') return expressionCompletion;
+      const discriminant = resolveValue(node.expression);
+      const scalarKeys = [
+        ...[...discriminant.strings].map((value) => `string:${value}`),
+        ...[...discriminant.numbers].map((value) => `number:${value}`),
+        ...[...discriminant.primitives].map((value) => `primitive:${value}`),
+      ];
+      const exactDiscriminant = !discriminant.external && scalarKeys.length === 1
+        ? scalarKeys[0] : undefined;
+      let defaultIndex: number | undefined;
+      let selectedIndex: number | undefined;
+      let uncertain = exactDiscriminant === undefined;
+      for (let index = 0; index < node.caseBlock.clauses.length; index += 1) {
+        const clause = node.caseBlock.clauses[index];
+        if (ts.isDefaultClause(clause)) {
+          defaultIndex = index;
+          continue;
+        }
+        const caseCompletion = visit(clause.expression);
+        if (caseCompletion?.kind === 'throw') return caseCompletion;
+        const candidate = resolveValue(clause.expression);
+        const candidateKeys = [
+          ...[...candidate.strings].map((value) => `string:${value}`),
+          ...[...candidate.numbers].map((value) => `number:${value}`),
+          ...[...candidate.primitives].map((value) => `primitive:${value}`),
+        ];
+        if (candidate.external || candidateKeys.length !== 1) uncertain = true;
+        if (exactDiscriminant !== undefined && candidateKeys.length === 1 &&
+            candidateKeys[0] === exactDiscriminant) {
+          selectedIndex = index;
+          break;
+        }
+      }
+      if (!uncertain) selectedIndex ??= defaultIndex;
+      if (selectedIndex !== undefined) {
+        for (const clause of node.caseBlock.clauses.slice(selectedIndex)) {
+          const completion = withScope(() => visitStatements(clause.statements));
+          if (completion?.kind === 'break' && !completion.label) return;
+          if (completion && completion.kind !== 'normal') return completion;
+        }
+        return;
+      }
+      if (!uncertain) return;
+
+      const callStart = calls.length;
+      weakHeapUpdateDepth += 1;
+      try {
+        for (const clause of node.caseBlock.clauses) {
+          const completion = withScope(() => visitStatements(clause.statements));
+          if (completion?.kind === 'return' || completion?.kind === 'throw') break;
+        }
+      } finally {
+        weakHeapUpdateDepth -= 1;
+      }
+      const branchCalls = calls.splice(callStart);
+      const executableBranchCalls = branchCalls.filter((call) =>
+        (call.method === 'from' || call.method === 'rpc') &&
+        (call.unsupported !== undefined || call.target === 'contract_hours_ledger' ||
+         call.targets?.includes('contract_hours_ledger') || call.target === undefined)
+      );
+      calls.push(...branchCalls.filter((call) => !executableBranchCalls.includes(call)));
+      if (executableBranchCalls.length > 0) {
+        calls.push({
+          method: 'unknown', unsupported: 'dynamic callable name',
+          expression: node.expression.getText(sf), position: node.pos,
+        });
+      }
+      return;
+    }
     if (ts.isLabeledStatement(node)) {
       const completion = visit(node.statement);
       return completion?.kind === 'break' && completion.label === node.label.text
@@ -3108,20 +3461,61 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         let uncertain = false;
         if (node.expression.name.text === 'defineProperty') {
           const keys = resolveValue(node.arguments[1]);
-          const descriptor = resolveValue(node.arguments[2]);
+          const conversion = convertPropertyDescriptor(resolveValue(node.arguments[2]));
           const names = [...keys.strings, ...[...keys.numbers].map(String)];
           if (keys.external || names.length === 0) {
             uncertain = true;
-            const descriptorValue = readAbstractProperty(descriptor, 'value') ?? valueOf();
+            const descriptorValue = readAbstractProperty(conversion.descriptor, 'value') ?? valueOf();
             invalidateSequence(target, [descriptorValue]);
           }
-          else names.forEach((name) => { success &&= applyPropertyDescriptor(target, name, descriptor); });
+          else if (!conversion.valid || conversion.abrupt) success = false;
+          else if (conversion.uncertain) {
+            uncertain = true;
+            for (const name of names) {
+              setDataDescriptor(target, name, valueOf({
+                external: true, callableCandidate: true,
+              }));
+            }
+          }
+          else names.forEach((name) => {
+            if (success) success = applyPropertyDescriptor(target, name, conversion.descriptor);
+          });
         } else {
           const descriptors = resolveValue(node.arguments[1]);
+          const converted: Array<{ name: string; descriptor: AbstractValue }> = [];
+          if (descriptors.external || !descriptors.exactShape) {
+            uncertain = true;
+            for (const name of descriptorNames(target)) {
+              const current = ownDescriptor(target, name);
+              if (current?.kind === 'data') {
+                const unknown = valueOf({ external: true, callableCandidate: true });
+                current.value = unknown;
+                target.properties.set(name, unknown);
+              }
+            }
+          }
           for (const name of descriptorNames(descriptors)) {
-            const descriptor = readAbstractProperty(descriptors, name);
-            if (!descriptor) success = false;
-            else success &&= applyPropertyDescriptor(target, name, descriptor);
+            if (!ownDescriptor(descriptors, name)?.enumerable) continue;
+            const descriptor = readAbstractProperty(descriptors, name, descriptors);
+            if (!descriptor || descriptor.alwaysThrows) {
+              success = false;
+              break;
+            }
+            const conversion = convertPropertyDescriptor(descriptor);
+            if (!conversion.valid || conversion.abrupt) {
+              success = false;
+              break;
+            }
+            uncertain ||= conversion.uncertain;
+            converted.push({ name, descriptor: conversion.descriptor });
+          }
+          if (success && !uncertain) {
+            for (const entry of converted) {
+              if (!applyPropertyDescriptor(target, entry.name, entry.descriptor)) {
+                success = false;
+                break;
+              }
+            }
           }
         }
         const result = success || uncertain ? target : valueOf({ alwaysThrows: true });
@@ -3133,13 +3527,35 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       if (ts.isPropertyAccessExpression(node.expression) &&
           ts.isIdentifier(node.expression.expression) &&
           node.expression.expression.text === 'Reflect' &&
+          ['get', 'getOwnPropertyDescriptor', 'getPrototypeOf']
+            .includes(node.expression.name.text)) {
+        const result = resolveValue(node);
+        if (functionStack.length === 0) topLevelExpressionResults.set(node, result);
+        node.arguments.forEach(visit);
+        if (result.alwaysThrows) return { kind: 'throw', value: result };
+        return;
+      }
+      if (ts.isPropertyAccessExpression(node.expression) &&
+          ts.isIdentifier(node.expression.expression) &&
+          node.expression.expression.text === 'Object' &&
+          ['getOwnPropertyDescriptor', 'getOwnPropertyDescriptors', 'getPrototypeOf']
+            .includes(node.expression.name.text)) {
+        const result = resolveValue(node);
+        if (functionStack.length === 0) topLevelExpressionResults.set(node, result);
+        node.arguments.forEach(visit);
+        return;
+      }
+      if (ts.isPropertyAccessExpression(node.expression) &&
+          ts.isIdentifier(node.expression.expression) &&
+          node.expression.expression.text === 'Reflect' &&
           ['set', 'defineProperty', 'deleteProperty', 'setPrototypeOf']
             .includes(node.expression.name.text)) {
         const target = resolveValue(node.arguments[0]);
         let success = true;
         if (node.expression.name.text === 'set') {
           success = !writeAbstractProperty(target, resolveValue(node.arguments[1]),
-            resolveValue(node.arguments[2]));
+            resolveValue(node.arguments[2]),
+            node.arguments[3] ? resolveValue(node.arguments[3]) : target);
         } else if (node.expression.name.text === 'deleteProperty') {
           success = !deleteAbstractProperty(target, resolveValue(node.arguments[1]));
         } else if (node.expression.name.text === 'setPrototypeOf') {
@@ -3148,10 +3564,13 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           } else target.prototype = resolveValue(node.arguments[1]);
         } else {
           const keys = resolveValue(node.arguments[1]);
-          const descriptor = resolveValue(node.arguments[2]);
+          const conversion = convertPropertyDescriptor(resolveValue(node.arguments[2]));
           const names = [...keys.strings, ...[...keys.numbers].map(String)];
-          success = !keys.external && names.length > 0;
-          names.forEach((name) => { success &&= applyPropertyDescriptor(target, name, descriptor); });
+          success = !keys.external && names.length > 0 && conversion.valid &&
+            !conversion.abrupt && !conversion.uncertain;
+          names.forEach((name) => {
+            if (success) success = applyPropertyDescriptor(target, name, conversion.descriptor);
+          });
         }
         const result = valueOf({ primitives: new Set([success ? 'true' : 'false']) });
         if (functionStack.length === 0) topLevelExpressionResults.set(node, result);
@@ -3162,8 +3581,14 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           ts.isIdentifier(node.expression.expression) &&
           node.expression.expression.text === 'Object' &&
           ['setPrototypeOf', 'create'].includes(node.expression.name.text)) {
-        const target = node.expression.name.text === 'create'
-          ? valueOf({ exactShape: true }) : resolveValue(node.arguments[0]);
+        if (node.expression.name.text === 'create') {
+          const result = resolveValue(node);
+          if (functionStack.length === 0) topLevelExpressionResults.set(node, result);
+          node.arguments.forEach(visit);
+          if (result.alwaysThrows) return { kind: 'throw', value: result };
+          return;
+        }
+        const target = resolveValue(node.arguments[0]);
         const prototype = resolveValue(node.arguments[
           node.expression.name.text === 'create' ? 0 : 1
         ]);
@@ -3207,8 +3632,11 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
             });
           }
         }
+        let callbackThrows = false;
         for (const target of callback.functions) {
-          invokeFunction(target, parameterValues(target, callbackArguments));
+          callbackThrows ||= invokeFunction(
+            target, parameterValues(target, callbackArguments)
+          ).alwaysThrows;
         }
         if (callback.external && callback.callableCandidate) {
           calls.push({
@@ -3218,6 +3646,9 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           });
         }
         node.arguments.slice(1).forEach(visit);
+        if (callbackThrows) {
+          return { kind: 'throw', value: valueOf({ alwaysThrows: true }) };
+        }
         return;
       }
 
@@ -6601,6 +7032,390 @@ describe('contract_hours_ledger production consumer inventory', () => {
     } finally {
       rmSync(fixtureRoot, { recursive: true, force: true });
     }
+  });
+
+  it('matches the Round 20 explicit Reflect receiver runtime oracle', () => {
+    const analyze = (source: string): { exact: number; unsupported: number } => {
+      const discovered = discoverSupabaseCalls(source);
+      return {
+        exact: discovered.filter((call) => call.method === 'from' &&
+          call.target === 'contract_hours_ledger').length,
+        unsupported: discovered.filter((call) => call.unsupported).length,
+      };
+    };
+    const runtime = (source: string): { calls: number; thrown?: string } => {
+      let calls = 0;
+      const client = { from(target: string) {
+        if (target === 'contract_hours_ledger') calls += 1;
+        return this;
+      } };
+      try {
+        (new Function('client', source) as (value: typeof client) => void)(client);
+        return { calls };
+      } catch (error) {
+        return { calls, thrown: error instanceof Error ? error.name : String(error) };
+      }
+    };
+    const cases = [
+      `const proto = {};
+       Object.defineProperty(proto, 'x', {
+         set(value) { this.fn = value; },
+       });
+       const receiver = {};
+       Reflect.set(proto, 'x', client.from, receiver);
+       receiver.fn('contract_hours_ledger');`,
+      `const proto = {
+         get x() { return this.fn; },
+       };
+       const receiver = { fn: client.from };
+       Reflect.get(proto, 'x', receiver)('contract_hours_ledger');`,
+    ];
+    for (const source of cases) {
+      expect.soft(runtime(source), source).toEqual({ calls: 1 });
+      expect.soft(analyze(source), source).toEqual({ exact: 1, unsupported: 0 });
+    }
+  });
+
+  it('prevalidates Round 20 defineProperties descriptors before mutation', () => {
+    const source = `const noop = () => {};
+      const target = { a: noop };
+      try {
+        Object.defineProperties(target, {
+          a: { value: client.from },
+          bad: { get() {}, value: 0 },
+        });
+      } catch {}
+      target.a('contract_hours_ledger');`;
+    let calls = 0;
+    const client = { from(target: string) {
+      if (target === 'contract_hours_ledger') calls += 1;
+      return this;
+    } };
+    (new Function('client', source) as (value: typeof client) => void)(client);
+    expect(calls).toBe(0);
+    expect(discoverSupabaseCalls(source).filter((call) => call.method === 'from' &&
+      call.target === 'contract_hours_ledger')).toHaveLength(0);
+    expect(discoverSupabaseCalls(source).filter((call) => call.unsupported)).toEqual([]);
+  });
+
+  it('routes Round 20 descriptor and prototype inspection through the shared heap', () => {
+    const analyze = (source: string): { exact: number; unsupported: number } => {
+      const discovered = discoverSupabaseCalls(source);
+      return {
+        exact: discovered.filter((call) => call.method === 'from' &&
+          call.target === 'contract_hours_ledger').length,
+        unsupported: discovered.filter((call) => call.unsupported).length,
+      };
+    };
+    const cases = [
+      `const object = Object.create(null, {
+         fn: { value: client.from },
+       });
+       object.fn('contract_hours_ledger');`,
+      `const object = { fn: client.from };
+       Object.getOwnPropertyDescriptor(object, 'fn')
+         .value('contract_hours_ledger');`,
+      `const prototype = { fn: client.from };
+       const object = Object.create(prototype);
+       Object.getPrototypeOf(object).fn('contract_hours_ledger');`,
+    ];
+    for (const source of cases) {
+      expect.soft(analyze(source), source).toEqual({ exact: 1, unsupported: 0 });
+    }
+  });
+
+  it('preserves Round 20 indexed and length descriptor mutator failures', () => {
+    const analyze = (source: string): { exact: number; unsupported: number } => {
+      const discovered = discoverSupabaseCalls(source);
+      return {
+        exact: discovered.filter((call) => call.method === 'from' &&
+          call.target === 'contract_hours_ledger').length,
+        unsupported: discovered.filter((call) => call.unsupported).length,
+      };
+    };
+    const runtime = (source: string): { calls: number; thrown?: string } => {
+      let calls = 0;
+      const client = { from(target: string) {
+        if (target === 'contract_hours_ledger') calls += 1;
+        return this;
+      } };
+      try {
+        (new Function('client', source) as (value: typeof client) => void)(client);
+        return { calls };
+      } catch (error) {
+        return { calls, thrown: error instanceof Error ? error.name : String(error) };
+      }
+    };
+    const cases = [
+      `const noop = () => {};
+       const values = [noop, client.from];
+       Object.defineProperty(values, '0', { writable: false });
+       try { values.reverse(); } catch {}
+       values[0]('contract_hours_ledger');`,
+      `const values = [];
+       Object.defineProperty(values, 'length', { writable: false });
+       try { values.push(client.from); } catch {}
+       if (values[0]) values[0]('contract_hours_ledger');`,
+    ];
+    for (const source of cases) {
+      expect.soft(runtime(source), source).toEqual({ calls: 0 });
+      expect.soft(analyze(source), source).toEqual({ exact: 0, unsupported: 0 });
+    }
+  });
+
+  it('propagates Round 20 switch and call-driven module completions', () => {
+    const switchSource = `switch (1) {
+      case 0:
+        client.from('contract_hours_ledger');
+        break;
+      case 1:
+        break;
+    }`;
+    expect.soft(discoverSupabaseCalls(switchSource).filter((call) => call.method === 'from' &&
+      call.target === 'contract_hours_ledger')).toHaveLength(0);
+
+    const fixtureRoot = mkdtempSync(join(ROOT, '.z7-r20-call-throw-'));
+    const importer = join(fixtureRoot, 'consumer.cjs');
+    try {
+      writeFileSync(join(fixtureRoot, 'abrupt.cjs'), `
+        const { createClient } = require('@supabase/supabase-js');
+        const makeDatabase = () => createClient(
+          'http://127.0.0.1:54321', 'synthetic-key'
+        );
+        module.exports = { makeDatabase: () => null };
+        function stop() { throw new Error('synthetic module failure'); }
+        stop();
+        module.exports.makeDatabase = makeDatabase;
+      `);
+      const source = `try {
+        const api = require('./abrupt');
+        api.makeDatabase().from('contract_hours_ledger');
+      } catch {}`;
+      const discovered = discoverSupabaseCalls(source, importer);
+      expect.soft(discovered.filter((call) => call.method === 'from' &&
+        call.target === 'contract_hours_ledger')).toHaveLength(0);
+      expect.soft(discovered.filter((call) => call.unsupported)).toEqual([]);
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('composes Round 20 receivers, inspection, and descriptor conversion', () => {
+    const analyze = (source: string): { exact: number; unsupported: number } => {
+      const discovered = discoverSupabaseCalls(source);
+      return {
+        exact: discovered.filter((call) => call.method === 'from' &&
+          call.target === 'contract_hours_ledger').length,
+        unsupported: discovered.filter((call) => call.unsupported).length,
+      };
+    };
+    const exactCases = [
+      `const prototype = { fn: () => {} };
+       const receiver = {};
+       Reflect.set(prototype, 'fn', client.from, receiver);
+       receiver.fn('contract_hours_ledger');`,
+      `const root = { get fn() { return this.factory; } };
+       const middle = Object.create(root);
+       const receiver = { factory: client.from };
+       Reflect.get(middle, 'fn', receiver)('contract_hours_ledger');`,
+      `const object = { fn: client.from };
+       const descriptor = Object.getOwnPropertyDescriptor(object, 'fn');
+       descriptor.value = () => {};
+       object.fn('contract_hours_ledger');`,
+      `const object = { fn: client.from };
+       Object.getOwnPropertyDescriptors(object).fn.value(
+         'contract_hours_ledger'
+       );`,
+      `const object = Object.create(null, {
+         factory: { value: client.from },
+         fn: { get() { return this.factory; } },
+       });
+       object.fn('contract_hours_ledger');`,
+      `const object = { fn: client.from };
+       Reflect.getOwnPropertyDescriptor(object, 'fn').value(
+         'contract_hours_ledger'
+       );`,
+      `const noop = () => {};
+       const target = { a: noop };
+       Object.defineProperty(target, 'locked', {
+         value: noop, configurable: false,
+       });
+       try {
+         Object.defineProperties(target, {
+           a: { value: client.from },
+           locked: { value: client.from },
+         });
+       } catch {}
+       target.a('contract_hours_ledger');`,
+    ];
+    exactCases.forEach((source) => {
+      expect.soft(analyze(source), source).toEqual({ exact: 1, unsupported: 0 });
+    });
+
+    const inertCases = [
+      `const noop = () => {};
+       const target = { fn: client.from };
+       const receiver = {};
+       Object.defineProperty(receiver, 'fn', { value: noop });
+       const success = Reflect.set(target, 'fn', client.from, receiver);
+       if (success) receiver.fn('contract_hours_ledger');`,
+      `const object = {};
+       const descriptor = Object.getOwnPropertyDescriptor(object, 'missing');
+       if (descriptor) descriptor.value('contract_hours_ledger');`,
+      `const noop = () => {};
+       const target = { a: noop };
+       const descriptors = { a: { value: client.from } };
+       Object.defineProperty(descriptors, 'bad', {
+         enumerable: true,
+         get() { throw new Error('synthetic conversion failure'); },
+       });
+       try { Object.defineProperties(target, descriptors); } catch {}
+       target.a('contract_hours_ledger');`,
+      `const noop = () => {};
+       const target = { a: noop };
+       const descriptors = {};
+       Object.defineProperty(descriptors, 'a', {
+         value: { value: client.from }, enumerable: false,
+       });
+       Object.defineProperties(target, descriptors);
+       target.a('contract_hours_ledger');`,
+    ];
+    inertCases.forEach((source) => {
+      expect.soft(analyze(source), source).toEqual({ exact: 0, unsupported: 0 });
+    });
+
+    const dynamicCases = [
+      `Reflect.get(externalProxy, externalKey, externalReceiver)(
+         'contract_hours_ledger'
+       );`,
+      `const target = { a: () => {} };
+       try { Object.defineProperties(target, externalDescriptors); } catch {}
+       target.a('contract_hours_ledger');`,
+      `Object.getOwnPropertyDescriptor(externalProxy, externalKey)
+         .value('contract_hours_ledger');`,
+    ];
+    dynamicCases.forEach((source) => {
+      expect.soft(analyze(source), source).toEqual({ exact: 0, unsupported: 1 });
+    });
+  });
+
+  it('matches descriptor-aware partial effects for every Round 20 mutator', () => {
+    const analyze = (source: string): { exact: number; unsupported: number } => {
+      const discovered = discoverSupabaseCalls(source);
+      return {
+        exact: discovered.filter((call) => call.method === 'from' &&
+          call.target === 'contract_hours_ledger').length,
+        unsupported: discovered.filter((call) => call.unsupported).length,
+      };
+    };
+    const runtime = (source: string): { exact: number; thrown?: string } => {
+      let exact = 0;
+      const client = { from(target: string) {
+        if (target === 'contract_hours_ledger') exact += 1;
+        return this;
+      } };
+      try {
+        (new Function('client', source) as (value: typeof client) => void)(client);
+        return { exact };
+      } catch (error) {
+        return { exact, thrown: error instanceof Error ? error.name : String(error) };
+      }
+    };
+    const cases: Record<SequenceMutationName, string> = {
+      push: `const values = [];
+        Object.defineProperty(values, 'length', { writable: false });
+        try { values.push(client.from); } catch {}
+        if (values[0]) values[0]('contract_hours_ledger');`,
+      pop: `const values = [() => {}, client.from];
+        Object.defineProperty(values, '1', { configurable: false });
+        try { values.pop(); } catch {}
+        values[1]('contract_hours_ledger');`,
+      shift: `const values = [() => {}, client.from];
+        Object.defineProperty(values, '0', { writable: false });
+        try { values.shift(); } catch {}
+        values[0]('contract_hours_ledger');`,
+      unshift: `const values = [() => {}];
+        Object.defineProperty(values, '0', { writable: false });
+        try { values.unshift(client.from); } catch {}
+        values[0]('contract_hours_ledger');`,
+      splice: `const values = [() => {}, client.from];
+        Object.defineProperty(values, '0', { writable: false });
+        try { values.splice(0, 1); } catch {}
+        values[0]('contract_hours_ledger');`,
+      reverse: `const values = [() => {}, client.from];
+        Object.defineProperty(values, '0', { writable: false });
+        try { values.reverse(); } catch {}
+        values[0]('contract_hours_ledger');`,
+      fill: `const values = [() => {}, client.from];
+        Object.defineProperty(values, '0', { writable: false });
+        try { values.fill(client.from); } catch {}
+        values[0]('contract_hours_ledger');`,
+      copyWithin: `const values = [() => {}, client.from];
+        Object.defineProperty(values, '0', { writable: false });
+        try { values.copyWithin(0, 1); } catch {}
+        values[0]('contract_hours_ledger');`,
+      sort: `const values = [client.from, () => {}];
+        Object.defineProperty(values, '0', { writable: false });
+        try { values.sort(); } catch {}
+        values[0]('contract_hours_ledger');`,
+    };
+    for (const [method, source] of Object.entries(cases)) {
+      const observed = runtime(source);
+      expect.soft(observed.thrown, `${method}/runtime`).toBeUndefined();
+      expect.soft(analyze(source), `${method}/analysis`).toEqual({
+        exact: observed.exact, unsupported: 0,
+      });
+    }
+  });
+
+  it('composes Round 20 switch, callback, and ambiguity completions', () => {
+    const analyze = (source: string): { exact: number; unsupported: number } => {
+      const discovered = discoverSupabaseCalls(source);
+      return {
+        exact: discovered.filter((call) => call.method === 'from' &&
+          call.target === 'contract_hours_ledger').length,
+        unsupported: discovered.filter((call) => call.unsupported).length,
+      };
+    };
+    const exactCases = [
+      `switch (1) {
+         case 1:
+           const marker = true;
+         case 2:
+           client.from('contract_hours_ledger');
+           break;
+       }`,
+      `switch (3) {
+         case 1: break;
+         default: client.from('contract_hours_ledger');
+       }`,
+      `try {
+         [0].forEach(() => { throw new Error('synthetic callback failure'); });
+       } catch {}
+       client.from('contract_hours_ledger');`,
+      `function stop() { throw new Error('synthetic'); }
+       try { stop(); }
+       finally { client.from('contract_hours_ledger'); }`,
+    ];
+    exactCases.forEach((source) => {
+      expect.soft(analyze(source), source).toEqual({ exact: 1, unsupported: 0 });
+    });
+    const inertCases = [
+      `switch (3) {
+         case 1: client.from('contract_hours_ledger'); break;
+         case 2: break;
+       }`,
+      `[0].forEach(() => { throw new Error('synthetic callback failure'); });
+       client.from('contract_hours_ledger');`,
+    ];
+    inertCases.forEach((source) => {
+      expect.soft(analyze(source), source).toEqual({ exact: 0, unsupported: 0 });
+    });
+    const dynamic = `switch (externalDiscriminant) {
+      case 0: client.from('contract_hours_ledger'); break;
+      default: break;
+    }`;
+    expect(analyze(dynamic)).toEqual({ exact: 0, unsupported: 1 });
   });
 
   it('classifies composite ledger rows and column-opaque ledger DML', () => {

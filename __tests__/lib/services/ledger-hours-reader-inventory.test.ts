@@ -58,6 +58,9 @@ interface AbstractValue {
   external: boolean;
   callableCandidate: boolean;
   functions: Set<ts.FunctionLikeDeclaration>;
+  boundArguments?: AbstractValue[];
+  adapter?: 'call' | 'apply' | 'reflectApply';
+  adapterCallable?: AbstractValue;
 }
 
 function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
@@ -69,6 +72,9 @@ function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
     external: partial.external ?? false,
     callableCandidate: partial.callableCandidate ?? false,
     functions: partial.functions ?? new Set(),
+    boundArguments: partial.boundArguments,
+    adapter: partial.adapter,
+    adapterCallable: partial.adapterCallable,
   };
 }
 
@@ -90,6 +96,26 @@ function unionValues(...values: AbstractValue[]): AbstractValue {
     }
     result.external ||= value.external;
     result.callableCandidate ||= value.callableCandidate;
+    if (value.boundArguments) {
+      result.boundArguments = value.boundArguments.map((entry, index) =>
+        result.boundArguments?.[index]
+          ? unionValues(result.boundArguments[index], entry)
+          : entry
+      );
+    }
+    if (value.adapter) {
+      if (result.adapter && result.adapter !== value.adapter) {
+        result.external = true;
+        result.callableCandidate = true;
+        result.adapter = undefined;
+        result.adapterCallable = undefined;
+      } else {
+        result.adapter = value.adapter;
+        result.adapterCallable = result.adapterCallable && value.adapterCallable
+          ? unionValues(result.adapterCallable, value.adapterCallable)
+          : result.adapterCallable ?? value.adapterCallable;
+      }
+    }
   }
   return result;
 }
@@ -110,6 +136,9 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   const knownCallableAliases = new Set<string>();
   const activeFunctions = new Set<ts.FunctionLikeDeclaration>();
   const functionInputs = new Map<ts.FunctionLikeDeclaration, AbstractValue[]>();
+  const functionOutputs = new Map<ts.FunctionLikeDeclaration, AbstractValue>();
+  const functionClosures = new Map<ts.FunctionLikeDeclaration, Map<string, AbstractValue>>();
+  const functionStack: ts.FunctionLikeDeclaration[] = [];
 
   function binding(name: string): AbstractValue | undefined {
     for (let index = scopes.length - 1; index >= 0; index -= 1) {
@@ -135,6 +164,13 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     }
     if (ts.isIdentifier(node)) return binding(node.text) ?? valueOf({ external: true });
     if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
+      const captured = functionClosures.get(node) ?? new Map<string, AbstractValue>();
+      for (const scope of scopes) {
+        for (const [name, value] of scope) {
+          captured.set(name, captured.has(name) ? unionValues(captured.get(name)!, value) : value);
+        }
+      }
+      functionClosures.set(node, captured);
       return valueOf({ functions: new Set([node]) });
     }
     if (ts.isConditionalExpression(node)) {
@@ -174,8 +210,38 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         node.expression.expression.text === 'Object' && node.expression.name.text === 'assign') {
       return resolveValue(node.arguments[0]);
     }
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) &&
+        node.expression.name.text === 'bind') {
+      const callable = resolveValue(node.expression.expression);
+      return unionValues(callable, valueOf({
+        callableCandidate: callable.callableCandidate,
+        boundArguments: node.arguments.slice(1).map((argument) => resolveValue(argument)),
+      }));
+    }
+    if (ts.isCallExpression(node)) {
+      const callable = resolveValue(node.expression);
+      const outputs = [...callable.functions].map((target) =>
+        invokeFunction(target, callArgumentValues(target, node.arguments))
+      );
+      if (outputs.length > 0) return unionValues(...outputs);
+    }
     if (ts.isPropertyAccessExpression(node)) {
       const property = node.name.text;
+      if (property === 'apply' && ts.isIdentifier(node.expression) &&
+          node.expression.text === 'Reflect') {
+        return valueOf({ adapter: 'reflectApply', callableCandidate: true });
+      }
+      if (property === 'call' || property === 'apply') {
+        const base = resolveValue(node.expression);
+        const stored = base.properties.get(property);
+        if (stored) return stored;
+        return valueOf({
+          adapter: property,
+          adapterCallable: base,
+          callableCandidate: base.callableCandidate,
+          external: base.external,
+        });
+      }
       if (property === 'from' || property === 'rpc') {
         if (receiverExcluded(node.expression)) return valueOf();
         return valueOf({ methods: new Set([property]), callableCandidate: true });
@@ -333,6 +399,10 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       strings: [...value.strings].sort(), methods: [...value.methods].sort(),
       external: value.external, callable: value.callableCandidate,
       functions: [...value.functions].map((entry) => entry.pos).sort((a, b) => a - b),
+      boundArguments: value.boundArguments?.map((entry) => valueFingerprint(entry, seen)) ?? null,
+      adapter: value.adapter ?? null,
+      adapterCallable: value.adapterCallable
+        ? valueFingerprint(value.adapterCallable, seen) : null,
       properties, elements: value.elements ? valueFingerprint(value.elements, seen) : null,
     });
     seen.delete(value);
@@ -367,6 +437,29 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     });
   }
 
+  function callArgumentValues(
+    target: ts.FunctionLikeDeclaration,
+    args: ts.NodeArray<ts.Expression>
+  ): AbstractValue[] {
+    return callArguments(target, args);
+  }
+
+  function parameterValues(
+    target: ts.FunctionLikeDeclaration,
+    expanded: AbstractValue[]
+  ): AbstractValue[] {
+    return target.parameters.map((parameter, index) => {
+      if (parameter.dotDotDotToken) {
+        return valueOf({
+          elements: unionValues(...expanded.slice(index)),
+          external: expanded.slice(index).some((entry) => entry.external),
+        });
+      }
+      return expanded[index] ?? (parameter.initializer
+        ? resolveValue(parameter.initializer) : valueOf());
+    });
+  }
+
   function mergeFunctionInputs(
     target: ts.FunctionLikeDeclaration,
     values: AbstractValue[]
@@ -382,20 +475,30 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     return changed;
   }
 
-  function invokeFunction(target: ts.FunctionLikeDeclaration, values: AbstractValue[]): void {
+  function invokeFunction(
+    target: ts.FunctionLikeDeclaration,
+    values: AbstractValue[]
+  ): AbstractValue {
     mergeFunctionInputs(target, values);
-    if (activeFunctions.has(target)) return;
+    if (activeFunctions.has(target)) return functionOutputs.get(target) ?? valueOf();
     let iterations = 0;
     let before: string;
     do {
       before = (functionInputs.get(target) ?? []).map((entry) => valueFingerprint(entry)).join('|');
       withScope(() => {
+        for (const [name, value] of functionClosures.get(target) ?? []) {
+          scopes[scopes.length - 1].set(name, value);
+        }
         const inputs = functionInputs.get(target) ?? [];
         target.parameters.forEach((parameter, index) =>
           declareName(parameter.name, parameter.initializer, inputs[index])
         );
         activeFunctions.add(target);
-        try { if (target.body) visit(target.body); } finally { activeFunctions.delete(target); }
+        functionStack.push(target);
+        try { if (target.body) visit(target.body); } finally {
+          functionStack.pop();
+          activeFunctions.delete(target);
+        }
       });
       iterations += 1;
       if (iterations > 32) {
@@ -407,6 +510,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       }
     } while (before !== (functionInputs.get(target) ?? [])
       .map((entry) => valueFingerprint(entry)).join('|'));
+    return functionOutputs.get(target) ?? valueOf();
   }
 
   function visitStatements(statements: ts.NodeArray<ts.Statement>): void {
@@ -438,6 +542,17 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     }
     if (ts.isFunctionLike(node)) {
       invokeFunction(node, node.parameters.map(() => valueOf()));
+      return;
+    }
+    if (ts.isReturnStatement(node)) {
+      const target = functionStack.at(-1);
+      if (target && node.expression) {
+        const output = resolveValue(node.expression);
+        functionOutputs.set(target, functionOutputs.has(target)
+          ? unionValues(functionOutputs.get(target)!, output)
+          : output);
+        visit(node.expression);
+      }
       return;
     }
     if (ts.isForOfStatement(node)) {
@@ -544,12 +659,105 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         return;
       }
 
-      let callable = resolveValue(node.expression);
-      let receiver: ts.Expression | undefined;
+      // `bind` creates a callable value; the eventual invocation is where its
+      // bound and live arguments are classified. Visiting it as an ordinary call
+      // would incorrectly treat Function.prototype.bind as an unknown database method.
       if (ts.isPropertyAccessExpression(node.expression) &&
+          node.expression.name.text === 'bind') {
+        node.arguments.forEach(visit);
+        return;
+      }
+
+      let callable: AbstractValue;
+      let receiver: ts.Expression | undefined;
+      let invocationArguments = node.arguments.map((argument) => {
+        if (!ts.isSpreadElement(argument)) return resolveValue(argument);
+        const spread = resolveValue(argument.expression);
+        return unionValues(spread.elements ?? valueOf(),
+          valueOf({ external: spread.external || !spread.elements }));
+      });
+      let targetExpression = node.arguments[0]?.getText(sf) ?? '<missing>';
+      let adapter = false;
+
+      if (ts.isPropertyAccessExpression(node.expression) &&
+          ts.isIdentifier(node.expression.expression) &&
+          node.expression.expression.text === 'Reflect' &&
+          node.expression.name.text === 'apply') {
+        adapter = true;
+        callable = resolveValue(node.arguments[0]);
+        const applied = resolveValue(node.arguments[2]);
+        invocationArguments = [unionValues(
+          applied.elements ?? valueOf(),
+          valueOf({ external: applied.external || !applied.elements })
+        )];
+        targetExpression = node.arguments[2]?.getText(sf) ?? '<missing Reflect.apply arguments>';
+      } else if (ts.isPropertyAccessExpression(node.expression) &&
+          (node.expression.name.text === 'call' || node.expression.name.text === 'apply')) {
+        const base = resolveValue(node.expression.expression);
+        const stored = base.properties.get(node.expression.name.text);
+        if (stored) {
+          callable = stored;
+        } else {
+          adapter = true;
+          callable = base;
+          if (node.expression.name.text === 'call') {
+            invocationArguments = invocationArguments.slice(1);
+            targetExpression = node.arguments[1]?.getText(sf) ?? '<missing>';
+          } else {
+            const applied = resolveValue(node.arguments[1]);
+            invocationArguments = [unionValues(
+              applied.elements ?? valueOf(),
+              valueOf({ external: applied.external || !applied.elements })
+            )];
+            targetExpression = node.arguments[1]?.getText(sf) ?? '<missing apply arguments>';
+          }
+        }
+      } else {
+        callable = resolveValue(node.expression);
+      }
+
+      // The adapter itself may have been extracted, stored, returned, or passed
+      // through another lexical scope before invocation.
+      if (!adapter && callable.adapter) {
+        adapter = true;
+        if (callable.adapter === 'reflectApply') {
+          const reflectedCallable = invocationArguments[0] ?? valueOf({
+            external: true, callableCandidate: true,
+          });
+          const applied = invocationArguments[2] ?? valueOf({ external: true });
+          callable = reflectedCallable;
+          invocationArguments = [unionValues(
+            applied.elements ?? valueOf(),
+            valueOf({ external: applied.external || !applied.elements })
+          )];
+          targetExpression = node.arguments[2]?.getText(sf) ?? '<missing Reflect.apply arguments>';
+        } else {
+          const adapterKind = callable.adapter;
+          callable = callable.adapterCallable ?? valueOf({
+            external: true, callableCandidate: true,
+          });
+          if (adapterKind === 'call') {
+            invocationArguments = invocationArguments.slice(1);
+            targetExpression = node.arguments[1]?.getText(sf) ?? '<missing>';
+          } else {
+            const applied = invocationArguments[1] ?? valueOf({ external: true });
+            invocationArguments = [unionValues(
+              applied.elements ?? valueOf(),
+              valueOf({ external: applied.external || !applied.elements })
+            )];
+            targetExpression = node.arguments[1]?.getText(sf) ?? '<missing apply arguments>';
+          }
+        }
+      }
+
+      if (callable.boundArguments) {
+        invocationArguments = [...callable.boundArguments, ...invocationArguments];
+      }
+
+      if (!adapter && ts.isPropertyAccessExpression(node.expression) &&
           (node.expression.name.text === 'from' || node.expression.name.text === 'rpc')) {
         receiver = node.expression.expression;
-      } else if (ts.isElementAccessExpression(node.expression)) {
+      } else if (!adapter && ts.isElementAccessExpression(node.expression)) {
         receiver = node.expression.expression;
         const names = resolveValue(node.expression.argumentExpression);
         const dbMethods = [...names.strings].filter((name) => name === 'from' || name === 'rpc');
@@ -568,7 +776,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           });
         }
       }
-      if (callable.callableCandidate && callable.external &&
+      if (callable.callableCandidate && callable.external && !adapter &&
           !ts.isElementAccessExpression(node.expression)) {
         calls.push({
           method: 'unknown',
@@ -578,7 +786,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         });
       }
       if (callable.external && !callable.callableCandidate) {
-        const possibleTarget = resolveValue(node.arguments[0]);
+        const possibleTarget = invocationArguments[0] ?? valueOf();
         if (possibleTarget.strings.has('contract_hours_ledger')) {
           calls.push({
             method: 'unknown', unsupported: 'dynamic callable name',
@@ -587,13 +795,13 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         }
       }
       if (callable.methods.size > 0 && (!receiver || !receiverExcluded(receiver))) {
-        const targetValue = resolveValue(node.arguments[0]);
+        const targetValue = invocationArguments[0] ?? valueOf({ external: true });
         for (const method of callable.methods) {
           if (targetValue.external || targetValue.strings.size === 0) {
             calls.push({
               method,
               unsupported: 'dynamic target',
-              expression: node.arguments[0]?.getText(sf) ?? '<missing>',
+              expression: targetExpression,
               position: node.pos,
             });
           } else if (targetValue.strings.size === 1) {
@@ -602,7 +810,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
             calls.push({
               method,
               targets: [...targetValue.strings].sort(),
-              expression: node.arguments[0]?.getText(sf) ?? '<missing>',
+              expression: targetExpression,
               dynamicKind: 'target',
               dynamicValues: [...targetValue.strings].sort(),
               position: node.pos,
@@ -611,7 +819,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         }
       }
       for (const target of callable.functions) {
-        invokeFunction(target, callArguments(target, node.arguments));
+        invokeFunction(target, parameterValues(target, invocationArguments));
       }
     }
     ts.forEachChild(node, visit);
@@ -687,6 +895,46 @@ function ledgerInsertShapes(source: string, file = 'probe.ts'): string[][] {
   return shapes;
 }
 
+function ledgerUpdateShapes(source: string, file = 'probe.ts'): string[][] {
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true,
+    file.endsWith('.jsx') ? ts.ScriptKind.JSX
+      : file.endsWith('.js') ? ts.ScriptKind.JS
+        : file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const shapes: string[][] = [];
+
+  function chainTargetsLedger(expression: ts.Expression): boolean {
+    if (!ts.isCallExpression(expression) || !ts.isPropertyAccessExpression(expression.expression)) {
+      return false;
+    }
+    if (expression.expression.name.text === 'from') {
+      return expression.arguments.length === 1 &&
+        ts.isStringLiteralLike(expression.arguments[0]) &&
+        expression.arguments[0].text === 'contract_hours_ledger';
+    }
+    return chainTargetsLedger(expression.expression.expression);
+  }
+
+  function visit(node: ts.Node): void {
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) &&
+        node.expression.name.text === 'update' && chainTargetsLedger(node.expression.expression)) {
+      const value = node.arguments[0];
+      if (!value || !ts.isObjectLiteralExpression(value) ||
+          value.properties.some((property) => !ts.isPropertyAssignment(property) &&
+            !ts.isShorthandPropertyAssignment(property))) {
+        throw new Error(`${file}: unsupported ledger UPDATE shape`);
+      }
+      shapes.push(value.properties.map((property) => {
+        const name = readPropertyName(property.name);
+        if (!name) throw new Error(`${file}: dynamic ledger UPDATE column`);
+        return name;
+      }).sort());
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(sf);
+  return shapes;
+}
+
 const LEDGER_INSERT_SHAPES: Record<string, string[][]> = {
   'lib/services/hour-tracking.ts': [[
     'allocation_id', 'hours', 'is_manual', 'is_over_budget',
@@ -695,6 +943,23 @@ const LEDGER_INSERT_SHAPES: Record<string, string[][]> = {
   'pages/api/contracts/[id]/hours/ledger/index.ts': [[
     'allocation_id', 'hours', 'is_manual', 'is_over_budget', 'notes',
     'recorded_by', 'session_date', 'session_id', 'status',
+  ]],
+};
+
+const LEDGER_UPDATE_SHAPES: Record<string, string[][]> = {
+  'lib/services/hour-tracking.ts': [
+    ['status', 'updated_at', 'updated_by'],
+    [
+      'admin_override', 'admin_override_reason', 'cancellation_clause',
+      'cancellation_reason', 'status', 'updated_at', 'updated_by',
+    ],
+    [
+      'admin_override', 'admin_override_reason', 'cancellation_clause',
+      'cancellation_reason', 'status', 'updated_at', 'updated_by',
+    ],
+  ],
+  'pages/api/contracts/[id]/hours/ledger/[ledgerId].ts': [[
+    'admin_override', 'admin_override_reason', 'status', 'updated_at', 'updated_by',
   ]],
 };
 
@@ -742,11 +1007,25 @@ function sqlObjectDefinitions(source: string, file: string): SqlObjectDefinition
   return definitions;
 }
 
+function directSqlLedgerDependency(body: string): boolean {
+  if (tokenizeSql(body).some((token) =>
+    token.kind === 'word' && token.value === 'contract_hours_ledger')) return true;
+  return executableSqlExpressions(body).some((expression) => {
+    const recovered = staticSqlExpression(expression);
+    if (recovered !== undefined) {
+      return tokenizeSql(recovered).some((token) =>
+        token.kind === 'word' && token.value === 'contract_hours_ledger');
+    }
+    // The baseline admin diagnostic function executes caller-provided SQL and
+    // is therefore a conservative potential ledger authority, not an empty edge.
+    return expression === 'sql_query' && body.includes('result_array');
+  });
+}
+
 function ledgerObjectNames(definitions: SqlObjectDefinition[]): Set<string> {
   const names = new Set(
     definitions
-      .filter((definition) => tokenizeSql(definition.body)
-        .some((token) => token.kind === 'word' && token.value === 'contract_hours_ledger'))
+      .filter((definition) => directSqlLedgerDependency(definition.body))
       .map((definition) => definition.name)
   );
   let changed = true;
@@ -782,6 +1061,14 @@ const INDIRECT_TS_CONSUMERS: Record<string, string[]> = {
   ],
   'lib/services/school-hours-report.ts': ['get_bucket_summary:aggregate/fail-closed'],
   'pages/admin/sessions/create.tsx': ['get_bucket_summary:financial-preview/non-authoritative'],
+  'pages/api/admin/apply-supervisor-migration.ts': [
+    'exec_sql:write/potential-dynamic/admin-only',
+    'exec_sql:write/potential-dynamic/admin-only',
+    'exec_sql:write/potential-dynamic/admin-only',
+    'exec_sql:write/potential-dynamic/admin-only',
+    'exec_sql:write/potential-dynamic/admin-only',
+    'exec_sql:write/potential-dynamic/admin-only',
+  ],
   'pages/api/admin/sessions/[id]/hour-override.ts': [
     'apply_session_hour_override:write/fail-closed-admin-db-auth',
   ],
@@ -840,6 +1127,179 @@ interface SqlAnalysis {
   backed: boolean;
   relations: Set<string>;
   unsupported: string[];
+}
+
+function sqlQuotedValue(source: string, start: number): { value: string; end: number } | undefined {
+  if (source[start] !== "'") return undefined;
+  let value = '';
+  let index = start + 1;
+  while (index < source.length) {
+    if (source[index] === "'" && source[index + 1] === "'") {
+      value += "'";
+      index += 2;
+      continue;
+    }
+    if (source[index] === "'") return { value, end: index + 1 };
+    value += source[index];
+    index += 1;
+  }
+  return undefined;
+}
+
+function splitStaticSqlArguments(source: string): string[] | undefined {
+  const parts: string[] = [];
+  let start = 0;
+  let depth = 0;
+  let index = 0;
+  while (index < source.length) {
+    if (source[index] === "'") {
+      const quoted = sqlQuotedValue(source, index);
+      if (!quoted) return undefined;
+      index = quoted.end;
+      continue;
+    }
+    if (source[index] === '(') depth += 1;
+    else if (source[index] === ')') depth -= 1;
+    else if (source[index] === ',' && depth === 0) {
+      parts.push(source.slice(start, index).trim());
+      start = index + 1;
+    }
+    index += 1;
+  }
+  parts.push(source.slice(start).trim());
+  return parts;
+}
+
+function staticSqlExpression(expression: string): string | undefined {
+  let trimmed = expression.trim();
+  while (trimmed.startsWith('(') && trimmed.endsWith(')')) {
+    trimmed = trimmed.slice(1, -1).trim();
+  }
+  const dollar = trimmed.match(/^\$([A-Za-z_]*)\$([\s\S]*)\$\1\$$/);
+  if (dollar) return dollar[2];
+
+  const format = trimmed.match(/^format\s*\(([\s\S]*)\)$/i);
+  if (format) {
+    const parts = splitStaticSqlArguments(format[1]);
+    if (!parts || parts.length === 0) return undefined;
+    const templateLiteral = sqlQuotedValue(parts[0], 0);
+    if (!templateLiteral || templateLiteral.end !== parts[0].length) return undefined;
+    const args: string[] = [];
+    for (const part of parts.slice(1)) {
+      const literal = sqlQuotedValue(part, 0);
+      if (!literal || literal.end !== part.length) return undefined;
+      args.push(literal.value);
+    }
+    let argument = 0;
+    let unresolved = false;
+    const rendered = templateLiteral.value.replace(/%(?:%|I|L|s)/g, (placeholder) => {
+      if (placeholder === '%%') return '%';
+      const value = args[argument++];
+      if (value === undefined) { unresolved = true; return ''; }
+      if (placeholder === '%I') return `"${value.replace(/"/g, '""')}"`;
+      if (placeholder === '%L') return `'${value.replace(/'/g, "''")}'`;
+      return value;
+    });
+    return unresolved || argument !== args.length ? undefined : rendered;
+  }
+
+  const pieces: string[] = [];
+  let index = 0;
+  while (index < trimmed.length) {
+    while (/\s/.test(trimmed[index] ?? '')) index += 1;
+    const literal = sqlQuotedValue(trimmed, index);
+    if (!literal) return undefined;
+    pieces.push(literal.value);
+    index = literal.end;
+    while (/\s/.test(trimmed[index] ?? '')) index += 1;
+    if (index === trimmed.length) break;
+    if (trimmed.slice(index, index + 2) !== '||') return undefined;
+    index += 2;
+  }
+  return pieces.length > 0 ? pieces.join('') : undefined;
+}
+
+function executableSqlExpressions(source: string): string[] {
+  const expressions: string[] = [];
+  let index = 0;
+  while (index < source.length) {
+    if (source.startsWith('--', index)) {
+      const newline = source.indexOf('\n', index + 2);
+      index = newline < 0 ? source.length : newline + 1;
+      continue;
+    }
+    if (source.startsWith('/*', index)) {
+      const close = source.indexOf('*/', index + 2);
+      index = close < 0 ? source.length : close + 2;
+      continue;
+    }
+    if (source[index] === "'") {
+      index = sqlQuotedValue(source, index)?.end ?? source.length;
+      continue;
+    }
+    const execute = source.slice(index).match(/^execute\b/i)?.[0];
+    if (!execute) { index += 1; continue; }
+    const afterExecute = source.slice(index + execute.length).match(/^\s*([A-Za-z_]+)/)?.[1]
+      ?.toLowerCase();
+    if (afterExecute === 'on' || afterExecute === 'function' || afterExecute === 'procedure') {
+      index += execute.length;
+      continue;
+    }
+    let cursor = index + execute.length;
+    let depth = 0;
+    const start = cursor;
+    while (cursor < source.length) {
+      if (source[cursor] === "'") {
+        cursor = sqlQuotedValue(source, cursor)?.end ?? source.length;
+        continue;
+      }
+      if (source[cursor] === '$') {
+        const delimiter = source.slice(cursor).match(/^\$[A-Za-z_]*\$/)?.[0];
+        if (delimiter) {
+          const close = source.indexOf(delimiter, cursor + delimiter.length);
+          cursor = close < 0 ? source.length : close + delimiter.length;
+          continue;
+        }
+      }
+      if (source[cursor] === '(') depth += 1;
+      else if (source[cursor] === ')') depth -= 1;
+      if (depth === 0 && source[cursor] === ';') break;
+      if (depth === 0 && /^(?:using|into|loop)\b/i.test(source.slice(cursor)) &&
+          /\s/.test(source[cursor - 1] ?? ' ')) break;
+      cursor += 1;
+    }
+    expressions.push(source.slice(start, cursor).trim());
+    index = cursor + 1;
+  }
+  return expressions;
+}
+
+function schemaLedgerUnsupported(source: string): string[] {
+  const unsupported: string[] = [];
+  const ledger = '(?:"?public"?\\s*\\.\\s*)?"?contract_hours_ledger"?';
+  const functionHeaders = source.match(
+    /create\s+(?:or\s+replace\s+)?function[\s\S]*?\breturns\b/gi
+  ) ?? [];
+  if (functionHeaders.some((header) => new RegExp(`\\([^)]*${ledger}[^)]*\\)`, 'i').test(header)) ||
+      new RegExp(`\\breturns\\s+(?:setof\\s+)?${ledger}\\b`, 'i').test(source)) {
+    unsupported.push('ledger composite function signature requires explicit classification');
+  }
+  if (new RegExp(`${ledger}\\s*%\\s*rowtype\\b`, 'i').test(source)) {
+    unsupported.push('ledger %ROWTYPE dependency requires explicit classification');
+  }
+  if (new RegExp(`::\\s*${ledger}\\b`, 'i').test(source)) {
+    unsupported.push('ledger composite cast requires explicit classification');
+  }
+  if (new RegExp(`create\\s+(?:constraint\\s+)?trigger[^;]*?\\bon\\s+${ledger}\\b`, 'i').test(source)) {
+    unsupported.push('ledger trigger authority requires explicit classification');
+  }
+  if (new RegExp(
+    `create\\s+(?:or\\s+replace\\s+)?rule[^;]*?\\bon\\s+(?:(?:select|insert|update|delete)\\s+to\\s+)?${ledger}\\b`,
+    'i'
+  ).test(source)) {
+    unsupported.push('ledger rule authority requires explicit classification');
+  }
+  return unsupported;
 }
 
 /** PostgreSQL-aware lexical floor: comments and literals disappear; identifiers survive. */
@@ -937,7 +1397,7 @@ const SQL_RESERVED = new Set([
   'group', 'order', 'limit', 'offset', 'union', 'returning', 'set', 'values', 'using',
 ]);
 
-function sqlHoursAnalysis(source: string): SqlAnalysis {
+function sqlHoursAnalysis(source: string, file = 'probe.sql'): SqlAnalysis {
   const tokens = tokenizeSql(source);
   const pairs = matchingParens(tokens);
   const definitions = sqlObjectDefinitions(source, 'inline.sql');
@@ -1010,6 +1470,7 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
         continue;
       }
       let cursor = index + 1;
+      if (tokens[cursor]?.value === 'lateral') cursor += 1;
       if (tokens[cursor]?.value === '(' && childRanges.has(cursor)) {
         const child = childRanges.get(cursor)!;
         cursor = child.close + 1;
@@ -1032,7 +1493,9 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
       relationDeclarationPositions.add(relationPosition);
       relationDeclarationPositions.add(cursor);
       relations.add(relation);
-      const relationBacked = relation === 'contract_hours_ledger' || backedNames.has(relation);
+      const relationBacked = ctes.has(relation)
+        ? backedNames.has(relation)
+        : relation === 'contract_hours_ledger' || backedNames.has(relation);
       cursor += 1;
       if (tokens[cursor]?.value === '(') cursor = (pairs.get(cursor) ?? cursor) + 1;
       if (tokens[cursor]?.value === 'as') cursor += 1;
@@ -1137,7 +1600,8 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
         [...childRanges.values()].some((child) => child.analysis.backed))) {
       unsupported.push('ledger-relevant MERGE requires explicit classification');
     }
-    if (hasLedgerWord && hasDml && !localBacked && count === 0) {
+    if (hasLedgerWord && !ctes.has('contract_hours_ledger') &&
+        hasDml && !localBacked && count === 0) {
       unsupported.push('ledger-relevant statement could not be classified');
     }
     const topLevelVerb = (() => {
@@ -1177,11 +1641,50 @@ function sqlHoursAnalysis(source: string): SqlAnalysis {
     result.unsupported.forEach((entry) => unsupported.push(entry));
     start = index + 1;
   }
+  schemaLedgerUnsupported(source).forEach((entry) => unsupported.push(entry));
+  const executableExpressions = executableSqlExpressions(source);
+  for (const [executeIndex, expression] of executableExpressions.entries()) {
+    const recovered = staticSqlExpression(expression);
+    if (recovered === undefined) {
+      const literalText = [...expression.matchAll(/'((?:''|[^'])*)'/g)]
+        .map((match) => match[1].replace(/''/g, "'"))
+        .join('');
+      if (/\bcontract_hours_ledger\b/i.test(literalText)) {
+        count += 1;
+        backed = true;
+        relations.add('contract_hours_ledger');
+        continue;
+      }
+      const knownSafeDynamic =
+        (file === 'supabase/migrations/00000000000000_baseline.sql' &&
+          expression === 'sql_query' &&
+          (executeIndex > 0 || !source.includes('result_array'))) ||
+        (file === 'supabase/migrations/20260803170000_add_email_marketing_tables.sql' &&
+          literalText.includes('CREATE POLICY')) ||
+        (file === 'supabase/migrations/20260808120000_session_reschedule_atomic.sql' &&
+          literalText.includes('UPDATE public.consultor_sessions'));
+      if (knownSafeDynamic) continue;
+      if (file === 'supabase/migrations/00000000000000_baseline.sql' &&
+          expression === 'sql_query' && source.includes('result_array')) {
+        count += 1;
+        backed = true;
+        relations.add('contract_hours_ledger');
+        continue;
+      }
+      unsupported.push(`dynamic EXECUTE target is not statically recoverable: ${expression}`);
+      continue;
+    }
+    const dynamic = sqlHoursAnalysis(recovered, file);
+    count += dynamic.count;
+    backed ||= dynamic.backed;
+    dynamic.relations.forEach((entry) => relations.add(entry));
+    dynamic.unsupported.forEach((entry) => unsupported.push(`EXECUTE: ${entry}`));
+  }
   return { count, backed, relations, unsupported };
 }
 
-function sqlDirectHoursUseCount(source: string): number {
-  const analysis = sqlHoursAnalysis(source);
+function sqlDirectHoursUseCount(source: string, file = 'probe.sql'): number {
+  const analysis = sqlHoursAnalysis(source, file);
   if (analysis.unsupported.length > 0) {
     throw new Error(analysis.unsupported.join('; '));
   }
@@ -1191,6 +1694,7 @@ function sqlDirectHoursUseCount(source: string): number {
 const SQL_DIRECT_HOURS_USES: Record<string, UseClass[]> = {
   'supabase/migrations/00000000000000_baseline.sql': [
     'historical', 'historical', 'historical', 'historical', 'historical', 'historical',
+    'write',
   ],
   'supabase/migrations/20260805120000_reschedule_hours_rpc.sql': [
     'historical', 'historical', 'historical', 'historical', 'historical',
@@ -1203,6 +1707,7 @@ const SQL_DIRECT_HOURS_USES: Record<string, UseClass[]> = {
   ],
   'supabase/migrations/20260813120200_session_hour_overrides.sql': [
     'write', 'aggregate', 'aggregate', 'billable', 'billable', 'billable',
+    'write',
   ],
   'supabase/migrations/20260813120300_reschedule_availability_guard.sql': [
     'historical', 'write', 'historical',
@@ -1214,6 +1719,7 @@ const SQL_DIRECT_HOURS_USES: Record<string, UseClass[]> = {
 
 const SQL_LEDGER_OBJECTS: Record<string, string[]> = {
   'supabase/migrations/00000000000000_baseline.sql': [
+    'exec_sql:write/potential-dynamic/direct',
     'get_bucket_summary:historical/direct',
     'get_consultant_earnings:historical/direct',
   ],
@@ -1282,6 +1788,24 @@ describe('contract_hours_ledger production consumer inventory', () => {
     expect(allowedColumns.has('effective_minutes')).toBe(false);
   });
 
+  it('mechanically derives the exact exposed-role ledger UPDATE grant', () => {
+    const actual: Record<string, string[][]> = {};
+    for (const path of productionSourceFiles()) {
+      const relativePath = relative(ROOT, path);
+      const shapes = ledgerUpdateShapes(readFileSync(path, 'utf8'), relativePath);
+      if (shapes.length > 0) actual[relativePath] = shapes;
+    }
+    expect(actual).toEqual(LEDGER_UPDATE_SHAPES);
+    const allowedColumns = new Set(Object.values(actual).flat(2));
+    expect([...allowedColumns].sort()).toEqual([
+      'admin_override', 'admin_override_reason', 'cancellation_clause',
+      'cancellation_reason', 'status', 'updated_at', 'updated_by',
+    ]);
+    expect(allowedColumns.has('hours')).toBe(false);
+    expect(allowedColumns.has('effective_minutes')).toBe(false);
+    expect(allowedColumns.has('planned_minutes_snapshot')).toBe(false);
+  });
+
   it('fails closed on every unsupported dynamic callable or target in production', () => {
     const dynamic = productionSourceFiles().flatMap((path) => {
       const source = readFileSync(path, 'utf8');
@@ -1308,15 +1832,14 @@ describe('contract_hours_ledger production consumer inventory', () => {
     const actual: Record<string, number> = {};
     const directNames = new Set(
       definitions
-        .filter((definition) => tokenizeSql(definition.body)
-          .some((token) => token.kind === 'word' && token.value === 'contract_hours_ledger'))
+        .filter((definition) => directSqlLedgerDependency(definition.body))
         .map((definition) => definition.name)
     );
     for (const definition of definitions.filter((candidate) => objectNames.has(candidate.name))) {
       const path = definition.file;
       actual[path] = (actual[path] ?? 0) + 1;
       expect(
-        sqlHoursAnalysis(definition.body).unsupported,
+        sqlHoursAnalysis(definition.body, definition.file).unsupported,
         `${path}:${definition.name} contains unsupported ledger-relevant SQL`
       ).toEqual([]);
       expect(SQL_LEDGER_OBJECTS[path]?.some((entry) =>
@@ -1346,7 +1869,7 @@ describe('contract_hours_ledger production consumer inventory', () => {
     for (const path of migrationFiles) {
       let count: number;
       try {
-        count = sqlDirectHoursUseCount(readFileSync(path, 'utf8'));
+        count = sqlDirectHoursUseCount(readFileSync(path, 'utf8'), relative(ROOT, path));
       } catch (error) {
         throw new Error(`${relative(ROOT, path)}: ${(error as Error).message}`);
       }
@@ -1726,6 +2249,76 @@ describe('contract_hours_ledger production consumer inventory', () => {
     expect(discoverSupabaseCalls(deterministicSource).length).toBeLessThan(10);
   });
 
+  it('classifies Function adapters, bound methods, and higher-order callable returns', () => {
+    expect(directTableTouchCount(
+      "client.from.call(client, 'contract_hours_ledger')"
+    )).toBe(1);
+    expect(directTableTouchCount(`
+      const invoke = client.from.call;
+      invoke(client, 'contract_hours_ledger');
+    `)).toBe(1);
+    expect(directTableTouchCount(
+      "client.from.apply(client, ['contract_hours_ledger'])"
+    )).toBe(1);
+    expect(directTableTouchCount(`
+      const args = ['contract_hours_ledger'];
+      const apply = client.from.apply;
+      apply(client, args);
+    `)).toBe(1);
+    expect(directTableTouchCount(
+      "Reflect.apply(client.from, client, ['contract_hours_ledger'])"
+    )).toBe(1);
+    expect(directTableTouchCount(`
+      const reflect = Reflect.apply;
+      reflect(client.from, client, ['contract_hours_ledger']);
+    `)).toBe(1);
+
+    expect(directTableTouchCount(`
+      const read = client.from.bind(client);
+      read('contract_hours_ledger');
+    `)).toBe(1);
+    expect(directTableTouchCount(`
+      const read = client.from.bind(client, 'contract_hours_ledger');
+      read();
+    `)).toBe(1);
+
+    expect(directTableTouchCount(`
+      function invoke(callable, ...args) { return callable(...args); }
+      invoke(client.from, 'contract_hours_ledger');
+    `)).toBeGreaterThan(0);
+    expect(directTableTouchCount(`
+      function adapter(callable) {
+        return (...args) => callable.apply(client, args);
+      }
+      const read = adapter(client.from);
+      read('contract_hours_ledger');
+    `)).toBeGreaterThan(0);
+    expect(directTableTouchCount(`
+      function recursive(callable, args, depth = 1) {
+        if (depth) return recursive(callable, args, 0);
+        return Reflect.apply(callable, client, args);
+      }
+      recursive(client.from, ['contract_hours_ledger']);
+    `)).toBeGreaterThan(0);
+
+    for (const source of [
+      "client.from.apply(client, process.argv)",
+      "Reflect.apply(externalCallable, client, ['contract_hours_ledger'])",
+      "const read = externalCallable.bind(client); read('contract_hours_ledger')",
+      "function invoke(callable) { callable('contract_hours_ledger'); } invoke(externalCallable)",
+    ]) {
+      expect(discoverSupabaseCalls(source)).toContainEqual(expect.objectContaining({
+        unsupported: expect.any(String),
+      }));
+    }
+
+    expect(discoverSupabaseCalls(`
+      function ordinary(value) { return value; }
+      ordinary.call(null, 'contract_hours_ledger');
+      Math.max.apply(null, [1, 2]);
+    `).filter((call) => call.method !== 'unknown' || call.unsupported)).toEqual([]);
+  });
+
   it('classifies composite ledger rows and column-opaque ledger DML', () => {
     expect(sqlDirectHoursUseCount(
       'SELECT l FROM public.contract_hours_ledger AS l;'
@@ -1762,6 +2355,88 @@ describe('contract_hours_ledger production consumer inventory', () => {
     expect(sqlDirectHoursUseCount(
       "SELECT 'row_to_json(l) FROM contract_hours_ledger l'; -- RETURNING l\n"
     )).toBe(0);
+  });
+
+  it('distinguishes inert text from executable SQL and closes schema-object flows', () => {
+    expect(sqlDirectHoursUseCount(`
+      DO $body$ BEGIN
+        EXECUTE 'SELECT hours FROM public.contract_hours_ledger';
+      END $body$;
+    `)).toBe(1);
+    expect(sqlDirectHoursUseCount(`
+      DO $body$ BEGIN
+        EXECUTE 'SELECT ' || 'l.hours FROM public.contract_hours_ledger l';
+      END $body$;
+    `)).toBe(1);
+    expect(sqlDirectHoursUseCount(`
+      DO $body$ BEGIN
+        EXECUTE format('SELECT hours FROM public.%I', 'contract_hours_ledger');
+      END $body$;
+    `)).toBe(1);
+    expect(sqlDirectHoursUseCount(`
+      DO $body$ BEGIN
+        EXECUTE 'SELECT hours FROM public.contract_hours_ledger WHERE id = $1' USING ledger_id;
+      END $body$;
+    `)).toBe(1);
+    expect(() => sqlDirectHoursUseCount(`
+      DO $body$ BEGIN EXECUTE dynamic_sql; END $body$;
+    `)).toThrow(/dynamic EXECUTE/);
+    expect(() => sqlDirectHoursUseCount(`
+      DO $body$ BEGIN
+        EXECUTE format('SELECT hours FROM public.%I', dynamic_table);
+      END $body$;
+    `)).toThrow(/dynamic EXECUTE/);
+    expect(sqlDirectHoursUseCount(`
+      SELECT 'EXECUTE ''SELECT hours FROM contract_hours_ledger''' AS inert;
+      -- EXECUTE 'SELECT hours FROM contract_hours_ledger';
+    `)).toBe(0);
+
+    for (const dependency of [
+      `CREATE FUNCTION public.composite_arg(row_value public.contract_hours_ledger)
+       RETURNS void LANGUAGE sql AS $$ SELECT $$;`,
+      `CREATE FUNCTION public.composite_return() RETURNS public.contract_hours_ledger
+       LANGUAGE sql AS $$ SELECT NULL $$;`,
+      `DO $$ DECLARE ledger_row public.contract_hours_ledger%ROWTYPE; BEGIN NULL; END $$;`,
+      `SELECT value::public.contract_hours_ledger FROM safe_rows;`,
+      `CREATE TRIGGER ledger_guard AFTER UPDATE ON public.contract_hours_ledger
+       REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows
+       FOR EACH STATEMENT EXECUTE FUNCTION public.audit_rows();`,
+      `CREATE RULE ledger_redirect AS ON UPDATE TO public.contract_hours_ledger
+       DO INSTEAD NOTHING;`,
+    ]) {
+      expect(() => sqlDirectHoursUseCount(dependency), dependency).toThrow(/ledger/);
+    }
+
+    expect(sqlDirectHoursUseCount(`
+      CREATE VIEW public.synthetic_ledger_view AS
+        SELECT l.hours FROM public.contract_hours_ledger l;
+      CREATE MATERIALIZED VIEW public.synthetic_ledger_rollup AS
+        SELECT sum(hours) AS hours FROM public.contract_hours_ledger;
+    `)).toBe(2);
+    expect(sqlDirectHoursUseCount(`
+      WITH contract_hours_ledger AS (SELECT 1 AS hours)
+      SELECT contract_hours_ledger.hours FROM contract_hours_ledger;
+    `)).toBe(0);
+    expect(sqlDirectHoursUseCount(`
+      SELECT lateral_rows.hours
+        FROM safe_rows s
+        CROSS JOIN LATERAL (
+          SELECT l.hours FROM public.contract_hours_ledger l WHERE l.id = s.id
+        ) lateral_rows;
+    `)).toBe(2);
+    expect(sqlDirectHoursUseCount(`
+      SELECT (SELECT outer_l.hours WHERE outer_l.id = safe.id)
+        FROM public.contract_hours_ledger AS outer_l, safe_rows AS safe;
+    `)).toBe(1);
+    expect(sqlDirectHoursUseCount(`
+      SELECT "ledger row"."hours"
+        FROM "public"."contract_hours_ledger" AS "ledger row";
+    `)).toBe(1);
+    expect(sqlDirectHoursUseCount(`
+      DO $outer$ BEGIN
+        EXECUTE $query$SELECT hours FROM public.contract_hours_ledger$query$;
+      END $outer$;
+    `)).toBe(1);
   });
 
   it('discovers a newly introduced production JS/JSX root', () => {

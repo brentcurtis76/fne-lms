@@ -5,17 +5,18 @@
 - Builder state: `REVIEW READY`; this document is evidence, not an acceptance verdict.
 - Canonical branch: `feat/zoom-hours`.
 - Immutable cumulative base: `4399949942bfcf49dfa8de40cbf7edbf40f0490e`.
-- Rejected round-nineteen canonical head and detached starting point:
-  `e2fc5864f986372ed12d0e965bd01f61bfbe3751` (92 commits from the base; tree
-  `7607d00c2c6158489b20ca5c5a975e960abd8e1a`).
+- Rejected round-twenty canonical head: `7eaa2feb6e5e756b3d43657611768ddb8dfd9d5c`
+  (95 commits from the base; tree `e83ae73648dcf433aed323130dffd17fade2fa91`).
   It is a rejected review point, not acceptance evidence.
-- Detached round-nineteen contract cherry-pick: `a24e00f8e0515682fe8eb44700f8ad732df07986`
-  (93 commits; tree `2697cc220ad25126aaebe69d98e39664d0d47e61`; canonical source
-  `f7c77de9911bd4dff1694ec960017c45940776b1`).
-- Detached round-nineteen descriptor/prototype/completion implementation:
-  `8ee1bbd2010545bfc83861ea5a18cce81c99c940` (94 commits; tree
-  `d94558633a43767d4b6c321c6dae9851f86b00e9`).
-- This evidence document is the 95th cumulative detached commit. A commit cannot truthfully embed
+- Detached round-twenty starting point: `2f33d96c30f62b8afae7cddb2a1a6c83742dd874`
+  (95 commits; the same tree `e83ae73648dcf433aed323130dffd17fade2fa91`).
+- Detached round-twenty contract cherry-pick: `9ac040853460dbc83372a2c12f83a3fc51e19bd8`
+  (96 commits; tree `7d1046360578f82190bb5009a6d5a51ec6e6dc94`; canonical source
+  `4f3856e4676aa5344a9ca4d4c1b2d2f52f33633f`).
+- Detached round-twenty heap/descriptor/completion implementation:
+  `fd0624d903c305dbd45cad38a009af286199a645` (97 commits; tree
+  `06da9084f639e07f56851226fa84ec22dcba068d`).
+- This evidence document is the 98th cumulative detached commit. A commit cannot truthfully embed
   its own identity; its exact detached SHA is supplied in the builder handoff. The external review
   dispatch must pin the post-cherry-pick canonical HEAD after ordered integration; this artifact
   deliberately does not predict that changed identity.
@@ -25,10 +26,10 @@ There is no self-referential SHA claim in this artifact. A commit cannot contain
 and cherry-picking changes detached commit identities. All embedded SHAs above are already stable
 objects with counts verified by `git rev-list --count 43999499..<sha>`.
 
-Ordered detached commits after `e2fc5864f986372ed12d0e965bd01f61bfbe3751`:
+Ordered detached commits after `2f33d96c30f62b8afae7cddb2a1a6c83742dd874`:
 
-1. `a24e00f8e0515682fe8eb44700f8ad732df07986` — round-nineteen contract cherry-pick.
-2. `8ee1bbd2010545bfc83861ea5a18cce81c99c940` — shared descriptor/prototype heap and explicit completion domain.
+1. `9ac040853460dbc83372a2c12f83a3fc51e19bd8` — round-twenty contract cherry-pick.
+2. `fd0624d903c305dbd45cad38a009af286199a645` — receiver-aware heap, descriptor inspection/conversion, descriptor-aware mutators, and completion propagation.
 3. This evidence commit — exact detached SHA in the builder handoff.
 
 ## Objective, delivered scope, and current status
@@ -50,6 +51,16 @@ remediation, the Vitest upgrade, leadership aggregates, deployments, production 
 unrelated refactors.
 
 ## Finding disposition
+
+### Round twenty
+
+| Finding | Disposition and evidence |
+|---|---|
+| Z7-R20.1 | `Reflect.get` and `Reflect.set` now call the same receiver-aware abstract `[[Get]]`/`[[Set]]` operations as ordinary access and assignment. Prototype walks retain target-versus-receiver identity; inherited accessors run with the explicit receiver; receiver-owned data/accessor and integrity constraints govern creation; Reflect returns the correct boolean while ordinary strict writes retain abrupt completion. Static same/distinct receivers and multi-hop prototypes resolve exactly, while dynamic proxy/key/receiver authority fails closed once. |
+| Z7-R20.2 | `Object.defineProperties` now enumerates only own enumerable entries and obtains/converts every descriptor in JavaScript field order before mutating the target. Invalid mixed data/accessor descriptors and throwing conversion getters leave the target byte-equivalent; after conversion succeeds, ordered `DefineOwnProperty` application retains earlier deterministic effects if a later invariant fails. Dynamic descriptor authority remains one explicit unsupported result rather than stale exact evidence. |
+| Z7-R20.3 | `Object.create`'s descriptor argument, `Object.getOwnPropertyDescriptor(s)`, `Object.getPrototypeOf`, and all Reflect inspection equivalents now use the shared descriptor/prototype heap. Returned descriptor objects copy exact data/accessor fields and flags without aliasing internal records; null/fixed/multi-hop prototypes and own-versus-inherited lookup stay exact, while computed dynamic/proxy inspection rejects deterministically once. |
+| Z7-R20.4 | All nine array mutators now execute against a descriptor-faithful indexed/`length` shadow and synchronize the ordered data/accessor/index/length effects back even when the native operation throws. Nonwritable/nonconfigurable indices, nonwritable length, holes, integrity state, caught failures, aliases and `sort` therefore retain the exact prefix of mutation and never flatten stale values. The checked-in runtime matrix covers every mutator and exact-zero failure outcome. |
+| Z7-R20.5 | Switch evaluation now selects exact static cases, default/no-match, fallthrough, and consumes unlabeled breaks without visiting unreachable clauses; dynamic ledger-relevant branches produce one explicit unsupported result. Statically throwing ordinary calls and callback invocations propagate abrupt completion through functions and module evaluation, stopping later exports/calls across bounded CJS/ESM graphs while catch/finally behavior remains ordered. |
 
 ### Round nineteen
 
@@ -470,6 +481,7 @@ Risk grouping describes review priority, not ownership.
 - `docs/plan/zoom/remediation/Z7-review-17.md`
 - `docs/plan/zoom/remediation/Z7-review-18.md`
 - `docs/plan/zoom/remediation/Z7-review-19.md`
+- `docs/plan/zoom/remediation/Z7-review-20.md`
 - `docs/plan/zoom/reviews/fase-7-review-request.md`
 - `docs/plan/zoom/reviews/fase-7-review-verdict.md`
 
@@ -489,7 +501,7 @@ comm -3 \
     | sed -n 's/^- `\(.*\)`$/\1/p' | sort)
 ```
 
-Result after the evidence commit: no output. Counts: cumulative diff **126**, inventory **126**,
+Result after the evidence commit: no output. Counts: cumulative diff **127**, inventory **127**,
 duplicates **0**.
 
 ## Gate and fail-on-old evidence
@@ -499,13 +511,13 @@ piped through `tail`.
 
 | Command | Result | Exit |
 |---|---|---:|
-| Focused Round 19 runtime-oracle/descriptor/completion/exported-object matrix | 1 file, **6 green** | 0 |
-| Cumulative executable inventory through Round 19 | 1 file, **30 green** | 0 |
-| Cumulative Z7 high-risk Vitest over every test path changed since the immutable base: reservation, snapshot, JSON ledger, single/bulk approval, creation, reschedule, override, inventory, billing/isolation, cron/webhook, report/store/reconcile, participant lifecycle, attendance store, lifecycle instants, UI and retirement guards | 37 files, **587 green** | 0 |
+| Focused Round 20 runtime-oracle/receiver/descriptor/mutator/completion matrix | 1 file, **8 green** | 0 |
+| Cumulative executable inventory through Round 20 | 1 file, **38 green** | 0 |
+| Cumulative Z7 high-risk Vitest over every test path changed since the immutable base: reservation, snapshot, JSON ledger, single/bulk approval, creation, reschedule, override, inventory, billing/isolation, cron/webhook, report/store/reconcile, participant lifecycle, attendance store, lifecycle instants, UI and retirement guards | 37 files, **595 green** | 0 |
 | `npm run type-check` | no diagnostics | 0 |
 | `npm run lint` | zero warnings | 0 |
 | `bash scripts/ci/check-rls-migrations.sh` | no RLS disablement | 0 |
-| `TZ=America/Santiago npm test` | 324 files, **7,394 green / 11 skipped** | 0 |
+| `TZ=America/Santiago npm test` | 324 files, **7,402 green / 11 skipped** | 0 |
 | `npm run build` | production build; **156/156 static pages** | 0 |
 | `node scripts/check-price-leak.mjs` after build | scanned **265** compiled static files; no commercial data found | 0 |
 | Fresh local `supabase db reset` | all migrations through additive `20260813121000` replayed; repeated after Chromium to remove synthetic fixtures | 0 |
@@ -514,8 +526,39 @@ piped through `tail`.
 | `npm run test:override-concurrency` | identical race apply+replay; forged/different payloads `P0409` sequentially and concurrently; no `23505` | 0 |
 | Fresh local `supabase db reset`; local-CLI URL/keys supplied to `node scripts/ci/seed-e2e.mjs`; `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **117/117 passed**, one worker | 0 |
 | `node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json` | 11 mandatory specs ran with no skips | 0 |
-| `TZ=UTC npm test` | 324 files, **7,394 green / 11 skipped** | 0 |
-| `TZ=Europe/Madrid npm test` | **7,386 green / 8 failed / 11 skipped** in 324 files; all 8 are inherited `lib/__tests__/businessDays.test.ts` | 1 inherited |
+| `TZ=UTC npm test` | 324 files, **7,402 green / 11 skipped** | 0 |
+| `TZ=Europe/Madrid npm test` | **7,394 green / 8 failed / 11 skipped** in 324 files; all 8 are inherited `lib/__tests__/businessDays.test.ts` | 1 inherited |
+
+Round-twenty fail-on-old evidence was local/in-memory and the committed analyzer was restored
+before every green gate:
+
+- The five literal Round 20 reviewer fixtures were first executed against the unchanged rejected
+  Round 19 evaluator. All **5/5 test containers failed with 10 runtime/analyzer discrepancies**:
+  the explicit Reflect setter and getter receivers were two silent zero/zero misses; conversion
+  atomicity retained one stale call; `Object.create`, own-descriptor inspection, and prototype
+  inspection produced three missing/unsupported live results; descriptor-aware `reverse` and
+  nonwritable-length `push` retained two stale calls; and exact switch selection plus a call-driven
+  module throw retained two unreachable calls. The runtime oracle supplied the expected
+  multiplicity and abrupt behavior in every case.
+- The final checked-in Round 20 matrix is **8/8**, and the cumulative executable inventory is
+  **38/38**. It composes same/distinct Reflect receivers, multi-hop accessors, receiver constraints,
+  two-phase descriptor conversion and application-time partial effects, detached descriptor
+  objects, create/inspection/prototype APIs, every one of the nine descriptor-aware mutators,
+  static/dynamic switch selection and fallthrough, callback and module abrupt completion, caught
+  and uncaught flow, aliases, explicit ambiguity, duplicate suppression, cycles, and bounded
+  termination. Live authority is exact, inert/unreachable authority is empty, and unresolved
+  executable authority is exactly one unsupported result.
+- Five rollback-only mutations then independently made the matching literal Round 20 test red
+  **1/1**: ignoring the explicit Reflect receiver, applying each `defineProperties` entry during
+  descriptor conversion, dropping the `Object.create` descriptor argument, treating a
+  nonwritable array `length` as writable, and bypassing exact `switch` handling. Each mutation was
+  immediately restored, and the analyzer file is byte-identical to the implementation commit. An
+  initial candidate that only made the exact switch discriminant unknown remained green, so it was
+  discarded as ineffective and is not counted as rollback evidence; it was also restored before
+  the effective switch mutation and every subsequent gate.
+- The mechanically re-walked production census remains exactly **14 files/22 direct touches**,
+  **8 files/10 indirect calls**, **9 files/33 SQL expressions**, **8 files/13 SQL objects**, **4
+  files/5 explicit unresolved executable sites**, and zero production `exec_sql` callers.
 
 Round-nineteen fail-on-old evidence was local/in-memory and the committed analyzer was restored
 before every green gate:
@@ -976,25 +1019,37 @@ webpack-cache advisories. A final reset replayed through `20260813121000`; the i
 environment file, dependency link, build/browser/test artifacts, generated PDF, and synthetic
 database fixtures were removed before handoff. No incomplete collection is gate evidence.
 
+Round 20 reused that temporary untracked dependency link and removes it before handoff. All three
+timezone collections ran serially and completed; Santiago and UTC were green, while Madrid
+reproduced only its eight inherited `businessDays` failures. The build used synthetic localhost
+values and retained the inherited Browserslist and webpack-cache advisories. Supabase CLI 2.110.0
+performed a fresh pre-pgTAP replay, a fresh pre-browser replay, and a final replay through
+`20260813121000`. Chromium used a temporary ignored `.env.local` containing only synthetic local
+keys and flags; direct Node seeding also received the local URL/service key explicitly, then the
+exact 117-test selector and 11-spec manifest passed. The ignored environment file, dependency
+link, `.next`, browser/test/auth artifacts, generated PDF, TypeScript build metadata, Supabase temp
+state, and all synthetic database fixtures were removed before handoff. No incomplete collection
+or filtered diagnostic is counted as gate evidence.
+
 ## Explicit inherited deviations
 
 - Advisory `npm run lint:testid` remains the round-two measured repository baseline of **44 errors
-  / 2,625 warnings**. Round nineteen adds no interactive UI.
+  / 2,625 warnings**. Round twenty adds no interactive UI.
 - Madrid's eight `businessDays.test.ts` failures are the previously reproduced out-of-scope
   licitación defect. All Z7/hours tests are green in all three zones.
 - The broad `npm run e2e` inherited round-one result remains **160 passed / 27 skipped / 1 did not
-  run / 62 failed (250 total)**. Round nineteen changes no `tests/e2e/` path; the supported mandatory
+  run / 62 failed (250 total)**. Round twenty changes no `tests/e2e/` path; the supported mandatory
   selector was rerun fresh at 117/117.
 
 None of these deviations is represented as a green gate.
 
 ## Independent reviewer focus and residual risks
 
-1. Mutate per-property data/accessor descriptors, prototype links and receiver-aware accessors
-   through ordinary/local/CJS/ESM objects, every descriptor/Reflect/prototype API, enumerable-own
-   assign/spread, shadow/delete/redefine, retained aliases/replacement and mixed cycles. Recoverable
-   calls must count once; inert/deleted/noncopied/unreachable authority must stay empty; dynamic
-   authority must reject once and terminate stably.
+1. Mutate explicit Reflect receivers, two-phase `defineProperties` conversion/application,
+   detached descriptor inspection, `Object.create` descriptors, all nine indexed/length mutators,
+   switch fallthrough/break, and call-driven abrupt module/callback evaluation through the shared
+   ordinary/local/CJS/ESM heap. Recoverable calls must count once; inert/deleted/noncopied or
+   unreachable authority must stay empty; dynamic authority must reject once and terminate stably.
 2. Re-audit `public.exec_sql(text)` and related exposed authority at the catalog and real-role
    boundaries. Anon, authenticated-admin, and service-role calls must all receive `42501`; the
    retired endpoint must construct no service client and issue no RPC/SQL, while fixed owner RPCs
@@ -1003,7 +1058,7 @@ None of these deviations is represented as a green gate.
    `EXECUTE`, procedures, composite/`RETURNS TABLE`/plain variables, triggers, rules/views,
    correlated scopes, and numbered/custom dollar tags. Inert comments/literals must stay inert;
    unresolved executable authority must fail explicitly without filename or substring allowances.
-4. Re-run both mechanical inventories against integrated HEAD: cumulative paths **126/126**;
+4. Re-run both mechanical inventories against integrated HEAD: cumulative paths **127/127**;
    classifications **14/22** direct, **8/10** indirect, **9/33** SQL expressions/writes, and
    **8/13** SQL objects, plus **4 files/5 sites** of explicit unresolved executable SQL and zero
    production `exec_sql` callers.

@@ -37,7 +37,17 @@
   1. `e8ea58830fc2be270c29c722fa92e066da87a5f9` (105 commits) — statically constructed
      ledger authority fails closed via a bounded static string resolver used only for
      authority classification.
-  2. The state/evidence commit carrying `Z7-review-23.md`, `PROJECT_STATE.md`, and this
+  2. `4dbcc33d019822db8b91a80f794b45c839e5c604` (106 commits; tree
+     `568c864e164a82fa910292f05b78bb375edb7f84`) — the Round 23 state/evidence commit.
+- Round-twenty-four canonical starting candidate: `4dbcc33d019822db8b91a80f794b45c839e5c604`
+  (106 commits; tree `568c864e164a82fa910292f05b78bb375edb7f84`), verified clean before any
+  change. Round 24 repairs exactly two reviewer findings against that candidate (recorded in
+  `docs/plan/zoom/remediation/Z7-review-24.md`).
+- Round-twenty-four commits, ordered directly on `feat/zoom-hours`:
+  1. `861b202f59d529594a79db0383976df2b96aead9` (107 commits) — destructuring assignment
+     targets taint their written names; the static resolver's caps return tagged outcomes
+     and beyond-proof string-building values fail closed.
+  2. The state/evidence commit carrying `Z7-review-24.md`, `PROJECT_STATE.md`, and this
      document. A commit cannot truthfully embed its own identity; its exact SHA is supplied
      in the builder handoff.
 - Governing scope note: the Round 21 owner amendment retires interpreter-level analyzer
@@ -72,6 +82,16 @@ remediation, the Vitest upgrade, leadership aggregates, deployments, production 
 unrelated refactors.
 
 ## Finding disposition
+
+### Round twenty-four (two-finding repair)
+
+Both findings were reproduced mechanically on the exact starting candidate `4dbcc33d` before
+any change; the full record is `docs/plan/zoom/remediation/Z7-review-24.md`.
+
+| Finding | Disposition and evidence |
+|---|---|
+| Z7-R24.1 — destructuring assignment bypasses name taint (`MAJOR`) | The declaration scan recorded assignments only for identifier left sides; `({ table } = { table: 'contract_hours_ledger' })` in a pruned catch left the name's stale `'other_table'` initializer to prove the site inert, and `client.from(table)` returned **[]** against a runtime performing one ledger call. A bounded recursive assignment-target walker now taints every identifier written through object/array destructuring assignments — shorthand, aliased, nested, default, omitted, and rest positions, with parenthesis/assertion wrappers unwrapped — while simple `name = expression` stays a recorded initializer and compound writes stay tainted. A tainted name classifies uncertain by construction (never binding-proven inert) and fails closed exactly once at pruned sites and at reached externally-opaque-callee sites in ledger-naming sources; function/class declaration names move to a separate set so binding classification can still prove callable arguments inert. `R24.1` pins the pruned and reached reviewer probes with runtime oracles, all eight target shapes, and proven-inert silence. |
+| Z7-R24.2 — value/depth caps fail open (`MAJOR`) | One overloaded `undefined` conflated overflow and depth exhaustion with "provably not string-building", and `sourceNamesLedger` uses the same capped resolver — so a ledger value existing only in a 32-combination product left both gates false: a silent miss. The resolver now returns a tagged resolution — finite; overflow carrying exact min/max composed lengths plus (within an explicit 4096-value working limit) the exact working set; cycle; unresolvable. Membership of the ledger name is proven present/absent by enumeration, working-set enumeration, or the bounded length-exclusion proof; a string-building value beyond every bounded proof is `possible` and fails closed exactly once inside hazard territory without depending on the gate. Depth exhaustion reports an unbounded string-building overflow and fails closed. All caps, cycle guards, memoization, determinism, and per-site duplicate suppression preserved; direct `client.from(dynamicTarget)` keeps exactly one `dynamic target` result. `R24.2` pins the reviewer's capped construction (exactly one result, runtime one), direct dynamic-target retention, depth exhaustion, the pinned conservative unprovable case, and length-proof exclusion; the `R24 mutation` probe proves capped/destructured authority entering the webhook file turns the guard red at the mutated sites with the census structurally unchanged. All six fail-on-old probes fail at `4dbcc33d`. |
 
 ### Round twenty-three (single-finding repair)
 
@@ -546,6 +566,7 @@ Risk grouping describes review priority, not ownership.
 - `docs/plan/zoom/remediation/Z7-review-21-owner-amendment.md`
 - `docs/plan/zoom/remediation/Z7-review-22.md`
 - `docs/plan/zoom/remediation/Z7-review-23.md`
+- `docs/plan/zoom/remediation/Z7-review-24.md`
 - `docs/plan/zoom/reviews/fase-7-review-request.md`
 - `docs/plan/zoom/reviews/fase-7-review-verdict.md`
 
@@ -565,13 +586,42 @@ comm -3 \
     | sed -n 's/^- `\(.*\)`$/\1/p' | sort)
 ```
 
-Result after the evidence commit: no output. Counts: cumulative diff **131**, inventory **131**,
+Result after the evidence commit: no output. Counts: cumulative diff **132**, inventory **132**,
 duplicates **0** (Round 21 added the reviewer contract `Z7-review-21.md` and the owner
-amendment; Rounds 22 and 23 add the repair records `Z7-review-22.md` and `Z7-review-23.md` —
-each round's only code change is inside the already-inventoried
+amendment; Rounds 22, 23, and 24 add the repair records `Z7-review-22.md`, `Z7-review-23.md`,
+and `Z7-review-24.md` — each round's only code change is inside the already-inventoried
 `__tests__/lib/services/ledger-hours-reader-inventory.test.ts`).
 
 ## Gate and fail-on-old evidence
+
+### Round twenty-four collection (2026-08-14, local macOS, final code state `861b202f`)
+
+Round 24's governing instruction required the focused suite, the cumulative selector,
+type-check, zero-warning lint, the full unit suite, the production build, and the exact
+changed-path reconciliation — the full database/browser matrix ran unchanged earlier this
+working day at Round 22 and this round touches only the analyzer test file. All legs ran
+sequentially in one pass; no command was piped through `tail`.
+
+| Command | Result | Exit |
+|---|---|---:|
+| Focused inventory suite (R24 additions + all retained R21/R22/R23 probes + cumulative executable inventory), one file | **52 green** (3 new R24 + 49 retained) | 0 |
+| Cumulative Z7 high-risk Vitest over every test path changed since the immutable base | 37 files, **609 green** | 0 |
+| `npm run type-check` | no diagnostics | 0 |
+| `npm run lint` | zero warnings | 0 |
+| `npm test` (full unit suite, machine TZ America/Santiago) | 324 files, **7,416 green / 11 skipped** | 0 |
+| `npm run build` | production build; **156/156 static pages** | 0 |
+
+Round-twenty-four fail-on-old evidence, measured at the exact starting candidate `4dbcc33d`
+(the fix stashed; only the new expectations applied) — **all six probes fail there and pass
+under the repair**: pruned destructuring reassignment (0 results, expected 1); each of the
+eight destructuring shape probes (0, expected 1); the 32-combination ledger construction (0,
+expected 1); depth exhaustion carrying the name (0, expected 1); the unprovable
+beyond-working-limit construction (0, expected 1); and the webhook mutation's own mutated
+call sites (0 `z7R24Read` failures, expected ≥ 1 — the file-wide guard alone is not
+discriminating on the rejected head because the constructed spelling arms the R23 gate and
+floods pruned sites; the mutated-site assertion is what the rejected head cannot satisfy).
+The reproduction, acceptance shapes, and honestly stated bounds are in
+`docs/plan/zoom/remediation/Z7-review-24.md`.
 
 ### Round twenty-three collection (2026-08-14, local macOS, final code state `e8ea5883`)
 
@@ -1270,7 +1320,10 @@ None of these deviations is represented as a green gate.
    templated, and finite-branch ledger spellings must fail closed once at opaque or pruned
    sites; scope-blind union and taint fallbacks must stay conservative; caps and cycles must
    terminate; and the evaluator's value domain must remain untouched (direct
-   `client.from(constructed)` stays exactly one `dynamic target`).
+   `client.from(constructed)` stays exactly one `dynamic target`). Since Round 24, also
+   mutate destructuring-assignment writes (every target shape must taint) and cap behavior
+   (beyond-cap string-building values must fail closed unless enumeration or the length
+   proof actually excludes the name; depth exhaustion must never be silent).
 2. Re-audit `public.exec_sql(text)` and related exposed authority at the catalog and real-role
    boundaries. Anon, authenticated-admin, and service-role calls must all receive `42501`; the
    retired endpoint must construct no service client and issue no RPC/SQL, while fixed owner RPCs

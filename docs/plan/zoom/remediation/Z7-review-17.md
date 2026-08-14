@@ -63,9 +63,21 @@ definite overwrite.
 
 Independently reproduced failures:
 
-- A conditional choice between aliases of the same array followed by `alias.reverse()` performs
-  one ledger read from the live runtime positions, while discovery returns zero calls and zero
-  unsupported authority.
+- A conditional may-alias choice between the live sequence and a distinct empty sequence followed
+  by `alias.reverse()` loses the possible mutation of the live sequence:
+
+```typescript
+const client = getClient();
+const slots = ['contract_hours_ledger', client, client.from];
+const other = [];
+const alias = flag ? slots : other;
+alias.reverse();
+slots[0].call(slots[1], slots[2]);
+```
+
+  With `flag = true`, runtime performs exactly one ledger read. With unresolved `flag`, discovery
+  must retain that executable possibility exactly once or emit explicit unsupported authority;
+  the rejected inventory returns zero calls and zero unsupported authority.
 - A definite overwrite is a false positive:
 
 ```typescript
@@ -89,8 +101,9 @@ Compose identity and update semantics with all prior sequence constructors, assi
 mutators, returns, chaining, bounds, holes, and stale-fact invalidation. Keep unknown state
 authoritative over stale positional facts and retain bounded fixed-point/cycle behavior.
 
-**Acceptance:** checked-in fail-on-old controls assert exact-one for the conditional same-array
-alias probe and exact-zero for the definitely overwritten inert probe. Add strong/weak update
+**Acceptance:** checked-in fail-on-old controls assert exact-one (or deterministic explicit
+unsupported for the unresolved branch) for the supplied conditional may-alias probe and exact-zero
+for the definitely overwritten inert probe. Add strong/weak update
 matrices for direct/computed/destructured writes, multiple aliases, branch aliases to same versus
 different arrays, closures/parameters/returns, repeated/mixed mutations, self/cyclic values,
 unknown indices/targets, and inert false-positive controls. Recoverable calls are exact once;

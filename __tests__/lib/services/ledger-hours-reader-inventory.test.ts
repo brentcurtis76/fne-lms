@@ -74,6 +74,7 @@ interface AbstractValue {
   sequenceSource?: AbstractValue;
   sequenceMutation?: SequenceMutationName;
   sequenceMutationTarget?: AbstractValue;
+  sequenceAliases?: Set<AbstractValue>;
 }
 
 function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
@@ -97,6 +98,7 @@ function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
     sequenceSource: partial.sequenceSource,
     sequenceMutation: partial.sequenceMutation,
     sequenceMutationTarget: partial.sequenceMutationTarget,
+    sequenceAliases: partial.sequenceAliases,
   };
 }
 
@@ -163,6 +165,14 @@ function unionValues(...values: AbstractValue[]): AbstractValue {
           ? pair(leftElement, rightElement)
           : leftElement ?? rightElement!;
       });
+      const aliases = new Set<AbstractValue>();
+      const addAliases = (value: AbstractValue): void => {
+        if (value.sequenceAliases) value.sequenceAliases.forEach((alias) => aliases.add(alias));
+        else if (value.tupleElements) aliases.add(value);
+      };
+      addAliases(left);
+      addAliases(right);
+      if (aliases.size > 1) result.sequenceAliases = aliases;
     }
 
     const boundLength = Math.max(left.boundArguments?.length ?? 0, right.boundArguments?.length ?? 0);
@@ -231,6 +241,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       : file.endsWith('.js') ? ts.ScriptKind.JS
         : file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const scopes: Array<Map<string, AbstractValue>> = [new Map()];
+  let weakHeapUpdateDepth = 0;
   const calls: DiscoveredCall[] = [];
   const activeFunctions = new Set<ts.FunctionLikeDeclaration>();
   const functionInputs = new Map<ts.FunctionLikeDeclaration, AbstractValue[]>();
@@ -296,6 +307,13 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   }
 
   function arrayConstructorValue(): AbstractValue {
+    const prototype = valueOf({ properties: new Map(
+      (['push', 'pop', 'shift', 'unshift', 'splice', 'reverse', 'fill',
+        'copyWithin', 'sort'] as SequenceMutationName[]).map((method) => [
+        method,
+        valueOf({ sequenceMutation: method, callableCandidate: true }),
+      ])
+    ) });
     return valueOf({
       sequenceBuilder: 'constructor',
       callableCandidate: true,
@@ -303,6 +321,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       properties: new Map([
         ['of', valueOf({ sequenceBuilder: 'of', callableCandidate: true })],
         ['from', valueOf({ sequenceBuilder: 'from', callableCandidate: true })],
+        ['prototype', prototype],
       ]),
     });
   }
@@ -348,11 +367,10 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     activeModuleExports.add(targetPath);
 
     let exports = new Map<string, ReceiverProvenance>();
+    let bareExports = exports;
     const locals = new Map<string, ReceiverProvenance>();
     const localObjects = new Map<string, Map<string, ReceiverProvenance>>();
     const localStrings = new Map<string, string>();
-    let exportsAlias = true;
-    let reboundExports = new Map<string, ReceiverProvenance>();
     let sawCommonJsExport = false;
     const target = ts.createSourceFile(targetPath, readFileSync(targetPath, 'utf8'),
       ts.ScriptTarget.Latest, true,
@@ -396,7 +414,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       seen.add(expression);
       const current = ts.isParenthesizedExpression(expression) ? expression.expression : expression;
       if (ts.isIdentifier(current)) {
-        if (current.text === 'exports') return exportsAlias ? exports : reboundExports;
+        if (current.text === 'exports') return bareExports;
         return localObjects.get(current.text);
       }
       if (ts.isPropertyAccessExpression(current) &&
@@ -405,6 +423,17 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       if (ts.isCallExpression(current) && ts.isIdentifier(current.expression) &&
           current.expression.text === 'require' && ts.isStringLiteralLike(current.arguments[0])) {
         return new Map(moduleExports(current.arguments[0].text, targetPath));
+      }
+      if (ts.isCallExpression(current) && ts.isPropertyAccessExpression(current.expression) &&
+          ts.isIdentifier(current.expression.expression) &&
+          current.expression.expression.text === 'Object' &&
+          current.expression.name.text === 'assign') {
+        const destination = expressionMembers(current.arguments[0], new Set(seen));
+        if (!destination) return undefined;
+        current.arguments.slice(1).forEach((argument) =>
+          mergeStaticMembers(destination, expressionMembers(argument, new Set(seen)))
+        );
+        return destination;
       }
       if (ts.isObjectLiteralExpression(current)) {
         const members = new Map<string, ReceiverProvenance>();
@@ -610,47 +639,60 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       };
     };
     const replaceModuleExports = (value: ExportValue): void => {
-      exports = value.members ? new Map(value.members) : new Map();
-      exports.set('default', mergeProvenance(exports.get('default'), value.provenance));
+      exports = value.members ?? new Map([['default', value.provenance]]);
     };
-    const mergeStaticMembers = (
+    function mergeStaticMembers(
       destination: Map<string, ReceiverProvenance>,
       source: Map<string, ReceiverProvenance> | undefined
-    ): void => {
+    ): void {
       if (!source) {
         destination.set('*', 'ambiguous');
         return;
       }
       for (const [name, provenance] of source) {
         if (name === 'default') continue;
-        destination.set(name, mergeProvenance(destination.get(name), provenance));
+        destination.set(name, provenance);
       }
-    };
+    }
     function applyCommonAssignment(assignment: ts.BinaryExpression): ExportValue {
       const value = exportValue(assignment.right);
       if (isModuleExports(assignment.left)) {
         sawCommonJsExport = true;
         replaceModuleExports(value);
-        exportsAlias = false;
         return { ...value, members: exports, moduleObject: true };
       }
       if (ts.isIdentifier(assignment.left) && assignment.left.text === 'exports') {
         sawCommonJsExport = true;
-        reboundExports = value.members ? value.members : new Map([
+        bareExports = value.members ?? new Map([
           ['default', value.provenance],
         ]);
-        exportsAlias = Boolean(value.moduleObject);
-        if (exportsAlias) reboundExports = exports;
-        return { ...value, members: reboundExports, moduleObject: exportsAlias };
+        return { ...value, members: bareExports, moduleObject: bareExports === exports };
       }
       const member = commonMemberTarget(assignment.left);
       if (member) {
         sawCommonJsExport = true;
         const destination = member.owner === 'module'
-          ? exports : exportsAlias ? exports : reboundExports;
+          ? exports : bareExports;
         destination.set(member.name ?? '*', member.name
-          ? mergeProvenance(destination.get(member.name), value.provenance)
+          ? value.provenance
           : 'ambiguous');
+        return value;
+      }
+      const left = unwrap(assignment.left);
+      if (ts.isIdentifier(left)) {
+        if (value.members) localObjects.set(left.text, value.members);
+        locals.set(left.text, value.provenance);
+        return value;
+      }
+      if (ts.isPropertyAccessExpression(left) || ts.isElementAccessExpression(left)) {
+        const ownerExpression = ts.isPropertyAccessExpression(left)
+          ? left.expression : left.expression;
+        const destination = expressionMembers(ownerExpression);
+        if (destination) {
+          const name = ts.isPropertyAccessExpression(left)
+            ? left.name.text : staticName(left.argumentExpression, true);
+          destination.set(name ?? '*', name ? value.provenance : 'ambiguous');
+        }
       }
       return value;
     }
@@ -704,32 +746,65 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           statement.expression.expression.name.text === 'assign') {
         const call = statement.expression;
         const destination = call.arguments[0];
-        const writesModule = destination && isModuleExports(destination);
-        const writesExports = destination && ts.isIdentifier(destination) &&
-          destination.text === 'exports';
-        if (writesModule || writesExports) {
-          sawCommonJsExport = true;
-          const output = writesModule ? exports : exportsAlias ? exports : reboundExports;
+        const output = destination ? expressionMembers(destination) : undefined;
+        if (output) {
+          if (output === exports || output === bareExports) sawCommonJsExport = true;
           call.arguments.slice(1).forEach((argument) =>
             mergeStaticMembers(output, expressionMembers(argument))
           );
         }
-      }
-    }
-    if (sawCommonJsExport) {
-      for (const [name, provenance] of [...exports]) {
-        if (name !== '*' && name !== 'default' && !name.startsWith('default.')) {
-          exports.set(`default.${name}`, provenance);
+      } else if (ts.isExpressionStatement(statement) && ts.isCallExpression(statement.expression) &&
+          ts.isPropertyAccessExpression(statement.expression.expression) &&
+          ts.isIdentifier(statement.expression.expression.expression) &&
+          statement.expression.expression.expression.text === 'Object' &&
+          statement.expression.expression.name.text === 'defineProperty') {
+        const call = statement.expression;
+        const destination = expressionMembers(call.arguments[0]);
+        const name = call.arguments[1] ? staticName(call.arguments[1], true) : undefined;
+        const descriptor = call.arguments[2] && ts.isObjectLiteralExpression(call.arguments[2])
+          ? call.arguments[2] : undefined;
+        if (!destination || !name || !descriptor) {
+          (destination ?? exports).set('*', 'ambiguous');
+        } else {
+          const valueProperty = descriptor.properties.find((property) =>
+            ts.isPropertyAssignment(property) && staticName(property.name) === 'value'
+          );
+          const getterProperty = descriptor.properties.find((property) =>
+            (ts.isPropertyAssignment(property) || ts.isMethodDeclaration(property)) &&
+            staticName(property.name) === 'get'
+          );
+          let provenance: ReceiverProvenance = 'ambiguous';
+          if (valueProperty && ts.isPropertyAssignment(valueProperty)) {
+            provenance = expressionProvenance(valueProperty.initializer);
+          } else if (getterProperty && ts.isPropertyAssignment(getterProperty) &&
+              (ts.isArrowFunction(getterProperty.initializer) ||
+               ts.isFunctionExpression(getterProperty.initializer))) {
+            provenance = functionReturnProvenance(getterProperty.initializer);
+          } else if (getterProperty && ts.isMethodDeclaration(getterProperty)) {
+            provenance = functionReturnProvenance(getterProperty);
+          }
+          destination.set(name, provenance);
+          if (destination === exports || destination === bareExports) sawCommonJsExport = true;
         }
       }
     }
-    const aggregate = [...exports.values()].reduce<ReceiverProvenance | undefined>(
+    const resolvedExports = new Map(exports);
+    if (sawCommonJsExport) {
+      const defaultProvenance = graphAggregate(exports);
+      if (!resolvedExports.has('default')) resolvedExports.set('default', defaultProvenance);
+      for (const [name, provenance] of [...exports]) {
+        if (name !== '*' && name !== 'default' && !name.startsWith('default.')) {
+          resolvedExports.set(`default.${name}`, provenance);
+        }
+      }
+    }
+    const aggregate = [...resolvedExports.values()].reduce<ReceiverProvenance | undefined>(
       (result, provenance) => mergeProvenance(result, provenance), undefined
     );
-    exports.set('*', aggregate ?? 'ambiguous');
+    resolvedExports.set('*', aggregate ?? 'ambiguous');
     activeModuleExports.delete(targetPath);
-    moduleExportCache.set(targetPath, exports);
-    return exports;
+    moduleExportCache.set(targetPath, resolvedExports);
+    return resolvedExports;
   }
 
   function importedValue(
@@ -1130,7 +1205,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   function assign(name: string, value: AbstractValue): void {
     for (let index = scopes.length - 1; index >= 0; index -= 1) {
       if (scopes[index].has(name)) {
-        scopes[index].set(name, unionValues(scopes[index].get(name)!, value));
+        scopes[index].set(name, value);
         return;
       }
     }
@@ -1138,18 +1213,28 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   }
 
   function writeSequencePosition(base: AbstractValue, index: number, value: AbstractValue): void {
+    if ((base.sequenceAliases?.size ?? 0) > 1) {
+      weakHeapUpdateDepth += 1;
+      try {
+        base.sequenceAliases!.forEach((alias) => writeSequencePosition(alias, index, value));
+      } finally {
+        weakHeapUpdateDepth -= 1;
+      }
+      invalidateSequence(base, [value]);
+      return;
+    }
     if (!Number.isInteger(index) || index < 0 || index > 4096) {
-      base.external = true;
-      base.elements = base.elements ? unionValues(base.elements, value) : value;
+      invalidateSequence(base, [value]);
       return;
     }
     const tuple = base.tupleElements ?? [];
     while (tuple.length <= index) tuple.push(valueOf());
-    tuple[index] = hasAbstractFacts(tuple[index]) ? unionValues(tuple[index], value) : value;
+    tuple[index] = weakHeapUpdateDepth > 0 && hasAbstractFacts(tuple[index])
+      ? unionValues(tuple[index], value) : value;
     base.tupleElements = tuple;
     base.properties.set(String(index), tuple[index]);
     base.properties.set('length', valueOf({ numbers: new Set([tuple.length]) }));
-    base.elements = base.elements ? unionValues(base.elements, value) : value;
+    base.elements = tuple.length > 0 ? unionValues(...tuple) : undefined;
   }
 
   function assignPattern(name: ts.Expression, value: AbstractValue): void {
@@ -1169,15 +1254,15 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     if (ts.isPropertyAccessExpression(target)) {
       const base = resolveValue(target.expression);
       const prior = base.properties.get(target.name.text);
-      base.properties.set(target.name.text, prior ? unionValues(prior, value) : value);
+      base.properties.set(target.name.text, weakHeapUpdateDepth > 0 && prior
+        ? unionValues(prior, value) : value);
       return;
     }
     if (ts.isElementAccessExpression(target)) {
       const base = resolveValue(target.expression);
       const keys = resolveValue(target.argumentExpression);
       if (keys.external || (keys.strings.size === 0 && keys.numbers.size === 0)) {
-        base.external = true;
-        base.elements = base.elements ? unionValues(base.elements, value) : value;
+        invalidateSequence(base, [value]);
         return;
       }
       for (const index of keys.numbers) writeSequencePosition(base, index, value);
@@ -1187,7 +1272,8 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           continue;
         }
         const prior = base.properties.get(key);
-        base.properties.set(key, prior ? unionValues(prior, value) : value);
+        base.properties.set(key, weakHeapUpdateDepth > 0 && prior
+          ? unionValues(prior, value) : value);
       }
       return;
     }
@@ -1264,6 +1350,8 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       sequenceMutation: value.sequenceMutation ?? null,
       sequenceMutationTarget: value.sequenceMutationTarget
         ? valueFingerprint(value.sequenceMutationTarget, seen) : null,
+      sequenceAliases: value.sequenceAliases
+        ? [...value.sequenceAliases].map((entry) => valueFingerprint(entry, seen)).sort() : null,
       properties, elements: value.elements ? valueFingerprint(value.elements, seen) : null,
       tupleElements: value.tupleElements?.map((entry) => valueFingerprint(entry, seen)) ?? null,
     });
@@ -1359,6 +1447,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       sequenceSource: callable.sequenceSource,
       sequenceMutation: callable.sequenceMutation,
       sequenceMutationTarget: callable.sequenceMutationTarget,
+      sequenceAliases: callable.sequenceAliases,
     });
   }
 
@@ -1420,11 +1509,18 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   function evaluateSequenceMutation(
     callable: AbstractValue,
     args: AbstractValue[],
+    receiver: AbstractValue | undefined,
     context: InvocationContext
   ): AbstractValue {
-    const target = callable.sequenceMutationTarget ?? valueOf({
+    const target = callable.sequenceMutationTarget ?? receiver ?? valueOf({
       external: true, callableCandidate: true,
     });
+    if ((target.sequenceAliases?.size ?? 0) > 1 || weakHeapUpdateDepth > 0) {
+      const aliases = target.sequenceAliases ?? new Set([target]);
+      aliases.forEach((alias) => invalidateSequence(alias, args));
+      invalidateSequence(target, args);
+      return target;
+    }
     const cached = sequenceMutationResults.get(context.node);
     if (cached?.target === target && cached.postState === valueFingerprint(target)) {
       return cached.result;
@@ -1552,7 +1648,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     const invocationArguments = initialCallable.boundArguments
       ? [...initialCallable.boundArguments, ...initialArguments]
       : initialArguments;
-    const invocationReceiver = receiver ?? initialCallable.boundReceiver;
+    const invocationReceiver = initialCallable.boundReceiver ?? receiver;
     const stateKey = initialCallable.adapter
       ? adapterStateKey(initialCallable, invocationArguments, invocationReceiver)
       : undefined;
@@ -1599,7 +1695,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     }
 
     if (callable.sequenceMutation) {
-      return evaluateSequenceMutation(callable, args, context);
+      return evaluateSequenceMutation(callable, args, effectiveReceiver, context);
     }
 
     if (callable.sequenceBuilder) {
@@ -1900,6 +1996,33 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           : output);
         visit(node.expression);
       }
+      return;
+    }
+    if (ts.isIfStatement(node)) {
+      visit(node.expression);
+      const before = scopes.map((scope) => new Map(scope));
+      const runBranch = (branch: ts.Statement | undefined): Array<Map<string, AbstractValue>> => {
+        scopes.splice(0, scopes.length, ...before.map((scope) => new Map(scope)));
+        if (branch) {
+          weakHeapUpdateDepth += 1;
+          try { visit(branch); } finally { weakHeapUpdateDepth -= 1; }
+        }
+        return scopes.map((scope) => new Map(scope));
+      };
+      const whenTrue = runBranch(node.thenStatement);
+      const whenFalse = runBranch(node.elseStatement);
+      scopes.splice(0, scopes.length, ...before.map((scope, index) => {
+        const merged = new Map<string, AbstractValue>();
+        const names = new Set([
+          ...scope.keys(), ...whenTrue[index].keys(), ...whenFalse[index].keys(),
+        ]);
+        for (const name of names) {
+          const values = [whenTrue[index].get(name), whenFalse[index].get(name)]
+            .filter((value): value is AbstractValue => Boolean(value));
+          merged.set(name, values.length > 1 ? unionValues(...values) : values[0] ?? valueOf());
+        }
+        return merged;
+      }));
       return;
     }
     if (ts.isForOfStatement(node)) {
@@ -3456,7 +3579,7 @@ describe('contract_hours_ledger production consumer inventory', () => {
       targets.table = 'contract_hours_ledger';
       client.from(targets.table);
     `);
-    expect(objectMutation[0].dynamicValues).toEqual(['contract_hours_ledger', 'safe_a']);
+    expect(objectMutation).toEqual([{ method: 'from', target: 'contract_hours_ledger' }]);
     expect(directTableTouchCount(`
       const targets = { table: 'safe_a' };
       targets.table = 'contract_hours_ledger';
@@ -4355,9 +4478,12 @@ describe('contract_hours_ledger production consumer inventory', () => {
          factories.makeDatabase().from('contract_hours_ledger');`,
       ]) expect(directTableTouchCount(source, importer), source).toBe(1);
 
+      const detachedBareExports = `const api = require('./bare-rebind');
+        api.makeDatabase().from('contract_hours_ledger');`;
+      expect(discoverSupabaseCalls(detachedBareExports, importer)).toEqual([]);
+      expect(directTableTouchCount(detachedBareExports, importer)).toBe(0);
+
       for (const source of [
-        `const api = require('./bare-rebind');
-         api.makeDatabase().from('contract_hours_ledger');`,
         `const api = require('./dynamic');
          api.makeDatabase().from('contract_hours_ledger');`,
       ]) expect(discoverSupabaseCalls(source, importer), source).toContainEqual(
@@ -4377,6 +4503,279 @@ describe('contract_hours_ledger production consumer inventory', () => {
       `;
       expect(discoverSupabaseCalls(circular, importer))
         .toEqual(discoverSupabaseCalls(circular, importer));
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('closes Round 17 mutable-sequence and CommonJS identity controls', () => {
+    const exactLedgerCalls = (source: string, file = 'probe.ts'): number =>
+      discoverSupabaseCalls(source, file).filter((call) => call.method === 'from' &&
+        (call.target === 'contract_hours_ledger' ||
+         call.targets?.includes('contract_hours_ledger'))).length;
+
+    for (const source of [
+      `const slots = [];
+       Array.prototype.unshift.call(slots, client.from, client, 'contract_hours_ledger');
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = [];
+       Reflect.apply(Array.prototype.unshift, slots, [
+         client.from, client, 'contract_hours_ledger'
+       ]);
+       slots[0].call(slots[1], slots[2]);`,
+    ]) expect.soft(exactLedgerCalls(source), source).toBe(1);
+
+    const mayAliasControl = `
+      const slots = ['contract_hours_ledger', client, client.from];
+      const other = [];
+      const alias = flag ? slots : other;
+      alias.reverse();
+      slots[0].call(slots[1], slots[2]);
+    `;
+    const mayAliasEvidence = discoverSupabaseCalls(mayAliasControl);
+    expect(exactLedgerCalls(mayAliasControl) === 1 || mayAliasEvidence.some((call) =>
+      call.method === 'unknown' && call.unsupported === 'dynamic callable name'
+    ), mayAliasControl).toBe(true);
+    expect(mayAliasEvidence, mayAliasControl).not.toEqual([]);
+
+    const overwritten = `
+      const slots = [client.from, client, 'contract_hours_ledger'];
+      slots[0] = () => null;
+      slots[0].call(slots[1], slots[2]);
+    `;
+    expect.soft(exactLedgerCalls(overwritten), overwritten).toBe(0);
+    expect.soft(discoverSupabaseCalls(overwritten).filter((call) => call.unsupported),
+      overwritten).toEqual([]);
+
+    const mutationCases: Record<SequenceMutationName, {
+      initial: string;
+      args: string;
+      invocation: string;
+    }> = {
+      push: {
+        initial: `[client.from, client, 'contract_hours_ledger']`,
+        args: `ordinary`, invocation: `slots[0].call(slots[1], slots[2]);`,
+      },
+      pop: {
+        initial: `[client.from, client, 'contract_hours_ledger', ordinary]`,
+        args: ``, invocation: `slots[0].call(slots[1], slots[2]);`,
+      },
+      shift: {
+        initial: `[ordinary, client.from, client, 'contract_hours_ledger']`,
+        args: ``, invocation: `slots[0].call(slots[1], slots[2]);`,
+      },
+      unshift: {
+        initial: `[]`, args: `client.from, client, 'contract_hours_ledger'`,
+        invocation: `slots[0].call(slots[1], slots[2]);`,
+      },
+      splice: {
+        initial: `[ordinary, ordinary, ordinary]`,
+        args: `0, 3, client.from, client, 'contract_hours_ledger'`,
+        invocation: `slots[0].call(slots[1], slots[2]);`,
+      },
+      reverse: {
+        initial: `['contract_hours_ledger', client, client.from]`,
+        args: ``, invocation: `slots[0].call(slots[1], slots[2]);`,
+      },
+      fill: {
+        initial: `[ordinary, client, 'contract_hours_ledger']`,
+        args: `client.from, 0, 1`, invocation: `slots[0].call(slots[1], slots[2]);`,
+      },
+      copyWithin: {
+        initial: `[ordinary, client, client.from, 'contract_hours_ledger']`,
+        args: `0, 2, 3`, invocation: `slots[0].call(slots[1], slots[3]);`,
+      },
+      sort: {
+        initial: `[client.from, client, 'contract_hours_ledger']`,
+        args: `externalComparator`, invocation: `slots[0].call(slots[1], slots[2]);`,
+      },
+    };
+    const exactMutators = (Object.keys(mutationCases) as SequenceMutationName[])
+      .filter((method) => method !== 'sort');
+    for (const method of exactMutators) {
+      const { initial, args, invocation } = mutationCases[method];
+      const argumentList = args ? `, ${args}` : '';
+      const applied = args ? `[${args}]` : '[]';
+      for (const operation of [
+        `Array.prototype.${method}.call(slots${argumentList});`,
+        `Array.prototype['${method}'].apply(slots, ${applied});`,
+        `const mutate = Array.prototype.${method}.bind(slots${argumentList}); mutate();`,
+        `Reflect.apply(Array.prototype['${method}'], slots, ${applied});`,
+      ]) {
+        const source = `const slots = ${initial}; ${operation} ${invocation}`;
+        expect(exactLedgerCalls(source), `${method}: ${operation}`).toBe(1);
+        expect(discoverSupabaseCalls(source).filter((call) => call.unsupported), source).toEqual([]);
+      }
+    }
+
+    for (const source of [
+      `const slots = [];
+       const key = 'unshift';
+       const { [key]: mutate } = Array.prototype;
+       mutate.call(slots, client.from, client, 'contract_hours_ledger');
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = ['contract_hours_ledger', client, client.from];
+       const call = Function.prototype.call.bind(Array.prototype.reverse);
+       Reflect.apply(call, null, [slots]);
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = [client.from, client, 'contract_hours_ledger'];
+       const first = slots;
+       const second = first;
+       second[0] = ordinary;
+       first[0] = client.from;
+       first[0].call(second[1], slots[2]);`,
+      `const slots = [client.from, client, 'contract_hours_ledger'];
+       [slots[0]] = [ordinary];
+       slots['0'] = client.from;
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = ['contract_hours_ledger', client, client.from];
+       let alias;
+       if (flag) alias = slots; else alias = slots;
+       alias.reverse();
+       slots[0].call(slots[1], slots[2]);`,
+    ]) {
+      expect(exactLedgerCalls(source), source).toBe(1);
+      expect(discoverSupabaseCalls(source).filter((call) => call.unsupported), source).toEqual([]);
+    }
+
+    for (const source of [
+      `Array.prototype.unshift.call(externalSlots, client.from, client,
+         'contract_hours_ledger');
+       externalSlots[0].call(externalSlots[1], externalSlots[2]);`,
+      `const slots = [client.from, client, 'contract_hours_ledger'];
+       Array.prototype[process.argv[2]].call(slots);
+       slots[0].call(slots[1], slots[2]);`,
+      `const left = [client.from, client, 'contract_hours_ledger'];
+       const right = ['contract_hours_ledger', client, client.from];
+       const alias = condition ? left : right;
+       alias.reverse();
+       alias[0].call(alias[1], alias[2]);`,
+      `const slots = [client.from, client, 'contract_hours_ledger'];
+       slots[process.argv[2]] = ordinary;
+       slots[0].call(slots[1], slots[2]);`,
+      `function mutate(value) { Array.prototype.reverse.call(value); return value; }
+       const original = ['contract_hours_ledger', client, client.from];
+       const alias = mutate(original);
+       alias[0].call(alias[1], alias[2]);`,
+      `const slots = [client.from, client, 'contract_hours_ledger'];
+       const other = [ordinary, ordinary, ordinary];
+       let alias;
+       if (flag) alias = slots; else alias = other;
+       alias[0] = ordinary;
+       slots[0].call(slots[1], slots[2]);`,
+    ]) expect(discoverSupabaseCalls(source), source).toContainEqual(expect.objectContaining({
+      method: 'unknown', unsupported: 'dynamic callable name',
+    }));
+
+    for (const source of [
+      `const values = [1, 2]; Array.prototype.push.call(values, 3);`,
+      `const values = ['a', 'b']; Reflect.apply(Array.prototype.reverse, values, []);`,
+      `const slots = [client.from, client, 'contract_hours_ledger'];
+       const alias = slots;
+       alias[0] = () => null;
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = [client.from, client, 'contract_hours_ledger'];
+       slots['0'] = () => null;
+       slots[0].call(slots[1], slots[2]);`,
+      `const slots = [client.from, client, 'contract_hours_ledger'];
+       [slots[0]] = [() => null];
+       slots[0].call(slots[1], slots[2]);`,
+    ]) {
+      expect(exactLedgerCalls(source), source).toBe(0);
+      expect(discoverSupabaseCalls(source).filter((call) => call.unsupported), source).toEqual([]);
+    }
+
+    const fixtureRoot = mkdtempSync(join(ROOT, '.z7-r17-old-controls-'));
+    try {
+      const factory = `
+        const { createClient } = require('@supabase/supabase-js');
+        const makeDatabase = () => createClient('url', 'key');
+      `;
+      writeFileSync(join(fixtureRoot, 'direct.cjs'), `${factory}
+        const api = {};
+        module.exports = api;
+        api.makeDatabase = makeDatabase;
+      `);
+      writeFileSync(join(fixtureRoot, 'assign.cjs'), `${factory}
+        const api = {};
+        module.exports = api;
+        Object.assign(api, { makeDatabase });
+      `);
+      writeFileSync(join(fixtureRoot, 'chained.cjs'), `${factory}
+        const api = {};
+        exports = module.exports = api;
+        api.makeDatabase = makeDatabase;
+      `);
+      writeFileSync(join(fixtureRoot, 'computed.cjs'), `${factory}
+        const api = {};
+        const key = 'makeDatabase';
+        module.exports = api;
+        api[key] = makeDatabase;
+      `);
+      writeFileSync(join(fixtureRoot, 'assigned-export.cjs'), `${factory}
+        const api = { inert: () => 'ordinary' };
+        module.exports = Object.assign(api, { makeDatabase });
+      `);
+      writeFileSync(join(fixtureRoot, 'defined.cjs'), `${factory}
+        const api = {};
+        module.exports = api;
+        Object.defineProperty(api, 'makeDatabase', { value: makeDatabase });
+      `);
+      writeFileSync(join(fixtureRoot, 'getter.cjs'), `${factory}
+        const api = {};
+        module.exports = api;
+        Object.defineProperty(api, 'makeDatabase', { get: () => makeDatabase });
+      `);
+      writeFileSync(join(fixtureRoot, 'interop.cjs'), `${factory}
+        const api = {};
+        module.exports = api;
+        Object.defineProperty(api, '__esModule', { value: true });
+        api.default = makeDatabase;
+        api.makeDatabase = makeDatabase;
+      `);
+      writeFileSync(join(fixtureRoot, 'replaced.cjs'), `${factory}
+        const oldApi = {};
+        module.exports = oldApi;
+        const current = { inert: () => 'ordinary' };
+        module.exports = current;
+        oldApi.makeDatabase = makeDatabase;
+      `);
+      writeFileSync(join(fixtureRoot, 'dynamic.cjs'), `${factory}
+        const api = {};
+        module.exports = api;
+        Object.defineProperty(api, process.argv[2], { value: makeDatabase });
+      `);
+      const importer = join(fixtureRoot, 'consumer.ts');
+      for (const moduleName of [
+        './direct', './assign', './chained', './computed', './assigned-export',
+        './defined', './getter',
+      ]) {
+        expect.soft(exactLedgerCalls(`
+          const api = require('${moduleName}');
+          api.makeDatabase().from('contract_hours_ledger');
+        `, importer), moduleName).toBe(1);
+      }
+      for (const source of [
+        `const api = require('./interop');
+         api.default().from('contract_hours_ledger');`,
+        `import open from './interop';
+         open().from('contract_hours_ledger');`,
+        `import * as api from './interop';
+         api.makeDatabase().from('contract_hours_ledger');`,
+        `const { makeDatabase } = require('./interop');
+         makeDatabase().from('contract_hours_ledger');`,
+      ]) expect(exactLedgerCalls(source, importer), source).toBe(1);
+
+      const replaced = `const api = require('./replaced');
+        api.makeDatabase().from('contract_hours_ledger');`;
+      expect(exactLedgerCalls(replaced, importer)).toBe(0);
+      expect(discoverSupabaseCalls(replaced, importer).filter((call) => call.unsupported)).toEqual([]);
+
+      const dynamic = `const api = require('./dynamic');
+        api.makeDatabase().from('contract_hours_ledger');`;
+      expect(discoverSupabaseCalls(dynamic, importer)).toContainEqual(expect.objectContaining({
+        method: 'unknown', unsupported: 'dynamic callable name',
+      }));
     } finally {
       rmSync(fixtureRoot, { recursive: true, force: true });
     }

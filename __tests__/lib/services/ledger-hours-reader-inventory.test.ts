@@ -55,12 +55,15 @@ interface AbstractValue {
   methods: Set<MethodName>;
   properties: Map<string, AbstractValue>;
   elements?: AbstractValue;
+  tupleElements?: AbstractValue[];
   external: boolean;
   callableCandidate: boolean;
   functions: Set<ts.FunctionLikeDeclaration>;
   boundArguments?: AbstractValue[];
-  adapter?: 'call' | 'apply' | 'reflectApply' | 'intrinsicCall';
+  boundReceiver?: AbstractValue;
+  adapter?: 'call' | 'apply' | 'bind' | 'reflectApply';
   adapterCallable?: AbstractValue;
+  adapterConflict: boolean;
 }
 
 function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
@@ -69,12 +72,15 @@ function valueOf(partial: Partial<AbstractValue> = {}): AbstractValue {
     methods: partial.methods ?? new Set(),
     properties: partial.properties ?? new Map(),
     elements: partial.elements,
+    tupleElements: partial.tupleElements,
     external: partial.external ?? false,
     callableCandidate: partial.callableCandidate ?? false,
     functions: partial.functions ?? new Set(),
     boundArguments: partial.boundArguments,
+    boundReceiver: partial.boundReceiver,
     adapter: partial.adapter,
     adapterCallable: partial.adapterCallable,
+    adapterConflict: partial.adapterConflict ?? false,
   };
 }
 
@@ -114,6 +120,16 @@ function unionValues(...values: AbstractValue[]): AbstractValue {
     result.elements = left.elements && right.elements
       ? pair(left.elements, right.elements)
       : left.elements ?? right.elements;
+    const tupleLength = Math.max(left.tupleElements?.length ?? 0, right.tupleElements?.length ?? 0);
+    if (tupleLength > 0) {
+      result.tupleElements = Array.from({ length: tupleLength }, (_, index) => {
+        const leftElement = left.tupleElements?.[index];
+        const rightElement = right.tupleElements?.[index];
+        return leftElement && rightElement
+          ? pair(leftElement, rightElement)
+          : leftElement ?? rightElement!;
+      });
+    }
 
     const boundLength = Math.max(left.boundArguments?.length ?? 0, right.boundArguments?.length ?? 0);
     if (boundLength > 0) {
@@ -125,8 +141,13 @@ function unionValues(...values: AbstractValue[]): AbstractValue {
           : leftArgument ?? rightArgument!;
       });
     }
+    result.boundReceiver = left.boundReceiver && right.boundReceiver
+      ? pair(left.boundReceiver, right.boundReceiver)
+      : left.boundReceiver ?? right.boundReceiver;
 
-    if (left.adapter && right.adapter && left.adapter !== right.adapter) {
+    result.adapterConflict = left.adapterConflict || right.adapterConflict ||
+      Boolean(left.adapter && right.adapter && left.adapter !== right.adapter);
+    if (result.adapterConflict) {
       result.external = true;
       result.callableCandidate = true;
     } else {
@@ -189,7 +210,9 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   function functionConstructorValue(): AbstractValue {
     return valueOf({ properties: new Map([
       ['prototype', valueOf({ properties: new Map([
-        ['call', valueOf({ adapter: 'intrinsicCall', callableCandidate: true })],
+        ['call', valueOf({ adapter: 'call', callableCandidate: true })],
+        ['apply', valueOf({ adapter: 'apply', callableCandidate: true })],
+        ['bind', valueOf({ adapter: 'bind', callableCandidate: true })],
       ]) })],
     ]) });
   }
@@ -233,12 +256,17 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       return unionValues(resolveValue(node.whenTrue), resolveValue(node.whenFalse));
     }
     if (ts.isArrayLiteralExpression(node)) {
+      const tupleElements = node.elements.flatMap((entry) => {
+        if (!ts.isSpreadElement(entry)) return [resolveValue(entry)];
+        const spread = resolveValue(entry.expression);
+        return spread.tupleElements ?? [unionValues(
+          spread.elements ?? valueOf(),
+          valueOf({ external: spread.external || !spread.elements })
+        )];
+      });
       return valueOf({
-        elements: unionValues(...node.elements.map((entry) => {
-          if (!ts.isSpreadElement(entry)) return resolveValue(entry);
-          const spread = resolveValue(entry.expression);
-          return unionValues(spread.elements ?? valueOf(), valueOf({ external: spread.external }));
-        })),
+        elements: unionValues(...tupleElements),
+        tupleElements,
       });
     }
     if (ts.isObjectLiteralExpression(node)) {
@@ -269,24 +297,23 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         node.expression.expression.text === 'Object' && node.expression.name.text === 'assign') {
       return resolveValue(node.arguments[0]);
     }
-    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) &&
-        node.expression.name.text === 'bind') {
-      const callable = resolveValue(node.expression.expression);
-      return unionValues(callable, valueOf({
-        callableCandidate: callable.callableCandidate,
-        boundArguments: node.arguments.slice(1).map((argument) => resolveValue(argument)),
-      }));
-    }
     if (ts.isCallExpression(node)) {
       const callable = resolveValue(node.expression);
-      const outputs = [...callable.functions].map((target) =>
-        invokeFunction(target, callArgumentValues(target, node.arguments))
+      return evaluateCallable(
+        callable,
+        invocationArgumentValues(node.arguments),
+        undefined,
+        {
+          record: false,
+          node,
+          expression: node.expression.getText(sf),
+          targetExpression: node.arguments[0]?.getText(sf),
+        }
       );
-      if (outputs.length > 0) return unionValues(...outputs);
     }
     if (ts.isPropertyAccessExpression(node)) {
       const property = node.name.text;
-      if (property === 'call' || property === 'apply') {
+      if (property === 'call' || property === 'apply' || property === 'bind') {
         const base = resolveValue(node.expression);
         const stored = base.properties.get(property);
         if (stored) return stored;
@@ -315,7 +342,17 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           if (name === 'from' || name === 'rpc') {
             return valueOf({ methods: new Set([name]), callableCandidate: true });
           }
-          return base.properties.get(name) ?? valueOf({ external: true });
+          const stored = base.properties.get(name);
+          if (stored) return stored;
+          if (name === 'call' || name === 'apply' || name === 'bind') {
+            return valueOf({
+              adapter: name,
+              adapterCallable: base,
+              callableCandidate: base.callableCandidate,
+              external: base.external,
+            });
+          }
+          return valueOf({ external: true });
         });
         return unionValues(...selected);
       }
@@ -456,10 +493,13 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       external: value.external, callable: value.callableCandidate,
       functions: [...value.functions].map((entry) => entry.pos).sort((a, b) => a - b),
       boundArguments: value.boundArguments?.map((entry) => valueFingerprint(entry, seen)) ?? null,
+      boundReceiver: value.boundReceiver ? valueFingerprint(value.boundReceiver, seen) : null,
       adapter: value.adapter ?? null,
+      adapterConflict: value.adapterConflict,
       adapterCallable: value.adapterCallable
         ? valueFingerprint(value.adapterCallable, seen) : null,
       properties, elements: value.elements ? valueFingerprint(value.elements, seen) : null,
+      tupleElements: value.tupleElements?.map((entry) => valueFingerprint(entry, seen)) ?? null,
     });
     seen.delete(value);
     return result;
@@ -479,6 +519,145 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     return false;
   }
 
+  function invocationArgumentValues(args: ts.NodeArray<ts.Expression>): AbstractValue[] {
+    return args.flatMap((argument) => {
+      if (!ts.isSpreadElement(argument)) return [resolveValue(argument)];
+      const spread = resolveValue(argument.expression);
+      return spread.tupleElements ?? [unionValues(
+        spread.elements ?? valueOf(),
+        valueOf({ external: spread.external || !spread.elements })
+      )];
+    });
+  }
+
+  function appliedArguments(value: AbstractValue): AbstractValue[] {
+    return value.tupleElements ?? [unionValues(
+      value.elements ?? valueOf(),
+      valueOf({ external: value.external || !value.elements })
+    )];
+  }
+
+  function boundCallable(
+    callable: AbstractValue,
+    args: AbstractValue[],
+    receiver?: AbstractValue
+  ): AbstractValue {
+    return valueOf({
+      strings: callable.strings,
+      methods: callable.methods,
+      properties: callable.properties,
+      elements: callable.elements,
+      tupleElements: callable.tupleElements,
+      external: callable.external,
+      callableCandidate: callable.callableCandidate,
+      functions: callable.functions,
+      boundArguments: [...(callable.boundArguments ?? []), ...args],
+      boundReceiver: callable.boundReceiver ?? receiver,
+      adapter: callable.adapter,
+      adapterCallable: callable.adapterCallable,
+      adapterConflict: callable.adapterConflict,
+    });
+  }
+
+  interface InvocationContext {
+    record: boolean;
+    node: ts.CallExpression;
+    expression: string;
+    targetExpression?: string;
+  }
+
+  function evaluateCallable(
+    initialCallable: AbstractValue,
+    initialArguments: AbstractValue[],
+    receiver: AbstractValue | undefined,
+    context: InvocationContext,
+    adapterPath = new Set<AbstractValue>(),
+    depth = 0
+  ): AbstractValue {
+    if (depth > 32 || (initialCallable.adapter && adapterPath.has(initialCallable))) {
+      if (context.record) {
+        calls.push({
+          method: 'unknown', unsupported: 'dynamic callable name',
+          expression: 'non-convergent Function adapter', position: context.node.pos,
+        });
+      }
+      return valueOf({ external: true, callableCandidate: true });
+    }
+
+    let callable = initialCallable;
+    let args = callable.boundArguments
+      ? [...callable.boundArguments, ...initialArguments]
+      : initialArguments;
+    const effectiveReceiver = receiver ?? callable.boundReceiver;
+    if (callable.adapter) {
+      const nextPath = new Set(adapterPath).add(callable);
+      if (callable.adapter === 'reflectApply') {
+        return evaluateCallable(
+          args[0] ?? valueOf({ external: true, callableCandidate: true }),
+          appliedArguments(args[2] ?? valueOf({ external: true })),
+          args[1], context, nextPath, depth + 1
+        );
+      }
+
+      const target = callable.adapterCallable ?? effectiveReceiver ??
+        valueOf({ external: true, callableCandidate: true });
+      if (callable.adapter === 'bind') {
+        return boundCallable(target, args.slice(1), args[0]);
+      }
+      if (callable.adapter === 'call') {
+        return evaluateCallable(
+          target, args.slice(1), args[0], context, nextPath, depth + 1
+        );
+      }
+      return evaluateCallable(
+        target,
+        appliedArguments(args[1] ?? valueOf({ external: true })),
+        args[0], context, nextPath, depth + 1
+      );
+    }
+
+    if (context.record && callable.methods.size > 0) {
+      const targetValue = args[0] ?? valueOf({ external: true });
+      for (const method of callable.methods) {
+        if (targetValue.external || targetValue.strings.size === 0) {
+          calls.push({
+            method, unsupported: 'dynamic target',
+            expression: context.targetExpression ?? context.expression,
+            position: context.node.pos,
+          });
+        } else if (targetValue.strings.size === 1) {
+          calls.push({ method, target: [...targetValue.strings][0], position: context.node.pos });
+        } else {
+          calls.push({
+            method, targets: [...targetValue.strings].sort(),
+            expression: context.targetExpression ?? context.expression,
+            dynamicKind: 'target',
+            dynamicValues: [...targetValue.strings].sort(), position: context.node.pos,
+          });
+        }
+      }
+    }
+
+    const outputs = [...callable.functions].map((target) =>
+      invokeFunction(target, parameterValues(target, args))
+    );
+    if (context.record && callable.external &&
+        (callable.callableCandidate || args[0]?.strings.has('contract_hours_ledger') ||
+         args.some((argument) => isDatabaseCallable(argument)) ||
+         (effectiveReceiver && isDatabaseCallable(effectiveReceiver)))) {
+      calls.push({
+        method: 'unknown', unsupported: 'dynamic callable name',
+        expression: context.expression, position: context.node.pos,
+      });
+    }
+    if (outputs.length > 0) return unionValues(...outputs);
+    if (callable.methods.size > 0) return valueOf({ external: true });
+    return valueOf({
+      external: callable.external,
+      callableCandidate: callable.callableCandidate && callable.external,
+    });
+  }
+
   function callArguments(
     target: ts.FunctionLikeDeclaration,
     args: ts.NodeArray<ts.Expression>
@@ -490,10 +669,10 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         continue;
       }
       const spread = resolveValue(argument.expression);
-      expanded.push(unionValues(
-        spread.elements ?? valueOf(),
-        valueOf({ external: spread.external || !spread.elements })
-      ));
+      expanded.push(...(spread.tupleElements ?? [unionValues(
+          spread.elements ?? valueOf(),
+          valueOf({ external: spread.external || !spread.elements })
+        )]));
     }
     return target.parameters.map((parameter, index) => {
       if (parameter.dotDotDotToken) {
@@ -505,13 +684,6 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       return expanded[index] ?? (parameter.initializer
         ? resolveValue(parameter.initializer) : valueOf());
     });
-  }
-
-  function callArgumentValues(
-    target: ts.FunctionLikeDeclaration,
-    args: ts.NodeArray<ts.Expression>
-  ): AbstractValue[] {
-    return callArguments(target, args);
   }
 
   function parameterValues(
@@ -789,120 +961,16 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         return;
       }
 
-      // `bind` creates a callable value; the eventual invocation is where its
-      // bound and live arguments are classified. Visiting it as an ordinary call
-      // would incorrectly treat Function.prototype.bind as an unknown database method.
       if (ts.isPropertyAccessExpression(node.expression) &&
-          node.expression.name.text === 'bind') {
+          (node.expression.name.text === 'from' || node.expression.name.text === 'rpc') &&
+          receiverExcluded(node.expression.expression)) {
         node.arguments.forEach(visit);
         return;
       }
 
-      let callable: AbstractValue;
-      let receiver: ts.Expression | undefined;
-      let invocationArguments = node.arguments.map((argument) => {
-        if (!ts.isSpreadElement(argument)) return resolveValue(argument);
-        const spread = resolveValue(argument.expression);
-        return unionValues(spread.elements ?? valueOf(),
-          valueOf({ external: spread.external || !spread.elements }));
-      });
-      let targetExpression = node.arguments[0]?.getText(sf) ?? '<missing>';
-      let adapter = false;
-
-      if (ts.isPropertyAccessExpression(node.expression) &&
-          ts.isIdentifier(node.expression.expression) &&
-          node.expression.expression.text === 'Reflect' &&
-          node.expression.name.text === 'apply') {
-        adapter = true;
-        callable = resolveValue(node.arguments[0]);
-        const applied = resolveValue(node.arguments[2]);
-        invocationArguments = [unionValues(
-          applied.elements ?? valueOf(),
-          valueOf({ external: applied.external || !applied.elements })
-        )];
-        targetExpression = node.arguments[2]?.getText(sf) ?? '<missing Reflect.apply arguments>';
-      } else if (ts.isPropertyAccessExpression(node.expression) &&
-          (node.expression.name.text === 'call' || node.expression.name.text === 'apply')) {
-        const base = resolveValue(node.expression.expression);
-        const stored = base.properties.get(node.expression.name.text);
-        if (stored) {
-          callable = stored;
-        } else if (base.adapter === 'intrinsicCall' &&
-            node.expression.name.text === 'call') {
-          adapter = true;
-          callable = resolveValue(node.arguments[0]);
-          invocationArguments = invocationArguments.slice(2);
-          targetExpression = node.arguments[2]?.getText(sf) ?? '<missing intrinsic call arguments>';
-        } else {
-          adapter = true;
-          callable = base;
-          if (node.expression.name.text === 'call') {
-            invocationArguments = invocationArguments.slice(1);
-            targetExpression = node.arguments[1]?.getText(sf) ?? '<missing>';
-          } else {
-            const applied = resolveValue(node.arguments[1]);
-            invocationArguments = [unionValues(
-              applied.elements ?? valueOf(),
-              valueOf({ external: applied.external || !applied.elements })
-            )];
-            targetExpression = node.arguments[1]?.getText(sf) ?? '<missing apply arguments>';
-          }
-        }
-      } else {
-        callable = resolveValue(node.expression);
-      }
-
-      // The adapter itself may have been extracted, stored, returned, or passed
-      // through another lexical scope before invocation.
-      if (!adapter && callable.adapter) {
-        adapter = true;
-        if (callable.adapter === 'reflectApply') {
-          const reflectedCallable = invocationArguments[0] ?? valueOf({
-            external: true, callableCandidate: true,
-          });
-          const applied = invocationArguments[2] ?? valueOf({ external: true });
-          callable = reflectedCallable;
-          invocationArguments = [unionValues(
-            applied.elements ?? valueOf(),
-            valueOf({ external: applied.external || !applied.elements })
-          )];
-          targetExpression = node.arguments[2]?.getText(sf) ?? '<missing Reflect.apply arguments>';
-        } else {
-          const adapterKind = callable.adapter;
-          callable = callable.adapterCallable ?? valueOf({
-            external: true, callableCandidate: true,
-          });
-          if (adapterKind === 'call') {
-            invocationArguments = invocationArguments.slice(1);
-            targetExpression = node.arguments[1]?.getText(sf) ?? '<missing>';
-          } else {
-            const applied = invocationArguments[1] ?? valueOf({ external: true });
-            invocationArguments = [unionValues(
-              applied.elements ?? valueOf(),
-              valueOf({ external: applied.external || !applied.elements })
-            )];
-            targetExpression = node.arguments[1]?.getText(sf) ?? '<missing apply arguments>';
-          }
-        }
-      }
-
-      if (adapter && callable.external && node.arguments.some((argument) =>
-        isDatabaseCallable(resolveValue(argument)))) {
-        calls.push({
-          method: 'unknown', unsupported: 'dynamic callable name',
-          expression: node.expression.getText(sf), position: node.pos,
-        });
-      }
-
-      if (callable.boundArguments) {
-        invocationArguments = [...callable.boundArguments, ...invocationArguments];
-      }
-
-      if (!adapter && ts.isPropertyAccessExpression(node.expression) &&
-          (node.expression.name.text === 'from' || node.expression.name.text === 'rpc')) {
-        receiver = node.expression.expression;
-      } else if (!adapter && ts.isElementAccessExpression(node.expression)) {
-        receiver = node.expression.expression;
+      const callable = resolveValue(node.expression);
+      if (ts.isElementAccessExpression(node.expression)) {
+        const receiver = node.expression.expression;
         const names = resolveValue(node.expression.argumentExpression);
         const dbMethods = [...names.strings].filter((name) => name === 'from' || name === 'rpc');
         if (!names.external && names.strings.size > 1 && dbMethods.length === 0 &&
@@ -920,54 +988,17 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           });
         }
       }
-      if (callable.callableCandidate && callable.external && !adapter &&
-          !ts.isElementAccessExpression(node.expression)) {
-        calls.push({
-          method: 'unknown',
-          unsupported: 'dynamic callable name',
+      evaluateCallable(
+        callable,
+        invocationArgumentValues(node.arguments),
+        undefined,
+        {
+          record: true,
+          node,
           expression: node.expression.getText(sf),
-          position: node.pos,
-        });
-      }
-      if (callable.external && !callable.callableCandidate) {
-        const possibleTarget = invocationArguments[0] ?? valueOf();
-        const receivesDatabaseCallable = invocationArguments.some((argument) =>
-          isDatabaseCallable(argument)
-        );
-        if (possibleTarget.strings.has('contract_hours_ledger') || receivesDatabaseCallable) {
-          calls.push({
-            method: 'unknown', unsupported: 'dynamic callable name',
-            expression: node.expression.getText(sf), position: node.pos,
-          });
+          targetExpression: node.arguments[0]?.getText(sf),
         }
-      }
-      if (callable.methods.size > 0 && (!receiver || !receiverExcluded(receiver))) {
-        const targetValue = invocationArguments[0] ?? valueOf({ external: true });
-        for (const method of callable.methods) {
-          if (targetValue.external || targetValue.strings.size === 0) {
-            calls.push({
-              method,
-              unsupported: 'dynamic target',
-              expression: targetExpression,
-              position: node.pos,
-            });
-          } else if (targetValue.strings.size === 1) {
-            calls.push({ method, target: [...targetValue.strings][0], position: node.pos });
-          } else {
-            calls.push({
-              method,
-              targets: [...targetValue.strings].sort(),
-              expression: targetExpression,
-              dynamicKind: 'target',
-              dynamicValues: [...targetValue.strings].sort(),
-              position: node.pos,
-            });
-          }
-        }
-      }
-      for (const target of callable.functions) {
-        invokeFunction(target, parameterValues(target, invocationArguments));
-      }
+      );
     }
     ts.forEachChild(node, visit);
   }
@@ -2579,6 +2610,95 @@ describe('contract_hours_ledger production consumer inventory', () => {
     `;
     expect(discoverSupabaseCalls(cyclic)).toEqual(discoverSupabaseCalls(cyclic));
     expect(directTableTouchCount(cyclic)).toBe(1);
+  });
+
+  it('composes Function.prototype call, apply, and bind with exact intrinsic semantics', () => {
+    const expectOneLedgerCall = (source: string): void => {
+      const discovered = discoverSupabaseCalls(source);
+      expect(discovered.filter((call) => call.method === 'from' &&
+        (call.target === 'contract_hours_ledger' ||
+         call.targets?.includes('contract_hours_ledger'))), source).toHaveLength(1);
+      expect(discovered.filter((call) => call.unsupported), source).toEqual([]);
+    };
+
+    for (const source of [
+      `Function.prototype.apply.call(
+         client.from, client, ['contract_hours_ledger']
+       );`,
+      `Function.prototype.call.apply(
+         client.from, [client, 'contract_hours_ledger']
+       );`,
+      `const apply = Function.prototype.apply;
+       apply.call(client.from, client, ['contract_hours_ledger']);`,
+      `const call = Function.prototype.call;
+       call.apply(client.from, [client, 'contract_hours_ledger']);`,
+      `Function['prototype']['apply']['call'](
+         client['from'], client, ['contract_hours_ledger']
+       );`,
+      `const proto = Function['prototype'];
+       const operation = 'apply';
+       proto[operation].call(client.from, client, ['contract_hours_ledger']);`,
+      `const { apply: invoke } = Function.prototype;
+       invoke.call(client.from, client, ['contract_hours_ledger']);`,
+      `const { ['call']: invoke } = Function['prototype'];
+       invoke.apply(client.from, [client, 'contract_hours_ledger']);`,
+      `Function.prototype.bind.call(
+         client.from, client, 'contract_hours_ledger'
+       )();`,
+      `Function.prototype.bind.apply(
+         client.from, [client, 'contract_hours_ledger']
+       )();`,
+      `const bind = Function.prototype.bind;
+       bind.call(client.from, client, 'contract_hours_ledger')();`,
+      `Function.prototype.call.bind(
+         client.from, client
+       )('contract_hours_ledger');`,
+      `Function.prototype.call.call(
+         Function.prototype.apply,
+         client.from, client, ['contract_hours_ledger']
+       );`,
+      `Function.prototype.apply.apply(
+         Function.prototype.call,
+         [client.from, [client, 'contract_hours_ledger']]
+       );`,
+    ]) expectOneLedgerCall(source);
+
+    for (const source of [
+      `Function.prototype.apply.call(
+         externalCallable, client, ['contract_hours_ledger']
+       );`,
+      `const external = externalAdapter;
+       external.call(null, client.from, 'contract_hours_ledger');`,
+      `const method = process.argv[2];
+       Function.prototype[method].call(
+         client.from, client, 'contract_hours_ledger'
+       );`,
+    ]) {
+      expect(discoverSupabaseCalls(source), source).toContainEqual(expect.objectContaining({
+        method: 'unknown', unsupported: 'dynamic callable name',
+      }));
+    }
+
+    for (const source of [
+      `Function.prototype.apply.call(Math.max, null, [1, 2]);`,
+      `const ordinary = { from(value) { return value; } };
+       Function.prototype.call.call(ordinary.from, ordinary, 'contract_hours_ledger');`,
+      `Array.from.call(Array, ['contract_hours_ledger']);`,
+    ]) {
+      expect(directTableTouchCount(source), source).toBe(0);
+      expect(discoverSupabaseCalls(source).filter((call) => call.unsupported), source).toEqual([]);
+    }
+
+    const cyclic = `
+      const adapters = {};
+      adapters.self = adapters;
+      adapters.invoke = Function.prototype.call;
+      adapters.self.invoke.call(
+        client.from, client, 'contract_hours_ledger'
+      );
+    `;
+    expect(discoverSupabaseCalls(cyclic)).toEqual(discoverSupabaseCalls(cyclic));
+    expectOneLedgerCall(cyclic);
   });
 
   it('classifies composite ledger rows and column-opaque ledger DML', () => {

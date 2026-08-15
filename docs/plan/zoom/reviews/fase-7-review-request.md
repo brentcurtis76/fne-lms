@@ -69,7 +69,20 @@
   1. `8936cc5a37a706d5038d72d528ae56db1e129bca` (111 commits) — the static resolution
      lattice becomes a non-lossy product: opaque siblings widen but never erase
      ledger-bearing alternatives or assignment-cycle provenance.
-  2. The state/evidence commit carrying `Z7-review-26.md`, `PROJECT_STATE.md`, and this
+  2. `c19687bec0d05c925ce06f7c19df12464b9f12b9` (112 commits; tree
+     `4e6344cef03f1b89ad521b5ccc9b44eb5532acc0`) — the Round 26 state/evidence commit.
+- Round-twenty-seven canonical starting candidate: `c19687bec0d05c925ce06f7c19df12464b9f12b9`
+  (112 commits; tree `4e6344cef03f1b89ad521b5ccc9b44eb5532acc0`), verified clean before any
+  change. Round 27 is the root-cause remediation of the analyzer's proof-of-absence design —
+  the shared architectural defect behind the Round 23–26 counterexamples — recorded in
+  `docs/plan/zoom/remediation/Z7-review-27.md`. It supersedes the incremental
+  one-counterexample-per-round strategy with the centralized binding invariant.
+- Round-twenty-seven commits, ordered directly on `feat/zoom-hours`:
+  1. `c9d9a4571195353983684b20a23e6d3ea97b5783` (113 commits) — proof of absence is
+     centralized under the binding invariant: callable declarations become seeds in the one
+     write summary, the collector covers loop assignment patterns, the taint walker loses
+     its silent depth cap, and the invariant matrix pins all four axes.
+  2. The state/evidence commit carrying `Z7-review-27.md`, `PROJECT_STATE.md`, and this
      document. A commit cannot truthfully embed its own identity; its exact SHA is supplied
      in the builder handoff.
 - Governing scope note: the Round 21 owner amendment retires interpreter-level analyzer
@@ -104,6 +117,15 @@ remediation, the Vitest upgrade, leadership aggregates, deployments, production 
 unrelated refactors.
 
 ## Finding disposition
+
+### Round twenty-seven (root-cause repair — the binding invariant)
+
+The finding was reproduced mechanically on the exact starting candidate `c19687be` before
+any change; the full record is `docs/plan/zoom/remediation/Z7-review-27.md`.
+
+| Finding | Disposition and evidence |
+|---|---|
+| Z7-R27 — the proof-of-absence design was unsound (`MAJOR`, root cause of R23–R26) | Rounds 23–26 each fixed one manifestation of one defect: a stale evaluator value could prove a binding inert while its syntactic write summary was incomplete. The blocking form: `function table() {}` / `class table {}` followed by a pruned reassignment to a constructed ledger name performed one runtime ledger call while the analyzer returned [] — `declaredCallableNames` bypassed the recorded writes, and the classifier's fallback consulted the stale callable binding. The **binding invariant** is now central: `none` requires an exhaustive account of every syntactically relevant declaration and write, with every represented alternative mechanically proven unable to equal the ledger name. Callable declarations are **seeds** in the one write summary (with no other write, the seed is the exhaustive account and the binding may prove the argument inert, preserving the retained `Reflect.construct(Factory)` control; with writes, they widen the resolved writes opaque, never bypass). The collector now covers `for-in`/`for-of` assignment patterns; the taint walker's silent depth cap is removed (structural recursion terminates; the value-resolution caps remain and mark results guarded, never absent). All four consumers share one resolution and one five-state membership; no consumer returns `none` from evaluator state after the summary says guarded/incomplete; scope-blind collisions may over-report but never prove absence. Evidence: the 27-row invariant matrix (binding × write × authority × call-site axes, every category with a positive and an honest negative, runtime oracles and repeated-run determinism throughout), the mandatory `R27.1` probes A–G, the `R27.2` six-step proof-of-absence mutation sequence, and the `R27 mutation` disposable production `.js` root (discovered mechanically, census `['Symbol']`, guard red, mutated site marked exactly once). All four fail-on-old probes (function, class, scope collision, production root) fail against the `c19687be` analyzer extracted read-only via `git show`. The production inventories re-ran unchanged. |
 
 ### Round twenty-six (single-finding repair)
 
@@ -610,6 +632,7 @@ Risk grouping describes review priority, not ownership.
 - `docs/plan/zoom/remediation/Z7-review-24.md`
 - `docs/plan/zoom/remediation/Z7-review-25.md`
 - `docs/plan/zoom/remediation/Z7-review-26.md`
+- `docs/plan/zoom/remediation/Z7-review-27.md`
 - `docs/plan/zoom/reviews/fase-7-review-request.md`
 - `docs/plan/zoom/reviews/fase-7-review-verdict.md`
 
@@ -629,13 +652,39 @@ comm -3 \
     | sed -n 's/^- `\(.*\)`$/\1/p' | sort)
 ```
 
-Result after the evidence commit: no output. Counts: cumulative diff **134**, inventory **134**,
+Result after the evidence commit: no output. Counts: cumulative diff **135**, inventory **135**,
 duplicates **0** (Round 21 added the reviewer contract `Z7-review-21.md` and the owner
-amendment; Rounds 22 through 26 add the repair records `Z7-review-22.md` through
-`Z7-review-26.md` — each round's only code change is inside the already-inventoried
+amendment; Rounds 22 through 27 add the repair records `Z7-review-22.md` through
+`Z7-review-27.md` — each round's only code change is inside the already-inventoried
 `__tests__/lib/services/ledger-hours-reader-inventory.test.ts`).
 
 ## Gate and fail-on-old evidence
+
+### Round twenty-seven collection (2026-08-15, local macOS, final code state `c9d9a457`)
+
+Round 27's governing instruction required the focused suite, the cumulative selector,
+type-check, zero-warning lint, the full unit suite, the production build, and the exact
+changed-path reconciliation — the full database/browser matrix ran unchanged at Round 22
+and this round touches only the analyzer test file. All legs ran sequentially in one pass;
+no command was piped through `tail`.
+
+| Command | Result | Exit |
+|---|---|---:|
+| Focused inventory suite (R27 matrix/probes/mutations + all retained R21–R26 probes + cumulative executable inventory), one file | **60 green** (4 new R27 + 56 retained) | 0 |
+| Cumulative Z7 high-risk Vitest over every test path changed since the immutable base | 37 files, **617 green** | 0 |
+| `npm run type-check` | no diagnostics | 0 |
+| `npm run lint` | zero warnings | 0 |
+| `npm test` (full unit suite, machine TZ America/Santiago) | 324 files, **7,424 green / 11 skipped** | 0 |
+| `npm run build` | production build; **156/156 static pages** | 0 |
+
+Round-twenty-seven fail-on-old evidence: the `c19687be` analyzer was extracted read-only
+via `git show` into an untracked temporary test file (no checkout, reset, stash, or branch
+disturbance; deleted after measurement). All four probes failed there and pass under the
+repair: function-declaration reassignment, class-declaration reassignment, the scope/name
+collision (top-level callable + catch-scoped ledger-bearing declaration), and the
+callable-reassignment production `.js` root (zero markers at the mutated `read` site,
+expected one). The root cause, binding invariant, matrix coverage, and honestly stated
+bounds are in `docs/plan/zoom/remediation/Z7-review-27.md`.
 
 ### Round twenty-six collection (2026-08-14, local macOS, final code state `8936cc5a`)
 
@@ -1425,7 +1474,12 @@ None of these deviations is represented as a green gate.
    Round 26, also mutate opaque siblings: an unresolvable write before, after, or beside a
    ledger-bearing alternative must widen (opaque flag / `guarded` membership), never erase
    — `absent` requires a non-opaque exhaustive resolution, and no stale-binding fallback
-   may discharge a site whose resolution retains any authority-capable alternative.
+   may discharge a site whose resolution retains any authority-capable alternative. Since
+   Round 27, verify the central binding invariant itself: `none` requires an exhaustive
+   write account (callable declarations are seeds, not bypasses; loop assignment patterns
+   taint; traversal limits guard, never silently untaint), the evaluator binding is
+   consulted only when the summary is informationless, and the R27 invariant matrix is the
+   template for probing new binding/write shapes rather than one-off counterexamples.
 2. Re-audit `public.exec_sql(text)` and related exposed authority at the catalog and real-role
    boundaries. Anon, authenticated-admin, and service-role calls must all receive `42501`; the
    retired endpoint must construct no service client and issue no RPC/SQL, while fixed owner RPCs
@@ -1434,7 +1488,7 @@ None of these deviations is represented as a green gate.
    `EXECUTE`, procedures, composite/`RETURNS TABLE`/plain variables, triggers, rules/views,
    correlated scopes, and numbered/custom dollar tags. Inert comments/literals must stay inert;
    unresolved executable authority must fail explicitly without filename or substring allowances.
-4. Re-run both mechanical inventories against integrated HEAD: cumulative paths **134/134**;
+4. Re-run both mechanical inventories against integrated HEAD: cumulative paths **135/135**;
    classifications **14/22** direct, **8/10** indirect, **9/33** SQL expressions/writes, and
    **8/13** SQL objects, plus **4 files/5 sites** of explicit unresolved executable SQL, zero
    production `exec_sql` callers, and the site-exact production hazard census — **11 hazard

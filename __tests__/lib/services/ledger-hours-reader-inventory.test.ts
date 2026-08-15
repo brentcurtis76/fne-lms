@@ -379,9 +379,23 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   interface RecordedWrite { expression: ts.Expression; viaAssignment: boolean }
   const simpleNameInitializers = new Map<string, RecordedWrite[]>();
   const rewrittenNames = new Set<string>();
-  // Function/class declaration names are not string-resolvable, but unlike genuinely tainted
-  // names their value IS statically known (a callable), so the fallback classifier may still
-  // prove them inert through the evaluator binding (R24).
+  // Z7-R27 binding invariant (central proof-of-absence rule): a binding may be classified
+  // inert ('none') only from an EXHAUSTIVE account of every syntactically relevant
+  // declaration and write affecting its name, with every represented alternative
+  // mechanically proven unable to equal 'contract_hours_ledger'. The central summary for an
+  // identifier is: the union (R26 non-lossy lattice) over every recorded write, widened by
+  // taint, opacity, cycle provenance, and callable seeds. A stale evaluator binding is never
+  // independent proof — the classifier may consult it only when the summary carries no
+  // information at all (a name with no recorded writes, no taint, and at most a callable
+  // seed — where the evaluator binding IS that exhaustive account), and all four consumers
+  // (reached-call net, unreached-site net, externally opaque-callee guard, and the
+  // sourceNamesLedger gate) share this one resolution and membership decision.
+  //
+  // Function/class declaration names are callable SEEDS, not permanently callable bindings
+  // (Z7-R27): with no other recorded write, the seed is the exhaustive account and the
+  // evaluator binding may prove the argument inert; the moment any assignment is recorded,
+  // the seed becomes one more (non-string, conservatively opaque) alternative in the same
+  // write summary and must never bypass or erase the recorded writes.
   const declaredCallableNames = new Set<string>();
   (() => {
     const taintPattern = (name: ts.BindingName): void => {
@@ -399,8 +413,10 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     // tainted, covering shorthand, aliased, nested, default, omitted, and rest positions, with
     // parenthesis/assertion wrappers unwrapped. This is a bounded syntactic walker, not
     // evaluation: property-access targets bind no lexical name and are ignored.
-    const taintAssignmentTarget = (target: ts.Expression, depth = 0): void => {
-      if (depth > STATIC_STRING_DEPTH_LIMIT) return;
+    // Z7-R27: the walker is structural recursion over a finite AST, so it terminates without
+    // a depth cap — a cap here would silently leave deeper names untainted, which the binding
+    // invariant forbids (a traversal limit may widen a summary, never narrow it).
+    const taintAssignmentTarget = (target: ts.Expression): void => {
       const expression = unwrap(target);
       if (ts.isIdentifier(expression)) {
         rewrittenNames.add(expression.text);
@@ -411,9 +427,9 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           if (ts.isShorthandPropertyAssignment(property)) {
             rewrittenNames.add(property.name.text);
           } else if (ts.isPropertyAssignment(property)) {
-            taintAssignmentTarget(property.initializer, depth + 1);
+            taintAssignmentTarget(property.initializer);
           } else if (ts.isSpreadAssignment(property)) {
-            taintAssignmentTarget(property.expression, depth + 1);
+            taintAssignmentTarget(property.expression);
           }
         }
         return;
@@ -421,16 +437,18 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       if (ts.isArrayLiteralExpression(expression)) {
         for (const element of expression.elements) {
           if (ts.isOmittedExpression(element)) continue;
-          if (ts.isSpreadElement(element)) taintAssignmentTarget(element.expression, depth + 1);
-          else taintAssignmentTarget(element, depth + 1);
+          if (ts.isSpreadElement(element)) taintAssignmentTarget(element.expression);
+          else taintAssignmentTarget(element);
         }
         return;
       }
       if (ts.isBinaryExpression(expression) &&
           expression.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
         // A default inside a pattern position: `[a = 'x'] = source` / `({ a: b = 'x' } = s)`.
-        taintAssignmentTarget(expression.left, depth + 1);
+        taintAssignmentTarget(expression.left);
       }
+      // Property-access targets bind no lexical name and stay excluded by design; no other
+      // expression kind is a valid assignment target.
     };
     const scan = (node: ts.Node): void => {
       if (ts.isVariableDeclaration(node)) {
@@ -473,8 +491,11 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
           ts.isNamespaceImport(node)) {
         if (node.name) rewrittenNames.add(node.name.text);
       } else if ((ts.isForInStatement(node) || ts.isForOfStatement(node)) &&
-          ts.isIdentifier(node.initializer)) {
-        rewrittenNames.add(node.initializer.text);
+          !ts.isVariableDeclarationList(node.initializer)) {
+        // Z7-R27: loop targets cover bare identifiers AND assignment patterns
+        // (`for ({ table } of …)`, `for ([table] of …)`); declaration-list initializers are
+        // handled by the variable-declaration branch above (no-initializer → tainted).
+        taintAssignmentTarget(node.initializer);
       }
       ts.forEachChild(node, scan);
     };
@@ -708,9 +729,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         return STATIC_UNRESOLVABLE;
       }
       if (ts.isIdentifier(node)) {
-        if (rewrittenNames.has(node.text) || declaredCallableNames.has(node.text)) {
-          return STATIC_UNRESOLVABLE;
-        }
+        if (rewrittenNames.has(node.text)) return STATIC_UNRESOLVABLE;
         const cycleStart = nameStack.findIndex((frame) => frame.name === node.text);
         if (cycleStart >= 0) {
           // The cycle's character is the character of the edges it traverses: any assignment
@@ -720,6 +739,12 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
             ? STATIC_ASSIGNMENT_CYCLE : STATIC_TDZ_CYCLE;
         }
         const writes = simpleNameInitializers.get(node.text);
+        // Z7-R27: a function/class declaration is a callable SEED in the same write summary,
+        // never a bypass. With no other recorded write the seed is the exhaustive account and
+        // the name stays unresolvable here (the classifier's evaluator fallback — the binding
+        // IS that callable — may then prove the argument inert). With recorded writes, the
+        // writes resolve exactly as for any other name, widened opaque because the callable
+        // alternative is a known non-string value the string lattice cannot carry.
         if (!writes || writes.length === 0) return STATIC_UNRESOLVABLE;
         let resolution: StaticStringResolution | undefined;
         for (const write of writes) {
@@ -730,6 +755,9 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
             [...nameStack, { name: node.text, viaAssignment: write.viaAssignment }],
             depth + 1);
           resolution = resolution ? combineUnion(resolution, next) : next;
+        }
+        if (resolution && declaredCallableNames.has(node.text)) {
+          return widenedOpaque(resolution, false);
         }
         return resolution ?? STATIC_UNRESOLVABLE;
       }
@@ -9230,6 +9258,416 @@ z7R26Table = (globalThis as { unknownTable: string }).unknownTable;
     expect(discoverSupabaseCalls(mutated, path).filter((call) => call.method === 'from' &&
       call.target === 'contract_hours_ledger')).toHaveLength(0);
     expect(discoverSupabaseCalls(mutated, path)).toEqual(discoverSupabaseCalls(mutated, path));
+  });
+
+  it('R27 matrix: the binding invariant across declaration, write, authority, site axes', () => {
+    const runtime = (source: string): number => {
+      let calls = 0;
+      const client = { from(target: unknown) {
+        if (target === 'contract_hours_ledger') calls += 1;
+        return this;
+      } };
+      try {
+        (new Function('client', source) as (value: typeof client) => void)(client);
+      } catch { /* abrupt completion is part of the oracle */ }
+      return calls;
+    };
+    const pruned = (declaration: string, body: string): string => `${declaration}
+      const proto = {};
+      Object.defineProperty(proto, 'slot', {
+        set() { throw new Error('setter'); },
+      });
+      try {
+        Reflect.set(proto, 'slot', client.from, Object.create(proto));
+      } catch {
+        ${body}
+      }`;
+    const deepChain = [...'contract_hours_ledger'].map((char) => `'${char}'`).join(" + '' + ");
+    const capParts = Array.from({ length: 13 }, (_, index) =>
+      `const p${index} = [].length === 0 ? 'a' : 'bbb';`).join('\n      ');
+    const capSum = Array.from({ length: 13 }, (_, index) => `p${index}`).join(' + ');
+    // Each row: at least one authority-bearing positive or one honest inert/runtime-zero
+    // negative per binding and write category; `runtimeCalls: null` marks the import-binding
+    // control, where runtime execution is impractical (import syntax cannot run under
+    // `new Function`) and the analyzer result alone is the assertion.
+    interface MatrixCase {
+      name: string;
+      source: string;
+      runtimeCalls: number | null;
+      unsupported: number;
+      directDynamicTarget?: boolean;
+    }
+    const cases: MatrixCase[] = [
+      { name: 'let / simple = / literal / pruned',
+        source: pruned("let table = 'other_table';",
+          "table = 'contract_hours_ledger';\n        client.from(table);"),
+        runtimeCalls: 1, unsupported: 1 },
+      { name: 'const / no write / constructed / reached opaque callee',
+        source: `const sentinel = Symbol('existing');
+          const table = 'contract_' + 'hours_ledger';
+          const read = (0, client.from);
+          read(table);`,
+        runtimeCalls: 1, unsupported: 1 },
+      { name: 'var / compound += / naming source / reached opaque callee',
+        source: `const sentinel = Symbol('existing');
+          var table = 'contract_hours_ledger';
+          table += '_x';
+          const read = (0, client.from);
+          read(table);`,
+        runtimeCalls: 0, unsupported: 1 },
+      { name: 'var / compound += / non-naming source stays silent',
+        source: `const sentinel = Symbol('existing');
+          var table = 'other_table';
+          table += '_x';
+          const read = (0, client.from);
+          read(table);`,
+        runtimeCalls: 0, unsupported: 0 },
+      { name: 'function decl / object destructuring assignment / literal / pruned',
+        source: pruned('function table() {}',
+          "({ table } = { table: 'contract_hours_ledger' });\n        client.from(table);"),
+        runtimeCalls: 1, unsupported: 1 },
+      { name: 'class decl / prefix update / naming source / pruned',
+        source: pruned("class table {}\n      const armed = 'contract_hours_ledger';\n" +
+          '      void armed;',
+          '++table;\n        client.from(table);'),
+        runtimeCalls: 0, unsupported: 1 },
+      { name: 'parameter collision / ledger binding / pruned',
+        source: pruned("function helper(table) { void table; }\n" +
+          "      let table = 'contract_hours_ledger';",
+          'client.from(table);'),
+        runtimeCalls: 1, unsupported: 1 },
+      { name: 'parameter / non-naming source stays silent',
+        source: pruned('function helper(table) { void table; }',
+          'client.from(table);'),
+        runtimeCalls: 0, unsupported: 0 },
+      { name: 'catch binding / naming source / reached opaque callee',
+        source: `const sentinel = Symbol('existing');
+          const armed = 'contract_hours_ledger';
+          void armed;
+          const read = (0, client.from);
+          try { throw new Error('x'); } catch (table) { read(table); }`,
+        runtimeCalls: 0, unsupported: 1 },
+      { name: 'catch binding / non-naming source stays silent',
+        source: `const sentinel = Symbol('existing');
+          const read = (0, client.from);
+          try { throw new Error('x'); } catch (table) { read(table); }`,
+        runtimeCalls: 0, unsupported: 0 },
+      { name: 'object destructuring declaration / naming / reached opaque callee',
+        source: `const sentinel = Symbol('existing');
+          const { table } = { table: 'contract_hours_ledger' };
+          const read = (0, client.from);
+          read(table);`,
+        runtimeCalls: 1, unsupported: 1 },
+      { name: 'object destructuring declaration / non-ledger stays silent',
+        source: `const sentinel = Symbol('existing');
+          const { table } = { table: 'third_table' };
+          const read = (0, client.from);
+          read(table);`,
+        runtimeCalls: 0, unsupported: 0 },
+      { name: 'array destructuring declaration / naming / reached opaque callee',
+        source: `const sentinel = Symbol('existing');
+          const [table] = ['contract_hours_ledger'];
+          const read = (0, client.from);
+          read(table);`,
+        runtimeCalls: 1, unsupported: 1 },
+      { name: 'array destructuring assignment / literal / pruned',
+        source: pruned("let table = 'other_table';",
+          "[table] = ['contract_hours_ledger'];\n        client.from(table);"),
+        runtimeCalls: 1, unsupported: 1 },
+      { name: 'for-of identifier target / naming / reached opaque callee',
+        source: `const sentinel = Symbol('existing');
+          let table = 'other_table';
+          for (table of ['contract_hours_ledger']) { break; }
+          const read = (0, client.from);
+          read(table);`,
+        runtimeCalls: 1, unsupported: 1 },
+      { name: 'for-of destructuring target / naming / reached opaque callee',
+        source: `const sentinel = Symbol('existing');
+          let table = 'other_table';
+          for ({ table } of [{ table: 'contract_hours_ledger' }]) { break; }
+          const read = (0, client.from);
+          read(table);`,
+        runtimeCalls: 1, unsupported: 1 },
+      { name: 'for-of identifier target / non-naming stays silent',
+        source: `const sentinel = Symbol('existing');
+          let table = 'other_table';
+          for (table of ['third_table']) { break; }
+          const read = (0, client.from);
+          read(table);`,
+        runtimeCalls: 0, unsupported: 0 },
+      { name: 'import binding / naming source (analyzer-only control)',
+        source: `import { table } from './synthetic-module';
+          const sentinel = Symbol('existing');
+          const armed = 'contract_hours_ledger';
+          void armed;
+          const read = (0, client.from);
+          read(table);`,
+        runtimeCalls: null, unsupported: 1 },
+      { name: 'import binding / non-naming source (analyzer-only control)',
+        source: `import { table } from './synthetic-module';
+          const sentinel = Symbol('existing');
+          const read = (0, client.from);
+          read(table);`,
+        runtimeCalls: null, unsupported: 0 },
+      { name: 'assignment cycle / constructed / pruned',
+        source: pruned("let table = 'other_table';",
+          "table = true ? ('contract_' + 'hours_ledger') : table;\n        client.from(table);"),
+        runtimeCalls: 1, unsupported: 1 },
+      { name: 'finite conditional branch / pruned',
+        source: pruned("let table = 'other_table';\n" +
+          '      const flag = [].length === 0;',
+          "table = flag ? 'contract_hours_ledger' : 'third_table';\n        client.from(table);"),
+        runtimeCalls: 1, unsupported: 1 },
+      { name: 'enumerated working-set beyond finite cap / reached opaque callee',
+        source: `const sentinel = Symbol('existing');
+          const yes = [].length === 0;
+          const c0 = yes ? 'con' : 'x0';
+          const c1 = yes ? 'tract_' : 'x1';
+          const c2 = yes ? 'hours' : 'x2';
+          const c3 = yes ? '_led' : 'x3';
+          const c4 = yes ? 'ger' : 'x4';
+          const table = c0 + c1 + c2 + c3 + c4;
+          const read = (0, client.from);
+          read(table);`,
+        runtimeCalls: 1, unsupported: 1 },
+      { name: 'beyond-working-limit possible / reached opaque callee',
+        source: `const sentinel = Symbol('existing');
+          ${capParts}
+          const table = ${capSum};
+          const read = (0, client.from);
+          read(table);`,
+        runtimeCalls: 0, unsupported: 1 },
+      { name: 'traversal/depth-limit exhaustion fails closed (guarded, never absent)',
+        source: `const sentinel = Symbol('existing');
+          let table = 'other_table';
+          table = ${deepChain};
+          const read = (0, client.from);
+          read(table);`,
+        runtimeCalls: 1, unsupported: 1 },
+      { name: 'opaque sibling beside known authority / pruned',
+        source: pruned("let table = 'other_table';",
+          `table = true
+            ? ('contract_' + 'hours_ledger')
+            : globalThis.unknownTable;
+          client.from(table);`),
+        runtimeCalls: 1, unsupported: 1 },
+      { name: 'proven finite non-ledger / exhaustive absence stays silent',
+        source: `const sentinel = Symbol('existing');
+          let table = 'other_table';
+          table = 'third_table';
+          const read = (0, client.from);
+          read(table);`,
+        runtimeCalls: 0, unsupported: 0 },
+      { name: 'direct dynamic-target control keeps the evaluator classification',
+        source: `const sentinel = Symbol('existing');
+          let table = 'other_table';
+          table = [].length === 0 ? 'contract_hours_ledger' : table;
+          client.from(table);`,
+        runtimeCalls: 1, unsupported: 0, directDynamicTarget: true },
+    ];
+    for (const item of cases) {
+      if (item.runtimeCalls !== null) {
+        expect(runtime(item.source), item.name).toBe(item.runtimeCalls);
+      }
+      const first = discoverSupabaseCalls(item.source);
+      expect(first.filter((call) => call.method === 'from' &&
+        call.target === 'contract_hours_ledger'), item.name).toHaveLength(0);
+      expect(first.filter((call) => call.unsupported), item.name)
+        .toHaveLength(item.unsupported);
+      if (item.directDynamicTarget) {
+        // The direct call keeps the evaluator's own dynamic-target result — exactly one,
+        // with the value union the evaluator derives (exact shape pinned in R25.1).
+        expect(first.filter((call) => call.dynamicKind === 'target' ||
+          call.unsupported === 'dynamic target'), item.name).toHaveLength(1);
+      }
+      expect(discoverSupabaseCalls(item.source), item.name).toEqual(first);
+    }
+  });
+
+  it('R27.1: callable declarations are seeds, never permanent proofs of inertness', () => {
+    const runtime = (source: string): number => {
+      let calls = 0;
+      const client = { from(target: unknown) {
+        if (target === 'contract_hours_ledger') calls += 1;
+        return this;
+      } };
+      try {
+        (new Function('client', source) as (value: typeof client) => void)(client);
+      } catch { /* abrupt completion is part of the oracle */ }
+      return calls;
+    };
+    const unresolved = (source: string): DiscoveredCall[] =>
+      discoverSupabaseCalls(source).filter((call) => call.unsupported);
+    const exact = (source: string): DiscoveredCall[] =>
+      discoverSupabaseCalls(source).filter((call) => call.method === 'from' &&
+        call.target === 'contract_hours_ledger');
+    const pruned = (declaration: string, body: string): string => `${declaration}
+      const proto = {};
+      Object.defineProperty(proto, 'slot', {
+        set() { throw new Error('setter'); },
+      });
+      try {
+        Reflect.set(proto, 'slot', client.from, Object.create(proto));
+      } catch {
+        ${body}
+      }`;
+    // A — the reviewer's function-declaration probe: the pre-scan recorded the assignment,
+    // but the callable-name shortcut bypassed it and the stale function binding proved the
+    // site inert on the rejected head.
+    const fnProbe = pruned('function table() {}',
+      `table = true ? ('contract_' + 'hours_ledger') : table;
+        client.from(table);`);
+    expect(runtime(fnProbe)).toBe(1);
+    expect(exact(fnProbe)).toHaveLength(0);
+    expect(unresolved(fnProbe)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+    ]);
+    expect(discoverSupabaseCalls(fnProbe)).toEqual(discoverSupabaseCalls(fnProbe));
+    // B — the class-declaration variant.
+    const classProbe = pruned('class table {}',
+      `table = true ? ('contract_' + 'hours_ledger') : table;
+        client.from(table);`);
+    expect(runtime(classProbe)).toBe(1);
+    expect(exact(classProbe)).toHaveLength(0);
+    expect(unresolved(classProbe)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+    ]);
+    expect(discoverSupabaseCalls(classProbe)).toEqual(discoverSupabaseCalls(classProbe));
+    // C — with no reassignment the seed is the exhaustive account: the bindings stay
+    // statically known non-string callables with zero fabricated calls and zero markers,
+    // preserving the retained R21.3 `Reflect.construct(Factory, [])` inert control.
+    const unreassigned = `const sentinel = Symbol('existing');
+      function table() {}
+      class klass {}
+      const read = (0, client.from);
+      read(table);
+      read(klass);`;
+    expect(runtime(unreassigned)).toBe(0);
+    expect(exact(unreassigned)).toHaveLength(0);
+    expect(unresolved(unreassigned)).toEqual([]);
+    // D — reassigned to a proven finite non-ledger string in a source that cannot name or
+    // construct the ledger: runtime zero, zero markers.
+    const nonLedger = `const sentinel = Symbol('existing');
+      function table() {}
+      table = [].length === 0 ? 'third_table' : table;
+      const read = (0, client.from);
+      read(table);`;
+    expect(runtime(nonLedger)).toBe(0);
+    expect(unresolved(nonLedger)).toEqual([]);
+    // E — an opaque write beside a known ledger-bearing write on a function binding: opacity
+    // widens, the known authority survives, exactly one marker.
+    const opaquePlusLedger = pruned('function table() {}',
+      `table = globalThis.unknownTable;
+        table = true ? ('contract_' + 'hours_ledger') : table;
+        client.from(table);`);
+    expect(runtime(opaquePlusLedger)).toBe(1);
+    expect(exact(opaquePlusLedger)).toHaveLength(0);
+    expect(unresolved(opaquePlusLedger)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+    ]);
+    // F — scope/name collision: a top-level callable occurrence and a catch-scoped
+    // ledger-bearing declaration under one lexical name. Scope blindness may over-report,
+    // but it must never return silent zero when the runtime calls the ledger — on the
+    // rejected head the stale top-level function binding proved this site inert.
+    const collision = pruned('function table() {}',
+      `const table = 'contract_' + 'hours_ledger';
+        client.from(table);`);
+    expect(runtime(collision)).toBe(1);
+    expect(exact(collision)).toHaveLength(0);
+    expect(unresolved(collision)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+    ]);
+    expect(discoverSupabaseCalls(collision)).toEqual(discoverSupabaseCalls(collision));
+    // G — the resolution traversal bound: reaching the depth cap leaves the value guarded
+    // string-building ('possible'), never silently untainted or absent (pinned per-site in
+    // the matrix's depth-exhaustion row as well).
+    const deepChain = [...'contract_hours_ledger'].map((char) => `'${char}'`).join(" + '' + ");
+    const capExhaustion = `const sentinel = Symbol('existing');
+      function table() {}
+      table = ${deepChain};
+      const read = (0, client.from);
+      read(table);`;
+    expect(runtime(capExhaustion)).toBe(1);
+    expect(unresolved(capExhaustion)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+    ]);
+  });
+
+  it('R27.2: proof of absence is mutation-sensitive around the central summary', () => {
+    const runtime = (source: string): number => {
+      let calls = 0;
+      const client = { from(target: unknown) {
+        if (target === 'contract_hours_ledger') calls += 1;
+        return this;
+      } };
+      try {
+        (new Function('client', source) as (value: typeof client) => void)(client);
+      } catch { /* oracle */ }
+      return calls;
+    };
+    const unresolvedCount = (source: string): number =>
+      discoverSupabaseCalls(source).filter((call) => call.unsupported).length;
+    const base = (extra: string): string => `const sentinel = Symbol('existing');
+      const armed = 'contract_hours_ledger';
+      void armed;
+      let table = 'other_table';
+      table = 'third_table';
+      ${extra}
+      const read = (0, client.from);
+      read(table);`;
+    const deepChain = [...'contract_hours_ledger'].map((char) => `'${char}'`).join(" + '' + ");
+    // 1 — exhaustively proven non-ledger: absence is allowed even though the source names
+    // the ledger elsewhere (the gate is armed; absence beats it).
+    expect(runtime(base(''))).toBe(0);
+    expect(unresolvedCount(base(''))).toBe(0);
+    // 2 — one opaque write: no longer absent; guarded fails closed behind the armed gate.
+    expect(unresolvedCount(base('table = globalThis.unknownTable;'))).toBe(1);
+    // 3 — one assignment to a constructed ledger value: membership becomes present.
+    const constructed = "table = true ? ('contract_' + 'hours_ledger') : table;";
+    expect(runtime(base(constructed))).toBe(1);
+    expect(unresolvedCount(base(constructed))).toBe(1);
+    // 4 — a callable seed joins: it must not erase the ledger-bearing write.
+    expect(unresolvedCount(base(`${constructed}
+      { function table() {} }`))).toBe(1);
+    // 5 — a traversal-limited write: guarded/incomplete, never silently absent.
+    expect(runtime(base(`table = ${deepChain};`))).toBe(1);
+    expect(unresolvedCount(base(`table = ${deepChain};`))).toBe(1);
+    // 6 — removing the uncertain writes restores mechanically proven absence.
+    expect(unresolvedCount(base(''))).toBe(0);
+  });
+
+  it('R27 mutation: a callable-reassignment consumer in a fresh production JS root', () => {
+    // H — a disposable production .js root carrying an already-covered Symbol hazard, a
+    // function declaration, a reassignment to a constructed ledger name, and a detached
+    // externally opaque database call. Discovery, census, authority, and the no-unsupported
+    // guard must all catch it, with the mutated call site itself represented exactly once.
+    const probeRoot = mkdtempSync(join(ROOT, 'future_z7_callable_probe-'));
+    const probe = join(probeRoot, 'consumer.js');
+    try {
+      writeFileSync(probe, `const sentinel = Symbol('existing');
+function table() {}
+table = [].length === 0 ? ('contract_' + 'hours_ledger') : table;
+const read = (0, z7Client.from);
+read(table);
+`);
+      expect(productionSourceFiles()).toEqual(expect.arrayContaining([probe]));
+      const source = readFileSync(probe, 'utf8');
+      const authority = executableLedgerAuthority(source, probe);
+      expect(authority).toBe(true);
+      expect(hazardSites(source, probe, authority).map((site) => site.kind))
+        .toEqual(['Symbol']);
+      const results = discoverSupabaseCalls(source, probe);
+      expect(results.filter((call) => call.unsupported)).toEqual([
+        expect.objectContaining({
+          unsupported: 'unresolved ledger authority', expression: 'read',
+        }),
+      ]);
+      expect(results.filter((call) => call.method === 'from' &&
+        call.target === 'contract_hours_ledger')).toHaveLength(0);
+      expect(discoverSupabaseCalls(source, probe)).toEqual(results);
+    } finally {
+      rmSync(probeRoot, { recursive: true, force: true });
+    }
   });
 
   it('R25 mutation: assignment-cycle authority turns the guard red, census unchanged', () => {

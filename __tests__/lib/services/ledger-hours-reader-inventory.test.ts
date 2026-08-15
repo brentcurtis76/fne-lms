@@ -356,50 +356,298 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       value.prototype !== undefined;
     return known ? 'none' : 'uncertain';
   };
-  // Z7-R23: bounded static resolution of string values constructible at analysis time.
-  // Deliberately NOT part of the evaluator's value domain — direct `client.from(constructed)`
-  // must keep its dynamic-target classification — this resolver serves only ledger-authority
-  // classification in the hazard net. It is purely lexical, side-effect free, deterministic,
-  // and phase-independent: identifiers resolve through a syntactic declaration map (never live
-  // evaluator state), so a site classifies identically during evaluation and during the
-  // post-evaluation unreached-site scan, and results are memoized so each expression is
-  // resolved once and shared. Explicit finite caps guarantee termination: value sets larger
-  // than STATIC_STRING_SET_LIMIT and nesting deeper than STATIC_STRING_DEPTH_LIMIT resolve to
-  // undefined (not statically constructible), falling back to the conservative uncertain
-  // handling. Names written by any form other than a simple `name = <expression>` declaration
-  // or assignment (destructuring, parameters, catch bindings, compound assignment, ++/--,
-  // imports, function/class declarations, for-in/of targets) are tainted and never resolve.
+  // ─────────────── Z7-R28 — the central binding-summary contract ────────────────
+  // ONE representation — `BindingSummary` — of everything the analyzer knows about a value
+  // expression. Every resolver, the membership classifier, the ledger-authority classifier,
+  // and all four consumers (the reached-call hazard net, the unreached/pruned-site net, the
+  // externally opaque-callee guard, and the `sourceNamesLedger` gate) consume this one
+  // summary. There is no second route to a proof of absence and no independent consult of
+  // evaluator state.
+  //
+  // Rounds 23–27 each repaired ONE counterexample of a single defect: the analyzer inferred
+  // "the summary has no relevant information" from value-resolution tags spread across
+  // `simpleNameInitializers`, `rewrittenNames`, `declaredCallableNames`, opaque widening,
+  // membership, and evaluator fallback — so "cannot resolve this value" could be mistaken for
+  // "nothing was recorded", and a STALE evaluator binding was allowed to discharge ledger
+  // authority. R28 removes the inference: completeness is represented, not deduced.
+  //
+  // THE BINDING INVARIANT (enforced centrally in `ledgerMembership` + `argumentLedgerAuthority`):
+  //
+  //   The analyzer may answer 'none' only when the summary is an EXHAUSTIVE account of every
+  //   syntactically relevant declaration and write that may affect the binding, every
+  //   represented alternative is mechanically proven unable to equal 'contract_hours_ledger',
+  //   and no incomplete / opaque / tainted / cyclic / capped / scope-conflicted state remains
+  //   capable of carrying ledger authority.
+  //
+  // Load-bearing consequences, each implemented below rather than described:
+  //  1. A RECORDED write is summary information even when its value resolves opaque
+  //     (`writesRecorded`), so it can never be mistaken for "the summary knows nothing".
+  //  2. Any recorded opaque/unresolved alternative sets `opaque`; membership is then 'guarded'
+  //     and `evaluatorFallbackSafe` is false, so stale evaluator fallback is impossible.
+  //  3. A callable declaration with zero other writes is an INERT seed — a mechanically proven
+  //     non-string alternative and the exhaustive account — so membership is 'absent' by proof
+  //     rather than by consulting a binding.
+  //  4. A callable seed WITH writes is the UNION of the seed and every write; an opaque write
+  //     widens that union and never disappears.
+  //  5. `evaluatorFallbackSafe` is an affirmative positive property, granted at exactly one
+  //     place (the identifier fold) and defaulting to false everywhere else. It is never
+  //     inferred from "unresolvable", "no concrete values", or "membership unknown".
+  //  6. Scope/name conflicts (one lexical name with more than one declaration site) leave
+  //     ownership unprovable: the scope-blind union stays a sound over-approximation, but no
+  //     single evaluator binding may discharge the name.
+  //  7. Caps and cycles mark the summary `capped` / `neutral`+`cycle` — provably
+  //     string-building or self-referential — never absent.
+  const LEDGER_TABLE = 'contract_hours_ledger';
+  // Explicit, deterministic resolution caps (R23/R24). Exceeding one marks the summary
+  // `capped` — string-building beyond the enumeration — and never proves absence.
   const STATIC_STRING_SET_LIMIT = 16;
   const STATIC_STRING_DEPTH_LIMIT = 32;
-  // Z7-R25 finding 1: every recorded write carries whether it is a declaration initializer or
-  // a post-initialization assignment. A cycle whose participating edges are declarations only
-  // is a genuine temporal-dead-zone self-reference (runtime throws before any call); a cycle
-  // passing through an assignment is an ordinary re-assignment whose self-reference denotes
-  // the name's PRIOR value — never proof of unreachability or inertness.
+  const STATIC_STRING_WORKING_LIMIT = 4096;
+
+  type SeedKind = 'callable';
+  type CycleProvenance = 'declaration' | 'assignment';
+  interface SummaryLengths { minLength: number; maxLength: number }
+
+  interface BindingSummary {
+    // ── value account ────────────────────────────────────────────────────────────
+    /** Mechanically enumerated string alternatives represented by this summary. */
+    values: ReadonlySet<string>;
+    /** True when `values` enumerates every KNOWN string alternative represented here. */
+    valuesExhaustive: boolean;
+    /** Composed length bounds over the string alternatives (undefined ⇒ none known). */
+    lengths?: SummaryLengths;
+    /** A declared resolution cap (set size, working set, traversal depth) was reached. */
+    capped: boolean;
+    /** At least one represented alternative is UNKNOWN — it may be anything, including the
+     *  ledger name. Opacity widens a summary; it never erases what is known (R26). */
+    opaque: boolean;
+    /** At least one represented alternative is mechanically proven not to be a string equal
+     *  to the ledger name (callable seeds, object/array literals, numbers, …). */
+    inert: boolean;
+    /** Self-referential resolution and the provenance of the traversed edges (R25). */
+    cycle?: CycleProvenance;
+    /** The summary IS a self-reference: the union-neutral element. */
+    neutral: boolean;
+    // ── declaration/write account ────────────────────────────────────────────────
+    /** Declaration/seed alternatives folded into this summary. */
+    seeds: ReadonlySet<SeedKind>;
+    /** At least one syntactically relevant write was RECORDED for a name in this summary. */
+    writesRecorded: boolean;
+    /** A declaration/write form exists that the collector cannot model (tainted). */
+    unmodeledWrites: boolean;
+    /** The lexical name has more than one declaration site; ownership is unprovable. */
+    scopeConflict: boolean;
+    /** AFFIRMATIVE positive property: the summary is itself the exhaustive account of the
+     *  syntactic declaration/write graph AND records nothing about the value, so — and only
+     *  so — the evaluator binding may be consulted. Defaults to false. */
+    evaluatorFallbackSafe: boolean;
+  }
+
+  const NO_STRINGS: ReadonlySet<string> = new Set<string>();
+  const NO_SEEDS: ReadonlySet<SeedKind> = new Set<SeedKind>();
+  const CALLABLE_SEED: ReadonlySet<SeedKind> = new Set<SeedKind>(['callable']);
+
+  const makeSummary = (partial: Partial<BindingSummary> = {}): BindingSummary => ({
+    values: partial.values ?? NO_STRINGS,
+    valuesExhaustive: partial.valuesExhaustive ?? true,
+    lengths: partial.lengths,
+    capped: partial.capped ?? false,
+    opaque: partial.opaque ?? false,
+    inert: partial.inert ?? false,
+    cycle: partial.cycle,
+    neutral: partial.neutral ?? false,
+    seeds: partial.seeds ?? NO_SEEDS,
+    writesRecorded: partial.writesRecorded ?? false,
+    unmodeledWrites: partial.unmodeledWrites ?? false,
+    scopeConflict: partial.scopeConflict ?? false,
+    evaluatorFallbackSafe: partial.evaluatorFallbackSafe ?? false,
+  });
+
+  /** An alternative the analyzer cannot bound at all (a call, a property read, a form no
+   *  resolver models). Unknown, therefore capable of ledger authority. */
+  const SUMMARY_OPAQUE = makeSummary({ opaque: true });
+  /** A mechanically proven non-ledger alternative. */
+  const SUMMARY_INERT = makeSummary({ inert: true });
+  const SUMMARY_TDZ_CYCLE = makeSummary({ neutral: true, cycle: 'declaration' });
+  const SUMMARY_ASSIGNMENT_CYCLE = makeSummary({ neutral: true, cycle: 'assignment' });
+
+  /** The summary represents at least one alternative known to BE a string. */
+  const stringBuilding = (summary: BindingSummary): boolean =>
+    summary.values.size > 0 || (summary.capped && !summary.valuesExhaustive);
+  /** No string alternative, no inert proof, not a cycle: the summary represents only
+   *  unknowns (or nothing at all). */
+  const carriesNoAlternative = (summary: BindingSummary): boolean =>
+    !stringBuilding(summary) && !summary.inert && !summary.neutral;
+
+  const lengthsOf = (values: ReadonlySet<string>): SummaryLengths => {
+    let minLength = Number.POSITIVE_INFINITY;
+    let maxLength = 0;
+    for (const value of values) {
+      minLength = Math.min(minLength, value.length);
+      maxLength = Math.max(maxLength, value.length);
+    }
+    return { minLength, maxLength };
+  };
+  const summaryLengths = (summary: BindingSummary): SummaryLengths | undefined =>
+    summary.lengths ?? (summary.values.size > 0 ? lengthsOf(summary.values) : undefined);
+  const unionLengths = (
+    left: SummaryLengths | undefined, right: SummaryLengths | undefined
+  ): SummaryLengths | undefined => {
+    if (!left) return right;
+    if (!right) return left;
+    return {
+      minLength: Math.min(left.minLength, right.minLength),
+      maxLength: Math.max(left.maxLength, right.maxLength),
+    };
+  };
+  const concatLengths = (
+    left: SummaryLengths | undefined, right: SummaryLengths | undefined
+  ): SummaryLengths | undefined => {
+    if (!left || !right) return left ?? right;
+    return {
+      minLength: left.minLength + right.minLength,
+      maxLength: left.maxLength + right.maxLength,
+    };
+  };
+  const packValues = (values: Set<string>): BindingSummary => {
+    if (values.size <= STATIC_STRING_SET_LIMIT) {
+      return makeSummary({ values, valuesExhaustive: true });
+    }
+    if (values.size <= STATIC_STRING_WORKING_LIMIT) {
+      // Beyond the finite cap but still exactly enumerated: membership stays decidable.
+      return makeSummary({
+        values, valuesExhaustive: true, capped: true, lengths: lengthsOf(values),
+      });
+    }
+    return makeSummary({ valuesExhaustive: false, capped: true, lengths: lengthsOf(values) });
+  };
+  /** Declaration/write-account fields are merged conservatively: unions and ORs, with
+   *  `evaluatorFallbackSafe` an AND — one unsafe operand makes the composition unsafe. */
+  const mergeAccount = (
+    combined: BindingSummary, left: BindingSummary, right: BindingSummary
+  ): BindingSummary => ({
+    ...combined,
+    seeds: left.seeds.size === 0 ? right.seeds
+      : right.seeds.size === 0 ? left.seeds
+        : new Set<SeedKind>([...left.seeds, ...right.seeds]),
+    writesRecorded: left.writesRecorded || right.writesRecorded,
+    unmodeledWrites: left.unmodeledWrites || right.unmodeledWrites,
+    scopeConflict: left.scopeConflict || right.scopeConflict,
+    evaluatorFallbackSafe:
+      left.evaluatorFallbackSafe && right.evaluatorFallbackSafe,
+  });
+  /** R26: an unknown alternative WIDENS a summary instead of erasing it. Everything known
+   *  survives with `opaque: true`; a cycle keeps only its provenance. */
+  const widen = (summary: BindingSummary, assignmentCycle: boolean): BindingSummary => {
+    const cycle: CycleProvenance | undefined =
+      summary.cycle === 'assignment' || assignmentCycle ? 'assignment' : undefined;
+    if (summary.neutral || carriesNoAlternative(summary)) {
+      return makeSummary({
+        opaque: true, cycle,
+        seeds: summary.seeds, writesRecorded: summary.writesRecorded,
+        unmodeledWrites: summary.unmodeledWrites, scopeConflict: summary.scopeConflict,
+        evaluatorFallbackSafe: summary.evaluatorFallbackSafe,
+      });
+    }
+    return { ...summary, opaque: true };
+  };
+  const combineUnion = (left: BindingSummary, right: BindingSummary): BindingSummary => {
+    // An operand representing only unknowns widens the other side; it never absorbs it.
+    if (carriesNoAlternative(left)) {
+      return mergeAccount(widen(right, left.cycle === 'assignment'), left, right);
+    }
+    if (carriesNoAlternative(right)) {
+      return mergeAccount(widen(left, right.cycle === 'assignment'), left, right);
+    }
+    // Cycles are the union-neutral element (R25): the self-reference contributes nothing
+    // beyond the fixpoint's other branches and must never absorb a ledger-bearing sibling.
+    if (left.neutral && right.neutral) {
+      return mergeAccount(
+        left.cycle === 'assignment' || right.cycle === 'assignment'
+          ? SUMMARY_ASSIGNMENT_CYCLE : SUMMARY_TDZ_CYCLE,
+        left, right
+      );
+    }
+    if (left.neutral) return mergeAccount(right, left, right);
+    if (right.neutral) return mergeAccount(left, left, right);
+    const opaque = left.opaque || right.opaque;
+    const inert = left.inert || right.inert;
+    if (left.valuesExhaustive && right.valuesExhaustive &&
+        left.values.size + right.values.size <= STATIC_STRING_WORKING_LIMIT) {
+      const packed = { ...packValues(new Set([...left.values, ...right.values])), inert };
+      return mergeAccount(opaque ? widen(packed, false) : packed, left, right);
+    }
+    return mergeAccount(makeSummary({
+      valuesExhaustive: false, capped: true, opaque, inert,
+      lengths: unionLengths(summaryLengths(left), summaryLengths(right)),
+    }), left, right);
+  };
+  const combineConcat = (left: BindingSummary, right: BindingSummary): BindingSummary => {
+    if ((!stringBuilding(left) && !left.neutral) || (!stringBuilding(right) && !right.neutral)) {
+      // A concatenation with an operand that is not known to be a string composes an unknown
+      // value (it may not even be a string); assignment-cycle provenance survives (R26).
+      const assignmentCycle =
+        left.cycle === 'assignment' || right.cycle === 'assignment';
+      return mergeAccount(makeSummary({
+        opaque: true, cycle: assignmentCycle ? 'assignment' : undefined,
+      }), left, right);
+    }
+    // A declaration-only (TDZ) cycle poisons a concatenation: evaluating the operand throws
+    // before any composition. An assignment cycle concatenates the name's unknown prior
+    // value — an unbounded string-building overflow that can spell anything (R25).
+    if ((left.neutral && left.cycle !== 'assignment') ||
+        (right.neutral && right.cycle !== 'assignment')) {
+      return mergeAccount(SUMMARY_TDZ_CYCLE, left, right);
+    }
+    if (left.neutral || right.neutral) {
+      return mergeAccount(makeSummary({
+        valuesExhaustive: false, capped: true,
+        lengths: { minLength: 0, maxLength: Number.POSITIVE_INFINITY },
+      }), left, right);
+    }
+    // An inert alternative stringifies to an unknown string, so it widens rather than proves.
+    const opaque = left.opaque || right.opaque || left.inert || right.inert;
+    if (left.valuesExhaustive && right.valuesExhaustive &&
+        left.values.size * right.values.size <= STATIC_STRING_WORKING_LIMIT) {
+      const combined = new Set<string>();
+      for (const prefix of left.values) {
+        for (const suffix of right.values) combined.add(prefix + suffix);
+      }
+      const packed = packValues(combined);
+      return mergeAccount(opaque ? widen(packed, false) : packed, left, right);
+    }
+    return mergeAccount(makeSummary({
+      valuesExhaustive: false, capped: true, opaque,
+      lengths: concatLengths(summaryLengths(left), summaryLengths(right)),
+    }), left, right);
+  };
+
+  // ─────────────── declaration/write collection (the syntactic account) ───────────────
+  // Z7-R25: every recorded write carries whether it is a declaration initializer or a
+  // post-initialization assignment. A cycle whose participating edges are declarations only
+  // is a genuine temporal-dead-zone self-reference (the runtime throws before any call); a
+  // cycle passing through an assignment is an ordinary re-assignment whose self-reference
+  // denotes the name's PRIOR value — never proof of unreachability or inertness.
   interface RecordedWrite { expression: ts.Expression; viaAssignment: boolean }
   const simpleNameInitializers = new Map<string, RecordedWrite[]>();
+  // Names written by a form the resolver cannot model (destructuring, parameters, catch
+  // bindings, compound assignment, ++/--, imports, for-in/of targets, declarations without an
+  // initializer). Taint is `unmodeledWrites` in the summary: it widens and denies fallback.
   const rewrittenNames = new Set<string>();
-  // Z7-R27 binding invariant (central proof-of-absence rule): a binding may be classified
-  // inert ('none') only from an EXHAUSTIVE account of every syntactically relevant
-  // declaration and write affecting its name, with every represented alternative
-  // mechanically proven unable to equal 'contract_hours_ledger'. The central summary for an
-  // identifier is: the union (R26 non-lossy lattice) over every recorded write, widened by
-  // taint, opacity, cycle provenance, and callable seeds. A stale evaluator binding is never
-  // independent proof — the classifier may consult it only when the summary carries no
-  // information at all (a name with no recorded writes, no taint, and at most a callable
-  // seed — where the evaluator binding IS that exhaustive account), and all four consumers
-  // (reached-call net, unreached-site net, externally opaque-callee guard, and the
-  // sourceNamesLedger gate) share this one resolution and membership decision.
-  //
-  // Function/class declaration names are callable SEEDS, not permanently callable bindings
-  // (Z7-R27): with no other recorded write, the seed is the exhaustive account and the
-  // evaluator binding may prove the argument inert; the moment any assignment is recorded,
-  // the seed becomes one more (non-string, conservatively opaque) alternative in the same
-  // write summary and must never bypass or erase the recorded writes.
+  // Function/class declaration names are callable SEEDS, not permanently callable bindings:
+  // with no other recorded write the seed is the exhaustive account and proves inertness; the
+  // moment any write is recorded the seed is one more alternative in the SAME union (R27/R28).
   const declaredCallableNames = new Set<string>();
+  // Z7-R28: distinct declaration sites per lexical name. Two or more means this scope-blind,
+  // name-keyed analysis cannot prove which binding a use site owns.
+  const declarationSiteCounts = new Map<string, number>();
   (() => {
+    const declareName = (name: string): void => {
+      declarationSiteCounts.set(name, (declarationSiteCounts.get(name) ?? 0) + 1);
+    };
     const taintPattern = (name: ts.BindingName): void => {
       if (ts.isIdentifier(name)) {
+        declareName(name.text);
         rewrittenNames.add(name.text);
         return;
       }
@@ -453,6 +701,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     const scan = (node: ts.Node): void => {
       if (ts.isVariableDeclaration(node)) {
         if (ts.isIdentifier(node.name) && node.initializer) {
+          declareName(node.name.text);
           const list = simpleNameInitializers.get(node.name.text) ?? [];
           list.push({ expression: node.initializer, viaAssignment: false });
           simpleNameInitializers.set(node.name.text, list);
@@ -484,12 +733,16 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       } else if (ts.isParameter(node)) {
         taintPattern(node.name);
       } else if ((ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) && node.name) {
+        declareName(node.name.text);
         declaredCallableNames.add(node.name.text);
       } else if (ts.isCatchClause(node) && node.variableDeclaration) {
         taintPattern(node.variableDeclaration.name);
       } else if (ts.isImportSpecifier(node) || ts.isImportClause(node) ||
           ts.isNamespaceImport(node)) {
-        if (node.name) rewrittenNames.add(node.name.text);
+        if (node.name) {
+          declareName(node.name.text);
+          rewrittenNames.add(node.name.text);
+        }
       } else if ((ts.isForInStatement(node) || ts.isForOfStatement(node)) &&
           !ts.isVariableDeclarationList(node.initializer)) {
         // Z7-R27: loop targets cover bare identifiers AND assignment patterns
@@ -501,331 +754,185 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     };
     scan(sf);
   })();
-  // Z7-R24 finding 2: the resolver's outcome is a tagged union — `undefined` previously
-  // conflated "proven not string-building" with "string-building but beyond the caps", and the
-  // capped case failed open. Tags:
-  // - finite:       the exact (≤ STATIC_STRING_SET_LIMIT) value set — decides membership.
-  // - overflow:     provably string-building but beyond a cap. Carries exact min/max composed
-  //                 lengths, and — when the enumeration stayed within the explicit
-  //                 STATIC_STRING_WORKING_LIMIT — the exact working value set, so membership of
-  //                 'contract_hours_ledger' is still decided exactly. Without a working set,
-  //                 membership is excluded only by the bounded length proof (the ledger name
-  //                 cannot fit min..max); otherwise it remains possible and must fail closed.
-  // - cycle:        self-referential writes. Declaration-only cycles are genuine TDZ (runtime
-  //                 throws before any call); assignment cycles are ordinary re-assignments and
-  //                 are NEVER proof of unreachability or inertness (Z7-R25).
-  // - unresolvable: tainted names or forms that are not statically string-building; falls back
-  //                 to the R22 value/provenance classification.
-  // All caps stay explicit and deterministic; memoization is per node at the top level only.
-  const STATIC_STRING_WORKING_LIMIT = 4096;
-  interface StaticStringLengths { minLength: number; maxLength: number }
-  // 'cycle' carries whether any participating edge is a post-initialization assignment
-  // (Z7-R25). Declaration-only cycles are genuine TDZ self-references; assignment cycles are
-  // ordinary re-assignments whose self-reference denotes the prior value, so in unions they
-  // are the neutral element (the fixpoint adds nothing new) and must never absorb a
-  // provably ledger-bearing sibling branch, while in concatenations they build unbounded
-  // new strings and become an unbounded string-building overflow.
-  // Z7-R26: the lattice is a product, not a set of mutually exclusive absorbing tags. An
-  // opaque (unresolvable) alternative WIDENS a result — `opaque: true` records that unknown
-  // alternatives exist beside the mechanically known ones — but it never erases finite
-  // values, a working-set or length-bounded overflow, a 'possible' outcome, or
-  // assignment-cycle provenance (carried on 'unresolvable' as `assignmentCycle`). A result is
-  // provably absent only when it is NOT opaque and every represented alternative is
-  // mechanically excluded.
-  type StaticStringResolution =
-    | { kind: 'finite'; values: ReadonlySet<string>; opaque?: boolean }
-    | ({ kind: 'overflow'; working?: ReadonlySet<string>; opaque?: boolean }
-        & StaticStringLengths)
-    | { kind: 'cycle'; viaAssignment: boolean }
-    | { kind: 'unresolvable'; assignmentCycle?: boolean };
-  const STATIC_TDZ_CYCLE: StaticStringResolution = { kind: 'cycle', viaAssignment: false };
-  const STATIC_ASSIGNMENT_CYCLE: StaticStringResolution = { kind: 'cycle', viaAssignment: true };
-  const STATIC_UNRESOLVABLE: StaticStringResolution = { kind: 'unresolvable' };
-  const lengthsOf = (values: ReadonlySet<string>): StaticStringLengths => {
-    let minLength = Number.POSITIVE_INFINITY;
-    let maxLength = 0;
-    for (const value of values) {
-      minLength = Math.min(minLength, value.length);
-      maxLength = Math.max(maxLength, value.length);
-    }
-    return { minLength, maxLength };
-  };
-  const packValues = (values: Set<string>): StaticStringResolution => {
-    if (values.size <= STATIC_STRING_SET_LIMIT) return { kind: 'finite', values };
-    if (values.size <= STATIC_STRING_WORKING_LIMIT) {
-      return { kind: 'overflow', working: values, ...lengthsOf(values) };
-    }
-    return { kind: 'overflow', ...lengthsOf(values) };
-  };
-  const concreteValues = (
-    resolution: StaticStringResolution
-  ): ReadonlySet<string> | undefined =>
-    resolution.kind === 'finite' ? resolution.values
-      : resolution.kind === 'overflow' ? resolution.working : undefined;
-  const resolutionLengths = (
-    resolution: StaticStringResolution
-  ): StaticStringLengths | undefined =>
-    resolution.kind === 'finite' ? lengthsOf(resolution.values)
-      : resolution.kind === 'overflow'
-        ? { minLength: resolution.minLength, maxLength: resolution.maxLength } : undefined;
-  const widenedOpaque = (
-    resolution: StaticStringResolution, assignmentCycle: boolean
-  ): StaticStringResolution => {
-    // Z7-R26: an opaque sibling widens a known resolution instead of erasing it. Cycles keep
-    // their own kind (their provenance is what matters); everything known gains opaque: true.
-    if (resolution.kind === 'cycle') {
-      return resolution.viaAssignment || assignmentCycle
-        ? { kind: 'unresolvable', assignmentCycle: true } : STATIC_UNRESOLVABLE;
-    }
-    if (resolution.kind === 'unresolvable') {
-      return resolution.assignmentCycle || assignmentCycle
-        ? { kind: 'unresolvable', assignmentCycle: true } : STATIC_UNRESOLVABLE;
-    }
-    return resolution.opaque ? resolution : { ...resolution, opaque: true };
-  };
-  const combineUnion = (
-    left: StaticStringResolution, right: StaticStringResolution
-  ): StaticStringResolution => {
-    // Z7-R26: 'unresolvable' widens, never absorbs — the mechanically known alternatives and
-    // any assignment-cycle provenance on the other side survive with opaque: true.
-    if (left.kind === 'unresolvable') {
-      return widenedOpaque(right, left.assignmentCycle === true);
-    }
-    if (right.kind === 'unresolvable') {
-      return widenedOpaque(left, right.assignmentCycle === true);
-    }
-    // Cycles are the neutral element of a union (Z7-R25): the self-reference contributes no
-    // value beyond the fixpoint's other branches, so the reachable non-cycle alternative is
-    // preserved — a cycle must never absorb a provably ledger-bearing sibling.
-    if (left.kind === 'cycle' && right.kind === 'cycle') {
-      return left.viaAssignment || right.viaAssignment
-        ? STATIC_ASSIGNMENT_CYCLE : STATIC_TDZ_CYCLE;
-    }
-    if (left.kind === 'cycle') return right;
-    if (right.kind === 'cycle') return left;
-    const opaque = left.opaque === true || right.opaque === true;
-    const leftValues = concreteValues(left);
-    const rightValues = concreteValues(right);
-    if (leftValues && rightValues &&
-        leftValues.size + rightValues.size <= STATIC_STRING_WORKING_LIMIT) {
-      const packed = packValues(new Set([...leftValues, ...rightValues]));
-      return opaque ? widenedOpaque(packed, false) : packed;
-    }
-    const leftLengths = resolutionLengths(left)!;
-    const rightLengths = resolutionLengths(right)!;
-    return {
-      kind: 'overflow',
-      ...(opaque ? { opaque: true } : {}),
-      minLength: Math.min(leftLengths.minLength, rightLengths.minLength),
-      maxLength: Math.max(leftLengths.maxLength, rightLengths.maxLength),
-    };
-  };
-  const combineConcat = (
-    left: StaticStringResolution, right: StaticStringResolution
-  ): StaticStringResolution => {
-    if (left.kind === 'unresolvable' || right.kind === 'unresolvable') {
-      // A concatenation with an unknown operand composes an unknown value (it may not even
-      // be a string), but assignment-cycle provenance survives (Z7-R26).
-      const assignmentCycle =
-        (left.kind === 'unresolvable' && left.assignmentCycle === true) ||
-        (right.kind === 'unresolvable' && right.assignmentCycle === true) ||
-        (left.kind === 'cycle' && left.viaAssignment) ||
-        (right.kind === 'cycle' && right.viaAssignment);
-      return assignmentCycle
-        ? { kind: 'unresolvable', assignmentCycle: true } : STATIC_UNRESOLVABLE;
-    }
-    // A declaration-only (TDZ) cycle poisons a concatenation: evaluating the operand throws
-    // before any composition, so the whole chain is dead at runtime. An assignment cycle
-    // concatenates the name's unknown prior value — an unbounded string-building overflow
-    // that can spell anything and must fail closed, never discharge (Z7-R25).
-    if ((left.kind === 'cycle' && !left.viaAssignment) ||
-        (right.kind === 'cycle' && !right.viaAssignment)) {
-      return STATIC_TDZ_CYCLE;
-    }
-    if (left.kind === 'cycle' || right.kind === 'cycle') {
-      return { kind: 'overflow', minLength: 0, maxLength: Number.POSITIVE_INFINITY };
-    }
-    const opaque = left.opaque === true || right.opaque === true;
-    const leftValues = concreteValues(left);
-    const rightValues = concreteValues(right);
-    if (leftValues && rightValues &&
-        leftValues.size * rightValues.size <= STATIC_STRING_WORKING_LIMIT) {
-      const combined = new Set<string>();
-      for (const prefix of leftValues) {
-        for (const suffix of rightValues) combined.add(prefix + suffix);
-      }
-      const packed = packValues(combined);
-      return opaque ? widenedOpaque(packed, false) : packed;
-    }
-    const leftLengths = resolutionLengths(left)!;
-    const rightLengths = resolutionLengths(right)!;
-    return {
-      kind: 'overflow',
-      ...(opaque ? { opaque: true } : {}),
-      minLength: leftLengths.minLength + rightLengths.minLength,
-      maxLength: leftLengths.maxLength + rightLengths.maxLength,
-    };
-  };
-  const staticStringMemo = new Map<ts.Node, StaticStringResolution>();
+
+  // ─────────────────────── the single resolver over that account ───────────────────────
+  // Purely lexical, side-effect free, deterministic and phase-independent: identifiers
+  // resolve through the syntactic declaration/write map above (never live evaluator state),
+  // so a site classifies identically during evaluation and during the post-evaluation
+  // unreached-site scan, and results are memoized so each expression is summarized once.
+  // Deliberately NOT part of the evaluator's value domain — direct `client.from(constructed)`
+  // keeps its dynamic-target classification.
+  const summaryMemo = new Map<ts.Node, BindingSummary>();
   // Each frame records the name being resolved and whether the edge into its write was a
-  // post-initialization assignment; a cycle's character is decided by the edges it actually
-  // traverses (Z7-R25).
-  interface StaticResolutionFrame { name: string; viaAssignment: boolean }
-  const staticStringValues = (
-    input: ts.Expression, nameStack: readonly StaticResolutionFrame[] = [], depth = 0
-  ): StaticStringResolution => {
+  // post-initialization assignment; a cycle's character is decided by the edges it traverses.
+  interface ResolutionFrame { name: string; viaAssignment: boolean }
+  /** Expression forms whose value is mechanically proven not to be the ledger string. */
+  const provenNonString = (node: ts.Expression): boolean =>
+    ts.isNumericLiteral(node) || ts.isRegularExpressionLiteral(node) ||
+    node.kind === ts.SyntaxKind.NullKeyword ||
+    node.kind === ts.SyntaxKind.TrueKeyword ||
+    node.kind === ts.SyntaxKind.FalseKeyword ||
+    ts.isArrowFunction(node) || ts.isFunctionExpression(node) ||
+    ts.isClassExpression(node) || ts.isObjectLiteralExpression(node) ||
+    ts.isArrayLiteralExpression(node);
+  const valueSummary = (
+    input: ts.Expression, nameStack: readonly ResolutionFrame[] = [], depth = 0
+  ): BindingSummary => {
     if (depth > STATIC_STRING_DEPTH_LIMIT) {
       // Depth exhaustion is only reachable through nested string-building constructs, so the
-      // value is string-building with unknown contents — an overflow that can spell anything.
-      return { kind: 'overflow', minLength: 0, maxLength: Number.POSITIVE_INFINITY };
+      // value is string-building with unknown contents — capped, never absent.
+      return makeSummary({
+        valuesExhaustive: false, capped: true,
+        lengths: { minLength: 0, maxLength: Number.POSITIVE_INFINITY },
+      });
     }
     const node = unwrap(input);
     const memoizable = nameStack.length === 0;
-    const memoized = memoizable ? staticStringMemo.get(node) : undefined;
+    const memoized = memoizable ? summaryMemo.get(node) : undefined;
     if (memoized) return memoized;
-    const compute = (): StaticStringResolution => {
+    const compute = (): BindingSummary => {
       if (ts.isStringLiteralLike(node)) {
-        return { kind: 'finite', values: new Set([node.text]) };
+        return makeSummary({ values: new Set([node.text]), valuesExhaustive: true });
       }
       if (ts.isTemplateExpression(node)) {
-        let resolution: StaticStringResolution =
-          { kind: 'finite', values: new Set([node.head.text]) };
+        let summary: BindingSummary =
+          makeSummary({ values: new Set([node.head.text]), valuesExhaustive: true });
         for (const span of node.templateSpans) {
-          resolution = combineConcat(resolution,
-            staticStringValues(span.expression, nameStack, depth + 1));
-          resolution = combineConcat(resolution,
-            { kind: 'finite', values: new Set([span.literal.text]) });
-          if (resolution.kind === 'cycle' || resolution.kind === 'unresolvable') {
-            return resolution;
-          }
+          summary = combineConcat(summary,
+            valueSummary(span.expression, nameStack, depth + 1));
+          summary = combineConcat(summary,
+            makeSummary({ values: new Set([span.literal.text]), valuesExhaustive: true }));
+          if (summary.neutral || carriesNoAlternative(summary)) return summary;
         }
-        return resolution;
+        return summary;
       }
       if (ts.isConditionalExpression(node)) {
         return combineUnion(
-          staticStringValues(node.whenTrue, nameStack, depth + 1),
-          staticStringValues(node.whenFalse, nameStack, depth + 1)
+          valueSummary(node.whenTrue, nameStack, depth + 1),
+          valueSummary(node.whenFalse, nameStack, depth + 1)
         );
       }
       if (ts.isBinaryExpression(node)) {
         const operator = node.operatorToken.kind;
         if (operator === ts.SyntaxKind.PlusToken) {
           return combineConcat(
-            staticStringValues(node.left, nameStack, depth + 1),
-            staticStringValues(node.right, nameStack, depth + 1)
+            valueSummary(node.left, nameStack, depth + 1),
+            valueSummary(node.right, nameStack, depth + 1)
           );
         }
         if (operator === ts.SyntaxKind.BarBarToken ||
             operator === ts.SyntaxKind.AmpersandAmpersandToken ||
             operator === ts.SyntaxKind.QuestionQuestionToken) {
           return combineUnion(
-            staticStringValues(node.left, nameStack, depth + 1),
-            staticStringValues(node.right, nameStack, depth + 1)
+            valueSummary(node.left, nameStack, depth + 1),
+            valueSummary(node.right, nameStack, depth + 1)
           );
         }
         if (operator === ts.SyntaxKind.CommaToken) {
-          return staticStringValues(node.right, nameStack, depth + 1);
+          return valueSummary(node.right, nameStack, depth + 1);
         }
-        return STATIC_UNRESOLVABLE;
+        return SUMMARY_OPAQUE;
       }
+      if (provenNonString(node)) return SUMMARY_INERT;
       if (ts.isIdentifier(node)) {
-        if (rewrittenNames.has(node.text)) return STATIC_UNRESOLVABLE;
-        const cycleStart = nameStack.findIndex((frame) => frame.name === node.text);
+        const name = node.text;
+        const cycleStart = nameStack.findIndex((frame) => frame.name === name);
         if (cycleStart >= 0) {
           // The cycle's character is the character of the edges it traverses: any assignment
           // edge makes it an ordinary re-assignment self-reference; declarations only make it
           // a genuine TDZ self-reference.
           return nameStack.slice(cycleStart).some((frame) => frame.viaAssignment)
-            ? STATIC_ASSIGNMENT_CYCLE : STATIC_TDZ_CYCLE;
+            ? SUMMARY_ASSIGNMENT_CYCLE : SUMMARY_TDZ_CYCLE;
         }
-        const writes = simpleNameInitializers.get(node.text);
-        // Z7-R27: a function/class declaration is a callable SEED in the same write summary,
-        // never a bypass. With no other recorded write the seed is the exhaustive account and
-        // the name stays unresolvable here (the classifier's evaluator fallback — the binding
-        // IS that callable — may then prove the argument inert). With recorded writes, the
-        // writes resolve exactly as for any other name, widened opaque because the callable
-        // alternative is a known non-string value the string lattice cannot carry.
-        if (!writes || writes.length === 0) return STATIC_UNRESOLVABLE;
-        let resolution: StaticStringResolution | undefined;
+        const writes = simpleNameInitializers.get(name) ?? [];
+        const tainted = rewrittenNames.has(name);
+        const seeded = declaredCallableNames.has(name);
+        const conflicted = (declarationSiteCounts.get(name) ?? 0) > 1;
+        // The declaration/write account for this name. `evaluatorFallbackSafe` is granted
+        // HERE and nowhere else: only a name with no recorded write, no unmodeled write, and
+        // no scope conflict leaves the evaluator binding as the exhaustive account.
+        const account = {
+          seeds: seeded ? CALLABLE_SEED : NO_SEEDS,
+          writesRecorded: writes.length > 0,
+          unmodeledWrites: tainted,
+          scopeConflict: conflicted,
+          evaluatorFallbackSafe: writes.length === 0 && !tainted && !conflicted,
+        };
+        if (name === 'undefined' && writes.length === 0 && !tainted) {
+          return makeSummary({ ...account, inert: true });
+        }
+        // The callable seed is ONE alternative in the SAME union as every recorded write —
+        // never a bypass and never an eraser (R27/R28 consequence 3 and 4). Its
+        // `evaluatorFallbackSafe` is the identity element of `mergeAccount`'s AND and is
+        // always overwritten by `account` below; the seed itself never grants fallback.
+        let resolved: BindingSummary | undefined = seeded
+          ? makeSummary({ inert: true, seeds: CALLABLE_SEED, evaluatorFallbackSafe: true })
+          : undefined;
         for (const write of writes) {
-          // No early return at all (Z7-R25/R26): cycles are union-neutral and an opaque
-          // write only widens — neither may discard a ledger-bearing write recorded before
-          // or after it.
-          const next = staticStringValues(write.expression,
-            [...nameStack, { name: node.text, viaAssignment: write.viaAssignment }],
-            depth + 1);
-          resolution = resolution ? combineUnion(resolution, next) : next;
+          // No early return at all (R25/R26): cycles are union-neutral and an opaque write
+          // only widens — neither may discard a ledger-bearing write recorded before or after.
+          const next = valueSummary(write.expression,
+            [...nameStack, { name, viaAssignment: write.viaAssignment }], depth + 1);
+          resolved = resolved ? combineUnion(resolved, next) : next;
         }
-        if (resolution && declaredCallableNames.has(node.text)) {
-          return widenedOpaque(resolution, false);
+        if (!resolved) {
+          // No declaration and no write under this name. When it is also untainted and
+          // unconflicted this is the ONE state where the evaluator binding is the exhaustive
+          // account (a free or host-provided global); the value itself stays unknown.
+          return makeSummary({ ...account, opaque: true });
         }
-        return resolution ?? STATIC_UNRESOLVABLE;
+        // A tainted name carries at least one write form the collector cannot model, so the
+        // union of the modeled writes is incomplete and must be widened, never trusted.
+        return { ...(tainted ? widen(resolved, false) : resolved), ...account };
       }
-      return STATIC_UNRESOLVABLE;
+      return SUMMARY_OPAQUE;
     };
     const result = compute();
-    if (memoizable) staticStringMemo.set(node, result);
+    if (memoizable) summaryMemo.set(node, result);
     return result;
   };
-  // Membership of the ledger name in a static resolution: 'present' and 'absent' are proven
-  // (by enumeration, working-set enumeration, or the bounded length-exclusion proof, over an
-  // exhaustive — non-opaque — set of alternatives); 'possible' means the value is provably
-  // string-building yet beyond every bounded proof — it must fail closed regardless of
-  // whether the source spells the name anywhere else; 'guarded' (Z7-R26) means the known
-  // alternatives are proven absent but opaque alternatives or assignment-cycle provenance
-  // remain — the site is uncertain by the resolution itself and must never be discharged by
-  // a stale evaluator binding, though it stays behind the sourceNamesLedger gate; 'unknown'
-  // means the resolution carries no information and the R22 fallback classification applies.
-  const staticLedgerMembership = (
-    resolution: StaticStringResolution
+  // Membership of the ledger name in a central summary.
+  // - 'present'  proven constructible (enumeration or working-set enumeration).
+  // - 'possible' provably string-building yet beyond every bounded proof — fails closed
+  //              regardless of whether the source spells the name anywhere else.
+  // - 'guarded'  the known alternatives are proven absent, but an opaque/tainted alternative
+  //              or assignment-cycle provenance remains: incomplete, so never dischargeable.
+  // - 'absent'   PROVEN absence over an exhaustive, non-opaque account of alternatives.
+  // - 'unknown'  the summary represents nothing at all; the affirmative fallback rule decides.
+  const ledgerMembership = (
+    summary: BindingSummary
   ): 'present' | 'absent' | 'possible' | 'guarded' | 'unknown' => {
-    if (resolution.kind === 'cycle') {
-      return resolution.viaAssignment ? 'guarded' : 'unknown';
+    if (summary.values.has(LEDGER_TABLE)) return 'present';
+    if (summary.neutral) return summary.cycle === 'assignment' ? 'guarded' : 'unknown';
+    if (summary.capped && !summary.valuesExhaustive) {
+      const lengths = summaryLengths(summary);
+      if (lengths && LEDGER_TABLE.length >= lengths.minLength &&
+          LEDGER_TABLE.length <= lengths.maxLength) {
+        return 'possible';
+      }
     }
-    if (resolution.kind === 'unresolvable') {
-      return resolution.assignmentCycle === true ? 'guarded' : 'unknown';
+    if (summary.opaque || summary.unmodeledWrites || summary.cycle === 'assignment') {
+      return 'guarded';
     }
-    const concrete = concreteValues(resolution);
-    if (concrete?.has('contract_hours_ledger')) return 'present';
-    if (resolution.kind === 'overflow' && !concrete) {
-      const fits = 'contract_hours_ledger'.length >= resolution.minLength &&
-        'contract_hours_ledger'.length <= resolution.maxLength;
-      if (fits) return 'possible';
-    }
-    // Every mechanically represented alternative is proven absent; opacity decides whether
-    // that proof covers everything.
-    return resolution.opaque === true ? 'guarded' : 'absent';
+    // Every mechanically represented alternative is proven absent AND the account is
+    // exhaustive: this is the only path to a proof of absence in the analyzer.
+    if (summary.values.size > 0 || summary.inert || summary.capped) return 'absent';
+    return 'unknown';
   };
   const argumentLedgerAuthority = (argument: ts.Expression): LedgerAuthority => {
-    // Z7-R23 static-first, R24-tagged: a static resolution with proven membership decides
-    // exactly — 'authority' when the ledger name is provably constructible (regardless of
-    // whether the complete spelling ever appears as one literal), 'none' when membership is
-    // proven absent (by enumeration, working-set enumeration, or the bounded length proof).
-    // A string-building value beyond every bounded proof is 'possible' and fails closed
-    // without the gate. Cycles and unresolvable forms fall through to the R22 value/
-    // provenance classification below.
-    const membership = staticLedgerMembership(staticStringValues(argument));
+    const summary = valueSummary(argument);
+    const membership = ledgerMembership(summary);
     if (membership === 'present') return 'authority';
-    if (membership === 'absent') return 'none';
     if (membership === 'possible') return 'possible';
-    // Z7-R25/R26 'guarded': assignment-cycle provenance or an opaque sibling beside
-    // proven-absent known alternatives — uncertain by the resolution itself, never
-    // discharged by a stale evaluator binding. Declaration-only TDZ cycles and plain
-    // unresolvable forms keep the accepted R22 fallback below.
-    if (membership === 'guarded') return 'uncertain';
+    if (membership === 'absent') return 'none';
+    // THE central fail-closed rule: an incomplete summary (opaque, tainted, assignment-cyclic,
+    // capped-without-exclusion, scope-conflicted, or simply carrying a recorded write the
+    // resolver could not bound) is uncertain by the summary itself. No stale evaluator binding
+    // may discharge it, and there is no other route to 'none' below.
+    if (!summary.evaluatorFallbackSafe) return 'uncertain';
+    // Only two states reach here, both with an AFFIRMATIVELY safe fallback: 'unknown' (the
+    // summary represents nothing) and 'guarded' over free/host-provided names.
     const expression = unwrap(argument);
-    if (ts.isStringLiteralLike(expression)) {
-      return expression.text === 'contract_hours_ledger' ? 'authority' : 'none';
-    }
-    if (ts.isNumericLiteral(expression) || ts.isRegularExpressionLiteral(expression) ||
-        expression.kind === ts.SyntaxKind.NullKeyword ||
-        expression.kind === ts.SyntaxKind.TrueKeyword ||
-        expression.kind === ts.SyntaxKind.FalseKeyword ||
-        ts.isArrowFunction(expression) || ts.isFunctionExpression(expression) ||
-        ts.isClassExpression(expression) || ts.isObjectLiteralExpression(expression) ||
-        ts.isArrayLiteralExpression(expression)) {
-      return 'none';
-    }
     if (ts.isConditionalExpression(expression)) {
       return combineLedgerAuthority(
         argumentLedgerAuthority(expression.whenTrue),
@@ -848,12 +955,6 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       return 'uncertain';
     }
     if (ts.isIdentifier(expression)) {
-      if (expression.text === 'undefined') return 'none';
-      // Z7-R24 finding 1: a tainted name is written by at least one form the declaration map
-      // does not model (destructuring assignment included), so neither its recorded
-      // initializers nor the evaluator binding can prove what it holds at this site — it is
-      // uncertain by construction, never binding-proven 'none'.
-      if (rewrittenNames.has(expression.text)) return 'uncertain';
       const resolved = binding(expression.text);
       return resolved ? valueLedgerAuthority(resolved) : 'uncertain';
     }
@@ -867,7 +968,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   // source literal. `sourceNamesLedger` therefore scans for any statically constructible
   // string equal to the table name, not just a single spelled-out literal; `authority`
   // classification (static-first, above) is shared verbatim by the reached-call net, the
-  // unreached-site net, and the external-callee guard, via one memoized resolver.
+  // unreached-site net, and the external-callee guard, via the one central summary (R28).
   // A source that can neither spell nor statically construct the name has no ledger authority
   // an uncertain value could discharge, so 'uncertain' fails closed only when this gate is
   // true; 'authority' always fails closed. This keeps the net exact on authority-bearing
@@ -877,10 +978,10 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     let found = false;
     const scan = (node: ts.Node): void => {
       if (found) return;
-      if (ts.isStringLiteralLike(node) && node.text === 'contract_hours_ledger') found = true;
+      if (ts.isStringLiteralLike(node) && node.text === LEDGER_TABLE) found = true;
       else if ((ts.isBinaryExpression(node) || ts.isConditionalExpression(node) ||
           ts.isTemplateExpression(node)) &&
-          staticLedgerMembership(staticStringValues(node)) === 'present') found = true;
+          ledgerMembership(valueSummary(node)) === 'present') found = true;
       ts.forEachChild(node, scan);
     };
     scan(sf);
@@ -3494,21 +3595,14 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     } else if (context.record && callable.external && hazardNetActive() &&
         callable.methods.size === 0 && callable.functions.size === 0 &&
         callable.adapter === undefined && !callable.alwaysThrows &&
-        (context.node.arguments ?? []).some((argument) => {
-          const membership = staticLedgerMembership(staticStringValues(argument));
-          if (membership === 'present' || membership === 'possible') return true;
-          if (membership === 'guarded' && sourceNamesLedger) return true;
-          const expression = unwrap(argument);
-          return ts.isIdentifier(expression) && rewrittenNames.has(expression.text) &&
-            sourceNamesLedger;
-        })) {
-      // Z7-R23/R24: the callee is externally opaque and none of the evaluator's value-domain
-      // triggers above can see the ledger name, yet an argument statically CONSTRUCTS it —
-      // proven present, or provably string-building beyond every bounded proof ('possible',
-      // which must not depend on any other spelling in the source) — or is a tainted name in
-      // a source that names the ledger, where neither the declaration map nor the evaluator
-      // binding can prove the value (R24 finding 1, reached form). The evaluator cannot prove
-      // what runs here, so the site fails closed exactly once.
+        carriesLedgerAuthorityArgument(context.node)) {
+      // Z7-R28: the externally opaque-callee guard no longer carries its own membership
+      // predicate. It asks exactly the question the reached-call net and the unreached-site
+      // net ask — `carriesLedgerAuthorityArgument`, over the one central summary — so no
+      // consumer can classify a site by a rule the others do not share, and none of them has
+      // a private route to evaluator state. The callee is externally opaque and none of the
+      // evaluator's value-domain triggers above can see the ledger name, yet an argument
+      // carries ledger authority the summary cannot discharge: the site fails closed once.
       calls.push({
         method: 'unknown', unsupported: 'unresolved ledger authority',
         expression: context.expression, position: context.node.pos,
@@ -9665,6 +9759,494 @@ read(table);
       expect(results.filter((call) => call.method === 'from' &&
         call.target === 'contract_hours_ledger')).toHaveLength(0);
       expect(discoverSupabaseCalls(source, probe)).toEqual(results);
+    } finally {
+      rmSync(probeRoot, { recursive: true, force: true });
+    }
+  });
+
+  // ───────────────── Round 28 — root invariants of the central binding summary ─────────────────
+  // These are invariant tests, not reproduction tests: each pins one STATE of the central
+  // `BindingSummary` and the single rule that decides whether the evaluator binding may be
+  // consulted at all. The two supplied R28 probes are rows in that table, not its purpose.
+
+  /** Runtime oracle with the opaque probe global bound to the ledger name. */
+  function z7R28Runtime(source: string): number {
+    let calls = 0;
+    const client = { from(target: unknown) {
+      if (target === 'contract_hours_ledger') calls += 1;
+      return this;
+    } };
+    const globals = globalThis as Record<string, unknown>;
+    const had = 'z7R28Unknown' in globals;
+    const prior = globals.z7R28Unknown;
+    globals.z7R28Unknown = 'contract_hours_ledger';
+    try {
+      (new Function('client', source) as (value: typeof client) => void)(client);
+    } catch {
+      /* abrupt completion is part of the oracle */
+    } finally {
+      if (had) globals.z7R28Unknown = prior;
+      else delete globals.z7R28Unknown;
+    }
+    return calls;
+  }
+  const z7R28Unresolved = (source: string): DiscoveredCall[] =>
+    discoverSupabaseCalls(source).filter((call) => call.unsupported);
+  const z7R28Exact = (source: string): DiscoveredCall[] =>
+    discoverSupabaseCalls(source).filter((call) => call.method === 'from' &&
+      call.target === 'contract_hours_ledger');
+  /** Arms the `sourceNamesLedger` gate without performing any call. */
+  const Z7R28_ARMED = "const armedLedgerName = 'contract_hours_ledger';\n      void armedLedgerName;";
+  /** The R21 pruned-catch hazard wrapper: the body is never evaluated, so any evaluator
+   *  binding for a name written inside it is STALE by construction. */
+  const z7R28Pruned = (declaration: string, body: string): string => `${declaration}
+      const proto = {};
+      Object.defineProperty(proto, 'slot', {
+        set() { throw new Error('setter'); },
+      });
+      try {
+        Reflect.set(proto, 'slot', client.from, Object.create(proto));
+      } catch {
+        ${body}
+      }`;
+  /** A reached, externally opaque callee inside hazard territory. */
+  const z7R28Detached = (declaration: string, body: string): string =>
+    `const sentinel = Symbol('existing');
+      void sentinel;
+      ${declaration}
+      ${body}
+      const read = (0, client.from);
+      read(table);`;
+
+  it('R28.1: a recorded opaque write is summary information, never a silent unknown', () => {
+    const failsClosedOnce = (source: string, expression: string): void => {
+      expect(z7R28Runtime(source), expression).toBe(1);
+      expect(z7R28Exact(source), expression).toHaveLength(0);
+      expect(z7R28Unresolved(source), expression).toEqual([
+        expect.objectContaining({ unsupported: 'unresolved ledger authority', expression }),
+      ]);
+      expect(discoverSupabaseCalls(source)).toEqual(discoverSupabaseCalls(source));
+    };
+    // A — the blocking function-declaration probe. On the R27 analyzer the pre-scan recorded
+    // the assignment, the opaque value collapsed to plain unresolvable, membership came back
+    // 'unknown', and the stale function binding proved the site inert: the analyzer returned
+    // [] while the runtime performed one ledger call.
+    failsClosedOnce(z7R28Pruned(`${Z7R28_ARMED}\n      function table() {}`,
+      'table = globalThis.z7R28Unknown;\n        client.from(table);'), 'client.from');
+    // B — the class-declaration form of the same escape.
+    failsClosedOnce(z7R28Pruned(`${Z7R28_ARMED}\n      class table {}`,
+      'table = globalThis.z7R28Unknown;\n        client.from(table);'), 'client.from');
+    // C — the same two bindings at a reached, externally opaque callee.
+    failsClosedOnce(z7R28Detached(`${Z7R28_ARMED}\n      function table() {}`,
+      'table = globalThis.z7R28Unknown;'), 'read');
+    failsClosedOnce(z7R28Detached(`${Z7R28_ARMED}\n      class table {}`,
+      'table = globalThis.z7R28Unknown;'), 'read');
+    // D — the defect is NOT specific to callable declarations. Any recorded write whose value
+    // is opaque leaves the summary incomplete, even when every OTHER recorded write is a
+    // mechanically proven non-string and the stale evaluator binding is that proven value.
+    for (const seed of ['{}', '[]', '0', 'null', 'false', '/x/', '(() => 1)']) {
+      failsClosedOnce(z7R28Pruned(`${Z7R28_ARMED}\n      let table = ${seed};`,
+        'table = globalThis.z7R28Unknown;\n        client.from(table);'), 'client.from');
+    }
+    // E — retained R26 control: a proven finite string sibling plus the opaque write.
+    failsClosedOnce(z7R28Pruned(`${Z7R28_ARMED}\n      let table = 'other_table';`,
+      'table = globalThis.z7R28Unknown;\n        client.from(table);'), 'client.from');
+    // F — the accepted gated-silence behaviour is preserved exactly: the identical opaque-only
+    // callable reassignment in a source that can neither spell nor construct the ledger name
+    // stays silent, with no fabricated exact call.
+    const unarmed = z7R28Pruned('function table() {}',
+      'table = globalThis.z7R28Unknown;\n        client.from(table);');
+    expect(z7R28Runtime(unarmed)).toBe(1);
+    expect(z7R28Exact(unarmed)).toHaveLength(0);
+    expect(z7R28Unresolved(unarmed)).toEqual([]);
+    const unarmedDetached = z7R28Detached('function table() {}',
+      'table = globalThis.z7R28Unknown;');
+    expect(z7R28Runtime(unarmedDetached)).toBe(1);
+    expect(z7R28Unresolved(unarmedDetached)).toEqual([]);
+    // G — the direct, non-hazard `client.from(table)` form was never the escape route and is
+    // untouched: the evaluator models the site exactly and already fails closed once with its
+    // OWN classification. It is pinned here so the repair cannot silently relabel it.
+    const direct = `${Z7R28_ARMED}
+      function table() {}
+      table = globalThis.z7R28Unknown;
+      client.from(table);`;
+    expect(z7R28Runtime(direct)).toBe(1);
+    expect(z7R28Exact(direct)).toHaveLength(0);
+    expect(discoverSupabaseCalls(direct)).toEqual([
+      expect.objectContaining({ method: 'from', unsupported: 'dynamic target' }),
+    ]);
+  });
+
+  it('R28.2: callable seeds are inert only while the declaration account is exhaustive', () => {
+    // A — a callable declaration with zero other writes is an INERT seed: the declaration
+    // account is exhaustive and a function/class object can never equal the ledger name, so
+    // absence is proven from the summary rather than borrowed from a binding.
+    const inertSeed = `${Z7R28_ARMED}
+      function table() {}
+      class klass {}
+      const sentinel = Symbol('existing');
+      void sentinel;
+      const read = (0, client.from);
+      read(table);
+      read(klass);`;
+    expect(z7R28Runtime(inertSeed)).toBe(0);
+    expect(z7R28Exact(inertSeed)).toHaveLength(0);
+    expect(z7R28Unresolved(inertSeed)).toEqual([]);
+    // B — a seed plus a proven finite non-ledger write stays silent ONLY because the complete
+    // summary (seed ∪ write) proves absence: both alternatives are mechanically excluded and
+    // nothing opaque, tainted, cyclic, capped or conflicted remains. The gate is armed, so
+    // silence here is a proof, not an unarmed default.
+    const provenAbsent = z7R28Detached(`${Z7R28_ARMED}\n      function table() {}`,
+      "table = 'third_table';");
+    expect(z7R28Runtime(provenAbsent)).toBe(0);
+    expect(z7R28Unresolved(provenAbsent)).toEqual([]);
+    // C — add ONE opaque write to that same complete summary and absence is gone.
+    const noLongerAbsent = z7R28Detached(`${Z7R28_ARMED}\n      function table() {}`,
+      "table = 'third_table';\n      table = globalThis.z7R28Unknown;");
+    expect(z7R28Runtime(noLongerAbsent)).toBe(1);
+    expect(z7R28Exact(noLongerAbsent)).toHaveLength(0);
+    expect(z7R28Unresolved(noLongerAbsent)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority', expression: 'read' }),
+    ]);
+    // D — the seed never erases a ledger-bearing write, in either declaration order.
+    const seedFirst = z7R28Detached('function table() {}',
+      "table = 'contract_' + 'hours_ledger';");
+    const seedLast = `const sentinel = Symbol('existing');
+      void sentinel;
+      table = 'contract_' + 'hours_ledger';
+      function table() {}
+      const read = (0, client.from);
+      read(table);`;
+    for (const source of [seedFirst, seedLast]) {
+      expect(z7R28Exact(source)).toHaveLength(0);
+      expect(z7R28Unresolved(source)).toEqual([
+        expect.objectContaining({ unsupported: 'unresolved ledger authority', expression: 'read' }),
+      ]);
+    }
+    // E — two callable declarations of one lexical name: the conflict is recorded, the union
+    // over both declarations is still exhaustive and inert, so absence stays proven.
+    const twoSeeds = `${Z7R28_ARMED}
+      const sentinel = Symbol('existing');
+      void sentinel;
+      function table() {}
+      function shadow() { function table() {} return table; }
+      void shadow;
+      const read = (0, client.from);
+      read(table);`;
+    expect(z7R28Runtime(twoSeeds)).toBe(0);
+    expect(z7R28Unresolved(twoSeeds)).toEqual([]);
+    // F — a scope/name conflict whose OTHER declaration is opaque cannot prove ownership: the
+    // scope-blind union widens and the site fails closed even though the runtime never calls
+    // the ledger. Over-reporting is the documented conservative direction.
+    const conflicted = `${Z7R28_ARMED}
+      const sentinel = Symbol('existing');
+      void sentinel;
+      function table() {}
+      function shadow() { const table = globalThis.z7R28Unknown; return table; }
+      void shadow;
+      const read = (0, client.from);
+      read(table);`;
+    expect(z7R28Runtime(conflicted)).toBe(0);
+    expect(z7R28Exact(conflicted)).toHaveLength(0);
+    expect(z7R28Unresolved(conflicted)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority', expression: 'read' }),
+    ]);
+  });
+
+  it('R28.3: an opaque write is order-independent inside the write summary', () => {
+    // The union is a lattice join, so the position of an opaque write relative to known
+    // ledger-bearing and known non-ledger alternatives cannot change the outcome. Every
+    // permutation carries the same three writes; each must fail closed exactly once.
+    const opaque = 'table = globalThis.z7R28Unknown;';
+    const ledger = "table = 'contract_' + 'hours_ledger';";
+    const other = "table = 'third_table';";
+    const permutations: string[][] = [
+      [opaque, ledger, other], [opaque, other, ledger],
+      [ledger, opaque, other], [other, opaque, ledger],
+      [ledger, other, opaque], [other, ledger, opaque],
+    ];
+    const results = permutations.map((writes) => {
+      const source = z7R28Detached(`${Z7R28_ARMED}\n      function table() {}`,
+        writes.join('\n      '));
+      expect(z7R28Exact(source), writes.join(' | ')).toHaveLength(0);
+      expect(z7R28Unresolved(source), writes.join(' | ')).toEqual([
+        expect.objectContaining({ unsupported: 'unresolved ledger authority', expression: 'read' }),
+      ]);
+      return z7R28Unresolved(source).length;
+    });
+    expect(results).toEqual([1, 1, 1, 1, 1, 1]);
+    // Without the ledger-bearing write the same permutations stay guarded — one marker each,
+    // never a proof of absence, because the opaque alternative is still represented.
+    for (const writes of [[opaque, other], [other, opaque]]) {
+      const source = z7R28Detached(`${Z7R28_ARMED}\n      function table() {}`,
+        writes.join('\n      '));
+      expect(z7R28Unresolved(source), writes.join(' | ')).toHaveLength(1);
+    }
+    // And with only proven alternatives, both orders prove absence.
+    for (const writes of [[other, "table = 'fourth_table';"],
+      ["table = 'fourth_table';", other]]) {
+      const source = z7R28Detached(`${Z7R28_ARMED}\n      function table() {}`,
+        writes.join('\n      '));
+      expect(z7R28Unresolved(source), writes.join(' | ')).toEqual([]);
+    }
+  });
+
+  it('R28.4: the proof table — one summary state per row decides evaluator fallback', () => {
+    // Every row is a state of the central summary. `fallback` records whether the summary
+    // affirmatively permits consulting the evaluator binding; `armed`/`unarmed` are the marker
+    // counts with and without the `sourceNamesLedger` gate. Each row's binding is written
+    // inside a pruned catch, so the evaluator binding present at the call site is STALE and
+    // would classify the site 'none' if any consumer were allowed to ask it.
+    const deepChain = [...'contract_hours_ledger'].map((char) => `'${char}'`).join(" + '' + ");
+    const capParts = Array.from({ length: 13 }, (_, index) =>
+      `const p${index} = [].length === 0 ? 'a' : 'bbb';`).join('\n      ');
+    const capSum = Array.from({ length: 13 }, (_, index) => `p${index}`).join(' + ');
+    const enumerated = ['con', 'tract_', 'hours', '_led', 'ger']
+      .map((part, index) => `const c${index} = yes ? '${part}' : 'x${index}';`).join('\n      ');
+    interface ProofRow {
+      state: string;
+      /** Does the central summary affirmatively permit evaluator fallback? */
+      fallback: boolean;
+      declaration: string;
+      body: string;
+      armed: number;
+      unarmed: number;
+      runtimeCalls: number;
+    }
+    const rows: ProofRow[] = [
+      { state: 'free name — no declaration, no write, no taint, no conflict',
+        fallback: true, declaration: '', body: 'client.from(freeName);',
+        armed: 1, unarmed: 0, runtimeCalls: 0 },
+      { state: 'callable seed only — exhaustive, inert',
+        fallback: false, declaration: 'function table() {}', body: 'client.from(table);',
+        armed: 0, unarmed: 0, runtimeCalls: 0 },
+      { state: 'finite alternatives, ledger absent — proven absence',
+        fallback: false, declaration: "let table = 'other_table';",
+        body: "table = 'third_table';\n        client.from(table);",
+        armed: 0, unarmed: 0, runtimeCalls: 0 },
+      { state: 'finite alternatives, ledger present',
+        fallback: false, declaration: "let table = 'other_table';",
+        body: "table = 'contract_' + 'hours_ledger';\n        client.from(table);",
+        armed: 1, unarmed: 1, runtimeCalls: 1 },
+      { state: 'recorded opaque write beside an inert declaration',
+        fallback: false, declaration: 'let table = {};',
+        body: 'table = globalThis.z7R28Unknown;\n        client.from(table);',
+        armed: 1, unarmed: 0, runtimeCalls: 1 },
+      { state: 'callable seed plus recorded opaque write (R28 blocking probe)',
+        fallback: false, declaration: 'function table() {}',
+        body: 'table = globalThis.z7R28Unknown;\n        client.from(table);',
+        armed: 1, unarmed: 0, runtimeCalls: 1 },
+      { state: 'unmodeled/tainted write — destructuring assignment',
+        fallback: false, declaration: "let table = 'other_table';",
+        body: "({ table } = { table: globalThis.z7R28Unknown });\n        client.from(table);",
+        armed: 1, unarmed: 0, runtimeCalls: 1 },
+      { state: 'unmodeled/tainted write — compound assignment',
+        fallback: false, declaration: "let table = 'other_table';",
+        body: "table += '_x';\n        client.from(table);",
+        armed: 1, unarmed: 0, runtimeCalls: 0 },
+      { state: 'assignment cycle — prior value, never inertness',
+        fallback: false, declaration: "let table = 'other_table';",
+        body: "table = true ? ('contract_' + 'hours_ledger') : table;\n        client.from(table);",
+        armed: 1, unarmed: 1, runtimeCalls: 1 },
+      { state: 'declaration-only TDZ cycle with recorded writes',
+        fallback: false, declaration: "const first = second + '_x';\n      const second = first + '_y';",
+        body: 'client.from(first);', armed: 1, unarmed: 0, runtimeCalls: 0 },
+      { state: 'capped beyond the finite limit, working set enumerated, ledger present',
+        fallback: false,
+        declaration: `const yes = [].length === 0;\n      ${enumerated}`,
+        body: 'const table = c0 + c1 + c2 + c3 + c4;\n        client.from(table);',
+        armed: 1, unarmed: 1, runtimeCalls: 1 },
+      { state: 'capped beyond the working limit, length admits the ledger — possible',
+        fallback: false, declaration: capParts,
+        body: `const table = ${capSum};\n        client.from(table);`,
+        armed: 1, unarmed: 1, runtimeCalls: 0 },
+      { state: 'traversal depth exhausted — string-building, never absent',
+        fallback: false, declaration: "let table = 'other_table';",
+        body: `table = ${deepChain};\n        client.from(table);`,
+        armed: 1, unarmed: 1, runtimeCalls: 1 },
+      { state: 'scope/name conflict with an opaque sibling declaration',
+        fallback: false,
+        declaration: 'function table() {}\n      ' +
+          'function shadow() { const table = globalThis.z7R28Unknown; return table; }\n' +
+          '      void shadow;',
+        body: 'client.from(table);', armed: 1, unarmed: 0, runtimeCalls: 0 },
+    ];
+    for (const row of rows) {
+      for (const armed of [true, false]) {
+        const declaration = armed ? `${Z7R28_ARMED}\n      ${row.declaration}` : row.declaration;
+        const source = z7R28Pruned(declaration, row.body);
+        const label = `${row.state} [${armed ? 'armed' : 'unarmed'}]`;
+        expect(z7R28Runtime(source), label).toBe(row.runtimeCalls);
+        expect(z7R28Exact(source), label).toHaveLength(0);
+        expect(z7R28Unresolved(source), label)
+          .toHaveLength(armed ? row.armed : row.unarmed);
+        expect(z7R28Unresolved(source).every((call) =>
+          call.unsupported === 'unresolved ledger authority'), label).toBe(true);
+        expect(discoverSupabaseCalls(source), label).toEqual(discoverSupabaseCalls(source));
+      }
+    }
+    // The fallback column is not decoration: exactly one row in the table affirmatively
+    // permits the evaluator binding to decide, and it is the row with no declaration, no
+    // recorded write, no taint and no scope conflict — the only state in which that binding
+    // IS the exhaustive account.
+    expect(rows.filter((row) => row.fallback).map((row) => row.state)).toEqual([
+      'free name — no declaration, no write, no taint, no conflict',
+    ]);
+    // Every state that does NOT permit fallback and is not a proven-absence state must fail
+    // closed under the armed gate; no incomplete state is ever silent while armed.
+    const provenAbsence = new Set([
+      'callable seed only — exhaustive, inert',
+      'finite alternatives, ledger absent — proven absence',
+    ]);
+    for (const row of rows.filter((candidate) => !candidate.fallback)) {
+      expect(row.armed === 0, row.state).toBe(provenAbsence.has(row.state));
+    }
+  });
+
+  it('R28.5: no incomplete summary state reaches a stale evaluator-proven none', () => {
+    // Each probe pairs an incomplete summary with an evaluator binding that WOULD prove the
+    // site inert (a callable, an object, a proven non-ledger string) if any consumer were
+    // permitted to consult it. All four consumers must refuse.
+    const probes: Array<{ name: string; declaration: string; body: string }> = [
+      { name: 'assignment cycle over an opaque prior value',
+        declaration: "function table() {}",
+        body: 'table = globalThis.z7R28Unknown ? table : globalThis.z7R28Unknown;' },
+      { name: 'capped construction beside a stale callable binding',
+        declaration: 'function table() {}\n      const parts = [].length === 0;',
+        body: "table = parts ? ('contract_' + 'hours' + '_ledger') : table;" },
+      { name: 'destructuring assignment over a stale object binding',
+        declaration: 'let table = {};',
+        body: '({ table } = { table: globalThis.z7R28Unknown });' },
+      { name: 'for-of destructuring target over a stale string binding',
+        declaration: "let table = 'other_table';",
+        body: 'for ({ table } of [{ table: globalThis.z7R28Unknown }]) { break; }' },
+      { name: 'scope conflict between a callable and an opaque declaration',
+        declaration: 'function table() {}\n      ' +
+          'function shadow() { const table = globalThis.z7R28Unknown; return table; }\n' +
+          '      void shadow;',
+        body: '' },
+    ];
+    for (const probe of probes) {
+      const source = z7R28Pruned(`${Z7R28_ARMED}\n      ${probe.declaration}`,
+        `${probe.body}\n        client.from(table);`);
+      expect(z7R28Exact(source), probe.name).toHaveLength(0);
+      expect(z7R28Unresolved(source), probe.name).toEqual([
+        expect.objectContaining({
+          unsupported: 'unresolved ledger authority', expression: 'client.from',
+        }),
+      ]);
+      // The same incomplete binding at a reached, externally opaque callee refuses too.
+      const reached = z7R28Detached(`${Z7R28_ARMED}\n      ${probe.declaration}`, probe.body);
+      expect(z7R28Exact(reached), probe.name).toHaveLength(0);
+      expect(z7R28Unresolved(reached), probe.name).toEqual([
+        expect.objectContaining({
+          unsupported: 'unresolved ledger authority', expression: 'read',
+        }),
+      ]);
+    }
+  });
+
+  it('R28.6: incomplete states mark once per consumer, deduplicated and terminating', () => {
+    // One incomplete binding read at two distinct call sites yields exactly two markers — one
+    // per site, at stable, distinct expressions — never one collapsed marker and never a
+    // duplicate per site.
+    const twoSites = `${Z7R28_ARMED}
+      const sentinel = Symbol('existing');
+      void sentinel;
+      function table() {}
+      table = globalThis.z7R28Unknown;
+      const readOne = (0, client.from);
+      const readTwo = (0, client.from);
+      readOne(table);
+      readTwo(table);`;
+    const markers = z7R28Unresolved(twoSites);
+    expect(markers).toHaveLength(2);
+    expect(markers.map((call) => call.expression).sort()).toEqual(['readOne', 'readTwo']);
+    expect(markers.every((call) =>
+      call.unsupported === 'unresolved ledger authority')).toBe(true);
+    // The same reached site read twice through one alias still marks once per call site.
+    const repeatedSite = `${Z7R28_ARMED}
+      const sentinel = Symbol('existing');
+      void sentinel;
+      function table() {}
+      table = globalThis.z7R28Unknown;
+      const read = (0, client.from);
+      read(table);
+      read(table);`;
+    expect(z7R28Unresolved(repeatedSite)).toHaveLength(2);
+    // A single site reachable by BOTH the reached-call net and the unreached-site net is
+    // reported exactly once (position-keyed duplicate suppression).
+    const prunedAndReached = z7R28Pruned(`${Z7R28_ARMED}\n      function table() {}`,
+      'table = globalThis.z7R28Unknown;\n        client.from(table);');
+    expect(z7R28Unresolved(prunedAndReached)).toHaveLength(1);
+    // Repeated analysis terminates and is byte-identical, for every probe above.
+    for (const source of [twoSites, repeatedSite, prunedAndReached]) {
+      const first = discoverSupabaseCalls(source);
+      for (let run = 0; run < 3; run += 1) {
+        expect(discoverSupabaseCalls(source)).toEqual(first);
+        expect(JSON.stringify(discoverSupabaseCalls(source))).toBe(JSON.stringify(first));
+      }
+    }
+  });
+
+  it('R28 mutation: opaque callable reassignment in fresh production JS/JSX/TS/TSX roots', () => {
+    // A disposable production root per supported extension, each carrying an already-covered
+    // Symbol hazard, a callable declaration, an opaque-only reassignment, and a detached
+    // externally opaque database call. No tracked production file is modified. Discovery,
+    // executable authority, the hazard census, and the production no-unsupported guard must
+    // all catch every one of them, with the mutated call site represented exactly once.
+    const probeRoot = mkdtempSync(join(ROOT, 'future_z7_r28_probe-'));
+    const opaqueRead = (cast: string, trailer: string): string =>
+      `const sentinel = Symbol('existing');
+void sentinel;
+const armedLedgerName = 'contract_hours_ledger';
+void armedLedgerName;
+function table() {}
+table = ${cast};
+const read = (0, z7R28Client.from);
+read(table);
+${trailer}`;
+    const probes: Record<string, string> = {
+      'consumer.js': opaqueRead('globalThis.z7R28Unknown', ''),
+      'consumer.jsx': opaqueRead('globalThis.z7R28Unknown',
+        'export const Row = () => <span />;\n'),
+      'consumer.ts': opaqueRead(
+        '(globalThis as { z7R28Unknown: string }).z7R28Unknown', ''),
+      'consumer.tsx': opaqueRead(
+        '(globalThis as { z7R28Unknown: string }).z7R28Unknown',
+        'export const Row = () => <span />;\n'),
+    };
+    try {
+      const paths = Object.entries(probes).map(([name, body]) => {
+        const path = join(probeRoot, name);
+        writeFileSync(path, body);
+        return path;
+      });
+      expect(productionSourceFiles()).toEqual(expect.arrayContaining(paths));
+      for (const path of paths) {
+        const source = readFileSync(path, 'utf8');
+        const authority = executableLedgerAuthority(source, path);
+        expect(authority, path).toBe(true);
+        expect(hazardSites(source, path, authority).map((site) => site.kind), path)
+          .toEqual(['Symbol']);
+        const results = discoverSupabaseCalls(source, path);
+        expect(results.filter((call) => call.unsupported), path).toEqual([
+          expect.objectContaining({
+            unsupported: 'unresolved ledger authority', expression: 'read',
+          }),
+        ]);
+        expect(results.filter((call) => call.method === 'from' &&
+          call.target === 'contract_hours_ledger'), path).toHaveLength(0);
+        expect(discoverSupabaseCalls(source, path), path).toEqual(results);
+      }
+      // The production no-unsupported guard turns red, and it turns red for exactly these
+      // four disposable roots — every tracked production file stays clean.
+      const offenders = productionSourceFiles().flatMap((path) =>
+        discoverSupabaseCalls(readFileSync(path, 'utf8'), path)
+          .filter((call) => call.unsupported)
+          .map(() => relative(ROOT, path)));
+      expect([...new Set(offenders)].sort())
+        .toEqual(paths.map((path) => relative(ROOT, path)).sort());
     } finally {
       rmSync(probeRoot, { recursive: true, force: true });
     }

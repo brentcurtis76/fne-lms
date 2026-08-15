@@ -504,11 +504,19 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
   // are the neutral element (the fixpoint adds nothing new) and must never absorb a
   // provably ledger-bearing sibling branch, while in concatenations they build unbounded
   // new strings and become an unbounded string-building overflow.
+  // Z7-R26: the lattice is a product, not a set of mutually exclusive absorbing tags. An
+  // opaque (unresolvable) alternative WIDENS a result — `opaque: true` records that unknown
+  // alternatives exist beside the mechanically known ones — but it never erases finite
+  // values, a working-set or length-bounded overflow, a 'possible' outcome, or
+  // assignment-cycle provenance (carried on 'unresolvable' as `assignmentCycle`). A result is
+  // provably absent only when it is NOT opaque and every represented alternative is
+  // mechanically excluded.
   type StaticStringResolution =
-    | { kind: 'finite'; values: ReadonlySet<string> }
-    | ({ kind: 'overflow'; working?: ReadonlySet<string> } & StaticStringLengths)
+    | { kind: 'finite'; values: ReadonlySet<string>; opaque?: boolean }
+    | ({ kind: 'overflow'; working?: ReadonlySet<string>; opaque?: boolean }
+        & StaticStringLengths)
     | { kind: 'cycle'; viaAssignment: boolean }
-    | { kind: 'unresolvable' };
+    | { kind: 'unresolvable'; assignmentCycle?: boolean };
   const STATIC_TDZ_CYCLE: StaticStringResolution = { kind: 'cycle', viaAssignment: false };
   const STATIC_ASSIGNMENT_CYCLE: StaticStringResolution = { kind: 'cycle', viaAssignment: true };
   const STATIC_UNRESOLVABLE: StaticStringResolution = { kind: 'unresolvable' };
@@ -539,11 +547,31 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     resolution.kind === 'finite' ? lengthsOf(resolution.values)
       : resolution.kind === 'overflow'
         ? { minLength: resolution.minLength, maxLength: resolution.maxLength } : undefined;
+  const widenedOpaque = (
+    resolution: StaticStringResolution, assignmentCycle: boolean
+  ): StaticStringResolution => {
+    // Z7-R26: an opaque sibling widens a known resolution instead of erasing it. Cycles keep
+    // their own kind (their provenance is what matters); everything known gains opaque: true.
+    if (resolution.kind === 'cycle') {
+      return resolution.viaAssignment || assignmentCycle
+        ? { kind: 'unresolvable', assignmentCycle: true } : STATIC_UNRESOLVABLE;
+    }
+    if (resolution.kind === 'unresolvable') {
+      return resolution.assignmentCycle || assignmentCycle
+        ? { kind: 'unresolvable', assignmentCycle: true } : STATIC_UNRESOLVABLE;
+    }
+    return resolution.opaque ? resolution : { ...resolution, opaque: true };
+  };
   const combineUnion = (
     left: StaticStringResolution, right: StaticStringResolution
   ): StaticStringResolution => {
-    if (left.kind === 'unresolvable' || right.kind === 'unresolvable') {
-      return STATIC_UNRESOLVABLE;
+    // Z7-R26: 'unresolvable' widens, never absorbs — the mechanically known alternatives and
+    // any assignment-cycle provenance on the other side survive with opaque: true.
+    if (left.kind === 'unresolvable') {
+      return widenedOpaque(right, left.assignmentCycle === true);
+    }
+    if (right.kind === 'unresolvable') {
+      return widenedOpaque(left, right.assignmentCycle === true);
     }
     // Cycles are the neutral element of a union (Z7-R25): the self-reference contributes no
     // value beyond the fixpoint's other branches, so the reachable non-cycle alternative is
@@ -554,16 +582,19 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     }
     if (left.kind === 'cycle') return right;
     if (right.kind === 'cycle') return left;
+    const opaque = left.opaque === true || right.opaque === true;
     const leftValues = concreteValues(left);
     const rightValues = concreteValues(right);
     if (leftValues && rightValues &&
         leftValues.size + rightValues.size <= STATIC_STRING_WORKING_LIMIT) {
-      return packValues(new Set([...leftValues, ...rightValues]));
+      const packed = packValues(new Set([...leftValues, ...rightValues]));
+      return opaque ? widenedOpaque(packed, false) : packed;
     }
     const leftLengths = resolutionLengths(left)!;
     const rightLengths = resolutionLengths(right)!;
     return {
       kind: 'overflow',
+      ...(opaque ? { opaque: true } : {}),
       minLength: Math.min(leftLengths.minLength, rightLengths.minLength),
       maxLength: Math.max(leftLengths.maxLength, rightLengths.maxLength),
     };
@@ -572,7 +603,15 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     left: StaticStringResolution, right: StaticStringResolution
   ): StaticStringResolution => {
     if (left.kind === 'unresolvable' || right.kind === 'unresolvable') {
-      return STATIC_UNRESOLVABLE;
+      // A concatenation with an unknown operand composes an unknown value (it may not even
+      // be a string), but assignment-cycle provenance survives (Z7-R26).
+      const assignmentCycle =
+        (left.kind === 'unresolvable' && left.assignmentCycle === true) ||
+        (right.kind === 'unresolvable' && right.assignmentCycle === true) ||
+        (left.kind === 'cycle' && left.viaAssignment) ||
+        (right.kind === 'cycle' && right.viaAssignment);
+      return assignmentCycle
+        ? { kind: 'unresolvable', assignmentCycle: true } : STATIC_UNRESOLVABLE;
     }
     // A declaration-only (TDZ) cycle poisons a concatenation: evaluating the operand throws
     // before any composition, so the whole chain is dead at runtime. An assignment cycle
@@ -585,6 +624,7 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     if (left.kind === 'cycle' || right.kind === 'cycle') {
       return { kind: 'overflow', minLength: 0, maxLength: Number.POSITIVE_INFINITY };
     }
+    const opaque = left.opaque === true || right.opaque === true;
     const leftValues = concreteValues(left);
     const rightValues = concreteValues(right);
     if (leftValues && rightValues &&
@@ -593,12 +633,14 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
       for (const prefix of leftValues) {
         for (const suffix of rightValues) combined.add(prefix + suffix);
       }
-      return packValues(combined);
+      const packed = packValues(combined);
+      return opaque ? widenedOpaque(packed, false) : packed;
     }
     const leftLengths = resolutionLengths(left)!;
     const rightLengths = resolutionLengths(right)!;
     return {
       kind: 'overflow',
+      ...(opaque ? { opaque: true } : {}),
       minLength: leftLengths.minLength + rightLengths.minLength,
       maxLength: leftLengths.maxLength + rightLengths.maxLength,
     };
@@ -681,13 +723,13 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         if (!writes || writes.length === 0) return STATIC_UNRESOLVABLE;
         let resolution: StaticStringResolution | undefined;
         for (const write of writes) {
-          // No early return on cycles: they are union-neutral, and a later or earlier
-          // non-cycle write must never be discarded by the self-reference (Z7-R25).
+          // No early return at all (Z7-R25/R26): cycles are union-neutral and an opaque
+          // write only widens — neither may discard a ledger-bearing write recorded before
+          // or after it.
           const next = staticStringValues(write.expression,
             [...nameStack, { name: node.text, viaAssignment: write.viaAssignment }],
             depth + 1);
           resolution = resolution ? combineUnion(resolution, next) : next;
-          if (resolution.kind === 'unresolvable') return resolution;
         }
         return resolution ?? STATIC_UNRESOLVABLE;
       }
@@ -698,20 +740,33 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     return result;
   };
   // Membership of the ledger name in a static resolution: 'present' and 'absent' are proven
-  // (by enumeration, working-set enumeration, or the bounded length-exclusion proof);
-  // 'possible' means the value is provably string-building yet beyond every bounded proof —
-  // it must fail closed regardless of whether the source spells the name anywhere else.
+  // (by enumeration, working-set enumeration, or the bounded length-exclusion proof, over an
+  // exhaustive — non-opaque — set of alternatives); 'possible' means the value is provably
+  // string-building yet beyond every bounded proof — it must fail closed regardless of
+  // whether the source spells the name anywhere else; 'guarded' (Z7-R26) means the known
+  // alternatives are proven absent but opaque alternatives or assignment-cycle provenance
+  // remain — the site is uncertain by the resolution itself and must never be discharged by
+  // a stale evaluator binding, though it stays behind the sourceNamesLedger gate; 'unknown'
+  // means the resolution carries no information and the R22 fallback classification applies.
   const staticLedgerMembership = (
     resolution: StaticStringResolution
-  ): 'present' | 'absent' | 'possible' | 'unknown' => {
+  ): 'present' | 'absent' | 'possible' | 'guarded' | 'unknown' => {
+    if (resolution.kind === 'cycle') {
+      return resolution.viaAssignment ? 'guarded' : 'unknown';
+    }
+    if (resolution.kind === 'unresolvable') {
+      return resolution.assignmentCycle === true ? 'guarded' : 'unknown';
+    }
     const concrete = concreteValues(resolution);
-    if (concrete) return concrete.has('contract_hours_ledger') ? 'present' : 'absent';
-    if (resolution.kind === 'overflow') {
+    if (concrete?.has('contract_hours_ledger')) return 'present';
+    if (resolution.kind === 'overflow' && !concrete) {
       const fits = 'contract_hours_ledger'.length >= resolution.minLength &&
         'contract_hours_ledger'.length <= resolution.maxLength;
-      return fits ? 'possible' : 'absent';
+      if (fits) return 'possible';
     }
-    return 'unknown';
+    // Every mechanically represented alternative is proven absent; opacity decides whether
+    // that proof covers everything.
+    return resolution.opaque === true ? 'guarded' : 'absent';
   };
   const argumentLedgerAuthority = (argument: ts.Expression): LedgerAuthority => {
     // Z7-R23 static-first, R24-tagged: a static resolution with proven membership decides
@@ -721,16 +776,15 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
     // A string-building value beyond every bounded proof is 'possible' and fails closed
     // without the gate. Cycles and unresolvable forms fall through to the R22 value/
     // provenance classification below.
-    const resolution = staticStringValues(argument);
-    const membership = staticLedgerMembership(resolution);
+    const membership = staticLedgerMembership(staticStringValues(argument));
     if (membership === 'present') return 'authority';
     if (membership === 'absent') return 'none';
     if (membership === 'possible') return 'possible';
-    // Z7-R25: an assignment cycle is an ordinary re-assignment self-reference — never proof
-    // of unreachability, TDZ, or inertness — so it is uncertain by construction and must not
-    // fall through to a stale evaluator binding that would prove it 'none'. Declaration-only
-    // TDZ cycles keep their accepted fallback (runtime throws before any call).
-    if (resolution.kind === 'cycle' && resolution.viaAssignment) return 'uncertain';
+    // Z7-R25/R26 'guarded': assignment-cycle provenance or an opaque sibling beside
+    // proven-absent known alternatives — uncertain by the resolution itself, never
+    // discharged by a stale evaluator binding. Declaration-only TDZ cycles and plain
+    // unresolvable forms keep the accepted R22 fallback below.
+    if (membership === 'guarded') return 'uncertain';
     const expression = unwrap(argument);
     if (ts.isStringLiteralLike(expression)) {
       return expression.text === 'contract_hours_ledger' ? 'authority' : 'none';
@@ -3413,12 +3467,9 @@ function discoverSupabaseCalls(source: string, file = 'probe.ts'): DiscoveredCal
         callable.methods.size === 0 && callable.functions.size === 0 &&
         callable.adapter === undefined && !callable.alwaysThrows &&
         (context.node.arguments ?? []).some((argument) => {
-          const resolution = staticStringValues(argument);
-          const membership = staticLedgerMembership(resolution);
+          const membership = staticLedgerMembership(staticStringValues(argument));
           if (membership === 'present' || membership === 'possible') return true;
-          if (resolution.kind === 'cycle' && resolution.viaAssignment && sourceNamesLedger) {
-            return true;
-          }
+          if (membership === 'guarded' && sourceNamesLedger) return true;
           const expression = unwrap(argument);
           return ts.isIdentifier(expression) && rewrittenNames.has(expression.text) &&
             sourceNamesLedger;
@@ -9032,6 +9083,153 @@ describe('contract_hours_ledger production consumer inventory', () => {
       read(table);`;
     expect(runtime(inertCycle)).toBe(0);
     expect(unresolved(inertCycle)).toEqual([]);
+  });
+
+  it('R26.1: opaque siblings widen but never erase ledger-bearing alternatives', () => {
+    const runtime = (source: string): number => {
+      let calls = 0;
+      const client = { from(target: string) {
+        if (target === 'contract_hours_ledger') calls += 1;
+        return this;
+      } };
+      try {
+        (new Function('client', source) as (value: typeof client) => void)(client);
+      } catch { /* abrupt completion is part of the oracle */ }
+      return calls;
+    };
+    const unresolved = (source: string): DiscoveredCall[] =>
+      discoverSupabaseCalls(source).filter((call) => call.unsupported);
+    const exact = (source: string): DiscoveredCall[] =>
+      discoverSupabaseCalls(source).filter((call) => call.method === 'from' &&
+        call.target === 'contract_hours_ledger');
+    const wrap = (body: string): string => `let table = 'other_table';
+      const proto = {};
+      Object.defineProperty(proto, 'slot', {
+        set() { throw new Error('setter'); },
+      });
+      try {
+        Reflect.set(proto, 'slot', client.from, Object.create(proto));
+      } catch {
+        ${body}
+      }`;
+    const failsClosedOnce = (source: string): void => {
+      expect(runtime(source)).toBe(1);
+      expect(exact(source)).toHaveLength(0);
+      expect(unresolved(source)).toEqual([
+        expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+      ]);
+      expect(discoverSupabaseCalls(source)).toEqual(discoverSupabaseCalls(source));
+    };
+    // A — the reviewer's probe: an opaque write AFTER the call. On the rejected head the
+    // unresolvable write absorbed the whole union, the classifier fell back to the stale
+    // 'other_table' binding, and the site discharged silently.
+    failsClosedOnce(wrap(`table = true ? ('contract_' + 'hours_ledger') : table;
+        client.from(table);
+        table = globalThis.unknownTable;`));
+    // B — the opaque write BEFORE the ledger-bearing assignment.
+    failsClosedOnce(wrap(`table = globalThis.unknownTable;
+        table = true ? ('contract_' + 'hours_ledger') : table;
+        client.from(table);`));
+    // C — the opaque value in the SAME union.
+    failsClosedOnce(wrap(`table = true
+          ? ('contract_' + 'hours_ledger')
+          : globalThis.unknownTable;
+        client.from(table);`));
+    // D — both a direct ledger literal and the split construction survive an opaque sibling.
+    failsClosedOnce(wrap(`table = true ? 'contract_hours_ledger' : globalThis.unknownTable;
+        client.from(table);`));
+    failsClosedOnce(wrap(`table = true
+          ? ('contract_' + 'hours_' + 'ledger')
+          : globalThis.unknownTable;
+        client.from(table);`));
+    // E — a beyond-working-limit 'possible' overflow keeps failing closed exactly once when
+    // an opaque alternative joins the union: opacity widens, it does not launder.
+    const parts = Array.from({ length: 13 }, (_, index) =>
+      `const p${index} = [].length === 0 ? 'a' : 'bbb';`).join('\n      ');
+    const possiblePlusOpaque = `const sentinel = Symbol('existing');
+      ${parts}
+      let table = ${Array.from({ length: 13 }, (_, index) => `p${index}`).join(' + ')};
+      table = globalThis.unknownTable;
+      const read = (0, client.from);
+      read(table);`;
+    expect(runtime(possiblePlusOpaque)).toBe(0);
+    expect(unresolved(possiblePlusOpaque)).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority', expression: 'read' }),
+    ]);
+    expect(discoverSupabaseCalls(possiblePlusOpaque))
+      .toEqual(discoverSupabaseCalls(possiblePlusOpaque));
+    // F — proven absence stays silent: a finite non-ledger union without uncertainty; and an
+    // opaque non-ledger union in a source that can neither spell nor construct the name
+    // retains the owner-amended gated behavior — silent, with no fabricated exact result.
+    const provenAbsent = `const sentinel = Symbol('existing');
+      let table = 'other_table';
+      table = [].length === 0 ? 'third_table' : table;
+      const read = (0, client.from);
+      read(table);`;
+    expect(runtime(provenAbsent)).toBe(0);
+    expect(unresolved(provenAbsent)).toEqual([]);
+    const opaqueNonLedger = `const sentinel = Symbol('existing');
+      let table = 'other_table';
+      table = [].length === 0 ? 'third_table' : globalThis.unknownTable;
+      const read = (0, client.from);
+      read(table);`;
+    expect(runtime(opaqueNonLedger)).toBe(0);
+    expect(exact(opaqueNonLedger)).toHaveLength(0);
+    expect(unresolved(opaqueNonLedger)).toEqual([]);
+    // G — retained controls, re-pinned beside the new lattice: declaration-only TDZ cycles
+    // stay runtime-zero and silent; direct dynamic-target classification is untouched.
+    const tdzCycle = `const sentinel = Symbol('existing');
+      const first = second + '_x';
+      const second = first + '_y';
+      const read = (0, client.from);
+      read(first);`;
+    expect(runtime(tdzCycle)).toBe(0);
+    expect(unresolved(tdzCycle)).toEqual([]);
+    expect(discoverSupabaseCalls(tdzCycle)).toEqual(discoverSupabaseCalls(tdzCycle));
+    const directOpaque = `const sentinel = Symbol('existing');
+      let table = 'other_table';
+      table = [].length === 0 ? 'contract_hours_ledger' : globalThis.unknownTable;
+      client.from(table);`;
+    expect(runtime(directOpaque)).toBe(1);
+    expect(discoverSupabaseCalls(directOpaque)).toEqual([
+      expect.objectContaining({ method: 'from', unsupported: 'dynamic target' }),
+    ]);
+  });
+
+  it('R26 mutation: opaque write no longer erases the mutated cycle site', () => {
+    // H — the webhook hazard file gains a constructed assignment-cycle ledger call PLUS the
+    // opaque write that erased the result on the rejected head. The census is structurally
+    // unchanged; authority flips true; the guard turns red with the mutated call site itself
+    // represented exactly once; zero fabricated exact calls; byte-equivalent repeated runs.
+    const path = join(ROOT, 'pages/api/zoom/webhook.ts');
+    const source = readFileSync(path, 'utf8');
+    const baselineAuthority = executableLedgerAuthority(source, path);
+    expect(baselineAuthority).toBe(false);
+    const baselineKinds = hazardSites(source, path, baselineAuthority).map((site) => site.kind);
+    expect(baselineKinds).toEqual(['Symbol']);
+    expect(discoverSupabaseCalls(source, path).filter((call) => call.unsupported)).toEqual([]);
+    const mutated = `${source}
+let z7R26Table = 'other_table';
+z7R26Table = ([] as string[]).length === 0 ? ('contract_' + 'hours_ledger') : z7R26Table;
+const z7R26Read = (0, z7R26Client.from);
+z7R26Read(z7R26Table);
+z7R26Table = (globalThis as { unknownTable: string }).unknownTable;
+`;
+    const mutatedAuthority = executableLedgerAuthority(mutated, path);
+    expect(mutatedAuthority).toBe(true);
+    expect(hazardSites(mutated, path, mutatedAuthority).map((site) => site.kind))
+      .toEqual(baselineKinds);
+    const mutatedUnsupported = discoverSupabaseCalls(mutated, path)
+      .filter((call) => call.unsupported);
+    expect(mutatedUnsupported).not.toEqual([]);
+    expect(mutatedUnsupported.filter((call) => call.expression === 'z7R26Read')).toEqual([
+      expect.objectContaining({ unsupported: 'unresolved ledger authority' }),
+    ]);
+    expect(mutatedUnsupported.every((call) =>
+      call.unsupported === 'unresolved ledger authority')).toBe(true);
+    expect(discoverSupabaseCalls(mutated, path).filter((call) => call.method === 'from' &&
+      call.target === 'contract_hours_ledger')).toHaveLength(0);
+    expect(discoverSupabaseCalls(mutated, path)).toEqual(discoverSupabaseCalls(mutated, path));
   });
 
   it('R25 mutation: assignment-cycle authority turns the guard red, census unchanged', () => {

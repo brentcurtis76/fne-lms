@@ -59,7 +59,17 @@
      silently discharge ledger authority: writes carry declaration/assignment kind, cycles
      are union-neutral and never absorb ledger-bearing branches, assignment cycles are
      uncertain by construction, TDZ cycles retain their accepted behavior.
-  2. The state/evidence commit carrying `Z7-review-25.md`, `PROJECT_STATE.md`, and this
+  2. `1c5d54f34253833e2705b35e835a76357fa35612` (110 commits; tree
+     `aa6485031bce0ff3b72992ed70a732ca93ac24ff`) — the Round 25 state/evidence commit.
+- Round-twenty-six canonical starting candidate: `1c5d54f34253833e2705b35e835a76357fa35612`
+  (110 commits; tree `aa6485031bce0ff3b72992ed70a732ca93ac24ff`), verified clean before any
+  change. Round 26 repairs exactly the remaining Round 25 analyzer finding (recorded in
+  `docs/plan/zoom/remediation/Z7-review-26.md`).
+- Round-twenty-six commits, ordered directly on `feat/zoom-hours`:
+  1. `8936cc5a37a706d5038d72d528ae56db1e129bca` (111 commits) — the static resolution
+     lattice becomes a non-lossy product: opaque siblings widen but never erase
+     ledger-bearing alternatives or assignment-cycle provenance.
+  2. The state/evidence commit carrying `Z7-review-26.md`, `PROJECT_STATE.md`, and this
      document. A commit cannot truthfully embed its own identity; its exact SHA is supplied
      in the builder handoff.
 - Governing scope note: the Round 21 owner amendment retires interpreter-level analyzer
@@ -95,6 +105,15 @@ unrelated refactors.
 
 ## Finding disposition
 
+### Round twenty-six (single-finding repair)
+
+The finding was reproduced mechanically on the exact starting candidate `1c5d54f3` before
+any change; the full record is `docs/plan/zoom/remediation/Z7-review-26.md`.
+
+| Finding | Disposition and evidence |
+|---|---|
+| Z7-R26 — `unresolvable` erases ledger-bearing assignment-cycle branches (`MAJOR`) | `combineUnion` returned `STATIC_UNRESOLVABLE` as soon as either side was unresolvable and identifier resolution returned immediately, discarding accumulated finite/present/possible ledger alternatives and assignment-cycle provenance; the classifier then fell back to the stale evaluator binding, which proved the site inert. The reviewer's three forms — an opaque write after the call, an opaque write before the ledger-bearing assignment, and an opaque branch in the same union — each performed one runtime ledger call while the analyzer returned []. The lattice is now a non-lossy product: finite/overflow resolutions carry an `opaque` flag (unknown alternatives exist beside the known ones), `unresolvable` carries assignment-cycle provenance, and an opaque sibling widens instead of erasing. Membership gains `guarded` — known alternatives proven absent but opacity or cycle provenance remaining: uncertain by the resolution itself, never discharged by a stale binding, still behind the `sourceNamesLedger` gate. `absent` now requires a non-opaque exhaustive resolution; `present`/`possible` fail closed without consulting any binding; the classifier, both nets, and the opaque-callee guard consume the same five-state membership. TDZ cycles, the evaluator's value domain (direct `client.from(dynamicTarget)` keeps `dynamic target`), all caps, cycle guards, memoization, determinism, and duplicate suppression unchanged. This round also **supersedes Round 25's residual claim** that mixed unresolvable/ledger writes safely "rely on the gated fallback" — that fallback was bypassable by a stale binding, which is exactly this finding. `R26.1` pins probes A–G with runtime oracles and byte-equivalent repeated runs; the `R26 mutation` probe pins H (census structurally unchanged, guard red, the mutated site represented exactly once). Fail-on-old: A, B, C, and H all fail against the `1c5d54f3` analyzer extracted read-only via `git show`. |
+
 ### Round twenty-five (two-finding repair)
 
 Both findings were reproduced mechanically on the exact starting candidate `df15f1ac` before
@@ -102,7 +121,7 @@ any change; the full record is `docs/plan/zoom/remediation/Z7-review-25.md`.
 
 | Finding | Disposition and evidence |
 |---|---|
-| Z7-R25.1 — assignment cycles silently discharge ledger authority (`MAJOR`) | The resolver returned one undifferentiated `cycle` for any repeated name, `combineUnion` let it absorb the provably ledger-bearing sibling branch, and the classifier fell back to the stale evaluator binding — so the pruned self-assignment probe `table = true ? 'contract_hours_ledger' : table`, its constructed-fragment variant, and a two-name assignment SCC each performed one runtime ledger call while the analyzer returned []. Round 24's claim that every resolver cycle implies TDZ was false for post-initialization assignments and is corrected. Every recorded write now carries declaration/assignment kind and the resolution stack tracks the edges a cycle traverses: declaration-only cycles remain genuine TDZ (poison concatenations, retain the accepted fallback); assignment cycles are union-neutral (the fixpoint preserves reachable non-cycle branches — never absorbing finite, overflow, possible, or unresolvable siblings), become an unbounded string-building overflow in concatenations, and classify uncertain by construction when they survive — never discharged by a stale binding. The opaque-callee guard gains the same gated case; the evaluator's value domain is untouched (direct `client.from(dynamicTarget)` keeps exactly one `dynamic target`). `R25.1` pins probes A–F with runtime oracles and determinism; the `R25 mutation` probe pins G (census structurally unchanged, guard red, exactly one marker at the mutated site). All four fail-on-old probes fail against the `df15f1ac` analyzer extracted read-only via `git show`. |
+| Z7-R25.1 — assignment cycles silently discharge ledger authority (`MAJOR`) | The resolver returned one undifferentiated `cycle` for any repeated name, `combineUnion` let it absorb the provably ledger-bearing sibling branch, and the classifier fell back to the stale evaluator binding — so the pruned self-assignment probe `table = true ? 'contract_hours_ledger' : table`, its constructed-fragment variant, and a two-name assignment SCC each performed one runtime ledger call while the analyzer returned []. Round 24's claim that every resolver cycle implies TDZ was false for post-initialization assignments and is corrected. Every recorded write now carries declaration/assignment kind and the resolution stack tracks the edges a cycle traverses: declaration-only cycles remain genuine TDZ (poison concatenations, retain the accepted fallback); assignment cycles are union-neutral (the fixpoint preserves reachable finite, overflow, and possible siblings — *the Round 25 claim that unresolvable siblings were likewise preserved was overstated: an unresolvable sibling still absorbed the whole union until Round 26's non-lossy lattice; see the Round 26 disposition*), become an unbounded string-building overflow in concatenations, and classify uncertain by construction when they survive — never discharged by a stale binding. The opaque-callee guard gains the same gated case; the evaluator's value domain is untouched (direct `client.from(dynamicTarget)` keeps exactly one `dynamic target`). `R25.1` pins probes A–F with runtime oracles and determinism; the `R25 mutation` probe pins G (census structurally unchanged, guard red, exactly one marker at the mutated site). All four fail-on-old probes fail against the `df15f1ac` analyzer extracted read-only via `git show`. |
 | Z7-R25.2 — stale cumulative inventory count (`MINOR`) | Reviewer-focus item 4 still instructed **130/130**, stale since Round 22 while the Round 24 candidate reconciles at 132/132. Recomputed at the Round 25 final HEAD (this round's only new cumulative path is `Z7-review-25.md`): every current count statement now reads **133/133**, the inventory lists every changed path exactly once, the `comm -3` reconciliation is empty with zero duplicates, and historical collection records keep their labeled historical counts. |
 
 ### Round twenty-four (two-finding repair)
@@ -590,6 +609,7 @@ Risk grouping describes review priority, not ownership.
 - `docs/plan/zoom/remediation/Z7-review-23.md`
 - `docs/plan/zoom/remediation/Z7-review-24.md`
 - `docs/plan/zoom/remediation/Z7-review-25.md`
+- `docs/plan/zoom/remediation/Z7-review-26.md`
 - `docs/plan/zoom/reviews/fase-7-review-request.md`
 - `docs/plan/zoom/reviews/fase-7-review-verdict.md`
 
@@ -609,13 +629,39 @@ comm -3 \
     | sed -n 's/^- `\(.*\)`$/\1/p' | sort)
 ```
 
-Result after the evidence commit: no output. Counts: cumulative diff **133**, inventory **133**,
+Result after the evidence commit: no output. Counts: cumulative diff **134**, inventory **134**,
 duplicates **0** (Round 21 added the reviewer contract `Z7-review-21.md` and the owner
-amendment; Rounds 22 through 25 add the repair records `Z7-review-22.md` through
-`Z7-review-25.md` — each round's only code change is inside the already-inventoried
+amendment; Rounds 22 through 26 add the repair records `Z7-review-22.md` through
+`Z7-review-26.md` — each round's only code change is inside the already-inventoried
 `__tests__/lib/services/ledger-hours-reader-inventory.test.ts`).
 
 ## Gate and fail-on-old evidence
+
+### Round twenty-six collection (2026-08-14, local macOS, final code state `8936cc5a`)
+
+Round 26's governing instruction required the focused suite, the cumulative selector,
+type-check, zero-warning lint, the full unit suite, the production build, and the exact
+changed-path reconciliation — the full database/browser matrix ran unchanged earlier this
+working day at Round 22 and this round touches only the analyzer test file. All legs ran
+sequentially in one pass; no command was piped through `tail`.
+
+| Command | Result | Exit |
+|---|---|---:|
+| Focused inventory suite (R26 additions + all retained R21–R25 probes + cumulative executable inventory), one file | **56 green** (2 new R26 + 54 retained) | 0 |
+| Cumulative Z7 high-risk Vitest over every test path changed since the immutable base | 37 files, **613 green** | 0 |
+| `npm run type-check` | no diagnostics | 0 |
+| `npm run lint` | zero warnings | 0 |
+| `npm test` (full unit suite, machine TZ America/Santiago) | 324 files, **7,420 green / 11 skipped** | 0 |
+| `npm run build` | production build; **156/156 static pages** | 0 |
+
+Round-twenty-six fail-on-old evidence: the `1c5d54f3` analyzer was extracted read-only via
+`git show` into an untracked temporary test file (no checkout, reset, stash, or branch
+disturbance; deleted after measurement). Probes A (opaque write after the call), B (opaque
+write before the ledger-bearing assignment), C (opaque branch in the same union), and H
+(the webhook mutation's own `z7R26Read` site) all failed there — zero results or zero
+site markers where exactly one is required — and pass under the repair. The reproduction,
+root cause, lattice correction, and honestly stated bounds are in
+`docs/plan/zoom/remediation/Z7-review-26.md`.
 
 ### Round twenty-five collection (2026-08-14, local macOS, final code state `357bbefc`)
 
@@ -1375,7 +1421,11 @@ None of these deviations is represented as a green gate.
    proof actually excludes the name; depth exhaustion must never be silent). Since
    Round 25, also mutate assignment cycles: self-referential and multi-name SCC
    re-assignments must never be discharged by a stale binding or absorb a ledger-bearing
-   branch, while declaration-only TDZ cycles retain their accepted silent behavior.
+   branch, while declaration-only TDZ cycles retain their accepted silent behavior. Since
+   Round 26, also mutate opaque siblings: an unresolvable write before, after, or beside a
+   ledger-bearing alternative must widen (opaque flag / `guarded` membership), never erase
+   — `absent` requires a non-opaque exhaustive resolution, and no stale-binding fallback
+   may discharge a site whose resolution retains any authority-capable alternative.
 2. Re-audit `public.exec_sql(text)` and related exposed authority at the catalog and real-role
    boundaries. Anon, authenticated-admin, and service-role calls must all receive `42501`; the
    retired endpoint must construct no service client and issue no RPC/SQL, while fixed owner RPCs
@@ -1384,7 +1434,7 @@ None of these deviations is represented as a green gate.
    `EXECUTE`, procedures, composite/`RETURNS TABLE`/plain variables, triggers, rules/views,
    correlated scopes, and numbered/custom dollar tags. Inert comments/literals must stay inert;
    unresolved executable authority must fail explicitly without filename or substring allowances.
-4. Re-run both mechanical inventories against integrated HEAD: cumulative paths **133/133**;
+4. Re-run both mechanical inventories against integrated HEAD: cumulative paths **134/134**;
    classifications **14/22** direct, **8/10** indirect, **9/33** SQL expressions/writes, and
    **8/13** SQL objects, plus **4 files/5 sites** of explicit unresolved executable SQL, zero
    production `exec_sql` callers, and the site-exact production hazard census — **11 hazard

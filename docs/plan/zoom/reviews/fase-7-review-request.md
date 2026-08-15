@@ -82,7 +82,22 @@
      centralized under the binding invariant: callable declarations become seeds in the one
      write summary, the collector covers loop assignment patterns, the taint walker loses
      its silent depth cap, and the invariant matrix pins all four axes.
-  2. The state/evidence commit carrying `Z7-review-27.md`, `PROJECT_STATE.md`, and this
+  2. `7890f3e3bf019fa0ffaa9bc2f907d43884c4c123` (114 commits; tree
+     `5b7b7dc308edf8908deef25f74eb4df42015884e`) — the Round 27 state/evidence commit.
+- Round-twenty-eight canonical starting candidate: `7890f3e3bf019fa0ffaa9bc2f907d43884c4c123`
+  (114 commits; tree `5b7b7dc308edf8908deef25f74eb4df42015884e`), verified clean before any
+  change. Round 28 is the architectural remediation of the recurring stale-binding defect
+  Round 27 named but did not remove: the analyzer still had no authoritative representation
+  of whether its syntactic binding summary was exhaustive, so a recorded write whose value
+  resolved opaque was indistinguishable from a name with no writes. Recorded in
+  `docs/plan/zoom/remediation/Z7-review-28.md`.
+- Round-twenty-eight commits, ordered directly on `feat/zoom-hours`:
+  1. `ff5933baf90b8f361d454e78fb7cd80659ea2bf3` (115 commits; tree
+     `25a01f9cd3c9c4a355e416a5f3d1b4b0be5d0ff9`) — one central `BindingSummary` contract
+     replaces the ad-hoc resolution lattice; `evaluatorFallbackSafe` becomes an affirmative
+     property; the externally opaque-callee guard loses its private predicate; seven
+     root-invariant suites are added (60 → 67).
+  2. The state/evidence commit carrying `Z7-review-28.md`, `PROJECT_STATE.md`, and this
      document. A commit cannot truthfully embed its own identity; its exact SHA is supplied
      in the builder handoff.
 - Governing scope note: the Round 21 owner amendment retires interpreter-level analyzer
@@ -104,8 +119,8 @@ the attendance schema and lifecycle instants, participant ingestion, authoritati
 reconciliation, append-only override machinery, comparison/override UI, and facilitator
 attendance suggestions.
 
-Z7 is implemented on the feature branch but remains in independent remediation/re-review; rounds
-19, 20, and 21 are all provisional. It is not accepted, merged, deployed, or
+Z7 is implemented on the feature branch but remains in independent remediation/re-review;
+rounds 19 through 28 are all provisional. It is not accepted, merged, deployed, or
 production-verified. All fourteen Z7 migrations have been replayed only against the local
 Supabase stack; production application and read-only verification remain a human-controlled
 post-merge step. As of Round 21 the executable-inventory analyzer is governed by the binding
@@ -117,6 +132,16 @@ remediation, the Vitest upgrade, leadership aggregates, deployments, production 
 unrelated refactors.
 
 ## Finding disposition
+
+### Round twenty-eight (architectural repair — the central binding-summary contract)
+
+Both supplied probes were reproduced mechanically on the exact starting candidate `7890f3e3`
+before any change; the full record, including the state-by-state proof table, is
+`docs/plan/zoom/remediation/Z7-review-28.md`.
+
+| Finding | Disposition and evidence |
+|---|---|
+| Z7-R28 — the analyzer has no authoritative representation of summary exhaustiveness (`MAJOR`, the unremoved cause behind R23–R27) | Round 27 named the binding invariant but still *inferred* completeness from value-resolution tags spread across `simpleNameInitializers`, `rewrittenNames`, `declaredCallableNames`, `widenedOpaque`, `staticLedgerMembership`, and evaluator fallback. Because `{ kind: 'unresolvable' }` → membership `unknown` meant both "cannot resolve this value" and "the summary knows nothing", **a recorded write whose value resolved opaque was indistinguishable from a name with no writes**, and the stale evaluator binding discharged the site. Blocking forms: `function table() {}` — or `class table {}` — followed by `table = globalThis.z7R28Unknown; client.from(table)` in a pruned catch performed **one runtime ledger call while the analyzer returned []**. The defect is not callable-specific: the same silence was measured for `let table = {}` / `[]` / `0` / `null` / `false` / `/x/` / `(() => 1)` plus the identical opaque-only write, and for a scope/name conflict whose second declaration is opaque. The resolution lattice is replaced by **one central `BindingSummary`** consumed by every resolver, the membership classifier, the authority classifier, and all four consumers. It represents independently: resolved finite alternatives and whether the enumeration is complete; capped/overflow results with exact length bounds; opaque alternatives; mechanically proven inert alternatives; cycles and their provenance; declaration/seed alternatives; **whether syntactically relevant writes were recorded at all**; unmodeled/tainted writes; scope/name conflicts; and **`evaluatorFallbackSafe` as an affirmative positive property** (defaulting to false, granted at exactly one place — a name with no recorded write, no taint and no scope conflict — and composed as a logical AND). The invariant is enforced at exactly two singular lines: one `return 'absent'` in `ledgerMembership`, reachable only after present/neutral/capped-unproven/opaque/tainted/assignment-cyclic are excluded, and one `return 'none'` in `argumentLedgerAuthority`, reachable only from `absent`, with the file's only authority-path `binding(...)` consult guarded immediately above by `if (!summary.evaluatorFallbackSafe) return 'uncertain'`. A callable declaration with no other write is an **inert seed** that *proves* absence; with writes it is one alternative in the same union that an opaque write widens and cannot erase. The externally opaque-callee guard loses its private membership predicate — including its direct `rewrittenNames` escape hatch — and asks `carriesLedgerAuthorityArgument`, the identical question the reached-call and unreached-site nets ask. Evidence: `R28.1` (both blocking probes pruned and reached, seven non-callable inert-declaration variants, the retained R26 control, preserved gated silence, and the pinned direct `dynamic target` control), `R28.2` (seed inertness only while exhaustive), `R28.3` (order independence over six permutations), `R28.4` (the 14-row proof table run armed and unarmed with runtime oracles, plus two mechanical assertions over the table itself: exactly one row grants fallback, and every non-fallback non-proven-absence row is red while armed), `R28.5` (five incomplete states each paired with a binding that *would* prove inertness), `R28.6` (once per consumer, stable, deduplicated, three identical repeats), and `R28 mutation` (four disposable production roots — `.js`, `.jsx`, `.ts`, `.tsx` — with the guard red for exactly those four paths and no tracked file). All seven suites fail against the `7890f3e3` analyzer extracted read-only via `git show`. All 60 retained tests are **byte-identical**: the 332 removed lines all lie at or before old line 3511, inside `discoverSupabaseCalls`; the only change after it is a pure 488-line insertion. Two behavioural changes are in the discharge direction — a callable seed reassigned only to proven finite non-ledger strings now classifies `absent` rather than `guarded` — which **supersedes** the Round 27 artifact's "conservative opaque widening" bound; runtime oracles are 0 in both rows and no existing test asserted the old outcome. `Z7-review-27.md` stays immutable. Production inventories re-ran unchanged. |
 
 ### Round twenty-seven (root-cause repair — the binding invariant)
 
@@ -633,6 +658,7 @@ Risk grouping describes review priority, not ownership.
 - `docs/plan/zoom/remediation/Z7-review-25.md`
 - `docs/plan/zoom/remediation/Z7-review-26.md`
 - `docs/plan/zoom/remediation/Z7-review-27.md`
+- `docs/plan/zoom/remediation/Z7-review-28.md`
 - `docs/plan/zoom/reviews/fase-7-review-request.md`
 - `docs/plan/zoom/reviews/fase-7-review-verdict.md`
 
@@ -652,13 +678,56 @@ comm -3 \
     | sed -n 's/^- `\(.*\)`$/\1/p' | sort)
 ```
 
-Result after the evidence commit: no output. Counts: cumulative diff **135**, inventory **135**,
+Result after the evidence commit: no output. Counts: cumulative diff **136**, inventory **136**,
 duplicates **0** (Round 21 added the reviewer contract `Z7-review-21.md` and the owner
-amendment; Rounds 22 through 27 add the repair records `Z7-review-22.md` through
-`Z7-review-27.md` — each round's only code change is inside the already-inventoried
+amendment; Rounds 22 through 28 add the repair records `Z7-review-22.md` through
+`Z7-review-28.md` — each round's only code change is inside the already-inventoried
 `__tests__/lib/services/ledger-hours-reader-inventory.test.ts`).
 
 ## Gate and fail-on-old evidence
+
+### Round twenty-eight collection (2026-08-15, local macOS, final code state `ff5933ba`)
+
+Round 28's governing instruction required the smallest focused regression tests during
+development, the complete ledger-hours reader inventory suite, the relevant selector/analyzer
+suite, `type-check`, `lint`, `npm test`, and `npm run build`. Database, browser, and
+deployment operations were explicitly out of scope and were **not** run: no in-scope change
+touches SQL, migrations, RLS, privileges, UI, or any production path — the full
+database/browser matrix ran unchanged at Round 22. All legs ran sequentially in one pass.
+
+| Command | Result | Exit |
+|---|---|---:|
+| Focused R28 regression during development (`-t 'R28'`) | **7 green** | 0 |
+| Complete ledger-hours reader inventory suite, one file | **67 green** (7 new R28 + 60 retained, byte-identical) | 0 |
+| Selector/analyzer suite — every ledger-touching service, API, and page suite | 68 files, **922 green** | 0 |
+| Cumulative Z7 high-risk Vitest over every test path changed since the immutable base | 37 files, **624 green** | 0 |
+| `npm run type-check` | no diagnostics | 0 |
+| `npm run lint` | zero warnings | 0 |
+| `npm test` (full unit suite, machine TZ America/Santiago) | 324 files, **7,431 green / 11 skipped** | 0 |
+| `npm run build` | production build; **156/156 static pages** | 0 |
+
+Mechanically re-derived production and SQL/RPC inventory at this HEAD, unchanged from Round
+27: production roots scanned **1,114** (621 `.ts`, 471 `.tsx`, 22 `.js`, 0 `.jsx`); **14
+files / 22** direct table touches; **8 files / 10** indirect RPC/view consumers; **32**
+migrations, **189** SQL object definitions, **13** ledger-reaching SQL objects across **8**
+files (**3** carrying unresolved sites); **9 files / 33** raw-hours SQL expressions; **4**
+files with explicit unresolved executable SQL; **2** insert-shape and **2** update-shape
+files; **11 hazard sites across 5 files**; **0** production `exec_sql` callers; **0**
+unsupported production results; **0** unexplained consumers; **4** classified dynamic
+non-ledger production calls.
+
+Round-twenty-eight fail-on-old evidence: the `7890f3e3` analyzer was extracted read-only via
+`git show` into an untracked temporary test file (no checkout, reset, stash, or branch
+disturbance; deleted after measurement). **All seven R28 suites fail there and pass under the
+repair.** Measured deltas (runtime oracle → markers): both blocking probes, the reached
+externally-opaque-callee variants, five non-callable inert-declaration variants, the
+opaque scope-conflict sibling, and the two-site probe all went from **0 markers against a
+non-zero runtime** to exactly one marker per reached consumer. Two rows moved in the
+discharge direction (callable seed plus proven finite non-ledger writes: 1 marker → 0, with a
+runtime oracle of 0 in both), which supersedes Round 27's conservative-widening bound. The
+root cause, the central contract, the full state-by-state proof table, the audited consumer
+list, and the honestly stated bounds are in
+`docs/plan/zoom/remediation/Z7-review-28.md`.
 
 ### Round twenty-seven collection (2026-08-15, local macOS, final code state `c9d9a457`)
 
@@ -1480,6 +1549,20 @@ None of these deviations is represented as a green gate.
    taint; traversal limits guard, never silently untaint), the evaluator binding is
    consulted only when the summary is informationless, and the R27 invariant matrix is the
    template for probing new binding/write shapes rather than one-off counterexamples.
+   Since Round 28, attack the **central `BindingSummary` contract and its proof table**
+   rather than any single probe. The productive attack is a summary state that is
+   incomplete yet reaches `none`: try to construct one where a recorded write resolves
+   opaque but `writesRecorded` is not set, where `evaluatorFallbackSafe` becomes true with a
+   write/taint/conflict present, where an `inert` alternative is claimed for a value that
+   could stringify to the ledger name, where `combineUnion`/`combineConcat` drop an operand's
+   account fields, or where a consumer reaches `binding(...)` without passing the single
+   `evaluatorFallbackSafe` guard. Verify there is still exactly one `return 'absent'`, one
+   `return 'none'`, and one authority-path `binding(...)` consult, and that the four
+   consumers ask one question. Note the two documented discharge-direction changes (a
+   callable seed reassigned only to proven finite non-ledger strings now classifies
+   `absent`) and confirm the runtime oracles, and note that the direct non-hazard
+   `client.from(dynamicTarget)` form deliberately keeps the evaluator's own `dynamic target`
+   result rather than an `unresolved ledger authority` marker.
 2. Re-audit `public.exec_sql(text)` and related exposed authority at the catalog and real-role
    boundaries. Anon, authenticated-admin, and service-role calls must all receive `42501`; the
    retired endpoint must construct no service client and issue no RPC/SQL, while fixed owner RPCs
@@ -1488,7 +1571,7 @@ None of these deviations is represented as a green gate.
    `EXECUTE`, procedures, composite/`RETURNS TABLE`/plain variables, triggers, rules/views,
    correlated scopes, and numbered/custom dollar tags. Inert comments/literals must stay inert;
    unresolved executable authority must fail explicitly without filename or substring allowances.
-4. Re-run both mechanical inventories against integrated HEAD: cumulative paths **135/135**;
+4. Re-run both mechanical inventories against integrated HEAD: cumulative paths **136/136**;
    classifications **14/22** direct, **8/10** indirect, **9/33** SQL expressions/writes, and
    **8/13** SQL objects, plus **4 files/5 sites** of explicit unresolved executable SQL, zero
    production `exec_sql` callers, and the site-exact production hazard census — **11 hazard

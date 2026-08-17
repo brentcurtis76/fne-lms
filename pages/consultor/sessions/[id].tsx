@@ -4,6 +4,7 @@ import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
+import AttendanceSuggestionsPanel from '../../../components/sessions/AttendanceSuggestionsPanel';
 import EditRequestModal from '../../../components/sessions/EditRequestModal';
 import AudioReportUploader from '../../../components/sessions/AudioReportUploader';
 import AudioPlayer from '../../../components/sessions/AudioPlayer';
@@ -196,8 +197,8 @@ const SessionDetailPage: React.FC = () => {
       attendees.map((a: SessionAttendee) => ({
         user_id: a.user_id,
         attended: a.attended ?? false,
-        arrival_status: a.arrival_status || undefined,
-        notes: a.notes || undefined,
+        arrival_status: a.arrival_status ?? null,
+        notes: a.notes ?? null,
       }))
     );
 
@@ -300,7 +301,7 @@ const SessionDetailPage: React.FC = () => {
     return texts[status] || '';
   };
 
-  const handleAttendanceChange = (userId: string, field: keyof AttendanceUpdatePayload, value: string | boolean | undefined) => {
+  const handleAttendanceChange = (userId: string, field: keyof AttendanceUpdatePayload, value: string | boolean | null) => {
     setAttendanceData((prev) =>
       prev.map((a) => (a.user_id === userId ? { ...a, [field]: value } : a))
     );
@@ -664,6 +665,13 @@ const SessionDetailPage: React.FC = () => {
 
             {/* Attendance Section */}
             <div>
+              {/* Z7-5: Zoom suggestions — the panel proposes, the facilitator confirms.
+                  Applying writes through the same PUT /attendees this page saves with,
+                  and the panel removes itself for anyone who is not facilitator/admin. */}
+              <AttendanceSuggestionsPanel
+                sessionId={session.id}
+                onApplied={() => void fetchSession()}
+              />
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-semibold text-gray-900">
                   Asistencia ({session.attendees.length})
@@ -772,7 +780,7 @@ const SessionDetailPage: React.FC = () => {
                                   handleAttendanceChange(
                                     attendee.user_id,
                                     'arrival_status',
-                                    e.target.value || undefined
+                                    e.target.value || null
                                   )
                                 }
                                 className="text-sm border border-gray-300 rounded px-2 py-1"
@@ -792,7 +800,7 @@ const SessionDetailPage: React.FC = () => {
                                 type="text"
                                 value={attData?.notes || ''}
                                 onChange={(e) =>
-                                  handleAttendanceChange(attendee.user_id, 'notes', e.target.value || undefined)
+                                  handleAttendanceChange(attendee.user_id, 'notes', e.target.value || null)
                                 }
                                 placeholder="Notas opcionales"
                                 className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
@@ -869,7 +877,7 @@ const SessionDetailPage: React.FC = () => {
                               handleAttendanceChange(
                                 attendee.user_id,
                                 'arrival_status',
-                                e.target.value || undefined
+                                e.target.value || null
                               )
                             }
                             className="w-full text-sm border border-gray-300 rounded px-3 py-2 min-h-[44px]"
@@ -892,7 +900,7 @@ const SessionDetailPage: React.FC = () => {
                             type="text"
                             value={attData?.notes || ''}
                             onChange={(e) =>
-                              handleAttendanceChange(attendee.user_id, 'notes', e.target.value || undefined)
+                              handleAttendanceChange(attendee.user_id, 'notes', e.target.value || null)
                             }
                             placeholder="Notas opcionales"
                             className="w-full text-sm border border-gray-300 rounded px-3 py-2 min-h-[44px]"

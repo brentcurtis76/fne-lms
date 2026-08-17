@@ -59,6 +59,62 @@ function makeRecordingServiceClient(rowsByTable: Record<string, unknown>) {
   return { client, queries };
 }
 
+function makeAttendanceUpdateClient(existingUserId: string) {
+  const updates: Array<Record<string, unknown>> = [];
+  const client = {
+    from(table: string) {
+      if (table === 'consultor_sessions') {
+        const result = {
+          data: {
+            id: SESSION_ID,
+            growth_community_id: null,
+            school_id: 990001,
+            status: 'pendiente_informe',
+          },
+          error: null,
+        };
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue(result),
+        };
+      }
+      if (table === 'session_facilitators') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'fac-1' }, error: null }),
+        };
+      }
+      if (table === 'session_attendees') {
+        const existingResult = { data: [{ user_id: existingUserId }], error: null };
+        const selectChain: Record<string, unknown> = {};
+        selectChain.eq = vi.fn(() => selectChain);
+        selectChain.then = (resolve: (value: unknown) => unknown) => resolve(existingResult);
+
+        return {
+          select: vi.fn(() => selectChain),
+          update: vi.fn((payload: Record<string, unknown>) => {
+            updates.push(payload);
+            const updateChain: Record<string, unknown> = {};
+            updateChain.eq = vi.fn(() => updateChain);
+            updateChain.then = (resolve: (value: unknown) => unknown) =>
+              resolve({ data: null, error: null });
+            return updateChain;
+          }),
+        };
+      }
+      if (table === 'session_activity_log') {
+        return {
+          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        };
+      }
+      throw new Error(`unexpected table ${table}`);
+    },
+  };
+  return { client, updates };
+}
+
 describe('/api/sessions/[id]/attendees', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -139,6 +195,55 @@ describe('/api/sessions/[id]/attendees', () => {
       expect(res._getStatusCode()).toBe(400);
       const data = JSON.parse(res._getData());
       expect(data.error).toContain('booleano');
+    });
+
+    async function driveAuthorizedPut(attendee: Record<string, unknown>) {
+      const { getApiUser, createServiceRoleClient } = await import('../../../lib/api-auth');
+      const { getUserRoles, getHighestRole } = await import('../../../utils/roleUtils');
+      const userId = String(attendee.user_id);
+      const { client, updates } = makeAttendanceUpdateClient(userId);
+
+      (getApiUser as any).mockResolvedValue({ user: { id: 'facilitator-user' }, error: null });
+      (createServiceRoleClient as any).mockReturnValue(client);
+      (getUserRoles as any).mockResolvedValue([{ role_type: 'consultor', school_id: 990001 }]);
+      (getHighestRole as any).mockReturnValue('consultor');
+
+      const { req, res } = createMocks({
+        method: 'PUT',
+        query: { id: SESSION_ID },
+        body: { attendees: [attendee] },
+      });
+      await handler(req as any, res as any);
+      return { res, updates };
+    }
+
+    it('[Z7-R4] omitted metadata is not written, preserving manual notes and arrival status', async () => {
+      const { res, updates } = await driveAuthorizedPut({
+        user_id: '123e4567-e89b-12d3-a456-426614174001',
+        attended: true,
+      });
+
+      expect(res._getStatusCode()).toBe(200);
+      expect(updates).toHaveLength(1);
+      expect(updates[0]).toMatchObject({ attended: true, marked_by: 'facilitator-user' });
+      expect(updates[0]).not.toHaveProperty('arrival_status');
+      expect(updates[0]).not.toHaveProperty('notes');
+    });
+
+    it('[Z7-R4] explicit nulls still clear metadata through the normal attendance contract', async () => {
+      const { res, updates } = await driveAuthorizedPut({
+        user_id: '123e4567-e89b-12d3-a456-426614174001',
+        attended: false,
+        arrival_status: null,
+        notes: null,
+      });
+
+      expect(res._getStatusCode()).toBe(200);
+      expect(updates[0]).toMatchObject({
+        attended: false,
+        arrival_status: null,
+        notes: null,
+      });
     });
   });
 

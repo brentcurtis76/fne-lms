@@ -27,6 +27,7 @@ import {
 import { Validators } from '../../../lib/types/api-auth.types';
 import { getUserRoles, getHighestRole } from '../../../utils/roleUtils';
 import { getLatestFxRate } from '../../../lib/services/hour-tracking';
+import { billableHours } from '../../../lib/services/billable-hours';
 
 // ============================================================
 // Local types
@@ -43,6 +44,7 @@ type EarningsFunctionRow = {
 type LedgerRow = {
   status: string;
   hours: number;
+  effective_minutes: number | null;
   contract_hour_allocations: { hour_type_id: string } | null;
 };
 
@@ -147,15 +149,15 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, consultantId
     }
 
     // 2. Supplementary ledger query for executed vs penalized breakdown per hour_type.
-    //    We query with consultant filter (via session_facilitators join).
-    //    If the nested join fails (e.g., in test mocks), fall back to unfiltered breakdown.
-    let ledgerData: LedgerRow[] = [];
-
+    //    It is consultant-scoped by the session_facilitators join. A query failure
+    //    fails closed: falling back to an unfiltered ledger mixes consultants and is
+    //    both a payment error and a disclosure bug.
     const { data: consultantLedger, error: consultantLedgerError } = await serviceClient
       .from('contract_hours_ledger')
       .select(`
         status,
         hours,
+        effective_minutes,
         session_date,
         contract_hour_allocations!inner(
           hour_type_id
@@ -172,25 +174,15 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, consultantId
       .lte('session_date', to)
       .eq('consultor_sessions.session_facilitators.user_id', consultantId);
 
-    if (!consultantLedgerError && consultantLedger) {
-      ledgerData = consultantLedger as unknown as LedgerRow[];
-    } else {
-      // Fallback: unfiltered ledger query (still date-filtered)
-      const { data: fallbackLedger } = await serviceClient
-        .from('contract_hours_ledger')
-        .select(`
-          status,
-          hours,
-          contract_hour_allocations!inner(
-            hour_type_id
-          )
-        `)
-        .in('status', ['consumida', 'penalizada'])
-        .gte('session_date', from)
-        .lte('session_date', to);
-
-      ledgerData = (fallbackLedger as unknown as LedgerRow[]) ?? [];
+    if (consultantLedgerError) {
+      return sendAuthError(
+        res,
+        'Error al obtener el desglose de ganancias del consultor',
+        500,
+        consultantLedgerError.message
+      );
     }
+    const ledgerData = (consultantLedger as unknown as LedgerRow[]) ?? [];
 
     // Build breakdown map: hour_type_id → { executed_hours, penalized_hours }
     const breakdownMap = new Map<string, BreakdownEntry>();
@@ -204,17 +196,27 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, consultantId
       }
 
       const entry = breakdownMap.get(hourTypeId)!;
+      const effectiveHours = billableHours(row, null, 'per_session_display');
       if (row.status === 'consumida') {
-        entry.executed_hours += Number(row.hours);
+        entry.executed_hours += effectiveHours;
       } else if (row.status === 'penalizada') {
-        entry.penalized_hours += Number(row.hours);
+        entry.penalized_hours += effectiveHours;
       }
     }
 
     // Fetch hour_types to resolve hour_type_key → hour_type_id for breakdown merge
-    const { data: allHourTypes } = await serviceClient
+    const { data: allHourTypes, error: hourTypesError } = await serviceClient
       .from('hour_types')
       .select('id, key');
+
+    if (hourTypesError) {
+      return sendAuthError(
+        res,
+        'Error al obtener el desglose de ganancias del consultor',
+        500,
+        hourTypesError.message
+      );
+    }
 
     const htKeyToId = new Map(
       (allHourTypes ?? []).map((ht: { id: string; key: string }) => [ht.key, ht.id])

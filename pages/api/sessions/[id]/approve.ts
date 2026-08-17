@@ -10,7 +10,10 @@ import {
 import { Validators } from '../../../../lib/types/api-auth.types';
 import { SessionActivityLogInsert } from '../../../../lib/types/consultor-sessions.types';
 import { validateFacilitatorIntegrity } from '../../../../lib/utils/facilitator-validation';
-import { createReservation } from '../../../../lib/services/hour-tracking';
+import {
+  createReservation,
+  HOUR_AVAILABILITY_ERROR_ES,
+} from '../../../../lib/services/hour-tracking';
 import { enqueueSessionProvision } from '../../../../lib/zoom/provisioning-intent';
 import { notifySessionLifecycle } from '../../../../lib/services/session-lifecycle-notifications';
 
@@ -88,6 +91,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const reservationResult = await createReservation(serviceClient, session, user!.id);
 
     if (!reservationResult.skipped && reservationResult.error) {
+      if (reservationResult.error_kind === 'dependency') {
+        return sendAuthError(res, HOUR_AVAILABILITY_ERROR_ES, 500);
+      }
       return sendAuthError(res, reservationResult.error, 400);
     }
 

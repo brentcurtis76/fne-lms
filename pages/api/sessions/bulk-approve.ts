@@ -9,7 +9,12 @@ import {
 } from '../../../lib/api-auth';
 import { SessionActivityLogInsert } from '../../../lib/types/consultor-sessions.types';
 import { validateFacilitatorIntegrity } from '../../../lib/utils/facilitator-validation';
-import { createReservation } from '../../../lib/services/hour-tracking';
+import {
+  createReservation,
+  HOUR_AVAILABILITY_ERROR_ES,
+  prepareReservation,
+  type ReservationPreparation,
+} from '../../../lib/services/hour-tracking';
 import { enqueueSessionProvision } from '../../../lib/zoom/provisioning-intent';
 import { notifySessionLifecycle } from '../../../lib/services/session-lifecycle-notifications';
 
@@ -140,10 +145,57 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
     }
 
-    // Hour tracking: create reservation ledger entries for each session (atomic: if any fails, reject all)
-    const reservationErrors: string[] = [];
+    // Resolve every financial dependency for the WHOLE batch before the first
+    // ledger write. Otherwise an RPC outage on session N would leave sessions
+    // 1..N-1 reserved even though the approval returns an error.
+    const preparations: ReservationPreparation[] = [];
+    const preparationErrors: string[] = [];
     for (const session of sessionsToApprove) {
-      const reservationResult = await createReservation(serviceClient, session, user!.id);
+      const preparation = await prepareReservation(serviceClient, session);
+      preparations.push(preparation);
+      if (preparation.kind === 'error') {
+        if (preparation.error_kind === 'dependency') {
+          return sendAuthError(res, HOUR_AVAILABILITY_ERROR_ES, 500);
+        }
+        preparationErrors.push(`Sesión ${session.id}: ${preparation.error}`);
+      }
+    }
+
+    if (preparationErrors.length > 0) {
+      return sendAuthError(
+        res,
+        `No se pueden aprobar las sesiones: ${preparationErrors.join(' | ')}`,
+        400
+      );
+    }
+
+    // Preflight intentionally performs no ledger writes, so repeated sessions for
+    // one allocation see the same pre-batch balance. Debit that balance in memory
+    // in source order to preserve the sequential over-budget semantics without
+    // reopening the partial-write failure window.
+    const preparedHundredthsByAllocation = new Map<string, number>();
+    for (const preparation of preparations) {
+      if (preparation.kind !== 'ready') continue;
+      const priorHundredths = preparedHundredthsByAllocation.get(preparation.allocation.id) ?? 0;
+      preparation.isOverBudget =
+        preparation.isOverBudget ||
+        preparation.availableHundredths - priorHundredths < preparation.hoursHundredths;
+      preparedHundredthsByAllocation.set(
+        preparation.allocation.id,
+        priorHundredths + preparation.hoursHundredths
+      );
+    }
+
+    // Hour tracking: all availability reads are already known-good; create the
+    // reservation rows without re-querying the RPC.
+    const reservationErrors: string[] = [];
+    for (const [index, session] of sessionsToApprove.entries()) {
+      const reservationResult = await createReservation(
+        serviceClient,
+        session,
+        user!.id,
+        preparations[index]
+      );
       if (!reservationResult.skipped && reservationResult.error) {
         reservationErrors.push(`Sesión ${session.id}: ${reservationResult.error}`);
       }

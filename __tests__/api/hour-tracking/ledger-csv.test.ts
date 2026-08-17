@@ -125,7 +125,8 @@ describe('GET /api/contracts/[id]/hours/ledger/csv', () => {
       {
         allocation_id: 'alloc-1',
         session_id: 'sess-1',
-        hours: 2.5,
+        hours: 1,
+        effective_minutes: 45,
         status: 'consumida',
         session_date: '2026-02-01',
         is_manual: false,
@@ -166,6 +167,9 @@ describe('GET /api/contracts/[id]/hours/ledger/csv', () => {
     await handler(req as never, res as never);
     expect(res._getStatusCode()).toBe(200);
     expect(res.getHeader('Content-Type')).toContain('text/csv');
+    const body = res._getData() as string;
+    expect(body).toContain(',0.75,consumida');
+    expect(body).not.toContain(',1.00,consumida');
   });
 
   it('equipo_directivo user gets 200 for own school contract', async () => {
@@ -248,5 +252,50 @@ describe('GET /api/contracts/[id]/hours/ledger/csv', () => {
     expect(body).toContain('Consultor');
     expect(body).toContain('Horas');
     expect(body).toContain('Estado');
+  });
+
+  it('[Z7-R2.5] consultant export fails closed when facilitator lookup fails', async () => {
+    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
+    mockGetUserRoles.mockResolvedValue([{ role: 'consultor' }]);
+    mockGetHighestRole.mockReturnValue('consultor');
+
+    const mockClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'contract_hour_allocations') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockResolvedValue({
+              data: [{ id: 'alloc-1', hour_types: { display_name: 'Online' } }],
+              error: null,
+            }),
+          };
+        }
+        if (table === 'session_facilitators') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'synthetic facilitator failure' },
+            }),
+          };
+        }
+        if (table === 'contract_hours_ledger') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            in: vi.fn().mockReturnThis(),
+            order: vi.fn().mockResolvedValue({ data: [], error: null }),
+          };
+        }
+        throw new Error(`unexpected table ${table}`);
+      }),
+    };
+    mockCreateServiceRoleClient.mockReturnValue(mockClient);
+
+    const { req, res } = createMocks({ method: 'GET', query: { id: CONTRACT_UUID } });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(res.getHeader('Content-Type')).not.toContain('text/csv');
+    expect(res._getJSONData()).toEqual({ error: 'Error al obtener sesiones del consultor' });
   });
 });

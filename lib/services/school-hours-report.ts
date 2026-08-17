@@ -50,6 +50,8 @@ type LedgerRow = {
   status: string;
   is_over_budget: boolean | null;
   hours: number | null;
+  /** §11 admin override (Z7-4); NULL = no override, `hours` governs. */
+  effective_minutes: number | null;
 };
 
 type ContratoRow = {
@@ -234,7 +236,7 @@ export async function fetchSchoolReportData(
       if (sessionIds.length > 0) {
         const { data: ledgerEntries, error: ledgerError } = await serviceClient
           .from('contract_hours_ledger')
-          .select('session_id, status, is_over_budget, hours')
+          .select('session_id, status, is_over_budget, hours, effective_minutes')
           .in('session_id', sessionIds);
 
         // The `billableHours` fallback below is only honest once a SUCCESSFUL read has

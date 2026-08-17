@@ -64,6 +64,8 @@ type MockState = {
   updates: Array<Record<string, any>>;
   editRequestUpdates: Array<Record<string, any>>;
   rpcCalls: RpcCall[];
+  ledgerFingerprint: string;
+  revisionCount: number;
   /** When set, the reschedule RPC reports this error instead of succeeding. */
   rpcError: { message: string; hint?: string } | null;
 };
@@ -225,6 +227,8 @@ beforeEach(async () => {
     updates: [],
     editRequestUpdates: [],
     rpcCalls: [],
+    ledgerFingerprint: '1.50/90/2026-09-10/false',
+    revisionCount: 0,
     rpcError: null,
   };
 
@@ -345,6 +349,34 @@ describe('PUT /api/sessions/[id] — reschedule is one transaction [A6]', () => 
     );
     // The copy is not a claim the code cannot back: the row really is untouched.
     expect(state.row.end_time).toBe('10:30:00');
+    expect(state.ledgerFingerprint).toBe('1.50/90/2026-09-10/false');
+    expect(state.revisionCount).toBe(0);
+  });
+
+  it.each([
+    ['tracked', { contrato_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', hour_type_key: 'asesoria' }],
+    ['contract-only XOR', { contrato_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', hour_type_key: null }],
+    ['type-only XOR', { contrato_id: null, hour_type_key: 'asesoria' }],
+  ])('R7 rejects a %s no-ledger reschedule without committing any API-visible state', async (_label, pair) => {
+    state.row = sessionRow(pair);
+    state.rpcError = {
+      message: 'Una sesión con seguimiento de horas requiere una entrada en el libro',
+      hint: 'reschedule_hours',
+    };
+
+    const before = JSON.stringify(state.row);
+    const { req, res } = put({ end_time: '11:00:00' });
+    await putHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(JSON.parse(res._getData()).error).toBe(
+      'No se pudieron recalcular las horas del contrato, así que la sesión no se modificó. Revise el libro de horas antes de reintentar.'
+    );
+    expect(rescheduleCalls(state)).toHaveLength(1);
+    expect(state.updates).toHaveLength(0);
+    expect(JSON.stringify(state.row)).toBe(before);
+    expect(state.ledgerFingerprint).toBe('1.50/90/2026-09-10/false');
+    expect(state.revisionCount).toBe(0);
   });
 
   it('reports a plain update failure as an update failure, not as an hours failure', async () => {
@@ -466,6 +498,39 @@ describe('PUT /api/sessions/edit-requests/[eid] — approve is one transaction [
     expect(state.editRequest.status).toBe('pending');
     // …and, new in r21, the session did not move either.
     expect(state.row.end_time).toBe('10:30:00');
+    expect(state.ledgerFingerprint).toBe('1.50/90/2026-09-10/false');
+    expect(state.revisionCount).toBe(0);
+  });
+
+  it.each([
+    ['tracked', { contrato_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', hour_type_key: 'asesoria' }],
+    ['contract-only XOR', { contrato_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', hour_type_key: null }],
+    ['type-only XOR', { contrato_id: null, hour_type_key: 'asesoria' }],
+  ])('R7 keeps a %s no-ledger edit request pending and byte-identical', async (_label, pair) => {
+    state.row = sessionRow(pair);
+    state.editRequest = editRequestRow({
+      end_time: { old: '10:30:00', new: '11:00:00' },
+    });
+    state.rpcError = {
+      message: 'Una sesión con seguimiento de horas requiere una entrada en el libro',
+      hint: 'reschedule_hours',
+    };
+
+    const before = JSON.stringify(state.row);
+    const { req, res } = approveEditRequest();
+    await editRequestHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(JSON.parse(res._getData()).error).toBe(
+      'No se pudieron recalcular las horas del contrato, así que los cambios no se aplicaron a la sesión. Revise el libro de horas antes de reintentar.'
+    );
+    expect(rescheduleCalls(state)).toHaveLength(1);
+    expect(state.updates).toHaveLength(0);
+    expect(state.editRequestUpdates).toHaveLength(0);
+    expect(state.editRequest.status).toBe('pending');
+    expect(JSON.stringify(state.row)).toBe(before);
+    expect(state.ledgerFingerprint).toBe('1.50/90/2026-09-10/false');
+    expect(state.revisionCount).toBe(0);
   });
 
   // -------------------------------------------------------------------------

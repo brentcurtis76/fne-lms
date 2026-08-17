@@ -1,7 +1,8 @@
 /**
- * Billable hours — the ONE derivation of "how many hours does this session bill",
- * shared by every consumer that reports session hours to a school or to FNE
- * (Zoom plan §11, hours-consumer audit).
+ * Billable hours — the shared TypeScript derivation for production consumers that
+ * calculate "how many hours does this session bill" (Zoom plan §11,
+ * hours-consumer audit). Status-only queries, lifecycle writes, and raw historical
+ * admin displays are intentionally outside that calculation.
  *
  * ## Why this module exists
  *
@@ -14,9 +15,11 @@
  *
  * `contract_hours_ledger` is the real record. Its `hours` is what the school was billed:
  * already adjusted when an admin overrode a cancellation, and updated in place by the
- * pre-execution reschedule RPC. Both hour consumers — the school hours report drill-down
- * and the session-analytics KPIs — read billable time through this module and nowhere
- * else.
+ * pre-execution reschedule RPC. Production consumers use this derivation for school
+ * drill-downs, session analytics, consultant earnings breakdowns, and ledger CSV
+ * exports. SQL aggregates use the identical `COALESCE(round(effective_minutes / 60,
+ * 2), hours)` expression. Administrative ledger/comparison surfaces may still expose
+ * raw `hours` deliberately as historical planned evidence beside `effective_minutes`.
  */
 
 import type { LedgerEntryStatus } from '../types/hour-tracking.types';
@@ -25,6 +28,13 @@ import type { LedgerEntryStatus } from '../types/hour-tracking.types';
 export interface BillableLedgerEntry {
   status: LedgerEntryStatus | string;
   hours: number | null;
+  /**
+   * Admin-overridden billable minutes (§11, Z7-4). NULL/undefined = no override,
+   * `hours` governs. 0 is a full waiver ("Sesión eximida"). Optional so existing
+   * callers that never select the column keep compiling — an absent field reads
+   * exactly as an un-overridden row.
+   */
+  effective_minutes?: number | null;
 }
 
 /**
@@ -96,17 +106,20 @@ export function billableHours(
     return 0;
   }
 
-  // ── SEAM: Z7-EFFECTIVE-MINUTES ────────────────────────────────────────────────
-  // Z7 adds `effective_minutes` to `contract_hours_ledger` (additive migration, plan
-  // §11) and this single return becomes §11's
-  //     coalesce(effective_minutes / 60.0, hours)
-  // i.e. `entry.effective_minutes != null ? entry.effective_minutes / 60 : entry.hours`.
-  // That column does NOT exist today — nothing before Z7 may add it — and no other line
-  // in this module changes when it lands. Same device `lib/zoom/jobs/meeting-provision.ts`
-  // used for `is_zoom_managed` before Z2-1 closed that seam.
+  // §11's coalesce, closed by Z7-4: the admin-adjusted `effective_minutes` when set
+  // (0 = full waiver, so `!= null`, never truthiness), else the ledger `hours`. The
+  // division applies the §11 "one rounding rule" — minutes/60 to two decimals,
+  // half-up, exactly `calculateHours` (lib/services/hour-tracking.ts) and exactly
+  // the SQL twin in `get_bucket_summary` (round(effective_minutes/60.0, 2)) — so
+  // every consumer derives the same figure from the same row.
   //
+  // Zoom data never reaches this input: `effective_minutes` is written only by
+  // `apply_session_hour_override`, which requires an authenticated admin inside
+  // the function itself.
+  if (entry.effective_minutes !== null && entry.effective_minutes !== undefined) {
+    return Math.round((entry.effective_minutes / 60) * 100) / 100;
+  }
   // `hours` is NOT NULL with CHECK (hours > 0) in the schema; the `?? 0` is for the
   // type, not for a row the database can produce.
   return entry.hours ?? 0;
-  // ──────────────────────────────────────────────────────────────────────────────
 }

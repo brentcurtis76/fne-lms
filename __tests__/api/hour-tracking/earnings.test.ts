@@ -67,7 +67,11 @@ function makeChain(result: unknown) {
   return chain;
 }
 
-function makeEarningsClient(earningsRows: unknown[], ledgerRows: unknown[]) {
+function makeEarningsClient(
+  earningsRows: unknown[],
+  ledgerRows: unknown[],
+  options: { hourTypesError?: { message: string } } = {}
+) {
   return {
     from: vi.fn((table: string) => {
       if (table === 'profiles') {
@@ -92,7 +96,7 @@ function makeEarningsClient(earningsRows: unknown[], ledgerRows: unknown[]) {
               { id: 'ht-1', key: 'asesoria_tecnica_online' },
               { id: 'ht-2', key: 'asesoria_tecnica_presencial' },
             ],
-            error: null,
+            error: options.hourTypesError ?? null,
           }),
         };
       }
@@ -339,12 +343,14 @@ describe('GET /api/consultant-earnings/[consultant_id] — business logic', () =
     const ledgerRows = [
       {
         status: 'consumida',
-        hours: 3,
+        hours: 1,
+        effective_minutes: 45,
         contract_hour_allocations: { hour_type_id: 'ht-1' },
       },
       {
         status: 'penalizada',
         hours: 2,
+        effective_minutes: null,
         contract_hour_allocations: { hour_type_id: 'ht-1' },
       },
     ];
@@ -361,8 +367,32 @@ describe('GET /api/consultant-earnings/[consultant_id] — business logic', () =
     const body = res._getJSONData();
 
     expect(body.data.by_hour_type[0].total_hours).toBe(5);
-    expect(body.data.by_hour_type[0].executed_hours).toBe(3);
+    expect(body.data.by_hour_type[0].executed_hours).toBe(0.75);
     expect(body.data.by_hour_type[0].penalized_hours).toBe(2);
     expect(body.data.totals.total_eur).toBe(225);
+  });
+
+  it('[Z7-R2.5] fails closed when hour_types cannot resolve the financial breakdown', async () => {
+    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
+    mockGetUserRoles.mockResolvedValue([{ role_type: 'admin' }]);
+    mockGetHighestRole.mockReturnValue('admin');
+    mockCreateServiceRoleClient.mockReturnValue(
+      makeEarningsClient(
+        [{ hour_type_key: 'asesoria_tecnica_online', total_hours: 0.75, total_eur: 7.5 }],
+        [{ status: 'consumida', hours: 1, effective_minutes: 45,
+          contract_hour_allocations: { hour_type_id: 'ht-1' } }],
+        { hourTypesError: { message: 'synthetic hour_types failure' } }
+      )
+    );
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { consultant_id: CONSULTOR_UUID, from: '2026-01-01', to: '2026-03-31' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(res._getJSONData()).toEqual({ error: 'Error al obtener el desglose de ganancias del consultor' });
+    expect(res._getJSONData()).not.toHaveProperty('data');
   });
 });

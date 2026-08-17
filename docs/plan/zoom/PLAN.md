@@ -327,7 +327,7 @@ Every phase: one PR, branch ≤20 chars, 6 CI gates green, review-request file f
 | **Z4 — Recording transfer + playback + consent** | `feat/zoom-rec` | recording.completed handler; staged transfer job (S3 multipart, verify, trash, permanent-delete schedule); `session_recordings` + playback endpoint (signed URL 300s) + UI chip; storage limit ops; retention job (incl. 12-month creation ceilings); **v2.1: `recording_consents` table + RLS + pre-join/scheduling capture + decline/withdrawal behavior. Real recordings stored only once consent evidence + EIPD reference exist (Z0A output)** — until then, synthetic/test-account recordings only | Real 1h meeting lands in Supabase, Zoom copy trashed→deleted, playback facilitator-only, consent rows present | 7–9 d | Consent copy (in-house, Z0A) |
 | **Z5 — Transcription (quarantined + sanitization)** | `feat/zoom-txn` | Transcode job (Opus), transcribe job (es), `zoom_internal.zoom_transcripts` (+`sanitized_text`) + `session_transcripts` metadata; **automated sanitizer** (attendee-allowlist + Spanish NER + role patterns → `sanitized_text`, golden-fixture tests) + flag heuristic + manual-edit escape hatch for flagged cases; prompt-builder contract test (throws on raw-only input); real audio flows once consent mechanism works (legal gate removed 2026-07-28) | Transcript flows end-to-end; sanitizer produces sanitized_text + correct sanitized/flagged/reviewed transitions; §6-predicate refusal tests green | 6–8 d | — |
 | **Z6 — Community meetings** | `feat/zoom-comm` | Attach/resync/remove endpoints; membership-gated join; join_before_host pool policy; drift reconcile; meeting reminders cron + dedupe table | Líder creates meeting w/ Zoom; members join license-free; client-side edit converges ≤1h | 5–7 d | — |
-| **Z7 — Attendance + hours comparison + override UI** | `feat/zoom-hours` | `zoom_attendance` ingestion (webhooks + report reconcile, customerKey/email/name hierarchy per Z0B verdict); attendance-suggestion panel (facilitator applies to `session_attendees`); planned-vs-Zoom comparison UI; `session_hour_overrides` table + append-only trigger + transactional apply/reverse RPC + additive `effective_minutes` zero-waiver + reason_category semantics; the §11 test list (snapshot/reschedule tests already green since Z1b/Z2) | All §11 tests green under 3-TZ matrix; trigger rejects UPDATE/DELETE; suggestions match reality in staging | 6–8 d | — |
+| **Z7 — Attendance + hours comparison + override UI** | `feat/zoom-hours` | `zoom_attendance` ingestion (webhooks + report reconcile, customerKey/email/name hierarchy per Z0B verdict); attendance-suggestion panel (facilitator applies to `session_attendees`); planned-vs-Zoom comparison UI; `session_hour_overrides` table + append-only trigger + transactional apply/reverse RPC + additive `effective_minutes` zero-waiver + reason_category semantics; the §11 test list (snapshot/reschedule tests already green since Z1b/Z2) | All §11 tests green under 3-TZ matrix; trigger rejects UPDATE/DELETE; suggestions match reality in staging | 6–8 d | **expanded to a self-contained contract in §15.3 (2026-08-11)** |
 | **Z8 — AI minuta (shadow)** | `feat/minuta-core` | Requires Z5 sanitizer operational (§6 predicate). Generation service + versioned prompt + zod contract; `ai_minutas` family tables + pgTAP; manual trigger; sweeper retries; shadow mode (no notifications) | Mora rates ≥5 real minutas vs her gem; go/adjust verdict | 4–6 d | Mora evaluation ~1 wk elapsed |
 | **Z9 — Review loop + publish** | `feat/minuta-flow` | Consultant review page + list; approve/request-changes/edit/regenerate routes (state machine, race guards); admin queue + publish transaction (idempotent, attribution rules); Resend templates; 48h/7d reminders | Full chain e2e-mock green; publish satisfies finalize gate | 6–8 d | — |
 | **Z10 — Seguimiento dashboard** | `feat/seguimiento` | Aggregate endpoint + board + drill-down + CSV; `schools.city` admin edit; filters (Año, red) | Numbers cross-check vs Mora's spreadsheet | 4–6 d | — |
@@ -384,6 +384,382 @@ authored when Z3b is built and before it is enabled by default.
 **Owner: Brent + consultores**, as the existing protocol. **Prerequisite: Z3b built and
 behind its off-by-default gate.** Until it exists and clears, Z3b may be implemented but not
 closed and not enabled by default (§15's Z3b row, §16).
+
+### 15.3 Phase Z7 — self-contained contract (written 2026-08-11, lean overlay)
+
+**Why this section exists.** `~/.claude/agent-workflow/LEAN-WORKFLOW.md` activated for this repo
+on 2026-08-11 and requires the phase being dispatched to be a complete contract in its own right:
+no "as v2", no criteria that live only in an old commit, and every load-bearing factual claim
+carrying its evidence. Z7 is the first FNE phase dispatched under it. The §15 row above and §11
+remain normative; this section resolves them against the repository as it actually stands at
+`main` @ `43999499`. **Future phases stay outlines — nothing below re-plans Z3b or Z4–Z12.**
+
+**RISK TIER: `HIGH`.** Migrations, new RLS surface, attendance data that names real people, and a
+path that changes what a school is billed and what a consultant is paid. Under the overlay a
+`HIGH` phase gets the contract-falsification pass recorded below before dispatch.
+
+**BRANCH / BASE.** `feat/zoom-hours`, cut from `main` @ `4399949942bfcf49dfa8de40cbf7edbf40f0490e`.
+Authoritative checkout `/Users/brentcurtis/dev/wt/zoom-hours`. **`/Users/brentcurtis/dev/wt/zoom-embed`
+is NOT this phase's worktree and must not be touched** — it is Z3b's starting point (§15.1) and
+holds the 11 `[Z3b, PARKED]` tests.
+
+#### 15.3.1 Contract falsification — the `HIGH` pass, run 2026-08-11
+
+| # | Claim | Check | Result |
+|---|---|---|---|
+| C1 | `contract_hours_ledger.effective_minutes` does **not** exist yet, and `lib/services/billable-hours.ts` carries the single seam that has to change | `grep -rln effective_minutes supabase/migrations lib` → three migrations *mentioning* it in comments; `billable-hours.ts` carries `// ── SEAM: Z7-EFFECTIVE-MINUTES ──` around its one `return entry.hours ?? 0` | **supported** |
+| C2 | `public.session_hour_overrides` does not exist | `grep -rln session_hour_overrides supabase lib pages __tests__` → one hit, a comment in `20260729120400_planned_minutes_snapshot.sql` | **supported** |
+| C3 | `public.zoom_attendance` does not exist in any form | same grep → zero hits repo-wide | **supported** |
+| C4 | `contract_hours_ledger.planned_minutes_snapshot` exists and is written at reservation time | migration `20260729120400`; `lib/services/hour-tracking.ts:329` writes `planned_minutes_snapshot: durationMins` | **supported** |
+| C5 | Participant webhook events are received and ledgered but never applied | `lib/zoom/webhook-lifecycle.ts:17` — `LIFECYCLE_EVENT_TYPES = ['meeting.started','meeting.ended']`, and `:88` returns early for anything else. Signed fixtures already exist: `__tests__/lib/zoom/fixtures/webhooks/meeting-participant_joined.json` and `…_left.json` | **supported** |
+| C6 | §11 quantity (3), *"Zoom meeting elapsed — `zoom_meetings` started/ended webhook instants"*, can be read from the schema today | `grep -n "started_at\|ended_at\|occurred_at\|event_ts" supabase/migrations/20260729120100_zoom_internal_tables.sql lib/zoom/webhook-store.ts` → **zero** instant columns. `zoom_meetings` has only `starts_at`, `duration_minutes` and the generated `ends_at`, all **planned** values, plus `status` | **REFUTED — plan amendment below** |
+| C7 | `customer_key` reaches Zoom for real participants | `pages/api/meet/session/[id]/join.ts:439` sets `customer_key: toCustomerKey(input.userId)` — **only on the `mode:'sdk'` payload**. `mode:'link'` (`:708`) carries no identity field, and `FEATURE_ZOOM_EMBED` is **default OFF** in production | **supported, with the blind spot in §15.3.5** |
+| C8 | `contract_hours_ledger` already carries the override columns the §11 RPC writes | baseline `00000000000000_baseline.sql:7869-7870` — `admin_override boolean NOT NULL DEFAULT false`, `admin_override_reason text`; `hours numeric(6,2)` with `CHECK (hours > 0)` at `:7876` | **supported** |
+| C9 | An hourly reconcile job exists and is the right place to hang report reconciliation | `pages/api/cron/zoom-reconcile.ts` enqueues only (`planReconcileJobs`), and its own header lists the later drift checks as "another enqueue in `planReconcileJobs()`" | **supported** |
+
+**AMENDMENT forced by C6 (Decision Log entry below).** §11's quantity (3) is not readable from the
+schema, so Z7 must persist it. **Ruling: two additive nullable columns on
+`zoom_internal.zoom_meetings` — `actual_started_at timestamptz` and `actual_ended_at timestamptz`
+— written by the existing guarded lifecycle transition in `lib/zoom/webhook-lifecycle.ts`, never
+by provisioning.** Rationale: the alternative (recovering instants from
+`zoom_internal.zoom_webhook_events.raw_payload`) is not available — §6 nulls `raw_payload` at 30
+days, so the comparison panel would silently lose its "Zoom" column for any session older than a
+month. The columns are additive, nullable and confined to the private schema, so nothing outside
+the workers can read them. **They inherit the lifecycle's monotonic guard**: a late or swept
+`meeting.started` must not overwrite an instant already recorded for an occurrence that ended.
+
+#### 15.3.2 Scope — five chunks, one branch, one executor conversation
+
+Sequential commits on `feat/zoom-hours`; the same executor conversation carries all five (overlay
+§4.2). Attempt numbers are cumulative for the phase and never reset.
+
+- **Z7-1 — attendance schema + the actual-elapsed instants.** Migration creating
+  `public.zoom_attendance` per §6 (school_id NOT NULL, surface keys, per-person interval rows,
+  identity columns `user_id` nullable / `customer_key` / `display_name` / `transient_email`,
+  `matched_by` enum) with RLS per §7 (admin all; consultor only if facilitator; facilitator of
+  that surface; **nobody else, and no authenticated write policy at all**); the two additive
+  `zoom_meetings.actual_*` columns from the C6 amendment plus their guarded lifecycle writes;
+  pgTAP appended to `supabase/tests/011-zoom-public-rls.sql` in that file's existing 010 style.
+- **Z7-2 — participant ingestion.** `meeting.participant_joined` / `meeting.participant_left`
+  applied through `webhook-lifecycle.ts`, the identity-matching hierarchy as a **pure module**
+  (`customer_key` → `profiles.id` first, then registrant/e-mail, then display name — never the
+  reverse order), and interval merge/rejoin de-duplication as a **pure module**. Both pure so the
+  §11 "reconnect intervals don't double-count" test is a unit test, not an integration guess.
+- **Z7-3 — report reconciliation.** The Zoom participant-report read added to `lib/zoom/api.ts`
+  (+ the fake), a `attendance_reconcile` job, and its enqueue in `planReconcileJobs()`. **§11 is
+  explicit that the reconcile report is authoritative over webhooks** — the merge must therefore
+  overwrite webhook-derived intervals rather than union with them.
+- **Z7-4 — the override machinery.** `public.session_hour_overrides` exactly per §11's
+  data-integrity list; the BEFORE UPDATE OR DELETE trigger; the additive
+  `contract_hours_ledger.effective_minutes integer CHECK (effective_minutes >= 0)`; the single
+  `SECURITY DEFINER` apply/reverse RPC deriving its actor from `auth.uid()` inside the function;
+  the `billable-hours.ts` seam closed to `coalesce(effective_minutes/60.0, hours)`; pgTAP for the
+  trigger, the grants and the non-admin-authenticated rejection.
+- **Z7-5 — the surfaces.** Admin comparison panel and «Ajustar horas descontadas» on
+  `pages/admin/sessions/[id].tsx`, and the facilitator attendance-suggestion panel that writes
+  `public.session_attendees` (`attended`, `arrival_status` — baseline `:10804`). es-CL copy.
+
+#### 15.3.3 Out of scope — explicit
+
+Recording, transcription, minutas, consent (Z4/Z5/Z8/Z12) · Client View and anything under
+`__tests__/components/sessions/JoinMeetingButton.*` or `lib/meet/*` (Z3b) · `tests/e2e/` — the
+Z1c blocking spec stays sealed, as it has since Z2-2b · the 22-table production RLS allowlist and
+INSPIRA's unrecorded `20260803170000` migration (both real, both live, **neither is Z7's**, see
+the ledger's 2026-08-10 measurement) · the Vitest 1.x upgrade · leadership aggregates, which
+PROJECT_STATE's macro invariant keeps out of `zoom_attendance` entirely.
+
+#### 15.3.4 Acceptance criteria — phase level
+
+- [Z7-A1] Every §11 "Required tests" line is a named, executing test. The list is normative and
+  is not paraphrased into something easier.
+- [Z7-A2] All hours tests run under the 3-TZ matrix (`TZ=UTC`, `TZ=America/Santiago`,
+  `TZ=Europe/Madrid`) and assert identical business results, per §10.
+- [Z7-A3] The append-only trigger rejects UPDATE **and** DELETE on `session_hour_overrides`,
+  proven in pgTAP — not by convention.
+- [Z7-A4] The override RPC has **no service-side caller**: `auth.uid()` null aborts, and a
+  non-admin authenticated caller is rejected. Both asserted in pgTAP.
+- [Z7-A5] The chain `60 → 45 → 30`, reverse-second → 45, reverse-first → NULL/planned, in exactly
+  that sequence (§11's sharpest case).
+- [Z7-A6] No Zoom-derived number ever writes `contract_hours_ledger.hours` or `effective_minutes`.
+  A mutation probe proving the comparison path cannot reach the ledger is required evidence.
+- [Z7-A7] `zoom_attendance` grants and RLS: no authenticated write policy exists on the table, and
+  a GC member reading another person's attendance row gets nothing.
+- [Z7-A8] `git diff --stat main..HEAD -- tests/e2e/` is empty.
+- [Z7-A9] The full repo gate set is green at the reviewed head: `npm run type-check`,
+  `npm run lint`, `npm test`, `npm run build`, `npm run test:db`. Never piped through `tail`.
+
+#### 15.3.5 Blind spots and the direction each fails
+
+1. **`customer_key` is only sent on the SDK path, which is default-OFF in production** (C7). Until
+   `FEATURE_ZOOM_EMBED` is on, every real participant joins by link and Zoom reports no
+   `customer_key`, so matching falls to e-mail and then display name. §15's row already prices
+   this ("customerKey/email/name hierarchy"), but the DoD phrase *"suggestions match reality in
+   staging"* cannot be met on the customer_key branch with production-shaped traffic.
+   **Direction of failure: toward `matched_by = 'unmatched'` and a suggestion the facilitator must
+   confirm by hand — never toward a wrong person being marked present.** That direction is a
+   requirement, not an observation: an unmatched row is correct behaviour, a mis-matched one is a
+   defect.
+2. **Display-name matching touches student-adjacent data.** Attendance names are real people. They
+   stay out of logs, fixtures and any AI prompt (`CLAUDE.md`, Ley 21.719). Fixtures are synthetic.
+3. **`test:db` and `e2e` both need Docker + the Supabase CLI**, and `npm run build` needs a
+   `.env.local` that is gitignored and exists only in the primary clone (ledger, 2026-08-10). A
+   fresh worktree fails the build at page-data collection until it is copied in.
+4. **Not measured by anything Z7 builds:** whether Zoom's participant report and its webhooks ever
+   disagree on a real session. The reconcile is written to the documented contract, and Z0B's
+   capture is the only evidence behind it.
+
+#### 15.3.6 Rollback
+
+Every migration is additive; no column is dropped or rewritten. `effective_minutes` NULL on every
+existing row means `coalesce(effective_minutes/60.0, hours)` returns exactly today's answer, so
+reverting the branch restores current behaviour without a down-migration. `zoom_attendance` and
+`session_hour_overrides` are new tables with no readers outside this phase. **Per §0.1(d) the
+phase is not closed until the production schema is verified read-only after Brent applies the
+migrations — local and CI green say nothing about deployment.**
+
+#### 15.3.7 Decision log entries for this phase
+
+| Date | Decision | Rationale | Raised by |
+|---|---|---|---|
+| 2026-08-11 | `zoom_internal.zoom_meetings` gains additive `actual_started_at` / `actual_ended_at`, written by the lifecycle | §11 quantity (3) has no storage today (C6), and `zoom_webhook_events.raw_payload` is nulled at 30 d by §6, so the comparison column would vanish for older sessions | PM, Z7 falsification pass |
+| 2026-08-11 | Z7 executes as five chunks on one branch in one durable executor conversation | §15 prices it at 6–8 agent-days; SOP §1.3 caps a chunk at ~10 files / ~600 net lines, and the overlay keeps the conversation rather than the chunk as the unit | PM, lean overlay §4.2 |
+| 2026-08-12 | A `participant_left` that matches no open interval writes **no** attendance row — ledger-only, and not an error | `joined_at` is `NOT NULL`, so the alternatives all fabricate: `joined_at = leave_time` invents a zero-length interval that understates presence, `joined_at = actual_started_at` invents presence nobody observed. Z7-3's report is authoritative (§11) and supplies the true interval. Same direction-of-failure rule Z7-1 set for the instants: a missing value shows as missing, a fabricated one is shown to an admin as evidence about billable presence | PM, Z7-2 dispatch |
+| 2026-08-12 | **[R3] and [R4] are SUPERSEDED by §15.3.9.** Webhook-time closure requires a Zoom-minted, construction-unique token matching exactly one open row; everything else is reconciliation evidence | The two rules are jointly unsatisfiable for uuid-less homonyms, reproduced by the executor and confirmed by Codex `FINDINGS`. A fourth pairing heuristic would repeat the same class of error | PM, Z7-2 contract replan |
+| 2026-08-12 | **`customer_key` is barred from authorising closure** and stays the top *reconciliation* rung | It is minted by us and passed through the browser, so it is a client-assertable claim (rule 1). Z0B §6.2's byte-identical result measured the REPORT round trip, not webhook joined→left pairing — the right evidence for matching, the wrong evidence for closing | PM, Z7-2 contract replan |
+| 2026-08-12 | **Z7-3 supersedes wholesale per occurrence; no row is ever matched across sources** | Cross-source matching would re-introduce the indistinguishability being removed. §6.2 confirms report rows arrive already paired by Zoom and carry no `participant_uuid`, so no cross-source key exists to match on anyway | PM, Z7-2 contract replan |
+| 2026-08-12 | Participant events resolve their surface from `zoom_meetings`, never create one, and never move `meeting_status` | `zoom_attendance` needs `surface_type`/`surface_id`/`school_id`, which only `zoom_meetings` holds. A participant event is not a lifecycle transition, and the §9 EXCLUDE reservation keys on status — letting a participant event touch it would re-acquire a host | PM, Z7-2 dispatch |
+
+#### 15.3.8 Chunk close record
+
+| Chunk | Head | Codex | Closed |
+|---|---|---|---|
+| **Z7-1** — attendance data plane + actual-elapsed instants | `e5b5a26d` (3 commits from `43999499`) | **PASS**, no blocking defects, cumulative diff reviewed | 2026-08-12 |
+
+**Z7-1 gates, independently re-run by the reviewer:** type-check PASS · lint PASS, zero warnings ·
+`npm test` **306 files / 7,074 passed + 11 skipped, jsdom `environment` 205 ms** (so `[A0]` held —
+the run was real, not the base checkout's silently-skipped 254/6,575) · build PASS, 156 static
+pages · clean `supabase db reset` · `npm run test:db` **537 tests / 11 files**. Sealed surfaces
+confirmed untouched: `tests/e2e/`, Z3b, the billing ledger and the override files.
+
+**Two reviewer probes went beyond the executor's own**, and both mattered: the surface-type
+mutation failed exactly tests 26–29 and 45, and a repaired INVOKER probe — retaining a usable
+search path rather than relying on the incidental `has_global_workspace_access` error — failed
+only the globally-scoped facilitator test and the explicit `SECURITY DEFINER` assertion. **That is
+what makes the definer predicate load-bearing rather than incidentally load-bearing.**
+
+**Non-blocking items, each given one of §1.4's three states rather than "the backlog":**
+
+| # | Item | State |
+|---|---|---|
+| 1 | `readLifecycleInstant` (`lib/zoom/webhook-lifecycle.ts:75`) accepts any safe integer as an epoch: header seconds silently become a 1970 instant, `Number.MAX_SAFE_INTEGER` throws `RangeError`. Unreachable today — production callers pass only body `event_ts` | **(b) assigned to Z7-2**, whose scope already owns that file and which parses `join_time`/`leave_time` through the same family. Named criterion `[B1]` |
+| 2 | `public.has_global_workspace_access` (`00000000000000_baseline.sql:3987`) is `SECURITY DEFINER` with an unqualified `user_roles` reference and no fixed `search_path` — a pre-existing latent defect in the baseline | **NO STATE YET — needs an owner (Brent).** Not Z7's: it predates the phase and is repo-wide. Recommended home is the RLS workstream that the 2026-08-10 measurement already calls for. **Z7 does not close over it** |
+
+### 15.3.9 Z7-2 / Z7-3 contract replan — supersedes [R3] and [R4] (2026-08-12)
+
+**Status of the old contract: SUPERSEDED, not amended.** `prompts/Z7-r2.md` `[R3]` (*"the
+interval key is `participant_uuid` … falling back to the identity token"*) and `[R4]` (*"a
+`participant_left` that matches no open interval writes NO row"*) are jointly unsatisfiable
+and are withdrawn. Nothing in Z7-r2 governs pairing any more; this section does.
+
+**Why, in one line:** *B joins as "Ana" and B leaves* and *B joins as "Ana", A's join is lost,
+and A leaves* produce identical events and identical database state, yet [R3] requires closing
+a row and [R4] requires closing nothing. The reviewer reproduced both histories returning the
+same close. No further heuristic can separate them, because nothing observable separates them.
+
+#### The eligibility rule that replaces the fallback ladder
+
+A token may authorise **webhook-time interval closure** only if all three hold:
+
+1. **Zoom mints it, the client cannot assert it.** A value the joining client chooses is an
+   identity *claim*, not an identity.
+2. **It is unique to one participant within the occurrence** — not merely unique in the sample
+   we happen to hold, and *not* "unique per connection", which contradicts the rejoin model
+   below (Codex, 2026-08-12).
+3. **It matches exactly one OPEN row in that occurrence.** Zero or more than one ⇒ close
+   nothing.
+
+Everything else is **reconciliation evidence**: persisted on the row, used by Z7-3 and by
+Z7-5's facilitator suggestion, and never sufficient authority for a destructive write.
+
+| Token | Zoom-minted? | Unique by construction? | Ruling | Evidence |
+|---|---|---|---|---|
+| `participant_uuid` | **yes** — we never send it | **yes, within the occurrence** | **AUTHORISES closure**, subject to rule 3 | Zoom's webhook reference defines it as *"the participant's UUID for this specific meeting and any breakout rooms created in this meeting"*, **assigned when the participant joins** and valid only for that meeting's duration ([Zoom meeting events](https://developers.zoom.us/docs/api/meetings/events/), PM-verified 2026-08-12). The committed fixtures prove **presence only** — they are two different people and establish nothing about uniqueness |
+| `customer_key` | **no** — minted by us at `pages/api/meet/session/[id]/join.ts:439` and handed to the browser SDK, which sends it to Zoom | yes *if* unforged | **RECONCILIATION ONLY** | see the ruling below |
+| `email` | yes | no, and **`""` for exactly the population that matters** | **RECONCILIATION ONLY** | `zoom-spike-results.md` §6.2 — empty for every signed-out guest; §6.3 rung 3, *"do not rely on it"* |
+| `display_name` | no — attacker/typo-controlled | **no** | **RECONCILIATION ONLY** | this is the H1/H2 defect; §6.3 rung 4 already required it be *"a suggestion requiring facilitator confirmation"* |
+
+**Why unproven joined→left stability is no longer a blocker.** Under rule 3, a token that
+changed between join and leave simply matches nothing, so the interval stays open and Z7-3
+closes it. Instability **degrades to no-closure, which is safe.** The only way an eligible
+token closes the *wrong person's* interval is a value collision between two people in one
+occurrence — impossible for a Zoom-minted UUID. That is why rules 1 and 2 are the criteria
+and stability is not; and it is why this contract needs no evidence we do not have.
+
+#### `customer_key` ruling — RECONCILIATION ONLY, and the evidence is decisive against closure
+
+The Z0B evidence proves the **wrong half**. `zoom-spike-results.md` §6.2 measured
+`GET /report/meetings/{uuid}/participants` and found `customer_key` *"exact value as sent"*
+for all four participants across three meetings, signed-in and signed-out. **That is a
+report-round-trip result, not a webhook joined→left pairing result**, and §6.3 states the
+verdict in those terms. The committed webhook fixtures are two different people and cannot
+settle pairing either.
+
+But the decisive objection is not the missing evidence — it is rule 1. **We mint
+`customer_key` and hand it to the browser**, which passes it to Zoom in the SDK `join()` call.
+A client that substitutes another user's value joins under that identity, and Zoom will report
+it faithfully. Proving stability would therefore not make it eligible. Two consequences worth
+stating plainly:
+
+- `customer_key` remains the **strongest reconciliation evidence** and stays the top rung of
+  the §15 identity hierarchy for *matching a row to a person*. It is barred only from
+  *closing* an interval.
+- Attendance is comparison/audit only (§11) and facilitator-confirmed, so a forged claim
+  misstates a suggestion, never an hour. **Nothing downstream may treat `customer_key` as
+  authenticated identity.**
+
+#### New Z7-2 scope — ingestion, no UUID-less closure
+
+Z7-2 stays a separate chunk; it is not merged into Z7-3. As narrowed it is mostly deletion,
+and Z7-3 is a distinct architectural concern (an external authoritative source, a job, a
+supersession rule) that would make one oversized chunk.
+
+- `participant_joined` opens a row and persists **all** identity evidence.
+- `participant_left` closes a row **only** via `participant_uuid` matching exactly one open
+  row in that occurrence. Closing nothing is the normal, correct outcome.
+- No retroactive pairing: an observation is never re-applied to a join that arrives later.
+- The `(zoom_meeting_uuid, participant_uuid)` partial unique index **widens to include
+  `joined_at`**. As it stands it permits at most one row per uuid per occurrence, so a rejoin
+  that reuses a `participant_uuid` — which Zoom's meeting-scoped definition permits — violates
+  it. **Amend `20260812120000_zoom_attendance_participant_uuid.sql` in place**: it is unmerged
+  and unapplied, so the existing `CREATE UNIQUE INDEX` definition is edited directly. **No
+  `DROP INDEX`, no replacement migration** — `CLAUDE.md` prohibits `DROP`, and the PM's earlier
+  claim that index replacement is exempt was wrong (Codex, 2026-08-12). That migration's
+  comments at `:7` and `:103` still document the withdrawn fallback contract and must be
+  rewritten in the same edit.
+
+**Leave observations — specified here, not delegated.** Every `participant_left` is recorded,
+whether or not it closed anything. Delegating this shape to the executor is what produced the
+`[R3]`/`[R4]` conflict, and it is not repeated.
+
+- **Table: `zoom_internal.zoom_attendance_observations`.** The private schema, not `public` —
+  it is an operational event log, not business data, and §6's `zoom_internal` lockdown
+  (REVOKE from `anon`/`authenticated`, `service_role` only, RLS on with zero policies) is a
+  strictly stronger guarantee than any public-table policy set, while making the row shape
+  structurally unreadable as an attendance interval. It sits beside `zoom_webhook_events`,
+  which is the same class of record.
+- **Why it exists at all, given `zoom_webhook_events` already stores the raw body:** §6 nulls
+  `raw_payload` at 30 days. A distilled, retained observation survives that horizon — the same
+  reasoning that forced the C6 amendment for the lifecycle instants.
+- Columns: `school_id NOT NULL`, occurrence uuid, event type, `source_event_key`, observed
+  instant, the identity evidence as persisted on intervals, and the applier's outcome
+  (`interval_closed` / `no_open_interval` / `unpairable_leave` / `no_instant`) so the log
+  records *what was decided*, not only what arrived.
+- **`source_event_key` UNIQUE.** Delivery-level idempotency for observations, enforced by the
+  database exactly as it is for intervals.
+- **One transaction.** Recording the observation and any eligible interval close commit
+  together or not at all. Route and sweep both call the applier concurrently, so without this
+  one application can close the interval while the other records the same event as unmatched —
+  two contradictory records of one delivery.
+- Synthetic fixtures only; these rows name real people (Ley 21.719).
+
+#### New Z7-3 authority and merge semantics — supersession, never row matching
+
+**The report is authoritative wholesale, per occurrence, and no row is ever matched across
+sources.** Cross-source matching would re-introduce exactly the indistinguishability this
+replan removes, so the contract forbids it outright.
+
+- **Source and keys.** `GET /report/meetings/{occurrence_uuid}/participants`. §6.2 confirms
+  each row arrives with `join_time`, `leave_time` and `duration` **already paired by Zoom** —
+  the pairing problem is solved by the provider, not by us. §6.2 also shows the report row set
+  does **not** carry `participant_uuid`, so no report key may depend on it.
+- **A batch is authoritative only if it is COMPLETE, and completeness is defined, not assumed**
+  (Codex BLOCKER, 2026-08-12). Zoom's list endpoints are paginated — a response carries
+  `page_size`, `page_count`, `total_records` and `next_page_token`, and an **empty**
+  `next_page_token` is the only end-of-data signal ([Zoom pagination](https://developers.zoom.us/docs/api/pagination/),
+  PM-verified 2026-08-12); heavy-data endpoints cap a page at 30–100 rows. A single fetch of a
+  31-person meeting therefore returns page one. **The earlier contract promoted it wholesale
+  and would have suppressed participant 31.**
+- **Complete batch =** every page traversed with **unchanged query parameters** until
+  `next_page_token` is empty, **and** accumulated row count `== total_records`, **and**
+  metadata consistent across pages.
+- **Any page error, expired or rejected token, count drift, or an invalid interval rejects the
+  ENTIRE candidate batch.** A rejected batch is never promoted and never partially visible.
+- **Promotion is a DB-owned pointer, not a client clock.** A `zoom_internal` batch row carries
+  its own database-assigned monotonic sequence and a status (`pending` → `complete` |
+  `rejected`); **batch completion is represented independently of its participant rows**, and
+  the effective set is the rows of the highest-sequence `complete` batch. `report_fetched_at`
+  is retained for audit but never decides authority — two batches can tie or arrive out of
+  order on a client timestamp.
+- **A later partial fetch cannot displace an earlier complete one.** The prior complete batch
+  stays effective until a *new complete* batch is promoted. If no complete batch has ever
+  existed, the webhook rows remain effective.
+- **Promotion is atomic**: the last page's rows and the batch's flip to `complete` commit in
+  one transaction, so no reader ever sees a half-promoted batch win.
+- **Webhook rows are never edited, closed or deleted by reconcile.** Provenance and audit are
+  preserved by retention, not by rewriting.
+- **Idempotency.** A replayed or retried fetch builds a new candidate batch; only a complete,
+  higher-sequence batch becomes effective, so replay is harmless without any row-level dedupe.
+  Job-level dedupe stays on `zoom_jobs` as for every other pipeline.
+- **Reconnects.** Multiple report rows for one person are multiple intervals; presence totals
+  come from the existing pure merge, which is why that module survives.
+- **Delay, absence, retry.** Until a report exists the webhook rows are effective and **must be
+  rendered as provisional** (Z7-5). Bounded retries, then dead-letter and the §18 health panel.
+  **Never fabricate an interval to fill the gap.**
+- **Contradiction.** The report wins, wholesale and silently; the superseded webhook rows stay
+  queryable for audit.
+- **Transaction boundary.** One batch, one transaction: all rows of a fetch commit together or
+  none do, so no reader ever sees half a batch win the authority rule.
+
+#### Falsification matrix — the contract's expected outcomes
+
+| # | History | Expected |
+|---|---|---|
+| 1 | stable uuid join → leave | row opens, then closes on the uuid match |
+| 2 | missing join, then leave | **closes nothing**; leave observation recorded; report supplies the interval |
+| 3 | two uuid-less homonyms | two open rows; neither leave closes anything |
+| 4 | one open homonym + another person's missing join (**H1/H2**) | **identical, safe behaviour in both** — closes nothing. The contract no longer needs to distinguish them |
+| 5 | identity downgrade between join and leave | no eligible token on the leave ⇒ closes nothing |
+| 6 | duplicate byte-identical delivery | `source_event_key` unique index ⇒ no second row, no second close |
+| 7 | byte-different duplicate logical event | uuid path: caught by the widened partial unique index. **Uuid-less path: a duplicate row is possible and is accepted** — the report supersedes it. Stated as a limitation, not solved by a heuristic |
+| 8 | reconnect, multiple intervals | one row per join; each closes by its own uuid, or none do |
+| 9 | leave preceding join | closes nothing; never applied retroactively |
+| 10 | report contradicts webhooks | the **complete** batch becomes effective; webhook rows retained, unedited |
+| 11 | report delayed or unavailable | webhook rows stay effective and render provisional; retry, dead-letter, health panel; nothing fabricated |
+| 12 | occurrence with **more rows than one page** (>30) | every page traversed to an empty `next_page_token`; accumulated count `== total_records`; **one** complete batch promoted |
+| 13 | page 2 fails, or its token is rejected | **entire candidate batch rejected**; the prior complete batch stays effective; if none exists, webhook rows do |
+| 14 | accumulated count ≠ `total_records`, or metadata drifts between pages | batch rejected; same preservation rule as row 13 |
+| 15 | duplicate/concurrent application of one leave delivery | the observation's `source_event_key` UNIQUE admits one record, and observation + any close share one transaction — **no delivery can be both closed and logged unmatched** |
+
+**Controlling safety invariant: no wrong-person closure.** Ambiguity is never resolved by
+choosing the latest, the strongest-looking, or the only weak match.
+
+#### What survives from `a530aafb`
+
+**Survives:** `source_event_key` + its partial UNIQUE index · persisted identity evidence
+(`identity_tokens`, the GIN index, `matched_by`) · the `participant_uuid` closure path ·
+`attendance-intervals.ts` (`mergeIntervals`, `totalPresenceSeconds`, `isClosableBy`) ·
+`[B1]`'s `readLifecycleInstant` hardening · `PARTICIPANT_EVENT_TYPES` and the single applier
+called by both the route and the sweep · every approved Z7-1 artefact.
+
+**Removed or changed:** the `identityToken` arm of `listOpenIntervals` — the fallback closure
+key — and `attendance-identity.ts:215 identityToken()` as a *closure* input (the plural
+`identityTokens()` evidence function stays) · the `open.length > 1` guard at
+`participant-lifecycle.ts:240`, made moot by rule 3 · `selectIntervalToClose` narrowed to
+uuid-matched rows · the partial unique index widened by `joined_at` · the attempt-4 regression
+at `participant-lifecycle.test.ts:413`, which covered only H1, replaced by the matrix above.
+
+#### Blind spots
+
+1. **`participant_uuid` pairing behaviour across a rejoin is still unmeasured.** Zoom documents
+   it as meeting-scoped and assigned at join, which is what rule 2 now rests on; whether a
+   rejoin reuses the value or mints a new one is not documented and was not observed. It is
+   now *safe* to be wrong about — either way it degrades to no-closure — but it decides how
+   much the webhook path can close before the report lands. A performance property, not a
+   correctness one.
+2. **Uuid-less duplicate joins can double-count until the report arrives.** Matrix row 7.
+   Accepted deliberately over any matching heuristic.
+3. **The report's own completeness is unmeasured.** §6.2 observed four participants across
+   three meetings; nothing establishes behaviour for a large or long meeting.
 
 ## 16. Blocking vs non-blocking human decisions
 

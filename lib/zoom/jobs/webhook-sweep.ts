@@ -40,6 +40,15 @@
  */
 import { applyWebhookLifecycle, type ZoomWebhookObject } from '../webhook-lifecycle';
 import {
+  applyParticipantEvent,
+  isParticipantEventType,
+  type ZoomParticipantObject,
+} from '../participant-lifecycle';
+import {
+  defaultZoomAttendanceStore,
+  type ZoomAttendanceStore,
+} from '../attendance-store';
+import {
   defaultZoomWebhookStore,
   type UnappliedWebhookEvent,
   type ZoomWebhookSweepStore,
@@ -64,6 +73,12 @@ const HEARTBEAT_EVERY = 25;
 
 export interface WebhookSweepDeps {
   store?: ZoomWebhookSweepStore;
+  /**
+   * Z7-2. Built lazily and only when a swept row turns out to be a participant event, so
+   * an existing suite that injects `store` alone never triggers a Supabase construction.
+   * Separate from `store` because the participant path cannot move a meeting's status.
+   */
+  attendanceStore?: ZoomAttendanceStore;
   env?: NodeJS.ProcessEnv;
   now?: () => number;
   minAgeMinutes?: number;
@@ -81,7 +96,9 @@ export interface WebhookSweepResult extends Record<string, unknown> {
 /** The slice of a stored `raw_payload` the lifecycle needs. */
 interface StoredPayload {
   event?: unknown;
-  payload?: { object?: ZoomWebhookObject };
+  /** Milliseconds. The stored body's own value — never the header's seconds. */
+  event_ts?: unknown;
+  payload?: { object?: ZoomWebhookObject & ZoomParticipantObject };
 }
 
 function readEventType(row: UnappliedWebhookEvent, stored: StoredPayload): string {
@@ -125,7 +142,26 @@ export function createWebhookSweepHandler(deps: WebhookSweepDeps = {}): ZoomJobH
       }
 
       const stored = row.raw_payload as StoredPayload;
-      await applyWebhookLifecycle(store, readEventType(row, stored), stored.payload?.object);
+      const storedEventType = readEventType(row, stored);
+      // Same dispatch as the route, and that is the point of extracting both appliers:
+      // the sweep is the path that re-applies what the route recorded but never applied,
+      // so a divergence here would be a divergence only the recovery path exercises.
+      if (isParticipantEventType(storedEventType)) {
+        await applyParticipantEvent(
+          deps.attendanceStore ?? defaultZoomAttendanceStore(env),
+          storedEventType,
+          stored.payload?.object,
+          stored.event_ts,
+          row.dedupe_key
+        );
+      } else {
+        await applyWebhookLifecycle(
+          store,
+          storedEventType,
+          stored.payload?.object,
+          stored.event_ts
+        );
+      }
       await store.markProcessed(row.dedupe_key, new Date(now()).toISOString());
       applied += 1;
     }

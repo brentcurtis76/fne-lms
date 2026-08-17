@@ -13,6 +13,13 @@
  * a TOCTOU race between the route and a concurrent `webhook_sweep`; expressing the
  * guard as the UPDATE's own predicate makes the two converge no matter which one runs
  * first, because whichever loses simply matches zero rows.
+ *
+ * Z7-1 moved `setMeetingStatus` from a PostgREST `UPDATE` onto the
+ * `zoom_internal.apply_meeting_lifecycle` RPC. The guard did not move: it is still the
+ * same predicate inside the same single statement, now sent as `p_applies_from`
+ * instead of as a `.in(...)` filter. What the RPC adds is a SET list that can read the
+ * existing row, which PostgREST cannot express and which the observed instants need —
+ * see the migration `20260811130100_zoom_meeting_actual_instants.sql`.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createZoomServiceClient, zoomInternalSchema } from './service-client';
@@ -91,6 +98,21 @@ export interface MeetingSurfaceKeys {
 }
 
 /**
+ * The observed instants a lifecycle event offers (§11 quantity (3); Z7-1).
+ *
+ * BOTH are offered on `meeting.ended`, because that event's payload states when the
+ * occurrence began as well as when it finished — and when Zoom delivers `ended`
+ * before `started` (it does not order deliveries), the `started` that follows is
+ * refused by the monotonicity guard and would otherwise never record its instant.
+ * The RPC fills each column only while it is NULL, so offering a value the row
+ * already holds is inert.
+ */
+export interface LifecycleInstants {
+  actualStartedAt: string | null;
+  actualEndedAt: string | null;
+}
+
+/**
  * What a guarded transition did.
  *
  * `applied: false` is the ordinary refusal (the row is already past this status), not
@@ -121,11 +143,18 @@ export interface ZoomWebhookStore {
   /** `zoom_internal.zoom_meetings.id` for a meeting number, or null when unknown. */
   findMeetingIdByNumber(meetingNumber: number): Promise<string | null>;
   /**
-   * Applies a lifecycle transition, GUARDED by the applies-from set above — the guard
-   * is the UPDATE's own `WHERE`, never a read-then-write in this process.
+   * Applies a lifecycle transition through `zoom_internal.apply_meeting_lifecycle` —
+   * ONE atomic statement whose `WHERE ... status = ANY (applies_from)` is the
+   * monotonicity guard, never a read-then-write in this process. The set is sent from
+   * here so the exported constants above stay the single source of truth.
    *
    * `occurrenceUuid` is written ONLY when non-null, so an event that omits it cannot
    * blank a uuid an earlier event captured.
+   *
+   * `instants` (Z7-1, C6 amendment) ride the SAME statement, so neither can be written
+   * for a transition the guard refused, and the RPC's `COALESCE(existing, offered)`
+   * fills each column only while NULL — a swept or out-of-order replay is inert.
+   * Optional so the existing three-argument test doubles remain valid.
    *
    * Returns the row's surface keys when (and only when) the transition applied, so the
    * caller can move the projection with it without a second lookup.
@@ -133,7 +162,8 @@ export interface ZoomWebhookStore {
   setMeetingStatus(
     meetingId: string,
     status: ZoomLifecycleStatus,
-    occurrenceUuid: string | null
+    occurrenceUuid: string | null,
+    instants?: LifecycleInstants
   ): Promise<LifecycleTransition>;
   /**
    * Moves `public.session_meetings_public.meeting_status` under the same monotonic
@@ -243,22 +273,18 @@ export interface WebhookSchemaClient {
       }>;
     };
     update(values: Record<string, unknown>): {
-      eq(
-        column: string,
-        value: string | number
-      ): PromiseLike<{ error: PostgrestError | null }> & {
-        in(
-          column: string,
-          values: readonly string[]
-        ): {
-          select(columns: string): PromiseLike<{
-            data: MeetingSurfaceRow[] | null;
-            error: PostgrestError | null;
-          }>;
-        };
-      };
+      eq(column: string, value: string | number): PromiseLike<{ error: PostgrestError | null }>;
     };
   };
+  /**
+   * The guarded lifecycle transition. Declared here rather than on a shared client
+   * type because this store is its only caller — the same one-honest-interface rule
+   * `service-client.ts` states for `.from()`.
+   */
+  rpc(
+    fn: string,
+    args: Record<string, unknown>
+  ): PromiseLike<{ data: MeetingSurfaceRow[] | null; error: PostgrestError | null }>;
 }
 
 /**
@@ -369,30 +395,29 @@ export function createSupabaseWebhookStore(
       return data ? (data as MeetingIdRow).id : null;
     },
 
-    async setMeetingStatus(meetingId, status, occurrenceUuid) {
-      const patch: Record<string, unknown> = {
-        status,
-        updated_at: new Date().toISOString(),
-      };
-      // Only written when present. A `meeting.ended` that omitted the uuid must not
-      // erase the occurrence uuid `meeting.started` captured.
-      if (occurrenceUuid !== null) {
-        patch.zoom_meeting_uuid = occurrenceUuid;
-      }
-
-      // The `.in(...)` IS the monotonicity guard, and it is evaluated by Postgres
-      // inside the UPDATE — so a route and a sweep racing on the same meeting cannot
-      // both win. `.select()` turns the outcome into data: rows returned = applied,
-      // zero rows = the row was already past this status and nothing was written.
-      const { data, error } = await client
-        .from('zoom_meetings')
-        .update(patch)
-        .eq('id', meetingId)
-        .in(
-          'status',
-          status === 'started' ? LIFECYCLE_STARTED_APPLIES_FROM : LIFECYCLE_ENDED_APPLIES_FROM
-        )
-        .select('surface_type, surface_id');
+    async setMeetingStatus(meetingId, status, occurrenceUuid, instants) {
+      // `p_applies_from` IS the monotonicity guard, evaluated by Postgres inside the
+      // function's single UPDATE — so a route and a sweep racing on the same meeting
+      // cannot both win. It is sent from here, rather than hard-coded in SQL, so the
+      // exported sets above remain the one definition of the rule.
+      //
+      // The offered instants are filled by the function only while the column is NULL,
+      // which is why a null here is a no-op rather than a blanking write.
+      //
+      // Rows returned = applied; zero rows = the row was already past this status and
+      // nothing was written.
+      const { data, error } = await client.rpc('apply_meeting_lifecycle', {
+        p_meeting_id: meetingId,
+        p_status: status,
+        p_applies_from: [
+          ...(status === 'started'
+            ? LIFECYCLE_STARTED_APPLIES_FROM
+            : LIFECYCLE_ENDED_APPLIES_FROM),
+        ],
+        p_occurrence_uuid: occurrenceUuid,
+        p_actual_started_at: instants?.actualStartedAt ?? null,
+        p_actual_ended_at: instants?.actualEndedAt ?? null,
+      });
 
       if (error) {
         throw new Error(`zoom_meetings status update failed: ${error.message}`);

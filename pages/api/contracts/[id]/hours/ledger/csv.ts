@@ -8,6 +8,7 @@ import {
 } from '../../../../../../lib/api-auth';
 import { Validators } from '../../../../../../lib/types/api-auth.types';
 import { getUserRoles, getHighestRole } from '../../../../../../utils/roleUtils';
+import { billableHours } from '../../../../../../lib/services/billable-hours';
 import { csvEscape } from '../../../../../../lib/exportUtils';
 
 // ============================================================
@@ -100,6 +101,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         allocation_id,
         session_id,
         hours,
+        effective_minutes,
         status,
         session_date,
         is_manual,
@@ -116,10 +118,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Consultor: only their sessions
     if (highestRole === 'consultor') {
-      const { data: facilitatedSessionIds } = await serviceClient
+      const { data: facilitatedSessionIds, error: facilitatorError } = await serviceClient
         .from('session_facilitators')
         .select('session_id')
         .eq('user_id', user.id);
+
+      if (facilitatorError) {
+        return sendAuthError(res, 'Error al obtener sesiones del consultor', 500);
+      }
 
       const sessionIds = (facilitatedSessionIds ?? []).map((f: { session_id: string }) => f.session_id);
       if (sessionIds.length === 0) {
@@ -162,6 +168,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       allocation_id: string;
       session_id: string | null;
       hours: number;
+      effective_minutes: number | null;
       status: string;
       session_date: string | null;
       is_manual: boolean;
@@ -186,7 +193,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const consultorName = profileObj
         ? `${profileObj.first_name ?? ''} ${profileObj.last_name ?? ''}`.trim()
         : '';
-      const horas = entry.hours.toFixed(2);
+      const horas = billableHours(entry, null, 'per_session_display').toFixed(2);
       const estado = entry.status;
 
       res.write(

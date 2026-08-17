@@ -18,12 +18,14 @@ const {
   mockCreateServiceRoleClient,
   mockValidateFacilitatorIntegrity,
   mockCreateReservation,
+  mockPrepareReservation,
   mockEnqueue,
 } = vi.hoisted(() => ({
   mockCheckIsAdmin: vi.fn(),
   mockCreateServiceRoleClient: vi.fn(),
   mockValidateFacilitatorIntegrity: vi.fn(),
   mockCreateReservation: vi.fn(),
+  mockPrepareReservation: vi.fn(),
   mockEnqueue: vi.fn(),
 }));
 
@@ -42,6 +44,8 @@ vi.mock('../../../lib/utils/facilitator-validation', () => ({
 
 vi.mock('../../../lib/services/hour-tracking', () => ({
   createReservation: mockCreateReservation,
+  prepareReservation: mockPrepareReservation,
+  HOUR_AVAILABILITY_ERROR_ES: 'No se pudo verificar la disponibilidad de horas.',
 }));
 
 vi.mock('../../../lib/zoom/jobs/queue', () => ({
@@ -166,6 +170,7 @@ beforeEach(() => {
   mockCheckIsAdmin.mockResolvedValue({ isAdmin: true, user: { id: ADMIN_ID }, error: null });
   mockCreateServiceRoleClient.mockImplementation(() => createClient(state));
   mockValidateFacilitatorIntegrity.mockResolvedValue({ valid: true, errors: [] });
+  mockPrepareReservation.mockResolvedValue({ kind: 'skipped' });
   mockCreateReservation.mockResolvedValue({ skipped: false, ledger_entry_id: 'ledger-1', error: null });
   mockEnqueue.mockResolvedValue('enqueued');
 });

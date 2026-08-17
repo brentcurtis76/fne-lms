@@ -87,6 +87,7 @@ const BASE_SCHEMA: Record<string, TableDef> = {
       'hours',
       'admin_override',
       'planned_minutes_snapshot',
+      'effective_minutes',
     ],
   },
 };
@@ -604,6 +605,7 @@ describe('fetchSchoolReportData', () => {
         'status',
         'is_over_budget',
         'hours',
+        'effective_minutes',
       ]);
       expect(entry.filters).toEqual([
         expect.objectContaining({ column: 'session_id', kind: 'in' }),

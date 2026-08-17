@@ -134,6 +134,20 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     return sendAuthError(res, 'location es requerido para modalidad presencial o hibrida', 400);
   }
 
+  // Hour tracking is a pair, never two independent optionals. Only both absent
+  // is the genuine legacy form; every tracked session carries both validated values.
+  const hourTrackingAbsent = hour_type_key == null && contrato_id == null;
+  const hourTrackingValid =
+    typeof hour_type_key === 'string' && hour_type_key.trim().length > 0 &&
+    typeof contrato_id === 'string' && Validators.isUUID(contrato_id);
+  if (!hourTrackingAbsent && !hourTrackingValid) {
+    return sendAuthError(
+      res,
+      'El contrato y el tipo de hora deben configurarse juntos.',
+      400
+    );
+  }
+
   // Auto-detect meeting_provider from meeting_link if not provided
   let finalMeetingProvider: MeetingProvider | null = meeting_provider || null;
   if (meeting_link && !finalMeetingProvider) {
@@ -229,8 +243,8 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
       cancellation_reason: null,
       actual_duration_minutes: null,
       // Hour tracking fields (optional — null for legacy sessions)
-      hour_type_key: (typeof hour_type_key === 'string' && hour_type_key) ? hour_type_key : null,
-      contrato_id: (typeof contrato_id === 'string' && Validators.isUUID(contrato_id)) ? contrato_id : null,
+      hour_type_key: hourTrackingValid ? hour_type_key.trim() : null,
+      contrato_id: hourTrackingValid ? contrato_id : null,
     };
 
     // Build session insert array (one per date)

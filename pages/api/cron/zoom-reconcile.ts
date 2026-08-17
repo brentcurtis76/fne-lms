@@ -12,11 +12,12 @@
  *
  * ## What is here now
  *
- * Two jobs, each deduped on the UTC hour — `host_sync:<hour>` and
- * `webhook_sweep:<hour>`. Against the UNIQUE index that means an hour enqueues each
- * exactly once, no matter how many times the endpoint fires — Vercel crons can
- * double-fire, and an operator can always `curl` it. A second call in the same hour is
- * a `'duplicate'` and a clean 200.
+ * Two GLOBAL jobs are deduped on the UTC hour — `host_sync:<hour>` and
+ * `webhook_sweep:<hour>` — plus one `attendance_reconcile` candidate job per ended
+ * occurrence without a complete report batch. Candidate keys include occurrence UUID
+ * and hour. Against the UNIQUE index that means the same pass enqueues each exactly
+ * once even if Vercel double-fires or an operator calls the endpoint again; the next
+ * hour may retry a still-unresolved candidate.
  *
  * The hour is taken in UTC, deliberately: the key must be stable regardless of the
  * invoking region's local time, and America/Santiago's DST transitions would
@@ -24,8 +25,8 @@
  *
  * ## What is deliberately NOT here yet
  *
- * The §8/§9 drift checks land in later chunks and each becomes another enqueue in
- * `planReconcileJobs()` below:
+ * The remaining §8/§9 drift checks land in later chunks and each becomes another
+ * enqueue in `planReconcileJobs()` below:
  *
  *  - **Stalled lifecycle** (§8): `zoom_meetings` rows still `provisioned` well past
  *    `ends_at`, i.e. a `meeting.ended` webhook that never arrived.
@@ -41,6 +42,11 @@ import {
   isAllowedCronMethod,
 } from '../../../lib/zoom/cron-auth';
 import { defaultZoomJobQueue, type ZoomJobQueue } from '../../../lib/zoom/jobs/queue';
+import {
+  defaultZoomAttendanceReportStore,
+  type ReconcileCandidate,
+  type ZoomAttendanceReportStore,
+} from '../../../lib/zoom/attendance-report-store';
 import type { ZoomJobInsert } from '../../../lib/zoom/db-types';
 
 /** `2026-07-30T12` — UTC hour, the dedupe granularity of an hourly reconcile. */
@@ -49,11 +55,29 @@ export function utcHourKey(nowMs: number): string {
 }
 
 /**
- * The jobs one reconcile pass wants enqueued. A pure function of the clock today;
- * future drift checks will make it a function of the database too, at which point it
- * takes the service client as an argument and the route stays exactly as it is.
+ * How far back the attendance reconcile looks for ended-but-uncaptured occurrences.
+ * Zoom retains reports for months; the window bounds how long a permanently-failing
+ * report keeps re-enqueueing (hourly, visibly, via rejected batches) before going
+ * quiet. Dead-lettered jobs stay on the §18 panel regardless.
  */
-export function planReconcileJobs(nowMs: number): ZoomJobInsert[] {
+export const ATTENDANCE_RECONCILE_WINDOW_DAYS = 7;
+/** Occurrences per pass — a backlog beyond this is picked up next hour. */
+export const ATTENDANCE_RECONCILE_MAX_CANDIDATES = 50;
+
+/**
+ * The jobs one reconcile pass wants enqueued. Still a pure function: the DB read the
+ * attendance candidates need happens in the route, which hands the result in — so
+ * this stays unit-testable as plain data in, plain data out.
+ *
+ * The attendance dedupe key is per occurrence AND per hour: per occurrence so a
+ * double-fired cron enqueues each occurrence once, per hour so an occurrence whose
+ * candidates keep getting REJECTED (a §15.3.9 outcome, not a job crash) is retried
+ * on the next pass rather than never again.
+ */
+export function planReconcileJobs(
+  nowMs: number,
+  attendanceCandidates: ReconcileCandidate[] = []
+): ZoomJobInsert[] {
   const hour = utcHourKey(nowMs);
   return [
     {
@@ -66,6 +90,17 @@ export function planReconcileJobs(nowMs: number): ZoomJobInsert[] {
       payload: { source: 'reconcile' },
       dedupe_key: `webhook_sweep:${hour}`,
     },
+    // Z7-3: the authoritative participant-report capture, one job per ended
+    // occurrence that has no COMPLETE batch yet.
+    ...attendanceCandidates.map((candidate) => ({
+      job_type: 'attendance_reconcile',
+      payload: {
+        source: 'reconcile',
+        meeting_id: candidate.meetingId,
+        occurrence_uuid: candidate.zoomMeetingUuid,
+      },
+      dedupe_key: `attendance_reconcile:${candidate.zoomMeetingUuid}:${hour}`,
+    })),
     // Future: stalled-lifecycle, settings-drift and recording-sweep jobs. See the
     // module header for what each one is waiting on.
   ];
@@ -73,6 +108,7 @@ export function planReconcileJobs(nowMs: number): ZoomJobInsert[] {
 
 export interface ZoomReconcileHandlerDeps {
   queue?: ZoomJobQueue;
+  reportStore?: ZoomAttendanceReportStore;
   env?: NodeJS.ProcessEnv;
   now?: () => number;
 }
@@ -99,8 +135,16 @@ export async function handleZoomReconcile(
 
   try {
     const queue = deps.queue ?? defaultZoomJobQueue(env);
+    const reportStore = deps.reportStore ?? defaultZoomAttendanceReportStore(env);
+    const windowStart = new Date(
+      now() - ATTENDANCE_RECONCILE_WINDOW_DAYS * 24 * 60 * 60 * 1000
+    ).toISOString();
+    const candidates = await reportStore.listReconcileCandidates(
+      windowStart,
+      ATTENDANCE_RECONCILE_MAX_CANDIDATES
+    );
     let enqueued = 0;
-    for (const job of planReconcileJobs(now())) {
+    for (const job of planReconcileJobs(now(), candidates)) {
       const outcome = await queue.enqueue(job);
       if (outcome === 'enqueued') enqueued += 1;
     }

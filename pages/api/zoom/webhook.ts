@@ -51,10 +51,11 @@
  *
  * ## Scope (§15, Z1b-3)
  *
- * Rows-only lifecycle. `meeting.started` / `meeting.ended` move
- * `zoom_internal.zoom_meetings.status`; every other event type is recorded and
- * nothing else. Recording and participant handling arrive in Z4/Z7, and **nothing
- * here enqueues a job** — the queue is driven by the ticker and the reconciler.
+ * `meeting.started` / `meeting.ended` move the meeting lifecycle and projection.
+ * `meeting.participant_joined` / `meeting.participant_left` apply provisional
+ * attendance intervals through the Z7 participant lifecycle. Other verified event
+ * types are ledger-only here (recording handling arrives in Z4). This route enqueues
+ * no jobs; authoritative report candidates are planned by the reconciler.
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
 import {
@@ -71,6 +72,14 @@ import {
   applyWebhookLifecycle,
   readOccurrenceUuid,
 } from '../../../lib/zoom/webhook-lifecycle';
+import {
+  applyParticipantEvent,
+  isParticipantEventType,
+} from '../../../lib/zoom/participant-lifecycle';
+import {
+  defaultZoomAttendanceStore,
+  type ZoomAttendanceStore,
+} from '../../../lib/zoom/attendance-store';
 
 /** Raw stream, not a parsed object. See the module header. */
 export const config = {
@@ -93,11 +102,22 @@ const BODY_TOO_LARGE = Symbol('body_too_large');
 /** Shape of the slice of a Zoom event body this route reads. */
 interface ZoomWebhookBody {
   event?: unknown;
+  /**
+   * Zoom's own delivery timestamp, in MILLISECONDS — the `x-zm-request-timestamp`
+   * HEADER is in seconds, and the two are never interchangeable (Z0B finding). Only
+   * the body value reaches the lifecycle, as the fallback for a missing
+   * `start_time`/`end_time`.
+   */
+  event_ts?: unknown;
   payload?: {
     plainToken?: unknown;
     object?: {
       id?: unknown;
       uuid?: unknown;
+      start_time?: unknown;
+      end_time?: unknown;
+      /** Z7-2: present on participant events only. */
+      participant?: unknown;
     };
   };
 }
@@ -192,6 +212,13 @@ function discardRequestAfterResponse(req: NextApiRequest, res: NextApiResponse):
 
 export interface ZoomWebhookHandlerDeps {
   store?: ZoomWebhookStore;
+  /**
+   * Z7-2. Separate from `store` because the participant path must not be able to move a
+   * meeting's status (§9 EXCLUDE / [R2]) — see `lib/zoom/attendance-store.ts`. Built
+   * lazily and ONLY inside the participant branch, so a suite that injects `store`
+   * alone is never asked for Supabase env it does not have.
+   */
+  attendanceStore?: ZoomAttendanceStore;
   env?: NodeJS.ProcessEnv;
   now?: () => number;
 }
@@ -303,7 +330,19 @@ export async function handleZoomWebhook(
       // Recorded but never applied — the first delivery died mid-flight. Finish it.
     }
 
-    await applyWebhookLifecycle(store, eventType, object);
+    // Two appliers, one dispatch. A participant event moves no status, so it goes to the
+    // store that cannot move one — the separation is the enforcement ([R1]/[R2]).
+    if (isParticipantEventType(eventType)) {
+      await applyParticipantEvent(
+        deps.attendanceStore ?? defaultZoomAttendanceStore(env),
+        eventType,
+        object,
+        body.event_ts,
+        verification.dedupeKey
+      );
+    } else {
+      await applyWebhookLifecycle(store, eventType, object, body.event_ts);
+    }
     await store.markProcessed(verification.dedupeKey, new Date(now()).toISOString());
   } catch (error) {
     // Zoom retries any non-2xx; the dedupe ledger absorbs the replayed body and the

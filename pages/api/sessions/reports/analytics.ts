@@ -104,6 +104,8 @@ interface LedgerHoursRow {
   session_id: string;
   status: string;
   hours: number | null;
+  /** §11 admin override (Z7-4); NULL = no override, `hours` governs. */
+  effective_minutes: number | null;
 }
 
 interface AttendeeRow {
@@ -310,7 +312,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // `actual_duration_minutes` only ever approximated (Zoom plan §11).
       serviceClient
         .from('contract_hours_ledger')
-        .select('session_id, status, hours')
+        .select('session_id, status, hours, effective_minutes')
         .in('session_id', allSessionIds),
     ]);
 

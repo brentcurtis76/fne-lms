@@ -37,6 +37,7 @@ vi.mock('../../../lib/utils/facilitator-validation', () => ({
 
 vi.mock('../../../lib/services/hour-tracking', () => ({
   createReservation: mockCreateReservation,
+  HOUR_AVAILABILITY_ERROR_ES: 'No se pudo verificar la disponibilidad de horas.',
 }));
 
 // The ONLY faked seam. `provisioning-intent` builds the queue through this factory.

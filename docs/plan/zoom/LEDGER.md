@@ -1259,3 +1259,892 @@ The ledger has carried *"`20260803170000_add_email_marketing_tables` is STILL un
 | Pre-Zoom `PROJECT_STATE` cleanup | No. Tidiness |
 
 **Neither of the top two is a Zoom item and neither has a plan. They are recorded here because this is where they were surfaced — they need owners.**
+
+## 🟢 **PHASE Z7 — Attendance + hours comparison + override UI · OPENED 2026-08-11. First FNE phase under the lean overlay.**
+
+**PM boot `/pm-boot ZOOM Z7`.** `~/.claude/agent-workflow/LEAN-WORKFLOW.md` is **ACTIVE** — the
+registry maps `/Users/brentcurtis/dev/fne-lms/.git` to *canonical SOP + lean overlay*, and the
+common-directory check confirms every worktree of this repo is in scope. `docs/plan/AGENT-WORKFLOW.md`
+in this tree is historical, not the source of truth.
+
+**Z7 was chosen because it is the only phase whose gates are all clear**, re-checked at this boot
+rather than carried from the 2026-08-08 entry that first said so: Z2 ✅ DONE (`34ea4cb6`), the
+**customerKey verdict PASSED definitively** in Z0B-2, and Z3 (desktop) ✅ DONE (`9972093d`) though
+Z7 never depended on it. Z3b is unplanned; Z4 is held by the owner decision behind G1/G2's failure;
+Z6 is held by the license-inventory decision. `PROJECT_STATE.md` line 30 agrees: **no Zoom phase
+was open.**
+
+**Branch `feat/zoom-hours` cut from `main` @ `43999499`, worktree `/Users/brentcurtis/dev/wt/zoom-hours`.**
+`/Users/brentcurtis/dev/wt/zoom-embed` is deliberately untouched — it is Z3b's starting point and
+holds the 11 `[Z3b, PARKED]` tests.
+
+### **The phase contract is now self-contained — `PLAN.md` §15.3.**
+
+Per overlay §3 the dispatched phase must stand on its own with evidence attached to every factual
+claim. §15.3 carries the falsification table, the five-chunk decomposition, out-of-scope, the
+phase-level criteria, blind spots, rollback and two Decision Log entries. §11 and the §15 row stay
+normative; §15.3 resolves them against the tree as it actually is. **Future phases were left as
+outlines.**
+
+### **🔴 The falsification pass REFUTED one plan claim, and it is a real gap.**
+
+**§11 quantity (3) — *"Zoom meeting elapsed — `zoom_meetings` started/ended webhook instants"* —
+has nowhere to live.** `grep -n "started_at\|ended_at\|occurred_at\|event_ts"` over
+`20260729120100_zoom_internal_tables.sql` and `lib/zoom/webhook-store.ts` returns **zero** instant
+columns: `zoom_meetings` carries `starts_at`, `duration_minutes` and the generated `ends_at`, all
+**planned** values, plus `status`. The lifecycle moves the status and captures the occurrence uuid;
+it records no time. **So the comparison panel's "Zoom" column had no source.**
+
+**Ruling: two additive nullable `timestamptz` columns (`actual_started_at`, `actual_ended_at`) on
+`zoom_internal.zoom_meetings`, written by the existing guarded lifecycle transition.** The
+alternative — recovering the instants from `zoom_webhook_events.raw_payload` — is **not
+available**: §6 nulls `raw_payload` at 30 days, so the panel would silently lose its Zoom column
+for any session older than a month. Recorded as a Decision Log entry in §15.3.7 rather than left
+as an executor discovery.
+
+**The other eight claims were supported, each with the command and the file:line in §15.3.1** —
+including the two that decide the phase's shape: `billable-hours.ts` carries an explicit
+`// ── SEAM: Z7-EFFECTIVE-MINUTES ──` block naming the exact line Z7 changes, and the signed
+participant fixtures (`meeting-participant_joined.json`, `…_left.json`) already exist from Z0B
+while `webhook-lifecycle.ts:17` still handles only `meeting.started`/`meeting.ended`.
+
+### **⚠️ FINDING, outside Z7 and worth more than Z7's own boot: `npm test` in the base checkout is GREEN while silently skipping 51 files.**
+
+Measured, not inferred. In `/Users/brentcurtis/dev/fne-lms`:
+
+```
+npm test  →  Test Files 254 passed (254) · Tests 6575 passed (6575) · EXIT 0
+             Duration ... environment 0ms
+```
+
+**304 `*.test.ts(x)` files exist on disk and match the config's include/exclude.** The 51 that did
+not run are exactly the jsdom ones — every `JoinMeetingButton.*`, every `lib/meet/*`, every
+component and page suite. `npx vitest run __tests__/lib/meet/embed-capabilities.test.ts` reports
+**"no tests"** and exits **0**.
+
+**Root cause, reproduced directly:** `node -e "require('jsdom')"` throws in that checkout, with a
+`requireStack` running `jsdom/lib/jsdom/utils.js → canvas/index.js → canvas/lib/bindings.js` — the
+**`canvas` native binding fails to load**, jsdom cannot initialise, and Vitest 0.34 drops every
+jsdom file **without a warning and without a non-zero exit**. The same file in
+`/Users/brentcurtis/dev/wt/zoom-embed`, which has its own `node_modules`, runs **30 tests green**
+with `environment 444ms`.
+
+**Consequence for the pilot's own paperwork:** `docs/plan/SOP-PILOT.md`'s *Starting gate baseline*
+records *"6,575 unit tests"* passing at `43999499` as the verified FNE baseline. **That is the
+broken run.** The true baseline at this base is the ~305-file / ~7,059-test figure the test-leak
+round and Sol both measured two days earlier. **A Z7 executor handed 6,575 would have measured
+against a number 51 files short and reported a green gate that never ran the component suites.**
+
+**Fix is Brent's to run in the base checkout, not the PM's:** `npm rebuild canvas` (or `npm ci`).
+**Required of the Z7 executor either way:** prove jsdom initialises in its own worktree *before*
+trusting any `npm test` number — the prompt makes it criterion `[A0]`.
+
+**This is the second time in four days that this repo's Vitest gate has been green by accident**
+(the first was the cross-file mock leak, green by byte-count ordering). Same class, different
+mechanism: **a Vitest gate that cannot fail loudly is not a gate.** No owner, recorded here.
+
+### **Chunking ruled: five chunks, one branch, ONE durable executor conversation.**
+
+§15 prices Z7 at 6–8 agent-days and SOP §1.3 caps a chunk at ~10 files / ~600 net lines, so the
+phase cannot be one session — but under overlay §4.2 the **conversation**, not the chunk, is the
+unit, and it stays open through Codex remediation. Z7-1 schema + actual instants · Z7-2 participant
+ingestion + identity matching + interval merge · Z7-3 report reconciliation · Z7-4 override
+machinery · Z7-5 admin + facilitator surfaces. Full scopes in §15.3.2.
+
+**Dispatched: Z7-1, prompt at `docs/plan/zoom/prompts/Z7-r1.md`, committed to this branch.**
+
+```text
+STARTED: 2026-08-11T21:20:00-03:00
+ATTEMPT: 1 (cumulative for Z7; re-planning never resets it)
+RISK: HIGH — migrations, new RLS surface, attendance PII, and the path that decides billing
+HANDOFFS: 1 (PM → executor)
+GATES: not yet run — dispatch
+CODEX: pending
+ESCAPED DEFECT: n/a
+```
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-1 · r1 | Z7 | `feat/zoom-hours` | — | 🔵 DISPATCHED 2026-08-11 | Base `43999499`. Contract §15.3. C6 refuted → additive `actual_started_at`/`actual_ended_at` ruled by the PM, not left to the executor. `[A0]` requires jsdom to be proven working before any `npm test` count is reported — the base checkout's suite is green while skipping 51 files. |
+
+### **Z7-1 · attempt 1 — executor report returned 2026-08-11. Candidate at `0e29d53b`, awaiting Codex.**
+
+Per the r1 prompt §11.2 this metrics block is written by the executor; the rest of this
+ledger stays PM-maintained.
+
+```text
+STARTED: 2026-08-11T22:04:47Z
+ENDED:   2026-08-11T22:30:15Z
+ATTEMPT: 1 (cumulative for Z7)
+RISK: HIGH
+HANDOFFS: 1 (PM → executor)
+GATES: npm run type-check PASS · npm run lint PASS · npm test PASS (306 files / 7069
+       passed, 11 skipped) · npm run build PASS · npm run test:db PASS (11 files /
+       517 tests) — all five re-run at HEAD 0e29d53b, none piped through tail
+CODEX: pending
+ESCAPED DEFECT: n/a
+```
+
+**`[A0]` settled the ledger's own open finding, in this worktree.** After `npm ci`,
+`node -e "require('jsdom')"` initialises and
+`npx vitest run __tests__/lib/meet/embed-capabilities.test.ts` reports **30 passed** with
+`environment 119ms`. The full-suite baseline measured here before any Z7 change is
+**305 files / 7059 passed, 11 skipped (7070), `environment 242ms`** — the ~305/~7059
+figure this ledger predicted, not `SOP-PILOT.md`'s 6,575. **The base checkout
+`/Users/brentcurtis/dev/fne-lms` still needs `npm rebuild canvas`; nothing in this
+chunk touches it.**
+
+**The C6 amendment landed as ruled, with one mechanism the PM did not specify.**
+`actual_started_at` / `actual_ended_at` are additive and nullable, written by the
+existing guarded transition — but the COALESCE is a `BEFORE UPDATE` trigger rather than
+the UPDATE's SET list, because the writer is PostgREST and PostgREST sends literal
+values. It fires inside the same statement, so the ordering property is the one asked
+for. **Consequence, flagged rather than buried: the two columns are now write-once for
+every writer, so §11's "(reconcile-corrected)" needs an explicit path in Z7-3.**
+
+**Fail-on-old, both probes reverted and re-proved by hash.** Dropping the COALESCE on
+`actual_started_at` fails pgTAP 48 and 51 (`have: 2001-01-01`, `want: 2026-07-29
+23:55:56`), exit 1. Widening the facilitator predicate from `session_facilitators` to
+school scope fails pgTAP 24 and 25 (`have: 2 / 1`, `want: 0`), exit 1.
+
+**`[A7]` is PARTIAL and the executor says so rather than claiming it.** Two
+`toHaveBeenCalledWith` assertions in `__tests__/api/zoom/webhook.test.ts` pin the exact
+argument list of `setMeetingStatus`, which this chunk widens by one argument; the value
+is non-`undefined` in both, so they could not pass unedited. They were strengthened (the
+instants are now pinned end-to-end through the real route), not loosened. No other
+existing test was touched.
+
+**Three items the executor left open, all in the safe direction:** community-meeting
+attendance is admin-only until a `community_meetings.facilitator_id` policy lands
+(Z7-5); an `equipo_interno` facilitator with no consultor role at that school is
+covered by no fixture; and `meeting.ended` carries `start_time` that is deliberately
+not read, so the out-of-order case leaves `actual_started_at` NULL.
+
+Review request: `docs/plan/zoom/reviews/fase-7-review-request.md`.
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-1 · r1 | Z7 | `feat/zoom-hours` | `0e29d53b` | 🟡 CANDIDATE 2026-08-11 — awaiting Codex | 5/5 gates green at `0e29d53b`. Baseline corrected to 305 files / 7059 tests. `[A7]` partial (2 assertions widened, documented). Open: reconcile correction of `actual_*` blocked by the write-once trigger; community-meeting facilitator policy deferred to Z7-5. |
+
+### **Z7-1 · attempt 2 — Brent's remediation directive, applied 2026-08-12. Awaiting Codex.**
+
+Not a Codex verdict: Brent directed three fixes after reading attempt 1's self-report,
+which had nominated the first two as the diff's weakest points. Counted as cumulative
+attempt 2 in the same executor conversation (overlay §4.2).
+
+```text
+STARTED: 2026-08-12T12:44:00Z
+ENDED:   2026-08-12T13:06:44Z
+ATTEMPT: 2 (cumulative for Z7)
+RISK: HIGH
+HANDOFFS: 1 (Brent → executor, same conversation)
+GATES: npm run type-check PASS · npm run lint PASS · npm test PASS (306 files / 7074
+       passed, 11 skipped) · npm run build PASS · supabase db reset + npm run test:db
+       PASS (11 files / 537 tests) — none piped through tail
+CODEX: pending
+ESCAPED DEFECT: n/a
+```
+
+**① The inline facilitator predicate was a real defect, not just an untested blind
+spot.** An RLS policy's subquery is subject to the referenced table's RLS, and
+`session_facilitators` only carries `facilitators_consultor_select` (which requires
+`ur.school_id = cs.school_id`). So a facilitator who is `equipo_interno`, or a consultor
+whose `user_roles.school_id` is NULL, **could not read their own facilitator row and saw
+no attendance for a session they run.** Replaced by
+`public.is_zoom_surface_facilitator(text, uuid)` — SECURITY DEFINER, STABLE,
+`SET search_path = ''`, `auth.uid()` read inside, EXECUTE revoked from PUBLIC/anon and
+granted to `authenticated` only. Its second branch covers `community_meeting` via
+`community_meetings.facilitator_id`, closing the admin-only gap attempt 1 deferred to
+Z7-5. New pgTAP personas: a globally scoped consultor facilitator, a named
+community-meeting facilitator, and a **consultor_session and community_meeting sharing
+one uuid** — the fixture that makes `surface_type` load-bearing rather than decorative.
+
+**② The write-once trigger is gone.** It applied COALESCE to every writer, which would
+have walled off §11's "(reconcile-corrected)" for Z7-3. Replaced by
+`zoom_internal.apply_meeting_lifecycle` — one atomic guarded statement, SECURITY
+INVOKER, EXECUTE service_role only. Fill-while-NULL is now scoped to the replay-prone
+webhook path, and a plain service-role UPDATE still corrects either column. **The
+applies-from set moved from SQL into a parameter** so `lib/zoom/webhook-store.ts` stays
+the single definition of the monotonicity rule — this repo already carries one drift
+warning about SQL twins of that rule and a third copy was not worth it.
+
+**③ `meeting.ended` now supplies `actual_started_at` as well**, so the out-of-order pair
+records BOTH instants instead of leaving the start NULL forever. The `event_ts` fallback
+is deliberately asymmetric on that branch: it may back `end_time`, never `start_time`,
+because the ended event is delivered when the meeting finished. The out-of-order test no
+longer expects NULL — it asserts both exact fixture instants, in Vitest and against a
+real database.
+
+**Fail-on-old, three probes, all reverted and re-proved by hash.** (i) Dropping SECURITY
+DEFINER → 51/71 fail; the error is instructive — as INVOKER the predicate evaluates
+`community_meetings`' RLS, whose `has_global_workspace_access` reads `user_roles`
+unqualified and breaks under `search_path = ''`. (ii) Ignoring `surface_type` → tests
+26–29 and 45 fail (the uuid collision, both directions). (iii) Dropping the COALESCE →
+test 66 fails.
+
+**One behaviour change worth flagging to whoever reads this next: `anon` now gets 42501
+from `zoom_attendance` rather than an empty set**, because the predicate is not
+executable by anon. Stricter, asserted, and different from every other table here.
+
+**`[A7]` is still PARTIAL and got wider.** Attempt 2 also rewrote the `setMeetingStatus`
+wire assertions in `__tests__/lib/zoom/webhook-store.test.ts`: moving the transition onto
+an RPC changes the wire contract that file exists to pin. Same sets, still pinned
+literally, nothing weakened. Three existing test files edited in total.
+
+**Both migrations were amended in place** rather than superseded — unapplied everywhere,
+branch unmerged, and a follow-up would have had to DROP a policy and a trigger. Flagged
+for the reviewer to overrule if the convention is append-only pre-merge.
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-1 · r1 a2 | Z7 | `feat/zoom-hours` | `0e29d53b` + remediation | 🟡 CANDIDATE 2026-08-12 — awaiting Codex | 5/5 gates green. pgTAP 71 asserts in 011 (537 total). Facilitator predicate now SECURITY DEFINER covering both surfaces; lifecycle RPC replaces the trigger; correction path for Z7-3 proved open. Open: anon now errors instead of reading empty; applies-from set is caller-supplied. |
+
+### **Z7-1 · ✅ APPROVED 2026-08-12 at `e5b5a26d` — Codex `PASS`, no blocking defects.**
+
+Chunk close only. **Z7 is NOT done — Z7-2 … Z7-5 remain.** Verdict saved to
+`docs/plan/zoom/reviews/fase-7-review-verdict.md`; the PM's close record is `PLAN.md`
+§15.3.8 (`ac573883`).
+
+**Provenance caveat, recorded rather than smoothed over:** the reviewer's verbatim message
+was not supplied to the executor. The verdict file is a faithful record of the verdict as
+relayed by Brent and cross-checked against §15.3.8, and it says so at the top. Replace its
+Verdict/Rulings sections with the raw Codex output if that output is still available.
+
+**Gate figures below are THE REVIEWER'S OWN measurements, independently re-run** — not the
+executor's restated:
+
+```text
+type-check PASS · lint PASS (zero warnings)
+npm test    306 files / 7,074 passed + 11 skipped · jsdom environment 205 ms
+build       PASS, 156 static pages
+supabase db reset  clean
+npm run test:db    537 tests / 11 files
+sealed surfaces confirmed untouched: tests/e2e/, Z3b, billing ledger, override files
+```
+
+**Two reviewer probes went past the executor's three, and the second one matters.** The
+surface-type mutation failed exactly tests 26–29 and 45, reproducing the executor's
+measurement independently. Then the reviewer **repaired** the executor's INVOKER probe —
+which had produced 51/71 failures by way of the incidental `has_global_workspace_access`
+error, and which the executor had itself flagged as possibly proving "the function breaks"
+rather than "the persona is denied". Retaining a usable search path, the repaired probe
+failed **only** the globally-scoped facilitator test and the explicit `SECURITY DEFINER`
+assertion. **That is what makes the definer predicate load-bearing rather than
+incidentally load-bearing** — the executor's weakest self-evidence was replaced with a
+stronger measurement.
+
+**Every ruling the executor asked to be weighed was upheld:** `[A7]` partial accepted;
+both migrations amended in place accepted while unmerged and unapplied; `anon` returning
+42501 accepted as the intended stricter posture; the caller-supplied applies-from set
+accepted with the wire assertions as sufficient protection; no named correction RPC
+accepted, leaving the semantics to Z7-3.
+
+**Two non-blocking items, each with the PM's assigned state (§15.3.8) — not a backlog:**
+
+| # | Item | State |
+|---|---|---|
+| 1 | `readLifecycleInstant` accepts any safe integer as an epoch (header seconds → 1970; `MAX_SAFE_INTEGER` → `RangeError`). Unreachable today | **(b) assigned to Z7-2**, criterion `[B1]` |
+| 2 | `public.has_global_workspace_access` (`00000000000000_baseline.sql:3987`) — SECURITY DEFINER, unqualified `user_roles`, no fixed `search_path` | **NO STATE YET — needs an owner (Brent).** Pre-existing, repo-wide, **Z7 does not close over it**; carried forward untouched and named in Z7-2's out-of-scope list |
+
+**Still not established by this PASS:** anything about deployment. Both migrations are
+unapplied in production and §0.1(d) keeps the phase open until Brent applies them and the
+schema is verified read-only.
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-1 · r1 | Z7 | `feat/zoom-hours` | `0e29d53b`, `c2cf4ed2`, `e5b5a26d` | ✅ **APPROVED 2026-08-12** | Codex `PASS` on `43999499..e5b5a26d`, no blocking defects. Reviewer's own gates: 306/7,074 + 11 skipped (env 205 ms), build 156 pages, test:db 537/11. Two carried items: `[B1]` → Z7-2; `has_global_workspace_access` → needs an owner, not Z7's. |
+
+### **Z7-2 · attempt 2 — participant ingestion. Candidate awaiting Codex on the cumulative diff.**
+
+Same durable executor conversation, same branch. Attempt numbering is cumulative for the
+phase (overlay §4.2) and Z7-2 is the second unit of work inside attempt 2 — Z7-1's
+remediation was the first. **Z7 remains open: Z7-3 … Z7-5 follow.**
+
+```text
+STARTED: 2026-08-12T13:58:57Z
+ENDED:   2026-08-12T14:19:47Z
+ATTEMPT: 2 (cumulative for Z7)
+RISK: HIGH
+HANDOFFS: 1 (Brent → executor, same conversation)
+GATES: npm run type-check PASS · npm run lint PASS · npm test PASS (309 files / 7,145
+       passed, 11 skipped) · npm run build PASS · supabase db reset + npm run test:db
+       PASS (11 files / 549 tests; 011 now plans 83) — none piped through tail
+CODEX: pending
+ESCAPED DEFECT: n/a
+```
+
+**Two pure modules, which is the whole shape of the chunk.**
+`lib/zoom/attendance-identity.ts` owns the fixed hierarchy (`customer_key` → `email` →
+`display_name` → `unmatched`) and `lib/zoom/attendance-intervals.ts` owns the arithmetic,
+so §11's *"reconnect intervals don't double-count"* is a unit test over 19 interval cases
+rather than an integration guess. `participant.user_id` is read nowhere and has no
+parameter — Z0B's recorded per-occurrence trap.
+
+**`[B1]` closed the carried Z7-1 item ①.** `readLifecycleInstant` now bounds instants to a
+2000–2100 epoch band. Both reviewer probes are named test cases: header **seconds**
+`1785368934` (which used to become `1970-01-21T15:56:08.934Z`, silently, as a fact about a
+2026 meeting) and `Number.MAX_SAFE_INTEGER` (which used to throw `RangeError` out of the
+webhook route, i.e. a 500 and Zoom retrying a malformed body forever). The band is applied
+to the ISO path too, since `Date.parse` happily accepts year 275760.
+
+**Item ② `has_global_workspace_access` was NOT touched.** Still unowned, still
+pre-existing, named in Z7-2's out-of-scope list so no executor "fixes it while in there".
+
+**Fail-on-old, both probes reverted and re-proved by hash.** (i) Letting the matcher accept
+`""` fails 6 tests including both `[B5]` cases — the guest capture has FOUR empty-string
+fields and a matcher that takes them matches every anonymous guest to one phantom person.
+(ii) Dropping `UNIQUE` from the partial index fails pgTAP 75–76 (`caught: no exception /
+wanted: 23505`).
+
+**Three judgment calls the executor flagged rather than buried, for the reviewer to rule
+on:**
+
+1. **`participant_uuid` pairing stability stays UNVERIFIED and no `FINDINGS` was raised.**
+   The two committed captures are DIFFERENT PEOPLE, so they are not a joined→left pair and
+   cannot settle it. [R3] pre-authorised building both paths and reserved `FINDINGS` for a
+   contradiction; there is no evidence either way, which is not the same thing. Both paths
+   are built and tested.
+2. **The uuid-less dedupe is applier-side only** — "same identity + identical `joined_at`
+   on an open interval", i.e. a read-then-write that two concurrent deliveries could lose.
+   Accepted because a TOTAL unique index would collapse every anonymous guest of one
+   occurrence into a single interval, a worse and permanent error.
+3. **E-mail matching is a repo-wide `profiles` lookup.** [R6] scoped only NAME matching to
+   the expected attendees; an e-mail is unique and identifying, so a consultant from
+   another school is still the right person. That is the executor's reading of a rule that
+   spoke about names.
+
+**Two existing route tests changed subject.** They drove the participant fixture and
+asserted *"Z1b-3 does not look up meetings for events it does not apply"* — a comment that
+named Z7 as the future owner. They now inject an attendance double and assert the dispatch
+plus the unchanged `[B8]` claim. Without the injection the route builds the real
+Supabase-backed store and answers 500, so the edit was forced by behaviour.
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-2 · r2 | Z7 | `feat/zoom-hours` | this commit | 🟡 CANDIDATE 2026-08-12 — awaiting Codex on `43999499..<head>` | 5/5 gates green. 309 files / 7,145 tests; pgTAP 549 (011 plans 83). New: `participant_uuid` + partial unique index + interval-order CHECK; two pure modules; one applier called by BOTH route and sweep. `[B1]` closed. Open for the reviewer: uuid pairing unverified, uuid-less dedupe is a read-then-write, e-mail matching is repo-wide. |
+
+### **Z7-2 · attempt 3 — Codex `FAIL` (2 × P1) remediated. Awaiting re-review.**
+
+First Codex `FAIL` of the phase. Cumulative attempt 3; same executor conversation, same
+branch (overlay §4.2). **Both defects accepted without argument, and neither was one of
+the three judgment calls the executor had flagged** — they were in code it had reported as
+met.
+
+```text
+STARTED: 2026-08-12T18:45:00Z
+ENDED:   2026-08-12T19:08:24Z
+ATTEMPT: 3 (cumulative for Z7)
+RISK: HIGH
+HANDOFFS: 1 (Codex → Brent → executor, same conversation)
+GATES: type-check PASS · lint PASS · npm test PASS (310 files / 7,161 passed, 11 skipped)
+       · build PASS · supabase db reset + test:db PASS (11 files / 557; 011 plans 91)
+CODEX: FAIL(2) on 43999499..6177ad5e → remediated, re-review pending
+ESCAPED DEFECT: none (both caught before any close)
+```
+
+**P1-1 — the uuid-less fallback could close the WRONG participant's interval.**
+`identityToken()` picked one key in priority order but `identityFilter()` OR-ed every
+identity column, so two uuid-less participants sharing a display name both matched a leave
+and the latest-joined was closed. Fixed exactly as Codex specified: the normalised token
+is persisted as `identity_token` and queried by **exact equality**. `identityFilter` is
+deleted and the structural client type no longer has an `or(...)` member — the widened
+query is now unexpressible, not merely unused.
+
+**P1-2 — concurrent uuid-less redeliveries bypassed `[B3]`.** The dedupe was a
+read-then-insert with no database constraint behind it (the partial index excludes
+`participant_uuid IS NULL`). Codex's barrier probe produced two `interval_opened` outcomes
+and two rows. Fixed with `source_event_key` — the ledger's `sha256(raw body)` — under a
+partial UNIQUE index, so a redelivery is refused inside Postgres regardless of
+interleaving. The read-then-insert is deleted.
+
+**🔴 The finding under the findings, and it is the one worth carrying forward: the
+executor had no test of the real store's query.** The applier suite drives a double, and
+that double returned every uuid-less open row without checking identity — so P1-1 lived
+in code whose own suite was green. **Proved rather than assumed:** a probe re-pointing the
+real `listOpenIntervals` at `display_name` PASSED the entire applier suite, exit 0.
+`__tests__/lib/zoom/attendance-store.test.ts` now supplies the missing half (real
+supabase-js over an intercepted fetch, filters read off the wire) and the same probe fails.
+**This is the second store in `lib/zoom/` and the pattern already existed** —
+`webhook-store.test.ts` was written for exactly this reason after Sol F1. It should have
+been written with the store, not after a reviewer found the defect it was there to catch.
+
+**Codex's non-blocking rulings, all actioned rather than noted:** `profiles.email` is not
+database-unique, so the executor's "unique and identifying" rationale was overstated and
+`.maybeSingle()` fails closed by THROWING — a 500 out of the webhook route and a Zoom
+retry loop. Changed to `.limit(2)` with two-rows ⇒ unmatched, the same ambiguity rule the
+name branch uses. Zoom's schema documents `participant_uuid` on both events, assigned at
+join and valid for that meeting, but does not guarantee persistence across a rejoin — a
+recorded validation gap, not a `FINDINGS`. Zero-for-open-intervals stands **conditionally:
+Z7-5 must render the open state rather than present that value as final presence** — now
+an explicit Z7-5 precondition.
+
+**Fail-on-old, both probes aimed at the fixed defects, reverted and re-proved by hash.**
+P1-1: pairing on `display_name` again fails the new wire test, exit 1. P1-2: not
+persisting the delivery key fails 5 tests including the concurrent barrier test and both
+callers' key-propagation assertions, exit 1.
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-2 · r2 a3 | Z7 | `feat/zoom-hours` | `6177ad5e` + remediation | 🟡 CANDIDATE 2026-08-12 — awaiting Codex re-review | 5/5 gates green. 310 files / 7,161 tests; pgTAP 557 (011 plans 91). Both P1s fixed at the database: exact-equality `identity_token`, partial-UNIQUE `source_event_key`. New wire-level store suite closes the evidence gap that hid P1-1. Carried to Z7-5: open intervals must render as a state, not a number. |
+
+### **Z7-2 · attempt 4 — Codex `FAIL` #2 (same category). Lean overlay §5 hypothesis change made and recorded.**
+
+**⚠️ Second consecutive `FAIL` in the identity/pairing category.** Overlay §5: *"Two
+consecutive Codex failures in the same defect category require a hypothesis change or
+phase split before more code."* Codex named the trigger explicitly and prescribed the
+change. **The hypothesis changed; this is not a re-attempt of the same one.** Recorded
+here in full because §5 requires the change to be named, and "try again" is not an override.
+
+```text
+STARTED: 2026-08-12T20:35:00Z
+ENDED:   2026-08-12T21:08:40Z
+ATTEMPT: 4 (cumulative for Z7)
+RISK: HIGH
+HANDOFFS: 1 (Codex → Brent → executor, same conversation)
+GATES: jsdom proof (30 passed, environment 241ms) · type-check PASS · lint PASS ·
+       npm test PASS (310 files / 7,168 passed, 11 skipped) · build PASS ·
+       supabase db reset + test:db PASS (11 files / 559; 011 plans 93)
+CODEX: FAIL(1 BLOCKER) on 43999499..3e852828 → hypothesis changed, re-review pending
+ESCAPED DEFECT: none (caught before any close)
+```
+
+**The defect, reproduced before it was fixed.** `identityToken()` recomputed the strongest
+token per EVENT while the row stored only that one token — and Zoom does not present the
+same fields on every event for the same person. A leave with fewer fields DOWNGRADES to a
+weaker rank belonging to someone else: A joins with `customer_key`+name "Ana" (`ck:a`), B
+joins name-only (`nm:ana`), A leaves without the key (`nm:ana`) → **the lookup returns B
+and closes B**. The executor's repro printed
+`CLOSES: [{"id":"row-2",...}]` — row-2 is B. **The review request's claim that this case
+"fails open" was wrong**: it failed onto the wrong person, the one outcome [R6] exists to
+prevent. The executor's own namesake test could not see it because it gave both
+participants a customer_key, so neither ever downgraded.
+
+**HYPOTHESIS CHANGE (the §5 requirement).**
+*Old:* one prioritised token per event is sufficient to pair a leave with its join.
+**Refuted** — the token is a property of the EVENT, not the person, and is not stable
+across events for one participant.
+*New:* **a join is findable by any evidence it actually presented; the leave still searches
+with its own strongest token only; and ambiguity is resolved by refusing to close, never by
+choosing.** Storage widens to `identity_tokens text[]` (GIN, containment lookup); the
+SEARCH key stays at the strongest rank so a strong-evidence leave is never matched by name;
+and `open.length > 1` on the fallback path closes nothing, replacing "latest wins". The
+uuid path is untouched — `participant_uuid` is unambiguous.
+
+Unresolved pairs are not lost: §11 already makes the Z7-3 reconcile report authoritative
+over webhooks, so the ambiguous case has a designated owner rather than being a silent gap.
+
+**`source_event_key` and its partial UNIQUE index were left untouched** — Codex confirmed
+that half of the remediation passed review.
+
+**Fail-on-old, both probes reverted and re-proved by hash.** (v) restoring
+single-primary-token storage fails 5 tests including the counterexample; (vi) removing the
+ambiguity guard so the fallback picks "latest" fails the Codex regression itself.
+
+**Three costs the executor states rather than discovers later:** two people presenting only
+a shared display name can never be paired at all (both intervals stay open for Z7-3); a
+person with two genuinely open intervals hits the same rule; and **this is the third
+pairing design in three attempts — if a fourth counterexample lands, the honest read is
+that webhook-only pairing cannot be made safe for uuid-less participants and pairing should
+move wholesale to Z7-3's report.** That is a phase-shape question for the PM, not another
+patch.
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-2 · r2 a4 | Z7 | `feat/zoom-hours` | `3e852828` + hypothesis change | 🟡 CANDIDATE 2026-08-12 — awaiting Codex re-review | 5/5 gates green. 310 files / 7,168 tests; pgTAP 559 (011 plans 93). §5 hypothesis change recorded: multi-rank evidence, strongest-rank search, ambiguity ⇒ no close. Open: same-name uuid-less pairs are unpairable by design; a fourth counterexample means moving pairing to Z7-3. |
+
+### **🔴 Z7-2 · attempt 4 — Codex `FINDINGS`. PHASE CONTRACT UNSATISFIABLE. Executor STOPPED; replan is the PM's.**
+
+Not a `FAIL` and not remediable by the executor. **The contract requires two different
+outcomes from observationally identical state**, so no implementation can satisfy it.
+Verdict saved to `docs/plan/zoom/reviews/fase-7-review-verdict.md` (Z7-2 section).
+
+```text
+STARTED: 2026-08-12T21:35:00Z
+ENDED:   2026-08-12T21:44:01Z
+ATTEMPT: 4 (cumulative for Z7) — verdict received, no implementation attempted
+RISK: HIGH
+HANDOFFS: 1 (Codex → Brent → executor)
+GATES: not re-run — no source change was made in response to this verdict.
+       Reviewer's independent gates at a530aafb: type-check, lint, build,
+       310 files / 7,168 passed, pgTAP 11 files / 559, worktree clean.
+CODEX: FINDINGS on 43999499..a530aafb
+ESCAPED DEFECT: none — nothing merged, nothing applied, no chunk closed
+```
+
+**The indistinguishability, reproduced by the executor before accepting the finding:**
+
+```
+H1 (B joins as Ana, B leaves as Ana)          → tokens ["nm:ana"] → CLOSES row-1
+H2 (B joins as Ana, A's join LOST, A leaves)  → tokens ["nm:ana"] → CLOSES row-1
+```
+
+Same state, same input, same output. History 2's close is wrong twice: it closes a
+stranger's interval **and** stamps B's interval with A's `leave_time`. Attempt 4's
+ambiguity guard only fires at `open.length > 1`; with exactly one homonym open it closes.
+The attempt-4 regression covered only History 1, which is why the suite was green.
+
+**The two contract lines in conflict**, both from `prompts/Z7-r2.md`:
+**[R3]** (`:87`) mandates fallback pairing on the identity token when `participant_uuid`
+is absent. **[R4]** (`:94`) mandates writing no row when a leave matches no open interval
+of its own. In the uuid-less homonym case those are the same observation.
+
+**This is the fourth counterexample against the third pairing design, and the third
+consecutive identity/pairing verdict.** The three designs were: (1) OR-ed identity
+columns, (2) a single primary token, (3) multi-rank evidence with an ambiguity guard —
+attempt 4 introduced the third, and this receipt records the counterexample that refutes it.
+The executor's attempt-4 report predicted this outcome in writing — *"if a fourth
+counterexample lands, webhook-only pairing cannot be made safe for uuid-less participants
+and pairing should move wholesale to Z7-3"* — and the reviewer reached the same conclusion
+independently and formally.
+
+**STOP RULES IN FORCE. No fourth patch cycle was started.**
+Overlay §5's same-category stop remains triggered, and the reviewer's instruction is
+explicit: *"Do not start a fourth identity-pairing patch cycle; replan the phase
+boundary."* The executor validated, recorded, and stopped. **`lib/` is untouched by this
+receipt; the only changed files are the ledger and verdict file.**
+
+**Decisions the PM/Brent must make before any further Z7-2 work** (reviewer's replan block,
+items 5 and 6 are the ones that are not code):
+
+1. Whether webhook fallback pairing is abandoned entirely — name and e-mail become
+   reconciliation evidence, never authority for a destructive close.
+2. Whether `customer_key` stays eligible for webhook closure. **That needs evidence this
+   phase does not have**: proof of its uniqueness and of its joined→left stability. Z0B
+   never captured a real joined→left pair (the two committed fixtures are different
+   people), so this may require a new capture.
+3. **How Z7-3 supersedes or merges open webhook intervals** — the Z7-2/Z7-3 boundary,
+   which has to be specified before either is implemented.
+4. Whether Z7-2 is re-scoped (ingestion without closure) or merged into Z7-3.
+
+**What survives regardless, per the reviewer:** `source_event_key` and its partial UNIQUE
+index (idempotency, already passed review), the persisted identity evidence, the
+`participant_uuid` path, the pure interval module, `[B1]`, and the whole Z7-1 chunk.
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-2 · r2 | Z7 | `feat/zoom-hours` | `a530aafb` | 🔴 **BLOCKED — CONTRACT REPLAN REQUIRED** 2026-08-12 | Codex `FINDINGS`: [R3] and [R4] are jointly unsatisfiable for uuid-less homonyms. Reproduced. Executor stopped per overlay §5 + explicit reviewer instruction. Awaiting PM decision on the Z7-2/Z7-3 boundary and on `customer_key` eligibility (needs new Zoom evidence). |
+
+### **Z7-2 · documentation receipt — Codex `PASS` at `9120bb34`. Z7-2 ITSELF REMAINS BLOCKED.**
+
+Scope of this `PASS`: the corrective commit only. **It is not a chunk close and not a
+phase close.** Z7-2's verdict is still `FINDINGS`; nothing in `lib/` has changed since
+`a530aafb`, no migration is applied, and no chunk is DONE.
+
+Verified by the reviewer: all three claims corrected faithfully · only the ledger and
+verdict file changed · application code and tests untouched since `a530aafb` · worktree
+clean · no gate rerun necessary.
+
+**Ruling recorded: `e24bf9b9` is NOT to be amended.** The corrective commit is the audit
+trail; the wrong claim in the original message stays part of the record rather than being
+rewritten out of it. The executor had offered to amend and was told not to.
+
+**Executor lesson, recorded because it caused all three defects:** every one was a claim
+about the executor's *own work* — its status, its history, its scope — asserted without
+checking, while the claims about the *code* in the same document were reproduced and
+verified. Self-description was held to a lower evidentiary standard than code description.
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-2 · docs receipt | Z7 | `feat/zoom-hours` | `9120bb34` | ✅ correction verified 2026-08-12 | Codex `PASS`, docs-only scope confirmed. **Z7-2 remains 🔴 BLOCKED under `FINDINGS`.** |
+
+## 🔧 **Z7-2 CONTRACT REPLANNED (2026-08-12). [R3] and [R4] withdrawn; the pairing rule is now `PLAN.md` §15.3.9.**
+
+PM contract-repair round on Codex's `FINDINGS`. **No application code, tests, migrations or
+production state touched.** Worktree `/Users/brentcurtis/dev/wt/zoom-hours`, branch
+`feat/zoom-hours`, base `main` @ `43999499`, clean. *(Correction to the task brief: HEAD at the
+start of this round was `9d6c2513`, not `9120bb34` — one further docs commit had landed. The
+reviewed implementation head is `a530aafb`, as stated.)*
+
+### **The replan does not pick a better heuristic. It changes what may authorise a close.**
+
+**A token may authorise webhook-time closure only if Zoom mints it (the client cannot assert
+it), it is unique to one participant-connection by construction, and it matches exactly one
+open row in the occurrence.** Everything else is reconciliation evidence — persisted, used by
+Z7-3 and by the facilitator suggestion, never sufficient for a destructive write.
+
+**Why this ends the cycle rather than continuing it:** unproven joined→left stability stops
+being a blocker. Under rule 3 an unstable token matches nothing, the row stays open, and Z7-3
+closes it — **instability degrades to no-closure, which is safe.** Closing a *stranger's*
+interval would require a value collision between two people in one occurrence, which
+construction-uniqueness forbids. The contract therefore needs no evidence the phase does not
+have, and the reviewer's item 5 is answered without a discovery task.
+
+### **`customer_key` — RECONCILIATION ONLY, and the evidence is decisive against closure.**
+
+The reviewer asked for proof of uniqueness and joined→left stability. **The available evidence
+proves the wrong half, and a second objection makes the missing half moot.**
+
+`docs/planning/zoom-spike-results.md` §6.2 measured
+`GET /report/meetings/{uuid}/participants` and found `customer_key` returned *"exact value as
+sent"* for four participants across three meetings, signed-in and signed-out. **That is a
+REPORT round-trip result, not a webhook joined→left pairing result** — the right evidence for
+*matching a row to a person*, the wrong evidence for *closing an interval*. The committed
+webhook fixtures are two different people and cannot settle pairing either.
+
+**The decisive objection is rule 1, not the evidence gap.** We mint `customer_key`
+(`pages/api/meet/session/[id]/join.ts:439`) and hand it to the browser, which passes it to Zoom
+in the SDK `join()` call. A client that substitutes another user's value joins under that
+identity and Zoom reports it faithfully. **Proving stability would not have made it eligible.**
+It stays the top rung of the §15 identity hierarchy for matching, and gains an explicit
+downstream prohibition: nothing may treat it as authenticated identity.
+
+**Same test applied to the others:** `email` is Zoom-minted but `""` for every signed-out guest
+(§6.2) — the exact population that matters; `display_name` is neither minted nor unique, and is
+the H1/H2 defect itself.
+
+### **Z7-3's semantics are now fixed, and they contain no cross-source matching at all.**
+
+**The report is authoritative wholesale, per occurrence. No row is ever matched between a
+webhook row and a report row** — cross-source matching is precisely where the
+indistinguishability would return, so the contract forbids it.
+
+Two facts from §6.2 shape this and were checked rather than assumed: report rows arrive with
+`join_time`, `leave_time` and `duration` **already paired by Zoom** (the pairing problem is the
+provider's, not ours), and the observed report row set carries **no `participant_uuid`** — so
+no report key may depend on one. Ingestion inserts a batch (`report_batch_id`,
+`report_fetched_at`); the effective set for an occurrence is the newest batch, else the webhook
+rows; webhook rows are never edited, closed or deleted. Replay is harmless because only the
+newest batch is effective, so no row-level dedupe is needed. One batch, one transaction.
+
+### **A defect in Z7-1's own migration, found while writing this contract.**
+
+The partial unique index `(zoom_meeting_uuid, participant_uuid) WHERE participant_uuid IS NOT
+NULL` permits **at most one row per uuid per occurrence**. If Zoom reuses a `participant_uuid`
+across a rejoin, the second join violates it. **It must widen to include `joined_at`**, which is
+correct under both stability hypotheses. This survived a Codex `PASS` and three review rounds
+because every test to date exercised one interval per participant.
+
+### **Boundary ruling: Z7-2 stays a separate chunk.**
+
+Merging it into Z7-3 was considered and rejected. As re-scoped Z7-2 is mostly *deletion*, and
+Z7-3 is a genuinely different architectural concern — an external authoritative source, a job,
+a supersession rule — so merging would produce one oversized chunk after a phase that has
+already paid for oversized units.
+
+### **What survives `a530aafb`, and what goes.**
+
+**Survives:** `source_event_key` + its partial UNIQUE index · persisted identity evidence
+(`identity_tokens`, GIN index, `matched_by`) · the `participant_uuid` closure path ·
+`attendance-intervals.ts` · `[B1]` · `PARTICIPANT_EVENT_TYPES` and the single applier shared by
+route and sweep · all approved Z7-1 work. **Goes:** the `identityToken` arm of
+`listOpenIntervals`, `identityToken()` as a closure input, the `open.length > 1` guard
+(`participant-lifecycle.ts:240`, moot under rule 3), and the attempt-4 regression at
+`participant-lifecycle.test.ts:413` — **it covered only H1, which is why a green suite sat on
+top of a live defect.**
+
+### **The eleven-row falsification matrix is in §15.3.9 and becomes attempt 5's criteria**, with
+`[C4]` — H1 and H2 through the same applier, required to produce identical empty close sets —
+being the case the old contract could not express. Fail-on-old is specified as restoring the
+fallback arm and showing `[C4]` fails, because a probe that does not fail on the old code
+proves nothing.
+
+**Blind spots carried forward, stated rather than closed:** `participant_uuid` pairing
+stability is still unmeasured (now a *performance* property — how much closes before the report
+lands — not a correctness one); uuid-less duplicate joins can double-count until the report
+arrives, accepted deliberately over any heuristic; and the report's completeness is unmeasured
+beyond §6.2's four participants across three meetings.
+
+```text
+STARTED: 2026-08-12
+ATTEMPT: 4 → replan (cumulative count is NOT reset; next implementation attempt is 5)
+RISK: HIGH
+HANDOFFS: 1 (Codex FINDINGS → PM)
+GATES: none run — documentation-only round
+CODEX: FINDINGS (received and acted on)
+ESCAPED DEFECT: n/a — caught before any merge or production application
+```
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-2 · contract replan | Z7 | `feat/zoom-hours` | this commit | ✅ **REPLANNED 2026-08-12 — ready to dispatch as attempt 5** | `[R3]`/`[R4]` superseded by `PLAN.md` §15.3.9. Eligibility rule = Zoom-minted + construction-unique + exactly-one-open-match. `customer_key` barred from closure by rule 1, not by the evidence gap. Z7-3 = wholesale supersession, zero cross-source matching. Z7-1 index defect found and routed. Prompt: `prompts/Z7-r5.md`. Next review boundary `43999499..<head>` against §15.3.9. |
+
+## 🔴 **CODEX `FAIL` ON THE REPLAN ITSELF (2026-08-12). Three BLOCKERs, one MAJOR — all accepted, all corrected. `Z7-r5` was NOT dispatched.**
+
+The reviewer reviewed the *contract*, not code, and found three gaps that would have shipped as
+defects. **Two of the four are PM errors of exactly the kind this phase has already paid for.**
+
+### **① BLOCKER — an incomplete report page could become authoritative. Accepted.**
+
+§15.3.9 promoted "every row of a successful fetch" and selected "the newest
+`report_fetched_at`". **Neither clause defines what a *complete* fetch is.** Zoom's list
+endpoints are paginated: a response carries `page_size`, `page_count`, `total_records` and
+`next_page_token`, an **empty** token is the only end-of-data signal, and heavy-data endpoints
+cap a page at 30–100 rows — **PM-verified against
+`https://developers.zoom.us/docs/api/pagination/`, not taken from the review.** So a 31-person
+meeting returns page one, and the old rule would have **promoted it wholesale and suppressed
+participant 31.** Worse, "newest wins" let a later *partial* fetch displace an earlier
+*complete* one.
+
+**Corrected:** a batch is authoritative only when every page is traversed with unchanged
+parameters to an empty token, accumulated rows `== total_records`, and metadata is consistent;
+any page error, rejected token, count drift or invalid interval **rejects the entire candidate
+batch**; the prior complete batch stays effective, and webhook rows do if none exists.
+**Promotion is a DB-owned monotonic sequence plus a batch status, not a client timestamp** —
+completion is represented independently of the participant rows and the last page's insert
+commits with the flip to `complete` in one transaction. Matrix rows 12–14 added.
+
+### **② BLOCKER — leave-observation persistence was delegated to the executor. Accepted; this one is the repeat offence.**
+
+§15.3.9 said observations must be durable; `Z7-r5` said *"choose the storage shape and say why
+in the review request."* **Delegating a contract decision to the executor is precisely what
+produced the `[R3]`/`[R4]` conflict**, and the PM did it again in the document written to fix
+it. The reviewer also found the concurrency hole it hid: route and sweep call the applier
+concurrently, so one application can close the interval while the other records the same
+delivery as unmatched, and `[C6]` checked only duplicate rows and closes.
+
+**Corrected, fully specified in §15.3.9:** `zoom_internal.zoom_attendance_observations` —
+**the private schema**, which is a strictly stronger guarantee than any public RLS matrix and
+makes the shape structurally unreadable as an attendance interval; `school_id NOT NULL`,
+identity evidence, **the applier's outcome**, `source_event_key` UNIQUE; every leave recorded
+whether or not it closed anything; **observation and close in ONE transaction**. New `[C6b]`
+asserts the transaction boundary under concurrent application, not just the end state.
+
+### **③ BLOCKER — the index instruction risked a prohibited `DROP`. Accepted; also a PM error.**
+
+`Z7-r5` called the widening "additive" and declared that *"replacing an index is not a
+destructive schema change under `CLAUDE.md`."* **The PM ruled a repository hard rule
+inapplicable.** It is not the PM's to rule on, and the reviewer's fix is better anyway:
+`20260812120000_zoom_attendance_participant_uuid.sql` is **unmerged and unapplied**, so the
+existing `CREATE UNIQUE INDEX` is amended **in place** — no `DROP`, no replacement migration.
+Its comments at `:7` and `:103` still document the withdrawn fallback contract and are rewritten
+in the same edit. New `[C14]` greps the diff for an added `DROP`; new `[C15]` requires no
+comment anywhere still to describe fallback closure as live.
+
+### **④ MAJOR — "unique participant-connection" contradicted the rejoin model. Accepted.**
+
+Rule 2 said *"unique to one participant-connection"* while the index widening exists precisely
+because a rejoin may **reuse** the uuid. Both cannot hold. **PM-verified against
+`https://developers.zoom.us/docs/api/meetings/events/`:** Zoom defines `participant_uuid` as
+*"the participant's UUID for this specific meeting and any breakout rooms created in this
+meeting"*, **assigned when the participant joins**, valid only for that meeting. **Meeting-scoped,
+not connection-scoped.** Rule 2 now reads *"unique to one participant within the occurrence"*,
+with exactly-one-open-row remaining the interval-selection gate. The evidence cell that
+previously cited the two fixtures now says what they actually prove: **presence, and nothing
+about uniqueness.**
+
+**Also accepted:** `Z7-r5`'s opening line said the implementation *"was not the defect"*. It was
+unsafe — it can close a stranger's interval — and an executor about to delete that code needs
+the accurate sentence. Replaced verbatim with the reviewer's.
+
+**Upheld unchanged:** docs-only scope, ancestry, clean worktree, the `customer_key` ruling, and
+keeping Z7-2 a separate chunk.
+
+**Nothing was pushed back on. Four findings, four accepted** — and the two external facts the
+corrections rest on were verified by the PM against Zoom's documentation rather than relayed.
+
+```text
+STARTED: 2026-08-12
+ATTEMPT: 4 → replan round 2 (cumulative count unchanged; next implementation attempt is still 5)
+RISK: HIGH
+HANDOFFS: 2 (Codex FINDINGS → PM → Codex FAIL → PM)
+GATES: none run — documentation-only round
+CODEX: FAIL(3 BLOCKER + 1 MAJOR) on the contract → corrected
+ESCAPED DEFECT: n/a — caught before dispatch, before merge, before production
+```
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-2 · contract replan r2 | Z7 | `feat/zoom-hours` | this commit | ✅ **CORRECTED 2026-08-12 — ready to dispatch as attempt 5** | All 4 Codex findings accepted. Complete-batch definition + DB-owned promotion pointer (matrix 12–14); `zoom_internal.zoom_attendance_observations` fully specified incl. one-transaction rule (`[C6b]`); migration amended in place, no `DROP` (`[C14]`, `[C15]`); rule 2 restated as occurrence-scoped on Zoom's own documented semantics, PM-verified. Prompt: `prompts/Z7-r5.md`. |
+
+## **Z7 · attempt 5 — the four remaining chunks, one continuous run (2026-08-13). Candidate for cumulative review at `8ccc64b3`.**
+
+Executed under the replanned contract: **`PLAN.md` §15.3.9 governs pairing and
+reconciliation; `Z7-r2.md` [R3]/[R4] stay withdrawn.** One executor conversation,
+four checkpoint commits, each green on type-check/lint/full-unit/test:db at its head.
+
+### Chunk log
+
+- **Z7-2 (re-scoped) @ `4c1b11e2`** — the fallback-closure ladder is deleted; a
+  `participant_left` closes only via Zoom-minted `participant_uuid` matching exactly
+  one open row. Every leave lands in `zoom_internal.zoom_attendance_observations`
+  (identity evidence + decided outcome), and observation + eligible close commit in
+  ONE transaction (`apply_participant_leave`; a delivery-key conflict rolls back the
+  loser's close entirely). The unapplied `20260812120000` migration was amended IN
+  PLACE — index widened to `(zoom_meeting_uuid, participant_uuid, joined_at)`, the
+  withdrawn-contract comments rewritten; no `DROP` anywhere ([C14] grep clean, [C15]
+  sweep clean). The falsification matrix is the suite: [C1]–[C10] incl. [C4] (H1/H2
+  through one history builder, identical empty close sets) and [C6b] (concurrent
+  route×sweep application, exactly one persisted outcome).
+- **Z7-3 @ `349f13d1`** — `listReportParticipants` on `ZoomApi` (+ the fake, which
+  PAGINATES exactly as Zoom does — the empty token is the only end signal);
+  `validateReportBatch` (pure) enforcing complete-batch = every page, unchanged
+  params, count == total_records, consistent metadata; candidate batches in
+  `zoom_internal.zoom_attendance_report_batches` with DB-assigned monotonic `seq` and
+  pending→complete|rejected; `promote_attendance_report_batch` inserts all rows and
+  flips to complete in ONE transaction with the count re-checked inside; effective
+  set = highest-seq complete batch, else webhook rows rendered PROVISIONAL
+  (`attendance-effective.ts`) — wholesale supersession, zero cross-source matching,
+  webhook rows structurally untouchable (the report store has no interval-write
+  member). `attendance_reconcile` registered + enqueued hourly per uncaptured ended
+  occurrence (7-day window, per-occurrence-per-hour dedupe).
+- **Z7-4 @ `0d5bd910`** — `session_hour_overrides` exactly per §11's integrity list
+  (append-only trigger, request_id UNIQUE + payload_hash tamper detection,
+  reverses_override_id UNIQUE, seq for chain order); additive
+  `contract_hours_ledger.effective_minutes CHECK (>= 0)`; ONE SECURITY DEFINER
+  apply/reverse RPC — actor from `auth.uid()` INSIDE, NULL aborts, non-admin aborts,
+  EXECUTE revoked from anon AND **service_role explicitly** (Supabase default
+  privileges would otherwise grant it — found by pgTAP, fixed at the migration);
+  consumida-only; cross-tenant session/contract/allocation equality; reversal only of
+  the latest unreversed apply, restoring ITS OWN previous_minutes. The §11 coalesce
+  (`round(minutes/60, 2)`, one rounding rule) closed in `billable-hours.ts` AND in
+  `get_bucket_summary` (CREATE OR REPLACE at identical signature, the `20260809120000`
+  mechanism) so aggregates move with overrides and a zero waiver returns hours to
+  availability. Admin route `POST /api/admin/sessions/[id]/hour-override` calls the
+  RPC with the ADMIN'S OWN client; SQLSTATE P0400/03/04/09 → HTTP.
+- **Z7-5 @ `8ccc64b3`** — `GET .../hours-comparison` (admin) and
+  `GET /api/sessions/[id]/attendance-suggestions` (§7-gated: admin or THIS session's
+  facilitator; everyone else the sessions' own not-found); `HoursComparisonPanel` on
+  the admin session page (invariant banner, ≥15% review highlight, «Sesión eximida»,
+  override form + history + reversal) and `AttendanceSuggestionsPanel` on the
+  consultor session page (proposes; applies through the EXISTING `PUT /attendees` —
+  one authorization decision). Open intervals, provisional webhook data and live
+  occurrences render as es-CL STATES, never numbers; `absent` is suggested only under
+  a complete report batch. All new interactive elements carry data-testid
+  (lint:testid: zero hits in phase files; count unchanged vs main).
+
+### Gates at the reviewed head (unpiped; details + exact tails in the review request)
+
+type-check **0** · lint **0** (zero warnings) · `npm test` **318 files / 7,244
+passed + 11 skipped**, jsdom `environment` 246–268 ms (real collection) · build **0**
+(twice: real env, and CI-style for e2e) · `supabase db reset` clean +
+`npm run test:db` **12 files / 649 tests** (011 = 134 · 015 = 49) · **e2e (CI
+recipe): 117 passed, exit 0, no-skip guard "11 mandatory spec(s) ran with no
+skips"** · 3-TZ matrix: UTC and Santiago identical 7,244; Madrid carries **8
+pre-existing failures in `lib/__tests__/businessDays.test.ts`** — byte-identical to
+main, licitación scope, fails on main under Madrid too; routed out as its own task.
+Every Z7/hours suite passes under all three TZs.
+
+### Adversarial evidence (details §7 of the review request)
+
+Fail-on-old at BOTH layers: the restored fallback arm fails [C3]/[C4]/[C5] in vitest
+AND exactly the three L4 asserts in pgTAP against the real function (transient
+CREATE OR REPLACE, restored by db reset). Transaction boundaries proven on real SQL:
+011 **L3** (pre-seeded observation key rolls back the close) and 011 **B2** (count
+mismatch leaves the batch pending with ZERO rows). Authorization: pgTAP 015 [Z7-A4]
+incl. the service_role no-EXECUTE closure.
+
+### Accepted deviations & carried findings
+
+Recorded in the review request §9/§10 — headline items: `selectIntervalToClose`
+deleted rather than narrowed (decision moved inside the DB transaction);
+`get_bucket_summary` replaced at identical signature (required by §11's own test
+list); consumer select-pins gained `effective_minutes`; role-visibility "end to end"
+covered at route+component+pgTAP layers because `tests/e2e/` is sealed ([Z7-A8]).
+Carried, not Z7's: `businessDays` Madrid-TZ failures (pre-existing, task filed);
+`has_global_workspace_access` (still needs an owner).
+
+```text
+STARTED: 2026-08-13
+ATTEMPT: 5 (cumulative; Z7-2 re-scope through Z7-5 in one run)
+RISK: HIGH
+HANDOFFS: 0 (no review between checkpoints, per the autonomous dispatch)
+GATES: type-check 0 · lint 0 · unit 318f/7244p+11s (jsdom real) · build 0 ·
+       db reset clean · test:db 649/12f · e2e 117p exit 0 (no skips) ·
+       3-TZ: hours suites identical ×3 (businessDays Madrid = pre-existing, routed)
+CODEX: pending — next boundary 43999499..<head> against PLAN.md §15.3 + §15.3.9
+ESCAPED DEFECT: n/a — nothing merged, nothing applied to production
+```
+
+| Chunk | Phase | Branch | Commits | Status | Evidence |
+|---|---|---|---|---|---|
+| Z7-2 … Z7-5 · attempt 5 | Z7 | `feat/zoom-hours` | `4c1b11e2`, `349f13d1`, `0d5bd910`, `8ccc64b3` + this docs commit | 🟡 **CANDIDATE 2026-08-13 — awaiting Codex on the cumulative diff** | All four chunks implemented under §15.3.9; all gates green incl. e2e (CI recipe) and clean-DB replay; fail-on-old proven at vitest AND SQL layers; observation/close and batch promotion transaction boundaries proven on real SQL; override path closed to service/jobs at the grant. Review request rewritten for the full phase. |

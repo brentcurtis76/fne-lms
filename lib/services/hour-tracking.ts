@@ -149,6 +149,19 @@ export function calculateHours(durationMinutes: number): number {
   return Math.round((durationMinutes / 60) * 100) / 100;
 }
 
+/** Convert an already-canonical two-decimal hour value to exact integer hundredths. */
+function canonicalHourHundredths(value: unknown, min: number, max: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) {
+    throw new Error('hour_availability_invalid_numeric_range');
+  }
+  const scaled = value * 100;
+  const rounded = Math.round(scaled);
+  if (!Number.isSafeInteger(rounded) || Math.abs(scaled - rounded) > 1e-7) {
+    throw new Error('hour_availability_excess_precision');
+  }
+  return rounded;
+}
+
 /**
  * Calculate notice hours between now and the session's scheduled start.
  *
@@ -216,97 +229,230 @@ export async function getAvailableHours(
   serviceClient: SupabaseClient,
   contratoId: string,
   hourTypeKey: string
-): Promise<{ available_hours: number; allocated_hours: number; reserved_hours: number; consumed_hours: number } | null> {
+): Promise<
+  | {
+      kind: 'available';
+      available_hours: number;
+      allocated_hours: number;
+      reserved_hours: number;
+      consumed_hours: number;
+      available_hundredths: number;
+    }
+  | { kind: 'missing' }
+> {
   const { data: summary, error } = await serviceClient
     .rpc('get_bucket_summary', { p_contrato_id: contratoId });
 
-  if (error || !summary) {
-    return null;
+  if (error) {
+    throw new Error('hour_availability_dependency_failed');
+  }
+  if (!Array.isArray(summary)) {
+    throw new Error('hour_availability_invalid_response');
   }
 
-  const bucket = (summary as BucketSummary[]).find(
-    (b) => b.hour_type_key === hourTypeKey
-  );
+  const seenKeys = new Set<string>();
+  const matchingBuckets: Array<BucketSummary & { available_hundredths: number }> = [];
+  for (const candidate of summary) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+      throw new Error('hour_availability_invalid_row');
+    }
+    const bucket = candidate as BucketSummary;
+    if (typeof bucket.hour_type_key !== 'string' || bucket.hour_type_key.length === 0) {
+      throw new Error('hour_availability_invalid_key');
+    }
+    if (seenKeys.has(bucket.hour_type_key)) {
+      throw new Error('hour_availability_duplicate_bucket');
+    }
+    seenKeys.add(bucket.hour_type_key);
 
-  if (!bucket) {
-    return null;
+    const allocated = canonicalHourHundredths(bucket.allocated_hours, 0, 999_999.99);
+    const reserved = canonicalHourHundredths(bucket.reserved_hours, 0, 99_999_999.99);
+    const consumed = canonicalHourHundredths(bucket.consumed_hours, 0, 99_999_999.99);
+    const available = canonicalHourHundredths(
+      bucket.available_hours,
+      -99_999_999.99,
+      999_999.99
+    );
+    if (available !== allocated - reserved - consumed) {
+      throw new Error('hour_availability_incoherent_arithmetic');
+    }
+    if (bucket.hour_type_key === hourTypeKey) {
+      matchingBuckets.push({ ...bucket, available_hundredths: available });
+    }
   }
+
+  if (matchingBuckets.length === 0) {
+    // A successful empty result is a legitimate answer for a contract/type with no
+    // allocation. createReservation separately proves an allocation exists first;
+    // at that boundary this same result is therefore an inconsistent dependency.
+    return { kind: 'missing' };
+  }
+  if (matchingBuckets.length !== 1) {
+    throw new Error('hour_availability_duplicate_bucket');
+  }
+  const bucket = matchingBuckets[0];
 
   return {
+    kind: 'available',
     available_hours: bucket.available_hours,
     allocated_hours: bucket.allocated_hours,
     reserved_hours: bucket.reserved_hours,
     consumed_hours: bucket.consumed_hours,
+    available_hundredths: bucket.available_hundredths,
   };
 }
 
-/**
- * Create a reservation (ledger entry with status='reservada') when a session is approved.
- * Backward compatible: if hour_type_key or contrato_id is null, returns { skipped: true }.
- * Sequential with compensating logic (no PL/pgSQL).
- */
-export async function createReservation(
-  serviceClient: SupabaseClient,
-  session: ConsultorSession,
-  userId: string
-): Promise<ReservationResult & { error?: string }> {
-  // Backward compatibility: null guard
-  if (!session.hour_type_key || !session.contrato_id) {
-    return { skipped: true };
-  }
+type ReservationAllocation = {
+  id: string;
+  contrato_id: string;
+  hour_type_id: string;
+  allocated_hours: number;
+};
 
-  // Validate duration exists
-  if (!session.start_time || !session.end_time) {
+/** Generic API-safe copy for availability dependency failures. */
+export const HOUR_AVAILABILITY_ERROR_ES = 'No se pudo verificar la disponibilidad de horas.';
+export const HOUR_TRACKING_PAIR_ERROR_ES =
+  'El contrato y el tipo de hora deben configurarse juntos.';
+
+export type ReservationPreparation =
+  | { kind: 'skipped' }
+  | {
+      kind: 'ready';
+      allocation: ReservationAllocation;
+      durationMins: number;
+      hours: number;
+      hoursHundredths: number;
+      availableHundredths: number;
+      isOverBudget: boolean;
+    }
+  | {
+      kind: 'error';
+      error: string;
+      error_kind: 'validation' | 'dependency';
+    };
+
+/**
+ * Resolve every read-only prerequisite for a reservation. Bulk approval runs this
+ * for the whole batch before the first ledger INSERT, so a later availability
+ * outage cannot leave earlier sessions reserved.
+ */
+export async function prepareReservation(
+  serviceClient: SupabaseClient,
+  session: ConsultorSession
+): Promise<ReservationPreparation> {
+  // BOTH absent is the only legitimate legacy form. An XOR pair would otherwise
+  // approve a partially tracked session without a ledger reservation.
+  const hourTypeAbsent = session.hour_type_key == null;
+  const contractAbsent = session.contrato_id == null;
+  const hasHourType = typeof session.hour_type_key === 'string' && session.hour_type_key.trim().length > 0;
+  const hasContract = typeof session.contrato_id === 'string' && session.contrato_id.length > 0;
+  if (hourTypeAbsent && contractAbsent) {
+    return { kind: 'skipped' };
+  }
+  if (!hasHourType || !hasContract) {
     return {
-      skipped: false,
-      error: 'No se puede programar la sesion sin horario definido.',
+      kind: 'error',
+      error: HOUR_TRACKING_PAIR_ERROR_ES,
+      error_kind: 'validation',
     };
   }
 
-  // Calculate duration minutes — use DB generated column or compute from times
+  if (!session.start_time || !session.end_time) {
+    return {
+      kind: 'error',
+      error: 'No se puede programar la sesion sin horario definido.',
+      error_kind: 'validation',
+    };
+  }
+
   let durationMins: number;
   const scheduledMins = session.scheduled_duration_minutes;
   if (scheduledMins && scheduledMins > 0) {
     durationMins = scheduledMins;
   } else {
-    // Compute from start/end times as fallback
     const [startH, startM] = session.start_time.split(':').map(Number);
     const [endH, endM] = session.end_time.split(':').map(Number);
     durationMins = (endH * 60 + endM) - (startH * 60 + startM);
     if (durationMins <= 0) {
       return {
-        skipped: false,
+        kind: 'error',
         error: 'No se puede programar la sesion sin horario definido.',
+        error_kind: 'validation',
       };
     }
   }
 
   const hours = calculateHours(durationMins);
-
-  // Find matching allocation
+  const hoursHundredths = Math.round((durationMins * 100) / 60);
   const allocation = await findMatchingAllocation(
     serviceClient,
     session.contrato_id,
-    session.hour_type_key
+    session.hour_type_key.trim()
   );
-
   if (!allocation) {
     return {
-      skipped: false,
+      kind: 'error',
       error: 'El contrato no tiene horas asignadas para este tipo de servicio.',
+      error_kind: 'validation',
     };
   }
 
-  // Budget check
-  const budgetInfo = await getAvailableHours(
-    serviceClient,
-    session.contrato_id,
-    session.hour_type_key
-  );
+  try {
+    const budgetInfo = await getAvailableHours(
+      serviceClient,
+      session.contrato_id,
+      session.hour_type_key.trim()
+    );
+    if (budgetInfo.kind === 'missing') {
+      // findMatchingAllocation just proved this bucket exists. A summary that omits
+      // it is contradictory and must never authorize a financial write.
+      return {
+        kind: 'error',
+        error: HOUR_AVAILABILITY_ERROR_ES,
+        error_kind: 'dependency',
+      };
+    }
+    return {
+      kind: 'ready',
+      allocation,
+      durationMins,
+      hours,
+      hoursHundredths,
+      availableHundredths: budgetInfo.available_hundredths,
+      isOverBudget: budgetInfo.available_hundredths < hoursHundredths,
+    };
+  } catch {
+    return {
+      kind: 'error',
+      error: HOUR_AVAILABILITY_ERROR_ES,
+      error_kind: 'dependency',
+    };
+  }
+}
 
-  const isOverBudget = budgetInfo
-    ? budgetInfo.available_hours < hours
-    : false;
+/**
+ * Create a reservation (ledger entry with status='reservada') when a session is approved.
+ * Backward compatible only for the genuine legacy form where both tracking fields are null.
+ * Sequential with compensating logic (no PL/pgSQL).
+ */
+export async function createReservation(
+  serviceClient: SupabaseClient,
+  session: ConsultorSession,
+  userId: string,
+  preparation?: ReservationPreparation
+): Promise<ReservationResult> {
+  const prepared = preparation ?? await prepareReservation(serviceClient, session);
+  if (prepared.kind === 'skipped') {
+    return { skipped: true };
+  }
+  if (prepared.kind === 'error') {
+    return {
+      skipped: false,
+      error: prepared.error,
+      error_kind: prepared.error_kind,
+    };
+  }
+  const { allocation, durationMins, hours, isOverBudget } = prepared;
 
   // Create ledger entry.
   // planned_minutes_snapshot (Zoom plan §11, Z1b slice): the approved duration
@@ -335,6 +481,7 @@ export async function createReservation(
     return {
       skipped: false,
       error: `Error al crear entrada en el libro de horas: ${ledgerError?.message || 'Unknown error'}`,
+      error_kind: 'write',
     };
   }
 

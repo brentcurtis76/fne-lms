@@ -4,7 +4,7 @@ import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseEnv } from 'dotenv';
 import { E2E_USERS, ensureStorageState, loginViaUi, storageStatePath } from './helpers/auth';
-import { buildRecoveryUrl } from '../../lib/auth/recovery-link';
+import { Client as PgClient } from 'pg';
 import { E2E_MAIL_OUTBOX } from '../../playwright.config';
 
 /**
@@ -45,14 +45,21 @@ import { E2E_MAIL_OUTBOX } from '../../playwright.config';
  *   - The seeder refuses any non-local Supabase URL, and this spec reads the
  *     same `.env.local` the seeder used.
  *
- * ONE HONEST GAP. The SELF-SERVICE recovery mail (stage 9) is sent by Supabase
- * Auth over SMTP, not by this application, and CI starts the stack with
- * `-x mailpit` — so there is no mailbox to read it from. That stage therefore
- * drives the real UI request (and asserts the anti-enumeration answer), then
- * builds the link with `buildRecoveryUrl`, the SAME shared helper the product
- * uses, from a freshly minted `hashed_token`. It is the same format, produced by
- * the same code — but it is not literally the message Supabase sent, and it is
- * the one link in this spec that is not.
+ * THE GAP THE PREVIOUS ROUND DECLARED IS CLOSED. Self-service recovery used to be
+ * sent by Supabase Auth over SMTP, so with no mailbox in CI the spec rebuilt an
+ * equivalent link with the product's own helper — same format, same code, not
+ * the same message. Recovery requests now go through `/api/auth/recovery-request`,
+ * which mints the link with `lib/auth/recovery-link.ts` and delivers it through
+ * the same server-side mailer as the invitation. BOTH links this spec opens are
+ * now read out of the message that was actually sent.
+ *
+ * AND THE BOUNDARY IS EXERCISED ON ALL THREE SERVICES. The forced-password
+ * control is a restrictive RLS policy now, not a PostgREST pre-request hook, so
+ * the claim "every browser-accessible Supabase service" has to be shown rather
+ * than asserted. Stage 8 drives a flagged token and an unflagged one against
+ * PostgREST, against the real storage-api, and against a real Realtime
+ * `postgres_changes` channel — each with a positive control, because a refusal
+ * that would have happened anyway proves nothing.
  *
  * Mandatory (scripts/ci/e2e-mandatory.mjs): it fails the gate if it is skipped.
  */
@@ -201,6 +208,177 @@ async function restPatch(path: string, accessToken: string, body: unknown) {
   return { status: response.status, text: await response.text() };
 }
 
+// ---------------------------------------------------------------------------
+// Storage and Realtime — the two services the pre-request hook never saw
+// ---------------------------------------------------------------------------
+
+/**
+ * The synthetic bucket the Storage half of the proof runs against.
+ *
+ * WHY IT IS BUILT HERE RATHER THAN SHIPPED. `storage.objects` carries no
+ * permissive policy in this project, so without one BOTH a flagged and an
+ * unflagged account are refused and the comparison proves nothing. A permissive
+ * policy that exists only to make a test meaningful does not belong in a
+ * migration, so it is created and torn down by this spec, over a direct
+ * connection, on an ephemeral stack. PostgREST cannot issue DDL, which is why
+ * `pg` is used at all.
+ */
+const PROBE_BUCKET = 'e2e-forced-password-probe';
+
+function dbUrl(): string {
+  return (
+    process.env.SUPABASE_DB_URL ||
+    fileEnv.SUPABASE_DB_URL ||
+    'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+  );
+}
+
+async function withDb<T>(fn: (client: PgClient) => Promise<T>): Promise<T> {
+  const client = new PgClient({ connectionString: dbUrl() });
+  await client.connect();
+  try {
+    return await fn(client);
+  } finally {
+    await client.end();
+  }
+}
+
+async function createStorageProbeFixture() {
+  // The bucket goes through the Storage API, like anything else would.
+  await admin.storage.createBucket(PROBE_BUCKET, { public: false }).catch(() => undefined);
+
+  // The POLICY has to be SQL: PostgREST cannot issue DDL, and the Storage API has
+  // no notion of one. Permissive, and scoped to this bucket alone — whatever the
+  // guard does to a flagged account, it does it on top of a policy that WOULD
+  // have said yes.
+  await withDb(async (db) => {
+    await db.query(`DROP POLICY IF EXISTS e2e_probe_objects_all ON storage.objects`);
+    await db.query(
+      `CREATE POLICY e2e_probe_objects_all ON storage.objects
+         FOR ALL TO authenticated
+         USING (bucket_id = '${PROBE_BUCKET}')
+         WITH CHECK (bucket_id = '${PROBE_BUCKET}')`
+    );
+  });
+}
+
+async function removeStorageProbeFixture() {
+  // Objects and the bucket go out through the Storage API: `storage.objects`
+  // carries a statement-level trigger (`storage.protect_delete`) that refuses
+  // every direct SQL delete, postgres included.
+  await admin.storage.emptyBucket(PROBE_BUCKET).catch(() => undefined);
+  await admin.storage.deleteBucket(PROBE_BUCKET).catch(() => undefined);
+
+  // Test scaffolding on an ephemeral stack, not a migration.
+  await withDb(async (db) => {
+    await db.query(`DROP POLICY IF EXISTS e2e_probe_objects_all ON storage.objects`);
+  });
+}
+
+/** Upload one small object through the REAL storage-api with a user token. */
+async function storageUpload(accessToken: string, name: string) {
+  const response = await fetch(
+    `${SUPABASE_URL}/storage/v1/object/${PROBE_BUCKET}/${encodeURIComponent(name)}`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: ANON_KEY,
+        Authorization: `Bearer ${accessToken}`,
+        'content-type': 'text/plain',
+        'x-upsert': 'true',
+      },
+      body: 'sintetico',
+    }
+  );
+  return { status: response.status, text: await response.text() };
+}
+
+/** List the bucket through the REAL storage-api with a user token. */
+async function storageList(accessToken: string) {
+  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/list/${PROBE_BUCKET}`, {
+    method: 'POST',
+    headers: {
+      apikey: ANON_KEY,
+      Authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ prefix: '', limit: 100, offset: 0 }),
+  });
+  const text = await response.text();
+  let rows: unknown[] = [];
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) rows = parsed;
+  } catch {
+    /* a non-array body is a refusal, and `rows` stays empty */
+  }
+  return { status: response.status, rows, text };
+}
+
+/**
+ * Subscribe to `postgres_changes` on `public.notifications` with a user token and
+ * report whether a row inserted by the service role is DELIVERED.
+ *
+ * Realtime decides delivery by asking whether the subscriber could SELECT the
+ * row, as `authenticated`, with their own claims — which is exactly the
+ * restrictive policy under test.
+ */
+async function realtimeDelivers(accessToken: string, targetUserId: string): Promise<boolean> {
+  const client = createClient(SUPABASE_URL, ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    realtime: { params: { eventsPerSecond: 10 } },
+  });
+  client.realtime.setAuth(accessToken);
+
+  let delivered = false;
+  const channel = client.channel(`e2e-fpc-${targetUserId}-${Math.random()}`);
+
+  const subscribed = await new Promise<boolean>((resolve) => {
+    const timer = setTimeout(() => resolve(false), 20_000);
+    channel
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications' },
+        () => {
+          delivered = true;
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          clearTimeout(timer);
+          resolve(true);
+        }
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          clearTimeout(timer);
+          resolve(false);
+        }
+      });
+  });
+
+  if (!subscribed) {
+    await client.removeChannel(channel);
+    throw new Error('[auth-lifecycle] the Realtime channel never subscribed');
+  }
+
+  await admin.from('notification_types').upsert(
+    { id: 'e2e_fpc_probe', name: 'E2E forced-password probe', category: 'system' },
+    { onConflict: 'id' }
+  );
+  await admin.from('notifications').insert({
+    user_id: targetUserId,
+    title: 'E2E probe',
+    message: 'sintetico',
+    type: 'e2e_fpc_probe',
+  });
+
+  // Give the change stream a bounded window. A false here means "not delivered",
+  // which is the assertion for the flagged half; the unflagged half asserts true,
+  // so a broken stream cannot make both halves pass.
+  await new Promise((resolve) => setTimeout(resolve, 6_000));
+  await client.removeChannel(channel);
+  return delivered;
+}
+
 async function findUserByEmail(email: string) {
   const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
   if (error) throw new Error(`listUsers failed: ${error.message}`);
@@ -256,6 +434,9 @@ test.describe('authentication lifecycle', () => {
     await cleanUp(signup.email);
     clearOutbox();
 
+    // Torn down in `finally`, whatever the stage above it did.
+    let storageFixtureCreated = false;
+
     try {
       // --- 1. REGISTRATION -------------------------------------------------
       // Through the real public endpoint, anonymously. `handleSignupSubmission`
@@ -298,7 +479,13 @@ test.describe('authentication lifecycle', () => {
       // NO REAL MAIL. RESEND_API_KEY is absent from the e2e environment, so the
       // mailer reports `not_configured` and never builds a provider client.
       // Asserted rather than tolerated: if it ever DID send from CI, this fails.
-      expect(grantBody.email).toEqual({ sent: false, reason: 'not_configured' });
+      // `status` is the precise word now: `not_configured` is not a rejection and
+      // is certainly not a delivery. See lib/email/invitations.ts.
+      expect(grantBody.email).toEqual({
+        sent: false,
+        status: 'not_configured',
+        reason: 'not_configured',
+      });
       expect(grantBody.canResend).toBe(true);
       // The recovery link never appears in the response.
       const grantText = JSON.stringify(grantBody);
@@ -359,6 +546,18 @@ test.describe('authentication lifecycle', () => {
 
       // Neither is a forged fragment — the hole the previous round left open.
       await recoveryPage.goto('/reset-password#access_token=forjado&type=recovery');
+      await expect(recoveryPage.getByTestId('reset-invalid-link')).toBeVisible({ timeout: 30_000 });
+
+      // Nor is a COMPLETE implicit fragment. An access token is an ordinary
+      // session credential; the previous round accepted one as recovery proof and
+      // that is the finding this version answers.
+      await recoveryPage.goto(
+        '/reset-password#access_token=forjado&refresh_token=tambien-forjado&type=recovery'
+      );
+      await expect(recoveryPage.getByTestId('reset-invalid-link')).toBeVisible({ timeout: 30_000 });
+
+      // Nor a PKCE code — nothing the SERVER could verify.
+      await recoveryPage.goto('/reset-password?code=forjado');
       await expect(recoveryPage.getByTestId('reset-invalid-link')).toBeVisible({ timeout: 30_000 });
 
       // The real link.
@@ -463,6 +662,84 @@ test.describe('authentication lifecycle', () => {
       expect(probe.status, 'the state probe stays reachable — the way out is not behind the door').toBe(200);
       expect(await probe.json()).toBe(true);
 
+      // --- 8b. THE SAME BOUNDARY, THROUGH STORAGE ---------------------------
+      // storage-api talks to Postgres directly. `pgrst.db_pre_request` is never
+      // called on this path, which is why the previous round's control did not
+      // cover it and why the review's second major finding was raised.
+      await createStorageProbeFixture();
+      storageFixtureCreated = true;
+
+      // A positive control FIRST, with a token that is not flagged: the seeded
+      // admin. If this fails the refusals below mean nothing.
+      const controlSignIn = await signInDirectly(
+        E2E_USERS.admin.email,
+        E2E_USERS.admin.password
+      );
+      expect(controlSignIn.status, 'the unflagged control account signs in').toBe(200);
+      const controlToken = controlSignIn.body.access_token as string;
+
+      const controlUpload = await storageUpload(controlToken, 'control.txt');
+      expect(
+        controlUpload.status,
+        `an UNFLAGGED account can upload — the permissive policy really does allow it (${controlUpload.text})`
+      ).toBeLessThan(300);
+
+      const controlList = await storageList(controlToken);
+      expect(controlList.status, 'an unflagged account can list').toBe(200);
+      expect(controlList.rows.length, 'and sees the object it just wrote').toBeGreaterThan(0);
+
+      // Now the flagged account, against the same bucket and the same policy.
+      const flaggedUpload = await storageUpload(flaggedToken, 'flagged.txt');
+      expect(
+        flaggedUpload.status,
+        'STORAGE: a flagged account cannot upload'
+      ).toBeGreaterThanOrEqual(400);
+
+      const flaggedList = await storageList(flaggedToken);
+      expect(
+        flaggedList.rows.length,
+        'STORAGE: a flagged account lists nothing, whatever the policy would allow'
+      ).toBe(0);
+
+      // Counted at the storage layer itself, not through the API that just
+      // refused: `storage` is not an exposed PostgREST schema, and the point is
+      // what is ON DISK.
+      const objectsAfter = await withDb(async (db) => {
+        const { rows } = await db.query(
+          'SELECT count(*)::int AS n FROM storage.objects WHERE bucket_id = $1',
+          [PROBE_BUCKET]
+        );
+        return rows[0].n as number;
+      });
+      expect(
+        objectsAfter,
+        'the flagged upload really did not land — only the control object exists'
+      ).toBe(1);
+
+      // --- 8c. THE SAME BOUNDARY, THROUGH REALTIME --------------------------
+      // Realtime delivers a row only to a subscriber that could SELECT it, and
+      // that check runs as `authenticated` with the subscriber's own claims — so
+      // the restrictive policy is the delivery control. Proved both ways.
+      const deliveredToFlagged = await realtimeDelivers(flaggedToken, userId);
+      expect(
+        deliveredToFlagged,
+        'REALTIME: a flagged account receives no row on a table it would otherwise see'
+      ).toBe(false);
+
+      const { data: adminProfile } = await admin
+        .from('profiles')
+        .select('id')
+        .eq('email', E2E_USERS.admin.email)
+        .maybeSingle();
+      const deliveredToControl = await realtimeDelivers(
+        controlToken,
+        (adminProfile?.id as string) ?? userId
+      );
+      expect(
+        deliveredToControl,
+        'REALTIME: the positive control DOES receive its row — the stream works'
+      ).toBe(true);
+
       // --- 9. FORCED PASSWORD CHANGE ----------------------------------------
       const forcedContext = await browser.newContext({
         storageState: { cookies: [], origins: [] },
@@ -522,11 +799,15 @@ test.describe('authentication lifecycle', () => {
       await forcedContext.close();
 
       // --- 11. SELF-SERVICE RECOVERY ----------------------------------------
-      // The REQUEST goes through the real form. The resulting message is sent by
-      // Supabase Auth over SMTP and CI runs without a mailbox, so the link is
-      // rebuilt with the product's own helper from a fresh hashed token — same
-      // format, same code, but not literally the message that was sent. Called
-      // out in the header because it is the one link here that is not.
+      // THE MESSAGE THAT WAS ACTUALLY SENT. The previous round could not do this:
+      // recovery mail came from Supabase Auth over SMTP with no mailbox in CI, so
+      // the spec rebuilt an equivalent link and said so. `/api/auth/recovery-request`
+      // now mints the link with the product's own helper and delivers it through
+      // the same server-side mailer as the invitation, which the outbox captures.
+      const messagesBefore = readOutbox().filter(
+        (m) => m.to.toLowerCase() === signup.email.toLowerCase()
+      ).length;
+
       const selfServiceContext = await browser.newContext({
         storageState: { cookies: [], origins: [] },
       });
@@ -541,17 +822,37 @@ test.describe('authentication lifecycle', () => {
         'Si existe una cuenta con ese correo'
       );
 
-      const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-        type: 'recovery',
-        email: signup.email,
-        options: { redirectTo: `${APP_ORIGIN}/reset-password` },
-      });
-      expect(linkError, 'a recovery link can be minted').toBeNull();
-      const hashedToken = (linkData?.properties as { hashed_token?: string } | undefined)
-        ?.hashed_token;
-      expect(hashedToken, 'the link carries a hashed token').toBeTruthy();
+      // Wait for the NEW message rather than re-reading the invitation.
+      await expect
+        .poll(
+          () =>
+            readOutbox().filter((m) => m.to.toLowerCase() === signup.email.toLowerCase()).length,
+          { timeout: 30_000 }
+        )
+        .toBeGreaterThan(messagesBefore);
 
-      await selfServicePage.goto(buildRecoveryUrl(APP_ORIGIN, hashedToken!));
+      const recoveryMessage = readOutbox()
+        .filter((m) => m.to.toLowerCase() === signup.email.toLowerCase())
+        .pop()!;
+      expect(recoveryMessage.subject, 'the self-service message is the recovery one').toBe(
+        'Restablece tu contraseña de Genera'
+      );
+
+      const recoveryLinks = linksIn(recoveryMessage.html).filter((href) =>
+        href.startsWith(APP_ORIGIN)
+      );
+      expect(recoveryLinks.length, 'the recovery message carries a link').toBeGreaterThan(0);
+      const selfServiceUrl = recoveryLinks[0];
+      expect(selfServiceUrl, 'it lands on this application, not on /auth/v1/verify').toContain(
+        '/reset-password'
+      );
+      expect(selfServiceUrl).toContain('token_hash=');
+      expect(selfServiceUrl).toContain('type=recovery');
+      expect(selfServiceUrl, 'no provider redirect wrapper').not.toContain('/auth/v1/verify');
+      // It is a DIFFERENT credential from the invitation, which was already spent.
+      expect(selfServiceUrl).not.toBe(invitationUrl);
+
+      await selfServicePage.goto(selfServiceUrl);
       await expect(selfServicePage.getByTestId('reset-password-form')).toBeVisible({
         timeout: 30_000,
       });
@@ -588,6 +889,10 @@ test.describe('authentication lifecycle', () => {
         'password_change_recovery'
       );
       expect(actions, 'the administrative reset was recorded').toContain('password_reset_admin');
+      expect(
+        actions,
+        'the self-service recovery REQUEST was recorded, with the delivery status as observed'
+      ).toContain('password_recovery_requested');
       expect(actions, 'the forced change was recorded — it used to emit nothing').toContain(
         'password_change_forced'
       );
@@ -604,6 +909,9 @@ test.describe('authentication lifecycle', () => {
         expect(serialised, 'the audit trail carries no credential or address').not.toContain(secret);
       }
     } finally {
+      if (storageFixtureCreated) {
+        await removeStorageProbeFixture();
+      }
       await cleanUp(signup.email);
       clearOutbox();
     }
@@ -662,7 +970,11 @@ test.describe('authentication lifecycle', () => {
       expect(resendResponse.status(), 'resend is accepted').toBe(200);
       const resendBody = await resendResponse.json();
       expect(resendBody.kind).toBe('password_setup');
-      expect(resendBody.email).toEqual({ sent: false, reason: 'not_configured' });
+      expect(resendBody.email).toEqual({
+        sent: false,
+        status: 'not_configured',
+        reason: 'not_configured',
+      });
       expect(JSON.stringify(resendBody)).not.toContain('token_hash');
 
       // A FRESH credential, not the one already sent.

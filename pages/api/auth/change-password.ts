@@ -11,26 +11,11 @@ import {
 import { ApiError, ApiSuccess } from '../../../lib/types/api-auth.types';
 import { rateLimit, RATE_LIMITS } from '../../../lib/rateLimit';
 import { logAuthEvent, logSecurityIncident } from '../../../lib/securityAuditLog';
+import { firstPasswordPolicyError } from '../../../lib/auth/password-policy';
+import { recordSecurityAudit } from '../../../lib/security/audit';
 
 // Rate limiter for password change (auth-level: 10 req/min)
 const rateLimitCheck = rateLimit(RATE_LIMITS.auth, 'change-password');
-
-// Password validation function (matches client-side)
-function validatePassword(password: string): string | null {
-  if (password.length < 8) {
-    return 'La contraseña debe tener al menos 8 caracteres';
-  }
-  if (!/[A-Z]/.test(password)) {
-    return 'La contraseña debe contener al menos una letra mayúscula';
-  }
-  if (!/[a-z]/.test(password)) {
-    return 'La contraseña debe contener al menos una letra minúscula';
-  }
-  if (!/[0-9]/.test(password)) {
-    return 'La contraseña debe contener al menos un número';
-  }
-  return null;
-}
 
 export default async function handler(
   req: NextApiRequest,
@@ -79,7 +64,7 @@ export default async function handler(
     }
 
     // Validate new password meets requirements
-    const passwordError = validatePassword(newPassword);
+    const passwordError = firstPasswordPolicyError(newPassword);
     if (passwordError) {
       return sendAuthError(res, passwordError, 400);
     }
@@ -127,24 +112,22 @@ export default async function handler(
       return sendAuthError(res, 'Error al actualizar la contraseña', 500);
     }
 
-    // Log the password change to audit_logs (database)
-    const { error: logError } = await supabaseAdmin
-      .from('audit_logs')
-      .insert({
-        user_id: user.id,
-        action: 'password_change_voluntary',
-        details: {
-          change_type: 'user_initiated',
-          ip_address: req.headers['x-forwarded-for'] || req.socket?.remoteAddress,
-          user_agent: req.headers['user-agent']?.substring(0, 100),
-          timestamp: new Date().toISOString()
-        }
-      });
-
-    if (logError) {
-      console.error('[Change Password API] Audit log failed:', logError);
-      // Continue anyway - password was changed successfully
-    }
+    // S3: durable audit. Was an insert into `audit_logs`, a table that does not
+    // exist — so no voluntary password change has ever been recorded. Fail-open
+    // and visible: the password is already changed, so refusing the response
+    // would tell the user their change failed when it did not.
+    //
+    // The IP address and user-agent the old row carried are deliberately gone.
+    // They are request-scoped telemetry, not security-relevant metadata about
+    // the operation, and `logAuthEvent` below already carries them to the
+    // console/APM path where they belong.
+    const audit = await recordSecurityAudit(supabaseAdmin, {
+      action: 'password_change_voluntary',
+      outcome: 'success',
+      actorUserId: user.id,
+      targetUserId: user.id,
+      metadata: { change_type: 'user_initiated' },
+    });
 
     // Log to security audit (console/external service)
     logAuthEvent('PASSWORD_CHANGE', {
@@ -157,7 +140,8 @@ export default async function handler(
 
     return sendApiResponse(res, {
       success: true,
-      message: 'Contraseña actualizada exitosamente'
+      message: 'Contraseña actualizada exitosamente',
+      audited: audit.recorded,
     });
 
   } catch (error: any) {

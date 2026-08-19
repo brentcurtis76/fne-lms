@@ -335,3 +335,122 @@ describe('tractor-signups/grant — existing profile (Case A)', () => {
     expect(tracker.fromCalls.filter((c) => c.table === 'generations')).toHaveLength(0);
   });
 });
+
+/**
+ * S8 — granting access to an EXISTING profile used to notify nobody.
+ *
+ * The branch attached the role, updated the profile, marked the signup granted
+ * and returned. The person now had access to a platform they had asked to join
+ * and no message said so: the grant existed only inside the admin panel.
+ *
+ * And S7: a failed invitation e-mail is no longer terminal. The response tells
+ * the panel that a retry exists, for BOTH branches.
+ */
+describe('tractor-signups/grant — delivery status (S7, S8)', () => {
+  it('existing profile: an access-granted e-mail is attempted and its result reported', async () => {
+    const { res } = await run(existingUserTables(profileRow()));
+
+    expect(res._getStatusCode()).toBe(200);
+    const json = res._getJSONData();
+    expect(json.existingUser).toBe(true);
+    // RESEND_API_KEY is stubbed empty by the suite's beforeEach, so the honest
+    // answer here is "not configured" — which is exactly the production state
+    // this remediation documents.
+    expect(json.email).toEqual({ sent: false, reason: 'not_configured' });
+    expect(json.emailMessage).toContain('el servicio de correo no está configurado');
+    expect(json.canResend).toBe(true);
+  });
+
+  it('existing profile: the grant is audited with the delivery outcome', async () => {
+    const { tracker } = await run(existingUserTables(profileRow()));
+
+    const audit = tracker.fromCalls
+      .filter((c) => c.table === 'security_audit_events')
+      .flatMap((c) => c.inserts) as Array<Record<string, unknown>>;
+
+    expect(audit).toHaveLength(1);
+    expect(audit[0]).toMatchObject({
+      action: 'access_granted_existing_user',
+      outcome: 'success',
+      actor_user_id: ADMIN_ID,
+      target_user_id: PROFILE_ID,
+    });
+    expect((audit[0].metadata as Record<string, unknown>).email_sent).toBe(false);
+  });
+
+  it('new account: delivery status and the retry affordance are reported', async () => {
+    const { res } = await run(newUserTables());
+
+    expect(res._getStatusCode()).toBe(200);
+    const json = res._getJSONData();
+    expect(json.existingUser).toBe(false);
+    expect(json.email).toEqual({ sent: false, reason: 'not_configured' });
+    // S7: the signup stays `granted` — the account exists and must not be
+    // created twice — but the panel now has an action that mints a fresh link.
+    expect(json.status).toBe('granted');
+    expect(json.canResend).toBe(true);
+  });
+
+  it('new account: the grant is audited', async () => {
+    const { tracker } = await run(newUserTables());
+
+    const audit = tracker.fromCalls
+      .filter((c) => c.table === 'security_audit_events')
+      .flatMap((c) => c.inserts) as Array<Record<string, unknown>>;
+
+    expect(audit[0]).toMatchObject({
+      action: 'access_granted_new_user',
+      outcome: 'success',
+      target_user_id: CREATED_USER_ID,
+    });
+  });
+
+  it('neither branch returns the recovery link or the address', async () => {
+    for (const tables of [newUserTables(), existingUserTables(profileRow())]) {
+      const { res } = await run(tables);
+      expect(res._getData()).not.toContain('action_link');
+      expect(res._getData()).not.toContain('token_hash');
+      expect(res._getData()).not.toContain('ana@example.com');
+    }
+  });
+});
+
+/**
+ * The canonical URL. `getBaseUrl` used to fall back to `req.headers.host` in
+ * production too — so a crafted request could mint an invitation whose
+ * "Establecer contraseña" button pointed anywhere, baked into an e-mail that
+ * outlives the request.
+ */
+describe('tractor-signups/grant — canonical origin', () => {
+  it('uses the configured origin for the recovery redirect', async () => {
+    vi.stubEnv('NEXT_PUBLIC_BASE_URL', 'https://genera.example.org');
+    const { tracker } = await run(newUserTables());
+    expect(tracker.ops.join(',')).toContain('auth:generateLink');
+    expect(tracker.generateLinkArgs).toMatchObject({
+      options: { redirectTo: 'https://genera.example.org/reset-password' },
+    });
+  });
+
+  it('recognises NEXT_PUBLIC_APP_URL, which the old helper ignored', async () => {
+    vi.stubEnv('NEXT_PUBLIC_BASE_URL', '');
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', '');
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://app.example.org');
+    const { tracker } = await run(newUserTables());
+    expect(tracker.generateLinkArgs).toMatchObject({
+      options: { redirectTo: 'https://app.example.org/reset-password' },
+    });
+  });
+
+  it('FAILS in production rather than trusting the request Host', async () => {
+    vi.stubEnv('NEXT_PUBLIC_BASE_URL', '');
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', '');
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', '');
+    vi.stubEnv('VERCEL_ENV', 'production');
+    vi.stubEnv('VERCEL_PROJECT_PRODUCTION_URL', '');
+
+    const { res } = await run(newUserTables());
+
+    // A grant that cannot produce a trustworthy link must not send one.
+    expect(res._getStatusCode()).toBe(500);
+  });
+});

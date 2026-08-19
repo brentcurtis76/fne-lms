@@ -1,0 +1,300 @@
+// @vitest-environment node
+/**
+ * The invitation e-mails: rendering, escaping, and the transport contract.
+ *
+ * TWO DEFECTS this covers, both from `pages/api/admin/tractor-signups/grant.ts`:
+ *
+ *   - No fallback for the button. The copy under it read "copia y pega el enlace
+ *     de recuperación desde tu correo en el navegador" — circular advice: the
+ *     reader IS in their correo, and the link appeared nowhere they could copy
+ *     it from. A mail client that strips or fails to render the anchor (several
+ *     school-managed Outlook configurations do) made the invitation unusable
+ *     with no way to proceed.
+ *   - No e-mail at all when a grant attached roles to an EXISTING profile (S8).
+ *
+ * And the invariant the rest of the remediation depends on: the action link
+ * never leaves this module — not in the result, not in a log line.
+ */
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  DELIVERY_MESSAGES,
+  DELIVERY_SUCCESS_MESSAGE,
+  deliveryMessage,
+  escapeHtml,
+  sendAccessGrantedEmail,
+  sendPasswordSetupEmail,
+  type EmailTransport,
+} from '../../../lib/email/invitations';
+
+const ACTION_LINK =
+  'https://genera.example.org/reset-password?token_hash=synthetic-token&type=recovery';
+const LOGIN_URL = 'https://genera.example.org/login';
+
+function captureTransport(result: { error?: { message?: string } | null } = {}) {
+  const sent: Array<{ from: string; to: string; subject: string; html: string }> = [];
+  const transport: EmailTransport = async (message) => {
+    sent.push(message);
+    return { error: result.error ?? null };
+  };
+  return { transport, sent };
+}
+
+let errorSpy: ReturnType<typeof vi.spyOn>;
+
+beforeEach(() => {
+  errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  vi.stubEnv('RESEND_API_KEY', 'synthetic-key-not-a-real-credential');
+  vi.stubEnv('EMAIL_FROM_ADDRESS', '');
+});
+
+afterEach(() => {
+  errorSpy.mockRestore();
+  vi.unstubAllEnvs();
+});
+
+describe('escapeHtml', () => {
+  it.each([
+    ['&', '&amp;'],
+    ['<', '&lt;'],
+    ['>', '&gt;'],
+    ['"', '&quot;'],
+    ["'", '&#39;'],
+  ])('escapes %s', (raw, escaped) => {
+    expect(escapeHtml(raw)).toBe(escaped);
+  });
+
+  it('escapes ampersands before the rest, so an entity is not double-encoded wrongly', () => {
+    expect(escapeHtml('a & <b>')).toBe('a &amp; &lt;b&gt;');
+  });
+});
+
+describe('sendPasswordSetupEmail — the new-account invitation', () => {
+  it('renders the button AND the complete URL as visible text', async () => {
+    const { transport, sent } = captureTransport();
+    await sendPasswordSetupEmail(
+      { to: 'persona@example.com', firstName: 'Ana', actionLink: ACTION_LINK, bodyLine: 'Cuerpo.' },
+      transport
+    );
+
+    const html = sent[0].html;
+    // The button.
+    expect(html).toContain('Establecer contraseña');
+    // The fallback lead — and it no longer tells the reader to find the link in
+    // an e-mail they are already reading.
+    expect(html).toContain('copia y pega esta dirección completa en tu navegador');
+    expect(html).not.toContain('desde tu correo');
+    // The URL appears TWICE: once as the href, once as readable text.
+    const escapedLink = escapeHtml(ACTION_LINK);
+    expect(html.split(escapedLink).length - 1).toBe(2);
+  });
+
+  it('escapes the personalised name', async () => {
+    const { transport, sent } = captureTransport();
+    await sendPasswordSetupEmail(
+      {
+        to: 'persona@example.com',
+        // Names come from a public sign-up form: attacker-controlled text.
+        firstName: '<script>alert(1)</script>',
+        actionLink: ACTION_LINK,
+        bodyLine: 'Cuerpo.',
+      },
+      transport
+    );
+
+    expect(sent[0].html).not.toContain('<script>');
+    expect(sent[0].html).toContain('&lt;script&gt;');
+  });
+
+  it('escapes the body line and the link', async () => {
+    const { transport, sent } = captureTransport();
+    await sendPasswordSetupEmail(
+      {
+        to: 'persona@example.com',
+        firstName: 'Ana',
+        actionLink: 'https://example.org/x?a=1&b="2"',
+        bodyLine: 'Texto con <b>etiquetas</b> & símbolos',
+      },
+      transport
+    );
+
+    const html = sent[0].html;
+    expect(html).not.toContain('<b>etiquetas</b>');
+    expect(html).toContain('&lt;b&gt;etiquetas&lt;/b&gt;');
+    // The `&` inside the href is entity-encoded, which is what an HTML
+    // attribute requires; the browser decodes it back on click.
+    expect(html).toContain('a=1&amp;b=&quot;2&quot;');
+  });
+
+  it('uses the configured sender when one is set', async () => {
+    vi.stubEnv('EMAIL_FROM_ADDRESS', 'Genera <hola@example.org>');
+    const { transport, sent } = captureTransport();
+    await sendPasswordSetupEmail(
+      { to: 'persona@example.com', firstName: 'Ana', actionLink: ACTION_LINK, bodyLine: 'x' },
+      transport
+    );
+    expect(sent[0].from).toBe('Genera <hola@example.org>');
+  });
+
+  it('falls back to the default sender when none is configured', async () => {
+    const { transport, sent } = captureTransport();
+    await sendPasswordSetupEmail(
+      { to: 'persona@example.com', firstName: 'Ana', actionLink: ACTION_LINK, bodyLine: 'x' },
+      transport
+    );
+    expect(sent[0].from).toContain('notificaciones@nuevaeducacion.org');
+  });
+});
+
+describe('sendAccessGrantedEmail — the existing-account notice (S8)', () => {
+  it('sends the canonical LOGIN url, not a recovery link', async () => {
+    // Mailing "restablece tu contraseña" to somebody whose password is fine
+    // trains the exact habit phishing relies on, and needlessly invalidates a
+    // working credential.
+    const { transport, sent } = captureTransport();
+    await sendAccessGrantedEmail(
+      { to: 'persona@example.com', firstName: 'Ana', loginUrl: LOGIN_URL, bodyLine: 'Cuerpo.' },
+      transport
+    );
+
+    const html = sent[0].html;
+    expect(html).toContain(LOGIN_URL);
+    expect(html).not.toContain('token_hash');
+    expect(html).not.toContain('Establecer contraseña');
+    expect(html).toContain('Ir a Genera');
+  });
+
+  it('tells the recipient to use the password they already have', async () => {
+    const { transport, sent } = captureTransport();
+    await sendAccessGrantedEmail(
+      { to: 'persona@example.com', firstName: 'Ana', loginUrl: LOGIN_URL, bodyLine: 'x' },
+      transport
+    );
+    expect(sent[0].html).toContain('Ingresa con la contraseña que ya usabas');
+  });
+
+  it('shows the login URL as visible fallback text too', async () => {
+    const { transport, sent } = captureTransport();
+    await sendAccessGrantedEmail(
+      { to: 'persona@example.com', firstName: 'Ana', loginUrl: LOGIN_URL, bodyLine: 'x' },
+      transport
+    );
+    expect(sent[0].html.split(LOGIN_URL).length - 1).toBe(2);
+  });
+
+  it('has a distinct subject from the invitation', async () => {
+    const { transport, sent } = captureTransport();
+    await sendAccessGrantedEmail(
+      { to: 'persona@example.com', firstName: 'Ana', loginUrl: LOGIN_URL, bodyLine: 'x' },
+      transport
+    );
+    expect(sent[0].subject).toBe('Tu acceso a Genera fue actualizado');
+  });
+});
+
+describe('transport outcomes', () => {
+  it('CONFIGURED and accepted → sent', async () => {
+    const { transport } = captureTransport();
+    const result = await sendPasswordSetupEmail(
+      { to: 'persona@example.com', firstName: 'Ana', actionLink: ACTION_LINK, bodyLine: 'x' },
+      transport
+    );
+    expect(result).toEqual({ sent: true });
+  });
+
+  it('MISSING configuration → not_configured, and nothing is attempted', async () => {
+    // The production state today: RESEND_API_KEY is absent from the Vercel
+    // Production environment, so every invitation takes this branch.
+    vi.stubEnv('RESEND_API_KEY', '');
+    const result = await sendPasswordSetupEmail({
+      to: 'persona@example.com',
+      firstName: 'Ana',
+      actionLink: ACTION_LINK,
+      bodyLine: 'x',
+    });
+
+    expect(result).toEqual({ sent: false, reason: 'not_configured' });
+    expect(deliveryMessage(result)).toBe(DELIVERY_MESSAGES.not_configured);
+  });
+
+  it('PROVIDER REJECTION → provider_rejected, with operator detail', async () => {
+    const { transport } = captureTransport({ error: { message: 'Invalid `to` field' } });
+    const result = await sendPasswordSetupEmail(
+      { to: 'persona@example.com', firstName: 'Ana', actionLink: ACTION_LINK, bodyLine: 'x' },
+      transport
+    );
+
+    expect(result.sent).toBe(false);
+    expect(result.reason).toBe('provider_rejected');
+    expect(result.detail).toBe('Invalid `to` field');
+    expect(deliveryMessage(result)).toBe(DELIVERY_MESSAGES.provider_rejected);
+  });
+
+  it('a THROWN transport error → transport_error, not an exception', async () => {
+    const transport: EmailTransport = async () => {
+      throw new Error('ECONNRESET');
+    };
+    const result = await sendPasswordSetupEmail(
+      { to: 'persona@example.com', firstName: 'Ana', actionLink: ACTION_LINK, bodyLine: 'x' },
+      transport
+    );
+
+    expect(result).toMatchObject({ sent: false, reason: 'transport_error' });
+    expect(deliveryMessage(result)).toBe(DELIVERY_MESSAGES.transport_error);
+  });
+
+  it('every operator-facing message is es-CL', () => {
+    for (const message of Object.values(DELIVERY_MESSAGES)) {
+      expect(message).toMatch(/^No se/);
+    }
+    expect(DELIVERY_SUCCESS_MESSAGE).toBe('Correo enviado correctamente.');
+  });
+});
+
+describe('the action link never leaves the module', () => {
+  it('is absent from a successful result', async () => {
+    const { transport } = captureTransport();
+    const result = await sendPasswordSetupEmail(
+      { to: 'persona@example.com', firstName: 'Ana', actionLink: ACTION_LINK, bodyLine: 'x' },
+      transport
+    );
+    expect(JSON.stringify(result)).not.toContain('token_hash');
+    expect(JSON.stringify(result)).not.toContain(ACTION_LINK);
+  });
+
+  it('is absent from a failed result', async () => {
+    const { transport } = captureTransport({ error: { message: 'nope' } });
+    const result = await sendPasswordSetupEmail(
+      { to: 'persona@example.com', firstName: 'Ana', actionLink: ACTION_LINK, bodyLine: 'x' },
+      transport
+    );
+    expect(JSON.stringify(result)).not.toContain('token_hash');
+  });
+
+  it('is absent from every log line, and so is the full recipient address', async () => {
+    const { transport } = captureTransport({ error: { message: 'nope' } });
+    await sendPasswordSetupEmail(
+      { to: 'persona@example.com', firstName: 'Ana', actionLink: ACTION_LINK, bodyLine: 'x' },
+      transport
+    );
+
+    const logged = JSON.stringify(errorSpy.mock.calls);
+    expect(logged).not.toContain('token_hash');
+    expect(logged).not.toContain('persona@example.com');
+    // Only the domain, which is what an operator needs to triage.
+    expect(logged).toContain('example.com');
+  });
+
+  it('logs only the domain when the key is missing', async () => {
+    vi.stubEnv('RESEND_API_KEY', '');
+    await sendPasswordSetupEmail({
+      to: 'persona@example.com',
+      firstName: 'Ana',
+      actionLink: ACTION_LINK,
+      bodyLine: 'x',
+    });
+
+    const logged = JSON.stringify(errorSpy.mock.calls);
+    expect(logged).not.toContain('persona@example.com');
+    expect(logged).not.toContain(ACTION_LINK);
+  });
+});

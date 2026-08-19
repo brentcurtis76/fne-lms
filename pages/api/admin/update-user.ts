@@ -6,6 +6,7 @@ import {
   ED_FORBIDDEN_TARGET_ROLES_SET,
   SCHOOL_SCOPED_ROLES_SET,
 } from '../../../utils/roleUtils';
+import { recordSecurityAudit } from '../../../lib/security/audit';
 
 // Two-stage rate limiting to avoid contention between admin and ED traffic on
 // the same source IP (shared NAT / office network). The helper buckets are
@@ -258,35 +259,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             timestamp: new Date().toISOString(),
           });
 
-          // Best-effort audit row so the skipped-rollback event is recoverable
-          // from `audit_logs` (the CRITICAL log line alone is easy to miss).
-          // Failure here must NOT change the 500 response shape — the user
-          // mutation is already torn and that is the signal the caller acts on.
+          // Audit row so the skipped-rollback event is recoverable from the
+          // trail (the CRITICAL log line alone is easy to miss). Failure here
+          // must NOT change the 500 response shape — the user mutation is
+          // already torn and that is the signal the caller acts on.
           try {
-            const { error: skippedAuditError } = await supabaseAdmin
-              .from('audit_logs')
-              .insert({
-                user_id: requestingUser.id,
-                action: 'profile_rollback_skipped',
-                table_name: 'profiles',
-                record_id: userId,
-                details: {
-                  userId,
-                  requester_user_id: requestingUser.id,
-                  requester_role: requesterRole,
-                  attempted_update_keys: Object.keys(updateData),
-                  timestamp: new Date().toISOString(),
-                },
-              });
-            if (skippedAuditError) {
-              console.error('audit_log_insert_failed', {
-                action: 'profile_rollback_skipped',
-                record_id: userId,
-                requester_user_id: requestingUser.id,
-                requester_role: requesterRole,
-                error: skippedAuditError,
-              });
-            }
+            await recordSecurityAudit(supabaseAdmin, {
+              action: 'profile_rollback_skipped',
+              outcome: 'partial_failure',
+              actorUserId: requestingUser.id,
+              actorRole: requesterRole ?? null,
+              targetUserId: userId,
+              metadata: { attempted_update_keys: Object.keys(updateData) },
+            });
           } catch (err) {
             console.error('audit_log_insert_failed', {
               action: 'profile_rollback_skipped',
@@ -339,14 +324,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Log the update in audit_logs. `requester_role` distinguishes
-    // admin-initiated changes from ED-initiated changes — important because
-    // ED can perform account-takeover operations (email + password reset)
-    // within their school scope. Only fields actually mutated by this
-    // request are recorded; omitted body keys do not appear in the audit.
+    // Log the update. `actorRole` distinguishes admin-initiated changes from
+    // ED-initiated changes — important because ED can perform account-takeover
+    // operations (email + password reset) within their school scope. Only
+    // fields actually mutated by this request are recorded; omitted body keys
+    // do not appear in the audit.
+    //
+    // S3 privacy: the old row stored the OLD AND NEW E-MAIL ADDRESSES verbatim.
+    // The audit table refuses that at the storage layer, and it does not need
+    // them: `target_user_id` identifies the account, and the profile row holds
+    // the current address. What the trail must answer is "was this account's
+    // e-mail changed, by whom, when" — which `email_changed` answers without
+    // building a second, unmanaged copy of everybody's address.
     const updatedFields: Record<string, unknown> = {};
     if ('email' in updateData && trimmedEmail !== currentEmail) {
-      updatedFields.email = { from: currentEmail, to: trimmedEmail };
+      updatedFields.email_changed = true;
     }
     if ('first_name' in updateData) updatedFields.first_name = first_name;
     if ('last_name' in updateData) updatedFields.last_name = last_name;
@@ -355,89 +347,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       updatedFields.external_school_affiliation = external_school_affiliation;
     }
 
-    // Audit inserts are best-effort: the user mutation already committed, so a
-    // failed audit row must not roll the request back to 500. But silent
-    // failures break reconciliation, so both thrown exceptions and returned
-    // `{ error }` results are surfaced via console.error with enough context
-    // (action, target, requester, fields touched) to reconstruct the event
-    // from logs. Passwords and raw request bodies are not logged.
-    try {
-      const { error: updateAuditError } = await supabaseAdmin
-        .from('audit_logs')
-        .insert({
-          user_id: requestingUser.id,
-          action: 'update_user',
-          table_name: 'profiles',
-          record_id: userId,
-          details: {
-            requester_role: requesterRole,
-            requester_user_id: requestingUser.id,
-            updated_fields: updatedFields,
-          },
-        });
-      if (updateAuditError) {
-        console.error('audit_log_insert_failed', {
-          action: 'update_user',
-          record_id: userId,
-          requester_user_id: requestingUser.id,
-          requester_role: requesterRole,
-          updated_field_keys: Object.keys(updatedFields),
-          error: updateAuditError,
-        });
-      }
-    } catch (err) {
-      console.error('audit_log_insert_failed', {
-        action: 'update_user',
-        record_id: userId,
-        requester_user_id: requestingUser.id,
-        requester_role: requesterRole,
-        updated_field_keys: Object.keys(updatedFields),
-        error: err,
-      });
-    }
+    // S3: durable audit. Fail-open and visible (`recordSecurityAudit` never
+    // throws and logs under `[security-audit]`): the user mutation already
+    // committed, so a failed audit row must not roll the request back to 500.
+    await recordSecurityAudit(supabaseAdmin, {
+      action: 'user_updated',
+      outcome: 'success',
+      actorUserId: requestingUser.id,
+      actorRole: requesterRole ?? null,
+      targetUserId: userId,
+      metadata: { updated_fields: updatedFields },
+    });
 
-    // Dedicated audit row for email transitions — pairs with the
-    // `password_reset` row in reset-password.ts so account-takeover events
-    // are surfaceable in queries without parsing `updated_fields` blobs.
+    // Dedicated audit row for e-mail transitions — pairs with the
+    // `password_reset_admin` row in reset-password.ts so the two halves of the
+    // account-takeover primitive are queryable without parsing metadata blobs.
+    // Domains only: knowing a school address became a personal one is the
+    // security signal; the addresses themselves are not stored.
     if (hasEmail && trimmedEmail !== currentEmail) {
-      try {
-        const { error: emailAuditError } = await supabaseAdmin
-          .from('audit_logs')
-          .insert({
-            user_id: requestingUser.id,
-            action: 'email_change',
-            table_name: 'profiles',
-            record_id: userId,
-            details: {
-              requester_role: requesterRole,
-              requester_user_id: requestingUser.id,
-              from: currentEmail ?? null,
-              to: trimmedEmail,
-              timestamp: new Date().toISOString(),
-            },
-          });
-        if (emailAuditError) {
-          console.error('audit_log_insert_failed', {
-            action: 'email_change',
-            record_id: userId,
-            requester_user_id: requestingUser.id,
-            requester_role: requesterRole,
-            from: currentEmail ?? null,
-            to: trimmedEmail,
-            error: emailAuditError,
-          });
-        }
-      } catch (err) {
-        console.error('audit_log_insert_failed', {
-          action: 'email_change',
-          record_id: userId,
-          requester_user_id: requestingUser.id,
-          requester_role: requesterRole,
-          from: currentEmail ?? null,
-          to: trimmedEmail,
-          error: err,
-        });
-      }
+      await recordSecurityAudit(supabaseAdmin, {
+        action: 'user_email_changed',
+        outcome: 'success',
+        actorUserId: requestingUser.id,
+        actorRole: requesterRole ?? null,
+        targetUserId: userId,
+        metadata: {
+          from_email_domain: (currentEmail ?? '').split('@')[1] ?? null,
+          to_email_domain: trimmedEmail.split('@')[1] ?? null,
+        },
+      });
     }
 
     return res.status(200).json({ success: true, message: 'Usuario actualizado exitosamente' });

@@ -6,6 +6,7 @@ import {
   SCHOOL_SCOPED_ROLES_SET,
 } from '../../../utils/roleUtils';
 import { UserRoleType, validateRoleAssignment } from '../../../types/roles';
+import { recordSecurityAudit } from '../../../lib/security/audit';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -573,40 +574,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       school_id: schoolId,
       community_id: finalCommunityId || null,
       generation_id: sanitizedGenerationId,
-      requester_role: requesterRole,
-      requester_user_id: requestingUser.id,
-      timestamp: new Date().toISOString(),
     };
 
-    try {
-      const auditInsertResult = await supabaseService
-        .from('audit_logs')
-        .insert({
-          user_id: requestingUser.id,
-          action: 'role_assigned',
-          table_name: 'user_roles',
-          record_id: targetUserId,
-          details: auditDetails,
-        });
-
-      if (auditInsertResult.error) {
-        console.error('[assign-role] audit_logs insert failed', {
-          target_user_id: targetUserId,
-          role_type: roleType,
-          requester_user_id: requestingUser.id,
-          requester_role: requesterRole,
-          error: auditInsertResult.error.message,
-        });
-      }
-    } catch (auditErr) {
-      // Don't fail the request — the role assignment is already committed.
-      console.error('[assign-role] audit_logs insert threw', {
-        target_user_id: targetUserId,
-        requester_user_id: requestingUser.id,
-        requester_role: requesterRole,
-        error: auditErr instanceof Error ? auditErr.message : String(auditErr),
-      });
-    }
+    // S3: durable audit. This used to target `audit_logs`, a table that does
+    // not exist, so no role assignment has ever been recorded — including
+    // equipo_directivo grants, the ones `requester_role` exists to distinguish.
+    // Actor, target, requester role and school are now COLUMNS rather than keys
+    // inside a details blob, so triage can index them; `timestamp` is gone
+    // because `occurred_at` is written by the database. Fail-open and visible:
+    // the role row is already committed.
+    await recordSecurityAudit(supabaseService, {
+      action: 'role_assigned',
+      outcome: 'success',
+      actorUserId: requestingUser.id,
+      actorRole: requesterRole ?? null,
+      targetUserId: targetUserId,
+      schoolId: typeof schoolId === 'number' ? schoolId : null,
+      metadata: auditDetails,
+    });
 
     // Ensure caches refresh so client queries see the new role immediately
     const { error: cacheRefreshError } = await supabaseService

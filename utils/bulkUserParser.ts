@@ -1,5 +1,6 @@
 import { BulkUserData, ParseOptions, ParseResult, BulkImportOrganizationalScope } from '../types/bulk';
 import { validateRut } from './rutValidation';
+import { validatePasswordPolicy } from '../lib/auth/password-policy';
 
 // Re-export types for backward compatibility
 export type { BulkUserData, ParseOptions, ParseResult, BulkImportOrganizationalScope } from '../types/bulk';
@@ -126,7 +127,6 @@ function parseUserRow(
   cells: string[],
   columns: Required<NonNullable<ParseOptions['columnMapping']>>,
   options: {
-    generatePasswords: boolean;
     validateRut: boolean;
     defaultRole: string;
     organizationalScope?: BulkImportOrganizationalScope;
@@ -172,10 +172,26 @@ function parseUserRow(
     errors.push('RUT inválido');
   }
 
-  let password = rawPassword.trim();
-  if (options.generatePasswords && !password) {
-    password = Math.random().toString(36).slice(-8);
-    warnings.push('Se generó una contraseña por defecto');
+  // S13/S6: parsing does not mint credentials.
+  //
+  // This used to be `password = Math.random().toString(36).slice(-8)`, which is
+  // wrong twice over. `Math.random()` is not a CSPRNG, and base-36 emits only
+  // lowercase letters and digits — so the generated value could NEVER satisfy
+  // the uppercase requirement, and every generated row failed validation in the
+  // API. The API then fell back to a single hardcoded constant for all of them.
+  //
+  // A row without a password is now simply a row without a password; the server
+  // mints a policy-compliant one per user, from the shared CSPRNG generator. A
+  // password the CSV DOES supply is validated here, so a bad one lands in
+  // `invalid` at preview time instead of failing mid-import.
+  const password = rawPassword.trim();
+  if (password) {
+    const policy = validatePasswordPolicy(password);
+    if (!policy.valid) {
+      errors.push(policy.errors[0]);
+    }
+  } else {
+    warnings.push('Se generará una contraseña segura automáticamente');
   }
 
   // --- Organizational ID Processing ---
@@ -290,7 +306,6 @@ export function parseBulkUserData(
   const {
     delimiter = ',',
     hasHeader = true,
-    generatePasswords = true,
     validateRut: validateRutOption = true,
     defaultRole = 'docente',
     columnMapping,
@@ -325,7 +340,6 @@ export function parseBulkUserData(
     const rowNumber = i + 1;
     const cells = parseCsvLine(line, delimiter);
     const userData = parseUserRow(cells, columns, {
-      generatePasswords,
       validateRut: validateRutOption,
       defaultRole,
       organizationalScope  // Pass organizational scope

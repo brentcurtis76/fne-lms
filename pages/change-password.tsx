@@ -5,6 +5,11 @@ import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
 import { LockClosedIcon, ExclamationIcon, LogoutIcon } from '@heroicons/react/outline';
+import { PASSWORD_RULES, firstPasswordPolicyError } from '../lib/auth/password-policy';
+import {
+  FORCED_CHANGE_UNVERIFIED_PARAM,
+  FORCED_CHANGE_UNVERIFIED_VALUE,
+} from '../lib/auth/forced-password-change';
 
 export default function ChangePasswordPage() {
   const router = useRouter();
@@ -18,6 +23,12 @@ export default function ChangePasswordPage() {
   const [showPasswords, setShowPasswords] = useState(false);
   const [isAdminReset, setIsAdminReset] = useState(false);
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
+  // S4: the middleware could not READ the flag (database unreachable) rather
+  // than finding it set. It fails closed and sends the user here with a marker.
+  // Without the marker this page would read the flag, find it false, push to
+  // /dashboard, and be bounced straight back — a redirect ping-pong lasting as
+  // long as the outage. With it, the page stops and offers a retry.
+  const [verificationUnavailable, setVerificationUnavailable] = useState(false);
 
   useEffect(() => {
     if (!hasCheckedAuth) {
@@ -27,6 +38,9 @@ export default function ChangePasswordPage() {
   }, [hasCheckedAuth]);
 
   const checkAuth = async () => {
+    const arrivedUnverified =
+      router.query[FORCED_CHANGE_UNVERIFIED_PARAM] === FORCED_CHANGE_UNVERIFIED_VALUE;
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -53,7 +67,15 @@ export default function ChangePasswordPage() {
       }
 
       if (!profile?.must_change_password) {
-        // User doesn't need to change password, redirect to dashboard
+        // The flag is not set. Normally that means the user landed here by
+        // mistake and belongs on the dashboard — but if the middleware sent
+        // them here because it could not verify, redirecting back is exactly
+        // the loop the marker exists to break. Stop and let them choose.
+        if (arrivedUnverified) {
+          setVerificationUnavailable(true);
+          setLoading(false);
+          return;
+        }
         router.push('/dashboard');
         return;
       }
@@ -76,22 +98,8 @@ export default function ChangePasswordPage() {
     router.push('/login');
   };
 
-  const validatePassword = (password: string): string | null => {
-    if (password.length < 8) {
-      return 'La contraseña debe tener al menos 8 caracteres';
-    }
-    if (!/[A-Z]/.test(password)) {
-      return 'La contraseña debe contener al menos una letra mayúscula';
-    }
-    if (!/[a-z]/.test(password)) {
-      return 'La contraseña debe contener al menos una letra minúscula';
-    }
-    if (!/[0-9]/.test(password)) {
-      return 'La contraseña debe contener al menos un número';
-    }
-    return null;
-  };
-
+  // S5: the rule lives in lib/auth/password-policy and is re-checked
+  // server-side by /api/auth/force-password-change. This is the usability half.
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -100,7 +108,7 @@ export default function ChangePasswordPage() {
       return;
     }
 
-    const validationError = validatePassword(newPassword);
+    const validationError = firstPasswordPolicyError(newPassword);
     if (validationError) {
       toast.error(validationError);
       return;
@@ -203,7 +211,7 @@ export default function ChangePasswordPage() {
         errorCode: error?.code,
         errorStatus: error?.status,
         errorName: error?.name,
-        userEmail: user?.email,
+        userId: user?.id,
         timestamp: new Date().toISOString()
       });
 
@@ -222,14 +230,6 @@ export default function ChangePasswordPage() {
       } else {
         toast.error(error.message || 'Error al actualizar la contraseña. Por favor intenta nuevamente.');
       }
-
-      // Log to help identify the issue for this specific user
-      if (user?.email === 'maritza.cortes@lisamvallenar.cl') {
-        console.warn('DEBUG - Password change failed for maritza.cortes:', {
-          fullError: JSON.stringify(error, null, 2),
-          stack: error?.stack
-        });
-      }
     } finally {
       setUpdating(false);
     }
@@ -240,6 +240,50 @@ export default function ChangePasswordPage() {
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0a0a0a]"></div>
       </div>
+    );
+  }
+
+  if (verificationUnavailable) {
+    return (
+      <>
+        <Head>
+          <title>Cambiar Contraseña - Genera</title>
+        </Head>
+        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+          <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
+            <div className="flex justify-center">
+              <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center">
+                <ExclamationIcon className="w-10 h-10 text-yellow-600" />
+              </div>
+            </div>
+            <h2 className="mt-6 text-2xl font-extrabold text-gray-900">
+              No pudimos verificar tu cuenta
+            </h2>
+            <p className="mt-3 text-sm text-gray-600">
+              No pudimos comprobar si necesitas cambiar tu contraseña. Es un problema temporal
+              de conexión, no de tu cuenta.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <button
+                type="button"
+                onClick={() => router.replace('/dashboard')}
+                data-testid="forced-change-retry"
+                className="inline-flex justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#0a0a0a] hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition-colors"
+              >
+                Reintentar
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                data-testid="forced-change-logout"
+                className="inline-flex justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Cerrar sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -341,22 +385,18 @@ export default function ChangePasswordPage() {
                   Requisitos de la contraseña:
                 </p>
                 <ul className="text-sm text-gray-600 space-y-1">
-                  <li className={`flex items-center gap-1 ${newPassword.length >= 8 ? 'text-green-600' : ''}`}>
-                    <span>{newPassword.length >= 8 ? '✓' : '•'}</span>
-                    Al menos 8 caracteres
-                  </li>
-                  <li className={`flex items-center gap-1 ${/[A-Z]/.test(newPassword) ? 'text-green-600' : ''}`}>
-                    <span>{/[A-Z]/.test(newPassword) ? '✓' : '•'}</span>
-                    Al menos una letra mayúscula
-                  </li>
-                  <li className={`flex items-center gap-1 ${/[a-z]/.test(newPassword) ? 'text-green-600' : ''}`}>
-                    <span>{/[a-z]/.test(newPassword) ? '✓' : '•'}</span>
-                    Al menos una letra minúscula
-                  </li>
-                  <li className={`flex items-center gap-1 ${/[0-9]/.test(newPassword) ? 'text-green-600' : ''}`}>
-                    <span>{/[0-9]/.test(newPassword) ? '✓' : '•'}</span>
-                    Al menos un número
-                  </li>
+                  {PASSWORD_RULES.map((rule) => {
+                    const met = rule.test(newPassword);
+                    return (
+                      <li
+                        key={rule.id}
+                        className={`flex items-center gap-1 ${met ? 'text-green-600' : ''}`}
+                      >
+                        <span>{met ? '✓' : '•'}</span>
+                        {rule.label}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
 

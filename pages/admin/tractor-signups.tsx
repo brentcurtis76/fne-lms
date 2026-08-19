@@ -11,6 +11,7 @@ import {
   Loader2,
   RefreshCw,
   Search,
+  Send,
   Settings2,
   Trash2,
   Users,
@@ -56,7 +57,7 @@ interface SchoolOption {
 }
 
 type ExistingFilter = 'all' | 'existing' | 'new';
-type SignupAction = 'grant' | 'dismiss' | 'delete';
+type SignupAction = 'grant' | 'dismiss' | 'delete' | 'resend';
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const supabase = createPagesServerClient(ctx);
@@ -188,7 +189,12 @@ export default function TractorSignupsAdminPage() {
           ? { signupId: manageRow.id, action, deleteAccount }
           : { signupId: manageRow.id, action };
 
-      const response = await fetch('/api/admin/tractor-signups/grant', {
+      const endpoint =
+        action === 'resend'
+          ? '/api/admin/tractor-signups/resend-invite'
+          : '/api/admin/tractor-signups/grant';
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -200,8 +206,17 @@ export default function TractorSignupsAdminPage() {
       }
 
       if (action === 'grant') {
-        if (json.email?.sent === false || json.email?.fallback || json.email?.error) {
-          toast('Acceso otorgado, pero no se envió el correo de invitación');
+        // S7/S8: both branches now report delivery, and both offer a retry.
+        // `emailMessage` is the server's es-CL sentence for the exact failure
+        // (not configured / provider rejected / transport), so the operator
+        // learns whether to call the technical team or simply retry.
+        if (json.email && json.email.sent === false) {
+          toast(`Acceso otorgado. ${json.emailMessage ?? 'No se envió el correo de invitación.'} ` +
+            'Puedes reenviar la invitación desde este mismo panel.', {
+            icon: '⚠️',
+            duration: 8000,
+            style: { background: '#FEF3C7', color: '#92400E' },
+          });
         } else {
           toast.success('Acceso otorgado');
         }
@@ -209,16 +224,30 @@ export default function TractorSignupsAdminPage() {
         if (json.generation?.warning) {
           toast(json.generation.warning, { icon: '⚠️' });
         }
+      } else if (action === 'resend') {
+        if (json.success) {
+          toast.success(json.message || 'Invitación reenviada');
+        } else {
+          toast(json.message || 'No se pudo enviar el correo', {
+            icon: '⚠️',
+            duration: 8000,
+            style: { background: '#FEF3C7', color: '#92400E' },
+          });
+        }
       } else if (action === 'dismiss') {
         toast.success('Registro descartado');
       } else {
         toast.success(json.deletedAccount ? 'Usuario y registro eliminados' : 'Registro eliminado');
       }
 
-      setManageRow(null);
-      setConfirmDelete(false);
-      setConfirmGrant(false);
-      setDeleteAccount(false);
+      // A resend leaves the dialog open: the toast is the result, and closing
+      // the panel underneath it would hide which row it referred to.
+      if (action !== 'resend') {
+        setManageRow(null);
+        setConfirmDelete(false);
+        setConfirmGrant(false);
+        setDeleteAccount(false);
+      }
       await fetchRows();
     } catch (actionError) {
       toast.error(actionError instanceof Error ? actionError.message : 'Error al procesar la acción');
@@ -607,6 +636,29 @@ export default function TractorSignupsAdminPage() {
                       <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                     )}
                     Otorgar acceso
+                  </button>
+                  {/* S7: a failed invitation e-mail used to be terminal. The
+                      signup was already `granted`, so it could not be granted
+                      again, and no operator action anywhere could produce
+                      another link. This mints a fresh one. */}
+                  <button
+                    type="button"
+                    onClick={() => runAction('resend')}
+                    disabled={busy || manageRow.status !== 'granted' || !manageRow.linked_user_id}
+                    data-testid="signups-resend-invite"
+                    title={
+                      manageRow.status !== 'granted'
+                        ? 'Disponible una vez otorgado el acceso'
+                        : 'Enviar de nuevo el correo de invitación'
+                    }
+                    className="inline-flex items-center justify-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
+                  >
+                    {pendingAction === 'resend' ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Send className="h-4 w-4" aria-hidden="true" />
+                    )}
+                    Reenviar invitación
                   </button>
                   <button
                     type="button"

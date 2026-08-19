@@ -10,11 +10,40 @@ vi.mock('@supabase/auth-helpers-nextjs', () => ({
   createMiddlewareClient: (...args: unknown[]) => createMiddlewareClient(...args),
 }));
 
-function buildSupabase(opts: { session: unknown; roles: Role[] | null }) {
-  const eqInner = vi.fn().mockResolvedValue({ data: opts.roles });
-  const eqOuter = vi.fn(() => ({ eq: eqInner }));
-  const select = vi.fn(() => ({ eq: eqOuter }));
-  const from = vi.fn(() => ({ select }));
+/**
+ * S4 added a `profiles` read to the middleware, so the stub has to answer two
+ * differently shaped queries:
+ *
+ *   user_roles  from().select().eq().eq()            -> { data: roles }
+ *   profiles    from().select().eq().maybeSingle()   -> { data: profile, error }
+ *
+ * `mustChangePassword` defaults to false so every pre-existing test keeps
+ * asserting what it always asserted: with the flag clear, the gate is
+ * transparent and the authorization layer below behaves exactly as before.
+ */
+function buildSupabase(opts: {
+  session: unknown;
+  roles: Role[] | null;
+  mustChangePassword?: boolean | null;
+  profileError?: unknown;
+  profileMissing?: boolean;
+}) {
+  const rolesEqInner = vi.fn().mockResolvedValue({ data: opts.roles });
+  const rolesEqOuter = vi.fn(() => ({ eq: rolesEqInner }));
+  const rolesSelect = vi.fn(() => ({ eq: rolesEqOuter }));
+
+  const profileRow = opts.profileMissing
+    ? null
+    : { must_change_password: opts.mustChangePassword ?? false };
+  const maybeSingle = vi
+    .fn()
+    .mockResolvedValue({ data: profileRow, error: opts.profileError ?? null });
+  const profilesEq = vi.fn(() => ({ maybeSingle }));
+  const profilesSelect = vi.fn(() => ({ eq: profilesEq }));
+
+  const from = vi.fn((table: string) =>
+    table === 'profiles' ? { select: profilesSelect } : { select: rolesSelect }
+  );
   const getSession = vi.fn().mockResolvedValue({ data: { session: opts.session } });
   return { auth: { getSession }, from };
 }
@@ -201,15 +230,19 @@ describe('middleware session-presence-only routes', () => {
     ['/consultor session', CONSULTOR_PATH],
     ['/consultor nested', '/consultor/sessions/abc/edit'],
   ])('lets an authenticated user through %s without any role lookup', async (_label, path) => {
-    // These prefixes are gated by their own SSR/client checks. The middleware
-    // must not spend a DB round-trip on them — assert the query never happens.
+    // These prefixes are gated by their own SSR/client checks, so the
+    // middleware must not spend a ROLE lookup on them.
+    //
+    // S4: it does now read `profiles` here, deliberately — a user who must
+    // change their password must not reach /meet or /consultor either, and
+    // those were previously the two prefixes that returned before every check.
     const supabase = buildSupabase({ session: SESSION, roles: null });
     createMiddlewareClient.mockReturnValue(supabase);
     const { middleware } = await import('../middleware');
     const res = await middleware(new NextRequest(`http://localhost${path}`));
 
     expect(isRedirect(res)).toBe(false);
-    expect(supabase.from).not.toHaveBeenCalled();
+    expect(supabase.from).not.toHaveBeenCalledWith('user_roles');
   });
 
   it('lets a role-less authenticated user reach /meet', async () => {
@@ -220,7 +253,7 @@ describe('middleware session-presence-only routes', () => {
     const res = await middleware(new NextRequest(`http://localhost${MEET_PATH}`));
 
     expect(isRedirect(res)).toBe(false);
-    expect(supabase.from).not.toHaveBeenCalled();
+    expect(supabase.from).not.toHaveBeenCalledWith('user_roles');
   });
 
   it('still runs the /admin role lookup (the exemption is prefix-scoped)', async () => {
@@ -237,14 +270,20 @@ describe('middleware session-presence-only routes', () => {
 });
 
 describe('middleware matcher', () => {
-  it('matches exactly the five configured prefixes', async () => {
+  it('still covers the five originally gated prefixes', async () => {
+    // S4 broadened the matcher from five prefixes to every API route plus the
+    // authenticated page tree. This asserts the ORIGINAL five survived that
+    // broadening; the new coverage is asserted (against the predicate, so the
+    // two cannot drift) in __tests__/middleware.forced-password-change.test.ts.
     const { config } = await import('../middleware');
-    expect(config.matcher).toEqual([
+    for (const original of [
       '/admin/:path*',
-      '/community/workspace/:path*',
+      '/community/:path*',
       '/school/:path*',
       '/meet/:path*',
       '/consultor/:path*',
-    ]);
+    ]) {
+      expect(config.matcher).toContain(original);
+    }
   });
 });

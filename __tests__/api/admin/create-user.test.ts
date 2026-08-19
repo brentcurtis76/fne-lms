@@ -144,6 +144,15 @@ function setupEquipoDirectivo(schoolId: number | null) {
   });
 }
 
+/**
+ * S5: this endpoint had NO password rule of any kind. The fixture used to be
+ * `pw-12345`, which the endpoint accepted happily; it now fails the shared
+ * policy (no uppercase), so the happy-path fixture is a compliant value and the
+ * old shape is exercised as an explicit rejection case below.
+ */
+const VALID_PASSWORD = 'Sintetica-2026';
+const WEAK_PASSWORD = 'pw-12345';
+
 function setupUnauthenticated() {
   mockCheckIsAdminOrEquipoDirectivo.mockResolvedValueOnce({
     isAuthorized: false,
@@ -160,6 +169,7 @@ function stockHappyPath(tracker: Tracker) {
       {
         profiles: [{ data: null, error: null }],
         user_roles: [{ data: null, error: null }],
+        security_audit_events: [{ data: null, error: null }],
       },
       tracker,
     ),
@@ -169,7 +179,7 @@ function stockHappyPath(tracker: Tracker) {
 function bodyFor(role: string | undefined, schoolId?: number) {
   const body: Record<string, unknown> = {
     email: 'new@example.com',
-    password: 'pw-12345',
+    password: VALID_PASSWORD,
     firstName: 'New',
     lastName: 'User',
   };
@@ -438,7 +448,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'admin',
@@ -636,7 +646,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'docente',
@@ -657,7 +667,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'docente',
@@ -679,7 +689,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'docente',
@@ -700,7 +710,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'docente',
@@ -721,7 +731,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'docente',
@@ -742,7 +752,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'docente',
@@ -763,7 +773,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'docente',
@@ -784,7 +794,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'docente',
@@ -807,7 +817,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'docente',
@@ -845,7 +855,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         // role intentionally omitted
@@ -957,5 +967,182 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       expect(roleDeletes).toHaveLength(1);
       expect(roleDeletes[0].eqs).toContainEqual({ col: 'user_id', val: NEW_USER_ID });
     });
+  });
+});
+
+/**
+ * S14 — the handler now does what the UI has always claimed.
+ *
+ * Both quick-create surfaces (`/admin/school-users`, `/admin/user-management`)
+ * tell the administrator: "El usuario deberá cambiar su contraseña en el primer
+ * inicio de sesión." The handler wrote `must_change_password: false`, so they
+ * never were — the administrator-chosen password became the account's permanent
+ * password, known to two people, and (before S4) nothing in the platform would
+ * ever have forced a change even if the flag had been set.
+ */
+describe('admin/create-user — forced first-login change (S14)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('sets must_change_password: true on the created profile', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({ method: 'POST', body: bodyFor('docente', OTHER_SCHOOL_ID) });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const profileUpdate = tracker.fromCalls.find(
+      (c) => c.table === 'profiles' && c.updates.length > 0,
+    )!;
+    // The whole defect, in one assertion.
+    expect((profileUpdate.updates[0] as any).must_change_password).toBe(true);
+  });
+
+  it('tells the caller so, in the response', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({ method: 'POST', body: bodyFor('docente', OTHER_SCHOOL_ID) });
+    await handler(req as never, res as never);
+
+    expect(res._getJSONData().user).toMatchObject({ mustChangePassword: true });
+  });
+
+  it('does the same for an equipo_directivo requester', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({ method: 'POST', body: bodyFor('docente', ED_SCHOOL_ID) });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const profileUpdate = tracker.fromCalls.find(
+      (c) => c.table === 'profiles' && c.updates.length > 0,
+    )!;
+    expect((profileUpdate.updates[0] as any).must_change_password).toBe(true);
+  });
+});
+
+describe('admin/create-user — server-side password policy (S5)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it.each([
+    ['the old fixture shape (no uppercase)', WEAK_PASSWORD],
+    ['too short', 'Ab1'],
+    ['no lowercase', 'SINTETICA2026'],
+    ['no number', 'SinteticaSegura'],
+    ['a single character', 'a'],
+  ])('400 for a password that is %s — no account is created', async (_label, weak) => {
+    setupAdmin();
+    // Deliberately no `stockHappyPath` here. `vi.clearAllMocks()` clears call
+    // history but NOT a queued `mockReturnValueOnce`, so a client queued for a
+    // request that never builds one would be handed to the NEXT test — bound to
+    // a tracker that test does not hold, and silently invisible to it.
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { ...bodyFor('docente', OTHER_SCHOOL_ID), password: weak },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData().error).toMatch(/^La contraseña/);
+    // The service-role client is built lazily AFTER validation, so nothing was
+    // even connected to, let alone written.
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
+
+  it('400 in es-CL when email or password is missing', async () => {
+    setupAdmin();
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { email: 'new@example.com' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toMatchObject({
+      error: 'Email y contraseña son obligatorios',
+    });
+  });
+});
+
+describe('admin/create-user — audit (S3)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('records user_created_manual with actor, target and role', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({ method: 'POST', body: bodyFor('docente', OTHER_SCHOOL_ID) });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const audit = tracker.fromCalls.filter((c) => c.table === 'security_audit_events');
+    expect(audit).toHaveLength(1);
+    expect(audit[0].inserts[0]).toMatchObject({
+      action: 'user_created_manual',
+      outcome: 'success',
+      actor_user_id: ADMIN_ID,
+      actor_role: 'admin',
+      target_user_id: NEW_USER_ID,
+      school_id: OTHER_SCHOOL_ID,
+    });
+  });
+
+  it('never puts the chosen password anywhere but the GoTrue call', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({ method: 'POST', body: bodyFor('docente', OTHER_SCHOOL_ID) });
+    await handler(req as never, res as never);
+
+    for (const call of tracker.fromCalls) {
+      for (const payload of [...call.inserts, ...call.updates]) {
+        expect(JSON.stringify(payload ?? null)).not.toContain(VALID_PASSWORD);
+      }
+    }
+    expect(res._getData()).not.toContain(VALID_PASSWORD);
+  });
+
+  it('a failed audit does not fail the creation — fail-open, but reported', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [{ data: null, error: null }],
+          user_roles: [{ data: null, error: null }],
+          security_audit_events: [{ data: null, error: { message: 'audit insert failed' } }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'POST', body: bodyFor('docente', OTHER_SCHOOL_ID) });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData().audited).toBe(false);
+    expect(errSpy).toHaveBeenCalledWith(
+      '[security-audit] write failed',
+      expect.objectContaining({ action: 'user_created_manual' }),
+    );
+    errSpy.mockRestore();
   });
 });

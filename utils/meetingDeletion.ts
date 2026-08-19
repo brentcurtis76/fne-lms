@@ -6,6 +6,7 @@
 
 import { supabase } from '../lib/supabase-wrapper';
 import { toast } from 'react-hot-toast';
+import { recordSecurityAudit } from '../lib/security/audit';
 
 interface DeletionResult {
   success: boolean;
@@ -48,23 +49,9 @@ export async function deleteMeeting(
       .select('*')
       .eq('meeting_id', meetingId);
 
-    // 3. Log the deletion attempt for audit purposes (skip if table doesn't exist)
-    try {
-      await supabase.from('audit_logs').insert({
-        user_id: options.userId,
-        action: 'meeting_deletion_attempt',
-        resource_type: 'meeting',
-        resource_id: meetingId,
-        metadata: {
-          meeting_title: meeting.title,
-          reason: options.reason,
-          timestamp: new Date().toISOString()
-        }
-      });
-    } catch (auditError) {
-      // Audit logging is optional - continue if it fails
-      console.warn('Audit logging skipped:', auditError);
-    }
+    // 3. The attempt itself is not audited: the audit table records completed
+    //    security operations, and the failure and success paths below both
+    //    write a row, so an attempt row would only ever duplicate one of them.
 
     // 4. Delete storage files first (before database records)
     if (attachments && attachments.length > 0) {
@@ -165,23 +152,20 @@ export async function deleteMeeting(
       throw new Error('No se pudo eliminar la reunión. Es posible que no tengas permisos suficientes.');
     }
 
-    // 6. Log successful deletion (skip if table doesn't exist)
-    try {
-      await supabase.from('audit_logs').insert({
-        user_id: options.userId,
-        action: 'meeting_deleted',
-        resource_type: 'meeting',
-        resource_id: meetingId,
-        metadata: {
-          meeting_title: meeting.title,
-          deleted_files: deletedFiles,
-          errors: errors,
-          timestamp: new Date().toISOString()
-        }
-      });
-    } catch (auditError) {
-      console.warn('Audit logging skipped:', auditError);
-    }
+    // 6. S3: durable audit. Was an insert into the non-existent `audit_logs`.
+    //    The meeting title is dropped — it is session content, not a security
+    //    fact, and the meeting id identifies the record.
+    await recordSecurityAudit(supabase, {
+      action: 'meeting_deleted',
+      outcome: errors.length > 0 ? 'partial_failure' : 'success',
+      actorUserId: options.userId,
+      metadata: {
+        meeting_id: meetingId,
+        reason: options.reason ?? null,
+        deleted_file_count: deletedFiles,
+        error_count: errors.length,
+      },
+    });
 
     return {
       success: true,
@@ -192,22 +176,18 @@ export async function deleteMeeting(
   } catch (error) {
     console.error('Error in deleteMeeting:', error);
     
-    // Log the failure (skip if table doesn't exist)
-    try {
-      await supabase.from('audit_logs').insert({
-        user_id: options.userId,
-        action: 'meeting_deletion_failed',
-        resource_type: 'meeting',
-        resource_id: meetingId,
-        metadata: {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          timestamp: new Date().toISOString()
-        }
-      });
-    } catch (logError) {
-      // Audit logging is optional
-      console.warn('Audit logging skipped:', logError);
-    }
+    // S3: durable audit of the failure. `recordSecurityAudit` never throws, so
+    // the try/catch that used to wrap this is gone rather than nested.
+    await recordSecurityAudit(supabase, {
+      action: 'meeting_deleted',
+      outcome: 'failure',
+      actorUserId: options.userId,
+      metadata: {
+        meeting_id: meetingId,
+        reason: options.reason ?? null,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
 
     return {
       success: false,
@@ -246,20 +226,10 @@ export async function softDeleteMeeting(
       throw new Error('No se pudo archivar la reunión. Es posible que no tengas permisos suficientes o que la reunión no exista.');
     }
 
-    // Log the soft deletion (skip if table doesn't exist)
-    try {
-      await supabase.from('audit_logs').insert({
-        user_id: userId,
-        action: 'meeting_soft_deleted',
-        resource_type: 'meeting',
-        resource_id: meetingId,
-        metadata: {
-          timestamp: new Date().toISOString()
-        }
-      });
-    } catch (auditError) {
-      console.warn('Audit logging skipped:', auditError);
-    }
+    // No audit row. Archiving is a reversible content-lifecycle action, not a
+    // security operation, and the row itself already records who and when in
+    // `community_meetings.deleted_by` / `deleted_at` — which is more than the
+    // old insert into the non-existent `audit_logs` ever managed.
 
     return { success: true };
   } catch (error) {
@@ -292,20 +262,8 @@ export async function restoreMeeting(
       throw error;
     }
 
-    // Log the restoration (skip if table doesn't exist)
-    try {
-      await supabase.from('audit_logs').insert({
-        user_id: userId,
-        action: 'meeting_restored',
-        resource_type: 'meeting',
-        resource_id: meetingId,
-        metadata: {
-          timestamp: new Date().toISOString()
-        }
-      });
-    } catch (auditError) {
-      console.warn('Audit logging skipped:', auditError);
-    }
+    // No audit row, for the same reason as `softDeleteMeeting` above: a
+    // reversible content action is not a security event. See that comment.
 
     return { success: true };
   } catch (error) {

@@ -1,6 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
+import { firstPasswordPolicyError } from '../../../lib/auth/password-policy';
+import { recordSecurityAudit } from '../../../lib/security/audit';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -22,18 +24,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'New password is required' });
     }
 
-    // Validate password requirements
-    if (newPassword.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    }
-    if (!/[A-Z]/.test(newPassword)) {
-      return res.status(400).json({ error: 'Password must contain at least one uppercase letter' });
-    }
-    if (!/[a-z]/.test(newPassword)) {
-      return res.status(400).json({ error: 'Password must contain at least one lowercase letter' });
-    }
-    if (!/[0-9]/.test(newPassword)) {
-      return res.status(400).json({ error: 'Password must contain at least one number' });
+    // S5: one shared policy, and the messages are the es-CL ones the user sees
+    // — this endpoint used to answer in English while the form it backs spoke
+    // Spanish, so a rejected password produced an untranslated toast.
+    const passwordError = firstPasswordPolicyError(newPassword);
+    if (passwordError) {
+      return res.status(400).json({ error: passwordError });
     }
 
     // Check if user actually needs to change password
@@ -58,17 +54,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw updateError;
     }
 
-    // Update the profile flag
+    // Clear the forced-change flag. Unlike the password write above this one
+    // CANNOT be shrugged off: leaving it true after a successful change loops
+    // the user straight back into /change-password on their next request, now
+    // that S4 enforces the flag centrally instead of merely suggesting it.
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
-      .update({ 
+      .update({
         must_change_password: false
       })
       .eq('id', session.user.id);
 
     if (profileError) {
-      console.error('Profile update error:', profileError);
-      // Continue anyway - password was changed successfully
+      console.error('[force-password-change] could not clear must_change_password:', profileError);
+      await recordSecurityAudit(supabaseAdmin, {
+        action: 'password_change_forced',
+        outcome: 'partial_failure',
+        actorUserId: session.user.id,
+        targetUserId: session.user.id,
+        metadata: { stage: 'clear_flag', reason: 'profile_update_failed' },
+      });
+      return res.status(500).json({
+        error:
+          'Tu contraseña se actualizó, pero no pudimos completar el proceso. ' +
+          'Vuelve a iniciar sesión; si el problema persiste, contacta al administrador.',
+        code: 'FLAG_NOT_CLEARED',
+      });
     }
 
     // Clear any admin reset metadata
@@ -82,7 +93,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     );
 
-    return res.status(200).json({ success: true });
+    // S3: fail-open and visible — the password is already changed.
+    const audit = await recordSecurityAudit(supabaseAdmin, {
+      action: 'password_change_forced',
+      outcome: 'success',
+      actorUserId: session.user.id,
+      targetUserId: session.user.id,
+      metadata: { change_type: 'forced_first_login' },
+    });
+
+    return res.status(200).json({ success: true, audited: audit.recorded });
   } catch (error: any) {
     console.error('Force password change error:', error);
     return res.status(500).json({ 

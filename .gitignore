@@ -172,5 +172,8 @@ supabase/.branches/
 # Playwright test artifacts
 playwright-report/
 test-results/
+# The e2e outbound-mail outbox (lib/email/outbox.ts). Message bodies carry live
+# recovery URLs, so it must never be committed.
+.e2e-outbox/
 # Live sessions produced by tests/e2e/helpers/auth.ts — never commit these
 tests/e2e/.auth/

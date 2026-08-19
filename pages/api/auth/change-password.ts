@@ -10,9 +10,12 @@ import {
 } from '../../../lib/api-auth';
 import { ApiError, ApiSuccess } from '../../../lib/types/api-auth.types';
 import { rateLimit, RATE_LIMITS } from '../../../lib/rateLimit';
-import { logAuthEvent, logSecurityIncident } from '../../../lib/securityAuditLog';
+import { logAuthEvent } from '../../../lib/securityAuditLog';
 import { firstPasswordPolicyError } from '../../../lib/auth/password-policy';
-import { recordSecurityAudit } from '../../../lib/security/audit';
+import {
+  completePasswordChange,
+  isCompletionFailure,
+} from '../../../lib/auth/password-completion';
 
 // Rate limiter for password change (auth-level: 10 req/min)
 const rateLimitCheck = rateLimit(RATE_LIMITS.auth, 'change-password');
@@ -32,16 +35,18 @@ export default async function handler(
   if (!allowed) return;
 
   try {
-    // Get the authenticated user's session
+    // F3: `auth.getUser()`, not `auth.getSession()`. getSession decodes the
+    // session cookie and hands back whatever it contains; getUser validates the
+    // token with the auth server and returns the account it actually belongs to.
+    // This handler is about to change a password — the identity it acts on must
+    // come from the authority, not from the caller's own cookie.
     const supabase = await createApiSupabaseClient(req, res);
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    if (sessionError || !session?.user) {
-      console.error('[Change Password API] No authenticated session:', sessionError);
+    if (userError || !user?.id || !user.email) {
+      console.error('[Change Password API] No authenticated user:', userError);
       return sendAuthError(res, 'No autorizado', 401);
     }
-
-    const user = session.user;
     console.log('[Change Password API] User requesting password change:', {
       userId: user.id,
       email: user.email?.split('@')[0] + '@***'
@@ -82,7 +87,7 @@ export default async function handler(
     });
 
     const { error: verifyError } = await verifyClient.auth.signInWithPassword({
-      email: user.email!,
+      email: user.email,
       password: currentPassword
     });
 
@@ -92,42 +97,27 @@ export default async function handler(
       return sendAuthError(res, 'La contraseña actual es incorrecta', 400);
     }
 
-    // Current password verified - now update to new password
+    // Current password verified — the write itself goes through the one trusted
+    // path every completion shares (lib/auth/password-completion.ts), which
+    // re-checks the shared policy, writes only the proved account, and records
+    // `password_change_voluntary`. `clearFlag: false`: a voluntary change is
+    // made by somebody who is NOT under the forced-change regime, so there is
+    // nothing to clear — and clearing it here would let this endpoint release an
+    // account the gate is deliberately holding.
     const supabaseAdmin = createServiceRoleClient();
 
-    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-      user.id,
-      { password: newPassword }
-    );
-
-    if (updateError) {
-      console.error('[Change Password API] Password update failed:', updateError);
-
-      // Check for same password error
-      if (updateError.message?.includes('same_password') ||
-          updateError.message?.includes('different from the old password')) {
-        return sendAuthError(res, 'La nueva contraseña debe ser diferente a la actual', 400);
-      }
-
-      return sendAuthError(res, 'Error al actualizar la contraseña', 500);
-    }
-
-    // S3: durable audit. Was an insert into `audit_logs`, a table that does not
-    // exist — so no voluntary password change has ever been recorded. Fail-open
-    // and visible: the password is already changed, so refusing the response
-    // would tell the user their change failed when it did not.
-    //
-    // The IP address and user-agent the old row carried are deliberately gone.
-    // They are request-scoped telemetry, not security-relevant metadata about
-    // the operation, and `logAuthEvent` below already carries them to the
-    // console/APM path where they belong.
-    const audit = await recordSecurityAudit(supabaseAdmin, {
-      action: 'password_change_voluntary',
-      outcome: 'success',
-      actorUserId: user.id,
-      targetUserId: user.id,
-      metadata: { change_type: 'user_initiated' },
+    const result = await completePasswordChange(supabaseAdmin, {
+      userId: user.id,
+      newPassword,
+      auditAction: 'password_change_voluntary',
+      auditMetadata: { change_type: 'user_initiated' },
+      clearFlag: false,
+      logPrefix: '[Change Password API]',
     });
+
+    if (isCompletionFailure(result)) {
+      return sendAuthError(res, result.message, result.status);
+    }
 
     // Log to security audit (console/external service)
     logAuthEvent('PASSWORD_CHANGE', {
@@ -140,8 +130,8 @@ export default async function handler(
 
     return sendApiResponse(res, {
       success: true,
-      message: 'Contraseña actualizada exitosamente',
-      audited: audit.recorded,
+      message: result.message,
+      audited: result.audited,
     });
 
   } catch (error: any) {

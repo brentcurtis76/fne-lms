@@ -46,6 +46,7 @@ export const SECURITY_AUDIT_ACTIONS = [
   'password_reset_admin',
   'password_change_voluntary',
   'password_change_forced',
+  'password_change_recovery',
   'user_created_manual',
   'user_created_bulk',
   'bulk_credentials_delivered',

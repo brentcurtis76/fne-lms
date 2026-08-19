@@ -37,7 +37,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(70);
+SELECT plan(89);
 
 \set school_id 9601
 
@@ -201,6 +201,28 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- How many rows a write actually touched. With the restrictive guard in place a
+-- refused write raises nothing and reaches nothing, so ROW_COUNT is the thing to
+-- read. SECURITY INVOKER (the default), so every policy still applies.
+CREATE OR REPLACE FUNCTION pg_temp.rows_affected(p_sql text) RETURNS integer AS $$
+DECLARE
+  n integer;
+BEGIN
+  EXECUTE p_sql;
+  GET DIAGNOSTICS n = ROW_COUNT;
+  RETURN n;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Reading the flag back has to bypass the guard, or the assertion would be
+-- asserting the guard against itself.
+CREATE OR REPLACE FUNCTION pg_temp.flag_of(p_id uuid)
+RETURNS TABLE (must_change_password boolean)
+SECURITY DEFINER
+AS $$
+  SELECT p.must_change_password FROM public.profiles p WHERE p.id = p_id;
+$$ LANGUAGE sql;
+
 -- SECURITY DEFINER because most of the assertions below run while impersonating
 -- `authenticated`, which cannot read a temp table owned by postgres. The
 -- fixture lookup is test scaffolding, not part of what is under test.
@@ -213,117 +235,266 @@ $$ LANGUAGE sql;
 -- =============================================================================
 -- A. THE PROTECTED COLUMN — per role
 --
--- The RLS policy still permits the UPDATE (it covers the whole row); the trigger
--- is what refuses this particular column. Both halves matter: if the policy had
--- been narrowed instead, ordinary profile edits would have broken.
+-- WHAT CHANGED, and why the assertions below are shaped differently from the
+-- round that wrote them. The forced-password boundary is now a RESTRICTIVE RLS
+-- policy on every row-secured table (20260819120200), so for a FLAGGED account
+-- the row is filtered out before the trigger is reached: the UPDATE raises
+-- nothing and touches nothing. The security property is unchanged and the flag
+-- still cannot move; the MECHANISM that stops it is now the outer of two layers.
+--
+-- So each role is asserted twice, once per layer:
+--
+--   FLAGGED   the row is not reachable at all, and the flag survives the attempt.
+--             (The guard. Proved by counting rows, not by catching an exception —
+--             an exception that no longer fires is not evidence of anything.)
+--   UNFLAGGED the trigger still raises 42501 for a write to this column, which is
+--             the layer that matters for an account the guard does NOT hold.
+--
+-- The second half is the one that would silently disappear if the trigger were
+-- ever dropped, because the guard would keep the flagged case green on its own.
 -- =============================================================================
 
 -- admin
 SELECT pg_temp.act_as(pg_temp.uid('admin', true));
+SELECT is(
+  pg_temp.rows_affected(format(
+    'UPDATE profiles SET must_change_password = false WHERE id = %L', pg_temp.uid('admin', true))),
+  0,
+  'admin (flagged): the attempt to clear its own must_change_password reaches no row'
+);
+SELECT is(
+  (SELECT must_change_password FROM pg_temp.flag_of(pg_temp.uid('admin', true))),
+  true,
+  'admin (flagged): ...and the flag survived the attempt'
+);
+
+-- The UNFLAGGED account of the same role: the guard does not hold it, so the
+-- TRIGGER is what refuses the column — and ordinary edits still work.
+SELECT pg_temp.act_as(pg_temp.uid('admin', false));
 SELECT throws_ok(
-  $$ UPDATE profiles SET must_change_password = false WHERE id = pg_temp.uid('admin', true) $$,
+  $$ UPDATE profiles SET must_change_password = true WHERE id = pg_temp.uid('admin', false) $$,
   '42501', NULL,
-  'admin (flagged): cannot clear its own must_change_password'
+  'admin (clear): the trigger refuses a write to must_change_password'
 );
 SELECT lives_ok(
-  $$ UPDATE profiles SET first_name = 'Editado' WHERE id = pg_temp.uid('admin', true) $$,
-  'admin (flagged): ordinary profile edits still work'
+  $$ UPDATE profiles SET first_name = 'Editado' WHERE id = pg_temp.uid('admin', false) $$,
+  'admin (clear): ordinary profile edits still work'
 );
 
 -- consultor
 SELECT pg_temp.act_as(pg_temp.uid('consultor', true));
+SELECT is(
+  pg_temp.rows_affected(format(
+    'UPDATE profiles SET must_change_password = false WHERE id = %L', pg_temp.uid('consultor', true))),
+  0,
+  'consultor (flagged): the attempt to clear its own must_change_password reaches no row'
+);
+SELECT is(
+  (SELECT must_change_password FROM pg_temp.flag_of(pg_temp.uid('consultor', true))),
+  true,
+  'consultor (flagged): ...and the flag survived the attempt'
+);
+
+-- The UNFLAGGED account of the same role: the guard does not hold it, so the
+-- TRIGGER is what refuses the column — and ordinary edits still work.
+SELECT pg_temp.act_as(pg_temp.uid('consultor', false));
 SELECT throws_ok(
-  $$ UPDATE profiles SET must_change_password = false WHERE id = pg_temp.uid('consultor', true) $$,
+  $$ UPDATE profiles SET must_change_password = true WHERE id = pg_temp.uid('consultor', false) $$,
   '42501', NULL,
-  'consultor (flagged): cannot clear its own must_change_password'
+  'consultor (clear): the trigger refuses a write to must_change_password'
 );
 SELECT lives_ok(
-  $$ UPDATE profiles SET first_name = 'Editado' WHERE id = pg_temp.uid('consultor', true) $$,
-  'consultor (flagged): ordinary profile edits still work'
+  $$ UPDATE profiles SET first_name = 'Editado' WHERE id = pg_temp.uid('consultor', false) $$,
+  'consultor (clear): ordinary profile edits still work'
 );
 
 -- equipo_directivo
 SELECT pg_temp.act_as(pg_temp.uid('equipo_directivo', true));
+SELECT is(
+  pg_temp.rows_affected(format(
+    'UPDATE profiles SET must_change_password = false WHERE id = %L', pg_temp.uid('equipo_directivo', true))),
+  0,
+  'equipo_directivo (flagged): the attempt to clear its own must_change_password reaches no row'
+);
+SELECT is(
+  (SELECT must_change_password FROM pg_temp.flag_of(pg_temp.uid('equipo_directivo', true))),
+  true,
+  'equipo_directivo (flagged): ...and the flag survived the attempt'
+);
+
+-- The UNFLAGGED account of the same role: the guard does not hold it, so the
+-- TRIGGER is what refuses the column — and ordinary edits still work.
+SELECT pg_temp.act_as(pg_temp.uid('equipo_directivo', false));
 SELECT throws_ok(
-  $$ UPDATE profiles SET must_change_password = false WHERE id = pg_temp.uid('equipo_directivo', true) $$,
+  $$ UPDATE profiles SET must_change_password = true WHERE id = pg_temp.uid('equipo_directivo', false) $$,
   '42501', NULL,
-  'equipo_directivo (flagged): cannot clear its own must_change_password'
+  'equipo_directivo (clear): the trigger refuses a write to must_change_password'
 );
 SELECT lives_ok(
-  $$ UPDATE profiles SET first_name = 'Editado' WHERE id = pg_temp.uid('equipo_directivo', true) $$,
-  'equipo_directivo (flagged): ordinary profile edits still work'
+  $$ UPDATE profiles SET first_name = 'Editado' WHERE id = pg_temp.uid('equipo_directivo', false) $$,
+  'equipo_directivo (clear): ordinary profile edits still work'
 );
 
 -- lider_generacion
 SELECT pg_temp.act_as(pg_temp.uid('lider_generacion', true));
+SELECT is(
+  pg_temp.rows_affected(format(
+    'UPDATE profiles SET must_change_password = false WHERE id = %L', pg_temp.uid('lider_generacion', true))),
+  0,
+  'lider_generacion (flagged): the attempt to clear its own must_change_password reaches no row'
+);
+SELECT is(
+  (SELECT must_change_password FROM pg_temp.flag_of(pg_temp.uid('lider_generacion', true))),
+  true,
+  'lider_generacion (flagged): ...and the flag survived the attempt'
+);
+
+-- The UNFLAGGED account of the same role: the guard does not hold it, so the
+-- TRIGGER is what refuses the column — and ordinary edits still work.
+SELECT pg_temp.act_as(pg_temp.uid('lider_generacion', false));
 SELECT throws_ok(
-  $$ UPDATE profiles SET must_change_password = false WHERE id = pg_temp.uid('lider_generacion', true) $$,
+  $$ UPDATE profiles SET must_change_password = true WHERE id = pg_temp.uid('lider_generacion', false) $$,
   '42501', NULL,
-  'lider_generacion (flagged): cannot clear its own must_change_password'
+  'lider_generacion (clear): the trigger refuses a write to must_change_password'
 );
 SELECT lives_ok(
-  $$ UPDATE profiles SET first_name = 'Editado' WHERE id = pg_temp.uid('lider_generacion', true) $$,
-  'lider_generacion (flagged): ordinary profile edits still work'
+  $$ UPDATE profiles SET first_name = 'Editado' WHERE id = pg_temp.uid('lider_generacion', false) $$,
+  'lider_generacion (clear): ordinary profile edits still work'
 );
 
 -- lider_comunidad
 SELECT pg_temp.act_as(pg_temp.uid('lider_comunidad', true));
+SELECT is(
+  pg_temp.rows_affected(format(
+    'UPDATE profiles SET must_change_password = false WHERE id = %L', pg_temp.uid('lider_comunidad', true))),
+  0,
+  'lider_comunidad (flagged): the attempt to clear its own must_change_password reaches no row'
+);
+SELECT is(
+  (SELECT must_change_password FROM pg_temp.flag_of(pg_temp.uid('lider_comunidad', true))),
+  true,
+  'lider_comunidad (flagged): ...and the flag survived the attempt'
+);
+
+-- The UNFLAGGED account of the same role: the guard does not hold it, so the
+-- TRIGGER is what refuses the column — and ordinary edits still work.
+SELECT pg_temp.act_as(pg_temp.uid('lider_comunidad', false));
 SELECT throws_ok(
-  $$ UPDATE profiles SET must_change_password = false WHERE id = pg_temp.uid('lider_comunidad', true) $$,
+  $$ UPDATE profiles SET must_change_password = true WHERE id = pg_temp.uid('lider_comunidad', false) $$,
   '42501', NULL,
-  'lider_comunidad (flagged): cannot clear its own must_change_password'
+  'lider_comunidad (clear): the trigger refuses a write to must_change_password'
 );
 SELECT lives_ok(
-  $$ UPDATE profiles SET first_name = 'Editado' WHERE id = pg_temp.uid('lider_comunidad', true) $$,
-  'lider_comunidad (flagged): ordinary profile edits still work'
+  $$ UPDATE profiles SET first_name = 'Editado' WHERE id = pg_temp.uid('lider_comunidad', false) $$,
+  'lider_comunidad (clear): ordinary profile edits still work'
 );
 
 -- supervisor_de_red
 SELECT pg_temp.act_as(pg_temp.uid('supervisor_de_red', true));
+SELECT is(
+  pg_temp.rows_affected(format(
+    'UPDATE profiles SET must_change_password = false WHERE id = %L', pg_temp.uid('supervisor_de_red', true))),
+  0,
+  'supervisor_de_red (flagged): the attempt to clear its own must_change_password reaches no row'
+);
+SELECT is(
+  (SELECT must_change_password FROM pg_temp.flag_of(pg_temp.uid('supervisor_de_red', true))),
+  true,
+  'supervisor_de_red (flagged): ...and the flag survived the attempt'
+);
+
+-- The UNFLAGGED account of the same role: the guard does not hold it, so the
+-- TRIGGER is what refuses the column — and ordinary edits still work.
+SELECT pg_temp.act_as(pg_temp.uid('supervisor_de_red', false));
 SELECT throws_ok(
-  $$ UPDATE profiles SET must_change_password = false WHERE id = pg_temp.uid('supervisor_de_red', true) $$,
+  $$ UPDATE profiles SET must_change_password = true WHERE id = pg_temp.uid('supervisor_de_red', false) $$,
   '42501', NULL,
-  'supervisor_de_red (flagged): cannot clear its own must_change_password'
+  'supervisor_de_red (clear): the trigger refuses a write to must_change_password'
 );
 SELECT lives_ok(
-  $$ UPDATE profiles SET first_name = 'Editado' WHERE id = pg_temp.uid('supervisor_de_red', true) $$,
-  'supervisor_de_red (flagged): ordinary profile edits still work'
+  $$ UPDATE profiles SET first_name = 'Editado' WHERE id = pg_temp.uid('supervisor_de_red', false) $$,
+  'supervisor_de_red (clear): ordinary profile edits still work'
 );
 
 -- community_manager
 SELECT pg_temp.act_as(pg_temp.uid('community_manager', true));
+SELECT is(
+  pg_temp.rows_affected(format(
+    'UPDATE profiles SET must_change_password = false WHERE id = %L', pg_temp.uid('community_manager', true))),
+  0,
+  'community_manager (flagged): the attempt to clear its own must_change_password reaches no row'
+);
+SELECT is(
+  (SELECT must_change_password FROM pg_temp.flag_of(pg_temp.uid('community_manager', true))),
+  true,
+  'community_manager (flagged): ...and the flag survived the attempt'
+);
+
+-- The UNFLAGGED account of the same role: the guard does not hold it, so the
+-- TRIGGER is what refuses the column — and ordinary edits still work.
+SELECT pg_temp.act_as(pg_temp.uid('community_manager', false));
 SELECT throws_ok(
-  $$ UPDATE profiles SET must_change_password = false WHERE id = pg_temp.uid('community_manager', true) $$,
+  $$ UPDATE profiles SET must_change_password = true WHERE id = pg_temp.uid('community_manager', false) $$,
   '42501', NULL,
-  'community_manager (flagged): cannot clear its own must_change_password'
+  'community_manager (clear): the trigger refuses a write to must_change_password'
 );
 SELECT lives_ok(
-  $$ UPDATE profiles SET first_name = 'Editado' WHERE id = pg_temp.uid('community_manager', true) $$,
-  'community_manager (flagged): ordinary profile edits still work'
+  $$ UPDATE profiles SET first_name = 'Editado' WHERE id = pg_temp.uid('community_manager', false) $$,
+  'community_manager (clear): ordinary profile edits still work'
 );
 
 -- docente
 SELECT pg_temp.act_as(pg_temp.uid('docente', true));
+SELECT is(
+  pg_temp.rows_affected(format(
+    'UPDATE profiles SET must_change_password = false WHERE id = %L', pg_temp.uid('docente', true))),
+  0,
+  'docente (flagged): the attempt to clear its own must_change_password reaches no row'
+);
+SELECT is(
+  (SELECT must_change_password FROM pg_temp.flag_of(pg_temp.uid('docente', true))),
+  true,
+  'docente (flagged): ...and the flag survived the attempt'
+);
+
+-- The UNFLAGGED account of the same role: the guard does not hold it, so the
+-- TRIGGER is what refuses the column — and ordinary edits still work.
+SELECT pg_temp.act_as(pg_temp.uid('docente', false));
 SELECT throws_ok(
-  $$ UPDATE profiles SET must_change_password = false WHERE id = pg_temp.uid('docente', true) $$,
+  $$ UPDATE profiles SET must_change_password = true WHERE id = pg_temp.uid('docente', false) $$,
   '42501', NULL,
-  'docente (flagged): cannot clear its own must_change_password'
+  'docente (clear): the trigger refuses a write to must_change_password'
 );
 SELECT lives_ok(
-  $$ UPDATE profiles SET first_name = 'Editado' WHERE id = pg_temp.uid('docente', true) $$,
-  'docente (flagged): ordinary profile edits still work'
+  $$ UPDATE profiles SET first_name = 'Editado' WHERE id = pg_temp.uid('docente', false) $$,
+  'docente (clear): ordinary profile edits still work'
 );
 
 -- encargado_licitacion
 SELECT pg_temp.act_as(pg_temp.uid('encargado_licitacion', true));
+SELECT is(
+  pg_temp.rows_affected(format(
+    'UPDATE profiles SET must_change_password = false WHERE id = %L', pg_temp.uid('encargado_licitacion', true))),
+  0,
+  'encargado_licitacion (flagged): the attempt to clear its own must_change_password reaches no row'
+);
+SELECT is(
+  (SELECT must_change_password FROM pg_temp.flag_of(pg_temp.uid('encargado_licitacion', true))),
+  true,
+  'encargado_licitacion (flagged): ...and the flag survived the attempt'
+);
+
+-- The UNFLAGGED account of the same role: the guard does not hold it, so the
+-- TRIGGER is what refuses the column — and ordinary edits still work.
+SELECT pg_temp.act_as(pg_temp.uid('encargado_licitacion', false));
 SELECT throws_ok(
-  $$ UPDATE profiles SET must_change_password = false WHERE id = pg_temp.uid('encargado_licitacion', true) $$,
+  $$ UPDATE profiles SET must_change_password = true WHERE id = pg_temp.uid('encargado_licitacion', false) $$,
   '42501', NULL,
-  'encargado_licitacion (flagged): cannot clear its own must_change_password'
+  'encargado_licitacion (clear): the trigger refuses a write to must_change_password'
 );
 SELECT lives_ok(
-  $$ UPDATE profiles SET first_name = 'Editado' WHERE id = pg_temp.uid('encargado_licitacion', true) $$,
-  'encargado_licitacion (flagged): ordinary profile edits still work'
+  $$ UPDATE profiles SET first_name = 'Editado' WHERE id = pg_temp.uid('encargado_licitacion', false) $$,
+  'encargado_licitacion (clear): ordinary profile edits still work'
 );
 
 -- The other direction: an UNFLAGGED account cannot SET the flag either. A user
@@ -459,25 +630,43 @@ SELECT lives_ok($$ SELECT public.gate_password_change() $$,
   'gate: encargado_licitacion (clear) passes through');
 
 -- =============================================================================
--- The gate is LOAD-BEARING: the data a flagged account is being kept away from
--- is data its RLS policies would otherwise hand over.
+-- BOTH LAYERS ARE LOAD-BEARING, and each is shown to bite on its own.
 --
--- These two assertions are the pair that makes the claim meaningful. Without the
--- first, "the gate refuses" could be true of a request that would have returned
--- nothing anyway.
+-- The round that wrote this suite asserted that RLS ALONE would hand a flagged
+-- account its own profile row, and that the pre-request gate was the only thing
+-- stopping the request that would carry it. That is no longer true, and saying
+-- so is the point of this branch: 20260819120200 put a restrictive policy under
+-- every row-secured table, so RLS now refuses first.
+--
+--   LAYER 1 (the data layer)     the row is not reachable — asserted here, and
+--                                exhaustively in 053.
+--   LAYER 2 (the request layer)  the pre-request gate still refuses the request,
+--                                which is what covers SECURITY DEFINER RPCs and
+--                                the legacy tables that carry no row security at
+--                                all, neither of which a policy can reach.
+--
+-- The UNFLAGGED control underneath is what makes layer 1 evidence rather than a
+-- table nobody could read anyway.
 -- =============================================================================
 SELECT pg_temp.act_as(pg_temp.uid('docente', true));
 
 SELECT is(
   (SELECT count(*)::int FROM profiles WHERE id = pg_temp.uid('docente', true)),
-  1,
-  'RLS alone WOULD hand a flagged docente its own profile row — the row is reachable'
+  0,
+  'LAYER 1: a flagged docente cannot reach its own profile row — the restrictive guard refuses before any request-layer check'
 );
 
 SELECT throws_ok(
   $$ SELECT public.gate_password_change() $$,
   '42501', NULL,
-  '...and the pre-request gate is what stops the request that would carry it'
+  'LAYER 2: and the pre-request gate independently refuses the request that would have carried it'
+);
+
+SELECT pg_temp.act_as(pg_temp.uid('docente', false));
+SELECT is(
+  (SELECT count(*)::int FROM profiles WHERE id = pg_temp.uid('docente', false)),
+  1,
+  'CONTROL: an UNFLAGGED docente DOES reach its own profile row — so layer 1 is the flag, not the policy'
 );
 
 -- =============================================================================

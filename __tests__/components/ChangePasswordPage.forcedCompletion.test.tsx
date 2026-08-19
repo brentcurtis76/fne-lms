@@ -180,6 +180,29 @@ describe('submission', () => {
     expect(client.calls.profileUpdates).toEqual([]);
   });
 
+  it('reads no `profiles` row after the change — the session is already dead', async () => {
+    // The server writes the password through `auth.admin.updateUserById`, and
+    // GoTrue revokes the account's refresh tokens when its password changes. The
+    // old code's next steps were a `profiles` read and a push to /dashboard;
+    // both failed, and the middleware bounced the user to /login anyway. The
+    // e2e is what found this.
+    const client = await mountForm();
+    submit(STRONG);
+
+    await waitFor(() => expect(toastCalls.success.length).toBeGreaterThan(0));
+    expect(client.calls.profileSelects).toEqual([]);
+  });
+
+  it('signs the dead session out and sends the user to sign in again', async () => {
+    const client = await mountForm();
+    submit(STRONG);
+
+    await waitFor(() => expect(client.auth.signOut).toHaveBeenCalledWith({ scope: 'local' }));
+    await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/login'), { timeout: 4000 });
+    // Never the dashboard: there is no session left to render it with.
+    expect(mockRouterPush).not.toHaveBeenCalledWith('/dashboard');
+  }, 10_000);
+
   it('rejects a mismatch without calling the server', async () => {
     await mountForm();
     const before = fetchMock.mock.calls.length;
@@ -228,11 +251,12 @@ describe('submission', () => {
     expect(mockRouterPush).not.toHaveBeenCalledWith('/dashboard');
   });
 
-  it('on success, reports it and moves the user on', async () => {
+  it('on success, says so and says what to do next', async () => {
     await mountForm();
     submit(STRONG);
 
     await waitFor(() => expect(toastCalls.success.length).toBeGreaterThan(0));
     expect(toastCalls.success[0]).toContain('Contraseña actualizada exitosamente');
+    expect(toastCalls.success[0]).toContain('Inicia sesión con tu nueva contraseña');
   });
 });

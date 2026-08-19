@@ -483,11 +483,13 @@ test.describe('authentication lifecycle', () => {
       await forcedPage.getByLabel('Confirmar Nueva Contraseña').fill(FORCED_PASSWORD);
       await forcedPage.getByRole('button', { name: /cambiar contraseña/i }).click();
 
-      // --- 10. ORDINARY ACCESS ----------------------------------------------
-      // The gate is released, so an authenticated page renders instead of
-      // bouncing. The page routes to /dashboard or /profile depending on profile
-      // completeness; either is "not held at /change-password".
-      await expect(forcedPage).toHaveURL(/\/(dashboard|profile)(\?|$)/, { timeout: 30_000 });
+      // The server writes the password through `auth.admin.updateUserById`, and
+      // GoTrue revokes the account's refresh tokens when its password changes —
+      // so the browser's session is dead the moment the change lands, and the
+      // page says so and sends the user to sign in. (This spec is what found
+      // that: the page used to promise /dashboard and the user arrived at
+      // /login with no explanation.)
+      await expect(forcedPage).toHaveURL(/\/login(\?|$)/, { timeout: 30_000 });
 
       await expect
         .poll(async () => {
@@ -499,6 +501,14 @@ test.describe('authentication lifecycle', () => {
           return data?.must_change_password;
         }, { timeout: 20_000 })
         .toBe(false);
+
+      // --- 10. ORDINARY ACCESS ----------------------------------------------
+      // Sign in with the password just chosen and reach an authenticated page.
+      // The gate is released, so this is not a bounce back to /change-password.
+      await forcedPage.getByPlaceholder('tu@email.com').fill(signup.email);
+      await forcedPage.locator('input[type="password"]').fill(FORCED_PASSWORD);
+      await forcedPage.getByRole('button', { name: /iniciar sesión/i }).click();
+      await expect(forcedPage).toHaveURL(/\/(dashboard|profile)(\?|$)/, { timeout: 30_000 });
 
       // And PostgREST answers again for the same account.
       const cleared = await signInDirectly(signup.email, FORCED_PASSWORD);

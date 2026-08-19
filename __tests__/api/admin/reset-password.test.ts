@@ -299,6 +299,35 @@ describe('admin/reset-password — the forced-change flag (S2)', () => {
     expect(flagUpdate).not.toHaveProperty('password_change_required');
   });
 
+  it('admin: the flag payload names ONLY columns that exist on profiles', async () => {
+    // `toMatchObject` above is satisfied by a payload carrying extra keys, and
+    // that is exactly how the next instance of this defect got through: the
+    // handler also wrote `updated_at`, which `public.profiles` does not have, so
+    // PostgREST answered PGRST204 and — now that this handler fails closed —
+    // EVERY administrative reset returned RESET_NOT_STARTED. The unit suite
+    // could not see it because the client is a stub; the e2e found it on the
+    // first run against a real database.
+    //
+    // Pin the KEY SET, not just the contents.
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(successTables({}), tracker),
+    );
+
+    const { req, res } = post({ userId: TARGET_USER_ID, temporaryPassword: TEMP_PASSWORD });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const profileCalls = tracker.fromCalls.filter((c) => c.table === 'profiles');
+    for (const call of profileCalls.slice(1)) {
+      for (const update of call.updates as Array<Record<string, unknown>>) {
+        expect(Object.keys(update)).toEqual(['must_change_password']);
+      }
+    }
+  });
+
   it('admin: sets the flag BEFORE changing the password', async () => {
     setupAdmin();
     const tracker = makeTracker();

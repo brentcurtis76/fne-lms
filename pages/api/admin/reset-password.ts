@@ -223,12 +223,24 @@ export default async function handler(
     const previousMustChange = targetProfile.must_change_password === true;
 
     // --- Step 1: the enforcement flag, FIRST (see the ordering note above) ---
+    //
+    // The payload is EXACTLY one column. It used to carry `updated_at` as well —
+    // and `public.profiles` has no `updated_at` column, so PostgREST answered
+    // `PGRST204 Could not find the 'updated_at' column of 'profiles' in the
+    // schema cache` and this handler, which now fails closed, returned
+    // RESET_NOT_STARTED for EVERY administrative reset.
+    //
+    // That is the same defect S2 was raised for — writing a column that does not
+    // exist — surviving in the very handler that fixed it, one line lower down.
+    // The unit suite could not see it because it stubs the client; the e2e found
+    // it on the first run against a real database.
+    //
+    // `__tests__/api/admin/reset-password.test.ts` now pins the payload's KEY SET
+    // rather than only its contents, so an invented column fails a test instead
+    // of a production reset.
     const { error: flagError } = await supabaseAdmin
       .from('profiles')
-      .update({
-        must_change_password: true,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ must_change_password: true })
       .eq('id', userId);
 
     if (flagError) {

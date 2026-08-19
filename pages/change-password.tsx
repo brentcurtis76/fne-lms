@@ -170,37 +170,26 @@ export default function ChangePasswordPage() {
         return;
       }
 
-      // The flag is cleared, so the database gate no longer refuses this
-      // account's own reads and the completion check below can run.
-      const { data: profile, error: checkError } = await supabase
-        .from('profiles')
-        .select('first_name, last_name, school')
-        .eq('id', user.id)
-        .single();
+      // THE SESSION IS GONE, and that is not a bug to work around.
+      //
+      // The password is now written by the server through
+      // `auth.admin.updateUserById`, and GoTrue revokes the account's refresh
+      // tokens when its password changes. So by the time this line runs the
+      // browser is holding a dead session: the old code's next steps — a
+      // `profiles` read, then `router.push('/dashboard')` — would have failed
+      // and then bounced off the middleware to `/login` anyway, which is exactly
+      // what the e2e observed.
+      //
+      // Sending the user to sign in with the credential they just chose is both
+      // the honest end of this flow and the same rule `/reset-password` follows,
+      // so "you completed a password change through the server, now sign in"
+      // holds everywhere rather than in one place.
+      toast.success('Contraseña actualizada exitosamente. Inicia sesión con tu nueva contraseña.');
 
-      let isProfileComplete = false;
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
 
-      if (checkError) {
-        console.error('Could not check profile completion:', checkError);
-        // On error, assume profile is incomplete and send to profile page
-        toast.success('Contraseña actualizada exitosamente. Por favor completa tu perfil.');
-      } else {
-        isProfileComplete = Boolean(profile?.first_name && profile?.last_name && profile?.school);
-
-        if (isProfileComplete) {
-          toast.success('Contraseña actualizada exitosamente');
-        } else {
-          toast.success('Contraseña actualizada exitosamente. Ahora completa tu perfil.');
-        }
-      }
-
-      // Redirect based on profile completion status
       setTimeout(() => {
-        if (isProfileComplete && !checkError) {
-          router.push('/dashboard');
-        } else {
-          router.push('/profile');
-        }
+        router.push('/login');
       }, 1000);
     } catch (error: any) {
       console.error('[ChangePassword] password update failed:', {

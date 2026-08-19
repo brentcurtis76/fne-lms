@@ -11,6 +11,25 @@
  *
  * So this walks the source instead. It is deliberately crude and deliberately
  * loud: a legitimate new call site has to come here and say why.
+ *
+ * ==========================================================================
+ * THIS IS NO LONGER THE PRIMARY CONTROL. IT IS DEFENCE IN DEPTH.
+ * ==========================================================================
+ *
+ * An independent review found three holes in this file, all real: it never opens
+ * `lib/`, despite browser pages importing lib modules constantly; it matches only
+ * `.ts`/`.tsx`, so `utils/storage.js` and `lib/realtimeNotifications.js` are
+ * invisible to it; and a regex over text is defeated by whitespace, an alias, or
+ * a member expression built at runtime.
+ *
+ * `scripts/ci/check-browser-boundaries.mjs` is the replacement: it computes what
+ * "browser" means from the import graph plus a default-deny rule, parses every
+ * file with the TypeScript compiler's own parser, covers `.js`/`.jsx`, and
+ * polices the SERVER side as well. Its negative controls are in
+ * `__tests__/security/browser-boundary.test.ts`.
+ *
+ * This file stays because two crude checks that agree are worth more than one,
+ * and because it fails fast without loading a compiler.
  */
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';

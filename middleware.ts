@@ -8,6 +8,7 @@ import {
   isAlwaysAllowedPath,
   isApiPath,
   isForcedChangeGatedPath,
+  PASSWORD_CHANGE_STATE_RPC,
   requiresSessionPresence,
   verdictFromProfile,
 } from './lib/auth/forced-password-change';
@@ -60,19 +61,28 @@ export async function middleware(req: NextRequest) {
   // to be read on the /login redirect and nowhere else, so direct navigation,
   // a direct API call, or simply already having a session bypassed it entirely.
   //
-  // One indexed read per gated authenticated request (there is a partial index
-  // on `must_change_password = true`). The client here is the USER-scoped
-  // middleware client, so the read goes through RLS — a user reading their own
-  // profile row, which the existing policy already permits. No service-role key
-  // is used in middleware.
+  // One RPC per gated authenticated request, on the USER-scoped middleware
+  // client — no service-role key is used in middleware. It calls
+  // `public.current_password_change_state()`, which takes no argument and reads
+  // `auth.uid()`, so it can only ever report on the caller.
+  //
+  // It is an RPC rather than a `profiles` SELECT because the database gate
+  // added in 20260819120000 refuses EVERY PostgREST request from a flagged
+  // account — including a read of its own profile row. This one function is the
+  // single route that gate leaves open, precisely so the middleware can still
+  // ask the question whose answer is "you are being held". A direct
+  // `.from('profiles')` here would 403 for exactly the users the gate is for,
+  // and the middleware would read that as `unavailable` and park everybody on
+  // the retry panel instead of the change-password form.
   if (isForcedChangeGatedPath(pathname)) {
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('must_change_password')
-      .eq('id', session.user.id)
-      .maybeSingle();
+    const { data: flag, error } = await supabase.rpc(
+      PASSWORD_CHANGE_STATE_RPC
+    );
 
-    const verdict = verdictFromProfile(profile, error);
+    const verdict = verdictFromProfile(
+      error ? null : { must_change_password: flag === true },
+      error
+    );
 
     if (verdict !== 'allowed') {
       if (error) {

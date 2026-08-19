@@ -34,6 +34,24 @@
 export const FORCED_CHANGE_PATH = '/change-password';
 
 /**
+ * The database function that answers "must the CALLING account change its
+ * password?".
+ *
+ * Named here rather than inlined because three places have to agree on it: the
+ * middleware calls it, `supabase/migrations/20260819120000_...` creates it, and
+ * that same migration's PostgREST pre-request gate allow-lists it by path. If
+ * this string and the migration ever drift, the middleware's read is refused for
+ * exactly the users the gate exists for — so
+ * `__tests__/middleware.forced-password-change.test.ts` parses the migration and
+ * asserts the three agree.
+ *
+ * It takes NO argument. It reads `auth.uid()` internally, which is what makes it
+ * safe to leave open to a flagged account: there is no parameter to point at
+ * somebody else.
+ */
+export const PASSWORD_CHANGE_STATE_RPC = 'current_password_change_state';
+
+/**
  * Marker appended when the gate could not READ the flag rather than finding it
  * set. `/change-password` renders a retry panel instead of the form for it, and
  * — this is the point — does not auto-redirect to `/dashboard`, which is what
@@ -61,6 +79,18 @@ export const PASSWORD_STATE_UNAVAILABLE_MESSAGE =
  * sign-out affordance on `/change-password` uses it. `/api/auth/session` is the
  * session probe the shell issues on load.
  *
+ * `/api/auth/password-change-state` is how `/change-password` learns whether the
+ * flag is actually set and whether this was an administrative reset. It has to
+ * be here for the same reason the page is: a flagged user cannot reach it
+ * otherwise, and it is the page's only source of that state now that the
+ * database gate refuses the browser's own `profiles` read.
+ *
+ * `/api/auth/recovery-complete` is the trusted endpoint that finishes a password
+ * recovery. It authenticates from the recovery access token rather than the
+ * session cookie, so it is not really "a flagged user's request" at all — but a
+ * flagged user completing recovery in a tab that still holds their old session
+ * would otherwise be gated out of the very endpoint that clears their flag.
+ *
  * NOT here, deliberately:
  *   - `/reset-password`. S12 makes that page demand a real recovery credential,
  *     so an ordinary session sees an invalid-link screen rather than a usable
@@ -77,6 +107,8 @@ const ALWAYS_ALLOWED_EXACT = new Set<string>([
   '/logout',
   '/api/auth/force-password-change',
   '/api/auth/change-password',
+  '/api/auth/recovery-complete',
+  '/api/auth/password-change-state',
   '/api/auth/logout',
   '/api/auth/session',
 ]);

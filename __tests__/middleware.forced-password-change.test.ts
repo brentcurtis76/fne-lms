@@ -27,9 +27,12 @@ import {
   isAlwaysAllowedPath,
   isApiPath,
   isForcedChangeGatedPath,
+  PASSWORD_CHANGE_STATE_RPC,
   requiresSessionPresence,
   verdictFromProfile,
 } from '../lib/auth/forced-password-change';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const createMiddlewareClient = vi.fn();
 
@@ -75,8 +78,24 @@ function buildSupabase(opts: {
   const from = vi.fn((table: string) =>
     table === 'profiles' ? { select: profilesSelect } : { select: rolesSelect }
   );
+
+  /**
+   * The gate probe. F1 moved the middleware's read off `profiles` and onto
+   * `current_password_change_state()`, because the database pre-request gate
+   * refuses a flagged account's own profile read — the branch that exists to
+   * catch flagged users would have been the branch that errored.
+   *
+   * The RPC returns a plain boolean (it COALESCEs a missing row to false), so a
+   * missing profile reads as "not flagged", which is the same verdict the old
+   * `maybeSingle()` shape produced.
+   */
+  const rpc = vi.fn().mockResolvedValue({
+    data: opts.profileError ? null : opts.profileMissing ? false : opts.mustChangePassword ?? false,
+    error: opts.profileError ?? null,
+  });
+
   const getSession = vi.fn().mockResolvedValue({ data: { session: opts.session } });
-  return { auth: { getSession }, from };
+  return { auth: { getSession }, from, rpc };
 }
 
 function isRedirect(res: Response): boolean {
@@ -106,6 +125,8 @@ describe('path predicates', () => {
     '/logout',
     '/api/auth/force-password-change',
     '/api/auth/change-password',
+    '/api/auth/recovery-complete',
+    '/api/auth/password-change-state',
     '/api/auth/logout',
     '/api/auth/session',
   ])('%s is always allowed — a flagged user must be able to finish or leave', (path) => {
@@ -469,5 +490,64 @@ describe('matcher coverage — a gate that never runs is not a gate', () => {
         `${entry} is matched by the middleware but governed by nothing`
       ).toBe(true);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// F1 — the middleware reads the flag through the ONE route the database gate
+// leaves open, and the three places that have to agree on its name do agree.
+// ---------------------------------------------------------------------------
+
+describe('F1: the gate probe is the middleware read path', () => {
+  const MIGRATION = readFileSync(
+    join(__dirname, '..', 'supabase', 'migrations', '20260819120000_forced_password_change_boundary.sql'),
+    'utf8'
+  );
+
+  it('the middleware calls the state RPC and never selects `profiles` itself', async () => {
+    const supabase = buildSupabase({ session: SESSION, mustChangePassword: false });
+    await run('/dashboard', supabase);
+
+    expect(supabase.rpc).toHaveBeenCalledWith(PASSWORD_CHANGE_STATE_RPC);
+    // The database gate refuses a flagged account's own `profiles` read, so a
+    // direct select here would 403 for precisely the users this gate is for.
+    expect(supabase.from).not.toHaveBeenCalledWith('profiles');
+  });
+
+  it('a flagged account is still held when the answer arrives over the RPC', async () => {
+    const supabase = buildSupabase({ session: SESSION, mustChangePassword: true });
+    const res = await run('/dashboard', supabase);
+
+    expect(isRedirect(res)).toBe(true);
+    expect(res.headers.get('location')).toContain(FORCED_CHANGE_PATH);
+  });
+
+  it('the migration creates the function the middleware calls, by that exact name', () => {
+    expect(MIGRATION).toContain(`CREATE OR REPLACE FUNCTION public.${PASSWORD_CHANGE_STATE_RPC}()`);
+  });
+
+  it('the pre-request gate allow-lists that same function, and only it', () => {
+    // The allowance is a path suffix match on `/rpc/<name>`. If the RPC name and
+    // the allow-list drift, a flagged user cannot be told they are flagged.
+    expect(MIGRATION).toContain(`'%/rpc/${PASSWORD_CHANGE_STATE_RPC}'`);
+
+    const allowances = MIGRATION.match(/'%\/rpc\/[a-z_]+'/g) ?? [];
+    expect(allowances).toEqual([`'%/rpc/${PASSWORD_CHANGE_STATE_RPC}'`]);
+  });
+
+  it('the gate is actually installed on the authenticator role', () => {
+    expect(MIGRATION).toContain('pgrst.db_pre_request');
+    expect(MIGRATION).toContain('public.gate_password_change');
+    expect(MIGRATION).toContain("NOTIFY pgrst, 'reload config'");
+  });
+
+  it('the migration disables no row-level security anywhere', () => {
+    expect(MIGRATION.toUpperCase()).not.toContain('DISABLE ROW LEVEL SECURITY');
+  });
+
+  it('the flag column is protected by a trigger, not only by a policy', () => {
+    expect(MIGRATION).toContain('CREATE TRIGGER protect_must_change_password');
+    expect(MIGRATION).toContain('BEFORE UPDATE ON public.profiles');
+    expect(MIGRATION).toContain("current_user IN ('authenticated', 'anon')");
   });
 });

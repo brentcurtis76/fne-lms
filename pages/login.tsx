@@ -130,26 +130,30 @@ export default function LoginPage() {
             // Wait a moment for auth session to be fully established
             await new Promise(resolve => setTimeout(resolve, 500));
             
-            // First check if user must change password
-            const { data: profile, error: profileError } = await supabaseClient
-              .from('profiles')
-              .select('must_change_password')
-              .eq('id', userId)
-              .single();
-            
-            if (profileError) {
-              console.error('Error fetching profile for password check:', profileError);
-              // On profile fetch error, check profile completion to determine redirect
-              const isProfileComplete = await checkProfileCompletionSimple(supabaseClient, userId);
-              if (isProfileComplete) {
-                router.push(postLoginDestination());
-              } else {
-                router.push('/profile?from=login&error=profile-check-failed');
-              }
+            // F1: the forced-change flag comes from
+            // `current_password_change_state()`, not from a `profiles` SELECT.
+            //
+            // The database gate added in 20260819120000 refuses every PostgREST
+            // request from a flagged account, and a plain `.from('profiles')`
+            // here is one of them — so the branch that exists to catch flagged
+            // users is exactly the branch that would have errored. This RPC is
+            // the one route the gate leaves open, it takes no argument, and it
+            // reads `auth.uid()`, so it can only ever answer about the caller.
+            const { data: mustChangePassword, error: flagError } = await supabaseClient.rpc(
+              'current_password_change_state'
+            );
+
+            if (flagError) {
+              console.error('Error reading the password-change state:', flagError);
+              // Do NOT fall through to the dashboard. The middleware gates every
+              // authenticated page and will make the same call server-side; send
+              // the user to the forced-change page and let the gate decide,
+              // rather than guessing "not flagged" on an error.
+              router.push('/change-password');
               return;
             }
-            
-            if (profile?.must_change_password) {
+
+            if (mustChangePassword === true) {
               // Forced flow — ignores `next` on purpose
               router.push('/change-password');
             } else {

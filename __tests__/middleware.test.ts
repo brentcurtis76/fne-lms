@@ -44,8 +44,17 @@ function buildSupabase(opts: {
   const from = vi.fn((table: string) =>
     table === 'profiles' ? { select: profilesSelect } : { select: rolesSelect }
   );
+
+  // F1: the gate probe. The middleware reads the flag through
+  // `current_password_change_state()` rather than a `profiles` SELECT, because
+  // the database pre-request gate refuses a flagged account's own profile read.
+  const rpc = vi.fn().mockResolvedValue({
+    data: opts.profileError ? null : opts.profileMissing ? false : opts.mustChangePassword ?? false,
+    error: opts.profileError ?? null,
+  });
+
   const getSession = vi.fn().mockResolvedValue({ data: { session: opts.session } });
-  return { auth: { getSession }, from };
+  return { auth: { getSession }, from, rpc };
 }
 
 const SESSION = { user: { id: 'user-uuid-1' } };

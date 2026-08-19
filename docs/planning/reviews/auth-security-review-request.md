@@ -23,7 +23,7 @@
 | Base SHA | `4399949942bfcf49dfa8de40cbf7edbf40f0490e` — **`main`**, exactly |
 | Head SHA | `git rev-parse fix/auth-sec2` — a document cannot name the commit that contains it, so the tip is not quoted here (the convention `PROJECT_STATE.md` uses) |
 | Commits | 10: one port, six fixes, one e2e, two documentation |
-| Diff | 86 files, +15167 / −3361 |
+| Diff | 87 files, +15655 / −3388 |
 
 ### Commits
 
@@ -37,7 +37,8 @@ ac2696a0  fix(auth): make the invitation-resend cooldown atomic (F5)
 b40d6d89  test(e2e): open the link that was actually sent, and prove the database gate
 9308cadc  docs(auth): make the operations runbook exact about what is not done (F6)
 c9fb544d  fix(auth): two defects the extended e2e lifecycle found on its first real run
-<this commit>  docs(auth): review request and state update
+db8cd9d3  docs(auth): review request and PROJECT_STATE for the second pass
+(plus whatever commit carries the edit you are reading)
 ```
 
 ### 1.1 Branch-hygiene proof

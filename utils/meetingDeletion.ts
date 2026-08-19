@@ -5,8 +5,6 @@
  */
 
 import { supabase } from '../lib/supabase-wrapper';
-import { toast } from 'react-hot-toast';
-import { recordSecurityAudit } from '../lib/security/audit';
 
 interface DeletionResult {
   success: boolean;
@@ -24,175 +22,69 @@ interface DeleteMeetingOptions {
  * Delete a meeting and all its related data
  * This includes: agreements, commitments, tasks, attendees, attachments, and storage files
  */
+/**
+ * Delete a meeting and all its related data.
+ *
+ * F4 — this used to do the work here, in the browser, and then call
+ * `recordSecurityAudit` with the browser's own user-scoped client.
+ * `security_audit_events` grants `authenticated` SELECT and nothing else, so
+ * that insert failed with 42501 on every deletion the platform has ever
+ * performed. `recordSecurityAudit` does not throw, so the failure was a console
+ * line and the deletion reported success — the `meeting_deleted` action was
+ * typed, constrained, indexed and never once written.
+ *
+ * The operation moved to `POST /api/meetings/delete`, which re-establishes the
+ * caller with `auth.getUser()`, re-checks authorization server-side, deletes on
+ * a user-scoped client so RLS still governs it, and writes the audit row with a
+ * service-role client once it knows the real outcome. Giving the browser the
+ * privilege instead would have made the trail forgeable, which is worse than not
+ * having one.
+ *
+ * `userId` is still accepted so callers do not change, but it is no longer
+ * TRUSTED: the endpoint takes the actor from the auth server and ignores
+ * anything the body claims.
+ */
 export async function deleteMeeting(
   meetingId: string,
   options: DeleteMeetingOptions
 ): Promise<DeletionResult> {
-  const errors: string[] = [];
-  let deletedFiles = 0;
-
   try {
-    // 1. First, verify the meeting exists and get its details
-    const { data: meeting, error: meetingError } = await supabase
-      .from('community_meetings')
-      .select('*')
-      .eq('id', meetingId)
-      .single();
-
-    if (meetingError || !meeting) {
-      throw new Error('Reunión no encontrada');
-    }
-
-    // 2. Get meeting attachments separately
-    const { data: attachments } = await supabase
-      .from('meeting_attachments')
-      .select('*')
-      .eq('meeting_id', meetingId);
-
-    // 3. The attempt itself is not audited: the audit table records completed
-    //    security operations, and the failure and success paths below both
-    //    write a row, so an attempt row would only ever duplicate one of them.
-
-    // 4. Delete storage files first (before database records)
-    if (attachments && attachments.length > 0) {
-      for (const attachment of attachments) {
-        try {
-          const { error: storageError } = await supabase.storage
-            .from('meeting-documents')
-            .remove([attachment.file_path]);
-
-          if (storageError) {
-            errors.push(`Error al eliminar archivo ${attachment.filename}: ${storageError.message}`);
-          } else {
-            deletedFiles++;
-          }
-        } catch (fileError) {
-          errors.push(`Error al procesar archivo ${attachment.filename}`);
-        }
-      }
-    }
-
-    // 4. Delete related data in the correct order (respecting foreign key constraints)
-    // Order matters here to avoid constraint violations
-
-    // Delete attachments records
-    const { error: attachmentsError, count: attachmentsCount } = await supabase
-      .from('meeting_attachments')
-      .delete()
-      .eq('meeting_id', meetingId)
-      .select(undefined, { count: 'exact', head: true });
-    
-    if (attachmentsError) {
-      console.error('Error deleting attachments:', attachmentsError);
-      errors.push(`Error al eliminar archivos adjuntos: ${attachmentsError.message}`);
-    }
-
-    // Delete tasks
-    const { error: tasksError, count: tasksCount } = await supabase
-      .from('meeting_tasks')
-      .delete()
-      .eq('meeting_id', meetingId)
-      .select(undefined, { count: 'exact', head: true });
-    
-    if (tasksError) {
-      console.error('Error deleting tasks:', tasksError);
-      errors.push(`Error al eliminar tareas: ${tasksError.message}`);
-    }
-
-    // Delete commitments
-    const { error: commitmentsError, count: commitmentsCount } = await supabase
-      .from('meeting_commitments')
-      .delete()
-      .eq('meeting_id', meetingId)
-      .select(undefined, { count: 'exact', head: true });
-    
-    if (commitmentsError) {
-      console.error('Error deleting commitments:', commitmentsError);
-      errors.push(`Error al eliminar compromisos: ${commitmentsError.message}`);
-    }
-
-    // Delete agreements
-    const { error: agreementsError, count: agreementsCount } = await supabase
-      .from('meeting_agreements')
-      .delete()
-      .eq('meeting_id', meetingId)
-      .select(undefined, { count: 'exact', head: true });
-    
-    if (agreementsError) {
-      console.error('Error deleting agreements:', agreementsError);
-      errors.push(`Error al eliminar acuerdos: ${agreementsError.message}`);
-    }
-
-    // Delete attendees
-    const { error: attendeesError, count: attendeesCount } = await supabase
-      .from('meeting_attendees')
-      .delete()
-      .eq('meeting_id', meetingId)
-      .select(undefined, { count: 'exact', head: true });
-    
-    if (attendeesError) {
-      console.error('Error deleting attendees:', attendeesError);
-      errors.push(`Error al eliminar lista de participantes: ${attendeesError.message}`);
-    }
-
-    // 5. Finally, delete the meeting itself
-    const { error: deleteMeetingError, count: meetingCount } = await supabase
-      .from('community_meetings')
-      .delete()
-      .eq('id', meetingId)
-      .select(undefined, { count: 'exact', head: true });
-
-    if (deleteMeetingError) {
-      console.error('Error deleting meeting:', deleteMeetingError);
-      throw new Error(`Error al eliminar la reunión: ${deleteMeetingError.message}`);
-    }
-
-    // Check if the meeting was actually deleted
-    if (meetingCount === 0) {
-      throw new Error('No se pudo eliminar la reunión. Es posible que no tengas permisos suficientes.');
-    }
-
-    // 6. S3: durable audit. Was an insert into the non-existent `audit_logs`.
-    //    The meeting title is dropped — it is session content, not a security
-    //    fact, and the meeting id identifies the record.
-    await recordSecurityAudit(supabase, {
-      action: 'meeting_deleted',
-      outcome: errors.length > 0 ? 'partial_failure' : 'success',
-      actorUserId: options.userId,
-      metadata: {
-        meeting_id: meetingId,
-        reason: options.reason ?? null,
-        deleted_file_count: deletedFiles,
-        error_count: errors.length,
-      },
+    const response = await fetch('/api/meetings/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ meetingId, reason: options.reason ?? null }),
     });
+
+    const result = await response.json().catch(() => ({} as Record<string, unknown>));
+
+    if (!response.ok) {
+      const errors = Array.isArray((result as { errors?: unknown }).errors)
+        ? ((result as { errors: string[] }).errors)
+        : [
+            (result as { error?: string }).error ||
+              'Error al eliminar la reunión. Inténtalo nuevamente.',
+          ];
+      return {
+        success: false,
+        deletedFiles: Number((result as { deletedFiles?: number }).deletedFiles) || 0,
+        errors,
+      };
+    }
 
     return {
       success: true,
-      deletedFiles,
-      errors
+      deletedFiles: Number((result as { deletedFiles?: number }).deletedFiles) || 0,
+      errors: Array.isArray((result as { errors?: unknown }).errors)
+        ? ((result as { errors: string[] }).errors)
+        : [],
     };
-
   } catch (error) {
     console.error('Error in deleteMeeting:', error);
-    
-    // S3: durable audit of the failure. `recordSecurityAudit` never throws, so
-    // the try/catch that used to wrap this is gone rather than nested.
-    await recordSecurityAudit(supabase, {
-      action: 'meeting_deleted',
-      outcome: 'failure',
-      actorUserId: options.userId,
-      metadata: {
-        meeting_id: meetingId,
-        reason: options.reason ?? null,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
-    });
-
     return {
       success: false,
-      deletedFiles,
-      errors: [...errors, error instanceof Error ? error.message : 'Error desconocido']
+      deletedFiles: 0,
+      errors: [error instanceof Error ? error.message : 'Error desconocido'],
     };
   }
 }

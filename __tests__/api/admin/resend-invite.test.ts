@@ -44,7 +44,10 @@ import handler, { RESEND_COOLDOWN_MINUTES } from '../../../pages/api/admin/tract
 const ADMIN_ID = '11111111-1111-4111-8111-111111111111';
 const SIGNUP_ID = '22222222-2222-4222-8222-222222222222';
 const LINKED_USER_ID = '33333333-3333-4333-8333-333333333333';
-const ACTION_LINK = 'https://genera.example.org/reset-password?token_hash=fresh-synthetic-token';
+const HASHED_TOKEN = 'fresh-synthetic-hashed-token';
+/** The URL the endpoint builds from it — the one the message actually carries. */
+const RECOVERY_URL =
+  'https://genera.example.org/reset-password?token_hash=fresh-synthetic-hashed-token&type=recovery';
 
 interface FromCall {
   table: string;
@@ -57,10 +60,13 @@ interface FromCall {
 interface Tracker {
   fromCalls: FromCall[];
   generateLinkCalls: unknown[];
+  rpcCalls: Array<{ fn: string; args: Record<string, unknown> }>;
+  /** Every side effect, in order, so "reserved BEFORE sending" is assertable. */
+  order: string[];
 }
 
 function makeTracker(): Tracker {
-  return { fromCalls: [], generateLinkCalls: [] };
+  return { fromCalls: [], generateLinkCalls: [], rpcCalls: [], order: [] };
 }
 
 function signupRow(overrides: Record<string, unknown> = {}) {
@@ -81,11 +87,14 @@ function signupRow(overrides: Record<string, unknown> = {}) {
 interface ClientOptions {
   signup?: Record<string, unknown> | null;
   signupError?: { code?: string; message: string } | null;
-  /** Rows the audit ledger lookup returns — non-empty means "recently sent". */
-  recentAudit?: unknown[];
-  auditLookupError?: { message: string } | null;
-  /** Fails the reservation insert (the fail-closed write). */
-  auditInsertError?: { message: string } | null;
+  /** What `claim_invitation_resend` answers. Defaults to a granted claim. */
+  claim?: { claimed: boolean; retry_after_seconds?: number } | null;
+  /** The claim RPC itself failed — the fail-closed case. */
+  claimError?: { message: string } | null;
+  /** The claim returned something unrecognisable. Also fail-closed. */
+  claimShape?: unknown;
+  /** Delegate the claim to a shared ledger, for the concurrency tests. */
+  claimImpl?: (args: Record<string, unknown>) => Promise<unknown>;
   profile?: Record<string, unknown> | null;
   profileError?: { message: string } | null;
   generateLinkError?: { message: string } | null;
@@ -93,8 +102,6 @@ interface ClientOptions {
 }
 
 function buildClient(tracker: Tracker, opts: ClientOptions = {}) {
-  let auditReadDone = false;
-
   const chain = (table: string, resolved: { data: unknown; error: unknown }) => {
     const call: FromCall = { table, inserts: [], selects: [], eqs: [], ins: [] };
     tracker.fromCalls.push(call);
@@ -131,14 +138,39 @@ function buildClient(tracker: Tracker, opts: ClientOptions = {}) {
     return new Proxy({}, proxyHandler);
   };
 
+  const rpc = vi.fn(async (fn: string, args: Record<string, unknown>) => {
+    tracker.rpcCalls.push({ fn, args });
+    tracker.order.push(`rpc:${fn}`);
+
+    if (fn !== 'claim_invitation_resend') return { data: null, error: null };
+
+    if (opts.claimImpl) {
+      return { data: await opts.claimImpl(args), error: null };
+    }
+    if (opts.claimError) {
+      return { data: null, error: opts.claimError };
+    }
+    if ('claimShape' in opts) {
+      return { data: opts.claimShape, error: null };
+    }
+    return {
+      data: [opts.claim ?? { claimed: true, retry_after_seconds: 0 }],
+      error: null,
+    };
+  });
+
   return {
+    rpc,
     auth: {
       admin: {
         generateLink: vi.fn(async (params: unknown) => {
           tracker.generateLinkCalls.push(params);
+          tracker.order.push('generateLink');
           if (opts.generateLinkError) return { data: null, error: opts.generateLinkError };
           if (opts.generateLinkNull) return { data: { properties: {} }, error: null };
-          return { data: { properties: { action_link: ACTION_LINK } }, error: null };
+          // F2: the endpoint uses `hashed_token`, not `action_link`, and builds
+          // its own `/reset-password?token_hash=…` URL from it.
+          return { data: { properties: { hashed_token: HASHED_TOKEN } }, error: null };
         }),
       },
     },
@@ -150,15 +182,11 @@ function buildClient(tracker: Tracker, opts: ClientOptions = {}) {
         });
       }
       if (table === 'security_audit_events') {
-        // The FIRST touch is the ledger read; every later one is a write.
-        if (!auditReadDone) {
-          auditReadDone = true;
-          return chain(table, {
-            data: opts.recentAudit ?? [],
-            error: opts.auditLookupError ?? null,
-          });
-        }
-        return chain(table, { data: null, error: opts.auditInsertError ?? null });
+        // Only OUTCOME rows reach the table through the client now. The
+        // reservation is written inside `claim_invitation_resend`, in the same
+        // transaction as the check that authorised it (F5).
+        tracker.order.push('auditWrite');
+        return chain(table, { data: null, error: null });
       }
       if (table === 'profiles') {
         return chain(table, {
@@ -281,53 +309,62 @@ describe('signup state', () => {
 // Rate limiting, and the fail-closed audit
 // ---------------------------------------------------------------------------
 
-describe('repeated resends', () => {
-  it('429 when a resend already happened inside the cooldown', async () => {
+describe('the cooldown claim (F5)', () => {
+  it('429 when the claim is refused because one was already made', async () => {
     const { res, tracker } = await run({
-      recentAudit: [{ occurred_at: new Date().toISOString() }],
+      claim: { claimed: false, retry_after_seconds: 240 },
     });
 
     expect(res._getStatusCode()).toBe(429);
     expect(res._getJSONData().code).toBe('RESEND_TOO_SOON');
     expect(res._getJSONData().retryAfterMinutes).toBe(RESEND_COOLDOWN_MINUTES);
-    // Nothing was reserved and nothing was sent.
+    expect(res._getJSONData().retryAfterSeconds).toBe(240);
+    // Nothing was sent and no outcome row was written.
     expect(auditWrites(tracker)).toEqual([]);
     expect(tracker.generateLinkCalls).toEqual([]);
   });
 
-  it('counts FAILED attempts too — a rejection must not reset the cooldown', async () => {
+  it('claims through the RPC, scoped to this target, with this cooldown', async () => {
     const { tracker } = await run();
-    const ledgerRead = tracker.fromCalls.find(
-      (c) => c.table === 'security_audit_events' && c.selects.length > 0
-    )!;
-    expect(ledgerRead.ins).toContainEqual({
-      col: 'outcome',
-      vals: ['success', 'failure', 'partial_failure'],
+
+    expect(tracker.rpcCalls).toHaveLength(1);
+    expect(tracker.rpcCalls[0].fn).toBe('claim_invitation_resend');
+    expect(tracker.rpcCalls[0].args).toMatchObject({
+      p_target_user_id: LINKED_USER_ID,
+      p_actor_user_id: ADMIN_ID,
+      p_cooldown_seconds: RESEND_COOLDOWN_MINUTES * 60,
     });
   });
 
-  it('queries the ledger scoped to this target and this action', async () => {
+  it('claims BEFORE it mints a link or sends anything', async () => {
     const { tracker } = await run();
-    const ledgerRead = tracker.fromCalls.find(
-      (c) => c.table === 'security_audit_events' && c.selects.length > 0
-    )!;
-    expect(ledgerRead.eqs).toContainEqual({ col: 'action', val: 'invitation_resent' });
-    expect(ledgerRead.eqs).toContainEqual({ col: 'target_user_id', val: LINKED_USER_ID });
+
+    const claimAt = tracker.order.indexOf('rpc:claim_invitation_resend');
+    const linkAt = tracker.order.indexOf('generateLink');
+
+    expect(claimAt).toBeGreaterThanOrEqual(0);
+    expect(linkAt).toBeGreaterThan(claimAt);
   });
 
-  it('FAILS CLOSED when the ledger cannot be READ', async () => {
+  it('FAILS CLOSED when the claim itself errors — nothing is sent', async () => {
     // "No recent resend" and "cannot tell" must not collapse into the same
-    // answer, or an unreadable trail becomes an unlimited allowance to mail
+    // answer, or an unreadable ledger becomes an unlimited allowance to mail
     // recovery links at an address.
-    const { res, tracker } = await run({ auditLookupError: { message: 'connection reset' } });
+    const { res, tracker } = await run({ claimError: { message: 'connection reset' } });
 
     expect(res._getStatusCode()).toBe(503);
     expect(res._getJSONData().code).toBe('AUDIT_UNAVAILABLE');
     expect(tracker.generateLinkCalls).toEqual([]);
+    expect(auditWrites(tracker)).toEqual([]);
   });
 
-  it('FAILS CLOSED when the reservation cannot be WRITTEN — nothing is sent', async () => {
-    const { res, tracker } = await run({ auditInsertError: { message: 'insert failed' } });
+  it.each([
+    ['null', null],
+    ['an empty array', []],
+    ['an object with no verdict', [{ retry_after_seconds: 0 }]],
+    ['a string', 'yes'],
+  ])('FAILS CLOSED when the claim returns %s', async (_label, shape) => {
+    const { res, tracker } = await run({ claimShape: shape });
 
     expect(res._getStatusCode()).toBe(503);
     expect(res._getJSONData().code).toBe('AUDIT_UNAVAILABLE');
@@ -335,17 +372,164 @@ describe('repeated resends', () => {
     expect(tracker.generateLinkCalls).toEqual([]);
   });
 
-  it('reserves the slot BEFORE sending', async () => {
-    const { tracker } = await run();
-    const writes = auditWrites(tracker);
-    // Row 1 is the reservation, written as a failure because at that instant
-    // that is what it is.
-    expect(writes[0]).toMatchObject({
-      action: 'invitation_resent',
-      outcome: 'failure',
-      target_user_id: LINKED_USER_ID,
-    });
-    expect((writes[0].metadata as Record<string, unknown>).stage).toBe('requested');
+  it('accepts the single-row shape PostgREST returns for a TABLE function', async () => {
+    // `claim_invitation_resend` RETURNS TABLE, so supabase-js hands back an
+    // array. Both shapes are tolerated so a PostgREST version that unwraps a
+    // one-row result does not silently become a fail-closed outage.
+    const { res } = await run({ claimShape: { claimed: true, retry_after_seconds: 0 } });
+    expect(res._getStatusCode()).toBe(200);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// F5 — the race, and a negative control that proves this test can see it.
+//
+// The defect was three round trips with no lock between them: read the ledger,
+// insert a reservation, send. Two requests for the same recipient both read "no
+// recent resend", both inserted, and both sent — so the recipient got two
+// recovery links and the second silently killed the first.
+//
+// Both tests below drive TWO CONCURRENT handler invocations against ONE shared
+// ledger. The only difference is whether the claim they share is atomic.
+// ---------------------------------------------------------------------------
+
+/** Yield to the microtask/timer queue — the window a race opens in. */
+const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+function makeSharedLedger() {
+  const rows: number[] = [];
+  let held = false;
+  const waiting: Array<() => void> = [];
+
+  return {
+    rows,
+
+    /**
+     * What `claim_invitation_resend` does: take the per-target advisory lock
+     * FIRST, then check and insert inside it.
+     */
+    async atomic(args: Record<string, unknown>) {
+      while (held) {
+        await new Promise<void>((resolve) => waiting.push(resolve));
+      }
+      held = true;
+      try {
+        // The gap the old shape lost the race in. Under the lock it is harmless.
+        await tick();
+        const since = Date.now() - Number(args.p_cooldown_seconds) * 1000;
+        if (rows.some((at) => at >= since)) {
+          return [{ claimed: false, retry_after_seconds: 300 }];
+        }
+        rows.push(Date.now());
+        return [{ claimed: true, retry_after_seconds: 0 }];
+      } finally {
+        held = false;
+        waiting.shift()?.();
+      }
+    },
+
+    /**
+     * THE NEGATIVE CONTROL: the old read-then-insert, with the same gap and no
+     * lock. Present so this suite demonstrably distinguishes the two — a
+     * concurrency test that passes against the broken implementation proves
+     * nothing.
+     */
+    async readThenInsert(args: Record<string, unknown>) {
+      const since = Date.now() - Number(args.p_cooldown_seconds) * 1000;
+      const recent = rows.some((at) => at >= since);
+      await tick();
+      if (recent) {
+        return [{ claimed: false, retry_after_seconds: 300 }];
+      }
+      rows.push(Date.now());
+      return [{ claimed: true, retry_after_seconds: 0 }];
+    },
+  };
+}
+
+async function runConcurrentPair(
+  claimImpl: (args: Record<string, unknown>) => Promise<unknown>
+) {
+  mockCheckIsAdmin.mockResolvedValue({ isAdmin: true, user: { id: ADMIN_ID }, error: null });
+
+  const trackers = [makeTracker(), makeTracker()];
+  const clients = trackers.map((t) => buildClient(t, { claimImpl }));
+  let next = 0;
+  mockCreateServiceRoleClient.mockImplementation(() => clients[next++]);
+
+  const mocks = [0, 1].map(() =>
+    createMocks({ method: 'POST', body: { signupId: SIGNUP_ID } })
+  );
+
+  await Promise.all(mocks.map((m) => handler(m.req as never, m.res as never)));
+
+  return {
+    statuses: mocks.map((m) => m.res._getStatusCode()).sort(),
+    providerCalls: trackers.reduce((n, t) => n + t.generateLinkCalls.length, 0),
+  };
+}
+
+describe('two concurrent resends for the SAME recipient', () => {
+  it('produce at most ONE provider call when the claim is atomic', async () => {
+    const ledger = makeSharedLedger();
+    const { statuses, providerCalls } = await runConcurrentPair((args) => ledger.atomic(args));
+
+    expect(providerCalls).toBe(1);
+    // One is served, one is told to wait.
+    expect(statuses).toEqual([200, 429]);
+    expect(ledger.rows).toHaveLength(1);
+  });
+
+  it('NEGATIVE CONTROL: read-then-insert lets both through', async () => {
+    // This is the defect, reproduced. If the assertion above ever passes for a
+    // non-atomic claim, this test is what says the suite stopped being able to
+    // tell the difference.
+    const ledger = makeSharedLedger();
+    const { providerCalls } = await runConcurrentPair((args) => ledger.readThenInsert(args));
+
+    expect(providerCalls).toBe(2);
+    expect(ledger.rows).toHaveLength(2);
+  });
+
+  it('DIFFERENT recipients never block each other', async () => {
+    const ledger = makeSharedLedger();
+    // Two different targets: the advisory lock is keyed on the target, so both
+    // claims succeed. Modelled by giving each its own ledger, which is exactly
+    // what per-target key isolation means.
+    const other = makeSharedLedger();
+
+    mockCheckIsAdmin.mockResolvedValue({ isAdmin: true, user: { id: ADMIN_ID }, error: null });
+    const t1 = makeTracker();
+    const t2 = makeTracker();
+    const c1 = buildClient(t1, { claimImpl: (args) => ledger.atomic(args) });
+    const c2 = buildClient(t2, { claimImpl: (args) => other.atomic(args) });
+    let next = 0;
+    const clients = [c1, c2];
+    mockCreateServiceRoleClient.mockImplementation(() => clients[next++]);
+
+    const mocks = [0, 1].map(() =>
+      createMocks({ method: 'POST', body: { signupId: SIGNUP_ID } })
+    );
+    await Promise.all(mocks.map((m) => handler(m.req as never, m.res as never)));
+
+    expect(mocks.map((m) => m.res._getStatusCode())).toEqual([200, 200]);
+    expect(t1.generateLinkCalls).toHaveLength(1);
+    expect(t2.generateLinkCalls).toHaveLength(1);
+  });
+
+  it('a FAILED provider attempt still consumes the cooldown', async () => {
+    // The reservation is written before the send and counts regardless of
+    // outcome, so a broken mailer cannot be retried into a mail-bomb.
+    const ledger = makeSharedLedger();
+
+    const first = await runConcurrentPair((args) => ledger.atomic(args));
+    expect(first.providerCalls).toBe(1);
+
+    // The send failed (no RESEND_API_KEY in this suite), and the next attempt is
+    // still refused.
+    const second = await runConcurrentPair((args) => ledger.atomic(args));
+    expect(second.providerCalls).toBe(0);
+    expect(second.statuses).toEqual([429, 429]);
   });
 });
 
@@ -376,8 +560,12 @@ describe('a NEW account that has never set a password', () => {
 
     expect(res._getStatusCode()).toBe(502);
     expect(res._getJSONData().code).toBe('LINK_GENERATION_FAILED');
+    // One row through the client: the failure. The reservation that authorised
+    // the attempt was written inside the claim RPC, in the same transaction as
+    // the check — which is the whole point of F5.
     const writes = auditWrites(tracker);
-    expect((writes[1].metadata as Record<string, unknown>).stage).toBe('generate_link');
+    expect(writes).toHaveLength(1);
+    expect((writes[0].metadata as Record<string, unknown>).stage).toBe('generate_link');
   });
 
   it('502 when generateLink succeeds but returns no link', async () => {
@@ -428,10 +616,14 @@ describe('delivery outcomes', () => {
   it('records the outcome row after the attempt', async () => {
     const { tracker } = await run();
     const writes = auditWrites(tracker);
-    expect(writes).toHaveLength(2);
-    expect(writes[1]).toMatchObject({ action: 'invitation_resent', outcome: 'failure' });
-    expect((writes[1].metadata as Record<string, unknown>).stage).toBe('delivered');
-    expect((writes[1].metadata as Record<string, unknown>).email_failure_reason).toBe(
+    // Exactly one row reaches the table through the client — the outcome. The
+    // reservation is written by `claim_invitation_resend` inside the same
+    // transaction as the check that authorised it, so it is not visible here.
+    // Two rows per resend total, as before; one of them now has a lock behind it.
+    expect(writes).toHaveLength(1);
+    expect(writes[0]).toMatchObject({ action: 'invitation_resent', outcome: 'failure' });
+    expect((writes[0].metadata as Record<string, unknown>).stage).toBe('delivered');
+    expect((writes[0].metadata as Record<string, unknown>).email_failure_reason).toBe(
       'not_configured'
     );
   });
@@ -440,9 +632,11 @@ describe('delivery outcomes', () => {
     const { res, tracker } = await run();
 
     expect(res._getData()).not.toContain('token_hash');
-    expect(res._getData()).not.toContain(ACTION_LINK);
+    expect(res._getData()).not.toContain(HASHED_TOKEN);
+    expect(res._getData()).not.toContain(RECOVERY_URL);
     expect(JSON.stringify(auditWrites(tracker))).not.toContain('token_hash');
-    expect(JSON.stringify(auditWrites(tracker))).not.toContain(ACTION_LINK);
+    expect(JSON.stringify(auditWrites(tracker))).not.toContain(HASHED_TOKEN);
+    expect(JSON.stringify(auditWrites(tracker))).not.toContain(RECOVERY_URL);
   });
 
   it('never returns the recipient address', async () => {

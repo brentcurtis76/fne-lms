@@ -2,16 +2,14 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdmin, createServiceRoleClient } from '../../../../lib/api-auth';
 import { rateLimit, RATE_LIMITS } from '../../../../lib/rateLimit';
 import { getAppBaseUrl } from '../../../../lib/utils/app-url';
+import { generateRecoveryLink } from '../../../../lib/auth/recovery-link';
 import {
   deliveryMessage,
   sendAccessGrantedEmail,
   sendPasswordSetupEmail,
   type DeliveryResult,
 } from '../../../../lib/email/invitations';
-import {
-  findRecentSecurityAudit,
-  recordSecurityAudit,
-} from '../../../../lib/security/audit';
+import { recordSecurityAudit } from '../../../../lib/security/audit';
 import {
   SIGNUP_SOURCE_INVITE_BODY,
   isKnownSignupSource,
@@ -53,11 +51,15 @@ import {
  *   FAIL CLOSED ON AUDIT. Unlike every other operation in this remediation, this
  *   one refuses to proceed when the audit trail is unavailable — because here
  *   the audit row IS the rate-limit ledger. An unreadable trail must not become
- *   an unlimited allowance to mail recovery links at an address. Concretely:
- *   the ledger is READ first (an error → 503), then a `requested` row is written
- *   BEFORE the send (a failed write → 503, nothing sent), then the outcome row
- *   is written after. Two rows per resend, both true at the moment they were
- *   written.
+ *   an unlimited allowance to mail recovery links at an address.
+ *
+ *   ATOMIC CLAIM (F5). The check and the reservation are ONE call —
+ *   `claim_invitation_resend`, which takes a transaction-scoped advisory lock on
+ *   the target id before it looks at the ledger. The previous shape read, then
+ *   inserted, with nothing in between, so two concurrent requests for the same
+ *   recipient both passed the read and both sent. Any failure of the claim is a
+ *   503 with nothing sent. Two rows per resend, both true at the moment they
+ *   were written.
  *
  *   THE LINK NEVER LEAVES. It is passed to the mailer and referenced nowhere
  *   else: not in the response, not in a log line, not in the audit metadata
@@ -143,20 +145,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const targetUserId = signupRow.linked_user_id;
 
-    // --- Rate limit, read from the audit ledger (fail closed) ----------------
-    const since = new Date(Date.now() - RESEND_COOLDOWN_MINUTES * 60 * 1000).toISOString();
-    const recent = await findRecentSecurityAudit(supabase, {
-      action: 'invitation_resent',
-      targetUserId,
-      since,
-      // ANY attempt counts, successful or not. A provider rejection that reset
-      // the counter would turn a retry loop into a mail-bomb.
-      outcomes: ['success', 'failure', 'partial_failure'],
-    });
+    // --- Claim the cooldown window, ATOMICALLY (F5) --------------------------
+    // This used to be three round trips: read the ledger, insert a reservation,
+    // send. Nothing held a lock between the read and the insert, so two requests
+    // for the same recipient — a double click, a retried fetch, two
+    // administrators on the same signup — both read "no recent resend", both
+    // inserted, and both sent. The recipient got two recovery links and the
+    // second silently killed the first.
+    //
+    // `claim_invitation_resend` does the check and the reservation inside one
+    // transaction, behind a transaction-scoped advisory lock keyed on the TARGET
+    // user id. The loser of a race waits, then sees the winner's row. Different
+    // recipients hash to different keys and never block each other.
+    const { data: claimRows, error: claimError } = await supabase.rpc(
+      'claim_invitation_resend',
+      {
+        p_target_user_id: targetUserId,
+        p_actor_user_id: adminUser.id,
+        p_cooldown_seconds: RESEND_COOLDOWN_MINUTES * 60,
+        p_metadata: { signup_id: signupId },
+      }
+    );
 
-    if (recent.error) {
-      // Cannot tell whether a resend just happened → refuse. This is the one
-      // fail-closed audit decision in the remediation; see the header.
+    if (claimError) {
+      // Cannot tell whether a resend just happened, and cannot reserve one →
+      // refuse. This is the one fail-closed audit decision in the remediation:
+      // an unreadable ledger must not become an unlimited allowance to mail
+      // recovery links at an address. See the header.
+      console.error('[tractor-signups resend-invite] claim failed', {
+        error: claimError.message ?? String(claimError),
+      });
       return res.status(503).json({
         error:
           'No pudimos verificar los envíos recientes. Inténtalo nuevamente en unos momentos.',
@@ -164,32 +182,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    if (recent.found) {
-      return res.status(429).json({
-        error: `Ya se envió una invitación hace poco. Espera ${RESEND_COOLDOWN_MINUTES} minutos antes de reenviar.`,
-        code: 'RESEND_TOO_SOON',
-        retryAfterMinutes: RESEND_COOLDOWN_MINUTES,
-      });
-    }
+    const claim = Array.isArray(claimRows) ? claimRows[0] : claimRows;
 
-    // --- Reserve the slot BEFORE sending -------------------------------------
-    // Written as a failure because, at this instant, that is what it is. If the
-    // process dies between here and the send, the trail says an attempt was made
-    // and did not succeed, which is true and errs toward the safe side.
-    const reservation = await recordSecurityAudit(supabase, {
-      action: 'invitation_resent',
-      outcome: 'failure',
-      actorUserId: adminUser.id,
-      actorRole: 'admin',
-      targetUserId,
-      metadata: { stage: 'requested', signup_id: signupId },
-    });
-
-    if (!reservation.recorded) {
+    if (!claim || typeof claim.claimed !== 'boolean') {
+      // A shape we do not recognise is not a claim. Fail closed rather than
+      // guessing that silence means permission.
+      console.error('[tractor-signups resend-invite] claim returned an unusable shape');
       return res.status(503).json({
         error:
           'No pudimos registrar el reenvío, así que no se envió nada. Inténtalo nuevamente.',
         code: 'AUDIT_UNAVAILABLE',
+      });
+    }
+
+    if (!claim.claimed) {
+      return res.status(429).json({
+        error: `Ya se envió una invitación hace poco. Espera ${RESEND_COOLDOWN_MINUTES} minutos antes de reenviar.`,
+        code: 'RESEND_TOO_SOON',
+        retryAfterMinutes: RESEND_COOLDOWN_MINUTES,
+        retryAfterSeconds: claim.retry_after_seconds ?? RESEND_COOLDOWN_MINUTES * 60,
       });
     }
 
@@ -211,24 +222,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let delivery: DeliveryResult;
 
     if (needsPasswordSetup) {
-      // A FRESH link. The original is one-time and expiring; resending it would
-      // resend something already dead.
-      const redirectTo = `${getAppBaseUrl(req)}/reset-password`;
-      const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-        type: 'recovery',
+      // A FRESH link, in the application's own `token_hash` format (F2). The
+      // original is one-time and expiring; resending it would resend something
+      // already dead.
+      const link = await generateRecoveryLink(supabase, {
         email,
-        options: { redirectTo },
+        baseUrl: getAppBaseUrl(req),
       });
 
-      const actionLink = linkData?.properties?.action_link;
-      if (linkError || !actionLink) {
+      if (link.ok !== true) {
+        const failure = link.reason;
         await recordSecurityAudit(supabase, {
           action: 'invitation_resent',
           outcome: 'failure',
           actorUserId: adminUser.id,
           actorRole: 'admin',
           targetUserId,
-          metadata: { stage: 'generate_link', signup_id: signupId },
+          metadata: { stage: 'generate_link', signup_id: signupId, failure },
         });
         return res.status(502).json({
           error: 'No se pudo generar un enlace de recuperación nuevo. Inténtalo nuevamente.',
@@ -239,7 +249,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       delivery = await sendPasswordSetupEmail({
         to: email,
         firstName,
-        actionLink,
+        recoveryUrl: link.url,
         bodyLine,
       });
     } else {

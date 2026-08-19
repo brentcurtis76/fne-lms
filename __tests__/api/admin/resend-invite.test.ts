@@ -609,7 +609,7 @@ describe('delivery outcomes', () => {
     expect(res._getStatusCode()).toBe(200);
     const body = res._getJSONData();
     expect(body.success).toBe(false);
-    expect(body.email).toEqual({ sent: false, reason: 'not_configured' });
+    expect(body.email).toEqual({ sent: false, status: 'not_configured', reason: 'not_configured' });
     expect(body.message).toContain('el servicio de correo no está configurado');
   });
 

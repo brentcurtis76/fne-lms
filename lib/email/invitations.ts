@@ -28,35 +28,95 @@
 import { Resend } from 'resend';
 import { captureOutboundEmail } from './outbox';
 
-export type DeliveryFailureReason =
-  /** RESEND_API_KEY is absent — the platform cannot send at all. */
+/**
+ * WHAT A SEND CAN ACTUALLY BE, and why the list is longer than it was.
+ *
+ * The previous shape had one success state and called it `sent`, and the toast
+ * said "Correo enviado correctamente." Both overstate what this process knows.
+ * Handing a message to Resend's API and getting a 200 means the PROVIDER
+ * ACCEPTED IT. It does not mean the recipient's mail server accepted it, that it
+ * survived a spam filter, or that it did not bounce twenty minutes later. Only a
+ * provider webhook can say that, and this platform has none.
+ *
+ * So the states are named for what is actually observed:
+ *
+ *   not_configured          no API key on this server; nothing was attempted
+ *   link_generation_failed  the recovery credential could not be minted, so
+ *                           there was nothing to put in the message
+ *   transport_error         the call threw: network, DNS, timeout
+ *   provider_rejected       the provider answered, and refused the message
+ *   provider_accepted       the provider answered, and accepted it. THIS IS THE
+ *                           FURTHEST ANY REPOSITORY TEST CAN PROVE.
+ *   delivered               a provider webhook reported delivery. NOTHING IN
+ *                           THIS CODEBASE PRODUCES THIS VALUE TODAY -- it exists
+ *                           so that "accepted" is never quietly read as
+ *                           "delivered", and a test asserts no code path returns
+ *                           it (__tests__/lib/email/deliveryStatus.test.ts).
+ *   bounced                 a provider webhook reported a bounce. Same: declared,
+ *                           never produced without webhook evidence.
+ */
+export type DeliveryStatus =
   | 'not_configured'
-  /** The provider accepted the request and refused the message. */
+  | 'link_generation_failed'
+  | 'transport_error'
   | 'provider_rejected'
-  /** The call threw: network, DNS, timeout. */
+  | 'provider_accepted'
+  | 'delivered'
+  | 'bounced';
+
+/** The subset that means the message did not get to the provider. */
+export type DeliveryFailureReason =
+  | 'not_configured'
+  | 'link_generation_failed'
+  | 'provider_rejected'
   | 'transport_error';
 
+/** The statuses that require evidence this platform does not yet collect. */
+export const WEBHOOK_ONLY_STATUSES: readonly DeliveryStatus[] = Object.freeze([
+  'delivered',
+  'bounced',
+]);
+
 export interface DeliveryResult {
+  /**
+   * Kept for the existing call sites, and now precisely defined: true means the
+   * PROVIDER ACCEPTED the message, nothing more.
+   */
   sent: boolean;
+  status: DeliveryStatus;
   reason?: DeliveryFailureReason;
   /**
    * Operator-facing detail. Never contains the action link — the link is not in
    * scope where this is built.
    */
   detail?: string;
+  /**
+   * The provider's own message id, when it gives one. Useful for correlating a
+   * complaint with a send. Not a secret, and never the token or the URL.
+   */
+  providerMessageId?: string;
 }
 
 /** es-CL, for the administrator's toast. */
 export const DELIVERY_MESSAGES: Record<DeliveryFailureReason, string> = {
   not_configured:
     'No se envió el correo: el servicio de correo no está configurado. Avisa al equipo técnico.',
+  link_generation_failed:
+    'No se envió el correo: no se pudo generar el enlace de acceso. Inténtalo nuevamente.',
   provider_rejected:
     'No se envió el correo: el proveedor rechazó el mensaje. Verifica la dirección e inténtalo nuevamente.',
   transport_error:
     'No se pudo enviar el correo por un problema de conexión. Inténtalo nuevamente en unos momentos.',
 };
 
-export const DELIVERY_SUCCESS_MESSAGE = 'Correo enviado correctamente.';
+/**
+ * Deliberately says "accepted", not "delivered" or "sent correctly". An
+ * administrator reading this should understand that the message left this
+ * platform, and that arrival in the recipient's inbox is a separate fact nobody
+ * here has checked.
+ */
+export const DELIVERY_SUCCESS_MESSAGE =
+  'El proveedor de correo aceptó el mensaje. La llegada a la bandeja del destinatario no se confirma desde aquí.';
 
 const DEFAULT_FROM = 'Genera <notificaciones@nuevaeducacion.org>';
 
@@ -142,7 +202,7 @@ export type EmailTransport = (message: {
   to: string;
   subject: string;
   html: string;
-}) => Promise<{ error?: { message?: string } | null }>;
+}) => Promise<{ data?: { id?: string } | null; error?: { message?: string } | null }>;
 
 function defaultTransport(apiKey: string): EmailTransport {
   const resend = new Resend(apiKey);
@@ -170,13 +230,13 @@ async function send(
       toDomain: params.to.split('@')[1] ?? 'unknown',
       subject: params.subject,
     });
-    return { sent: false, reason: 'not_configured' };
+    return { sent: false, status: 'not_configured', reason: 'not_configured' };
   }
 
   const deliver = transport ?? defaultTransport(apiKey as string);
 
   try {
-    const { error } = await deliver({
+    const { data, error } = await deliver({
       from: process.env.EMAIL_FROM_ADDRESS || DEFAULT_FROM,
       to: params.to,
       subject: params.subject,
@@ -188,18 +248,42 @@ async function send(
         toDomain: params.to.split('@')[1] ?? 'unknown',
         error: error.message ?? 'unknown',
       });
-      return { sent: false, reason: 'provider_rejected', detail: error.message };
+      return {
+        sent: false,
+        status: 'provider_rejected',
+        reason: 'provider_rejected',
+        detail: error.message,
+      };
     }
 
-    return { sent: true };
+    // ACCEPTED. Not delivered — see DeliveryStatus. The provider's id is kept so
+    // a later complaint can be correlated with a send; it is not a credential.
+    return {
+      sent: true,
+      status: 'provider_accepted',
+      ...(typeof data?.id === 'string' ? { providerMessageId: data.id } : {}),
+    };
   } catch (thrown) {
     const message = thrown instanceof Error ? thrown.message : String(thrown);
     console.error('[invitations] transport threw', {
       toDomain: params.to.split('@')[1] ?? 'unknown',
       error: message,
     });
-    return { sent: false, reason: 'transport_error', detail: message };
+    return { sent: false, status: 'transport_error', reason: 'transport_error', detail: message };
   }
+}
+
+/**
+ * The state to report when the recovery credential could not be minted at all.
+ * Distinct from every transport outcome: nothing was attempted, and retrying the
+ * SEND would not help — the link is what failed.
+ */
+export function linkGenerationFailed(): DeliveryResult {
+  return {
+    sent: false,
+    status: 'link_generation_failed',
+    reason: 'link_generation_failed',
+  };
 }
 
 /**
@@ -264,6 +348,46 @@ export async function sendAccessGrantedEmail(
           'Si el botón no funciona, copia y pega esta dirección completa en tu navegador:',
         closingLine:
           'Ingresa con la contraseña que ya usabas. Si no la recuerdas, usa "¿Olvidaste tu contraseña?" en la página de inicio de sesión.',
+      }),
+    },
+    transport
+  );
+}
+
+/**
+ * SELF-SERVICE RECOVERY — "olvidé mi contraseña".
+ *
+ * This used to be Supabase's own template, sent by `resetPasswordForEmail` from
+ * the browser, landing on whatever shape the project's dashboard settings
+ * produced (an implicit `#access_token=` fragment, or a PKCE `?code=`). Two
+ * consequences: `/reset-password` had to keep supporting formats that cannot
+ * carry server-verifiable, purpose-bound proof; and the mandatory e2e could not
+ * read the message that was actually sent, so its recovery stage rebuilt a link
+ * of its own.
+ *
+ * Every recovery link this platform sends is now built by
+ * `lib/auth/recovery-link.ts` and delivered by this module — invitation, resend
+ * and self-service alike — in exactly one format.
+ */
+export async function sendPasswordRecoveryEmail(
+  params: { to: string; firstName: string; recoveryUrl: string },
+  transport?: EmailTransport
+): Promise<DeliveryResult> {
+  return send(
+    {
+      to: params.to,
+      subject: 'Restablece tu contraseña de Genera',
+      html: renderEmail({
+        heading: 'Restablece tu contraseña',
+        firstName: params.firstName,
+        bodyLine:
+          'Recibimos una solicitud para restablecer tu contraseña. Si fuiste tú, usa el botón para elegir una nueva.',
+        ctaLabel: 'Restablecer contraseña',
+        ctaHref: params.recoveryUrl,
+        fallbackLead:
+          'Si el botón no funciona, copia y pega esta dirección completa en tu navegador:',
+        closingLine:
+          'Si no solicitaste este cambio, ignora este mensaje: tu contraseña actual sigue funcionando. Por seguridad, este enlace caduca.',
       }),
     },
     transport

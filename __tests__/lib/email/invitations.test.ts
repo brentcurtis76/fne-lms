@@ -195,13 +195,15 @@ describe('sendAccessGrantedEmail — the existing-account notice (S8)', () => {
 });
 
 describe('transport outcomes', () => {
-  it('CONFIGURED and accepted → sent', async () => {
+  it('CONFIGURED and accepted → provider_accepted, NOT "delivered"', async () => {
     const { transport } = captureTransport();
     const result = await sendPasswordSetupEmail(
       { to: 'persona@example.com', firstName: 'Ana', recoveryUrl: ACTION_LINK, bodyLine: 'x' },
       transport
     );
-    expect(result).toEqual({ sent: true });
+    // `sent: true` now has a precise meaning: the provider ACCEPTED the message.
+    // Nothing in this process knows whether it reached an inbox.
+    expect(result).toEqual({ sent: true, status: 'provider_accepted' });
   });
 
   it('MISSING configuration → not_configured, and nothing is attempted', async () => {
@@ -215,7 +217,11 @@ describe('transport outcomes', () => {
       bodyLine: 'x',
     });
 
-    expect(result).toEqual({ sent: false, reason: 'not_configured' });
+    expect(result).toEqual({
+      sent: false,
+      status: 'not_configured',
+      reason: 'not_configured',
+    });
     expect(deliveryMessage(result)).toBe(DELIVERY_MESSAGES.not_configured);
   });
 
@@ -249,7 +255,11 @@ describe('transport outcomes', () => {
     for (const message of Object.values(DELIVERY_MESSAGES)) {
       expect(message).toMatch(/^No se/);
     }
-    expect(DELIVERY_SUCCESS_MESSAGE).toBe('Correo enviado correctamente.');
+    // Deliberately NOT "Correo enviado correctamente." An administrator reading
+    // the toast should understand that the message left this platform and that
+    // arrival is a separate fact nobody here has checked.
+    expect(DELIVERY_SUCCESS_MESSAGE).toContain('aceptó el mensaje');
+    expect(DELIVERY_SUCCESS_MESSAGE).not.toMatch(/entregad|delivered/i);
   });
 });
 

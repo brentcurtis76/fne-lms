@@ -273,6 +273,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         stage: 'delivered',
         signup_id: signupId,
         kind: needsPasswordSetup ? 'password_setup' : 'access_granted',
+        email_delivery_status: delivery.status,
         email_failure_reason: delivery.reason ?? null,
       },
     });
@@ -285,7 +286,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       success: delivery.sent,
       kind: needsPasswordSetup ? 'password_setup' : 'access_granted',
       // Never the link.
-      email: { sent: delivery.sent, reason: delivery.reason ?? null },
+      // `status` is the accurate word — see lib/email/invitations.ts. `sent`
+      // means the provider ACCEPTED the message, never that it was delivered.
+      email: { sent: delivery.sent, status: delivery.status, reason: delivery.reason ?? null },
       message: deliveryMessage(delivery),
       cooldownMinutes: RESEND_COOLDOWN_MINUTES,
     });

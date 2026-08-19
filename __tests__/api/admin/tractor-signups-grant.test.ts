@@ -356,7 +356,7 @@ describe('tractor-signups/grant — delivery status (S7, S8)', () => {
     // RESEND_API_KEY is stubbed empty by the suite's beforeEach, so the honest
     // answer here is "not configured" — which is exactly the production state
     // this remediation documents.
-    expect(json.email).toEqual({ sent: false, reason: 'not_configured' });
+    expect(json.email).toEqual({ sent: false, status: 'not_configured', reason: 'not_configured' });
     expect(json.emailMessage).toContain('el servicio de correo no está configurado');
     expect(json.canResend).toBe(true);
   });
@@ -384,7 +384,7 @@ describe('tractor-signups/grant — delivery status (S7, S8)', () => {
     expect(res._getStatusCode()).toBe(200);
     const json = res._getJSONData();
     expect(json.existingUser).toBe(false);
-    expect(json.email).toEqual({ sent: false, reason: 'not_configured' });
+    expect(json.email).toEqual({ sent: false, status: 'not_configured', reason: 'not_configured' });
     // S7: the signup stays `granted` — the account exists and must not be
     // created twice — but the panel now has an action that mints a fresh link.
     expect(json.status).toBe('granted');

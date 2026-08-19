@@ -425,7 +425,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         generation,
         // Same shape as the new-account branch so the panel can render one
         // delivery status for both, and offer the same retry for both.
-        email: { sent: existingEmailResult.sent, reason: existingEmailResult.reason ?? null },
+        // `status` is the accurate word: `provider_accepted` is as far as this
+        // process can see. See lib/email/invitations.ts for why "delivered" is
+        // not a state anything here produces.
+        email: {
+          sent: existingEmailResult.sent,
+          status: existingEmailResult.status,
+          reason: existingEmailResult.reason ?? null,
+        },
         emailMessage: deliveryMessage(existingEmailResult),
         canResend: true,
       });
@@ -509,6 +516,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           role_type: role,
           signup_source: signupSource,
           email_sent: emailResult.sent,
+          email_delivery_status: emailResult.status,
           email_failure_reason: emailResult.reason ?? null,
         },
       });
@@ -526,7 +534,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         roleLabel: TRACTOR_ROLE_LABELS[role],
         // The action link is NOT here, and never is: `DeliveryResult` carries a
         // boolean and a coarse reason, and the link never leaves the mailer.
-        email: { sent: emailResult.sent, reason: emailResult.reason ?? null },
+        email: {
+          sent: emailResult.sent,
+          status: emailResult.status,
+          reason: emailResult.reason ?? null,
+        },
         emailMessage: deliveryMessage(emailResult),
         canResend: true,
         generation,

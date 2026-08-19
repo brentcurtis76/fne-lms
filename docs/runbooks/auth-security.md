@@ -50,6 +50,33 @@ Svix verification over the raw request bytes, may advance a recovery outbox row
 to `delivered` or `bounced`. Activating that evidence still requires the external
 Resend/Vercel configuration and controlled send in §3.6.
 
+### 0.1 Local evidence captured for the review packet
+
+The exact implementation head is
+`242be503e21172c8a8c8160608c5cbafbbacdc58` on `fix/auth-sec2`, based on
+`4399949942bfcf49dfa8de40cbf7edbf40f0490e`. On 2026-08-19, after a clean local
+Supabase reset, the final evidence was:
+
+- type-check and zero-warning lint: exit 0;
+- Vitest: 338 files, 7,832 passed, 11 pre-existing `[Z3b, PARKED]` skips,
+  zero failures;
+- production build: exit 0, Next 14.2.35, 149 static pages;
+- migration guards: exit 0 across 23 migrations;
+- browser boundary: exit 0 across 1,129 source files, 682 browser modules and
+  513 entrypoints;
+- pgTAP: 16 files, 818 tests, zero failures;
+- recovery concurrency proof: exactly one durable job, one outbox lease and one
+  grant lease across independent database connections;
+- queue concurrency proof: 40 jobs exactly once across two workers (21/19);
+- mandatory Chromium: 121 passed, zero failed/skipped across all 12 required
+  specs; the independent no-skip guard also passed; and
+- `git diff --check`: exit 0.
+
+The browser run explicitly cleared `RESEND_API_KEY` and
+`RESEND_WEBHOOK_SECRET`. It exercised the application-owned captured outbox and
+therefore proves neither Resend acceptance nor inbox delivery. Those are the
+separate external steps in §3.6.
+
 ---
 
 ## 1. Credential rotation and history cleanup — BEFORE anything else
@@ -656,16 +683,19 @@ hardening phase; the advisor output is the worklist.
 ## 6. Post-deploy verification checklist
 
 After the merge deploys and §2 is applied. Nothing in this list has been done —
-see §0. Work through it in order; the last four items are the ones that
-distinguish "the code shipped" from "the control is enforced":
+see §0. Work through it in order; the direct API, Storage, Realtime, catalog and
+provider-evidence checks distinguish "the code shipped" from "the control is
+enforced":
 
 - [ ] The seven diagnostic routes return `404` (§1.6).
 - [ ] `security_audit_events` exists with RLS and the expected ACL (§2).
-- [ ] Grant a synthetic signup; the response reports mail sent (§3.3).
+- [ ] Grant a synthetic signup; the response reports provider acceptance (or a
+      precise configuration/rejection outcome), never confirmed delivery (§3.3).
 - [ ] The invitation e-mail shows the button **and** the visible URL fallback.
 - [ ] The recovery link opens a working form; a bare `/reset-password` visit while
       signed in shows "Enlace no válido" (§3.5 step 12).
-- [ ] Resend works and the 10-minute cooldown holds (§3.4).
+- [ ] Resend accepts the message and the 10-minute cooldown holds (§3.4); inbox
+      delivery remains a separate webhook/inbox check.
 - [ ] The Resend webhook is registered with `email.delivered` and
       `email.bounced`, its signing secret is set, and a signed test event writes
       the precise outcome while a tampered event writes nothing (§3.6).

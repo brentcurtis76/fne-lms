@@ -7,6 +7,7 @@ import {
   sendPasswordSetupEmail,
   type DeliveryResult,
 } from '../../../../lib/email/invitations';
+import { generateRecoveryLink } from '../../../../lib/auth/recovery-link';
 import { recordSecurityAudit } from '../../../../lib/security/audit';
 import { generatePassword } from '../../../../utils/passwordGenerator';
 import { isGlobalAdmin } from '../../../../utils/roleUtils';
@@ -473,16 +474,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       await ensureRole(supabase, createdUserId, role, schoolId, adminUser.id);
 
-      const redirectTo = `${getAppBaseUrl(req)}/reset-password`;
-      const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-        type: 'recovery',
+      // F2: the application's OWN `/reset-password?token_hash=…&type=recovery`
+      // URL, built from `generateLink().properties.hashed_token` — not the
+      // provider's `action_link`, whose landing format depends on a dashboard
+      // setting and used to arrive as a legacy implicit fragment. See
+      // lib/auth/recovery-link.ts.
+      const link = await generateRecoveryLink(supabase, {
         email,
-        options: { redirectTo },
+        baseUrl: getAppBaseUrl(req),
       });
 
-      const actionLink = linkData?.properties?.action_link;
-      if (linkError || !actionLink) {
-        throw linkError || new Error('No se pudo generar el enlace de recuperación');
+      if (!link.ok) {
+        throw new Error('No se pudo generar el enlace de recuperación');
       }
 
       await refreshRolesCache(supabase);
@@ -491,7 +494,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const emailResult = await sendPasswordSetupEmail({
         to: email,
         firstName: signupRow.first_name,
-        actionLink,
+        recoveryUrl: link.url,
         bodyLine: SIGNUP_SOURCE_INVITE_BODY[signupSource],
       });
 

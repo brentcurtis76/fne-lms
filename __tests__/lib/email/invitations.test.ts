@@ -26,6 +26,9 @@ import {
   type EmailTransport,
 } from '../../../lib/email/invitations';
 
+// The URL the application itself builds from `generateLink().properties.hashed_token`
+// (lib/auth/recovery-link.ts) — not the provider's `action_link`, which used to be
+// e-mailed and landed in whatever shape the project's dashboard settings produced.
 const ACTION_LINK =
   'https://genera.example.org/reset-password?token_hash=synthetic-token&type=recovery';
 const LOGIN_URL = 'https://genera.example.org/login';
@@ -72,7 +75,7 @@ describe('sendPasswordSetupEmail — the new-account invitation', () => {
   it('renders the button AND the complete URL as visible text', async () => {
     const { transport, sent } = captureTransport();
     await sendPasswordSetupEmail(
-      { to: 'persona@example.com', firstName: 'Ana', actionLink: ACTION_LINK, bodyLine: 'Cuerpo.' },
+      { to: 'persona@example.com', firstName: 'Ana', recoveryUrl: ACTION_LINK, bodyLine: 'Cuerpo.' },
       transport
     );
 
@@ -95,7 +98,7 @@ describe('sendPasswordSetupEmail — the new-account invitation', () => {
         to: 'persona@example.com',
         // Names come from a public sign-up form: attacker-controlled text.
         firstName: '<script>alert(1)</script>',
-        actionLink: ACTION_LINK,
+        recoveryUrl: ACTION_LINK,
         bodyLine: 'Cuerpo.',
       },
       transport
@@ -111,7 +114,7 @@ describe('sendPasswordSetupEmail — the new-account invitation', () => {
       {
         to: 'persona@example.com',
         firstName: 'Ana',
-        actionLink: 'https://example.org/x?a=1&b="2"',
+        recoveryUrl: 'https://example.org/x?a=1&b="2"',
         bodyLine: 'Texto con <b>etiquetas</b> & símbolos',
       },
       transport
@@ -129,7 +132,7 @@ describe('sendPasswordSetupEmail — the new-account invitation', () => {
     vi.stubEnv('EMAIL_FROM_ADDRESS', 'Genera <hola@example.org>');
     const { transport, sent } = captureTransport();
     await sendPasswordSetupEmail(
-      { to: 'persona@example.com', firstName: 'Ana', actionLink: ACTION_LINK, bodyLine: 'x' },
+      { to: 'persona@example.com', firstName: 'Ana', recoveryUrl: ACTION_LINK, bodyLine: 'x' },
       transport
     );
     expect(sent[0].from).toBe('Genera <hola@example.org>');
@@ -138,7 +141,7 @@ describe('sendPasswordSetupEmail — the new-account invitation', () => {
   it('falls back to the default sender when none is configured', async () => {
     const { transport, sent } = captureTransport();
     await sendPasswordSetupEmail(
-      { to: 'persona@example.com', firstName: 'Ana', actionLink: ACTION_LINK, bodyLine: 'x' },
+      { to: 'persona@example.com', firstName: 'Ana', recoveryUrl: ACTION_LINK, bodyLine: 'x' },
       transport
     );
     expect(sent[0].from).toContain('notificaciones@nuevaeducacion.org');
@@ -195,7 +198,7 @@ describe('transport outcomes', () => {
   it('CONFIGURED and accepted → sent', async () => {
     const { transport } = captureTransport();
     const result = await sendPasswordSetupEmail(
-      { to: 'persona@example.com', firstName: 'Ana', actionLink: ACTION_LINK, bodyLine: 'x' },
+      { to: 'persona@example.com', firstName: 'Ana', recoveryUrl: ACTION_LINK, bodyLine: 'x' },
       transport
     );
     expect(result).toEqual({ sent: true });
@@ -208,7 +211,7 @@ describe('transport outcomes', () => {
     const result = await sendPasswordSetupEmail({
       to: 'persona@example.com',
       firstName: 'Ana',
-      actionLink: ACTION_LINK,
+      recoveryUrl: ACTION_LINK,
       bodyLine: 'x',
     });
 
@@ -219,7 +222,7 @@ describe('transport outcomes', () => {
   it('PROVIDER REJECTION → provider_rejected, with operator detail', async () => {
     const { transport } = captureTransport({ error: { message: 'Invalid `to` field' } });
     const result = await sendPasswordSetupEmail(
-      { to: 'persona@example.com', firstName: 'Ana', actionLink: ACTION_LINK, bodyLine: 'x' },
+      { to: 'persona@example.com', firstName: 'Ana', recoveryUrl: ACTION_LINK, bodyLine: 'x' },
       transport
     );
 
@@ -234,7 +237,7 @@ describe('transport outcomes', () => {
       throw new Error('ECONNRESET');
     };
     const result = await sendPasswordSetupEmail(
-      { to: 'persona@example.com', firstName: 'Ana', actionLink: ACTION_LINK, bodyLine: 'x' },
+      { to: 'persona@example.com', firstName: 'Ana', recoveryUrl: ACTION_LINK, bodyLine: 'x' },
       transport
     );
 
@@ -254,7 +257,7 @@ describe('the action link never leaves the module', () => {
   it('is absent from a successful result', async () => {
     const { transport } = captureTransport();
     const result = await sendPasswordSetupEmail(
-      { to: 'persona@example.com', firstName: 'Ana', actionLink: ACTION_LINK, bodyLine: 'x' },
+      { to: 'persona@example.com', firstName: 'Ana', recoveryUrl: ACTION_LINK, bodyLine: 'x' },
       transport
     );
     expect(JSON.stringify(result)).not.toContain('token_hash');
@@ -264,7 +267,7 @@ describe('the action link never leaves the module', () => {
   it('is absent from a failed result', async () => {
     const { transport } = captureTransport({ error: { message: 'nope' } });
     const result = await sendPasswordSetupEmail(
-      { to: 'persona@example.com', firstName: 'Ana', actionLink: ACTION_LINK, bodyLine: 'x' },
+      { to: 'persona@example.com', firstName: 'Ana', recoveryUrl: ACTION_LINK, bodyLine: 'x' },
       transport
     );
     expect(JSON.stringify(result)).not.toContain('token_hash');
@@ -273,7 +276,7 @@ describe('the action link never leaves the module', () => {
   it('is absent from every log line, and so is the full recipient address', async () => {
     const { transport } = captureTransport({ error: { message: 'nope' } });
     await sendPasswordSetupEmail(
-      { to: 'persona@example.com', firstName: 'Ana', actionLink: ACTION_LINK, bodyLine: 'x' },
+      { to: 'persona@example.com', firstName: 'Ana', recoveryUrl: ACTION_LINK, bodyLine: 'x' },
       transport
     );
 
@@ -289,7 +292,7 @@ describe('the action link never leaves the module', () => {
     await sendPasswordSetupEmail({
       to: 'persona@example.com',
       firstName: 'Ana',
-      actionLink: ACTION_LINK,
+      recoveryUrl: ACTION_LINK,
       bodyLine: 'x',
     });
 

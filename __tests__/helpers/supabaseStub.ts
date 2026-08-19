@@ -154,7 +154,18 @@ export function buildClient(
           tracker.generateLinkArgs = args;
           return (
             options.generateLinkResult ?? {
-              data: { properties: { action_link: 'https://example.com/recovery' } },
+              // F2: the application reads `hashed_token` and builds its own
+              // `/reset-password?token_hash=…&type=recovery` URL. It no longer
+              // e-mails the provider's `action_link`, whose landing format
+              // depended on a dashboard setting. Both are present here so a
+              // call site that still reaches for `action_link` is visible
+              // rather than merely undefined.
+              data: {
+                properties: {
+                  hashed_token: 'synthetic-hashed-token',
+                  action_link: 'https://example.com/recovery',
+                },
+              },
               error: null,
             }
           );

@@ -26,6 +26,7 @@
  *     sign-up form, so they are attacker-controlled text.
  */
 import { Resend } from 'resend';
+import { captureOutboundEmail } from './outbox';
 
 export type DeliveryFailureReason =
   /** RESEND_API_KEY is absent — the platform cannot send at all. */
@@ -154,6 +155,12 @@ async function send(
 ): Promise<DeliveryResult> {
   const apiKey = process.env.RESEND_API_KEY;
 
+  // The controlled test transport (lib/email/outbox.ts). Additive and inert
+  // unless E2E_MAIL_OUTBOX names a file on a non-Vercel host: it records the
+  // message so the mandatory e2e can open the exact link this message carries,
+  // and it changes nothing about whether or how the message is actually sent.
+  captureOutboundEmail(params);
+
   if (!apiKey && !transport) {
     // Only the recipient's DOMAIN is logged. This branch fires on every send
     // when the key is missing, which in production is exactly the state the
@@ -199,11 +206,15 @@ async function send(
  * A NEW account: the recipient has no password yet and must set one through a
  * recovery link.
  *
- * `actionLink` is consumed here and never escapes: the returned `DeliveryResult`
- * carries only a boolean and a coarse reason.
+ * `recoveryUrl` is this application's OWN url —
+ * `/reset-password?token_hash=…&type=recovery`, built by
+ * `lib/auth/recovery-link.ts` from `generateLink().properties.hashed_token` —
+ * not the provider's `action_link`. See that module for why. It is consumed here
+ * and never escapes: the returned `DeliveryResult` carries only a boolean and a
+ * coarse reason.
  */
 export async function sendPasswordSetupEmail(
-  params: { to: string; firstName: string; actionLink: string; bodyLine: string },
+  params: { to: string; firstName: string; recoveryUrl: string; bodyLine: string },
   transport?: EmailTransport
 ): Promise<DeliveryResult> {
   return send(
@@ -215,7 +226,7 @@ export async function sendPasswordSetupEmail(
         firstName: params.firstName,
         bodyLine: params.bodyLine,
         ctaLabel: 'Establecer contraseña',
-        ctaHref: params.actionLink,
+        ctaHref: params.recoveryUrl,
         fallbackLead:
           'Si el botón no funciona, copia y pega esta dirección completa en tu navegador:',
         closingLine:

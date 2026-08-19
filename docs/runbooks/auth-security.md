@@ -22,12 +22,13 @@ from being read as "the problem is fixed". These are different columns.
 | - | ---- | ----- | ----- |
 | 0.1 | Application and database **code** for S1–S14 and F1–F6 | **CODE COMPLETE**, unreviewed, unmerged | this branch |
 | 0.2 | Local gates (type-check, lint, unit, build, pgTAP, Playwright) | **GREEN** on this branch | review request §7 |
-| 0.3 | **Migrations applied to production** | **PENDING — NOT APPLIED.** **Four** of them now. Until they are, every audit write fails, the forced-change boundary does not exist in production *at either layer*, and the resend cooldown is not atomic there | §2 |
-| 0.4 | `RESEND_API_KEY` / `EMAIL_FROM_ADDRESS` in Vercel **Production** | **UNVERIFIED, BELIEVED ABSENT.** Reported absent at the time of the original work; Vercel was neither queried nor modified in this round, so treat the state as unknown until someone looks | §3.1 |
+| 0.3 | **Migrations applied to production** | **PENDING — NOT APPLIED.** **Five** of them now. Until they are, every audit write fails, the forced-change boundary does not exist in production *at either layer*, and neither recovery cooldowns/outbox nor retry grants exist there | §2 |
+| 0.4 | `RESEND_API_KEY` / `EMAIL_FROM_ADDRESS` / `RESEND_WEBHOOK_SECRET` in Vercel **Production** | **UNVERIFIED.** Vercel was neither queried nor modified in this round; treat all three as unknown until a human verifies them | §3.1 |
 | 0.5 | Canonical public origin in Vercel Production | **UNVERIFIED.** Now load-bearing: the code fails loudly instead of trusting `Host` | §3.1 |
 | 0.6 | **Controlled send** with a synthetic account | **NOT RUN.** No e-mail has been sent by anyone, from any environment, at any point in this work | §3.3–§3.6 |
 | 0.7 | Supabase **SMTP, e-mail templates, redirect allowlist** | **NOT VERIFIED.** The dashboard was never opened. Less load-bearing than it was: no user-facing flow depends on a Supabase-hosted template any more (§4.3) | §4.3 |
-| 0.7a | **E-mail delivery, as opposed to provider acceptance** | **UNPROVEN, AND UNPROVABLE FROM THIS REPOSITORY.** The furthest any test here reaches is "the provider accepted the request". There is no delivery webhook, so `delivered` and `bounced` are states nothing in this codebase produces | §3.3, §6 |
+| 0.7a | **E-mail delivery, as opposed to provider acceptance** | **CODE READY; LIVE EVIDENCE PENDING.** A signature-verified Resend webhook can now record `delivered`/`bounced`, but the endpoint secret/subscription and a controlled real send have not been configured or verified | §3.3, §3.6 |
+| 0.7b | GitHub `main` branch protection requires the exact CI contexts | **PENDING EXTERNAL.** Workflow names and setup docs are reconciled locally; live repository settings were not queried or changed | `docs/ci-setup.md` |
 | 0.8 | **Leaked-password protection** | **STILL OFF.** Advisor-confirmed at the time of the original work; not re-checked since | §4.1 |
 | 0.9 | **OTP / recovery expiry** | **STILL OVER ONE HOUR.** Same provenance as 0.8 | §4.2 |
 | 0.10 | **Rotation of the exposed administrator credential**, and invalidation of its sessions | **NOT DONE — STILL URGENT.** Deleting the page stopped future serving; it did nothing about past exposure | §1.1–§1.2 |
@@ -40,15 +41,14 @@ Rows 0.10–0.12 are independent of the merge and should not wait for it. Row 0.
 is the one that must happen *with* it.
 
 **On row 0.7a, in plain words.** A repository test cannot prove that mail leaves
-the building. `lib/email/invitations.ts` now names its outcomes for what is
+the building. `lib/email/invitations.ts` names its immediate outcomes for what is
 actually observed — `not_configured`, `link_generation_failed`, `transport_error`,
 `provider_rejected`, `provider_accepted` — and the administrator-facing sentence
 says *"El proveedor de correo aceptó el mensaje. La llegada a la bandeja del
-destinatario no se confirma desde aquí."* `delivered` and `bounced` exist in the
-type so that acceptance is never quietly read as delivery, and
-`__tests__/lib/email/deliveryStatus.test.ts` drives every reachable outcome and
-asserts that neither is ever returned. Closing that gap is §3.3 plus §6.1, and
-both are human operations against production.
+destinatario no se confirma desde aquí."* Only `/api/webhooks/resend`, after
+Svix verification over the raw request bytes, may advance a recovery outbox row
+to `delivered` or `bounced`. Activating that evidence still requires the external
+Resend/Vercel configuration and controlled send in §3.6.
 
 ---
 
@@ -147,9 +147,9 @@ migrations is not closed until they are applied to production and verified
 read-only. Local and CI green proves the code is correct and says **nothing**
 about the deployed schema.
 
-This branch adds **four** migrations. Apply them **in this order** — the third
-writes into the table the first creates, and the fourth installs the data-layer
-half of the forced-change boundary.
+This branch adds **five** migrations. Apply them **in this order** — the third
+writes into the table the first creates, the fourth installs the data-layer half
+of the forced-change boundary, and the fifth builds on the audit outcome set.
 
 | Version | What it does | Why the order matters |
 | ------- | ------------ | --------------------- |
@@ -157,8 +157,9 @@ half of the forced-change boundary.
 | `20260819120000_forced_password_change_boundary.sql` | The forced-change boundary (F1): a `BEFORE UPDATE` trigger protecting `profiles.must_change_password`, three functions, and `ALTER ROLE authenticator SET pgrst.db_pre_request` + `NOTIFY pgrst` | Independent of the other two |
 | `20260819120100_invitation_resend_claim.sql` | `claim_invitation_resend()` (F5) | **References `public.security_audit_events`** — apply after the first |
 | `20260819120200_forced_password_change_data_layer.sql` | **The data-layer boundary (R2).** One predicate, one installer function, and a RESTRICTIVE `forced_password_change_guard` policy on **every row-secured table in `public`** plus the browser-reachable tables in `storage` | Must follow `20260819120000` — it reads the same flag, and the two are the two layers of one control |
+| `20260819120300_recovery_security_ceremonies.sql` | Private `auth_security` schema, atomic account/IP throttles, encrypted durable outbox, bounded hashed-grant ledger, provider delivery transition, and nine service-role-only functions | Uses `security_audit_events` outcomes from the first migration |
 
-All four are additive: **no `DROP`, no `TRUNCATE`, no destructive `ALTER`, and no
+All five are additive: **no `DROP`, no `TRUNCATE`, no destructive `ALTER`, and no
 statement that turns row-level security off.**
 
 That sentence used to carry a parenthetical excusing a `DROP TRIGGER IF EXISTS`
@@ -224,6 +225,13 @@ INSERT INTO supabase_migrations.schema_migrations (version)
 VALUES ('20260819120200')
 ON CONFLICT DO NOTHING;
 COMMIT;
+
+BEGIN;
+-- paste the contents of 20260819120300_recovery_security_ceremonies.sql
+INSERT INTO supabase_migrations.schema_migrations (version)
+VALUES ('20260819120300')
+ON CONFLICT DO NOTHING;
+COMMIT;
 ```
 
 ### What the FOURTH migration changes, and why it is the important one
@@ -273,8 +281,9 @@ migration is safe inside `BEGIN`/`COMMIT` — the NOTIFY is delivered at commit.
 -- the table exists with RLS on
 SELECT relrowsecurity FROM pg_class WHERE oid = 'public.security_audit_events'::regclass;
 
--- exactly one policy: admin, SELECT, TO authenticated
-SELECT policyname, cmd, roles, with_check FROM pg_policies
+-- two policies after migration four: one permissive admin SELECT policy and
+-- one restrictive forced-password guard
+SELECT policyname, permissive, cmd, roles, with_check FROM pg_policies
  WHERE schemaname = 'public' AND tablename = 'security_audit_events';
 
 -- anon holds nothing; authenticated holds SELECT only
@@ -284,9 +293,11 @@ SELECT a.grantee::regrole::text, string_agg(DISTINCT a.privilege_type, ',' ORDER
  GROUP BY 1;
 ```
 
-Expected: `relrowsecurity = t`; one policy `security_audit_events_admin_select |
-SELECT | {authenticated}` with `with_check` NULL; no ACL row for `anon`, and
-exactly `SELECT` for `authenticated`.
+Expected: `relrowsecurity = t`; permissive
+`security_audit_events_admin_select | PERMISSIVE | SELECT | {authenticated}` and
+restrictive `forced_password_change_guard | RESTRICTIVE | ALL |
+{authenticated}`, both with `with_check` NULL; no ACL row for `anon`, and exactly
+`SELECT` for `authenticated`.
 
 ```sql
 -- F1: the pre-request gate is actually INSTALLED. A gate that exists but is not
@@ -307,7 +318,12 @@ SELECT p.proname,
   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
  WHERE n.nspname = 'public'
    AND p.proname IN ('gate_password_change', 'current_password_change_state',
-                     'set_password_change_required', 'claim_invitation_resend');
+                     'set_password_change_required', 'claim_invitation_resend',
+                     'enqueue_password_recovery', 'claim_password_recovery_outbox',
+                     'prepare_password_recovery_outbox', 'finish_password_recovery_outbox',
+                     'create_recovery_attempt_grant', 'claim_recovery_attempt_grant',
+                     'finish_recovery_attempt_grant', 'mark_recovery_attempt_grant_succeeded',
+                     'record_password_recovery_delivery');
 ```
 
 Expected: `setconfig` contains
@@ -320,6 +336,20 @@ present and `tgenabled = 'O'`; and this privilege matrix —
 | `current_password_change_state` | **f** | **t** | t |
 | `set_password_change_required` | **f** | **f** | **t** |
 | `claim_invitation_resend` | **f** | **f** | **t** |
+| every `*_password_recovery*` / `*_recovery_attempt_grant*` helper above | **f** | **f** | **t** |
+
+Verify the private schema itself is not a bypass:
+
+```sql
+SELECT r.rolname,
+       has_schema_privilege(r.rolname, 'auth_security', 'USAGE') AS schema_usage,
+       has_table_privilege(r.rolname,
+         'auth_security.password_recovery_outbox', 'SELECT') AS direct_outbox_select
+  FROM (VALUES ('anon'), ('authenticated'), ('service_role')) AS r(rolname);
+```
+
+Expected: both columns are `false` for all three roles. `service_role` reaches
+state only through the fixed `SECURITY DEFINER` functions above.
 
 (`gate_password_change` is executable by everyone on purpose — PostgREST invokes
 it as the request's own role, so every role must be able to call it. It takes no
@@ -359,10 +389,11 @@ way to retry.
 Vercel Dashboard → the project → **Settings → Environment Variables**, scope
 **Production** (add Preview too if you want previews to send):
 
-| Name                 | Value                                            | Notes |
-| -------------------- | ------------------------------------------------ | ----- |
-| `RESEND_API_KEY`     | `re_…` from resend.com → API Keys                | Secret. Sending permission is enough. |
-| `EMAIL_FROM_ADDRESS` | `Genera <notificaciones@nuevaeducacion.org>`     | The domain must be verified in Resend. |
+| Name | Value | Notes |
+| ---- | ----- | ----- |
+| `RESEND_API_KEY` | `re_…` from resend.com → API Keys | Secret. Sending permission is enough. |
+| `EMAIL_FROM_ADDRESS` | `Genera <notificaciones@nuevaeducacion.org>` | The domain must be verified in Resend. |
+| `RESEND_WEBHOOK_SECRET` | `whsec_…` from the recovery webhook endpoint | Secret. Required before `/api/webhooks/resend` exists (otherwise it returns 404). |
 
 ### 3.1a The canonical public origin — all the names that work
 
@@ -443,13 +474,20 @@ family or staff address.
    address with **deliberate leading whitespace and mixed case**, and submit.
    - The button must disable while sending.
    - The message must be the generic "Si existe una cuenta con ese correo…".
+   - That response confirms only that the request was accepted for processing.
+     Mail is dispatched by `/api/cron/recovery-outbox` (scheduled once per
+     minute), not on the public request. Known, unknown, malformed, throttled,
+     and provider-failure paths deliberately share the same response and floor.
 10. The mail must arrive despite the whitespace and casing (this is S9). It is
     sent by **this application** now, not by Supabase — subject *"Restablece tu
     contraseña de Genera"*. If a Supabase-branded reset mail arrives instead,
     something is still calling `resetPasswordForEmail`; stop and escalate.
 11. Confirm the link is `…/reset-password?token_hash=…&type=recovery` — not
     `…/auth/v1/verify?…`. Open it → the form appears → set a new password → sign
-    in.
+    in. Opening the page consumes the provider proof into a purpose/user-bound
+    15-minute grant; the password endpoint sees only that grant. A transient
+    provider 422/5xx/network failure leaves it retryable, up to five leased
+    attempts. A success, expiry, attempt exhaustion, or replay must close it.
 12. **Open the same link a second time.** It must now show the invalid-link
     screen: the credential is one-time and the server burned it. If the form
     appears again, the recovery ceremony is not consuming the material and this
@@ -462,24 +500,30 @@ family or staff address.
 
 ### 3.6 Provider evidence — the step that separates "accepted" from "delivered"
 
-14. In the **Resend dashboard → Emails**, find the three messages this exercise
+14. In **Resend → Webhooks**, register
+    `https://www.nuevaeducacion.org/api/webhooks/resend` for exactly
+    `email.delivered` and `email.bounced`. Copy its signing secret into
+    `RESEND_WEBHOOK_SECRET`, redeploy through the normal `main` path, and send a
+    signed test event. Invalid signatures must return 401; a missing secret must
+    make the route return 404.
+15. In the **Resend dashboard → Emails**, find the three messages this exercise
     produced (invitation, access notice, recovery). Record for each one:
-    - the provider message id (the application keeps it as
-      `providerMessageId` and, for the recovery request, in the audit row's
-      `metadata.provider_message_id`);
+    - the provider message id (the recovery outbox keeps it for webhook
+      correlation; it is not copied into request logs or an HTTP response);
     - the provider's own status — **delivered**, **bounced**, **complained** or
       still queued.
 
-    Until this step is performed, the only thing anyone knows is that the
-    provider ACCEPTED the request. No repository test can advance that, and none
-    claims to.
+    For the recovery message, query `security_audit_events`: `provider_accepted`
+    must precede a webhook-evidenced `delivered` or `bounced`, and every public
+    recovery-request row must have `actor_user_id IS NULL`. A provider API 2xx
+    alone must never create `delivered`.
 
-15. If any message bounced, do not retry blindly: check the sending domain's SPF
+16. If any message bounced, do not retry blindly: check the sending domain's SPF
     / DKIM / DMARC records (§3.2) before sending again.
 
 ### 3.7 Clean up
 
-16. Delete the synthetic account: **Admin → Registros públicos** → the row →
+17. Delete the synthetic account: **Admin → Registros públicos** → the row →
     **Eliminar**, ticking the option to remove the platform account.
 
 ---
@@ -622,6 +666,9 @@ distinguish "the code shipped" from "the control is enforced":
 - [ ] The recovery link opens a working form; a bare `/reset-password` visit while
       signed in shows "Enlace no válido" (§3.5 step 12).
 - [ ] Resend works and the 10-minute cooldown holds (§3.4).
+- [ ] The Resend webhook is registered with `email.delivered` and
+      `email.bounced`, its signing secret is set, and a signed test event writes
+      the precise outcome while a tampered event writes nothing (§3.6).
 - [ ] An administrative reset forces a change: reset a synthetic account, sign in
       as it, and confirm you are held at `/change-password` and that
       `/dashboard` bounces you back there.
@@ -695,7 +742,7 @@ distinguish "the code shipped" from "the control is enforced":
       migration.
 - [ ] **The e-mail column that no test can fill.** §3.6: open the Resend
       dashboard and record, per message, the provider id and whether it was
-      **delivered** or **bounced**. Everything upstream of this proves only that
-      the provider accepted the request. Do not report "e-mail works" until this
-      box is ticked with real evidence and a real inbox — and use only a
+      **delivered** or **bounced**; confirm the recovery audit agrees with the
+      verified webhook. Do not report "e-mail works" until this box is ticked
+      with real evidence and a real inbox — and use only a
       synthetic recipient, never a student, family or minor address.

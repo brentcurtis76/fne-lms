@@ -71,6 +71,14 @@ export const SECURITY_AUDIT_OUTCOMES = [
   'failure',
   'denied',
   'partial_failure',
+  // Recovery delivery lifecycle. `delivered` and `bounced` require provider
+  // webhook evidence; no request/worker path is allowed to infer either one.
+  'queued',
+  'provider_attempted',
+  'provider_accepted',
+  'provider_rejected',
+  'delivered',
+  'bounced',
 ] as const;
 
 export type SecurityAuditOutcome = (typeof SECURITY_AUDIT_OUTCOMES)[number];
@@ -256,9 +264,7 @@ export async function recordSecurityAudit(
       console.error('[security-audit] write failed', {
         action: event.action,
         outcome: event.outcome,
-        actor_user_id: row.actor_user_id,
-        target_user_id: row.target_user_id,
-        error: error.message ?? String(error),
+        code: (error as { code?: string }).code ?? null,
       });
       return { recorded: false, error: error.message ?? 'audit insert failed' };
     }
@@ -269,9 +275,6 @@ export async function recordSecurityAudit(
     console.error('[security-audit] write threw', {
       action: event.action,
       outcome: event.outcome,
-      actor_user_id: row.actor_user_id,
-      target_user_id: row.target_user_id,
-      error: message,
     });
     return { recorded: false, error: message };
   }

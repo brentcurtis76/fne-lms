@@ -8,6 +8,7 @@ import {
 import type { UserRoleType } from '../../../types/roles';
 import { firstPasswordPolicyError } from '../../../lib/auth/password-policy';
 import { recordSecurityAudit } from '../../../lib/security/audit';
+import { provisionAuthAccount } from '../../../lib/auth/account-provisioning';
 
 // Mirrors assign-role.ts's canonical role list. Any role outside this set is
 // rejected at the API boundary regardless of requester, so junk role strings
@@ -113,11 +114,11 @@ export default async function handler(
 
     const supabaseAdmin = createServiceRoleClient();
 
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+    const { data: newUser, error: createError } = await provisionAuthAccount(supabaseAdmin, {
       email,
       password,
-      email_confirm: true,
-      user_metadata: {
+      emailConfirm: true,
+      userMetadata: {
         role: resolvedRole
       }
     });

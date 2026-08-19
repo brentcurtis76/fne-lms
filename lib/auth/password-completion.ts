@@ -33,28 +33,25 @@
  * There is no exported function that simply takes a user id and a password.
  * There are four ceremonies, and each one ESTABLISHES the identity it acts on:
  *
- *   completeRecoveryPasswordChange   consumes one-time, purpose-bound recovery
- *                                    material server-side and acts on the account
- *                                    GoTrue returns. An access token cannot
- *                                    satisfy it -- see lib/auth/recovery-proof.ts.
+ *   completeRecoveryPasswordChange   leases a bounded, purpose/user-bound grant
+ *                                    created only after recovery proof was
+ *                                    consumed server-side. An access token cannot
+ *                                    satisfy it -- see lib/auth/recovery-grant.ts.
  *   completeForcedPasswordChange     validates the caller's token against the auth
  *                                    server, then requires must_change_password to
  *                                    be TRUE for that account before it writes.
  *   completeVoluntaryPasswordChange  validates the caller's token AND
  *                                    reauthenticates with the current password. A
  *                                    live session alone is not enough.
- *   completeAdministrativeReset      (lib/auth/admin-password-reset.ts) decides the
- *                                    administrator's authorization and school scope
- *                                    from database facts, then calls in here.
+ *   completeAdministrativeReset      prepares authorization/scope from database
+ *                                    facts, then uses the private writer here.
  *
  * The AUDIT ACTION IS DERIVED FROM THE CEREMONY, never supplied by a caller
  * (`CEREMONY_AUDIT_ACTION` below). A route cannot mislabel what it did.
  *
- * The low-level write is not part of the module's intended surface; it carries a
- * deliberately awkward name and exactly one other consumer.
- * `scripts/ci/check-browser-boundaries.mjs` fails the build if
- * `auth.admin.updateUserById({ password })` appears anywhere outside the
- * allow-list, and if any file outside that allow-list imports the raw writer.
+ * The low-level write is module-private. `scripts/ci/check-browser-boundaries.mjs`
+ * fails the build if the password-capable `updateUserById` primitive appears
+ * outside this module, regardless of payload shape or import form.
  *
  * ORDER, and why: password -> flag -> audit. The user is setting their OWN
  * password having already proved they may; clearing the flag first would release
@@ -64,16 +61,23 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { firstPasswordPolicyError } from './password-policy';
 import {
-  consumeRecoveryProof,
-  isRecoveryProofRefusal,
-  type RecoveryMaterialInput,
-  type RecoveryVerifierFactory,
-} from './recovery-proof';
+  claimRecoveryGrant,
+  finishRecoveryGrantAttempt,
+  RECOVERY_GRANT_MARKER,
+} from './recovery-grant';
 import {
   recordSecurityAudit,
   type SecurityAuditAction,
   type SecurityAuditResult,
 } from '../security/audit';
+import {
+  ADMIN_RESET_MESSAGES,
+  compensateAdministrativeReset,
+  isAdminResetFailure,
+  prepareAdministrativeReset,
+  type AdminResetResult,
+  type AdministrativeResetInput,
+} from './admin-password-reset';
 
 /** The database function that owns writes to `profiles.must_change_password`. */
 export const SET_PASSWORD_CHANGE_REQUIRED_RPC = 'set_password_change_required';
@@ -123,6 +127,9 @@ export const COMPLETION_MESSAGES = {
   /** Recovery material that is absent, expired, already used or not a recovery link. */
   recoveryInvalid:
     'El enlace de recuperación no es válido o ya expiró. Solicita uno nuevo desde la página de inicio de sesión.',
+  recoveryBusy: 'Ya hay un intento de recuperación en curso. Espera unos segundos e inténtalo nuevamente.',
+  recoveryExhausted:
+    'Este enlace alcanzó el máximo de intentos. Solicita uno nuevo desde la página de inicio de sesión.',
   /** The caller has no valid session at all. */
   notAuthenticated: 'No autorizado',
   /** Forced change requested by an account that is not under the regime. */
@@ -178,7 +185,8 @@ export function isCompletionFailure(result: CompletionResult): result is Complet
  * The provider's own string is never returned to the caller: it distinguishes
  * "this password is in a breach corpus" from "too short" from "same as the old
  * one", and the first two are facts about the password the caller just typed
- * that a response should not confirm. It is logged for operators instead.
+ * that a response should not confirm. The raw wording is neither returned nor
+ * logged; operators get only stable provider code/status fields.
  */
 function describeProviderError(error: { message?: string; code?: string; status?: number }): {
   message: string;
@@ -260,11 +268,7 @@ export interface WritePasswordInput {
 /**
  * THE ONLY PLACE A PASSWORD IS WRITTEN.
  *
- * Deliberately not a friendly name, and deliberately not what any route calls:
- * anything that reached for this could pass any user id it liked, which is the
- * property the ceremonies exist to remove. The one other legitimate consumer is
- * `lib/auth/admin-password-reset.ts`, the fourth ceremony, which lives in its own
- * module because its authorization rules are substantial.
+ * Module-private rather than an export a route could call with any user id.
  *
  * `admin` MUST be a service-role client: `auth.admin.updateUserById` and the flag
  * RPC are both service-role-only, and the audit table grants `authenticated`
@@ -272,7 +276,7 @@ export interface WritePasswordInput {
  *
  * @internal
  */
-export async function __writePasswordThroughTrustedBoundary(
+async function writePassword(
   admin: SupabaseClient,
   input: WritePasswordInput
 ): Promise<CompletionResult> {
@@ -307,12 +311,12 @@ export async function __writePasswordThroughTrustedBoundary(
   });
 
   if (updateError) {
-    // The provider's own words go to the operator log and stop there.
+    // Provider wording can echo request/account detail, so log only stable
+    // machine fields and keep the caller-facing mapping below coarse.
     console.error(`${input.logPrefix} password update refused`, {
-      user_id: input.userId,
       code: (updateError as { code?: string }).code ?? null,
       status: (updateError as { status?: number }).status ?? null,
-      message: updateError.message,
+      ceremony: input.ceremony,
     });
 
     const described = describeProviderError(updateError as any);
@@ -341,8 +345,7 @@ export async function __writePasswordThroughTrustedBoundary(
 
     if (!flag.cleared) {
       console.error(`${input.logPrefix} could not clear must_change_password`, {
-        user_id: input.userId,
-        error: flag.error,
+        ceremony: input.ceremony,
       });
 
       await recordSecurityAudit(admin, {
@@ -387,13 +390,12 @@ export async function __writePasswordThroughTrustedBoundary(
   };
 }
 
-const writePassword = __writePasswordThroughTrustedBoundary;
-
 // ---------------------------------------------------------------------------
 // CEREMONY 1 — RECOVERY
 // ---------------------------------------------------------------------------
 
-export interface RecoveryCeremonyInput extends RecoveryMaterialInput {
+export interface RecoveryCeremonyInput {
+  grant?: unknown;
   newPassword: string;
 }
 
@@ -401,20 +403,17 @@ export interface RecoveryCeremonyInput extends RecoveryMaterialInput {
  * The first password after an invitation, and the new password after a
  * self-service "olvidé mi contraseña".
  *
- * The policy is checked BEFORE the material is consumed, deliberately: the
- * material is one-time, and burning somebody's only link because they typed a
- * seven-character password would be a cruel way to enforce a rule we can enforce
- * for free beforehand.
+ * The policy is checked before a provider-attempt lease is spent. The emailed
+ * proof was already exchanged for this bounded grant when the form opened.
  *
- * An ordinary access token cannot reach the write: the only thing that
- * establishes identity here is `consumeRecoveryProof`, which calls
- * `verifyOtp({ type: 'recovery' })` and nothing else. There is no bearer token,
- * no cookie and no body field this ceremony will read as identity.
+ * An ordinary access token cannot reach the write. Identity comes only from the
+ * authenticated encrypted grant, and the durable hash ledger limits lifetime,
+ * retries, replay, and concurrent attempts. There is no bearer token, cookie or
+ * body user id this ceremony will read as identity.
  */
 export async function completeRecoveryPasswordChange(
   admin: SupabaseClient,
-  input: RecoveryCeremonyInput,
-  verifierFactory?: RecoveryVerifierFactory
+  input: RecoveryCeremonyInput
 ): Promise<CompletionResult> {
   if (typeof input.newPassword !== 'string' || input.newPassword.length === 0) {
     return {
@@ -439,35 +438,62 @@ export async function completeRecoveryPasswordChange(
     };
   }
 
-  const proof = await consumeRecoveryProof(
-    { tokenHash: input.tokenHash, type: input.type },
-    verifierFactory
-  );
+  const claim = await claimRecoveryGrant(admin, input.grant);
 
-  if (isRecoveryProofRefusal(proof)) {
-    // No password write, no flag write, no audit row -- there is no account to
-    // attribute one to, and an audit row keyed on an unverified id would be a
-    // way to write attacker-chosen data into the trail.
+  if (claim.ok === false) {
+    const unavailable = claim.reason === 'unavailable';
+    const busy = claim.reason === 'busy';
+    const exhausted = claim.reason === 'exhausted';
     return {
       ok: false,
       stage: 'proof',
-      status: proof.reason === 'not_configured' ? 500 : 401,
-      message:
-        proof.reason === 'not_configured'
-          ? COMPLETION_MESSAGES.serverError
-          : COMPLETION_MESSAGES.recoveryInvalid,
-      code: proof.reason === 'not_configured' ? 'SERVER_ERROR' : 'RECOVERY_MATERIAL_INVALID',
+      status: unavailable ? 503 : busy ? 409 : exhausted ? 429 : 401,
+      message: unavailable
+        ? COMPLETION_MESSAGES.serverError
+        : busy
+          ? COMPLETION_MESSAGES.recoveryBusy
+          : exhausted
+            ? COMPLETION_MESSAGES.recoveryExhausted
+            : COMPLETION_MESSAGES.recoveryInvalid,
+      code: unavailable
+        ? 'RECOVERY_GRANT_UNAVAILABLE'
+        : busy
+          ? 'RECOVERY_ATTEMPT_IN_PROGRESS'
+          : exhausted
+            ? 'RECOVERY_ATTEMPTS_EXHAUSTED'
+            : 'RECOVERY_GRANT_INVALID',
       passwordChanged: false,
     };
   }
 
-  return writePassword(admin, {
-    userId: proof.userId,
-    newPassword: input.newPassword,
-    ceremony: 'recovery',
-    auditMetadata: { change_type: 'recovery_link' },
-    logPrefix: '[recovery-complete]',
-  });
+  let written: CompletionResult;
+  try {
+    written = await writePassword(admin, {
+      userId: claim.claims.subject,
+      newPassword: input.newPassword,
+      ceremony: 'recovery',
+      auditMetadata: { change_type: 'recovery_grant' },
+      logPrefix: '[recovery-complete]',
+      // Written atomically with the password at the auth provider. If the
+      // following database completion is lost, the next retry sees this marker
+      // and refuses replay rather than waiting for a lease to expire.
+      userMetadata: { [RECOVERY_GRANT_MARKER]: claim.grantHash },
+    });
+  } catch {
+    await finishRecoveryGrantAttempt(admin, claim, false);
+    return {
+      ok: false,
+      stage: 'set_password',
+      status: 502,
+      message: COMPLETION_MESSAGES.updateFailed,
+      code: 'UPDATE_FAILED',
+      passwordChanged: false,
+    };
+  }
+
+  const passwordChanged = isCompletionFailure(written) ? written.passwordChanged : true;
+  await finishRecoveryGrantAttempt(admin, claim, passwordChanged);
+  return written;
 }
 
 // ---------------------------------------------------------------------------
@@ -643,4 +669,48 @@ export async function completeVoluntaryPasswordChange(
     auditMetadata: { change_type: 'user_initiated' },
     logPrefix: '[change-password]',
   });
+}
+
+// ---------------------------------------------------------------------------
+// CEREMONY 4 — ADMINISTRATIVE RESET
+// ---------------------------------------------------------------------------
+
+/**
+ * The authorization half lives in admin-password-reset.ts. The raw password
+ * writer does not: it is module-private above, so no import form, barrel, require
+ * or dynamic import can obtain an arbitrary-user password primitive.
+ */
+export async function completeAdministrativeReset(
+  admin: SupabaseClient,
+  input: AdministrativeResetInput
+): Promise<AdminResetResult> {
+  const prepared = await prepareAdministrativeReset(admin, input);
+  if (isAdminResetFailure(prepared)) return prepared;
+
+  const written = await writePassword(admin, {
+    userId: prepared.targetUserId,
+    newPassword: prepared.temporaryPassword,
+    ceremony: 'admin_reset',
+    actorUserId: prepared.actor.userId,
+    actorRole: prepared.actor.role,
+    schoolId: prepared.schoolId,
+    auditMetadata: { forced_change: true },
+    logPrefix: '[admin-password-reset]',
+    userMetadata: {
+      password_reset_by_admin: true,
+      password_reset_at: new Date().toISOString(),
+    },
+  });
+
+  if (isCompletionFailure(written)) {
+    return compensateAdministrativeReset(admin, prepared);
+  }
+
+  return {
+    ok: true,
+    message: ADMIN_RESET_MESSAGES.success,
+    userId: prepared.targetUserId,
+    mustChangePassword: true,
+    audited: written.audited,
+  };
 }

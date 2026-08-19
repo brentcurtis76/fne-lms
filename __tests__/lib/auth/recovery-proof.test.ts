@@ -145,11 +145,12 @@ describe('what it refuses', () => {
 describe('what it never does', () => {
   it('never logs the material', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const v = verifier({ error: { message: 'Token has expired or is invalid' } });
+    const v = verifier({ error: { message: `Token ${HASH} for private@synthetic.test expired` } });
     await consumeRecoveryProof({ tokenHash: HASH }, v.factory);
 
     const logged = JSON.stringify(warn.mock.calls);
     expect(logged).not.toContain(HASH);
+    expect(logged).not.toContain('private@synthetic.test');
   });
 
   it('never returns the provider wording', async () => {

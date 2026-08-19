@@ -43,12 +43,6 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { firstPasswordPolicyError } from './password-policy';
-import {
-  CEREMONY_AUDIT_ACTION,
-  __writePasswordThroughTrustedBoundary as writePassword,
-  isCompletionFailure,
-  type CompletionResult,
-} from './password-completion';
 import { recordSecurityAudit } from '../security/audit';
 import { ED_FORBIDDEN_TARGET_ROLES_SET, SCHOOL_SCOPED_ROLES_SET } from '../../utils/roleUtils';
 
@@ -115,7 +109,9 @@ export interface AdminResetSuccess {
 
 export type AdminResetResult = AdminResetSuccess | AdminResetFailure;
 
-export function isAdminResetFailure(result: AdminResetResult): result is AdminResetFailure {
+export function isAdminResetFailure(
+  result: AdminResetResult | PreparedAdministrativeReset
+): result is AdminResetFailure {
   return result.ok === false;
 }
 
@@ -136,15 +132,24 @@ export interface AdministrativeResetInput {
   temporaryPassword: string;
 }
 
+export interface PreparedAdministrativeReset {
+  ok: true;
+  actor: AdminResetActor & { role: 'admin' | 'equipo_directivo' };
+  targetUserId: string;
+  temporaryPassword: string;
+  previousMustChange: boolean;
+  schoolId: number | null;
+}
+
 /**
  * Reset another account's password and put it under the forced-change regime.
  *
  * `admin` MUST be a service-role client.
  */
-export async function completeAdministrativeReset(
+export async function prepareAdministrativeReset(
   admin: SupabaseClient,
   input: AdministrativeResetInput
-): Promise<AdminResetResult> {
+): Promise<PreparedAdministrativeReset | AdminResetFailure> {
   const { actor, targetUserId, temporaryPassword } = input;
 
   // --- The actor, re-validated ------------------------------------------------
@@ -244,7 +249,7 @@ export async function completeAdministrativeReset(
   if (flagError) {
     console.error('[admin-password-reset] could not set must_change_password:', flagError);
     await recordSecurityAudit(admin, {
-      action: CEREMONY_AUDIT_ACTION.admin_reset,
+      action: 'password_reset_admin',
       outcome: 'failure',
       actorUserId: actor.userId,
       actorRole: actor.role,
@@ -255,71 +260,51 @@ export async function completeAdministrativeReset(
     return fail(500, 'RESET_NOT_STARTED', ADMIN_RESET_MESSAGES.notStarted, true);
   }
 
-  // --- Step 2: the password, through the trusted boundary ---------------------
-  const written: CompletionResult = await writePassword(admin, {
-    userId: targetUserId,
-    newPassword: temporaryPassword,
-    ceremony: 'admin_reset',
-    actorUserId: actor.userId,
-    actorRole: actor.role,
+  return {
+    ok: true,
+    actor: actor as AdminResetActor & { role: 'admin' | 'equipo_directivo' },
+    targetUserId,
+    temporaryPassword,
+    previousMustChange,
     schoolId,
-    auditMetadata: { forced_change: true },
-    logPrefix: '[admin-password-reset]',
-    userMetadata: {
-      password_reset_by_admin: true,
-      password_reset_at: new Date().toISOString(),
-    },
-  });
+  };
+}
 
-  if (isCompletionFailure(written)) {
-    // Compensate: put the flag back the way we found it. Best-effort -- if it
-    // fails the user is merely forced to change a password they already know,
-    // which is the safe side of this failure. Either way the response is NOT a
-    // success, so the administrator knows to retry.
-    const { error: restoreError } = await admin
-      .from('profiles')
-      .update({ must_change_password: previousMustChange })
-      .eq('id', targetUserId);
+/** Best-effort compensation after the module-private password writer refuses. */
+export async function compensateAdministrativeReset(
+  admin: SupabaseClient,
+  prepared: PreparedAdministrativeReset
+): Promise<AdminResetFailure> {
+  const { error: restoreError } = await admin
+    .from('profiles')
+    .update({ must_change_password: prepared.previousMustChange })
+    .eq('id', prepared.targetUserId);
 
-    if (restoreError) {
-      console.error(
-        '[admin-password-reset] could not restore must_change_password after a failed reset:',
-        restoreError
-      );
-    }
-
-    // `writePassword` already recorded a `failure` row for the password stage.
-    // This one records what the COMPENSATION did, which is the part an operator
-    // needs in order to know whether the account was left flagged.
-    await recordSecurityAudit(admin, {
-      action: CEREMONY_AUDIT_ACTION.admin_reset,
-      outcome: restoreError ? 'partial_failure' : 'failure',
-      actorUserId: actor.userId,
-      actorRole: actor.role,
-      targetUserId,
-      schoolId,
-      metadata: {
-        stage: 'compensate_flag',
-        reason: 'auth_update_failed',
-        flag_restored: !restoreError,
-      },
-    });
-
-    return fail(
-      500,
-      'RESET_FAILED',
+  if (restoreError) {
+    console.error(
+      '[admin-password-reset] could not restore must_change_password after a failed reset:',
       restoreError
-        ? ADMIN_RESET_MESSAGES.failedFlagStuck
-        : ADMIN_RESET_MESSAGES.failedFlagRestored,
-      true
     );
   }
 
-  return {
-    ok: true,
-    message: ADMIN_RESET_MESSAGES.success,
-    userId: targetUserId,
-    mustChangePassword: true,
-    audited: written.audited,
-  };
+  await recordSecurityAudit(admin, {
+    action: 'password_reset_admin',
+    outcome: restoreError ? 'partial_failure' : 'failure',
+    actorUserId: prepared.actor.userId,
+    actorRole: prepared.actor.role,
+    targetUserId: prepared.targetUserId,
+    schoolId: prepared.schoolId,
+    metadata: {
+      stage: 'compensate_flag',
+      reason: 'auth_update_failed',
+      flag_restored: !restoreError,
+    },
+  });
+
+  return fail(
+    500,
+    'RESET_FAILED',
+    restoreError ? ADMIN_RESET_MESSAGES.failedFlagStuck : ADMIN_RESET_MESSAGES.failedFlagRestored,
+    true
+  );
 }

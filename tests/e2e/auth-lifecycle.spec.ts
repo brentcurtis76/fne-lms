@@ -822,6 +822,16 @@ test.describe('authentication lifecycle', () => {
         'Si existe una cuenta con ese correo'
       );
 
+      // The public request commits only the durable queue entry. Drive the
+      // authenticated worker explicitly so this test proves that handoff too;
+      // production's identical invocation is scheduled once per minute.
+      const recoveryTick = await selfServicePage.request.get('/api/cron/recovery-outbox', {
+        headers: {
+          Authorization: 'Bearer e2e-synthetic-cron-secret-not-a-real-credential',
+        },
+      });
+      expect(recoveryTick.status(), 'the durable recovery worker ran').toBe(200);
+
       // Wait for the NEW message rather than re-reading the invitation.
       await expect
         .poll(

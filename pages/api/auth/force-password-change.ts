@@ -6,6 +6,7 @@ import {
   completeForcedPasswordChange,
   isCompletionFailure,
 } from '../../../lib/auth/password-completion';
+import { clearAdministrativeResetMarker } from '../../../lib/auth/admin-user-maintenance';
 
 /**
  * Complete a FORCED password change — the one a flagged account is held at
@@ -56,9 +57,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Clear the administrative-reset marker so the banner does not persist into
     // the next forced change. Best-effort and deliberately last: it is cosmetic,
     // and it must not be able to fail the operation that already succeeded.
-    const { error: metadataError } = await admin.auth.admin.updateUserById(result.userId, {
-      user_metadata: { password_reset_by_admin: null, password_reset_at: null },
-    });
+    const { error: metadataError } = await clearAdministrativeResetMarker(
+      admin,
+      result.userId
+    );
     if (metadataError) {
       console.error('[force-password-change] could not clear the admin-reset marker', {
         user_id: result.userId,

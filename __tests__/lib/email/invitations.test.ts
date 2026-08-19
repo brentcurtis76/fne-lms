@@ -22,6 +22,7 @@ import {
   deliveryMessage,
   escapeHtml,
   sendAccessGrantedEmail,
+  sendPasswordRecoveryEmail,
   sendPasswordSetupEmail,
   type EmailTransport,
 } from '../../../lib/email/invitations';
@@ -53,6 +54,7 @@ beforeEach(() => {
 afterEach(() => {
   errorSpy.mockRestore();
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 describe('escapeHtml', () => {
@@ -264,6 +266,16 @@ describe('transport outcomes', () => {
 });
 
 describe('the action link never leaves the module', () => {
+  it('never renders the legacy "Hola Hola," recovery greeting', async () => {
+    const { transport, sent } = captureTransport();
+    await sendPasswordSetupEmail(
+      { to: 'persona@example.com', firstName: 'Hola', recoveryUrl: ACTION_LINK, bodyLine: 'x' },
+      transport
+    );
+    expect(sent[0].html).toContain('Hola,');
+    expect(sent[0].html).not.toContain('Hola Hola,');
+  });
+
   it('is absent from a successful result', async () => {
     const { transport } = captureTransport();
     const result = await sendPasswordSetupEmail(
@@ -293,11 +305,10 @@ describe('the action link never leaves the module', () => {
     const logged = JSON.stringify(errorSpy.mock.calls);
     expect(logged).not.toContain('token_hash');
     expect(logged).not.toContain('persona@example.com');
-    // Only the domain, which is what an operator needs to triage.
-    expect(logged).toContain('example.com');
+    expect(logged).not.toContain('example.com');
   });
 
-  it('logs only the domain when the key is missing', async () => {
+  it('logs neither the address nor its domain when the key is missing', async () => {
     vi.stubEnv('RESEND_API_KEY', '');
     await sendPasswordSetupEmail({
       to: 'persona@example.com',
@@ -309,5 +320,94 @@ describe('the action link never leaves the module', () => {
     const logged = JSON.stringify(errorSpy.mock.calls);
     expect(logged).not.toContain('persona@example.com');
     expect(logged).not.toContain(ACTION_LINK);
+  });
+});
+
+describe('durable recovery provider idempotency', () => {
+  it('sends the stable key through Resend\'s documented Idempotency-Key header', async () => {
+    const providerFetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ id: 'provider-message-1' }),
+    }));
+    vi.stubGlobal('fetch', providerFetch);
+
+    const result = await sendPasswordRecoveryEmail({
+      to: 'persona@example.com',
+      firstName: 'Ana',
+      recoveryUrl: ACTION_LINK,
+      idempotencyKey: 'password-recovery/22222222-2222-4222-8222-222222222222',
+    });
+
+    expect(result).toMatchObject({ sent: true, status: 'provider_accepted' });
+    expect(providerFetch).toHaveBeenCalledWith(
+      'https://api.resend.com/emails',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'Idempotency-Key': 'password-recovery/22222222-2222-4222-8222-222222222222',
+        }),
+      })
+    );
+  });
+
+  it('classifies a network throw as retryable transport_error, not provider_rejected', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new Error('synthetic network failure');
+    }));
+    const result = await sendPasswordRecoveryEmail({
+      to: 'persona@example.com',
+      firstName: 'Ana',
+      recoveryUrl: ACTION_LINK,
+      idempotencyKey: 'password-recovery/22222222-2222-4222-8222-222222222222',
+    });
+    expect(result).toMatchObject({
+      sent: false,
+      status: 'transport_error',
+      reason: 'transport_error',
+    });
+  });
+
+  it.each([429, 500, 503])(
+    'classifies provider HTTP %i as retryable transport_error',
+    async (status) => {
+      vi.stubGlobal('fetch', vi.fn(async () => ({
+        ok: false,
+        status,
+        json: async () => ({ message: 'synthetic transient response' }),
+      })));
+
+      const result = await sendPasswordRecoveryEmail({
+        to: 'persona@example.com',
+        firstName: 'Ana',
+        recoveryUrl: ACTION_LINK,
+        idempotencyKey: 'password-recovery/22222222-2222-4222-8222-222222222222',
+      });
+
+      expect(result).toMatchObject({
+        sent: false,
+        status: 'transport_error',
+        reason: 'transport_error',
+      });
+    }
+  );
+
+  it('keeps a provider HTTP 4xx refusal terminal and precise', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: false,
+      status: 422,
+      json: async () => ({ message: 'synthetic invalid recipient' }),
+    })));
+
+    const result = await sendPasswordRecoveryEmail({
+      to: 'persona@example.com',
+      firstName: 'Ana',
+      recoveryUrl: ACTION_LINK,
+      idempotencyKey: 'password-recovery/22222222-2222-4222-8222-222222222222',
+    });
+
+    expect(result).toMatchObject({
+      sent: false,
+      status: 'provider_rejected',
+      reason: 'provider_rejected',
+    });
   });
 });

@@ -24,14 +24,15 @@ import {
  *
  * So this handler reads NO Authorization header and NO cookie. It has no notion
  * of a session at all. The only thing it accepts as identity is the one-time
- * `token_hash` this application itself put in the recovery e-mail, which
- * `lib/auth/recovery-proof.ts` consumes server-side with
- * `verifyOtp({ type: 'recovery' })`:
+ * short-lived grant returned by `/api/auth/recovery-exchange`. That endpoint
+ * consumes the e-mailed `token_hash` with `verifyOtp({ type: 'recovery' })` and
+ * replaces it with an opaque, purpose-bound grant whose attempts are leased in
+ * the database:
  *
  *   * purpose-bound  — the literal 'recovery' is ours, never the request's, so a
  *                      magic-link or confirmation hash cannot stand in;
- *   * one-time       — a replay of the same string fails at the auth server;
- *   * expiring       — on GoTrue's clock, not ours;
+ *   * bounded        — five provider attempts and fifteen minutes;
+ *   * retryable      — provider 422/5xx/network failures release the lease;
  *   * identity-bearing — the account is what GoTrue RETURNS. There is no user id
  *                      in the request for anything to redirect, and a signed-in
  *                      visitor who opens somebody else's link can only ever act
@@ -58,8 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // `userId` the body might carry. The ceremony derives the account from the
     // material it consumes and from nothing else.
     const result = await completeRecoveryPasswordChange(createServiceRoleClient(), {
-      tokenHash: body.tokenHash,
-      type: body.type,
+      grant: body.grant,
       newPassword: typeof body.newPassword === 'string' ? body.newPassword : '',
     });
 
@@ -78,8 +78,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       message: result.message,
       audited: result.audited,
     });
-  } catch (error: any) {
-    console.error('[recovery-complete] unexpected error:', error?.message ?? error);
+  } catch {
+    // Exception text may include provider/request material. The stable label is
+    // sufficient for alerting without putting recovery data into application logs.
+    console.error('[recovery-complete] unexpected failure');
     return res.status(500).json({ error: 'Error interno del servidor' });
   }
 }

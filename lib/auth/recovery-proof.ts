@@ -48,8 +48,8 @@
  * and no URL detection -- so nothing about the calling process's state, or any
  * cookie the caller sent, can influence the answer.
  *
- * NOTHING IS LOGGED. Not the hash, not the resulting tokens, not the address.
- * The provider's own message is recorded for operators without the material.
+ * NOTHING SENSITIVE IS LOGGED. Not the hash, resulting tokens, address, or raw
+ * provider wording. Operators get only stable labels and machine code/status.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
@@ -147,7 +147,7 @@ export async function consumeRecoveryProof(
   const verifier = factory();
 
   let data: { user?: { id?: string | null } | null } | null = null;
-  let error: { message?: string } | null = null;
+  let error: { message?: string; code?: string; status?: number } | null = null;
 
   try {
     const response = await verifier.auth.verifyOtp({
@@ -157,16 +157,16 @@ export async function consumeRecoveryProof(
     });
     data = (response?.data ?? null) as typeof data;
     error = (response?.error ?? null) as typeof error;
-  } catch (thrown) {
-    console.warn('[recovery-proof] verifyOtp threw', {
-      reason: thrown instanceof Error ? thrown.message : 'unknown',
-    });
+  } catch {
+    console.warn('[recovery-proof] verifyOtp threw');
     return { ok: false, reason: 'invalid' };
   }
 
   if (error || !data?.user?.id) {
     console.warn('[recovery-proof] recovery material refused', {
-      reason: error?.message ?? 'no user on the verified material',
+      code: error?.code ?? null,
+      status: error?.status ?? null,
+      has_user: Boolean(data?.user?.id),
     });
     return { ok: false, reason: 'invalid' };
   }

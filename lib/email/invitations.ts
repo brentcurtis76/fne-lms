@@ -36,7 +36,8 @@ import { captureOutboundEmail } from './outbox';
  * Handing a message to Resend's API and getting a 200 means the PROVIDER
  * ACCEPTED IT. It does not mean the recipient's mail server accepted it, that it
  * survived a spam filter, or that it did not bounce twenty minutes later. Only a
- * provider webhook can say that, and this platform has none.
+ * provider webhook can say that; recovery messages now record those events
+ * through the signature-verified Resend webhook.
  *
  * So the states are named for what is actually observed:
  *
@@ -47,13 +48,10 @@ import { captureOutboundEmail } from './outbox';
  *   provider_rejected       the provider answered, and refused the message
  *   provider_accepted       the provider answered, and accepted it. THIS IS THE
  *                           FURTHEST ANY REPOSITORY TEST CAN PROVE.
- *   delivered               a provider webhook reported delivery. NOTHING IN
- *                           THIS CODEBASE PRODUCES THIS VALUE TODAY -- it exists
- *                           so that "accepted" is never quietly read as
- *                           "delivered", and a test asserts no code path returns
- *                           it (__tests__/lib/email/deliveryStatus.test.ts).
- *   bounced                 a provider webhook reported a bounce. Same: declared,
- *                           never produced without webhook evidence.
+ *   delivered               a verified provider webhook reported delivery. The
+ *                           synchronous send functions never produce it.
+ *   bounced                 a verified provider webhook reported a bounce. Same:
+ *                           the send functions never infer it from acceptance.
  */
 export type DeliveryStatus =
   | 'not_configured'
@@ -71,7 +69,7 @@ export type DeliveryFailureReason =
   | 'provider_rejected'
   | 'transport_error';
 
-/** The statuses that require evidence this platform does not yet collect. */
+/** The statuses that only the verified webhook path may record. */
 export const WEBHOOK_ONLY_STATUSES: readonly DeliveryStatus[] = Object.freeze([
   'delivered',
   'bounced',
@@ -143,7 +141,14 @@ function renderEmail(params: {
   fallbackLead: string;
   closingLine?: string;
 }): string {
-  const safeFirstName = escapeHtml(params.firstName);
+  const normalizedFirstName = params.firstName.trim();
+  // Older recovery callers used "Hola" as a missing-name placeholder, which
+  // rendered as the accidental greeting "Hola Hola,". Treat that legacy
+  // placeholder exactly like an absent name.
+  const safeFirstName = /^hola,?$/i.test(normalizedFirstName)
+    ? ''
+    : escapeHtml(normalizedFirstName);
+  const greeting = safeFirstName ? `Hola ${safeFirstName},` : 'Hola,';
   const safeBodyLine = escapeHtml(params.bodyLine);
   const safeHeading = escapeHtml(params.heading);
   const safeCtaLabel = escapeHtml(params.ctaLabel);
@@ -169,7 +174,7 @@ function renderEmail(params: {
               </h1>
             </div>
             <div style="padding:30px 28px;">
-              <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hola ${safeFirstName},</p>
+              <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">${greeting}</p>
               <p style="margin:0 0 20px;font-size:16px;line-height:1.6;">
                 ${safeBodyLine}
               </p>
@@ -202,15 +207,52 @@ export type EmailTransport = (message: {
   to: string;
   subject: string;
   html: string;
+}, options?: {
+  idempotencyKey?: string;
 }) => Promise<{ data?: { id?: string } | null; error?: { message?: string } | null }>;
 
 function defaultTransport(apiKey: string): EmailTransport {
   const resend = new Resend(apiKey);
-  return (message) => resend.emails.send(message);
+  return async (message, options) => {
+    if (!options?.idempotencyKey) return resend.emails.send(message);
+
+    // resend@3 predates the SDK option, while the provider API supports the
+    // Idempotency-Key header. Use the documented HTTP contract for the durable
+    // outbox and leave existing synchronous invitation sends on the SDK path.
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'Idempotency-Key': options.idempotencyKey,
+        },
+        body: JSON.stringify(message),
+      });
+      const body = (await response.json().catch(() => null)) as {
+        id?: string;
+        message?: string;
+      } | null;
+      if (!response.ok) {
+        // A provider outage or throttling response is not a durable rejection
+        // of this message. Classify it with transport failures so the recovery
+        // outbox retries the already-prepared link under the same idempotency key.
+        if (response.status === 429 || response.status >= 500) {
+          throw new Error('transient provider failure');
+        }
+        return { data: null, error: { message: body?.message ?? 'provider rejected request' } };
+      }
+      return { data: { id: body?.id }, error: null };
+    } catch {
+      // Let the shared sender classify network/DNS/timeout failures separately
+      // from a provider response that explicitly rejected the request.
+      throw new Error('transport failure');
+    }
+  };
 }
 
 async function send(
-  params: { to: string; subject: string; html: string },
+  params: { to: string; subject: string; html: string; idempotencyKey?: string },
   transport?: EmailTransport
 ): Promise<DeliveryResult> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -222,32 +264,28 @@ async function send(
   captureOutboundEmail(params);
 
   if (!apiKey && !transport) {
-    // Only the recipient's DOMAIN is logged. This branch fires on every send
-    // when the key is missing, which in production is exactly the state the
-    // operations runbook exists to fix — a per-send log line carrying a full
-    // address would build a copy of the roster in the platform log.
-    console.error('[invitations] RESEND_API_KEY missing; e-mail not sent', {
-      toDomain: params.to.split('@')[1] ?? 'unknown',
-      subject: params.subject,
-    });
+    // No recipient-derived value is logged. This branch fires on every send
+    // when the key is missing, so even a domain would accumulate account data
+    // in the platform log.
+    console.error('[invitations] RESEND_API_KEY missing; e-mail not sent');
     return { sent: false, status: 'not_configured', reason: 'not_configured' };
   }
 
   const deliver = transport ?? defaultTransport(apiKey as string);
 
   try {
-    const { data, error } = await deliver({
-      from: process.env.EMAIL_FROM_ADDRESS || DEFAULT_FROM,
-      to: params.to,
-      subject: params.subject,
-      html: params.html,
-    });
+    const { data, error } = await deliver(
+      {
+        from: process.env.EMAIL_FROM_ADDRESS || DEFAULT_FROM,
+        to: params.to,
+        subject: params.subject,
+        html: params.html,
+      },
+      { idempotencyKey: params.idempotencyKey }
+    );
 
     if (error) {
-      console.error('[invitations] provider rejected the message', {
-        toDomain: params.to.split('@')[1] ?? 'unknown',
-        error: error.message ?? 'unknown',
-      });
+      console.error('[invitations] provider rejected the message');
       return {
         sent: false,
         status: 'provider_rejected',
@@ -265,10 +303,7 @@ async function send(
     };
   } catch (thrown) {
     const message = thrown instanceof Error ? thrown.message : String(thrown);
-    console.error('[invitations] transport threw', {
-      toDomain: params.to.split('@')[1] ?? 'unknown',
-      error: message,
-    });
+    console.error('[invitations] transport threw');
     return { sent: false, status: 'transport_error', reason: 'transport_error', detail: message };
   }
 }
@@ -370,13 +405,14 @@ export async function sendAccessGrantedEmail(
  * and self-service alike — in exactly one format.
  */
 export async function sendPasswordRecoveryEmail(
-  params: { to: string; firstName: string; recoveryUrl: string },
+  params: { to: string; firstName: string; recoveryUrl: string; idempotencyKey?: string },
   transport?: EmailTransport
 ): Promise<DeliveryResult> {
   return send(
     {
       to: params.to,
       subject: 'Restablece tu contraseña de Genera',
+      idempotencyKey: params.idempotencyKey,
       html: renderEmail({
         heading: 'Restablece tu contraseña',
         firstName: params.firstName,

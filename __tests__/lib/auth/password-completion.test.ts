@@ -21,6 +21,20 @@
  * unwritten when it refuses?
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const { mockClaimRecoveryGrant, mockFinishRecoveryGrantAttempt } = vi.hoisted(() => ({
+  mockClaimRecoveryGrant: vi.fn(),
+  mockFinishRecoveryGrantAttempt: vi.fn(),
+}));
+
+vi.mock('../../../lib/auth/recovery-grant', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    claimRecoveryGrant: mockClaimRecoveryGrant,
+    finishRecoveryGrantAttempt: mockFinishRecoveryGrantAttempt,
+  };
+});
 import {
   CEREMONY_AUDIT_ACTION,
   COMPLETION_MESSAGES,
@@ -35,7 +49,8 @@ import {
 const LINK_OWNER = '11111111-1111-4111-8111-111111111111';
 const OTHER = '99999999-9999-4999-8999-999999999999';
 const STRONG = 'Sintetica2026';
-const HASH = 'hashed-token-from-the-email';
+const GRANT = 'rg1.synthetic-grant';
+const GRANT_HASH = 'a'.repeat(64);
 
 interface AdminOptions {
   updateError?: { message: string; code?: string; status?: number } | null;
@@ -45,6 +60,7 @@ interface AdminOptions {
   /** What `profiles.must_change_password` reads back as. */
   mustChangePassword?: boolean | null;
   profileError?: { message: string } | null;
+  updateThrows?: boolean;
 }
 
 function buildAdmin(opts: AdminOptions = {}) {
@@ -79,6 +95,7 @@ function buildAdmin(opts: AdminOptions = {}) {
       admin: {
         updateUserById: vi.fn(async (id: string, payload: unknown) => {
           calls.updateUserById.push([id, payload]);
+          if (opts.updateThrows) throw new Error('network reset');
           return opts.updateError
             ? { data: null, error: opts.updateError }
             : { data: { user: { id } }, error: null };
@@ -105,32 +122,6 @@ function buildAdmin(opts: AdminOptions = {}) {
   return admin;
 }
 
-/** A `verifyOtp` double. It records what it was asked and answers as told. */
-function buildVerifier(
-  opts: { userId?: string | null; error?: { message: string } | null; throws?: boolean } = {}
-) {
-  const calls: any[] = [];
-  const signOuts: unknown[] = [];
-  const factory = () => ({
-    auth: {
-      verifyOtp: vi.fn(async (args: any) => {
-        calls.push(args);
-        if (opts.throws) throw new Error('network');
-        if (opts.error) return { data: null, error: opts.error };
-        return {
-          data: { user: { id: opts.userId ?? LINK_OWNER }, session: { access_token: 'x' } },
-          error: null,
-        };
-      }),
-      signOut: vi.fn(async (o: unknown) => {
-        signOuts.push(o);
-        return { error: null };
-      }),
-    },
-  });
-  return { factory, calls, signOuts };
-}
-
 /** A user-scoped client double for the forced and voluntary ceremonies. */
 function buildAuthenticated(user: { id?: string; email?: string } | null, error: any = null) {
   return {
@@ -141,8 +132,23 @@ function buildAuthenticated(user: { id?: string; email?: string } | null, error:
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
   vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  mockClaimRecoveryGrant.mockResolvedValue({
+    ok: true,
+    claims: {
+      purpose: 'password_recovery',
+      subject: LINK_OWNER,
+      nonce: 'n'.repeat(43),
+      issuedAt: 1,
+      expiresAt: 2,
+    },
+    grantHash: GRANT_HASH,
+    leaseToken: '22222222-2222-4222-8222-222222222222',
+    attemptsRemaining: 4,
+  });
+  mockFinishRecoveryGrantAttempt.mockResolvedValue(true);
 });
 
 // ---------------------------------------------------------------------------
@@ -163,11 +169,8 @@ describe('the audit action is derived from the ceremony, not supplied', () => {
 
   it('exports no function that takes a user id and a password', async () => {
     const mod: Record<string, unknown> = await import('../../../lib/auth/password-completion');
-    // The raw writer is present under a deliberately awkward name for exactly one
-    // consumer, and `scripts/ci/check-browser-boundaries.mjs` fails the build for
-    // any other importer.
     expect(mod.completePasswordChange).toBeUndefined();
-    expect(typeof mod.__writePasswordThroughTrustedBoundary).toBe('function');
+    expect(mod.__writePasswordThroughTrustedBoundary).toBeUndefined();
   });
 });
 
@@ -212,123 +215,69 @@ describe('clearPasswordChangeFlag', () => {
 // ---------------------------------------------------------------------------
 
 describe('the recovery ceremony', () => {
-  it('consumes the material with verifyOtp and acts on the account GoTrue names', async () => {
+  it('leases the bounded grant and acts only on its encrypted subject', async () => {
     const admin = buildAdmin();
-    const { factory, calls } = buildVerifier();
-
-    const result = await completeRecoveryPasswordChange(
-      admin as never,
-      { tokenHash: HASH, type: 'recovery', newPassword: STRONG },
-      factory as never
-    );
+    const result = await completeRecoveryPasswordChange(admin as never, {
+      grant: GRANT,
+      newPassword: STRONG,
+    });
 
     expect(result.ok).toBe(true);
-    expect(calls).toEqual([{ token_hash: HASH, type: 'recovery' }]);
-    expect(admin.calls.updateUserById).toEqual([[LINK_OWNER, { password: STRONG }]]);
+    expect(mockClaimRecoveryGrant).toHaveBeenCalledWith(admin, GRANT);
+    expect(admin.calls.updateUserById).toEqual([
+      [
+        LINK_OWNER,
+        {
+          password: STRONG,
+          user_metadata: { last_recovery_grant_hash: GRANT_HASH },
+        },
+      ],
+    ]);
+    expect(mockFinishRecoveryGrantAttempt).toHaveBeenCalledWith(
+      admin,
+      expect.objectContaining({ grantHash: GRANT_HASH }),
+      true
+    );
   });
 
-  it('passes the literal type "recovery", never the one the request declared', async () => {
+  it('REFUSES a missing, invalid, expired, or replayed grant and writes nothing', async () => {
     const admin = buildAdmin();
-    const { factory, calls } = buildVerifier();
+    mockClaimRecoveryGrant.mockResolvedValueOnce({ ok: false, reason: 'invalid' });
 
-    // A caller that declares the right type still does not get to choose it.
-    await completeRecoveryPasswordChange(
-      admin as never,
-      { tokenHash: HASH, type: 'recovery', newPassword: STRONG },
-      factory as never
-    );
-    expect(calls[0].type).toBe('recovery');
-  });
+    const result = await completeRecoveryPasswordChange(admin as never, {
+      grant: undefined,
+      newPassword: STRONG,
+    });
 
-  it('REFUSES a link that declares any other type, without contacting the provider', async () => {
-    const admin = buildAdmin();
-    const { factory, calls } = buildVerifier();
-
-    const result = await completeRecoveryPasswordChange(
-      admin as never,
-      { tokenHash: HASH, type: 'magiclink', newPassword: STRONG },
-      factory as never
-    );
-
-    expect(isCompletionFailure(result)).toBe(true);
-    expect(calls).toEqual([]);
-    expect(admin.calls.updateUserById).toEqual([]);
-  });
-
-  it('REFUSES a request with no material at all — an access token is not material', async () => {
-    const admin = buildAdmin();
-    const { factory, calls } = buildVerifier();
-
-    const result = await completeRecoveryPasswordChange(
-      admin as never,
-      { newPassword: STRONG } as never,
-      factory as never
-    );
-
-    expect(isCompletionFailure(result)).toBe(true);
-    expect((result as any).status).toBe(401);
-    expect(calls).toEqual([]);
+    expect(result).toMatchObject({ ok: false, status: 401, code: 'RECOVERY_GRANT_INVALID' });
     expect(admin.calls.updateUserById).toEqual([]);
     expect(admin.calls.rpc).toEqual([]);
     expect(admin.calls.audits).toEqual([]);
   });
 
-  it('REFUSES expired / malformed / replayed material, and writes NOTHING', async () => {
-    // GoTrue answers the same way for all three; so do we, and the important
-    // part is what does not happen.
+  it.each([
+    ['busy', 409, 'RECOVERY_ATTEMPT_IN_PROGRESS'],
+    ['exhausted', 429, 'RECOVERY_ATTEMPTS_EXHAUSTED'],
+    ['unavailable', 503, 'RECOVERY_GRANT_UNAVAILABLE'],
+    ['succeeded', 401, 'RECOVERY_GRANT_INVALID'],
+  ] as const)('maps %s grant state without writing', async (reason, status, code) => {
     const admin = buildAdmin();
-    const { factory } = buildVerifier({ error: { message: 'Token has expired or is invalid' } });
-
-    const result = await completeRecoveryPasswordChange(
-      admin as never,
-      { tokenHash: HASH, type: 'recovery', newPassword: STRONG },
-      factory as never
-    );
-
-    expect(isCompletionFailure(result)).toBe(true);
-    expect((result as any).code).toBe('RECOVERY_MATERIAL_INVALID');
-    expect(admin.calls.updateUserById).toEqual([]);
-    expect(admin.calls.rpc).toEqual([]);
-    expect(admin.calls.audits).toEqual([]);
-  });
-
-  it('does not leak the provider wording for an invalid link', async () => {
-    const admin = buildAdmin();
-    const { factory } = buildVerifier({ error: { message: 'Token has expired or is invalid' } });
-
-    const result = await completeRecoveryPasswordChange(
-      admin as never,
-      { tokenHash: HASH, type: 'recovery', newPassword: STRONG },
-      factory as never
-    );
-
-    expect((result as any).message).toBe(COMPLETION_MESSAGES.recoveryInvalid);
-    expect((result as any).message).not.toContain('Token has expired');
-  });
-
-  it('survives a thrown verifyOtp as a refusal, not a crash', async () => {
-    const admin = buildAdmin();
-    const { factory } = buildVerifier({ throws: true });
-
-    const result = await completeRecoveryPasswordChange(
-      admin as never,
-      { tokenHash: HASH, type: 'recovery', newPassword: STRONG },
-      factory as never
-    );
-
-    expect(isCompletionFailure(result)).toBe(true);
+    mockClaimRecoveryGrant.mockResolvedValueOnce({ ok: false, reason });
+    const result = await completeRecoveryPasswordChange(admin as never, {
+      grant: GRANT,
+      newPassword: STRONG,
+    });
+    expect(result).toMatchObject({ ok: false, status, code });
     expect(admin.calls.updateUserById).toEqual([]);
   });
 
   it('a userId in the input CANNOT redirect the write', async () => {
     const admin = buildAdmin();
-    const { factory } = buildVerifier({ userId: LINK_OWNER });
-
-    await completeRecoveryPasswordChange(
-      admin as never,
-      { tokenHash: HASH, type: 'recovery', newPassword: STRONG, userId: OTHER } as never,
-      factory as never
-    );
+    await completeRecoveryPasswordChange(admin as never, {
+      grant: GRANT,
+      newPassword: STRONG,
+      userId: OTHER,
+    } as never);
 
     expect(admin.calls.updateUserById[0][0]).toBe(LINK_OWNER);
     expect(JSON.stringify(admin.calls.updateUserById)).not.toContain(OTHER);
@@ -336,34 +285,27 @@ describe('the recovery ceremony', () => {
 
   it('checks the policy BEFORE burning the one-time material', async () => {
     const admin = buildAdmin();
-    const { factory, calls } = buildVerifier();
-
-    const result = await completeRecoveryPasswordChange(
-      admin as never,
-      { tokenHash: HASH, type: 'recovery', newPassword: 'weak' },
-      factory as never
-    );
+    const result = await completeRecoveryPasswordChange(admin as never, {
+      grant: GRANT,
+      newPassword: 'weak',
+    });
 
     expect(isCompletionFailure(result)).toBe(true);
     expect((result as any).code).toBe('PASSWORD_POLICY');
-    // The link still works. Burning it because the user typed a short password
-    // would strand them.
-    expect(calls).toEqual([]);
+    expect(mockClaimRecoveryGrant).not.toHaveBeenCalled();
   });
 
   it('clears the forced-change flag and audits as a RECOVERY', async () => {
     const admin = buildAdmin();
-    const { factory } = buildVerifier();
-
-    const result = await completeRecoveryPasswordChange(
-      admin as never,
-      { tokenHash: HASH, type: 'recovery', newPassword: STRONG },
-      factory as never
-    );
+    const result = await completeRecoveryPasswordChange(admin as never, {
+      grant: GRANT,
+      newPassword: STRONG,
+    });
 
     expect(result.ok).toBe(true);
-    expect(admin.calls.rpc).toEqual([
-      [SET_PASSWORD_CHANGE_REQUIRED_RPC, { p_user_id: LINK_OWNER, p_required: false }],
+    expect(admin.calls.rpc).toContainEqual([
+      SET_PASSWORD_CHANGE_REQUIRED_RPC,
+      { p_user_id: LINK_OWNER, p_required: false },
     ]);
     expect(admin.calls.audits).toHaveLength(1);
     expect(admin.calls.audits[0]).toMatchObject({
@@ -374,28 +316,12 @@ describe('the recovery ceremony', () => {
     });
   });
 
-  it('discards the throwaway session it minted while verifying', async () => {
-    const admin = buildAdmin();
-    const { factory, signOuts } = buildVerifier();
-
-    await completeRecoveryPasswordChange(
-      admin as never,
-      { tokenHash: HASH, type: 'recovery', newPassword: STRONG },
-      factory as never
-    );
-
-    expect(signOuts).toEqual([{ scope: 'local' }]);
-  });
-
   it('reports a partial failure rather than claiming success', async () => {
     const admin = buildAdmin({ rpcResult: false });
-    const { factory } = buildVerifier();
-
-    const result = await completeRecoveryPasswordChange(
-      admin as never,
-      { tokenHash: HASH, type: 'recovery', newPassword: STRONG },
-      factory as never
-    );
+    const result = await completeRecoveryPasswordChange(admin as never, {
+      grant: GRANT,
+      newPassword: STRONG,
+    });
 
     expect(isCompletionFailure(result)).toBe(true);
     expect(result).toMatchObject({
@@ -404,21 +330,33 @@ describe('the recovery ceremony', () => {
       code: 'FLAG_NOT_CLEARED',
       passwordChanged: true,
     });
+    expect(mockFinishRecoveryGrantAttempt).toHaveBeenCalledWith(admin, expect.anything(), true);
   });
 
-  it('never puts the material or the password in an audit row', async () => {
-    const admin = buildAdmin();
-    const { factory } = buildVerifier();
+  it.each([
+    ['provider 422', { updateError: { message: 'password rejected', status: 422 } }],
+    ['provider 5xx', { updateError: { message: 'upstream unavailable', status: 500 } }],
+    ['network throw', { updateThrows: true }],
+  ] as const)('releases the grant after %s so the same grant can retry', async (_label, opts) => {
+    const admin = buildAdmin(opts);
+    const result = await completeRecoveryPasswordChange(admin as never, {
+      grant: GRANT,
+      newPassword: STRONG,
+    });
+    expect(result.ok).toBe(false);
+    expect(mockFinishRecoveryGrantAttempt).toHaveBeenCalledWith(admin, expect.anything(), false);
+  });
 
-    await completeRecoveryPasswordChange(
-      admin as never,
-      { tokenHash: HASH, type: 'recovery', newPassword: STRONG },
-      factory as never
-    );
+  it('never puts the grant or password in an audit row', async () => {
+    const admin = buildAdmin();
+    await completeRecoveryPasswordChange(admin as never, {
+      grant: GRANT,
+      newPassword: STRONG,
+    });
 
     const serialised = JSON.stringify(admin.calls.audits);
     expect(serialised).not.toContain(STRONG);
-    expect(serialised).not.toContain(HASH);
+    expect(serialised).not.toContain(GRANT);
   });
 });
 

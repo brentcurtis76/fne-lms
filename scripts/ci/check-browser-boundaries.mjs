@@ -32,13 +32,13 @@
  *      and walked as a syntax tree, so a match is a real call expression or a real
  *      object property, never a mention in a comment or a string.
  *
- *   3. IT ALSO POLICES THE SERVER SIDE. The reason the browser rules exist is
- *      that password writes belong to one trusted module; a rule that only looks
- *      at the browser leaves the other half unstated. So the low-level write
- *      (`auth.admin.updateUserById` with a `password`) and account provisioning
- *      (`auth.admin.createUser` with a `password`) are allow-listed by path
- *      across the WHOLE repository, and the raw writer may only be imported by
- *      the trusted modules.
+ *   3. IT ALSO POLICES THE SERVER SIDE. Supabase's password-capable
+ *      `updateUserById` and `createUser` primitives are default-deny everywhere,
+ *      regardless of the payload shape. Only three narrow modules may mention
+ *      them, and those modules export fixed-purpose operations instead of a
+ *      user-id-plus-payload escape hatch. Imports of those modules are parsed as
+ *      well, so aliases, namespace/default imports, require(), dynamic import(),
+ *      and barrel re-exports cannot widen the surface silently.
  *
  * USAGE
  *   node scripts/ci/check-browser-boundaries.mjs [--json]
@@ -92,65 +92,69 @@ function isTestOrTooling(file) {
 }
 
 // ---------------------------------------------------------------------------
-// THE ALLOW-LISTS. Every entry is a deliberate decision, and each one is
-// explained -- the final report has to be able to justify all of them.
+// THE RAW PRIMITIVE MODULES. Every entry is a deliberate decision, and each one
+// is explained -- the final report has to be able to justify all of them.
 // ---------------------------------------------------------------------------
 
 /**
- * The only files permitted to write a password onto an EXISTING account.
- * `updateUserById` with a `password` property.
+ * The only files permitted to mention Supabase's password-capable admin
+ * primitives. There are no route allow-list entries.
  */
-export const PASSWORD_WRITE_ALLOWLIST = new Map([
+export const RAW_AUTH_PRIMITIVE_MODULES = new Map([
   [
     'lib/auth/password-completion.ts',
-    'The trusted password-mutation boundary. The single call to auth.admin.updateUserById({password}) in the platform lives here, reached only through the four ceremonies, each of which establishes the account it acts on.',
+    'The trusted password-mutation boundary. Its private writer is reachable only after a ceremony establishes the account and purpose.',
   ],
   [
-    'pages/api/admin/update-user.ts',
-    'Administrative profile edit. It calls updateUserById to change an EMAIL, never a password — this entry exists so the checker can assert that: the rule fires only when a `password` property is present, and this file is listed so a future edit that adds one is a deliberate act rather than a silent one.',
+    'lib/auth/admin-user-maintenance.ts',
+    'Fixed-purpose existing-account maintenance: one export changes only email and one clears only the administrative reset marker.',
+  ],
+  [
+    'lib/auth/account-provisioning.ts',
+    'Fixed-purpose provisioning constructs the accepted fields itself; callers cannot pass an arbitrary Supabase create-user payload.',
   ],
 ]);
 
 /**
- * The only files permitted to CREATE an account with a password. Provisioning is
- * a different ceremony from changing an existing credential, so it is a separate
- * list -- but it must use the same policy, the same CSPRNG and the same audit
- * rules, which the unit suites assert per route.
+ * Public exports that may be imported from each low-level primitive module.
+ * Static, non-aliased named imports are the only accepted import form. The
+ * The password-completion surface is pinned too: this makes the raw writer not
+ * only private today, but impossible to expose to a route later without making
+ * this guard fail.
  */
-export const ACCOUNT_PROVISION_ALLOWLIST = new Map([
+export const LOW_LEVEL_IMPORT_SURFACES = new Map([
   [
-    'pages/api/admin/create-user.ts',
-    'Manual single-account provisioning. Admin/equipo-directivo authorised, CSPRNG password from lib/auth/password-generator.ts, must_change_password set at insert, audited as user_created_manual.',
+    'lib/auth/password-completion',
+    new Set([
+      'COMPLETION_MESSAGES',
+      'completeAdministrativeReset',
+      'completeForcedPasswordChange',
+      'completeRecoveryPasswordChange',
+      'completeVoluntaryPasswordChange',
+      'isCompletionFailure',
+      'Reauthenticator',
+    ]),
   ],
   [
-    'pages/api/admin/bulk-create-users.ts',
-    'Bulk provisioning from a parsed roster. Same generator, same policy, same flag, audited as user_created_bulk.',
+    'lib/auth/admin-user-maintenance',
+    new Set(['updateAuthUserEmail', 'clearAdministrativeResetMarker']),
   ],
   [
-    'pages/api/admin/tractor-signups/grant.ts',
-    'Invitation-based provisioning from an approved public signup. Same generator and flag; the account never learns this password — it is replaced through the recovery link the grant e-mails.',
+    'lib/auth/account-provisioning',
+    new Set(['provisionAuthAccount']),
   ],
 ]);
-
-/**
- * The only importers of the raw writer inside the trusted module. Anything else
- * importing it would be a route that can pass an arbitrary user id, which is the
- * property the ceremonies exist to remove.
- */
-export const RAW_WRITER_IMPORT_ALLOWLIST = new Map([
-  [
-    'lib/auth/admin-password-reset.ts',
-    'The fourth ceremony. It owns the equipo-directivo scope rules and the flag-before-password ordering, and lives in its own module because those rules are substantial.',
-  ],
-]);
-
-const RAW_WRITER_NAME = '__writePasswordThroughTrustedBoundary';
 
 /** Server-only modules a browser file must never import. */
 export const SERVER_ONLY_MODULES = [
   'lib/auth/password-completion',
   'lib/auth/admin-password-reset',
   'lib/auth/recovery-proof',
+  'lib/auth/recovery-grant',
+  'lib/auth/recovery-crypto',
+  'lib/auth/recovery-request-queue',
+  'lib/auth/admin-user-maintenance',
+  'lib/auth/account-provisioning',
   'lib/security/audit',
   'lib/email/invitations',
   'lib/email/outbox',
@@ -361,6 +365,43 @@ function line(sourceFile, node) {
   return sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
 }
 
+function moduleKey(file) {
+  return relative(ROOT, file).split(sep).join('/').replace(/\.[cm]?[jt]sx?$/, '');
+}
+
+const RAW_AUTH_PRIMITIVES = new Set(['updateUserById', 'createUser']);
+
+function rawPrimitiveReference(node) {
+  if (ts.isPropertyAccessExpression(node) && RAW_AUTH_PRIMITIVES.has(node.name.text)) {
+    return node.name.text;
+  }
+  if (
+    ts.isElementAccessExpression(node) &&
+    ts.isStringLiteralLike(node.argumentExpression) &&
+    RAW_AUTH_PRIMITIVES.has(node.argumentExpression.text)
+  ) {
+    return node.argumentExpression.text;
+  }
+  if (ts.isBindingElement(node)) {
+    const property = node.propertyName ?? node.name;
+    if (ts.isIdentifier(property) && RAW_AUTH_PRIMITIVES.has(property.text)) {
+      return property.text;
+    }
+    if (ts.isStringLiteralLike(property) && RAW_AUTH_PRIMITIVES.has(property.text)) {
+      return property.text;
+    }
+  }
+  return null;
+}
+
+function lowLevelImportSurface(file, spec) {
+  const target = resolveSpecifier(file, spec);
+  if (!target) return null;
+  const key = moduleKey(target);
+  const exports = LOW_LEVEL_IMPORT_SURFACES.get(key);
+  return exports ? { key, exports } : null;
+}
+
 // ---------------------------------------------------------------------------
 // The rules
 // ---------------------------------------------------------------------------
@@ -375,6 +416,15 @@ export function scanFile(file, { browser }) {
     findings.push({ file: rel, line: line(sf, node), rule, message });
 
   const visit = (node) => {
+    const rawPrimitive = rawPrimitiveReference(node);
+    if (rawPrimitive && !RAW_AUTH_PRIMITIVE_MODULES.has(rel)) {
+      add(
+        node,
+        browser ? 'BROWSER_RAW_AUTH_PRIMITIVE' : 'RAW_AUTH_PRIMITIVE_OUTSIDE_MODULE',
+        `${rawPrimitive} is a password-capable Supabase admin primitive. It may appear only in the fixed-purpose modules under lib/auth; routes and other modules must use their narrow exports.`
+      );
+    }
+
     // --- Calls -------------------------------------------------------------
     if (ts.isCallExpression(node)) {
       const name = calleeName(node);
@@ -386,23 +436,19 @@ export function scanFile(file, { browser }) {
         }
       }
 
-      if (name === 'updateUserById' && callHasObjectProperty(node, ['password'])) {
-        if (browser) {
-          add(node, 'BROWSER_PASSWORD_WRITE',
-            'auth.admin.updateUserById({ password }) in browser-reachable code. This needs the service-role key and must never be in a bundle.');
-        } else if (!PASSWORD_WRITE_ALLOWLIST.has(rel)) {
-          add(node, 'SERVER_PASSWORD_WRITE_OUTSIDE_BOUNDARY',
-            'auth.admin.updateUserById({ password }) outside the trusted password-mutation boundary. Add a ceremony to lib/auth/password-completion.ts instead, or justify a new allow-list entry.');
-        }
-      }
-
-      if (name === 'createUser' && callHasObjectProperty(node, ['password'])) {
-        if (browser) {
-          add(node, 'BROWSER_ACCOUNT_PROVISION',
-            'auth.admin.createUser({ password }) in browser-reachable code.');
-        } else if (!ACCOUNT_PROVISION_ALLOWLIST.has(rel)) {
-          add(node, 'SERVER_PROVISION_OUTSIDE_ALLOWLIST',
-            'auth.admin.createUser({ password }) outside the provisioning allow-list. Provisioning must use the shared policy, the shared CSPRNG and the shared audit rules.');
+      if (
+        (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+          (ts.isIdentifier(node.expression) && node.expression.text === 'require')) &&
+        node.arguments.length > 0 &&
+        ts.isStringLiteralLike(node.arguments[0])
+      ) {
+        const surface = lowLevelImportSurface(file, node.arguments[0].text);
+        if (surface) {
+          add(
+            node,
+            'DYNAMIC_LOW_LEVEL_IMPORT',
+            `${surface.key} may only be consumed through a static, non-aliased named import of its fixed-purpose exports; require() and dynamic import() can bypass that reviewable surface.`
+          );
         }
       }
 
@@ -432,30 +478,60 @@ export function scanFile(file, { browser }) {
     if (ts.isImportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
       const spec = node.moduleSpecifier.text;
       const target = resolveSpecifier(file, spec);
-      const targetRel = target ? relative(ROOT, target).split(sep).join('/') : null;
+      const targetRel = target ? moduleKey(target) : null;
 
       if (browser && targetRel) {
-        const withoutExt = targetRel.replace(/\.[cm]?[jt]sx?$/, '');
-        if (SERVER_ONLY_MODULES.includes(withoutExt)) {
+        if (SERVER_ONLY_MODULES.includes(targetRel)) {
           add(node, 'BROWSER_IMPORTS_SERVER_MODULE',
-            `Browser-reachable code imports ${withoutExt}, which is server-only (service-role key, mailer credentials, or the raw password writer).`);
+            `Browser-reachable code imports ${targetRel}, which is server-only (service-role key, mailer credentials, or a raw auth primitive).`);
         }
       }
 
-      // The raw writer, by name.
-      const named = node.importClause?.namedBindings;
-      if (named && ts.isNamedImports(named)) {
-        for (const el of named.elements) {
-          const imported = (el.propertyName ?? el.name).text;
-          if (
-            imported === RAW_WRITER_NAME &&
-            !RAW_WRITER_IMPORT_ALLOWLIST.has(rel) &&
-            rel !== 'lib/auth/password-completion.ts'
-          ) {
-            add(el, 'RAW_WRITER_IMPORTED',
-              `${RAW_WRITER_NAME} is the low-level password write. Importing it lets a caller pass an arbitrary user id, which is exactly what the ceremonies remove.`);
+      const surface = lowLevelImportSurface(file, spec);
+      if (surface) {
+        const clause = node.importClause;
+        const named = clause?.namedBindings;
+        const validShape =
+          clause &&
+          !clause.name &&
+          named &&
+          ts.isNamedImports(named) &&
+          named.elements.length > 0;
+
+        if (!validShape) {
+          add(
+            node,
+            'LOW_LEVEL_IMPORT_SHAPE',
+            `${surface.key} may only be consumed through static named imports of its fixed-purpose exports; default and namespace imports are forbidden.`
+          );
+        } else {
+          for (const el of named.elements) {
+            const imported = (el.propertyName ?? el.name).text;
+            const aliased = Boolean(el.propertyName) || el.name.text !== imported;
+            if (!surface.exports.has(imported) || aliased) {
+              add(
+                el,
+                'LOW_LEVEL_IMPORT_SURFACE',
+                `${surface.key} exposes only non-aliased imports of: ${[...surface.exports].join(', ')}.`
+              );
+            }
           }
         }
+      }
+    }
+
+    if (
+      ts.isExportDeclaration(node) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteralLike(node.moduleSpecifier)
+    ) {
+      const surface = lowLevelImportSurface(file, node.moduleSpecifier.text);
+      if (surface) {
+        add(
+          node,
+          'LOW_LEVEL_REEXPORT',
+          `${surface.key} must not be re-exported through a barrel; callers must import its fixed-purpose exports directly.`
+        );
       }
     }
 

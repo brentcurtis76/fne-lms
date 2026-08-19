@@ -117,7 +117,13 @@ CREATE TABLE IF NOT EXISTS public.security_audit_events (
     'success'::text,
     'failure'::text,
     'denied'::text,
-    'partial_failure'::text
+    'partial_failure'::text,
+    'queued'::text,
+    'provider_attempted'::text,
+    'provider_accepted'::text,
+    'provider_rejected'::text,
+    'delivered'::text,
+    'bounced'::text
   ])),
 
   CONSTRAINT security_audit_events_metadata_object_check
@@ -195,7 +201,7 @@ COMMENT ON COLUMN public.security_audit_events.action IS
   'Typed operation identifier. The CHECK constraint is the source of truth; the TypeScript union in lib/security/audit.ts mirrors it and a unit test parses this migration to prove they agree.';
 
 COMMENT ON COLUMN public.security_audit_events.outcome IS
-  'success | failure | denied | partial_failure. partial_failure exists because these operations are multi-step: a reset that changed the password but failed to persist the forced-change flag is neither a success nor a clean failure.';
+  'Generic operation outcomes plus the precise recovery-delivery lifecycle: queued, provider_attempted, provider_accepted, provider_rejected, delivered, bounced. delivered/bounced require provider webhook evidence and are never inferred from API acceptance. partial_failure exists because multi-step password operations may commit only part of their state.';
 
 COMMENT ON COLUMN public.security_audit_events.metadata IS
   'Structured, non-sensitive context only. Forbidden top-level keys are rejected by CHECK; lib/security/audit.ts additionally strips them recursively and redacts URL- and JWT-shaped values.';

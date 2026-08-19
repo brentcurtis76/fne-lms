@@ -44,10 +44,10 @@ import { PASSWORD_RULES, firstPasswordPolicyError } from '../lib/auth/password-p
  *
  *   THE BROWSER NO LONGER CONSUMES THE CREDENTIAL. There is no `verifyOtp`, no
  *   `exchangeCodeForSession`, no `setSession`, no `getUser` and no `getSession`
- *   anywhere on this page. The one-time `token_hash` is read from the URL and
- *   FORWARDED to `/api/auth/recovery-complete`, which consumes it server-side
- *   with `verifyOtp({ type: 'recovery' })` and derives the account from that
- *   verification. See lib/auth/recovery-proof.ts.
+ *   anywhere on this page. The one-time `token_hash` is forwarded to
+ *   `/api/auth/recovery-exchange`, which consumes it server-side and returns an
+ *   opaque, short-lived grant. `/api/auth/recovery-complete` accepts only that
+ *   grant, whose provider attempts are bounded and atomically leased.
  *
  *   ONE FORMAT IS ACCEPTED, and it is the format this application itself sends.
  *   `lib/auth/recovery-link.ts` builds every recovery URL the platform emits —
@@ -61,11 +61,9 @@ import { PASSWORD_RULES, firstPasswordPolicyError } from '../lib/auth/password-p
  *   in this browser, so there is nothing the server could verify. Both get a
  *   plain es-CL "solicita un enlace nuevo" instead of a fall-through.
  *
- *   THE FORM OPENS ON THE SHAPE OF THE LINK, and the link is spent at submit.
- *   That is a deliberate trade: the material is one-time, so it cannot be both
- *   validated on arrival and used on submit. The cost is that an expired link
- *   reports itself after the password is typed rather than before; the benefit
- *   is that nothing but the server ever touches the credential.
+ *   THE FORM OPENS ONLY AFTER EXCHANGE. Provider policy rejection, 5xx, and
+ *   network failure do not require a second e-mail: the grant remains usable
+ *   until its short lifetime or bounded attempt count ends.
  *
  *   ANY PRE-EXISTING SESSION IS SIGNED OUT before the form opens, and the
  *   `{ error }` return is checked. Nothing here depends on a session any more,
@@ -111,6 +109,8 @@ export const RECOVERY_MESSAGES = {
   samePassword: 'La nueva contraseña debe ser diferente a la anterior',
   weak: 'La contraseña no cumple con los requisitos de seguridad del sistema',
   generic: 'No se pudo actualizar la contraseña. Inténtalo nuevamente.',
+  grantUnavailable:
+    'No pudimos preparar la recuperación. Inténtalo nuevamente en unos momentos.',
   success: 'Contraseña actualizada exitosamente',
 } as const;
 
@@ -230,7 +230,7 @@ export default function ResetPasswordPage() {
    * A ref rather than state: it must never influence rendering and must never be
    * serialised into the DOM.
    */
-  const materialRef = useRef<string | null>(null);
+  const grantRef = useRef<string | null>(null);
 
   /** The admission decision runs at most once per page load. */
   const judgedRef = useRef(false);
@@ -281,7 +281,31 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      materialRef.current = verdict.tokenHash;
+      let exchange: Response;
+      try {
+        exchange = await fetch('/api/auth/recovery-exchange', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tokenHash: verdict.tokenHash, type: 'recovery' }),
+        });
+      } catch {
+        stripUrl();
+        fail(RECOVERY_MESSAGES.grantUnavailable);
+        return;
+      }
+
+      const exchanged = await exchange.json().catch(() => ({} as Record<string, unknown>));
+      if (!exchange.ok || typeof (exchanged as { grant?: unknown }).grant !== 'string') {
+        stripUrl();
+        fail(
+          exchange.status >= 500
+            ? RECOVERY_MESSAGES.grantUnavailable
+            : RECOVERY_MESSAGES.expired
+        );
+        return;
+      }
+
+      grantRef.current = (exchanged as { grant: string }).grant;
       stripUrl();
       setPhase('ready');
     };
@@ -305,8 +329,8 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    const tokenHash = materialRef.current;
-    if (!tokenHash) {
+    const grant = grantRef.current;
+    if (!grant) {
       setMessage(RECOVERY_MESSAGES.sessionLost);
       setPhase('invalid');
       return;
@@ -314,9 +338,8 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
     try {
-      // THE ONE-TIME MATERIAL IS FORWARDED, NOT CONSUMED HERE. The server calls
-      // `verifyOtp({ type: 'recovery' })` with it, and the account whose password
-      // changes is the one GoTrue returns from that verification.
+      // The e-mailed one-time proof has already been exchanged. This request
+      // carries only the bounded grant; no session credential is accepted.
       //
       // No Authorization header. There is deliberately no session credential in
       // this request: an access token is not proof of a recovery, and the
@@ -324,7 +347,7 @@ export default function ResetPasswordPage() {
       const response = await fetch('/api/auth/recovery-complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tokenHash, type: 'recovery', newPassword: password }),
+        body: JSON.stringify({ grant, newPassword: password }),
       });
 
       const result = await response.json().catch(() => ({} as Record<string, unknown>));
@@ -332,25 +355,23 @@ export default function ResetPasswordPage() {
       if (!response.ok) {
         const code = (result as { code?: string }).code;
 
-        if (code === 'RECOVERY_MATERIAL_INVALID') {
-          // The material is spent either way — one-time means one-time — so the
-          // form must not stay open offering a retry that cannot work.
-          materialRef.current = null;
+        if (
+          code === 'RECOVERY_GRANT_INVALID' ||
+          code === 'RECOVERY_ATTEMPTS_EXHAUSTED'
+        ) {
+          grantRef.current = null;
           setMessage(RECOVERY_MESSAGES.expired);
           setPhase('invalid');
           return;
         }
 
-        // Everything else is a message the endpoint already wrote in es-CL and
-        // already stripped of provider wording. The material has been consumed,
-        // so the form closes rather than inviting a retry on a burnt link.
-        materialRef.current = null;
+        // Provider policy and transient failures leave the bounded grant alive.
+        // The endpoint's message is es-CL and contains no provider wording.
         setMessage((result as { error?: string }).error || RECOVERY_MESSAGES.generic);
-        setPhase('invalid');
         return;
       }
 
-      materialRef.current = null;
+      grantRef.current = null;
       setMessage(RECOVERY_MESSAGES.success);
       setPhase('updated');
       setTimeout(() => {

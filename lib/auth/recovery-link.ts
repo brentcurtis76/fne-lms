@@ -88,9 +88,12 @@ export async function generateRecoveryLink(
   });
 
   if (error) {
-    // Only the provider's message, and only to the operator log. No token, no
-    // address, no URL.
-    console.error('[recovery-link] generateLink failed', { error: error.message });
+    // Provider wording can include the submitted account address. Preserve only
+    // machine fields so a failed recovery never puts account data in logs.
+    console.error('[recovery-link] generateLink failed', {
+      code: (error as { code?: string }).code ?? null,
+      status: (error as { status?: number }).status ?? null,
+    });
     return { ok: false, reason: 'generate_failed' };
   }
 

@@ -1456,8 +1456,8 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
 
     // S3: the failure is surfaced by the centralised writer under a stable
     // prefix, which is what keeps "fail open" from meaning "fail silent". The
-    // reconciliation context no longer carries the addresses — a log line is
-    // not a lawful home for PII either.
+    // reconciliation context carries only stable, non-identifying labels — a
+    // log line is not a lawful home for account identifiers or provider text.
     const matching = consoleError.mock.calls.find(
       ([label, ctx]) =>
         label === '[security-audit] write failed' &&
@@ -1465,13 +1465,15 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     );
     expect(matching).toBeDefined();
     const ctx = matching![1] as any;
-    expect(ctx).toMatchObject({
+    expect(ctx).toEqual({
       action: 'user_email_changed',
-      target_user_id: TARGET_USER_ID,
-      actor_user_id: ADMIN_ID,
-      error: 'audit insert failed',
+      outcome: 'success',
+      code: null,
     });
     expect(JSON.stringify(ctx)).not.toContain('new@example.com');
+    expect(JSON.stringify(ctx)).not.toContain(TARGET_USER_ID);
+    expect(JSON.stringify(ctx)).not.toContain(ADMIN_ID);
+    expect(JSON.stringify(ctx)).not.toContain('audit insert failed');
 
     consoleError.mockRestore();
   });
@@ -1649,12 +1651,14 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     );
     expect(matching).toBeDefined();
     const ctx = matching![1] as any;
-    expect(ctx).toMatchObject({
+    expect(ctx).toEqual({
       action: 'profile_rollback_skipped',
-      target_user_id: TARGET_USER_ID,
-      actor_user_id: ADMIN_ID,
-      error: 'audit insert failed',
+      outcome: 'partial_failure',
+      code: null,
     });
+    expect(JSON.stringify(ctx)).not.toContain(TARGET_USER_ID);
+    expect(JSON.stringify(ctx)).not.toContain(ADMIN_ID);
+    expect(JSON.stringify(ctx)).not.toContain('audit insert failed');
 
     consoleError.mockRestore();
   });

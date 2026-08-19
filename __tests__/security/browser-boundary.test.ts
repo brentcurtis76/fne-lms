@@ -22,9 +22,8 @@ import {
   run,
   scanFile,
   computeBrowserGraph,
-  PASSWORD_WRITE_ALLOWLIST,
-  ACCOUNT_PROVISION_ALLOWLIST,
-  RAW_WRITER_IMPORT_ALLOWLIST,
+  RAW_AUTH_PRIMITIVE_MODULES,
+  LOW_LEVEL_IMPORT_SURFACES,
   SERVER_ONLY_MODULES,
 } from '../../scripts/ci/check-browser-boundaries.mjs';
 
@@ -80,6 +79,11 @@ describe('the scan reaches the code it claims to', () => {
       'lib/auth/password-completion.ts',
       'lib/auth/admin-password-reset.ts',
       'lib/auth/recovery-proof.ts',
+      'lib/auth/recovery-grant.ts',
+      'lib/auth/recovery-crypto.ts',
+      'lib/auth/recovery-request-queue.ts',
+      'lib/auth/admin-user-maintenance.ts',
+      'lib/auth/account-provisioning.ts',
       'lib/security/audit.ts',
       'lib/email/invitations.ts',
       'lib/email/outbox.ts',
@@ -136,22 +140,57 @@ describe('browser rules: each violation is caught', () => {
 describe('server rules: the trusted boundary is closed from the other side too', () => {
   it('a server module writing a password outside the boundary', () => {
     expect(rules('server-writes-password.ts', false)).toContain(
-      'SERVER_PASSWORD_WRITE_OUTSIDE_BOUNDARY'
+      'RAW_AUTH_PRIMITIVE_OUTSIDE_MODULE'
     );
   });
 
-  it('a server module provisioning an account outside the allow-list', () => {
+  it('a server module provisioning an account outside the primitive module', () => {
     expect(rules('server-provisions-account.ts', false)).toContain(
-      'SERVER_PROVISION_OUTSIDE_ALLOWLIST'
+      'RAW_AUTH_PRIMITIVE_OUTSIDE_MODULE'
     );
   });
 
-  it('a server module importing the raw password writer', () => {
-    expect(rules('server-imports-raw-writer.ts', false)).toContain('RAW_WRITER_IMPORTED');
+  it('does not depend on seeing an inline password property', () => {
+    expect(rules('server-writes-variable-payload.ts', false)).toContain(
+      'RAW_AUTH_PRIMITIVE_OUTSIDE_MODULE'
+    );
+    expect(rules('server-writes-spread-payload.ts', false)).toContain(
+      'RAW_AUTH_PRIMITIVE_OUTSIDE_MODULE'
+    );
+  });
+
+  it('catches taking an alias to a raw primitive', () => {
+    expect(rules('server-aliases-raw-primitive.ts', false)).toContain(
+      'RAW_AUTH_PRIMITIVE_OUTSIDE_MODULE'
+    );
+  });
+
+  it('rejects aliased, namespace, and default imports of low-level modules', () => {
+    expect(rules('server-aliases-low-level-import.ts', false)).toContain(
+      'LOW_LEVEL_IMPORT_SURFACE'
+    );
+    expect(rules('server-namespace-low-level-import.ts', false)).toContain(
+      'LOW_LEVEL_IMPORT_SHAPE'
+    );
+    expect(rules('server-default-low-level-import.ts', false)).toContain(
+      'LOW_LEVEL_IMPORT_SHAPE'
+    );
+  });
+
+  it('rejects require, dynamic import, and barrel re-export forms', () => {
+    expect(rules('server-requires-low-level-module.ts', false)).toContain(
+      'DYNAMIC_LOW_LEVEL_IMPORT'
+    );
+    expect(rules('server-dynamic-imports-low-level-module.ts', false)).toContain(
+      'DYNAMIC_LOW_LEVEL_IMPORT'
+    );
+    expect(rules('server-reexports-low-level-module.ts', false)).toContain(
+      'LOW_LEVEL_REEXPORT'
+    );
   });
 
   it('the same password write is ALSO caught when the file is browser code', () => {
-    expect(rules('server-writes-password.ts', true)).toContain('BROWSER_PASSWORD_WRITE');
+    expect(rules('server-writes-password.ts', true)).toContain('BROWSER_RAW_AUTH_PRIMITIVE');
   });
 });
 
@@ -169,37 +208,41 @@ describe('parsing, not matching', () => {
 // The allow-lists are the security argument, so they are pinned.
 // ---------------------------------------------------------------------------
 
-describe('the allow-lists', () => {
-  it('permits a password write in exactly the trusted boundary and the email-change route', () => {
-    expect([...PASSWORD_WRITE_ALLOWLIST.keys()].sort()).toEqual([
+describe('the raw primitive boundary', () => {
+  it('permits raw primitives in exactly three fixed-purpose modules, with no route entry', () => {
+    expect([...RAW_AUTH_PRIMITIVE_MODULES.keys()].sort()).toEqual([
+      'lib/auth/account-provisioning.ts',
+      'lib/auth/admin-user-maintenance.ts',
       'lib/auth/password-completion.ts',
-      'pages/api/admin/update-user.ts',
     ]);
   });
 
-  it('permits account provisioning in exactly the three provisioning routes', () => {
-    expect([...ACCOUNT_PROVISION_ALLOWLIST.keys()].sort()).toEqual([
-      'pages/api/admin/bulk-create-users.ts',
-      'pages/api/admin/create-user.ts',
-      'pages/api/admin/tractor-signups/grant.ts',
-    ]);
-  });
-
-  it('permits importing the raw writer in exactly the fourth ceremony', () => {
-    expect([...RAW_WRITER_IMPORT_ALLOWLIST.keys()]).toEqual(['lib/auth/admin-password-reset.ts']);
-  });
-
-  it('every allow-list entry carries a written justification', () => {
-    for (const list of [
-      PASSWORD_WRITE_ALLOWLIST,
-      ACCOUNT_PROVISION_ALLOWLIST,
-      RAW_WRITER_IMPORT_ALLOWLIST,
-    ]) {
-      for (const [path, why] of list) {
-        expect(typeof why, path).toBe('string');
-        expect(why.length, path).toBeGreaterThan(40);
-      }
+  it('contains a written justification for every raw primitive module', () => {
+    for (const [path, why] of RAW_AUTH_PRIMITIVE_MODULES) {
+      expect(path.startsWith('pages/'), path).toBe(false);
+      expect(typeof why, path).toBe('string');
+      expect(why.length, path).toBeGreaterThan(40);
     }
+  });
+
+  it('pins the only exports importable from the low-level wrapper modules', () => {
+    expect([...LOW_LEVEL_IMPORT_SURFACES.keys()].sort()).toEqual([
+      'lib/auth/account-provisioning',
+      'lib/auth/admin-user-maintenance',
+      'lib/auth/password-completion',
+    ]);
+    expect([...LOW_LEVEL_IMPORT_SURFACES.get('lib/auth/account-provisioning')!]).toEqual([
+      'provisionAuthAccount',
+    ]);
+    expect([...LOW_LEVEL_IMPORT_SURFACES.get('lib/auth/password-completion')!].sort()).toEqual([
+      'COMPLETION_MESSAGES',
+      'Reauthenticator',
+      'completeAdministrativeReset',
+      'completeForcedPasswordChange',
+      'completeRecoveryPasswordChange',
+      'completeVoluntaryPasswordChange',
+      'isCompletionFailure',
+    ]);
   });
 
   it('names the server-only modules the browser may not import', () => {

@@ -167,7 +167,11 @@ describe('recordSecurityAudit — never throws', () => {
 
     expect(errorSpy).toHaveBeenCalledWith(
       '[security-audit] write failed',
-      expect.objectContaining({ action: 'role_assigned', error: 'boom' })
+      {
+        action: 'role_assigned',
+        outcome: 'success',
+        code: null,
+      }
     );
   });
 

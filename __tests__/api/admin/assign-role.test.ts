@@ -1473,14 +1473,14 @@ describe('admin/assign-role — audit logging', () => {
     expect(countInserts(tracker, 'security_audit_events')).toBe(1);
     // The failure is surfaced by the centralised writer under a stable prefix
     // — that is what keeps "fail open" from meaning "fail silent".
-    expect(errSpy).toHaveBeenCalledWith(
-      '[security-audit] write failed',
-      expect.objectContaining({
-        action: 'role_assigned',
-        target_user_id: TARGET_USER_ID,
-        error: 'audit insert failed',
-      }),
-    );
+    expect(errSpy).toHaveBeenCalledWith('[security-audit] write failed', {
+      action: 'role_assigned',
+      outcome: 'success',
+      code: null,
+    });
+    const logged = JSON.stringify(errSpy.mock.calls);
+    expect(logged).not.toContain(TARGET_USER_ID);
+    expect(logged).not.toContain('audit insert failed');
     errSpy.mockRestore();
   });
 });

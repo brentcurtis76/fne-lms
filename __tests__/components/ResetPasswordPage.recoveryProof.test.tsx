@@ -63,6 +63,7 @@ import ResetPasswordPage, {
 
 const VALID_PASSWORD = 'Sintetica2026';
 const HASH = 'one-time-hash-from-the-email';
+const GRANT = 'rg1.synthetic-encrypted-grant';
 const INTRUDER_TOKEN = 'access-token-belonging-to-the-signed-in-visitor';
 
 interface ClientOptions {
@@ -129,12 +130,21 @@ function visit(url: string) {
 
 let fetchMock: ReturnType<typeof vi.fn>;
 
-function stubFetch(response: { status: number; body: Record<string, unknown> }) {
-  fetchMock = vi.fn(async () => ({
-    ok: response.status >= 200 && response.status < 300,
-    status: response.status,
-    json: async () => response.body,
-  }));
+function stubFetch(
+  completion: { status: number; body: Record<string, unknown> },
+  exchange: { status: number; body: Record<string, unknown> } = {
+    status: 200,
+    body: { grant: GRANT, expiresAt: '2026-08-19T22:00:00.000Z' },
+  }
+) {
+  fetchMock = vi.fn(async (url: string) => {
+    const response = url === '/api/auth/recovery-exchange' ? exchange : completion;
+    return {
+      ok: response.status >= 200 && response.status < 300,
+      status: response.status,
+      json: async () => response.body,
+    };
+  });
   (globalThis as any).fetch = fetchMock;
   return fetchMock;
 }
@@ -169,6 +179,10 @@ async function submit(password: string) {
   fireEvent.change(screen.getByTestId('reset-new-password'), { target: { value: password } });
   fireEvent.change(screen.getByTestId('reset-confirm-password'), { target: { value: password } });
   fireEvent.click(screen.getByTestId('reset-submit'));
+}
+
+function callsTo(url: string) {
+  return fetchMock.mock.calls.filter(([calledUrl]) => calledUrl === url);
 }
 
 /** Every call the page must NEVER make. */
@@ -302,6 +316,17 @@ describe('what opens the form', () => {
     await expectForm();
     expectConsumedNothing(client);
   });
+
+  it('does not open until the server exchanges the proof for a bounded grant', async () => {
+    stubFetch(
+      { status: 200, body: { success: true } },
+      { status: 401, body: { code: 'RECOVERY_MATERIAL_INVALID' } }
+    );
+    visit(`/reset-password?token_hash=${HASH}&type=recovery`);
+    await mount();
+    await expectInvalid(RECOVERY_MESSAGES.expired);
+    expect(callsTo('/api/auth/recovery-exchange')).toHaveLength(1);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -377,16 +402,16 @@ describe('the completion request', () => {
     return client;
   }
 
-  it('forwards the ONE-TIME MATERIAL, and no session credential', async () => {
+  it('forwards the bounded grant, and no session credential', async () => {
     await openForm();
     await submit(VALID_PASSWORD);
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    const [url, init] = fetchMock.mock.calls[0];
+    await waitFor(() => expect(callsTo('/api/auth/recovery-complete')).toHaveLength(1));
+    const [url, init] = callsTo('/api/auth/recovery-complete')[0];
     expect(url).toBe('/api/auth/recovery-complete');
 
     const body = JSON.parse(init.body);
-    expect(body).toEqual({ tokenHash: HASH, type: 'recovery', newPassword: VALID_PASSWORD });
+    expect(body).toEqual({ grant: GRANT, newPassword: VALID_PASSWORD });
 
     // No bearer token: an access token is not proof of a recovery, and the
     // endpoint does not read one.
@@ -397,9 +422,9 @@ describe('the completion request', () => {
   it('sends no user id — there is nothing for a caller to redirect', async () => {
     await openForm();
     await submit(VALID_PASSWORD);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(Object.keys(body).sort()).toEqual(['newPassword', 'tokenHash', 'type']);
+    await waitFor(() => expect(callsTo('/api/auth/recovery-complete')).toHaveLength(1));
+    const body = JSON.parse(callsTo('/api/auth/recovery-complete')[0][1].body);
+    expect(Object.keys(body).sort()).toEqual(['grant', 'newPassword']);
   });
 
   it('checks the shared policy in the form before spending the link', async () => {
@@ -408,7 +433,7 @@ describe('the completion request', () => {
     await waitFor(() =>
       expect(screen.getByTestId('reset-message')).toHaveTextContent(/contraseña/i)
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(callsTo('/api/auth/recovery-complete')).toHaveLength(0);
   });
 
   it('refuses mismatched confirmations without a request', async () => {
@@ -424,7 +449,7 @@ describe('the completion request', () => {
     await waitFor(() =>
       expect(screen.getByTestId('reset-message')).toHaveTextContent(RECOVERY_MESSAGES.mismatch)
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(callsTo('/api/auth/recovery-complete')).toHaveLength(0);
   });
 
   it('reports success and sends the user to /login', async () => {
@@ -438,7 +463,7 @@ describe('the completion request', () => {
   it('CLOSES the form when the server says the material was invalid — the link is spent', async () => {
     stubFetch({
       status: 401,
-      body: { error: 'x', code: 'RECOVERY_MATERIAL_INVALID' },
+      body: { error: 'x', code: 'RECOVERY_GRANT_INVALID' },
     });
     await openForm();
     await submit(VALID_PASSWORD);
@@ -446,7 +471,7 @@ describe('the completion request', () => {
     await expectInvalid(RECOVERY_MESSAGES.expired);
   });
 
-  it('closes the form on any other server refusal too, rather than inviting a retry on a burnt link', async () => {
+  it('keeps the form open on a transient provider/server refusal so the grant can retry', async () => {
     stubFetch({
       status: 500,
       body: { error: 'Error interno del servidor', code: 'SERVER_ERROR' },
@@ -454,21 +479,23 @@ describe('the completion request', () => {
     await openForm();
     await submit(VALID_PASSWORD);
 
-    await expectInvalid('Error interno del servidor');
+    await waitFor(() =>
+      expect(screen.getByTestId('reset-message')).toHaveTextContent('Error interno del servidor')
+    );
+    expect(formVisible()).toBe(true);
   });
 
   it('never sends the material twice, even if submit is clicked twice', async () => {
     await openForm();
     await submit(VALID_PASSWORD);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    fireEvent.click(screen.getByTestId('reset-submit'));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(callsTo('/api/auth/recovery-complete')).toHaveLength(1));
+    expect(callsTo('/api/auth/recovery-complete')).toHaveLength(1);
   });
 
   it('consults no session at any point in the whole flow', async () => {
     const client = await openForm();
     await submit(VALID_PASSWORD);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await waitFor(() => expect(callsTo('/api/auth/recovery-complete')).toHaveLength(1));
     expectConsumedNothing(client);
   });
 });

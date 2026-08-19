@@ -100,6 +100,7 @@ describe('generateRecoveryLink', () => {
   });
 
   it('reports a provider failure without leaking its wording', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const { admin } = buildAdmin({ error: { message: 'user not found: sintetica@example.com' } });
 
     const result = await generateRecoveryLink(admin as never, {
@@ -109,6 +110,7 @@ describe('generateRecoveryLink', () => {
 
     expect(result).toEqual({ ok: false, reason: 'generate_failed' });
     expect(JSON.stringify(result)).not.toContain('sintetica@example.com');
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain('sintetica@example.com');
   });
 
   it('refuses to build a URL when no hashed token comes back', async () => {

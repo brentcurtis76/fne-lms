@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { provisionAuthAccount } from '../../../../lib/auth/account-provisioning';
 import { checkIsAdmin, createServiceRoleClient } from '../../../../lib/api-auth';
 import { getAppBaseUrl } from '../../../../lib/utils/app-url';
 import {
@@ -442,11 +443,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     try {
       const temporaryPassword = generatePassword();
-      const { data: createdUser, error: createUserError } = await supabase.auth.admin.createUser({
+      const { data: createdUser, error: createUserError } = await provisionAuthAccount(supabase, {
         email,
         password: temporaryPassword,
-        email_confirm: true,
-        user_metadata: {
+        emailConfirm: true,
+        userMetadata: {
           role,
           roles: [role],
         },

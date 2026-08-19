@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { updateAuthUserEmail } from '../../../lib/auth/admin-user-maintenance';
 import { checkIsAdminOrEquipoDirectivo, createServiceRoleClient, isValidSchoolIdInput } from '../../../lib/api-auth';
 import { Validators } from '../../../lib/types/api-auth.types';
 import { rateLimit, RATE_LIMITS } from '../../../lib/rateLimit';
@@ -236,9 +237,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // an account-takeover capability inside the school scope (combined
     // with reset-password). Tightening requires product approval.
     if (hasEmail) {
-      const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
+      const { error: authUpdateError } = await updateAuthUserEmail(
+        supabaseAdmin,
         userId,
-        { email: trimmedEmail }
+        trimmedEmail
       );
 
       if (authUpdateError) {

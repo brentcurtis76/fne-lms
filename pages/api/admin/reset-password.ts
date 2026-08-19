@@ -12,6 +12,8 @@ import { ApiError, ApiSuccess, Validators } from '../../../lib/types/api-auth.ty
 import { rateLimit, RATE_LIMITS } from '../../../lib/rateLimit';
 import {
   completeAdministrativeReset,
+} from '../../../lib/auth/password-completion';
+import {
   isAdminResetFailure,
   ADMIN_RESET_MESSAGES,
 } from '../../../lib/auth/admin-password-reset';

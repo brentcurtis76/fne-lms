@@ -1,8 +1,8 @@
 # GENERA — CI: quality gates on every PR (Fase 0)
 # Gates: (1) typecheck  (1b) lint (zero warnings)  (2) unit/Vitest  (3) supabase test db (pgTAP/RLS)
 #        (4) Playwright e2e on a seeded, ephemeral local Supabase stack (T2)
-# Plus: RLS migration guard (blocks any migration that disables ROW LEVEL SECURITY).
-# Branch protection on `main` must require these six checks — see docs/ci-setup.md.
+# Plus: migration-safety and browser/server-boundary guards.
+# Branch protection on `main` must require all seven exact job names — see docs/ci-setup.md.
 # All jobs: timeout-minutes 20 (GitHub default is 360 — a hung job would burn 6h of Actions).
 
 name: CI
@@ -48,7 +48,8 @@ jobs:
       - run: npm ci
       # AST + import-graph, not a regex over a directory list. Fails on a browser
       # password write, a browser write to must_change_password, a browser audit
-      # insert, or a server password write outside the trusted boundary.
+      # insert, or any password-capable Supabase admin primitive outside the
+      # three fixed-purpose modules (there is no route allow-list).
       # Negative controls: __tests__/security/browser-boundary.test.ts
       - name: Enforce the browser/server security boundary
         run: node scripts/ci/check-browser-boundaries.mjs
@@ -127,6 +128,10 @@ jobs:
           # future [db] section in supabase/config.toml cannot silently break this.
           eval "$(supabase status -o env | grep '^DB_URL=')"
           SUPABASE_DB_URL="${DB_URL}" npm run test:queue
+      - name: Recovery concurrency proof (cooldown and leases)
+        run: |
+          eval "$(supabase status -o env | grep '^DB_URL=')"
+          SUPABASE_DB_URL="${DB_URL}" npm run test:recovery-concurrency
 
   # T2: the e2e gate runs against an ISOLATED, EPHEMERAL Supabase stack started on
   # the runner — no remote QA project, no production credentials, no shared state.
@@ -158,7 +163,9 @@ jobs:
       # `mailpit` stays excluded and is not needed: every recovery and invitation
       # message this platform sends now goes through its OWN server-side mailer
       # (lib/email/invitations.ts), which the e2e reads from lib/email/outbox.ts.
-      # Nothing goes out over Supabase SMTP any more.
+      # Self-service recovery first commits an encrypted durable outbox row; the
+      # auth lifecycle spec drives its authenticated cron worker before reading
+      # that captured message. Nothing goes out over Supabase SMTP any more.
       #
       # `realtime` used to be excluded. It is not any more: the forced-password
       # boundary is now a restrictive RLS policy, and the claim that it governs

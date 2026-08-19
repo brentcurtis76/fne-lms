@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { provisionAuthAccount } from '../../../lib/auth/account-provisioning';
 import { createClient } from '@supabase/supabase-js';
 import { parseBulkUserData, type BulkUserData } from '../../../utils/bulkUserParser';
 import { BulkImportOrganizationalScope } from '../../../types/bulk';
@@ -594,8 +595,8 @@ async function createUser(
     const createUserParams = {
       email: userData.email,
       password: finalPassword,
-      email_confirm: true,
-      user_metadata: {
+      emailConfirm: true,
+      userMetadata: {
         first_name: userData.firstName || null,
         last_name: userData.lastName || null,
         role: roleType
@@ -604,7 +605,7 @@ async function createUser(
 
     console.log(`[BULK-IMPORT] Creating auth user for ${userData.email}`);
 
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser(createUserParams);
+    const { data: newUser, error: createError } = await provisionAuthAccount(supabaseAdmin, createUserParams);
 
     if (createError) {
       console.log(`[BULK-IMPORT] Auth creation error for ${userData.email}:`, {

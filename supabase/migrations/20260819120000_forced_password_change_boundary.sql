@@ -112,11 +112,39 @@ $$;
 COMMENT ON FUNCTION public.protect_must_change_password() IS
   'Refuses any UPDATE that moves profiles.must_change_password when the caller is authenticated or anon. The baseline profiles UPDATE policy covers the whole row, so without this the account the flag restrains can clear it with one PostgREST PATCH. Every other column keeps its existing permissions.';
 
-DROP TRIGGER IF EXISTS protect_must_change_password ON public.profiles;
-CREATE TRIGGER protect_must_change_password
-  BEFORE UPDATE ON public.profiles
-  FOR EACH ROW
-  EXECUTE FUNCTION public.protect_must_change_password();
+-- Created ADDITIVELY, guarded on the catalog.
+--
+-- An earlier form of this migration opened with `DROP TRIGGER IF EXISTS`. That
+-- is a destructive statement in a repository whose Hard Rules say migrations are
+-- additive only (CLAUDE.md -> Database Safety), and it was unnecessary: the
+-- trigger does not exist on the clean base this branch is cut from. The
+-- existence check makes the migration re-runnable without a DROP, and
+-- `scripts/ci/check-destructive-migrations.mjs` now fails CI if a DROP,
+-- TRUNCATE, row-security disable or destructive ALTER reappears in any
+-- migration.
+--
+-- The trigger's BEHAVIOUR is upgraded by CREATE OR REPLACE on the function
+-- above, which is where all the logic lives, so nothing has to be recreated to
+-- change what it does.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+      FROM pg_trigger t
+      JOIN pg_class c ON c.oid = t.tgrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public'
+       AND c.relname = 'profiles'
+       AND t.tgname  = 'protect_must_change_password'
+       AND NOT t.tgisinternal
+  ) THEN
+    CREATE TRIGGER protect_must_change_password
+      BEFORE UPDATE ON public.profiles
+      FOR EACH ROW
+      EXECUTE FUNCTION public.protect_must_change_password();
+  END IF;
+END
+$$;
 
 -- -----------------------------------------------------------------------------
 -- The trusted write path

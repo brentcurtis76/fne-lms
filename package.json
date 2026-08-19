@@ -3,6 +3,8 @@
   "version": "1.0.1",
   "main": "index.js",
   "scripts": {
+    "guard:migrations": "bash scripts/ci/check-rls-migrations.sh && node scripts/ci/check-destructive-migrations.mjs",
+    "guard:browser": "node scripts/ci/check-browser-boundaries.mjs",
     "dev": "./scripts/pre-dev-check.sh && NODE_OPTIONS='--max-old-space-size=4096' next dev",
     "dev:unsafe": "next dev",
     "dev:stable": "./dev-server.sh",

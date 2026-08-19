@@ -18,13 +18,40 @@ concurrency:
 
 jobs:
   rls-migration-guard:
-    name: RLS migration guard
+    name: Migration safety guard
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
       - name: Block migrations that disable RLS
         run: bash scripts/ci/check-rls-migrations.sh
+      # Additive-only migrations (CLAUDE.md -> Database Safety). Comment-aware and
+      # literal-aware, so it catches `EXECUTE 'DROP ...'` without failing the
+      # prose headers this repository writes. Negative controls:
+      # __tests__/security/destructive-migration-guard.test.ts
+      - name: Block destructive migrations (DROP / TRUNCATE / destructive ALTER)
+        run: node scripts/ci/check-destructive-migrations.mjs
+
+  browser-boundary-guard:
+    name: Browser/server boundary guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      # AST + import-graph, not a regex over a directory list. Fails on a browser
+      # password write, a browser write to must_change_password, a browser audit
+      # insert, or a server password write outside the trusted boundary.
+      # Negative controls: __tests__/security/browser-boundary.test.ts
+      - name: Enforce the browser/server security boundary
+        run: node scripts/ci/check-browser-boundaries.mjs
 
   typecheck:
     name: Gate 1 — Typecheck
@@ -125,9 +152,21 @@ jobs:
       - run: npm ci
 
       # Excluded services are the ones no e2e path touches; skipping them saves
-      # several GB of image pulls per run. db, auth, rest, storage and kong stay.
+      # several GB of image pulls per run. db, auth, rest, storage, REALTIME and
+      # kong stay.
+      #
+      # `mailpit` stays excluded and is not needed: every recovery and invitation
+      # message this platform sends now goes through its OWN server-side mailer
+      # (lib/email/invitations.ts), which the e2e reads from lib/email/outbox.ts.
+      # Nothing goes out over Supabase SMTP any more.
+      #
+      # `realtime` used to be excluded. It is not any more: the forced-password
+      # boundary is now a restrictive RLS policy, and the claim that it governs
+      # Realtime row delivery cannot be proved by a stack with no Realtime in it.
+      # tests/e2e/auth-lifecycle.spec.ts opens a real postgres_changes channel
+      # with a flagged token and with an unflagged one.
       - name: Start ephemeral local Supabase stack
-        run: supabase start -x studio,logflare,vector,edge-runtime,imgproxy,mailpit,realtime,supavisor,pooler
+        run: supabase start -x studio,logflare,vector,edge-runtime,imgproxy,mailpit,supavisor,pooler
       - name: Apply all migrations from scratch
         run: supabase db reset
 
@@ -139,6 +178,12 @@ jobs:
             echo "NEXT_PUBLIC_SUPABASE_URL=$(jq -er '.API_URL' <<<"$STATUS")"
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(jq -er '.ANON_KEY' <<<"$STATUS")"
             echo "SUPABASE_SERVICE_ROLE_KEY=$(jq -er '.SERVICE_ROLE_KEY' <<<"$STATUS")"
+            # The Storage half of the forced-password boundary is proved by
+            # creating a synthetic bucket and a permissive policy scoped to it,
+            # driving the real storage-api with flagged and unflagged tokens, and
+            # tearing both down. That needs a direct connection; PostgREST cannot
+            # issue DDL. Ephemeral stack, synthetic credentials, dies with the runner.
+            echo "SUPABASE_DB_URL=$(jq -er '.DB_URL' <<<"$STATUS")"
             # A floor, not a feature: `resolveZoomMode` (lib/zoom/api.ts:431-436) treats an
             # UNSET ZOOM_MODE as `live`, which is right for production and wrong for a test
             # environment. Reachable only through the job registry behind

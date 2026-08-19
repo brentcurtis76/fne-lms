@@ -1,4 +1,4 @@
-# Runbook — authentication security remediation (S1–S14, F1–F6)
+# Runbook — authentication security remediation (S1–S14, F1–F6, R1–R5)
 
 > Operational follow-up for branch `fix/auth-sec2`. Everything here is an action
 > a **human** must take against production, a provider dashboard or the Git
@@ -22,11 +22,12 @@ from being read as "the problem is fixed". These are different columns.
 | - | ---- | ----- | ----- |
 | 0.1 | Application and database **code** for S1–S14 and F1–F6 | **CODE COMPLETE**, unreviewed, unmerged | this branch |
 | 0.2 | Local gates (type-check, lint, unit, build, pgTAP, Playwright) | **GREEN** on this branch | review request §7 |
-| 0.3 | **Migrations applied to production** | **PENDING — NOT APPLIED.** Three of them. Until they are, every audit write fails, the forced-change gate does not exist in production, and the resend cooldown is not atomic there | §2 |
+| 0.3 | **Migrations applied to production** | **PENDING — NOT APPLIED.** **Four** of them now. Until they are, every audit write fails, the forced-change boundary does not exist in production *at either layer*, and the resend cooldown is not atomic there | §2 |
 | 0.4 | `RESEND_API_KEY` / `EMAIL_FROM_ADDRESS` in Vercel **Production** | **UNVERIFIED, BELIEVED ABSENT.** Reported absent at the time of the original work; Vercel was neither queried nor modified in this round, so treat the state as unknown until someone looks | §3.1 |
 | 0.5 | Canonical public origin in Vercel Production | **UNVERIFIED.** Now load-bearing: the code fails loudly instead of trusting `Host` | §3.1 |
 | 0.6 | **Controlled send** with a synthetic account | **NOT RUN.** No e-mail has been sent by anyone, from any environment, at any point in this work | §3.3–§3.6 |
-| 0.7 | Supabase **SMTP, e-mail templates, redirect allowlist** | **NOT VERIFIED.** The dashboard was never opened | §4.3 |
+| 0.7 | Supabase **SMTP, e-mail templates, redirect allowlist** | **NOT VERIFIED.** The dashboard was never opened. Less load-bearing than it was: no user-facing flow depends on a Supabase-hosted template any more (§4.3) | §4.3 |
+| 0.7a | **E-mail delivery, as opposed to provider acceptance** | **UNPROVEN, AND UNPROVABLE FROM THIS REPOSITORY.** The furthest any test here reaches is "the provider accepted the request". There is no delivery webhook, so `delivered` and `bounced` are states nothing in this codebase produces | §3.3, §6 |
 | 0.8 | **Leaked-password protection** | **STILL OFF.** Advisor-confirmed at the time of the original work; not re-checked since | §4.1 |
 | 0.9 | **OTP / recovery expiry** | **STILL OVER ONE HOUR.** Same provenance as 0.8 | §4.2 |
 | 0.10 | **Rotation of the exposed administrator credential**, and invalidation of its sessions | **NOT DONE — STILL URGENT.** Deleting the page stopped future serving; it did nothing about past exposure | §1.1–§1.2 |
@@ -37,6 +38,17 @@ from being read as "the problem is fixed". These are different columns.
 
 Rows 0.10–0.12 are independent of the merge and should not wait for it. Row 0.3
 is the one that must happen *with* it.
+
+**On row 0.7a, in plain words.** A repository test cannot prove that mail leaves
+the building. `lib/email/invitations.ts` now names its outcomes for what is
+actually observed — `not_configured`, `link_generation_failed`, `transport_error`,
+`provider_rejected`, `provider_accepted` — and the administrator-facing sentence
+says *"El proveedor de correo aceptó el mensaje. La llegada a la bandeja del
+destinatario no se confirma desde aquí."* `delivered` and `bounced` exist in the
+type so that acceptance is never quietly read as delivery, and
+`__tests__/lib/email/deliveryStatus.test.ts` drives every reachable outcome and
+asserts that neither is ever returned. Closing that gap is §3.3 plus §6.1, and
+both are human operations against production.
 
 ---
 
@@ -135,20 +147,28 @@ migrations is not closed until they are applied to production and verified
 read-only. Local and CI green proves the code is correct and says **nothing**
 about the deployed schema.
 
-This branch adds **three** migrations. Apply them **in this order** — the third
-writes into the table the first creates.
+This branch adds **four** migrations. Apply them **in this order** — the third
+writes into the table the first creates, and the fourth installs the data-layer
+half of the forced-change boundary.
 
 | Version | What it does | Why the order matters |
 | ------- | ------------ | --------------------- |
 | `20260818120000_security_audit_events.sql` | The audit table: one `CREATE TABLE IF NOT EXISTS`, three indexes, `ENABLE ROW LEVEL SECURITY`, one conditional policy, `REVOKE`/`GRANT`, four `COMMENT`s | Nothing else works without it |
 | `20260819120000_forced_password_change_boundary.sql` | The forced-change boundary (F1): a `BEFORE UPDATE` trigger protecting `profiles.must_change_password`, three functions, and `ALTER ROLE authenticator SET pgrst.db_pre_request` + `NOTIFY pgrst` | Independent of the other two |
 | `20260819120100_invitation_resend_claim.sql` | `claim_invitation_resend()` (F5) | **References `public.security_audit_events`** — apply after the first |
+| `20260819120200_forced_password_change_data_layer.sql` | **The data-layer boundary (R2).** One predicate, one installer function, and a RESTRICTIVE `forced_password_change_guard` policy on **every row-secured table in `public`** plus the browser-reachable tables in `storage` | Must follow `20260819120000` — it reads the same flag, and the two are the two layers of one control |
 
-All three are additive: no `DROP` of anything that holds data, no `TRUNCATE`, no
-destructive `ALTER`, and no statement that disables row-level security. (The
-second contains one `DROP TRIGGER IF EXISTS` immediately before the `CREATE
-TRIGGER` that replaces it, which is how the migration stays re-runnable; it drops
-no data and no object that outlives the statement.)
+All four are additive: **no `DROP`, no `TRUNCATE`, no destructive `ALTER`, and no
+statement that turns row-level security off.**
+
+That sentence used to carry a parenthetical excusing a `DROP TRIGGER IF EXISTS`
+in the second migration. An independent reviewer was right to reject it: CLAUDE.md
+does not have an exception for a `DROP` that is "immediately replaced". The
+statement is gone, replaced by a `pg_trigger` existence check, and
+`scripts/ci/check-destructive-migrations.mjs` now fails CI on any `DROP`,
+`TRUNCATE`, row-security disable or destructive `ALTER` in any migration —
+comment-aware, and literal-aware enough to catch `EXECUTE 'DROP …'`. Its negative
+controls are in `__tests__/security/destructive-migration-guard.test.ts`.
 
 ### What the second migration changes at the request layer — read this before applying
 
@@ -197,7 +217,52 @@ INSERT INTO supabase_migrations.schema_migrations (version)
 VALUES ('20260819120100')
 ON CONFLICT DO NOTHING;
 COMMIT;
+
+BEGIN;
+-- paste the contents of 20260819120200_forced_password_change_data_layer.sql
+INSERT INTO supabase_migrations.schema_migrations (version)
+VALUES ('20260819120200')
+ON CONFLICT DO NOTHING;
+COMMIT;
 ```
+
+### What the FOURTH migration changes, and why it is the important one
+
+The second migration put the boundary on `pgrst.db_pre_request`, which covers
+PostgREST and nothing else. This application also talks to **Storage** and
+**Realtime** straight from the browser (`lib/supabaseEnhanced.ts`,
+`components/meetings/persistMeeting.ts`, `utils/storage.js`,
+`contexts/AvatarContext.tsx`, `utils/activityUtils.ts`,
+`utils/messagingUtils-simple.ts`, `lib/realtimeNotifications.js`,
+`pages/noticias.tsx`), and neither of those services calls the pre-request hook.
+A flagged account could keep uploading files and receiving live rows.
+
+The fourth migration moves the control **under the tables**:
+
+- `public.password_change_gate_ok()` — one predicate, no arguments, reads
+  `auth.uid()`. TRUE means "may use protected data".
+- a RESTRICTIVE `forced_password_change_guard` policy `FOR ALL TO authenticated`
+  on every row-secured table in `public` (232 at the time of writing) and on
+  `storage.objects`, `storage.buckets` and the two multipart tables. Restrictive
+  policies are ANDed with whatever is already there, so this can only NARROW
+  access — it cannot grant anything, and non-flagged traffic is unaffected.
+- `public.apply_forced_password_change_guard(schema, table)` — the one line a
+  future migration calls for a new table.
+
+**Expect these consequences.** A flagged account will see empty results rather
+than 403 from Storage and Realtime, and 403 from PostgREST (where the
+pre-request gate still fires first). Ordinary traffic pays one extra evaluation
+per query, wrapped in a scalar sub-select so the planner runs it once as an
+InitPlan rather than once per row. `service_role` holds `BYPASSRLS`, so every
+server endpoint — including the ones that CLEAR the flag — is unaffected.
+
+**What the fourth migration does NOT cover, stated plainly.** A `SECURITY
+DEFINER` RPC bypasses row security by definition, so no policy can gate one;
+those are covered by the pre-request gate alone, which is why the second
+migration stays. The same is true of the 22 legacy tables in `public` that carry
+no row security at all (pinned by `supabase/tests/001-rls-enabled.sql`) — a
+restrictive policy on a table with row security off would enforce nothing, and
+`apply_forced_password_change_guard` raises rather than pretending otherwise.
 
 `ALTER ROLE` and `NOTIFY` are both transactional in PostgreSQL, so the second
 migration is safe inside `BEGIN`/`COMMIT` — the NOTIFY is delivered at commit.
@@ -378,15 +443,43 @@ family or staff address.
    address with **deliberate leading whitespace and mixed case**, and submit.
    - The button must disable while sending.
    - The message must be the generic "Si existe una cuenta con ese correo…".
-10. The mail must arrive despite the whitespace and casing (this is S9).
-11. Open the link → the form appears → set a new password → sign in.
-12. Now, **while signed in**, navigate directly to `/reset-password` with no
-    parameters. You must see **"Enlace no válido"**, not a password form. This is
-    the S12 fix; if you see a form, stop and escalate.
+10. The mail must arrive despite the whitespace and casing (this is S9). It is
+    sent by **this application** now, not by Supabase — subject *"Restablece tu
+    contraseña de Genera"*. If a Supabase-branded reset mail arrives instead,
+    something is still calling `resetPasswordForEmail`; stop and escalate.
+11. Confirm the link is `…/reset-password?token_hash=…&type=recovery` — not
+    `…/auth/v1/verify?…`. Open it → the form appears → set a new password → sign
+    in.
+12. **Open the same link a second time.** It must now show the invalid-link
+    screen: the credential is one-time and the server burned it. If the form
+    appears again, the recovery ceremony is not consuming the material and this
+    is a finding.
+13. Now, **while signed in**, navigate directly to `/reset-password` with no
+    parameters. You must see **"Enlace no válido"**, not a password form. Then
+    try `/reset-password#access_token=cualquiera&refresh_token=cualquiera&type=recovery`.
+    That must ALSO be refused — an access token is not recovery proof. If either
+    shows a form, stop and escalate.
 
-### 3.6 Clean up
+### 3.6 Provider evidence — the step that separates "accepted" from "delivered"
 
-13. Delete the synthetic account: **Admin → Registros públicos** → the row →
+14. In the **Resend dashboard → Emails**, find the three messages this exercise
+    produced (invitation, access notice, recovery). Record for each one:
+    - the provider message id (the application keeps it as
+      `providerMessageId` and, for the recovery request, in the audit row's
+      `metadata.provider_message_id`);
+    - the provider's own status — **delivered**, **bounced**, **complained** or
+      still queued.
+
+    Until this step is performed, the only thing anyone knows is that the
+    provider ACCEPTED the request. No repository test can advance that, and none
+    claims to.
+
+15. If any message bounced, do not retry blindly: check the sending domain's SPF
+    / DKIM / DMARC records (§3.2) before sending again.
+
+### 3.7 Clean up
+
+16. Delete the synthetic account: **Admin → Registros públicos** → the row →
     **Eliminar**, ticking the option to remove the platform account.
 
 ---
@@ -428,23 +521,35 @@ Dashboard → **Authentication**:
 - **SMTP Settings** — if custom SMTP is configured, confirm the credentials are
   live and the sender matches the verified domain. Supabase's built-in sender is
   rate-limited and not suitable for production invitations.
-- **Email Templates → Reset Password** — this template governs the
-  **self-service** "¿Olvidaste tu contraseña?" flow only. Since F2 the
-  **invitation** e-mail is built by this application and does not use a Supabase
-  template at all: `lib/auth/recovery-link.ts` constructs
-  `/reset-password?token_hash=…&type=recovery` from
-  `generateLink().properties.hashed_token`, so the invitation's shape no longer
-  depends on any dashboard setting.
+- **Email Templates → Reset Password** — **no user-facing flow depends on this
+  template any more.** Both halves of recovery are now built and sent by this
+  application:
 
-  For the self-service template, the link must reach `/reset-password` carrying
-  `token_hash` (or a PKCE `code`). A template emitting a raw `{{ .Token }}` is
-  **refused with a clear message** ("El enlace no contiene la información
-  necesaria") rather than silently landing on a form, because the page cannot
-  verify a raw token without the address. A link that arrives as a legacy
-  `#access_token=…` fragment still works, but only if it carries
-  `access_token`, `refresh_token` **and** `type=recovery` — an incomplete
-  fragment is refused rather than falling through to whatever session the
-  browser happens to hold.
+  | Flow | Who sends it | What the link looks like |
+  | ---- | ------------ | ------------------------ |
+  | Invitation / access grant | this application, via `lib/email/invitations.ts` | `/reset-password?token_hash=…&type=recovery` |
+  | Resend invitation | this application, same module | same, a FRESH credential each time |
+  | Self-service "¿Olvidaste tu contraseña?" | this application, via `POST /api/auth/recovery-request` | same |
+
+  Self-service used to go through `supabase.auth.resetPasswordForEmail()` from
+  the browser, which sent Supabase's template with Supabase's link — landing as
+  an implicit `#access_token=` fragment or a PKCE `?code=` depending on this
+  dashboard setting. **Neither of those shapes is accepted any more**, and that
+  is deliberate: an implicit fragment carries an ORDINARY ACCESS TOKEN, which no
+  server-side check can distinguish from a login, and a PKCE code can only be
+  exchanged with a verifier held in the browser. Recovery proof must be
+  server-verifiable, purpose-bound and one-time, and `token_hash` +
+  `verifyOtp({ type: 'recovery' })` is the only shape that is.
+
+  `/reset-password` refuses everything else with a plain es-CL message
+  ("Este enlace usa un formato que ya no aceptamos por seguridad…").
+
+  **If you nonetheless want the Supabase template aligned** — belt and braces,
+  for any provider-initiated recovery that might be triggered from the dashboard
+  — set the body to link at
+  `{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=recovery`.
+  A template emitting `{{ .ConfirmationURL }}` or a raw `{{ .Token }}` will
+  produce a link this application refuses.
 - **URL Configuration** — `Site URL` and `Redirect URLs` must include
   `https://www.nuevaeducacion.org/reset-password`. A `redirectTo` outside the
   allowlist is dropped by GoTrue and the user lands on the site root instead of
@@ -550,3 +655,47 @@ distinguish "the code shipped" from "the control is enforced":
 - [ ] The resend cooldown is atomic: fire two resends for the same recipient at
       once (`curl … & curl … & wait`). Exactly one must return 200 and the other
       429, and the recipient must receive exactly one message.
+- [ ] **R1 — an ordinary access token is NOT recovery proof.** Sign in normally
+      as the synthetic account, take that access token, and post it the way the
+      previous version of the endpoint would have accepted it:
+
+      ```
+      curl -sS -o /dev/null -w '%{http_code}\n' -X POST "$APP/api/auth/recovery-complete" \
+        -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+        -d '{"newPassword":"OtraClaveSintetica2026"}'
+      ```
+
+      Expected **401**. Then confirm the account's password did **not** change by
+      signing in with the old one. If this returns 200, the recovery ceremony is
+      accepting sessions as proof and this is the S12 defect, live.
+- [ ] **R2 — the boundary covers Storage.** With the account flagged again, use
+      its token against the Storage API for a bucket it would otherwise be able
+      to use: `POST $SUPABASE_URL/storage/v1/object/list/<bucket>` must return no
+      rows, and an upload must fail. Clear the flag and repeat: both must work.
+      (Storage does not go through PostgREST, so the pre-request hook has never
+      been on this path — the restrictive policy from `20260819120200` is what
+      does this.)
+- [ ] **R2 — the boundary covers Realtime.** Subscribe to `postgres_changes` on a
+      published table with the flagged token, insert a row for that account with
+      the service role, and confirm nothing is delivered. Repeat unflagged and
+      confirm it is.
+- [ ] **R2 — the catalog invariant holds in production.** Run:
+
+      ```sql
+      SELECT c.relname
+        FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relrowsecurity
+         AND NOT EXISTS (SELECT 1 FROM pg_policy po
+                          WHERE po.polrelid = c.oid
+                            AND po.polname = 'forced_password_change_guard');
+      ```
+
+      Expected: **zero rows**. Any table named here is row-secured and outside the
+      boundary, which is the exact shape of the finding that produced this
+      migration.
+- [ ] **The e-mail column that no test can fill.** §3.6: open the Resend
+      dashboard and record, per message, the provider id and whether it was
+      **delivered** or **bounced**. Everything upstream of this proves only that
+      the provider accepted the request. Do not report "e-mail works" until this
+      box is ticked with real evidence and a real inbox — and use only a
+      synthetic recipient, never a student, family or minor address.

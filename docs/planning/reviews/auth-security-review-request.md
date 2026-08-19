@@ -1,4 +1,4 @@
-# Review request — authentication security remediation, second pass (S1–S14, F1–F6)
+# Review request — authentication security remediation, third pass (S1–S14, F1–F6, R1–R5)
 
 > **This is not a numbered phase.** `PROJECT_STATE.md` records *Fase en curso:
 > NINGUNA*, and this work appears nowhere in
@@ -8,10 +8,11 @@
 > would put a fiction into the ledger. The reviewer protocol
 > (`docs/planning/review-protocol.md`) otherwise applies unchanged.
 >
-> **This is the SECOND pass.** The first (`fix/auth-sec`, head `cc9d3aaf`) was
-> rejected. Six findings came back, F1–F6 below; §3 answers each one, and §9 is
-> honest about what is still not closed. `fix/auth-sec` is untouched and
-> `backup/auth-sec` pins its reviewed tip.
+> **This is the THIRD pass.** The first (`fix/auth-sec`, head `cc9d3aaf`) was
+> rejected with six findings, F1–F6. The second (this branch, up to `a0b6dad3`)
+> was rejected with three MAJOR findings and two supporting ones, called R1–R5
+> below. §3 answers each; §9 is honest about what is still not closed.
+> `fix/auth-sec` is untouched and `backup/auth-sec` pins its reviewed tip.
 
 ---
 
@@ -21,746 +22,608 @@
 | --- | --- |
 | Branch | `fix/auth-sec2` |
 | Base SHA | `4399949942bfcf49dfa8de40cbf7edbf40f0490e` — **`main`**, exactly |
-| Head SHA | `git rev-parse fix/auth-sec2` — a document cannot name the commit that contains it, so the tip is not quoted here (the convention `PROJECT_STATE.md` uses) |
-| Commits | 10: one port, six fixes, one e2e, two documentation |
-| Diff | 87 files, +15655 / −3388 |
+| Previously reviewed head | `a0b6dad3539eec31e9380abf6e3942f704c9a827` |
+| Head SHA | `git rev-parse fix/auth-sec2` — a document cannot name the commit that contains it (the convention `PROJECT_STATE.md` uses) |
+| Commits | 17 total; **6 new** since the reviewed head |
+| Diff vs `main` | 113 files, +20884 / −3561 |
+| Diff vs `a0b6dad3` | 54 files, +6738 / −1683 |
 
-### Commits
+### The six new commits
 
 ```
-115801ec  fix(auth): port the authentication remediation onto a clean base
-8373c22d  fix(auth): make the forced-password-change flag a database boundary (F1)
-3e48581e  fix(auth): recovery proof must survive the link we actually send (F2)
-60b88f21  fix(auth): password completion belongs to the server (F3)
-e9a9f9b4  fix(audit): the browser cannot write the meeting-deletion audit row (F4)
-ac2696a0  fix(auth): make the invitation-resend cooldown atomic (F5)
-b40d6d89  test(e2e): open the link that was actually sent, and prove the database gate
-9308cadc  docs(auth): make the operations runbook exact about what is not done (F6)
-c9fb544d  fix(auth): two defects the extended e2e lifecycle found on its first real run
-db8cd9d3  docs(auth): review request and PROJECT_STATE for the second pass
+131bec21  fix(db): no migration in this repository may DROP, and CI now proves it (MAJOR 3)
+f9686a29  fix(auth): the forced-password boundary is a data-layer invariant now (MAJOR 2)
+6f542bc3  fix(auth): recovery consumes purpose-bound proof, and the ceremony is the API (MAJOR 1)
+35b96b9e  test(security): the browser boundary is an AST rule with negative controls (SUPPORTING 1)
+9a7d0fe3  fix(email): "the provider accepted it" is not "it was delivered"
+5d513337  test(e2e): open the link that was really sent, and drive all three services
 (plus whatever commit carries the edit you are reading)
 ```
 
-### 1.1 Branch-hygiene proof
-
-The rejected branch was cut from `process/lean-pilot`, and its commit `6795d7ca`
-used `git add -A`, so an authentication commit also carried five pre-existing
-working-tree modifications and three untracked B3 evidence files.
-
-This branch is cut from `main` and the contaminated paths are **absent**:
-
-```
-$ git merge-base main fix/auth-sec2
-4399949942bfcf49dfa8de40cbf7edbf40f0490e          # == main
-
-$ git merge-base --is-ancestor main fix/auth-sec2 && echo "descends from main"
-descends from main
-
-$ git diff --name-only main...fix/auth-sec2 -- \
-    docs/plan/LEDGER.md docs/plan/zoom/LEDGER.md docs/plan/SOP-PILOT.md \
-    docs/plan/evidence/b3 package.json package-lock.json
-(no output)
-```
-
-**Expected result: none. Actual result: none.** No dependency change was needed,
-so `package.json` and `package-lock.json` are untouched — in particular the
-`canvas` optional dependency the rejected branch removed is still declared.
-
-`PROJECT_STATE.md` carries only the authentication section (§8 of that file's
-*Deudas*), rewritten for this branch. The unrelated INSPIRA/B3 reconciliation
-edit the rejected branch swept in is **not** here; it stays on `fix/auth-sec`
-for whoever owns it.
-
-The port commit `115801ec` is byte-identical to `fix/auth-sec` for all 63
-authentication files; `git diff fix/auth-sec` at that commit reported exactly the
-nine contaminated paths and nothing else. Everything after it is new work.
-
 **Nothing was rewritten or destroyed.** `fix/auth-sec` still exists at
-`cc9d3aaf`, and `backup/auth-sec` is a second ref pinned to the same commit.
+`cc9d3aaf`, `backup/auth-sec` is a second ref pinned to the same commit, and
+every commit up to `a0b6dad3` is untouched and still an ancestor of the tip.
 
 ---
 
-## 2. Objective and scope
+## 2. What this pass corrects in the PREVIOUS review request
 
-**Objective.** Make the authentication lifecycle — registration → approval →
-invitation → first password → login → voluntary change → administrative reset →
-forced change → self-service recovery — enforced at the server and database
-boundary rather than in React pages and Next middleware, and covered by tests
-that would fail if any link broke again.
+The document you are replacing overstated three things. They are corrected here
+rather than quietly dropped, because the reviewer found all three:
 
-**In scope.** F1–F6 as dispatched, on top of the S1–S14 work the port carries.
-
-**Out of scope, deliberately** (unchanged from the first pass, and all of it
-reported rather than silently skipped):
-
-- Enabling RLS on the 22 legacy allowlisted tables; `public.modules`, which has
-  three policies and RLS off; the 9 `SECURITY DEFINER` views and 178
-  `SECURITY DEFINER` functions callable by `anon`/`authenticated`.
-- The remaining diagnostic pages beyond the seven removed (`/test`, `/test-rbac`,
-  `/test-logout`, `/test-sentry`, `/test-user-role`, `/test-sidebar-role`,
-  `/test-toast`, `/debug-feedback-permissions`, `pages/api/debug/*`,
-  `pages/api/test/*`). None carries a credential or a privileged action; all are
-  still routable.
-- Any production mutation, deployment, credential rotation, e-mail send or
-  history rewrite. See §6.
+| The previous claim | The truth |
+| ------------------ | --------- |
+| "F1–F6 are closed" | F1's control covered **PostgREST only**. F3's trusted boundary accepted an **ordinary access token** as recovery proof. Both are reopened and answered below. |
+| "The pre-request gate covers every table, view and RPC, present and future" | It covers everything **PostgREST serves**. Storage and Realtime reach the same rows without ever calling it, and this application uses both from the browser. |
+| "Three migrations, all additive" | One of them executed `DROP TRIGGER IF EXISTS`. |
+| "No test proves mail leaves the building" (§9) | Correct as far as it went — but the code then reported provider acceptance as `sent` and the UI said "Correo enviado correctamente." |
 
 ---
 
 ## 3. Finding-by-finding disposition
 
-### F1 — HIGH: forced password change is now a system boundary
+### R1 — MAJOR: recovery accepted an ordinary access token
 
-**The defect.** `must_change_password` was enforced in exactly one place,
-`middleware.ts`. Two consequences, both reachable from an ordinary browser with a
-valid session: the baseline policy *"Allow users to update their own profile"* is
-`FOR UPDATE` over the **whole row**, so the account the flag restrains could clear
-it with one `PATCH /rest/v1/profiles`; and Next middleware is only on the path of
-requests to the Next server, so `<project>.supabase.co/rest/v1/*` bypassed it
-entirely. The first pass wrote that second one down as an accepted limitation.
+**The defect.** `/api/auth/recovery-complete` took `Authorization: Bearer <access
+token>`, called `auth.getUser(token)`, and changed that account's password.
+`getUser` proves a token is valid and says whose it is. It does **not** say what
+ceremony minted it — and an ordinary password login mints an indistinguishable
+one. So any signed-in account could post its own access token to the recovery
+endpoint and set a new password with no current password and no recovery link.
+That is S12 — *"any session satisfies the recovery form"* — reopened at the API
+boundary after being closed in the page.
 
-**The implementation** (`supabase/migrations/20260819120000_...`, additive):
-
-| Piece | What it does |
-| ----- | ------------ |
-| `protect_must_change_password` — `BEFORE UPDATE` trigger on `public.profiles` | Refuses any change to the flag when `current_user` is `authenticated` or `anon`. Every other column keeps exactly the permissions it had. A whole-row write that leaves the flag unchanged is allowed, so ordinary profile upserts keep working. |
-| `gate_password_change()` on `pgrst.db_pre_request` | PostgREST calls it before **every** request. Raises 42501 → HTTP 403 for any request made as `authenticated` by a flagged account. One control covers every table, view and RPC, present and future. |
-| `current_password_change_state()` | The single allowance. Takes **no argument**, reads `auth.uid()`, returns a boolean. The middleware must be able to ask whether the flag is set, and the flagged account's own `profiles` read is exactly what the gate refuses. |
-| `set_password_change_required(uuid, boolean)` | The trusted write path. `service_role` only. Returns whether a row was actually updated. |
-
-**Why it covers all nine roles without a per-role list:** the gate keys on the
-flag, not the role. There is nothing to forget to update when a role is added.
-
-**One subtlety worth your attention.** The gate's role test is
-`request.jwt.claims ->> 'role'`, **not** `current_user`. The function is
-`SECURITY DEFINER`, so inside it `current_user` is the owner (`postgres`) and a
-gate written the obvious way silently never fires. That is exactly the failure
-mode it exists to prevent, and it is what the pgTAP suite caught — which is why
-the suite asserts refusals per role rather than only asserting the function
-exists. The claim role is set by PostgREST from the verified token and is the
-same claim it used to choose the role to switch to, so trusting it is no weaker
-than trusting the switch.
-
-**Not stranding anyone.** Everything a flagged account needs in order to finish —
-GoTrue's `/auth/v1/*` and this application's service-role endpoints — is outside
-PostgREST. No profile row means not flagged (a successful query is authoritative;
-the Z1a rule, and the same rule `verdictFromProfile` applies). A stuck flag is
-cleared with one `set_password_change_required()` call, documented in runbook §2.
-
-**Consequential code changes:** `middleware.ts` and `pages/login.tsx` read the
-flag through the RPC; `/change-password` reads its state from the new
-`/api/auth/password-change-state` (service-role) rather than from a browser
-`profiles` SELECT and `user_metadata`, the latter being a cookie the caller owns.
-
-**Tests.** `supabase/tests/051-...` — 70 assertions: nine roles × {flagged, clear}
-for the gate, nine roles for the protected column plus an ordinary-edit control
-each, both write directions, admin included, the trusted paths, the wiring read
-back out of `pg_db_role_setting`, the allowance and three of its edges (a
-different RPC, a table path, a missing path), anon/service_role/no-sub/malformed
-claims, and the pair that makes the claim meaningful — *RLS alone WOULD hand the
-flagged account its own row, and the gate is what stops the request carrying it*.
-`__tests__/middleware.forced-password-change.test.ts` — 158, including that the
-middleware never calls `.from('profiles')` and that the RPC name in TypeScript
-matches the one the migration creates **and** allow-lists. The e2e drives a
-flagged token against `/rest/v1/*` with no browser and no middleware.
-
----
-
-### F2 — HIGH: recovery proof, and the link we actually send
-
-**The defects, all four.**
-
-1. The legacy fragment branch never signed out and never verified. Its admission
-   ticket was that the fragment *contained* `type=recovery` and `access_token`;
-   it then polled `getSession()`, which for a signed-in visitor answers with
-   their own live session. `#access_token=x&type=recovery` typed into the address
-   bar opened the form. Supabase compounds it: failed implicit processing leaves
-   the pre-existing session in place.
-2. `signOut()`'s return was ignored — supabase-js reports failure as `{ error }`,
-   so the `try/catch` caught nothing.
-3. The singleton client's `detectSessionInUrl` raced the page for the fragment.
-4. The e2e opened a hand-built `?token_hash=…` URL while the product e-mailed the
-   provider's `action_link` — a different format.
+The old unit suite could not see it. It mocked `getUser` to return a user and
+never distinguished a login token from recovery material.
 
 **The implementation.**
 
-- `detectSessionInUrl: false` on the shared browser client
-  (`lib/supabase-wrapper.ts`). Nothing else consumes the URL, so the race is
-  removed rather than narrowed. There is no `signInWithOAuth` anywhere in the
-  codebase, and a guard test fails if one appears.
-- `/reset-password` reads the URL during the **first render** via a lazy state
-  initialiser — before any effect of any component.
-- **Every** branch signs out first with `scope: 'local'` and checks the returned
-  `{ error }`; the thrown case is handled too.
-- **Every** branch then verifies with `getUser(accessToken)` — a round trip to
-  the auth server. `getSession()` is consulted nowhere on the page, on any path.
-- The legacy fragment requires `access_token` **and** `refresh_token` **and**
-  `type=recovery`, is established with an explicit `setSession()` whose error is
-  checked, and is verified like the others. An incomplete fragment is a hard
-  refusal, not a fall-through. A non-recovery `type` is refused without calling
-  `verifyOtp`.
-- `lib/auth/recovery-link.ts` builds
-  `{origin}/reset-password?token_hash={hashed_token}&type=recovery` from
-  `generateLink().properties.hashed_token`, and both `grant.ts` and
-  `resend-invite.ts` use it. The provider's `action_link` is not sent any more,
-  so the landing shape no longer depends on a dashboard setting.
-- `lib/email/outbox.ts` records outbound messages when `E2E_MAIL_OUTBOX` names a
-  file, so the e2e can open the exact URL from the message body. It refuses to
-  capture on any Vercel deployment whatever the variable says.
+`lib/auth/recovery-proof.ts` is the only thing that establishes identity for a
+recovery. It calls `verifyOtp({ token_hash, type: 'recovery' })` on a fresh anon
+client with no persisted session:
 
-**Opening another account's link while signed in** now operates only on the
-verified owner: the visitor's session is signed out before consumption, and the
-bearer token the submit carries is the one the link produced.
+| Property | How this call provides it |
+| -------- | ------------------------- |
+| Purpose-bound | The literal `'recovery'` is passed by the module and is **never** taken from the request. A magic-link or confirmation hash is refused by GoTrue; a link *declaring* another type is refused before the provider is contacted at all. |
+| One-time | GoTrue burns the hash. A replay of the same string fails. |
+| Expiring | On the auth server's clock, not ours. |
+| Identity-bearing | The account is what GoTrue **returns**. There is no user id in the request for anything to redirect. |
+| Not a session | An access token is not a `token_hash` and does not verify as one. |
 
-**Tests.** `__tests__/components/ResetPasswordPage.recoveryProof.test.tsx` — 37,
-written from the attacker's side (forged fragment, incomplete fragment, failed /
-expired / reused link, wrong type, both sign-out failure shapes, another
-account's link, Strict-Mode double-invoke, and that `getSession` is called
-**zero** times on every path). Plus 8 on the link format, 7 on the outbox
-refusals, 5 pinning the `detectSessionInUrl` decision.
+`/reset-password` **verifies nothing**. There is no `verifyOtp`, no
+`exchangeCodeForSession`, no `setSession`, no `getUser` and no `getSession`
+anywhere on the page, on any path — asserted by
+`__tests__/lib/supabaseWrapper.detectSessionInUrl.test.ts` against the source and
+by counters in the component suite. The page reads the material at first render,
+signs out any pre-existing session (checking the `{ error }` return), and
+forwards the material. The endpoint reads no `Authorization` header and no
+cookie.
 
----
+**The trade this makes, stated plainly.** The material is one-time, so it cannot
+be both validated on arrival and used on submit. The form now opens on the
+*shape* of the link and the link is spent at submit — so an expired link reports
+itself after the password is typed rather than before. That is a real UX cost and
+it buys the property that nothing but the server ever touches the credential.
 
-### F3 — HIGH: password completion belongs to the server
+**Two formats are refused BY NAME, and this is deliberate:**
 
-**The defects.** `/reset-password` called `auth.updateUser({password})` in the
-browser, cleared the flag with a browser PATCH, and reported success whether or
-not that write landed — with no server-side policy check and no audit row, for
-the single most security-relevant event an account has.
-`/change-password` did the same and reached the audited endpoint only on a 422
-that this project's configuration never produces, so the ordinary forced change
-emitted no `password_change_forced` at all.
+- an implicit `#access_token=…` fragment carries an ordinary session credential,
+  and no server-side check can distinguish it from a login;
+- a PKCE `?code=` can only be exchanged with a verifier held in that browser, so
+  there is nothing the server could verify.
 
-**The implementation.** `lib/auth/password-completion.ts` is the one place a
-password is written. Every caller arrives with a **proved** identity and it never
-takes a user id from a body. Order is password → flag → audit (the reverse would
-release the account from the gate while it still holds the issued credential).
+Both get a plain es-CL "solicita un enlace nuevo" rather than a fall-through.
 
-| Endpoint | Identity | Flag | Audit |
-| -------- | -------- | ---- | ----- |
-| `POST /api/auth/recovery-complete` (new) | `auth.getUser(bearer)` — a GoTrue round trip on the token the verified recovery material produced | cleared via RPC | `password_change_recovery` (new typed action, added to the TS union **and** the migration CHECK) |
-| `POST /api/auth/force-password-change` | `auth.getUser()` (was `getSession()`) | cleared via RPC | `password_change_forced`, now on the only path |
-| `POST /api/auth/change-password` | `auth.getUser()`; still requires the current password | **not** cleared — a voluntary change must not release a held account | `password_change_voluntary` |
+**All four link sources now agree.** Self-service recovery used to call
+`supabase.auth.resetPasswordForEmail()` from the browser — Supabase's template,
+Supabase's link, landing in whatever shape a dashboard setting produced. `POST
+/api/auth/recovery-request` mints the same `?token_hash=` URL with the same
+helper and sends it through the same server-side mailer as the invitation. Its
+answer is byte-identical on every path (unknown address, known address, provider
+down, link generation failed, internal error), and it audits
+`password_recovery_requested` with the delivery status **as observed**.
 
-Partial failure is reported: `ok:false`, `passwordChanged:true`, HTTP 500,
-`FLAG_NOT_CLEARED`. Provider errors are mapped to our own es-CL sentences and
-logged, never returned — GoTrue distinguishes "in a breach corpus" from "too
-short", and a response should not confirm either about the password just typed.
-
-**Provider-level rules.** The application policy is enforced server-side; GoTrue's
-own minimum length and (when enabled) leaked-password check sit on top and their
-refusals are surfaced as one message. Aligning the dashboard settings is runbook
-§4.1–§4.2, and both are recorded as NOT DONE.
-
-**Tests.** 24 on the shared module, 19 on recovery-complete, 15 on forced
-completion, 9 on the page — covering weak passwords rejected server-side,
-another user's id being ignored, `password_change_forced` always emitted,
-the flag cleared, a flag-clear failure not returning success, retry-after-partial
-reaching success, and nothing sensitive in responses or metadata. Plus a
-source-level guard that walks every browser file and fails if one calls
-`auth.updateUser({password})`, writes `must_change_password`, or touches the
-audit table.
+**Tests.** 19 on the proof module, 22 on the endpoint (written from the
+attacker's side: a bearer token alone, a bearer token presented as the hash, a
+session cookie, a replay, an expired hash, a malformed hash, a wrong type, a body
+`userId`, a signed-in visitor opening someone else's link), 33 on the page, 20 on
+the request endpoint, and the e2e opens the message that was actually sent.
 
 ---
 
-### F4 — MEDIUM: the browser audit writer
+### R2 — MAJOR: the boundary covered PostgREST only
 
-**The defect.** `utils/meetingDeletion.ts` called `recordSecurityAudit` with a
-browser client. `security_audit_events` grants `authenticated` SELECT only, so
-the insert failed with 42501 every time; `recordSecurityAudit` does not throw, so
-the deletion reported success. `meeting_deleted` had never been written.
+**The defect.** `gate_password_change()` was installed on
+`pgrst.db_pre_request`. PostgREST calls it before every request **it** serves.
+Storage and Realtime speak to Postgres through their own services and never call
+it — and this application uses both directly from the browser:
 
-**The implementation.** The operation moved, not the privilege — an audit row a
-browser can write is an audit row a browser can forge. `POST /api/meetings/delete`
-authenticates with `auth.getUser()` (the old function took `userId` as an
-argument and put it straight into the metadata), re-checks authorization
-server-side, deletes on a **user-scoped** client so every RLS policy still
-governs it, and writes the row with a service-role client after the outcome is
-known. A refused attempt is audited as `denied`. `delete({count:'exact'})` keeps
-"RLS refused" distinguishable from "done".
+| Service | Browser call sites |
+| ------- | ------------------ |
+| Storage | `lib/supabaseEnhanced.ts` (upload), `components/meetings/persistMeeting.ts` (remove), `utils/storage.js` (list), `pages/admin/bucket-test.tsx` (list), `components/assignments/CollaborativeSubmissionModal.tsx` (public URL) |
+| Realtime | `contexts/AvatarContext.tsx`, `utils/activityUtils.ts`, `utils/messagingUtils-simple.ts`, `lib/realtimeNotifications.js`, `pages/noticias.tsx` |
 
-**Tests.** 17: success, each failure code, authorization refusal and its audit
-row, the actor coming from the auth server rather than the body, the deletion
-running on the user-scoped client, and the meeting title never reaching the trail.
+A flagged account holds an ordinary access token and could keep uploading files,
+deleting meeting documents and receiving live rows.
+
+**The implementation** —
+`supabase/migrations/20260819120200_forced_password_change_data_layer.sql`:
+
+| Piece | What it does |
+| ----- | ------------ |
+| `public.password_change_gate_ok()` | The **one** predicate. No arguments, reads `auth.uid()`, TRUE means permitted. `SECURITY DEFINER` so the read is reliable **and** so a policy on `public.profiles` does not re-enter policy evaluation (the owner holds `BYPASSRLS`). |
+| `forced_password_change_guard` | A **RESTRICTIVE** policy `FOR ALL TO authenticated` on every row-secured table in `public` (232) and on `storage.objects`, `storage.buckets` and the two multipart tables. Restrictive policies are ANDed with what is already there: it can only narrow, never grant. |
+| `public.apply_forced_password_change_guard(schema, table)` | The one line a future migration calls. Raises rather than returning quietly when the table does not exist or has row security off — a guard that enforces nothing is worse than no guard. |
+
+The table list comes from `pg_class`, not from anyone's memory. Realtime needs no
+separate object: `postgres_changes` delivers a row only to a subscriber that
+could `SELECT` it, checked as `authenticated` with that subscriber's own claims,
+so the restrictive policy **is** the delivery control. The migration asserts that
+rather than assuming it — it fails if a table published to `supabase_realtime`
+lacks the guard.
+
+**Why the predicate fails CLOSED on a malformed claims blob**, unlike the
+request-layer gate: there, raising takes the whole API down for everyone; here
+the blast radius is one query, and a predicate that cannot identify the caller
+must deny. Asserted in 053.
+
+**The catalog invariant.** `supabase/tests/053-...` enumerates every row-secured
+table in `public`, every browser-reachable table in `storage`, and every table in
+the `supabase_realtime` publication, and FAILS if one does not carry the guard.
+It is shown to bite: a fixture table is created with row security and no guard,
+and the invariant then names exactly that table. A future migration adding a
+table fails CI until the table joins the boundary.
+
+**Behaviour, not just catalog.** 053 asserts nine roles × {flagged, clear} ×
+{SELECT, INSERT, UPDATE, DELETE} against a fixture whose permissive policy would
+allow every one of them — plus a **second, identical, unguarded fixture that the
+same flagged account CAN reach**, which is what makes the refusals evidence about
+the guard rather than about the fixture. Storage gets the same treatment. The
+e2e closes the last inch with real tokens over real HTTP and a real Realtime
+channel (§7.4).
+
+**What is still covered by the pre-request gate ALONE, said out loud.** A
+`SECURITY DEFINER` RPC bypasses row security by definition — no policy can gate
+one. The same is true of the 22 legacy tables in `public` with row security off
+(pinned by `001-rls-enabled.sql`). The gate stays for both, and §9 records it.
+
+**051 changes shape as a consequence**, and the change is the honest one. Its
+nine `throws_ok(42501)` assertions were catching the trigger; with the guard in
+place the row is filtered first, so the UPDATE raises nothing and touches
+nothing. Each role is now asserted **per layer**: the flagged account reaches no
+row and its flag survives (layer 1), and the *unflagged* account of the same role
+still meets the trigger (layer 2 — the half that would silently vanish if the
+trigger were dropped). The pair that asserted "RLS alone WOULD hand a flagged
+account its own row" is rewritten, because it is no longer true.
 
 ---
 
-### F5 — MEDIUM: the resend cooldown is atomic
+### R3 — MAJOR: the forbidden DROP
 
-**The defect.** Read ledger → insert reservation → send, with nothing holding a
-lock. Two requests for one recipient both read "no recent resend" and both sent.
+**The defect.** `20260819120000` executed
+`DROP TRIGGER IF EXISTS protect_must_change_password ON public.profiles;`.
+CLAUDE.md has no exception for a `DROP` that is immediately replaced, and it was
+not even necessary — the trigger does not exist on the clean base this branch is
+cut from.
 
-**The implementation.** `claim_invitation_resend()` takes a transaction-scoped
-advisory lock keyed on the target id, then checks and reserves inside it. A
-partial unique index cannot express a moving window; a serializable transaction
-would push a retry onto the caller. Different recipients hash to different keys
-and never block each other. The reservation is still written **before** the send
-and still as `failure`, so a failed provider attempt consumes the cooldown.
-`service_role` only. Fail-closed is widened: an errored claim, a missing claim,
-or an unrecognised shape is a 503 with nothing sent.
+**The implementation.** The statement is gone, replaced by a `pg_trigger`
+existence check. The trigger's *behaviour* still upgrades through
+`CREATE OR REPLACE` on its function, which is where the logic lives.
 
-**Tests.** 23 pgTAP assertions, including reading the advisory lock back out of
-`pg_locks`. Plus a Vitest pair that drives **two concurrent handler invocations
-against one shared ledger** — with a **negative control** that runs the same pair
-against a read-then-insert claim and asserts both get through, so the suite
-demonstrably distinguishes the fix from the defect.
+**Why it shipped, which is the more interesting question.** The only guard was
+`scripts/ci/check-rls-migrations.sh`, a `grep` for one string. DROP, TRUNCATE and
+destructive ALTER were unguarded entirely.
+`scripts/ci/check-destructive-migrations.mjs` closes that:
 
----
+- **comments are not code** — this repository writes long prose headers, and
+  several `COMMENT ON` bodies contain the word TRUNCATE while explaining why
+  TRUNCATE cannot bypass a policy. A grep fails all of them;
+- **string literals are not code except when they are** — `EXECUTE 'DROP TABLE x'`
+  inside a `DO` block is executable SQL wearing a literal's clothes, and a guard
+  that blindly strips literals hands the author that bypass for free. A literal
+  whose first token is a statement keyword is scanned as code;
+- **dollar-quoted bodies are code** and are scanned as such;
+- **additive `ALTER` is permitted by name**, so the guard does not push authors
+  into working around it.
 
-### F6 — the operational contract
-
-`docs/runbooks/auth-security.md` gains a §0 that separates the columns
-explicitly, one row per item, using the words the brief asked for: code complete;
-migrations **PENDING**; production e-mail variables **UNVERIFIED**; controlled
-send **NOT RUN**; SMTP/templates/redirect allowlist **NOT VERIFIED**;
-leaked-password protection **STILL OFF**; OTP expiry **STILL** over an hour;
-credential rotation and session invalidation **STILL URGENT**; CDN purge and
-history rewrite still external decisions.
-
-Corrections of substance: §3.1a documents **all four** origin names
-`lib/utils/app-url.ts` accepts, in precedence order — `NEXT_PUBLIC_BASE_URL`,
-`NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_APP_URL`, then
-`VERCEL_PROJECT_PRODUCTION_URL` — and says plainly that `NEXT_PUBLIC_APP_URL` is
-intentionally supported, because an earlier helper ignoring it was the bug. §2
-now lists three migrations in a required order, warns what the pre-request hook
-changes at the request layer before you apply it, and explains how to unstick a
-flagged account. §4.3 records that the Supabase reset-password template now
-governs the self-service flow only.
+`__tests__/security/destructive-migration-guard.test.ts` is what makes it
+evidence: **15 forbidden forms** each caught on a synthetic migration written for
+the purpose (including the exact statement the reviewer found, and the `EXECUTE`
+bypass), **18 additive forms** each left alone, the nested-block-comment and
+quoted-`--` cases, and the real migration directory scanned with a floor on how
+many files were opened.
 
 ---
 
-### F-extra — a defect this pass found, which the first pass shipped
+### R4 — SUPPORTING: the browser scan had blind spots
 
-Not one of the six findings. Recording it here because it is the most
-instructive thing that happened in this round.
+**The defect.** `__tests__/security/no-browser-password-mutation.test.ts` walked
+six directories, matched `.ts`/`.tsx`, and ran regexes. It never opened `lib/`;
+it never opened `.js`/`.jsx`; and a regex over text is defeated by whitespace, an
+alias, or a member expression built at runtime.
 
-`pages/api/admin/reset-password.ts` — the handler S2 rewrote *specifically* to
-stop writing a column that does not exist — wrote
+**The implementation.** `scripts/ci/check-browser-boundaries.mjs` computes what
+"browser" *means* rather than listing directories:
 
-```js
-.update({ must_change_password: true, updated_at: new Date().toISOString() })
+1. the transitive closure of relative imports from every page (excluding
+   `pages/api`) and every client root;
+2. plus **default-deny**: anything reachable from neither a page nor a server
+   entrypoint counts as browser code.
+
+Point 2 is not hypothetical. `lib/supabaseEnhanced.ts` (browser Storage uploads)
+and `contexts/AvatarContext.tsx` (a browser Realtime subscription) are both named
+in the review as browser paths and **nothing imports either of them today** — a
+graph rooted only at pages goes green on both and turns red the day somebody
+wires one in, which is the same class of blind spot the regex was failed for.
+
+Files are parsed with the TypeScript compiler's own parser, so a match is a real
+call expression or a real object property. The rule also polices the **server**
+side: `auth.admin.updateUserById({password})` and
+`auth.admin.createUser({password})` are allow-listed by path across the whole
+repository, and the raw writer has exactly one permitted importer. Every
+allow-list entry carries a written justification, and a test asserts it does.
+
+**Negative controls.** Nine synthetic fixtures, one per forbidden shape,
+deliberately including a `.js` and a `.jsx` file — plus a positive control that
+mentions every forbidden shape in prose and in string literals and must **not**
+be flagged, which is precisely what a regex gets wrong. 24 assertions.
+
+The old regex scan stays as defence in depth, with its limits written into its
+header.
+
+---
+
+### R5 — SUPPORTING: English copy in authentication responses
+
+**The defect.** "Unauthorized", "New password is required", "Password change not
+required for this user", "Failed to update password", "Method not allowed",
+"Authentication required", "Internal server error", "Missing required fields",
+"School context missing for equipo_directivo" — all user-visible, and
+`/change-password` renders `result.error` straight into a toast.
+
+**The implementation.** Every one is es-CL, and the shared message tables
+(`COMPLETION_MESSAGES`, `ADMIN_RESET_MESSAGES`, `DELIVERY_MESSAGES`,
+`RECOVERY_MESSAGES`) are the single source.
+
+`__tests__/security/auth-endpoint-localization.test.ts` walks the **source** of
+all six authentication endpoints rather than only the paths a test happens to
+drive, and is explicit about its limits: *"does this contain English"* is
+decidable from a word list; *"is this good Chilean Spanish"* is not, and the test
+does not claim to decide it.
+
+---
+
+### R-extra — the trusted boundary required nothing of its callers
+
+Not one of the five. Recording it because it is the root cause underneath R1.
+
+The second pass exported
+
+```ts
+completePasswordChange(admin, { userId, newPassword, auditAction, ... })
 ```
 
-and `public.profiles` has **no `updated_at` column**. PostgREST answers
-`PGRST204 Could not find the 'updated_at' column of 'profiles' in the schema
-cache`. Because S2 also made this handler **fail closed**, the result was that
-**every administrative reset returned `RESET_NOT_STARTED` and changed nothing** —
-the exact operation the finding was raised about, still broken, one line below
-the fix.
+A generic primitive: any route could import it, pass any user id, and name its
+own audit action. The boundary existed; it simply did not require a ceremony.
+`/api/auth/recovery-complete` demonstrated exactly that — it "proved" identity
+with a bearer token, handed the id in, and labelled the result
+`password_change_recovery`, so a login token could change a password and the
+trail would call it a recovery.
 
-Why nothing caught it:
-
-- The 32-test unit suite stubs the Supabase client, so a nonexistent column is
-  indistinguishable from an existing one. Its strongest assertion was
-  `expect(flagUpdate).toMatchObject({ must_change_password: true })` — and
-  `toMatchObject` is satisfied by a payload carrying extra keys.
-- The first pass's e2e never performed an administrative reset. Its lifecycle
-  stopped at "login".
-
-What fixed it: **this pass's e2e, on its first run against a real database**,
-because the lifecycle now continues through administrative reset → forced change
-→ ordinary access → recovery, which is what the brief asked for.
-
-The repair is one line, plus a test that pins the payload's **key set** rather
-than its contents:
-
-```js
-for (const update of call.updates) {
-  expect(Object.keys(update)).toEqual(['must_change_password']);
-}
-```
-
-**What a reviewer should take from this:** stubbed-client tests cannot see schema
-mismatches at all, and this repository has now shipped that class of defect three
-times (`audit_logs`, `password_change_required`, `updated_at`). The e2e reaching
-a real database is the only gate that sees them, which is an argument for
-extending the lifecycle rather than trimming it.
+There is now **no exported function that takes a user id and a password**. There
+are four ceremonies, each establishing the identity it acts on, and
+`CEREMONY_AUDIT_ACTION` is frozen and *consulted* rather than accepted — a route
+cannot mislabel what it did. §4 is the full inventory.
 
 ---
 
-## 4. Files by risk
+## 4. The complete password-path inventory
 
-### Tier 1 — read these first
+Every call site in the repository that can create an account with a password,
+change one, generate one, or move `must_change_password`. Produced by AST scan
+(`scripts/ci/check-browser-boundaries.mjs --json`) plus a manual sweep, not from
+the file list the brief named.
 
-| File | Why |
-| ---- | --- |
-| `supabase/migrations/20260819120000_forced_password_change_boundary.sql` | A pre-request hook on `authenticator` affects **every** Data API request in the project. The blast radius of a mistake here is the whole API. |
-| `middleware.ts` | AGENTS.md names it the most bug-prone file in the codebase. The read moved from a table to an RPC. |
-| `pages/reset-password.tsx` | Rewritten. Identity correctness for recovery. |
-| `lib/auth/password-completion.ts` | Every password in the platform is written here. |
-| `pages/api/auth/recovery-complete.ts` | New. Bearer-token identity. |
-| `supabase/migrations/20260819120100_invitation_resend_claim.sql` | Advisory locking on a hot path. |
+### 4.1 Password WRITES on an existing account
 
-### Tier 2 — security-relevant
+| Call site | Ceremony | Why it is trusted |
+| --------- | -------- | ----------------- |
+| `lib/auth/password-completion.ts` → `__writePasswordThroughTrustedBoundary` | all four | **The only `auth.admin.updateUserById({password})` in the platform.** Not reachable by a route: the four ceremonies are the surface, and each derives its own subject. |
+| `pages/api/admin/update-user.ts` | *none — email only* | Calls `updateUserById` to change an **e-mail**. Allow-listed explicitly so that adding a `password` property there becomes a deliberate act rather than a silent one; the checker fires on the property, not the method. |
 
-`lib/auth/forced-password-change.ts` · `lib/auth/recovery-link.ts` ·
-`pages/api/auth/force-password-change.ts` · `pages/api/auth/change-password.ts` ·
-`pages/api/auth/password-change-state.ts` · `pages/api/meetings/delete.ts` ·
-`lib/meetings/deletion.ts` · `pages/api/admin/tractor-signups/resend-invite.ts` ·
-`pages/api/admin/tractor-signups/grant.ts` · `pages/api/admin/reset-password.ts` ·
-`pages/api/admin/bulk-create-users.ts` · `pages/api/admin/create-user.ts` ·
-`lib/security/audit.ts` · `lib/auth/password-policy.ts` ·
-`lib/auth/password-generator.ts` · `lib/email/invitations.ts` ·
-`supabase/migrations/20260818120000_security_audit_events.sql`
+### 4.2 The four ceremonies
 
-### Tier 3 — infrastructure and mechanical
+| Ceremony | Entry point | Identity | Flag | Audit action |
+| -------- | ----------- | -------- | ---- | ------------ |
+| Recovery | `POST /api/auth/recovery-complete` | `verifyOtp({type:'recovery'})` on the one-time `token_hash`. No header, no cookie, no body id is read. | cleared | `password_change_recovery` |
+| Forced | `POST /api/auth/force-password-change` | `auth.getUser()` **and** `must_change_password = true` re-read with the service role | cleared | `password_change_forced` |
+| Voluntary | `POST /api/auth/change-password` | `auth.getUser()` **and** reauthentication with the current password on a throwaway client | **not** cleared — must not release a held account | `password_change_voluntary` |
+| Administrative reset | `POST /api/admin/reset-password` → `lib/auth/admin-password-reset.ts` | actor from `checkIsAdminOrEquipoDirectivo` (token validated with the auth server, roles read from the database), re-validated for shape; target scope re-derived from `profiles` + `user_roles` | **set**, before the password, with compensation | `password_reset_admin` |
 
-`lib/supabase-wrapper.ts` (one option, wide reach) · `lib/email/outbox.ts` ·
-`playwright.config.ts` · `.gitignore` · `pages/api/admin/assign-role.ts` ·
-`pages/api/admin/update-user.ts` · `pages/api/admin/update-qa-tester-status.ts` ·
-`utils/meetingDeletion.ts` · `utils/passwordGenerator.ts` · `utils/bulkUserParser.ts` ·
-`types/bulk.ts` · `scripts/ci/e2e-mandatory.mjs`
+**The one deliberate seam**, so the reviewer does not have to find it: the
+administrative-reset ceremony owns every authorization *decision* (the ED school
+scope, the forbidden-role gate, the cross-school gate) and re-reads the target
+facts itself — but it takes the ACTOR from `checkIsAdminOrEquipoDirectivo`
+rather than repeating that lookup. That helper is the shared one CLAUDE.md's API
+pattern prescribes and it is a server-side read, not a caller-supplied value; the
+module re-checks its shape (role ∈ {admin, equipo_directivo}, and an ED must
+carry a numeric school id) and refuses anything else. Worth your judgement.
 
-### Tier 4 — UI and copy
+### 4.3 Account PROVISIONING (a different ceremony)
 
-`pages/login.tsx` · `pages/change-password.tsx` · `pages/admin/tractor-signups.tsx` ·
-`pages/admin/school-users.tsx` · `pages/admin/user-management.tsx` ·
-`components/PasswordResetModal.tsx` · `components/admin/BulkUserImportModal.tsx`
+| Call site | Authorization | Password source | Flag | Audit |
+| --------- | ------------- | --------------- | ---- | ----- |
+| `pages/api/admin/create-user.ts` | admin / equipo_directivo | `lib/auth/password-generator.ts` (CSPRNG) | `true` at insert | `user_created_manual` |
+| `pages/api/admin/bulk-create-users.ts` | admin / equipo_directivo | same generator | `true` at insert | `user_created_bulk` |
+| `pages/api/admin/tractor-signups/grant.ts` | admin | same generator | `true` at insert | `access_granted_new_user` |
 
-### Deleted
+All three are allow-listed by path in the boundary checker; anything else calling
+`auth.admin.createUser({password})` fails CI. The account never learns the
+generated password in the grant path — it is replaced through the recovery link
+the grant e-mails.
 
-`pages/{test-auth-simple,test-auth,debug-auth,debug-auth-enhanced,test-login-flow,login-helper,auth-status}.tsx`
-· `lib/temporaryPasswordStore.ts` · `pages/api/admin/retrieve-import-passwords.ts`
+### 4.4 Recovery MATERIAL
 
----
+| Call site | What it does |
+| --------- | ------------ |
+| `lib/auth/recovery-link.ts` → `generateRecoveryLink` | Mints `hashed_token` and builds `/reset-password?token_hash=…&type=recovery`. Used by grant, resend and the new self-service request. The URL is never returned to any HTTP response, never logged, never audited. |
+| `lib/auth/recovery-proof.ts` → `consumeRecoveryProof` | The only consumer. Server-only. |
 
-## 5. Migrations, and the exact RLS/ACL consequences
+### 4.5 `must_change_password` WRITES
 
-Three, all additive, all forward-only, none disabling row-level security.
-
-### 5.1 `20260818120000_security_audit_events.sql`
-
-One table. Unchanged from the first pass except for one added value in the
-`action` CHECK (`password_change_recovery`) — the migration is unapplied
-anywhere, so editing it in place is correct and avoids an `ALTER … DROP
-CONSTRAINT` that the DB-safety rule forbids.
-
-| role | SELECT | INSERT | UPDATE | DELETE | TRUNCATE |
-| ---- | ------ | ------ | ------ | ------ | -------- |
-| `anon` | no | no | no | no | no |
-| `authenticated` (admin) | YES (policy) | no | no | no | no |
-| `authenticated` (other) | policy returns 0 rows | no | no | no | no |
-| `service_role` | YES | YES | YES | YES | YES |
-
-### 5.2 `20260819120000_forced_password_change_boundary.sql`
-
-**No table, no policy, no RLS change.** What it changes is the request layer and
-one column's writability.
-
-| Object | Effect |
-| ------ | ------ |
-| `protect_must_change_password()` + trigger on `public.profiles` | `authenticated`/`anon` can no longer move `must_change_password`. **No RLS policy changed**, so every other column keeps the permissions it had — this narrows one column, not the row. |
-| `ALTER ROLE authenticator SET pgrst.db_pre_request` | **This is the widest change in the branch.** PostgREST runs the gate before every request from every role. Non-flagged traffic is unaffected (one indexed lookup, then return). Flagged `authenticated` traffic gets 403 everywhere except the one RPC. |
-| `gate_password_change()` | EXECUTE to `authenticator`, `authenticated`, `anon`, `service_role` — necessarily, since PostgREST invokes it as the request's own role. Takes no argument, discloses nothing. |
-| `current_password_change_state()` | EXECUTE **revoked** from PUBLIC and `anon`; granted to `authenticated` and `service_role`. Reads `auth.uid()` only. |
-| `set_password_change_required(uuid, boolean)` | EXECUTE revoked from PUBLIC/`anon`/`authenticated`; granted to `service_role` only. |
-
-### 5.3 `20260819120100_invitation_resend_claim.sql`
-
-| Object | Effect |
-| ------ | ------ |
-| `claim_invitation_resend(uuid, uuid, integer, jsonb)` | `SECURITY DEFINER`, writes `security_audit_events`. EXECUTE revoked from PUBLIC/`anon`/`authenticated`, granted to `service_role` only — so it opens no new browser path into the append-only table. |
-
-**Privacy (Ley 21.719).** No new table, no student or minor data. The audit
-table's posture and its `metadata_no_secrets` CHECK are unchanged.
-
-**Ordering.** 20260818120000 must precede 20260819120100 (the function references
-the table). 20260819120000 is independent. Runbook §2 states this.
+| Call site | Role |
+| --------- | ---- |
+| `public.set_password_change_required(uuid, boolean)` | The trusted RPC. `service_role` only. Used by every ceremony that clears the flag. |
+| `pages/api/admin/reset-password.ts` (via the ceremony module) | Sets it, and restores the prior value if the password write fails. |
+| `create-user.ts`, `bulk-create-users.ts`, `grant.ts` | `true` at profile-insert time, service role. |
+| **The browser** | **Nothing.** The trigger refuses it, the restrictive guard filters the row, and the AST rule fails the build on a call site that tries. |
 
 ---
 
-## 6. Operational work — none of it performed
+## 5. The complete data-service inventory
 
-Runbook §0 is the authoritative ledger. Summary of the state, unchanged where the
-first pass left it:
+| Service | Surface | Control |
+| ------- | ------- | ------- |
+| **PostgREST** — every row-secured table in `public` (232) | REST + RPC | Restrictive `forced_password_change_guard` **and** the pre-request gate |
+| **PostgREST** — the 22 legacy tables with row security OFF | REST | Pre-request gate **only**. A restrictive policy on a table without row security enforces nothing; `apply_forced_password_change_guard` raises rather than pretending. Allowlist pinned by `001-rls-enabled.sql`; 053 asserts it has not grown. |
+| **PostgREST** — `SECURITY DEFINER` RPCs | RPC | Pre-request gate **only**. `SECURITY DEFINER` bypasses row security by definition. The two sensitive ones this branch adds (`set_password_change_required`, `claim_invitation_resend`) additionally `REVOKE EXECUTE` from `authenticated`. |
+| **Storage** — `storage.objects` | list, download, upload, update, delete | Restrictive guard. Behavioural proof in 053 (SELECT/INSERT/UPDATE) and in the e2e against the real storage-api (upload + list). Direct SQL DELETE is blocked on this stack by `storage.protect_delete`, so deletion is proved structurally in 053 (the guard is `FOR ALL`, so its `USING` governs DELETE) and behaviourally through the API in the e2e. |
+| **Storage** — `storage.buckets` | `listBuckets()` | Restrictive guard, asserted in 053 |
+| **Storage** — `storage.s3_multipart_uploads(_parts)` | resumable upload | Restrictive guard |
+| **Realtime** — the 6 tables in `supabase_realtime` | `postgres_changes` row delivery | Restrictive guard on the source tables — Realtime delivers only what the subscriber could SELECT. The migration FAILS if a published table lacks it. Behavioural proof: a real channel in the e2e, both ways. |
+| **GoTrue** (`/auth/v1/*`) | sign-in, `verifyOtp` | **Deliberately not gated.** It is the way OUT: a flagged account must be able to sign in and complete the change. |
+| **Edge Functions** | — | None exist in this repository (`supabase/functions` is absent). |
 
-| Action | State |
-| ------ | ----- |
-| Rotate the exposed administrator password | **NOT DONE — still urgent** |
-| Invalidate that account's sessions | **NOT DONE** |
-| Purge CDN/edge caches of the removed routes | **NOT DONE** |
-| Rewrite Git history to expunge the credential | **NOT DONE — needs separate explicit approval** |
-| Apply the **three** migrations to production | **NOT DONE.** Until then: audit writes fail, the forced-change gate does not exist in production, the resend cooldown is not atomic |
-| `RESEND_API_KEY` / `EMAIL_FROM_ADDRESS` in Vercel Production | **UNVERIFIED.** Vercel was neither queried nor modified this round |
-| Confirm the canonical origin in Production | **UNVERIFIED** |
-| Controlled invitation + recovery send | **NOT DONE** — no e-mail was sent by anyone at any point |
-| Verify Supabase SMTP, templates, redirect allowlist | **NOT DONE** |
-| Enable leaked-password protection | **NOT DONE — still off** |
-| Reduce OTP/recovery expiry below one hour | **NOT DONE — still over** |
-| Apply Postgres security patches | **NOT DONE** |
-| RLS advisor remediation | **REPORTED, NOT FIXED** |
+---
 
-**Production was not read or written at all in this pass.** The advisor findings
-quoted in the runbook are carried forward from the first pass and are stated as
-such; nobody re-checked them.
+## 6. Migrations, and the exact authorization consequences
+
+**Four**, all additive, all forward-only, none disabling row-level security, and
+now proved so mechanically by `scripts/ci/check-destructive-migrations.mjs`.
+
+### 6.1 `20260818120000_security_audit_events.sql`
+Unchanged except for one added `action` value — `password_recovery_requested`.
+The migration is unapplied anywhere, so editing it in place is correct and avoids
+an `ALTER … DROP CONSTRAINT` the DB-safety rule forbids.
+
+### 6.2 `20260819120000_forced_password_change_boundary.sql`
+Unchanged except that the `DROP TRIGGER` is gone (R3). Still: the protected-column
+trigger, `gate_password_change()` on `pgrst.db_pre_request`,
+`current_password_change_state()`, `set_password_change_required()`.
+
+### 6.3 `20260819120100_invitation_resend_claim.sql`
+Unchanged.
+
+### 6.4 `20260819120200_forced_password_change_data_layer.sql` — **new**
+
+| Object | Grants / revokes | Role-by-operation consequence |
+| ------ | ---------------- | ----------------------------- |
+| `public.password_change_gate_ok()` | `REVOKE` from PUBLIC; `GRANT EXECUTE` to `anon`, `authenticated`, `service_role`, `authenticator` | Needed by every role that can be the invoker of a policy check. Takes no argument; discloses nothing. |
+| `public.apply_forced_password_change_guard(text,text)` | `REVOKE ALL` from PUBLIC, `anon`, `authenticated`, **and `service_role`** | Performs DDL. Only the schema owner can run it. |
+| `forced_password_change_guard` on 232 `public` tables + 4 `storage` tables | — | `authenticated`: unchanged when unflagged; **all four operations denied** when flagged. `anon`: unaffected (the policy names `authenticated`). `service_role`: unaffected — it holds `BYPASSRLS`, which is what keeps the endpoints that CLEAR the flag working. |
+
+**Why every change is additive:** two `CREATE OR REPLACE FUNCTION`s and one
+`CREATE POLICY` per table. No existing policy is modified, no object is dropped,
+no data is touched, and no statement turns row security off. The `DO` blocks
+raise rather than skip when they cannot do their job — an unguarded Storage or an
+empty `public` sweep fails the migration rather than reporting success.
+
+**Ordering.** `20260818120000` → `20260819120100` (the function references the
+table). `20260819120000` → `20260819120200` (two layers of one control).
+Runbook §2 states it.
+
+**Privacy (Ley 21.719).** No new table, no student or minor data, no new column.
 
 ---
 
 ## 7. Test evidence
 
-### 7.1 Gates
+### 7.1 Gates — every one run, on this head
 
 | Gate | Command | Result |
 | ---- | ------- | ------ |
 | Type-check | `npm run type-check` | **pass**, clean |
 | Lint | `npm run lint` | **pass**, zero warnings |
-| Unit | `npm test` | **326 files, 7649 passed, 11 skipped** (the documented `[Z3b, PARKED]` skips), 0 failed |
-| Build | `npm run build` | **pass**; middleware bundle emitted (74.7 kB) |
-| pgTAP | `npm run test:db` | **14 files, 618 assertions, 1 failure — pre-existing, not from this branch.** See §7.3 |
-| E2E | `npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list)` | **121/121 passed, 12 spec files, 0 skipped**, against a production build on the seeded local stack. See §7.4 |
-| E2E skip guard | `node scripts/ci/e2e-mandatory.mjs --check` | `OK — 12 mandatory spec(s) ran with no skips` |
-| Whitespace | `git diff --check main...HEAD` | **clean** (exit 0) |
-| Migration guard | no migration contains the RLS-disable statement | **clean** — verified by scanning all 21 migration files |
-| `lint:testid` (advisory) | `npm run lint:testid` | **2669 → 2635 findings (−34).** See §7.2 |
+| Unit | `npm test` | **332 files, 7801 passed, 11 skipped** (the documented `[Z3b, PARKED]` skips), 0 failed |
+| Build | `npm run build` | **pass**; middleware bundle emitted |
+| pgTAP | `npm run test:db` | **15 files, 742 assertions, 1 failure — pre-existing local drift, verified again this round.** See §7.3 |
+| E2E | `npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list)` | **121/121 passed, 12 spec files, 0 skipped**, against a production build on the seeded local stack |
+| E2E skip guard | `node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json` | `OK — 12 mandatory spec(s) ran with no skips` |
+| Whitespace | `git diff --check` | **clean** (exit 0) |
+| RLS-disable guard | `bash scripts/ci/check-rls-migrations.sh` | **clean** |
+| Destructive-migration guard | `node scripts/ci/check-destructive-migrations.mjs` | **clean** — 22 files scanned |
+| Browser-boundary guard | `node scripts/ci/check-browser-boundaries.mjs` | **clean** — 1121 files, 682 browser modules from 513 entrypoints |
+| `lint:testid` (advisory) | `npm run lint:testid` | **2635 findings — unchanged from the previous head.** No file newly carries one |
 
-### 7.2 `lint:testid` — advisory, and it improves
+### 7.2 New and changed suites
 
-Whole-repo findings drop from **2669 to 2635**. `342 → 335` files carry findings.
-**No file newly carries one.** The seven that stopped are the deleted diagnostic
-pages. Every file this branch touches is flat or better:
+| Suite | Tests | Note |
+| ----- | ----- | ---- |
+| `supabase/tests/053-forced-password-change-data-layer.sql` | **124 pgTAP** (new) | catalog invariant + behaviour + negative controls |
+| `supabase/tests/051-forced-password-change-boundary.sql` | **89** (was 70) | reworked for two layers |
+| `__tests__/lib/auth/password-completion.test.ts` | **38** (was 24, rewritten) | the four ceremonies |
+| `__tests__/security/destructive-migration-guard.test.ts` | **40** (new) | 15 forbidden + 18 additive + stripper |
+| `__tests__/components/ResetPasswordPage.recoveryProof.test.tsx` | **33** (rewritten) | the page consumes nothing |
+| `__tests__/security/browser-boundary.test.ts` | **24** (new) | 9 fixtures + positive control |
+| `__tests__/api/auth/recovery-complete.test.ts` | **22** (was 19, rewritten) | attacker-side |
+| `__tests__/security/auth-endpoint-localization.test.ts` | **22** (new) | |
+| `__tests__/api/auth/recovery-request.test.ts` | **20** (new) | anti-enumeration × 9 paths |
+| `__tests__/lib/auth/recovery-proof.test.ts` | **19** (new) | |
+| `__tests__/lib/email/deliveryStatus.test.ts` | **14** (new) | accepted ≠ delivered |
+| `__tests__/components/LoginPage.passwordRecovery.test.tsx` | **12** (rewritten) | S9 re-asserted against the new transport |
+| `__tests__/api/admin/reset-password.test.ts` | **33** | audit rows updated for the ceremony |
 
-| file | main | this branch |
-| ---- | ---- | ----------- |
-| `components/PasswordResetModal.tsx` | 7 | 6 |
-| `components/admin/BulkUserImportModal.tsx` | 19 | 14 |
-| `pages/login.tsx` | 6 | 2 |
-| `pages/reset-password.tsx` | 4 | 1 |
-| `pages/change-password.tsx` | 5 | 5 |
-| `pages/admin/{school-users,tractor-signups,user-management}.tsx` | 14 / 15 / 11 | 14 / 15 / 11 |
-
-The 2635 remaining are the pre-existing baseline the rule was introduced against;
-it is advisory until that baseline is clean.
-
-### 7.3 The one failing pgTAP test — pre-existing, verified independently
+### 7.3 The one failing pgTAP test — pre-existing, re-verified this round
 
 `supabase/tests/002-zoom-internal-isolation.sql` test 8:
+`zoom_internal holds exactly the 7 Z1b tables + zoom_zak_issuances — have: 10, want: 8`.
 
-```
-# Failed test 8: "zoom_internal holds exactly the 7 Z1b tables + zoom_zak_issuances"
-#         have: 10
-#         want: 8
-```
+Re-checked rather than taken on trust: the two extras are
+`zoom_attendance_observations` and `zoom_attendance_report_batches`, created by
+`20260813120000_…` and `20260813120100_…`, which exist **only** in the unmerged
+`feat/zoom-hours` worktree and have been applied to the shared local database.
+`grep -rl` over `supabase/migrations` on this branch finds neither name. Nothing
+in this branch touches `zoom_internal`. CI builds the database from
+`supabase/migrations` on a clean stack, where it passes.
 
-Verified this pass rather than taken on trust:
-
-- **This repository's migrations create exactly 8 tables in `zoom_internal`**
-  (`zoom_hosts, zoom_jobs, zoom_meetings, zoom_recording_files, zoom_token_cache,
-  zoom_transcripts, zoom_webhook_events, zoom_zak_issuances`).
-- The local database holds 10. The two extras are
-  `zoom_attendance_observations` and `zoom_attendance_report_batches`, created by
-  `20260813120000_...` and `20260813120100_...` — which exist **only** in the
-  unmerged `feat/zoom-hours` branch (`/Users/brentcurtis/dev/wt/zoom-hours`) and
-  have been applied to the shared local database.
-- **Nothing in this branch touches `zoom_internal`** — the only file mentioning
-  it is this document.
-- CI builds the database from `supabase/migrations` alone on a clean stack, where
-  it passes.
-
-It remains a real schema-drift signal (production ahead of `main`) and a decision
-for the owner. Not mine, and not this branch's.
-
-### 7.4 E2E
-
-**121/121 passed, 12 spec files, 0 skipped**, run with `CI=1` against a
-production build (`npm run build` + `npm run start`) on the seeded local Supabase
-stack. `e2e-mandatory.mjs --check` on the JSON report:
-`OK — 12 mandatory spec(s) ran with no skips`.
-
-`tests/e2e/auth-lifecycle.spec.ts` is 4 tests. The stages the lifecycle test
-actually exercises, in order:
+### 7.4 E2E — what stage 8 now does
 
 | # | Stage | What is asserted |
 | - | ----- | ---------------- |
-| 1 | Public registration | Anonymous POST to the real `/api/registro-signup`; the signup row exists and is `pending` |
-| 2 | Admin approval | Real `/api/admin/tractor-signups/grant` as the seeded admin; account created, profile `approved`, flag set, delivery reported `not_configured`, no token in the response |
-| 3 | **The invitation message** | Read from the outbox the app server wrote. Subject correct; the href is this application's origin, `/reset-password`, `type=recovery`, a `token_hash` present, **not** `/auth/v1/verify`; the visible fallback URL equals the button's |
-| 4 | No usable credential yet | A direct GoTrue sign-in with the not-yet-set password is refused |
-| 5 | First password | A bare `/reset-password` shows the invalid screen; `#access_token=forjado&type=recovery` shows the invalid screen; **the e-mailed URL** opens the form; the URL is stripped; a weak password is refused; the strong one succeeds and the flag clears |
-| 6 | Login | Through the real form, lands on `/dashboard` |
-| 7 | Administrative reset | Real `/api/admin/reset-password`; returns 200, flags the account, and the temporary password is not echoed |
-| 8 | **The database gate, through PostgREST** | With the flagged account's own token and **no browser and no middleware**: `GET /rest/v1/profiles` → **403** carrying `PASSWORD_CHANGE_REQUIRED`; `PATCH` of its own `must_change_password` → refused, and the flag still reads `true`; the state RPC → **200** |
-| 9 | Forced change | Sign-in routes to `/change-password`; direct navigation to `/dashboard` bounces back; the form completes and the page sends the user to `/login` (the session is revoked by the password change) |
-| 10 | Ordinary access | Sign in with the new password and reach an authenticated page; the same account's `GET /rest/v1/profiles` is **200** again |
-| 11 | Self-service recovery | The real form request, with the anti-enumeration answer asserted; the link (see §8.5) opens the form; a third password is set |
-| 12 | Login again | Through the real form, lands on `/dashboard` |
-| 13 | The audit trail | `access_granted_new_user`, `password_change_recovery` (**≥2**), `password_reset_admin` and `password_change_forced` all read back out of the table; none of the four passwords and not the address appear in any metadata |
+| 8 | **PostgREST** | flagged token → `GET /rest/v1/profiles` **403** with `PASSWORD_CHANGE_REQUIRED`; `PATCH` of its own flag refused and the flag still reads `true`; the state RPC **200** |
+| 8b | **Storage** | a synthetic bucket with a permissive policy created for the test. **Control first**: an unflagged token uploads and lists successfully — without that, the refusals below prove nothing. Then the flagged token: upload refused, listing empty, and the object count read **at the storage layer** afterwards confirms only the control object exists. Torn down in `finally`. |
+| 8c | **Realtime** | a real `postgres_changes` channel with the flagged token receives **nothing** when the service role inserts a row for that account; the same probe with the control token **does** receive its row |
+| 11 | **Self-service recovery** | the message is read from the outbox — subject *"Restablece tu contraseña de Genera"*, link on this origin, `token_hash` present, `type=recovery`, **not** `/auth/v1/verify`, and **a different credential from the invitation's** |
+| 5 | **Refusals** | a bare visit, a hand-typed partial fragment, a **complete** implicit fragment, and a PKCE `?code=` all show the invalid screen; only the e-mailed URL opens the form |
+| 13 | **Audit** | `access_granted_new_user`, `password_change_recovery` (≥2), `password_recovery_requested`, `password_reset_admin`, `password_change_forced` all read back; none of the four passwords and not the address appear in any metadata |
 
-The other three tests: the resend (a second, **different** link in the outbox;
-the cooldown refusing the third attempt with a retry hint; exactly two messages
-sent; the second link still opening the form), the seven removed routes
-answering 404 from the running server, and the forced-change gate through the
-real middleware.
+The e2e job stops excluding `realtime` — a stack with no Realtime in it cannot
+prove a claim about Realtime. `mailpit` stays excluded and is not needed: nothing
+goes out over Supabase SMTP any more.
 
-**Independent confirmation of F1 outside Playwright.** The same properties were
-checked directly against the running stack with `fetch`, so the result does not
-depend on the spec being right:
+### 7.5 Adversarial cases added, by finding
 
-```
-sign-in                -> ok
-FLAGGED table read     -> 403 {"code":"42501","details":"Debes cambiar tu contraseña antes de continuar."}
-FLAGGED flag write     -> 403 {"code":"42501", …}
-FLAGGED probe rpc      -> 200 true
-UNFLAGGED table read   -> 200
-```
+**R1** — a bearer access token alone; an access token presented AS the token
+hash; a session cookie; a body `userId`; a replay of consumed material; expired;
+malformed; non-string; a wrong declared type (never reaching the provider); a
+weak password that does **not** burn the link; a signed-in visitor opening
+another account's link; `getUser` asserted to be called **zero** times.
 
-**Local-environment note, for reproducibility.** The shared local database
-already held `security_audit_events` from an earlier form of migration
-`20260818120000`, and `CREATE TABLE IF NOT EXISTS` does not update a CHECK — so
-the newly added `password_change_recovery` action was rejected there until the
-constraint was swapped by hand on the **local** database. CI is unaffected: it
-runs `supabase db reset` and builds the schema from `supabase/migrations`, where
-the file already declares the full list. The first symptom was the audit writer
-failing **open and visibly** exactly as designed (`[security-audit] write
-failed`, the password change still completing), which is the behaviour the
-fail-open decision was written for.
+**R2** — nine roles × two flag states × four operations on a guarded table; the
+same nine on an **unguarded** twin that they CAN reach; storage list/upload/
+update per flag state with an unflagged positive control; a published-table read
+per flag state; the catalog invariant shown to NAME a table that skipped the
+guard; `service_role` shown to still read a flagged profile and clear the flag.
 
-### 7.5 New and changed suites
+**R3** — 15 forbidden statements each on its own synthetic migration, including
+`EXECUTE 'DROP …'` inside a `DO` block; 18 additive statements that must pass,
+including three that mention the forbidden words in prose.
 
-| Suite | Tests |
-| ----- | ----- |
-| `__tests__/middleware.forced-password-change.test.ts` | 158 (was 149) |
-| `__tests__/components/ResetPasswordPage.recoveryProof.test.tsx` | 37 (rewritten, was 33) |
-| `__tests__/api/admin/resend-invite.test.ts` | 35 (was 28) |
-| `__tests__/lib/auth/password-completion.test.ts` | 24 (new) |
-| `__tests__/api/auth/recovery-complete.test.ts` | 19 (new) |
-| `__tests__/api/meetings/delete.test.ts` | 17 (new) |
-| `__tests__/api/auth/force-password-change.test.ts` | 15 (new) |
-| `__tests__/components/ChangePasswordPage.forcedCompletion.test.tsx` | 9 (new) |
-| `__tests__/lib/auth/recovery-link.test.ts` | 8 (new) |
-| `__tests__/lib/email/outbox.test.ts` | 7 (new) |
-| `__tests__/lib/supabaseWrapper.detectSessionInUrl.test.ts` | 5 (new) |
-| `__tests__/security/no-browser-password-mutation.test.ts` | 5 (new) |
-| `supabase/tests/051-forced-password-change-boundary.sql` | 70 pgTAP (new) |
-| `supabase/tests/052-invitation-resend-claim.sql` | 23 pgTAP (new) |
-| `tests/e2e/auth-lifecycle.spec.ts` | 4 (was 3) |
+**R4** — nine injected violations across `.ts`, `.tsx`, `.js` and `.jsx`; a clean
+module that mentions every forbidden shape in comments and strings and must not
+be flagged; assertions that `lib/`, `.js`, and the two unreferenced browser
+modules are all inside the scanned set.
 
-### 7.6 Adversarial cases added, by finding
-
-**F1** — a flagged account of each of the nine roles refused by the gate; the
-same nine clearing their own flag refused by the trigger; an authenticated
-**admin** refused from writing another user's flag; an unflagged user refused
-from *setting* the flag; a different RPC still refused; `/profiles` still
-refused; the state probe reachable; malformed claims not turning the gate into an
-outage; and, through the e2e, a flagged token refused by PostgREST with no
-browser in the path and the same read succeeding once cleared.
-
-**F2** — hand-typed `#access_token=forjado&type=recovery` while signed in;
-a complete-looking fragment whose `setSession` fails; a fragment that establishes
-a session the auth server then rejects; `signOut` failing as `{error}` **and** as
-a throw; an expired `token_hash` while signed in; a reused token that verifies
-but yields no session; a wrong `type`; a bare visit with a live session; and
-`getSession` asserted to be called zero times on every path.
-
-**F3** — weak passwords at each endpoint; another user's id in the body ignored;
-the flag clear failing and the response not claiming success; retry after a
-partial failure reaching success; four provider-error shapes mapped without
-leaking their wording; and a source walk proving no browser file writes a
-password, the flag, or an audit row.
-
-**F4** — an unauthorized caller, whose refusal is itself audited; a body-supplied
-`userId` ignored; the meeting title kept out of the trail.
-
-**F5** — two concurrent handler invocations against one shared ledger, **with a
-negative control** proving read-then-insert lets both through; four unusable
-claim shapes all failing closed; the advisory lock read out of `pg_locks`.
+**R5** — the source of six endpoints walked for English; four named strings
+asserted individually.
 
 ---
 
 ## 8. The five things to scrutinise hardest
 
-1. **`ALTER ROLE authenticator SET pgrst.db_pre_request` — the blast radius.**
-   This is the single widest change in the branch: a function that runs before
-   **every** Data API request in the project, for every role. I believe the early
-   returns make it free for non-flagged traffic (a claims parse, a role compare,
-   one indexed lookup) but I have not profiled it under load, and I have not
-   proven it composes with any other `db_pre_request` the project might later
-   want — there is exactly one such setting per role, so a second consumer would
-   have to be merged into this function rather than added alongside it. Check
-   whether that constraint is acceptable.
+1. **A restrictive policy on 232 tables is the widest change this branch has
+   ever made.** It is wider than the `db_pre_request` hook it supplements. I
+   believe it is safe — restrictive policies can only narrow, the predicate is
+   wrapped in a scalar sub-select so the planner runs it once per query as an
+   InitPlan, and `service_role` holds `BYPASSRLS` — but I have not profiled it
+   under load, and "one extra indexed lookup per query on every table in the
+   platform" is a claim worth a second opinion. Check especially whether any hot
+   path issues many small queries where a per-query InitPlan is not amortised.
 
-2. **The gate's role test is a JWT claim, not `current_user`.** I reasoned that
-   trusting `request.jwt.claims ->> 'role'` is no weaker than trusting the role
-   switch PostgREST derived from the same claim. If that reasoning is wrong, the
-   gate is bypassable by anyone who can influence the claims blob. This is the
-   argument I would most like a second opinion on, and it is the one place where
-   getting it wrong is silent.
+2. **The predicate is `SECURITY DEFINER` and is referenced from a policy ON
+   `public.profiles`.** That is safe only because the owner (`postgres`) holds
+   `BYPASSRLS`, so evaluating the policy does not re-enter policy evaluation. If
+   that assumption is wrong on the production instance — a different owner, or
+   `BYPASSRLS` revoked — the result is infinite recursion on the most-read table
+   in the schema. I verified `rolbypassrls` on the local stack and **not** on
+   production, because this pass touched production not at all. **Verify it
+   before applying migration four.**
 
-3. **`detectSessionInUrl: false` on the shared client.** It closes the race, and
-   it is a global change to a client every page uses. I verified no
-   `signInWithOAuth` exists today and pinned that with a test — but if anyone adds
-   an OAuth provider, magic-link sign-in, or a Supabase-hosted invite flow, the
-   redirect will land as a URL nothing consumes and the symptom will be "login
-   silently does nothing". Confirm that trade, or ask for the narrower fix
-   (a per-page client).
+3. **Refusing the implicit fragment and PKCE outright.** Every link this platform
+   sends is `token_hash`, so nothing should break — but if any Supabase-hosted
+   template is still configured to send `{{ .ConfirmationURL }}`, or if anyone
+   triggers a recovery from the dashboard, the recipient gets a refusal instead
+   of a form. I judged an honest refusal better than accepting a credential that
+   cannot be verified for purpose. Runbook §4.3 records the template change that
+   makes even that path work. Disagree if you think the compatibility matters
+   more.
 
-4. **The one PostgREST allowance, and whether the path match is tight enough.**
-   `request.path LIKE '%/rpc/current_password_change_state'` is a suffix match. I
-   believe nothing else can end in that string, and the function is argument-free
-   and self-scoped so a false allow leaks nothing — but a suffix match on an
-   attacker-influenced-ish value is the kind of thing that reads fine and is
-   wrong. Also worth checking: if `request.path` is ever unavailable, flagged
-   users are refused *everywhere including the probe*, the middleware reads
-   `unavailable`, and everyone flagged lands on the retry panel. I judged that
-   acceptable because the forced change still completes; disagree if you think
-   otherwise.
+4. **The administrative-reset seam** (§4.2). The ceremony owns every
+   authorization decision and re-reads the target facts, but takes the ACTOR from
+   `checkIsAdminOrEquipoDirectivo` instead of repeating the role lookup. I chose
+   that over a second lookup because the helper is the shared, server-side one
+   the API pattern prescribes — but it does mean the module trusts one value it
+   did not fetch itself, and the module re-checks only its shape.
 
-5. **The self-service recovery stage of the e2e is the weakest link in the
-   chain.** The invitation link is genuinely the one that was e-mailed. The
-   self-service one is not: CI runs `supabase start -x mailpit`, so there is no
-   mailbox, and the spec rebuilds the link with the product's own helper from a
-   fresh token. Same format, same code, not the same message. If you want that
-   closed, it means keeping mailpit in the e2e job and reading its API — a real
-   change to the CI job, which I did not make unilaterally.
+5. **The e2e Storage fixture creates a permissive policy and drops it in
+   `finally`.** Without a permissive policy both accounts are refused and the
+   comparison proves nothing, so the fixture is necessary — but it means a test
+   run that dies between creation and teardown leaves a policy behind on the
+   stack, and it means the e2e now needs `SUPABASE_DB_URL`. On the ephemeral CI
+   stack that is harmless. Confirm you agree it should not be a shipped policy
+   instead.
 
 ---
 
 ## 9. Known limitations and deferred items
 
-- **The self-service recovery e2e stage does not open the message Supabase
-  sent.** §8.5. The invitation stage does.
-- **pgTAP cannot send an HTTP request**, so 051 proves the gate function refuses
-  correctly *and* that `pg_db_role_setting` names it — the two halves that make
-  the control real — rather than proving PostgREST honours it. The e2e closes
-  that last inch against the running stack.
-- **The concurrency proof for F5 is a simulation plus a negative control**, not
-  two real OS processes racing on one database. The pgTAP suite proves the lock
-  is taken and keyed per target; the Vitest pair proves the handler is correct
-  given an atomic claim and incorrect given a non-atomic one. A true two-process
-  race against Postgres is not something this test rig can run.
-- **`must_change_password` is enforced at the API layer, not per-table RLS.** The
-  pre-request gate covers everything PostgREST serves, which is the whole Data
-  API — but a future path that reaches Postgres *without* PostgREST (a direct
-  connection, an Edge Function with the service key) is not gated. Neither exists
-  today.
-- **Bulk import will time out at scale.** Pre-existing and unchanged: the handler
-  sleeps a second between users, so 500 users exceeds a serverless timeout.
-- **`invitation_resent` writes two rows per resend** (reservation + outcome). The
-  price of a fail-closed ledger on an append-only table.
-- **The resend cooldown is per target, not per admin.** Safer direction; it will
-  occasionally surprise someone.
+- **`SECURITY DEFINER` RPCs and the 22 row-security-off legacy tables are covered
+  by the pre-request gate ALONE.** No policy can reach either. Emptying that
+  allowlist remains out of scope.
+- **A future path that reaches Postgres without PostgREST, Storage or Realtime**
+  — a direct connection, or an Edge Function with the service key — is not gated.
+  Neither exists today; `supabase/functions` is absent from this repository.
+- **pgTAP cannot send an HTTP request or open a WebSocket.** 053 proves the
+  control both services consult; the e2e proves they consult it.
+- **The recovery form opens before the link is validated.** A one-time credential
+  cannot be both checked on arrival and used on submit. An expired link now
+  reports itself after the password is typed.
+- **No test proves mail leaves the building, and none claims to.** The furthest
+  this repository reaches is `provider_accepted`. `delivered` and `bounced` are
+  declared and never produced. Runbook §3.6 and §6 are the only things that can
+  settle it, and they are human operations against production.
+- **The concurrency proof for F5 is still a simulation plus a negative control.**
+- **`invitation_resent` still writes two rows per resend**, and the administrative
+  reset now writes two on the failure path (the password-stage refusal and the
+  compensation outcome). Each row is true about a different thing; collapsing
+  them would lose whether the account was left flagged.
+- **The resend cooldown is per target, not per admin.**
 - **The audit table has no retention policy.**
-- **Diagnostic surface remains** beyond the seven removed routes — §2.
-- **`getAppBaseUrl` throws in production when no origin is configured.** Now more
-  load-bearing than before, because this branch builds the invitation URL itself.
-  Runbook §3.1a.
-- **No test proves mail actually leaves the building.** The outbox is a file, not
-  a provider. Only runbook §3.3 can settle that.
-- **The `/change-password` page still renders inside `AuthProvider` and
-  `PermissionProvider`**, both of which make browser PostgREST calls that the
-  gate now refuses for exactly the users on that page. Both handle the error by
-  logging and falling back to empty state, so the page works — but a flagged user
-  generates console noise, and a future provider that throws instead would break
-  the page. Worth a follow-up.
+- **Bulk import will time out at scale.** Pre-existing and unchanged.
+- **Diagnostic surface remains** beyond the seven removed routes.
+- **`getAppBaseUrl` throws in production when no origin is configured**, and is
+  now load-bearing for three e-mail paths rather than two.
+- **`/change-password` still renders inside `AuthProvider` and
+  `PermissionProvider`**, both of which make browser calls the boundary now
+  refuses for exactly the users on that page. Both fall back to empty state, so
+  the page works — but a flagged user generates console noise. Worth a follow-up.
+- **The local shared database needed one hand operation** to run the gates: the
+  `security_audit_events` action CHECK predates the two values this branch adds,
+  and `CREATE TABLE IF NOT EXISTS` does not update a constraint. It was swapped
+  by hand **on the local dev database only**. CI runs `supabase db reset` and
+  builds the schema from `supabase/migrations`, where the file declares the full
+  list.
 
 ---
 
 ## 10. Questions for the reviewer
 
-1. Is the JWT-claim role test in `gate_password_change()` sound (§8.2)?
-2. Is a single project-wide `db_pre_request` an acceptable thing for this feature
-   to consume (§8.1)?
-3. Is `detectSessionInUrl: false` on the shared client the right scope, or should
-   it be a per-page client (§8.3)?
-4. Should the e2e job stop excluding `mailpit` so the self-service recovery stage
-   can read the real message (§8.5)?
-5. Is the fail-closed behaviour when `request.path` is unavailable — everybody
-   flagged lands on the retry panel — the trade you want (§8.4)?
+1. Is `rolbypassrls` on the production `postgres` role something you can confirm
+   before migration four is applied (§8.2)?
+2. Is a restrictive policy on every row-secured table an acceptable cost, or
+   would you rather the boundary stayed at the request layer and accepted the
+   Storage/Realtime gap explicitly (§8.1)?
+3. Is refusing implicit and PKCE recovery links outright the right call (§8.3)?
+4. Is the administrative-reset actor seam acceptable (§8.4)?
+5. Should the e2e's Storage policy be a shipped, permanently-scoped policy rather
+   than a fixture (§8.5)?

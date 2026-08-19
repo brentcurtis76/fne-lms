@@ -489,9 +489,24 @@ describe('admin/reset-password — partial failure never reports success (S2)', 
     expect(profileCalls[1].updates[0]).toMatchObject({ must_change_password: true });
     expect(profileCalls[2].updates[0]).toMatchObject({ must_change_password: false });
 
-    const audit = tracker.fromCalls.find((c) => c.table === AUDIT_TABLE);
-    expect((audit!.inserts[0] as any).outcome).toBe('failure');
-    expect((audit!.inserts[0] as any).metadata.flag_restored).toBe(true);
+    // TWO rows, and each is true about a different thing. The trusted boundary
+    // records that the password write itself was refused; the ceremony records
+    // what the compensation then did to the flag. Collapsing them would lose the
+    // fact an operator actually needs — whether the account was left flagged.
+    const auditRows = tracker.fromCalls
+      .filter((c) => c.table === AUDIT_TABLE)
+      .flatMap((c) => c.inserts as any[]);
+    expect(auditRows).toHaveLength(2);
+    expect(auditRows[0]).toMatchObject({
+      action: 'password_reset_admin',
+      outcome: 'failure',
+      metadata: { stage: 'set_password' },
+    });
+    expect(auditRows[1]).toMatchObject({
+      action: 'password_reset_admin',
+      outcome: 'failure',
+      metadata: { stage: 'compensate_flag', flag_restored: true },
+    });
   });
 
   it('password write fails AND the restore fails: partial_failure, and the message says so', async () => {
@@ -520,9 +535,15 @@ describe('admin/reset-password — partial failure never reports success (S2)', 
     // The honest message for the one state that survives: flagged, old password.
     expect(res._getJSONData().error).toContain('contraseña actual NO cambió');
 
-    const audit = tracker.fromCalls.find((c) => c.table === AUDIT_TABLE);
-    expect((audit!.inserts[0] as any).outcome).toBe('partial_failure');
-    expect((audit!.inserts[0] as any).metadata.flag_restored).toBe(false);
+    const auditRows = tracker.fromCalls
+      .filter((c) => c.table === AUDIT_TABLE)
+      .flatMap((c) => c.inserts as any[]);
+    expect(auditRows).toHaveLength(2);
+    // The compensation row is the one that carries the surviving state.
+    expect(auditRows[1]).toMatchObject({
+      outcome: 'partial_failure',
+      metadata: { stage: 'compensate_flag', flag_restored: false },
+    });
   });
 
   it('restores the PRIOR flag value, not a hardcoded false', async () => {
@@ -856,7 +877,7 @@ describe('admin/reset-password — authorization and ED scoping (unchanged)', ()
 
     expect(res._getStatusCode()).toBe(403);
     expect(res._getJSONData()).toMatchObject({
-      error: 'School context missing for equipo_directivo',
+      error: 'Falta el contexto de escuela para equipo directivo',
     });
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });

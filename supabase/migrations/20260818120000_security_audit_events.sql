@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS public.security_audit_events (
     'password_change_voluntary'::text,
     'password_change_forced'::text,
     'password_change_recovery'::text,
+    'password_recovery_requested'::text,
     'user_created_manual'::text,
     'user_created_bulk'::text,
     'bulk_credentials_delivered'::text,

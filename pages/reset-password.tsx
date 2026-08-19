@@ -12,77 +12,67 @@ import { PASSWORD_RULES, firstPasswordPolicyError } from '../lib/auth/password-p
  * Password recovery.
  *
  * ==========================================================================
- * WHAT WAS BROKEN, in two rounds.
+ * WHAT WAS BROKEN, in three rounds. The third is the one that matters.
  * ==========================================================================
  *
  * ROUND ONE (S12). The page's first action was `getSession()`, and ANY session
  * satisfied it. A signed-in visitor got a working password form with no
- * credential at all; a token that failed to verify fell back to the session that
- * was already there; and opening SOMEONE ELSE'S expired link while signed in
+ * credential at all, and opening SOMEONE ELSE'S expired link while signed in
  * changed YOUR password.
  *
- * ROUND TWO — what the first fix missed, and this one closes:
+ * ROUND TWO closed four holes in that fix: the legacy fragment branch still
+ * trusted the session; `detectSessionInUrl` raced the page for the URL;
+ * `signOut()`'s `{ error }` return was ignored; and the password write still
+ * happened in the browser with no audit row.
  *
- *   1. THE LEGACY FRAGMENT BRANCH STILL TRUSTED THE SESSION. The sign-out
- *      before consumption was applied only to `token_hash` and `code`. The
- *      implicit branch went straight to polling `getSession()` — and the
- *      admission ticket for that branch was merely "the fragment CONTAINS the
- *      strings `type=recovery` and `access_token`". Anyone could type those into
- *      an address bar. A signed-in visitor appending
- *      `#access_token=x&type=recovery` was handed the form on their OWN live
- *      session, which is the original defect wearing a hat. Supabase's own
- *      behaviour makes it worse: when implicit processing FAILS it leaves the
- *      pre-existing session in place, so a genuinely broken link landed in the
- *      same hole.
+ * ROUND THREE — the finding this version answers. Round two moved the write to
+ * the server, which was right, and then PROVED IDENTITY TO THAT SERVER WITH AN
+ * ACCESS TOKEN. The page consumed the recovery material here (`verifyOtp`), took
+ * the session that fell out of it, and posted that token as a bearer credential.
+ * `/api/auth/recovery-complete` called `auth.getUser(token)` and changed the
+ * named account's password.
  *
- *   2. A RACE decided whether valid links worked. The shared browser client is
- *      built in `_app`'s module scope with `detectSessionInUrl` on by default,
- *      so it asynchronously consumed and ERASED the fragment. Whether this
- *      page's effect or that pass ran first was timing.
- *
- *   3. `signOut()`'s RETURN was ignored. supabase-js reports failure as
- *      `{ error }` — it does not throw — so the `try/catch` around it caught
- *      nothing and a failed sign-out continued into consumption with the old
- *      session intact.
- *
- *   4. THE PASSWORD WRITE HAPPENED IN THE BROWSER. `supabase.auth.updateUser`,
- *      then a browser PATCH to clear `must_change_password` whose failure was
- *      logged and ignored while the UI said "exitosamente", and no audit row
- *      anywhere.
+ * `getUser` proves a token is valid and says whose it is. It does not say WHAT
+ * MINTED IT — and an ordinary password login mints an indistinguishable token.
+ * So any signed-in account could post its own access token to that endpoint and
+ * set a new password with no link and no current password. The S12 defect,
+ * closed in the page, had reopened one layer down at the API.
  *
  * ==========================================================================
- * WHAT REPLACES IT.
+ * WHAT REPLACES IT: THIS PAGE VERIFIES NOTHING.
  * ==========================================================================
  *
- *   THE URL IS THE ONLY SOURCE OF IDENTITY. Material is read during the first
- *   render, before any effect, and `detectSessionInUrl` is off on the shared
- *   client (see lib/supabase-wrapper.ts) so nothing else can consume it. There
- *   is no race left to lose.
+ *   THE BROWSER NO LONGER CONSUMES THE CREDENTIAL. There is no `verifyOtp`, no
+ *   `exchangeCodeForSession`, no `setSession`, no `getUser` and no `getSession`
+ *   anywhere on this page. The one-time `token_hash` is read from the URL and
+ *   FORWARDED to `/api/auth/recovery-complete`, which consumes it server-side
+ *   with `verifyOtp({ type: 'recovery' })` and derives the account from that
+ *   verification. See lib/auth/recovery-proof.ts.
  *
- *   EVERY BRANCH SIGNS OUT FIRST, and checks the `{ error }` it gets back.
- *   Local scope: the point is that this tab cannot fall back on a session, not
- *   to revoke the person's phone.
+ *   ONE FORMAT IS ACCEPTED, and it is the format this application itself sends.
+ *   `lib/auth/recovery-link.ts` builds every recovery URL the platform emits —
+ *   invitation, resend, and now self-service too (`/api/auth/recovery-request`) —
+ *   as `/reset-password?token_hash=...&type=recovery`.
  *
- *   EVERY BRANCH VERIFIES WITH THE AUTH SERVER. After consumption the resulting
- *   access token is handed to `getUser(token)` — a round trip that validates
- *   signature, expiry and revocation and returns the account it belongs to. The
- *   form opens for that account or for nobody. `getSession()` is never consulted
- *   as proof anywhere on this page.
+ *   THE OTHER FORMATS ARE REFUSED BY NAME. An implicit `#access_token=` fragment
+ *   is an ORDINARY SESSION CREDENTIAL: there is no server-side check that could
+ *   tell it apart from a login, so accepting it would be the same defect wearing
+ *   a different hat. A PKCE `?code=` can only be exchanged with a verifier held
+ *   in this browser, so there is nothing the server could verify. Both get a
+ *   plain es-CL "solicita un enlace nuevo" instead of a fall-through.
  *
- *   THE LEGACY FRAGMENT NEEDS ALL THREE TOKENS — `access_token`,
- *   `refresh_token` and `type=recovery` — and is established with an explicit
- *   `setSession()` whose error is checked, then verified like the others. The
- *   presence of a string is no longer an admission ticket.
+ *   THE FORM OPENS ON THE SHAPE OF THE LINK, and the link is spent at submit.
+ *   That is a deliberate trade: the material is one-time, so it cannot be both
+ *   validated on arrival and used on submit. The cost is that an expired link
+ *   reports itself after the password is typed rather than before; the benefit
+ *   is that nothing but the server ever touches the credential.
  *
- *   THE PASSWORD IS WRITTEN BY THE SERVER. The verified access token goes to
- *   `/api/auth/recovery-complete` as a bearer credential; that endpoint
- *   re-verifies it with `getUser()`, re-checks the shared policy, writes the
- *   password for the account the AUTH SERVER names, clears the forced-change
- *   flag through the trusted database path, and records
- *   `password_change_recovery`. Opening another account's link can therefore
- *   only ever act on that link's owner — the bearer token came from the link.
+ *   ANY PRE-EXISTING SESSION IS SIGNED OUT before the form opens, and the
+ *   `{ error }` return is checked. Nothing here depends on a session any more,
+ *   so this is defence in depth rather than the control — but a recovery form
+ *   rendered over somebody else's live session is a state worth refusing.
  *
- *   NOTHING IS LOGGED. No token, no hash, no fragment, no URL reaches the
+ *   NOTHING IS LOGGED. No hash, no fragment, no URL and no password reaches the
  *   console or any response body.
  */
 
@@ -95,10 +85,11 @@ export interface RecoveryMaterial {
   rawToken: string | null;
   /** The declared `type`, if the link carried one. */
   type: string | null;
-  /** The legacy implicit fragment, only when it is COMPLETE. */
-  implicit: { accessToken: string; refreshToken: string } | null;
-  /** An implicit-looking fragment that is missing something. Never usable. */
-  implicitIncomplete: boolean;
+  /**
+   * Whether the URL carried an implicit-flow fragment of ANY completeness.
+   * Recorded only so the page can refuse it explicitly.
+   */
+  hasImplicitFragment: boolean;
 }
 
 export const RECOVERY_MESSAGES = {
@@ -110,6 +101,8 @@ export const RECOVERY_MESSAGES = {
     'El enlace no contiene la información necesaria. Solicita un enlace de recuperación nuevo desde la página de inicio de sesión.',
   wrongType:
     'Este enlace no sirve para cambiar la contraseña. Solicita un enlace de recuperación desde la página de inicio de sesión.',
+  unsupportedFormat:
+    'Este enlace usa un formato que ya no aceptamos por seguridad. Solicita un enlace de recuperación nuevo desde la página de inicio de sesión.',
   signOutFailed:
     'No pudimos cerrar la sesión anterior de forma segura, así que no abrimos el formulario. Cierra sesión e intenta con el enlace nuevamente.',
   sessionLost:
@@ -124,11 +117,9 @@ export const RECOVERY_MESSAGES = {
 /**
  * Reads recovery material out of a URL. Pure, exported, and tested directly.
  *
- * The implicit fragment is admitted ONLY when all three parts are present. A
- * fragment that names `type=recovery` and nothing else — or an `access_token`
- * with no refresh token — is reported as `implicitIncomplete`, which is a hard
- * failure rather than a fall-through, because falling through is what let a
- * hand-typed fragment reach the form on the visitor's own session.
+ * It only reads. Every judgement about what is usable lives in
+ * `judgeRecoveryMaterial` below, so the admission rule is one function that can
+ * be asserted on directly rather than a sequence of early returns in an effect.
  */
 export function readRecoveryMaterial(search: string, hash: string): RecoveryMaterial {
   const query = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
@@ -137,35 +128,75 @@ export function readRecoveryMaterial(search: string, hash: string): RecoveryMate
   const accessToken = fragment.get('access_token');
   const refreshToken = fragment.get('refresh_token');
   const fragmentType = fragment.get('type');
-  const looksImplicit = Boolean(accessToken || refreshToken || fragmentType);
-  const completeImplicit =
-    Boolean(accessToken) && Boolean(refreshToken) && fragmentType === 'recovery';
 
   return {
     tokenHash: query.get('token_hash'),
     code: query.get('code'),
     rawToken: query.get('token'),
     type: query.get('type') ?? fragmentType,
-    implicit: completeImplicit
-      ? { accessToken: accessToken as string, refreshToken: refreshToken as string }
-      : null,
-    implicitIncomplete: looksImplicit && !completeImplicit,
+    // Recorded so the page can REFUSE it by name rather than ignoring it. See
+    // the header: a fragment access token is an ordinary session credential and
+    // is not recovery proof.
+    hasImplicitFragment: Boolean(accessToken || refreshToken || fragmentType),
   };
 }
 
 export function hasRecoveryMaterial(material: RecoveryMaterial): boolean {
   return Boolean(
-    material.tokenHash ||
-      material.code ||
-      material.rawToken ||
-      material.implicit ||
-      material.implicitIncomplete
+    material.tokenHash || material.code || material.rawToken || material.hasImplicitFragment
   );
 }
 
 /** The only `type` this page will act on. Absent means recovery. */
 function typeIsRecovery(material: RecoveryMaterial): boolean {
   return material.type === null || material.type === 'recovery';
+}
+
+/**
+ * The verdict this page reaches from the URL alone, with no network call.
+ *
+ * Exported and pure so it can be asserted directly: it is the whole of the
+ * page's admission logic, and it admits exactly ONE shape.
+ */
+export type UsableMaterial = { usable: true; tokenHash: string };
+export type UnusableMaterial = { usable: false; message: string };
+export type MaterialVerdict = UsableMaterial | UnusableMaterial;
+
+/** A guard, not truthiness: this project compiles with `strict: false`. */
+export function isUnusableMaterial(verdict: MaterialVerdict): verdict is UnusableMaterial {
+  return verdict.usable === false;
+}
+
+export function judgeRecoveryMaterial(material: RecoveryMaterial): MaterialVerdict {
+  if (!hasRecoveryMaterial(material)) {
+    return { usable: false, message: RECOVERY_MESSAGES.missing };
+  }
+
+  // An implicit fragment carries an ORDINARY ACCESS TOKEN. Refused by name,
+  // before anything else looks at it, because "it says type=recovery" was the
+  // admission ticket that let a hand-typed fragment open this form.
+  if (material.hasImplicitFragment) {
+    return { usable: false, message: RECOVERY_MESSAGES.unsupportedFormat };
+  }
+
+  if (!typeIsRecovery(material)) {
+    return { usable: false, message: RECOVERY_MESSAGES.wrongType };
+  }
+
+  // PKCE. The code can only be exchanged with a verifier this browser holds, so
+  // there is nothing the SERVER could verify — and the server is where the
+  // ceremony now lives. Every link this platform sends is `token_hash`.
+  if (material.code) {
+    return { usable: false, message: RECOVERY_MESSAGES.unsupportedFormat };
+  }
+
+  // A raw `{{ .Token }}` link needs the account's e-mail to verify, and the page
+  // does not have it.
+  if (!material.tokenHash) {
+    return { usable: false, message: RECOVERY_MESSAGES.rawToken };
+  }
+
+  return { usable: true, tokenHash: material.tokenHash };
 }
 
 export default function ResetPasswordPage() {
@@ -192,25 +223,17 @@ export default function ResetPasswordPage() {
   );
 
   /**
-   * The credential the recovery proved: the account id, and the access token the
-   * server will re-verify. Held in a ref rather than state because it must never
-   * influence rendering and must never be serialised into the DOM.
+   * The material this page will FORWARD. It is not a credential this page has
+   * verified — nothing here verifies anything any more — it is the one-time
+   * string from the URL, held so it survives the URL being stripped.
+   *
+   * A ref rather than state: it must never influence rendering and must never be
+   * serialised into the DOM.
    */
-  const provedRef = useRef<{ userId: string; accessToken: string } | null>(null);
+  const materialRef = useRef<string | null>(null);
 
-  /**
-   * The credential may be consumed at most ONCE per page load.
-   *
-   * React 18 Strict Mode invokes an effect, runs its cleanup, and invokes it
-   * again — in development. A second `verifyOtp` on a one-time token would burn
-   * it and report "expired" for a link that was perfectly valid.
-   *
-   * What the guard must NOT do is abort the first run. An earlier shape paired
-   * this ref with a `cancelled` flag set by the cleanup: the first invocation
-   * was cancelled and the second returned early, leaving the page on
-   * "Validando enlace de recuperación..." forever.
-   */
-  const consumedRef = useRef(false);
+  /** The admission decision runs at most once per page load. */
+  const judgedRef = useRef(false);
 
   const stripUrl = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -223,137 +246,47 @@ export default function ResetPasswordPage() {
   }, []);
 
   useEffect(() => {
-    if (consumedRef.current) return;
-    consumedRef.current = true;
+    if (judgedRef.current) return;
+    judgedRef.current = true;
 
-    const consume = async () => {
-      // --- No recovery material at all -------------------------------------
-      // The whole fix in one branch. The old page asked for a session here and
-      // accepted any it found.
-      if (!hasRecoveryMaterial(material)) {
-        fail(RECOVERY_MESSAGES.missing);
-        return;
-      }
+    const admit = async () => {
+      const verdict = judgeRecoveryMaterial(material);
 
-      // A fragment that looks like an implicit link but is missing a token is
-      // REFUSED, not ignored. This is the hand-typed
-      // `#access_token=x&type=recovery` case.
-      if (material.implicitIncomplete) {
+      if (isUnusableMaterial(verdict)) {
         stripUrl();
-        fail(RECOVERY_MESSAGES.expired);
+        fail(verdict.message);
         return;
       }
 
-      if (!typeIsRecovery(material)) {
-        stripUrl();
-        fail(RECOVERY_MESSAGES.wrongType);
-        return;
-      }
-
-      // A raw `{{ .Token }}` link needs the account's e-mail to verify, and the
-      // page does not have it. Say so plainly rather than falling through.
-      if (material.rawToken && !material.tokenHash && !material.code && !material.implicit) {
-        stripUrl();
-        fail(RECOVERY_MESSAGES.rawToken);
-        return;
-      }
-
-      // --- Discard any pre-existing session BEFORE consuming anything -------
-      // Unconditionally, for every branch — the implicit one included, which is
-      // where the previous shape left the hole. `scope: 'local'` because the
-      // goal is that THIS TAB has nothing to fall back on; revoking the person's
-      // other devices because they clicked a stale link would be punitive.
+      // --- Discard any pre-existing session BEFORE opening the form ----------
+      // Nothing here depends on a session any more, so this is not load-bearing
+      // for identity — but a recovery form rendered over somebody else's live
+      // session is a confusing and dangerous state, and the previous defect was
+      // exactly a session surviving into a decision about who you are.
+      // `scope: 'local'` because the goal is that THIS TAB has nothing; revoking
+      // the person's other devices because they clicked a link would be punitive.
       //
-      // The RETURN VALUE is checked. supabase-js reports failure as `{ error }`
-      // rather than throwing, so the old try/catch could not see it — and a
-      // failed sign-out that continues is precisely how a live session survives
-      // into a branch that is about to decide who you are.
+      // The RETURN VALUE is checked: supabase-js reports failure as `{ error }`
+      // rather than throwing, so a try/catch alone cannot see it.
       try {
         const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
         if (signOutError) {
+          stripUrl();
           fail(RECOVERY_MESSAGES.signOutFailed);
           return;
         }
       } catch {
+        stripUrl();
         fail(RECOVERY_MESSAGES.signOutFailed);
         return;
       }
 
-      // --- Consume, then VERIFY WITH THE AUTH SERVER ------------------------
-      let accessToken: string | null = null;
-
-      try {
-        if (material.tokenHash) {
-          // Method 1 — the format this application's own invitation and reset
-          // e-mails carry (lib/email/invitations.ts builds
-          // `/reset-password?token_hash=…&type=recovery` from
-          // `generateLink().properties.hashed_token`), and the format the
-          // mandatory e2e opens.
-          const { data, error } = await supabase.auth.verifyOtp({
-            token_hash: material.tokenHash,
-            type: 'recovery',
-          });
-          if (error || !data?.session?.access_token) {
-            stripUrl();
-            fail(RECOVERY_MESSAGES.expired);
-            return;
-          }
-          accessToken = data.session.access_token;
-        } else if (material.code) {
-          // Method 2 — PKCE.
-          const { data, error } = await supabase.auth.exchangeCodeForSession(material.code);
-          if (error || !data?.session?.access_token) {
-            stripUrl();
-            fail(RECOVERY_MESSAGES.expired);
-            return;
-          }
-          accessToken = data.session.access_token;
-        } else if (material.implicit) {
-          // Method 3 — the legacy implicit fragment, established EXPLICITLY.
-          // We no longer wait for supabase-js to do it and then look for a
-          // session: we hand it both tokens and check what it says.
-          const { data, error } = await supabase.auth.setSession({
-            access_token: material.implicit.accessToken,
-            refresh_token: material.implicit.refreshToken,
-          });
-          if (error || !data?.session?.access_token) {
-            stripUrl();
-            fail(RECOVERY_MESSAGES.expired);
-            return;
-          }
-          accessToken = data.session.access_token;
-        }
-      } catch {
-        stripUrl();
-        fail(RECOVERY_MESSAGES.expired);
-        return;
-      }
-
-      if (!accessToken) {
-        stripUrl();
-        fail(RECOVERY_MESSAGES.expired);
-        return;
-      }
-
-      // The verification every branch shares. `getUser(token)` asks the auth
-      // server; it does not decode anything locally. A token that is forged,
-      // expired or already revoked dies here even if the step above somehow
-      // produced one.
-      const { data: verified, error: verifyError } = await supabase.auth.getUser(accessToken);
-
-      // The URL is stripped only AFTER the material has been captured and used.
+      materialRef.current = verdict.tokenHash;
       stripUrl();
-
-      if (verifyError || !verified?.user?.id) {
-        fail(RECOVERY_MESSAGES.expired);
-        return;
-      }
-
-      provedRef.current = { userId: verified.user.id, accessToken };
       setPhase('ready');
     };
 
-    void consume();
+    void admit();
   }, [supabase, material, fail, stripUrl]);
 
   const handlePasswordUpdate = async () => {
@@ -372,8 +305,8 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    const proved = provedRef.current;
-    if (!proved) {
+    const tokenHash = materialRef.current;
+    if (!tokenHash) {
       setMessage(RECOVERY_MESSAGES.sessionLost);
       setPhase('invalid');
       return;
@@ -381,16 +314,17 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
     try {
-      // The verified recovery token is the credential. The server re-verifies it
-      // and writes the password for whichever account the auth server says it
-      // belongs to — never one this page names.
+      // THE ONE-TIME MATERIAL IS FORWARDED, NOT CONSUMED HERE. The server calls
+      // `verifyOtp({ type: 'recovery' })` with it, and the account whose password
+      // changes is the one GoTrue returns from that verification.
+      //
+      // No Authorization header. There is deliberately no session credential in
+      // this request: an access token is not proof of a recovery, and the
+      // endpoint would refuse one anyway because it never reads one.
       const response = await fetch('/api/auth/recovery-complete', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${proved.accessToken}`,
-        },
-        body: JSON.stringify({ newPassword: password }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tokenHash, type: 'recovery', newPassword: password }),
       });
 
       const result = await response.json().catch(() => ({} as Record<string, unknown>));
@@ -398,23 +332,25 @@ export default function ResetPasswordPage() {
       if (!response.ok) {
         const code = (result as { code?: string }).code;
 
-        if (code === 'NO_RECOVERY_TOKEN' || code === 'RECOVERY_TOKEN_INVALID') {
-          setMessage(RECOVERY_MESSAGES.sessionLost);
+        if (code === 'RECOVERY_MATERIAL_INVALID') {
+          // The material is spent either way — one-time means one-time — so the
+          // form must not stay open offering a retry that cannot work.
+          materialRef.current = null;
+          setMessage(RECOVERY_MESSAGES.expired);
           setPhase('invalid');
           return;
         }
 
         // Everything else is a message the endpoint already wrote in es-CL and
-        // already stripped of provider wording.
+        // already stripped of provider wording. The material has been consumed,
+        // so the form closes rather than inviting a retry on a burnt link.
+        materialRef.current = null;
         setMessage((result as { error?: string }).error || RECOVERY_MESSAGES.generic);
+        setPhase('invalid');
         return;
       }
 
-      // The password is set. Drop the recovery session so the next thing that
-      // happens is a real sign-in with the new credential.
-      provedRef.current = null;
-      await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
-
+      materialRef.current = null;
       setMessage(RECOVERY_MESSAGES.success);
       setPhase('updated');
       setTimeout(() => {
@@ -422,7 +358,7 @@ export default function ResetPasswordPage() {
       }, 2000);
     } catch {
       // No error object is logged: it can carry the request, and the request
-      // carries the bearer token.
+      // carries the one-time material.
       console.error('[ResetPassword] the completion request failed');
       setMessage(RECOVERY_MESSAGES.generic);
     } finally {

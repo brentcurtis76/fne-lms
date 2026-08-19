@@ -228,15 +228,28 @@ export default function LoginPage() {
     setMessage('');
 
     try {
-      const { error } = await supabaseClient.auth.resetPasswordForEmail(normalizedEmail, {
-        redirectTo: `${window.location.origin}/reset-password`
+      // THE SERVER SENDS THE LINK. This used to call
+      // `supabaseClient.auth.resetPasswordForEmail()`, which sends SUPABASE'S
+      // template with SUPABASE'S link — landing as an implicit `#access_token=`
+      // fragment or a PKCE `?code=`, depending on a dashboard setting. Neither of
+      // those can be turned into server-verifiable, purpose-bound, one-time proof,
+      // which is what the recovery ceremony now requires, and neither is the
+      // format the invitation path already used.
+      //
+      // `/api/auth/recovery-request` mints the same `?token_hash=` URL every other
+      // recovery path in this platform sends, through the same server-only mailer.
+      // It answers identically whether or not the account exists.
+      const response = await fetch('/api/auth/recovery-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalizedEmail }),
       });
 
-      if (error) {
-        // Logged, never shown: the provider's message distinguishes "no such
-        // user" from "rate limited", which is exactly the distinction the
-        // generic answer exists to hide.
-        console.error('[Login] password reset request failed:', error.message);
+      if (!response.ok) {
+        // Logged, never shown. The acknowledgement below is the same sentence on
+        // every path, so the form cannot be used to test whether an address has
+        // an account.
+        console.error('[Login] password reset request failed:', response.status);
       }
     } catch (err) {
       console.error('[Login] password reset request threw:', err);

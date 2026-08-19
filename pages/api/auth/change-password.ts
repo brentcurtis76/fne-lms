@@ -11,14 +11,46 @@ import {
 import { ApiError, ApiSuccess } from '../../../lib/types/api-auth.types';
 import { rateLimit, RATE_LIMITS } from '../../../lib/rateLimit';
 import { logAuthEvent } from '../../../lib/securityAuditLog';
-import { firstPasswordPolicyError } from '../../../lib/auth/password-policy';
 import {
-  completePasswordChange,
+  completeVoluntaryPasswordChange,
   isCompletionFailure,
+  type Reauthenticator,
 } from '../../../lib/auth/password-completion';
 
 // Rate limiter for password change (auth-level: 10 req/min)
 const rateLimitCheck = rateLimit(RATE_LIMITS.auth, 'change-password');
+
+/**
+ * VOLUNTARY password change.
+ *
+ * The ceremony — validate the token with the auth server, REAUTHENTICATE with the
+ * current password, then write — lives in the trusted boundary. A live session by
+ * itself is deliberately not enough: the point of asking for the current password
+ * is that a stolen session cannot lock the owner out of their own account.
+ *
+ * The flag is NOT cleared here. A voluntary change is made by somebody who is not
+ * under the forced-change regime, and clearing it would let this endpoint release
+ * an account the boundary is deliberately holding.
+ */
+function buildReauthenticator(): Reauthenticator {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+  return async ({ email, password }) => {
+    // A separate throwaway client, so verifying the old credential cannot
+    // disturb the caller's live session.
+    const verifyClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const { error } = await verifyClient.auth.signInWithPassword({ email, password });
+    if (error) {
+      console.log('[Change Password API] current password verification failed');
+      return { ok: false };
+    }
+    return { ok: true };
+  };
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -30,31 +62,10 @@ export default async function handler(
     return sendAuthError(res, 'Método no permitido', 405);
   }
 
-  // Apply rate limiting
   const allowed = await rateLimitCheck(req, res);
   if (!allowed) return;
 
   try {
-    // F3: `auth.getUser()`, not `auth.getSession()`. getSession decodes the
-    // session cookie and hands back whatever it contains; getUser validates the
-    // token with the auth server and returns the account it actually belongs to.
-    // This handler is about to change a password — the identity it acts on must
-    // come from the authority, not from the caller's own cookie.
-    const supabase = await createApiSupabaseClient(req, res);
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !user?.id || !user.email) {
-      console.error('[Change Password API] No authenticated user:', userError);
-      return sendAuthError(res, 'No autorizado', 401);
-    }
-    console.log('[Change Password API] User requesting password change:', {
-      userId: user.id,
-      email: user.email?.split('@')[0] + '@***'
-    });
-
-    // Validate request body
-    const { currentPassword, newPassword } = req.body;
-
     const validation = validateRequestBody<{ currentPassword: string; newPassword: string }>(
       req.body,
       ['currentPassword', 'newPassword']
@@ -68,52 +79,17 @@ export default async function handler(
       );
     }
 
-    // Validate new password meets requirements
-    const passwordError = firstPasswordPolicyError(newPassword);
-    if (passwordError) {
-      return sendAuthError(res, passwordError, 400);
-    }
+    const { currentPassword, newPassword } = req.body;
 
-    // Verify current password by attempting to sign in
-    // Create a separate client for verification to not affect current session
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-    const verifyClient = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    });
-
-    const { error: verifyError } = await verifyClient.auth.signInWithPassword({
-      email: user.email,
-      password: currentPassword
-    });
-
-    if (verifyError) {
-      console.log('[Change Password API] Current password verification failed');
-      // Use generic error message for security
-      return sendAuthError(res, 'La contraseña actual es incorrecta', 400);
-    }
-
-    // Current password verified — the write itself goes through the one trusted
-    // path every completion shares (lib/auth/password-completion.ts), which
-    // re-checks the shared policy, writes only the proved account, and records
-    // `password_change_voluntary`. `clearFlag: false`: a voluntary change is
-    // made by somebody who is NOT under the forced-change regime, so there is
-    // nothing to clear — and clearing it here would let this endpoint release an
-    // account the gate is deliberately holding.
+    const supabase = await createApiSupabaseClient(req, res);
     const supabaseAdmin = createServiceRoleClient();
 
-    const result = await completePasswordChange(supabaseAdmin, {
-      userId: user.id,
-      newPassword,
-      auditAction: 'password_change_voluntary',
-      auditMetadata: { change_type: 'user_initiated' },
-      clearFlag: false,
-      logPrefix: '[Change Password API]',
-    });
+    const result = await completeVoluntaryPasswordChange(
+      supabaseAdmin,
+      supabase,
+      buildReauthenticator(),
+      { currentPassword, newPassword }
+    );
 
     if (isCompletionFailure(result)) {
       return sendAuthError(res, result.message, result.status);
@@ -121,12 +97,10 @@ export default async function handler(
 
     // Log to security audit (console/external service)
     logAuthEvent('PASSWORD_CHANGE', {
-      userId: user.id,
+      userId: result.userId,
       req,
       details: { change_type: 'user_initiated' }
     });
-
-    console.log('[Change Password API] Password changed successfully for user:', user.id);
 
     return sendApiResponse(res, {
       success: true,

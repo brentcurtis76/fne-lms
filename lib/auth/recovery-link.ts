@@ -36,9 +36,19 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export type RecoveryLinkResult =
-  | { ok: true; url: string }
-  | { ok: false; reason: 'generate_failed' | 'no_hashed_token' };
+export type RecoveryLinkSuccess = { ok: true; url: string };
+export type RecoveryLinkRefusal = {
+  ok: false;
+  reason: 'generate_failed' | 'no_hashed_token';
+};
+export type RecoveryLinkResult = RecoveryLinkSuccess | RecoveryLinkRefusal;
+
+/** A guard, not truthiness: this project compiles with `strict: false`. */
+export function isRecoveryLinkRefusal(
+  result: RecoveryLinkResult
+): result is RecoveryLinkRefusal {
+  return result.ok === false;
+}
 
 /**
  * Build the application's own recovery URL from a hashed token.

@@ -77,11 +77,27 @@ describe('nothing depends on implicit URL detection', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('the recovery page consumes the URL explicitly instead', () => {
+  it('the recovery page reads the URL explicitly, and CONSUMES NOTHING', () => {
     const page = readFileSync(join(ROOT, 'pages', 'reset-password.tsx'), 'utf8');
+    // Still read synchronously during the first render — that is what removes the
+    // race `detectSessionInUrl: false` was turned off for.
     expect(page).toContain('readRecoveryMaterial(window.location.search, window.location.hash)');
-    expect(page).toContain('supabase.auth.setSession(');
-    expect(page).toContain('supabase.auth.verifyOtp(');
-    expect(page).toContain('supabase.auth.exchangeCodeForSession(');
+
+    // But the browser no longer verifies or exchanges anything. The one-time
+    // material is forwarded to the server, which consumes it with
+    // verifyOtp({ type: 'recovery' }). An access token is not recovery proof, so
+    // there is nothing here that could mistake one for it.
+    const code = page
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '');
+    for (const forbidden of [
+      'supabase.auth.setSession(',
+      'supabase.auth.verifyOtp(',
+      'supabase.auth.exchangeCodeForSession(',
+      'supabase.auth.getUser(',
+      'supabase.auth.getSession(',
+    ]) {
+      expect(code, `${forbidden} must not appear on the recovery page`).not.toContain(forbidden);
+    }
   });
 });

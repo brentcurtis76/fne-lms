@@ -1,14 +1,42 @@
-# Runbook — authentication security remediation (S1–S14)
+# Runbook — authentication security remediation (S1–S14, F1–F6)
 
-> Operational follow-up for branch `fix/auth-sec`. Everything here is an action a
-> **human** must take against production, a provider dashboard or the Git remote.
-> None of it was performed by the agent that wrote the code: no production
-> database was mutated, no deployment was triggered, no credential was rotated,
-> no Git history was rewritten, and no provider configuration was changed.
+> Operational follow-up for branch `fix/auth-sec2`. Everything here is an action
+> a **human** must take against production, a provider dashboard or the Git
+> remote. None of it was performed by the agent that wrote the code: no
+> production database was mutated, no deployment was triggered, no credential was
+> rotated, no Git history was rewritten, no e-mail was sent, and no provider
+> configuration was changed or even queried.
 >
 > Ordering matters. §1 is time-sensitive and independent of the merge. §2 must
 > happen with the merge. §3–§6 can follow, but the invitation flow does not
 > actually deliver mail until §3 is done.
+
+---
+
+## 0. State of play — what is done, and what is emphatically not
+
+The single most useful thing this document can do is stop "the code is merged"
+from being read as "the problem is fixed". These are different columns.
+
+| # | Item | State | Where |
+| - | ---- | ----- | ----- |
+| 0.1 | Application and database **code** for S1–S14 and F1–F6 | **CODE COMPLETE**, unreviewed, unmerged | this branch |
+| 0.2 | Local gates (type-check, lint, unit, build, pgTAP, Playwright) | **GREEN** on this branch | review request §7 |
+| 0.3 | **Migrations applied to production** | **PENDING — NOT APPLIED.** Three of them. Until they are, every audit write fails, the forced-change gate does not exist in production, and the resend cooldown is not atomic there | §2 |
+| 0.4 | `RESEND_API_KEY` / `EMAIL_FROM_ADDRESS` in Vercel **Production** | **UNVERIFIED, BELIEVED ABSENT.** Reported absent at the time of the original work; Vercel was neither queried nor modified in this round, so treat the state as unknown until someone looks | §3.1 |
+| 0.5 | Canonical public origin in Vercel Production | **UNVERIFIED.** Now load-bearing: the code fails loudly instead of trusting `Host` | §3.1 |
+| 0.6 | **Controlled send** with a synthetic account | **NOT RUN.** No e-mail has been sent by anyone, from any environment, at any point in this work | §3.3–§3.6 |
+| 0.7 | Supabase **SMTP, e-mail templates, redirect allowlist** | **NOT VERIFIED.** The dashboard was never opened | §4.3 |
+| 0.8 | **Leaked-password protection** | **STILL OFF.** Advisor-confirmed at the time of the original work; not re-checked since | §4.1 |
+| 0.9 | **OTP / recovery expiry** | **STILL OVER ONE HOUR.** Same provenance as 0.8 | §4.2 |
+| 0.10 | **Rotation of the exposed administrator credential**, and invalidation of its sessions | **NOT DONE — STILL URGENT.** Deleting the page stopped future serving; it did nothing about past exposure | §1.1–§1.2 |
+| 0.11 | **CDN / edge cache purge** of the removed routes | **NOT DONE — decision is external** | §1.4 |
+| 0.12 | **Git history rewrite** to expunge the credential | **NOT DONE — needs separate explicit approval.** Recommendation is to rotate instead | §1.5 |
+| 0.13 | Postgres security patches | **OUTSTANDING** | §4.4 |
+| 0.14 | RLS advisor findings (incl. `public.modules`) | **REPORTED, NOT FIXED** — out of scope by decision | §5 |
+
+Rows 0.10–0.12 are independent of the merge and should not wait for it. Row 0.3
+is the one that must happen *with* it.
 
 ---
 
@@ -107,15 +135,38 @@ migrations is not closed until they are applied to production and verified
 read-only. Local and CI green proves the code is correct and says **nothing**
 about the deployed schema.
 
-This branch adds exactly one migration:
+This branch adds **three** migrations. Apply them **in this order** — the third
+writes into the table the first creates.
 
-```
-supabase/migrations/20260818120000_security_audit_events.sql
-```
+| Version | What it does | Why the order matters |
+| ------- | ------------ | --------------------- |
+| `20260818120000_security_audit_events.sql` | The audit table: one `CREATE TABLE IF NOT EXISTS`, three indexes, `ENABLE ROW LEVEL SECURITY`, one conditional policy, `REVOKE`/`GRANT`, four `COMMENT`s | Nothing else works without it |
+| `20260819120000_forced_password_change_boundary.sql` | The forced-change boundary (F1): a `BEFORE UPDATE` trigger protecting `profiles.must_change_password`, three functions, and `ALTER ROLE authenticator SET pgrst.db_pre_request` + `NOTIFY pgrst` | Independent of the other two |
+| `20260819120100_invitation_resend_claim.sql` | `claim_invitation_resend()` (F5) | **References `public.security_audit_events`** — apply after the first |
 
-It is additive: one `CREATE TABLE IF NOT EXISTS`, three indexes, `ENABLE ROW
-LEVEL SECURITY`, one conditional policy, `REVOKE`/`GRANT`, and four `COMMENT`s.
-No `DROP`, no `TRUNCATE`, no destructive `ALTER`.
+All three are additive: no `DROP` of anything that holds data, no `TRUNCATE`, no
+destructive `ALTER`, and no statement that disables row-level security. (The
+second contains one `DROP TRIGGER IF EXISTS` immediately before the `CREATE
+TRIGGER` that replaces it, which is how the migration stays re-runnable; it drops
+no data and no object that outlives the statement.)
+
+### What the second migration changes at the request layer — read this before applying
+
+`ALTER ROLE authenticator SET pgrst.db_pre_request = 'public.gate_password_change'`
+makes PostgREST call that function **before every REST request**, for every
+role. The function returns immediately for `anon` and `service_role`, and for any
+`authenticated` account whose `must_change_password` is false — which is all of
+them, in normal operation. It refuses only flagged accounts, and even then leaves
+`/rest/v1/rpc/current_password_change_state` reachable.
+
+Two consequences worth knowing in advance:
+
+- **A flagged account will start getting 403 from the Data API**, not just a
+  redirect from the app. That is the point of the change. If a support ticket
+  arrives saying "the API stopped working for one user", check the flag first.
+- **`NOTIFY pgrst, 'reload config'` is what makes it take effect** without
+  restarting PostgREST. It is at the end of the migration. If the setting is
+  present but the behaviour is not, send the NOTIFY again.
 
 **`supabase db push` is unusable in this repository** (see PROJECT_STATE.md: the
 history is squashed to a `00000000000000` baseline while production lists its
@@ -125,13 +176,31 @@ wrapped in a transaction, with its `schema_migrations` row in the same
 transaction:
 
 ```sql
+-- One transaction PER migration, in the order of the table above.
 BEGIN;
 -- paste the contents of 20260818120000_security_audit_events.sql
 INSERT INTO supabase_migrations.schema_migrations (version)
 VALUES ('20260818120000')
 ON CONFLICT DO NOTHING;
 COMMIT;
+
+BEGIN;
+-- paste the contents of 20260819120000_forced_password_change_boundary.sql
+INSERT INTO supabase_migrations.schema_migrations (version)
+VALUES ('20260819120000')
+ON CONFLICT DO NOTHING;
+COMMIT;
+
+BEGIN;
+-- paste the contents of 20260819120100_invitation_resend_claim.sql
+INSERT INTO supabase_migrations.schema_migrations (version)
+VALUES ('20260819120100')
+ON CONFLICT DO NOTHING;
+COMMIT;
 ```
+
+`ALTER ROLE` and `NOTIFY` are both transactional in PostgreSQL, so the second
+migration is safe inside `BEGIN`/`COMMIT` — the NOTIFY is delivered at commit.
 
 ### Verify, read-only
 
@@ -153,6 +222,57 @@ SELECT a.grantee::regrole::text, string_agg(DISTINCT a.privilege_type, ',' ORDER
 Expected: `relrowsecurity = t`; one policy `security_audit_events_admin_select |
 SELECT | {authenticated}` with `with_check` NULL; no ACL row for `anon`, and
 exactly `SELECT` for `authenticated`.
+
+```sql
+-- F1: the pre-request gate is actually INSTALLED. A gate that exists but is not
+-- wired up is dead code, and it looks exactly like a working one from the source.
+SELECT r.rolname, s.setconfig
+  FROM pg_db_role_setting s JOIN pg_roles r ON r.oid = s.setrole
+ WHERE r.rolname = 'authenticator';
+
+-- F1: the protected column
+SELECT tgname, tgenabled FROM pg_trigger
+ WHERE tgrelid = 'public.profiles'::regclass AND NOT tgisinternal;
+
+-- F1/F5: who may execute the new functions
+SELECT p.proname,
+       has_function_privilege('anon',          p.oid, 'EXECUTE') AS anon,
+       has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated,
+       has_function_privilege('service_role',  p.oid, 'EXECUTE') AS service_role
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+ WHERE n.nspname = 'public'
+   AND p.proname IN ('gate_password_change', 'current_password_change_state',
+                     'set_password_change_required', 'claim_invitation_resend');
+```
+
+Expected: `setconfig` contains
+`pgrst.db_pre_request=public.gate_password_change`; `protect_must_change_password`
+present and `tgenabled = 'O'`; and this privilege matrix —
+
+| function | anon | authenticated | service_role |
+| -------- | ---- | ------------- | ------------ |
+| `gate_password_change` | t | t | t |
+| `current_password_change_state` | **f** | **t** | t |
+| `set_password_change_required` | **f** | **f** | **t** |
+| `claim_invitation_resend` | **f** | **f** | **t** |
+
+(`gate_password_change` is executable by everyone on purpose — PostgREST invokes
+it as the request's own role, so every role must be able to call it. It takes no
+argument and discloses nothing; it either returns or refuses.)
+
+### If an account gets stuck flagged
+
+The forced change itself does not run through PostgREST, so a flagged account can
+always complete it. If one is nevertheless stranded — a half-finished admin reset,
+a support case — an operator with the service role or a `postgres` session can
+clear the flag directly:
+
+```sql
+SELECT public.set_password_change_required('<user-uuid>'::uuid, false);
+```
+
+It returns `true` only if it actually updated a row. `false` means no such
+profile, not "already cleared".
 
 **Until this migration is applied, every audit write in production fails** — the
 same silent failure the remediation replaced, except that it is now reported
@@ -179,19 +299,39 @@ Vercel Dashboard → the project → **Settings → Environment Variables**, sco
 | `RESEND_API_KEY`     | `re_…` from resend.com → API Keys                | Secret. Sending permission is enough. |
 | `EMAIL_FROM_ADDRESS` | `Genera <notificaciones@nuevaeducacion.org>`     | The domain must be verified in Resend. |
 
-Also confirm the canonical origin is set, since invitation links are built from
-it and the code now **fails loudly** in production rather than trusting the
-request `Host` header:
+### 3.1a The canonical public origin — all the names that work
 
-| Name                    | Value                              |
-| ----------------------- | ---------------------------------- |
-| `NEXT_PUBLIC_BASE_URL`  | `https://www.nuevaeducacion.org`   |
+This is now **load-bearing**, not cosmetic. `getAppBaseUrl`
+(`lib/utils/app-url.ts`) **throws in production** when it cannot resolve an
+origin, rather than falling back to the caller-controlled `Host` header — and
+since F2 the invitation link is built by this application rather than by
+Supabase, so a missing origin means no invitation at all instead of an
+invitation pointing somewhere else.
 
-(`NEXT_PUBLIC_SITE_URL` or `NEXT_PUBLIC_APP_URL` are accepted equivalents; only
-one is needed. `getAppBaseUrl` falls back to Vercel's own
-`VERCEL_PROJECT_PRODUCTION_URL` before giving up.)
+`lib/utils/app-url.ts` accepts **any one** of these, checked in this order.
+Setting more than one is harmless; setting none is a hard 500 on the grant path.
 
-A change to environment variables requires a **redeploy** to take effect.
+| Name | Accepted? | Notes |
+| ---- | --------- | ----- |
+| `NEXT_PUBLIC_BASE_URL` | **yes — first choice** | The name used everywhere else in this repository |
+| `NEXT_PUBLIC_SITE_URL` | **yes** | Equivalent. Checked second |
+| `NEXT_PUBLIC_APP_URL` | **yes** | Equivalent. Checked third. Intentionally supported — an earlier local helper in `grant.ts` ignored it, which is a bug this branch fixed, so do **not** document this name as invalid |
+| `VERCEL_PROJECT_PRODUCTION_URL` | **yes, as a fallback** | Supplied by Vercel without a scheme; used only in production when none of the three above is set |
+
+Whichever you set must parse as an `http(s)` URL — a bare `nuevaeducacion.org`
+with no scheme is rejected, not silently concatenated.
+
+| Name | Suggested Production value |
+| ---- | -------------------------- |
+| `NEXT_PUBLIC_BASE_URL` | `https://www.nuevaeducacion.org` |
+
+Verify what production actually resolves, rather than what it is supposed to:
+grant a synthetic signup (§3.3) and read the visible fallback URL printed under
+the button in the resulting e-mail. It is the same string the button points at,
+so it is the origin the server really used.
+
+`NEXT_PUBLIC_*` values are **inlined at build time**, so a change to any of them
+requires a **redeploy** — not just a restart — to take effect.
 
 ### 3.2 Verify the sending domain in Resend
 
@@ -288,11 +428,23 @@ Dashboard → **Authentication**:
 - **SMTP Settings** — if custom SMTP is configured, confirm the credentials are
   live and the sender matches the verified domain. Supabase's built-in sender is
   rate-limited and not suitable for production invitations.
-- **Email Templates → Reset Password** — the template must produce a link that
-  reaches `/reset-password` carrying `token_hash` (or a PKCE `code`). A template
-  emitting a raw `{{ .Token }}` will now be **refused with a clear message**
-  ("El enlace no contiene la información necesaria") rather than silently landing
-  on a form, because the page cannot verify a raw token without the address.
+- **Email Templates → Reset Password** — this template governs the
+  **self-service** "¿Olvidaste tu contraseña?" flow only. Since F2 the
+  **invitation** e-mail is built by this application and does not use a Supabase
+  template at all: `lib/auth/recovery-link.ts` constructs
+  `/reset-password?token_hash=…&type=recovery` from
+  `generateLink().properties.hashed_token`, so the invitation's shape no longer
+  depends on any dashboard setting.
+
+  For the self-service template, the link must reach `/reset-password` carrying
+  `token_hash` (or a PKCE `code`). A template emitting a raw `{{ .Token }}` is
+  **refused with a clear message** ("El enlace no contiene la información
+  necesaria") rather than silently landing on a form, because the page cannot
+  verify a raw token without the address. A link that arrives as a legacy
+  `#access_token=…` fragment still works, but only if it carries
+  `access_token`, `refresh_token` **and** `type=recovery` — an incomplete
+  fragment is refused rather than falling through to whatever session the
+  browser happens to hold.
 - **URL Configuration** — `Site URL` and `Redirect URLs` must include
   `https://www.nuevaeducacion.org/reset-password`. A `redirectTo` outside the
   allowlist is dropped by GoTrue and the user lands on the site root instead of
@@ -354,7 +506,9 @@ hardening phase; the advisor output is the worklist.
 
 ## 6. Post-deploy verification checklist
 
-After the merge deploys and §2 is applied:
+After the merge deploys and §2 is applied. Nothing in this list has been done —
+see §0. Work through it in order; the last four items are the ones that
+distinguish "the code shipped" from "the control is enforced":
 
 - [ ] The seven diagnostic routes return `404` (§1.6).
 - [ ] `security_audit_events` exists with RLS and the expected ACL (§2).
@@ -368,5 +522,31 @@ After the merge deploys and §2 is applied:
       `/dashboard` bounces you back there.
 - [ ] `SELECT action, outcome, occurred_at FROM public.security_audit_events
       ORDER BY occurred_at DESC LIMIT 20;` shows the operations you just
-      performed. **This is the single best proof that the audit trail is real
-      this time** — the defect it replaces looked exactly like success.
+      performed, including a `password_change_recovery` row for the first
+      password and a `password_change_forced` row for the forced change.
+      **This is the single best proof that the audit trail is real this time** —
+      the defect it replaces looked exactly like success.
+- [ ] **F1 through the Data API, not through the app.** With the synthetic
+      account still flagged, take its access token and call the Data API
+      directly — no browser, no middleware:
+
+      ```
+      TOKEN=$(curl -sS -X POST "$SUPABASE_URL/auth/v1/token?grant_type=password" \
+        -H "apikey: $ANON_KEY" -H 'content-type: application/json' \
+        -d '{"email":"…","password":"…"}' | jq -r .access_token)
+
+      curl -sS -o /dev/null -w '%{http_code}\n' \
+        -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TOKEN" \
+        "$SUPABASE_URL/rest/v1/profiles?select=id"
+      ```
+
+      Expected **403**, with `PASSWORD_CHANGE_REQUIRED` in the body. Then repeat
+      after completing the forced change: expected **200**. If the flagged call
+      returns 200, the pre-request hook is not installed — go back to §2.
+- [ ] The same flagged token cannot clear its own flag:
+      `PATCH /rest/v1/profiles?id=eq.<uuid>` with
+      `{"must_change_password": false}` must fail, and the row must still read
+      `true` afterwards.
+- [ ] The resend cooldown is atomic: fire two resends for the same recipient at
+      once (`curl … & curl … & wait`). Exactly one must return 200 and the other
+      429, and the recipient must receive exactly one message.

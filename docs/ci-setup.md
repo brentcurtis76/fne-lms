@@ -67,8 +67,15 @@ proofs:
 - `npm run test:queue`: overlapping Zoom tick workers partition jobs via
   `FOR UPDATE SKIP LOCKED`.
 - `npm run test:recovery-concurrency`: simultaneous recovery requests from
-  different IPs create one account job, two outbox workers claim once, and two
-  password workers obtain one grant lease.
+  different IPs create one durable candidate job, two outbox workers claim once,
+  and two password workers obtain one grant lease. The proof also enqueues a
+  known and an unknown candidate concurrently (both must return `queued` — the
+  public transaction resolves no account existence), proves a held candidate
+  lock delays only its own candidate, and drives the worker's canonical
+  case-insensitive account resolution. Every assertion is scoped to the proof's
+  own synthetic fingerprints, so it passes repeatedly without a reset and on a
+  database holding unrelated queued recovery work — it seeds such a bystander
+  job itself and proves it comes through untouched.
 
 Gate 4 creates `.env.local` from the ephemeral Supabase stack, sets only
 synthetic cron configuration, builds after the `NEXT_PUBLIC_*` values exist,

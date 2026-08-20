@@ -21,7 +21,7 @@ from being read as "the problem is fixed". These are different columns.
 | # | Item | State | Where |
 | - | ---- | ----- | ----- |
 | 0.1 | Application and database **code** for S1–S14 and F1–F6 | **CODE COMPLETE**, unreviewed, unmerged | this branch |
-| 0.2 | Local gates (type-check, lint, unit, build, pgTAP, Playwright) | **GREEN** on this branch | review request §7 |
+| 0.2 | Local gates (type-check, lint, unit, build, pgTAP, Playwright) | **GREEN** on this branch | review request §5 |
 | 0.3 | **Migrations applied to production** | **PENDING — NOT APPLIED.** **Five** of them now. Until they are, every audit write fails, the forced-change boundary does not exist in production *at either layer*, and neither recovery cooldowns/outbox nor retry grants exist there | §2 |
 | 0.4 | `RESEND_API_KEY` / `EMAIL_FROM_ADDRESS` / `RESEND_WEBHOOK_SECRET` in Vercel **Production** | **UNVERIFIED.** Vercel was neither queried nor modified in this round; treat all three as unknown until a human verifies them | §3.1 |
 | 0.5 | Canonical public origin in Vercel Production | **UNVERIFIED.** Now load-bearing: the code fails loudly instead of trusting `Host` | §3.1 |
@@ -36,6 +36,7 @@ from being read as "the problem is fixed". These are different columns.
 | 0.12 | **Git history rewrite** to expunge the credential | **NOT DONE — needs separate explicit approval.** Recommendation is to rotate instead | §1.5 |
 | 0.13 | Postgres security patches | **OUTSTANDING** | §4.4 |
 | 0.14 | RLS advisor findings (incl. `public.modules`) | **REPORTED, NOT FIXED** — out of scope by decision | §5 |
+| 0.15 | **Retention/scrubbing sweep** (`run_auth_security_retention` + daily cron) | **CODE COMPLETE; RUNS NOWHERE YET.** Requires the fifth migration, the deploy, and `CRON_SECRET` in Vercel Production | §7 |
 
 Rows 0.10–0.12 are independent of the merge and should not wait for it. Row 0.3
 is the one that must happen *with* it.
@@ -52,24 +53,32 @@ Resend/Vercel configuration and controlled send in §3.6.
 
 ### 0.1 Local evidence captured for the review packet
 
-The exact implementation head is
-`242be503e21172c8a8c8160608c5cbafbbacdc58` on `fix/auth-sec2`, based on
+The exact implementation head of the **fifth pass** is
+`3009af540d35bcc9961319487b3bb6dc6bd290a4` on `fix/auth-sec2`, based on
 `4399949942bfcf49dfa8de40cbf7edbf40f0490e`. On 2026-08-19, after a clean local
 Supabase reset, the final evidence was:
 
 - type-check and zero-warning lint: exit 0;
-- Vitest: 338 files, 7,832 passed, 11 pre-existing `[Z3b, PARKED]` skips,
+- Vitest: 343 files, 7,913 passed, 11 pre-existing `[Z3b, PARKED]` skips,
   zero failures;
-- production build: exit 0, Next 14.2.35, 149 static pages;
+- production build: exit 0, Next 14.2.35, 149 static pages, all four
+  `/api/auth/recovery/*` routes and `/api/cron/auth-retention` present;
 - migration guards: exit 0 across 23 migrations;
-- browser boundary: exit 0 across 1,129 source files, 682 browser modules and
+- browser boundary: exit 0 across 1,133 source files, 682 browser modules and
   513 entrypoints;
-- pgTAP: 16 files, 818 tests, zero failures;
+- pgTAP: 16 files, 886 tests, zero failures — run **twice without a reset**,
+  and a third time with an unrelated synthetic recovery job left queued;
 - recovery concurrency proof: exactly one durable job, one outbox lease and one
-  grant lease across independent database connections;
-- queue concurrency proof: 40 jobs exactly once across two workers (21/19);
+  grant lease across independent database connections; a known and an unknown
+  candidate both `queued`; a held candidate lock delaying only its own
+  candidate; the worker's canonical resolution resolving a mixed-case profile
+  and terminally discarding the unknown; also run twice without a reset and
+  once with an unrelated queued job, which finished untouched;
+- queue concurrency proof: 40 jobs exactly once across two workers;
 - mandatory Chromium: 121 passed, zero failed/skipped across all 12 required
-  specs; the independent no-skip guard also passed; and
+  specs (production build and server), including the reload that proves the
+  exchanged recovery context survives a refresh; the independent no-skip guard
+  also passed; and
 - `git diff --check`: exit 0.
 
 The browser run explicitly cleared `RESEND_API_KEY` and
@@ -184,7 +193,7 @@ of the forced-change boundary, and the fifth builds on the audit outcome set.
 | `20260819120000_forced_password_change_boundary.sql` | The forced-change boundary (F1): a `BEFORE UPDATE` trigger protecting `profiles.must_change_password`, three functions, and `ALTER ROLE authenticator SET pgrst.db_pre_request` + `NOTIFY pgrst` | Independent of the other two |
 | `20260819120100_invitation_resend_claim.sql` | `claim_invitation_resend()` (F5) | **References `public.security_audit_events`** — apply after the first |
 | `20260819120200_forced_password_change_data_layer.sql` | **The data-layer boundary (R2).** One predicate, one installer function, and a RESTRICTIVE `forced_password_change_guard` policy on **every row-secured table in `public`** plus the browser-reachable tables in `storage` | Must follow `20260819120000` — it reads the same flag, and the two are the two layers of one control |
-| `20260819120300_recovery_security_ceremonies.sql` | Private `auth_security` schema, atomic account/IP throttles, encrypted durable outbox, bounded hashed-grant ledger, provider delivery transition, and nine service-role-only functions | Uses `security_audit_events` outcomes from the first migration |
+| `20260819120300_recovery_security_ceremonies.sql` | Private `auth_security` schema, atomic candidate/IP throttles keyed on one-way **candidate fingerprints** (the public transaction never learns whether an account exists), encrypted durable outbox with worker-side account resolution, bounded hashed-grant ledger with `interrupted`/`invalidated` terminal states, a durable **delivery-evidence ledger** that survives webhook/acceptance ordering races, the bounded retention sweep `run_auth_security_retention`, and fourteen service-role-only functions | Uses `security_audit_events` outcomes from the first migration |
 
 All five are additive: **no `DROP`, no `TRUNCATE`, no destructive `ALTER`, and no
 statement that turns row-level security off.**
@@ -347,10 +356,13 @@ SELECT p.proname,
    AND p.proname IN ('gate_password_change', 'current_password_change_state',
                      'set_password_change_required', 'claim_invitation_resend',
                      'enqueue_password_recovery', 'claim_password_recovery_outbox',
+                     'resolve_password_recovery_outbox',
                      'prepare_password_recovery_outbox', 'finish_password_recovery_outbox',
                      'create_recovery_attempt_grant', 'claim_recovery_attempt_grant',
-                     'finish_recovery_attempt_grant', 'mark_recovery_attempt_grant_succeeded',
-                     'record_password_recovery_delivery');
+                     'finish_recovery_attempt_grant', 'interrupt_recovery_attempt_grant',
+                     'invalidate_recovery_attempt_grant', 'peek_recovery_attempt_grant',
+                     'mark_recovery_attempt_grant_succeeded',
+                     'record_password_recovery_delivery', 'run_auth_security_retention');
 ```
 
 Expected: `setconfig` contains
@@ -364,6 +376,7 @@ present and `tgenabled = 'O'`; and this privilege matrix —
 | `set_password_change_required` | **f** | **f** | **t** |
 | `claim_invitation_resend` | **f** | **f** | **t** |
 | every `*_password_recovery*` / `*_recovery_attempt_grant*` helper above | **f** | **f** | **t** |
+| `run_auth_security_retention` | **f** | **f** | **t** |
 
 Verify the private schema itself is not a bypass:
 
@@ -512,9 +525,21 @@ family or staff address.
 11. Confirm the link is `…/reset-password?token_hash=…&type=recovery` — not
     `…/auth/v1/verify?…`. Open it → the form appears → set a new password → sign
     in. Opening the page consumes the provider proof into a purpose/user-bound
-    15-minute grant; the password endpoint sees only that grant. A transient
-    provider 422/5xx/network failure leaves it retryable, up to five leased
-    attempts. A success, expiry, attempt exhaustion, or replay must close it.
+    15-minute grant held in an **HttpOnly, SameSite=Strict cookie scoped to
+    `/api/auth/recovery`** — no page script ever sees it, and the response body
+    never carries it. A transient provider 422/5xx/resolved-network failure
+    leaves it retryable, up to five leased attempts. A success, expiry, attempt
+    exhaustion, or replay must close it. A provider call whose outcome could not
+    be confirmed closes the grant as **interrupted** and tells the user to test
+    the password they just typed — the honest answer when the mutation may or
+    may not have landed.
+11a. **Refresh the page after the form appears** (and, separately, close and
+    reopen the tab at `/reset-password` with no parameters). The form must come
+    back without a new e-mail link: the server-managed cookie is what carries
+    the ceremony, and `/api/auth/recovery/context` re-opens it read-only without
+    spending an attempt. Abandoning the form ("Volver al inicio de sesión")
+    must invalidate the context — a following bare `/reset-password` visit shows
+    "Enlace no válido".
 12. **Open the same link a second time.** It must now show the invalid-link
     screen: the credential is one-time and the server burned it. If the form
     appears again, the recovery ceremony is not consuming the material and this
@@ -737,14 +762,18 @@ enforced":
       previous version of the endpoint would have accepted it:
 
       ```
-      curl -sS -o /dev/null -w '%{http_code}\n' -X POST "$APP/api/auth/recovery-complete" \
+      curl -sS -o /dev/null -w '%{http_code}\n' -X POST "$APP/api/auth/recovery/complete" \
         -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
         -d '{"newPassword":"OtraClaveSintetica2026"}'
       ```
 
       Expected **401**. Then confirm the account's password did **not** change by
       signing in with the old one. If this returns 200, the recovery ceremony is
-      accepting sessions as proof and this is the S12 defect, live.
+      accepting sessions as proof and this is the S12 defect, live. (The handler
+      reads no `Authorization` header at all — the only identity it accepts is
+      the HttpOnly recovery cookie minted by `/api/auth/recovery/exchange`.
+      Placing the access token IN that cookie must also fail: it does not verify
+      as a grant.)
 - [ ] **R2 — the boundary covers Storage.** With the account flagged again, use
       its token against the Storage API for a bucket it would otherwise be able
       to use: `POST $SUPABASE_URL/storage/v1/object/list/<bucket>` must return no
@@ -776,3 +805,70 @@ enforced":
       verified webhook. Do not report "e-mail works" until this box is ticked
       with real evidence and a real inbox — and use only a
       synthetic recipient, never a student, family or minor address.
+- [ ] **The retention sweep runs and reports.** After at least one day in
+      production, invoke `/api/cron/auth-retention` with the cron secret (or
+      wait for the 03:30 UTC schedule) and confirm the JSON response reports
+      per-table deletion/scrub counts. Then verify no terminal outbox row older
+      than the §7 windows still carries an envelope:
+
+      ```sql
+      SELECT count(*) FROM auth_security.password_recovery_outbox
+       WHERE state <> 'queued' AND state <> 'processing'
+         AND (request_envelope IS NOT NULL OR message_envelope IS NOT NULL)
+         AND completed_at < now() - interval '1 day';
+      ```
+
+      Expected: **0** (the worker scrubs on terminal transition; the sweep is
+      the belt behind it).
+
+---
+
+## 7. Retention and scrubbing — bounded, indexed, observable
+
+This section is the normative statement of how long recovery and audit state
+lives. `pages/api/cron/auth-retention.ts` cites it, and the periods below are
+what `run_auth_security_retention` implements. Changing a period is a code
+change to that function (and, for the audit period, to the constant in the cron
+handler) — not an ad-hoc production `DELETE`.
+
+**The compliance retention period for `security_audit_events` is two years
+(730 days).** Rationale: the audit trail exists to reconstruct account-security
+incidents, and Chilean data-protection practice under Ley 21.719 expects
+security logs to be kept no longer than needed for that purpose. Two years
+covers a full school-year cycle plus the following one's audit; nothing in the
+table contains an address, link, token, or password, so the residual risk of
+retention is identity-event metadata only. An operator who needs a different
+period changes `AUDIT_RETENTION_DAYS` in `pages/api/cron/auth-retention.ts`
+(the SQL guardrail accepts 90–3700 days) and records the decision here.
+
+| State | Scrubbed | Deleted |
+| ----- | -------- | ------- |
+| Encrypted request/message envelopes | **On terminal transition** (`discarded`, `provider_accepted`, `provider_rejected`, `dead` — the moment retries can no longer need them), with a sweep-side belt for any terminal row that still carries one | with their row |
+| Terminal outbox rows | — | 30 days after completion |
+| Recovery grants | — | 7 days after closing (`succeeded`/`expired`/`exhausted`/`interrupted`/`invalidated`); a grant still `active` in the ledger is removed 1 day past its hard expiry |
+| IP budget buckets | — | 1 day after their window opened |
+| Pending webhook delivery evidence | — | 7 days after being applied; **30 days if never matched** (bounded retention for unmatched provider events) |
+| `security_audit_events` | — | **730 days** (see above) |
+
+Operational shape:
+
+- **Out of the request path.** Nothing on the public request, exchange, or
+  completion path deletes anything. The sweep is `run_auth_security_retention`,
+  invoked only by `/api/cron/auth-retention` (Vercel cron, `30 3 * * *`,
+  authorized by `CRON_SECRET` exactly like the other cron routes).
+- **Bounded.** Every statement deletes at most `p_limit` rows (5,000 per table
+  per run; SQL refuses values outside 1–50,000), so a backlog degrades into
+  multiple visible runs rather than one long lock-holding transaction.
+- **Indexed.** Each retention predicate has a partial index
+  (`password_recovery_outbox_completed_idx`,
+  `recovery_attempt_grants_expiry_idx`,
+  `password_recovery_delivery_events_seen_idx`,
+  `password_recovery_ip_buckets_window_idx`) — the sweep does not seq-scan the
+  hot tables.
+- **Observable.** The function returns per-table counts and the cron route
+  serves them in its JSON response, so "the sweep deleted nothing for a week"
+  is a visible statement, not an absence.
+
+Until the fifth migration is applied AND the branch is deployed AND
+`CRON_SECRET` exists in Vercel Production, none of this runs anywhere — the
+same "code complete ≠ deployed" rule as §0.

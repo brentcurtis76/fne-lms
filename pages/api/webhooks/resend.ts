@@ -88,10 +88,22 @@ interface ResendEvent {
   data?: { email_id?: unknown };
 }
 
+/**
+ * Persist one signature-verified event durably, whatever the ordering.
+ *
+ *   'recorded' — a matched outbox row changed state (audit row written in SQL)
+ *   'pending'  — no outbox row carries this provider id YET; the evidence is
+ *                stored and reconciled transactionally when acceptance commits
+ *   'ignored'  — not a delivery/bounce event, or precedence refused the
+ *                transition (idempotent duplicate; delivered after bounce)
+ *   'failed'   — the DATABASE could not take the evidence. The route answers
+ *                500 so the provider retries: a webhook we could not persist
+ *                must never be acknowledged.
+ */
 export async function applyVerifiedResendEvent(
   admin: Pick<SupabaseClient, 'rpc'>,
   event: ResendEvent
-): Promise<'recorded' | 'ignored' | 'failed'> {
+): Promise<'recorded' | 'pending' | 'ignored' | 'failed'> {
   const outcome =
     event.type === 'email.delivered'
       ? 'delivered'
@@ -112,7 +124,9 @@ export async function applyVerifiedResendEvent(
       });
       return 'failed';
     }
-    return data === true ? 'recorded' : 'ignored';
+    if (data === 'applied') return 'recorded';
+    if (data === 'pending') return 'pending';
+    return 'ignored';
   } catch {
     console.error('[resend-webhook] durable delivery transition threw');
     return 'failed';

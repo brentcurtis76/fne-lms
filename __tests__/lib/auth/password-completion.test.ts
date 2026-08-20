@@ -22,9 +22,14 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockClaimRecoveryGrant, mockFinishRecoveryGrantAttempt } = vi.hoisted(() => ({
+const {
+  mockClaimRecoveryGrant,
+  mockFinishRecoveryGrantAttempt,
+  mockInterruptRecoveryGrantAttempt,
+} = vi.hoisted(() => ({
   mockClaimRecoveryGrant: vi.fn(),
   mockFinishRecoveryGrantAttempt: vi.fn(),
+  mockInterruptRecoveryGrantAttempt: vi.fn(),
 }));
 
 vi.mock('../../../lib/auth/recovery-grant', async (importOriginal) => {
@@ -33,6 +38,7 @@ vi.mock('../../../lib/auth/recovery-grant', async (importOriginal) => {
     ...actual,
     claimRecoveryGrant: mockClaimRecoveryGrant,
     finishRecoveryGrantAttempt: mockFinishRecoveryGrantAttempt,
+    interruptRecoveryGrantAttempt: mockInterruptRecoveryGrantAttempt,
   };
 });
 import {
@@ -45,6 +51,10 @@ import {
   isCompletionFailure,
   SET_PASSWORD_CHANGE_REQUIRED_RPC,
 } from '../../../lib/auth/password-completion';
+import {
+  RECOVERY_GRANT_LEASE_SECONDS,
+  RECOVERY_PROVIDER_BUDGET_MS,
+} from '../../../lib/auth/recovery-grant';
 
 const LINK_OWNER = '11111111-1111-4111-8111-111111111111';
 const OTHER = '99999999-9999-4999-8999-999999999999';
@@ -149,6 +159,7 @@ beforeEach(() => {
     attemptsRemaining: 4,
   });
   mockFinishRecoveryGrantAttempt.mockResolvedValue(true);
+  mockInterruptRecoveryGrantAttempt.mockResolvedValue(true);
 });
 
 // ---------------------------------------------------------------------------
@@ -211,6 +222,113 @@ describe('clearPasswordChangeFlag', () => {
 });
 
 // ---------------------------------------------------------------------------
+// THE DELAYED WRITER — the fourth-pass expired-lease race, closed.
+// ---------------------------------------------------------------------------
+
+describe('the delayed writer: exactly one password can become authoritative', () => {
+  it('closes the grant while the lease is OWNED when the provider outlives the deadline, and a second submission never reaches the provider', async () => {
+    vi.useFakeTimers();
+    try {
+      const admin = buildAdmin();
+      // A provider whose response never arrives inside the budget — and, in the
+      // worst case, lands only after the 45-second lease has fully expired.
+      admin.auth.admin.updateUserById = vi.fn((id: string, payload: unknown) => {
+        admin.calls.updateUserById.push([id, payload]);
+        return new Promise(() => undefined);
+      });
+
+      const pending = completeRecoveryPasswordChange(admin as never, {
+        grant: GRANT,
+        newPassword: STRONG,
+      });
+      await vi.advanceTimersByTimeAsync(RECOVERY_PROVIDER_BUDGET_MS + 1);
+      const result = await pending;
+
+      // The writer declared the ambiguity ITSELF, inside its still-owned lease.
+      expect(result).toMatchObject({
+        ok: false,
+        status: 410,
+        code: 'RECOVERY_ATTEMPT_INTERRUPTED',
+        passwordChanged: false,
+      });
+      expect((result as any).message).toBe(COMPLETION_MESSAGES.recoveryInterrupted);
+      expect(mockInterruptRecoveryGrantAttempt).toHaveBeenCalledTimes(1);
+      // NOT released for retry, NOT recorded as success: the outcome is unknown.
+      expect(mockFinishRecoveryGrantAttempt).not.toHaveBeenCalled();
+
+      // Advance well beyond lease expiry: the abandoned provider call may still
+      // land over there, but NOTHING continues here — no flag clear, no success
+      // audit — and the ambiguity itself is in the trail.
+      await vi.advanceTimersByTimeAsync(RECOVERY_GRANT_LEASE_SECONDS * 1000);
+      expect(
+        admin.calls.rpc.filter(([fn]: [string, unknown]) => fn === SET_PASSWORD_CHANGE_REQUIRED_RPC)
+      ).toEqual([]);
+      expect(admin.calls.audits.filter((row: any) => row.outcome === 'success')).toEqual([]);
+      expect(
+        admin.calls.audits.some(
+          (row: any) => row.metadata?.reason === 'provider_deadline_ambiguous'
+        )
+      ).toBe(true);
+
+      // A SECOND submission — a different password under the same grant — finds
+      // the durable grant interrupted and is refused before any provider
+      // contact. Exactly ONE candidate password was ever issued.
+      mockClaimRecoveryGrant.mockResolvedValueOnce({ ok: false, reason: 'interrupted' });
+      const second = await completeRecoveryPasswordChange(admin as never, {
+        grant: GRANT,
+        newPassword: 'OtraSintetica2026',
+      });
+      expect(second).toMatchObject({
+        ok: false,
+        status: 410,
+        code: 'RECOVERY_ATTEMPT_INTERRUPTED',
+      });
+      expect(admin.calls.updateUserById).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a RESOLVED provider failure releases the lease for a bounded retry — infrastructure retryability is proven, not assumed', async () => {
+    const admin = buildAdmin({ updateThrows: true });
+    const result = await completeRecoveryPasswordChange(admin as never, {
+      grant: GRANT,
+      newPassword: STRONG,
+    });
+    expect(result).toMatchObject({ ok: false, code: 'UPDATE_FAILED' });
+    // The transport finished (a rejection is a resolved outcome), so the lease
+    // is released rather than the grant interrupted.
+    expect(mockFinishRecoveryGrantAttempt).toHaveBeenCalledWith(
+      admin,
+      expect.objectContaining({ grantHash: GRANT_HASH }),
+      false
+    );
+    expect(mockInterruptRecoveryGrantAttempt).not.toHaveBeenCalled();
+
+    // And the retry succeeds under a fresh claim.
+    const retryAdmin = buildAdmin();
+    const retry = await completeRecoveryPasswordChange(retryAdmin as never, {
+      grant: GRANT,
+      newPassword: STRONG,
+    });
+    expect(retry.ok).toBe(true);
+  });
+
+  it('a lost response after a COMMITTED write is settled by the provider marker, never by a second mutation', async () => {
+    // claimRecoveryGrant consults the marker before leasing; when the previous
+    // ambiguous-or-lost attempt actually landed, the claim reports `succeeded`.
+    const admin = buildAdmin();
+    mockClaimRecoveryGrant.mockResolvedValueOnce({ ok: false, reason: 'succeeded' });
+    const result = await completeRecoveryPasswordChange(admin as never, {
+      grant: GRANT,
+      newPassword: 'OtraSintetica2026',
+    });
+    expect(result).toMatchObject({ ok: false, status: 401, code: 'RECOVERY_GRANT_INVALID' });
+    expect(admin.calls.updateUserById).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // CEREMONY 1 — RECOVERY
 // ---------------------------------------------------------------------------
 
@@ -260,6 +378,7 @@ describe('the recovery ceremony', () => {
     ['exhausted', 429, 'RECOVERY_ATTEMPTS_EXHAUSTED'],
     ['unavailable', 503, 'RECOVERY_GRANT_UNAVAILABLE'],
     ['succeeded', 401, 'RECOVERY_GRANT_INVALID'],
+    ['interrupted', 410, 'RECOVERY_ATTEMPT_INTERRUPTED'],
   ] as const)('maps %s grant state without writing', async (reason, status, code) => {
     const admin = buildAdmin();
     mockClaimRecoveryGrant.mockResolvedValueOnce({ ok: false, reason });

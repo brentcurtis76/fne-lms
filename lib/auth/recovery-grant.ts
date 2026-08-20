@@ -19,6 +19,13 @@ import {
 export const RECOVERY_GRANT_TTL_SECONDS = 15 * 60;
 export const RECOVERY_GRANT_MAX_ATTEMPTS = 5;
 export const RECOVERY_GRANT_LEASE_SECONDS = 45;
+/**
+ * The writer's own provider deadline, strictly INSIDE the lease. A provider
+ * call that has not resolved by this point is declared ambiguous while the
+ * lease is still owned — the writer then closes the grant as `interrupted`
+ * itself instead of letting the lease lapse under an unknown outcome.
+ */
+export const RECOVERY_PROVIDER_BUDGET_MS = 30_000;
 export const RECOVERY_GRANT_MARKER = 'last_recovery_grant_hash';
 
 export type RecoveryGrantExchangeResult =
@@ -35,7 +42,14 @@ export type RecoveryGrantClaimResult =
     }
   | {
       ok: false;
-      reason: 'invalid' | 'expired' | 'exhausted' | 'busy' | 'succeeded' | 'unavailable';
+      reason:
+        | 'invalid'
+        | 'expired'
+        | 'exhausted'
+        | 'busy'
+        | 'succeeded'
+        | 'interrupted'
+        | 'unavailable';
     };
 
 function firstRow(data: unknown): Record<string, unknown> | null {
@@ -163,7 +177,13 @@ export async function claimRecoveryGrant(
     const row = firstRow(data);
     const status = row?.status;
     if (status !== 'claimed') {
-      if (status === 'expired' || status === 'exhausted' || status === 'busy' || status === 'succeeded') {
+      if (
+        status === 'expired' ||
+        status === 'exhausted' ||
+        status === 'busy' ||
+        status === 'succeeded' ||
+        status === 'interrupted'
+      ) {
         return { ok: false, reason: status };
       }
       return { ok: false, reason: 'invalid' };
@@ -203,6 +223,120 @@ export async function finishRecoveryGrantAttempt(
     return true;
   } catch {
     console.error('[recovery-grant] durable completion threw');
+    return false;
+  }
+}
+
+/**
+ * Declared by a writer whose provider attempt ended AMBIGUOUSLY: its deadline
+ * passed with the request possibly still in flight, so the mutation may land at
+ * any later moment. The grant is closed terminally — a second submission under
+ * it could otherwise race the first with a different password, and exactly one
+ * password must be able to become authoritative.
+ */
+export async function interruptRecoveryGrantAttempt(
+  admin: SupabaseClient,
+  claim: Extract<RecoveryGrantClaimResult, { ok: true }>
+): Promise<boolean> {
+  try {
+    const { data, error } = await admin.rpc('interrupt_recovery_attempt_grant', {
+      p_grant_hash: claim.grantHash,
+      p_lease_token: claim.leaseToken,
+    });
+    if (error || data !== true) {
+      console.error('[recovery-grant] durable interruption failed', {
+        code: (error as { code?: string } | null)?.code ?? null,
+      });
+      return false;
+    }
+    return true;
+  } catch {
+    console.error('[recovery-grant] durable interruption threw');
+    return false;
+  }
+}
+
+export type RecoveryGrantPeekResult =
+  | 'active'
+  | 'succeeded'
+  | 'expired'
+  | 'exhausted'
+  | 'interrupted'
+  | 'invalidated'
+  | 'invalid'
+  | 'unavailable';
+
+/**
+ * Report whether a stored grant is still usable WITHOUT consuming an attempt.
+ * This is what lets an exchanged recovery context survive a page refresh or a
+ * tab remount: the HttpOnly cookie carries the grant, and this probe says
+ * whether the ceremony behind it is still open.
+ */
+export async function peekRecoveryGrant(
+  admin: SupabaseClient,
+  grant: unknown,
+  options: { now?: Date; secret?: string } = {}
+): Promise<RecoveryGrantPeekResult> {
+  const verified = verifyRecoveryGrant(grant, options);
+  if (verified.ok === false) {
+    if (verified.reason === 'expired') return 'expired';
+    if (verified.reason === 'not_configured') return 'unavailable';
+    return 'invalid';
+  }
+
+  try {
+    const { data, error } = await admin.rpc('peek_recovery_attempt_grant', {
+      p_grant_hash: verified.grantHash,
+    });
+    if (error) {
+      console.error('[recovery-grant] durable peek failed', {
+        code: (error as { code?: string }).code ?? null,
+      });
+      return 'unavailable';
+    }
+    if (
+      data === 'active' ||
+      data === 'succeeded' ||
+      data === 'expired' ||
+      data === 'exhausted' ||
+      data === 'interrupted' ||
+      data === 'invalidated'
+    ) {
+      return data;
+    }
+    return 'invalid';
+  } catch {
+    console.error('[recovery-grant] durable peek threw');
+    return 'unavailable';
+  }
+}
+
+/**
+ * Explicit invalidation: the holder abandoned the ceremony. Terminal, and
+ * idempotent — invalidating a grant that is already closed reports true to the
+ * caller because the desired end state holds.
+ */
+export async function invalidateRecoveryGrant(
+  admin: SupabaseClient,
+  grant: unknown,
+  options: { now?: Date; secret?: string } = {}
+): Promise<boolean> {
+  const verified = verifyRecoveryGrant(grant, options);
+  if (verified.ok === false) return false;
+
+  try {
+    const { error } = await admin.rpc('invalidate_recovery_attempt_grant', {
+      p_grant_hash: verified.grantHash,
+    });
+    if (error) {
+      console.error('[recovery-grant] durable invalidation failed', {
+        code: (error as { code?: string }).code ?? null,
+      });
+      return false;
+    }
+    return true;
+  } catch {
+    console.error('[recovery-grant] durable invalidation threw');
     return false;
   }
 }

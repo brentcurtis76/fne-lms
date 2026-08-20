@@ -45,9 +45,14 @@ import { PASSWORD_RULES, firstPasswordPolicyError } from '../lib/auth/password-p
  *   THE BROWSER NO LONGER CONSUMES THE CREDENTIAL. There is no `verifyOtp`, no
  *   `exchangeCodeForSession`, no `setSession`, no `getUser` and no `getSession`
  *   anywhere on this page. The one-time `token_hash` is forwarded to
- *   `/api/auth/recovery-exchange`, which consumes it server-side and returns an
- *   opaque, short-lived grant. `/api/auth/recovery-complete` accepts only that
- *   grant, whose provider attempts are bounded and atomically leased.
+ *   `/api/auth/recovery/exchange`, which consumes it server-side and stores the
+ *   resulting opaque, short-lived grant in an HttpOnly cookie scoped to the
+ *   recovery endpoints. THIS PAGE NEVER HOLDS THE GRANT AT ALL: the fourth
+ *   independent review found the previous version kept it in a React ref, so a
+ *   refresh or tab remount silently destroyed a live recovery context. Now the
+ *   browser re-presents the cookie, `/api/auth/recovery/context` says whether
+ *   the ceremony is still open (a read-only peek — it consumes no attempt), and
+ *   `/api/auth/recovery/complete` reads the grant from the cookie alone.
  *
  *   ONE FORMAT IS ACCEPTED, and it is the format this application itself sends.
  *   `lib/auth/recovery-link.ts` builds every recovery URL the platform emits —
@@ -103,8 +108,6 @@ export const RECOVERY_MESSAGES = {
     'Este enlace usa un formato que ya no aceptamos por seguridad. Solicita un enlace de recuperación nuevo desde la página de inicio de sesión.',
   signOutFailed:
     'No pudimos cerrar la sesión anterior de forma segura, así que no abrimos el formulario. Cierra sesión e intenta con el enlace nuevamente.',
-  sessionLost:
-    'Tu sesión de recuperación expiró. Solicita un enlace de recuperación nuevo.',
   mismatch: 'Las contraseñas no coinciden',
   samePassword: 'La nueva contraseña debe ser diferente a la anterior',
   weak: 'La contraseña no cumple con los requisitos de seguridad del sistema',
@@ -222,16 +225,6 @@ export default function ResetPasswordPage() {
       : readRecoveryMaterial(window.location.search, window.location.hash)
   );
 
-  /**
-   * The material this page will FORWARD. It is not a credential this page has
-   * verified — nothing here verifies anything any more — it is the one-time
-   * string from the URL, held so it survives the URL being stripped.
-   *
-   * A ref rather than state: it must never influence rendering and must never be
-   * serialised into the DOM.
-   */
-  const grantRef = useRef<string | null>(null);
-
   /** The admission decision runs at most once per page load. */
   const judgedRef = useRef(false);
 
@@ -253,6 +246,25 @@ export default function ResetPasswordPage() {
       const verdict = judgeRecoveryMaterial(material);
 
       if (isUnusableMaterial(verdict)) {
+        // A BARE visit — no material of any kind — may be a refresh or a tab
+        // remount of an already-exchanged recovery context: the HttpOnly cookie
+        // survives both, so ask the server whether the ceremony is still open.
+        // The probe is read-only and consumes no attempt. URLs that DO carry
+        // material in a refused format are still refused by name, exactly as
+        // before — a live cookie must not launder an unsupported link shape.
+        if (!hasRecoveryMaterial(material)) {
+          try {
+            const context = await fetch('/api/auth/recovery/context');
+            const state = (await context.json().catch(() => ({}))) as { active?: unknown };
+            if (context.ok && state.active === true) {
+              stripUrl();
+              setPhase('ready');
+              return;
+            }
+          } catch {
+            // Fall through to the ordinary refusal below.
+          }
+        }
         stripUrl();
         fail(verdict.message);
         return;
@@ -283,7 +295,7 @@ export default function ResetPasswordPage() {
 
       let exchange: Response;
       try {
-        exchange = await fetch('/api/auth/recovery-exchange', {
+        exchange = await fetch('/api/auth/recovery/exchange', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tokenHash: verdict.tokenHash, type: 'recovery' }),
@@ -294,18 +306,21 @@ export default function ResetPasswordPage() {
         return;
       }
 
+      // The grant is NOT in this response and never reaches page JavaScript:
+      // the server stored it in an HttpOnly recovery-scoped cookie. On a 503
+      // the server's own message is shown — it distinguishes "try again" from
+      // the honest "the link was already consumed; request a new one".
       const exchanged = await exchange.json().catch(() => ({} as Record<string, unknown>));
-      if (!exchange.ok || typeof (exchanged as { grant?: unknown }).grant !== 'string') {
+      if (!exchange.ok || (exchanged as { ok?: unknown }).ok !== true) {
         stripUrl();
         fail(
           exchange.status >= 500
-            ? RECOVERY_MESSAGES.grantUnavailable
+            ? (exchanged as { error?: string }).error || RECOVERY_MESSAGES.grantUnavailable
             : RECOVERY_MESSAGES.expired
         );
         return;
       }
 
-      grantRef.current = (exchanged as { grant: string }).grant;
       stripUrl();
       setPhase('ready');
     };
@@ -329,25 +344,19 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    const grant = grantRef.current;
-    if (!grant) {
-      setMessage(RECOVERY_MESSAGES.sessionLost);
-      setPhase('invalid');
-      return;
-    }
-
     setLoading(true);
     try {
-      // The e-mailed one-time proof has already been exchanged. This request
-      // carries only the bounded grant; no session credential is accepted.
+      // The e-mailed one-time proof has already been exchanged, and the bounded
+      // grant lives in an HttpOnly cookie the browser presents by itself. The
+      // request body carries ONLY the new password.
       //
       // No Authorization header. There is deliberately no session credential in
       // this request: an access token is not proof of a recovery, and the
       // endpoint would refuse one anyway because it never reads one.
-      const response = await fetch('/api/auth/recovery-complete', {
+      const response = await fetch('/api/auth/recovery/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ grant, newPassword: password }),
+        body: JSON.stringify({ newPassword: password }),
       });
 
       const result = await response.json().catch(() => ({} as Record<string, unknown>));
@@ -355,12 +364,17 @@ export default function ResetPasswordPage() {
       if (!response.ok) {
         const code = (result as { code?: string }).code;
 
-        if (
-          code === 'RECOVERY_GRANT_INVALID' ||
-          code === 'RECOVERY_ATTEMPTS_EXHAUSTED'
-        ) {
-          grantRef.current = null;
+        if (code === 'RECOVERY_GRANT_INVALID' || code === 'RECOVERY_ATTEMPTS_EXHAUSTED') {
+          // Terminal; the server also cleared the recovery cookie.
           setMessage(RECOVERY_MESSAGES.expired);
+          setPhase('invalid');
+          return;
+        }
+
+        if (code === 'RECOVERY_ATTEMPT_INTERRUPTED') {
+          // Ambiguous provider outcome: the ceremony is closed and the server's
+          // message honestly tells the user to TEST the password they typed.
+          setMessage((result as { error?: string }).error || RECOVERY_MESSAGES.expired);
           setPhase('invalid');
           return;
         }
@@ -371,7 +385,6 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      grantRef.current = null;
       setMessage(RECOVERY_MESSAGES.success);
       setPhase('updated');
       setTimeout(() => {
@@ -650,11 +663,22 @@ export default function ResetPasswordPage() {
                 </button>
               </div>
 
-              {/* Back to Login */}
+              {/* Back to Login — abandoning an OPEN ceremony explicitly
+                  invalidates the durable grant and clears the recovery cookie,
+                  so the context cannot linger usable in this browser. */}
               <div className="text-center">
                 <button
                   type="button"
-                  onClick={() => router.push('/login')}
+                  onClick={async () => {
+                    if (phase === 'ready') {
+                      try {
+                        await fetch('/api/auth/recovery/invalidate', { method: 'POST' });
+                      } catch {
+                        // Leaving anyway; the grant still dies at its TTL.
+                      }
+                    }
+                    router.push('/login');
+                  }}
                   className="text-sm font-medium text-[#0a0a0a] hover:text-[#fbbf24] transition-colors duration-200 flex items-center justify-center mx-auto"
                 >
                   <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">

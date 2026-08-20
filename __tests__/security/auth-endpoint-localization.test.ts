@@ -28,7 +28,10 @@ const ROOT = join(__dirname, '..', '..');
 
 /** Every endpoint this branch touched that can answer a browser. */
 const AUTH_ENDPOINTS = [
-  'pages/api/auth/recovery-complete.ts',
+  'pages/api/auth/recovery/complete.ts',
+  'pages/api/auth/recovery/exchange.ts',
+  'pages/api/auth/recovery/context.ts',
+  'pages/api/auth/recovery/invalidate.ts',
   'pages/api/auth/recovery-request.ts',
   'pages/api/auth/force-password-change.ts',
   'pages/api/auth/change-password.ts',

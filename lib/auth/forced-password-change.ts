@@ -85,11 +85,14 @@ export const PASSWORD_STATE_UNAVAILABLE_MESSAGE =
  * otherwise, and it is the page's only source of that state now that the
  * database gate refuses the browser's own `profiles` read.
  *
- * `/api/auth/recovery-complete` is the trusted endpoint that finishes a password
- * recovery. It authenticates from the recovery access token rather than the
- * session cookie, so it is not really "a flagged user's request" at all — but a
- * flagged user completing recovery in a tab that still holds their old session
- * would otherwise be gated out of the very endpoint that clears their flag.
+ * The four `/api/auth/recovery/*` endpoints are the trusted ceremony that
+ * finishes a password recovery. They authenticate from the recovery-context
+ * cookie rather than the session cookie, so theirs is not really "a flagged
+ * user's request" at all — but a flagged user completing recovery in a tab that
+ * still holds their old session would otherwise be gated out of the very
+ * ceremony that clears their flag. All four are needed: `exchange` mints the
+ * context, `context` re-opens it after a refresh, `complete` sets the password,
+ * and `invalidate` is the explicit way OUT of an abandoned ceremony.
  *
  * NOT here, deliberately:
  *   - `/reset-password`. S12 makes that page demand a real recovery credential,
@@ -107,7 +110,10 @@ const ALWAYS_ALLOWED_EXACT = new Set<string>([
   '/logout',
   '/api/auth/force-password-change',
   '/api/auth/change-password',
-  '/api/auth/recovery-complete',
+  '/api/auth/recovery/exchange',
+  '/api/auth/recovery/context',
+  '/api/auth/recovery/complete',
+  '/api/auth/recovery/invalidate',
   '/api/auth/password-change-state',
   '/api/auth/logout',
   '/api/auth/session',

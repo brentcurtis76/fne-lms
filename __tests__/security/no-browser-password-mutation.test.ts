@@ -83,7 +83,7 @@ describe('the browser writes no passwords', () => {
 
   it('no browser file calls auth.updateUser with a password', () => {
     // `/reset-password` and `/change-password` both did. Password writes now go
-    // to /api/auth/recovery-complete and /api/auth/force-password-change, which
+    // to /api/auth/recovery/complete and /api/auth/force-password-change, which
     // check the policy server-side, clear the flag through the database, and
     // write an audit row.
     expect(offenders(/updateUser\s*\(\s*\{[^}]*\bpassword\b/s)).toEqual([]);

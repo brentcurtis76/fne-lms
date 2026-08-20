@@ -4,6 +4,9 @@ import {
   claimRecoveryGrant,
   exchangeRecoveryProofForGrant,
   finishRecoveryGrantAttempt,
+  interruptRecoveryGrantAttempt,
+  invalidateRecoveryGrant,
+  peekRecoveryGrant,
   RECOVERY_GRANT_MARKER,
 } from '../../../lib/auth/recovery-grant';
 import { verifyRecoveryGrant } from '../../../lib/auth/recovery-crypto';
@@ -116,7 +119,7 @@ describe('attempt leases', () => {
     expect(results.filter((result) => !result.ok && result.reason === 'busy')).toHaveLength(1);
   });
 
-  it.each(['expired', 'exhausted', 'busy', 'succeeded'] as const)(
+  it.each(['expired', 'exhausted', 'busy', 'succeeded', 'interrupted'] as const)(
     'maps durable %s state without returning a subject',
     async (status) => {
       const grant = await issuedGrant();
@@ -167,5 +170,73 @@ describe('attempt leases', () => {
     expect(await finishRecoveryGrantAttempt(admin, claim, false)).toBe(true);
     expect(await finishRecoveryGrantAttempt(admin, claim, true)).toBe(true);
     expect(rpc.mock.calls.map((call) => call[1].p_succeeded)).toEqual([false, true]);
+  });
+
+  it('closes the grant as interrupted with the owned lease after an ambiguous outcome', async () => {
+    const rpc = vi.fn(async () => ({ data: true, error: null }));
+    const admin = { rpc } as any;
+    const claim = {
+      ok: true as const,
+      claims: { purpose: 'password_recovery' as const, subject: USER_ID, nonce: 'n', issuedAt: 1, expiresAt: 2 },
+      grantHash: 'a'.repeat(64),
+      leaseToken: '22222222-2222-4222-8222-222222222222',
+      attemptsRemaining: 4,
+    };
+    expect(await interruptRecoveryGrantAttempt(admin, claim)).toBe(true);
+    expect(rpc).toHaveBeenCalledWith('interrupt_recovery_attempt_grant', {
+      p_grant_hash: claim.grantHash,
+      p_lease_token: claim.leaseToken,
+    });
+  });
+});
+
+describe('grant context probes', () => {
+  async function issuedGrant() {
+    const result = await exchangeRecoveryProofForGrant(
+      { rpc: vi.fn(async () => ({ data: true, error: null })) } as any,
+      { tokenHash: PROOF, type: 'recovery' },
+      { verifierFactory: verifier() as never, secret: SECRET }
+    );
+    if (!result.ok) throw new Error('synthetic grant setup failed');
+    return result.grant;
+  }
+
+  it.each(['active', 'succeeded', 'expired', 'exhausted', 'interrupted', 'invalidated'] as const)(
+    'peek reports the durable %s state without consuming an attempt',
+    async (status) => {
+      const grant = await issuedGrant();
+      const rpc = vi.fn(async () => ({ data: status, error: null }));
+      expect(await peekRecoveryGrant({ rpc } as any, grant, { secret: SECRET })).toBe(status);
+      expect(rpc).toHaveBeenCalledWith('peek_recovery_attempt_grant', {
+        p_grant_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      });
+      expect(rpc).not.toHaveBeenCalledWith('claim_recovery_attempt_grant', expect.anything());
+    }
+  );
+
+  it('peek refuses tampered grants and ordinary session tokens before any database access', async () => {
+    const grant = await issuedGrant();
+    const rpc = vi.fn();
+    expect(await peekRecoveryGrant({ rpc } as any, `${grant}x`, { secret: SECRET })).toBe('invalid');
+    expect(
+      await peekRecoveryGrant({ rpc } as any, 'eyJhbGciOiJIUzI1NiJ9.synthetic.token', {
+        secret: SECRET,
+      })
+    ).toBe('invalid');
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('invalidate closes the durable grant and refuses unverifiable input', async () => {
+    const grant = await issuedGrant();
+    const rpc = vi.fn(async () => ({ data: true, error: null }));
+    expect(await invalidateRecoveryGrant({ rpc } as any, grant, { secret: SECRET })).toBe(true);
+    expect(rpc).toHaveBeenCalledWith('invalidate_recovery_attempt_grant', {
+      p_grant_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
+    });
+    const untouched = vi.fn();
+    expect(
+      await invalidateRecoveryGrant({ rpc: untouched } as any, 'not-a-grant', { secret: SECRET })
+    ).toBe(false);
+    expect(untouched).not.toHaveBeenCalled();
   });
 });

@@ -152,6 +152,7 @@ export const SERVER_ONLY_MODULES = [
   'lib/auth/recovery-proof',
   'lib/auth/recovery-grant',
   'lib/auth/recovery-crypto',
+  'lib/auth/recovery-cookie',
   'lib/auth/recovery-request-queue',
   'lib/auth/admin-user-maintenance',
   'lib/auth/account-provisioning',
@@ -159,6 +160,65 @@ export const SERVER_ONLY_MODULES = [
   'lib/email/invitations',
   'lib/email/outbox',
 ];
+
+/**
+ * WHAT EACH APPROVED MODULE'S PRIMITIVE CALLS MAY LOOK LIKE — the guard on the
+ * CONTENTS of the three modules, not merely on where the primitives appear.
+ *
+ * The fourth independent review's point: a boundary that only names which files
+ * may hold `updateUserById` goes green the day a maintenance wrapper quietly
+ * gains a `password` field, because the file was already on the list. So inside
+ * an approved module every password-capable call must be:
+ *
+ *   * a DIRECT call (no alias, no destructured handle, no computed callee);
+ *   * with its attributes argument as an INLINE OBJECT LITERAL (no variable,
+ *     no spread, no computed key) — the payload is readable from the call site;
+ *   * carrying ONLY the keys its module's purpose needs, pinned below.
+ *
+ * `requiredCallees` is the other direction: structure the module MUST contain.
+ * Account creation and the password writer must call the shared password
+ * policy; deleting that call fails this guard, not just a code review.
+ */
+export const APPROVED_MODULE_CONTRACTS = new Map([
+  [
+    'lib/auth/password-completion.ts',
+    {
+      primitives: {
+        // The private writer: the password itself, plus the metadata slot used
+        // by the administrative-reset banner and the recovery success marker.
+        updateUserById: { attributesArg: 1, allowedKeys: ['password', 'user_metadata'] },
+        createUser: null,
+      },
+      requiredCallees: ['firstPasswordPolicyError'],
+    },
+  ],
+  [
+    'lib/auth/admin-user-maintenance.ts',
+    {
+      primitives: {
+        // Fixed-purpose maintenance: one export changes only the e-mail, one
+        // clears only the reset marker. `password` here is the exact widening
+        // the review demanded this guard refuse.
+        updateUserById: { attributesArg: 1, allowedKeys: ['email', 'user_metadata'] },
+        createUser: null,
+      },
+      requiredCallees: [],
+    },
+  ],
+  [
+    'lib/auth/account-provisioning.ts',
+    {
+      primitives: {
+        updateUserById: null,
+        createUser: {
+          attributesArg: 0,
+          allowedKeys: ['email', 'password', 'email_confirm', 'user_metadata', 'app_metadata'],
+        },
+      },
+      requiredCallees: ['firstPasswordPolicyError'],
+    },
+  ],
+]);
 
 // ---------------------------------------------------------------------------
 // Module resolution — relative specifiers only. A bare specifier is a package.
@@ -407,10 +467,21 @@ function lowLevelImportSurface(file, spec) {
 // ---------------------------------------------------------------------------
 
 export function scanFile(file, { browser }) {
+  return scanSource(file, readFileSync(file, 'utf8'), { browser });
+}
+
+/**
+ * Scan one module from source text. Exported separately from `scanFile` so the
+ * negative-control suite can hand the checker MUTATED copies of the real
+ * approved modules — password fields added to maintenance wrappers, spreads
+ * injected, the policy call deleted — without writing them to disk.
+ */
+export function scanSource(file, source, { browser }) {
   const rel = relative(ROOT, file).split(sep).join('/');
-  const source = readFileSync(file, 'utf8');
   const sf = parse(file, source);
   const findings = [];
+  const contract = APPROVED_MODULE_CONTRACTS.get(rel);
+  const seenCallees = new Set();
 
   const add = (node, rule, message) =>
     findings.push({ file: rel, line: line(sf, node), rule, message });
@@ -425,9 +496,86 @@ export function scanFile(file, { browser }) {
       );
     }
 
+    // Inside an APPROVED module, a primitive may appear only as the direct
+    // callee of a call this contract inspects. Taking a handle to it — an
+    // alias, a destructured binding, a stored member reference — would detach
+    // the payload from the call site the contract can read.
+    if (rawPrimitive && contract) {
+      const parent = node.parent;
+      const isDirectCallee =
+        parent !== undefined &&
+        ts.isCallExpression(parent) &&
+        parent.expression === node &&
+        (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node));
+      if (!isDirectCallee) {
+        add(
+          node,
+          'APPROVED_MODULE_PRIMITIVE_ALIAS',
+          `${rawPrimitive} may only be invoked directly inside ${rel}; aliasing or destructuring the primitive detaches its payload from the reviewable call site.`
+        );
+      }
+    }
+
     // --- Calls -------------------------------------------------------------
     if (ts.isCallExpression(node)) {
       const name = calleeName(node);
+      if (name) seenCallees.add(name);
+
+      if (contract && name && RAW_AUTH_PRIMITIVES.has(name)) {
+        const spec = contract.primitives[name];
+        if (!spec) {
+          add(
+            node,
+            'APPROVED_MODULE_FORBIDDEN_PRIMITIVE',
+            `${name} is not part of ${rel}'s fixed purpose; this module's contract does not include it.`
+          );
+        } else {
+          const payload = node.arguments?.[spec.attributesArg];
+          if (!payload || !ts.isObjectLiteralExpression(payload)) {
+            add(
+              node,
+              'APPROVED_MODULE_PAYLOAD_SHAPE',
+              `${name} in ${rel} must receive an inline object literal so its exact keys are reviewable; a variable, call result, or missing payload is refused.`
+            );
+          } else {
+            for (const prop of payload.properties) {
+              if (ts.isSpreadAssignment(prop)) {
+                add(
+                  prop,
+                  'APPROVED_MODULE_PAYLOAD_SHAPE',
+                  `${name} in ${rel} must not spread into its payload; every auth attribute must be a named key the contract pins.`
+                );
+                continue;
+              }
+              const nameNode = prop.name;
+              const key =
+                nameNode && (ts.isIdentifier(nameNode) || ts.isStringLiteral(nameNode))
+                  ? nameNode.text
+                  : null;
+              if (
+                key === null ||
+                (!ts.isPropertyAssignment(prop) && !ts.isShorthandPropertyAssignment(prop))
+              ) {
+                add(
+                  prop,
+                  'APPROVED_MODULE_PAYLOAD_SHAPE',
+                  `${name} in ${rel} must use plain statically-named keys; computed names, accessors and methods are refused.`
+                );
+                continue;
+              }
+              if (!spec.allowedKeys.includes(key)) {
+                add(
+                  prop,
+                  'APPROVED_MODULE_ATTRIBUTE',
+                  key === 'password'
+                    ? `${rel} widened a non-password operation with a password field. Passwords are written only by the private writer in lib/auth/password-completion.ts.`
+                    : `${name} in ${rel} carries auth attribute "${key}", which its fixed-purpose contract does not allow (allowed: ${spec.allowedKeys.join(', ')}).`
+                );
+              }
+            }
+          }
+        }
+      }
 
       if (name === 'updateUser' && callHasObjectProperty(node, ['password'])) {
         if (browser) {
@@ -539,6 +687,22 @@ export function scanFile(file, { browser }) {
   };
 
   visit(sf);
+
+  // Structure the approved module MUST contain: deleting the shared password
+  // policy from account creation (or from the private writer) fails the guard
+  // itself, not merely a convention.
+  if (contract) {
+    for (const required of contract.requiredCallees) {
+      if (!seenCallees.has(required)) {
+        add(
+          sf,
+          'APPROVED_MODULE_POLICY_MISSING',
+          `${rel} no longer calls ${required}(); the low-level boundary must enforce the shared password policy itself.`
+        );
+      }
+    }
+  }
+
   return findings;
 }
 

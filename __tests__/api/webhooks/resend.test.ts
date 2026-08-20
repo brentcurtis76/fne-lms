@@ -91,7 +91,7 @@ describe('Resend delivery webhook', () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it('ignores non-delivery events and provider ids unrelated to recovery', async () => {
+  it('ignores non-delivery events without touching durable state', async () => {
     expect(
       await applyVerifiedResendEvent({ rpc } as any, {
         type: 'email.opened',
@@ -99,14 +99,34 @@ describe('Resend delivery webhook', () => {
       })
     ).toBe('ignored');
     expect(rpc).not.toHaveBeenCalled();
+  });
 
-    rpc.mockResolvedValueOnce({ data: false, error: null });
+  it.each([
+    ['applied', 'recorded'],
+    ['pending', 'pending'],
+    ['noop', 'ignored'],
+  ] as const)('maps the durable %s verdict to %s', async (verdict, mapped) => {
+    rpc.mockResolvedValueOnce({ data: verdict, error: null });
     expect(
       await applyVerifiedResendEvent({ rpc } as any, {
         type: 'email.delivered',
         data: { email_id: MESSAGE_ID },
       })
-    ).toBe('ignored');
+    ).toBe(mapped);
+  });
+
+  it('acknowledges an event that outran acceptance — the evidence is durable, not lost', async () => {
+    // Ordering race: the delivered webhook arrives before the worker commits
+    // the provider message id. The database stores the evidence and reports
+    // 'pending'; the route must answer 200 so the provider does NOT retry a
+    // webhook that has already been persisted.
+    rpc.mockResolvedValueOnce({ data: 'pending', error: null });
+    const payload = JSON.stringify({
+      type: 'email.delivered',
+      data: { email_id: 'not-yet-committed-id' },
+    });
+    const res = await signedRequest(payload);
+    expect(res._getStatusCode()).toBe(200);
   });
 
   it('returns 500 so Resend retries when durable state is unavailable', async () => {

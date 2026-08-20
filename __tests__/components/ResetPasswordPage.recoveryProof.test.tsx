@@ -63,7 +63,6 @@ import ResetPasswordPage, {
 
 const VALID_PASSWORD = 'Sintetica2026';
 const HASH = 'one-time-hash-from-the-email';
-const GRANT = 'rg1.synthetic-encrypted-grant';
 const INTRUDER_TOKEN = 'access-token-belonging-to-the-signed-in-visitor';
 
 interface ClientOptions {
@@ -130,15 +129,37 @@ function visit(url: string) {
 
 let fetchMock: ReturnType<typeof vi.fn>;
 
-function stubFetch(
-  completion: { status: number; body: Record<string, unknown> },
-  exchange: { status: number; body: Record<string, unknown> } = {
+interface StubResponses {
+  completion?: { status: number; body: Record<string, unknown> };
+  exchange?: { status: number; body: Record<string, unknown> };
+  context?: { status: number; body: Record<string, unknown> };
+}
+
+/**
+ * The page's whole server surface. Note what is ABSENT from every response:
+ * the grant. It lives in an HttpOnly cookie the page can neither read nor
+ * forward, so these stubs never hand the test a credential either.
+ */
+function stubFetch(responses: StubResponses = {}) {
+  const completion = responses.completion ?? {
     status: 200,
-    body: { grant: GRANT, expiresAt: '2026-08-19T22:00:00.000Z' },
-  }
-) {
+    body: { success: true, message: RECOVERY_MESSAGES.success },
+  };
+  const exchange = responses.exchange ?? {
+    status: 200,
+    body: { ok: true, expiresAt: '2026-08-19T22:00:00.000Z' },
+  };
+  const context = responses.context ?? { status: 200, body: { active: false } };
+
   fetchMock = vi.fn(async (url: string) => {
-    const response = url === '/api/auth/recovery-exchange' ? exchange : completion;
+    const response =
+      url === '/api/auth/recovery/exchange'
+        ? exchange
+        : url === '/api/auth/recovery/context'
+          ? context
+          : url === '/api/auth/recovery/invalidate'
+            ? { status: 200, body: { ok: true } }
+            : completion;
     return {
       ok: response.status >= 200 && response.status < 300,
       status: response.status,
@@ -199,7 +220,7 @@ beforeEach(() => {
   mockRouterPush.mockReset();
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
   visit('/reset-password');
-  stubFetch({ status: 200, body: { success: true, message: RECOVERY_MESSAGES.success } });
+  stubFetch();
 });
 
 afterEach(() => {
@@ -274,11 +295,41 @@ describe('judgeRecoveryMaterial — the whole admission rule, as one function', 
 // ---------------------------------------------------------------------------
 
 describe('what opens the form', () => {
-  it('a bare visit does NOT, even with a live session', async () => {
+  it('a bare visit does NOT, even with a live session — no cookie, no context', async () => {
     visit('/reset-password');
     const client = await mount();
     await expectInvalid(RECOVERY_MESSAGES.missing);
+    // The one thing a bare visit MAY do is ask the server whether an exchanged
+    // recovery context survives in the HttpOnly cookie. Here it does not.
+    expect(callsTo('/api/auth/recovery/context')).toHaveLength(1);
     expectConsumedNothing(client);
+  });
+
+  it('a bare visit DOES when the server-managed recovery context survives — refresh and tab remount', async () => {
+    // The fourth review's finding: the grant lived only in a React ref, so a
+    // refresh or remount silently destroyed a live ceremony. Now the HttpOnly
+    // cookie carries it and the page merely asks the server.
+    stubFetch({ context: { status: 200, body: { active: true } } });
+    visit('/reset-password');
+    const client = await mount();
+    await expectForm();
+    expect(callsTo('/api/auth/recovery/exchange')).toHaveLength(0);
+    expectConsumedNothing(client);
+  });
+
+  it('a bare visit after the cookie/grant expired shows the invalid screen', async () => {
+    stubFetch({ context: { status: 200, body: { active: false } } });
+    visit('/reset-password');
+    await mount();
+    await expectInvalid(RECOVERY_MESSAGES.missing);
+  });
+
+  it('a live recovery cookie can NOT launder a refused link format', async () => {
+    stubFetch({ context: { status: 200, body: { active: true } } });
+    visit('/reset-password#access_token=forjado&type=recovery');
+    await mount();
+    await expectInvalid(RECOVERY_MESSAGES.unsupportedFormat);
+    expect(callsTo('/api/auth/recovery/context')).toHaveLength(0);
   });
 
   it('a hand-typed #access_token=forjado&type=recovery does NOT', async () => {
@@ -318,14 +369,23 @@ describe('what opens the form', () => {
   });
 
   it('does not open until the server exchanges the proof for a bounded grant', async () => {
-    stubFetch(
-      { status: 200, body: { success: true } },
-      { status: 401, body: { code: 'RECOVERY_MATERIAL_INVALID' } }
-    );
+    stubFetch({ exchange: { status: 401, body: { code: 'RECOVERY_MATERIAL_INVALID' } } });
     visit(`/reset-password?token_hash=${HASH}&type=recovery`);
     await mount();
     await expectInvalid(RECOVERY_MESSAGES.expired);
-    expect(callsTo('/api/auth/recovery-exchange')).toHaveLength(1);
+    expect(callsTo('/api/auth/recovery/exchange')).toHaveLength(1);
+  });
+
+  it('shows the server\'s honest message when the exchange consumed the proof but could not store the grant', async () => {
+    const honest =
+      'Por seguridad, el enlace ya fue utilizado, pero no pudimos preparar la recuperación. ' +
+      'Solicita un enlace nuevo desde la página de inicio de sesión.';
+    stubFetch({
+      exchange: { status: 503, body: { error: honest, code: 'RECOVERY_GRANT_UNAVAILABLE' } },
+    });
+    visit(`/reset-password?token_hash=${HASH}&type=recovery`);
+    await mount();
+    await expectInvalid(honest);
   });
 });
 
@@ -402,16 +462,16 @@ describe('the completion request', () => {
     return client;
   }
 
-  it('forwards the bounded grant, and no session credential', async () => {
+  it('sends ONLY the new password — the grant lives in the HttpOnly cookie, never in script', async () => {
     await openForm();
     await submit(VALID_PASSWORD);
 
-    await waitFor(() => expect(callsTo('/api/auth/recovery-complete')).toHaveLength(1));
-    const [url, init] = callsTo('/api/auth/recovery-complete')[0];
-    expect(url).toBe('/api/auth/recovery-complete');
+    await waitFor(() => expect(callsTo('/api/auth/recovery/complete')).toHaveLength(1));
+    const [url, init] = callsTo('/api/auth/recovery/complete')[0];
+    expect(url).toBe('/api/auth/recovery/complete');
 
     const body = JSON.parse(init.body);
-    expect(body).toEqual({ grant: GRANT, newPassword: VALID_PASSWORD });
+    expect(body).toEqual({ newPassword: VALID_PASSWORD });
 
     // No bearer token: an access token is not proof of a recovery, and the
     // endpoint does not read one.
@@ -419,12 +479,12 @@ describe('the completion request', () => {
     expect(JSON.stringify(init.headers)).not.toContain('Bearer');
   });
 
-  it('sends no user id — there is nothing for a caller to redirect', async () => {
+  it('sends no user id and no grant — there is nothing for a caller to redirect or substitute', async () => {
     await openForm();
     await submit(VALID_PASSWORD);
-    await waitFor(() => expect(callsTo('/api/auth/recovery-complete')).toHaveLength(1));
-    const body = JSON.parse(callsTo('/api/auth/recovery-complete')[0][1].body);
-    expect(Object.keys(body).sort()).toEqual(['grant', 'newPassword']);
+    await waitFor(() => expect(callsTo('/api/auth/recovery/complete')).toHaveLength(1));
+    const body = JSON.parse(callsTo('/api/auth/recovery/complete')[0][1].body);
+    expect(Object.keys(body)).toEqual(['newPassword']);
   });
 
   it('checks the shared policy in the form before spending the link', async () => {
@@ -433,7 +493,7 @@ describe('the completion request', () => {
     await waitFor(() =>
       expect(screen.getByTestId('reset-message')).toHaveTextContent(/contraseña/i)
     );
-    expect(callsTo('/api/auth/recovery-complete')).toHaveLength(0);
+    expect(callsTo('/api/auth/recovery/complete')).toHaveLength(0);
   });
 
   it('refuses mismatched confirmations without a request', async () => {
@@ -449,7 +509,7 @@ describe('the completion request', () => {
     await waitFor(() =>
       expect(screen.getByTestId('reset-message')).toHaveTextContent(RECOVERY_MESSAGES.mismatch)
     );
-    expect(callsTo('/api/auth/recovery-complete')).toHaveLength(0);
+    expect(callsTo('/api/auth/recovery/complete')).toHaveLength(0);
   });
 
   it('reports success and sends the user to /login', async () => {
@@ -462,8 +522,7 @@ describe('the completion request', () => {
 
   it('CLOSES the form when the server says the material was invalid — the link is spent', async () => {
     stubFetch({
-      status: 401,
-      body: { error: 'x', code: 'RECOVERY_GRANT_INVALID' },
+      completion: { status: 401, body: { error: 'x', code: 'RECOVERY_GRANT_INVALID' } },
     });
     await openForm();
     await submit(VALID_PASSWORD);
@@ -471,10 +530,31 @@ describe('the completion request', () => {
     await expectInvalid(RECOVERY_MESSAGES.expired);
   });
 
+  it('CLOSES the form on an interrupted attempt and shows the server\'s honest ambiguity message', async () => {
+    const honest =
+      'No pudimos confirmar si tu contraseña se actualizó. Intenta iniciar sesión con la ' +
+      'contraseña que acabas de ingresar; si no funciona, solicita un enlace de recuperación nuevo.';
+    stubFetch({
+      completion: {
+        status: 410,
+        body: { error: honest, code: 'RECOVERY_ATTEMPT_INTERRUPTED', passwordChanged: false },
+      },
+    });
+    await openForm();
+    await submit(VALID_PASSWORD);
+    await expectInvalid(honest);
+  });
+
+  it('abandoning an open ceremony invalidates the server-side context explicitly', async () => {
+    await openForm();
+    fireEvent.click(screen.getByRole('button', { name: /volver al inicio de sesión/i }));
+    await waitFor(() => expect(callsTo('/api/auth/recovery/invalidate')).toHaveLength(1));
+    await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/login'));
+  });
+
   it('keeps the form open on a transient provider/server refusal so the grant can retry', async () => {
     stubFetch({
-      status: 500,
-      body: { error: 'Error interno del servidor', code: 'SERVER_ERROR' },
+      completion: { status: 500, body: { error: 'Error interno del servidor', code: 'SERVER_ERROR' } },
     });
     await openForm();
     await submit(VALID_PASSWORD);
@@ -488,14 +568,14 @@ describe('the completion request', () => {
   it('never sends the material twice, even if submit is clicked twice', async () => {
     await openForm();
     await submit(VALID_PASSWORD);
-    await waitFor(() => expect(callsTo('/api/auth/recovery-complete')).toHaveLength(1));
-    expect(callsTo('/api/auth/recovery-complete')).toHaveLength(1);
+    await waitFor(() => expect(callsTo('/api/auth/recovery/complete')).toHaveLength(1));
+    expect(callsTo('/api/auth/recovery/complete')).toHaveLength(1);
   });
 
   it('consults no session at any point in the whole flow', async () => {
     const client = await openForm();
     await submit(VALID_PASSWORD);
-    await waitFor(() => expect(callsTo('/api/auth/recovery-complete')).toHaveLength(1));
+    await waitFor(() => expect(callsTo('/api/auth/recovery/complete')).toHaveLength(1));
     expectConsumedNothing(client);
   });
 });

@@ -81,6 +81,7 @@ describe('the scan reaches the code it claims to', () => {
       'lib/auth/recovery-proof.ts',
       'lib/auth/recovery-grant.ts',
       'lib/auth/recovery-crypto.ts',
+      'lib/auth/recovery-cookie.ts',
       'lib/auth/recovery-request-queue.ts',
       'lib/auth/admin-user-maintenance.ts',
       'lib/auth/account-provisioning.ts',
@@ -247,6 +248,7 @@ describe('the raw primitive boundary', () => {
 
   it('names the server-only modules the browser may not import', () => {
     expect(SERVER_ONLY_MODULES).toContain('lib/auth/password-completion');
+    expect(SERVER_ONLY_MODULES).toContain('lib/auth/recovery-cookie');
     expect(SERVER_ONLY_MODULES).toContain('lib/security/audit');
     expect(SERVER_ONLY_MODULES).toContain('lib/email/invitations');
   });

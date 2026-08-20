@@ -63,7 +63,9 @@ import { firstPasswordPolicyError } from './password-policy';
 import {
   claimRecoveryGrant,
   finishRecoveryGrantAttempt,
+  interruptRecoveryGrantAttempt,
   RECOVERY_GRANT_MARKER,
+  RECOVERY_PROVIDER_BUDGET_MS,
 } from './recovery-grant';
 import {
   recordSecurityAudit,
@@ -130,6 +132,13 @@ export const COMPLETION_MESSAGES = {
   recoveryBusy: 'Ya hay un intento de recuperación en curso. Espera unos segundos e inténtalo nuevamente.',
   recoveryExhausted:
     'Este enlace alcanzó el máximo de intentos. Solicita uno nuevo desde la página de inicio de sesión.',
+  /**
+   * An attempt ended without a confirmable provider outcome. Honest by design:
+   * the password MAY have changed, so the user is told to test it rather than
+   * being promised either result.
+   */
+  recoveryInterrupted:
+    'No pudimos confirmar si tu contraseña se actualizó. Intenta iniciar sesión con la contraseña que acabas de ingresar; si no funciona, solicita un enlace de recuperación nuevo.',
   /** The caller has no valid session at all. */
   notAuthenticated: 'No autorizado',
   /** Forced change requested by an account that is not under the regime. */
@@ -260,9 +269,39 @@ export interface WritePasswordInput {
   logPrefix: string;
   /**
    * `auth.admin.updateUserById` also carries user metadata for the administrative
-   * reset (the banner marker). Nothing else uses it.
+   * reset (the banner marker) and the recovery success marker. Nothing else uses it.
    */
   userMetadata?: Record<string, unknown>;
+  /**
+   * Absolute epoch-ms deadline for the PROVIDER MUTATION, used only by the
+   * leased recovery ceremony. The write is refused before contact once the
+   * deadline has passed (provably safe to retry), and a call that has not
+   * resolved by the deadline is declared AMBIGUOUS while the lease is still
+   * owned — the ceremony then closes the grant instead of letting a second
+   * writer race a possibly-in-flight mutation.
+   */
+  providerDeadlineAt?: number;
+}
+
+/** Sentinel for a provider call that outlived its deadline. */
+const PROVIDER_TIMED_OUT = Symbol('provider_timed_out');
+
+async function raceProviderDeadline<T>(
+  operation: Promise<T>,
+  remainingMs: number
+): Promise<T | typeof PROVIDER_TIMED_OUT> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<typeof PROVIDER_TIMED_OUT>((resolve) => {
+    timer = setTimeout(() => resolve(PROVIDER_TIMED_OUT), Math.max(remainingMs, 0));
+  });
+  try {
+    return await Promise.race([operation, deadline]);
+  } finally {
+    if (timer) clearTimeout(timer);
+    // The abandoned promise may still settle later; its outcome is deliberately
+    // ignored, and an eventual rejection must not crash the process.
+    operation.catch(() => undefined);
+  }
 }
 
 /**
@@ -305,10 +344,66 @@ async function writePassword(
   }
 
   // --- The password, on the ESTABLISHED account and no other.
-  const { error: updateError } = await admin.auth.admin.updateUserById(input.userId, {
+  //
+  // The deadline check runs BEFORE the provider is contacted: a refusal here is
+  // provably safe to retry because no request was ever issued.
+  if (input.providerDeadlineAt !== undefined && Date.now() >= input.providerDeadlineAt) {
+    console.error(`${input.logPrefix} provider deadline elapsed before contact`, {
+      ceremony: input.ceremony,
+    });
+    return {
+      ok: false,
+      stage: 'set_password',
+      status: 503,
+      message: COMPLETION_MESSAGES.updateFailed,
+      code: 'PROVIDER_NOT_ATTEMPTED',
+      passwordChanged: false,
+    };
+  }
+
+  // A fixed inline object literal — no spread, no computed key — so the
+  // boundary guard can pin exactly which auth attributes this write may carry.
+  // An undefined `user_metadata` is dropped by the JSON serialization.
+  const updatePromise = admin.auth.admin.updateUserById(input.userId, {
     password: input.newPassword,
-    ...(input.userMetadata ? { user_metadata: input.userMetadata } : {}),
+    user_metadata: input.userMetadata,
   });
+
+  let updateError: { message?: string; code?: string; status?: number } | null;
+  if (input.providerDeadlineAt !== undefined) {
+    const raced = await raceProviderDeadline(
+      updatePromise,
+      input.providerDeadlineAt - Date.now()
+    );
+    if (raced === PROVIDER_TIMED_OUT) {
+      // AMBIGUOUS: the request may still be processed by the provider after
+      // this point. Nothing after the mutation ran (no flag clear, no success
+      // audit); the caller must close the ceremony rather than retry it.
+      console.error(`${input.logPrefix} provider response outlived the attempt deadline`, {
+        ceremony: input.ceremony,
+      });
+      await recordSecurityAudit(admin, {
+        ...auditBase,
+        outcome: 'failure',
+        metadata: {
+          ...(input.auditMetadata ?? {}),
+          stage: 'set_password',
+          reason: 'provider_deadline_ambiguous',
+        },
+      });
+      return {
+        ok: false,
+        stage: 'set_password',
+        status: 504,
+        message: COMPLETION_MESSAGES.recoveryInterrupted,
+        code: 'PROVIDER_TIMEOUT',
+        passwordChanged: false,
+      };
+    }
+    updateError = raced.error ?? null;
+  } else {
+    updateError = (await updatePromise).error ?? null;
+  }
 
   if (updateError) {
     // Provider wording can echo request/account detail, so log only stable
@@ -444,24 +539,29 @@ export async function completeRecoveryPasswordChange(
     const unavailable = claim.reason === 'unavailable';
     const busy = claim.reason === 'busy';
     const exhausted = claim.reason === 'exhausted';
+    const interrupted = claim.reason === 'interrupted';
     return {
       ok: false,
       stage: 'proof',
-      status: unavailable ? 503 : busy ? 409 : exhausted ? 429 : 401,
+      status: unavailable ? 503 : busy ? 409 : exhausted ? 429 : interrupted ? 410 : 401,
       message: unavailable
         ? COMPLETION_MESSAGES.serverError
         : busy
           ? COMPLETION_MESSAGES.recoveryBusy
           : exhausted
             ? COMPLETION_MESSAGES.recoveryExhausted
-            : COMPLETION_MESSAGES.recoveryInvalid,
+            : interrupted
+              ? COMPLETION_MESSAGES.recoveryInterrupted
+              : COMPLETION_MESSAGES.recoveryInvalid,
       code: unavailable
         ? 'RECOVERY_GRANT_UNAVAILABLE'
         : busy
           ? 'RECOVERY_ATTEMPT_IN_PROGRESS'
           : exhausted
             ? 'RECOVERY_ATTEMPTS_EXHAUSTED'
-            : 'RECOVERY_GRANT_INVALID',
+            : interrupted
+              ? 'RECOVERY_ATTEMPT_INTERRUPTED'
+              : 'RECOVERY_GRANT_INVALID',
       passwordChanged: false,
     };
   }
@@ -478,8 +578,14 @@ export async function completeRecoveryPasswordChange(
       // following database completion is lost, the next retry sees this marker
       // and refuses replay rather than waiting for a lease to expire.
       userMetadata: { [RECOVERY_GRANT_MARKER]: claim.grantHash },
+      // The provider mutation must resolve strictly inside the owned lease.
+      providerDeadlineAt: Date.now() + RECOVERY_PROVIDER_BUDGET_MS,
     });
   } catch {
+    // The SDK reported a resolved failure (the transport is finished, nothing
+    // is in flight), so releasing the lease for a bounded retry is safe: the
+    // marker check on the next claim arbitrates the case where the provider
+    // actually committed before the response was lost.
     await finishRecoveryGrantAttempt(admin, claim, false);
     return {
       ok: false,
@@ -487,6 +593,22 @@ export async function completeRecoveryPasswordChange(
       status: 502,
       message: COMPLETION_MESSAGES.updateFailed,
       code: 'UPDATE_FAILED',
+      passwordChanged: false,
+    };
+  }
+
+  if (isCompletionFailure(written) && written.code === 'PROVIDER_TIMEOUT') {
+    // AMBIGUOUS outcome: the provider call outlived its deadline and may still
+    // land. Close the grant while the lease is still OWNED — a lost-lease
+    // writer can neither reach the provider again nor complete this grant, so
+    // exactly one candidate password was ever issued under it.
+    await interruptRecoveryGrantAttempt(admin, claim);
+    return {
+      ok: false,
+      stage: 'set_password',
+      status: 410,
+      message: COMPLETION_MESSAGES.recoveryInterrupted,
+      code: 'RECOVERY_ATTEMPT_INTERRUPTED',
       passwordChanged: false,
     };
   }

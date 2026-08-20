@@ -866,6 +866,19 @@ test.describe('authentication lifecycle', () => {
       await expect(selfServicePage.getByTestId('reset-password-form')).toBeVisible({
         timeout: 30_000,
       });
+
+      // THE EXCHANGED CONTEXT SURVIVES A REFRESH. The fourth independent review
+      // found the grant lived only in a React ref, so refreshing this page
+      // destroyed a live recovery ceremony. It is now an HttpOnly cookie: the
+      // URL has already been stripped, so this reload arrives at a bare
+      // /reset-password with nothing but the cookie — and the form must reopen
+      // without consuming a second link or a grant attempt.
+      await expect(selfServicePage).toHaveURL(/\/reset-password$/);
+      await selfServicePage.reload();
+      await expect(selfServicePage.getByTestId('reset-password-form')).toBeVisible({
+        timeout: 30_000,
+      });
+
       await selfServicePage.getByTestId('reset-new-password').fill(RECOVERED_PASSWORD);
       await selfServicePage.getByTestId('reset-confirm-password').fill(RECOVERED_PASSWORD);
       await selfServicePage.getByTestId('reset-submit').click();

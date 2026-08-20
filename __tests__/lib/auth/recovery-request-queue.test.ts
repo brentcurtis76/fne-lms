@@ -5,6 +5,7 @@ import {
   runRecoveryOutbox,
 } from '../../../lib/auth/recovery-request-queue';
 import {
+  fingerprintRecoveryCandidate,
   openRecoveryEnvelope,
   sealRecoveryEnvelope,
 } from '../../../lib/auth/recovery-crypto';
@@ -30,12 +31,15 @@ interface HarnessOptions {
   messageEnvelope?: string | null;
   claim?: boolean;
   providerAttempts?: number;
+  /** What the canonical worker-side resolution answers. */
+  resolve?: 'resolved' | 'discarded' | 'lease_lost' | 'error';
 }
 
 function workerHarness(options: HarnessOptions = {}) {
   const calls = {
     prepared: [] as string[],
     finished: [] as Array<Record<string, unknown>>,
+    resolved: [] as Array<Record<string, unknown>>,
     audits: [] as Array<Record<string, unknown>>,
   };
   const requestEnvelope = sealRecoveryEnvelope(
@@ -43,15 +47,6 @@ function workerHarness(options: HarnessOptions = {}) {
     'request',
     SECRET
   );
-
-  const profileChain: any = {
-    select: vi.fn(() => profileChain),
-    eq: vi.fn(() => profileChain),
-    maybeSingle: vi.fn(async () => ({
-      data: { id: USER_ID, first_name: 'Ana' },
-      error: null,
-    })),
-  };
 
   const admin: any = {
     rpc: vi.fn(async (name: string, args: Record<string, unknown>) => {
@@ -69,6 +64,18 @@ function workerHarness(options: HarnessOptions = {}) {
           error: null,
         };
       }
+      if (name === 'resolve_password_recovery_outbox') {
+        calls.resolved.push(args);
+        const mode = options.resolve ?? 'resolved';
+        if (mode === 'error') return { data: null, error: { code: 'XX000' } };
+        if (mode === 'resolved') {
+          return {
+            data: [{ status: 'resolved', user_id: USER_ID, first_name: 'Ana' }],
+            error: null,
+          };
+        }
+        return { data: [{ status: mode, user_id: null, first_name: null }], error: null };
+      }
       if (name === 'prepare_password_recovery_outbox') {
         calls.prepared.push(args.p_message_envelope as string);
         return { data: true, error: null };
@@ -80,7 +87,6 @@ function workerHarness(options: HarnessOptions = {}) {
       throw new Error(`unexpected RPC ${name}`);
     }),
     from: vi.fn((table: string) => {
-      if (table === 'profiles') return profileChain;
       if (table === 'security_audit_events') {
         return {
           insert: vi.fn(async (row: Record<string, unknown>) => {
@@ -103,7 +109,7 @@ beforeEach(() => {
 });
 
 describe('durable request enqueue', () => {
-  it('hands cooldown, IP budget, encrypted request, and enqueue to one RPC', async () => {
+  it('hands only fingerprints and ciphertext to one RPC — never the address', async () => {
     const rpc = vi.fn(async () => ({ data: 'queued', error: null }));
     const result = await enqueueRecoveryRequest(
       { rpc } as any,
@@ -114,8 +120,18 @@ describe('durable request enqueue', () => {
     expect(rpc).toHaveBeenCalledTimes(1);
     const args = rpc.mock.calls[0][1] as Record<string, unknown>;
     expect(args.p_ip_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(args.p_candidate_fingerprint).toBe(fingerprintRecoveryCandidate(EMAIL, SECRET));
+    // The transaction cannot branch on account existence: it receives no
+    // plaintext address of any kind.
+    expect(args).not.toHaveProperty('p_email');
     expect(args.p_request_envelope).not.toContain(EMAIL);
     expect(args.p_request_envelope).not.toContain('192.0.2.10');
+  });
+
+  it('fingerprints mixed-case, padded input to the same candidate', async () => {
+    expect(fingerprintRecoveryCandidate('  Persona@Synthetic.TEST ', SECRET)).toBe(
+      fingerprintRecoveryCandidate(EMAIL, SECRET)
+    );
   });
 
   it('collapses every durable refusal into the same internal suppressed state', async () => {
@@ -145,9 +161,11 @@ describe('durable recovery outbox', () => {
       claimed: 1,
       providerAccepted: 1,
       providerRejected: 0,
+      discarded: 0,
       retried: 0,
       dead: 0,
     });
+    expect(calls.resolved).toHaveLength(1);
     expect(calls.prepared).toHaveLength(1);
     expect(calls.prepared[0]).not.toContain(EMAIL);
     expect(calls.prepared[0]).not.toContain('token_hash');
@@ -160,6 +178,37 @@ describe('durable recovery outbox', () => {
       p_provider_message_id: 'provider-message-1',
     });
     expect((transports[0] as any).options).toEqual({ idempotencyKey: IDEMPOTENCY_KEY });
+  });
+
+  it('drops an unknown candidate without mail, audit, or link generation', async () => {
+    const { admin, calls } = workerHarness({ resolve: 'discarded' });
+    const transport = vi.fn();
+    const result = await runRecoveryOutbox(admin, { secret: SECRET, transport });
+    expect(result).toMatchObject({ claimed: 1, discarded: 1, providerAccepted: 0 });
+    expect(transport).not.toHaveBeenCalled();
+    expect(mockGenerateRecoveryLink).not.toHaveBeenCalled();
+    expect(calls.audits).toHaveLength(0);
+    // The discard transition happened inside the resolve RPC; nothing to finish.
+    expect(calls.finished).toHaveLength(0);
+  });
+
+  it('leaves a job whose lease was lost strictly alone', async () => {
+    const { admin, calls } = workerHarness({ resolve: 'lease_lost' });
+    const transport = vi.fn();
+    const result = await runRecoveryOutbox(admin, { secret: SECRET, transport });
+    expect(result).toMatchObject({ claimed: 1, discarded: 0, retried: 0, dead: 0 });
+    expect(transport).not.toHaveBeenCalled();
+    expect(calls.finished).toHaveLength(0);
+    expect(calls.audits).toHaveLength(0);
+  });
+
+  it('releases the job for a bounded retry when resolution itself fails', async () => {
+    const { admin, calls } = workerHarness({ resolve: 'error' });
+    const transport = vi.fn();
+    const result = await runRecoveryOutbox(admin, { secret: SECRET, transport });
+    expect(result.retried).toBe(1);
+    expect(transport).not.toHaveBeenCalled();
+    expect(calls.finished[0]).toMatchObject({ p_state: 'queued' });
   });
 
   it('reuses the exact prepared link and idempotency key after a network failure/restart', async () => {
@@ -191,6 +240,27 @@ describe('durable recovery outbox', () => {
     expect(mockGenerateRecoveryLink).toHaveBeenCalledTimes(1);
     expect(firstMessages[0].message.html).toBe(secondMessages[0].message.html);
     expect(firstMessages[0].options).toEqual(secondMessages[0].options);
+  });
+
+  it('never records an untrackable accepted state when the provider returns no id', async () => {
+    const { admin, calls } = workerHarness();
+    const acceptedWithoutId: EmailTransport = async () => ({ data: {}, error: null });
+    const result = await runRecoveryOutbox(admin, {
+      secret: SECRET,
+      transport: acceptedWithoutId,
+    });
+    // Retried under the SAME idempotency key rather than finished accepted: the
+    // idempotent replay yields the original message id without a second mail.
+    expect(result).toMatchObject({ providerAccepted: 0, retried: 1 });
+    expect(calls.finished[0]).toMatchObject({ p_state: 'queued' });
+    expect(
+      calls.audits.some(
+        (row) =>
+          row.outcome === 'failure' &&
+          (row.metadata as Record<string, unknown>)?.delivery_state ===
+            'provider_accepted_without_id'
+      )
+    ).toBe(true);
   });
 
   it('records precise provider states with a null public-request actor', async () => {

@@ -39,7 +39,7 @@ function configuredSecret(explicit?: string): string | null {
   return typeof secret === 'string' && secret.length >= 32 ? secret : null;
 }
 
-function deriveKey(secret: string, purpose: RecoveryEnvelopePurpose | 'ip'): Buffer {
+function deriveKey(secret: string, purpose: RecoveryEnvelopePurpose | 'ip' | 'candidate'): Buffer {
   return createHash('sha256')
     .update('fne-lms/auth-recovery/')
     .update(purpose)
@@ -177,5 +177,22 @@ export function fingerprintRecoveryIp(ip: string, explicitSecret?: string): stri
   if (!secret) throw new Error('RECOVERY_CRYPTO_NOT_CONFIGURED');
   return createHmac('sha256', deriveKey(secret, 'ip'))
     .update(typeof ip === 'string' && ip.length > 0 ? ip : 'unknown')
+    .digest('hex');
+}
+
+/**
+ * Keyed fingerprint of a candidate recovery ADDRESS. This is what the public
+ * request path hands to the database instead of the address itself: the enqueue
+ * transaction cooldowns, locks, and stores by this value identically for known
+ * and unknown candidates, and cannot branch on account existence because it
+ * never sees an address or a profile. Keyed (HMAC, domain-separated) so the
+ * stored value cannot be dictionary-tested offline against an address list.
+ */
+export function fingerprintRecoveryCandidate(email: string, explicitSecret?: string): string {
+  const secret = configuredSecret(explicitSecret);
+  if (!secret) throw new Error('RECOVERY_CRYPTO_NOT_CONFIGURED');
+  const normalized = typeof email === 'string' ? email.trim().toLowerCase() : '';
+  return createHmac('sha256', deriveKey(secret, 'candidate'))
+    .update(normalized)
     .digest('hex');
 }

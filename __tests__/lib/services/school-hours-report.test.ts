@@ -45,10 +45,15 @@ const BASE_SCHEMA: Record<string, TableDef> = {
   schools: { columns: ['id', 'name'] },
   clientes: { columns: ['id', 'school_id'] },
   contratos: {
+    // `is_anexo` has ONE n (baseline line 7903, `idx_contratos_is_anexo`). This mirror
+    // once carried the code-under-test's `is_annexo` typo instead of the dump's column,
+    // which made validateSelect bless a select PostgREST 42703s — the whole suite passed
+    // while /reporte-horas 500'd for every school with an active contract. The mirror is
+    // only worth having if it is copied from the dump, never from the query it checks.
     columns: [
       'id',
       'numero_contrato',
-      'is_annexo',
+      'is_anexo',
       'horas_contratadas',
       'programa_id',
       'cliente_id',
@@ -442,7 +447,7 @@ function baseOptions(overrides: Partial<ClientOptions> = {}): ClientOptions {
       {
         id: CONTRATO_ID,
         numero_contrato: 'CTR-2026-001',
-        is_annexo: false,
+        is_anexo: false,
         horas_contratadas: 50,
         programa_id: PROGRAMA_ID,
         cliente_id: CLIENTE_ID,
@@ -588,6 +593,46 @@ describe('fetchSchoolReportData', () => {
       expect(entry.order).toBe('session_date');
       expect(validateSelect(BASE_SCHEMA, 'consultor_sessions', entry.select)).toBeNull();
     }
+  });
+
+  it('asks contratos for is_anexo (one n) and keeps the wire field is_annexo', async () => {
+    const log: QueryLog[] = [];
+    // is_anexo: true, because the pass-through has to be provable: the mapping is
+    // `contrato.is_anexo ?? false`, so a select that never read the column also renders
+    // false — only true distinguishes "read from the DB" from "defaulted silently".
+    const options = baseOptions({
+      contratos: [
+        {
+          id: CONTRATO_ID,
+          numero_contrato: 'CTR-2026-002-A1',
+          is_anexo: true,
+          horas_contratadas: 10,
+          programa_id: PROGRAMA_ID,
+          cliente_id: CLIENTE_ID,
+          estado: 'activo',
+          programas: { id: PROGRAMA_ID, nombre: 'Acompañamiento Directivo' },
+        },
+      ],
+    });
+
+    const result = await fetchSchoolReportData(clientFor(options, log), SCHOOL_ID);
+
+    const contratosQuery = log.find((entry) => entry.table === 'contratos')!;
+    expect(contratosQuery).toBeDefined();
+
+    // The regression this suite shipped past: the DB column is `is_anexo` (one n), and
+    // asking for `is_annexo` 42703'd the contratos read — a 500 on /reporte-horas for
+    // every school with an active contract.
+    const selected = splitTopLevel(contratosQuery.select);
+    expect(selected).toContain('is_anexo');
+    expect(selected).not.toContain('is_annexo');
+    expect(validateSelect(BASE_SCHEMA, 'contratos', contratosQuery.select)).toBeNull();
+
+    // The WIRE field stays `is_annexo` — the PDF and the UI render
+    // `contract.is_annexo` — and it carries the DB value, not the `?? false` default.
+    const contract = result!.programs[0].contracts[0];
+    expect(contract.is_annexo).toBe(true);
+    expect(contract.numero_contrato).toBe('CTR-2026-002-A1');
   });
 
   it('reads hours from the ledger sub-query it already makes, without a second round trip', async () => {
@@ -852,7 +897,7 @@ describe('fetchSchoolReportData', () => {
             columns: [
               'id',
               'numero_contrato',
-              'is_annexo',
+              'is_anexo',
               'horas_contratadas',
               'programa_id',
               'cliente_id',

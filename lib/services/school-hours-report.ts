@@ -57,7 +57,8 @@ type LedgerRow = {
 type ContratoRow = {
   id: string;
   numero_contrato: string | null;
-  is_annexo: boolean | null;
+  /** DB column is `is_anexo` (one n); the wire field stays `is_annexo`. */
+  is_anexo: boolean | null;
   horas_contratadas: number | null;
   programa_id: string | null;
   programas: { id: string; nombre: string } | null;
@@ -130,7 +131,7 @@ export async function fetchSchoolReportData(
     .select(`
       id,
       numero_contrato,
-      is_annexo,
+      is_anexo,
       horas_contratadas,
       programa_id,
       programas(id, nombre)
@@ -318,7 +319,7 @@ export async function fetchSchoolReportData(
     programaMap.get(programaId)!.contracts.push({
       contrato_id: contrato.id,
       numero_contrato: contrato.numero_contrato ?? contrato.id,
-      is_annexo: contrato.is_annexo ?? false,
+      is_annexo: contrato.is_anexo ?? false,
       total_contracted_hours: contrato.horas_contratadas ?? 0,
       total_reserved: totalReserved,
       total_consumed: totalConsumed,

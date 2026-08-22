@@ -231,6 +231,7 @@ interface ModuleInput {
     category: IndicatorCategory;
     weight: number;
     frequency_config?: FrequencyConfig;
+    display_order?: number;
   }>;
 }
 
@@ -326,6 +327,31 @@ export function calculateAssessmentScores(input: CalculateScoresInput): Assessme
   };
 
   /**
+   * Cobertura gate (mirrors submit.ts and ModuleCard): consider the indicators visible
+   * this year (active per expectations; legacy: the whole practice), sorted by
+   * display_order. When the first visible indicator is a 'cobertura' whose answer is
+   * not "Sí", the UI hides the rest of the practice and submit does not require it —
+   * so scoring must ignore any stale auto-saved responses left behind the closed gate
+   * (answered before the docente flipped the cobertura to "No") and treat the practice
+   * as unanswered: every downstream indicator scores 0.
+   */
+  const maskGateClosedResponses = (module: ModuleInput): Map<string, AssessmentResponse> => {
+    const visibleIndicators = input.activeExpectations
+      ? filterActiveIndicators(module.indicators)
+      : module.indicators;
+    if (visibleIndicators.length === 0) return responseMap;
+
+    const first = [...visibleIndicators].sort(
+      (a, b) => (a.display_order || 0) - (b.display_order || 0)
+    )[0];
+    if (first.category !== 'cobertura') return responseMap;
+    if (responseMap.get(first.id)?.coverage_value === true) return responseMap;
+
+    // Gate closed: only the gate indicator's own response is visible to scoring.
+    return new Map([...responseMap].filter(([indicatorId]) => indicatorId === first.id));
+  };
+
+  /**
    * Apply per-year weight overrides to an indicator's weight.
    * Priority: indicatorYearWeights map → entity default weight.
    */
@@ -373,7 +399,7 @@ export function calculateAssessmentScores(input: CalculateScoresInput): Assessme
 
         const score = calculateModuleScore(
           indicatorsWithExpectations,
-          responseMap,
+          maskGateClosedResponses(module),
           module.name,
           resolvedModuleWeight
         );
@@ -445,7 +471,7 @@ export function calculateAssessmentScores(input: CalculateScoresInput): Assessme
 
     const score = calculateModuleScore(
       indicatorsWithExpectations,
-      responseMap,
+      maskGateClosedResponses(module),
       module.name,
       resolvedModuleWeight2
     );
@@ -494,6 +520,7 @@ export interface InstanceDataForScoring {
       category: IndicatorCategory;
       weight: number;
       frequency_config?: FrequencyConfig;
+      display_order?: number;
     }>;
   }>;
   objectives?: Array<{
@@ -510,6 +537,7 @@ export interface InstanceDataForScoring {
         category: IndicatorCategory;
         weight: number;
         frequency_config?: FrequencyConfig;
+        display_order?: number;
       }>;
     }>;
   }>;
@@ -681,6 +709,7 @@ export async function fetchInstanceDataForScoring(
     category: ind.category as IndicatorCategory,
     weight: ind.weight ?? 1,
     frequency_config: ind.frequency_config,
+    display_order: ind.display_order,
   });
 
   const mapModule = (m: any) => ({

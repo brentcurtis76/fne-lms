@@ -878,6 +878,217 @@ describe('calculateAssessmentScores — year-aware scoring (R8)', () => {
 });
 
 // ============================================================
+// Cobertura gate vs stale auto-saved responses
+//
+// Responses auto-save while the docente works. If they answer a downstream
+// indicator first and THEN set the leading cobertura to "No", the stale row
+// stays in assessment_responses. The gate (resolved like submit.ts/ModuleCard:
+// year-visible indicators sorted by display_order, gated iff the first is a
+// 'cobertura', closed iff its coverage_value !== true) must force the practice
+// to score 0 regardless of those stale rows.
+// ============================================================
+
+describe('calculateAssessmentScores — cobertura gate vs stale responses', () => {
+  const gateExpectations = new Map([
+    ['cob', { expected: 1, unit: null, tolerance: 1 }],
+    ['frec', { expected: 5, unit: 'semana', tolerance: 1 }],
+    ['prof', { expected: 2, unit: null, tolerance: 1 }],
+  ]);
+
+  // Cobertura is the gate by display_order, deliberately NOT first in the array
+  // (same trick as the submit.ts gate tests) to prove display_order resolution.
+  const gatedModule = {
+    id: 'm1',
+    name: 'Práctica gated',
+    weight: 1,
+    indicators: [
+      { id: 'frec', name: 'Frecuencia', category: 'frecuencia' as IndicatorCategory, weight: 1, display_order: 2 },
+      { id: 'cob', name: 'Cobertura', category: 'cobertura' as IndicatorCategory, weight: 1, display_order: 1 },
+      { id: 'prof', name: 'Profundidad', category: 'profundidad' as IndicatorCategory, weight: 1, display_order: 3 },
+    ],
+  };
+
+  it('T-stale: gate closed (cobertura=No) ignores stale downstream responses — practice scores 0', () => {
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 1,
+      area: 'evaluacion',
+      modules: [gatedModule],
+      responses: [
+        // Stale rows: answered before the docente flipped the cobertura to "No"
+        { id: 'r1', instance_id: 'test', indicator_id: 'frec', frequency_value: 80 } as AssessmentResponse,
+        { id: 'r2', instance_id: 'test', indicator_id: 'prof', profundity_level: 4 } as AssessmentResponse,
+        { id: 'r3', instance_id: 'test', indicator_id: 'cob', coverage_value: false } as AssessmentResponse,
+      ],
+      activeExpectations: gateExpectations,
+    });
+
+    // Without the gate this would be (0 + 80 + 100) / 3 = 60
+    expect(result.totalScore).toBe(0);
+    expect(result.moduleScores[0].moduleScore).toBe(0);
+    expect(result.moduleScores[0].indicators.every((i) => i.normalizedScore === 0)).toBe(true);
+
+    // Stale responses are treated as unanswered (rawValue not surfaced), while the
+    // gate indicator keeps its own answer.
+    const byId = new Map(result.moduleScores[0].indicators.map((i) => [i.indicatorId, i]));
+    expect(byId.get('frec')?.rawValue).toBeUndefined();
+    expect(byId.get('prof')?.rawValue).toBeUndefined();
+    expect(byId.get('cob')?.rawValue).toBe(false);
+  });
+
+  it('T-stale-unanswered: unanswered gate also closes the practice despite stale rows', () => {
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 1,
+      area: 'evaluacion',
+      modules: [gatedModule],
+      responses: [
+        // No cobertura response at all — the UI hides the rest while the gate is unanswered
+        { id: 'r1', instance_id: 'test', indicator_id: 'frec', frequency_value: 80 } as AssessmentResponse,
+      ],
+      activeExpectations: gateExpectations,
+    });
+
+    expect(result.totalScore).toBe(0);
+  });
+
+  it('T-stale-open: gate open (cobertura=Sí) scores downstream responses normally', () => {
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 1,
+      area: 'evaluacion',
+      modules: [gatedModule],
+      responses: [
+        { id: 'r1', instance_id: 'test', indicator_id: 'cob', coverage_value: true } as AssessmentResponse,
+        { id: 'r2', instance_id: 'test', indicator_id: 'frec', frequency_value: 80 } as AssessmentResponse,
+        // prof unanswered → 0
+      ],
+      activeExpectations: gateExpectations,
+    });
+
+    // (100 + 80 + 0) / 3 = 60
+    expect(result.totalScore).toBe(60);
+  });
+
+  it('T-stale-legacy: legacy mode (no activeExpectations) applies the gate too', () => {
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 1,
+      area: 'evaluacion',
+      modules: [gatedModule],
+      responses: [
+        { id: 'r1', instance_id: 'test', indicator_id: 'cob', coverage_value: false } as AssessmentResponse,
+        { id: 'r2', instance_id: 'test', indicator_id: 'frec', frequency_value: 80 } as AssessmentResponse,
+      ],
+    });
+
+    expect(result.totalScore).toBe(0);
+  });
+
+  it('T-stale-3level: gate masking applies in the objectives hierarchy path', () => {
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 1,
+      area: 'evaluacion',
+      objectives: [
+        {
+          id: 'obj1',
+          name: 'Objetivo 1',
+          weight: 1,
+          modules: [
+            gatedModule,
+            {
+              id: 'm2',
+              name: 'Práctica abierta',
+              weight: 1,
+              indicators: [
+                { id: 'cob2', name: 'Cobertura 2', category: 'cobertura' as IndicatorCategory, weight: 1, display_order: 1 },
+              ],
+            },
+          ],
+        },
+      ],
+      modules: [],
+      responses: [
+        // Gated module: closed with a stale frecuencia row
+        { id: 'r1', instance_id: 'test', indicator_id: 'cob', coverage_value: false } as AssessmentResponse,
+        { id: 'r2', instance_id: 'test', indicator_id: 'frec', frequency_value: 80 } as AssessmentResponse,
+        // Open module
+        { id: 'r3', instance_id: 'test', indicator_id: 'cob2', coverage_value: true } as AssessmentResponse,
+      ],
+      activeExpectations: new Map([...gateExpectations, ['cob2', { expected: 1, unit: null, tolerance: 1 }]]),
+    });
+
+    // m1 = 0 (gate closed, stale row ignored), m2 = 100 → objective (0+100)/2 = 50
+    expect(result.moduleScores.find((m) => m.moduleId === 'm1')?.moduleScore).toBe(0);
+    expect(result.moduleScores.find((m) => m.moduleId === 'm2')?.moduleScore).toBe(100);
+    expect(result.totalScore).toBe(50);
+  });
+
+  it('T-stale-no-gate: no gate when the first visible indicator is not a cobertura', () => {
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 1,
+      area: 'evaluacion',
+      modules: [
+        {
+          id: 'm1',
+          name: 'Práctica sin gate',
+          weight: 1,
+          indicators: [
+            // Frecuencia leads by display_order → the cobertura "No" does not gate
+            { id: 'frec', name: 'Frecuencia', category: 'frecuencia' as IndicatorCategory, weight: 1, display_order: 1 },
+            { id: 'cob', name: 'Cobertura', category: 'cobertura' as IndicatorCategory, weight: 1, display_order: 2 },
+          ],
+        },
+      ],
+      responses: [
+        { id: 'r1', instance_id: 'test', indicator_id: 'frec', frequency_value: 80 } as AssessmentResponse,
+        { id: 'r2', instance_id: 'test', indicator_id: 'cob', coverage_value: false } as AssessmentResponse,
+      ],
+      activeExpectations: new Map([
+        ['frec', { expected: 5, unit: 'semana', tolerance: 1 }],
+        ['cob', { expected: 1, unit: null, tolerance: 1 }],
+      ]),
+    });
+
+    // (80 + 0) / 2 = 40 — both indicators score normally
+    expect(result.totalScore).toBe(40);
+  });
+
+  it('T-stale-inactive-gate: a cobertura inactive this year does not gate the visible indicators', () => {
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 1,
+      area: 'evaluacion',
+      modules: [
+        {
+          id: 'm1',
+          name: 'Práctica con cobertura inactiva',
+          weight: 1,
+          indicators: [
+            { id: 'cob', name: 'Cobertura', category: 'cobertura' as IndicatorCategory, weight: 1, display_order: 1 },
+            { id: 'frec', name: 'Frecuencia', category: 'frecuencia' as IndicatorCategory, weight: 1, display_order: 2 },
+          ],
+        },
+      ],
+      responses: [
+        { id: 'r1', instance_id: 'test', indicator_id: 'cob', coverage_value: false } as AssessmentResponse,
+        { id: 'r2', instance_id: 'test', indicator_id: 'frec', frequency_value: 80 } as AssessmentResponse,
+      ],
+      // Only frecuencia is active for year 1 — the cobertura is not part of the
+      // year's visible practice, so it cannot act as its gate (mirrors submit.ts R12).
+      activeExpectations: new Map([
+        ['frec', { expected: 5, unit: 'semana', tolerance: 1 }],
+      ]),
+    });
+
+    // Only frec is scored: 80
+    expect(result.totalScore).toBe(80);
+  });
+});
+
+// ============================================================
 // Per-year weight override tests
 // ============================================================
 

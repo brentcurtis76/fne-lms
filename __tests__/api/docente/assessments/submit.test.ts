@@ -18,6 +18,7 @@ const IND_COB = 'ind00001-0000-0000-0000-000000000001'; // cobertura — active 
 const IND_FREC = 'ind00002-0000-0000-0000-000000000002'; // frecuencia — active year 1
 const IND_TRAS = 'ind00003-0000-0000-0000-000000000003'; // traspaso — inactive year 1
 const IND_DET = 'ind00004-0000-0000-0000-000000000004'; // detalle
+const IND_PROF = 'ind00005-0000-0000-0000-000000000005'; // profundidad
 
 // ============================================================
 // Mocks
@@ -440,5 +441,122 @@ describe('POST /api/docente/assessments/[instanceId]/submit', () => {
 
     // Should pass since all cobertura/frecuencia indicators have responses
     expect(res._getStatusCode()).toBe(200);
+  });
+
+  // ============================================================
+  // Cobertura gate (regression: gate-closed practices must be submittable)
+  // ============================================================
+
+  // Snapshot with a gated practice: cobertura first by display_order (deliberately NOT
+  // first in the array, to prove the gate is resolved by display_order like the UI does),
+  // followed by frecuencia and profundidad.
+  const GATED_SNAPSHOT = {
+    modules: [
+      {
+        id: 'mod-1',
+        indicators: [
+          { id: IND_FREC, name: 'Indicador frecuencia', category: 'frecuencia', display_order: 2 },
+          { id: IND_COB, name: 'Indicador cobertura', category: 'cobertura', display_order: 1 },
+          { id: IND_PROF, name: 'Indicador profundidad', category: 'profundidad', display_order: 3 },
+        ],
+      },
+    ],
+  };
+  const GATED_INSTANCE = {
+    ...INSTANCE_DATA,
+    assessment_template_snapshots: {
+      template_id: TEMPLATE_ID,
+      snapshot_data: GATED_SNAPSHOT,
+    },
+  };
+  // All three indicators active for year 1
+  const GATED_YEAR_EXP = [
+    { indicator_id: IND_COB, year_1_expected: 1 },
+    { indicator_id: IND_FREC, year_1_expected: 3 },
+    { indicator_id: IND_PROF, year_1_expected: 2 },
+  ];
+
+  it('T-gate-closed: cobertura=No with the rest of the practice unanswered submits successfully', async () => {
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildSubmitClient({
+        instanceData: GATED_INSTANCE,
+        yearExpData: GATED_YEAR_EXP,
+        responsesData: [
+          // Only the gate is answered (No). Frecuencia/profundidad are hidden by the UI
+          // and must not be required.
+          { indicator_id: IND_COB, coverage_value: false, frequency_value: null, profundity_level: null, sub_responses: null },
+        ],
+      })
+    );
+
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+    await submitHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    const data = JSON.parse(res._getData());
+    expect(data.success).toBe(true);
+    // Scores are still calculated on submit (gate-closed practice scores 0 in scoringService)
+    expect(mockCalculateAndSaveScores).toHaveBeenCalledWith(expect.anything(), INSTANCE_ID, DOCENTE_UUID);
+  });
+
+  it('T-gate-open: cobertura=Sí still requires the rest of the practice (400)', async () => {
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildSubmitClient({
+        instanceData: GATED_INSTANCE,
+        yearExpData: GATED_YEAR_EXP,
+        responsesData: [
+          { indicator_id: IND_COB, coverage_value: true, frequency_value: null, profundity_level: null, sub_responses: null },
+          // IND_FREC and IND_PROF unanswered → still missing when the gate is open
+        ],
+      })
+    );
+
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+    await submitHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+    const data = JSON.parse(res._getData());
+    expect(data.missingCount).toBe(2);
+    expect(data.missingIndicators).toEqual(
+      expect.arrayContaining(['Indicador frecuencia', 'Indicador profundidad'])
+    );
+  });
+
+  it('T-gate-unanswered: unanswered cobertura gate requires only the gate itself (400)', async () => {
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildSubmitClient({
+        instanceData: GATED_INSTANCE,
+        yearExpData: GATED_YEAR_EXP,
+        responsesData: [], // Nothing answered in the gated practice
+      })
+    );
+
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+    await submitHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+    const data = JSON.parse(res._getData());
+    // The UI hides the rest of the practice while the gate is unanswered, so only the
+    // cobertura indicator is reported missing.
+    expect(data.missingCount).toBe(1);
+    expect(data.missingIndicators).toEqual(['Indicador cobertura']);
+  });
+
+  it('T-gate-legacy: gate-closed practice submits in legacy mode (no year expectations)', async () => {
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildSubmitClient({
+        instanceData: GATED_INSTANCE,
+        yearExpData: [], // Legacy mode: no expectations data → all indicators visible
+        responsesData: [
+          { indicator_id: IND_COB, coverage_value: false, frequency_value: null, profundity_level: null, sub_responses: null },
+        ],
+      })
+    );
+
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+    await submitHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(JSON.parse(res._getData()).success).toBe(true);
   });
 });

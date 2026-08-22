@@ -340,6 +340,24 @@ describe('Weighted global score', () => {
     // cobertura=100*50, detalle=0*50 → (5000) / 100 = 50
     expect(result.moduleScore).toBe(50);
   });
+
+  it('gate-closed practice (cobertura=No, rest unanswered) scores 0', () => {
+    // Regression pair for the submit cobertura gate: when the leading cobertura indicator
+    // is answered "No", the UI hides the rest of the practice and submit no longer requires
+    // it — scoring must give the whole practice 0.
+    const indicators = [
+      { id: '1', name: 'Cob', category: 'cobertura' as IndicatorCategory, weight: 1 },
+      { id: '2', name: 'Frec', category: 'frecuencia' as IndicatorCategory, weight: 2 },
+      { id: '3', name: 'Prof', category: 'profundidad' as IndicatorCategory, weight: 1 },
+    ];
+    const responses = new Map<string, AssessmentResponse>();
+    responses.set('1', { id: '1', instance_id: 'i1', indicator_id: '1', coverage_value: false } as AssessmentResponse);
+    // Indicators '2' and '3' have no responses — hidden behind the closed gate in the UI.
+
+    const result = calculateModuleScore(indicators, responses, 'Gated Module', 1);
+    expect(result.moduleScore).toBe(0);
+    expect(result.indicators.every((i) => i.normalizedScore === 0)).toBe(true);
+  });
 });
 
 // ============================================================

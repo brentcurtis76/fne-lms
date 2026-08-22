@@ -6,7 +6,9 @@ import { calculateAndSaveScores } from '@/lib/services/assessment-builder/scorin
  * POST /api/docente/assessments/[instanceId]/submit
  *
  * Submits a completed assessment.
- * Validates that all required indicators have responses.
+ * Validates that all required indicators have responses. Indicators hidden behind a
+ * closed cobertura gate (first indicator of a practice answered "No") are not required,
+ * matching the UI (ModuleCard) and the scoring service (gate-closed practice scores 0).
  * Changes status to 'completed' and sets completed_at timestamp.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -146,12 +148,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const missingIndicators: string[] = [];
 
     modulesToValidate.forEach((module: any) => {
-      (module.indicators || []).forEach((indicator: any) => {
-        // R12: skip inactive indicators (if expectations data exists)
-        if (activeIndicatorIds !== null && !activeIndicatorIds.has(indicator.id)) {
-          return;
-        }
+      // Mirror the UI cobertura gate (ModuleCard + progress calculation): consider only
+      // the indicators visible this year (R12: active per year expectations; legacy: all),
+      // sorted by display_order. When the first visible indicator is a 'cobertura' and its
+      // answer is not "Sí", the UI hides the rest of the practice and excludes it from
+      // progress — so only the gate indicator itself is required to submit. Scoring already
+      // handles this case (gate-closed practice scores 0).
+      const visibleIndicators = [...(module.indicators || [])]
+        .filter((indicator: any) => activeIndicatorIds === null || activeIndicatorIds.has(indicator.id))
+        .sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
 
+      const hasCoberturaGate = visibleIndicators.length > 0 && visibleIndicators[0].category === 'cobertura';
+      const gateOpen = !hasCoberturaGate ||
+        responseMap.get(visibleIndicators[0].id)?.coverage_value === true;
+
+      const requiredIndicators = gateOpen ? visibleIndicators : visibleIndicators.slice(0, 1);
+
+      requiredIndicators.forEach((indicator: any) => {
         // Legacy mode: when no year expectations data is available, skip traspaso/detalle
         // (they are descriptive-only and were never required in the original validation).
         if (activeIndicatorIds === null && (indicator.category === 'traspaso' || indicator.category === 'detalle')) {

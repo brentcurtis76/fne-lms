@@ -1,47 +1,51 @@
-# CI Setup — Fase 0 (GENERA)
+# CI setup — GENERA
 
-Operating manual for the six-check CI, the RLS guard, and the two manual steps
-that only Brent can perform (branch protection + secrets). Updated 2026-07-08.
+The workflow in `.github/workflows/ci.yml` publishes seven status contexts.
+These names are exact and are the values branch protection must require.
 
-## The CI checks (`.github/workflows/ci.yml`)
-
-All jobs run with `timeout-minutes: 20` (GitHub's default is 360 — a hung
-Playwright run would otherwise burn 6 hours of Actions).
-
-| Check name (for branch protection) | What it runs |
-|---|---|
-| `RLS migration guard` | `scripts/ci/check-rls-migrations.sh` — PR fails if any migration contains `DISABLE ROW LEVEL SECURITY` |
+| Required check | Evidence |
+| --- | --- |
+| `Migration safety guard` | Blocks RLS disable plus destructive `DROP`, `TRUNCATE`, and destructive `ALTER` migrations. |
+| `Browser/server boundary guard` | AST/import-graph default deny for browser password writes and raw Supabase admin auth primitives. |
 | `Gate 1 — Typecheck` | `npm run type-check` |
-| `Gate 1b — Lint` | `npm run lint` (zero warnings — CLAUDE.md rule, now actually enforced) |
+| `Gate 1b — Lint` | `npm run lint` with zero warnings |
 | `Gate 2 — Unit (Vitest)` | `npm test` |
-| `Gate 3 — RLS pgTAP (supabase test db)` | `supabase db start` + `supabase test db` over `supabase/tests/*.sql` |
-| `Gate 4 — E2E smoke (Playwright)` | prod `npm run build` + `tests/e2e/smoke.spec.ts` (chromium) |
+| `Gate 3 — RLS pgTAP (supabase test db)` | Fresh local database, all pgTAP suites, real Zoom queue concurrency, and real recovery cooldown/lease concurrency. |
+| `Gate 4 — E2E (Playwright on seeded local Supabase)` | Production build and the mandatory Playwright manifest against an ephemeral seeded stack; the skip guard fails if a mandatory spec did not run. |
 
-E2E runs ONLY the smoke spec until the seeded synthetic tenant exists (Fase 1).
-Author-time enforcement of the RLS rule: `scripts/hooks/block-rls-disable.sh`
-(Claude Code PreToolUse hook registered in `.claude/settings.json`; self-tested
-against Write/Edit/Bash payloads).
+The workflow is the source of truth. When a job `name:` changes, update this
+document and the live branch rule together.
 
-## Manual step 1 — Branch protection (requires repo admin)
+## Branch protection — PENDING EXTERNAL
 
-GitHub → `brentcurtis76/fne-lms` → Settings → Branches → Add branch ruleset/rule for `main`:
+Live GitHub settings were not queried or changed during the remediation. A
+repository administrator must verify this after the branch workflow has run at
+least once:
 
-1. Require a pull request before merging
-2. Require status checks to pass before merging, **require branches up to date**, and select exactly these six checks (they appear after the first PR run):
-   `RLS migration guard` · `Gate 1 — Typecheck` · `Gate 1b — Lint` · `Gate 2 — Unit (Vitest)` · `Gate 3 — RLS pgTAP (supabase test db)` · `Gate 4 — E2E smoke (Playwright)`
-3. Block force pushes
+1. GitHub → repository settings → Branches/rulesets → rule for `main`.
+2. Require a pull request and require branches to be up to date.
+3. Require all seven exact contexts in the table above.
+4. Block force pushes and branch deletion.
 
-Or via CLI:
+Equivalent CLI request (run by a repository administrator, not by this branch):
 
 ```bash
 gh api -X PUT repos/brentcurtis76/fne-lms/branches/main/protection \
   -H "Accept: application/vnd.github+json" \
   --input - <<'JSON'
 {
-  "required_status_checks": { "strict": true, "contexts": [
-    "RLS migration guard", "Gate 1 — Typecheck", "Gate 1b — Lint",
-    "Gate 2 — Unit (Vitest)", "Gate 3 — RLS pgTAP (supabase test db)",
-    "Gate 4 — E2E smoke (Playwright)" ] },
+  "required_status_checks": {
+    "strict": true,
+    "contexts": [
+      "Migration safety guard",
+      "Browser/server boundary guard",
+      "Gate 1 — Typecheck",
+      "Gate 1b — Lint",
+      "Gate 2 — Unit (Vitest)",
+      "Gate 3 — RLS pgTAP (supabase test db)",
+      "Gate 4 — E2E (Playwright on seeded local Supabase)"
+    ]
+  },
   "enforce_admins": false,
   "required_pull_request_reviews": null,
   "restrictions": null,
@@ -51,75 +55,55 @@ gh api -X PUT repos/brentcurtis76/fne-lms/branches/main/protection \
 JSON
 ```
 
-## Manual step 2 — Secrets (optional for smoke, required later)
+Do not mark this step complete from a workflow-file review. It is complete only
+after a read-only GitHub settings check shows those seven live contexts.
 
-Settings → Secrets and variables → Actions: `NEXT_PUBLIC_SUPABASE_URL`,
-`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
-Without them, Gate 4 builds with placeholders — fine for the smoke spec, not
-for authenticated e2e (Fase 1+). Never put production service-role keys in CI;
-use the dedicated test project when Fase 1 adds authenticated fixtures.
+## Gate details
 
-## Known caveat — pgTAP shadow DB baseline
+Gate 3 starts local Postgres, applies all migrations, and runs
+`supabase test db`. It then opens separate SQL sessions for two concurrency
+proofs:
 
-`supabase db start` rebuilds the schema from `supabase/migrations/`, but this
-repo's migrations start at 2026-02 and the schema predates them, so they will
-NOT apply onto an empty database. If Gate 3 fails this way, fix it in **one PR**
-with the following procedure — both halves are mandatory:
+- `npm run test:queue`: overlapping Zoom tick workers partition jobs via
+  `FOR UPDATE SKIP LOCKED`.
+- `npm run test:recovery-concurrency`: simultaneous recovery requests from
+  different IPs create one durable candidate job, two outbox workers claim once,
+  and two password workers obtain one grant lease. The proof also enqueues a
+  known and an unknown candidate concurrently (both must return `queued` — the
+  public transaction resolves no account existence), proves a held candidate
+  lock delays only its own candidate, and drives the worker's canonical
+  case-insensitive account resolution. Every assertion is scoped to the proof's
+  own synthetic fingerprints, so it passes repeatedly without a reset and on a
+  database holding unrelated queued recovery work — it seeds such a bystander
+  job itself and proves it comes through untouched.
 
-1. **Generate the baseline from the linked project** (staging or the linked
-   ref — NEVER a direct production connection string in your shell or CI):
+Gate 4 creates `.env.local` from the ephemeral Supabase stack, sets only
+synthetic cron configuration, builds after the `NEXT_PUBLIC_*` values exist,
+seeds synthetic fixtures, runs every path printed by
+`node scripts/ci/e2e-mandatory.mjs --list`, and checks
+`test-results/e2e-results.json` for skipped mandatory specs.
 
-   ```bash
-   supabase db dump --linked -f supabase/migrations/00000000000000_baseline.sql
-   ```
+No production Supabase or Vercel credentials belong in CI. The runner stack and
+all account data are ephemeral and synthetic.
 
-   (Do not use `--local`: the local stack failing to start is exactly the
-   problem being fixed, so there is nothing local to dump from.)
+## Local parity
 
-2. **Archive the 38 pre-baseline migrations in the same PR.** Their effects are
-   already contained inside the baseline dump; leaving them in place makes the
-   shadow DB replay them on top of the baseline and fail with duplicate-object
-   errors:
-
-   ```bash
-   mkdir -p supabase/migrations-archive
-   git mv supabase/migrations/2026*.sql supabase/migrations-archive/
-   ```
-
-   The archive stays in git for history/audit; the CLI only replays what lives
-   in `supabase/migrations/`.
-
-3. From Fase 1 onward, new migrations are written on top of the baseline as
-   normal timestamped files.
-
-Track this in PROJECT_STATE.md → Open decisions until resolved.
-
-## DoD Fase 0 — the world-readable table demo
-
-The committed suite (`supabase/tests/001-rls-enabled.sql`) creates a table
-without RLS inside a rolled-back transaction and asserts it is *detected*
-(plus asserts the whole `public` schema is clean, empty allowlist). To see the
-raw failure live against a local stack:
+Before reporting this remediation complete, run:
 
 ```bash
-supabase db start
-psql "$(supabase status -o env | grep DB_URL | cut -d= -f2-)" <<'SQL'
-\i supabase/tests/000-setup.sql
-create table public.demo_leak(id int);
-select tests.rls_enabled('public');
-SQL
-# Expected:
-#   not ok 3 - Todas las tablas del schema public deben tener RLS habilitado
-# Drop the demo table afterwards (local stack only).
+npm run type-check
+npm run lint
+npm test
+npm run build
+npm run guard:migrations
+npm run guard:browser
+npm run test:db
+npm run test:recovery-concurrency
+npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list)
+node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json
+git diff --check
 ```
 
-Any `not ok` from `rls_enabled` in Gate 3 must be treated as a release blocker.
-
-## First-PR checklist (Brent)
-
-1. `git push origin feat/fase0-ci` (from the Mac; the sandbox has no GitHub credentials)
-2. Open PR → watch the six checks execute (this is the DoD "CI runs the gates on PR")
-3. If Gate 3 fails on legacy migrations → apply the baseline procedure above
-4. If Gate 1b or Gate 2 are red (lint warnings / the 13 April test failures) → fix or `.skip()` with TODO in the same PR
-5. Enable branch protection (Manual step 1) now that check names exist
-6. Merge. From here on, every PR needs the six green checks.
+The database/concurrency commands require the local Supabase Docker stack. The
+Playwright command uses the repository's configured local web server and must
+never be pointed at production.

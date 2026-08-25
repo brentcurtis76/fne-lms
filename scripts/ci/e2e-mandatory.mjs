@@ -44,6 +44,23 @@ export const MANDATORY_SPECS = [
   // A8 — the admin triage surface over pasantias_leads: that an admin reaches it
   // and sees a lead, and that both halves of the /admin/* gate still deny.
   'tests/e2e/pasantias-leads-admin.spec.ts',
+  // Auth remediation (S1–S14) — the authentication lifecycle end to end:
+  // registration -> admin approval -> invitation -> recovery link accepted ->
+  // password set -> login, plus the removed diagnostic routes and the
+  // forced-password-change gate through the real middleware.
+  //
+  // Mandatory for the reason the others are, and for one more: every stage of
+  // this chain was broken in a way invisible from the stages on either side of
+  // it. The unit suites cover each stage in isolation; only a run through the
+  // real server, the real database and the real login form proves they CONNECT.
+  // A skipped spec here would restore exactly the blind spot the remediation
+  // exists to close.
+  //
+  // Sends no mail: RESEND_API_KEY is absent from the e2e environment, so the
+  // mailer takes its `not_configured` branch — which the spec asserts rather
+  // than tolerates — and the invitation link is minted through the service-role
+  // admin API on the ephemeral local stack.
+  'tests/e2e/auth-lifecycle.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

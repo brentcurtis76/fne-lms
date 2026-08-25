@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import { X, Key, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { generatePassword } from '../utils/passwordGenerator';
+import {
+  PASSWORD_POLICY,
+  PASSWORD_RULES,
+  firstPasswordPolicyError,
+} from '../lib/auth/password-policy';
 
 interface PasswordResetModalProps {
   isOpen: boolean;
@@ -26,15 +32,15 @@ export default function PasswordResetModal({
 
   if (!isOpen || !user) return null;
 
+  // S6: was `Math.random()` over a 68-character set. The generator is now the
+  // shared CSPRNG one, and its output satisfies the shared policy by
+  // construction — the same policy `handleSubmit` checks below and the server
+  // re-checks in /api/admin/reset-password.
   const generateRandomPassword = () => {
-    const length = 12;
-    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%";
-    let password = "";
-    for (let i = 0; i < length; i++) {
-      password += charset.charAt(Math.floor(Math.random() * charset.length));
-    }
+    const password = generatePassword();
     setTemporaryPassword(password);
     setConfirmPassword(password);
+    setShowPassword(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,8 +56,12 @@ export default function PasswordResetModal({
       return;
     }
 
-    if (temporaryPassword.length < 6) {
-      toast.error('La contraseña debe tener al menos 6 caracteres');
+    // S5: this form used to accept six characters with no character-class
+    // requirement, so an administrator could set a temporary password the
+    // platform would then refuse as the user's own replacement.
+    const policyError = firstPasswordPolicyError(temporaryPassword);
+    if (policyError) {
+      toast.error(policyError);
       return;
     }
 
@@ -129,7 +139,7 @@ export default function PasswordResetModal({
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#0a0a0a] focus:ring-[#0a0a0a] sm:text-sm"
                   placeholder="Ingresa una contraseña temporal"
                   required
-                  minLength={6}
+                  minLength={PASSWORD_POLICY.minLength}
                 />
                 <button
                   type="button"
@@ -142,10 +152,26 @@ export default function PasswordResetModal({
               <button
                 type="button"
                 onClick={generateRandomPassword}
+                data-testid="reset-generate-password"
                 className="mt-2 text-sm text-[#0a0a0a] hover:text-[#002844] font-medium"
               >
-                Generar contraseña aleatoria
+                Generar contraseña segura
               </button>
+
+              <ul className="mt-3 space-y-1 text-xs text-gray-600">
+                {PASSWORD_RULES.map((rule) => {
+                  const met = rule.test(temporaryPassword);
+                  return (
+                    <li
+                      key={rule.id}
+                      className={`flex items-center gap-1 ${met ? 'text-green-600' : ''}`}
+                    >
+                      <span>{met ? '\u2713' : '\u2022'}</span>
+                      {rule.label}
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
 
             <div>
@@ -160,7 +186,7 @@ export default function PasswordResetModal({
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#0a0a0a] focus:ring-[#0a0a0a] sm:text-sm"
                 placeholder="Confirma la contraseña"
                 required
-                minLength={6}
+                minLength={PASSWORD_POLICY.minLength}
               />
             </div>
           </div>

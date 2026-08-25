@@ -182,8 +182,14 @@ SELECT tests.rls_enabled('public', 'session_hour_overrides');
 
 SELECT is(
   (SELECT count(*)::int FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'session_hour_overrides' AND cmd <> 'SELECT'),
-  0, 'A: no non-SELECT policy exists — no authenticated session writes override rows');
+    WHERE schemaname = 'public' AND tablename = 'session_hour_overrides' AND cmd <> 'SELECT'
+      AND NOT (
+        policyname = 'forced_password_change_guard'
+        AND permissive = 'RESTRICTIVE'
+        AND cmd = 'ALL'
+        AND roles = ARRAY['authenticated']::name[]
+      )),
+  0, 'A: no write-authorizing policy exists — the restrictive auth guard grants no authenticated session write');
 
 SELECT has_column('public', 'contract_hours_ledger', 'effective_minutes',
   'A: contract_hours_ledger.effective_minutes exists — the additive §11 column');

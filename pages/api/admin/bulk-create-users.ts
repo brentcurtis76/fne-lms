@@ -1,10 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { provisionAuthAccount } from '../../../lib/auth/account-provisioning';
 import { createClient } from '@supabase/supabase-js';
 import { parseBulkUserData, type BulkUserData } from '../../../utils/bulkUserParser';
 import { BulkImportOrganizationalScope } from '../../../types/bulk';
-import { validatePassword } from '../../../utils/passwordGenerator';
-import { passwordStore, generateSessionId } from '../../../lib/temporaryPasswordStore';
 import { UserRoleType, validateRoleAssignment, ROLE_ORGANIZATIONAL_REQUIREMENTS } from '../../../types/roles';
+import { validatePasswordPolicy } from '../../../lib/auth/password-policy';
+import { generateCompliantPasswords } from '../../../lib/auth/password-generator';
+import { recordSecurityAudit } from '../../../lib/security/audit';
 
 // Create a function to get the Supabase admin client
 function getSupabaseAdmin() {
@@ -33,6 +35,31 @@ interface UserCreationResult {
 }
 
 /**
+ * One-time credential for a user this request created.
+ *
+ * S10: these are returned in THIS response and nowhere else. The previous design
+ * stashed them in a module-level `Map` in `lib/temporaryPasswordStore.ts` and
+ * handed the caller a `sessionId` to fetch them with a second request. On a
+ * serverless platform that is broken three ways:
+ *
+ *   - the second request routinely lands on a DIFFERENT instance, where the Map
+ *     is empty, so the administrator gets an empty list and the credentials are
+ *     simply lost;
+ *   - the instance that does hold them keeps plaintext passwords in memory for
+ *     15 minutes, in a process that also serves every other request;
+ *   - and the retrieval endpoint keyed only on the session id, so ANY admin who
+ *     learned a batch id could fetch another admin's credentials.
+ *
+ * Returning them once, in the authenticated response that created them, needs
+ * no storage, no expiry, and no ownership check beyond the one already
+ * performed to reach this handler.
+ */
+interface IssuedCredential {
+  email: string;
+  password: string;
+}
+
+/**
  * API response structure
  */
 interface BulkCreateResponse {
@@ -43,8 +70,10 @@ interface BulkCreateResponse {
     succeeded: number;
     failed: number;
   };
-  // Session ID for secure password retrieval
-  sessionId?: string;
+  /** One-time, never persisted. See IssuedCredential. */
+  credentials?: IssuedCredential[];
+  /** False when the audit trail could not be written (S3 fail-open). */
+  audited?: boolean;
 }
 
 // Configuration constants
@@ -169,9 +198,6 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<BulkCreateResponse | { error: string }>
 ) {
-  // SIMPLE TEST LOG to verify this code is running
-  console.log('🚀 [BULK-IMPORT] API Handler started - NEW CODE VERSION', new Date().toISOString());
-  
   // Only allow POST requests
   if (req.method !== 'POST') {
     console.log('❌ [BULK-IMPORT] Method not allowed:', req.method);
@@ -233,45 +259,12 @@ export default async function handler(
     const token = authHeader.replace('Bearer ', '');
     
     // DETAILED AUTH DEBUGGING: Log incoming token details
-    console.log('[BULK-IMPORT] AUTH DEBUG: Token extraction:', {
-      authHeaderLength: authHeader.length,
-      tokenLength: token.length,
-      tokenPrefix: token.substring(0, 20) + '...',
-      timestamp: new Date().toISOString()
-    });
-    
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    
-    // DETAILED AUTH DEBUGGING: Log user resolution
-    console.log('[BULK-IMPORT] AUTH DEBUG: User resolution:', {
-      authError: authError ? authError.message : null,
-      userFound: !!user,
-      userId: user?.id,
-      userEmail: user?.email,
-      userCreatedAt: user?.created_at,
-      userAud: user?.aud,
-      userRole: user?.role
-    });
     
     if (authError || !user) {
       console.error('[BULK-IMPORT] AUTH FAILURE:', { authError: authError?.message, hasUser: !!user });
       return res.status(401).json({ error: 'Invalid authorization token' });
     }
-
-    // DETAILED AUTH DEBUGGING: Log role query parameters
-    console.log('[BULK-IMPORT] ROLE QUERY DEBUG: Query parameters:', {
-      queryUserId: user.id,
-      userIdType: typeof user.id,
-      userIdLength: user.id?.length,
-      expectedUserId: '4ae17b21-8977-425c-b05a-ca7cdb8b9df5', // Your known admin ID
-      userIdMatch: user.id === '4ae17b21-8977-425c-b05a-ca7cdb8b9df5',
-      supabaseClientConfigured: !!supabaseAdmin,
-      queryFilters: {
-        user_id: user.id,
-        role_type: 'admin',
-        is_active: true
-      }
-    });
 
     // Check if the user is an admin using the proper role system
     const { data: userRoles, error: roleError } = await supabaseAdmin
@@ -282,45 +275,11 @@ export default async function handler(
       .eq('is_active', true)
       .limit(1);
 
-    // DETAILED AUTH DEBUGGING: Log role query results
-    console.log('[BULK-IMPORT] ROLE QUERY DEBUG: Query results:', {
-      roleError: roleError ? {
-        message: roleError.message,
-        code: roleError.code,
-        details: roleError.details,
-        hint: roleError.hint
-      } : null,
-      userRolesFound: !!userRoles,
-      userRolesLength: userRoles?.length || 0,
-      userRolesData: userRoles,
-      querySuccess: !roleError && userRoles && userRoles.length > 0
-    });
-
-    // Also query ALL roles for this user for comparison
-    const { data: allUserRoles, error: allRolesError } = await supabaseAdmin
-      .from('user_roles')
-      .select('*')
-      .eq('user_id', user.id);
-
-    console.log('[BULK-IMPORT] ROLE QUERY DEBUG: All user roles:', {
-      allRolesError: allRolesError?.message,
-      totalRoles: allUserRoles?.length || 0,
-      allRoles: allUserRoles?.map(role => ({
-        role_type: role.role_type,
-        is_active: role.is_active,
-        school_id: role.school_id,
-        community_id: role.community_id,
-        assigned_at: role.assigned_at
-      }))
-    });
-
     if (roleError || !userRoles || userRoles.length === 0) {
       console.error('[BULK-IMPORT] AUTHORIZATION DENIED:', {
         reason: roleError ? 'QUERY_ERROR' : 'NO_ADMIN_ROLES',
         userId: user.id,
-        userEmail: user.email,
         roleError: roleError?.message,
-        userRolesLength: userRoles?.length || 0,
         timestamp: new Date().toISOString()
       });
       return res.status(403).json({ error: 'Unauthorized. Only admins can bulk create users.' });
@@ -328,13 +287,24 @@ export default async function handler(
 
     console.log('[BULK-IMPORT] AUTHORIZATION SUCCESS:', {
       userId: user.id,
-      userEmail: user.email,
       adminRolesFound: userRoles.length,
-      proceeding: 'to bulk import'
     });
 
     // Get request body (csvData already validated above)
     const { options } = req.body;
+
+    // --- S11: the shared-global-password workflow is gone -------------------
+    // The UI offered "Usar misma contraseña para todos", checked by DEFAULT,
+    // which handed one operator-chosen password to every account in the import.
+    // Rejected at the API boundary rather than merely removed from the form, so
+    // an older client, a saved request, or a direct call cannot reinstate it.
+    if (options && typeof options === 'object' && 'globalPassword' in options) {
+      return res.status(400).json({
+        error:
+          'Ya no se admite una contraseña compartida para toda la importación. ' +
+          'Cada usuario recibe una contraseña única generada de forma segura.',
+      });
+    }
 
     // Parse the CSV data
     const parseResult = parseBulkUserData(csvData, options);
@@ -365,38 +335,82 @@ export default async function handler(
       });
     }
 
-    // Generate session ID for password storage
-    const sessionId = generateSessionId();
-    
+    // --- BATCH PRE-FLIGHT (S13) ----------------------------------------------
+    // Every password for the whole batch is resolved and validated BEFORE a
+    // single account is created. The previous design decided per row inside the
+    // creation loop, so a bad configuration produced a half-created batch: some
+    // accounts live, some not, and an operator with no way to tell which. It
+    // also meant the `Math.random()` base-36 defect surfaced as N identical
+    // per-row failures rather than one legible answer.
+    //
+    // A row with a CSV-supplied password has already been policy-checked by the
+    // parser (a bad one lands in `invalid`). A row without one gets a CSPRNG
+    // value here — distinct per user within the batch, by construction.
+    const rowsNeedingGeneration = parseResult.valid.filter((u) => !u.password);
+    const generated = generateCompliantPasswords(rowsNeedingGeneration.length);
+
+    const resolvedPasswords = new Map<string, string>();
+    let generationCursor = 0;
+    const preflightFailures: UserCreationResult[] = [];
+
+    for (const userData of parseResult.valid) {
+      const password = userData.password || generated[generationCursor++];
+      const policy = validatePasswordPolicy(password);
+      if (!policy.valid) {
+        preflightFailures.push({
+          email: userData.email,
+          success: false,
+          error: policy.errors[0],
+          warnings: userData.warnings,
+        });
+        continue;
+      }
+      resolvedPasswords.set(userData.email, password);
+    }
+
+    if (preflightFailures.length > 0) {
+      // Fail the batch up front. Nothing has been created.
+      return res.status(400).json({
+        error:
+          'La importación no se realizó: una o más contraseñas no cumplen la política de seguridad. ' +
+          'Corrige el archivo y vuelve a intentarlo. No se creó ningún usuario.',
+        success: false,
+        results: preflightFailures,
+        summary: {
+          total: parseResult.summary.total,
+          succeeded: 0,
+          failed: parseResult.summary.total,
+        },
+      });
+    }
+
     // Process each valid user
     const results: UserCreationResult[] = [];
+    const credentials: IssuedCredential[] = [];
     let succeeded = 0;
     let failed = 0;
-
-    // Get global password from options if provided
-    const globalPassword = options?.globalPassword;
 
     // Process users SEQUENTIALLY to avoid Supabase Auth rate limits
     console.log('[BULK-IMPORT] Processing users sequentially to avoid rate limits...');
 
     for (let i = 0; i < parseResult.valid.length; i++) {
       const userData = parseResult.valid[i];
-      console.log(`[BULK-IMPORT] Creating user ${i + 1}/${parseResult.valid.length}: ${userData.email}`);
+      const password = resolvedPasswords.get(userData.email)!;
 
-      const result = await createUser(userData, supabaseAdmin, sessionId, user.id, globalPassword);
+      const result = await createUser(userData, supabaseAdmin, user.id, password);
       results.push(result);
-      
+
       if (result.success) {
         succeeded++;
-        console.log(`[BULK-IMPORT] ✅ User ${i + 1} created successfully: ${userData.email}`);
+        // S10: held in this request's memory only, returned once below.
+        credentials.push({ email: userData.email, password });
       } else {
         failed++;
-        console.log(`[BULK-IMPORT] ❌ User ${i + 1} failed: ${userData.email} - ${result.error}`);
+        console.log(`[BULK-IMPORT] user ${i + 1} failed: ${result.error}`);
       }
-      
+
       // Add small delay between users to prevent rate limiting
       if (i < parseResult.valid.length - 1) {
-        console.log('[BULK-IMPORT] Waiting 1 second before next user...');
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
@@ -424,7 +438,26 @@ export default async function handler(
       }
     }
 
-    // Return results with session ID for secure password retrieval
+    // S3: one audit row for the delivery of the batch's credentials. The
+    // per-user `user_created_bulk` rows are written inside createUser. Both are
+    // fail-open and visible — the accounts already exist, so refusing the
+    // response would strand them AND withhold the only copy of their passwords.
+    const audit = await recordSecurityAudit(supabaseAdmin, {
+      action: 'bulk_credentials_delivered',
+      outcome: failed === 0 ? 'success' : 'partial_failure',
+      actorUserId: user.id,
+      actorRole: 'admin',
+      metadata: {
+        delivered_count: credentials.length,
+        succeeded,
+        failed,
+        delivery: 'inline_response',
+      },
+    });
+
+    // S10: the credentials are in THIS response and nowhere else — no store, no
+    // session id, no second request, nothing left in process memory once this
+    // handler returns.
     return res.status(200).json({
       success: failed === 0,
       results,
@@ -433,8 +466,8 @@ export default async function handler(
         succeeded,
         failed
       },
-      // Only include sessionId if there were successful imports
-      sessionId: succeeded > 0 ? sessionId : undefined
+      credentials: credentials.length > 0 ? credentials : undefined,
+      audited: audit.recorded,
     });
 
   } catch (error: any) {
@@ -480,9 +513,9 @@ export default async function handler(
 async function createUser(
   userData: BulkUserData,
   supabaseAdmin: any,
-  sessionId: string,
   adminUserId: string,
-  globalPassword?: string
+  /** Resolved and policy-checked by the batch pre-flight. Never a fallback. */
+  finalPassword: string
 ): Promise<UserCreationResult> {
   try {
     const roleType = (userData.role || 'docente') as UserRoleType;
@@ -543,29 +576,27 @@ async function createUser(
       console.log(`[BULK-IMPORT] Auto-community created: ${finalCommunityId}`);
     }
 
-    // --- Step 3: Determine password ---
-    // Priority: globalPassword > userData.password > generated default
-    let finalPassword = globalPassword || userData.password;
-    if (!finalPassword || finalPassword.length < 8) {
-      finalPassword = 'FnePassword123!'; // Default password meeting all requirements
-    }
-
-    const passwordValidation = validatePassword(finalPassword);
-    if (!passwordValidation.valid) {
-      return {
-        email: userData.email,
-        success: false,
-        error: 'La contraseña no cumple con los requisitos',
-        warnings: userData.warnings
-      };
-    }
+    // S11: there is no password fallback here any more.
+    //
+    // This step used to read `globalPassword || userData.password`, and when
+    // that was missing or shorter than eight characters it substituted the
+    // literal `FnePassword123!` — the same password for every affected account,
+    // committed in the repository, and therefore known to anyone who had ever
+    // read this file. Because the parser's generated passwords could never pass
+    // validation (S13), that fallback was not an edge case: it was the DEFAULT
+    // outcome for any row without an explicit password.
+    //
+    // The password now arrives already resolved and already policy-checked by
+    // the batch pre-flight, which either takes the CSV's value or mints a
+    // distinct CSPRNG one. A missing or non-compliant password fails the batch
+    // before anything is created; it is never silently replaced.
 
     // --- Step 4: Create auth user ---
     const createUserParams = {
       email: userData.email,
       password: finalPassword,
-      email_confirm: true,
-      user_metadata: {
+      emailConfirm: true,
+      userMetadata: {
         first_name: userData.firstName || null,
         last_name: userData.lastName || null,
         role: roleType
@@ -574,7 +605,7 @@ async function createUser(
 
     console.log(`[BULK-IMPORT] Creating auth user for ${userData.email}`);
 
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser(createUserParams);
+    const { data: newUser, error: createError } = await provisionAuthAccount(supabaseAdmin, createUserParams);
 
     if (createError) {
       console.log(`[BULK-IMPORT] Auth creation error for ${userData.email}:`, {
@@ -704,29 +735,28 @@ async function createUser(
       }
     }
 
-    // --- Step 8: Log to audit_logs ---
-    await supabaseAdmin
-      .from('audit_logs')
-      .insert({
-        user_id: userId,
-        action: 'bulk_user_created',
-        details: {
-          created_by: adminUserId,
-          email: userData.email,
-          role: roleType,
-          school_id: schoolId,
-          generation_id: generationId,
-          community_id: finalCommunityId,
-          bulk_import_session: sessionId
-        }
-      });
+    // --- Step 8: audit (S3) ---
+    // Was an insert into `audit_logs`, a table that does not exist, carrying
+    // the created user's e-mail address. The address is dropped — the audit
+    // table refuses it at the storage layer, and `target_user_id` identifies
+    // the account.
+    await recordSecurityAudit(supabaseAdmin, {
+      action: 'user_created_bulk',
+      outcome: 'success',
+      actorUserId: adminUserId,
+      actorRole: 'admin',
+      targetUserId: userId,
+      schoolId: typeof schoolId === 'number' ? schoolId : null,
+      metadata: {
+        role_type: roleType,
+        generation_id: generationId ?? null,
+        community_id: finalCommunityId ?? null,
+        must_change_password: true,
+      },
+    });
 
-    // --- Step 9: Store password securely ---
-    if (finalPassword) {
-      passwordStore.store(sessionId, userData.email, finalPassword);
-    }
-
-    console.log(`[BULK-IMPORT] Successfully created user ${userData.email} with role ${roleType}`);
+    // S10: no store. The password lives in the caller's array for the duration
+    // of this request and is returned once, in the response that created it.
 
     return {
       email: userData.email,

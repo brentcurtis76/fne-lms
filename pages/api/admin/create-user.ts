@@ -6,6 +6,9 @@ import {
   SCHOOL_SCOPED_ROLES_SET,
 } from '../../../utils/roleUtils';
 import type { UserRoleType } from '../../../types/roles';
+import { firstPasswordPolicyError } from '../../../lib/auth/password-policy';
+import { recordSecurityAudit } from '../../../lib/security/audit';
+import { provisionAuthAccount } from '../../../lib/auth/account-provisioning';
 
 // Mirrors assign-role.ts's canonical role list. Any role outside this set is
 // rejected at the API boundary regardless of requester, so junk role strings
@@ -49,7 +52,14 @@ export default async function handler(
     const { email, password, firstName, lastName, role: bodyRole, schoolId: bodySchoolId } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+      return res.status(400).json({ error: 'Email y contraseña son obligatorios' });
+    }
+
+    // S5: the shared policy, enforced server-side. This endpoint had NO password
+    // rule of any kind — an administrator could create an account with `a`.
+    const passwordError = firstPasswordPolicyError(password);
+    if (passwordError) {
+      return res.status(400).json({ error: passwordError });
     }
 
     const resolvedRole: string = bodyRole || 'docente';
@@ -104,11 +114,11 @@ export default async function handler(
 
     const supabaseAdmin = createServiceRoleClient();
 
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+    const { data: newUser, error: createError } = await provisionAuthAccount(supabaseAdmin, {
       email,
       password,
-      email_confirm: true,
-      user_metadata: {
+      emailConfirm: true,
+      userMetadata: {
         role: resolvedRole
       }
     });
@@ -121,10 +131,19 @@ export default async function handler(
       const sid = effectiveSchoolId == null ? null : Number(effectiveSchoolId);
 
       try {
+        // S14: `must_change_password: true`, which is what the UI has always
+        // told the administrator would happen — the quick-create form says the
+        // user will be asked to change this password on first sign-in, and the
+        // handler wrote `false`, so they never were. The administrator-chosen
+        // password became the account's permanent password, known to two people.
+        //
+        // With S4 the flag is now enforced centrally rather than merely
+        // suggested, so a created user genuinely cannot reach an ordinary page
+        // or a sensitive API until they have replaced it.
         const updateData: any = {
           email: email,
           approval_status: 'approved',
-          must_change_password: false
+          must_change_password: true
         };
 
         if (firstName) updateData.first_name = firstName;
@@ -185,14 +204,29 @@ export default async function handler(
           });
         }
 
+        // S3: durable audit. This endpoint had no audit row at all — user
+        // creation is one of the operations the remediation is required to
+        // record. Fail-open and visible: the account already exists.
+        const audit = await recordSecurityAudit(supabaseAdmin, {
+          action: 'user_created_manual',
+          outcome: 'success',
+          actorUserId: requestingUser?.id ?? null,
+          actorRole: requesterRole ?? null,
+          targetUserId: newUser.user.id,
+          schoolId: sid !== null && Number.isFinite(sid) ? sid : null,
+          metadata: { role_type: resolvedRole, must_change_password: true },
+        });
+
         return res.status(200).json({
           success: true,
+          audited: audit.recorded,
           user: {
             id: newUser.user.id,
             email: newUser.user.email,
             firstName,
             lastName,
-            role: resolvedRole
+            role: resolvedRole,
+            mustChangePassword: true
           }
         });
 

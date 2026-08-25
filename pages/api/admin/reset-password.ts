@@ -3,37 +3,58 @@ import {
   checkIsAdminOrEquipoDirectivo,
   createServiceRoleClient,
   sendAuthError,
+  sendMeetingError,
   sendApiResponse,
   validateRequestBody,
   logApiRequest
 } from '../../../lib/api-auth';
-import { ApiError, ApiSuccess } from '../../../lib/types/api-auth.types';
+import { ApiError, ApiSuccess, Validators } from '../../../lib/types/api-auth.types';
 import { rateLimit, RATE_LIMITS } from '../../../lib/rateLimit';
 import {
-  ED_FORBIDDEN_TARGET_ROLES_SET,
-  SCHOOL_SCOPED_ROLES_SET,
-} from '../../../utils/roleUtils';
+  completeAdministrativeReset,
+} from '../../../lib/auth/password-completion';
+import {
+  isAdminResetFailure,
+  ADMIN_RESET_MESSAGES,
+} from '../../../lib/auth/admin-password-reset';
 
 // Rate limiter for password reset (auth-level: 10 req/min)
 const rateLimitCheck = rateLimit(RATE_LIMITS.auth, 'admin-reset-password');
 
+/**
+ * Administrative password reset — the HTTP surface only.
+ *
+ * S2 fixed three defects here (a flag written to a column that does not exist, no
+ * server-side password policy, and success reported on partial failure). The
+ * review that followed asked for something else: that the DECISION not live in a
+ * route at all. So everything that matters — the equipo_directivo scope rules,
+ * the flag-before-password ordering, the compensation, the audit row whose action
+ * is derived rather than supplied — now lives in
+ * `lib/auth/admin-password-reset.ts`, the fourth ceremony of the trusted
+ * password-mutation boundary.
+ *
+ * What is left here is what an HTTP handler should be: method, rate limit,
+ * authentication, body shape, and the mapping from a ceremony result onto a
+ * status code. The temporary password is read out of the body and handed
+ * straight to the ceremony; it is never logged and never echoed back.
+ */
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ApiSuccess<any> | ApiError>
 ) {
-  // Log the request
   logApiRequest(req, 'reset-password');
 
   if (req.method !== 'POST') {
-    return sendAuthError(res, 'Method not allowed', 405);
+    return sendAuthError(res, 'Método no permitido', 405);
   }
 
-  // Apply rate limiting
   const allowed = await rateLimitCheck(req, res);
   if (!allowed) return;
 
   try {
-    // Verify admin or equipo_directivo access using the centralized auth utility
+    // The actor. `checkIsAdminOrEquipoDirectivo` validates the token with the
+    // auth server and reads the caller's active roles from the database; the
+    // ceremony re-checks the SHAPE of what comes out of it.
     const {
       isAuthorized,
       role: requesterRole,
@@ -42,16 +63,9 @@ export default async function handler(
       error,
     } = await checkIsAdminOrEquipoDirectivo(req, res);
 
-    console.log('[Reset Password API] Auth check result:', {
-      isAuthorized,
-      role: requesterRole,
-      userId: user?.id,
-      error: error?.message,
-    });
-
     if (error || !user) {
       console.error('[Reset Password API] Authentication failed:', error);
-      return sendAuthError(res, 'Authentication required', 401);
+      return sendAuthError(res, 'Autenticación requerida', 401);
     }
 
     if (!isAuthorized) {
@@ -67,15 +81,16 @@ export default async function handler(
     }
 
     if (requesterRole === 'equipo_directivo' && typeof edSchoolId !== 'number') {
-      return sendAuthError(res, 'School context missing for equipo_directivo', 403);
+      return sendAuthError(res, ADMIN_RESET_MESSAGES.schoolContextMissing, 403);
     }
 
-    // Create service role client for admin operations
+    // Built here, before the body is inspected, so that "was a service-role
+    // client ever constructed?" stays a meaningful assertion about
+    // AUTHORIZATION rather than about body validation.
     const supabaseAdmin = createServiceRoleClient();
 
-    const { userId, temporaryPassword } = req.body;
+    const { userId, temporaryPassword } = req.body ?? {};
 
-    // Validate required fields
     const validation = validateRequestBody<{ userId: string; temporaryPassword: string }>(
       req.body,
       ['userId', 'temporaryPassword']
@@ -84,144 +99,40 @@ export default async function handler(
     if (!validation.valid) {
       return sendAuthError(
         res,
-        `Missing required fields: ${validation.missing.join(', ')}`,
+        `Faltan campos obligatorios: ${validation.missing.join(', ')}`,
         400
       );
     }
 
-    if (userId === user.id) {
-      return sendAuthError(
-        res,
-        'No puedes restablecer tu propia contraseña — usa el flujo normal de recuperación',
-        400,
-      );
+    if (!Validators.isUUID(userId)) {
+      return sendAuthError(res, 'userId inválido', 400);
     }
 
-    // For equipo_directivo, verify the target user belongs to the same school
-    // before performing any password reset work.
-    if (requesterRole === 'equipo_directivo') {
-      const { data: targetProfile, error: profileLookupError } = await supabaseAdmin
-        .from('profiles')
-        .select('school_id')
-        .eq('id', userId)
-        .maybeSingle();
+    const result = await completeAdministrativeReset(supabaseAdmin, {
+      actor: { userId: user.id, role: requesterRole ?? null, schoolId: edSchoolId ?? null },
+      targetUserId: userId,
+      temporaryPassword,
+    });
 
-      if (profileLookupError) {
-        return sendAuthError(res, 'Error verificando usuario', 500);
-      }
-      if (!targetProfile) {
-        return sendAuthError(res, 'Usuario no encontrado', 404);
-      }
-      if (targetProfile.school_id !== edSchoolId) {
-        return sendAuthError(
-          res,
-          'No autorizado para restablecer la contraseña de este usuario',
-          403,
-        );
-      }
-
-      // Note: this is a TOCTOU read. Concurrent role grants between this
-      // check and the password write below could let a global-role escalation
-      // slip through. Both admin and equipo_directivo can reach this code
-      // path, widening the exposure beyond admin-only tooling. Tracked in
-      // PR #19 follow-ups as "TOCTOU residual risk hardening (Postgres
-      // function or partial unique index)".
-      // Defense-in-depth: reject if the target holds any active role either
-      // (a) in ED_FORBIDDEN_TARGET_ROLES (admin/consultor/community_manager/
-      // supervisor_de_red) or (b) school-scoped but tied to a different
-      // school. Two conceptually distinct gates: forbidden-role membership
-      // vs. cross-school scope. Profile and user_roles can diverge (stale
-      // or cross-school role rows), so this gate is enforced independently.
-      const { data: targetRoles, error: rolesLookupError } = await supabaseAdmin
-        .from('user_roles')
-        .select('role_type, school_id')
-        .eq('user_id', userId)
-        .eq('is_active', true);
-
-      if (rolesLookupError) {
-        return sendAuthError(res, 'Error verificando roles del usuario', 500);
-      }
-      const hasForbiddenRole = (targetRoles ?? []).some(
-        (r: { role_type: string }) => ED_FORBIDDEN_TARGET_ROLES_SET.has(r.role_type),
-      );
-      const hasCrossSchoolRole = (targetRoles ?? []).some(
-        (r: { role_type: string; school_id: number | null }) =>
-          SCHOOL_SCOPED_ROLES_SET.has(r.role_type) &&
-          r.school_id !== null &&
-          r.school_id !== edSchoolId,
-      );
-      if (hasForbiddenRole || hasCrossSchoolRole) {
-        return sendAuthError(
-          res,
-          'No autorizado para restablecer la contraseña de este usuario',
-          403,
-        );
-      }
+    if (isAdminResetFailure(result)) {
+      // The two operational failures carry a code the modal renders differently
+      // ("nothing changed" versus "the account is flagged but the password is
+      // unchanged"); everything else is an ordinary refusal.
+      return result.operational
+        ? sendMeetingError(res, result.status, result.code, result.message)
+        : sendAuthError(res, result.message, result.status);
     }
 
-    // Log the userId we're trying to update
-    console.log('[Reset Password API] Attempting to reset password for userId:', userId);
-
-    // Update the user's password
-    const { data: updateData, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-      userId,
-      { 
-        password: temporaryPassword,
-        user_metadata: { 
-          password_change_required: true,
-          password_reset_by_admin: true,
-          password_reset_at: new Date().toISOString()
-        }
-      }
-    );
-
-    if (updateError) {
-      console.error('Error updating password:', updateError);
-      return sendAuthError(res, 'Failed to reset password', 500, updateError.message);
-    }
-
-    // Update the profile to indicate password change is required
-    const { error: profileUpdateError } = await supabaseAdmin
-      .from('profiles')
-      .update({ 
-        password_change_required: true,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', userId);
-
-    if (profileUpdateError) {
-      console.error('Error updating profile:', profileUpdateError);
-      // Continue anyway as the password was already reset
-    }
-
-    // Log the password reset action. `requester_role` distinguishes
-    // admin-initiated resets from ED-initiated resets — important because
-    // password reset is one half of ED's account-takeover capability inside
-    // their school scope (the other half is the email-change path in
-    // update-user.ts).
-    const { error: logError } = await supabaseAdmin
-      .from('audit_logs')
-      .insert({
-        user_id: user.id,  // Use the authenticated user from checkIsAdmin
-        action: 'password_reset',
-        details: {
-          target_user_id: userId,
-          requester_role: requesterRole,
-          requester_user_id: user.id,
-          timestamp: new Date().toISOString()
-        }
-      });
-
-    if (logError) {
-      console.error('Error logging password reset:', logError);
-      // Continue anyway as this is not critical
-    }
-
-    // Return success response using standardized format
+    // The response carries only what the caller needs to act. It used to return
+    // `updateData.user` — the entire GoTrue user object, including full app and
+    // user metadata, identity providers, confirmation timestamps and the last
+    // sign-in time — to a surface that renders a toast.
     return sendApiResponse(res, {
       success: true,
-      message: 'Password reset successfully',
-      user: updateData.user
+      message: result.message,
+      userId: result.userId,
+      mustChangePassword: true,
+      audited: result.audited,
     });
 
   } catch (error: any) {
@@ -229,13 +140,12 @@ export default async function handler(
       message: error.message,
       stack: error.stack,
       code: error.code,
-      details: error
     });
     return sendAuthError(
-      res, 
-      'Internal server error', 
-      500, 
-      error.message || 'An unexpected error occurred'
+      res,
+      'Error interno del servidor',
+      500,
+      error.message || 'Ocurrió un error inesperado'
     );
   }
 }

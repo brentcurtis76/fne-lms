@@ -1,6 +1,15 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { Resend } from 'resend';
+import { provisionAuthAccount } from '../../../../lib/auth/account-provisioning';
 import { checkIsAdmin, createServiceRoleClient } from '../../../../lib/api-auth';
+import { getAppBaseUrl } from '../../../../lib/utils/app-url';
+import {
+  deliveryMessage,
+  sendAccessGrantedEmail,
+  sendPasswordSetupEmail,
+  type DeliveryResult,
+} from '../../../../lib/email/invitations';
+import { generateRecoveryLink } from '../../../../lib/auth/recovery-link';
+import { recordSecurityAudit } from '../../../../lib/security/audit';
 import { generatePassword } from '../../../../utils/passwordGenerator';
 import { isGlobalAdmin } from '../../../../utils/roleUtils';
 import { teardownPlatformUser } from '../../../../lib/userTeardown';
@@ -47,24 +56,23 @@ type ProfileRow = {
   approval_status: string | null;
 };
 
-function getBaseUrl(req: NextApiRequest): string {
-  const configured = process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL;
-  if (configured) return configured.replace(/\/$/, '');
-
-  const host = req.headers.host || 'localhost:3000';
-  const protocol = host.includes('localhost') ? 'http' : 'https';
-  return `${protocol}://${host}`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
+/**
+ * The canonical public origin.
+ *
+ * Was a local `getBaseUrl` that read `NEXT_PUBLIC_BASE_URL || NEXT_PUBLIC_SITE_URL`
+ * and otherwise fell back to `req.headers.host` — in production too. Two
+ * problems: it did not recognise `NEXT_PUBLIC_APP_URL`, which is one of the
+ * names the project uses; and `Host` is set by the caller, so a crafted request
+ * could mint an invitation whose "Establecer contraseña" button pointed
+ * anywhere, baked into an e-mail that outlives the request.
+ *
+ * `getAppBaseUrl` is the shared helper (`lib/utils/app-url.ts`), already used by
+ * the .ics artifacts and reminder notifications for exactly this reason: it
+ * accepts all three configured names, falls back to Vercel's own deployment
+ * origin, and THROWS in production when neither is available rather than
+ * trusting the header. A grant that cannot produce a trustworthy link fails
+ * loudly instead of sending a link to somewhere else.
+ */
 async function rollbackCreatedUser(supabase: any, userId: string) {
   try {
     // Reuse the shared teardown so this stays in sync with delete-user.ts.
@@ -187,73 +195,6 @@ async function markSignupGranted(
   if (error) {
     throw error;
   }
-}
-
-async function sendInviteEmail(params: {
-  to: string;
-  firstName: string;
-  actionLink: string;
-  bodyLine: string;
-}) {
-  if (!process.env.RESEND_API_KEY) {
-    console.log('[tractor-signups grant] RESEND_API_KEY missing; invitation email not sent', {
-      toDomain: params.to.split('@')[1] ?? 'unknown',
-    });
-    return { sent: false, fallback: true, error: 'RESEND_API_KEY no configurado' };
-  }
-
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const safeFirstName = escapeHtml(params.firstName);
-  const safeActionLink = escapeHtml(params.actionLink);
-  const safeBodyLine = escapeHtml(params.bodyLine);
-
-  const { error } = await resend.emails.send({
-    from: process.env.EMAIL_FROM_ADDRESS || 'Genera <notificaciones@nuevaeducacion.org>',
-    to: params.to,
-    subject: 'Activa tu acceso a Genera',
-    html: `
-      <!doctype html>
-      <html lang="es">
-        <head>
-          <meta charset="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-        </head>
-        <body style="margin:0;background:#f5f5f5;font-family:Arial,sans-serif;color:#202020;">
-          <div style="max-width:620px;margin:0 auto;background:#ffffff;">
-            <div style="background:#0a0a0a;color:#ffffff;padding:28px 28px 22px;">
-              <div style="color:#fbbf24;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">
-                Genera
-              </div>
-              <h1 style="margin:12px 0 0;font-size:26px;line-height:1.25;">
-                Tu acceso está listo
-              </h1>
-            </div>
-            <div style="padding:30px 28px;">
-              <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hola ${safeFirstName},</p>
-              <p style="margin:0 0 20px;font-size:16px;line-height:1.6;">
-                ${safeBodyLine}
-              </p>
-              <p style="margin:26px 0;text-align:center;">
-                <a href="${safeActionLink}" style="display:inline-block;background:#fbbf24;color:#0a0a0a;text-decoration:none;font-weight:700;border-radius:6px;padding:14px 22px;">
-                  Establecer contraseña
-                </a>
-              </p>
-              <p style="margin:0;color:#666;font-size:13px;line-height:1.6;">
-                Si el botón no funciona, copia y pega el enlace de recuperación desde tu correo en el navegador.
-              </p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `,
-  });
-
-  if (error) {
-    console.error('[tractor-signups grant] Resend failed:', error);
-    return { sent: false, error: error.message };
-  }
-
-  return { sent: true };
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -449,24 +390,64 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       await refreshRolesCache(supabase);
       await markSignupGranted(supabase, signupId, existingProfile.id, adminUser.id);
 
+      // S8: tell the person. This branch used to return here silently — access
+      // and roles were attached to an established account and NOBODY was
+      // notified, so the grant existed only in the admin panel. Deliberately an
+      // approval notice with the canonical login URL, not a recovery link: the
+      // password is fine, and mailing "restablece tu contraseña" to someone who
+      // did not ask trains exactly the habit phishing relies on.
+      const existingEmailResult: DeliveryResult = await sendAccessGrantedEmail({
+        to: email,
+        firstName: existingProfile.first_name || signupRow.first_name,
+        loginUrl: `${getAppBaseUrl(req)}/login`,
+        bodyLine: SIGNUP_SOURCE_INVITE_BODY[signupSource],
+      });
+
+      await recordSecurityAudit(supabase, {
+        action: 'access_granted_existing_user',
+        outcome: 'success',
+        actorUserId: adminUser.id,
+        actorRole: 'admin',
+        targetUserId: existingProfile.id,
+        schoolId,
+        metadata: {
+          role_type: role,
+          signup_source: signupSource,
+          email_sent: existingEmailResult.sent,
+          email_failure_reason: existingEmailResult.reason ?? null,
+        },
+      });
+
       return res.status(200).json({
         success: true,
         status: 'granted',
         existingUser: true,
         linkedUserId: existingProfile.id,
         generation,
+        // Same shape as the new-account branch so the panel can render one
+        // delivery status for both, and offer the same retry for both.
+        // `status` is the accurate word: `provider_accepted` is as far as this
+        // process can see. See lib/email/invitations.ts for why "delivered" is
+        // not a state anything here produces.
+        email: {
+          sent: existingEmailResult.sent,
+          status: existingEmailResult.status,
+          reason: existingEmailResult.reason ?? null,
+        },
+        emailMessage: deliveryMessage(existingEmailResult),
+        canResend: true,
       });
     }
 
     let createdUserId: string | null = null;
 
     try {
-      const temporaryPassword = generatePassword({ minLength: 16 });
-      const { data: createdUser, error: createUserError } = await supabase.auth.admin.createUser({
+      const temporaryPassword = generatePassword();
+      const { data: createdUser, error: createUserError } = await provisionAuthAccount(supabase, {
         email,
         password: temporaryPassword,
-        email_confirm: true,
-        user_metadata: {
+        emailConfirm: true,
+        userMetadata: {
           role,
           roles: [role],
         },
@@ -501,35 +482,66 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       await ensureRole(supabase, createdUserId, role, schoolId, adminUser.id);
 
-      const redirectTo = `${getBaseUrl(req)}/reset-password`;
-      const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-        type: 'recovery',
+      // F2: the application's OWN `/reset-password?token_hash=…&type=recovery`
+      // URL, built from `generateLink().properties.hashed_token` — not the
+      // provider's `action_link`, whose landing format depends on a dashboard
+      // setting and used to arrive as a legacy implicit fragment. See
+      // lib/auth/recovery-link.ts.
+      const link = await generateRecoveryLink(supabase, {
         email,
-        options: { redirectTo },
+        baseUrl: getAppBaseUrl(req),
       });
 
-      const actionLink = linkData?.properties?.action_link;
-      if (linkError || !actionLink) {
-        throw linkError || new Error('No se pudo generar el enlace de recuperación');
+      if (!link.ok) {
+        throw new Error('No se pudo generar el enlace de recuperación');
       }
 
       await refreshRolesCache(supabase);
       await markSignupGranted(supabase, signupId, createdUserId, adminUser.id);
 
-      const emailResult = await sendInviteEmail({
+      const emailResult = await sendPasswordSetupEmail({
         to: email,
         firstName: signupRow.first_name,
-        actionLink,
+        recoveryUrl: link.url,
         bodyLine: SIGNUP_SOURCE_INVITE_BODY[signupSource],
       });
 
+      await recordSecurityAudit(supabase, {
+        action: 'access_granted_new_user',
+        outcome: 'success',
+        actorUserId: adminUser.id,
+        actorRole: 'admin',
+        targetUserId: createdUserId,
+        schoolId,
+        metadata: {
+          role_type: role,
+          signup_source: signupSource,
+          email_sent: emailResult.sent,
+          email_delivery_status: emailResult.status,
+          email_failure_reason: emailResult.reason ?? null,
+        },
+      });
+
+      // S7: `email.sent === false` is no longer terminal. The signup stays
+      // `granted` (the account exists and must not be created twice), and the
+      // panel offers "Reenviar invitación", which mints a FRESH link. Before
+      // this, a failed send stranded the person with an account they could
+      // never reach and no operator action that could fix it.
       return res.status(200).json({
         success: true,
         status: 'granted',
         existingUser: false,
         linkedUserId: createdUserId,
         roleLabel: TRACTOR_ROLE_LABELS[role],
-        email: emailResult,
+        // The action link is NOT here, and never is: `DeliveryResult` carries a
+        // boolean and a coarse reason, and the link never leaves the mailer.
+        email: {
+          sent: emailResult.sent,
+          status: emailResult.status,
+          reason: emailResult.reason ?? null,
+        },
+        emailMessage: deliveryMessage(emailResult),
+        canResend: true,
         generation,
       });
     } catch (provisionError) {

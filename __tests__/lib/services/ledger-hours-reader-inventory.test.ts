@@ -4708,6 +4708,13 @@ interface DynamicAllowance {
 }
 
 const DYNAMIC_NON_LEDGER_CALLS: Record<string, DynamicAllowance> = {
+  'lib/meetings/deletion.ts:from:target:table': {
+    allowedValues: [
+      'meeting_attachments', 'meeting_tasks', 'meeting_commitments',
+      'meeting_agreements', 'meeting_attendees',
+    ],
+    justification: 'closed meeting-child deletion table list',
+  },
   'lib/propuestas/scripts/seed-db.ts:from:target:t': {
     allowedValues: [
       'propuesta_fichas_servicio', 'propuesta_consultores',
@@ -5368,6 +5375,12 @@ const SQL_DIRECT_HOURS_USES: Record<string, UseClass[]> = {
   'supabase/migrations/20260813120500_reschedule_tracking_pair_guard.sql': [
     'historical', 'write', 'historical',
   ],
+  'supabase/migrations/20260819120200_forced_password_change_data_layer.sql': [
+    'write',
+  ],
+  'supabase/migrations/20260819120300_recovery_security_ceremonies.sql': [
+    'write', 'write', 'write', 'write',
+  ],
 };
 
 const SQL_LEDGER_OBJECTS: Record<string, string[]> = {
@@ -5400,6 +5413,9 @@ const SQL_LEDGER_OBJECTS: Record<string, string[]> = {
   'supabase/migrations/20260813120500_reschedule_tracking_pair_guard.sql': [
     'reschedule_session_hours:write/fail-closed/direct',
   ],
+  'supabase/migrations/20260819120200_forced_password_change_data_layer.sql': [
+    'apply_forced_password_change_guard:write/potential-dynamic/direct',
+  ],
 };
 
 /** Every unresolved executable SQL target is explicit; none is an allowed omission. */
@@ -5417,6 +5433,15 @@ const SQL_UNSUPPORTED_EXECUTES: Record<string, string[]> = {
   'supabase/migrations/20260813120200_session_hour_overrides.sql': [
     'grant-loop:runtime-role-domain',
   ],
+  'supabase/migrations/20260819120200_forced_password_change_data_layer.sql': [
+    'guard-policy:runtime-table-domain',
+  ],
+  'supabase/migrations/20260819120300_recovery_security_ceremonies.sql': [
+    'revoke-public-loop:runtime-function-domain',
+    'revoke-anon-loop:runtime-function-domain',
+    'revoke-authenticated-loop:runtime-function-domain',
+    'grant-service-role-loop:runtime-function-domain',
+  ],
 };
 
 const SQL_UNSUPPORTED_OBJECTS: Record<string, string[]> = {
@@ -5426,6 +5451,9 @@ const SQL_UNSUPPORTED_OBJECTS: Record<string, string[]> = {
   ],
   'supabase/migrations/20260808120000_session_reschedule_atomic.sql': [
     'apply_session_reschedule',
+  ],
+  'supabase/migrations/20260819120200_forced_password_change_data_layer.sql': [
+    'apply_forced_password_change_guard',
   ],
 };
 
@@ -8418,18 +8446,20 @@ describe('contract_hours_ledger production consumer inventory', () => {
     }
     // The exact site-exact production hazard inventory (R22 finding 2): one entry per hazard
     // site, in source order. Reflect and prototype rewiring do not exist in any production
-    // root. The single Symbol site is an oversize-body sentinel in the webhook route — a file
-    // whose executable inventory carries no ledger authority. The ten comparator sites order
+    // root. The three Symbol sites are bounded sentinels in auth/webhook code — files whose
+    // executable inventory carries no ledger authority. The ten comparator sites order
     // UI/report rows across four files whose every ledger touch is classified in
     // DIRECT_TS_TOUCHES, and the production fail-closed suite proves none of them yields an
     // unsupported or unexplained result.
     expect(census).toEqual({
       'components/workspace/WorkspaceSessionsTab.tsx': ['sort-comparator', 'sort-comparator'],
+      'lib/auth/password-completion.ts': ['Symbol'],
       'pages/admin/sessions/index.tsx': ['sort-comparator'],
       'pages/api/sessions/reports/analytics.ts': [
         'sort-comparator', 'sort-comparator', 'sort-comparator',
         'sort-comparator', 'sort-comparator',
       ],
+      'pages/api/webhooks/resend.ts': ['Symbol'],
       'pages/api/zoom/webhook.ts': ['Symbol'],
       'pages/consultor/sessions/index.tsx': ['sort-comparator', 'sort-comparator'],
     });
@@ -8439,8 +8469,10 @@ describe('contract_hours_ledger production consumer inventory', () => {
     // non-authority hazard, not a substring claim.
     expect(authorityByFile).toEqual({
       'components/workspace/WorkspaceSessionsTab.tsx': true,
+      'lib/auth/password-completion.ts': false,
       'pages/admin/sessions/index.tsx': true,
       'pages/api/sessions/reports/analytics.ts': true,
+      'pages/api/webhooks/resend.ts': false,
       'pages/api/zoom/webhook.ts': false,
       'pages/consultor/sessions/index.tsx': true,
     });
@@ -10416,4 +10448,3 @@ z7R24Read(z7R24Table);
     }
   });
 });
-

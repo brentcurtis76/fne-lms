@@ -5,6 +5,8 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import PasswordResetModal from '../PasswordResetModal';
 import { toast } from 'react-hot-toast';
+import { validatePasswordPolicy } from '../../lib/auth/password-policy';
+import { GENERATED_PASSWORD_LENGTH } from '../../lib/auth/password-generator';
 
 // Mock react-hot-toast
 vi.mock('react-hot-toast', () => ({
@@ -90,7 +92,11 @@ describe('PasswordResetModal', () => {
     expect(mockOnPasswordReset).not.toHaveBeenCalled();
   });
 
-  it('should show error for password less than 6 characters', async () => {
+  // S5: this modal used to accept six characters with no character-class
+  // requirement, so an administrator could set a temporary credential the
+  // platform would then refuse as the user's own replacement. It now uses the
+  // shared policy, and the server re-checks the same rule.
+  it('should reject a password shorter than the shared policy minimum', async () => {
     const user = userEvent.setup();
     render(<PasswordResetModal {...defaultProps} />);
     
@@ -103,23 +109,69 @@ describe('PasswordResetModal', () => {
     const submitButton = screen.getByRole('button', { name: 'Restablecer Contraseña' });
     await user.click(submitButton);
     
-    expect(toast.error).toHaveBeenCalledWith('La contraseña debe tener al menos 6 caracteres');
+    expect(toast.error).toHaveBeenCalledWith('La contraseña debe tener al menos 8 caracteres');
     expect(mockOnPasswordReset).not.toHaveBeenCalled();
   });
 
-  it('should generate random password when button is clicked', async () => {
+  it.each([
+    ['no uppercase', 'sintetica2026', 'La contraseña debe contener al menos una letra mayúscula'],
+    ['no lowercase', 'SINTETICA2026', 'La contraseña debe contener al menos una letra minúscula'],
+    ['no number', 'SinteticaSegura', 'La contraseña debe contener al menos un número'],
+    // The exact shape the old six-character rule let through.
+    ['the old six-character shape', 'temp01', 'La contraseña debe tener al menos 8 caracteres'],
+  ])('should reject a password with %s', async (_label, password, expected) => {
+    const user = userEvent.setup();
+    render(<PasswordResetModal {...defaultProps} />);
+
+    await user.type(screen.getByLabelText('Contraseña Temporal'), password);
+    await user.type(screen.getByLabelText('Confirmar Contraseña'), password);
+    await user.click(screen.getByRole('button', { name: 'Restablecer Contraseña' }));
+
+    expect(toast.error).toHaveBeenCalledWith(expected);
+    expect(mockOnPasswordReset).not.toHaveBeenCalled();
+  });
+
+  it('should accept a policy-compliant password', async () => {
+    const user = userEvent.setup();
+    render(<PasswordResetModal {...defaultProps} />);
+
+    await user.type(screen.getByLabelText('Contraseña Temporal'), 'Sintetica2026');
+    await user.type(screen.getByLabelText('Confirmar Contraseña'), 'Sintetica2026');
+    await user.click(screen.getByRole('button', { name: 'Restablecer Contraseña' }));
+
+    expect(mockOnPasswordReset).toHaveBeenCalledWith('test-user-id', 'Sintetica2026');
+  });
+
+  // S6: the generator was `Math.random()` over a 68-character set. It is now
+  // the shared CSPRNG one, and its output satisfies the shared policy by
+  // construction — which is what the length change reflects.
+  it('should generate a secure password when the button is clicked', async () => {
     const user = userEvent.setup();
     render(<PasswordResetModal {...defaultProps} />);
     
-    const generateButton = screen.getByText('Generar contraseña aleatoria');
+    const generateButton = screen.getByText('Generar contraseña segura');
     await user.click(generateButton);
     
     const tempPasswordInput = screen.getByLabelText('Contraseña Temporal') as HTMLInputElement;
     const confirmPasswordInput = screen.getByLabelText('Confirmar Contraseña') as HTMLInputElement;
     
-    expect(tempPasswordInput.value).toHaveLength(12);
-    expect(confirmPasswordInput.value).toHaveLength(12);
+    expect(tempPasswordInput.value).toHaveLength(GENERATED_PASSWORD_LENGTH);
     expect(tempPasswordInput.value).toEqual(confirmPasswordInput.value);
+    expect(validatePasswordPolicy(tempPasswordInput.value)).toEqual({ valid: true, errors: [] });
+  });
+
+  it('should generate a DIFFERENT password each time', async () => {
+    const user = userEvent.setup();
+    render(<PasswordResetModal {...defaultProps} />);
+
+    const generateButton = screen.getByText('Generar contraseña segura');
+    const input = screen.getByLabelText('Contraseña Temporal') as HTMLInputElement;
+
+    await user.click(generateButton);
+    const first = input.value;
+    await user.click(generateButton);
+
+    expect(input.value).not.toBe(first);
   });
 
   it('should toggle password visibility', async () => {

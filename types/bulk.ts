@@ -4,6 +4,15 @@ export interface BulkUserData {
   lastName: string;
   role: string;
   rut: string;
+  /**
+   * The password supplied by the CSV, if any. Empty when the row did not carry
+   * one — the server then mints a CSPRNG value that satisfies the shared policy.
+   *
+   * S13: the parser used to FILL this with `Math.random().toString(36).slice(-8)`
+   * — base-36, so lowercase and digits only, so the uppercase requirement failed
+   * on every generated row and the import silently fell back to a shared
+   * hardcoded constant. Parsing does not mint credentials any more.
+   */
   password: string;
   rowNumber: number;
   errors?: string[];
@@ -33,7 +42,6 @@ export interface BulkImportOrganizationalScope {
 export interface ParseOptions {
   delimiter?: string;
   hasHeader?: boolean;
-  generatePasswords?: boolean;
   validateRut?: boolean;
   defaultRole?: string;
   columnMapping?: {

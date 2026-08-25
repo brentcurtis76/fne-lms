@@ -215,7 +215,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
       buildAdminClient(
         {
           profiles: [{ data: null, error: null }],
-          audit_logs: [{ data: null, error: null }],
+          security_audit_events: [{ data: null, error: null }],
         },
         tracker,
       ),
@@ -236,15 +236,19 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect((profileCalls[0].updates[0] as any).school).toBe('Some School');
     expect((profileCalls[0].updates[0] as any).first_name).toBe('Updated');
 
-    // Audit log records requester_role for admin-initiated edits.
-    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    // S3: the audit row records the requester's role for admin-initiated edits.
+    // `actor_role` / `actor_user_id` are COLUMNS now — they used to be keys in
+    // a `details` blob on a table that did not exist.
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'security_audit_events');
     expect(auditCalls).toHaveLength(1);
     expect(auditCalls[0].inserts).toHaveLength(1);
-    expect((auditCalls[0].inserts[0] as any).details).toMatchObject({
-      requester_role: 'admin',
-      requester_user_id: ADMIN_ID,
+    expect(auditCalls[0].inserts[0]).toMatchObject({
+      action: 'user_updated',
+      outcome: 'success',
+      actor_role: 'admin',
+      actor_user_id: ADMIN_ID,
+      target_user_id: TARGET_USER_ID,
     });
-    expect((auditCalls[0].inserts[0] as any).user_id).toBe(ADMIN_ID);
   });
 
   it('ED: can update a user in their own school', async () => {
@@ -257,7 +261,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
             { data: { school_id: ED_SCHOOL_ID }, error: null },
             { data: null, error: null },
           ],
-          audit_logs: [{ data: null, error: null }],
+          security_audit_events: [{ data: null, error: null }],
         },
         tracker,
       ),
@@ -280,15 +284,16 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect(profileCalls[1].updates).toHaveLength(1);
     expect((profileCalls[1].updates[0] as any).school).toBeUndefined();
 
-    // Audit log records requester_role for ED-initiated edits.
-    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    // Audit row records the requester's role for ED-initiated edits.
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'security_audit_events');
     expect(auditCalls).toHaveLength(1);
     expect(auditCalls[0].inserts).toHaveLength(1);
-    expect((auditCalls[0].inserts[0] as any).details).toMatchObject({
-      requester_role: 'equipo_directivo',
-      requester_user_id: ED_ID,
+    expect(auditCalls[0].inserts[0]).toMatchObject({
+      action: 'user_updated',
+      actor_role: 'equipo_directivo',
+      actor_user_id: ED_ID,
+      target_user_id: TARGET_USER_ID,
     });
-    expect((auditCalls[0].inserts[0] as any).user_id).toBe(ED_ID);
   });
 
   it('ED: can update email of a same-school target with no global roles', async () => {
@@ -303,7 +308,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
           { data: null, error: null },
         ],
         user_roles: [{ data: [], error: null }],
-        audit_logs: [{ data: null, error: null }],
+        security_audit_events: [{ data: null, error: null }],
       },
       tracker,
     );
@@ -416,7 +421,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
             { data: null, error: null },
           ],
           user_roles: [{ data: [{ role_type: 'admin' }], error: null }],
-          audit_logs: [{ data: null, error: null }],
+          security_audit_events: [{ data: null, error: null }],
         },
         tracker,
       ),
@@ -438,7 +443,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect(profileCalls).toHaveLength(1);
     expect(profileCalls[0].updates).toHaveLength(0);
     expect(profileCalls[0].selects).toHaveLength(1);
-    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'security_audit_events');
     expect(auditCalls).toHaveLength(0);
   });
 
@@ -460,7 +465,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
               error: null,
             },
           ],
-          audit_logs: [{ data: null, error: null }],
+          security_audit_events: [{ data: null, error: null }],
         },
         tracker,
       ),
@@ -482,7 +487,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect(profileCalls).toHaveLength(1);
     expect(profileCalls[0].updates).toHaveLength(0);
     expect(profileCalls[0].selects).toHaveLength(1);
-    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'security_audit_events');
     expect(auditCalls).toHaveLength(0);
     expect(tracker.authUpdates).toHaveLength(0);
   });
@@ -498,7 +503,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
             { data: null, error: null },
           ],
           user_roles: [{ data: null, error: { message: 'role lookup failed' } }],
-          audit_logs: [{ data: null, error: null }],
+          security_audit_events: [{ data: null, error: null }],
         },
         tracker,
       ),
@@ -550,7 +555,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
             { data: null, error: null },
           ],
           user_roles: [{ data: [], error: null }],
-          audit_logs: [{ data: null, error: null }],
+          security_audit_events: [{ data: null, error: null }],
         },
         tracker,
       ),
@@ -582,7 +587,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
             { data: null, error: null },
           ],
           user_roles: [{ data: [], error: null }],
-          audit_logs: [{ data: null, error: null }],
+          security_audit_events: [{ data: null, error: null }],
         },
         tracker,
       ),
@@ -630,7 +635,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
             { data: { school_id: ED_SCHOOL_ID }, error: null },
             { data: null, error: null },
           ],
-          audit_logs: [{ data: null, error: null }],
+          security_audit_events: [{ data: null, error: null }],
         },
         tracker,
       ),
@@ -661,7 +666,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
             { data: { school_id: ED_SCHOOL_ID }, error: null },
             { data: null, error: null },
           ],
-          audit_logs: [{ data: null, error: null }],
+          security_audit_events: [{ data: null, error: null }],
         },
         tracker,
       ),
@@ -686,7 +691,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
             { data: { school_id: ED_SCHOOL_ID }, error: null },
             { data: null, error: null },
           ],
-          audit_logs: [{ data: null, error: null }],
+          security_audit_events: [{ data: null, error: null }],
         },
         tracker,
       ),
@@ -969,7 +974,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
             },
             { data: null, error: null },
           ],
-          audit_logs: [{ data: null, error: null }],
+          security_audit_events: [{ data: null, error: null }],
         },
         tracker,
       ),
@@ -1001,7 +1006,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
       buildAdminClient(
         {
           profiles: [{ data: null, error: null }],
-          audit_logs: [{ data: null, error: null }],
+          security_audit_events: [{ data: null, error: null }],
         },
         tracker,
       ),
@@ -1240,7 +1245,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
       buildAdminClient(
         {
           profiles: [{ data: null, error: null }],
-          audit_logs: [{ data: null, error: null }],
+          security_audit_events: [{ data: null, error: null }],
         },
         tracker,
       ),
@@ -1275,7 +1280,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
             { data: null, error: null },
           ],
           user_roles: [{ data: [], error: null }],
-          audit_logs: [{ data: null, error: null }],
+          security_audit_events: [{ data: null, error: null }],
         },
         tracker,
       ),
@@ -1298,7 +1303,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     ).not.toHaveBeenCalled();
   });
 
-  it('admin: email change writes both update_user and email_change audit rows with from/to', async () => {
+  it('admin: email change writes both user_updated and user_email_changed audit rows, domains only', async () => {
     setupAdmin();
     const tracker = makeTracker();
     mockCreateServiceRoleClient.mockReturnValueOnce(
@@ -1317,7 +1322,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
             },
             { data: null, error: null },
           ],
-          audit_logs: [
+          security_audit_events: [
             { data: null, error: null },
             { data: null, error: null },
           ],
@@ -1334,28 +1339,32 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
 
     expect(res._getStatusCode()).toBe(200);
 
-    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'security_audit_events');
     expect(auditCalls).toHaveLength(2);
 
     const first = auditCalls[0].inserts[0] as any;
-    expect(first.action).toBe('update_user');
-    expect(first.record_id).toBe(TARGET_USER_ID);
+    expect(first.action).toBe('user_updated');
+    expect(first.target_user_id).toBe(TARGET_USER_ID);
+    expect(first.metadata.updated_fields.email_changed).toBe(true);
 
     const second = auditCalls[1].inserts[0] as any;
-    expect(second.action).toBe('email_change');
-    expect(second.table_name).toBe('profiles');
-    expect(second.record_id).toBe(TARGET_USER_ID);
-    expect(second.user_id).toBe(ADMIN_ID);
-    expect(second.details).toMatchObject({
-      requester_role: 'admin',
-      requester_user_id: ADMIN_ID,
-      from: 'old@example.com',
-      to: 'new@example.com',
+    expect(second.action).toBe('user_email_changed');
+    expect(second.target_user_id).toBe(TARGET_USER_ID);
+    expect(second.actor_user_id).toBe(ADMIN_ID);
+    expect(second.actor_role).toBe('admin');
+    // S3 privacy: DOMAINS, not addresses. The audit table refuses an `email`
+    // key at the storage layer, and the trail does not need a second,
+    // unmanaged copy of everybody's address to answer "was it changed, by whom".
+    expect(second.metadata).toMatchObject({
+      from_email_domain: 'example.com',
+      to_email_domain: 'example.com',
     });
-    expect(typeof second.details.timestamp).toBe('string');
+    const serialised = JSON.stringify(second);
+    expect(serialised).not.toContain('old@example.com');
+    expect(serialised).not.toContain('new@example.com');
   });
 
-  it('admin: unchanged email (post-normalization) writes only update_user, no email_change', async () => {
+  it('admin: unchanged email (post-normalization) writes only user_updated, no user_email_changed', async () => {
     setupAdmin();
     const tracker = makeTracker();
     mockCreateServiceRoleClient.mockReturnValueOnce(
@@ -1374,7 +1383,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
             },
             { data: null, error: null },
           ],
-          audit_logs: [{ data: null, error: null }],
+          security_audit_events: [{ data: null, error: null }],
         },
         tracker,
       ),
@@ -1390,16 +1399,16 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
 
     expect(res._getStatusCode()).toBe(200);
 
-    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'security_audit_events');
     expect(auditCalls).toHaveLength(1);
-    expect((auditCalls[0].inserts[0] as any).action).toBe('update_user');
+    expect((auditCalls[0].inserts[0] as any).action).toBe('user_updated');
   });
 
-  it('update-user: email_change audit insert failure is logged but does not fail the request', async () => {
-    // F2: audit_logs insert failures must not roll back a committed user
+  it('update-user: user_email_changed audit insert failure is logged but does not fail the request', async () => {
+    // F2: audit insert failures must not roll back a committed user
     // update, but they MUST be surfaced via console.error so an operator can
     // reconcile manually. Supabase inserts may return `{ error }` instead of
-    // throwing — this covers the returned-error path for the email_change row.
+    // throwing — this covers the returned-error path for the e-mail audit row.
     setupAdmin();
     const tracker = makeTracker();
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -1419,9 +1428,9 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
             },
             { data: null, error: null }, // forward profile update
           ],
-          audit_logs: [
-            { data: null, error: null }, // update_user audit succeeds
-            { data: null, error: { message: 'audit insert failed' } }, // email_change audit fails
+          security_audit_events: [
+            { data: null, error: null }, // user_updated audit succeeds
+            { data: null, error: { message: 'audit insert failed' } }, // user_email_changed audit fails
           ],
         },
         tracker,
@@ -1442,32 +1451,34 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     });
 
     // Both audit attempts happened.
-    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'security_audit_events');
     expect(auditCalls).toHaveLength(2);
 
-    // The email_change failure was logged with the expected label and
-    // reconciliation context (action, record_id, requester, from/to, error).
+    // S3: the failure is surfaced by the centralised writer under a stable
+    // prefix, which is what keeps "fail open" from meaning "fail silent". The
+    // reconciliation context carries only stable, non-identifying labels — a
+    // log line is not a lawful home for account identifiers or provider text.
     const matching = consoleError.mock.calls.find(
       ([label, ctx]) =>
-        label === 'audit_log_insert_failed' &&
-        (ctx as any)?.action === 'email_change',
+        label === '[security-audit] write failed' &&
+        (ctx as any)?.action === 'user_email_changed',
     );
     expect(matching).toBeDefined();
     const ctx = matching![1] as any;
-    expect(ctx).toMatchObject({
-      action: 'email_change',
-      record_id: TARGET_USER_ID,
-      requester_user_id: ADMIN_ID,
-      requester_role: 'admin',
-      from: 'old@example.com',
-      to: 'new@example.com',
-      error: { message: 'audit insert failed' },
+    expect(ctx).toEqual({
+      action: 'user_email_changed',
+      outcome: 'success',
+      code: null,
     });
+    expect(JSON.stringify(ctx)).not.toContain('new@example.com');
+    expect(JSON.stringify(ctx)).not.toContain(TARGET_USER_ID);
+    expect(JSON.stringify(ctx)).not.toContain(ADMIN_ID);
+    expect(JSON.stringify(ctx)).not.toContain('audit insert failed');
 
     consoleError.mockRestore();
   });
 
-  it('ED: email change writes update_user + email_change audit rows', async () => {
+  it('ED: email change writes user_updated + user_email_changed audit rows', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
     mockCreateServiceRoleClient.mockReturnValueOnce(
@@ -1488,7 +1499,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
             { data: null, error: null },
           ],
           user_roles: [{ data: [], error: null }],
-          audit_logs: [
+          security_audit_events: [
             { data: null, error: null },
             { data: null, error: null },
           ],
@@ -1505,17 +1516,16 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
 
     expect(res._getStatusCode()).toBe(200);
 
-    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'security_audit_events');
     expect(auditCalls).toHaveLength(2);
     const second = auditCalls[1].inserts[0] as any;
-    expect(second.action).toBe('email_change');
-    expect(second.record_id).toBe(TARGET_USER_ID);
-    expect(second.user_id).toBe(ED_ID);
-    expect(second.details).toMatchObject({
-      requester_role: 'equipo_directivo',
-      requester_user_id: ED_ID,
-      from: 'ed-old@example.com',
-      to: 'ed-new@example.com',
+    expect(second.action).toBe('user_email_changed');
+    expect(second.target_user_id).toBe(TARGET_USER_ID);
+    expect(second.actor_user_id).toBe(ED_ID);
+    expect(second.actor_role).toBe('equipo_directivo');
+    expect(second.metadata).toMatchObject({
+      from_email_domain: 'example.com',
+      to_email_domain: 'example.com',
     });
   });
 
@@ -1541,7 +1551,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
         profiles: [
           { data: null, error: null }, // forward profile update
         ],
-        audit_logs: [{ data: null, error: null }],
+        security_audit_events: [{ data: null, error: null }],
       },
       tracker,
     );
@@ -1568,20 +1578,17 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect(profileCalls[0].updates).toHaveLength(1);
 
     // Audit row recording the skipped rollback was written before the 500.
-    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'security_audit_events');
     expect(auditCalls).toHaveLength(1);
     const row = auditCalls[0].inserts[0] as any;
     expect(row.action).toBe('profile_rollback_skipped');
-    expect(row.table_name).toBe('profiles');
-    expect(row.record_id).toBe(TARGET_USER_ID);
-    expect(row.user_id).toBe(ADMIN_ID);
-    expect(row.details).toMatchObject({
-      userId: TARGET_USER_ID,
-      requester_user_id: ADMIN_ID,
-      requester_role: 'unknown_for_invariant_test',
+    expect(row.outcome).toBe('partial_failure');
+    expect(row.target_user_id).toBe(TARGET_USER_ID);
+    expect(row.actor_user_id).toBe(ADMIN_ID);
+    expect(row.actor_role).toBe('unknown_for_invariant_test');
+    expect(row.metadata).toMatchObject({
       attempted_update_keys: ['email'],
     });
-    expect(typeof row.details.timestamp).toBe('string');
 
     // Existing CRITICAL log line is preserved.
     const critical = consoleError.mock.calls.find(
@@ -1610,7 +1617,7 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     const adminClient = buildAdminClient(
       {
         profiles: [{ data: null, error: null }],
-        audit_logs: [
+        security_audit_events: [
           { data: null, error: { message: 'audit insert failed' } },
         ],
       },
@@ -1634,23 +1641,24 @@ describe('admin/update-user — POST (ED auth + scoping)', () => {
     expect(res._getStatusCode()).toBe(500);
     expect(res._getJSONData()).toEqual({ error: 'Error interno del servidor' });
 
-    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'audit_logs');
+    const auditCalls = tracker.fromCalls.filter((c) => c.table === 'security_audit_events');
     expect(auditCalls).toHaveLength(1);
 
     const matching = consoleError.mock.calls.find(
       ([label, ctx]) =>
-        label === 'audit_log_insert_failed' &&
+        label === '[security-audit] write failed' &&
         (ctx as any)?.action === 'profile_rollback_skipped',
     );
     expect(matching).toBeDefined();
     const ctx = matching![1] as any;
-    expect(ctx).toMatchObject({
+    expect(ctx).toEqual({
       action: 'profile_rollback_skipped',
-      record_id: TARGET_USER_ID,
-      requester_user_id: ADMIN_ID,
-      requester_role: 'unknown_for_invariant_test',
-      error: { message: 'audit insert failed' },
+      outcome: 'partial_failure',
+      code: null,
     });
+    expect(JSON.stringify(ctx)).not.toContain(TARGET_USER_ID);
+    expect(JSON.stringify(ctx)).not.toContain(ADMIN_ID);
+    expect(JSON.stringify(ctx)).not.toContain('audit insert failed');
 
     consoleError.mockRestore();
   });

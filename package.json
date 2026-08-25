@@ -3,6 +3,8 @@
   "version": "1.0.1",
   "main": "index.js",
   "scripts": {
+    "guard:migrations": "bash scripts/ci/check-rls-migrations.sh && node scripts/ci/check-destructive-migrations.mjs",
+    "guard:browser": "node scripts/ci/check-browser-boundaries.mjs",
     "dev": "./scripts/pre-dev-check.sh && NODE_OPTIONS='--max-old-space-size=4096' next dev",
     "dev:unsafe": "next dev",
     "dev:stable": "./dev-server.sh",
@@ -51,6 +53,7 @@
     "test:queue": "tsx scripts/ci/queue-concurrency-proof.mjs",
     "test:override-concurrency": "tsx scripts/ci/override-concurrency-proof.mjs",
     "test:attendance-authority-concurrency": "tsx scripts/ci/attendance-authority-concurrency-proof.mjs",
+    "test:recovery-concurrency": "node scripts/ci/recovery-concurrency-proof.mjs",
     "test:db:consultor": "psql $DATABASE_URL -f supabase/tests/010-consultor-sessions-rls.sql",
     "apply:group-assignments": "node scripts/apply-group-assignments.js",
     "apply:dev-role": "node scripts/apply-dev-role.js",

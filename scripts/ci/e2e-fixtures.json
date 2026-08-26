@@ -7,13 +7,46 @@
     "and these credentials are only ever valid on the ephemeral local Supabase stack the CI job",
     "starts and destroys. The seeder refuses to run against a non-local Supabase URL.",
     "",
-    "Z1c — extended with the personas the Zoom join-authz matrix needs. Each user's optional",
-    "fields drive the seeder:",
-    "  school       'primary' (default) | 'secondary' — the profile's school AND the role row's school_id",
-    "  roleScope    'global' — the role row's school_id is NULL. Only consultor reads this distinction",
-    "               (lib/utils/session-policy.ts:31 treats consultor.school_id IS NULL as GLOBAL).",
-    "  community    'zoom' — the role row's community_id is zoom.community.id",
-    "  inactiveRoles  extra role rows seeded with is_active=false, to prove deactivation denies",
+    "Z1c — extended with the personas the Zoom join-authz matrix needs; QA-ROLES completed the",
+    "roster so that all nine roles in types/roles.ts have a synthetic account.",
+    "",
+    "SCOPE FIELDS — every optional field on a user (and on an inactiveRoles entry) is a scope",
+    "field. They are what the seeder writes onto the profile and onto the role row. All six:",
+    "",
+    "  school        'primary' (default) | 'secondary'. Names a top-level school block",
+    "                (`school` / `schoolSecondary`) and sets BOTH profiles.school_id and",
+    "                user_roles.school_id. `directivo` and `directivoSecondary` are the two",
+    "                equipo_directivo personas this field separates.",
+    "  roleScope     'global' — user_roles.school_id is NULL, overriding `school` for the ROLE",
+    "                row only; the profile keeps its school. Only consultor reads this",
+    "                distinction (lib/utils/session-policy.ts:31 treats consultor.school_id",
+    "                IS NULL as GLOBAL). Absent means the role row takes `school`.",
+    "  generation    'primary' — names the top-level `generation` block and sets BOTH",
+    "                profiles.generation_id and user_roles.generation_id. Carried only by",
+    "                lider_generacion: user_roles.generation_id is reserved for that role and",
+    "                every other persona leaves it NULL. Absent means NULL.",
+    "  community     'zoom' -> zoom.community.id | 'role' -> roleCommunity.id. Sets",
+    "                user_roles.community_id. The two communities are distinct on purpose:",
+    "                `communityManager` holds a REAL community scope that is NOT the Zoom",
+    "                session's, so its denial in the authz matrix is a WRONG-scope denial",
+    "                rather than a no-scope one. Absent means NULL.",
+    "  network       'primary' -> network.id | 'secondary' -> networkSecondary.id. Sets",
+    "                user_roles.red_id. See NETWORK TOPOLOGY below. Absent means NULL.",
+    "  inactiveRoles extra role rows seeded with is_active=false, to prove deactivation denies.",
+    "                Each entry takes the same five scope fields as a user, plus its own `role`.",
+    "",
+    "NETWORK TOPOLOGY — two synthetic networks, disjoint by construction:",
+    "  network           'Red Sintetica E2E'        holds school `primary`    supervised by networkSupervisor",
+    "  networkSecondary  'Red Sintetica E2E Norte'  holds school `secondary`  supervised by NOBODY",
+    "`networkSupervisor` is assigned to the primary network ONLY. `networkSecondary` is a fully",
+    "seeded network — real row, real school link — that no persona in the roster holds any role",
+    "in. That is the reusable CROSS-NETWORK NEGATIVE CONTROL: a later batch asserting a",
+    "supervisor_de_red denial can point at a populated network its supervisor genuinely does not",
+    "supervise, rather than at an empty or non-existent id, which would pass for the wrong reason.",
+    "LIMITATION — tests/e2e/ci-fixture.spec.ts proves the TOPOLOGY and only the topology: which",
+    "network each persona's role row carries, and which school each network holds, read back",
+    "through the product's own admin API. It does NOT prove that any product surface denies",
+    "cross-network access. Each affected batch must add its own product-level denial test.",
     "",
     "The `zoom` block is the domain graph seeded by scripts/ci/seed-e2e-zoom.mjs. Its ids are fixed",
     "so the seeding is idempotent and the specs can address the rows without a lookup.",
@@ -47,16 +80,44 @@
   ],
   "school": {
     "id": 990001,
-    "name": "Colegio Sintetico E2E"
+    "name": "Colegio Sintetico E2E",
+    "hasGenerations": true
   },
   "schoolSecondary": {
     "id": 990002,
     "name": "Colegio Sintetico E2E Norte"
   },
+  "generation": {
+    "id": "e2e00000-0000-4000-8000-000000000701",
+    "name": "Generacion Sintetica E2E",
+    "gradeRange": "1° a 4° medio"
+  },
+  "network": {
+    "id": "e2e00000-0000-4000-8000-000000000702",
+    "name": "Red Sintetica E2E",
+    "description": "Red local para pruebas E2E. No corresponde a una red real.",
+    "school": "primary",
+    "schoolLinkId": "e2e00000-0000-4000-8000-000000000703",
+    "createdBy": "admin"
+  },
+  "networkSecondary": {
+    "id": "e2e00000-0000-4000-8000-000000000704",
+    "name": "Red Sintetica E2E Norte",
+    "description": "Segunda red local para pruebas E2E, sin persona asignada. No corresponde a una red real.",
+    "school": "secondary",
+    "schoolLinkId": "e2e00000-0000-4000-8000-000000000705",
+    "createdBy": "admin"
+  },
+  "roleCommunity": {
+    "id": "e2e00000-0000-4000-8000-000000000c02",
+    "name": "Comunidad Sintetica Community Manager E2E",
+    "generation": "primary"
+  },
   "zoom": {
     "community": {
       "id": "e2e00000-0000-4000-8000-000000000c01",
-      "name": "Comunidad de Crecimiento Sintetica E2E"
+      "name": "Comunidad de Crecimiento Sintetica E2E",
+      "generation": "primary"
     },
     "session": {
       "id": "e2e00000-0000-4000-8000-000000000501",
@@ -218,6 +279,57 @@
       "role": "lider_comunidad",
       "school": "primary",
       "community": "zoom"
+    },
+    "directivo": {
+      "email": "e2e-equipo-directivo@example.com",
+      "password": "E2E-Synthetic-Directivo-2026",
+      "firstName": "Equipo",
+      "lastName": "Directivo Sintetico",
+      "role": "equipo_directivo",
+      "school": "primary"
+    },
+    "directivoSecondary": {
+      "email": "e2e-equipo-directivo-norte@example.com",
+      "password": "E2E-Synthetic-DirectivoNorte-2026",
+      "firstName": "Equipo",
+      "lastName": "Directivo Norte Sintetico",
+      "role": "equipo_directivo",
+      "school": "secondary"
+    },
+    "generationLeader": {
+      "email": "e2e-lider-generacion@example.com",
+      "password": "E2E-Synthetic-LiderGeneracion-2026",
+      "firstName": "Lider",
+      "lastName": "Generacion Sintetico",
+      "role": "lider_generacion",
+      "school": "primary",
+      "generation": "primary"
+    },
+    "networkSupervisor": {
+      "email": "e2e-supervisor-red@example.com",
+      "password": "E2E-Synthetic-SupervisorRed-2026",
+      "firstName": "Supervisora",
+      "lastName": "Red Sintetica",
+      "role": "supervisor_de_red",
+      "school": "primary",
+      "network": "primary"
+    },
+    "communityManager": {
+      "email": "e2e-community-manager@example.com",
+      "password": "E2E-Synthetic-CommunityManager-2026",
+      "firstName": "Community",
+      "lastName": "Manager Sintetica",
+      "role": "community_manager",
+      "school": "primary",
+      "community": "role"
+    },
+    "procurementManager": {
+      "email": "e2e-encargado-licitacion@example.com",
+      "password": "E2E-Synthetic-EncargadoLicitacion-2026",
+      "firstName": "Encargada",
+      "lastName": "Licitacion Sintetica",
+      "role": "encargado_licitacion",
+      "school": "primary"
     },
     "inactiveConsultor": {
       "email": "e2e-rol-inactivo@example.com",

@@ -5,6 +5,9 @@
  * Creates, against the *local* Supabase stack only:
  *   - two school rows (the org rows the fixtures hang off; the second exists so a
  *     consultor can be assigned somewhere OTHER than the session's school),
+ *   - (QA-ROLES) the organization scopes the nine-role roster needs: one generation, one
+ *     extra growth community, and TWO school networks holding one school each — the second
+ *     network carries no persona, so it is the cross-network negative control,
  *   - one auth user + profile + role row per entry in `e2e-fixtures.json`,
  *   - (A8) one Pasantías interest lead, for the admin triage surface,
  *   - (Z1c, extended by Z2-S8) the Zoom domain graph — growth community, three sessions
@@ -13,7 +16,7 @@
  *     `scripts/ci/seed-e2e-zoom.mjs`.
  *
  * Ordering is load-bearing and is why the users are seeded in two passes:
- *   schools -> auth users + profiles -> zoom domain -> role rows
+ *   schools + generation -> auth users + profiles -> networks + zoom domain -> role rows
  * Each zoom session's `created_by`, and every facilitator, attendee and report author,
  * is an FK to `profiles`, so they need pass 1; a `user_roles.community_id` is an FK to
  * `growth_communities`, so the role rows need the zoom domain.
@@ -90,8 +93,85 @@ async function ensureAuthUser(supabase, fixture) {
 async function ensureSchool(supabase, school) {
   const { error } = await supabase
     .from('schools')
-    .upsert({ id: school.id, name: school.name, has_generations: false }, { onConflict: 'id' });
+    .upsert(
+      {
+        id: school.id,
+        name: school.name,
+        has_generations: school.hasGenerations ?? false,
+      },
+      { onConflict: 'id' }
+    );
   if (error) throw new Error(`school upsert failed: ${error.message}`);
+}
+
+async function ensureGeneration(supabase, fixtures) {
+  const { error } = await supabase.from('generations').upsert(
+    {
+      id: fixtures.generation.id,
+      school_id: fixtures.school.id,
+      name: fixtures.generation.name,
+      grade_range: fixtures.generation.gradeRange,
+      description: 'Generacion local para pruebas E2E. No corresponde a una generacion real.',
+    },
+    { onConflict: 'id' }
+  );
+  if (error) throw new Error(`generation upsert failed: ${error.message}`);
+}
+
+/**
+ * One synthetic school network plus its single school link.
+ *
+ * Called once per network block, and the school comes from the block's own `school`
+ * field rather than from a hardcoded `fixtures.school.id`: the two networks must stay
+ * DISJOINT (primary network -> primary school, secondary network -> secondary school),
+ * and that property is only worth asserting if the seeder could express its violation.
+ *
+ * `redes_de_colegios.nombre` is UNIQUE and `red_escuelas` is UNIQUE (red_id, school_id),
+ * so both upserts are keyed on the fixed fixture `id` and are idempotent across re-runs.
+ */
+async function ensureNetwork(supabase, fixtures, userIds, key) {
+  const network = fixtures[key];
+  const creatorId = userIds[network.createdBy];
+  if (!creatorId) throw new Error(`${key} creator ${network.createdBy} was not seeded`);
+
+  const { error: networkError } = await supabase.from('redes_de_colegios').upsert(
+    {
+      id: network.id,
+      nombre: network.name,
+      descripcion: network.description,
+      created_by: creatorId,
+      last_updated_by: creatorId,
+    },
+    { onConflict: 'id' }
+  );
+  if (networkError) throw new Error(`${key} upsert failed: ${networkError.message}`);
+
+  const { error: schoolLinkError } = await supabase.from('red_escuelas').upsert(
+    {
+      id: network.schoolLinkId,
+      red_id: network.id,
+      school_id: resolveSchoolId(fixtures, network.school),
+      agregado_por: creatorId,
+    },
+    { onConflict: 'id' }
+  );
+  if (schoolLinkError) {
+    throw new Error(`${key} school link upsert failed: ${schoolLinkError.message}`);
+  }
+}
+
+async function ensureRoleCommunity(supabase, fixtures) {
+  const community = fixtures.roleCommunity;
+  const { error } = await supabase.from('growth_communities').upsert(
+    {
+      id: community.id,
+      school_id: fixtures.school.id,
+      name: community.name,
+      generation_id: community.generation === 'primary' ? fixtures.generation.id : null,
+    },
+    { onConflict: 'id' }
+  );
+  if (error) throw new Error(`role growth community upsert failed: ${error.message}`);
 }
 
 /**
@@ -99,7 +179,7 @@ async function ensureSchool(supabase, school) {
  * (utils/profileCompletionCheck) before it honours the post-login destination —
  * an incomplete profile would bounce the fixture to /profile instead.
  */
-async function ensureProfile(supabase, userId, fixture, schoolId) {
+async function ensureProfile(supabase, userId, fixture, schoolId, generationId) {
   const { error } = await supabase.from('profiles').upsert(
     {
       id: userId,
@@ -110,6 +190,7 @@ async function ensureProfile(supabase, userId, fixture, schoolId) {
       must_change_password: false,
       approval_status: 'approved',
       school_id: schoolId,
+      generation_id: generationId,
     },
     { onConflict: 'id' }
   );
@@ -129,13 +210,15 @@ async function ensureProfile(supabase, userId, fixture, schoolId) {
 async function ensureRole(supabase, userId, email, spec) {
   const desired = {
     school_id: spec.schoolId,
+    generation_id: spec.generationId,
     community_id: spec.communityId,
+    red_id: spec.redId,
     is_active: spec.isActive,
   };
 
   const { data: existing, error: selectError } = await supabase
     .from('user_roles')
-    .select('id, school_id, community_id, is_active')
+    .select('id, school_id, generation_id, community_id, red_id, is_active')
     .eq('user_id', userId)
     .eq('role_type', spec.roleType)
     .limit(1);
@@ -145,7 +228,9 @@ async function ensureRole(supabase, userId, email, spec) {
     const row = existing[0];
     const converged =
       row.school_id === desired.school_id &&
+      row.generation_id === desired.generation_id &&
       row.community_id === desired.community_id &&
+      row.red_id === desired.red_id &&
       row.is_active === desired.is_active;
     if (converged) return;
 
@@ -233,19 +318,33 @@ function resolveSchoolId(fixtures, name) {
 }
 
 function roleSpecsFor(fixtures, fixture) {
-  const communityIdFor = (name) => (name === 'zoom' ? fixtures.zoom.community.id : null);
+  const communityIdFor = (name) => {
+    if (name === 'zoom') return fixtures.zoom.community.id;
+    if (name === 'role') return fixtures.roleCommunity.id;
+    return null;
+  };
+  const generationIdFor = (name) => (name === 'primary' ? fixtures.generation.id : null);
+  const networkIdFor = (name) => {
+    if (name === 'primary') return fixtures.network.id;
+    if (name === 'secondary') return fixtures.networkSecondary.id;
+    return null;
+  };
 
   const primary = {
     roleType: fixture.role,
     schoolId: fixture.roleScope === 'global' ? null : resolveSchoolId(fixtures, fixture.school),
+    generationId: generationIdFor(fixture.generation),
     communityId: communityIdFor(fixture.community),
+    redId: networkIdFor(fixture.network),
     isActive: true,
   };
 
   const inactive = (fixture.inactiveRoles ?? []).map((extra) => ({
     roleType: extra.role,
     schoolId: extra.roleScope === 'global' ? null : resolveSchoolId(fixtures, extra.school),
+    generationId: generationIdFor(extra.generation),
     communityId: communityIdFor(extra.community),
+    redId: networkIdFor(extra.network),
     isActive: false,
   }));
 
@@ -262,16 +361,40 @@ async function main() {
     await ensureSchool(supabase, school);
     console.log(`[seed-e2e] school ${school.id} "${school.name}" ready`);
   }
+  await ensureGeneration(supabase, FIXTURES);
 
   // Pass 1 — auth users + profiles. The zoom domain FKs into `profiles`, so it cannot
   // run before this completes.
   const userIds = {};
   for (const [key, fixture] of Object.entries(FIXTURES.users)) {
     const { id, created } = await ensureAuthUser(supabase, fixture);
-    await ensureProfile(supabase, id, fixture, resolveSchoolId(FIXTURES, fixture.school));
+    await ensureProfile(
+      supabase,
+      id,
+      fixture,
+      resolveSchoolId(FIXTURES, fixture.school),
+      fixture.generation === 'primary' ? FIXTURES.generation.id : null
+    );
     userIds[key] = id;
     console.log(`[seed-e2e] ${key} <${fixture.email}> ${created ? 'created' : 'reused'} — id ${id}`);
   }
+
+  // The extra scopes make all nine roles useful for browser testing rather than merely
+  // able to log in: generation leaders and network supervisors receive real local FKs.
+  //
+  // TWO networks. The second one holds only the secondary school and no persona at all,
+  // which is what makes `networkSupervisor` a usable cross-network negative control: it is
+  // scoped to the primary network while a real, populated network it does not supervise
+  // exists alongside. Seeding only one network would make any future denial assertion pass
+  // against a non-existent id — i.e. for the wrong reason.
+  for (const key of ['network', 'networkSecondary']) {
+    await ensureNetwork(supabase, FIXTURES, userIds, key);
+    const linkedSchool = resolveSchoolId(FIXTURES, FIXTURES[key].school);
+    console.log(
+      `[seed-e2e] ${key} ${FIXTURES[key].id} "${FIXTURES[key].name}" ready — school ${linkedSchool}`
+    );
+  }
+  await ensureRoleCommunity(supabase, FIXTURES);
 
   // The Zoom domain graph, between the two passes: it needs the profiles from pass 1 and
   // the role rows in pass 2 need its growth community.
@@ -283,7 +406,8 @@ async function main() {
       await ensureRole(supabase, userIds[key], fixture.email, spec);
       console.log(
         `[seed-e2e] ${key} role ${spec.roleType} — school ${spec.schoolId ?? 'NULL (global)'}, ` +
-          `community ${spec.communityId ?? 'NULL'}, active ${spec.isActive}`
+          `generation ${spec.generationId ?? 'NULL'}, community ${spec.communityId ?? 'NULL'}, ` +
+          `network ${spec.redId ?? 'NULL'}, active ${spec.isActive}`
       );
     }
   }

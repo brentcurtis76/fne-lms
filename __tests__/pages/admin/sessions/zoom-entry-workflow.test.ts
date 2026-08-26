@@ -1,35 +1,115 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { startSessionWorkflow } from '../../../../lib/utils/session-start-workflow';
 
-const pageSource = readFileSync(
-  resolve(process.cwd(), 'pages/admin/sessions/[id].tsx'),
-  'utf8'
-);
+const sessionId = 'session-123';
+const accessToken = 'synthetic-access-token';
+
+function response(ok: boolean, error?: string) {
+  return {
+    ok,
+    json: vi.fn().mockResolvedValue(error ? { error } : {}),
+  };
+}
+
+function dependencies() {
+  return {
+    request: vi.fn().mockResolvedValue(response(true)),
+    navigate: vi.fn().mockResolvedValue(true),
+    refreshSession: vi.fn().mockResolvedValue(undefined),
+    notifySuccess: vi.fn(),
+    notifyError: vi.fn(),
+  };
+}
 
 describe('admin managed-Zoom entry workflow', () => {
-  it('continues to the meeting surface after the start transition commits', () => {
-    expect(pageSource).toContain("if (session.is_zoom_managed === true)");
-    expect(pageSource).toContain('await router.push(buildSessionJoinPath(session.id))');
-    expect(pageSource).toContain('Sesión iniciada. Continuando a Zoom…');
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('offers a prominent recovery action while a managed session is in progress', () => {
-    expect(pageSource).toContain("session.status === 'en_progreso'");
-    expect(pageSource).toContain('data-testid="session-zoom-entry-button"');
-    expect(pageSource).toContain('Ir a Zoom');
+  it('commits the start transition before continuing to the protected meeting surface', async () => {
+    const deps = dependencies();
+
+    await startSessionWorkflow({
+      sessionId,
+      accessToken,
+      isManagedZoom: true,
+      ...deps,
+    });
+
+    expect(deps.request).toHaveBeenCalledWith(`/api/sessions/${sessionId}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status: 'en_progreso' }),
+    });
+    expect(deps.request.mock.invocationCallOrder[0]).toBeLessThan(
+      deps.navigate.mock.invocationCallOrder[0]
+    );
+    expect(deps.navigate).toHaveBeenCalledWith(`/meet/session/${sessionId}`);
+    expect(deps.notifySuccess).toHaveBeenCalledWith(
+      'Sesión iniciada. Continuando a Zoom…'
+    );
+    expect(deps.notifyError).not.toHaveBeenCalled();
+    expect(deps.refreshSession).not.toHaveBeenCalled();
   });
 
-  it('keeps legacy unmanaged starts on the existing detail-page flow', () => {
-    const managedContinuation = pageSource.indexOf(
-      "if (session.is_zoom_managed === true)"
-    );
-    const legacySuccess = pageSource.indexOf(
-      "toast.success('Sesión iniciada exitosamente')",
-      managedContinuation
-    );
+  it('does not navigate when the start API rejects the transition', async () => {
+    const deps = dependencies();
+    deps.request.mockResolvedValue(response(false, 'Zoom todavía no está listo'));
 
-    expect(managedContinuation).toBeGreaterThan(-1);
-    expect(legacySuccess).toBeGreaterThan(managedContinuation);
+    await expect(
+      startSessionWorkflow({
+        sessionId,
+        accessToken,
+        isManagedZoom: true,
+        ...deps,
+      })
+    ).rejects.toThrow('Zoom todavía no está listo');
+
+    expect(deps.navigate).not.toHaveBeenCalled();
+    expect(deps.notifySuccess).not.toHaveBeenCalled();
+    expect(deps.notifyError).not.toHaveBeenCalled();
+    expect(deps.refreshSession).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['returns false', () => Promise.resolve(false)],
+    ['rejects', () => Promise.reject(new Error('router unavailable'))],
+  ])('recovers on the detail page when managed navigation %s', async (_label, navigate) => {
+    const deps = dependencies();
+    deps.navigate.mockImplementation(navigate);
+
+    await startSessionWorkflow({
+      sessionId,
+      accessToken,
+      isManagedZoom: true,
+      ...deps,
+    });
+
+    expect(deps.notifySuccess).toHaveBeenCalledWith(
+      'Sesión iniciada. Continuando a Zoom…'
+    );
+    expect(deps.notifyError).toHaveBeenCalledWith(
+      'La sesión se inició, pero no pudimos abrir Zoom. Usa “Ir a Zoom”.'
+    );
+    expect(deps.refreshSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps unmanaged starts on the existing success-and-refresh flow', async () => {
+    const deps = dependencies();
+
+    await startSessionWorkflow({
+      sessionId,
+      accessToken,
+      isManagedZoom: false,
+      ...deps,
+    });
+
+    expect(deps.navigate).not.toHaveBeenCalled();
+    expect(deps.notifySuccess).toHaveBeenCalledWith('Sesión iniciada exitosamente');
+    expect(deps.notifyError).not.toHaveBeenCalled();
+    expect(deps.refreshSession).toHaveBeenCalledTimes(1);
   });
 });

@@ -29,6 +29,7 @@
  * 100% synthetic: invented school, invented growth community, invented session, no real
  * person, school or meeting. Nothing here is student data.
  */
+import { resolveGenerationId } from './e2e-fixture-scopes.mjs';
 
 /**
  * `consultor_sessions.scheduled_duration_minutes` is GENERATED ALWAYS from
@@ -230,7 +231,7 @@ export async function seedZoomFixtures({ supabase, fixtures, userIds }) {
   const { community, session, linkedSession, managedSession } = fixtures.zoom;
   const schoolId = fixtures.school.id;
 
-  const generationId = community.generation === 'primary' ? fixtures.generation.id : null;
+  const generationId = resolveGenerationId(fixtures, community.generation, 'zoom.community');
   await ensureGrowthCommunity(supabase, community, schoolId, generationId);
   console.log(`[seed-e2e-zoom] growth community ${community.id} "${community.name}" ready`);
 

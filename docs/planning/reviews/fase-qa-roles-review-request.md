@@ -2,7 +2,8 @@
 
 **Branch:** `codex/qa-roles`
 **Base:** `c56dba4adaa23863756ec9a8580361662bc516f2` (`main` at branch creation — merge of PR #54)
-**Commits:** 1 (implementation + this file)
+**Commits:** 2 — the implementation, then a review-correction follow-up (see
+"Follow-up commit" below).
 **PR:** none — not opened. Nothing pushed, merged or deployed.
 
 ## Objective and scope
@@ -95,8 +96,16 @@ touched:
    `community_id` and `red_id` must all match the declared scope. `red_id` is
    asserted as `primary` **or null** — the seeder can also map
    `network: 'secondary'`, and the spec deliberately refuses to, so a roster edit
-   that scoped someone to `networkSecondary` fails here. Every role row of every
-   persona is additionally asserted **not** to carry `networkSecondary`.
+   that scoped someone to `networkSecondary` fails here. Every **active** role row
+   of every persona is additionally asserted **not** to carry `networkSecondary`.
+
+   *Active* is exact, not a hedge. `/api/auth/my-roles` filters on `is_active`
+   ([my-roles.ts:64](pages/api/auth/my-roles.ts:64)) — deliberately, because that
+   is the access the application actually grants. A **deactivated** role row
+   carrying `networkSecondary` would be invisible to this loop. That is the right
+   boundary for an access assertion and the wrong one for a fixture-integrity
+   assertion; nothing in this spec covers the latter, and no later batch should
+   read it as if it did.
 2. **As admin.** `GET /api/admin/networks`: both networks exist, primary holds
    exactly school 990001, secondary holds exactly 990002, and the intersection of
    the two school sets is empty.
@@ -120,6 +129,112 @@ supported scope fields** — `school`, `roleScope`, `generation`, `community`,
 `network`, `inactiveRoles` — each with its accepted values, which columns it
 writes, and why it exists. It also carries the network-topology table and the
 limitation below.
+
+## Follow-up commit — review corrections and fail-closed hardening
+
+A second commit answers a bounded correction list. It changes no fixture data:
+the roster, every id, every role count and the network topology are byte-identical
+to the first commit (asserted mechanically while editing —
+`json.loads(before) == json.loads(after)` with `_comment` excluded).
+
+### Documentation corrections
+
+1. **"every role row" → "every active role row"** in
+   `tests/e2e/ci-fixture.spec.ts` and in this file, with the reason stated rather
+   than the word swapped: `/api/auth/my-roles` returns `is_active` rows only, so a
+   deactivated row carrying `networkSecondary` is outside what that loop can see.
+2. **Fixture scope documentation corrected for placement.** The previous text said
+   `school`/`generation` "set BOTH profiles and user_roles" and then that an
+   `inactiveRoles` entry "takes the same five scope fields as a user" — which
+   together imply an inactive role row writes to `profiles`. It does not. The
+   `_comment` block now leads with a placement table:
+   - **Top level:** `school` / `generation` set the profile scope *and* the primary
+     role row's scope; `roleScope` / `community` / `network` are role-row concepts
+     and never reach `profiles` (which has no such columns).
+   - **Inside `inactiveRoles`:** every field affects *that inactive role row and
+     nothing else*. The profile is written once per persona, in pass 1, from the
+     top-level fields alone.
+3. **Stale `roleSpecsFor` doc comment.** It listed three of the five scope fields
+   (`school` / `roleScope` / `community`) and omitted `generation` and `network`.
+   It also sat above `ensurePasantiasLead` rather than above the function it
+   documents — pre-existing, from the base commit (`git show c56dba4a` confirms),
+   not introduced here. Corrected and moved onto `roleSpecsFor`, since a doc
+   comment attached to the wrong function is worse than a stale field list.
+
+### Fail-closed scope validation
+
+Every scope mapping in the seeder had the shape `name === 'primary' ? id : null`.
+That is **fail-open**: `'primry'`, `'seconday'`, `'Global'` did not fail — they
+fell through to the primary fixture or to NULL, seeded a scope nobody asked for,
+and every spec that trusted that scope then passed for the wrong reason. A
+`network: 'primry'` typo would have moved the supervisor out of the cross-network
+control with nothing going red.
+
+`scripts/ci/e2e-fixture-scopes.mjs` (new) holds the closed vocabulary and the
+fail-closed resolvers:
+
+| Field | Accepted | Absent means |
+| --- | --- | --- |
+| `school` | `primary`, `secondary` | the **primary** school (documented default) |
+| `roleScope` | `global` | the role row takes `school` |
+| `generation` | `primary` | NULL |
+| `community` | `zoom`, `role` | NULL |
+| `network` | `primary`, `secondary` | NULL |
+
+Anything else throws, naming the persona, the field and the accepted values. The
+empty string is rejected: `''` is a value somebody wrote, and treating it as
+"absent" is the same fail-open behaviour.
+
+Applied at two levels, deliberately redundant:
+
+- **`assertFixtureScopes(FIXTURES)`** walks the whole file up front and throws
+  **one** error listing **every** offender — rather than one re-run per typo. It
+  covers each persona and each `inactiveRoles` entry (as required), plus the org
+  blocks that carry the same fields: `network.school`, `networkSecondary.school`,
+  `roleCommunity.generation`, `zoom.community.generation`. Those were included
+  because leaving them out would fail closed on a persona's `generation` and stay
+  fail-open on a growth community's — flagged here as a deliberate extension
+  beyond the letter of the correction list.
+- **The resolvers themselves** still throw when called directly, because the
+  up-front pass only walks the shapes it knows about.
+
+### Refusal ordering — preserved and pinned
+
+`main()` is unchanged in order and now says why:
+
+```
+resolveConfig()           <- non-local host refusal, FIRST, before any client
+assertFixtureScopes(...)  <- fail closed on the fixture file, still no client
+createClient(...)         <- only now
+```
+
+A non-local Supabase URL is still rejected before `createClient` and before any
+connection attempt. Nothing was inserted above `resolveConfig()`; the comment in
+`main()` says nothing may be. Re-verified on the final head — see the refusal
+table below.
+
+### Focused coverage
+
+`__tests__/scripts/ci/e2e-fixture-scopes.test.ts` (new) — **26 tests**, no
+database, no client, no network (the module under test is pure, which is why it is
+a module and not three ternaries inside the seeder):
+
+- the shipped roster validates unchanged, and the vocabulary is pinned field by field;
+- ten realistic typos on a persona — one or two per field, including the case-only
+  mistakes `Global`, `Primary`, `Secondary` — each asserted to throw **and** to
+  name the persona, the field and the supported values (`toThrow` alone would pass
+  on any error, so every case pins the message);
+- typos inside `inactiveRoles`, including one per scope field, asserted to name the
+  entry's index;
+- typos on the org blocks;
+- multiple offenders aggregated into one error;
+- each resolver checked directly for its known values and its throw;
+- `''` rejected, explicit `null` accepted.
+
+**Verified to fail on the old behaviour.** Reverting `resolveNetworkId` to its
+fail-open form and stubbing `collectScopeProblems` to return `[]` turns **19 of the
+26 red**, with messages of the form `school="primry" was accepted: expected
+undefined to be an instance of Error`. Restored; 26/26 green.
 
 ## LIMITATION — read this before reusing the control
 
@@ -185,6 +300,11 @@ out of scope.
   into `DENIED_PERSONAS`. The partition assertion still holds — every persona is in
   exactly one tier.
 
+**Medium — new, and the seeder now depends on it**
+- `scripts/ci/e2e-fixture-scopes.mjs` (new): the closed scope vocabulary, the
+  whole-file validator, and the fail-closed resolvers. Pure and side-effect free.
+- `__tests__/scripts/ci/e2e-fixture-scopes.test.ts` (new): 26 focused tests.
+
 **Lower**
 - `scripts/ci/e2e-fixtures.json` (+130): data and documentation.
 - `scripts/ci/seed-e2e-zoom.mjs` (+8/-…): the Zoom growth community now takes the
@@ -228,7 +348,17 @@ out of scope.
 4. **`red_id` asserted as "primary or null".** The seeder supports
    `network: 'secondary'`; the spec refuses it. That asymmetry is intentional and
    documented, but it means the spec encodes a policy the seeder does not enforce.
-5. **`DENIED_PERSONAS` classification.** Six of the seven new personas are denied
+5. **The org-block extension.** `assertFixtureScopes` validates `network.school`,
+   `roleCommunity.generation` and `zoom.community.generation` in addition to the
+   personas and `inactiveRoles` the correction list named. Judge whether that
+   consistency is worth the extra surface, or whether it should have stopped at
+   the letter of the list.
+6. **`resolveSchoolId`'s asymmetric default.** It is the one resolver whose absent
+   case is not NULL — absent means the primary school, preserving the documented
+   pre-existing default. Every other field's absence means "no scope". That
+   asymmetry is real, is documented in both the module and the fixture file, and is
+   the likeliest thing to be read wrong later.
+7. **`DENIED_PERSONAS` classification.** Six of the seven new personas are denied
    the Zoom session. `communityManager` is denied while holding a *real* community
    scope (a different community) — check that the tier is right and that the
    partition assertion still covers the whole roster.
@@ -261,7 +391,8 @@ message that accompanies this file.
 | --- | --- | --- |
 | Typecheck | `npm run type-check` | pass, no output |
 | Lint | `npm run lint` | pass, zero warnings |
-| Unit | `npm test` | **365 files, 8321 passed, 11 skipped (8332)** |
+| Unit | `npm test` | **366 files, 8347 passed, 11 skipped (8358)** |
+| Invalid-scope (focused) | `npx vitest run __tests__/scripts/ci/e2e-fixture-scopes.test.ts` | **26 passed** |
 | Build | `npm run build` | pass — compiled, 149/149 static pages |
 | Migration guard | `npm run guard:migrations` | pass — 37 migrations scanned |
 | Browser guard | `npm run guard:browser` | pass — 1149 files, 694 modules |
@@ -285,7 +416,8 @@ From a `supabase db reset` (all migrations from scratch), the seeder was run
 - Database after both runs: 13 `auth.users`, 13 `profiles`, 14 `user_roles`
   (13 active + 1 inactive), 2 schools, 1 generation, 2 growth communities,
   **2 networks, 2 `red_escuelas` links**. No duplication.
-- Topology confirmed in SQL: `Red Sintetica E2E → 990001`,
+- Topology confirmed in SQL (direct, so this one is *not* limited to active rows):
+  `Red Sintetica E2E → 990001`,
   `Red Sintetica E2E Norte → 990002`; the only role row carrying a network is
   `e2e-supervisor-red@example.com / supervisor_de_red / active` on the primary
   network; the secondary network has none.
@@ -304,6 +436,28 @@ From a `supabase db reset` (all migrations from scratch), the seeder was run
 
 Fake hosts and a fake key throughout — the guard throws before any client is
 constructed, so no connection is opened to anything, and no real host was named.
+
+**Ordering, verified explicitly (correction 7).** With a *deliberately typo'd*
+fixture file **and** a non-local host, the run fails with the **host** message, not
+the scope message:
+
+```
+[seed-e2e] FAILED: refusing to seed e2e fixtures against non-local Supabase
+host "not-a-real-project.example.com".
+```
+
+The host refusal therefore still precedes both `assertFixtureScopes` and
+`createClient`. With a **local** host and the same typo'd file, the scope validator
+reports both offenders at once and still writes nothing:
+
+```
+[seed-e2e] FAILED: [e2e-fixtures] 2 unsupported scope value(s) in scripts/ci/e2e-fixtures.json:
+  - users.networkSupervisor: network="primry" is not a supported scope value — supported: absent, "primary", "secondary"
+  - users.inactiveConsultor.inactiveRoles[0]: school="seconday" is not a supported scope value — supported: absent, "primary", "secondary"
+```
+
+Both probes restored the fixture file from a byte-for-byte backup afterwards; the
+roster data is asserted identical to the first commit.
 
 ### Environment
 

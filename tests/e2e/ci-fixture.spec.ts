@@ -28,7 +28,10 @@ import {
  * being the whole assertion. Each persona's ACTIVE ROLE AND ORGANIZATION SCOPE is now read
  * back through `/api/auth/my-roles`, so a persona whose role row was seeded against the
  * wrong school, generation, community or network fails here rather than inside whichever
- * later spec happened to depend on that scope. The last block adds the cross-network
+ * later spec happened to depend on that scope. That route returns ACTIVE role rows only
+ * (`is_active`, my-roles.ts:64), so every claim below is a claim about active rows —
+ * `inactiveConsultor`'s deactivated consultor grant is invisible to it by design, which is
+ * exactly what makes that persona a working negative control elsewhere. The last block adds the cross-network
  * separation the later supervisor_de_red batches will use as their negative control — see
  * its own header for what that does and does not prove.
  *
@@ -82,10 +85,18 @@ test.describe('CI fixtures — login', () => {
       // quietly dissolving the cross-network negative control.
       expect(role.red_id).toBe(user.network === 'primary' ? E2E_NETWORK.id : null);
 
-      // Asserted over EVERY role row this persona holds, not just the matched one, and for
-      // every persona rather than only the supervisor: the property later batches lean on
-      // is "no seeded account holds any role in networkSecondary". A check written against
-      // `networkSupervisor` alone would not notice a second persona acquiring one.
+      // Asserted over every ACTIVE role row this persona holds, not just the matched one,
+      // and for every persona rather than only the supervisor: the property later batches
+      // lean on is "no seeded account holds an ACTIVE role in networkSecondary". A check
+      // written against `networkSupervisor` alone would not notice a second persona
+      // acquiring one.
+      //
+      // ACTIVE is the honest word, and the limit of this loop. `/api/auth/my-roles` filters
+      // on `is_active` (pages/api/auth/my-roles.ts:64) — deliberately, because that is the
+      // access the application actually grants. A deactivated role row carrying
+      // networkSecondary would therefore be INVISIBLE here. That is the right scope for an
+      // access assertion and the wrong one for a fixture-integrity assertion; nothing in
+      // this spec covers the latter, and no later batch should read it as if it did.
       for (const row of body.roles as { red_id: string | null }[]) {
         expect(row.red_id).not.toBe(E2E_NETWORK_SECONDARY.id);
       }
@@ -185,7 +196,9 @@ test.describe('CI fixtures — cross-network separation', () => {
 
       // EXACTLY one active role, which the per-persona login block above does not assert:
       // a second grant appearing on this account would widen the control's blast radius
-      // without changing the red_id the login block checks.
+      // without changing the red_id the login block checks. Active only — `my-roles`
+      // returns `is_active` rows and nothing else — so this bounds the supervisor's live
+      // access, not the total number of role rows the account owns.
       expect(body.roles.map((role) => role.role_type)).toEqual(['supervisor_de_red']);
       expect(body.roles[0].red_id).toBe(E2E_NETWORK.id);
       expect(body.roles[0].red_id).not.toBe(E2E_NETWORK_SECONDARY.id);

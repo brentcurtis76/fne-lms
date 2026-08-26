@@ -38,6 +38,14 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import { seedZoomFixtures } from './seed-e2e-zoom.mjs';
+import {
+  assertFixtureScopes,
+  resolveCommunityId,
+  resolveGenerationId,
+  resolveNetworkId,
+  resolveRoleSchoolId,
+  resolveSchoolId,
+} from './e2e-fixture-scopes.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = JSON.parse(readFileSync(join(HERE, 'e2e-fixtures.json'), 'utf8'));
@@ -150,7 +158,7 @@ async function ensureNetwork(supabase, fixtures, userIds, key) {
     {
       id: network.schoolLinkId,
       red_id: network.id,
-      school_id: resolveSchoolId(fixtures, network.school),
+      school_id: resolveSchoolId(fixtures, network.school, key),
       agregado_por: creatorId,
     },
     { onConflict: 'id' }
@@ -167,7 +175,7 @@ async function ensureRoleCommunity(supabase, fixtures) {
       id: community.id,
       school_id: fixtures.school.id,
       name: community.name,
-      generation_id: community.generation === 'primary' ? fixtures.generation.id : null,
+      generation_id: resolveGenerationId(fixtures, community.generation, 'roleCommunity'),
     },
     { onConflict: 'id' }
   );
@@ -246,17 +254,6 @@ async function ensureRole(supabase, userId, email, spec) {
 }
 
 /**
- * A fixture's optional `school` / `roleScope` / `community` / `inactiveRoles` fields,
- * turned into the concrete role rows to write. Defaults reproduce the pre-Z1c behaviour
- * exactly: one active row at the primary school with no community.
- *
- * `roleScope: 'global'` means school_id NULL, which is what
- * lib/utils/session-policy.ts:31 reads as GLOBAL consultor access. It is a real
- * app-produced shape, not an invented one — pages/api/admin/assign-role.ts:440-457 and
- * pages/api/admin/create-user.ts:146-159 both preserve the caller's school_id verbatim
- * (or its absence) precisely so that scoped and global consultors stay distinguishable.
- */
-/**
  * A8 — one Pasantías interest lead, for the admin triage surface.
  *
  * Look-before-insert on the table's own unique key `(email_normalized, cohort)`,
@@ -313,46 +310,57 @@ async function ensurePasantiasLead(supabase, lead) {
   console.log(`[seed-e2e] pasantias lead created — id ${inserted?.[0]?.id ?? 'unknown'}`);
 }
 
-function resolveSchoolId(fixtures, name) {
-  return name === 'secondary' ? fixtures.schoolSecondary.id : fixtures.school.id;
-}
+/**
+ * A fixture's five optional scope fields — `school`, `roleScope`, `generation`,
+ * `community`, `network` — plus its `inactiveRoles` entries, turned into the concrete
+ * role rows to write. Defaults reproduce the pre-Z1c behaviour exactly: one active row at
+ * the primary school with no generation, no community and no network.
+ *
+ * `roleScope: 'global'` means school_id NULL, which is what
+ * lib/utils/session-policy.ts:31 reads as GLOBAL consultor access. It is a real
+ * app-produced shape, not an invented one — pages/api/admin/assign-role.ts:440-457 and
+ * pages/api/admin/create-user.ts:146-159 both preserve the caller's school_id verbatim
+ * (or its absence) precisely so that scoped and global consultors stay distinguishable.
+ *
+ * Every value goes through the FAIL-CLOSED resolvers in `./e2e-fixture-scopes.mjs`: an
+ * unsupported value throws instead of collapsing to the primary fixture or to NULL. This
+ * function produces ROLE ROWS ONLY — an `inactiveRoles` entry's scope fields reach
+ * `user_roles` and never `profiles`, which is written once per persona from the top-level
+ * fields in `main()`.
+ */
+function roleSpecsFor(fixtures, fixture, key) {
+  const specFor = (spec, label, isActive) => ({
+    roleType: spec.role,
+    schoolId: resolveRoleSchoolId(fixtures, spec, label),
+    generationId: resolveGenerationId(fixtures, spec.generation, label),
+    communityId: resolveCommunityId(fixtures, spec.community, label),
+    redId: resolveNetworkId(fixtures, spec.network, label),
+    isActive,
+  });
 
-function roleSpecsFor(fixtures, fixture) {
-  const communityIdFor = (name) => {
-    if (name === 'zoom') return fixtures.zoom.community.id;
-    if (name === 'role') return fixtures.roleCommunity.id;
-    return null;
-  };
-  const generationIdFor = (name) => (name === 'primary' ? fixtures.generation.id : null);
-  const networkIdFor = (name) => {
-    if (name === 'primary') return fixtures.network.id;
-    if (name === 'secondary') return fixtures.networkSecondary.id;
-    return null;
-  };
+  const primary = specFor(fixture, `users.${key}`, true);
 
-  const primary = {
-    roleType: fixture.role,
-    schoolId: fixture.roleScope === 'global' ? null : resolveSchoolId(fixtures, fixture.school),
-    generationId: generationIdFor(fixture.generation),
-    communityId: communityIdFor(fixture.community),
-    redId: networkIdFor(fixture.network),
-    isActive: true,
-  };
-
-  const inactive = (fixture.inactiveRoles ?? []).map((extra) => ({
-    roleType: extra.role,
-    schoolId: extra.roleScope === 'global' ? null : resolveSchoolId(fixtures, extra.school),
-    generationId: generationIdFor(extra.generation),
-    communityId: communityIdFor(extra.community),
-    redId: networkIdFor(extra.network),
-    isActive: false,
-  }));
+  const inactive = (fixture.inactiveRoles ?? []).map((extra, index) =>
+    specFor(extra, `users.${key}.inactiveRoles[${index}]`, false)
+  );
 
   return [primary, ...inactive];
 }
 
 async function main() {
+  // ORDER IS LOAD-BEARING, and this is the one place it is enforced.
+  //
+  // resolveConfig() FIRST: the non-local host refusal has to be the first thing that can
+  // fail, and it has to fail before `createClient` — so a misconfigured run never opens a
+  // connection to anything. Nothing may be inserted above it.
   const { url, serviceRoleKey } = resolveConfig();
+
+  // Then fail closed on the fixture file, still before any client exists. A typo'd scope
+  // value is reported here, once, with every offender named — rather than being mapped
+  // silently onto the primary fixture and discovered as a mystery failure in some later
+  // authorization spec.
+  assertFixtureScopes(FIXTURES);
+
   const supabase = createClient(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -368,12 +376,15 @@ async function main() {
   const userIds = {};
   for (const [key, fixture] of Object.entries(FIXTURES.users)) {
     const { id, created } = await ensureAuthUser(supabase, fixture);
+    // The PROFILE takes the persona's top-level `school` / `generation` only. `roleScope`
+    // is a role-row concept (a profile is never global) and an `inactiveRoles` entry never
+    // reaches this call at all.
     await ensureProfile(
       supabase,
       id,
       fixture,
-      resolveSchoolId(FIXTURES, fixture.school),
-      fixture.generation === 'primary' ? FIXTURES.generation.id : null
+      resolveSchoolId(FIXTURES, fixture.school, `users.${key}`),
+      resolveGenerationId(FIXTURES, fixture.generation, `users.${key}`)
     );
     userIds[key] = id;
     console.log(`[seed-e2e] ${key} <${fixture.email}> ${created ? 'created' : 'reused'} — id ${id}`);
@@ -389,7 +400,7 @@ async function main() {
   // against a non-existent id — i.e. for the wrong reason.
   for (const key of ['network', 'networkSecondary']) {
     await ensureNetwork(supabase, FIXTURES, userIds, key);
-    const linkedSchool = resolveSchoolId(FIXTURES, FIXTURES[key].school);
+    const linkedSchool = resolveSchoolId(FIXTURES, FIXTURES[key].school, key);
     console.log(
       `[seed-e2e] ${key} ${FIXTURES[key].id} "${FIXTURES[key].name}" ready — school ${linkedSchool}`
     );
@@ -402,7 +413,7 @@ async function main() {
 
   // Pass 2 — role rows.
   for (const [key, fixture] of Object.entries(FIXTURES.users)) {
-    for (const spec of roleSpecsFor(FIXTURES, fixture)) {
+    for (const spec of roleSpecsFor(FIXTURES, fixture, key)) {
       await ensureRole(supabase, userIds[key], fixture.email, spec);
       console.log(
         `[seed-e2e] ${key} role ${spec.roleType} — school ${spec.schoolId ?? 'NULL (global)'}, ` +

@@ -4,9 +4,9 @@
 
 - Branch: `fix/zoom-enter`
 - Base SHA: `efe0a4a087a6f0f78aeeaeb1ff9df6edfe04c640`
-- Planned commit count over base: 2 (implementation/tests, then state/review evidence)
+- Planned commit count over base: 3 (implementation/tests, state/review evidence, then PR-status synchronization)
 - Implementation commit: `bc9e9d63`
-- Status: ready for independent review; not pushed, merged, or deployed
+- Status: PR #53 open and ready for independent review; not merged or deployed
 
 ## Objective
 

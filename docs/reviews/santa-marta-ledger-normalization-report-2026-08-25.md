@@ -1,0 +1,559 @@
+# Informe de normalización del ledger — Santa Marta
+
+**Fecha:** 25 de agosto de 2026 · **ronda 2** (incorpora la revisión independiente `REQUEST NORMALIZATION CHANGES`)
+**Rama:** `fix/auth-sec2` · **HEAD:** `4b87243cfe846b477fbaa2c6146d4d91048e858b` · **`main`:** `717c2c095021eb9ff71f1873d87b2e926c6f4d9b`
+**Alcance:** sólo documentación bajo `docs/reviews/` más un único script validador local. Sin cambios de producto, sin acceso a producción, sin migraciones, sin despliegue, sin cambios de CI, sin dependencias nuevas, sin commits.
+
+Las tres verificaciones de línea base se comprobaron por separado y **las tres coinciden**. El SHA-256 del ledger legacy coincidía con el esperado antes de tocarlo.
+
+---
+
+## 1. Archivos exactos
+
+### Creados
+
+| Ruta | Qué es |
+|---|---|
+| `docs/reviews/santa-marta-claims.csv` | Registro congelado — 160 reclamaciones |
+| `docs/reviews/santa-marta-work-items.csv` | Registro mutable — 104 work items |
+| `docs/reviews/santa-marta-work-claim-map.csv` | La unión — 149 pares `work_id,claim_id` |
+| `docs/reviews/archive/santa-marta-promise-ledger-legacy-161.md` | Nota de supersesión compañera del CSV archivado |
+| `docs/reviews/santa-marta-ledger-normalization-report-2026-08-25.md` | Este informe |
+| `scripts/check-ledger.mjs` | El validador (único script; local; **no** cableado a CI) |
+
+### Movidos
+
+| Desde | Hacia |
+|---|---|
+| `docs/reviews/santa-marta-promise-ledger.csv` | `docs/reviews/archive/santa-marta-promise-ledger-legacy-161.csv` |
+
+Movido con `mv`, sin editar. **Contenido idéntico byte por byte** (verificación en §3).
+
+### Modificados
+
+| Ruta | Cambio |
+|---|---|
+| `docs/reviews/santa-marta-release-protocol-2026-08-25.md` | Reescrito a revisión 4 y corregido a **revisión 5** en ronda 2: bloque `LEDGER-SUMMARY`, taxonomía de migraciones sin `DROP`, B5-pre reescrito, B8b en `BLOCKED`, B1a como propuesta documentada, §7-bis con la descomposición de B9b, y todas las cifras corregidas y ahora verificadas por el validador |
+| `docs/reviews/santa-marta-deliverability-audit-2026-08-24.md` | Banner histórico añadido tras el título |
+| `docs/reviews/santa-marta-promise-audit-2026-08-24.md` | Banner histórico añadido tras el título |
+| `docs/reviews/santa-marta-audit-comparison-2026-08-25.md` | Banner histórico añadido tras el título |
+| `docs/reviews/santa-marta-combined-plan-2026-08-25.md` | Banner histórico añadido tras el título |
+| `.gitignore` | **Ronda 2, autorizado explícitamente por Brent.** Una negación estrecha, `!docs/reviews/**/*.csv`, insertada bajo la línea 136 (`*.csv`) con tres líneas de comentario. **El bloque de cuatro líneas del dueño del repositorio no se tocó**; sigue verbatim al final del archivo |
+
+### No tocados, a propósito
+
+- `lib/services/school-hours-report.ts` — edición parcial preexistente, ajena a este trabajo. No revertida, no «arreglada».
+- El bloque `.env.local.prod-backup-*` / `.env*.backup*` de `.gitignore` — conservado **exactamente** como estaba.
+
+Todo queda como cambios en el árbol de trabajo. **Cero commits.**
+
+---
+
+## 2. Conteos, antes y después
+
+**Reclamaciones y enlaces se etiquetan por separado en todas partes. Un enlace no es una reclamación.**
+
+| Medida | Legacy (161) | Normalizado | Nota |
+|---|---:|---:|---|
+| **Reclamaciones** (filas) | 161 | **160** | `09a` + `09b` → `09` |
+| **Reclamaciones** accionables | 125 | **124** | misma fusión |
+| **Reclamaciones** P0 únicas | 37 | **36** | misma fusión |
+| **Reclamaciones** no accionables | 36 | 36 | sin cambio |
+| Work items | — | **104** | no existían |
+| Lotes de fusión distintos | — | **26** | lista canónica completa |
+| **Enlaces** reclamación↔trabajo | — | **149** | |
+| **Enlaces** P0 reclamación↔trabajo | — | **56** | ≠ 36; nunca se intercambian |
+| **Reclamaciones** P0 únicas alcanzadas por esos enlaces | — | **36** | las 36 tienen al menos un enlace |
+
+### Work items por modo y por estado
+
+| Modo | | Estado | |
+|---|---:|---|---:|
+| `MERGE` | 88 | `SCHEDULED` | 31 |
+| `DATA` | 10 | `BACKLOG` | 57 |
+| `PRODUCTION_CHECK` | 5 | `BLOCKED` | 16 |
+| `DOCUMENTATION` | 1 | `ACTIVE` / `DONE` | 0 |
+
+### Los tres números de propiedad, más la línea de excepción
+
+| | |
+|---|---:|
+| **Work items** sin dueño *(excluida la excepción `PRODUCTION_CHECK`)* | **67** |
+| **Reclamaciones** únicas enlazadas a esos work items | **80** |
+| **Reclamaciones P0** únicas enlazadas a esos work items | **4** |
+| *Excepción:* `PRODUCTION_CHECK` con `dueno` vacío **a propósito** | 5 |
+
+Las 80 son las 82 filas accionables sin anotación de dueño del ledger legacy menos las dos que la ronda 2 movió a work items con dueño (`SWEEP-PRIOR-AUDIT-05` y `SWEEP-ONBOARDING-DATA-06`); las 4 P0 son las cuatro nombradas: `SWEEP-MI-APRENDIZAJE-01`, `A15-2`, `A15-7`, `SWEEP-ONBOARDING-DATA-01`.
+
+Que 67 work items produzcan 80 reclamaciones y no 80 work items es exactamente lo que se advirtió: **varias reclamaciones mapean a una sola remediación**. No se consolidó nada para achicar el déficit, y no se inventó ni un dueño para que el validador pasara.
+
+---
+
+## 3. Conservación
+
+### Bytes
+
+```
+esperado: 009f14abccec97d7ada4b559c9aaeb24ac5b7aab54563a5c1151e511dc2c7fe9
+obtenido: 009f14abccec97d7ada4b559c9aaeb24ac5b7aab54563a5c1151e511dc2c7fe9
+```
+
+**Coinciden.** El validador lee la línea base desde `docs/reviews/archive/santa-marta-promise-ledger-legacy-161.csv` y comprueba ese hash en cada corrida. La nota de supersesión vive en un `.md` aparte precisamente para no tocar el CSV: una fila de comentario habría corrompido el artefacto forense, alterado el conteo de filas y roto el parseo.
+
+### Identidades
+
+161 ids legacy. **Una sola transformación, declarada explícitamente en el script** (`PERMITTED_ID_TRANSFORM`):
+
+```
+SWEEP-PRIOR-AUDIT-09a  +  SWEEP-PRIOR-AUDIT-09b   →   SWEEP-PRIOR-AUDIT-09
+```
+
+que mapea a **exactamente dos work items** (`W-B2b-01`, `W-B10a-01`). El validador comprueba las cuatro cosas por separado: ninguna otra id desaparece, ninguna cambia de identidad, ninguna se inventa, y la canónica mapea a dos.
+
+**Ninguna otra id se movió.** Las otras 159 reclamaciones conservan su id y su `claim_text` **verbatim** — comprobado carácter a carácter contra el archivo archivado, junto con `bloque`, `estado`, `severidad`, `verificacion`, `evidencia_prod` y `autoridad_aceptacion`: **cero diferencias**.
+
+### La única síntesis de texto permitida
+
+| | Texto |
+|---|---|
+| **`09a` original** | RLS grupo A — 14 tablas legacy SIN referencias en código (cierre mecánico REVOKE+ENABLE) |
+| **`09b` original** | RLS grupo B — 8 tablas legacy REFERENCIADAS (requieren diseño de política) |
+| **Canónico** | RLS legacy alcanzable con la clave anon: veintidós tablas de public sin row level security — catorce sin referencias en código (cierre mecánico REVOKE + ENABLE) y ocho referenciadas que requieren diseño de política. |
+
+El texto canónico enuncia **el hallazgo original completo** — las 22 tablas —, no una fase en aislamiento. La redacción por fase vive donde corresponde, en los work items:
+
+| Work item | Lote | Rama | Fase |
+|---|---|---|---|
+| `W-B2b-01` | B2b | `fix/rls-anon` | Grupo A: cierre mecánico `REVOKE` + `ENABLE` sobre 14 tablas, más `learning_paths` y `learning_path_courses` |
+| `W-B10a-01` | B10a | `fix/rls-grupo-b` | Grupo B: diseño de política para las 8 tablas referenciadas |
+
+Ningún otro `claim_text` fue sintetizado. `firmado_por` y `fecha_firma` están vacías en las 160.
+
+---
+
+## 4. Derivación de los work items
+
+> **Este ledger de trabajo es una normalización *propuesta*, no un resultado probado mecánicamente.** Los 26 lotes de fusión están determinados por la lista canónica y por el `lote` del ledger legacy. La descomposición del carril de datos, los **cinco** splits y las **siete** consolidaciones son **juicios** que un revisor debe confirmar.
+
+### Regla aplicada
+
+Un work item es **una raíz / un cambio de código**. Reclamaciones del mismo lote se consolidan **sólo** cuando su evidencia nombra la misma raíz; se separan cuando nombran raíces distintas, aunque viajen en la misma rama. Compartir `lote` o `rama` es programación compartida, no remediación compartida.
+
+### Consolidaciones (7) — varias reclamaciones, una remediación
+
+| Work item | Reclamaciones | Justificación |
+|---|---|---|
+| `W-B1b-01` | `A14-1` + `SWEEP-PRIOR-AUDIT-01` | Misma raíz exacta: `contratos.is_annexo` → `is_anexo`. Una corrección de una línea, ya commiteada en `fix/horas-rep` (PR #50) |
+| `W-B2a-01` | `A15-1` + `SWEEP-PRIOR-AUDIT-04` | El plan combinado §0.3 nombra una sola remediación: `name` → `nombre` en `supervisors.ts` con comprobación de error |
+| `W-B2b-01` | `SWEEP-MI-APRENDIZAJE-09` + `SWEEP-PRIOR-AUDIT-09` | El plan combinado §0.4 pliega **explícitamente** `learning_paths` y `learning_path_courses` dentro del grupo A |
+| `W-B5-01` | `A09-6` + `A12-4` | Misma raíz: la sobrescritura in-place de `snapshot_data` y `version` en diez sitios de llamada |
+| `W-B6d-01` | `SWEEP-MI-APRENDIZAJE-05` + `SWEEP-ONBOARDING-DATA-06` | **Ronda 2.** Ambas señalan las mismas tres relaciones de resumen creadas por `seed-sm/60-lms.ts:641-712`. Estaban separadas sólo por conservar la programación legacy |
+| `W-D-04` | `A07-1` + `A07-2` + `A12-5` + `SWEEP-ONBOARDING-DATA-01` + `SWEEP-ONBOARDING-DATA-05` | **Ronda 2.** `ONBOARDING-DATA-05` (catálogo `ab_grades`) es el mismo carril de contexto transversal, y como item suelto llevaba clase 0 sin compuerta ni plan de restauración — incorrecto para una escritura de datos |
+| `W-B6c-03` | `SWEEP-PRIOR-AUDIT-05` | **Ronda 2.** Deja de tener item de backlog propio: el plan §2.3 lo pliega en `fix/net-tabs` y ahora se sigue el plan |
+
+### Splits (5) — un lote, varias remediaciones
+
+| Lote | Work items | Justificación |
+|---|---|---|
+| **B3a** | `W-B3a-01` (políticas RLS, clase 2) · `W-B3a-02` (propagación de errores, clase 0) · `W-B3a-03` (campos obligatorios, clase 0) | El plan combinado los enumera como **tres filas numeradas distintas** (§1.1, §1.2, §1.3) con tres raíces distintas: falta la política / se descarta el error / no se valida |
+| **B3b** | `W-B3b-01` (verdad del envío) · `W-B3b-02` (contrato de `EMAIL_FROM_ADDRESS`) | Dos raíces: una descarta el resultado del envío, la otra hace inválido el remitente para uno de los dos consumidores |
+| **B1c** | `W-B1c-01` (compuerta de envío en `submit.ts`) · `W-B1c-02` (puntuación de la práctica cerrada) | **Ronda 2.** Compartir rama no es compartir remediación (regla 1). `SWEEP-PRIOR-AUDIT-02` dice que la rama «contiene ambas correcciones»: son dos |
+| **B6c** | `W-B6c-01` (consulta de rol) · `W-B6c-02` (cliente anon en el servidor) · `W-B6c-03` (`schools.community_id`) | **Ronda 2.** Tres raíces distintas, una de ellas de **seguridad**; el plan §2.3 las ponía en una sola fila |
+| **B9b** | 10 work items `DATA` | Ver abajo |
+
+### Unidades añadidas (3)
+
+| Unidad | Por qué faltaba |
+|---|---|
+| `W-B2b-01` (`09a`) | Existía como fila de ledger pero sin work item propio |
+| `W-B10a-01` (`09b`) | Ídem — y es la segunda fase de **una** reclamación, no una segunda reclamación |
+| `W-B3c-01` (B3c) | **El defecto espejo:** existía en la prosa del protocolo §3 **sin fila en el ledger**. Es el `NOT NULL` sobre `due_date` tras backfill, clase 3, sobre la reclamación `A04-3` |
+
+### La descomposición de B9b — **10 work items `DATA`**
+
+`B9b` no es un lote de fusión. En el ledger legacy era **una sola etiqueta sobre 22 reclamaciones**.
+
+| Work item | Carril |
+|---|---|
+| `W-D-01` | Filas de `programas` |
+| `W-D-02` | Alta de ~200 cuentas |
+| `W-D-03` | Los ocho colegios y sus vínculos `red_escuelas` |
+| `W-D-04` | Contexto transversal por colegio — catálogo `ab_grades`, niveles y cursos por nivel |
+| `W-D-05` | Comunidades y miembros |
+| `W-D-06` | Contratos y *buckets* de horas |
+| `W-D-07` | Histórico de licitaciones y documentos |
+| `W-D-08` | Asignaciones docente–curso |
+| `W-D-09` | **Añadido** — contenido LMS: rutas, cursos, módulos, lecciones, inscripciones |
+| `W-D-10` | **Añadido** — instrumento publicado v1.1.0 con objetivos, indicadores y expectativas |
+
+Ocho carriles vienen del plan combinado §7. **Los dos últimos se añaden**: `SWEEP-MI-APRENDIZAJE-01` (P0) señala que lo único que crea el contenido de aprendizaje de Santa Marta es el árbol **no versionado** `scripts/demo/seed-sm/`, y ni ese contenido ni el instrumento publicado (`A09-1`, `A09-5`) caben en ninguno de los ocho.
+
+### Casos en que no pude decidir — registrados, no elegidos en silencio
+
+1. ~~**B1c contiene dos correcciones, y se dejó como un solo work item.**~~ **RESUELTO en ronda 2: separado.** El argumento para mantenerlo unido era que ambas correcciones ya viajan en la misma rama; pero la regla 1 dice literalmente que compartir `lote` o `rama` no justifica consolidar, y `SWEEP-PRIOR-AUDIT-02` nombra dos correcciones. La regla gana.
+2. ~~**B6c agrupa tres componentes de raíz distinta.**~~ **RESUELTO en ronda 2: separado en tres.** Una de las tres es una raíz de seguridad (cliente `anon` construido en el servidor) y merecía su propia unidad, su propia compuerta y su propia firma.
+3. **No se consolidó ningún par del backlog.** 57 reclamaciones de backlog → 57 work items, uno a uno. Los artefactos no establecen raíces compartidas entre ellas, y consolidar habría achicado el déficit de propiedad sin evidencia. Un revisor con más contexto puede unir algunas. *(La ronda 2 sí retiró tres del backlog, pero por solapamiento con work items existentes, no por consolidación entre pares de backlog.)*
+
+---
+
+## 5. `claim_kind`
+
+Provenance nueva, derivada de leer las **17 láminas** del Bloque 4, las **9** del Bloque 5 y las **27 páginas** del guión de sala.
+
+**El hallazgo que hizo esto verificable:** los códigos `bloque` del ledger legacy (`B4 A02`, `B5 B04-B08`, …) usan el mismo esquema que el guión, y en el guión **`A·NN` / `B·NN` corresponde exactamente a la lámina NN** de su deck (`A·01 @0:00` = lámina 1 … `A·17 @27:10` = lámina 17; `B·01` … `B·09`). Cada `classification_basis` explícito lleva número de lámina **y** localizador del guión con su marca de tiempo.
+
+Regla auxiliar, tomada de la fuente: el guión p. 1 declara la **REGLA DE HONESTIDAD** — «Todas las capturas son pantallas reales del entorno demo».
+
+**Corregida en ronda 2.** La revisión 4 leía esa regla como si acreditara todo lo que una fila afirmase sobre un elemento visible. No es así: **una captura acredita que el elemento EXISTE, no que FUNCIONE.** Siete filas que afirmaban función más allá de lo mostrado o dicho pasaron de `EXPLICIT_PROMISE` a `IMPLIED_COMMITMENT`: `A03-4`, `A03-6`, `A09-7`, `A14-4`, `A10-8`, `SWEEP-MI-APRENDIZAJE-03` y `SWEEP-MI-APRENDIZAJE-04`. Se auditaron los hermanos del mismo patrón: `A09-11`, `A14-7` y `A15-7` afirman función **verbatim** en el guión y se mantienen explícitas.
+
+| `claim_kind` | Filas |
+|---|---:|
+| `EXPLICIT_PROMISE` | 120 |
+| `AUDIT_FINDING` | 17 |
+| `OPERATIONAL_PRECONDITION` | 8 |
+| `IMPLIED_COMMITMENT` | 14 |
+| `REVIEW_REQUIRED` | **1** |
+
+### La única fila `REVIEW_REQUIRED`
+
+**`A04-7` — «Autoguardado del acta de la reunión (ruta `/api/meetings/[id]/autosave`).»**
+
+No hay localizador. Ni las 17 láminas del Bloque 4 ni las 27 páginas del guión mencionan autoguardado del **acta de reunión**. El único autoguardado enunciado es el de la **aplicación docente** (lámina 6, paso 04 «Evidencia por indicador, con autoguardado»; guión `A·06 @8:20`), que es otra superficie. Falta determinar si la fila proviene de una demo en vivo no recogida en el guión o de una inferencia del auditor sobre el código. **No se adivinó para satisfacer el enum.**
+
+### Correcciones de localizador (no de clasificación)
+
+Varias filas llevaban en `bloque` una lámina que no es donde vive su evidencia; el `classification_basis` sigue a la evidencia y lo hace constar. `SWEEP-MI-APRENDIZAJE-05/06/07/10` citan cifras de la lámina 15 (dashboard de red) aunque el legacy las archivaba bajo `B4 A02`; `A15-8` es contenido de la lámina 16; `A09-6` se enuncia en la lámina 12.
+
+**Añadidas en ronda 2**, las tres que la revisión independiente encontró mal localizadas:
+
+| Fila | Localizador de la revisión 4 | Localizador correcto |
+|---|---|---|
+| `SWEEP-MI-APRENDIZAJE-01` | sólo lámina 2 / `A·02` | + `A·01 @0:00` para la mitad de calendario y audiencia («ustedes van a entrar la próxima semana»), que la lámina 2 no dice |
+| `A05-6` | lámina 5 / `A·05` | lámina 13 / `A·13 @20:40`: «Después de la sesión, el consultor marca la asistencia y escribe su informe». `A·05` no menciona ni asistencia ni informe |
+| `A12-5` | lámina 12 / `A·12` | guión p. 27, Q&A «¿Y si una directora llega nueva a mitad de año?» — la respuesta compuesta es de ahí, no de la lámina |
+
+---
+
+## 6. Salida real del validador
+
+`node scripts/check-ledger.mjs` — **código de salida 1**. Sin suprimir, sin editar los datos para ponerlo en verde. Ésta es la salida de la **ronda 2**, con el validador ya endurecido.
+
+```
+santa-marta ledger check
+========================================================================
+
+CIFRAS
+  reclamaciones congeladas                 160
+  reclamaciones P0 únicas                  36
+  work items                               104
+  enlaces reclamación↔trabajo              149
+  enlaces P0 reclamación↔trabajo           56
+  reclamaciones P0 únicas con enlace       36
+  lotes de fusión distintos                26
+
+WORK ITEMS POR MODO
+  MERGE              88
+  DATA               10
+  PRODUCTION_CHECK   5
+  DOCUMENTATION      1
+
+PROPIEDAD (tres números distintos, nunca fusionados)
+  work items sin dueño (excluida la excepción PRODUCTION_CHECK)   67
+  reclamaciones únicas enlazadas a esos work items                80
+  reclamaciones P0 únicas enlazadas a esos work items             4
+  excepción PRODUCTION_CHECK: dueno vacío a propósito             5
+    P0 sin dueño: A15-2, A15-7, SWEEP-MI-APRENDIZAJE-01, SWEEP-ONBOARDING-DATA-01
+
+  · conservación de bytes OK — SHA-256 009f14abccec97d7ada4b559c9aaeb24ac5b7aab54563a5c1151e511dc2c7fe9
+  · conservación de ids OK — 161 ids legacy, transformación declarada SWEEP-PRIOR-AUDIT-09a + SWEEP-PRIOR-AUDIT-09b → SWEEP-PRIOR-AUDIT-09
+
+FALLOS: 67
+------------------------------------------------------------------------
+[16 propiedad] 67
+  ✗ W-BL-A03-5 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A03-6 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A04-4 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A04-6 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A04-7 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A06-1 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A06-3 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A07-3 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A08-2 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A08-3 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A09-10 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A09-7 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A09-8 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A09-9 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A10-2 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A10-3 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A10-5 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A10-7 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A11-2 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A11-3 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A11-7 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A12-2 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A12-3 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A13-2 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A14-3 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A14-4 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A14-5 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A14-7 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-A15-4 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-B02-2 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-B03-4 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-B03-6 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-B04-1 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-B04-2 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-B05-2 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-B05-3 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-B05-4 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-B05-5 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-B06-2 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-B06-3 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-QA-2 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-SWEEP-MI-APRENDIZAJE-03 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-SWEEP-MI-APRENDIZAJE-04 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-SWEEP-MI-APRENDIZAJE-07 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-SWEEP-MI-APRENDIZAJE-08 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-SWEEP-MI-APRENDIZAJE-10 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-SWEEP-MI-APRENDIZAJE-11 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-SWEEP-MI-APRENDIZAJE-12 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-SWEEP-MI-APRENDIZAJE-13 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-SWEEP-NONFUNCTIONAL-BUNDLE-WEIGHT (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-SWEEP-NONFUNCTIONAL-DEADLINE-ALERTS (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-SWEEP-NONFUNCTIONAL-EMAIL-DELIVERABILITY-INFRA (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-SWEEP-NONFUNCTIONAL-ERROR-SURFACES-REPORTES (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-SWEEP-NONFUNCTIONAL-LICITACIONES-ES-CL (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-SWEEP-NONFUNCTIONAL-PROD-SECRETS-UNIGNORED (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-SWEEP-PRIOR-AUDIT-03 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-BL-SWEEP-PRIOR-AUDIT-08 (BACKLOG): sin dueno real y sin triage_owner nombrado
+  ✗ W-D-01 (BLOCKED): enlazado a una reclamación P0 y sin dueno real («»)
+  ✗ W-D-02 (BLOCKED): enlazado a una reclamación P0 y sin dueno real («»)
+  ✗ W-D-03 (BLOCKED): enlazado a una reclamación P0 y sin dueno real («»)
+  ✗ W-D-04 (BLOCKED): enlazado a una reclamación P0 y sin dueno real («»)
+  ✗ W-D-05 (BLOCKED): enlazado a una reclamación P0 y sin dueno real («»)
+  ✗ W-D-06 (BLOCKED): enlazado a una reclamación P0 y sin dueno real («»)
+  ✗ W-D-07 (BLOCKED): enlazado a una reclamación P0 y sin dueno real («»)
+  ✗ W-D-08 (BLOCKED): enlazado a una reclamación P0 y sin dueno real («»)
+  ✗ W-D-09 (BLOCKED): enlazado a una reclamación P0 y sin dueno real («»)
+  ✗ W-D-10 (BLOCKED): enlazado a una reclamación P0 y sin dueno real («»)
+```
+
+### Cómo leer estos 67 fallos
+
+**Los 67 son la deuda de propiedad, y son correctos.** No hay ni un fallo de conteo, identidad, referencia, esquema, enum, provenance, lote, rama, conservación ni reconciliación. Los 67 son la misma cosa dicha 67 veces: **nadie es dueño de este trabajo**.
+
+- **57** son items de backlog sin `dueno` **ni** `triage_owner`. El plan combinado §0.6 —«nombrar los cuatro dueños»— nunca se hizo, así que no hay a quién nombrar sin inventarlo.
+- **10** son los carriles de datos, y fallan por la regla más dura: **están enlazados a una reclamación P0 y no tienen dueño real**. `SIN ASIGNAR — BLOQUEANTE` no es un dueño y el modelo normalizado ya no lo acepta como tal.
+
+**Los cinco `PRODUCTION_CHECK` no fallan**, y eso también es correcto: la excepción de modo está implementada y probada en vivo — los cinco están enlazados a reclamaciones P0, los cinco tienen `dueno` vacío, y ninguno produce un fallo de propiedad. Siguen bloqueando la activación por su `authorization_status`, que es otra cosa.
+
+El validador pasa a verde en cuanto alguien con autoridad nombre dueños reales. Ni un dato se editó para adelantar eso.
+
+---
+
+## 7. Propiedad pendiente y las cinco comprobaciones de producción
+
+### Asignaciones de propiedad que bloquean
+
+| Qué | Cuántos | Qué desbloquea |
+|---|---:|---|
+| **Dueño real** para los 10 carriles `DATA` | 10 | Las 4 reclamaciones P0 sin dueño. Ninguna se cierra escribiendo código |
+| **`triage_owner`** nombrado para los 57 items de backlog | 57 | El resto del déficit; un `triage_owner` basta mientras el item siga en `BACKLOG` |
+
+### Las cinco comprobaciones — **ninguna autorizada, ninguna ejecutada**
+
+**Ninguna se realizó.** No se consultó producción de ninguna forma, ni siquiera de solo lectura, y no se usó ninguna herramienta MCP de Supabase.
+
+| Work item | Comprobación | `authorization_owner` | `execution_owner` | `authorization_status` | `status` | `dueno` |
+|---|---|---|---|---|---|---|
+| `W-PC-01` | Filas de `feriados_chile` 2026–2027 | Brent | *(vacío)* | `UNAUTHORIZED` | `BLOCKED` | *(vacío — excepción)* |
+| `W-PC-02` | Red Santa Marta y sus ocho `red_escuelas` | Brent | *(vacío)* | `UNAUTHORIZED` | `BLOCKED` | *(vacío — excepción)* |
+| `W-PC-03` | Dominio remitente verificado en Resend | Brent | *(vacío)* | `UNAUTHORIZED` | `BLOCKED` | *(vacío — excepción)* |
+| `W-PC-04` | Bucket `community-images` | Brent | *(vacío)* | `UNAUTHORIZED` | `BLOCKED` | *(vacío — excepción)* |
+| `W-PC-05` | **B5-pre** — instancias en riesgo, estratificadas | Brent | *(vacío)* | `UNAUTHORIZED` | `BLOCKED` | *(vacío — excepción)* |
+
+**Autorización y ejecución son preguntas distintas y nunca se reutiliza una como la otra.** `authorization_owner = Brent` sale del protocolo, que dice que la actividad contra producción «se autoriza por separado y explícitamente, y sólo por Brent» — no es un nombre inventado. `execution_owner` está vacío porque **no hay ejecutor asignado**; eso bloquea la programación y no es permiso para inventar un nombre. El validador comprueba las dos reglas: `UNAUTHORIZED` exige `status = BLOCKED`, y `AUTHORIZED` + `SCHEDULED` exige `execution_owner` poblado.
+
+`W-PC-01` además decide `clase_migracion` de `W-B8b-01`: vacía → clase 1; poblada → clase 3.
+
+---
+
+## 8. Lenguaje de conteo en el protocolo activo
+
+**Confirmado: no queda lenguaje contradictorio en tiempo presente** en `santa-marta-release-protocol-2026-08-25.md`.
+
+Corregido:
+
+| Antes | Ahora |
+|---|---|
+| «161 filas» | 160 reclamaciones |
+| «La cola operativa P0 es 37, no 36» | 36 reclamaciones P0 únicas · 56 enlaces P0 · nunca intercambiados |
+| «134 de 161 filas tienen verificación de un solo agente» | 106 de 160 con verificación de un solo agente, 28 de una lente, 27 de dos |
+| «`firmado_por` y `fecha_firma` vacías en las 161 filas» | vacías en las 160 |
+| Clase 2 incluía `DROP POLICY` | `DROP` retirado de la taxonomía y de todo el documento; compensación con migración aditiva, `ALTER POLICY`, `RESTRICTIVE` o restauración de `GRANT` |
+| B8b «1 ó 3 — sin resolver» | `clase_migracion = BLOCKED` hasta `W-PC-01` |
+| «Los 26 lotes … salen del ledger» | «reconciliados contra los ledgers por `scripts/check-ledger.mjs`» |
+
+El único `37` que sobrevive está en el bloque marcado como **nota histórica**, explicando por qué la revisión 3 lo tenía mal. El validador comprueba esto activamente: falla si una línea no marcada como histórica presenta un número distinto de 36 como «reclamaciones P0», si conserva literales obsoletos, si propone cualquier `DROP`, o si falta la frase de reconciliación.
+
+Cambios adicionales al protocolo exigidos y hechos:
+
+- **B5-pre reescrito.** Condición primaria `snapshot_data.last_updated_at > assigned_at`, porque la promesa de sellado empieza en la asignación. Cuatro bandas: modificado tras **asignación**, **inicio**, **primera respuesta**, **completitud**. El límite se enuncia como **«no recuperable desde las tablas actuales»**, pendiente de comprobar respaldos/PITR de Supabase, exportaciones, semillas comprometidas e informes externos — **no** se dice que el dato se perdió. El diseño basado en detectar discrepancia de versión queda declarado incontestable y no reinstaurable.
+- **B5 sigue en clase 0.**
+- **B1a**: session replay a `0`/`0` como **propuesta documentada, no aplicada**, y se declara que la aprobación amplia de privacidad es una decisión **separada y todavía abierta**.
+- **`.gitignore`**: se reafirma que el cambio está autorizado por el dueño del repositorio y no se revierte.
+
+---
+
+## 9. Discrepancias sin resolver
+
+### 9.1 — ~~BLOQUEANTE: los cuatro CSV están ignorados por git~~ — RESUELTO en ronda 2
+
+`.gitignore:136` (`*.csv`) ocultaba a git los cuatro CSV del ledger, incluido el legacy archivado. Un registro congelado que git no puede ver no está congelado: no tiene historia, no tiene revisión y se pierde con el directorio de trabajo.
+
+**Brent autorizó explícitamente la negación estrecha**, y es el único cambio de este trabajo fuera de `docs/reviews/` y del validador. Se añadió bajo la línea `*.csv`:
+
+```
+!docs/reviews/**/*.csv
+```
+
+Verificado por ambos lados:
+
+| Ruta | Antes | Ahora |
+|---|---|---|
+| `docs/reviews/santa-marta-claims.csv` | ignorada | **visible** |
+| `docs/reviews/santa-marta-work-items.csv` | ignorada | **visible** |
+| `docs/reviews/santa-marta-work-claim-map.csv` | ignorada | **visible** |
+| `docs/reviews/archive/santa-marta-promise-ledger-legacy-161.csv` | ignorada | **visible** |
+| *control:* un `.csv` fuera de `docs/reviews/` | ignorada | **sigue ignorada** |
+
+El control negativo importa: la negación es un glob acotado a `docs/reviews/`, no una excepción general a `*.csv`. Ningún otro CSV del repositorio —presente o futuro— queda expuesto.
+
+**El bloque de cuatro líneas del dueño del repositorio no se tocó.** El diff de `.gitignore` tiene exactamente dos *hunks*: esta adición, y el bloque preexistente que sigue sin comprometer.
+
+### 9.2 — El enum `delivery_mode` no expresa «ruta de entrega sin decidir»
+
+58 defectos de código de backlog son `MERGE`, y `MERGE` exige exactamente una `rama` no vacía. No hay rama asignada para ellos en ninguna fuente. Se les asignó **un slug propuesto de ≤20 caracteres**, marcado en `notes` como «rama propuesta … no existe en el repositorio y no tiene commits».
+
+Esto es consistente con la convención que el propio protocolo ya usaba —**23 de las 26 ramas canónicas tampoco existen**; sólo `fix/horas-rep`, `fix/gate-score` y `fix/auth-sec2` tienen commits—, pero conviene decirlo: **58 nombres de rama de este ledger son propuestas mías, no artefactos de las fuentes.**
+
+Relacionado: `SWEEP-NONFUNCTIONAL-PROD-SECRETS-UNIGNORED` quedó como `DOCUMENTATION` porque su trabajo restante —sacar un archivo del directorio y rotar credenciales— es **operativo**, y el enum no tiene un modo operativo. `DOCUMENTATION` es el valor más cercano y no es exacto.
+
+### 9.3 — El plan combinado y el protocolo se contradicen sobre A05-1
+
+El **plan combinado §1.6** dice literalmente «una causa, tres síntomas (A05-1 / A05-2 / A05-6)» y los agrupa en `fix/consultor`. El **protocolo rev 3** los separa: `A05-1` en B4a (`fix/sess-route`) y `A05-2`/`A05-6` en B4c (`fix/attendees`).
+
+**Se siguió el protocolo**, por dos razones que conviene poder discutir: es el documento gobernante activo, y los hallazgos verificados describen dos raíces distintas — `WorkspaceSessionsTab` enruta a una superficie acotada a `consultor|admin|lider_comunidad` (un problema de enrutado), mientras que el trigger de asistentes dispara sobre la tabla equivocada (un problema de backfill). **No es una elección obvia y un revisor puede volverla del otro lado.**
+
+### 9.4 — Dos remediaciones del plan combinado siguen sin lote canónico
+
+| Del plan | Reclamación | Estado en esta normalización |
+|---|---|---|
+| §2.9 `fix/zip-full` (completitud del ZIP) | `SWEEP-PRIOR-AUDIT-08` | Backlog. La rama **no está** entre los 26 lotes canónicos |
+| §5 *outbox* durable de correo | `SWEEP-NONFUNCTIONAL-EMAIL-DELIVERABILITY-INFRA` | Backlog; sin lote |
+
+La lista canónica de 26 lotes es fija y no los incluye. **No se rescató ninguno a un lote**, para no reprogramar en silencio.
+
+*(El tercer caso —§2.3 (c) `schools.community_id` / `SWEEP-PRIOR-AUDIT-05`— **se resolvió en ronda 2** a favor del plan: es ahora `W-B6c-03`, dentro de B6c, y ya no tiene item de backlog.)*
+
+### 9.5 — ~~Solapamiento entre `W-B6d-01` y `W-BL-SWEEP-ONBOARDING-DATA-06`~~ — RESUELTO
+
+**Fusionado en ronda 2.** Las dos apuntaban a las mismas tres relaciones de resumen creadas por `scripts/demo/seed-sm/60-lms.ts:641-712`; estaban separadas sólo por conservar la programación del ledger legacy. `SWEEP-ONBOARDING-DATA-06` mapea ahora a `W-B6d-01` y deja de tener item de backlog. Igual con `SWEEP-ONBOARDING-DATA-05`, que se fusionó en `W-D-04` y de paso heredó la clase 3 y el plan de restauración que como item suelto le faltaban.
+
+### 9.6 — La columna `archivo` del ledger legacy está truncada
+
+Las **161** filas tienen `archivo` recortado a 180–181 caracteres. Es un extracto, no la evidencia completa; ésa vive en los dos informes narrativos. La columna **no se traslada** al esquema de reclamaciones —el esquema especificado no la incluye—, así que su contenido alimenta `classification_basis` en las filas `AUDIT_FINDING` y por lo demás queda sólo en el archivo. Lo mismo con `esfuerzo`, que tampoco tiene columna destino.
+
+### 9.7 — Estado de despliegue no verificado
+
+`main` en `717c2c09` es la línea base **que se cree** corresponde a la presentación del 22 de agosto. **No está verificado de forma independiente**: un `main` sin cambios no prueba que un despliegue tuviera éxito, ni que la configuración y los datos de producción coincidan con él. Nada de este trabajo lo comprueba, y nada podía hacerlo dentro del alcance autorizado.
+
+### 9.8 — Precisión de citas
+
+En la muestra desafiada de forma adversarial, **1 de cada 4 hallazgos** traía al menos una cita `archivo:línea` imprecisa, aunque el defecto de fondo fuera real. Este informe **no re-verificó** las citas heredadas: la instrucción exime de re-derivar los hallazgos de defectos. Los localizadores que sí verifiqué de primera mano son los de **presentación** (láminas y guión), porque asignar `claim_kind` era trabajo analítico nuevo. **Verificar la cita de código antes de tocar cualquier archivo.**
+
+---
+
+## 10. Ronda 2 — respuesta a la revisión independiente
+
+La revisión devolvió `REQUEST NORMALIZATION CHANGES`. **Verifiqué cada hallazgo objetivo contra los datos antes de tocar nada**, y todos los comprobables resultaron correctos. Uno estaba, además, subestimado.
+
+### 10.1 Reconciliación del protocolo — el fallo más grave
+
+| Cifra | Revisión 4 decía | Los ledgers decían |
+|---|---:|---:|
+| `SCHEDULED` | 29 | **28** |
+| `BLOCKED` | 15 | **16** |
+| Verificación a dos lentes | 27 | **26** |
+
+Las dos primeras venían de haber **afirmado** el reparto de estados en vez de calcularlo: B8b está en `BLOCKED` por su clase de migración indeterminada, y no lo resté de `SCHEDULED`. La tercera venía de arrastrar el 27 del ledger legacy sin restar la fila que la fusión `09a`+`09b` eliminó — y las dos filas fusionadas eran precisamente `2-lens`.
+
+**El hallazgo subestimado.** La revisión señaló que seis reclamaciones P0 `BROKEN` están a una sola lente, contra la afirmación del protocolo de que «las P0 están a dos lentes o son condicionales triviales». Es peor: **15 de las 36 P0 no llegan a dos lentes** — las seis `BROKEN` a una lente que la revisión nombró, más **nueve `CONDITIONAL` verificadas por un solo agente**. La frase era falsa en un grado mayor del señalado, y ahora el protocolo dice la verdad y el validador la comprueba.
+
+Y la consecuencia que la revisión sacó bien: mientras eso fuera posible, la frase «todas las cifras están reconciliadas por el validador» era **falsa**. La corrección no fue debilitar la frase, sino hacerla verdadera endureciendo el validador.
+
+### 10.2 Defectos del validador — los cuatro confirmados y corregidos
+
+| Defecto | Qué pasaba | Corrección |
+|---|---|---|
+| Reconciliación superficial | Sólo comparaba el bloque JSON; la prosa activa podía contradecir los ledgers y pasar | Nuevo grupo `14 reconciliación`: comprueba **cada** conteo de estado, de modo de entrega y de verificación contra los ledgers, exige que aparezcan en la prosa, y falla si el protocolo afirma una profundidad de verificación P0 que los datos no sostienen |
+| `PRODUCTION_CHECK` con marcador | Sólo rechazaba un dueño *real*; un `SIN ASIGNAR` en `dueno` pasaba en silencio | Ahora exige `dueno` **estrictamente vacío**. Un marcador no es «sin dueño»: es un campo sin rellenar disfrazado de uno |
+| `DONE` antes que P0 | `if (status === 'DONE') continue;` se evaluaba **antes** de la regla P0, así que un item P0 marcado `DONE` escapaba a «requiere dueño real *con independencia del estado*» | La regla P0 se evalúa primero. Latente hoy —no hay items `DONE`— y armado para el día que lo haya |
+| Enums incompletos | `estado`, `severidad` y `verificacion` de las reclamaciones no se validaban | Los tres validados contra su dominio |
+
+**Prueba de que el endurecimiento funciona:** al correr el validador ya endurecido contra el protocolo *todavía sin corregir*, emitió **nueve fallos de reconciliación** — exactamente los dos que la revisión encontró a mano, más el de profundidad P0, más los seis restantes que nadie había mirado. El validador ahora habría atrapado el defecto que motivó esta ronda.
+
+### 10.3 Clasificaciones corregidas (10 filas)
+
+La causa raíz fue mía: leí la **REGLA DE HONESTIDAD** del guión como si acreditara todo lo que una fila afirmase sobre un elemento visible en una captura. Una captura acredita que el elemento **existe**, no que **funcione**.
+
+- **7 filas** `EXPLICIT_PROMISE` → `IMPLIED_COMMITMENT`: `A03-4`, `A03-6`, `A09-7`, `A14-4`, `A10-8`, `SWEEP-MI-APRENDIZAJE-03`, `SWEEP-MI-APRENDIZAJE-04`.
+- **3 localizadores corregidos** sin cambiar el tipo: `SWEEP-MI-APRENDIZAJE-01` (+`A·01 @0:00`), `A05-6` (→ `A·13 @20:40`), `A12-5` (→ guión p. 27, Q&A).
+- **Auditoría de hermanos**, que la revisión no pidió: busqué el mismo patrón en las 160 filas. `A09-11`, `A14-7` y `A15-7` afirman función y **se quedan explícitas** porque el guión las enuncia verbatim. `A03-4` sí cayó y se corrigió.
+
+Reparto final: 120 `EXPLICIT_PROMISE` · 17 `AUDIT_FINDING` · 14 `IMPLIED_COMMITMENT` · 8 `OPERATIONAL_PRECONDITION` · 1 `REVIEW_REQUIRED`.
+
+### 10.4 Work items — dos splits y tres fusiones
+
+| Cambio | Antes | Ahora | Por qué |
+|---|---|---|---|
+| **B1c separado** | 1 item | `W-B1c-01` + `W-B1c-02` | La revisión tiene razón y mi propia justificación era inválida: mantuve el item unido *porque compartían rama*, que es literalmente la razón que la regla 1 prohíbe |
+| **B6c separado** | 1 item | `W-B6c-01/02/03` | Tres raíces, una de ellas de **seguridad** (cliente `anon` construido en el servidor). Merece su propia compuerta y su propia firma |
+| `SWEEP-PRIOR-AUDIT-05` | Backlog suelto | `W-B6c-03` | Estaba backlogueado *y* descrito dentro de B6c. Resuelto a favor del plan |
+| `SWEEP-ONBOARDING-DATA-06` | Backlog suelto | `W-B6d-01` | Mismas tres vistas de resumen. Separado sólo por inercia de programación |
+| `SWEEP-ONBOARDING-DATA-05` | Backlog suelto, `DATA` clase **0** | `W-D-04` | Mismo carril, y como item suelto llevaba clase 0 **sin compuerta ni plan de restauración** — incorrecto para una escritura de datos. Hereda clase 3 |
+
+**Lo que no cambié, y por qué:** `SWEEP-NONFUNCTIONAL-PROD-SECRETS-UNIGNORED` sigue en `DOCUMENTATION`. La revisión tiene razón en que su alcance real es operativo —contener el archivo y rotar credenciales—, pero el enum `delivery_mode` no tiene un modo operativo, y `DOCUMENTATION` sigue siendo el valor menos falso de los cuatro. La brecha del enum queda registrada en §9.2, no disimulada.
+
+### 10.5 El único punto donde me detuve a preguntar
+
+La lista de la revisión incluía añadir la negación de `.gitignore`. **Mi encargo original lo prohibía explícitamente**, y el propio protocolo dice que «ninguna recomendación de un revisor — humano o agente — constituye autorización». Un revisor pidiéndolo no es Brent autorizándolo.
+
+Así que hice todo lo demás —que cae de lleno en el alcance original de documentación más el validador— y **paré ahí a preguntar**. Brent autorizó la negación estrecha; está aplicada, verificada por ambos lados y documentada en §9.1. El encargo advertía que una sesión anterior había hecho «un arreglo de seguridad sensato» sin autorización y que eso fue una brecha de proceso; sensato no es lo mismo que autorizado.
+
+### 10.6 Efecto neto sobre las cifras
+
+| | Ronda 1 | Ronda 2 |
+|---|---:|---:|
+| Reclamaciones | 160 | **160** *(congeladas, sin cambio)* |
+| Reclamaciones P0 | 36 | **36** *(sin cambio)* |
+| Work items | 104 | **104** |
+| Enlaces | 147 | **149** |
+| Enlaces P0 | 54 | **56** |
+| Work items sin dueño | 70 | **67** |
+| Reclamaciones alcanzadas por ellos | 82 | **80** |
+| Reclamaciones P0 sin dueño | 4 | **4** *(sin cambio)* |
+| Fallos del validador | 70 | **67** |
+
+**El registro congelado no se movió: 160 reclamaciones, 36 P0.** Eso es exactamente lo que tenía que pasar — ninguna decisión de implementación puede cambiar esos números, y una ronda de correcciones a las unidades de trabajo es una decisión de implementación.
+
+El déficit de propiedad bajó de 70 a 67 **sólo** porque tres reclamaciones pasaron a work items que ya tenían dueño real. **No se inventó ni un dueño, y no se consolidó nada para achicar el número.** Las cuatro P0 sin dueño siguen ahí, intactas.
+
+---
+
+## 11. Condición de parada
+
+Hecho: los tres artefactos normalizados, el archivo byte por byte con su nota compañera, los banners históricos en los cuatro documentos de auditoría, el protocolo corregido, el validador creado y **ejecutado con su salida real**, y este informe.
+
+**No se comenzó ninguna implementación. No se hizo ningún commit.** Todo queda como cambios en el árbol de trabajo.

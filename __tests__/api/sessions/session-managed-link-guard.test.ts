@@ -36,6 +36,8 @@ type MockState = {
   row: Record<string, any>;
   /** The payloads the route actually sent to `.update(...)`. */
   updates: Array<Record<string, any>>;
+  meetingProjection: { meeting_status: string } | null;
+  meetingProjectionError: { message: string } | null;
 };
 
 function createMockClient(state: MockState) {
@@ -77,6 +79,17 @@ function createMockClient(state: MockState) {
       }
       if (table === 'session_activity_log') {
         return { insert: vi.fn(async () => ({ data: null, error: null })) };
+      }
+      if (table === 'session_meetings_public') {
+        const api: any = {
+          select: vi.fn(() => api),
+          eq: vi.fn(() => api),
+          maybeSingle: vi.fn(async () => ({
+            data: state.meetingProjection,
+            error: state.meetingProjectionError,
+          })),
+        };
+        return api;
       }
       throw new Error(`Unexpected table: ${table}`);
     }),
@@ -121,7 +134,12 @@ async function actAs(role: 'admin' | 'consultor') {
 
 beforeEach(async () => {
   vi.clearAllMocks();
-  state = { row: sessionRow(), updates: [] };
+  state = {
+    row: sessionRow(),
+    updates: [],
+    meetingProjection: { meeting_status: 'scheduled' },
+    meetingProjectionError: null,
+  };
 
   const { getApiUser, createServiceRoleClient } = await import('../../../lib/api-auth');
   (getApiUser as any).mockResolvedValue({ user: { id: CONSULTANT_ID }, error: null });
@@ -197,6 +215,72 @@ describe('PUT /api/sessions/[id] — managed meeting_link guard [A9]', () => {
 
     expect(res._getStatusCode()).toBe(409);
     expect(state.updates).toHaveLength(0);
+  });
+});
+
+describe('PUT /api/sessions/[id] — managed Zoom start readiness', () => {
+  it('refuses to start while the managed meeting projection is missing', async () => {
+    state.meetingProjection = null;
+
+    const { req, res } = put({ status: 'en_progreso' });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(409);
+    expect(JSON.parse(res._getData())).toEqual({
+      error:
+        'La reunión Zoom todavía se está preparando. Espera a que esté disponible antes de iniciar la sesión.',
+      code: 'ZOOM_MEETING_NOT_READY',
+    });
+    expect(state.updates).toHaveLength(0);
+  });
+
+  it.each(['ended', 'cancelled'])('refuses to start from projection status %s', async (status) => {
+    state.meetingProjection = { meeting_status: status };
+
+    const { req, res } = put({ status: 'en_progreso' });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(409);
+    expect(JSON.parse(res._getData())).toEqual({
+      error:
+        'La reunión Zoom ya no está disponible. Cancela o reprograma la sesión antes de continuar.',
+      code: 'ZOOM_MEETING_UNAVAILABLE',
+    });
+    expect(state.updates).toHaveLength(0);
+  });
+
+  it.each(['scheduled', 'live'])('allows the transition when projection status is %s', async (status) => {
+    state.meetingProjection = { meeting_status: status };
+
+    const { req, res } = put({ status: 'en_progreso' });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(state.updates[0]).toEqual({ status: 'en_progreso' });
+  });
+
+  it('fails closed when readiness cannot be verified', async () => {
+    state.meetingProjectionError = { message: 'projection unavailable' };
+
+    const { req, res } = put({ status: 'en_progreso' });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(JSON.parse(res._getData()).error).toBe(
+      'No se pudo verificar si la reunión Zoom está lista. La sesión no se inició.'
+    );
+    expect(state.updates).toHaveLength(0);
+  });
+
+  it('does not require a projection for an unmanaged session', async () => {
+    state.row = sessionRow({ is_zoom_managed: false, meeting_provider: null });
+    state.meetingProjection = null;
+
+    const { req, res } = put({ status: 'en_progreso' });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(state.updates[0]).toEqual({ status: 'en_progreso' });
   });
 });
 

@@ -54,8 +54,15 @@ export default function SessionStartControl({
           ? 'Zoom no disponible'
           : waitingForZoom
             ? 'Preparando Zoom…'
-            : 'Iniciar Sesión'}
+            : isManagedZoom
+              ? 'Iniciar y continuar a Zoom'
+              : 'Iniciar Sesión'}
       </button>
+      {isManagedZoom && !waitingForZoom && (
+        <p className="max-w-xs text-right text-xs text-gray-600">
+          La sesión pasará a En Progreso y luego podrás unirte a Zoom.
+        </p>
+      )}
       {waitingForZoom && (
         <p className="max-w-xs text-right text-xs text-amber-700" role="status">
           {zoomUnavailable

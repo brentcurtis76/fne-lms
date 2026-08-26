@@ -27,6 +27,25 @@ export function managedMeetingIsUnavailable(status: unknown): boolean {
   return (UNAVAILABLE_MANAGED_MEETING_STATUSES as readonly unknown[]).includes(status);
 }
 
+/**
+ * A managed meeting with no conclusive projection needs polling while the
+ * source session can either be started or is already in progress. Including
+ * `en_progreso` makes the recovery UI truthful after a transient projection
+ * read failure: it keeps retrying until the meeting is ready or terminal.
+ */
+export function managedMeetingNeedsPolling(
+  sessionStatus: unknown,
+  isManagedZoom: boolean,
+  meetingStatus: unknown
+): boolean {
+  return (
+    isManagedZoom &&
+    (sessionStatus === 'programada' || sessionStatus === 'en_progreso') &&
+    !managedMeetingIsReady(meetingStatus) &&
+    !managedMeetingIsUnavailable(meetingStatus)
+  );
+}
+
 export const MANAGED_MEETING_NOT_READY_MESSAGE =
   'La reunión Zoom todavía se está preparando. Espera a que esté disponible antes de iniciar la sesión.';
 

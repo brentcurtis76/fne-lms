@@ -19,9 +19,11 @@ import { es } from 'date-fns/locale';
 import type { SessionMeetingPublicStatus } from '../../../lib/zoom/db-types';
 import {
   managedMeetingIsReady,
+  managedMeetingNeedsPolling,
   managedMeetingIsUnavailable,
 } from '../../../lib/utils/managed-meeting-readiness';
 import { buildSessionJoinPath } from '../../../lib/utils/session-disclosure';
+import { startSessionWorkflow } from '../../../lib/utils/session-start-workflow';
 
 interface SeriesSessionItem {
   id: string;
@@ -117,18 +119,16 @@ const SessionDetailPage: React.FC = () => {
     }
   }, [showSeriesPanel, session]);
 
-  // Approval and Zoom provisioning are intentionally asynchronous. Poll only while a
-  // managed session is scheduled and has no committed projection; the Start button
-  // remains disabled during this window, preventing the race that compensates a meeting
-  // created after the source has already moved to `en_progreso`.
+  // Approval and Zoom provisioning are intentionally asynchronous. Keep polling while a
+  // managed session is scheduled or in progress and has no conclusive projection. The
+  // scheduled case prevents the provisioning race; the in-progress case recovers from a
+  // transient projection-read failure so the “Reintentando…” message is truthful.
   useEffect(() => {
-    if (
-      !session ||
-      session.status !== 'programada' ||
-      session.is_zoom_managed !== true ||
-      managedMeetingIsReady(managedMeetingStatus) ||
-      managedMeetingIsUnavailable(managedMeetingStatus)
-    ) {
+    if (!session || !managedMeetingNeedsPolling(
+      session.status,
+      session.is_zoom_managed === true,
+      managedMeetingStatus
+    )) {
       return;
     }
 
@@ -348,38 +348,16 @@ const SessionDetailPage: React.FC = () => {
         return;
       }
 
-      const response = await fetch(`/api/sessions/${id}`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${authSession.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: 'en_progreso' }),
+      await startSessionWorkflow({
+        sessionId: session.id,
+        accessToken: authSession.access_token,
+        isManagedZoom: session.is_zoom_managed === true,
+        request: fetch,
+        navigate: (path) => router.push(path),
+        refreshSession: fetchSession,
+        notifySuccess: (message) => toast.success(message),
+        notifyError: (message) => toast.error(message),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al iniciar sesión');
-      }
-
-      if (session.is_zoom_managed === true) {
-        toast.success('Sesión iniciada. Continuando a Zoom…');
-
-        try {
-          const navigated = await router.push(buildSessionJoinPath(session.id));
-          if (!navigated) throw new Error('Meeting navigation was cancelled');
-        } catch {
-          // The status transition already committed. Refresh the page so the
-          // prominent recovery action below is available instead of claiming
-          // that starting the session itself failed.
-          toast.error('La sesión se inició, pero no pudimos abrir Zoom. Usa “Ir a Zoom”.');
-          await fetchSession();
-        }
-        return;
-      }
-
-      toast.success('Sesión iniciada exitosamente');
-      await fetchSession();
     } catch (error: unknown) {
       console.error('Error starting session:', error);
       toast.error(error instanceof Error ? error.message : 'Error al iniciar sesión');

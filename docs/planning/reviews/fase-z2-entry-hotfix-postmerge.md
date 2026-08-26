@@ -49,10 +49,26 @@ GitHub later ingested the delayed `push` event. CI run [#395](https://github.com
 
 The missing clean CI evidence is therefore recovered on the strongest possible target: the exact commit served in production. This does not retroactively constitute independent review.
 
+## Independent post-merge review
+
+A separate read-only reviewer examined PR #53 and the exact merged implementation. The verdict was **APPROVE WITH NOTES** with no high- or medium-severity findings.
+
+The reviewer identified two low-severity follow-ups:
+
+1. An unresolved managed meeting was polled only while the source session remained `programada`. If a projection read failed after the source had committed `en_progreso`, the page displayed `Reintentando...` without scheduling another read.
+2. The admin entry-workflow regression file asserted source strings rather than executing the production workflow behavior.
+
+Both notes are remediated on `docs/zoom-close` for PR #54:
+
+- `managedMeetingNeedsPolling()` keeps retrying unresolved projections for managed `programada` and `en_progreso` sessions, and stops for ready or terminal projections.
+- `startSessionWorkflow()` centralizes the production start/continuation branch behind injected boundaries, and its tests execute request ordering, API rejection, navigation recovery, and the unmanaged legacy path.
+
+The follow-up is not yet merged or deployed. Its evidence and scrutiny guide are in `docs/planning/reviews/fase-z2-entry-followup-review-request.md`.
+
 ## Remaining closure conditions
 
-- An independent reviewer examines the PR #53 implementation diff or explicitly accepts a post-merge review of merge commit `3538b9f5`.
+- PR #54 receives green clean-checkout CI and an independent follow-up review before owner merge and automatic production deployment.
 - The owner decides whether to click the already-open production `Unirse a la reunión` button for final live-provider launch evidence.
 - Synthetic pilot cleanup remains a separate destructive action and requires action-time confirmation.
 
-Until those conditions are dispositioned, the hotfix is deployed, CI-green, and functionally verified through the protected entry page, but production readiness is not declared complete.
+Until those conditions are dispositioned, the deployed hotfix is CI-green, independently accepted with low notes, and functionally verified through the protected entry page, but production readiness is not declared complete.

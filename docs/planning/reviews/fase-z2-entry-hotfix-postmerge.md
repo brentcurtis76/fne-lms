@@ -35,15 +35,24 @@ This closes the reproduced product defect: a managed session whose source status
 
 ## Governance exception
 
-PR #53 was merged before the required independent review and before GitHub Actions queued. Only the two Vercel checks were present at merge time. The subsequent push to `main` also did not create a CI run.
+PR #53 was merged before the required independent review and before GitHub Actions queued. Only the two Vercel checks were present at merge time. The subsequent push to `main` did not initially surface a CI run.
 
-This documentation-only closure PR is therefore a catch-up control. Its full PR workflow must pass against the deployed code plus this record. A green result supplies the missing clean CI evidence but does not retroactively constitute independent review.
+GitHub later ingested the delayed `push` event. CI run [#395](https://github.com/brentcurtis76/fne-lms/actions/runs/32986620114) executed against the exact deployed merge commit `3538b9f55fe8bfb7f7aaa189c5757c12e2e3cf0a` and completed successfully:
+
+- Migration safety guard: passed.
+- Browser/server boundary guard: passed.
+- Gate 1, type-check: passed.
+- Gate 1b, lint: passed.
+- Gate 2, full Vitest: passed.
+- Gate 3, pgTAP plus both concurrency proofs: passed.
+- Gate 4, production build plus mandatory Playwright on a seeded local Supabase stack: passed.
+
+The missing clean CI evidence is therefore recovered on the strongest possible target: the exact commit served in production. This does not retroactively constitute independent review.
 
 ## Remaining closure conditions
 
-- All seven GitHub Actions jobs pass on this closure PR.
 - An independent reviewer examines the PR #53 implementation diff or explicitly accepts a post-merge review of merge commit `3538b9f5`.
 - The owner decides whether to click the already-open production `Unirse a la reunión` button for final live-provider launch evidence.
 - Synthetic pilot cleanup remains a separate destructive action and requires action-time confirmation.
 
-Until those conditions are dispositioned, the hotfix is deployed and functionally verified through the protected entry page, but production readiness is not declared complete.
+Until those conditions are dispositioned, the hotfix is deployed, CI-green, and functionally verified through the protected entry page, but production readiness is not declared complete.

@@ -49,7 +49,10 @@ describe('SessionStartControl', () => {
 
       const button = screen.getByTestId('session-start-button');
       expect(button).toBeEnabled();
-      expect(button).toHaveTextContent('Iniciar Sesión');
+      expect(button).toHaveTextContent('Iniciar y continuar a Zoom');
+      expect(screen.getByText(/pasará a En Progreso/i)).toHaveTextContent(
+        'La sesión pasará a En Progreso y luego podrás unirte a Zoom.'
+      );
       fireEvent.click(button);
       expect(onStart).toHaveBeenCalledTimes(1);
     }
@@ -58,8 +61,10 @@ describe('SessionStartControl', () => {
   it('keeps an unmanaged session independent of Zoom readiness', () => {
     render(<SessionStartControl {...baseProps} isManagedZoom={false} />);
 
+    expect(screen.getByTestId('session-start-button')).toHaveTextContent('Iniciar Sesión');
     expect(screen.getByTestId('session-start-button')).toBeEnabled();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByText(/pasará a En Progreso/i)).not.toBeInTheDocument();
   });
 
   it('shows a retry message when readiness verification fails', () => {

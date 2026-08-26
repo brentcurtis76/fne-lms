@@ -21,6 +21,7 @@ import {
   managedMeetingIsReady,
   managedMeetingIsUnavailable,
 } from '../../../lib/utils/managed-meeting-readiness';
+import { buildSessionJoinPath } from '../../../lib/utils/session-disclosure';
 
 interface SeriesSessionItem {
   id: string;
@@ -361,8 +362,24 @@ const SessionDetailPage: React.FC = () => {
         throw new Error(errorData.error || 'Error al iniciar sesión');
       }
 
+      if (session.is_zoom_managed === true) {
+        toast.success('Sesión iniciada. Continuando a Zoom…');
+
+        try {
+          const navigated = await router.push(buildSessionJoinPath(session.id));
+          if (!navigated) throw new Error('Meeting navigation was cancelled');
+        } catch {
+          // The status transition already committed. Refresh the page so the
+          // prominent recovery action below is available instead of claiming
+          // that starting the session itself failed.
+          toast.error('La sesión se inició, pero no pudimos abrir Zoom. Usa “Ir a Zoom”.');
+          await fetchSession();
+        }
+        return;
+      }
+
       toast.success('Sesión iniciada exitosamente');
-      fetchSession();
+      await fetchSession();
     } catch (error: unknown) {
       console.error('Error starting session:', error);
       toast.error(error instanceof Error ? error.message : 'Error al iniciar sesión');
@@ -876,6 +893,19 @@ const SessionDetailPage: React.FC = () => {
                   onStart={handleStartSession}
                 />
               )}
+
+              {session.status === 'en_progreso' &&
+                session.is_zoom_managed === true &&
+                managedMeetingIsReady(managedMeetingStatus) && (
+                  <a
+                    href={buildSessionJoinPath(session.id)}
+                    data-testid="session-zoom-entry-button"
+                    className="inline-flex items-center px-4 py-2 bg-brand_accent text-brand_primary hover:bg-brand_accent_hover rounded-lg transition-colors"
+                  >
+                    <Link2 size={20} aria-hidden="true" className="mr-2" />
+                    Ir a Zoom
+                  </a>
+                )}
 
               {session.status !== 'completada' && session.status !== 'cancelada' && (
                 <button

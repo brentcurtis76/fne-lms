@@ -4,9 +4,9 @@
 - **Branch**: `fix/red-super`
 - **Worktree**: `/Users/brentcurtis/dev/wt/red-super`
 - **Base**: `a28eebc9152565cd8b287fe12e8679c2ab783137` (origin/main, the PR #55 QA-foundation merge — verified exact before branching)
-- **Implementation head**: `9d71dfef` (`fix(networks): repair supervisor management, fail closed (B2a)`)
-- **Commit count**: 2 — the implementation commit above plus the documentation commit that carries this file and the PROJECT_STATE.md status line (a document cannot cite the SHA of the commit that contains it; `git log a28eebc9..HEAD` shows both)
-- **Status**: REVIEW READY. Nothing pushed, no PR, no merge, no deployment, no production access.
+- **Round-1 implementation head**: `9d71dfef` (`fix(networks): repair supervisor management, fail closed (B2a)`); round-1 docs commit `09765566` — the head Codex reviewed
+- **Correction round**: Codex returned **REQUEST CHANGES** on `09765566`. The reviewed commits are untouched; the corrections land as NEW commits on top — one implementation commit (migration + concurrency proof + audit + copy + tests) and the documentation commit that carries this update (a document cannot cite the SHA of the commit that contains it; `git log a28eebc9..HEAD` shows all four)
+- **Status**: REVIEW READY — correction round 1 complete, awaiting Codex re-review. NOT approved. Nothing pushed, no PR, no merge, no deployment, no production access.
 
 ## Objective
 
@@ -118,7 +118,11 @@ Marta batches.
 
 Diffstat at the implementation head: 9 files, +1816 / −217.
 
-## Test evidence (all local, worktree `/Users/brentcurtis/dev/wt/red-super`)
+## Test evidence — round 1, historical (at head `9d71dfef`)
+
+> The correction round re-ran every gate; the CANONICAL current counts live in
+> the **Correction round 1** section at the end of this document. This section
+> is kept as the accurate record of what was measured at the reviewed head.
 
 Fail-on-old, measured by checking out ONLY the three product files at
 `a28eebc9` with the new tests in place:
@@ -206,15 +210,29 @@ All via `tests/e2e/network-supervisors.spec.ts` (11/11 passed, first attempt):
 2. `GET /api/admin/networks/supervisors` (available-users listing) logic is
    untouched; the management UI uses `supervisors-simple.ts` for that modal, which
    is also out of scope and was not repaired or audited here.
-3. The one-active-network rule is enforced at two application layers (route +
-   helper) but not by a database constraint — schema changes are out of scope for
-   this batch, so a concurrent-admin race could in principle double-assign. The
-   DB agent flow would own a partial unique index if wanted.
-4. Supervisor grant/removal writes no `recordSecurityAudit` row. `assign-role.ts`
-   audits; `remove-role.ts` (the removal pattern mirrored here) does not. Left
-   consistent with the removal pattern; a follow-up could add both.
+3. ~~The one-active-network rule is enforced at two application layers but not by
+   a database constraint — a concurrent-admin race could in principle
+   double-assign.~~ **CLOSED in correction round 1**: migration
+   `20260827150000_one_active_supervisor.sql` adds the partial unique index
+   `uq_user_roles_one_active_supervisor` (DB-agent authored, additive, with a
+   read-only fail-closed preflight that reports pre-existing duplicates instead
+   of touching them); its 23505 maps to HTTP 409; proven by pgTAP `060`, a
+   two-session concurrency proof, and unit coverage — see the correction
+   section below.
+4. ~~Supervisor grant/removal writes no `recordSecurityAudit` row.~~ **CLOSED in
+   correction round 1**: `role_assigned` / `role_removed` events with ids-only
+   metadata, fail-open-but-visible — see the correction section below.
 5. `checkIsAdmin` maps an internal auth-check failure to non-admin (403) rather
    than 500 — deny-on-doubt, identical to every other consumer of that helper.
+6. (New, correction round) `handleGetAvailableUsers`' pre-existing
+   `'Network ID es requerido'` 400 keeps its legacy wording — that GET is the
+   out-of-scope legacy listing (limitation 2). The repaired POST/DELETE paths
+   speak plain es-CL only.
+7. (New, correction round) After the unique index, a `supervisor_de_red` grant
+   through the generic `assign-role.ts` that loses to an existing active row
+   answers a mapped 409; other role types have no unique index and keep their
+   generic insert-error 500. `assign-role.ts` still runs no supervisor
+   pre-check of its own — the index is its enforcement.
 
 ## Where Codex should press hardest
 
@@ -251,3 +269,153 @@ All via `tests/e2e/network-supervisors.spec.ts` (11/11 passed, first attempt):
    secondary network, so no other spec's "secondary is unsupervised" reading can
    be perturbed even transiently. Successful grants target the primary network
    only, and other specs assert primary membership by containment, not equality.
+
+---
+
+# Correction round 1 — Codex REQUEST CHANGES, addressed
+
+Codex's independent review of head `09765566` returned **REQUEST CHANGES** with
+four required corrections. The reviewed commits are untouched; everything below
+landed as new commits so only the new diff needs re-review. **This round claims
+no approval** — it awaits Codex's re-review.
+
+## Correction 1 — the concurrent-assignment race, closed at the database
+
+- **Migration** `supabase/migrations/20260827150000_one_active_supervisor.sql`,
+  authored through the DB-agent flow. Strictly additive: a read-only, fail-closed
+  preflight (a DO block that RAISEs, listing each offending `user_id` and its
+  active-row count, if any user already holds >1 active `supervisor_de_red` row —
+  it never modifies, deactivates or deletes anything; resolving duplicates is an
+  explicit operator decision), then the partial unique index
+  `uq_user_roles_one_active_supervisor ON user_roles (user_id) WHERE role_type =
+  'supervisor_de_red' AND is_active = true`. Inactive history (false or NULL)
+  stays unlimited. `guard:migrations` passes over all 38 files.
+- **23505 → 409, everywhere the index can surface.**
+  `assignSupervisorRole` classifies a 23505 insert loss as
+  `active_role_conflict` with a plain es-CL message (no database internals);
+  the supervisors route maps it to **409**. The DB agent's impact sweep found
+  one more path that inserts active supervisor rows: the generic
+  `assign-role.ts`, which had NO active-supervisor check at all and previously
+  double-inserted silently — it now maps the same 23505 to the same 409 (other
+  role types are untouched; no other unique index exists on `user_roles`).
+  This is the one deliberate out-of-round-1-scope file touch, made because the
+  migration itself changes that endpoint's failure mode; flagged here rather
+  than slipped in.
+- **pgTAP** `supabase/tests/060-user-roles-supervisor-unique.sql` (8 tests):
+  index exists and is UNIQUE; a second ACTIVE row for the same user is rejected
+  (23505) toward another network AND duplicating the same one; inactive
+  historical rows stay allowed (plural), NULL `is_active` is outside the
+  predicate; a different user is unaffected.
+- **Real two-session concurrency proof**
+  `scripts/ci/supervisor-concurrency-proof.mjs` (`npm run
+  test:supervisor-concurrency`), pg over the local stack like the repo's other
+  concurrency proofs: session B's competing insert must BLOCK while session A
+  holds its uncommitted insert, then fail with 23505 when A commits; a
+  simultaneous double-fire yields exactly one winner + one 23505; end state is
+  EXACTLY ONE active row, with deactivated history preserved and still
+  insertable. Synthetic fixed-uuid fixtures, local-host guard, pre- and
+  post-purge of its own rows.
+- **Fail-on-old, both layers.** Run against the pre-index database first, the
+  proof FAILED exactly as the defect predicts — "session B inserted a SECOND
+  active supervisor row while session A held its uncommitted insert — the race
+  is open" — and passes after `supabase db reset` applies the migration. The
+  correction unit tests (below) fail 12/12 at the reviewed head `09765566`.
+
+## Correction 2 — durable security auditing
+
+- After a committed assignment, the route records `role_assigned`; after a
+  committed removal (which now receives the authenticated admin id as a
+  parameter), `role_removed` — both via `lib/security/audit.ts::
+  recordSecurityAudit` on the service client, with `actorUserId` (admin),
+  `actorRole: 'admin'`, `targetUserId`, and metadata of EXACTLY
+  `{ role_type: 'supervisor_de_red', red_id }` — ids only, no names, no e-mail,
+  no credentials (Ley 21.719; the module's sanitiser is a second net).
+- **Fail-open-but-visible, as documented in the module**: the role change is
+  already committed when the audit row is attempted, so the response stays
+  201/200 and carries `audited: true|false`. The call is additionally wrapped so
+  even a contract-violating THROW in the audit layer cannot flip a committed
+  change into an error response. Unit tests pin: the exact event payload for
+  both actions, metadata key-set exactly `['red_id','role_type']`, no audit call
+  on any rejected path (409/404/500), and 201/200 with `audited: false` when the
+  audit write fails or throws.
+- **End-to-end**: the mandatory spec now asserts `audited: true` on both
+  mutations and reads the REAL `security_audit_events` rows back through the
+  service client — exactly one `role_assigned` and one `role_removed` for the
+  candidate, `outcome: 'success'`, `actor_role: 'admin'`, metadata equal to the
+  ids-only object.
+
+## Correction 3 — plain es-CL validation copy
+
+The repaired POST/DELETE paths answer malformed ids with
+`La red o el usuario indicados no son válidos` and missing ids with
+`La red y el usuario son requeridos` — no "Network ID", "User ID" or "UUID"
+reaches the administrator. Unit tests pin the exact text and assert the
+forbidden terms are absent. (The out-of-scope legacy GET keeps its old wording —
+known limitation 6.)
+
+## Correction 4 — documentation
+
+This document and PROJECT_STATE.md updated as required: the concurrency
+limitation removed as CLOSED, audit behavior added, all counts corrected below,
+and no review approval claimed anywhere.
+
+## Files changed in the correction round
+
+**Higher risk** — `supabase/migrations/20260827150000_one_active_supervisor.sql`
+(new, DB-agent authored); `pages/api/admin/networks/supervisors.ts` (audit,
+409 mapping, es-CL copy, removal handler takes adminId);
+`utils/roleUtils.ts` (`active_role_conflict` classification);
+`pages/api/admin/assign-role.ts` (the one flagged cross-file touch: 23505 → 409
+for supervisor grants).
+
+**Medium risk** — `scripts/ci/supervisor-concurrency-proof.mjs` (new) and its
+`package.json` script `test:supervisor-concurrency`.
+
+**Lower risk** — `supabase/tests/060-user-roles-supervisor-unique.sql` (new);
+`__tests__/api/admin/networks-supervisors.test.ts` (+5 tests, several extended);
+`__tests__/utils/roleUtils.assignSupervisorRole.test.ts` (+1);
+`__tests__/api/admin/assign-role.test.ts` (+1);
+`tests/e2e/network-supervisors.spec.ts` (audit assertions inside the existing 11
+tests); this document; `PROJECT_STATE.md`.
+
+## Canonical test evidence at the correction head (all local, synthetic only)
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| Fail-on-old (unit) | the 3 supervisor suites + assign-role vs reviewed head `09765566` (product files checked out, new tests in place) | **12 correction tests FAIL / 90 pass** at `09765566` → all pass at the correction head |
+| Fail-on-old (race) | `npm run test:supervisor-concurrency` on the PRE-index database | **FAIL — open race reproduced** (second active row inserted past the held transaction) |
+| Focused suites | `npx vitest run` over `networks-index`, `networks-supervisors`, `roleUtils.assignSupervisorRole`, `assign-role` tests | **4 files, 110 passed** |
+| Typecheck / Lint | `npm run type-check` / `npm run lint` | clean / clean, zero warnings |
+| Migration guards | `npm run guard:migrations` | OK — 38 files, no RLS-disable, no destructive DDL |
+| Browser boundary | `npm run guard:browser` | OK |
+| Unit (full) | `npm test` (with `.env.local` parked aside, matching CI's unit gate) | **368 files, 8391 passed, 11 skipped** |
+| pgTAP / RLS | `npm run test:db` after `supabase db reset` (all 38 migrations from scratch — the new preflight passes on a clean database) | **22 files, 1441 tests, PASS** |
+| Concurrency proof | `npm run test:supervisor-concurrency` (post-migration) | **PASS** — blocking observed, loser 23505, exactly one active row in both phases, history preserved |
+| Build (production) | `npm run build` + `node scripts/check-price-leak.mjs` | success / OK |
+| Mandatory e2e | `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **188 passed, 0 skipped, 0 flaky, 13 specs**; my 11 tests first-attempt, audit rows asserted live |
+| No-skip guard | `node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json` | OK — 13 mandatory specs, no skips |
+| Hygiene | `git diff --check`; post-run residue sweep | clean; 0 candidate rows anywhere, secondary network 0 active supervisors, exactly the lifecycle's 2 role-audit rows in the local trail |
+
+The migration was applied ONLY to the ephemeral local stack via `supabase db
+reset`. Applying it to production remains a human post-merge step under the
+standing rule (PROJECT_STATE.md, Z1b closure): "aplicar migraciones a
+producción" is a mandatory post-merge checklist item verified by the PM.
+
+## Where Codex should press hardest — correction round
+
+1. **The migration**: is the preflight genuinely read-only and fail-closed
+   (report-and-abort, never mutate)? Is the index truly additive and its
+   predicate exactly the invariant (NULL excluded on purpose)?
+2. **The proof's honesty**: the held-lock phase asserts session B BLOCKS before
+   the winner commits — verify that assertion cannot pass vacuously, and that
+   the red run on the pre-index database is the same script, unmodified.
+3. **The 409 mapping's blast radius**: `assign-role.ts` was outside round-1
+   scope; confirm the added branch is exactly `roleType === 'supervisor_de_red'
+   && code === '23505'`, after the community-rollback compensation, changing
+   nothing else on that endpoint.
+4. **Audit metadata discipline**: nothing but `role_type` and `red_id` can reach
+   the trail from these call sites, on both success responses AND the absence of
+   audit calls on rejected paths; and the fail-open guarantee (audited:false,
+   never an error flip).
+5. **Doc truthfulness**: the round-1 evidence section is labeled historical; the
+   counts above are the canonical ones; no approval is claimed.

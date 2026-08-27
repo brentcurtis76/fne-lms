@@ -19,13 +19,23 @@ import {
 } from '../types/roles';
 import { getAvailableCommunitiesForAssignment, assignRoleViaAPI, removeRoleViaAPI } from '../utils/roleUtils';
 
+// B2a r2: supervisor_de_red is deliberately ABSENT from this list. The role
+// is only meaningful with a network (user_roles.red_id), and this generic
+// modal has no network selector — offering it here minted active supervisor
+// rows with red_id NULL that the one-active-supervisor unique index then
+// counted, blocking the real assignment through Gestión de Redes. Network
+// supervisors are assigned ONLY via /admin/network-management (the dedicated
+// endpoint validates the network and writes red_id); the generic API refuses
+// the role type too (assign-role.ts, 400). Existing supervisor roles still
+// RENDER in the current-roles list below — ROLE_NAMES/ROLE_DESCRIPTIONS
+// lookups are keyed by the row's role_type, independent of this list; only
+// the "assign new role" dropdown is fenced.
 const AVAILABLE_ROLES: UserRoleType[] = [
   'admin',
   'consultor',
   'equipo_directivo',
   'lider_generacion',
   'lider_comunidad',
-  'supervisor_de_red',
   'community_manager',
   'docente',
   'encargado_licitacion'

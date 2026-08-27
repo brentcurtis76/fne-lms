@@ -23,7 +23,11 @@ import {
  * supervisors RLS used to hide, that assignment and removal actually work, and
  * that the one-active-network-per-supervisor rule holds against the seeded
  * secondary network (a real, populated network — never a nonexistent id, which
- * would pass vacuously).
+ * would pass vacuously). Round 2 adds the CHANNEL boundary: the generic
+ * /api/admin/assign-role endpoint refuses supervisor_de_red outright (400,
+ * es-CL guidance, zero writes) — supervisors are granted only through the
+ * dedicated network endpoint, which the lifecycle then exercises for the SAME
+ * candidate the generic refusal just protected.
  *
  * Non-vacuity: these assertions are only satisfiable through a genuinely
  * server-only service-role client. `user_roles` has NO admin-read policy
@@ -295,6 +299,41 @@ test.describe('network supervisors — assignment lifecycle', () => {
 
   test.afterAll(async () => {
     await purgeCandidates();
+  });
+
+  test('the generic assign-role endpoint refuses to mint a supervisor', async ({ page }) => {
+    // B2a r2. The candidate holds NO supervisor role yet — this is the FIRST
+    // assignment attempt, the exact shape the round-2 finding showed slipping
+    // through: with no existing active row there is no unique-index conflict
+    // to lose to, so only the endpoint's own channel boundary can stop the
+    // creation of an ACTIVE supervisor with red_id NULL (which would then
+    // block the legitimate dedicated assignment two tests below).
+    const response = await page.request.post('/api/admin/assign-role', {
+      data: { targetUserId: candidateId, roleType: 'supervisor_de_red' },
+    });
+    expect(response.status(), await response.text()).toBe(400);
+    const body = (await response.json()) as { error: string };
+    expect(body.error).toBe('El rol Supervisor de Red debe asignarse desde Gestión de Redes.');
+
+    // The refusal wrote NOTHING: no supervisor row of any liveness (so the
+    // dedicated assignment that follows starts from a genuinely clean slate)…
+    const { data: roleRows, error: rolesError } = await admin
+      .from('user_roles')
+      .select('id, red_id, is_active')
+      .eq('user_id', candidateId)
+      .eq('role_type', 'supervisor_de_red');
+    expect(rolesError).toBeNull();
+    expect(roleRows).toEqual([]);
+
+    // …and no audit row either. The next test's `toHaveLength(1)` on
+    // role_assigned re-proves this after the dedicated grant succeeds.
+    const { data: auditRows, error: auditError } = await admin
+      .from('security_audit_events')
+      .select('id')
+      .eq('action', 'role_assigned')
+      .eq('target_user_id', candidateId);
+    expect(auditError).toBeNull();
+    expect(auditRows).toEqual([]);
   });
 
   test('the admin assigns the candidate to the primary network', async ({ page }) => {

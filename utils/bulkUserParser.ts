@@ -161,6 +161,19 @@ function parseUserRow(
   const validRoles = ['admin', 'docente', 'inspirador', 'socio_comunitario', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'encargado_licitacion'];
   if (roleForValidation && DANGEROUS_CHARS.includes(roleForValidation.charAt(0))) {
     errors.push(`Rol '${roleForValidation}' inválido`);
+  } else if (String(finalRole ?? '').trim().toLowerCase() === 'supervisor_de_red') {
+    // B2a r3 channel boundary: network supervisors are granted ONLY through
+    // Gestión de Redes (pages/api/admin/networks/supervisors.ts), which
+    // validates the network and writes user_roles.red_id. This importer
+    // collects no network, so a supervisor row minted here could only be an
+    // ACTIVE supervisor with red_id NULL — the exact shape the database now
+    // refuses (chk_user_roles_active_supervisor_needs_red, 23514) AFTER the
+    // auth account and profile already exist. Checked on finalRole, not just
+    // the CSV cell, so BOTH entry forms are covered: an explicit CSV value
+    // (which the validRoles list below already excluded, with a generic
+    // message) AND options.defaultRole — which is applied to every row with
+    // an empty role column and was previously never validated at all.
+    errors.push('El rol Supervisor de Red debe asignarse desde Gestión de Redes.');
   } else if (roleForValidation && !validRoles.includes(roleForValidation)) {
     errors.push(`Rol '${roleForValidation}' inválido`);
   }

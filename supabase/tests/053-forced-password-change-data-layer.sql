@@ -265,6 +265,22 @@ INSERT INTO schools (id, name)
 VALUES (:school_id, 'Forced Change Data Layer Test School')
 ON CONFLICT (id) DO NOTHING;
 
+-- B2a r2: chk_user_roles_active_supervisor_needs_red (migration
+-- 20260827160000) forbids an ACTIVE supervisor_de_red row with red_id NULL.
+-- This sweep seeds ACTIVE rows for all nine roles, so the supervisor fixtures
+-- need a real network to point at. Synthetic, rolled back with the rest.
+INSERT INTO auth.users (id, email, instance_id, aud, role)
+VALUES ('00000000-0000-0000-0000-00000000f052', 'fpcdl-red-creator@fpcdl.local', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO profiles (id, email, name, approval_status)
+VALUES ('00000000-0000-0000-0000-00000000f052', 'fpcdl-red-creator@fpcdl.local', 'FPCDL Red Creator Sintetico', 'approved')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.redes_de_colegios (id, nombre, descripcion, created_by)
+VALUES ('00000000-0000-0000-0000-00000000f053', 'Red Sintetica FPCDL Data Layer', 'Red sintetica para pgTAP. No es una red real.', '00000000-0000-0000-0000-00000000f052')
+ON CONFLICT (id) DO NOTHING;
+
 CREATE OR REPLACE FUNCTION pg_temp.seed_role(p_role text, p_flagged boolean)
 RETURNS uuid AS $$
 DECLARE
@@ -277,8 +293,13 @@ BEGIN
   INSERT INTO profiles (id, email, name, approval_status, school_id, must_change_password)
   VALUES (v_id, v_email, 'FPCDL ' || p_role, 'approved', 9603, p_flagged);
 
-  INSERT INTO user_roles (user_id, role_type, school_id, is_active)
-  VALUES (v_id, p_role::public.user_role_type, 9603, true);
+  -- supervisor_de_red rows are ACTIVE and must therefore carry a red_id
+  -- (chk_user_roles_active_supervisor_needs_red); every other role keeps NULL.
+  INSERT INTO user_roles (user_id, role_type, school_id, is_active, red_id)
+  VALUES (v_id, p_role::public.user_role_type, 9603, true,
+          CASE WHEN p_role = 'supervisor_de_red'
+               THEN '00000000-0000-0000-0000-00000000f053'::uuid
+          END);
 
   RETURN v_id;
 END;

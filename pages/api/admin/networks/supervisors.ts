@@ -1,13 +1,26 @@
 /**
  * API endpoint for managing supervisor assignments to networks
  * Handles assigning/removing supervisor_de_red roles
- * 
- * SECURITY: Admin-only access enforced via hasAdminPrivileges
+ *
+ * SECURITY (B2a): auth → role check → validation → logic, per the repo API
+ * pattern. The caller is authenticated and verified as an ACTIVE admin via
+ * `checkIsAdmin()`; privileged queries then run on `createServiceRoleClient()`,
+ * a server-only client that carries the service-role key and never the caller's
+ * JWT. The previous implementation passed `supabaseKey` to the auth-helpers
+ * client, which kept sending the CALLER's session JWT as the bearer — PostgREST
+ * resolved `authenticated`, not `service_role`, so RLS filtered every lookup
+ * this handler makes about OTHER users.
+ *
+ * Every lookup here fails CLOSED: a failed query is a 500, never treated as
+ * "not found" (404) or "no conflicting role" (proceed). `maybeSingle()` keeps a
+ * genuine zero-row miss as data:null with NO error, which is what makes the two
+ * outcomes distinguishable at all.
  */
 
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
-import { hasAdminPrivileges, assignSupervisorRole } from '../../../../utils/roleUtils';
+import { checkIsAdmin, createServiceRoleClient } from '../../../../lib/api-auth';
+import { assignSupervisorRole } from '../../../../utils/roleUtils';
+import { recordSecurityAudit } from '../../../../lib/security/audit';
 
 interface AssignSupervisorRequest {
   networkId: string;
@@ -19,31 +32,35 @@ interface RemoveSupervisorRequest {
   userId: string;
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const supabase = createServerSupabaseClient({ req, res });
+/**
+ * Both ids are uuid columns; a malformed value would reach PostgREST as an
+ * invalid cast (22P02) and surface as a 500. Reject it as the 400 it is.
+ */
+const UUID_PATTERN = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
+function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && UUID_PATTERN.test(value);
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    // Get current user session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !session?.user) {
+    const { isAdmin, user } = await checkIsAdmin(req, res);
+
+    if (!user) {
       return res.status(401).json({ error: 'No autorizado' });
     }
 
-    // SECURITY: Verify admin privileges using service role client
-    const supabaseAdmin = createServerSupabaseClient({ req, res }, {
-      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY
-    });
-    
-    const isAdmin = await hasAdminPrivileges(supabaseAdmin, session.user.id);
     if (!isAdmin) {
       return res.status(403).json({ error: 'Solo administradores pueden gestionar supervisores' });
     }
 
+    const supabaseAdmin = createServiceRoleClient();
+
     switch (req.method) {
       case 'POST':
-        return handleAssignSupervisor(supabaseAdmin, req.body as AssignSupervisorRequest, session.user.id, res);
+        return handleAssignSupervisor(supabaseAdmin, req.body as AssignSupervisorRequest, user.id, res);
       case 'DELETE':
-        return handleRemoveSupervisor(supabaseAdmin, req.body as RemoveSupervisorRequest, res);
+        return handleRemoveSupervisor(supabaseAdmin, req.body as RemoveSupervisorRequest, user.id, res);
       case 'GET':
         return handleGetAvailableUsers(supabaseAdmin, req.query.networkId as string, res);
       default:
@@ -60,88 +77,151 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
  * POST /api/admin/networks/supervisors - Assign supervisor to network
  */
 async function handleAssignSupervisor(
-  supabase: any, 
-  body: AssignSupervisorRequest, 
-  adminId: string, 
+  supabase: any,
+  body: AssignSupervisorRequest,
+  adminId: string,
   res: NextApiResponse
 ) {
   try {
-    const { networkId, userId } = body;
+    const { networkId, userId } = body || {};
 
     // Validate input
     if (!networkId || !userId) {
-      return res.status(400).json({ error: 'Network ID y User ID son requeridos' });
+      return res.status(400).json({ error: 'La red y el usuario son requeridos' });
+    }
+    if (!isUuid(networkId) || !isUuid(userId)) {
+      return res.status(400).json({ error: 'La red o el usuario indicados no son válidos' });
     }
 
-    // Verify network exists
-    const { data: network } = await supabase
+    // Verify network exists. The column is `nombre` — redes_de_colegios has no
+    // `name` column, and selecting one errored the whole query; with the error
+    // discarded, every assignment answered 404 "Red no encontrada".
+    const { data: network, error: networkError } = await supabase
       .from('redes_de_colegios')
-      .select('id, name')
+      .select('id, nombre')
       .eq('id', networkId)
-      .single();
+      .maybeSingle();
 
+    if (networkError) {
+      console.error('Error looking up network for supervisor assignment:', networkError);
+      return res.status(500).json({ error: 'Error al verificar la red' });
+    }
     if (!network) {
       return res.status(404).json({ error: 'Red no encontrada' });
     }
 
     // Verify user exists
-    const { data: user } = await supabase
+    const { data: user, error: userError } = await supabase
       .from('profiles')
       .select('id, email, first_name, last_name')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
+    if (userError) {
+      console.error('Error looking up user for supervisor assignment:', userError);
+      return res.status(500).json({ error: 'Error al verificar el usuario' });
+    }
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
-    // Check if user already has supervisor role for this network
-    const { data: existingRole } = await supabase
-      .from('user_roles')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('role_type', 'supervisor_de_red')
-      .eq('red_id', networkId)
-      .eq('is_active', true)
-      .single();
-
-    if (existingRole) {
-      return res.status(409).json({ 
-        error: `El usuario ${user.first_name} ${user.last_name} ya es supervisor de la red "${network.name}"` 
-      });
-    }
-
-    // Check if user already has supervisor role for another network
-    const { data: otherNetworkRole } = await supabase
+    // ONE error-checked query for every active supervisor role the user holds.
+    // It backs both rules: a duplicate assignment to the SAME network is
+    // rejected, and an active supervisor of ANOTHER network cannot be assigned
+    // simultaneously (one-active-network-per-supervisor). The previous code
+    // selected the non-existent `redes_de_colegios(name)` here, so the query
+    // always errored, the error was discarded, and the rule never fired.
+    const { data: activeSupervisorRoles, error: rolesError } = await supabase
       .from('user_roles')
       .select(`
         id,
         red_id,
         redes_de_colegios (
-          name
+          nombre
         )
       `)
       .eq('user_id', userId)
       .eq('role_type', 'supervisor_de_red')
-      .eq('is_active', true)
-      .single();
+      .eq('is_active', true);
 
+    if (rolesError) {
+      console.error('Error looking up existing supervisor roles:', rolesError);
+      return res.status(500).json({ error: 'Error al verificar las asignaciones de supervisor existentes' });
+    }
+
+    const existingRoles = activeSupervisorRoles || [];
+
+    const duplicateRole = existingRoles.find((role: any) => role.red_id === networkId);
+    if (duplicateRole) {
+      return res.status(409).json({
+        error: `El usuario ${user.first_name} ${user.last_name} ya es supervisor de la red "${network.nombre}"`
+      });
+    }
+
+    const otherNetworkRole = existingRoles[0];
     if (otherNetworkRole) {
-      return res.status(409).json({ 
-        error: `El usuario ya es supervisor de otra red: "${otherNetworkRole.redes_de_colegios.name}". Un usuario solo puede supervisar una red a la vez.` 
+      const otherRed = Array.isArray(otherNetworkRole.redes_de_colegios)
+        ? otherNetworkRole.redes_de_colegios[0]
+        : otherNetworkRole.redes_de_colegios;
+      const otherName = otherRed?.nombre;
+      return res.status(409).json({
+        error: otherName
+          ? `El usuario ya es supervisor de otra red: "${otherName}". Un usuario solo puede supervisar una red a la vez.`
+          : 'El usuario ya tiene un rol de supervisor activo. Un usuario solo puede supervisar una red a la vez.'
       });
     }
 
     // Use the roleUtils function to assign supervisor role
     const result = await assignSupervisorRole(supabase, userId, networkId, adminId);
-    
+
     if (!result.success) {
-      return res.status(400).json({ error: result.error });
+      const status =
+        result.failure === 'network_not_found' ? 404 :
+        result.failure === 'duplicate' ||
+        result.failure === 'other_network' ||
+        // The database's partial unique index won a race our look-before-insert
+        // checks could not see — a conflict, not a server failure.
+        result.failure === 'active_role_conflict' ? 409 :
+        result.failure === 'not_admin' ? 403 :
+        500;
+      return res.status(status).json({ error: result.error || 'Error al asignar supervisor' });
+    }
+
+    // Durable audit, mirroring assign-role.ts: the grant is already committed.
+    // recordSecurityAudit never throws by contract and fails OPEN-but-visible
+    // (lib/security/audit.ts) — an audit defect must not misreport a role
+    // change that already happened, so the response stays 201 either way and
+    // carries `audited` so a missed row is observable. Metadata is ids only —
+    // no names, no e-mail (Ley 21.719).
+    let audited = false;
+    try {
+      const auditResult = await recordSecurityAudit(supabase, {
+        action: 'role_assigned',
+        outcome: 'success',
+        actorUserId: adminId,
+        actorRole: 'admin',
+        targetUserId: userId,
+        metadata: { role_type: 'supervisor_de_red', red_id: networkId }
+      });
+      audited = auditResult.recorded;
+    } catch (auditError) {
+      // Belt over the module's own braces: even a contract-violating throw in
+      // the audit layer must not flip a committed grant into an error response.
+      console.error('[supervisors API] audit write threw:', auditError);
+    }
+
+    // Hygiene, mirroring the removal path and assign-role.ts: the cache is a
+    // degraded-path projection only (it cannot authorize — see roleUtils), so a
+    // refresh failure is logged, never fatal to an assignment that succeeded.
+    const { error: cacheRefreshError } = await supabase.rpc('refresh_user_roles_cache');
+    if (cacheRefreshError) {
+      console.error('[supervisors API] Failed to refresh user_roles_cache:', cacheRefreshError);
     }
 
     return res.status(201).json({
       success: true,
-      message: `${user.first_name} ${user.last_name} asignado exitosamente como supervisor de la red "${network.name}"`
+      audited,
+      message: `${user.first_name} ${user.last_name} asignado exitosamente como supervisor de la red "${network.nombre}"`
     });
   } catch (error) {
     console.error('Error in handleAssignSupervisor:', error);
@@ -152,13 +232,21 @@ async function handleAssignSupervisor(
 /**
  * DELETE /api/admin/networks/supervisors - Remove supervisor from network
  */
-async function handleRemoveSupervisor(supabase: any, body: RemoveSupervisorRequest, res: NextApiResponse) {
+async function handleRemoveSupervisor(
+  supabase: any,
+  body: RemoveSupervisorRequest,
+  adminId: string,
+  res: NextApiResponse
+) {
   try {
-    const { networkId, userId } = body;
+    const { networkId, userId } = body || {};
 
     // Validate input
     if (!networkId || !userId) {
-      return res.status(400).json({ error: 'Network ID y User ID son requeridos' });
+      return res.status(400).json({ error: 'La red y el usuario son requeridos' });
+    }
+    if (!isUuid(networkId) || !isUuid(userId)) {
+      return res.status(400).json({ error: 'La red o el usuario indicados no son válidos' });
     }
 
     // Find existing supervisor role.
@@ -201,18 +289,49 @@ async function handleRemoveSupervisor(supabase: any, body: RemoveSupervisorReque
       return res.status(404).json({ error: 'Asignación de supervisor no encontrada' });
     }
 
-    // Deactivate the role (don't delete to maintain audit trail)
-    const { error: deactivateError } = await supabase
+    // Deactivate the role — never delete it, the row is the audit trail.
+    // `user_roles` has NO `updated_at` column (baseline.sql:11380), and writing
+    // one made PostgREST reject the update (PGRST204), so every removal died
+    // here with a 500 even after the lookup above was repaired. The payload is
+    // exactly { is_active: false }, mirroring remove-role.ts, and the update
+    // reads back the row it touched: an update that matched nothing is a
+    // failure, not a success.
+    const { data: deactivatedRows, error: deactivateError } = await supabase
       .from('user_roles')
-      .update({ 
-        is_active: false,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', supervisorRole.id);
+      .update({ is_active: false })
+      .eq('id', supervisorRole.id)
+      .select('id');
 
     if (deactivateError) {
       console.error('Error removing supervisor role:', deactivateError);
       return res.status(500).json({ error: 'Error al remover supervisor' });
+    }
+
+    if (!deactivatedRows || deactivatedRows.length === 0) {
+      console.error('Supervisor role deactivation matched no rows:', supervisorRole.id);
+      return res.status(500).json({ error: 'Error al remover supervisor' });
+    }
+
+    // Durable audit, the removal counterpart of the grant's role_assigned row.
+    // The deactivation is already committed; recordSecurityAudit never throws
+    // by contract and fails OPEN-but-visible (lib/security/audit.ts), so the
+    // response stays 200 either way and carries `audited`. Metadata is ids
+    // only — no names, no e-mail (Ley 21.719).
+    let audited = false;
+    try {
+      const auditResult = await recordSecurityAudit(supabase, {
+        action: 'role_removed',
+        outcome: 'success',
+        actorUserId: adminId,
+        actorRole: 'admin',
+        targetUserId: userId,
+        metadata: { role_type: 'supervisor_de_red', red_id: networkId }
+      });
+      audited = auditResult.recorded;
+    } catch (auditError) {
+      // Belt over the module's own braces: even a contract-violating throw in
+      // the audit layer must not flip a committed removal into an error.
+      console.error('[supervisors API] audit write threw:', auditError);
     }
 
     // Hygiene (see remove-role.ts): the revocation is already enforced by
@@ -238,6 +357,7 @@ async function handleRemoveSupervisor(supabase: any, body: RemoveSupervisorReque
 
     return res.status(200).json({
       success: true,
+      audited,
       message: `${supervisorName} removido exitosamente como supervisor de la red "${red?.nombre ?? ''}"`
     });
   } catch (error) {
@@ -281,7 +401,7 @@ async function handleGetAvailableUsers(supabase: any, networkId: string, res: Ne
 
     // Filter out users who already have active supervisor roles
     const filteredUsers = availableUsers?.filter((user: any) => {
-      const hasSupervisorRole = user.user_roles?.some((role: any) => 
+      const hasSupervisorRole = user.user_roles?.some((role: any) =>
         role.role_type === 'supervisor_de_red' && role.is_active === true
       );
       return !hasSupervisorRole;

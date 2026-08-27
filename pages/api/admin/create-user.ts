@@ -93,6 +93,27 @@ export default async function handler(
       }
     }
 
+    // B2a r3 channel boundary: supervisor_de_red is NOT creatable through
+    // this endpoint — for anyone. The role is only meaningful with a network
+    // (user_roles.red_id), which this form neither collects nor writes, so
+    // since chk_user_roles_active_supervisor_needs_red (migration
+    // 20260827160000) the role insert below could only ever fail at the
+    // database (23514) AFTER the auth account and profile already existed —
+    // provisioning, then rollback, then a generic 500. Refused HERE instead,
+    // before createServiceRoleClient() is even built: no auth account, no
+    // profile write, no role row, no audit row. Mirrors assign-role.ts (B2a
+    // r2): placed after the ED gates (an equipo_directivo keeps its accurate
+    // 403 — Gestión de Redes is admin-only, so this guidance would misdirect
+    // an ED) and before the schoolId shape check (the channel refusal is the
+    // actionable error; an incidental schoolId is irrelevant to a role this
+    // endpoint will never create). Same exact es-CL copy as assign-role.ts
+    // and the bulk importer.
+    if (resolvedRole === 'supervisor_de_red') {
+      return res.status(400).json({
+        error: 'El rol Supervisor de Red debe asignarse desde Gestión de Redes.'
+      });
+    }
+
     let effectiveSchoolId: number | null;
     if (bodySchoolId === undefined || bodySchoolId === null) {
       effectiveSchoolId = null;

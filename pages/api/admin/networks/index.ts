@@ -1,13 +1,19 @@
 /**
  * API endpoint for network management
  * Handles CRUD operations for redes_de_colegios
- * 
- * SECURITY: Admin-only access enforced via hasAdminPrivileges
+ *
+ * SECURITY (B2a): auth → role check → logic, per the repo API pattern.
+ * The caller is authenticated and verified as an ACTIVE admin via
+ * `checkIsAdmin()`; privileged queries then run on `createServiceRoleClient()`,
+ * a server-only client that carries the service-role key and never the caller's
+ * JWT. The previous implementation passed `supabaseKey` to the auth-helpers
+ * client, which kept sending the CALLER's session JWT as the bearer — PostgREST
+ * resolved `authenticated`, not `service_role`, so RLS on `user_roles` (which
+ * has no admin-read policy) silently emptied every supervisor read.
  */
 
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
-import { hasAdminPrivileges } from '../../../../utils/roleUtils';
+import { checkIsAdmin, createServiceRoleClient } from '../../../../lib/api-auth';
 
 interface CreateNetworkRequest {
   name: string;
@@ -21,33 +27,27 @@ interface UpdateNetworkRequest {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const supabase = createServerSupabaseClient({ req, res });
-
   try {
-    // Get current user session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !session?.user) {
+    const { isAdmin, user } = await checkIsAdmin(req, res);
+
+    if (!user) {
       return res.status(401).json({ error: 'No autorizado' });
     }
 
-    // SECURITY: Verify admin privileges using service role client
-    const supabaseAdmin = createServerSupabaseClient({ req, res }, {
-      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY
-    });
-    
-    const isAdmin = await hasAdminPrivileges(supabaseAdmin, session.user.id);
     if (!isAdmin) {
-      console.error('User is not admin:', session.user.id);
+      console.error('User is not admin:', user.id);
       return res.status(403).json({ error: 'Solo administradores pueden gestionar redes' });
     }
+
+    const supabaseAdmin = createServiceRoleClient();
 
     switch (req.method) {
       case 'GET':
         return handleGetNetworks(supabaseAdmin, res);
       case 'POST':
-        return handleCreateNetwork(supabaseAdmin, req.body as CreateNetworkRequest, session.user.id, res);
+        return handleCreateNetwork(supabaseAdmin, req.body as CreateNetworkRequest, user.id, res);
       case 'PUT':
-        return handleUpdateNetwork(supabaseAdmin, req.body as UpdateNetworkRequest, session.user.id, res);
+        return handleUpdateNetwork(supabaseAdmin, req.body as UpdateNetworkRequest, user.id, res);
       case 'DELETE':
         return handleDeleteNetwork(supabaseAdmin, req.query.id as string, res);
       default:
@@ -60,7 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined
     });
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Error interno del servidor',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -97,68 +97,104 @@ async function handleGetNetworks(supabase: any, res: NextApiResponse) {
         details: error.details,
         hint: error.hint
       });
-      
+
       // Check for missing table error
       if (error.code === '42P01') {
-        return res.status(500).json({ 
+        return res.status(500).json({
           error: 'Las tablas de red no existen',
           details: 'relation "public.redes_de_colegios" does not exist',
           migration_required: true
         });
       }
-      
-      return res.status(500).json({ 
+
+      return res.status(500).json({
         error: 'Error al obtener redes',
         details: error.message || 'Unknown database error'
       });
     }
 
-    // Get supervisors for each network separately
-    const networksWithStats = await Promise.all(
-      (networks || []).map(async (network: any) => {
-        // Fetch supervisors for this network
-        const { data: supervisors } = await supabase
-          .from('user_roles')
-          .select(`
-            user_id,
-            created_at,
-            profiles!user_id (
-              id,
-              email,
-              first_name,
-              last_name
-            )
-          `)
-          .eq('red_id', network.id)
-          .eq('role_type', 'supervisor_de_red')
-          .eq('is_active', true);
+    // One batched query for every network's active supervisors, with its error
+    // CHECKED. The per-network loop this replaces discarded `error`, so any
+    // failed lookup became supervisors: [] / supervisor_count: 0 —
+    // indistinguishable from "no supervisor assigned". A failed lookup must be
+    // a failed response, never fake-empty data.
+    //
+    // `user_roles` has two FKs into `profiles` (user_id, assigned_by), so the
+    // embed names its relationship; a bare `profiles(...)` is ambiguous
+    // (PGRST201).
+    const networkIds = (networks || []).map((network: any) => network.id);
+    let supervisorRows: any[] = [];
+    if (networkIds.length > 0) {
+      const { data: supervisorData, error: supervisorsError } = await supabase
+        .from('user_roles')
+        .select(`
+          user_id,
+          red_id,
+          created_at,
+          profiles:user_id (
+            id,
+            email,
+            first_name,
+            last_name
+          )
+        `)
+        .in('red_id', networkIds)
+        .eq('role_type', 'supervisor_de_red')
+        .eq('is_active', true);
 
-        return {
-          id: network.id,
-          name: network.nombre,
-          description: network.descripcion,
-          created_by: network.created_by,
-          last_updated_by: network.last_updated_by,
-          created_at: network.created_at,
-          updated_at: network.updated_at,
-          school_count: network.red_escuelas?.length || 0,
-          supervisor_count: supervisors?.length || 0,
-          schools: network.red_escuelas?.map((re: any) => ({
-            id: re.school_id,
-            name: re.schools?.name,
-            assigned_at: re.fecha_agregada,
-            assigned_by: re.agregado_por
-          })) || [],
-          supervisors: supervisors?.map((ur: any) => ({
-            user_id: ur.user_id,
-            email: ur.profiles?.email,
-            first_name: ur.profiles?.first_name,
-            last_name: ur.profiles?.last_name,
-            assigned_at: ur.created_at
-          })) || []
-        };
-      })
-    );
+      if (supervisorsError) {
+        console.error('Error fetching network supervisors:', {
+          code: supervisorsError.code,
+          message: supervisorsError.message,
+          details: supervisorsError.details,
+          hint: supervisorsError.hint
+        });
+        return res.status(500).json({
+          error: 'Error al obtener los supervisores de las redes',
+          details: supervisorsError.message || 'Unknown database error'
+        });
+      }
+
+      supervisorRows = supervisorData || [];
+    }
+
+    const supervisorsByNetwork = new Map<string, any[]>();
+    for (const row of supervisorRows) {
+      const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+      const list = supervisorsByNetwork.get(row.red_id) || [];
+      list.push({
+        user_id: row.user_id,
+        email: profile?.email,
+        first_name: profile?.first_name,
+        last_name: profile?.last_name,
+        assigned_at: row.created_at
+      });
+      supervisorsByNetwork.set(row.red_id, list);
+    }
+
+    const networksWithStats = (networks || []).map((network: any) => {
+      // supervisor_count is DERIVED from the returned list, so the two can
+      // never disagree.
+      const supervisors = supervisorsByNetwork.get(network.id) || [];
+      return {
+        id: network.id,
+        name: network.nombre,
+        description: network.descripcion,
+        created_by: network.created_by,
+        last_updated_by: network.last_updated_by,
+        created_at: network.created_at,
+        updated_at: network.updated_at,
+        school_count: network.red_escuelas?.length || 0,
+        supervisor_count: supervisors.length,
+        schools: network.red_escuelas?.map((re: any) => ({
+          id: re.school_id,
+          name: re.schools?.name,
+          assigned_at: re.fecha_agregada,
+          assigned_by: re.agregado_por
+        })) || [],
+        supervisors
+      };
+    });
 
     return res.status(200).json({
       success: true,
@@ -174,9 +210,9 @@ async function handleGetNetworks(supabase: any, res: NextApiResponse) {
  * POST /api/admin/networks - Create new network
  */
 async function handleCreateNetwork(
-  supabase: any, 
-  body: CreateNetworkRequest, 
-  adminId: string, 
+  supabase: any,
+  body: CreateNetworkRequest,
+  adminId: string,
   res: NextApiResponse
 ) {
   try {
@@ -218,16 +254,16 @@ async function handleCreateNetwork(
         details: error.details,
         hint: error.hint
       });
-      
+
       // Check for common errors
       if (error.code === '42P01') {
-        return res.status(500).json({ 
+        return res.status(500).json({
           error: 'La tabla de redes no existe. Por favor aplique la migración de base de datos.',
           details: 'Run database/add-supervisor-de-red-role.sql migration'
         });
       }
-      
-      return res.status(500).json({ 
+
+      return res.status(500).json({
         error: 'Error al crear la red',
         details: error.message || 'Unknown database error'
       });
@@ -248,9 +284,9 @@ async function handleCreateNetwork(
  * PUT /api/admin/networks - Update existing network
  */
 async function handleUpdateNetwork(
-  supabase: any, 
-  body: UpdateNetworkRequest, 
-  adminId: string, 
+  supabase: any,
+  body: UpdateNetworkRequest,
+  adminId: string,
   res: NextApiResponse
 ) {
   try {
@@ -352,8 +388,8 @@ async function handleDeleteNetwork(supabase: any, networkId: string, res: NextAp
       .eq('is_active', true);
 
     if (activeSupervisors && activeSupervisors.length > 0) {
-      return res.status(409).json({ 
-        error: 'No se puede eliminar la red porque tiene supervisores activos asignados' 
+      return res.status(409).json({
+        error: 'No se puede eliminar la red porque tiene supervisores activos asignados'
       });
     }
 

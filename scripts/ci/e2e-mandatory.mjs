@@ -61,6 +61,13 @@ export const MANDATORY_SPECS = [
   // than tolerates — and the invitation link is minted through the service-role
   // admin API on the ephemeral local stack.
   'tests/e2e/auth-lifecycle.spec.ts',
+  // B2a — network-supervisor management: the repaired /api/admin/networks
+  // listing (supervisors were silently empty under the caller's JWT),
+  // assignment/removal against an isolated synthetic candidate, and the
+  // one-active-network-per-supervisor rule proven against the seeded secondary
+  // network — the product-level denial test the fixture topology block
+  // (ci-fixture.spec.ts) explicitly deferred to "each affected batch".
+  'tests/e2e/network-supervisors.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

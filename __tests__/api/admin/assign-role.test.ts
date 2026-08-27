@@ -317,12 +317,13 @@ describe('admin/assign-role — admin path', () => {
     expect(payload.school_id).toBe(ED_SCHOOL_ID);
   });
 
-  // F2 (phase 16.1): community_manager and supervisor_de_red do NOT use the
-  // null-vs-non-null school_id scope signal (community_manager scopes via
-  // community_id; supervisor_de_red scopes via red_id). The admin path
+  // F2 (phase 16.1): community_manager does NOT use the null-vs-non-null
+  // school_id scope signal (it scopes via community_id). The admin path
   // therefore preserves any caller-supplied schoolId verbatim — no
   // null-normalization — same as for consultor. Verified by grep on
-  // 2026-05-12 across lib/, utils/, pages/.
+  // 2026-05-12 across lib/, utils/, pages/. (supervisor_de_red used to sit in
+  // this pair of tests; since B2a r2 the endpoint refuses that role outright —
+  // see the "supervisor_de_red channel boundary" block below.)
   it('admin: assigning "community_manager" with schoolId=42 → user_roles.school_id is 42 (preserved, no normalization)', async () => {
     setupAdmin();
     const tracker = makeTracker();
@@ -342,26 +343,109 @@ describe('admin/assign-role — admin path', () => {
     expect(payload.school_id).toBe(ED_SCHOOL_ID);
   });
 
-  it('admin: assigning "supervisor_de_red" with schoolId=42 → user_roles.school_id is 42 (preserved, no normalization)', async () => {
-    setupAdmin();
-    const tracker = makeTracker();
-    mockCreateServiceRoleClient.mockReturnValueOnce(
-      buildClient(
-        { user_roles: [{ data: { id: ROLE_ROW_ID }, error: null }] },
-        tracker,
-      ),
-    );
+  // B2a r2 — the supervisor_de_red channel boundary. These tests REPLACE the
+  // pair that used to approve a generic supervisor grant here (one asserted a
+  // 200 with school_id preserved; one asserted the 23505→409 mapping on the
+  // insert). That path was the round-2 review finding: this endpoint collects
+  // no network and writes no red_id, so its FIRST supervisor grant for a user
+  // succeeded as an ACTIVE row with red_id NULL — a row
+  // uq_user_roles_one_active_supervisor then counted as the user's single
+  // active supervisor role, blocking the real assignment through Gestión de
+  // Redes (an active but unusable supervisor). The endpoint now refuses the
+  // role type outright, BEFORE any database write, with plain es-CL guidance
+  // to the only legitimate channel. The 409 mapping was removed with it: no
+  // supervisor insert can originate here anymore.
+  describe('supervisor_de_red channel boundary (B2a r2)', () => {
+    const EXPECTED_GUIDANCE = 'El rol Supervisor de Red debe asignarse desde Gestión de Redes.';
 
-    const { req, res } = createMocks({
-      method: 'POST',
-      body: { targetUserId: TARGET_USER_ID, roleType: 'supervisor_de_red', schoolId: ED_SCHOOL_ID },
+    it('admin: assigning supervisor_de_red (the FIRST grant, no conflict in sight) → 400 with exact es-CL guidance; zero database writes', async () => {
+      setupAdmin();
+      const tracker = makeTracker();
+      // The stub would happily answer a user_roles insert with success — the
+      // 400 must come from the handler's own gate, not from any DB refusal.
+      mockCreateServiceRoleClient.mockReturnValueOnce(
+        buildClient(
+          { user_roles: [{ data: { id: ROLE_ROW_ID }, error: null }] },
+          tracker,
+        ),
+      );
+
+      const { req, res } = createMocks({
+        method: 'POST',
+        body: { targetUserId: TARGET_USER_ID, roleType: 'supervisor_de_red' },
+      });
+      await handler(req as never, res as never);
+
+      expect(res._getStatusCode()).toBe(400);
+      expect(res._getJSONData()).toEqual({ error: EXPECTED_GUIDANCE });
+
+      // Nothing was written or even attempted: no user_roles insert, no
+      // community auto-create, no audit row, no cache refresh — the tables
+      // were never touched at all.
+      expect(countInserts(tracker, 'user_roles')).toBe(0);
+      expect(countInserts(tracker, 'growth_communities')).toBe(0);
+      expect(countInserts(tracker, 'security_audit_events')).toBe(0);
+      expect(tracker.fromCalls).toHaveLength(0);
+      expect(tracker.rpcCalls).toHaveLength(0);
     });
-    await handler(req as never, res as never);
 
-    expect(res._getStatusCode()).toBe(200);
-    const payload = findInsertPayload(tracker, 'user_roles') as Record<string, unknown>;
-    expect(payload.role_type).toBe('supervisor_de_red');
-    expect(payload.school_id).toBe(ED_SCHOOL_ID);
+    it('admin: supervisor_de_red with a schoolId (the old approved shape) → same 400, schoolId cannot smuggle the grant through', async () => {
+      setupAdmin();
+      const tracker = makeTracker();
+      mockCreateServiceRoleClient.mockReturnValueOnce(
+        buildClient(
+          { user_roles: [{ data: { id: ROLE_ROW_ID }, error: null }] },
+          tracker,
+        ),
+      );
+
+      const { req, res } = createMocks({
+        method: 'POST',
+        body: { targetUserId: TARGET_USER_ID, roleType: 'supervisor_de_red', schoolId: ED_SCHOOL_ID },
+      });
+      await handler(req as never, res as never);
+
+      expect(res._getStatusCode()).toBe(400);
+      expect(res._getJSONData()).toEqual({ error: EXPECTED_GUIDANCE });
+      expect(countInserts(tracker, 'user_roles')).toBe(0);
+      expect(tracker.fromCalls).toHaveLength(0);
+      expect(tracker.rpcCalls).toHaveLength(0);
+    });
+
+    it('admin: supervisor_de_red with a MALFORMED schoolId → the channel guidance wins over the incidental shape 400', async () => {
+      // Error precedence, mirroring the hoisted ED gate's rationale: the
+      // actionable message is "this role does not belong on this endpoint",
+      // not a complaint about a field that would never be used anyway.
+      setupAdmin();
+      const tracker = makeTracker();
+      mockCreateServiceRoleClient.mockReturnValueOnce(buildClient({}, tracker));
+
+      const { req, res } = createMocks({
+        method: 'POST',
+        body: { targetUserId: TARGET_USER_ID, roleType: 'supervisor_de_red', schoolId: 'abc' },
+      });
+      await handler(req as never, res as never);
+
+      expect(res._getStatusCode()).toBe(400);
+      expect(res._getJSONData()).toEqual({ error: EXPECTED_GUIDANCE });
+      expect(tracker.fromCalls).toHaveLength(0);
+    });
+
+    it('the guidance is plain es-CL — no English, no database internals', async () => {
+      setupAdmin();
+      const tracker = makeTracker();
+      mockCreateServiceRoleClient.mockReturnValueOnce(buildClient({}, tracker));
+
+      const { req, res } = createMocks({
+        method: 'POST',
+        body: { targetUserId: TARGET_USER_ID, roleType: 'supervisor_de_red' },
+      });
+      await handler(req as never, res as never);
+
+      const body = res._getJSONData() as { error: string };
+      expect(body.error).not.toMatch(/role type|invalid|constraint|23505|red_id|null/i);
+      expect(body.error).toContain('Gestión de Redes');
+    });
   });
 
   it('admin can assign "docente" — inserts role and updates profile school_id', async () => {
@@ -680,6 +764,9 @@ describe('admin/assign-role — equipo_directivo path', () => {
   });
 
   // Roles outside ED_ASSIGNABLE_ROLES must be rejected before any DB write.
+  // supervisor_de_red included: for an ED the AUTHORIZATION 403 deliberately
+  // precedes the B2a r2 channel-boundary 400 — "use Gestión de Redes" would
+  // misdirect a caller who cannot reach that admin-only surface at all.
   it.each(['admin', 'consultor', 'community_manager', 'supervisor_de_red'] as const)(
     'ED assigning "%s" → 403, no user_roles or growth_communities insert',
     async (roleType) => {

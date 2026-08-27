@@ -2,10 +2,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 
-const { mockCheckIsAdminOrEquipoDirectivo, mockCreateServiceRoleClient } = vi.hoisted(() => ({
-  mockCheckIsAdminOrEquipoDirectivo: vi.fn(),
-  mockCreateServiceRoleClient: vi.fn(),
-}));
+const { mockCheckIsAdminOrEquipoDirectivo, mockCreateServiceRoleClient, mockProvisionAuthAccount } =
+  vi.hoisted(() => ({
+    mockCheckIsAdminOrEquipoDirectivo: vi.fn(),
+    mockCreateServiceRoleClient: vi.fn(),
+    mockProvisionAuthAccount: vi.fn(),
+  }));
 
 vi.mock('../../../lib/api-auth', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -13,6 +15,21 @@ vi.mock('../../../lib/api-auth', async (importOriginal) => {
     ...actual,
     checkIsAdminOrEquipoDirectivo: mockCheckIsAdminOrEquipoDirectivo,
     createServiceRoleClient: mockCreateServiceRoleClient,
+  };
+});
+
+// Passthrough spy: the real provisionAuthAccount runs (the happy-path tests
+// depend on its policy check + client call), but the channel-boundary tests
+// can assert it was NEVER invoked. `vi.clearAllMocks()` clears call history
+// only, not this implementation.
+vi.mock('../../../lib/auth/account-provisioning', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  mockProvisionAuthAccount.mockImplementation(
+    actual.provisionAuthAccount as (...args: unknown[]) => unknown,
+  );
+  return {
+    ...actual,
+    provisionAuthAccount: mockProvisionAuthAccount,
   };
 });
 
@@ -296,25 +313,73 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
     expect(inserted.school_id).toBe(OTHER_SCHOOL_ID);
   });
 
-  it('admin: assigning supervisor_de_red with schoolId=42 preserves user_roles.school_id=42', async () => {
-    setupAdmin();
-    const tracker = makeTracker();
-    stockHappyPath(tracker);
+  // B2a r3 — REPLACES the former "admin: assigning supervisor_de_red with
+  // schoolId=42 preserves user_roles.school_id=42" test, which approved
+  // creating an account with the supervisor role through this endpoint.
+  // Since chk_user_roles_active_supervisor_needs_red (B2a r2) that creation
+  // could only ever provision the auth account and profile, then fail the
+  // role insert at the database (23514), roll everything back, and answer a
+  // generic 500. The channel boundary now refuses BEFORE provisioning.
+  describe('supervisor_de_red channel boundary (B2a r3)', () => {
+    const CHANNEL_ERROR = 'El rol Supervisor de Red debe asignarse desde Gestión de Redes.';
 
-    const { req, res } = createMocks({
-      method: 'POST',
-      body: bodyFor('supervisor_de_red', OTHER_SCHOOL_ID),
+    it('admin: role=supervisor_de_red → 400 with the exact es-CL guidance, before ANY provisioning', async () => {
+      setupAdmin();
+      // Deliberately no stockHappyPath: nothing may build a client.
+
+      const { req, res } = createMocks({
+        method: 'POST',
+        body: bodyFor('supervisor_de_red', OTHER_SCHOOL_ID),
+      });
+      await handler(req as never, res as never);
+
+      expect(res._getStatusCode()).toBe(400);
+      expect(res._getJSONData()).toEqual({ error: CHANNEL_ERROR });
+
+      // The refusal happens before createServiceRoleClient() is even built,
+      // so there is no client through which ANY write — auth account,
+      // profile, role row, audit row — could have happened.
+      expect(mockProvisionAuthAccount).not.toHaveBeenCalled();
+      expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
     });
-    await handler(req as never, res as never);
 
-    expect(res._getStatusCode()).toBe(200);
+    it('the channel 400 wins precedence over a malformed schoolId', async () => {
+      // Mirrors assign-role.ts: the channel refusal is the actionable error;
+      // an incidental schoolId is irrelevant to a role this endpoint will
+      // never create.
+      setupAdmin();
 
-    const roleInsert = tracker.fromCalls.find(
-      (c) => c.table === 'user_roles' && c.inserts.length > 0,
-    )!;
-    const inserted = roleInsert.inserts[0] as any;
-    expect(inserted.role_type).toBe('supervisor_de_red');
-    expect(inserted.school_id).toBe(OTHER_SCHOOL_ID);
+      const { req, res } = createMocks({
+        method: 'POST',
+        body: { ...bodyFor('supervisor_de_red'), schoolId: 'abc' },
+      });
+      await handler(req as never, res as never);
+
+      expect(res._getStatusCode()).toBe(400);
+      expect(res._getJSONData()).toEqual({ error: CHANNEL_ERROR });
+      expect(mockProvisionAuthAccount).not.toHaveBeenCalled();
+      expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+    });
+
+    it('ED: role=supervisor_de_red keeps the authorization 403 (precedence over the channel 400)', async () => {
+      // Deliberate, matching assign-role.ts B2a r2: Gestión de Redes is
+      // admin-only, so the channel guidance would misdirect an ED. The ED
+      // assignability gate answers first.
+      setupEquipoDirectivo(ED_SCHOOL_ID);
+
+      const { req, res } = createMocks({
+        method: 'POST',
+        body: bodyFor('supervisor_de_red'),
+      });
+      await handler(req as never, res as never);
+
+      expect(res._getStatusCode()).toBe(403);
+      expect(res._getJSONData()).toEqual({
+        error: 'Role not assignable by equipo_directivo',
+      });
+      expect(mockProvisionAuthAccount).not.toHaveBeenCalled();
+      expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+    });
   });
 
   // Phase 16.7 F1: structured visibility warn (mirrors assign-role.ts F3).

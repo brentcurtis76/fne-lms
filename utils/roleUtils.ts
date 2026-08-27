@@ -1358,47 +1358,104 @@ export async function getNetworkUsers(supabase: SupabaseClient, userId: string):
 }
 
 /**
- * Assign supervisor role with network
+ * Assign supervisor role with network (B2a).
+ *
+ * Every lookup fails CLOSED and reports WHY via `failure`, so the API layer can
+ * distinguish "not found" (404) from "database query failed" (500) — the
+ * previous version discarded lookup errors, which made a DB failure look like a
+ * missing network, and let a failed duplicate-check fall through to the insert.
  */
+export type AssignSupervisorFailure =
+  | 'not_admin'
+  | 'network_lookup_failed'
+  | 'network_not_found'
+  | 'role_lookup_failed'
+  | 'duplicate'
+  | 'other_network'
+  | 'active_role_conflict'
+  | 'insert_failed'
+  | 'unexpected';
+
+export interface AssignSupervisorResult {
+  success: boolean;
+  error?: string;
+  failure?: AssignSupervisorFailure;
+}
+
 export async function assignSupervisorRole(
   supabase: SupabaseClient,
   targetUserId: string,
   networkId: string,
   assignedBy: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<AssignSupervisorResult> {
   try {
     // Verify assigner has global admin privileges
     const canAssign = await isGlobalAdmin(supabase, assignedBy);
     if (!canAssign) {
-      return { success: false, error: 'Solo administradores pueden asignar roles de supervisor' };
+      return {
+        success: false,
+        failure: 'not_admin',
+        error: 'Solo administradores pueden asignar roles de supervisor'
+      };
     }
 
-    // Check if network exists
-    const { data: networkExists } = await supabase
+    // Check if network exists. maybeSingle() keeps a genuine zero-row miss as
+    // data:null with NO error — .single() reported both as an error object.
+    const { data: networkExists, error: networkError } = await supabase
       .from('redes_de_colegios')
       .select('id')
       .eq('id', networkId)
-      .single();
+      .maybeSingle();
+
+    if (networkError) {
+      console.error('Error verifying network before supervisor assignment:', networkError);
+      return { success: false, failure: 'network_lookup_failed', error: 'Error al verificar la red' };
+    }
 
     if (!networkExists) {
-      return { success: false, error: 'La red especificada no existe' };
+      return { success: false, failure: 'network_not_found', error: 'La red especificada no existe' };
     }
 
-    // Check if user already has supervisor role for this network
-    const { data: existingRole } = await supabase
+    // ONE query for every active supervisor role the user already holds. It
+    // backs both rules: duplicate assignment to the same network is rejected,
+    // and an active supervisor of another network cannot be assigned
+    // simultaneously (one-active-network-per-supervisor).
+    const { data: activeRoles, error: rolesError } = await supabase
       .from('user_roles')
-      .select('id')
+      .select('id, red_id')
       .eq('user_id', targetUserId)
       .eq('role_type', 'supervisor_de_red')
-      .eq('red_id', networkId)
-      .eq('is_active', true)
-      .single();
+      .eq('is_active', true);
 
-    if (existingRole) {
-      return { success: false, error: 'El usuario ya tiene el rol de supervisor para esta red' };
+    if (rolesError) {
+      console.error('Error verifying existing supervisor roles:', rolesError);
+      return {
+        success: false,
+        failure: 'role_lookup_failed',
+        error: 'Error al verificar los roles de supervisor existentes'
+      };
     }
 
-    // Assign the role
+    const existingRoles: Array<{ id: string; red_id: string | null }> = activeRoles || [];
+
+    if (existingRoles.some((role) => role.red_id === networkId)) {
+      return {
+        success: false,
+        failure: 'duplicate',
+        error: 'El usuario ya tiene el rol de supervisor para esta red'
+      };
+    }
+
+    if (existingRoles.length > 0) {
+      return {
+        success: false,
+        failure: 'other_network',
+        error: 'El usuario ya es supervisor de otra red. Un usuario solo puede supervisar una red a la vez.'
+      };
+    }
+
+    // Assign the role. The payload writes only columns user_roles actually has
+    // (baseline.sql:11380): the requested red_id, active, with attribution.
     const { error } = await supabase
       .from('user_roles')
       .insert({
@@ -1412,13 +1469,30 @@ export async function assignSupervisorRole(
 
     if (error) {
       console.error('Error assigning supervisor role:', error);
-      return { success: false, error: 'Error al asignar rol de supervisor: ' + error.message };
+      // 23505 on this insert can only be uq_user_roles_one_active_supervisor
+      // (migration 20260827150000; the row carries a fresh PK): a concurrent
+      // request won the race between the look-before-insert checks above and
+      // this insert. The partial unique index is the authoritative enforcement
+      // of one-active-network-per-supervisor — report the loss as the conflict
+      // it is (409 at the API), never as a server failure.
+      if ((error as { code?: string }).code === '23505') {
+        return {
+          success: false,
+          failure: 'active_role_conflict',
+          error: 'El usuario ya tiene un rol de supervisor activo. Un usuario solo puede supervisar una red a la vez.'
+        };
+      }
+      return {
+        success: false,
+        failure: 'insert_failed',
+        error: 'Error al asignar rol de supervisor: ' + error.message
+      };
     }
 
     return { success: true };
   } catch (error) {
     console.error('Error in assignSupervisorRole:', error);
-    return { success: false, error: 'Error inesperado al asignar rol de supervisor' };
+    return { success: false, failure: 'unexpected', error: 'Error inesperado al asignar rol de supervisor' };
   }
 }
 

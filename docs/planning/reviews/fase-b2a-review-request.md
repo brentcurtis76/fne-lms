@@ -5,8 +5,9 @@
 - **Worktree**: `/Users/brentcurtis/dev/wt/red-super`
 - **Base**: `a28eebc9152565cd8b287fe12e8679c2ab783137` (origin/main, the PR #55 QA-foundation merge — verified exact before branching)
 - **Round-1 implementation head**: `9d71dfef` (`fix(networks): repair supervisor management, fail closed (B2a)`); round-1 docs commit `09765566` — the head Codex reviewed
-- **Correction round**: Codex returned **REQUEST CHANGES** on `09765566`. The reviewed commits are untouched; the corrections land as NEW commits on top — one implementation commit (migration + concurrency proof + audit + copy + tests) and the documentation commit that carries this update (a document cannot cite the SHA of the commit that contains it; `git log a28eebc9..HEAD` shows all four)
-- **Status**: REVIEW READY — correction round 1 complete, awaiting Codex re-review. NOT approved. Nothing pushed, no PR, no merge, no deployment, no production access.
+- **Correction round 1**: Codex returned **REQUEST CHANGES** on `09765566`. The reviewed commits are untouched; the corrections landed as NEW commits on top — implementation `0971479a` (migration + concurrency proof + audit + copy + tests) and docs `1e08e482`
+- **Correction round 2**: Codex's re-review of `1e08e482` returned **REQUEST CHANGES** again (the generic-channel supervisor hole — see the round-2 section at the end). The four reviewed commits are again untouched; round 2 lands as NEW commits on top: one implementation commit (UI + API + migration + tests at four layers) and the documentation commit that carries this update (a document cannot cite the SHA of the commit that contains it; `git log a28eebc9..HEAD` shows all six)
+- **Status**: REVIEW READY — correction round 2 complete, awaiting Codex re-review. NOT approved. Nothing pushed, no PR, no merge, no deployment, no production access.
 
 ## Objective
 
@@ -228,11 +229,29 @@ All via `tests/e2e/network-supervisors.spec.ts` (11/11 passed, first attempt):
    `'Network ID es requerido'` 400 keeps its legacy wording — that GET is the
    out-of-scope legacy listing (limitation 2). The repaired POST/DELETE paths
    speak plain es-CL only.
-7. (New, correction round) After the unique index, a `supervisor_de_red` grant
+7. ~~(New, correction round) After the unique index, a `supervisor_de_red` grant
    through the generic `assign-role.ts` that loses to an existing active row
    answers a mapped 409; other role types have no unique index and keep their
    generic insert-error 500. `assign-role.ts` still runs no supervisor
-   pre-check of its own — the index is its enforcement.
+   pre-check of its own — the index is its enforcement.~~ **REPLACED in
+   correction round 2**: the 409 mapping was insufficient — it only fired on
+   the SECOND grant, while the FIRST generic grant succeeded as an active
+   supervisor with `red_id` NULL that then blocked the real assignment.
+   `assign-role.ts` now refuses `supervisor_de_red` outright (400, es-CL
+   guidance, before any write), the modal no longer offers it, and the
+   database itself rejects any active NULL-red supervisor row via CHECK
+   constraint. The now-unreachable 409 branch was removed. See the round-2
+   section below.
+8. (New, correction round 2) `create-user.ts` and `bulk-create-users.ts` can
+   still RECEIVE `role=supervisor_de_red` in a direct API request or CSV row
+   (no UI offers it — the create form hardcodes `docente`, and neither surface
+   collects a network). Since the CHECK constraint, such a request fails at
+   the database (the active row would carry `red_id` NULL), surfacing as those
+   endpoints' generic insert-failure error rather than a supervisor-specific
+   400 with channel guidance. No unusable supervisor can be created — but the
+   error copy on those two endpoints is generic. Follow-up candidate; flagged
+   rather than silently absorbed (out of the round-2 correction scope, which
+   names the generic role-assignment workflow).
 
 ## Where Codex should press hardest
 
@@ -378,7 +397,12 @@ for supervisor grants).
 `tests/e2e/network-supervisors.spec.ts` (audit assertions inside the existing 11
 tests); this document; `PROJECT_STATE.md`.
 
-## Canonical test evidence at the correction head (all local, synthetic only)
+## Test evidence at the round-1 correction head — historical
+
+> Round 2 re-ran every gate; the CANONICAL current counts live in the
+> **Correction round 2** section at the end of this document. This section is
+> kept as the accurate record of what was measured at the round-1 head
+> `1e08e482`.
 
 | Gate | Command | Result |
 | --- | --- | --- |
@@ -419,3 +443,204 @@ producción" is a mandatory post-merge checklist item verified by the PM.
    never an error flip).
 5. **Doc truthfulness**: the round-1 evidence section is labeled historical; the
    counts above are the canonical ones; no approval is claimed.
+
+---
+
+# Correction round 2 — the generic-channel supervisor hole, closed at all three layers
+
+Codex's re-review of round-1 head `1e08e482` returned **REQUEST CHANGES**: the
+generic role-assignment workflow still OFFERED `supervisor_de_red`, with no
+network selector, and `assign-role.ts` wrote no `red_id`. The FIRST generic
+grant therefore succeeded as `(role_type='supervisor_de_red', is_active=true,
+red_id=NULL)`. `uq_user_roles_one_active_supervisor` then counted that row as
+the user's one active supervisor role and refused the real assignment through
+Gestión de Redes — an active but unusable supervisor that also blocked the
+correct grant. The round-1 23505→409 mapping only ever fired on the SECOND
+attempt; the first sailed through.
+
+The four reviewed commits are untouched; everything below landed as new
+commits. **This round claims no approval** — it awaits Codex's re-review.
+
+## Correction 1 — UI boundary
+
+`components/RoleAssignmentModal.tsx` removes `supervisor_de_red` from
+`AVAILABLE_ROLES` (the generic assign/edit dropdown), with a comment explaining
+the channel. Existing supervisor roles remain FULLY visible: the current-roles
+list and the detail pane render from the fetched rows' `role_type` via
+`ROLE_NAMES`/`ROLE_DESCRIPTIONS`, independent of the assignable list — proven
+by a unit test that loads a user holding a supervisor role and asserts the name
+renders while the dropdown (all 8 options) never offers it. The modal's
+pre-existing defensive submit check (`filteredAvailableRoles.includes`) now
+refuses the role on every submit path as a side effect of the list change.
+
+## Correction 2 — API boundary
+
+`pages/api/admin/assign-role.ts` refuses `roleType === 'supervisor_de_red'`
+with **HTTP 400** and the exact plain es-CL guidance
+**“El rol Supervisor de Red debe asignarse desde Gestión de Redes.”** — before
+any database write: no `user_roles` insert, no `growth_communities` write, no
+audit row, no cache refresh (unit tests assert the supabase client is never
+touched at all: zero `from()` calls, zero `rpc()` calls). Placement is
+deliberate: AFTER the hoisted ED-assignability gate (an equipo_directivo still
+receives its accurate 403 — Gestión de Redes is admin-only, so the guidance
+would misdirect an ED) and BEFORE the schoolId shape check (the channel refusal
+is the actionable error). The round-1 23505→409 supervisor branch in the
+insert-error handler was **removed as unreachable** — no supervisor insert can
+originate from this endpoint anymore; a comment at the site records why.
+
+## Correction 3 — database invariant
+
+- **Round-1 migration untouched.** `20260827150000_one_active_supervisor.sql`
+  is not modified; the new rule is a LATER additive migration,
+  `supabase/migrations/20260827160000_active_supervisor_requires_red.sql`.
+- **Read-only fail-closed preflight**: a DO block that RAISEs one itemized
+  exception (each offending `user_id` + its NULL-red active-row count, ids
+  only) if any ACTIVE `supervisor_de_red` row already has `red_id` NULL, then
+  aborts — it never modifies, deactivates or deletes anything; resolving each
+  row (deactivate, or point at the correct red) is an explicit operator
+  decision. Proven live: with a synthetic NULL-red active row planted in a
+  transaction, applying the migration aborted with the itemized message, the
+  constraint was NOT created, and rollback left zero residue.
+- **The CHECK constraint** `chk_user_roles_active_supervisor_needs_red`,
+  exactly the required predicate:
+  `role_type <> 'supervisor_de_red' OR is_active IS DISTINCT FROM TRUE OR
+  red_id IS NOT NULL` — rejects active network supervisors without a network
+  (INSERT and UPDATE alike, so reactivation and red-stripping are covered)
+  while allowing inactive/legacy history (`false` and NULL `is_active`) and
+  unrelated roles with NULL `red_id`. Guarded by a `pg_constraint` existence
+  check (no ADD CONSTRAINT IF NOT EXISTS in Postgres); no RLS change of any
+  kind; `guard:migrations` passes over all 39 files.
+- **Deliberate consequence, documented in the migration**:
+  `user_roles_red_id_fkey` is ON DELETE SET NULL, so removing a red that still
+  has an ACTIVE supervisor is now refused by the database (the SET NULL would
+  violate the CHECK) — backing the pre-existing app-level guard in the network
+  delete handler. Inactive history still nulls out freely.
+- **Blast radius handled, not discovered later**: pgTAP suites 051/053 seed
+  ACTIVE rows for all nine roles and previously gave supervisors `red_id`
+  NULL — exactly the shape the constraint forbids. Their fixtures now create a
+  synthetic red and stamp it on the supervisor rows only (everything still
+  rolls back). `create-user.ts`/`bulk-create-users.ts` can still RECEIVE the
+  role in direct requests; the database now refuses the row (known limitation
+  8). The e2e seeder and the concurrency proof always wrote `red_id` and run
+  unchanged.
+
+## Correction 4 — tests, all four layers
+
+- **Unit (API)** — the two tests that approved the unscoped generic grant
+  (`admin: assigning "supervisor_de_red" with schoolId=42 → 200` and the
+  23505→409 mapping test) are REPLACED by a 4-test
+  `supervisor_de_red channel boundary (B2a r2)` block: the FIRST grant (no
+  conflict in sight) → 400 with the exact es-CL text and ZERO client activity
+  (no from(), no rpc()); a schoolId cannot smuggle the grant; the channel 400
+  wins precedence over a malformed-schoolId 400; the copy contains no English
+  and no database internals. The ED 403 test for supervisor_de_red is kept —
+  its precedence over the channel 400 is now documented in place.
+- **Unit (UI)** — the default-dropdown test now asserts EIGHT roles with
+  `supervisor_de_red` explicitly absent, and a new test proves an existing
+  supervisor role stays visible (list + detail pane) while the new-role
+  dropdown never offers it.
+- **pgTAP** — new suite `supabase/tests/061-user-roles-active-supervisor-red.sql`
+  (11 tests): constraint exists as a CHECK; active+NULL-red rejected on INSERT
+  (23514); an inactive NULL-red row cannot be REACTIVATED (23514); `red_id`
+  cannot be stripped from an active row (23514); active+valid-red accepted;
+  inactive (plural) and NULL-`is_active` history allowed; unrelated roles
+  (docente, admin) active with NULL red allowed; deactivation unrestricted; a
+  different user's properly-scoped active row unaffected.
+- **E2E** — the mandatory lifecycle gains a FIRST step before the dedicated
+  assignment: the admin posts the generic
+  `assign-role {targetUserId: candidate, roleType: supervisor_de_red}` → 400
+  with the exact es-CL text; service-client read-back proves ZERO supervisor
+  rows of any liveness and ZERO `role_assigned` audit rows for the candidate.
+  The SAME candidate is then assigned through the dedicated network endpoint
+  (201, audited) — proving the refusal left the legitimate channel fully
+  functional — and the existing duplicate/cross-network/removal/audit
+  assertions all still pass; the assignment test's `toHaveLength(1)` on
+  `role_assigned` doubles as proof the rejected generic attempt wrote no audit
+  row.
+
+## Fail-on-old — every layer, against the round-1 head `1e08e482`
+
+- **Unit**: with the two product files checked out at `1e08e482` and the new
+  tests in place, exactly the **6** new/updated tests FAIL (the 4 channel-
+  boundary API tests; the 2 modal tests) → all pass at the round-2 head.
+- **pgTAP**: suite 061 run against the PRE-migration database is red exactly
+  as the defect predicts — the active NULL-red INSERT **succeeds** (test 2),
+  and the knock-on assertions fail with it; green after `supabase db reset`
+  applies the migration.
+- **E2E**: the new lifecycle test run against a production build of the OLD
+  `assign-role.ts` on the constrained database fails with **500 ≠ 400** — and
+  that 500 is itself the DB CHECK refusing the NULL-red row the old code tried
+  to write (23514, which the old 23505 branch cannot map): the database
+  backstop holds even against pre-fix application code.
+- **Preflight**: demonstrated fail-closed on planted bad data (see
+  Correction 3), and passes untouched on the clean reset.
+
+## Files changed in the correction round 2
+
+**Higher risk** —
+`supabase/migrations/20260827160000_active_supervisor_requires_red.sql` (new);
+`pages/api/admin/assign-role.ts` (channel-boundary 400; unreachable 409 branch
+removed); `components/RoleAssignmentModal.tsx` (role fenced from the dropdown).
+
+**Lower risk (tests + docs)** —
+`supabase/tests/061-user-roles-active-supervisor-red.sql` (new, 11 tests);
+`supabase/tests/051-forced-password-change-boundary.sql` and
+`supabase/tests/053-forced-password-change-data-layer.sql` (fixture-only: the
+supervisor fixture rows now carry a synthetic red);
+`__tests__/api/admin/assign-role.test.ts` (2 tests replaced by 4; comments);
+`__tests__/components/RoleAssignmentModal.allowedRoles.test.tsx` (1 test
+updated, 1 added); `tests/e2e/network-supervisors.spec.ts` (+1 lifecycle test,
+header updated); this document; `PROJECT_STATE.md`.
+
+## Canonical test evidence at the round-2 head (all local, synthetic only)
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| Fail-on-old (unit) | new tests vs product files at `1e08e482` | **6 FAIL** at `1e08e482` → all pass at the round-2 head |
+| Fail-on-old (pgTAP) | suite 061 via psql on the PRE-migration database | **red** — the NULL-red active INSERT succeeds; green post-reset |
+| Fail-on-old (e2e) | new lifecycle test vs old `assign-role.ts` build on the constrained DB | **red (500 ≠ 400)** — the 500 is the DB CHECK refusing the row |
+| Preflight fail-closed | migration applied over a planted NULL-red active row (transaction, rolled back) | **aborts** with itemized user_id list; constraint not created; zero residue |
+| Focused suites | `npx vitest run` over `assign-role`, `RoleAssignmentModal.allowedRoles`, `RoleAssignmentModal.liderCommunityMode` | **3 files, 77 passed** (assign-role 64; modal 7 + 6) |
+| Typecheck / Lint | `npm run type-check` / `npm run lint` | clean / clean, zero warnings |
+| Migration guards | `npm run guard:migrations` | OK — 39 files, no RLS-disable, no destructive DDL |
+| Browser boundary | `npm run guard:browser` | OK (1149 files, 694 modules, 516 entrypoints) |
+| Unit (full) | `npm test` (`.env.local` parked aside, matching CI's unit gate) | **368 files, 8394 passed, 11 skipped** |
+| pgTAP / RLS | `npm run test:db` after `supabase db reset` (all 39 migrations from scratch — the new preflight passes on a clean database) | **23 files, 1452 tests, PASS** |
+| Concurrency proof | `npm run test:supervisor-concurrency` (post-migration) | **PASS** — blocking observed, loser 23505, exactly one active row in both phases, history preserved |
+| Build (production) | `npm run build` + `node scripts/check-price-leak.mjs` | success / OK (262 files) |
+| Affected spec, no retries | `CI=1 npx playwright test tests/e2e/network-supervisors.spec.ts --project=chromium --retries=0` | **12 passed** (11 + the new generic-refusal test), first attempt |
+| Mandatory e2e | `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **189 passed, 0 skipped, 0 flaky, 13 specs** (JSON `stats`: expected 189, unexpected 0); my spec’s 12 all first-attempt |
+| No-skip guard | `node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json` | OK — 13 mandatory specs ran with no skips |
+| Hygiene | `git diff --check`; post-run residue sweep | clean; residue sweep: 0 candidate auth users / profiles / role rows, primary network exactly 1 active supervisor (the canonical fixture), secondary 0, **0 ACTIVE supervisor rows with `red_id` NULL anywhere**, and the local audit trail holds exactly the 3 post-reset lifecycle runs’ role_assigned/role_removed pairs |
+
+The migration was applied ONLY to the ephemeral local stack via `supabase db
+reset`. Applying it to production remains a human post-merge step under the
+standing rule (PROJECT_STATE.md, Z1b closure): “aplicar migraciones a
+producción” is a mandatory post-merge checklist item verified by the PM.
+
+## Where Codex should press hardest — correction round 2
+
+1. **Is the 400 truly before every write?** The gate sits after auth, the
+   required-fields check, the validRoles check and the ED gate — verify no
+   `supabaseService` usage (query, insert, rpc) can precede it, and that the
+   unit assertions on “zero from()/rpc() calls” actually pin that.
+2. **The constraint's predicate vs. the spec.** Confirm
+   `pg_get_constraintdef` is exactly the required three-disjunct expression,
+   that NULL `is_active` is deliberately OUTSIDE the invariant (matching the
+   unique index's treatment of NULL-as-not-active), and that the UPDATE paths
+   (reactivation, red-stripping) are covered by pgTAP, not just INSERT.
+3. **The 051/053 fixture change.** It touches two passing RLS suites — verify
+   the change is fixture-only (a red for the supervisor rows), alters no
+   assertion, and that giving those personas a network cannot affect any
+   forced-password-change assertion.
+4. **The removed 409 branch.** Confirm removal is safe: no other writer of
+   supervisor rows goes through assign-role.ts, and the dedicated route's own
+   23505→409 mapping (round 1) is untouched.
+5. **The ED precedence call.** ED + supervisor_de_red answers 403 (role not
+   assignable), not the channel 400 — deliberate, tested, and documented; check
+   the reasoning holds (Gestión de Redes is admin-only).
+6. **Doc truthfulness**: round-1 evidence is labeled historical; the counts
+   above are canonical; limitation 7 is REPLACED (not silently deleted);
+   limitation 8 (create-user/bulk direct requests now fail at the DB with
+   generic copy) is honest about what round 2 does NOT change; no approval is
+   claimed anywhere.

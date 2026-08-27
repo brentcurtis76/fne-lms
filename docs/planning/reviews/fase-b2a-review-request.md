@@ -8,7 +8,7 @@
 - **Correction round 1**: Codex returned **REQUEST CHANGES** on `09765566`. The reviewed commits are untouched; the corrections landed as NEW commits on top — implementation `0971479a` (migration + concurrency proof + audit + copy + tests) and docs `1e08e482`
 - **Correction round 2**: Codex's re-review of `1e08e482` returned **REQUEST CHANGES** again (the generic-channel supervisor hole — see the round-2 section at the end). The four reviewed commits are again untouched; round 2 lands as NEW commits on top: one implementation commit (UI + API + migration + tests at four layers) and the documentation commit that carries this update
 - **Correction round 3**: Codex's re-review of the round-2 head `b5d5f5f7` returned **REQUEST CHANGES** a third time — the channel boundary was incomplete across the ACCOUNT-CREATION writers, and this document's limitation 8 misdescribed the bulk importer's failure mode (see the corrected limitation 8 and the round-3 section at the end). The six reviewed commits are again untouched; round 3 lands as NEW commits on top: implementation `4340323f` (both account-creation boundaries, the parser, the fail-closed 23514 backstop, tests at unit and e2e layers) and the documentation commit that carries this update (a document cannot cite the SHA of the commit that contains it; `git log a28eebc9..HEAD` shows all eight)
-- **Status**: REVIEW READY — correction round 3 complete, awaiting Codex re-review. NOT approved. Nothing pushed, no PR, no merge, no deployment, no production access.
+- **Status**: **CLOSED IN PRODUCTION (2026-08-27).** Codex approved correction round 3 at `63fc8c9c`; PR #56 merged as `0a6576c9`; pull-request and post-merge CI passed; the Vercel deployment completed; both production migrations were applied manually by Brent and verified read-only. See the authoritative post-merge closure record at the end of this document.
 
 ## Objective
 
@@ -874,3 +874,67 @@ concurrency proof pass unchanged on the fresh reset).
    wrong claim preserved, its correction explicit), the round-2 evidence is
    relabeled historical, the counts above are canonical, and no approval is
    claimed anywhere.
+
+# Post-merge production closure — authoritative
+
+This section supersedes the pre-merge status and no-production-access language
+in the historical build/review sections above. Those sections remain unchanged
+as an audit trail of what was true at each review head.
+
+## Merge, CI, and deployment
+
+- Codex independently re-reviewed correction round 3 at exact head
+  `63fc8c9c91a4b4b28773bd15dc426f5d3a195961` and returned **APPROVE** with no
+  findings.
+- Brent pushed `fix/red-super` and merged PR
+  [#56](https://github.com/brentcurtis76/fne-lms/pull/56) at
+  `2026-08-27T18:18:56Z`. Merge commit
+  `0a6576c9ef52cc1513162549edc918208ba45bdf` has parents exactly
+  `a28eebc9152565cd8b287fe12e8679c2ab783137` and
+  `63fc8c9c91a4b4b28773bd15dc426f5d3a195961`.
+- Pull-request CI run
+  [33102793967](https://github.com/brentcurtis76/fne-lms/actions/runs/33102793967)
+  completed successfully on the approved head, and post-merge `push` run
+  [33102856003](https://github.com/brentcurtis76/fne-lms/actions/runs/33102856003)
+  completed successfully on the exact merge commit. Both ran all seven gates.
+- Vercel reported **Deployment has completed** for the exact merge commit
+  (deployment `CsfHbqM3TtJDVkLCkHWbZgj1CLgQ`). No CLI or manual Vercel deploy
+  was run; this was the repository's automatic `main` deployment.
+
+## Production database application and read-back
+
+Brent applied the two reviewed additive migrations in the production Supabase
+SQL Editor, in order, one transaction per migration with the corresponding
+`supabase_migrations.schema_migrations` ledger row. Codex did not connect to or
+write the production database; it supplied one action at a time and reviewed
+the returned ID-only/schema-only evidence. `supabase db push` and migration
+history repair were not used.
+
+1. `20260827150000_one_active_supervisor.sql`: the duplicate preflight returned
+   no rows. Production read-back showed ledger version `20260827150000`, unique
+   index `uq_user_roles_one_active_supervisor` on `user_roles(user_id)` with
+   predicate `role_type = 'supervisor_de_red' AND is_active = true`, and zero
+   duplicate active supervisors.
+2. `20260827160000_active_supervisor_requires_red.sql`: the preflight correctly
+   stopped before DDL because one legacy active QA supervisor role had
+   `red_id IS NULL`. Brent identified the account privately as QA and explicitly
+   authorized deactivating only that malformed role. The update changed exactly
+   `is_active` to `false`; the account, profile, and historical role row were
+   preserved. Read-back showed that same role present and inactive and zero
+   remaining active supervisors without a network. No personal name or e-mail
+   was copied into the repository.
+3. After the data correction, Brent applied the second migration. Final
+   production read-back showed ledger version `20260827160000`, validated CHECK
+   constraint `chk_user_roles_active_supervisor_needs_red` with the reviewed
+   definition, zero duplicate active supervisors, and zero active supervisors
+   without a network.
+
+## Final state and boundary
+
+B2a is closed in code and production. Do not reapply either migration. The
+legacy QA account has no active supervisor role; if it is needed again, an
+administrator must assign it through **Gestión de Redes** after connecting its
+school to a real network. No live production user-flow test was performed as
+part of the migration ceremony; closure evidence is the approved implementation,
+two green CI runs, successful deployment, migration ledger, live schema-object
+definitions, and production invariant counts.

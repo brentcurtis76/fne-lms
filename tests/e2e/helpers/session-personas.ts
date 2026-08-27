@@ -70,6 +70,15 @@ export const DENIED_PERSONAS: FixtureKey[] = [
   'consultorOtherSchool',
   // Plain docente: no admin, no consultor scope, no community membership.
   'docente',
+  // These roles have valid organization scopes, but none grants access to this community
+  // session unless the role row also carries its growth-community membership.
+  'directivo',
+  'directivoSecondary',
+  'generationLeader',
+  'networkSupervisor',
+  // Has a real community scope, deliberately separate from the Zoom session community.
+  'communityManager',
+  'procurementManager',
   // Holds a consultor role row at the right school, but is_active=false — getUserRoles
   // filters on is_active, so the deactivated grant must not resurface.
   'inactiveConsultor',

@@ -116,16 +116,14 @@ test.describe('CI fixtures — login', () => {
  * of them. `GET /api/admin/networks` is where a network's schools are visible; a persona's
  * own network scope is only visible through `GET /api/auth/my-roles`, as that persona.
  *
- * WHY THE SUPERVISOR HALF IS NOT ASSERTED THROUGH THE ADMIN ROUTE: it cannot be.
- * `/api/admin/networks` builds its "admin" client with `createServerSupabaseClient({req,res},
- * { supabaseKey: SERVICE_ROLE })`, which sets the apikey but still sends the CALLER's session
- * JWT as the bearer — so PostgREST resolves `authenticated`, not `service_role`, and
- * `user_roles` has no admin-read policy (only `read_own_roles` and
- * `user_roles_community_member_view`; baseline.sql:21424, :21834). Its `supervisors` array
- * and `supervisor_count` therefore come back EMPTY for every network and every caller, and
- * the handler swallows the error. Asserting `secondary.supervisors` is empty there would
- * pass vacuously and would keep passing if the seeding broke — the exact failure this
- * control exists to prevent. Reported as a product finding, not repaired here.
+ * WHY THE SUPERVISOR HALF IS ASSERTED THROUGH `my-roles` AND NOT THE ADMIN ROUTE: when this
+ * block was written it could not be — `/api/admin/networks` built its "admin" client from the
+ * auth-helpers factory plus `supabaseKey`, which still sent the CALLER's session JWT as the
+ * bearer, so PostgREST resolved `authenticated` (no admin-read policy on `user_roles`) and
+ * every `supervisors` array came back EMPTY with the error swallowed. That finding was
+ * repaired by batch B2a, and the admin-route supervisor assertions now live — non-vacuously —
+ * in tests/e2e/network-supervisors.spec.ts. This block deliberately keeps its original,
+ * narrower reading so it stays a pure TOPOLOGY control.
  *
  * SCOPE, stated so no later batch over-reads it: this proves WHO IS SCOPED WHERE and nothing
  * else — that the two synthetic networks hold disjoint schools, and that the supervisor

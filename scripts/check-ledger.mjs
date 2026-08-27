@@ -500,11 +500,24 @@ if (!fs.existsSync(PROTOCOL)) {
 }
 
 // ── 18. Approved split scopes: B2b (14) / B2c (2 tables + 6 fns) / B10a (6) ──
+// EXACT set comparison, not token presence. The scope a work item encodes is the
+// union of its gate_salida's parenthesized identifier lists — comma-separated,
+// lowercase snake_case only. That encoded set must EQUAL the approved set:
+// missing, renamed, duplicated, cross-set or arbitrary extra identifiers all fail.
 const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-9_]|$)`).test(text);
 {
+  const ID_LIST = /^[a-z][a-z0-9_]*(?:\s*,\s*[a-z][a-z0-9_]*)*$/;
+  const encodedScope = (text) => {
+    const ids = [];
+    for (const m of text.matchAll(/\(([^)]*)\)/g)) {
+      const inner = m[1].trim();
+      if (ID_LIST.test(inner)) ids.push(...inner.split(',').map(s => s.trim()));
+    }
+    return ids;
+  };
   const SETS = [
     ['W-B2b-01', B2B_TABLES, 'las catorce tablas aprobadas'],
-    ['W-B2c-01', [...B2C_TABLES, ...B2C_FUNCTIONS], 'learning_paths + learning_path_courses + las seis funciones exactas'],
+    ['W-B2c-01', [...B2C_TABLES, ...B2C_FUNCTIONS], 'las dos tablas y las seis funciones exactas'],
     ['W-B10a-01', B10A_TABLES, 'las seis tablas aprobadas'],
   ];
   const FOREIGN = {
@@ -512,18 +525,28 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
     'W-B2c-01': [...B2B_TABLES, ...B10A_TABLES],
     'W-B10a-01': [...B2B_TABLES, ...B2C_TABLES, ...B2C_FUNCTIONS],
   };
-  for (const [wid, names, label] of SETS) {
+  for (const [wid, approved, label] of SETS) {
     const w = byWork.get(wid);
     if (!w) { fail('18 alcance', `${wid}: no existe en el ledger de trabajo`); continue; }
     const scope = w.gate_salida || '';
-    for (const n of names) if (!hasToken(scope, n)) fail('18 alcance', `${wid}: gate_salida no nombra «${n}» — ${label} deben ser explícitas`);
+    const ids = encodedScope(scope);
+    if (!ids.length) { fail('18 alcance', `${wid}: gate_salida no contiene ninguna lista explícita de identificadores entre paréntesis`); continue; }
+    const dup = [...new Set(ids.filter((v, i) => ids.indexOf(v) !== i))];
+    if (dup.length) fail('18 alcance', `${wid}: identificadores duplicados en su lista explícita: ${sortedJoin(dup)}`);
+    const enc = new Set(ids), app = new Set(approved);
+    const missing = approved.filter(n => !enc.has(n));
+    const extra = [...enc].filter(n => !app.has(n)).sort();
+    if (missing.length) fail('18 alcance', `${wid}: su lista explícita omite ${label}: faltan ${sortedJoin(missing)}`);
+    if (extra.length) fail('18 alcance', `${wid}: su lista explícita añade identificadores fuera del conjunto aprobado: ${sortedJoin(extra)}`);
+    // Belt and braces: a foreign identifier anywhere in the scope field fails even
+    // if it were smuggled outside the parenthesized lists.
     for (const n of FOREIGN[wid]) if (hasToken(scope, n)) fail('18 alcance', `${wid}: gate_salida nombra «${n}», que pertenece a otro conjunto del split`);
   }
   const union = [...B2B_TABLES, ...B2C_TABLES, ...B10A_TABLES];
   if (B2B_TABLES.length !== 14 || B2C_TABLES.length !== 2 || B10A_TABLES.length !== 6 || new Set(union).size !== union.length) {
     fail('18 alcance', `los conjuntos B2b/B2c/B10a deben ser disjuntos y sumar 14 + 2 + 6 = 22; hay ${new Set(union).size} nombres únicos sobre ${union.length} declarados`);
   }
-  if (!failures.some(f => f.check.startsWith('18'))) notes.push('alcance del split OK — B2b 14 tablas + B2c 2 tablas y 6 funciones + B10a 6 tablas, disjuntos (22)');
+  if (!failures.some(f => f.check.startsWith('18'))) notes.push('alcance del split OK — igualdad exacta de conjuntos: B2b 14 tablas + B2c 2 tablas y 6 funciones + B10a 6 tablas, disjuntos (22)');
 }
 
 // ── 19. B2c functions are real SECURITY DEFINER baseline objects; retired names gone
@@ -553,18 +576,23 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
   if (!failures.some(f => f.check.startsWith('19'))) notes.push('funciones B2c OK — las seis existen SECURITY DEFINER en el baseline; los dos nombres retirados están ausentes de los documentos activos');
 }
 
-// ── 20. Deferred broader-RLS units stay present in the governing prose ───────
+// ── 20. Deferred broader-RLS units stay present in EVERY governing location ──
 {
-  const reportText = fs.existsSync(REPORTDOC) ? fs.readFileSync(REPORTDOC, 'utf8') : '';
+  const GOVERNING = [
+    ['el protocolo', protoText],
+    ['el informe de normalización', fs.existsSync(REPORTDOC) ? fs.readFileSync(REPORTDOC, 'utf8') : ''],
+    ['PROJECT_STATE', fs.existsSync(PSTATE) ? fs.readFileSync(PSTATE, 'utf8') : ''],
+  ];
   for (const u of DEFERRED_RLS_UNITS) {
-    if (!protoText.includes(u)) fail('20 diferidos', `el protocolo no conserva la unidad diferida ${u}`);
-    if (!reportText.includes(u)) fail('20 diferidos', `el informe de normalización no conserva la unidad diferida ${u}`);
+    for (const [where, text] of GOVERNING) {
+      if (!text.includes(u)) fail('20 diferidos', `${where} no conserva la unidad diferida ${u}`);
+    }
   }
   for (const f2 of DEFERRED_RLS_FUNCTIONS) {
     if (!hasToken(protoText, f2)) fail('20 diferidos', `el protocolo no conserva la función diferida ${f2} (D-RLS-01/02)`);
   }
   if (!protoText.includes('565faa0d')) fail('20 diferidos', 'el protocolo no ancla la evidencia de investigación aparcada al head 565faa0d');
-  if (!failures.some(f => f.check.startsWith('20'))) notes.push('unidades diferidas OK — D-RLS-01/02/03 presentes con sus cinco funciones y el ancla 565faa0d');
+  if (!failures.some(f => f.check.startsWith('20'))) notes.push('unidades diferidas OK — D-RLS-01/02/03 presentes en protocolo, informe y PROJECT_STATE, con sus cinco funciones y el ancla 565faa0d');
 }
 
 // ── Report ───────────────────────────────────────────────────────────────────

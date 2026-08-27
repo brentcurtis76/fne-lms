@@ -24,6 +24,10 @@ const WORK = R('docs/reviews/santa-marta-work-items.csv');
 const MAPF = R('docs/reviews/santa-marta-work-claim-map.csv');
 const LEGACY = R('docs/reviews/archive/santa-marta-promise-ledger-legacy-161.csv');
 const PROTOCOL = R('docs/reviews/santa-marta-release-protocol-2026-08-25.md');
+const PLANDOC = R('docs/reviews/santa-marta-combined-plan-2026-08-25.md');
+const REPORTDOC = R('docs/reviews/santa-marta-ledger-normalization-report-2026-08-25.md');
+const PSTATE = R('PROJECT_STATE.md');
+const BASELINE = R('supabase/migrations/00000000000000_baseline.sql');
 
 // ── Frozen expectations ──────────────────────────────────────────────────────
 const EXPECTED_CLAIMS = 160;
@@ -60,6 +64,30 @@ const CANONICAL_BRANCH = {
   B8b: 'fix/feriados', B8c: 'fix/lic-audit', B9a: 'fix/assign-rec', B10a: 'fix/rls-grupo-b',
   B10b: 'fix/notif-mail', B10c: 'auth/rebase-z7',
 };
+
+/**
+ * Approved scope sets of the B2b/B2c/B10a split (owner decision 2026-08-27).
+ * The B2C_FUNCTIONS names are the exact baseline identifiers, verified against
+ * supabase/migrations/00000000000000_baseline.sql and the two API callers
+ * (pages/api/learning-paths/session/start.ts, end.ts). The two RETIRED_FN_NAMES
+ * were misnamed in an earlier draft, do not exist in the schema, and must never
+ * reappear in active governance documents. The D-RLS units are the deferred
+ * broader-RLS research (protocol §9); they are prose-governed, never ledger rows.
+ */
+const B2B_TABLES = ['answers', 'assignments', 'course_prerequisites', 'deleted_blocks',
+  'deleted_courses', 'deleted_lessons', 'deleted_modules', 'menu_permissions',
+  'metadata_sync_log', 'profiles_role_backup', 'questions', 'quizzes',
+  'student_answers', 'submissions'];
+const B2C_TABLES = ['learning_paths', 'learning_path_courses'];
+const B2C_FUNCTIONS = ['create_full_learning_path', 'update_full_learning_path',
+  'batch_assign_learning_path', 'start_learning_path_session',
+  'end_learning_path_session', 'auth_is_learning_path_member'];
+const B10A_TABLES = ['group_assignment_discussions', 'growth_community_transformation_access',
+  'instructors', 'modules', 'propuesta_rate_limits', 'qa_tester_time_logs'];
+const RETIRED_FN_NAMES = ['start_learning_session', 'end_learning_session'];
+const DEFERRED_RLS_UNITS = ['D-RLS-01', 'D-RLS-02', 'D-RLS-03'];
+const DEFERRED_RLS_FUNCTIONS = ['has_transformation_access', 'get_available_assignment_templates',
+  'cleanup_propuesta_rate_limits', 'has_global_workspace_access', 'submit_quiz'];
 
 const CLAIM_HEADERS = ['claim_id', 'claim_kind', 'classification_basis', 'bloque', 'claim_text',
   'estado', 'severidad', 'verificacion', 'evidencia_prod', 'autoridad_aceptacion',
@@ -469,6 +497,74 @@ if (!fs.existsSync(PROTOCOL)) {
   if (!/reconciliad[oa]s?\s+contra\s+los\s+ledgers?\s+por\s+`?scripts\/check-ledger\.mjs`?/i.test(protoText)) {
     fail('14 reconciliación', 'el protocolo no declara que sus cifras se reconcilian contra los ledgers por `scripts/check-ledger.mjs`');
   }
+}
+
+// ── 18. Approved split scopes: B2b (14) / B2c (2 tables + 6 fns) / B10a (6) ──
+const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-9_]|$)`).test(text);
+{
+  const SETS = [
+    ['W-B2b-01', B2B_TABLES, 'las catorce tablas aprobadas'],
+    ['W-B2c-01', [...B2C_TABLES, ...B2C_FUNCTIONS], 'learning_paths + learning_path_courses + las seis funciones exactas'],
+    ['W-B10a-01', B10A_TABLES, 'las seis tablas aprobadas'],
+  ];
+  const FOREIGN = {
+    'W-B2b-01': [...B2C_TABLES, ...B2C_FUNCTIONS, ...B10A_TABLES],
+    'W-B2c-01': [...B2B_TABLES, ...B10A_TABLES],
+    'W-B10a-01': [...B2B_TABLES, ...B2C_TABLES, ...B2C_FUNCTIONS],
+  };
+  for (const [wid, names, label] of SETS) {
+    const w = byWork.get(wid);
+    if (!w) { fail('18 alcance', `${wid}: no existe en el ledger de trabajo`); continue; }
+    const scope = w.gate_salida || '';
+    for (const n of names) if (!hasToken(scope, n)) fail('18 alcance', `${wid}: gate_salida no nombra «${n}» — ${label} deben ser explícitas`);
+    for (const n of FOREIGN[wid]) if (hasToken(scope, n)) fail('18 alcance', `${wid}: gate_salida nombra «${n}», que pertenece a otro conjunto del split`);
+  }
+  const union = [...B2B_TABLES, ...B2C_TABLES, ...B10A_TABLES];
+  if (B2B_TABLES.length !== 14 || B2C_TABLES.length !== 2 || B10A_TABLES.length !== 6 || new Set(union).size !== union.length) {
+    fail('18 alcance', `los conjuntos B2b/B2c/B10a deben ser disjuntos y sumar 14 + 2 + 6 = 22; hay ${new Set(union).size} nombres únicos sobre ${union.length} declarados`);
+  }
+  if (!failures.some(f => f.check.startsWith('18'))) notes.push('alcance del split OK — B2b 14 tablas + B2c 2 tablas y 6 funciones + B10a 6 tablas, disjuntos (22)');
+}
+
+// ── 19. B2c functions are real SECURITY DEFINER baseline objects; retired names gone
+{
+  if (!fs.existsSync(BASELINE)) {
+    fail('19 funciones', 'el baseline comprometido no existe; no se puede verificar el inventario de funciones B2c');
+  } else {
+    const base = fs.readFileSync(BASELINE, 'utf8');
+    for (const fn of B2C_FUNCTIONS) {
+      const m = base.match(new RegExp(`CREATE (?:OR REPLACE )?FUNCTION "public"\\."${fn}"\\s*\\(`));
+      if (!m) { fail('19 funciones', `${fn}: no existe como función de public en el baseline comprometido`); continue; }
+      const dollar = base.indexOf('$', m.index);
+      const header = base.slice(m.index, dollar === -1 ? m.index + 2000 : dollar);
+      if (!/SECURITY\s+DEFINER/.test(header)) fail('19 funciones', `${fn}: no está declarada SECURITY DEFINER en el baseline`);
+    }
+    for (const bad of RETIRED_FN_NAMES) if (base.includes(bad)) fail('19 funciones', `el baseline contiene el nombre retirado «${bad}» — el inventario B2c estaría mal derivado`);
+  }
+  const ACTIVE_DOCS = [[WORK, 'work-items'], [MAPF, 'work-claim-map'], [PROTOCOL, 'protocolo'],
+    [PLANDOC, 'plan combinado'], [REPORTDOC, 'informe de normalización'], [PSTATE, 'PROJECT_STATE']];
+  for (const [file, label] of ACTIVE_DOCS) {
+    if (!fs.existsSync(file)) continue; // a missing governing file already fails its own check
+    const text = fs.readFileSync(file, 'utf8');
+    for (const bad of RETIRED_FN_NAMES) {
+      if (text.includes(bad)) fail('19 funciones', `${label}: contiene el nombre de función retirado «${bad}»; los nombres reales son start_learning_path_session / end_learning_path_session`);
+    }
+  }
+  if (!failures.some(f => f.check.startsWith('19'))) notes.push('funciones B2c OK — las seis existen SECURITY DEFINER en el baseline; los dos nombres retirados están ausentes de los documentos activos');
+}
+
+// ── 20. Deferred broader-RLS units stay present in the governing prose ───────
+{
+  const reportText = fs.existsSync(REPORTDOC) ? fs.readFileSync(REPORTDOC, 'utf8') : '';
+  for (const u of DEFERRED_RLS_UNITS) {
+    if (!protoText.includes(u)) fail('20 diferidos', `el protocolo no conserva la unidad diferida ${u}`);
+    if (!reportText.includes(u)) fail('20 diferidos', `el informe de normalización no conserva la unidad diferida ${u}`);
+  }
+  for (const f2 of DEFERRED_RLS_FUNCTIONS) {
+    if (!hasToken(protoText, f2)) fail('20 diferidos', `el protocolo no conserva la función diferida ${f2} (D-RLS-01/02)`);
+  }
+  if (!protoText.includes('565faa0d')) fail('20 diferidos', 'el protocolo no ancla la evidencia de investigación aparcada al head 565faa0d');
+  if (!failures.some(f => f.check.startsWith('20'))) notes.push('unidades diferidas OK — D-RLS-01/02/03 presentes con sus cinco funciones y el ancla 565faa0d');
 }
 
 // ── Report ───────────────────────────────────────────────────────────────────

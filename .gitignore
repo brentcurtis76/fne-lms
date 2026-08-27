@@ -134,6 +134,11 @@ run-*.mjs
 node_modules/canvas
 *.xlsx
 *.csv
+
+# Santa Marta claim/work ledgers — versioned on purpose: a frozen record git
+# cannot see is not frozen. Narrow negation; every other *.csv stays ignored.
+# See docs/reviews/santa-marta-ledger-normalization-report-2026-08-25.md §9.1
+!docs/reviews/**/*.csv
 .env*.local
 
 # Bridge agent scratch output — should write to /tmp not repo root
@@ -177,3 +182,7 @@ test-results/
 .e2e-outbox/
 # Live sessions produced by tests/e2e/helpers/auth.ts — never commit these
 tests/e2e/.auth/
+
+# Production env backups (never commit — see santa-marta-release-protocol)
+.env.local.prod-backup-*
+.env*.backup*

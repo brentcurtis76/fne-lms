@@ -43,22 +43,27 @@ interface FromCall {
   table: string;
   inserts: unknown[];
   updates: unknown[];
+  deletes: number;
+  eqs: Array<{ col: string; val: unknown }>;
 }
 
 interface Tracker {
   fromCalls: FromCall[];
   createdPasswords: string[];
   createdEmails: string[];
+  deletedAuthIds: string[];
 }
 
 function makeTracker(): Tracker {
-  return { fromCalls: [], createdPasswords: [], createdEmails: [] };
+  return { fromCalls: [], createdPasswords: [], createdEmails: [], deletedAuthIds: [] };
 }
 
 /**
  * A Supabase double good enough for the whole import path. Every table read
  * resolves to a benign value; the interesting assertions are on what is written
- * and what `auth.admin.createUser` is handed.
+ * and what `auth.admin.createUser` is handed. B2a r3 adds targeted failure
+ * injection (role insert, cleanup deletes) so the 23514 fail-closed path and
+ * its cleanup VERIFICATION are drivable.
  */
 function buildClient(
   tracker: Tracker,
@@ -66,28 +71,56 @@ function buildClient(
     adminRole?: boolean;
     createUserError?: { message: string } | null;
     auditError?: { message: string } | null;
+    /** Injected as the resolution of the user_roles INSERT chain only. */
+    roleInsertError?: { code?: string; message: string } | null;
+    /** Injected as the resolution of a profiles DELETE chain (cleanup). */
+    profileDeleteError?: { message: string } | null;
+    /** Returned by auth.admin.deleteUser (cleanup). */
+    authDeleteError?: { message: string } | null;
   } = {}
 ) {
   const adminRole = opts.adminRole ?? true;
   let createdCount = 0;
 
   const makeChain = (table: string, resolved: { data: unknown; error: unknown }) => {
-    const call: FromCall = { table, inserts: [], updates: [] };
+    const call: FromCall = { table, inserts: [], updates: [], deletes: 0, eqs: [] };
     tracker.fromCalls.push(call);
+    // insert/delete swap the chain's resolution so injected failures land on
+    // exactly the operation under test, never on the reads sharing the table.
+    let currentResolved = resolved;
     const handlerObj: ProxyHandler<Record<string, unknown>> = {
       get(_t, prop) {
         if (prop === 'then') {
-          return (resolve: (v: unknown) => void) => resolve(resolved);
+          return (resolve: (v: unknown) => void) => resolve(currentResolved);
         }
         if (prop === 'insert') {
           return vi.fn((vals: unknown) => {
             call.inserts.push(vals);
+            if (table === 'user_roles' && opts.roleInsertError) {
+              currentResolved = { data: null, error: opts.roleInsertError };
+            }
             return new Proxy({}, handlerObj);
           });
         }
         if (prop === 'update') {
           return vi.fn((vals: unknown) => {
             call.updates.push(vals);
+            return new Proxy({}, handlerObj);
+          });
+        }
+        if (prop === 'delete') {
+          return vi.fn(() => {
+            call.deletes += 1;
+            currentResolved =
+              table === 'profiles' && opts.profileDeleteError
+                ? { data: null, error: opts.profileDeleteError }
+                : { data: null, error: null };
+            return new Proxy({}, handlerObj);
+          });
+        }
+        if (prop === 'eq') {
+          return vi.fn((col: string, val: unknown) => {
+            call.eqs.push({ col, val });
             return new Proxy({}, handlerObj);
           });
         }
@@ -113,7 +146,13 @@ function buildClient(
             error: null,
           };
         }),
-        deleteUser: vi.fn(async () => ({ error: null })),
+        deleteUser: vi.fn(async (id: string) => {
+          tracker.deletedAuthIds.push(id);
+          if (opts.authDeleteError) {
+            return { data: null, error: opts.authDeleteError };
+          }
+          return { error: null };
+        }),
       },
     },
     rpc: vi.fn(async () => ({ error: null })),
@@ -496,6 +535,355 @@ describe('S3 — the import is audited', () => {
     expect(res._getStatusCode()).toBe(200);
     expect(res._getJSONData().audited).toBe(false);
     expect(res._getJSONData().credentials).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B2a r3 — the supervisor channel boundary, both entry forms + defense in depth
+// ---------------------------------------------------------------------------
+
+const CHANNEL_ERROR = 'El rol Supervisor de Red debe asignarse desde Gestión de Redes.';
+
+describe('B2a r3 — supervisor_de_red channel boundary', () => {
+  it('parser: an explicit CSV supervisor_de_red role is refused with the channel guidance', () => {
+    // Before r3 this row was already invalid — supervisor_de_red is not in
+    // the parser's validRoles list — but with the generic "Rol '…' inválido"
+    // copy. The role IS valid on the platform; the CHANNEL is wrong, so the
+    // administrator now gets the actionable guidance instead.
+    const csv = [
+      'email,firstName,lastName,role',
+      'sup@example.com,Ana,Prueba,supervisor_de_red',
+    ].join('\n');
+    const result = parseBulkUserData(csv, BASE_OPTIONS);
+    expect(result.valid).toHaveLength(0);
+    expect(result.invalid).toHaveLength(1);
+    expect(result.invalid[0].errors).toEqual([CHANNEL_ERROR]);
+  });
+
+  it('parser: options.defaultRole=supervisor_de_red is refused per empty-role row (the previously unvalidated form)', () => {
+    // THE hole this round closes at the parser: defaultRole was applied to
+    // every row with an empty role column and never validated against
+    // anything, so it sailed into createUser and failed only at the database
+    // — AFTER the account existed.
+    const csv = [
+      'email,firstName,lastName,role',
+      'a@example.com,Ana,Uno,',
+      'b@example.com,Berta,Dos,docente',
+    ].join('\n');
+    const result = parseBulkUserData(csv, { ...BASE_OPTIONS, defaultRole: 'supervisor_de_red' });
+    expect(result.valid.map((u) => u.email)).toEqual(['b@example.com']);
+    expect(result.invalid).toHaveLength(1);
+    expect(result.invalid[0].email).toBe('a@example.com');
+    expect(result.invalid[0].errors).toEqual([CHANNEL_ERROR]);
+  });
+
+  it('parser: the defaultRole check is case- and whitespace-insensitive', () => {
+    // Explicit CSV values are lowercased by the parser, but defaultRole is
+    // passed through verbatim — the boundary must not be smuggled past by
+    // casing a direct API request differently.
+    const csv = ['email,firstName,lastName,role', 'a@example.com,Ana,Uno,'].join('\n');
+    const result = parseBulkUserData(csv, { ...BASE_OPTIONS, defaultRole: ' Supervisor_De_Red ' });
+    expect(result.valid).toHaveLength(0);
+    expect(result.invalid[0].errors).toEqual([CHANNEL_ERROR]);
+  });
+
+  it('API: an explicit CSV supervisor row creates NOTHING — no auth user, no table write, no audit', async () => {
+    const tracker = makeTracker();
+    mockCreateClient.mockReturnValue(buildClient(tracker));
+
+    const csv = [
+      'email,firstName,lastName,role',
+      'sup@example.com,Ana,Prueba,supervisor_de_red',
+    ].join('\n');
+    const { req, res } = post({ csvData: csv, options: BASE_OPTIONS });
+    await handler(req as never, res as never);
+
+    // Every row is invalid, so the import refuses up front.
+    expect(res._getStatusCode()).toBe(400);
+    const body = res._getJSONData();
+    expect(body.success).toBe(false);
+    expect(body.results[0]).toMatchObject({
+      email: 'sup@example.com',
+      success: false,
+      error: CHANNEL_ERROR,
+    });
+    expect(body.credentials).toBeUndefined();
+
+    expect(tracker.createdEmails).toEqual([]);
+    expect(tracker.deletedAuthIds).toEqual([]);
+    // Zero writes to ANY table — profiles, user_roles and the audit trail
+    // included. (The only from() activity is the admin authorization read.)
+    expect(
+      tracker.fromCalls.filter((c) => c.inserts.length > 0 || c.updates.length > 0)
+    ).toEqual([]);
+  });
+
+  it('API: options.defaultRole=supervisor_de_red with an empty CSV role creates NOTHING', async () => {
+    const tracker = makeTracker();
+    mockCreateClient.mockReturnValue(buildClient(tracker));
+
+    const csv = ['email,firstName,lastName,role', 'a@example.com,Ana,Uno,'].join('\n');
+    const { req, res } = post({
+      csvData: csv,
+      options: { ...BASE_OPTIONS, defaultRole: 'supervisor_de_red' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    const body = res._getJSONData();
+    expect(body.success).toBe(false);
+    expect(body.results[0]).toMatchObject({
+      email: 'a@example.com',
+      success: false,
+      error: CHANNEL_ERROR,
+    });
+    expect(body.credentials).toBeUndefined();
+
+    expect(tracker.createdEmails).toEqual([]);
+    expect(
+      tracker.fromCalls.filter((c) => c.inserts.length > 0 || c.updates.length > 0)
+    ).toEqual([]);
+  });
+
+  it('API: a supervisor row fails alone — the rest of its batch still imports', async () => {
+    const tracker = makeTracker();
+    mockCreateClient.mockReturnValue(buildClient(tracker));
+
+    const csv = [
+      'email,firstName,lastName,role',
+      'ok@example.com,Berta,Dos,docente',
+      'sup@example.com,Ana,Prueba,supervisor_de_red',
+    ].join('\n');
+    const { req, res } = post({ csvData: csv, options: BASE_OPTIONS });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const body = res._getJSONData();
+    expect(body.success).toBe(false); // the batch honestly reports the failed row
+    expect(body.summary).toMatchObject({ succeeded: 1, failed: 1 });
+
+    expect(tracker.createdEmails).toEqual(['ok@example.com']);
+    expect(body.credentials).toHaveLength(1);
+    expect(body.credentials[0].email).toBe('ok@example.com');
+
+    const supervisorRow = body.results.find(
+      (r: { email: string }) => r.email === 'sup@example.com'
+    );
+    expect(supervisorRow).toMatchObject({ success: false, error: CHANNEL_ERROR });
+
+    // Exactly one success audit — the docente's. The refused row wrote none.
+    const auditRows = tracker.fromCalls
+      .filter((c) => c.table === 'security_audit_events')
+      .flatMap((c) => c.inserts) as Array<Record<string, unknown>>;
+    expect(auditRows.filter((r) => r.action === 'user_created_bulk')).toHaveLength(1);
+  });
+
+  it('defense in depth: a parser regression cannot provision supervisor_de_red', async () => {
+    // Bypasses the parser entirely (the boundary's first layer) to prove the
+    // per-user createUser function refuses the role BEFORE the auth account
+    // exists — a mapping or parsing regression must not reopen the channel.
+    vi.resetModules();
+    vi.doMock('../../../utils/bulkUserParser', () => ({
+      parseBulkUserData: () => ({
+        valid: [
+          {
+            email: 'smuggled@example.com',
+            firstName: 'S',
+            lastName: 'S',
+            role: 'supervisor_de_red',
+            rut: '',
+            password: 'Sintetica2026',
+            rowNumber: 2,
+            school_id: SCHOOL_ID,
+          },
+        ],
+        invalid: [],
+        warnings: [],
+        summary: { total: 1, valid: 1, invalid: 0, hasWarnings: 0 },
+      }),
+      generateSampleCSV: () => '',
+    }));
+
+    const tracker = makeTracker();
+    mockCreateClient.mockReturnValue(buildClient(tracker));
+    const isolated = (await import('../../../pages/api/admin/bulk-create-users')).default;
+
+    const { req, res } = post({ csvData: 'email\nsmuggled@example.com', options: BASE_OPTIONS });
+    await isolated(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const body = res._getJSONData();
+    expect(body.success).toBe(false);
+    expect(body.results[0]).toMatchObject({
+      email: 'smuggled@example.com',
+      success: false,
+      error: CHANNEL_ERROR,
+    });
+    expect(body.credentials).toBeUndefined();
+
+    // Refused BEFORE provisioning: no auth account, no table write, no audit
+    // beyond the batch-level delivery row (which reports zero delivered).
+    expect(tracker.createdEmails).toEqual([]);
+    const writes = tracker.fromCalls.filter(
+      (c) => (c.inserts.length > 0 || c.updates.length > 0) && c.table !== 'security_audit_events'
+    );
+    expect(writes).toEqual([]);
+    const auditRows = tracker.fromCalls
+      .filter((c) => c.table === 'security_audit_events')
+      .flatMap((c) => c.inserts) as Array<Record<string, unknown>>;
+    expect(auditRows.filter((r) => r.action === 'user_created_bulk')).toHaveLength(0);
+
+    vi.doUnmock('../../../utils/bulkUserParser');
+    vi.resetModules();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B2a r3 — the 23514 database backstop fails CLOSED
+// ---------------------------------------------------------------------------
+
+describe('B2a r3 — a 23514 role-insert refusal fails closed', () => {
+  // Drives createUser past both boundary layers with a role the database then
+  // refuses. Only reachable through a mocked parser and a mocked insert error
+  // — which is the point: the backstop must hold even for writer shapes that
+  // do not exist yet (any future CHECK on user_roles lands here too).
+  function mockParserWithOneDocenteRow() {
+    vi.doMock('../../../utils/bulkUserParser', () => ({
+      parseBulkUserData: () => ({
+        valid: [
+          {
+            email: 'row@example.com',
+            firstName: 'R',
+            lastName: 'R',
+            role: 'docente',
+            rut: '',
+            password: 'Sintetica2026',
+            rowNumber: 2,
+            school_id: SCHOOL_ID,
+          },
+        ],
+        invalid: [],
+        warnings: [],
+        summary: { total: 1, valid: 1, invalid: 0, hasWarnings: 0 },
+      }),
+      generateSampleCSV: () => '',
+    }));
+  }
+
+  const CHECK_VIOLATION = {
+    code: '23514',
+    message:
+      'new row for relation "user_roles" violates check constraint "chk_user_roles_active_supervisor_needs_red"',
+  };
+
+  it('never success, never credentials, never a success audit — and the account is removed, verified', async () => {
+    vi.resetModules();
+    mockParserWithOneDocenteRow();
+
+    const tracker = makeTracker();
+    mockCreateClient.mockReturnValue(buildClient(tracker, { roleInsertError: CHECK_VIOLATION }));
+    const isolated = (await import('../../../pages/api/admin/bulk-create-users')).default;
+
+    const { req, res } = post({ csvData: 'email\nrow@example.com', options: BASE_OPTIONS });
+    await isolated(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const body = res._getJSONData();
+    // The pre-r3 handler answered success:true here, delivered the password,
+    // and audited user_created_bulk/success — for an account with NO role.
+    expect(body.success).toBe(false);
+    expect(body.summary).toMatchObject({ succeeded: 0, failed: 1 });
+    expect(body.results[0]).toMatchObject({ email: 'row@example.com', success: false });
+    expect(body.results[0].error).toBe('La base de datos rechazó el rol solicitado. No se creó la cuenta.');
+    expect(body.credentials).toBeUndefined();
+
+    // No user_created_bulk row of ANY outcome; the batch-level delivery row
+    // honestly reports a partial failure with zero delivered.
+    const auditRows = tracker.fromCalls
+      .filter((c) => c.table === 'security_audit_events')
+      .flatMap((c) => c.inserts) as Array<Record<string, unknown>>;
+    expect(auditRows.filter((r) => r.action === 'user_created_bulk')).toHaveLength(0);
+    const delivery = auditRows.find((r) => r.action === 'bulk_credentials_delivered')!;
+    expect(delivery.outcome).toBe('partial_failure');
+    expect((delivery.metadata as Record<string, unknown>).delivered_count).toBe(0);
+
+    // Cleanup ran against exactly the account this row created — role rows
+    // (defense in depth), the profile (no FK cascade exists), the auth user.
+    const createdId = `${NEW_USER_ID.slice(0, -1)}1`;
+    const roleDeletes = tracker.fromCalls.filter(
+      (c) => c.table === 'user_roles' && c.deletes > 0
+    );
+    expect(roleDeletes).toHaveLength(1);
+    expect(roleDeletes[0].eqs).toContainEqual({ col: 'user_id', val: createdId });
+    const profileDeletes = tracker.fromCalls.filter(
+      (c) => c.table === 'profiles' && c.deletes > 0
+    );
+    expect(profileDeletes).toHaveLength(1);
+    expect(profileDeletes[0].eqs).toContainEqual({ col: 'id', val: createdId });
+    expect(tracker.deletedAuthIds).toEqual([createdId]);
+
+    vi.doUnmock('../../../utils/bulkUserParser');
+    vi.resetModules();
+  });
+
+  it('a cleanup failure is verified and surfaced — never assumed away', async () => {
+    vi.resetModules();
+    mockParserWithOneDocenteRow();
+
+    const tracker = makeTracker();
+    mockCreateClient.mockReturnValue(
+      buildClient(tracker, {
+        roleInsertError: CHECK_VIOLATION,
+        authDeleteError: { message: 'auth deletion refused' },
+      })
+    );
+    const isolated = (await import('../../../pages/api/admin/bulk-create-users')).default;
+
+    const { req, res } = post({ csvData: 'email\nrow@example.com', options: BASE_OPTIONS });
+    await isolated(req as never, res as never);
+
+    const body = res._getJSONData();
+    expect(body.success).toBe(false);
+    expect(body.results[0].success).toBe(false);
+    // The row's error says the partial account could NOT be fully removed —
+    // the operator is told, instead of a silent roleless account surviving a
+    // "successful" import.
+    expect(body.results[0].error).toContain('no pudo eliminarse por completo');
+    expect(body.credentials).toBeUndefined();
+
+    // The residue is logged for the operator, naming the failing layer.
+    expect(console.error).toHaveBeenCalledWith(
+      expect.stringContaining('cleanup after 23514 left residue'),
+      expect.arrayContaining([expect.stringContaining('auth: auth deletion refused')])
+    );
+
+    vi.doUnmock('../../../utils/bulkUserParser');
+    vi.resetModules();
+  });
+
+  it('other role-insert errors keep their pre-existing non-critical behavior (pinned, deliberately out of r3 scope)', async () => {
+    vi.resetModules();
+    mockParserWithOneDocenteRow();
+
+    const tracker = makeTracker();
+    mockCreateClient.mockReturnValue(
+      buildClient(tracker, { roleInsertError: { code: 'XX000', message: 'synthetic transient error' } })
+    );
+    const isolated = (await import('../../../pages/api/admin/bulk-create-users')).default;
+
+    const { req, res } = post({ csvData: 'email\nrow@example.com', options: BASE_OPTIONS });
+    await isolated(req as never, res as never);
+
+    // Unchanged: a non-CHECK role error is logged and the row continues as a
+    // success. r3 narrows ONLY the 23514 classification; changing this branch
+    // is a separate decision.
+    const body = res._getJSONData();
+    expect(body.success).toBe(true);
+    expect(body.summary).toMatchObject({ succeeded: 1, failed: 0 });
+    expect(tracker.deletedAuthIds).toEqual([]);
+
+    vi.doUnmock('../../../utils/bulkUserParser');
+    vi.resetModules();
   });
 });
 

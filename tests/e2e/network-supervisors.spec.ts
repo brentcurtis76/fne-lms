@@ -27,7 +27,11 @@ import {
  * /api/admin/assign-role endpoint refuses supervisor_de_red outright (400,
  * es-CL guidance, zero writes) — supervisors are granted only through the
  * dedicated network endpoint, which the lifecycle then exercises for the SAME
- * candidate the generic refusal just protected.
+ * candidate the generic refusal just protected. Round 3 extends that boundary
+ * to the ACCOUNT-CREATION writers: /api/admin/create-user and
+ * /api/admin/bulk-create-users (explicit CSV role AND options.defaultRole)
+ * refuse the role BEFORE provisioning anything, proven here with zero-residue
+ * read-backs against the constrained database.
  *
  * Non-vacuity: these assertions are only satisfiable through a genuinely
  * server-only service-role client. `user_roles` has NO admin-read policy
@@ -502,5 +506,220 @@ test.describe('network supervisors — admin UI', () => {
     // non-empty supervisors array for that card's network.
     await expect(primaryCard.getByText(SUPERVISOR_FULL_NAME)).toBeVisible();
     await expect(secondaryCard.getByText(SUPERVISOR_FULL_NAME)).toHaveCount(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B2a r3 — the account-creation channel boundary, live on the constrained DB
+// ---------------------------------------------------------------------------
+
+test.describe('network supervisors — account-creation channel boundary (B2a r3)', () => {
+  test.use({ storageState: storageStatePath('admin') });
+
+  const CHANNEL_MESSAGE = 'El rol Supervisor de Red debe asignarse desde Gestión de Redes.';
+
+  /**
+   * Same purge discipline as the lifecycle candidate: a FIXED prefix so stale
+   * leftovers are removed, a per-run stamp so retries never collide. On the
+   * corrected endpoints every test below creates NOTHING — the purge exists
+   * for crashed runs and for the fail-on-old demonstration, where the OLD
+   * bulk path really does leave a role-less auth user + profile behind.
+   */
+  const BOUNDARY_PREFIX = 'e2e-b2a-r3-chan-';
+
+  let adminAccessToken: string;
+
+  async function purgeBoundaryAccounts(): Promise<void> {
+    const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (error) throw new Error(`[network-supervisors] listUsers failed: ${error.message}`);
+    for (const user of data.users) {
+      if (!user.email?.startsWith(BOUNDARY_PREFIX)) continue;
+      const { error: rolesError } = await admin.from('user_roles').delete().eq('user_id', user.id);
+      if (rolesError) {
+        throw new Error(`[network-supervisors] purge of user_roles failed: ${rolesError.message}`);
+      }
+      const { error: profileError } = await admin.from('profiles').delete().eq('id', user.id);
+      if (profileError) {
+        throw new Error(`[network-supervisors] purge of profiles failed: ${profileError.message}`);
+      }
+      const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);
+      if (deleteError) {
+        throw new Error(`[network-supervisors] deleteUser failed: ${deleteError.message}`);
+      }
+    }
+  }
+
+  /** Zero-residue read-back for one synthetic address, via the service client. */
+  async function residueFor(email: string): Promise<{
+    authUsers: number;
+    profiles: number;
+    roleRows: number;
+  }> {
+    const { data: usersData, error: usersError } = await admin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000,
+    });
+    if (usersError) throw new Error(`[network-supervisors] listUsers failed: ${usersError.message}`);
+    const authUsers = usersData.users.filter((user) => user.email === email);
+
+    const { data: profileRows, error: profilesError } = await admin
+      .from('profiles')
+      .select('id')
+      .eq('email', email);
+    if (profilesError) {
+      throw new Error(`[network-supervisors] profiles read failed: ${profilesError.message}`);
+    }
+
+    // Role rows can only hang off an id one of the two stores knows about.
+    const ids = [
+      ...authUsers.map((user) => user.id),
+      ...(profileRows ?? []).map((row) => row.id as string),
+    ];
+    let roleRows = 0;
+    if (ids.length > 0) {
+      const { data: roleData, error: rolesError } = await admin
+        .from('user_roles')
+        .select('id')
+        .in('user_id', ids);
+      if (rolesError) {
+        throw new Error(`[network-supervisors] user_roles read failed: ${rolesError.message}`);
+      }
+      roleRows = (roleData ?? []).length;
+    }
+
+    return { authUsers: authUsers.length, profiles: (profileRows ?? []).length, roleRows };
+  }
+
+  /**
+   * The success-outcome creation audits. Compared before/after each refusal:
+   * a rejected request must not add a user_created_manual or
+   * user_created_bulk success row (targets are ids-only, so the count — under
+   * the suite's workers=1 discipline — is the audit-side residue probe).
+   */
+  async function creationSuccessAuditCount(): Promise<number> {
+    const { count, error } = await admin
+      .from('security_audit_events')
+      .select('id', { count: 'exact', head: true })
+      .in('action', ['user_created_manual', 'user_created_bulk'])
+      .eq('outcome', 'success');
+    if (error) {
+      throw new Error(`[network-supervisors] audit count failed: ${error.message}`);
+    }
+    return count ?? 0;
+  }
+
+  test.beforeAll(async ({ browser }) => {
+    test.setTimeout(120_000);
+    await ensureStorageState(browser, 'admin');
+    await purgeBoundaryAccounts();
+
+    // bulk-create-users authenticates via a Bearer access token, not the
+    // cookie chain — mint one by signing the admin fixture in through the
+    // real local GoTrue, exactly as the import modal does in the browser.
+    const anonClient = createClient(SUPABASE_URL, requiredEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'), {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: signIn, error: signInError } = await anonClient.auth.signInWithPassword({
+      email: E2E_USERS.admin.email,
+      password: E2E_USERS.admin.password,
+    });
+    if (signInError || !signIn.session) {
+      throw new Error(
+        `[network-supervisors] admin sign-in for the bulk API failed: ${signInError?.message}`
+      );
+    }
+    adminAccessToken = signIn.session.access_token;
+  });
+
+  test.afterAll(async () => {
+    await purgeBoundaryAccounts();
+  });
+
+  test('manual create-user refuses supervisor_de_red before provisioning anything', async ({
+    page,
+  }) => {
+    // At b5d5f5f7 this request PROVISIONED the auth account and profile, hit
+    // the database CHECK on the role insert (23514), rolled back, and
+    // answered a generic 500. The r3 boundary refuses before any write.
+    const email = `${BOUNDARY_PREFIX}manual-${Date.now()}@example.com`;
+    const auditsBefore = await creationSuccessAuditCount();
+
+    const response = await page.request.post('/api/admin/create-user', {
+      data: {
+        email,
+        password: 'Sintetica-2026-Canal',
+        firstName: 'Canal',
+        lastName: 'Sintetico R3',
+        role: 'supervisor_de_red',
+      },
+    });
+    expect(response.status(), await response.text()).toBe(400);
+    expect(((await response.json()) as { error: string }).error).toBe(CHANNEL_MESSAGE);
+
+    expect(await residueFor(email)).toEqual({ authUsers: 0, profiles: 0, roleRows: 0 });
+    expect(await creationSuccessAuditCount()).toBe(auditsBefore);
+  });
+
+  test('bulk import refuses an explicit CSV supervisor_de_red row', async ({ page }) => {
+    const email = `${BOUNDARY_PREFIX}csv-${Date.now()}@example.com`;
+    const auditsBefore = await creationSuccessAuditCount();
+
+    const response = await page.request.post('/api/admin/bulk-create-users', {
+      headers: { authorization: `Bearer ${adminAccessToken}` },
+      data: {
+        csvData: [
+          'email,firstName,lastName,role',
+          `${email},Fila,Sintetica,supervisor_de_red`,
+        ].join('\n'),
+        options: { validateRut: false },
+      },
+    });
+
+    // Every row is refused, so the import declines up front — with the
+    // channel guidance on the row, not the old generic "Rol '…' inválido".
+    expect(response.status(), await response.text()).toBe(400);
+    const body = (await response.json()) as {
+      success: boolean;
+      results: { email: string; success: boolean; error?: string }[];
+      credentials?: unknown[];
+    };
+    expect(body.success).toBe(false);
+    expect(body.results[0]).toMatchObject({ email, success: false, error: CHANNEL_MESSAGE });
+    expect(body.credentials).toBeUndefined();
+
+    expect(await residueFor(email)).toEqual({ authUsers: 0, profiles: 0, roleRows: 0 });
+    expect(await creationSuccessAuditCount()).toBe(auditsBefore);
+  });
+
+  test('bulk import refuses options.defaultRole=supervisor_de_red for empty-role rows', async ({
+    page,
+  }) => {
+    // THE round-3 finding, live: at b5d5f5f7 this exact request CREATED the
+    // account (auth user + profile), classified the database's 23514 role
+    // refusal as non-critical, audited user_created_bulk as success, answered
+    // success:true and delivered the password — for an account with no role.
+    const email = `${BOUNDARY_PREFIX}defrole-${Date.now()}@example.com`;
+    const auditsBefore = await creationSuccessAuditCount();
+
+    const response = await page.request.post('/api/admin/bulk-create-users', {
+      headers: { authorization: `Bearer ${adminAccessToken}` },
+      data: {
+        csvData: ['email,firstName,lastName,role', `${email},Fila,Sintetica,`].join('\n'),
+        options: { validateRut: false, defaultRole: 'supervisor_de_red' },
+      },
+    });
+
+    expect(response.status(), await response.text()).toBe(400);
+    const body = (await response.json()) as {
+      success: boolean;
+      results: { email: string; success: boolean; error?: string }[];
+      credentials?: unknown[];
+    };
+    expect(body.success).toBe(false);
+    expect(body.results[0]).toMatchObject({ email, success: false, error: CHANNEL_MESSAGE });
+    expect(body.credentials).toBeUndefined();
+
+    expect(await residueFor(email)).toEqual({ authUsers: 0, profiles: 0, roleRows: 0 });
+    expect(await creationSuccessAuditCount()).toBe(auditsBefore);
   });
 });

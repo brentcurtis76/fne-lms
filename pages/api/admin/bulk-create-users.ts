@@ -519,6 +519,28 @@ async function createUser(
 ): Promise<UserCreationResult> {
   try {
     const roleType = (userData.role || 'docente') as UserRoleType;
+
+    // B2a r3 channel boundary — defense in depth. The parser already refuses
+    // supervisor_de_red on BOTH entry forms (an explicit CSV role value and
+    // options.defaultRole applied to an empty role column), so no such row
+    // should ever reach this function. If a parser or column-mapping
+    // regression lets one through anyway, refuse it HERE — before the auth
+    // account, profile, role row or audit row exists — instead of letting
+    // provisioning start and the database CHECK
+    // (chk_user_roles_active_supervisor_needs_red) refuse the role insert
+    // after the account is already live. Case-insensitive on purpose: the
+    // parser lowercases explicit CSV values but passes options.defaultRole
+    // through verbatim. Same exact es-CL copy as the parser, create-user.ts
+    // and assign-role.ts.
+    if (String(roleType).trim().toLowerCase() === 'supervisor_de_red') {
+      return {
+        email: userData.email,
+        success: false,
+        error: 'El rol Supervisor de Red debe asignarse desde Gestión de Redes.',
+        warnings: userData.warnings
+      };
+    }
+
     const schoolId = typeof userData.school_id === 'string'
       ? parseInt(userData.school_id, 10)
       : userData.school_id;
@@ -711,6 +733,72 @@ async function createUser(
           email: userData.email,
           success: false,
           error: 'Error de configuración: referencias organizacionales inválidas',
+          warnings: userData.warnings
+        };
+      } else if (roleError.code === '23514') {
+        // B2a r3: a CHECK-constraint refusal is NOT non-critical — it means
+        // the database rejected the role row itself (today the only CHECK on
+        // user_roles is chk_user_roles_active_supervisor_needs_red, the
+        // supervisor channel backstop). Before this branch existed, a 23514
+        // fell into the fall-through below: the row was audited as
+        // user_created_bulk/success, counted as succeeded, and its password
+        // was delivered — for an account that had NO role at all. FAIL
+        // CLOSED instead: remove the just-created auth user and profile,
+        // VERIFYING each deletion rather than assuming it worked, and report
+        // the row as failed so no credential is issued and no success audit
+        // is written.
+        console.error(
+          `[BULK-IMPORT] user_roles CHECK violation (23514) for ${userData.email} — failing closed, removing the role-less account`,
+          { code: roleError.code, message: roleError.message }
+        );
+
+        const cleanupFailures: string[] = [];
+
+        // The role insert failed, so no user_roles row should exist; the
+        // delete is defense in depth, mirroring create-user.ts's rollback.
+        const { error: rolesCleanupError } = await supabaseAdmin
+          .from('user_roles')
+          .delete()
+          .eq('user_id', userId);
+        if (rolesCleanupError) {
+          cleanupFailures.push(`user_roles: ${rolesCleanupError.message}`);
+        }
+
+        // profiles.id has no FK to auth.users(id) in this schema, so
+        // auth.admin.deleteUser does NOT cascade — the profile must be
+        // removed explicitly (same reason as create-user.ts's rollback).
+        const { error: profileCleanupError } = await supabaseAdmin
+          .from('profiles')
+          .delete()
+          .eq('id', userId);
+        if (profileCleanupError) {
+          cleanupFailures.push(`profiles: ${profileCleanupError.message}`);
+        }
+
+        const { error: authCleanupError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+        if (authCleanupError) {
+          cleanupFailures.push(`auth: ${authCleanupError.message}`);
+        }
+
+        if (cleanupFailures.length > 0) {
+          console.error(
+            `[BULK-IMPORT] cleanup after 23514 left residue for ${userData.email} — manual removal required:`,
+            cleanupFailures
+          );
+          return {
+            email: userData.email,
+            success: false,
+            error:
+              'La base de datos rechazó el rol solicitado y la cuenta parcial no pudo eliminarse por completo. ' +
+              'Revise y elimine la cuenta manualmente.',
+            warnings: userData.warnings
+          };
+        }
+
+        return {
+          email: userData.email,
+          success: false,
+          error: 'La base de datos rechazó el rol solicitado. No se creó la cuenta.',
           warnings: userData.warnings
         };
       } else {

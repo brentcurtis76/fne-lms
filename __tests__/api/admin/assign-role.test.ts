@@ -364,6 +364,46 @@ describe('admin/assign-role — admin path', () => {
     expect(payload.school_id).toBe(ED_SCHOOL_ID);
   });
 
+  // B2a correction: this endpoint runs no existing-active-supervisor check of
+  // its own, so before uq_user_roles_one_active_supervisor (migration
+  // 20260827150000) it silently created a SECOND active supervisor row. Now
+  // the database refuses with 23505, and the handler must report the conflict
+  // as a 409 in plain es-CL — never a bare 500, never database internals.
+  it('admin: supervisor_de_red insert losing to the unique index (23505) → 409, not 500', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildClient(
+        {
+          user_roles: [
+            {
+              data: null,
+              error: {
+                code: '23505',
+                message:
+                  'duplicate key value violates unique constraint "uq_user_roles_one_active_supervisor"',
+              },
+            },
+          ],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { targetUserId: TARGET_USER_ID, roleType: 'supervisor_de_red' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(409);
+    const body = JSON.parse(res._getData());
+    expect(body.error).toContain('una red a la vez');
+    expect(body.error).not.toMatch(/duplicate key|unique constraint|23505/i);
+    // Nothing was granted: no audit-worthy success, no cache refresh.
+    expect(tracker.rpcCalls).toHaveLength(0);
+  });
+
   it('admin can assign "docente" — inserts role and updates profile school_id', async () => {
     setupAdmin();
     const tracker = makeTracker();

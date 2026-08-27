@@ -32,18 +32,32 @@
  * seeded local stack (tests/e2e/network-supervisors.spec.ts) proves the live
  * behavior.
  *
+ * CORRECTION ROUND (Codex REQUEST CHANGES): the suite additionally pins
+ *   - the database-conflict mapping — the helper's `active_role_conflict`
+ *     (SQLSTATE 23505 from uq_user_roles_one_active_supervisor, migration
+ *     20260827150000) answers 409, never 500;
+ *   - durable security auditing — role_assigned / role_removed rows with
+ *     ids-only metadata, and the fail-open guarantee that an audit failure
+ *     cannot misreport a role change that already committed;
+ *   - the malformed-id 400 speaks plain es-CL and never leaks "Network ID",
+ *     "User ID" or "UUID" to the administrator.
+ *
  * All fixture data is synthetic (Ley 21.719 — no student or staff PII).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 
-const { mockCheckIsAdmin, mockCreateServiceRoleClient, mockAssignSupervisorRole } = vi.hoisted(
-  () => ({
-    mockCheckIsAdmin: vi.fn(),
-    mockCreateServiceRoleClient: vi.fn(),
-    mockAssignSupervisorRole: vi.fn(),
-  }),
-);
+const {
+  mockCheckIsAdmin,
+  mockCreateServiceRoleClient,
+  mockAssignSupervisorRole,
+  mockRecordSecurityAudit,
+} = vi.hoisted(() => ({
+  mockCheckIsAdmin: vi.fn(),
+  mockCreateServiceRoleClient: vi.fn(),
+  mockAssignSupervisorRole: vi.fn(),
+  mockRecordSecurityAudit: vi.fn(),
+}));
 
 vi.mock('../../../lib/api-auth', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -51,6 +65,14 @@ vi.mock('../../../lib/api-auth', async (importOriginal) => {
     ...actual,
     checkIsAdmin: mockCheckIsAdmin,
     createServiceRoleClient: mockCreateServiceRoleClient,
+  };
+});
+
+vi.mock('../../../lib/security/audit', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    recordSecurityAudit: mockRecordSecurityAudit,
   };
 });
 
@@ -276,6 +298,7 @@ describe('admin/networks/supervisors POST — assignment', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockAssignSupervisorRole.mockResolvedValue({ success: true });
+    mockRecordSecurityAudit.mockResolvedValue({ recorded: true });
   });
 
   // ---- the shape of the queries the handler builds -------------------------
@@ -325,6 +348,7 @@ describe('admin/networks/supervisors POST — assignment', () => {
     const body = JSON.parse(res._getData());
     expect(body.message).toContain('Ana Sintética');
     expect(body.message).toContain('Red Sintética E2E');
+    expect(body.audited).toBe(true);
 
     expect(mockAssignSupervisorRole).toHaveBeenCalledTimes(1);
     const [, targetUserId, networkId, assignedBy] = mockAssignSupervisorRole.mock.calls[0];
@@ -334,6 +358,73 @@ describe('admin/networks/supervisors POST — assignment', () => {
 
     // Grant paths refresh the degraded-path cache, like remove-role/assign-role.
     expect(tracker.rpcCalls).toContain('refresh_user_roles_cache');
+  });
+
+  it('records a role_assigned audit event with ids-only metadata — no names, no e-mail', async () => {
+    const tracker = makeTracker();
+    setupAdmin(
+      {
+        redes_de_colegios: [{ data: NETWORK_ROW, error: null }],
+        profiles: [{ data: CANDIDATE_PROFILE, error: null }],
+        user_roles: [{ data: [], error: null }],
+      },
+      tracker,
+    );
+
+    await callPost();
+
+    expect(mockRecordSecurityAudit).toHaveBeenCalledTimes(1);
+    const [, event] = mockRecordSecurityAudit.mock.calls[0];
+    expect(event).toEqual({
+      action: 'role_assigned',
+      outcome: 'success',
+      actorUserId: ADMIN_ID,
+      actorRole: 'admin',
+      targetUserId: SUPERVISOR_ID,
+      metadata: { role_type: 'supervisor_de_red', red_id: NETWORK_ID },
+    });
+    // The metadata carries EXACTLY the two allowed keys — nothing that could
+    // smuggle a name, an address or a credential into the trail.
+    expect(Object.keys(event.metadata).sort()).toEqual(['red_id', 'role_type']);
+  });
+
+  it('a failed audit write does not misreport the committed grant — 201, audited: false', async () => {
+    const tracker = makeTracker();
+    setupAdmin(
+      {
+        redes_de_colegios: [{ data: NETWORK_ROW, error: null }],
+        profiles: [{ data: CANDIDATE_PROFILE, error: null }],
+        user_roles: [{ data: [], error: null }],
+      },
+      tracker,
+    );
+    mockRecordSecurityAudit.mockResolvedValueOnce({ recorded: false, error: 'insert failed' });
+
+    const res = await callPost();
+
+    expect(res._getStatusCode()).toBe(201);
+    expect(JSON.parse(res._getData()).audited).toBe(false);
+  });
+
+  it('even a THROWING audit layer does not misreport the committed grant', async () => {
+    const tracker = makeTracker();
+    setupAdmin(
+      {
+        redes_de_colegios: [{ data: NETWORK_ROW, error: null }],
+        profiles: [{ data: CANDIDATE_PROFILE, error: null }],
+        user_roles: [{ data: [], error: null }],
+      },
+      tracker,
+    );
+    // recordSecurityAudit never throws by contract; this pins that even a
+    // contract-violating audit layer cannot flip a committed grant into an
+    // error response.
+    mockRecordSecurityAudit.mockRejectedValueOnce(new Error('audit layer broke its contract'));
+
+    const res = await callPost();
+
+    expect(res._getStatusCode()).toBe(201);
+    expect(JSON.parse(res._getData()).audited).toBe(false);
   });
 
   it('still answers 201 when the cache refresh fails — the grant already happened', async () => {
@@ -379,6 +470,8 @@ describe('admin/networks/supervisors POST — assignment', () => {
     const body = JSON.parse(res._getData());
     expect(body.error).toContain('ya es supervisor de la red "Red Sintética E2E"');
     expect(mockAssignSupervisorRole).not.toHaveBeenCalled();
+    // No grant happened, so nothing may claim one in the audit trail.
+    expect(mockRecordSecurityAudit).not.toHaveBeenCalled();
   });
 
   it('rejects assignment while the user actively supervises ANOTHER network, naming it', async () => {
@@ -483,6 +576,10 @@ describe('admin/networks/supervisors POST — assignment', () => {
       { failure: 'network_not_found', status: 404 },
       { failure: 'duplicate', status: 409 },
       { failure: 'other_network', status: 409 },
+      // The database index losing a concurrent race (SQLSTATE 23505 →
+      // active_role_conflict) is a CONFLICT the caller can act on, not a
+      // server failure.
+      { failure: 'active_role_conflict', status: 409 },
       { failure: 'not_admin', status: 403 },
     ];
 
@@ -519,7 +616,7 @@ describe('admin/networks/supervisors POST — assignment', () => {
     expect(tracker.fromCalls).toHaveLength(0);
   });
 
-  it('rejects malformed uuids with 400 before touching the database', async () => {
+  it('rejects malformed uuids with a plain es-CL 400 that names no technical jargon', async () => {
     const tracker = makeTracker();
     setupAdmin({}, tracker);
 
@@ -528,12 +625,19 @@ describe('admin/networks/supervisors POST — assignment', () => {
     expect(res._getStatusCode()).toBe(400);
     expect(tracker.fromCalls).toHaveLength(0);
     expect(mockAssignSupervisorRole).not.toHaveBeenCalled();
+
+    // The administrator sees plain es-CL — never "Network ID", "User ID" or
+    // "UUID" (Codex correction 3).
+    const body = JSON.parse(res._getData());
+    expect(body.error).toBe('La red o el usuario indicados no son válidos');
+    expect(body.error).not.toMatch(/UUID|Network ID|User ID/i);
   });
 });
 
 describe('admin/networks/supervisors DELETE — role lookup', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRecordSecurityAudit.mockResolvedValue({ recorded: true });
   });
 
   // ---- the shape of the query the handler builds ---------------------------
@@ -575,6 +679,8 @@ describe('admin/networks/supervisors DELETE — role lookup', () => {
 
     expect(res._getStatusCode()).toBe(404);
     expect(deactivations(tracker)).toBe(0);
+    // Nothing was removed, so nothing may claim a removal in the audit trail.
+    expect(mockRecordSecurityAudit).not.toHaveBeenCalled();
   });
 
   // ---- anti-vacuity: removal must actually work now ------------------------
@@ -608,8 +714,68 @@ describe('admin/networks/supervisors DELETE — role lookup', () => {
     const body = JSON.parse(res._getData());
     expect(body.message).toContain('Ana Sintética');
     expect(body.message).toContain('Red Sintética Norte');
+    expect(body.audited).toBe(true);
     // Cache refresh keeps the materialized view from serving the removed role.
     expect(tracker.rpcCalls).toContain('refresh_user_roles_cache');
+  });
+
+  it('records a role_removed audit event with ids-only metadata — no names, no e-mail', async () => {
+    const tracker = makeTracker();
+    setupAdmin(
+      {
+        user_roles: [
+          { data: SUPERVISOR_ROLE_ROW, error: null },
+          { data: [{ id: ROLE_ID }], error: null },
+        ],
+      },
+      tracker,
+    );
+
+    await callDelete();
+
+    expect(mockRecordSecurityAudit).toHaveBeenCalledTimes(1);
+    const [, event] = mockRecordSecurityAudit.mock.calls[0];
+    expect(event).toEqual({
+      action: 'role_removed',
+      outcome: 'success',
+      actorUserId: ADMIN_ID,
+      actorRole: 'admin',
+      targetUserId: SUPERVISOR_ID,
+      metadata: { role_type: 'supervisor_de_red', red_id: NETWORK_ID },
+    });
+    expect(Object.keys(event.metadata).sort()).toEqual(['red_id', 'role_type']);
+  });
+
+  it('a failing or throwing audit layer does not misreport the committed removal', async () => {
+    const failingTracker = makeTracker();
+    setupAdmin(
+      {
+        user_roles: [
+          { data: SUPERVISOR_ROLE_ROW, error: null },
+          { data: [{ id: ROLE_ID }], error: null },
+        ],
+      },
+      failingTracker,
+    );
+    mockRecordSecurityAudit.mockResolvedValueOnce({ recorded: false, error: 'insert failed' });
+    const failingRes = await callDelete();
+    expect(failingRes._getStatusCode()).toBe(200);
+    expect(JSON.parse(failingRes._getData()).audited).toBe(false);
+
+    const throwingTracker = makeTracker();
+    setupAdmin(
+      {
+        user_roles: [
+          { data: SUPERVISOR_ROLE_ROW, error: null },
+          { data: [{ id: ROLE_ID }], error: null },
+        ],
+      },
+      throwingTracker,
+    );
+    mockRecordSecurityAudit.mockRejectedValueOnce(new Error('audit layer broke its contract'));
+    const throwingRes = await callDelete();
+    expect(throwingRes._getStatusCode()).toBe(200);
+    expect(JSON.parse(throwingRes._getData()).audited).toBe(false);
   });
 
   it('fails CLOSED when the deactivation errors', async () => {
@@ -695,7 +861,7 @@ describe('admin/networks/supervisors DELETE — role lookup', () => {
 
   // ---- validation ----------------------------------------------------------
 
-  it('rejects malformed uuids with 400 before touching the database', async () => {
+  it('rejects malformed uuids with a plain es-CL 400 that names no technical jargon', async () => {
     const tracker = makeTracker();
     setupAdmin({}, tracker);
 
@@ -703,5 +869,9 @@ describe('admin/networks/supervisors DELETE — role lookup', () => {
 
     expect(res._getStatusCode()).toBe(400);
     expect(tracker.fromCalls).toHaveLength(0);
+
+    const body = JSON.parse(res._getData());
+    expect(body.error).toBe('La red o el usuario indicados no son válidos');
+    expect(body.error).not.toMatch(/UUID|Network ID|User ID/i);
   });
 });

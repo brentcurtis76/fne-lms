@@ -302,11 +302,12 @@ test.describe('network supervisors — assignment lifecycle', () => {
       data: { networkId: E2E_NETWORK.id, userId: candidateId },
     });
     expect(response.status(), await response.text()).toBe(201);
-    const body = (await response.json()) as { message: string };
+    const body = (await response.json()) as { message: string; audited: boolean };
     // Success message names the REAL network (nombre — the pre-repair code
     // selected the non-existent `name` and 404'd before ever getting here).
     expect(body.message).toContain(E2E_NETWORK.name);
     expect(body.message).toContain(CANDIDATE_FIRST_NAME);
+    expect(body.audited).toBe(true);
 
     const networks = await fetchNetworks(page);
     const primary = networks.get(E2E_NETWORK.id) as AdminNetwork;
@@ -314,6 +315,23 @@ test.describe('network supervisors — assignment lifecycle', () => {
     expect(emails).toContain(CANDIDATE_EMAIL);
     expect(emails).toContain(SUPERVISOR_FIXTURE.email);
     expect(primary.supervisor_count).toBe(primary.supervisors.length);
+
+    // Correction round: the grant left a DURABLE role_assigned row in the real
+    // security_audit_events table, carrying ids-only metadata — no names, no
+    // e-mail (Ley 21.719). Read back through the service client.
+    const { data: auditRows, error: auditError } = await admin
+      .from('security_audit_events')
+      .select('action, outcome, actor_role, target_user_id, metadata')
+      .eq('action', 'role_assigned')
+      .eq('target_user_id', candidateId);
+    expect(auditError).toBeNull();
+    expect(auditRows).toHaveLength(1);
+    expect(auditRows?.[0].outcome).toBe('success');
+    expect(auditRows?.[0].actor_role).toBe('admin');
+    expect(auditRows?.[0].metadata).toEqual({
+      role_type: 'supervisor_de_red',
+      red_id: E2E_NETWORK.id,
+    });
   });
 
   test('a duplicate assignment to the same network is rejected', async ({ page }) => {
@@ -365,9 +383,10 @@ test.describe('network supervisors — assignment lifecycle', () => {
       data: { networkId: E2E_NETWORK.id, userId: candidateId },
     });
     expect(response.status(), await response.text()).toBe(200);
-    const body = (await response.json()) as { message: string };
+    const body = (await response.json()) as { message: string; audited: boolean };
     expect(body.message).toContain(CANDIDATE_FIRST_NAME);
     expect(body.message).toContain(E2E_NETWORK.name);
+    expect(body.audited).toBe(true);
 
     const networks = await fetchNetworks(page);
     const primary = networks.get(E2E_NETWORK.id) as AdminNetwork;
@@ -375,6 +394,22 @@ test.describe('network supervisors — assignment lifecycle', () => {
     expect(emails).not.toContain(CANDIDATE_EMAIL);
     // The canonical supervisor was never touched by any of this.
     expect(emails).toContain(SUPERVISOR_FIXTURE.email);
+
+    // Correction round: the removal's durable role_removed counterpart, with
+    // the same ids-only metadata discipline.
+    const { data: auditRows, error: auditError } = await admin
+      .from('security_audit_events')
+      .select('action, outcome, actor_role, target_user_id, metadata')
+      .eq('action', 'role_removed')
+      .eq('target_user_id', candidateId);
+    expect(auditError).toBeNull();
+    expect(auditRows).toHaveLength(1);
+    expect(auditRows?.[0].outcome).toBe('success');
+    expect(auditRows?.[0].actor_role).toBe('admin');
+    expect(auditRows?.[0].metadata).toEqual({
+      role_type: 'supervisor_de_red',
+      red_id: E2E_NETWORK.id,
+    });
 
     // Deactivated, NOT deleted: the row survives as the audit trail, inactive.
     const { data: candidateRoles, error } = await admin

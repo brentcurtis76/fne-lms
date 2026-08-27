@@ -20,6 +20,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { checkIsAdmin, createServiceRoleClient } from '../../../../lib/api-auth';
 import { assignSupervisorRole } from '../../../../utils/roleUtils';
+import { recordSecurityAudit } from '../../../../lib/security/audit';
 
 interface AssignSupervisorRequest {
   networkId: string;
@@ -59,7 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       case 'POST':
         return handleAssignSupervisor(supabaseAdmin, req.body as AssignSupervisorRequest, user.id, res);
       case 'DELETE':
-        return handleRemoveSupervisor(supabaseAdmin, req.body as RemoveSupervisorRequest, res);
+        return handleRemoveSupervisor(supabaseAdmin, req.body as RemoveSupervisorRequest, user.id, res);
       case 'GET':
         return handleGetAvailableUsers(supabaseAdmin, req.query.networkId as string, res);
       default:
@@ -86,10 +87,10 @@ async function handleAssignSupervisor(
 
     // Validate input
     if (!networkId || !userId) {
-      return res.status(400).json({ error: 'Network ID y User ID son requeridos' });
+      return res.status(400).json({ error: 'La red y el usuario son requeridos' });
     }
     if (!isUuid(networkId) || !isUuid(userId)) {
-      return res.status(400).json({ error: 'Network ID y User ID deben ser UUID válidos' });
+      return res.status(400).json({ error: 'La red o el usuario indicados no son válidos' });
     }
 
     // Verify network exists. The column is `nombre` — redes_de_colegios has no
@@ -176,10 +177,37 @@ async function handleAssignSupervisor(
     if (!result.success) {
       const status =
         result.failure === 'network_not_found' ? 404 :
-        result.failure === 'duplicate' || result.failure === 'other_network' ? 409 :
+        result.failure === 'duplicate' ||
+        result.failure === 'other_network' ||
+        // The database's partial unique index won a race our look-before-insert
+        // checks could not see — a conflict, not a server failure.
+        result.failure === 'active_role_conflict' ? 409 :
         result.failure === 'not_admin' ? 403 :
         500;
       return res.status(status).json({ error: result.error || 'Error al asignar supervisor' });
+    }
+
+    // Durable audit, mirroring assign-role.ts: the grant is already committed.
+    // recordSecurityAudit never throws by contract and fails OPEN-but-visible
+    // (lib/security/audit.ts) — an audit defect must not misreport a role
+    // change that already happened, so the response stays 201 either way and
+    // carries `audited` so a missed row is observable. Metadata is ids only —
+    // no names, no e-mail (Ley 21.719).
+    let audited = false;
+    try {
+      const auditResult = await recordSecurityAudit(supabase, {
+        action: 'role_assigned',
+        outcome: 'success',
+        actorUserId: adminId,
+        actorRole: 'admin',
+        targetUserId: userId,
+        metadata: { role_type: 'supervisor_de_red', red_id: networkId }
+      });
+      audited = auditResult.recorded;
+    } catch (auditError) {
+      // Belt over the module's own braces: even a contract-violating throw in
+      // the audit layer must not flip a committed grant into an error response.
+      console.error('[supervisors API] audit write threw:', auditError);
     }
 
     // Hygiene, mirroring the removal path and assign-role.ts: the cache is a
@@ -192,6 +220,7 @@ async function handleAssignSupervisor(
 
     return res.status(201).json({
       success: true,
+      audited,
       message: `${user.first_name} ${user.last_name} asignado exitosamente como supervisor de la red "${network.nombre}"`
     });
   } catch (error) {
@@ -203,16 +232,21 @@ async function handleAssignSupervisor(
 /**
  * DELETE /api/admin/networks/supervisors - Remove supervisor from network
  */
-async function handleRemoveSupervisor(supabase: any, body: RemoveSupervisorRequest, res: NextApiResponse) {
+async function handleRemoveSupervisor(
+  supabase: any,
+  body: RemoveSupervisorRequest,
+  adminId: string,
+  res: NextApiResponse
+) {
   try {
     const { networkId, userId } = body || {};
 
     // Validate input
     if (!networkId || !userId) {
-      return res.status(400).json({ error: 'Network ID y User ID son requeridos' });
+      return res.status(400).json({ error: 'La red y el usuario son requeridos' });
     }
     if (!isUuid(networkId) || !isUuid(userId)) {
-      return res.status(400).json({ error: 'Network ID y User ID deben ser UUID válidos' });
+      return res.status(400).json({ error: 'La red o el usuario indicados no son válidos' });
     }
 
     // Find existing supervisor role.
@@ -278,6 +312,28 @@ async function handleRemoveSupervisor(supabase: any, body: RemoveSupervisorReque
       return res.status(500).json({ error: 'Error al remover supervisor' });
     }
 
+    // Durable audit, the removal counterpart of the grant's role_assigned row.
+    // The deactivation is already committed; recordSecurityAudit never throws
+    // by contract and fails OPEN-but-visible (lib/security/audit.ts), so the
+    // response stays 200 either way and carries `audited`. Metadata is ids
+    // only — no names, no e-mail (Ley 21.719).
+    let audited = false;
+    try {
+      const auditResult = await recordSecurityAudit(supabase, {
+        action: 'role_removed',
+        outcome: 'success',
+        actorUserId: adminId,
+        actorRole: 'admin',
+        targetUserId: userId,
+        metadata: { role_type: 'supervisor_de_red', red_id: networkId }
+      });
+      audited = auditResult.recorded;
+    } catch (auditError) {
+      // Belt over the module's own braces: even a contract-violating throw in
+      // the audit layer must not flip a committed removal into an error.
+      console.error('[supervisors API] audit write threw:', auditError);
+    }
+
     // Hygiene (see remove-role.ts): the revocation is already enforced by
     // getUserRoles() failing closed; this keeps the cache from serving a stale
     // active row on the degraded path.
@@ -301,6 +357,7 @@ async function handleRemoveSupervisor(supabase: any, body: RemoveSupervisorReque
 
     return res.status(200).json({
       success: true,
+      audited,
       message: `${supervisorName} removido exitosamente como supervisor de la red "${red?.nombre ?? ''}"`
     });
   } catch (error) {

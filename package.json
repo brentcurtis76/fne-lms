@@ -54,6 +54,7 @@
     "test:override-concurrency": "tsx scripts/ci/override-concurrency-proof.mjs",
     "test:attendance-authority-concurrency": "tsx scripts/ci/attendance-authority-concurrency-proof.mjs",
     "test:recovery-concurrency": "node scripts/ci/recovery-concurrency-proof.mjs",
+    "test:supervisor-concurrency": "node scripts/ci/supervisor-concurrency-proof.mjs",
     "test:db:consultor": "psql $DATABASE_URL -f supabase/tests/010-consultor-sessions-rls.sql",
     "apply:group-assignments": "node scripts/apply-group-assignments.js",
     "apply:dev-role": "node scripts/apply-dev-role.js",

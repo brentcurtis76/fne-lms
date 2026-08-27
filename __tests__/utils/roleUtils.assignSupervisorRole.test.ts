@@ -214,4 +214,34 @@ describe('roleUtils.assignSupervisorRole', () => {
     expect(result.success).toBe(false);
     expect(result.failure).toBe('insert_failed');
   });
+
+  it('maps a unique-index loss (SQLSTATE 23505) to active_role_conflict — a 409, not a 500', async () => {
+    // Correction round: uq_user_roles_one_active_supervisor (migration
+    // 20260827150000) is the authoritative one-active-network-per-supervisor
+    // enforcement. When a concurrent request wins the race between the
+    // look-before-insert checks and this insert, Postgres answers 23505 and the
+    // helper must classify it as the conflict it is, with a plain es-CL message
+    // that leaks no database internals.
+    const { client } = buildRecordingClient(
+      adminOk({
+        insert: {
+          data: null,
+          error: {
+            code: '23505',
+            message:
+              'duplicate key value violates unique constraint "uq_user_roles_one_active_supervisor"',
+          },
+        },
+      }),
+    );
+
+    const result = await assignSupervisorRole(client, TARGET_ID, NETWORK_ID, ADMIN_ID);
+
+    expect(result.success).toBe(false);
+    expect(result.failure).toBe('active_role_conflict');
+    expect(result.error).toBe(
+      'El usuario ya tiene un rol de supervisor activo. Un usuario solo puede supervisar una red a la vez.',
+    );
+    expect(result.error).not.toMatch(/duplicate key|unique constraint|23505/i);
+  });
 });

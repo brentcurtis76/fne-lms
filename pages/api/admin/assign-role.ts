@@ -507,6 +507,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         error: roleError,
         roleInsertData
       });
+
+      // B2a correction: uq_user_roles_one_active_supervisor (migration
+      // 20260827150000) serializes supervisor grants at the database. A 23505
+      // from THIS insert means the target already holds an ACTIVE
+      // supervisor_de_red row — a conflict the caller can resolve, not a
+      // server failure. This endpoint never ran an existing-active-supervisor
+      // check of its own (the dedicated networks/supervisors route does), so
+      // before the index it silently created a SECOND active row here instead.
+      if (roleType === 'supervisor_de_red' && (roleError as { code?: string }).code === '23505') {
+        return res.status(409).json({
+          error: 'El usuario ya tiene un rol de supervisor activo. Un usuario solo puede supervisar una red a la vez.'
+        });
+      }
+
       return res.status(500).json({ error: 'Error al asignar rol' });
     }
 

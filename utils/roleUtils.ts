@@ -1372,6 +1372,7 @@ export type AssignSupervisorFailure =
   | 'role_lookup_failed'
   | 'duplicate'
   | 'other_network'
+  | 'active_role_conflict'
   | 'insert_failed'
   | 'unexpected';
 
@@ -1468,6 +1469,19 @@ export async function assignSupervisorRole(
 
     if (error) {
       console.error('Error assigning supervisor role:', error);
+      // 23505 on this insert can only be uq_user_roles_one_active_supervisor
+      // (migration 20260827150000; the row carries a fresh PK): a concurrent
+      // request won the race between the look-before-insert checks above and
+      // this insert. The partial unique index is the authoritative enforcement
+      // of one-active-network-per-supervisor — report the loss as the conflict
+      // it is (409 at the API), never as a server failure.
+      if ((error as { code?: string }).code === '23505') {
+        return {
+          success: false,
+          failure: 'active_role_conflict',
+          error: 'El usuario ya tiene un rol de supervisor activo. Un usuario solo puede supervisar una red a la vez.'
+        };
+      }
       return {
         success: false,
         failure: 'insert_failed',

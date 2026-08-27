@@ -6,8 +6,9 @@
 - **Base**: `a28eebc9152565cd8b287fe12e8679c2ab783137` (origin/main, the PR #55 QA-foundation merge — verified exact before branching)
 - **Round-1 implementation head**: `9d71dfef` (`fix(networks): repair supervisor management, fail closed (B2a)`); round-1 docs commit `09765566` — the head Codex reviewed
 - **Correction round 1**: Codex returned **REQUEST CHANGES** on `09765566`. The reviewed commits are untouched; the corrections landed as NEW commits on top — implementation `0971479a` (migration + concurrency proof + audit + copy + tests) and docs `1e08e482`
-- **Correction round 2**: Codex's re-review of `1e08e482` returned **REQUEST CHANGES** again (the generic-channel supervisor hole — see the round-2 section at the end). The four reviewed commits are again untouched; round 2 lands as NEW commits on top: one implementation commit (UI + API + migration + tests at four layers) and the documentation commit that carries this update (a document cannot cite the SHA of the commit that contains it; `git log a28eebc9..HEAD` shows all six)
-- **Status**: REVIEW READY — correction round 2 complete, awaiting Codex re-review. NOT approved. Nothing pushed, no PR, no merge, no deployment, no production access.
+- **Correction round 2**: Codex's re-review of `1e08e482` returned **REQUEST CHANGES** again (the generic-channel supervisor hole — see the round-2 section at the end). The four reviewed commits are again untouched; round 2 lands as NEW commits on top: one implementation commit (UI + API + migration + tests at four layers) and the documentation commit that carries this update
+- **Correction round 3**: Codex's re-review of the round-2 head `b5d5f5f7` returned **REQUEST CHANGES** a third time — the channel boundary was incomplete across the ACCOUNT-CREATION writers, and this document's limitation 8 misdescribed the bulk importer's failure mode (see the corrected limitation 8 and the round-3 section at the end). The six reviewed commits are again untouched; round 3 lands as NEW commits on top: implementation `4340323f` (both account-creation boundaries, the parser, the fail-closed 23514 backstop, tests at unit and e2e layers) and the documentation commit that carries this update (a document cannot cite the SHA of the commit that contains it; `git log a28eebc9..HEAD` shows all eight)
+- **Status**: REVIEW READY — correction round 3 complete, awaiting Codex re-review. NOT approved. Nothing pushed, no PR, no merge, no deployment, no production access.
 
 ## Objective
 
@@ -242,16 +243,35 @@ All via `tests/e2e/network-supervisors.spec.ts` (11/11 passed, first attempt):
    database itself rejects any active NULL-red supervisor row via CHECK
    constraint. The now-unreachable 409 branch was removed. See the round-2
    section below.
-8. (New, correction round 2) `create-user.ts` and `bulk-create-users.ts` can
+8. ~~(New, correction round 2) `create-user.ts` and `bulk-create-users.ts` can
    still RECEIVE `role=supervisor_de_red` in a direct API request or CSV row
    (no UI offers it — the create form hardcodes `docente`, and neither surface
    collects a network). Since the CHECK constraint, such a request fails at
    the database (the active row would carry `red_id` NULL), surfacing as those
    endpoints' generic insert-failure error rather than a supervisor-specific
    400 with channel guidance. No unusable supervisor can be created — but the
-   error copy on those two endpoints is generic. Follow-up candidate; flagged
-   rather than silently absorbed (out of the round-2 correction scope, which
-   names the generic role-assignment workflow).
+   error copy on those two endpoints is generic.~~ **CORRECTED AND CLOSED in
+   correction round 3.** The struck-through statement was WRONG about the bulk
+   importer, not merely incomplete. "Fails at the database, fails cleanly" held
+   only for `create-user.ts` (provision auth account + profile → 23514 on the
+   role insert → rollback → generic 500). In `bulk-create-users.ts` the 23514
+   landed in the role-insert handler's non-critical fall-through, so the import
+   KEPT the role-less auth user and profile, audited `user_created_bulk` with
+   outcome `success`, counted the row as succeeded, returned `success: true`,
+   and delivered the account's password. For the record, the real attack
+   surface was narrower than "CSV row" suggested and worse than "generic copy"
+   admitted: an EXPLICIT CSV `supervisor_de_red` value was ALREADY rejected by
+   the parser (`supervisor_de_red` has never been in its `validRoles` list —
+   generic "Rol '…' inválido"); the genuinely unvalidated bulk path was
+   `options.defaultRole=supervisor_de_red` applied to every empty-role row
+   (`defaultRole` was validated against nothing) landing in the non-critical
+   23514 handling. Closed in round 3, and marked closed only because BOTH
+   account-creation endpoints now refuse the role BEFORE provisioning (exact
+   es-CL channel guidance at the create-user boundary, the parser — both entry
+   forms — and a defense-in-depth check inside the bulk per-user `createUser`)
+   AND the 23514 backstop now fails CLOSED (failure result, no credential, no
+   success audit, cleanup of the auth user and profile with each deletion
+   verified). See the round-3 section below.
 
 ## Where Codex should press hardest
 
@@ -592,7 +612,12 @@ supervisor fixture rows now carry a synthetic red);
 updated, 1 added); `tests/e2e/network-supervisors.spec.ts` (+1 lifecycle test,
 header updated); this document; `PROJECT_STATE.md`.
 
-## Canonical test evidence at the round-2 head (all local, synthetic only)
+## Test evidence at the round-2 head — historical
+
+> Round 3 re-ran every gate; the CANONICAL current counts live in the
+> **Correction round 3** section at the end of this document. This section is
+> kept as the accurate record of what was measured at the round-2 head
+> `b5d5f5f7`.
 
 | Gate | Command | Result |
 | --- | --- | --- |
@@ -643,4 +668,209 @@ producción” is a mandatory post-merge checklist item verified by the PM.
    above are canonical; limitation 7 is REPLACED (not silently deleted);
    limitation 8 (create-user/bulk direct requests now fail at the DB with
    generic copy) is honest about what round 2 does NOT change; no approval is
+   claimed anywhere. *(Round 3 later showed that limitation-8 claim was itself
+   WRONG for the bulk importer — the 23514 was swallowed as non-critical and
+   the import reported success. See the corrected limitation 8 and the round-3
+   section below.)*
+
+---
+
+# Correction round 3 — the account-creation channel, closed and fail-closed
+
+Codex's re-review of round-2 head `b5d5f5f7` returned **REQUEST CHANGES**: the
+channel boundary was incomplete across the account-creation writers, and this
+document's limitation 8 misdescribed the failure mode it deferred.
+
+The finding, verified before correcting (and reproduced live — see
+fail-on-old): `bulk-create-users.ts` treated the CHECK constraint's 23514 on
+the `user_roles` insert as a NON-CRITICAL role error. It kept the just-created
+role-less auth user and profile, audited `user_created_bulk` with outcome
+`success`, counted the row as succeeded, returned `success: true`, and
+delivered the account's password. The reachable path was
+`options.defaultRole=supervisor_de_red` applied to empty-role CSV rows —
+`defaultRole` was validated against NOTHING (an explicit CSV supervisor value
+was already refused by the parser, with generic copy; `validateRoleAssignment`
+fails closed for junk strings, so `supervisor_de_red` was the one role that
+passed application validation and failed at the database). `create-user.ts`
+accepted the role, provisioned the auth account and profile, and only then hit
+the constraint — rollback plus a 500 that leaked the raw constraint text.
+
+The six reviewed commits are untouched; everything below landed as new
+commits. **This round claims no approval** — it awaits Codex's re-review.
+
+## Correction 1 — manual create-user boundary
+
+`pages/api/admin/create-user.ts` refuses `role=supervisor_de_red` with
+**HTTP 400** and the exact es-CL guidance **“El rol Supervisor de Red debe
+asignarse desde Gestión de Redes.”** — BEFORE `createServiceRoleClient()` is
+built, so before `provisionAuthAccount`, the profile write, the role insert,
+and the audit row (this endpoint has no cache refresh). Placement mirrors
+`assign-role.ts` (r2): AFTER the ED gates — an equipo_directivo keeps its
+accurate 403 (`Role not assignable by equipo_directivo`), deliberate
+precedence, since Gestión de Redes is admin-only — and BEFORE the schoolId
+shape check (the channel refusal wins over an incidental malformed schoolId).
+
+## Correction 2 — bulk-import boundary, both entry forms
+
+- **Parser** (`utils/bulkUserParser.ts`): the supervisor check runs on
+  `finalRole` — the CSV cell OR `options.defaultRole` after the empty-cell
+  fallback — so BOTH entry forms land in `invalid` with the same exact es-CL
+  guidance and no account is ever attempted for the row. Case- and
+  whitespace-insensitive on purpose (`defaultRole` passes through verbatim;
+  explicit cells are lowercased by the parser). An explicit CSV value
+  previously drew the generic `Rol 'supervisor_de_red' inválido`; it now gets
+  the actionable channel copy. Rows with OTHER roles in the same batch are
+  unaffected (tested: the docente row still imports while the supervisor row
+  fails alone).
+- **Defense in depth** (`bulk-create-users.ts::createUser`): a second refusal
+  with the same copy sits at the top of the per-user creation function, ahead
+  of `validateRoleAssignment`, community auto-creation, and
+  `provisionAuthAccount` — a parser or column-mapping regression cannot
+  reopen the channel.
+
+## Correction 3 — the 23514 backstop fails CLOSED
+
+The role-insert error handler in `createUser` gains an explicit
+`code === '23514'` branch (between the existing 23503 cleanup and the
+non-critical fall-through): the row is a **failure**, never a success — no
+credential is issued (credentials are only collected for succeeded rows), no
+`user_created_bulk` row of ANY outcome is written, and the just-created
+account is removed: `user_roles` delete (defense in depth — the insert
+failed), `profiles` delete (no FK cascade exists from auth.users), then
+`auth.admin.deleteUser` — with EACH deletion's error checked. A cleanup
+failure is surfaced (row error “…la cuenta parcial no pudo eliminarse por
+completo. Revise y elimine la cuenta manualmente.” plus a structured
+`[BULK-IMPORT]` console.error naming the failing layer), never assumed away.
+Refusal and rollback paths write no audit rows, consistent with
+`assign-role.ts` (r2) and `create-user.ts`'s own rollback. Non-23514
+role-insert errors keep their pre-existing non-critical behavior — deliberately
+out of r3 scope, pinned by a dedicated test so the narrowing is visible.
+
+Today the only CHECK on `user_roles` is
+`chk_user_roles_active_supervisor_needs_red`, so this branch is precisely the
+supervisor backstop; it is keyed on the SQLSTATE, not the constraint name, so
+any future CHECK on the table inherits the fail-closed handling.
+
+## Correction 4 — tests
+
+- **Unit (create-user)** — the round-2-era test that approved
+  `supervisor_de_red` creation with 200 is REPLACED by a 3-test
+  `supervisor_de_red channel boundary (B2a r3)` block: admin → 400 with the
+  exact copy, `provisionAuthAccount` NEVER called (passthrough spy) and
+  `createServiceRoleClient` never built (so no write of any kind); the channel
+  400 wins precedence over a malformed schoolId; ED → the authorization 403,
+  pinned as deliberate precedence.
+- **Unit (bulk)** — 10 new tests: parser refusal of the explicit CSV form, of
+  the defaultRole form, and of case/whitespace variants; API-level proof that
+  each form creates NOTHING (no `auth.admin.createUser` call, no table write,
+  no audit — the harness now tracks deletes/eqs and injects targeted
+  failures); batch isolation (supervisor row fails alone, the docente row
+  still imports with exactly one success audit); defense in depth via a
+  mocked-parser bypass; the 23514 fail-closed proof (no success, no
+  credentials, no `user_created_bulk` row, delivery audit
+  `partial_failure`/0, cleanup of exactly the created id across all three
+  stores); cleanup-failure surfacing (injected auth-delete error → row error
+  says removal was incomplete, residue logged); and the non-critical pin for
+  non-23514 errors.
+- **E2E** — the mandatory spec gains a 3-test
+  `account-creation channel boundary (B2a r3)` block, run as admin against
+  the real server and constrained database: manual create-user → 400 + exact
+  copy; bulk with an explicit CSV supervisor row → refused with the channel
+  copy; bulk with `options.defaultRole=supervisor_de_red` → refused. Each
+  test follows up through the SERVICE client: zero auth users, zero profiles,
+  zero role rows for the synthetic address, and the
+  `user_created_manual`/`user_created_bulk` success-audit count unchanged.
+  The bulk calls authenticate with a real Bearer token minted by signing the
+  admin fixture into local GoTrue — the same mechanism the import modal uses.
+  The dedicated network-supervisor assignment lifecycle (r1/r2 tests) is
+  untouched and still passes.
+
+## Fail-on-old — against the round-2 head `b5d5f5f7`
+
+- **Unit**: with the three product files checked out at `b5d5f5f7` and the new
+  tests in place, exactly the **11** behavior tests FAIL (create-user: admin
+  400 + schoolId precedence; bulk: 3 parser + 3 API + defense in depth + 2
+  fail-closed) and the 2 pins (ED 403; non-critical non-23514) pass by design
+  → all 82 pass at the round-3 head.
+- **E2E**: against a production build of the OLD product files on the
+  constrained database, all 3 new tests are red with exactly the defect
+  signatures — manual: **500** whose body leaks the raw constraint text
+  (`new row for relation "user_roles" violates check constraint
+  "chk_user_roles_active_supervisor_needs_red"`); explicit CSV: 400 but the
+  generic copy, not the channel guidance; defaultRole: **200 with
+  `success:true`, a real `userId`, delivered credentials and
+  `audited:true`** — the finding itself, reproduced verbatim; the spec's purge
+  then removed the role-less account it left behind, and the database was
+  reset + reseeded before the canonical head runs so the final audit trail
+  carries no artifact of the demonstration.
+
+## Files changed in the correction round 3
+
+**Higher risk** — `pages/api/admin/create-user.ts` (channel 400 before any
+provisioning); `pages/api/admin/bulk-create-users.ts` (defense-in-depth
+refusal; 23514 fail-closed with verified cleanup);
+`utils/bulkUserParser.ts` (channel refusal on finalRole — both entry forms).
+
+**Lower risk (tests + docs)** — `__tests__/api/admin/create-user.test.ts`
+(1 test replaced by 3; provisionAuthAccount passthrough spy);
+`__tests__/api/admin/bulk-create-users.test.ts` (+10 tests; harness gains
+delete/eq tracking and targeted failure injection);
+`tests/e2e/network-supervisors.spec.ts` (+3 mandatory tests, header updated);
+this document; `PROJECT_STATE.md`.
+
+## Canonical test evidence at the round-3 head (all local, synthetic only)
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| Fail-on-old (unit) | new tests vs product files at `b5d5f5f7` | **11 FAIL** at `b5d5f5f7` (2 pins pass by design) → 82/82 at the round-3 head |
+| Fail-on-old (e2e) | the 3 new tests vs a production build of the old code, constrained DB, `--retries=0` | **3 red** — 500 leaking the constraint text; generic copy ≠ channel guidance; 200/`success:true` + credentials + success audit for a role-less account |
+| Focused suites | `npx vitest run` over `create-user`, `bulk-create-users` tests | **2 files, 82 passed** (49 + 33) |
+| Typecheck / Lint | `npm run type-check` / `npm run lint` | clean / clean, zero warnings |
+| Migration guards | `npm run guard:migrations` | OK — 39 files, no RLS-disable, no destructive DDL |
+| Browser boundary | `npm run guard:browser` | OK (1149 files, 694 modules, 516 entrypoints) |
+| Unit (full) | `npm test` (`.env.local` parked aside, matching CI's unit gate) | **368 files, 8406 passed, 11 skipped** |
+| pgTAP / RLS | `npm run test:db` after `supabase db reset` (all 39 migrations from scratch) | **23 files, 1452 tests, PASS** |
+| Concurrency proof | `npm run test:supervisor-concurrency` (post-migration) | **PASS** — blocking observed, loser 23505, exactly one active row in both phases, history preserved |
+| Build (production) | `npm run build` + `node scripts/check-price-leak.mjs` | success / OK (262 files) |
+| Affected spec, no retries | `CI=1 npx playwright test tests/e2e/network-supervisors.spec.ts --project=chromium --retries=0` | **15 passed** (12 from r1/r2 + the 3 new boundary tests), first attempt |
+| Mandatory e2e | `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | **192 passed, 0 skipped, 0 flaky, 13 specs** (JSON `stats`: expected 192, unexpected 0) |
+| No-skip guard | `node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json` | OK — 13 mandatory specs ran with no skips |
+| Hygiene | `git diff --check`; post-run residue sweep | clean; residue sweep (service-client + SQL): 0 boundary-prefix auth users / profiles / role rows, 0 lifecycle candidates, **0 `user_created_manual`/`user_created_bulk` audit rows of ANY outcome**, 0 ACTIVE supervisor rows with `red_id` NULL anywhere, primary network exactly 1 active supervisor (the canonical fixture), secondary 0; the trail holds exactly the 2 post-reset lifecycle runs’ role_assigned/role_removed pairs |
+
+No database schema change of any kind in this round; the two supervisor
+migrations from earlier rounds are untouched, exactly as the round-3
+instructions require (no test demanded otherwise — the pgTAP suite and the
+concurrency proof pass unchanged on the fresh reset).
+
+## Where Codex should press hardest — correction round 3
+
+1. **Is the create-user 400 truly before every write?** The gate sits after
+   auth, required-fields, password policy, the VALID_ROLES check and the ED
+   gates, and before `createServiceRoleClient()` — verify nothing builds a
+   client or calls `provisionAuthAccount` earlier, and that the unit
+   assertions (spy never called, factory never called) actually pin that.
+2. **Does the parser check really cover both entry forms?** It runs on
+   `finalRole` (cell OR defaultRole), case/whitespace-insensitive, ordered
+   after the injection-character branch and before the generic invalid-role
+   branch. Check the ordering can't let a variant slip to a path that ACCEPTS
+   the row, and that `csv_overrides`/organizational handling is untouched.
+3. **The 23514 branch's blast radius.** It sits between the 23503 cleanup and
+   the non-critical fall-through: confirm 23505 (duplicate) and 23503 (FK)
+   behavior is byte-identical, the fall-through still catches everything
+   else, and the pinned non-critical test proves the narrowing is exactly
+   SQLSTATE 23514.
+4. **Cleanup verification honesty.** Each of the three deletions checks its
+   own error; a failure flips the row copy and logs residue — verify no path
+   returns the clean-removal message when a deletion failed, and that no
+   path can reach Step 7/8 (school-name update, success audit) after a
+   23514.
+5. **The e2e residue probes' non-vacuity.** `residueFor` reads auth users,
+   profiles AND role rows through the service client, and the audit probe
+   counts success outcomes for both creation actions — check these would
+   actually catch the old behavior (they did: the fail-on-old defaultRole run
+   went red on status before even reaching them, with the role-less account
+   demonstrably present).
+6. **Doc truthfulness**: limitation 8 is corrected via strikethrough (the
+   wrong claim preserved, its correction explicit), the round-2 evidence is
+   relabeled historical, the counts above are canonical, and no approval is
    claimed anywhere.

@@ -1,6 +1,6 @@
 # Protocolo de entrega — un solo responsable humano
 
-**Fecha:** 25 de agosto de 2026 · **revisión 5** (ronda 2 de normalización: corrige los conteos de estado y verificación que la revisión 4 tenía mal, separa B1c y B6c, fusiona tres solapamientos y endurece el validador)
+**Fecha:** 25 de agosto de 2026 · **revisión 6** (2026-08-27, corrección de gobernanza aprobada por Brent: divide el antiguo W-B2b-01 en el lockdown atómico B2b de exactamente catorce tablas y la frontera de rutas de aprendizaje B2c —bloqueada, con su dependencia de clasificación W-PC-06 sin autorizar—, reduce B10a de ocho a seis tablas referenciadas y registra el cierre en producción de B2a) · *revisión 5: ronda 2 de normalización — corrigió los conteos de estado y verificación que la revisión 4 tenía mal, separó B1c y B6c, fusionó tres solapamientos y endureció el validador*
 **Complementa:** `santa-marta-claims.csv` · `santa-marta-work-items.csv` · `santa-marta-work-claim-map.csv` · `santa-marta-audit-comparison-2026-08-25.md`
 
 > **Nada de esto está autorizado.** Este documento describe *cómo* se ejecutaría, no que se pueda ejecutar. Trabajo local preparatorio y actividad contra producción se autorizan **por separado y explícitamente**, y sólo por Brent. Ninguna recomendación de un revisor — humano o agente — constituye autorización.
@@ -26,11 +26,11 @@ Todas las cifras cuantitativas de este documento están **reconciliadas contra l
 {
   "total_claims": 160,
   "unique_p0_claims": 36,
-  "total_work_items": 104,
-  "total_claim_work_links": 149,
-  "p0_claim_work_links": 56,
+  "total_work_items": 106,
+  "total_claim_work_links": 151,
+  "p0_claim_work_links": 58,
   "unique_p0_claims_with_links": 36,
-  "merge_batches": ["B1a","B1b","B1c","B2a","B2b","B3a","B3b","B3c","B4a","B4b","B4c","B4d","B5","B6a","B6b","B6c","B6d","B7a","B7b","B8a","B8b","B8c","B9a","B10a","B10b","B10c"]
+  "merge_batches": ["B1a","B1b","B1c","B2a","B2b","B2c","B3a","B3b","B3c","B4a","B4b","B4c","B4d","B5","B6a","B6b","B6c","B6d","B7a","B7b","B8a","B8b","B8c","B9a","B10a","B10b","B10c"]
 }
 <!-- LEDGER-SUMMARY:END -->
 
@@ -40,9 +40,9 @@ Todas las cifras cuantitativas de este documento están **reconciliadas contra l
 |---|---:|
 | Reclamaciones congeladas | **160** |
 | Reclamaciones P0 únicas | **36** |
-| Work items | **104** |
-| Enlaces reclamación↔trabajo | **149** |
-| Enlaces P0 reclamación↔trabajo | **56** |
+| Work items | **106** |
+| Enlaces reclamación↔trabajo | **151** |
+| Enlaces P0 reclamación↔trabajo | **58** |
 | Reclamaciones P0 únicas alcanzadas por esos enlaces | **36** |
 
 Un enlace no es una reclamación. Una reclamación P0 que se remedia en dos lotes produce dos enlaces y sigue siendo **una** reclamación. *(Nota histórica: la revisión 3 declaraba una «cola operativa P0» de 37 y presentaba ese número como si fuera el de las reclamaciones. Era un conteo de unidades de trabajo sobre un ledger que además duplicaba la fila de RLS. Superado.)*
@@ -54,16 +54,16 @@ Un enlace no es una reclamación. Una reclamación P0 que se remedia en dos lote
 | Accionables (`BROKEN` + `CONDITIONAL` + `MISSING`) | **124** |
 | No accionables — 27 `READY`, 7 `REFUTED`, 1 `FUTURE_DISCLOSED`, 1 `UNVERIFIABLE` | 36 |
 
-### Reparto de los 104 work items
+### Reparto de los 106 work items
 
 | Modo de entrega | | Estado | |
 |---|---:|---|---:|
-| `MERGE` | 88 | `SCHEDULED` | 31 |
+| `MERGE` | 89 | `SCHEDULED` | 30 |
 | `DATA` | 10 | `BACKLOG` | 57 |
-| `PRODUCTION_CHECK` | 5 | `BLOCKED` | 16 |
-| `DOCUMENTATION` | 1 | | |
+| `PRODUCTION_CHECK` | 6 | `BLOCKED` | 18 |
+| `DOCUMENTATION` | 1 | `DONE` | 1 |
 
-De los 88 `MERGE`, **32 están dentro de los 26 lotes de fusión** y 56 no tienen lote: son defectos reales sin programar.
+De los 89 `MERGE`, **33 están dentro de los 27 lotes de fusión** y 56 no tienen lote: son defectos reales sin programar. El único `DONE` es `W-B2a-01`, cerrado en producción el 2026-08-27 (PR #56, merge `0a6576c9`, verificación de solo lectura de Brent).
 
 ### La deuda de propiedad — tres números, nunca fusionados
 
@@ -72,7 +72,7 @@ De los 88 `MERGE`, **32 están dentro de los 26 lotes de fusión** y 56 no tiene
 | Work items sin dueño *(excluida la excepción `PRODUCTION_CHECK`)* | **67** |
 | Reclamaciones únicas enlazadas a esos work items | **80** |
 | Reclamaciones P0 únicas enlazadas a esos work items | **4** |
-| `PRODUCTION_CHECK` con `dueno` vacío **a propósito** | 5 |
+| `PRODUCTION_CHECK` con `dueno` vacío **a propósito** | 6 |
 
 Las cuatro P0 sin dueño son `SWEEP-MI-APRENDIZAJE-01`, `A15-2`, `A15-7` y `SWEEP-ONBOARDING-DATA-01`: el carril de datos —filas de `programas`, ~200 cuentas, los ocho colegios—. **Ninguna se cierra escribiendo código.** Un marcador como `SIN ASIGNAR — BLOQUEANTE` no es un dueño, y el modelo normalizado ya no lo acepta como tal.
 
@@ -98,7 +98,7 @@ La excepción `PRODUCTION_CHECK` es deliberada: en una comprobación de solo lec
 
 **WIP = 1.** Un lote en vuelo a la vez. Investigación, tests y preparación del siguiente corren en paralelo con agentes; **sólo un lote toca `main`**.
 
-**Un lote = una rama = una fusión.** Un lote es un **contenedor de entrega**; un work item es una **unidad de remediación**. No son lo mismo: varios work items pueden compartir lote y rama. Los 26 lotes de §4 y sus 32 work items están **reconciliados contra los ledgers por `scripts/check-ledger.mjs`**, no derivados de esta prosa.
+**Un lote = una rama = una fusión.** Un lote es un **contenedor de entrega**; un work item es una **unidad de remediación**. No son lo mismo: varios work items pueden compartir lote y rama. Los 27 lotes de §4 y sus 33 work items están **reconciliados contra los ledgers por `scripts/check-ledger.mjs`**, no derivados de esta prosa.
 
 **Un lote no está entregado hasta que sus reclamaciones tienen `evidencia_prod`, `firmado_por` y `fecha_firma`.**
 
@@ -130,15 +130,16 @@ Aparte y por otra razón: **`DISABLE ROW LEVEL SECURITY` está bloqueado por hoo
 
 - **B3a** era «1 + 3». Ahora **B3a** = políticas de `meeting_agreements`/`meeting_tasks` (clase 2) + propagación de errores y validación de UI (clase 0), y **B3c** = `NOT NULL` sobre `due_date` tras *backfill* → **clase 3**, fusiona después de B3a. La clase del lote es la de su work item más riesgoso.
 - **B8b** tiene **`clase_migracion = BLOCKED`**, no «1 ó 3». Está indeterminada hasta que se ejecute la comprobación 1 de §9: `feriados_chile` **vacía → clase 1**; **con filas → clase 3**. **B8b no se planifica antes de esa comprobación.**
+- **B2c** (la frontera de rutas de aprendizaje, separada de B2b en la revisión 6) tiene **`clase_migracion = BLOCKED`** por la misma disciplina, y sus dependencias son de protocolo, no opcionales: (1) primero debe terminar la comprobación de clasificación de datos en solo lectura autorizada por Brent (`W-PC-06`, §9); (2) Privacidad debe aprobar la matriz de autorización rol × tenant; (3) si la clasificación no encuentra filas que exijan transformación, la implementación podrá clasificarse después como **clase 2**; (4) si se requiere *backfill* o reparación de filas existentes, se define y autoriza **por separado** un work item y lote de **clase 3** antes de programar B2c; (5) B2c **no puede combinar de forma invisible** un backfill de clase 3 con su trabajo clase 2 de RLS/funciones; (6) documentar esta dependencia **no autoriza ninguna consulta a producción**.
 - **B5** es **clase 0**: eliminar las diez llamadas a `updatePublishedTemplateSnapshot()` es sólo código. Una reparación histórica posterior, si el conteo de B5-pre resulta mayor que cero, sería clase 3 y otro lote.
 
 ---
 
-## 4. Los 26 lotes atómicos
+## 4. Los 27 lotes atómicos
 
-La columna **P0 (enlaces)** cuenta **enlaces reclamación↔trabajo de severidad P0**, no reclamaciones P0. Los 26 lotes contienen **32 work items** y suman **37** de los **56** enlaces P0; los otros 19 caen en el carril de datos (13) y en las comprobaciones de producción (6).
+La columna **P0 (enlaces)** cuenta **enlaces reclamación↔trabajo de severidad P0**, no reclamaciones P0. Los 27 lotes contienen **33 work items** y suman **38** de los **58** enlaces P0; los otros 20 caen en el carril de datos (13) y en las comprobaciones de producción (7).
 
-*(Sí, vuelve a aparecer un 37 — y esta vez es correcto: es el conteo de **enlaces** P0 dentro de los lotes de fusión. No es, y nunca fue, el número de reclamaciones P0, que son 36.)*
+*(La revisión 3 presentaba un 37 como si fuera el número de reclamaciones P0; era un conteo de enlaces y quedó superado. Tras la división B2b/B2c los enlaces P0 dentro de los lotes de fusión son **38** — y siguen sin ser el número de reclamaciones P0, que es 36.)*
 
 | Lote | Rama | Clase | Work items | P0 (enlaces) | Firma | Disparador de reversión |
 |---|---|:-:|--:|--:|---|---|
@@ -146,7 +147,8 @@ La columna **P0 (enlaces)** cuenta **enlaces reclamación↔trabajo de severidad
 | **B1b** | `fix/horas-rep` | 0 | 1 | 2 | Directora | Reporte de Horas no carga |
 | **B1c** | `fix/gate-score` | 0 | 2 | 4 | Docente | Compuerta cerrada no envía o puntúa mal |
 | **B2a** | `fix/red-super` | 0 | 1 | 1 | **Madre Superiora** | No se puede crear/acotar el Líder de Red |
-| **B2b** | `fix/rls-anon` | **2** | 1 | 2 | Privacidad | Cualquier lectura autenticada rompe tras el REVOKE |
+| **B2b** | `fix/rls-anon` | **2** | 1 | 1 | Privacidad | Cualquier lectura autenticada rompe tras el REVOKE |
+| **B2c** | `fix/rls-learn` | **BLOCKED** | 1 | 2 | Privacidad | *(frontera de rutas de aprendizaje; bloqueado por W-PC-06 + matriz rol × tenant)* |
 | **B3a** | `fix/meet-save` | **2** | 3 | 5 | Directora | Un acuerdo no sigue ahí al reabrir |
 | **B3b** | `fix/mail-truth` | 0 | 2 | 3 | Directora | El toast miente sobre el correo |
 | **B3c** | `fix/meet-notnull` | **3** | 1 | 1 | Directora | Filas existentes bloquean el constraint |
@@ -171,7 +173,9 @@ La columna **P0 (enlaces)** cuenta **enlaces reclamación↔trabajo de severidad
 
 **B1b es la rama `fix/horas-rep`.** «PR #50» es metadato, no parte del nombre de la rama; vive en `notes` del work item.
 
-De estas 26 ramas sólo **tres existen** en el repositorio: `fix/horas-rep`, `fix/gate-score` y `fix/auth-sec2` (base de `auth/rebase-z7`). Las otras 23 son **identificadores de lote planificados, sin commits detrás**.
+**B2a está cerrado.** Su work item `W-B2a-01` es `DONE` desde el 2026-08-27: PR #56 mergeado como `0a6576c9` sobre el head aprobado `63fc8c9c`, CI del PR y post-merge en verde, despliegue automático de Vercel, y las dos migraciones (`20260827150000`, `20260827160000`) aplicadas únicamente por Brent y verificadas en solo lectura. No se reabre y ninguna de las dos migraciones se re-ejecuta ni se altera. La fila del lote se conserva en la tabla como registro de su contenido.
+
+De estas 27 ramas sólo **cuatro existen** en el repositorio: `fix/horas-rep`, `fix/gate-score`, `fix/auth-sec2` (base de `auth/rebase-z7`) y `fix/red-super` (B2a, ya mergeada vía PR #56). Las otras 23 son **identificadores de lote planificados, sin commits detrás** — `fix/rls-learn` (B2c) incluida. La rama de investigación `fix/rls-public` **no** es la rama de ningún lote: queda aparcada como referencia de solo lectura y sus commits no se reutilizan.
 
 **`B9b` no aparece aquí, y no es un lote de fusión.** En el ledger legacy era una sola etiqueta sobre veintidós reclamaciones de datos genuinamente distintas. Queda descompuesta en **diez work items `DATA`** (§7-bis).
 
@@ -256,12 +260,14 @@ Las visitas **empiezan ya**, como descubrimiento, preparación de datos y formac
 | Nivel | Requiere | Quién entra |
 |---|---|---|
 | Visita de descubrimiento | nada | Los ocho colegios, desde ya |
-| Piloto de un colegio, sólo personal | B1a–c · B2a–b · B3a–c · B4a–d | Una directora + su comunidad + su consultor |
+| Piloto de un colegio, sólo personal | B1a–c · B2a–**c** · B3a–c · B4a–d | Una directora + su comunidad + su consultor |
 | Dos colegios | + B5 · B6a–d · B7a–b · un ciclo aceptado | Dos directoras de colegios distintos |
 | Los ocho, asistido | + B8a–c · B9a · el carril de datos §7-bis · matriz de personas | Toda la red |
 | Estudiantes y familias | + B10a–c · aprobación de privacidad | **Bloqueado** |
 
-**Dos ejes en RLS.** Audiencia: personal antes que estudiantes. Riesgo de regresión dentro de cada nivel: grupo A (B2b, 14 tablas sin referencias más `learning_paths` y `learning_path_courses`) antes que grupo B (B10a, 8 referenciadas).
+**El piloto de personal exige B2c además de B2b.** Las veintidós tablas del hallazgo histórico se remedian ahora en tres unidades: B2b cierra las **14 sin referencias**, B2c cierra la **frontera de rutas de aprendizaje** (`learning_paths`, `learning_path_courses` y sus funciones) y B10a diseña política para las **6 referenciadas restantes**. Mientras B2c no cierre, las tablas de rutas de aprendizaje siguen alcanzables de forma anónima, así que cerrar solo B2b **no** deja el piloto en un estado seguro.
+
+**Dos ejes en RLS.** Audiencia: personal antes que estudiantes. Riesgo de regresión dentro de cada nivel: grupo A (B2b, exactamente 14 tablas sin referencias) primero, la frontera de aprendizaje (B2c, `learning_paths` + `learning_path_courses`, hoy `BLOCKED`) inmediatamente después, y grupo B (B10a, las 6 referenciadas restantes) al final. El hallazgo original de 14 + 8 tablas sigue siendo históricamente correcto: las ocho referenciadas son hoy dos (B2c) más seis (B10a).
 
 ---
 
@@ -273,7 +279,7 @@ Las visitas **empiezan ya**, como descubrimiento, preparación de datos y formac
 
 **Profundidad de verificación.** De las 160 reclamaciones, **106 tienen verificación de un solo agente**, 28 de una lente y 26 de dos. **La revisión 4 afirmaba que las P0 estaban a dos lentes o eran condicionales triviales; era falso.** Sólo 21 de las 36 P0 llegan a dos lentes. Las otras 15 no: seis `BROKEN` a una lente — `SWEEP-MI-APRENDIZAJE-05`, `A14-1`, `A15-1`, `SWEEP-NONFUNCTIONAL-EMAIL-FROM-CONTRACT`, `SWEEP-NONFUNCTIONAL-EMAIL-MEETING-SUMMARY` y `SWEEP-PRIOR-AUDIT-14` — y nueve `CONDITIONAL` verificadas por un solo agente. En la muestra desafiada de forma adversarial, **1 de cada 4 hallazgos** traía al menos una cita `archivo:línea` imprecisa aunque el defecto de fondo fuera real: **verificar la cita antes de tocar el archivo**.
 
-**Cinco comprobaciones de producción, en solo lectura, ninguna autorizada y ninguna ejecutada.** `authorization_owner` es quien puede autorizarlas; `execution_owner` está vacío porque no hay ejecutor asignado, y eso **no** es permiso para inventar un nombre. Los dos campos responden preguntas distintas y nunca se reutiliza uno como el otro.
+**Seis comprobaciones de producción, en solo lectura, ninguna autorizada y ninguna ejecutada.** `authorization_owner` es quien puede autorizarlas; `execution_owner` está vacío porque no hay ejecutor asignado, y eso **no** es permiso para inventar un nombre. Los dos campos responden preguntas distintas y nunca se reutiliza uno como el otro.
 
 | # | Comprobación | Work item |
 |---|---|---|
@@ -282,8 +288,9 @@ Las visitas **empiezan ya**, como descubrimiento, preparación de datos y formac
 | 3 | Dominio remitente verificado en Resend | `W-PC-03` |
 | 4 | Bucket `community-images` | `W-PC-04` |
 | 5 | **B5-pre** — instancias en riesgo, estratificadas según §7 | `W-PC-05` |
+| 6 | Clasificación de datos de rutas de aprendizaje *(decide el backfill y la clase de B2c)* | `W-PC-06` |
 
-Las cinco están enlazadas a reclamaciones P0. Un chequeo P0 sin autorizar **sigue bloqueando la activación**.
+Las seis están enlazadas a reclamaciones P0. Un chequeo P0 sin autorizar **sigue bloqueando la activación**. `W-PC-06` está **sin autorizar** (`UNAUTHORIZED`) y **no debe ejecutarse**: su evidencia futura son agregados y esquema redactados —filas de `learning_paths` con `school_id` nulo, alcance de generación nulo o inconsistente, huérfanos de `learning_path_courses`, alcance padre/hijo entre colegios o ambiguo, filas cuyo actor/dueño no puede derivarse con seguridad, referencias activas que un backfill podría afectar, y confirmación de que ninguna PII de menores se copia a la evidencia—, y documentarla aquí no autoriza ninguna consulta a producción.
 
 **Sesenta y siete work items sin dueño**, que alcanzan **80 reclamaciones**, de las cuales **4 son P0** — las cuatro del carril de datos. Ninguna se cierra con código.
 

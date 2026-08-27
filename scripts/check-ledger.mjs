@@ -33,22 +33,27 @@ const LEGACY_SHA256 = '009f14abccec97d7ada4b559c9aaeb24ac5b7aab54563a5c1151e511d
 /**
  * The ONLY permitted transformation of the legacy id set. Declared explicitly so
  * that no other id can vanish, change identity, or be invented without failing.
- * The resulting single claim maps to two distinct remediation work items.
+ * The resulting single claim maps to three distinct remediation work items since
+ * the approved B2b governance split (2026-08-27): W-B2b-01 (the fourteen
+ * repository-unused tables), W-B2c-01 (the learning-path security boundary:
+ * learning_paths + learning_path_courses and their functions), and W-B10a-01
+ * (the six remaining referenced tables). W-PC-06 maps to SWEEP-MI-APRENDIZAJE-09
+ * instead and is an evidence dependency, not a remediation, so it never counts here.
  */
 const PERMITTED_ID_TRANSFORM = {
   from: ['SWEEP-PRIOR-AUDIT-09a', 'SWEEP-PRIOR-AUDIT-09b'],
   to: 'SWEEP-PRIOR-AUDIT-09',
-  expectedWorkItems: 2,
+  expectedWorkItems: 3,
 };
 
 const CANONICAL_BATCHES = [
-  'B1a', 'B1b', 'B1c', 'B2a', 'B2b', 'B3a', 'B3b', 'B3c', 'B4a', 'B4b', 'B4c', 'B4d',
+  'B1a', 'B1b', 'B1c', 'B2a', 'B2b', 'B2c', 'B3a', 'B3b', 'B3c', 'B4a', 'B4b', 'B4c', 'B4d',
   'B5', 'B6a', 'B6b', 'B6c', 'B6d', 'B7a', 'B7b', 'B8a', 'B8b', 'B8c', 'B9a',
   'B10a', 'B10b', 'B10c',
 ];
 const CANONICAL_BRANCH = {
   B1a: 'fix/observ', B1b: 'fix/horas-rep', B1c: 'fix/gate-score', B2a: 'fix/red-super',
-  B2b: 'fix/rls-anon', B3a: 'fix/meet-save', B3b: 'fix/mail-truth', B3c: 'fix/meet-notnull',
+  B2b: 'fix/rls-anon', B2c: 'fix/rls-learn', B3a: 'fix/meet-save', B3b: 'fix/mail-truth', B3c: 'fix/meet-notnull',
   B4a: 'fix/sess-route', B4b: 'fix/consultor', B4c: 'fix/attendees', B4d: 'fix/sess-close',
   B5: 'fix/snapshot', B6a: 'fix/plan-pct', B6b: 'fix/nav-dir', B6c: 'fix/net-tabs',
   B6d: 'fix/lp-views', B7a: 'fix/ws-name', B7b: 'fix/feed-srv', B8a: 'fix/lic-cron',
@@ -278,11 +283,11 @@ for (const c of claims) {
 // ── 10/11/12/13. Batches and branches ────────────────────────────────────────
 const mergeItems = work.filter(w => w.delivery_mode === 'MERGE');
 const batches = [...new Set(mergeItems.map(w => w.lote).filter(Boolean))].sort();
-if (batches.length !== 26) fail('10 lotes', `lotes de fusión distintos = ${batches.length}; se exigen exactamente 26`);
+if (batches.length !== 27) fail('10 lotes', `lotes de fusión distintos = ${batches.length}; se exigen exactamente 27`);
 const missingB = CANONICAL_BATCHES.filter(b => !batches.includes(b));
 const extraB = batches.filter(b => !CANONICAL_BATCHES.includes(b));
-if (missingB.length) fail('11 lotes', `lotes canónicos ausentes: ${sortedJoin(missingB, 26)}`);
-if (extraB.length) fail('11 lotes', `lotes de fusión fuera de la lista canónica: ${sortedJoin(extraB, 26)}`);
+if (missingB.length) fail('11 lotes', `lotes canónicos ausentes: ${sortedJoin(missingB, 27)}`);
+if (extraB.length) fail('11 lotes', `lotes de fusión fuera de la lista canónica: ${sortedJoin(extraB, 27)}`);
 
 const branchesOfLote = new Map();
 for (const w of work) {

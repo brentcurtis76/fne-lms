@@ -59,20 +59,20 @@ Todo queda como cambios en el árbol de trabajo. **Cero commits.**
 | **Reclamaciones** accionables | 125 | **124** | misma fusión |
 | **Reclamaciones** P0 únicas | 37 | **36** | misma fusión |
 | **Reclamaciones** no accionables | 36 | 36 | sin cambio |
-| Work items | — | **104** | no existían |
-| Lotes de fusión distintos | — | **26** | lista canónica completa |
-| **Enlaces** reclamación↔trabajo | — | **149** | |
-| **Enlaces** P0 reclamación↔trabajo | — | **56** | ≠ 36; nunca se intercambian |
+| Work items | — | **106** | no existían; 104 en ronda 2, +2 en la corrección de gobernanza §12 (`W-B2c-01`, `W-PC-06`) |
+| Lotes de fusión distintos | — | **27** | lista canónica completa; 26 en ronda 2, +`B2c` en §12 |
+| **Enlaces** reclamación↔trabajo | — | **151** | 149 en ronda 2; −1 +3 en §12 |
+| **Enlaces** P0 reclamación↔trabajo | — | **58** | ≠ 36; nunca se intercambian; 56 en ronda 2 |
 | **Reclamaciones** P0 únicas alcanzadas por esos enlaces | — | **36** | las 36 tienen al menos un enlace |
 
-### Work items por modo y por estado
+### Work items por modo y por estado (tras la corrección §12)
 
 | Modo | | Estado | |
 |---|---:|---|---:|
-| `MERGE` | 88 | `SCHEDULED` | 31 |
+| `MERGE` | 89 | `SCHEDULED` | 30 |
 | `DATA` | 10 | `BACKLOG` | 57 |
-| `PRODUCTION_CHECK` | 5 | `BLOCKED` | 16 |
-| `DOCUMENTATION` | 1 | `ACTIVE` / `DONE` | 0 |
+| `PRODUCTION_CHECK` | 6 | `BLOCKED` | 18 |
+| `DOCUMENTATION` | 1 | `ACTIVE` / `DONE` | 0 / 1 |
 
 ### Los tres números de propiedad, más la línea de excepción
 
@@ -81,7 +81,7 @@ Todo queda como cambios en el árbol de trabajo. **Cero commits.**
 | **Work items** sin dueño *(excluida la excepción `PRODUCTION_CHECK`)* | **67** |
 | **Reclamaciones** únicas enlazadas a esos work items | **80** |
 | **Reclamaciones P0** únicas enlazadas a esos work items | **4** |
-| *Excepción:* `PRODUCTION_CHECK` con `dueno` vacío **a propósito** | 5 |
+| *Excepción:* `PRODUCTION_CHECK` con `dueno` vacío **a propósito** | 6 |
 
 Las 80 son las 82 filas accionables sin anotación de dueño del ledger legacy menos las dos que la ronda 2 movió a work items con dueño (`SWEEP-PRIOR-AUDIT-05` y `SWEEP-ONBOARDING-DATA-06`); las 4 P0 son las cuatro nombradas: `SWEEP-MI-APRENDIZAJE-01`, `A15-2`, `A15-7`, `SWEEP-ONBOARDING-DATA-01`.
 
@@ -108,7 +108,7 @@ obtenido: 009f14abccec97d7ada4b559c9aaeb24ac5b7aab54563a5c1151e511dc2c7fe9
 SWEEP-PRIOR-AUDIT-09a  +  SWEEP-PRIOR-AUDIT-09b   →   SWEEP-PRIOR-AUDIT-09
 ```
 
-que mapea a **exactamente dos work items** (`W-B2b-01`, `W-B10a-01`). El validador comprueba las cuatro cosas por separado: ninguna otra id desaparece, ninguna cambia de identidad, ninguna se inventa, y la canónica mapea a dos.
+que mapea a **exactamente tres work items de remediación** (`W-B2b-01`, `W-B2c-01`, `W-B10a-01`) desde la corrección de gobernanza del 2026-08-27 (§12); en las rondas 1–2 eran dos (`W-B2b-01`, `W-B10a-01`). El validador comprueba las cuatro cosas por separado: ninguna otra id desaparece, ninguna cambia de identidad, ninguna se inventa, y la canónica mapea a tres. `W-PC-06` **no** cuenta aquí: es una dependencia de evidencia (`PRODUCTION_CHECK`), no una remediación, y mapea por separado a `SWEEP-MI-APRENDIZAJE-09`.
 
 **Ninguna otra id se movió.** Las otras 159 reclamaciones conservan su id y su `claim_text` **verbatim** — comprobado carácter a carácter contra el archivo archivado, junto con `bloque`, `estado`, `severidad`, `verificacion`, `evidencia_prod` y `autoridad_aceptacion`: **cero diferencias**.
 
@@ -124,8 +124,11 @@ El texto canónico enuncia **el hallazgo original completo** — las 22 tablas �
 
 | Work item | Lote | Rama | Fase |
 |---|---|---|---|
-| `W-B2b-01` | B2b | `fix/rls-anon` | Grupo A: cierre mecánico `REVOKE` + `ENABLE` sobre 14 tablas, más `learning_paths` y `learning_path_courses` |
-| `W-B10a-01` | B10a | `fix/rls-grupo-b` | Grupo B: diseño de política para las 8 tablas referenciadas |
+| `W-B2b-01` | B2b | `fix/rls-anon` | Grupo A: cierre mecánico `REVOKE` + `ENABLE` sobre exactamente las 14 tablas sin referencias |
+| `W-B2c-01` | B2c | `fix/rls-learn` | Frontera de rutas de aprendizaje: `learning_paths`, `learning_path_courses` y sus seis funciones (**BLOCKED**; añadida en §12) |
+| `W-B10a-01` | B10a | `fix/rls-grupo-b` | Grupo B: diseño de política para las 6 tablas referenciadas restantes |
+
+El hallazgo histórico de la reclamación —**14 tablas sin referencias + 8 referenciadas = 22**— se conserva intacto en el `claim_text` congelado; las ocho referenciadas se remedian hoy como **2** (frontera B2c) **+ 6** (grupo B).
 
 Ningún otro `claim_text` fue sintetizado. `firmado_por` y `fecha_firma` están vacías en las 160.
 
@@ -133,7 +136,7 @@ Ningún otro `claim_text` fue sintetizado. `firmado_por` y `fecha_firma` están 
 
 ## 4. Derivación de los work items
 
-> **Este ledger de trabajo es una normalización *propuesta*, no un resultado probado mecánicamente.** Los 26 lotes de fusión están determinados por la lista canónica y por el `lote` del ledger legacy. La descomposición del carril de datos, los **cinco** splits y las **siete** consolidaciones son **juicios** que un revisor debe confirmar.
+> **Este ledger de trabajo es una normalización *propuesta*, no un resultado probado mecánicamente.** Los 27 lotes de fusión (26 en ronda 2; `B2c` se añadió en la corrección §12) están determinados por la lista canónica y por el `lote` del ledger legacy. La descomposición del carril de datos, los **cinco** splits y las **siete** consolidaciones son **juicios** que un revisor debe confirmar.
 
 ### Regla aplicada
 
@@ -145,7 +148,7 @@ Un work item es **una raíz / un cambio de código**. Reclamaciones del mismo lo
 |---|---|---|
 | `W-B1b-01` | `A14-1` + `SWEEP-PRIOR-AUDIT-01` | Misma raíz exacta: `contratos.is_annexo` → `is_anexo`. Una corrección de una línea, ya commiteada en `fix/horas-rep` (PR #50) |
 | `W-B2a-01` | `A15-1` + `SWEEP-PRIOR-AUDIT-04` | El plan combinado §0.3 nombra una sola remediación: `name` → `nombre` en `supervisors.ts` con comprobación de error |
-| `W-B2b-01` | `SWEEP-MI-APRENDIZAJE-09` + `SWEEP-PRIOR-AUDIT-09` | El plan combinado §0.4 pliega **explícitamente** `learning_paths` y `learning_path_courses` dentro del grupo A |
+| ~~`W-B2b-01`~~ → `W-B2c-01` | `SWEEP-MI-APRENDIZAJE-09` + `SWEEP-PRIOR-AUDIT-09` | La ronda 2 consolidó ambas en `W-B2b-01` porque el plan combinado §0.4 plegaba `learning_paths` y `learning_path_courses` dentro del grupo A. **Corrección §12 (2026-08-27):** esa consolidación queda superada; las dos reclamaciones convergen ahora en la frontera `W-B2c-01`, `W-B2b-01` conserva solo `SWEEP-PRIOR-AUDIT-09`, y `SWEEP-PRIOR-AUDIT-09` mapea además a `W-B10a-01` |
 | `W-B5-01` | `A09-6` + `A12-4` | Misma raíz: la sobrescritura in-place de `snapshot_data` y `version` en diez sitios de llamada |
 | `W-B6d-01` | `SWEEP-MI-APRENDIZAJE-05` + `SWEEP-ONBOARDING-DATA-06` | **Ronda 2.** Ambas señalan las mismas tres relaciones de resumen creadas por `seed-sm/60-lms.ts:641-712`. Estaban separadas sólo por conservar la programación legacy |
 | `W-D-04` | `A07-1` + `A07-2` + `A12-5` + `SWEEP-ONBOARDING-DATA-01` + `SWEEP-ONBOARDING-DATA-05` | **Ronda 2.** `ONBOARDING-DATA-05` (catálogo `ab_grades`) es el mismo carril de contexto transversal, y como item suelto llevaba clase 0 sin compuerta ni plan de restauración — incorrecto para una escritura de datos |
@@ -234,9 +237,9 @@ Varias filas llevaban en `bloque` una lámina que no es donde vive su evidencia;
 
 ---
 
-## 6. Salida real del validador
+## 6. Salida real del validador (ronda 2 — histórica; la corrida vigente tras la corrección B2b/B2c está en §12)
 
-`node scripts/check-ledger.mjs` — **código de salida 1**. Sin suprimir, sin editar los datos para ponerlo en verde. Ésta es la salida de la **ronda 2**, con el validador ya endurecido.
+`node scripts/check-ledger.mjs` — **código de salida 1**. Sin suprimir, sin editar los datos para ponerlo en verde. Ésta es la salida de la **ronda 2**, con el validador ya endurecido y **antes** de la corrección de gobernanza del 2026-08-27.
 
 ```
 santa-marta ledger check
@@ -352,7 +355,7 @@ El validador pasa a verde en cuanto alguien con autoridad nombre dueños reales.
 
 ---
 
-## 7. Propiedad pendiente y las cinco comprobaciones de producción
+## 7. Propiedad pendiente y las seis comprobaciones de producción
 
 ### Asignaciones de propiedad que bloquean
 
@@ -361,7 +364,7 @@ El validador pasa a verde en cuanto alguien con autoridad nombre dueños reales.
 | **Dueño real** para los 10 carriles `DATA` | 10 | Las 4 reclamaciones P0 sin dueño. Ninguna se cierra escribiendo código |
 | **`triage_owner`** nombrado para los 57 items de backlog | 57 | El resto del déficit; un `triage_owner` basta mientras el item siga en `BACKLOG` |
 
-### Las cinco comprobaciones — **ninguna autorizada, ninguna ejecutada**
+### Las seis comprobaciones — **ninguna autorizada, ninguna ejecutada**
 
 **Ninguna se realizó.** No se consultó producción de ninguna forma, ni siquiera de solo lectura, y no se usó ninguna herramienta MCP de Supabase.
 
@@ -372,10 +375,13 @@ El validador pasa a verde en cuanto alguien con autoridad nombre dueños reales.
 | `W-PC-03` | Dominio remitente verificado en Resend | Brent | *(vacío)* | `UNAUTHORIZED` | `BLOCKED` | *(vacío — excepción)* |
 | `W-PC-04` | Bucket `community-images` | Brent | *(vacío)* | `UNAUTHORIZED` | `BLOCKED` | *(vacío — excepción)* |
 | `W-PC-05` | **B5-pre** — instancias en riesgo, estratificadas | Brent | *(vacío)* | `UNAUTHORIZED` | `BLOCKED` | *(vacío — excepción)* |
+| `W-PC-06` | Clasificación de datos de rutas de aprendizaje *(añadida en §12; decide el backfill y la clase de B2c)* | Brent | *(vacío)* | `UNAUTHORIZED` | `BLOCKED` | *(vacío — excepción)* |
 
 **Autorización y ejecución son preguntas distintas y nunca se reutiliza una como la otra.** `authorization_owner = Brent` sale del protocolo, que dice que la actividad contra producción «se autoriza por separado y explícitamente, y sólo por Brent» — no es un nombre inventado. `execution_owner` está vacío porque **no hay ejecutor asignado**; eso bloquea la programación y no es permiso para inventar un nombre. El validador comprueba las dos reglas: `UNAUTHORIZED` exige `status = BLOCKED`, y `AUTHORIZED` + `SCHEDULED` exige `execution_owner` poblado.
 
 `W-PC-01` además decide `clase_migracion` de `W-B8b-01`: vacía → clase 1; poblada → clase 3.
+
+`W-PC-06` (añadida en §12) decide la vía de `W-B2c-01`: si la clasificación no encuentra filas que exijan transformación, B2c podrá clasificarse después como clase 2; si se requiere backfill o reparación, se define y autoriza por separado un work item y lote de clase 3 antes de programar B2c. **No es una remediación**: es una dependencia de evidencia y mapea a `SWEEP-MI-APRENDIZAJE-09` sin contar como su remediación. Documentarla no autoriza ninguna consulta a producción.
 
 ---
 
@@ -557,3 +563,74 @@ El déficit de propiedad bajó de 70 a 67 **sólo** porque tres reclamaciones pa
 Hecho: los tres artefactos normalizados, el archivo byte por byte con su nota compañera, los banners históricos en los cuatro documentos de auditoría, el protocolo corregido, el validador creado y **ejecutado con su salida real**, y este informe.
 
 **No se comenzó ninguna implementación. No se hizo ningún commit.** Todo queda como cambios en el árbol de trabajo.
+
+---
+
+## 12. Corrección de gobernanza aprobada — división B2b / B2c (2026-08-27)
+
+**Aprobada por Brent, posterior a la normalización de las rondas 1–2.** Corrige el ledger de trabajo, el mapa, el protocolo (revisión 6) y el validador. El registro congelado no se toca: **160 reclamaciones, 36 P0, texto de reclamación byte-idéntico, SHA-256 del legacy intacto.**
+
+### 12.1 La división
+
+El antiguo `W-B2b-01` mezclaba dos riesgos de naturaleza distinta bajo un solo lote «mecánico»:
+
+- **`W-B2b-01` (lote B2b, `fix/rls-anon`, clase 2, `SCHEDULED`)** queda como **lockdown atómico de exactamente catorce tablas legacy sin referencias en el repositorio**: `answers`, `assignments`, `course_prerequisites`, `deleted_blocks`, `deleted_courses`, `deleted_lessons`, `deleted_modules`, `menu_permissions`, `metadata_sync_log`, `profiles_role_backup`, `questions`, `quizzes`, `student_answers`, `submissions`.
+- **`W-B2c-01` (lote B2c, `fix/rls-learn`, clase `BLOCKED`, `BLOCKED`, dueño Brent + agente BD)** es la nueva **frontera de seguridad de rutas de aprendizaje**, gobernada por separado: `learning_paths`, `learning_path_courses`, sus GRANT directos y políticas RLS, y sus seis funciones (`create_full_learning_path`, `update_full_learning_path`, `batch_assign_learning_path`, `start_learning_session`, `end_learning_session`, `auth_is_learning_path_member`), con identidad del actor derivada de la sesión autenticada, autorización mismo-colegio y entre-colegios, aislamiento de tenant para padre e hijo, preservación de las lecturas autenticadas legítimas, compatibilidad cookie y bearer, pgTAP + integración + E2E sintética obligatoria, y aprobación de Privacidad. Sus dependencias de protocolo están en la revisión 6 §3; ninguna política final se inventa aquí.
+- **`W-B10a-01` (lote B10a)** baja de ocho a **seis tablas referenciadas**: `group_assignment_discussions`, `growth_community_transformation_access`, `instructors`, `modules`, `propuesta_rate_limits`, `qa_tester_time_logs`.
+- **`W-PC-06`** se crea como **dependencia de evidencia en solo lectura** (clasificación de datos de rutas de aprendizaje: `school_id` nulos, alcance de generación, huérfanos, alcance entre colegios, actor no derivable, referencias activas, sin PII de menores en la evidencia). `PRODUCTION_CHECK`, `BLOCKED`, `UNAUTHORIZED`, `authorization_owner` Brent, `dueno` vacío por la excepción de modo. **No se autorizó ni se ejecutó en esta corrección.**
+
+**El hallazgo histórico 14 + 8 = 22 se preserva**: los tres conjuntos son explícitos y disjuntos, y su unión sigue dando cuenta de las 14 sin uso más las 8 referenciadas (hoy 2 + 6).
+
+### 12.2 Mapa
+
+`SWEEP-PRIOR-AUDIT-09` mapea ahora a **exactamente tres work items de remediación**: `W-B2b-01`, `W-B2c-01`, `W-B10a-01` (la expectativa canónica del validador, `PERMITTED_ID_TRANSFORM.expectedWorkItems`, sube de 2 a 3). `SWEEP-MI-APRENDIZAJE-09` deja `W-B2b-01` y mapea a `W-B2c-01` (remediación) y a `W-PC-06` (evidencia, excluida del conteo de remediación por diseño del validador).
+
+### 12.3 B2a
+
+`W-B2a-01` pasa de `SCHEDULED` a `DONE` con su evidencia de cierre: PR de implementación #56, merge `0a6576c9ef52cc1513162549edc918208ba45bdf` sobre el head aprobado `63fc8c9c91a4b4b28773bd15dc426f5d3a195961`, PR de documentación #57, cierre registrado en `main` `550ee347f96af53c93c4a5a506fb3190188894a9`, CI del PR y post-merge exitosos, despliegue automático de Vercel, y las migraciones `20260827150000` y `20260827160000` aplicadas únicamente por Brent con verificación de solo lectura. **No se reabre; ninguna de las dos migraciones se re-ejecuta ni se altera.**
+
+### 12.4 Efecto neto sobre las cifras (ronda 2 → corrección)
+
+| | Ronda 2 | Corrección |
+|---|---:|---:|
+| Reclamaciones / P0 únicas | 160 / 36 | **160 / 36** *(congeladas, sin cambio)* |
+| Work items | 104 | **106** |
+| Enlaces | 149 | **151** |
+| Enlaces P0 | 56 | **58** |
+| Lotes de fusión | 26 | **27** |
+| `MERGE` / `PRODUCTION_CHECK` | 88 / 5 | **89 / 6** |
+| `SCHEDULED` / `BLOCKED` / `DONE` | 31 / 16 / 0 | **30 / 18 / 1** |
+| Enlaces P0 dentro / fuera de lotes | 37 / 19 | **38 / 20** |
+| Work items sin dueño (fallos del validador) | 67 | **67** *(sin cambio: `W-B2c-01` tiene dueño real y `W-PC-06` es la excepción de modo)* |
+
+Salida vigente del validador tras la corrección — **las mismas 67 faltas de propiedad de la ronda 2, y ninguna otra clase de fallo**:
+
+```
+CIFRAS
+  reclamaciones congeladas                 160
+  reclamaciones P0 únicas                  36
+  work items                               106
+  enlaces reclamación↔trabajo              151
+  enlaces P0 reclamación↔trabajo           58
+  reclamaciones P0 únicas con enlace       36
+  lotes de fusión distintos                27
+
+WORK ITEMS POR MODO
+  MERGE              89
+  DATA               10
+  PRODUCTION_CHECK   6
+  DOCUMENTATION      1
+
+PROPIEDAD
+  work items sin dueño (excluida la excepción PRODUCTION_CHECK)   67
+  excepción PRODUCTION_CHECK: dueno vacío a propósito             6
+
+FALLOS: 67   — todos [16 propiedad]; cero fallos de conteo, identidad,
+               referencia, esquema, enum, provenance, lote, rama,
+               conservación o reconciliación
+```
+
+### 12.5 Fuera del alcance de esta corrección
+
+- La rama de investigación `fix/rls-public` queda **aparcada como referencia de solo lectura**: no se rebasa, no se mergea, no se cherry-pickea y sus commits no se reutilizan en bloque.
+- **Ninguna implementación de base de datos ni de producto está autorizada** hasta que esta corrección de gobernanza pase revisión independiente y se mergee. No existe todavía ningún prompt de implementación para B2b ni para B2c.

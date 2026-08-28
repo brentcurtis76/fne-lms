@@ -43,6 +43,9 @@ const LEGACY_SHA256 = '009f14abccec97d7ada4b559c9aaeb24ac5b7aab54563a5c1151e511d
  * learning_paths + learning_path_courses and their functions), and W-B10a-01
  * (the six remaining referenced tables). W-PC-06 maps to SWEEP-MI-APRENDIZAJE-09
  * instead and is an evidence dependency, not a remediation, so it never counts here.
+ * W-B2d-01 — the class-3 ownership repair required by W-PC-06's classification B
+ * (2026-08-28) — also maps to SWEEP-MI-APRENDIZAJE-09, never to SWEEP-PRIOR-AUDIT-09,
+ * so it does not move this expectation either.
  */
 const PERMITTED_ID_TRANSFORM = {
   from: ['SWEEP-PRIOR-AUDIT-09a', 'SWEEP-PRIOR-AUDIT-09b'],
@@ -51,13 +54,13 @@ const PERMITTED_ID_TRANSFORM = {
 };
 
 const CANONICAL_BATCHES = [
-  'B1a', 'B1b', 'B1c', 'B2a', 'B2b', 'B2c', 'B3a', 'B3b', 'B3c', 'B4a', 'B4b', 'B4c', 'B4d',
+  'B1a', 'B1b', 'B1c', 'B2a', 'B2b', 'B2c', 'B2d', 'B3a', 'B3b', 'B3c', 'B4a', 'B4b', 'B4c', 'B4d',
   'B5', 'B6a', 'B6b', 'B6c', 'B6d', 'B7a', 'B7b', 'B8a', 'B8b', 'B8c', 'B9a',
   'B10a', 'B10b', 'B10c',
 ];
 const CANONICAL_BRANCH = {
   B1a: 'fix/observ', B1b: 'fix/horas-rep', B1c: 'fix/gate-score', B2a: 'fix/red-super',
-  B2b: 'fix/rls-anon', B2c: 'fix/rls-learn', B3a: 'fix/meet-save', B3b: 'fix/mail-truth', B3c: 'fix/meet-notnull',
+  B2b: 'fix/rls-anon', B2c: 'fix/rls-learn', B2d: 'data/lp-scope', B3a: 'fix/meet-save', B3b: 'fix/mail-truth', B3c: 'fix/meet-notnull',
   B4a: 'fix/sess-route', B4b: 'fix/consultor', B4c: 'fix/attendees', B4d: 'fix/sess-close',
   B5: 'fix/snapshot', B6a: 'fix/plan-pct', B6b: 'fix/nav-dir', B6c: 'fix/net-tabs',
   B6d: 'fix/lp-views', B7a: 'fix/ws-name', B7b: 'fix/feed-srv', B8a: 'fix/lic-cron',
@@ -311,7 +314,7 @@ for (const c of claims) {
 // ── 10/11/12/13. Batches and branches ────────────────────────────────────────
 const mergeItems = work.filter(w => w.delivery_mode === 'MERGE');
 const batches = [...new Set(mergeItems.map(w => w.lote).filter(Boolean))].sort();
-if (batches.length !== 27) fail('10 lotes', `lotes de fusión distintos = ${batches.length}; se exigen exactamente 27`);
+if (batches.length !== 28) fail('10 lotes', `lotes de fusión distintos = ${batches.length}; se exigen exactamente 28`);
 const missingB = CANONICAL_BATCHES.filter(b => !batches.includes(b));
 const extraB = batches.filter(b => !CANONICAL_BATCHES.includes(b));
 if (missingB.length) fail('11 lotes', `lotes canónicos ausentes: ${sortedJoin(missingB, 27)}`);
@@ -488,7 +491,7 @@ if (!fs.existsSync(PROTOCOL)) {
     }
   });
 
-  // Task 8 — DROP is categorically prohibited (AGENTS.md:37, CLAUDE.md:54).
+  // Task 8 — DROP is categorically prohibited (AGENTS.md:55, CLAUDE.md:54).
   for (const [i, line] of protoText.split('\n').entries()) {
     if (/DROP\s+(POLICY|TABLE|COLUMN|CONSTRAINT|INDEX|SCHEMA)/i.test(line) && !/nunca|prohib|jamás|never/i.test(line)) {
       fail('15 conflación P0', `protocolo:${i + 1} propone un DROP: «${line.trim().slice(0, 120)}»`);
@@ -593,6 +596,48 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
   }
   if (!protoText.includes('565faa0d')) fail('20 diferidos', 'el protocolo no ancla la evidencia de investigación aparcada al head 565faa0d');
   if (!failures.some(f => f.check.startsWith('20'))) notes.push('unidades diferidas OK — D-RLS-01/02/03 presentes en protocolo, informe y PROJECT_STATE, con sus cinco funciones y el ancla 565faa0d');
+}
+
+// ── 21. W-PC-06 classification pin + ordered B2d→B2c dependency ──────────────
+// The 2026-08-28 read-only classification closed with result B — data
+// transformation required. That result, its aggregate evidence record, and the
+// order it imposes (the class-3 repair W-B2d-01 completes BEFORE the B2c
+// boundary can leave BLOCKED) are pinned here so no later edit can silently
+// downgrade the classification or let B2c absorb or bypass the repair.
+{
+  const CLASSIF = 'B — DATA TRANSFORMATION REQUIRED';
+  const EVIDENCE_DOC = 'docs/reviews/w-pc-06-learning-path-data-classification-2026-08-28.md';
+  const pc = byWork.get('W-PC-06');
+  const b2c = byWork.get('W-B2c-01');
+  const b2d = byWork.get('W-B2d-01');
+  if (!pc) fail('21 clasificación', 'W-PC-06: no existe en el ledger de trabajo');
+  else {
+    if (pc.delivery_mode !== 'PRODUCTION_CHECK') fail('21 clasificación', `W-PC-06: delivery_mode debe ser PRODUCTION_CHECK; es «${pc.delivery_mode}»`);
+    if (pc.status !== 'DONE') fail('21 clasificación', `W-PC-06: la comprobación cerró el 2026-08-28 y su status debe ser DONE; es «${pc.status}»`);
+    if (pc.clase_migracion !== '0') fail('21 clasificación', `W-PC-06: clase_migracion debe ser 0 (lectura sin migración); es «${pc.clase_migracion}»`);
+    if (pc.authorization_status !== 'AUTHORIZED') fail('21 clasificación', `W-PC-06: la ejecución fue autorizada explícitamente por Brent y debe constar AUTHORIZED; es «${pc.authorization_status}»`);
+    const rec = `${pc.gate_salida || ''} ${pc.notes || ''}`;
+    if (!rec.includes(CLASSIF)) fail('21 clasificación', `W-PC-06: no conserva la clasificación literal «${CLASSIF}»`);
+    if (!rec.includes('w-pc-06-learning-path-data-classification-2026-08-28.md')) fail('21 clasificación', 'W-PC-06: no ancla su registro de evidencia agregada por nombre de archivo');
+    if (!fs.existsSync(R(EVIDENCE_DOC))) fail('21 clasificación', `el registro de evidencia agregada no existe: ${EVIDENCE_DOC}`);
+  }
+  if (!b2d) fail('21 clasificación', 'W-B2d-01: no existe en el ledger de trabajo (lo exige la clasificación B de W-PC-06)');
+  else {
+    if (b2d.lote !== 'B2d') fail('21 clasificación', `W-B2d-01: lote debe ser B2d; es «${b2d.lote}»`);
+    if (b2d.rama !== 'data/lp-scope') fail('21 clasificación', `W-B2d-01: rama debe ser data/lp-scope; es «${b2d.rama}»`);
+    if (b2d.delivery_mode !== 'MERGE') fail('21 clasificación', `W-B2d-01: delivery_mode debe ser MERGE; es «${b2d.delivery_mode}»`);
+    if (b2d.clase_migracion !== '3') fail('21 clasificación', `W-B2d-01: clase_migracion debe ser 3 (transformación de datos); es «${b2d.clase_migracion}»`);
+    if (b2d.authorization_status === 'UNAUTHORIZED' && b2d.status !== 'BLOCKED') fail('21 clasificación', `W-B2d-01: UNAUTHORIZED exige status BLOCKED; está en ${b2d.status}`);
+    const linked = claimsOfWork.get('W-B2d-01') || [];
+    if (linked.length !== 1 || linked[0] !== 'SWEEP-MI-APRENDIZAJE-09') fail('21 clasificación', `W-B2d-01: debe mapear exactamente a SWEEP-MI-APRENDIZAJE-09 y a nada más; mapea a [${linked.sort().join(', ')}]`);
+  }
+  if (b2c && b2d) {
+    if (b2d.status !== 'DONE' && (b2c.status !== 'BLOCKED' || b2c.clase_migracion !== 'BLOCKED')) {
+      fail('21 clasificación', `dependencia ordenada B2d→B2c: W-B2d-01 no está DONE, así que W-B2c-01 debe seguir BLOCKED con clase_migracion BLOCKED; está ${b2c.status}/${b2c.clase_migracion}`);
+    }
+    if (!(b2c.notes || '').includes('W-B2d-01')) fail('21 clasificación', 'W-B2c-01: sus notas no declaran la dependencia previa W-B2d-01');
+  }
+  if (!failures.some(f => f.check.startsWith('21'))) notes.push('clasificación W-PC-06 OK — B (transformación de datos requerida) anclada con su registro agregado; dependencia ordenada B2d→B2c vigente');
 }
 
 // ── Report ───────────────────────────────────────────────────────────────────

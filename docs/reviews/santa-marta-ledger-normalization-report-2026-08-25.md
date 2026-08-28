@@ -59,20 +59,20 @@ Todo queda como cambios en el árbol de trabajo. **Cero commits.**
 | **Reclamaciones** accionables | 125 | **124** | misma fusión |
 | **Reclamaciones** P0 únicas | 37 | **36** | misma fusión |
 | **Reclamaciones** no accionables | 36 | 36 | sin cambio |
-| Work items | — | **106** | no existían; 104 en ronda 2, +2 en la corrección de gobernanza §12 (`W-B2c-01`, `W-PC-06`) |
-| Lotes de fusión distintos | — | **27** | lista canónica completa; 26 en ronda 2, +`B2c` en §12 |
-| **Enlaces** reclamación↔trabajo | — | **151** | 149 en ronda 2; −1 +3 en §12 |
-| **Enlaces** P0 reclamación↔trabajo | — | **58** | ≠ 36; nunca se intercambian; 56 en ronda 2 |
+| Work items | — | **107** | no existían; 104 en ronda 2, +2 en la corrección de gobernanza §12 (`W-B2c-01`, `W-PC-06`), +1 en el cierre de clasificación §13 (`W-B2d-01`) |
+| Lotes de fusión distintos | — | **28** | lista canónica completa; 26 en ronda 2, +`B2c` en §12, +`B2d` en §13 |
+| **Enlaces** reclamación↔trabajo | — | **152** | 149 en ronda 2; −1 +3 en §12; +1 en §13 |
+| **Enlaces** P0 reclamación↔trabajo | — | **59** | ≠ 36; nunca se intercambian; 56 en ronda 2, 58 tras §12 |
 | **Reclamaciones** P0 únicas alcanzadas por esos enlaces | — | **36** | las 36 tienen al menos un enlace |
 
-### Work items por modo y por estado (tras la corrección §12)
+### Work items por modo y por estado (tras el cierre de clasificación §13)
 
 | Modo | | Estado | |
 |---|---:|---|---:|
-| `MERGE` | 89 | `SCHEDULED` | 29 |
+| `MERGE` | 90 | `SCHEDULED` | 29 |
 | `DATA` | 10 | `BACKLOG` | 57 |
 | `PRODUCTION_CHECK` | 6 | `BLOCKED` | 18 |
-| `DOCUMENTATION` | 1 | `ACTIVE` / `DONE` | 0 / 2 |
+| `DOCUMENTATION` | 1 | `ACTIVE` / `DONE` | 0 / 3 |
 
 ### Los tres números de propiedad, más la línea de excepción
 
@@ -108,7 +108,7 @@ obtenido: 009f14abccec97d7ada4b559c9aaeb24ac5b7aab54563a5c1151e511dc2c7fe9
 SWEEP-PRIOR-AUDIT-09a  +  SWEEP-PRIOR-AUDIT-09b   →   SWEEP-PRIOR-AUDIT-09
 ```
 
-que mapea a **exactamente tres work items de remediación** (`W-B2b-01`, `W-B2c-01`, `W-B10a-01`) desde la corrección de gobernanza del 2026-08-27 (§12); en las rondas 1–2 eran dos (`W-B2b-01`, `W-B10a-01`). El validador comprueba las cuatro cosas por separado: ninguna otra id desaparece, ninguna cambia de identidad, ninguna se inventa, y la canónica mapea a tres. `W-PC-06` **no** cuenta aquí: es una dependencia de evidencia (`PRODUCTION_CHECK`), no una remediación, y mapea por separado a `SWEEP-MI-APRENDIZAJE-09`.
+que mapea a **exactamente tres work items de remediación** (`W-B2b-01`, `W-B2c-01`, `W-B10a-01`) desde la corrección de gobernanza del 2026-08-27 (§12); en las rondas 1–2 eran dos (`W-B2b-01`, `W-B10a-01`). El validador comprueba las cuatro cosas por separado: ninguna otra id desaparece, ninguna cambia de identidad, ninguna se inventa, y la canónica mapea a tres. `W-PC-06` **no** cuenta aquí: es una dependencia de evidencia (`PRODUCTION_CHECK`), no una remediación, y mapea por separado a `SWEEP-MI-APRENDIZAJE-09`. `W-B2d-01` (§13) tampoco: es remediación de clase 3, pero mapea únicamente a `SWEEP-MI-APRENDIZAJE-09`, nunca a la canónica.
 
 **Ninguna otra id se movió.** Las otras 159 reclamaciones conservan su id y su `claim_text` **verbatim** — comprobado carácter a carácter contra el archivo archivado, junto con `bloque`, `estado`, `severidad`, `verificacion`, `evidencia_prod` y `autoridad_aceptacion`: **cero diferencias**.
 
@@ -136,7 +136,7 @@ Ningún otro `claim_text` fue sintetizado. `firmado_por` y `fecha_firma` están 
 
 ## 4. Derivación de los work items
 
-> **Este ledger de trabajo es una normalización *propuesta*, no un resultado probado mecánicamente.** Los 27 lotes de fusión (26 en ronda 2; `B2c` se añadió en la corrección §12) están determinados por la lista canónica y por el `lote` del ledger legacy. La descomposición del carril de datos, los **cinco** splits y las **siete** consolidaciones son **juicios** que un revisor debe confirmar.
+> **Este ledger de trabajo es una normalización *propuesta*, no un resultado probado mecánicamente.** Los 28 lotes de fusión (26 en ronda 2; `B2c` se añadió en la corrección §12; `B2d` en el cierre de clasificación §13) están determinados por la lista canónica y por el `lote` del ledger legacy. La descomposición del carril de datos, los **cinco** splits y las **siete** consolidaciones son **juicios** que un revisor debe confirmar.
 
 ### Regla aplicada
 
@@ -364,9 +364,9 @@ El validador pasa a verde en cuanto alguien con autoridad nombre dueños reales.
 | **Dueño real** para los 10 carriles `DATA` | 10 | Las 4 reclamaciones P0 sin dueño. Ninguna se cierra escribiendo código |
 | **`triage_owner`** nombrado para los 57 items de backlog | 57 | El resto del déficit; un `triage_owner` basta mientras el item siga en `BACKLOG` |
 
-### Las seis comprobaciones — **ninguna autorizada, ninguna ejecutada**
+### Las seis comprobaciones — **cinco sin autorizar ni ejecutar; `W-PC-06` ejecutada y cerrada (§13)**
 
-**Ninguna se realizó.** No se consultó producción de ninguna forma, ni siquiera de solo lectura, y no se usó ninguna herramienta MCP de Supabase.
+**Durante la normalización no se realizó ninguna.** No se consultó producción de ninguna forma, ni siquiera de solo lectura, y no se usó ninguna herramienta MCP de Supabase. *(Registro vigente: el 2026-08-28 `W-PC-06` — y solo ella — se ejecutó en solo lectura con autorización explícita de Brent; cronología y resultados en §13. Las otras cinco siguen exactamente como aquí.)*
 
 | Work item | Comprobación | `authorization_owner` | `execution_owner` | `authorization_status` | `status` | `dueno` |
 |---|---|---|---|---|---|---|
@@ -375,13 +375,13 @@ El validador pasa a verde en cuanto alguien con autoridad nombre dueños reales.
 | `W-PC-03` | Dominio remitente verificado en Resend | Brent | *(vacío)* | `UNAUTHORIZED` | `BLOCKED` | *(vacío — excepción)* |
 | `W-PC-04` | Bucket `community-images` | Brent | *(vacío)* | `UNAUTHORIZED` | `BLOCKED` | *(vacío — excepción)* |
 | `W-PC-05` | **B5-pre** — instancias en riesgo, estratificadas | Brent | *(vacío)* | `UNAUTHORIZED` | `BLOCKED` | *(vacío — excepción)* |
-| `W-PC-06` | Clasificación de datos de rutas de aprendizaje *(añadida en §12; decide el backfill y la clase de B2c)* | Brent | *(vacío)* | `UNAUTHORIZED` | `BLOCKED` | *(vacío — excepción)* |
+| `W-PC-06` | Clasificación de datos de rutas de aprendizaje *(añadida en §12; ejecutada 2026-08-28 — clasificación B, §13)* | Brent | Brent + Codex | `AUTHORIZED` | `DONE` | *(vacío — excepción)* |
 
 **Autorización y ejecución son preguntas distintas y nunca se reutiliza una como la otra.** `authorization_owner = Brent` sale del protocolo, que dice que la actividad contra producción «se autoriza por separado y explícitamente, y sólo por Brent» — no es un nombre inventado. `execution_owner` está vacío porque **no hay ejecutor asignado**; eso bloquea la programación y no es permiso para inventar un nombre. El validador comprueba las dos reglas: `UNAUTHORIZED` exige `status = BLOCKED`, y `AUTHORIZED` + `SCHEDULED` exige `execution_owner` poblado.
 
 `W-PC-01` además decide `clase_migracion` de `W-B8b-01`: vacía → clase 1; poblada → clase 3.
 
-`W-PC-06` (añadida en §12) decide la vía de `W-B2c-01`: si la clasificación no encuentra filas que exijan transformación, B2c podrá clasificarse después como clase 2; si se requiere backfill o reparación, se define y autoriza por separado un work item y lote de clase 3 antes de programar B2c. **No es una remediación**: es una dependencia de evidencia y mapea a `SWEEP-MI-APRENDIZAJE-09` sin contar como su remediación. Documentarla no autoriza ninguna consulta a producción.
+`W-PC-06` (añadida en §12) decidió la vía de `W-B2c-01` el 2026-08-28: la clasificación fue **B — DATA TRANSFORMATION REQUIRED**, así que la alternativa «sin transformación → clase 2 directa» quedó descartada por la evidencia y el work item de clase 3 exigido es `W-B2d-01` (lote B2d, §13), definido por separado y **sin autorizar**, que debe completarse antes de programar B2c. **No es una remediación**: es una dependencia de evidencia y mapea a `SWEEP-MI-APRENDIZAJE-09` sin contar como su remediación. Su cierre no autoriza ninguna otra consulta a producción.
 
 ---
 
@@ -442,7 +442,7 @@ El control negativo importa: la negación es un glob acotado a `docs/reviews/`, 
 
 58 defectos de código de backlog son `MERGE`, y `MERGE` exige exactamente una `rama` no vacía. No hay rama asignada para ellos en ninguna fuente. Se les asignó **un slug propuesto de ≤20 caracteres**, marcado en `notes` como «rama propuesta … no existe en el repositorio y no tiene commits».
 
-Esto es consistente con la convención que el propio protocolo ya usaba —**23 de las 26 ramas canónicas tampoco existen**; sólo `fix/horas-rep`, `fix/gate-score` y `fix/auth-sec2` tienen commits *(inventario medido en la ronda 2; el inventario vigente está en §12.7 — hoy las ramas de lote vivas en el remoto son tres, `fix/horas-rep`, `fix/gate-score` y `fix/red-super`, y `fix/auth-sec2` sobrevive sólo como copia congelada `4b87243c`)*—, pero conviene decirlo: **58 nombres de rama de este ledger son propuestas mías, no artefactos de las fuentes.**
+Esto es consistente con la convención que el propio protocolo ya usaba —**23 de las 26 ramas canónicas tampoco existen**; sólo `fix/horas-rep`, `fix/gate-score` y `fix/auth-sec2` tienen commits *(inventario medido en la ronda 2; el inventario vigente está en el protocolo §4 — hoy las ramas de lote existentes son cuatro: `fix/horas-rep`, `fix/gate-score`, `fix/red-super` mergeada vía PR #56 y `fix/rls-anon` mergeada vía PR #59, y `fix/auth-sec2` sobrevive sólo como copia congelada `4b87243c`)*—, pero conviene decirlo: **58 nombres de rama de este ledger son propuestas mías, no artefactos de las fuentes.**
 
 Relacionado: `SWEEP-NONFUNCTIONAL-PROD-SECRETS-UNIGNORED` quedó como `DOCUMENTATION` porque su trabajo restante —sacar un archivo del directorio y rotar credenciales— es **operativo**, y el enum no tiene un modo operativo. `DOCUMENTATION` es el valor más cercano y no es exacto.
 
@@ -677,3 +677,72 @@ Las tablas de recuento de las rondas anteriores y de §12.4 quedan como **eviden
 - **Verificación.** Preflight de solo lectura con **once aserciones, todas `true`** (las catorce tablas presentes sin RLS ni políticas, grants baseline de `anon`/`authenticated`/`service_role` intactos, cero grants de `PUBLIC`, helper del guard presente, versión ausente del ledger, y el conjunto sin RLS igual a las 22 tablas legacy exactas). Postflight con **ocho aserciones, todas `true`** (RLS activa en las catorce, exactamente una política — la restrictiva `forced_password_change_guard`, con `password_change_gate_ok()` en USING y WITH CHECK, solo para `authenticated` — y cero permisivas, cero privilegios de aplicación, `service_role` con sus siete privilegios, fila de ledger exacta, y el conjunto sin RLS reducido a **exactamente las 8 tablas gobernadas restantes**). **Los catorce conteos de filas idénticos antes y después** (once en 0; `deleted_courses` 12, `menu_permissions` 104, `profiles_role_backup` 25); solo se devolvieron conteos agregados y metadatos de catálogo — ninguna fila ni dato personal.
 - **Efecto sobre las cifras vigentes.** `W-B2b-01` pasa `SCHEDULED → DONE`; la distribución de estados queda **29 / 57 / 18 / 2** (`SCHEDULED`/`BACKLOG`/`BLOCKED`/`DONE`) con los modos intactos (89/10/6/1) y los totales intactos (160 reclamaciones · 36 P0 · 106 work items · 151 enlaces · 58 enlaces P0 · 27 lotes). El inventario de ramas vigente pasa de tres a **cuatro ramas vivas** al existir ahora `fix/rls-anon` (`21e01b11`, mergeada); `fix/rls-public` sigue aparcada en `565faa0d` y la topología de `fix/auth-sec2` no cambia.
 - **Lo que NO cambia.** `W-B2c-01` sigue `BLOCKED`, `W-PC-06` sigue `BLOCKED` y sin autorizar, `W-B10a-01` sigue `SCHEDULED`, y las unidades diferidas D-RLS-01/02/03 siguen diferidas exactamente como estaban. La migración `20260827170000` **no debe re-aplicarse**; la compensatoria revisada permanece en `docs/planning/reviews/` y exige autorización explícita y separada de Brent.
+
+---
+
+## 13. Cierre de la clasificación W-PC-06 y creación de B2d (2026-08-28)
+
+**Autorizado por Brent.** Esta sección registra la única comprobación de producción ejecutada hasta hoy y su consecuencia de gobernanza. Supersede en tiempo presente las cifras de §12.4 y §12.9, y la línea «`W-PC-06` sigue `BLOCKED` y sin autorizar» de §12.9, que era correcta en su fecha y dejó de serlo con la autorización posterior del mismo 2026-08-28. El registro congelado no se toca: **160 reclamaciones, 36 P0, texto de reclamación byte-idéntico, SHA-256 del legacy intacto.**
+
+### 13.1 Cronología de autorización y ejecución
+
+- `W-PC-06` nació en §12 como `PRODUCTION_CHECK` `BLOCKED`/`UNAUTHORIZED`, con `authorization_owner` Brent, `dueno` vacío por la excepción de modo, y la regla explícita de que documentarla no autorizaba nada.
+- El 2026-08-28 **Brent autorizó explícitamente la ejecución en solo lectura** y **ejecutó personalmente las consultas 1-4 en el SQL Editor de producción**.
+- Antes de la consulta 5, **Codex hizo una única llamada de *metadatos* por la Management API de Supabase, de solo lectura — `supabase projects list --output json` — para confirmar el enlace de proyecto ya existente y su estado.** No consultó ninguna fila de base de datos, no devolvió contenidos de fila ni PII, no creó enlace ni credencial, no cambió configuración alguna y no mutó ningún estado. Es una lectura de metadatos del plano de gestión — **no es una de las cinco consultas de base de datos ni una sexta**.
+- La **consulta 5 la ejecutó Codex a través del CLI ya vinculado (`supabase db query --linked`), únicamente tras una autorización explícita posterior de Brent**, también limitada a solo lectura. Ese comando también opera por la **Management API de Supabase**: la consulta 5 fue la **única llamada de consulta de base de datos por la Management API explícitamente autorizada**, y envió **un único SELECT acotado de solo lectura**.
+- El acceso a producción completo de la comprobación fue, por tanto: **cinco consultas de base de datos** — Brent las 1-4 en el SQL Editor y Codex la 5 — más **esa única lectura de metadatos del plano de gestión** previa a la consulta 5. **Ninguna de las dos llamadas por la Management API creó ni cambió** enlace de Supabase, credencial, configuración del proyecto, dato, esquema, GRANT, política, ajuste de RLS, función, ledger de migraciones, despliegue ni ningún otro estado, y **nada devolvió contenidos de fila, identificadores, nombres, correos, texto libre ni PII de menores**. *(Cronología completada por la nota P3 de la revisión independiente, 2026-08-28: se registra la lectura de metadatos previa a la consulta 5 y se sustituye una frase de «ningún otro acceso» demasiado amplia por esta contabilidad exacta; nada más cambia.)*
+
+### 13.2 Las cinco consultas — propósito y ejecutor (aquí no vive ningún SQL)
+
+*(Inventario corregido por la revisión independiente del 2026-08-28: el primer borrador omitía la consulta de catálogo, adelantaba el análisis de creadores y partía la consulta 5 en dos. La secuencia siguiente es la secuencia real de producción; no hubo una sexta consulta.)*
+
+1. **Metadatos de catálogo, esquema y seguridad** (Brent, SQL Editor de producción) — confirmar la superficie objetivo exacta y su postura de seguridad: las 2 tablas y las 6 funciones objetivo, el inventario de columnas de las tablas y sus cinco claves foráneas, propiedad de las tablas, estado de RLS, conteo de políticas, privilegios de tabla por rol, propiedad/superficie EXECUTE de las funciones y el `search_path` configurado de cada una.
+2. **Agregados de alcance de las rutas** (Brent) — cuántas filas de `learning_paths` existen, cuántas tienen `school_id` y `generation_id` nulos, si algún colegio efectivo puede resolverse, y cuántas tienen `created_by` y cuántas no.
+3. **Integridad y alcance heredado de los cursos** (Brent) — cuántas filas de `learning_path_courses` existen, cuántas quedaron huérfanas de ruta o de curso, y qué alcance heredan de su ruta padre.
+4. **Candidatos por roles activos de los creadores** (Brent) — para los creadores hallados por la consulta 2, si el colegio de cada uno puede derivarse con seguridad desde sus roles activos, distinguiendo roles con y sin alcance, y si eso produce propiedad autoritativa para todas las rutas.
+5. **Consulta combinada única de asignaciones y dispersión por ruta** (Codex, CLI ya vinculado vía la Management API) — cuántas asignaciones existen y cuántas son directas a usuario frente a grupo; para cuántas se resuelven cero, uno o varios colegios candidatos; para cada ruta con asignaciones, si sus usuarios caen en un solo colegio candidato o en varios; y cuántas rutas quedan sin asignación.
+
+### 13.3 Resultados agregados, por consulta
+
+- **Consulta 1 — catálogo, esquema y seguridad:** exactamente **2 tablas y 6 funciones objetivo** confirmadas; inventario de columnas y **cinco claves foráneas** enumeradas; ambas tablas **propiedad de `postgres`**, con **RLS deshabilitada y no forzada** y **cero políticas**; **`anon` y `authenticated` con SELECT/INSERT/UPDATE/DELETE**, `service_role` conserva esas operaciones y **`PUBLIC` sin SELECT de tabla**; las **seis funciones `SECURITY DEFINER` propiedad de `postgres`, ejecutables por `PUBLIC`, `anon`, `authenticated` y `service_role`**; `search_path`: `auth_is_learning_path_member` y `batch_assign_learning_path` = `public`; `start_learning_path_session` y `end_learning_path_session` = `public, pg_temp`; `create_full_learning_path` y `update_full_learning_path` **sin `search_path` configurado**.
+- **Consulta 2 — alcance de las rutas:** **7 `learning_paths`**; las **7** con `school_id` NULO y `generation_id` NULO; **cero** con colegio efectivo resoluble; **6** con `created_by` y **1** sin él.
+- **Consulta 3 — integridad de cursos:** **22 `learning_path_courses`**; **cero** huérfanas de ruta o de curso; las **22** heredan el alcance padre sin resolver.
+- **Consulta 4 — roles activos de los creadores:** **6 creadores con roles activos**; **cada uno con exactamente un candidato de colegio por rol con alcance, pero también con un rol activo sin alcance**; **1 ruta no tiene creador**. **La propiedad, por tanto, no es autoritativa para todas las rutas.**
+- **Consulta 5 — asignaciones y dispersión (una sola consulta):** **883 asignaciones**, **todas directas a usuario y cero de grupo**; **86** resuelven cero candidatos de colegio, **793** exactamente uno y **4** varios; **6 rutas tienen asignaciones y las seis abarcan varios colegios candidatos; 1 ruta no tiene asignaciones.**
+
+### 13.4 Solo lectura y sin PII
+
+Solo se devolvieron **conteos agregados y metadatos de esquema**. **Ningún contenido de fila, identificador, nombre, correo, texto libre ni PII de menores** se devolvió, copió o registró — ni en la evidencia, ni en los ledgers, ni en este informe.
+
+### 13.5 Hallazgos de repositorio y aplicación (sin producción)
+
+Consistentes con los agregados y verificados solo contra el repositorio: `learning_paths` declara `school_id` y `generation_id` **anulables** en el baseline comprometido; la RPC de creación `create_full_learning_path(p_name, p_description, p_course_ids, p_created_by)` **no acepta parámetro alguno de colegio ni de generación**, y su único caller (`lib/services/learningPathsService.ts`) **nunca escribe `school_id` ni `generation_id`** — la aplicación no puede estampar tenant en una ruta, lo que explica estructuralmente el alcance nulo de las 7.
+
+### 13.6 Clasificación
+
+**B — DATA TRANSFORMATION REQUIRED.** Las filas existentes no traen propiedad derivable con seguridad (alcance nulo en el 100 % de las rutas, creadores con roles activos sin alcance, 86 asignaciones sin candidato y 4 con varios, y todas las rutas asignadas abarcando varios colegios), así que la frontera B2c **no puede** activarse sobre estos datos sin una transformación previa de filas existentes — trabajo de **clase 3** por definición (§3 del protocolo). La alternativa A («sin filas que exijan transformación → B2c clase 2 directa») quedó **descartada por la evidencia**. Registro completo, con fecha y personas: `docs/reviews/w-pc-06-learning-path-data-classification-2026-08-28.md`. **Esta clasificación no elige valores de propiedad, no decide entre semántica global/compartida y por-colegio, no define algoritmo y no escribe SQL de reparación.**
+
+### 13.7 Efecto sobre los ledgers y el validador
+
+- **`W-PC-06`** pasa a `DONE` / `AUTHORIZED` / clase **0** (lectura sin migración), con `execution_owner` «Brent + Codex» (≠ `authorization_owner` Brent) y `dueno` vacío intacto por la excepción de modo.
+- Se crea **`W-B2d-01`** — *Reparación gobernada de la propiedad de rutas de aprendizaje existentes antes de B2c* — `BLOCKED`/`UNAUTHORIZED`, **clase 3**, lote **B2d**, rama `data/lp-scope`, dueño «Brent + agente BD», `authorization_owner` Brent, `execution_owner` vacío. Mapea **únicamente** a `SWEEP-MI-APRENDIZAJE-09` (+1 enlace, P0). Su gate enumera las categorías agregadas afectadas y las salvaguardas de clase 3, y **prohíbe** elegir colegios, decidir semántica de propiedad, definir algoritmo o escribir SQL.
+- **`W-B2c-01`** sigue `BLOCKED` con `clase_migracion = BLOCKED` y sus dependencias quedan **reordenadas**: primero `W-B2d-01` — **autorizado por separado, implementado, revisado de forma independiente, mergeado y ejecutado de forma segura**, en ese orden —, después la aprobación de Privacidad de la matriz rol × tenant. **B2c no absorbe el trabajo de clase 3.**
+- **Registro de cierre de B2b anclado** con su evidencia existente: PR #60 mergeado como `7a470fe8`, CI post-merge (run 33183489941) en verde, despliegue automático completado, y la aplicación en producción de `20260827170000` ya registrada. **Prohibido reabrir `W-B2b-01` y prohibido re-aplicar su migración.**
+- **Validador**: `B2d`/`data/lp-scope` entran a la lista canónica de lotes/ramas (28 exactos) y una comprobación nueva — **[21 clasificación]** — ancla la clasificación literal «B — DATA TRANSFORMATION REQUIRED», la existencia del registro agregado, la forma exacta de `W-B2d-01` (lote, rama, modo, clase, mapeo único) y la **dependencia ordenada B2d→B2c** (mientras `W-B2d-01` no esté `DONE`, `W-B2c-01` debe seguir `BLOCKED`/`BLOCKED` y nombrar la dependencia).
+
+| | §12 (2026-08-27) | §12.9 (cierre B2b) | **§13 (hoy)** |
+|---|---:|---:|---:|
+| Reclamaciones / P0 únicas | 160 / 36 | 160 / 36 | **160 / 36** *(congeladas)* |
+| Work items | 106 | 106 | **107** |
+| Enlaces / enlaces P0 | 151 / 58 | 151 / 58 | **152 / 59** |
+| Lotes de fusión / work items en lotes | 27 / 33 | 27 / 33 | **28 / 34** |
+| Enlaces P0 dentro / fuera de lotes | 38 / 20 | 38 / 20 | **39 / 20** |
+| `MERGE`/`DATA`/`PRODUCTION_CHECK`/`DOCUMENTATION` | 89/10/6/1 | 89/10/6/1 | **90/10/6/1** |
+| `SCHEDULED`/`BACKLOG`/`BLOCKED`/`DONE` | 30/57/18/1 | 29/57/18/2 | **29/57/18/3** |
+| Work items sin dueño (fallos del validador) | 67 | 67 | **67** *(sin cambio: `W-B2d-01` tiene dueño real y `W-PC-06` sigue en la excepción de modo)* |
+
+Salida vigente del validador tras este cierre — **las mismas 67 faltas de propiedad, y ninguna otra clase de fallo**; el protocolo (revisión 8) reconcilia contra estas cifras.
+
+### 13.8 Lo que esta sección NO hace
+
+No autoriza `W-B2d-01` ni B2c; no elige valores de propiedad ni colegios; no decide la semántica global/compartida frente a por-colegio (decisión de Brent, pendiente y previa a cualquier implementación de B2d); no define algoritmo ni escribe SQL; no toca la instantánea congelada; no autoriza ninguna otra consulta a producción — las comprobaciones `W-PC-01`…`W-PC-05` siguen `BLOCKED`/`UNAUTHORIZED` exactamente como en §7.

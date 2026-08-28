@@ -10,7 +10,7 @@ Record the already-completed W-PC-06 read-only learning-path data classification
 
 **In:** `docs/reviews/santa-marta-work-items.csv`, `santa-marta-work-claim-map.csv`, `santa-marta-release-protocol-2026-08-25.md` (revision 8), `santa-marta-ledger-normalization-report-2026-08-25.md` (new §13), `santa-marta-combined-plan-2026-08-25.md` (banner + row 0.4-bis), `PROJECT_STATE.md` (new authoritative Meta bullet), `scripts/check-ledger.mjs` (canonical B2d/`data/lp-scope`, 28 batches, new check `[21 clasificación]`), new `docs/reviews/w-pc-06-learning-path-data-classification-2026-08-28.md`, AGENTS.md (full mirror of canonical CLAUDE.md), and this file.
 
-**Out (verified untouched):** the frozen `santa-marta-claims.csv` (byte-for-byte — zero diff), the archived legacy ledger, all application code, migrations, grants, policies, functions, RLS, CI configuration, production configuration, W-B2c-01's `gate_salida` scope lists, W-PC-01…W-PC-05, W-B10a-01, the D-RLS deferred units, and CLAUDE.md (canonical rules unchanged). No production access of any kind was performed by this task; no Supabase query was run; W-B2c-01/W-B2d-01 remain unimplemented and unauthorized. Nothing was pushed, no PR opened, nothing merged or deployed.
+**Out (verified untouched):** the frozen `santa-marta-claims.csv` (byte-for-byte — zero diff), the archived legacy ledger, all application code, migrations, grants, policies, functions, RLS, CI configuration, production configuration, W-B2c-01's `gate_salida` scope lists, W-PC-01…W-PC-05, W-B10a-01, the D-RLS deferred units, and CLAUDE.md (canonical rules unchanged). No production access of any kind was performed by this task; no Supabase query was run; W-B2c-01/W-B2d-01 remain unimplemented and unauthorized. Nothing was pushed, no PR opened, nothing merged or deployed — a true statement **as of this pre-merge review point (2026-08-28)**, not a current fact: Brent later pushed the branch and merged it as PR #61 (see the post-merge closure section at the end of this file).
 
 ## Files by risk
 
@@ -71,4 +71,16 @@ Both earlier commits were left intact. **Finding:** before production query 5, C
 - W-B2c-01 remains BLOCKED/BLOCKED; W-PC-01…W-PC-05 remain BLOCKED/UNAUTHORIZED; the W-B2a-01 stakeholder-acceptance record remains unevidenced (all unchanged, deliberately).
 - The lint evidence comes from a non-nested export because of the worktree environment artifact (see Test evidence); an independent reviewer running from a normal checkout should not hit it.
 - The 67 ownership blockers are retained exactly; nothing here reduces them.
-- This branch is not pushed or merged; per the standing rule, no database or product implementation is authorized until this correction passes independent review and Brent merges it.
+- This branch is not pushed or merged — **as of this pre-merge review point (2026-08-28)**, superseded by the post-merge closure section below: the independent review completed and Brent pushed and merged the branch as PR #61. The standing rule's consequence continues unchanged — no database or product implementation (W-B2d-01 and W-B2c-01 included) is authorized by that merge.
+
+---
+
+## Post-merge closure (appended 2026-08-28, after the merge — everything above is the preserved pre-merge record)
+
+- Brent pushed `docs/pc06-gov` and merged it as PR [#61](https://github.com/brentcurtis76/fne-lms/pull/61) ("docs(pc06): record classification B and govern B2d", base `main`), state MERGED, merged 2026-08-28T22:59:29Z.
+- **Approved head:** `db43b4f57c97c7aba23fbacedc6f577f71bcafe4` — the P3-correction head this file's review history covers. **Merge commit:** `f39a90c3f69ce930173b97276c4bd12d33b23693` — `origin/main` at closure time.
+- **PR CI** run [33217715789](https://github.com/brentcurtis76/fne-lms/actions/runs/33217715789): completed, success, on the approved head (`pull_request` event).
+- **Post-merge `main` CI** run [33218834453](https://github.com/brentcurtis76/fne-lms/actions/runs/33218834453): completed, success, on the merge commit (`push` event), across **all seven jobs** — Gate 1 Typecheck, Gate 1b Lint, Gate 2 Unit (Vitest), Gate 3 RLS pgTAP (`supabase test db`), Gate 4 E2E (Playwright), Migration safety guard, Browser/server boundary guard.
+- **Automatic Vercel Production deployment** — GitHub deployment `6149936913`, sha `f39a90c3f69ce930173b97276c4bd12d33b23693`, environment **Production**, status state **success** ("Deployment has completed"). No manual deployment was performed; this is the normal auto-deploy path for `main`.
+- The merge and this closure performed **no database operation** and authorize **no further production access**. **W-B2d-01 remains BLOCKED/UNAUTHORIZED (class 3) and W-B2c-01 remains BLOCKED with `clase_migracion` BLOCKED** — the merged governance record authorizes neither; each still requires separate, explicit Brent authorization after its own independent review.
+- This closure was recorded documentation-only on branch `docs/pc06-close`; its review request is `docs/planning/reviews/fase-pc06-close-review-request.md`.

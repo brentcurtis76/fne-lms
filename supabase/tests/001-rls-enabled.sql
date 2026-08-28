@@ -43,11 +43,18 @@ drop table public._fase0_world_readable;
 drop table public._fase0_rls_ok;
 
 -- (3) GLOBAL ------------------------------------------------------------------
--- ALLOWLIST legacy: 22 tablas pre-Fase-0 sin RLS, detectadas por el baseline
--- 2026-07-08 y aprobadas por Brent como excepción documentada (PROJECT_STATE.md
--- → Open decisions, con plan de remediación tabla-por-tabla). Ninguna contiene
--- datos de menores. PROHIBIDO agregar tablas nuevas aquí sin revisión humana;
--- el objetivo es VACIAR esta lista, no crecerla.
+-- ALLOWLIST legacy: originally the 22 pre-Fase-0 tables without RLS (baseline
+-- 2026-07-08, documented exception approved by Brent). W-B2b-01 (lote B2b,
+-- migration 20260827170000, 2026-08-27) locked down the fourteen
+-- repository-unused legacy tables and removed them from this list; pgTAP
+-- 062-unused-legacy-lockdown.sql carries their table-by-table evidence.
+-- Exactly 8 exceptions remain: the six B10a referenced tables
+-- (group_assignment_discussions, growth_community_transformation_access,
+-- instructors, modules, propuesta_rate_limits, qa_tester_time_logs — unit
+-- W-B10a-01) and the two B2c learning-path tables (learning_paths,
+-- learning_path_courses — unit W-B2c-01, BLOCKED). None contains minor data.
+-- PROHIBIDO agregar tablas nuevas aquí sin revisión humana; el objetivo sigue
+-- siendo VACIAR esta lista, no crecerla.
 select is(
   (select coalesce(array_agg(pc.relname::text order by pc.relname), '{}'::text[])
      from pg_class pc
@@ -56,17 +63,13 @@ select is(
       and pc.relkind = 'r'
       and not pc.relrowsecurity
       and pc.relname <> all (array[
-        'answers','assignments','course_prerequisites','deleted_blocks',
-        'deleted_courses','deleted_lessons','deleted_modules',
         'group_assignment_discussions','growth_community_transformation_access',
-        'instructors','learning_path_courses','learning_paths',
-        'menu_permissions','metadata_sync_log','modules','profiles_role_backup',
-        'propuesta_rate_limits','qa_tester_time_logs','questions','quizzes',
-        'student_answers','submissions'
-      ]::text[])  -- ALLOWLIST legacy 2026-07-08 (22 tablas)
+        'instructors','learning_path_courses','learning_paths','modules',
+        'propuesta_rate_limits','qa_tester_time_logs'
+      ]::text[])  -- ALLOWLIST legacy restante (8 tablas: 6 B10a + 2 B2c)
   ),
   '{}'::text[],
-  'Toda tabla de public tiene RLS habilitado (fuera de la allowlist legacy 2026-07-08)'
+  'Toda tabla de public tiene RLS habilitado (fuera de la allowlist legacy restante: 6 B10a + 2 B2c)'
 );
 
 select * from finish();

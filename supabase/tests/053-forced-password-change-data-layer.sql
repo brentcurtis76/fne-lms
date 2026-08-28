@@ -250,11 +250,15 @@ SELECT is(
 -- A table with row security switched off cannot carry a policy at all. The
 -- allowlist is pinned in 001-rls-enabled.sql; this asserts its SIZE here too, so
 -- "add the table to the allowlist" cannot be used to escape the boundary.
+-- W-B2b-01 (migration 20260827170000, 2026-08-27) row-secured the fourteen
+-- repository-unused legacy tables — each now carries this guard, asserted by
+-- the catalog invariant above and table-by-table in 062 — shrinking the
+-- allowlist from its original 22 to exactly 8 (6 B10a + 2 B2c).
 SELECT is(
   (SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = 'public' AND c.relkind = 'r' AND NOT c.relrowsecurity),
-  22,
-  'the 22-table legacy no-row-security allowlist has not grown — escaping the boundary by omitting row security would fail here and in 001'
+  8,
+  'the 8-table legacy no-row-security allowlist has not grown — escaping the boundary by omitting row security would fail here and in 001'
 );
 
 -- =============================================================================

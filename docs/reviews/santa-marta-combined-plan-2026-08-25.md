@@ -5,12 +5,15 @@
 > provenance.
 >
 > **What governs current scheduling:** `santa-marta-release-protocol-2026-08-25.md` at
-> **revision 6** together with the normalized ledgers (`santa-marta-claims.csv`,
+> **revision 7** together with the normalized ledgers (`santa-marta-claims.csv`,
 > `santa-marta-work-items.csv`, `santa-marta-work-claim-map.csv`), reconciled by
 > `scripts/check-ledger.mjs`. Dated audit prose in this file — including its wave numbering
 > and effort estimates — is historical evidence, not a current schedule. Where this file and
-> revision 6 disagree, revision 6 wins; the only in-place corrections made here are the
-> B2b/B2c split of former row 0.4 and the group-B table count in §5 (2026-08-27).
+> revision 7 disagree, revision 7 wins; the only in-place corrections made here are the
+> B2b/B2c split of former row 0.4 and the group-B table count in §5 (2026-08-27), plus the
+> W-B2b production-closure annotation to row 0.4 (2026-08-28). Revision 6 remains this
+> banner's historical provenance: it governed from 2026-08-27 until revision 7 (the
+> 2026-08-28 W-B2b production closure) superseded it.
 
 **Fecha:** 25 de agosto de 2026
 **Reemplaza como plan operativo a:** §7–§8 de `santa-marta-deliverability-audit-2026-08-24.md` (Codex) y §5 de `santa-marta-promise-audit-2026-08-24.md` (Claude).

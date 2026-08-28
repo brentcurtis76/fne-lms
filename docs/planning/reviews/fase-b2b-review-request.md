@@ -147,3 +147,47 @@ Environment: local ephemeral Supabase stack only (CLI 2.110.0 — CI's pinned ve
 ## 11. Confirmation of non-actions
 
 Nothing was pushed, merged, deployed, or applied to production. No production database was queried for any purpose (all evidence is from the local ephemeral stack with synthetic data). No PR was opened. `supabase db push` was not used. No learning-path table or function, no B10a grant/RLS/policy, no `fix/rls-public`, no `fix/auth-sec2`, no CLAUDE.md/AGENTS.md, no package or CI file was touched. The compensating artifact was executed only inside the rollback-only local test of §7, as explicitly authorized, and nowhere else.
+
+---
+
+## 12. Post-merge production closure (authoritative — 2026-08-28)
+
+**This section supersedes the pre-merge status claims of §§1–11**, which remain above unchanged as the historical record of the review candidate. Where §1 says "no push, no PR" and §11 says "nothing was … applied to production", those statements were true when written and are superseded by the following governed events.
+
+1. **Review, push, merge, CI, deployment.** Independent review (Codex): **APPROVE, no findings**, on the exact range `6b7561d4…..21e01b11…`. Brent pushed `fix/rls-anon` and opened PR [#59](https://github.com/brentcurtis76/fne-lms/pull/59); all nine checks passed (both migration guards, typecheck, lint, unit, pgTAP, e2e, and the automatic Vercel preview integration). Brent merged it as **`0377edbf13bbaf8b4f98dc24b6acd161c705141b`** (parents exactly `6b7561d4` + `21e01b11`). Post-merge CI run [33134662387](https://github.com/brentcurtis76/fne-lms/actions/runs/33134662387) completed **success** on that SHA, and the **automatic** Vercel deployment for that SHA completed ("Deployment has completed"). No manual deployment was invoked at any point.
+2. **Privacy approval (the gate's "firma Privacidad").** Recorded and governed in the PR #59 approval comment ([issuecomment-5447468927](https://github.com/brentcurtis76/fne-lms/pull/59#issuecomment-5447468927)): **Brent Curtis — Project Lead and designated Privacy approver for W-B2b-01 — 2026-08-27.** The §10 "Privacy signoff: NOT evidenced" limitation is thereby closed; the frozen claim register remains untouched.
+3. **Production preflight (read-only).** Before any write, Brent visually confirmed the production project and ran the read-only catalog preflight: **all eleven assertions `true`** — the fourteen tables present as ordinary tables, RLS off, zero policies, zero `PUBLIC` grants, `anon`/`authenticated`/`service_role` each holding all seven baseline table privileges, `apply_forced_password_change_guard(text,text)` present, migration version `20260827170000` absent from `supabase_migrations.schema_migrations`, ledger columns present, and the no-RLS set equal to exactly the 22 legacy tables. Production matched the committed baseline with zero drift.
+4. **One-transaction application.** Brent applied, in the production SQL Editor, **one transaction** (`lock_timeout 5s`, `statement_timeout 60s`) containing the **byte-exact migration body obtained via `git show` from the merge commit** (blob `bba7f7e510f4fa0e51e5091ea724fee0c7a2650f`, SHA-256 `983268f6ea89c7943e4c1c9d3d7b275e404ee7dec8f416828878770bfe58400e`, 107 lines / 6,189 bytes) followed by its ledger row `('20260827170000','lockdown_unused_legacy_tables')`. It committed without error.
+5. **Postflight state (read-only).** **All eight assertions `true`**: RLS enabled on all fourteen; exactly one policy per table — the restrictive `forced_password_change_guard`, FOR ALL, targeting only `authenticated`, `password_change_gate_ok()` in USING and WITH CHECK — and zero permissive policies; `anon`/`authenticated` at zero privileges across all seven privilege types; zero `PUBLIC` grants; `service_role` retaining all seven; the ledger row exact; and the public no-RLS set now **exactly the 8 remaining governed exceptions** (6 B10a + 2 B2c).
+6. **Data preservation (aggregate counts only).**
+
+   | table | pre → post | | table | pre → post |
+   |---|---|---|---|---|
+   | answers | 0 → 0 | | metadata_sync_log | 0 → 0 |
+   | assignments | 0 → 0 | | profiles_role_backup | 25 → 25 |
+   | course_prerequisites | 0 → 0 | | questions | 0 → 0 |
+   | deleted_blocks | 0 → 0 | | quizzes | 0 → 0 |
+   | deleted_courses | 12 → 12 | | student_answers | 0 → 0 |
+   | deleted_lessons | 0 → 0 | | submissions | 0 → 0 |
+   | deleted_modules | 0 → 0 | | menu_permissions | 104 → 104 |
+
+   Only aggregate counts and catalog metadata were returned from production — **no table rows, names, emails, or any personal data were queried or displayed** at any point in the ceremony.
+7. **Non-actions and scope exclusions.** No compensator was applied; no `supabase db push`; no `migration repair`; no CLI was linked to production; no Management API call; no credential was requested or exposed; no manual deployment. `learning_paths`/`learning_path_courses` and the six learning-path functions (W-B2c-01, BLOCKED), the six B10a referenced tables' grants/RLS/policies (W-B10a-01), W-PC-06 (unauthorized), the D-RLS deferred units, `fix/rls-public`, and `fix/auth-sec2` remain untouched.
+8. **Standing instruction.** Migration `20260827170000` is applied and recorded in production — **do not reapply it**. The compensating artifact (§7) remains a reviewed emergency document only and must not be applied without separate, explicit Brent authorization.
+
+---
+
+## 13. Documentation-closure review — round-1 remediation (2026-08-28)
+
+The independent review of the documentation-closure commit (`240cec53`, the six-file diff of §12's closure round) returned two findings. Both are remediated in **one additional correction commit** on top of `240cec53`; the reviewed commit was **not amended, rebased, squashed, or rewritten**, and the historical pre-merge (§§1–11) and production-closure (§12) evidence above is untouched.
+
+| # | Finding | Disposition |
+|---|---|---|
+| R1-1 | **False acceptance statement in protocol §2.** The active sentence still said "Hoy ningún lote tiene registrada la componente (2)…", which the closure round had made false: W-B2b-01 now has governed stakeholder acceptance recorded. | **Fixed minimally in place** (release protocol §2). The passage now states that exactly one batch — B2b — has BOTH components: component (1) complete (technical production closure, 2026-08-28) and component (2) **evidenced** in a governed mutable record identifying **Brent Curtis, Project Lead and designated Privacy approver for W-B2b-01, dated 2026-08-27** (the PR #59 approval comment); that `W-B2a-01` remains technically `DONE` with component (2) still **pending a person-and-date record**; that the two components remain distinct registers, neither substituting for the other; and that the frozen claims snapshot's `evidencia_prod`/`firmado_por`/`fecha_firma` fields stay byte-frozen and are never edited — B2b's acceptance lives only in the mutable register. The two-register acceptance model is unchanged. |
+| R1-2 | **Stale governing revision in the combined plan.** The active banner still pointed to revision 6 as governing and said revision 6 wins on disagreement, and its "only in-place corrections" sentence omitted the closure annotation. | **Fixed in the banner only.** Both active pointers now name **revision 7** ("at revision 7", "where this file and revision 7 disagree, revision 7 wins"); the in-place-corrections sentence now also names the 2026-08-28 W-B2b production-closure annotation to row 0.4; and revision 6 is preserved explicitly as the banner's **historical provenance** (governed 2026-08-27 until revision 7 superseded it). No historical section was modernized or rewritten. |
+
+**Correction range:** exactly three files — `docs/reviews/santa-marta-release-protocol-2026-08-25.md` · `docs/reviews/santa-marta-combined-plan-2026-08-25.md` · this file. The cumulative range from base `0377edbf` still changes only the six closure files of §12's round (PROJECT_STATE.md, the work-items CSV, the protocol, the normalization report, the combined plan, and this file); no CSV, validator, migration, test, product, configuration, package, or workflow file changed in this round, and every frozen artifact remains byte-identical.
+
+**Validation at the correction head:** `git diff --check` clean over the correction range; `node scripts/check-ledger.mjs` exits 1 with **exactly the 67 `[16 propiedad]` ownership failures, byte-identical** to the pre-edit capture, zero failures in every other class, and the split-scope / B2c-function / deferred-unit OK notes printing; independent RFC-4180 recount unchanged (160 claims · 36 P0 · 106 work items · 151 links · 58 P0 links · 27 batches · statuses 29/57/18/2 · modes 89/10/6/1 · DONE = {W-B2a-01, W-B2b-01} · W-B2b-01 `gate_salida` byte-identical); targeted prose checks confirm the false "ningún lote" claim is gone from active prose, the plan's governing pointer names revision 7 consistently, and no active sentence prefers revision 6 over revision 7; `npm run type-check`, `npm run lint`, `npm test` and `npm run build` all pass (build on shape-valid synthetic placeholders only).
+
+**Non-actions:** nothing was pushed, merged, deployed, or accessed in production in this round; no PR was opened or modified; no branch deleted; `fix/rls-public`, `fix/auth-sec2`, W-B2c-01, W-PC-06, B10a, and the D-RLS units untouched; no additional work item marked DONE.

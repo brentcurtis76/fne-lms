@@ -5,12 +5,15 @@
 > provenance.
 >
 > **What governs current scheduling:** `santa-marta-release-protocol-2026-08-25.md` at
-> **revision 6** together with the normalized ledgers (`santa-marta-claims.csv`,
+> **revision 7** together with the normalized ledgers (`santa-marta-claims.csv`,
 > `santa-marta-work-items.csv`, `santa-marta-work-claim-map.csv`), reconciled by
 > `scripts/check-ledger.mjs`. Dated audit prose in this file — including its wave numbering
 > and effort estimates — is historical evidence, not a current schedule. Where this file and
-> revision 6 disagree, revision 6 wins; the only in-place corrections made here are the
-> B2b/B2c split of former row 0.4 and the group-B table count in §5 (2026-08-27).
+> revision 7 disagree, revision 7 wins; the only in-place corrections made here are the
+> B2b/B2c split of former row 0.4 and the group-B table count in §5 (2026-08-27), plus the
+> W-B2b production-closure annotation to row 0.4 (2026-08-28). Revision 6 remains this
+> banner's historical provenance: it governed from 2026-08-27 until revision 7 (the
+> 2026-08-28 W-B2b production closure) superseded it.
 
 **Fecha:** 25 de agosto de 2026
 **Reemplaza como plan operativo a:** §7–§8 de `santa-marta-deliverability-audit-2026-08-24.md` (Codex) y §5 de `santa-marta-promise-audit-2026-08-24.md` (Claude).
@@ -63,7 +66,7 @@ De Codex. Se adopta tal cual — es más clara que la implícita de Claude.
 | 0.1 | Fusionar **PR #50** `fix/horas-rep` — **tras confirmar compatibilidad con la lógica Z7 de `effective_minutes`** | — | S |
 | 0.2 | Abrir PR para **`fix/gate-score`** y fusionar. Destraba la compuerta de cobertura | — | S |
 | 0.3 | `name` → `nombre` en `pages/api/admin/networks/supervisors.ts:79,110,121,131,144`; comprobar `error` en ambos lookups; quitar `updated_at` del payload | `fix/red-super` | S |
-| 0.4 | **[Corregido 2026-08-27 — división B2b/B2c]** Cierre RLS grupo A (`W-B2b-01`, lote B2b): **exactamente las 14 tablas legacy sin referencias en código**. `REVOKE ALL FROM anon, authenticated` + `ENABLE ROW LEVEL SECURITY`. Vía flujo del agente de BD. *La fila original plegaba aquí `learning_paths` y `learning_path_courses`; esa consolidación queda superada.* | `fix/rls-anon` | L |
+| 0.4 | **[Corregido 2026-08-27 — división B2b/B2c] [CERRADO EN PRODUCCIÓN 2026-08-28]** Cierre RLS grupo A (`W-B2b-01`, lote B2b): **exactamente las 14 tablas legacy sin referencias en código**. `REVOKE ALL FROM anon, authenticated` + `ENABLE ROW LEVEL SECURITY`. Vía flujo del agente de BD. *La fila original plegaba aquí `learning_paths` y `learning_path_courses`; esa consolidación queda superada.* **Cierre:** PR #59, merge `0377edbf`, migración `20260827170000` aplicada por Brent en producción y verificada (preflight/postflight completos, conteos intactos); aprobación de Privacidad registrada en el PR (Brent Curtis, 2026-08-27). No re-aplicar. | `fix/rls-anon` | L |
 | 0.4-bis | **[Añadido 2026-08-27]** Frontera de rutas de aprendizaje (`W-B2c-01`, lote B2c, **BLOQUEADA**): `learning_paths`, `learning_path_courses`, sus GRANT/RLS y sus seis funciones (`create_full_learning_path`, `update_full_learning_path`, `batch_assign_learning_path`, `start_learning_path_session`, `end_learning_path_session`, `auth_is_learning_path_member`), con aislamiento por colegio y tenant. No se programa hasta que termine la clasificación de datos en solo lectura `W-PC-06` (sin autorizar) y Privacidad apruebe la matriz rol × tenant; cualquier backfill sería un work item clase 3 aparte | `fix/rls-learn` | — |
 | 0.5 | Fijar `EMAIL_FROM_ADDRESS` y **verificar el dominio remitente en Resend** | config | S |
 | 0.6 | Nombrar los cuatro dueños: *release*, ingeniería, onboarding/operaciones, privacidad | — | — |

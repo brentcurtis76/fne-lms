@@ -637,6 +637,27 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
       // Management API disclosure (MAJOR 2): query 5 ran through the Supabase
       // Management API (`supabase db query --linked`) and the record must say so.
       if (!ev.includes('sole explicitly authorized Management API database-query call')) fail('21 clasificación', 'registro de evidencia: falta la divulgación de que la consulta 5 fue la única llamada de consulta de base de datos por la Management API explícitamente autorizada');
+      // Management-plane metadata read (P3, 2026-08-28): before query 5, Codex ran
+      // ONE read-only Management API metadata call to confirm the existing link and
+      // status. The record must name it, class it correctly, and state that it read
+      // no database rows and changed no state — while query 5 remains the sole
+      // Management API DATABASE-QUERY call and the database-query count stays five.
+      if (!ev.includes('supabase projects list --output json')) fail('21 clasificación', 'registro de evidencia: falta la llamada de metadatos previa a la consulta 5 («supabase projects list --output json»)');
+      if (!/read-only Supabase Management API \*metadata\* call/.test(ev)) fail('21 clasificación', 'registro de evidencia: la llamada «supabase projects list» debe identificarse como llamada de metadatos de solo lectura por la Management API');
+      if (!ev.includes('queried **no database rows**')) fail('21 clasificación', 'registro de evidencia: debe constar que la llamada de metadatos no consultó ninguna fila de base de datos');
+      if (!ev.includes('mutated **no state**')) fail('21 clasificación', 'registro de evidencia: debe constar que la llamada de metadatos no mutó ningún estado');
+      // Overbroad access claims are rejected (P3): the accounting must be exact —
+      // five database queries plus the one metadata read — never a blanket
+      // "no other access of any kind" sentence.
+      const OVERBROAD = ['No other production access of any kind occurred',
+        'Fuera de esas cinco consultas no hubo acceso a producción de ningún tipo'];
+      const rep13 = fs.existsSync(REPORTDOC)
+        ? (() => { const t = fs.readFileSync(REPORTDOC, 'utf8'); const i = t.indexOf('\n## 13.'); return i === -1 ? '' : t.slice(i); })()
+        : '';
+      for (const phrase of OVERBROAD) {
+        if (ev.includes(phrase)) fail('21 clasificación', `registro de evidencia: conserva la afirmación demasiado amplia «${phrase.slice(0, 58)}…»`);
+        if (rep13.includes(phrase)) fail('21 clasificación', `informe de normalización §13: conserva la afirmación demasiado amplia «${phrase.slice(0, 58)}…»`);
+      }
     }
   }
   if (!b2d) fail('21 clasificación', 'W-B2d-01: no existe en el ledger de trabajo (lo exige la clasificación B de W-PC-06)');
@@ -667,7 +688,7 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
       }
     }
   }
-  if (!failures.some(f => f.check.startsWith('21'))) notes.push('clasificación W-PC-06 OK — B (transformación de datos requerida) anclada con su registro agregado; inventario de cinco consultas y divulgación de la Management API anclados; dependencia ordenada B2d→B2c vigente');
+  if (!failures.some(f => f.check.startsWith('21'))) notes.push('clasificación W-PC-06 OK — B (transformación de datos requerida) anclada con su registro agregado; inventario de cinco consultas, divulgación de la Management API y lectura de metadatos previa a la consulta 5 anclados, sin frases de acceso demasiado amplias; dependencia ordenada B2d→B2c vigente');
 }
 
 // ── Report ───────────────────────────────────────────────────────────────────

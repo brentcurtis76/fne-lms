@@ -688,24 +688,26 @@ Las tablas de recuento de las rondas anteriores y de §12.4 quedan como **eviden
 
 - `W-PC-06` nació en §12 como `PRODUCTION_CHECK` `BLOCKED`/`UNAUTHORIZED`, con `authorization_owner` Brent, `dueno` vacío por la excepción de modo, y la regla explícita de que documentarla no autorizaba nada.
 - El 2026-08-28 **Brent autorizó explícitamente la ejecución en solo lectura** y **ejecutó personalmente las consultas 1-4 en el SQL Editor de producción**.
-- La **consulta 5 la ejecutó Codex a través del CLI ya vinculado, únicamente tras una autorización explícita posterior de Brent**, también limitada a solo lectura.
-- No hubo escrituras de ningún tipo: ni migraciones, ni cambios de GRANT, política, RLS o función, ni acceso a producción fuera de esas cinco consultas.
+- La **consulta 5 la ejecutó Codex a través del CLI ya vinculado (`supabase db query --linked`), únicamente tras una autorización explícita posterior de Brent**, también limitada a solo lectura. Ese comando opera por la **Management API de Supabase**: la consulta 5 fue por tanto la **única llamada de consulta de base de datos por la Management API explícitamente autorizada**, y envió **un único SELECT acotado de solo lectura**.
+- Fuera de esas cinco consultas no hubo acceso a producción de ningún tipo, y **no se creó ni cambió ningún enlace de Supabase, credencial, configuración del proyecto, dato, esquema, GRANT, política, ajuste de RLS, función, ledger de migraciones, despliegue ni ningún otro estado de producción**.
 
-### 13.2 Propósito de las cinco consultas (aquí no vive ningún SQL)
+### 13.2 Las cinco consultas — propósito y ejecutor (aquí no vive ningún SQL)
 
-1. **Alcance de las rutas** — cuántas filas de `learning_paths` existen y cuántas tienen `school_id` y `generation_id` nulos, y si algún colegio efectivo puede resolverse para ellas.
-2. **Actor y propiedad** — cuántas rutas tienen `created_by`, y si el colegio de cada creador puede derivarse con seguridad desde sus roles activos (con y sin alcance).
-3. **Integridad padre/hijo** — cuántas filas de `learning_path_courses` existen, cuántas quedaron huérfanas de ruta o de curso, y qué alcance heredan.
-4. **Resolución de asignaciones** — cuántas asignaciones existen, cuántas son directas a usuario frente a grupo, y para cuántas puede resolverse cero, uno o varios colegios candidatos.
-5. **Dispersión por ruta** — para cada ruta con asignaciones, si sus usuarios asignados caen en un solo colegio candidato o en varios, y cuántas rutas quedan sin asignación.
+*(Inventario corregido por la revisión independiente del 2026-08-28: el primer borrador omitía la consulta de catálogo, adelantaba el análisis de creadores y partía la consulta 5 en dos. La secuencia siguiente es la secuencia real de producción; no hubo una sexta consulta.)*
 
-### 13.3 Resultados agregados
+1. **Metadatos de catálogo, esquema y seguridad** (Brent, SQL Editor de producción) — confirmar la superficie objetivo exacta y su postura de seguridad: las 2 tablas y las 6 funciones objetivo, el inventario de columnas de las tablas y sus cinco claves foráneas, propiedad de las tablas, estado de RLS, conteo de políticas, privilegios de tabla por rol, propiedad/superficie EXECUTE de las funciones y el `search_path` configurado de cada una.
+2. **Agregados de alcance de las rutas** (Brent) — cuántas filas de `learning_paths` existen, cuántas tienen `school_id` y `generation_id` nulos, si algún colegio efectivo puede resolverse, y cuántas tienen `created_by` y cuántas no.
+3. **Integridad y alcance heredado de los cursos** (Brent) — cuántas filas de `learning_path_courses` existen, cuántas quedaron huérfanas de ruta o de curso, y qué alcance heredan de su ruta padre.
+4. **Candidatos por roles activos de los creadores** (Brent) — para los creadores hallados por la consulta 2, si el colegio de cada uno puede derivarse con seguridad desde sus roles activos, distinguiendo roles con y sin alcance, y si eso produce propiedad autoritativa para todas las rutas.
+5. **Consulta combinada única de asignaciones y dispersión por ruta** (Codex, CLI ya vinculado vía la Management API) — cuántas asignaciones existen y cuántas son directas a usuario frente a grupo; para cuántas se resuelven cero, uno o varios colegios candidatos; para cada ruta con asignaciones, si sus usuarios caen en un solo colegio candidato o en varios; y cuántas rutas quedan sin asignación.
 
-- **7 `learning_paths`**; las **7** con `school_id` NULO y `generation_id` NULO; **cero** con colegio efectivo resoluble.
-- **6** tienen `created_by` y **1** no. Cada uno de los 6 creadores tiene **exactamente un** candidato de colegio por rol activo con alcance, **pero también un rol activo sin alcance** — eso **no es propiedad autoritativa**.
-- **22 `learning_path_courses`**; **cero** huérfanas de ruta o de curso; las **22** heredan el alcance padre sin resolver.
-- **883 asignaciones**: **883 directas a usuario y cero de grupo**. **86** resuelven cero candidatos de colegio, **793** exactamente uno y **4** varios.
-- **6 rutas tienen asignaciones y cada una abarca varios colegios candidatos; 1 ruta no tiene asignaciones.**
+### 13.3 Resultados agregados, por consulta
+
+- **Consulta 1 — catálogo, esquema y seguridad:** exactamente **2 tablas y 6 funciones objetivo** confirmadas; inventario de columnas y **cinco claves foráneas** enumeradas; ambas tablas **propiedad de `postgres`**, con **RLS deshabilitada y no forzada** y **cero políticas**; **`anon` y `authenticated` con SELECT/INSERT/UPDATE/DELETE**, `service_role` conserva esas operaciones y **`PUBLIC` sin SELECT de tabla**; las **seis funciones `SECURITY DEFINER` propiedad de `postgres`, ejecutables por `PUBLIC`, `anon`, `authenticated` y `service_role`**; `search_path`: `auth_is_learning_path_member` y `batch_assign_learning_path` = `public`; `start_learning_path_session` y `end_learning_path_session` = `public, pg_temp`; `create_full_learning_path` y `update_full_learning_path` **sin `search_path` configurado**.
+- **Consulta 2 — alcance de las rutas:** **7 `learning_paths`**; las **7** con `school_id` NULO y `generation_id` NULO; **cero** con colegio efectivo resoluble; **6** con `created_by` y **1** sin él.
+- **Consulta 3 — integridad de cursos:** **22 `learning_path_courses`**; **cero** huérfanas de ruta o de curso; las **22** heredan el alcance padre sin resolver.
+- **Consulta 4 — roles activos de los creadores:** **6 creadores con roles activos**; **cada uno con exactamente un candidato de colegio por rol con alcance, pero también con un rol activo sin alcance**; **1 ruta no tiene creador**. **La propiedad, por tanto, no es autoritativa para todas las rutas.**
+- **Consulta 5 — asignaciones y dispersión (una sola consulta):** **883 asignaciones**, **todas directas a usuario y cero de grupo**; **86** resuelven cero candidatos de colegio, **793** exactamente uno y **4** varios; **6 rutas tienen asignaciones y las seis abarcan varios colegios candidatos; 1 ruta no tiene asignaciones.**
 
 ### 13.4 Solo lectura y sin PII
 

@@ -620,6 +620,24 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
     if (!rec.includes(CLASSIF)) fail('21 clasificación', `W-PC-06: no conserva la clasificación literal «${CLASSIF}»`);
     if (!rec.includes('w-pc-06-learning-path-data-classification-2026-08-28.md')) fail('21 clasificación', 'W-PC-06: no ancla su registro de evidencia agregada por nombre de archivo');
     if (!fs.existsSync(R(EVIDENCE_DOC))) fail('21 clasificación', `el registro de evidencia agregada no existe: ${EVIDENCE_DOC}`);
+    else {
+      // Query-inventory pins (independent review 2026-08-28, MAJOR 1): the record
+      // must carry the ACTUAL production sequence — catalog/schema/security
+      // metadata as query 1, creator-role analysis as query 4, and assignments
+      // plus per-path dispersion remaining ONE query 5; no sixth query exists.
+      const ev = fs.readFileSync(R(EVIDENCE_DOC), 'utf8');
+      const sec2 = (ev.match(/\n## 2\.[^]*?(?=\n## 3\.)/) || [''])[0];
+      if (!sec2) fail('21 clasificación', 'registro de evidencia: falta la sección «## 2.» con el inventario de las cinco consultas');
+      else {
+        if (!/\n1\. \*\*Catalog, schema and security metadata\*\*/.test(sec2)) fail('21 clasificación', 'registro de evidencia: la consulta 1 debe identificarse como la de metadatos de catálogo, esquema y seguridad');
+        if (!/\n4\. \*\*Creator active-role candidates\*\*/.test(sec2)) fail('21 clasificación', 'registro de evidencia: la consulta 4 debe identificarse como el análisis de roles activos de los creadores');
+        if (!/\n5\. \*\*Combined assignment resolution and per-path dispersion — one query\*\*/.test(sec2)) fail('21 clasificación', 'registro de evidencia: la consulta 5 debe seguir siendo UNA sola consulta combinada de asignaciones y dispersión por ruta');
+        if (/\n6\. /.test(sec2)) fail('21 clasificación', 'registro de evidencia: aparece una sexta consulta; la secuencia real tuvo exactamente cinco');
+      }
+      // Management API disclosure (MAJOR 2): query 5 ran through the Supabase
+      // Management API (`supabase db query --linked`) and the record must say so.
+      if (!ev.includes('sole explicitly authorized Management API database-query call')) fail('21 clasificación', 'registro de evidencia: falta la divulgación de que la consulta 5 fue la única llamada de consulta de base de datos por la Management API explícitamente autorizada');
+    }
   }
   if (!b2d) fail('21 clasificación', 'W-B2d-01: no existe en el ledger de trabajo (lo exige la clasificación B de W-PC-06)');
   else {
@@ -637,7 +655,19 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
     }
     if (!(b2c.notes || '').includes('W-B2d-01')) fail('21 clasificación', 'W-B2c-01: sus notas no declaran la dependencia previa W-B2d-01');
   }
-  if (!failures.some(f => f.check.startsWith('21'))) notes.push('clasificación W-PC-06 OK — B (transformación de datos requerida) anclada con su registro agregado; dependencia ordenada B2d→B2c vigente');
+  // The literal false claim «no Management API calls» must never reappear in a
+  // governing document — query 5 DID run through the Management API (MAJOR 2).
+  {
+    const MGMT_FALSE = 'no Management API calls';
+    const SCAN = [[R(EVIDENCE_DOC), 'registro de evidencia'], [WORK, 'work-items'], [MAPF, 'work-claim-map'],
+      [PROTOCOL, 'protocolo'], [PLANDOC, 'plan combinado'], [REPORTDOC, 'informe de normalización'], [PSTATE, 'PROJECT_STATE']];
+    for (const [file, label] of SCAN) {
+      if (fs.existsSync(file) && fs.readFileSync(file, 'utf8').includes(MGMT_FALSE)) {
+        fail('21 clasificación', `${label}: contiene la afirmación falsa literal «no Management API calls»`);
+      }
+    }
+  }
+  if (!failures.some(f => f.check.startsWith('21'))) notes.push('clasificación W-PC-06 OK — B (transformación de datos requerida) anclada con su registro agregado; inventario de cinco consultas y divulgación de la Management API anclados; dependencia ordenada B2d→B2c vigente');
 }
 
 // ── Report ───────────────────────────────────────────────────────────────────

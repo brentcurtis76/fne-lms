@@ -16,6 +16,49 @@ These names are exact and are the values branch protection must require.
 The workflow is the source of truth. When a job `name:` changes, update this
 document and the live branch rule together.
 
+## Action-runtime maintenance
+
+`CI-MAINT-01` was authorized by Brent on 2026-08-29 after PR #62 and its
+post-merge run emitted GitHub's Node 20 action-runtime deprecation annotation.
+The task is implemented on branch `ci/actions-node24` from base
+`060703071399e035c3ba124971b21b11f2b0275e`; it is not merged until independent
+review, a pull request, and all seven live CI jobs pass.
+
+The workflow keeps two different Node concepts explicit:
+
+- GitHub Action implementations use supported Node 24 releases:
+  `actions/checkout@v7`, `actions/setup-node@v7`, and
+  `actions/upload-artifact@v7`. `supabase/setup-cli@v3` is composite and uses
+  its reviewed current installation path. These major lines were the official
+  current releases when this task was scoped: checkout 7.0.1, setup-node 7.0.0,
+  upload-artifact 7.0.1, and setup-cli 3.0.0.
+- GENERA commands run on Node 22 in every job. This is the `node-version`
+  selected by setup-node and is independent of the action implementation's
+  own Node 24 runtime.
+
+Both Supabase jobs pin CLI `2.110.0`. Gate 4 already required that exact
+version because it names excluded services; Gate 3 previously selected
+`latest`, allowing an unrelated CLI release to change a pull-request gate.
+`setup-cli@v3` installs fixed versions from npm, and `2.110.0` was confirmed
+present before the workflow change.
+
+`npm run guard:actions` scans every YAML file under `.github/workflows` and
+fails when:
+
+- a reviewed action falls below its minimum supported major;
+- a workflow selects Node 20;
+- a new external action appears without being added deliberately to the
+  reviewed policy; or
+- one of the four reviewed action families disappears without a policy update.
+
+The guard is itself part of `Migration safety guard`, and its Vitest negative
+controls prove all four retired refs and the common Node-20 version and LTS
+alias spellings fail.
+Completing `CI-MAINT-01` requires a PR run with the same seven exact context
+names, all seven successful, and no Node 20 action-runtime annotation. Product
+code, migrations, Supabase production, Vercel configuration, branch-protection
+settings, and manual deployment are out of scope.
+
 ## Branch protection — PENDING EXTERNAL
 
 Live GitHub settings were not queried or changed during the remediation. A
@@ -95,6 +138,7 @@ npm run type-check
 npm run lint
 npm test
 npm run build
+npm run guard:actions
 npm run guard:migrations
 npm run guard:browser
 npm run test:db

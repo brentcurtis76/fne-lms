@@ -4,6 +4,8 @@
 # Plus: migration-safety and browser/server-boundary guards.
 # Branch protection on `main` must require all seven exact job names — see docs/ci-setup.md.
 # All jobs: timeout-minutes 20 (GitHub default is 360 — a hung job would burn 6h of Actions).
+# Third-party action majors and selected Node versions are enforced by
+# scripts/ci/check-action-runtimes.mjs; update its reviewed policy deliberately.
 
 name: CI
 
@@ -22,10 +24,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: 22
+      - name: Block deprecated or unreviewed GitHub Action runtimes
+        run: npm run guard:actions
       - name: Block migrations that disable RLS
         run: bash scripts/ci/check-rls-migrations.sh
       # Additive-only migrations (CLAUDE.md -> Database Safety). Comment-aware and
@@ -40,10 +44,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: 22
           cache: npm
       - run: npm ci
       # AST + import-graph, not a regex over a directory list. Fails on a browser
@@ -59,8 +63,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -72,8 +76,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -85,8 +89,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -98,10 +102,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
+      - uses: actions/checkout@v7
+      # setup-cli v3 installs the CLI from npm and reuses this explicit Node
+      # runtime. Keep it before setup-cli so the action never inherits the
+      # runner image's ambient Node version.
+      - uses: actions/setup-node@v7
         with:
-          version: latest
+          node-version: 22
+          cache: npm
+      - uses: supabase/setup-cli@v3
+        with:
+          # Gate 4 already proved this exact CLI version against the full stack.
+          # Pin Gate 3 too: an unrelated CLI release must not change a PR gate.
+          version: 2.110.0
       # NOTE: `supabase db start` builds a shadow DB from supabase/migrations.
       # Repo migrations start at 2026-02 (schema predates them). If they fail to
       # apply from scratch, add a baseline schema snapshot as the first migration
@@ -116,11 +129,7 @@ jobs:
       # FOR UPDATE SKIP LOCKED proof the vitest queue suite explicitly disclaims
       # — no in-process double can produce a second transaction to skip a lock
       # on. `supabase db start` brings up Postgres only (no PostgREST), so the
-      # proof speaks SQL and needs the Node toolchain the other gates set up.
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
+      # proof speaks SQL and uses the Node toolchain configured above.
       - run: npm ci
       - name: Queue concurrency proof (§17 overlapping ticker)
         run: |
@@ -144,12 +153,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
           # Pinned, unlike gate 3: this job passes service names to `supabase start -x`,
           # and a rename in a future CLI release would break the gate on an unrelated PR.
@@ -268,7 +277,7 @@ jobs:
 
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: playwright-report/

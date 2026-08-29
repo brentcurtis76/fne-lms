@@ -678,7 +678,7 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
   }
   // Post-merge closure pins (2026-08-28): Brent merged the authoritative
   // classification record as PR #61 — approved head db43b4f5…, merge commit
-  // f39a90c3… (current main) — with the PR CI run and the seven-job post-merge
+  // f39a90c3… (`origin/main` at PC-06 closure-verification time) — with the PR CI run and the seven-job post-merge
   // main CI run both successful and the automatic Vercel Production deployment
   // completed. The authoritative W-PC-06 entry in PROJECT_STATE must keep
   // recording exactly that closure and may never again claim the record is

@@ -82,8 +82,9 @@ Low risk — documentation/state:
 - Santa Marta validator: expected exit 1 with exactly the 67 pre-existing
   `[16 propiedad]` ownership findings and no other failure category.
 - `git diff --check`: clean.
-- Hosted compatibility and annotation removal: necessarily pending the PR. A
-  local runner cannot execute GitHub-hosted action implementations.
+- At the candidate-review point, hosted compatibility and annotation removal
+  were necessarily pending the PR; see **Post-merge closure** below for the
+  completed evidence.
 - `test:db`/Playwright are not run locally for this phase because no DB or UI
   artifact changed; both are mandatory on the PR, where they exercise the new
   setup-cli action and workflow topology directly.
@@ -108,14 +109,15 @@ Low risk — documentation/state:
 
 ## Known limitations and deferred evidence
 
-- Only a PR run can prove the hosted actions initialize successfully and the
-  Node 20 annotations disappear. Do not approve merge on local gates alone.
+- At the candidate-review point, only a PR run could prove the hosted actions
+  initialized successfully and the Node 20 annotations disappeared. That
+  evidence is now recorded in **Post-merge closure** below.
 - The failure-only Playwright report upload is not dynamically exercised by a
   green run. Its official v7 release ref and unchanged inputs are the bounded
   evidence for this phase.
-- No push, PR, merge, deployment, production access, Supabase call, or external
-  configuration mutation belongs to this implementation phase before Brent's
-  separate post-review decision.
+- At the implementation-review point, no push, PR, merge, deployment,
+  production access, Supabase call, or external configuration mutation
+  belonged to the phase before Brent's separate post-review decision.
 
 ## Independent review — round 1
 
@@ -135,3 +137,37 @@ amending or rewriting the reviewed commit:
 Because the correction creates a new head, independent delta review remains
 required before push. Hosted action compatibility and annotation removal still
 remain PR-only evidence.
+
+## Independent review — round 2
+
+Claude reviewed exact delta `b02f0295..ae388a30`, confirmed both commits and
+the original base topology, reproduced the 17/17 focused suite, and mutation-
+tested both newly covered rules. Final verdict on exact head
+`ae388a3058af9fc244c7b8d34de5003a4ffe109c`: **APPROVE — no findings**.
+
+## Post-merge closure
+
+- Brent merged PR [#63](https://github.com/brentcurtis76/fne-lms/pull/63) at
+  2026-08-29T20:51:58Z. Approved head `ae388a3058af9fc244c7b8d34de5003a4ffe109c`
+  became merge commit `2b7be4cfe8819e07f53b3b9ff734b8a2dacd5894`,
+  with parents exactly base `060703071399e035c3ba124971b21b11f2b0275e`
+  and the approved head.
+- PR CI run
+  [33274215527](https://github.com/brentcurtis76/fne-lms/actions/runs/33274215527)
+  completed successfully across all seven exact jobs.
+- Post-merge `main` run
+  [33274578596](https://github.com/brentcurtis76/fne-lms/actions/runs/33274578596)
+  completed successfully across all seven exact jobs.
+- Each run had seven successful GitHub Actions checks, zero check annotations,
+  zero Node 20 annotations, and zero log matches for GitHub's action-runtime
+  deprecation wording. The broader log phrase "Node.js 20" appears only inside
+  `setup-cli@v3`'s embedded compatibility error branches requiring Node 20 or
+  newer; those branches emitted no error and generated no annotation.
+- Automatic Vercel Production deployment `6160000598` reports state `success`
+  and description "Deployment has completed". No agent ran a manual
+  deployment.
+- No production database query or mutation occurred during merge or closeout.
+  The database operations visible in CI ran only against ephemeral local
+  Supabase stacks.
+- W-B2d-01 remains BLOCKED/UNAUTHORIZED and W-B2c-01 remains BLOCKED/BLOCKED;
+  this closure authorizes no further production access or implementation.

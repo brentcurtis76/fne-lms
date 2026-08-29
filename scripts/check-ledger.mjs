@@ -676,6 +676,56 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
     }
     if (!(b2c.notes || '').includes('W-B2d-01')) fail('21 clasificación', 'W-B2c-01: sus notas no declaran la dependencia previa W-B2d-01');
   }
+  // Post-merge closure pins (2026-08-28): Brent merged the authoritative
+  // classification record as PR #61 — approved head db43b4f5…, merge commit
+  // f39a90c3… (`origin/main` at PC-06 closure-verification time) — with the PR CI run and the seven-job post-merge
+  // main CI run both successful and the automatic Vercel Production deployment
+  // completed. The authoritative W-PC-06 entry in PROJECT_STATE must keep
+  // recording exactly that closure and may never again claim the record is
+  // unmerged; W-B2d-01 stays BLOCKED/UNAUTHORIZED and W-B2c-01 stays
+  // BLOCKED/BLOCKED. A legitimate future state change must revise these pins
+  // deliberately, in its own independently reviewed correction.
+  {
+    const psText = fs.existsSync(PSTATE) ? fs.readFileSync(PSTATE, 'utf8') : '';
+    const pcEntry = psText.split('\n').find(l => l.startsWith('- **W-PC-06 — CLOSED')) || '';
+    if (!pcEntry) fail('21 clasificación', 'PROJECT_STATE: la entrada autoritativa «- **W-PC-06 — CLOSED» no existe');
+    else {
+      const MERGE_PINS = [
+        ['PR [#61](https://github.com/brentcurtis76/fne-lms/pull/61)', 'el PR de cierre #61'],
+        ['db43b4f57c97c7aba23fbacedc6f577f71bcafe4', 'el head aprobado db43b4f5…'],
+        ['f39a90c3f69ce930173b97276c4bd12d33b23693', 'el merge commit f39a90c3…'],
+        ['33217715789', 'el run de CI del PR (33217715789)'],
+        ['33218834453', 'el run de CI post-merge en main (33218834453)'],
+        ['automatic Vercel Production deployment of `f39a90c3` completed', 'el despliegue automático a Production completado'],
+      ];
+      for (const [needle, label] of MERGE_PINS) {
+        if (!pcEntry.includes(needle)) fail('21 clasificación', `PROJECT_STATE (entrada autoritativa W-PC-06): no ancla ${label}`);
+      }
+      if (/not merged/i.test(pcEntry)) fail('21 clasificación', 'PROJECT_STATE (entrada autoritativa W-PC-06): vuelve a afirmar que el registro no está fusionado — PR #61 se fusionó el 2026-08-28 como f39a90c3');
+      // Durability pins (independent review 2026-08-29): «the current `main`»
+      // self-invalidates the moment main advances, so the merge commit must be
+      // qualified as origin/main AT PC-06 CLOSURE-VERIFICATION TIME; and the
+      // blanket «performed no database operation» overclaimed — the post-merge
+      // CI legitimately ran pgTAP/E2E against an ephemeral LOCAL Supabase stack
+      // (not production access) — so the entry must state the precise
+      // production boundary instead of the blanket denial.
+      if (pcEntry.includes('the current `main`')) fail('21 clasificación', 'PROJECT_STATE (entrada autoritativa W-PC-06): usa la frase auto-invalidante «the current `main`»; el merge debe calificarse como «`origin/main` at PC-06 closure-verification time»');
+      if (!pcEntry.includes('`origin/main` at PC-06 closure-verification time')) fail('21 clasificación', 'PROJECT_STATE (entrada autoritativa W-PC-06): no califica el merge commit con la redacción durable «`origin/main` at PC-06 closure-verification time»');
+      if (pcEntry.includes('performed no database operation')) fail('21 clasificación', 'PROJECT_STATE (entrada autoritativa W-PC-06): conserva la afirmación demasiado amplia «performed no database operation»; la CI post-merge sí ejecutó pgTAP/E2E contra un stack Supabase local efímero');
+      if (!pcEntry.includes('no production database query or mutation occurred')) fail('21 clasificación', 'PROJECT_STATE (entrada autoritativa W-PC-06): falta el límite preciso «no production database query or mutation occurred»');
+      if (!pcEntry.includes('ephemeral local Supabase')) fail('21 clasificación', 'PROJECT_STATE (entrada autoritativa W-PC-06): falta la distinción de que la CI post-merge usó un stack «ephemeral local Supabase»');
+      if (!pcEntry.includes('not production access')) fail('21 clasificación', 'PROJECT_STATE (entrada autoritativa W-PC-06): debe constar que el uso del stack local efímero por la CI es «not production access»');
+    }
+    if (b2d) {
+      if (b2d.status !== 'BLOCKED') fail('21 clasificación', `W-B2d-01: debe permanecer BLOCKED hasta la autorización separada y explícita de Brent (que debe revisar este pin deliberadamente); está en «${b2d.status}»`);
+      if (b2d.authorization_status !== 'UNAUTHORIZED') fail('21 clasificación', `W-B2d-01: debe permanecer UNAUTHORIZED hasta la autorización separada y explícita de Brent (que debe revisar este pin deliberadamente); consta «${b2d.authorization_status}»`);
+    }
+    if (!b2c) fail('21 clasificación', 'W-B2c-01: no existe en el ledger de trabajo (el cierre de W-PC-06 exige que permanezca BLOCKED/BLOCKED)');
+    else {
+      if (b2c.status !== 'BLOCKED') fail('21 clasificación', `W-B2c-01: debe permanecer BLOCKED hasta la autorización separada y explícita de Brent (que debe revisar este pin deliberadamente); está en «${b2c.status}»`);
+      if (b2c.clase_migracion !== 'BLOCKED') fail('21 clasificación', `W-B2c-01: clase_migracion debe permanecer BLOCKED hasta la autorización separada y explícita de Brent (que debe revisar este pin deliberadamente); consta «${b2c.clase_migracion}»`);
+    }
+  }
   // The literal false claim «no Management API calls» must never reappear in a
   // governing document — query 5 DID run through the Management API (MAJOR 2).
   {
@@ -688,7 +738,7 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
       }
     }
   }
-  if (!failures.some(f => f.check.startsWith('21'))) notes.push('clasificación W-PC-06 OK — B (transformación de datos requerida) anclada con su registro agregado; inventario de cinco consultas, divulgación de la Management API y lectura de metadatos previa a la consulta 5 anclados, sin frases de acceso demasiado amplias; dependencia ordenada B2d→B2c vigente');
+  if (!failures.some(f => f.check.startsWith('21'))) notes.push('clasificación W-PC-06 OK — B (transformación de datos requerida) anclada con su registro agregado; inventario de cinco consultas, divulgación de la Management API y lectura de metadatos previa a la consulta 5 anclados, sin frases de acceso demasiado amplias; dependencia ordenada B2d→B2c vigente; cierre post-merge anclado (PR #61, head aprobado db43b4f5, merge f39a90c3, CI de PR y post-merge, despliegue automático a Production completado) con W-B2d-01 BLOCKED/UNAUTHORIZED y W-B2c-01 BLOCKED/BLOCKED; redacción durable (origin/main en el momento de verificación del cierre) y límite preciso de producción (CI local efímera ≠ producción) anclados');
 }
 
 // ── Report ───────────────────────────────────────────────────────────────────

@@ -134,9 +134,9 @@ amending or rewriting the reviewed commit:
 3. `docs/ci-setup.md` now documents the enforced `vN` or `vN.N.N` ref-format
    rule and states precisely that all guard failure rules have direct tests.
 
-Because the correction creates a new head, independent delta review remains
-required before push. Hosted action compatibility and annotation removal still
-remain PR-only evidence.
+At the round-1 correction point, the new head still required independent delta
+review before push, and hosted action compatibility and annotation removal
+remained PR-only evidence.
 
 ## Independent review — round 2
 

@@ -4,8 +4,8 @@
 
 - Branch: `docs/ci-close`
 - Base: `2b7be4cfe8819e07f53b3b9ff734b8a2dacd5894` (`origin/main` at dispatch)
-- Commit count over base: 1 (the documentation-only closure commit containing
-  this review request)
+- Commit count over base: 2 (the documentation-only closure commit plus its
+  review correction; the original commit is not amended or rewritten)
 - Authorization: continuation of Brent's explicit CI-MAINT-01 execution and
   his merge of PR #63
 
@@ -58,7 +58,7 @@ No executable file changes.
 - Local documentation-closeout gates at the candidate tree: `type-check` clean;
   lint clean with zero warnings; action-runtime guard clean (17 action uses in
   one workflow); migration guard clean (40 migrations); browser/server boundary
-  guard clean (1,150 files, 695 reachable modules, 516 page entrypoints);
+  guard clean (1,149 files, 694 reachable modules, 516 page entrypoints);
   Vitest 369 files / 8,423 passed / 11 skipped; Santa Marta validator at exactly
   the 67 pre-existing `[16 propiedad]` findings and nothing else; and
   `git diff --check` clean. The production build compiled successfully and
@@ -80,6 +80,32 @@ No executable file changes.
    W-B2c, production access, or any product/database implementation.
 5. **Historical preservation.** Ensure the original review findings and
    pre-merge evidence remain visible but are clearly scoped to their time.
+
+## Independent review — round 1
+
+Claude reviewed exact range `2b7be4cf..62b9a8b4`, confirmed the one-commit
+documentation-only topology, and independently verified the merge, both CI
+runs, zero-annotation audit, automatic deployment, and authorization boundary.
+The review reported no P0, P1, or P2 findings and one P3 evidence-transcription
+finding: the candidate-tree browser guard counts were overstated by one file
+and one reachable module. This correction records the independently reproduced
+figures of 1,149 files, 694 reachable modules, and 516 page entrypoints.
+
+The review also noted, without classifying it as a finding, that one sentence
+in the implementation review's round-1 history retained present tense. This
+correction time-qualifies that sentence so the historical requirement cannot
+be mistaken for current status. No other closure fact, gate result, external
+identifier, authorization boundary, or executable artifact changes. Because
+this correction creates a new head, independent delta review remains required
+before push.
+
+Correction verification on a pristine Git extraction: browser/server boundary
+guard clean at 1,149 files / 694 reachable modules / 516 page entrypoints;
+action-runtime guard clean at 17 uses in one workflow; Santa Marta validator at
+exactly 67 `[16 propiedad]` findings and no other category; and correction-range
+`git diff --check` clean. The broader gates recorded above remain the evidence
+for the otherwise byte-identical executable tree; this Markdown-only delta does
+not rerun database or UI suites.
 
 ## Known limitations
 

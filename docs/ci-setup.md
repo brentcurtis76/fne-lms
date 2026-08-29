@@ -20,9 +20,12 @@ document and the live branch rule together.
 
 `CI-MAINT-01` was authorized by Brent on 2026-08-29 after PR #62 and its
 post-merge run emitted GitHub's Node 20 action-runtime deprecation annotation.
-The task is implemented on branch `ci/actions-node24` from base
-`060703071399e035c3ba124971b21b11f2b0275e`; it is not merged until independent
-review, a pull request, and all seven live CI jobs pass.
+The task was implemented on branch `ci/actions-node24` from base
+`060703071399e035c3ba124971b21b11f2b0275e`. After two independent review
+rounds, Claude approved exact head
+`ae388a3058af9fc244c7b8d34de5003a4ffe109c` with no findings. Brent merged PR
+[#63](https://github.com/brentcurtis76/fne-lms/pull/63) as merge commit
+`2b7be4cfe8819e07f53b3b9ff734b8a2dacd5894`.
 
 The workflow keeps two different Node concepts explicit:
 
@@ -56,10 +59,16 @@ The guard is itself part of `Migration safety guard`, and its 17 focused
 Vitest controls exercise every failure rule directly: retired refs, unreviewed
 ref formats, common Node-20 version and LTS alias spellings, unreviewed action
 families, and disappearance of a reviewed family.
-Completing `CI-MAINT-01` requires a PR run with the same seven exact context
-names, all seven successful, and no Node 20 action-runtime annotation. Product
-code, migrations, Supabase production, Vercel configuration, branch-protection
-settings, and manual deployment are out of scope.
+`CI-MAINT-01` is complete. PR CI run
+[33274215527](https://github.com/brentcurtis76/fne-lms/actions/runs/33274215527)
+and post-merge `main` run
+[33274578596](https://github.com/brentcurtis76/fne-lms/actions/runs/33274578596)
+each passed the same seven exact jobs. Both runs had zero check annotations and
+zero matches for GitHub's Node 20 action-runtime deprecation wording. Automatic
+Production deployment `6160000598` completed successfully; no manual
+deployment or production database access occurred. Product code, migrations,
+Supabase production, Vercel configuration, branch-protection settings, and
+manual deployment were out of scope and remain unchanged.
 
 ## Branch protection — PENDING EXTERNAL
 

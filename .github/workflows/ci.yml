@@ -160,8 +160,9 @@ jobs:
           cache: npm
       - uses: supabase/setup-cli@v3
         with:
-          # Pinned, unlike gate 3: this job passes service names to `supabase start -x`,
-          # and a rename in a future CLI release would break the gate on an unrelated PR.
+          # Pinned in both Supabase gates: this job passes service names to
+          # `supabase start -x`, and a rename in a future CLI release would
+          # break the gate on an unrelated PR.
           version: 2.110.0
       - run: npm ci
 

@@ -1,4 +1,7 @@
 // @vitest-environment node
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   ACTION_POLICY,
@@ -53,6 +56,30 @@ describe('GitHub Action runtime policy', () => {
   it('fails closed when a new external action has not been reviewed', () => {
     const result = scanWorkflowText('steps:\n  - uses: example/unreviewed@v1');
     expect(result.findings.map((finding) => finding.rule)).toContain('UNREVIEWED_ACTION');
+  });
+
+  it('rejects a reviewed action at a ref outside the reviewed release format', () => {
+    const result = scanWorkflowText('steps:\n  - uses: actions/checkout@main');
+    expect(result.findings.map((finding) => finding.rule)).toContain('UNREVIEWED_REF');
+  });
+
+  it('fails when a reviewed action family silently disappears', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ci-action-runtime-'));
+    try {
+      writeFileSync(
+        join(dir, 'ci.yml'),
+        CURRENT_ACTIONS.replace('  - uses: actions/upload-artifact@v7\n', ''),
+      );
+      const result = scanWorkflowDirectory(dir);
+      expect(result.findings).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          rule: 'MISSING_REVIEWED_ACTION',
+          message: expect.stringContaining('actions/upload-artifact'),
+        }),
+      ]));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('does not mistake commented examples for active action uses', () => {

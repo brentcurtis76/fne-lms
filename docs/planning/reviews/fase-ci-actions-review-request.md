@@ -4,7 +4,8 @@
 
 - Branch: `ci/actions-node24`
 - Base: `060703071399e035c3ba124971b21b11f2b0275e` (`origin/main` at dispatch)
-- Commit count over base: 1 (the phase commit containing this review request)
+- Commit count over base: 2 (the phase commit plus the independent-review
+  correction commit; the first commit was not amended or rewritten)
 - Owner authorization: Brent explicitly authorized immediate implementation on 2026-08-29
 
 ## Objective and scope
@@ -58,14 +59,16 @@ Low risk — documentation/state:
 
 ## Test evidence
 
-- Focused runtime-guard suite: 15/15 passed, including all four retired action
-  refs plus Node 20 major, wildcard, patch, and `lts/iron` selections.
+- Focused runtime-guard suite: 17/17 passed, including all four retired action
+  refs; Node 20 major, wildcard, patch, and `lts/iron` selections; an
+  unreviewed action; an unreviewed ref format; and disappearance of a reviewed
+  action family.
 - Runtime guard on the real workflow: 17 action uses across one workflow, clean.
 - Workflow YAML parses with exactly the same seven job keys; repository sweep
   finds zero retired action refs or Node 20 selections.
 - TypeScript: `npm run type-check` clean.
 - ESLint: `npm run lint` clean with `--max-warnings=0`.
-- Vitest: 369 files, 8,421 passed, 11 skipped, zero failed. The final full run
+- Vitest: 369 files, 8,423 passed, 11 skipped, zero failed. The final full run
   used a Git-initialized non-nested export because the canonical checkout's
   parked `.claude/worktrees` make repository-wide collection scan duplicate
   copies; the export contained the exact candidate tree and linked the same
@@ -75,7 +78,7 @@ Low risk — documentation/state:
   environment file or provider was accessed.
 - Browser/server boundary guard: 1,150 files and 695 reachable modules, clean.
 - Migration guards: 40 migration files, no RLS disable or destructive SQL.
-- Price-leak scan: 262 built static files, clean.
+- Price-leak scan: 259 built static files, clean.
 - Santa Marta validator: expected exit 1 with exactly the 67 pre-existing
   `[16 propiedad]` ownership findings and no other failure category.
 - `git diff --check`: clean.
@@ -113,3 +116,22 @@ Low risk — documentation/state:
 - No push, PR, merge, deployment, production access, Supabase call, or external
   configuration mutation belongs to this implementation phase before Brent's
   separate post-review decision.
+
+## Independent review — round 1
+
+Claude independently reviewed exact commit
+`b02f029546f42c41f569e124fd91de08f1aa12f8` and reported no P0, P1, or P2
+findings plus three P3 findings. This second commit addresses all three without
+amending or rewriting the reviewed commit:
+
+1. Gate 4's stale "unlike gate 3" comment now states accurately that both
+   Supabase gates pin the CLI.
+2. Direct negative controls now exercise `UNREVIEWED_REF` and
+   `MISSING_REVIEWED_ACTION`; deleting either rule can no longer leave the
+   focused suite green.
+3. `docs/ci-setup.md` now documents the enforced `vN` or `vN.N.N` ref-format
+   rule and states precisely that all guard failure rules have direct tests.
+
+Because the correction creates a new head, independent delta review remains
+required before push. Hosted action compatibility and annotation removal still
+remain PR-only evidence.

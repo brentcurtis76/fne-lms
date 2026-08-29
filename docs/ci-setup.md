@@ -46,14 +46,16 @@ present before the workflow change.
 fails when:
 
 - a reviewed action falls below its minimum supported major;
+- a reviewed action uses anything other than a `vN` or `vN.N.N` release ref;
 - a workflow selects Node 20;
 - a new external action appears without being added deliberately to the
   reviewed policy; or
 - one of the four reviewed action families disappears without a policy update.
 
-The guard is itself part of `Migration safety guard`, and its Vitest negative
-controls prove all four retired refs and the common Node-20 version and LTS
-alias spellings fail.
+The guard is itself part of `Migration safety guard`, and its 17 focused
+Vitest controls exercise every failure rule directly: retired refs, unreviewed
+ref formats, common Node-20 version and LTS alias spellings, unreviewed action
+families, and disappearance of a reviewed family.
 Completing `CI-MAINT-01` requires a PR run with the same seven exact context
 names, all seven successful, and no Node 20 action-runtime annotation. Product
 code, migrations, Supabase production, Vercel configuration, branch-protection

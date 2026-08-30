@@ -1,6 +1,6 @@
 # Review request — fase LP-GOV-01: learning-path global-template governance correction (`docs/lp-global`)
 
-**Branch:** `docs/lp-global` · **Base:** exactly `72f7beed45b87aeb2fa0be7ba7f74fe5b78e944d` (`origin/main` at execution time, verified against the live remote; re-verified unchanged at round 1) · **Commit count: exactly 2** — the original correction commit **`7df2f7764107449a1d14db3fb047c6cb2cddf41d`** (parent = the base) plus one **additive round-1 correction commit** on top of it. **`7df2f776` was not amended, rewritten, or replaced.** The round-1 commit's own hash cannot appear in a file it introduces; it is recorded in the executor's completion report and verifiable as `git log --oneline docs/lp-global ^72f7beed` (exactly two commits: round-1 → `7df2f776` → base). §12 records the round-1 findings and their remediation.
+**Branch:** `docs/lp-global` · **Base:** exactly `72f7beed45b87aeb2fa0be7ba7f74fe5b78e944d` (`origin/main` at execution time, verified against the live remote; re-verified unchanged at round 1) · **Commit count: exactly 3** — the original correction commit **`7df2f7764107449a1d14db3fb047c6cb2cddf41d`** (parent = the base), the **additive round-1 correction commit `a37e6f1d9427e90fb21d8e246353036561a13fce`** on top of it, and one **additive round-2 correction commit** on top of that. **Neither `7df2f776` nor `a37e6f1d` was amended, rewritten, or replaced.** The newest commit's own hash cannot appear in a file it introduces; it is recorded in the executor's completion report and verifiable as `git log --oneline docs/lp-global ^72f7beed` (exactly three commits: round-2 → `a37e6f1d` → `7df2f776` → base). §12 records the round-1 findings and their remediation; §13 records round 2.
 
 **Kind:** documentation-only governance correction. No application code, API, migration, RLS policy, or test-suite implementation; no Supabase call; no database query or mutation; no production access; no push, PR, merge, or deployment performed by the executor.
 
@@ -64,13 +64,13 @@ Full inventory (file:line anchors) in `docs/reviews/w-b2c-01-learning-path-gover
 - `CONTROL` — pristine copy fails on exactly the 67 pre-existing `[16 propiedad]` ownership findings and **no other category** (matching the base run recorded before any edit, and the post-edit runs on the real tree at both the round-0 and round-1 heads: identical 67-line failure list, `diff` clean).
 - M01 claims-CSV byte change → 22a SHA failure · M02 record deleted → 22b · M03 "No school owns a learning path" removed → 22b · M04 inventory loses `increment_path_assignment_time` → 22b · M05 evidence §8 heading removed → 22c · M06 effective-A conclusion removed → 22c · M07 B2d back to BLOCKED → 21+22d · M08 B2d DONE → 21 ("DONE está prohibido") + 22d · M09 B2d AUTHORIZED → 21+22d · M10 never-executed note removed → 22d · M11 B2c class back to BLOCKED → 21 · M12 B2c leaves BLOCKED → 21 · M13 prerequisite 3 removed → 22e · M14 ordered dependency reinserted → 22e · M15 `aislamiento por colegio` reinserted → 22e · M16 `plantillas globales` removed from gate → 22e · M17 W-PC-06 supersession removed → 22f · M18 protocol loses the decision → 22g · M19 LP-GOV-01 entry renamed → 22g · M20 gate list drops `learning_path_assignments` → 18 · M21 foreign B2b table smuggled into the list → 18 (both the set-equality and belt-and-braces token scan) · M22 protocol misstates the SUPERSEDED count → 14 · M23 invented status `RETIRED` → 07 · M24 B2c notes stop naming W-B2d-01 → 21 · **M25 (round 1)** governance record loses the `pages/api/admin/users.ts` service-role read path (both the literal path and its `checkIsAdminOrEquipoDirectivo` authorization needle substituted away) → 22b fails naming **both** missing pins.
 
-## 8. Test and gate evidence
+## 8. Test and gate evidence — round 0 (historical)
 
-Executed at the head of the single commit's tree (validator/mutations above; standard gates below):
+This section is the **round-0 evidence, captured at `7df2f776` when the branch contained exactly one commit over the base**; it is preserved as recorded then. The current round-1 evidence is in §12 (and the round-2 rerun in §13). Validator/mutations above; standard gates below:
 
 <!-- GATE-EVIDENCE:BEGIN -->
 - **Santa Marta validator** (`node scripts/check-ledger.mjs`): exit 1 with **exactly the 67 pre-existing `[16 propiedad]` ownership failures and no other category** — the failure list is byte-identical (`diff` clean) to the control run captured at the untouched base before any edit; checks 01–15 and 17–22 all pass; figures recomputed from the files: 160 claims / 36 P0 / 107 work items / 152 links / 59 P0 links / 36 linked P0 / 28 batches; modes 90/10/6/1; statuses 29/57/17/3/1.
-- **Mutation harness:** 25/25 as expected (control + M01–M24, §7), disposable copies only.
+- **Mutation harness — round-0 result:** 25/25 as expected (control + M01–M24, the full suite as it existed at `7df2f776`), disposable copies only. *(Historical count preserved; the cumulative post-round-1 result is 26/26 — §7, §12.)*
 - **Environment note (material to how the gates ran):** the harness worktree's `node_modules` was found **iCloud-evicted** (dataless placeholders; `tsc` blocked in Node startup — ~53 min with 7 s of CPU). Remedy: the 2,483 source/docs files (verified 0 dataless) were rsync-copied to the non-iCloud runner `/Users/brentcurtis/dev/lp-global-gates` (`diff -rq` verified byte-identical) with a fresh `npm ci` (1,375 packages); the real worktree then ran with that materialized dependency tree symlinked in as `node_modules` (gitignored; no commit impact). The evicted tree was parked outside the worktree.
 - **`npm run type-check`**: **exit 0 in the real worktree** (and exit 0 in the copy).
 - **`npm run lint`** — the repository's exact supported zero-warning form (`eslint --ext .js,.jsx,.ts,.tsx --max-warnings=0 .`): **exit 0, zero warnings, in the non-nested copy**. In the nested `.claude/worktrees/` checkout ESLint is unrunnable by a **pre-existing, documented limitation** (no `root: true`, so the config cascades into the parent checkout and resolves plugins from its `node_modules` — here additionally evicted, turning the known dual-resolution failure into a stall); the project's recorded procedure for exactly this case is to run the *unmodified* lint from a non-nested checkout, which the diff-verified copy is.
@@ -101,7 +101,7 @@ Executed at the head of the single commit's tree (validator/mutations above; sta
 
 ## 11. Confirmation of boundaries
 
-No Supabase call of any kind; no database query or mutation (the validator and mutation harness read local files only); no production access; no application/API/migration/RLS/test implementation; no push, PR, merge, deployment, or GitHub/Vercel setting mutation; no history rewritten or amended; exactly one local commit; frozen artifacts preserved byte-for-byte and hash-verified (`d598f29b…` claims snapshot, `009f14ab…` legacy archive).
+No Supabase call of any kind; no database query or mutation (the validator and mutation harness read local files only); no production access; no application/API/migration/RLS/test implementation; no push, PR, merge, deployment, or GitHub/Vercel setting mutation; no history rewritten or amended; **exactly two local commits over the base as of the round-1 review point** — `7df2f776` unchanged plus one additive round-1 correction commit (the round-2 correction of §13 adds a third, also additive); frozen artifacts preserved byte-for-byte and hash-verified (`d598f29b…` claims snapshot, `009f14ab…` legacy archive).
 
 ## 12. Independent review — round 1 (2026-08-30)
 
@@ -130,4 +130,25 @@ The round-0 review returned two findings; both are corrected by **one additive c
 
 **Requested next step:** an **independent delta review** of the round-1 commit (its diff over `7df2f776`) before any push.
 
-— Prepared 2026-08-29 on branch `docs/lp-global`; round-1 correction added 2026-08-30 (§12) for independent delta review (reviewer side: `docs/planning/review-protocol.md`). Merge decision remains Brent's.
+## 13. Independent review — round 2 (2026-08-30)
+
+The round-1 delta review returned **one P3 finding**: after the round-1 commit correctly set the header to two commits and added §12, three earlier statements were left as **unqualified round-0 facts** — §8's introduction said the evidence was executed "at the head of the single commit's tree," §8's mutation bullet said "25/25" without identifying it as the round-0 result, and §11 said "exactly one local commit."
+
+**Remediation — three time-qualifications, in this file only:** §8 is now explicitly labeled the **round-0 evidence captured at `7df2f776`** (one commit over the base at that time), pointing to §12 for round 1; the 25/25 bullet is labeled the **round-0 mutation result** with the historical count preserved and the cumulative 26/26 referenced; §11 now states **exactly two local commits over the base as of the round-1 review point** (`7df2f776` unchanged plus one additive correction commit), with this round adding a third. The header's commit count advances 2 → 3 with the exact ancestry preserved (round-2 → `a37e6f1d` → `7df2f776` → base).
+
+**No earlier evidence was rewritten or reinterpreted** — every round-0 and round-1 number, log reference, and result stands exactly as recorded; the corrections only attach each statement to its point in time. The round-2 commit is **additive**; neither `7df2f776` nor `a37e6f1d` was amended, rewritten, or replaced. Only this review-request file changes: no validator, governance record, PROJECT_STATE, normalization report, ledger, mapping, protocol, frozen artifact, application code, database file, or test is touched.
+
+**Verification at the round-2 head:**
+
+<!-- GATE-EVIDENCE-R2:BEGIN -->
+- Diff scope confirmed: `git status` shows **only this file** modified.
+- `node scripts/check-ledger.mjs`: exit 1, **exactly the 67 pre-existing `[16 propiedad]` findings and no other category** (this file is not a validator input; run repeated at the round-2 head regardless).
+- Frozen hashes re-verified: claims `d598f29b…`, legacy archive `009f14ab…`; `git diff --check` clean.
+- Standard gates rerun proportionately at the round-2 head, same runner matrix as §8/§12: `npm run type-check` **exit 0** and `npm test` **exit 0 — 369/369 files, 8,423 passed / 11 skipped** (real worktree); `npm run lint` (`--max-warnings=0` form) **exit 0** and `npm run build` **exit 0** (non-iCloud copy, resynced and `diff -rq`-verified byte-identical first).
+<!-- GATE-EVIDENCE-R2:END -->
+
+- `test:db`/E2E remain deliberately not run — no DB, API, or UI file may change in this round (rationale as §8/§12).
+
+**Requested next step:** another **independent delta review** of the round-2 commit (its one-file diff over `a37e6f1d`) before any push.
+
+— Prepared 2026-08-29 on branch `docs/lp-global`; round-1 correction added 2026-08-30 (§12); round-2 time-qualification correction added 2026-08-30 (§13) for independent delta review (reviewer side: `docs/planning/review-protocol.md`). Merge decision remains Brent's.

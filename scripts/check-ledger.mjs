@@ -33,6 +33,13 @@ const BASELINE = R('supabase/migrations/00000000000000_baseline.sql');
 const EXPECTED_CLAIMS = 160;
 const EXPECTED_P0_CLAIMS = 36;
 const LEGACY_SHA256 = '009f14abccec97d7ada4b559c9aaeb24ac5b7aab54563a5c1151e511dc2c7fe9';
+// The frozen claims snapshot itself is byte-preserved forever (protocol §0: its
+// evidence/signature fields were frozen empty and are never populated). Pinned
+// since the 2026-08-29 global-semantics correction; enforced by check 22.
+const CLAIMS_SHA256 = 'd598f29b39d8d5ac9c1289a7c030221c93a3c8897c91f19e395f99486c68cce7';
+// Anchor of the 2026-08-29 owner-decision correction (global FNE templates,
+// literal-admin-only management); enforced by checks 21/22.
+const LP_GOV_DOC = 'docs/reviews/w-b2c-01-learning-path-governance-correction-2026-08-29.md';
 
 /**
  * The ONLY permitted transformation of the legacy id set. Declared explicitly so
@@ -45,7 +52,8 @@ const LEGACY_SHA256 = '009f14abccec97d7ada4b559c9aaeb24ac5b7aab54563a5c1151e511d
  * instead and is an evidence dependency, not a remediation, so it never counts here.
  * W-B2d-01 — the class-3 ownership repair required by W-PC-06's classification B
  * (2026-08-28) — also maps to SWEEP-MI-APRENDIZAJE-09, never to SWEEP-PRIOR-AUDIT-09,
- * so it does not move this expectation either.
+ * so it does not move this expectation either. Its 2026-08-29 supersession
+ * (retired unexecuted; see check 22) keeps that historical mapping intact.
  */
 const PERMITTED_ID_TRANSFORM = {
   from: ['SWEEP-PRIOR-AUDIT-09a', 'SWEEP-PRIOR-AUDIT-09b'],
@@ -70,21 +78,28 @@ const CANONICAL_BRANCH = {
 
 /**
  * Approved scope sets of the B2b/B2c/B10a split (owner decision 2026-08-27).
- * The B2C_FUNCTIONS names are the exact baseline identifiers, verified against
- * supabase/migrations/00000000000000_baseline.sql and the two API callers
- * (pages/api/learning-paths/session/start.ts, end.ts). The two RETIRED_FN_NAMES
- * were misnamed in an earlier draft, do not exist in the schema, and must never
- * reappear in active governance documents. The D-RLS units are the deferred
- * broader-RLS research (protocol §9); they are prose-governed, never ledger rows.
+ * The B2C sets were CORRECTED by the 2026-08-29 owner-decision governance
+ * correction after a repository-only inventory (see LP_GOV_DOC): the old
+ * "two tables and six functions" inventory was incomplete. B2c now covers the
+ * four learning-path tables and the eight SECURITY DEFINER functions of that
+ * surface — the historical six plus increment_path_assignment_time and
+ * update_session_heartbeat, both verified in
+ * supabase/migrations/00000000000000_baseline.sql with the same broad grants.
+ * The two RETIRED_FN_NAMES were misnamed in an earlier draft, do not exist in
+ * the schema, and must never reappear in active governance documents. The
+ * D-RLS units are the deferred broader-RLS research (protocol §9); they are
+ * prose-governed, never ledger rows.
  */
 const B2B_TABLES = ['answers', 'assignments', 'course_prerequisites', 'deleted_blocks',
   'deleted_courses', 'deleted_lessons', 'deleted_modules', 'menu_permissions',
   'metadata_sync_log', 'profiles_role_backup', 'questions', 'quizzes',
   'student_answers', 'submissions'];
-const B2C_TABLES = ['learning_paths', 'learning_path_courses'];
+const B2C_TABLES = ['learning_paths', 'learning_path_courses',
+  'learning_path_assignments', 'learning_path_progress_sessions'];
 const B2C_FUNCTIONS = ['create_full_learning_path', 'update_full_learning_path',
   'batch_assign_learning_path', 'start_learning_path_session',
-  'end_learning_path_session', 'auth_is_learning_path_member'];
+  'end_learning_path_session', 'auth_is_learning_path_member',
+  'increment_path_assignment_time', 'update_session_heartbeat'];
 const B10A_TABLES = ['group_assignment_discussions', 'growth_community_transformation_access',
   'instructors', 'modules', 'propuesta_rate_limits', 'qa_tester_time_logs'];
 const RETIRED_FN_NAMES = ['start_learning_session', 'end_learning_session'];
@@ -102,7 +117,11 @@ const MAP_HEADERS = ['work_id', 'claim_id'];
 
 const KINDS = ['EXPLICIT_PROMISE', 'IMPLIED_COMMITMENT', 'OPERATIONAL_PRECONDITION',
   'AUDIT_FINDING', 'REVIEW_REQUIRED'];
-const STATUSES = ['SCHEDULED', 'ACTIVE', 'BACKLOG', 'BLOCKED', 'DONE'];
+// SUPERSEDED (added 2026-08-29): terminal state for a work item retired WITHOUT
+// execution because the owner rejected its premise. It is not DONE (nothing ran)
+// and not BLOCKED (nothing waits to unblock). Introduced for W-B2d-01; check 22
+// enforces its truthful use.
+const STATUSES = ['SCHEDULED', 'ACTIVE', 'BACKLOG', 'BLOCKED', 'DONE', 'SUPERSEDED'];
 const MODES = ['MERGE', 'DATA', 'PRODUCTION_CHECK', 'DOCUMENTATION'];
 const CLASSES = ['0', '1', '2', '3', 'BLOCKED'];
 const AUTH = ['UNAUTHORIZED', 'AUTHORIZED', 'NOT_APPLICABLE'];
@@ -520,7 +539,7 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
   };
   const SETS = [
     ['W-B2b-01', B2B_TABLES, 'las catorce tablas aprobadas'],
-    ['W-B2c-01', [...B2C_TABLES, ...B2C_FUNCTIONS], 'las dos tablas y las seis funciones exactas'],
+    ['W-B2c-01', [...B2C_TABLES, ...B2C_FUNCTIONS], 'las cuatro tablas y las ocho funciones exactas'],
     ['W-B10a-01', B10A_TABLES, 'las seis tablas aprobadas'],
   ];
   const FOREIGN = {
@@ -546,10 +565,13 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
     for (const n of FOREIGN[wid]) if (hasToken(scope, n)) fail('18 alcance', `${wid}: gate_salida nombra «${n}», que pertenece a otro conjunto del split`);
   }
   const union = [...B2B_TABLES, ...B2C_TABLES, ...B10A_TABLES];
-  if (B2B_TABLES.length !== 14 || B2C_TABLES.length !== 2 || B10A_TABLES.length !== 6 || new Set(union).size !== union.length) {
-    fail('18 alcance', `los conjuntos B2b/B2c/B10a deben ser disjuntos y sumar 14 + 2 + 6 = 22; hay ${new Set(union).size} nombres únicos sobre ${union.length} declarados`);
+  if (B2B_TABLES.length !== 14 || B2C_TABLES.length !== 4 || B10A_TABLES.length !== 6 || new Set(union).size !== union.length) {
+    fail('18 alcance', `los conjuntos B2b/B2c/B10a deben ser disjuntos y sumar 14 + 4 + 6 = 24; hay ${new Set(union).size} nombres únicos sobre ${union.length} declarados`);
   }
-  if (!failures.some(f => f.check.startsWith('18'))) notes.push('alcance del split OK — igualdad exacta de conjuntos: B2b 14 tablas + B2c 2 tablas y 6 funciones + B10a 6 tablas, disjuntos (22)');
+  if (B2C_FUNCTIONS.length !== 8) {
+    fail('18 alcance', `el conjunto de funciones B2c debe ser exactamente 8 desde el inventario corregido de 2026-08-29; hay ${B2C_FUNCTIONS.length}`);
+  }
+  if (!failures.some(f => f.check.startsWith('18'))) notes.push('alcance del split OK — igualdad exacta de conjuntos: B2b 14 tablas + B2c 4 tablas y 8 funciones + B10a 6 tablas, tablas disjuntas (24)');
 }
 
 // ── 19. B2c functions are real SECURITY DEFINER baseline objects; retired names gone
@@ -576,7 +598,7 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
       if (text.includes(bad)) fail('19 funciones', `${label}: contiene el nombre de función retirado «${bad}»; los nombres reales son start_learning_path_session / end_learning_path_session`);
     }
   }
-  if (!failures.some(f => f.check.startsWith('19'))) notes.push('funciones B2c OK — las seis existen SECURITY DEFINER en el baseline; los dos nombres retirados están ausentes de los documentos activos');
+  if (!failures.some(f => f.check.startsWith('19'))) notes.push('funciones B2c OK — las ocho existen SECURITY DEFINER en el baseline; los dos nombres retirados están ausentes de los documentos activos');
 }
 
 // ── 20. Deferred broader-RLS units stay present in EVERY governing location ──
@@ -660,21 +682,33 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
       }
     }
   }
-  if (!b2d) fail('21 clasificación', 'W-B2d-01: no existe en el ledger de trabajo (lo exige la clasificación B de W-PC-06)');
+  if (!b2d) fail('21 clasificación', 'W-B2d-01: no existe en el ledger de trabajo (su fila SUPERSEDED es registro histórico obligatorio de la clasificación B de W-PC-06)');
   else {
     if (b2d.lote !== 'B2d') fail('21 clasificación', `W-B2d-01: lote debe ser B2d; es «${b2d.lote}»`);
     if (b2d.rama !== 'data/lp-scope') fail('21 clasificación', `W-B2d-01: rama debe ser data/lp-scope; es «${b2d.rama}»`);
     if (b2d.delivery_mode !== 'MERGE') fail('21 clasificación', `W-B2d-01: delivery_mode debe ser MERGE; es «${b2d.delivery_mode}»`);
-    if (b2d.clase_migracion !== '3') fail('21 clasificación', `W-B2d-01: clase_migracion debe ser 3 (transformación de datos); es «${b2d.clase_migracion}»`);
-    if (b2d.authorization_status === 'UNAUTHORIZED' && b2d.status !== 'BLOCKED') fail('21 clasificación', `W-B2d-01: UNAUTHORIZED exige status BLOCKED; está en ${b2d.status}`);
+    if (b2d.clase_migracion !== '3') fail('21 clasificación', `W-B2d-01: clase_migracion debe ser 3 (la clase histórica de la propuesta); es «${b2d.clase_migracion}»`);
+    // Revised deliberately (2026-08-29, owner decision): the truthful terminal
+    // state of the never-executed repair is SUPERSEDED, not BLOCKED — check 22
+    // pins the full supersession semantics.
+    if (b2d.authorization_status === 'UNAUTHORIZED' && !['BLOCKED', 'SUPERSEDED'].includes(b2d.status)) fail('21 clasificación', `W-B2d-01: UNAUTHORIZED exige status BLOCKED o SUPERSEDED; está en ${b2d.status}`);
     const linked = claimsOfWork.get('W-B2d-01') || [];
     if (linked.length !== 1 || linked[0] !== 'SWEEP-MI-APRENDIZAJE-09') fail('21 clasificación', `W-B2d-01: debe mapear exactamente a SWEEP-MI-APRENDIZAJE-09 y a nada más; mapea a [${linked.sort().join(', ')}]`);
   }
   if (b2c && b2d) {
-    if (b2d.status !== 'DONE' && (b2c.status !== 'BLOCKED' || b2c.clase_migracion !== 'BLOCKED')) {
-      fail('21 clasificación', `dependencia ordenada B2d→B2c: W-B2d-01 no está DONE, así que W-B2c-01 debe seguir BLOCKED con clase_migracion BLOCKED; está ${b2c.status}/${b2c.clase_migracion}`);
+    // Revised deliberately (2026-08-29): the ordered B2d→B2c dependency of the
+    // 2026-08-28 closure is REPLACED by its prohibition. The owner decision
+    // (learning paths are global FNE templates; NULL scope is intentional)
+    // makes the effective conclusion classification A: no data repair precedes
+    // B2c, W-B2d-01 is SUPERSEDED unexecuted, and W-B2c-01 is class 2 while
+    // remaining BLOCKED behind its three prerequisites (check 22).
+    if (b2d.status === 'DONE') {
+      fail('21 clasificación', 'W-B2d-01: figura DONE, pero el backfill jamás se ejecutó — DONE está prohibido para este ítem; su estado veraz es SUPERSEDED');
     }
-    if (!(b2c.notes || '').includes('W-B2d-01')) fail('21 clasificación', 'W-B2c-01: sus notas no declaran la dependencia previa W-B2d-01');
+    if (b2c.status !== 'BLOCKED' || b2c.clase_migracion !== '2') {
+      fail('21 clasificación', `W-B2c-01: debe seguir BLOCKED con clase_migracion 2 (corrección de seguridad/RLS, reclasificada el 2026-08-29); está ${b2c.status}/${b2c.clase_migracion}`);
+    }
+    if (!(b2c.notes || '').includes('W-B2d-01')) fail('21 clasificación', 'W-B2c-01: sus notas deben registrar la supersesión de W-B2d-01 (ya no como dependencia)');
   }
   // Post-merge closure pins (2026-08-28): Brent merged the authoritative
   // classification record as PR #61 — approved head db43b4f5…, merge commit
@@ -716,14 +750,19 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
       if (!pcEntry.includes('ephemeral local Supabase')) fail('21 clasificación', 'PROJECT_STATE (entrada autoritativa W-PC-06): falta la distinción de que la CI post-merge usó un stack «ephemeral local Supabase»');
       if (!pcEntry.includes('not production access')) fail('21 clasificación', 'PROJECT_STATE (entrada autoritativa W-PC-06): debe constar que el uso del stack local efímero por la CI es «not production access»');
     }
+    // Revised deliberately (2026-08-29, in this correction's own independently
+    // reviewed change, as the original pin comment required): W-B2d-01's
+    // durable state is SUPERSEDED/UNAUTHORIZED — retired unexecuted — and
+    // W-B2c-01 remains BLOCKED at its corrected class 2. A future legitimate
+    // state change must again revise these pins deliberately.
     if (b2d) {
-      if (b2d.status !== 'BLOCKED') fail('21 clasificación', `W-B2d-01: debe permanecer BLOCKED hasta la autorización separada y explícita de Brent (que debe revisar este pin deliberadamente); está en «${b2d.status}»`);
-      if (b2d.authorization_status !== 'UNAUTHORIZED') fail('21 clasificación', `W-B2d-01: debe permanecer UNAUTHORIZED hasta la autorización separada y explícita de Brent (que debe revisar este pin deliberadamente); consta «${b2d.authorization_status}»`);
+      if (b2d.status !== 'SUPERSEDED') fail('21 clasificación', `W-B2d-01: debe permanecer SUPERSEDED — retirado sin ejecutar por la decisión del dueño del 2026-08-29 (un cambio legítimo debe revisar este pin deliberadamente); está en «${b2d.status}»`);
+      if (b2d.authorization_status !== 'UNAUTHORIZED') fail('21 clasificación', `W-B2d-01: debe permanecer UNAUTHORIZED — nunca se autorizó y nunca se ejecutó (un cambio legítimo debe revisar este pin deliberadamente); consta «${b2d.authorization_status}»`);
     }
-    if (!b2c) fail('21 clasificación', 'W-B2c-01: no existe en el ledger de trabajo (el cierre de W-PC-06 exige que permanezca BLOCKED/BLOCKED)');
+    if (!b2c) fail('21 clasificación', 'W-B2c-01: no existe en el ledger de trabajo (debe permanecer BLOCKED con clase 2)');
     else {
-      if (b2c.status !== 'BLOCKED') fail('21 clasificación', `W-B2c-01: debe permanecer BLOCKED hasta la autorización separada y explícita de Brent (que debe revisar este pin deliberadamente); está en «${b2c.status}»`);
-      if (b2c.clase_migracion !== 'BLOCKED') fail('21 clasificación', `W-B2c-01: clase_migracion debe permanecer BLOCKED hasta la autorización separada y explícita de Brent (que debe revisar este pin deliberadamente); consta «${b2c.clase_migracion}»`);
+      if (b2c.status !== 'BLOCKED') fail('21 clasificación', `W-B2c-01: debe permanecer BLOCKED hasta cumplir sus tres prerrequisitos y la autorización separada y explícita de Brent (que debe revisar este pin deliberadamente); está en «${b2c.status}»`);
+      if (b2c.clase_migracion !== '2') fail('21 clasificación', `W-B2c-01: clase_migracion debe ser 2 desde la reclasificación del 2026-08-29 (un cambio legítimo debe revisar este pin deliberadamente); consta «${b2c.clase_migracion}»`);
     }
   }
   // The literal false claim «no Management API calls» must never reappear in a
@@ -738,7 +777,145 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
       }
     }
   }
-  if (!failures.some(f => f.check.startsWith('21'))) notes.push('clasificación W-PC-06 OK — B (transformación de datos requerida) anclada con su registro agregado; inventario de cinco consultas, divulgación de la Management API y lectura de metadatos previa a la consulta 5 anclados, sin frases de acceso demasiado amplias; dependencia ordenada B2d→B2c vigente; cierre post-merge anclado (PR #61, head aprobado db43b4f5, merge f39a90c3, CI de PR y post-merge, despliegue automático a Production completado) con W-B2d-01 BLOCKED/UNAUTHORIZED y W-B2c-01 BLOCKED/BLOCKED; redacción durable (origin/main en el momento de verificación del cierre) y límite preciso de producción (CI local efímera ≠ producción) anclados');
+  if (!failures.some(f => f.check.startsWith('21'))) notes.push('clasificación W-PC-06 OK — la B histórica sigue anclada con su registro agregado (inventario de cinco consultas, divulgación de la Management API y lectura de metadatos previa a la consulta 5, sin frases de acceso demasiado amplias) y el cierre post-merge sigue anclado (PR #61, head aprobado db43b4f5, merge f39a90c3, CI de PR y post-merge, despliegue automático a Production completado; redacción durable y límite preciso de producción); estado vigente 2026-08-29: la dependencia ordenada B2d→B2c está prohibida, W-B2d-01 SUPERSEDED/UNAUTHORIZED sin ejecutar y W-B2c-01 BLOCKED con clase 2');
+}
+
+// ── 22. Global-template semantics (owner decision 2026-08-29) ────────────────
+// Brent's 2026-08-29 decisions: learning paths are global FNE templates — no
+// school owns a path, paths are not generation-specific, NULL scope columns are
+// intentional global scope; management (create/edit/delete/assign/unassign) is
+// exclusive to the literal `admin` role; assignment grants consumption and
+// own-progress only. This check prevents regression to the rejected per-school
+// ownership model: it pins the decision in every governing document, the
+// truthful SUPERSEDED-unexecuted state of W-B2d-01, the removal of B2d as a
+// B2c prerequisite, W-B2c-01's corrected class-2 shape and three prerequisites,
+// the corrected assignment/progress/alternate-access surface inventory, and the
+// byte preservation of the frozen claims snapshot itself.
+{
+  // 22a — the frozen claims snapshot is byte-preserved (companion to check 17's
+  // legacy pin; the snapshot's evidence/signature fields are frozen empty forever).
+  if (!fs.existsSync(CLAIMS)) {
+    fail('22 semántica global', 'la instantánea congelada de reclamaciones no existe');
+  } else {
+    const sha = crypto.createHash('sha256').update(fs.readFileSync(CLAIMS)).digest('hex');
+    if (sha !== CLAIMS_SHA256) {
+      fail('22 semántica global', `SHA-256 de la instantánea congelada de reclamaciones cambió.\n      esperado: ${CLAIMS_SHA256}\n      obtenido: ${sha}`);
+    }
+  }
+
+  // 22b — the correction record exists and carries the owner decisions and the
+  // corrected surface inventory (assignment/progress tables, the two extra
+  // SECURITY DEFINER functions, enrollment side effect, routes, services,
+  // maintenance routes, and the courses alternate access path).
+  if (!fs.existsSync(R(LP_GOV_DOC))) {
+    fail('22 semántica global', `el registro de la corrección no existe: ${LP_GOV_DOC}`);
+  } else {
+    const gov = fs.readFileSync(R(LP_GOV_DOC), 'utf8');
+    const DECISION_PINS = [
+      ['global FNE templates', 'la decisión «global FNE templates»'],
+      ['No school owns a learning path', 'la decisión «No school owns a learning path»'],
+      ['Learning paths are not generation-specific', 'la decisión «not generation-specific»'],
+      ['intentional global scope', 'la decisión «intentional global scope» sobre los NULOS'],
+      ['the literal RBAC role `admin`', 'la gestión exclusiva del rol RBAC literal admin'],
+    ];
+    for (const [needle, label] of DECISION_PINS) {
+      if (!gov.includes(needle)) fail('22 semántica global', `registro de la corrección: no ancla ${label}`);
+    }
+    const SURFACE_PINS = ['learning_path_assignments', 'learning_path_progress_sessions',
+      'course_enrollments', 'increment_path_assignment_time', 'update_session_heartbeat',
+      'pages/api/learning-paths', 'learningPathsService', 'update-learning-path-summaries',
+      'cleanup-learning-path-sessions', 'courses_learning_path_member_view'];
+    for (const s of SURFACE_PINS) {
+      if (!gov.includes(s)) fail('22 semántica global', `registro de la corrección: el inventario de superficie no nombra «${s}» (superficies de asignación/progreso y vías alternas son obligatorias)`);
+    }
+  }
+
+  // 22c — the evidence record keeps history AND carries the dated superseding
+  // section with the effective classification A.
+  const EV = R('docs/reviews/w-pc-06-learning-path-data-classification-2026-08-28.md');
+  if (fs.existsSync(EV)) {
+    const ev = fs.readFileSync(EV, 'utf8');
+    if (!ev.includes('## 8. Superseding owner-semantics decision (2026-08-29)')) {
+      fail('22 semántica global', 'registro de evidencia: falta la sección superseding fechada «## 8. Superseding owner-semantics decision (2026-08-29)»');
+    }
+    if (!ev.includes('no existing learning-path ownership data transformation is required')) {
+      fail('22 semántica global', 'registro de evidencia: falta la conclusión efectiva — classification A, sin transformación de datos requerida');
+    }
+  }
+
+  // 22d — W-B2d-01 is truthfully SUPERSEDED and unexecuted, forever.
+  const b2d = byWork.get('W-B2d-01');
+  if (b2d) {
+    if (b2d.status !== 'SUPERSEDED') fail('22 semántica global', `W-B2d-01: status debe ser SUPERSEDED (retirado sin ejecutar); es «${b2d.status}»`);
+    if (b2d.status === 'DONE' || b2d.authorization_status === 'AUTHORIZED') fail('22 semántica global', 'W-B2d-01: no puede representarse como ejecutado ni autorizado — el backfill jamás se diseñó, autorizó o ejecutó');
+    const dn = b2d.notes || '';
+    for (const [needle, label] of [
+      ['SUPERSEDIDO', 'la marca SUPERSEDIDO'],
+      ['nunca se ejecutó', 'la constancia de no-ejecución («nunca se ejecutó»)'],
+      ['no se representa como completado', 'la constancia de que no se representa como completado'],
+      ['no es prerrequisito de B2c', 'la constancia de que ya no es prerrequisito de B2c'],
+    ]) {
+      if (!dn.includes(needle)) fail('22 semántica global', `W-B2d-01: sus notas no conservan ${label}`);
+    }
+  }
+
+  // 22e — W-B2c-01: class-2 shape, the three prerequisites, no B2d dependency,
+  // and no school/generation-ownership language anywhere in its row.
+  const b2c = byWork.get('W-B2c-01');
+  if (b2c) {
+    const row = `${b2c.title || ''} ${b2c.gate_salida || ''} ${b2c.notes || ''} ${b2c.compensacion_reversion || ''}`;
+    const PREREQ_PINS = [
+      ['aprobada de forma independiente y mergeada', 'el prerrequisito 1 (corrección de gobernanza aprobada de forma independiente y mergeada)'],
+      ['matriz de acceso actor × operación', 'el prerrequisito 2 (matriz de acceso actor × operación aprobada por Privacidad)'],
+      ['autorización explícita y separada de Brent', 'el prerrequisito 3 (autorización explícita y separada de Brent)'],
+    ];
+    for (const [needle, label] of PREREQ_PINS) {
+      if (!(b2c.notes || '').includes(needle)) fail('22 semántica global', `W-B2c-01: sus notas no declaran ${label}`);
+    }
+    if (!(b2c.notes || '').includes('no es prerrequisito de B2c')) {
+      fail('22 semántica global', 'W-B2c-01: sus notas no declaran que W-B2d-01 no es prerrequisito de B2c');
+    }
+    if (/W-B2d-01[^]{0,200}?ANTES de programar/i.test(row)) {
+      fail('22 semántica global', 'W-B2c-01: su fila reintroduce la dependencia ordenada retirada («W-B2d-01 … ANTES de programar»)');
+    }
+    for (const forbidden of ['aislamiento por colegio', 'aislamiento de tenant', 'rol × tenant']) {
+      if (row.includes(forbidden)) fail('22 semántica global', `W-B2c-01: su fila conserva el lenguaje de propiedad rechazado «${forbidden}»`);
+    }
+    if (!(b2c.gate_salida || '').includes('plantillas globales')) {
+      fail('22 semántica global', 'W-B2c-01: su gate no declara las rutas como plantillas globales');
+    }
+    if (!(b2c.gate_salida || '').includes('course_enrollments')) {
+      fail('22 semántica global', 'W-B2c-01: su gate no cubre el efecto colateral de course_enrollments');
+    }
+  }
+
+  // 22f — W-PC-06's mutable row records the semantic supersession.
+  const pc = byWork.get('W-PC-06');
+  if (pc) {
+    const pn = pc.notes || '';
+    if (!pn.includes('SUPERSESIÓN SEMÁNTICA') || !pn.includes('clasificación A')) {
+      fail('22 semántica global', 'W-PC-06: sus notas no registran la supersesión semántica del 2026-08-29 con la conclusión efectiva (clasificación A)');
+    }
+  }
+
+  // 22g — every governing document carries the decision.
+  const psText2 = fs.existsSync(PSTATE) ? fs.readFileSync(PSTATE, 'utf8') : '';
+  const repText2 = fs.existsSync(REPORTDOC) ? fs.readFileSync(REPORTDOC, 'utf8') : '';
+  const GOV_PINS = [
+    [protoText, 'el protocolo', ['plantillas globales FNE', 'clasificación A', 'SUPERSEDED']],
+    [repText2, 'el informe de normalización', ['## 14.', 'plantillas globales FNE', 'clasificación A']],
+    [psText2, 'PROJECT_STATE', ['global FNE templates', 'No school owns a learning path', 'effective conclusion is classification A', 'the literal RBAC role `admin`']],
+  ];
+  for (const [text, where, needles] of GOV_PINS) {
+    for (const n of needles) {
+      if (!text.includes(n)) fail('22 semántica global', `${where}: no conserva la decisión global — falta «${n}»`);
+    }
+  }
+  if (!psText2.split('\n').some(l => l.startsWith('- **LP-GOV-01'))) {
+    fail('22 semántica global', 'PROJECT_STATE: la entrada autoritativa «- **LP-GOV-01» de la corrección no existe');
+  }
+
+  if (!failures.some(f => f.check.startsWith('22'))) notes.push(`semántica global OK — decisión del dueño 2026-08-29 anclada en registro, protocolo, informe y PROJECT_STATE; W-B2d-01 SUPERSEDED/UNAUTHORIZED sin ejecutar y sin reintroducción de la dependencia; W-B2c-01 BLOCKED clase 2 con sus tres prerrequisitos y sin lenguaje de propiedad por colegio; inventario de asignación/progreso y vías alternas anclado; instantánea congelada de reclamaciones preservada (SHA-256 ${CLAIMS_SHA256.slice(0, 8)}…)`);
 }
 
 // ── Report ───────────────────────────────────────────────────────────────────

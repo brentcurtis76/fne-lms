@@ -83,3 +83,22 @@ The evidence compels **B**: all 7 paths carry NULL scope with no resolvable effe
 Closing W-PC-06 authorizes nothing else: `W-PC-01`…`W-PC-05` remain `BLOCKED` / `UNAUTHORIZED`; `W-B2d-01` and `W-B2c-01` remain unauthorized and unimplemented; no further production query, of any kind, is authorized by this record.
 
 — Recorded 2026-08-28. Authorization: Brent. Execution: Brent (queries 1–4, production SQL Editor) + Codex (query 5, already-linked CLI — one bounded read-only SELECT via the sole explicitly authorized Management API database-query call — under Brent's later explicit read-only authorization). Query inventory and Management API wording corrected on independent review the same day, and the P3 note added the pre-query-5 management-plane metadata read (`supabase projects list --output json`) to the chronology; the underlying facts, aggregates and classification are unchanged.
+
+---
+
+## 8. Superseding owner-semantics decision (2026-08-29)
+
+**Everything above (§§1–7) is preserved unchanged as the historical record**: the authorization chronology, the five production queries and the one management-plane metadata read, the aggregate results, and the classification **B — DATA TRANSFORMATION REQUIRED** as reached on 2026-08-28. The queries were correctly executed and correctly reported; classification B was genuinely reached on its date and this section does not pretend otherwise.
+
+What is superseded is the **interpretation of the aggregates, by explicit product-owner decision (Brent, 2026-08-29)**:
+
+- `learning_paths` rows are **global FNE templates**. **No school owns a learning path**, and **learning paths are not generation-specific**.
+- `school_id` and `generation_id` being NULL on the existing rows is **intentional global scope — not missing or corrupt ownership data**.
+- A path may be assigned through the assignment matrix to users or groups in any school; assignment affects availability and use, and does **not** make the path school- or generation-owned.
+- Management of learning paths (create, edit, delete, assign, unassign) belongs to **only the literal RBAC role `admin`**; an assigned user consumes the path and updates only their own permitted progress.
+
+**Why the earlier inference was incorrect:** §6 classified B on the premise that every path needed a derivable owning school — that NULL scope, non-authoritative creator roles, and multi-school assignment dispersion were evidence of *broken* rows blocking a school-isolation boundary. Under the owner's semantics that premise is false: the same aggregates describe **healthy global templates** whose assignments are *supposed* to span schools. There is no tenant to derive because there is no per-school tenancy on templates.
+
+**Effective conclusion — classification A: no existing learning-path ownership data transformation is required.** Consequences (recorded, not authorized, here): `W-B2d-01` is **`SUPERSEDED`** — retired unexecuted (no backfill was ever designed, authorized, executed, or represented as completed) and **no longer a prerequisite of B2c**; `W-B2c-01` is reclassified **class 2** (security/RLS correction over global templates and assignment-based consumption) and stays **`BLOCKED`**, unauthorized for implementation, behind three prerequisites: the independent approval and merge of this governance correction, Privacy approval of the actor-by-operation access matrix, and Brent's separate explicit implementation authorization. Full record, access model, corrected surface inventory, and future acceptance criteria: `docs/reviews/w-b2c-01-learning-path-governance-correction-2026-08-29.md`.
+
+— Superseding section recorded 2026-08-29 under Brent's owner decisions of that date. It changes no aggregates, no chronology, and no historical classification text above; it authorizes no implementation and no production access.

@@ -620,12 +620,16 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
   if (!failures.some(f => f.check.startsWith('20'))) notes.push('unidades diferidas OK — D-RLS-01/02/03 presentes en protocolo, informe y PROJECT_STATE, con sus cinco funciones y el ancla 565faa0d');
 }
 
-// ── 21. W-PC-06 classification pin + ordered B2d→B2c dependency ──────────────
+// ── 21. W-PC-06 classification pins (historical B · effective A) ─────────────
 // The 2026-08-28 read-only classification closed with result B — data
-// transformation required. That result, its aggregate evidence record, and the
-// order it imposes (the class-3 repair W-B2d-01 completes BEFORE the B2c
-// boundary can leave BLOCKED) are pinned here so no later edit can silently
-// downgrade the classification or let B2c absorb or bypass the repair.
+// transformation required — and that HISTORICAL result plus its aggregate
+// evidence record stay pinned here verbatim. The 2026-08-29 owner decision
+// (learning paths are global FNE templates; NULL scope is intentional)
+// superseded the ownership inference: the EFFECTIVE conclusion is
+// classification A, the formerly ordered B2d→B2c dependency is PROHIBITED,
+// W-B2d-01 is SUPERSEDED/UNAUTHORIZED and unexecuted, and W-B2c-01 is
+// BLOCKED at class 2 behind its three prerequisites (check 22). These pins
+// stop both a silent rewrite of the history and a regression of that state.
 {
   const CLASSIF = 'B — DATA TRANSFORMATION REQUIRED';
   const EVIDENCE_DOC = 'docs/reviews/w-pc-06-learning-path-data-classification-2026-08-28.md';
@@ -716,9 +720,11 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
   // main CI run both successful and the automatic Vercel Production deployment
   // completed. The authoritative W-PC-06 entry in PROJECT_STATE must keep
   // recording exactly that closure and may never again claim the record is
-  // unmerged; W-B2d-01 stays BLOCKED/UNAUTHORIZED and W-B2c-01 stays
-  // BLOCKED/BLOCKED. A legitimate future state change must revise these pins
-  // deliberately, in its own independently reviewed correction.
+  // unmerged. Since the 2026-08-29 supersession, the current-state pins below
+  // hold W-B2d-01 at SUPERSEDED/UNAUTHORIZED — retired unexecuted — and
+  // W-B2c-01 at BLOCKED, class 2, behind its three prerequisites. A legitimate
+  // future state change must revise these pins deliberately, in its own
+  // independently reviewed correction.
   {
     const psText = fs.existsSync(PSTATE) ? fs.readFileSync(PSTATE, 'utf8') : '';
     const pcEntry = psText.split('\n').find(l => l.startsWith('- **W-PC-06 — CLOSED')) || '';
@@ -806,7 +812,8 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
   // 22b — the correction record exists and carries the owner decisions and the
   // corrected surface inventory (assignment/progress tables, the two extra
   // SECURITY DEFINER functions, enrollment side effect, routes, services,
-  // maintenance routes, and the courses alternate access path).
+  // maintenance routes, the courses alternate access path, and — since round 1
+  // — the adjacent service-role read route pages/api/admin/users.ts).
   if (!fs.existsSync(R(LP_GOV_DOC))) {
     fail('22 semántica global', `el registro de la corrección no existe: ${LP_GOV_DOC}`);
   } else {
@@ -821,10 +828,16 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
     for (const [needle, label] of DECISION_PINS) {
       if (!gov.includes(needle)) fail('22 semántica global', `registro de la corrección: no ancla ${label}`);
     }
+    // Round-1 additions (independent review, 2026-08-30): the adjacent
+    // admin/reporting route pages/api/admin/users.ts is a service-role
+    // learning-path read surface reachable by equipo_directivo — the record
+    // must keep naming both the literal path and its authorization helper so
+    // the path cannot disappear from governance silently.
     const SURFACE_PINS = ['learning_path_assignments', 'learning_path_progress_sessions',
       'course_enrollments', 'increment_path_assignment_time', 'update_session_heartbeat',
       'pages/api/learning-paths', 'learningPathsService', 'update-learning-path-summaries',
-      'cleanup-learning-path-sessions', 'courses_learning_path_member_view'];
+      'cleanup-learning-path-sessions', 'courses_learning_path_member_view',
+      'pages/api/admin/users.ts', 'checkIsAdminOrEquipoDirectivo'];
     for (const s of SURFACE_PINS) {
       if (!gov.includes(s)) fail('22 semántica global', `registro de la corrección: el inventario de superficie no nombra «${s}» (superficies de asignación/progreso y vías alternas son obligatorias)`);
     }

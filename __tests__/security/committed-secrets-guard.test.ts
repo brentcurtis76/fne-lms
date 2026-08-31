@@ -15,7 +15,7 @@
  * tests — a property asserted explicitly at the end.
  */
 import { describe, it, expect, afterEach, afterAll } from 'vitest';
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, unlinkSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, unlinkSync, symlinkSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
@@ -23,12 +23,11 @@ import {
   scanText,
   scanRepository,
   trackedFiles,
-  isScannableFile,
+  trackedEntries,
   classifyJwt,
   decodeJwtPayload,
   fingerprint,
   isReference,
-  BINARY_EXTENSIONS,
   ALLOWLIST,
 } from '../../scripts/ci/check-committed-secrets.mjs';
 
@@ -382,13 +381,6 @@ describe('file selection', () => {
     }
   });
 
-  it('does not select binary asset types', () => {
-    for (const ext of ['.png', '.jpg', '.pdf', '.woff2', '.ttf', '.zip', '.mp4']) {
-      expect(isScannableFile(`assets/file${ext}`), ext).toBe(false);
-    }
-    expect(BINARY_EXTENSIONS.has('.png')).toBe(true);
-  });
-
   it('the repository\'s six tracked Python files are in scope and scan cleanly', () => {
     const selected = trackedFiles(REPO_ROOT).filter((f: string) => f.endsWith('.py'));
     expect(selected).toEqual([
@@ -462,6 +454,216 @@ describe('unreadable files fail closed', () => {
     const dir = tempRepo();
     addTracked(dir, 'ok.py', 'print("no credential here")\n');
     expect(scanRepository(dir).findings).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Round 2. Scope is the Git index, not the filename and not the bytes.
+//
+// Round 1's binary denylist was defeated by this repository's own contents:
+// eight tracked .png/.ico paths are plain ASCII. These tests pin the rule that
+// replaced it — every tracked entry is inspected, dispatched on its index mode.
+// ---------------------------------------------------------------------------
+
+/** A real PNG: signature + IHDR-ish bytes, with `payload` embedded contiguously. */
+function pngBytes(payload = ''): Buffer {
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), // \x89PNG\r\n\x1a\n
+    Buffer.from([0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52]), // IHDR
+    Buffer.from([0x00, 0x01, 0x02, 0x03, 0xff, 0xfe, 0xfd, 0x00]), // arbitrary binary
+    Buffer.from(payload, 'latin1'),
+    Buffer.from([0x00, 0xde, 0xad, 0xbe, 0xef]),
+  ]);
+}
+
+function addTrackedBytes(dir: string, rel: string, bytes: Buffer) {
+  const abs = join(dir, rel);
+  mkdirSync(dirname(abs), { recursive: true });
+  writeFileSync(abs, bytes);
+  execFileSync('git', ['add', '-f', '--', rel], { cwd: dir });
+  return abs;
+}
+
+function addTrackedSymlink(dir: string, rel: string, target: string) {
+  const abs = join(dir, rel);
+  mkdirSync(dirname(abs), { recursive: true });
+  symlinkSync(target, abs);
+  execFileSync('git', ['add', '-f', '--', rel], { cwd: dir });
+  return abs;
+}
+
+describe('round 2: every tracked entry is inspected', () => {
+  it('finds a synthetic service_role value regardless of filename', () => {
+    const cases: Array<[string, string]> = [
+      ['scripts/seed.py', 'python'],
+      ['public/logo.png', 'a .png that is really plain text — the round-1 bypass'],
+      ['lib/supabaseClient', 'extensionless'],
+      ['.npmrc', 'a dotfile'],
+      ['docs/notes.qqq', 'an extension nobody has ever listed'],
+      ['a.tar.gz', 'a double extension that looks like an archive but is text'],
+    ];
+
+    for (const [rel, why] of cases) {
+      const dir = tempRepo();
+      addTracked(dir, rel, `KEY = "${SERVICE_ROLE_JWT}"\n`);
+      const { findings } = scanRepository(dir);
+      expect(findings.map((f: { rule: string }) => f.rule), `${rel} (${why})`).toEqual(['SERVICE_ROLE_JWT']);
+      expect(JSON.stringify(findings)).not.toContain(SERVICE_ROLE_JWT);
+    }
+  });
+
+  it('finds a contiguous ASCII value inside REAL binary PNG bytes', () => {
+    const dir = tempRepo();
+    addTrackedBytes(dir, 'public/real.png', pngBytes(SERVICE_ROLE_JWT));
+
+    const { entries, findings } = scanRepository(dir);
+
+    expect(entries.find((e: { path: string }) => e.path === 'public/real.png')?.mode).toBe('100644');
+    expect(findings.map((f: { rule: string }) => f.rule)).toEqual(['SERVICE_ROLE_JWT']);
+    expect(findings[0].file).toBe('public/real.png');
+  });
+
+  it('inspects a credential-free binary asset and reports nothing — inspected, not skipped', () => {
+    const dir = tempRepo();
+    addTrackedBytes(dir, 'public/clean.png', pngBytes());
+
+    const { files, findings } = scanRepository(dir);
+
+    expect(files).toContain('public/clean.png'); // in scope
+    expect(findings).toEqual([]); // and clean
+  });
+
+  it('scans a symlink as its link TEXT and never follows it', () => {
+    const dir = tempRepo();
+    // The target is deliberately UNTRACKED and full of a synthetic credential.
+    // If the guard followed the link, this uncommitted content would become a
+    // finding — which is exactly the isolation being asserted against.
+    writeFileSync(join(dir, 'untracked-target.txt'), `KEY = "${SERVICE_ROLE_JWT}"\n`, 'utf8');
+    addTrackedSymlink(dir, 'link-to-secret', 'untracked-target.txt');
+
+    const { entries, findings } = scanRepository(dir);
+
+    expect(entries.find((e: { path: string }) => e.path === 'link-to-secret')?.mode).toBe('120000');
+    expect(findings).toEqual([]);
+  });
+
+  it('scans the link text itself, so a credential IN THE TARGET NAME is caught', () => {
+    const dir = tempRepo();
+    addTrackedSymlink(dir, 'odd-link', `./${SERVICE_ROLE_JWT}`);
+
+    const { findings } = scanRepository(dir);
+
+    expect(findings.map((f: { rule: string }) => f.rule)).toEqual(['SERVICE_ROLE_JWT']);
+    expect(findings[0].file).toBe('odd-link');
+  });
+
+  it('handles a BROKEN symlink from its link text, without following it', () => {
+    const dir = tempRepo();
+    addTrackedSymlink(dir, 'broken-link', '../nowhere/does-not-exist');
+
+    const { entries, findings } = scanRepository(dir);
+
+    expect(entries.find((e: { path: string }) => e.path === 'broken-link')?.mode).toBe('120000');
+    // A dangling target is irrelevant: the committed content is the target text.
+    expect(findings).toEqual([]);
+  });
+
+  it('fails closed on a gitlink/submodule without reading it', () => {
+    const dir = tempRepo();
+    addTracked(dir, 'keep.txt', 'nothing here\n');
+    // A gitlink records a submodule COMMIT id. Git rejects an all-zero sha
+    // ("cache entry has null sha1"), but the object need not exist locally —
+    // which is the normal case for an uninitialised submodule, and exactly the
+    // situation the guard must refuse to follow.
+    const submoduleCommit = 'abcdef0123456789abcdef0123456789abcdef01';
+    execFileSync(
+      'git',
+      ['update-index', '--add', '--cacheinfo', `160000,${submoduleCommit},vendor/sub`],
+      { cwd: dir }
+    );
+
+    const { entries, findings } = scanRepository(dir);
+
+    expect(entries.find((e: { path: string }) => e.path === 'vendor/sub')?.mode).toBe('160000');
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe('UNSUPPORTED_TRACKED_ENTRY');
+    expect(findings[0].file).toBe('vendor/sub');
+    expect(findings[0].message).toContain('160000');
+    expect(findings[0].fingerprint).toMatch(/^[0-9a-f]{12}$/);
+    expect(JSON.stringify(findings[0])).not.toContain(dir);
+  });
+
+  it('still fails closed on a missing tracked regular file', () => {
+    const dir = tempRepo();
+    const abs = addTracked(dir, 'scripts/vanished.png', 'plain text\n');
+    unlinkSync(abs);
+
+    const { findings } = scanRepository(dir);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe('UNREADABLE_FILE');
+    expect(findings[0].message).toContain('ENOENT');
+    expect(JSON.stringify(findings[0])).not.toContain(dir);
+  });
+
+  it('records a mode for every entry in the real repository, and knows every one', () => {
+    const modes = new Set(trackedEntries(REPO_ROOT).map((e: { mode: string }) => e.mode));
+    for (const mode of modes) expect(['100644', '100755', '120000'], `unexpected mode ${mode}`).toContain(mode);
+  });
+
+  it('the eight text-disguised image files are in scope and scan clean', () => {
+    const disguised = [
+      'lib/propuestas/assets/logos/fne-logo.png',
+      'public/children-collaboration-steam.png',
+      'public/favicon-32x32.png',
+      'public/favicon-fne.ico',
+      'public/favicon.ico',
+      'public/images/course-placeholder.png',
+      'public/images/fne-logo.png',
+      'public/students-steam-collaboration.png',
+    ];
+    const tracked = new Set(trackedFiles(REPO_ROOT));
+    for (const file of disguised) {
+      expect(tracked.has(file), `${file} must be in scope`).toBe(true);
+      expect(scanText(readFileSync(resolve(REPO_ROOT, file)).toString('latin1'), file), file).toEqual([]);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The allowlist contract must survive every refactor of file selection.
+// ---------------------------------------------------------------------------
+
+describe('allowlist contract is unchanged from the previous head', () => {
+  const PREVIOUS_HEAD = '8117dfc773a6c4e252769228ec54349fd95b0122';
+
+  function allowlistBlock(source: string): string {
+    const start = source.indexOf('export const ALLOWLIST');
+    const end = source.indexOf(']);', start);
+    expect(start, 'ALLOWLIST block not found').toBeGreaterThan(-1);
+    return source.slice(start, end + 3);
+  }
+
+  it('the five entries are byte-identical to 8117dfc7', () => {
+    const previous = execFileSync(
+      'git',
+      ['show', `${PREVIOUS_HEAD}:scripts/ci/check-committed-secrets.mjs`],
+      { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }
+    );
+    const current = readFileSync(resolve(REPO_ROOT, 'scripts/ci/check-committed-secrets.mjs'), 'utf8');
+
+    expect(allowlistBlock(current)).toBe(allowlistBlock(previous));
+    expect(ALLOWLIST.size).toBe(5);
+  });
+
+  it('service_role still has no allowlist path', () => {
+    const fp = fingerprint(SERVICE_ROLE_JWT);
+    ALLOWLIST.set(fp, 'round-2 attempt to allowlist a service_role key');
+    try {
+      expect(rules(`const k = '${SERVICE_ROLE_JWT}';`)).toEqual(['SERVICE_ROLE_JWT']);
+    } finally {
+      ALLOWLIST.delete(fp);
+    }
   });
 });
 

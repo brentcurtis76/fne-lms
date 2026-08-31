@@ -29,7 +29,7 @@
  *
  * Negative controls: __tests__/security/committed-secrets-guard.test.ts
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readlinkSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
@@ -41,59 +41,74 @@ const SB_SECRET_PREFIX = 'sb_' + 'secret_';
 const SB_PUBLISHABLE_PREFIX = 'sb_' + 'publishable_';
 
 /**
- * Selection is a binary DENYLIST, not a text allow-list.
+ * Selection is settled: EVERY tracked Git entry is inspected. Nothing about a
+ * filename or its bytes decides scope.
  *
- * The first version of this guard listed the extensions to scan. Independent
- * review round 1 found that list omitted `.py`, and the repository has six
- * tracked Python scripts. The underlying defect is the allow-list itself: it
- * fails open for every file type nobody remembered, and the same review would
- * have found the same bug again for the next one. Auditing the tree turned up
- * more of them, including two that matter a great deal:
+ * Two rounds of independent review were each spent on the same bug in a
+ * different costume:
  *
- *   - `lib/supabaseClient` — extensionless, and in the directory where a
- *     Supabase key would actually live;
- *   - `public/public-website-fne.html`, `public/meet/zoom-client-view.html` —
- *     PUBLICLY SERVED files, which is precisely the shape of the original
- *     incident (a credential in a page, delivered to every visitor);
- *   - `pages/admin/course-builder/[id].tsx.broken` — a page kept under a
- *     non-code extension;
- *   - a Vitest `.snap`, which can capture whatever a test rendered.
+ *   - Round 0 used an allow-list of extensions to scan. It omitted `.py`, and
+ *     six tracked Python scripts went uninspected.
+ *   - Round 1 inverted it to a denylist of binary extensions. That failed too,
+ *     for a reason a filename cannot express: **eight tracked `.png`/`.ico`
+ *     paths in this repository are plain ASCII text.** Two are literally the
+ *     string `404: Not Found` (a failed download committed as-is), three are
+ *     `data:` URI base64 blobs, two are base64-encoded `.ico`, one is nearly
+ *     empty. Every one of them was skipped by extension, and a credential
+ *     pasted into any of them would have been invisible to CI.
  *
- * So the rule is inverted: scan every tracked file EXCEPT known-binary asset
- * types. A new text format is covered the day it appears, with no edit here.
- * The cost is reading a few hundred extra small text files, which is cheap.
+ * A content-sniffing heuristic ("does it look like text?") is the same mistake a
+ * third time: it hands an attacker a rule to dress around, and it makes the
+ * guard's coverage depend on a judgement call at scan time.
  *
- * Note: `.p12` / `.pfx` / `.jks` / `.der` are on this list because they are
- * binary, not because they are harmless — they ARE credential containers. This
- * guard classifies credential-shaped TEXT; a committed keystore is a different
- * check and is not claimed here.
+ * So there is no judgement call. The boundary is the Git index: enumerate every
+ * tracked entry with `git ls-files -s -z`, dispatch on the recorded MODE, and
+ * handle each mode explicitly. Real binary assets are read too — the credential
+ * patterns are ASCII, so bytes are decoded `latin1` (a byte-preserving 1:1 map)
+ * and a contiguous ASCII credential inside a PNG is found like any other.
+ *
+ * What this deliberately does NOT claim, unchanged from earlier rounds — these
+ * are stated boundaries, not silent gaps, and none of them is a reason to skip
+ * a tracked entry:
+ *
+ *   - credentials that exist only in Git history;
+ *   - values deliberately split across lines or double-encoded;
+ *   - secrets compressed or encrypted inside a binary container;
+ *   - provider-side state (whether a key is actually accepted).
  */
-export const BINARY_EXTENSIONS = new Set([
-  // images
-  '.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp', '.avif', '.bmp', '.tif', '.tiff',
-  // documents and archives
-  '.pdf', '.docx', '.xlsx', '.pptx', '.zip', '.gz', '.tgz', '.bz2', '.xz', '.7z', '.rar',
-  // fonts
-  '.otf', '.ttf', '.woff', '.woff2', '.eot',
-  // media
-  '.mp3', '.mp4', '.m4a', '.wav', '.mov', '.avi', '.webm', '.ogg',
-  // compiled artefacts
-  '.node', '.wasm', '.dylib', '.so', '.dll', '.exe', '.class', '.jar', '.pyc',
-  // binary key/cert containers (see note above)
-  '.p12', '.pfx', '.jks', '.keystore', '.der',
-]);
+
+/** Git index modes this guard knows how to inspect. */
+export const MODE_REGULAR = '100644';
+export const MODE_EXECUTABLE = '100755';
+export const MODE_SYMLINK = '120000';
+export const MODE_GITLINK = '160000';
 
 /**
- * True when a tracked path should be read and classified.
+ * Every tracked entry, as `{ mode, path }`.
  *
- * `lastIndexOf('.') > 0` rather than `>= 0`, so a dotfile such as `.npmrc` or
- * `.env.example` is treated as having no extension and IS scanned.
+ * `git ls-files -s -z` emits `<mode> SP <object> SP <stage> TAB <path> NUL`.
+ * During an unresolved merge a path appears at stages 1/2/3; entries are
+ * de-duplicated by path so a conflicted tree is inspected once rather than
+ * three times.
  */
-export function isScannableFile(file) {
-  const base = file.split('/').pop() ?? file;
-  const dot = base.lastIndexOf('.');
-  const ext = dot > 0 ? base.slice(dot).toLowerCase() : '';
-  return !BINARY_EXTENSIONS.has(ext);
+export function trackedEntries(cwd = process.cwd()) {
+  const out = execFileSync('git', ['ls-files', '-s', '-z'], {
+    cwd,
+    encoding: 'utf8',
+    maxBuffer: 256 * 1024 * 1024,
+  });
+
+  const byPath = new Map();
+  for (const record of out.split('\0')) {
+    if (!record) continue;
+    const tab = record.indexOf('\t');
+    if (tab === -1) continue;
+    const mode = record.slice(0, record.indexOf(' '));
+    const path = record.slice(tab + 1);
+    if (!byPath.has(path)) byPath.set(path, { mode, path });
+  }
+
+  return [...byPath.values()].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
 /**
@@ -287,40 +302,75 @@ export function scanText(text, file = '<input>') {
   return findings;
 }
 
-/** Tracked files worth scanning. */
+/** Backwards-compatible view: the paths of every tracked entry. */
 export function trackedFiles(cwd = process.cwd()) {
-  const out = execFileSync('git', ['ls-files', '-z'], { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-  return out.split('\0').filter(Boolean).filter(isScannableFile).sort();
+  return trackedEntries(cwd).map((entry) => entry.path);
 }
 
 export function scanRepository(cwd = process.cwd()) {
-  const files = trackedFiles(cwd);
+  const entries = trackedEntries(cwd);
+  const files = entries.map((entry) => entry.path);
   const findings = [];
-  for (const file of files) {
-    let text;
-    try {
-      text = readFileSync(resolve(cwd, file.split('/').join(sep)), 'utf8');
-    } catch (error) {
-      // FAIL CLOSED. A selected tracked file that cannot be read is an unknown,
-      // and this guard's whole contract is that an unknown is a finding. The
-      // previous `continue` meant a file could drop out of the scan silently and
-      // the run would still report success over a smaller set.
-      //
-      // Only the errno CODE is reported — never the error message, the file
-      // contents, or any value. The fingerprint is of the PATH (not a secret),
-      // so the finding keeps the same shape as every other one.
-      findings.push({
-        rule: 'UNREADABLE_FILE',
-        file,
-        line: 0,
-        fingerprint: fingerprint(file),
-        message: `Selected tracked file could not be read (${error?.code ?? 'unknown'}); failing closed rather than skipping it`,
-      });
+
+  const unreadable = (file, code) =>
+    findings.push({
+      rule: 'UNREADABLE_FILE',
+      file,
+      line: 0,
+      fingerprint: fingerprint(file),
+      // Only the errno CODE — never the error message (which carries an
+      // absolute path), the contents, or any value.
+      message: `Tracked entry could not be read (${code ?? 'unknown'}); failing closed rather than skipping it`,
+    });
+
+  for (const { mode, path: file } of entries) {
+    const absolute = resolve(cwd, file.split('/').join(sep));
+
+    if (mode === MODE_REGULAR || mode === MODE_EXECUTABLE) {
+      let text;
+      try {
+        // Bytes, not utf8. `latin1` maps each byte to U+0000–U+00FF one-for-one,
+        // so a contiguous ASCII credential survives intact even inside a real
+        // binary asset, and no byte is lost to replacement characters.
+        text = readFileSync(absolute).toString('latin1');
+      } catch (error) {
+        unreadable(file, error?.code);
+        continue;
+      }
+      findings.push(...scanText(text, file));
       continue;
     }
-    findings.push(...scanText(text, file));
+
+    if (mode === MODE_SYMLINK) {
+      // Scan the LINK TARGET TEXT, which is what Git actually stores for a
+      // symlink. `readlinkSync` does not follow the link, so a target outside
+      // the repository is never opened and a broken target is irrelevant — the
+      // committed content is the target string itself.
+      let target;
+      try {
+        target = readlinkSync(absolute);
+      } catch (error) {
+        unreadable(file, error?.code);
+        continue;
+      }
+      findings.push(...scanText(target, file));
+      continue;
+    }
+
+    // Gitlinks (submodules) and anything else: fail closed without touching it.
+    // A submodule is a separate repository with its own history; inspecting it
+    // is out of scope, and silently ignoring it would be the same fail-open bug
+    // this guard has now been corrected for twice.
+    findings.push({
+      rule: 'UNSUPPORTED_TRACKED_ENTRY',
+      file,
+      line: 0,
+      fingerprint: fingerprint(file),
+      message: `Tracked entry has mode ${mode}, which this guard does not inspect; failing closed without reading it`,
+    });
   }
-  return { files, findings };
+
+  return { entries, files, findings };
 }
 
 export function main(args = process.argv.slice(2)) {

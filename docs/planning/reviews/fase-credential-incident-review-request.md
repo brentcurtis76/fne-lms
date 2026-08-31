@@ -84,7 +84,7 @@ the guard by fingerprint, with the reason recorded in the allowlist entry.
 
 | File | Change |
 | --- | --- |
-| `__tests__/security/committed-secrets-guard.test.ts` | New, **43** tests (35 at round 0; +8 in round 1). |
+| `__tests__/security/committed-secrets-guard.test.ts` | New, **54** tests (35 at round 0; +8 round 1; +11 round 2). |
 | `__tests__/lib/auth/recovery-crypto-secret.test.ts` | New, 16 tests. |
 | `docs/runbooks/auth-security.md` | New §8; four rows (0.16–0.19) added to the §0 state-of-play table. |
 | `PROJECT_STATE.md` | **+1 line, −0.** New `CRED-01` Meta entry. |
@@ -107,7 +107,8 @@ classify safely.
 | `DATABASE_PASSWORD_ASSIGNMENT` | `PGPASSWORD` / `POSTGRES_PASSWORD` / `DB_PASSWORD` / `DATABASE_PASSWORD` / `SUPABASE_DB_PASSWORD` / `POSTGRESQL_PASSWORD` assigned a literal |
 | `UNREVIEWED_JWT` | decodable JWT that is not an allowlisted fixture |
 | `UNCLASSIFIABLE_CREDENTIAL` | credential-shaped text that will not decode — **fails closed** |
-| `UNREADABLE_FILE` | a selected tracked file that cannot be read — **fails closed** (round 1) |
+| `UNREADABLE_FILE` | a tracked regular file that cannot be read — **fails closed** (round 1) |
+| `UNSUPPORTED_TRACKED_ENTRY` | a gitlink/submodule or unknown index mode — **fails closed**, not accessed (round 2) |
 
 **Properties:**
 
@@ -120,9 +121,9 @@ classify safely.
 - **Allows** `sb_publishable_` keys, and five fingerprint-allowlisted synthetic
   fixtures, each with a written reason.
 - **Dependency-free.** The `Migration safety guard` job runs before `npm ci`.
-- **Selection is a binary denylist** (round 1): every tracked file is scanned
-  except known-binary asset types, so a new text format is covered the day it
-  appears. 2,178 files currently in scope.
+- **Selection is the Git index** (round 2): every tracked entry is inspected,
+  dispatched on its recorded mode. No filename rule and no content heuristic
+  decides scope. **2,455 tracked entries** currently in scope.
 
 ### Why the allowlist has five entries, not the three named in the task
 
@@ -142,7 +143,7 @@ judgment call the reviewer should check** — see §7.
 
 ## 4. Focused test results
 
-### `__tests__/security/committed-secrets-guard.test.ts` — 43 passed
+### `__tests__/security/committed-secrets-guard.test.ts` — 54 passed
 
 Every rule is proved against input built for the suite, and every allowlist
 exception is proved **twice**: the real tracked file passes with the allowlist
@@ -190,12 +191,12 @@ shell is zsh and `PIPESTATUS` is a bash-ism that silently yields an empty string
 | --- | --- | --- | --- |
 | Typecheck | `npm run type-check` | **0** | clean |
 | Lint | `npm run lint -- --max-warnings=0` | **0** | zero warnings |
-| Unit | `npm test` | **0** | **371 files, 8482 passed, 11 skipped, 0 failed** (8474 at round 0; +8 round-1 tests) |
+| Unit | `npm test` | **0** | **371 files, 8493 passed, 11 skipped, 0 failed** (8474 round 0; +8 round 1; +11 round 2) |
 | Build | `npm run build` | **0** | production build, middleware 74.5 kB |
 | Whitespace | `git diff --check` | **0** | clean |
-| Secrets guard | `npm run guard:secrets` | **0** | **2178** files scanned, 0 findings |
+| Secrets guard | `npm run guard:secrets` | **0** | **2,455** tracked entries scanned, 0 findings |
 | Actions guard | `npm run guard:actions` | **0** | 17 uses across 1 workflow file |
-| Focused suites | `vitest run` guard + recovery-crypto | **0** | 59 passed (43 guard + 16 recovery-crypto) |
+| Focused suites | `vitest run` guard + recovery-crypto | **0** | 70 passed (54 guard + 16 recovery-crypto) |
 | Migration guards | `npm run guard:migrations` | **0** | 40 migrations, no RLS-disable, no destructive statement |
 
 The 11 skips are the pre-existing `[Z3b, PARKED]` skips already recorded in
@@ -413,16 +414,23 @@ so operator directory layout cannot leak into CI logs.
 
 **Finding.** The review request cited 2,119; the reviewed head scans 2,120.
 
-**Corrected counts.** Every committed-secret scan count in this document now
-reads **2,178**, recomputed at the final correction head.
+**Corrected counts.** At the time round 1 was written, every *current-head*
+committed-secret scan count in this document read **2,178**. That figure was
+correct for the round-1 head and is retained below as the round-1 row; it is
+**not** the current figure. Round 2 changed what is counted — see §12.
 
 | Point in history | Selected files | Note |
 | --- | --- | --- |
 | Round-0 transcript in §6 | 2,119 | Working tree mid-development, before the review-request file was staged. Historical; preserved verbatim |
 | Reviewed head `bdc29012` | 2,120 | What the round-0 reviewer's checkout would report |
-| **Final correction head** | **2,178** | Denylist selection; +58 files newly in scope |
+| Round-1 head `8117dfc7` | **2,178** | Denylist selection; +58 files vs round 0. Superseded by §12 |
 
-### Re-run of the guard mutation proof at the final head
+### Re-run of the guard mutation proof at the round-1 head `8117dfc7`
+
+> **HISTORICAL EVIDENCE — round 1, preserved verbatim.** Captured at the
+> round-1 head, where selection was the binary denylist and 2,178 entries were
+> in scope. Kept unchanged as the evidence the round-1 reviewer saw. Its counts
+> are **superseded** by §12.
 
 ```
 === BASELINE ===
@@ -461,3 +469,111 @@ The five allowlist entries, the recovery-crypto selection order and its fallback
 the CI wiring (still +8/−0 on `ci.yml`), the ten deletions, and every claim in
 §7–§9 are untouched. Round 1 is confined to guard file-selection, guard read
 failure, and count accuracy.
+
+---
+
+## 12. Independent review — round 2
+
+One **additive** commit whose parent is `8117dfc7`. Neither `bdc29012` nor
+`8117dfc7` is amended, rewritten, squashed or replaced, so the round-0 and
+round-1 evidence above stands exactly as reviewed.
+
+### Why the round-1 denylist was rejected
+
+Round 1 replaced an extension allow-list with an extension **denylist**. That was
+still a filename rule, and this repository defeats it with its own contents:
+**eight tracked `.png` / `.ico` paths are plain ASCII text.**
+
+| Path | What it actually contains |
+| --- | --- |
+| `lib/propuestas/assets/logos/fne-logo.png` | the literal text `404: Not Found` |
+| `public/images/fne-logo.png` | the literal text `404: Not Found` |
+| `public/children-collaboration-steam.png` | an ASCII error sentence |
+| `public/favicon-32x32.png` | `data:image/svg+xml;base64,…` |
+| `public/students-steam-collaboration.png` | `data:image/png;base64,…` |
+| `public/favicon.ico` | base64 text |
+| `public/favicon-fne.ico` | base64 text |
+| `public/images/course-placeholder.png` | near-empty, no magic bytes |
+
+Every one was skipped by extension at the round-1 head. A credential pasted into
+any of them — or appended to one of those `data:` blobs — would have been
+invisible to CI while sitting in `public/`, which is **served**. The bypass was
+reproduced directly: a text file named `.png` containing a synthetic
+`service_role` value passed the round-1 guard and fails the round-2 guard.
+
+A content-sniffing heuristic ("does this look like text?") was rejected for the
+same reason: it is a third filename-shaped rule, it can be dressed around, and it
+makes coverage depend on a judgement made at scan time.
+
+### The fixed boundary
+
+Scope is now the **Git index**, and nothing else. `git ls-files -s -z` enumerates
+every tracked entry NUL-safely, and each is dispatched on its recorded mode:
+
+| Mode | Handling |
+| --- | --- |
+| `100644`, `100755` | Read as **bytes** and scan the complete content, decoded `latin1` (a byte-preserving 1:1 map, so a contiguous ASCII credential survives inside a real binary asset). Binary assets are read, not skipped. |
+| `120000` symlink | Scan the **link-target text** via `readlinkSync`. The link is never followed, so nothing outside the repository is opened and a dangling target is irrelevant — the committed content *is* the target string. |
+| `160000` gitlink, and any unknown mode | **Fail closed** with `UNSUPPORTED_TRACKED_ENTRY`, reporting only repository-relative path, mode, and a fingerprint of the path. The submodule is not accessed. |
+| regular file missing/unreadable | `UNREADABLE_FILE` fail-closed, unchanged from round 1. Only the errno code, the repository-relative path and a path fingerprint — never the message, the absolute path, contents, or a value. |
+
+`BINARY_EXTENSIONS` and `isScannableFile` are deleted. No allowlist, denylist,
+MIME test, magic-number table or "probably text" heuristic replaces them.
+
+**Unchanged documented limits.** This phase still does not detect credentials
+that exist only in Git history, deliberately split or double-encoded values,
+secrets compressed or encrypted inside a binary container, or provider-side
+state. These are stated boundaries — none of them is a reason to skip a tracked
+entry, and none is now used as one.
+
+### Final tracked-entry count
+
+**2,455**, recomputed at the round-2 correction head.
+
+The number counts **entries in the Git index**, not "text files". It includes
+every regular file at any mode, every symlink, and every gitlink — 222 PNGs, the
+fonts, and the PDFs among them, all of which are now read rather than skipped.
+It is therefore not comparable to the earlier figures, which counted a filtered
+subset. The full-tree scan takes **≈1 second**.
+
+| Point in history | Count | What it counted |
+| --- | --- | --- |
+| Round-0 transcript (§6) | 2,119 | Allow-listed extensions, working tree before the review request was staged |
+| Reviewed head `bdc29012` | 2,120 | Allow-listed extensions |
+| Round-1 head `8117dfc7` | 2,178 | Denylisted binary extensions |
+| **Round-2 head (current)** | **2,455** | **Every tracked Git entry** |
+
+### Round-2 mutation proofs
+
+Applied to disposable copies, with the pristine guard restored after each (and
+on interrupt, via an `EXIT` trap):
+
+| Mutation | Result |
+| --- | --- |
+| Reintroduce a `.png` filename skip | **3 fail** — disguised-filename, real-binary-PNG, and the missing-file case (whose fixture is a `.png`) |
+| Restore the old `catch { continue }` | **4 fail** — exactly the fail-closed cases (3 from round 1 + the round-2 one) |
+| Make symlink handling follow the target | **3 fail** — exactly the three symlink cases |
+| Real implementation restored | **54 / 54 pass**, guard OK over 2,455 entries |
+
+### Tests
+
+Guard suite **43 → 54**. New coverage proves a synthetic `service_role` value is
+found in a `.py`, a plain-text `.png`, **real binary PNG bytes**, an extensionless
+file, a dotfile, an unusual extension and a double extension; that a
+credential-free binary PNG is *inspected* and reports nothing rather than being
+skipped; that a tracked symlink is read as link text and **not followed** (proved
+with an untracked target full of a synthetic value, which must not become a
+finding); that a credential in the link target *name* is caught; that a broken
+symlink is handled from its link text; that a gitlink fails closed without being
+read; and that the eight text-disguised image files are in scope and scan clean.
+
+Two contract tests pin what round 2 must not disturb: the five allowlist entries
+are asserted **byte-identical** to `8117dfc7` by extracting the block from
+`git show`, and `service_role` is re-proved to have no allowlist path.
+
+### Unchanged surfaces
+
+`.github/workflows/ci.yml`, `PROJECT_STATE.md`, `package.json` scripts, the five
+allowlist entries, recovery-crypto selection and fallback, the ten deletions, and
+every application, API, database, migration, RLS, provider and deployment surface
+are untouched. `test:db` and `e2e` were not required and were not run.

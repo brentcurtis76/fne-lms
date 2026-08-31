@@ -1,6 +1,6 @@
 # Review request — fase LP-GOV-01: learning-path global-template governance correction (`docs/lp-global`)
 
-**Branch:** `docs/lp-global` · **Base:** exactly `72f7beed45b87aeb2fa0be7ba7f74fe5b78e944d` (`origin/main` at execution time, verified against the live remote; re-verified unchanged at round 1) · **Commit count: exactly 3** — the original correction commit **`7df2f7764107449a1d14db3fb047c6cb2cddf41d`** (parent = the base), the **additive round-1 correction commit `a37e6f1d9427e90fb21d8e246353036561a13fce`** on top of it, and one **additive round-2 correction commit** on top of that. **Neither `7df2f776` nor `a37e6f1d` was amended, rewritten, or replaced.** The newest commit's own hash cannot appear in a file it introduces; it is recorded in the executor's completion report and verifiable as `git log --oneline docs/lp-global ^72f7beed` (exactly three commits: round-2 → `a37e6f1d` → `7df2f776` → base). §12 records the round-1 findings and their remediation; §13 records round 2.
+**Branch:** `docs/lp-global` · **Base:** exactly `72f7beed45b87aeb2fa0be7ba7f74fe5b78e944d` (`origin/main` at execution time, verified against the live remote; re-verified unchanged at round 1) · **Commit count: exactly 4** — the original correction commit **`7df2f7764107449a1d14db3fb047c6cb2cddf41d`** (parent = the base), the **additive round-1 correction commit `a37e6f1d9427e90fb21d8e246353036561a13fce`**, the **additive round-2 correction commit `534899c2d7797222c24bab9b0a057fe598c8b817`**, and one **additive round-3 correction commit** on top of that. **None of the three earlier commits was amended, rewritten, or replaced.** A commit cannot contain its own hash in the contents of that same commit, so the newest SHA is supplied by the executor's completion report and verified through Git ancestry: `git log --oneline docs/lp-global ^72f7beed` (exactly four commits: round-3 → `534899c2` → `a37e6f1d` → `7df2f776` → base). §12 records the round-1 findings and their remediation; §13 records round 2; §14 records round 3.
 
 **Kind:** documentation-only governance correction. No application code, API, migration, RLS policy, or test-suite implementation; no Supabase call; no database query or mutation; no production access; no push, PR, merge, or deployment performed by the executor.
 
@@ -141,7 +141,7 @@ The round-1 delta review returned **one P3 finding**: after the round-1 commit c
 **Verification at the round-2 head:**
 
 <!-- GATE-EVIDENCE-R2:BEGIN -->
-- Diff scope confirmed: `git status` shows **only this file** modified.
+- Diff scope confirmed with durable committed-range evidence: `git diff --name-only a37e6f1d9427e90fb21d8e246353036561a13fce..534899c2d7797222c24bab9b0a057fe598c8b817` lists exactly `docs/planning/reviews/fase-lp-global-review-request.md` and nothing else. Separately, the worktree was clean after the round-2 commit (`git status --porcelain` empty). *(Wording corrected in round 3 — §14; the original phrasing cited pre-commit `git status`, which is not durable evidence once the commit exists.)*
 - `node scripts/check-ledger.mjs`: exit 1, **exactly the 67 pre-existing `[16 propiedad]` findings and no other category** (this file is not a validator input; run repeated at the round-2 head regardless).
 - Frozen hashes re-verified: claims `d598f29b…`, legacy archive `009f14ab…`; `git diff --check` clean.
 - Standard gates rerun proportionately at the round-2 head, same runner matrix as §8/§12: `npm run type-check` **exit 0** and `npm test` **exit 0 — 369/369 files, 8,423 passed / 11 skipped** (real worktree); `npm run lint` (`--max-warnings=0` form) **exit 0** and `npm run build` **exit 0** (non-iCloud copy, resynced and `diff -rq`-verified byte-identical first).
@@ -151,4 +151,19 @@ The round-1 delta review returned **one P3 finding**: after the round-1 commit c
 
 **Requested next step:** another **independent delta review** of the round-2 commit (its one-file diff over `a37e6f1d`) before any push.
 
-— Prepared 2026-08-29 on branch `docs/lp-global`; round-1 correction added 2026-08-30 (§12); round-2 time-qualification correction added 2026-08-30 (§13) for independent delta review (reviewer side: `docs/planning/review-protocol.md`). Merge decision remains Brent's.
+## 14. Independent review — round 3 (2026-08-30)
+
+The round-2 delta review returned **one P3 finding** with two wording issues in this file; both are corrected by one additive commit touching **only this file**, with every earlier section and its time-qualified evidence preserved:
+
+1. **§13's diff-scope statement relied on pre-commit `git status`**, which is not durable evidence once the commit exists. It now cites the committed range: `git diff --name-only a37e6f1d…..534899c2…` lists exactly `docs/planning/reviews/fase-lp-global-review-request.md` — verified against the repository before recording — with the post-commit clean worktree stated separately.
+2. **The header's self-hash explanation was imprecise** ("cannot appear in a file it introduces"). Accurately: a commit cannot contain its own hash in the contents of that same commit — the file could later carry the hash in a subsequent commit — so the newest SHA is supplied by the executor report and verified through Git ancestry. The header now says exactly that, advances the commit count 3 → 4, preserves the exact ancestry (round-3 → `534899c2` → `a37e6f1d` → `7df2f776` → base), and states that none of the three earlier commits was amended, rewritten, or replaced.
+
+**Verification at the round-3 head:** committed-range scope for this round is `git diff --name-only 534899c2..HEAD` = exactly this file; `node scripts/check-ledger.mjs` exit 1 with **exactly the 67 pre-existing `[16 propiedad]` findings and no other category**; frozen hashes re-verified (claims `d598f29b…`, legacy archive `009f14ab…`); `git diff --check` clean; standard gates rerun proportionately at this head, same runner matrix as §8/§12/§13:
+
+<!-- GATE-EVIDENCE-R3:BEGIN -->
+- `npm run type-check` **exit 0** and `npm test` **exit 0 — 369/369 files, 8,423 passed / 11 skipped** (real worktree); `npm run lint` (`--max-warnings=0` form) **exit 0** and `npm run build` **exit 0** (non-iCloud copy, resynced and `diff -rq`-verified byte-identical first).
+<!-- GATE-EVIDENCE-R3:END -->
+
+`test:db`/E2E remain deliberately not run — no DB, API, or UI file may change in this round. No Supabase call, database access, production access, push, PR, merge, or deployment. **Requested next step:** another **independent delta review** of the round-3 commit (its one-file diff over `534899c2`) before any push.
+
+— Prepared 2026-08-29 on branch `docs/lp-global`; round-1 correction added 2026-08-30 (§12); round-2 time-qualification correction added 2026-08-30 (§13); round-3 wording correction added 2026-08-30 (§14) for independent delta review (reviewer side: `docs/planning/review-protocol.md`). Merge decision remains Brent's.

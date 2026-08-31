@@ -1,12 +1,37 @@
 /**
  * Server-only cryptography for the recovery queue and retry grant.
  *
- * The Supabase service-role secret is already a high-entropy, shared secret on
- * every server instance. Domain-separated SHA-256 derivation gives this module
- * independent AES/HMAC keys without adding another deployment secret whose
- * absence could strand recovery users. Rotating the service key intentionally
- * invalidates queued envelopes and grants; their maximum useful lifetime is
- * short, and a rotation is a security event.
+ * Key material is selected in this order:
+ *
+ *   1. An explicit secret passed by the caller (tests only).
+ *   2. `RECOVERY_CRYPTO_SECRET` — a dedicated, server-only deployment secret.
+ *   3. `SUPABASE_SERVICE_ROLE_KEY` — the legacy fallback.
+ *
+ * The fallback is deliberately retained so that deploying this module changes no
+ * behaviour on its own: where `RECOVERY_CRYPTO_SECRET` is unset, derivation is
+ * byte-identical to before. It exists to break a coupling that made a routine
+ * API-key rotation a user-facing event — rotating the service key used to
+ * invalidate every queued envelope and outstanding grant, because the service
+ * key WAS the crypto root. With `RECOVERY_CRYPTO_SECRET` configured, the API key
+ * and the encryption root are independent: rotating one no longer disturbs the
+ * other.
+ *
+ * Cutover is therefore not a code change but an operational one, and it is not
+ * free: envelopes sealed under the old root cannot be opened under the new one.
+ * A cutover requires a newly generated high-entropy `RECOVERY_CRYPTO_SECRET`
+ * (never a copy of any API key, past or present) AND a drained recovery queue,
+ * because anything still queued at the moment of the switch becomes
+ * undecryptable. See docs/runbooks/auth-security.md.
+ *
+ * This value is server-only. It must never be exposed through a `NEXT_PUBLIC_*`
+ * name or surfaced in `next.config.js`; doing so would ship the encryption root
+ * to every browser. `__tests__/lib/auth/recovery-crypto-secret.test.ts` asserts
+ * both properties.
+ *
+ * A secret shorter than 32 characters is treated as unconfigured rather than
+ * silently weakened. If `RECOVERY_CRYPTO_SECRET` is set but too short, the
+ * module fails closed instead of falling back to the service key — a dedicated
+ * secret that was configured badly should surface, not be quietly ignored.
  */
 import {
   createCipheriv,
@@ -35,7 +60,16 @@ export type RecoveryGrantVerification =
   | { ok: false; reason: 'missing' | 'invalid' | 'expired' | 'not_configured' };
 
 function configuredSecret(explicit?: string): string | null {
-  const secret = explicit ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // An unset or blank RECOVERY_CRYPTO_SECRET falls through to the legacy key, so
+  // that merging this change is a no-op. A non-blank one is used even if it is
+  // too short, so the length check below fails closed rather than masking a
+  // misconfigured dedicated secret behind the old fallback.
+  const dedicated = process.env.RECOVERY_CRYPTO_SECRET;
+  const secret =
+    explicit ??
+    (typeof dedicated === 'string' && dedicated.trim().length > 0
+      ? dedicated
+      : process.env.SUPABASE_SERVICE_ROLE_KEY);
   return typeof secret === 'string' && secret.length >= 32 ? secret : null;
 }
 

@@ -47,9 +47,15 @@ from being read as "the problem is fixed". These are different columns.
 | 0.13 | Postgres security patches | **OUTSTANDING** | §4.4 |
 | 0.14 | RLS advisor findings (incl. `public.modules`) | **REPORTED, NOT FIXED** — out of scope by decision | §5 |
 | 0.15 | **Retention/scrubbing sweep** (`run_auth_security_retention` + daily cron) | **CODE COMPLETE; RUNS NOWHERE YET.** Requires the fifth migration, the deploy, and `CRON_SECRET` in Vercel Production | §7 |
+| 0.16 | **Committed API keys removed from the working tree** + CI guard against recurrence | **DONE ON BRANCH `fix/cred-guard`**, unreviewed, unmerged. Removal is not rotation, and history was not rewritten | §8.1 |
+| 0.17 | **Rotation of the exposed `service_role` and legacy anon keys** | **NOT DONE — the substantive remedy.** Two local carriers still hold the `service_role` value (`fp=0ead88ebeff2`). Treat as disclosed until the dashboard shows the legacy keys disabled | §8.1, §8.3 |
+| 0.18 | **Rotation of the historical database password** (`.env.prod` exposure) | **BLOCKED BY DESIGN** until a written external-direct-database-consumer inventory exists. Rotating first would cause an outage | §8.4 |
+| 0.19 | **`RECOVERY_CRYPTO_SECRET` cutover** (decouples recovery crypto from the API key) | **CODE COMPLETE, FALLBACK RETAINED — no behaviour change on merge.** Cutover needs a newly generated secret in Vercel Production *and* a drained recovery queue | §8.5 |
 
 Rows 0.10–0.12 are independent of the merge and should not wait for it. Row 0.3
-is the one that must happen *with* it.
+is the one that must happen *with* it. Rows 0.16–0.19 are the API-key incident
+(§8) and are governed separately from the administrator-password incident in
+§1 — closing one closes neither the other nor row 0.18.
 
 **On row 0.7a, in plain words.** A repository test cannot prove that mail leaves
 the building. `lib/email/invitations.ts` names its immediate outcomes for what is
@@ -882,3 +888,171 @@ Operational shape:
 Until the fifth migration is applied AND the branch is deployed AND
 `CRON_SECRET` exists in Vercel Production, none of this runs anywhere — the
 same "code complete ≠ deployed" rule as §0.
+
+---
+
+## 8. Supabase API key exposure (CRED-01) — separately governed
+
+> **Scope of the repository correction (branch `fix/cred-guard`).** Repository
+> hygiene and a guard, nothing else. No key was rotated, no provider was
+> contacted, no environment variable was changed, no deployment was triggered,
+> and no credential value was read, printed, copied or tested by the work that
+> produced this section. Everything in §8.3 below is *pending human action*.
+
+This is a **different incident** from §1. Section 1 concerns an administrator
+**password** compiled into a public page. This section concerns **Supabase API
+keys** — an anon key and a `service_role` key — and a **historical database
+password**. They are tracked separately, they have different blast radii, and
+closing one closes none of the others. The four live credential workstreams are:
+
+| Workstream | Nature | Governed in |
+| --- | --- | --- |
+| Administrator password | Password in a public bundle | §1.1–§1.2 |
+| Database password | Historical `.env.prod` exposure | §8.4 |
+| API keys (anon + `service_role`) | This section | §8.1–§8.3 |
+| Seeded simulation plan | Separate plan document | `docs/reviews/santa-marta-seeded-simulation-plan-2026-08-31.md` — **untracked** in the canonical checkout as of 2026-08-31; not committed to `main`, so it is absent from any worktree |
+
+### 8.1 What was exposed, and where it still lives
+
+**Committed to the repository (now removed).** Ten orphaned helper scripts
+carried credentials as string literals. Two of them —
+`scripts/fix-qa-workspace.js` and `scripts/seed-hour-tracking-qa-scenarios.mjs` —
+carried a **`service_role`** key, which bypasses RLS entirely. Seven
+`src/tests/*.ts` scripts and `lib/supabase-debug.ts` carried the production
+project URL and a legacy anon key; `lib/supabase-debug.ts` additionally logged
+request headers. None had any inbound reference. All ten are deleted on
+`fix/cred-guard`, and `scripts/ci/check-committed-secrets.mjs` now fails CI if a
+`service_role` key is ever committed again.
+
+Removal from the working tree does **not** remove the value from Git history, and
+history was deliberately not rewritten. The key must be treated as disclosed for
+as long as it remains valid; the remedy is rotation (§8.3), not history surgery.
+
+**Still present locally, outside Git.** Two carriers hold a `service_role` key on
+this machine. Neither is tracked; both are ignored:
+
+| Carrier | Line | Fingerprint |
+| --- | --- | --- |
+| `.env.local` | 11 | `0ead88ebeff2` |
+| `.claude/settings.local.json` | 11 | `0ead88ebeff2` |
+
+The fingerprint is a truncated SHA-256 of the value, not the value. It appears
+twice in `.claude/settings.local.json:11`, once as an `apikey:` header and once
+as an `Authorization: Bearer` header, inside a pre-approved `curl` permission
+entry — so any agent session reading that file obtains a `service_role`
+credential, and a blanket `Bash(curl:*)` allow sits alongside it.
+
+**Historical.** A `.env.prod` file previously carried a **database password**.
+Its value is not reproduced here and is not required for any step below.
+
+### 8.2 What the local evidence does and does not prove
+
+Both carriers show the **same fingerprint**, so they hold the same value. That is
+**strong configuration evidence** — it establishes what this machine is
+configured to send, and it means rotating one carrier without the other would
+leave a stale credential behind.
+
+It is **not** provider confirmation. Matching local files cannot establish that
+Supabase currently accepts this key, that it has not already been rotated, or
+that it was ever used by anyone else. Only the Supabase Dashboard can show which
+keys are live. Nothing in this runbook authorizes sending the key anywhere to
+find out: **an authentication attempt with a suspect credential is not a
+diagnostic, it is a use of that credential**, it appears in provider logs as a
+successful or failed sign-in, and it can convert a suspected exposure into a
+confirmed one. Do not test the key. Read the dashboard instead.
+
+### 8.3 Environment discipline — where keys are allowed to exist
+
+These rules apply from now on, and supersede the "all environments" phrasing in
+§1.3 for any future key rotation:
+
+1. **Production credentials belong in Vercel Production only.** Not in Preview,
+   not in Development, not in a local file that outlives the task that needed it.
+2. **Preview, Development, and any future staging use isolated, non-production
+   Supabase projects with their own credentials.** A preview deployment must not
+   be able to reach production data at all — that is a project boundary, not a
+   key-scoping question.
+3. **Default local development must not retain production credentials.** Point
+   `.env.local` at a local stack (`supabase status`). If a task genuinely needs
+   production access, it is a named, time-bounded exception that ends by removing
+   the value again — not the resting state of the machine.
+4. **`RECOVERY_CRYPTO_SECRET` is generated, never copied.** It is a new
+   high-entropy value, independent of every API key past and present, and it is
+   server-only: never a `NEXT_PUBLIC_*` name, never surfaced in
+   `next.config.js`. See §8.5.
+
+### 8.4 Database password — blocked on a consumer inventory
+
+The historical database password is **not** to be rotated as part of this work.
+A database password is not like an API key: anything holding a direct Postgres
+connection string breaks the moment it changes, and this project has accumulated
+external consumers over time (analytics, migration tooling, one-off scripts,
+scheduled jobs, anything run from an operator's machine).
+
+**Required before rotation:** a written inventory of every external direct-database
+consumer, each with an owner and an update path. Rotating first and discovering
+consumers afterwards converts a contained exposure into an outage. This item stays
+open until that inventory exists.
+
+### 8.5 Recovery encryption is no longer coupled to the API key
+
+Recovery envelopes and retry grants were encrypted under a key derived from
+`SUPABASE_SERVICE_ROLE_KEY`, which meant rotating that API key silently
+invalidated every queued recovery envelope and outstanding grant. That coupling
+made a routine rotation a user-facing event — precisely the pressure that keeps a
+suspect key in service.
+
+`lib/auth/recovery-crypto.ts` now selects key material in this order:
+
+1. an explicit secret argument (tests only);
+2. `RECOVERY_CRYPTO_SECRET`;
+3. `SUPABASE_SERVICE_ROLE_KEY` (legacy fallback, retained).
+
+The fallback is deliberate: where `RECOVERY_CRYPTO_SECRET` is unset, derivation is
+byte-identical to before, so **merging this change alters no production behaviour
+on its own**. A secret shorter than 32 characters is treated as unconfigured, and
+a *non-blank but too-short* `RECOVERY_CRYPTO_SECRET` fails closed rather than
+silently falling back — a badly configured dedicated secret should surface.
+
+**Cutover is operational, not automatic, and it is not free.** Envelopes sealed
+under the old root cannot be opened under the new one. A cutover therefore needs
+**both**:
+
+- a newly generated high-entropy `RECOVERY_CRYPTO_SECRET` (never a copy of any
+  API key), set in Vercel Production only; and
+- a **drained recovery queue** — anything still queued at the moment of the switch
+  becomes undecryptable.
+
+`__tests__/lib/auth/recovery-crypto-secret.test.ts` proves each selection branch,
+the missing-secret failure, and — by running the same seal/rotate/open sequence
+with and without the dedicated secret — that rotating only the API key no longer
+invalidates envelopes.
+
+### 8.6 Verification, and what is explicitly not authorized
+
+- **Verification is dashboard state.** Legacy anon and `service_role` keys are
+  confirmed disabled by reading the Supabase Dashboard.
+- **No old-key production request is authorized**, at any stage, by anyone, for
+  any purpose — including "just to check whether it still works". See §8.2.
+- Application-level verification uses **synthetic adult accounts** only, never
+  student or other minor data (Ley 21.719).
+- Production is reached **only** through the controlled `main` merge path. `main`
+  auto-deploys; no manual Vercel deployment is authorized here.
+
+### 8.7 Current production reference point
+
+As of 2026-08-31, GitHub reports for `main` at
+`49814091a2df69cc8e4c02beba8014bb5aa0694c`:
+
+- CI run **33400056341** — successful;
+- Vercel Production deployment **6182645350** — successful.
+
+This **supersedes** the production-deployment statement in the `CI-MAINT-01`
+entry of `PROJECT_STATE.md`, which cites CI runs `33274215527` / `33274578596`
+and Production deployment `6160000598` for merge commit
+`2b7be4cfe8819e07f53b3b9ff734b8a2dacd5894`. That entry is **not** rewritten: it
+was accurate for the merge it describes, and it remains the audit trail for that
+merge. It is simply no longer the current head.
+
+Recorded from GitHub-reported state. This runbook section asserts nothing about
+whether any credential is currently accepted by Supabase — see §8.2.

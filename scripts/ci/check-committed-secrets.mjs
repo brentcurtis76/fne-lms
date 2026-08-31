@@ -29,8 +29,12 @@
  *
  * Negative controls: __tests__/security/committed-secrets-guard.test.ts
  */
-import { readFileSync, readlinkSync } from 'node:fs';
-import { resolve, sep } from 'node:path';
+// Deliberately NO node:fs import. The guard reads tracked content exclusively
+// from Git's object store; it never opens a path in the working tree. The
+// round-3 review proved why that matters: a path indexed as a regular file can
+// be replaced on disk by a symlink, and a filesystem read follows it OUTSIDE
+// the repository. No filesystem read, no escape.
+import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -61,28 +65,39 @@ const SB_PUBLISHABLE_PREFIX = 'sb_' + 'publishable_';
  * third time: it hands an attacker a rule to dress around, and it makes the
  * guard's coverage depend on a judgement call at scan time.
  *
- * So there is no judgement call. The boundary is the Git index: enumerate every
- * tracked entry with `git ls-files -s -z`, dispatch on the recorded MODE, and
- * handle each mode explicitly. Real binary assets are read too — the credential
- * patterns are ASCII, so bytes are decoded `latin1` (a byte-preserving 1:1 map)
- * and a contiguous ASCII credential inside a PNG is found like any other.
+ * So there is no judgement call, and there is exactly ONE boundary:
  *
- * Round 3 closed the last gap in that claim: round 2 enumerated FROM the index
- * but read content from the WORKING TREE, so a staged secret hidden behind a
- * clean working-tree copy scanned as clean (reproduced by the round-2 reviewer).
- * The AUTHORITATIVE content is now the indexed blob itself, fetched by object id
- * through one `git cat-file --batch` process. The working-tree copy is scanned
- * IN ADDITION whenever its bytes differ from the indexed blob — extra
- * protection, never a substitute — and unresolved merge stages fail closed
- * rather than being silently collapsed to one side.
+ *   THE GUARD SCANS THE GIT INDEX. NOTHING ELSE.
+ *
+ * Paths, modes and stages come from `git ls-files -s -z`; the bytes scanned are
+ * the INDEXED BLOBS themselves, fetched by object id through one strictly
+ * validated `git cat-file --batch` call. The working tree is never opened —
+ * not for regular files, not for symlinks. Round 3 briefly kept an "additional"
+ * working-tree scan, and its review showed why that was a bug, not a feature:
+ * a path indexed as a regular file can be replaced on disk by a symlink, and a
+ * filesystem read follows it outside the repository. Dropping the read removes
+ * the escape and the entire class behind it.
+ *
+ * The consequence is a clean contract: this guard protects content that can be
+ * COMMITTED. A value that exists only in an unstaged working-tree copy or in a
+ * gitignored file is outside its boundary — it enters scope the moment it is
+ * staged, which is the moment it can reach `main`. Real binary assets are
+ * scanned like everything else: blob bytes are decoded `latin1` (a
+ * byte-preserving 1:1 map), so a contiguous ASCII credential inside a PNG is
+ * found like any other.
+ *
+ * Everything the index hands us that cannot be fully validated fails closed:
+ * unresolved merge stages (no side is chosen or scanned), gitlinks and unknown
+ * modes (never accessed), missing or non-blob objects, and any malformed or
+ * desynchronized `cat-file --batch` framing.
  *
  * What this deliberately does NOT claim, unchanged from earlier rounds — these
- * are stated boundaries, not silent gaps, and none of them is a reason to skip
- * a tracked entry:
+ * are stated boundaries, not silent gaps:
  *
  *   - credentials that exist only in Git history;
  *   - values deliberately split across lines or double-encoded;
  *   - secrets compressed or encrypted inside a binary container;
+ *   - working-tree-only or gitignored content (in scope once staged);
  *   - provider-side state (whether a key is actually accepted).
  */
 
@@ -128,45 +143,94 @@ export function trackedEntries(cwd = process.cwd()) {
   );
 }
 
-/**
- * Fetch the raw bytes of the given blob object ids in ONE `git cat-file
- * --batch` subprocess (≈100 MB across ~2,455 objects in this repository, well
- * under a second). Returns a Map of oid → Buffer, with `null` for an oid the
- * object store cannot produce — the caller fails closed on those.
- *
- * `--batch` output is `<oid> SP <type> SP <size> LF <raw bytes> LF` per object
- * (or `<oid> SP missing LF`), parsed as bytes so blob content is never pushed
- * through a lossy text decode.
- */
-export function readIndexBlobs(cwd, oids) {
-  const unique = [...new Set(oids)];
-  const blobs = new Map();
-  if (unique.length === 0) return blobs;
+/** An object id: 40 hex (SHA-1) or 64 hex (SHA-256 repositories). */
+const OID_SHAPE = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
-  const out = execFileSync('git', ['cat-file', '--batch'], {
-    cwd,
-    input: unique.join('\n') + '\n',
-    maxBuffer: 1024 * 1024 * 1024,
-  });
+/**
+ * Parse `git cat-file --batch` output STRICTLY, against the exact ordered list
+ * of object ids that were requested. Returns a Map of oid → `{ bytes, code }`:
+ * `bytes` is the blob's raw Buffer when — and only when — every framing rule
+ * below holds, else `null` with a short safe `code` the caller reports.
+ *
+ * `--batch` answers in request order as `<oid> SP <type> SP <size> LF
+ * <raw bytes> LF` (or `<oid> SP missing LF`). An object is accepted only when:
+ *
+ *   - the header is structurally valid and its oid is EXACTLY the one this
+ *     position requested;
+ *   - the type is exactly `blob` (a `tree`/`commit`/`tag` is framed past so
+ *     later objects stay parseable, but yields `not-a-blob` — the round-3
+ *     reviewer built a 100644 index entry pointing at a TREE, and the previous
+ *     parser scanned its raw bytes as if they were file content);
+ *   - the size is a non-negative safe integer, exactly that many body bytes
+ *     are present, and the next byte is the required LF.
+ *
+ * Any violation desynchronizes the frame, and a desynchronized frame cannot be
+ * trusted RETROACTIVELY either — an earlier "object" might have been an
+ * accident of the same corruption — so the whole response fails closed:
+ * every requested oid maps to `{ bytes: null, code: 'malformed-batch' }`.
+ * The same happens when validly framed objects are followed by trailing
+ * unparsed bytes. Raw batch output is never printed anywhere.
+ */
+export function parseBatchOutput(out, expectedOids) {
+  const failAll = (code) => new Map(expectedOids.map((oid) => [oid, { bytes: null, code }]));
+  const blobs = new Map();
 
   let offset = 0;
-  while (offset < out.length) {
+  for (const expected of expectedOids) {
     const newline = out.indexOf(0x0a, offset);
-    if (newline === -1) break;
+    if (newline === -1) return failAll('malformed-batch');
+
     const header = out.toString('utf8', offset, newline).split(' ');
     offset = newline + 1;
     const oid = header[0];
-    const size = Number(header[2]);
-    if (header[1] === 'missing' || !Number.isSafeInteger(size) || size < 0) {
-      blobs.set(oid, null);
+    if (oid !== expected || !OID_SHAPE.test(oid)) return failAll('malformed-batch');
+
+    if (header.length === 2 && header[1] === 'missing') {
+      blobs.set(oid, { bytes: null, code: 'missing-object' });
       continue;
     }
-    blobs.set(oid, out.subarray(offset, offset + size));
-    offset += size + 1; // skip the LF that terminates the object body
+
+    const type = header[1];
+    const size = Number(header[2]);
+    if (header.length !== 3 || !/^\d+$/.test(header[2]) || !Number.isSafeInteger(size)) {
+      return failAll('malformed-batch');
+    }
+    if (offset + size > out.length || out[offset + size] !== 0x0a) {
+      return failAll('malformed-batch');
+    }
+    const body = out.subarray(offset, offset + size);
+    offset += size + 1;
+
+    blobs.set(oid, type === 'blob' ? { bytes: body, code: null } : { bytes: null, code: 'not-a-blob' });
   }
 
-  for (const oid of unique) if (!blobs.has(oid)) blobs.set(oid, null);
+  if (offset !== out.length) return failAll('malformed-batch');
   return blobs;
+}
+
+/**
+ * Fetch the raw bytes of the given object ids in ONE `git cat-file --batch`
+ * subprocess (≈100 MB across ~2,455 objects in this repository, ≈1.5 s
+ * end to end). Duplicate requests are collapsed to one fetch; the returned
+ * Map is keyed by oid, so the mapping stays deterministic for duplicates.
+ * A subprocess failure fails every oid closed.
+ */
+export function readIndexBlobs(cwd, oids) {
+  const unique = [...new Set(oids)];
+  if (unique.length === 0) return new Map();
+
+  let out;
+  try {
+    out = execFileSync('git', ['cat-file', '--batch'], {
+      cwd,
+      input: unique.join('\n') + '\n',
+      maxBuffer: 1024 * 1024 * 1024,
+    });
+  } catch {
+    return new Map(unique.map((oid) => [oid, { bytes: null, code: 'batch-failed' }]));
+  }
+
+  return parseBatchOutput(out, unique);
 }
 
 /**
@@ -366,16 +430,18 @@ export function trackedFiles(cwd = process.cwd()) {
 }
 
 /**
- * Inspect every tracked entry.
+ * Inspect every tracked entry — FROM THE INDEX ONLY.
  *
- * The AUTHORITATIVE content for each stage-0 entry is the INDEXED BLOB, fetched
- * by object id — never the working tree. That is the round-3 correction: the
- * round-2 reviewer staged a secret, overwrote the working-tree copy with safe
- * text, and the guard reported clean because it enumerated from the index but
- * read from disk. The working-tree representation is still scanned IN ADDITION
- * whenever its bytes differ from the indexed blob, so a secret present only on
- * disk keeps being caught; identical content is scanned once, and a finding
- * present in both is reported once.
+ * The content scanned for each stage-0 entry is the INDEXED BLOB, fetched by
+ * object id. The working tree is never opened: no readFileSync, no
+ * readlinkSync, no divergence comparison. Round 3 kept an "additional"
+ * working-tree read and its review turned that into an exploit — replace a
+ * regular indexed file on disk with a symlink and the read follows it OUTSIDE
+ * the repository. With no filesystem read there is nothing to follow.
+ *
+ * The boundary this enforces is committed-content: a secret that exists only
+ * in an unstaged working-tree copy produces no finding here, and enters scope
+ * the moment `git add` stages it — which is the moment it can reach `main`.
  */
 export function scanRepository(cwd = process.cwd()) {
   const entries = trackedEntries(cwd);
@@ -387,15 +453,17 @@ export function scanRepository(cwd = process.cwd()) {
       file,
       line: 0,
       fingerprint: fingerprint(file),
-      // Only a short safe CODE — never the error message (which carries an
-      // absolute path), the contents, or any value.
+      // Only a short safe CODE — never an error message, an absolute path,
+      // object contents, or any value.
       message: `Tracked entry could not be read (${code ?? 'unknown'}); failing closed rather than skipping it`,
     });
 
-  // Group records by path. A path in an unresolved merge appears at stages
-  // 1/2/3 and has no stage-0 record; it fails closed as a whole, with every
-  // stage named, and NEITHER side's content is scanned — this guard does not
-  // pick winners in a conflict, and the finding itself blocks CI.
+  // Group records by path and fail closed on ANY nonzero stage, naming every
+  // stage:mode pair and scanning no side — this guard does not pick winners in
+  // a conflict, and the finding itself blocks CI. Note that git's plumbing CAN
+  // hold a stage-0 record alongside nonzero stages for the same path
+  // (`update-index --index-info` accepts the mixture), so the rule is "any
+  // nonzero stage blocks the path", not "conflicted paths have no stage 0".
   const byPath = new Map();
   for (const entry of entries) {
     if (!byPath.has(entry.path)) byPath.set(entry.path, []);
@@ -418,11 +486,12 @@ export function scanRepository(cwd = process.cwd()) {
       });
       continue;
     }
-    scannable.push(records[0]); // a resolved path has exactly one stage-0 record
+    scannable.push(records[0]); // one stage-0 record survives grouping
   }
 
-  // One subprocess fetches every blob this scan is entitled to read. Gitlink
-  // object ids are deliberately NOT requested: a submodule is never accessed.
+  // One strictly validated subprocess fetches every blob this scan is entitled
+  // to read. Gitlink object ids are deliberately NOT requested: a submodule is
+  // never accessed.
   const blobs = readIndexBlobs(
     cwd,
     scannable
@@ -430,69 +499,18 @@ export function scanRepository(cwd = process.cwd()) {
       .map(({ oid }) => oid)
   );
 
-  const findingKey = (f) => `${f.rule} ${f.line} ${f.fingerprint}`;
-
   for (const { mode, oid, path: file } of scannable) {
-    const absolute = resolve(cwd, file.split('/').join(sep));
-
-    if (mode === MODE_REGULAR || mode === MODE_EXECUTABLE) {
-      // AUTHORITATIVE: the indexed blob. `latin1` maps each byte to
-      // U+0000–U+00FF one-for-one, so a contiguous ASCII credential survives
-      // intact even inside a real binary asset.
-      const blob = blobs.get(oid) ?? null;
-      let indexFindings = [];
-      if (blob === null) {
-        unreadable(file, 'missing-object');
-      } else {
-        indexFindings = scanText(blob.toString('latin1'), file);
-        findings.push(...indexFindings);
-      }
-
-      // ADDITIONAL: the working-tree copy, scanned only when it diverges. Its
-      // absence or unreadability stays a fail-closed finding — a tracked file
-      // that vanished from disk is an unknown, whatever the index said.
-      let disk;
-      try {
-        disk = readFileSync(absolute);
-      } catch (error) {
-        unreadable(file, error?.code);
+    if (mode === MODE_REGULAR || mode === MODE_EXECUTABLE || mode === MODE_SYMLINK) {
+      // The indexed blob is the ONLY content source. For a symlink the blob IS
+      // the committed target text, scanned as text and never followed. `latin1`
+      // maps each byte to U+0000–U+00FF one-for-one, so a contiguous ASCII
+      // credential survives intact even inside a real binary asset.
+      const blob = blobs.get(oid);
+      if (!blob || blob.bytes === null) {
+        unreadable(file, blob?.code ?? 'missing-object');
         continue;
       }
-      if (blob !== null && disk.equals(blob)) continue;
-      const seen = new Set(indexFindings.map(findingKey));
-      for (const finding of scanText(disk.toString('latin1'), file)) {
-        if (!seen.has(findingKey(finding))) findings.push(finding);
-      }
-      continue;
-    }
-
-    if (mode === MODE_SYMLINK) {
-      // AUTHORITATIVE: the indexed symlink blob, which IS the committed target
-      // text. Nothing is followed and nothing outside the repository is opened.
-      const blob = blobs.get(oid) ?? null;
-      let indexFindings = [];
-      if (blob === null) {
-        unreadable(file, 'missing-object');
-      } else {
-        indexFindings = scanText(blob.toString('latin1'), file);
-        findings.push(...indexFindings);
-      }
-
-      // ADDITIONAL: the working-tree link's own target text via `readlinkSync`,
-      // which reads the link and never follows it; a dangling target is
-      // irrelevant because the content under inspection is the target string.
-      let target;
-      try {
-        target = readlinkSync(absolute);
-      } catch (error) {
-        unreadable(file, error?.code);
-        continue;
-      }
-      if (blob !== null && target === blob.toString('latin1')) continue;
-      const seen = new Set(indexFindings.map(findingKey));
-      for (const finding of scanText(target, file)) {
-        if (!seen.has(findingKey(finding))) findings.push(finding);
-      }
+      findings.push(...scanText(blob.bytes.toString('latin1'), file));
       continue;
     }
 
@@ -535,7 +553,7 @@ export function main(args = process.argv.slice(2)) {
   }
 
   console.log(
-    `Committed-secret guard OK — ${files.length} tracked path(s) scanned from the Git index (working-tree copies checked for divergence), 0 findings`
+    `Committed-secret guard OK — ${files.length} tracked path(s), authoritative content scanned from the Git index only, 0 findings`
   );
   return 0;
 }

@@ -84,7 +84,7 @@ the guard by fingerprint, with the reason recorded in the allowlist entry.
 
 | File | Change |
 | --- | --- |
-| `__tests__/security/committed-secrets-guard.test.ts` | New, **61** tests (35 at round 0; +8 round 1; +11 round 2; +7 round 3, with one round-1 test updated for index authority). |
+| `__tests__/security/committed-secrets-guard.test.ts` | New, **74** tests (35 round 0; +8 round 1; +11 round 2; +7 round 3; round 4 retired the 3 working-tree-premise tests, added 13 index-only/batch-framing tests and repurposed 2). |
 | `__tests__/lib/auth/recovery-crypto-secret.test.ts` | New, 16 tests. |
 | `docs/runbooks/auth-security.md` | New §8; four rows (0.16–0.19) added to the §0 state-of-play table. |
 | `PROJECT_STATE.md` | **+1 line, −0.** New `CRED-01` Meta entry. |
@@ -107,7 +107,7 @@ classify safely.
 | `DATABASE_PASSWORD_ASSIGNMENT` | `PGPASSWORD` / `POSTGRES_PASSWORD` / `DB_PASSWORD` / `DATABASE_PASSWORD` / `SUPABASE_DB_PASSWORD` / `POSTGRESQL_PASSWORD` assigned a literal |
 | `UNREVIEWED_JWT` | decodable JWT that is not an allowlisted fixture |
 | `UNCLASSIFIABLE_CREDENTIAL` | credential-shaped text that will not decode — **fails closed** |
-| `UNREADABLE_FILE` | a tracked regular file that cannot be read — **fails closed** (round 1) |
+| `UNREADABLE_FILE` | an indexed object that cannot be produced as a valid blob — `missing-object`, `not-a-blob`, `malformed-batch`, `batch-failed` — **fails closed** (rounds 1–4) |
 | `UNSUPPORTED_TRACKED_ENTRY` | a gitlink/submodule or unknown index mode — **fails closed**, not accessed (round 2) |
 | `UNRESOLVED_INDEX_ENTRY` | a path held at nonzero merge stages — **fails closed**, no side chosen or scanned (round 3) |
 
@@ -122,15 +122,18 @@ classify safely.
 - **Allows** `sb_publishable_` keys, and five fingerprint-allowlisted synthetic
   fixtures, each with a written reason.
 - **Dependency-free.** The `Migration safety guard` job runs before `npm ci`.
-- **Selection AND content are the Git index** (rounds 2–3): every tracked
-  entry is enumerated from `git ls-files -s -z` and dispatched on its recorded
-  mode, and the AUTHORITATIVE bytes scanned are the **indexed blob** fetched by
-  object id (round 3) — never the working tree. The working-tree copy is
-  scanned in addition whenever its bytes diverge from the indexed blob, so a
-  secret present only on disk is still caught; identical content is scanned
-  once. Unresolved merge stages fail closed (`UNRESOLVED_INDEX_ENTRY`) instead
-  of being collapsed to one side. No filename rule and no content heuristic
-  decides scope. **2,455 tracked paths** currently in scope.
+- **The guard scans the Git index only** (final model, round 4): tracked
+  paths, modes and stages come from `git ls-files -s -z`, and the bytes scanned
+  are exclusively the **indexed blobs**, fetched by object id through one
+  strictly validated `git cat-file --batch` call. The working tree is never
+  opened — no filesystem content read exists in the guard, which removes the
+  round-3 reviewer's regular-file-replaced-by-symlink escape outright. Indexed
+  symlink blobs are scanned as their committed target text and never followed.
+  Working-tree-only and gitignored content is outside the boundary and enters
+  scope the moment it is staged. Malformed or desynchronized batch framing,
+  missing and non-blob objects, gitlinks, unknown modes and unresolved merge
+  stages (`UNRESOLVED_INDEX_ENTRY`) all fail closed. No filename rule and no
+  content heuristic decides scope. **2,455 tracked paths** currently in scope.
 
 ### Why the allowlist has five entries, not the three named in the task
 
@@ -150,7 +153,7 @@ judgment call the reviewer should check** — see §7.
 
 ## 4. Focused test results
 
-### `__tests__/security/committed-secrets-guard.test.ts` — 61 passed
+### `__tests__/security/committed-secrets-guard.test.ts` — 74 passed
 
 Every rule is proved against input built for the suite, and every allowlist
 exception is proved **twice**: the real tracked file passes with the allowlist
@@ -190,20 +193,20 @@ drained queue.
 ## 5. Full gate results
 
 Run locally in `/Users/brentcurtis/dev/wt/cred-guard` against the exact tree at
-the **final correction head** — round 0 plus the round-1, round-2 and round-3
-corrections. Earlier rounds' figures are recorded in §11–§13 where they differ. Exit codes captured with `$?` directly (no pipeline), because this
+the **final correction head** — round 0 plus the round-1 through round-4
+corrections. Earlier rounds' figures are recorded in §11–§14 where they differ. Exit codes captured with `$?` directly (no pipeline), because this
 shell is zsh and `PIPESTATUS` is a bash-ism that silently yields an empty string.
 
 | Gate | Command | Exit | Result |
 | --- | --- | --- | --- |
 | Typecheck | `npm run type-check` | **0** | clean |
 | Lint | `npm run lint -- --max-warnings=0` | **0** | zero warnings |
-| Unit | `npm test` | **0** | **371 files, 8500 passed, 11 skipped, 0 failed** (8474 round 0; +8 round 1; +11 round 2; +7 round 3) |
+| Unit | `npm test` | **0** | **371 files, 8,513 passed, 11 skipped, 0 failed** (8,474 round 0; +8 round 1; +11 round 2; +7 round 3; +13 net round 4) |
 | Build | `npm run build` | **0** | production build, middleware 74.5 kB |
 | Whitespace | `git diff --check` | **0** | clean |
-| Secrets guard | `npm run guard:secrets` | **0** | **2,455** tracked paths scanned from the Git index, working-tree copies checked for divergence, 0 findings |
+| Secrets guard | `npm run guard:secrets` | **0** | **2,455** tracked paths, authoritative content scanned from the Git index only, 0 findings |
 | Actions guard | `npm run guard:actions` | **0** | 17 uses across 1 workflow file |
-| Focused suites | `vitest run` guard + recovery-crypto | **0** | 77 passed (61 guard + 16 recovery-crypto) |
+| Focused suites | `vitest run` guard + recovery-crypto | **0** | 90 passed (74 guard + 16 recovery-crypto) |
 | Migration guards | `npm run guard:migrations` | **0** | 40 migrations, no RLS-disable, no destructive statement |
 
 The 11 skips are the pre-existing `[Z3b, PARKED]` skips already recorded in
@@ -282,12 +285,14 @@ it. That assertion is therefore load-bearing, not decorative.
 
 2. **Guard evasion.** The rules are regex-and-decode over line-oriented text. A
    credential split across lines or base64-wrapped a second time would not be
-   caught. Try to get a `service_role` key past it. Since round 3 the
-   authoritative content is the **indexed blob** (the working tree is an
-   additional divergence check), so hiding a staged secret behind a clean
-   working-tree copy no longer works — but the guard still reads only the
-   current index, not history: a credential that exists only in an older commit
-   is out of scope.
+   caught. Try to get a `service_role` key past it. Since round 4 the guard
+   reads the **Git index only** — indexed blobs via strictly validated
+   `cat-file --batch` framing, with zero filesystem reads — so hiding a staged
+   secret behind a clean working-tree copy does not work, and neither does the
+   round-3 reviewer's planted-symlink escape, because there is no read to
+   follow. The flip side is the stated boundary: working-tree-only content and
+   history are out of scope; a credential that exists only in an unstaged copy
+   or an older commit is not detected here.
 
 3. **The recovery-crypto fallback.** The claim "merging changes no production
    behaviour" rests on `RECOVERY_CRYPTO_SECRET` being unset in production and on
@@ -598,6 +603,16 @@ are untouched. `test:db` and `e2e` were not required and were not run.
 
 ## 13. Independent review — round 3
 
+> **Round-4 note (time qualification).** This section is the round-3 record and
+> stands, but two of its claims were shown wrong by the round-3 review and are
+> corrected in §14: the "additional" working-tree scan it describes was itself
+> an exploit surface — a path indexed as a regular file can be replaced on disk
+> by a symlink, and `readFileSync` follows it OUTSIDE the repository, so the
+> statement below that nothing outside the repository is opened was **false**
+> for regular-file reads — and its `cat-file --batch` parser accepted short
+> bodies, wrong terminators and non-blob types. The final design removes the
+> filesystem read entirely. Nothing below is rewritten.
+
 One **additive** commit whose parent is `ef9ae403`. None of `bdc29012`,
 `8117dfc7` or `ef9ae403` is amended, rewritten, squashed or replaced; the
 round-0, round-1 and round-2 evidence above stands verbatim, time-qualified
@@ -730,3 +745,138 @@ it *measures* changed: round 2 scanned 2,455 working-tree files; round 3 scans
 One transient `EPIPE` in the unrelated Zoom oversized-webhook socket test was
 observed by the round-2 reviewer and passed in isolated rerun; that test was
 not modified, and the full suite at this head passed with zero failures.
+
+---
+
+## 14. Independent review — round 4 (final simplification)
+
+One **additive** commit whose parent is `04c2bc74`. No prior commit is amended,
+rewritten, squashed or replaced; §§6, 11, 12 and 13 stand verbatim with
+time-qualifying notes only.
+
+The round-3 independent review raised three findings. All three are closed by
+**removing** capability rather than adding it: the guard now has exactly one
+boundary.
+
+> **THE GUARD SCANS THE GIT INDEX ONLY.**
+
+### R4-1 (MAJOR) — the round-3 working-tree read escaped the repository
+
+**Finding.** Round 3 kept an "additional" working-tree scan beside the
+authoritative index scan. The reviewer showed that a path indexed as a regular
+file can be replaced on disk by a **symlink**, and `readFileSync` follows it —
+reading a file **outside the repository**. Round 3's claim that nothing outside
+the repository is ever opened was false for exactly this case.
+
+**Reproduction.** Confirmed against the pre-fix head before changing anything:
+a staged safe file whose working-tree copy was replaced by a symlink to an
+outside file containing a runtime-built synthetic secret produced a
+`SERVICE_ROLE_JWT` finding — the outside value was read into the scanner.
+
+**Fix.** The working-tree scan is **deleted**, not patched. `scanRepository`
+contains zero filesystem content reads: no `readFileSync`, no `readlinkSync`,
+no divergence comparison, no index/working-tree dedup, no working-tree
+unreadable handling. The guard has no `node:fs` import at all (asserted by a
+code-level check excluding comments). With no read there is nothing to follow.
+
+**The boundary this buys, stated plainly.** The guard protects content that can
+be **committed**. A secret that exists only in an unstaged working-tree copy or
+a gitignored file produces no finding — and enters scope the moment `git add`
+stages it, which is the moment it can reach `main`. A test pins both halves:
+the unstaged copy scans clean, and staging the same content makes it a finding.
+Three round-1 tests whose premise was "a missing working-tree file must fail
+closed" are retired with that premise; a deleted working-tree copy now neither
+hides the staged secret (still reported from the index) nor adds an
+`UNREADABLE_FILE` of its own.
+
+### R4-2 — strict `git cat-file --batch` framing
+
+**Finding.** The round-3 parser accepted a body shorter than its declared size,
+a missing or wrong terminating LF, and any object type. The reviewer's concrete
+case: an index entry of mode `100644` pointing at a **tree** object scanned the
+raw tree bytes as if they were file content and passed with zero findings —
+reproduced against the pre-fix head.
+
+**Fix.** Parsing is extracted into a pure, directly tested `parseBatchOutput`
+that accepts an object only when the header is structurally valid, the returned
+oid is **exactly** the one requested at that position, the type is exactly
+`blob`, the size is a non-negative safe integer, exactly that many body bytes
+exist, and the next byte is the required LF. A `tree`/`commit`/`tag` is framed
+past (so later objects stay parseable) but fails closed as `not-a-blob`;
+`missing` fails closed as `missing-object`; any framing violation — truncated
+body, wrong terminator, unexpected oid, malformed header, trailing unparsed
+bytes — desynchronizes the frame and fails **every** requested oid closed
+(`malformed-batch`), retroactively: a broken frame is not trusted for the
+objects it appeared to deliver earlier. A subprocess failure fails everything
+closed (`batch-failed`). Duplicate oid requests are fetched once with a
+deterministic mapping. Raw batch output, contents, absolute paths and values
+are never printed; findings carry only the safe code.
+
+The reviewer's malformed-index case now yields exactly one `UNREADABLE_FILE`
+finding whose message names `not-a-blob` — never zero findings.
+
+### R4-3 — unresolved-stage comment corrected, handling strengthened
+
+**Finding.** The round-3 comment claimed a conflicted path "has no stage-0
+record". False: `update-index --index-info` accepts a stage-0 record alongside
+nonzero stages, as reproduced. The *handling* was already safe — any nonzero
+stage blocks the path — but the stated reason was wrong.
+
+**Fix.** The comment now states the real rule. Tests are strengthened: the
+conflict fixture uses **three different modes** (`100644`/`100755`/`120000`)
+and asserts every exact `stage:mode` pair in both the enumeration and the
+single `UNRESOLVED_INDEX_ENTRY` message; a second test constructs the
+stage-0-plus-stage-2 mixture and proves it fails closed the same way. Both
+prove no side's contents, no absolute path and no value is disclosed — a
+synthetic secret sits in one side's blob and never appears.
+
+### Also fixed in passing — two literal NUL bytes in the committed guard
+
+The round-3 `findingKey` dedup template was committed with two **raw NUL
+bytes** (0x00) where `\0` escapes were intended — valid JavaScript, so it ran
+and passed review, but the file read as binary to line-oriented tools. The
+dedup logic is deleted with the working-tree scan, and the file now contains no
+NUL bytes. Disclosed for completeness; it changed no scan behavior.
+
+### Round-4 mutation proofs
+
+Disposable copies, pristine guard restored between mutations and on interrupt:
+
+| # | Mutation | Result |
+| --- | --- | --- |
+| 1 | Reintroduce a working-tree read (follows symlinks) | **10 fail**, including the outside-symlink escape test and the unstaged-out-of-scope boundary test |
+| 2 | Drop the body-length / terminating-LF validation | **1 fail**: the wrong/absent-terminator test. (The truncated-body test stays green under this mutation because the end-of-frame check independently catches truncation — the terminator test is what uniquely pins the mutated line) |
+| 3 | Accept any object type as a blob | **3 fail**, including the reviewer's end-to-end 100644→tree case |
+| 4 | Skip the returned-oid identity check | **1 fail**: the unexpected-oid test |
+| 5 | Replay — unresolved stages collapsed to first record | **2 fail**: both unresolved-stage tests |
+| 6 | Replay — `.png` filename skip | **3 fail** |
+| — | Real implementation restored | **74 / 74 pass**; guard OK, 2,455 paths, clean diff |
+
+### Counts at the round-4 head (recomputed, not copied)
+
+| Measure | Value |
+| --- | --- |
+| Guard suite | **74** tests (61 at round 3; +13 new; 3 retired round-1 working-tree-premise tests replaced by 4 boundary tests; 2 repurposed) |
+| Focused suites | **90** (74 guard + 16 recovery-crypto) |
+| Full Vitest | **371 files, 8,513 passed, 11 pre-existing skips, 0 failed** |
+| Tracked paths | **2,455** — distinct index paths; content exclusively from indexed blobs |
+
+The 2,455 is numerically unchanged (no conflicts, no submodules in the real
+repository) but now measures index-only scanning: 2,455 indexed blobs, zero
+filesystem reads.
+
+### Contracts held
+
+- The five allowlist entries are byte-identical to `8117dfc7`, `ef9ae403`
+  **and `04c2bc74`** (the contract test pins all three), and `service_role`
+  still has no allowlist path.
+- No filename-extension, MIME, magic-number or "looks like text" filter.
+- `.github/workflows/ci.yml`, `PROJECT_STATE.md`, `package.json`,
+  `lib/auth/recovery-crypto.ts`, `docs/runbooks/auth-security.md`, the ten
+  deletions, and every application/database/RLS/provider surface: untouched,
+  verified by object hash against `04c2bc74`.
+- Unchanged scope limits: Git history, split/double-encoded/compressed values,
+  working-tree-only and gitignored content (until staged), and provider-side
+  state.
+- Nothing pushed; no provider, database or credential access; all fixtures
+  runtime-built synthetics, never printed.

@@ -84,7 +84,7 @@ the guard by fingerprint, with the reason recorded in the allowlist entry.
 
 | File | Change |
 | --- | --- |
-| `__tests__/security/committed-secrets-guard.test.ts` | New, 35 tests. |
+| `__tests__/security/committed-secrets-guard.test.ts` | New, **43** tests (35 at round 0; +8 in round 1). |
 | `__tests__/lib/auth/recovery-crypto-secret.test.ts` | New, 16 tests. |
 | `docs/runbooks/auth-security.md` | New §8; four rows (0.16–0.19) added to the §0 state-of-play table. |
 | `PROJECT_STATE.md` | **+1 line, −0.** New `CRED-01` Meta entry. |
@@ -107,6 +107,7 @@ classify safely.
 | `DATABASE_PASSWORD_ASSIGNMENT` | `PGPASSWORD` / `POSTGRES_PASSWORD` / `DB_PASSWORD` / `DATABASE_PASSWORD` / `SUPABASE_DB_PASSWORD` / `POSTGRESQL_PASSWORD` assigned a literal |
 | `UNREVIEWED_JWT` | decodable JWT that is not an allowlisted fixture |
 | `UNCLASSIFIABLE_CREDENTIAL` | credential-shaped text that will not decode — **fails closed** |
+| `UNREADABLE_FILE` | a selected tracked file that cannot be read — **fails closed** (round 1) |
 
 **Properties:**
 
@@ -119,7 +120,9 @@ classify safely.
 - **Allows** `sb_publishable_` keys, and five fingerprint-allowlisted synthetic
   fixtures, each with a written reason.
 - **Dependency-free.** The `Migration safety guard` job runs before `npm ci`.
-- Scans tracked workflow, source, script, configuration and documentation files.
+- **Selection is a binary denylist** (round 1): every tracked file is scanned
+  except known-binary asset types, so a new text format is covered the day it
+  appears. 2,178 files currently in scope.
 
 ### Why the allowlist has five entries, not the three named in the task
 
@@ -139,7 +142,7 @@ judgment call the reviewer should check** — see §7.
 
 ## 4. Focused test results
 
-### `__tests__/security/committed-secrets-guard.test.ts` — 35 passed
+### `__tests__/security/committed-secrets-guard.test.ts` — 43 passed
 
 Every rule is proved against input built for the suite, and every allowlist
 exception is proved **twice**: the real tracked file passes with the allowlist
@@ -178,19 +181,21 @@ drained queue.
 
 ## 5. Full gate results
 
-Run locally in `/Users/brentcurtis/dev/wt/cred-guard` against the exact tree in
-this commit. Exit codes captured with `$?` directly (no pipeline), because this
+Run locally in `/Users/brentcurtis/dev/wt/cred-guard` against the exact tree at
+the **final correction head** (round 0 + round 1). Round-0 figures are recorded
+in §11 where they differ. Exit codes captured with `$?` directly (no pipeline), because this
 shell is zsh and `PIPESTATUS` is a bash-ism that silently yields an empty string.
 
 | Gate | Command | Exit | Result |
 | --- | --- | --- | --- |
 | Typecheck | `npm run type-check` | **0** | clean |
 | Lint | `npm run lint -- --max-warnings=0` | **0** | zero warnings |
-| Unit | `npm test` | **0** | **371 files, 8474 passed, 11 skipped, 0 failed** |
+| Unit | `npm test` | **0** | **371 files, 8482 passed, 11 skipped, 0 failed** (8474 at round 0; +8 round-1 tests) |
 | Build | `npm run build` | **0** | production build, middleware 74.5 kB |
 | Whitespace | `git diff --check` | **0** | clean |
-| Secrets guard | `npm run guard:secrets` | **0** | 2119 files scanned, 0 findings |
+| Secrets guard | `npm run guard:secrets` | **0** | **2178** files scanned, 0 findings |
 | Actions guard | `npm run guard:actions` | **0** | 17 uses across 1 workflow file |
+| Focused suites | `vitest run` guard + recovery-crypto | **0** | 59 passed (43 guard + 16 recovery-crypto) |
 | Migration guards | `npm run guard:migrations` | **0** | 40 migrations, no RLS-disable, no destructive statement |
 
 The 11 skips are the pre-existing `[Z3b, PARKED]` skips already recorded in
@@ -220,7 +225,15 @@ that failed.
 
 A guard never observed to fail proves nothing. Run end-to-end against the real
 tracked tree, with a **synthetic** `service_role` JWT built from a JSON payload
-(never a real credential):
+(never a real credential).
+
+> **HISTORICAL EVIDENCE — round 0, preserved verbatim.** The transcript below was
+> captured during development of commit `bdc29012`, when the working tree held
+> **2,119** selected files: the review-request file itself had not yet been
+> staged, and file selection was still the extension allow-list that round-1
+> finding 1 replaced. It is kept unchanged because it is the evidence the round-0
+> reviewer saw. Its counts are **superseded** — see §11 for the corrected figures
+> and the re-run at the final head.
 
 ```
 === BASELINE ===
@@ -343,3 +356,108 @@ git -C /Users/brentcurtis/dev/wt/cred-guard diff 49814091 -- .github/workflows/c
 npm run guard:secrets
 npx vitest run __tests__/security/committed-secrets-guard.test.ts __tests__/lib/auth/recovery-crypto-secret.test.ts
 ```
+
+---
+
+## 11. Independent review — round 1
+
+Three findings were raised against `bdc29012dc06ce0a055018ba35caf1e11089020b` and
+are closed by one **additive** commit on top of it. The reviewed commit was **not
+amended or rewritten**, so its history and the round-0 evidence above remain
+exactly as reviewed.
+
+### R1-1 (MAJOR) — file selection omitted `.py`
+
+**Finding.** `scripts/ci/check-committed-secrets.mjs` did not scan `.py`, and the
+repository has six tracked Python scripts. A credential in any of them would have
+passed CI.
+
+**Root cause, and why the fix is wider than the finding.** The defect was not the
+missing entry, it was the **allow-list**: it fails open for every type nobody
+remembered, so the same review would find the same bug again for the next one.
+Auditing the tree for the same class turned up more uncovered text, including
+three that matter more than Python:
+
+| Uncovered file | Why it matters |
+| --- | --- |
+| `lib/supabaseClient` | Extensionless, in the directory where a Supabase key would actually live |
+| `public/public-website-fne.html`, `public/meet/zoom-client-view.html` | **Publicly served.** A credential here is delivered to every visitor — the exact shape of the original incident |
+| `pages/admin/course-builder/[id].tsx.broken` | A page kept under a non-code extension |
+| `lib/tiptap/__tests__/__snapshots__/render.test.ts.snap` | A snapshot captures whatever a test rendered |
+| `.tap`, `.csv`, `.css` | Evidence and ledger files |
+
+**Fix.** Selection is inverted to a **binary denylist** (`BINARY_EXTENSIONS`):
+scan every tracked file except known-binary asset types. A new text format is
+covered the day it appears, with no edit to the guard. Reported scope went from
+**2,120 → 2,178** selected files (+58).
+
+Closing only `.py` would have left `public/*.html` and `lib/supabaseClient`
+unscanned in a credential guard, after being told the selection logic was wrong.
+**This is wider than the finding asked for and the reviewer should confirm the
+call.** Binary key containers (`.p12`, `.pfx`, `.jks`, `.der`) are on the denylist
+because they are binary, not because they are safe; a committed keystore is a
+different check and is not claimed here.
+
+### R1-2 (MINOR) — `scanRepository` skipped unreadable files silently
+
+**Finding.** An unreadable selected file hit `catch { continue }`, so it dropped
+out of the scan and the run still reported success over a quietly smaller set.
+
+**Fix.** Fails closed with an `UNREADABLE_FILE` finding. It discloses **only the
+errno code** — never the error message, the file contents, or any value — and
+fingerprints the *path* (not a secret) so the finding keeps the same shape as
+every other one. A test asserts the absolute temp path does not appear either,
+so operator directory layout cannot leak into CI logs.
+
+### R1-3 (MINOR) — stale scan counts
+
+**Finding.** The review request cited 2,119; the reviewed head scans 2,120.
+
+**Corrected counts.** Every committed-secret scan count in this document now
+reads **2,178**, recomputed at the final correction head.
+
+| Point in history | Selected files | Note |
+| --- | --- | --- |
+| Round-0 transcript in §6 | 2,119 | Working tree mid-development, before the review-request file was staged. Historical; preserved verbatim |
+| Reviewed head `bdc29012` | 2,120 | What the round-0 reviewer's checkout would report |
+| **Final correction head** | **2,178** | Denylist selection; +58 files newly in scope |
+
+### Re-run of the guard mutation proof at the final head
+
+```
+=== BASELINE ===
+Committed-secret guard OK — 2178 tracked file(s) scanned, 0 findings
+exit=0
+
+=== MUTATION: synthetic service_role JWT in a tracked .py file ===
+Committed-secret guard FAILED (1 finding(s)).
+- [SERVICE_ROLE_JWT] scripts/__r1-probe.py:1 fp=84d33805996a — JWT decodes to
+  role=service_role; this bypasses RLS and is never allowlistable
+exit=1
+
+=== CLEANUP ===
+Committed-secret guard OK — 2178 tracked file(s) scanned, 0 findings
+exit=0
+```
+
+The probe was a `.py` file specifically, so this transcript is also the
+end-to-end proof for R1-1.
+
+### Both fixes proved non-vacuous by mutation
+
+| Mutation | Result |
+| --- | --- |
+| Add `.py` back to the binary denylist (undo R1-1) | **5 tests fail** |
+| Restore `catch { continue }` (undo R1-2) | **3 tests fail**, exactly the fail-closed ones |
+| Neither mutation applied | **43 / 43 pass** |
+
+Guard suite grew from 35 to **43** tests. The six real tracked Python files are
+asserted by name to be in scope **and** to scan clean, so the fix is pinned to
+this repository's actual contents rather than to a synthetic case only.
+
+### What round 1 did not change
+
+The five allowlist entries, the recovery-crypto selection order and its fallback,
+the CI wiring (still +8/−0 on `ci.yml`), the ten deletions, and every claim in
+§7–§9 are untouched. Round 1 is confined to guard file-selection, guard read
+failure, and count accuracy.

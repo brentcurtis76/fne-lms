@@ -30,7 +30,7 @@
  * Negative controls: __tests__/security/committed-secrets-guard.test.ts
  */
 import { readFileSync } from 'node:fs';
-import { resolve, extname, sep } from 'node:path';
+import { resolve, sep } from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -40,18 +40,61 @@ const JWT_PREFIX = 'ey' + 'J';
 const SB_SECRET_PREFIX = 'sb_' + 'secret_';
 const SB_PUBLISHABLE_PREFIX = 'sb_' + 'publishable_';
 
-/** File types that can carry a credential in review-visible text. */
-export const SCANNED_EXTENSIONS = new Set([
-  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
-  '.json', '.yml', '.yaml', '.toml', '.env', '.ini', '.conf',
-  '.sql', '.sh', '.bash', '.zsh',
-  '.md', '.mdx', '.txt',
+/**
+ * Selection is a binary DENYLIST, not a text allow-list.
+ *
+ * The first version of this guard listed the extensions to scan. Independent
+ * review round 1 found that list omitted `.py`, and the repository has six
+ * tracked Python scripts. The underlying defect is the allow-list itself: it
+ * fails open for every file type nobody remembered, and the same review would
+ * have found the same bug again for the next one. Auditing the tree turned up
+ * more of them, including two that matter a great deal:
+ *
+ *   - `lib/supabaseClient` — extensionless, and in the directory where a
+ *     Supabase key would actually live;
+ *   - `public/public-website-fne.html`, `public/meet/zoom-client-view.html` —
+ *     PUBLICLY SERVED files, which is precisely the shape of the original
+ *     incident (a credential in a page, delivered to every visitor);
+ *   - `pages/admin/course-builder/[id].tsx.broken` — a page kept under a
+ *     non-code extension;
+ *   - a Vitest `.snap`, which can capture whatever a test rendered.
+ *
+ * So the rule is inverted: scan every tracked file EXCEPT known-binary asset
+ * types. A new text format is covered the day it appears, with no edit here.
+ * The cost is reading a few hundred extra small text files, which is cheap.
+ *
+ * Note: `.p12` / `.pfx` / `.jks` / `.der` are on this list because they are
+ * binary, not because they are harmless — they ARE credential containers. This
+ * guard classifies credential-shaped TEXT; a committed keystore is a different
+ * check and is not claimed here.
+ */
+export const BINARY_EXTENSIONS = new Set([
+  // images
+  '.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp', '.avif', '.bmp', '.tif', '.tiff',
+  // documents and archives
+  '.pdf', '.docx', '.xlsx', '.pptx', '.zip', '.gz', '.tgz', '.bz2', '.xz', '.7z', '.rar',
+  // fonts
+  '.otf', '.ttf', '.woff', '.woff2', '.eot',
+  // media
+  '.mp3', '.mp4', '.m4a', '.wav', '.mov', '.avi', '.webm', '.ogg',
+  // compiled artefacts
+  '.node', '.wasm', '.dylib', '.so', '.dll', '.exe', '.class', '.jar', '.pyc',
+  // binary key/cert containers (see note above)
+  '.p12', '.pfx', '.jks', '.keystore', '.der',
 ]);
 
-/** Extensionless files that are still worth scanning when tracked. */
-export const SCANNED_BASENAMES = new Set([
-  'Dockerfile', 'Procfile', 'Makefile', '.env', '.env.example', '.npmrc',
-]);
+/**
+ * True when a tracked path should be read and classified.
+ *
+ * `lastIndexOf('.') > 0` rather than `>= 0`, so a dotfile such as `.npmrc` or
+ * `.env.example` is treated as having no extension and IS scanned.
+ */
+export function isScannableFile(file) {
+  const base = file.split('/').pop() ?? file;
+  const dot = base.lastIndexOf('.');
+  const ext = dot > 0 ? base.slice(dot).toLowerCase() : '';
+  return !BINARY_EXTENSIONS.has(ext);
+}
 
 /**
  * Fingerprint-allowlisted synthetic fixtures.
@@ -247,16 +290,7 @@ export function scanText(text, file = '<input>') {
 /** Tracked files worth scanning. */
 export function trackedFiles(cwd = process.cwd()) {
   const out = execFileSync('git', ['ls-files', '-z'], { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-  return out
-    .split('\0')
-    .filter(Boolean)
-    .filter((file) => {
-      const base = file.split('/').pop() ?? file;
-      if (SCANNED_BASENAMES.has(base)) return true;
-      if (base.startsWith('.env')) return true;
-      return SCANNED_EXTENSIONS.has(extname(base).toLowerCase());
-    })
-    .sort();
+  return out.split('\0').filter(Boolean).filter(isScannableFile).sort();
 }
 
 export function scanRepository(cwd = process.cwd()) {
@@ -266,8 +300,23 @@ export function scanRepository(cwd = process.cwd()) {
     let text;
     try {
       text = readFileSync(resolve(cwd, file.split('/').join(sep)), 'utf8');
-    } catch {
-      continue; // unreadable or binary; nothing reviewable to classify
+    } catch (error) {
+      // FAIL CLOSED. A selected tracked file that cannot be read is an unknown,
+      // and this guard's whole contract is that an unknown is a finding. The
+      // previous `continue` meant a file could drop out of the scan silently and
+      // the run would still report success over a smaller set.
+      //
+      // Only the errno CODE is reported — never the error message, the file
+      // contents, or any value. The fingerprint is of the PATH (not a secret),
+      // so the finding keeps the same shape as every other one.
+      findings.push({
+        rule: 'UNREADABLE_FILE',
+        file,
+        line: 0,
+        fingerprint: fingerprint(file),
+        message: `Selected tracked file could not be read (${error?.code ?? 'unknown'}); failing closed rather than skipping it`,
+      });
+      continue;
     }
     findings.push(...scanText(text, file));
   }

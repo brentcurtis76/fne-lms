@@ -14,20 +14,50 @@
  * from a JSON payload, which is also why this file does not trip the guard it
  * tests — a property asserted explicitly at the end.
  */
-import { describe, it, expect, afterEach } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { describe, it, expect, afterEach, afterAll } from 'vitest';
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, unlinkSync } from 'node:fs';
+import { resolve, join, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
 import {
   scanText,
   scanRepository,
+  trackedFiles,
+  isScannableFile,
   classifyJwt,
   decodeJwtPayload,
   fingerprint,
   isReference,
+  BINARY_EXTENSIONS,
   ALLOWLIST,
 } from '../../scripts/ci/check-committed-secrets.mjs';
 
 const REPO_ROOT = resolve(__dirname, '../..');
+
+// --- a real throwaway git repository, so scanRepository is exercised for real ---
+
+const tempRepos: string[] = [];
+
+function tempRepo(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'genera-secret-guard-'));
+  execFileSync('git', ['init', '-q'], { cwd: dir });
+  tempRepos.push(dir);
+  return dir;
+}
+
+/** Write a file and stage it, so `git ls-files` reports it as tracked. */
+function addTracked(dir: string, rel: string, content: string) {
+  const abs = join(dir, rel);
+  mkdirSync(dirname(abs), { recursive: true });
+  writeFileSync(abs, content, 'utf8');
+  // -f so a global core.excludesFile cannot make this test environment-dependent.
+  execFileSync('git', ['add', '-f', '--', rel], { cwd: dir });
+  return abs;
+}
+
+afterAll(() => {
+  for (const dir of tempRepos) rmSync(dir, { recursive: true, force: true });
+});
 
 // --- helpers: build credential-shaped input without embedding a credential ---
 
@@ -306,6 +336,132 @@ describe('allowlisted synthetic fixtures', () => {
       expect(fp, 'fingerprint format').toMatch(/^[0-9a-f]{12}$/);
       expect(String(reason).length, `reason for ${fp}`).toBeGreaterThan(40);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// File selection. Round-1 finding 1: the guard omitted .py, and the repository
+// has six tracked Python scripts. Fixed by inverting to a binary denylist, so
+// these tests pin the INVERSION, not just Python.
+// ---------------------------------------------------------------------------
+
+describe('file selection', () => {
+  it('scans a tracked .py file, and catches a service_role key inside it', () => {
+    const dir = tempRepo();
+    addTracked(dir, 'scripts/seed.py', `SUPABASE_KEY = "${SERVICE_ROLE_JWT}"\n`);
+
+    const { files, findings } = scanRepository(dir);
+
+    expect(files).toContain('scripts/seed.py');
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe('SERVICE_ROLE_JWT');
+    expect(findings[0].file).toBe('scripts/seed.py');
+    expect(JSON.stringify(findings)).not.toContain(SERVICE_ROLE_JWT);
+  });
+
+  it('scans the other formats the allow-list used to miss', () => {
+    const cases: Array<[string, string]> = [
+      ['public/index.html', 'html — publicly served, the original incident shape'],
+      ['lib/supabaseClient', 'extensionless, in the directory a key would live in'],
+      ['pages/x.tsx.broken', 'a page kept under a non-code extension'],
+      ['lib/__snapshots__/a.snap', 'a snapshot can capture whatever a test rendered'],
+      ['docs/evidence.tap', 'tap evidence'],
+      ['docs/ledger.csv', 'csv ledger'],
+      ['styles/app.css', 'css'],
+      ['scripts/tool.rb', 'a language nobody listed'],
+      ['Dockerfile', 'no extension at all'],
+      ['.npmrc', 'a dotfile — must not be read as an extension'],
+    ];
+
+    for (const [rel, why] of cases) {
+      const dir = tempRepo();
+      addTracked(dir, rel, `KEY = "${SERVICE_ROLE_JWT}"\n`);
+      const { files, findings } = scanRepository(dir);
+      expect(files, `${rel} (${why}) should be selected`).toContain(rel);
+      expect(findings.map((f) => f.rule), `${rel} (${why})`).toEqual(['SERVICE_ROLE_JWT']);
+    }
+  });
+
+  it('does not select binary asset types', () => {
+    for (const ext of ['.png', '.jpg', '.pdf', '.woff2', '.ttf', '.zip', '.mp4']) {
+      expect(isScannableFile(`assets/file${ext}`), ext).toBe(false);
+    }
+    expect(BINARY_EXTENSIONS.has('.png')).toBe(true);
+  });
+
+  it('the repository\'s six tracked Python files are in scope and scan cleanly', () => {
+    const selected = trackedFiles(REPO_ROOT).filter((f: string) => f.endsWith('.py'));
+    expect(selected).toEqual([
+      'scripts/generate-migration-v2.py',
+      'scripts/generate-migration.py',
+      'scripts/generate-qa-guide.py',
+      'scripts/rewrite-qa-comprehensive.py',
+      'scripts/spikes/ner/index.py',
+      'scripts/spikes/ner/measure_ner.py',
+    ]);
+
+    for (const file of selected) {
+      expect(scanText(readFileSync(resolve(REPO_ROOT, file), 'utf8'), file), file).toEqual([]);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Round-1 finding 2: an unreadable selected file must fail closed, not vanish.
+// ---------------------------------------------------------------------------
+
+describe('unreadable files fail closed', () => {
+  it('reports a finding when a tracked file cannot be read', () => {
+    const dir = tempRepo();
+    const abs = addTracked(dir, 'scripts/vanished.py', 'print("hello")\n');
+    // Staged (so git ls-files still lists it) but absent from disk. Deterministic
+    // everywhere — unlike chmod, which behaves differently when tests run as root.
+    unlinkSync(abs);
+
+    const { files, findings } = scanRepository(dir);
+
+    expect(files).toContain('scripts/vanished.py');
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe('UNREADABLE_FILE');
+    expect(findings[0].file).toBe('scripts/vanished.py');
+    expect(findings[0].message).toContain('ENOENT');
+    expect(findings[0].message).toContain('failing closed');
+  });
+
+  it('is a real change: the old behaviour would have reported success', () => {
+    const dir = tempRepo();
+    const abs = addTracked(dir, 'a.py', 'print(1)\n');
+    addTracked(dir, 'b.py', 'print(2)\n');
+    unlinkSync(abs);
+
+    const { findings } = scanRepository(dir);
+
+    // The point of the finding: previously this scan returned zero findings over
+    // a silently smaller file set, and the run reported OK.
+    expect(findings.length).toBeGreaterThan(0);
+    expect(findings.every((f: { rule: string }) => f.rule === 'UNREADABLE_FILE')).toBe(true);
+  });
+
+  it('discloses only the errno code — never contents, message text, or a value', () => {
+    const dir = tempRepo();
+    const abs = addTracked(dir, 'secret.py', `KEY = "${SERVICE_ROLE_JWT}"\n`);
+    unlinkSync(abs);
+
+    const [finding] = scanRepository(dir).findings;
+    const serialised = JSON.stringify(finding);
+
+    expect(finding.rule).toBe('UNREADABLE_FILE');
+    expect(serialised).not.toContain(SERVICE_ROLE_JWT);
+    // The absolute path would leak the operator's directory layout into CI logs.
+    expect(serialised).not.toContain(dir);
+    expect(finding.fingerprint).toMatch(/^[0-9a-f]{12}$/);
+    expect(Object.keys(finding).sort()).toEqual(['file', 'fingerprint', 'line', 'message', 'rule']);
+  });
+
+  it('a readable tree still reports nothing', () => {
+    const dir = tempRepo();
+    addTracked(dir, 'ok.py', 'print("no credential here")\n');
+    expect(scanRepository(dir).findings).toEqual([]);
   });
 });
 

@@ -439,15 +439,25 @@ describe('unreadable files fail closed', () => {
     const abs = addTracked(dir, 'secret.py', `KEY = "${SERVICE_ROLE_JWT}"\n`);
     unlinkSync(abs);
 
-    const [finding] = scanRepository(dir).findings;
-    const serialised = JSON.stringify(finding);
+    // Round-3 behaviour: deleting the working-tree copy no longer hides the
+    // STAGED secret — the indexed blob is scanned and reports it — and the
+    // missing file is still its own fail-closed finding. Both, not either.
+    const { findings } = scanRepository(dir);
+    const serialised = JSON.stringify(findings);
 
-    expect(finding.rule).toBe('UNREADABLE_FILE');
+    expect(findings.map((f: { rule: string }) => f.rule).sort()).toEqual([
+      'SERVICE_ROLE_JWT',
+      'UNREADABLE_FILE',
+    ]);
+    const missing = findings.find((f: { rule: string }) => f.rule === 'UNREADABLE_FILE')!;
+    expect(missing.message).toContain('ENOENT');
     expect(serialised).not.toContain(SERVICE_ROLE_JWT);
     // The absolute path would leak the operator's directory layout into CI logs.
     expect(serialised).not.toContain(dir);
-    expect(finding.fingerprint).toMatch(/^[0-9a-f]{12}$/);
-    expect(Object.keys(finding).sort()).toEqual(['file', 'fingerprint', 'line', 'message', 'rule']);
+    expect(missing.fingerprint).toMatch(/^[0-9a-f]{12}$/);
+    for (const finding of findings) {
+      expect(Object.keys(finding).sort()).toEqual(['file', 'fingerprint', 'line', 'message', 'rule']);
+    }
   });
 
   it('a readable tree still reports nothing', () => {
@@ -631,11 +641,141 @@ describe('round 2: every tracked entry is inspected', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Round 3. The AUTHORITATIVE content is the indexed blob, not the working tree.
+//
+// The round-2 reviewer staged a secret, overwrote the working-tree copy with
+// safe text, and the guard reported clean — it enumerated from the index but
+// read from disk. These tests pin the correction: the indexed blob is always
+// scanned, the working tree is an ADDITIONAL check when it diverges, and
+// unresolved merge stages fail closed instead of being collapsed to one side.
+// ---------------------------------------------------------------------------
+
+describe('round 3: the indexed blob is authoritative', () => {
+  it('finds a STAGED secret hidden behind a clean working-tree copy (the round-2 reviewer bypass)', () => {
+    const dir = tempRepo();
+    const abs = addTracked(dir, 'lib/config.ts', `const KEY = "${SERVICE_ROLE_JWT}";\n`);
+    // Overwrite the working tree WITHOUT updating the index.
+    writeFileSync(abs, 'const KEY = process.env.KEY;\n', 'utf8');
+
+    const { findings } = scanRepository(dir);
+
+    expect(findings.map((f: { rule: string }) => f.rule)).toEqual(['SERVICE_ROLE_JWT']);
+    expect(findings[0].file).toBe('lib/config.ts');
+    expect(JSON.stringify(findings)).not.toContain(SERVICE_ROLE_JWT);
+  });
+
+  it('still finds a WORKING-TREE-ONLY secret when the copy on disk diverges', () => {
+    const dir = tempRepo();
+    const abs = addTracked(dir, 'lib/config.ts', 'const KEY = process.env.KEY;\n');
+    writeFileSync(abs, `const KEY = "${SERVICE_ROLE_JWT}";\n`, 'utf8'); // not staged
+
+    const { findings } = scanRepository(dir);
+
+    expect(findings.map((f: { rule: string }) => f.rule)).toEqual(['SERVICE_ROLE_JWT']);
+  });
+
+  it('scans identical index and working-tree content once — no duplicate findings', () => {
+    const dir = tempRepo();
+    addTracked(dir, 'a.ts', `const KEY = "${SERVICE_ROLE_JWT}";\n`);
+    expect(scanRepository(dir).findings).toHaveLength(1);
+
+    // Divergent bytes but the SAME credential on the SAME line: still one
+    // finding, because index and working-tree findings dedupe by rule+line+fp.
+    const dir2 = tempRepo();
+    const abs = addTracked(dir2, 'b.ts', `const KEY = "${SERVICE_ROLE_JWT}"; // staged\n`);
+    writeFileSync(abs, `const KEY = "${SERVICE_ROLE_JWT}"; // on disk\n`, 'utf8');
+    expect(scanRepository(dir2).findings).toHaveLength(1);
+  });
+
+  it('finds a STAGED symlink secret hidden behind a retargeted working-tree link', () => {
+    const dir = tempRepo();
+    const abs = addTrackedSymlink(dir, 'odd-link', `./${SERVICE_ROLE_JWT}`);
+    unlinkSync(abs);
+    symlinkSync('safe-target.txt', abs); // retargeted WITHOUT re-adding
+
+    const { findings } = scanRepository(dir);
+
+    expect(findings.map((f: { rule: string }) => f.rule)).toEqual(['SERVICE_ROLE_JWT']);
+    expect(findings[0].file).toBe('odd-link');
+  });
+
+  it('fails closed on unresolved merge stages without choosing or scanning a side', () => {
+    const dir = tempRepo();
+    const blob = (content: string) =>
+      execFileSync('git', ['hash-object', '-w', '--stdin'], { cwd: dir, input: content })
+        .toString()
+        .trim();
+    const base = blob('base\n');
+    const ours = blob(`KEY = "${SERVICE_ROLE_JWT}"\n`); // a secret on ONE side
+    const theirs = blob('theirs\n');
+    execFileSync('git', ['update-index', '--index-info'], {
+      cwd: dir,
+      input:
+        `100644 ${base} 1\tconflict.txt\n` +
+        `100644 ${ours} 2\tconflict.txt\n` +
+        `100644 ${theirs} 3\tconflict.txt\n`,
+    });
+
+    // No stage is hidden from enumeration…
+    const records = trackedEntries(dir).filter((e: { path: string }) => e.path === 'conflict.txt');
+    expect(records.map((e: { stage: string }) => e.stage)).toEqual(['1', '2', '3']);
+
+    // …and the scan fails closed as a whole, naming every stage, scanning none.
+    const { findings } = scanRepository(dir);
+    expect(findings.map((f: { rule: string }) => f.rule)).toEqual(['UNRESOLVED_INDEX_ENTRY']);
+    expect(findings[0].file).toBe('conflict.txt');
+    for (const stage of ['stage 1', 'stage 2', 'stage 3']) {
+      expect(findings[0].message).toContain(stage);
+    }
+    expect(findings[0].fingerprint).toMatch(/^[0-9a-f]{12}$/);
+    const serialised = JSON.stringify(findings);
+    expect(serialised).not.toContain(SERVICE_ROLE_JWT);
+    expect(serialised).not.toContain(dir);
+  });
+
+  it('fails closed when a stage-0 entry names an object the store cannot produce', () => {
+    const dir = tempRepo();
+    execFileSync(
+      'git',
+      ['update-index', '--add', '--cacheinfo', `100644,${'deadbeef'.repeat(5)},ghost.txt`],
+      { cwd: dir }
+    );
+    writeFileSync(join(dir, 'ghost.txt'), 'harmless on disk\n', 'utf8');
+
+    const { findings } = scanRepository(dir);
+
+    expect(findings.map((f: { rule: string }) => f.rule)).toEqual(['UNREADABLE_FILE']);
+    expect(findings[0].message).toContain('missing-object');
+    expect(JSON.stringify(findings)).not.toContain(dir);
+  });
+
+  it('parses hostile path names NUL-safely: spaces, quotes, non-ASCII, tabs, newlines', () => {
+    const dir = tempRepo();
+    const names = ["we ird 'na\"me ñ.txt", 'tab\there.txt', 'line\nbreak.txt'];
+    for (const name of names) addTracked(dir, name, `KEY = "${SERVICE_ROLE_JWT}"\n`);
+
+    const { files, findings } = scanRepository(dir);
+
+    for (const name of names) expect(files, name).toContain(name);
+    expect(findings.map((f: { rule: string }) => f.rule)).toEqual(
+      names.map(() => 'SERVICE_ROLE_JWT')
+    );
+    expect(findings.map((f: { file: string }) => f.file).sort()).toEqual([...names].sort());
+  });
+});
+
+// ---------------------------------------------------------------------------
 // The allowlist contract must survive every refactor of file selection.
 // ---------------------------------------------------------------------------
 
-describe('allowlist contract is unchanged from the previous head', () => {
-  const PREVIOUS_HEAD = '8117dfc773a6c4e252769228ec54349fd95b0122';
+describe('allowlist contract is unchanged from the previous heads', () => {
+  // Round-1 and round-2 heads. Each review round's contract requires the five
+  // entries byte-identical to the head that round reviewed; asserting against
+  // both proves the whole chain.
+  const PREVIOUS_HEADS = [
+    '8117dfc773a6c4e252769228ec54349fd95b0122',
+    'ef9ae403f5081070d1dd2b53b6ca7b6b468c3bf3',
+  ];
 
   function allowlistBlock(source: string): string {
     const start = source.indexOf('export const ALLOWLIST');
@@ -644,15 +784,16 @@ describe('allowlist contract is unchanged from the previous head', () => {
     return source.slice(start, end + 3);
   }
 
-  it('the five entries are byte-identical to 8117dfc7', () => {
-    const previous = execFileSync(
-      'git',
-      ['show', `${PREVIOUS_HEAD}:scripts/ci/check-committed-secrets.mjs`],
-      { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }
-    );
+  it('the five entries are byte-identical to 8117dfc7 and ef9ae403', () => {
     const current = readFileSync(resolve(REPO_ROOT, 'scripts/ci/check-committed-secrets.mjs'), 'utf8');
-
-    expect(allowlistBlock(current)).toBe(allowlistBlock(previous));
+    for (const head of PREVIOUS_HEADS) {
+      const previous = execFileSync(
+        'git',
+        ['show', `${head}:scripts/ci/check-committed-secrets.mjs`],
+        { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }
+      );
+      expect(allowlistBlock(current), head).toBe(allowlistBlock(previous));
+    }
     expect(ALLOWLIST.size).toBe(5);
   });
 

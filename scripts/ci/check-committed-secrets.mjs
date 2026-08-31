@@ -67,6 +67,15 @@ const SB_PUBLISHABLE_PREFIX = 'sb_' + 'publishable_';
  * patterns are ASCII, so bytes are decoded `latin1` (a byte-preserving 1:1 map)
  * and a contiguous ASCII credential inside a PNG is found like any other.
  *
+ * Round 3 closed the last gap in that claim: round 2 enumerated FROM the index
+ * but read content from the WORKING TREE, so a staged secret hidden behind a
+ * clean working-tree copy scanned as clean (reproduced by the round-2 reviewer).
+ * The AUTHORITATIVE content is now the indexed blob itself, fetched by object id
+ * through one `git cat-file --batch` process. The working-tree copy is scanned
+ * IN ADDITION whenever its bytes differ from the indexed blob — extra
+ * protection, never a substitute — and unresolved merge stages fail closed
+ * rather than being silently collapsed to one side.
+ *
  * What this deliberately does NOT claim, unchanged from earlier rounds — these
  * are stated boundaries, not silent gaps, and none of them is a reason to skip
  * a tracked entry:
@@ -84,12 +93,18 @@ export const MODE_SYMLINK = '120000';
 export const MODE_GITLINK = '160000';
 
 /**
- * Every tracked entry, as `{ mode, path }`.
+ * Every index record, as `{ mode, oid, stage, path }` — one per record, with
+ * NOTHING collapsed.
  *
  * `git ls-files -s -z` emits `<mode> SP <object> SP <stage> TAB <path> NUL`.
- * During an unresolved merge a path appears at stages 1/2/3; entries are
- * de-duplicated by path so a conflicted tree is inspected once rather than
- * three times.
+ * The header before the first TAB contains no tabs, so a path containing tabs,
+ * spaces, quotes, non-ASCII or even newlines survives intact: records are
+ * NUL-separated and `-z` suppresses quoting.
+ *
+ * During an unresolved merge a path appears at stages 1/2/3. Earlier rounds
+ * kept only the first record per path, which silently discarded the other
+ * sides of a conflict; every record is now returned and `scanRepository` fails
+ * closed on any nonzero stage instead of choosing a side.
  */
 export function trackedEntries(cwd = process.cwd()) {
   const out = execFileSync('git', ['ls-files', '-s', '-z'], {
@@ -98,17 +113,60 @@ export function trackedEntries(cwd = process.cwd()) {
     maxBuffer: 256 * 1024 * 1024,
   });
 
-  const byPath = new Map();
+  const entries = [];
   for (const record of out.split('\0')) {
     if (!record) continue;
     const tab = record.indexOf('\t');
     if (tab === -1) continue;
-    const mode = record.slice(0, record.indexOf(' '));
+    const [mode, oid, stage] = record.slice(0, tab).split(/ +/);
     const path = record.slice(tab + 1);
-    if (!byPath.has(path)) byPath.set(path, { mode, path });
+    entries.push({ mode, oid, stage, path });
   }
 
-  return [...byPath.values()].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  return entries.sort((a, b) =>
+    a.path < b.path ? -1 : a.path > b.path ? 1 : a.stage < b.stage ? -1 : a.stage > b.stage ? 1 : 0
+  );
+}
+
+/**
+ * Fetch the raw bytes of the given blob object ids in ONE `git cat-file
+ * --batch` subprocess (≈100 MB across ~2,455 objects in this repository, well
+ * under a second). Returns a Map of oid → Buffer, with `null` for an oid the
+ * object store cannot produce — the caller fails closed on those.
+ *
+ * `--batch` output is `<oid> SP <type> SP <size> LF <raw bytes> LF` per object
+ * (or `<oid> SP missing LF`), parsed as bytes so blob content is never pushed
+ * through a lossy text decode.
+ */
+export function readIndexBlobs(cwd, oids) {
+  const unique = [...new Set(oids)];
+  const blobs = new Map();
+  if (unique.length === 0) return blobs;
+
+  const out = execFileSync('git', ['cat-file', '--batch'], {
+    cwd,
+    input: unique.join('\n') + '\n',
+    maxBuffer: 1024 * 1024 * 1024,
+  });
+
+  let offset = 0;
+  while (offset < out.length) {
+    const newline = out.indexOf(0x0a, offset);
+    if (newline === -1) break;
+    const header = out.toString('utf8', offset, newline).split(' ');
+    offset = newline + 1;
+    const oid = header[0];
+    const size = Number(header[2]);
+    if (header[1] === 'missing' || !Number.isSafeInteger(size) || size < 0) {
+      blobs.set(oid, null);
+      continue;
+    }
+    blobs.set(oid, out.subarray(offset, offset + size));
+    offset += size + 1; // skip the LF that terminates the object body
+  }
+
+  for (const oid of unique) if (!blobs.has(oid)) blobs.set(oid, null);
+  return blobs;
 }
 
 /**
@@ -302,14 +360,25 @@ export function scanText(text, file = '<input>') {
   return findings;
 }
 
-/** Backwards-compatible view: the paths of every tracked entry. */
+/** Backwards-compatible view: the distinct paths of every tracked entry. */
 export function trackedFiles(cwd = process.cwd()) {
-  return trackedEntries(cwd).map((entry) => entry.path);
+  return [...new Set(trackedEntries(cwd).map((entry) => entry.path))];
 }
 
+/**
+ * Inspect every tracked entry.
+ *
+ * The AUTHORITATIVE content for each stage-0 entry is the INDEXED BLOB, fetched
+ * by object id — never the working tree. That is the round-3 correction: the
+ * round-2 reviewer staged a secret, overwrote the working-tree copy with safe
+ * text, and the guard reported clean because it enumerated from the index but
+ * read from disk. The working-tree representation is still scanned IN ADDITION
+ * whenever its bytes differ from the indexed blob, so a secret present only on
+ * disk keeps being caught; identical content is scanned once, and a finding
+ * present in both is reported once.
+ */
 export function scanRepository(cwd = process.cwd()) {
   const entries = trackedEntries(cwd);
-  const files = entries.map((entry) => entry.path);
   const findings = [];
 
   const unreadable = (file, code) =>
@@ -318,34 +387,100 @@ export function scanRepository(cwd = process.cwd()) {
       file,
       line: 0,
       fingerprint: fingerprint(file),
-      // Only the errno CODE — never the error message (which carries an
+      // Only a short safe CODE — never the error message (which carries an
       // absolute path), the contents, or any value.
       message: `Tracked entry could not be read (${code ?? 'unknown'}); failing closed rather than skipping it`,
     });
 
-  for (const { mode, path: file } of entries) {
+  // Group records by path. A path in an unresolved merge appears at stages
+  // 1/2/3 and has no stage-0 record; it fails closed as a whole, with every
+  // stage named, and NEITHER side's content is scanned — this guard does not
+  // pick winners in a conflict, and the finding itself blocks CI.
+  const byPath = new Map();
+  for (const entry of entries) {
+    if (!byPath.has(entry.path)) byPath.set(entry.path, []);
+    byPath.get(entry.path).push(entry);
+  }
+  const files = [...byPath.keys()].sort();
+
+  const scannable = [];
+  for (const [file, records] of byPath) {
+    if (records.some((record) => record.stage !== '0')) {
+      findings.push({
+        rule: 'UNRESOLVED_INDEX_ENTRY',
+        file,
+        line: 0,
+        fingerprint: fingerprint(file),
+        message:
+          `Index holds unresolved merge stages for this path (` +
+          records.map((record) => `stage ${record.stage} mode ${record.mode}`).join(', ') +
+          `); failing closed without choosing a side`,
+      });
+      continue;
+    }
+    scannable.push(records[0]); // a resolved path has exactly one stage-0 record
+  }
+
+  // One subprocess fetches every blob this scan is entitled to read. Gitlink
+  // object ids are deliberately NOT requested: a submodule is never accessed.
+  const blobs = readIndexBlobs(
+    cwd,
+    scannable
+      .filter(({ mode }) => mode === MODE_REGULAR || mode === MODE_EXECUTABLE || mode === MODE_SYMLINK)
+      .map(({ oid }) => oid)
+  );
+
+  const findingKey = (f) => `${f.rule} ${f.line} ${f.fingerprint}`;
+
+  for (const { mode, oid, path: file } of scannable) {
     const absolute = resolve(cwd, file.split('/').join(sep));
 
     if (mode === MODE_REGULAR || mode === MODE_EXECUTABLE) {
-      let text;
+      // AUTHORITATIVE: the indexed blob. `latin1` maps each byte to
+      // U+0000–U+00FF one-for-one, so a contiguous ASCII credential survives
+      // intact even inside a real binary asset.
+      const blob = blobs.get(oid) ?? null;
+      let indexFindings = [];
+      if (blob === null) {
+        unreadable(file, 'missing-object');
+      } else {
+        indexFindings = scanText(blob.toString('latin1'), file);
+        findings.push(...indexFindings);
+      }
+
+      // ADDITIONAL: the working-tree copy, scanned only when it diverges. Its
+      // absence or unreadability stays a fail-closed finding — a tracked file
+      // that vanished from disk is an unknown, whatever the index said.
+      let disk;
       try {
-        // Bytes, not utf8. `latin1` maps each byte to U+0000–U+00FF one-for-one,
-        // so a contiguous ASCII credential survives intact even inside a real
-        // binary asset, and no byte is lost to replacement characters.
-        text = readFileSync(absolute).toString('latin1');
+        disk = readFileSync(absolute);
       } catch (error) {
         unreadable(file, error?.code);
         continue;
       }
-      findings.push(...scanText(text, file));
+      if (blob !== null && disk.equals(blob)) continue;
+      const seen = new Set(indexFindings.map(findingKey));
+      for (const finding of scanText(disk.toString('latin1'), file)) {
+        if (!seen.has(findingKey(finding))) findings.push(finding);
+      }
       continue;
     }
 
     if (mode === MODE_SYMLINK) {
-      // Scan the LINK TARGET TEXT, which is what Git actually stores for a
-      // symlink. `readlinkSync` does not follow the link, so a target outside
-      // the repository is never opened and a broken target is irrelevant — the
-      // committed content is the target string itself.
+      // AUTHORITATIVE: the indexed symlink blob, which IS the committed target
+      // text. Nothing is followed and nothing outside the repository is opened.
+      const blob = blobs.get(oid) ?? null;
+      let indexFindings = [];
+      if (blob === null) {
+        unreadable(file, 'missing-object');
+      } else {
+        indexFindings = scanText(blob.toString('latin1'), file);
+        findings.push(...indexFindings);
+      }
+
+      // ADDITIONAL: the working-tree link's own target text via `readlinkSync`,
+      // which reads the link and never follows it; a dangling target is
+      // irrelevant because the content under inspection is the target string.
       let target;
       try {
         target = readlinkSync(absolute);
@@ -353,14 +488,18 @@ export function scanRepository(cwd = process.cwd()) {
         unreadable(file, error?.code);
         continue;
       }
-      findings.push(...scanText(target, file));
+      if (blob !== null && target === blob.toString('latin1')) continue;
+      const seen = new Set(indexFindings.map(findingKey));
+      for (const finding of scanText(target, file)) {
+        if (!seen.has(findingKey(finding))) findings.push(finding);
+      }
       continue;
     }
 
     // Gitlinks (submodules) and anything else: fail closed without touching it.
     // A submodule is a separate repository with its own history; inspecting it
     // is out of scope, and silently ignoring it would be the same fail-open bug
-    // this guard has now been corrected for twice.
+    // this guard has now been corrected for three times.
     findings.push({
       rule: 'UNSUPPORTED_TRACKED_ENTRY',
       file,
@@ -395,7 +534,9 @@ export function main(args = process.argv.slice(2)) {
     return 1;
   }
 
-  console.log(`Committed-secret guard OK — ${files.length} tracked file(s) scanned, 0 findings`);
+  console.log(
+    `Committed-secret guard OK — ${files.length} tracked path(s) scanned from the Git index (working-tree copies checked for divergence), 0 findings`
+  );
   return 0;
 }
 

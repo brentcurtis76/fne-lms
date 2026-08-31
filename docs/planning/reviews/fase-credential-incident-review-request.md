@@ -84,7 +84,7 @@ the guard by fingerprint, with the reason recorded in the allowlist entry.
 
 | File | Change |
 | --- | --- |
-| `__tests__/security/committed-secrets-guard.test.ts` | New, **54** tests (35 at round 0; +8 round 1; +11 round 2). |
+| `__tests__/security/committed-secrets-guard.test.ts` | New, **61** tests (35 at round 0; +8 round 1; +11 round 2; +7 round 3, with one round-1 test updated for index authority). |
 | `__tests__/lib/auth/recovery-crypto-secret.test.ts` | New, 16 tests. |
 | `docs/runbooks/auth-security.md` | New §8; four rows (0.16–0.19) added to the §0 state-of-play table. |
 | `PROJECT_STATE.md` | **+1 line, −0.** New `CRED-01` Meta entry. |
@@ -109,6 +109,7 @@ classify safely.
 | `UNCLASSIFIABLE_CREDENTIAL` | credential-shaped text that will not decode — **fails closed** |
 | `UNREADABLE_FILE` | a tracked regular file that cannot be read — **fails closed** (round 1) |
 | `UNSUPPORTED_TRACKED_ENTRY` | a gitlink/submodule or unknown index mode — **fails closed**, not accessed (round 2) |
+| `UNRESOLVED_INDEX_ENTRY` | a path held at nonzero merge stages — **fails closed**, no side chosen or scanned (round 3) |
 
 **Properties:**
 
@@ -121,9 +122,15 @@ classify safely.
 - **Allows** `sb_publishable_` keys, and five fingerprint-allowlisted synthetic
   fixtures, each with a written reason.
 - **Dependency-free.** The `Migration safety guard` job runs before `npm ci`.
-- **Selection is the Git index** (round 2): every tracked entry is inspected,
-  dispatched on its recorded mode. No filename rule and no content heuristic
-  decides scope. **2,455 tracked entries** currently in scope.
+- **Selection AND content are the Git index** (rounds 2–3): every tracked
+  entry is enumerated from `git ls-files -s -z` and dispatched on its recorded
+  mode, and the AUTHORITATIVE bytes scanned are the **indexed blob** fetched by
+  object id (round 3) — never the working tree. The working-tree copy is
+  scanned in addition whenever its bytes diverge from the indexed blob, so a
+  secret present only on disk is still caught; identical content is scanned
+  once. Unresolved merge stages fail closed (`UNRESOLVED_INDEX_ENTRY`) instead
+  of being collapsed to one side. No filename rule and no content heuristic
+  decides scope. **2,455 tracked paths** currently in scope.
 
 ### Why the allowlist has five entries, not the three named in the task
 
@@ -143,7 +150,7 @@ judgment call the reviewer should check** — see §7.
 
 ## 4. Focused test results
 
-### `__tests__/security/committed-secrets-guard.test.ts` — 54 passed
+### `__tests__/security/committed-secrets-guard.test.ts` — 61 passed
 
 Every rule is proved against input built for the suite, and every allowlist
 exception is proved **twice**: the real tracked file passes with the allowlist
@@ -183,20 +190,20 @@ drained queue.
 ## 5. Full gate results
 
 Run locally in `/Users/brentcurtis/dev/wt/cred-guard` against the exact tree at
-the **final correction head** (round 0 + round 1). Round-0 figures are recorded
-in §11 where they differ. Exit codes captured with `$?` directly (no pipeline), because this
+the **final correction head** — round 0 plus the round-1, round-2 and round-3
+corrections. Earlier rounds' figures are recorded in §11–§13 where they differ. Exit codes captured with `$?` directly (no pipeline), because this
 shell is zsh and `PIPESTATUS` is a bash-ism that silently yields an empty string.
 
 | Gate | Command | Exit | Result |
 | --- | --- | --- | --- |
 | Typecheck | `npm run type-check` | **0** | clean |
 | Lint | `npm run lint -- --max-warnings=0` | **0** | zero warnings |
-| Unit | `npm test` | **0** | **371 files, 8493 passed, 11 skipped, 0 failed** (8474 round 0; +8 round 1; +11 round 2) |
+| Unit | `npm test` | **0** | **371 files, 8500 passed, 11 skipped, 0 failed** (8474 round 0; +8 round 1; +11 round 2; +7 round 3) |
 | Build | `npm run build` | **0** | production build, middleware 74.5 kB |
 | Whitespace | `git diff --check` | **0** | clean |
-| Secrets guard | `npm run guard:secrets` | **0** | **2,455** tracked entries scanned, 0 findings |
+| Secrets guard | `npm run guard:secrets` | **0** | **2,455** tracked paths scanned from the Git index, working-tree copies checked for divergence, 0 findings |
 | Actions guard | `npm run guard:actions` | **0** | 17 uses across 1 workflow file |
-| Focused suites | `vitest run` guard + recovery-crypto | **0** | 70 passed (54 guard + 16 recovery-crypto) |
+| Focused suites | `vitest run` guard + recovery-crypto | **0** | 77 passed (61 guard + 16 recovery-crypto) |
 | Migration guards | `npm run guard:migrations` | **0** | 40 migrations, no RLS-disable, no destructive statement |
 
 The 11 skips are the pre-existing `[Z3b, PARKED]` skips already recorded in
@@ -274,11 +281,13 @@ it. That assertion is therefore load-bearing, not decorative.
    highest-consequence judgment call on the branch.
 
 2. **Guard evasion.** The rules are regex-and-decode over line-oriented text. A
-   credential split across lines, base64-wrapped a second time, or stored in a
-   file type outside `SCANNED_EXTENSIONS` would not be caught. Try to get a
-   `service_role` key past it. Note also that the guard reads the **working
-   tree**, not history — it cannot detect a credential that only exists in an
-   older commit.
+   credential split across lines or base64-wrapped a second time would not be
+   caught. Try to get a `service_role` key past it. Since round 3 the
+   authoritative content is the **indexed blob** (the working tree is an
+   additional divergence check), so hiding a staged secret behind a clean
+   working-tree copy no longer works — but the guard still reads only the
+   current index, not history: a credential that exists only in an older commit
+   is out of scope.
 
 3. **The recovery-crypto fallback.** The claim "merging changes no production
    behaviour" rests on `RECOVERY_CRYPTO_SECRET` being unset in production and on
@@ -507,6 +516,13 @@ makes coverage depend on a judgement made at scan time.
 
 ### The fixed boundary
 
+> **Round-3 note (time qualification).** The mode dispatch below is the
+> round-2 record and stands, but its content reads were from the WORKING
+> TREE — which the round-2 review showed is not the same thing as the index:
+> a staged secret behind a clean working-tree copy scanned as clean. Round 3
+> moved content authority to the indexed blob itself; see §13. Nothing below
+> is rewritten.
+
 Scope is now the **Git index**, and nothing else. `git ls-files -s -z` enumerates
 every tracked entry NUL-safely, and each is dispatched on its recorded mode:
 
@@ -577,3 +593,140 @@ are asserted **byte-identical** to `8117dfc7` by extracting the block from
 allowlist entries, recovery-crypto selection and fallback, the ten deletions, and
 every application, API, database, migration, RLS, provider and deployment surface
 are untouched. `test:db` and `e2e` were not required and were not run.
+
+---
+
+## 13. Independent review — round 3
+
+One **additive** commit whose parent is `ef9ae403`. None of `bdc29012`,
+`8117dfc7` or `ef9ae403` is amended, rewritten, squashed or replaced; the
+round-0, round-1 and round-2 evidence above stands verbatim, time-qualified
+where the implementation has since moved.
+
+The round-2 independent review raised three findings. All three are closed
+here.
+
+### R3-1 (MAJOR) — the claimed Git-index boundary was not real
+
+**Finding.** Round 2 enumerated paths and modes *from the index* but read
+content *from the working tree*. The reviewer reproduced the bypass: stage a
+synthetic `service_role` value, overwrite the working-tree copy with safe text
+without updating the index, and `scanRepository` returns zero findings — while
+the indexed (commit-bound) content carries the secret.
+
+**Reproduction.** Confirmed against the pre-fix head before changing anything:
+`findings.length === 0` with a staged synthetic secret and a clean working
+tree. The same probe against the corrected guard reports exactly
+`['SERVICE_ROLE_JWT']` with no value in the output.
+
+**Fix.** `trackedEntries` now parses and retains **mode, object id, stage and
+path** from `git ls-files -s -z`. For stage-0 entries the AUTHORITATIVE content
+is the **indexed blob**, fetched by object id through a single
+`git cat-file --batch` subprocess (~100 MB across 2,455 objects; the full-tree
+scan stays ≈1.5 s) and decoded `latin1`, byte-preserving:
+
+- **`100644` / `100755`** — the indexed blob bytes are scanned. The
+  working-tree copy is scanned **in addition** when its bytes differ
+  (`Buffer.equals`), so a secret present only on disk is still caught; a
+  finding present in both is reported once (deduped by rule + line +
+  fingerprint). A missing or unreadable working-tree copy remains a fail-closed
+  `UNREADABLE_FILE`; an object id the store cannot produce fails closed the
+  same way with the safe code `missing-object`.
+- **`120000`** — the indexed symlink blob, which *is* the committed target
+  text, is scanned. The working-tree link's own target text (`readlinkSync`,
+  which never follows) is scanned in addition when it diverges. Nothing outside
+  the repository is ever opened.
+- **`160000` and unknown modes** — unchanged: `UNSUPPORTED_TRACKED_ENTRY`,
+  fail closed, the submodule is never accessed. Gitlink object ids are
+  excluded from the `cat-file` request entirely.
+- Findings still disclose only the repository-relative path, a safe short code,
+  and a fingerprint **of the path** — never an absolute path, an error message,
+  contents, or a value.
+
+**Behavior change accepted as correct.** Deleting a tracked file from the
+working tree no longer *hides* its staged content: the round-1 disclosure test
+(secret staged, file unlinked) now sees **both** `SERVICE_ROLE_JWT` (from the
+index) and `UNREADABLE_FILE` (from the missing copy). That test was updated to
+assert the corrected behavior — the only pre-existing test whose expectations
+changed, and the change is the fix working.
+
+### R3-2 (MINOR) — unresolved merge stages were silently discarded
+
+**Finding.** `trackedEntries` kept only the first record per path, silently
+dropping stage-2/3 records of an unresolved merge.
+
+**Fix.** Every index record is returned; nothing is collapsed. `scanRepository`
+groups by path and fails closed on any nonzero stage with
+`UNRESOLVED_INDEX_ENTRY`, whose message names **every** stage:mode pair present
+(e.g. `stage 1 mode 100644, stage 2 mode 100644, stage 3 mode 100644`). No
+side is chosen and no side's content is scanned — the finding itself blocks CI,
+which is the fail-closed contract. NUL-safe parsing is preserved and now proven
+for paths containing spaces, quotes, tabs, non-ASCII and newlines.
+
+### R3-3 (MINOR) — stale documentation
+
+The §5 gate-section sentence describing the final head as "round 0 + round 1"
+now names all three correction rounds; §3's guard description distinguishes
+index enumeration, indexed-blob authority, the additional working-tree
+divergence scan, and stage fail-closure; §7's reviewer guidance no longer names
+the round-0 `SCANNED_EXTENSIONS` API or claims working-tree authority; §12
+carries a time-qualifying note instead of a rewrite; and every current-head
+count below is recomputed, not copied. The unchanged limitation stands: Git
+**history** and deliberately split/double-encoded/compressed credentials remain
+out of scope, and provider-side state is never consulted.
+
+### What the guard now does, end to end
+
+1. Enumerate every index record (`mode`, `oid`, `stage`, `path`) — NUL-safe.
+2. Any path with a nonzero stage → `UNRESOLVED_INDEX_ENTRY`, nothing scanned.
+3. Fetch every regular/symlink blob in one `cat-file --batch` call.
+4. Scan the indexed blob (authoritative). Missing object → fail closed.
+5. Scan the working-tree representation additionally when it diverges;
+   dedupe identical findings; unreadable copy → fail closed.
+6. Gitlinks and unknown modes → fail closed, never accessed.
+
+### Round-3 mutation proofs
+
+Each applied to a disposable copy, pristine guard restored between mutations
+and on interrupt via an `EXIT` trap:
+
+| # | Mutation | Result |
+| --- | --- | --- |
+| 1 | **NEW** — working-tree-only scanning (the round-2 defect restored) | **3 fail**: the staged-secret bypass test, the staged-symlink bypass test, and the updated disclosure test |
+| 2 | **NEW** — nonzero stages silently collapsed to the first record | **1 fail**: exactly the unresolved-stages test |
+| 3 | Replay — `.png` filename skip | **3 fail**: disguised-filename, real-binary-PNG, missing-`.png`-file |
+| 4 | Replay — silent skip on unreadable working-tree copy | **4 fail**: the three fail-closed unreadable tests + the round-2 missing-file test |
+| 5 | Replay — symlink handling follows the target | **4 fail**: the three round-2 symlink tests + the new staged-symlink test |
+| — | Real implementation restored | **61 / 61 pass**; guard OK, 2,455 paths, `git diff` clean |
+
+### Counts at the round-3 head
+
+| Measure | Value |
+| --- | --- |
+| Guard suite | **61** tests (54 at round 2; +7 new; 1 round-1 test updated) |
+| Focused suites | **77** (61 guard + 16 recovery-crypto) |
+| Full Vitest | **371 files, 8,500 passed, 11 pre-existing skips, 0 failed** |
+| Tracked paths scanned | **2,455** — distinct index paths; authoritative content from indexed blobs, working-tree copies checked for divergence |
+
+The 2,455 figure is numerically unchanged from round 2 because the repository
+has no conflicts, no submodules and no index/working-tree divergence — but what
+it *measures* changed: round 2 scanned 2,455 working-tree files; round 3 scans
+2,455 indexed blobs plus any divergent working-tree copies.
+
+### Contracts held
+
+- The five allowlist entries are asserted **byte-identical to both `8117dfc7`
+  and `ef9ae403`** (the contract test now pins both heads), and `service_role`
+  is re-proved to have no allowlist path.
+- No filename-extension, MIME, magic-number or "looks like text" filter
+  returned.
+- `.github/workflows/ci.yml`, `PROJECT_STATE.md`, `package.json`,
+  `lib/auth/recovery-crypto.ts`, `docs/runbooks/auth-security.md`, the ten
+  deletions, and every application/database/RLS/provider surface: untouched
+  (verified by object hash against `ef9ae403`).
+- Nothing pushed; no provider, database or credential access; all fixtures
+  runtime-built synthetic values, never printed.
+
+One transient `EPIPE` in the unrelated Zoom oversized-webhook socket test was
+observed by the round-2 reviewer and passed in isolated rerun; that test was
+not modified, and the full suite at this head passed with zero failures.

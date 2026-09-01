@@ -21,6 +21,41 @@
 > has been run. Rows below preserve the branch author's original review snapshot;
 > this update supersedes rows 0.3–0.5 where they conflict.
 
+> **State update — 2026-09-01 (API-key incident, §8).** All provider and
+> production facts in this update were supplied and verified externally by
+> Brent/Codex; the session that recorded it contacted no provider and no
+> database. **Row 0.16 is merged:** PR
+> [#66](https://github.com/brentcurtis76/fne-lms/pull/66) (`fix/cred-guard`,
+> approved head `7334da1b0f17e2344e83f90b4670301b0ba954d7`) was merged by Brent
+> as merge commit `76a986441e93477df27e8b2b5d4888cd4949c6e7`; post-merge `main`
+> CI run
+> [33522718133](https://github.com/brentcurtis76/fne-lms/actions/runs/33522718133)
+> passed all seven jobs and the automatic Vercel Production deployment
+> `6204033475` completed successfully. This supersedes the production reference
+> point in §8.7 (CI run `33400056341` / deployment `6182645350` at
+> `49814091`), which is not rewritten — it stays as the audit trail for the
+> head it describes. **Merging CRED-01 fixed the repository only: the exposed
+> credential is not rotated and not disabled.** `RECOVERY_CRYPTO_SECRET` now
+> exists in Vercel as a Sensitive (Secret) variable, **Production only —
+> STAGED, NOT ACTIVE**: it has reached no deployment, because the current
+> Production deployment is still `6204033475` at `76a98644`, which predates the
+> variable, so production still derives recovery crypto from the legacy
+> `SUPABASE_SERVICE_ROLE_KEY` fallback and **no cutover has occurred**. The
+> next normal `main` deployment activates **only** this independent
+> recovery-crypto root; it does not install, rotate, disable, or revoke any
+> Supabase key — service-key replacement remains a later, separately authorized
+> step. `SUPABASE_SERVICE_ROLE_KEY` in Vercel is now scoped to **Production
+> only for future deployments** (its value was not opened or changed), and a
+> replacement Supabase secret key named `fne_lms_vercel_prod_20260831` exists
+> and is securely held by Brent — **not installed in Vercel**. Rows 0.17
+> (API-key rotation) and 0.18 (database password) remain open exactly as
+> stated. Production read-only preflight (2026-09-01, by Brent/Codex):
+> migration `20260819120300` recorded; recovery tables and function present;
+> **0 envelope rows; 0 queued/processing rows; 0 active unexpired grants**;
+> latest recovery activity 2026-08-28. Because envelopes sealed under the old
+> root cannot be opened under the new one (§8.5), **the zero counts must be
+> rechecked immediately before any merge that deploys**.
+
 ---
 
 ## 0. State of play — what is done, and what is emphatically not
@@ -47,10 +82,10 @@ from being read as "the problem is fixed". These are different columns.
 | 0.13 | Postgres security patches | **OUTSTANDING** | §4.4 |
 | 0.14 | RLS advisor findings (incl. `public.modules`) | **REPORTED, NOT FIXED** — out of scope by decision | §5 |
 | 0.15 | **Retention/scrubbing sweep** (`run_auth_security_retention` + daily cron) | **CODE COMPLETE; RUNS NOWHERE YET.** Requires the fifth migration, the deploy, and `CRON_SECRET` in Vercel Production | §7 |
-| 0.16 | **Committed API keys removed from the working tree** + CI guard against recurrence | **DONE ON BRANCH `fix/cred-guard`**, unreviewed, unmerged. Removal is not rotation, and history was not rewritten | §8.1 |
-| 0.17 | **Rotation of the exposed `service_role` and legacy anon keys** | **NOT DONE — the substantive remedy.** Two local carriers still hold the `service_role` value (`fp=0ead88ebeff2`). Treat as disclosed until the dashboard shows the legacy keys disabled | §8.1, §8.3 |
+| 0.16 | **Committed API keys removed from the working tree** + CI guard against recurrence | **MERGED** (recorded 2026-09-01): PR #66 at approved head `7334da1b`, merge commit `76a98644`; post-merge CI run `33522718133` all seven jobs green; automatic Production deployment `6204033475` successful. Removal is still not rotation, and history was not rewritten — the credential stays treated as disclosed | §8.1 |
+| 0.17 | **Rotation of the exposed `service_role` and legacy anon keys** | **NOT DONE — the substantive remedy.** A replacement secret key `fne_lms_vercel_prod_20260831` exists and is securely held by Brent but is **not installed in Vercel**; `SUPABASE_SERVICE_ROLE_KEY` in Vercel is now scoped to Production only for future deployments (value not opened or changed). Two local carriers still hold the `service_role` value (`fp=0ead88ebeff2`). Treat as disclosed until the dashboard shows the legacy keys disabled | §8.1, §8.3 |
 | 0.18 | **Rotation of the historical database password** (`.env.prod` exposure) | **BLOCKED BY DESIGN** until a written external-direct-database-consumer inventory exists. Rotating first would cause an outage | §8.4 |
-| 0.19 | **`RECOVERY_CRYPTO_SECRET` cutover** (decouples recovery crypto from the API key) | **CODE COMPLETE, FALLBACK RETAINED — no behaviour change on merge.** Cutover needs a newly generated secret in Vercel Production *and* a drained recovery queue | §8.5 |
+| 0.19 | **`RECOVERY_CRYPTO_SECRET` cutover** (decouples recovery crypto from the API key) | **STAGED, NOT ACTIVE** (2026-09-01). The secret now exists in Vercel — Sensitive, Production only — but has reached no deployment; the current Production deployment `6204033475` at `76a98644` still uses the legacy fallback, so no cutover has occurred. The next normal `main` deployment activates the independent root and nothing else. Preflight 2026-09-01: queue drained (0 envelopes / 0 queued-or-processing / 0 active unexpired grants; latest activity 2026-08-28) — recheck the zero counts immediately before the merge that deploys | §8.5 |
 
 Rows 0.10–0.12 are independent of the merge and should not wait for it. Row 0.3
 is the one that must happen *with* it. Rows 0.16–0.19 are the API-key incident

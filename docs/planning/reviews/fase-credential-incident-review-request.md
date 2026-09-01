@@ -4,7 +4,7 @@
 | --- | --- |
 | Branch | `fix/cred-guard` |
 | Base | `49814091a2df69cc8e4c02beba8014bb5aa0694c` (live `origin/main` at the time of work, re-locked read-only) |
-| Commit count | 1 |
+| Commit count | 6 |
 | Worktree | `/Users/brentcurtis/dev/wt/cred-guard` |
 | Date | 2026-08-31 |
 | Reviewer protocol | `docs/planning/review-protocol.md` |

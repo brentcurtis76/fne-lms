@@ -1,7 +1,12 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import { hasDirectivoPermission } from '@/lib/permissions/directivo';
-import { triggerAutoAssignment } from '@/lib/services/assessment-builder/autoAssignmentService';
+import {
+  preflightAutoAssignment,
+  triggerAutoAssignment,
+  type AutoAssignmentResult,
+  type CourseAssignmentPlan,
+} from '@/lib/services/assessment-builder/autoAssignmentService';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!['POST', 'DELETE'].includes(req.method || '')) {
@@ -60,7 +65,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
+interface AssignmentOutcome {
+  /** A new school_course_docente_assignments row was inserted. */
+  created: boolean;
+  /** An inactive row for this docente was reactivated. */
+  reactivated: boolean;
+  /** The docente was already active on this course; nothing was written. */
+  alreadyActive: boolean;
+  /** created || reactivated */
+  mutated: boolean;
+}
+
+/** Legacy `autoAssignment` block kept for existing consumers; its `success` is the truthful one. */
+function legacyAutoAssignment(result: AutoAssignmentResult) {
+  return {
+    instancesCreated: result.instancesCreated,
+    instancesSkipped: result.instancesSkipped,
+    errors: result.errors,
+    warnings: result.warnings,
+    success: result.success,
+  };
+}
+
+function joinedWarning(errors: string[], warnings: string[]): string | undefined {
+  const parts = [...errors, ...warnings];
+  return parts.length > 0 ? parts.join('; ') : undefined;
+}
+
 // POST - Assign docente to course
+//
+// PROC-CONTAIN-01 (A-02):
+// 1. After auth + course/school authorization (above), PREFLIGHT the eligible
+//    templates and current snapshots for the course's grade. If nothing usable
+//    exists (or configuration is missing) answer 422 and write nothing.
+// 2. Create / reactivate the course-docente assignment. A docente that is
+//    already active does NOT return early: the request proceeds to the
+//    idempotent reconciliation so a missing instance or assignee link is repaired.
+// 3. Run the auto-assignment (re-resolves eligibility at write time) and report
+//    explicit counts. `success` is true only when at least one assessment was
+//    created, attached, or confirmed as already existing and no error occurred.
 async function handlePost(
   res: NextApiResponse,
   supabaseClient: any,
@@ -70,19 +113,73 @@ async function handlePost(
   assignedBy: string
 ) {
   try {
-    // Check if assignment already exists
-    const { data: existing } = await supabaseClient
+    // ── 1. Preflight (read-only) ─────────────────────────────────────────
+    const plan: CourseAssignmentPlan = await preflightAutoAssignment(courseStructureId, schoolId);
+
+    if (!plan.ok) {
+      const blocking = plan.blockingError ?? {
+        code: 'query_error' as const,
+        message: 'No se pudo verificar la configuración de evaluaciones para este curso.',
+      };
+      console.warn('[assign-docente] preflight blocked:', blocking.code, blocking.message);
+
+      return res.status(422).json({
+        success: false,
+        code: blocking.code,
+        error: blocking.message,
+        message: blocking.message,
+        grade: {
+          id: blocking.gradeId ?? plan.gradeId,
+          name: blocking.gradeName ?? plan.gradeName,
+          level: blocking.gradeLevel ?? plan.gradeLevel,
+        },
+        templates: blocking.templates,
+        assignment: { created: false, reactivated: false, alreadyActive: false, mutated: false },
+        assessments: {
+          created: 0,
+          attached: 0,
+          alreadyExisting: 0,
+          skipped: plan.skipped.length,
+          warnings: plan.warnings,
+          errors: [blocking.message],
+          details: plan.skipped,
+        },
+        warnings: plan.warnings,
+        autoAssignment: {
+          instancesCreated: 0,
+          instancesSkipped: plan.skipped.length,
+          errors: [blocking.message],
+          warnings: plan.warnings,
+          success: false,
+        },
+        warning: joinedWarning([blocking.message], plan.warnings),
+      });
+    }
+
+    // ── 2. Course-docente assignment ─────────────────────────────────────
+    const { data: existing, error: existingError } = await supabaseClient
       .from('school_course_docente_assignments')
       .select('id, is_active')
       .eq('course_structure_id', courseStructureId)
       .eq('docente_id', docenteId)
       .maybeSingle();
 
-    if (existing) {
-      if (existing.is_active) {
-        return res.status(400).json({ error: 'El docente ya está asignado a este curso' });
-      }
+    if (existingError) {
+      console.error('Error checking existing assignment:', existingError);
+      return res.status(500).json({ error: 'Error al verificar la asignación existente' });
+    }
 
+    const assignment: AssignmentOutcome = {
+      created: false,
+      reactivated: false,
+      alreadyActive: false,
+      mutated: false,
+    };
+
+    if (existing?.is_active) {
+      // Same docente already active: no early return — reconcile below.
+      assignment.alreadyActive = true;
+    } else if (existing) {
       // Reactivate existing assignment
       const { error: updateError } = await supabaseClient
         .from('school_course_docente_assignments')
@@ -93,6 +190,8 @@ async function handlePost(
         console.error('Error reactivating assignment:', updateError);
         return res.status(500).json({ error: 'Error al asignar docente' });
       }
+      assignment.reactivated = true;
+      assignment.mutated = true;
     } else {
       // Create new assignment
       const { error: insertError } = await supabaseClient
@@ -107,52 +206,78 @@ async function handlePost(
         console.error('Error creating assignment:', insertError);
         return res.status(500).json({ error: 'Error al asignar docente' });
       }
+      assignment.created = true;
+      assignment.mutated = true;
     }
 
-    // Auto-create assessment instances using the proper service
-    let autoAssignment: { instancesCreated: number; instancesSkipped: number; errors: string[]; warnings: string[]; success: boolean } = {
-      instancesCreated: 0,
-      instancesSkipped: 0,
-      errors: [],
-      warnings: [],
-      success: true,
-    };
+    // ── 3. Create / reconcile assessment instances (idempotent) ──────────
+    let result: AutoAssignmentResult;
     try {
-      const result = await triggerAutoAssignment(
+      result = await triggerAutoAssignment(
         null, // supabase param unused — service uses supabaseAdmin internally
         docenteId,
         courseStructureId,
         schoolId,
         assignedBy
       );
-      autoAssignment.instancesCreated = result.instancesCreated;
-      autoAssignment.instancesSkipped = result.instancesSkipped;
-      autoAssignment.errors = result.errors;
-      autoAssignment.warnings = result.warnings;
-      autoAssignment.success = result.success;
-
-      if (result.errors.length > 0) {
-        console.error('Auto-assignment errors:', result.errors);
-      }
-      if (result.warnings.length > 0) {
-        console.warn('Auto-assignment warnings:', result.warnings);
-      }
     } catch (autoErr: any) {
       console.error('Error in auto-assignment:', autoErr);
-      autoAssignment.errors = [autoErr.message || 'Error en asignación automática de evaluaciones'];
-      autoAssignment.success = false;
+      const message = autoErr?.message || 'Error en asignación automática de evaluaciones';
+      result = {
+        success: false,
+        instancesCreated: 0,
+        instancesSkipped: 0,
+        counts: { created: 0, attached: 0, alreadyExisting: 0, skipped: 0, errors: 1 },
+        errors: [message],
+        warnings: [],
+        details: [],
+      };
     }
 
-    const hasAutoAssignmentFailure = !autoAssignment.success || autoAssignment.errors.length > 0;
+    if (result.errors.length > 0) {
+      console.error('Auto-assignment errors:', result.errors);
+    }
+    if (result.warnings.length > 0) {
+      console.warn('Auto-assignment warnings:', result.warnings);
+    }
 
-    return res.status(hasAutoAssignmentFailure ? 207 : 200).json({
-      success: !hasAutoAssignmentFailure,
-      message: hasAutoAssignmentFailure
-        ? 'Docente asignado al curso, pero hubo errores al crear las evaluaciones.'
-        : 'Docente asignado correctamente',
-      autoAssignment,
-      warning: hasAutoAssignmentFailure
-        ? [...autoAssignment.errors, ...autoAssignment.warnings].join('; ') || 'Error al crear evaluaciones automáticas'
+    const { created, attached, alreadyExisting, skipped } = result.counts;
+    const confirmed = created + attached + alreadyExisting;
+    const isBlocking = !result.success || result.errors.length > 0 || confirmed === 0;
+
+    let message: string;
+    if (isBlocking) {
+      const reason = result.blockingError?.message ?? result.errors[0] ?? 'No se confirmó ninguna evaluación.';
+      message = assignment.alreadyActive
+        ? `El docente ya estaba asignado al curso, pero no se pudo confirmar ninguna evaluación: ${reason}`
+        : `Docente asignado al curso, pero no se pudo confirmar ninguna evaluación: ${reason}`;
+    } else if (assignment.alreadyActive && created === 0 && attached === 0) {
+      message = `El docente ya estaba asignado y sus evaluaciones están al día (${alreadyExisting} ya existente(s)).`;
+    } else {
+      message =
+        `Docente asignado correctamente. Evaluaciones: ${created} creada(s), ` +
+        `${attached} vinculada(s), ${alreadyExisting} ya existente(s).`;
+    }
+
+    return res.status(isBlocking ? 207 : 200).json({
+      success: !isBlocking,
+      code: isBlocking ? (result.blockingError?.code ?? 'assessments_not_confirmed') : undefined,
+      error: isBlocking ? message : undefined,
+      message,
+      assignment,
+      assessments: {
+        created,
+        attached,
+        alreadyExisting,
+        skipped,
+        warnings: result.warnings,
+        errors: result.errors,
+        details: result.details,
+      },
+      warnings: result.warnings,
+      autoAssignment: legacyAutoAssignment(result),
+      warning: isBlocking || result.warnings.length > 0
+        ? joinedWarning(result.errors, result.warnings)
         : undefined,
     });
   } catch (err: any) {

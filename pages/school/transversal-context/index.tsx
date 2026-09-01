@@ -85,6 +85,15 @@ const TransversalContextDashboard: React.FC = () => {
   const [selectedDocente, setSelectedDocente] = useState<string>('');
   const [loadingDocentes, setLoadingDocentes] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  // Blocking failure of the last attempt, shown inside the modal (which stays open)
+  const [assignError, setAssignError] = useState<string | null>(null);
+  const [assignErrorWarnings, setAssignErrorWarnings] = useState<string[]>([]);
+  // Non-blocking warnings from the last successful assignment, visible until dismissed
+  const [assignmentNotice, setAssignmentNotice] = useState<{
+    courseName: string;
+    message: string;
+    warnings: string[];
+  } | null>(null);
 
   // All context questions (structural + generic, driven from DB)
   const [allQuestions, setAllQuestions] = useState<ContextGeneralQuestion[]>([]);
@@ -270,6 +279,8 @@ const TransversalContextDashboard: React.FC = () => {
   const openAssignModal = async (course: any) => {
     setSelectedCourse(course);
     setSelectedDocente('');
+    setAssignError(null);
+    setAssignErrorWarnings([]);
     setAssignModalOpen(true);
     setLoadingDocentes(true);
 
@@ -302,11 +313,25 @@ const TransversalContextDashboard: React.FC = () => {
     }
   };
 
-  // Handle docente assignment
+  const closeAssignModal = () => {
+    setAssignModalOpen(false);
+    setAssignError(null);
+    setAssignErrorWarnings([]);
+  };
+
+  // Handle docente assignment.
+  // PROC-CONTAIN-01 (A-02): the API preflights the eligible templates and answers
+  // 422 (nothing written) or 207 (assignment written, no evaluation confirmed)
+  // with a structured, actionable message. A blocking failure keeps the modal
+  // open and shows that message so the directivo can act or retry (a retry
+  // reconciles missing evaluations). Warnings on success stay visible in a
+  // banner and are never relabeled as complete success.
   const handleAssignDocente = async () => {
     if (!selectedCourse || !selectedDocente) return;
 
     setAssigning(true);
+    setAssignError(null);
+    setAssignErrorWarnings([]);
     try {
       const response = await fetch('/api/school/transversal-context/assign-docente', {
         method: 'POST',
@@ -317,31 +342,48 @@ const TransversalContextDashboard: React.FC = () => {
         }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok && response.status !== 207) {
-        throw new Error(data.error || 'Error al asignar docente');
+      let data: any = {};
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
       }
 
-      if (data.warning) {
-        toast.error(data.warning, { duration: 8000 });
-      } else {
-        toast.success('Docente asignado correctamente');
-      }
+      const warnings: string[] = Array.isArray(data.warnings)
+        ? data.warnings
+        : Array.isArray(data.assessments?.warnings)
+          ? data.assessments.warnings
+          : [];
 
-      // Show auto-assignment result
-      if (data.autoAssignment) {
-        const { instancesCreated } = data.autoAssignment;
-        if (instancesCreated > 0 && !data.warning) {
-          toast.success(`Se crearon ${instancesCreated} evaluaciones automáticamente`);
+      if (!response.ok || data.success !== true) {
+        const message = data.error || data.message || 'No se pudo completar la asignación del docente';
+        setAssignError(message);
+        setAssignErrorWarnings(warnings);
+        toast.error(message, { duration: 8000 });
+        if (data.assignment?.mutated) {
+          // The course assignment was written even though no evaluation was
+          // confirmed: refresh so the course list stays truthful.
+          fetchContext();
         }
+        return; // modal stays open
       }
 
-      setAssignModalOpen(false);
+      const message = data.message || 'Docente asignado correctamente';
+      if (warnings.length > 0) {
+        setAssignmentNotice({ courseName: selectedCourse.course_name, message, warnings });
+        toast(`${message} Hay advertencias que revisar.`, { icon: '⚠️', duration: 10000 });
+      } else {
+        setAssignmentNotice(null);
+        toast.success(message);
+      }
+
+      closeAssignModal();
       fetchContext(); // Refresh data
     } catch (error: any) {
       console.error('Error assigning docente:', error);
-      toast.error(error.message || 'Error al asignar docente');
+      const message = error.message || 'Error al asignar docente';
+      setAssignError(message);
+      toast.error(message);
     } finally {
       setAssigning(false);
     }
@@ -844,6 +886,37 @@ const TransversalContextDashboard: React.FC = () => {
           </div>
         )}
 
+        {/* Non-blocking warnings from the last docente assignment (visible until dismissed) */}
+        {assignmentNotice && (
+          <div
+            data-testid="assign-docente-warnings"
+            role="status"
+            className="mt-6 p-4 rounded-lg bg-amber-50 border border-amber-300 text-sm text-amber-900"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-medium">
+                  Docente asignado con advertencias: {assignmentNotice.courseName}
+                </p>
+                <p className="mt-1">{assignmentNotice.message}</p>
+                <ul className="list-disc ml-5 mt-2">
+                  {assignmentNotice.warnings.map((w) => (
+                    <li key={w}>{w}</li>
+                  ))}
+                </ul>
+              </div>
+              <button
+                data-testid="assign-docente-warnings-dismiss"
+                onClick={() => setAssignmentNotice(null)}
+                className="p-1 hover:bg-amber-100 rounded"
+                title="Cerrar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Course Structure */}
         {courseStructure.length > 0 && (
           <div className="bg-white shadow-md rounded-lg overflow-hidden mt-6">
@@ -884,6 +957,7 @@ const TransversalContextDashboard: React.FC = () => {
                             {/* Assign button - only for directivos */}
                             {!isAdminOrConsultor && (
                               <button
+                                data-testid={`open-assign-docente-${course.id}`}
                                 onClick={() => openAssignModal(course)}
                                 className="inline-flex items-center px-2 py-1 text-xs font-medium text-brand_primary hover:bg-brand_accent/20 rounded transition-colors"
                               >
@@ -988,7 +1062,8 @@ const TransversalContextDashboard: React.FC = () => {
                 Asignar Docente
               </h3>
               <button
-                onClick={() => setAssignModalOpen(false)}
+                data-testid="assign-docente-close"
+                onClick={closeAssignModal}
                 className="p-1 hover:bg-brand_beige rounded"
               >
                 <X className="w-5 h-5 text-brand_primary/60" />
@@ -1020,6 +1095,7 @@ const TransversalContextDashboard: React.FC = () => {
                     Seleccionar Docente
                   </label>
                   <select
+                    data-testid="assign-docente-select"
                     value={selectedDocente}
                     onChange={(e) => setSelectedDocente(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_accent text-brand_primary"
@@ -1039,16 +1115,36 @@ const TransversalContextDashboard: React.FC = () => {
                   </select>
                 </div>
               )}
+
+              {assignError && (
+                <div
+                  data-testid="assign-docente-error"
+                  role="alert"
+                  className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800"
+                >
+                  <p className="font-medium">No se pudo completar la asignación</p>
+                  <p className="mt-1">{assignError}</p>
+                  {assignErrorWarnings.length > 0 && (
+                    <ul className="list-disc ml-5 mt-2 text-red-700">
+                      {assignErrorWarnings.map((w) => (
+                        <li key={w}>{w}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
               <button
-                onClick={() => setAssignModalOpen(false)}
+                data-testid="assign-docente-cancel"
+                onClick={closeAssignModal}
                 className="px-4 py-2 text-sm font-medium text-brand_primary/70 hover:text-brand_primary"
               >
                 Cancelar
               </button>
               <button
+                data-testid="assign-docente-submit"
                 onClick={handleAssignDocente}
                 disabled={!selectedDocente || assigning}
                 className="px-4 py-2 bg-brand_primary text-white text-sm font-medium rounded-lg hover:bg-brand_primary/90 disabled:opacity-50 inline-flex items-center"

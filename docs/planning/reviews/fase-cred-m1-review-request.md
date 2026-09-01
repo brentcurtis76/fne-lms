@@ -36,8 +36,11 @@ more:
    replacement key.** The merge decision is Brent's alone.
 4. Recovery crypto remains independently rooted and **ACTIVE**; M1 does not
    change `RECOVERY_CRYPTO_SECRET` (re-confirmed Production-only).
-5. **No legacy key has been disabled, revoked, deleted, tested, or otherwise
-   used.** The anon→publishable migration (M2) is separate and untouched; the
+5. **This staging operation and the recording session did not inspect,
+   reveal, test, change, disable, revoke, delete, or newly invoke any legacy
+   key.** The legacy keys remain enabled: the running Production deployment
+   still uses the prior value, and unknown external consumers may continue
+   using them. The anon→publishable migration (M2) is separate and untouched; the
    `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    environment-isolation defect (all three scopes) must be resolved before M2.
 6. The M1 exclusions and the blockers to eventual legacy-key deactivation are
@@ -73,7 +76,11 @@ of its auth paths — Bearer token and session cookie — end in service-role
 reads, so one authenticated 200 from it after the activating deployment is a
 bounded application-level proof that the deployed application can use the
 variable's current value. This was verified by reading the file at the base
-SHA; the endpoint was **not** called.
+SHA; the endpoint was **not** called. That request, when it is eventually
+made, is itself an **application-mediated production read** — the route's
+service-role `user_roles` query — not a no-database check; it has NOT been
+run and requires separate explicit Brent authorization after a successful
+exact-SHA deployment.
 
 ## 3. Scope
 
@@ -107,17 +114,21 @@ query, cron invocation, recovery e-mail, or production application test.
 | `docs/runbooks/auth-security.md` | +1 dated blockquote; row 0.17 reconciled; prior row 0.17 preserved verbatim | Row 0.17 wording gates the eventual rotation; the staged/active boundary must be unmistakable |
 | `docs/planning/reviews/fase-cred-m1-review-request.md` | new file | LOW |
 
-## 5. Post-deployment verification protocol and rollback boundary (defined here, NOT run)
+## 5. Post-deployment verification protocol and rollback boundary (defined here; NOT run; requires separate explicit Brent authorization after a successful exact-SHA deployment)
 
 1. Confirm the automatic Production deployment succeeded on the **exact merged
    SHA** (GitHub deployment + status, read-only).
 2. Using an **already-existing synthetic adult test account only**, perform
-   **one** authenticated read-only `GET /api/auth/my-roles`. A **200** is the
-   bounded application-level proof (see §2's code citation).
+   **one** authenticated `GET /api/auth/my-roles`. A **200** is the bounded
+   application-level proof (see §2's code citation). That single request is
+   itself an application-mediated production read through the route's
+   service-role `user_roles` query.
 3. Record **only** status success/failure. Never record or expose the returned
    user id, roles, school, generation, community, email, cookies, or token.
-4. Do not invoke crons, send e-mail, mutate data, or query the database as part
-   of this verification. (Scheduled crons run on their own cadence regardless;
+4. Do not invoke crons, send e-mail, or mutate data, and run no direct SQL,
+   Supabase Management API call, or separately executed database query as part
+   of this verification — the endpoint request's own normal application-level
+   read is the only database access involved. (Scheduled crons run on their own cadence regardless;
    their logs are Brent-observable but are not part of this bounded protocol.)
 5. **If the call fails: stop.** Disable nothing; test no key directly. The
    rollback boundary for Brent: **before** the activating merge, restoring the
@@ -207,3 +218,57 @@ disables no legacy key, changes no anon key, and touches no Edge Function,
 database, or external consumer. **The merge decision — and its timing relative
 to other pending merges — is Brent's alone.** Nothing in this branch
 authorizes it.
+
+## 10. Independent review — round 1 (two findings, both corrected)
+
+Reviewed head: `db4093e669895a179b2d60ed32e26dae0b50adb0`. Per instruction the
+corrections are an **additive** commit on top of that head — nothing was
+amended or rewritten, so the reviewed head remains in the branch history
+exactly as reviewed. No SHA, deployment/run id, variable/key name, scope, age,
+STAGED/NOT ACTIVE status, Brent-supplied attribution, activation boundary,
+rollback boundary, blocker, historical blockquote/body, or preserved row 0.17
+was changed; only the two findings below.
+
+### R1-1 (precision) — the my-roles request is not "no database query"
+
+The protocol said the verification would "query no database". That is
+imprecise: `GET /api/auth/my-roles` performs an application-mediated
+production read through its service-role `user_roles` query. **Correction:**
+every such statement in `PROJECT_STATE.md`, the runbook blockquote, and this
+file (§2 code citation, §5 heading and items 2/4) now states the exact
+boundary — no direct SQL, no Supabase Management API call, no separately
+executed database query; the single endpoint request itself performs the
+normal application-level read — and states that the request has NOT been run
+and requires separate explicit Brent authorization after a successful
+exact-SHA deployment. Status-only evidence, the synthetic-adult-account
+restriction, no capture of the returned body, and stop-on-failure are
+preserved unchanged.
+
+### R1-2 (overclaim) — "no legacy key was … otherwise used" was absolute
+
+The records claimed no legacy key had been "used", which the session cannot
+know: the running Production deployment still uses the prior value, and
+unknown external consumers may continue using the enabled legacy keys.
+**Correction:** every absolute claim — the `PROJECT_STATE.md` heading fragment
+and body, the runbook blockquote and current row 0.17, and §1 item 5 here —
+is now task-scoped: this staging operation and the recording session did not
+inspect, reveal, test, change, disable, revoke, delete, or newly invoke any
+legacy key; the legacy keys remain enabled, the running deployment still uses
+the prior value, and unknown external consumers may continue using them. The
+commit message of `db4093e6` still carries the superseded absolute wording;
+it is history and is not rewritten — this section is the correction of
+record.
+
+### Round-1 gate evidence
+
+| Gate | Command | Result |
+| ---- | ------- | ------ |
+| Secret guard | `npm run guard:secrets` | PASS — 2,458 tracked paths, index-only scan, 0 findings |
+| Types | `npm run type-check` | PASS — exit 0 |
+| Lint | `npm run lint -- --max-warnings=0` | PASS — exit 0, zero warnings |
+| Unit/integration | `npm test` | PASS — 371 files, 8,515 passed, 11 skipped, 0 failures (300.0s) |
+| Build | `npm run build` | PASS — exit 0, 149/149 static pages (command-scoped synthetic localhost `NEXT_PUBLIC_SUPABASE_*` values) |
+| Whitespace | `git diff --check` | clean |
+
+Same sequencing disclosure as §6: the content-dependent gates are re-run last
+on the exact committed tree.

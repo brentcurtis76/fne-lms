@@ -115,19 +115,27 @@
 > retrieved, displayed, fingerprinted, or tested. **The next successful
 > automatic Production deployment from a controlled `main` merge activates the
 > replacement; the merge decision is Brent's alone.** M1 changes nothing else:
-> recovery crypto stays independently rooted and ACTIVE; **no legacy key has
-> been disabled, revoked, deleted, tested, or otherwise used**; the
+> recovery crypto stays independently rooted and ACTIVE; **this staging
+> operation and the recording session did not inspect, reveal, test, change,
+> disable, revoke, delete, or newly invoke any legacy key** — the legacy keys
+> remain enabled, the running Production deployment still uses the prior
+> value, and unknown external consumers may continue using them; the
 > anon→publishable migration (M2) is separate and untouched, and is blocked
 > before it starts by the environment-isolation defect that
 > `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` span
 > Production, Preview and Development (§8.3 rule 2). **Post-deployment
-> verification (narrow, not yet run):** confirm the automatic deployment
-> succeeded on the exact merged SHA, then one authenticated read-only
-> `GET /api/auth/my-roles` with an already-existing synthetic adult account —
-> a 200 is the bounded proof (the route reads `SUPABASE_SERVICE_ROLE_KEY` at
-> module scope and serves the caller's roles through a service-role client);
-> record status only, never the returned identity data; no cron invocation,
-> e-mail, mutation, or database query; **on failure, stop** — disable nothing,
+> verification (narrow; NOT run; requires separate explicit Brent
+> authorization after a successful exact-SHA deployment):** confirm the
+> automatic deployment succeeded on the exact merged SHA, then one
+> authenticated `GET /api/auth/my-roles` with an already-existing synthetic
+> adult account — a 200 is the bounded proof (the route reads
+> `SUPABASE_SERVICE_ROLE_KEY` at module scope and its service-role
+> `user_roles` query serves the caller's roles), and that single request is
+> itself an application-mediated production read, not a no-database check;
+> record status only, never the returned body; no cron invocation, e-mail, or
+> mutation, and no direct SQL, Supabase Management API call, or separately
+> executed database query — the endpoint's own normal application-level read
+> is the only database access involved; **on failure, stop** — disable nothing,
 > test no key, and hand Brent the rollback boundary (before the activating
 > merge: restore the prior variable value, nothing running changes; after it:
 > restore the value and redeploy via the controlled path — legacy keys remain
@@ -175,7 +183,7 @@ from being read as "the problem is fixed". These are different columns.
 | 0.14 | RLS advisor findings (incl. `public.modules`) | **REPORTED, NOT FIXED** — out of scope by decision | §5 |
 | 0.15 | **Retention/scrubbing sweep** (`run_auth_security_retention` + daily cron) | **CODE COMPLETE; RUNS NOWHERE YET.** Requires the fifth migration, the deploy, and `CRON_SECRET` in Vercel Production | §7 |
 | 0.16 | **Committed API keys removed from the working tree** + CI guard against recurrence | **MERGED** (recorded 2026-09-01): PR #66 at approved head `7334da1b`, merge commit `76a98644`; post-merge CI run `33522718133` all seven jobs green; automatic Production deployment `6204033475` successful. Removal is still not rotation, and history was not rewritten — the credential stays treated as disclosed | §8.1 |
-| 0.17 | **Rotation of the exposed `service_role` and legacy anon keys** | **REPLACEMENT STAGED IN VERCEL, NOT ACTIVE (2026-09-01, CRED-03B); ROTATION STILL NOT DONE.** Brent personally updated the existing Vercel variable `SUPABASE_SERVICE_ROLE_KEY` to the replacement secret key `fne_lms_vercel_prod_20260831` — Production only (session-verified by names/scopes listing), UI type Secret (Brent-supplied; not provable by that listing, which shows creation age, 463d). No deployment followed: the running Production deployment `6208254024` at `bf5f4c70` predates the save and still uses the prior value; the next controlled `main` merge activates the replacement. **No legacy key was disabled, revoked, deleted, tested, or used** — both stay treated as disclosed, and the two untracked local carriers recorded in §8.1 still hold the legacy value. After activation and the narrow my-roles verification, deactivation remains separately blocked by the two out-of-repo Edge Functions, the unknown DB webhooks/pg_net catalog, operator scripts (incl. `scripts/generate-qa-guide.py`), and unknown external consumers | §8.1, §8.3 |
+| 0.17 | **Rotation of the exposed `service_role` and legacy anon keys** | **REPLACEMENT STAGED IN VERCEL, NOT ACTIVE (2026-09-01, CRED-03B); ROTATION STILL NOT DONE.** Brent personally updated the existing Vercel variable `SUPABASE_SERVICE_ROLE_KEY` to the replacement secret key `fne_lms_vercel_prod_20260831` — Production only (session-verified by names/scopes listing), UI type Secret (Brent-supplied; not provable by that listing, which shows creation age, 463d). No deployment followed: the running Production deployment `6208254024` at `bf5f4c70` predates the save and still uses the prior value; the next controlled `main` merge activates the replacement. **This staging did not inspect, reveal, test, change, disable, revoke, delete, or newly invoke any legacy key** — both remain enabled and treated as disclosed, the running deployment still uses the prior value, unknown external consumers may still use them, and the two untracked local carriers recorded in §8.1 still hold the legacy value. After activation and the narrow my-roles verification, deactivation remains separately blocked by the two out-of-repo Edge Functions, the unknown DB webhooks/pg_net catalog, operator scripts (incl. `scripts/generate-qa-guide.py`), and unknown external consumers | §8.1, §8.3 |
 | 0.18 | **Rotation of the historical database password** (`.env.prod` exposure) | **BLOCKED BY DESIGN** until a written external-direct-database-consumer inventory exists. Rotating first would cause an outage | §8.4 |
 | 0.19 | **`RECOVERY_CRYPTO_SECRET` cutover** (decouples recovery crypto from the API key) | **ACTIVE — CONFIGURATION CUTOVER (2026-09-01); NOT functionally proven.** PR #67 merged as `593b7df6` and the automatic Production deployment `6205672170` succeeded — the first deployment carrying the secret, so recovery crypto now derives from the independent root (the legacy-fallback code path is retained but no longer selected). Deployment/configuration evidence only: no real recovery e-mail/redemption has been exercised. Post-merge single-query aggregates: 0 envelopes / 0 queued-or-processing / 0 active unexpired grants; latest queued/completed/scrubbed 2026-08-28 (all pre-merge). The immediately-before-merge zero recheck is not evidenced and was not retroactively satisfied; the post-merge check only bounds the risk | §8.5 |
 

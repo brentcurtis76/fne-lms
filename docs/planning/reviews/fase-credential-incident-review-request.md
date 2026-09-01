@@ -4,7 +4,7 @@
 | --- | --- |
 | Branch | `fix/cred-guard` |
 | Base | `49814091a2df69cc8e4c02beba8014bb5aa0694c` (live `origin/main` at the time of work, re-locked read-only) |
-| Commit count | 7 |
+| Commit count | 8 |
 | Worktree | `/Users/brentcurtis/dev/wt/cred-guard` |
 | Date | 2026-08-31 |
 | Reviewer protocol | `docs/planning/review-protocol.md` |
@@ -12,8 +12,11 @@
 > **This branch is repository hygiene plus a guard. Nothing else.** No key was
 > rotated. No provider was contacted. No environment variable was changed. No
 > deployment was triggered. No credential value was read, printed, copied or
-> tested. Nothing was pushed. The substantive remedy — rotation — is entirely
-> pending human action and is sequenced in §9 below.
+> tested. Nothing was pushed **at the original pre-push implementation-review
+> point this request was written for** (that statement was true when rounds 0–4
+> were reviewed); the branch was later pushed at the independently approved
+> head `31a9f10b` and opened as PR #66 — see §15. The substantive remedy —
+> rotation — is entirely pending human action and is sequenced in §9 below.
 
 ---
 
@@ -919,14 +922,16 @@ The history-dependent assertion is replaced by
 `allowlist contract (self-contained)`: the `ALLOWLIST` must contain **exactly
 the five independently reviewed fingerprints**, each must still carry a
 substantive written reason, and `service_role` is re-proved to have no
-allowlist path. Nothing shells out to Git history. The byte-level guarantees
-the old test aimed at are not lost: the `allowlisted synthetic fixtures`
-describe already proves each of the five fingerprints against the real tracked
-files — passing with the entry present and **failing when it is removed** —
-so any added, removed or altered entry fails the new contract test, and any
-change to what an entry permits fails the fixture tests. Proved non-vacuous by
-mutation: altering a single fingerprint in the guard fails both new contract
-tests; restored, 75/75.
+allowlist path. Nothing shells out to Git history. *(Corrected in round 6 —
+see §16.)* As originally written, this section claimed the old test's
+byte-level guarantees were "not lost" via the fixture tests. The round-5
+review showed that was overstated: the fixture tests pin what each fingerprint
+*permits*, but a **reworded reason** — the recorded WHY of an exception —
+changed nothing detectable. The exact meaningful `ALLOWLIST` contract —
+**fingerprints plus their written reasons** — is now pinned self-containedly
+by a full SHA-256 digest over a canonical serialization of the five sorted
+entries (§16). Proved non-vacuous by mutation: altering a single fingerprint
+in the guard fails both contract tests; restored, 75/75.
 
 Changed files in this round: the unit-test file and this review request only.
 The guard, the workflow, and every `ALLOWLIST` fingerprint and reason are
@@ -939,3 +944,62 @@ commit; the header above is updated). All local gates were re-run green at
 this head — see §5 for the recomputed figures. **Hosted confirmation remains
 pending** until this correction is independently reviewed, pushed to PR #66,
 and run `33456975971`'s successor shows all seven jobs green on the new head.
+
+---
+
+## 16. Independent review — round 5 findings, round-6 corrections
+
+The round-5 independent review of `19908a94` returned two MINOR findings. Both
+are closed by one additive commit whose parent is `19908a94`; the guard,
+workflow, allowlist contents, and every other file are untouched.
+
+### R6-1 (MINOR) — the self-contained contract did not pin the reasons
+
+**Finding.** §15's replacement asserted the exact five fingerprints and that
+each reason exceeds 40 characters, and claimed byte-level equivalence via the
+fixture tests. A **reworded reason with the same fingerprint and sufficient
+length** passed every test — the recorded rationale of each exception, which
+is what a reviewer approved, was not actually pinned.
+
+**Fix.** The reason test is strengthened into an exact contract: a **full
+SHA-256 digest over a deterministic canonical serialization** of the five
+sorted entries (`<fingerprint>\n<reason>\n`, concatenated in fingerprint
+order), compared against a reviewed expected digest stored in the test
+(`b2a73ea06147d0a3…ea93`, computed from the guard at the approved head, whose
+allowlist is unchanged since it was first reviewed). The transparent
+exact-five-fingerprint assertion, the per-entry written-reason sanity checks,
+the real-fixture pass/fail-when-removed proofs, and the
+`service_role`-unallowlistable proof are all preserved. No `git show`, no old
+commit objects, no network, no fetch-depth change, no duplicated credential
+values — the contract holds on a depth-1 clone.
+
+**Mutation evidence** (disposable copy, restored and re-proved green after
+each):
+
+| Mutation | Result |
+| --- | --- |
+| One reason reworded; fingerprint kept; length still > 40 | **digest test fails** (the round-5 gap, now closed); fingerprint test still passes, correctly |
+| Restored | **75 / 75** |
+| One fingerprint altered (replay) | **both contract assertions fail** |
+| Restored | **75 / 75**, guard byte-identical |
+
+### R6-2 (MINOR) — the header's "Nothing was pushed" had become time-stale
+
+**Finding.** The opening scope statement, written at round 0 and true through
+round 4, still said "Nothing was pushed" — but §15 records the push of
+`31a9f10b` and PR #66. Two sections of one document disagreed about a fact.
+
+**Fix.** The header statement is time-qualified in place — it now says the
+claim held **at the original pre-push implementation-review point** and points
+to §15 for the later push — preserving the historical fact rather than
+deleting it. §15's PR #66 and failed-CI chronology are intact; its overstated
+equivalence paragraph carries an explicit round-6 correction note rather than
+a silent rewrite.
+
+### Status
+
+Commit count advances **7 → 8** (header updated). Expected delta for this
+round: exactly the unit-test file and this review request. **Hosted
+confirmation remains pending** — hosted CI has not run on any head after
+`31a9f10b`, and it stays pending until this correction is independently
+reviewed, pushed to PR #66, and all seven jobs report green on the new head.

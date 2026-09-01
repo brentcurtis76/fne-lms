@@ -19,6 +19,7 @@ import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, unlinkSync
 import { resolve, join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   scanText,
   scanRepository,
@@ -971,12 +972,33 @@ describe('allowlist contract (self-contained)', () => {
     expect(ALLOWLIST.size).toBe(5);
   });
 
-  it('every entry still carries a substantive written reason', () => {
+  it('the exact fingerprint-and-reason contract matches the reviewed digest', () => {
+    // The full SHA-256 of a deterministic canonical serialization of the five
+    // sorted entries — "<fingerprint>\n<reason>\n" concatenated in fingerprint
+    // order. This pins the exact MEANINGFUL allowlist contract (which values
+    // are permitted, and the recorded WHY) without consulting Git history, so
+    // it holds on a depth-1 CI clone. Any added, removed or altered
+    // fingerprint OR any reworded reason changes this digest.
+    //
+    // EXPECTED was computed from the independently reviewed guard at head
+    // 31a9f10b (allowlist unchanged since bdc29012/8117dfc7). To recompute
+    // after a REVIEWED allowlist change:
+    //   node --input-type=module -e "import { ALLOWLIST } from './scripts/ci/check-committed-secrets.mjs'; import { createHash } from 'node:crypto'; console.log(createHash('sha256').update([...ALLOWLIST.entries()].sort(([a],[b])=>(a<b?-1:a>b?1:0)).map(([f,r])=>f+'\n'+r+'\n').join(''),'utf8').digest('hex'))"
+    const EXPECTED = 'b2a73ea06147d0a3fd0b78c4c83f0df5769372ddcfa607580ed3287d1167ea93';
+
+    // Per-entry sanity first, so a mismatch names the culprit before the
+    // digest comparison fails.
     for (const fp of REVIEWED_FINGERPRINTS) {
       const reason = ALLOWLIST.get(fp);
       expect(reason, fp).toBeTypeOf('string');
       expect(String(reason).length, `reason for ${fp}`).toBeGreaterThan(40);
     }
+
+    const canonical = [...ALLOWLIST.entries()]
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([fp, reason]) => `${fp}\n${reason}\n`)
+      .join('');
+    expect(createHash('sha256').update(canonical, 'utf8').digest('hex')).toBe(EXPECTED);
   });
 
   it('service_role still has no allowlist path', () => {

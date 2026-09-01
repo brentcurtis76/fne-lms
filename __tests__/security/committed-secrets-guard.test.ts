@@ -972,19 +972,30 @@ describe('allowlist contract (self-contained)', () => {
     expect(ALLOWLIST.size).toBe(5);
   });
 
+  /**
+   * Deterministic, INJECTIVE canonicalization of allowlist entries: copy the
+   * [fingerprint, reason] pairs, sort by fingerprint with the explicit ASCII
+   * comparator, and JSON.stringify the sorted pairs. JSON string escaping and
+   * array boundaries guarantee different entry assignments produce different
+   * bytes — unlike round 6's "<fp>\n<reason>\n" concatenation, where a reason
+   * containing a newline-delimited fingerprint-looking line could shift text
+   * across the entry boundary and collide (regression test below).
+   */
+  function canonicalAllowlist(entries: Iterable<[string, string]>): string {
+    return JSON.stringify([...entries].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+  }
+
   it('the exact fingerprint-and-reason contract matches the reviewed digest', () => {
-    // The full SHA-256 of a deterministic canonical serialization of the five
-    // sorted entries — "<fingerprint>\n<reason>\n" concatenated in fingerprint
-    // order. This pins the exact MEANINGFUL allowlist contract (which values
-    // are permitted, and the recorded WHY) without consulting Git history, so
-    // it holds on a depth-1 CI clone. Any added, removed or altered
-    // fingerprint OR any reworded reason changes this digest.
+    // Full SHA-256 over the injective JSON canonicalization above. This pins
+    // the exact MEANINGFUL allowlist contract — which values are permitted,
+    // and the recorded WHY — without consulting Git history, so it holds on a
+    // depth-1 CI clone. Any added, removed or altered fingerprint OR any
+    // reworded reason changes this digest.
     //
-    // EXPECTED was computed from the independently reviewed guard at head
-    // 31a9f10b (allowlist unchanged since bdc29012/8117dfc7). To recompute
-    // after a REVIEWED allowlist change:
-    //   node --input-type=module -e "import { ALLOWLIST } from './scripts/ci/check-committed-secrets.mjs'; import { createHash } from 'node:crypto'; console.log(createHash('sha256').update([...ALLOWLIST.entries()].sort(([a],[b])=>(a<b?-1:a>b?1:0)).map(([f,r])=>f+'\n'+r+'\n').join(''),'utf8').digest('hex'))"
-    const EXPECTED = 'b2a73ea06147d0a3fd0b78c4c83f0df5769372ddcfa607580ed3287d1167ea93';
+    // EXPECTED was recomputed from the guard whose ALLOWLIST is byte-identical
+    // to the approved head 31a9f10b. To recompute after a REVIEWED change:
+    //   node --input-type=module -e "import { ALLOWLIST } from './scripts/ci/check-committed-secrets.mjs'; import { createHash } from 'node:crypto'; console.log(createHash('sha256').update(JSON.stringify([...ALLOWLIST.entries()].sort(([a],[b])=>(a<b?-1:a>b?1:0))),'utf8').digest('hex'))"
+    const EXPECTED = '640b5a9a63bbb077799e15ad8bd70c5cc47455e7a71de5bd8915db076ba802cb';
 
     // Per-entry sanity first, so a mismatch names the culprit before the
     // digest comparison fails.
@@ -994,11 +1005,44 @@ describe('allowlist contract (self-contained)', () => {
       expect(String(reason).length, `reason for ${fp}`).toBeGreaterThan(40);
     }
 
-    const canonical = [...ALLOWLIST.entries()]
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-      .map(([fp, reason]) => `${fp}\n${reason}\n`)
-      .join('');
-    expect(createHash('sha256').update(canonical, 'utf8').digest('hex')).toBe(EXPECTED);
+    expect(
+      createHash('sha256').update(canonicalAllowlist(ALLOWLIST.entries()), 'utf8').digest('hex')
+    ).toBe(EXPECTED);
+  });
+
+  it('the canonicalization is injective where the round-6 newline scheme collided', () => {
+    // Two maps with the SAME two fake 12-hex-shaped keys but DIFFERENT reason
+    // assignments, built so the old "<fp>\n<reason>\n" concatenation
+    // serializes them identically: a newline-delimited fingerprint-looking
+    // line inside a reason shifts prose across the entry boundary. Harmless
+    // runtime-built prose only — nothing credential-shaped.
+    const fpA = 'a'.repeat(12);
+    const fpB = 'b'.repeat(12);
+    const mapOne = new Map<string, string>([
+      [fpA, 'alpha prose'],
+      [fpB, `beta prose
+${fpB}
+gamma prose`],
+    ]);
+    const mapTwo = new Map<string, string>([
+      [fpA, `alpha prose
+${fpB}
+beta prose`],
+      [fpB, 'gamma prose'],
+    ]);
+
+    const oldScheme = (entries: Iterable<[string, string]>) =>
+      [...entries]
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+        .map(([fp, reason]) => `${fp}\n${reason}\n`)
+        .join('');
+
+    // Different assignments…
+    expect(mapOne.get(fpA)).not.toBe(mapTwo.get(fpA));
+    // …that the ROUND-6 scheme could not tell apart…
+    expect(oldScheme(mapOne.entries())).toBe(oldScheme(mapTwo.entries()));
+    // …and the JSON canonicalization does.
+    expect(canonicalAllowlist(mapOne.entries())).not.toBe(canonicalAllowlist(mapTwo.entries()));
   });
 
   it('service_role still has no allowlist path', () => {

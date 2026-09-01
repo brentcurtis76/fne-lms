@@ -4,19 +4,23 @@
 | --- | --- |
 | Branch | `fix/cred-guard` |
 | Base | `49814091a2df69cc8e4c02beba8014bb5aa0694c` (live `origin/main` at the time of work, re-locked read-only) |
-| Commit count | 8 |
+| Commit count | 9 |
 | Worktree | `/Users/brentcurtis/dev/wt/cred-guard` |
 | Date | 2026-08-31 |
 | Reviewer protocol | `docs/planning/review-protocol.md` |
 
-> **This branch is repository hygiene plus a guard. Nothing else.** No key was
-> rotated. No provider was contacted. No environment variable was changed. No
-> deployment was triggered. No credential value was read, printed, copied or
-> tested. Nothing was pushed **at the original pre-push implementation-review
-> point this request was written for** (that statement was true when rounds 0–4
-> were reviewed); the branch was later pushed at the independently approved
-> head `31a9f10b` and opened as PR #66 — see §15. The substantive remedy —
-> rotation — is entirely pending human action and is sequenced in §9 below.
+> **This branch is repository hygiene plus a guard. Nothing else.** At the
+> original pre-push implementation-review point this request was written for
+> (true throughout rounds 0–4): no key was rotated, no provider was contacted,
+> no environment variable was changed, no deployment was triggered, no
+> credential value was read, printed, copied or tested, and nothing was
+> pushed. Later, the independently approved head `31a9f10b` was pushed and
+> opened as PR #66 (§15). That push triggered the platform's normal
+> **automatic Vercel Preview deployment, which completed**; no agent performed
+> a manual deployment, and **no Production deployment occurred** — `main` has
+> not moved. The substantive remedy — rotation and the other provider-side
+> remediation — remains pending, human-only, and separately governed, and is
+> sequenced in §9 below.
 
 ---
 
@@ -87,7 +91,7 @@ the guard by fingerprint, with the reason recorded in the allowlist entry.
 
 | File | Change |
 | --- | --- |
-| `__tests__/security/committed-secrets-guard.test.ts` | New, **75** tests (35 round 0; +8 round 1; +11 round 2; +7 round 3; round 4 retired 3, added 13, repurposed 2; round 5 replaced the history-dependent allowlist contract with a self-contained one, net +1). |
+| `__tests__/security/committed-secrets-guard.test.ts` | New, **76** tests (35 round 0; +8 round 1; +11 round 2; +7 round 3; round 4 retired 3, added 13, repurposed 2; round 5 net +1 self-contained contract; round 7 +1 collision regression, digest canonicalization made injective). |
 | `__tests__/lib/auth/recovery-crypto-secret.test.ts` | New, 16 tests. |
 | `docs/runbooks/auth-security.md` | New §8; four rows (0.16–0.19) added to the §0 state-of-play table. |
 | `PROJECT_STATE.md` | **+1 line, −0.** New `CRED-01` Meta entry. |
@@ -156,7 +160,7 @@ judgment call the reviewer should check** — see §7.
 
 ## 4. Focused test results
 
-### `__tests__/security/committed-secrets-guard.test.ts` — 75 passed
+### `__tests__/security/committed-secrets-guard.test.ts` — 76 passed
 
 Every rule is proved against input built for the suite, and every allowlist
 exception is proved **twice**: the real tracked file passes with the allowlist
@@ -204,12 +208,12 @@ shell is zsh and `PIPESTATUS` is a bash-ism that silently yields an empty string
 | --- | --- | --- | --- |
 | Typecheck | `npm run type-check` | **0** | clean |
 | Lint | `npm run lint -- --max-warnings=0` | **0** | zero warnings |
-| Unit | `npm test` | **0** | **371 files, 8,514 passed, 11 skipped, 0 failed** (8,474 round 0; +8 round 1; +11 round 2; +7 round 3; +13 net round 4; +1 round 5) |
+| Unit | `npm test` | **0** | **371 files, 8,515 passed, 11 skipped, 0 failed** (8,474 round 0; +8 round 1; +11 round 2; +7 round 3; +13 net round 4; +1 round 5; +1 round 7) |
 | Build | `npm run build` | **0** | production build, middleware 74.5 kB |
 | Whitespace | `git diff --check` | **0** | clean |
 | Secrets guard | `npm run guard:secrets` | **0** | **2,455** tracked paths, authoritative content scanned from the Git index only, 0 findings |
 | Actions guard | `npm run guard:actions` | **0** | 17 uses across 1 workflow file |
-| Focused suites | `vitest run` guard + recovery-crypto | **0** | 91 passed (75 guard + 16 recovery-crypto) |
+| Focused suites | `vitest run` guard + recovery-crypto | **0** | 92 passed (76 guard + 16 recovery-crypto) |
 | Migration guards | `npm run guard:migrations` | **0** | 40 migrations, no RLS-disable, no destructive statement |
 
 The 11 skips are the pre-existing `[Z3b, PARKED]` skips already recorded in
@@ -949,6 +953,16 @@ and run `33456975971`'s successor shows all seven jobs green on the new head.
 
 ## 16. Independent review — round 5 findings, round-6 corrections
 
+> **Round-7 note (correction, not rewrite).** The round-6 review found the
+> canonical serialization this section describes — `<fingerprint>\n<reason>\n`
+> concatenated — **not injective**: a reason containing a newline-delimited
+> fingerprint-looking line can shift text across the entry boundary, so two
+> different reason assignments could hash identically. The digest below was
+> honest but its "exact contract" claim was stronger than the encoding
+> supported. Round 7 replaced the serialization with JSON canonicalization and
+> recomputed the digest — see §17. The mutation evidence below remains a true
+> record of what was run in round 6.
+
 The round-5 independent review of `19908a94` returned two MINOR findings. Both
 are closed by one additive commit whose parent is `19908a94`; the guard,
 workflow, allowlist contents, and every other file are untouched.
@@ -1003,3 +1017,76 @@ round: exactly the unit-test file and this review request. **Hosted
 confirmation remains pending** — hosted CI has not run on any head after
 `31a9f10b`, and it stays pending until this correction is independently
 reviewed, pushed to PR #66, and all seven jobs report green on the new head.
+
+---
+
+## 17. Independent review — round 6 findings, round-7 corrections
+
+The round-6 independent review of `391349d3` returned two MINOR findings. Both
+are closed by one additive commit whose parent is `391349d3`; the guard,
+workflow, allowlist contents, and every other file are untouched.
+
+### R7-1 (MINOR) — the round-6 digest serialization was not injective
+
+**Finding.** `<fingerprint>\n<reason>\n` concatenation does not uniquely encode
+the entry pairs: a reason containing a newline-delimited 12-hex-looking line
+lets prose shift across the boundary between one entry's reason and the next
+entry's fingerprint, so two **different** reason assignments can produce the
+**same** serialized bytes — and therefore the same digest.
+
+**Fix.** A small test-local helper canonicalizes the entries by copying the
+`[fingerprint, reason]` pairs, sorting them with the explicit ASCII
+comparator, and returning `JSON.stringify(sortedEntries)`. JSON string
+escaping and array boundaries make different assignments produce different
+bytes. The digest is the full SHA-256 over that JSON, UTF-8, with the expected
+value recomputed from the unchanged allowlist:
+`640b5a9a63bbb077799e15ad8bd70c5cc47455e7a71de5bd8915db076ba802cb`
+(1,325 canonical bytes; allowlist byte-identical to `31a9f10b`, verified in
+preflight). The transparent exact-five-fingerprint assertion, per-entry reason
+checks, real-fixture pass/fail-when-removed proofs, and the
+`service_role`-unallowlistable proof are all preserved. No `git show`, no old
+objects, no network, no fetch-depth change.
+
+**Collision regression.** A focused test builds two runtime-only synthetic
+maps with the same two fake 12-hex-shaped keys but different reason
+assignments, constructed so the round-6 scheme serializes them identically —
+the test asserts the old scheme's collision explicitly, then asserts the JSON
+canonicalization tells them apart. Harmless prose and fake fingerprints only.
+
+**Mutation evidence** (disposable copies, restored and re-proved green after
+each step):
+
+| # | Mutation | Result |
+| --- | --- | --- |
+| 1 | One real reason reworded; fingerprint kept; length > 40 | **digest test fails, alone** |
+| 2 | Restored | **76 / 76** |
+| 3 | One fingerprint altered | **both contract assertions fail** |
+| 4 | Restored | **76 / 76** |
+| 5 | Helper reverted to the round-6 newline scheme | **collision regression fails** (and the digest test with it) |
+| — | Restored | **76 / 76**, guard and test byte-identical to the committed state |
+
+### R7-2 (MINOR) — "No deployment was triggered" had become time-stale
+
+**Finding.** Round 6 time-qualified "Nothing was pushed" but left "No
+deployment was triggered" in the same opening paragraph unqualified — and the
+push of `31a9f10b` had triggered the platform's automatic Vercel Preview
+deployment.
+
+**Fix.** The opening paragraph now attaches the complete original state — no
+rotation, no provider contact, no environment change, no deployment, no
+credential read/test, nothing pushed — to its point in time (rounds 0–4),
+then records what followed: the push of `31a9f10b`, PR #66, the **automatic
+Vercel Preview deployment which completed** (verified from the PR's checks:
+`Vercel SUCCESS`), that **no agent performed a manual deployment**, and that
+**no Production deployment occurred** (`main` unmoved). Rotation and other
+provider remediation remain pending and separately governed. The historical
+fact is preserved, attached to its time — not deleted.
+
+### Status
+
+Commit count advances **8 → 9** (header updated). Expected delta for this
+round: exactly the unit-test file and this review request. Guard suite
+**75 → 76** (+1 collision regression). **Hosted confirmation remains
+pending** — hosted CI has not run on any head after `31a9f10b`, and it stays
+pending until this correction is independently reviewed, pushed to PR #66,
+and all seven jobs report green on the new head.

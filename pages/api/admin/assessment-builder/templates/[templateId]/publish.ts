@@ -1,6 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
-import { upgradeExistingAssignments } from '@/lib/services/assessment-builder/autoAssignmentService';
 import { categoryScopedColumns } from '@/lib/services/assessment-builder/indicatorCategoryColumns';
 import { hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 
@@ -12,6 +11,11 @@ import { hasAssessmentWritePermission } from '@/lib/assessment-permissions';
  * 2. Creates an immutable snapshot with full nested data
  * 3. Increments the version number
  * 4. Sets status to 'published'
+ *
+ * PROC-CONTAIN-01 (A-01): a request carrying `upgradeExisting: true` is rejected
+ * with HTTP 409 before any read or write. The former "upgrade existing
+ * assignments" path matched old instances by AREA only (grade-blind) and
+ * cloned them onto the new snapshot; it was removed from the service.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -35,6 +39,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { templateId } = req.query;
   if (!templateId || typeof templateId !== 'string') {
     return res.status(400).json({ error: 'templateId es requerido' });
+  }
+
+  // Refuse the disabled upgrade flag before touching the database, so no
+  // snapshot insert or status update can happen on a request that asked for it.
+  const upgradeExistingRequested = Boolean(
+    (req.body as { upgradeExisting?: unknown } | null | undefined)?.upgradeExisting
+  );
+  if (upgradeExistingRequested) {
+    return res.status(409).json({
+      error:
+        'La actualización automática de evaluaciones existentes está deshabilitada. ' +
+        'Publique el template sin esa opción; las evaluaciones existentes deben migrarse con un proceso que valide el nivel.',
+      code: 'upgrade_existing_disabled',
+    });
   }
 
   try {
@@ -344,19 +362,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al actualizar template' });
     }
 
-    // Check if we should upgrade existing assignments
-    const { upgradeExisting } = req.body || {};
-    let upgradeResult = null;
-
-    if (upgradeExisting) {
-      // Create new instances for all existing assignees with the new snapshot
-      upgradeResult = await upgradeExistingAssignments(
-        templateId,
-        snapshot.id,
-        user.id
-      );
-    }
-
     return res.status(200).json({
       success: true,
       message: `Template publicado como versión ${newVersion}`,
@@ -374,11 +379,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         version: snapshot.version,
         createdAt: snapshot.created_at,
       },
-      upgrade: upgradeResult ? {
-        instancesCreated: upgradeResult.instancesCreated,
-        instancesSkipped: upgradeResult.instancesSkipped,
-        errors: upgradeResult.errors.length > 0 ? upgradeResult.errors : undefined,
-      } : undefined,
       warnings: expectationsWarnings.length > 0 ? expectationsWarnings : undefined,
     });
   } catch (err: any) {

@@ -38,6 +38,14 @@ jobs:
       # __tests__/security/destructive-migration-guard.test.ts
       - name: Block destructive migrations (DROP / TRUNCATE / destructive ALTER)
         run: node scripts/ci/check-destructive-migrations.mjs
+      # Committed credentials. Classifies credential-SHAPED text rather than
+      # grepping for one known string, and fails closed on anything it cannot
+      # classify. Never prints a matched value: findings carry file, line,
+      # category and a truncated SHA-256 fingerprint only. Runs here because this
+      # job has no `npm ci`, so the guard uses Node builtins only.
+      # Negative controls: __tests__/security/committed-secrets-guard.test.ts
+      - name: Block committed credentials (service_role JWTs, secret keys, DB passwords)
+        run: node scripts/ci/check-committed-secrets.mjs
 
   browser-boundary-guard:
     name: Browser/server boundary guard

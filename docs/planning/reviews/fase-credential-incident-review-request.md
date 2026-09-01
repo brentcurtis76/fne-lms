@@ -4,7 +4,7 @@
 | --- | --- |
 | Branch | `fix/cred-guard` |
 | Base | `49814091a2df69cc8e4c02beba8014bb5aa0694c` (live `origin/main` at the time of work, re-locked read-only) |
-| Commit count | 6 |
+| Commit count | 7 |
 | Worktree | `/Users/brentcurtis/dev/wt/cred-guard` |
 | Date | 2026-08-31 |
 | Reviewer protocol | `docs/planning/review-protocol.md` |
@@ -84,7 +84,7 @@ the guard by fingerprint, with the reason recorded in the allowlist entry.
 
 | File | Change |
 | --- | --- |
-| `__tests__/security/committed-secrets-guard.test.ts` | New, **74** tests (35 round 0; +8 round 1; +11 round 2; +7 round 3; round 4 retired the 3 working-tree-premise tests, added 13 index-only/batch-framing tests and repurposed 2). |
+| `__tests__/security/committed-secrets-guard.test.ts` | New, **75** tests (35 round 0; +8 round 1; +11 round 2; +7 round 3; round 4 retired 3, added 13, repurposed 2; round 5 replaced the history-dependent allowlist contract with a self-contained one, net +1). |
 | `__tests__/lib/auth/recovery-crypto-secret.test.ts` | New, 16 tests. |
 | `docs/runbooks/auth-security.md` | New §8; four rows (0.16–0.19) added to the §0 state-of-play table. |
 | `PROJECT_STATE.md` | **+1 line, −0.** New `CRED-01` Meta entry. |
@@ -153,7 +153,7 @@ judgment call the reviewer should check** — see §7.
 
 ## 4. Focused test results
 
-### `__tests__/security/committed-secrets-guard.test.ts` — 74 passed
+### `__tests__/security/committed-secrets-guard.test.ts` — 75 passed
 
 Every rule is proved against input built for the suite, and every allowlist
 exception is proved **twice**: the real tracked file passes with the allowlist
@@ -201,12 +201,12 @@ shell is zsh and `PIPESTATUS` is a bash-ism that silently yields an empty string
 | --- | --- | --- | --- |
 | Typecheck | `npm run type-check` | **0** | clean |
 | Lint | `npm run lint -- --max-warnings=0` | **0** | zero warnings |
-| Unit | `npm test` | **0** | **371 files, 8,513 passed, 11 skipped, 0 failed** (8,474 round 0; +8 round 1; +11 round 2; +7 round 3; +13 net round 4) |
+| Unit | `npm test` | **0** | **371 files, 8,514 passed, 11 skipped, 0 failed** (8,474 round 0; +8 round 1; +11 round 2; +7 round 3; +13 net round 4; +1 round 5) |
 | Build | `npm run build` | **0** | production build, middleware 74.5 kB |
 | Whitespace | `git diff --check` | **0** | clean |
 | Secrets guard | `npm run guard:secrets` | **0** | **2,455** tracked paths, authoritative content scanned from the Git index only, 0 findings |
 | Actions guard | `npm run guard:actions` | **0** | 17 uses across 1 workflow file |
-| Focused suites | `vitest run` guard + recovery-crypto | **0** | 90 passed (74 guard + 16 recovery-crypto) |
+| Focused suites | `vitest run` guard + recovery-crypto | **0** | 91 passed (75 guard + 16 recovery-crypto) |
 | Migration guards | `npm run guard:migrations` | **0** | 40 migrations, no RLS-disable, no destructive statement |
 
 The 11 skips are the pre-existing `[Z3b, PARKED]` skips already recorded in
@@ -880,3 +880,62 @@ filesystem reads.
   state.
 - Nothing pushed; no provider, database or credential access; all fixtures
   runtime-built synthetics, never printed.
+
+---
+
+## 15. Hosted CI round — PR #66 Gate 2 correction
+
+The branch was pushed at the independently approved head `31a9f10b` and
+[PR #66](https://github.com/brentcurtis76/fne-lms/pull/66) opened. Hosted run
+`33456975971` came back **six of seven jobs green** — including the
+`Migration safety guard` job that carries the committed-secret guard, which
+passed in 11 s with **zero credential findings**. Gate 2 (job `99698914967`)
+failed with exactly **1 failed test of 8,524**.
+
+### The deterministic cause
+
+`allowlist contract is unchanged from the previous heads > the five entries
+are byte-identical to 8117dfc7, ef9ae403 and 04c2bc74` ran
+`git show 8117dfc7…:scripts/ci/check-committed-secrets.mjs` and died with
+`fatal: path … exists on disk, but not in '8117dfc7…'`. Hosted CI checks out at
+**depth 1**: the branch-local historical commits the test compared against are
+not present in the runner's clone. The failure is a defect in the TEST's
+design — a unit test depending on branch-local Git history — introduced in
+round 2 and extended in rounds 3–4. It reproduces on any fresh shallow clone
+and says nothing about the guard, which found no credential anywhere.
+
+### Why deepening the checkout was rejected
+
+Raising `fetch-depth` in `.github/workflows/ci.yml` would have made the test
+pass — by making every future CI clone slower and by leaving a unit test
+coupled to which refs happen to be fetchable, which would break again on the
+first squash, rebase-and-merge, or fresh clone without the branch. The
+workflow is one of this branch's protected unchanged surfaces, and the test
+was the defect, so the test was fixed.
+
+### The self-contained replacement
+
+The history-dependent assertion is replaced by
+`allowlist contract (self-contained)`: the `ALLOWLIST` must contain **exactly
+the five independently reviewed fingerprints**, each must still carry a
+substantive written reason, and `service_role` is re-proved to have no
+allowlist path. Nothing shells out to Git history. The byte-level guarantees
+the old test aimed at are not lost: the `allowlisted synthetic fixtures`
+describe already proves each of the five fingerprints against the real tracked
+files — passing with the entry present and **failing when it is removed** —
+so any added, removed or altered entry fails the new contract test, and any
+change to what an entry permits fails the fixture tests. Proved non-vacuous by
+mutation: altering a single fingerprint in the guard fails both new contract
+tests; restored, 75/75.
+
+Changed files in this round: the unit-test file and this review request only.
+The guard, the workflow, and every `ALLOWLIST` fingerprint and reason are
+byte-identical to `31a9f10b`.
+
+### Status
+
+Commit count advances **6 → 7** (this correction is the seventh additive
+commit; the header above is updated). All local gates were re-run green at
+this head — see §5 for the recomputed figures. **Hosted confirmation remains
+pending** until this correction is independently reviewed, pushed to PR #66,
+and run `33456975971`'s successor shows all seven jobs green on the new head.

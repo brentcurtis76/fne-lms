@@ -946,34 +946,37 @@ describe('round 4: strict batch framing', () => {
 // The allowlist contract must survive every refactor of file selection.
 // ---------------------------------------------------------------------------
 
-describe('allowlist contract is unchanged from the previous heads', () => {
-  // Round-1 and round-2 heads. Each review round's contract requires the five
-  // entries byte-identical to the head that round reviewed; asserting against
-  // both proves the whole chain.
-  const PREVIOUS_HEADS = [
-    '8117dfc773a6c4e252769228ec54349fd95b0122',
-    'ef9ae403f5081070d1dd2b53b6ca7b6b468c3bf3',
-    '04c2bc74d7bb90fc6681a5e9f9104089f172c86c',
+describe('allowlist contract (self-contained)', () => {
+  // Until round 5 this describe proved the five entries byte-identical to the
+  // reviewed branch heads by running `git show <old-sha>:<guard>`. That made a
+  // UNIT test depend on branch-local Git history — and hosted CI checks out at
+  // depth 1, where those commit objects do not exist, so PR #66's Gate 2 failed
+  // deterministically on `git show 8117dfc7...` while the guard itself found
+  // nothing. The contract is therefore asserted self-containedly: the ALLOWLIST
+  // must contain EXACTLY the five independently reviewed fingerprints — the
+  // same five the `allowlisted synthetic fixtures` describe proves against the
+  // real tracked files, pass AND fail-when-removed. Any added, removed or
+  // altered fingerprint changes this set and fails here; any weakening of what
+  // an entry permits fails there. Nothing depends on history being fetchable.
+  const REVIEWED_FINGERPRINTS = [
+    '256286fd4bd0', // synthetic sb_secret_ placeholder (Zoom store suites)
+    '6a580c6113e6', // fabricated session-token negative control (recovery-grant)
+    '9e80e5552996', // JWT-shaped audit redaction fixture (audit suite)
+    'bf1725a8f98b', // published Supabase localhost demo anon key (supabase-test)
+    'db71d1a6b661', // fabricated Zoom JWT redaction fixture (spike redactor)
   ];
 
-  function allowlistBlock(source: string): string {
-    const start = source.indexOf('export const ALLOWLIST');
-    const end = source.indexOf(']);', start);
-    expect(start, 'ALLOWLIST block not found').toBeGreaterThan(-1);
-    return source.slice(start, end + 3);
-  }
-
-  it('the five entries are byte-identical to 8117dfc7, ef9ae403 and 04c2bc74', () => {
-    const current = readFileSync(resolve(REPO_ROOT, 'scripts/ci/check-committed-secrets.mjs'), 'utf8');
-    for (const head of PREVIOUS_HEADS) {
-      const previous = execFileSync(
-        'git',
-        ['show', `${head}:scripts/ci/check-committed-secrets.mjs`],
-        { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }
-      );
-      expect(allowlistBlock(current), head).toBe(allowlistBlock(previous));
-    }
+  it('contains exactly the five independently reviewed fingerprints', () => {
+    expect([...ALLOWLIST.keys()].sort()).toEqual(REVIEWED_FINGERPRINTS);
     expect(ALLOWLIST.size).toBe(5);
+  });
+
+  it('every entry still carries a substantive written reason', () => {
+    for (const fp of REVIEWED_FINGERPRINTS) {
+      const reason = ALLOWLIST.get(fp);
+      expect(reason, fp).toBeTypeOf('string');
+      expect(String(reason).length, `reason for ${fp}`).toBeGreaterThan(40);
+    }
   });
 
   it('service_role still has no allowlist path', () => {

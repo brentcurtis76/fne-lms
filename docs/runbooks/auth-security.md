@@ -56,6 +56,44 @@
 > root cannot be opened under the new one (§8.5), **the zero counts must be
 > rechecked immediately before any merge that deploys**.
 
+> **State update — 2026-09-01, post-merge (CRED-02 cutover ACTIVE; supersedes
+> the staged-state update immediately above and row 0.19 where they conflict —
+> that update is preserved as historical evidence).** Brent merged PR
+> [#67](https://github.com/brentcurtis76/fne-lms/pull/67) (`docs/cred-stage`,
+> approved head `b530d8771adcc38af77028207a3eb31657ab346d`) as merge commit
+> `593b7df62234b18eb3dba5c1f508541590a5d381`; PR CI run
+> [33531107841](https://github.com/brentcurtis76/fne-lms/actions/runs/33531107841)
+> and post-merge `main` CI run
+> [33531965740](https://github.com/brentcurtis76/fne-lms/actions/runs/33531965740)
+> each passed all seven jobs, and the automatic Vercel Production deployment
+> `6205672170` for `593b7df6` completed successfully — the first Production
+> deployment carrying `RECOVERY_CRYPTO_SECRET`, so production now derives
+> recovery crypto from the independent root instead of the legacy
+> `SUPABASE_SERVICE_ROLE_KEY` fallback. **This is deployment/configuration
+> evidence, not proof of a real recovery-e-mail and redemption flow: no
+> functional recovery test has been run** (rows 0.6/0.7a discipline stands).
+> Vercel variable scopes were verified by a names/scopes-only listing, no value
+> displayed or pulled: `RECOVERY_CRYPTO_SECRET` Production-only,
+> `SUPABASE_SERVICE_ROLE_KEY` Production-only. Post-merge aggregate check — the
+> single Brent-authorized read-only query (one statement, one row, aggregates
+> only, via the already-linked read-only Supabase Management API wrapper; no
+> mutation, no second query): **envelope_rows_total 0; nonterminal
+> (queued/processing) rows 0; active unexpired grants 0**; latest_queued_at
+> 2026-08-28 12:57:33 UTC; latest_completed_at 2026-08-28 12:57:49 UTC;
+> latest_scrubbed_at 2026-08-28 12:57:45 UTC — all recorded outbox timestamp
+> activity predates the merge (2026-09-01 16:28 UTC). **Honest gap: the
+> immediately-before-merge zero-count recheck mandated by the staged-state
+> update above is not evidenced in this record and was not retroactively
+> satisfied. The snapshot proves only that the counts were zero when queried
+> and that the three max outbox timestamps remained on 2026-08-28 — an
+> after-the-fact risk bound that does not reconstruct every transient grant
+> state during the cutover window and is not the mandated pre-merge check.** Unchanged: `fne_lms_vercel_prod_20260831`
+> remains held by Brent and **NOT installed in Vercel**; **no Supabase key was
+> rotated, revoked, disabled, or replaced** (rows 0.17 and 0.18 stand exactly
+> as written); the service-role-key migration remains a separate, BLOCKED,
+> UNAUTHORIZED work item requiring its own explicit Brent authorization and
+> independent review.
+
 ---
 
 ## 0. State of play — what is done, and what is emphatically not
@@ -85,7 +123,16 @@ from being read as "the problem is fixed". These are different columns.
 | 0.16 | **Committed API keys removed from the working tree** + CI guard against recurrence | **MERGED** (recorded 2026-09-01): PR #66 at approved head `7334da1b`, merge commit `76a98644`; post-merge CI run `33522718133` all seven jobs green; automatic Production deployment `6204033475` successful. Removal is still not rotation, and history was not rewritten — the credential stays treated as disclosed | §8.1 |
 | 0.17 | **Rotation of the exposed `service_role` and legacy anon keys** | **NOT DONE — the substantive remedy.** A replacement secret key `fne_lms_vercel_prod_20260831` exists and is securely held by Brent but is **not installed in Vercel**; `SUPABASE_SERVICE_ROLE_KEY` in Vercel is now scoped to Production only for future deployments (value not opened or changed). Two local carriers still hold the `service_role` value (`fp=0ead88ebeff2`). Treat as disclosed until the dashboard shows the legacy keys disabled | §8.1, §8.3 |
 | 0.18 | **Rotation of the historical database password** (`.env.prod` exposure) | **BLOCKED BY DESIGN** until a written external-direct-database-consumer inventory exists. Rotating first would cause an outage | §8.4 |
+| 0.19 | **`RECOVERY_CRYPTO_SECRET` cutover** (decouples recovery crypto from the API key) | **ACTIVE — CONFIGURATION CUTOVER (2026-09-01); NOT functionally proven.** PR #67 merged as `593b7df6` and the automatic Production deployment `6205672170` succeeded — the first deployment carrying the secret, so recovery crypto now derives from the independent root (the legacy-fallback code path is retained but no longer selected). Deployment/configuration evidence only: no real recovery e-mail/redemption has been exercised. Post-merge single-query aggregates: 0 envelopes / 0 queued-or-processing / 0 active unexpired grants; latest queued/completed/scrubbed 2026-08-28 (all pre-merge). The immediately-before-merge zero recheck is not evidenced and was not retroactively satisfied; the post-merge check only bounds the risk | §8.5 |
+
+**Historical — superseded row 0.19, preserved verbatim as audit trail.** This is
+the row exactly as it stood at `593b7df6` (the STAGED, NOT ACTIVE state before
+the 2026-09-01 post-merge update). It is **not** the current state — the ACTIVE
+row above is:
+
+```
 | 0.19 | **`RECOVERY_CRYPTO_SECRET` cutover** (decouples recovery crypto from the API key) | **STAGED, NOT ACTIVE** (2026-09-01). The secret now exists in Vercel — Sensitive, Production only — but has reached no deployment; the current Production deployment `6204033475` at `76a98644` still uses the legacy fallback, so no cutover has occurred. The next normal `main` deployment activates the independent root and nothing else. Preflight 2026-09-01: queue drained (0 envelopes / 0 queued-or-processing / 0 active unexpired grants; latest activity 2026-08-28) — recheck the zero counts immediately before the merge that deploys | §8.5 |
+```
 
 Rows 0.10–0.12 are independent of the merge and should not wait for it. Row 0.3
 is the one that must happen *with* it. Rows 0.16–0.19 are the API-key incident

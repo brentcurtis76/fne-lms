@@ -1,8 +1,9 @@
 -- =============================================================================
 -- fne_zoom_operator_tenant
 -- FNE Zoom internal testing plan — Unit A: schema-only foundation for the
--- operator tenant (schools.tenant_kind, an insertion-only testing switch, and
--- two database guards on consultor_sessions and contract_hours_ledger)
+-- operator tenant (schools.tenant_kind, an insertion-only testing switch, two
+-- database guards on consultor_sessions and contract_hours_ledger, and an
+-- authority guard on the two schools control columns)
 -- =============================================================================
 --
 -- UNIT. This is Unit A of the FNE-ZOOM-INTERNAL-TEST plan: the database
@@ -49,7 +50,9 @@
 --   not a Zoom provisioning or cleanup gate — those remain application
 --   concerns.
 --
--- WHY TWO TRIGGERS. The invariant has two independent entry points:
+-- WHY THREE TRIGGERS. The invariant has two independent entry points, each
+-- with its own financial guard (1 and 2); a third, authority-only trigger (3)
+-- governs who may write the two control columns in the first place:
 --
 --   1. trg_enforce_operator_session_tenant_guard on public.consultor_sessions
 --      (BEFORE INSERT OR UPDATE OF school_id, contrato_id, hour_type_key,
@@ -71,25 +74,43 @@
 --      associate an operator session with a contract's allocation. Hence the
 --      allocation_id event is mandatory, not decorative.
 --
--- DESIGN: SECURITY INVOKER, EMPTY search_path, FAIL CLOSED. Both trigger
+--   3. trg_enforce_school_tenant_control_authority on public.schools
+--      (BEFORE INSERT OR UPDATE OF tenant_kind, internal_zoom_testing_enabled).
+--      Authority only, no financial rule: when the role performing the write
+--      is authenticated or anon, a NEW school is accepted only with the safe
+--      defaults ('client' / false) and an UPDATE that would actually change
+--      either control is refused with 42501 (insufficient_privilege); an
+--      UPDATE that leaves both values unchanged passes, and an UPDATE that
+--      names neither column never fires it. The table owner, service_role
+--      and every other non-exposed role may set or change both controls.
+--      There is deliberately no auth_is_admin() bypass: row level security
+--      already lets school users and application admins update their own
+--      schools row, and these two columns are financial and reporting
+--      classification, not school data. It classifies no school, inspects no
+--      other data, and is not the separately authorised incompatible-data
+--      preflight that must precede reclassifying a real school.
+--
+-- DESIGN: SECURITY INVOKER, EMPTY search_path, FAIL CLOSED. All three trigger
 -- functions run with the rights of the role performing the write — never with
 -- the owner's rights — and with search_path set to '' so every object they
--- name is schema-qualified and cannot be shadowed. Because they run as the
--- invoker, the lookup that classifies the tenant is subject to row level
--- security exactly as the invoker is: a schools row (or session row) that a
--- policy hides from the invoker, or a school_id / session_id that does not
--- exist, yields no row. An unclassifiable tenant must never pass, so both
--- functions raise on NOT FOUND rather than defaulting to "client". Deliberate
--- consequence: a non-existent school_id (or session_id) now fails with the
--- guard's 23514 (check_violation) before the foreign key's 23503 would have
--- fired. Every exception carries a constant, deterministic message with no
--- interpolated ids, names or emails.
+-- name is schema-qualified and cannot be shadowed. Because the two financial
+-- guards run as the invoker, the lookup that classifies the tenant is subject
+-- to row level security exactly as the invoker is: a schools row (or session
+-- row) that a policy hides from the invoker, or a school_id / session_id that
+-- does not exist, yields no row. An unclassifiable tenant must never pass, so
+-- both of them raise on NOT FOUND rather than defaulting to "client".
+-- Deliberate consequence: a non-existent school_id (or session_id) now fails
+-- with the guard's 23514 (check_violation) before the foreign key's 23503
+-- would have fired. For the authority guard, running as the invoker is what
+-- makes current_user the writing role rather than the owner, which is the
+-- whole test it applies. Every exception carries a constant, deterministic
+-- message with no interpolated ids, names or emails.
 --
 -- ADDITIVITY AND RERUNNABILITY. Strictly additive: ADD COLUMN IF NOT EXISTS,
 -- CREATE OR REPLACE FUNCTION, and catalog-guarded DO blocks (pg_constraint /
--- pg_trigger existence checks) around the constraint and the two triggers, so
--- re-applying the file is a no-op. Nothing is removed, no existing object is
--- altered destructively, the row-security posture of the three tables is
+-- pg_trigger existence checks) around the constraint and the three triggers,
+-- so re-applying the file is a no-op. Nothing is removed, no existing object
+-- is altered destructively, the row-security posture of the three tables is
 -- unchanged (they keep exactly the row level security they have), no
 -- row-security policy is added or modified, no privilege changes, no table or
 -- index is created, and no row is inserted or updated.
@@ -99,14 +120,23 @@
 -- apply before Unit B ships. It classifies NO school: every existing row
 -- defaults to tenant_kind = 'client' with internal_zoom_testing_enabled =
 -- false, which is exactly today's behaviour. Marking a real school as
--- 'operator' or 'qa' is a separate, explicitly authorised operation that this
--- file deliberately does not perform and does not guard.
+-- 'operator' or 'qa' remains a separate, explicitly authorised operation:
+-- this file still classifies no school and adds no incompatible-data
+-- preflight, but it does install the authority guard (trigger 3), so only
+-- privileged database writers — the table owner and service_role — can set
+-- or change the two controls, and the exposed roles (authenticated, anon)
+-- cannot. Application inserts of a school keep working unchanged: they carry
+-- the safe defaults, and an update that does not name either control never
+-- fires the guard.
 --
 -- ROLLBACK is forward-only, as always in this repository. To stop NEW operator
 -- sessions, set internal_zoom_testing_enabled = false on the operator school;
 -- retiring an operator tenant entirely is a separately authorised
--- reclassification. Both guards are inert for client and qa tenants, so
--- leaving them in place costs nothing.
+-- reclassification. Both of those writes are made by a privileged writer, for
+-- whom the authority guard is inert, so it never stands in the way of a
+-- rollback. The two financial guards are inert for client and qa tenants and
+-- the authority guard is inert for privileged writers, so leaving all three in
+-- place costs nothing.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
@@ -310,3 +340,73 @@ $$;
 
 COMMENT ON TRIGGER trg_enforce_operator_ledger_guard ON public.contract_hours_ledger IS
   'Fires BEFORE INSERT and BEFORE UPDATE OF session_id, allocation_id so no contract-hours ledger row can be created for, or re-associated with, a session of an operator tenant. The logic lives in public.enforce_operator_ledger_guard().';
+
+-- -----------------------------------------------------------------------------
+-- 4. Authority guard: only privileged database writers may set or change the
+--    two tenant control columns on public.schools
+-- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.enforce_school_tenant_control_authority()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+BEGIN
+  -- SECURITY INVOKER, so current_user is the role performing the write:
+  -- authenticated or anon for anything arriving through PostgREST with a
+  -- browser token, service_role for the application's server endpoints,
+  -- postgres (the table owner) for migrations and operator sessions. Only the
+  -- two exposed roles are bound; every other role passes through untouched.
+  -- There is deliberately no auth_is_admin() bypass: row level security
+  -- already lets school users and application admins update their own
+  -- schools row, and these two columns are financial and reporting
+  -- classification, not school data.
+  IF current_user IN ('authenticated', 'anon') THEN
+    IF TG_OP = 'INSERT' THEN
+      -- An exposed role may create a school only with the safe defaults: a
+      -- client tenant with internal testing switched off.
+      IF NEW.tenant_kind IS DISTINCT FROM 'client'
+         OR NEW.internal_zoom_testing_enabled IS DISTINCT FROM false THEN
+        RAISE EXCEPTION 'school tenant control guard: tenant_kind and internal_zoom_testing_enabled may only be set or changed by privileged database writers'
+          USING ERRCODE = '42501';
+      END IF;
+    -- UPDATE: an exposed role may never actually change either control. A
+    -- write that leaves both values as they were passes, and an UPDATE that
+    -- names neither column never fires this trigger at all.
+    ELSIF NEW.tenant_kind IS DISTINCT FROM OLD.tenant_kind
+       OR NEW.internal_zoom_testing_enabled IS DISTINCT FROM OLD.internal_zoom_testing_enabled THEN
+      RAISE EXCEPTION 'school tenant control guard: tenant_kind and internal_zoom_testing_enabled may only be set or changed by privileged database writers'
+        USING ERRCODE = '42501';
+    END IF;
+  END IF;
+
+  -- Privileged writers, safe-default inserts and unchanged controls pass.
+  RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION public.enforce_school_tenant_control_authority() IS
+  'Authority guard for the two tenant control columns of public.schools (FNE Zoom internal testing, Unit A). When the role performing the write is authenticated or anon, an INSERT is accepted only with the safe defaults (tenant_kind = client, internal_zoom_testing_enabled = false) and an UPDATE is refused if it would actually change either value; a write that leaves both values unchanged passes, and a write that names neither column never fires the trigger. postgres (the table owner), service_role and every other non-exposed role may set or change both controls. There is deliberately no auth_is_admin() bypass: row level security already lets school users and application admins update their own schools row, and these two columns are financial and reporting classification, not school data. This is an authority guard only: it classifies no school, inspects no other data, and is not the separately authorised incompatible-data preflight that must precede reclassifying a real school. SECURITY INVOKER with an empty search_path, which is what makes current_user the writing role rather than the owner; refusals raise 42501 with a constant message that carries no ids, names or emails.';
+
+-- Created additively, guarded on pg_trigger so a re-run is a no-op, exactly
+-- like the two financial guards.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_trigger
+    WHERE tgname = 'trg_enforce_school_tenant_control_authority'
+      AND tgrelid = 'public.schools'::regclass
+  ) THEN
+    CREATE TRIGGER trg_enforce_school_tenant_control_authority
+      BEFORE INSERT OR UPDATE OF tenant_kind, internal_zoom_testing_enabled
+      ON public.schools
+      FOR EACH ROW
+      EXECUTE FUNCTION public.enforce_school_tenant_control_authority();
+  END IF;
+END;
+$$;
+
+COMMENT ON TRIGGER trg_enforce_school_tenant_control_authority ON public.schools IS
+  'Fires BEFORE INSERT and BEFORE UPDATE OF tenant_kind, internal_zoom_testing_enabled so that only privileged database writers (the table owner, service_role and other non-exposed roles) can set or change the two tenant control columns: authenticated and anon may insert a school only with the safe defaults and may never change either control. The logic lives in public.enforce_school_tenant_control_authority().';

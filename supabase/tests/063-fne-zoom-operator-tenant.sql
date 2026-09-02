@@ -3,8 +3,9 @@
 --
 -- Migration 20260902162557_fne_zoom_operator_tenant.sql classifies the tenant that
 -- a public.schools row represents (tenant_kind: client | operator | qa, plus the
--- insertion-only internal_zoom_testing_enabled switch) and installs the two
--- database guards that keep an OPERATOR tenant out of every financial surface:
+-- insertion-only internal_zoom_testing_enabled switch), installs the two
+-- database guards that keep an OPERATOR tenant out of every financial surface,
+-- and installs an authority guard on the two control columns themselves:
 --
 --   trg_enforce_operator_session_tenant_guard
 --     BEFORE INSERT OR UPDATE OF school_id, contrato_id, hour_type_key,
@@ -25,19 +26,36 @@
 --         write names (exposed roles cannot update either column today; the
 --         owner and other privileged writers can, and are bound here).
 --
+--   trg_enforce_school_tenant_control_authority
+--     BEFORE INSERT OR UPDATE OF tenant_kind, internal_zoom_testing_enabled
+--     ON public.schools
+--       - authority only, no lookup: binds current_user in (authenticated, anon)
+--         and nobody else — there is deliberately no auth_is_admin() bypass;
+--       - exposed role + INSERT with anything but the safe defaults
+--         (client / false) -> 42501; exposed role + UPDATE that would actually
+--         change either control -> 42501;
+--       - a no-op UPDATE (both values unchanged) passes, and an UPDATE that
+--         names neither column never fires it;
+--       - the owner, service_role and every other non-exposed role may set or
+--         change both controls.
+--
 -- This suite proves, in order: (A) the catalog shape of the columns and the
--- validated CHECK; (B) both functions — plpgsql, trigger-returning, SECURITY
--- INVOKER, empty search_path, no overload, schema-default ACL only, not directly
--- callable, commented, and free of the audited hours column; (C) both triggers
--- — exact deparsed definition, timing/event bits, UPDATE-OF column sets,
--- enabled, commented — plus a trigger census of all three tables (schools gets
--- NO trigger in this unit); (D) that no RLS, policy, or table privilege moved;
--- (E) session behavior for client, qa, and operator tenants, the insertion-only
--- flag, each financial field independently, the UPDATE path, the fail-closed
--- resolution, and the same rules under an RLS-bound authenticated admin and
--- under service_role; (F) ledger behavior including the allocation_id UPDATE
--- event proved on its own and the repairs that must stay open; (G) that the
--- refused writes left nothing behind.
+-- validated CHECK; (B) all three functions — plpgsql, trigger-returning,
+-- SECURITY INVOKER, empty search_path, no overload, schema-default ACL only,
+-- not directly callable, commented, and free of the audited hours column; (C)
+-- all three triggers — exact deparsed definition, timing/event bits, UPDATE-OF
+-- column sets, enabled, commented — plus a trigger census of all three tables
+-- (schools carries exactly the authority guard); (D) that no RLS, policy, or
+-- table privilege moved — the authority guard grants nothing; (E) session
+-- behavior for client, qa, and operator tenants, the insertion-only flag, each
+-- financial field independently, the UPDATE path, the fail-closed resolution,
+-- and the same rules under an RLS-bound authenticated admin and under
+-- service_role; (F) ledger behavior including the allocation_id UPDATE event
+-- proved on its own and the repairs that must stay open; (H) control-column
+-- authority — who may set or change tenant_kind / internal_zoom_testing_enabled
+-- as an authenticated admin, an ordinary authenticated school user, anon,
+-- service_role and the owner, with the guard's refusal told apart from the RLS
+-- refusal by message; (G) that the refused writes left nothing behind.
 --
 -- FAIL-ON-OLD DESIGN. The identical file is also the controlled regression
 -- test against the pre-migration schema. Every statement that names one of the
@@ -50,15 +68,16 @@
 -- Nothing is weakened to obtain that property.
 --
 -- Synthetic fixtures only (Ley 21.719): invented uuids, reserved test domain,
--- integer school ids 9601-9604 plus the non-existent 9699. One transaction,
--- finish(), ROLLBACK — safe to repeat, never production.
+-- integer school ids 9601-9604 (fixtures) and 9605-9612 (section H) plus the
+-- non-existent 9699. One transaction, finish(), ROLLBACK — safe to repeat,
+-- never production.
 -- =============================================================================
 
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(174);
+SELECT plan(212);
 
 -- -----------------------------------------------------------------------------
 -- Helper: run one scalar query dynamically. A statement that names a column the
@@ -188,7 +207,7 @@ SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint
   'A11 the CHECK admits exactly client, operator, qa');
 
 -- =============================================================================
--- B. The two guard functions
+-- B. The three guard functions
 -- =============================================================================
 -- Supabase's ALTER DEFAULT PRIVILEGES materialise an explicit ACL on every new
 -- public function, so "no GRANT/REVOKE was issued" cannot be read as a NULL
@@ -273,23 +292,64 @@ SELECT ok(coalesce(length((SELECT obj_description(p.oid, 'pg_proc') FROM pg_cata
   WHERE n.nspname = 'public' AND p.proname = 'enforce_operator_ledger_guard')), 0) > 0,
   'B18 ledger guard is documented with COMMENT ON FUNCTION');
 
--- Neither guard may touch the audited hours column: suite 017 pins that no BEFORE
--- trigger function on the ledger references it, and this keeps both bodies honest.
+-- No guard may touch the audited hours column: suite 017 pins that no BEFORE
+-- trigger function on the ledger references it, and this keeps all three
+-- bodies honest.
 SELECT is((SELECT count(*)::int FROM pg_catalog.pg_proc p
   JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
   WHERE n.nspname = 'public'
-    AND p.proname IN ('enforce_operator_session_tenant_guard', 'enforce_operator_ledger_guard')
+    AND p.proname IN ('enforce_operator_session_tenant_guard', 'enforce_operator_ledger_guard',
+                      'enforce_school_tenant_control_authority')
     AND p.prosrc ~* 'effective_minutes'), 0,
-  'B19 neither guard body references the audited hours column');
+  'B19 none of the three guards references the audited hours column');
 SELECT ok(NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
   JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
   WHERE n.nspname = 'public'
-    AND p.proname IN ('enforce_operator_session_tenant_guard', 'enforce_operator_ledger_guard')
+    AND p.proname IN ('enforce_operator_session_tenant_guard', 'enforce_operator_ledger_guard',
+                      'enforce_school_tenant_control_authority')
     AND p.prosecdef),
   'B20 no guard is SECURITY DEFINER');
 
+SELECT has_function('public', 'enforce_school_tenant_control_authority', '{}'::name[],
+  'B21 enforce_school_tenant_control_authority() exists');
+SELECT function_lang_is('public', 'enforce_school_tenant_control_authority', '{}'::name[],
+  'plpgsql', 'B22 authority guard is plpgsql');
+SELECT function_returns('public', 'enforce_school_tenant_control_authority', '{}'::name[],
+  'trigger', 'B23 authority guard returns trigger');
+SELECT isnt_definer('public', 'enforce_school_tenant_control_authority', '{}'::name[],
+  'B24 authority guard is SECURITY INVOKER');
+SELECT ok(EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
+  JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public' AND p.proname = 'enforce_school_tenant_control_authority'
+    AND 'search_path=""' = ANY (p.proconfig)),
+  'B25 authority guard pins an empty search_path');
+SELECT is((SELECT count(*)::int FROM pg_catalog.pg_proc p
+  JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public' AND p.proname = 'enforce_school_tenant_control_authority'), 1,
+  'B26 authority guard has exactly one definition (no overload)');
+SELECT set_eq($$
+  SELECT acl.grantee::regrole::text, acl.privilege_type, acl.is_grantable
+    FROM pg_catalog.pg_proc p
+    JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+    CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) acl
+   WHERE n.nspname = 'public' AND p.proname = 'enforce_school_tenant_control_authority'
+$$, $$
+  SELECT acl.grantee::regrole::text, acl.privilege_type, acl.is_grantable
+    FROM pg_catalog.pg_proc p
+    JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+    CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) acl
+   WHERE n.nspname = 'public' AND p.proname = 'zint_default_acl_probe'
+$$,
+  'B27 authority guard carries exactly the schema-default function ACL (no GRANT/REVOKE was issued)');
+SELECT throws_ok($$SELECT public.enforce_school_tenant_control_authority()$$,
+  '0A000', NULL, 'B28 authority guard cannot be invoked directly (trigger-only)');
+SELECT ok(coalesce(length((SELECT obj_description(p.oid, 'pg_proc') FROM pg_catalog.pg_proc p
+  JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public' AND p.proname = 'enforce_school_tenant_control_authority')), 0) > 0,
+  'B29 authority guard is documented with COMMENT ON FUNCTION');
+
 -- =============================================================================
--- C. The two triggers, exactly, and the trigger census of the three tables
+-- C. The three triggers, exactly, and the trigger census of the three tables
 -- =============================================================================
 SELECT has_trigger('public', 'consultor_sessions', 'trg_enforce_operator_session_tenant_guard',
   'C1 consultor_sessions carries trg_enforce_operator_session_tenant_guard');
@@ -353,6 +413,37 @@ SELECT ok(coalesce(length((SELECT obj_description(t.oid, 'pg_trigger') FROM pg_c
     AND t.tgname = 'trg_enforce_operator_ledger_guard')), 0) > 0,
   'C14 ledger trigger is documented with COMMENT ON TRIGGER');
 
+SELECT has_trigger('public', 'schools', 'trg_enforce_school_tenant_control_authority',
+  'C18 schools carries trg_enforce_school_tenant_control_authority');
+SELECT trigger_is('public', 'schools', 'trg_enforce_school_tenant_control_authority',
+  'public', 'enforce_school_tenant_control_authority',
+  'C19 the authority trigger fires enforce_school_tenant_control_authority()');
+SELECT is((SELECT pg_get_triggerdef(t.oid) FROM pg_catalog.pg_trigger t
+  WHERE t.tgrelid = 'public.schools'::regclass
+    AND t.tgname = 'trg_enforce_school_tenant_control_authority'),
+  'CREATE TRIGGER trg_enforce_school_tenant_control_authority BEFORE INSERT OR UPDATE OF tenant_kind, internal_zoom_testing_enabled ON public.schools FOR EACH ROW EXECUTE FUNCTION enforce_school_tenant_control_authority()',
+  'C20 authority trigger definition is exact (BEFORE INSERT OR UPDATE OF tenant_kind, internal_zoom_testing_enabled, FOR EACH ROW; function unqualified because public is on the search path, C19 pins its schema)');
+SELECT is((SELECT t.tgtype::int FROM pg_catalog.pg_trigger t
+  WHERE t.tgrelid = 'public.schools'::regclass
+    AND t.tgname = 'trg_enforce_school_tenant_control_authority'), 23,
+  'C21 authority trigger bits = ROW(1) + BEFORE(2) + INSERT(4) + UPDATE(16)');
+SELECT is((SELECT array_agg(a.attname::text ORDER BY a.attname)
+  FROM pg_catalog.pg_trigger t
+  CROSS JOIN LATERAL unnest(t.tgattr) AS u(attnum)
+  JOIN pg_catalog.pg_attribute a ON a.attrelid = t.tgrelid AND a.attnum = u.attnum
+  WHERE t.tgrelid = 'public.schools'::regclass
+    AND t.tgname = 'trg_enforce_school_tenant_control_authority'),
+  ARRAY['internal_zoom_testing_enabled', 'tenant_kind'],
+  'C22 authority trigger UPDATE OF column set is exactly {tenant_kind, internal_zoom_testing_enabled} — the two controls and nothing else');
+SELECT is((SELECT t.tgenabled FROM pg_catalog.pg_trigger t
+  WHERE t.tgrelid = 'public.schools'::regclass
+    AND t.tgname = 'trg_enforce_school_tenant_control_authority'), 'O',
+  'C23 authority trigger is enabled');
+SELECT ok(coalesce(length((SELECT obj_description(t.oid, 'pg_trigger') FROM pg_catalog.pg_trigger t
+  WHERE t.tgrelid = 'public.schools'::regclass
+    AND t.tgname = 'trg_enforce_school_tenant_control_authority')), 0) > 0,
+  'C24 authority trigger is documented with COMMENT ON TRIGGER');
+
 SELECT set_eq($$
   SELECT tgname::text FROM pg_catalog.pg_trigger
    WHERE tgrelid = 'public.consultor_sessions'::regclass AND NOT tgisinternal
@@ -363,9 +454,11 @@ SELECT set_eq($$
    WHERE tgrelid = 'public.contract_hours_ledger'::regclass AND NOT tgisinternal
 $$, ARRAY['trg_enforce_operator_ledger_guard'],
   'C16 contract_hours_ledger carries exactly the operator guard and no other user trigger');
-SELECT is((SELECT count(*)::int FROM pg_catalog.pg_trigger
-  WHERE tgrelid = 'public.schools'::regclass AND NOT tgisinternal), 0,
-  'C17 schools carries NO trigger — classification preflight is a separate authorization');
+SELECT set_eq($$
+  SELECT tgname::text FROM pg_catalog.pg_trigger
+   WHERE tgrelid = 'public.schools'::regclass AND NOT tgisinternal
+$$, ARRAY['trg_enforce_school_tenant_control_authority'],
+  'C17 schools carries exactly the control-column authority guard — classification preflight remains a separate authorization');
 
 -- =============================================================================
 -- D. No RLS, policy, or privilege broadening
@@ -739,9 +832,9 @@ SELECT throws_ok($$UPDATE public.contract_hours_ledger
   'F8 changing an existing ledger row''s session_id to an operator session is refused');
 
 -- The allocation_id event, on its own: a client session with its ledger row,
--- then its school reclassified to operator with that history in place (there is
--- deliberately no trigger on schools), then an allocation change that names
--- neither session_id nor any session at all.
+-- then its school reclassified to operator with that history in place (the
+-- authority guard on schools lets the owner reclassify), then an allocation
+-- change that names neither session_id nor any session at all.
 SELECT lives_ok($$INSERT INTO public.consultor_sessions
   (id, school_id, growth_community_id, title, session_date, start_time, end_time,
    modality, status, created_by, contrato_id, hour_type_key, program_enrollment_id)
@@ -790,6 +883,143 @@ SELECT lives_ok($$UPDATE public.contract_hours_ledger
   SET session_id = 'a63a0008-0000-4000-8000-000000000004'
   WHERE id = 'a63a0009-0000-4000-8000-000000000004'$$,
   'F17 repair: re-attaching the row to the now-client session is allowed');
+
+-- =============================================================================
+-- H. Control-column authority: who may set tenant_kind /
+--    internal_zoom_testing_enabled
+-- =============================================================================
+-- The third trigger is an authority guard on the two control columns of
+-- public.schools: it binds current_user in (authenticated, anon) and nobody
+-- else, performs no lookup, and classifies nothing. Every refusal below is
+-- told apart from a row-level-security refusal by its message: the guard's
+-- constant text versus PostgreSQL's own 'new row violates row-level security
+-- policy for table "schools"', both SQLSTATE 42501.
+--
+-- Order of evaluation, which the cases rely on: a BEFORE ROW trigger fires
+-- before the RLS WITH CHECK on INSERT, so the guard refuses a non-default
+-- INSERT even for a role RLS would have refused anyway (H11, H16), and a
+-- safe-default INSERT by such a role reaches RLS and is refused there (H10,
+-- H17). On UPDATE the RLS USING filter decides which rows exist to be updated
+-- before the trigger fires, so an ordinary school user must pass
+-- schools_update_policy for the guard to fire at all; that policy resolves
+-- school access through the user_roles_cache materialized view, hence the
+-- refresh below.
+--
+-- Fixtures (top level, pre-existing columns only, so they run on the old
+-- schema too): an ordinary authenticated school user (docente) on 9601. School
+-- ids 9605-9612 are created inside the cases, under the role being tested.
+SELECT tests.create_supabase_user('zint_docente');
+
+INSERT INTO public.profiles (id, email, name, approval_status)
+VALUES (tests.get_supabase_uid('zint_docente'), 'zint-docente@test.local', 'ZINT Docente', 'approved')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.user_roles (user_id, role_type, school_id, is_active)
+VALUES (tests.get_supabase_uid('zint_docente'), 'docente', 9601, true);
+
+REFRESH MATERIALIZED VIEW public.user_roles_cache;
+
+-- An authenticated application admin: RLS lets it insert and update schools,
+-- and the guard still binds it (there is deliberately no auth_is_admin()
+-- bypass).
+SELECT tests.authenticate_as('zint_admin');
+SELECT lives_ok($$INSERT INTO public.schools (id, name)
+  VALUES (9605, 'ZINT authority school 9605 (pgTAP 063)')$$,
+  'H1 authenticated admin: INSERT with the safe defaults is accepted (RLS admin insert)');
+SELECT is(pg_temp.q($$SELECT tenant_kind || '/' || internal_zoom_testing_enabled::text
+  FROM public.schools WHERE id = 9605$$), 'client/false',
+  'H2 the accepted row carries the defaults client / false');
+SELECT throws_ok($$INSERT INTO public.schools (id, name, tenant_kind)
+  VALUES (9606, 'ZINT authority school 9606 (pgTAP 063)', 'operator')$$,
+  '42501',
+  'school tenant control guard: tenant_kind and internal_zoom_testing_enabled may only be set or changed by privileged database writers',
+  'H3 authenticated admin: INSERT with tenant_kind = operator is refused by the guard');
+SELECT throws_ok($$INSERT INTO public.schools (id, name, internal_zoom_testing_enabled)
+  VALUES (9607, 'ZINT authority school 9607 (pgTAP 063)', true)$$,
+  '42501',
+  'school tenant control guard: tenant_kind and internal_zoom_testing_enabled may only be set or changed by privileged database writers',
+  'H4 authenticated admin: INSERT with internal_zoom_testing_enabled = true is refused by the guard');
+SELECT throws_ok($$UPDATE public.schools SET tenant_kind = 'qa' WHERE id = 9601$$,
+  '42501',
+  'school tenant control guard: tenant_kind and internal_zoom_testing_enabled may only be set or changed by privileged database writers',
+  'H5 authenticated admin: changing tenant_kind is refused by the guard');
+SELECT throws_ok($$UPDATE public.schools SET internal_zoom_testing_enabled = true WHERE id = 9601$$,
+  '42501',
+  'school tenant control guard: tenant_kind and internal_zoom_testing_enabled may only be set or changed by privileged database writers',
+  'H6 authenticated admin: changing internal_zoom_testing_enabled is refused by the guard');
+SELECT lives_ok($$UPDATE public.schools
+  SET tenant_kind = tenant_kind, internal_zoom_testing_enabled = internal_zoom_testing_enabled
+  WHERE id = 9601$$,
+  'H7 authenticated admin: a no-op UPDATE that names both controls fires the guard, changes nothing, and passes');
+SELECT lives_ok($$UPDATE public.schools SET logo_url = 'zint-admin-logo' WHERE id = 9601$$,
+  'H8 authenticated admin: an UPDATE that names neither control never fires the guard');
+RESET ROLE;
+SELECT is((SELECT logo_url FROM public.schools WHERE id = 9601), 'zint-admin-logo',
+  'H9 the unrelated-column update by the admin landed');
+
+-- An ordinary authenticated school user (docente on 9601): RLS refuses its
+-- school INSERTs and allows updates to its own school; the guard binds it on
+-- the two controls and on nothing else.
+SELECT tests.authenticate_as('zint_docente');
+SELECT throws_ok($$INSERT INTO public.schools (id, name)
+  VALUES (9608, 'ZINT authority school 9608 (pgTAP 063)')$$,
+  '42501',
+  'new row violates row-level security policy for table "schools"',
+  'H10 ordinary user: a safe-default INSERT passes the guard and is refused by RLS, not by the guard');
+SELECT throws_ok($$INSERT INTO public.schools (id, name, tenant_kind)
+  VALUES (9609, 'ZINT authority school 9609 (pgTAP 063)', 'qa')$$,
+  '42501',
+  'school tenant control guard: tenant_kind and internal_zoom_testing_enabled may only be set or changed by privileged database writers',
+  'H11 ordinary user: INSERT with tenant_kind = qa is refused by the guard, which precedes RLS');
+SELECT throws_ok($$UPDATE public.schools SET tenant_kind = 'operator' WHERE id = 9601$$,
+  '42501',
+  'school tenant control guard: tenant_kind and internal_zoom_testing_enabled may only be set or changed by privileged database writers',
+  'H12 ordinary user: reaches its own school through schools_update_policy and the guard refuses the reclassification');
+SELECT is(pg_temp.q($$WITH u AS (UPDATE public.schools SET tenant_kind = tenant_kind
+  WHERE id = 9601 RETURNING 1) SELECT count(*)::text FROM u$$), '1',
+  'H13 ordinary user: a no-op UPDATE on a control reaches the row and passes');
+SELECT is(pg_temp.q($$WITH u AS (UPDATE public.schools SET logo_url = 'zint-docente-logo'
+  WHERE id = 9601 RETURNING 1) SELECT count(*)::text FROM u$$), '1',
+  'H14 ordinary user: an unrelated-column UPDATE is unaffected by the guard');
+RESET ROLE;
+SELECT is((SELECT logo_url FROM public.schools WHERE id = 9601), 'zint-docente-logo',
+  'H15 the unrelated-column update by the ordinary user landed');
+
+-- anon: bound by the guard on the shape of the row first, then by RLS.
+SET LOCAL ROLE anon;
+SELECT throws_ok($$INSERT INTO public.schools (id, name, tenant_kind)
+  VALUES (9610, 'ZINT authority school 9610 (pgTAP 063)', 'qa')$$,
+  '42501',
+  'school tenant control guard: tenant_kind and internal_zoom_testing_enabled may only be set or changed by privileged database writers',
+  'H16 anon: INSERT with tenant_kind = qa is refused by the guard, which precedes RLS');
+SELECT throws_ok($$INSERT INTO public.schools (id, name)
+  VALUES (9611, 'ZINT authority school 9611 (pgTAP 063)')$$,
+  '42501',
+  'new row violates row-level security policy for table "schools"',
+  'H17 anon: a safe-default INSERT passes the guard and is refused by RLS');
+RESET ROLE;
+
+-- service_role: a privileged writer, never bound.
+SET LOCAL ROLE service_role;
+SELECT lives_ok($$INSERT INTO public.schools (id, name, tenant_kind, internal_zoom_testing_enabled)
+  VALUES (9612, 'ZINT authority school 9612 (pgTAP 063)', 'qa', true)$$,
+  'H18 service_role: INSERT with explicit controls is accepted');
+SELECT lives_ok($$UPDATE public.schools
+  SET tenant_kind = 'operator', internal_zoom_testing_enabled = false
+  WHERE id = 9612$$,
+  'H19 service_role: changing both controls is accepted');
+RESET ROLE;
+
+-- The table owner: a privileged writer, never bound.
+SELECT lives_ok($$UPDATE public.schools
+  SET tenant_kind = 'client', internal_zoom_testing_enabled = false
+  WHERE id = 9612$$,
+  'H20 owner: changing both controls is accepted');
+SELECT is(pg_temp.q($$SELECT tenant_kind || '/' || internal_zoom_testing_enabled::text
+  FROM public.schools WHERE id = 9612$$), 'client/false',
+  'H21 the owner''s reclassification landed');
+SELECT is((SELECT count(*)::int FROM public.schools WHERE id BETWEEN 9605 AND 9612), 2,
+  'H22 exactly the two accepted authority-section inserts exist (9605 admin-default, 9612 service_role); every refused INSERT left nothing');
 
 -- =============================================================================
 -- G. Nothing forbidden was left behind

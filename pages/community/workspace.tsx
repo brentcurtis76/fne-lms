@@ -65,6 +65,7 @@ import {
   extractUniqueTags,
 } from '../../utils/documentUtils';
 import { formatFileSize } from '../../lib/utils/file-format';
+import { fetchCommunityMembers, CommunityMember } from '../../lib/community/fetchCommunityMembers';
 import {
   CommunityMeeting,
   MeetingFilters as MeetingFiltersType,
@@ -89,6 +90,7 @@ import {
   ThreadWithDetails,
   MessageAttachment,
   MessagingPermissions,
+  MentionSuggestion,
   ReactionType
 } from '../../types/messaging';
 import {
@@ -1690,6 +1692,25 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
   );
 };
 
+/**
+ * Shape the messaging composer's @mention picker consumes, built from one
+ * `GET /api/community/members` row. `role` is the endpoint's first
+ * precedence-ordered role; nothing is fabricated.
+ */
+function toMentionSuggestion(member: CommunityMember): MentionSuggestion {
+  return {
+    id: member.id,
+    type: 'user',
+    display_name:
+      member.first_name && member.last_name
+        ? `${member.first_name} ${member.last_name}`
+        : member.email?.split('@')[0] || 'Usuario',
+    email: member.email || '',
+    role: member.user_roles?.[0]?.role_type || 'usuario',
+    avatar: member.avatar_url || undefined,
+  };
+}
+
 // Messaging Tab Content Component
 interface MessagingTabContentProps {
   workspace: CommunityWorkspace | null;
@@ -1720,9 +1741,17 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     can_manage_reactions: false,
   });
   
-  // Mention state
-  const [mentionSuggestions, setMentionSuggestions] = useState<any[]>([]);
-  const [communityMembers, setCommunityMembers] = useState<any[]>([]);
+  // @mention state. Both lists belong to `mentionCommunityId` only: the effect
+  // below empties them the moment the workspace community changes or goes away
+  // (the parent passes `workspace = null` while switching), cancels the request
+  // of the community being left and loads the members of the one captured here.
+  // A request that settles after its community was left is ignored, so
+  // Community B can never show — or be overwritten by — Community A's people.
+  const [mentionSuggestions, setMentionSuggestions] = useState<MentionSuggestion[]>([]);
+  const [communityMembers, setCommunityMembers] = useState<MentionSuggestion[]>([]);
+  const mentionCommunityId = workspace?.community_id ?? null;
+  /** The members request in flight, tagged with the community it was issued for. */
+  const mentionRequestRef = useRef<{ communityId: string; controller: AbortController } | null>(null);
   
   // UI state
   const [activeView, setActiveView] = useState<'messages' | 'threads'>('threads');
@@ -1759,7 +1788,6 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     if (workspace && user) {
       loadMessagingData();
       loadPermissions();
-      loadMentionSuggestions();
       setupRealtimeSubscription();
     }
 
@@ -1767,6 +1795,20 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
       // Cleanup realtime subscription
     };
   }, [workspace, user?.id]);
+
+  // Community changed or became unavailable: clear both mention lists right
+  // away, then load the captured community's members. The cleanup aborts that
+  // request on the next change and on unmount, so a late settlement is ignored.
+  useEffect(() => {
+    setCommunityMembers([]);
+    setMentionSuggestions([]);
+    if (!mentionCommunityId) return undefined;
+
+    requestMentionMembers(mentionCommunityId);
+    return () => {
+      cancelMentionRequest();
+    };
+  }, [mentionCommunityId]);
 
   useEffect(() => {
     if (workspace && selectedThread) {
@@ -1836,74 +1878,73 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     }
   };
 
-  // Load community members for @mention suggestions
-  const loadMentionSuggestions = async () => {
-    if (!workspace || !workspace.community_id) {
-      return;
+  const cancelMentionRequest = () => {
+    mentionRequestRef.current?.controller.abort();
+    mentionRequestRef.current = null;
+  };
+
+  /**
+   * Load the @mention candidates of ONE community, captured by the caller and
+   * tagged on the request. `GET /api/community/members` — which authorizes the
+   * requester for that exact community on the server — is the only source: a
+   * non-2xx status, a non-JSON body, a body without a `members` array or a
+   * network failure leaves both lists empty and never queries `profiles`,
+   * `user_roles` or any admin-wide fallback; a valid `{ members: [] }` leaves
+   * them empty too. Every state write is skipped once the request's signal is
+   * aborted (community change or unmount, see the effect above), so a response
+   * that settles late cannot overwrite a newer community's list.
+   */
+  const requestMentionMembers = (communityId: string) => {
+    if (mentionRequestRef.current?.communityId === communityId) {
+      return; // this community is already loading
     }
+    cancelMentionRequest();
 
-    try {
-      // Load community members via the access-controlled API (service-role on the
-      // server) so co-members are not hidden by the per-user `profiles` RLS that a
-      // direct `user_roles -> profiles` join hits (which left @mentions showing
-      // nameless "Usuario" entries). Fail CLOSED: a non-200 or a malformed body
-      // clears the suggestions and never queries an alternate member source. A
-      // valid `{ members: [] }` means the community has no members and yields
-      // zero suggestions — being an admin does not widen the requested community.
-      const resp = await fetch(
-        `/api/community/members?community_id=${encodeURIComponent(workspace.community_id)}`
-      );
+    const controller = new AbortController();
+    const request = { communityId, controller };
+    const { signal } = controller;
+    mentionRequestRef.current = request;
 
-      if (!resp.ok) {
-        console.error('[Mentions] Error loading community members: API returned', resp.status);
+    fetchCommunityMembers(communityId, { signal })
+      .then((members) => {
+        if (signal.aborted) return;
+        setCommunityMembers(members.map(toMentionSuggestion));
+        setMentionSuggestions([]);
+      })
+      .catch((error: unknown) => {
+        if (signal.aborted) return;
+        console.error('[Mentions] Error loading community members:', error);
         setCommunityMembers([]);
         setMentionSuggestions([]);
-        return;
-      }
-
-      const json = await resp.json();
-      if (!Array.isArray(json?.members)) {
-        console.error('[Mentions] Error loading community members: malformed response');
-        setCommunityMembers([]);
-        setMentionSuggestions([]);
-        return;
-      }
-      const memberData = json.members as any[];
-
-      // Transform members into mention suggestions format
-      const suggestions = memberData.map((member: any) => ({
-        id: member.id,
-        type: 'user' as const,
-        display_name: member.first_name && member.last_name
-          ? `${member.first_name} ${member.last_name}`
-          : member.email?.split('@')[0] || 'Usuario',
-        email: member.email || '',
-        role: member.user_roles?.[0]?.role_type || 'usuario',
-        avatar: member.avatar_url || null
-      }));
-
-      setCommunityMembers(suggestions);
-    } catch (error) {
-      console.error('[Mentions] Error loading community members:', error);
-      setCommunityMembers([]);
-      setMentionSuggestions([]);
-    }
+      })
+      .finally(() => {
+        if (mentionRequestRef.current === request) {
+          mentionRequestRef.current = null;
+        }
+      });
   };
 
   // Handle @mention autocomplete
   const handleMentionRequest = (query: string) => {
+    if (!mentionCommunityId) {
+      setMentionSuggestions([]);
+      return;
+    }
+
     if (!communityMembers.length) {
-      // Try to load members if not loaded yet
-      loadMentionSuggestions();
+      // Nothing loaded for this community (yet): offer nothing rather than a
+      // stale list, and (re)load it unless that request is already in flight.
+      setMentionSuggestions([]);
+      requestMentionMembers(mentionCommunityId);
       return;
     }
 
     // Filter members based on query
-    const filtered = communityMembers.filter((member: any) => {
-      const searchQuery = query.toLowerCase();
-      return member.display_name.toLowerCase().includes(searchQuery) ||
-             member.email.toLowerCase().includes(searchQuery);
-    });
+    const searchQuery = query.toLowerCase();
+    const filtered = communityMembers.filter((member) =>
+      member.display_name.toLowerCase().includes(searchQuery) ||
+      (member.email ?? '').toLowerCase().includes(searchQuery)
+    );
 
     setMentionSuggestions(filtered.slice(0, 10)); // Limit to 10 suggestions
   };

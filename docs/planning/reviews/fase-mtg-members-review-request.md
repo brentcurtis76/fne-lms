@@ -7,8 +7,11 @@
   2026-09-02 and re-verified immediately before the branch was created. The
   starting checkout (`fix/proc-contain` @ `d23791b2`) was already an ancestor of
   that commit; the `804794df..8218e597` delta was documentation-only.
-- **Commits:** exactly **one** — this commit, containing only the allowlisted
-  files listed in §4. Not amended. Nothing else on the branch.
+- **Commits:** **two.** The first, `95fb6425`, contains only the allowlisted
+  files listed in §4. The second, whose parent is `95fb6425`, is the Stage B
+  remediation (§8) and contains exactly `pages/community/workspace.tsx`,
+  `__tests__/pages/community/workspace.mention-scope.test.tsx` and this file.
+  Neither amended. Nothing else on the branch.
 - **Nothing pushed, no PR opened, no merge, no deployment, no database or
   provider operation, no production or remote access, no protected ignored
   file read** (`.env.local`, `.claude/settings.local.json` were never opened).
@@ -17,6 +20,16 @@
   the only local Supabase stack configured for this project is shared and of
   unproven ownership, and proving an isolated synthetic target without reading
   protected configuration was not possible within the authorized files.
+- **Stage B remediation (2026-09-02, second commit, parent `95fb6425`):**
+  the @mention candidate state of the messaging tab is now scoped to the
+  workspace community (§8). The commit, authorized by Brent as a single local
+  remediation commit, contains a modification of `pages/community/workspace.tsx`,
+  one new regression suite, `__tests__/pages/community/workspace.mention-scope.test.tsx`,
+  and this file; nothing else. Still nothing pushed, no PR, no merge, no
+  deployment, no database or provider access, no environment change, no
+  protected ignored file read. Unit-level gates re-ran after the final Stage B
+  source change (§5.2, Stage B table); Playwright and the manual matrix remain
+  **NOT RUN** for the same reason (§5.3), so the stage is still **PARTIAL**.
 
 ## 1. Objective
 
@@ -96,7 +109,7 @@ copied into the repository.
 | 11 | Real first precedence-ordered role; never fabricated `docente` | `components/meetings/MeetingDocumentationModal.tsx:93`–`100` | no UI test by design (the modal does not render `role_type`); reviewer inspects the mapper |
 | 12 | Historical assignee: neutral while loading / on failure, outsider label only after success, record-local, id preserved, reassignable | `components/meetings/MeetingDocumentationModal.tsx:986`, `components/meetings/MeetingDocumentationModal.tsx:993`, `components/meetings/MeetingDocumentationModal.tsx:1012`, used at `components/meetings/MeetingDocumentationModal.tsx:1483` and `components/meetings/MeetingDocumentationModal.tsx:1569` | `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:537`, `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:577`, `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:604` (task selector proves the option is record-local; update payload keeps the id), `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:658` (payload carries the new id) |
 | 13 | Historical attendees read-only after success, never selectable | `components/meetings/MeetingDocumentationModal.tsx:1006`, `components/meetings/MeetingDocumentationModal.tsx:1211` | `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:604` (disabled checked row; only two selectable checkboxes) |
-| 14 | Mentions: no admin fallback; `{ members: [] }` → zero; failures clear | `pages/community/workspace.tsx:1840`–`1887` (non-ok `pages/community/workspace.tsx:1858`, shape `pages/community/workspace.tsx:1865`) | review check (§6.1); manual matrix row NOT RUN (§5.3) |
+| 14 | Mentions: no admin fallback; `{ members: [] }` → zero; failures clear; **Stage B:** both lists scoped to the workspace community, request tied to its community, late/old-scope results ignored | state + captured community id `pages/community/workspace.tsx:1744`–`1754`; clear-on-change/abort-on-leave effect `pages/community/workspace.tsx:1799`–`1811`; tagged request, `signal.aborted` guards, fail-closed via `fetchCommunityMembers` `pages/community/workspace.tsx:1881`–`1925`; `handleMentionRequest` `pages/community/workspace.tsx:1928`–`1950`; mapper `pages/community/workspace.tsx:1700` | `__tests__/pages/community/workspace.mention-scope.test.tsx:425` (A populated → B empty: cleared before B answers, `{ members: [] }` leaves both lists empty, no A request after the switch), `:454` (A settling after B is ignored, A's request aborted, no duplicate while loading), `:486` (workspace=null transition clears and cancels before B loads), `:524` (500 / malformed / network failure → empty; only `/api/community/members`; no profiles / user_roles / community_workspaces read), `:552` (unmount aborts, late settlement silent). Fail-on-old: 4 of 5 fail against the committed page (§5.2). Manual matrix row NOT RUN (§5.3) |
 | 15 | Dead helper and its mock entries removed | `utils/meetingUtils.ts` (36 lines removed, `AssignmentUser` import dropped); three fixtures | `grep getCommunityMembersForAssignment` → 0 hits outside the untracked external plan copy |
 | 16 | Endpoint suite: per-instance `.eq` capture, exact second-query filters | `__tests__/api/community/members.test.ts:58`, `__tests__/api/community/members.test.ts:96` | `__tests__/api/community/members.test.ts:153`, `__tests__/api/community/members.test.ts:173`, `__tests__/api/community/members.test.ts:215` (admin non-member); `__tests__/api/community/members.test.ts:198` also proves the member query is never built on 403 |
 
@@ -113,6 +126,17 @@ copied into the repository.
 - `pages/community/workspace.tsx` — modified. One prop at the modal call site;
   `loadMentionSuggestions` loses the admin all-profiles branch and now clears
   suggestions on non-2xx, malformed body and network failure.
+  **Stage B (second commit, +98/−57 on top of `95fb6425`):** the messaging tab's
+  mention state is keyed to `workspace?.community_id`; an effect empties
+  `communityMembers` and `mentionSuggestions` whenever that id changes or is
+  absent and aborts the previous request; `requestMentionMembers` tags each
+  request with its community, skips every state write once its signal is
+  aborted, deduplicates an in-flight request for the same community and loads
+  through `fetchCommunityMembers` (the typed fetcher from the commit); the old
+  `loadMentionSuggestions` and its hand-rolled response checks are gone; the
+  suggestion mapper is a module-level function; the two lists are typed
+  `MentionSuggestion[]` instead of `any[]`. `MeetingDocumentationModal` and its
+  call site are untouched by Stage B.
 
 **Medium risk (new module)**
 
@@ -130,6 +154,12 @@ copied into the repository.
 **Tests**
 
 - `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx` — new, 18 tests.
+- `__tests__/pages/community/workspace.mention-scope.test.tsx` — **new in
+  Stage B (second commit), 5 tests.** Renders the real `/community/workspace`
+  page with its data utilities and sibling components mocked, a route-aware
+  `fetch` stub keyed by `community_id` (deferred responses, per-community
+  workspace gate) and a stub composer that renders the suggestions it receives
+  and asks for mentions like a typed `@`.
 - `__tests__/api/community/members.test.ts` — hardened (8 tests; all 7
   original tests retained, one added).
 - `__tests__/components/meetings/MeetingDocumentationModal.{end-dedup,clear-rich-text,save-draft}.test.tsx`
@@ -174,6 +204,22 @@ bogus failures — that run is discarded. The valid re-run used a second copy
 paths, `.git` discovered from the working directory, no environment overrides). Ignored validator output created by the runs (the
 copy's `.next/`, `tsconfig.tsbuildinfo` if any) lives only in the scratchpad.
 
+**Stage B (this session):** the same condition held (`node -e "require('react')"`
+hung 25 s under a Perl alarm in the checkout while `node --version` returned
+at once). A fresh copy of exactly the 2,467 tracked files was made in this
+session's scratchpad (`git ls-files -z | cpio -0 -pdmu`), `npm ci --no-audit --no-fund`
+installed 1,375 packages in 9 s, and a throwaway `git init` index holding those
+same 2,467 paths was created inside the copy so the three git-dependent suites
+run there without environment overrides. The copy has no `.env*` file at all
+(verified) and no other ignored file; the two Stage B source files were
+re-copied after every edit and `cmp`-verified byte-identical to the checkout
+before each run below; the build was given a command-scoped synthetic
+environment (unreachable `http://127.0.0.1:9`, placeholder keys,
+`NEXT_PUBLIC_BASE_URL=http://localhost:3000`) and the full Vitest runs the same
+without the base URL — the first full run had it exported too, which is the
+sole cause of its one failure (see the Stage B table). Nothing in Stage B
+touched the shared local Supabase stack.
+
 ### 5.2 Commands run — all after the final source change
 
 | Command (in the validation copy unless noted) | Exit | Result |
@@ -185,12 +231,44 @@ copy's `.next/`, `tsconfig.tsbuildinfo` if any) lives only in the scratchpad.
 | `npm run lint` | 0 | zero warnings (`--max-warnings=0`) |
 | `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:9 npm test` (full suite, in the `.git`-less copy) | **1** | 375 files — 372 passed / **3 failed**; 8,596 tests — **8,572 passed / 11 skipped / 13 failed**; 283.5 s. Every one of the 13 failures is a `git ls-files -s -z` or `git grep …` invocation failing with "Command failed" because the copy has no `.git`: `__tests__/security/committed-secrets-guard.test.ts` (4), `__tests__/lib/auth/recovery-crypto-secret.test.ts` (1), `__tests__/security/no-phantom-audit-table.test.ts` (8). No product suite failed. |
 | `npx vitest run __tests__/security/committed-secrets-guard.test.ts __tests__/lib/auth/recovery-crypto-secret.test.ts __tests__/security/no-phantom-audit-table.test.ts` — the three suites above, re-run in a second scratch copy holding the same 2,464 tracked files plus the 3 new files with a throwaway `git init` index (see §5.1) | 0 | 3 files / **101 passed** |
-| `node scripts/ci/check-committed-secrets.mjs` in that second copy (CI's committed-credential guard, scanning the index that equals this commit's content) | 0 | OK — 2,467 tracked paths, 0 findings |
+| `node scripts/ci/check-committed-secrets.mjs` in that second copy (CI's committed-credential guard, scanning the index that equals the first commit's content) | 0 | OK — 2,467 tracked paths, 0 findings |
 | `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:9 NEXT_PUBLIC_SUPABASE_ANON_KEY=<synthetic> SUPABASE_SERVICE_ROLE_KEY=<synthetic> NEXT_PUBLIC_BASE_URL=http://localhost:3000 npm run build` | 0 | Next.js 14.2.35 — compiled successfully, **149/149** static pages generated, no non-browserslist warnings |
 | `git diff --check` (real checkout) | 0 | clean |
 
 Baseline before any change (same copy): the three existing modal suites and
 the endpoint suite were 4 files / 11 passed.
+
+**Stage B — commands run after the final Stage B change (validation copy
+re-synced and `cmp`-verified; `git diff --check` in the real checkout):**
+
+| Command | Exit | Result |
+| ------- | ---- | ------ |
+| `npx vitest run __tests__/pages/community/workspace.mention-scope.test.tsx` | 0 | 1 file / **5 passed** |
+| `npx vitest run` — the new suite + `MeetingDocumentationModal.{members,end-dedup,clear-rich-text,save-draft}` + `__tests__/api/community/members.test.ts` | 0 | 6 files / **35 passed** (5 + 18 + 1 + 1 + 2 + 8) |
+| `npm run type-check` | 0 | no diagnostics |
+| `npm run lint` | 0 | zero warnings (`--max-warnings=0`; includes the new suite and the repo's `mock-hygiene/drain-mock-queue` rule) |
+| full `npm test` — first run, with `NEXT_PUBLIC_BASE_URL=http://localhost:3000` also exported (copy with the throwaway index) | **1** | 376 files — 375 passed / **1 failed**; 8,601 tests — **8,589 passed / 11 skipped / 1 failed**; 265.8 s. The three git-dependent suites passed in the same copy (76 + 16 + 9). The one failure is `__tests__/api/auth/recovery-request.test.ts` › "normalizes the address and sends IP/origin only to the durable enqueue": expected origin `https://genera.example.cl`, received `http://localhost:3000` — the value of the `NEXT_PUBLIC_BASE_URL` exported for this run, which the earlier recorded `npm test` recipe never set. That suite ran before the new suite in the sequential process and imports nothing Stage B touched. Isolated re-runs in the copy: fails with that variable set (1 failed / 12 passed), passes **13/13** with only `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:9`, with the placeholder keys but no base URL, and with no override at all. Disclosed, not counted as a Stage B regression. |
+| full `npm test` — re-run with the recorded recipe (unreachable Supabase URL + placeholder keys, no `NEXT_PUBLIC_BASE_URL`) | 0 | **376 files passed (376)**; 8,601 tests — **8,590 passed / 11 skipped / 0 failed**; 216.4 s. The new suite, `recovery-request` (13/13) and the three git-dependent suites (76 + 16 + 9) all pass in this run |
+| `npm run build` (synthetic env) | 0 | Next.js 14.2.35 — compiled successfully, **149/149** static pages generated, no warnings beyond browserslist (92 s) |
+| `git diff --check` (real checkout) | 0 | clean |
+
+Baseline before Stage B (same copy, pre-change files): modal members suite +
+endpoint suite = 2 files / 26 passed.
+
+**Fail-on-old proof (copy only, restored and `cmp`-verified afterwards):** with
+the copy's `pages/community/workspace.tsx` swapped back to the committed
+(pre-Stage-B) version, the new suite → **4 failed / 1 passed**. The three
+community-switch cases fail on the behavioral assertion
+`expected [ 'Ana Uno', 'Bruno Dos' ] to deeply equal []` — Community A's people
+offered in Community B — and the unmount case fails because the old loader
+issued no cancellable request; the fail-closed case passes on both versions,
+which is the intended "must remain" property (that behavior was already in
+the commit). A first version of the suite identified the loader's requests by
+their `AbortSignal` for every wait, which made the old code fail for a harness
+reason (no signal at all) rather than on the finding; the helpers were
+reworked so the behavioral waits cover every request for the community and only
+the cancellation/deduplication assertions depend on the signal. The discarded
+first run is disclosed, not counted.
 
 **Fail-on-old proofs (copy only, restored and `cmp`-verified afterwards):**
 
@@ -217,13 +295,13 @@ the endpoint suite were 4 files / 11 passed.
    `components/meetings/MeetingDocumentationModal.tsx` no longer contains `from('community_workspaces')` or
    `from('user_roles')`; its remaining `from('profiles')` is inside
    `loadWorkSessions` (co-editor names for the draft banner — out of scope).
-   `pages/community/workspace.tsx:1840`–`1887` contains no `from('profiles')`, no
+   `pages/community/workspace.tsx:1881`–`1950` contains no `from('profiles')`, no
    `user_metadata` role check and no alternate source; confirm on the diff. The
    error path of the loader clears both `communityMembers` and
-   `mentionSuggestions`, and `handleMentionRequest` (unchanged) will re-fetch on
-   the next mention keystroke when the list is empty — that pre-existing retry
-   behavior is the reason the test asserts exactly one request per open, not
-   zero retries across the page.
+   `mentionSuggestions`, and `handleMentionRequest` still re-fetches on the next
+   mention keystroke when the list is empty — after Stage B that retry is tied
+   to the current community and skipped while a request for it is in flight,
+   which is why the suite asserts a single A request across an ask-while-loading.
 2. **Exact `community_id` and non-vacuous second-query `.eq` assertions.**
    `__tests__/api/community/members.test.ts:58` records `.eq(column, value)` per chain instance;
    `__tests__/api/community/members.test.ts:96` asserts on `recordedQueries.user_roles[1]` with
@@ -250,6 +328,25 @@ the endpoint suite were 4 files / 11 passed.
    `pages/api/community/members.ts` byte-identical to the base (`git diff --quiet`).
    No server-side file is in the diff; every change is browser code and tests.
 
+6. **Stage B — when the mention lists are cleared, and how the suite tells the
+   loader's requests apart.** The clear runs in a passive effect keyed on
+   `workspace?.community_id` (`pages/community/workspace.tsx:1799`), not during
+   render. React 18 flushes pending passive effects before dispatching a
+   discrete event such as a keystroke, so no `@` can be processed against a
+   previous community's list, and in the page's real flow the parent passes
+   `workspace = null` first, which unmounts the composer; a one-frame paint of
+   stale props after a hypothetical direct A→B prop change is the only window
+   this design leaves, and it cannot receive input. The reviewer may want to
+   confirm that reasoning rather than take it on trust. In the suite, the
+   loader's requests are told apart from the page's member panel (same GET, no
+   signal) by the presence of an `AbortSignal`
+   (`__tests__/pages/community/workspace.mention-scope.test.tsx:334`); only the
+   cancellation and deduplication assertions depend on that, the behavioral
+   waits cover every request for the community (`:349`). The composer that
+   reappears for Community B does so because the tab keeps its selected thread
+   across the switch (pre-existing, out of scope); the helper re-selects the
+   thread if that ever changes (`:370`).
+
 Additional honest notes: the modal did not need `role_type` for rendering, so
 the mapper's "first endpoint role, empty string when none" rule
 (`components/meetings/MeetingDocumentationModal.tsx:100`) is reviewed by inspection only; and the three status notes
@@ -275,8 +372,59 @@ same copy appears in Asistentes, Compromisos and Tareas.
    `user_roles` + `profiles` on any endpoint failure; not reused here, not fixed.
 7. **Historical outsider rows show no name** — by design in this scope (no
    profile lookup); a read-only audit of affected rows is a separate ticket.
-8. **Retry-on-keystroke for empty mention lists** — pre-existing behavior of
-   `handleMentionRequest`, unchanged.
+8. **Retry-on-keystroke for empty mention lists** — still present after a
+   settled empty or failed load; Stage B only ties each retry to the current
+   community and skips it while a request for that community is in flight.
 9. **Duplicate `data-testid="meeting-historical-assignee"`** when several
    records carry outsiders; the parent selectors carry per-index testids, which
    is the intended stable locator.
+10. **Member panel late response (Stage B observation, out of scope, unchanged)**
+    — the page-level "Miembros de la Comunidad" panel
+    (`pages/community/workspace.tsx:162`–`216`) issues the same GET without a
+    signal and applies whatever settles, so a Community A response arriving
+    after a switch can still populate the panel while Community B is shown.
+    It is not part of the mention finding and was deliberately left alone.
+11. **Mention list does not refresh on same-community workspace updates** — the
+    Stage B effect is keyed on the community id, so saving workspace settings
+    (which replaces the workspace object) no longer re-requests the members;
+    membership does not change there, but it is a behavior difference.
+
+## 8. Stage B remediation — @mention scope (second commit, parent `95fb6425`)
+
+**Finding.** `MessagingTabContent` retained `communityMembers` and
+`mentionSuggestions` across workspace/community changes and the
+`workspace = null` transition, and its loader wrote whatever response arrived.
+A valid, empty Community B could therefore show Community A's cached
+suggestions, and a delayed A response could overwrite B.
+
+**Required behavior → where it is met (all in `pages/community/workspace.tsx`).**
+
+1. Clear both lists immediately whenever the community changes or becomes
+   unavailable — effect keyed on `mentionCommunityId` (`:1799`–`:1811`); the
+   handler also empties suggestions when no community is available (`:1929`).
+2. Tie every request to its captured community id — `requestMentionMembers(communityId)`
+   stores `{ communityId, controller }` in `mentionRequestRef` (`:1897`–`:1906`).
+3. Abort or ignore results of an old community or unmounted scope — the effect
+   cleanup calls `cancelMentionRequest()` (`:1809`), and every `.then` /
+   `.catch` write is skipped when `signal.aborted` (`:1910`, `:1915`).
+4. A successful `{ members: [] }` leaves both lists empty — the success path
+   sets `communityMembers` to the mapped (empty) list and `mentionSuggestions`
+   to `[]` (`:1911`–`:1912`).
+5. Failures and malformed responses stay fail-closed — `fetchCommunityMembers`
+   rejects on non-2xx, non-JSON and missing `members` array; the catch clears
+   both lists (`:1914`–`:1919`); nothing else is queried.
+6. `/api/community/members` is the only source — no `profiles`, `user_roles`,
+   `community_workspaces`, admin or other fallback; the suite records every
+   `supabase.from` table and every fetch URL.
+7. Typing `@` in B never shows A — covered by the three switch scenarios in the
+   suite (populated A → empty B; A resolving after B; the null transition).
+8. The meeting modal is untouched — its four suites still pass (22 tests).
+
+**Design notes.** The remediation reuses the commit's typed fetcher instead of
+keeping a second hand-rolled validator; the in-flight request is deduplicated
+per community so a keystroke during a load neither duplicates nor cancels it;
+`setMentionSuggestions([])` on success is deliberate (a fresh list never carries
+suggestions computed from a previous one). No endpoint, database, migration,
+RLS, environment or provider change; nothing outside the two source files and
+this document was modified; every pre-existing untracked path, including
+`outputs/`, is untouched.

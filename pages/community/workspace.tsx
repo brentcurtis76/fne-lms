@@ -1234,6 +1234,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
             setSelectedMeetingId(null);
           }}
           workspaceId={workspace.id}
+          communityId={workspace.community_id}
           userId={user.id}
           onSuccess={handleMeetingCreated}
           meetingId={selectedMeetingId || undefined}
@@ -1845,54 +1846,29 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
       // Load community members via the access-controlled API (service-role on the
       // server) so co-members are not hidden by the per-user `profiles` RLS that a
       // direct `user_roles -> profiles` join hits (which left @mentions showing
-      // nameless "Usuario" entries). Fail visibly on a non-200.
+      // nameless "Usuario" entries). Fail CLOSED: a non-200 or a malformed body
+      // clears the suggestions and never queries an alternate member source. A
+      // valid `{ members: [] }` means the community has no members and yields
+      // zero suggestions — being an admin does not widen the requested community.
       const resp = await fetch(
         `/api/community/members?community_id=${encodeURIComponent(workspace.community_id)}`
       );
 
       if (!resp.ok) {
         console.error('[Mentions] Error loading community members: API returned', resp.status);
+        setCommunityMembers([]);
+        setMentionSuggestions([]);
         return;
       }
 
       const json = await resp.json();
-      const memberData = (json.members ?? []) as any[];
-
-      // If no community members found and user is admin, fall back to loading all profiles
-      // This ensures @mentions work for admins even in communities without assigned members
-      // Regular users will see no suggestions if their community has no members
-      if (memberData.length === 0) {
-        const userRoles = user?.user_metadata?.roles || [];
-        const isUserAdmin = userRoles.includes('admin');
-        if (isUserAdmin) {
-          const { data: profilesData, error: profilesError } = await supabase
-            .from('profiles')
-            .select('id, first_name, last_name, email, avatar_url')
-            .order('first_name')
-            .limit(100);
-
-          if (profilesError) {
-            console.error('[Mentions] Error loading fallback profiles:', profilesError);
-            return;
-          }
-
-          const fallbackSuggestions = (profilesData || []).map((profile: any) => ({
-            id: profile.id,
-            type: 'user' as const,
-            display_name: profile.first_name && profile.last_name
-              ? `${profile.first_name} ${profile.last_name}`
-              : profile.email?.split('@')[0] || 'Usuario',
-            email: profile.email || '',
-            role: 'usuario',
-            avatar: profile.avatar_url || null
-          }));
-
-          setCommunityMembers(fallbackSuggestions);
-        } else {
-          setCommunityMembers([]);
-        }
+      if (!Array.isArray(json?.members)) {
+        console.error('[Mentions] Error loading community members: malformed response');
+        setCommunityMembers([]);
+        setMentionSuggestions([]);
         return;
       }
+      const memberData = json.members as any[];
 
       // Transform members into mention suggestions format
       const suggestions = memberData.map((member: any) => ({
@@ -1909,6 +1885,8 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
       setCommunityMembers(suggestions);
     } catch (error) {
       console.error('[Mentions] Error loading community members:', error);
+      setCommunityMembers([]);
+      setMentionSuggestions([]);
     }
   };
 

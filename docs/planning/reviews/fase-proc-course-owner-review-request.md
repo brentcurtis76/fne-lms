@@ -3,8 +3,8 @@
 **Work ID:** C-01 (Procesos de Cambio remediation — course ownership containment)
 **Branch:** `fix/course-owner` (isolated worktree `/Users/brentcurtis/dev/wt/course-owner`, non-iCloud)
 **Base SHA:** `804794df02b4165f58d89fe77649e1d71423d7dc` (`origin/main`, verified equal to the PM-approved SHA by a fresh `git ls-remote` before the worktree was created)
-**Code head SHA:** `5f0e9b1b4e39e88565a28f873bca5f1c6bf01a76` · **Final head SHA (this file on top):** the commit that adds this file (its own SHA cannot be embedded in itself; it is recorded in the completion report) · **Commits:** 2 (implementation + tests, then this review request)
-**Not pushed, no PR, not merged, not deployed.** No production database, provider, Vercel, GitHub, or secret-state access of any kind occurred. The only Supabase stack touched is the ephemeral local Docker stack (`supabase/config.toml` project id, `127.0.0.1`), reset from migrations and seeded with synthetic fixtures.
+**Code head SHA:** `5f0e9b1b4e39e88565a28f873bca5f1c6bf01a76` · **Final head SHA (this file on top):** the commit that adds this file (its own SHA cannot be embedded in itself; it is recorded in the completion report) · **Commits:** 3 (implementation + tests; this review request; then the evidence/documentation correction that added the base-versus-branch full E2E comparison and corrected the access statement — documentation only)
+**Not pushed, no PR, not merged, not deployed.** No production database, Supabase Management API, Vercel, provider, or secret-state access occurred, and **no GitHub mutation** occurred (no push, no remote branch, no PR, no comment, no merge, no settings change). **Read-only GitHub access did occur** — remote ref and open-PR reads — and is itemised under *Access confirmation*. The only Supabase stack touched is the ephemeral local Docker stack (`supabase/config.toml` project id, `127.0.0.1`), reset from migrations and seeded with synthetic fixtures.
 
 ## Objective and plain-English outcome
 
@@ -108,9 +108,11 @@ All commands ran unmodified in the isolated worktree (`~/dev/wt/course-owner`, `
 | `npm test` (full Vitest) | exit 0 — **374 files passed (374); 8598 tests passed, 11 skipped (8609)**, 233.7 s, on the final tree in the isolated worktree (the merged A-02 baseline was 8566 passed / 8577; the +32 are exactly the 25 API and 7 page tests added here) |
 | `npm run build` | exit 0 — ✓ Compiled successfully, ✓ Generating static pages (149/149), local-stack env inlined; CI's post-build `node scripts/check-price-leak.mjs` also OK (262 files under `.next/static`, no commercial data) |
 | `npm run test:db` | `supabase db reset` on the **local** Docker stack (30 s, all 40 migrations reapplied from scratch, exit 0) then `supabase test db`: **Files=24, Tests=1931, Result: PASS**, exit 0. No pgTAP file covers the five C-01 tables (none existed at the base; adding any was out of scope) |
-| E2E gate | CI-equivalent gate on the local stack: `supabase db reset` (above) → `.env.local` from `supabase status -o json` (CI recipe) → `npm run build` (above) → `node scripts/ci/seed-e2e.mjs` (synthetic fixtures, local stack only; exit 0) → `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` (run under bash so the spec list word-splits): **192 passed (2.1 min), 0 failed, 0 flaky, 0 skipped** (`test-results/e2e-results.json`: expected=192 unexpected=0 flaky=0 skipped=0) → `node scripts/ci/e2e-mandatory.mjs --check`: **OK — 13 mandatory spec(s) ran with no skips**, exit 0. The server log shows the pre-existing `[tractor-signups grant] refresh_user_roles_cache failed` lines from an unrelated spec; every test passed. **Regression evidence only** — see below. Literal `CI=1 npm run e2e` (all 32 spec files under `tests/`, including the non-mandatory legacy `flows/`, `context-questions/` and `qa/` suites that the seeded environment does not provision): **exit 1 — 238 passed, 60 failed, 27 skipped (53.7 min)**. The 13 mandatory specs passed again inside that run (192 expected, 0 unexpected, 0 flaky). Every failure is in a non-mandatory suite — `flows/proposal-*` (29), `reservation` (2), `qa/auth-redirects` (13), `qa/qa-system` (16) — whose signatures are `page.waitForURL` / `toHaveURL` login-redirect timeouts for personas and rows the CI seed does not provision (the known pre-existing state of those legacy suites; the project memory records ~57 such environment failures). None of the failing spec files references `transversal-context` or `assign-docente`, and the only tests in the whole run that touch `/api/school/transversal-context/*` are three passing auth-guard checks on the sibling `questions` and `custom-responses` endpoints. **Not proven equal to the base by a base run** (that would cost another ~54 min for suites that do not reach the changed code); reported as-is, not as green. |
+| E2E gate | CI-equivalent gate on the local stack: `supabase db reset` (above) → `.env.local` from `supabase status -o json` (CI recipe) → `npm run build` (above) → `node scripts/ci/seed-e2e.mjs` (synthetic fixtures, local stack only; exit 0) → `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` (run under bash so the spec list word-splits): **192 passed (2.1 min), 0 failed, 0 flaky, 0 skipped** (`test-results/e2e-results.json`: expected=192 unexpected=0 flaky=0 skipped=0) → `node scripts/ci/e2e-mandatory.mjs --check`: **OK — 13 mandatory spec(s) ran with no skips**, exit 0. The server log shows the pre-existing `[tractor-signups grant] refresh_user_roles_cache failed` lines from an unrelated spec; every test passed. **Regression evidence only** — see below. Literal `CI=1 npm run e2e` (all 32 spec files under `tests/`): **exit 1 — 238 passed, 60 failed, 27 skipped, 0 flaky (53.7 min). A red gate on this branch; not green.** The 13 mandatory specs passed inside that run (192 expected, 0 unexpected). In the correction pass the same command was run on the **exact base** `804794df` in a detached worktree with the same stack recipe: **exit 1 — 238 passed, 60 failed, 27 skipped, 0 flaky (54.1 min)** — the **same 60 test titles**, the **same 10 files with the same per-file counts**, and the **same failure-category counts** (see *Base-versus-branch full E2E comparison*). Corrected classification: **pre-existing on the base and unchanged by C-01 — proven by reproduction, not assumed** — while remaining a failing gate whose exception **only Brent may authorize**. None of the failing spec files references `transversal-context` or `assign-docente`; the only tests in the run that touch `/api/school/transversal-context/*` are three passing auth-guard checks on the sibling `questions` and `custom-responses` endpoints. |
 
 **Evidence layers, kept separate.** Focused tests, full local gates, GitHub CI, deployment, production-data state, and real-user behaviour are distinct. Everything above is local evidence. **No GitHub CI evidence exists** (the branch was not pushed — pushing was not authorized). **No deployment, production, or real-user evidence exists.** The E2E run is **regression evidence only**: no existing spec drives Contexto Transversal or the assign-docente endpoint, so it does not prove C-01's second-assignment refusal; that journey belongs to a later provisioning/journey unit (see Deferred).
+
+**Gate status of `npm run e2e`.** The dispatch lists `npm run e2e` among the required gates. On this branch the literal command `CI=1 npm run e2e` **exited 1** (60 failed) and is therefore a **red gate**, whatever the cause of the failures; the mandatory-spec run that CI executes is green, but it is a different command. The base-versus-branch comparison below is context for the reviewer, not a pass. **Only Brent may authorize an exception to that gate.** This document does not grant one, and the executor cannot.
 
 ## Test → requirement map (API, `__tests__/api/school/assign-docente.test.ts`)
 
@@ -172,7 +174,7 @@ Fixtures are synthetic: UUID-shaped ids, `.test` e-mails, invented names.
 - **Consultor semantics untouched.** `hasDirectivoPermission` still admits consultores; nothing here resolves H-02.
 - **No pgTAP** for the five tables (none existed at the base; adding any was out of scope).
 - **E2E is regression evidence only** — no spec exercises this page or endpoint.
-- No stop condition triggered: live main stayed at the approved SHA; branch and worktree path were free; the primary checkout (`fix/proc-contain` at `d23791b2`, its seven untracked planning/review docs and `outputs/`) was never modified; no open PR overlaps (the four open PRs are unrelated: hours-report, A9 release verification, QA audit quick wins, RBAC phase 2); no migration/RPC/RLS/DB-agent change, production data, real identity, DELETE-semantics change, consultor ruling, service change, or supporting module became necessary.
+- No stop condition triggered: live main was still at the approved SHA at lock time and throughout the implementation (it moved afterwards — see the post-completion finding); branch and worktree path were free; the primary checkout (`fix/proc-contain` at `d23791b2`, its seven untracked planning/review docs and `outputs/`) was never modified; no open PR overlaps (read-only `gh pr list`: the four open PRs are unrelated — hours-report, A9 release verification, QA audit quick wins, RBAC phase 2); no migration/RPC/RLS/DB-agent change, production data, real identity, DELETE-semantics change, consultor ruling, service change, or supporting module became necessary.
 
 ## Deferred (explicitly not in this unit)
 
@@ -183,10 +185,55 @@ Fixtures are synthetic: UUID-shaped ids, `.test` e-mails, invented names.
 - **Full Playwright journey** — directivo assigns one docente → second assignment refused → docente completes the evaluation; needs the context/course/template fixture chain the seeded E2E environment does not have yet.
 - Production duplicate audit/cleanup and any provisioning.
 
+## Base-versus-branch full E2E comparison (evidence correction pass, 2026-09-02)
+
+**Why this section exists.** The first version of this document classified the 60 `npm run e2e` failures as "the known pre-existing state" of the legacy suites on the strength of memory and failure signatures, and said so was *not proven by a base run*. Brent directed an evidence-only correction: reproduce the run on the exact base and compare. This section records that comparison; no production code, test, migration, CI, or package file changed, and `fix/course-owner` was not rebased.
+
+**Method.** Detached, non-iCloud worktree `/Users/brentcurtis/dev/wt/course-owner-base` at exactly `804794df02b4165f58d89fe77649e1d71423d7dc`; `npm ci` (1375 packages from the lockfile); `.env.local` generated from `supabase status -o json` with the CI recipe (local keys only, never printed); `supabase db reset` on the same local Docker stack from the base migrations (exit 0); `npm run build` of the base code (exit 0, 149/149 pages); `node scripts/ci/seed-e2e.mjs` (exit 0); then `CI=1 npm run e2e` — the identical command, settings (production server, 1 worker, 2 retries, JSON reporter) and Playwright 1.58.0 / cached Chromium used for the branch run. Inputs verified byte-identical between base and branch before the run: `supabase/migrations/` (C-01 adds none), `scripts/ci/seed-e2e.mjs`, `scripts/ci/seed-e2e-zoom.mjs`, `playwright.config.ts`, `package-lock.json`, and `tests/` (excluding the git-ignored, generated `tests/e2e/.auth` storage state). The runs were sequential on the same machine: branch 13:52–14:46 UTC, base 15:16–16:10 UTC. Both JSON reports were compared by a script over the report trees (counts, per-file outcomes, failed-test title sets, and first-error-line categories with timeouts and quoted strings normalised).
+
+**Counts.**
+
+| Run | Command | Exit | Passed | Failed | Skipped | Flaky | Duration |
+|---|---|---|---|---|---|---|---|
+| Base `804794df` | `CI=1 npm run e2e` | **1** | 238 | 60 | 27 | 0 | 54.1 min |
+| Branch `5f0e9b1b` (code head) | `CI=1 npm run e2e` | **1** | 238 | 60 | 27 | 0 | 53.7 min |
+
+**Failing files** (expected / unexpected / flaky / skipped; every other spec file has identical outcomes on both runs — 0 of 32 files differ):
+
+| Spec file | Base | Branch |
+|---|---|---|
+| `tests/e2e/flows/proposal-admin-visibility.spec.ts` | 0 / 3 / 0 / 0 | 0 / 3 / 0 / 0 |
+| `tests/e2e/flows/proposal-buckets.spec.ts` | 0 / 4 / 0 / 3 | 0 / 4 / 0 / 3 |
+| `tests/e2e/flows/proposal-config.spec.ts` | 0 / 6 / 0 / 0 | 0 / 6 / 0 / 0 |
+| `tests/e2e/flows/proposal-consultant-crud.spec.ts` | 0 / 4 / 0 / 0 | 0 / 4 / 0 / 0 |
+| `tests/e2e/flows/proposal-document-library.spec.ts` | 0 / 4 / 0 / 0 | 0 / 4 / 0 / 0 |
+| `tests/e2e/flows/proposal-versioning.spec.ts` | 0 / 2 / 0 / 0 | 0 / 2 / 0 / 0 |
+| `tests/e2e/flows/proposal-web-view.spec.ts` | 1 / 6 / 0 / 0 | 1 / 6 / 0 / 0 |
+| `tests/e2e/reservation.spec.ts` | 0 / 2 / 0 / 0 | 0 / 2 / 0 / 0 |
+| `tests/qa/auth-redirects.spec.ts` | 24 / 13 / 0 / 0 | 24 / 13 / 0 / 0 |
+| `tests/qa/qa-system.spec.ts` | 3 / 16 / 0 / 0 | 3 / 16 / 0 / 0 |
+
+**Failed-test sets.** 60 titles on the base, 60 on the branch, **60 in common, 0 only on the base, 0 only on the branch.**
+
+**Failure categories** (first error line of the final attempt, normalised):
+
+| Category | Base | Branch |
+|---|---|---|
+| `TimeoutError: page.waitForURL: Timeout Nms exceeded.` | 25 | 25 |
+| `Test timeout of Nms exceeded while running "…" hook.` | 15 | 15 |
+| `Error: expect(page).toHaveURL(expected) failed` | 9 | 9 |
+| `Error: expect(locator).toBeVisible() failed` | 6 | 6 |
+| `Error: expect(received).toBe(expected) // Object.is equality` | 4 | 4 |
+| `Test timeout of Nms exceeded.` | 1 | 1 |
+
+**Corrected classification.** The 60 failures are **pre-existing on the exact base and unchanged by C-01** — established by reproduction, not by memory or signature matching. They are login-redirect and fixture timeouts in the non-mandatory `flows/proposal-*`, `reservation`, and `tests/qa/*` suites, which the CI seed does not provision; none of those files references the surfaces C-01 changed.
+
+**What this does and does not establish.** It establishes that C-01 introduced no E2E regression and no E2E fix. It does **not** make `npm run e2e` green: the command exits 1 on the base and on the branch alike, so the gate as literally listed in the dispatch is **red on both**, and the green CI-equivalent evidence is the 13-spec mandatory run (192/192 on both units). Fixing those legacy suites is outside C-01 and was not attempted. **Only Brent may authorize an exception to the `npm run e2e` gate**; the executor does not claim one and this document does not grant one.
+
 ## Post-completion finding — live main moved after the lock
 
-The final read-only `git ls-remote` (after both commits) shows `refs/heads/main` at `8218e597e148d8044fe7d330c118243aa3772485`, no longer the approved base `804794df…`. The GitHub compare API (read-only, nothing fetched into either checkout) reports main **3 commits ahead** of the base and 0 behind: `d00f4651` and `dc43fa48` from PR [#71](https://github.com/brentcurtis76/fne-lms/pull/71) (`docs/cred-m1-close`, merged 2026-09-02 14:44 UTC) plus the merge commit, touching only `PROJECT_STATE.md`, `docs/planning/reviews/fase-cred-m1-close-review-request.md`, and `docs/runbooks/auth-security.md`. **No C-01 file overlaps.** This branch stays based on the exact approved SHA (as the dispatch required) and was **not rebased or merged** (not authorized); it therefore no longer fast-forwards onto main, which is a decision for Brent/the PM at merge time, not part of this unit.
+The final read-only `git ls-remote` (after both commits) shows `refs/heads/main` at `8218e597e148d8044fe7d330c118243aa3772485`, no longer the approved base `804794df…`. The GitHub compare API (a read-only `gh api` call — see *Access confirmation*; nothing fetched into either checkout) reports main **3 commits ahead** of the base and 0 behind: `d00f4651` and `dc43fa48` from PR [#71](https://github.com/brentcurtis76/fne-lms/pull/71) (`docs/cred-m1-close`, merged 2026-09-02 14:44 UTC) plus the merge commit, touching only `PROJECT_STATE.md`, `docs/planning/reviews/fase-cred-m1-close-review-request.md`, and `docs/runbooks/auth-security.md`. **No C-01 file overlaps.** This branch stays based on the exact approved SHA (as the dispatch required) and was **not rebased or merged** (not authorized); it therefore no longer fast-forwards onto main, which is a decision for Brent/the PM at merge time, not part of this unit.
 
 ## Access confirmation
 
-No production database, Supabase Management API, Vercel, GitHub (no push, no PR, no merge), provider, or secret-state access occurred. The primary checkout's `.env.local` was never read or copied. The only environment touched was the local Docker Supabase stack and the isolated worktree.
+**Read-only GitHub access occurred** — reads of remote state, never writes: `git ls-remote --heads origin` (preflight, after each commit, and again in the correction pass), one `git fetch --dry-run origin main` (preflight; a dry run updates nothing), `gh pr list --state open` (the overlap check at preflight), and `gh api repos/brentcurtis76/fne-lms/compare/804794df…8218e597` (twice, after main moved). **No GitHub mutation occurred**: no push, no remote branch, no PR, no comment, no merge, no label or settings change; `fix/course-owner` exists only locally. No production database, Supabase Management API, Vercel, provider, or secret-state access occurred. The primary checkout's `.env.local` was never read or copied. The only environments touched were the local Docker Supabase stack and the isolated worktrees under `~/dev/wt/` (the branch worktree and, for the correction pass, a detached base worktree).

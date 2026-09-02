@@ -59,20 +59,20 @@ Todo queda como cambios en el árbol de trabajo. **Cero commits.**
 | **Reclamaciones** accionables | 125 | **124** | misma fusión |
 | **Reclamaciones** P0 únicas | 37 | **36** | misma fusión |
 | **Reclamaciones** no accionables | 36 | 36 | sin cambio |
-| Work items | — | **107** | no existían; 104 en ronda 2, +2 en la corrección de gobernanza §12 (`W-B2c-01`, `W-PC-06`), +1 en el cierre de clasificación §13 (`W-B2d-01`) |
-| Lotes de fusión distintos | — | **28** | lista canónica completa; 26 en ronda 2, +`B2c` en §12, +`B2d` en §13 |
-| **Enlaces** reclamación↔trabajo | — | **152** | 149 en ronda 2; −1 +3 en §12; +1 en §13 |
-| **Enlaces** P0 reclamación↔trabajo | — | **59** | ≠ 36; nunca se intercambian; 56 en ronda 2, 58 tras §12 |
+| Work items | — | **109** | no existían; 107 al cerrar §14, +2 de simulación sintética en §15 (`W-SIM-01`, `W-SIM-02`) |
+| Lotes de fusión distintos | — | **29** | 28 al cerrar §14, +`SIM1` en §15; el lote nuevo está bloqueado y sin autorizar |
+| **Enlaces** reclamación↔trabajo | — | **156** | 152 al cerrar §14, +4 enlaces de evidencia no cerrante en §15 |
+| **Enlaces** P0 reclamación↔trabajo | — | **63** | ≠ 36; nunca se intercambian; 59 al cerrar §14, +4 enlaces P0 no cerrantes en §15 |
 | **Reclamaciones** P0 únicas alcanzadas por esos enlaces | — | **36** | las 36 tienen al menos un enlace |
 
-### Work items por modo y por estado (tras el cierre de clasificación §13)
+### Work items por modo y por estado (tras la planificación de simulación §15)
 
 | Modo | | Estado | |
 |---|---:|---|---:|
-| `MERGE` | 90 | `SCHEDULED` | 29 |
-| `DATA` | 10 | `BACKLOG` | 57 |
-| `PRODUCTION_CHECK` | 6 | `BLOCKED` | 18 |
-| `DOCUMENTATION` | 1 | `ACTIVE` / `DONE` | 0 / 3 |
+| `MERGE` | 91 | `SCHEDULED` | 29 |
+| `DATA` | 11 | `BACKLOG` | 57 |
+| `PRODUCTION_CHECK` | 6 | `BLOCKED` | 19 |
+| `DOCUMENTATION` | 1 | `DONE` / `SUPERSEDED` | 3 / 1 |
 
 ### Los tres números de propiedad, más la línea de excepción
 
@@ -136,7 +136,7 @@ Ningún otro `claim_text` fue sintetizado. `firmado_por` y `fecha_firma` están 
 
 ## 4. Derivación de los work items
 
-> **Este ledger de trabajo es una normalización *propuesta*, no un resultado probado mecánicamente.** Los 28 lotes de fusión (26 en ronda 2; `B2c` se añadió en la corrección §12; `B2d` en el cierre de clasificación §13) están determinados por la lista canónica y por el `lote` del ledger legacy. La descomposición del carril de datos, los **cinco** splits y las **siete** consolidaciones son **juicios** que un revisor debe confirmar.
+> **Este ledger de trabajo es una normalización *propuesta*, no un resultado probado mecánicamente.** Los 28 lotes de fusión de esta derivación histórica (26 en ronda 2; `B2c` se añadió en la corrección §12; `B2d` en el cierre de clasificación §13) estaban determinados por la lista canónica y por el `lote` del ledger legacy. La revisión §15 añade después `SIM1` como lote de planificación no autorizada. La descomposición del carril de datos, los **cinco** splits y las **siete** consolidaciones son **juicios** que un revisor debe confirmar.
 
 ### Regla aplicada
 
@@ -780,7 +780,7 @@ El inventario anterior — «dos tablas y seis funciones» — era **incompleto*
 - El check nuevo **[22 semántica global]** ancla: la decisión global/sin-propiedad-de-colegio y la gestión solo-admin literal en los documentos gobernantes; el estado veraz de `W-B2d-01` (superseded, sin ejecutar, jamás representado como ejecutado o autorizado); la ausencia de B2d como prerrequisito de B2c; los tres prerrequisitos y la clase 2 de `W-B2c-01`; la exigencia de inventariar las superficies de asignación/progreso y las vías alternas; la existencia del registro de corrección; y el **SHA-256 de la instantánea congelada de reclamaciones** (`d598f29b…`), además del pin ya existente del legacy (`009f14ab…`).
 - Cada cláusula material nueva se probó con **mutaciones sobre copias desechables** (detalle en `docs/planning/reviews/fase-lp-global-review-request.md`); la corrida de control sobre el árbol real siguió fallando **exactamente en las mismas 67 faltas de propiedad [16 propiedad] y en ninguna otra categoría**.
 
-| | §13 (2026-08-28) | **§14 (hoy)** |
+| | §13 (2026-08-28) | **§14 (al 2026-08-29)** |
 |---|---:|---:|
 | Reclamaciones / P0 únicas | 160 / 36 | **160 / 36** *(congeladas)* |
 | Work items | 107 | **107** |
@@ -791,8 +791,50 @@ El inventario anterior — «dos tablas y seis funciones» — era **incompleto*
 | `SCHEDULED`/`BACKLOG`/`BLOCKED`/`DONE`/`SUPERSEDED` | 29/57/18/3/0 | **29/57/17/3/1** |
 | Work items sin dueño (fallos del validador) | 67 | **67** *(sin cambio: `W-B2d-01` y `W-B2c-01` conservan dueño real)* |
 
-Salida vigente del validador tras esta corrección — **las mismas 67 faltas de propiedad, y ninguna otra clase de fallo**; el protocolo (revisión 9) reconcilia contra estas cifras.
+Salida del validador al cerrar esta corrección — **las mismas 67 faltas de propiedad, y ninguna otra clase de fallo**; el protocolo de entonces (revisión 9) reconciliaba contra estas cifras. La revisión 10 y las cifras vigentes están en §15.
 
 ### 14.6 Lo que esta sección NO hace
 
 No implementa nada: ni migración, ni política, ni GRANT, ni función, ni ruta API, ni test de aplicación; no ejecuta ninguna consulta en ninguna base de datos; no autoriza la implementación de B2c (tres prerrequisitos vigentes); no reabre `W-PC-06`, `W-B2a-01` ni `W-B2b-01`; no altera `W-PC-01`…`W-PC-05` (siguen `BLOCKED`/`UNAUTHORIZED`), `W-B10a-01` ni las unidades diferidas D-RLS-01/02/03; y no modifica la instantánea congelada ni el legacy archivado.
+
+---
+
+## 15. Planificación de simulación sembrada Santa Marta — SM-SIM-D0 (2026-09-02)
+
+**Autorización acotada de Brent:** actualizar la documentación gobernante y el ledger para reemplazar la idea de un piloto real inmediato por una futura **simulación sintética en staging**. Esta autorización cubre sólo `SM-SIM-D0`; no autoriza aprovisionar recursos, implementar código, desplegar, acceder a proveedores, consultar o escribir una base alojada ni ejecutar datos sintéticos.
+
+### 15.1 Estado reconciliado antes de añadir la simulación
+
+La corrección de semántica global de rutas de aprendizaje fue revisada de forma independiente y mergeada por Brent vía PR #65: head aprobado `d8f9ea38e37b0075e84cd016cf30086e04cf658b`, merge `49814091a2df69cc8e4c02beba8014bb5aa0694c`, PR CI `33397850894` y post-merge CI `33400056341` exitosas, despliegue automático de Production `6182645350` exitoso. Esto satisface **sólo el prerrequisito 1** de `W-B2c-01`. B2c permanece `BLOCKED` y sin autorizar hasta que (2) Privacidad apruebe la matriz actor × operación y (3) Brent dé una autorización explícita y separada de implementación.
+
+### 15.2 Dos unidades nuevas, separadas
+
+- **`W-SIM-01`** — `MERGE`, clase 0, lote `SIM1`, rama planificada `feat/sm-sim`, `BLOCKED`/`UNAUTHORIZED`. Su alcance futuro es implementar y probar la frontera segura: allowlist exacta del proyecto staging, validación previa a cualquier red, banner/noindex, aislamiento central de correo, `ZOOM_MODE=mock`, manifiesto `sm-sim-v1`, identificadores UUIDv5 deterministas, seeder/reset/verificador idempotentes y reset limitado al manifiesto.
+- **`W-SIM-02`** — `DATA`, clase 3, sin lote, `BLOCKED`/`UNAUTHORIZED`. Su alcance futuro es inicializar únicamente el proyecto Supabase staging dedicado y no productivo, verificarlo y luego ejecutar/aceptar/restablecer los datos adultos sintéticos. Requiere autorización separada incluso después de que W-SIM-01 se implemente, revise y fusione.
+
+Ambos mapean exactamente a `SWEEP-MI-APRENDIZAJE-09` y `SWEEP-ONBOARDING-DATA-01` como evidencia **NO CERRANTE**. Los cuatro enlaces no son remediación, no alteran el estado de las reclamaciones, no prueban onboarding real ni cierre de B2c y quedan excluidos del conteo de cobertura de remediación por el validador.
+
+### 15.3 Conteos vigentes
+
+| Medida | §14 | **§15** |
+|---|---:|---:|
+| Reclamaciones / P0 únicas | 160 / 36 | **160 / 36** *(congeladas)* |
+| Work items | 107 | **109** |
+| Enlaces / enlaces P0 | 152 / 59 | **156 / 63** |
+| Lotes de fusión / work items en lotes | 28 / 34 | **29 / 35** |
+| Enlaces P0 dentro / fuera de lotes | 39 / 20 | **41 / 22** |
+| `MERGE`/`DATA`/`PRODUCTION_CHECK`/`DOCUMENTATION` | 90/10/6/1 | **91/11/6/1** |
+| `SCHEDULED`/`BACKLOG`/`BLOCKED`/`DONE`/`SUPERSEDED` | 29/57/17/3/1 | **29/57/19/3/1** |
+| Work items sin dueño (fallos del validador) | 67 | **67** *(sin cambio; ambos ítems nuevos tienen dueño)* |
+
+Los 63 enlaces P0 se distribuyen en 41 dentro de lotes y 22 fuera: 15 del carril `DATA` y 7 comprobaciones de producción. Los dos enlaces de W-SIM-01 quedan dentro de `SIM1`; los dos de W-SIM-02 quedan fuera. Esta aritmética no convierte ninguno en remediación.
+
+### 15.4 Validador y preservación
+
+El check nuevo **[23 simulación]** exige la forma exacta de ambos work items, sus cuatro mapeos, el lenguaje NO CERRANTE/no-remediación, su exclusión de cobertura, el contrato mínimo del plan completo, la separación W-SIM-01→W-SIM-02, la evidencia exacta de PR #65, el prerrequisito 1 cumplido de B2c y las cifras de revisión 10. La salida de control conserva exactamente las **67 faltas preexistentes [16 propiedad]** y ninguna otra clase de fallo.
+
+La instantánea congelada `santa-marta-claims.csv` conserva SHA-256 `d598f29b39d8d5ac9c1289a7c030221c93a3c8897c91f19e395f99486c68cce7`; el legacy archivado conserva `009f14abccec97d7ada4b559c9aaeb24ac5b7aab54563a5c1151e511dc2c7fe9`. No se modificó ninguno.
+
+### 15.5 Lo que sigue bloqueado
+
+La secuencia completa es D0 mergeado → designación externa separada de proyecto staging, entorno Vercel, dominio protegido y sumidero → autorización/implementación/revisión/merge de W-SIM-01 → autorización separada de W-SIM-02 → inicialización verificada → siembra, aceptación y reset. B2c conserva sus dos prerrequisitos abiertos y prohíbe compartir la simulación de forma amplia o pública mientras no cierre. Ningún paso operacional se inició ni quedó autorizado por esta sección.

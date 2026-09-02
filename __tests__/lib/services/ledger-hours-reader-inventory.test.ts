@@ -5442,6 +5442,10 @@ const SQL_UNSUPPORTED_EXECUTES: Record<string, string[]> = {
     'revoke-authenticated-loop:runtime-function-domain',
     'grant-service-role-loop:runtime-function-domain',
   ],
+  'supabase/migrations/20260902162557_fne_zoom_operator_tenant.sql': [
+    'enforce_operator_ledger_guard:trigger-authority/refuse-only',
+    'enforce_operator_ledger_guard:guarded-create/no-ledger-read',
+  ],
 };
 
 const SQL_UNSUPPORTED_OBJECTS: Record<string, string[]> = {

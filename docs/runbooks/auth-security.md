@@ -177,7 +177,22 @@
 > `8418f89f` had also succeeded (00:19:16Z) before being superseded. Both were
 > built after the variable save, so the replacement key is active in the
 > Vercel application by configuration. **Verification chronology, preserved:**
-> (1) 13:22:00Z — an explicit cookie-only `fetch('/api/auth/my-roles',
+> (0) Codex/session-verified production evidence — before the browser
+> verification, after Brent explicitly directed Codex to use the available
+> database access to verify the known QA administrator, Codex ran exactly one
+> bounded read-only production SELECT through the already-linked
+> `supabase db query --linked` / Management API database-query path, checking
+> `admin.qa@fne.cl` across `auth.users`, `public.profiles`, and
+> `public.user_roles`; it returned exactly one aggregate/boolean row:
+> qa_admin_auth_users = 1, qa_admin_auth_usable = true,
+> qa_admin_profile_approved = true, qa_admin_active_admin_role = true. No
+> mutation; no user ID, password, password hash, token, credential, profile
+> row, role row, or other user data returned; exact query timestamp not
+> captured and not inferred. It proved only that the established synthetic QA
+> account existed, was usable, had an approved profile, and held an active
+> literal admin role — not the replacement Vercel service key and not the
+> `/api/auth/my-roles` path, because the CLI/Management API used separate
+> authentication. (1) 13:22:00Z — an explicit cookie-only `fetch('/api/auth/my-roles',
 > { credentials: 'include' })` from a Browser-pane session returned **401** at
 > the route's session precheck and stopped before the service-role path: not
 > functional proof, and no evidence about the key either way. (2) 13:29:26Z —
@@ -193,9 +208,10 @@
 > service-role `user_roles` query, and the route returned 200. Evidence:
 > Brent-supplied Chrome Network screenshot; **the exact request timestamp was
 > not captured and is not inferred**; body, headers, token, and cookies were
-> not inspected; no retry or further diagnostic request was made. The 401 was
-> not transformed into a success; it is superseded as evidence by this separate
-> canonical result. **Scope of the 200:** it proves that the replacement
+> not inspected; after that successful canonical 200, no retry or further
+> diagnostic request was made — wording that denies none of (0), (1) or (2)
+> above. The 401 was not transformed into a success; it is superseded as
+> evidence by this separate canonical result. **Scope of the 200:** it proves that the replacement
 > Production Vercel service key works for this bounded route on deployment
 > `6212873333` / SHA `804794df`, on the combined PR #69 + PR #70 deployment;
 > it does not isolate M1 from PR #70; it does not prove recovery-e-mail
@@ -248,7 +264,7 @@ from being read as "the problem is fixed". These are different columns.
 | 0.14 | RLS advisor findings (incl. `public.modules`) | **REPORTED, NOT FIXED** — out of scope by decision | §5 |
 | 0.15 | **Retention/scrubbing sweep** (`run_auth_security_retention` + daily cron) | **CODE COMPLETE; RUNS NOWHERE YET.** Requires the fifth migration, the deploy, and `CRON_SECRET` in Vercel Production | §7 |
 | 0.16 | **Committed API keys removed from the working tree** + CI guard against recurrence | **MERGED** (recorded 2026-09-01): PR #66 at approved head `7334da1b`, merge commit `76a98644`; post-merge CI run `33522718133` all seven jobs green; automatic Production deployment `6204033475` successful. Removal is still not rotation, and history was not rewritten — the credential stays treated as disclosed | §8.1 |
-| 0.17 | **Rotation of the exposed `service_role` and legacy anon keys** | **REPLACEMENT ACTIVE IN VERCEL PRODUCTION — BOUNDED PATH VERIFIED (2026-09-02, CRED-03B closeout); ROTATION NOT COMPLETE; LEGACY KEYS ENABLED.** The replacement secret key `fne_lms_vercel_prod_20260831` (Vercel `SUPABASE_SERVICE_ROLE_KEY`, Production only) is active by configuration in Production deployment `6212873333` at `804794df` (PR #69 merged as `8418f89f`; effective post-merge evidence accepted on `804794df` / PR #70). Brent's canonical application-generated `GET /api/auth/my-roles` as `admin.qa@fne.cl` returned **200** (Chrome Network screenshot; exact request timestamp not captured): canonical Bearer authentication → service-role-backed `auth.getUser(token)` validation → service-role `user_roles` query → 200. An earlier cookie-only explicit fetch (401, 13:22:00Z) stopped before the service-role path and is superseded, not converted. The 200 proves only this bounded route on the combined #69/#70 deployment — not recovery e-mail, Edge Functions, database hooks, operator scripts, external consumers, or anon/publishable compatibility — and completes no rotation. Two separate tracks: **`service_role` deactivation** blocked on both out-of-repo Edge Functions, the production webhook/pg_net/pg_cron catalog, operator scripts and the two §8.1 local carriers, and outside consumers, with its own authorization and rollback plan; **anon deactivation** blocked on the separate M2 migration (scope isolation, publishable-key migration, external/public consumer verification, separate authorization and verification). Both legacy keys remain enabled and treated as disclosed | §8.1, §8.3 |
+| 0.17 | **Rotation of the exposed `service_role` and legacy anon keys** | **REPLACEMENT ACTIVE IN VERCEL PRODUCTION — BOUNDED PATH VERIFIED (2026-09-02, CRED-03B closeout); ROTATION NOT COMPLETE; LEGACY KEYS ENABLED.** The replacement secret key `fne_lms_vercel_prod_20260831` (Vercel `SUPABASE_SERVICE_ROLE_KEY`, Production only) is active by configuration in Production deployment `6212873333` at `804794df` (PR #69 merged as `8418f89f`; effective post-merge evidence accepted on `804794df` / PR #70). The account's existence, usability, approved profile, and active literal admin role were confirmed beforehand by one Codex-run bounded read-only aggregate query (four aggregate/boolean values; no user data returned; timestamp not captured; it verified neither the key nor the route). Brent's canonical application-generated `GET /api/auth/my-roles` as `admin.qa@fne.cl` returned **200** (Chrome Network screenshot; exact request timestamp not captured): canonical Bearer authentication → service-role-backed `auth.getUser(token)` validation → service-role `user_roles` query → 200. An earlier cookie-only explicit fetch (401, 13:22:00Z) stopped before the service-role path and is superseded, not converted. The 200 proves only this bounded route on the combined #69/#70 deployment — not recovery e-mail, Edge Functions, database hooks, operator scripts, external consumers, or anon/publishable compatibility — and completes no rotation. Two separate tracks: **`service_role` deactivation** blocked on both out-of-repo Edge Functions, the production webhook/pg_net/pg_cron catalog, operator scripts and the two §8.1 local carriers, and outside consumers, with its own authorization and rollback plan; **anon deactivation** blocked on the separate M2 migration (scope isolation, publishable-key migration, external/public consumer verification, separate authorization and verification). Both legacy keys remain enabled and treated as disclosed | §8.1, §8.3 |
 | 0.18 | **Rotation of the historical database password** (`.env.prod` exposure) | **BLOCKED BY DESIGN** until a written external-direct-database-consumer inventory exists. Rotating first would cause an outage | §8.4 |
 | 0.19 | **`RECOVERY_CRYPTO_SECRET` cutover** (decouples recovery crypto from the API key) | **ACTIVE — CONFIGURATION CUTOVER (2026-09-01); NOT functionally proven.** PR #67 merged as `593b7df6` and the automatic Production deployment `6205672170` succeeded — the first deployment carrying the secret, so recovery crypto now derives from the independent root (the legacy-fallback code path is retained but no longer selected). Deployment/configuration evidence only: no real recovery e-mail/redemption has been exercised. Post-merge single-query aggregates: 0 envelopes / 0 queued-or-processing / 0 active unexpired grants; latest queued/completed/scrubbed 2026-08-28 (all pre-merge). The immediately-before-merge zero recheck is not evidenced and was not retroactively satisfied; the post-merge check only bounds the risk | §8.5 |
 

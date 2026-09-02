@@ -5,12 +5,17 @@
   confirmed byte-equal to `origin/main` by a read-only fetch at task start on
   2026-09-02; the task's hard precondition was to stop if it had moved, and it
   had not. No `docs/cred-m1-close` branch, remote ref, or worktree existed.
-- **Commits:** exactly **one** — `docs(cred): close out M1 service-key activation`.
-  The diff against the base must be exactly the three files in §4, nothing else.
-- **Nothing pushed, no PR opened, no provider contacted, no database queried,
-  no credential inspected, no local carrier removed, no key changed.** The
-  functional verification this record closes out was performed by Brent; every
-  provider/production fact is attributed to its source below.
+- **Commits:** exactly **two** — `d00f4651` `docs(cred): close out M1
+  service-key activation` (the reviewed closeout) and one additive round-1
+  correction commit on top of it (§11). Neither is amended; the diff against
+  the base must be exactly the three files in §4, nothing else.
+- **Nothing pushed, no PR opened, no provider contacted, no credential
+  inspected, no local carrier removed, no key changed.** The
+  documentation-authoring and correction sessions that wrote this record made
+  no database call; the one earlier authorized aggregate query — run by Codex
+  before the browser verification — is disclosed in §2.3 row 0, not denied.
+  The canonical HTTP 200 was performed by Brent; every provider/production
+  fact is attributed to its source below.
 
 ## 1. Objective
 
@@ -47,13 +52,15 @@ in the Vercel application by configuration.
 
 | # | When | What | Result | Evidential weight |
 | - | ---- | ---- | ------ | ----------------- |
+| 0 | before the browser verification; exact query timestamp **not captured** (not inferred) | **Codex/session-verified production evidence:** after Brent explicitly directed Codex to use the available database access to verify the known QA administrator, Codex ran exactly one bounded read-only production SELECT through the already-linked `supabase db query --linked` / Management API database-query path, checking `admin.qa@fne.cl` across `auth.users`, `public.profiles`, and `public.user_roles` | exactly one aggregate/boolean row: qa_admin_auth_users = 1; qa_admin_auth_usable = true; qa_admin_profile_approved = true; qa_admin_active_admin_role = true. No mutation; no user ID, password, password hash, token, credential, profile row, role row, or other user data returned | Proves only that the established synthetic QA account existed, was usable, had an approved profile, and held an active literal admin role; verifies neither the replacement Vercel service key nor the `/api/auth/my-roles` path — the CLI/Management API used separate authentication |
 | 1 | 2026-09-02T13:22:00Z | Explicit `fetch('/api/auth/my-roles', { credentials: 'include' })` from a Browser-pane session (no `Authorization` header) | **401** from the route's session precheck (`createPagesServerClient` → `getSession`) — stopped **before** the service-role path | Not functional proof; no evidence about the replacement key either way |
 | 2 | 2026-09-02T13:29:26Z | Landing-page load at `/` after the Browser pane had closed | No `/api/auth/my-roles` request produced | No usable evidence |
 | 3 | exact request timestamp **not captured** (not inferred) | **Brent-performed canonical verification:** signed in as the established synthetic QA administrator `admin.qa@fne.cl`; the application-generated `GET /api/auth/my-roles` from `contexts/AuthContext.tsx` with its canonical `Authorization: Bearer` session token | **HTTP 200** on `6212873333` / `804794df` | **The successful bounded evidence** |
 
 Source for row 3: Brent-supplied Chrome Network screenshot. Response body,
-headers, token, and cookies were not inspected. No retry or further diagnostic
-request was authorized or made. The 401 in row 1 was not transformed into a
+headers, token, and cookies were not inspected. After that successful canonical
+200, no retry or further diagnostic request was authorized or made — wording
+that denies none of rows 0–2. The 401 in row 1 was not transformed into a
 success and did not retroactively become one; it is superseded as evidence by
 the separate canonical result in row 3.
 
@@ -67,6 +74,9 @@ returned 200. This is deliberately not reduced to "one service-role read".
 
 Session-verified (read-only git/gh/deployment metadata): every SHA, run id,
 deployment id, timestamp and status in §2.1–§2.2, plus rows 1–2 of §2.3.
+Codex/session-verified production evidence: the one bounded read-only
+aggregate query in row 0 of §2.3 (four aggregate/boolean values only),
+recorded separately from Brent's login, screenshot, and HTTP 200.
 Brent-supplied: the acceptance decision in §2.1, the canonical 200 in row 3
 of §2.3 and its account, and the earlier Vercel variable facts (UI type
 Secret, value = `fne_lms_vercel_prod_20260831`) recorded at staging.
@@ -203,3 +213,64 @@ expected from three Markdown files, but it is a deployment nonetheless, built
 with the already-active replacement key. **The merge decision, and its timing
 relative to other pending merges, is Brent's alone.** Nothing in this branch
 authorizes it, and nothing in it authorizes any key deactivation.
+
+## 11. Independent review — round 1 (one MAJOR finding, corrected)
+
+Reviewed head: `d00f4651353422ef402096fcf4df6fdd5132751c`. Per instruction the
+correction is an **additive** commit whose parent is `d00f4651` — nothing was
+amended or rewritten, the branch is exactly two commits over the base, and §7
+above remains the gate evidence of `d00f4651` as reviewed. No SHA, run id,
+deployment id, status, timestamp, or aggregate result changed; the bounded
+meaning of the canonical 200, the cancelled-run and superseding-deployment
+history, the ACTIVE-by-configuration boundary, the incomplete-rotation and
+legacy-keys-enabled statements, both deactivation tracks, every authorization
+state, and every historical entry/blockquote/row body are unchanged.
+
+### R1-1 (MAJOR, audit omission) — an authorized production query was left out of the chronology
+
+The closeout omitted a production database read that preceded the browser
+verification. After Brent explicitly directed Codex to use the available
+database access to verify the known QA administrator, Codex ran exactly one
+bounded read-only production SELECT through the already-linked
+`supabase db query --linked` / Management API database-query path, checking
+the already-documented synthetic account `admin.qa@fne.cl` across
+`auth.users`, `public.profiles`, and `public.user_roles`. It returned exactly
+one aggregate/boolean row — qa_admin_auth_users = 1, qa_admin_auth_usable =
+true, qa_admin_profile_approved = true, qa_admin_active_admin_role = true. No
+database mutation occurred; no user ID, password, password hash, token,
+credential, profile row, role row, or other user data was returned; the exact
+query timestamp was not captured and is not inferred. It proved only that the
+established synthetic QA account existed, was usable, had an approved profile,
+and held an active literal admin role; it did not verify the replacement
+Vercel service key or the `/api/auth/my-roles` application path, because the
+CLI/Management API used separate authentication. Omitting it let the records
+claim "no database access" / "no database queried" without qualification.
+
+**Correction:** the query is now row 0 of §2.3 and step (0) of the chronology
+in `PROJECT_STATE.md` and the runbook blockquote, attributed as
+Codex/session-verified production evidence, separately from Brent's login,
+screenshot, and HTTP 200 (which remain Brent-performed, Brent-supplied
+evidence); the current runbook row 0.17 cites it in one clause. Every new
+closeout statement of "no database access/queried" now says, truthfully, that
+the documentation-authoring and correction sessions made no database call and
+points to the disclosed query rather than denying it (the historical
+2026-08-31 CRED-01 entry's "no database access" is a historical body and is
+untouched). Every "no retry or further diagnostic request was made" is
+time-qualified to apply only after the successful canonical 200, so it hides
+neither the aggregate query, the 401 attempt, nor the landing-page load.
+Status-only, synthetic-account, no-body-capture, and stop-on-failure
+boundaries are preserved.
+
+### Round-1 gate evidence
+
+| Gate | Command | Result |
+| ---- | ------- | ------ |
+| Secret guard | `npm run guard:secrets` | PASS — 2,464 tracked paths, index-only scan, 0 findings (re-run last on the committed tree) |
+| Types | `npm run type-check` | PASS — exit 0 |
+| Lint | `npm run lint -- --max-warnings=0` | PASS — exit 0, zero warnings |
+| Unit/integration | `npm test` | PASS — 374 files, 8,566 passed, 11 skipped, 0 failures (216.1s) |
+| Build | `npm run build` | PASS — exit 0, 149/149 static pages (command-scoped synthetic localhost `NEXT_PUBLIC_SUPABASE_*` values) |
+| Whitespace | `git diff --check` | clean |
+
+`test:db` and E2E not run — still Markdown-only. Same sequencing disclosure
+as §7: the content-dependent gates are re-run last on the exact committed tree.

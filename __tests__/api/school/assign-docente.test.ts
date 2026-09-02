@@ -66,10 +66,13 @@ import handler from '../../../pages/api/school/transversal-context/assign-docent
 
 // ── Synthetic identities (UUID-shaped, .test domain) ───────────
 const USER_ID = '11111111-1111-4111-8111-111111111111';
-const DOCENTE_ID = '22222222-2222-4222-8222-222222222222';
+const DOCENTE_ID = '2a2b2c2d-2e2f-4a2b-8c2d-2e2f2a2b2c2d';
 /** Sentinel: the course's CURRENT active docente. Must never appear in a response. */
 const CURRENT_DOCENTE_ID = '33333333-3333-4333-8333-333333333333';
 const THIRD_DOCENTE_ID = '55555555-5555-4555-8555-555555555555';
+const FOURTH_DOCENTE_ID = '66666666-6666-4666-8666-666666666666';
+/** The requested docente spelled with upper-case hex digits — the same PostgreSQL uuid VALUE as DOCENTE_ID. */
+const DOCENTE_ID_UPPER = DOCENTE_ID.toUpperCase();
 const COURSE_STRUCTURE_ID = '44444444-4444-4444-8444-444444444444';
 const SCHOOL_ID = 42;
 const OTHER_SCHOOL_ID = 99;
@@ -92,6 +95,26 @@ interface TableSpec {
   readError?: ErrorSpec;
   /** Error returned by insert/update/delete chains. */
   writeError?: ErrorSpec;
+  /** Replaces the evaluated outcome of a READ chain (e.g. a null or non-array payload). Return undefined to keep the evaluation. */
+  readOverride?: (calls: Call[]) => Outcome | undefined;
+  /** Runs after each READ is evaluated and may mutate the live fixture rows, so the NEXT read observes a different state. */
+  afterRead?: (calls: Call[], rows: Row[]) => void;
+}
+
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * PostgreSQL compares `uuid` columns by value, so a UUID written with upper-case hex
+ * digits equals the canonical lower-case row. The mock mirrors that for UUID-shaped
+ * strings only; everything else is strict equality. This keeps the fixture faithful
+ * to the database — production validation (the UUID-shape check and the guard's own
+ * comparison) is exercised unchanged.
+ */
+function pgEquals(a: unknown, b: unknown): boolean {
+  if (typeof a === 'string' && typeof b === 'string' && UUID_SHAPE.test(a) && UUID_SHAPE.test(b)) {
+    return a.toLowerCase() === b.toLowerCase();
+  }
+  return a === b;
 }
 
 const resolveError = (spec: ErrorSpec, calls: Call[]) =>
@@ -103,11 +126,13 @@ function evaluate(calls: Call[], spec: TableSpec): Outcome {
   }
   const readError = resolveError(spec.readError, calls);
   if (readError) return { data: null, error: readError, count: null };
+  const override = spec.readOverride?.(calls);
+  if (override) return override;
 
   let rows = [...(spec.rows ?? [])];
   for (const c of calls) {
-    if (c.method === 'eq') rows = rows.filter(r => r[c.args[0] as string] === c.args[1]);
-    if (c.method === 'in') rows = rows.filter(r => (c.args[1] as unknown[]).includes(r[c.args[0] as string]));
+    if (c.method === 'eq') rows = rows.filter(r => pgEquals(r[c.args[0] as string], c.args[1]));
+    if (c.method === 'in') rows = rows.filter(r => (c.args[1] as unknown[]).some(v => pgEquals(r[c.args[0] as string], v)));
   }
   const limit = calls.find(c => c.method === 'limit');
   if (limit) rows = rows.slice(0, limit.args[0] as number);
@@ -130,13 +155,17 @@ function evaluate(calls: Call[], spec: TableSpec): Outcome {
  */
 function recordingTable(spec: TableSpec = {}) {
   const chains: Call[][] = [];
+  /** The outcome each chain resolved to, by chain index — proof of what the handler actually received. */
+  const outcomes: Outcome[] = [];
   const open = () => {
     const calls: Call[] = [];
-    chains.push(calls);
+    const index = chains.push(calls) - 1;
     const proxyHandler: ProxyHandler<Record<string, unknown>> = {
       get(_target, prop) {
         if (prop === 'then') {
           const outcome = evaluate(calls, spec);
+          outcomes[index] = outcome;
+          if (!isWrite(calls)) spec.afterRead?.(calls, spec.rows ?? []);
           return (resolve: (value: unknown) => void) => resolve(outcome);
         }
         return (...args: unknown[]) => {
@@ -147,7 +176,7 @@ function recordingTable(spec: TableSpec = {}) {
     };
     return new Proxy({}, proxyHandler) as any;
   };
-  return { open, chains };
+  return { open, chains, outcomes };
 }
 type RecordingTable = ReturnType<typeof recordingTable>;
 
@@ -214,11 +243,12 @@ function buildUserClient(opts: UserClientOptions = {}) {
 interface ServiceClientOptions {
   roles?: Row[];
   rolesError?: unknown;
+  rolesOverride?: TableSpec['readOverride'];
 }
 
 /** Service-role client: user_roles for eligibility; profiles carries sentinel data that must never be read. */
 function buildServiceClient(opts: ServiceClientOptions = {}) {
-  const userRoles = recordingTable({ rows: opts.roles ?? [ELIGIBLE_TARGET_ROLE], readError: opts.rolesError });
+  const userRoles = recordingTable({ rows: opts.roles ?? [ELIGIBLE_TARGET_ROLE], readError: opts.rolesError, readOverride: opts.rolesOverride });
   const profiles = recordingTable({
     rows: [{ id: CURRENT_DOCENTE_ID, name: SENTINEL_NAME, email: SENTINEL_EMAIL, role_type: SENTINEL_ROLE }],
   });
@@ -702,6 +732,220 @@ describe('POST/DELETE /api/school/transversal-context/assign-docente', () => {
       expect(mockPreflightAutoAssignment).not.toHaveBeenCalled();
       expect(mockTriggerAutoAssignment).not.toHaveBeenCalled();
       expect(writeChains(user.assignments)).toHaveLength(0);
+    });
+  });
+
+  // ── Adversarial edges (final assurance pass) ──────────────────
+  describe('adversarial edges (final assurance pass)', () => {
+    it('classifies an upper-case spelling of the active docente as the SAME docente (PostgreSQL uuid equality) and reconciles without touching the row', async () => {
+      // Same uuid value, different spelling: the canonical row is lower-case, the request is upper-case.
+      expect(DOCENTE_ID_UPPER).not.toBe(DOCENTE_ID);
+      expect(DOCENTE_ID_UPPER.toLowerCase()).toBe(DOCENTE_ID);
+      readyToProceed();
+      mockTriggerAutoAssignment.mockResolvedValue(serviceResult({ attached: 1 }));
+      const user = buildUserClient({ assignments: [assignmentRow('a-same', DOCENTE_ID, true)] });
+      mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+      const { req, res } = postReq(DOCENTE_ID_UPPER);
+      await handler(req, res);
+
+      // Not "another docente": no 409, the retry proceeds as a same-docente repair
+      expect(res._getStatusCode()).toBe(200);
+      const data = JSON.parse(res._getData());
+      expect(data.success).toBe(true);
+      expect(data.assignment).toEqual({ created: false, reactivated: false, alreadyActive: true, mutated: false });
+      expect(data.assessments).toMatchObject({ attached: 1 });
+      // Eligibility ran with the request value as given …
+      expect(svc.userRoles.chains).toHaveLength(1);
+      expect(flat(svc.userRoles.chains[0])).toEqual([
+        ['select', 'user_id'],
+        ['eq', 'user_id', DOCENTE_ID_UPPER],
+        ['eq', 'school_id', SCHOOL_ID],
+        ['eq', 'is_active', true],
+        ['in', 'role_type', TEACHING_ELIGIBLE_ROLES],
+        ['limit', 1],
+      ]);
+      // … and matched the canonical lower-case role row exactly as PostgreSQL uuid equality would (pgEquals)
+      expect(svc.userRoles.outcomes[0].data).toEqual([expect.objectContaining({ user_id: DOCENTE_ID })]);
+      // A-02 preflight and reconciliation still ran
+      expect(mockPreflightAutoAssignment).toHaveBeenCalledWith(COURSE_STRUCTURE_ID, SCHOOL_ID);
+      expect(mockTriggerAutoAssignment).toHaveBeenCalledWith(null, DOCENTE_ID_UPPER, COURSE_STRUCTURE_ID, SCHOOL_ID, USER_ID);
+      // The active row was neither looked up again nor inserted, updated or deleted
+      expect(pairChains(user.assignments)).toHaveLength(0);
+      expect(writeChains(user.assignments)).toHaveLength(0);
+      expect(user.assignments.chains.filter(ch => ch.some(c => c.method === 'delete'))).toHaveLength(0);
+      // No identity in the response, in either spelling
+      expectNoIdentityLeak(res);
+      expect(res._getData()).not.toContain(DOCENTE_ID);
+      expect(res._getData()).not.toContain(DOCENTE_ID_UPPER);
+    });
+
+    it('an upper-case spelling of a DIFFERENT docente is still refused by the guard (control for the case above)', async () => {
+      readyToProceed();
+      const user = buildUserClient({ assignments: [assignmentRow('a-cur', CURRENT_DOCENTE_ID, true)] });
+      mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+      const { req, res } = postReq(DOCENTE_ID_UPPER);
+      await handler(req, res);
+
+      expectRefusal(res, 409, 'course_already_assigned');
+      expectNothingAfterGuard(user, svc);
+      expectNoIdentityLeak(res);
+    });
+
+    it('fails closed on THREE active docentes with 409 assignment_invariant_violation while reading only limit(2), choosing and disclosing nothing', async () => {
+      readyToProceed();
+      const user = buildUserClient({
+        assignments: [
+          assignmentRow('a-cur', CURRENT_DOCENTE_ID, true),
+          assignmentRow('a-third', THIRD_DOCENTE_ID, true),
+          assignmentRow('a-fourth', FOURTH_DOCENTE_ID, true),
+        ],
+      });
+      mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+      const { req, res } = postReq();
+      await handler(req, res);
+
+      expectRefusal(res, 409, 'assignment_invariant_violation');
+      const guards = guardChains(user.assignments);
+      expect(guards).toHaveLength(1);
+      expect(flat(guards[0])).toEqual([
+        ['select', 'id, docente_id'],
+        ['eq', 'course_structure_id', COURSE_STRUCTURE_ID],
+        ['eq', 'is_active', true],
+        ['limit', 2],
+      ]);
+      // The read handed the handler two of the three rows (the limit applied): enough to refuse, never a full or chosen set
+      expect(user.assignments.outcomes[0].data).toHaveLength(2);
+      expectNothingAfterGuard(user, svc);
+      expect(user.assignments.chains.filter(ch => ch.some(c => c.method === 'update' || c.method === 'delete'))).toHaveLength(0);
+      expectNoIdentityLeak(res);
+      for (const id of [THIRD_DOCENTE_ID, FOURTH_DOCENTE_ID]) expect(res._getData()).not.toContain(id);
+    });
+
+    it.each([
+      ['null', null],
+      ['a single object instead of a row set', { id: 'a-cur', docente_id: CURRENT_DOCENTE_ID }],
+      ['a string', 'not-a-row-set'],
+    ])('fails closed with 500 assignment_state_unavailable when the active-guard read resolves to %s', async (_label, payload) => {
+      readyToProceed();
+      const user = buildUserClient({
+        assignments: [assignmentRow('a-cur', CURRENT_DOCENTE_ID, true)],
+        assignmentsSpec: {
+          readOverride: (calls: Call[]) => (isGuard(calls) ? { data: payload, error: null, count: null } : undefined),
+        },
+      });
+      mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+      const { req, res } = postReq();
+      await handler(req, res);
+
+      const data = expectRefusal(res, 500, 'assignment_state_unavailable');
+      expect(data.error).toContain('No se pudo verificar el estado de asignación');
+      // The override really reached the handler
+      expect(user.assignments.outcomes[0]).toEqual({ data: payload, error: null, count: null });
+      expectNothingAfterGuard(user, svc);
+      expectNoIdentityLeak(res);
+      expect(res._getData()).not.toContain('not-a-row-set');
+    });
+
+    it.each([
+      ['null', null],
+      ['a single object instead of a row set', { user_id: DOCENTE_ID }],
+    ])('fails closed with 500 docente_eligibility_unavailable when the role read resolves to %s', async (_label, payload) => {
+      readyToProceed();
+      svc = buildServiceClient({ rolesOverride: () => ({ data: payload, error: null, count: null }) });
+      mockCreateServiceRoleClient.mockReturnValue(svc.client);
+      const user = buildUserClient();
+      mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+      const { req, res } = postReq();
+      await handler(req, res);
+
+      const data = expectRefusal(res, 500, 'docente_eligibility_unavailable');
+      expect(data.error).toContain('No se pudo verificar la habilitación');
+      expect(svc.userRoles.outcomes[0]).toEqual({ data: payload, error: null, count: null });
+      expect(mockPreflightAutoAssignment).not.toHaveBeenCalled();
+      expect(pairChains(user.assignments)).toHaveLength(0);
+      expect(writeChains(user.assignments)).toHaveLength(0);
+      expect(mockTriggerAutoAssignment).not.toHaveBeenCalled();
+      expect(res._getData()).not.toContain(DOCENTE_ID);
+      expectNoIdentityLeak(res);
+    });
+
+    it('retains a same-pair row that becomes active between the guard and the pair lookup: no write, reconciliation continues, alreadyActive=true', async () => {
+      readyToProceed();
+      mockTriggerAutoAssignment.mockResolvedValue(serviceResult({ alreadyExisting: 1 }));
+      const user = buildUserClient({
+        assignments: [assignmentRow('a-same', DOCENTE_ID, false)],
+        assignmentsSpec: {
+          // The state genuinely changes between the two reads: the guard sees the row inactive
+          // (zero active rows); a concurrent same-docente retry activates it before the pair lookup.
+          afterRead: (calls: Call[], rows: Row[]) => {
+            if (isGuard(calls)) rows.forEach(r => { if (r.id === 'a-same') r.is_active = true; });
+          },
+        },
+      });
+      mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+      const { req, res } = postReq();
+      await handler(req, res);
+
+      expect(res._getStatusCode()).toBe(200);
+      const data = JSON.parse(res._getData());
+      expect(data.success).toBe(true);
+      expect(data.assignment).toEqual({ created: false, reactivated: false, alreadyActive: true, mutated: false });
+      expect(data.message).toContain('ya estaba asignado');
+      // The two reads observed different states
+      const guardIdx = user.assignments.chains.findIndex(isGuard);
+      const pairIdx = user.assignments.chains.findIndex(isPairLookup);
+      expect(guardIdx).toBeGreaterThanOrEqual(0);
+      expect(pairIdx).toBeGreaterThan(guardIdx);
+      expect(user.assignments.outcomes[guardIdx].data).toEqual([]);
+      expect(user.assignments.outcomes[pairIdx].data).toMatchObject({ id: 'a-same', is_active: true });
+      // Retained: no insert, update or delete; reconciliation ran
+      expect(writeChains(user.assignments)).toHaveLength(0);
+      expect(user.assignments.chains.filter(ch => ch.some(c => c.method === 'delete'))).toHaveLength(0);
+      expect(mockTriggerAutoAssignment).toHaveBeenCalledWith(null, DOCENTE_ID, COURSE_STRUCTURE_ID, SCHOOL_ID, USER_ID);
+    });
+
+    it('control: the same fixture WITHOUT the between-reads activation reactivates the row (the transition test is not static)', async () => {
+      readyToProceed();
+      const user = buildUserClient({ assignments: [assignmentRow('a-same', DOCENTE_ID, false)] });
+      mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+      const { req, res } = postReq();
+      await handler(req, res);
+
+      expect(res._getStatusCode()).toBe(200);
+      expect(JSON.parse(res._getData()).assignment).toEqual({ created: false, reactivated: true, alreadyActive: false, mutated: true });
+      const pairIdx = user.assignments.chains.findIndex(isPairLookup);
+      expect(user.assignments.outcomes[pairIdx].data).toMatchObject({ id: 'a-same', is_active: false });
+      expect(writeChains(user.assignments).map(ch => flat(ch))).toEqual([[['update', { is_active: true }], ['eq', 'id', 'a-same']]]);
+    });
+
+    it.each([
+      ['an object', { id: DOCENTE_ID }],
+      ['a number', 42],
+      ['an array', [DOCENTE_ID]],
+      ['a boolean', true],
+    ])('a non-string malformed target (%s) behind an active different docente is refused by the guard first — no UUID validation, no role read, nothing echoed', async (_label, malformed) => {
+      readyToProceed();
+      const user = buildUserClient({ assignments: [assignmentRow('a-cur', CURRENT_DOCENTE_ID, true)] });
+      mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+      const { req, res } = postReq(malformed);
+      await handler(req, res);
+
+      expectRefusal(res, 409, 'course_already_assigned');
+      expect(svc.client.from).not.toHaveBeenCalledWith('user_roles');
+      expect(svc.userRoles.chains).toHaveLength(0);
+      expectNothingAfterGuard(user, svc);
+      expectNoIdentityLeak(res);
+      expect(res._getData()).not.toContain('[object Object]');
+      expect(res._getData()).not.toContain(JSON.stringify(malformed));
+      expect(res._getData()).not.toContain(DOCENTE_ID);
     });
   });
 

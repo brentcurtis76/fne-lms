@@ -3,7 +3,7 @@
 **Work ID:** C-01 (Procesos de Cambio remediation — course ownership containment)
 **Branch:** `fix/course-owner` (isolated worktree `/Users/brentcurtis/dev/wt/course-owner`, non-iCloud)
 **Base SHA:** `804794df02b4165f58d89fe77649e1d71423d7dc` (`origin/main`, verified equal to the PM-approved SHA by a fresh `git ls-remote` before the worktree was created)
-**Code head SHA:** `5f0e9b1b4e39e88565a28f873bca5f1c6bf01a76` · **Final head SHA (this file on top):** the commit that adds this file (its own SHA cannot be embedded in itself; it is recorded in the completion report) · **Commits:** 3 (implementation + tests; this review request; then the evidence/documentation correction that added the base-versus-branch full E2E comparison and corrected the access statement — documentation only)
+**Code head SHA:** `5f0e9b1b4e39e88565a28f873bca5f1c6bf01a76` (production code unchanged since) · **Current branch head:** recorded in the completion report, because this document cannot embed the SHA of its own latest modifying commit · **Commits:** 4 — implementation + tests `5f0e9b1b`; this review request `0557a7c1`; the evidence/documentation correction `a747de74`; then the final assurance pass (adversarial tests and this document only; no production code)
 **Not pushed, no PR, not merged, not deployed.** No production database, Supabase Management API, Vercel, provider, or secret-state access occurred, and **no GitHub mutation** occurred (no push, no remote branch, no PR, no comment, no merge, no settings change). **Read-only GitHub access did occur** — remote ref and open-PR reads — and is itemised under *Access confirmation*. The only Supabase stack touched is the ephemeral local Docker stack (`supabase/config.toml` project id, `127.0.0.1`), reset from migrations and seeded with synthetic fixtures.
 
 ## Objective and plain-English outcome
@@ -34,8 +34,8 @@ After this unit:
 - `pages/school/transversal-context/index.tsx` — per-course classification by active-assignment count; "Asignar" only at zero; locked note (`course-assignment-locked-<courseId>`); integrity warning (`course-assignment-integrity-warning-<courseId>`); the page-level "Desasignar" control and its now-unreachable handler removed; a 409 refreshes the course list even when `assignment.mutated` is false. New non-interactive test ids: `course-card-<courseId>`, `course-active-assignment-<assignmentId>`.
 
 **Tests (both import/render the real production code):**
-- `__tests__/api/school/assign-docente.test.ts` — rewritten around a recording, predicate-evaluating Supabase table mock (46 tests).
-- `__tests__/pages/school/transversal-context-assign.test.tsx` — extended (12 tests).
+- `__tests__/api/school/assign-docente.test.ts` — rewritten around a recording, predicate-evaluating Supabase table mock (46 tests in the implementation pass; **60** after the final assurance pass added 14 adversarial edge tests and gave the mock PostgreSQL-faithful uuid equality, read overrides, a between-reads state hook, and recorded outcomes).
+- `__tests__/pages/school/transversal-context-assign.test.tsx` — extended (12 tests in the implementation pass; **21** after the final assurance pass added 9 explicit viewer-role tests).
 
 **Docs:** this file.
 
@@ -93,7 +93,7 @@ The locked note and the integrity warning render for every viewer (directivo and
 
 All commands ran unmodified in the isolated worktree (`~/dev/wt/course-owner`, `npm ci` from the lockfile, 1375 packages). No `.env.local`, credential, build output, `node_modules`, or test result was copied from the primary checkout; the worktree's `.env.local` was generated from `supabase status -o json` of the local stack exactly as the CI recipe does (local keys only, never printed).
 
-**Focused (first):** `npx vitest run __tests__/api/school/assign-docente.test.ts __tests__/pages/school/transversal-context-assign.test.tsx` → **2 files, 58 tests passed** (46 API + 12 page).
+**Focused (first):** `npx vitest run __tests__/api/school/assign-docente.test.ts __tests__/pages/school/transversal-context-assign.test.tsx` → implementation pass **2 files, 58 tests passed** (46 API + 12 page); final assurance pass **2 files, 81 tests passed** (60 API + 21 page).
 
 | Gate | Result |
 |---|---|
@@ -118,6 +118,12 @@ All commands ran unmodified in the isolated worktree (`~/dev/wt/course-owner`, `
 
 | Requirement | Test(s) |
 |---|---|
+| **(final pass)** upper-case spelling of the active docente is the SAME docente: no 409, eligibility runs with the value as given and matches the canonical lower-case row under PostgreSQL uuid equality (`pgEquals` in the mock), A-02 preflight + reconciliation run, no same-pair lookup / insert / update / delete, no identity in either spelling | "classifies an upper-case spelling of the active docente as the SAME docente …" + control "an upper-case spelling of a DIFFERENT docente is still refused by the guard" |
+| **(final pass)** three active docentes → 409 `assignment_invariant_violation`; the guard still reads `limit(2)` and the handler received exactly two rows; no row chosen, cleaned up or disclosed; nothing follows | "fails closed on THREE active docentes …" |
+| **(final pass)** active-guard read resolves to null / a single object / a string → 500 `assignment_state_unavailable`, generic body, nothing follows (the override is proven to have reached the handler via the recorded outcome) | `it.each` "fails closed with 500 assignment_state_unavailable when the active-guard read resolves to %s" (3 shapes) |
+| **(final pass)** role read resolves to null / a single object → 500 `docente_eligibility_unavailable`, generic body, no preflight / write / trigger | `it.each` "fails closed with 500 docente_eligibility_unavailable when the role read resolves to %s" (2 shapes) |
+| **(final pass)** same-pair row becomes active between the guard and the pair lookup → retained with no insert / update / delete, reconciliation continues, `alreadyActive=true`, `mutated=false`; the mock's `afterRead` hook flips the live fixture after the guard, and the recorded outcomes prove the guard saw `[]` while the lookup saw the active row | "retains a same-pair row that becomes active between the guard and the pair lookup …" + control "the same fixture WITHOUT the between-reads activation reactivates the row" |
+| **(final pass)** non-string malformed target (object / number / array / boolean) behind an active different docente → 409 `course_already_assigned` first; no UUID validation reached, no `user_roles` read, neither identity nor the malformed value echoed | `it.each` "a non-string malformed target (%s) behind an active different docente …" (4 shapes) |
 | different active docente → 409 `course_already_assigned`, nothing after | "refuses a different active docente with 409 course_already_assigned …" |
 | multiple active → 409 `assignment_invariant_violation`, no choice/cleanup | "fails closed on more than one active docente …", "fails closed even when the REQUESTED docente is one of several active rows" |
 | no target read / preflight / write / trigger after either conflict | `expectNothingAfterGuard` in every guard test |
@@ -143,6 +149,8 @@ All commands ran unmodified in the isolated worktree (`~/dev/wt/course-owner`, `
 
 | Requirement | Test |
 |---|---|
+| **(final pass)** explicit viewer-role coverage — directivo: zero active offers "Asignar" (the only button in the card); one active: locked note, assignment displayed, no assignment / unassignment / replacement control; multiple active: integrity alert, every row displayed identically and in order, no resolution control | `describe.each` "viewer role: directivo (C-01)" (3 tests) |
+| **(final pass)** read-only admin and read-only consultor (reached through the admin/consultor branch with `school_id` in the query): zero active offers no assign control; one active: locked note visible, no controls; multiple active: integrity warning visible, all rows displayed, no controls; neither role is given an assignment or replacement action | `describe.each` "viewer role: read-only admin (C-01)" and "viewer role: read-only consultor (C-01)" (3 tests each) |
 | zero active → "Asignar" present | "offers "Asignar" only for a course with zero active assignments" |
 | one active → "Asignar" absent, "Desasignar" absent, locked note | "exactly one active assignment: …" |
 | multiple → integrity warning, all controls absent | "more than one active assignment: …" (also asserts zero buttons inside the course card) |
@@ -230,10 +238,45 @@ Fixtures are synthetic: UUID-shaped ids, `.test` e-mails, invented names.
 
 **What this does and does not establish.** It establishes that C-01 introduced no E2E regression and no E2E fix. It does **not** make `npm run e2e` green: the command exits 1 on the base and on the branch alike, so the gate as literally listed in the dispatch is **red on both**, and the green CI-equivalent evidence is the 13-spec mandatory run (192/192 on both units). Fixing those legacy suites is outside C-01 and was not attempted. **Only Brent may authorize an exception to the `npm run e2e` gate**; the executor does not claim one and this document does not grant one.
 
+## Final assurance pass (2026-09-02) — adversarial tests, gates, human gate decision
+
+**Scope of this pass.** Test and documentation work only, authorized by Brent's pasted dispatch after the independent reviewer approved C-01 at `a747de74` with notes. Files changed: the two focused test files and this document. **Production code is byte-identical to `5f0e9b1b`** (verified with `git diff --stat 5f0e9b1b HEAD -- pages lib utils components types supabase scripts package.json package-lock.json .github playwright.config.ts tests`: empty). No adversarial test exposed a production-code defect, so no production fix was proposed or made. `0557a7c1` and `a747de74` were not amended.
+
+**Adversarial API cases added (14 tests)** — what each proves is in the API map above: case-insensitive same-docente classification (with a different-docente control); more than two active rows under `limit(2)`; null / non-array active-guard results; null / non-array eligibility results; same-pair activation between the guard and the pair lookup (with a static-fixture control); and non-string malformed targets behind an active different docente. **Adversarial page cases added (9 tests):** directivo, read-only admin and read-only consultor across zero / one / multiple active assignments. Fixtures stay synthetic (UUID-shaped ids, `.test` e-mails, invented names).
+
+**Gates re-run on the final tree (`~/dev/wt/course-owner`):**
+
+| Gate | Result |
+|---|---|
+| focused Vitest (2 files) | **81 passed** (60 API + 21 page), exit 0 |
+| `git diff --check` | exit 0, clean |
+| `npm run guard:actions` | exit 0 — 17 uses across 1 workflow file OK |
+| `npm run guard:migrations` | exit 0 — no RLS disable; 40 migration files, no DROP/TRUNCATE/destructive ALTER |
+| `npm run guard:browser` | exit 0 — 1142 files, 686 modules from 509 page entrypoints, no boundary violation |
+| `npm run guard:secrets` | exit 0 with the three files staged — OK — 2464 tracked path(s), authoritative content scanned from the Git index only, 0 findings; re-run after the commit: reported in the completion report |
+| `npm run type-check` | exit 0 |
+| `npm run lint` | exit 0 (`--max-warnings=0`) |
+| `npm run lint:testid` (advisory) | **exit 1 — 2623 problems (44 errors, 2579 warnings)**, identical to the implementation pass; no file under `pages/` or `components/` changed in this pass (only `__tests__/` and this document), so the touched-page base-versus-branch counts above stand unchanged |
+| `npm test` (full Vitest) | exit 0 — **374 files passed (374); 8621 tests passed, 11 skipped (8632)**, 233.1 s (previous pass 8598; +23 = exactly the 14 API and 9 page tests added here) |
+| `npm run build` | exit 0 — ✓ Compiled successfully, ✓ Generating static pages (149/149); CI's post-build `node scripts/check-price-leak.mjs` OK (262 files, no commercial data) |
+| `npm run test:db` | `supabase db reset` on the local Docker stack (32 s, all 40 migrations reapplied from scratch, exit 0) then `supabase test db`: **Files=24, Tests=1931, Result: PASS**, exit 0 |
+| Mandatory CI-equivalent E2E | `supabase db reset` (above) → the CI-recipe `.env.local` → `npm run build` (above) → `node scripts/ci/seed-e2e.mjs` (synthetic fixtures, local stack only; exit 0) → `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` (13 specs, run under bash): **192 passed (2.1 min), 0 failed, 0 flaky, 0 skipped** (`test-results/e2e-results.json`: expected=192 unexpected=0 flaky=0 skipped=0) → `node scripts/ci/e2e-mandatory.mjs --check`: **OK — 13 mandatory spec(s) ran with no skips**, exit 0. **Green; required; regression evidence only** (no spec exercises the C-01 page or endpoint) |
+| Literal `CI=1 npm run e2e` | **not re-run** — reliance on Brent's exception below, not a green result. Conditions for not re-running, all verified: no production file changed; `supabase/migrations/`, `tests/`, `playwright.config.ts`, `scripts/ci/seed-e2e*.mjs`, `package.json` and `package-lock.json` are byte-identical to the approved C-01 state; this document carries the exact exception. |
+
+**Known limitations — unchanged and still explicit:** (1) the concurrent different-docente POST race remains until D-01; (2) manual DELETE then POST remains unsafe until C-02; (3) no C-01 Playwright journey exists yet — the mandatory E2E is regression evidence only; (4) consultor semantics (H-02) remain deferred.
+
+## Human gate decision
+
+Brent authorized exactly this exception (quoted verbatim from the dispatch):
+
+> I authorize a C-01-specific exception for the pre-existing literal CI=1 npm run e2e failures documented at commit a747de74. This exception recognizes only that C-01 introduced no E2E regression; it does not make the full suite green, waive the mandatory CI Playwright gate, or authorize rebase, push, PR, merge, deployment, production access, or worktree cleanup.
+
+Recorded scope, not broadened: the exception applies **only** to the 60 literal `CI=1 npm run e2e` failures reproduced identically on the exact base and on the branch (see *Base-versus-branch full E2E comparison*). The full command **remains red** (exit 1) on both; nothing in this pass changes that. The **mandatory CI Playwright gate remains required** and was re-run green in this pass. **No integration or external action was authorized**: no rebase or merge from main, no push or remote branch, no PR, no merge, no deployment, no production, database, provider, secret or PII access, no production cleanup, no worktree removal, no C-02 replacement behaviour, no D-01 constraint, no consultor or RLS change.
+
 ## Post-completion finding — live main moved after the lock
 
 The final read-only `git ls-remote` (after both commits) shows `refs/heads/main` at `8218e597e148d8044fe7d330c118243aa3772485`, no longer the approved base `804794df…`. The GitHub compare API (a read-only `gh api` call — see *Access confirmation*; nothing fetched into either checkout) reports main **3 commits ahead** of the base and 0 behind: `d00f4651` and `dc43fa48` from PR [#71](https://github.com/brentcurtis76/fne-lms/pull/71) (`docs/cred-m1-close`, merged 2026-09-02 14:44 UTC) plus the merge commit, touching only `PROJECT_STATE.md`, `docs/planning/reviews/fase-cred-m1-close-review-request.md`, and `docs/runbooks/auth-security.md`. **No C-01 file overlaps.** This branch stays based on the exact approved SHA (as the dispatch required) and was **not rebased or merged** (not authorized); it therefore no longer fast-forwards onto main, which is a decision for Brent/the PM at merge time, not part of this unit.
 
 ## Access confirmation
 
-**Read-only GitHub access occurred** — reads of remote state, never writes: `git ls-remote --heads origin` (preflight, after each commit, and again in the correction pass), one `git fetch --dry-run origin main` (preflight; a dry run updates nothing), `gh pr list --state open` (the overlap check at preflight), and `gh api repos/brentcurtis76/fne-lms/compare/804794df…8218e597` (twice, after main moved). **No GitHub mutation occurred**: no push, no remote branch, no PR, no comment, no merge, no label or settings change; `fix/course-owner` exists only locally. No production database, Supabase Management API, Vercel, provider, or secret-state access occurred. The primary checkout's `.env.local` was never read or copied. The only environments touched were the local Docker Supabase stack and the isolated worktrees under `~/dev/wt/` (the branch worktree and, for the correction pass, a detached base worktree).
+**Read-only GitHub access occurred** — reads of remote state, never writes: `git ls-remote --heads origin` (preflight, after each commit, again in the correction pass, and at the start and end of the final assurance pass), one `git fetch --dry-run origin main` (preflight; a dry run updates nothing), `gh pr list --state open` (the overlap check at preflight and again in the final assurance pass), `gh pr view <n> --json files` for the four open PRs (final assurance pass overlap check), and `gh api repos/brentcurtis76/fne-lms/compare/804794df…8218e597` (twice, after main moved). **No GitHub mutation occurred**: no push, no remote branch, no PR, no comment, no merge, no label or settings change; `fix/course-owner` exists only locally. No production database, Supabase Management API, Vercel, provider, or secret-state access occurred. The primary checkout's `.env.local` was never read or copied. The only environments touched were the local Docker Supabase stack and the isolated worktrees under `~/dev/wt/` (the branch worktree and, for the correction pass, a detached base worktree).

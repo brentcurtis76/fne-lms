@@ -167,7 +167,10 @@ function installFetch(log: FetchCall[], assign: { current: AssignScenario }) {
   return fetchMock;
 }
 
-function installSupabase() {
+type RoleRow = { role_type: string; school_id: number | null };
+const DIRECTIVO_ROLES: RoleRow[] = [{ role_type: 'equipo_directivo', school_id: SCHOOL_ID }];
+
+function installSupabase(roles: RoleRow[] = DIRECTIVO_ROLES) {
   supabaseHolder.current = {
     auth: {
       getSession: vi.fn().mockResolvedValue({
@@ -176,7 +179,7 @@ function installSupabase() {
       signOut: vi.fn(),
     },
     from: vi.fn((table: string) => {
-      if (table === 'user_roles') return buildChainableQuery([{ role_type: 'equipo_directivo', school_id: SCHOOL_ID }]);
+      if (table === 'user_roles') return buildChainableQuery(roles);
       if (table === 'profiles') return buildChainableQuery({ avatar_url: null });
       if (table === 'schools') return buildChainableQuery({ name: 'Escuela Sintética' });
       return buildChainableQuery(null, null);
@@ -303,6 +306,84 @@ describe('Transversal context — docente assignment (PROC-CONTAIN-01 A-02 · PR
       expect(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       const card = screen.getByTestId(`course-card-${COURSE_ID}`);
       expect(within(card).queryByText(/principal|titular|correcto|vigente|elegid/i)).toBeNull();
+    });
+  });
+
+  // ── C-01: explicit viewer-role coverage (final assurance pass) ─
+  type ViewerRole = { roles: RoleRow[]; query: Record<string, string>; offersAssign: boolean };
+  const VIEWER_ROLES: Array<[string, ViewerRole]> = [
+    ['directivo', { roles: DIRECTIVO_ROLES, query: {}, offersAssign: true }],
+    // Read-only viewers reach the page through the admin/consultor branch, which needs the school in the query.
+    ['read-only admin', { roles: [{ role_type: 'admin', school_id: null }], query: { school_id: String(SCHOOL_ID) }, offersAssign: false }],
+    ['read-only consultor', { roles: [{ role_type: 'consultor', school_id: null }], query: { school_id: String(SCHOOL_ID) }, offersAssign: false }],
+  ];
+
+  describe.each(VIEWER_ROLES)('viewer role: %s (C-01)', (_label, viewer) => {
+    beforeEach(() => {
+      installSupabase(viewer.roles);
+      routerMock.query = viewer.query;
+    });
+
+    afterEach(() => {
+      routerMock.query = {};
+    });
+
+    /** No assignment, unassignment, resolution or replacement control anywhere on the course card or page. */
+    function expectNoAssignmentControls() {
+      expect(screen.queryByTestId(`open-assign-docente-${COURSE_ID}`)).toBeNull();
+      expect(screen.queryByText('Asignar')).toBeNull();
+      expect(within(screen.getByTestId(`course-card-${COURSE_ID}`)).queryAllByRole('button')).toHaveLength(0);
+      expectNoReplacementFlow();
+    }
+
+    it('zero active: the assign control is offered to the directivo only', async () => {
+      render(<TransversalContextDashboard />);
+
+      const card = await screen.findByTestId(`course-card-${COURSE_ID}`);
+      if (viewer.offersAssign) {
+        expect(within(card).getByTestId(`open-assign-docente-${COURSE_ID}`)).toHaveTextContent('Asignar');
+        expect(within(card).queryAllByRole('button')).toHaveLength(1);
+      } else {
+        expectNoAssignmentControls();
+      }
+      expect(screen.queryByTestId(`course-assignment-locked-${COURSE_ID}`)).toBeNull();
+      expect(screen.queryByTestId(`course-assignment-integrity-warning-${COURSE_ID}`)).toBeNull();
+      expectNoReplacementFlow();
+    });
+
+    it('one active: locked note visible, assignment displayed, no assignment, unassignment or replacement control', async () => {
+      courses.current = [courseWith(ONE_ACTIVE)];
+      render(<TransversalContextDashboard />);
+
+      const note = await screen.findByTestId(`course-assignment-locked-${COURSE_ID}`);
+      expect(note).toHaveTextContent('ya tiene un docente asignado');
+      expect(note).toHaveTextContent('resolución administrativa controlada');
+      expect(screen.getByTestId('course-active-assignment-a-cur')).toHaveTextContent(CURRENT_DOCENTE_NAME);
+      expect(screen.queryByTestId(`course-assignment-integrity-warning-${COURSE_ID}`)).toBeNull();
+      expectNoAssignmentControls();
+    });
+
+    it('multiple active: integrity alert visible, every row displayed identically, no resolution control', async () => {
+      courses.current = [courseWith(TWO_ACTIVE)];
+      render(<TransversalContextDashboard />);
+
+      const warning = await screen.findByTestId(`course-assignment-integrity-warning-${COURSE_ID}`);
+      expect(warning).toHaveAttribute('role', 'alert');
+      expect(warning).toHaveTextContent('Estado de asignación inválido');
+      expect(warning).toHaveTextContent('resolución administrativa controlada');
+      expect(warning).not.toHaveTextContent(CURRENT_DOCENTE_NAME);
+      expect(warning).not.toHaveTextContent(SECOND_DOCENTE_NAME);
+
+      const first = screen.getByTestId('course-active-assignment-a-cur');
+      const second = screen.getByTestId('course-active-assignment-a-second');
+      expect(first).toHaveTextContent(CURRENT_DOCENTE_NAME);
+      expect(second).toHaveTextContent(SECOND_DOCENTE_NAME);
+      expect(first.className).toBe(second.className);
+      expect(first.children).toHaveLength(second.children.length);
+      expect(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+      expect(screen.queryByTestId(`course-assignment-locked-${COURSE_ID}`)).toBeNull();
+      expectNoAssignmentControls();
     });
   });
 

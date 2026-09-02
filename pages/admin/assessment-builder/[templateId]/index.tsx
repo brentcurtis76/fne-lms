@@ -215,8 +215,11 @@ const TemplateEditor: React.FC = () => {
     onConfirm: () => void;
   } | null>(null);
 
-  // Publish flow: step 1 = confirm publish, step 2 = ask about upgrade
-  const [publishStep, setPublishStep] = useState<null | 'confirm' | 'upgrade'>(null);
+  // Publish flow: a single inline confirmation. The former second step
+  // ("¿Crear evaluaciones para docentes existentes?") sent upgradeExisting:true
+  // to a grade-blind upgrade path and was removed (PROC-CONTAIN-01 A-01); the
+  // publish API now rejects that flag with HTTP 409.
+  const [publishStep, setPublishStep] = useState<null | 'confirm'>(null);
 
   const requestConfirm = (key: string, onConfirm: () => void) => {
     setPendingConfirm({ key, onConfirm });
@@ -851,15 +854,17 @@ const TemplateEditor: React.FC = () => {
     return;
   };
 
-  const executePublish = async (upgradeExisting: boolean) => {
+  const executePublish = async () => {
     if (!template) return;
     setPublishStep(null);
     setIsPublishing(true);
     try {
+      // Never sends upgradeExisting: the publish API rejects it (409) and the
+      // grade-blind upgrade flow no longer exists in this UI.
       const response = await fetch(`/api/admin/assessment-builder/templates/${template.id}/publish`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ upgradeExisting }),
+        body: JSON.stringify({}),
       });
 
       if (!response.ok) {
@@ -870,12 +875,7 @@ const TemplateEditor: React.FC = () => {
       const data = await response.json();
       setTemplate(prev => prev ? { ...prev, status: 'published', version: data.template.version } : null);
 
-      // Show upgrade results if applicable
-      let message = data.message || 'Template publicado correctamente';
-      if (data.upgrade?.instancesCreated > 0) {
-        message += `. Se crearon ${data.upgrade.instancesCreated} nuevas evaluaciones para docentes existentes.`;
-      }
-      toast.success(message);
+      toast.success(data.message || 'Template publicado correctamente');
     } catch (error: any) {
       console.error('Error publishing:', error);
       toast.error(error.message || 'Error al publicar template');
@@ -1504,36 +1504,16 @@ const TemplateEditor: React.FC = () => {
                       <span className="flex items-center gap-2">
                         <span className="text-xs text-gray-600">¿Publicar este template?</span>
                         <button
-                          onClick={() => setPublishStep('upgrade')}
+                          data-testid="publish-confirm-btn"
+                          onClick={() => executePublish()}
                           className="px-3 py-1.5 text-xs bg-brand_accent text-white rounded-lg hover:bg-amber-400"
                         >
                           Sí, publicar
                         </button>
                         <button
+                          data-testid="publish-cancel-btn"
                           onClick={() => setPublishStep(null)}
                           className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-900"
-                        >
-                          Cancelar
-                        </button>
-                      </span>
-                    ) : publishStep === 'upgrade' ? (
-                      <span className="flex items-center gap-2">
-                        <span className="text-xs text-gray-600">¿Crear evaluaciones para docentes existentes?</span>
-                        <button
-                          onClick={() => executePublish(true)}
-                          className="px-3 py-1.5 text-xs bg-brand_accent text-white rounded-lg hover:bg-amber-400"
-                        >
-                          Sí
-                        </button>
-                        <button
-                          onClick={() => executePublish(false)}
-                          className="px-3 py-1.5 text-xs bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                        >
-                          No
-                        </button>
-                        <button
-                          onClick={() => setPublishStep(null)}
-                          className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700"
                         >
                           Cancelar
                         </button>

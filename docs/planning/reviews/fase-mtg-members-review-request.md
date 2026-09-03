@@ -2,34 +2,54 @@
 
 - **Branch:** `fix/mtg-members` (15 characters; created in the main checkout
   `/Users/brentcurtis/Documents/fne-lms-working` — no worktree was created).
-- **Base:** `8218e597e148d8044fe7d330c118243aa3772485` — live `origin/main`,
-  verified by `git ls-remote origin refs/heads/main` at task start on
-  2026-09-02 and re-verified immediately before the branch was created. The
-  starting checkout (`fix/proc-contain` @ `d23791b2`) was already an ancestor of
-  that commit; the `804794df..8218e597` delta was documentation-only.
-- **Commits:** **two.** The first, `95fb6425`, contains only the allowlisted
-  files listed in §4. The second, whose parent is `95fb6425`, is the Stage B
-  remediation (§8) and contains exactly `pages/community/workspace.tsx`,
-  `__tests__/pages/community/workspace.mention-scope.test.tsx` and this file.
-  Neither amended. Nothing else on the branch.
-- **Nothing pushed, no PR opened, no merge, no deployment, no database or
-  provider operation, no production or remote access, no protected ignored
-  file read** (`.env.local`, `.claude/settings.local.json` were never opened).
-- **Status of this stage: PARTIAL.** Every unit-level gate passed (§5.1).
-  Playwright and the manual browser matrix were **NOT RUN for safety** (§5.3):
-  the only local Supabase stack configured for this project is shared and of
-  unproven ownership, and proving an isolated synthetic target without reading
-  protected configuration was not possible within the authorized files.
+  PR: <https://github.com/brentcurtis76/fne-lms/pull/72>.
+- **Current status: READY FOR HUMAN MERGE CONSIDERATION.** Every automated
+  gate passed on the integration head and the authorized manual synthetic
+  scenarios passed in an isolated local environment (§9). The PR has **not**
+  been merged; merging is Brent's decision.
+- **Original implementation base:** `8218e597e148d8044fe7d330c118243aa3772485`
+  — live `origin/main`, verified by `git ls-remote origin refs/heads/main` at
+  task start on 2026-09-02 and re-verified immediately before the branch was
+  created. The starting checkout (`fix/proc-contain` @ `d23791b2`) was already
+  an ancestor of that commit; the `804794df..8218e597` delta was
+  documentation-only.
+- **Integrated `main`:** `6de7c929ff6b106b7930f1f9524ec706eed0f399` — the
+  live `origin/main` on 2026-09-03 (15 commits, 19 files after `8218e597`,
+  none overlapping the PR's 11 files), brought in by the merge commit
+  `b667bf41`. The PR's diff against that `main` is byte-identical to the
+  original `8218e597..b899c48b` patch.
+- **Commits (four):**
+  1. `95fb6425` — feature: meeting member pickers scoped to the workspace
+     community (only the allowlisted files listed in §4).
+  2. `b899c48b` — feature: Stage B remediation (§8), exactly
+     `pages/community/workspace.tsx`,
+     `__tests__/pages/community/workspace.mention-scope.test.tsx` and this file.
+  3. `b667bf41` — integration: `merge: update fix/mtg-members with main`
+     (parents `b899c48b` and `6de7c929`; normal non-fast-forward merge, no
+     conflicts, no manual edits, pushed without force).
+  4. This documentation-only commit — modifies only this file.
+  Neither feature commit was amended. The PR changes exactly 11 files against
+  `main`.
+- **What this branch does not contain:** no database, migration, grant,
+  policy or RLS change; no endpoint behavior change
+  (`pages/api/community/members.ts` is byte-identical to `main`); no
+  deployment, production, provider or Supabase Cloud operation; no protected
+  ignored file read (`.env.local`, `.claude/settings.local.json` were never
+  opened).
+- **Historical note (implementation session, 2026-09-02).** At the end of the
+  implementation session nothing had been pushed, no PR had been opened, and
+  the stage was recorded as PARTIAL because Playwright and the manual browser
+  matrix could not be run safely on this machine (§5.3, now labelled
+  historical). Those gaps were closed afterwards by the PR's CI runs and by an
+  isolated local QA environment — see §9. §5.3 and §7 keep the original
+  wording so the chronology stays auditable.
 - **Stage B remediation (2026-09-02, second commit, parent `95fb6425`):**
   the @mention candidate state of the messaging tab is now scoped to the
   workspace community (§8). The commit, authorized by Brent as a single local
   remediation commit, contains a modification of `pages/community/workspace.tsx`,
   one new regression suite, `__tests__/pages/community/workspace.mention-scope.test.tsx`,
-  and this file; nothing else. Still nothing pushed, no PR, no merge, no
-  deployment, no database or provider access, no environment change, no
-  protected ignored file read. Unit-level gates re-ran after the final Stage B
-  source change (§5.2, Stage B table); Playwright and the manual matrix remain
-  **NOT RUN** for the same reason (§5.3), so the stage is still **PARTIAL**.
+  and this file; nothing else. Unit-level gates re-ran after the final Stage B
+  source change (§5.2, Stage B table).
 
 ## 1. Objective
 
@@ -109,7 +129,7 @@ copied into the repository.
 | 11 | Real first precedence-ordered role; never fabricated `docente` | `components/meetings/MeetingDocumentationModal.tsx:93`–`100` | no UI test by design (the modal does not render `role_type`); reviewer inspects the mapper |
 | 12 | Historical assignee: neutral while loading / on failure, outsider label only after success, record-local, id preserved, reassignable | `components/meetings/MeetingDocumentationModal.tsx:986`, `components/meetings/MeetingDocumentationModal.tsx:993`, `components/meetings/MeetingDocumentationModal.tsx:1012`, used at `components/meetings/MeetingDocumentationModal.tsx:1483` and `components/meetings/MeetingDocumentationModal.tsx:1569` | `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:537`, `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:577`, `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:604` (task selector proves the option is record-local; update payload keeps the id), `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:658` (payload carries the new id) |
 | 13 | Historical attendees read-only after success, never selectable | `components/meetings/MeetingDocumentationModal.tsx:1006`, `components/meetings/MeetingDocumentationModal.tsx:1211` | `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:604` (disabled checked row; only two selectable checkboxes) |
-| 14 | Mentions: no admin fallback; `{ members: [] }` → zero; failures clear; **Stage B:** both lists scoped to the workspace community, request tied to its community, late/old-scope results ignored | state + captured community id `pages/community/workspace.tsx:1744`–`1754`; clear-on-change/abort-on-leave effect `pages/community/workspace.tsx:1799`–`1811`; tagged request, `signal.aborted` guards, fail-closed via `fetchCommunityMembers` `pages/community/workspace.tsx:1881`–`1925`; `handleMentionRequest` `pages/community/workspace.tsx:1928`–`1950`; mapper `pages/community/workspace.tsx:1700` | `__tests__/pages/community/workspace.mention-scope.test.tsx:425` (A populated → B empty: cleared before B answers, `{ members: [] }` leaves both lists empty, no A request after the switch), `:454` (A settling after B is ignored, A's request aborted, no duplicate while loading), `:486` (workspace=null transition clears and cancels before B loads), `:524` (500 / malformed / network failure → empty; only `/api/community/members`; no profiles / user_roles / community_workspaces read), `:552` (unmount aborts, late settlement silent). Fail-on-old: 4 of 5 fail against the committed page (§5.2). Manual matrix row NOT RUN (§5.3) |
+| 14 | Mentions: no admin fallback; `{ members: [] }` → zero; failures clear; **Stage B:** both lists scoped to the workspace community, request tied to its community, late/old-scope results ignored | state + captured community id `pages/community/workspace.tsx:1744`–`1754`; clear-on-change/abort-on-leave effect `pages/community/workspace.tsx:1799`–`1811`; tagged request, `signal.aborted` guards, fail-closed via `fetchCommunityMembers` `pages/community/workspace.tsx:1881`–`1925`; `handleMentionRequest` `pages/community/workspace.tsx:1928`–`1950`; mapper `pages/community/workspace.tsx:1700` | `__tests__/pages/community/workspace.mention-scope.test.tsx:425` (A populated → B empty: cleared before B answers, `{ members: [] }` leaves both lists empty, no A request after the switch), `:454` (A settling after B is ignored, A's request aborted, no duplicate while loading), `:486` (workspace=null transition clears and cancels before B loads), `:524` (500 / malformed / network failure → empty; only `/api/community/members`; no profiles / user_roles / community_workspaces read), `:552` (unmount aborts, late settlement silent). Fail-on-old: 4 of 5 fail against the committed page (§5.2). Manual empty-community mentions scenario passed later in the isolated local QA (§9.2, scenario 4) |
 | 15 | Dead helper and its mock entries removed | `utils/meetingUtils.ts` (36 lines removed, `AssignmentUser` import dropped); three fixtures | `grep getCommunityMembersForAssignment` → 0 hits outside the untracked external plan copy |
 | 16 | Endpoint suite: per-instance `.eq` capture, exact second-query filters | `__tests__/api/community/members.test.ts:58`, `__tests__/api/community/members.test.ts:96` | `__tests__/api/community/members.test.ts:153`, `__tests__/api/community/members.test.ts:173`, `__tests__/api/community/members.test.ts:215` (admin non-member); `__tests__/api/community/members.test.ts:198` also proves the member query is never built on 403 |
 
@@ -168,7 +188,9 @@ copied into the repository.
 
 **Documentation**
 
-- `docs/planning/reviews/fase-mtg-members-review-request.md` — this file.
+- `docs/planning/reviews/fase-mtg-members-review-request.md` — this file
+  (created in `95fb6425`, updated in `b899c48b`, finalized by the
+  documentation-only commit that records §9).
 
 Pre-existing untracked files in the checkout (seven planning/review documents,
 `outputs/`, and `docs/planning/cross-school-growth-communities-plan-2026-09-02.md`,
@@ -280,12 +302,14 @@ first run is disclosed, not counted.
   `MeetingDocumentationModal.tsx` restored, the 18 new tests → **18 failed**;
   with the new modal → 18 passed.
 
-### 5.3 NOT RUN — unsafe to run here
+### 5.3 HISTORICAL — not run during the implementation session (2026-09-02)
+
+**This section is preserved as written at the end of the implementation session. Every gap it records was closed afterwards; the closing evidence is in §9. Do not read the statuses below as current.**
 
 | Item | Status | Reason |
 | ---- | ------ | ------ |
-| `npm run e2e` (Playwright) | **NOT RUN** | Playwright's local `webServer` is `npm run dev:unsafe`, reuses any server on :3000 and inherits the ambient environment; it starts, resets or seeds no isolated stack. The only Supabase stack configured for this repository (`supabase/config.toml` project `sxlogxqzmarhqsblxmtj`, ports 54321/54322) was already running with five of its containers restarted about a minute before this session inspected it — evidence of concurrent use by another session — and a second, unrelated project's stack was running beside it. Its ownership, disposability and synthetic-only contents could not be proved, and proving the app's effective target would have required reading `.env.local`, which is prohibited. Starting an isolated stack would have required changing provider configuration (project id and ports), which is outside the allowlist. Per the stage rules the e2e evidence gap stays open and this stage is **PARTIAL**; only a later, separately authorized PR/CI run (Gate 4 runs on an ephemeral seeded stack) or a separately authorized safe local setup can close it. |
-| Manual matrix (admin non-member sees only A; member sees co-members; empty community; endpoint failure → one toast / empty / no profile request; historical assignee not prematurely labelled; historical external assignee preserved until replaced; admin mentions in an empty community → zero) | **NOT RUN** | Same environment condition. The unit suite covers the modal rows mechanically (§3) but that is not manual evidence and is not presented as such. The mentions row has no automated coverage by design (§6.1). |
+| `npm run e2e` (Playwright) | **NOT RUN** | Playwright's local `webServer` is `npm run dev:unsafe`, reuses any server on :3000 and inherits the ambient environment; it starts, resets or seeds no isolated stack. The only Supabase stack configured for this repository (`supabase/config.toml` project `sxlogxqzmarhqsblxmtj`, ports 54321/54322) was already running with five of its containers restarted about a minute before this session inspected it — evidence of concurrent use by another session — and a second, unrelated project's stack was running beside it. Its ownership, disposability and synthetic-only contents could not be proved, and proving the app's effective target would have required reading `.env.local`, which is prohibited. Starting an isolated stack would have required changing provider configuration (project id and ports), which is outside the allowlist. At the time, the e2e evidence gap stayed open and the stage was PARTIAL. **Closed since:** Gate 4 (Playwright on the ephemeral seeded stack) passed on `b899c48b` and again on the integration head `b667bf41` (§9.1). |
+| Manual matrix (admin non-member sees only A; member sees co-members; empty community; endpoint failure → one toast / empty / no profile request; historical assignee not prematurely labelled; historical external assignee preserved until replaced; admin mentions in an empty community → zero) | **NOT RUN** (at the time) | Same environment condition. The unit suite covers the modal rows mechanically (§3) but that is not manual evidence and is not presented as such. **Closed since, in part:** four of these rows were executed manually in an isolated local synthetic environment and the endpoint-failure row was observed; the two historical-record rows were not executed manually and rest on the unit tests (§9.2, §9.3). |
 | `npm run test:db` (pgTAP) | not required, NOT RUN | No DB/RLS change in scope; would also need the shared stack. |
 | `npm run lint:testid` | advisory, NOT RUN | Not a gate. |
 
@@ -355,9 +379,12 @@ same copy appears in Asistentes, Compromisos and Tareas.
 
 ## 7. Known limitations and deferred follow-ups
 
-1. **UI e2e evidence gap (this stage):** Playwright and the manual matrix were
-   not run (§5.3). Closing it requires a separately authorized PR/CI run or a
-   separately authorized isolated local stack.
+1. **UI e2e evidence gap — CLOSED.** Playwright was not run in the
+   implementation session (§5.3, historical); Gate 4 has since passed on both
+   CI runs, and the authorized manual scenarios passed in an isolated local
+   environment (§9). Remaining evidence limits: the two historical-record
+   scenarios are covered by unit tests, not manual execution (§9.3), and no
+   claim is made about Production or the Vercel Preview (§9.4).
 2. **Write-side validation** — the server still accepts `attendee_ids` /
    `assigned_to` outside the workspace's community; this change only scopes
    the picker.
@@ -428,3 +455,79 @@ suggestions computed from a previous one). No endpoint, database, migration,
 RLS, environment or provider change; nothing outside the two source files and
 this document was modified; every pre-existing untracked path, including
 `outputs/`, is untouched.
+
+## 9. Post-implementation evidence (2026-09-02 → 2026-09-03)
+
+Recorded by the final documentation-only commit. Everything below happened
+after the implementation session; nothing in §§1–8 was rewritten except the
+header, the row-14 note, the §5.3 label and §7 item 1.
+
+### 9.1 Automated evidence — GitHub CI and Vercel
+
+| Run | Head | Result |
+| --- | ---- | ------ |
+| [33667310330](https://github.com/brentcurtis76/fne-lms/actions/runs/33667310330) (PR #72 opened) | `b899c48b` | all seven required checks passed |
+| [33759552167](https://github.com/brentcurtis76/fne-lms/actions/runs/33759552167) (after merging `main` `6de7c929`) | `b667bf41` | all seven required checks passed |
+
+On integration head `b667bf41` each of these passed: Migration safety guard;
+Browser/server boundary guard; Gate 1 — Typecheck; Gate 1b — Lint; Gate 2 —
+Unit (Vitest, full suite); Gate 3 — RLS pgTAP (`supabase test db`); Gate 4 —
+E2E (Playwright on the seeded ephemeral local Supabase). The `Vercel` commit
+status reported a successful build. Gate 4 on `b667bf41` closes the Playwright
+gap recorded in §5.3.
+
+### 9.2 Manual evidence — isolated local synthetic environment
+
+An isolated local environment (its own Supabase stack, synthetic data only, no
+production credentials) ran the exact feature head `b899c48b` in a browser.
+The four authorized scenarios **passed**:
+
+1. An admin who is **not** a member of Community A saw only the synthetic
+   Community A members in the meeting pickers.
+2. A Community A member saw only Community A members.
+3. An empty community showed a genuine empty state — no fallback list.
+4. `@mentions` in the empty community produced zero suggestions.
+
+No cross-community exposure was observed in any scenario: the Community B
+outsider and the unrelated users never appeared.
+
+**Separately observed fail-closed behavior.** Against a real HTTP 500 from
+`/api/community/members`, the UI showed the error state with empty
+candidates, made no fallback request to `profiles`, `user_roles` or
+`community_workspaces`, and exposed no member information. This observation
+is recorded on its own; it is not one of the four scenarios above.
+
+### 9.3 Historical-record scenarios — unit tests only, not manually executed
+
+The two historical-record rows of the manual matrix (historical assignee not
+prematurely labelled; historical external assignee preserved until replaced)
+were **not** executed manually, because opening edit mode creates a
+work-session record. They are covered directly by the committed unit tests
+(`__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx`,
+§3 rows 12–13), which prove: no premature "outside community" label while
+membership is loading; a historical external assignee is represented as a
+disabled record-local option; an unchanged save preserves the historical
+identifier; deliberate replacement with a valid member saves the replacement.
+This document does not claim those two scenarios were tested by hand, and it
+does not claim all seven matrix rows were manually executed.
+
+### 9.4 Environment observations (separate from this PR)
+
+- **Vercel Preview.** The first manual attempt used the Vercel Preview. It was
+  not usable for successful-path QA: the Preview connects to the production
+  Supabase project and its server-side members endpoint returned HTTP 500. The
+  likely Preview configuration problem was not investigated or changed, and
+  no production credential should be added to Preview merely to make QA work.
+  Nothing in this document proves Production behavior or that the Preview
+  environment is safe.
+- **Local materialized view.** While setting up the local QA environment, a
+  fresh database required the existing `user_roles_cache` refresh before
+  member-role navigation worked. This predates PR #72 and is a separate
+  test-environment follow-up, not a regression of this PR.
+
+### 9.5 Acceptance
+
+The combined manual and automated evidence was accepted by the independent PM
+reviewer as sufficient for merge consideration. The PR remains open; no
+merge, deployment, database or provider operation has been performed by the
+executor.

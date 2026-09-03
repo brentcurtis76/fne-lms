@@ -9,7 +9,7 @@
 | Branch | `feat/zoom-int-b1` |
 | Worktree | `/Users/brentcurtis/dev/wt/zoom-int-b1` (created by this session from the required base; the shared checkout `/Users/brentcurtis/dev/fne-lms` was not modified) |
 | Base | Original base `838f1a0c0c158816ae578455a03b13cd8d33f0a6` = live `origin/main` at the attempt-1 re-lock (2026-09-03T18:17:44Z). Integrated base `982f456deeecdeefd14a08339a4b40676454128c` = live `origin/main` at the attempt-2 re-lock (2026-09-03T18:46:04Z), merged in by §12. |
-| Commits | 3 original B1 commits (`0e080ded` implementation + tests; `dc9724d0` this review request; `57d92e9c` documentation-only correction recording that remote `main` had moved), then the integration merge `c00bcbf4` (§12), then the attempt-2 documentation commit (the branch tip). Cumulative range `838f1a0c..HEAD`; B1 content range against the integrated base `982f456d..HEAD` (§11). |
+| Commits | 3 original B1 commits (`0e080ded` implementation + tests; `dc9724d0` this review request; `57d92e9c` documentation-only correction recording that remote `main` had moved), then the integration merge `c00bcbf4` (§12), then two attempt-2 documentation commits `2b1a0b3d6a7fb371afc0f3d04382c2c9c71efbb8` and `cbdb00f55ed75879d46ed718e2e1528866a3d634` (§11), then the attempt-3 evidence-only commit (§13). Cumulative range `838f1a0c..HEAD`; B1 content range against the integrated base `982f456d..HEAD` (§11). |
 | Authoritative plan | `/Users/brentcurtis/Documents/ChatGPT/Zoom Integration/FNE_ZOOM_INTERNAL_TEST_PLAN.md` — Version 2, 362 lines, 23,610 bytes, blob `bb48408616f74386a9042244acfbd5a96d02b837` (verified before mutation) |
 | Upstream | none (never pushed) |
 
@@ -131,7 +131,9 @@ Before the fixture adaptation, the two existing creation suites failed 11 of 16 
 | `dc9724d0f1d7b0ed4d4c2f22b346510bd7e17f54` | `0e080ded` | this review request (first version) |
 | `57d92e9cbe84e19fda28274c5ac57fa7fc122baa` | `dc9724d0` | documentation-only: recorded that a final read-only `ls-remote` had returned `982f456d` for `main`, uninspected at the time. **Attempt-1 reviewed HEAD.** |
 | `c00bcbf48a87cde0cce07dd337c56b9675644997` | `57d92e9c` + `982f456d` | integration merge of `origin/main` (PR #78) into `feat/zoom-int-b1` — §12 |
-| branch tip | `c00bcbf4` | this attempt-2 documentation correction |
+| `2b1a0b3d6a7fb371afc0f3d04382c2c9c71efbb8` | `c00bcbf4` | initial attempt-2 documentation, committed with the §12 gate-table placeholders unfilled |
+| `cbdb00f55ed75879d46ed718e2e1528866a3d634` | `2b1a0b3d` | placeholder-fill correction. **Attempt-2 reviewed HEAD.** |
+| attempt-3 commit | `cbdb00f5` | this evidence-only correction (§13) |
 
 `git diff 982f456d..HEAD` names exactly the ten B1 paths of §1; `git diff 838f1a0c..HEAD` names those ten plus the three PR #78 paths. No commit was amended, rebased, squashed or rewritten.
 
@@ -143,7 +145,7 @@ Before the fixture adaptation, the two existing creation suites failed 11 of 16 
 
 **Integration:** `git fetch origin main` (the one authorized fetch), then `git merge --no-ff 982f456d` → merge commit `c00bcbf48a87cde0cce07dd337c56b9675644997`, parents `57d92e9c` and `982f456d`. No conflict. Verified after the merge: the three PR #78 blobs at `HEAD` equal their blobs at `982f456d` (byte-identical); `git diff 57d92e9c HEAD -- <ten B1 paths>` is empty (no B1 production or test blob changed); `git diff --name-only 982f456d HEAD` is exactly the ten B1 paths.
 
-**Validation on the merge commit `c00bcbf4` (after the last code-affecting change; the documentation commit that follows changes only this file):**
+**Validation on the merge commit `c00bcbf4` (after the last code-affecting change; the documentation commits that follow change only this file):**
 
 | Command | Result |
 |---|---|
@@ -161,3 +163,7 @@ After the attempt-2 documentation commits: worktree clean, `git diff --check` cl
 Not run, unchanged reasons from §4: `test:db`, `e2e`, `guard:migrations`, `guard:actions`.
 
 **External actions:** NONE. No push, PR, merge to `main`, deployment, Production or hosted database access, configuration change, or Bridge task.
+
+## 13. Attempt 3 — evidence-only correction (2026-09-03)
+
+Starting state verified at 18:56:45Z: worktree clean at exactly `cbdb00f55ed75879d46ed718e2e1528866a3d634`; live `origin/main` still `982f456deeecdeefd14a08339a4b40676454128c` (read-only `ls-remote`, no fetch). This round edits only this file: §1 now names both attempt-2 documentation commits, §11 lists them as separate exact rows in place of the earlier "branch tip" row, and §12 uses the plural for the documentation commits that followed the merge. One local commit, parent `cbdb00f5`; its own hash cannot appear inside itself and is reported as the final HEAD in the attempt-3 executor report. No production code, test, earlier commit or other file changed; no fetch, merge, rebase, amend, push, PR, deployment or Production access. Validation after committing: `git diff --check` clean, `guard:secrets` on the committed index, worktree clean, `git diff --name-only 982f456d..HEAD` exactly the ten B1 paths, the nine non-documentation B1 blobs identical to `cbdb00f5`.

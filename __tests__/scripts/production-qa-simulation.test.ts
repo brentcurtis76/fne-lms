@@ -12,6 +12,8 @@ import {
   expectedCounts,
 } from '../../scripts/production-qa-simulation/manifest.mjs';
 import {
+  assertOwnedRowsExact,
+  projectOwnedRow,
   resetManifest,
   seedManifest,
   verifyManifest,
@@ -208,6 +210,73 @@ describe('production QA simulation engine', () => {
       'program_enrollments',
       'generations',
     ]);
+  });
+
+  const jsonDriftCases: Array<[string, (row: any) => void]> = [
+    ['an extra nested JSON property', (row) => {
+      row.context_metadata = { ...row.context_metadata, injectedProperty: 'drift' };
+    }],
+    ['a missing JSON property', (row) => {
+      const { evidenceClass: _removed, ...remaining } = row.context_metadata;
+      row.context_metadata = remaining;
+    }],
+    ['an altered nested JSON value', (row) => {
+      row.context_metadata = { ...row.context_metadata, evidenceClass: 'CERRANTE' };
+    }],
+    ['altered JSON array contents', (row) => {
+      row.grades = [{ area: 'aprendizaje', score: 5 }];
+    }],
+  ];
+
+  it.each(jsonDriftCases)('refuses verify and reset when a manifest-owned JSON column has %s', async (_label, mutate) => {
+    const manifest = buildSimulationManifest();
+    const store = buildFakeStore();
+    await seedManifest({ store, manifest, guardedTarget: guardedTarget() });
+
+    const table = manifest.tables.find((candidate: any) => candidate.name === 'transformation_assessments');
+    mutate(store.data.get(table.name)?.get(table.rows[0].id));
+    const before = clone([...store.data].map(([name, rows]) => [name, [...rows]]));
+
+    await expect(verifyManifest({ store, manifest, guardedTarget: guardedTarget() }))
+      .rejects.toThrow(`manifest-owned row drift detected in ${table.name}`);
+    await expect(resetManifest({ store, manifest, guardedTarget: guardedTarget() }))
+      .rejects.toThrow(`manifest-owned row drift detected in ${table.name}`);
+
+    expect(store.calls.some((call) => call.startsWith('delete:'))).toBe(false);
+    expect([...store.data].map(([name, rows]) => [name, [...rows]])).toEqual(before);
+  });
+
+  it('compares declared JSON exactly while preserving date and numeric normalization', () => {
+    const expected = {
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      start_date: '2026-03-01',
+      created_at: '2026-09-03T12:00:00.000Z',
+      monto_minimo: 0,
+      context_metadata: { manifestVersion: 'sm-sim-v1', syntheticAdultsOnly: true },
+      grades: [],
+    };
+    const fromPostgres = {
+      ...expected,
+      start_date: new Date(2026, 2, 1),
+      created_at: new Date('2026-09-03T12:00:00.000Z'),
+      monto_minimo: '0',
+    };
+
+    // PostgreSQL representations still normalize, so exactness did not become brittle.
+    expect(() => assertOwnedRowsExact('probe', [expected], [fromPostgres])).not.toThrow();
+    expect(assertOwnedRowsExact('probe', [expected], [])).toEqual([expected]);
+
+    // Undeclared keys survive projection at both nesting levels, so they are compared.
+    expect(projectOwnedRow(expected, {
+      ...fromPostgres,
+      undeclared_column: 'drift',
+      context_metadata: { ...expected.context_metadata, injectedProperty: 'drift' },
+    })).toMatchObject({
+      undeclared_column: 'drift',
+      context_metadata: { injectedProperty: 'drift' },
+    });
+    expect(() => assertOwnedRowsExact('probe', [expected], [{ ...fromPostgres, undeclared_column: 'drift' }]))
+      .toThrow('manifest-owned row drift detected in probe');
   });
 
   it('fails closed before inserts when either target school is not classified qa', async () => {

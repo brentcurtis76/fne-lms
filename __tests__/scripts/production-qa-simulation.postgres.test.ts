@@ -111,6 +111,48 @@ describe.runIf(RUN_LOCAL_DATABASE_TEST)('production QA simulation PostgreSQL rou
         { id: 259, has_generations: true },
       ]);
 
+      // Real-column drift probes. Each mutation is contained by its own savepoint so
+      // the enclosing transaction — which is rolled back unconditionally below — never
+      // carries drift into the reset assertions and leaves no residue behind.
+      const assessmentId = manifest.tables[3].rows[0].id;
+      const driftProbes = [
+        {
+          label: 'extra nested JSON property',
+          sql: `UPDATE public.transformation_assessments
+                SET context_metadata = context_metadata || '{"injectedProperty":"drift"}'::jsonb
+                WHERE id = $1::uuid`,
+        },
+        {
+          label: 'altered JSON array contents',
+          sql: `UPDATE public.transformation_assessments
+                SET grades = '[{"area":"aprendizaje","score":5}]'::jsonb
+                WHERE id = $1::uuid`,
+        },
+      ];
+
+      for (const probe of driftProbes) {
+        await transactionClient.query('SAVEPOINT sm_sim_drift_probe');
+        const mutated = await transactionClient.query(probe.sql, [assessmentId]);
+        expect(mutated.rowCount, probe.label).toBe(1);
+
+        await expect(verifyManifest({ store, manifest, guardedTarget: guardedTarget() }), probe.label)
+          .rejects.toThrow('manifest-owned row drift detected in transformation_assessments');
+        await expect(resetManifest({ store, manifest, guardedTarget: guardedTarget() }), probe.label)
+          .rejects.toThrow('manifest-owned row drift detected in transformation_assessments');
+
+        await transactionClient.query('ROLLBACK TO SAVEPOINT sm_sim_drift_probe');
+        await transactionClient.query('RELEASE SAVEPOINT sm_sim_drift_probe');
+      }
+
+      const afterProbes = await transactionClient.query(
+        'SELECT context_metadata, grades FROM public.transformation_assessments WHERE id = $1::uuid',
+        [assessmentId],
+      );
+      expect(afterProbes.rows[0].context_metadata).not.toHaveProperty('injectedProperty');
+      expect(afterProbes.rows[0].grades).toEqual([]);
+      await expect(verifyManifest({ store, manifest, guardedTarget: guardedTarget() }))
+        .resolves.toEqual({ counts: expectedCounts(manifest), digest: manifest.digest });
+
       const reset = await resetManifest({ store, manifest, guardedTarget: guardedTarget() });
       expect(reset.deleted).toEqual({
         transformation_assessments: 2,

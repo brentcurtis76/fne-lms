@@ -1,6 +1,10 @@
 import { canonicalJson, expectedCounts, manifestOwnedIds } from './manifest.mjs';
 import { assertQaTenantPreflight } from './target-guard.mjs';
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date);
+}
+
 function comparableValue(expected, actual) {
   if (actual instanceof Date) {
     if (typeof expected === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(expected)) {
@@ -17,16 +21,23 @@ function comparableValue(expected, actual) {
     if (Number.isFinite(parsed)) return parsed;
   }
   if (Array.isArray(expected)) return Array.isArray(actual) ? actual.map((item) => comparableValue(undefined, item)) : actual;
-  if (expected && typeof expected === 'object' && actual && typeof actual === 'object') {
-    return Object.fromEntries(Object.keys(expected).map((key) => [key, comparableValue(expected[key], actual[key])]));
+  if (isPlainObject(expected) && isPlainObject(actual)) {
+    // Normalize only the manifest-declared keys and carry every additional
+    // actual key through verbatim, so an unexpected property is compared as
+    // drift instead of being projected away. Anything that is not an
+    // object-to-object comparison falls through unchanged and therefore also
+    // fails the exact canonical-JSON equality below.
+    const normalized = { ...actual };
+    for (const key of Object.keys(expected)) {
+      normalized[key] = comparableValue(expected[key], actual[key]);
+    }
+    return normalized;
   }
   return actual;
 }
 
 export function projectOwnedRow(expected, actual) {
-  return Object.fromEntries(
-    Object.entries(expected).map(([key, expectedValue]) => [key, comparableValue(expectedValue, actual?.[key])]),
-  );
+  return comparableValue(expected, isPlainObject(actual) ? actual : {});
 }
 
 export function assertOwnedRowsExact(table, expectedRows, actualRows) {

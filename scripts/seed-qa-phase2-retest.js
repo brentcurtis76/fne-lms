@@ -6,10 +6,13 @@
 
 require('dotenv').config({ path: '.env.local' });
 const { createClient } = require('@supabase/supabase-js');
+const { assertLegacySeederIsNotProduction } = require('./production-qa-simulation/legacy-target-guard.cjs');
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const BASE_URL = 'http://localhost:3000';
+
+assertLegacySeederIsNotProduction(supabaseUrl);
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 

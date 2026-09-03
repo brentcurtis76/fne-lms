@@ -127,6 +127,8 @@ run-*.mjs
 !tsconfig.json
 !vercel.json
 !scripts/ci/e2e-fixtures.json  # synthetic CI e2e fixtures (seeder + specs share it)
+# Governed exact-target lock for Production QA simulation.
+!config/production-qa-simulation-target.json
 
 # Backups
 /backups/

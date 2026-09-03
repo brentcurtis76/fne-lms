@@ -13,6 +13,7 @@ import type {
   ContractSummary,
 } from '../types/hour-tracking.types';
 import { billableHours } from './billable-hours';
+import { isClientTenant, parseTenantKind } from '../types/tenant-kind';
 
 // Max sessions returned per bucket (DoS prevention)
 const MAX_SESSIONS_PER_BUCKET = 500;
@@ -95,7 +96,7 @@ export async function fetchSchoolReportData(
   // Fetch school name
   const { data: schoolData, error: schoolError } = await serviceClient
     .from('schools')
-    .select('id, name')
+    .select('id, name, tenant_kind')
     .eq('id', schoolId)
     .single();
 
@@ -107,6 +108,14 @@ export async function fetchSchoolReportData(
   }
 
   if (!schoolData) return null;
+
+  const tenantKind = parseTenantKind(schoolData.tenant_kind);
+  if (tenantKind === null) {
+    throw new Error(`El colegio ${schoolId} tiene una clasificación inválida`);
+  }
+  // This service feeds stakeholder JSON and PDF reports. Operations can inspect QA
+  // tenants elsewhere, but a non-client school is indistinguishable from absent here.
+  if (!isClientTenant(tenantKind)) return null;
 
   // Step 1: Get cliente_ids for this school
   const { data: clientesData, error: clientesError } = await serviceClient

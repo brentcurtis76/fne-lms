@@ -3,6 +3,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { getUserRoles, getHighestRole } from '../../../utils/roleUtils';
 import { calculateActivityScore } from '../../../lib/utils/activityScore';
+import { readClientReportingScope } from '../../../lib/simulation/tenant-policy';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -109,7 +110,10 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
 
     console.log('[detailed-api] Step 6: About to get reportable users');
     // Get reportable users based on role and assignments
-    const reportableUsers = await getReportableUsers(session.user.id, highestRole);
+    const clientScope = await readClientReportingScope(supabase);
+    const reportableUsers = clientScope.filterUserIds(
+      await getReportableUsers(session.user.id, highestRole)
+    );
     console.log('[detailed-api] Step 7: Got reportable users:', reportableUsers.length);
     
     if (reportableUsers.length === 0) {
@@ -124,6 +128,13 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
 
     // FIX: Apply organizational filters using user_roles (source of truth)
     if (filters) {
+      if (
+        filters.school_id &&
+        filters.school_id !== 'all' &&
+        !clientScope.isClientSchool(filters.school_id)
+      ) {
+        userIds = [];
+      }
       const hasCommunityFilter = filters.community_id && filters.community_id !== 'all';
 
       if (hasCommunityFilter) {

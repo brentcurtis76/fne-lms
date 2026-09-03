@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { readClientSchoolScope } from '../../../lib/simulation/tenant-policy';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -58,6 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Get query parameters
     const { community_id, start_date, end_date } = req.query;
+    const clientSchools = await readClientSchoolScope(supabase);
 
     // Get accessible communities based on user role
     const accessibleCommunities = await getAccessibleCommunities(user.id, profile.role);
@@ -85,7 +87,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (profile.role === 'admin' && communitiesToQuery.length === 0) {
         const { data: allCommunities } = await supabase
           .from('growth_communities')
-          .select('id');
+          .select('id')
+          .in('school_id', clientSchools.ids);
         communitiesToQuery = allCommunities?.map(c => c.id) || [];
       }
 
@@ -93,14 +96,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Get community details
         const { data: communities } = await supabase
           .from('growth_communities')
-          .select('id, name')
-          .in('id', communitiesToQuery);
+          .select('id, name, school_id')
+          .in('id', communitiesToQuery)
+          .in('school_id', clientSchools.ids);
+
+        communitiesToQuery = (communities || []).map((community) => community.id);
 
         // Get users in these communities
         const { data: communityUsers } = await supabase
           .from('profiles')
           .select('id, community_id')
           .in('community_id', communitiesToQuery)
+          .in('school_id', clientSchools.ids)
           .not('community_id', 'is', null);
 
         // Get course enrollments for these users

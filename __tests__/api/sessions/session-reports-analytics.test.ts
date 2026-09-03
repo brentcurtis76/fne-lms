@@ -75,7 +75,7 @@ const BASE_SCHEMA: Record<string, TableDef> = {
   session_facilitators: {
     columns: ['id', 'session_id', 'user_id', 'facilitator_role', 'is_lead'],
   },
-  schools: { columns: ['id', 'name'] },
+  schools: { columns: ['id', 'name', 'tenant_kind'] },
   growth_communities: { columns: ['id', 'school_id', 'name'] },
   profiles: { columns: ['id', 'first_name', 'last_name'] },
   contract_hours_ledger: {
@@ -262,7 +262,7 @@ function createMockSupabaseClient(overrides: ClientOverrides = {}, log: QueryLog
     consultor_sessions: overrides.sessions ?? defaultSessions,
     session_attendees: overrides.attendees ?? defaultAttendees,
     session_facilitators: overrides.facilitators ?? defaultFacilitators,
-    schools: overrides.schools ?? [{ id: 1, name: 'Escuela Test' }],
+    schools: overrides.schools ?? [{ id: 1, name: 'Escuela Test', tenant_kind: 'client' }],
     growth_communities: overrides.gcs ?? [{ id: GC_ID, name: 'Comunidad Test' }],
     profiles: overrides.profiles ?? [
       { id: CONSULTOR_ID, first_name: 'Test', last_name: 'Consultor' },

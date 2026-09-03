@@ -161,6 +161,7 @@ import {
 } from '../../../../../lib/utils/meeting-zak-policy';
 import { getZoomApi } from '../../../../../lib/zoom/api';
 import { getUserRoles, getHighestRole } from '../../../../../utils/roleUtils';
+import { resolveSchoolProviderDisposition } from '../../../../../lib/simulation/tenant-policy';
 
 /** §14: the master kill switch answers 503 on the join route. */
 export const FEATURE_DISABLED_MESSAGE = 'Las videollamadas están temporalmente deshabilitadas';
@@ -602,6 +603,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // for a session that is over must not be FETCHED, never mind returned.
     if (joinIsClosedBySource(decision.source)) {
       return sendAuthError(res, MEETING_CLOSED_MESSAGE, 410);
+    }
+
+    // An authorized QA caller may use the application, but no Zoom link,
+    // signature or host credential may leave this route for a synthetic tenant.
+    const tenantDecision = await resolveSchoolProviderDisposition(
+      service,
+      decision.source.schoolId
+    );
+    if (tenantDecision.kind === 'suppressed_qa') {
+      return res.status(HttpStatus.SERVICE_UNAVAILABLE).json({
+        error: 'Videollamada deshabilitada para el entorno interno de simulación QA',
+        code: 'QA_PROVIDER_SUPPRESSED',
+      });
+    }
+    if (tenantDecision.kind === 'refuse') {
+      return sendAuthError(res, READ_FAILED_MESSAGE, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     const { data: projection, error: projectionError } = await service

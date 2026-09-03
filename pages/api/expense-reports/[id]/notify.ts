@@ -35,6 +35,7 @@ import {
   sendExpenseDecisionNotification,
   sendExpenseSubmissionNotification
 } from '../../../../lib/email/expenseNotifications';
+import { authorizeUserEmail } from '../../../../lib/email/outbound-policy';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -68,9 +69,12 @@ interface ExpenseReportRow {
  * browser.
  */
 function notificationResponse(notification: string, result: ExpenseEmailResult) {
-  return result.skipped
-    ? { notification, sent: result.sent, skipped: true }
-    : { notification, sent: result.sent };
+  return {
+    notification,
+    sent: result.sent,
+    ...(result.skipped ? { skipped: true } : {}),
+    ...(result.status ? { status: result.status } : {}),
+  };
 }
 
 /** PostgREST returns a to-one embed as an object, but older shapes give an array. */
@@ -169,7 +173,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       totalAmount,
       startDate: report.start_date,
       endDate: report.end_date
-    });
+    }, await authorizeUserEmail(supabase, report.submitted_by));
 
     return sendApiResponse(res, notificationResponse('submitted', result));
   }
@@ -205,7 +209,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       reviewerName: await resolveReviewerName(supabase, report.reviewed_by),
       totalAmount,
       comments: report.review_comments || undefined
-    });
+    }, await authorizeUserEmail(supabase, report.submitted_by || ''));
 
     return sendApiResponse(res, notificationResponse(report.status, result));
   }

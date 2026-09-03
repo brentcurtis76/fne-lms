@@ -42,7 +42,7 @@ type TableDef = { columns: string[]; relations?: Record<string, string> };
  * `planned_duration_minutes`, and no migration adds either.
  */
 const BASE_SCHEMA: Record<string, TableDef> = {
-  schools: { columns: ['id', 'name'] },
+  schools: { columns: ['id', 'name', 'tenant_kind'] },
   clientes: { columns: ['id', 'school_id'] },
   contratos: {
     columns: [
@@ -436,7 +436,7 @@ const bucketFixtures: Row[] = [
 
 function baseOptions(overrides: Partial<ClientOptions> = {}): ClientOptions {
   return {
-    schools: [{ id: SCHOOL_ID, name: SCHOOL_NAME }],
+    schools: [{ id: SCHOOL_ID, name: SCHOOL_NAME, tenant_kind: 'client' }],
     clientes: [{ id: CLIENTE_ID, school_id: SCHOOL_ID }],
     contratos: [
       {

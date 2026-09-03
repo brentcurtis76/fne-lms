@@ -21,11 +21,19 @@ import {
   DELIVERY_SUCCESS_MESSAGE,
   deliveryMessage,
   escapeHtml,
-  sendAccessGrantedEmail,
-  sendPasswordRecoveryEmail,
-  sendPasswordSetupEmail,
+  sendAccessGrantedEmail as sendAccessGrantedEmailRaw,
+  sendPasswordRecoveryEmail as sendPasswordRecoveryEmailRaw,
+  sendPasswordSetupEmail as sendPasswordSetupEmailRaw,
   type EmailTransport,
 } from '../../../lib/email/invitations';
+import { PUBLIC_OUTBOUND_EMAIL } from '../../../lib/email/outbound-policy';
+
+const sendPasswordSetupEmail = (params: any, transport?: EmailTransport) =>
+  sendPasswordSetupEmailRaw({ ...params, authorization: PUBLIC_OUTBOUND_EMAIL }, transport);
+const sendPasswordRecoveryEmail = (params: any, transport?: EmailTransport) =>
+  sendPasswordRecoveryEmailRaw({ ...params, authorization: PUBLIC_OUTBOUND_EMAIL }, transport);
+const sendAccessGrantedEmail = (params: any, transport?: EmailTransport) =>
+  sendAccessGrantedEmailRaw({ ...params, authorization: PUBLIC_OUTBOUND_EMAIL }, transport);
 
 // The URL the application itself builds from `generateLink().properties.hashed_token`
 // (lib/auth/recovery-link.ts) — not the provider's `action_link`, which used to be

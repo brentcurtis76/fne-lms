@@ -159,6 +159,18 @@ function buildClient({ meetingRow, attendees = [], updateResult, commitments = [
           }),
         };
       }
+      if (table === 'schools') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { id: 1, tenant_kind: 'client', internal_zoom_testing_enabled: false },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
       return {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
@@ -203,7 +215,7 @@ const meetingRow = {
   finalized_at: null,
   workspace: {
     community_id: 'community-1',
-    community: { id: 'community-1', name: 'Comunidad Alfa' },
+    community: { id: 'community-1', name: 'Comunidad Alfa', school_id: 1 },
   },
 };
 

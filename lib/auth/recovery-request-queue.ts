@@ -11,6 +11,7 @@ import {
 import { generateRecoveryLink, isRecoveryLinkRefusal } from './recovery-link';
 import { sendPasswordRecoveryEmail, type EmailTransport } from '../email/invitations';
 import { recordSecurityAudit } from '../security/audit';
+import { authorizeUserEmail } from '../email/outbound-policy';
 
 export const RECOVERY_REQUEST_COOLDOWN_SECONDS = 10 * 60;
 export const RECOVERY_IP_LIMIT = 10;
@@ -211,6 +212,7 @@ export interface RecoveryOutboxRunResult {
   claimed: number;
   providerAccepted: number;
   providerRejected: number;
+  suppressedQa: number;
   /** Unknown candidates dropped without mail — resolved asynchronously here. */
   discarded: number;
   retried: number;
@@ -232,6 +234,7 @@ export async function runRecoveryOutbox(
     claimed: 0,
     providerAccepted: 0,
     providerRejected: 0,
+    suppressedQa: 0,
     discarded: 0,
     retried: 0,
     dead: 0,
@@ -277,6 +280,26 @@ export async function runRecoveryOutbox(
       }
       if (resolution.status === 'unavailable') {
         // Transient database trouble. Release the job for a bounded retry.
+        const state = retryState(job);
+        await finishJob(admin, job, workerToken, state);
+        countRetry(result, state);
+        continue;
+      }
+
+      const authorization = await authorizeUserEmail(admin, resolution.userId);
+      if (authorization.kind === 'suppressed_qa') {
+        await finishJob(admin, job, workerToken, 'dead');
+        await recordSecurityAudit(admin, {
+          action: 'password_recovery_requested',
+          outcome: 'failure',
+          actorUserId: null,
+          targetUserId: resolution.userId,
+          metadata: { delivery_state: 'suppressed_qa' },
+        });
+        result.suppressedQa += 1;
+        continue;
+      }
+      if (authorization.kind === 'refuse') {
         const state = retryState(job);
         await finishJob(admin, job, workerToken, state);
         countRetry(result, state);
@@ -342,6 +365,7 @@ export async function runRecoveryOutbox(
           firstName,
           recoveryUrl,
           idempotencyKey: job.idempotencyKey,
+          authorization,
         },
         options.transport
       );

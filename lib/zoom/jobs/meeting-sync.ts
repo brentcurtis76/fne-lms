@@ -66,6 +66,11 @@ import {
 } from './meeting-provision';
 import type { ZoomMeetingStatus, ZoomSurfaceType } from '../db-types';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  defaultZoomTenantGate,
+  enforceZoomTenantBoundary,
+  type ZoomTenantGate,
+} from '../tenant-boundary';
 
 /** The operation name every failure from this module carries. */
 const OPERATION = 'meeting_sync';
@@ -407,6 +412,7 @@ export interface MeetingSyncDeps {
   api?: ZoomApi;
   store?: MeetingSyncStore;
   env?: NodeJS.ProcessEnv;
+  tenantGate?: ZoomTenantGate;
 }
 
 export interface MeetingSyncResult extends Record<string, unknown> {
@@ -468,6 +474,13 @@ export function createMeetingSyncHandler(deps: MeetingSyncDeps = {}): ZoomJobHan
     // --- Re-check eligibility on CLAIM (PM ruling 6) -------------------------
     const session = await store.readSession(surfaceId);
     if (session === null) throw new ZoomSyncSessionMissingError(surfaceId);
+
+    const qaSuppression = await enforceZoomTenantBoundary({
+      schoolId: session.school_id,
+      operation: OPERATION,
+      gate: deps.tenantGate ?? defaultZoomTenantGate(env),
+    });
+    if (qaSuppression) return qaSuppression;
 
     const refusal = checkSessionEligibility(session);
     if (refusal !== null) throw new ZoomSyncSessionIneligibleError(surfaceId, refusal);

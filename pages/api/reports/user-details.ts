@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
+import { readClientReportingScope } from '@/lib/simulation/tenant-policy';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -64,6 +65,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     if (!targetUserProfile) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Stakeholder-facing reports are intentionally client-only. Return the same
+    // not-found response for QA/operator users so their existence is not exposed.
+    const reportingScope = await readClientReportingScope(supabase);
+    if (!reportingScope.isClientUser(userId)) {
       return res.status(404).json({ error: 'User not found' });
     }
 

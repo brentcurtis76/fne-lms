@@ -58,6 +58,7 @@ export type ReportBatchStatus = 'pending' | 'complete' | 'rejected';
 export interface ReconcileCandidate {
   meetingId: string;
   zoomMeetingUuid: string;
+  schoolId: number;
 }
 
 export interface ZoomAttendanceReportStore {
@@ -112,6 +113,7 @@ interface BatchStatusRow {
 interface CandidateMeetingRow {
   id: string;
   zoom_meeting_uuid: string | null;
+  school_id: number;
 }
 
 interface CompleteBatchRow {
@@ -284,7 +286,7 @@ export function createSupabaseAttendanceReportStore(
       while (unresolved.length < limit) {
         const { data: meetings, error: meetingsError } = await internalClient
           .from('zoom_meetings')
-          .select('id, zoom_meeting_uuid')
+          .select('id, zoom_meeting_uuid, school_id')
           .eq('status', 'ended')
           .gte('updated_at', receivedAfterIso)
           .order('updated_at', { ascending: false })
@@ -315,7 +317,11 @@ export function createSupabaseAttendanceReportStore(
           const done = new Set((complete ?? []).map((row) => row.zoom_meeting_uuid));
           for (const row of candidates) {
             if (!done.has(row.zoom_meeting_uuid)) {
-              unresolved.push({ meetingId: row.id, zoomMeetingUuid: row.zoom_meeting_uuid });
+              unresolved.push({
+                meetingId: row.id,
+                zoomMeetingUuid: row.zoom_meeting_uuid,
+                schoolId: row.school_id,
+              });
               if (unresolved.length === limit) break;
             }
           }

@@ -10,6 +10,7 @@ import {
   type DeliveryResult,
 } from '../../../../lib/email/invitations';
 import { recordSecurityAudit } from '../../../../lib/security/audit';
+import { authorizeSchoolEmail } from '../../../../lib/email/outbound-policy';
 import {
   SIGNUP_SOURCE_INVITE_BODY,
   isKnownSignupSource,
@@ -218,6 +219,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const firstName = profile?.first_name || signupRow.first_name;
     const needsPasswordSetup = profile?.must_change_password === true;
     const bodyLine = SIGNUP_SOURCE_INVITE_BODY[signupRow.source];
+    const authorization = await authorizeSchoolEmail(supabase, Number(signupRow.school_id));
 
     let delivery: DeliveryResult;
 
@@ -251,6 +253,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         firstName,
         recoveryUrl: link.url,
         bodyLine,
+        authorization,
       });
     } else {
       // The account already has a working password. Sending a recovery link
@@ -260,6 +263,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         firstName,
         loginUrl: `${getAppBaseUrl(req)}/login`,
         bodyLine,
+        authorization,
       });
     }
 

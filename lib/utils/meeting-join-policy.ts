@@ -85,6 +85,8 @@ export const CONSULTOR_NOT_FACILITATOR_MESSAGE =
 export interface MeetingJoinSource {
   status: string;
   modality: string;
+  /** Present on authorization results; optional for pure status/modality checks. */
+  schoolId?: number;
 }
 
 export type MeetingJoinAuthorization =
@@ -209,6 +211,7 @@ export async function authorizeMeetingJoin(params: {
   const source: MeetingJoinSource = {
     status: String(session.status),
     modality: String(session.modality),
+    schoolId: Number(session.school_id),
   };
 
   const userRoles = await getUserRoles(service, userId);

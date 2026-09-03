@@ -16,6 +16,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
  * Community A's people. `GET /api/community/members` stays the only candidate
  * source and every failure leaves the lists empty.
  *
+ * The tab must also get a NEW identity per community (`key` on the parent's
+ * `MessagingTabContent` call): nothing selected in Community A — thread,
+ * composer, messages, reply/edit targets — may survive into Community B, so a
+ * message can never be sent with B's workspace id and A's thread id. Each
+ * workspace owns exactly one thread here (THREAD_A in ws-A, THREAD_B in ws-B),
+ * `getWorkspaceThreads` answers only for the workspace it is asked about, and
+ * the composer stub exposes the workspace/thread pair it would send with.
+ *
  * The REAL page is rendered; its data utilities are mocked, `fetch` is a
  * route-aware stub keyed by `community_id`, and the composer is replaced by a
  * stub that renders the suggestions it receives and exposes a button that asks
@@ -47,6 +55,8 @@ const h = vi.hoisted(() => ({
   },
   /** Per-community gate that holds `getOrCreateWorkspace` back until opened. */
   workspaceGates: new Map<string, Promise<void>>(),
+  /** Every workspace id whose threads the tab asked for, in order. */
+  threadLoads: [] as string[],
 }));
 
 // ---------------------------------------------------------------------------
@@ -87,8 +97,9 @@ const ACCESS = {
   availableCommunities: [communityInfo(COMMUNITY_A), communityInfo(COMMUNITY_B)],
   defaultCommunityId: COMMUNITY_A,
 };
+const workspaceIdFor = (communityId: string) => `ws-${label(communityId)}`;
 const workspaceFor = (communityId: string) => ({
-  id: `ws-${label(communityId)}`,
+  id: workspaceIdFor(communityId),
   community_id: communityId,
   name: `Espacio ${label(communityId)}`,
   settings: {},
@@ -96,10 +107,12 @@ const workspaceFor = (communityId: string) => ({
   created_at: '2026-01-01T00:00:00.000Z',
   community: { id: communityId, name: `GC ${label(communityId)}` },
 });
-const THREAD = {
-  id: 'thread-1',
-  workspace_id: 'ws-A',
-  thread_title: 'Hilo de prueba',
+/** The one thread of a community's workspace: THREAD_A lives in ws-A only,
+ *  THREAD_B in ws-B only. */
+const threadFor = (communityId: string) => ({
+  id: `thread-${label(communityId)}`,
+  workspace_id: workspaceIdFor(communityId),
+  thread_title: `Hilo ${label(communityId)}`,
   description: '',
   category: 'general',
   created_by: 'user-1',
@@ -115,7 +128,12 @@ const THREAD = {
   creator_email: 'admin@fne.cl',
   participants: [],
   category_config: { color: '#3b82f6', label: 'General' },
-};
+});
+const THREAD_A = threadFor(COMMUNITY_A);
+const THREAD_B = threadFor(COMMUNITY_B);
+/** `getWorkspaceThreads(workspaceId)` answers with that workspace's thread only. */
+const threadsFor = (workspaceId: string) =>
+  [THREAD_A, THREAD_B].filter((thread) => thread.workspace_id === workspaceId);
 const PERMISSIONS = {
   can_view_messages: true,
   can_send_messages: true,
@@ -197,7 +215,10 @@ vi.mock('../../../utils/documentUtils', () => ({
   extractUniqueTags: () => [],
 }));
 vi.mock('../../../utils/messagingUtils-simple', () => ({
-  getWorkspaceThreads: async () => [THREAD],
+  getWorkspaceThreads: async (workspaceId: string) => {
+    h.threadLoads.push(workspaceId);
+    return threadsFor(workspaceId);
+  },
   getWorkspaceMessages: async () => [],
   getUserMessagingPermissions: async () => PERMISSIONS,
   createThread: vi.fn(),
@@ -246,17 +267,22 @@ vi.mock('../../../components/feed/FeedContainer', () => ({ default: () => null }
 vi.mock('../../../components/workspace/WorkspaceTabNavigation', () => ({ default: () => null }));
 vi.mock('../../../components/workspace/WorkspaceSessionsTab', () => ({ default: () => null }));
 
-// The composer stub: renders exactly the suggestions it is given and asks for
-// mentions the way the real picker does after `@` is typed.
+// The composer stub: renders exactly the suggestions it is given, asks for
+// mentions the way the real picker does after `@` is typed, and exposes the
+// workspace/thread pair the page handed it — the pair a send would carry.
 vi.mock('../../../components/messaging/MessageComposer', () => ({
   default: ({
+    workspaceId,
+    threadId,
     mentionSuggestions = [],
     onRequestMentions,
   }: {
+    workspaceId: string;
+    threadId: string;
     mentionSuggestions?: Array<{ id: string; display_name: string }>;
     onRequestMentions?: (query: string) => void;
   }) => (
-    <div data-testid="mention-composer">
+    <div data-testid="mention-composer" data-workspace-id={workspaceId} data-thread-id={threadId}>
       <button type="button" data-testid="mention-request" onClick={() => onRequestMentions?.('')}>
         @
       </button>
@@ -366,14 +392,39 @@ async function askForMentions(utils: RenderResult) {
   });
 }
 
-/** Select the thread so the composer is mounted (no-op when it already is). */
-async function openComposer(utils: RenderResult) {
-  if (utils.queryByTestId('mention-composer')) return;
-  const thread = await utils.findByText('Hilo de prueba');
+/** The workspace/thread pair the mounted composer would send with. */
+function composerScope(utils: RenderResult) {
+  const composer = utils.getByTestId('mention-composer');
+  return {
+    workspaceId: composer.getAttribute('data-workspace-id'),
+    threadId: composer.getAttribute('data-thread-id'),
+  };
+}
+
+/** Wait until the tab of `communityId` is up (it asked for its own threads),
+ *  then prove it started fresh: no composer mounted and nothing of the other
+ *  community's thread on screen. Without a new component identity per
+ *  community the previous selection survives the switch and this fails. */
+async function tabLoaded(utils: RenderResult, communityId: string) {
+  await waitFor(() => expect(h.threadLoads).toContain(workspaceIdFor(communityId)));
+  await flush();
+  expect(utils.queryByTestId('mention-composer')).toBeNull();
+  const otherThread = communityId === COMMUNITY_A ? THREAD_B : THREAD_A;
+  expect(utils.queryByText(otherThread.thread_title)).toBeNull();
+}
+
+/** Open the community's own thread from the thread list. The composer must
+ *  not exist before (a fresh tab has nothing selected) and, once mounted,
+ *  must carry exactly this community's workspace and thread. */
+async function openThread(utils: RenderResult, communityId: string) {
+  expect(utils.queryByTestId('mention-composer')).toBeNull();
+  const thread = threadFor(communityId);
+  const title = await utils.findByText(thread.thread_title);
   await act(async () => {
-    fireEvent.click(thread);
+    fireEvent.click(title);
   });
   await utils.findByTestId('mention-composer');
+  expect(composerScope(utils)).toEqual({ workspaceId: thread.workspace_id, threadId: thread.id });
 }
 
 /** Pick another community in the page's selector, exactly like the user does. */
@@ -409,6 +460,7 @@ function expectMembersEndpointOnly() {
 beforeEach(() => {
   h.fromCalls.length = 0;
   h.workspaceGates.clear();
+  h.threadLoads.length = 0;
   requests.length = 0;
   responders.clear();
   installFetch();
@@ -428,15 +480,18 @@ describe('/community/workspace — @mention candidates are scoped to the workspa
     responders.set(COMMUNITY_B, b.responder);
 
     const utils = render(<CommunityWorkspacePage />);
-    await openComposer(utils);
+    await openThread(utils, COMMUNITY_A);
     await settled(COMMUNITY_A);
     await askForMentions(utils);
     expect(suggestionNames(utils)).toEqual(['Ana Uno', 'Bruno Dos']);
 
     const requestsBeforeSwitch = requests.length;
     await switchCommunity(utils, 'Comunidad A', 'Comunidad B');
-    await openComposer(utils);
-    // Community B is in but has not answered yet: nothing from A survives.
+    // Community B is in with a fresh tab: nothing of A is selected, and the
+    // composer only exists once THREAD_B is opened — with ws-B and THREAD_B.
+    await tabLoaded(utils, COMMUNITY_B);
+    await openThread(utils, COMMUNITY_B);
+    // B has not answered yet: nothing from A survives.
     expect(suggestionNames(utils)).toEqual([]);
     await askForMentions(utils);
     expect(suggestionNames(utils)).toEqual([]);
@@ -446,6 +501,7 @@ describe('/community/workspace — @mention candidates are scoped to the workspa
     await settled(COMMUNITY_B);
     await askForMentions(utils);
     expect(suggestionNames(utils)).toEqual([]);
+    expect(composerScope(utils)).toEqual({ workspaceId: 'ws-B', threadId: THREAD_B.id });
 
     expect(requests.slice(requestsBeforeSwitch).filter((request) => request.communityId === COMMUNITY_A)).toEqual([]);
     expectMembersEndpointOnly();
@@ -457,14 +513,15 @@ describe('/community/workspace — @mention candidates are scoped to the workspa
     responders.set(COMMUNITY_B, membersOk([]));
 
     const utils = render(<CommunityWorkspacePage />);
-    await openComposer(utils);
+    await openThread(utils, COMMUNITY_A);
     await waitFor(() => expect(requestsFor(COMMUNITY_A).length).toBeGreaterThanOrEqual(1));
     // A is still loading: nothing is offered.
     await askForMentions(utils);
     expect(suggestionNames(utils)).toEqual([]);
 
     await switchCommunity(utils, 'Comunidad A', 'Comunidad B');
-    await openComposer(utils);
+    await tabLoaded(utils, COMMUNITY_B);
+    await openThread(utils, COMMUNITY_B);
     await settled(COMMUNITY_B);
     await askForMentions(utils);
     expect(suggestionNames(utils)).toEqual([]);
@@ -475,9 +532,11 @@ describe('/community/workspace — @mention candidates are scoped to the workspa
     await askForMentions(utils);
     expect(suggestionNames(utils)).toEqual([]);
     expect(mentionErrors()).toEqual([]);
+    expect(composerScope(utils)).toEqual({ workspaceId: 'ws-B', threadId: THREAD_B.id });
 
-    // A's request was cancelled when A was left, and asking while A was still
-    // loading did not issue a duplicate request.
+    // A's request was cancelled when A was left (the tab that issued it was
+    // unmounted), and asking while A was still loading did not issue a
+    // duplicate request.
     expect(mentionRequests(COMMUNITY_A)).toHaveLength(1);
     expect(mentionRequests(COMMUNITY_A)[0]?.signal?.aborted).toBe(true);
     expectMembersEndpointOnly();
@@ -492,21 +551,27 @@ describe('/community/workspace — @mention candidates are scoped to the workspa
     h.workspaceGates.set(COMMUNITY_B, workspaceB.promise);
 
     const utils = render(<CommunityWorkspacePage />);
-    await openComposer(utils);
+    await openThread(utils, COMMUNITY_A);
     await waitFor(() => expect(requestsFor(COMMUNITY_A).length).toBeGreaterThanOrEqual(1));
 
     await switchCommunity(utils, 'Comunidad A', 'Comunidad B');
-    // The parent passes workspace = null while the new workspace loads.
+    // The parent passes workspace = null while the new workspace loads: the
+    // tab is replaced, so A's open thread and its composer are gone, not hidden.
     await utils.findByText('Selecciona una comunidad para acceder a la mensajería.');
     expect(utils.queryByTestId('mention-composer')).toBeNull();
+    expect(utils.queryByText(THREAD_A.thread_title)).toBeNull();
     expect(requestsFor(COMMUNITY_B)).toEqual([]);
+    // A's request was cancelled by the null transition itself.
+    expect(mentionRequests(COMMUNITY_A)[0]?.signal?.aborted).toBe(true);
 
     // A answers while no community is selected: it must not be kept for B.
     a.resolveWith([MEMBER_ANA, MEMBER_BRUNO]);
     await flush();
 
     workspaceB.open();
-    await openComposer(utils);
+    // B starts fresh — no thread selected — and only THREAD_B can be opened.
+    await tabLoaded(utils, COMMUNITY_B);
+    await openThread(utils, COMMUNITY_B);
     // B is in and still loading: nothing from A is offered.
     await askForMentions(utils);
     expect(suggestionNames(utils)).toEqual([]);
@@ -515,9 +580,7 @@ describe('/community/workspace — @mention candidates are scoped to the workspa
     await askForMentions(utils);
     expect(suggestionNames(utils)).toEqual([]);
     expect(mentionErrors()).toEqual([]);
-
-    // A's request was cancelled by the null transition itself.
-    expect(mentionRequests(COMMUNITY_A)[0]?.signal?.aborted).toBe(true);
+    expect(composerScope(utils)).toEqual({ workspaceId: 'ws-B', threadId: THREAD_B.id });
     expectMembersEndpointOnly();
   });
 
@@ -525,7 +588,7 @@ describe('/community/workspace — @mention candidates are scoped to the workspa
     responders.set(COMMUNITY_A, membersStatus(500));
 
     const utils = render(<CommunityWorkspacePage />);
-    await openComposer(utils);
+    await openThread(utils, COMMUNITY_A);
     await settled(COMMUNITY_A);
 
     // Each ask reveals the list left by the previous outcome and retries the load.

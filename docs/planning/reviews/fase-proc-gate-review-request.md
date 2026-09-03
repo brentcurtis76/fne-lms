@@ -1,12 +1,25 @@
 # Review request — B-01: cobertura-gate consistency (Procesos de Cambio PR 1 item 2 closure recovery)
 
-**STATUS: NOT REVIEW READY — STOPPED FOR A NEW BRENT DECISION.** Implementation, unit/integration tests, type-check, lint, and guards are all green. The full local Vitest suite was run and is **not** all-green: 8673 passed / 11 skipped / 5 failed, with the 5 failures reproduced identically on the exact base (see the `npm test` row below and `PROJECT_STATE.md`) — pre-existing, not a B-01 regression, but not "green." The production build, pgTAP, and the mandatory 13-spec CI-equivalent Playwright manifest are green. The literal `CI=1 npm run e2e` gate (all 32 spec files, as listed in the dispatch's required commands) is **RED** on this branch — confirmed by a partial run (89 test attempts, 27 distinct failing titles, all in `tests/e2e/flows/proposal-*`) that Brent directed be stopped early once red was unambiguous, rather than waiting out the full multi-hour matrix. Per the dispatch: *"C-01's literal E2E exception does not apply. If CI=1 npm run e2e is red, record it, independently reproduce/classify against exact base 982f456deeecdeefd14a08339a4b40676454128c in a safe disposable local copy, do not waive it, and stop for a new Brent decision."* That reproduction — also a representative, non-exhaustive, Brent-directed-early-terminated sample — is recorded in **§ Literal E2E gate — exact results and base-comparison classification** below. **No waiver is claimed, granted, or inherited from C-01 or any other unit anywhere in this document.** Nothing in this unit was staged or committed while this gate remained unresolved.
+**STATUS: NOT REVIEW READY — STOPPED FOR A NEW BRENT DECISION ON THE LITERAL E2E GATE.** This is B-01 **attempt 2**: the cumulative implementation produced in attempt 1 was adopted unchanged, reconciled with current `origin/main`, revalidated end to end, and committed locally. Nothing was pushed, and no PR, merge, or deployment exists. Two things changed materially since attempt 1's version of this document:
 
-**Work ID:** B-01 (dispatched as PR 1 item 2 closure recovery, following C-01)
+1. **Brent made a decision, but the completed gate run exceeded its scope.** His exact accepted instruction was: *"I approve a B-01-specific exception for the unrelated `proposal-*` E2E failures, based on their reproduction on the exact base. Reconcile B-01 with current `origin/main`, rerun the relevant gates, and create local commits only. Do not push, open a PR, merge, or deploy."* Attempt 2 ran `CI=1 npm run e2e` to **completion** (attempt 1 was stopped early at 89 attempts) and found **60 distinct failing titles, only 29 of which are `proposal-*`**. The other 31 — 16 in `tests/qa/qa-system.spec.ts`, 13 in `tests/qa/auth-redirects.spec.ts`, 2 in `tests/e2e/reservation.spec.ts` — fall outside the approved wording. **This unit therefore did not commit a closure claim and did not extend the exception.** The literal `CI=1 npm run e2e` gate is RED and is never claimed green. See § Literal E2E gate.
+2. **The full Vitest suite is now green.** Attempt 1 recorded 5 failures in `__tests__/pages/community/workspace.mention-scope.test.tsx` (an unrelated file), reproduced on the exact base. On the reconciled tree the full suite passes: **382 files, 8750 passed / 11 skipped / 0 failed**, and that file's 5 tests pass. **No waiver was needed, requested, or granted for those failures** — see the `npm test` row and its honest caveat in § Validation.
+
+Everything else is green: type-check, lint, all four guards, `git diff --check`, the focused B-01 suites, the production build, pgTAP, and the mandatory 13-spec CI-equivalent Playwright manifest with its no-skip check.
+
+**Work ID:** B-01 attempt 2 (dispatched as PR 1 item 2 closure recovery, following C-01)
 **Branch:** `fix/proc-gate` · **Worktree:** `/Users/brentcurtis/dev/wt/proc-gate`
-**Base SHA:** `982f456deeecdeefd14a08339a4b40676454128c` — this worktree's `origin/main` at lock, verified equal by `git ls-remote` before and during the work. **Post-lock finding:** a later, read-only `git ls-remote origin refs/heads/main` (during the base-comparison work) showed live `origin/main` had advanced to `b4929b3627a3a640312ea678c5c57c9857d50920`. No fetch, rebase, merge, staging, or commit was performed in response — this worktree's branch remains based on `982f456d` exactly as required, and the base-comparison worktree was built from `982f456d`, not from the new tip. This is disclosed as a fact discovered, not acted on.
-**Final HEAD / commit count:** recorded in the completion report (this document is committed with the phase, not before).
-**Not pushed, no PR, not merged, not deployed.** No production database, Supabase Management API, Vercel, provider, or secret-state access occurred. The only environment touched is the local Docker Supabase stack already running on this machine (`sxlogxqzmarhqsblxmtj`, loopback `127.0.0.1`), reset from migrations and reseeded with synthetic E2E fixtures — the same shared stack used by other concurrent local sessions; coordination checks (no active non-idle DB connections, no active `vitest`/`playwright`/`next` processes, nothing bound to port 3000) were run immediately before the reset.
+**Repository:** `/Users/brentcurtis/Documents/fne-lms-working` (Git common dir `/Users/brentcurtis/Documents/fne-lms-working/.git`)
+**Original base SHA:** `982f456deeecdeefd14a08339a4b40676454128c` — `origin/main` when attempt 1 locked.
+**Integrated main SHA:** `d103198980b1671a2a207f4d2efcc1fd8db7a980` — live `origin/main` at attempt 2's re-lock, verified by `git fetch` to be 12 commits ahead of and 0 behind the original base, with the original base an ancestor of it.
+**Commits (local only, never pushed):**
+- `1937932873f6f16f5e7505de9578ecf74e0f4bd0` — the cumulative attempt-1 implementation, committed verbatim so the branch could be reconciled without any destructive Git operation.
+- `0207d83cb8ee8392de3520806e08b353971867ce` — the two-parent merge reconciling with `origin/main` `d1031989`.
+- one final records commit carrying this document and the `PROJECT_STATE.md` update (its SHA is in the completion report; this file is committed with the phase, not before).
+
+**Reviewable range:** `git diff origin/main..HEAD` — exactly the 16 B-01 paths listed in § Files changed, no more and no less.
+
+**Not pushed, no PR, not merged, not deployed.** No production database, Supabase Management API, Vercel, provider, GitHub-mutating, or secret-state access occurred. `.env.local` was never inspected, printed, copied, or tracked. The pre-existing unrelated `stash@{0}` was not applied, deleted, or relied on; no other worktree or the primary checkout was touched. The only environment used is the local Docker Supabase stack already running on this machine (project ref `sxlogxqzmarhqsblxmtj`, ports 54321–54323), which attempt 2 did **not** reset and did **not** reseed — it ran against the schema and synthetic fixtures already present. Before using it, coordination checks confirmed no external client sessions (only the stack's own PostgREST/realtime/storage connections), no `vitest`/`playwright`/`next` processes, and nothing bound to port 3000.
 
 ## Objective (from the dispatch)
 
@@ -82,53 +95,86 @@ After implementing the module, the same 16 tests passed unchanged. No existing t
 
 **Docs:** this file; `PROJECT_STATE.md` Meta section (new top-of-list entry; every pre-existing entry preserved byte-for-byte below it).
 
+## Reconciliation with current main
+
+Attempt 1 left the work as an uncommitted 16-path diff on a branch based on `982f456d`, while live `origin/main` had moved 12 commits ahead to `d1031989`. Attempt 2 integrated that without any destructive Git operation — no `reset`, `clean`, `checkout --`, stash create/apply/drop, file overwrite, or worktree move, and no other worktree or the primary checkout was touched.
+
+Because the only overlapping path (`PROJECT_STATE.md`) was itself locally modified, `git merge` could not run against the dirty tree, and every alternative (stash, checkout-discard, reset) was prohibited *and* riskier. The safest available route was therefore to **commit the cumulative diff first** — putting all 16 paths permanently into the object database — and merge onto that clean tree. The 16 files were verified byte-identical to a pre-commit SHA-256 snapshot immediately after committing, so no cumulative edit was lost.
+
+- **Conflicts:** exactly one, `PROJECT_STATE.md`. Both sides only prepend `## Meta` entries.
+- **Resolution:** main's version kept in full — the FNE-ZOOM Unit B1 closure entry and both SM-SIM-PROD-D1 entries, byte-for-byte, in their original order — with the single Procesos de Cambio C-01/B-01 entry restored above them. Verified mechanically: the resolved file differs from `origin/main:PROJECT_STATE.md` by **exactly one added line and zero removed lines**. No current-main record was replaced, reworded, or dropped.
+- **Main's other 17 changed paths** (Zoom operator-tenant session creation, `lib/types/tenant-kind.ts`, `pages/api/sessions/*`, Santa Marta governance docs, `scripts/check-ledger.mjs`) merged cleanly. They share no file with B-01, and a content probe of the whole `982f456d..d1031989` diff found no reference to `cobertura`, `assessment-builder`, `scoringService`, `ModuleCard`, or `docente/assessments` outside two prose mentions inside a `PROJECT_STATE.md` Santa Marta entry — so there is no semantic overlap either, not merely no path overlap.
+- **Open PRs** (#50, #46, #4, #1 — all last updated 2026-08-22 or earlier) were checked file-by-file and none touches any assessment, docente, ModuleCard, scoring, or cobertura surface.
+- After the merge, `origin/main` is an ancestor of `HEAD`; the branch is 2 ahead / 0 behind, and `git diff origin/main..HEAD` is exactly the 16 B-01 paths.
+
 ## Validation
 
-| Gate | Result |
-|---|---|
-| Focused policy tests (16) | fail-on-base (module missing) → pass after implementation |
-| `git diff --check` | clean |
-| `npm run guard:actions` | OK — 17 uses, 1 workflow file |
-| `npm run guard:migrations` | OK — 41 migration files, no RLS disable/DROP/TRUNCATE/destructive ALTER |
-| `npm run guard:browser` | OK — 1144 files, 688 modules from 509 entrypoints, no boundary violation |
-| `npm run guard:secrets` | OK — re-run after final staging in the completion report |
-| `npm run type-check` | exit 0 |
-| `npm run lint` (`--max-warnings=0`) | exit 0 |
-| `npm run lint:testid` (advisory) | exit 1, 2621 problems repo-wide (baseline is red, unchanged in kind). Per-touched-file finding counts measured base-vs-branch via `git show <base>:<file> | eslint --stdin` against the same testid config: **identical in every touched file** — `ModuleCard.tsx` 1/1, docente `index.tsx` 3/3, demo `index.tsx` 6/6, both API routes 0/0. No new finding. |
-| Focused B-01 suite (9 files) | 204/204 passed |
-| `npm test` (full) | 379 files passed / 1 failed; **8673 passed, 11 skipped, 5 failed** — all 5 failures in `__tests__/pages/community/workspace.mention-scope.test.tsx` (`localStorage.getItem` undefined in `pages/community/workspace.tsx:226`), a file this unit never touched. Reproduced identically (same 5 titles, same error) by stashing all B-01 changes and re-running the same file against exact base `982f456d` — confirmed pre-existing, not a B-01 regression. |
-| `npm run build` | exit 0, against a local-stack `.env.local` (synthetic keys only) |
-| `npm run test:db` (pgTAP) | `supabase db reset` (all 41 migrations, including `20260902162557_fne_zoom_operator_tenant.sql` already on `main`) → `supabase test db`: **Files=25, Tests=2143, Result: PASS** |
-| Mandatory CI-equivalent E2E | Full CI recipe: `.env.local` from `supabase status -o json` plus `ZOOM_MODE=mock`, `CRON_SECRET`, `NEXT_PUBLIC_BASE_URL`, `FEATURE_ZOOM_MEETINGS` flags (matching `.github/workflows/ci.yml`) → `npm run build` → `node scripts/ci/seed-e2e.mjs` (idempotent; second run reused/updated existing synthetic rows) → `CI=1 npx playwright test <13 mandatory specs> --project=chromium`: **192 passed (2.1 min), 0 failed, 0 flaky, 0 skipped** → `node scripts/ci/e2e-mandatory.mjs --check`: **OK — 13 mandatory spec(s) ran with no skips** |
-| Literal `CI=1 npm run e2e` (32 spec files) | **RED — Brent-directed early termination after confirmation, not a completed run.** See the dedicated section below for the exact evidence and classification. |
+Every command below was run in `/Users/brentcurtis/dev/wt/proc-gate` **after the final executable change and after the merge with `origin/main` `d1031989`**, on HEAD `0207d83c` (the records commit that follows changes only Markdown). Only the two Markdown records were edited afterwards; no gate result depends on them.
 
-## Literal E2E gate — exact results and base-comparison classification
+| Gate | Command | Exit | Result | After final change |
+|---|---|---|---|---|
+| Focused B-01 suites | `npx vitest run` × 7 B-01 files | 0 | **7 files, 198 tests, all passed** (coberturaGatePolicy 16, scoringService 85, clientScoringService 70, submit 14, ModuleCard.gate 6, get-progress 4, fetchInstanceGapAnalysis 3) | yes |
+| Whitespace/conflict | `git diff --check` | 0 | clean | yes |
+| Actions guard | `npm run guard:actions` | 0 | OK — 17 uses, 1 workflow file | yes |
+| Migration guard | `npm run guard:migrations` | 0 | OK — 41 migrations, no RLS disable / DROP / TRUNCATE / destructive ALTER | yes |
+| Browser boundary guard | `npm run guard:browser` | 0 | OK — 1146 files, 688 modules from 509 entrypoints, no violation | yes |
+| Secret guard | `npm run guard:secrets` | 0 | OK — 2487 tracked paths scanned from the Git index, 0 findings. Also run against the staged tree before the first commit (2481 paths, 0 findings). | yes |
+| Typecheck | `npm run type-check` | 0 | clean | yes |
+| Lint | `npm run lint` (`--max-warnings=0`) | 0 | clean | yes |
+| Testid lint (advisory) | `npm run lint:testid` | 1 | **Advisory and repo-wide red by baseline: 2621 problems (44 errors, 2577 warnings).** Re-measured per touched file against *current main* via `git show origin/main:<file> \| eslint --stdin` on the same config: identical counts — `ModuleCard.tsx` 1/1, docente `index.tsx` 3/3, demo `index.tsx` 6/6, both API routes 0/0. **No new finding.** | yes |
+| Unit (Vitest, full) | `npm test` | 0 | **382 files passed / 0 failed; 8750 passed, 11 skipped, 0 failed** (274 s). Attempt 1's 5 failures in `__tests__/pages/community/workspace.mention-scope.test.tsx` are gone — that file now passes all 5. **Honest caveat:** B-01 changed nothing in that file or in `pages/community/workspace.tsx`, so this unit did not fix it. The attempt-1 failure signature (`localStorage.getItem` undefined) is a cross-file jsdom-environment leak, and merging main added new test files that changed how files distribute across workers. The gate is green on this exact tree, which is what the gate asks; it should not be read as proof that the underlying leak is fixed. | yes |
+| Build | `npm run build` | 0 | Compiled successfully; 149/149 static pages generated. Ran against the pre-existing ignored `.env.local` (local-stack synthetic values), which was never opened. | yes |
+| RLS pgTAP | `npm run test:db` | 0 | **Files=25, Tests=2143, Result: PASS** — including `063-fne-zoom-operator-tenant.sql`, which arrived with the merge. No `supabase db reset` was performed. | yes |
+| Mandatory CI Playwright manifest | `CI=1 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium` | 0 | **192 passed (2.3 min), 0 failed, 0 flaky, 0 skipped** across the 13 mandatory specs | yes |
+| Mandatory no-skip check | `node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json` | 0 | OK — 13 mandatory spec(s) ran with no skips | yes |
+| Literal full E2E | `CI=1 npm run e2e` | — | **RED, under Brent's approved narrow exception.** See the next section for exact results. Never claimed green. | yes |
 
-**Branch run.** `CI=1 npm run e2e` was started on `fix/proc-gate` and let run to `/tmp/full-e2e-branch.log`. After ~12 minutes and 89 recorded test attempts (38 passed, 27 distinct titles failed with retries exhausted, all failures inside `tests/e2e/flows/proposal-admin-visibility.spec.ts`, `tests/e2e/flows/proposal-buckets.spec.ts`, and `tests/e2e/flows/proposal-config.spec.ts`), Brent directed the process stopped early rather than waiting out the full ~32-file, multi-hour matrix, since the gate was already unambiguously red. The background process (task `benig0vby`) was stopped cleanly via `TaskStop`; no orphaned `playwright`/`next` process or port-3000 listener remained afterward. `/tmp/full-e2e-branch.log` is preserved (349 lines) and was not modified. **This is a partial, not a complete, branch run** — no final "N passed / M failed" summary line exists because the process was terminated before reaching one. The distinct failing (spec, title) pairs recorded before termination:
+## Literal E2E gate — exact results and classification
 
-- `proposal-admin-visibility.spec.ts:31:5` — "Admin can see ProposalConfigPanel on licitación detail"
-- `proposal-admin-visibility.spec.ts:44:5` — "Non-admin (docente) cannot see ProposalConfigPanel"
-- `proposal-admin-visibility.spec.ts:64:5` — "Admin can toggle ProposalConfigPanel open and closed"
-- `proposal-buckets.spec.ts:45:7` — "Distribución de Actividades section is visible and collapsible"
-- `proposal-buckets.spec.ts:63:7` — "Toggling a bucket on shows hours input, toggling off hides it"
-- `proposal-buckets.spec.ts:92:7` — "Adding a custom bucket shows it in the list"
-- `proposal-buckets.spec.ts:113:7` — "Enabling multiple buckets shows correct summary totals"
-- `proposal-config.spec.ts:44:7` — "Selecting a plantilla loads its default hours"
-- `proposal-config.spec.ts:64:7` — "Changing hours updates MINEDUC validation status live" (last one to reach a conclusive retry-exhausted failure before the run was stopped)
+**This gate is RED and is NOT fully covered by the approved exception. B-01 attempt 2 stops here for a Brent decision.**
 
-**Base-comparison run.** A detached, disposable worktree `proc-gate-base` was created at exact base `982f456deeecdeefd14a08339a4b40676454128c` (`git worktree add --detach`, outside and independent of the `fix/proc-gate` worktree — no existing worktree was touched). `npm ci`, a CI-recipe `.env.local` (own `NEXT_PUBLIC_BASE_URL=http://localhost:3000`, matching `playwright.config.ts`'s hardcoded `baseURL`), `npm run build`, and `node scripts/ci/seed-e2e.mjs` (idempotent against the already-seeded shared local stack) all completed successfully on the exact base. A representative, **not exhaustive**, subset — the three spec files that had already failed on the branch — was then run: `CI=1 npx playwright test tests/e2e/flows/proposal-admin-visibility.spec.ts tests/e2e/flows/proposal-buckets.spec.ts tests/e2e/flows/proposal-config.spec.ts --project=chromium`. This run was also stopped early per the same directive once the pattern was confirmed; a `kill -TERM` was sent to the playwright process (PID 24955) and its `npm exec` wrapper (PID 24936), the pipe closed, and the harness reported the background task complete. A leftover orphaned `next-server` webServer child (PID 24986, bound to port 3000, cwd `proc-gate-base`) that did not die with its parent was found and stopped separately (`kill -TERM`); port 3000 was confirmed free afterward. The captured output (`bzhon31rz.output`, 150 lines — truncated to its own tail by an embedded `| tail -150` in the run command, so it does not include the run's first ~13 test attempts) recorded these conclusively failed (all 3 attempts exhausted) titles on the exact base:
+**The run.** `CI=1 npm run e2e` was run to **completion** on the reconciled tree (HEAD `0207d83cb8ee8392de3520806e08b353971867ce`), unlike attempt 1's Brent-terminated partial run. Started 2026-09-03T20:49:05Z, ended 21:43:26Z, exit status **1**.
 
-- `proposal-buckets.spec.ts:63:7` — "Toggling a bucket on shows hours input, toggling off hides it"
-- `proposal-buckets.spec.ts:92:7` — "Adding a custom bucket shows it in the list"
-- `proposal-buckets.spec.ts:113:7` — "Enabling multiple buckets shows correct summary totals"
-- `proposal-config.spec.ts:44:7` — "Selecting a plantilla loads its default hours"
-- `proposal-config.spec.ts:64:7` — "Changing hours updates MINEDUC validation status live"
-- `proposal-config.spec.ts:94:7` — "Non-compliant hours disable the generate button"
-- `proposal-config.spec.ts:118:7` — "Selecting an expired certificate shows blocking warning"
-- `proposal-config.spec.ts:133:7` — "Vista Previa button is visible when plantilla and ficha are selected"
-- `proposal-config.spec.ts:152:7` — "Valid config: generate succeeds and download link appears in history" (single attempt shown, ✘, before the run was stopped — retries not exhausted, so this one title is *observed failing once*, not conclusively retry-exhausted, on the base)
+```
+  60 failed
+  27 skipped
+  238 passed (54.3m)
+```
 
-**Classification.** Every title from the base run's captured window (`proposal-buckets.spec.ts:63:7`, `:92:7`, `:113:7`, `proposal-config.spec.ts:44:7`, `:64:7`) also appears, failing identically, in the branch run's captured window — an exact overlap of 5 conclusively-failed titles reproducing on both the branch and the exact base, with the same spec files, same test names, and the same ~15s timeout-shaped failure signature. `proposal-config.spec.ts:94:7`, `:118:7`, `:133:7`, and `:152:7` failed on the base but were not yet reached by the branch run before it was stopped (so branch-side status for those four is unknown, not "passing"). Conversely, `proposal-admin-visibility.spec.ts`'s three titles and `proposal-buckets.spec.ts:45:7` failed on the branch but fall outside the base run's captured window (truncated away by the embedded `tail -150`, not because they passed on the base — their base-side status is likewise unknown from this evidence). **What this evidence supports:** a representative, non-exhaustive sample of the same `proposal-*` flow specs fails with matching spec files, titles, and failure signatures on both the branch and the exact base `982f456d`, consistent with — but not a complete re-verification of — the pre-existing-failure category the C-01 unit separately documented on a different, older base (`804794df`). **What this evidence does not support:** a claim that all 27 branch failures are pre-existing (9 of the 27 distinct branch-failing titles have no corresponding base-run observation at all in the captured logs), or that the full `CI=1 npm run e2e` gate is anything other than red on this branch. **No exception is claimed, granted, or inherited from C-01 or from any other unit.** The gate's disposition — whether to authorize a full from-scratch reproduction, accept this partial evidence, or treat the gate as blocking — is Brent's decision alone.
+`playwright.config.ts` sets `workers: 1` and `retries: 2` under `CI`, so the 325-test matrix ran serially and every failing title burned three ~15 s timeouts — 445 recorded attempts, ~38 min of which was failed-attempt time.
+
+**The 60 distinct failing titles, by spec file:**
+
+| Spec file | Distinct failing titles | Inside the approved `proposal-*` exception? |
+|---|---|---|
+| `tests/qa/qa-system.spec.ts` | 16 | **No** |
+| `tests/qa/auth-redirects.spec.ts` | 13 | **No** |
+| `tests/e2e/flows/proposal-web-view.spec.ts` | 6 | yes |
+| `tests/e2e/flows/proposal-config.spec.ts` | 6 | yes |
+| `tests/e2e/flows/proposal-document-library.spec.ts` | 4 | yes |
+| `tests/e2e/flows/proposal-consultant-crud.spec.ts` | 4 | yes |
+| `tests/e2e/flows/proposal-buckets.spec.ts` | 4 | yes |
+| `tests/e2e/flows/proposal-admin-visibility.spec.ts` | 3 | yes |
+| `tests/e2e/reservation.spec.ts` | 2 | **No** |
+| `tests/e2e/flows/proposal-versioning.spec.ts` | 2 | yes |
+
+**29 of 60 are `proposal-*`. The other 31 are not**, and all are retry-exhausted rather than flaky: 16 in `qa-system.spec.ts` (QA Admin Dashboard, QA Scenarios Management, QA Import Functionality, Accessibility), 13 in `auth-redirects.spec.ts` (protected-route redirects with no session), and 2 in `reservation.spec.ts` (`:27:7` QA-1 "Creating and scheduling a session reserves hours in the ledger", `:50:7` QA-9 legacy session without `hour_type_key`).
+
+**Why this is a stop, not an exception.** Brent's approval was: *"I approve a B-01-specific exception for the unrelated `proposal-*` E2E failures, based on their reproduction on the exact base."* Attempt 1 observed only `proposal-*` failures because Brent directed it stopped after 89 attempts; the complete matrix shows that sample was not representative of the gate's scope. Extending a `proposal-*`-worded exception to `tests/qa/*` and `reservation.spec.ts` would be **inventing an exception nobody granted**, so this document does not do so and does not call the gate green.
+
+**Classification evidence — and its exact limits.**
+
+*Supporting "pre-existing baseline, not a B-01 regression":*
+- The aggregate is **identical to C-01's documented run**: PROJECT_STATE.md's C-01 record states its base-`804794df` run and its C-01-tree run "produced 238 passed, 60 failed, and 27 skipped, with identical failing-title sets and categories." This run produced **the same three numbers** on a different, later tree.
+- **B-01's 14 code and test paths contain zero occurrences** of `proposal`, `licitac`, `bucket`, `mineduc`, `consultant`, or any session/reservation/ledger/auth-redirect surface — verified by running the term search over `git diff origin/main..HEAD -- . ':(exclude)*.md'`, which returns 0. Every such string in the diff lives in the two Markdown records that discuss these failures.
+- B-01 changes only assessment cobertura gating. There is no mechanism by which it could affect QA-dashboard, auth-redirect, or hour-ledger journeys.
+
+*What this evidence does NOT establish:*
+- **No base comparison was run in attempt 2.** The 238/60/27 match is an aggregate match against a record written for a *different base* (`804794df`), not a title-by-title comparison against a fresh run of current `origin/main` `d1031989`. Identical totals do not prove identical failing-title sets.
+- C-01's actual failing-title list is not reproduced in the records available here, so the sets could not be diffed.
+- Therefore "these 31 non-`proposal-*` failures are pre-existing" is **strongly indicated but not proven**. Establishing it requires a fresh `CI=1 npm run e2e` in a disposable worktree at `d1031989` with no B-01 code — roughly another hour of wall clock plus `npm ci`, build, and seed.
+
+**No exception is claimed, granted, or inherited anywhere in this document, and the gate is recorded as RED.** Its disposition — authorize the base reproduction, widen the exception on this evidence, or treat the gate as blocking — is Brent's decision alone.
 
 ## Reviewer hotspots (my own judgment calls — descending importance)
 
@@ -144,4 +190,6 @@ After implementing the module, the same 16 tests passed unchanged. No existing t
 - Objectives-hierarchy support in `fetchInstanceGapAnalysis` is untested against a real multi-objective production snapshot beyond the new unit test's synthetic fixture — no existing E2E/pgTAP journey exercises `/docente/assessments/[id]/results` end to end with objectives data.
 - `display_order` was threaded through `scoringService.ts`'s server-side types for gate ordering, but the pre-existing `mapIndicator` in `clientScoringService`'s *results-page* transform (`transformModuleForScoring` in `pages/demo/assessments/[templateId]/results.tsx`) was not touched — the demo path's gate ordering still relies on array order only (see hotspot 6).
 - No new pgTAP coverage was added (none of the changed files are DB-schema or RLS-adjacent).
-- The pre-existing `__tests__/pages/community/workspace.mention-scope.test.tsx` failure (5 tests, unrelated file) is disclosed above as pre-existing on the exact base, not fixed by this unit (out of scope).
+- `__tests__/pages/community/workspace.mention-scope.test.tsx` — attempt 1 recorded 5 failures there, reproduced on the exact base. On the reconciled tree the whole suite is green and that file passes. B-01 did not touch it or `pages/community/workspace.tsx`, so this unit fixed nothing there; the underlying cross-file jsdom `localStorage` leak may simply no longer manifest under the current worker distribution. Treat it as latent, not resolved.
+- **The gap-analysis fix is not retroactive.** `fetchInstanceGapAnalysis` infers "was this indicator applicable at scoring time" from whether its id appears in the persisted `assessment_instance_results.module_scores`. That is correct only for results written by the *new* `calculateModuleScore`, which omits gated-out indicators. Rows persisted **before** this change stored every active indicator, gated-out ones included at `normalizedScore: 0`, so for those existing rows a gated-out indicator is still present in `indicatorScores` and will still be reconstructed as a critical/behind gap. Existing results are therefore unchanged (no regression), but they are also not repaired — repair would require rescoring, which is out of scope and would need production access this unit does not have. Verified by reading how `indicatorScores` is built (`scoringService.ts`, from `result.module_scores`), not merely inferred.
+- The literal `CI=1 npm run e2e` gate remains red. The approved exception is narrow and evidence-bound; it is not a fix, and the `proposal-*` failures themselves are unowned by this unit and undiagnosed.

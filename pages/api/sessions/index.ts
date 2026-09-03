@@ -5,6 +5,7 @@ import {
   createServiceRoleClient,
   sendAuthError,
   sendApiResponse,
+  sendMeetingError,
   logApiRequest,
   handleMethodNotAllowed,
 } from '../../../lib/api-auth';
@@ -19,6 +20,13 @@ import {
 } from '../../../lib/types/consultor-sessions.types';
 import { generateRecurrenceDates, buildRRule } from '../../../lib/utils/recurrence';
 import { validateFacilitatorIntegrity } from '../../../lib/utils/facilitator-validation';
+import { checkZoomRolloutPolicy } from '../../../lib/zoom/provisioning-intent';
+import {
+  isOperatorTenant,
+  readSchoolTenantControls,
+  type SchoolTenantControls,
+  type SchoolTenantControlsLookup,
+} from '../../../lib/types/tenant-kind';
 import { SessionAccessContext } from '../../../lib/utils/session-policy';
 import { buildSessionScope, hidesDraftSessions } from '../../../lib/utils/session-scope';
 import {
@@ -196,6 +204,33 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
 
   try {
     const serviceClient = createServiceRoleClient();
+
+    // FNE Zoom internal test plan §4.1: the selected school's row is the ONLY authority on
+    // tenant classification. One exact-id lookup, before any mutation; an unknown school,
+    // a lookup error or an unrecognised tenant kind all refuse. Client and QA tenants
+    // continue below unchanged; an operator tenant must additionally satisfy
+    // `checkOperatorSessionRequest`. The Unit A database triggers remain the final
+    // service-role boundary behind this — they are not a reason to skip it.
+    const schoolLookup = await readSchoolTenantControls(serviceClient, school_id);
+    if (schoolLookup.status !== 'found') {
+      return refuseSchoolLookup(res, schoolLookup);
+    }
+
+    const operatorRefusal = checkOperatorSessionRequest(
+      schoolLookup.school,
+      {
+        modality,
+        isZoomManaged,
+        meetingProvider: finalMeetingProvider,
+        contratoId: contrato_id,
+        hourTypeKey: hour_type_key,
+        programEnrollmentId: program_enrollment_id,
+      },
+      process.env
+    );
+    if (operatorRefusal !== null) {
+      return sendMeetingError(res, operatorRefusal.status, operatorRefusal.code, operatorRefusal.message);
+    }
 
     // Validate facilitators (hard-block)
     const facilitatorValidation = await validateFacilitatorIntegrity(
@@ -526,6 +561,132 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================
+
+function refuseSchoolLookup(res: NextApiResponse, lookup: SchoolTenantControlsLookup): void {
+  switch (lookup.status) {
+    case 'not_found':
+      return sendMeetingError(res, 404, 'school_not_found', 'El colegio seleccionado no existe');
+    case 'error':
+      return sendMeetingError(res, 500, 'school_lookup_failed', 'Error al verificar el colegio');
+    case 'invalid_tenant_kind':
+    case 'invalid_row':
+      return sendMeetingError(
+        res,
+        500,
+        'school_tenant_invalid',
+        'La clasificación del colegio no es válida'
+      );
+    case 'found':
+      // Not a refusal; callers only reach here with a non-found status.
+      return;
+  }
+}
+
+interface OperatorSessionRequest {
+  modality: string;
+  isZoomManaged: boolean;
+  /** The provider as it will be STORED, after managed intent forced it — not the raw body. */
+  meetingProvider: MeetingProvider | null;
+  contratoId: unknown;
+  hourTypeKey: unknown;
+  programEnrollmentId: unknown;
+}
+
+type OperatorSessionRefusalCode =
+  | 'operator_testing_disabled'
+  | 'feature_disabled'
+  | 'school_not_allowlisted'
+  | 'operator_modality_not_remote'
+  | 'operator_not_zoom_managed'
+  | 'operator_provider_not_zoom'
+  | 'operator_financial_fields_present';
+
+interface OperatorSessionRefusal {
+  code: OperatorSessionRefusalCode;
+  status: number;
+  message: string;
+}
+
+/**
+ * Plan §4.1 creation rules for an OPERATOR tenant. `null` for client and QA tenants — they
+ * keep every existing behaviour, including contracts, hour types, program enrollments and
+ * the existing managed-Zoom path — and `null` for an operator request that satisfies all of:
+ *
+ *   - `internal_zoom_testing_enabled = true` on the school row;
+ *   - the shared §14 rollout policy (never the full provision gate — this is a draft);
+ *   - modality `online` or `hibrida`, `is_zoom_managed = true`, stored provider `zoom`;
+ *   - `contrato_id`, `hour_type_key` and `program_enrollment_id` all absent in the request.
+ *
+ * Admin authorization is established by the route before this is called; the facilitator
+ * validator runs after it and stays authoritative for the facilitator rules.
+ */
+function checkOperatorSessionRequest(
+  school: SchoolTenantControls,
+  request: OperatorSessionRequest,
+  env: NodeJS.ProcessEnv
+): OperatorSessionRefusal | null {
+  if (!isOperatorTenant(school.tenant_kind)) return null;
+
+  if (school.internal_zoom_testing_enabled !== true) {
+    return {
+      code: 'operator_testing_disabled',
+      status: 403,
+      message: 'Las pruebas internas de Zoom no están habilitadas para este colegio',
+    };
+  }
+
+  const rollout = checkZoomRolloutPolicy(school.id, env);
+  if (rollout !== null) {
+    return {
+      code: rollout.reason,
+      status: 403,
+      message:
+        rollout.reason === 'feature_disabled'
+          ? 'Las reuniones Zoom gestionadas no están habilitadas en la plataforma'
+          : 'Este colegio no está habilitado para reuniones Zoom gestionadas',
+    };
+  }
+
+  if (request.modality !== 'online' && request.modality !== 'hibrida') {
+    return {
+      code: 'operator_modality_not_remote',
+      status: 400,
+      message: 'Una sesión interna debe ser online o híbrida',
+    };
+  }
+
+  if (request.isZoomManaged !== true) {
+    return {
+      code: 'operator_not_zoom_managed',
+      status: 400,
+      message: 'Una sesión interna debe usar una reunión Zoom gestionada por la plataforma',
+    };
+  }
+
+  if (request.meetingProvider !== 'zoom') {
+    return {
+      code: 'operator_provider_not_zoom',
+      status: 400,
+      message: 'Una sesión interna debe usar Zoom como proveedor de reunión',
+    };
+  }
+
+  const financialFields: string[] = [];
+  if (request.contratoId != null) financialFields.push('contrato_id');
+  if (request.hourTypeKey != null) financialFields.push('hour_type_key');
+  if (request.programEnrollmentId != null) financialFields.push('program_enrollment_id');
+  if (financialFields.length > 0) {
+    return {
+      code: 'operator_financial_fields_present',
+      status: 400,
+      message:
+        'Una sesión interna no puede tener contrato, tipo de hora ni inscripción de programa ' +
+        `(campos: ${financialFields.join(', ')})`,
+    };
+  }
+
+  return null;
+}
 
 function isValidDate(dateString: string): boolean {
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;

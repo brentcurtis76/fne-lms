@@ -28,6 +28,8 @@ const PLANDOC = R('docs/reviews/santa-marta-combined-plan-2026-08-25.md');
 const REPORTDOC = R('docs/reviews/santa-marta-ledger-normalization-report-2026-08-25.md');
 const PSTATE = R('PROJECT_STATE.md');
 const BASELINE = R('supabase/migrations/00000000000000_baseline.sql');
+const SIM_PLAN = R('docs/reviews/santa-marta-seeded-simulation-plan-2026-08-31.md');
+const SIM_REVIEW_REQ = R('docs/planning/reviews/fase-sm-sim-plan-review-request.md');
 
 // ── Frozen expectations ──────────────────────────────────────────────────────
 const EXPECTED_CLAIMS = 160;
@@ -40,6 +42,14 @@ const CLAIMS_SHA256 = 'd598f29b39d8d5ac9c1289a7c030221c93a3c8897c91f19e395f99486
 // Anchor of the 2026-08-29 owner-decision correction (global FNE templates,
 // literal-admin-only management); enforced by checks 21/22.
 const LP_GOV_DOC = 'docs/reviews/w-b2c-01-learning-path-governance-correction-2026-08-29.md';
+const SIM_WORK_IDS = ['W-SIM-01', 'W-SIM-02'];
+const SIM_CLAIM_IDS = ['SWEEP-MI-APRENDIZAJE-09', 'SWEEP-ONBOARDING-DATA-01'];
+// Mandatory visible label of the seeded simulation. The exact string must
+// appear verbatim in every governed location (enforced by check 23).
+const SIM_LABEL = 'PILOTO SIMULADO — DATOS SINTÉTICOS — NO PRODUCCIÓN';
+// These work items map to frozen claims only as evidence dependencies. They
+// must never count as remediations or close those production claims.
+const NON_CLOSING_EVIDENCE_WORK = new Set(SIM_WORK_IDS);
 
 /**
  * The ONLY permitted transformation of the legacy id set. Declared explicitly so
@@ -64,7 +74,7 @@ const PERMITTED_ID_TRANSFORM = {
 const CANONICAL_BATCHES = [
   'B1a', 'B1b', 'B1c', 'B2a', 'B2b', 'B2c', 'B2d', 'B3a', 'B3b', 'B3c', 'B4a', 'B4b', 'B4c', 'B4d',
   'B5', 'B6a', 'B6b', 'B6c', 'B6d', 'B7a', 'B7b', 'B8a', 'B8b', 'B8c', 'B9a',
-  'B10a', 'B10b', 'B10c',
+  'B10a', 'B10b', 'B10c', 'SIM1',
 ];
 const CANONICAL_BRANCH = {
   B1a: 'fix/observ', B1b: 'fix/horas-rep', B1c: 'fix/gate-score', B2a: 'fix/red-super',
@@ -73,7 +83,7 @@ const CANONICAL_BRANCH = {
   B5: 'fix/snapshot', B6a: 'fix/plan-pct', B6b: 'fix/nav-dir', B6c: 'fix/net-tabs',
   B6d: 'fix/lp-views', B7a: 'fix/ws-name', B7b: 'fix/feed-srv', B8a: 'fix/lic-cron',
   B8b: 'fix/feriados', B8c: 'fix/lic-audit', B9a: 'fix/assign-rec', B10a: 'fix/rls-grupo-b',
-  B10b: 'fix/notif-mail', B10c: 'auth/rebase-z7',
+  B10b: 'fix/notif-mail', B10c: 'auth/rebase-z7', SIM1: 'feat/sm-sim',
 };
 
 /**
@@ -261,8 +271,13 @@ for (const l of links) {
   if (!worksOfClaim.has(l.claim_id)) worksOfClaim.set(l.claim_id, []);
   worksOfClaim.get(l.claim_id).push(l.work_id);
 }
-// A PRODUCTION_CHECK gathers evidence; it is not a remediation.
-const remediationOf = (cid) => (worksOfClaim.get(cid) || []).filter(w => byWork.get(w)?.delivery_mode !== 'PRODUCTION_CHECK');
+// A PRODUCTION_CHECK gathers evidence; it is not a remediation. W-SIM-01/02
+// are also explicitly non-closing evidence dependencies: their synthetic
+// staging results cannot remediate or close a production claim.
+const remediationOf = (cid) => (worksOfClaim.get(cid) || []).filter(w => {
+  const item = byWork.get(w);
+  return item?.delivery_mode !== 'PRODUCTION_CHECK' && !NON_CLOSING_EVIDENCE_WORK.has(w);
+});
 
 const unmapped = claims.filter(c => ACTIONABLE.has(c.estado) && remediationOf(c.claim_id).length === 0).map(c => c.claim_id);
 if (unmapped.length) fail('05 integridad', `reclamaciones accionables sin work item de remediación (${unmapped.length}): ${sortedJoin(unmapped)}`);
@@ -333,11 +348,11 @@ for (const c of claims) {
 // ── 10/11/12/13. Batches and branches ────────────────────────────────────────
 const mergeItems = work.filter(w => w.delivery_mode === 'MERGE');
 const batches = [...new Set(mergeItems.map(w => w.lote).filter(Boolean))].sort();
-if (batches.length !== 28) fail('10 lotes', `lotes de fusión distintos = ${batches.length}; se exigen exactamente 28`);
+if (batches.length !== 29) fail('10 lotes', `lotes de fusión distintos = ${batches.length}; se exigen exactamente 29`);
 const missingB = CANONICAL_BATCHES.filter(b => !batches.includes(b));
 const extraB = batches.filter(b => !CANONICAL_BATCHES.includes(b));
-if (missingB.length) fail('11 lotes', `lotes canónicos ausentes: ${sortedJoin(missingB, 27)}`);
-if (extraB.length) fail('11 lotes', `lotes de fusión fuera de la lista canónica: ${sortedJoin(extraB, 27)}`);
+if (missingB.length) fail('11 lotes', `lotes canónicos ausentes: ${sortedJoin(missingB, 29)}`);
+if (extraB.length) fail('11 lotes', `lotes de fusión fuera de la lista canónica: ${sortedJoin(extraB, 29)}`);
 
 const branchesOfLote = new Map();
 for (const w of work) {
@@ -929,6 +944,133 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
   }
 
   if (!failures.some(f => f.check.startsWith('22'))) notes.push(`semántica global OK — decisión del dueño 2026-08-29 anclada en registro, protocolo, informe y PROJECT_STATE; W-B2d-01 SUPERSEDED/UNAUTHORIZED sin ejecutar y sin reintroducción de la dependencia; W-B2c-01 BLOCKED clase 2 con sus tres prerrequisitos y sin lenguaje de propiedad por colegio; inventario de asignación/progreso y vías alternas anclado; instantánea congelada de reclamaciones preservada (SHA-256 ${CLAIMS_SHA256.slice(0, 8)}…)`);
+}
+
+// ── 23. Seeded-simulation governance (SM-SIM-D0, 2026-09-02) ───────────────
+// Synthetic staging is evidence only. It is never a real Santa Marta pilot,
+// never production activation, and never remediation or closure of the frozen
+// onboarding/learning-path claims. W-SIM-01 (code) and W-SIM-02 (hosted data)
+// remain separately blocked and unauthorized; merging either may not imply the
+// other. The already-merged LP governance correction closes only B2c
+// prerequisite 1, leaving Privacy approval and Brent authorization open.
+{
+  const expectedShapes = {
+    'W-SIM-01': { status: 'BLOCKED', delivery_mode: 'MERGE', clase_migracion: '0', lote: 'SIM1', rama: 'feat/sm-sim' },
+    'W-SIM-02': { status: 'BLOCKED', delivery_mode: 'DATA', clase_migracion: '3', lote: '', rama: '' },
+  };
+
+  for (const id of SIM_WORK_IDS) {
+    const item = byWork.get(id);
+    if (!item) {
+      fail('23 simulación', `${id}: no existe en el ledger mutable`);
+      continue;
+    }
+    for (const [field, expected] of Object.entries(expectedShapes[id])) {
+      if (item[field] !== expected) fail('23 simulación', `${id}: ${field} debe ser «${expected}»; consta «${item[field]}»`);
+    }
+    if (item.authorization_owner !== 'Brent') fail('23 simulación', `${id}: authorization_owner debe ser Brent; consta «${item.authorization_owner}»`);
+    if (item.authorization_status !== 'UNAUTHORIZED') fail('23 simulación', `${id}: debe permanecer UNAUTHORIZED hasta una autorización separada de Brent; consta «${item.authorization_status}»`);
+    if ((item.execution_owner || '') !== '') fail('23 simulación', `${id}: execution_owner debe permanecer vacío mientras el ítem esté sin autorizar`);
+    const mapped = [...(claimsOfWork.get(id) || [])].sort();
+    const expectedMapped = [...SIM_CLAIM_IDS].sort();
+    if (JSON.stringify(mapped) !== JSON.stringify(expectedMapped)) {
+      fail('23 simulación', `${id}: debe mapear exactamente a las dos dependencias de evidencia [${expectedMapped.join(', ')}]; mapea [${mapped.join(', ')}]`);
+    }
+    const row = `${item.gate_salida || ''} ${item.compensacion_reversion || ''} ${item.notes || ''}`;
+    for (const needle of ['NO CERRANTE', 'no es remediación']) {
+      if (!row.includes(needle)) fail('23 simulación', `${id}: no conserva la semántica «${needle}» de evidencia sin cierre`);
+    }
+  }
+
+  // Non-closing assertion, independent of the exclusion set it tests: the
+  // expected simulation ids are frozen literals, the simulation mappings are
+  // derived from the raw mapping-ledger rows, and the result is NOT filtered
+  // through NON_CLOSING_EVIDENCE_WORK. Emptying that set must fail here.
+  const EXPECTED_SIM_WORK_IDS = Object.freeze(['W-SIM-01', 'W-SIM-02']);
+  if (JSON.stringify([...SIM_WORK_IDS].sort()) !== JSON.stringify([...EXPECTED_SIM_WORK_IDS].sort())) {
+    fail('23 simulación', `SIM_WORK_IDS debe ser exactamente [${EXPECTED_SIM_WORK_IDS.join(', ')}]; consta [${SIM_WORK_IDS.join(', ')}]`);
+  }
+  for (const id of EXPECTED_SIM_WORK_IDS) {
+    if (!NON_CLOSING_EVIDENCE_WORK.has(id)) fail('23 simulación', `${id}: falta en la exclusión NON_CLOSING_EVIDENCE_WORK; se contaría como remediación`);
+  }
+  const rawSimLinks = links.filter(l => EXPECTED_SIM_WORK_IDS.includes(l.work_id));
+  const rawSimClaims = [...new Set(rawSimLinks.map(l => l.claim_id))].sort();
+  if (JSON.stringify(rawSimClaims) !== JSON.stringify([...SIM_CLAIM_IDS].sort())) {
+    fail('23 simulación', `mapeo crudo de simulación: se esperaban exactamente las reclamaciones [${[...SIM_CLAIM_IDS].sort().join(', ')}]; constan [${rawSimClaims.join(', ')}]`);
+  }
+  for (const cid of rawSimClaims) {
+    const remediation = remediationOf(cid);
+    for (const id of EXPECTED_SIM_WORK_IDS) {
+      if (remediation.includes(id)) fail('23 simulación', `${cid}: ${id} se está contando erróneamente como remediación; es evidencia NO CERRANTE`);
+    }
+  }
+
+  if (!fs.existsSync(SIM_PLAN)) {
+    fail('23 simulación', 'falta el plan completo docs/reviews/santa-marta-seeded-simulation-plan-2026-08-31.md');
+  } else {
+    const plan = fs.readFileSync(SIM_PLAN, 'utf8');
+    const planPins = [
+      'SM-SIM-D0 DOCUMENTATION PHASE AUTHORIZED BY BRENT',
+      SIM_LABEL,
+      'dedicated non-production Supabase project',
+      'sm-sim-v1',
+      'UUIDv5',
+      'adult',
+      'W-SIM-01',
+      'W-SIM-02',
+      'External reads were limited to Git and GitHub PR/run/deployment metadata',
+      'no Supabase or Vercel control plane, database, credential, or other provider account was accessed',
+    ];
+    for (const needle of planPins) {
+      if (!plan.includes(needle)) fail('23 simulación', `plan completo: falta el ancla «${needle}»`);
+    }
+    if (!plan.includes('Merging W-SIM-01 must not authorize W-SIM-02')) {
+      fail('23 simulación', 'plan completo: no separa la fusión de W-SIM-01 de la autorización de W-SIM-02');
+    }
+  }
+
+  const ps = fs.existsSync(PSTATE) ? fs.readFileSync(PSTATE, 'utf8') : '';
+  const lpEntry = ps.split('\n').find(l => l.startsWith('- **LP-GOV-01')) || '';
+  if (!ps.split('\n').some(l => l.startsWith('- **SM-SIM-D0'))) fail('23 simulación', 'PROJECT_STATE: falta la entrada autoritativa SM-SIM-D0');
+  if (!lpEntry.includes('MERGED 2026-08-31') || !lpEntry.includes('PR [#65]') || !lpEntry.includes('49814091a2df69cc8e4c02beba8014bb5aa0694c')) {
+    fail('23 simulación', 'PROJECT_STATE: LP-GOV-01 no registra durablemente el merge de PR #65 / 49814091');
+  }
+  if (/NOT MERGED/i.test(lpEntry)) fail('23 simulación', 'PROJECT_STATE: LP-GOV-01 conserva la afirmación obsoleta NOT MERGED');
+
+  const b2c = byWork.get('W-B2c-01');
+  if (b2c) {
+    const notes = b2c.notes || '';
+    for (const needle of ['(1) CUMPLIDO', 'PR #65', 'merge 49814091', 'pendientes: (2)', '(3) autorización explícita y separada de Brent']) {
+      if (!notes.includes(needle)) fail('23 simulación', `W-B2c-01: no reconcilia el prerrequisito de gobernanza mergeado — falta «${needle}»`);
+    }
+  }
+
+  // The mandatory visible label must appear verbatim in the full plan, the
+  // active release protocol, PROJECT_STATE and the D0 review request.
+  const labelDocs = [
+    [SIM_PLAN, 'plan completo'],
+    [PROTOCOL, 'protocolo activo'],
+    [PSTATE, 'PROJECT_STATE'],
+    [SIM_REVIEW_REQ, 'solicitud de revisión D0'],
+  ];
+  for (const [file, label] of labelDocs) {
+    const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+    if (!text.includes(SIM_LABEL)) fail('23 simulación', `${label}: falta la etiqueta visible obligatoria exacta «${SIM_LABEL}»`);
+  }
+
+  const protocolPins = ['**revisión 10**', 'W-SIM-01', 'W-SIM-02', 'NO CERRANTE'];
+  for (const needle of protocolPins) {
+    if (!protoText.includes(needle)) fail('23 simulación', `protocolo revisión 10: falta «${needle}»`);
+  }
+  const combined = fs.existsSync(PLANDOC) ? fs.readFileSync(PLANDOC, 'utf8') : '';
+  const report = fs.existsSync(REPORTDOC) ? fs.readFileSync(REPORTDOC, 'utf8') : '';
+  for (const [text, label] of [[combined, 'plan combinado'], [report, 'informe de normalización']]) {
+    for (const needle of ['W-SIM-01', 'W-SIM-02', 'NO CERRANTE']) {
+      if (!text.includes(needle)) fail('23 simulación', `${label}: falta el ancla de simulación «${needle}»`);
+    }
+  }
+
+  if (!failures.some(f => f.check.startsWith('23'))) notes.push('simulación sembrada OK — SM-SIM-D0 documentado; W-SIM-01/02 BLOCKED/UNAUTHORIZED, mapeados como evidencia NO CERRANTE; PR #65 reconciliado y B2c sigue bloqueado por Privacidad + autorización de Brent; etiqueta obligatoria exacta presente en plan, protocolo, PROJECT_STATE y solicitud de revisión D0; sin provisión, implementación, datos alojados ni producción');
 }
 
 // ── Report ───────────────────────────────────────────────────────────────────

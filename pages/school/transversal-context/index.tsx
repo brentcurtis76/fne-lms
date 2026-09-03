@@ -326,6 +326,11 @@ const TransversalContextDashboard: React.FC = () => {
   // open and shows that message so the directivo can act or retry (a retry
   // reconciles missing evaluations). Warnings on success stay visible in a
   // banner and are never relabeled as complete success.
+  // C-01: a 409 (course already has an active docente, or has more than one)
+  // also keeps the modal open with the message, and ALWAYS refreshes the course
+  // list even though nothing was written — the list this page rendered was
+  // stale, and the refreshed state removes the "Asignar" control it offered.
+  // No replacement flow is opened or suggested.
   const handleAssignDocente = async () => {
     if (!selectedCourse || !selectedDocente) return;
 
@@ -360,9 +365,10 @@ const TransversalContextDashboard: React.FC = () => {
         setAssignError(message);
         setAssignErrorWarnings(warnings);
         toast.error(message, { duration: 8000 });
-        if (data.assignment?.mutated) {
-          // The course assignment was written even though no evaluation was
-          // confirmed: refresh so the course list stays truthful.
+        if (data.assignment?.mutated || response.status === 409) {
+          // Either the course assignment was written even though no evaluation
+          // was confirmed, or the course state this page offered was stale
+          // (409): refresh so the course list stays truthful.
           fetchContext();
         }
         return; // modal stays open
@@ -389,37 +395,10 @@ const TransversalContextDashboard: React.FC = () => {
     }
   };
 
-  // Handle docente unassignment
-  const handleUnassignDocente = async (courseId: string, docenteId: string, docenteName: string) => {
-    if (!confirm(`¿Desea desasignar a ${docenteName} de este curso?`)) return;
-
-    try {
-      const response = await fetch('/api/school/transversal-context/assign-docente', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          course_structure_id: courseId,
-          docente_id: docenteId,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok && response.status !== 207) {
-        throw new Error(data.error || 'Error al desasignar docente');
-      }
-
-      if (data.warning) {
-        toast.error(data.warning, { duration: 8000 });
-      } else {
-        toast.success('Docente desasignado');
-      }
-      fetchContext(); // Refresh data
-    } catch (error: any) {
-      console.error('Error unassigning docente:', error);
-      toast.error(error.message || 'Error al desasignar docente');
-    }
-  };
+  // C-01: the page-level "Desasignar" control is deliberately gone. Exposing it
+  // next to "Asignar" created an unassign-then-reassign replacement path that
+  // could attach a new docente to a preserved assessment instance. Replacement
+  // is a controlled process (C-02); the DELETE endpoint itself is unchanged.
 
   // Loading state
   if (loading || hasPermission === null) {
@@ -938,24 +917,37 @@ const TransversalContextDashboard: React.FC = () => {
                       const activeAssignments = course.school_course_docente_assignments?.filter(
                         (a: any) => a.is_active
                       ) || [];
-                      const hasDocente = activeAssignments.length > 0;
+                      // C-01 — classify by the number of ACTIVE assignments the API returned:
+                      //   0  → the ordinary "Asignar" control (directivos only)
+                      //   1  → locked: no "Asignar", no "Desasignar"; changing the docente is a
+                      //        controlled administrative resolution (C-02), not a page action
+                      //   >1 → integrity conflict: nothing is offered and no row is presumed
+                      //        correct; every active assignment stays visible as returned
+                      const activeCount = activeAssignments.length;
+                      const isLocked = activeCount === 1;
+                      const hasIntegrityConflict = activeCount > 1;
+                      const canOfferAssign = !isAdminOrConsultor && activeCount === 0;
 
                       return (
                         <div
                           key={course.id}
+                          data-testid={`course-card-${course.id}`}
                           className={`p-3 rounded-lg border ${
-                            hasDocente
-                              ? 'bg-brand_accent/10 border-brand_accent'
-                              : 'bg-brand_beige border-brand_primary/10'
+                            hasIntegrityConflict
+                              ? 'bg-red-50 border-red-300'
+                              : isLocked
+                                ? 'bg-brand_accent/10 border-brand_accent'
+                                : 'bg-brand_beige border-brand_primary/10'
                           }`}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <span className="font-medium text-brand_primary">{course.course_name}</span>
-                              {hasDocente && <CheckCircle className="w-4 h-4 text-brand_primary" />}
+                              {isLocked && <CheckCircle className="w-4 h-4 text-brand_primary" />}
+                              {hasIntegrityConflict && <AlertCircle className="w-4 h-4 text-red-700" />}
                             </div>
-                            {/* Assign button - only for directivos */}
-                            {!isAdminOrConsultor && (
+                            {/* Assign control — directivos only, and only while the course has no active docente */}
+                            {canOfferAssign && (
                               <button
                                 data-testid={`open-assign-docente-${course.id}`}
                                 onClick={() => openAssignModal(course)}
@@ -967,33 +959,45 @@ const TransversalContextDashboard: React.FC = () => {
                             )}
                           </div>
 
-                          {/* Show assigned docentes */}
-                          {activeAssignments.length > 0 && (
+                          {/* Every active assignment, exactly as returned — no unassign control, no chosen row */}
+                          {activeCount > 0 && (
                             <div className="mt-2 space-y-1">
                               {activeAssignments.map((assignment: any) => (
                                 <div
                                   key={assignment.id}
+                                  data-testid={`course-active-assignment-${assignment.id}`}
                                   className="flex items-center justify-between text-sm bg-white px-2 py-1 rounded"
                                 >
                                   <span className="text-brand_primary/80">
                                     {assignment.profiles?.name || assignment.docente_id}
                                   </span>
-                                  {/* Unassign button - only for directivos */}
-                                  {!isAdminOrConsultor && (
-                                    <button
-                                      onClick={() => handleUnassignDocente(
-                                        course.id,
-                                        assignment.docente_id,
-                                        assignment.profiles?.name || 'docente'
-                                      )}
-                                      className="text-brand_primary/50 hover:text-brand_primary p-1"
-                                      title="Desasignar"
-                                    >
-                                      <X className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
                                 </div>
                               ))}
+                            </div>
+                          )}
+
+                          {isLocked && (
+                            <p
+                              data-testid={`course-assignment-locked-${course.id}`}
+                              className="mt-2 text-xs text-brand_primary/70"
+                            >
+                              Este curso ya tiene un docente asignado. Para cambiar el docente se requiere una
+                              resolución administrativa controlada; no es posible asignar ni desasignar desde esta página.
+                            </p>
+                          )}
+
+                          {hasIntegrityConflict && (
+                            <div
+                              data-testid={`course-assignment-integrity-warning-${course.id}`}
+                              role="alert"
+                              className="mt-2 p-2 rounded bg-white border border-red-200 text-xs text-red-800"
+                            >
+                              <p className="font-medium">Estado de asignación inválido</p>
+                              <p className="mt-1">
+                                Este curso registra {activeCount} docentes activos y solo debe tener uno. No es posible
+                                asignar ni desasignar desde esta página: solicite una resolución administrativa controlada
+                                para corregir la asignación de este curso.
+                              </p>
                             </div>
                           )}
                         </div>

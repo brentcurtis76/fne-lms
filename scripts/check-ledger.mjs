@@ -29,7 +29,7 @@ const REPORTDOC = R('docs/reviews/santa-marta-ledger-normalization-report-2026-0
 const PSTATE = R('PROJECT_STATE.md');
 const BASELINE = R('supabase/migrations/00000000000000_baseline.sql');
 const SIM_PLAN = R('docs/reviews/santa-marta-seeded-simulation-plan-2026-08-31.md');
-const SIM_REVIEW_REQ = R('docs/planning/reviews/fase-sm-sim-plan-review-request.md');
+const SIM_REVIEW_REQ = R('docs/planning/reviews/fase-sm-sim-prod-review-request.md');
 
 // ── Frozen expectations ──────────────────────────────────────────────────────
 const EXPECTED_CLAIMS = 160;
@@ -44,9 +44,13 @@ const CLAIMS_SHA256 = 'd598f29b39d8d5ac9c1289a7c030221c93a3c8897c91f19e395f99486
 const LP_GOV_DOC = 'docs/reviews/w-b2c-01-learning-path-governance-correction-2026-08-29.md';
 const SIM_WORK_IDS = ['W-SIM-01', 'W-SIM-02'];
 const SIM_CLAIM_IDS = ['SWEEP-MI-APRENDIZAJE-09', 'SWEEP-ONBOARDING-DATA-01'];
-// Mandatory visible label of the seeded simulation. The exact string must
-// appear verbatim in every governed location (enforced by check 23).
-const SIM_LABEL = 'PILOTO SIMULADO — DATOS SINTÉTICOS — NO PRODUCCIÓN';
+// Immutable destination anchor for all future Production-QA tooling. A school
+// allowlist without the exact Supabase project ref is not fail closed.
+const SIM_PRODUCTION_PROJECT_REF = 'sxlogxqzmarhqsblxmtj';
+// Mandatory visible label of the Production-QA simulation. The exact string
+// must appear verbatim in every current governed location (enforced by check
+// 23). The revision-10 staging label remains only as marked historical text.
+const SIM_LABEL = 'QA INTERNO — DATOS SINTÉTICOS EN PRODUCCIÓN — NO ES PILOTO REAL';
 // These work items map to frozen claims only as evidence dependencies. They
 // must never count as remediations or close those production claims.
 const NON_CLOSING_EVIDENCE_WORK = new Set(SIM_WORK_IDS);
@@ -946,13 +950,14 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
   if (!failures.some(f => f.check.startsWith('22'))) notes.push(`semántica global OK — decisión del dueño 2026-08-29 anclada en registro, protocolo, informe y PROJECT_STATE; W-B2d-01 SUPERSEDED/UNAUTHORIZED sin ejecutar y sin reintroducción de la dependencia; W-B2c-01 BLOCKED clase 2 con sus tres prerrequisitos y sin lenguaje de propiedad por colegio; inventario de asignación/progreso y vías alternas anclado; instantánea congelada de reclamaciones preservada (SHA-256 ${CLAIMS_SHA256.slice(0, 8)}…)`);
 }
 
-// ── 23. Seeded-simulation governance (SM-SIM-D0, 2026-09-02) ───────────────
-// Synthetic staging is evidence only. It is never a real Santa Marta pilot,
-// never production activation, and never remediation or closure of the frozen
-// onboarding/learning-path claims. W-SIM-01 (code) and W-SIM-02 (hosted data)
-// remain separately blocked and unauthorized; merging either may not imply the
-// other. The already-merged LP governance correction closes only B2c
-// prerequisite 1, leaving Privacy approval and Brent authorization open.
+// ── 23. Seeded-simulation governance (production-QA amendment, 2026-09-03) ─
+// The revision-10 staging topology remains historical. The current owner
+// decision reuses only the existing synthetic Production QA tenants 257/259.
+// This is never a real Santa Marta pilot, production-readiness evidence,
+// remediation or closure of the frozen onboarding/learning-path claims.
+// W-SIM-01 (containment code) and W-SIM-02 (Production class-3 data) remain
+// separately blocked and unauthorized; merging W-SIM-01 cannot authorize
+// W-SIM-02. Existing QA rows are never inferred to be manifest-owned.
 {
   const expectedShapes = {
     'W-SIM-01': { status: 'BLOCKED', delivery_mode: 'MERGE', clase_migracion: '0', lote: 'SIM1', rama: 'feat/sm-sim' },
@@ -979,6 +984,12 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
     const row = `${item.gate_salida || ''} ${item.compensacion_reversion || ''} ${item.notes || ''}`;
     for (const needle of ['NO CERRANTE', 'no es remediación']) {
       if (!row.includes(needle)) fail('23 simulación', `${id}: no conserva la semántica «${needle}» de evidencia sin cierre`);
+    }
+    const productionQaPins = id === 'W-SIM-01'
+      ? [SIM_PRODUCTION_PROJECT_REF, '257/259', 'tenant_kind=qa', 'suppressed_qa', 'sin ZOOM_MODE global', 'No se crea staging', 'no escribe datos']
+      : ['257/259', 'tenant_kind=qa', 'No se crea ni inicializa staging', 'solo brechas', 'no crea rutas globales', 'Mantener tenant_kind=qa es el fallo seguro'];
+    for (const needle of productionQaPins) {
+      if (!row.includes(needle)) fail('23 simulación', `${id}: falta el ancla Production-QA «${needle}»`);
     }
   }
 
@@ -1010,16 +1021,20 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
   } else {
     const plan = fs.readFileSync(SIM_PLAN, 'utf8');
     const planPins = [
-      'SM-SIM-D0 DOCUMENTATION PHASE AUTHORIZED BY BRENT',
+      'Production-QA reuse amendment — 2026-09-03 (current authority)',
       SIM_LABEL,
-      'dedicated non-production Supabase project',
-      'sm-sim-v1',
-      'UUIDv5',
-      'adult',
+      'do not create a staging project',
+      SIM_PRODUCTION_PROJECT_REF,
+      '`schools.id = 257`',
+      '`schools.id = 259`',
+      "`tenant_kind='qa'`",
+      '`suppressed_qa`',
+      'global `ZOOM_MODE=mock` in Production is prohibited',
+      'Four corrected read-only queries succeeded',
+      'never deletes a pre-existing QA row',
       'W-SIM-01',
       'W-SIM-02',
-      'External reads were limited to Git and GitHub PR/run/deployment metadata',
-      'no Supabase or Vercel control plane, database, credential, or other provider account was accessed',
+      'No staging project, Vercel custom environment, staging domain, staging credential set, or staging initialization remains a prerequisite',
     ];
     for (const needle of planPins) {
       if (!plan.includes(needle)) fail('23 simulación', `plan completo: falta el ancla «${needle}»`);
@@ -1030,7 +1045,10 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
   }
 
   const ps = fs.existsSync(PSTATE) ? fs.readFileSync(PSTATE, 'utf8') : '';
+  const simProdEntry = ps.split('\n').find(l => l.startsWith('- **SM-SIM-PROD-D1')) || '';
   const lpEntry = ps.split('\n').find(l => l.startsWith('- **LP-GOV-01')) || '';
+  if (!simProdEntry) fail('23 simulación', 'PROJECT_STATE: falta la entrada autoritativa SM-SIM-PROD-D1');
+  if (simProdEntry && !simProdEntry.includes(SIM_PRODUCTION_PROJECT_REF)) fail('23 simulación', `PROJECT_STATE: SM-SIM-PROD-D1 no fija el ref exacto ${SIM_PRODUCTION_PROJECT_REF}`);
   if (!ps.split('\n').some(l => l.startsWith('- **SM-SIM-D0'))) fail('23 simulación', 'PROJECT_STATE: falta la entrada autoritativa SM-SIM-D0');
   if (!lpEntry.includes('MERGED 2026-08-31') || !lpEntry.includes('PR [#65]') || !lpEntry.includes('49814091a2df69cc8e4c02beba8014bb5aa0694c')) {
     fail('23 simulación', 'PROJECT_STATE: LP-GOV-01 no registra durablemente el merge de PR #65 / 49814091');
@@ -1045,32 +1063,32 @@ const hasToken = (text, name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-
     }
   }
 
-  // The mandatory visible label must appear verbatim in the full plan, the
-  // active release protocol, PROJECT_STATE and the D0 review request.
+  // The truthful current label must appear verbatim in the full plan, active
+  // protocol, PROJECT_STATE and the Production-QA amendment review request.
   const labelDocs = [
     [SIM_PLAN, 'plan completo'],
     [PROTOCOL, 'protocolo activo'],
     [PSTATE, 'PROJECT_STATE'],
-    [SIM_REVIEW_REQ, 'solicitud de revisión D0'],
+    [SIM_REVIEW_REQ, 'solicitud de revisión SM-SIM-PROD-D1'],
   ];
   for (const [file, label] of labelDocs) {
     const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
     if (!text.includes(SIM_LABEL)) fail('23 simulación', `${label}: falta la etiqueta visible obligatoria exacta «${SIM_LABEL}»`);
   }
 
-  const protocolPins = ['**revisión 10**', 'W-SIM-01', 'W-SIM-02', 'NO CERRANTE'];
+  const protocolPins = ['**revisión 11**', SIM_PRODUCTION_PROJECT_REF, 'schools 257/259', 'tenant_kind=qa', 'suppressed_qa', 'W-SIM-01', 'W-SIM-02', 'NO CERRANTE'];
   for (const needle of protocolPins) {
-    if (!protoText.includes(needle)) fail('23 simulación', `protocolo revisión 10: falta «${needle}»`);
+    if (!protoText.includes(needle)) fail('23 simulación', `protocolo revisión 11: falta «${needle}»`);
   }
   const combined = fs.existsSync(PLANDOC) ? fs.readFileSync(PLANDOC, 'utf8') : '';
   const report = fs.existsSync(REPORTDOC) ? fs.readFileSync(REPORTDOC, 'utf8') : '';
   for (const [text, label] of [[combined, 'plan combinado'], [report, 'informe de normalización']]) {
-    for (const needle of ['W-SIM-01', 'W-SIM-02', 'NO CERRANTE']) {
+    for (const needle of ['W-SIM-01', 'W-SIM-02', 'NO CERRANTE', '257/259']) {
       if (!text.includes(needle)) fail('23 simulación', `${label}: falta el ancla de simulación «${needle}»`);
     }
   }
 
-  if (!failures.some(f => f.check.startsWith('23'))) notes.push('simulación sembrada OK — SM-SIM-D0 documentado; W-SIM-01/02 BLOCKED/UNAUTHORIZED, mapeados como evidencia NO CERRANTE; PR #65 reconciliado y B2c sigue bloqueado por Privacidad + autorización de Brent; etiqueta obligatoria exacta presente en plan, protocolo, PROJECT_STATE y solicitud de revisión D0; sin provisión, implementación, datos alojados ni producción');
+  if (!failures.some(f => f.check.startsWith('23'))) notes.push(`simulación Production-QA OK — revisión 11 fija el ref ${SIM_PRODUCTION_PROJECT_REF} y supersede staging con tenants sintéticos 257/259; W-SIM-01/02 siguen BLOCKED/UNAUTHORIZED y NO CERRANTE; contención precede clasificación/seed, no hay modo Zoom global, correo QA no alcanza proveedor y filas preexistentes no son propiedad del manifiesto; etiqueta verdadera presente en plan, protocolo, PROJECT_STATE y revisión SM-SIM-PROD-D1; sin código, escritura, commit, push, PR, merge ni deploy`);
 }
 
 // ── Report ───────────────────────────────────────────────────────────────────

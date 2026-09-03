@@ -1,5 +1,10 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('../../../../lib/zoom/tenant-boundary', async (importOriginal) => ({
+  ...((await importOriginal()) as Record<string, unknown>),
+  defaultZoomTenantGate: () => async (schoolId: number) => ({ kind: 'allow', tenantKind: 'client', schoolId }),
+}));
 import {
   createAttendanceReconcileHandler,
   REPORT_MAX_PAGES,
@@ -123,6 +128,23 @@ function seedReport(count: number) {
   );
   return api;
 }
+
+describe('attendance_reconcile — QA provider boundary', () => {
+  it('does not open a batch or call the Zoom report API', async () => {
+    const api = createZoomFake();
+    const reportSpy = vi.spyOn(api, 'listReportParticipants');
+    const harness = fakeReportStore();
+    const result = await createAttendanceReconcileHandler({
+      api,
+      reportStore: harness.store,
+      matchLookups: fakeLookups(),
+      tenantGate: async (schoolId) => ({ kind: 'suppressed_qa', tenantKind: 'qa', schoolId, label: 'QA' }),
+    })(context());
+    expect(result).toEqual({ skipped: 'suppressed_qa', school_id: MEETING.schoolId });
+    expect(reportSpy).not.toHaveBeenCalled();
+    expect(harness.store.createPendingBatch).not.toHaveBeenCalled();
+  });
+});
 
 function liveReportApiBody(body: Record<string, unknown>) {
   const tokens: ZoomTokenProvider = {

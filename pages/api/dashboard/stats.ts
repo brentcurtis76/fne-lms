@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { calculateActivityScore } from '@/lib/utils/activityScore';
+import { readClientReportingScope } from '@/lib/simulation/tenant-policy';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -100,7 +101,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Get scoped user IDs based on role
-    const scopedUserIds = await getScopedUserIds(supabase, userId, userRole);
+    const roleScopedUserIds = await getScopedUserIds(supabase, userId, userRole);
+    const clientScope = await readClientReportingScope(supabase);
+    // Admin's historical `null` meant every profile. Convert it to the explicit client
+    // universe; every narrower role scope is intersected with the same universe.
+    const scopedUserIds = roleScopedUserIds === null
+      ? clientScope.userIds
+      : clientScope.filterUserIds(roleScopedUserIds);
     const statsLabel = STATS_LABEL_MAP[userRole] || 'Estadísticas de tu Aprendizaje';
 
     // Get excluded school IDs

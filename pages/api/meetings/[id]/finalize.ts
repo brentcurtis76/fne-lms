@@ -20,6 +20,10 @@ import { escapeHtml } from '../../../../lib/utils/html-escape';
 import { loadMeetingAuthContext } from '../../../../lib/api/meetings/load-context';
 import { MEETING_STATUS } from '../../../../lib/utils/meeting-policy';
 import { profileName } from '../../../../lib/utils/profile-name';
+import {
+  authorizeRecipientUsersEmail,
+  authorizeSchoolEmail,
+} from '../../../../lib/email/outbound-policy';
 
 const finalizeSchema = z.object({
   audience: z.enum(['community', 'attended']),
@@ -86,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const ctx = await loadMeetingAuthContext<FinalizeMeeting>(req, res, {
       meetingSelect:
         'id, status, created_by, facilitator_id, secretary_id, ' +
-        'workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id, community:communities(id, name)), ' +
+        'workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id, community:communities(id, name, school_id)), ' +
         'title, meeting_date, summary, summary_doc, notes, notes_doc, finalized_at, version',
       require: 'finalize',
     });
@@ -194,6 +198,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const recipients = await getCommunityRecipients(serviceClient, id, {
       onlyAttended: audience === 'attended',
     });
+    const communitySchoolId = community?.school_id;
+    const emailAuthorization = communitySchoolId === null || communitySchoolId === undefined
+      ? await authorizeRecipientUsersEmail(serviceClient, recipients.map((recipient) => recipient.id))
+      : await authorizeSchoolEmail(serviceClient, communitySchoolId);
 
     // Build email template data.
     const meetingDates: Date[] = [];
@@ -261,10 +269,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let failed = 0;
     let errorsPreview: unknown[] = [];
     try {
-      const result = await sendMeetingSummary(templateData, recipients);
+      const result = await sendMeetingSummary(templateData, recipients, emailAuthorization);
       sent = result.sent;
       failed = result.failed;
       errorsPreview = result.errors;
+      summaryEmailSent = failed === 0;
+      if (emailAuthorization.kind === 'suppressed_qa') {
+        summaryEmailSent = false;
+        summaryEmailError = 'suppressed_qa';
+      } else if (emailAuthorization.kind === 'refuse') {
+        summaryEmailSent = false;
+        summaryEmailError = 'tenant_scope_refused';
+      }
     } catch (emailErr: any) {
       summaryEmailSent = false;
       summaryEmailError = emailErr?.message || 'email_dispatch_failed';

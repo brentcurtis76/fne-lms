@@ -226,9 +226,9 @@ describe('GET /api/sessions/capabilities — semantics', () => {
     const { body } = await call({ school_id: '257' });
     expect(body.data).toEqual({
       school_id: 257,
-      managed_zoom_allowed: true,
+      managed_zoom_allowed: false,
       operator_test_creation_allowed: false,
-      reasons: ['tenant_not_operator'],
+      reasons: ['qa_provider_suppressed', 'tenant_not_operator'],
     });
     expectExactSchoolQuery(257);
   });

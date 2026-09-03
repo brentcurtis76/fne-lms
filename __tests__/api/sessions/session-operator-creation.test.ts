@@ -503,8 +503,8 @@ describe('POST /api/sessions — client and QA keep their existing behaviour', (
     expect(inserted[0]).toMatchObject({ is_zoom_managed: true, meeting_provider: 'zoom', meeting_link: null });
   });
 
-  it('QA: contract/hour-type pair on a managed Zoom session → 201 (fixtures may exercise ledgers)', async () => {
-    const { status } = await post(
+  it('QA: managed Zoom intent is refused before insert even when financial fields are valid', async () => {
+    const { status, body } = await post(
       clientBody({
         school_id: QA,
         is_zoom_managed: true,
@@ -514,14 +514,9 @@ describe('POST /api/sessions — client and QA keep their existing behaviour', (
         program_enrollment_id: ENROLLMENT_ID,
       })
     );
-    expect(status).toBe(201);
-    expect(inserted[0]).toMatchObject({
-      school_id: QA,
-      contrato_id: CONTRATO_ID,
-      hour_type_key: 'acompanamiento',
-      program_enrollment_id: ENROLLMENT_ID,
-      is_zoom_managed: true,
-    });
+    expect(status).toBe(400);
+    expect(body).toMatchObject({ code: 'qa_provider_suppressed' });
+    expect(inserted).toEqual([]);
     expectExactSchoolQuery(QA);
   });
 

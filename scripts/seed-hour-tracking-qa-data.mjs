@@ -12,6 +12,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { assertLegacySeederIsNotProduction } from './production-qa-simulation/legacy-target-guard.mjs';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://sxlogxqzmarhqsblxmtj.supabase.co';
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -20,6 +21,8 @@ if (!SERVICE_ROLE_KEY) {
   console.error('Error: SUPABASE_SERVICE_ROLE_KEY environment variable is required');
   process.exit(1);
 }
+
+assertLegacySeederIsNotProduction(SUPABASE_URL);
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },

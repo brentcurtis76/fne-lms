@@ -25,8 +25,14 @@
  *   - Every interpolated value is HTML-escaped. The names come from a public
  *     sign-up form, so they are attacker-controlled text.
  */
-import { Resend } from 'resend';
 import { captureOutboundEmail } from './outbox';
+import {
+  deliverOutboundEmail,
+  type EmailTransport,
+} from './provider';
+import type { OutboundEmailAuthorization } from './outbound-policy';
+
+export type { EmailTransport } from './provider';
 
 /**
  * WHAT A SEND CAN ACTUALLY BE, and why the list is longer than it was.
@@ -56,6 +62,8 @@ import { captureOutboundEmail } from './outbox';
 export type DeliveryStatus =
   | 'not_configured'
   | 'link_generation_failed'
+  | 'suppressed_qa'
+  | 'refused'
   | 'transport_error'
   | 'provider_rejected'
   | 'provider_accepted'
@@ -66,6 +74,8 @@ export type DeliveryStatus =
 export type DeliveryFailureReason =
   | 'not_configured'
   | 'link_generation_failed'
+  | 'suppressed_qa'
+  | 'refused'
   | 'provider_rejected'
   | 'transport_error';
 
@@ -101,6 +111,10 @@ export const DELIVERY_MESSAGES: Record<DeliveryFailureReason, string> = {
     'No se envió el correo: el servicio de correo no está configurado. Avisa al equipo técnico.',
   link_generation_failed:
     'No se envió el correo: no se pudo generar el enlace de acceso. Inténtalo nuevamente.',
+  suppressed_qa:
+    'No se envió el correo: esta cuenta pertenece al entorno interno de simulación QA.',
+  refused:
+    'No se envió el correo: no se pudo verificar de forma segura el ámbito del destinatario.',
   provider_rejected:
     'No se envió el correo: el proveedor rechazó el mensaje. Verifica la dirección e inténtalo nuevamente.',
   transport_error:
@@ -202,110 +216,50 @@ function renderEmail(params: {
  * tests inject a double. There is no environment switch, so a deployed build
  * cannot reach a fake transport.
  */
-export type EmailTransport = (message: {
-  from: string;
-  to: string;
-  subject: string;
-  html: string;
-}, options?: {
-  idempotencyKey?: string;
-}) => Promise<{ data?: { id?: string } | null; error?: { message?: string } | null }>;
-
-function defaultTransport(apiKey: string): EmailTransport {
-  const resend = new Resend(apiKey);
-  return async (message, options) => {
-    if (!options?.idempotencyKey) return resend.emails.send(message);
-
-    // resend@3 predates the SDK option, while the provider API supports the
-    // Idempotency-Key header. Use the documented HTTP contract for the durable
-    // outbox and leave existing synchronous invitation sends on the SDK path.
-    try {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'Idempotency-Key': options.idempotencyKey,
-        },
-        body: JSON.stringify(message),
-      });
-      const body = (await response.json().catch(() => null)) as {
-        id?: string;
-        message?: string;
-      } | null;
-      if (!response.ok) {
-        // A provider outage or throttling response is not a durable rejection
-        // of this message. Classify it with transport failures so the recovery
-        // outbox retries the already-prepared link under the same idempotency key.
-        if (response.status === 429 || response.status >= 500) {
-          throw new Error('transient provider failure');
-        }
-        return { data: null, error: { message: body?.message ?? 'provider rejected request' } };
-      }
-      return { data: { id: body?.id }, error: null };
-    } catch {
-      // Let the shared sender classify network/DNS/timeout failures separately
-      // from a provider response that explicitly rejected the request.
-      throw new Error('transport failure');
-    }
-  };
-}
-
 async function send(
-  params: { to: string; subject: string; html: string; idempotencyKey?: string },
+  params: {
+    to: string;
+    subject: string;
+    html: string;
+    authorization: OutboundEmailAuthorization;
+    idempotencyKey?: string;
+  },
   transport?: EmailTransport
 ): Promise<DeliveryResult> {
-  const apiKey = process.env.RESEND_API_KEY;
-
-  // The controlled test transport (lib/email/outbox.ts). Additive and inert
-  // unless E2E_MAIL_OUTBOX names a file on a non-Vercel host: it records the
-  // message so the mandatory e2e can open the exact link this message carries,
-  // and it changes nothing about whether or how the message is actually sent.
-  captureOutboundEmail(params);
-
-  if (!apiKey && !transport) {
-    // No recipient-derived value is logged. This branch fires on every send
-    // when the key is missing, so even a domain would accumulate account data
-    // in the platform log.
-    console.error('[invitations] RESEND_API_KEY missing; e-mail not sent');
-    return { sent: false, status: 'not_configured', reason: 'not_configured' };
+  if (params.authorization.kind === 'allow') {
+    // The local E2E outbox mirrors only authorized mail. QA/refused mail must
+    // leave no transport-adjacent artifact at all.
+    captureOutboundEmail(params);
   }
 
-  const deliver = transport ?? defaultTransport(apiKey as string);
+  const result = await deliverOutboundEmail({
+    authorization: params.authorization,
+    message: {
+      from: process.env.EMAIL_FROM_ADDRESS || DEFAULT_FROM,
+      to: params.to,
+      subject: params.subject,
+      html: params.html,
+    },
+    idempotencyKey: params.idempotencyKey,
+    transport,
+  });
 
-  try {
-    const { data, error } = await deliver(
-      {
-        from: process.env.EMAIL_FROM_ADDRESS || DEFAULT_FROM,
-        to: params.to,
-        subject: params.subject,
-        html: params.html,
-      },
-      { idempotencyKey: params.idempotencyKey }
-    );
-
-    if (error) {
-      console.error('[invitations] provider rejected the message');
-      return {
-        sent: false,
-        status: 'provider_rejected',
-        reason: 'provider_rejected',
-        detail: error.message,
-      };
-    }
-
-    // ACCEPTED. Not delivered — see DeliveryStatus. The provider's id is kept so
-    // a later complaint can be correlated with a send; it is not a credential.
+  if (result.status === 'provider_accepted') {
     return {
       sent: true,
-      status: 'provider_accepted',
-      ...(typeof data?.id === 'string' ? { providerMessageId: data.id } : {}),
+      status: result.status,
+      ...(result.providerMessageId ? { providerMessageId: result.providerMessageId } : {}),
     };
-  } catch (thrown) {
-    const message = thrown instanceof Error ? thrown.message : String(thrown);
-    console.error('[invitations] transport threw');
-    return { sent: false, status: 'transport_error', reason: 'transport_error', detail: message };
   }
+  const reason: DeliveryFailureReason = result.status === 'refused'
+    ? 'refused'
+    : result.status;
+  return {
+    sent: false,
+    status: result.status,
+    reason,
+    ...('detail' in result && result.detail ? { detail: result.detail } : {}),
+  };
 }
 
 /**
@@ -333,12 +287,19 @@ export function linkGenerationFailed(): DeliveryResult {
  * coarse reason.
  */
 export async function sendPasswordSetupEmail(
-  params: { to: string; firstName: string; recoveryUrl: string; bodyLine: string },
+  params: {
+    to: string;
+    firstName: string;
+    recoveryUrl: string;
+    bodyLine: string;
+    authorization: OutboundEmailAuthorization;
+  },
   transport?: EmailTransport
 ): Promise<DeliveryResult> {
   return send(
     {
       to: params.to,
+      authorization: params.authorization,
       subject: 'Activa tu acceso a Genera',
       html: renderEmail({
         heading: 'Tu acceso está listo',
@@ -366,12 +327,19 @@ export async function sendPasswordSetupEmail(
  * not ask for, and needlessly invalidates a working credential.
  */
 export async function sendAccessGrantedEmail(
-  params: { to: string; firstName: string; loginUrl: string; bodyLine: string },
+  params: {
+    to: string;
+    firstName: string;
+    loginUrl: string;
+    bodyLine: string;
+    authorization: OutboundEmailAuthorization;
+  },
   transport?: EmailTransport
 ): Promise<DeliveryResult> {
   return send(
     {
       to: params.to,
+      authorization: params.authorization,
       subject: 'Tu acceso a Genera fue actualizado',
       html: renderEmail({
         heading: 'Tienes acceso nuevo',
@@ -405,12 +373,19 @@ export async function sendAccessGrantedEmail(
  * and self-service alike — in exactly one format.
  */
 export async function sendPasswordRecoveryEmail(
-  params: { to: string; firstName: string; recoveryUrl: string; idempotencyKey?: string },
+  params: {
+    to: string;
+    firstName: string;
+    recoveryUrl: string;
+    authorization: OutboundEmailAuthorization;
+    idempotencyKey?: string;
+  },
   transport?: EmailTransport
 ): Promise<DeliveryResult> {
   return send(
     {
       to: params.to,
+      authorization: params.authorization,
       subject: 'Restablece tu contraseña de Genera',
       idempotencyKey: params.idempotencyKey,
       html: renderEmail({

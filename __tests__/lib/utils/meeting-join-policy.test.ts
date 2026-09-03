@@ -66,7 +66,7 @@ const sessionRow = {
 };
 
 /** What every authorization below carries out of the live fixture. */
-const LIVE_SOURCE = { status: 'programada', modality: 'online' };
+const LIVE_SOURCE = { status: 'programada', modality: 'online', schoolId: SCHOOL_ID };
 
 /**
  * A seeded row: the column values it actually carries (`match` — what Postgres

@@ -97,7 +97,10 @@ function profileRow(overrides: Record<string, unknown> = {}) {
 function newUserTables(overrides: Record<string, TableResult[]> = {}): Record<string, TableResult[]> {
   return {
     tractor_signups: [{ data: signupRow() }, { data: null }],
-    schools: [{ data: { name: 'Colegio Uno' } }],
+    schools: [
+      { data: { name: 'Colegio Uno' } },
+      { data: { id: SCHOOL_ID, tenant_kind: 'client', internal_zoom_testing_enabled: false } },
+    ],
     generations: [{ data: { id: GEN_ID } }],
     profiles: [{ data: [] }, { data: [] }, { data: null }],
     user_roles: [{ data: [] }, { data: null }],
@@ -112,7 +115,10 @@ function existingUserTables(
 ): Record<string, TableResult[]> {
   return {
     tractor_signups: [{ data: signupRow() }, { data: null }],
-    schools: [{ data: { name: 'Colegio Uno' } }],
+    schools: [
+      { data: { name: 'Colegio Uno' } },
+      { data: { id: SCHOOL_ID, tenant_kind: 'client', internal_zoom_testing_enabled: false } },
+    ],
     generations: [{ data: { id: GEN_ID } }],
     profiles: [{ data: [profile] }, { data: null }],
     user_roles: [{ data: [] }, { data: null }],

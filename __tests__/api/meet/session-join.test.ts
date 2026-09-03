@@ -21,6 +21,7 @@ const { mockGetApiUser, mockCreateServiceRoleClient, mockGetUserRoles, mockGetHi
     mockGetUserRoles: vi.fn(),
     mockGetHighestRole: vi.fn(),
   }));
+const mockResolveSchoolProviderDisposition = vi.hoisted(() => vi.fn());
 
 vi.mock('../../../lib/api-auth', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -46,6 +47,10 @@ vi.mock('../../../utils/roleUtils', async (importOriginal) => {
 vi.mock('../../../lib/zoom/service-client', () => ({
   createZoomServiceClient: vi.fn(() => ({ __internal: true })),
   zoomInternalSchema: vi.fn(() => mockInternalClient),
+}));
+
+vi.mock('../../../lib/simulation/tenant-policy', () => ({
+  resolveSchoolProviderDisposition: mockResolveSchoolProviderDisposition,
 }));
 
 import handler from '../../../pages/api/meet/session/[id]/join';
@@ -305,6 +310,9 @@ beforeEach(() => {
   originalFlag = process.env.FEATURE_ZOOM_MEETINGS;
   process.env.FEATURE_ZOOM_MEETINGS = 'true';
   arrange();
+  mockResolveSchoolProviderDisposition.mockImplementation(async (_client, schoolId) => ({
+    kind: 'allow', tenantKind: 'client', schoolId,
+  }));
 });
 
 afterEach(() => {
@@ -513,6 +521,19 @@ describe('POST /api/meet/session/[id]/join — pending [A6]', () => {
 });
 
 describe('POST /api/meet/session/[id]/join — the link payload [A7]', () => {
+  it('QA refuses before any meeting row or join URL is read', async () => {
+    arrange({ meeting: provisionedMeeting });
+    asAdmin();
+    mockResolveSchoolProviderDisposition.mockResolvedValue({
+      kind: 'suppressed_qa', tenantKind: 'qa', schoolId: SCHOOL_ID, label: 'QA',
+    });
+    const res = await post();
+    expect(res._getStatusCode()).toBe(503);
+    expect(JSON.parse(res._getData())).toMatchObject({ code: 'QA_PROVIDER_SUPPRESSED' });
+    expect(res._getData()).not.toContain(JOIN_URL);
+    expect(tablesRead).not.toContain('session_meetings_public');
+  });
+
   it('admin → host', async () => {
     arrange({ meeting: provisionedMeeting });
     asAdmin();

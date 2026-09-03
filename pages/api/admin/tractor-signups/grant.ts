@@ -8,6 +8,7 @@ import {
   sendPasswordSetupEmail,
   type DeliveryResult,
 } from '../../../../lib/email/invitations';
+import { authorizeSchoolEmail } from '../../../../lib/email/outbound-policy';
 import { generateRecoveryLink } from '../../../../lib/auth/recovery-link';
 import { recordSecurityAudit } from '../../../../lib/security/audit';
 import { generatePassword } from '../../../../utils/passwordGenerator';
@@ -401,6 +402,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         firstName: existingProfile.first_name || signupRow.first_name,
         loginUrl: `${getAppBaseUrl(req)}/login`,
         bodyLine: SIGNUP_SOURCE_INVITE_BODY[signupSource],
+        authorization: await authorizeSchoolEmail(supabase, schoolId),
       });
 
       await recordSecurityAudit(supabase, {
@@ -504,6 +506,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         firstName: signupRow.first_name,
         recoveryUrl: link.url,
         bodyLine: SIGNUP_SOURCE_INVITE_BODY[signupSource],
+        authorization: await authorizeSchoolEmail(supabase, schoolId),
       });
 
       await recordSecurityAudit(supabase, {

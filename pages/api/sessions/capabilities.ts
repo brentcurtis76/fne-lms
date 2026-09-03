@@ -20,7 +20,8 @@ export type SessionZoomCapabilityReason =
   | 'feature_disabled'
   | 'school_not_allowlisted'
   | 'tenant_not_operator'
-  | 'operator_testing_disabled';
+  | 'operator_testing_disabled'
+  | 'qa_provider_suppressed';
 
 export interface SessionZoomCapabilities {
   school_id: number;
@@ -87,8 +88,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const reasons: SessionZoomCapabilityReason[] = [];
 
   const rollout = checkZoomRolloutPolicy(schoolId, process.env);
-  const managedZoomAllowed = rollout === null;
+  let managedZoomAllowed = rollout === null;
   if (rollout !== null) reasons.push(rollout.reason);
+  if (school.tenant_kind === 'qa') {
+    managedZoomAllowed = false;
+    reasons.push('qa_provider_suppressed');
+  }
 
   // `isAdmin` is already established above; a non-admin never reaches this line.
   let operatorTestCreationAllowed = managedZoomAllowed;

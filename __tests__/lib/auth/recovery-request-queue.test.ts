@@ -15,6 +15,10 @@ const { mockGenerateRecoveryLink } = vi.hoisted(() => ({
   mockGenerateRecoveryLink: vi.fn(),
 }));
 
+vi.mock('../../../lib/email/outbound-policy', () => ({
+  authorizeUserEmail: vi.fn(async () => ({ kind: 'allow', scope: 'client', schoolId: 1 })),
+}));
+
 vi.mock('../../../lib/auth/recovery-link', async (importOriginal) => ({
   ...((await importOriginal()) as Record<string, unknown>),
   generateRecoveryLink: mockGenerateRecoveryLink,
@@ -161,6 +165,7 @@ describe('durable recovery outbox', () => {
       claimed: 1,
       providerAccepted: 1,
       providerRejected: 0,
+      suppressedQa: 0,
       discarded: 0,
       retried: 0,
       dead: 0,

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "manifestVersion": "sm-sim-v1",
+  "productionProjectRef": "sxlogxqzmarhqsblxmtj",
+  "productionSupabaseUrl": "https://sxlogxqzmarhqsblxmtj.supabase.co",
+  "qaSchoolIds": [257, 259],
+  "label": "QA INTERNO — DATOS SINTÉTICOS EN PRODUCCIÓN — NO ES PILOTO REAL",
+  "reservedEmailDomain": "example.test"
+}

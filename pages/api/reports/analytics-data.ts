@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../../lib/supabase-wrapper';
 import { countUserLessonPairs } from '../../../lib/utils/lessonProgressUtils';
+import { readClientSchoolScope } from '../../../lib/simulation/tenant-policy';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -39,11 +40,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Build filters object
+    const clientSchools = await readClientSchoolScope(supabase);
+
+    // Build filters object. The internal client-school list is always applied by
+    // getFilteredUsers and is never accepted from the request.
     const filters = {
       school_id: Array.isArray(school_id) ? school_id[0] : school_id,
       generation_id: Array.isArray(generation_id) ? generation_id[0] : generation_id,
-      community_id: Array.isArray(community_id) ? community_id[0] : community_id
+      community_id: Array.isArray(community_id) ? community_id[0] : community_id,
+      client_school_ids: clientSchools.ids,
     };
 
     // Get analytics data in parallel
@@ -88,6 +93,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 // Helper function to apply filters to user queries
 function applyUserFilters(query: any, filters: any) {
+  query = query.in('school_id', filters.client_school_ids || []);
   if (filters.school_id) {
     query = query.eq('school_id', filters.school_id);
   }

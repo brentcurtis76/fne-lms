@@ -12,6 +12,11 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 
+vi.mock('../../../../lib/zoom/tenant-boundary', async (importOriginal) => ({
+  ...((await importOriginal()) as Record<string, unknown>),
+  defaultZoomTenantGate: () => async (schoolId: number) => ({ kind: 'allow', tenantKind: 'client', schoolId }),
+}));
+
 import { runZoomTick } from '../../../../lib/zoom/jobs/runner';
 import { createZoomJobRegistry } from '../../../../lib/zoom/jobs/registry';
 import {
@@ -66,6 +71,13 @@ import {
   type StoredJob,
   type StoredMeeting,
 } from './provisionHarness';
+
+const QA_TENANT_GATE = async (schoolId: number) => ({
+  kind: 'suppressed_qa' as const,
+  tenantKind: 'qa' as const,
+  schoolId,
+  label: 'QA',
+});
 
 // ---------------------------------------------------------------------------
 // Synthetic fixtures
@@ -130,6 +142,22 @@ function jobRow(overrides: Partial<ZoomJobRow> = {}): ZoomJobRow {
 function context(job: ZoomJobRow = jobRow()): ZoomJobContext {
   return { job, workerId: 'worker-1', heartbeat: vi.fn(async () => true) };
 }
+
+describe('meeting_provision — QA provider boundary', () => {
+  it('completes as suppressed_qa before creating a Zoom meeting or reservation', async () => {
+    const fake = createZoomFake();
+    const createSpy = vi.spyOn(fake, 'createMeeting');
+    const harness = createMemoryProvisionStore({ session: SESSION, hosts: [HOST_POOL_A] });
+    const result = await createMeetingProvisionHandler({
+      api: fake,
+      store: harness.store,
+      tenantGate: QA_TENANT_GATE,
+    })(context());
+    expect(result).toEqual({ skipped: 'suppressed_qa', school_id: 77 });
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(harness.meetingFor(SESSION_ID)).toBeUndefined();
+  });
+});
 
 /** Real lifecycle applier over the provision harness's rows/projection. */
 function lifecycleStoreFor(

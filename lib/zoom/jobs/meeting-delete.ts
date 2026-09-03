@@ -99,6 +99,11 @@ import {
 } from './meeting-provision';
 import type { ZoomSurfaceType } from '../db-types';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  defaultZoomTenantGate,
+  enforceZoomTenantBoundary,
+  type ZoomTenantGate,
+} from '../tenant-boundary';
 
 /** The operation name every failure from this module carries. */
 const OPERATION = 'meeting_delete';
@@ -410,6 +415,7 @@ export interface MeetingDeleteDeps {
   api?: ZoomApi;
   store?: MeetingDeleteStore;
   env?: NodeJS.ProcessEnv;
+  tenantGate?: ZoomTenantGate;
 }
 
 export interface MeetingDeleteResult extends Record<string, unknown> {
@@ -478,6 +484,13 @@ export function createMeetingDeleteHandler(deps: MeetingDeleteDeps = {}): ZoomJo
     // eligible — cancelled, or flipped to `presencial`.
     const session = await store.readSession(surfaceId);
     if (session === null) throw new ZoomDeleteSessionMissingError(surfaceId);
+
+    const qaSuppression = await enforceZoomTenantBoundary({
+      schoolId: session.school_id,
+      operation: OPERATION,
+      gate: deps.tenantGate ?? defaultZoomTenantGate(env),
+    });
+    if (qaSuppression) return qaSuppression;
 
     const row = await store.findMeetingBySurface(surfaceType, surfaceId);
     if (row === null) {

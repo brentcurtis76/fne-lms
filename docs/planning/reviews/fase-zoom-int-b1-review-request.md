@@ -8,8 +8,8 @@
 |---|---|
 | Branch | `feat/zoom-int-b1` |
 | Worktree | `/Users/brentcurtis/dev/wt/zoom-int-b1` (created by this session from the required base; the shared checkout `/Users/brentcurtis/dev/fne-lms` was not modified) |
-| Base | `838f1a0c0c158816ae578455a03b13cd8d33f0a6` = live `origin/main` at re-lock 2026-09-03T18:17:44Z (read-only `git ls-remote`, no fetch). **FINDING:** at the final state check, 2026-09-03T18:40:01Z, after both B1 commits existed, `git ls-remote origin refs/heads/main` returned `982f456deeecdeefd14a08339a4b40676454128c`. Remote `main` moved during the session. Nothing was fetched or inspected (fetching into the shared `.git` was not authorized), so what changed is unknown to this session; the B1 diff remains against the required base, and whether a rebase is needed before merge is Brent's and the reviewer's call. |
-| Commits | 2 local commits: implementation + tests, then this file — range `838f1a0c..HEAD` (see §11 for the exact hashes) |
+| Base | Original base `838f1a0c0c158816ae578455a03b13cd8d33f0a6` = live `origin/main` at the attempt-1 re-lock (2026-09-03T18:17:44Z). Integrated base `982f456deeecdeefd14a08339a4b40676454128c` = live `origin/main` at the attempt-2 re-lock (2026-09-03T18:46:04Z), merged in by §12. |
+| Commits | 3 original B1 commits (`0e080ded` implementation + tests; `dc9724d0` this review request; `57d92e9c` documentation-only correction recording that remote `main` had moved), then the integration merge `c00bcbf4` (§12), then the attempt-2 documentation commit (the branch tip). Cumulative range `838f1a0c..HEAD`; B1 content range against the integrated base `982f456d..HEAD` (§11). |
 | Authoritative plan | `/Users/brentcurtis/Documents/ChatGPT/Zoom Integration/FNE_ZOOM_INTERNAL_TEST_PLAN.md` — Version 2, 362 lines, 23,610 bytes, blob `bb48408616f74386a9042244acfbd5a96d02b837` (verified before mutation) |
 | Upstream | none (never pushed) |
 
@@ -125,4 +125,39 @@ Before the fixture adaptation, the two existing creation suites failed 11 of 16 
 
 ## 11. Commit range
 
-Implementation + tests: `0e080ded52dd8a1554daa77df1d9d277a37e94ba` (9 files, 1,426 insertions / 17 deletions against the base). This review request: the branch tip. Range: `838f1a0c0c158816ae578455a03b13cd8d33f0a6..HEAD`, two commits, both authored locally and unpushed.
+| Commit | Parents | Content |
+|---|---|---|
+| `0e080ded52dd8a1554daa77df1d9d277a37e94ba` | `838f1a0c` | implementation + tests: 9 files, 1,426 insertions / 17 deletions against the original base |
+| `dc9724d0f1d7b0ed4d4c2f22b346510bd7e17f54` | `0e080ded` | this review request (first version) |
+| `57d92e9cbe84e19fda28274c5ac57fa7fc122baa` | `dc9724d0` | documentation-only: recorded that a final read-only `ls-remote` had returned `982f456d` for `main`, uninspected at the time. **Attempt-1 reviewed HEAD.** |
+| `c00bcbf48a87cde0cce07dd337c56b9675644997` | `57d92e9c` + `982f456d` | integration merge of `origin/main` (PR #78) into `feat/zoom-int-b1` — §12 |
+| branch tip | `c00bcbf4` | this attempt-2 documentation correction |
+
+`git diff 982f456d..HEAD` names exactly the ten B1 paths of §1; `git diff 838f1a0c..HEAD` names those ten plus the three PR #78 paths. No commit was amended, rebased, squashed or rewritten.
+
+## 12. Attempt 2 — base reconciliation (2026-09-03)
+
+**Attempt-1 review result, as communicated to this session:** a bounded base-reconciliation and evidence-correction round was requested. No change to B1 production code or tests was requested, and none was made.
+
+**Pre-mutation re-lock (18:46:04Z):** worktree clean at exactly `57d92e9c`; `git ls-remote origin refs/heads/main` = `982f456deeecdeefd14a08339a4b40676454128c`; `838f1a0c` is an ancestor of `982f456d`. `main` moved by three commits (`1748eb7c` fix(community): reset messaging state across communities; `365674a5` merge with main; `982f456d` merge of PR #78) touching exactly three paths — `__tests__/pages/community/workspace.mention-scope.test.tsx`, `docs/planning/reviews/fase-mtg-members-review-request.md`, `pages/community/workspace.tsx` — with zero overlap against the ten B1 paths.
+
+**Integration:** `git fetch origin main` (the one authorized fetch), then `git merge --no-ff 982f456d` → merge commit `c00bcbf48a87cde0cce07dd337c56b9675644997`, parents `57d92e9c` and `982f456d`. No conflict. Verified after the merge: the three PR #78 blobs at `HEAD` equal their blobs at `982f456d` (byte-identical); `git diff 57d92e9c HEAD -- <ten B1 paths>` is empty (no B1 production or test blob changed); `git diff --name-only 982f456d HEAD` is exactly the ten B1 paths.
+
+**Validation on the merge commit `c00bcbf4` (after the last code-affecting change; the documentation commit that follows changes only this file):**
+
+| Command | Result |
+|---|---|
+| focused Vitest (the five B1 suites) | A2_FOCUSED |
+| `npm run type-check` | A2_TSC |
+| `npm run lint` | A2_LINT |
+| `npm test` | A2_TEST |
+| `npm run build` (dummy public Supabase vars, as in §4) | A2_BUILD |
+| `npm run guard:browser` | A2_GB |
+| `npm run guard:secrets` | A2_GS |
+| `git diff --check` | A2_DC |
+
+After the documentation commit: worktree clean, `git diff --check` clean, `guard:secrets` re-run on the committed index (A2_GS2).
+
+Not run, unchanged reasons from §4: `test:db`, `e2e`, `guard:migrations`, `guard:actions`.
+
+**External actions:** NONE. No push, PR, merge to `main`, deployment, Production or hosted database access, configuration change, or Bridge task.

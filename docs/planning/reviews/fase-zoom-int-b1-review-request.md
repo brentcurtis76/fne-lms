@@ -8,7 +8,7 @@
 |---|---|
 | Branch | `feat/zoom-int-b1` |
 | Worktree | `/Users/brentcurtis/dev/wt/zoom-int-b1` (created by this session from the required base; the shared checkout `/Users/brentcurtis/dev/fne-lms` was not modified) |
-| Base | `838f1a0c0c158816ae578455a03b13cd8d33f0a6` = live `origin/main` at re-lock (read-only `git ls-remote`, no fetch) and at the end of the session |
+| Base | `838f1a0c0c158816ae578455a03b13cd8d33f0a6` = live `origin/main` at re-lock 2026-09-03T18:17:44Z (read-only `git ls-remote`, no fetch). **FINDING:** at the final state check, 2026-09-03T18:40:01Z, after both B1 commits existed, `git ls-remote origin refs/heads/main` returned `982f456deeecdeefd14a08339a4b40676454128c`. Remote `main` moved during the session. Nothing was fetched or inspected (fetching into the shared `.git` was not authorized), so what changed is unknown to this session; the B1 diff remains against the required base, and whether a rebase is needed before merge is Brent's and the reviewer's call. |
 | Commits | 2 local commits: implementation + tests, then this file — range `838f1a0c..HEAD` (see §11 for the exact hashes) |
 | Authoritative plan | `/Users/brentcurtis/Documents/ChatGPT/Zoom Integration/FNE_ZOOM_INTERNAL_TEST_PLAN.md` — Version 2, 362 lines, 23,610 bytes, blob `bb48408616f74386a9042244acfbd5a96d02b837` (verified before mutation) |
 | Upstream | none (never pushed) |

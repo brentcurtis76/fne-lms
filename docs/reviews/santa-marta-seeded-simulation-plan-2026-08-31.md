@@ -1,27 +1,126 @@
 # Santa Marta Seeded Simulation Plan — 2026-08-31
 
-**Status:** SM-SIM-D0 DOCUMENTATION PHASE AUTHORIZED BY BRENT (2026-09-02) — recorded on `docs/sm-sim-d0`; pending independent review and Brent's merge decision. Provisioning, implementation, staging writes, seeding, and deployment remain `BLOCKED` / `UNAUTHORIZED`.
+## Production-QA reuse amendment — 2026-09-03 (current authority)
+
+**Status:** documentation-only amendment authorized by Brent on 2026-09-03; local candidate on `docs/sm-sim-prod`, based on live `origin/main` `982f456deeecdeefd14a08339a4b40676454128c`. Independent review round 1 requested exact-ref hardening; that correction was applied, and round 2 returned `APPROVE WITH NOTES` with only this status-wording correction. It remains uncommitted, unpushed, unmerged, undeployed, and operationally inactive.
+
+**Owner decision superseding the staging topology:** do not create a staging project. Reuse the already-existing synthetic QA data in the Production Supabase project, with `QA Test School` (`schools.id = 257`) as the primary synthetic tenant and `QA School B — Liceo de Prueba` (`schools.id = 259`) as the sparse cross-school control. The exercise may model the Santa Marta journeys but does not need Santa Marta names, identities, or a synthetic copy of the real network.
+
+**Accurate visible label for every QA-tenant simulation surface and evidence item:** **QA INTERNO — DATOS SINTÉTICOS EN PRODUCCIÓN — NO ES PILOTO REAL**
+
+The earlier label `PILOTO SIMULADO — DATOS SINTÉTICOS — NO PRODUCCIÓN` is historical and must not be used as the current label because the selected QA tenants live in Production.
+
+**Authorization boundary:** Brent authorized only this local documentation reconciliation and its documentation/ledger validation. It authorizes no application code, migration, provider change, production write, Auth/storage operation, seed/reset, email, Zoom call, commit, push, PR, merge, deployment, or stakeholder rehearsal. The read-only Production discovery described below was separately requested and completed before this amendment.
+
+### A. Current recommendation
+
+Proceed with a persistent **production-QA seeded simulation**, never a real Santa Marta pilot:
+
+- Reuse schools 257 and 259; do not provision a second Supabase or Vercel environment.
+- Treat current rows as a shared synthetic base, not as a disposable manifest and not as proof of any real-school state.
+- Add only the missing synthetic scenario rows, with deterministic identifiers and an ownership manifest; never replace or broadly reset the existing QA estate.
+- Establish per-tenant Production containment before any write-triggered simulation: visible QA labeling, exclusion from official reporting, provider-safe email handling, and tenant-scoped Zoom simulation/refusal.
+- Keep code (`W-SIM-01`) and later Production data execution (`W-SIM-02`) separately authorized. Merging W-SIM-01 must not authorize W-SIM-02.
+- Keep all four claim mappings as evidence **NO CERRANTE** and not remediation.
+
+### B. Read-only Production evidence
+
+Brent explicitly requested a search for existing synthetic data and clarified that it could be unrelated to Santa Marta. The already-linked Production project was queried only through bounded aggregate/schema reads inside `BEGIN TRANSACTION READ ONLY`, with an eight-second local statement timeout and an explicit `ROLLBACK`. No personal name, user identifier, individual email, password, token, credential, free text, document, or minor data was selected or returned.
+
+Observed aggregates:
+
+| Surface | School 257 — primary QA tenant | School 259 — control tenant |
+|---|---:|---:|
+| Profiles | 13; all approved, Auth-backed and confirmed; 0 banned; 12 have `can_run_qa_tests=true` | 0 directly scoped profiles |
+| Active role assignments | 16 across `community_manager`, `consultor`, `docente`, `encargado_licitacion`, `equipo_directivo`, `lider_comunidad`, and `lider_generacion` | 1 `encargado_licitacion` cross-school assignment |
+| Communities | 1 | 0 |
+| Consulting sessions | 54 across draft, scheduled, in-progress, pending, completed and cancelled states; online, hybrid and in-person; 2 rows marked Zoom-managed | 0 |
+| School/course context | 35 course-structure rows; 1 transversal-context row | 0 |
+| Contracts/hours | 1 client, 1 contract, 3 hour allocations, 6 ledger entries | 1 client; no contract or hour rows |
+| Assessment path | 3 instances (pending, in-progress, completed) and 8 responses | 0 |
+| Learning path/course progress | 3 active course enrollments; 0 direct learning-path assignments and 0 path-progress sessions | 0 |
+| Session support | 49 facilitator rows; 2 notification rows | 0 |
+
+Both schools currently have `tenant_kind='client'` and `internal_zoom_testing_enabled=false`. The application code at the observation point does not yet consume `tenant_kind` as a complete reporting/provider boundary. The classification column's intended semantics therefore do not by themselves prove isolation.
+
+Query chronology:
+
+1. One malformed first invocation reached SQL parsing and failed before any statement ran.
+2. Four corrected read-only queries succeeded: candidate/marker aggregates; schema metadata; account/role/dataset/session aggregates; and relationship-based journey aggregates.
+3. One intervening CLI invocation used an unsupported flag and was rejected locally before contacting the database.
+4. No statement inserted, updated, deleted, created, altered, granted, revoked, applied a migration, changed Auth/storage, or invoked an application/provider workflow.
+
+### C. Coverage decision
+
+The existing data is sufficient as the base for account/RBAC, community, consulting-session, contract/hour, school-context, course-enrollment, and partial assessment journeys. School 259 is deliberately useful as the empty/cross-school denial control.
+
+The following gaps remain and are not authorized to be filled by this amendment:
+
+- zero network memberships for schools 257/259;
+- zero generations;
+- zero school-scoped program enrollments;
+- zero licitations;
+- zero direct learning-path assignments and progress sessions for the QA users;
+- zero assessment submissions, although another assessment path has three instances and eight responses;
+- zero transformation assessments;
+- zero Zoom attendance rows;
+- no verified per-QA-tenant email capture/refusal boundary;
+- no verified per-QA-tenant Zoom mock/refusal boundary;
+- no current deterministic ownership/digest contract covering the pre-existing QA rows.
+
+Global learning paths are real global FNE templates, not school-owned fixtures. `W-SIM-02` must not create synthetic global learning-path templates in Production. Assignment/progress testing may use an existing global template only after the still-open `W-B2c-01` security boundary and a separate exact data authorization permit it; otherwise that lane remains deferred.
+
+### D. Production-QA safety contract
+
+`W-SIM-01` must fail closed unless all of the following are true before any future Production seed/reset capability is considered ready:
+
+- the Supabase project ref is exactly the immutable Production ref `sxlogxqzmarhqsblxmtj` and the target schools are exactly the allowlisted QA schools 257/259;
+- both schools are explicitly classified `tenant_kind='qa'` by a separately authorized privileged Production write performed only after the containment code is deployed;
+- QA tenants are excluded from official/client reporting and stakeholder-facing selectors at every server-side aggregation boundary, with role × route tests;
+- every outbound email path resolves the affected tenant centrally before provider invocation; QA traffic is suppressed or captured without contacting a real recipient, and the UI/evidence says `suppressed_qa` rather than claiming delivery;
+- every Zoom path resolves the tenant before provider invocation; QA traffic uses a tenant-scoped deterministic fake or is refused, while real client tenants keep their normal behavior; global `ZOOM_MODE=mock` in Production is prohibited;
+- scheduled jobs and reconciliation paths apply the same QA provider boundary rather than bypassing it;
+- the exact visible label appears only on QA-tenant routes/evidence and never tells real clients that Production itself is non-production;
+- no real name, Santa Marta identity, personal identifier, phone number, real recipient, or minor persona enters the fixture manifest;
+- gap fixtures use deterministic versioned identifiers and an ownership manifest independent of pre-existing rows;
+- reset may remove only rows created by the exact manifest version, stops on foreign/unowned references, never deletes a pre-existing QA row, and has no generic wipe/force bypass;
+- the existing local-only E2E seeder and the older remote-capable demo/QA seeders remain prohibited against Production;
+- no seeder creates schema, policies, functions, buckets, global learning templates, or compatibility views.
+
+### E. Governed work items
+
+- `W-SIM-01` remains `MERGE`, class 0, batch `SIM1`, branch `feat/sm-sim`, `BLOCKED` and `UNAUTHORIZED`. Its new scope is Production-QA containment code, tenant-aware banner/reporting/provider boundaries, deterministic gap-seed/reset/verify tooling that cannot touch unowned rows, and local tests. No migration or hosted write belongs to W-SIM-01.
+- `W-SIM-02` remains `DATA`, class 3, no batch, `BLOCKED` and `UNAUTHORIZED`. Its new scope is the later exact Production execution: read-only preflight, privileged classification of only schools 257/259 as `qa`, gap-only deterministic seeding, bounded acceptance, and manifest-only reset/verification. It can start only after W-SIM-01 is independently approved, merged, deployed, and its containment behavior is verified on the exact deployed SHA, followed by Brent's separate nominal authorization for W-SIM-02.
+
+The four existing mappings to `SWEEP-MI-APRENDIZAJE-09` and `SWEEP-ONBOARDING-DATA-01` remain unchanged and **NO CERRANTE**. Neither item proves onboarding, real-school data, Privacy acceptance, B2c closure, Santa Marta acceptance, or Production readiness.
+
+### F. Current sequence
+
+1. **SM-SIM-PROD-D1 — this documentation amendment:** reconcile the plan, release protocol, mutable ledger, normalization record, combined-plan pointer, validator and state record. Independent review and Brent's later commit/push/PR/merge decisions remain separate.
+2. **W-SIM-01 authorization decision:** only after a fresh code audit sizes the tenant containment surface. Local implementation/test authority is separate from push/merge/deployment.
+3. **W-SIM-01 implementation and independent review:** implement containment and gap tooling without migrations or hosted writes.
+4. **Merge/deploy decision:** Brent alone decides whether reviewed code enters `main`; the normal `main` path deploys Production.
+5. **Containment verification:** read-only/application-mediated proof on the exact deployed SHA, with no email or Zoom provider call and no database write.
+6. **W-SIM-02 authorization decision:** exact school IDs, manifest version, expected rows, dry-run counts, rollback/reset contract, operator and observation window must be named.
+7. **Production-QA data execution:** classify only the two QA schools, seed only gaps, verify counts/digest, run bounded journeys, and restore only manifest-owned mutable scenarios when required.
+
+No staging project, Vercel custom environment, staging domain, staging credential set, or staging initialization remains a prerequisite.
+
+### G. Evidence limits
+
+The aggregate reads establish existence and broad coverage, not synthetic provenance row by row, password custody, actual sign-in for every persona, RLS correctness, provider isolation, report exclusion, application behavior, fixture determinism, reset safety, or suitability for a specific journey. The two school names and repository QA documentation support the synthetic classification, but no existing row is automatically treated as manifest-owned or safe to delete.
+
+## Historical revision-10 staging design — superseded, retained for audit
+
+Everything below this marker records the independently reviewed 2026-09-02 D0 staging design and its evidence. It remains historical provenance. Where it conflicts with the production-QA amendment above, the amendment wins. Do not provision, configure, initialize, seed, or otherwise execute any staging step below.
+
+**Historical status:** SM-SIM-D0 documentation was authorized by Brent on 2026-09-02, independently approved and merged through PR #74. It did not authorize operational work.
 
 **Original research baseline:** live `origin/main` at `49814091a2df69cc8e4c02beba8014bb5aa0694c` (2026-08-31)
 
 **Documentation-phase base:** live `origin/main` at `8218e597e148d8044fe7d330c118243aa3772485` (re-fetched 2026-09-02)
 
-**Authorization boundary:** this plan authorizes no provisioning, implementation, staging write, seed execution, deployment, or production access
-
-**Required environment label:** **PILOTO SIMULADO — DATOS SINTÉTICOS — NO PRODUCCIÓN**
-
-## Recommendation
-
-Proceed with a persistent **seeded simulation**, not a Santa Marta pilot. The preferred design is sound with four conditions:
-
-- A dedicated non-production Supabase project.
-- A protected Vercel custom `staging` environment connected only to that project.
-- A new deterministic, idempotent, staging-only seeder.
-- Explicit language and UI identifying it as synthetic simulation evidence only.
-
-Brent authorized only the documentation phase on 2026-09-02. Provisioning, implementation, migration application, and seeding remain separate and unauthorized.
-
-During the underlying read-only assessment, no files or external systems were changed. The documentation phase changes only the nine files listed in §15. External reads were limited to Git and GitHub PR/run/deployment metadata; no Supabase or Vercel control plane, database, credential, or other provider account was accessed, and no deployment was initiated.
+**Historical label:** **PILOTO SIMULADO — DATOS SINTÉTICOS — NO PRODUCCIÓN**
 
 ## 1. Live repository lock
 

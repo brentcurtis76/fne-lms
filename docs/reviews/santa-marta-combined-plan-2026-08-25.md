@@ -5,24 +5,27 @@
 > provenance.
 >
 > **What governs current scheduling:** `santa-marta-release-protocol-2026-08-25.md` at
-> **revision 10** together with the normalized ledgers (`santa-marta-claims.csv`,
+> **revision 11** together with the normalized ledgers (`santa-marta-claims.csv`,
 > `santa-marta-work-items.csv`, `santa-marta-work-claim-map.csv`), reconciled by
 > `scripts/check-ledger.mjs`. Dated audit prose in this file — including its wave numbering
 > and effort estimates — is historical evidence, not a current schedule. Where this file and
-> revision 10 disagree, revision 10 wins; the only in-place corrections made here are the
+> revision 11 disagree, revision 11 wins; the only in-place corrections made here are the
 > B2b/B2c split of former row 0.4 and the group-B table count in §5 (2026-08-27), the
 > W-B2b production-closure annotation to row 0.4 (2026-08-28), the W-PC-06
 > classification-closure annotation to row 0.4-bis (2026-08-28), and the global-semantics
 > correction annotation to row 0.4-bis (2026-08-29), the merge evidence for that
-> governance correction, and the seeded-simulation row 0.4-ter (2026-09-02). Revisions 6 through 9 remain
+> governance correction, the seeded-simulation row 0.4-ter (2026-09-02), and its
+> production-QA supersession in row 0.4-quater (2026-09-03). Revisions 6 through 9 remain
 > this banner's historical provenance: revision 6 governed from 2026-08-27 until revision 7
 > (the 2026-08-28 W-B2b production closure) superseded it, revision 7 governed until
 > revision 8 (the same-day W-PC-06 classification closure and B2d creation) superseded it,
 > and revision 8 governed until revision 9 (the 2026-08-29 owner decision — learning paths
 > are global FNE templates, literal-admin-only management, W-B2d-01 SUPERSEDED unexecuted,
 > W-B2c-01 reclassified class 2) superseded it. Revision 9 governed until revision 10
-> added the blocked, unauthorized seeded-simulation planning lane; it did not authorize
-> provisioning, implementation, deployment, or hosted data work.
+> added the blocked, unauthorized staging-simulation planning lane. Revision 11 preserves
+> that history but supersedes its topology: the current plan reuses the existing synthetic
+> Production QA tenants 257/259, creates no staging environment, and still authorizes no
+> implementation, deployment, provider call or Production write.
 
 **Fecha:** 25 de agosto de 2026
 **Reemplaza como plan operativo a:** §7–§8 de `santa-marta-deliverability-audit-2026-08-24.md` (Codex) y §5 de `santa-marta-promise-audit-2026-08-24.md` (Claude).
@@ -78,6 +81,7 @@ De Codex. Se adopta tal cual — es más clara que la implícita de Claude.
 | 0.4 | **[Corregido 2026-08-27 — división B2b/B2c] [CERRADO EN PRODUCCIÓN 2026-08-28]** Cierre RLS grupo A (`W-B2b-01`, lote B2b): **exactamente las 14 tablas legacy sin referencias en código**. `REVOKE ALL FROM anon, authenticated` + `ENABLE ROW LEVEL SECURITY`. Vía flujo del agente de BD. *La fila original plegaba aquí `learning_paths` y `learning_path_courses`; esa consolidación queda superada.* **Cierre:** PR #59, merge `0377edbf`, migración `20260827170000` aplicada por Brent en producción y verificada (preflight/postflight completos, conteos intactos); aprobación de Privacidad registrada en el PR (Brent Curtis, 2026-08-27). No re-aplicar. | `fix/rls-anon` | L |
 | 0.4-bis | **[Añadido 2026-08-27]** Frontera de rutas de aprendizaje (`W-B2c-01`, lote B2c, **BLOQUEADA**): `learning_paths`, `learning_path_courses`, sus GRANT/RLS y sus seis funciones (`create_full_learning_path`, `update_full_learning_path`, `batch_assign_learning_path`, `start_learning_path_session`, `end_learning_path_session`, `auth_is_learning_path_member`), con aislamiento por colegio y tenant. **[Clasificación cerrada 2026-08-28]** `W-PC-06` terminó en solo lectura con autorización explícita de Brent y clasificación **B — DATA TRANSFORMATION REQUIRED**; el work item clase 3 exigido es `W-B2d-01` (lote B2d, rama `data/lp-scope`, BLOQUEADO, sin autorizar), que debe autorizarse por separado, implementarse, revisarse de forma independiente, mergearse y ejecutarse de forma segura ANTES de programar B2c; después, Privacidad aprueba la matriz rol × tenant. B2c no absorbe el trabajo clase 3. **[Corregido 2026-08-29 — semántica global por decisión del dueño]** Las rutas son **plantillas globales FNE** (ningún colegio es dueño; no específicas de generación; NULOS = alcance global intencional; la asignación da disponibilidad, no propiedad) y la gestión es **exclusiva del rol literal `admin`** — el objetivo «aislamiento por colegio y tenant» de esta fila queda retirado como registro histórico. Conclusión efectiva de `W-PC-06`: **clasificación A** (la B histórica se conserva como registro); `W-B2d-01` queda **SUPERSEDED sin ejecutar** y no es prerrequisito; `W-B2c-01` pasa a **clase 2**. **[Gobernanza mergeada 2026-08-31]** PR #65, head aprobado `d8f9ea38`, merge `49814091`, satisface sólo el prerrequisito 1; sigue BLOQUEADA por (2) matriz de acceso actor × operación aprobada por Privacidad y (3) autorización explícita y separada de Brent. Su alcance corregido es de **cuatro tablas y ocho funciones** más rutas API/servicios/efectos colaterales — inventario en `docs/reviews/w-b2c-01-learning-path-governance-correction-2026-08-29.md` | `fix/rls-learn` | — |
 | 0.4-ter | **[Añadido 2026-09-02 — simulación sembrada, NO piloto real]** `W-SIM-01` (`MERGE`, clase 0, lote `SIM1`) y `W-SIM-02` (`DATA`, clase 3) documentan una futura simulación con personas adultas sintéticas en un staging Supabase dedicado y no productivo. Ambos están **BLOCKED/UNAUTHORIZED**. Sus cuatro enlaces a `SWEEP-MI-APRENDIZAJE-09` y `SWEEP-ONBOARDING-DATA-01` son evidencia **NO CERRANTE**, no remediación. Esta fila autoriza sólo la documentación D0: no aprovisiona, implementa, despliega ni escribe datos; el merge de W-SIM-01 no autoriza W-SIM-02. | `feat/sm-sim` / datos separados | — |
+| 0.4-quater | **[Añadido 2026-09-03 — decisión del dueño; supersede sólo la topología de 0.4-ter]** No crear staging. Reutilizar `QA Test School` (257) como tenant sintético principal y `QA School B — Liceo de Prueba` (259) como control vacío/entre colegios, ambos dentro de Producción. `W-SIM-01` conserva forma `MERGE`/clase 0/lote `SIM1`, pero pasa a contener la frontera por tenant para etiqueta, reportes, correo, Zoom, cron y herramientas deterministas de brechas. `W-SIM-02` conserva `DATA`/clase 3 y pasa a contener la clasificación privilegiada exacta de 257/259 como `qa` y una siembra posterior sólo de brechas, ambas con autorización nominal separada. Ambos siguen **BLOCKED/UNAUTHORIZED**; los cuatro enlaces siguen siendo evidencia **NO CERRANTE**, no remediación. Esta enmienda documental no autoriza código, deploy ni escritura de Producción. | `feat/sm-sim` / datos separados | — |
 | 0.5 | Fijar `EMAIL_FROM_ADDRESS` y **verificar el dominio remitente en Resend** | config | S |
 | 0.6 | Nombrar los cuatro dueños: *release*, ingeniería, onboarding/operaciones, privacidad | — | — |
 
@@ -120,7 +124,7 @@ De Codex. Se adopta tal cual — es más clara que la implícita de Claude.
 | 2.8 | **Eliminar el DELETE duro de licitaciones.** Sustituir por archivado/soft-delete con motivo, actor y retención; auditar toda mutación de metadatos | `fix/lic-audit` | M |
 | 2.9 | Completitud explícita del ZIP: mostrar resultado antes de descargar o **fallar cerrado**; resolver colisión de nombres de archivo | `fix/zip-full` | S |
 
-**Salida:** un año escolar sintético completo de punta a punta en *staging*, con controles negativos entre colegios y entre redes.
+**Salida histórica de la ola:** un año escolar sintético completo de punta a punta. La referencia original a *staging* queda supersedida por 0.4-quater: la evidencia futura usa únicamente los tenants QA 257/259 en Producción y no crea otra plataforma, manteniendo controles negativos entre colegios y entre redes.
 
 ---
 
@@ -169,7 +173,9 @@ Codex añadió una comprobación que Claude no hizo y que conviene repetir cada 
 
 De Codex, ampliada con los defectos que su informe no cubría. **Ningún control «si existen datos» cuenta como evidencia.**
 
-### Personas obligatorias en *staging*
+### Personas obligatorias en la simulación
+
+La revisión 11 sustituye la palabra histórica *staging* por los tenants QA de Producción 257/259; no cambia las personas adultas ni los controles de acceso exigidos.
 
 `admin` · un **Líder de Red** · dos directoras de **colegios distintos** · un `encargado_licitacion` · un `consultor` · una `docente` · **controles negativos** entre colegios y entre redes.
 

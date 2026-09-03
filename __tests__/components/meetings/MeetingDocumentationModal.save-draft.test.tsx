@@ -64,7 +64,6 @@ const mockGetMeetingDetails = vi.fn();
 
 vi.mock('../../../utils/meetingUtils', () => ({
   createMeetingWithDocumentation: (...args: any[]) => mockCreateMeeting(...args),
-  getCommunityMembersForAssignment: vi.fn().mockResolvedValue([]),
   getMeetingDetails: (...args: any[]) => mockGetMeetingDetails(...args),
   updateMeeting: (...args: any[]) => mockUpdateMeeting(...args),
 }));
@@ -79,6 +78,7 @@ const defaultProps = {
   isOpen: true as const,
   onClose: vi.fn(),
   workspaceId: 'ws-1',
+  communityId: 'comm-1',
   userId: 'user-1',
   onSuccess: vi.fn(),
 };
@@ -96,10 +96,16 @@ beforeEach(() => {
   mockGetMeetingDetails.mockReset();
   mockCreateMeeting.mockResolvedValue({ success: true, meetingId: 'new-meeting' });
   mockUpdateMeeting.mockResolvedValue({ success: true });
+  // Route-aware: the community-scoped member pickers load through
+  // /api/community/members and an empty community is a valid answer.
   // @ts-expect-error override global fetch for test
-  global.fetch = vi.fn(async () =>
-    new Response(JSON.stringify({ data: null }), { status: 200 })
-  );
+  global.fetch = vi.fn(async (input: RequestInfo) => {
+    const url = typeof input === 'string' ? input : (input as Request).url;
+    if (url.startsWith('/api/community/members')) {
+      return new Response(JSON.stringify({ members: [] }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ data: null }), { status: 200 });
+  });
 });
 
 afterEach(() => { vi.clearAllMocks(); });

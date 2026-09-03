@@ -19,8 +19,13 @@ function columnsSql(columns) {
   return columns.map(identifier).join(', ');
 }
 
-export function createPostgresSimulationStore(pool) {
-  let transactionClient = null;
+export function createPostgresSimulationStore(pool, options = {}) {
+  if (options.transactionClient && typeof options.transactionClient.query !== 'function') {
+    throw new Error('external simulation transaction client is invalid');
+  }
+  // Integration tests may supply a caller-owned local transaction so the complete
+  // seed/verify/reset cycle can be rolled back. The caller owns rollback and release.
+  let transactionClient = options.transactionClient ?? null;
 
   function client() {
     if (!transactionClient) throw new Error('simulation store operation requires a transaction');
@@ -83,14 +88,22 @@ export function createPostgresSimulationStore(pool) {
       return found;
     },
 
-    async insertMissing(table, rows) {
+    async insertMissing(table, rows, options = {}) {
       if (!ALLOWED_TABLES.has(table)) throw new Error('table is not in the simulation allowlist');
+      const jsonColumns = new Set(options.jsonColumns ?? []);
       for (const row of rows) {
         const columns = Object.keys(row);
-        const placeholders = columns.map((_, index) => `$${index + 1}`).join(', ');
+        for (const column of jsonColumns) {
+          if (!columns.includes(column) || !/^[a-z][a-z0-9_]*$/.test(column)) {
+            throw new Error('refusing invalid JSON column declaration');
+          }
+        }
+        const placeholders = columns
+          .map((column, index) => jsonColumns.has(column) ? `$${index + 1}::jsonb` : `$${index + 1}`)
+          .join(', ');
         await client().query(
           `INSERT INTO public.${identifier(table)} (${columnsSql(columns)}) VALUES (${placeholders}) ON CONFLICT (id) DO NOTHING`,
-          columns.map((column) => row[column]),
+          columns.map((column) => jsonColumns.has(column) ? JSON.stringify(row[column]) : row[column]),
         );
       }
     },

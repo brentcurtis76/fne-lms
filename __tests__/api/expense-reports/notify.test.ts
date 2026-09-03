@@ -349,6 +349,20 @@ describe('decision notification', () => {
     });
     expect(mockSendDecision).not.toHaveBeenCalled();
   });
+
+  it('treats a missing submitter as an absent tenant-authorizable recipient', async () => {
+    asUser(APPROVER_ID, EXPENSE_APPROVER_EMAIL);
+    stubTables({
+      expense_reports: [{ data: reportRow({ status: 'approved', submitted_by: null }) }],
+    });
+
+    const res = await callHandler();
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData()).toEqual({
+      data: { notification: 'approved', sent: false, reason: 'recipient_missing' },
+    });
+    expect(mockSendDecision).not.toHaveBeenCalled();
+  });
 });
 
 describe('states with no notification', () => {

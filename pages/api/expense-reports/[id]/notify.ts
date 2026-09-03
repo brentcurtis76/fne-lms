@@ -192,9 +192,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
     }
 
-    if (!owner?.email) {
-      // Matches the previous behaviour: no owner address, no notification.
-      console.warn('[expense-report notify] report has no owner e-mail; nothing sent');
+    if (!report.submitted_by || !owner?.email) {
+      // A missing submitter cannot be tenant-authorized and cannot have a
+      // trustworthy joined recipient. Treat it as missing rather than passing
+      // an empty user id into the tenant policy.
+      console.warn('[expense-report notify] report has no tenant-authorizable owner; nothing sent');
       return sendApiResponse(res, {
         notification: report.status,
         sent: false,
@@ -209,7 +211,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       reviewerName: await resolveReviewerName(supabase, report.reviewed_by),
       totalAmount,
       comments: report.review_comments || undefined
-    }, await authorizeUserEmail(supabase, report.submitted_by || ''));
+    }, await authorizeUserEmail(supabase, report.submitted_by));
 
     return sendApiResponse(res, notificationResponse(report.status, result));
   }

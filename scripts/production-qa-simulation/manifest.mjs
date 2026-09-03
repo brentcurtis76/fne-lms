@@ -38,6 +38,7 @@ export function digestManifest(manifest) {
     scenarioEpoch: manifest.scenarioEpoch,
     targetSchoolIds: manifest.targetSchoolIds,
     tables: manifest.tables,
+    documentedSideEffects: manifest.documentedSideEffects,
     deferredGaps: manifest.deferredGaps,
   };
   return createHash('sha256').update(canonicalJson(digestable)).digest('hex');
@@ -120,6 +121,12 @@ export function buildSimulationManifest() {
           year: 2026,
           estado: 'borrador',
           email_licitacion: `licitacion.${config.manifestVersion}@${config.reservedEmailDomain}`,
+          monto_minimo: 0,
+          monto_maximo: 0,
+          duracion_minima: '0 meses — solo QA sintético',
+          duracion_maxima: '0 meses — solo QA sintético',
+          peso_evaluacion_tecnica: 50,
+          peso_evaluacion_economica: 50,
           notas: `${config.label} · SIN VALIDEZ`,
           created_by: null,
           created_at: SCENARIO_EPOCH,
@@ -130,6 +137,7 @@ export function buildSimulationManifest() {
     {
       name: 'transformation_assessments',
       naturalKey: [],
+      jsonColumns: ['conversation_history', 'context_metadata', 'grades'],
       rows: [
         {
           id: idFor('transformation-assessment:primary'),
@@ -180,6 +188,16 @@ export function buildSimulationManifest() {
     reservedEmailDomain: config.reservedEmailDomain,
     targetSchoolIds: [...config.qaSchoolIds],
     tables,
+    documentedSideEffects: [
+      {
+        sourceTable: 'generations',
+        trigger: 'update_school_generations_on_insert/delete',
+        targetTable: 'schools',
+        targetSchoolIds: [...config.qaSchoolIds],
+        columns: ['has_generations'],
+        behavior: 'Recomputes has_generations after manifest generation inserts and deletes; tenant controls are untouched.',
+      },
+    ],
     deferredGaps: [
       {
         lane: 'network_membership',
@@ -244,6 +262,12 @@ export function assertManifestSafety(manifest) {
 
   for (const table of manifest.tables) {
     if (!/^[a-z][a-z0-9_]*$/.test(table.name)) throw new Error('manifest table name is invalid');
+    const rowColumns = new Set(table.rows.flatMap((row) => Object.keys(row)));
+    for (const column of table.jsonColumns ?? []) {
+      if (!/^[a-z][a-z0-9_]*$/.test(column) || !rowColumns.has(column)) {
+        throw new Error(`manifest JSON column is invalid in ${table.name}`);
+      }
+    }
     for (const row of table.rows) {
       if (!validateUuid(row.id)) throw new Error(`manifest row id is invalid in ${table.name}`);
       if (seenIds.has(row.id)) throw new Error('manifest row ids must be globally unique');

@@ -3,7 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { deliverOutboundEmail } from '../../../lib/email/provider';
-import { authorizeUserEmail } from '../../../lib/email/outbound-policy';
+import {
+  authorizeRecipientUsersEmail,
+  authorizeUserEmail,
+} from '../../../lib/email/outbound-policy';
 
 function userTenantClient(profileSchoolId: number | null, roleSchoolIds: number[], schools: any[]): any {
   return {
@@ -50,6 +53,24 @@ describe('QA outbound e-mail boundary', () => {
       'synthetic-user'
     );
     expect(decision).toEqual({ kind: 'suppressed_qa', schoolId: 257, reason: 'qa_tenant' });
+  });
+
+  it('authorizes a tenant-less legacy recipient batch from the recipient users', async () => {
+    const clientDecision = await authorizeRecipientUsersEmail(
+      userTenantClient(1, [], [
+        { id: 1, tenant_kind: 'client', internal_zoom_testing_enabled: false },
+      ]),
+      ['synthetic-client-user'],
+    );
+    expect(clientDecision).toEqual({ kind: 'allow', scope: 'client', schoolId: 1 });
+
+    const qaDecision = await authorizeRecipientUsersEmail(
+      userTenantClient(257, [], [
+        { id: 257, tenant_kind: 'qa', internal_zoom_testing_enabled: false },
+      ]),
+      ['synthetic-qa-user'],
+    );
+    expect(qaDecision).toEqual({ kind: 'suppressed_qa', schoolId: 257, reason: 'qa_tenant' });
   });
 
   it('does not invoke an injected transport for suppressed or refused mail', async () => {

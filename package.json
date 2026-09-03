@@ -79,6 +79,7 @@
     "simulation:seed": "node scripts/production-qa-simulation/cli.mjs seed",
     "simulation:verify": "node scripts/production-qa-simulation/cli.mjs verify",
     "simulation:reset": "node scripts/production-qa-simulation/cli.mjs reset",
+    "test:simulation-db": "cross-env SM_SIM_LOCAL_DATABASE_TEST=1 SM_SIM_LOCAL_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres vitest run __tests__/scripts/production-qa-simulation.postgres.test.ts",
     "seed:report": "node -e \"console.log('Report generation would run here')\"",
     "seed:test-security": "node scripts/data-seeding/test-security.js",
     "seed:assessments": "node scripts/seed-assessment-builder-qa-data.mjs",

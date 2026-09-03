@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { assertLegacySeederIsNotProduction } from '../../lib/simulation/legacy-seeder-guard';
+import { assertLegacySeederIsNotProduction as assertLegacySeederMjsIsNotProduction } from '../../scripts/production-qa-simulation/legacy-target-guard.mjs';
 
 import {
   buildSimulationManifest,
@@ -26,6 +28,10 @@ import {
 } from '../../scripts/production-qa-simulation/target-guard.mjs';
 
 const clone = <T>(value: T): T => structuredClone(value);
+const require = createRequire(import.meta.url);
+const {
+  assertLegacySeederIsNotProduction: assertLegacySeederCjsIsNotProduction,
+} = require('../../scripts/production-qa-simulation/legacy-target-guard.cjs');
 
 function buildFakeStore(options: { foreignReferences?: unknown[] } = {}) {
   const manifest = buildSimulationManifest();
@@ -116,6 +122,14 @@ describe('production QA simulation manifest', () => {
       total: 7,
     });
     expect(first.digest).toBe(digestManifest(first));
+    expect(first.documentedSideEffects).toEqual([
+      expect.objectContaining({
+        sourceTable: 'generations',
+        targetTable: 'schools',
+        targetSchoolIds: [257, 259],
+        columns: ['has_generations'],
+      }),
+    ]);
     expect(first.deferredGaps.map((gap) => gap.lane)).toEqual([
       'network_membership',
       'learning_path_assignment_progress',
@@ -254,13 +268,29 @@ describe('production QA simulation CLI and database guard', () => {
 });
 
 describe('legacy remote seeder Production prohibition', () => {
-  it('refuses every URL form for the Production project and permits a non-Production target', () => {
-    expect(() => assertLegacySeederIsNotProduction('https://sxlogxqzmarhqsblxmtj.supabase.co'))
-      .toThrow('prohibited against Production');
-    expect(() => assertLegacySeederIsNotProduction('https://sxlogxqzmarhqsblxmtj.supabase.co/'))
-      .toThrow('prohibited against Production');
-    expect(() => assertLegacySeederIsNotProduction('http://127.0.0.1:54321')).not.toThrow();
-    expect(() => assertLegacySeederIsNotProduction('https://different.supabase.co')).not.toThrow();
+  const legacyGuards = [
+    assertLegacySeederIsNotProduction,
+    assertLegacySeederMjsIsNotProduction,
+    assertLegacySeederCjsIsNotProduction,
+  ];
+
+  it.each([
+    'https://sxlogxqzmarhqsblxmtj.supabase.co',
+    'https://sxlogxqzmarhqsblxmtj.supabase.co/',
+    'https://sxlogxqzmarhqsblxmtj.supabase.co/path?x=1#fragment',
+    'https://sxlogxqzmarhqsblxmtj.supabase.co:8443/path',
+    'https://SXLOGXQZMARHQSBLXMTJ.SUPABASE.CO/path',
+  ])('all legacy guards refuse the Production hostname in %s', (url) => {
+    for (const guard of legacyGuards) {
+      expect(() => guard(url)).toThrow('prohibited against Production');
+    }
+  });
+
+  it('permits non-Production targets', () => {
+    for (const guard of legacyGuards) {
+      expect(() => guard('http://127.0.0.1:54321')).not.toThrow();
+      expect(() => guard('https://different.supabase.co')).not.toThrow();
+    }
   });
 
   it('guards every inventoried legacy script before its first client call', () => {

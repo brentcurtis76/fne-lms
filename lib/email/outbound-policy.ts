@@ -84,3 +84,26 @@ export async function authorizeUserEmail(
   }
   return allowed ?? { kind: 'refuse', reason: 'user_lookup_failed' };
 }
+
+/**
+ * Resolve a legacy tenant-less recipient list without silently treating an
+ * invalid school id as client traffic. Any QA association suppresses the whole
+ * batch; any failed user lookup refuses it before the provider is constructed.
+ */
+export async function authorizeRecipientUsersEmail(
+  client: SupabaseClient,
+  userIds: string[]
+): Promise<OutboundEmailAuthorization> {
+  const uniqueIds = [...new Set(userIds)];
+  if (uniqueIds.some((id) => typeof id !== 'string' || id.length === 0)) {
+    return { kind: 'refuse', reason: 'user_lookup_failed' };
+  }
+  if (uniqueIds.length === 0) return { kind: 'allow', scope: 'unscoped_user' };
+
+  const decisions = await Promise.all(uniqueIds.map((id) => authorizeUserEmail(client, id)));
+  const qaDecision = decisions.find((decision) => decision.kind === 'suppressed_qa');
+  if (qaDecision?.kind === 'suppressed_qa') return qaDecision;
+  const refusal = decisions.find((decision) => decision.kind === 'refuse');
+  if (refusal?.kind === 'refuse') return refusal;
+  return decisions[0] ?? { kind: 'allow', scope: 'unscoped_user' };
+}

@@ -152,12 +152,19 @@ function buildClient({ meetingRow, attendees = [], updateResult, commitments = [
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
               maybeSingle: vi.fn().mockResolvedValue({
-                data: { first_name: 'Ana', last_name: 'Pérez', email: 'ana@example.com' },
+                data: { first_name: 'Ana', last_name: 'Pérez', email: 'ana@example.com', school_id: 1 },
                 error: null,
               }),
             }),
           }),
         };
+      }
+      if (table === 'user_roles') {
+        const chain: any = {};
+        chain.select = vi.fn(() => chain);
+        chain.eq = vi.fn(() => chain);
+        chain.not = vi.fn().mockResolvedValue({ data: [], error: null });
+        return chain;
       }
       if (table === 'schools') {
         return {
@@ -335,6 +342,41 @@ describe('/api/meetings/[id]/finalize', () => {
       meeting_id: MEETING_ID,
       audience: 'community',
     }));
+  });
+
+  it('authorizes a legacy community with no school through its recipient users', async () => {
+    const m = await loadMocks();
+    (m.getApiUser as any).mockResolvedValue({ user: { id: USER_ID }, error: null });
+    (m.getUserRoles as any).mockResolvedValue([]);
+    (m.getHighestRole as any).mockReturnValue('admin');
+    (m.canFinalizeMeeting as any).mockReturnValue(true);
+    (m.getCommunityRecipients as any).mockResolvedValue([
+      { id: 'u1', email: 'u1@example.com', name: 'U1' },
+    ]);
+    (m.sendMeetingSummary as any).mockResolvedValue({ sent: 1, failed: 0, errors: [] });
+    (m.createServiceRoleClient as any).mockReturnValue(buildClient({
+      meetingRow: {
+        ...meetingRow,
+        workspace: {
+          ...meetingRow.workspace,
+          community: { ...meetingRow.workspace.community, school_id: null },
+        },
+      },
+    }));
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { id: MEETING_ID },
+      body: { audience: 'community' },
+    });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(m.sendMeetingSummary).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      { kind: 'allow', scope: 'client', schoolId: 1 },
+    );
   });
 
   it('happy path — attended audience only includes attended users', async () => {

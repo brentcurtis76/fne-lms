@@ -2,7 +2,16 @@ import { canonicalJson, expectedCounts, manifestOwnedIds } from './manifest.mjs'
 import { assertQaTenantPreflight } from './target-guard.mjs';
 
 function comparableValue(expected, actual) {
-  if (actual instanceof Date) actual = actual.toISOString();
+  if (actual instanceof Date) {
+    if (typeof expected === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(expected)) {
+      const year = actual.getFullYear();
+      const month = String(actual.getMonth() + 1).padStart(2, '0');
+      const day = String(actual.getDate()).padStart(2, '0');
+      actual = `${year}-${month}-${day}`;
+    } else {
+      actual = actual.toISOString();
+    }
+  }
   if (typeof expected === 'number' && typeof actual === 'string' && actual.trim() !== '') {
     const parsed = Number(actual);
     if (Number.isFinite(parsed)) return parsed;
@@ -65,7 +74,9 @@ export async function seedManifest({ store, manifest, guardedTarget }) {
     const inserted = {};
     for (const table of manifest.tables) {
       const missing = missingByTable.get(table.name) ?? [];
-      if (missing.length > 0) await store.insertMissing(table.name, missing);
+      if (missing.length > 0) {
+        await store.insertMissing(table.name, missing, { jsonColumns: table.jsonColumns ?? [] });
+      }
       inserted[table.name] = missing.length;
     }
     const verification = await verifyManifestInTransaction({ store, manifest, guardedTarget, skipPreflight: true });

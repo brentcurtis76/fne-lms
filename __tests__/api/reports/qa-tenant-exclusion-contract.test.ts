@@ -6,6 +6,7 @@ import { readClientReportingScope } from '../../../lib/simulation/tenant-policy'
 
 const OFFICIAL_ROUTE_FILES = [
   'pages/api/reports/filter-options.ts',
+  'pages/api/admin/transformation-assessments.ts',
   'pages/api/sessions/reports/analytics.ts',
   'pages/api/sessions/stats.ts',
   'pages/api/dashboard/unified.ts',

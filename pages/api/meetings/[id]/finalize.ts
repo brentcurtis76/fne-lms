@@ -20,7 +20,10 @@ import { escapeHtml } from '../../../../lib/utils/html-escape';
 import { loadMeetingAuthContext } from '../../../../lib/api/meetings/load-context';
 import { MEETING_STATUS } from '../../../../lib/utils/meeting-policy';
 import { profileName } from '../../../../lib/utils/profile-name';
-import { authorizeSchoolEmail } from '../../../../lib/email/outbound-policy';
+import {
+  authorizeRecipientUsersEmail,
+  authorizeSchoolEmail,
+} from '../../../../lib/email/outbound-policy';
 
 const finalizeSchema = z.object({
   audience: z.enum(['community', 'attended']),
@@ -195,10 +198,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const recipients = await getCommunityRecipients(serviceClient, id, {
       onlyAttended: audience === 'attended',
     });
-    const emailAuthorization = await authorizeSchoolEmail(
-      serviceClient,
-      Number(community?.school_id)
-    );
+    const communitySchoolId = community?.school_id;
+    const emailAuthorization = communitySchoolId === null || communitySchoolId === undefined
+      ? await authorizeRecipientUsersEmail(serviceClient, recipients.map((recipient) => recipient.id))
+      : await authorizeSchoolEmail(serviceClient, communitySchoolId);
 
     // Build email template data.
     const meetingDates: Date[] = [];

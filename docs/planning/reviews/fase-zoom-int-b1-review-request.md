@@ -1,6 +1,6 @@
 # Review request — FNE-ZOOM-INTERNAL-TEST Unit B1 (server-only operator-tenant foundation)
 
-> Executor: Claude Code (bounded executor, UNIT-B1 attempt 1). Reviewer: Codex (read-only, `docs/planning/review-protocol.md`). Approval authority: Brent. Nothing in this unit was pushed, merged, deployed, applied, configured, or classified.
+> Executor: Claude Code (bounded executor, UNIT-B1 attempt 1). Reviewer: Codex (read-only, `docs/planning/review-protocol.md`). Approval authority: Brent. Nothing in this unit was pushed, merged, deployed, applied, configured, or classified (attempt-1 through attempt-3 state; the publication, merge and deployment that followed approval are recorded in §14).
 
 ## 1. Identity
 
@@ -11,7 +11,7 @@
 | Base | Original base `838f1a0c0c158816ae578455a03b13cd8d33f0a6` = live `origin/main` at the attempt-1 re-lock (2026-09-03T18:17:44Z). Integrated base `982f456deeecdeefd14a08339a4b40676454128c` = live `origin/main` at the attempt-2 re-lock (2026-09-03T18:46:04Z), merged in by §12. |
 | Commits | 3 original B1 commits (`0e080ded` implementation + tests; `dc9724d0` this review request; `57d92e9c` documentation-only correction recording that remote `main` had moved), then the integration merge `c00bcbf4` (§12), then two attempt-2 documentation commits `2b1a0b3d6a7fb371afc0f3d04382c2c9c71efbb8` and `cbdb00f55ed75879d46ed718e2e1528866a3d634` (§11), then the attempt-3 evidence-only commit (§13). Cumulative range `838f1a0c..HEAD`; B1 content range against the integrated base `982f456d..HEAD` (§11). |
 | Authoritative plan | `/Users/brentcurtis/Documents/ChatGPT/Zoom Integration/FNE_ZOOM_INTERNAL_TEST_PLAN.md` — Version 2, 362 lines, 23,610 bytes, blob `bb48408616f74386a9042244acfbd5a96d02b837` (verified before mutation) |
-| Upstream | none (never pushed) |
+| Upstream | none (never pushed) — attempt-1 through attempt-3 state; pushed and published after approval, see §14 |
 
 ### Files (9 in the implementation commit, 1 in the documentation commit)
 
@@ -167,3 +167,78 @@ Not run, unchanged reasons from §4: `test:db`, `e2e`, `guard:migrations`, `guar
 ## 13. Attempt 3 — evidence-only correction (2026-09-03)
 
 Starting state verified at 18:56:45Z: worktree clean at exactly `cbdb00f55ed75879d46ed718e2e1528866a3d634`; live `origin/main` still `982f456deeecdeefd14a08339a4b40676454128c` (read-only `ls-remote`, no fetch). This round edits only this file: §1 now names both attempt-2 documentation commits, §11 lists them as separate exact rows in place of the earlier "branch tip" row, and §12 uses the plural for the documentation commits that followed the merge. One local commit, parent `cbdb00f5`; its own hash cannot appear inside itself and is reported as the final HEAD in the attempt-3 executor report. No production code, test, earlier commit or other file changed; no fetch, merge, rebase, amend, push, PR, deployment or Production access. Validation after committing: `git diff --check` clean, `guard:secrets` on the committed index, worktree clean, `git diff --name-only 982f456d..HEAD` exactly the ten B1 paths, the nine non-documentation B1 blobs identical to `cbdb00f5`.
+
+## 14. Closure — publication, merge and deployment evidence (2026-09-03)
+
+Documentation-only closure record written on branch `docs/zoom-b1-close` from live `origin/main` `b4929b3627a3a640312ea678c5c57c9857d50920`. Every identity below was re-read from GitHub and Git on 2026-09-03T19:33Z before this section was written. This section changes nothing about the reviewed code; §§1–13 stay as the historical attempt record.
+
+### 14.1 Independent verdict
+
+Codex (read-only, `docs/planning/review-protocol.md`) reviewed attempts 1–3 and issued **PASS** at exact head `74aa79602845f02567e3b1abbefc778ed5ac19f8` (the attempt-3 commit of §13). Original base `838f1a0c0c158816ae578455a03b13cd8d33f0a6`; integrated base `982f456deeecdeefd14a08339a4b40676454128c`.
+
+### 14.2 Publication and exact-head CI
+
+| Item | Value |
+|---|---|
+| PR | [#79](https://github.com/brentcurtis76/fne-lms/pull/79) — "feat(zoom): Unit B1 — server-only foundation for operator-tenant Zoom test sessions", base `main` at `982f456d…`, head exactly `74aa7960…`, not draft, auto-merge disabled |
+| PR-head CI | run [33794058480](https://github.com/brentcurtis76/fne-lms/actions/runs/33794058480), event `pull_request`, head SHA `74aa79602845f02567e3b1abbefc778ed5ac19f8` |
+| Jobs | Migration safety guard, Browser/server boundary guard, Gate 1 — Typecheck, Gate 1b — Lint, Gate 2 — Unit (Vitest), Gate 3 — RLS pgTAP (supabase test db), Gate 4 — E2E (Playwright on seeded local Supabase): all seven `success` |
+| Annotations | zero on every job |
+| Vercel Preview | deployment `9WHYtUZUAf1WyfRfUkFvitTBXhkH`, commit status `success` / "Deployment has completed"; not opened or behaviorally exercised |
+
+### 14.3 Merge
+
+| Item | Value |
+|---|---|
+| Merged | 2026-09-03T19:15:03Z by Brent (`brentcurtis76`) |
+| Merge commit | `db0927a7cb263945902cc469a747a5adc24f7933` — "Merge pull request #79 from brentcurtis76/feat/zoom-int-b1" |
+| First parent | `982f456deeecdeefd14a08339a4b40676454128c` (main before merge) |
+| Second parent | `74aa79602845f02567e3b1abbefc778ed5ac19f8` (approved head) |
+| Decision | Brent explicitly recognized this already-completed merge as the authorized Unit B1 merge because its exact head and parent structure matched the approved merge-commit operation |
+| Source branch | `feat/zoom-int-b1` retained; `origin/feat/zoom-int-b1` = `74aa7960…` |
+
+### 14.4 Post-merge CI — the cancelled B1-only run
+
+Push run [33795325160](https://github.com/brentcurtis76/fne-lms/actions/runs/33795325160), event `push`, head SHA `db0927a7cb263945902cc469a747a5adc24f7933`, conclusion **`cancelled`** (repository concurrency: the later `main` push at 19:21Z superseded it). Actual partial results:
+
+| Job | Conclusion |
+|---|---|
+| Migration safety guard | success |
+| Browser/server boundary guard | success |
+| Gate 1 — Typecheck | success |
+| Gate 1b — Lint | success |
+| Gate 3 — RLS pgTAP (supabase test db) | success |
+| Gate 2 — Unit (Vitest) | cancelled |
+| Gate 4 — E2E (Playwright on seeded local Supabase) | cancelled |
+
+This run is not green and must not be described as green. The B1 merge commit by itself never received a complete seven-gate post-merge verdict.
+
+### 14.5 Accepted descendant run and Brent's decision
+
+Push run [33795979299](https://github.com/brentcurtis76/fne-lms/actions/runs/33795979299), event `push`, head SHA `b4929b3627a3a640312ea678c5c57c9857d50920` = the merge commit of PR [#80](https://github.com/brentcurtis76/fne-lms/pull/80) ("docs: govern Production QA simulation"), whose first parent is `db0927a7…`. All seven required jobs `success`; zero annotations on every job. PR #80 changed no B1 path: it was primarily governance documentation but also changed `scripts/check-ledger.mjs`, so it is not strictly documentation-only.
+
+Brent explicitly decided: (1) recognize the PR #79 merge above as the authorized Unit B1 merge; (2) accept run 33795979299 as Unit B1's post-merge CI evidence; (3) not require a rerun of the cancelled B1-only run.
+
+### 14.6 Deployment evidence and its limits
+
+| Commit | Vercel commit status | Target |
+|---|---|---|
+| `db0927a7…` (B1 merge) | `success` — "Deployment has completed" | [FTz3eTBZwxhmH918Fn36YwUMqKBv](https://vercel.com/brent-curtis-projects/fne-lms/FTz3eTBZwxhmH918Fn36YwUMqKBv) |
+| `b4929b36…` (current main) | `success` — "Deployment has completed" | [2EfkH4CELmMtzvAxqfrSXQRXQbHD](https://vercel.com/brent-curtis-projects/fne-lms/2EfkH4CELmMtzvAxqfrSXQRXQbHD) |
+
+B1 is therefore present in the deployed descendant. Limits: the application was not opened or behaviorally exercised; no independent smoke test or Production behavioral test was run; the environment/target was read from the GitHub commit status only, not from the Vercel API.
+
+### 14.7 What did not happen
+
+No Production or hosted database query, no `--linked` Supabase command, no school classification (19 or any QA school), no `FEATURE_ZOOM_MEETINGS` / `ZOOM_SCHOOL_ALLOWLIST` change, no Vercel/Zoom/provider configuration change, no manual deployment, no session creation, no rehearsal. B1 remains dormant in Production: no browser calls `GET /api/sessions/capabilities` and no UI can produce an operator session until B3, and every school still defaults to `client` with internal testing disabled.
+
+### 14.8 Remaining units and authority boundary
+
+Unit B1 is closed at the code / merge / deployment-evidence level only. This does not close Unit B, Unit C, activation, or the rehearsal. Deferred, none authorized by this closure:
+
+- **B2** — attendee POST/DELETE on `pages/api/sessions/[id]/attendees.ts`, draft roster rules, terminal-session refusal, approval roster requirement, notification behaviour, unchanged join authorization.
+- **B3** — school-aware creation UI consuming the capability response, draft roster UI, disabled financial controls, reason-code prose (es-CL), operator/QA labels on admin surfaces.
+- **B4** — analytics/stats/bulk-tag tenant filtering and explicit no-tracking financial/cancellation paths.
+- **Later separate lanes** — school-19 classification, the QA correction (257/259), Zoom allowlist/flag configuration, Production behavioral verification, and the rehearsal (plan §7 steps 7–10, §8).
+
+Each requires its own authorization from Brent and its own independent review.
